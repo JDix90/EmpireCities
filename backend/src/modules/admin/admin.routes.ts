@@ -26,6 +26,7 @@ import {
 import { invalidateMapCache } from '../maps/mapService';
 import { validateMapDocument } from '../maps/mapValidation';
 import { getAnalyticsReport } from '../../services/analyticsQueries';
+import { andNotTutorialSql } from '../../game-engine/tutorial/tutorialGames';
 import { featureFlags } from '../../config/featureFlags';
 import { buildWarfrontStatus, loadWarfrontTerrain } from './warfrontStatus';
 
@@ -252,6 +253,7 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
        FROM game_players gp
        JOIN games g ON g.game_id = gp.game_id
        WHERE g.status = 'completed' AND gp.faction_id IS NOT NULL
+         ${andNotTutorialSql()}
        GROUP BY gp.faction_id
        ORDER BY win_rate DESC NULLS LAST, games_played DESC`,
     );

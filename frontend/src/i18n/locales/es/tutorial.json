@@ -54,8 +54,8 @@
     "core": {
       "welcome": {
         "title": "¡Bienvenido, comandante!",
-        "message": "Borderfall es un juego de estrategia de control territorial. Cada turno sigue Refuerzo → Ataque → Fortificación. Controlas los tres territorios del **Western Realm** (Reino Occidental) de esta isla; un rival controla el Este.",
-        "detail": "El refuerzo te da 1 unidad por cada 3 territorios (mínimo 3), más una bonificación por controlar un reino entero: como tienes todo el Oeste, esa bonificación ya es tuya.",
+        "message": "Borderfall es un juego de estrategia de control territorial. Cada turno sigue Refuerzo → Ataque → Fortificación. Controlas los tres territorios de la **Tyrrhenian Coast** (costa tirrena), el lado occidental de Italia; un rival controla la **Adriatic Coast** (costa adriática).",
+        "detail": "El refuerzo te da 1 unidad por cada 3 territorios (mínimo 3), más una bonificación por controlar un reino entero: como tienes todo el lado tirreno, esa bonificación ya es tuya.",
         "hint": "¿Has jugado a Risk? Te sentirás como en casa, y esta partida añade la parte que Risk no tiene. Pulsa «Siguiente», o «Saltar al final» para entrar directamente."
       },
       "draft_do": {
@@ -65,7 +65,7 @@
       },
       "choose_front": {
         "title": "Elige tu frente",
-        "message": "Haz clic en uno de tus territorios (2+ unidades) y luego en un territorio enemigo adyacente. **Western Plains → Eastern Forest** es la apertura barata: el Forest tiene 2 unidades y es el nudo del Este, así que tomarlo te deja junto a todo. **Northern Hills → Desert Outpost** es el flanco lento: 3 defensores, pero es terreno tranquilo que puedes conservar.",
+        "message": "Haz clic en uno de tus territorios (2+ unidades) y luego en un territorio enemigo adyacente. **Tuscany & Latium → Umbria & Abruzzo** es la apertura barata: tiene 2 unidades y limita con las otras dos tierras adriáticas, así que tomarlo te deja junto a todo. **Lombardy & Piedmont → Veneto & Emilia** es el flanco lento: 3 defensores en un frente amplio al norte.",
         "detail": "El atacante tira hasta 3 dados; el defensor, hasta 2. Los más altos se comparan por parejas; el perdedor de cada pareja pierde una unidad y los empates favorecen al defensor. Capturas un territorio cuando cae su último defensor.",
         "hint": "Ataca tantas veces como quieras, o ninguna. Cuando termines, haz clic en el botón dorado **{{attackButton}}**."
       },
@@ -88,7 +88,7 @@
       "ea_research": {
         "title": "Investiga hacia la puerta",
         "message": "Abre el árbol tecnológico. La barra superior muestra la puerta de avance; investiga una tecnología de nivel 1 y observa cómo se actualizan sus indicadores.",
-        "hint": "Se te ha concedido investigación suficiente para dos tecnologías, justo lo que pide la puerta de esta isla. Elige el par que prefieras."
+        "hint": "Se te ha concedido investigación suficiente para dos tecnologías, justo lo que pide la puerta de este tablero. Elige el par que prefieras."
       },
       "ea_advance": {
         "title": "Avanza al Medievo",
@@ -101,7 +101,7 @@
         "message": "Has completado el ciclo de turno entero —refuerzo, ataque, fortificación— y has subido una era. Ese es todo el bucle. La forma de ganar por defecto es la dominación: capturar todos los territorios. Los anfitriones también pueden elegir Umbral (una parte del mapa), Conquista de capitales o Misiones secretas.",
         "skippedTitle": "Directo a la acción",
         "skippedMessage": "Así es en resumen: cada turno refuerzas unidades, atacas territorios vecinos con dados y luego fortificas. Por el camino investigas una tecnología y avanzas de la Antigüedad al Medievo: esa es la parte que Risk no tiene. Ganas por dominación: capturar todos los territorios. (Los anfitriones también pueden elegir Umbral, Conquista de capitales o Misiones secretas.) Ahora mismo tienes refuerzos por colocar: haz clic en cualquier territorio azul y luego en **{{draftButton}}**.",
-        "detail": "Las partidas reales añaden lo que esta isla deja fuera: cartas de territorio por unidades extra, facciones con poderes únicos, edificios y estabilidad, niebla de guerra, una puerta de avance más exigente (más investigación y edificios) y la columna completa de la Antigüedad a la Era moderna en lugar de un salto de dos eras."
+        "detail": "Las partidas reales añaden lo que este tablero deja fuera: cartas de territorio por unidades extra, facciones con poderes únicos, edificios y estabilidad, niebla de guerra, una puerta de avance más exigente (más investigación y edificios) y la columna completa de la Antigüedad a la Era moderna en lugar de un salto de dos eras."
       }
     },
     "advanced_settings": {

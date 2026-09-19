@@ -37,6 +37,11 @@ import {
   ASCENSION_GALAXY_SPINE_ID,
 } from '../../game-engine/lobby/lobbyMapChange';
 import { redactGameRowForViewer } from './gameRowRedaction';
+import {
+  EFFECTIVE_MAX_PLAYERS_SQL,
+  PUBLIC_LOBBY_GAME_TYPES,
+  effectiveMaxPlayers,
+} from './lobbyCapacity';
 import { recordDailyChallengeLoss } from '../../game-engine/daily/recordDailyEntry';
 
 /** Optional body for POST /tutorial/start — default matches lobby quick-start (small tutorial map). */
@@ -576,9 +581,10 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     const isEraAdvancement = lessonModule === 'era_advancement';
     // The core lesson is one continuous first game: the three phases AND the era
     // climb that makes Borderfall not-Risk, instead of ending in preview modals
-    // for systems this match doesn't have. It runs on Tutorial Island — 6
-    // territories, locked rotation, authored globe framing — which is Ancient and
-    // small enough that the whole board is legible at a glance.
+    // for systems this match doesn't have. It runs on the tutorial board — the
+    // Italian peninsula in 6 territories of real provinces, locked rotation,
+    // authored globe framing — which is Ancient and small enough that the whole
+    // board is legible at a glance.
     const isCombinedCore = lessonModule === 'core';
     const mapId = isCombinedCore ? 'tutorial' : isEraAdvancement ? 'era_ancient' : 'era_ww2';
     const eraId = isCombinedCore || isEraAdvancement ? 'ancient' : 'ww2';
@@ -676,13 +682,24 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── GET /api/games/public ────────────────────────────────────────────────
   // Static routes MUST be registered before parametric /:gameId
+  //
+  // Every row here is a lobby the caller can actually join: the same seat cap
+  // `/:gameId/join` enforces is applied (`HAVING`), and single-player modes are
+  // excluded. Listing a game this endpoint's own join gate would reject is the
+  // "2/8 players → Game is full" bug; `publicGames.routes.test.ts` pins it.
+  //
+  // `max_players` is returned because the client has no other way to know the
+  // cap — it used to render a hard-coded "/ 8" for every lobby.
   fastify.get('/public', { preHandler: authenticate }, async (request, reply) => {
     const games = await query(
       `SELECT g.game_id, g.era_id, g.map_id, g.status, g.created_at,
-              COUNT(gp.id) AS player_count
+              COUNT(gp.id) AS player_count,
+              ${EFFECTIVE_MAX_PLAYERS_SQL} AS max_players
        FROM games g
        LEFT JOIN game_players gp ON gp.game_id = g.game_id
        WHERE g.status = 'waiting'
+         AND g.game_type = ANY($2)
+         AND g.is_ranked = false
          AND EXISTS (
            SELECT 1
            FROM game_players human_gp
@@ -696,9 +713,10 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
              AND my_gp.user_id = $1
          )
        GROUP BY g.game_id
+       HAVING COUNT(gp.id) < ${EFFECTIVE_MAX_PLAYERS_SQL}
        ORDER BY g.created_at DESC
        LIMIT 20`,
-      [request.userId],
+      [request.userId, [...PUBLIC_LOBBY_GAME_TYPES]],
     );
     return reply.send(games);
   });
@@ -957,11 +975,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       const game = gameRows[0];
       if (game.status !== 'waiting') return { code: 'not_waiting' };
 
-      const settings = typeof game.settings_json === 'string'
-        ? JSON.parse(game.settings_json) as Record<string, unknown>
-        : game.settings_json;
-      const settingsMaxPlayers = typeof settings?.max_players === 'number' ? settings.max_players : 8;
-      const maxPlayers = Math.min(8, Math.max(2, settingsMaxPlayers));
+      const maxPlayers = effectiveMaxPlayers(game.settings_json);
 
       const { rows: players } = await client.query<{ player_index: number; user_id: string | null }>(
         'SELECT player_index, user_id FROM game_players WHERE game_id = $1 ORDER BY player_index',
@@ -1045,9 +1059,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
         'SELECT player_index, user_id FROM game_players WHERE game_id = $1 ORDER BY player_index',
         [gameId],
       );
-      const settingsMaxPlayers =
-        typeof game.settings_json?.max_players === 'number' ? game.settings_json.max_players : 8;
-      const maxPlayers = Math.min(8, Math.max(2, settingsMaxPlayers));
+      const maxPlayers = effectiveMaxPlayers(game.settings_json);
       if (players.length >= maxPlayers) return reply.status(409).send({ error: 'Game is full' });
 
       const already = players.some((p) => p.user_id === friendId);

@@ -10,6 +10,7 @@ import {
   STREAK_FREEZE_MAX_HELD,
 } from '@borderfall/shared';
 import { recordServerEvent } from '../../services/analyticsEvents';
+import { andNotTutorialSql } from '../tutorial/tutorialGames';
 
 // ── Gold award helpers (non-transactional convenience wrappers) ────────
 
@@ -28,6 +29,20 @@ export async function awardGold(
 
 // ── Win streak tracking ─────────────────────────────────────────────────
 
+/**
+ * The current streak without touching it — for results that must not count as
+ * a game. A tutorial is a guaranteed win against a bot that never attacks
+ * (`aiBot.ts`), so recording it would pad the streak achievements and the
+ * win-gold multiplier, and replaying the lesson would farm both.
+ */
+export async function readWinStreak(client: PoolClient, userId: string): Promise<number> {
+  const row = await client.query<{ win_streak: number }>(
+    'SELECT COALESCE(win_streak, 0) AS win_streak FROM users WHERE user_id = $1',
+    [userId],
+  );
+  return row.rows[0]?.win_streak ?? 0;
+}
+
 export async function updateWinStreak(
   client: PoolClient,
   userId: string,
@@ -42,6 +57,26 @@ export async function updateWinStreak(
   }
   await client.query('UPDATE users SET win_streak = 0 WHERE user_id = $1', [userId]);
   return 0;
+}
+
+/**
+ * A finished game's effect on the win streak.
+ *
+ * `counts: false` reads the streak instead of writing it, leaving it exactly
+ * as it was — the tutorial's case, in both directions. Finishing the tutorial
+ * is a guaranteed win against a bot that never attacks, so counting it would
+ * pad the streak achievements and the win-gold multiplier (replay the lesson
+ * ten times, then win a real game at 2x gold); and abandoning the tutorial
+ * must not wipe a streak earned in real games.
+ */
+export async function applyWinStreak(
+  client: PoolClient,
+  userId: string,
+  opts: { won: boolean; counts: boolean },
+): Promise<number> {
+  return opts.counts
+    ? updateWinStreak(client, userId, opts.won)
+    : readWinStreak(client, userId);
 }
 
 // ── Daily streak tracking ───────────────────────────────────────────────
@@ -224,7 +259,8 @@ export async function checkOnboardingQuests(
         if (trigger === 'game_complete') {
           const wins = await queryOne<{ cnt: string }>(
             `SELECT COUNT(*) AS cnt FROM game_players gp JOIN games g ON g.game_id = gp.game_id
-             WHERE gp.user_id = $1 AND gp.final_rank = 1 AND g.status = 'completed'`,
+             WHERE gp.user_id = $1 AND gp.final_rank = 1 AND g.status = 'completed'
+               ${andNotTutorialSql()}`,
             [userId],
           );
           matched = parseInt(wins?.cnt ?? '0', 10) >= 1;

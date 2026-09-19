@@ -1,4 +1,5 @@
 import { query, queryOne } from '../../db/postgres';
+import { andNotTutorialSql } from '../tutorial/tutorialGames';
 import { pgPool } from '../../db/postgres';
 import { runExclusive, SWEEP_LOCK_TTL_MS } from '../../utils/singletonTask';
 
@@ -196,7 +197,8 @@ async function handleUniqueEras(
      JOIN games g ON g.game_id = gp.game_id
      WHERE gp.user_id = $1
        AND g.status = 'completed'
-       AND g.created_at >= $2`,
+       AND g.created_at >= $2
+       ${andNotTutorialSql()}`,
     [userId, monthStart],
   );
   const eraCount = parseInt(result?.era_count ?? '0', 10);

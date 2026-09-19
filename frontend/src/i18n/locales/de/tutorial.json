@@ -54,8 +54,8 @@
     "core": {
       "welcome": {
         "title": "Willkommen, Kommandant!",
-        "message": "Borderfall ist ein Strategiespiel um die Kontrolle von Gebieten. Jede Runde läuft Verstärkung → Angriff → Befestigung. Du hältst die drei Gebiete des **Western Realm** (Westreich) auf dieser Insel; ein Gegner hält den Osten.",
-        "detail": "Die Verstärkung gibt dir 1 Einheit pro 3 Gebiete (mindestens 3), plus einen Bonus für ein komplett gehaltenes Reich – du hältst den ganzen Westen, dieser Bonus gehört also schon dir.",
+        "message": "Borderfall ist ein Strategiespiel um die Kontrolle von Gebieten. Jede Runde läuft Verstärkung → Angriff → Befestigung. Du hältst die drei Gebiete der **Tyrrhenian Coast** (Tyrrhenische Küste), der Westseite Italiens; ein Gegner hält die **Adriatic Coast** (Adriaküste).",
+        "detail": "Die Verstärkung gibt dir 1 Einheit pro 3 Gebiete (mindestens 3), plus einen Bonus für ein komplett gehaltenes Reich – du hältst die ganze tyrrhenische Seite, dieser Bonus gehört also schon dir.",
         "hint": "Schon mal Risiko gespielt? Dann fühlst du dich sofort zu Hause – und diese Partie ergänzt den Teil, den Risiko nicht hat. Klicke auf „Weiter“ oder auf „Zum Ende springen“, um direkt loszulegen."
       },
       "draft_do": {
@@ -65,7 +65,7 @@
       },
       "choose_front": {
         "title": "Wähle deine Front",
-        "message": "Klicke auf eines deiner Gebiete (2+ Einheiten), dann auf ein angrenzendes gegnerisches. **Western Plains → Eastern Forest** ist die günstige Eröffnung: Der Forest hat 2 Einheiten und ist das Drehkreuz des Ostens – wer ihn nimmt, grenzt an alles. **Northern Hills → Desert Outpost** ist die langsamere Flanke: 3 Verteidiger, aber ruhiger Boden, den du halten kannst.",
+        "message": "Klicke auf eines deiner Gebiete (2+ Einheiten), dann auf ein angrenzendes gegnerisches. **Tuscany & Latium → Umbria & Abruzzo** ist die günstige Eröffnung: Es hat 2 Einheiten und grenzt an beide anderen adriatischen Gebiete – wer es nimmt, grenzt an alles. **Lombardy & Piedmont → Veneto & Emilia** ist die langsamere Flanke: 3 Verteidiger an einer breiten Front im Norden.",
         "detail": "Der Angreifer würfelt mit bis zu 3 Würfeln, der Verteidiger mit bis zu 2. Die höchsten werden paarweise verglichen; der Verlierer jedes Paars verliert eine Einheit, bei Gleichstand gewinnt der Verteidiger. Du eroberst ein Gebiet, wenn sein letzter Verteidiger fällt.",
         "hint": "Greife so oft an, wie du willst – oder gar nicht. Wenn du fertig bist, klicke auf den goldenen Button **{{attackButton}}**."
       },
@@ -88,7 +88,7 @@
       "ea_research": {
         "title": "Forsche in Richtung Tor",
         "message": "Öffne den Technologiebaum. Die Leiste oben zeigt das Aufstiegstor; erforsche eine Stufe-1-Technologie und sieh zu, wie sich ihre Chips aktualisieren.",
-        "hint": "Du hast genug Forschung für zwei Technologien erhalten – genau das, was das Tor dieser Insel verlangt. Wähle das Paar, das dir gefällt."
+        "hint": "Du hast genug Forschung für zwei Technologien erhalten – genau das, was das Tor dieses Spielfelds verlangt. Wähle das Paar, das dir gefällt."
       },
       "ea_advance": {
         "title": "Aufstieg ins Mittelalter",
@@ -101,7 +101,7 @@
         "message": "Du hast den vollen Rundenzyklus durchlaufen – Verstärkung, Angriff, Befestigung – und bist ein Zeitalter aufgestiegen. Das ist der ganze Kreislauf. Die Standard-Siegbedingung ist Dominanz: Erobere jedes Gebiet. Gastgeber können auch Schwelle (einen Anteil der Karte), Hauptstadteroberung oder Geheimmissionen wählen.",
         "skippedTitle": "Direkt ins Spiel",
         "skippedMessage": "Kurz gefasst: Jede Runde verstärkst du Einheiten, greifst Nachbargebiete mit Würfeln an und befestigst dann. Unterwegs erforschst du eine Technologie und steigst von der Antike ins Mittelalter auf – das ist der Teil, den Risiko nicht hat. Gewinne durch Dominanz: Erobere jedes Gebiet. (Gastgeber können auch Schwelle, Hauptstadteroberung oder Geheimmissionen wählen.) Gerade jetzt hast du Verstärkungen zu platzieren – klicke auf ein beliebiges blaues Gebiet und dann auf **{{draftButton}}**.",
-        "detail": "Echte Partien ergänzen, was diese Insel weglässt: Gebietskarten für Bonus-Einheiten, Fraktionen mit einzigartigen Kräften, Gebäude und Stabilität, Nebel des Krieges, ein strengeres Aufstiegstor (mehr Forschung plus Gebäude) und die volle Linie von der Antike bis zur Moderne statt eines Sprungs über zwei Zeitalter."
+        "detail": "Echte Partien ergänzen, was dieses Spielfeld weglässt: Gebietskarten für Bonus-Einheiten, Fraktionen mit einzigartigen Kräften, Gebäude und Stabilität, Nebel des Krieges, ein strengeres Aufstiegstor (mehr Forschung plus Gebäude) und die volle Linie von der Antike bis zur Moderne statt eines Sprungs über zwei Zeitalter."
       }
     },
     "advanced_settings": {

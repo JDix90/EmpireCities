@@ -9,6 +9,7 @@ vi.mock('../db/postgres', () => ({
 
 import {
   getRetentionByCohort,
+  getTutorialFunnel,
   getFunnelMetrics,
   getVisitorFunnel,
   getCompletionStats,
@@ -155,10 +156,46 @@ describe('analyticsQueries', () => {
     expect(await getVisitorFunnel(30)).toEqual({ landed: 0, clicked_play: 0, signed_up: 0 });
   });
 
+  it('getTutorialFunnel splits completion on the same account test as retention', async () => {
+    queryMock.mockResolvedValueOnce([
+      { is_account: true, started: 8, completed: 6 },
+      { is_account: false, started: 30, completed: 9 },
+    ]);
+    const rows = await getTutorialFunnel(30);
+    const [sql, params] = queryMock.mock.calls[0] as [string, unknown[]];
+    // Both ends of the funnel are the server-side events, not client pings.
+    expect(sql).toContain("event = 'tutorial_started'");
+    expect(sql).toContain("e.event = 'tutorial_completed'");
+    // The same guest/account test the retention split uses.
+    expect(sql).toContain("e.event IN ('user_registered', 'guest_upgraded')");
+    expect(params).toEqual([30]);
+    expect(rows).toEqual([
+      { cohort: 'account', started: 8, completed: 6 },
+      { cohort: 'guest', started: 30, completed: 9 },
+    ]);
+  });
+
+  it('getTutorialFunnel always returns both cohorts, zeroed when one is empty', async () => {
+    queryMock.mockResolvedValueOnce([{ is_account: false, started: 4, completed: 0 }]);
+    expect(await getTutorialFunnel(7)).toEqual([
+      { cohort: 'account', started: 0, completed: 0 },
+      { cohort: 'guest', started: 4, completed: 0 },
+    ]);
+  });
+
+  it('getTutorialFunnel counts a starter only once however many lessons they open', async () => {
+    queryMock.mockResolvedValueOnce([]);
+    await getTutorialFunnel(30);
+    const [sql] = queryMock.mock.calls[0] as [string];
+    // GROUP BY user_id in the starters CTE — five lesson modules is one player.
+    expect(sql).toContain('GROUP BY user_id');
+  });
+
   it('getAnalyticsReport assembles every section plus the lifetime total', async () => {
     // Promise.all invokes the section queries in array order: visitors, funnel,
-    // retention, retention-by-cohort, completion, acquisition, volume — then
-    // queryOne(total). The order is positional, so inserting a section here
+    // retention, retention-by-cohort, completion, acquisition, volume,
+    // tutorial — then queryOne(total). The order is positional, so inserting a
+    // section anywhere but the end
     // without adding its row shifts every later mock onto the wrong query.
     queryMock
       .mockResolvedValueOnce([{ landed: 10, clicked_play: 4, signed_up: 3 }])
@@ -170,7 +207,11 @@ describe('analyticsQueries', () => {
       ])
       .mockResolvedValueOnce([{ finishes: 1, wins: 1, tutorial_finishes: 0, avg_minutes: '15.0', avg_turns: '20.0' }])
       .mockResolvedValueOnce([{ source: 'reddit', signups: 3, accounts: 1, activated: 1 }])
-      .mockResolvedValueOnce([{ event: 'game_finished', n: 1 }]);
+      .mockResolvedValueOnce([{ event: 'game_finished', n: 1 }])
+      .mockResolvedValueOnce([
+        { is_account: true, started: 2, completed: 2 },
+        { is_account: false, started: 5, completed: 1 },
+      ]);
     queryOneMock.mockResolvedValueOnce({ total: 42 });
 
     const r = await getAnalyticsReport(30);
@@ -184,6 +225,10 @@ describe('analyticsQueries', () => {
     expect(r.retention_by_cohort).toEqual([
       { cohort: 'account', d1_cohort: 1, d1: 1, d7_cohort: 0, d7: 0 },
       { cohort: 'guest', d1_cohort: 2, d1: 0, d7_cohort: 0, d7: 0 },
+    ]);
+    expect(r.tutorial).toEqual([
+      { cohort: 'account', started: 2, completed: 2 },
+      { cohort: 'guest', started: 5, completed: 1 },
     ]);
     expect(r.completion.avg_minutes).toBe(15);
     expect(r.acquisition).toEqual([

@@ -25,6 +25,13 @@ const MEXICO_GEOJSON_URL = '/geo/mexico_admin1.json';
 
 /** Per-map committed ne_10m admin-1 subsets (full coverage + correct iso_3166_2 codes). */
 const REGIONAL_ADMIN1_SUBSET: Record<string, string> = {
+  // The tutorial board is mainland Italy, and the Risorgimento subset already
+  // carries every Italian province. Mapping it here (rather than leaving the
+  // codes to `admin50Geo`) matters twice over: the sparse CDN ne_50m set has no
+  // Italian codes at all, so the board would silently fall back to its outline
+  // polygons — and pointing at it would pull 2.3MB into a first session to
+  // resolve nothing.
+  tutorial: '/geo/risorgimento_admin1.json',
   community_fractured_china: '/geo/fractured_china_admin1.json',
   community_fractured_russia: '/geo/fractured_russia_admin1.json',
   community_balkanized_india: '/geo/balkanized_india_admin1.json',

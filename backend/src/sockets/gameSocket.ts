@@ -97,7 +97,7 @@ import { checkAndUnlockAchievements } from '../game-engine/achievements/achievem
 import { pgPool } from '../db/postgres';
 import { getInitialRatings } from '../game-engine/rating/ratingService';
 import {
-  updateWinStreak,
+  applyWinStreak,
   updateDailyStreak,
   updateSeasonTier,
   checkLevelCosmetic,
@@ -5011,8 +5011,11 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
       try {
         await client.query('BEGIN');
 
-        // Win streak
-        const winStreak = await updateWinStreak(client, p.player_id, isWinner);
+        // Win streak. The tutorial does not count — see `applyWinStreak`.
+        const winStreak = await applyWinStreak(client, p.player_id, {
+          won: isWinner,
+          counts: !state.settings.tutorial,
+        });
 
         // Daily streak
         const dailyResult = await updateDailyStreak(client, p.player_id);

@@ -1,6 +1,7 @@
 import { query, queryOne } from '../../db/postgres';
 import { pgPool } from '../../db/postgres';
 import { generateReferralCode } from './progressionService';
+import { andNotTutorialSql } from '../tutorial/tutorialGames';
 
 const REFERRER_GOLD = 50;
 const REFEREE_GOLD = 25;
@@ -103,7 +104,8 @@ export async function checkReferralCompletion(userId: string): Promise<void> {
   const result = await queryOne<{ cnt: string }>(
     `SELECT COUNT(*) AS cnt FROM game_players gp
      JOIN games g ON g.game_id = gp.game_id
-     WHERE gp.user_id = $1 AND g.status = 'completed'`,
+     WHERE gp.user_id = $1 AND g.status = 'completed'
+       ${andNotTutorialSql()}`,
     [userId],
   );
   const gamesPlayed = parseInt(result?.cnt ?? '0', 10);

@@ -80,6 +80,20 @@ async function main(): Promise<void> {
     + '\n  the fastest bouncers and reads higher than the true rate, not lower.\n',
   );
 
+  // Whether the first thing a new player is shown actually lands. Both ends are
+  // server-side events, so neither can be inflated by a client.
+  console.log('TUTORIAL COMPLETION (by account type, started in window)');
+  console.log(`  ${'cohort'.padEnd(10)} ${'started'.padStart(9)} ${'completed'.padStart(14)}`);
+  for (const t of r.tutorial) {
+    const done = `${t.completed}/${t.started} ${pct(t.completed, t.started)}`;
+    console.log(`  ${t.cohort.padEnd(10)} ${String(t.started).padStart(9)} ${done.padStart(14)}`);
+  }
+  console.log(
+    "  NOTE: 'account' is the same test the retention split uses — registered"
+    + '\n  directly or upgraded from guest at any point — so a guest who finishes the'
+    + '\n  tutorial and then signs up is counted on the account row.\n',
+  );
+
   const g = r.completion;
   console.log('GAME COMPLETIONS (per human, in window)');
   console.log(`  finishes ${g.finishes} · wins ${g.wins} · tutorial ${g.tutorial_finishes}`);

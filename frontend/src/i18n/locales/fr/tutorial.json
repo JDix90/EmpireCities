@@ -54,8 +54,8 @@
     "core": {
       "welcome": {
         "title": "Bienvenue, commandant !",
-        "message": "Borderfall est un jeu de stratégie de contrôle territorial. Chaque tour enchaîne Renfort → Attaque → Fortification. Vous tenez les trois territoires du **Western Realm** (Royaume de l'Ouest) sur cette île ; un adversaire tient l'Est.",
-        "detail": "Le renfort vous donne 1 unité pour 3 territoires (minimum 3), plus un bonus pour tout royaume entièrement tenu — vous tenez tout l'Ouest, ce bonus est donc déjà à vous.",
+        "message": "Borderfall est un jeu de stratégie de contrôle territorial. Chaque tour enchaîne Renfort → Attaque → Fortification. Vous tenez les trois territoires de la **Tyrrhenian Coast** (côte tyrrhénienne), le versant ouest de l'Italie ; un adversaire tient la **Adriatic Coast** (côte adriatique).",
+        "detail": "Le renfort vous donne 1 unité pour 3 territoires (minimum 3), plus un bonus pour tout royaume entièrement tenu — vous tenez tout le versant tyrrhénien, ce bonus est donc déjà à vous.",
         "hint": "Vous avez déjà joué à Risk ? Vous serez en terrain connu — et cette partie ajoute ce que Risk n'a pas. Cliquez sur « Suivant », ou sur « Aller à la fin » pour vous lancer directement."
       },
       "draft_do": {
@@ -65,7 +65,7 @@
       },
       "choose_front": {
         "title": "Choisissez votre front",
-        "message": "Cliquez sur l'un de vos territoires (2 unités ou plus), puis sur un territoire ennemi adjacent. **Western Plains → Eastern Forest** est l'ouverture facile : la Forest n'a que 2 unités et c'est le carrefour de l'Est, la prendre vous met au contact de tout. **Northern Hills → Desert Outpost** est le flanc lent : 3 défenseurs, mais un terrain calme que vous pourrez tenir.",
+        "message": "Cliquez sur l'un de vos territoires (2 unités ou plus), puis sur un territoire ennemi adjacent. **Tuscany & Latium → Umbria & Abruzzo** est l'ouverture facile : il n'a que 2 unités et touche les deux autres terres adriatiques, la prendre vous met au contact de tout. **Lombardy & Piedmont → Veneto & Emilia** est le flanc lent : 3 défenseurs sur un large front au nord.",
         "detail": "L'attaquant lance jusqu'à 3 dés, le défenseur jusqu'à 2. Les plus hauts sont comparés deux à deux ; le perdant de chaque paire perd une unité et l'égalité profite au défenseur. Vous capturez un territoire quand son dernier défenseur tombe.",
         "hint": "Attaquez autant que vous voulez — ou pas du tout. Quand vous avez fini, cliquez sur le bouton doré **{{attackButton}}**."
       },
@@ -88,7 +88,7 @@
       "ea_research": {
         "title": "Recherchez vers le seuil",
         "message": "Ouvrez l'arbre technologique. Le rail en haut montre le seuil de passage ; recherchez une technologie de niveau 1 et regardez ses jetons se mettre à jour.",
-        "hint": "Vous avez reçu assez de recherche pour deux technologies — exactement ce que demande le seuil de cette île. Choisissez la paire qui vous plaît."
+        "hint": "Vous avez reçu assez de recherche pour deux technologies — exactement ce que demande le seuil de ce plateau. Choisissez la paire qui vous plaît."
       },
       "ea_advance": {
         "title": "Passez au Moyen Âge",
@@ -101,7 +101,7 @@
         "message": "Vous avez bouclé le cycle complet d'un tour — renfort, attaque, fortification — et passé une ère. C'est toute la boucle. La victoire par défaut est la domination : capturer tous les territoires. Les hôtes peuvent aussi choisir le Seuil (une part de la carte), la Conquête des capitales ou les Missions secrètes.",
         "skippedTitle": "Directement dans le jeu",
         "skippedMessage": "En résumé : à chaque tour, vous renforcez des unités, attaquez les territoires voisins aux dés, puis fortifiez. En chemin, recherchez une technologie et passez de l'Antiquité au Moyen Âge — c'est ce que Risk n'a pas. Gagnez par domination : capturez tous les territoires. (Les hôtes peuvent aussi choisir le Seuil, la Conquête des capitales ou les Missions secrètes.) Là, tout de suite, vous avez des renforts à placer — cliquez sur n'importe quel territoire bleu, puis sur **{{draftButton}}**.",
-        "detail": "Les vraies parties ajoutent ce que cette île a laissé de côté : des cartes de territoire pour des unités bonus, des factions aux pouvoirs uniques, des bâtiments et de la stabilité, le brouillard de guerre, un seuil de passage plus exigeant (plus de recherche et des bâtiments) et toute la colonne de l'Antiquité à l'ère moderne au lieu d'un saut de deux ères."
+        "detail": "Les vraies parties ajoutent ce que ce plateau a laissé de côté : des cartes de territoire pour des unités bonus, des factions aux pouvoirs uniques, des bâtiments et de la stabilité, le brouillard de guerre, un seuil de passage plus exigeant (plus de recherche et des bâtiments) et toute la colonne de l'Antiquité à l'ère moderne au lieu d'un saut de deux ères."
       }
     },
     "advanced_settings": {

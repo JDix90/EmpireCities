@@ -88,15 +88,17 @@ describe('core tutorial', () => {
   });
 
   it('poses the first attack as a choice between two named fronts', () => {
-    // Each western territory borders exactly one eastern one
-    // (tutorialScript.ts), so a target named without its source is only
-    // actionable from one place. Naming both fronts turns that constraint into
-    // the lesson instead of a hint that reads wrong from two of three clicks.
+    // A target named without its source is only actionable from the one
+    // territory that borders it, so naming both ends of each front turns the
+    // board's shape into the lesson instead of a hint that reads wrong from
+    // most of the player's clicks. The names are real Italian regions and must
+    // match the board — `tutorialScript.test.ts` (backend) pins that direction,
+    // reading this file so the two cannot drift apart.
     const t = text('choose_front');
-    expect(t).toContain('Western Plains');
-    expect(t).toContain('Eastern Forest');
-    expect(t).toContain('Northern Hills');
-    expect(t).toContain('Desert Outpost');
+    expect(t).toContain('Tuscany & Latium');
+    expect(t).toContain('Umbria & Abruzzo');
+    expect(t).toContain('Lombardy & Piedmont');
+    expect(t).toContain('Veneto & Emilia');
   });
 
   it('docks the attack card clear of the board it is pointing at', () => {

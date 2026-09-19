@@ -295,7 +295,10 @@ interface PublicGame {
   era_id: string;
   map_id: string;
   status: string;
-  player_count: number;
+  /** Postgres COUNT(*) — pg returns bigint as a string. */
+  player_count: number | string;
+  /** The lobby's own seat cap. Every listed game has a seat free. */
+  max_players: number;
   created_at: string;
 }
 
@@ -1132,6 +1135,13 @@ export default function LobbyPage() {
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
         toast.error(err.response?.data?.error || 'Failed to join game');
+        // The list is polled every 10s, so a lobby can fill between the render
+        // and the click. Re-fetch on the server's rejection rather than leaving
+        // a row the player can keep clicking for another ten seconds.
+        const code = err.response?.data?.code;
+        if (code === 'full' || code === 'not_waiting' || code === 'not_found') {
+          void fetchPublicGames();
+        }
       }
     }
   };
@@ -2765,7 +2775,11 @@ export default function LobbyPage() {
                 <div key={game.game_id} className="flex items-center justify-between p-4 bg-bf-dark rounded-lg border border-bf-border hover:border-bf-gold transition-colors">
                   <div>
                     <span className="font-medium text-bf-text">{ERA_LABELS[game.era_id] ?? game.era_id}</span>
-                    <span className="text-bf-muted text-sm ml-3">{game.player_count} / 8 players</span>
+                    {/* The cap comes from the lobby, not a constant: an 8 here
+                        read "2 / 8" on a 2-seat game that then 409'd on Join. */}
+                    <span className="text-bf-muted text-sm ml-3">
+                      {Number(game.player_count)} / {game.max_players} players
+                    </span>
                   </div>
                   <button onClick={() => handleJoinGame(game.game_id)} className="btn-primary text-sm py-1.5 px-4">
                     Join
