@@ -10,6 +10,7 @@ import NotificationPreferences from '../components/settings/NotificationPreferen
 import XpBar from '../components/ui/XpBar';
 import TierBadge from '../components/ui/TierBadge';
 import ReferralPanel from '../components/ui/ReferralPanel';
+import { ownAuthUiAllowed } from '../utils/embedContext';
 
 /** Format a date string with locale date + browser timezone abbreviation (e.g. "Apr 21, 2025 · PDT"). */
 function formatDate(iso: string): string {
@@ -220,9 +221,13 @@ export default function ProfilePage() {
             </p>
             {isOwnProfile && currentUser?.is_guest ? (
               <p className="text-bf-muted text-xs mt-1">
-                Guest account —{' '}
-                <Link to="/upgrade" className="text-bf-gold hover:underline">create a free account</Link>
-                {' '}to track competitive ratings.
+                Guest account{ownAuthUiAllowed() ? (
+                  <>
+                    {' '}—{' '}
+                    <Link to="/upgrade" className="text-bf-gold hover:underline">create a free account</Link>
+                    {' '}to track competitive ratings.
+                  </>
+                ) : ' — competitive ratings are not tracked.'}
               </p>
             ) : (
             <div className="flex flex-col sm:flex-row items-center gap-4 mt-1">

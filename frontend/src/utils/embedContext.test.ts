@@ -6,7 +6,12 @@
  * browser then withheld. This is what supplies the missing fact.
  */
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { detectEmbedderOrigin, EMBEDDER_HEADER } from './embedContext';
+import {
+  detectEmbedderOrigin,
+  EMBEDDER_HEADER,
+  isCrazyGamesEmbed,
+  ownAuthUiAllowed,
+} from './embedContext';
 
 const realTop = window.top;
 
@@ -107,5 +112,54 @@ describe('the header actually reaches the API clients', () => {
     Object.defineProperty(window, 'top', { value: window.self, configurable: true });
     const { api } = await import('../services/api');
     expect((api.defaults.headers as Record<string, unknown>)[EMBEDDER_HEADER]).toBeUndefined();
+  });
+});
+
+describe('isCrazyGamesEmbed', () => {
+  it('matches CrazyGames on any of its domains', () => {
+    for (const origin of [
+      'https://www.crazygames.com',
+      'https://crazygames.com',
+      'https://app.crazygames.com',
+      'https://a.b.crazygames.com',
+      'https://www.crazygames.fr',
+      'https://www.crazygames.com.br',
+      'https://www.crazygames.co.kr',
+      'capacitor://app.crazygames.com',
+    ]) {
+      expect(isCrazyGamesEmbed(origin)).toBe(true);
+    }
+  });
+
+  it('does not match a lookalike or someone else\'s subdomain', () => {
+    // `crazygames` has to be a whole label in the registrable domain — the
+    // same distinction the backend allowlist draws.
+    for (const origin of [
+      'https://evilcrazygames.com',
+      'https://crazygames.com.evil.test',
+      'https://notcrazygames.io',
+      'https://crazygames.evil.co.uk',
+    ]) {
+      expect(isCrazyGamesEmbed(origin)).toBe(false);
+    }
+  });
+
+  it('is false when not embedded, or for an unparseable origin', () => {
+    expect(isCrazyGamesEmbed(undefined)).toBe(false);
+    expect(isCrazyGamesEmbed('')).toBe(false);
+    expect(isCrazyGamesEmbed('not a url')).toBe(false);
+  });
+
+  it('does not treat other portals as CrazyGames', () => {
+    expect(isCrazyGamesEmbed('https://itch.io')).toBe(false);
+    expect(isCrazyGamesEmbed('https://html-classic.itch.zone')).toBe(false);
+  });
+});
+
+describe('ownAuthUiAllowed', () => {
+  it('allows our own auth UI when nothing is framing us', () => {
+    // The module-level EMBEDDER_ORIGIN is undefined under jsdom (no ancestors),
+    // which is the direct-player case.
+    expect(ownAuthUiAllowed()).toBe(true);
   });
 });

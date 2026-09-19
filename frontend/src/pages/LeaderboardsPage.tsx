@@ -8,6 +8,7 @@ import { useAuthStore } from '../store/authStore';
 import { useRankedLeaderboardEnabled } from '../store/featureFlagsStore';
 import { LEADERBOARD_GUEST_NOTICE } from '../utils/guestGate';
 import type { TierInfo } from '@borderfall/shared';
+import { ownAuthUiAllowed } from '../utils/embedContext';
 
 type LeaderboardTab = 'rating' | 'solo' | 'level' | 'season' | 'weekly' | 'streaks';
 
@@ -192,12 +193,14 @@ export default function LeaderboardsPage() {
                 {LEADERBOARD_GUEST_NOTICE.body}
               </p>
             </div>
-            <Link
-              to="/upgrade"
-              className="btn-primary text-sm py-2 px-4 self-start whitespace-nowrap shrink-0 sm:self-auto"
-            >
-              Create Free Account
-            </Link>
+            {ownAuthUiAllowed() && (
+              <Link
+                to="/upgrade"
+                className="btn-primary text-sm py-2 px-4 self-start whitespace-nowrap shrink-0 sm:self-auto"
+              >
+                Create Free Account
+              </Link>
+            )}
           </div>
         ) : myRankCard ? (
           <div className="mb-4 rounded-xl border border-bf-gold/20 bg-bf-gold/5 px-4 py-3 flex items-center justify-between gap-3">

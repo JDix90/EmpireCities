@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore, waitForAuthBootstrap } from '../store/authStore';
+import { ownAuthUiAllowed } from '../utils/embedContext';
 import { useOnboardingTutorialFirstEnabled, useHeroSingleCtaEnabled } from '../store/featureFlagsStore';
 import { trackVisitEvent } from '../utils/visitAnalytics';
 import { canAccessGalacticAge, GALACTIC_AGE_ERA_ID } from '../constants/galacticAgeAccess';
@@ -362,21 +363,23 @@ function GetStartedModal({
           >
             {guestLoading ? 'Starting…' : 'Play as Guest'}
           </button>
-          <Link
+          {ownAuthUiAllowed() && <Link
             to="/register"
             className="btn-secondary py-3 text-base text-center"
             onClick={onClose}
           >
             Create Free Account
-          </Link>
+          </Link>}
         </div>
 
-        <p className="text-center text-xs text-bf-muted mt-4">
-          Already have an account?{' '}
-          <Link to="/login" className="text-bf-gold hover:underline" onClick={onClose}>
-            Sign In
-          </Link>
-        </p>
+        {ownAuthUiAllowed() && (
+          <p className="text-center text-xs text-bf-muted mt-4">
+            Already have an account?{' '}
+            <Link to="/login" className="text-bf-gold hover:underline" onClick={onClose}>
+              Sign In
+            </Link>
+          </p>
+        )}
       </div>
     </div>
   );
@@ -472,7 +475,7 @@ export default function LandingPage() {
               </button>
             </>
           )}
-          <Link to="/login" className="btn-secondary text-sm">Sign In</Link>
+          {ownAuthUiAllowed() && <Link to="/login" className="btn-secondary text-sm">Sign In</Link>}
           {!singleCta && (
             <button
               type="button"
@@ -531,7 +534,7 @@ export default function LandingPage() {
             <Link to="/tutorial" className="btn-secondary text-base sm:text-lg px-8 sm:px-10 py-3 text-center">
               Learn to play
             </Link>
-            <Link to="/login" className="btn-secondary text-base sm:text-lg px-8 sm:px-10 py-3 text-center hidden sm:inline-flex justify-center">Sign In</Link>
+            {ownAuthUiAllowed() && <Link to="/login" className="btn-secondary text-base sm:text-lg px-8 sm:px-10 py-3 text-center hidden sm:inline-flex justify-center">Sign In</Link>}
           </div>
         )}
       </section>

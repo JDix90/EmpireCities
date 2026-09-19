@@ -9,6 +9,7 @@ import GuestGate from '../components/GuestGate';
 import { useAuthStore } from '../store/authStore';
 import { useDailyGuestPlayEnabled } from '../store/featureFlagsStore';
 import { useRnParamTracker } from '../hooks/useRnParamTracker';
+import { ownAuthUiAllowed } from '../utils/embedContext';
 
 interface DailyPuzzleSpecPublic {
   archetype: string;
@@ -185,6 +186,12 @@ export default function DailyChallengePage() {
   const handlePlay = async () => {
     if (starting || !data) return;
     if (guestPlayClosed) {
+      // Normally this converts the guest. Where accounts are not on offer,
+      // bouncing to /upgrade would only redirect them away, so say why.
+      if (!ownAuthUiAllowed()) {
+        toast('Today\u2019s challenge is finished for guest players.');
+        return;
+      }
       navigate('/upgrade');
       return;
     }
@@ -300,12 +307,14 @@ export default function DailyChallengePage() {
                   <span className="text-bf-gold font-semibold">{ordinal(my_rank)}</span> on today&apos;s board.
                   <span className="text-bf-muted"> Guest runs aren&apos;t ranked — create a free account and this one is.</span>
                 </p>
-                <Link
-                  to="/upgrade"
-                  className="btn-primary inline-flex items-center justify-center min-h-[44px] px-5 shrink-0"
-                >
-                  Claim {ordinal(my_rank)} place
-                </Link>
+                {ownAuthUiAllowed() && (
+                  <Link
+                    to="/upgrade"
+                    className="btn-primary inline-flex items-center justify-center min-h-[44px] px-5 shrink-0"
+                  >
+                    Claim {ordinal(my_rank)} place
+                  </Link>
+                )}
               </div>
             ) : (
               <p className="text-sm text-bf-muted mb-3" data-testid="daily-rank">
