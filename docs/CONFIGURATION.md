@@ -17,6 +17,7 @@
 | `CORS_ORIGINS` | — | as needed | Comma-separated extra origins (Capacitor app URL, staging). Dev auto-adds localhost:5173–5177 + capacitor/ionic |
 | `REFRESH_COOKIE_SAME_SITE` | `lax` prod / `strict` dev | — | Refresh-cookie SameSite (`none` forces Secure) |
 | `REFRESH_COOKIE_SECURE` | auto from `FRONTEND_URL` scheme | — | Override refresh-cookie Secure flag |
+| `EMBED_ORIGINS` | — | when embedded by a portal | Comma-separated portal origins (`*.` = subdomains only) that receive a `Partitioned; SameSite=None` refresh cookie so the game keeps its session inside their iframe. Generated from `docker/portals.json` — see [PORTALS.md](PORTALS.md) |
 | `INSTANCE_ID` | OS hostname | — | Shown by `/api/instance` for multi-node debugging |
 
 ### Database & cache

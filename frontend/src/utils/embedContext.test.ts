@@ -9,9 +9,10 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import {
   detectEmbedderOrigin,
   EMBEDDER_HEADER,
-  isCrazyGamesEmbed,
+  detectPortal,
   ownAuthUiAllowed,
 } from './embedContext';
+import { PORTALS } from './portals.generated';
 
 const realTop = window.top;
 
@@ -115,51 +116,73 @@ describe('the header actually reaches the API clients', () => {
   });
 });
 
-describe('isCrazyGamesEmbed', () => {
-  it('matches CrazyGames on any of its domains', () => {
+describe('detectPortal', () => {
+  it('identifies CrazyGames on any of its registered domains', () => {
     for (const origin of [
       'https://www.crazygames.com',
       'https://crazygames.com',
-      'https://app.crazygames.com',
+      'https://games.crazygames.com',
       'https://a.b.crazygames.com',
       'https://www.crazygames.fr',
       'https://www.crazygames.com.br',
       'https://www.crazygames.co.kr',
       'capacitor://app.crazygames.com',
     ]) {
-      expect(isCrazyGamesEmbed(origin)).toBe(true);
+      expect(detectPortal(origin)?.id, origin).toBe('crazygames');
     }
   });
 
-  it('does not match a lookalike or someone else\'s subdomain', () => {
-    // `crazygames` has to be a whole label in the registrable domain — the
-    // same distinction the backend allowlist draws.
+  it('identifies itch.io by its project page and by its player subdomain', () => {
+    expect(detectPortal('https://itch.io')?.id).toBe('itch');
+    expect(detectPortal('https://someone.itch.io')?.id).toBe('itch');
+    expect(detectPortal('https://html-classic.itch.zone')?.id).toBe('itch');
+  });
+
+  it('rejects a lookalike or someone else\'s subdomain', () => {
+    // Suffix compared WITH its leading dot — the same rule as the backend.
     for (const origin of [
       'https://evilcrazygames.com',
       'https://crazygames.com.evil.test',
       'https://notcrazygames.io',
-      'https://crazygames.evil.co.uk',
+      'https://itch.io.evil.test',
     ]) {
-      expect(isCrazyGamesEmbed(origin)).toBe(false);
+      expect(detectPortal(origin), origin).toBeUndefined();
     }
   });
 
-  it('is false when not embedded, or for an unparseable origin', () => {
-    expect(isCrazyGamesEmbed(undefined)).toBe(false);
-    expect(isCrazyGamesEmbed('')).toBe(false);
-    expect(isCrazyGamesEmbed('not a url')).toBe(false);
+  it('rejects a downgraded scheme and an added port', () => {
+    expect(detectPortal('http://www.crazygames.com')).toBeUndefined();
+    expect(detectPortal('https://www.crazygames.com:8443')).toBeUndefined();
   });
 
-  it('does not treat other portals as CrazyGames', () => {
-    expect(isCrazyGamesEmbed('https://itch.io')).toBe(false);
-    expect(isCrazyGamesEmbed('https://html-classic.itch.zone')).toBe(false);
+  it('is undefined when not embedded, or for an unparseable origin', () => {
+    expect(detectPortal(undefined)).toBeUndefined();
+    expect(detectPortal('')).toBeUndefined();
+    expect(detectPortal('not a url')).toBeUndefined();
+  });
+
+  it('reads the same registry the CSP and the cookie allowlist are generated from', () => {
+    expect(PORTALS.map((p) => p.id)).toEqual(expect.arrayContaining(['itch', 'crazygames']));
   });
 });
 
 describe('ownAuthUiAllowed', () => {
   it('allows our own auth UI when nothing is framing us', () => {
-    // The module-level EMBEDDER_ORIGIN is undefined under jsdom (no ancestors),
-    // which is the direct-player case.
+    // EMBEDDER_ORIGIN is undefined under jsdom (no ancestors): the direct-player case.
     expect(ownAuthUiAllowed()).toBe(true);
+    expect(ownAuthUiAllowed(undefined)).toBe(true);
+  });
+
+  it('forbids it inside CrazyGames, per their Basic requirements', () => {
+    expect(ownAuthUiAllowed('https://www.crazygames.com')).toBe(false);
+    expect(ownAuthUiAllowed('capacitor://app.crazygames.com')).toBe(false);
+  });
+
+  it('allows it inside itch.io, which has no such rule', () => {
+    expect(ownAuthUiAllowed('https://someone.itch.io')).toBe(true);
+  });
+
+  it('allows it for an unknown framer, which could not have passed frame-ancestors anyway', () => {
+    expect(ownAuthUiAllowed('https://evilcrazygames.com')).toBe(true);
   });
 });
