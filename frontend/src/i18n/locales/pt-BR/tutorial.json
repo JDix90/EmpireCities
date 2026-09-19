@@ -1,0 +1,248 @@
+{
+  "page": {
+    "startingTutorial": "Iniciando o tutorial…",
+    "startingLesson": "Iniciando a lição…",
+    "backToLobby": "Voltar ao lobby",
+    "home": "Início",
+    "autoStartFailedTitle": "Não conseguimos iniciar o tutorial.",
+    "autoStartFailedBody": "Geralmente é uma conexão que caiu. Escolha uma lição abaixo para tentar de novo — ou",
+    "autoStartFailedSkip": "pule e vá direto jogar",
+    "title": "Academia de Treinamento",
+    "intro": "Comece pelo tutorial básico e depois experimente os mergulhos rápidos em configurações avançadas, facções e tecnologia.",
+    "recommendedNext": "Próxima recomendada",
+    "startLessonRecommended": "Começar lição",
+    "startLesson": "Começar lição",
+    "replayLesson": "Repetir lição",
+    "done": "Concluída ✓",
+    "minutes": "~{{minutes}} min",
+    "fullRules": "Regras completas",
+    "factionCodex": "Códice das facções",
+    "startError": "Não foi possível iniciar o tutorial. Tente de novo."
+  },
+  "overlay": {
+    "step": "Passo {{current}} / {{total}}",
+    "collapse": "Recolher o cartão do tutorial",
+    "collapseTitle": "Recolher — o tabuleiro está atrás deste cartão",
+    "whyThisMatters": "Por que isso importa",
+    "openTechTree": "Abrir a árvore tecnológica",
+    "openBonuses": "Abrir bônus",
+    "openSettingsLab": "Abrir o laboratório de configurações",
+    "continuePlaying": "Continuar jogando",
+    "optionalDeepDives": "Mergulhos opcionais",
+    "done": "Concluída",
+    "minutesShort": "~{{minutes}} min",
+    "returnToLobby": "Voltar ao lobby",
+    "backToLobby": "Voltar ao lobby",
+    "moreLessons": "Há mais lições disponíveis no lobby ou em Como Jogar.",
+    "next": "Avançar",
+    "skipToEnd": "Pular para o final",
+    "waitTechResearched": "Pesquise uma tecnologia para continuar…",
+    "waitAbilityUsed": "Use a habilidade da sua facção para continuar…",
+    "waitBonusesOpened": "Abra o painel de bônus para continuar…",
+    "waitTechTreeOpened": "Abra a árvore tecnológica para continuar…",
+    "waitDefault": "Conclua a ação para continuar…",
+    "exitTutorial": "Sair do tutorial"
+  },
+  "modules": {
+    "core": { "title": "Tutorial básico", "description": "Reforço, ataque, fortificação e seu primeiro avanço de era." },
+    "advanced_settings": { "title": "Configurações avançadas", "description": "Como as regras opcionais mudam o ritmo e a estratégia." },
+    "faction_ability": { "title": "Habilidades de facção", "description": "Bônus passivos e poderes de uma vez por turno ou por partida." },
+    "tech_tree": { "title": "Árvore tecnológica", "description": "Custos de pesquisa, pré-requisitos e melhorias de combate." },
+    "era_advancement": { "title": "Avanço de era", "description": "Suba da Antiguidade à Idade Média: supere o portão, avance e atravesse a janela de vulnerabilidade." }
+  },
+  "steps": {
+    "core": {
+      "welcome": {
+        "title": "Bem-vindo, comandante!",
+        "message": "Borderfall é um jogo de estratégia de controle territorial. Cada turno segue Reforço → Ataque → Fortificação. Você controla os três territórios do **Western Realm** (Reino Ocidental) desta ilha; um adversário controla o Leste.",
+        "detail": "O reforço dá 1 unidade a cada 3 territórios (mínimo 3), mais um bônus por controlar um reino inteiro — como você tem todo o Oeste, esse bônus já é seu.",
+        "hint": "Já jogou Risk? Vai se sentir em casa — e esta partida acrescenta a parte que o Risk não tem. Clique em «Avançar», ou em «Pular para o final» para entrar direto."
+      },
+      "draft_do": {
+        "title": "Posicione seus reforços",
+        "message": "Clique em um dos seus territórios — em **{playerColor}** —, ajuste a quantidade com **−/+** (ou **All**) e pressione **Place**. Quando todas as unidades estiverem posicionadas, clique no botão dourado **{{draftButton}}**.",
+        "hint": "Onde você as empilha decide qual frente poderá abrir em seguida. O botão dourado fica na barra lateral no computador e na barra inferior no celular."
+      },
+      "choose_front": {
+        "title": "Escolha sua frente",
+        "message": "Clique em um dos seus territórios (2+ unidades) e depois em um território inimigo adjacente. **Western Plains → Eastern Forest** é a abertura barata: a Forest tem 2 unidades e é o centro do Leste, então tomá-la coloca você ao lado de tudo. **Northern Hills → Desert Outpost** é o flanco lento: 3 defensores, mas é um terreno tranquilo que você consegue manter.",
+        "detail": "O atacante rola até 3 dados; o defensor, até 2. Os maiores são comparados par a par; quem perde cada par perde uma unidade, e empates favorecem o defensor. Você captura um território quando o último defensor cai.",
+        "hint": "Ataque quantas vezes quiser — ou nenhuma. Quando terminar, clique no botão dourado **{{attackButton}}**."
+      },
+      "fortify_do": {
+        "title": "Fortifique e encerre o turno",
+        "message": "Fortificar move unidades uma vez entre territórios conectados — reforce a fronteira que acabou de abrir, ou pule. De qualquer forma, o botão dourado **{{fortifyButton}}** passa o turno.",
+        "detail": "Um movimento por turno, e só entre territórios seus ligados por uma cadeia de terreno próprio."
+      },
+      "turn_ends": {
+        "title": "Agora observe o adversário",
+        "message": "O turno dele segue as mesmas três fases. Você verá os dados, as capturas e o jogador ativo destacado na barra lateral em tempo real.",
+        "detail": "Nada a fazer aqui — o próximo cartão chega quando o turno voltar para você."
+      },
+      "economy_intro": {
+        "title": "Seu império também é uma economia",
+        "message": "Sua vez de novo — e desta vez, antes de atacar. Território é só metade do jogo: seu império tem um **tesouro** e um **programa de pesquisa**, e os dois cresceram enquanto você mantinha terreno.",
+        "detail": "O painel Era na sua barra lateral mostra a linha do tempo das eras, sua posição nela e o portão que você precisa superar para avançar. Seu adversário sobe no próprio ritmo.",
+        "whyItMatters": "Conquista é como você vence um mapa. Avançar de era é como você supera o adversário que o ocupa — unidades mais fortes, uma árvore tecnológica nova e uma recompensa exclusiva única."
+      },
+      "ea_research": {
+        "title": "Pesquise rumo ao portão",
+        "message": "Abra a árvore tecnológica. A barra no topo mostra o portão de avanço; pesquise uma tecnologia de nível 1 e veja os indicadores dela se atualizarem.",
+        "hint": "Você recebeu pesquisa suficiente para duas tecnologias — exatamente o que o portão desta ilha pede. Escolha o par que preferir."
+      },
+      "ea_advance": {
+        "title": "Avance para a Idade Média",
+        "message": "Mais uma tecnologia e todos os indicadores do portão ficam verdes. Então pressione **Advance Era** — o botão aparece bem ali, na barra do portão da árvore tecnológica.",
+        "detail": "Suas unidades seguem para a nova era com força reduzida por um turno — a janela de vulnerabilidade — e sua pesquisa recomeça em uma árvore medieval nova e mais forte. Você mantém um eco dos bônus antigos e ganha a recompensa exclusiva da era.",
+        "hint": "Subir na fase de reforço significa que a força da nova era vale para os ataques deste mesmo turno. Falta um indicador? A barra diz o que está faltando, e o botão Advance acende assim que não faltar nada."
+      },
+      "wrapup": {
+        "title": "Você está pronto!",
+        "message": "Você completou o ciclo inteiro do turno — reforço, ataque, fortificação — e subiu uma era. Esse é todo o ciclo. A forma padrão de vencer é a dominação: capturar todos os territórios. Os anfitriões também podem escolher Limiar (uma parte do mapa), Conquista de capitais ou Missões secretas.",
+        "skippedTitle": "Direto para a ação",
+        "skippedMessage": "O resumo é este: a cada turno você reforça unidades, ataca territórios vizinhos com dados e depois fortifica. No caminho, pesquise uma tecnologia e avance da Antiguidade para a Idade Média — essa é a parte que o Risk não tem. Vença por dominação: capture todos os territórios. (Os anfitriões também podem escolher Limiar, Conquista de capitais ou Missões secretas.) Agora mesmo você tem reforços para posicionar — clique em qualquer território azul e depois em **{{draftButton}}**.",
+        "detail": "As partidas reais acrescentam o que esta ilha deixou de fora: cartas de território por unidades extras, facções com poderes únicos, construções e estabilidade, névoa de guerra, um portão de avanço mais exigente (mais pesquisa e construções) e a espinha completa da Antiguidade à Era Moderna em vez de um salto de duas eras."
+      }
+    },
+    "advanced_settings": {
+      "as_welcome": {
+        "title": "Configurações avançadas",
+        "message": "Os anfitriões ajustam cada partida no lobby. Você pode combinar eras, número de jogadores, cronômetros e sistemas opcionais sem mudar o ciclo básico Reforço → Ataque → Fortificação.",
+        "hint": "Esta lição é informativa — passe por cada cartão com Avançar e depois experimente essas opções na sua próxima partida personalizada."
+      },
+      "as_timers": {
+        "title": "Cronômetros e modo assíncrono",
+        "message": "Partidas ao vivo usam cronômetros de turno (por exemplo, 60–300 segundos) para manter o ritmo. Partidas assíncronas trocam o cronômetro por um prazo — ótimo para jogar por correspondência entre fusos horários.",
+        "whyItMatters": "Escolha cronômetros compatíveis com a paciência do seu grupo; o modo assíncrono evita abandonos quando alguém está ocupado."
+      },
+      "as_fog": {
+        "title": "Névoa de guerra",
+        "message": "A névoa esconde a quantidade de unidades inimigas nos territórios que você não explorou recentemente. Atacar revela informação parcial; manter um território dá uma visão mais clara.",
+        "whyItMatters": "Incentiva ataques de sondagem e blefes em fronteiras fracas."
+      },
+      "as_economy": {
+        "title": "Economia e construções",
+        "message": "A economia adiciona pontos de produção e construções (defesa, produção, maravilhas). As construções modificam dados, renda ou regras especiais no seu território.",
+        "whyItMatters": "Desloca o foco da pura expansão para garantir regiões de produção valiosas."
+      },
+      "as_stacking": {
+        "title": "Sistemas combináveis",
+        "message": "Facções, árvores tecnológicas, regras navais, eventos e estabilidade da população podem se combinar. Comece com um sistema opcional e acrescente outro quando o grupo dominar o básico.",
+        "detail": "Progressão de exemplo: só o básico → +facções → +tecnologia → +eventos."
+      },
+      "as_try_toggle": {
+        "title": "Experimente uma configuração",
+        "message": "Abra o laboratório de configurações abaixo e ative pelo menos duas opções. Suas escolhas valem para esta partida de prática — procure a nova interface na barra lateral depois de fechar o laboratório.",
+        "hint": "Toque em «Abrir o laboratório de configurações», ative duas opções, feche o laboratório e confira a barra lateral.",
+        "whyItMatters": "Experimentar antes do seu primeiro lobby personalizado significa que você já saberá quais opções importam para o seu grupo."
+      },
+      "as_complete": {
+        "title": "Lição de configurações concluída",
+        "message": "Agora você sabe o que cada opção muda. Crie uma partida personalizada no lobby e experimente uma opção nova de cada vez."
+      }
+    },
+    "era_advancement": {
+      "ea_welcome": {
+        "title": "Avanço de era",
+        "message": "Esta partida permite que sua civilização suba pelas eras. Você começa na era **Antiga** — pesquise e construa, depois avance para a **Medieval** para ter unidades mais fortes e uma recompensa única.",
+        "detail": "Você começa com pontos de pesquisa e ouro extras para alcançar o avanço rapidamente."
+      },
+      "ea_progress": {
+        "title": "Sua era e a linha do tempo",
+        "message": "O painel Era na sua barra lateral mostra a linha do tempo das eras, sua posição nela e o portão que você precisa superar para avançar. Os adversários sobem no próprio ritmo.",
+        "whyItMatters": "Avançar primeiro dá vantagem — mas enfraquece seu exército por um breve período, então o momento importa."
+      },
+      "ea_open_tree": {
+        "title": "Abra a árvore tecnológica",
+        "message": "Abra a árvore tecnológica. Uma barra de progresso no topo mostra exatamente quais tecnologias o portão de avanço exige.",
+        "hint": "Toque em «Abrir a árvore tecnológica» abaixo. Seus pontos de pesquisa extras estão prontos."
+      },
+      "ea_research": {
+        "title": "Pesquise rumo ao portão",
+        "message": "Pesquise uma tecnologia de nível 1 acessível. Veja os indicadores do portão no topo da árvore se atualizarem conforme você avança.",
+        "hint": "Escolha qualquer nó de nível 1. O portão pede alguns deles mais um de nível 2 construído sobre um deles."
+      },
+      "ea_gate": {
+        "title": "Supere o portão",
+        "message": "Continue pesquisando até todos os indicadores do portão ficarem verdes — o portão exige algumas tecnologias e ouro suficiente (você já tem de sobra). O botão Advance Era acende quando você estiver pronto.",
+        "detail": "Nós de nível 2 precisam primeiro do pré-requisito de nível 1, então pesquise o pai e depois o de nível 2.",
+        "whyItMatters": "O mesmo portão existe nas partidas reais — mas lá você também equilibra construções e estabilidade."
+      },
+      "ea_advance": {
+        "title": "Avance para a Idade Média",
+        "message": "Quando todos os indicadores do portão estiverem verdes, abra o painel Era e use **Advance Era**. Suas unidades seguem em frente, sua tecnologia recomeça na nova era e você ganha uma recompensa exclusiva.",
+        "hint": "Ainda falta algo? Pesquise primeiro os nós que faltam — o painel de avanço de era na sua barra lateral mostra o que resta, e o botão Advance acende quando não resta nada."
+      },
+      "ea_signature": {
+        "title": "Vulnerável, mas mais forte",
+        "message": "Você agora está na era Medieval. Por um turno sua defesa fica mais fraca — a janela de vulnerabilidade — mas você ganhou a recompensa exclusiva da era e uma árvore tecnológica nova e mais forte.",
+        "whyItMatters": "Planeje os avanços para quando estiver a salvo de ataques, e use sua recompensa antes que ela expire."
+      },
+      "ea_complete": {
+        "title": "Avanço de era concluído",
+        "message": "Você subiu uma era: superou um portão, avançou e atravessou a janela de vulnerabilidade. Nas partidas completas, a espinha vai até a Era Moderna."
+      }
+    },
+    "faction_ability": {
+      "fa_welcome": {
+        "title": "Poderes de facção",
+        "message": "Esta partida de prática tem Facções ativadas no mapa da Segunda Guerra Mundial. Você joga como a China — uma facção com bônus passivo de defesa e uma habilidade ativa chamada Guerrilla Warfare.",
+        "detail": "As habilidades de facção são únicas. Diferente das melhorias da árvore tecnológica (que custam pontos de tecnologia), as habilidades de facção recarregam automaticamente a cada turno."
+      },
+      "fa_identity": {
+        "title": "Conheça sua facção",
+        "message": "Abra o painel Bonuses na barra lateral para ler os bônus passivos da China (+1 de defesa em todos os seus territórios) e a descrição de Guerrilla Warfare.",
+        "hint": "Toque em «Abrir bônus» abaixo — o painel mostra o +1 de defesa passivo da China e as cargas de Guerrilla Warfare.",
+        "whyItMatters": "Entender seus passivos muda onde você defende. O +1 de defesa da China torna os territórios interiores muito caros de atacar."
+      },
+      "fa_when": {
+        "title": "Quando as habilidades aparecem",
+        "message": "As habilidades ativas aparecem como botões no painel do território durante a fase certa. Guerrilla Warfare é uma habilidade da fase de reforço — procure o botão verde quando tiver um território e for a fase de reforço.",
+        "detail": "Os botões ficam acinzentados ou ocultos se você estiver na fase errada, sem cargas ou já tiver usado um poder de uma vez por partida.",
+        "whyItMatters": "A arte está em alinhar o momento da habilidade com sua estratégia. Guerrilla Warfare dá uma unidade grátis — ideal para tapar uma fronteira fraca antes que o adversário ataque."
+      },
+      "fa_use": {
+        "title": "Use Guerrilla Warfare",
+        "message": "Durante a fase de reforço, clique em qualquer território seu. Um botão verde «🌿 Guerrilla Warfare» vai aparecer. Toque nele para posicionar 1 unidade grátis — sem cartas nem territórios necessários.",
+        "hint": "Toque em qualquer território seu e procure o botão verde «Guerrilla Warfare» no painel do território.",
+        "detail": "Se não vir o botão, confira se a fase mostrada na barra lateral é «Reinforcement» (reforço). Ele não aparece durante Ataque nem Fortificação."
+      },
+      "fa_result": {
+        "title": "Habilidade usada!",
+        "message": "Seus guerrilheiros reforçaram o território — 1 unidade grátis adicionada, sem gastar recursos. Repare que a contagem de unidades subiu no mapa.",
+        "detail": "Guerrilla Warfare recarrega no início de cada turno, então você sempre terá essa opção. Habilidades de uma vez por partida (como Soviet Mass Mobilization) mostram «(once per game)» e não recarregam.",
+        "whyItMatters": "Uma unidade grátis por turno pode parecer pouco, mas ao longo de uma partida longa isso se acumula — a vantagem de guerrilha da China é o desgaste, não a agressão."
+      },
+      "fa_complete": {
+        "title": "Lição de facções concluída",
+        "message": "Você posicionou uma unidade grátis usando a habilidade ativa da sua facção — exatamente como funciona nas partidas ranqueadas. Cada facção tem momento, alvo e alcance diferentes. Consulte o Códice para comparar todas as facções antes da próxima partida."
+      }
+    },
+    "tech_tree": {
+      "tt_welcome": {
+        "title": "Árvore tecnológica",
+        "message": "Esta partida de prática tem Árvores tecnológicas ativadas. Você ganha pontos de tecnologia (TP) com o tempo e os gasta para desbloquear nós com bônus passivos ou novas habilidades.",
+        "detail": "Nesta lição você começa com TP extras para pesquisar imediatamente."
+      },
+      "tt_points": {
+        "title": "Pontos de tecnologia",
+        "message": "Seu saldo de TP aparece na árvore tecnológica e no seu cartão de jogador. A renda vem das regras da era, de certas construções e de alguns passivos de facção.",
+        "whyItMatters": "Guardar para um nó de nível 2 costuma ser melhor do que comprar todos os de nível 1 baratos."
+      },
+      "tt_open": {
+        "title": "Abra a árvore tecnológica",
+        "message": "Abra a árvore para explorar níveis, custos e pré-requisitos. Nós bloqueados mostram o que você precisa pesquisar antes.",
+        "hint": "Toque em «Abrir a árvore tecnológica» abaixo. Seus 8 TP extras já estão disponíveis."
+      },
+      "tt_research": {
+        "title": "Pesquise uma tecnologia",
+        "message": "Selecione um nó de nível 1 acessível e confirme a pesquisa. Os passivos valem na hora; as habilidades aparecem no painel do território quando desbloqueadas.",
+        "hint": "Escolha um nó de nível 1 — Motorization, Bunker Network ou Radio Communications são ótimas primeiras escolhas no mapa da Segunda Guerra."
+      },
+      "tt_complete": {
+        "title": "Lição de tecnologia concluída",
+        "message": "Você pesquisou um nó e viu como os bônus se acumulam. Nas partidas completas, planeje um caminho até as habilidades que sua estratégia precisa."
+      }
+    }
+  }
+}

@@ -228,6 +228,12 @@ const CLIENT_FEATURE_FLAGS = [
     description:
       'Second gate on the Warfront surfaces: the Admin → Warfront tab’s terrain endpoint now, the match host and the lab in later steps. Every one of them is admin-only regardless of this flag (server-enforced), so switching it on exposes nothing to players. Off by default — this is the kill switch for an experiment.',
   },
+  {
+    key: 'localization_enabled',
+    label: 'Localized landing & tutorial',
+    description:
+      'Show the landing page and the tutorial in the player\u2019s language (Spanish, Brazilian Portuguese, German, French) and add a language switcher to both; a stored choice wins, then the browser language. Off by default while the translations await native review \u2014 off means English for everyone, exactly as before. Client-only: the in-game HUD stays English either way.',
+  },
 ] as const;
 
 /** Per-flag resolution from GET /admin/config — mirrors the backend's FeatureFlagState. */

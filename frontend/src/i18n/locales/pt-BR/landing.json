@@ -1,0 +1,104 @@
+{
+  "actions": {
+    "playFreeNow": "Jogue grátis agora",
+    "playFree": "Jogue grátis",
+    "playAsGuest": "Jogar como convidado",
+    "signIn": "Entrar",
+    "learnToPlay": "Aprenda a jogar",
+    "seeGameplay": "Ver o jogo",
+    "createFreeAccount": "Criar conta grátis"
+  },
+  "hero": {
+    "tagline": "Toda fronteira é temporária.",
+    "description": "Borderfall é um jogo de estratégia por turnos em que você conquista território ao longo de nove eras, das legiões antigas a uma fronteira galáctica. Grátis, no seu navegador.",
+    "descriptionSuffix": "Jogue em tempo real ou de forma assíncrona com amigos, rivais ou a IA.",
+    "friction": "Sem conta · Sem download · Cerca de 7 minutos"
+  },
+  "showcase": {
+    "caption": "Partida real no globo do Mundo Atual — um dos mapas abaixo."
+  },
+  "eras": {
+    "heading": "Escolha sua era",
+    "globalHeading": "Global",
+    "globalDescription": "Mapas do mundo inteiro que atravessam vários continentes e eras da história.",
+    "regionalHeading": "Mapas regionais e personalizados",
+    "regionalDescription": "Mapas em escala de teatro e de história alternativa — dos campos de batalha da Guerra Civil Americana a litorais inundados e povos originários — para campanhas mais rápidas e intensas.",
+    "suggestedPlayers": "Jogadores sugeridos:",
+    "territories": "Territórios:",
+    "playersRange": "{{range}} jogadores",
+    "close": "Fechar",
+    "closeDialog": "Fechar a janela",
+    "comingSoon": "Em breve",
+    "playThisMap": "Jogar este mapa",
+    "ancient": {
+      "label": "Mundo Antigo",
+      "years": "3000 a.C. – 400 d.C.",
+      "summary": "Entre no mundo clássico tardio, quando Roma, a Pártia e a China Han eram potências de primeira grandeza. Faça campanha por impérios, desertos e estepes enquanto luta pelo controle do Mediterrâneo, da Pérsia e do Leste Asiático. Este mapa destaca legiões, cavalaria e longas linhas de suprimento em um mundo antigo conectado."
+    },
+    "medieval": {
+      "label": "Era Medieval",
+      "years": "400 – 1400 d.C.",
+      "summary": "Das Cruzadas às conquistas mongóis, o mapa medieval abrange reinos, califados e impérios nômades. Domine passagens de montanha, travessias de rio e centros comerciais enquanto expande seu reino. Ideal para partidas centradas em diplomacia, cercos e alianças em constante mudança."
+    },
+    "discovery": {
+      "label": "Era dos Descobrimentos",
+      "years": "1400 – 1800 d.C.",
+      "summary": "A era das velas, dos impérios da pólvora e da expansão colonial. Dispute o controle dos oceanos, dos estreitos e das rotas comerciais do Novo Mundo. Esta era recompensa o posicionamento naval e a disputa por recursos ultramarinos."
+    },
+    "ww2": {
+      "label": "Segunda Guerra Mundial",
+      "years": "1939 – 1945",
+      "summary": "Uma luta global entre potências industriais: teatros terrestres, navais e aéreos da Europa ao Pacífico. O mapa reflete as grandes alianças e as linhas de frente da Segunda Guerra Mundial. Espere turnos rápidos e de alto risco, em que vários teatros podem explodir ao mesmo tempo."
+    },
+    "coldwar": {
+      "label": "Guerra Fria",
+      "years": "1945 – 1991",
+      "summary": "A OTAN, o Pacto de Varsóvia e o mundo não alinhado em uma disputa de décadas por influência e guerras por procuração. Controle regiões estratégicas, rotas marítimas e os pontos críticos da era nuclear. Ideal para partidas mais longas, com diplomacia em camadas e pressão global."
+    },
+    "modern": {
+      "label": "O Mundo Atual",
+      "years": "2026",
+      "summary": "Superpotências contemporâneas, alianças regionais e blocos econômicos em um mapa ajustado ao século XXI. Lute por polos de tecnologia, corredores de energia e estreitos marítimos. Perfeito para quem gosta de um sandbox geopolítico moderno com muitas estratégias viáveis."
+    },
+    "acw": {
+      "label": "Guerra Civil Americana",
+      "years": "1861 – 1865",
+      "summary": "Um teatro norte-americano concentrado: a União contra a Confederação ao longo da costa leste, do Mississippi e do Oeste trans-Mississippi. Os territórios seguem as fronteiras estaduais reais, para um mapa mais compacto e tático. Ideal para uma campanha regional mais curta, com linhas de frente claras."
+    },
+    "risorgimento": {
+      "label": "Unificação Italiana",
+      "years": "1859 – 1871",
+      "summary": "A Itália do Risorgimento: do Piemonte e das Duas Sicílias a um reino unido. Os territórios seguem os contornos provinciais reais, fundidos em teatros regionais por toda a península e as ilhas. Mais compacto e rápido que um mapa mundial — ideal para diplomacia e manobras costeiras."
+    },
+    "space_age": {
+      "label": "Era Espacial",
+      "years": "2100 d.C.",
+      "summary": "Um mundo projetado para 2100, com mares em elevação, megacidades costeiras e uma Lua disputada. Pesquise a Expansão Lunar, construa uma plataforma de lançamento e coloque uma estação espacial em órbita para projetar poder. A facção dos Pioneiros Lunares começa com acesso à Lua; construtores de maravilhas podem pular a estação com um elevador espacial."
+    },
+    "galaxy_age": {
+      "label": "Era Galáctica — Em breve",
+      "years": "Futuro distante",
+      "summary": "Quatro mundos ligados por rotas de hiperespaço: controle um sistema-portal e ataque diretamente pela sua rota. As travessias rolam menos dados, então os portais se defendem como litorais — e cada facção luta nas rotas do seu jeito."
+    }
+  },
+  "getStarted": {
+    "title": "Entre já",
+    "body": "Entre direto como convidado — sem cadastro. Uma conta de convidado fica no navegador em que foi criada; crie uma conta grátis quando quiser que seu progresso vá com você e para subir nos rankings.",
+    "haveAccount": "Já tem uma conta?"
+  },
+  "cta": {
+    "heading": "Pronto para comandar?",
+    "tagline": "Quando as fronteiras caem, as eras desabam.",
+    "noDownload": "Não precisa baixar nada. Jogue na hora, no seu navegador."
+  },
+  "footer": {
+    "copyright": "© 2026 {{appName}}. Todos os direitos reservados.",
+    "about": "Sobre",
+    "privacy": "Política de privacidade",
+    "terms": "Termos de serviço",
+    "contact": "Contato"
+  },
+  "errors": {
+    "guestStart": "Não foi possível iniciar a sessão de convidado"
+  }
+}

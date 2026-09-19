@@ -14,6 +14,7 @@
 | Capacitor (APNs/FCM native) | Native iOS/Android push + device APIs | none beyond store builds | `@capacitor/*` plugins | Web-only behavior |
 | Google Fonts (gstatic) | Cinzel / Inter webfonts | none | `index.html` / CSS | System-font fallback |
 | Twitter / Discord intents | Post-game share links | none (outbound links only) | `ActionModal.tsx` share section | Buttons still open the sites |
+| Game portals (itch.io, CrazyGames) | Distribution: the portal frames the live site | `EMBED_ORIGINS` (generated from `docker/portals.json`) | `backend/src/modules/auth/embedContext.ts`, `frontend/src/utils/embedContext.ts` | Frame refused (CSP) or, worse, the game plays but every reload is a fresh guest — see [PORTALS.md](PORTALS.md) |
 
 ## Notes per integration
 

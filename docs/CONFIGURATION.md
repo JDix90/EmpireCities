@@ -17,6 +17,7 @@
 | `CORS_ORIGINS` | — | as needed | Comma-separated extra origins (Capacitor app URL, staging). Dev auto-adds localhost:5173–5177 + capacitor/ionic |
 | `REFRESH_COOKIE_SAME_SITE` | `lax` prod / `strict` dev | — | Refresh-cookie SameSite (`none` forces Secure) |
 | `REFRESH_COOKIE_SECURE` | auto from `FRONTEND_URL` scheme | — | Override refresh-cookie Secure flag |
+| `EMBED_ORIGINS` | — | when embedded by a portal | Comma-separated portal origins (`*.` = subdomains only) that receive a `Partitioned; SameSite=None` refresh cookie so the game keeps its session inside their iframe. Generated from `docker/portals.json` — see [PORTALS.md](PORTALS.md) |
 | `INSTANCE_ID` | OS hostname | — | Shown by `/api/instance` for multi-node debugging |
 
 ### Database & cache
@@ -96,6 +97,7 @@ Env vars: a flag defaulting **on** is disabled with `X=false`; one defaulting **
 | `rankedMultiSizeEnabled` | `RANKED_MULTI_SIZE_ENABLED` | off | Ranked opponents-count dropdown + multi-player cohort matching (off = strict 1v1) |
 | `matchAlertsEnabled` | `MATCH_ALERTS_ENABLED` | off | Ranked match-found alerts: app-wide socket listener, OS notification, FCM push. Also the kill switch for the always-on per-tab websocket |
 | `warfrontEnabled` | `WARFRONT_ENABLED` | off | Experimental Warfront RTS mode ([WARFRONT_RTS_MODE.md](WARFRONT_RTS_MODE.md)): second gate on its admin-only surfaces (Admin → Warfront tab's terrain endpoint; later the match host and lab). Every Warfront route also requires an admin server-side, so this never exposes anything to players |
+| `localizationEnabled` | `LOCALIZATION_ENABLED` | off | Landing page + tutorial in the player's language (es, pt-BR, de, fr) with a language switcher; off = English for everyone, exactly as before. Client-only effect. See [LOCALIZATION.md](LOCALIZATION.md) |
 
 ## Frontend environment variables
 

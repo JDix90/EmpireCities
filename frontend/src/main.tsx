@@ -7,6 +7,8 @@ import * as Sentry from '@sentry/react';
 import App from './App';
 import './index.css';
 import { captureAttribution } from './utils/attribution';
+import { applyLocalizationPolicy } from './i18n';
+import { useFeatureFlagsStore } from './store/featureFlagsStore';
 
 // Snapshot first-touch acquisition attribution (utm_* / referrer) before render,
 // so it's available for the first guest/register call. See utils/attribution.ts.
@@ -37,13 +39,26 @@ if (Capacitor.isNativePlatform()) {
   });
 }
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      {/* Toaster lives inside <App /> so it can read network/auth state and
-          offset itself when the offline banner is shown or when running on a
-          small mobile viewport. See App.tsx. */}
-      <App />
-    </BrowserRouter>
-  </React.StrictMode>
-);
+function renderApp() {
+  ReactDOM.createRoot(document.getElementById('root')!).render(
+    <React.StrictMode>
+      <BrowserRouter>
+        {/* Toaster lives inside <App /> so it can read network/auth state and
+            offset itself when the offline banner is shown or when running on a
+            small mobile viewport. See App.tsx. */}
+        <App />
+      </BrowserRouter>
+    </React.StrictMode>
+  );
+}
+
+// Pick the UI language BEFORE first paint. With `localization_enabled` off
+// (its code default, mirrored in the flags store) this resolves at once with
+// English and costs nothing; once it is on, a non-English visitor waits for
+// their bundle chunk instead of watching the page swap languages under them.
+// App.tsx re-applies the policy when GET /feature-flags lands, in case an
+// admin override differs from the client-side default. Rendering is never
+// held hostage: a failed bundle load falls through to English.
+void applyLocalizationPolicy(useFeatureFlagsStore.getState().flags.localization_enabled)
+  .catch(() => {})
+  .finally(renderApp);

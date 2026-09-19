@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAuthStore, selectIsAdminFromToken } from './store/authStore';
 import { useFeatureFlagsStore, useMapEditorEnabled } from './store/featureFlagsStore';
+import { applyLocalizationPolicy } from './i18n';
 import { api } from './services/api';
 import { mergeServerTutorialModules } from './tutorial/progression';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
@@ -281,6 +282,16 @@ export default function App() {
   useEffect(() => {
     void useFeatureFlagsStore.getState().load();
   }, []);
+
+  // Reconcile the UI language with the server's `localization_enabled` once
+  // the flags land — an admin override can differ from the client-side default
+  // main.tsx applied before first paint. Idempotent; see src/i18n.
+  const flagsLoadedForI18n = useFeatureFlagsStore((s) => s.loaded);
+  const localizationEnabled = useFeatureFlagsStore((s) => s.flags.localization_enabled);
+  useEffect(() => {
+    if (!flagsLoadedForI18n) return;
+    void applyLocalizationPolicy(localizationEnabled).catch(() => {});
+  }, [flagsLoadedForI18n, localizationEnabled]);
 
   // Initialize push notifications for authenticated non-guest users
   useEffect(() => {

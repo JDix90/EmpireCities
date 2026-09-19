@@ -21,6 +21,7 @@ vi.mock('../components/landing/GameplayShowcase', () => ({ default: () => null }
 vi.mock('../store/featureFlagsStore', () => ({
   useOnboardingTutorialFirstEnabled: () => false,
   useHeroSingleCtaEnabled: () => true,
+  useLocalizationEnabled: () => false,
 }));
 vi.mock('../utils/embedContext', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../utils/embedContext')>()),

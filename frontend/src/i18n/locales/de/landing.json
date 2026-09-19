@@ -1,0 +1,104 @@
+{
+  "actions": {
+    "playFreeNow": "Jetzt kostenlos spielen",
+    "playFree": "Kostenlos spielen",
+    "playAsGuest": "Als Gast spielen",
+    "signIn": "Anmelden",
+    "learnToPlay": "Spielen lernen",
+    "seeGameplay": "Gameplay ansehen",
+    "createFreeAccount": "Kostenloses Konto erstellen"
+  },
+  "hero": {
+    "tagline": "Jede Grenze ist vorübergehend.",
+    "description": "Borderfall ist ein rundenbasiertes Strategiespiel, in dem du Gebiete über neun Zeitalter hinweg eroberst – von antiken Legionen bis zur galaktischen Grenze. Kostenlos im Browser spielbar.",
+    "descriptionSuffix": "Spiele in Echtzeit oder asynchron mit Freunden, Rivalen oder der KI.",
+    "friction": "Kein Konto · Kein Download · Etwa 7 Minuten"
+  },
+  "showcase": {
+    "caption": "Echtes Gameplay auf dem Globus der Gegenwart – eine der Karten unten."
+  },
+  "eras": {
+    "heading": "Wähle dein Zeitalter",
+    "globalHeading": "Global",
+    "globalDescription": "Weltkarten, die mehrere Kontinente und Epochen der Geschichte umspannen.",
+    "regionalHeading": "Regionale und eigene Karten",
+    "regionalDescription": "Karten im Maßstab eines Kriegsschauplatzes und Alternativgeschichte – von den Schlachtfeldern des Bürgerkriegs über überflutete Küsten bis zu indigenen Reichen – für schnellere, intensivere Feldzüge.",
+    "suggestedPlayers": "Empfohlene Spielerzahl:",
+    "territories": "Gebiete:",
+    "playersRange": "{{range}} Spieler",
+    "close": "Schließen",
+    "closeDialog": "Dialog schließen",
+    "comingSoon": "Demnächst",
+    "playThisMap": "Diese Karte spielen",
+    "ancient": {
+      "label": "Antike Welt",
+      "years": "3000 v. Chr. – 400 n. Chr.",
+      "summary": "Betritt die spätantike Welt, als Rom, Parthien und das Han-China Mächte ersten Ranges waren. Ziehe durch Reiche, Wüsten und Steppen und kämpfe um die Kontrolle über das Mittelmeer, Persien und Ostasien. Diese Karte betont Legionen, Kavallerie und lange Nachschublinien in einer vernetzten antiken Welt."
+    },
+    "medieval": {
+      "label": "Mittelalter",
+      "years": "400 – 1400 n. Chr.",
+      "summary": "Von den Kreuzzügen bis zu den Mongolenstürmen umfasst die mittelalterliche Karte Königreiche, Kalifate und Nomadenreiche. Halte Gebirgspässe, Flussübergänge und Handelsknoten, während du dein Reich ausdehnst. Ideal für Partien mit Schwerpunkt auf Diplomatie, Belagerungslinien und wechselnden Bündnissen."
+    },
+    "discovery": {
+      "label": "Zeitalter der Entdeckungen",
+      "years": "1400 – 1800 n. Chr.",
+      "summary": "Das Zeitalter der Segelschiffe, der Pulverreiche und der kolonialen Expansion. Kämpfe um Ozeane, Engstellen und die Handelsrouten der Neuen Welt. Dieses Zeitalter belohnt geschickte Seepositionierung und den Wettlauf um Ressourcen in Übersee."
+    },
+    "ww2": {
+      "label": "Zweiter Weltkrieg",
+      "years": "1939 – 1945",
+      "summary": "Ein globaler Kampf der Industriemächte: Land-, See- und Luftschauplätze von Europa bis zum Pazifik. Die Karte spiegelt die großen Bündnisse und Frontlinien des Zweiten Weltkriegs wider. Erwarte schnelle Runden mit hohem Einsatz, in denen mehrere Schauplätze gleichzeitig aufflammen können."
+    },
+    "coldwar": {
+      "label": "Kalter Krieg",
+      "years": "1945 – 1991",
+      "summary": "NATO, Warschauer Pakt und die blockfreie Welt in einem jahrzehntelangen Ringen um Einfluss und Stellvertreterkriege. Kontrolliere strategische Regionen, Seewege und die Brennpunkte des Atomzeitalters. Geeignet für längere Partien mit vielschichtiger Diplomatie und globalem Druck."
+    },
+    "modern": {
+      "label": "Die Gegenwart",
+      "years": "2026",
+      "summary": "Heutige Supermächte, regionale Bündnisse und Wirtschaftsblöcke auf einer Karte für das 21. Jahrhundert. Kämpfe um Technologiezentren, Energiekorridore und maritime Engstellen. Am besten für alle, die einen modernen geopolitischen Sandkasten mit vielen gangbaren Strategien mögen."
+    },
+    "acw": {
+      "label": "Amerikanischer Bürgerkrieg",
+      "years": "1861 – 1865",
+      "summary": "Ein konzentrierter nordamerikanischer Schauplatz: Union gegen Konföderation entlang der Ostküste, des Mississippi und des Westens jenseits des Mississippi. Die Gebiete folgen echten Staatsgrenzen für eine engere, taktischere Karte. Ideal für einen kürzeren, regionalen Feldzug mit klaren Frontlinien."
+    },
+    "risorgimento": {
+      "label": "Italienische Einigung",
+      "years": "1859 – 1871",
+      "summary": "Das Italien des Risorgimento: von Piemont und den beiden Sizilien zum geeinten Königreich. Die Gebiete folgen echten Provinzgrenzen, zu regionalen Schauplätzen über Halbinsel und Inseln zusammengefasst. Enger und schneller als eine Weltkarte – ideal für Diplomatie und Manöver an der Küste."
+    },
+    "space_age": {
+      "label": "Weltraumzeitalter",
+      "years": "2100 n. Chr.",
+      "summary": "Eine Welt im Jahr 2100 mit steigenden Meeren, Küstenmegastädten und einem umkämpften Mond. Erforsche die Mondexpansion, baue eine Startrampe und bringe eine Raumstation in den Orbit, um Macht ins All zu projizieren. Die Fraktion der Mondpioniere beginnt mit Zugang zum Mond; wer Wunder baut, kann die Station mit einem Weltraumlift überspringen."
+    },
+    "galaxy_age": {
+      "label": "Galaktisches Zeitalter – Demnächst",
+      "years": "Ferne Zukunft",
+      "summary": "Vier Welten, durch Hyperraumrouten verbunden: Halte ein Torsystem und schlage direkt über seine Route zu. Überquerungen würfeln mit weniger Würfeln, Tore verteidigen sich also wie Küsten – und jede Fraktion kämpft auf den Routen auf ihre eigene Weise."
+    }
+  },
+  "getStarted": {
+    "title": "Leg los",
+    "body": "Steig direkt als Gast ein – ganz ohne Registrierung. Ein Gastkonto bleibt in dem Browser, in dem du es angelegt hast; erstelle ein kostenloses Konto, wenn dein Fortschritt dich begleiten soll und du in den Ranglisten aufsteigen willst.",
+    "haveAccount": "Du hast schon ein Konto?"
+  },
+  "cta": {
+    "heading": "Bereit zu befehligen?",
+    "tagline": "Wenn Grenzen brechen, fallen Zeitalter.",
+    "noDownload": "Kein Download nötig. Spiele sofort in deinem Browser."
+  },
+  "footer": {
+    "copyright": "© 2026 {{appName}}. Alle Rechte vorbehalten.",
+    "about": "Über uns",
+    "privacy": "Datenschutz",
+    "terms": "Nutzungsbedingungen",
+    "contact": "Kontakt"
+  },
+  "errors": {
+    "guestStart": "Gastsitzung konnte nicht gestartet werden"
+  }
+}

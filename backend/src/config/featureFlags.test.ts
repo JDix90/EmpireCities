@@ -192,4 +192,13 @@ describe('featureFlags', () => {
     expect(featureFlags.warfrontEnabled).toBe(true);
     expect(getClientFeatureFlags().warfront_enabled).toBe(true);
   });
+
+  it('localization_enabled defaults to off (dark-launch) and is admin-overridable', () => {
+    expect(featureFlags.localizationEnabled).toBe(false);
+    expect(getClientFeatureFlags().localization_enabled).toBe(false);
+    expect(getFeatureFlagStates().localization_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { localization_enabled: true } });
+    expect(featureFlags.localizationEnabled).toBe(true);
+    expect(getClientFeatureFlags().localization_enabled).toBe(true);
+  });
 });

@@ -1,0 +1,64 @@
+{
+  "$comment": [
+    "Game portals allowed to embed borderfall.gg. SINGLE SOURCE OF TRUTH.",
+    "",
+    "Three things must agree or a portal's players silently lose their session:",
+    "  1. nginx `frame-ancestors` (who may frame the HTML)   -> docker/nginx.prod.conf",
+    "  2. EMBED_ORIGINS on the backend (who gets the cross-site refresh cookie)",
+    "  3. the client's per-portal policy (e.g. hide our own login UI)  -> frontend/src/utils/portals.generated.ts",
+    "",
+    "Edit THIS file, then run:  pnpm -C backend exec tsx scripts/syncPortals.ts",
+    "It rewrites (1) and (3) and prints the value to set for (2). A test fails if any drift.",
+    "",
+    "origins: absolute origins, no path. A leading `*.` matches subdomains only —",
+    "  never the bare domain (list it too) and never a TLD (`https://*.com` is refused).",
+    "  Both CSP and EMBED_ORIGINS read this same syntax. Country-code domains are separate",
+    "  registrations and must each be listed: no TLD wildcard exists anywhere.",
+    "ownAuthUi: false when the portal forbids a game showing its own login/registration.",
+    "  CrazyGames lists 'No external login options' under BASIC requirements."
+  ],
+  "portals": [
+    {
+      "id": "itch",
+      "name": "itch.io",
+      "origins": [
+        "https://itch.io",
+        "https://*.itch.io",
+        "https://*.itch.zone"
+      ],
+      "ownAuthUi": true,
+      "notes": "Project page is <user>.itch.io (top-level); the sandboxed player is *.itch.zone (immediate parent). Both are ancestors, so both are needed. No rule against our own login."
+    },
+    {
+      "id": "crazygames",
+      "name": "CrazyGames",
+      "origins": [
+        "https://crazygames.com",
+        "https://*.crazygames.com",
+        "capacitor://app.crazygames.com",
+        "https://www.crazygames.at",
+        "https://www.crazygames.co.id",
+        "https://www.crazygames.co.kr",
+        "https://www.crazygames.com.br",
+        "https://www.crazygames.com.ua",
+        "https://www.crazygames.com.vn",
+        "https://www.crazygames.cz",
+        "https://www.crazygames.dk",
+        "https://www.crazygames.fi",
+        "https://www.crazygames.fr",
+        "https://www.crazygames.hu",
+        "https://www.crazygames.jp",
+        "https://www.crazygames.nl",
+        "https://www.crazygames.no",
+        "https://www.crazygames.pl",
+        "https://www.crazygames.pt",
+        "https://www.crazygames.ro",
+        "https://www.crazygames.ru",
+        "https://www.crazygames.se",
+        "https://www.crazygames.vn"
+      ],
+      "ownAuthUi": false,
+      "notes": "Basic Launch submitted 2026-09-19. capacitor:// is their iOS app and must be listed with its scheme — a bare host inherits https and the app then white-screens. Regional sites are separate domains, enumerated from their sitelock docs; their docs write `crazygames.*`, which no allowlist syntax can express."
+    }
+  ]
+}

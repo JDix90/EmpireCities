@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore, waitForAuthBootstrap } from '../store/authStore';
 import { ownAuthUiAllowed } from '../utils/embedContext';
 import { useOnboardingTutorialFirstEnabled, useHeroSingleCtaEnabled } from '../store/featureFlagsStore';
@@ -8,183 +9,41 @@ import { canAccessGalacticAge, GALACTIC_AGE_ERA_ID } from '../constants/galactic
 import toast from 'react-hot-toast';
 import { X } from 'lucide-react';
 import BrandWordmark from '../components/ui/BrandWordmark';
+import LanguageSwitcher from '../components/ui/LanguageSwitcher';
 import GameplayShowcase from '../components/landing/GameplayShowcase';
-import {
-  APP_NAME,
-  TAGLINE_PRIMARY,
-  TAGLINE_CINEMATIC,
-  STORE_DESCRIPTION,
-  SUPPORT_EMAIL,
-} from '../constants/brand';
+import { APP_NAME, SUPPORT_EMAIL } from '../constants/brand';
 import { REGIONAL_MAPS } from '../data/regionalMaps';
+import { LANDING_ERAS, type LandingEra, type LandingEraCopy } from '../data/landingEras';
 
-type EraScope = 'global' | 'regional';
+/**
+ * Every visible string on this page comes from the `landing` bundle
+ * (src/i18n/locales/<lang>/landing.json); the English file is the source and
+ * mirrors the brand constants (localeBundles.test.ts). With
+ * `localization_enabled` off the page renders that English verbatim.
+ */
+type EraDefinition = LandingEra;
 
-interface EraDefinition {
-  id: string;
-  mapId: string;
-  label: string;
-  years: string;
-  color: string;
-  scope: EraScope;
-  territoryCount: number;
-  summary: string;
-  suggestedPlayers: string;
-  /** Per-era glyph so cards read as distinct maps, not 16 identical placeholders. */
-  icon?: string;
+/** The subset of i18next's `t` the era helpers need. */
+type Translate = (key: string, options?: Record<string, unknown>) => string;
+
+/** Era card copy in the active language; community maps fall back to their own data. */
+function eraCopy(t: Translate, era: EraDefinition): LandingEraCopy {
+  const fb = era.fallback;
+  return {
+    label: t(`eras.${era.id}.label`, { defaultValue: fb?.label ?? era.id }),
+    years: t(`eras.${era.id}.years`, { defaultValue: fb?.years ?? '' }),
+    summary: t(`eras.${era.id}.summary`, { defaultValue: fb?.summary ?? '' }),
+  };
 }
-
-const ERAS: EraDefinition[] = [
-  {
-    id: 'ancient',
-    mapId: 'era_ancient',
-    label: 'Ancient World',
-    years: '3000 BC – 400 AD',
-    color: '#c9a84c',
-    scope: 'global',
-    territoryCount: 28,
-    summary:
-      'Step into the late classical world when Rome, Parthia, and Han China were powers of the first magnitude. '
-      + 'Campaign across empires, deserts, and steppe as you fight for control of the Mediterranean, Persia, and East Asia. '
-      + 'This map emphasizes legions, cavalry, and long supply lines across a connected ancient world.',
-    suggestedPlayers: '2–6 players',
-  },
-  {
-    id: 'medieval',
-    mapId: 'era_medieval',
-    label: 'Medieval Era',
-    years: '400 – 1400 AD',
-    color: '#8b6914',
-    scope: 'global',
-    territoryCount: 29,
-    summary:
-      'From the Crusades to the Mongol conquests, the medieval map spans kingdoms, caliphates, and nomadic empires. '
-      + 'Hold mountain passes, river crossings, and trade hubs as you expand your realm. '
-      + 'Ideal for games that emphasize diplomacy, siege lines, and shifting alliances.',
-    suggestedPlayers: '2–6 players',
-  },
-  {
-    id: 'discovery',
-    mapId: 'era_discovery',
-    label: 'Age of Discovery',
-    years: '1400 – 1800 AD',
-    color: '#2e7d9e',
-    scope: 'global',
-    territoryCount: 34,
-    summary:
-      'The age of sail, gunpowder empires, and colonial expansion. Compete for control of oceans, chokepoints, and '
-      + 'new-world trade routes. This era rewards naval positioning and competition for overseas resources.',
-    suggestedPlayers: '2–6 players',
-  },
-  {
-    id: 'ww2',
-    mapId: 'era_ww2',
-    label: 'World War II',
-    years: '1939 – 1945',
-    color: '#5a5a5a',
-    scope: 'global',
-    territoryCount: 35,
-    summary:
-      'A global struggle of industrial powers: land, sea, and air theaters from Europe to the Pacific. '
-      + 'The map reflects major alliances and front lines of the Second World War. '
-      + 'Expect fast, high-stakes turns where multiple theaters can flare at once.',
-    suggestedPlayers: '2–6 players',
-  },
-  {
-    id: 'coldwar',
-    mapId: 'era_coldwar',
-    label: 'Cold War',
-    years: '1945 – 1991',
-    color: '#1a3a5c',
-    scope: 'global',
-    territoryCount: 44,
-    summary:
-      'NATO, the Warsaw Pact, and the non-aligned world in a decades-long contest of influence and proxy struggles. '
-      + 'Control strategic regions, sea lanes, and nuclear-age flashpoints. '
-      + 'Suited to longer games with layered diplomacy and global pressure.',
-    suggestedPlayers: '2–6 players',
-  },
-  {
-    id: 'modern',
-    mapId: 'era_modern',
-    label: 'The Modern Day',
-    years: '2026',
-    color: '#2ecc71',
-    scope: 'global',
-    territoryCount: 43,
-    summary:
-      'Contemporary superpowers, regional alliances, and economic blocs on a map tuned for the 21st century. '
-      + 'Fight for tech hubs, energy corridors, and maritime chokepoints. '
-      + 'Best for players who enjoy a modern geopolitical sandbox with many viable strategies.',
-    suggestedPlayers: '2–6 players',
-  },
-  {
-    id: 'acw',
-    mapId: 'era_acw',
-    label: 'American Civil War',
-    years: '1861 – 1865',
-    color: '#6b5344',
-    scope: 'regional',
-    territoryCount: 18,
-    summary:
-      'A focused North American theater: Union versus Confederacy across the Eastern seaboard, the Mississippi, '
-      + 'and the Trans-Mississippi West. Territories follow real state boundaries for a tighter, more tactical map. '
-      + 'Ideal when you want a shorter, regional campaign with clear front lines.',
-    suggestedPlayers: '2–4 players',
-  },
-  {
-    id: 'risorgimento',
-    mapId: 'era_risorgimento',
-    label: 'Italian Unification',
-    years: '1859 – 1871',
-    color: '#008C45',
-    scope: 'regional',
-    territoryCount: 14,
-    summary:
-      'Risorgimento Italy: from Piedmont and the Two Sicilies to a united kingdom. '
-      + 'Territories follow real provincial outlines merged into regional theaters across the peninsula and islands. '
-      + 'Tighter and faster than a world map—ideal for diplomacy and coastal maneuver.',
-    suggestedPlayers: '2–4 players',
-  },
-  {
-    id: 'space_age',
-    mapId: 'era_space_age',
-    label: 'Space Age',
-    years: '2100 AD',
-    color: '#8E9AF2',
-    scope: 'global',
-    territoryCount: 55,
-    summary:
-      'A projected world of 2100 with rising seas, coastal megacities, and a contested Moon. '
-      + 'Research Lunar Expansion, build a Launch Pad, and launch a Space Station to project power into orbit. '
-      + 'The Lunar Pioneers faction starts with Moon access; wonder builders may skip the station with a Space Elevator.',
-    suggestedPlayers: '2–6 players',
-  },
-  {
-    id: 'galaxy_age',
-    mapId: 'era_galaxy',
-    label: 'Galactic Age — Coming Soon',
-    years: 'Far Future',
-    color: '#9FA8DA',
-    scope: 'global',
-    territoryCount: 12,
-    summary:
-      'Four worlds linked by hyperspace lanes: hold a gateway system and strike straight across its lane. '
-      + 'Crossings roll fewer dice, so gateways defend like coasts — and each faction fights the lanes its own way.',
-    suggestedPlayers: '2–4 players',
-  },
-];
 
 const COMMUNITY_REGIONAL_ERAS: EraDefinition[] = REGIONAL_MAPS.map((rm) => ({
   id: rm.map_id,
   mapId: rm.map_id,
-  label: rm.name,
-  years: rm.year,
   color: rm.color,
   scope: 'regional',
   territoryCount: rm.territory_count,
-  summary: rm.description,
-  suggestedPlayers: '2–4 players',
+  playersRange: '2–4',
+  fallback: { label: rm.name, years: rm.year, summary: rm.description },
 }));
 
 /** Themed glyph per built-in era, keyed by id. Falls back to the map emoji. */
@@ -209,9 +68,9 @@ const withIcon = (e: EraDefinition, fallback: string): EraDefinition => ({
   icon: ERA_ICONS[e.id] ?? fallback,
 });
 
-const GLOBAL_ERAS = ERAS.filter((e) => e.scope === 'global').map((e) => withIcon(e, '🗺️'));
+const GLOBAL_ERAS = LANDING_ERAS.filter((e) => e.scope === 'global').map((e) => withIcon(e, '🗺️'));
 const REGIONAL_ERAS = [
-  ...ERAS.filter((e) => e.scope === 'regional').map((e) => withIcon(e, '🗺️')),
+  ...LANDING_ERAS.filter((e) => e.scope === 'regional').map((e) => withIcon(e, '🗺️')),
   ...COMMUNITY_REGIONAL_ERAS.map((e, i) => withIcon(e, COMMUNITY_ICON_POOL[i % COMMUNITY_ICON_POOL.length])),
 ];
 
@@ -227,6 +86,8 @@ function EraDetailModal({
   /** Non-admins cannot start Galactic Age yet (marketing “coming soon”). */
   playLocked: boolean;
 }) {
+  const { t } = useTranslation('landing');
+  const copy = eraCopy(t, era);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -246,7 +107,7 @@ function EraDetailModal({
         type="button"
         className="absolute inset-0 bg-black/75 backdrop-blur-[2px]"
         onClick={onClose}
-        aria-label="Close dialog"
+        aria-label={t('eras.closeDialog')}
       />
       <div className="relative z-10 flex min-h-full items-start justify-center sm:items-center">
         <div
@@ -257,7 +118,7 @@ function EraDetailModal({
           type="button"
           onClick={onClose}
           className="absolute top-2 right-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded text-bf-muted hover:text-bf-gold hover:bg-white/5 transition-colors"
-          aria-label="Close"
+          aria-label={t('eras.close')}
         >
           <X className="w-5 h-5" />
         </button>
@@ -270,19 +131,19 @@ function EraDetailModal({
         </div>
 
         <h4 id="era-modal-title" className="font-display text-2xl text-bf-gold text-center mb-1">
-          {era.label}
+          {copy.label}
         </h4>
-        <p className="text-center text-bf-muted text-sm mb-6">{era.years}</p>
+        <p className="text-center text-bf-muted text-sm mb-6">{copy.years}</p>
 
         <div className="space-y-4 text-bf-muted text-sm leading-relaxed">
-          <p>{era.summary}</p>
+          <p>{copy.summary}</p>
           <div className="flex flex-wrap gap-4 pt-2 border-t border-bf-border text-xs">
             <span>
-              <span className="text-bf-gold/90 font-medium">Suggested players:</span>{' '}
-              {era.suggestedPlayers}
+              <span className="text-bf-gold/90 font-medium">{t('eras.suggestedPlayers')}</span>{' '}
+              {t('eras.playersRange', { range: era.playersRange })}
             </span>
             <span>
-              <span className="text-bf-gold/90 font-medium">Territories:</span>{' '}
+              <span className="text-bf-gold/90 font-medium">{t('eras.territories')}</span>{' '}
               {era.territoryCount}
             </span>
           </div>
@@ -290,15 +151,15 @@ function EraDetailModal({
 
         <div className="mt-8 flex flex-col sm:flex-row gap-3 sm:justify-end">
           <button type="button" onClick={onClose} className="btn-secondary order-2 sm:order-1">
-            Close
+            {t('eras.close')}
           </button>
           {playLocked ? (
             <span className="btn-primary text-center order-1 sm:order-2 opacity-70 cursor-not-allowed select-none">
-              Coming Soon
+              {t('eras.comingSoon')}
             </span>
           ) : (
             <Link to={playHref} className="btn-primary text-center order-1 sm:order-2">
-              Play this Map
+              {t('eras.playThisMap')}
             </Link>
           )}
         </div>
@@ -309,6 +170,8 @@ function EraDetailModal({
 }
 
 function EraCardButton({ era, onOpen }: { era: EraDefinition; onOpen: (e: EraDefinition) => void }) {
+  const { t } = useTranslation('landing');
+  const copy = eraCopy(t, era);
   return (
     <button
       type="button"
@@ -321,8 +184,8 @@ function EraCardButton({ era, onOpen }: { era: EraDefinition; onOpen: (e: EraDef
       >
         {era.icon ?? '🗺️'}
       </div>
-      <p className="font-display text-sm text-bf-gold group-hover:text-white transition-colors">{era.label}</p>
-      <p className="text-xs text-bf-muted mt-1">{era.years}</p>
+      <p className="font-display text-sm text-bf-gold group-hover:text-white transition-colors">{copy.label}</p>
+      <p className="text-xs text-bf-muted mt-1">{copy.years}</p>
     </button>
   );
 }
@@ -337,6 +200,7 @@ function GetStartedModal({
   onGuest: () => void;
   guestLoading: boolean;
 }) {
+  const { t } = useTranslation('landing');
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4 pt-safe pb-safe"
@@ -349,9 +213,9 @@ function GetStartedModal({
         aria-modal="true"
         aria-labelledby="get-started-title"
       >
-        <p id="get-started-title" className="font-display text-2xl text-bf-gold mb-1 text-center">Jump In</p>
+        <p id="get-started-title" className="font-display text-2xl text-bf-gold mb-1 text-center">{t('getStarted.title')}</p>
         <p className="text-bf-muted text-sm text-center mb-6">
-          Jump straight in as a guest — no signup needed. A guest account stays in the browser you made it in; create a free account when you want your progress to follow you and to climb the leaderboards.
+          {t('getStarted.body')}
         </p>
 
         <div className="flex flex-col gap-3">
@@ -361,22 +225,22 @@ function GetStartedModal({
             onClick={onGuest}
             className="btn-primary py-3 text-base disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {guestLoading ? 'Starting…' : 'Play as Guest'}
+            {guestLoading ? t('common:starting') : t('actions.playAsGuest')}
           </button>
           {ownAuthUiAllowed() && <Link
             to="/register"
             className="btn-secondary py-3 text-base text-center"
             onClick={onClose}
           >
-            Create Free Account
+            {t('actions.createFreeAccount')}
           </Link>}
         </div>
 
         {ownAuthUiAllowed() && (
           <p className="text-center text-xs text-bf-muted mt-4">
-            Already have an account?{' '}
+            {t('getStarted.haveAccount')}{' '}
             <Link to="/login" className="text-bf-gold hover:underline" onClick={onClose}>
-              Sign In
+              {t('actions.signIn')}
             </Link>
           </p>
         )}
@@ -386,6 +250,7 @@ function GetStartedModal({
 }
 
 export default function LandingPage() {
+  const { t } = useTranslation('landing');
   const [modalEra, setModalEra] = useState<EraDefinition | null>(null);
   const [showGetStarted, setShowGetStarted] = useState(false);
   const [guestLoading, setGuestLoading] = useState(false);
@@ -437,7 +302,7 @@ export default function LandingPage() {
         navigate('/lobby');
       }
     } catch {
-      toast.error('Could not start guest session');
+      toast.error(t('errors.guestStart'));
       setGuestLoading(false);
     }
   };
@@ -452,6 +317,8 @@ export default function LandingPage() {
     }
   }, [modalEra, showGetStarted]);
 
+  const startingLabel = t('common:starting');
+
   return (
     <div className="min-h-screen bg-bf-dark">
       {/* Navigation */}
@@ -463,7 +330,7 @@ export default function LandingPage() {
           {!singleCta && (
             <>
               <Link to="/tutorial" className="btn-secondary text-sm hidden sm:inline-flex">
-                Learn to play
+                {t('actions.learnToPlay')}
               </Link>
               <button
                 type="button"
@@ -471,18 +338,18 @@ export default function LandingPage() {
                 disabled={guestLoading}
                 onClick={() => { trackPlayClick('nav_mobile_guest'); void handleGuest(); }}
               >
-                {guestLoading ? 'Starting…' : 'Play as Guest'}
+                {guestLoading ? startingLabel : t('actions.playAsGuest')}
               </button>
             </>
           )}
-          {ownAuthUiAllowed() && <Link to="/login" className="btn-secondary text-sm">Sign In</Link>}
+          {ownAuthUiAllowed() && <Link to="/login" className="btn-secondary text-sm">{t('actions.signIn')}</Link>}
           {!singleCta && (
             <button
               type="button"
               className="btn-primary text-sm hidden sm:inline-flex"
               onClick={() => { trackPlayClick('nav'); setShowGetStarted(true); }}
             >
-              Play Free
+              {t('actions.playFree')}
             </button>
           )}
         </div>
@@ -494,10 +361,10 @@ export default function LandingPage() {
           {APP_NAME}
         </h2>
         <p data-testid="hero-tagline" className="font-display text-lg sm:text-xl text-bf-gold/90 italic mb-4">
-          {TAGLINE_PRIMARY}
+          {t('hero.tagline')}
         </p>
         <p className="text-bf-muted text-base sm:text-xl max-w-2xl mx-auto mb-8 sm:mb-10">
-          {STORE_DESCRIPTION} Play real-time or async with friends, rivals, or AI.
+          {t('hero.description')} {t('hero.descriptionSuffix')}
         </p>
         {singleCta ? (
           /* One dominant action: click → guest session → straight into play
@@ -511,15 +378,15 @@ export default function LandingPage() {
               disabled={guestLoading}
               onClick={() => { trackPlayClick('hero'); void handleGuest(); }}
             >
-              {guestLoading ? 'Starting…' : 'Play Free Now'}
+              {guestLoading ? startingLabel : t('actions.playFreeNow')}
             </button>
-            <p className="text-bf-muted text-sm">No account · No download · About 7 minutes</p>
+            <p className="text-bf-muted text-sm">{t('hero.friction')}</p>
             <button
               type="button"
               className="text-bf-gold/80 hover:text-bf-gold text-sm underline underline-offset-4"
               onClick={() => document.getElementById('gameplay')?.scrollIntoView({ behavior: 'smooth' })}
             >
-              See gameplay
+              {t('actions.seeGameplay')}
             </button>
           </div>
         ) : (
@@ -529,12 +396,12 @@ export default function LandingPage() {
               className="btn-primary text-base sm:text-lg px-8 sm:px-10 py-3"
               onClick={() => { trackPlayClick('hero'); setShowGetStarted(true); }}
             >
-              Play Free Now
+              {t('actions.playFreeNow')}
             </button>
             <Link to="/tutorial" className="btn-secondary text-base sm:text-lg px-8 sm:px-10 py-3 text-center">
-              Learn to play
+              {t('actions.learnToPlay')}
             </Link>
-            {ownAuthUiAllowed() && <Link to="/login" className="btn-secondary text-base sm:text-lg px-8 sm:px-10 py-3 text-center hidden sm:inline-flex justify-center">Sign In</Link>}
+            {ownAuthUiAllowed() && <Link to="/login" className="btn-secondary text-base sm:text-lg px-8 sm:px-10 py-3 text-center hidden sm:inline-flex justify-center">{t('actions.signIn')}</Link>}
           </div>
         )}
       </section>
@@ -543,18 +410,18 @@ export default function LandingPage() {
       <section id="gameplay" className="py-12 sm:py-16 px-6 max-w-6xl mx-auto">
         <GameplayShowcase />
         <p className="mt-4 text-center text-sm text-bf-muted">
-          Real gameplay on the Modern Day globe — one of the maps below.
+          {t('showcase.caption')}
         </p>
       </section>
 
       {/* Era Showcase */}
       <section className="pt-8 pb-16 px-6 max-w-6xl mx-auto">
-        <h3 className="font-display text-3xl text-center text-bf-gold mb-10">Choose Your Era</h3>
+        <h3 className="font-display text-3xl text-center text-bf-gold mb-10">{t('eras.heading')}</h3>
 
         <div className="mb-12">
-          <h4 className="font-display text-lg text-bf-gold/95 mb-4 tracking-wide">Global</h4>
+          <h4 className="font-display text-lg text-bf-gold/95 mb-4 tracking-wide">{t('eras.globalHeading')}</h4>
           <p className="text-bf-muted text-sm mb-6 max-w-2xl">
-            Full-world maps spanning multiple continents and eras of history.
+            {t('eras.globalDescription')}
           </p>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {GLOBAL_ERAS.map((era) => (
@@ -564,10 +431,9 @@ export default function LandingPage() {
         </div>
 
         <div>
-          <h4 className="font-display text-lg text-bf-gold/95 mb-4 tracking-wide">Regional &amp; Custom Maps</h4>
+          <h4 className="font-display text-lg text-bf-gold/95 mb-4 tracking-wide">{t('eras.regionalHeading')}</h4>
           <p className="text-bf-muted text-sm mb-6 max-w-2xl">
-            Theater-scale and alternate-history maps — from Civil War battlefields to flooded coastlines and indigenous
-            polities — for faster, more intimate campaigns.
+            {t('eras.regionalDescription')}
           </p>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {REGIONAL_ERAS.map((era) => (
@@ -598,26 +464,26 @@ export default function LandingPage() {
 
       {/* CTA */}
       <section className="py-20 text-center px-6">
-        <h3 className="font-display text-4xl text-bf-gold mb-4">Ready to Command?</h3>
-        <p className="text-bf-muted italic mb-4">{TAGLINE_CINEMATIC}</p>
-        <p className="text-bf-muted mb-8">No download required. Play instantly in your browser.</p>
+        <h3 className="font-display text-4xl text-bf-gold mb-4">{t('cta.heading')}</h3>
+        <p className="text-bf-muted italic mb-4">{t('cta.tagline')}</p>
+        <p className="text-bf-muted mb-8">{t('cta.noDownload')}</p>
         <button
           type="button"
           className="btn-primary text-lg px-12 py-3"
           onClick={() => { trackPlayClick('bottom'); setShowGetStarted(true); }}
         >
-          Play Free Now
+          {t('actions.playFreeNow')}
         </button>
       </section>
 
       {/* Footer */}
       <footer className="border-t border-bf-border pt-8 pb-safe-8 text-center text-bf-muted text-sm space-y-2">
-        <p>© 2026 {APP_NAME}. All rights reserved.</p>
+        <p>{t('footer.copyright', { appName: APP_NAME })}</p>
         <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
-          <Link to="/about" className="text-bf-gold/80 hover:text-bf-gold">About</Link>
-          <Link to="/privacy" className="text-bf-gold/80 hover:text-bf-gold">Privacy Policy</Link>
-          <Link to="/terms" className="text-bf-gold/80 hover:text-bf-gold">Terms of Service</Link>
-          <a href={`mailto:${SUPPORT_EMAIL}`} className="text-bf-gold/80 hover:text-bf-gold">Contact</a>
+          <Link to="/about" className="text-bf-gold/80 hover:text-bf-gold">{t('footer.about')}</Link>
+          <Link to="/privacy" className="text-bf-gold/80 hover:text-bf-gold">{t('footer.privacy')}</Link>
+          <Link to="/terms" className="text-bf-gold/80 hover:text-bf-gold">{t('footer.terms')}</Link>
+          <a href={`mailto:${SUPPORT_EMAIL}`} className="text-bf-gold/80 hover:text-bf-gold">{t('footer.contact')}</a>
           <a
             href="https://www.reddit.com/r/borderfall"
             target="_blank"
@@ -627,6 +493,8 @@ export default function LandingPage() {
             Reddit
           </a>
         </div>
+        {/* Renders nothing until localization_enabled is on. */}
+        <LanguageSwitcher className="justify-center pt-2" />
       </footer>
     </div>
   );

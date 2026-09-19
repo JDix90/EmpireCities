@@ -13,3 +13,8 @@ const mockStorage: Storage = {
 };
 
 Object.defineProperty(globalThis, 'localStorage', { value: mockStorage, writable: true });
+
+// Every component test gets the initialized i18next instance with the English
+// bundles, exactly as main.tsx provides in the app. Without it useTranslation()
+// renders raw keys and every text assertion fails.
+import '../i18n';

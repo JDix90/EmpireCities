@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { GraduationCap, ChevronDown, ChevronRight, ChevronUp, X } from 'lucide-react';
 import clsx from 'clsx';
+import { useTranslation } from 'react-i18next';
 import { isMobileViewport, isShortViewport } from '../../utils/device';
 import {
   TUTORIAL_MODULES,
@@ -9,6 +10,7 @@ import {
   type TutorialStep,
 } from '../../tutorial';
 import { getCompletedTutorialModules } from '../../tutorial/progression';
+import { localizeTutorialModuleMeta, localizeTutorialStep } from '../../tutorial/localize';
 
 export type { TutorialStep };
 
@@ -102,7 +104,10 @@ export default function TutorialOverlay({
   panelOpen = false,
   territorySelected = false,
 }: TutorialOverlayProps) {
-  const step = steps[stepIndex];
+  const { t } = useTranslation('tutorial');
+  const rawStep = steps[stepIndex] as TutorialStep | undefined;
+  // Copy in the active language; gates, actions and layout hints are untouched.
+  const step = rawStep ? localizeTutorialStep(rawStep, t, lessonModule) : undefined;
   const [whyOpen, setWhyOpen] = useState(false);
   /**
    * Explicit fold choice for a docked card, or null to follow the default.
@@ -193,7 +198,7 @@ export default function TutorialOverlay({
           <GraduationCap className="w-4 h-4 text-bf-gold shrink-0" />
           <span className="min-w-0">
             <span className="block text-[10px] text-bf-muted/60 uppercase tracking-widest">
-              Step {stepIndex + 1} / {steps.length}
+              {t('overlay.step', { current: stepIndex + 1, total: steps.length })}
             </span>
             <span className="block font-display text-sm text-bf-gold truncate">{title}</span>
           </span>
@@ -249,7 +254,7 @@ export default function TutorialOverlay({
           <div className={centered || anchorTop ? 'min-h-0 overflow-y-auto' : undefined}>
           <div className={`flex items-center justify-between mb-1 ${centered ? 'px-1' : ''}`}>
             <span className="text-[10px] text-bf-muted/60 uppercase tracking-widest">
-              Step {stepIndex + 1} / {steps.length}
+              {t('overlay.step', { current: stepIndex + 1, total: steps.length })}
             </span>
             {foldable && (
               <button
@@ -257,8 +262,8 @@ export default function TutorialOverlay({
                 data-testid="tutorial-card-fold"
                 onClick={() => setFoldOverride(true)}
                 aria-expanded
-                aria-label="Collapse the tutorial card"
-                title="Collapse — the board is behind this card"
+                aria-label={t('overlay.collapse')}
+                title={t('overlay.collapseTitle')}
                 className="-mr-1 -mt-1 p-1 text-bf-muted hover:text-bf-gold transition-colors"
               >
                 <ChevronUp className="w-4 h-4" />
@@ -299,7 +304,7 @@ export default function TutorialOverlay({
                 className="flex items-center gap-1 text-xs text-bf-gold/90 hover:text-bf-gold transition-colors"
               >
                 {whyOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                Why this matters
+                {t('overlay.whyThisMatters')}
               </button>
               {whyOpen && (
                 <p className="text-bf-muted/70 text-xs mt-1 leading-relaxed">{step.whyItMatters}</p>
@@ -320,12 +325,12 @@ export default function TutorialOverlay({
 
           {step.actionOpenTechTree && onOpenTechTree && (
             <button type="button" onClick={onOpenTechTree} className="btn-secondary text-sm w-full mb-2">
-              Open Tech Tree
+              {t('overlay.openTechTree')}
             </button>
           )}
           {step.actionOpenBonuses && onOpenBonuses && (
             <button type="button" onClick={onOpenBonuses} className="btn-secondary text-sm w-full mb-2">
-              Open Bonuses
+              {t('overlay.openBonuses')}
             </button>
           )}
           {step.actionOpenSettingsLab && onOpenSettingsLab && (
@@ -335,7 +340,7 @@ export default function TutorialOverlay({
               onClick={onOpenSettingsLab}
               className="btn-secondary text-sm w-full mb-2"
             >
-              Open Settings Lab
+              {t('overlay.openSettingsLab')}
             </button>
           )}
 
@@ -347,11 +352,11 @@ export default function TutorialOverlay({
                 onClick={onContinuePlaying}
                 className="btn-primary text-base w-full"
               >
-                Continue playing
+                {t('overlay.continuePlaying')}
               </button>
               {lessonModule === 'core' && onLaunchModule && TUTORIAL_V2_ENABLED && (
                 <div className="pt-2 border-t border-bf-border/60 space-y-2">
-                  <p className="text-[10px] uppercase tracking-widest text-bf-muted">Optional deep dives</p>
+                  <p className="text-[10px] uppercase tracking-widest text-bf-muted">{t('overlay.optionalDeepDives')}</p>
                   {OPTIONAL_MODULES.map((mod) => {
                     const meta = TUTORIAL_MODULES.find((m) => m.id === mod);
                     const done = completedModules.includes(mod);
@@ -362,9 +367,9 @@ export default function TutorialOverlay({
                         onClick={() => onLaunchModule(mod)}
                         className="btn-secondary text-sm w-full text-left flex justify-between items-center gap-2"
                       >
-                        <span>{meta?.title ?? mod}</span>
+                        <span>{meta ? localizeTutorialModuleMeta(meta, t).title : mod}</span>
                         <span className="text-[10px] text-bf-muted shrink-0">
-                          {done ? 'Done' : `~${meta?.estimatedMinutes ?? 5}m`}
+                          {done ? t('overlay.done') : t('overlay.minutesShort', { minutes: meta?.estimatedMinutes ?? 5 })}
                         </span>
                       </button>
                     );
@@ -372,7 +377,7 @@ export default function TutorialOverlay({
                 </div>
               )}
               <button type="button" onClick={onReturnToLobby} className="btn-secondary text-base w-full">
-                Return to lobby
+                {t('overlay.returnToLobby')}
               </button>
             </div>
           ) : step.variant === 'module_complete' ? (
@@ -383,10 +388,10 @@ export default function TutorialOverlay({
                 onClick={handleModuleComplete}
                 className="btn-primary text-base w-full"
               >
-                Back to lobby
+                {t('overlay.backToLobby')}
               </button>
               {onLaunchModule && (
-                <p className="text-xs text-bf-muted">More lessons are available from the lobby or How to Play.</p>
+                <p className="text-xs text-bf-muted">{t('overlay.moreLessons')}</p>
               )}
             </div>
           ) : !step.requireAction ? (
@@ -397,7 +402,7 @@ export default function TutorialOverlay({
                 onClick={onAdvance}
                 className="btn-primary text-base w-full"
               >
-                Next
+                {t('overlay.next')}
               </button>
               {step.id === 'welcome' && onSkipToEnd && (
                 <button
@@ -406,7 +411,7 @@ export default function TutorialOverlay({
                   onClick={onSkipToEnd}
                   className="btn-secondary text-sm w-full"
                 >
-                  Skip to the end
+                  {t('overlay.skipToEnd')}
                 </button>
               )}
             </div>
@@ -418,14 +423,14 @@ export default function TutorialOverlay({
               )}
             >
               {step.requireAction === 'tech_researched'
-                ? 'Research a technology to continue…'
+                ? t('overlay.waitTechResearched')
                 : step.requireAction === 'ability_used'
-                  ? 'Use your faction ability to continue…'
+                  ? t('overlay.waitAbilityUsed')
                   : step.requireAction === 'bonuses_opened'
-                    ? 'Open the Bonuses panel to continue…'
+                    ? t('overlay.waitBonusesOpened')
                     : step.requireAction === 'tech_tree_opened'
-                      ? 'Open the Tech Tree to continue…'
-                      : 'Complete the action to continue…'}
+                      ? t('overlay.waitTechTreeOpened')
+                      : t('overlay.waitDefault')}
             </p>
           )}
 
@@ -443,7 +448,7 @@ export default function TutorialOverlay({
                 )}
               >
                 <X className="w-3.5 h-3.5 shrink-0" />
-                Exit Tutorial
+                {t('overlay.exitTutorial')}
               </button>
             </div>
           )}

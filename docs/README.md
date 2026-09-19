@@ -35,6 +35,8 @@ Status: **current** (maintained, carries source-of-truth pointers) · **point-in
 | [MOBILE_CAPACITOR.md](MOBILE_CAPACITOR.md) | Native iOS/Android builds | current |
 | [COMMUNITY_MAP_FIXES.md](COMMUNITY_MAP_FIXES.md) | Community-map maintenance log | current |
 | [LAUNCH_QA_SIGNOFF.md](LAUNCH_QA_SIGNOFF.md) | Pre-release QA gates A–H | current |
+| [PORTALS.md](PORTALS.md) | Game-portal embedding (itch.io, CrazyGames): the origin registry, the add-a-portal routine, live verification probes | current |
+| [LOCALIZATION.md](LOCALIZATION.md) | UI localization (landing + tutorial): the flag, language selection, bundle layout, adding a string or a language | current |
 | [CODEBASE_STATUS.md](CODEBASE_STATUS.md) | Already-implemented-features checklist | point-in-time |
 | [AUDIT_BACKLOG.md](AUDIT_BACKLOG.md) | Security/code audit tracking | point-in-time |
 | [LAUNCH_PLAN_PHASES_1_2.md](LAUNCH_PLAN_PHASES_1_2.md) | Release phase planning | design-archive |

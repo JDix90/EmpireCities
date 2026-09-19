@@ -15,6 +15,10 @@
  * configured portal but never invent one.
  */
 
+import { PORTALS, type Portal } from './portals.generated';
+
+export type { Portal };
+
 /** Must match EMBEDDER_HEADER in backend/src/modules/auth/embedContext.ts. */
 export const EMBEDDER_HEADER = 'x-bf-embedder';
 
@@ -64,40 +68,52 @@ export function embedderHeaders(): Record<string, string> {
 /**
  * Whether OUR OWN login/registration UI may be shown in this document.
  *
- * CrazyGames forbids it. Their account-integration requirements state the
- * experience they guarantee their users — "No additional login flows in-game
- * are needed", and guests must not "use different login methods than 'Login
- * with CrazyGames'" — and their QA checklist lists "No external login options"
- * under BASIC requirements, which is the bar this submission is held to. An
- * email/password Sign In is exactly such an option.
+ * Some portals forbid it. CrazyGames' account-integration requirements state
+ * the experience they guarantee their users — "No additional login flows
+ * in-game are needed", and guests must not "use different login methods than
+ * 'Login with CrazyGames'" — and their QA checklist lists "No external login
+ * options" under BASIC requirements. An email/password Sign In is exactly such
+ * an option.
  *
- * So inside a CrazyGames frame the app is guest-only: the auth CTAs are hidden
- * and /login, /register and /upgrade redirect away. Nothing changes for a
- * direct player, or for any other portal — itch.io has no such rule, and an
- * itch player with an account can still sign in.
+ * Which portals forbid it is data, not code: `ownAuthUi` in
+ * docker/portals.json, carried into PORTALS by the sync script. Inside such a
+ * frame the app is guest-only — the auth CTAs are hidden and /login, /register
+ * and /upgrade redirect away. Nothing changes for a direct player, or for a
+ * portal without the rule (itch.io), where a player with an account can still
+ * sign in.
  *
- * This is presentation, not authorization. It hides a flow a portal disallows;
- * it is not a security boundary, and the server still decides what any request
- * is actually permitted to do.
+ * Presentation, not authorization: it hides a flow a portal disallows. The
+ * server still decides what any request is actually permitted to do.
  */
-export function ownAuthUiAllowed(): boolean {
-  return !isCrazyGamesEmbed();
+export function ownAuthUiAllowed(origin: string | undefined = EMBEDDER_ORIGIN): boolean {
+  return detectPortal(origin)?.ownAuthUi ?? true;
 }
 
-/** True when the framing portal is CrazyGames, on any of its domains. */
-export function isCrazyGamesEmbed(origin: string | undefined = EMBEDDER_ORIGIN): boolean {
-  if (!origin) return false;
-  let hostname: string;
-  try {
-    hostname = new URL(origin).hostname.toLowerCase();
-  } catch {
-    return false;
-  }
-  const labels = hostname.split('.');
-  const at = labels.indexOf('crazygames');
-  // `crazygames` must be a WHOLE label and part of the registrable domain, so
-  // crazygames.com, crazygames.co.kr and crazygames.com.br all count while
-  // evilcrazygames.com (not a label) and crazygames.com.evil.test (a
-  // subdomain of someone else's domain) do not.
-  return at !== -1 && at >= labels.length - 3 && at < labels.length - 1;
+/**
+ * The registry entry for whoever is framing us, or undefined when nobody is —
+ * or when the framer is not a known portal, which for policy purposes is the
+ * same thing: an unknown framer could not have passed `frame-ancestors`.
+ *
+ * Matching mirrors the backend allowlist exactly (`isEmbeddedOrigin` in
+ * backend/src/modules/auth/embedContext.ts): an entry matches its own origin
+ * verbatim, and a `scheme://*.suffix` entry matches any subdomain of that
+ * suffix — compared WITH the leading dot, so `evil.crazygames.com` is in and
+ * `evilcrazygames.com` and `crazygames.com.evil.test` are out. Scheme and port
+ * are part of the comparison. The same list feeds the CSP and the cookie
+ * allowlist, so the three cannot disagree about who a portal is.
+ */
+export function detectPortal(origin: string | undefined = EMBEDDER_ORIGIN): Portal | undefined {
+  if (!origin) return undefined;
+  return PORTALS.find((p) => p.origins.some((pattern) => originMatches(origin, pattern)));
+}
+
+function originMatches(origin: string, pattern: string): boolean {
+  if (origin === pattern) return true;
+  const marker = pattern.indexOf('://*.');
+  if (marker === -1) return false;
+  const prefix = `${pattern.slice(0, marker)}://`;
+  if (!origin.startsWith(prefix)) return false;
+  const suffix = pattern.slice(marker + '://*.'.length);
+  const authority = origin.slice(prefix.length);
+  return authority.length > suffix.length + 1 && authority.endsWith(`.${suffix}`);
 }
