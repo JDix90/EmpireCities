@@ -556,7 +556,7 @@ export default function GamePage() {
   const coachEligibleRef = useRef(coachEligible);
   coachEligibleRef.current = coachEligible;
   const tutorialLessonModule = (gameState?.settings?.tutorial_lesson_module ?? 'core') as TutorialLessonModule;
-  // Snapshotted at creation: this game is the core lesson on Tutorial Island,
+  // Snapshotted at creation: this game is the core lesson on the tutorial board,
   // which covers the standalone Era Advancement module end to end and so credits
   // both (see markLessonComplete).
   const tutorialCombined = gameState?.settings?.tutorial_combined === true;

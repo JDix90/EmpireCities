@@ -192,6 +192,30 @@ export async function recordGameResults(
     // Build AI opponents for solo rating
     const aiPlayers = state.players.filter((p) => p.is_ai);
 
+    /**
+     * The tutorial is a lesson, not a rated game.
+     *
+     * It runs as an ordinary solo game against a bot, so without this it was
+     * scored like one — and it moves a rating hard in both directions, because
+     * a first-time player's phi is still wide open:
+     *
+     *  - finishing it is a guaranteed win (the tutorial bot never attacks,
+     *    `aiBot.ts`): +49 mu on the first run from a fresh account, and
+     *    replaying climbed 1500 → 1549 → 1580 → 1604 → 1622 over five runs
+     *    while phi tightened 350 → 235, so the number also looked better
+     *    evidenced than it was;
+     *  - quitting it is worse: `game:resign` past the two-turn grace window
+     *    credits the surviving AI a `last_standing` win and runs this
+     *    pipeline, which from a fresh account is -473 mu. The tutorial's era
+     *    steps land on the player's SECOND turn, so anyone who reaches them
+     *    and then leaves is already past that window.
+     *
+     * XP, gold and the recorded `final_rank` deliberately stay — the game did
+     * happen and onboarding still pays. Only the competitive number is
+     * withheld. `tutorialRating.test.ts` pins both directions.
+     */
+    const ratesPlayers = !state.settings.tutorial;
+
     for (const p of humanPlayers) {
       const rank = ranks.get(p.player_id) ?? totalPlayers;
       const xp = computeXp(xpConfig, p, rank, totalPlayers, gameType);
@@ -202,45 +226,53 @@ export async function recordGameResults(
       // co-winner must not be scored as a loss against AI opponents.
       const isWinner = winners.has(p.player_id);
 
-      // Build opponent list
-      const opponents = [];
-      for (const other of humanPlayers) {
-        if (other.player_id === p.player_id) continue;
-        const otherRating = ratingMap.get(other.player_id) ?? { mu: initialRatings.mu, phi: initialRatings.phi };
-        opponents.push({
-          mu: otherRating.mu,
-          phi: otherRating.phi,
-          score: scoreVsOpponent({ rank, totalPlayers, isWinner, opponentIsAi: false }),
-        });
+      // The rated mu this game settled on, or null when the game does not
+      // rate — which keeps the legacy `users.mmr` column below untouched too.
+      let ratedMu: number | null = null;
+      let muDelta = 0;
+
+      if (ratesPlayers) {
+        // Build opponent list
+        const opponents = [];
+        for (const other of humanPlayers) {
+          if (other.player_id === p.player_id) continue;
+          const otherRating = ratingMap.get(other.player_id) ?? { mu: initialRatings.mu, phi: initialRatings.phi };
+          opponents.push({
+            mu: otherRating.mu,
+            phi: otherRating.phi,
+            score: scoreVsOpponent({ rank, totalPlayers, isWinner, opponentIsAi: false }),
+          });
+        }
+        // For solo/hybrid games, treat AI bots as synthetic opponents.
+        // Only a win scores against AI — losses and resignations cannot
+        // farm rating from AI placement padding.
+        for (const ai of aiPlayers) {
+          const aiOp = syntheticAiOpponent(ai.ai_difficulty ?? 'medium');
+          opponents.push({
+            mu: aiOp.mu,
+            phi: aiOp.phi,
+            score: scoreVsOpponent({ rank, totalPlayers, isWinner, opponentIsAi: true }),
+          });
+        }
+
+        const updated = opponents.length > 0
+          ? glickoUpdate(current.mu, current.phi, opponents)
+          : current;
+
+        ratedMu = updated.mu;
+        muDelta = Math.round(updated.mu - current.mu);
+        ctx.ratingDeltas.set(p.player_id, muDelta);
+        ctx.ratingProvisional.set(p.player_id, displayRating(updated.mu, updated.phi).provisional);
+
+        // Write Glicko rating
+        await client.query(
+          `INSERT INTO user_ratings (user_id, rating_type, mu, phi, last_rated)
+           VALUES ($1, $2, $3, $4, NOW())
+           ON CONFLICT (user_id, rating_type) DO UPDATE
+           SET mu = $3, phi = $4, last_rated = NOW()`,
+          [p.player_id, ratingType, updated.mu, updated.phi],
+        );
       }
-      // For solo/hybrid games, treat AI bots as synthetic opponents.
-      // Only a win scores against AI — losses and resignations cannot
-      // farm rating from AI placement padding.
-      for (const ai of aiPlayers) {
-        const aiOp = syntheticAiOpponent(ai.ai_difficulty ?? 'medium');
-        opponents.push({
-          mu: aiOp.mu,
-          phi: aiOp.phi,
-          score: scoreVsOpponent({ rank, totalPlayers, isWinner, opponentIsAi: true }),
-        });
-      }
-
-      const updated = opponents.length > 0
-        ? glickoUpdate(current.mu, current.phi, opponents)
-        : current;
-
-      const muDelta = Math.round(updated.mu - current.mu);
-      ctx.ratingDeltas.set(p.player_id, muDelta);
-      ctx.ratingProvisional.set(p.player_id, displayRating(updated.mu, updated.phi).provisional);
-
-      // Write Glicko rating
-      await client.query(
-        `INSERT INTO user_ratings (user_id, rating_type, mu, phi, last_rated)
-         VALUES ($1, $2, $3, $4, NOW())
-         ON CONFLICT (user_id, rating_type) DO UPDATE
-         SET mu = $3, phi = $4, last_rated = NOW()`,
-        [p.player_id, ratingType, updated.mu, updated.phi],
-      );
 
       await client.query(
         `UPDATE game_players
@@ -257,8 +289,12 @@ export async function recordGameResults(
       const currentXp = userRow.rows[0]?.xp ?? 0;
       const newXp = currentXp + xp;
       const newLevel = computeLevel(newXp);
-      // Keep legacy mmr in sync (mu-500 mapped back to old 1000-base scale)
-      const legacyMmr = Math.max(0, Math.round(updated.mu - 500));
+      // Keep legacy mmr in sync (mu-500 mapped back to old 1000-base scale).
+      // An unrated game writes the value back unchanged rather than deriving
+      // one, so the tutorial cannot move this column either.
+      const legacyMmr = ratedMu !== null
+        ? Math.max(0, Math.round(ratedMu - 500))
+        : userRow.rows[0]?.mmr ?? 1000;
 
       await client.query(
         'UPDATE users SET xp = $1, mmr = $2, level = $3 WHERE user_id = $4',

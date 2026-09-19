@@ -89,4 +89,4 @@ The terms every translation must keep consistent, and the English UI labels that
 | Lobby | vestíbulo | lobby | Lobby | salon |
 | Codex | Códice | Códice | Kodex | Codex |
 
-Quoted as-is because the game shows them in English: territory names on the tutorial island (**Western Plains**, **Eastern Forest**, …), **Advance Era**, **Place** / **All**, the **Bonuses** and **Era** panels, faction and ability names (**Guerrilla Warfare**), technology names, and the phase labels the HUD prints ("Reinforcement").
+Quoted as-is because the game shows them in English: territory names on the tutorial board (**Tuscany & Latium**, **Umbria & Abruzzo**, …), **Advance Era**, **Place** / **All**, the **Bonuses** and **Era** panels, faction and ability names (**Guerrilla Warfare**), technology names, and the phase labels the HUD prints ("Reinforcement").

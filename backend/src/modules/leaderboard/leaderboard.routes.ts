@@ -5,6 +5,7 @@ import { query, queryOne } from '../../db/postgres';
 import { redis } from '../../db/redis';
 import { getTier } from '../../game-engine/rating/ratingService';
 import { getLevel } from '@borderfall/shared';
+import { andNotTutorialSql } from '../../game-engine/tutorial/tutorialGames';
 
 const CACHE_TTL = 300; // 5 minutes
 
@@ -165,7 +166,8 @@ export async function leaderboardRoutes(fastify: FastifyInstance): Promise<void>
     }>(
       `SELECT u.user_id, u.username, ur.mu, ur.phi, u.level, u.xp,
               (SELECT COUNT(*) FROM game_players gp JOIN games g ON g.game_id = gp.game_id
-               WHERE gp.user_id = u.user_id AND g.status = 'completed') AS games_played
+               WHERE gp.user_id = u.user_id AND g.status = 'completed'
+                 ${andNotTutorialSql()}) AS games_played
        FROM user_ratings ur
        JOIN users u ON u.user_id = ur.user_id
        WHERE ur.rating_type = $3 AND u.is_guest = false
@@ -221,6 +223,7 @@ export async function leaderboardRoutes(fastify: FastifyInstance): Promise<void>
          AND g.ended_at >= NOW() - INTERVAL '7 days'
          AND gp.user_id IS NOT NULL
          AND u.is_guest = false
+         ${andNotTutorialSql()}
        GROUP BY gp.user_id, u.username
        HAVING COUNT(*) FILTER (WHERE gp.final_rank = 1) > 0
        ORDER BY COUNT(*) FILTER (WHERE gp.final_rank = 1) DESC,
