@@ -53,4 +53,13 @@ export const PORTALS: readonly Portal[] = [
     ],
     ownAuthUi: false,
   },
+  {
+    id: 'newgrounds',
+    name: 'Newgrounds',
+    origins: [
+      'https://www.newgrounds.com',
+      'https://uploads.ungrounded.net',
+    ],
+    ownAuthUi: true,
+  },
 ];

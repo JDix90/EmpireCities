@@ -59,6 +59,16 @@
       ],
       "ownAuthUi": false,
       "notes": "Basic Launch submitted 2026-09-19. capacitor:// is their iOS app and must be listed with its scheme — a bare host inherits https and the app then white-screens. Regional sites are separate domains, enumerated from their sitelock docs; their docs write `crazygames.*`, which no allowlist syntax can express."
+    },
+    {
+      "id": "newgrounds",
+      "name": "Newgrounds",
+      "origins": [
+        "https://www.newgrounds.com",
+        "https://uploads.ungrounded.net"
+      ],
+      "ownAuthUi": true,
+      "notes": "Submitted 2026-09-19 as an HTML5 Archive (scripts/newgrounds-launcher). BOTH origins are ancestors and both are required: the page the visitor sees is www.newgrounds.com, and the uploaded archive is served from uploads.ungrounded.net, which is the immediate parent of our iframe. Read off the live preview's console, not guessed. The bare apex newgrounds.com is NOT listed because it was not observed; add it if the fallback ever shows on a non-www URL. No rule against our own login, unlike CrazyGames."
     }
   ]
 }

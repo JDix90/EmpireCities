@@ -118,4 +118,5 @@ Some distributors (GameDistribution, GamePix and similar) syndicate a game to th
 |---|---|---|
 | itch.io | live | Launcher shell in `scripts/itch-launcher/`. Own login UI allowed. |
 | CrazyGames | Basic Launch submitted 2026-09-19, awaiting review | No external login options (Basic rule) → `ownAuthUi: false`. Regional domains enumerated from their sitelock docs. |
-| Poki, Newgrounds, GamePix, GameDistribution | not started | Nothing confirmed; run step 1 of the routine first. |
+| Newgrounds | HTML5 Archive submitted 2026-09-19 | Launcher shell in `scripts/newgrounds-launcher/`. Two ancestors: `www.newgrounds.com` (page) and `uploads.ungrounded.net` (serves the archive, immediate parent of our frame). Both read off the live preview console, not guessed. Own login allowed. |
+| Poki, GamePix, GameDistribution | not started | Nothing confirmed; run step 1 of the routine first. Aggregator networks are out (see above). |
