@@ -293,6 +293,24 @@ export async function sendTransactionalEmailToAddress(
 const THROTTLE_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
+ * The slice of a Socket.io server the in-app turn alert needs. Structural on
+ * purpose: gameSocket passes the real `io`, tests pass a stub, and this module
+ * never has to import socket.io.
+ */
+export interface TurnAlertEmitter {
+  to(room: string): { emit(event: string, payload: unknown): unknown };
+}
+
+/** Payload of `lobby:your_turn` — mirrored by the client's `YourTurnPayload`. */
+export interface YourTurnPayload {
+  game_id: string;
+  era_id: string;
+  turn_number: number;
+  /** Server-authoritative deadline as ms since epoch, or null for an untimed seat. */
+  deadline_at: number | null;
+}
+
+/**
  * Notify a matched ranked player that their game has been found and started.
  * Push only (no email — the game starts immediately, so email is the wrong
  * latency) and no async_notifications throttle (one match = one call per
@@ -331,16 +349,46 @@ export async function notifyMatchFound(
 
 /**
  * Notify a player that it's their turn in an async game.
- * Respects user preferences and applies throttling.
+ *
+ * Three channels, in order of how little they need to work:
+ *
+ *  1. **In-app** — `lobby:your_turn` to every socket the player has open
+ *     (every connection joins `user:<id>` on connect, so the lobby, the codex
+ *     and another game's page all hear it). Needs nothing outside this
+ *     process, so it fires on every turn change, ahead of the throttle below:
+ *     a rejoin re-arms the deadline and must refresh the lobby badge even if
+ *     a push went out minutes ago. The client dedupes by (game, turn).
+ *  2. **Push** (FCM), gated on `push_enabled`.
+ *  3. **Email**, gated on `email_notifications`.
+ *
+ * Push and email are throttled to one send per player per game per five
+ * minutes, because both cost something and a reconnect storm must not send
+ * five of them. Never throws: a turn change must not fail because a
+ * notification did.
  */
 export async function notifyTurnChange(
   gameId: string,
   currentPlayerId: string,
   gameState: GameState,
+  emitter?: TurnAlertEmitter,
 ): Promise<void> {
   // Don't notify AI players
   const player = gameState.players.find((p) => p.player_id === currentPlayerId);
   if (!player || player.is_ai) return;
+
+  if (emitter) {
+    const payload: YourTurnPayload = {
+      game_id: gameId,
+      era_id: gameState.era,
+      turn_number: gameState.turn_number,
+      deadline_at: gameState.phase_deadline_at ?? null,
+    };
+    try {
+      emitter.to(`user:${currentPlayerId}`).emit('lobby:your_turn', payload);
+    } catch (err) {
+      console.error('[Notifications] in-app turn alert failed:', { gameId, currentPlayerId, err });
+    }
+  }
 
   // Throttle: check if we already notified this player for this game recently
   const recent = await queryOne<{ sent_at: Date }>(

@@ -807,7 +807,13 @@ export default function LobbyPage() {
   useEffect(() => {
     fetchPublicGames();
     fetchActiveGames();
-    const interval = setInterval(fetchPublicGames, 10000);
+    // Both lists poll. Active games used to load once on mount, so the
+    // pulsing "Your turn!" badge on an async game never appeared until the
+    // player reloaded — a turn could come and go unnoticed from this page.
+    const interval = setInterval(() => {
+      fetchPublicGames();
+      fetchActiveGames();
+    }, 10000);
     // Fetch active seasonal events (best-effort, no auth needed)
     api.get('/lobby/seasonal').then((res: { data: Array<{ era_id: string; name: string }> }) => {
       if (Array.isArray(res.data)) setActiveSeasonal(res.data);

@@ -11,6 +11,7 @@ import { useAuthStoreHydrated } from './hooks/useAuthStoreHydrated';
 import { ownAuthUiAllowed } from './utils/embedContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import GlobalMatchNotifier from './components/notifications/GlobalMatchNotifier';
+import GlobalTurnNotifier from './components/notifications/GlobalTurnNotifier';
 import { lazyWithChunkRetry } from './utils/lazyWithChunkRetry';
 import { APP_NAME_NAV } from './constants/brand';
 import { applyAccessibilityDomPrefs, subscribeUserPreferences } from './utils/userPreferences';
@@ -360,6 +361,7 @@ export default function App() {
         }}
       />
       <GlobalMatchNotifier />
+      <GlobalTurnNotifier />
       <Routes>
         {/* Public routes */}
         <Route path="/" element={<LandingPage />} />
