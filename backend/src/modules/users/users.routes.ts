@@ -9,6 +9,7 @@ import { andNotTutorialSql } from '../../game-engine/tutorial/tutorialGames';
 import { formatZodError } from '../../utils/formatZodError';
 import { verifyUnsubscribeToken } from '../../utils/unsubscribeToken';
 import { recordServerEvent } from '../../services/analyticsEvents';
+import { scheduleTestPush, TEST_PUSH_MAX_DELAY_MS } from './pushTest';
 import {
   friendRequestBlockedMessage,
   isFriendRequestAllowed,
@@ -897,6 +898,9 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
        ON CONFLICT (user_id, token) DO UPDATE SET platform = $3, created_at = NOW()`,
       [request.userId, body.token, body.platform],
     );
+    // Adoption by platform: with push_optin_granted this says how many grants
+    // actually turned into a registered device.
+    recordServerEvent('push_token_registered', { platform: body.platform }, request.userId);
     return reply.send({ ok: true });
   });
 
@@ -910,6 +914,25 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
         [request.params.tokenId, request.userId],
       );
       return reply.send({ ok: true });
+    },
+  );
+
+  // ── POST /api/users/me/push-tokens/test ──────────────────────────────────
+  // "Send test" under Settings → Notifications → This browser. See pushTest.ts
+  // for why a delay is offered and why push_enabled is not consulted.
+  const TestPushSchema = z.object({
+    delay_ms: z.number().int().min(0).max(TEST_PUSH_MAX_DELAY_MS).default(0),
+  });
+
+  fastify.post(
+    '/me/push-tokens/test',
+    { preHandler: [authenticate, rejectGuest], config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const parsed = TestPushSchema.safeParse(request.body ?? {});
+      if (!parsed.success) {
+        return reply.status(400).send({ error: 'Invalid input' });
+      }
+      return reply.send(await scheduleTestPush(request.userId, parsed.data.delay_ms));
     },
   );
 }

@@ -93,6 +93,18 @@ export function getSmtpTransporter(): Transporter | null {
 // ── Push Notifications ───────────────────────────────────────────────────────
 
 /**
+ * Notification tag for the web card. Shared with the page-side notifications
+ * the Global*Notifier components raise (`turn-<gameId>` / `match-<gameId>`),
+ * so a push that lands after the socket alert REPLACES that card instead of
+ * stacking a second one for the same turn.
+ */
+export function webPushTag(data?: Record<string, string>): string {
+  const gameId = data?.gameId;
+  if (gameId) return `${data?.type === 'match_found' ? 'match' : 'turn'}-${gameId}`;
+  return data?.type ? data.type : 'borderfall';
+}
+
+/**
  * @param link click-through URL for web push (defaults to the lobby).
  * @returns number of device tokens the message was accepted for — 0 means the
  *          user is unreachable by push (no tokens, FCM down, or send failed),
@@ -117,11 +129,24 @@ export async function sendPushNotification(
 
   const tokenStrings = tokens.map((t) => t.token);
   try {
+    // The message carries a `notification` block so the FCM web SDK shows it
+    // itself while the tab is hidden (and native trays display it). The
+    // service worker's own handler is data-only for that reason — showing it
+    // there too produced two cards per turn. What the SDK shows is shaped
+    // here: a PNG icon (Android's tray does not render the SVG favicon) and
+    // the shared tag above. `Urgency: high` asks the push service to wake a
+    // dozing phone for it — a turn deadline is time-sensitive.
     const response = await admin.messaging().sendEachForMulticast({
       tokens: tokenStrings,
       notification: { title, body },
       data: data ?? {},
       webpush: {
+        headers: { Urgency: 'high' },
+        notification: {
+          icon: `${config.frontendUrl}/icons/icon-192.png`,
+          tag: webPushTag(data),
+          renotify: true,
+        },
         fcmOptions: { link: link ?? `${config.frontendUrl}/lobby` },
       },
     });
@@ -427,7 +452,10 @@ export async function notifyTurnChange(
 
   // Send push notification — click through to the game, not the lobby
   if (pushEnabled) {
-    await sendPushNotification(currentPlayerId, title, body, { gameId, url: gameUrl }, gameUrl);
+    // `type: 'your_turn'` is the client's dedupe key: the foreground FCM
+    // handler drops it while the in-app socket alert is on (GlobalTurnNotifier
+    // already toasted it), and the web card's tag pairs with that alert.
+    await sendPushNotification(currentPlayerId, title, body, { type: 'your_turn', gameId, url: gameUrl }, gameUrl);
   }
 
   // Email. The guest check is not defensive: a guest cannot reach the
