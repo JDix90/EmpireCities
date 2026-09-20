@@ -897,6 +897,9 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
        ON CONFLICT (user_id, token) DO UPDATE SET platform = $3, created_at = NOW()`,
       [request.userId, body.token, body.platform],
     );
+    // Adoption by platform: with push_optin_granted this says how many grants
+    // actually turned into a registered device.
+    recordServerEvent('push_token_registered', { platform: body.platform }, request.userId);
     return reply.send({ ok: true });
   });
 

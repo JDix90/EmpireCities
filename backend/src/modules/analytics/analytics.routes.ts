@@ -22,6 +22,13 @@ const UiEventSchema = z.object({
     'signup_nudge_shown',
     'signup_nudge_clicked',
     'pwa_installed',
+    // Browser push opt-in outcomes (frontend enableWebPush): the permission
+    // prompt is a one-shot per origin, so how often it is granted vs refused
+    // is the number that says whether the opt-in copy earns the click.
+    // Property `result` carries the browser's answer ('granted' | 'denied' |
+    // 'default' — the last is a dismissed prompt, which can be asked again).
+    'push_optin_granted',
+    'push_optin_refused',
     'today_panel_shown',
     'async_cta_clicked',
     'streak_freeze_buy_clicked',

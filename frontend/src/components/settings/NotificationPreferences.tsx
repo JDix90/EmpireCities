@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Bell, Gift, Mail } from 'lucide-react';
+import { Bell, Gift, Mail, Smartphone } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../../services/api';
+import {
+  enableWebPush,
+  getWebPushStatus,
+  needsHomeScreenInstall,
+  type WebPushStatus,
+} from '../../services/pushNotifications';
 import { SettingsRow, SettingsToggle } from './SettingsPrimitives';
 
 interface NotificationPreferencesProps {
@@ -18,6 +24,11 @@ export default function NotificationPreferences({ embedded = false }: Notificati
   const [turnEmailsEnabled, setTurnEmailsEnabled] = useState(true);
   const [emailEnabled, setEmailEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
+  // Whether THIS browser can receive push. The account-level toggle above is
+  // the server's switch for every device; this row is the browser's own
+  // permission, which only a click can ask for.
+  const [browserStatus, setBrowserStatus] = useState<WebPushStatus>(() => getWebPushStatus());
+  const [enabling, setEnabling] = useState(false);
 
   useEffect(() => {
     api
@@ -37,9 +48,93 @@ export default function NotificationPreferences({ embedded = false }: Notificati
     });
   };
 
+  const enableThisBrowser = async () => {
+    setEnabling(true);
+    try {
+      // enableWebPush prompts synchronously inside this click — see its doc.
+      const result = await enableWebPush();
+      if (result === 'granted') {
+        setBrowserStatus('granted');
+        toast.success('Notifications are on for this browser');
+        // The account-level switch gates every device, so a browser turned on
+        // while it is off would be a silent no-op. Opting in here is the
+        // clearest possible "yes" to the account switch as well.
+        if (!pushEnabled) {
+          setPushEnabled(true);
+          update('push_enabled', true);
+        }
+      } else if (result === 'denied') {
+        setBrowserStatus('denied');
+        toast.error('Notifications are blocked for this site in your browser settings');
+      } else if (result === 'error') {
+        toast.error("Couldn't register this browser — try again in a moment");
+      } else {
+        // Dismissed without a choice, or the environment changed under us.
+        setBrowserStatus(getWebPushStatus());
+      }
+    } finally {
+      setEnabling(false);
+    }
+  };
+
   if (loading) {
     return <p className="text-bf-muted text-sm py-2">Loading…</p>;
   }
+
+  const browserRow = (() => {
+    if (browserStatus === 'unconfigured') return null;
+    if (browserStatus === 'unsupported') {
+      // Only worth a row when there is something the player can do about it.
+      if (!needsHomeScreenInstall()) return null;
+      return (
+        <SettingsRow
+          icon={Smartphone}
+          label="This iPhone or iPad"
+          description="Add Borderfall to your Home Screen (Share → Add to Home Screen), then turn notifications on from there."
+        >
+          <span className="text-xs text-bf-muted">Home Screen only</span>
+        </SettingsRow>
+      );
+    }
+    if (browserStatus === 'denied') {
+      return (
+        <SettingsRow
+          icon={Smartphone}
+          label="This browser"
+          description="Blocked. Allow notifications for this site in your browser settings, then reload."
+        >
+          <span className="text-xs text-red-400">Blocked</span>
+        </SettingsRow>
+      );
+    }
+    if (browserStatus === 'granted') {
+      return (
+        <SettingsRow
+          icon={Smartphone}
+          label="This browser"
+          description="Turn alerts arrive here as system notifications, even with the tab closed."
+        >
+          <span className="text-xs text-green-400">On</span>
+        </SettingsRow>
+      );
+    }
+    return (
+      <SettingsRow
+        icon={Smartphone}
+        label="This browser"
+        description="Get a system notification when it's your turn, even with the tab closed."
+      >
+        <button
+          type="button"
+          className="btn-primary text-xs py-1 px-3"
+          onClick={enableThisBrowser}
+          disabled={enabling}
+        >
+          {enabling ? 'Turning on…' : 'Turn on'}
+        </button>
+      </SettingsRow>
+    );
+  })();
 
   const content = (
     <div className="space-y-3">
@@ -57,6 +152,7 @@ export default function NotificationPreferences({ embedded = false }: Notificati
           }}
         />
       </SettingsRow>
+      {browserRow}
       <SettingsRow
         icon={Mail}
         label="Turn reminders"
