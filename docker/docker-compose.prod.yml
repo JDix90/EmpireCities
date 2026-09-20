@@ -172,6 +172,14 @@ services:
         VITE_SOCKET_URL: ${VITE_SOCKET_URL:-}
         VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-}
         VITE_SUPPORT_EMAIL: ${VITE_SUPPORT_EMAIL:-}
+        # Web push — see the Firebase block in .env.production.example. Baked
+        # into the bundle at build time, so a change needs a rebuild.
+        VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY:-}
+        VITE_FIREBASE_AUTH_DOMAIN: ${VITE_FIREBASE_AUTH_DOMAIN:-}
+        VITE_FIREBASE_PROJECT_ID: ${VITE_FIREBASE_PROJECT_ID:-}
+        VITE_FIREBASE_MESSAGING_SENDER_ID: ${VITE_FIREBASE_MESSAGING_SENDER_ID:-}
+        VITE_FIREBASE_APP_ID: ${VITE_FIREBASE_APP_ID:-}
+        VITE_FIREBASE_VAPID_KEY: ${VITE_FIREBASE_VAPID_KEY:-}
     container_name: borderfall_web_prod
     restart: unless-stopped
     logging:
