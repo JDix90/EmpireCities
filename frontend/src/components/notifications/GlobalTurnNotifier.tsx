@@ -91,7 +91,7 @@ export default function GlobalTurnNotifier() {
       if (document.hidden && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
         const options: NotificationOptions = {
           body,
-          icon: '/favicon.svg',
+          icon: '/icons/icon-192.png', // PNG: Android's tray does not render SVG
           tag: `turn-${p.game_id}`,
           data: { url: `/game/${p.game_id}` },
         };
