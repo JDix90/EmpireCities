@@ -15,14 +15,17 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import NotificationPreferences from './NotificationPreferences';
+import toast from 'react-hot-toast';
+import NotificationPreferences, { TEST_PUSH_DELAY_MS } from './NotificationPreferences';
 
 const apiGet = vi.fn();
 const apiPut = vi.fn();
+const apiPost = vi.fn();
 vi.mock('../../services/api', () => ({
   api: {
     get: (...args: unknown[]) => apiGet(...args),
     put: (...args: unknown[]) => apiPut(...args),
+    post: (...args: unknown[]) => apiPost(...args),
   },
 }));
 vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }) }));
@@ -45,6 +48,9 @@ describe('NotificationPreferences', () => {
       data: { push_enabled: true, email_notifications: false, turn_emails_enabled: true },
     });
     apiPut.mockReset().mockResolvedValue({ data: { ok: true } });
+    apiPost.mockReset().mockResolvedValue({ data: { registered: 1, delay_ms: TEST_PUSH_DELAY_MS, accepted: null } });
+    vi.mocked(toast).mockReset();
+    vi.mocked(toast.error).mockReset();
     push.status = 'unconfigured';
     push.homeScreen = false;
     push.enable.mockReset().mockResolvedValue('granted');
@@ -112,6 +118,25 @@ describe('NotificationPreferences', () => {
       fireEvent.click(await screen.findByRole('button', { name: 'Turn on' }));
       await waitFor(() => expect(apiPut).toHaveBeenCalledWith('/users/me/preferences', { push_enabled: true }));
       expect((await checkbox('Push Notifications')).checked).toBe(true);
+    });
+
+    it('offers Send test once on, asking the server to wait so the card lands while the tab is away', async () => {
+      push.status = 'granted';
+      render(<NotificationPreferences embedded />);
+      fireEvent.click(await screen.findByRole('button', { name: 'Send test' }));
+      await waitFor(() =>
+        expect(apiPost).toHaveBeenCalledWith('/users/me/push-tokens/test', { delay_ms: TEST_PUSH_DELAY_MS }),
+      );
+      await waitFor(() => expect(toast).toHaveBeenCalledWith(expect.stringMatching(/switch to another app/), expect.anything()));
+      expect(toast.error).not.toHaveBeenCalled();
+    });
+
+    it('says so when no device is registered instead of pretending a test went out', async () => {
+      push.status = 'granted';
+      apiPost.mockResolvedValue({ data: { registered: 0, delay_ms: TEST_PUSH_DELAY_MS, accepted: 0 } });
+      render(<NotificationPreferences embedded />);
+      fireEvent.click(await screen.findByRole('button', { name: 'Send test' }));
+      await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/No device is registered/)));
     });
 
     it('shows Blocked with no button once the player has refused', async () => {

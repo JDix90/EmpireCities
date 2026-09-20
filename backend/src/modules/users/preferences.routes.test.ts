@@ -11,6 +11,10 @@
  * turn email — clears BOTH, so a recipient who clicks it on a turn email is
  * not still sent the next one.
  *
+ * Also the "Send test" route: it counts the account's registered devices
+ * (FCM is unconfigured here, so nothing is accepted) and refuses guests, who
+ * cannot register a device in the first place.
+ *
  * Needs Postgres (migrated schema), gated on PG_TEST=1:
  *   PG_TEST=1 POSTGRES_HOST=127.0.0.1 POSTGRES_PORT=5499 POSTGRES_USER=postgres \
  *     POSTGRES_DB=borderfall POSTGRES_PASSWORD= \
@@ -136,4 +140,41 @@ describe.runIf(enabled)('notification preferences — turn emails are their own 
     expect(prefs.turn_emails_enabled).toBe(false);
     expect(prefs.email_notifications).toBe(false);
   });
+
+  it('the test-notification route reports the registered device count and sends nothing to an account with none', async () => {
+    const u = await seedUser('prefs_pushtest');
+    const call = () =>
+      app.inject({ method: 'POST', url: '/api/users/me/push-tokens/test', headers: auth(u), payload: { delay_ms: 0 } });
+
+    let res = await call();
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ registered: 0, delay_ms: 0, accepted: 0 });
+
+    await query('INSERT INTO push_tokens (user_id, token, platform) VALUES ($1, $2, $3)', [u.id, `tok-${u.id}`, 'web']);
+    res = await call();
+    expect(res.statusCode).toBe(200);
+    // FCM is not configured in the test environment, so the device is
+    // registered but nothing accepts the message.
+    expect(res.json()).toEqual({ registered: 1, delay_ms: 0, accepted: 0 });
+  });
+
+  it('the test-notification route rejects a delay above the cap and refuses guests', async () => {
+    const u = await seedUser('prefs_pushtest_bad');
+    const tooLong = await app.inject({
+      method: 'POST',
+      url: '/api/users/me/push-tokens/test',
+      headers: auth(u),
+      payload: { delay_ms: 60_000 },
+    });
+    expect(tooLong.statusCode).toBe(400);
+
+    const guest = await app.inject({
+      method: 'POST',
+      url: '/api/users/me/push-tokens/test',
+      headers: { authorization: `Bearer ${signAccessToken({ sub: u.id, username: u.name, guest: true })}` },
+      payload: {},
+    });
+    expect(guest.statusCode).toBe(403);
+  });
 });
+

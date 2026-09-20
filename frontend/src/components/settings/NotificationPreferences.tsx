@@ -10,6 +10,14 @@ import {
 } from '../../services/pushNotifications';
 import { SettingsRow, SettingsToggle } from './SettingsPrimitives';
 
+/**
+ * The FCM web SDK shows a system notification only while the tab is hidden;
+ * in front, the page gets a toast instead. A test that fires instantly would
+ * therefore never show the lock-screen card the player is trying to see, so
+ * the server is asked to wait this long and the player is told to switch away.
+ */
+export const TEST_PUSH_DELAY_MS = 5_000;
+
 interface NotificationPreferencesProps {
   /** When true, omit outer card wrapper (Settings page uses SettingsSection). */
   embedded?: boolean;
@@ -29,6 +37,7 @@ export default function NotificationPreferences({ embedded = false }: Notificati
   // permission, which only a click can ask for.
   const [browserStatus, setBrowserStatus] = useState<WebPushStatus>(() => getWebPushStatus());
   const [enabling, setEnabling] = useState(false);
+  const [testing, setTesting] = useState(false);
 
   useEffect(() => {
     api
@@ -77,6 +86,25 @@ export default function NotificationPreferences({ embedded = false }: Notificati
     }
   };
 
+  const sendTest = async () => {
+    setTesting(true);
+    try {
+      const res = await api.post('/users/me/push-tokens/test', { delay_ms: TEST_PUSH_DELAY_MS });
+      if (!res.data.registered) {
+        toast.error('No device is registered yet — turn notifications on first');
+      } else {
+        toast(
+          `Test on its way in ${TEST_PUSH_DELAY_MS / 1000} seconds — switch to another app or tab to see it as a system notification.`,
+          { duration: 10_000, icon: '🔔' },
+        );
+      }
+    } catch {
+      toast.error("Couldn't send a test notification");
+    } finally {
+      setTesting(false);
+    }
+  };
+
   if (loading) {
     return <p className="text-bf-muted text-sm py-2">Loading…</p>;
   }
@@ -114,7 +142,17 @@ export default function NotificationPreferences({ embedded = false }: Notificati
           label="This browser"
           description="Turn alerts arrive here as system notifications, even with the tab closed."
         >
-          <span className="text-xs text-green-400">On</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-green-400">On</span>
+            <button
+              type="button"
+              className="btn-secondary text-xs py-1 px-3"
+              onClick={sendTest}
+              disabled={testing}
+            >
+              {testing ? 'Sending…' : 'Send test'}
+            </button>
+          </div>
         </SettingsRow>
       );
     }
