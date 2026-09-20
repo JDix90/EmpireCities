@@ -223,6 +223,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Alert players when their ranked match is found, wherever they are: app-wide socket listener (toast + auto-navigate from any page), OS notification on hidden tabs, FCM push when the tab is closed (respects each player’s Push setting), and a missed-match catch-up check on return. Off by default (dark-launch) — this is also the kill switch for the always-on per-tab websocket.',
   },
   {
+    key: 'async_turn_alerts_enabled',
+    label: 'Async turn alerts (in-app)',
+    description:
+      'Tell a player it is their move in an async game from any page: a toast with a Play button, plus an OS notification when the tab is hidden. On by default — this is the fix for async players being told nothing. Together with match alerts, the kill switch for the always-on per-tab websocket.',
+  },
+  {
     key: 'warfront_enabled',
     label: 'Warfront (experimental RTS mode)',
     description:

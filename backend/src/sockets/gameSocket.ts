@@ -6414,8 +6414,9 @@ function startTurnTimer(io: Server, gameId: string, state: GameState, map: GameM
     scheduleAsyncDeadline(gameId, state.turn_number, state.current_player_index, deadlineSec)
       .catch((err) => console.error('[Socket] Failed to schedule async deadline:', err));
 
-    // Notify the player it's their turn
-    notifyTurnChange(gameId, currentPlayer.player_id, state)
+    // Notify the player it's their turn — in-app on every socket they have
+    // open, then push/email. `io` is what makes the in-app channel possible.
+    notifyTurnChange(gameId, currentPlayer.player_id, state, io)
       .catch((err) => console.error('[Socket] Failed to notify turn change:', err));
 
     return;

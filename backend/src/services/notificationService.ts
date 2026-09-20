@@ -293,6 +293,24 @@ export async function sendTransactionalEmailToAddress(
 const THROTTLE_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
+ * The slice of a Socket.io server the in-app turn alert needs. Structural on
+ * purpose: gameSocket passes the real `io`, tests pass a stub, and this module
+ * never has to import socket.io.
+ */
+export interface TurnAlertEmitter {
+  to(room: string): { emit(event: string, payload: unknown): unknown };
+}
+
+/** Payload of `lobby:your_turn` — mirrored by the client's `YourTurnPayload`. */
+export interface YourTurnPayload {
+  game_id: string;
+  era_id: string;
+  turn_number: number;
+  /** Server-authoritative deadline as ms since epoch, or null for an untimed seat. */
+  deadline_at: number | null;
+}
+
+/**
  * Notify a matched ranked player that their game has been found and started.
  * Push only (no email — the game starts immediately, so email is the wrong
  * latency) and no async_notifications throttle (one match = one call per
@@ -331,16 +349,51 @@ export async function notifyMatchFound(
 
 /**
  * Notify a player that it's their turn in an async game.
- * Respects user preferences and applies throttling.
+ *
+ * Three channels, in order of how little they need to work:
+ *
+ *  1. **In-app** — `lobby:your_turn` to every socket the player has open
+ *     (every connection joins `user:<id>` on connect, so the lobby, the codex
+ *     and another game's page all hear it). Needs nothing outside this
+ *     process, so it fires on every turn change, ahead of the throttle below:
+ *     a rejoin re-arms the deadline and must refresh the lobby badge even if
+ *     a push went out minutes ago. The client dedupes by (game, turn).
+ *  2. **Push** (FCM), gated on `push_enabled`.
+ *  3. **Email**, gated on `turn_emails_enabled` (migration 041) — its own
+ *     transactional switch, on by default. NOT `email_notifications`: that is
+ *     the marketing opt-in from the signup checkbox ("streak reminders and
+ *     comeback bonuses"), and gating turn mail on it meant anyone who declined
+ *     marketing silently declined alerts they were never offered. Guests are
+ *     never emailed: their address is the synthetic <uuid>@guest.local.
+ *
+ * Push and email are throttled to one send per player per game per five
+ * minutes, because both cost something and a reconnect storm must not send
+ * five of them. Never throws: a turn change must not fail because a
+ * notification did.
  */
 export async function notifyTurnChange(
   gameId: string,
   currentPlayerId: string,
   gameState: GameState,
+  emitter?: TurnAlertEmitter,
 ): Promise<void> {
   // Don't notify AI players
   const player = gameState.players.find((p) => p.player_id === currentPlayerId);
   if (!player || player.is_ai) return;
+
+  if (emitter) {
+    const payload: YourTurnPayload = {
+      game_id: gameId,
+      era_id: gameState.era,
+      turn_number: gameState.turn_number,
+      deadline_at: gameState.phase_deadline_at ?? null,
+    };
+    try {
+      emitter.to(`user:${currentPlayerId}`).emit('lobby:your_turn', payload);
+    } catch (err) {
+      console.error('[Notifications] in-app turn alert failed:', { gameId, currentPlayerId, err });
+    }
+  }
 
   // Throttle: check if we already notified this player for this game recently
   const recent = await queryOne<{ sent_at: Date }>(
@@ -353,13 +406,13 @@ export async function notifyTurnChange(
     return; // Already notified recently
   }
 
-  // Load user preferences (default: push on, email off)
-  const prefs = await queryOne<{ push_enabled: boolean; email_notifications: boolean }>(
-    'SELECT push_enabled, email_notifications FROM user_preferences WHERE user_id = $1',
+  // Preferences. Both default on when no row exists — the column defaults.
+  const prefs = await queryOne<{ push_enabled: boolean; turn_emails_enabled: boolean }>(
+    'SELECT push_enabled, turn_emails_enabled FROM user_preferences WHERE user_id = $1',
     [currentPlayerId],
   );
   const pushEnabled = prefs?.push_enabled ?? true;
-  const emailEnabled = prefs?.email_notifications ?? false;
+  const turnEmailsEnabled = prefs?.turn_emails_enabled ?? true;
 
   const eraLabel = ERA_LABELS[gameState.era] ?? APP_NAME;
   const deadlineSec = gameState.settings.async_turn_deadline_seconds ?? 86400;
@@ -377,8 +430,18 @@ export async function notifyTurnChange(
     await sendPushNotification(currentPlayerId, title, body, { gameId, url: gameUrl }, gameUrl);
   }
 
-  // Send email notification
-  if (emailEnabled) {
+  // Email. The guest check is not defensive: a guest cannot reach the
+  // preferences routes, so the default-on switch is the only thing standing
+  // between this and a bounce to <uuid>@guest.local.
+  let emailAttempted = false;
+  const recipient = turnEmailsEnabled
+    ? await queryOne<{ email: string | null; is_guest: boolean }>(
+        'SELECT email, COALESCE(is_guest, false) AS is_guest FROM users WHERE user_id = $1',
+        [currentPlayerId],
+      )
+    : null;
+  if (recipient?.email && !recipient.is_guest) {
+    emailAttempted = true;
     const unsubscribeUrl = unsubscribeUrlFor(currentPlayerId);
     const inner = `
       <h2 style="color: #d4a843;">It's Your Turn!</h2>
@@ -390,22 +453,17 @@ export async function notifyTurnChange(
         Play Now
       </a>
     `;
-    const user = await queryOne<{ email: string | null }>(
-      'SELECT email FROM users WHERE user_id = $1',
-      [currentPlayerId],
+    await deliverEmail(
+      recipient.email,
+      `${title} — ${eraLabel}`,
+      renderEmailLayout(inner, unsubscribeUrl),
+      unsubscribeUrl,
     );
-    if (user?.email) {
-      await deliverEmail(
-        user.email,
-        `${title} — ${eraLabel}`,
-        renderEmailLayout(inner, unsubscribeUrl),
-        unsubscribeUrl,
-      );
-    }
   }
 
-  // Log notification
-  const channel = [pushEnabled && 'push', emailEnabled && 'email'].filter(Boolean).join(',') || 'none';
+  // Log the outbound channels attempted. The in-app emit is deliberately not
+  // here: this row is what the throttle reads, and the socket is unthrottled.
+  const channel = [pushEnabled && 'push', emailAttempted && 'email'].filter(Boolean).join(',') || 'none';
   await query(
     `INSERT INTO async_notifications (game_id, user_id, type, channel, delivery_status)
      VALUES ($1, $2, 'your_turn', $3, 'sent')`,

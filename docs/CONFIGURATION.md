@@ -48,7 +48,7 @@
 | `EMAIL_PROVIDER` | `smtp` | `resend_api` switches to HTTPS delivery via Resend (cloud hosts often block outbound SMTP) |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM` | — / `587` / — / — / `noreply@borderfall.com` | SMTP transport; `SMTP_PASS` doubles as the Resend key |
 | `RESEND_API_KEY` | falls back to `SMTP_PASS` | Explicit Resend API key (takes precedence) |
-| `FCM_SERVICE_ACCOUNT_PATH` | — | Path to Firebase Admin service-account JSON; enables server push |
+| `FCM_SERVICE_ACCOUNT_PATH` | — | Path to Firebase Admin service-account JSON; enables server push. In the prod compose stack this is the path **inside** the backend container: the host directory `/etc/borderfall/secrets` is bind-mounted read-only at `/run/secrets/borderfall`, so the value is `/run/secrets/borderfall/service-account-fcm.json` |
 | `SENTRY_DSN` | — | Backend error reporting (also whitelists the ingest host in CSP) |
 | `CSP_EXTRA_CONNECT_ORIGINS` | — | Comma-separated https/wss origins added to CSP `connect-src` |
 | `PASSWORD_RESET_DEV_LOG` | — | Non-prod: log reset URLs to stdout when SMTP is unconfigured |
@@ -95,7 +95,8 @@ Env vars: a flag defaulting **on** is disabled with `X=false`; one defaulting **
 | `spectateEnabled` | `SPECTATE_ENABLED` | off | Watch/Spectate surface: Live nav + lobby Watch entries, `GET /api/games/live`, spectator socket joins. Off while player counts are low (an empty/stale live list reads worse than none) |
 | `spaceAgeFrontiersEnabled` | `SPACE_AGE_FRONTIERS_ENABLED` | on | Standalone Space Age seeds the 8 authored frontier tiles (63-tile board instead of 55) |
 | `rankedMultiSizeEnabled` | `RANKED_MULTI_SIZE_ENABLED` | off | Ranked opponents-count dropdown + multi-player cohort matching (off = strict 1v1) |
-| `matchAlertsEnabled` | `MATCH_ALERTS_ENABLED` | off | Ranked match-found alerts: app-wide socket listener, OS notification, FCM push. Also the kill switch for the always-on per-tab websocket |
+| `matchAlertsEnabled` | `MATCH_ALERTS_ENABLED` | off | Ranked match-found alerts: app-wide socket listener, OS notification, FCM push. With `asyncTurnAlertsEnabled`, the kill switch for the always-on per-tab websocket — it stays up while either is on |
+| `asyncTurnAlertsEnabled` | `ASYNC_TURN_ALERTS_ENABLED` | on | In-app "it's your turn" alerts for async games: the server emits `lobby:your_turn` to the player's sockets on every async turn change; the client mounts an app-wide listener (toast with a Play button on any page, OS notification when the tab is hidden). Server emit is unconditional; the flag gates the client listener and the websocket it keeps open |
 | `warfrontEnabled` | `WARFRONT_ENABLED` | off | Experimental Warfront RTS mode ([WARFRONT_RTS_MODE.md](WARFRONT_RTS_MODE.md)): second gate on its admin-only surfaces (Admin → Warfront tab's terrain endpoint; later the match host and lab). Every Warfront route also requires an admin server-side, so this never exposes anything to players |
 | `localizationEnabled` | `LOCALIZATION_ENABLED` | off | Landing page + tutorial in the player's language (es, pt-BR, de, fr) with a language switcher; off = English for everyone, exactly as before. Client-only effect. See [LOCALIZATION.md](LOCALIZATION.md) |
 

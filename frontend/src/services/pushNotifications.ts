@@ -41,31 +41,36 @@ async function initWebPush(): Promise<void> {
     return;
   }
 
-  // Request permission
-  const permission = await Notification.requestPermission();
-  if (permission !== 'granted') {
-    console.log('[Push] Notification permission denied');
+  // Config first, permission second — and never a prompt from here.
+  //
+  // This used to call Notification.requestPermission() before checking whether
+  // Firebase was configured at all, and did so from a login effect with no
+  // user gesture. Browsers quiet or refuse a gesture-less prompt and then
+  // REMEMBER the refusal for the origin. So every login on a deployment
+  // without Firebase burned the one prompt the site gets, for nothing — and
+  // those players cannot be asked again once push actually works without
+  // digging through browser settings. Init now only proceeds when permission
+  // was already granted; the asking belongs to an explicit opt-in control that
+  // runs inside a click, which ships with the web-push work.
+  const firebaseConfig = {
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  };
+  if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+    console.log('[Push] Firebase config not set; skipping web push');
+    return;
+  }
+  if (Notification.permission !== 'granted') {
+    console.log(`[Push] Notification permission is '${Notification.permission}'; not prompting from init`);
     return;
   }
 
   try {
     const { initializeApp } = await import('firebase/app');
     const { getMessaging, getToken, onMessage } = await import('firebase/messaging');
-
-    // Firebase config from env vars
-    const firebaseConfig = {
-      apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-      authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-      projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-      messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-      appId: import.meta.env.VITE_FIREBASE_APP_ID,
-    };
-
-    // Skip if Firebase config is not set
-    if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
-      console.log('[Push] Firebase config not set; skipping web push');
-      return;
-    }
 
     const app = initializeApp(firebaseConfig);
     const messaging = getMessaging(app);

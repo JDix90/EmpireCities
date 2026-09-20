@@ -19,6 +19,7 @@ export interface ClientFeatureFlags {
   spectate_enabled: boolean;
   ranked_multi_size_enabled: boolean;
   match_alerts_enabled: boolean;
+  async_turn_alerts_enabled: boolean;
   attack_blitz_enabled: boolean;
   background_music_enabled: boolean;
   era_heritage_buildings_enabled: boolean;
@@ -61,6 +62,9 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   ranked_multi_size_enabled: false,
   // Default off (dark-launch); app-wide match-found alerts (socket + OS + push).
   match_alerts_enabled: false,
+  // On: app-wide "it's your turn" alerts for async games (socket + OS). The
+  // fix for async players being told nothing; admin kill switch.
+  async_turn_alerts_enabled: true,
   // "Attack until captured": one event resolves repeated exchanges server-side.
   attack_blitz_enabled: true,
   // Generated ambient bed on the game page. On by default; admin kill switch.
@@ -162,6 +166,10 @@ export function useRankedMultiSizeEnabled(): boolean {
 
 export function useMatchAlertsEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.match_alerts_enabled);
+}
+
+export function useAsyncTurnAlertsEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.async_turn_alerts_enabled);
 }
 
 /**
