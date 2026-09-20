@@ -92,7 +92,13 @@ The same syntax is read by all three consumers (nginx CSP, `parseEmbedOriginList
    ./scripts/deploy-production.sh
    docker compose -f docker/docker-compose.prod.yml --env-file .env.production exec -T backend printenv EMBED_ORIGINS
    ```
-   A **rebuild is required** (the default; not `--no-build`): the nginx conf and the generated client file are baked into the web image at build time. The backend reads `EMBED_ORIGINS` at boot from compose's `environment:` block, so the value must be in `.env.production` *before* `up -d` recreates the container. The deploy script validates the nginx conf before swapping anything, so a syntax slip fails the deploy rather than the site.
+   A **rebuild is required** (the default; not `--no-build`): the nginx conf and the generated client file are baked into the web image at build time. The backend reads `EMBED_ORIGINS` at boot from compose's `environment:` block, so the value must be in `.env.production` *before* `up -d` recreates the container.
+
+   The deploy script guards both halves of this, so a mistake fails the deploy rather than the portal:
+   - `check-nginx-conf.sh` before anything is swapped, because a config nginx cannot parse takes down the whole site.
+   - `check-embed-origins.sh` twice. Once against `.env.production` before the swap, and once against the value the *running* backend reports afterwards. The two catch different mistakes: a file that was never updated, and a container that kept its old environment because compose did not recreate it. A missing origin fails the deploy; an extra one only warns, since a staging origin is legitimate.
+
+   That second check exists because on 2026-09-20 the Newgrounds deploy looked perfect — containers up, correct CSP, new bundle hash — while the backend still ran a pre-registry value. The frame rendered, the game played, and every reload would have minted a new guest. Nothing errored. It took cookie probes against production to find it.
 8. **Verify live** (probes below), then do the portal-side work: upload the launcher shell or register the URL, submit for review, and record the outcome in `notes`.
 
 ## Verification probes
