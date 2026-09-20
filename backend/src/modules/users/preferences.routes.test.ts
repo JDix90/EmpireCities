@@ -11,9 +11,10 @@
  * turn email — clears BOTH, so a recipient who clicks it on a turn email is
  * not still sent the next one.
  *
- * Also the "Send test" route: it counts the account's registered devices
- * (FCM is unconfigured here, so nothing is accepted) and refuses guests, who
- * cannot register a device in the first place.
+ * Also the push-token routes: "Send test" counts the account's registered
+ * devices (FCM is unconfigured here, so nothing is accepted), and a guest
+ * session can register a device and test it like anyone else — a browser
+ * token needs no email.
  *
  * Needs Postgres (migrated schema), gated on PG_TEST=1:
  *   PG_TEST=1 POSTGRES_HOST=127.0.0.1 POSTGRES_PORT=5499 POSTGRES_USER=postgres \
@@ -158,7 +159,7 @@ describe.runIf(enabled)('notification preferences — turn emails are their own 
     expect(res.json()).toEqual({ registered: 1, delay_ms: 0, accepted: 0 });
   });
 
-  it('the test-notification route rejects a delay above the cap and refuses guests', async () => {
+  it('the test-notification route rejects a delay above the cap', async () => {
     const u = await seedUser('prefs_pushtest_bad');
     const tooLong = await app.inject({
       method: 'POST',
@@ -167,14 +168,39 @@ describe.runIf(enabled)('notification preferences — turn emails are their own 
       payload: { delay_ms: 60_000 },
     });
     expect(tooLong.statusCode).toBe(400);
+  });
 
-    const guest = await app.inject({
+  it('a guest session can register a device, test it, and remove it — a browser token needs no email', async () => {
+    const u = await seedUser('prefs_guest_push');
+    const guestAuth = {
+      authorization: `Bearer ${signAccessToken({ sub: u.id, username: u.name, guest: true })}`,
+    };
+
+    const registered = await app.inject({
+      method: 'POST',
+      url: '/api/users/me/push-tokens',
+      headers: guestAuth,
+      payload: { token: `guest-tok-${u.id}`, platform: 'web' },
+    });
+    expect(registered.statusCode).toBe(200);
+
+    const test = await app.inject({
       method: 'POST',
       url: '/api/users/me/push-tokens/test',
-      headers: { authorization: `Bearer ${signAccessToken({ sub: u.id, username: u.name, guest: true })}` },
-      payload: {},
+      headers: guestAuth,
+      payload: { delay_ms: 0 },
     });
-    expect(guest.statusCode).toBe(403);
+    expect(test.statusCode).toBe(200);
+    expect(test.json()).toEqual({ registered: 1, delay_ms: 0, accepted: 0 });
+
+    const row = await query('SELECT token_id FROM push_tokens WHERE user_id = $1', [u.id]);
+    const removed = await app.inject({
+      method: 'DELETE',
+      url: `/api/users/me/push-tokens/${row[0].token_id as string}`,
+      headers: guestAuth,
+    });
+    expect(removed.statusCode).toBe(200);
+    expect(await query('SELECT 1 FROM push_tokens WHERE user_id = $1', [u.id])).toHaveLength(0);
   });
 });
 

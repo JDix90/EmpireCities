@@ -18,9 +18,10 @@ interface PushOptInBannerProps {
  *
  * A Settings toggle alone gets no takers: nobody visits Settings to enable a
  * thing they do not know exists. This card appears where the async game is
- * listed, and only when clicking it can lead somewhere — a registered account
- * (guests cannot register a device), a build with Firebase, and a permission
- * that was never asked. On an iPhone browser tab, where web push exists only
+ * listed, and only when clicking it can lead somewhere — a build with
+ * Firebase, and a permission that was never asked. Guests included: a browser
+ * token needs no email, and a guest in an async game loses their seat to a
+ * deadline they were never told about. On an iPhone browser tab, where web push exists only
  * inside a Home Screen app, it gives that advice instead of a button that
  * could not work. The click is the gesture browsers require before they will
  * show the permission prompt; that is why the asking lives here and not in a
@@ -35,7 +36,7 @@ export default function PushOptInBanner({ hasAsyncGames }: PushOptInBannerProps)
   });
   const [busy, setBusy] = useState(false);
 
-  if (!hasAsyncGames || !user || user.is_guest || dismissed) return null;
+  if (!hasAsyncGames || !user || dismissed) return null;
   const iosTab = status === 'unsupported' && needsHomeScreenInstall();
   if (status !== 'default' && !iosTab) return null;
 
