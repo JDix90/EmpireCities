@@ -98,9 +98,10 @@ itch's own site-locking recommendation, because the player subdomain varies.
 
    (The `EMBED_ORIGINS` work in `modules/auth/embedContext.ts` governs helmet's
    CSP, which only rides on **API** responses — the API is not what gets framed.
-   It still matters for the refresh cookie, which is per-request. Note
-   `isEmbeddedOrigin` matches exactly, so the wildcards above satisfy framing
-   while the cookie side would need literal origins.)
+   It still matters for the refresh cookie, which is per-request, and it
+   understands the same `*.` shape: `isEmbeddedOrigin` matches a wildcard entry
+   against any subdomain of its suffix, so these three cover the cookie side as
+   well as framing.)
 
 ✅ **`X-Frame-Options` is no longer sent on the document.** It used to be, and it
 blocked framing outright: browsers honour XFO alongside CSP and XFO has no
@@ -119,8 +120,13 @@ curl -sSI https://borderfall.gg/ | grep -iE 'x-frame-options|content-security-po
 You want to see a `content-security-policy` line naming `html-classic.itch.zone`
 and **no** `x-frame-options` line.
 
-Note `isEmbeddedOrigin` matches origins exactly, so a CSP wildcard like
-`*.itch.zone` would satisfy framing while silently failing the cookie side.
+`isEmbeddedOrigin` reads the same `*.` wildcards, matched on the whole
+authority against the suffix **with** its leading dot — so `jdix90.itch.io` and
+`html-classic.itch.zone` are in, while `evilitch.io` and `itch.io.evil.test` are
+not. The bare domain does not match its own wildcard, which is why
+`https://itch.io` is listed separately. (An earlier version of this file said
+the matcher was exact and that the cookie side needed literal origins; that
+stopped being true when wildcard support was added for CrazyGames.)
 
 ## Caveat worth keeping in view
 
