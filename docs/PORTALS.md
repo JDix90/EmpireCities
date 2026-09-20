@@ -46,27 +46,46 @@ The same syntax is read by all three consumers (nginx CSP, `parseEmbedOriginList
 
 ## The routine: add or change a portal
 
-1. **Collect the facts from the portal's own documentation** before touching anything:
+1. **Read the portal's terms and submission rules first, and get them from a human.**
+   Much of this is behind a login or a region block, so an agent often cannot
+   fetch it. **Ask the operator to paste the relevant terms rather than
+   guessing or skipping them.** At minimum establish:
+   - **AI-disclosure policy.** Many portals now require a submission that used
+     generative AI to say so, and enforce it by unpublishing after the fact.
+     This is not hypothetical: Borderfall was published to Newgrounds on
+     2026-09-19 and unpublished by a moderator the same day for exactly this,
+     because nobody checked. The technical work was fine; the policy check was
+     never done.
+   - content and rating rules, and whether a framed external site is allowed at
+     all (itch.io says yes explicitly; not every portal does);
+   - anything about ownership, exclusivity, or ads that binds you after
+     acceptance.
+
+   Getting rejected here costs a review cycle and, on portals that queue
+   re-reviews, days. It is the cheapest check on this page and the easiest to
+   skip.
+
+2. **Collect the technical facts from the portal's own documentation:**
    - every origin that can be an *ancestor* of our frame — the page host **and** any sandbox host (itch.io: the project page is `<user>.itch.io`, the sandboxed player is `*.itch.zone`; both are ancestors, both are needed);
    - regional / country-code domains (their docs may write `crazygames.*`, which no allowlist can express — enumerate);
    - native app schemes (`capacitor://…`, `ionic://…`);
    - their login policy (does the portal forbid a game showing its own account UI?);
    - their submission model (SDK required? a "basic" tier without one? multiplayer flags that imply SDK calls?).
-2. **Edit [`docker/portals.json`](../docker/portals.json)** — add the portal (or its new origins). Put the date and the source of each unusual origin in `notes`.
-3. **Sync the generated artifacts:**
+3. **Edit [`docker/portals.json`](../docker/portals.json)** — add the portal (or its new origins). Put the date and the source of each unusual origin in `notes`.
+4. **Sync the generated artifacts:**
    ```bash
    pnpm -C backend exec tsx scripts/syncPortals.ts
    ```
    This rewrites the nginx block, `portals.generated.ts` and the env sample, and prints the `EMBED_ORIGINS=` line to set on the server. Re-running is idempotent.
-4. **Verify locally:**
+5. **Verify locally:**
    ```bash
    pnpm -C backend exec vitest run src/config/portalRegistry.test.ts   # drift + syntax
    bash scripts/check-nginx-conf.sh                                     # nginx still parses
    cd frontend && npx vitest run src/utils/embedContext.test.ts          # client matcher
    ```
    Add a `detectPortal` case for the new portal's real origins (and one lookalike) to `embedContext.test.ts`.
-5. **Commit the registry and everything it generated together** — `docker/portals.json`, `docker/nginx.prod.conf`, `frontend/src/utils/portals.generated.ts`, `.env.production.example` — in one PR. CI's backend job runs the drift test, so a half-committed change fails there.
-6. **Deploy, then set the env.** On the droplet, from the repo root:
+6. **Commit the registry and everything it generated together** — `docker/portals.json`, `docker/nginx.prod.conf`, `frontend/src/utils/portals.generated.ts`, `.env.production.example` — in one PR. CI's backend job runs the drift test, so a half-committed change fails there.
+7. **Deploy, then set the env.** On the droplet, from the repo root:
    ```bash
    git pull
    # paste the EMBED_ORIGINS=… line the script printed into .env.production
@@ -74,7 +93,7 @@ The same syntax is read by all three consumers (nginx CSP, `parseEmbedOriginList
    docker compose -f docker/docker-compose.prod.yml --env-file .env.production exec -T backend printenv EMBED_ORIGINS
    ```
    A **rebuild is required** (the default; not `--no-build`): the nginx conf and the generated client file are baked into the web image at build time. The backend reads `EMBED_ORIGINS` at boot from compose's `environment:` block, so the value must be in `.env.production` *before* `up -d` recreates the container. The deploy script validates the nginx conf before swapping anything, so a syntax slip fails the deploy rather than the site.
-7. **Verify live** (probes below), then do the portal-side work: upload the launcher shell or register the URL, submit for review, and record the outcome in `notes`.
+8. **Verify live** (probes below), then do the portal-side work: upload the launcher shell or register the URL, submit for review, and record the outcome in `notes`.
 
 ## Verification probes
 
@@ -118,5 +137,5 @@ Some distributors (GameDistribution, GamePix and similar) syndicate a game to th
 |---|---|---|
 | itch.io | live | Launcher shell in `scripts/itch-launcher/`. Own login UI allowed. |
 | CrazyGames | Basic Launch submitted 2026-09-19, awaiting review | No external login options (Basic rule) → `ownAuthUi: false`. Regional domains enumerated from their sitelock docs. |
-| Newgrounds | HTML5 Archive submitted 2026-09-19 | Launcher shell in `scripts/newgrounds-launcher/`. Two ancestors: `www.newgrounds.com` (page) and `uploads.ungrounded.net` (serves the archive, immediate parent of our frame). Both read off the live preview console, not guessed. Own login allowed. |
-| Poki, GamePix, GameDistribution | not started | Nothing confirmed; run step 1 of the routine first. Aggregator networks are out (see above). |
+| Newgrounds | submitted 2026-09-19, unpublished same day over AI disclosure, awaiting re-review | Launcher shell in `scripts/newgrounds-launcher/`. Two ancestors: `www.newgrounds.com` (page) and `uploads.ungrounded.net` (serves the archive, immediate parent of our frame). Both read off the live preview console, not guessed. Own login allowed. The unpublish had nothing to do with the embed: step 1 above was skipped. |
+| Poki, GamePix, GameDistribution | not started | Nothing confirmed; run steps 1 and 2 of the routine first. Aggregator networks are out (see above). |
