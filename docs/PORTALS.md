@@ -103,28 +103,61 @@ The same syntax is read by all three consumers (nginx CSP, `parseEmbedOriginList
 
 ## Verification probes
 
-Run these against production after every deploy that touches the registry.
+Run these against production after every deploy that touches the registry, **in this order**. The first two cost nothing. The third creates real user records, so it is a last step on one origin, never a survey.
 
-**The frame header carries the origin:**
+### 1. What nginx serves (free, no side effects)
+
 ```bash
 curl -sI https://borderfall.gg/ | grep -i '^content-security-policy'
 ```
-Expect `frame-ancestors 'self' …` listing every registry origin. This is served by nginx for the SPA only; API responses carry helmet's CSP, which is fine because they are never framed.
 
-**The cookie is partitioned for a real portal origin and not for a lookalike:**
+Expect `frame-ancestors 'self' …` listing every registry origin. This governs whether a portal may frame the page at all. It is baked into the web image, so it only changes on a rebuild.
+
+### 2. What the BACKEND thinks EMBED_ORIGINS is (free, no side effects)
+
+This is the check to reach for first when a portal misbehaves, and the one that catches the silent failure.
+
 ```bash
-# real portal origin → Partitioned; SameSite=None
+# helmet's CSP is the one carrying `default-src`; nginx sets a second header on
+# the same response, so they must be separated or you will count everything twice.
+curl -sS -D - -o /dev/null https://borderfall.gg/api/feature-flags \
+  | tr -d '\r' | grep -i '^content-security-policy' | grep 'default-src' \
+  | grep -o 'frame-ancestors [^;]*' | tr ' ' '\n' | grep '://' | sort
+```
+
+Diff that against the registry:
+
+```bash
+grep -o '^# EMBED_ORIGINS=.*' .env.production.example | sed 's/^# EMBED_ORIGINS=//' | tr ',' '\n' | sort
+```
+
+The backend builds this header from `config.embedOrigins` at boot, so it is a direct readout of the value the process is actually running — not the file, the process. **One request returns the whole list and creates nothing.**
+
+Why this matters: on 2026-09-20 the backend was running a stale value and this single request would have named the four missing origins immediately. Instead it took six guest-creating probes to binary-search the list. `scripts/check-embed-origins.sh` now runs this comparison at deploy time.
+
+### 3. The cookie is really partitioned (COSTS REAL RECORDS — use sparingly)
+
+Only after 1 and 2 agree, and only to confirm the `Partitioned` attribute is genuinely applied, since the CSP header cannot show that.
+
+```bash
+# a trusted origin → Partitioned; SameSite=None
 curl -s -D - -o /dev/null -X POST https://borderfall.gg/api/auth/guest \
   -H 'content-type: application/json' -H 'x-bf-embedder: https://www.crazygames.com' -d '{}' \
   | grep -i '^set-cookie: refreshToken'
-# lookalike → SameSite=Lax (the default), i.e. NOT trusted
-curl -s -D - -o /dev/null -X POST https://borderfall.gg/api/auth/guest \
-  -H 'content-type: application/json' -H 'x-bf-embedder: https://crazygames.com.evil.example' -d '{}' \
-  | grep -i '^set-cookie: refreshToken'
 ```
-`x-bf-embedder` is the header the client sends with the origin that framed it; the server only honours it when the value is in `EMBED_ORIGINS`. Each probe creates a throwaway guest, so do not loop it.
 
-**The session survives a reload inside the real portal** (the only test that exercises all three at once): open the game on the portal's page, click *Play Free Now*, note the guest name in the lobby, reload the portal page, click again — the name must be the same. If it changes, the cookie was not sent back: check (2) first, then the browser's third-party-cookie setting.
+**Every call creates a permanent record, and not only the account.** Know both costs before running one:
+
+- **A guest user row.** Harmless on its own: `guestCleanupService` deletes guests older than 48 hours that never joined a game, so a probe account disappears on its own. One that *did* join a game never will.
+- **A `guest_created` analytics event, which does NOT clean itself.** `analytics_events.user_id` is `ON DELETE SET NULL`, so the event outlives the account, and `analyticsQueries.ts` builds signup cohorts from exactly these events. Probe traffic therefore shows up as signups in your funnel forever, on the very day you were measuring a portal launch. Eleven probes on 2026-09-20 did precisely that.
+
+So: one origin, one call, to answer one question. To check a lookalike is rejected, use one more with an obviously fake origin. Never sweep a list of origins this way — step 2 already gives you the whole list for free.
+
+### 4. The session survives a reload inside the real portal
+
+The only test that exercises all three layers together. Open the game on the portal's page, click *Play Free Now*, note the guest name, reload the portal page, click again. The name must be the same. If it changes, the cookie was not sent back: check step 2 first, then the browser's third-party-cookie setting.
+
+This also creates an account **and a game record**, so it is a deliberate end-to-end check, not routine.
 
 ## Client-side behaviour inside a frame
 
