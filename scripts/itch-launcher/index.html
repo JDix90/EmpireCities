@@ -22,6 +22,18 @@
   blocks the frame and this page shows a "play in a new tab" fallback instead,
   so the shell is useful before the server side is switched on and upgrades
   itself the moment it is.
+
+  THE APP SAYS SO; WE DO NOT GUESS. From the parent you cannot tell a loaded
+  cross-origin frame from a browser error page — reading
+  `contentWindow.location.href` throws SecurityError for BOTH — so this shell
+  no longer infers. borderfall.gg posts {source:'borderfall',
+  type:'embed-ready'} once it has actually rendered (notifyEmbedderReady in
+  frontend/src/utils/embedContext.ts) and that message is the only thing that
+  counts as playing.
+
+  DEPLOY ORDER MATTERS: silence is now failure. Ship borderfall.gg with the
+  handshake FIRST, then upload this shell — an app build without it would make
+  this page cover a perfectly working game with the fallback. See README.md.
 -->
 <style>
   :root { color-scheme: dark; }
@@ -62,6 +74,13 @@
     font-weight: 700; font-size: 15px; text-decoration: none;
   }
   .cta:hover { background: #e2ba5c; }
+  /* Not optional. Without it the author rule above wins over the UA
+     stylesheet's `[hidden] { display: none }` — author origin beats UA origin
+     whatever the specificity — so the fallback button paints inside the
+     loading panel on every single load: the failure UI, shown while nothing
+     has failed. Every other element toggled by `hidden` here needs its own
+     rule for the same reason. */
+  #cta[hidden] { display: none; }
   .dots::after { content: ''; animation: dots 1.4s steps(4, end) infinite; }
   @keyframes dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
   /* Always reachable, even if the frame loaded but is unusable. */
@@ -74,6 +93,18 @@
     backdrop-filter: blur(4px);
   }
   #escape[hidden] { display: none; }
+  /* Setup diagnostic. Only shown when the frame was refused, which for a
+     visitor is already the error state, so it adds no noise to a working
+     submission. For the developer, not the player. */
+  #origins {
+    margin-top: 10px; max-width: 46ch;
+    font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: #6f7686; text-align: left;
+    border-top: 1px solid #23262f; padding-top: 8px;
+    word-break: break-all;
+  }
+  #origins[hidden] { display: none; }
+  #origins b { color: #8a90a0; font-weight: 600; }
   #escape:hover { background: rgba(15, 17, 23, .95); }
 </style>
 </head>
@@ -92,6 +123,7 @@
   <p class="sub" id="msg"><span class="dots">Loading</span></p>
   <a class="cta" id="cta" href="https://borderfall.gg/?utm_source=itch.io&utm_medium=newtab"
      target="_blank" rel="noopener noreferrer" hidden>Play in a new tab</a>
+  <div id="origins" hidden></div>
 </div>
 
 <a id="escape" href="https://borderfall.gg/?utm_source=itch.io&utm_medium=newtab"
@@ -103,33 +135,58 @@
     var msg = document.getElementById('msg');
     var cta = document.getElementById('cta');
     var escapeLink = document.getElementById('escape');
+    var originsBox = document.getElementById('origins');
     var frame = document.getElementById('game');
     var settled = false;
 
+    /* The app's origin. A handshake claiming to be Borderfall from anywhere
+       else is not Borderfall. */
+    var APP_ORIGIN = 'https://borderfall.gg';
+    /* After the frame's own load event, how long a working app still has to
+       announce itself. Generous because the app may be fetching a language
+       chunk before it first renders. */
+    var GRACE_AFTER_LOAD_MS = 6000;
+    /* Backstop for a frame whose load event never fires at all. */
+    var HARD_DEADLINE_MS = 12000;
+
+    var chain = ancestorChain();
+    var setupMode = location.hash === '#setup';
+    window.__borderfallOrigins = chain;
+    try {
+      console.info('[borderfall] add these origins to docker/portals.json:', chain.join(' '));
+    } catch (e) {}
+
     /*
-     * A refused frame still fires `load` — it settles on about:blank — so the
-     * event alone proves nothing. This does: reading `location.href` on a
-     * genuinely cross-origin document throws a SecurityError, while a frame the
-     * browser refused stays same-origin about:blank and reads back fine.
-     * Throwing is the success signal here, which is why the catch returns true.
-     *
-     * Verified against the live site while X-Frame-Options was still blocking:
-     * Chrome fired `load` and this correctly reported no real content.
+     * Every origin that will be an ANCESTOR of the borderfall.gg frame, from
+     * the immediate parent outward. `frame-ancestors` and EMBED_ORIGINS must
+     * name all of them, not just the page the visitor sees.
      */
-    function frameHasRealContent() {
+    function ancestorChain() {
+      var out = [];
+      try { if (location.origin && location.origin !== 'null') out.push(location.origin); } catch (e) {}
       try {
-        var href = frame.contentWindow.location.href;
-        return href !== 'about:blank' && href !== '';
-      } catch (e) {
-        return true;
-      }
+        var a = location.ancestorOrigins;
+        if (a) { for (var i = 0; i < a.length; i++) out.push(a[i]); }
+        else if (document.referrer) { out.push(new URL(document.referrer).origin); }
+      } catch (e) {}
+      return out.filter(function (o, i) { return o && out.indexOf(o) === i; });
+    }
+
+    function showOrigins() {
+      /* Guarded: a shell missing this element must still show its fallback.
+         A throw here would leave the visitor with no way out at all. */
+      if (!originsBox || !chain.length) return;
+      originsBox.innerHTML = '<b>Setup — add these to docker/portals.json:</b><br>'
+        + chain.map(function (o) { return '&nbsp;&nbsp;' + o; }).join('<br>');
+      originsBox.hidden = false;
     }
 
     function playing() {
       if (settled) return;
       settled = true;
-      panel.hidden = true;
       escapeLink.hidden = false;
+      if (setupMode) { msg.textContent = 'Setup mode.'; showOrigins(); return; }
+      panel.hidden = true;
     }
 
     function blocked() {
@@ -138,24 +195,49 @@
       msg.textContent = 'This page could not load the game in place. '
         + 'It runs fine in its own tab — free, no download, no account.';
       cta.hidden = false;
-      escapeLink.hidden = true; // the big button is right there; two would be noise
+      escapeLink.hidden = true; /* the big button is right there; two would be noise */
+      showOrigins();
     }
 
+    /*
+     * THE HANDSHAKE, and why the old inference is gone.
+     *
+     * From here you cannot distinguish a loaded cross-origin frame from a
+     * browser error page: reading `contentWindow.location.href` throws
+     * SecurityError for BOTH. An earlier version of this shell treated the
+     * throw as success, so a frame refused by `frame-ancestors` — which fails
+     * with ERR_BLOCKED_BY_RESPONSE and lands on chrome-error://chromewebdata/
+     * — was reported as "playing", and this fallback stayed hidden. On
+     * Newgrounds that showed visitors Chrome's "refused to connect" page
+     * instead of a working button.
+     *
+     * So the app asserts instead of us guessing: borderfall.gg posts
+     * {source:'borderfall', type:'embed-ready'} once it has actually rendered
+     * (notifyEmbedderReady in frontend/src/utils/embedContext.ts). A message
+     * that arrives is proof the bundle ran; nothing else can send it.
+     *
+     * DEPLOY ORDER MATTERS. Silence is now treated as failure, so an app build
+     * without the handshake would make this shell show the fallback over a
+     * game that works. Deploy borderfall.gg FIRST, then upload this shell.
+     * See scripts/itch-launcher/README.md.
+     */
+    window.addEventListener('message', function (e) {
+      if (settled) return;
+      if (e.source !== frame.contentWindow) return;   /* not from our frame */
+      if (e.origin !== APP_ORIGIN) return;            /* not from the app */
+      var d = e.data;
+      if (!d || d.source !== 'borderfall' || d.type !== 'embed-ready') return;
+      playing();
+    });
+
+    /* The load event settles nothing on its own — it fires for the error page
+       too. It only starts the shorter clock, because by then a working app is
+       nearly always already through. */
     frame.addEventListener('load', function () {
-      if (frameHasRealContent()) playing(); else blocked();
+      window.setTimeout(blocked, GRACE_AFTER_LOAD_MS);
     });
     frame.addEventListener('error', blocked);
-
-    // Backstop for a frame that never resolves. It re-runs the same check
-    // rather than assuming the worst: on a slow connection the navigation can
-    // have committed — real content, cross-origin, working — while `load` is
-    // still waiting on subresources. Declaring that blocked shows the fallback
-    // over a game that was about to appear, which is exactly what an earlier
-    // version did when tested against the live site through a slow hop.
-    setTimeout(function () {
-      if (settled) return;
-      if (frameHasRealContent()) playing(); else blocked();
-    }, 12000);
+    window.setTimeout(blocked, HARD_DEADLINE_MS);
   })();
 </script>
 

@@ -34,11 +34,36 @@ that and shows a branded "Play in a new tab" card instead, so it is useful
 today and upgrades itself the moment the server side is switched on — no
 re-upload needed.
 
-Detection works by reading `frame.contentWindow.location.href`: a genuinely
-cross-origin document throws a SecurityError, while a frame the browser refused
-stays on same-origin `about:blank` and reads back fine. **Throwing is the
-success signal.** The `load` event alone proves nothing — a refused frame fires
-it too, which is how the first version of this got it backwards.
+### How it knows the game loaded
+
+**The app says so; the shell does not guess.** On first render borderfall.gg
+posts `{source:'borderfall', type:'embed-ready', version:1}` to its parent
+(`notifyEmbedderReady` in
+[`../../frontend/src/utils/embedContext.ts`](../../frontend/src/utils/embedContext.ts),
+re-sent at 0/500/2000 ms so a parent that attaches its listener late still hears
+it). The shell settles only on a message passing all three checks:
+`event.source === frame.contentWindow`, `event.origin === 'https://borderfall.gg'`,
+and the exact payload shape.
+
+Earlier versions inferred it instead, by reading
+`frame.contentWindow.location.href` and treating the `SecurityError` as proof of
+a loaded cross-origin document. That is wrong, and was measured wrong on the
+live Newgrounds player: a frame refused by `frame-ancestors` fails with
+`ERR_BLOCKED_BY_RESPONSE`, lands on `chrome-error://chromewebdata/`, and throws
+the *same* error — so the shell hid its fallback behind Chrome's "refused to
+connect" page. The frame's `load` event settles nothing either; it fires for the
+error page too, and only starts a 6 s grace (12 s hard deadline if `load` never
+fires at all).
+
+**Deploy order matters:** silence is failure, so deploy borderfall.gg *before*
+uploading this shell. A shell in front of an app build that predates the
+handshake would cover a working game with a "could not load" button. Confirm the
+live bundle sends it:
+
+```bash
+curl -s https://borderfall.gg/ | grep -o 'assets/index-[A-Za-z0-9_-]*\.js' | head -1
+curl -s https://borderfall.gg/assets/index-XXXX.js | grep -c 'embed-ready'   # >= 1
+```
 
 ## It must never bust out of its frame
 
@@ -48,7 +73,8 @@ Run. The only way out is a link the visitor chooses to click, in a new tab.
 
 ## What has to be true for inline play
 
-**One of the two is done; the remaining one is not in this repository.**
+**Both are done and verified live** (2026-09-20). Kept here because they are the
+two things to re-check first if framing ever stops working.
 
 ✅ **The document sends a CSP naming the whole itch ancestor chain.**
 `docker/nginx.prod.conf` adds, at server level:
@@ -76,18 +102,13 @@ itch's own site-locking recommendation, because the player subdomain varies.
    `isEmbeddedOrigin` matches exactly, so the wildcards above satisfy framing
    while the cookie side would need literal origins.)
 
-❌ **`X-Frame-Options: SAMEORIGIN` must stop being sent on the document.** It is
-on `https://borderfall.gg/` today. It is not set by `nginx.prod.conf` and not by
-helmet — it comes from the **TLS-terminating layer in front of nginx**, which
-lives outside this repository (Caddy, a cloud load balancer, Cloudflare —
-whatever terminates TLS for borderfall.gg). Browsers honour XFO alongside CSP,
-and XFO has no allowlist (`SAMEORIGIN` or `DENY` only), so while it is sent the
-frame stays blocked no matter what the CSP says. Dropping it in favour of
-`frame-ancestors` is the intended modern path — CSP is its replacement, not a
-supplement.
-
-Until that happens the shell shows its fallback card, which is why it was built
-that way. Nothing needs re-uploading when it changes.
+✅ **`X-Frame-Options` is no longer sent on the document.** It used to be, and it
+blocked framing outright: browsers honour XFO alongside CSP and XFO has no
+allowlist (`SAMEORIGIN` or `DENY` only), so while it was sent the frame stayed
+blocked no matter what the CSP said. It was never set by `nginx.prod.conf` or by
+helmet — it came from the TLS-terminating layer in front of nginx, which lives
+outside this repository. If framing regresses, check this before anything else,
+because nothing in this repo can cause or fix it.
 
 To confirm the state at any time:
 

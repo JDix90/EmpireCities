@@ -61,27 +61,44 @@ Set `ownAuthUi` when you add the entry. Newgrounds is not known to forbid a game
 showing its own login, unlike CrazyGames — but confirm against their current
 rules rather than assuming, and set it to `false` if in doubt.
 
-## Known limitation: the frame detector is optimistic
+## How the shell knows the game loaded
 
-From the parent page you cannot reliably tell a loaded cross-origin frame from a
-Chrome error page — reading `contentWindow.location.href` throws `SecurityError`
-for **both**. Measured against the live site: a frame refused by
-`frame-ancestors` fails with `ERR_BLOCKED_BY_RESPONSE`, lands on
-`chrome-error://chromewebdata/`, and the read throws, so the shell concludes
-"playing" when it is not and hides its own fallback panel.
+**The app says so; the shell does not guess.** On first render borderfall.gg
+posts `{source:'borderfall', type:'embed-ready', version:1}` to its parent
+(`notifyEmbedderReady` in
+[`../../frontend/src/utils/embedContext.ts`](../../frontend/src/utils/embedContext.ts),
+re-sent at 0/500/2000 ms so a parent that attaches its listener late still hears
+it). The shell settles only on a message that passes all three checks:
+`event.source === frame.contentWindow`, `event.origin === 'https://borderfall.gg'`,
+and the exact payload shape. Anything else is ignored — a message from another
+window with the right shape does not count.
 
-Consequences, and what covers them:
+This replaced an inference that was measurably wrong. The old shell read
+`frame.contentWindow.location.href` and treated the `SecurityError` as proof of
+a loaded cross-origin document — but a frame refused by `frame-ancestors` fails
+with `ERR_BLOCKED_BY_RESPONSE`, lands on `chrome-error://chromewebdata/`, and
+throws the *same* error. On Newgrounds that showed visitors Chrome's "refused to
+connect" page with the fallback button hidden behind it.
 
-- The visitor is **not** stranded: the corner "Open in a new tab ↗" link stays
-  visible whenever the shell believes it is playing, precisely because that
-  belief can be wrong.
-- The origins you need are still retrievable, because they are written to the
-  console unconditionally and `#setup` forces them on screen.
+Timings: the frame's own `load` event settles nothing (it fires for the error
+page too) and only starts a 6 s grace; a frame whose `load` never fires hits a
+12 s hard deadline. Either expiring shows the fallback.
 
-The real fix is a `postMessage` handshake — borderfall.gg posting a "ready"
-message to its parent on boot, so the shell can confirm positively instead of
-inferring. That would also fix the same latent issue in the itch shell, which
-uses identical detection logic. Worth doing next time the app is touched.
+### Deploy order matters
+
+Silence is failure now, so **deploy borderfall.gg first, then upload this
+shell.** Putting this shell in front of an app build that predates the handshake
+would cover a working game with a "could not load" button. Confirm the live
+bundle sends it:
+
+```bash
+curl -s https://borderfall.gg/ | grep -o 'assets/index-[A-Za-z0-9_-]*\.js' | head -1
+curl -s https://borderfall.gg/assets/index-XXXX.js | grep -c 'embed-ready'   # >= 1
+```
+
+The corner "Open in a new tab ↗" link still stays visible while playing, and the
+ancestor origins are still written to the console unconditionally and forced on
+screen by `#setup` — neither depended on the detector being right.
 
 ## Rules, and what went wrong the first time
 
