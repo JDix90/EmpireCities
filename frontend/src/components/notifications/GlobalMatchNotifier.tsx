@@ -45,7 +45,7 @@ export default function GlobalMatchNotifier() {
         const show = (reg?: ServiceWorkerRegistration) => {
           const options: NotificationOptions = {
             body: 'Your ranked game has started.',
-            icon: '/favicon.svg',
+            icon: '/icons/icon-192.png', // PNG: Android's tray does not render SVG
             tag: `match-${gameId}`,
             data: { url: `/game/${gameId}` },
           };

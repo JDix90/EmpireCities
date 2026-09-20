@@ -19,6 +19,7 @@ const HIGH_CONTRAST_KEY = 'cc-high-contrast';
 const MOBILE_MENU_HINT_SEEN_KEY = 'cc-mobile-menu-hint-seen';
 const TUTORIAL_PROGRESS_KEY = 'cc-tutorial-progress';
 const MOON_INSET_COLLAPSED_KEY = 'cc-moon-inset-collapsed';
+const PUSH_NUDGE_DISMISSED_AT_KEY = 'cc-push-nudge-dismissed-at';
 
 const listeners = new Set<() => void>();
 
@@ -378,3 +379,27 @@ export const persistGlobeSpinPreference = setGlobeSpinPreference;
 export const persistLiteMode = setLiteMode;
 export const persistMapView = setMapViewPreference;
 export const persistConnectionHintPreference = setConnectionHintPreference;
+
+// ── Browser push nudge ────────────────────────────────────────────────────────
+// The lobby offers players with an async game a one-click "turn on
+// notifications" card. "Not now" snoozes it: the timestamp is stored, and the
+// card stays away for as long as the caller decides. Sanitized on read — a
+// value that is not a plausible past epoch-millisecond reads as never
+// dismissed, so a corrupted key cannot hide the card forever.
+
+export function getPushNudgeDismissedAt(now: number = Date.now()): number | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(PUSH_NUDGE_DISMISSED_AT_KEY);
+    if (raw === null) return null;
+    const at = Number(raw);
+    if (!Number.isFinite(at) || at <= 0 || at > now + 60_000) return null;
+    return at;
+  } catch {
+    return null;
+  }
+}
+
+export function markPushNudgeDismissed(now: number = Date.now()): void {
+  writeString(PUSH_NUDGE_DISMISSED_AT_KEY, String(now));
+}

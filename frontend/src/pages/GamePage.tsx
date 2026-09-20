@@ -120,6 +120,7 @@ import { AiBadge } from '../components/ui/AiBadge';
 import type { GameLobbySnapshot, GameLobbyPlayerRow, GameLobbySettingsJson } from '../types/gameLobbyApi';
 import { useRef as useReactRef } from 'react';
 import toast from 'react-hot-toast';
+import { offerPushAfterAsyncTurn } from '../components/notifications/afterTurnPushPrompt';
 import { prefersReducedMotion, isMobileViewport, isPhoneLayout } from '../utils/device';
 import { resolveJoinFailure } from '../utils/joinFailure';
 import type { SheetSnap } from '../hooks/useBottomSheetSnap';
@@ -1296,6 +1297,10 @@ export default function GamePage() {
           ownTurnFortificationsRef.current = [];
           // My turn just ended — recaps gathered for it are stale now.
           setAiRecaps([]);
+          // Async: the wait for the opponent starts now, which is the moment a
+          // ping for the next turn is worth something to the player. Once per
+          // page load; see offerPushAfterAsyncTurn for the other guards.
+          offerPushAfterAsyncTurn(state);
         } else if (prevPlayer && !prevPlayer.is_eliminated) {
           // Other players' turns accumulate into the non-blocking
           // "While you were away" panel instead of queued modals that

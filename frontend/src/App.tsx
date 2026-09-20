@@ -11,6 +11,7 @@ import { useAuthStoreHydrated } from './hooks/useAuthStoreHydrated';
 import { ownAuthUiAllowed } from './utils/embedContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import GlobalMatchNotifier from './components/notifications/GlobalMatchNotifier';
+import GlobalTurnNotifier from './components/notifications/GlobalTurnNotifier';
 import { lazyWithChunkRetry } from './utils/lazyWithChunkRetry';
 import { APP_NAME_NAV } from './constants/brand';
 import { applyAccessibilityDomPrefs, subscribeUserPreferences } from './utils/userPreferences';
@@ -293,9 +294,13 @@ export default function App() {
     void applyLocalizationPolicy(localizationEnabled).catch(() => {});
   }, [flagsLoadedForI18n, localizationEnabled]);
 
-  // Initialize push notifications for authenticated non-guest users
+  // Complete push registration for any authenticated session, guests
+  // included: init only re-registers a browser that already granted
+  // permission (the asking lives in the opt-in controls), and a guest's
+  // browser token needs no email — a guest in an async game is exactly who a
+  // turn alert is for.
   useEffect(() => {
-    if (isAuthenticated && user && !user.is_guest) {
+    if (isAuthenticated && user) {
       void import('./services/pushNotifications')
         .then(({ initPushNotifications }) => initPushNotifications())
         .catch(() => {});
@@ -360,6 +365,7 @@ export default function App() {
         }}
       />
       <GlobalMatchNotifier />
+      <GlobalTurnNotifier />
       <Routes>
         {/* Public routes */}
         <Route path="/" element={<LandingPage />} />

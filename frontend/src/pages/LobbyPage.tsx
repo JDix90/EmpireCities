@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import TopNavBar from '../components/ui/TopNavBar';
 import GuestGate from '../components/GuestGate';
+import PushOptInBanner from '../components/notifications/PushOptInBanner';
 import axios from 'axios';
 import { getSocketUrl } from '../config/env';
 import { io as ioClient, Socket as IOSocket } from 'socket.io-client';
@@ -807,7 +808,13 @@ export default function LobbyPage() {
   useEffect(() => {
     fetchPublicGames();
     fetchActiveGames();
-    const interval = setInterval(fetchPublicGames, 10000);
+    // Both lists poll. Active games used to load once on mount, so the
+    // pulsing "Your turn!" badge on an async game never appeared until the
+    // player reloaded — a turn could come and go unnoticed from this page.
+    const interval = setInterval(() => {
+      fetchPublicGames();
+      fetchActiveGames();
+    }, 10000);
     // Fetch active seasonal events (best-effort, no auth needed)
     api.get('/lobby/seasonal').then((res: { data: Array<{ era_id: string; name: string }> }) => {
       if (Array.isArray(res.data)) setActiveSeasonal(res.data);
@@ -1797,6 +1804,7 @@ export default function LobbyPage() {
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
           <div className="min-w-0">
             {/* Active / Saved Games — surfaced first so players can immediately resume */}
+            <PushOptInBanner hasAsyncGames={activeGames.some((g) => g.async_mode)} />
             {activeGames.length > 0 && (
               <div className="card mb-6 animate-fade-in">
                 <h3 className="font-display text-xl text-bf-gold mb-6 flex items-center gap-2">

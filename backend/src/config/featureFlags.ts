@@ -76,6 +76,10 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   space_age_moon_tribute_enabled: () => envOptIn('SPACE_AGE_MOON_TRIBUTE_ENABLED'),
   ranked_multi_size_enabled: () => envOptIn('RANKED_MULTI_SIZE_ENABLED'),
   match_alerts_enabled: () => envOptIn('MATCH_ALERTS_ENABLED'),
+  // In-app "it's your turn" alerts for async games. ON by default: this is
+  // the fix for players being told nothing when their turn came, so it ships
+  // live with an admin kill switch rather than dark. See asyncTurnAlertsEnabled.
+  async_turn_alerts_enabled: () => envOptOut('ASYNC_TURN_ALERTS_ENABLED'),
   // Experimental Warfront RTS mode (docs/WARFRONT_RTS_MODE.md). Admin-only on top
   // of this flag, so the flag gates a surface only admins can reach anyway.
   warfront_enabled: () => envOptIn('WARFRONT_ENABLED'),
@@ -607,11 +611,28 @@ export const featureFlags = {
    * ("Match found!") to each matched player, gated on their existing
    * user_preferences.push_enabled. Default OFF — dark-launch; the app-wide
    * always-on websocket per authed tab is the infra change this kill switch
-   * exists for. Flip via `MATCH_ALERTS_ENABLED=true` or the
+   * exists for (shared with `asyncTurnAlertsEnabled`: the socket stays up
+   * while EITHER is on). Flip via `MATCH_ALERTS_ENABLED=true` or the
    * `match_alerts_enabled` admin override.
    */
   get matchAlertsEnabled(): boolean {
     return overrideBool('match_alerts_enabled');
+  },
+
+  /**
+   * When true, async-game turn alerts are live in-app: the server emits
+   * `lobby:your_turn` to the player's sockets on every async turn change and
+   * the client mounts an app-wide listener (GlobalTurnNotifier — a toast with
+   * a Play button on any page, an OS notification when the tab is hidden).
+   * The server-side emit is unconditional; this flag gates the client
+   * listener, i.e. the always-on websocket it keeps open. Default ON with the
+   * kill switch in Admin → Config: before this, a player in an async game was
+   * told nothing when their turn came. Disable via
+   * `ASYNC_TURN_ALERTS_ENABLED=false` or the `async_turn_alerts_enabled`
+   * admin override.
+   */
+  get asyncTurnAlertsEnabled(): boolean {
+    return overrideBool('async_turn_alerts_enabled');
   },
 
   /**
@@ -665,6 +686,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     spectate_enabled: featureFlags.spectateEnabled,
     ranked_multi_size_enabled: featureFlags.rankedMultiSizeEnabled,
     match_alerts_enabled: featureFlags.matchAlertsEnabled,
+    async_turn_alerts_enabled: featureFlags.asyncTurnAlertsEnabled,
     attack_blitz_enabled: featureFlags.attackBlitzEnabled,
     background_music_enabled: featureFlags.backgroundMusicEnabled,
     era_heritage_buildings_enabled: featureFlags.eraHeritageBuildingsEnabled,

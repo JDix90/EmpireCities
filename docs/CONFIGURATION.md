@@ -48,7 +48,7 @@
 | `EMAIL_PROVIDER` | `smtp` | `resend_api` switches to HTTPS delivery via Resend (cloud hosts often block outbound SMTP) |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM` | — / `587` / — / — / `noreply@borderfall.com` | SMTP transport; `SMTP_PASS` doubles as the Resend key |
 | `RESEND_API_KEY` | falls back to `SMTP_PASS` | Explicit Resend API key (takes precedence) |
-| `FCM_SERVICE_ACCOUNT_PATH` | — | Path to Firebase Admin service-account JSON; enables server push |
+| `FCM_SERVICE_ACCOUNT_PATH` | — | Path to Firebase Admin service-account JSON; enables server push. In the prod compose stack this is the path **inside** the backend container: the host directory `/etc/borderfall/secrets` is bind-mounted read-only at `/run/secrets/borderfall`, so the value is `/run/secrets/borderfall/service-account-fcm.json` |
 | `SENTRY_DSN` | — | Backend error reporting (also whitelists the ingest host in CSP) |
 | `CSP_EXTRA_CONNECT_ORIGINS` | — | Comma-separated https/wss origins added to CSP `connect-src` |
 | `PASSWORD_RESET_DEV_LOG` | — | Non-prod: log reset URLs to stdout when SMTP is unconfigured |
@@ -95,7 +95,8 @@ Env vars: a flag defaulting **on** is disabled with `X=false`; one defaulting **
 | `spectateEnabled` | `SPECTATE_ENABLED` | off | Watch/Spectate surface: Live nav + lobby Watch entries, `GET /api/games/live`, spectator socket joins. Off while player counts are low (an empty/stale live list reads worse than none) |
 | `spaceAgeFrontiersEnabled` | `SPACE_AGE_FRONTIERS_ENABLED` | on | Standalone Space Age seeds the 8 authored frontier tiles (63-tile board instead of 55) |
 | `rankedMultiSizeEnabled` | `RANKED_MULTI_SIZE_ENABLED` | off | Ranked opponents-count dropdown + multi-player cohort matching (off = strict 1v1) |
-| `matchAlertsEnabled` | `MATCH_ALERTS_ENABLED` | off | Ranked match-found alerts: app-wide socket listener, OS notification, FCM push. Also the kill switch for the always-on per-tab websocket |
+| `matchAlertsEnabled` | `MATCH_ALERTS_ENABLED` | off | Ranked match-found alerts: app-wide socket listener, OS notification, FCM push. With `asyncTurnAlertsEnabled`, the kill switch for the always-on per-tab websocket — it stays up while either is on |
+| `asyncTurnAlertsEnabled` | `ASYNC_TURN_ALERTS_ENABLED` | on | In-app "it's your turn" alerts for async games: the server emits `lobby:your_turn` to the player's sockets on every async turn change; the client mounts an app-wide listener (toast with a Play button on any page, OS notification when the tab is hidden). Server emit is unconditional; the flag gates the client listener and the websocket it keeps open |
 | `warfrontEnabled` | `WARFRONT_ENABLED` | off | Experimental Warfront RTS mode ([WARFRONT_RTS_MODE.md](WARFRONT_RTS_MODE.md)): second gate on its admin-only surfaces (Admin → Warfront tab's terrain endpoint; later the match host and lab). Every Warfront route also requires an admin server-side, so this never exposes anything to players |
 | `localizationEnabled` | `LOCALIZATION_ENABLED` | off | Landing page + tutorial in the player's language (es, pt-BR, de, fr) with a language switcher; off = English for everyone, exactly as before. Client-only effect. See [LOCALIZATION.md](LOCALIZATION.md) |
 
@@ -110,7 +111,7 @@ Env vars: a flag defaulting **on** is disabled with `X=false`; one defaulting **
 | `VITE_SOCKET_URL` | Socket.io origin (default: same-origin) |
 | `VITE_SENTRY_DSN` | Frontend error reporting |
 | `VITE_SUPPORT_EMAIL` | Contact shown on Privacy/Terms (default `support@borderfall.com`) |
-| `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID`, `VITE_FIREBASE_VAPID_KEY` | Web push (requires `firebase-messaging-sw.js`); native builds use Capacitor instead |
+| `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID`, `VITE_FIREBASE_VAPID_KEY` | Web push. The first five come from the Firebase web app registration, the VAPID key from Cloud Messaging → Web Push certificates. Unset → the app shows no push UI at all (`getWebPushStatus()` = `unconfigured`). The page hands the config to `public/firebase-messaging-sw.js` through the worker's registration URL query string (`buildServiceWorkerUrl`), so nothing injects it at build time; permission is asked only from the opt-in controls (Settings → Notifications → This browser, and the lobby card), never on load. Forwarded as build args by `docker-compose.prod.yml` → `Dockerfile.frontend`. Native builds use Capacitor instead |
 | `VITE_TENOR_API_KEY` | In-chat GIF search (feature hidden without it) |
 | `VITE_TUTORIAL_V2` | Set `0` to fall back to the legacy tutorial (default: on) |
 | `VITE_LAB_ROUTES` | Set `1` **at build time** to expose the `/__modal-lab` and `/__map-visual-lab` QA harnesses the Playwright specs drive. CI sets it for the e2e build only ([ci.yml](../.github/workflows/ci.yml)); the production image never passes it ([Dockerfile.frontend](../docker/Dockerfile.frontend)), so those routes do not exist in a shipped build |

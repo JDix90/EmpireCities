@@ -33,6 +33,21 @@ async function build(): Promise<FastifyInstance> {
 describe('POST /api/analytics/ui-event', () => {
   beforeEach(() => recordServerEventMock.mockReset());
 
+  it.each(['push_optin_granted', 'push_optin_refused'])(
+    "accepts %s with the browser's answer — the opt-in card's conversion depends on it landing",
+    async (event) => {
+      const app = await build();
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/analytics/ui-event',
+        payload: { event, properties: { result: event.endsWith('granted') ? 'granted' : 'denied' } },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(recordServerEventMock).toHaveBeenCalledWith(event, expect.objectContaining({ result: expect.any(String) }), 'user-1');
+      await app.close();
+    },
+  );
+
   it('accepts tutorial_exited with the step it was left on', async () => {
     const app = await build();
     const res = await app.inject({
