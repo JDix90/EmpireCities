@@ -57,6 +57,23 @@ if ! "${SCRIPT_DIR}/check-nginx-conf.sh"; then
   exit 1
 fi
 
+# ── Validate EMBED_ORIGINS BEFORE swapping too ───────────────────────────────
+# The registry keeps the repo self-consistent — nginx's frame-ancestors, the
+# generated client policy and the documented value all come from
+# docker/portals.json. It says nothing about the value on THIS machine, which
+# is set by hand, and that is where it drifted on 2026-09-20: the Newgrounds
+# deploy looked perfect (containers up, correct CSP, new bundle hash) while the
+# backend still ran a pre-registry value, so the portal frame rendered, the
+# game played, and every reload minted a new guest. Nothing errored.
+#
+# Fails the deploy before anything is swapped, exactly like the nginx check.
+echo "[deploy] Validating EMBED_ORIGINS against the portal registry..."
+if ! "${SCRIPT_DIR}/check-embed-origins.sh" --from-file "${ENV_FILE}" --label "${ENV_FILE}"; then
+  echo "[deploy] ABORTED: ${ENV_FILE} does not carry the origins the registry requires." >&2
+  echo "[deploy] Nothing was deployed; the running stack is untouched." >&2
+  exit 1
+fi
+
 if [ "${NO_BUILD}" = true ]; then
   docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" up -d
 else
@@ -98,6 +115,24 @@ fi
 
 echo "[deploy] Smoke test: ${SMOKE_URL}/health"
 "${SCRIPT_DIR}/smoke-production.sh" "${SMOKE_URL}"
+
+# ── The value the RUNNING backend actually has ───────────────────────────────
+# The pre-flight above reads the file; this reads the process. They differ when
+# compose did not recreate the backend, so it kept the environment it started
+# with — a file edit alone does not reach a running container. Deliberately
+# after the smoke test: by here the maps are re-seeded and the site is verified,
+# so failing costs only the prune below, and a deploy that leaves portal
+# sessions silently broken must not exit 0.
+echo "[deploy] Verifying EMBED_ORIGINS inside the running backend..."
+LIVE_EMBED_ORIGINS="$(docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" \
+  exec -T backend printenv EMBED_ORIGINS 2>/dev/null | tr -d '\r' || true)"
+if ! "${SCRIPT_DIR}/check-embed-origins.sh" --value "${LIVE_EMBED_ORIGINS}" --label "the running backend"; then
+  echo "[deploy] FAILED: the backend is running the wrong EMBED_ORIGINS." >&2
+  echo "[deploy] ${ENV_FILE} passed the pre-flight, so the container kept its old" >&2
+  echo "[deploy] environment. Recreate just the backend:" >&2
+  echo "[deploy]   docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} up -d backend" >&2
+  exit 1
+fi
 
 # ── Reclaim build garbage ────────────────────────────────────────────────────
 # Every deploy above runs `up -d --build`, which leaves the previous image
