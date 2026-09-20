@@ -83,10 +83,32 @@ message to its parent on boot, so the shell can confirm positively instead of
 inferring. That would also fix the same latent issue in the itch shell, which
 uses identical detection logic. Worth doing next time the app is touched.
 
-## Rules risk
+## Rules, and what went wrong the first time
 
-Whether Newgrounds permits a submission that frames an externally hosted site is
-**not confirmed**. itch.io explicitly supports it; Newgrounds' policy on it could
-not be checked. Say plainly in the author comments that the submission loads the
-live borderfall.gg, so a moderator is not surprised, and be ready for it to be
-rejected on those grounds.
+**Submitted 2026-09-19, unpublished by a moderator the same day**, because the
+description did not declare that generative AI was used in development. Nothing
+to do with the embed or the code: the policy check simply was not done. Re-review
+is pending with a disclosure added to the description.
+
+The lesson is now step 1 of [`docs/PORTALS.md`](../../docs/PORTALS.md): read a
+portal's terms before submitting, and ask a human to paste them, because most of
+this sits behind a login or a region block that an agent cannot fetch.
+
+Two things that help if the disclosure is ever questioned, both verifiable in
+this repo:
+
+- **No AI-generated art or audio ships to players.** The globe and territory
+  visuals are Natural Earth cartographic data plus the standard `three-globe`
+  textures (see [`docs/INTEGRATIONS.md`](../../docs/INTEGRATIONS.md)); the
+  gameplay video and its poster are real captures. `frontend/public` contains no
+  audio files at all — every sound and the background music are synthesized in
+  the browser with Web Audio (`frontend/src/audio/`, `utils/gameSounds.ts`).
+  Portal AI policies are usually aimed at generated art and audio passing as
+  human work, which is not what is happening here.
+- The AI involvement is in **code authorship**, which is what the disclosure
+  should say.
+
+Separately, whether Newgrounds permits a submission that frames an externally
+hosted site is still **not confirmed**. itch.io explicitly supports it. Say
+plainly in the author comments that the submission loads the live borderfall.gg,
+so a moderator is not surprised.

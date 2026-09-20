@@ -14,6 +14,10 @@
     "  never the bare domain (list it too) and never a TLD (`https://*.com` is refused).",
     "  Both CSP and EMBED_ORIGINS read this same syntax. Country-code domains are separate",
     "  registrations and must each be listed: no TLD wildcard exists anywhere.",
+    "BEFORE adding a portal, read its terms — ask a human to paste them. Check the",
+    "  AI-disclosure policy especially: Newgrounds unpublished us on 2026-09-19 for",
+    "  not declaring generative-AI use. See docs/PORTALS.md step 1.",
+    "",
     "ownAuthUi: false when the portal forbids a game showing its own login/registration.",
     "  CrazyGames lists 'No external login options' under BASIC requirements."
   ],
