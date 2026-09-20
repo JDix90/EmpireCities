@@ -8,6 +8,7 @@ import App from './App';
 import './index.css';
 import { captureAttribution } from './utils/attribution';
 import { applyLocalizationPolicy } from './i18n';
+import { notifyEmbedderReady } from './utils/embedContext';
 import { useFeatureFlagsStore } from './store/featureFlagsStore';
 
 // Snapshot first-touch acquisition attribution (utm_* / referrer) before render,
@@ -61,4 +62,11 @@ function renderApp() {
 // held hostage: a failed bundle load falls through to English.
 void applyLocalizationPolicy(useFeatureFlagsStore.getState().flags.localization_enabled)
   .catch(() => {})
-  .finally(renderApp);
+  .finally(() => {
+    renderApp();
+    // Announce to a launcher shell that the bundle ran, one frame later so the
+    // claim is true: a parent cannot tell a loaded cross-origin frame from a
+    // browser error page, so it needs us to say so. No-op when not framed.
+    // See notifyEmbedderReady in utils/embedContext.ts.
+    requestAnimationFrame(() => notifyEmbedderReady());
+  });

@@ -117,3 +117,89 @@ function originMatches(origin: string, pattern: string): boolean {
   const authority = origin.slice(prefix.length);
   return authority.length > suffix.length + 1 && authority.endsWith(`.${suffix}`);
 }
+
+/**
+ * The IMMEDIATE parent's origin, or undefined when nobody is framing us.
+ *
+ * Deliberately different from `EMBEDDER_ORIGIN` above, which is the TOP-LEVEL
+ * origin because that is what decides whether a cookie counts as cross-site.
+ * The launcher shell is not the top: on itch the top is `<user>.itch.io` while
+ * the shell runs in `html-classic.itch.zone`, and on Newgrounds the top is
+ * `www.newgrounds.com` while the shell is served from `uploads.ungrounded.net`.
+ * A handshake aimed at the top window would never reach the page listening for
+ * it. `ancestorOrigins` is ordered nearest-first, so entry 0 is the parent;
+ * `document.referrer` on a framed document is the embedding page, which is the
+ * same thing where the header survives (our shells set
+ * `referrerpolicy="origin-when-cross-origin"` precisely so it does).
+ */
+export function detectParentOrigin(): string | undefined {
+  try {
+    if (typeof window === 'undefined' || window.parent === window.self) return undefined;
+    const ancestors = window.location.ancestorOrigins;
+    if (ancestors && ancestors.length > 0) {
+      const parent = ancestors[0];
+      if (parent && parent !== 'null') return parent;
+    }
+    return document.referrer ? originOf(document.referrer) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** The handshake payload. Versioned so a shell can refuse a shape it does not know. */
+export interface EmbedReadyMessage {
+  readonly source: 'borderfall';
+  readonly type: 'embed-ready';
+  readonly version: 1;
+}
+
+/**
+ * Re-announce, because the listener may not exist yet. The shell attaches its
+ * handler in a script at the end of its own body, and we cannot observe when
+ * that happened. A single post that lands one tick early is lost in silence
+ * and the shell then shows an error over a game that is running fine — which
+ * is the exact failure this handshake exists to remove, reintroduced by a race.
+ * Three attempts over two seconds costs nothing and removes the question.
+ */
+const READY_RETRY_DELAYS_MS = [0, 500, 2000];
+
+/**
+ * Tell the page framing us that the app really booted.
+ *
+ * Why this exists: from a parent page you CANNOT distinguish a loaded
+ * cross-origin frame from a browser error page. Reading
+ * `contentWindow.location.href` throws `SecurityError` for both, so a shell
+ * that infers success from a thrown read calls a blocked frame "playing" and
+ * hides its own fallback. Measured against production: a frame refused by
+ * `frame-ancestors` fails with ERR_BLOCKED_BY_RESPONSE, lands on
+ * `chrome-error://chromewebdata/`, and the read throws. On Newgrounds that
+ * showed visitors Chrome's "refused to connect" page instead of a working
+ * "play in a new tab" button.
+ *
+ * Inference cannot be fixed from the parent side, so the child asserts
+ * instead. A message that arrives is proof the bundle ran; nothing else can
+ * send it.
+ *
+ * Targeting: the parent's own origin when we know it, rather than `'*'`.
+ * Reaching `'*'` would be safe in practice — the payload carries no secret,
+ * and anyone framing us has already satisfied `frame-ancestors` — but naming
+ * the origin costs nothing and keeps the message off any other document.
+ * When the origin cannot be determined we do fall back to `'*'`, because the
+ * alternative is staying silent and letting the shell display a false error.
+ */
+export function notifyEmbedderReady(): void {
+  if (typeof window === 'undefined' || window.parent === window.self) return;
+  const message: EmbedReadyMessage = { source: 'borderfall', type: 'embed-ready', version: 1 };
+  const target = detectParentOrigin() ?? '*';
+  const post = () => {
+    try {
+      window.parent.postMessage(message, target);
+    } catch {
+      /* a parent that has gone away is not our problem to report */
+    }
+  };
+  for (const delay of READY_RETRY_DELAYS_MS) {
+    if (delay === 0) post();
+    else window.setTimeout(post, delay);
+  }
+}

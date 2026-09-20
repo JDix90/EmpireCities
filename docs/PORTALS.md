@@ -101,6 +101,13 @@ The same syntax is read by all three consumers (nginx CSP, `parseEmbedOriginList
    That second check exists because on 2026-09-20 the Newgrounds deploy looked perfect — containers up, correct CSP, new bundle hash — while the backend still ran a pre-registry value. The frame rendered, the game played, and every reload would have minted a new guest. Nothing errored. It took cookie probes against production to find it.
 8. **Verify live** (probes below), then do the portal-side work: upload the launcher shell or register the URL, submit for review, and record the outcome in `notes`.
 
+   **Deploy the app before uploading a shell, never the other way round.** The launcher shells treat silence from the frame as failure: they show the fallback card unless borderfall.gg posts `{source:'borderfall', type:'embed-ready'}` (`notifyEmbedderReady` in [`frontend/src/utils/embedContext.ts`](../frontend/src/utils/embedContext.ts)). A shell sitting in front of an app build that predates that handshake would cover a perfectly working game with a "could not load" button, and the portal copy is not re-uploadable on a whim. Confirm the deployed bundle sends it before uploading:
+
+   ```bash
+   curl -s https://borderfall.gg/ | grep -o 'assets/index-[A-Za-z0-9_-]*\.js' | head -1   # current bundle
+   curl -s https://borderfall.gg/assets/index-XXXX.js | grep -c 'embed-ready'              # must be >= 1
+   ```
+
 ## Verification probes
 
 Run these against production after every deploy that touches the registry, **in this order**. The first two cost nothing. The third creates real user records, so it is a last step on one origin, never a survey.
