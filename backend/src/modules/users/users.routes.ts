@@ -886,7 +886,11 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     platform: z.enum(['web', 'ios', 'android']).default('web'),
   });
 
-  fastify.post('/me/push-tokens', { preHandler: [authenticate, rejectGuest], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request, reply) => {
+  // Guests included on all three push-token routes: a browser token needs no
+  // email, and a guest in an async game loses their seat to a deadline they
+  // were never told about. Tokens cascade away with the guest row when the
+  // cleanup job deletes it, and a stale one is pruned on the first failed send.
+  fastify.post('/me/push-tokens', { preHandler: [authenticate], config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request, reply) => {
     const parsed = RegisterPushTokenSchema.safeParse(request.body ?? {});
     if (!parsed.success) {
       return reply.status(400).send({ error: 'Invalid input' });
@@ -907,7 +911,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   // ── DELETE /api/users/me/push-tokens/:tokenId ──────────────────────────
   fastify.delete<{ Params: { tokenId: string } }>(
     '/me/push-tokens/:tokenId',
-    { preHandler: [authenticate, rejectGuest] },
+    { preHandler: [authenticate] },
     async (request, reply) => {
       await query(
         'DELETE FROM push_tokens WHERE token_id = $1 AND user_id = $2',
@@ -926,7 +930,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
 
   fastify.post(
     '/me/push-tokens/test',
-    { preHandler: [authenticate, rejectGuest], config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    { preHandler: [authenticate], config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
     async (request, reply) => {
       const parsed = TestPushSchema.safeParse(request.body ?? {});
       if (!parsed.success) {

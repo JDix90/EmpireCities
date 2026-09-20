@@ -99,7 +99,6 @@ describe('PushOptInBanner', () => {
 
   it.each([
     ['no async game', () => {}, false],
-    ['a guest — guests cannot register a device', () => signIn(true), true],
     ['permission already granted', () => { push.status = 'granted'; }, true],
     ['permission already refused', () => { push.status = 'denied'; }, true],
     ['a build without Firebase', () => { push.status = 'unconfigured'; }, true],
@@ -108,6 +107,12 @@ describe('PushOptInBanner', () => {
     arrange();
     render(<PushOptInBanner hasAsyncGames={hasAsyncGames} />);
     expect(screen.queryByRole('region', { name: 'Turn notifications' })).not.toBeInTheDocument();
+  });
+
+  it('offers it to a guest as well — a browser token needs no email', () => {
+    signIn(true);
+    render(<PushOptInBanner hasAsyncGames />);
+    expect(screen.getByRole('button', { name: 'Turn on' })).toBeInTheDocument();
   });
 
   it('gives Home Screen advice instead of a button in an iPhone browser tab', () => {
