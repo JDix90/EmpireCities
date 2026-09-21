@@ -224,7 +224,7 @@ export function eraPageBlocks(era) {
       { href: '/', label: 'Play Borderfall' },
       { href: '/eras', label: 'All eras' },
       { href: '/codex', label: 'Every faction' },
-      { href: '/maps', label: 'The maps' },
+      { href: '/game-maps', label: 'The maps' },
     ],
   });
 

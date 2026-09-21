@@ -392,8 +392,11 @@ export default function App() {
             segment outranks the dynamic one, so /maps never falls through
             to /maps/:slug. */}
         <Route path="/eras/:slug" element={<EraDetailPage />} />
-        <Route path="/maps" element={<MapsPage />} />
-        <Route path="/maps/:slug" element={<MapsPage />} />
+        {/* NOT /maps: that belongs to the authenticated Map Hub below, and a
+            second route on the same path silently wins on declaration order,
+            which is how this shipped once already. */}
+        <Route path="/game-maps" element={<MapsPage />} />
+        <Route path="/game-maps/:slug" element={<MapsPage />} />
         {/* Settled Daily puzzles are public and crawlable; /daily itself stays
             private. A static segment outranks the dynamic one in React Router,
             so /daily/archive never falls through to /daily/:date. */}

@@ -1,5 +1,9 @@
 /**
- * The curated map pages: /maps and /maps/:slug.
+ * The curated map pages: /game-maps and /game-maps/:slug.
+ *
+ * NOT /maps — that path is the authenticated Map Hub, and publishing over
+ * it made the Hub unreachable for logged-in players until this was caught
+ * in production. A marketing route and an app route cannot share a path.
  *
  * Why these exist, and why there are twelve rather than thirty-two: a page
  * earns its place by having a subject someone might actually search for. "Roman
@@ -20,7 +24,7 @@
 
 import { MAP_CATALOG } from './mapCatalog.generated.mjs';
 
-/** Editorial layer, keyed by the catalog slug. Order here is the order /maps lists. */
+/** Editorial layer, keyed by the catalog slug. Order here is the order /game-maps lists. */
 export const MAP_PAGE_COPY = {
   'roman-empire-117': {
     title: 'Roman Empire Map — Free Browser Strategy Game',
@@ -224,7 +228,7 @@ export function mapPageBlocks(map) {
       type: 'links',
       links: [
         { href: '/', label: 'Play Borderfall' },
-        { href: '/maps', label: 'All maps' },
+        { href: '/game-maps', label: 'All maps' },
         { href: '/how-to-play', label: 'How to play' },
       ],
     },
@@ -234,8 +238,8 @@ export function mapPageBlocks(map) {
 /** MARKETING_PAGES entries: the index, then one page per map. */
 export function buildMapMarketingPages() {
   const index = {
-    path: '/maps',
-    file: 'maps/index.html',
+    path: '/game-maps',
+    file: 'game-maps/index.html',
     title: 'Borderfall Maps — Historical Strategy Boards, Free in Your Browser',
     description:
       `${MAP_PAGES.length} hand-built historical maps for a free turn-based strategy game: Rome, `
@@ -264,7 +268,7 @@ export function buildMapMarketingPages() {
       {
         type: 'links',
         links: [
-          ...MAP_PAGES.map((m) => ({ href: `/maps/${m.slug}`, label: m.h1 })),
+          ...MAP_PAGES.map((m) => ({ href: `/game-maps/${m.slug}`, label: m.h1 })),
         ],
       },
       { type: 'h2', text: 'Play any of them' },
@@ -286,8 +290,8 @@ export function buildMapMarketingPages() {
   };
 
   const pages = MAP_PAGES.map((map) => ({
-    path: `/maps/${map.slug}`,
-    file: `maps/${map.slug}/index.html`,
+    path: `/game-maps/${map.slug}`,
+    file: `game-maps/${map.slug}/index.html`,
     title: map.title,
     description: map.description,
     h1: map.h1,

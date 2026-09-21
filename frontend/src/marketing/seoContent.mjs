@@ -1349,7 +1349,7 @@ const STATIC_MARKETING_PAGES = [
         type: 'links',
         links: [
           { href: '/', label: 'Play Borderfall' },
-          { href: '/maps', label: 'The maps' },
+          { href: '/game-maps', label: 'The maps' },
           { href: '/answers', label: 'More questions' },
         ],
       },
@@ -1430,7 +1430,7 @@ const STATIC_MARKETING_PAGES = [
         type: 'links',
         links: [
           { href: '/how-to-play', label: 'How to play' },
-          { href: '/maps/britain-925', label: 'The smallest board' },
+          { href: '/game-maps/britain-925', label: 'The smallest board' },
           { href: '/answers', label: 'More questions' },
         ],
       },

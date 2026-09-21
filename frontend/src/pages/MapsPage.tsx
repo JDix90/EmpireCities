@@ -1,5 +1,7 @@
 /**
- * /maps and /maps/:slug — the map index and the per-map pages.
+ * /game-maps and /game-maps/:slug — the map index and the per-map pages.
+ *
+ * The prefix is not /maps because that is the authenticated Map Hub.
  *
  * A thin configuration of SeoContentPage: all the content comes from
  * seoContent.mjs (built from the real map definitions), so adding a map to
@@ -11,12 +13,12 @@ import { Map as MapIcon } from 'lucide-react';
 import SeoContentPage from './SeoContentPage';
 
 export default function MapsPage() {
-  const isIndex = useLocation().pathname.replace(/\/+$/, '') === '/maps';
+  const isIndex = useLocation().pathname.replace(/\/+$/, '') === '/game-maps';
   return (
     <SeoContentPage
       section="MAPS"
       icon={MapIcon}
-      backHref={isIndex ? '/' : '/maps'}
+      backHref={isIndex ? '/' : '/game-maps'}
       backLabel={isIndex ? 'Borderfall' : 'Maps'}
       missingTitle="No such map"
       missingBody="That map page doesn’t exist. The full list is on the maps index."
