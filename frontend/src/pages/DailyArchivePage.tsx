@@ -18,6 +18,7 @@ import { Link, useParams } from 'react-router-dom';
 import { CalendarDays, Trophy } from 'lucide-react';
 import BrandWordmark from '../components/ui/BrandWordmark';
 import SubpageShell from '../components/ui/SubpageShell';
+import { useNoindex } from '../hooks/useNoindex';
 import { api } from '../services/api';
 
 interface ArchiveLeader {
@@ -192,6 +193,13 @@ export default function DailyArchivePage() {
       : 'Borderfall Daily Challenge Archive',
     entry ? `${entry.spec.goal || entry.spec.intro} A free turn-based strategy puzzle you play in your browser.` : undefined,
   );
+
+  // A date with nothing archived renders "No archived challenge for that
+  // date" under an HTTP 200, which a crawler reads as a soft 404. Well-formed
+  // dates are redirected to the archive before they reach here (see the
+  // crawler block in docker/nginx.prod.conf); this covers the shapes that are
+  // not, such as /daily/not-a-date. Called before the early return below.
+  useNoindex(missing);
 
   useEffect(() => {
     let cancelled = false;
