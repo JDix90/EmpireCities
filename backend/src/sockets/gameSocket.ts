@@ -181,6 +181,22 @@ import { applyTutorialSettingsLab } from '../game-engine/tutorial/applyTutorialS
 import { getDailyPuzzleSpec, maybeResolveDailyPuzzle } from './dailyPuzzleSocket';
 import { computeDailyPuzzleScore } from '../game-engine/daily/puzzleScore';
 import {
+  beginPuzzleHumanTurn,
+  commitPuzzleAttack,
+  commitPuzzleDraft,
+  commitPuzzleEndAttack,
+  commitPuzzleEndTurn,
+  commitPuzzleFortify,
+  getWarmedPuzzle,
+  notePuzzleDraftOpen,
+  proposePuzzleAction,
+  sanitizeProposal,
+  summarizePuzzleRun,
+  warmPuzzle,
+  type WarmedPuzzle,
+} from '../game-engine/daily/puzzlePlay';
+import { runScriptedAiTurn } from '../game-engine/daily/puzzle/engineOpponent';
+import {
   attackerIgnoresDefenseBuilding,
   expandFogVisibilityFromRecon,
   expandFogVisibilityFromFactionPassive,
@@ -455,6 +471,22 @@ function parseLobbySettings(raw: string | Record<string, unknown>): Record<strin
       : (raw as Record<string, unknown>) ?? {};
   } catch {
     return {};
+  }
+}
+
+/**
+ * The day's warmed v2 solver, or null on a v1 day / a non-daily game
+ * (docs/DAILY_PUZZLE_V2.md §5.4). Every v2 hook in the handlers goes through
+ * this, so a v1 daily never reaches puzzlePlay at all.
+ */
+function dailyV2Puzzle(room: { state: GameState; map: GameMap }): WarmedPuzzle | null {
+  const spec = getDailyPuzzleSpec(room.state);
+  if (!spec?.v2) return null;
+  try {
+    return getWarmedPuzzle(spec, room.map);
+  } catch (err) {
+    console.error('[daily v2] could not build the solver for the day', err);
+    return null;
   }
 }
 
@@ -1478,6 +1510,9 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (state.phase !== 'draft') return emitGameError(socket, GameErrorCode.WRONG_PHASE, 'Not in draft phase');
 
       repairDraftUnitsIfMissing(state, map);
+      // Daily v2: the turn's pre-draft position, so the draft grades as one decision.
+      const draftPuzzle = dailyV2Puzzle(room);
+      if (draftPuzzle) notePuzzleDraftOpen(draftPuzzle, state);
       // Reject non-integer counts (e.g. a crafted `units: 1.5`) before the range
       // check — fractional values would corrupt unit_count and propagate through
       // combat/reinforcement math. (game:fortify already guards this via
@@ -1867,6 +1902,11 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       // March to the Sea (ACW): +1 attack die on up to 3 consecutive chain captures.
       const marchToSeaBonus = getMarchToSeaBonus(currentPlayer, fromId);
+
+      // Daily v2: grade the target choice (the first exchange on an edge) and
+      // raise the plan condition "the human attacked the objective".
+      const attackPuzzle = dailyV2Puzzle(room);
+      if (attackPuzzle) commitPuzzleAttack(attackPuzzle, state, fromId, toId);
 
       const puzzleSpecPre = getDailyPuzzleSpec(state);
       const stateBeforePuzzle =
@@ -2339,6 +2379,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       const currentPlayer = state.players[state.current_player_index];
       if (!isSocketUsersTurn(state, userId, username)) return socket.emit('error', { message: 'Not your turn' });
+      const advancePuzzle = dailyV2Puzzle(room);
 
       if (state.phase === 'draft') {
         // Auto-place any unspent draft units on the player's territories
@@ -2355,10 +2396,14 @@ export function initGameSocket(httpServer: HttpServer): Server {
         }
         state.draft_units_remaining = 0;
         state.phase = 'attack';
+        // Daily v2: the draft as a whole is one decision, graded now.
+        if (advancePuzzle) commitPuzzleDraft(advancePuzzle, state);
         // Restart the per-phase clock so the timeout deadline is consistent whether
         // the player advances manually or lets the timer fire.
         if (!state.active_event?.choices?.length) startTurnTimer(io, gameId, state, map);
       } else if (state.phase === 'attack') {
+        // Daily v2: stopping is a move too.
+        if (advancePuzzle) commitPuzzleEndAttack(advancePuzzle, state);
         state.phase = 'fortify';
         if (!state.active_event?.choices?.length) startTurnTimer(io, gameId, state, map);
       } else if (state.phase === 'fortify') {
@@ -2366,6 +2411,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
         // turn start, but we also clear it here so any code path that reads
         // the state between this advance and the next turn sees a clean
         // counter (matters for AI debugging and replay reconstruction).
+        // Daily v2: ending the turn without a move is graded like any other.
+        if (advancePuzzle) commitPuzzleEndTurn(advancePuzzle, state);
         state.fortify_moves_used = 0;
         advanceToNextPlayer(state, map);
         landPendingDropAssaults(io, gameId, state, map);
@@ -2522,6 +2569,9 @@ export function initGameSocket(httpServer: HttpServer): Server {
       }
 
       const fortifyProbBefore = captureProbBefore(state, userId);
+      // Daily v2: graded by the position the move leaves.
+      const fortifyPuzzle = dailyV2Puzzle(room);
+      if (fortifyPuzzle) commitPuzzleFortify(fortifyPuzzle, state, fromId, toId, units);
       // Galaxy transit: a move between two WORLDS is a convoy — the units leave
       // now and land at this player's next turn start (state/transit.ts).
       const asConvoy = fortifyBecomesConvoy(state, fromId, toId, { driftJump });
@@ -3320,6 +3370,27 @@ export function initGameSocket(httpServer: HttpServer): Server {
     // an eligible game can flip this. Server enforces eligibility; ineligible
     // games silently no-op so a tampered client can't enable coaching in a
     // multi-human or ranked match.
+    // ── Daily v2: what is this move worth? (docs/DAILY_PUZZLE_V2.md §5.4) ──
+    // Answered from the day's exact solver before the dice; the client shows
+    // the verdict card and either commits the real action or takes back. On a
+    // silent day (Friday) nothing is answered and every move is graded on
+    // commit alone. Never a game mutation beyond the decision record.
+    socket.on('game:puzzle_propose', async ({ gameId, proposal }: { gameId: string; proposal: unknown }) => {
+      await mutateLockedRoom(gameId, socket, 5000, async (room) => {
+        const { state } = room;
+        if (!isSocketUsersTurn(state, userId, username)) return emitGameError(socket, GameErrorCode.NOT_YOUR_TURN, 'Not your turn');
+        const puzzle = dailyV2Puzzle(room);
+        const parsed = sanitizeProposal(proposal);
+        if (!puzzle || !parsed) {
+          socket.emit('game:puzzle_verdict', { gameId, decision: false, silent: !puzzle });
+          return;
+        }
+        const verdict = proposePuzzleAction(puzzle, state, parsed);
+        socket.emit('game:puzzle_verdict', { gameId, ...verdict });
+        void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
+      });
+    });
+
     socket.on('game:set_coaching', async ({ gameId, enabled }: { gameId: string; enabled: boolean }) => {
       await mutateLockedRoom(gameId, socket, 5000, async (room) => {
       const { state, map } = room;
@@ -4096,6 +4167,17 @@ async function startWaitingGameLocked(io: Server, gameId: string): Promise<Start
   const puzzleSpec = getDailyPuzzleSpec(state);
   if (puzzleSpec && humanSeatId) {
     applyDailyPuzzleScenario(state, gameMap, puzzleSpec, humanSeatId, aiSeatId ?? `ai_1`);
+    if (puzzleSpec.v2) {
+      // Daily v2: solve the opening now, off this tick, so the first verdict
+      // is a memo hit rather than a stall on the player's first click.
+      setImmediate(() => {
+        try {
+          warmPuzzle(puzzleSpec, gameMap);
+        } catch (err) {
+          console.error('[daily v2] warm-up failed', err);
+        }
+      });
+    }
   }
 
   // Authored opening position, after the puzzle shaper so a scenario can refine
@@ -4604,6 +4686,11 @@ function buildClientState(state: GameState, playerId: string | null, fogOfWar: b
     // The daily dice seed is server-only for the same reason: with it a
     // client knows every roll before it attacks.
     settings: redactSettingsForClient(s.settings),
+    // Daily v2: the graded decisions carry equities the player must not see
+    // before the run ends (a silent day's whole point); the pre-draft note is
+    // server-only bookkeeping.
+    puzzle_decisions: s.phase === 'game_over' ? s.puzzle_decisions : undefined,
+    puzzle_turn_open: undefined,
     // Reveal each player's secret_mission only to its owner / eliminated players /
     // at game_over, and — when there is no viewing player (spectator/public
     // snapshot) — empty every card hand so spectators can't read players' cards.
@@ -4823,18 +4910,23 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
           entryWon = state.puzzle_objective_met === true;
         }
         const mistakes = state.puzzle_feedback_mistakes ?? 0;
-        const puzzleScore = computeDailyPuzzleScore({
-          won: entryWon,
-          turns: state.turn_number,
-          par: spec?.par_turns,
-          mistakes,
-        });
+        // Daily v2 (docs/DAILY_PUZZLE_V2.md §4): the score is accuracy, not par.
+        const v2Run = spec?.v2 ? summarizePuzzleRun(state, entryWon) : null;
+        const puzzleScore = v2Run
+          ? v2Run.score
+          : computeDailyPuzzleScore({
+            won: entryWon,
+            turns: state.turn_number,
+            par: spec?.par_turns,
+            mistakes,
+          });
         await query(
           `INSERT INTO daily_challenge_entries (
              challenge_date, user_id, won, turn_count, territory_count,
-             puzzle_score, objective_met, archetype, move_feedback_mistakes
+             puzzle_score, objective_met, archetype, move_feedback_mistakes,
+             puzzle_version, accuracy, attempts, first_try, decisions_json
            )
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb)
            ON CONFLICT (challenge_date, user_id) DO NOTHING`,
           [
             dailyRow.daily_challenge_date,
@@ -4846,6 +4938,11 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
             state.puzzle_objective_met ?? null,
             spec?.archetype ?? null,
             mistakes,
+            v2Run ? 2 : 1,
+            v2Run?.accuracy ?? null,
+            v2Run?.attempts ?? null,
+            v2Run?.first_try ?? null,
+            v2Run ? JSON.stringify(v2Run.decisions) : null,
           ],
         );
         recordServerEvent('daily_challenge_settled', {
@@ -4855,7 +4952,20 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
           won: entryWon,
           archetype: spec?.archetype ?? 'domination',
           puzzle_score: puzzleScore,
+          puzzle_version: v2Run ? 2 : 1,
+          accuracy: v2Run?.accuracy ?? null,
+          star: v2Run?.star ?? null,
+          crown: v2Run?.crown ?? null,
         });
+        if (v2Run) {
+          // The review panel's numbers, in the same breath as game over.
+          io.to(gameId).emit('game:puzzle_review', {
+            gameId,
+            won: entryWon,
+            theme: spec?.v2?.theme ?? null,
+            ...v2Run,
+          });
+        }
       }
     }
   } catch (dailyErr) {
@@ -5489,6 +5599,14 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     }
     return false;
   };
+
+  // Daily v2: the scripted opponent plays the set-piece's authored plan
+  // (docs/DAILY_PUZZLE_V2.md §5.2) instead of the bot.
+  const v2Puzzle = dailyV2Puzzle(room);
+  if (v2Puzzle) {
+    await runDailyV2OpponentTurn(io, gameId, room, currentPlayer, v2Puzzle, delay, doVictoryCheck);
+    return;
+  }
 
   // ── Draft Phase ────────────────────────────────────────────────────────
   state.phase = 'draft';
@@ -6374,6 +6492,82 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   } finally {
     await releaseAiTurn(gameId);
   }
+}
+
+/**
+ * The AI's turn on a Daily v2 day: the set-piece's authored plan, played
+ * through the real engine (runScriptedAiTurn) with the day's seeded dice, and
+ * broadcast exchange by exchange as the bot's turn is. A daily has no events,
+ * transit or lanes, so the end of the turn is the short form of the bot's.
+ */
+async function runDailyV2OpponentTurn(
+  io: Server,
+  gameId: string,
+  room: { state: GameState; map: GameMap },
+  currentPlayer: GameState['players'][number],
+  puzzle: WarmedPuzzle,
+  delay: () => Promise<void>,
+  doVictoryCheck: () => Promise<boolean>,
+): Promise<void> {
+  const { state, map } = room;
+  const human = state.players.find((p) => !p.is_ai);
+  if (!human || !puzzle.spec.v2) return;
+  const dieRoll = state.puzzle_dice_queue?.length ? createPuzzleDieRoll(state) : undefined;
+  const isSeaEdge = (a: string, b: string): boolean =>
+    map.connections.some((c) => ((c.from === a && c.to === b) || (c.from === b && c.to === a)) && c.type === 'sea');
+  let ended = false;
+  await runScriptedAiTurn(state, map, puzzle.ctx, puzzle.spec.v2.plan, human.player_id, currentPlayer.player_id, {
+    dieRoll,
+    onDraft: () => {
+      syncTerritoryCounts(state);
+      broadcastState(io, gameId, state);
+    },
+    onExchange: async (fromId, toId, outcome) => {
+      const result = outcome.result;
+      if (result.error) return false;
+      syncTerritoryCounts(state);
+      recordCombatResult(gameId, currentPlayer.player_id, human.player_id, result, { isSea: isSeaEdge(fromId, toId) });
+      io.to(gameId).emit('game:combat_result', { fromId, toId, result });
+      emitMapVisual(io, gameId, buildCombatMapVisual({
+        fromId,
+        toId,
+        attackerId: currentPlayer.player_id,
+        defenderId: human.player_id,
+        attackerLosses: result.attacker_losses,
+        defenderLosses: result.defender_losses,
+        territoryCaptured: result.territory_captured,
+        state,
+      }));
+      broadcastState(io, gameId, state);
+      if (await doVictoryCheck()) {
+        ended = true;
+        return false;
+      }
+      await delay();
+      return true;
+    },
+    onMarch: (fromId, toId, units) => {
+      state.fortify_moves_used = (state.fortify_moves_used ?? 0) + 1;
+      emitMapVisual(io, gameId, buildFortifyMapVisual({
+        fromTerritoryId: fromId,
+        toTerritoryId: toId,
+        units,
+        playerId: currentPlayer.player_id,
+        state,
+      }));
+      broadcastState(io, gameId, state);
+    },
+  });
+  if (ended) return;
+
+  // ── End Turn ───────────────────────────────────────────────────────────
+  state.fortify_moves_used = 0;
+  advanceToNextPlayer(state, map);
+  beginPuzzleHumanTurn(state);
+  await saveGameState(gameId, state);
+  broadcastState(io, gameId, state);
+  if (await doVictoryCheck()) return;
+  startTurnTimer(io, gameId, state, map);
 }
 
 function startTurnTimer(io: Server, gameId: string, state: GameState, map: GameMap): void {

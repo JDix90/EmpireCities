@@ -57,6 +57,52 @@ export interface DailyPuzzleV2 {
   };
 }
 
+/** What the client may see of the v2 block while the day is live: no solution, no plan on a prose day. */
+export interface PublicDailyPuzzleV2 {
+  version: 2;
+  theme: string;
+  plan_prose: string[];
+  decisions_target: number;
+  verdicts: DailyPuzzleV2['verdicts'];
+  intent: DailyPuzzleV2['intent'];
+  /** The raw plan, for the intent arrows; only on an arrows day. */
+  plan?: OpponentPlan;
+  /** Decisions along the best line: the number the intro promises. */
+  decisions: number;
+}
+
+/** Grades by points of win probability lost (docs/DAILY_PUZZLE_V2.md §4). */
+export type PuzzleGrade = 'best' | 'good' | 'inaccuracy' | 'blunder';
+
+/**
+ * One graded decision of a v2 run, kept on the game state (puzzlePlay.ts)
+ * and stored in the entry's decisions_json at game over. Equities are win
+ * probabilities (0–1); `loss` is in points (0–100) and is what accuracy
+ * records: the first proposal's loss, or 100 after a second takeback.
+ */
+export interface PuzzleDecisionRecord {
+  /** Canonical position key; one record per position. */
+  key: string;
+  turn: number;
+  phase: 'draft' | 'attack' | 'fortify';
+  best: StoredPuzzleAction;
+  best_equity: number;
+  /** The first proposal (or the committed move when nothing was proposed). */
+  first: StoredPuzzleAction | null;
+  first_equity: number;
+  loss: number;
+  grade: PuzzleGrade;
+  takebacks: number;
+  /** Set after the second takeback: the best move was shown. */
+  revealed?: boolean;
+  /** The move actually played, and what it was worth. */
+  chosen?: StoredPuzzleAction | null;
+  chosen_equity?: number;
+  chosen_loss?: number;
+  /** The last proposal, to tell a takeback from a repeat. */
+  last?: StoredPuzzleAction | null;
+}
+
 /** High-level puzzle categories rotated deterministically by date. */
 export type DailyPuzzleArchetype =
   | 'domination'

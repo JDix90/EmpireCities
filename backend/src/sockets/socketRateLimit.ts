@@ -47,6 +47,7 @@ const EVENT_BUCKETS: Record<string, Bucket> = {
   'game:advance_phase': GAMEPLAY,
   'game:turn_ready': GAMEPLAY,
   'game:fortify': GAMEPLAY,
+  'game:puzzle_propose': GAMEPLAY,
   'game:redeem_cards': GAMEPLAY,
   'game:build': GAMEPLAY,
   'game:naval_move': GAMEPLAY,

@@ -126,3 +126,48 @@ describe('redactSettingsForClient', () => {
     expect(out).toEqual({ fog_of_war: true, turn_timer_seconds: 90 });
   });
 });
+
+describe('redactSettingsForClient — a Daily v2 day', () => {
+  const v2 = {
+    version: 2,
+    theme: 'cut the supply line',
+    plan: { steps: [{ kind: 'draft', to: 'gaul', when: 'objective_ai' }] },
+    plan_prose: ['While it holds the objective, it reinforces Gaul.'],
+    decisions_target: 2,
+    verdicts: 'before_dice',
+    intent: 'arrows',
+    solution: { equity: 0.7, obvious_equity: 0.4, near_best: 1, decisions: [{ turn: 1 }, { turn: 2 }], line: [], nodes: 100 },
+  };
+
+  it('strips the answer key and the dice seed, keeps the theme, the plan in words and the decision count', () => {
+    const out = redactSettingsForClient({
+      daily_challenge_spec: { archetype: 'military_capture', dice_queue_seed: 7, v2 },
+    } as unknown as { daily_challenge_spec: Record<string, unknown> });
+    const spec = out.daily_challenge_spec as Record<string, unknown>;
+    expect(spec.dice_queue_seed).toBeUndefined();
+    const pub = spec.v2 as Record<string, unknown>;
+    expect(pub.solution).toBeUndefined();
+    expect(pub.theme).toBe('cut the supply line');
+    expect(pub.plan_prose).toEqual(v2.plan_prose);
+    expect(pub.decisions).toBe(2);
+    // An arrows day carries the raw plan for the intent arrows.
+    expect(pub.plan).toEqual(v2.plan);
+  });
+
+  it('withholds the raw plan on a prose day', () => {
+    const out = redactSettingsForClient({
+      daily_challenge_spec: { archetype: 'military_capture', v2: { ...v2, intent: 'prose', verdicts: 'silent' } },
+    } as unknown as { daily_challenge_spec: Record<string, unknown> });
+    const pub = (out.daily_challenge_spec as Record<string, unknown>).v2 as Record<string, unknown>;
+    expect(pub.plan).toBeUndefined();
+    expect(pub.solution).toBeUndefined();
+    expect(pub.plan_prose).toEqual(v2.plan_prose);
+  });
+
+  it('leaves a v1 day exactly as before', () => {
+    const out = redactSettingsForClient({
+      daily_challenge_spec: { archetype: 'economy_build', dice_queue_seed: 7, title: 't' },
+    } as unknown as { daily_challenge_spec: Record<string, unknown> });
+    expect(out.daily_challenge_spec).toEqual({ archetype: 'economy_build', title: 't' });
+  });
+});

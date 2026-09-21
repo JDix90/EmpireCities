@@ -1,4 +1,6 @@
 import type { PlayerState, TerritoryState } from '../types';
+import type { DailyPuzzleV2 } from '../game-engine/daily/dailyPuzzleTypes';
+import { toPublicDailyPuzzleV2 } from '../game-engine/daily/dailyPuzzlePublic';
 
 /** Settings keys whose value is a secret rather than a rule. */
 const SECRET_SETTINGS_KEYS = ['seed'] as const;
@@ -84,8 +86,12 @@ export function redactSettingsForClient<T extends object>(settings: T): T {
   for (const key of SECRET_SETTINGS_KEYS) delete out[key];
   const spec = out.daily_challenge_spec;
   if (spec && typeof spec === 'object') {
-    const { dice_queue_seed: _seed, ...rest } = spec as Record<string, unknown>;
-    out.daily_challenge_spec = rest;
+    const { dice_queue_seed: _seed, v2, ...rest } = spec as Record<string, unknown>;
+    // A v2 day's block carries the answer key (docs/DAILY_PUZZLE_V2.md);
+    // the client gets the public reading only.
+    out.daily_challenge_spec = v2 && typeof v2 === 'object'
+      ? { ...rest, v2: toPublicDailyPuzzleV2(v2 as DailyPuzzleV2) }
+      : rest;
   }
   return out as T;
 }
