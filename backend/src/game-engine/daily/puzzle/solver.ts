@@ -148,14 +148,20 @@ export function classifyPosition(solver: Solver, s: PuzzleState, policy?: Policy
   const bestKind = coarseActionKey(best.action);
   const runnerUp = values.find((v) => coarseActionKey(v.action) !== bestKind) ?? null;
 
+  // The natural move is valued as an idea: the best of its keep variants,
+  // because that is how play grades a target choice (how far to press is
+  // graded where the player stops). A line that attacks all in may lose more
+  // than the idea does; the difference is charged at the later position.
   let natural: HumanAction | null = null;
   let naturalEquity = best.equity;
   if (policy) {
     const n = policy(solver.puzzle.ctx, s);
     if (actionKey(n) !== actionKey(best.action)) {
       natural = n;
+      const kind = coarseActionKey(n);
       const found = values.find((v) => actionKey(v.action) === actionKey(n));
       naturalEquity = found ? found.equity : solver.grade(s, n).equity;
+      for (const v of values) if (coarseActionKey(v.action) === kind && v.equity > naturalEquity) naturalEquity = v.equity;
     }
   }
 
