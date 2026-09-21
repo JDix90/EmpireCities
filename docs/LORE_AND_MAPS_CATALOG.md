@@ -15,6 +15,8 @@ This document is a **player-facing and design-facing reference** for narrative f
 | Regional map card copy | `frontend/src/data/regionalMaps.ts` |
 | Curated custom-map immersion (advanced-settings flavor) | `frontend/src/data/customMapImmersion.ts` |
 | Lobby display titles for some community IDs | `frontend/src/constants/gameLobbyLabels.ts` → `COMMUNITY_MAP_TITLES` |
+| Which maps get a **public page**, and the published board projection | `backend/src/modules/maps/mapCatalog.ts` → `MAP_PAGE_IDS`, `ERA_MAP_IDS` |
+| Public page copy (maps, eras) | `frontend/src/marketing/mapPages.mjs`, `eraPages.mjs` |
 
 Mechanical numbers (dice, costs) can change in balance patches; **lore strings** below are transcribed from the codebase at authoring time.
 
@@ -401,6 +403,27 @@ Maps uploaded through the Map Editor appear in the **Community Maps** section of
 1. When adding an era: extend `ERA_METADATA`, the era’s `backend/src/game-engine/eras/<era>.ts`, and `database/maps/era_<era>.json`, then append a section under Part A/B.  
 2. When adding a curated regional / featured map: extend `REGIONAL_MAPS` and/or `COMMUNITY_MAP_TITLES`, add a full `CustomMapImmersionProfile` in `customMapImmersion.ts`, and mirror the immersion subsection under Part C.  
 3. **Tech trees** are not duplicated line-for-line here; each node’s `name` and `description` live in `backend/src/game-engine/eras/<era>.ts` inside `*_TECH_TREE`.
+
+---
+
+## Part F — Public map & era pages
+
+`/maps`, `/maps/:slug` and `/eras/:slug` are prerendered, crawlable pages built from the map and faction data rather than written by hand. The board numbers on them (territories, regions, bonuses, sea routes) are projections of the real definitions, so a redrawn map updates its page the next time the generator runs.
+
+**A map does not get a page by existing.** `MAP_PAGE_IDS` in `backend/src/modules/maps/mapCatalog.ts` is a curated list, and that is deliberate: a page earns its place by having a subject someone might search for. Publishing one for every map would produce near-identical pages about things nobody looks for, which is the pattern Google's scaled-content policy is aimed at.
+
+To add one:
+
+1. Add the `map_id` to `MAP_PAGE_IDS`.
+2. Add an entry to `MAP_PAGE_COPY` in `frontend/src/marketing/mapPages.mjs` — including a `hook`, the one thing the data cannot supply. If the hook would read the same with another map's name swapped in, the page is not worth publishing.
+3. Regenerate and rebuild the sitemap:
+   ```bash
+   pnpm -C backend exec tsx scripts/generateMapCatalog.ts
+   node frontend/scripts/generate-sitemap.mjs
+   ```
+4. Commit what they regenerate. Tests fail if either is stale, if a listed map has no copy, or if a published page is under ~200 words.
+
+Era pages work the same way, keyed by era id: every era with factions needs an entry in `ERA_PAGE_COPY` (`eraPages.mjs`), and its `years` must match the `ERAS` arc in `seoContent.mjs` — a reader seeing two different dates for the same era on two of our own pages is worse than either being wrong.
 
 ---
 

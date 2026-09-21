@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Borderfall public marketing + legal pages. Update lastmod when content
-     materially changes. The game/app routes are intentionally excluded — they
-     are auth-gated, client-rendered, and not useful as search landing pages.
+<!-- GENERATED FILE — DO NOT EDIT BY HAND.
+     Regenerate: node frontend/scripts/generate-sitemap.mjs
+     Source: MARKETING_PAGES in src/marketing/seoContent.mjs.
      The per-day Daily archive URLs are generated from the database instead
      (sitemap-daily.xml, declared in robots.txt) because they grow daily. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -19,6 +19,26 @@
     <loc>https://borderfall.gg/eras</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/codex</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/about</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/privacy</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/terms</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
   </url>
   <url>
     <loc>https://borderfall.gg/answers</loc>
@@ -51,28 +71,143 @@
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://borderfall.gg/daily/archive</loc>
-    <changefreq>daily</changefreq>
+    <loc>https://borderfall.gg/answers/how-long-does-a-game-of-risk-take</loc>
+    <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://borderfall.gg/codex</loc>
+    <loc>https://borderfall.gg/answers/online-alternatives-to-risk-board-game</loc>
     <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://borderfall.gg/about</loc>
+    <loc>https://borderfall.gg/answers/turn-based-strategy-games-for-beginners</loc>
     <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
+    <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://borderfall.gg/privacy</loc>
-    <changefreq>yearly</changefreq>
-    <priority>0.3</priority>
+    <loc>https://borderfall.gg/answers/play-strategy-games-at-your-own-pace</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://borderfall.gg/terms</loc>
-    <changefreq>yearly</changefreq>
-    <priority>0.3</priority>
+    <loc>https://borderfall.gg/maps</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/maps/roman-empire-117</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/maps/sengoku-japan</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/maps/napoleonic-europe</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/maps/mongol-empire</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/maps/charlemagne-814</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/maps/fractured-china</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/maps/byzantium-megali</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/maps/balkanized-india</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/maps/uncolonized-africa</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/maps/nusantara</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/maps/south-america</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/maps/britain-925</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/eras/ancient</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/eras/medieval</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/eras/discovery</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/eras/ww2</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/eras/coldwar</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/eras/modern</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/eras/acw</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/eras/risorgimento</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/eras/space-age</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/eras/galaxy-age</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://borderfall.gg/daily/archive</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
   </url>
 </urlset>

@@ -18,6 +18,7 @@ import { Link, useParams } from 'react-router-dom';
 import { CalendarDays, Trophy } from 'lucide-react';
 import BrandWordmark from '../components/ui/BrandWordmark';
 import SubpageShell from '../components/ui/SubpageShell';
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { useNoindex } from '../hooks/useNoindex';
 import { api } from '../services/api';
 
@@ -93,20 +94,6 @@ function prettyDate(date: string): string {
  * shares from their address bar, or a browser that re-reads the title, should
  * not see the generic landing copy.
  */
-function useDocumentMeta(title: string, description?: string): void {
-  useEffect(() => {
-    const previous = document.title;
-    document.title = title;
-    const tag = description ? document.querySelector('meta[name="description"]') : null;
-    const previousDescription = tag?.getAttribute('content') ?? null;
-    if (tag && description) tag.setAttribute('content', description);
-    return () => {
-      document.title = previous;
-      if (tag && previousDescription !== null) tag.setAttribute('content', previousDescription);
-    };
-  }, [title, description]);
-}
-
 /* ─── Index: /daily/archive ───────────────────────────────────────────────── */
 
 export function DailyArchiveIndexPage() {
