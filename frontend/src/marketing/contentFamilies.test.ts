@@ -69,10 +69,13 @@ describe('the map pages', () => {
     expect(pathsUnder('/game-maps/').length).toBe(MAP_CATALOG.length);
   });
 
-  it('gives every map page its own file, so it gets its own canonical', () => {
-    for (const map of MAP_CATALOG) {
-      expect(byPath(`/game-maps/${map.slug}`)?.file).toBe(`game-maps/${map.slug}/index.html`);
-    }
+  it('gives every map page a distinct url, so each gets its own canonical', () => {
+    // The output file is derived from the path, so distinct paths are the whole
+    // requirement — two pages sharing one would overwrite each other, which the
+    // prerender script also refuses.
+    const paths = MAP_CATALOG.map((m) => `/game-maps/${m.slug}`);
+    expect(new Set(paths).size).toBe(paths.length);
+    for (const p of paths) expect(byPath(p), `no page at ${p}`).toBeDefined();
   });
 
   it('links every map from the index, so none is an orphan', () => {

@@ -111,11 +111,12 @@ describe('index.html agrees with the published marketing copy', () => {
 describe('the faction codex page', () => {
   const codex = MARKETING_PAGES.find((p) => p.path === '/codex');
 
-  it('is published with its own file, so it gets its own canonical', () => {
-    // The canonical is derived from `path` by prerender-marketing.mjs; without
-    // an entry here there is no dist/codex/index.html to carry one.
+  it('is published as its own page, so it gets its own canonical', () => {
+    // The canonical and the output file are both derived from `path` by
+    // prerender-marketing.mjs; without an entry here there is no
+    // dist/codex/index.html to carry one.
     expect(codex).toBeDefined();
-    expect(codex?.file).toBe('codex/index.html');
+    expect(codex?.path).toBe('/codex');
   });
 
   it('is listed in the sitemap', () => {

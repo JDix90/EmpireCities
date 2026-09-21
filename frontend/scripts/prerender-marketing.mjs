@@ -107,6 +107,18 @@ function faqPageJsonLd(faq) {
   });
 }
 
+/**
+ * Where a page's HTML goes, derived from the url it is served at.
+ *
+ * Derived rather than stored: this used to be a hand-written `file` field
+ * alongside `path`, so a typo in either put the file somewhere nothing serves
+ * while the intended url fell through to the SPA shell and its homepage
+ * canonical. Two strings that must agree, written by hand, forty times over.
+ */
+function fileForPath(path) {
+  return path === '/' ? 'index.html' : `${path.replace(/^\//, '')}/index.html`;
+}
+
 function bodyHtml(page) {
   const heading = `      <h1>${escapeAttr(page.h1)}</h1>\n`;
   const tagline = page.tagline ? `      <p class="bf-tagline">${escapeAttr(page.tagline)}</p>\n` : '';
@@ -140,6 +152,8 @@ async function run() {
     process.exit(1);
   }
 
+  const written = new Map();
+
   for (const page of MARKETING_PAGES) {
     let html = shell;
 
@@ -169,11 +183,53 @@ async function run() {
     // Body: inject crawlable content into #root.
     html = html.replace('<div id="root"></div>', bodyHtml(page));
 
-    const outPath = join(DIST, page.file);
+    const file = fileForPath(page.path);
+    const clash = written.get(file);
+    if (clash) {
+      console.error(
+        `[prerender] "${page.path}" and "${clash}" both write ${file}. `
+        + 'Two pages cannot share a url; one would silently overwrite the other.',
+      );
+      process.exit(1);
+    }
+    written.set(file, page.path);
+
+    const outPath = join(DIST, file);
     await mkdir(dirname(outPath), { recursive: true });
     await writeFile(outPath, html, 'utf8');
-    console.log(`[prerender] wrote ${page.file}  (${page.path})`);
+    console.log(`[prerender] wrote ${file}  (${page.path})`);
   }
+
+  await verifyCanonicals(written);
+}
+
+/**
+ * Read every file back and confirm it claims the url it is served from.
+ *
+ * A page whose canonical names a different url than the one it sits at tells
+ * Google it is a duplicate of something else — which is how /codex spent months
+ * unindexable, and how the /maps pages shipped in September 2026 declaring
+ * themselves copies of the landing page. Both were invisible until someone
+ * fetched production and compared the two strings by hand.
+ *
+ * Checked here rather than in a unit test because this is the only place that
+ * knows what was actually written to disk, and failing the BUILD is what stops
+ * it reaching a deploy at all.
+ */
+async function verifyCanonicals(written) {
+  const problems = [];
+  for (const [file, path] of written) {
+    const html = await readFile(join(DIST, file), 'utf8');
+    const found = html.match(/<link\s+rel="canonical"\s+href="([^"]*)"/i)?.[1];
+    const want = `${SITE_URL}${path}`;
+    if (found !== want) problems.push(`${file}: canonical is ${found ?? '(none)'}, expected ${want}`);
+  }
+  if (problems.length) {
+    console.error(`[prerender] ${problems.length} page(s) carry the wrong canonical:`);
+    for (const p of problems) console.error(`  ${p}`);
+    process.exit(1);
+  }
+  console.log(`[prerender] ${written.size} pages verified: each canonical names its own url`);
 }
 
 run().catch((err) => {

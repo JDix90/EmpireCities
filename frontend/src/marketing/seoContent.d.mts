@@ -28,8 +28,8 @@ export type MarketingBlock =
   | { type: 'links'; links: Array<{ href: string; label: string }> };
 
 export interface MarketingPage {
+  /** The url. The prerender script derives the output file from it. */
   path: string;
-  file: string;
   title: string;
   description: string;
   h1: string;
