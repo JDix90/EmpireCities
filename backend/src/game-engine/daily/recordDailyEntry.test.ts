@@ -49,7 +49,8 @@ describe('recordDailyChallengeLoss', () => {
     expect(sql).toMatch(/ON CONFLICT \(challenge_date, user_id\) DO NOTHING/);
     // won=false and puzzle_score=0 are hard-coded in the VALUES clause; params
     // carry date, user, turn reached, and archetype.
-    expect(params).toEqual(['2026-09-04', USER, 5, 'military_capture']);
+    // The row is a v1 entry (no v2 block on the spec): puzzle_version 1.
+    expect(params).toEqual(['2026-09-04', USER, 5, 'military_capture', 1]);
     expect(recordServerEventMock).toHaveBeenCalledTimes(1);
     const [evt, evtPayload] = recordServerEventMock.mock.calls[0];
     expect(evt).toBe('daily_challenge_settled');

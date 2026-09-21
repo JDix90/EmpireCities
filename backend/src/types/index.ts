@@ -2,6 +2,7 @@
 // Shared backend types for Borderfall
 // ============================================================
 
+import type { PuzzleDecisionRecord } from '../game-engine/daily/dailyPuzzleTypes';
 import type {
   GamePhase,
   ConnectionType,
@@ -1066,6 +1067,17 @@ export interface GameState {
    * Reset when the human's turn begins.
    */
   puzzle_objective_attacked?: boolean;
+  /** Daily puzzle v2: the graded decisions of this run (game-engine/daily/puzzlePlay.ts). Client sees them at game over only. */
+  puzzle_decisions?: PuzzleDecisionRecord[];
+  /** Daily puzzle v2: takebacks used in this run (the first forfeits the star). */
+  puzzle_takebacks?: number;
+  /**
+   * Daily puzzle v2: the human turn's pre-draft position, so the draft is
+   * graded as one decision when the phase advances. Server-only.
+   */
+  puzzle_turn_open?: { turn: number; key: string; units: number[]; draft_left: number } | null;
+  /** Daily puzzle v2: the edge under assault this turn, so repeated exchanges on it are one decision. */
+  puzzle_assault_edge?: string;
   /**
    * Random 128-bit salt used to seed secret-mission and capital-placement
    * RNGs. Generated server-side at game init; NEVER sent to clients (stripped

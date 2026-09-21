@@ -7,25 +7,32 @@ import type { DailyPuzzleSpec } from '../../game-engine/daily/dailyPuzzleTypes';
 import { buildGameSettingsFromChallenge } from '../../game-engine/daily/dailySettings';
 import { applyAdminSnapshotsToSettings } from '../../services/adminConfig';
 import { featureFlags } from '../../config/featureFlags';
+import { toPublicDailyPuzzleV2 } from '../../game-engine/daily/dailyPuzzlePublic';
+import type { PublicDailyPuzzleV2 } from '../../game-engine/daily/dailyPuzzleTypes';
+import { DAILY_LEADERBOARD_COLUMNS, DAILY_LEADERBOARD_ORDER_BY } from './dailyLeaderboardOrder';
 
 const PLAYER_COLORS = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12'];
 
-/** Client-safe spec (omit deterministic dice seed). */
+/** Client-safe spec (omit deterministic dice seed, and a v2 day's answer key). */
 function toPublicSpec(
   spec: DailyPuzzleSpec,
-): Omit<DailyPuzzleSpec, 'dice_queue_seed' | 'starting_board' | 'settings_overrides' | 'grants' | 'clear_board'> {
+): Omit<DailyPuzzleSpec, 'dice_queue_seed' | 'starting_board' | 'settings_overrides' | 'grants' | 'clear_board' | 'v2'>
+  & { v2?: PublicDailyPuzzleV2 } {
   // The dice seed stays server-side (determinism is not a spoiler, but the
   // stream is), and the authored internals are game-start inputs, not display
-  // data — the client sees the board when the game begins.
+  // data — the client sees the board when the game begins. A v2 day's stored
+  // solution is the answer key: the public reading keeps the theme, the plan
+  // in words and the decision count (docs/DAILY_PUZZLE_V2.md §5.5).
   const {
     dice_queue_seed: _d,
     starting_board: _b,
     settings_overrides: _o,
     grants: _g,
     clear_board: _c,
+    v2,
     ...rest
   } = spec;
-  return rest;
+  return v2 ? { ...rest, v2: toPublicDailyPuzzleV2(v2) } : rest;
 }
 
 export async function dailyRoutes(fastify: FastifyInstance): Promise<void> {
@@ -51,10 +58,14 @@ export async function dailyRoutes(fastify: FastifyInstance): Promise<void> {
       turn_count: number | null;
       territory_count: number | null;
       completed_at: string;
+      puzzle_version: number;
+      accuracy: number | null;
+      first_try: boolean | null;
+      attempts: number | null;
     }>(
-      `SELECT entry_id, won, puzzle_score, turn_count, territory_count, completed_at
-       FROM daily_challenge_entries
-       WHERE challenge_date = $1 AND user_id = $2`,
+      `SELECT dce.entry_id, ${DAILY_LEADERBOARD_COLUMNS}, dce.completed_at
+       FROM daily_challenge_entries dce
+       WHERE dce.challenge_date = $1 AND dce.user_id = $2`,
       [row.challenge_date, request.userId],
     );
 
@@ -117,8 +128,7 @@ export async function dailyRoutes(fastify: FastifyInstance): Promise<void> {
            FROM (
              SELECT dce.user_id,
                     RANK() OVER (
-                      ORDER BY dce.won DESC, dce.puzzle_score DESC NULLS LAST,
-                               dce.turn_count ASC NULLS LAST, dce.territory_count DESC NULLS LAST
+                      ORDER BY ${DAILY_LEADERBOARD_ORDER_BY}
                     ) AS rank
              FROM daily_challenge_entries dce
              JOIN users u ON u.user_id = dce.user_id
@@ -142,6 +152,8 @@ export async function dailyRoutes(fastify: FastifyInstance): Promise<void> {
     // grading actually measures (1000 minus mistake penalties). Turn count
     // breaks ties, so domination days — where every winner scores 1000 —
     // rank exactly as before.
+    // On a v2 day the same query ranks by accuracy, first-try and attempts
+    // (dailyLeaderboardOrder.ts); `won` is shown, never ranked.
     const leaderboard = await query<{
       username: string;
       won: boolean;
@@ -149,13 +161,17 @@ export async function dailyRoutes(fastify: FastifyInstance): Promise<void> {
       turn_count: number | null;
       territory_count: number | null;
       completed_at: string;
+      puzzle_version: number;
+      accuracy: number | null;
+      first_try: boolean | null;
+      attempts: number | null;
     }>(
-      `SELECT u.username, dce.won, dce.puzzle_score, dce.turn_count, dce.territory_count, dce.completed_at
+      `SELECT u.username, ${DAILY_LEADERBOARD_COLUMNS}, dce.completed_at
        FROM daily_challenge_entries dce
        JOIN users u ON u.user_id = dce.user_id
        WHERE dce.challenge_date = $1
          AND u.is_guest = false
-       ORDER BY dce.won DESC, dce.puzzle_score DESC NULLS LAST, dce.turn_count ASC NULLS LAST, dce.territory_count DESC NULLS LAST
+       ORDER BY ${DAILY_LEADERBOARD_ORDER_BY}
        LIMIT 10`,
       [row.challenge_date],
     );

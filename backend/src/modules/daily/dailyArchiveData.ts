@@ -26,7 +26,8 @@
  */
 import { query, queryOne } from '../../db/postgres';
 import { dailyChallengeDate } from '../../game-engine/daily/dailyPuzzleService';
-import type { DailyPuzzleSpec } from '../../game-engine/daily/dailyPuzzleTypes';
+import type { DailyPuzzleSpec, DailyPuzzleV2, StoredPuzzleAction, StoredPuzzleDecision } from '../../game-engine/daily/dailyPuzzleTypes';
+import { DAILY_LEADERBOARD_COLUMNS, DAILY_LEADERBOARD_ORDER_BY } from './dailyLeaderboardOrder';
 import { humanizeEra } from '../share/replayOgData';
 
 /** Display-safe subset of a day's spec. Allowlist — never spread the spec. */
@@ -42,6 +43,21 @@ export interface DailyArchiveSpec {
   max_turns: number;
   par_turns: number | null;
   ai_difficulty: string | null;
+  /** A v2 day, once it is over: the lesson and the solution (docs/DAILY_PUZZLE_V2.md §5.5). */
+  v2?: DailyArchiveV2;
+}
+
+/** The archive's reading of a v2 day. Past days only, so the solution is public here. */
+export interface DailyArchiveV2 {
+  theme: string;
+  plan_prose: string[];
+  decisions_target: number;
+  verdicts: DailyPuzzleV2['verdicts'];
+  /** Best-play and obvious-line win probability from the opening, 0–1. */
+  equity: number;
+  obvious_equity: number;
+  decisions: StoredPuzzleDecision[];
+  line: Array<{ turn: number; action: StoredPuzzleAction; equity: number }>;
 }
 
 export interface DailyArchiveLeader {
@@ -50,6 +66,10 @@ export interface DailyArchiveLeader {
   puzzle_score: number | null;
   turn_count: number | null;
   territory_count: number | null;
+  puzzle_version?: number;
+  accuracy?: number | null;
+  first_try?: boolean | null;
+  attempts?: number | null;
 }
 
 export interface DailyArchiveResults {
@@ -117,6 +137,20 @@ export function toArchiveSpec(spec: DailyPuzzleSpec, fallbackEra: string, fallba
     max_turns: Number(spec?.max_turns ?? 0),
     par_turns: spec?.par_turns ?? null,
     ai_difficulty: spec?.ai_difficulty ?? null,
+    ...(spec?.v2 ? { v2: toArchiveV2(spec.v2) } : {}),
+  };
+}
+
+function toArchiveV2(v2: DailyPuzzleV2): DailyArchiveV2 {
+  return {
+    theme: v2.theme,
+    plan_prose: Array.isArray(v2.plan_prose) ? v2.plan_prose : [],
+    decisions_target: v2.decisions_target,
+    verdicts: v2.verdicts,
+    equity: v2.solution?.equity ?? 0,
+    obvious_equity: v2.solution?.obvious_equity ?? 0,
+    decisions: Array.isArray(v2.solution?.decisions) ? v2.solution.decisions : [],
+    line: Array.isArray(v2.solution?.line) ? v2.solution.line : [],
   };
 }
 
@@ -166,12 +200,11 @@ export async function getDailyArchiveEntry(
   );
 
   const leaderboard = await query<DailyArchiveLeader>(
-    `SELECT u.username, dce.won, dce.puzzle_score, dce.turn_count, dce.territory_count
+    `SELECT u.username, ${DAILY_LEADERBOARD_COLUMNS}
      FROM daily_challenge_entries dce
      JOIN users u ON u.user_id = dce.user_id
      WHERE dce.challenge_date = $1::date AND u.is_guest = false
-     ORDER BY dce.won DESC, dce.puzzle_score DESC NULLS LAST,
-              dce.turn_count ASC NULLS LAST, dce.territory_count DESC NULLS LAST
+     ORDER BY ${DAILY_LEADERBOARD_ORDER_BY}
      LIMIT 10`,
     [date],
   );

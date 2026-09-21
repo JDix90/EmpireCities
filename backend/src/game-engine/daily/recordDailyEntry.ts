@@ -32,9 +32,10 @@ export const DAILY_GRACE_TURNS = 2;
  * block the abandon itself.
  */
 export async function recordDailyChallengeLoss(gameId: string, userId: string): Promise<void> {
-  const gameRow = await queryOne<{ daily_challenge_date: string | null; archetype: string | null }>(
+  const gameRow = await queryOne<{ daily_challenge_date: string | null; archetype: string | null; v2_version: string | null }>(
     `SELECT settings_json->>'daily_challenge_date'                    AS daily_challenge_date,
-            settings_json->'daily_challenge_spec'->>'archetype'      AS archetype
+            settings_json->'daily_challenge_spec'->>'archetype'      AS archetype,
+            settings_json->'daily_challenge_spec'->'v2'->>'version'  AS v2_version
        FROM games WHERE game_id = $1`,
     [gameId],
   );
@@ -59,15 +60,18 @@ export async function recordDailyChallengeLoss(gameId: string, userId: string): 
   const turnReached = snap?.turn_number ?? 0;
   if (turnReached <= DAILY_GRACE_TURNS) return; // pre-first-move mulligan — attempt not consumed
 
+  // A v2 day's abandoned run is a v2 row (its board ranks by score, never by
+  // `won`); accuracy stays NULL, which sorts it below every finished run.
+  const puzzleVersion = gameRow.v2_version === '2' ? 2 : 1;
   const inserted = await query<{ entry_id: string }>(
     `INSERT INTO daily_challenge_entries (
        challenge_date, user_id, won, turn_count, territory_count,
-       puzzle_score, objective_met, archetype, move_feedback_mistakes
+       puzzle_score, objective_met, archetype, move_feedback_mistakes, puzzle_version
      )
-     VALUES ($1, $2, false, $3, NULL, 0, false, $4, NULL)
+     VALUES ($1, $2, false, $3, NULL, 0, false, $4, NULL, $5)
      ON CONFLICT (challenge_date, user_id) DO NOTHING
      RETURNING entry_id`,
-    [gameRow.daily_challenge_date, userId, turnReached, gameRow.archetype],
+    [gameRow.daily_challenge_date, userId, turnReached, gameRow.archetype, puzzleVersion],
   );
 
   if (inserted.length > 0) {

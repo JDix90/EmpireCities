@@ -52,7 +52,7 @@ async function engineWinRate(spec: DailyPuzzleSpec, map: GameMap, games: number)
           if (spec.archetype === 'hold_territory') holdLine(state, map, spec);
           else captureLine(state, map, spec, dieRoll);
         } else {
-          runScriptedAiTurn(state, map, ctx, plan, HUMAN_ID, AI_ID, { dieRoll });
+          await runScriptedAiTurn(state, map, ctx, plan, HUMAN_ID, AI_ID, { dieRoll });
         }
       }
       outcome = resolution(state, map, spec);
