@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildShareLine,
+  commitLabel,
   countBest,
   decisionsLine,
   describeProposal,
@@ -56,5 +57,18 @@ describe('dailyPuzzleV2 — words', () => {
       .toBe('3 decisions decide this one · the board answers before the dice');
     expect(decisionsLine({ version: 2, theme: 't', plan_prose: [], decisions_target: 3, verdicts: 'silent', intent: 'prose', decisions: 0 }))
       .toBe('3 decisions decide this one · graded silently, revealed at the end');
+  });
+
+  it('names the commit button after the move, not the dice', () => {
+    // Only an attack rolls: "Roll anyway" on a fortify read as a different move.
+    expect(commitLabel({ kind: 'attack', from: 'persia', to: 'bactria' }, 'blunder')).toBe('Roll anyway');
+    expect(commitLabel({ kind: 'fortify', from: 'persia', to: 'bactria', units: 3 }, 'inaccuracy')).toBe('Move anyway');
+    expect(commitLabel({ kind: 'draft', to: 'persia' }, 'good')).toBe('Place anyway');
+    expect(commitLabel({ kind: 'end_attack' }, 'blunder')).toBe('Stop anyway');
+    expect(commitLabel({ kind: 'end_turn' }, 'blunder')).toBe('End turn anyway');
+    // The board did not argue against the best move, so nothing is done "anyway".
+    expect(commitLabel({ kind: 'fortify', from: 'persia', to: 'bactria', units: 3 }, 'best')).toBe('Move them');
+    expect(commitLabel({ kind: 'attack', from: 'persia', to: 'bactria' }, 'best')).toBe('Roll');
+    expect(commitLabel({ kind: 'end_turn' })).toBe('End the turn');
   });
 });

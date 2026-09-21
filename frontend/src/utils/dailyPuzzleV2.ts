@@ -119,6 +119,24 @@ export function describeProposal(p: PuzzleProposal, nameOf: (id: string) => stri
   }
 }
 
+/**
+ * The confirm button's words for a held move.
+ *
+ * Only an attack rolls dice, so "Roll anyway" on a fortify or an end-of-phase
+ * read as a different move entirely. "Anyway" is for a move the board just
+ * argued against; the best move is simply confirmed.
+ */
+export function commitLabel(p: PuzzleProposal, grade: PuzzleGrade = 'best'): string {
+  const defiant = grade !== 'best';
+  switch (p.kind) {
+    case 'attack': return defiant ? 'Roll anyway' : 'Roll';
+    case 'draft': return defiant ? 'Place anyway' : 'Place them';
+    case 'fortify': return defiant ? 'Move anyway' : 'Move them';
+    case 'end_attack': return defiant ? 'Stop anyway' : 'Stop attacking';
+    case 'end_turn': return defiant ? 'End turn anyway' : 'End the turn';
+  }
+}
+
 export interface VerdictCopy {
   /** "That wins 55 % of futures. There is an 84 % line." */
   body: string;

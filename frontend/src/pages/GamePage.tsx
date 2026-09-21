@@ -52,7 +52,7 @@ import {
 } from '../utils/mapAmbientEffects';
 import GameHUD from '../components/game/GameHUD';
 import AiTurnRecapPanel, { appendRecap, type TurnRecapEntry } from '../components/game/AiTurnRecapPanel';
-import GameStartModal from '../components/game/GameStartModal';
+import GameStartModal, { isOpeningState } from '../components/game/GameStartModal';
 import GameEndedNotice from '../components/game/GameEndedNotice';
 import { describeEndedOutcome } from '../utils/gameEndedOutcome';
 import DefenderBattleTheater from '../components/game/DefenderBattleTheater';
@@ -716,7 +716,8 @@ export default function GamePage() {
   // The first player is randomized, so without a beat to orient, a player
   // who isn't first can be watching AI combat before they know who acts
   // when. Shown once per game (sessionStorage guard survives remounts) for
-  // participants of non-tutorial games entering turn 1.
+  // participants of non-tutorial, non-daily games still in their opening —
+  // the first seat's first turn, whatever phase that game starts in.
   const [showStartModal, setShowStartModal] = useState(false);
   const startModalOpenRef = useRef(false);
   const startModalShownRef = useRef(false);
@@ -782,12 +783,15 @@ export default function GamePage() {
     maybeEmitTurnReady();
   }, [maybeEmitTurnReady]);
 
-  // Open the start modal on the first turn-1 state of a fresh game.
+  // Open the start modal on the opening state of a fresh game.
   useEffect(() => {
     if (!gameState || !gameId || startModalShownRef.current) return;
     if (gameState.settings.tutorial) return; // tutorial has its own guided intro
-    if (gameState.turn_number !== 1) return;
-    if (gameState.phase !== 'territory_select' && gameState.phase !== 'draft') return;
+    // A daily challenge opens with its own briefing — goal, opponent plan,
+    // turn limit — so this one is a second modal to dismiss that says less,
+    // and its win conditions are the game's rather than the puzzle's objective.
+    if (gameState.settings.daily_challenge_spec) return;
+    if (!isOpeningState(gameState)) return;
     const viewerId = resolvedViewerPlayerIdRef.current ?? userRef.current?.user_id ?? null;
     if (!viewerId || !gameState.players.some((p) => p.player_id === viewerId)) return;
     startModalShownRef.current = true;

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import GameStartModal, { turnOrderFrom, describeViewerPosition, describeWinConditions } from './GameStartModal';
+import GameStartModal, { turnOrderFrom, describeViewerPosition, describeWinConditions, isOpeningState } from './GameStartModal';
 import type { GameState, PlayerState } from '../../store/gameStore';
 
 vi.mock('../../services/api', () => ({
@@ -282,5 +282,19 @@ describe('GameStartModal', () => {
     render(<GameStartModal open onClose={() => {}} gameState={state} viewerPlayerId="me" />);
     expect(await screen.findByText('Rome')).toBeInTheDocument();
     expect(screen.getByText(/Testudo/)).toBeInTheDocument();
+  });
+
+  it('treats only the first seat\'s first turn as the opening', () => {
+    // The daily puzzle that exposed this starts in the attack phase, so the
+    // first draft-phase state of turn 1 is the opponent's: the briefing used
+    // to open there and tell a player who had just moved that they go first.
+    const opening = makeState({ phase: 'attack', current_player_index: 1, starting_player_index: 1 });
+    expect(isOpeningState(opening)).toBe(true);
+    const opponentsTurn = makeState({ phase: 'draft', current_player_index: 0, starting_player_index: 1 });
+    expect(isOpeningState(opponentsTurn)).toBe(false);
+    const laterTurn = makeState({ phase: 'draft', current_player_index: 1, starting_player_index: 1, turn_number: 2 });
+    expect(isOpeningState(laterTurn)).toBe(false);
+    // Missing indices (older states) fall back to seat 0 on both sides.
+    expect(isOpeningState({ turn_number: 1 } as GameState)).toBe(true);
   });
 });
