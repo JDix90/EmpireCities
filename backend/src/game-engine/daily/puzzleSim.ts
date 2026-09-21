@@ -21,6 +21,10 @@
  * seeded, so the same spec simulates identically on any process — the CI
  * sweep and the serving process agree on solve rate and par.
  *
+ * The human-seat lines, the state builder and the resolution reader are
+ * exported for the v2 puzzle solver's parity test (puzzle/modelParity.test.ts),
+ * which plays the same lines through the engine against a scripted opponent.
+ *
  * Scope: the capture verbs (single, chain, region) and hold. Economy and
  * tech days keep the arithmetic check (dailyGenerator.sizeEarnable), which
  * is exact.
@@ -98,7 +102,7 @@ function fortifyAll(state: GameState, pid: string, from: string, to: string): vo
 }
 
 /** Solved / failed / still going, read the way the socket resolver reads it. */
-function resolution(state: GameState, map: GameMap, spec: DailyPuzzleSpec): 'solved' | 'failed' | null {
+export function resolution(state: GameState, map: GameMap, spec: DailyPuzzleSpec): 'solved' | 'failed' | null {
   const status = evaluatePuzzleObjective(state, map, spec, HUMAN);
   if (status === 'solved') return 'solved';
   if (status === 'failed') return 'failed';
@@ -117,7 +121,7 @@ function objectiveTargets(map: GameMap, spec: DailyPuzzleSpec): string[] {
   return spec.target_territory_id ? [spec.target_territory_id] : [];
 }
 
-function captureLine(state: GameState, map: GameMap, spec: DailyPuzzleSpec, dieRoll: () => number): void {
+export function captureLine(state: GameState, map: GameMap, spec: DailyPuzzleSpec, dieRoll: () => number): void {
   const targets = objectiveTargets(map, spec);
   const held = (t: string) => state.territories[t]?.owner_id === HUMAN;
   const mine = () => ownedBy(state, HUMAN);
@@ -178,7 +182,7 @@ function captureLine(state: GameState, map: GameMap, spec: DailyPuzzleSpec, dieR
   }
 }
 
-function holdLine(state: GameState, map: GameMap, spec: DailyPuzzleSpec): void {
+export function holdLine(state: GameState, map: GameMap, spec: DailyPuzzleSpec): void {
   const target = spec.target_territory_id!;
   if (state.territories[target].owner_id !== HUMAN) {
     state.draft_units_remaining = 0;
@@ -254,7 +258,7 @@ async function aiTurn(
 
 // ── One game ─────────────────────────────────────────────────────────────────
 
-function buildState(spec: DailyPuzzleSpec, map: GameMap): GameState {
+export function buildState(spec: DailyPuzzleSpec, map: GameMap): GameState {
   const settings = buildGameSettingsFromChallenge({
     challenge_date: '2000-01-01',
     seed: spec.seed,

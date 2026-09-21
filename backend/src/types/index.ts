@@ -1061,6 +1061,12 @@ export interface GameState {
    */
   puzzle_objective_reached_turn?: number | null;
   /**
+   * Daily puzzle v2: the human attacked an objective territory this round —
+   * a scripted-opponent plan condition (game-engine/daily/puzzle/opponent.ts).
+   * Reset when the human's turn begins.
+   */
+  puzzle_objective_attacked?: boolean;
+  /**
    * Random 128-bit salt used to seed secret-mission and capital-placement
    * RNGs. Generated server-side at game init; NEVER sent to clients (stripped
    * in `buildClientState`). Without this, a malicious client knowing the
