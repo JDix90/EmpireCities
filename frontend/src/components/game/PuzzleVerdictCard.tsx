@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
-import { Dices, Undo2 } from 'lucide-react';
+import { Check, Dices, Undo2 } from 'lucide-react';
 import {
+  commitLabel,
   describeProposal,
   describeStoredAction,
   verdictCopy,
@@ -12,7 +13,7 @@ interface PuzzleVerdictCardProps {
   proposal: PuzzleProposal;
   verdict: PuzzleVerdict;
   nameOf: (id: string) => string;
-  /** Commit the held move: the seeded dice play out. */
+  /** Commit the held move: an attack rolls the seeded dice, anything else just plays. */
   onRoll: () => void;
   /** Drop the held move: play continues from the same position. */
   onTakeBack: () => void;
@@ -20,7 +21,7 @@ interface PuzzleVerdictCardProps {
 
 /**
  * Daily v2's verdict before the dice (docs/DAILY_PUZZLE_V2.md §3): the board
- * answers a move that matters, and the player rolls anyway or takes it back.
+ * answers a move that matters, and the player commits it or takes it back.
  * Blocks the map until one is chosen; Escape takes it back.
  */
 export default function PuzzleVerdictCard({ proposal, verdict, nameOf, onRoll, onTakeBack }: PuzzleVerdictCardProps) {
@@ -69,7 +70,8 @@ export default function PuzzleVerdictCard({ proposal, verdict, nameOf, onRoll, o
             className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-white/15 hover:bg-white/25 border border-white/20 px-3 py-2.5 text-sm font-medium"
             autoFocus
           >
-            <Dices className="w-4 h-4" /> Roll anyway
+            {proposal.kind === 'attack' ? <Dices className="w-4 h-4" /> : <Check className="w-4 h-4" />}
+            {commitLabel(proposal, grade)}
           </button>
           <button
             type="button"

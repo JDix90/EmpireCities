@@ -59,7 +59,12 @@ a move that matters, the board answers:
 > *Attack Persia now?* That wins **55 %** of futures. There is an **84 %** line.
 > **Roll anyway** · **Take it back**
 
-Take it back and the star is gone but the streak survives. Roll anyway and the seeded
+The confirm button follows the move rather than the dice: only an attack rolls, so a
+fortify reads **Move anyway**, ending a phase reads **Stop anyway** or **End turn
+anyway**, and a move the board agrees with is simply confirmed (**Roll**, **Move
+them**, **Stop attacking**).
+
+Take it back and the star is gone but the streak survives. Confirm it and the seeded
 dice play out. A second takeback on the same decision reveals the best line and forfeits
 that decision's accuracy. On Friday the interruptions are off: every decision is graded
 silently and the grades appear at the end.
