@@ -205,7 +205,10 @@ describe('daily schedule v2 — the sweep', { timeout: 900_000 }, () => {
       expect(spec.v2!.version).toBe(2);
       expect(spec.v2!.theme).toBe(pick.plan.theme);
       expect(spec.v2!.plan).toEqual(pick.plan.plan);
-      expect(spec.v2!.plan_prose).toHaveLength(pick.plan.plan.steps.length);
+      // One line per condition, not per step: steps sharing a condition are
+      // written together, so the prose is never longer than the plan.
+      expect(spec.v2!.plan_prose.length).toBeGreaterThan(0);
+      expect(spec.v2!.plan_prose.length).toBeLessThanOrEqual(pick.plan.plan.steps.length);
       expect(spec.v2!.decisions_target).toBe(pick.tier.decisions);
       expect(spec.v2!.verdicts).toBe(pick.tier.verdicts);
       expect(spec.v2!.intent).toBe(pick.tier.intent);

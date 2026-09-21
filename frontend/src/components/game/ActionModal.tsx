@@ -1511,18 +1511,18 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
             <div className="flex items-baseline justify-between gap-3">
               <p className="text-2xl font-display text-amber-300">
                 {data.puzzle_review.crown ? '👑 ' : data.puzzle_review.star ? '★ ' : ''}
-                {Math.round(data.puzzle_review.accuracy)} % accuracy
+                {Math.round(data.puzzle_review.accuracy)}% accuracy
               </p>
               <p className="text-sm text-white/60">{data.puzzle_review.score} pts</p>
             </div>
             <p className="text-xs text-white/50 mt-1">
               {data.puzzle_review.crown
-                ? 'A crown: every decision best, first time.'
+                ? 'Every decision best, first time. That is the crown.'
                 : data.puzzle_review.star
-                  ? 'A star: no blunder, at most one slip, no takeback.'
+                  ? 'No blunders, one slip at most, nothing taken back. That earns the star.'
                   : data.puzzle_review.first_try
-                    ? 'No star this time — a blunder or two slips.'
-                    : `${data.puzzle_review.attempts} attempts — a takeback costs the star.`}
+                    ? 'A blunder, or two slips, cost you the star.'
+                    : `${data.puzzle_review.attempts} attempts, so no star this time.`}
               {data.puzzle_review.theme ? ` The lesson: ${data.puzzle_review.theme}.` : ''}
             </p>
             {data.puzzle_review.decisions.length > 0 && (

@@ -277,7 +277,7 @@ export default function DailyArchivePage() {
   if (spec.v2) facts.push(['Decisions', `${spec.v2.decisions.length || spec.v2.decisions_target}`]);
   const v2 = spec.v2;
   const nameOf = (id: string) => v2?.names[id] ?? id;
-  const pctOf = (x: number) => `${Math.round(x * 100)} %`;
+  const pctOf = (x: number) => `${Math.round(x * 100)}%`;
 
   return (
     <SubpageShell
@@ -326,8 +326,8 @@ export default function DailyArchivePage() {
         <section className="space-y-3" data-testid="archive-v2">
           <h2 className="font-display text-lg text-bf-gold">The solution</h2>
           <p className="text-sm text-bf-muted leading-relaxed">
-            <span className="text-bf-text">The lesson:</span> {v2.theme}. Best play wins {pctOf(v2.equity)} of futures;
-            the obvious line {pctOf(v2.obvious_equity)}.
+            <span className="text-bf-text">The lesson:</span> {v2.theme}. Best play wins {pctOf(v2.equity)} of
+            the time. The obvious move wins {pctOf(v2.obvious_equity)}.
           </p>
           {v2.plan_prose.length > 0 && (
             <div>
@@ -392,7 +392,7 @@ export default function DailyArchivePage() {
                     <td className="py-2 pr-3">{l.won ? 'Solved' : 'Failed'}</td>
                     <td className="py-2 pr-3">
                       {(l.puzzle_version ?? 1) >= 2 && typeof l.accuracy === 'number'
-                        ? `${Math.round(l.accuracy)} %${l.first_try ? '' : ' ↺'}`
+                        ? `${Math.round(l.accuracy)}%${l.first_try ? '' : ' ↺'}`
                         : (l.puzzle_score ?? '—')}
                     </td>
                     <td className="py-2">{l.turn_count ?? '—'}</td>

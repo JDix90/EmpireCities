@@ -243,7 +243,7 @@ describe('ActionModal — Daily v2 decision review', () => {
   it('names each decision against the best move, the accuracy, the star and the lesson', async () => {
     render(<ActionModal data={{ ...gameOver(), puzzle_review: review }} onDismiss={() => {}} />);
     await waitFor(() => expect(screen.getByTestId('puzzle-review')).toBeTruthy());
-    expect(screen.getByText('★ 94 % accuracy')).toBeTruthy();
+    expect(screen.getByText('★ 94% accuracy')).toBeTruthy();
     expect(screen.getByText(/The lesson: cut the supply line/)).toBeTruthy();
     expect(screen.getByText('Best')).toBeTruthy();
     expect(screen.getByText('Inaccuracy · −11')).toBeTruthy();

@@ -370,7 +370,7 @@ export default function DailyChallengePage() {
             <div className="rounded-lg bg-bf-dark/60 border border-bf-gold/30 p-4 mb-4" data-testid="daily-v2-result">
               <div className="flex items-baseline justify-between gap-3">
                 <p className="text-bf-gold font-display text-2xl">
-                  {my_entry.crown ? '👑 ' : my_entry.star ? '★ ' : ''}{Math.round(my_entry.accuracy ?? 0)} % accuracy
+                  {my_entry.crown ? '👑 ' : my_entry.star ? '★ ' : ''}{Math.round(my_entry.accuracy ?? 0)}% accuracy
                 </p>
                 {typeof my_entry.puzzle_score === 'number' && (
                   <p className="text-bf-muted text-sm">{my_entry.puzzle_score} pts</p>
@@ -379,7 +379,7 @@ export default function DailyChallengePage() {
               <p className="text-bf-muted text-xs mt-1">
                 {typeof my_entry.decisions_best === 'number' && typeof my_entry.decisions_count === 'number'
                   ? `${my_entry.decisions_best}/${my_entry.decisions_count} decisions best`
-                  : 'Graded against the exact solution'}
+                  : 'Every move graded against best play'}
                 {my_entry.first_try === false && typeof my_entry.attempts === 'number' ? ` · ${my_entry.attempts} attempts` : ''}
                 {my_entry.crown ? ' · a crown' : my_entry.star ? ' · a star' : ''}
               </p>
@@ -492,7 +492,7 @@ export default function DailyChallengePage() {
                   <div className="flex items-center gap-3 text-xs text-bf-muted shrink-0">
                     {(row.puzzle_version ?? 1) >= 2 && typeof row.accuracy === 'number' ? (
                       <span className="text-bf-gold font-semibold" title="Accuracy: 100 minus the win probability given up across the run's decisions">
-                        {Math.round(row.accuracy)} %{row.first_try ? '' : ' ↺'}
+                        {Math.round(row.accuracy)}%{row.first_try ? '' : ' ↺'}
                       </span>
                     ) : typeof row.puzzle_score === 'number' && (
                       <span className="text-bf-gold font-semibold" title="Puzzle score: 1000 at par, more for beating it, less for risky moves">
