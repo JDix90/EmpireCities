@@ -182,22 +182,52 @@ export function mergeBranches(branches: Branch[]): Branch[] {
   return [...byKey.values()];
 }
 
-/** The plan in the player's words, for the intro and the archive. */
+/**
+ * The plan in the player's words, for the intro and the archive.
+ *
+ * Steps that share a condition are written as one line. A relief plan has two
+ * steps under each of two conditions, and spelling the condition out on all
+ * four lines read like a form letter rather than a briefing.
+ */
 export function describePlan(ctx: PuzzleContext, plan: OpponentPlan, name: (id: string) => string): string[] {
-  const cond = (w?: PlanCondition): string => {
+  const objective = ctx.objective.targets.map((t) => name(ctx.ids[t])).join(' and ') || 'the objective';
+  const lead = (w?: PlanCondition): string => {
     if (!w || w === 'always') return '';
-    if (w === 'objective_human') return 'while you hold the objective, ';
-    if (w === 'objective_ai') return 'while it holds the objective, ';
-    if (w === 'objective_attacked') return 'the turn you attack the objective, ';
-    return `on its turn ${w.turn}, `;
+    if (w === 'objective_human') return `Once you take ${objective}`;
+    if (w === 'objective_ai') return `While it holds ${objective}`;
+    if (w === 'objective_attacked') return `The turn you attack ${objective}`;
+    return `On its turn ${w.turn}`;
   };
-  const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
-  return plan.steps.map((s) => {
-    if (s.kind === 'draft') return cap(`${cond(s.when)}it reinforces ${name(s.to)}.`);
+  const phrase = (s: PlanStep): string => {
+    if (s.kind === 'draft') return `reinforces ${name(s.to)}`;
     if (s.kind === 'assault') {
-      const odds = s.min_odds ? ` if it likes its odds (${Math.round(s.min_odds * 100)}% or better)` : '';
-      return cap(`${cond(s.when)}${name(s.from)} attacks ${name(s.to)}${odds}.`);
+      const odds = s.min_odds ? ` when the odds are ${Math.round(s.min_odds * 100)}% or better` : '';
+      return `attacks ${name(s.to)} from ${name(s.from)}${odds}`;
     }
-    return cap(`${cond(s.when)}it marches ${name(s.from)} into ${name(s.to)}.`);
+    return `marches ${name(s.from)} into ${name(s.to)}`;
+  };
+
+  // Grouped across the whole plan, not just runs of adjacent steps: a chain
+  // day alternates its two conditions, so adjacency alone still repeated each
+  // lead twice. Conditions are mutually exclusive within a turn and order
+  // inside a group is preserved, so this reorders nothing that matters.
+  const groups: { when?: PlanCondition; parts: string[] }[] = [];
+  const byKey = new Map<string, { when?: PlanCondition; parts: string[] }>();
+  for (const step of plan.steps) {
+    const key = JSON.stringify(step.when ?? 'always');
+    const existing = byKey.get(key);
+    if (existing) existing.parts.push(phrase(step));
+    else {
+      const group = { when: step.when, parts: [phrase(step)] };
+      byKey.set(key, group);
+      groups.push(group);
+    }
+  }
+  return groups.map((g) => {
+    const body = g.parts.length > 1
+      ? `${g.parts.slice(0, -1).join(', ')}, then ${g.parts[g.parts.length - 1]}`
+      : g.parts[0];
+    const head = lead(g.when);
+    return head ? `${head}: ${body}.` : `It ${body}.`;
   });
 }

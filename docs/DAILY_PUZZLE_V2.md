@@ -56,7 +56,7 @@ visible: drawn as arrows on the map on easy and medium days, prose only on Frida
 **The turn.** Draft, attack, fortify exactly as in a real match. Before the dice roll on
 a move that matters, the board answers:
 
-> *Attack Persia now?* That wins **55 %** of futures. There is an **84 %** line.
+> *Attack Persia now?* You win this **55%** of the time. There's an **84%** line.
 > **Roll anyway** · **Take it back**
 
 The confirm button follows the move rather than the dice: only an attack rolls, so a
@@ -74,7 +74,7 @@ grade), the day's **theme** ("cut the supply line"), the accuracy, the star or c
 the streak, and a share line:
 
 ```
-Borderfall Daily #143 · ★ 94 % · 2/2 best · 🎲 won   borderfall.gg/daily
+Borderfall Daily #143 · ★ 94% · 2/2 best · 🎲 won   borderfall.gg/daily
 ```
 
 Yesterday's solution is one tap away; every archived day carries its solution line and

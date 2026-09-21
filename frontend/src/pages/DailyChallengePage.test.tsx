@@ -139,7 +139,7 @@ describe('DailyChallengePage — a v2 decision-puzzle day', () => {
     mockToday({ challenge: v2Challenge, my_entry: null, active_game_id: null, attempts_today: 0, my_rank: null, leaderboard: [] });
     renderPage();
     await waitFor(() => expect(screen.getByTestId('daily-v2-card')).toBeInTheDocument());
-    expect(screen.getByText('2 decisions decide this one · the board answers before the dice')).toBeInTheDocument();
+    expect(screen.getByText('2 decisions to get right · the board answers before you roll')).toBeInTheDocument();
     expect(screen.getByText('› While it holds the objective, it reinforces Gaul.')).toBeInTheDocument();
     expect(screen.queryByText(/beat it to score above 1000/)).toBeNull();
     // The theme is the lesson, told at the end: never on the card before play.
@@ -160,14 +160,14 @@ describe('DailyChallengePage — a v2 decision-puzzle day', () => {
     });
     renderPage();
     await waitFor(() => expect(screen.getByTestId('daily-v2-result')).toBeInTheDocument());
-    expect(screen.getByText('★ 94 % accuracy')).toBeInTheDocument();
+    expect(screen.getByText('★ 94% accuracy')).toBeInTheDocument();
     expect(screen.getByText(/1\/2 decisions best/)).toBeInTheDocument();
     expect(screen.getByText(/a star/)).toBeInTheDocument();
     // The share line names the day, the accuracy and the outcome; a loss with a star is still a star.
-    expect(screen.getByText(/Borderfall Daily 2026-09-07 · ★ 94 % · 1\/2 best · 🎲 lost/)).toBeInTheDocument();
+    expect(screen.getByText(/Borderfall Daily 2026-09-07 · ★ 94% · 1\/2 best · 🎲 lost/)).toBeInTheDocument();
     // The board shows accuracy on v2 rows, and marks a retried run; a lost run still ranks first.
-    expect(screen.getByText('94 %')).toBeInTheDocument();
-    expect(screen.getByText('90 % ↺')).toBeInTheDocument();
+    expect(screen.getByText('94%')).toBeInTheDocument();
+    expect(screen.getByText('90% ↺')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument();
   });
 

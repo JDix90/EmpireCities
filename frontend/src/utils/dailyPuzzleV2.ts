@@ -85,7 +85,13 @@ export const GRADE_LABELS: Record<PuzzleGrade, string> = {
   blunder: 'Blunder',
 };
 
-export const pct = (fraction: number): string => `${Math.round(fraction * 100)} %`;
+export const pct = (fraction: number): string => `${Math.round(fraction * 100)}%`;
+
+/** "an 84% line", "a 55% line" — the article English actually takes. */
+export function percentArticle(fraction: number): string {
+  const n = Math.round(fraction * 100);
+  return n === 8 || n === 11 || n === 18 || (n >= 80 && n <= 89) ? 'an' : 'a';
+}
 
 /** A stored action in the player's words, with territory names from `nameOf`. */
 export function describeStoredAction(a: StoredPuzzleAction | null | undefined, nameOf: (id: string) => string): string {
@@ -138,7 +144,7 @@ export function commitLabel(p: PuzzleProposal, grade: PuzzleGrade = 'best'): str
 }
 
 export interface VerdictCopy {
-  /** "That wins 55 % of futures. There is an 84 % line." */
+  /** "You win this 55% of the time. There's an 84% line." */
   body: string;
   /** "Blunder · gives up 29 points" */
   tag: string;
@@ -152,15 +158,15 @@ export function verdictCopy(v: PuzzleVerdict): VerdictCopy {
   const loss = v.loss ?? 0;
   const grade = v.grade ?? 'best';
   const body = grade === 'best'
-    ? `That wins ${pct(equity)} of futures — the best line here.`
-    : `That wins ${pct(equity)} of futures. There is a ${pct(best)} line.`;
+    ? `You win this ${pct(equity)} of the time. Nothing beats it.`
+    : `You win this ${pct(equity)} of the time. There's ${percentArticle(best)} ${pct(best)} line.`;
   const tag = grade === 'best' ? 'Best move' : `${GRADE_LABELS[grade]} · gives up ${Math.round(loss)} ${Math.round(loss) === 1 ? 'point' : 'points'}`;
   const takebacks = v.takebacks ?? 0;
   const takebackNote = takebacks === 0
-    ? 'Taking it back keeps your streak but costs the star.'
+    ? 'Take it back and the streak survives, but the star is gone.'
     : takebacks === 1
-      ? 'A second takeback here shows the best move and records this decision at full loss.'
-      : 'The best move is shown; this decision is recorded at full loss.';
+      ? "Take it back again and you'll see the best move, but this one scores zero."
+      : "Best move's on the table. This one scores zero.";
   return { body, tag, takebackNote };
 }
 
@@ -179,12 +185,12 @@ export interface ShareLineInput {
 }
 
 /**
- * "Borderfall Daily 2026-09-21 · 👑 100 % · 2/2 best · 🎲 won   https://…/daily"
+ * "Borderfall Daily 2026-09-21 · 👑 100% · 2/2 best · 🎲 won   https://…/daily"
  * The crown outranks the star; a run with neither shows the accuracy alone.
  */
 export function buildShareLine(input: ShareLineInput): string {
   const badge = input.crown ? '👑 ' : input.star ? '★ ' : '';
-  const acc = `${badge}${Math.round(input.accuracy)} %`;
+  const acc = `${badge}${Math.round(input.accuracy)}%`;
   const best = `${input.bestCount}/${input.decisionCount} best`;
   const dice = input.won ? '🎲 won' : '🎲 lost';
   return `Borderfall Daily ${input.date} · ${acc} · ${best} · ${dice}   ${input.url}`;
@@ -198,10 +204,10 @@ export function countBest(decisions: PuzzleDecisionRecord[]): number {
 /** What the day asks of the player, for the intro and the daily card. */
 export function decisionsLine(v2: PublicDailyPuzzleV2): string {
   const n = v2.decisions || v2.decisions_target;
-  const count = `${n} ${n === 1 ? 'decision decides' : 'decisions decide'} this one`;
+  const count = `${n} ${n === 1 ? 'decision' : 'decisions'} to get right`;
   return v2.verdicts === 'silent'
-    ? `${count} · graded silently, revealed at the end`
-    : `${count} · the board answers before the dice`;
+    ? `${count} · no verdicts until the end`
+    : `${count} · the board answers before you roll`;
 }
 
 /** The review panel's display-ready reading of a run (names resolved, share line built). */

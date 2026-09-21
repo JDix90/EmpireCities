@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   buildShareLine,
   commitLabel,
+  pct,
+  percentArticle,
   countBest,
   decisionsLine,
   describeProposal,
@@ -32,21 +34,21 @@ describe('dailyPuzzleV2 — words', () => {
 
   it("phrases the verdict in the brief's words and prices the takeback", () => {
     const blunder = verdictCopy({ decision: true, silent: false, equity: 0.55, best_equity: 0.84, loss: 29, grade: 'blunder', takebacks: 0 });
-    expect(blunder.body).toBe('That wins 55 % of futures. There is a 84 % line.');
+    expect(blunder.body).toBe("You win this 55% of the time. There's an 84% line.");
     expect(blunder.tag).toBe('Blunder · gives up 29 points');
-    expect(blunder.takebackNote).toMatch(/costs the star/);
+    expect(blunder.takebackNote).toMatch(/the star is gone/);
     const best = verdictCopy({ decision: true, silent: false, equity: 0.84, best_equity: 0.84, loss: 0, grade: 'best', takebacks: 1 });
-    expect(best.body).toBe('That wins 84 % of futures — the best line here.');
+    expect(best.body).toBe('You win this 84% of the time. Nothing beats it.');
     expect(best.tag).toBe('Best move');
-    expect(best.takebackNote).toMatch(/second takeback/);
-    expect(verdictCopy({ decision: true, silent: false, takebacks: 2 }).takebackNote).toMatch(/full loss/);
+    expect(best.takebackNote).toMatch(/Take it back again/);
+    expect(verdictCopy({ decision: true, silent: false, takebacks: 2 }).takebackNote).toMatch(/scores zero/);
   });
 
   it('builds the share line with the crown over the star', () => {
     const base = { date: '2026-09-21', accuracy: 94.4, star: true, crown: false, won: true, bestCount: 2, decisionCount: 2, url: 'https://borderfall.gg/daily' };
-    expect(buildShareLine(base)).toBe('Borderfall Daily 2026-09-21 · ★ 94 % · 2/2 best · 🎲 won   https://borderfall.gg/daily');
-    expect(buildShareLine({ ...base, crown: true, accuracy: 100 })).toContain('👑 100 %');
-    expect(buildShareLine({ ...base, star: false, accuracy: 71, won: false, bestCount: 1 })).toBe('Borderfall Daily 2026-09-21 · 71 % · 1/2 best · 🎲 lost   https://borderfall.gg/daily');
+    expect(buildShareLine(base)).toBe('Borderfall Daily 2026-09-21 · ★ 94% · 2/2 best · 🎲 won   https://borderfall.gg/daily');
+    expect(buildShareLine({ ...base, crown: true, accuracy: 100 })).toContain('👑 100%');
+    expect(buildShareLine({ ...base, star: false, accuracy: 71, won: false, bestCount: 1 })).toBe('Borderfall Daily 2026-09-21 · 71% · 1/2 best · 🎲 lost   https://borderfall.gg/daily');
   });
 
   it('counts the decisions graded best and phrases the day', () => {
@@ -54,9 +56,9 @@ describe('dailyPuzzleV2 — words', () => {
       ({ key: grade, turn: 1, phase: 'attack', best: { kind: 'end_attack' }, best_equity: 0.7, first: null, first_equity: 0.7, loss: 0, grade, takebacks: 0 });
     expect(countBest([rec('best'), rec('good'), rec('best')])).toBe(2);
     expect(decisionsLine({ version: 2, theme: 't', plan_prose: [], decisions_target: 2, verdicts: 'before_dice', intent: 'arrows', decisions: 3 }))
-      .toBe('3 decisions decide this one · the board answers before the dice');
+      .toBe('3 decisions to get right · the board answers before you roll');
     expect(decisionsLine({ version: 2, theme: 't', plan_prose: [], decisions_target: 3, verdicts: 'silent', intent: 'prose', decisions: 0 }))
-      .toBe('3 decisions decide this one · graded silently, revealed at the end');
+      .toBe('3 decisions to get right · no verdicts until the end');
   });
 
   it('names the commit button after the move, not the dice', () => {
@@ -70,5 +72,16 @@ describe('dailyPuzzleV2 — words', () => {
     expect(commitLabel({ kind: 'fortify', from: 'persia', to: 'bactria', units: 3 }, 'best')).toBe('Move them');
     expect(commitLabel({ kind: 'attack', from: 'persia', to: 'bactria' }, 'best')).toBe('Roll');
     expect(commitLabel({ kind: 'end_turn' })).toBe('End the turn');
+  });
+
+  it('takes the article English takes before a percentage', () => {
+    // "a 84% line" is the kind of slip that makes copy read as generated.
+    expect(percentArticle(0.84)).toBe('an');
+    expect(percentArticle(0.08)).toBe('an');
+    expect(percentArticle(0.11)).toBe('an');
+    expect(percentArticle(0.18)).toBe('an');
+    expect(percentArticle(0.55)).toBe('a');
+    expect(percentArticle(0.9)).toBe('a');
+    expect(pct(0.844)).toBe('84%');
   });
 });

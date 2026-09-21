@@ -47,7 +47,7 @@ describe('DailyChallengeIntroModal — a v2 decision puzzle', () => {
     render(<DailyChallengeIntroModal spec={{ ...base, archetype: 'military_capture', max_turns: 3, par_turns: 3, v2 }} onBegin={() => {}} />);
     expect(screen.getByTestId('daily-intro-plan')).toBeTruthy();
     expect(screen.getByText('While it holds the objective, it reinforces Persia.')).toBeTruthy();
-    expect(screen.getByText('2 decisions decide this one · the board answers before the dice')).toBeTruthy();
+    expect(screen.getByText('2 decisions to get right · the board answers before you roll')).toBeTruthy();
     expect(screen.queryByText(/Par:/)).toBeNull();
     // The theme is the lesson; it is told at the end, not at the start.
     expect(screen.queryByText(/cut the supply line/)).toBeNull();
@@ -55,7 +55,7 @@ describe('DailyChallengeIntroModal — a v2 decision puzzle', () => {
 
   it('says a silent day is graded at the end', () => {
     render(<DailyChallengeIntroModal spec={{ ...base, v2: { ...v2, verdicts: 'silent', intent: 'prose', decisions: 3 } }} onBegin={() => {}} />);
-    expect(screen.getByText('3 decisions decide this one · graded silently, revealed at the end')).toBeTruthy();
+    expect(screen.getByText('3 decisions to get right · no verdicts until the end')).toBeTruthy();
   });
 
   it('keeps the v1 card for a day without a plan', () => {
