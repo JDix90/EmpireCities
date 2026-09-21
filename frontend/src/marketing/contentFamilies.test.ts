@@ -62,29 +62,29 @@ describe('the sitemap', () => {
 
 describe('the map pages', () => {
   it('publishes one page per catalog map, plus the index', () => {
-    expect(byPath('/maps')).toBeDefined();
+    expect(byPath('/game-maps')).toBeDefined();
     for (const map of MAP_CATALOG) {
-      expect(byPath(`/maps/${map.slug}`), `no page for ${map.slug}`).toBeDefined();
+      expect(byPath(`/game-maps/${map.slug}`), `no page for ${map.slug}`).toBeDefined();
     }
-    expect(pathsUnder('/maps/').length).toBe(MAP_CATALOG.length);
+    expect(pathsUnder('/game-maps/').length).toBe(MAP_CATALOG.length);
   });
 
   it('gives every map page its own file, so it gets its own canonical', () => {
     for (const map of MAP_CATALOG) {
-      expect(byPath(`/maps/${map.slug}`)?.file).toBe(`maps/${map.slug}/index.html`);
+      expect(byPath(`/game-maps/${map.slug}`)?.file).toBe(`game-maps/${map.slug}/index.html`);
     }
   });
 
   it('links every map from the index, so none is an orphan', () => {
-    const html = blocksToHtml(byPath('/maps')!.blocks);
+    const html = blocksToHtml(byPath('/game-maps')!.blocks);
     for (const map of MAP_CATALOG) {
-      expect(html, `${map.slug} is not linked from /maps`).toContain(`href="/maps/${map.slug}"`);
+      expect(html, `${map.slug} is not linked from /game-maps`).toContain(`href="/game-maps/${map.slug}"`);
     }
   });
 
   it('renders each map’s real numbers, not a template', () => {
     for (const map of MAP_CATALOG) {
-      const page = byPath(`/maps/${map.slug}`)!;
+      const page = byPath(`/game-maps/${map.slug}`)!;
       expect(blocksToHtml(page.blocks), `${map.slug} territory count`)
         .toContain(`<dd>${map.territory_count}</dd>`);
       const text = renderedText(page.blocks);
@@ -99,7 +99,7 @@ describe('the map pages', () => {
     // this whole approach was meant to avoid, so it is asserted rather than
     // assumed.
     for (const map of MAP_CATALOG) {
-      const words = renderedText(byPath(`/maps/${map.slug}`)!.blocks)
+      const words = renderedText(byPath(`/game-maps/${map.slug}`)!.blocks)
         .split(/\s+/).filter(Boolean).length;
       expect(words, `${map.slug} has only ${words} words`).toBeGreaterThan(200);
     }

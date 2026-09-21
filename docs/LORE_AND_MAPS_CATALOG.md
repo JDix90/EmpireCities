@@ -408,7 +408,9 @@ Maps uploaded through the Map Editor appear in the **Community Maps** section of
 
 ## Part F — Public map & era pages
 
-`/maps`, `/maps/:slug` and `/eras/:slug` are prerendered, crawlable pages built from the map and faction data rather than written by hand. The board numbers on them (territories, regions, bonuses, sea routes) are projections of the real definitions, so a redrawn map updates its page the next time the generator runs.
+`/game-maps`, `/game-maps/:slug` and `/eras/:slug` are prerendered, crawlable pages built from the map and faction data rather than written by hand. The board numbers on them (territories, regions, bonuses, sea routes) are projections of the real definitions, so a redrawn map updates its page the next time the generator runs.
+
+**The prefix is `/game-maps`, not `/maps`.** `/maps` is the authenticated Map Hub; a marketing route published on the same path shadowed it and made the Hub unreachable for logged-in players until it was caught in production. `frontend/src/routeCollisions.test.ts` now fails on any duplicate route path.
 
 **A map does not get a page by existing.** `MAP_PAGE_IDS` in `backend/src/modules/maps/mapCatalog.ts` is a curated list, and that is deliberate: a page earns its place by having a subject someone might search for. Publishing one for every map would produce near-identical pages about things nobody looks for, which is the pattern Google's scaled-content policy is aimed at.
 

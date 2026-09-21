@@ -36,9 +36,9 @@ const RULES = [
   { test: (p) => p === '/about', changefreq: 'monthly', priority: '0.5' },
   { test: (p) => p === '/codex', changefreq: 'monthly', priority: '0.6' },
   // Family indexes sit above the pages inside them.
-  { test: (p) => p === '/answers' || p === '/eras' || p === '/maps' || p === '/how-to-play',
+  { test: (p) => p === '/answers' || p === '/eras' || p === '/game-maps' || p === '/how-to-play',
     changefreq: 'monthly', priority: '0.8' },
-  { test: (p) => p.startsWith('/answers/') || p.startsWith('/eras/') || p.startsWith('/maps/'),
+  { test: (p) => p.startsWith('/answers/') || p.startsWith('/eras/') || p.startsWith('/game-maps/'),
     changefreq: 'monthly', priority: '0.7' },
 ];
 
