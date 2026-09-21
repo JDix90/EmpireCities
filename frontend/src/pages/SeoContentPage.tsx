@@ -1,6 +1,6 @@
 /**
- * The live React page for the generated content families: /maps, /maps/:slug
- * and /eras/:slug.
+ * The live React page for the generated content families: /game-maps,
+ * /game-maps/:slug and /eras/:slug.
  *
  * One component for all of them, resolving its content from seoContent.mjs by
  * pathname — the same module the build prerenders the crawlable HTML from, so
@@ -37,8 +37,8 @@ export default function SeoContentPage({
   section, icon, backHref, backLabel, missingTitle, missingBody,
 }: SeoContentPageProps) {
   const { pathname } = useLocation();
-  // Trailing slashes reach the router intact, and /maps/rome/ is the same page
-  // as /maps/rome — resolving both here avoids a false not-found (and the
+  // Trailing slashes reach the router intact, and /game-maps/rome/ is the same
+  // page as /game-maps/rome — resolving both avoids a false not-found (and the
   // noindex that would come with it) on a URL someone typed by hand.
   const normalized = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
   const page = getMarketingPage(normalized) as MarketingPage | undefined;

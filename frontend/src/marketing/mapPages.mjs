@@ -24,7 +24,7 @@
 
 import { MAP_CATALOG } from './mapCatalog.generated.mjs';
 
-/** Editorial layer, keyed by the catalog slug. Order here is the order /maps lists. */
+/** Editorial layer, keyed by the catalog slug. Order here is the order /game-maps lists. */
 export const MAP_PAGE_COPY = {
   'roman-empire-117': {
     title: 'Roman Empire Map — Free Browser Strategy Game',
