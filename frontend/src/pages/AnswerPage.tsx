@@ -12,6 +12,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { HelpCircle } from 'lucide-react';
 import BrandWordmark from '../components/ui/BrandWordmark';
 import SubpageShell from '../components/ui/SubpageShell';
+import { useNoindex } from '../hooks/useNoindex';
 import { getMarketingPage } from '../marketing/seoContent.mjs';
 import type { MarketingBlock, MarketingPage } from '../marketing/seoContent.d.mts';
 
@@ -80,6 +81,10 @@ export default function AnswerPage() {
     page?.title ?? 'Borderfall — Questions, answered',
     page?.description ?? 'Direct answers to common questions about Borderfall.',
   );
+
+  // An unknown slug renders "No such question" under an HTTP 200, which a
+  // crawler reads as a soft 404. Called before the early return below.
+  useNoindex(!page);
 
   if (!page) {
     return (

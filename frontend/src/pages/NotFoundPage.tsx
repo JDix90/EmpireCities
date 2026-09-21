@@ -3,26 +3,17 @@ import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useAuthStoreHydrated } from '../hooks/useAuthStoreHydrated';
 import BrandWordmark from '../components/ui/BrandWordmark';
+import { useNoindex } from '../hooks/useNoindex';
 
 export default function NotFoundPage() {
   const hydrated = useAuthStoreHydrated();
   const bootstrapped = useAuthStore((s) => s.bootstrapped);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
-  // Keep 404s out of the search index. A pure SPA serves HTTP 200 + the app
-  // shell for unknown URLs (the server can't know which client routes are
-  // valid), which would otherwise read as "soft 404s" / homepage duplicates.
-  // Googlebot renders JS, so a noindex on the rendered 404 is the standard fix.
-  // Removed on unmount so it never leaks onto a real page.
-  React.useEffect(() => {
-    const meta = document.createElement('meta');
-    meta.name = 'robots';
-    meta.content = 'noindex';
-    document.head.appendChild(meta);
-    return () => {
-      document.head.removeChild(meta);
-    };
-  }, []);
+  // Keep 404s out of the search index; see the hook for why a meta tag rather
+  // than a status code. Shared with the other states that render "this does
+  // not exist" under an HTTP 200, so they cannot drift apart again.
+  useNoindex(true);
 
   // While the auth store rehydrates and the silent-refresh bootstrap runs,
   // `isAuthenticated` flickers from false to true. Showing a "Return to Base"
