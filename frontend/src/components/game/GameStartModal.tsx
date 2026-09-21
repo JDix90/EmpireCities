@@ -28,6 +28,20 @@ export function describeViewerPosition(order: PlayerState[], viewerPlayerId: str
   return `You go ${label} of ${order.length}`;
 }
 
+/**
+ * Whether a state is a game's opening — the moment this briefing is for.
+ *
+ * Phase is not a proxy for it. A daily puzzle can start in the attack phase
+ * (`starting_phase`), and then the first draft-phase state of turn 1 belongs
+ * to the OPPONENT: gating on the phase alone opened the briefing there,
+ * announcing "You go first" to a player who had just finished their turn.
+ * The opening is the first seat still being on its first turn.
+ */
+export function isOpeningState(gameState: Pick<GameState, 'turn_number' | 'current_player_index' | 'starting_player_index'>): boolean {
+  if (gameState.turn_number !== 1) return false;
+  return (gameState.current_player_index ?? 0) === (gameState.starting_player_index ?? 0);
+}
+
 function difficultyLabel(difficulty?: string | null): string {
   if (!difficulty) return 'AI';
   return `${difficulty.charAt(0).toUpperCase()}${difficulty.slice(1)} AI`;
