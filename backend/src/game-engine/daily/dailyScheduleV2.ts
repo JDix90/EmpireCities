@@ -156,26 +156,79 @@ function addDays(date: string, days: number): string {
   return new Date(Date.parse(`${date}T00:00:00Z`) + days * DAY_MS).toISOString().slice(0, 10);
 }
 
-/**
- * Tuesday's pick: a planned capture or chain, walked by week, avoiding what
- * the v1 cadence serves within six days either side so no front comes round
- * twice in a week. A pure function of the date.
- */
-function tuesdayPick(date: string): DailySetPiece | null {
-  const pool = [...plannedSetPieces('tactical'), ...plannedSetPieces('chain')].sort((a, b) => a.id.localeCompare(b.id));
-  if (pool.length === 0) return null;
+/** The first Tuesday the cursor walks from; earlier Tuesdays walk the pool by week index alone. */
+const TUESDAY_ORIGIN = '2026-09-15';
+
+function tuesdayPool(): DailySetPiece[] {
+  return [...plannedSetPieces('tactical'), ...plannedSetPieces('chain')].sort((a, b) => a.id.localeCompare(b.id));
+}
+
+/** What the v1 cadence serves within six days either side of a date. */
+function servedAround(date: string): Set<string> {
   const exclude = new Set<string>();
   for (let d = -6; d <= 6; d++) {
     if (d === 0) continue;
     const id = pickSetPieceForDate(addDays(date, d))?.id;
     if (id) exclude.add(id);
   }
-  const ordinal = weekIndexOf(date);
-  for (let i = 0; i < pool.length; i++) {
-    const candidate = pool[(ordinal + i) % pool.length];
-    if (!exclude.has(candidate.id)) return candidate;
+  return exclude;
+}
+
+const tuesdayMemo = new Map<number, { pos: number; id: string }>();
+
+/**
+ * Tuesday's pick: a planned capture or chain, walked by a cursor from the
+ * origin week, skipping what the v1 cadence serves within six days either
+ * side (so no front comes round twice in a week) and what the previous
+ * Tuesday itself served. A cursor rather than a plain week-index walk
+ * because stepping past an excluded entry would otherwise land the same
+ * front on two Tuesdays running. A pure function of the date; the memo only
+ * saves re-walking from the origin.
+ */
+function tuesdayPick(date: string): DailySetPiece | null {
+  const pool = tuesdayPool();
+  if (pool.length === 0) return null;
+  const week = weekIndexOf(date);
+  const originWeek = weekIndexOf(TUESDAY_ORIGIN);
+  if (week < originWeek) {
+    const exclude = servedAround(date);
+    for (let i = 0; i < pool.length; i++) {
+      const candidate = pool[(week + i) % pool.length];
+      if (!exclude.has(candidate.id)) return candidate;
+    }
+    return pool[week % pool.length];
   }
-  return pool[ordinal % pool.length];
+  // Resume from the latest memoized week before this one, else from the origin.
+  let from = originWeek;
+  let pos = 0;
+  let previous: string | null = null;
+  for (let w = week - 1; w >= originWeek; w--) {
+    const known = tuesdayMemo.get(w);
+    if (known) {
+      from = w + 1;
+      pos = known.pos;
+      previous = known.id;
+      break;
+    }
+  }
+  for (let w = from; w <= week; w++) {
+    const tuesday = addDays(TUESDAY_ORIGIN, (w - originWeek) * 7);
+    const exclude = servedAround(tuesday);
+    let chosen = pool[pos % pool.length];
+    let next = pos + 1;
+    for (let i = 0; i < pool.length; i++) {
+      const candidate = pool[(pos + i) % pool.length];
+      if (exclude.has(candidate.id) || candidate.id === previous) continue;
+      chosen = candidate;
+      next = pos + i + 1;
+      break;
+    }
+    tuesdayMemo.set(w, { pos: next, id: chosen.id });
+    previous = chosen.id;
+    pos = next;
+  }
+  const hit = tuesdayMemo.get(week)!;
+  return pool.find((sp) => sp.id === hit.id) ?? null;
 }
 
 export interface V2Pick {

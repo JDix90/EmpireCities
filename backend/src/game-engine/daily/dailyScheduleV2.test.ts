@@ -114,13 +114,16 @@ describe('daily schedule v2 — which set-piece a date gets', () => {
     }
   });
 
-  it('Tuesday serves a planned capture or chain that the v1 cadence does not serve within six days either side', () => {
+  it('Tuesday serves a planned capture or chain that the v1 cadence does not serve within six days either side, nor the previous Tuesday', () => {
     let tuesdays = 0;
+    let previous: string | null = null;
     for (const date of datesFrom('2026-09-14', 91)) {
       if (weekdayOf(date) !== 2) continue;
       const pick = pickSetPieceForDateV2(date);
       if (!pick) continue;
       tuesdays += 1;
+      expect(pick.set_piece.id, `${date} repeats the previous Tuesday`).not.toBe(previous);
+      previous = pick.set_piece.id;
       expect(['tactical', 'chain'], date).toContain(pick.set_piece.kind);
       expect(verbForDate(date)).toBe('economy'); // the v1 reading of the same date
       for (let d = -6; d <= 6; d++) {
