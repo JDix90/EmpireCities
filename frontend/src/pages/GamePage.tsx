@@ -89,6 +89,13 @@ import TutorialAccountPromptModal from '../components/game/TutorialAccountPrompt
 import GuestSignupNudgeModal from '../components/game/GuestSignupNudgeModal';
 import PostTutorialPromptModal from '../components/game/PostTutorialPromptModal';
 import DailyChallengeIntroModal, { type DailyIntroSpec } from '../components/game/DailyChallengeIntroModal';
+import PuzzleVerdictCard from '../components/game/PuzzleVerdictCard';
+import {
+  describePuzzleReview,
+  type PuzzleProposal,
+  type PuzzleReview,
+  type PuzzleVerdict,
+} from '../utils/dailyPuzzleV2';
 import CampaignIntroModal, { type CampaignIntroData } from '../components/game/CampaignIntroModal';
 import InviteFriendsModal from '../components/game/InviteFriendsModal';
 import GameShortcutsModal from '../components/game/GameShortcutsModal';
@@ -1005,6 +1012,39 @@ export default function GamePage() {
 
   const [puzzleFeedback, setPuzzleFeedback] = useState<{ tier: string; message: string } | null>(null);
   const puzzleFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Daily v2 (docs/DAILY_PUZZLE_V2.md §5.4): a move waits here for its verdict
+  // before the dice; the run's review arrives with game over.
+  const [puzzleVerdict, setPuzzleVerdict] = useState<{ proposal: PuzzleProposal; verdict: PuzzleVerdict; commit: () => void } | null>(null);
+  const pendingProposalRef = useRef<{ proposal: PuzzleProposal; commit: () => void } | null>(null);
+  const puzzleReviewRef = useRef<PuzzleReview | null>(null);
+  const puzzleReviewView = useCallback((review: PuzzleReview) => {
+    const nameOf = (id: string) => mapDataRef.current?.territories.find((t) => t.territory_id === id)?.name ?? id;
+    const settings = useGameStore.getState().gameState?.settings;
+    const date = typeof settings?.daily_challenge_date === 'string' ? settings.daily_challenge_date.slice(0, 10) : '';
+    return describePuzzleReview(review, nameOf, date, `${window.location.origin}/daily`);
+  }, []);
+  /**
+   * Before a move that may matter on a v2 day, ask the board
+   * (game:puzzle_propose) and hold the move until the verdict; a trivial
+   * position, a silent day, a v1 game or a lost connection commits at once.
+   * The server grades the commit either way.
+   */
+  const withPuzzleVerdict = useCallback((proposal: PuzzleProposal, commit: () => void) => {
+    const v2 = useGameStore.getState().gameState?.settings?.daily_challenge_spec?.v2;
+    if (!gameId || !v2 || v2.verdicts !== 'before_dice') {
+      commit();
+      return;
+    }
+    const pending = { proposal, commit };
+    pendingProposalRef.current = pending;
+    getSocket().emit('game:puzzle_propose', { gameId, proposal });
+    setTimeout(() => {
+      if (pendingProposalRef.current === pending) {
+        pendingProposalRef.current = null;
+        commit();
+      }
+    }, 4000);
+  }, [gameId]);
 
   /**
    * Tutorial-end account prompt state. We capture the next action (lobby vs.
@@ -1469,6 +1509,26 @@ export default function GamePage() {
       puzzleFeedbackTimerRef.current = setTimeout(() => setPuzzleFeedback(null), 8000);
     });
 
+    socket.on('game:puzzle_verdict', (verdict: PuzzleVerdict) => {
+      if (verdict.gameId && gameId && verdict.gameId !== gameId) return;
+      const pending = pendingProposalRef.current;
+      if (!pending) return;
+      pendingProposalRef.current = null;
+      if (!verdict.decision || verdict.silent) {
+        pending.commit();
+        return;
+      }
+      setPuzzleVerdict({ proposal: pending.proposal, verdict, commit: pending.commit });
+    });
+
+    socket.on('game:puzzle_review', (review: PuzzleReview) => {
+      if (review.gameId && gameId && review.gameId !== gameId) return;
+      puzzleReviewRef.current = review;
+      // The game-over card may already be queued: the two events' order is not promised.
+      const view = puzzleReviewView(review);
+      setModalQueue((q) => q.map((m) => (m.type === 'game_over' ? { ...m, puzzle_review: view } : m)));
+    });
+
     socket.on('game:combat_result', (data: {
       fromId: string; toId: string;
       result: {
@@ -1719,6 +1779,7 @@ export default function GamePage() {
         duration_ms: stats.duration_ms ?? null,
         ai_difficulty: stats.ai_difficulty ?? null,
         decision_summary: stats.decision_summary,
+        puzzle_review: puzzleReviewRef.current ? puzzleReviewView(puzzleReviewRef.current) : undefined,
         allowReplayDespiteAbandon,
       };
       if (gameId) {
@@ -2409,6 +2470,8 @@ export default function GamePage() {
       socket.off('game:orbit_lane_opened');
       socket.off('game:transit_arrived');
       socket.off('game:puzzle_feedback');
+      socket.off('game:puzzle_verdict');
+      socket.off('game:puzzle_review');
       if (lobbyTimeoutRef.current) {
         clearTimeout(lobbyTimeoutRef.current);
         lobbyTimeoutRef.current = null;
@@ -2615,7 +2678,10 @@ export default function GamePage() {
       const maxMove = Math.max(0, (fromState?.unit_count ?? 1) - 1);
       const requested = useUiStore.getState().fortifyUnits;
       const units = Math.max(1, Math.min(requested, maxMove));
-      socket.emit('game:fortify', { gameId, fromId: attackSource, toId: territoryId, units });
+      const fromTid = attackSource;
+      withPuzzleVerdict({ kind: 'fortify', from: fromTid, to: territoryId, units }, () => {
+        socket.emit('game:fortify', { gameId, fromId: fromTid, toId: territoryId, units });
+      });
 
       // Success toast + turn-recap entry fire on the server's game:fortify_result
       // confirmation, not optimistically — a rejected move shows only its error.
@@ -2640,6 +2706,7 @@ export default function GamePage() {
     setNavalSource,
     selectedTerritory,
     territorySheetSnap,
+    withPuzzleVerdict,
   ]);
 
   const handleFortifyTo = useCallback((fromId: string, toId: string) => {
@@ -2649,7 +2716,9 @@ export default function GamePage() {
     const maxMove = Math.max(0, (fromState?.unit_count ?? 1) - 1);
     const requested = useUiStore.getState().fortifyUnits;
     const units = Math.max(1, Math.min(requested, maxMove));
-    socket.emit('game:fortify', { gameId, fromId, toId, units });
+    withPuzzleVerdict({ kind: 'fortify', from: fromId, to: toId, units }, () => {
+      socket.emit('game:fortify', { gameId, fromId, toId, units });
+    });
 
     // Success toast + turn-recap entry fire on the server's game:fortify_result
     // confirmation, not optimistically (see the handler) — so a rejected move
@@ -2659,7 +2728,7 @@ export default function GamePage() {
     setFortifyUnits(1);
     setNavalSource(null);
     setSelectedTerritory(null);
-  }, [gameState, gameId, setFortifyUnits, setNavalSource]);
+  }, [withPuzzleVerdict, gameState, gameId, setFortifyUnits, setNavalSource]);
 
   const handleGalaxyStrategicTerritoryClick = useCallback(
     (territoryId: string) => {
@@ -2819,7 +2888,12 @@ export default function GamePage() {
 
   const advancePhaseNow = () => {
     hapticImpact(ImpactStyle.Medium);
-    getSocket().emit('game:advance_phase', { gameId });
+    // Daily v2: stopping the attack and ending the turn are moves the board grades.
+    const phaseNow = useGameStore.getState().gameState?.phase;
+    const emitAdvance = () => getSocket().emit('game:advance_phase', { gameId });
+    if (phaseNow === 'attack') withPuzzleVerdict({ kind: 'end_attack' }, emitAdvance);
+    else if (phaseNow === 'fortify') withPuzzleVerdict({ kind: 'end_turn' }, emitAdvance);
+    else emitAdvance();
     setSelectedTerritory(null);
     setAttackSource(null);
     setNavalSource(null);
@@ -2862,7 +2936,9 @@ export default function GamePage() {
       }
     }
 
-    getSocket().emit('game:attack', { gameId, fromId, toId });
+    withPuzzleVerdict({ kind: 'attack', from: fromId, to: toId }, () => {
+      getSocket().emit('game:attack', { gameId, fromId, toId });
+    });
     setAttackSource(null);
     setNavalSource(null);
     setFortifyUnits(1);
@@ -2891,43 +2967,49 @@ export default function GamePage() {
       return;
     }
 
-    socket.emit('game:draft', {
-      gameId,
-      territoryId,
-      units,
-      action_id: generateActionId(),
-    });
-    const gs = useGameStore.getState().gameState;
-    const uid = useAuthStore.getState().user?.user_id;
-    const uname = useAuthStore.getState().user?.username;
-    const seatPid = seatPidFor(gs);
-    const curr = computeDraftPool(
-      gs,
-      uid,
-      uname,
-      useGameStore.getState().draftUnitsRemaining,
-      seatPid,
-    );
-    const remaining = Math.max(0, curr - units);
-    setDraftUnitsRemaining(remaining);
-    setSelectedTerritory(null);
+    const commitDraft = () => {
+      socket.emit('game:draft', {
+        gameId,
+        territoryId,
+        units,
+        action_id: generateActionId(),
+      });
+      const gs = useGameStore.getState().gameState;
+      const uid = useAuthStore.getState().user?.user_id;
+      const uname = useAuthStore.getState().user?.username;
+      const seatPid = seatPidFor(gs);
+      const curr = computeDraftPool(
+        gs,
+        uid,
+        uname,
+        useGameStore.getState().draftUnitsRemaining,
+        seatPid,
+      );
+      const remaining = Math.max(0, curr - units);
+      setDraftUnitsRemaining(remaining);
+      setSelectedTerritory(null);
 
-    const tName = mapDataRef.current?.territories.find(t => t.territory_id === territoryId)?.name ?? territoryId;
-    // The turn-summary recap is reconciled from the server's authoritative
-    // draft_deployments_this_turn on the next broadcast (see the game:state
-    // handler), so we don't push optimistically here — that would double with a
-    // subsequent undo and could drift on rejection.
-    showNotification({
-      type: 'reinforce',
-      text: `+${units} troops deployed to ${tName}`,
-      subtext: remaining > 0 ? `${remaining} remaining` : 'All reinforcements placed',
-      icon: 'shield',
-      accentBg: 'bg-emerald-500/20',
-      accentBorder: 'border-emerald-500/30',
-      accentText: 'text-emerald-400',
-    });
+      const tName = mapDataRef.current?.territories.find(t => t.territory_id === territoryId)?.name ?? territoryId;
+      // The turn-summary recap is reconciled from the server's authoritative
+      // draft_deployments_this_turn on the next broadcast (see the game:state
+      // handler), so we don't push optimistically here — that would double with a
+      // subsequent undo and could drift on rejection.
+      showNotification({
+        type: 'reinforce',
+        text: `+${units} troops deployed to ${tName}`,
+        subtext: remaining > 0 ? `${remaining} remaining` : 'All reinforcements placed',
+        icon: 'shield',
+        accentBg: 'bg-emerald-500/20',
+        accentBorder: 'border-emerald-500/30',
+        accentText: 'text-emerald-400',
+      });
 
-    // Map visual emitted by server on game:draft success.
+      // Map visual emitted by server on game:draft success.
+    };
+    // Daily v2: the turn's first placement asks the board where the draft should go.
+    const firstOfTurn = (useGameStore.getState().gameState?.draft_deployments_this_turn ?? []).length === 0;
+    if (firstOfTurn) withPuzzleVerdict({ kind: 'draft', to: territoryId }, commitDraft);
+    else commitDraft();
   };
 
   const handleDraftUndo = () => {
@@ -4321,6 +4403,16 @@ export default function GamePage() {
             gameState.settings.daily_challenge_spec.goal && (
               <p className="text-bf-muted text-xs mt-1 leading-snug">{gameState.settings.daily_challenge_spec.goal}</p>
             )}
+          {(gameState.settings.daily_challenge_spec.v2?.plan_prose?.length ?? 0) > 0 && (
+            <details className="mt-1 text-xs" data-testid="daily-plan-strip">
+              <summary className="cursor-pointer text-amber-300/80 select-none">The opponent&apos;s plan</summary>
+              <ul className="mt-1 space-y-0.5 text-bf-muted leading-snug">
+                {gameState.settings.daily_challenge_spec.v2!.plan_prose.map((line, i) => (
+                  <li key={i}>› {line}</li>
+                ))}
+              </ul>
+            </details>
+          )}
         </div>
       )}
 
@@ -4366,6 +4458,19 @@ export default function GamePage() {
             >
               {puzzleFeedback.message}
             </div>
+          )}
+          {puzzleVerdict && (
+            <PuzzleVerdictCard
+              proposal={puzzleVerdict.proposal}
+              verdict={puzzleVerdict.verdict}
+              nameOf={(id) => mapDataRef.current?.territories.find((t) => t.territory_id === id)?.name ?? id}
+              onRoll={() => {
+                const { commit } = puzzleVerdict;
+                setPuzzleVerdict(null);
+                commit();
+              }}
+              onTakeBack={() => setPuzzleVerdict(null)}
+            />
           )}
           {eraAdvanceVignette && (
             <EraAdvanceVignette

@@ -21,6 +21,7 @@ import SubpageShell from '../components/ui/SubpageShell';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import { useNoindex } from '../hooks/useNoindex';
 import { api } from '../services/api';
+import { describeStoredAction, type StoredPuzzleAction } from '../utils/dailyPuzzleV2';
 
 interface ArchiveLeader {
   username: string;
@@ -28,6 +29,31 @@ interface ArchiveLeader {
   puzzle_score: number | null;
   turn_count: number | null;
   territory_count: number | null;
+  puzzle_version?: number;
+  accuracy?: number | null;
+  first_try?: boolean | null;
+  attempts?: number | null;
+}
+
+/** A v2 day once it is over: the lesson and the solution (docs/DAILY_PUZZLE_V2.md §5.5). */
+interface ArchiveV2 {
+  theme: string;
+  plan_prose: string[];
+  decisions_target: number;
+  verdicts: 'before_dice' | 'silent';
+  equity: number;
+  obvious_equity: number;
+  decisions: Array<{
+    turn: number;
+    phase: 'draft' | 'attack' | 'fortify';
+    best: StoredPuzzleAction;
+    best_equity: number;
+    alternative: StoredPuzzleAction | null;
+    alternative_equity: number;
+    gap: number;
+  }>;
+  line: Array<{ turn: number; action: StoredPuzzleAction; equity: number }>;
+  names: Record<string, string>;
 }
 
 interface ArchiveEntry {
@@ -45,6 +71,7 @@ interface ArchiveEntry {
     max_turns: number;
     par_turns: number | null;
     ai_difficulty: string | null;
+    v2?: ArchiveV2;
   };
   results: {
     attempts: number;
@@ -246,7 +273,11 @@ export default function DailyArchivePage() {
     ['Opponents', `${Math.max(0, spec.player_count - 1)} AI${spec.ai_difficulty ? ` (${spec.ai_difficulty})` : ''}`],
     ['Turn limit', spec.max_turns > 0 ? `${spec.max_turns} turns` : 'None'],
   ];
-  if (spec.par_turns != null) facts.push(['Par', `${spec.par_turns} turns`]);
+  if (spec.par_turns != null && !spec.v2) facts.push(['Par', `${spec.par_turns} turns`]);
+  if (spec.v2) facts.push(['Decisions', `${spec.v2.decisions.length || spec.v2.decisions_target}`]);
+  const v2 = spec.v2;
+  const nameOf = (id: string) => v2?.names[id] ?? id;
+  const pctOf = (x: number) => `${Math.round(x * 100)} %`;
 
   return (
     <SubpageShell
@@ -291,6 +322,52 @@ export default function DailyArchivePage() {
         </dl>
       </section>
 
+      {v2 && (
+        <section className="space-y-3" data-testid="archive-v2">
+          <h2 className="font-display text-lg text-bf-gold">The solution</h2>
+          <p className="text-sm text-bf-muted leading-relaxed">
+            <span className="text-bf-text">The lesson:</span> {v2.theme}. Best play wins {pctOf(v2.equity)} of futures;
+            the obvious line {pctOf(v2.obvious_equity)}.
+          </p>
+          {v2.plan_prose.length > 0 && (
+            <div>
+              <p className="text-xs uppercase tracking-wide text-bf-muted mb-1">The opponent&apos;s plan</p>
+              <ul className="text-sm text-bf-text space-y-0.5">
+                {v2.plan_prose.map((line, i) => <li key={i}>› {line}</li>)}
+              </ul>
+            </div>
+          )}
+          {v2.decisions.length > 0 && (
+            <div>
+              <p className="text-xs uppercase tracking-wide text-bf-muted mb-1">The decisions</p>
+              <ol className="text-sm space-y-2">
+                {v2.decisions.map((d, i) => (
+                  <li key={i} className="rounded border border-bf-border bg-bf-dark/40 px-3 py-2">
+                    <p className="text-bf-muted text-xs">Turn {d.turn} · {d.phase}</p>
+                    <p className="text-bf-text">{describeStoredAction(d.best, nameOf)} <span className="text-bf-muted">({pctOf(d.best_equity)})</span></p>
+                    {d.alternative && (
+                      <p className="text-bf-muted">
+                        not {describeStoredAction(d.alternative, nameOf).replace(/^./, (c) => c.toLowerCase())} ({pctOf(d.alternative_equity)}, −{Math.round(d.gap * 100)})
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+          {v2.line.length > 0 && (
+            <div>
+              <p className="text-xs uppercase tracking-wide text-bf-muted mb-1">The best line</p>
+              <ol className="text-sm text-bf-text space-y-0.5 list-decimal list-inside">
+                {v2.line.map((step, i) => (
+                  <li key={i}>Turn {step.turn}: {describeStoredAction(step.action, nameOf)} <span className="text-bf-muted">→ {pctOf(step.equity)}</span></li>
+                ))}
+              </ol>
+            </div>
+          )}
+        </section>
+      )}
+
       {results.leaderboard.length > 0 && (
         <section className="space-y-2">
           <h2 className="font-display text-lg text-bf-gold flex items-center gap-2">
@@ -303,7 +380,7 @@ export default function DailyArchivePage() {
                   <th className="text-left py-2 pr-3">#</th>
                   <th className="text-left py-2 pr-3">Commander</th>
                   <th className="text-left py-2 pr-3">Outcome</th>
-                  <th className="text-left py-2 pr-3">Score</th>
+                  <th className="text-left py-2 pr-3">{v2 ? 'Accuracy' : 'Score'}</th>
                   <th className="text-left py-2">Turns</th>
                 </tr>
               </thead>
@@ -313,7 +390,11 @@ export default function DailyArchivePage() {
                     <td className="py-2 pr-3 text-bf-muted">{i + 1}</td>
                     <td className="py-2 pr-3 text-bf-text">{l.username}</td>
                     <td className="py-2 pr-3">{l.won ? 'Solved' : 'Failed'}</td>
-                    <td className="py-2 pr-3">{l.puzzle_score ?? '—'}</td>
+                    <td className="py-2 pr-3">
+                      {(l.puzzle_version ?? 1) >= 2 && typeof l.accuracy === 'number'
+                        ? `${Math.round(l.accuracy)} %${l.first_try ? '' : ' ↺'}`
+                        : (l.puzzle_score ?? '—')}
+                    </td>
                     <td className="py-2">{l.turn_count ?? '—'}</td>
                   </tr>
                 ))}

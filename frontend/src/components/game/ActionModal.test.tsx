@@ -222,3 +222,39 @@ describe('ActionModal — game-over Chronicle tab', () => {
     expect(screen.getByRole('button', { name: 'Match Stats' })).toBeInTheDocument();
   });
 });
+
+describe('ActionModal — Daily v2 decision review', () => {
+  const review = {
+    accuracy: 94.4,
+    score: 944,
+    star: true,
+    crown: false,
+    won: false,
+    theme: 'cut the supply line',
+    first_try: true,
+    attempts: 1,
+    decisions: [
+      { turn: 1, phase: 'attack' as const, chosen: 'Stop attacking', best: 'Stop attacking', loss: 0, grade: 'best' as const, takebacks: 0 },
+      { turn: 2, phase: 'fortify' as const, chosen: 'End the turn', best: 'Move all but one from Gaul into Italia', loss: 11.2, grade: 'inaccuracy' as const, takebacks: 0 },
+    ],
+    shareLine: 'Borderfall Daily 2026-09-21 · ★ 94 % · 1/2 best · 🎲 lost   https://borderfall.gg/daily',
+  };
+
+  it('names each decision against the best move, the accuracy, the star and the lesson', async () => {
+    render(<ActionModal data={{ ...gameOver(), puzzle_review: review }} onDismiss={() => {}} />);
+    await waitFor(() => expect(screen.getByTestId('puzzle-review')).toBeTruthy());
+    expect(screen.getByText('★ 94 % accuracy')).toBeTruthy();
+    expect(screen.getByText(/The lesson: cut the supply line/)).toBeTruthy();
+    expect(screen.getByText('Best')).toBeTruthy();
+    expect(screen.getByText('Inaccuracy · −11')).toBeTruthy();
+    expect(screen.getByText('Best: Move all but one from Gaul into Italia')).toBeTruthy();
+    // RTL collapses the line's inner spaces; match the parts that matter.
+    expect(screen.getByText(/Borderfall Daily 2026-09-21 · ★ 94 % · 1\/2 best · 🎲 lost/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Copy share line' })).toBeTruthy();
+  });
+
+  it('is absent on an ordinary game', async () => {
+    render(<ActionModal data={gameOver()} onDismiss={() => {}} />);
+    await waitFor(() => expect(screen.queryByTestId('puzzle-review')).toBeNull());
+  });
+});

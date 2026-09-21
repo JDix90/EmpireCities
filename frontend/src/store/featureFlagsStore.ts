@@ -26,6 +26,7 @@ export interface ClientFeatureFlags {
   era_wonder_per_era_enabled: boolean;
   warfront_enabled: boolean;
   localization_enabled: boolean;
+  daily_puzzle_v2_enabled: boolean;
 }
 
 /**
@@ -79,6 +80,9 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   // Localized landing + tutorial (src/i18n). Dark-launched OFF: the bundles
   // ship but everyone sees English until an operator turns this on.
   localization_enabled: false,
+  // Daily Challenge v2 (decision puzzles graded by an exact solver). Dark-launched
+  // OFF; the server decides which days are v2, the client renders what it is sent.
+  daily_puzzle_v2_enabled: false,
 };
 
 interface FeatureFlagsState {
@@ -195,4 +199,13 @@ export function useBackgroundMusicEnabled(): boolean {
  */
 export function useLocalizationEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.localization_enabled);
+}
+
+/**
+ * Daily Challenge v2 (docs/DAILY_PUZZLE_V2.md). The server decides whether a
+ * day is served as a decision puzzle; the client renders the v2 block it is
+ * sent either way. This hook only tells surfaces that the mode is switched on.
+ */
+export function useDailyPuzzleV2Enabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.daily_puzzle_v2_enabled);
 }

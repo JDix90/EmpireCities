@@ -10,6 +10,7 @@ import { useAuthStore } from '../store/authStore';
 import { useDailyGuestPlayEnabled } from '../store/featureFlagsStore';
 import { useRnParamTracker } from '../hooks/useRnParamTracker';
 import { ownAuthUiAllowed } from '../utils/embedContext';
+import { buildShareLine, decisionsLine, type PublicDailyPuzzleV2 } from '../utils/dailyPuzzleV2';
 
 interface DailyPuzzleSpecPublic {
   archetype: string;
@@ -26,6 +27,8 @@ interface DailyPuzzleSpecPublic {
   map_id: string;
   seed: number;
   player_count: number;
+  /** A v2 decision-puzzle day (docs/DAILY_PUZZLE_V2.md); never the solution. */
+  v2?: PublicDailyPuzzleV2;
 }
 
 interface DailyChallenge {
@@ -38,16 +41,29 @@ interface DailyChallenge {
   spec: DailyPuzzleSpecPublic;
 }
 
-interface MyEntry {
+/** The v2 columns every entry may carry (NULL on a v1 row). */
+interface EntryV2Fields {
+  puzzle_version?: number;
+  accuracy?: number | null;
+  first_try?: boolean | null;
+  attempts?: number | null;
+}
+
+interface MyEntry extends EntryV2Fields {
   entry_id: string;
   won: boolean;
   puzzle_score?: number | null;
   turn_count: number | null;
   territory_count: number | null;
   completed_at: string;
+  /** v2: the star and the crown, re-read from the run's decisions. */
+  star?: boolean | null;
+  crown?: boolean | null;
+  decisions_best?: number | null;
+  decisions_count?: number | null;
 }
 
-interface LeaderboardRow {
+interface LeaderboardRow extends EntryV2Fields {
   username: string;
   won: boolean;
   puzzle_score?: number | null;
@@ -243,6 +259,20 @@ export default function DailyChallengePage() {
   const { challenge, my_entry, active_game_id, completed_game_id, leaderboard, attempts_today, my_rank } = data;
   const alreadyPlayed = my_entry !== null;
   const canWatchReplay = !!my_entry?.won && !!completed_game_id;
+  const isV2Day = !!challenge.spec?.v2;
+  const isV2Entry = !!my_entry && (my_entry.puzzle_version ?? 1) >= 2 && typeof my_entry.accuracy === 'number';
+  const shareLine = isV2Entry && my_entry
+    ? buildShareLine({
+      date: typeof challenge.challenge_date === 'string' ? challenge.challenge_date.slice(0, 10) : '',
+      accuracy: my_entry.accuracy ?? 0,
+      star: !!my_entry.star,
+      crown: !!my_entry.crown,
+      won: my_entry.won,
+      bestCount: my_entry.decisions_best ?? 0,
+      decisionCount: my_entry.decisions_count ?? 0,
+      url: `${window.location.origin}/daily`,
+    })
+    : null;
   const eraLabel = ERA_LABELS[challenge.era_id] ?? challenge.era_id;
   const eraIcon = ERA_ICON[challenge.era_id] ?? '🏛';
   const weeklyTabRequested = searchParams.get('tab') === 'weekly';
@@ -273,7 +303,18 @@ export default function DailyChallengePage() {
               {challenge.spec?.goal && (
                 <p className="text-bf-muted text-sm mt-2 leading-relaxed">{challenge.spec.goal}</p>
               )}
-              {typeof challenge.spec?.par_turns === 'number' && (
+              {isV2Day ? (
+                <div className="mt-2 text-xs" data-testid="daily-v2-card">
+                  <p className="text-bf-gold/90">{decisionsLine(challenge.spec.v2!)}</p>
+                  {challenge.spec.v2!.plan_prose.length > 0 && (
+                    <ul className="mt-1.5 space-y-0.5 text-bf-muted leading-snug">
+                      {challenge.spec.v2!.plan_prose.map((line, i) => (
+                        <li key={i}>› {line}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : typeof challenge.spec?.par_turns === 'number' && (
                 <p className="text-bf-muted text-xs mt-2">
                   Par <span className="text-bf-text font-medium">{challenge.spec.par_turns}</span>
                   {' '}{challenge.spec.par_turns === 1 ? 'turn' : 'turns'} · beat it to score above 1000
@@ -321,6 +362,42 @@ export default function DailyChallengePage() {
                 You&apos;re <span className="text-bf-gold font-semibold">{ordinal(my_rank)}</span> today.
               </p>
             )
+          )}
+
+          {/* A v2 run: accuracy is the score, the star or crown the badge, and
+              the share line the thing to paste (docs/DAILY_PUZZLE_V2.md §3). */}
+          {alreadyPlayed && isV2Entry && my_entry && (
+            <div className="rounded-lg bg-bf-dark/60 border border-bf-gold/30 p-4 mb-4" data-testid="daily-v2-result">
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="text-bf-gold font-display text-2xl">
+                  {my_entry.crown ? '👑 ' : my_entry.star ? '★ ' : ''}{Math.round(my_entry.accuracy ?? 0)} % accuracy
+                </p>
+                {typeof my_entry.puzzle_score === 'number' && (
+                  <p className="text-bf-muted text-sm">{my_entry.puzzle_score} pts</p>
+                )}
+              </div>
+              <p className="text-bf-muted text-xs mt-1">
+                {typeof my_entry.decisions_best === 'number' && typeof my_entry.decisions_count === 'number'
+                  ? `${my_entry.decisions_best}/${my_entry.decisions_count} decisions best`
+                  : 'Graded against the exact solution'}
+                {my_entry.first_try === false && typeof my_entry.attempts === 'number' ? ` · ${my_entry.attempts} attempts` : ''}
+                {my_entry.crown ? ' · a crown' : my_entry.star ? ' · a star' : ''}
+              </p>
+              {shareLine && (
+                <div className="mt-3 flex items-center gap-2">
+                  <code className="flex-1 min-w-0 truncate text-[11px] text-bf-muted bg-black/30 rounded px-2 py-1.5">{shareLine}</code>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void navigator.clipboard?.writeText(shareLine).then(() => toast.success('Share line copied')).catch(() => undefined);
+                    }}
+                    className="shrink-0 rounded bg-bf-gold/15 hover:bg-bf-gold/25 border border-bf-gold/30 px-2.5 py-1.5 text-xs text-bf-gold"
+                  >
+                    Share
+                  </button>
+                </div>
+              )}
+            </div>
           )}
 
           {/* User result summary */}
@@ -413,7 +490,11 @@ export default function DailyChallengePage() {
                     <p className="text-bf-text text-sm truncate">{row.username}</p>
                   </div>
                   <div className="flex items-center gap-3 text-xs text-bf-muted shrink-0">
-                    {typeof row.puzzle_score === 'number' && (
+                    {(row.puzzle_version ?? 1) >= 2 && typeof row.accuracy === 'number' ? (
+                      <span className="text-bf-gold font-semibold" title="Accuracy: 100 minus the win probability given up across the run's decisions">
+                        {Math.round(row.accuracy)} %{row.first_try ? '' : ' ↺'}
+                      </span>
+                    ) : typeof row.puzzle_score === 'number' && (
                       <span className="text-bf-gold font-semibold" title="Puzzle score: 1000 at par, more for beating it, less for risky moves">
                         {row.puzzle_score}
                       </span>

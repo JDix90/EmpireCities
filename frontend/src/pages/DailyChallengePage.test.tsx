@@ -115,3 +115,67 @@ describe('ordinal', () => {
     ]);
   });
 });
+
+describe('DailyChallengePage — a v2 decision-puzzle day', () => {
+  const v2 = {
+    version: 2 as const,
+    theme: 'cut the supply line',
+    plan_prose: ['While it holds the objective, it reinforces Gaul.'],
+    decisions_target: 2,
+    verdicts: 'before_dice' as const,
+    intent: 'arrows' as const,
+    decisions: 2,
+  };
+  const v2Challenge = { ...challenge, spec: { ...challenge.spec, archetype: 'military_capture', par_turns: 2, v2 } };
+
+  beforeEach(() => {
+    getMock.mockReset();
+    setGuest(false);
+    const st = useFeatureFlagsStore.getState();
+    useFeatureFlagsStore.setState({ ...st, flags: { ...st.flags, daily_guest_play_enabled: true } });
+  });
+
+  it("shows the decision count and the opponent's plan instead of par", async () => {
+    mockToday({ challenge: v2Challenge, my_entry: null, active_game_id: null, attempts_today: 0, my_rank: null, leaderboard: [] });
+    renderPage();
+    await waitFor(() => expect(screen.getByTestId('daily-v2-card')).toBeInTheDocument());
+    expect(screen.getByText('2 decisions decide this one · the board answers before the dice')).toBeInTheDocument();
+    expect(screen.getByText('› While it holds the objective, it reinforces Gaul.')).toBeInTheDocument();
+    expect(screen.queryByText(/beat it to score above 1000/)).toBeNull();
+    // The theme is the lesson, told at the end: never on the card before play.
+    expect(screen.queryByText(/cut the supply line/)).toBeNull();
+  });
+
+  it('leads a finished v2 run with accuracy, the star and the share line', async () => {
+    const v2Entry = {
+      ...entry, won: false, puzzle_score: 944, puzzle_version: 2, accuracy: 94.4, first_try: true, attempts: 1,
+      star: true, crown: false, decisions_best: 1, decisions_count: 2,
+    };
+    mockToday({
+      challenge: v2Challenge, my_entry: v2Entry, active_game_id: null, completed_game_id: null, attempts_today: 4, my_rank: 1,
+      leaderboard: [
+        { username: 'Player', won: false, puzzle_score: 944, turn_count: 3, territory_count: 4, completed_at: entry.completed_at, puzzle_version: 2, accuracy: 94.4, first_try: true, attempts: 1 },
+        { username: 'Retried', won: true, puzzle_score: 900, turn_count: 3, territory_count: 4, completed_at: entry.completed_at, puzzle_version: 2, accuracy: 90, first_try: false, attempts: 2 },
+      ],
+    });
+    renderPage();
+    await waitFor(() => expect(screen.getByTestId('daily-v2-result')).toBeInTheDocument());
+    expect(screen.getByText('★ 94 % accuracy')).toBeInTheDocument();
+    expect(screen.getByText(/1\/2 decisions best/)).toBeInTheDocument();
+    expect(screen.getByText(/a star/)).toBeInTheDocument();
+    // The share line names the day, the accuracy and the outcome; a loss with a star is still a star.
+    expect(screen.getByText(/Borderfall Daily 2026-09-07 · ★ 94 % · 1\/2 best · 🎲 lost/)).toBeInTheDocument();
+    // The board shows accuracy on v2 rows, and marks a retried run; a lost run still ranks first.
+    expect(screen.getByText('94 %')).toBeInTheDocument();
+    expect(screen.getByText('90 % ↺')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument();
+  });
+
+  it('keeps the v1 card and score for a day without a plan', async () => {
+    mockToday({ challenge, my_entry: entry, active_game_id: null, completed_game_id: 'g1', attempts_today: 1, my_rank: 1, leaderboard: [] });
+    renderPage();
+    await waitFor(() => expect(screen.getByText(/beat it to score above 1000/)).toBeInTheDocument());
+    expect(screen.queryByTestId('daily-v2-card')).toBeNull();
+    expect(screen.queryByTestId('daily-v2-result')).toBeNull();
+  });
+});

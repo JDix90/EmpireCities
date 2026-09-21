@@ -10,6 +10,7 @@ import ComeBackTomorrowPanel from './ComeBackTomorrowPanel';
 import ReferralSurvey from './ReferralSurvey';
 import { useReferralSurveyEnabled } from '../../store/featureFlagsStore';
 import { shouldShowReferralSurvey, hasAnsweredReferralSurvey } from '../../utils/referralSurvey';
+import { GRADE_LABELS, type PuzzleReviewView } from '../../utils/dailyPuzzleV2';
 import { bankedGoldNote } from '../../utils/signupNudge';
 import { GUEST_NO_PERSIST, GUEST_KEEP_STATS_CTA_SENTENCE } from '../../utils/guestGate';
 import { ChronicleList, useChronicle } from './ChroniclePanel';
@@ -106,6 +107,8 @@ export interface GameOverModalData {
     level_cosmetic: string | null;
     friend_streak_bonus?: number;
   };
+  /** Daily v2 (docs/DAILY_PUZZLE_V2.md §3): the run's decisions, graded, and the share line. */
+  puzzle_review?: PuzzleReviewView;
   insights?: Array<{
     turn: number;
     title: string;
@@ -1127,6 +1130,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
   onChallengeFriend?: () => void;
   onUpgradeAccount?: () => void;
 }) {
+  const [reviewCopied, setReviewCopied] = useState(false);
   const [showContent, setShowContent] = useState(false);
   useEffect(() => { const t = setTimeout(() => setShowContent(true), 300); return () => clearTimeout(t); }, []);
   const [statsTab, setStatsTab] = useState<'result' | 'stats' | 'chronicle'>('result');
@@ -1491,6 +1495,77 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
           showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
         )}>
           <WinProbabilityChart history={probHistory} players={data.players} />
+        </div>
+      )}
+
+      {data.puzzle_review && (
+        <div
+          className={clsx(
+            'mb-6 text-left transition-all duration-500 delay-500',
+            showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
+          )}
+          data-testid="puzzle-review"
+        >
+          <p className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-3">Decision review</p>
+          <div className="rounded-lg bg-white/[0.03] border border-white/10 p-3">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="text-2xl font-display text-amber-300">
+                {data.puzzle_review.crown ? '👑 ' : data.puzzle_review.star ? '★ ' : ''}
+                {Math.round(data.puzzle_review.accuracy)} % accuracy
+              </p>
+              <p className="text-sm text-white/60">{data.puzzle_review.score} pts</p>
+            </div>
+            <p className="text-xs text-white/50 mt-1">
+              {data.puzzle_review.crown
+                ? 'A crown: every decision best, first time.'
+                : data.puzzle_review.star
+                  ? 'A star: no blunder, at most one slip, no takeback.'
+                  : data.puzzle_review.first_try
+                    ? 'No star this time — a blunder or two slips.'
+                    : `${data.puzzle_review.attempts} attempts — a takeback costs the star.`}
+              {data.puzzle_review.theme ? ` The lesson: ${data.puzzle_review.theme}.` : ''}
+            </p>
+            {data.puzzle_review.decisions.length > 0 && (
+              <ol className="mt-3 space-y-2">
+                {data.puzzle_review.decisions.map((d, idx) => (
+                  <li key={`${d.turn}-${idx}`} className="text-xs border-t border-white/10 pt-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-white/45">Turn {d.turn} · {d.phase}</span>
+                      <span className={clsx(
+                        'uppercase tracking-wide px-2 py-0.5 rounded border text-[10px]',
+                        d.grade === 'best' && 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10',
+                        d.grade === 'good' && 'text-sky-300 border-sky-500/40 bg-sky-500/10',
+                        d.grade === 'inaccuracy' && 'text-amber-300 border-amber-500/40 bg-amber-500/10',
+                        d.grade === 'blunder' && 'text-red-300 border-red-500/40 bg-red-500/10',
+                      )}>
+                        {GRADE_LABELS[d.grade]}{d.loss >= 2 ? ` · −${Math.round(d.loss)}` : ''}
+                      </span>
+                    </div>
+                    <p className="text-white/80 mt-1">{d.chosen}</p>
+                    {d.grade !== 'best' && <p className="text-emerald-300/90 mt-0.5">Best: {d.best}</p>}
+                  </li>
+                ))}
+              </ol>
+            )}
+            <div className="mt-3 flex items-center gap-2">
+              <code className="flex-1 min-w-0 truncate text-[11px] text-white/60 bg-black/30 rounded px-2 py-1.5">{data.puzzle_review.shareLine}</code>
+              <button
+                type="button"
+                onClick={() => {
+                  const line = data.puzzle_review?.shareLine ?? '';
+                  void navigator.clipboard?.writeText(line).then(() => {
+                    setReviewCopied(true);
+                    setTimeout(() => setReviewCopied(false), 2000);
+                  }).catch(() => undefined);
+                }}
+                className="shrink-0 inline-flex items-center gap-1 rounded bg-white/10 hover:bg-white/20 px-2 py-1.5 text-xs text-white/80"
+                aria-label="Copy share line"
+              >
+                {reviewCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                {reviewCopied ? 'Copied' : 'Share'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -10,6 +10,7 @@ import { featureFlags } from '../../config/featureFlags';
 import { toPublicDailyPuzzleV2 } from '../../game-engine/daily/dailyPuzzlePublic';
 import type { PublicDailyPuzzleV2 } from '../../game-engine/daily/dailyPuzzleTypes';
 import { DAILY_LEADERBOARD_COLUMNS, DAILY_LEADERBOARD_ORDER_BY } from './dailyLeaderboardOrder';
+import { runBadges } from '../../game-engine/daily/puzzlePlay';
 
 const PLAYER_COLORS = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12'];
 
@@ -62,12 +63,28 @@ export async function dailyRoutes(fastify: FastifyInstance): Promise<void> {
       accuracy: number | null;
       first_try: boolean | null;
       attempts: number | null;
+      decisions_json: Array<{ grade: 'best' | 'good' | 'inaccuracy' | 'blunder' }> | null;
     }>(
-      `SELECT dce.entry_id, ${DAILY_LEADERBOARD_COLUMNS}, dce.completed_at
+      `SELECT dce.entry_id, ${DAILY_LEADERBOARD_COLUMNS}, dce.completed_at, dce.decisions_json
        FROM daily_challenge_entries dce
        WHERE dce.challenge_date = $1 AND dce.user_id = $2`,
       [row.challenge_date, request.userId],
     );
+    // A v2 run's star and crown, re-read from its graded decisions so the
+    // result card can show them without a second table.
+    const myEntryView = myEntry
+      ? (() => {
+        const { decisions_json, ...rest } = myEntry;
+        if (rest.puzzle_version < 2 || !Array.isArray(decisions_json)) return { ...rest, star: null, crown: null, decisions_best: null, decisions_count: null };
+        const badges = runBadges(decisions_json, Math.max(0, (rest.attempts ?? 1) - 1));
+        return {
+          ...rest,
+          ...badges,
+          decisions_best: decisions_json.filter((d) => d.grade === 'best').length,
+          decisions_count: decisions_json.length,
+        };
+      })()
+      : null;
 
     // Check if there's an in-progress game for this user+challenge.
     // The JSONB stored value is the JSON-stringified Date (e.g.
@@ -178,7 +195,7 @@ export async function dailyRoutes(fastify: FastifyInstance): Promise<void> {
 
     return reply.send({
       challenge,
-      my_entry: myEntry ?? null,
+      my_entry: myEntryView,
       active_game_id: activeGame?.game_id ?? null,
       completed_game_id: completedGame?.game_id ?? null,
       attempts_today: attemptsRow?.attempts ? Number(attemptsRow.attempts) : 0,

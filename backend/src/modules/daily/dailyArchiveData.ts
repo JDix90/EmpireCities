@@ -25,7 +25,9 @@
  * be farmable by anyone willing to clear their storage.
  */
 import { query, queryOne } from '../../db/postgres';
-import { dailyChallengeDate } from '../../game-engine/daily/dailyPuzzleService';
+import { dailyChallengeDate, territoryDisplayName } from '../../game-engine/daily/dailyPuzzleService';
+import { getMapById } from '../maps/mapService';
+import type { GameMap } from '../../types';
 import type { DailyPuzzleSpec, DailyPuzzleV2, StoredPuzzleAction, StoredPuzzleDecision } from '../../game-engine/daily/dailyPuzzleTypes';
 import { DAILY_LEADERBOARD_COLUMNS, DAILY_LEADERBOARD_ORDER_BY } from './dailyLeaderboardOrder';
 import { humanizeEra } from '../share/replayOgData';
@@ -58,6 +60,8 @@ export interface DailyArchiveV2 {
   obvious_equity: number;
   decisions: StoredPuzzleDecision[];
   line: Array<{ turn: number; action: StoredPuzzleAction; equity: number }>;
+  /** Display names for every territory the plan and the solution mention. */
+  names: Record<string, string>;
 }
 
 export interface DailyArchiveLeader {
@@ -123,7 +127,13 @@ export function isArchivableDate(date: string, now: Date = new Date()): boolean 
   return date < dailyChallengeDate(now);
 }
 
-export function toArchiveSpec(spec: DailyPuzzleSpec, fallbackEra: string, fallbackMap: string, fallbackPlayers: number): DailyArchiveSpec {
+export function toArchiveSpec(
+  spec: DailyPuzzleSpec,
+  fallbackEra: string,
+  fallbackMap: string,
+  fallbackPlayers: number,
+  map: GameMap | null = null,
+): DailyArchiveSpec {
   const eraId = spec?.era_id ?? fallbackEra;
   return {
     archetype: String(spec?.archetype ?? 'domination'),
@@ -137,12 +147,31 @@ export function toArchiveSpec(spec: DailyPuzzleSpec, fallbackEra: string, fallba
     max_turns: Number(spec?.max_turns ?? 0),
     par_turns: spec?.par_turns ?? null,
     ai_difficulty: spec?.ai_difficulty ?? null,
-    ...(spec?.v2 ? { v2: toArchiveV2(spec.v2) } : {}),
+    ...(spec?.v2 ? { v2: toArchiveV2(spec.v2, map) } : {}),
   };
 }
 
-function toArchiveV2(v2: DailyPuzzleV2): DailyArchiveV2 {
+function mentionedIds(v2: DailyPuzzleV2): string[] {
+  const ids = new Set<string>();
+  const add = (a: StoredPuzzleAction | null | undefined) => {
+    if (!a) return;
+    if (a.kind === 'draft') { ids.add(a.to); if (a.split) ids.add(a.split); }
+    if (a.kind === 'assault' || a.kind === 'fortify') { ids.add(a.from); ids.add(a.to); }
+  };
+  for (const step of v2.plan?.steps ?? []) {
+    if (step.kind === 'draft') ids.add(step.to);
+    else { ids.add(step.from); ids.add(step.to); }
+  }
+  for (const d of v2.solution?.decisions ?? []) { add(d.best); add(d.alternative); }
+  for (const s of v2.solution?.line ?? []) add(s.action);
+  return [...ids];
+}
+
+function toArchiveV2(v2: DailyPuzzleV2, map: GameMap | null): DailyArchiveV2 {
+  const names: Record<string, string> = {};
+  for (const id of mentionedIds(v2)) names[id] = territoryDisplayName(map, id);
   return {
+    names,
     theme: v2.theme,
     plan_prose: Array.isArray(v2.plan_prose) ? v2.plan_prose : [],
     decisions_target: v2.decisions_target,
@@ -209,6 +238,8 @@ export async function getDailyArchiveEntry(
     [date],
   );
 
+  // A v2 day's solution names territories; the map turns ids into names.
+  const archiveMap: GameMap | null = row.spec_json?.v2 ? await getMapById(row.map_id).catch(() => null) : null;
   const attempts = Number(stats?.attempts ?? 0);
   const wins = Number(stats?.wins ?? 0);
   const medianTurns = stats?.median_winning_turns == null ? null : Number(stats.median_winning_turns);
@@ -216,7 +247,7 @@ export async function getDailyArchiveEntry(
   return {
     challenge_date: toDateString(row.challenge_date),
     kind: row.kind,
-    spec: toArchiveSpec(row.spec_json, row.era_id, row.map_id, row.player_count),
+    spec: toArchiveSpec(row.spec_json, row.era_id, row.map_id, row.player_count, archiveMap),
     results: {
       attempts,
       wins,
