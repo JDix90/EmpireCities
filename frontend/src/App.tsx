@@ -39,6 +39,8 @@ const TermsPage = lazyWithChunkRetry(() => import('./pages/TermsPage'));
 const TutorialPage = lazyWithChunkRetry(() => import('./pages/TutorialPage'));
 const HowToPlayPage = lazyWithChunkRetry(() => import('./pages/HowToPlayPage'));
 const ErasPage = lazyWithChunkRetry(() => import('./pages/ErasPage'));
+const MapsPage = lazyWithChunkRetry(() => import('./pages/MapsPage'));
+const EraDetailPage = lazyWithChunkRetry(() => import('./pages/EraDetailPage'));
 // Public Daily archive (one page per settled day). Named export for the index
 // so both share a chunk — they are always reached from one another.
 const AnswerPage = lazyWithChunkRetry(() => import('./pages/AnswerPage'));
@@ -384,6 +386,14 @@ export default function App() {
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/how-to-play" element={<HowToPlayPage />} />
         <Route path="/eras" element={<ErasPage />} />
+        {/* Per-era and per-map pages. One component for each family — it
+            resolves its content from seoContent.mjs by pathname, the same
+            module the build prerenders the crawlable HTML from. A static
+            segment outranks the dynamic one, so /maps never falls through
+            to /maps/:slug. */}
+        <Route path="/eras/:slug" element={<EraDetailPage />} />
+        <Route path="/maps" element={<MapsPage />} />
+        <Route path="/maps/:slug" element={<MapsPage />} />
         {/* Settled Daily puzzles are public and crawlable; /daily itself stays
             private. A static segment outranks the dynamic one in React Router,
             so /daily/archive never falls through to /daily/:date. */}

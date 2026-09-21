@@ -22,7 +22,8 @@ export type MarketingBlock =
   | { type: 'answer'; text: string }
   | { type: 'facts'; facts: FactEntry[] }
   | { type: 'eras' }
-  | { type: 'factions' }
+  /** Unscoped is the whole codex (/codex); `era_id` is one era's roster (/eras/:slug). */
+  | { type: 'factions'; era_id?: string }
   | { type: 'faq' }
   | { type: 'links'; links: Array<{ href: string; label: string }> };
 

@@ -16,6 +16,8 @@
  */
 
 import { FACTION_CODEX, FACTION_COUNT } from './factionCodex.generated.mjs';
+import { buildMapMarketingPages } from './mapPages.mjs';
+import { buildEraMarketingPages } from './eraPages.mjs';
 
 export const SITE_URL = 'https://borderfall.gg';
 export const OG_IMAGE = `${SITE_URL}/og-image.png`;
@@ -237,9 +239,15 @@ export function blocksToHtml(blocks) {
       // eventually, but the AI answer crawlers this repo courts (GPTBot,
       // ClaudeBot, PerplexityBot) largely do not, and a client-fetched list is
       // invisible to them.
-      for (const era of FACTION_CODEX) {
+      // `era_id` scopes the roster to one era, for /eras/:slug. Unscoped it is
+      // the whole codex, which is what /codex publishes.
+      const eras = block.era_id
+        ? FACTION_CODEX.filter((e) => e.era_id === block.era_id)
+        : FACTION_CODEX;
+      for (const era of eras) {
         const label = ERA_CODEX_LABELS[era.era_id] ?? era.era_id;
-        parts.push(`<h2>${escapeHtml(label)}</h2>`);
+        // On an era page the heading would only repeat the page's own h1.
+        if (!block.era_id) parts.push(`<h2>${escapeHtml(label)}</h2>`);
         parts.push('<dl class="bf-codex">');
         for (const f of era.factions) {
           parts.push(`<dt>${escapeHtml(f.name)}</dt>`);
@@ -273,7 +281,12 @@ export function blocksToHtml(blocks) {
  * injected into each page's <head>; `blocks` become the crawlable body that
  * the SPA replaces once React boots.
  */
-export const MARKETING_PAGES = [
+/**
+ * The hand-written pages. The generated families (maps, eras) are appended
+ * below — they are built from the game's own data, so they cannot be written
+ * here without going stale.
+ */
+const STATIC_MARKETING_PAGES = [
   {
     path: '/',
     file: 'index.html',
@@ -675,6 +688,14 @@ export const MARKETING_PAGES = [
           { href: '/answers/browser-strategy-games-without-signup', label: 'What strategy games can I play without signing up?' },
           { href: '/answers/turn-based-strategy-on-phone-browser', label: 'Can I play turn-based strategy in a phone browser?' },
           { href: '/answers/short-strategy-games-under-15-minutes', label: 'What strategy games can I finish in under 15 minutes?' },
+          { href: '/answers/how-long-does-a-game-of-risk-take',
+            label: 'How long does a game of Risk take?' },
+          { href: '/answers/online-alternatives-to-risk-board-game',
+            label: 'What can I play instead of Risk, online?' },
+          { href: '/answers/turn-based-strategy-games-for-beginners',
+            label: 'What is a good turn-based strategy game for a beginner?' },
+          { href: '/answers/play-strategy-games-at-your-own-pace',
+            label: 'Can I play a strategy game a turn at a time?' },
         ],
       },
       {
@@ -1169,6 +1190,344 @@ export const MARKETING_PAGES = [
       },
     ],
   },
+  {
+    path: '/answers/how-long-does-a-game-of-risk-take',
+    file: 'answers/how-long-does-a-game-of-risk-take/index.html',
+    title: 'How Long Does a Game of Risk Take?',
+    description:
+      'Classic Risk runs about 2–4 hours, longer with more players. Borderfall is a free '
+      + 'browser version of the same idea that finishes in 10–15 minutes solo.',
+    h1: 'How long does a game of Risk take?',
+    tagline: '',
+    jsonLd: false,
+    qa: [
+      {
+        q: 'How long does a game of Risk take?',
+        a:
+          'A standard game of Risk usually runs two to four hours. Three or more players, or the '
+          + 'world-domination victory condition, push it longer — all-day games are common and '
+          + 'well documented. Shorter official variants and mission cards bring it down to about '
+          + 'an hour.',
+      },
+      {
+        q: 'Why does Risk take so long?',
+        a:
+          'Elimination is slow. Players who lose their position early still have to wait, and the '
+          + 'reinforcement pace means a stalemate on one border can hold for many turns without '
+          + 'anything decisive happening.',
+      },
+      {
+        q: 'Is there a faster version I can play online?',
+        a:
+          'Borderfall is a free browser game with the same dice-and-territory core. A solo game '
+          + 'against AI typically finishes in 10 to 15 minutes, and the Daily Challenge takes a '
+          + 'few. Nothing to download, and guest play needs no account.',
+      },
+    ],
+    blocks: [
+      {
+        type: 'answer',
+        text:
+          'A standard game of Risk takes about two to four hours, and longer with more players — '
+          + 'the classic complaint about it is real. Shorter variants and mission cards cut it to '
+          + 'roughly an hour. If you want the same kind of game in a single sitting, Borderfall is '
+          + 'a free browser version whose solo games run 10 to 15 minutes.',
+      },
+      { type: 'h2', text: 'What actually makes it long' },
+      {
+        type: 'p',
+        text:
+          'Two things. Elimination means a player knocked out in the first hour spends the rest of '
+          + 'the game watching, and the reinforcement pace lets a contested border stall for many '
+          + 'turns at a time. More players multiply both effects, which is why a five- or '
+          + 'six-player game rarely finishes when anyone expected.',
+      },
+      { type: 'h2', text: 'The same game, faster' },
+      {
+        type: 'p',
+        text:
+          'Borderfall keeps the core — reinforce, manoeuvre, roll, take territory, hold regions for '
+          + 'bonuses — and changes the pacing around it. Solo games against AI run about 10 to 15 '
+          + 'minutes. Multiplayer can be played in real time in one sitting, or asynchronously a '
+          + 'turn at a time over hours or days, which sidesteps the scheduling problem entirely.',
+      },
+      { type: 'h2', text: 'The specifics' },
+      {
+        type: 'facts',
+        facts: [
+          { k: 'Typical solo game', v: 'About 10–15 minutes against AI.' },
+          { k: 'Daily Challenge', v: 'A few minutes. One hand-built puzzle a day.' },
+          { k: 'Multiplayer', v: 'Real-time in one sitting, or asynchronous over hours and days.' },
+          { k: 'Players', v: '1–8. Solo against AI, or 2–8 humans.' },
+          { k: 'Price', v: 'Free. No purchase required to play any mode.' },
+          { k: 'Install', v: 'None. It runs in the browser.' },
+          { k: 'Account', v: 'Optional. Guest play starts immediately.' },
+        ],
+      },
+      {
+        type: 'links',
+        links: [
+          { href: '/', label: 'Play Borderfall' },
+          { href: '/how-to-play', label: 'How to play' },
+          { href: '/answers', label: 'More questions' },
+        ],
+      },
+    ],
+  },
+  {
+    path: '/answers/online-alternatives-to-risk-board-game',
+    file: 'answers/online-alternatives-to-risk-board-game/index.html',
+    title: 'What Can I Play Instead of Risk, Online?',
+    description:
+      'Online alternatives to the Risk board game, and what each one trades away. Borderfall '
+      + 'is free in the browser: same dice-and-territory core, shorter games.',
+    h1: 'What can I play instead of Risk, online?',
+    tagline: '',
+    jsonLd: false,
+    qa: [
+      {
+        q: 'What can I play instead of Risk, online?',
+        a:
+          'Borderfall is a free browser game built on the same dice-and-territory core as Risk, '
+          + 'with shorter games and asymmetric factions. It runs in any modern browser with no '
+          + 'download, and you can start as a guest without an account.',
+      },
+      {
+        q: 'What is different from Risk itself?',
+        a:
+          'A single game advances through historical eras, from ancient kingdoms to a galactic '
+          + 'age, each adding units and theatres of war. Factions are asymmetric rather than '
+          + 'identical, and games finish far faster than a board-game session.',
+      },
+      {
+        q: 'Do I need to buy anything?',
+        a: 'No. Every mode is free, with no paywall on maps, eras or multiplayer.',
+      },
+    ],
+    blocks: [
+      {
+        type: 'answer',
+        text:
+          'Borderfall is a free, browser-based turn-based conquest game with the same core as Risk '
+          + '— reinforce, manoeuvre, roll for combat, hold regions for bonuses — but games finish in '
+          + 'minutes rather than hours, and the factions are asymmetric. Nothing to download, and '
+          + 'guest play needs no account.',
+      },
+      { type: 'h2', text: 'What people usually want instead' },
+      {
+        type: 'p',
+        text:
+          'Most people looking for an alternative want one of three things: a game that ends in one '
+          + 'sitting, one they can play with friends who are not in the room, or one that does not '
+          + 'require buying anything first. Borderfall is built around all three — short solo games, '
+          + 'shareable lobby links, asynchronous turns for people in different time zones, and no '
+          + 'purchase at any point.',
+      },
+      { type: 'h2', text: 'Where it goes further' },
+      {
+        type: 'p',
+        text:
+          'The board does not hold still. A game climbs through historical eras as you play it, so '
+          + 'a match can open with legions on a classical map and end with fleets contesting orbit. '
+          + 'There are also hand-built historical boards — Rome at its height, Sengoku Japan, '
+          + 'Napoleonic Europe — if you would rather play one setting properly.',
+      },
+      { type: 'h2', text: 'The specifics' },
+      {
+        type: 'facts',
+        facts: [
+          { k: 'Price', v: 'Free. No purchase required to play any mode.' },
+          { k: 'Install', v: 'None. It runs in the browser.' },
+          { k: 'Account', v: 'Optional. Guest play starts immediately.' },
+          { k: 'Players', v: '1–8. Solo against AI, or 2–8 humans.' },
+          { k: 'Pace', v: 'Real-time, or asynchronous turns over hours and days.' },
+          { k: 'Typical solo game', v: 'About 10–15 minutes.' },
+          { k: 'Platforms', v: 'Any modern desktop or mobile browser.' },
+        ],
+      },
+      {
+        type: 'links',
+        links: [
+          { href: '/', label: 'Play Borderfall' },
+          { href: '/maps', label: 'The maps' },
+          { href: '/answers', label: 'More questions' },
+        ],
+      },
+    ],
+  },
+  {
+    path: '/answers/turn-based-strategy-games-for-beginners',
+    file: 'answers/turn-based-strategy-games-for-beginners/index.html',
+    title: 'What Is a Good Turn-Based Strategy Game for a Beginner?',
+    description:
+      'A good first turn-based strategy game has few rules, short games and no setup. '
+      + 'Borderfall is free in the browser and teaches the whole loop in one match.',
+    h1: 'What is a good turn-based strategy game for a beginner?',
+    tagline: '',
+    jsonLd: false,
+    qa: [
+      {
+        q: 'What is a good turn-based strategy game for a beginner?',
+        a:
+          'One with a small rule set, games short enough to finish while you are still learning, '
+          + 'and no install. Borderfall is free in the browser: the whole loop is reinforce, '
+          + 'attack, fortify, and a solo game against Easy AI takes about 10 to 15 minutes.',
+      },
+      {
+        q: 'Do I need to know Risk to play it?',
+        a:
+          'No. If you have played Risk the core will feel familiar, but the in-game tutorial covers '
+          + 'everything from scratch and the AI difficulty starts at Easy.',
+      },
+      {
+        q: 'Can I learn without playing against people?',
+        a:
+          'Yes. Play solo against AI for as long as you like — there is no requirement to play '
+          + 'anyone, and no account needed to start.',
+      },
+    ],
+    blocks: [
+      {
+        type: 'answer',
+        text:
+          'Look for three things: a small rule set, games short enough to finish before you lose '
+          + 'interest, and nothing to install. Borderfall has all three — the loop is reinforce, '
+          + 'attack, fortify, a solo game runs about 10 to 15 minutes, and it starts in a browser '
+          + 'tab with no account.',
+      },
+      { type: 'h2', text: 'Why those three things' },
+      {
+        type: 'p',
+        text:
+          'Most strategy games that bounce beginners do it in the first twenty minutes, before any '
+          + 'decision has paid off: too many systems introduced at once, a tutorial longer than a '
+          + 'match, or an install that asks for commitment before it has earned any. A short game '
+          + 'with a small rule set lets you be bad at it cheaply, which is the only way anyone gets '
+          + 'good at it.',
+      },
+      { type: 'h2', text: 'Where to start here' },
+      {
+        type: 'p',
+        text:
+          'Start with the tutorial, then a solo game against Easy AI on a small board — Great '
+          + 'Britain 925 is fourteen territories and the shortest game in the set. Once the combat '
+          + 'maths feels predictable, the American Civil War board is two-sided and has no '
+          + 'diplomacy to distract from it. After that, the bigger boards and the harder AI.',
+      },
+      { type: 'h2', text: 'The specifics' },
+      {
+        type: 'facts',
+        facts: [
+          { k: 'Rules to learn', v: 'Three phases: reinforce, attack, fortify.' },
+          { k: 'Difficulty', v: 'AI from Easy to Expert. Easy is genuinely easy.' },
+          { k: 'Typical solo game', v: 'About 10–15 minutes.' },
+          { k: 'Price', v: 'Free. No purchase required to play any mode.' },
+          { k: 'Install', v: 'None. It runs in the browser.' },
+          { k: 'Account', v: 'Optional. Guest play starts immediately.' },
+        ],
+      },
+      {
+        type: 'links',
+        links: [
+          { href: '/how-to-play', label: 'How to play' },
+          { href: '/maps/britain-925', label: 'The smallest board' },
+          { href: '/answers', label: 'More questions' },
+        ],
+      },
+    ],
+  },
+  {
+    path: '/answers/play-strategy-games-at-your-own-pace',
+    file: 'answers/play-strategy-games-at-your-own-pace/index.html',
+    title: 'Can I Play a Strategy Game a Turn at a Time?',
+    description:
+      'Yes — Borderfall supports asynchronous turns, so a multiplayer game can run over '
+      + 'hours or days. Free in the browser, no download, no scheduling.',
+    h1: 'Can I play a strategy game a turn at a time?',
+    tagline: '',
+    jsonLd: false,
+    qa: [
+      {
+        q: 'Can I play a strategy game a turn at a time?',
+        a:
+          'Yes. Borderfall supports asynchronous multiplayer: each player takes their turn when '
+          + 'they get to it, and the game can run over hours or days. It is free in the browser '
+          + 'with nothing to install.',
+      },
+      {
+        q: 'Do all the players need to be online together?',
+        a:
+          'No. That is the point of asynchronous play — you take your turn, the game waits, and '
+          + 'the next player takes theirs whenever they open it.',
+      },
+      {
+        q: 'Can I still play in real time?',
+        a:
+          'Yes. The same game supports both: play a match start to finish in one sitting, or leave '
+          + 'it running and come back.',
+      },
+    ],
+    blocks: [
+      {
+        type: 'answer',
+        text:
+          'Yes. Borderfall multiplayer can be played asynchronously — each player takes their turn '
+          + 'whenever they open it, and a game can run over hours or days without anyone waiting. '
+          + 'It is free in the browser, with no download and no account required to start.',
+      },
+      { type: 'h2', text: 'Why it matters more than it sounds' },
+      {
+        type: 'p',
+        text:
+          'The reason most people stop playing strategy games with friends is scheduling, not '
+          + 'interest. A game that survives being put down solves that: you take a turn on a break, '
+          + 'someone else takes theirs that evening, and the match finishes over a week without '
+          + 'anyone blocking out an afternoon.',
+      },
+      { type: 'h2', text: 'How it works here' },
+      {
+        type: 'p',
+        text:
+          'Start a game, share the lobby link, and play. If everyone is around it runs in real '
+          + 'time; if not, it simply waits. You can leave the tab, close the browser and come back '
+          + 'to it later. An account is optional but worth having for a long game, since it is what '
+          + 'keeps your progress attached to you across devices.',
+      },
+      { type: 'h2', text: 'The specifics' },
+      {
+        type: 'facts',
+        facts: [
+          { k: 'Pace', v: 'Real-time, or asynchronous turns over hours and days.' },
+          { k: 'Players', v: '1–8. Solo against AI, or 2–8 humans.' },
+          { k: 'Invites', v: 'A lobby link. Guests can join without an account.' },
+          { k: 'Price', v: 'Free. No purchase required to play any mode.' },
+          { k: 'Install', v: 'None. It runs in the browser.' },
+          { k: 'Platforms', v: 'Any modern desktop or mobile browser.' },
+        ],
+      },
+      {
+        type: 'links',
+        links: [
+          { href: '/', label: 'Play Borderfall' },
+          { href: '/answers/play-risk-style-game-with-friends-online', label: 'Playing with friends' },
+          { href: '/answers', label: 'More questions' },
+        ],
+      },
+    ],
+  },
+];
+
+/**
+ * Every prerendered page, in sitemap order: the written ones, then the map
+ * family, then the era family.
+ *
+ * Appending rather than interleaving keeps the diff of a content edit readable
+ * — a new map moves nothing above it.
+ */
+export const MARKETING_PAGES = [
+  ...STATIC_MARKETING_PAGES,
+  ...buildMapMarketingPages(),
+  ...buildEraMarketingPages(),
 ];
 
 export function getMarketingPage(path) {
