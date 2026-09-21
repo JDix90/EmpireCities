@@ -95,8 +95,11 @@ flag on, so the week can migrate set-piece by set-piece.
 
 - **Equity** of a position = the human's win probability from it under best play, with
   the scripted opponent replying and the dice at their true distribution.
-- **A decision** is a human action in a position where the best and the second-best
-  actions differ by ≥ 5 points. Trivial choices are not graded and do not count.
+- **A decision** is a human action in a position where a plausible rival to the best
+  move loses ≥ 5 points: the obvious line's move when it differs, or the strongest move
+  of a different kind ("attack now" versus "cut the relief road first"). "Attack all
+  in" versus "attack and stop at three" is one idea, not two, and is never a decision on
+  its own. Trivial choices are not graded and do not count.
 - **Loss** of a decision = equity(best action) − equity(chosen action), in points 0–100.
   Grades: **best** < 2 · **good** 2–5 · **inaccuracy** 5–15 · **blunder** ≥ 15.
 - **First attempt counts.** The first proposal in a decision position is what accuracy
@@ -175,16 +178,34 @@ the solver exact and the intent stable.
 The generator keeps sizing numbers from the date. The gate's criterion inverts:
 
 - best-line equity ≥ 0.60 (winnable);
-- obvious-line equity ≤ best − 0.20 (the natural move is refuted);
-- at most two first-decision actions within 5 points of the best (a key line, not a
-  buffet);
-- decision count along the best line = the tier's target (2 or 3);
-- solved within the node budget.
+- obvious-line equity ≤ best − 0.15 (the natural move is refuted: fifteen points is the
+  blunder grade. The first draft said twenty; measured on the library, a hold day's
+  pre-emptive strike is worth 16–19 points, and twenty would have kept every Wednesday
+  v1);
+- at most two distinct opening moves within 5 points of the best (a key line, not a
+  buffet; keep variants of one assault count once);
+- decision count along the best line = the tier's target (2 or 3), or one more;
+- solved within the node budget (600k positions; a board that exceeds it is served as
+  v1 rather than re-rolled, since a re-roll keeps the width).
 
-Outside the band the numbers re-roll up to `GATE_ATTEMPTS` times, as today. The
-solution (best line, equities per decision, theme) is stored with the day's spec at
-materialization; the sweep test recomputes the horizon. If the sweep outgrows CI's
-budget, the horizon is precomputed into a checked-in artifact that CI verifies.
+Outside the band the numbers re-roll up to `GATE_ATTEMPTS` times, as today, the band
+moving toward the miss. The solution (best line, equities per decision, theme) is stored
+with the day's spec at materialization; the sweep test recomputes the horizon. If the
+sweep outgrows CI's budget, the horizon is precomputed into a checked-in artifact that
+CI verifies.
+
+Two readings differ from v1 on purpose (`dailyScheduleV2.ts`):
+
+- **The hold day.** v1's numbers are sized for the shipped bot, which attacks when it
+  likes its odds; the scripted siege attacks every turn at any odds, and against it the
+  v1 reserve left every hold day a coin flip under best play. The v2 reading deals the
+  reserve three stronger and the siege leaves its second stack standing; the days then
+  land at 60–75% with the pre-emptive strike and the timing of the reserve as the
+  decisions.
+- **Tuesday.** v1 serves a budget puzzle, which has no dice and so nothing to grade; v2
+  serves a second capture or chain from the planned library, walked by week and never a
+  front the v1 cadence serves within six days either side. With the flag off Tuesday is
+  the budget day exactly as before.
 
 ### 5.4 Play
 

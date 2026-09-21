@@ -87,6 +87,10 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // the translated bundles ship in the client but nobody is routed to them
   // until this is on. Client-only effect.
   localization_enabled: () => envOptIn('LOCALIZATION_ENABLED'),
+  // Daily Challenge v2 (docs/DAILY_PUZZLE_V2.md): the daily as a decision
+  // puzzle graded by an exact solver. Dark-launched OFF; with it on, a day is
+  // v2 only when its set-piece carries a plan and the gate accepted it.
+  daily_puzzle_v2_enabled: () => envOptIn('DAILY_PUZZLE_V2_ENABLED'),
 };
 
 /** The code default for one flag (no admin override consulted). */
@@ -319,6 +323,18 @@ export const featureFlags = {
    */
   get dailyGuestPlayEnabled(): boolean {
     return overrideBool('daily_guest_play_enabled');
+  },
+
+  /**
+   * When true, a daily whose set-piece carries a scripted-opponent plan is
+   * served as a v2 decision puzzle (docs/DAILY_PUZZLE_V2.md): a short clock, a
+   * scripted opponent, every move graded against the exact solution. Days
+   * without a plan, and Thursday and Sunday, stay v1 either way. Default OFF
+   * (dark launch); `DAILY_PUZZLE_V2_ENABLED=true` or the admin override turns
+   * it on, and the override is the kill switch.
+   */
+  get dailyPuzzleV2Enabled(): boolean {
+    return overrideBool('daily_puzzle_v2_enabled');
   },
 
 
@@ -693,5 +709,6 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     era_wonder_per_era_enabled: featureFlags.eraWonderPerEraEnabled,
     warfront_enabled: featureFlags.warfrontEnabled,
     localization_enabled: featureFlags.localizationEnabled,
+    daily_puzzle_v2_enabled: featureFlags.dailyPuzzleV2Enabled,
   };
 }

@@ -3,7 +3,9 @@ import { query, queryOne } from '../../db/postgres';
 import { getEraTechTree } from '../eras';
 import type { DailyPuzzleSpec } from './dailyPuzzleTypes';
 import { buildDailyPuzzleBase, captureGoal, economySpecFromBase, regionGoal, territoryDisplayName } from './dailyGenerator';
-import { scheduleDay } from './dailySchedule';
+import { featureFlags } from '../../config/featureFlags';
+import { scheduleDay, type ScheduledDay } from './dailySchedule';
+import { scheduleDayV2 } from './dailyScheduleV2';
 
 export { territoryDisplayName, captureGoal, regionGoal };
 
@@ -50,7 +52,20 @@ export async function enrichDailyPuzzleSpecForDisplay(spec: DailyPuzzleSpec): Pr
  * process computes the identical day.
  */
 export async function buildCompleteDailyPuzzleSpec(today: string): Promise<DailyPuzzleSpec> {
-  return (await scheduleDay(today)).spec;
+  return (await scheduleServedDay(today)).spec;
+}
+
+/**
+ * The day as it is served: the v2 decision puzzle when the flag is on and the
+ * date proved as one (docs/DAILY_PUZZLE_V2.md), else the v1 day. The flag is
+ * read here, at the one seam, so both schedules stay pure in the date.
+ */
+export async function scheduleServedDay(date: string): Promise<ScheduledDay> {
+  if (featureFlags.dailyPuzzleV2Enabled) {
+    const v2 = await scheduleDayV2(date);
+    if (v2) return v2;
+  }
+  return scheduleDay(date);
 }
 
 export interface DailyChallengeRow {
@@ -136,7 +151,56 @@ export function validateDailyPuzzleSpec(raw: unknown): DailyPuzzleSpec | null {
     }
   }
 
+  if (s.v2 !== undefined && !isValidV2(s.v2)) return null;
+
   return raw as DailyPuzzleSpec;
+}
+
+const V2_VERDICTS: ReadonlySet<string> = new Set(['before_dice', 'silent']);
+const V2_INTENTS: ReadonlySet<string> = new Set(['arrows', 'prose']);
+const V2_ACTION_KINDS: ReadonlySet<string> = new Set(['draft', 'assault', 'end_attack', 'fortify', 'end_turn']);
+
+function isStoredAction(v: unknown): boolean {
+  if (!v || typeof v !== 'object') return false;
+  const a = v as Record<string, unknown>;
+  if (!V2_ACTION_KINDS.has(a.kind as string)) return false;
+  if (a.kind === 'draft') return isNonEmptyString(a.to) && isOptionalString(a.split);
+  if (a.kind === 'assault') return isNonEmptyString(a.from) && isNonEmptyString(a.to) && isFiniteNumber(a.keep);
+  if (a.kind === 'fortify') return isNonEmptyString(a.from) && isNonEmptyString(a.to) && (a.units === 'all_but_1' || a.units === 'half');
+  return true;
+}
+
+/**
+ * The v2 block, structurally: the shape play and the archive read. Territory
+ * ids inside actions are checked against the board when the day is played
+ * (puzzle/actions.ts parseAction), not here.
+ */
+function isValidV2(raw: unknown): boolean {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return false;
+  const v = raw as Record<string, unknown>;
+  if (v.version !== 2) return false;
+  if (!isNonEmptyString(v.theme)) return false;
+  if (!v.plan || typeof v.plan !== 'object' || !Array.isArray((v.plan as Record<string, unknown>).steps)) return false;
+  if (!Array.isArray(v.plan_prose) || v.plan_prose.some((l) => typeof l !== 'string')) return false;
+  if (!isFiniteNumber(v.decisions_target) || v.decisions_target < 1) return false;
+  if (!V2_VERDICTS.has(v.verdicts as string) || !V2_INTENTS.has(v.intent as string)) return false;
+  const sol = v.solution as Record<string, unknown> | undefined;
+  if (!sol || typeof sol !== 'object' || Array.isArray(sol)) return false;
+  if (!isFiniteNumber(sol.equity) || !isFiniteNumber(sol.obvious_equity) || !isFiniteNumber(sol.near_best) || !isFiniteNumber(sol.nodes)) return false;
+  if (!Array.isArray(sol.decisions) || !Array.isArray(sol.line)) return false;
+  for (const d of sol.decisions as unknown[]) {
+    if (!d || typeof d !== 'object') return false;
+    const r = d as Record<string, unknown>;
+    if (!isFiniteNumber(r.turn) || (r.phase !== 'draft' && r.phase !== 'attack' && r.phase !== 'fortify')) return false;
+    if (!isStoredAction(r.best) || (r.alternative !== null && !isStoredAction(r.alternative))) return false;
+    if (!isFiniteNumber(r.best_equity) || !isFiniteNumber(r.alternative_equity) || !isFiniteNumber(r.gap)) return false;
+  }
+  for (const step of sol.line as unknown[]) {
+    if (!step || typeof step !== 'object') return false;
+    const r = step as Record<string, unknown>;
+    if (!isFiniteNumber(r.turn) || !isStoredAction(r.action) || !isFiniteNumber(r.equity)) return false;
+  }
+  return true;
 }
 
 function parseSpec(raw: unknown): DailyPuzzleSpec {
@@ -227,7 +291,7 @@ async function reconcileScheduledRow(
   date: string,
   existing: StoredChallengeRow,
 ): Promise<DailyChallengeRow> {
-  const scheduled = (await scheduleDay(date)).spec;
+  const scheduled = (await scheduleServedDay(date)).spec;
 
   const spec = await enrichDailyPuzzleSpecForDisplay(scheduled);
   const stored = parseSpec(existing.spec_json);

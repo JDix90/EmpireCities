@@ -23,6 +23,7 @@
  * human, so every state the solver holds is either terminal or the human's to
  * move. That is what lets the search be a plain maximisation over expectations.
  */
+import type { StoredPuzzleAction } from '../dailyPuzzleTypes';
 import { assaultOutcomes } from './dice';
 import {
   AI,
@@ -65,6 +66,22 @@ export function actionKey(a: HumanAction): string {
   }
 }
 
+/**
+ * The move as a player sees it: "attack B from A" whether the stop is at one
+ * or three, "draft onto X" with or without the split named. Keep variants and
+ * split variants of one idea are not two choices, so this is the key the
+ * decision test and the near-best count group by.
+ */
+export function coarseActionKey(a: HumanAction): string {
+  switch (a.kind) {
+    case 'draft': return `draft:${a.to}${a.split !== undefined ? `+${a.split}` : ''}`;
+    case 'assault': return `assault:${a.from}>${a.to}`;
+    case 'fortify': return `fortify:${a.from}>${a.to}`;
+    case 'end_attack': return 'end_attack';
+    case 'end_turn': return 'end_turn';
+  }
+}
+
 export function describeAction(ctx: PuzzleContext, a: HumanAction, name: (id: string) => string = (id) => id): string {
   const n = (i: number) => name(ctx.ids[i]);
   switch (a.kind) {
@@ -98,6 +115,45 @@ function reinforceSpots(ctx: PuzzleContext, s: PuzzleState): number[] {
   const rel = relevant(ctx);
   const spots = frontline(ctx, s).filter((t) => rel.has(t) || ctx.adj[t].some((n) => s.owner[n] === AI && rel.has(n)));
   return spots.length > 0 ? spots : frontline(ctx, s).length > 0 ? frontline(ctx, s) : territoriesOf(s, HUMAN);
+}
+
+/** The action by territory id, for storage and the client. */
+export function serializeAction(ctx: PuzzleContext, a: HumanAction): StoredPuzzleAction {
+  switch (a.kind) {
+    case 'draft': return a.split !== undefined ? { kind: 'draft', to: ctx.ids[a.to], split: ctx.ids[a.split] } : { kind: 'draft', to: ctx.ids[a.to] };
+    case 'assault': return { kind: 'assault', from: ctx.ids[a.from], to: ctx.ids[a.to], keep: a.keep };
+    case 'fortify': return { kind: 'fortify', from: ctx.ids[a.from], to: ctx.ids[a.to], units: a.units };
+    case 'end_attack': return { kind: 'end_attack' };
+    case 'end_turn': return { kind: 'end_turn' };
+  }
+}
+
+/** A stored action back onto the model; null when it names a territory the day does not have. */
+export function parseAction(ctx: PuzzleContext, a: StoredPuzzleAction): HumanAction | null {
+  const idx = (id: string) => ctx.index.get(id);
+  switch (a.kind) {
+    case 'draft': {
+      const to = idx(a.to);
+      const split = a.split !== undefined ? idx(a.split) : undefined;
+      if (to === undefined || (a.split !== undefined && split === undefined)) return null;
+      return split !== undefined ? { kind: 'draft', to, split } : { kind: 'draft', to };
+    }
+    case 'assault': {
+      const from = idx(a.from);
+      const to = idx(a.to);
+      if (from === undefined || to === undefined) return null;
+      return { kind: 'assault', from, to, keep: Math.max(1, a.keep) };
+    }
+    case 'fortify': {
+      const from = idx(a.from);
+      const to = idx(a.to);
+      if (from === undefined || to === undefined) return null;
+      return { kind: 'fortify', from, to, units: a.units === 'half' ? 'half' : 'all_but_1' };
+    }
+    case 'end_attack': return { kind: 'end_attack' };
+    case 'end_turn': return { kind: 'end_turn' };
+    default: return null;
+  }
 }
 
 export function humanActions(ctx: PuzzleContext, s: PuzzleState): HumanAction[] {
