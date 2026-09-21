@@ -159,11 +159,15 @@ export function classifyPosition(solver: Solver, s: PuzzleState, policy?: Policy
     }
   }
 
+  // The natural move is a rival only when it is a different idea: "attack
+  // all in" against "attack and stop at three" is one move pressed two ways,
+  // and how far to press is graded where the player stops, not here.
+  const naturalIsRival = natural !== null && coarseActionKey(natural) !== bestKind;
   const pick = (alternative: HumanAction | null, equity: number, decision: boolean): PositionVerdict =>
     ({ values, best, alternative, alternativeEquity: equity, gap: best.equity - equity, decision });
-  if (natural && best.equity - naturalEquity >= decisionGap) return pick(natural, naturalEquity, true);
+  if (naturalIsRival && best.equity - naturalEquity >= decisionGap) return pick(natural, naturalEquity, true);
   if (runnerUp && best.equity - runnerUp.equity >= decisionGap) return pick(runnerUp.action, runnerUp.equity, true);
-  if (natural) return pick(natural, naturalEquity, false);
+  if (naturalIsRival) return pick(natural, naturalEquity, false);
   return pick(runnerUp?.action ?? null, runnerUp?.equity ?? best.equity, false);
 }
 
