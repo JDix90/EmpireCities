@@ -185,12 +185,12 @@ function bandDistance(rate: number, band: { min: number; max: number }): number 
 }
 
 /** The sizing bands one attempt uses; the gate shifts them attempt by attempt. */
-interface SizingBands {
+export interface SizingBands {
   tactical: TacticalBand;
   hold: TacticalBand;
 }
 
-function shiftBand(band: TacticalBand, by: number): TacticalBand {
+export function shiftBand(band: TacticalBand, by: number): TacticalBand {
   const min = Math.min(0.9, Math.max(0.2, band.min + by));
   return { min, max: Math.min(0.95, Math.max(min + 0.05, band.max + by)) };
 }
@@ -618,7 +618,8 @@ async function materializeChain(
   };
 }
 
-async function materialize(
+/** Size one set-piece for a date (exported for the v2 schedule, which proves the result its own way). */
+export async function materialize(
   date: string,
   sp: DailySetPiece,
   bands: SizingBands,

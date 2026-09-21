@@ -49,6 +49,47 @@ describe('validateDailyPuzzleSpec', () => {
       validateDailyPuzzleSpec({ ...valid, starting_board: { a: { owner: 'human', unit_count: -2 } } }),
     ).toBeNull();
   });
+
+  describe('the v2 block', () => {
+    const v2 = {
+      version: 2,
+      theme: 'cut the supply line',
+      plan: { steps: [{ kind: 'draft', to: 'gaul', when: 'objective_ai' }, { kind: 'assault', from: 'gaul', to: 'italia', keep: 1, when: 'objective_human' }] },
+      plan_prose: ['While it holds the objective, it reinforces Gaul.', 'While you hold the objective, Gaul attacks Italia.'],
+      decisions_target: 2,
+      verdicts: 'before_dice',
+      intent: 'arrows',
+      solution: {
+        equity: 0.71, obvious_equity: 0.42, near_best: 1, nodes: 4210,
+        decisions: [
+          { turn: 1, phase: 'attack', best: { kind: 'assault', from: 'hispania', to: 'gaul', keep: 1 }, best_equity: 0.71, alternative: { kind: 'assault', from: 'hispania', to: 'italia', keep: 1 }, alternative_equity: 0.42, gap: 0.29 },
+          { turn: 2, phase: 'fortify', best: { kind: 'fortify', from: 'hispania', to: 'italia', units: 'all_but_1' }, best_equity: 0.9, alternative: { kind: 'end_turn' }, alternative_equity: 0.7, gap: 0.2 },
+        ],
+        line: [
+          { turn: 1, action: { kind: 'assault', from: 'hispania', to: 'gaul', keep: 1 }, equity: 0.71 },
+          { turn: 1, action: { kind: 'end_attack' }, equity: 0.8 },
+        ],
+      },
+    };
+
+    it('accepts a well-formed block, including after a JSONB round-trip', () => {
+      expect(validateDailyPuzzleSpec({ ...valid, v2 })).not.toBeNull();
+      expect(validateDailyPuzzleSpec(JSON.parse(JSON.stringify({ ...valid, v2 })))).not.toBeNull();
+    });
+
+    it('rejects a block play could not read', () => {
+      expect(validateDailyPuzzleSpec({ ...valid, v2: { ...v2, version: 1 } })).toBeNull();
+      expect(validateDailyPuzzleSpec({ ...valid, v2: { ...v2, theme: '' } })).toBeNull();
+      expect(validateDailyPuzzleSpec({ ...valid, v2: { ...v2, plan: { steps: 'later' } } })).toBeNull();
+      expect(validateDailyPuzzleSpec({ ...valid, v2: { ...v2, verdicts: 'loud' } })).toBeNull();
+      expect(validateDailyPuzzleSpec({ ...valid, v2: { ...v2, intent: 'mime' } })).toBeNull();
+      expect(validateDailyPuzzleSpec({ ...valid, v2: { ...v2, decisions_target: 0 } })).toBeNull();
+      expect(validateDailyPuzzleSpec({ ...valid, v2: { ...v2, solution: { ...v2.solution, equity: 'high' } } })).toBeNull();
+      expect(validateDailyPuzzleSpec({ ...valid, v2: { ...v2, solution: { ...v2.solution, decisions: [{ turn: 1, phase: 'attack', best: { kind: 'charge' }, best_equity: 1, alternative: null, alternative_equity: 0, gap: 1 }] } } })).toBeNull();
+      expect(validateDailyPuzzleSpec({ ...valid, v2: { ...v2, solution: { ...v2.solution, line: [{ turn: 1, action: { kind: 'fortify', from: 'a', to: 'b', units: 'most' }, equity: 0.5 }] } } })).toBeNull();
+      expect(validateDailyPuzzleSpec({ ...valid, v2: [] })).toBeNull();
+    });
+  });
 });
 
 describe('buildCompleteDailyPuzzleSpec — calendar precedence', () => {

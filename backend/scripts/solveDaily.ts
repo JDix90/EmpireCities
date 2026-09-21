@@ -71,7 +71,7 @@ async function main(): Promise<void> {
     console.log('opening actions:');
     for (const a of r.rootActions.slice(0, 8)) console.log(`  ${pct(a.equity).padStart(6)}  ${describeAction(ctx, a.action, name)}`);
     console.log('decisions on the best line:');
-    for (const d of r.decisions) console.log(`  turn ${d.turn}: ${describeAction(ctx, d.best, name)}  (${pct(d.bestEquity)}; the natural move${d.natural ? ` "${describeAction(ctx, d.natural, name)}"` : ''} ${pct(d.naturalEquity)}, gap ${(d.gap * 100).toFixed(1)})`);
+    for (const d of r.decisions) console.log(`  turn ${d.turn}: ${describeAction(ctx, d.best, name)}  (${pct(d.bestEquity)}; the alternative${d.alternative ? ` "${describeAction(ctx, d.alternative, name)}"` : ''} ${pct(d.alternativeEquity)}, gap ${(d.gap * 100).toFixed(1)})`);
     console.log('best line:');
     for (const step of r.line) console.log(`  turn ${step.turn}: ${describeAction(ctx, step.action, name)} → ${pct(step.equity)}${step.followed !== undefined ? ` [followed a ${(step.followed * 100).toFixed(0)}% outcome]` : ''}`);
   } catch (err) {
