@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
-import { Calendar, Clock, Target, Trophy } from 'lucide-react';
+import { Calendar, Clock, Swords, Target, Trophy } from 'lucide-react';
 import { estimatedTime } from '../../utils/dailyEstimate';
+import { decisionsLine, type PublicDailyPuzzleV2 } from '../../utils/dailyPuzzleV2';
 
 export interface DailyIntroSpec {
   archetype?: 'domination' | 'military_capture' | 'hold_territory' | 'control_region' | 'capture_chain' | 'economy_build' | 'tech_research' | string;
@@ -13,6 +14,8 @@ export interface DailyIntroSpec {
   par_turns?: number;
   /** The AI's difficulty for this day; the server defaults an unset field to medium. */
   ai_difficulty?: string;
+  /** A v2 decision-puzzle day (docs/DAILY_PUZZLE_V2.md): the opponent's plan and the decision count. */
+  v2?: PublicDailyPuzzleV2;
 }
 
 interface DailyChallengeIntroModalProps {
@@ -116,6 +119,24 @@ export default function DailyChallengeIntroModal({
           </div>
         )}
 
+        {spec.v2 && spec.v2.plan_prose.length > 0 && (
+          <div className="rounded-lg border border-bf-border bg-bf-dark/50 px-4 py-3 mb-5 text-left" data-testid="daily-intro-plan">
+            <div className="flex items-center gap-2 mb-1.5">
+              <Swords className="w-4 h-4 text-bf-gold/80" />
+              <p className="text-[10px] uppercase tracking-wider text-bf-muted">The opponent&apos;s plan</p>
+            </div>
+            <ul className="space-y-1 text-sm text-bf-text leading-snug">
+              {spec.v2.plan_prose.map((line, i) => (
+                <li key={i} className="flex gap-2">
+                  <span className="text-bf-gold/70">›</span>
+                  <span>{line}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-bf-gold/90 text-xs mt-2">{decisionsLine(spec.v2)}</p>
+          </div>
+        )}
+
         <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-6">
           <div className="rounded-lg border border-bf-border bg-bf-dark/50 px-3 py-3 text-center">
             <Target className="w-4 h-4 text-bf-gold/80 mx-auto mb-1.5" />
@@ -136,7 +157,7 @@ export default function DailyChallengeIntroModal({
 
         {(typeof spec.max_turns === 'number' || typeof spec.player_count === 'number') && (
           <p className="text-bf-muted text-xs text-center mb-5">
-            {typeof spec.par_turns === 'number' && (
+            {typeof spec.par_turns === 'number' && !spec.v2 && (
               <>
                 Par: <span className="text-bf-text">{spec.par_turns} {spec.par_turns === 1 ? 'turn' : 'turns'}</span>
                 <span className="mx-2 text-bf-border">•</span>

@@ -517,6 +517,19 @@ export interface PuzzleRunSummary {
   decisions: PuzzleDecisionRecord[];
 }
 
+/**
+ * The star and the crown from a run's decisions and takebacks — shared with
+ * the daily route, which re-reads them from the stored decisions_json.
+ */
+export function runBadges(decisions: ReadonlyArray<Pick<PuzzleDecisionRecord, 'grade'>>, takebacks: number): { star: boolean; crown: boolean } {
+  const blunders = decisions.filter((d) => d.grade === 'blunder').length;
+  const inaccuracies = decisions.filter((d) => d.grade === 'inaccuracy').length;
+  return {
+    star: blunders === 0 && inaccuracies <= 1 && takebacks === 0,
+    crown: takebacks === 0 && decisions.every((d) => d.grade === 'best'),
+  };
+}
+
 /** The run's outcome from its recorded decisions (docs/DAILY_PUZZLE_V2.md §4). */
 export function summarizePuzzleRun(state: GameState, won: boolean): PuzzleRunSummary {
   const decisions = state.puzzle_decisions ?? [];
@@ -524,13 +537,12 @@ export function summarizePuzzleRun(state: GameState, won: boolean): PuzzleRunSum
   const accuracy = decisions.length === 0
     ? (won ? 100 : 0)
     : round2(Math.max(0, Math.min(100, 100 - decisions.reduce((sum, d) => sum + d.loss, 0) / decisions.length)));
-  const blunders = decisions.filter((d) => d.grade === 'blunder').length;
-  const inaccuracies = decisions.filter((d) => d.grade === 'inaccuracy').length;
+  const { star, crown } = runBadges(decisions, takebacks);
   return {
     accuracy,
     score: Math.round(10 * accuracy),
-    star: blunders === 0 && inaccuracies <= 1 && takebacks === 0,
-    crown: takebacks === 0 && decisions.every((d) => d.grade === 'best'),
+    star,
+    crown,
     first_try: takebacks === 0,
     attempts: 1 + takebacks,
     takebacks,

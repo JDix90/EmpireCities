@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { PublicDailyPuzzleV2 } from '../utils/dailyPuzzleV2';
 import type { GamePhase, WorldModifiers, WorldRules } from '@borderfall/shared';
 import { useUiStore } from './uiStore';
 
@@ -282,6 +283,8 @@ export interface GameState {
       player_count?: number;
       par_turns?: number;
       ai_difficulty?: string;
+      /** A v2 decision-puzzle day (docs/DAILY_PUZZLE_V2.md); never carries the solution. */
+      v2?: PublicDailyPuzzleV2;
     };
   };
   /** Era advancement spine snapshot (ordered rules eras for this match). */
