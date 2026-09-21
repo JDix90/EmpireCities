@@ -235,7 +235,6 @@ export function eraPageBlocks(era) {
 export function buildEraMarketingPages() {
   return ERA_PAGES.map((era) => ({
     path: `/eras/${era.era_id.replace(/_/g, '-')}`,
-    file: `eras/${era.era_id.replace(/_/g, '-')}/index.html`,
     title: era.title,
     description: era.description,
     h1: era.h1,

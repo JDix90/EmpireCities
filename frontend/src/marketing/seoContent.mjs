@@ -289,7 +289,6 @@ export function blocksToHtml(blocks) {
 const STATIC_MARKETING_PAGES = [
   {
     path: '/',
-    file: 'index.html',
     title: 'Borderfall — Turn-Based Territory Strategy Across the Ages',
     description:
       'A free, turn-based territory strategy game in your browser. Risk-style conquest, except the world climbs through the ages as you play it.',
@@ -351,7 +350,6 @@ const STATIC_MARKETING_PAGES = [
   },
   {
     path: '/how-to-play',
-    file: 'how-to-play/index.html',
     title: 'How to Play Borderfall — Rules, Combat & Strategy Guide',
     description:
       'Learn Borderfall: reinforcing, attacking, dice combat, region bonuses, fortifying and advancing through the ages. A beginner\'s guide to the turn.',
@@ -444,7 +442,6 @@ const STATIC_MARKETING_PAGES = [
   },
   {
     path: '/eras',
-    file: 'eras/index.html',
     title: 'The Eras of Borderfall — From the Ancient World to the Galaxy Age',
     description:
       'The nine eras of Borderfall, from ancient kingdoms to a galactic age — and how each one changes the units, technologies and theatres of war.',
@@ -491,7 +488,6 @@ const STATIC_MARKETING_PAGES = [
     // page — 52 factions' worth of writing that could never rank. The content
     // itself was always public; only the static HTML was missing.
     path: '/codex',
-    file: 'codex/index.html',
     title: `Borderfall Faction Codex — All ${FACTION_COUNT} Factions by Era`,
     // Kept well under the 160-char ceiling seoContent.test.ts enforces: the
     // faction count is interpolated, so the string grows on its own when a new
@@ -533,7 +529,6 @@ const STATIC_MARKETING_PAGES = [
   },
   {
     path: '/about',
-    file: 'about/index.html',
     title: 'About Borderfall — Who Made It and Why',
     description:
       'Borderfall is a free browser strategy game made by JDix90. The story behind '
@@ -580,7 +575,6 @@ const STATIC_MARKETING_PAGES = [
   // JS and sees those). Keep this summary roughly in sync with the real pages.
   {
     path: '/privacy',
-    file: 'privacy/index.html',
     title: 'Privacy Policy — Borderfall',
     description:
       'How Borderfall handles your data: account info, game history, guest '
@@ -617,7 +611,6 @@ const STATIC_MARKETING_PAGES = [
   },
   {
     path: '/terms',
-    file: 'terms/index.html',
     title: 'Terms of Service — Borderfall',
     description:
       'The terms governing your use of Borderfall, operated by JDix90: '
@@ -665,7 +658,6 @@ const STATIC_MARKETING_PAGES = [
   // in the product; a page like this is only worth having while it is true.
   {
     path: '/answers',
-    file: 'answers/index.html',
     title: 'Borderfall — Common Questions, Answered Directly',
     description:
       'Direct answers about free browser strategy games: price, sign-up, playing with friends, phone support, and how long a game actually takes.',
@@ -710,7 +702,6 @@ const STATIC_MARKETING_PAGES = [
   },
   {
     path: '/answers/free-risk-like-browser-games',
-    file: 'answers/free-risk-like-browser-games/index.html',
     title: 'Is There a Free Risk-Style Game I Can Play in My Browser?',
     description:
       'Yes — Borderfall is a free turn-based conquest game that runs in any browser. No download, no account: play as a guest against AI in seconds.',
@@ -810,7 +801,6 @@ const STATIC_MARKETING_PAGES = [
   },
   {
     path: '/answers/play-risk-style-game-with-friends-online',
-    file: 'answers/play-risk-style-game-with-friends-online/index.html',
     title: 'How Can I Play a Risk-Style Game Online With Friends?',
     description:
       'Open a private lobby and share the link. Free, in the browser, 2–8 players, live or as asynchronous turns over days. Nobody installs anything.',
@@ -905,7 +895,6 @@ const STATIC_MARKETING_PAGES = [
   },
   {
     path: '/answers/browser-strategy-games-without-signup',
-    file: 'answers/browser-strategy-games-without-signup/index.html',
     title: 'What Strategy Games Can I Play Without Signing Up?',
     description:
       'Borderfall starts without an account: choose guest play and you are in a game against AI '
@@ -1000,7 +989,6 @@ const STATIC_MARKETING_PAGES = [
   },
   {
     path: '/answers/turn-based-strategy-on-phone-browser',
-    file: 'answers/turn-based-strategy-on-phone-browser/index.html',
     title: 'Can I Play Turn-Based Strategy in a Phone Browser?',
     description:
       'Yes — Borderfall runs in mobile Safari, Chrome and Firefox with no app install. Free, add-to-home-screen capable, and suited to short turns.',
@@ -1093,7 +1081,6 @@ const STATIC_MARKETING_PAGES = [
   },
   {
     path: '/answers/short-strategy-games-under-15-minutes',
-    file: 'answers/short-strategy-games-under-15-minutes/index.html',
     title: 'What Strategy Games Can I Finish in Under 15 Minutes?',
     description:
       'Borderfall solo games usually finish in about 10–15 minutes, and its Daily Challenge takes a few. Free in the browser, no download needed.',
@@ -1192,7 +1179,6 @@ const STATIC_MARKETING_PAGES = [
   },
   {
     path: '/answers/how-long-does-a-game-of-risk-take',
-    file: 'answers/how-long-does-a-game-of-risk-take/index.html',
     title: 'How Long Does a Game of Risk Take?',
     description:
       'Classic Risk runs about 2–4 hours, longer with more players. Borderfall is a free '
@@ -1276,7 +1262,6 @@ const STATIC_MARKETING_PAGES = [
   },
   {
     path: '/answers/online-alternatives-to-risk-board-game',
-    file: 'answers/online-alternatives-to-risk-board-game/index.html',
     title: 'What Can I Play Instead of Risk, Online?',
     description:
       'Online alternatives to the Risk board game, and what each one trades away. Borderfall '
@@ -1357,7 +1342,6 @@ const STATIC_MARKETING_PAGES = [
   },
   {
     path: '/answers/turn-based-strategy-games-for-beginners',
-    file: 'answers/turn-based-strategy-games-for-beginners/index.html',
     title: 'What Is a Good Turn-Based Strategy Game for a Beginner?',
     description:
       'A good first turn-based strategy game has few rules, short games and no setup. '
@@ -1438,7 +1422,6 @@ const STATIC_MARKETING_PAGES = [
   },
   {
     path: '/answers/play-strategy-games-at-your-own-pace',
-    file: 'answers/play-strategy-games-at-your-own-pace/index.html',
     title: 'Can I Play a Strategy Game a Turn at a Time?',
     description:
       'Yes — Borderfall supports asynchronous turns, so a multiplayer game can run over '

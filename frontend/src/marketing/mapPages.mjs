@@ -239,7 +239,6 @@ export function mapPageBlocks(map) {
 export function buildMapMarketingPages() {
   const index = {
     path: '/game-maps',
-    file: 'game-maps/index.html',
     title: 'Borderfall Maps — Historical Strategy Boards, Free in Your Browser',
     description:
       `${MAP_PAGES.length} hand-built historical maps for a free turn-based strategy game: Rome, `
@@ -291,7 +290,6 @@ export function buildMapMarketingPages() {
 
   const pages = MAP_PAGES.map((map) => ({
     path: `/game-maps/${map.slug}`,
-    file: `game-maps/${map.slug}/index.html`,
     title: map.title,
     description: map.description,
     h1: map.h1,
