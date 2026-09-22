@@ -328,19 +328,28 @@ const LAST_DEFENDERS: CampaignPath = {
       map_id: 'era_medieval',
       locked_faction: 'byzantine',
       allowed_victory_conditions: ['capital'],
-      // A clock, only to bound the stage: this one ran to a 47-turn average
-      // and a tail at the 100-turn cap. It does not make the stage easier and
-      // nothing else did either — the stand-in wins 5-11% of 100 games on
-      // every combination of difficulty, clock and deficit tried, because the
-      // condition is to capture three defended capitals from four units down.
-      // Left at hard rather than churned for no measured gain. It is the one
-      // stage still worth a second look.
+      // A clock, to bound a stage that otherwise ran to a 47-turn average with
+      // a tail at the 100-turn cap.
       max_turns: 40,
-      ai_factions: ['mongol_empire', 'hre', 'caliphate'],
-      ai_difficulty: 'hard',
-      ai_count: 3,
-      starting_unit_modifier: -4,
-      intro_text: 'The Mongols have shattered every kingdom east of the Danube. The Crusaders who came to help looted your city once already. The Caliphate watches the walls from outside. Hold Constantinople. Not expand — hold. Let history record the city stood.',
+      // Two besiegers, not three. A capital victory means taking every other
+      // seat's capital, so a third seat was a third fortified city to storm
+      // from four units down — which is why no combination of difficulty,
+      // clock or deficit ever moved this stage off the floor: 0 wins in 100
+      // games against three, 38 against two with nothing else changed. The
+      // two are the ones the stage's own text has doing something: the Mongols
+      // east of the Danube and the Crusaders who already sacked the city. The
+      // Caliphate watches the walls from outside, which is exactly what the
+      // intro says it does.
+      ai_factions: ['mongol_empire', 'hre'],
+      // Dropping the third capital is a large cut on its own — 38% at the old
+      // hard and -4, which would have left the path's catastrophe beat easier
+      // than its cold-war stage. The difficulty and the deficit put that back
+      // where the path wants it: 22%, in line with the ww2 stage, with the
+      // stage decided by the siege rather than by the count of cities.
+      ai_difficulty: 'expert',
+      ai_count: 2,
+      starting_unit_modifier: -6,
+      intro_text: 'The Mongols have shattered every kingdom east of the Danube. The Crusaders who came to help looted your city once already. The Caliphate watches the walls from outside. Hold Constantinople, then break the two armies encamped around it — or simply still be holding more of the map than they do after forty turns. Let history record the city stood.',
       outro_win_text: 'Constantinople survives the medieval catastrophe. The Church, the libraries, the Greek language — all preserved. Survivor Bonus carries the weight of what was saved.',
       outro_loss_text: 'The city falls in 1453 in every version of history. The libraries burned slowly.',
       carry_on_win: { survivor_bonus: 2, prestige_bonus: 1 },
