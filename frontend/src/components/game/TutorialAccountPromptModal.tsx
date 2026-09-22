@@ -56,7 +56,7 @@ export default function TutorialAccountPromptModal({
           </p>
           <p className="text-bf-muted text-sm leading-relaxed">
             {outcomeLabel
-              ?? 'You know the basics. Save your progress and unlock the full game by creating a free account.'}
+              ?? 'You know the basics. A free account keeps what you earn from here on.'}
           </p>
         </div>
 
