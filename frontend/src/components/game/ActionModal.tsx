@@ -1421,7 +1421,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
               {data.rating_provisional && (
                 <span
                   className="text-[9px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300"
-                  title="Early ratings swing widely while the system calibrates — they settle after a few games."
+                  title="Your first few results move this rating much further than later ones will."
                 >
                   Calibrating
                 </span>

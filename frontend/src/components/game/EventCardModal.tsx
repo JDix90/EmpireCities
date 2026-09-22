@@ -175,9 +175,12 @@ function EventCardModal({ card, isMyTurn, onChoice, onDismiss }: Props) {
             </div>
           )}
 
-          {card.affects_all_players && (
-            <p className="text-xs text-amber-400 italic">This event affects all players.</p>
-          )}
+          {/*
+            No "This event affects all players" line: when affects_all_players
+            is set, every effect summary above already opens with "All players
+            …", and a global card carries the Global Event badge as well. The
+            line was the same fact stated a third time in one card.
+          */}
 
           {/* Choices */}
           {hasChoices && isMyTurn && (

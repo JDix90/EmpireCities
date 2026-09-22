@@ -835,7 +835,7 @@ const STATIC_MARKETING_PAGES = [
           + 'browser, and seats 2 to 8 players. Nobody needs to install anything or make an '
           + 'account, and games can run live or as asynchronous turns over days.',
       },
-      { type: 'h2', text: 'The specifics' },
+      { type: 'h2', text: 'What a private game needs' },
       {
         type: 'facts',
         facts: [
@@ -867,7 +867,7 @@ const STATIC_MARKETING_PAGES = [
           + 'group spread across timezones — you take your turn, close the tab, and get a nudge when '
           + 'it comes round again.',
       },
-      { type: 'h2', text: 'Honest limits' },
+      { type: 'h2', text: 'Where it gets awkward' },
       {
         type: 'p',
         text:
@@ -929,7 +929,7 @@ const STATIC_MARKETING_PAGES = [
           + 'territory strategy game against AI immediately — no email, no password, no install. '
           + 'An account is free and optional, and upgrading later keeps everything you have done.',
       },
-      { type: 'h2', text: 'The specifics' },
+      { type: 'h2', text: 'What a guest gets' },
       {
         type: 'facts',
         facts: [
@@ -961,7 +961,7 @@ const STATIC_MARKETING_PAGES = [
           + 'farmable by anyone willing to clear their storage. Upgrading converts your guest account '
           + 'in place, so the games you already played still count.',
       },
-      { type: 'h2', text: 'Honest limits' },
+      { type: 'h2', text: 'What a guest stands to lose' },
       {
         type: 'p',
         text:
@@ -1023,7 +1023,7 @@ const STATIC_MARKETING_PAGES = [
           + 'free, works on phones and tablets, and can be added to your home screen as a web app. '
           + 'Asynchronous games suit phone play: take a turn, close the tab, come back later.',
       },
-      { type: 'h2', text: 'The specifics' },
+      { type: 'h2', text: 'On a phone, in numbers' },
       {
         type: 'facts',
         facts: [
@@ -1053,7 +1053,7 @@ const STATIC_MARKETING_PAGES = [
           + 'actually used — a couple of minutes at a time, several times a day. The Daily Challenge '
           + 'fits the same shape: one hand-built puzzle, the same for everyone, usually a few minutes.',
       },
-      { type: 'h2', text: 'Honest limits' },
+      { type: 'h2', text: 'What the small screen costs' },
       {
         type: 'p',
         text:
@@ -1117,7 +1117,7 @@ const STATIC_MARKETING_PAGES = [
           + 'Daily Challenge — one hand-built puzzle a day, the same for every player — usually takes '
           + 'a few. Both are free in the browser, with no download and no account required.',
       },
-      { type: 'h2', text: 'The specifics' },
+      { type: 'h2', text: 'At a glance' },
       {
         type: 'facts',
         facts: [
@@ -1150,7 +1150,7 @@ const STATIC_MARKETING_PAGES = [
           + 'reliably in the ten-to-fifteen-minute range. Turn on the optional layers and add seats '
           + 'and it becomes a much longer game, deliberately.',
       },
-      { type: 'h2', text: 'Honest limits' },
+      { type: 'h2', text: 'Where those times break down' },
       {
         type: 'p',
         text:
@@ -1237,7 +1237,7 @@ const STATIC_MARKETING_PAGES = [
           + 'minutes. Multiplayer can be played in real time in one sitting, or asynchronously a '
           + 'turn at a time over hours or days, which sidesteps the scheduling problem entirely.',
       },
-      { type: 'h2', text: 'The specifics' },
+      { type: 'h2', text: 'Borderfall, in numbers' },
       {
         type: 'facts',
         facts: [
@@ -1317,7 +1317,7 @@ const STATIC_MARKETING_PAGES = [
           + 'There are also hand-built historical boards — Rome at its height, Sengoku Japan, '
           + 'Napoleonic Europe — if you would rather play one setting properly.',
       },
-      { type: 'h2', text: 'The specifics' },
+      { type: 'h2', text: 'The particulars' },
       {
         type: 'facts',
         facts: [
@@ -1398,7 +1398,7 @@ const STATIC_MARKETING_PAGES = [
           + 'maths feels predictable, the American Civil War board is two-sided and has no '
           + 'diplomacy to distract from it. After that, the bigger boards and the harder AI.',
       },
-      { type: 'h2', text: 'The specifics' },
+      { type: 'h2', text: 'The basics' },
       {
         type: 'facts',
         facts: [
@@ -1476,7 +1476,7 @@ const STATIC_MARKETING_PAGES = [
           + 'to it later. An account is optional but worth having for a long game, since it is what '
           + 'keeps your progress attached to you across devices.',
       },
-      { type: 'h2', text: 'The specifics' },
+      { type: 'h2', text: 'The short version' },
       {
         type: 'facts',
         facts: [

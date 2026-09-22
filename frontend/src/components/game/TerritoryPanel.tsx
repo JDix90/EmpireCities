@@ -1109,7 +1109,7 @@ export default function TerritoryPanel({
                 <button
                   className="btn-secondary w-full text-xs flex items-center justify-center gap-2"
                   onClick={() => setAttackSource(selectedTerritory)}
-                  title="Arm this stack, then click a bordering enemy on the map"
+                  title="Arm this stack, then pick a bordering enemy on the map"
                 >
                   <Sword className="w-3.5 h-3.5" /> Or pick the target on the map
                 </button>
@@ -1542,7 +1542,7 @@ export default function TerritoryPanel({
             <div className="rounded-lg border border-bf-gold/40 bg-bf-gold/10 px-2.5 py-2">
               <p className="text-bf-gold text-xs mb-2" data-testid="fortify-pick-banner">
                 Moving {Math.min(fortifyAmount, fortifyMax)} from{' '}
-                {territoryNameById.get(attackSource) ?? attackSource}. Tap any highlighted
+                {territoryNameById.get(attackSource) ?? attackSource}. Pick any highlighted
                 territory to send them there.
               </p>
               <button
@@ -1582,7 +1582,7 @@ export default function TerritoryPanel({
                   Move
                 </button>
               </div>
-              <p className="text-xs text-bf-muted mt-1">Then click the destination territory.</p>
+              <p className="text-xs text-bf-muted mt-1">Then pick the destination territory.</p>
             </div>
           )}
 
@@ -1608,7 +1608,7 @@ export default function TerritoryPanel({
                 {navalSource === selectedTerritory && (
                   <div>
                     <p className="text-blue-300 text-xs mb-2">
-                      Fleet source selected. Now click a destination territory.
+                      Fleet source selected. Now pick a destination territory.
                     </p>
                     <button
                       className="btn-secondary w-full text-sm"
