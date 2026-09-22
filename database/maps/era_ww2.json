@@ -1,7 +1,7 @@
 {
   "map_id": "era_ww2",
   "name": "World War II (1939\u20131945)",
-  "description": "The greatest conflict in human history. Command the Wehrmacht across Europe, lead the Allied landings, defend the Pacific with Japan, or push back with the Soviet Red Army on the Eastern Front.",
+  "description": "The greatest conflict in human history. Wartime Logistics lets you fortify twice a turn, so reserves can answer two theaters while other eras are still answering one.",
   "era_theme": "ww2",
   "canvas_width": 1200,
   "canvas_height": 700,

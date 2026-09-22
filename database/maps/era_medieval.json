@@ -1,7 +1,7 @@
 {
   "map_id": "era_medieval",
   "name": "Medieval World (1200 AD)",
-  "description": "The age of the Mongol conquests, Crusades, and feudal kingdoms. Lead the Mongol hordes, defend the Holy Land, or build a trading empire across the Silk Road.",
+  "description": "The age of the Mongol conquests, Crusades, and feudal kingdoms. No era doctrine applies, so the factions carry the game: the Khanate attacks with an extra die and Greek Fire burns a unit off an attacker before the dice come out.",
   "era_theme": "medieval",
   "canvas_width": 1200,
   "canvas_height": 700,

@@ -1,7 +1,7 @@
 {
   "map_id": "era_ancient",
   "name": "Ancient World (200 AD)",
-  "description": "The world at the height of the Roman Empire. Command the legions of Rome, the cavalry of Parthia, the armies of Han China, or the warriors of the Eurasian Steppe.",
+  "description": "The world at the height of the Roman Empire. Legion Tactics applies here: an attack with three dice re-rolls its lowest, so a half-committed push fares worse than it would in any other era.",
   "era_theme": "ancient",
   "canvas_width": 1200,
   "canvas_height": 700,

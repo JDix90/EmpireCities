@@ -1,7 +1,7 @@
 {
   "map_id": "era_coldwar",
   "name": "Cold War (1947\u20131991)",
-  "description": "The world divided between two superpowers. Command NATO forces in Western Europe, lead the Soviet bloc, fight proxy wars in Korea, Vietnam, and Africa, or play the Non-Aligned Movement as a kingmaker.",
+  "description": "The world divided between two superpowers. Influence takes a weak neighbour outright for three units and no dice, then sits on a three-turn cooldown.",
   "era_theme": "coldwar",
   "canvas_width": 1200,
   "canvas_height": 700,
