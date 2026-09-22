@@ -33,42 +33,42 @@
     "ancient": {
       "label": "Ancient World",
       "years": "3000 BC – 400 AD",
-      "summary": "Step into the late classical world when Rome, Parthia, and Han China were powers of the first magnitude. Campaign across empires, deserts, and steppe as you fight for control of the Mediterranean, Persia, and East Asia. This map emphasizes legions, cavalry, and long supply lines across a connected ancient world."
+      "summary": "The late classical world, when Rome, Parthia and Han China each ruled everything they could see. Fronts run from the Mediterranean through Persia to the Yellow River, with the open steppe behind all of them. Legion Tactics is the doctrine here: attack with three dice and you re-roll your lowest."
     },
     "medieval": {
       "label": "Medieval Era",
       "years": "400 – 1400 AD",
-      "summary": "From the Crusades to the Mongol conquests, the medieval map spans kingdoms, caliphates, and nomadic empires. Hold mountain passes, river crossings, and trade hubs as you expand your realm. Ideal for games that emphasize diplomacy, siege lines, and shifting alliances."
+      "summary": "From the Crusades to the Mongol conquests, with kingdoms, caliphates and nomadic empires on one board. No era-wide doctrine applies, so the factions decide the shape of a game. The Mongol Khanate rolls an extra attack die, and Byzantine Greek Fire burns a unit off an attacker before the dice come out."
     },
     "discovery": {
       "label": "Age of Discovery",
       "years": "1400 – 1800 AD",
-      "summary": "The age of sail, gunpowder empires, and colonial expansion. Compete for control of oceans, chokepoints, and new-world trade routes. This era rewards naval positioning and competition for overseas resources."
+      "summary": "The age of sail and gunpowder empires, fought over water as much as land. Sea Lanes caps an attack across water at two dice instead of three, so a crossing you would win on land is a gamble here. Portugal is the exception: its Naval Charts put the third die back."
     },
     "ww2": {
       "label": "World War II",
       "years": "1939 – 1945",
-      "summary": "A global struggle of industrial powers: land, sea, and air theaters from Europe to the Pacific. The map reflects major alliances and front lines of the Second World War. Expect fast, high-stakes turns where multiple theaters can flare at once."
+      "summary": "Industrial powers at war from the Atlantic to the Pacific, on a map drawn along the real front lines. Wartime Logistics lets you fortify twice in a turn, so your reserves can answer two theaters while other eras are still answering one."
     },
     "coldwar": {
       "label": "Cold War",
       "years": "1945 – 1991",
-      "summary": "NATO, the Warsaw Pact, and the non-aligned world in a decades-long contest of influence and proxy struggles. Control strategic regions, sea lanes, and nuclear-age flashpoints. Suited to longer games with layered diplomacy and global pressure."
+      "summary": "NATO, the Warsaw Pact and the non-aligned world, contesting influence rather than ground. Influence Spread lets you spend three units from bordering territories to take a weak neighbour outright, no dice rolled, then waits three turns before you can do it again."
     },
     "modern": {
       "label": "The Modern Day",
       "years": "2026",
-      "summary": "Contemporary superpowers, regional alliances, and economic blocs on a map tuned for the 21st century. Fight for tech hubs, energy corridors, and maritime chokepoints. Best for players who enjoy a modern geopolitical sandbox with many viable strategies."
+      "summary": "Contemporary superpowers and economic blocs on a board tuned for the 21st century. Precision Strike rewards mass over nibbling: commit four units or more and the attack rolls three dice."
     },
     "acw": {
       "label": "American Civil War",
       "years": "1861 – 1865",
-      "summary": "A focused North American theater: Union versus Confederacy across the Eastern seaboard, the Mississippi, and the Trans-Mississippi West. Territories follow real state boundaries for a tighter, more tactical map. Ideal when you want a shorter, regional campaign with clear front lines."
+      "summary": "Union against Confederacy across the Eastern seaboard, the Mississippi and the western territories, on real state boundaries. Ties go to the defender everywhere else in the game. Rifle Doctrine re-rolls them, which makes attacking cost less here than anywhere."
     },
     "risorgimento": {
       "label": "Italian Unification",
       "years": "1859 – 1871",
-      "summary": "Risorgimento Italy: from Piedmont and the Two Sicilies to a united kingdom. Territories follow real provincial outlines merged into regional theaters across the peninsula and islands. Tighter and faster than a world map—ideal for diplomacy and coastal maneuver."
+      "summary": "Piedmont, the Two Sicilies and the papal middle, on real provincial outlines merged into regional theaters. The Carbonari Network reaches past your own border, so a province you do not touch can still change hands without a shot."
     },
     "space_age": {
       "label": "Space Age",
