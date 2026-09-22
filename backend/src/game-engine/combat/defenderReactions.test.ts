@@ -61,9 +61,19 @@ describe('consumeDefenderPreCombatCharges', () => {
     const d = player({ faction_id: 'ming_china' });
     const s = state(d, 'discovery');
     const first = consumeDefenderPreCombatCharges(s, 'd1');
-    expect(first.greatWallDefenseDice).toBe(2);
+    expect(first.preCombatDefenseDice).toBe(2);
     const second = consumeDefenderPreCombatCharges(s, 'd1');
-    expect(second.greatWallDefenseDice).toBe(0);
+    expect(second.preCombatDefenseDice).toBe(0);
+  });
+
+  it('city_of_peace grants the same charge to the Abbasids, and only once', () => {
+    const d = player({ faction_id: 'caliphate' });
+    const s = state(d, 'medieval');
+    const first = consumeDefenderPreCombatCharges(s, 'd1');
+    expect(first.preCombatDefenseDice).toBe(2);
+    expect(d.defensive_charge_used_this_turn).toBe(true);
+    const second = consumeDefenderPreCombatCharges(s, 'd1');
+    expect(second.preCombatDefenseDice).toBe(0);
   });
 
   it('janissaries charge is available once per turn (ottoman), not always-on', () => {
@@ -81,7 +91,7 @@ describe('consumeDefenderPreCombatCharges', () => {
     const s = state(d, 'ancient');
     const r = consumeDefenderPreCombatCharges(s, 'd1');
     expect(r.greekFirePreDamage).toBe(0);
-    expect(r.greatWallDefenseDice).toBe(0);
+    expect(r.preCombatDefenseDice).toBe(0);
     expect(r.janissariesActive).toBe(false);
   });
 });

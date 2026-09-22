@@ -9,7 +9,7 @@
  * Two phases (both gated by `defensive_charge_used_this_turn`, reset for every
  * player in `advanceToNextPlayer` — so each opponent's turn the defender gets a
  * fresh "first attack against you" charge):
- *  - Pre-combat charges (greek_fire, great_wall, janissaries): consumed before dice
+ *  - Pre-combat charges (greek_fire, great_wall, city_of_peace, janissaries): consumed before dice
  *    are rolled. janissaries reaches "3 dice regardless of garrison" via an extra
  *    defense bonus the caller sizes (see executeLandAttack) — it is no longer an
  *    always-on base in combatModifiers.
@@ -35,8 +35,8 @@ function defenderFactionAbility(state: GameState, defenderId: string | null | un
 export interface DefenderPreCombatCharges {
   /** Attacker units removed before dice are rolled (greek_fire). */
   greekFirePreDamage: number;
-  /** Extra defender dice this attack (great_wall). */
-  greatWallDefenseDice: number;
+  /** Extra defender dice this attack (great_wall, city_of_peace). */
+  preCombatDefenseDice: number;
   /** Ottoman janissaries charge available this exchange — the caller sizes the dice
    *  bonus to reach 3 regardless of garrison (3 - min(units, 2)). */
   janissariesActive: boolean;
@@ -44,8 +44,8 @@ export interface DefenderPreCombatCharges {
 
 /**
  * Consume the defender's once-per-turn pre-combat charge (greek_fire / great_wall /
- * janissaries) if available, returning the effects to apply. Mutates the defender's
- * `defensive_charge_used_this_turn` flag.
+ * city_of_peace / janissaries) if available, returning the effects to apply. Mutates
+ * the defender's `defensive_charge_used_this_turn` flag.
  */
 export function consumeDefenderPreCombatCharges(
   state: GameState,
@@ -53,11 +53,14 @@ export function consumeDefenderPreCombatCharges(
 ): DefenderPreCombatCharges {
   const result: DefenderPreCombatCharges = {
     greekFirePreDamage: 0,
-    greatWallDefenseDice: 0,
+    preCombatDefenseDice: 0,
     janissariesActive: false,
   };
   const abilityId = defenderFactionAbility(state, defenderId);
-  if (abilityId !== 'greek_fire' && abilityId !== 'great_wall' && abilityId !== 'janissaries') {
+  if (
+    abilityId !== 'greek_fire' && abilityId !== 'great_wall'
+    && abilityId !== 'city_of_peace' && abilityId !== 'janissaries'
+  ) {
     return result;
   }
 
@@ -65,7 +68,10 @@ export function consumeDefenderPreCombatCharges(
   if (!defender || defender.defensive_charge_used_this_turn) return result;
 
   if (abilityId === 'greek_fire') result.greekFirePreDamage = 1;
-  if (abilityId === 'great_wall') result.greatWallDefenseDice = 2;
+  // great_wall and city_of_peace are the same charge with different fiction:
+  // a walled capital that answers the turn's first assault. Gated per turn
+  // rather than innate, which is what factionDefense.test.ts requires.
+  if (abilityId === 'great_wall' || abilityId === 'city_of_peace') result.preCombatDefenseDice = 2;
   if (abilityId === 'janissaries') result.janissariesActive = true;
   defender.defensive_charge_used_this_turn = true;
   return result;

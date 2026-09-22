@@ -171,6 +171,7 @@ export const TERRITORY_ABILITY_DEFS: Record<string, TerritoryAbilityDef> = {
   // ── Faction abilities: unit-reduction strikes (Group E, attack) ─────────────
   precision_airstrike: { label: 'Precision Airstrike', scope: 'turn', phase: 'attack', unitReduction: 2, minTargetUnits: 1, requiresAdjacency: true },
   longbowmen: { label: 'Longbowmen', scope: 'turn', phase: 'attack', unitReduction: 1, minTargetUnits: 1, requiresAdjacency: true },
+  horse_archers: { label: 'Horse Archers', scope: 'turn', phase: 'attack', unitReduction: 1, minTargetUnits: 1, requiresAdjacency: true },
   chevauchee: { label: 'Chevauchée', scope: 'turn', phase: 'attack', unitReduction: 2, minTargetUnits: 1, requiresAdjacency: true },
   privateer: { label: 'Privateer', scope: 'turn', phase: 'attack', unitReduction: 1, minTargetUnits: 1, requiresAdjacency: true, requiresCoastalTarget: true, grantsTechPointOnUse: 1 },
 

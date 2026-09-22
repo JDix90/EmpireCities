@@ -181,6 +181,10 @@ export const FACTION_ABILITY_UI: Record<string, FactionAbilityUiDef> = {
     label: 'Chevauchée', emoji: '🐎', scope: 'turn', phase: 'attack',
     enemyTarget: true, style: 'danger', hint: 'Remove 2 units from an adjacent enemy territory.',
   },
+  horse_archers: {
+    label: 'Horse Archers', emoji: '🏹', scope: 'turn', phase: 'attack',
+    enemyTarget: true, style: 'danger', hint: 'Remove 1 unit from an adjacent enemy territory.',
+  },
   privateer: {
     label: 'Privateer', emoji: '🏴‍☠️', scope: 'turn', phase: 'attack',
     enemyTarget: true, style: 'danger', hint: 'Raid an adjacent coastal enemy: remove 1 unit (+1 tech point).',
@@ -263,7 +267,9 @@ export function getAvailableFactionAbilityId(
     china_cw:     'peoples_war',
     hre:          'imperial_diet',
     han:          'silk_road',
-    caliphate:    'house_of_wisdom',
+    // The Abbasids' City of Peace is a defensive reaction, resolved server-side
+    // on the first attack against them each turn. Like Greek Fire and the Great
+    // Wall it has no button, so it has no entry here.
     // Group D — attack self-buffs (attack)
     maurya:          'war_elephants',
     japan:           'banzai_charge',
@@ -273,6 +279,7 @@ export function getAvailableFactionAbilityId(
     western_power:    'precision_airstrike',
     england:          'longbowmen',
     france:           'chevauchee',
+    mongol_empire:    'horse_archers',
     england_discovery:'privateer',
     cyber_power:      'cyber_attack',
     // Galactic Age — Mandate's Blockade Runner is an attack-phase self-buff.
