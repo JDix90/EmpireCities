@@ -478,36 +478,38 @@ export function initializeGameState(
     }
   }
 
-  // Apply campaign prestige bonus: +attack for first 3 turns
-  if (settingsNorm.is_campaign && (settingsNorm.campaign_prestige_bonus ?? 0) > 0) {
-    const prestige = settingsNorm.campaign_prestige_bonus!;
-    const firstHuman = state.players.find((p) => !p.is_ai);
-    if (firstHuman) {
-      firstHuman.temporary_modifiers = firstHuman.temporary_modifiers ?? [];
-      firstHuman.temporary_modifiers.push({
-        type: 'attack_modifier',
-        value: Math.min(prestige, 3), // cap at +3 dice
-        turns_remaining: 3,
-      });
-    }
-  }
-
-  // Apply campaign carry stats (path-specific carry-forward bonuses)
-  const carry = settingsNorm.campaign_carry;
-  if (settingsNorm.is_campaign && carry) {
-    const firstHuman = state.players.find((p) => !p.is_ai);
-    if (firstHuman) {
-      firstHuman.temporary_modifiers = firstHuman.temporary_modifiers ?? [];
-      // Survivor Bonus: +defense dice for the entire game (999 turns ≈ permanent)
-      if ((carry.survivor_bonus ?? 0) > 0) {
-        firstHuman.temporary_modifiers.push({
-          type: 'defense_modifier',
-          value: carry.survivor_bonus!,
-          turns_remaining: 999,
-        });
+  // Campaign starting-unit handicap. The underdog paths are built on starting
+  // outnumbered — Last Defenders deals the human -3 to -5 on every stage — and
+  // the field was authored on all eighteen stages but read by nothing, so every
+  // campaign began even. Units come off the human's largest stacks first and
+  // never take a territory below one, so the handicap thins the front rather
+  // than handing territories away.
+  const unitsDelta = settingsNorm.campaign_starting_units_delta ?? 0;
+  if (settingsNorm.is_campaign && unitsDelta < 0) {
+    const human = state.players.find((p) => !p.is_ai);
+    if (human) {
+      let left = -unitsDelta;
+      const owned = Object.keys(territories).filter((t) => territories[t].owner_id === human.player_id);
+      while (left > 0) {
+        let biggest: string | null = null;
+        for (const id of owned) {
+          if (territories[id].unit_count <= 1) continue;
+          if (!biggest || territories[id].unit_count > territories[biggest].unit_count
+            || (territories[id].unit_count === territories[biggest].unit_count && id < biggest)) {
+            biggest = id;
+          }
+        }
+        if (!biggest) break;
+        territories[biggest].unit_count -= 1;
+        left -= 1;
       }
     }
   }
+
+  // Prestige and the Survivor Bonus are no longer injected as
+  // temporary_modifiers here. Combat only reads those when events are enabled,
+  // which campaigns never do, so both carries were inert for every campaign
+  // ever played. combatModifiers now reads them straight off settings.
 
   // A launch pad seeded above opens its own orbit lane, and the lane has to
   // exist from turn one or the building is decorative. gameRoomManager syncs on

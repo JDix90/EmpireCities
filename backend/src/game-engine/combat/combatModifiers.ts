@@ -29,6 +29,17 @@ import {
   getUnderdefendedAttackDiceBonus,
 } from '../abilities/techAbilities';
 
+/**
+ * Campaign carry caps. The stats accumulate to 8 and 12 in the campaign UI,
+ * which is a progress display, not a dice count: a defender rolls two dice
+ * normally, so handing one player eight more would end the mode. These are the
+ * values combat will actually honour.
+ */
+export const CAMPAIGN_SURVIVOR_DICE_CAP = 2;
+export const CAMPAIGN_PRESTIGE_DICE_CAP = 2;
+/** Prestige is the opening push only; it lapses after this many turns. */
+export const CAMPAIGN_PRESTIGE_TURNS = 3;
+
 export interface LandCombatModifierParams {
   state: GameState;
   fromId: string;
@@ -148,6 +159,20 @@ export function computeLandCombatModifiers(params: LandCombatModifierParams): La
     ? defenderFaction?.lane_defense_bonus ?? 0
     : 0;
   const factionDefenseBonus = (defenderFaction?.passive_defense_bonus ?? 0) + offworldDefenseBonus + laneDefenseBonus;
+  // Campaign carry: the Survivor Bonus, read straight off settings rather than
+  // through temporary_modifiers, which combat only consults when events are
+  // enabled — a setting campaigns never turn on, so this carry had never once
+  // reached a die. Scoped to the defender's faction home regions, as its own
+  // description always said ("+defense dice in home regions"): that is what
+  // keeps a stat which stacks to 8 from making a player unkillable everywhere.
+  const defenderIsHuman = !!defenderId
+    && !state.players.find((p) => p.player_id === defenderId)?.is_ai;
+  const homeRegions = defenderFaction?.home_region_ids ?? [];
+  const campaignSurvivorBonus = state.settings.is_campaign
+    && defenderIsHuman
+    && homeRegions.includes(state.territories[toId]?.region_id ?? '')
+    ? Math.min(state.settings.campaign_carry?.survivor_bonus ?? 0, CAMPAIGN_SURVIVOR_DICE_CAP)
+    : 0;
   const eventDefenseBonus = state.settings.events_enabled && defenderId
     ? getTemporaryModifierValue(state, defenderId, 'defense_modifier')
     : 0;
@@ -169,7 +194,8 @@ export function computeLandCombatModifiers(params: LandCombatModifierParams): La
   const extraDefenseTotal = sumBonuses(extraDefenseBonuses);
   const totalDefenseBonus =
     buildingDefenseBonus + techDefenseBonus + factionDefenseBonus + eventDefenseBonus
-    + wonderDefenseBonus + seaDefenseBonus + eraGapDefenseBonus + extraDefenseTotal;
+    + wonderDefenseBonus + seaDefenseBonus + eraGapDefenseBonus + extraDefenseTotal
+    + campaignSurvivorBonus;
 
   const defenderBonusBreakdown: Record<string, number> = {
     building: buildingDefenseBonus,
@@ -179,6 +205,7 @@ export function computeLandCombatModifiers(params: LandCombatModifierParams): La
     wonder: wonderDefenseBonus,
     sea: seaDefenseBonus,
     era_gap: eraGapDefenseBonus,
+    campaign: campaignSurvivorBonus,
     ...(extraDefenseBonuses ?? {}),
     total: totalDefenseBonus,
   };
@@ -249,6 +276,14 @@ export function computeLandCombatModifiers(params: LandCombatModifierParams): La
   const eventAttackBonus = state.settings.events_enabled
     ? getTemporaryModifierValue(state, attackerId, 'attack_modifier')
     : 0;
+  // Campaign carry: Prestige, the opening push a previous era's victory buys.
+  // Same reason as the Survivor Bonus for reading settings directly.
+  const attackerIsHuman = !state.players.find((p) => p.player_id === attackerId)?.is_ai;
+  const campaignPrestigeBonus = state.settings.is_campaign
+    && attackerIsHuman
+    && state.turn_number <= CAMPAIGN_PRESTIGE_TURNS
+    ? Math.min(state.settings.campaign_prestige_bonus ?? 0, CAMPAIGN_PRESTIGE_DICE_CAP)
+    : 0;
   const underdefendedBonus = getUnderdefendedAttackDiceBonus(state, attackerId, defendingUnits);
   let eraGapAttackBonus = 0;
   if (state.settings.era_advancement_enabled && defenderId) {
@@ -260,7 +295,7 @@ export function computeLandCombatModifiers(params: LandCombatModifierParams): La
 
   const combinedAttackBonus =
     techAttackBonus + factionAttackBonus + eventAttackBonus + underdefendedBonus
-    + eraGapAttackBonus + extraAttackTotal;
+    + eraGapAttackBonus + extraAttackTotal + campaignPrestigeBonus;
 
   const attackerBonusBreakdown: Record<string, number> = {
     tech: techAttackBonus,
@@ -268,6 +303,7 @@ export function computeLandCombatModifiers(params: LandCombatModifierParams): La
     event: eventAttackBonus,
     underdefended: underdefendedBonus,
     era_gap: eraGapAttackBonus,
+    campaign: campaignPrestigeBonus,
     ...(extraAttackBonuses ?? {}),
     total: combinedAttackBonus,
   };

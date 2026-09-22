@@ -11,8 +11,11 @@ import {
   getPathEraConfig,
 } from './campaignPaths';
 import { applyAdminSnapshotsToSettings } from '../../services/adminConfig';
+import { DEFAULT_CARD_SET_BONUS_CAP } from '../../game-engine/combat/combatResolver';
 
 const CAMPAIGN_ERAS = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern'] as const;
+/** A stage that cannot be won by turn 100 is a stalemate, not a campaign. */
+const CAMPAIGN_STAGE_MAX_TURNS = 100;
 type CampaignEra = typeof CAMPAIGN_ERAS[number];
 
 const ERA_MAP_IDS: Record<CampaignEra, string> = {
@@ -538,6 +541,14 @@ async function createEraGame({
     campaign_prestige_bonus: prestigePoints,
     player_count: aiCount + 1,
     factions_enabled: true,
+    // Campaign creation writes the game row itself rather than going through
+    // POST /api/games, so the rule defaults that route bakes in at the create
+    // boundary were simply missing here: campaign stages ran with no turn cap
+    // at all, no attacker dice cap and uncapped card-set bonuses. A stage is
+    // supposed to be the harder game, not the looser one.
+    max_turns: CAMPAIGN_STAGE_MAX_TURNS,
+    combat_dice_cap_enabled: true,
+    card_set_bonus_cap: DEFAULT_CARD_SET_BONUS_CAP,
     // Display-only fields consumed by the in-game campaign intro modal so the
     // client doesn't need a second round-trip to /api/campaign/list.
     campaign_path_name: pathConfig?.name ?? 'Classic Campaign',
@@ -570,6 +581,11 @@ async function createEraGame({
     }
     if (pathEra?.victory_threshold != null) {
       settings.victory_threshold = pathEra.victory_threshold;
+    }
+    // The underdog handicap the paths are built on. Authored on all eighteen
+    // stages and, until now, read by nobody.
+    if (pathEra?.starting_unit_modifier) {
+      settings.campaign_starting_units_delta = pathEra.starting_unit_modifier;
     }
   }
 
