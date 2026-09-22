@@ -152,6 +152,17 @@ export function getPlayerDefenseBonus(state: GameState, playerId: string): numbe
 }
 
 /**
+ * The Revolutionary Flame's carry, read directly rather than through the
+ * events system a campaign stage never turns on. Blood & Empire's Prestige
+ * pays in attack dice and The Last Defenders' Survivor Bonus in defence dice
+ * (both in combatModifiers); a revolution's advantage is mobilisation, so this
+ * one pays in reinforcements — one extra unit per two points banked, to the
+ * human seat of a campaign stage only.
+ */
+export const CAMPAIGN_SPIRIT_PER_REINFORCEMENT = 2;
+export const CAMPAIGN_SPIRIT_REINFORCE_CAP = 2;
+
+/**
  * Compute total extra reinforcements per turn from unlocked tech nodes + faction passive.
  */
 export function getPlayerReinforceBonus(state: GameState, playerId: string): number {
@@ -159,6 +170,15 @@ export function getPlayerReinforceBonus(state: GameState, playerId: string): num
   if (!player) return 0;
 
   let bonus = 0;
+
+  // Campaign carry: Revolutionary Spirit (see the constants above).
+  if (state.settings.is_campaign && !player.is_ai) {
+    const spirit = state.settings.campaign_carry?.revolutionary_spirit ?? 0;
+    bonus += Math.min(
+      Math.floor(spirit / CAMPAIGN_SPIRIT_PER_REINFORCEMENT),
+      CAMPAIGN_SPIRIT_REINFORCE_CAP,
+    );
+  }
 
   // Faction passive reinforce bonus
   if (state.settings.factions_enabled && player.faction_id) {

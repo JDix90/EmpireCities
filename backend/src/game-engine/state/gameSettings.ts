@@ -350,6 +350,7 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     campaign_path_id: ext.campaign_path_id,
     campaign_locked_faction: ext.campaign_locked_faction,
     campaign_carry: ext.campaign_carry,
+    campaign_starting_units_delta: ext.campaign_starting_units_delta,
     daily_challenge_date: typeof ext.daily_challenge_date === 'string' ? ext.daily_challenge_date : undefined,
     daily_challenge_spec: ext.daily_challenge_spec && typeof ext.daily_challenge_spec === 'object'
       ? ext.daily_challenge_spec

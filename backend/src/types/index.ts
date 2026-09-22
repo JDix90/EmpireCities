@@ -616,6 +616,12 @@ export interface GameSettings {
   campaign_path_id?: string;
   /** Faction id that the human player is locked into for this era (faction picker disabled). */
   campaign_locked_faction?: string;
+  /**
+   * The stage's starting-unit handicap for the human seat, negative for a
+   * harder start (campaignPaths `starting_unit_modifier`). Applied once, at
+   * init, after territories are dealt.
+   */
+  campaign_starting_units_delta?: number;
   /** Numeric carry-forward stats injected from path_carry at game creation time. */
   campaign_carry?: {
     survivor_bonus?: number;

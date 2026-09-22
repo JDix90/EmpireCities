@@ -11,8 +11,11 @@ import {
   getPathEraConfig,
 } from './campaignPaths';
 import { applyAdminSnapshotsToSettings } from '../../services/adminConfig';
+import { DEFAULT_CARD_SET_BONUS_CAP } from '../../game-engine/combat/combatResolver';
 
 const CAMPAIGN_ERAS = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern'] as const;
+/** A stage that cannot be won by turn 100 is a stalemate, not a campaign. */
+const CAMPAIGN_STAGE_MAX_TURNS = 100;
 type CampaignEra = typeof CAMPAIGN_ERAS[number];
 
 const ERA_MAP_IDS: Record<CampaignEra, string> = {
@@ -95,7 +98,11 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
     if (!userRow) return reply.status(404).send({ error: 'User not found' });
 
     const campaignId = uuidv4();
-    const initialCarry: Partial<PathCarry> = {};
+    // A path opens holding its own signature stat. Without this, stage one is
+    // the only stage a path is played without the thing the path is about —
+    // and on The Last Defenders it is also the stage carrying a starting-unit
+    // deficit with nothing banked to answer it.
+    const initialCarry: Partial<PathCarry> = pathId ? { ...CAMPAIGN_PATHS[pathId].initial_carry } : {};
 
     await query(
       `INSERT INTO user_campaigns (campaign_id, user_id, current_era_index, prestige_points, status, path_id, path_carry, path_narrative)
@@ -538,6 +545,14 @@ async function createEraGame({
     campaign_prestige_bonus: prestigePoints,
     player_count: aiCount + 1,
     factions_enabled: true,
+    // Campaign creation writes the game row itself rather than going through
+    // POST /api/games, so the rule defaults that route bakes in at the create
+    // boundary were simply missing here: campaign stages ran with no turn cap
+    // at all, no attacker dice cap and uncapped card-set bonuses. A stage is
+    // supposed to be the harder game, not the looser one.
+    max_turns: pathEra?.max_turns ?? CAMPAIGN_STAGE_MAX_TURNS,
+    combat_dice_cap_enabled: true,
+    card_set_bonus_cap: DEFAULT_CARD_SET_BONUS_CAP,
     // Display-only fields consumed by the in-game campaign intro modal so the
     // client doesn't need a second round-trip to /api/campaign/list.
     campaign_path_name: pathConfig?.name ?? 'Classic Campaign',
@@ -570,6 +585,11 @@ async function createEraGame({
     }
     if (pathEra?.victory_threshold != null) {
       settings.victory_threshold = pathEra.victory_threshold;
+    }
+    // The underdog handicap the paths are built on. Authored on all eighteen
+    // stages and, until now, read by nobody.
+    if (pathEra?.starting_unit_modifier) {
+      settings.campaign_starting_units_delta = pathEra.starting_unit_modifier;
     }
   }
 
