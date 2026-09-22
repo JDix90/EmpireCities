@@ -310,76 +310,60 @@ const EPOCH_YEAR = 2026;
 const EPOCH_MONTH = 0; // 0-indexed (January)
 const DIFFICULTY_CYCLE = 6;
 
-interface ChallengeTemplate {
-  title: string;
-  descriptionTemplate: string; // {target} is replaced with the actual number
+interface ChallengeGroup {
+  /**
+   * One name per month slot, picked by the month index. Only the NAME varies:
+   * the six descriptions this replaced were synonyms of one sentence ("Play
+   * {target} ranked games" / "Complete {target} ranked matches" / "Enter
+   * {target} ranked battles" ...), which told a player nothing new and read
+   * as filler. The task is the same every month, so it is said once.
+   */
+  titles: string[];
+  /** What the player has to do. `{target}` is replaced with the number. */
+  description: string;
 }
 
-const CHALLENGE_TEMPLATES: Record<ChallengeCondition['type'], ChallengeTemplate[]> = {
-  wins: [
-    { title: 'Victor\'s March',       descriptionTemplate: 'Win {target} games this month' },
-    { title: 'Five Victories',        descriptionTemplate: 'Achieve {target} victories' },
-    { title: 'Conqueror\'s Path',     descriptionTemplate: 'Claim {target} wins across any mode' },
-    { title: 'Triumphant',            descriptionTemplate: 'Emerge victorious in {target} battles' },
-    { title: 'Supreme Commander',     descriptionTemplate: 'Win {target} games to prove your skill' },
-    { title: 'War Champion',          descriptionTemplate: 'Lead your forces to {target} victories' },
-  ],
-  ranked_games: [
-    { title: 'Ranked Warrior',        descriptionTemplate: 'Play {target} ranked games' },
-    { title: 'Ranked Veteran',        descriptionTemplate: 'Complete {target} ranked matches' },
-    { title: 'Ladder Climber',        descriptionTemplate: 'Enter {target} ranked battles' },
-    { title: 'Competitive Spirit',    descriptionTemplate: 'Compete in {target} ranked games' },
-    { title: 'Arena Contender',       descriptionTemplate: 'Participate in {target} ranked matches' },
-    { title: 'Rating Seeker',         descriptionTemplate: 'Queue up for {target} ranked games' },
-  ],
-  buildings_built: [
-    { title: 'Master Builder',        descriptionTemplate: 'Build {target} structures across all games' },
-    { title: 'Architect',             descriptionTemplate: 'Construct {target} buildings' },
-    { title: 'City Planner',          descriptionTemplate: 'Erect {target} structures in your territories' },
-    { title: 'Grand Architect',       descriptionTemplate: 'Raise {target} buildings across your empire' },
-    { title: 'Foundation Layer',      descriptionTemplate: 'Build {target} structures this month' },
-    { title: 'Monument Maker',        descriptionTemplate: 'Construct {target} buildings in any game' },
-  ],
-  techs_researched: [
-    { title: 'Scholar',               descriptionTemplate: 'Research {target} technologies' },
-    { title: 'Renaissance Mind',      descriptionTemplate: 'Discover {target} technologies this month' },
-    { title: 'Enlightened',           descriptionTemplate: 'Unlock {target} tech advances' },
-    { title: 'Knowledge Seeker',      descriptionTemplate: 'Research {target} technologies across games' },
-    { title: 'Innovator',             descriptionTemplate: 'Advance {target} technologies' },
-    { title: 'Sage of Eras',          descriptionTemplate: 'Complete {target} research projects' },
-  ],
-  territories_conquered: [
-    { title: 'Territorial Ambition',  descriptionTemplate: 'Conquer {target} territories in any game mode' },
-    { title: 'Empire Builder',        descriptionTemplate: 'Conquer {target} territories' },
-    { title: 'Land Grab',             descriptionTemplate: 'Seize {target} territories this month' },
-    { title: 'Expansionist',          descriptionTemplate: 'Capture {target} territories across all games' },
-    { title: 'Border Pusher',         descriptionTemplate: 'Take control of {target} territories' },
-    { title: 'Manifest Destiny',      descriptionTemplate: 'Claim {target} territories for your empire' },
-  ],
-  unique_eras_played: [
-    { title: 'Time Traveler',         descriptionTemplate: 'Play games in at least {target} different eras' },
-    { title: 'Temporal Explorer',     descriptionTemplate: 'Experience {target} different eras' },
-    { title: 'Era Hopper',            descriptionTemplate: 'Complete games across {target} distinct eras' },
-    { title: 'Through the Ages',      descriptionTemplate: 'Play in {target} or more different eras' },
-    { title: 'Epoch Walker',          descriptionTemplate: 'Visit {target} unique eras this month' },
-    { title: 'History Buff',          descriptionTemplate: 'Explore {target} different eras of history' },
-  ],
-  win_streak: [
-    { title: 'Hot Streak',            descriptionTemplate: 'Achieve a {target}-game win streak' },
-    { title: 'On Fire',               descriptionTemplate: 'Win {target} games in a row' },
-    { title: 'Unstoppable',           descriptionTemplate: 'Build a win streak of {target}' },
-    { title: 'Dominant Force',        descriptionTemplate: 'Reach a {target}-game winning streak' },
-    { title: 'Unbroken',              descriptionTemplate: 'Win {target} consecutive games' },
-    { title: 'Streak Master',         descriptionTemplate: 'Maintain a {target}-game win streak' },
-  ],
-  daily_streak: [
-    { title: 'Dedicated Commander',   descriptionTemplate: 'Log in for {target} consecutive days' },
-    { title: 'Faithful General',      descriptionTemplate: 'Maintain a {target}-day login streak' },
-    { title: 'Daily Devotion',        descriptionTemplate: 'Achieve a {target}-day daily streak' },
-    { title: 'Persistent Ruler',      descriptionTemplate: 'Keep your streak alive for {target} days' },
-    { title: 'Iron Discipline',       descriptionTemplate: 'Play for {target} consecutive days' },
-    { title: 'Steadfast Leader',      descriptionTemplate: 'Log in {target} days in a row' },
-  ],
+/**
+ * Progress is stored per month-prefixed challenge id, so every counter below
+ * is scoped to the month; the streak conditions read the player's current
+ * streak instead of counting.
+ */
+const CHALLENGE_GROUPS: Record<ChallengeCondition['type'], ChallengeGroup> = {
+  wins: {
+    titles: ['Victor\'s March', 'Five Victories', 'Conqueror\'s Path', 'Triumphant', 'Supreme Commander', 'War Champion'],
+    description: 'Win {target} games this month',
+  },
+  ranked_games: {
+    titles: ['Ranked Warrior', 'Ranked Veteran', 'Ladder Climber', 'Competitive Spirit', 'Arena Contender', 'Rating Seeker'],
+    description: 'Play {target} ranked games this month',
+  },
+  buildings_built: {
+    titles: ['Master Mason', 'Architect', 'City Planner', 'Grand Architect', 'Foundation Layer', 'Monument Maker'],
+    description: 'Build {target} structures this month',
+  },
+  techs_researched: {
+    titles: ['Scholar', 'Renaissance Mind', 'Enlightened', 'Knowledge Seeker', 'Innovator', 'Sage of Eras'],
+    description: 'Research {target} technologies this month',
+  },
+  territories_conquered: {
+    titles: ['Territorial Ambition', 'Empire Builder', 'Land Grab', 'Expansionist', 'Border Pusher', 'Manifest Destiny'],
+    description: 'Capture {target} territories this month',
+  },
+  unique_eras_played: {
+    titles: ['Time Traveler', 'Temporal Explorer', 'Era Hopper', 'Through the Ages', 'Epoch Walker', 'History Buff'],
+    description: 'Play a game in {target} different eras this month',
+  },
+  win_streak: {
+    titles: ['Hot Streak', 'On Fire', 'Runaway', 'Dominant Force', 'Unbroken', 'Streak Master'],
+    description: 'Win {target} games in a row',
+  },
+  daily_streak: {
+    // Measured from last_login_date, so it is a login streak. One of the six
+    // descriptions this replaced said "Play for {target} consecutive days",
+    // which is a different and harder task than the one being scored.
+    titles: ['Dedicated Commander', 'Faithful General', 'Daily Devotion', 'Persistent Ruler', 'Iron Discipline', 'Steadfast Leader'],
+    description: 'Log in {target} days in a row',
+  },
 };
 
 // Min/max values for target_count, reward_gold, reward_xp per condition type
@@ -457,15 +441,15 @@ export function buildChallengeRows(
   ];
 
   return CONDITION_TYPES.map((type) => {
-    const templates = CHALLENGE_TEMPLATES[type];
-    const template = templates[monthIdx % templates.length];
+    const group = CHALLENGE_GROUPS[type];
+    const title = group.titles[monthIdx % group.titles.length];
     const params = getChallengeParams(type, tier);
 
     return {
       challenge_id: `${prefix}_${type}`,
       month: monthStr,
-      title: template.title,
-      description: template.descriptionTemplate.replace('{target}', String(params.target_count)),
+      title,
+      description: group.description.replace('{target}', String(params.target_count)),
       target_count: params.target_count,
       reward_gold: params.reward_gold,
       reward_xp: params.reward_xp,

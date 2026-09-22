@@ -1,7 +1,7 @@
 {
   "map_id": "era_discovery",
   "name": "Age of Discovery (1600 AD)",
-  "description": "The world in the age of colonial empires and global sea trade. Command the Spanish Armada, Portuguese spice fleets, Ottoman janissaries, or Mughal cavalry across a world being reshaped by exploration.",
+  "description": "The world in the age of colonial empires and global sea trade. Attacks across water roll two dice instead of three, so a crossing is never as safe as the same odds on land.",
   "era_theme": "discovery",
   "canvas_width": 1200,
   "canvas_height": 700,
