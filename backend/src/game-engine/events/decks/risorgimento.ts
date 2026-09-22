@@ -74,7 +74,7 @@ export const risorgimentoEvents: EventCard[] = [
   },
   {
     card_id: 'riso_cholera_epidemic',
-    title: 'Cholera Epidemic',
+    title: 'Cholera in the Barracks',
     description: 'Cholera comes up out of the wells and into every barracks on the peninsula. It does not read uniforms.',
     category: 'global',
     era_id: 'risorgimento',

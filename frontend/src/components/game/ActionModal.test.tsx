@@ -237,7 +237,7 @@ describe('ActionModal — Daily v2 decision review', () => {
       { turn: 1, phase: 'attack' as const, chosen: 'Stop attacking', best: 'Stop attacking', loss: 0, grade: 'best' as const, takebacks: 0 },
       { turn: 2, phase: 'fortify' as const, chosen: 'End the turn', best: 'Move all but one from Gaul into Italia', loss: 11.2, grade: 'inaccuracy' as const, takebacks: 0 },
     ],
-    shareLine: 'Borderfall Daily 2026-09-21 · ★ 94 % · 1/2 best · 🎲 lost   https://borderfall.gg/daily',
+    shareLine: 'Borderfall Daily 2026-09-21 · ★ 94% · 1/2 best · 🎲 lost   https://borderfall.gg/daily',
   };
 
   it('names each decision against the best move, the accuracy, the star and the lesson', async () => {
@@ -249,7 +249,7 @@ describe('ActionModal — Daily v2 decision review', () => {
     expect(screen.getByText('Inaccuracy · −11')).toBeTruthy();
     expect(screen.getByText('Best: Move all but one from Gaul into Italia')).toBeTruthy();
     // RTL collapses the line's inner spaces; match the parts that matter.
-    expect(screen.getByText(/Borderfall Daily 2026-09-21 · ★ 94 % · 1\/2 best · 🎲 lost/)).toBeTruthy();
+    expect(screen.getByText(/Borderfall Daily 2026-09-21 · ★ 94% · 1\/2 best · 🎲 lost/)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Copy share line' })).toBeTruthy();
   });
 

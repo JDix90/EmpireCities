@@ -109,7 +109,7 @@ export const coldwarEvents: EventCard[] = [
   },
   {
     card_id: 'coldwar_space_race_triumph',
-    title: 'Space Race Triumph',
+    title: 'Ticker-Tape Parade',
     description: 'A ticker-tape parade for the cosmonauts, and for one shining week nobody questions the government.',
     category: 'player_targeted',
     era_id: 'coldwar',
