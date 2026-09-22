@@ -6,7 +6,10 @@ export const MEDIEVAL_FACTIONS: Faction[] = [
     faction_id: 'hre',
     lineage_id: 'imperial',
     name: 'Holy Roman Empire',
-    description: 'Central European power — entrenched defensive doctrine with +1 defense die from faction bonuses.',
+    // Copy fix, no balance change: this promised "+1 defense die from faction
+    // bonuses" and the faction has never had one. No medieval faction does —
+    // factionDefense.test.ts forbids innate defensive dice game-wide.
+    description: 'Central European power — a standing imperial levy of +1 reinforcement per turn.',
     lore: 'A patchwork empire of princes, bishops, and free cities, the Reich survives by fortifying passes and bargaining for allegiance.',
     flavor_quote: 'An empire stitched together by crowns, charters, and stone.',
     home_region_ids: ['western_europe'],
@@ -19,18 +22,32 @@ export const MEDIEVAL_FACTIONS: Faction[] = [
     faction_id: 'mongol_empire',
     lineage_id: 'expansionist',
     name: 'Mongol Khanate',
-    description: 'Devastating cavalry charges — +1 attack die on every attack.',
+    description: 'Devastating cavalry charges — +1 attack die on every attack, +1 reinforcement per turn.',
     lore: 'Mounted couriers, disciplined tumens, and ruthless speed let the Mongols turn open ground into an empire-spanning highway.',
     flavor_quote: 'Ride before their walls learn your name.',
     home_region_ids: ['mongol_empire'],
     passive_attack_bonus: 1,
+    // The only classic-spine faction that shipped with no ability at all: no
+    // button for a human, nothing for the AI parity block to fire, and a kit
+    // that was pure offence with no way to replace what attacking costs. It
+    // died in 78% of 900 measured games and won 10%, against a 17% fair share
+    // on a six-seat board. The yam remount network is the sustain (+1/turn)
+    // and horse archery the tool its archetype peers already had — England's
+    // Longbowmen and France's Chevauchée are the same shape. Measured 10% ->
+    // 12-15%, eliminated 78% -> 69-72%, across three independent seed sets.
+    reinforce_bonus: 1,
+    ability_id: 'horse_archers',
+    ability_description: 'Horse Archers: once per turn, a volley removes 1 unit from an adjacent enemy territory without a full attack exchange.',
     color: '#d35400',
   },
   {
     faction_id: 'byzantine',
     lineage_id: 'bastion',
     name: 'Byzantine Empire',
-    description: 'Sophisticated bureaucracy and Greek fire — +1 defense die in your capital region.',
+    // Copy fix, no balance change: this promised "+1 defense die in your capital
+    // region", which is not what Greek Fire does and not a thing any faction may
+    // have (see factionDefense.test.ts). The ability itself is unchanged.
+    description: 'Sophisticated bureaucracy and Greek fire — the turn\'s first attacker loses a unit before dice are rolled.',
     lore: 'Heir to Rome in ceremony and statecraft, Byzantium outlasts stronger foes through coin, diplomacy, and fortified capitals.',
     flavor_quote: 'Where steel fails, intrigue holds the line.',
     home_region_ids: ['eastern_europe'],
@@ -43,13 +60,26 @@ export const MEDIEVAL_FACTIONS: Faction[] = [
     faction_id: 'caliphate',
     lineage_id: 'mercantile',
     name: 'Abbasid Caliphate',
-    description: 'Intellectual hub and trade mastery — +2 tech points per turn passively.',
+    description: 'Caravan wealth and a fortified capital — +1 reinforcement per turn, and +2 tech points where research is in play.',
     lore: 'Centered on great cities of scholarship and trade, the Abbasid world links caravan wealth to scientific ambition.',
     flavor_quote: 'Knowledge is a treasury that marches with the army.',
     home_region_ids: ['middle_east'],
-    reinforce_bonus: 0,
-    ability_id: 'house_of_wisdom',
-    ability_description: 'House of Wisdom: once per turn, reduce the cost of a tech node by 3 (minimum 1).',
+    // Every part of this faction's kit was gated on tech trees, which are off
+    // by default and never on in a campaign: House of Wisdom discounted
+    // research that was not happening, the "+2 tech points" the description
+    // promised was not in the data at all, and reinforce_bonus was an explicit
+    // zero. That left the most exposed seat on the board — it starts compact
+    // in middle_east, bordered on every side — with no kit whatsoever. It won
+    // 3-4% of 900 measured games and was eliminated in 89%.
+    //
+    // The defensive identity is a GATED charge, not an innate die:
+    // factionDefense.test.ts forbids the latter game-wide, and the pattern
+    // here is the one nato_proxy was moved to. Measured 4% -> 17-18% against a
+    // 17% fair share, eliminated 89% -> 61-66%, across three seed sets.
+    reinforce_bonus: 1,
+    tech_point_income: 2,
+    ability_id: 'city_of_peace',
+    ability_description: 'City of Peace: once per turn, the first attack against you is met with +2 defence dice.',
     color: '#16a085',
   },
   {

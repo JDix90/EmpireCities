@@ -80,7 +80,7 @@ export const FACTION_CODEX = [
       {
         "faction_id": "hre",
         "name": "Holy Roman Empire",
-        "description": "Central European power — entrenched defensive doctrine with +1 defense die from faction bonuses.",
+        "description": "Central European power — a standing imperial levy of +1 reinforcement per turn.",
         "lore": "A patchwork empire of princes, bishops, and free cities, the Reich survives by fortifying passes and bargaining for allegiance.",
         "flavor_quote": "An empire stitched together by crowns, charters, and stone.",
         "color": "#f39c12",
@@ -90,16 +90,18 @@ export const FACTION_CODEX = [
       {
         "faction_id": "mongol_empire",
         "name": "Mongol Khanate",
-        "description": "Devastating cavalry charges — +1 attack die on every attack.",
+        "description": "Devastating cavalry charges — +1 attack die on every attack, +1 reinforcement per turn.",
         "lore": "Mounted couriers, disciplined tumens, and ruthless speed let the Mongols turn open ground into an empire-spanning highway.",
         "flavor_quote": "Ride before their walls learn your name.",
         "color": "#d35400",
-        "passive_attack_bonus": 1
+        "passive_attack_bonus": 1,
+        "reinforce_bonus": 1,
+        "ability_description": "Horse Archers: once per turn, a volley removes 1 unit from an adjacent enemy territory without a full attack exchange."
       },
       {
         "faction_id": "byzantine",
         "name": "Byzantine Empire",
-        "description": "Sophisticated bureaucracy and Greek fire — +1 defense die in your capital region.",
+        "description": "Sophisticated bureaucracy and Greek fire — the turn's first attacker loses a unit before dice are rolled.",
         "lore": "Heir to Rome in ceremony and statecraft, Byzantium outlasts stronger foes through coin, diplomacy, and fortified capitals.",
         "flavor_quote": "Where steel fails, intrigue holds the line.",
         "color": "#8e44ad",
@@ -109,12 +111,12 @@ export const FACTION_CODEX = [
       {
         "faction_id": "caliphate",
         "name": "Abbasid Caliphate",
-        "description": "Intellectual hub and trade mastery — +2 tech points per turn passively.",
+        "description": "Caravan wealth and a fortified capital — +1 reinforcement per turn, and +2 tech points where research is in play.",
         "lore": "Centered on great cities of scholarship and trade, the Abbasid world links caravan wealth to scientific ambition.",
         "flavor_quote": "Knowledge is a treasury that marches with the army.",
         "color": "#16a085",
-        "reinforce_bonus": 0,
-        "ability_description": "House of Wisdom: once per turn, reduce the cost of a tech node by 3 (minimum 1)."
+        "reinforce_bonus": 1,
+        "ability_description": "City of Peace: once per turn, the first attack against you is met with +2 defence dice."
       },
       {
         "faction_id": "france",

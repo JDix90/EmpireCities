@@ -22,7 +22,7 @@ export interface ExecuteLandAttackOptions {
    * blitzkrieg / march_to_sea / truce_retaliation here; the sim omits them.
    */
   extraAttackBonuses?: Record<string, number>;
-  /** Caller-derived defender dice bonuses merged with the internal `great_wall`. */
+  /** Caller-derived defender dice bonuses merged with the internal `defensive_charge`. */
   extraDefenseBonuses?: Record<string, number>;
   /**
    * True when the attacker holds orbit access (getOrbitAccessResult), allowing
@@ -144,7 +144,7 @@ export function executeLandAttack(
       },
       extraDefenseBonuses: {
         ...(opts.extraDefenseBonuses ?? {}),
-        great_wall: defReactions.greatWallDefenseDice,
+        defensive_charge: defReactions.preCombatDefenseDice,
         janissaries: janissariesBonus,
       },
     });
