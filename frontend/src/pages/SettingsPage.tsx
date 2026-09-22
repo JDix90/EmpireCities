@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useBackgroundMusicEnabled } from '../store/featureFlagsStore';
+import { useTranslation } from 'react-i18next';
+import { useBackgroundMusicEnabled, useLocalizationEnabled } from '../store/featureFlagsStore';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Settings,
@@ -13,12 +14,15 @@ import {
   Volume2,
   Eye,
   Shield,
+  Globe,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import SubpageShell from '../components/ui/SubpageShell';
 import NotificationPreferences from '../components/settings/NotificationPreferences';
+import { LOCALE_NAMES, SUPPORTED_LOCALES, isLocaleCode, type LocaleCode } from '../i18n/locales';
+import { setLanguage } from '../i18n';
 import {
   SettingsSection,
   SettingsRow,
@@ -71,6 +75,14 @@ export default function SettingsPage() {
   const gold = useAuthStore((s) => s.user?.gold ?? 0);
   const logout = useAuthStore((s) => s.logout);
   const isGuest = Boolean(user?.is_guest);
+
+  // Language lives behind `localization_enabled` like every other localized
+  // surface. useTranslation is what re-renders the row after a switch: the
+  // active language is i18next's, not local state, so the landing switcher
+  // and this one can never disagree.
+  const localizationEnabled = useLocalizationEnabled();
+  const { i18n } = useTranslation();
+  const activeLocale: LocaleCode = isLocaleCode(i18n.language) ? i18n.language : 'en';
 
   const [fastCombat, setFastCombat] = useState(getFastCombatPreference);
   const [mapView, setMapView] = useState<MapViewPreference>(getInitialMapView);
@@ -247,6 +259,28 @@ export default function SettingsPage() {
             )}
           </div>
         </SettingsSection>
+
+        {localizationEnabled && (
+          <SettingsSection title="Language" icon={Globe}>
+            <SettingsRow
+              label="Preferred language"
+              description="Sets the landing page and the tutorial. The in-game interface stays English for now, and the choice is saved in this browser."
+            >
+              <SettingsSelect<LocaleCode>
+                aria-label="Preferred language"
+                value={activeLocale}
+                onChange={(next) => {
+                  // A failed bundle load leaves the current language in place,
+                  // and the select follows i18next, so it snaps back on its own.
+                  void setLanguage(next, { persist: true }).catch(() => {
+                    toast.error('Could not load that language');
+                  });
+                }}
+                options={SUPPORTED_LOCALES.map((code) => ({ value: code, label: LOCALE_NAMES[code] }))}
+              />
+            </SettingsRow>
+          </SettingsSection>
+        )}
 
         <SettingsSection title="Notifications" icon={Bell}>
           {isGuest ? (
