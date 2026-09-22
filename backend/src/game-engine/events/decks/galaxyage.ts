@@ -95,8 +95,8 @@ export const galaxyageEvents: EventCard[] = [
     effect: { type: 'region_disaster', target: 'region', value: 2 },
   },
   {
-    card_id: 'ga_lane_surge',
-    title: 'Lane Surge',
+    card_id: 'ga_lane_optimum',
+    title: 'Lane Optimum',
     description: 'A short-lived lane optimum boosts production this cycle.',
     category: 'player_targeted',
     era_id: 'galaxy_age',

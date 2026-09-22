@@ -118,7 +118,7 @@ export const medievalEvents: EventCard[] = [
   },
   {
     card_id: 'medieval_great_famine',
-    title: 'The Great Famine',
+    title: 'Three Failed Winters',
     description: 'Three winters of failed harvest. The chroniclers stop counting the dead, and order frays in every kingdom.',
     category: 'global',
     era_id: 'medieval',

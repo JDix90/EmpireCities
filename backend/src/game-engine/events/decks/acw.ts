@@ -117,7 +117,7 @@ export const acwEvents: EventCard[] = [
     effect: { type: 'stability_change', target: 'player', value: 15 },
   },
   {
-    card_id: 'acw_draft_riots',
+    card_id: 'acw_conscription_backlash',
     title: 'Conscription Backlash',
     description: 'The wealthy buy their way out of the draft for three hundred dollars, and the poor riot in the streets over it. Every city locks its doors.',
     category: 'global',

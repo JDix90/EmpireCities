@@ -109,7 +109,7 @@ export const modernEvents: EventCard[] = [
     ],
   },
   {
-    card_id: 'modern_economic_boom',
+    card_id: 'modern_boom_years',
     title: 'Boom Years',
     description: 'Foreign capital floods in and the markets hit record highs. Confidence holds.',
     category: 'player_targeted',
