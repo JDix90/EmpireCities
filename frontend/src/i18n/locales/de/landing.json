@@ -12,7 +12,7 @@
     "tagline": "Jede Grenze ist vorübergehend.",
     "description": "Borderfall ist ein rundenbasiertes Strategiespiel, in dem du Gebiete über neun Zeitalter hinweg eroberst – von antiken Legionen bis zur galaktischen Grenze. Kostenlos im Browser spielbar.",
     "descriptionSuffix": "Spiele in Echtzeit oder asynchron mit Freunden, Rivalen oder der KI.",
-    "friction": "Kein Konto · Kein Download · Etwa 7 Minuten"
+    "friction": "Kein Konto · Kein Download · Eine Partie in 10–15 Minuten"
   },
   "showcase": {
     "caption": "Echtes Gameplay auf dem Globus der Gegenwart – eine der Karten unten."
@@ -33,42 +33,42 @@
     "ancient": {
       "label": "Antike Welt",
       "years": "3000 v. Chr. – 400 n. Chr.",
-      "summary": "Betritt die spätantike Welt, als Rom, Parthien und das Han-China Mächte ersten Ranges waren. Ziehe durch Reiche, Wüsten und Steppen und kämpfe um die Kontrolle über das Mittelmeer, Persien und Ostasien. Diese Karte betont Legionen, Kavallerie und lange Nachschublinien in einer vernetzten antiken Welt."
+      "summary": "Die späte Antike, als Rom, Parthien und das Han-Reich jeweils über alles herrschten, was sie sehen konnten. Die Fronten reichen vom Mittelmeer über Persien bis zum Gelben Fluss, dahinter überall die offene Steppe. Hier gilt die Legionstaktik: Greife mit drei Würfeln an, und du würfelst den niedrigsten neu."
     },
     "medieval": {
       "label": "Mittelalter",
       "years": "400 – 1400 n. Chr.",
-      "summary": "Von den Kreuzzügen bis zu den Mongolenstürmen umfasst die mittelalterliche Karte Königreiche, Kalifate und Nomadenreiche. Halte Gebirgspässe, Flussübergänge und Handelsknoten, während du dein Reich ausdehnst. Ideal für Partien mit Schwerpunkt auf Diplomatie, Belagerungslinien und wechselnden Bündnissen."
+      "summary": "Von den Kreuzzügen bis zu den Mongolenstürmen, mit Königreichen, Kalifaten und Nomadenreichen auf einem Brett. Hier gilt keine Epochendoktrin, also entscheiden die Fraktionen, wie eine Partie verläuft. Das Mongolische Khanat würfelt einen zusätzlichen Angriffswürfel, und das byzantinische Griechische Feuer kostet den Angreifer eine Einheit, noch bevor gewürfelt wird."
     },
     "discovery": {
       "label": "Zeitalter der Entdeckungen",
       "years": "1400 – 1800 n. Chr.",
-      "summary": "Das Zeitalter der Segelschiffe, der Pulverreiche und der kolonialen Expansion. Kämpfe um Ozeane, Engstellen und die Handelsrouten der Neuen Welt. Dieses Zeitalter belohnt geschickte Seepositionierung und den Wettlauf um Ressourcen in Übersee."
+      "summary": "Das Zeitalter der Segel und der Pulverreiche, auf dem Wasser genauso umkämpft wie an Land. Seewege begrenzen einen Angriff über Wasser auf zwei statt drei Würfel, also ist eine Überfahrt hier ein Risiko, das an Land keines wäre. Portugal ist die Ausnahme: Seine Seekarten geben den dritten Würfel zurück."
     },
     "ww2": {
       "label": "Zweiter Weltkrieg",
       "years": "1939 – 1945",
-      "summary": "Ein globaler Kampf der Industriemächte: Land-, See- und Luftschauplätze von Europa bis zum Pazifik. Die Karte spiegelt die großen Bündnisse und Frontlinien des Zweiten Weltkriegs wider. Erwarte schnelle Runden mit hohem Einsatz, in denen mehrere Schauplätze gleichzeitig aufflammen können."
+      "summary": "Industriemächte im Krieg, vom Atlantik bis zum Pazifik, auf einer Karte entlang der echten Frontlinien. Die Kriegslogistik erlaubt dir zwei Truppenverlegungen pro Zug, also bedienen deine Reserven zwei Schauplätze, während andere Epochen noch einen bedienen."
     },
     "coldwar": {
       "label": "Kalter Krieg",
       "years": "1945 – 1991",
-      "summary": "NATO, Warschauer Pakt und die blockfreie Welt in einem jahrzehntelangen Ringen um Einfluss und Stellvertreterkriege. Kontrolliere strategische Regionen, Seewege und die Brennpunkte des Atomzeitalters. Geeignet für längere Partien mit vielschichtiger Diplomatie und globalem Druck."
+      "summary": "Die NATO, der Warschauer Pakt und die blockfreie Welt, die um Einfluss statt um Boden ringen. Die Einflussausbreitung lässt dich drei Einheiten aus angrenzenden Gebieten ausgeben, um einen schwachen Nachbarn direkt zu nehmen, ganz ohne Würfel, und wartet dann drei Züge, bis es wieder geht."
     },
     "modern": {
       "label": "Die Gegenwart",
       "years": "2026",
-      "summary": "Heutige Supermächte, regionale Bündnisse und Wirtschaftsblöcke auf einer Karte für das 21. Jahrhundert. Kämpfe um Technologiezentren, Energiekorridore und maritime Engstellen. Am besten für alle, die einen modernen geopolitischen Sandkasten mit vielen gangbaren Strategien mögen."
+      "summary": "Die Großmächte und Wirtschaftsblöcke der Gegenwart, auf einem Brett für das 21. Jahrhundert. Der Präzisionsschlag belohnt Masse statt Knabbern: Setze vier oder mehr Einheiten ein, und der Angriff würfelt mit drei Würfeln."
     },
     "acw": {
       "label": "Amerikanischer Bürgerkrieg",
       "years": "1861 – 1865",
-      "summary": "Ein konzentrierter nordamerikanischer Schauplatz: Union gegen Konföderation entlang der Ostküste, des Mississippi und des Westens jenseits des Mississippi. Die Gebiete folgen echten Staatsgrenzen für eine engere, taktischere Karte. Ideal für einen kürzeren, regionalen Feldzug mit klaren Frontlinien."
+      "summary": "Die Union gegen die Konföderation, von der Ostküste über den Mississippi bis in die Westterritorien, auf echten Staatsgrenzen. Überall sonst im Spiel gehen Gleichstände an den Verteidiger. Die Gewehrdoktrin würfelt sie neu, und deshalb kostet Angreifen hier weniger als irgendwo sonst."
     },
     "risorgimento": {
       "label": "Italienische Einigung",
       "years": "1859 – 1871",
-      "summary": "Das Italien des Risorgimento: von Piemont und den beiden Sizilien zum geeinten Königreich. Die Gebiete folgen echten Provinzgrenzen, zu regionalen Schauplätzen über Halbinsel und Inseln zusammengefasst. Enger und schneller als eine Weltkarte – ideal für Diplomatie und Manöver an der Küste."
+      "summary": "Piemont, Beide Sizilien und der Kirchenstaat in der Mitte, auf echten Provinzgrenzen, zu regionalen Schauplätzen zusammengefasst. Das Carbonari-Netzwerk reicht über deine eigene Grenze hinaus, eine Provinz, die du gar nicht berührst, kann also ohne einen Schuss den Besitzer wechseln."
     },
     "space_age": {
       "label": "Weltraumzeitalter",

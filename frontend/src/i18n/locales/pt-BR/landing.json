@@ -12,7 +12,7 @@
     "tagline": "Toda fronteira é temporária.",
     "description": "Borderfall é um jogo de estratégia por turnos em que você conquista território ao longo de nove eras, das legiões antigas a uma fronteira galáctica. Grátis, no seu navegador.",
     "descriptionSuffix": "Jogue em tempo real ou de forma assíncrona com amigos, rivais ou a IA.",
-    "friction": "Sem conta · Sem download · Cerca de 7 minutos"
+    "friction": "Sem conta · Sem download · Uma partida em 10–15 minutos"
   },
   "showcase": {
     "caption": "Partida real no globo do Mundo Atual — um dos mapas abaixo."
@@ -33,42 +33,42 @@
     "ancient": {
       "label": "Mundo Antigo",
       "years": "3000 a.C. – 400 d.C.",
-      "summary": "Entre no mundo clássico tardio, quando Roma, a Pártia e a China Han eram potências de primeira grandeza. Faça campanha por impérios, desertos e estepes enquanto luta pelo controle do Mediterrâneo, da Pérsia e do Leste Asiático. Este mapa destaca legiões, cavalaria e longas linhas de suprimento em um mundo antigo conectado."
+      "summary": "O mundo clássico tardio, quando Roma, a Pártia e a China Han dominavam cada uma tudo o que conseguiam ver. As frentes vão do Mediterrâneo à Pérsia e ao rio Amarelo, com a estepe aberta atrás de todas elas. Aqui a doutrina é a Tática de legião: ataque com três dados e relance o mais baixo."
     },
     "medieval": {
       "label": "Era Medieval",
       "years": "400 – 1400 d.C.",
-      "summary": "Das Cruzadas às conquistas mongóis, o mapa medieval abrange reinos, califados e impérios nômades. Domine passagens de montanha, travessias de rio e centros comerciais enquanto expande seu reino. Ideal para partidas centradas em diplomacia, cercos e alianças em constante mudança."
+      "summary": "Das cruzadas às conquistas mongóis, com reinos, califados e impérios nômades em um só tabuleiro. Nenhuma doutrina de era se aplica, então são as facções que definem o formato da partida. O Canato mongol rola um dado de ataque extra, e o fogo grego bizantino queima uma unidade do atacante antes dos dados."
     },
     "discovery": {
       "label": "Era dos Descobrimentos",
       "years": "1400 – 1800 d.C.",
-      "summary": "A era das velas, dos impérios da pólvora e da expansão colonial. Dispute o controle dos oceanos, dos estreitos e das rotas comerciais do Novo Mundo. Esta era recompensa o posicionamento naval e a disputa por recursos ultramarinos."
+      "summary": "A era da vela e dos impérios da pólvora, disputada tanto na água quanto em terra. As Rotas marítimas limitam a dois dados, em vez de três, qualquer ataque pelo mar: uma travessia que você venceria em terra aqui é aposta. Portugal é a exceção, porque suas Cartas náuticas devolvem o terceiro dado."
     },
     "ww2": {
       "label": "Segunda Guerra Mundial",
       "years": "1939 – 1945",
-      "summary": "Uma luta global entre potências industriais: teatros terrestres, navais e aéreos da Europa ao Pacífico. O mapa reflete as grandes alianças e as linhas de frente da Segunda Guerra Mundial. Espere turnos rápidos e de alto risco, em que vários teatros podem explodir ao mesmo tempo."
+      "summary": "As potências industriais em guerra, do Atlântico ao Pacífico, em um mapa traçado sobre as frentes reais. A Logística de guerra deixa você fortificar duas vezes por turno, então suas reservas atendem dois teatros enquanto outras eras ainda atendem um."
     },
     "coldwar": {
       "label": "Guerra Fria",
       "years": "1945 – 1991",
-      "summary": "A OTAN, o Pacto de Varsóvia e o mundo não alinhado em uma disputa de décadas por influência e guerras por procuração. Controle regiões estratégicas, rotas marítimas e os pontos críticos da era nuclear. Ideal para partidas mais longas, com diplomacia em camadas e pressão global."
+      "summary": "A OTAN, o Pacto de Varsóvia e o mundo não alinhado, disputando influência mais do que território. A Difusão de influência deixa você gastar três unidades de territórios vizinhos para tomar um vizinho fraco de uma vez, sem rolar dados, e depois espera três turnos até permitir de novo."
     },
     "modern": {
       "label": "O Mundo Atual",
       "years": "2026",
-      "summary": "Superpotências contemporâneas, alianças regionais e blocos econômicos em um mapa ajustado ao século XXI. Lute por polos de tecnologia, corredores de energia e estreitos marítimos. Perfeito para quem gosta de um sandbox geopolítico moderno com muitas estratégias viáveis."
+      "summary": "As superpotências contemporâneas e os blocos econômicos, em um tabuleiro ajustado ao século XXI. O Ataque de precisão premia a massa em vez da mordida: comprometa quatro unidades ou mais e o ataque rola três dados."
     },
     "acw": {
       "label": "Guerra Civil Americana",
       "years": "1861 – 1865",
-      "summary": "Um teatro norte-americano concentrado: a União contra a Confederação ao longo da costa leste, do Mississippi e do Oeste trans-Mississippi. Os territórios seguem as fronteiras estaduais reais, para um mapa mais compacto e tático. Ideal para uma campanha regional mais curta, com linhas de frente claras."
+      "summary": "A União contra a Confederação, da costa leste ao Mississippi e aos territórios do oeste, sobre fronteiras estaduais reais. No resto do jogo, os empates ficam com o defensor. A Doutrina do rifle relança esses empates, o que torna o ataque mais barato aqui do que em qualquer outro lugar."
     },
     "risorgimento": {
       "label": "Unificação Italiana",
       "years": "1859 – 1871",
-      "summary": "A Itália do Risorgimento: do Piemonte e das Duas Sicílias a um reino unido. Os territórios seguem os contornos provinciais reais, fundidos em teatros regionais por toda a península e as ilhas. Mais compacto e rápido que um mapa mundial — ideal para diplomacia e manobras costeiras."
+      "summary": "O Piemonte, as Duas Sicílias e o centro papal, sobre contornos provinciais reais agrupados em teatros regionais. A Rede carbonária alcança além da sua própria fronteira, então uma província que você nem encosta pode mudar de mãos sem um tiro."
     },
     "space_age": {
       "label": "Era Espacial",
