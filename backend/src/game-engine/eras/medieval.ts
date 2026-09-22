@@ -44,13 +44,26 @@ export const MEDIEVAL_FACTIONS: Faction[] = [
     faction_id: 'byzantine',
     lineage_id: 'bastion',
     name: 'Byzantine Empire',
-    // Copy fix, no balance change: this promised "+1 defense die in your capital
-    // region", which is not what Greek Fire does and not a thing any faction may
-    // have (see factionDefense.test.ts). The ability itself is unchanged.
-    description: 'Sophisticated bureaucracy and Greek fire — the turn\'s first attacker loses a unit before dice are rolled.',
+    description: 'A professional army on an imperial payroll — +1 attack die and +2 reinforcements per turn, with Greek fire held in reserve.',
     lore: 'Heir to Rome in ceremony and statecraft, Byzantium outlasts stronger foes through coin, diplomacy, and fortified capitals.',
     flavor_quote: 'Where steel fails, intrigue holds the line.',
     home_region_ids: ['eastern_europe'],
+    // Byzantium defended perfectly and starved anyway. Traced over 180 games it
+    // lost the FEWEST tiles of any medieval faction (16.4 to the Mongols' 31.3)
+    // and still went 4.1 territories at turn 3 -> 2.1 at turn 6 -> dead by turn
+    // 14, because it was the only faction in the era with neither an attack
+    // bonus nor a reinforcement bonus. Reinforcements scale with territory
+    // count, so a seat that cannot take ground cannot pay for the ground it
+    // has: fewer tiles, fewer units, fewer tiles.
+    //
+    // That is why nothing defensive moved it — a better charge, a second
+    // charge, +1 or +2 reinforcements alone all landed between 6% and 8%. It
+    // needed the means to retake what it loses, which is also what the tagmata
+    // were for. Measured 4-5% -> 12-13% against a 17% fair share, elimination
+    // 81% -> 68%, and the era's spread from 24-26 points down to 12-14, across
+    // three seed sets of 300 games.
+    passive_attack_bonus: 1,
+    reinforce_bonus: 2,
     ability_id: 'greek_fire',
     ability_description: 'Greek Fire: once per turn, an attacking force loses 1 additional unit before dice are rolled.',
     color: '#8e44ad',
