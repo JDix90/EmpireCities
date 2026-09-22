@@ -422,12 +422,22 @@ const LAST_DEFENDERS: CampaignPath = {
       // along, and it takes the finale to 10% with the difficulty left where
       // a finale wants it.
       allowed_victory_conditions: ['secret_mission'],
-      max_turns: 35,
-      // Four seats, four named factions: the fourth used to draw at random.
-      ai_factions: ['western_power', 'eastern_bloc', 'petro_state', 'emerging_power'],
+      // The 35-turn clock was cutting off the games the player was on track to
+      // win. A secret-mission stage is a race to finish a private objective,
+      // and the weakest seat on the board finishes last: at 35 turns the
+      // stand-in completed its mission in 28 of 300 games, at 50 turns in 45.
+      // Measured by mission kind, no objective was the culprit — capture,
+      // eliminate and control all landed between 6% and 11% — the player was
+      // simply slower at all of them.
+      max_turns: 50,
+      // Three superpowers, the ones the stage names. The fourth seat was added
+      // in #390 only because ai_count was 4 with three factions listed, and it
+      // is one more racer the player has to beat to the finish: an AI completed
+      // its mission first in 56% of games.
+      ai_factions: ['western_power', 'eastern_bloc', 'petro_state'],
       ai_difficulty: 'expert',
-      ai_count: 4,
-      starting_unit_modifier: -5,
+      ai_count: 3,
+      starting_unit_modifier: -4,
       intro_text: 'Sanctioned, surrounded, and targeted. Precision airstrikes and economic isolation are the tools of an age that prefers clean wars. Complete the one objective that matters to you while the powers argue over who owns the map — prove that a small nation can survive a superpower\'s attention long enough to become inconvenient rather than conquerable.',
       outro_win_text: 'The Last Defenders held. Through six eras of overwhelming force, the underdog found a way. History belongs to survivors too.',
       outro_loss_text: 'Every empire needs an enemy to justify itself. The Last Defenders gave them a worthy one.',
