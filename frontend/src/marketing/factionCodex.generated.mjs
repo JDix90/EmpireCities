@@ -101,10 +101,12 @@ export const FACTION_CODEX = [
       {
         "faction_id": "byzantine",
         "name": "Byzantine Empire",
-        "description": "Sophisticated bureaucracy and Greek fire — the turn's first attacker loses a unit before dice are rolled.",
+        "description": "A professional army on an imperial payroll — +1 attack die and +2 reinforcements per turn, with Greek fire held in reserve.",
         "lore": "Heir to Rome in ceremony and statecraft, Byzantium outlasts stronger foes through coin, diplomacy, and fortified capitals.",
         "flavor_quote": "Where steel fails, intrigue holds the line.",
         "color": "#8e44ad",
+        "passive_attack_bonus": 1,
+        "reinforce_bonus": 2,
         "stability_recovery_bonus": 3,
         "ability_description": "Greek Fire: once per turn, an attacking force loses 1 additional unit before dice are rolled."
       },
