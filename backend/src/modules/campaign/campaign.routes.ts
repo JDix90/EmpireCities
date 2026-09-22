@@ -98,7 +98,11 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
     if (!userRow) return reply.status(404).send({ error: 'User not found' });
 
     const campaignId = uuidv4();
-    const initialCarry: Partial<PathCarry> = {};
+    // A path opens holding its own signature stat. Without this, stage one is
+    // the only stage a path is played without the thing the path is about —
+    // and on The Last Defenders it is also the stage carrying a starting-unit
+    // deficit with nothing banked to answer it.
+    const initialCarry: Partial<PathCarry> = pathId ? { ...CAMPAIGN_PATHS[pathId].initial_carry } : {};
 
     await query(
       `INSERT INTO user_campaigns (campaign_id, user_id, current_era_index, prestige_points, status, path_id, path_carry, path_narrative)
@@ -546,7 +550,7 @@ async function createEraGame({
     // boundary were simply missing here: campaign stages ran with no turn cap
     // at all, no attacker dice cap and uncapped card-set bonuses. A stage is
     // supposed to be the harder game, not the looser one.
-    max_turns: CAMPAIGN_STAGE_MAX_TURNS,
+    max_turns: pathEra?.max_turns ?? CAMPAIGN_STAGE_MAX_TURNS,
     combat_dice_cap_enabled: true,
     card_set_bonus_cap: DEFAULT_CARD_SET_BONUS_CAP,
     // Display-only fields consumed by the in-game campaign intro modal so the

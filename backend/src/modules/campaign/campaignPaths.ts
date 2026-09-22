@@ -25,6 +25,12 @@ export interface PathEraConfig {
   allowed_victory_conditions: VictoryType[];
   /** Territory threshold % when 'threshold' is in conditions. */
   victory_threshold?: number;
+  /**
+   * Turn cap for this stage, overriding the campaign default. A survival stage
+   * is decided by outlasting the clock holding the most ground, so it wants a
+   * shorter one than a conquest stage.
+   */
+  max_turns?: number;
   /** AI faction ids to assign in order (fills with random if fewer than ai_count). */
   ai_factions: string[];
   ai_difficulty: AiDifficulty;
@@ -54,6 +60,14 @@ export interface CampaignPath {
   signature_carry_label: string;
   /** Max value for the signature carry stat (for progress display). */
   signature_carry_max: number;
+  /**
+   * Carry the path starts stage one holding. A path whose stages hand the
+   * player a starting-unit deficit has to hand them the compensating stat with
+   * it, or stage one is the only stage played without the thing the path is
+   * about: measured on the engine, The Last Defenders' ww2 stage went from a
+   * 0% to a 25% win rate on nothing but two points of Survivor Bonus.
+   */
+  initial_carry: Partial<PathCarry>;
   eras: PathEraConfig[];
 }
 
@@ -67,6 +81,9 @@ const BLOOD_EMPIRE: CampaignPath = {
   signature_carry_key: 'prestige_bonus',
   signature_carry_label: 'Prestige',
   signature_carry_max: 12,
+  // Rome starts the path at full strength and takes no deficit anywhere in it,
+  // so prestige is purely earned.
+  initial_carry: {},
   eras: [
     {
       era: 'ancient',
@@ -172,6 +189,7 @@ const REVOLUTIONARY_FLAME: CampaignPath = {
   signature_carry_key: 'revolutionary_spirit',
   signature_carry_label: 'Revolutionary Spirit',
   signature_carry_max: 10,
+  initial_carry: { revolutionary_spirit: 2 },
   eras: [
     {
       era: 'ancient',
@@ -186,7 +204,7 @@ const REVOLUTIONARY_FLAME: CampaignPath = {
       outro_win_text: 'The Republic\'s institutions hold. Revolutionary Spirit ignites: the model of citizen governance will echo through history.',
       outro_loss_text: 'The Republic fractures under pressure. But the idea survives in fragments.',
       carry_on_win: { revolutionary_spirit: 2, prestige_bonus: 1 },
-      carry_on_loss: { revolutionary_spirit: 1 },
+      carry_on_loss: {},
     },
     {
       era: 'medieval',
@@ -201,7 +219,7 @@ const REVOLUTIONARY_FLAME: CampaignPath = {
       outro_win_text: 'Byzantium endures another century. The flame passes. The libraries survive.',
       outro_loss_text: 'The walls fall eventually. But the books were copied.',
       carry_on_win: { revolutionary_spirit: 2, prestige_bonus: 1 },
-      carry_on_loss: { revolutionary_spirit: 1 },
+      carry_on_loss: {},
     },
     {
       era: 'discovery',
@@ -216,7 +234,7 @@ const REVOLUTIONARY_FLAME: CampaignPath = {
       outro_win_text: 'The Glorious Revolution is prefigured here. An alliance holds where dominance would have failed.',
       outro_loss_text: 'Coalitions are fragile. History files this failure under "useful precedent."',
       carry_on_win: { revolutionary_spirit: 2, prestige_bonus: 1 },
-      carry_on_loss: { revolutionary_spirit: 1 },
+      carry_on_loss: {},
     },
     {
       // The American Revolution on the ACW map. The factions must come from
@@ -227,16 +245,17 @@ const REVOLUTIONARY_FLAME: CampaignPath = {
       map_id: 'era_acw',
       locked_faction: 'usa',
       allowed_victory_conditions: ['threshold'],
-      victory_threshold: 40,
+      victory_threshold: 60,
+      max_turns: 40,
       ai_factions: ['uk', 'germany'],
       ai_difficulty: 'hard',
       ai_count: 2,
       starting_unit_modifier: -3,
-      intro_text: 'The colonists do not want to be a province. The Crown\'s armies are professional, better-supplied, and backed by the most powerful navy in the world. You hold interior lines, local knowledge, and the desperation of people with nowhere else to go. Survive — hold 40% — until the empire decides the cost is not worth the prize.',
+      intro_text: 'The colonists do not want to be a province. The Crown\'s armies are professional, better-supplied, and backed by the most powerful navy in the world. You hold interior lines, local knowledge, and the desperation of people with nowhere else to go. Survive — hold 60% of the map, or lead it after forty turns — until the empire decides the cost is not worth the prize.',
       outro_win_text: 'Yorktown. The empire leaves. Revolutionary Spirit carries the muscle memory of asymmetric persistence.',
       outro_loss_text: 'This revolution was ahead of its time. The next one will remember this failure.',
       carry_on_win: { revolutionary_spirit: 2, prestige_bonus: 1 },
-      carry_on_loss: { revolutionary_spirit: 1 },
+      carry_on_loss: {},
     },
     {
       era: 'coldwar',
@@ -251,7 +270,7 @@ const REVOLUTIONARY_FLAME: CampaignPath = {
       outro_win_text: 'The Soviet project endures its peak. Revolutionary Spirit turns institutional.',
       outro_loss_text: 'The wall will come down regardless. The Flame was always bigger than one state.',
       carry_on_win: { revolutionary_spirit: 2, prestige_bonus: 1 },
-      carry_on_loss: { revolutionary_spirit: 1 },
+      carry_on_loss: {},
     },
     {
       era: 'modern',
@@ -266,7 +285,7 @@ const REVOLUTIONARY_FLAME: CampaignPath = {
       outro_win_text: 'The Revolutionary Flame burned through every era and refused to be extinguished. History does not belong only to the powerful.',
       outro_loss_text: 'The last ember goes out. But it lit fires history will not forget.',
       carry_on_win: { revolutionary_spirit: 2, prestige_bonus: 1 },
-      carry_on_loss: { revolutionary_spirit: 1 },
+      carry_on_loss: {},
     },
   ],
 };
@@ -281,28 +300,42 @@ const LAST_DEFENDERS: CampaignPath = {
   signature_carry_key: 'survivor_bonus',
   signature_carry_label: 'Survivor Bonus',
   signature_carry_max: 8,
+  initial_carry: { survivor_bonus: 2 },
   eras: [
     {
       era: 'ancient',
       map_id: 'era_ancient',
       locked_faction: 'germanic_tribes',
       allowed_victory_conditions: ['threshold'],
-      victory_threshold: 35,
+      victory_threshold: 55,
+      max_turns: 30,
       ai_factions: ['rome', 'carthage', 'parthia'],
-      ai_difficulty: 'hard',
+      // Every other path opens on medium. This one opened on hard AND the
+      // largest unit deficit in the game, with no carry yet banked to answer
+      // it: the stand-in won 4% of 24 games, and 21% once the difficulty
+      // matched the other openings.
+      ai_difficulty: 'medium',
       ai_count: 3,
       starting_unit_modifier: -4,
-      intro_text: 'Rome does not ask permission. Three legions have crossed the Rhine and the Senate has already declared the forests a province. You have no roads, no siege engines, and no allies — only trees, ambushes, and the knowledge that every mile the legions march is a mile they must defend. Hold 35%.',
+      intro_text: 'Rome does not ask permission. Three legions have crossed the Rhine and the Senate has already declared the forests a province. You have no roads, no siege engines, and no allies — only trees, ambushes, and the knowledge that every mile the legions march is a mile they must defend. Hold 55% of the map, or simply hold more of it than Rome does when the thirtieth turn ends.',
       outro_win_text: 'Varus and his three legions do not return. The Rhine becomes Rome\'s permanent frontier. Survivor Bonus grows from the knowledge that terrain is a weapon.',
       outro_loss_text: 'The forests fall to engineering. But the chieftains who survived learned how Rome thinks.',
       carry_on_win: { survivor_bonus: 2, prestige_bonus: 1 },
-      carry_on_loss: { survivor_bonus: 1 },
+      carry_on_loss: {},
     },
     {
       era: 'medieval',
       map_id: 'era_medieval',
       locked_faction: 'byzantine',
       allowed_victory_conditions: ['capital'],
+      // A clock, only to bound the stage: this one ran to a 47-turn average
+      // and a tail at the 100-turn cap. It does not make the stage easier and
+      // nothing else did either — the stand-in wins 5-11% of 100 games on
+      // every combination of difficulty, clock and deficit tried, because the
+      // condition is to capture three defended capitals from four units down.
+      // Left at hard rather than churned for no measured gain. It is the one
+      // stage still worth a second look.
+      max_turns: 40,
       ai_factions: ['mongol_empire', 'hre', 'caliphate'],
       ai_difficulty: 'hard',
       ai_count: 3,
@@ -311,39 +344,45 @@ const LAST_DEFENDERS: CampaignPath = {
       outro_win_text: 'Constantinople survives the medieval catastrophe. The Church, the libraries, the Greek language — all preserved. Survivor Bonus carries the weight of what was saved.',
       outro_loss_text: 'The city falls in 1453 in every version of history. The libraries burned slowly.',
       carry_on_win: { survivor_bonus: 2, prestige_bonus: 1 },
-      carry_on_loss: { survivor_bonus: 1 },
+      carry_on_loss: {},
     },
     {
       era: 'discovery',
       map_id: 'era_discovery',
       locked_faction: 'ming_china',
       allowed_victory_conditions: ['threshold'],
-      victory_threshold: 50,
-      ai_factions: ['spain', 'portugal', 'england_discovery'],
+      victory_threshold: 60,
+      max_turns: 35,
+      // Ming holds a single contiguous bloc at the deal and out-territories
+      // three colonial seats by default: the stand-in won 88% of 24 games,
+      // the one stage of the underdog path that played like a reward. A
+      // fourth besieger dilutes the deal and takes it to 38%.
+      ai_factions: ['spain', 'portugal', 'england_discovery', 'mughal'],
       ai_difficulty: 'hard',
-      ai_count: 3,
+      ai_count: 4,
       starting_unit_modifier: -3,
-      intro_text: 'Portuguese caravels probe the coast. Spanish silver buys political leverage. English merchants want trading posts that become footholds. The Yongle Emperor built a wall and burned the treasure fleet — it did not save the dynasty, but it bought time. Hold 50% against three colonial powers probing simultaneously.',
+      intro_text: 'Portuguese caravels probe the coast. Spanish silver buys political leverage. English merchants want trading posts that become footholds. The Yongle Emperor built a wall and burned the treasure fleet — it did not save the dynasty, but it bought time. Hold 60% of the map against four powers probing at once, or lead it when the thirty-fifth turn ends.',
       outro_win_text: 'The Middle Kingdom holds its borders through the Age of Discovery. The isolation costs — but survival is its own kind of victory.',
       outro_loss_text: 'The treaty ports open. History files this under "unequal treaties." The dynasty survives on paper.',
       carry_on_win: { survivor_bonus: 2, prestige_bonus: 1 },
-      carry_on_loss: { survivor_bonus: 1 },
+      carry_on_loss: {},
     },
     {
       era: 'ww2',
       map_id: 'era_ww2',
       locked_faction: 'uk',
       allowed_victory_conditions: ['threshold'],
-      victory_threshold: 30,
+      victory_threshold: 55,
+      max_turns: 30,
       ai_factions: ['germany', 'japan', 'china_ww2'],
       ai_difficulty: 'expert',
       ai_count: 3,
       starting_unit_modifier: -5,
-      intro_text: 'Dunkirk is over. France is gone. The Luftwaffe is assembling. You hold an island, a navy, and the stubborn conviction that this is not over. The USA has not yet entered the war. Hold 30% — your island, North Africa, and whatever remains of the Commonwealth lifelines.',
+      intro_text: 'Dunkirk is over. France is gone. The Luftwaffe is assembling. You hold an island, a navy, and the stubborn conviction that this is not over. The USA has not yet entered the war. Hold 55% of the map — your island, North Africa, and whatever remains of the Commonwealth lifelines — or lead it when the thirtieth turn ends.',
       outro_win_text: 'Britain stands alone and standing is enough. The Allies will come. Survivor Bonus grows from the knowledge that holding is a form of winning.',
       outro_loss_text: 'Even the darkest hour eventually ends.',
       carry_on_win: { survivor_bonus: 2, prestige_bonus: 1 },
-      carry_on_loss: { survivor_bonus: 1 },
+      carry_on_loss: {},
     },
     {
       era: 'coldwar',
@@ -358,23 +397,33 @@ const LAST_DEFENDERS: CampaignPath = {
       outro_win_text: 'Non-alignment survives the Cold War. Survivor Bonus becomes sovereignty.',
       outro_loss_text: 'The Cold War carved new nations into old wounds. But the independence movements cannot be unmade.',
       carry_on_win: { survivor_bonus: 2, prestige_bonus: 1 },
-      carry_on_loss: { survivor_bonus: 1 },
+      carry_on_loss: {},
     },
     {
       era: 'modern',
       map_id: 'era_modern',
       locked_faction: 'rogue_state',
-      allowed_victory_conditions: ['threshold', 'secret_mission'],
-      victory_threshold: 25,
-      ai_factions: ['western_power', 'eastern_bloc', 'petro_state'],
+      // A shared land race is the one thing a seat five units down cannot
+      // win. Set as a territory threshold — alongside secret_mission, which
+      // gave each of the four AI seats two lanes to the player's one board —
+      // the stand-in took 2% of 100 games, and no knob moved it past 7%:
+      // fewer seats made it worse, because a smaller table hands every AI a
+      // bigger share of the deal. A secret mission is a private objective
+      // rather than a race, which is what this stage's own text promised all
+      // along, and it takes the finale to 10% with the difficulty left where
+      // a finale wants it.
+      allowed_victory_conditions: ['secret_mission'],
+      max_turns: 35,
+      // Four seats, four named factions: the fourth used to draw at random.
+      ai_factions: ['western_power', 'eastern_bloc', 'petro_state', 'emerging_power'],
       ai_difficulty: 'expert',
       ai_count: 4,
       starting_unit_modifier: -5,
-      intro_text: 'Sanctioned, surrounded, and targeted. Precision airstrikes and economic isolation are the tools of an age that prefers clean wars. Hold 25% of the map and complete your secret mission — prove that a small nation can survive a superpower\'s attention long enough to become inconvenient rather than conquerable.',
+      intro_text: 'Sanctioned, surrounded, and targeted. Precision airstrikes and economic isolation are the tools of an age that prefers clean wars. Complete the one objective that matters to you while the powers argue over who owns the map — prove that a small nation can survive a superpower\'s attention long enough to become inconvenient rather than conquerable.',
       outro_win_text: 'The Last Defenders held. Through six eras of overwhelming force, the underdog found a way. History belongs to survivors too.',
       outro_loss_text: 'Every empire needs an enemy to justify itself. The Last Defenders gave them a worthy one.',
       carry_on_win: { survivor_bonus: 2, prestige_bonus: 1 },
-      carry_on_loss: { survivor_bonus: 1 },
+      carry_on_loss: {},
     },
   ],
 };
