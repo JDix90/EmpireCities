@@ -12,7 +12,7 @@
     "tagline": "Toute frontière est provisoire.",
     "description": "Borderfall est un jeu de stratégie au tour par tour où vous conquérez des territoires à travers neuf ères, des légions antiques à la frontière galactique. Gratuit, dans votre navigateur.",
     "descriptionSuffix": "Jouez en temps réel ou en asynchrone avec des amis, des rivaux ou l'IA.",
-    "friction": "Sans compte · Sans téléchargement · Environ 7 minutes"
+    "friction": "Sans compte · Sans téléchargement · Une partie en 10–15 minutes"
   },
   "showcase": {
     "caption": "Du vrai gameplay sur le globe du Monde actuel — l'une des cartes ci-dessous."
@@ -33,42 +33,42 @@
     "ancient": {
       "label": "Monde antique",
       "years": "3000 av. J.-C. – 400 apr. J.-C.",
-      "summary": "Entrez dans le monde de l'Antiquité tardive, quand Rome, la Parthie et la Chine des Han étaient des puissances de premier ordre. Menez campagne à travers empires, déserts et steppes pour le contrôle de la Méditerranée, de la Perse et de l'Asie orientale. Cette carte met l'accent sur les légions, la cavalerie et les longues lignes de ravitaillement d'un monde antique interconnecté."
+      "summary": "Le monde de l'Antiquité tardive, quand Rome, la Parthie et la Chine des Han régnaient chacune sur tout ce qu'elles pouvaient voir. Les fronts s'étendent de la Méditerranée à la Perse jusqu'au fleuve Jaune, avec la steppe ouverte derrière eux tous. Ici, la doctrine est la Tactique légionnaire : attaquez avec trois dés et vous relancez le plus faible."
     },
     "medieval": {
       "label": "Ère médiévale",
       "years": "400 – 1400 apr. J.-C.",
-      "summary": "Des croisades aux conquêtes mongoles, la carte médiévale couvre royaumes, califats et empires nomades. Tenez les cols, les gués et les carrefours commerciaux tout en étendant votre royaume. Idéale pour les parties axées sur la diplomatie, les lignes de siège et les alliances changeantes."
+      "summary": "Des croisades aux conquêtes mongoles, avec royaumes, califats et empires nomades sur un même plateau. Aucune doctrine d'époque ne s'applique : ce sont les factions qui décident de l'allure d'une partie. Le Khanat mongol lance un dé d'attaque supplémentaire, et le feu grégeois byzantin brûle une unité à l'attaquant avant même les dés."
     },
     "discovery": {
       "label": "Grandes découvertes",
       "years": "1400 – 1800 apr. J.-C.",
-      "summary": "L'ère de la marine à voile, des empires de la poudre et de l'expansion coloniale. Disputez-vous le contrôle des océans, des détroits et des routes commerciales du Nouveau Monde. Cette ère récompense le positionnement naval et la course aux ressources d'outre-mer."
+      "summary": "L'âge de la voile et des empires à poudre, disputé autant sur l'eau que sur terre. Les Routes maritimes limitent une attaque par mer à deux dés au lieu de trois : une traversée que vous gagneriez sur terre devient ici un pari. Le Portugal fait exception, ses Cartes marines rendent le troisième dé."
     },
     "ww2": {
       "label": "Seconde Guerre mondiale",
       "years": "1939 – 1945",
-      "summary": "Un affrontement mondial entre puissances industrielles : théâtres terrestres, maritimes et aériens de l'Europe au Pacifique. La carte reflète les grandes alliances et les lignes de front de la Seconde Guerre mondiale. Attendez-vous à des tours rapides et à haut risque, où plusieurs théâtres peuvent s'embraser en même temps."
+      "summary": "Les puissances industrielles en guerre, de l'Atlantique au Pacifique, sur une carte tracée le long des vrais fronts. La Logistique de guerre vous laisse fortifier deux fois par tour : vos réserves répondent sur deux théâtres quand les autres époques n'en couvrent qu'un."
     },
     "coldwar": {
       "label": "Guerre froide",
       "years": "1945 – 1991",
-      "summary": "L'OTAN, le pacte de Varsovie et le monde non aligné dans une lutte d'influence de plusieurs décennies faite de guerres par procuration. Contrôlez les régions stratégiques, les voies maritimes et les points chauds de l'ère nucléaire. Convient aux parties longues, à la diplomatie à plusieurs niveaux et à la pression mondiale."
+      "summary": "L'OTAN, le pacte de Varsovie et le monde non aligné, qui se disputent l'influence plutôt que le terrain. La Diffusion d'influence vous laisse dépenser trois unités depuis vos territoires frontaliers pour prendre un voisin faible d'un coup, sans lancer un dé, puis attend trois tours avant de le permettre à nouveau."
     },
     "modern": {
       "label": "Le Monde actuel",
       "years": "2026",
-      "summary": "Superpuissances contemporaines, alliances régionales et blocs économiques sur une carte taillée pour le XXIe siècle. Battez-vous pour les pôles technologiques, les corridors énergétiques et les détroits maritimes. Idéal pour qui aime un bac à sable géopolitique moderne aux stratégies multiples."
+      "summary": "Les superpuissances contemporaines et les blocs économiques, sur un plateau réglé pour le XXIe siècle. La Frappe de précision récompense la masse plutôt que le grignotage : engagez quatre unités ou plus et l'attaque lance trois dés."
     },
     "acw": {
       "label": "Guerre de Sécession",
       "years": "1861 – 1865",
-      "summary": "Un théâtre nord-américain resserré : l'Union contre la Confédération le long de la côte Est, du Mississippi et de l'Ouest trans-Mississippi. Les territoires suivent les vraies frontières des États, pour une carte plus compacte et plus tactique. Idéale pour une campagne régionale plus courte aux lignes de front nettes."
+      "summary": "L'Union contre la Confédération, de la côte est au Mississippi et aux territoires de l'Ouest, sur les vraies frontières d'États. Partout ailleurs dans le jeu, les égalités profitent au défenseur. La Doctrine du fusil les relance, ce qui rend l'attaque moins coûteuse ici qu'ailleurs."
     },
     "risorgimento": {
       "label": "Unification italienne",
       "years": "1859 – 1871",
-      "summary": "L'Italie du Risorgimento : du Piémont et des Deux-Siciles à un royaume unifié. Les territoires suivent les vrais contours des provinces, fusionnés en théâtres régionaux sur la péninsule et les îles. Plus compacte et plus rapide qu'une carte du monde — idéale pour la diplomatie et les manœuvres côtières."
+      "summary": "Le Piémont, les Deux-Siciles et le milieu pontifical, sur de vrais contours provinciaux regroupés en théâtres régionaux. Le Réseau carbonaro porte au-delà de votre propre frontière : une province que vous ne touchez pas peut changer de mains sans un coup de feu."
     },
     "space_age": {
       "label": "Ère spatiale",
