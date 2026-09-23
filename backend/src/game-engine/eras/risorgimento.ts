@@ -17,19 +17,28 @@ export const RISORGIMENTO_FACTIONS: Faction[] = [
   {
     faction_id: 'austria',
     name: 'Austrian Empire',
-    description: 'Conservative power defending the old order — +2 defense dice in Austrian core territories.',
+    // Forbidden innate defence dice again, and no region-scoped defence
+    // mechanic exists. What Austria actually has is a reinforcement and a
+    // garrison it can drop where the line is thinnest.
+    description: 'Conservative power defending the old order — +1 reinforcement per turn, and a garrison that appears where the line bends.',
     lore: 'Vienna defends its Italian possessions through garrisons, dynastic legitimacy, and a deep instinct for suppressing revolt.',
     flavor_quote: 'Empires endure by refusing every easy concession.',
     home_region_ids: ['italy_northwest', 'italy_adriatic'],
     reinforce_bonus: 1,
     ability_id: 'habsberg_garrison',
-    ability_description: 'Habsburg Garrison: once per turn, immediately place 2 units in any Austrian-held territory under threat.',
+    // The definition places ONE unit (habsberg_garrison, ownPlacement 1).
+    ability_description: 'Habsburg Garrison: once per turn, immediately place 1 unit in any Austrian-held territory.',
     color: '#e74c3c',
   },
   {
     faction_id: 'papal_states',
     name: 'Papal States',
-    description: 'Spiritual influence — carbonari_network range is halved against Papal territories; +1 defense die.',
+    // Neither half was real: no innate defence die may exist, and nothing
+    // halves carbonari range. The actual protection is Papal Dispensation, a
+    // per-turn influence block, which the ability line already describes
+    // correctly — so the description now points at that instead of inventing a
+    // second mechanic beside it.
+    description: 'Spiritual influence — the faithful recover quickly, and once a turn a dispensation simply refuses an approach.',
     lore: 'The Papal States wield spiritual authority and conservative loyalty, making central Italy as political as it is military.',
     flavor_quote: 'A throne is harder to storm when it claims heaven behind it.',
     home_region_ids: ['italy_central'],
@@ -41,12 +50,17 @@ export const RISORGIMENTO_FACTIONS: Faction[] = [
   {
     faction_id: 'kingdom_naples',
     name: 'Kingdom of the Two Sicilies',
-    description: 'Southern stronghold — +1 defense die; Garibaldi attack bonus is negated in Neapolitan territory.',
+    // The defence die is forbidden, and "Garibaldi attack bonus" is not a
+    // thing: riso_garibaldi is a TECH node granting free influence on neutral
+    // ground, not an attack bonus, and nothing negates it anywhere.
+    description: 'Southern stronghold — the Bourbon south refuses to fall the first time it is taken.',
     lore: 'The Bourbon south is resilient, regional, and wary of northern revolution, relying on stubborn defense and local control.',
     flavor_quote: 'The south does not yield merely because the north arrives with flags.',
     home_region_ids: ['italy_south', 'italy_deep_south'],
     ability_id: 'bourbon_resistance',
-    ability_description: 'Bourbon Resistance: once per game, prevent an enemy from capturing Sicily for one full turn.',
+    // Not Sicily specifically: defenderReactions fires this on the capital OR
+    // any home-region territory, once per game.
+    ability_description: 'Bourbon Resistance: once per game, a capture of your capital or homeland is undone.',
     color: '#d35400',
   },
 ];
