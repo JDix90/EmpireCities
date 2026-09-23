@@ -6,7 +6,10 @@ export const COLDWAR_FACTIONS: Faction[] = [
     faction_id: 'usa_cw',
     lineage_id: 'mercantile',
     name: 'United States',
-    description: 'Global superpower — +1 tech point per ally-adjacent territory; influence ability range extended to 2 hops.',
+    // Neither half was real: there is no tech_point_income on this faction,
+    // and `influence_range` is an ERA_DEFAULTS value of 1 for everyone in this
+    // era, not something the United States extends.
+    description: 'Global superpower — +1 reinforcement per turn, and the Marshall Plan lands a unit wherever the alliance needs one.',
     lore: 'Carrier groups, development aid, and alliance architecture let Washington project power without occupying every frontline directly.',
     flavor_quote: 'Influence the map before the battle begins.',
     home_region_ids: ['north_america_cw'],
@@ -31,7 +34,10 @@ export const COLDWAR_FACTIONS: Faction[] = [
     faction_id: 'china_cw',
     lineage_id: 'bastion',
     name: "People's Republic of China",
-    description: 'Vast army — +2 reinforcements per turn; guerrilla tactics grant +1 defense die in Asia.',
+    // No faction may carry an innate defence die (factionDefense.test.ts), and
+    // there is no region-scoped defence mechanic behind the "in Asia" clause.
+    // One of the eight #397 recorded as still outstanding.
+    description: 'Vast army — +2 reinforcements per turn, and once a game the whole country mobilises at once.',
     lore: 'Revolutionary legitimacy and mass mobilization give China resilience, especially when the fight becomes one of exhaustion.',
     flavor_quote: 'A long war favors the side that can renew itself.',
     home_region_ids: ['east_asia_cw'],
@@ -44,10 +50,32 @@ export const COLDWAR_FACTIONS: Faction[] = [
     faction_id: 'uk_cw',
     lineage_id: 'maritime',
     name: 'United Kingdom',
-    description: 'Nuclear deterrent — if attacked in your capital territory, attacker loses 1 extra unit.',
+    // The old description and the ability disagreed with each other: this said
+    // the attacker loses an extra unit, the ability cancels the attack outright.
+    description: 'Nuclear deterrent and a fleet — +1 reinforcement per turn, an extra attack die, and one attack on the capital that simply does not happen.',
     lore: 'Postwar Britain holds disproportionate leverage through diplomacy, intelligence, and the menace of strategic reprisal.',
     flavor_quote: 'A smaller empire can still cast a long shadow.',
-    home_region_ids: ['nato_europe'],
+    // This faction shared `nato_europe` with the NATO Alliance, the only
+    // shared homeland in the era and the same fault that made ww2's Germany
+    // unplayable in #399: the dealer split the region between them and both
+    // finished last, at 5% and 11% against a 17% fair share. uk_ireland is its
+    // own region on the map now, so the Alliance gets the continent and the
+    // United Kingdom gets the Isles and the West Indies — Jamaica, Trinidad
+    // and the Bahamas were still British for most of this era.
+    //
+    // The Middle East was the more historically apt second home — Suez, the
+    // Gulf, CENTO — and was measured at 6-7%, which is not a playable faction:
+    // it is the most contested region on the board and the seat stayed
+    // fragmented. Latin America reaches 13%.
+    //
+    // It also had NO numeric bonus of any kind and a once-per-GAME reaction,
+    // the thinnest kit measured anywhere. Elimination alone fell from 53% to
+    // 9% on the numbers below, but wins did not move until the seat changed
+    // too — the same split between surviving and winning that parthia showed
+    // in #399.
+    home_region_ids: ['british_isles_cw', 'latin_america'],
+    passive_attack_bonus: 1,
+    reinforce_bonus: 1,
     ability_id: 'nuclear_deterrence',
     ability_description: 'Nuclear Deterrence: once per game, cancel an attack against your capital territory entirely.',
     color: '#e67e22',
@@ -56,10 +84,18 @@ export const COLDWAR_FACTIONS: Faction[] = [
     faction_id: 'decolonization_movement',
     lineage_id: 'insurgent',
     name: 'Non-Aligned Movement',
-    description: 'Guerrilla movements challenge both superpowers — territories you own cannot be influenced (immune to influence_spread).',
+    // The immunity is real, but it described none of what makes this faction
+    // strong: a reinforcement every turn and two free units wherever it was
+    // hit last turn, which is why it was eliminated in 1-5% of games.
+    description: 'Neither bloc\'s to command — +1 reinforcement per turn, two more wherever they were struck last turn, and no influence takes hold here.',
     lore: 'Newly independent states and insurgent movements refuse to become pawns, thriving in the gaps between the blocs.',
     flavor_quote: 'We are not another square on someone else\'s board.',
-    home_region_ids: ['africa_cw', 'south_asia_cw'],
+    // Two whole uncontested regions, nine territories, was the widest claim in
+    // the era and it won 34% against a 17% fair share. South Asia becomes
+    // neutral ground everyone can contest. Trimming alone moved it only three
+    // points — the position was never the whole story, the survivability was —
+    // but it is the half that should not have been free.
+    home_region_ids: ['africa_cw'],
     reinforce_bonus: 1,
     ability_id: 'guerrilla_resistance',
     ability_description: 'Guerrilla Resistance: once per turn, place 2 free units on any border territory that was attacked last turn.',
@@ -69,7 +105,11 @@ export const COLDWAR_FACTIONS: Faction[] = [
     faction_id: 'nato_proxy',
     lineage_id: 'expansionist',
     name: 'NATO Alliance',
-    description: 'Collective defense pact — if any NATO territory is attacked, adjacent NATO territories each add +1 defense die.',
+    // "+1 defense die" on adjacent territories is not a mechanic that exists,
+    // and no faction may carry an innate defence die at all
+    // (factionDefense.test.ts). Article 5 is a defender reaction and always
+    // was. The second of #397's outstanding eight in this era.
+    description: 'Collective defense pact — an attack on any of its territories costs the attacker an extra unit.',
     lore: 'Interoperability, shared planning, and mutual guarantees make NATO strongest when it fights as a network instead of a nation.',
     flavor_quote: 'An attack on one border wakes every garrison.',
     home_region_ids: ['nato_europe'],

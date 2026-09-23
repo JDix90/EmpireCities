@@ -471,12 +471,12 @@ Mechanical bonuses (dice, reinforce numbers) are omitted; these strings are the 
 
 ### `coldwar`
 
-- **United States** — *Global superpower — +1 tech point per ally-adjacent territory; influence ability range extended to 2 hops.* — Ability: *Marshall Plan: once per turn during draft, place 1 free unit on any allied or newly captured territory.*
-- **Soviet Union** — *Iron Curtain — influence ability can target territories within 2 hops; +1 defense die in Eastern Bloc territories.* — Ability: *Iron Curtain: once per turn, fortify up to 4 units to ANY owned territory regardless of path.*
-- **People's Republic of China** — *Vast army — +2 reinforcements per turn; guerrilla tactics grant +1 defense die in Asia.* — Ability: *People's War: once per game, double your reinforcements for one turn.*
-- **United Kingdom** — *Nuclear deterrent — if attacked in your capital territory, attacker loses 1 extra unit.* — Ability: *Nuclear Deterrence: once per game, cancel an attack against your capital territory entirely.*
-- **Non-Aligned Movement** — *Guerrilla movements challenge both superpowers — territories you own cannot be influenced (immune to influence_spread).* — Ability: *Guerrilla Resistance: once per turn, place 2 free units on any border territory that was attacked last turn.*
-- **NATO Alliance** — *Collective defense pact — if any NATO territory is attacked, adjacent NATO territories each add +1 defense die.* — Ability: *Article 5: once per turn, an attack on any of your territories triggers +1 automatic defender loss on the attacker.*
+- **United States** — *Global superpower — +1 reinforcement per turn, and the Marshall Plan lands a unit wherever the alliance needs one.* — Ability: *Marshall Plan: once per turn during draft, place 1 free unit on any allied or newly captured territory.*
+- **Soviet Union** — *Command economy and a hardened perimeter — +1 reinforcement per turn.*
+- **People's Republic of China** — *Vast army — +2 reinforcements per turn, and once a game the whole country mobilises at once.* — Ability: *People's War: once per game, double your reinforcements for one turn.*
+- **United Kingdom** — *Nuclear deterrent and a fleet — +1 reinforcement per turn, an extra attack die, and one attack on the capital that simply does not happen.* — Ability: *Nuclear Deterrence: once per game, cancel an attack against your capital territory entirely.*
+- **Non-Aligned Movement** — *Neither bloc's to command — +1 reinforcement per turn, two more wherever they were struck last turn, and no influence takes hold here.* — Ability: *Guerrilla Resistance: once per turn, place 2 free units on any border territory that was attacked last turn.*
+- **NATO Alliance** — *Collective defense pact — an attack on any of its territories costs the attacker an extra unit.* — Ability: *Article 5: once per turn, an attack on any of your territories triggers +1 automatic defender loss on the attacker.*
 
 ### `modern`
 

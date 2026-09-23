@@ -276,7 +276,7 @@ export const FACTION_CODEX = [
       {
         "faction_id": "usa_cw",
         "name": "United States",
-        "description": "Global superpower — +1 tech point per ally-adjacent territory; influence ability range extended to 2 hops.",
+        "description": "Global superpower — +1 reinforcement per turn, and the Marshall Plan lands a unit wherever the alliance needs one.",
         "lore": "Carrier groups, development aid, and alliance architecture let Washington project power without occupying every frontline directly.",
         "flavor_quote": "Influence the map before the battle begins.",
         "color": "#3498db",
@@ -296,7 +296,7 @@ export const FACTION_CODEX = [
       {
         "faction_id": "china_cw",
         "name": "People's Republic of China",
-        "description": "Vast army — +2 reinforcements per turn; guerrilla tactics grant +1 defense die in Asia.",
+        "description": "Vast army — +2 reinforcements per turn, and once a game the whole country mobilises at once.",
         "lore": "Revolutionary legitimacy and mass mobilization give China resilience, especially when the fight becomes one of exhaustion.",
         "flavor_quote": "A long war favors the side that can renew itself.",
         "color": "#e74c3c",
@@ -306,16 +306,18 @@ export const FACTION_CODEX = [
       {
         "faction_id": "uk_cw",
         "name": "United Kingdom",
-        "description": "Nuclear deterrent — if attacked in your capital territory, attacker loses 1 extra unit.",
+        "description": "Nuclear deterrent and a fleet — +1 reinforcement per turn, an extra attack die, and one attack on the capital that simply does not happen.",
         "lore": "Postwar Britain holds disproportionate leverage through diplomacy, intelligence, and the menace of strategic reprisal.",
         "flavor_quote": "A smaller empire can still cast a long shadow.",
         "color": "#e67e22",
+        "passive_attack_bonus": 1,
+        "reinforce_bonus": 1,
         "ability_description": "Nuclear Deterrence: once per game, cancel an attack against your capital territory entirely."
       },
       {
         "faction_id": "decolonization_movement",
         "name": "Non-Aligned Movement",
-        "description": "Guerrilla movements challenge both superpowers — territories you own cannot be influenced (immune to influence_spread).",
+        "description": "Neither bloc's to command — +1 reinforcement per turn, two more wherever they were struck last turn, and no influence takes hold here.",
         "lore": "Newly independent states and insurgent movements refuse to become pawns, thriving in the gaps between the blocs.",
         "flavor_quote": "We are not another square on someone else's board.",
         "color": "#27ae60",
@@ -325,7 +327,7 @@ export const FACTION_CODEX = [
       {
         "faction_id": "nato_proxy",
         "name": "NATO Alliance",
-        "description": "Collective defense pact — if any NATO territory is attacked, adjacent NATO territories each add +1 defense die.",
+        "description": "Collective defense pact — an attack on any of its territories costs the attacker an extra unit.",
         "lore": "Interoperability, shared planning, and mutual guarantees make NATO strongest when it fights as a network instead of a nation.",
         "flavor_quote": "An attack on one border wakes every garrison.",
         "color": "#9b59b6",

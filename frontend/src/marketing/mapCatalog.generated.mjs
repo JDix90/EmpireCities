@@ -997,7 +997,12 @@ export const ERA_MAPS = {
     "regions": [
       {
         "name": "NATO Europe",
-        "bonus": 6,
+        "bonus": 4,
+        "territory_count": 0
+      },
+      {
+        "name": "British Isles",
+        "bonus": 2,
         "territory_count": 0
       },
       {

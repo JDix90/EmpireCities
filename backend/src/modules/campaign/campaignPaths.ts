@@ -152,7 +152,13 @@ const BLOOD_EMPIRE: CampaignPath = {
       locked_faction: 'usa_cw',
       allowed_victory_conditions: ['domination'],
       ai_factions: ['ussr', 'china_cw', 'decolonization_movement'],
-      ai_difficulty: 'hard',
+      // Medium, not hard. The cold war balance pass gave the NATO Alliance
+      // Europe to itself, and this stage fell to 4% — the lowest of all
+      // eighteen, an outlier rather than a hard stage. Medium puts it at 13%
+      // against the 11% it scored before. Reducing ai_count was not an option:
+      // on a domination stage fewer seats means a slower board and the clock
+      // runs out, measured twice in #400 and #401.
+      ai_difficulty: 'medium',
       ai_count: 4,
       starting_unit_modifier: 0,
       intro_text: 'The bombs ended one war and started another — of influence, proxy, and ideology. You don\'t need to occupy the world. You need to make it depend on you. Dominate the map before the Soviet bloc can harden.',
@@ -269,7 +275,10 @@ const REVOLUTIONARY_FLAME: CampaignPath = {
       locked_faction: 'ussr',
       allowed_victory_conditions: ['domination'],
       ai_factions: ['usa_cw', 'china_cw', 'nato_proxy'],
-      ai_difficulty: 'hard',
+      // Same reason: the Alliance is one of this stage's opponents, and the
+      // stage dropped from 25% to 11%, a dip below the finale that follows it.
+      // Medium restores it to 19% and the path reads as a ramp again.
+      ai_difficulty: 'medium',
       ai_count: 4,
       starting_unit_modifier: 0,
       intro_text: 'The revolution succeeded. Now defend it. Every proxy war, every satellite state is a symptom of revolutionary ideology hardening into a state apparatus. Dominate before the contradictions collapse from within.',
