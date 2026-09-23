@@ -761,17 +761,26 @@ export const DAILY_SET_PIECES: readonly DailySetPiece[] = [
   },
 
   {
+    // The id stays `operation_sea_lion` although the day is no longer that
+    // operation: dailySchedule walks each verb's bucket sorted by id, so
+    // renaming this or moving it to another kind would shift which puzzle
+    // every player sees on every future day. Britain left `western_front` for
+    // its own region when the ww2 balance pass stopped Germany and the UK
+    // sharing a homeland, and a region day's objective has to sit inside its
+    // region — so the Channel crossing cannot be the objective here any more.
+    // It is the flanks instead, with the island still in hostile hands.
     id: 'operation_sea_lion',
     kind: 'region',
     era_id: 'ww2',
     map_id: 'era_ww2',
-    title: 'Operation Sea Lion',
-    intro: 'The continent is yours from Norway to Sicily. Britain and Iberia are not, and the Western Front is not won without them.',
-    hint: 'Two crossings, two capped-dice fights. Take the one you can hold, then the other.',
+    title: 'Fortress Europe',
+    intro: 'The continent is yours from the Atlantic wall to the Alps. The flanks are not — Iberia holds the strait, Norway the northern sea — and Britain is still there across the Channel.',
+    hint: 'Both flanks are land borders, so neither fight is capped. Iberia first: it is the one that closes a sea.',
     region_id: 'western_front',
-    human: ['germany', 'france_ww2', 'italy_ww2', 'scandinavia_ww2'],
-    ai: ['britain_ww2', 'iberia_ww2'],
+    human: ['germany', 'france_ww2', 'italy_ww2'],
+    ai: ['iberia_ww2', 'scandinavia_ww2'],
     support: 'eastern_europe_ww2',
+    extra_ai: ['britain_ww2'],
   },
   {
     id: 'mare_nostrum',

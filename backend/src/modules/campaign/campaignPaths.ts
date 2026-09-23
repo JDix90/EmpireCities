@@ -389,9 +389,16 @@ const LAST_DEFENDERS: CampaignPath = {
       allowed_victory_conditions: ['threshold'],
       victory_threshold: 55,
       max_turns: 30,
-      ai_factions: ['germany', 'japan', 'china_ww2'],
+      // Two besiegers, not three, for the same reason as this path's medieval
+      // stage: the two are the ones the stage's own text has doing something.
+      // Britain alone in 1940 is not fighting Nationalist China. This stage was
+      // winnable at 24% only because the UK's homeland used to span Britain AND
+      // all of continental western Europe, which is what left Germany sharing
+      // its own homeland and unplayable; with the UK moved to its island and
+      // its real theatres, three expert seats took it to 4%. Two put it at 21%.
+      ai_factions: ['germany', 'japan'],
       ai_difficulty: 'expert',
-      ai_count: 3,
+      ai_count: 2,
       starting_unit_modifier: -5,
       intro_text: 'Dunkirk is over. France is gone. The Luftwaffe is assembling. You hold an island, a navy, and the stubborn conviction that this is not over. The USA has not yet entered the war. Hold 55% of the map — your island, North Africa, and whatever remains of the Commonwealth lifelines — or lead it when the thirtieth turn ends.',
       outro_win_text: 'Britain stands alone and standing is enough. The Allies will come. Survivor Bonus grows from the knowledge that holding is a form of winning.',

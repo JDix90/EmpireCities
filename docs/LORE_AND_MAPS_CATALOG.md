@@ -466,7 +466,7 @@ Mechanical bonuses (dice, reinforce numbers) are omitted; these strings are the 
 - **Soviet Union** — *Vast reserves — +2 reinforcements per turn, and once per game a mass mobilisation places five extra units.* — Ability: *Mass Mobilization: once per game, place 5 extra units on any owned territory.*
 - **United States** — *Industrial supremacy — +1 reinforcement per turn; where research is in play, the Arsenal of Democracy turns it into materiel.* — Ability: *Arsenal of Democracy: once per turn during draft, spend 5 production points to place 3 extra units.*
 - **United Kingdom** — *Island fortress and global empire — +1 defense die; sea-lane fortify is free.* — Ability: *Commonwealth: once per turn, reinforce any owned territory from another owned territory via sea at no movement cost.*
-- **Imperial Japan** — *Pacific supremacy — +1 attack die on every assault, and a banzai charge adds another once per turn.* — Ability: *Banzai Charge: once per turn, one attack exchange uses 4 attack dice (maximum).*
+- **Imperial Japan** — *Pacific supremacy — +1 reinforcement per turn, and a banzai charge turns one assault a turn overwhelming.* — Ability: *Banzai Charge: once per turn, one attack exchange uses 4 attack dice (maximum).*
 - **Chinese Nationalists** — *Guerrilla resistance — once per turn, a hidden reserve places a free unit on ground you hold.* — Ability: *Guerrilla Warfare: once per turn, place 1 unit on any owned territory for free.*
 
 ### `coldwar`
