@@ -16,7 +16,7 @@ export const FACTION_CODEX = [
       {
         "faction_id": "rome",
         "name": "Roman Republic",
-        "description": "Disciplined legions re-roll their lowest attack die and receive extra reinforcements from Italic territory.",
+        "description": "Disciplined legions — +1 reinforcement per turn, and one assault each turn costs Rome nothing.",
         "lore": "A republic forged through citizen armies, road networks, and relentless campaigning, Rome expands by turning conquest into administration.",
         "flavor_quote": "The Senate debates. The legions decide.",
         "color": "#c0392b",
@@ -28,7 +28,7 @@ export const FACTION_CODEX = [
       {
         "faction_id": "parthia",
         "name": "Parthian Empire",
-        "description": "Mounted archers force attackers into the attack phase with one fewer attack die when assaulting Parthian territories.",
+        "description": "Mounted archers — whenever an attacker takes Parthian ground, the Parthian shot costs them one more unit.",
         "lore": "Ruling the Iranian plateau from horseback and caravan city alike, Parthia bleeds invaders with mobility rather than static walls.",
         "flavor_quote": "Strike, vanish, and let the desert finish the rest.",
         "color": "#8e44ad",
@@ -47,7 +47,7 @@ export const FACTION_CODEX = [
       {
         "faction_id": "maurya",
         "name": "Maurya Empire",
-        "description": "War elephants add +1 attack die when assaulting territories with 3 or fewer defenders.",
+        "description": "War elephants — +1 attack die on every assault, and a second die once per turn.",
         "lore": "From the Ganges heartland, Mauryan rulers project authority through elephant corps, tax officials, and a centralized imperial court.",
         "flavor_quote": "When the elephants move, kingdoms tremble.",
         "color": "#27ae60",
@@ -65,7 +65,7 @@ export const FACTION_CODEX = [
       {
         "faction_id": "germanic_tribes",
         "name": "Germanic Tribes",
-        "description": "Fierce forest fighters — +1 defense die on all defense rolls.",
+        "description": "Fierce forest fighters — one ambush each turn adds an attack die.",
         "lore": "Loose confederations of war bands and chieftains know every forest trail and river crossing, punishing empires that overextend.",
         "flavor_quote": "The woods are our walls.",
         "color": "#7f8c8d",
@@ -220,7 +220,7 @@ export const FACTION_CODEX = [
       {
         "faction_id": "soviet_union",
         "name": "Soviet Union",
-        "description": "Vast reserves — +2 reinforcements per turn; wartime_logistics allows 3 fortify moves.",
+        "description": "Vast reserves — +2 reinforcements per turn, and once per game a mass mobilisation places five extra units.",
         "lore": "Factories beyond the Urals and endless manpower let the Soviet state trade land for time and return with crushing mass.",
         "flavor_quote": "If the first line falls, build a second behind it.",
         "color": "#c0392b",
@@ -230,7 +230,7 @@ export const FACTION_CODEX = [
       {
         "faction_id": "usa",
         "name": "United States",
-        "description": "Industrial supremacy — +1 production unit from every owned territory per turn.",
+        "description": "Industrial supremacy — +1 reinforcement per turn; where research is in play, the Arsenal of Democracy turns it into materiel.",
         "lore": "Protected by oceans and powered by industry, the United States converts economic depth into global military reach.",
         "flavor_quote": "Assembly lines win wars long before the landing craft arrive.",
         "color": "#3498db",
@@ -249,7 +249,7 @@ export const FACTION_CODEX = [
       {
         "faction_id": "japan",
         "name": "Imperial Japan",
-        "description": "Pacific supremacy — sea-lane attacks use 3 dice; +1 attack die in Pacific or Asia regions.",
+        "description": "Pacific supremacy — +1 attack die on every assault, and a banzai charge adds another once per turn.",
         "lore": "Fast carrier warfare and aggressive expansion define Japan at its peak, where initiative matters more than margin for error.",
         "flavor_quote": "In the first storm of war, strike farther than they thought possible.",
         "color": "#e67e22",
@@ -259,7 +259,7 @@ export const FACTION_CODEX = [
       {
         "faction_id": "china_ww2",
         "name": "Chinese Nationalists",
-        "description": "Guerrilla resistance — +1 defense die; can spend production to place hidden reserve units.",
+        "description": "Guerrilla resistance — once per turn, a hidden reserve places a free unit on ground you hold.",
         "lore": "Fighting across fractured provinces, Chinese resistance depends on endurance, local knowledge, and refusing decisive collapse.",
         "flavor_quote": "Hold long enough, and the invader begins fighting the land itself.",
         "color": "#27ae60",

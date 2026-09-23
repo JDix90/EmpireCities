@@ -6,7 +6,10 @@ export const ANCIENT_FACTIONS: Faction[] = [
     faction_id: 'rome',
     lineage_id: 'imperial',
     name: 'Roman Republic',
-    description: 'Disciplined legions re-roll their lowest attack die and receive extra reinforcements from Italic territory.',
+    // Copy fix, no balance change: Testudo negates the attacker's losses for
+    // one assault, it is not a re-roll, and the reinforcement is flat rather
+    // than conditional on Italic ground.
+    description: 'Disciplined legions — +1 reinforcement per turn, and one assault each turn costs Rome nothing.',
     lore: 'A republic forged through citizen armies, road networks, and relentless campaigning, Rome expands by turning conquest into administration.',
     flavor_quote: 'The Senate debates. The legions decide.',
     home_region_ids: ['roman_west'],
@@ -21,7 +24,10 @@ export const ANCIENT_FACTIONS: Faction[] = [
     faction_id: 'parthia',
     lineage_id: 'bastion',
     name: 'Parthian Empire',
-    description: 'Mounted archers force attackers into the attack phase with one fewer attack die when assaulting Parthian territories.',
+    // Copy fix, no balance change: the Parthian Shot costs an attacker an
+    // extra unit when they take Parthian ground. It has never removed an
+    // attack die, and it is not scoped to Parthian territory.
+    description: 'Mounted archers — whenever an attacker takes Parthian ground, the Parthian shot costs them one more unit.',
     lore: 'Ruling the Iranian plateau from horseback and caravan city alike, Parthia bleeds invaders with mobility rather than static walls.',
     flavor_quote: 'Strike, vanish, and let the desert finish the rest.',
     home_region_ids: ['parthia'],
@@ -46,7 +52,11 @@ export const ANCIENT_FACTIONS: Faction[] = [
     faction_id: 'maurya',
     lineage_id: 'expansionist',
     name: 'Maurya Empire',
-    description: 'War elephants add +1 attack die when assaulting territories with 3 or fewer defenders.',
+    // Copy fix, no balance change: the attack die is unconditional, and War
+    // Elephants adds a second one once per turn. Whether it SHOULD be
+    // conditional is a live question — see the era balance notes — but the
+    // description has to match what the code does meanwhile.
+    description: 'War elephants — +1 attack die on every assault, and a second die once per turn.',
     lore: 'From the Ganges heartland, Mauryan rulers project authority through elephant corps, tax officials, and a centralized imperial court.',
     flavor_quote: 'When the elephants move, kingdoms tremble.',
     home_region_ids: ['india'],
@@ -69,7 +79,10 @@ export const ANCIENT_FACTIONS: Faction[] = [
     faction_id: 'germanic_tribes',
     lineage_id: 'insurgent',
     name: 'Germanic Tribes',
-    description: 'Fierce forest fighters — +1 defense die on all defense rolls.',
+    // Copy fix, no balance change: this promised an innate defence die, which
+    // no faction may have (factionDefense.test.ts). Ambush is an attack-phase
+    // self-buff and always has been.
+    description: 'Fierce forest fighters — one ambush each turn adds an attack die.',
     lore: 'Loose confederations of war bands and chieftains know every forest trail and river crossing, punishing empires that overextend.',
     flavor_quote: 'The woods are our walls.',
     home_region_ids: ['germanic', 'steppe'],
