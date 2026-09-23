@@ -31,7 +31,7 @@
         158,
         70
       ],
-      "region_id": "nato_europe"
+      "region_id": "british_isles_cw"
     },
     {
       "territory_id": "france_benelux",
@@ -1537,7 +1537,12 @@
     {
       "region_id": "nato_europe",
       "name": "NATO Europe",
-      "bonus": 6
+      "bonus": 4
+    },
+    {
+      "region_id": "british_isles_cw",
+      "name": "British Isles",
+      "bonus": 2
     },
     {
       "region_id": "warsaw_pact",
