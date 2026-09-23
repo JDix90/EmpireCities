@@ -167,10 +167,11 @@ export const FACTION_CODEX = [
       {
         "faction_id": "ottoman",
         "name": "Ottoman Empire",
-        "description": "Straddling east and west — +2 reinforcements per turn from controlling the mediterranean sea_routes region.",
+        "description": "Straddling east and west — +2 reinforcements per turn, and an extra attack die on every assault.",
         "lore": "From the Balkans to Arabia, Ottoman rule merges disciplined corps and strategic chokepoints into a continental hinge.",
         "flavor_quote": "Hold the straits, and empires must knock at your door.",
         "color": "#d35400",
+        "passive_attack_bonus": 1,
         "reinforce_bonus": 2,
         "ability_description": "Janissaries: once per turn, defend with 3 dice regardless of garrison size."
       },
@@ -197,11 +198,12 @@ export const FACTION_CODEX = [
       {
         "faction_id": "mughal",
         "name": "Mughal Empire",
-        "description": "Rich subcontinent — generates +3 extra tech points per turn.",
+        "description": "Rich subcontinent — the spice caravans fund two extra reinforcements each turn, and gunpowder armies press with an extra attack die.",
         "lore": "Courtly wealth, gunpowder armies, and a mosaic of provinces make the Mughals formidable when prosperity is protected.",
         "flavor_quote": "Splendor is strongest when backed by cannon.",
         "color": "#9b59b6",
-        "ability_description": "Spice Trade: once per turn, exchange 5 tech points for 2 extra reinforcements."
+        "passive_attack_bonus": 1,
+        "ability_description": "Spice Trade: once per turn, the caravans deliver 2 extra reinforcements."
       }
     ]
   },

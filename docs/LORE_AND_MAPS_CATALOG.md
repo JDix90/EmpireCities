@@ -455,10 +455,10 @@ Mechanical bonuses (dice, reinforce numbers) are omitted; these strings are the 
 
 - **Spanish Empire** — *Conquistadors press the advantage — +1 attack die when attacking territories in the Americas or Africa.* — Ability: *Conquistador: once per turn, capture a territory with 1 or 2 defenders without rolling dice (auto-capture, costs 2 of your units).*
 - **Portuguese Empire** — *Masters of the sea — sea_lanes connections allow 3 attack dice (normally 2) and free sea-lane fortify moves.* — Ability: *Naval Charts: your sea_lanes attacks use the full 3 dice cap instead of the era-limited 2.*
-- **Ottoman Empire** — *Straddling east and west — +2 reinforcements per turn from controlling the mediterranean sea_routes region.* — Ability: *Janissaries: once per turn, defend with 3 dice regardless of garrison size.*
+- **Ottoman Empire** — *Straddling east and west — +2 reinforcements per turn, and an extra attack die on every assault.* — Ability: *Janissaries: once per turn, defend with 3 dice regardless of garrison size.*
 - **English Crown** — *Privateers and merchant adventurers — +1 tech point per sea territory owned.* — Ability: *Privateer: once per turn, steal 1 production unit from an adjacent enemy coastal territory.*
 - **Ming Dynasty** — *Vast population and the Great Wall — +1 defense die in Asian territories.* — Ability: *Great Wall: once per turn, prevent one attack from resolving (the attacker's turn is wasted).*
-- **Mughal Empire** — *Rich subcontinent — generates +3 extra tech points per turn.* — Ability: *Spice Trade: once per turn, exchange 5 tech points for 2 extra reinforcements.*
+- **Mughal Empire** — *Rich subcontinent — the spice caravans fund two extra reinforcements each turn, and gunpowder armies press with an extra attack die.* — Ability: *Spice Trade: once per turn, the caravans deliver 2 extra reinforcements.*
 
 ### `ww2`
 

@@ -878,7 +878,7 @@ export const ERA_MAPS = {
       },
       {
         "name": "Mughal India",
-        "bonus": 3,
+        "bonus": 5,
         "territory_count": 0
       },
       {
