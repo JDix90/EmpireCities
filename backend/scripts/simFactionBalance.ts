@@ -26,6 +26,22 @@
  * The stand-in is a medium bot, so results rank factions against each other —
  * they do not predict what a person scores.
  *
+ * WHAT THIS HARNESS CANNOT SEE, so a faction whose identity lives here reads
+ * weaker than it plays:
+ *
+ *  - Abilities with a bespoke handler in gameSocket and no
+ *    TERRITORY_ABILITY_DEFS entry. `blitzkrieg` (ww2 Germany) is the live case:
+ *    it is a socket state machine over `blitzkrieg_bonus_attacks_remaining`,
+ *    and nothing here fires it.
+ *  - Fortify-phase abilities. The loop applies every planned fortify move and
+ *    enforces no per-turn limit, so `armored_push` (modern Eastern Bloc), which
+ *    grants an extra move, has nothing to grant.
+ *  - Anything gated on a system left off: tech trees, economy and stability are
+ *    off unless SIM_TECH / SIM_ECONOMY say otherwise, which is the default a
+ *    normal game and every campaign stage runs under. That is a real measure of
+ *    the default game, not a harness flaw — but a tech-costed ability reads as
+ *    no ability at all, which is the point.
+ *
  * Run (from backend/):
  *   pnpm exec tsx scripts/simFactionBalance.ts
  *   SIM_ERA=medieval SIM_GAMES=300 pnpm exec tsx scripts/simFactionBalance.ts
@@ -89,6 +105,11 @@ const map = JSON.parse(
   readFileSync(join(__dirname, '../../database/maps', `${MAP_ID}.json`), 'utf-8'),
 ) as GameMap;
 const SEATS = factions.length;
+/**
+ * Widest faction id plus a gap. Hard-coding this ran the columns together on
+ * `decolonization_movement`, which is 23 characters.
+ */
+const NAME_W = Math.max(18, ...factions.map((f) => f.faction_id.length + 2));
 
 function simSettings(): GameSettings {
   return {
@@ -296,14 +317,14 @@ function reportDeal(): void {
   }
   console.log(`${MAP_ID} (${ERA}) · ${SEATS} seats · ${GAMES} deals · ${map.territories.length} territories\n`);
   console.log(
-    `${'faction'.padEnd(18)}${'home region'.padEnd(18)}${'size'.padEnd(6)}`
+    `${'faction'.padEnd(NAME_W)}${'home region'.padEnd(18)}${'size'.padEnd(6)}`
     + `${'territories'.padEnd(13)}${'units'.padEnd(8)}${'in home'.padEnd(9)}draft/turn`,
   );
   for (const f of factions) {
     const terr = mean(territories.get(f.faction_id)!);
     const homeSize = f.home_region_ids.reduce((s, r) => s + (regionSize.get(r) ?? 0), 0);
     console.log(
-      f.faction_id.padEnd(18)
+      f.faction_id.padEnd(NAME_W)
       + (f.home_region_ids[0] ?? '-').padEnd(18)
       + String(homeSize).padEnd(6)
       + terr.toFixed(1).padEnd(13)
@@ -401,20 +422,20 @@ async function main(): Promise<void> {
     }))
     .sort((a, b) => b.win - a.win);
   for (const r of rows) {
-    console.log(`  ${r.id.padEnd(18)}win ${String(r.win).padStart(3)}%   eliminated ${String(r.dead).padStart(3)}%`);
+    console.log(`  ${r.id.padEnd(NAME_W)}win ${String(r.win).padStart(3)}%   eliminated ${String(r.dead).padStart(3)}%`);
   }
   const spread = (rows[0]?.win ?? 0) - (rows[rows.length - 1]?.win ?? 0);
   console.log(`  spread ${spread} points (best ${rows[0]?.id}, worst ${rows[rows.length - 1]?.id})`);
 
   if (TRACE) {
     console.log(
-      `\n  ${'faction'.padEnd(18)}${'terr@3'.padEnd(9)}${'terr@6'.padEnd(9)}`
+      `\n  ${'faction'.padEnd(NAME_W)}${'terr@3'.padEnd(9)}${'terr@6'.padEnd(9)}`
       + `${'terr@10'.padEnd(9)}${'tiles lost'.padEnd(12)}died turn`,
     );
     for (const r of rows) {
       const t = tally.get(r.id)!;
       console.log(
-        `  ${r.id.padEnd(18)}${mean(t.marks[3]!).toFixed(1).padEnd(9)}${mean(t.marks[6]!).toFixed(1).padEnd(9)}`
+        `  ${r.id.padEnd(NAME_W)}${mean(t.marks[3]!).toFixed(1).padEnd(9)}${mean(t.marks[6]!).toFixed(1).padEnd(9)}`
         + `${mean(t.marks[10]!).toFixed(1).padEnd(9)}${mean(t.tilesLost).toFixed(1).padEnd(12)}`
         + (t.deathTurn.length ? mean(t.deathTurn).toFixed(0) : '-'),
       );
