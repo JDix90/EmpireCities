@@ -98,7 +98,12 @@ for (const clause of (process.env.SIM_PATCH ?? '').split(';').map((c) => c.trim(
   const target = factions.find((f) => f.faction_id === factionId) as Record<string, unknown> | undefined;
   if (!target || !field) throw new Error(`SIM_PATCH: cannot resolve "${clause}"`);
   if (rhs === 'null') delete target[field];
-  else target[field] = rhs != null && rhs !== '' && !Number.isNaN(Number(rhs)) ? Number(rhs) : rhs;
+  else if (rhs?.startsWith('[') && rhs.endsWith(']')) {
+    // Array form, for list fields — `home_region_ids=[parthia,india]`. Swapping
+    // two factions' home regions is how you tell a kit problem from a position
+    // problem, and that question decides what a balance pass should change.
+    target[field] = rhs.slice(1, -1).split(',').map((v) => v.trim()).filter(Boolean);
+  } else target[field] = rhs != null && rhs !== '' && !Number.isNaN(Number(rhs)) ? Number(rhs) : rhs;
 }
 
 const map = JSON.parse(

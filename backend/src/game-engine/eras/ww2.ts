@@ -19,7 +19,9 @@ export const WW2_FACTIONS: Faction[] = [
     faction_id: 'soviet_union',
     lineage_id: 'insurgent',
     name: 'Soviet Union',
-    description: 'Vast reserves — +2 reinforcements per turn; wartime_logistics allows 3 fortify moves.',
+    // Copy fix, no balance change: wartime_logistics is a tech node, not this
+    // faction's ability. Mass Mobilization is, and it is once per game.
+    description: 'Vast reserves — +2 reinforcements per turn, and once per game a mass mobilisation places five extra units.',
     lore: 'Factories beyond the Urals and endless manpower let the Soviet state trade land for time and return with crushing mass.',
     flavor_quote: 'If the first line falls, build a second behind it.',
     home_region_ids: ['eastern_front'],
@@ -32,7 +34,11 @@ export const WW2_FACTIONS: Faction[] = [
     faction_id: 'usa',
     lineage_id: 'mercantile',
     name: 'United States',
-    description: 'Industrial supremacy — +1 production unit from every owned territory per turn.',
+    // Copy fix, no balance change: there is no per-territory production here.
+    // The passive is a flat reinforcement, and the Arsenal is tech-costed, so
+    // it does nothing at all in a game with tech trees off — which is the
+    // default, and every campaign stage.
+    description: 'Industrial supremacy — +1 reinforcement per turn; where research is in play, the Arsenal of Democracy turns it into materiel.',
     lore: 'Protected by oceans and powered by industry, the United States converts economic depth into global military reach.',
     flavor_quote: 'Assembly lines win wars long before the landing craft arrive.',
     home_region_ids: ['atlantic_th'],
@@ -56,7 +62,13 @@ export const WW2_FACTIONS: Faction[] = [
     faction_id: 'japan',
     lineage_id: 'expansionist',
     name: 'Imperial Japan',
-    description: 'Pacific supremacy — sea-lane attacks use 3 dice; +1 attack die in Pacific or Asia regions.',
+    // Copy fix, no balance change, and the most misleading of the set: the
+    // attack die is UNCONDITIONAL, not regional, and no faction but Portugal
+    // raises the sea-lane dice cap (see Naval Charts in combatModifiers).
+    // Japan measures as the strongest seat in the era, and this description
+    // was hiding why. Whether the bonus should become regional as written is
+    // a balance question, not a copy one.
+    description: 'Pacific supremacy — +1 attack die on every assault, and a banzai charge adds another once per turn.',
     lore: 'Fast carrier warfare and aggressive expansion define Japan at its peak, where initiative matters more than margin for error.',
     flavor_quote: 'In the first storm of war, strike farther than they thought possible.',
     home_region_ids: ['pacific_theatre'],
@@ -69,7 +81,10 @@ export const WW2_FACTIONS: Faction[] = [
     faction_id: 'china_ww2',
     lineage_id: 'bastion',
     name: 'Chinese Nationalists',
-    description: 'Guerrilla resistance — +1 defense die; can spend production to place hidden reserve units.',
+    // Copy fix, no balance change: another innate defence die that cannot
+    // exist, and the reserve costs nothing — Guerrilla Warfare places one
+    // free unit on ground you already hold.
+    description: 'Guerrilla resistance — once per turn, a hidden reserve places a free unit on ground you hold.',
     lore: 'Fighting across fractured provinces, Chinese resistance depends on endurance, local knowledge, and refusing decisive collapse.',
     flavor_quote: 'Hold long enough, and the invader begins fighting the land itself.',
     home_region_ids: ['china_theatre'],
