@@ -54,7 +54,16 @@ export const WW2_FACTIONS: Faction[] = [
     description: 'Island fortress and global empire — recovers stability quickly in contested ground.',
     lore: 'Britain survives through naval control, imperial links, and the stubborn advantage of making every approach expensive.',
     flavor_quote: 'Rule the routes, and the island cannot be isolated.',
-    home_region_ids: ['western_front', 'north_africa_th'],
+    // Britain is an island and was sitting inside the continental Western
+    // Front, which made this the only shared homeland in the era: the dealer
+    // split western_front between the UK and Germany, so Germany opened in 2.3
+    // separate blocks against 4.5 different enemies and was eliminated in 79%
+    // of games. britain_ww2 is now its own region on the map, so the UK keeps
+    // the island its stages are written around and Germany gets the continent.
+    // The Middle East joins North Africa because losing the continent costs the
+    // UK five territories of preferred ground, and it was the British theatre
+    // in 1940-42 besides. Nobody else claims it.
+    home_region_ids: ['british_isles', 'north_africa_th', 'middle_east_th'],
     color: '#e74c3c',
     stability_recovery_bonus: 3,
   },
@@ -62,17 +71,20 @@ export const WW2_FACTIONS: Faction[] = [
     faction_id: 'japan',
     lineage_id: 'expansionist',
     name: 'Imperial Japan',
-    // Copy fix, no balance change, and the most misleading of the set: the
-    // attack die is UNCONDITIONAL, not regional, and no faction but Portugal
-    // raises the sea-lane dice cap (see Naval Charts in combatModifiers).
-    // Japan measures as the strongest seat in the era, and this description
-    // was hiding why. Whether the bonus should become regional as written is
-    // a balance question, not a copy one.
-    description: 'Pacific supremacy — +1 attack die on every assault, and a banzai charge adds another once per turn.',
+    // The unconditional attack die #397 uncovered is gone. An attack die
+    // compounds — captures buy territory, territory buys reinforcements, and
+    // those buy more captures — which is how one die made Japan a 37% seat
+    // against a 17% fair share while Germany held the identical passive and
+    // won 6%. A reinforcement is linear, so it pays for the same fleet without
+    // running away with the era: this trade alone closed the spread from 31
+    // points to 6. Scoping the die to sea lanes instead was measured too and
+    // left Japan at 29% — the board is oceanic enough that "sea only" is
+    // barely a condition.
+    description: 'Pacific supremacy — +1 reinforcement per turn, and a banzai charge turns one assault a turn overwhelming.',
     lore: 'Fast carrier warfare and aggressive expansion define Japan at its peak, where initiative matters more than margin for error.',
     flavor_quote: 'In the first storm of war, strike farther than they thought possible.',
     home_region_ids: ['pacific_theatre'],
-    passive_attack_bonus: 1,
+    reinforce_bonus: 1,
     ability_id: 'banzai_charge',
     ability_description: 'Banzai Charge: once per turn, one attack exchange uses 4 attack dice (maximum).',
     color: '#e67e22',

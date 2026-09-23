@@ -30,9 +30,10 @@
  * weaker than it plays:
  *
  *  - Abilities with a bespoke handler in gameSocket and no
- *    TERRITORY_ABILITY_DEFS entry. `blitzkrieg` (ww2 Germany) is the live case:
- *    it is a socket state machine over `blitzkrieg_bonus_attacks_remaining`,
- *    and nothing here fires it.
+ *    TERRITORY_ABILITY_DEFS entry. `blitzkrieg` (ww2 Germany) was the live
+ *    case — it is a socket state machine over
+ *    `blitzkrieg_bonus_attacks_remaining` — and is now mirrored in the attack
+ *    loop below. Any future bespoke handler is invisible again until it is.
  *  - Fortify-phase abilities. The loop applies every planned fortify move and
  *    enforces no per-turn limit, so `armored_push` (modern Eastern Bloc), which
  *    grants an extra move, has nothing to grant.
@@ -247,6 +248,18 @@ async function playAiTurn(
   state.phase = 'attack';
   fireFactionAbility(state, map, pid, 'attack', plan);
   const budget = { left: aiAttackExchangeBudget('medium', false) };
+  // Blitzkrieg has no TERRITORY_ABILITY_DEFS entry — it is a state machine in
+  // gameSocket over `blitzkrieg_bonus_attacks_remaining`, so fireFactionAbility
+  // cannot reach it and Germany measured as a faction with no ability at all.
+  // What the socket grants is one free follow-up attack after a capture, once
+  // per turn; one extra exchange after this turn's first capture is that, to
+  // the resolution this loop has. It is an approximation in one direction only:
+  // the live bonus attack must come FROM the captured territory, while the
+  // budget here is spent on whatever the planner ranked next, so a faction
+  // measured this way reads no weaker than it plays.
+  const blitzPlayer = state.players.find((p) => p.player_id === pid);
+  const blitzAbility = blitzPlayer ? getPlayerFaction(state, blitzPlayer)?.ability_id : undefined;
+  let blitzLeft = blitzAbility === 'double_blitz' ? 2 : blitzAbility === 'blitzkrieg' ? 1 : 0;
   for (const action of plan) {
     if (action.type !== 'attack' || !action.from || !action.to || action.from === '__influence__') continue;
     const fromId = action.from;
@@ -263,6 +276,10 @@ async function playAiTurn(
       canGrind: connection?.type !== 'sea',
       exchange: () => (executeLandAttack(state, pid, fromId, toId, { dieRoll, connection }) ? 'ok' : 'stop'),
     });
+    if (blitzLeft > 0 && state.territories[toId]?.owner_id === pid) {
+      budget.left += 1;
+      blitzLeft -= 1;
+    }
     if (budget.left <= 0) break;
   }
 

@@ -24,13 +24,26 @@ export const ANCIENT_FACTIONS: Faction[] = [
     faction_id: 'parthia',
     lineage_id: 'bastion',
     name: 'Parthian Empire',
-    // Copy fix, no balance change: the Parthian Shot costs an attacker an
-    // extra unit when they take Parthian ground. It has never removed an
-    // attack die, and it is not scoped to Parthian territory.
-    description: 'Mounted archers — whenever an attacker takes Parthian ground, the Parthian shot costs them one more unit.',
+    // The Parthian Shot costs an attacker an extra unit when they take
+    // Parthian ground. It has never removed an attack die, and it is not
+    // scoped to Parthian territory, whatever this description claimed before.
+    description: 'Caravan cities pay for the frontier: +3 reinforcements each turn, and anyone who takes Parthian ground loses an extra unit on the way in.',
     lore: 'Ruling the Iranian plateau from horseback and caravan city alike, Parthia bleeds invaders with mobility rather than static walls.',
     flavor_quote: 'Strike, vanish, and let the desert finish the rest.',
     home_region_ids: ['parthia'],
+    // Parthia is the most boxed-in seat in the game: it opens with 0.3
+    // uncontested neutral tiles against 3.0-4.5 for every other faction, and
+    // four rival homelands on its border. Reinforcements scale with territory
+    // count, so a faction that cannot expand cannot out-earn anyone — which is
+    // why attack dice never lifted it off the floor and income did.
+    //
+    // 4 balanced the era better (spread 25 against 33) and is not shippable: an
+    // AI does not need to play well to spend reinforcements, so an AI Parthia
+    // at 4 went from opponent to executioner. It cut the player's win rate on
+    // The Last Defenders' opening stage from 12% to 5% and eliminated them
+    // outright in a fifth of the games it won. 3 costs three points of spread
+    // and leaves that stage inside its own seed-to-seed variance.
+    reinforce_bonus: 3,
     ability_id: 'parting_shot',
     ability_description: 'Parting Shot: after losing a territory, immediately deal 1 unit loss to the attacker.',
     color: '#8e44ad',
@@ -85,7 +98,11 @@ export const ANCIENT_FACTIONS: Faction[] = [
     description: 'Fierce forest fighters — one ambush each turn adds an attack die.',
     lore: 'Loose confederations of war bands and chieftains know every forest trail and river crossing, punishing empires that overextend.',
     flavor_quote: 'The woods are our walls.',
-    home_region_ids: ['germanic', 'steppe'],
+    // The steppe was never theirs — it belongs to horse nomads, and claiming it
+    // smeared this faction from Gaul to Manchuria across a front it could not
+    // hold. Scandinavia and the Volga are the Germanic and Gothic world, and
+    // they join Germania into one northern block.
+    home_region_ids: ['germanic', 'northern_frontier'],
     reinforce_bonus: 0,
     ability_id: 'ambush',
     ability_description: 'Ambush: once per turn, attack from a border territory using 1 extra die.',

@@ -31,7 +31,7 @@
         160,
         70
       ],
-      "region_id": "western_front"
+      "region_id": "british_isles"
     },
     {
       "territory_id": "france_ww2",
@@ -1227,7 +1227,12 @@
     {
       "region_id": "western_front",
       "name": "Western Front",
-      "bonus": 5
+      "bonus": 4
+    },
+    {
+      "region_id": "british_isles",
+      "name": "British Isles",
+      "bonus": 2
     },
     {
       "region_id": "eastern_front",

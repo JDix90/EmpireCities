@@ -196,9 +196,15 @@ const REVOLUTIONARY_FLAME: CampaignPath = {
       map_id: 'era_ancient',
       locked_faction: 'rome',
       allowed_victory_conditions: ['secret_mission'],
-      ai_factions: ['parthia', 'germanic_tribes', 'carthage'],
+      // Two openers, not three. The ancient balance pass gave the Germanic
+      // tribes a homeland they can hold, which is worth about nine points to
+      // whoever plays them — here that is the opposition, and this stage fell
+      // from 44% to 26% on it. Dropping the third seat put it back at 44%.
+      // The stage's own text names no faction, so which three was never the
+      // point; how many of them open on the player is.
+      ai_factions: ['parthia', 'germanic_tribes'],
       ai_difficulty: 'easy',
-      ai_count: 3,
+      ai_count: 2,
       starting_unit_modifier: 0,
       intro_text: 'Rome is a republic, not yet an empire, and the Senate is a battlefield of factions. Foreign powers probe the borders. Your mission is not conquest — hold the regions that define Roman identity and demonstrate governance where tyrants only demand tribute.',
       outro_win_text: 'The Republic\'s institutions hold. Revolutionary Spirit ignites: the model of citizen governance will echo through history.',
@@ -383,9 +389,16 @@ const LAST_DEFENDERS: CampaignPath = {
       allowed_victory_conditions: ['threshold'],
       victory_threshold: 55,
       max_turns: 30,
-      ai_factions: ['germany', 'japan', 'china_ww2'],
+      // Two besiegers, not three, for the same reason as this path's medieval
+      // stage: the two are the ones the stage's own text has doing something.
+      // Britain alone in 1940 is not fighting Nationalist China. This stage was
+      // winnable at 24% only because the UK's homeland used to span Britain AND
+      // all of continental western Europe, which is what left Germany sharing
+      // its own homeland and unplayable; with the UK moved to its island and
+      // its real theatres, three expert seats took it to 4%. Two put it at 21%.
+      ai_factions: ['germany', 'japan'],
       ai_difficulty: 'expert',
-      ai_count: 3,
+      ai_count: 2,
       starting_unit_modifier: -5,
       intro_text: 'Dunkirk is over. France is gone. The Luftwaffe is assembling. You hold an island, a navy, and the stubborn conviction that this is not over. The USA has not yet entered the war. Hold 55% of the map — your island, North Africa, and whatever remains of the Commonwealth lifelines — or lead it when the thirtieth turn ends.',
       outro_win_text: 'Britain stands alone and standing is enough. The Allies will come. Survivor Bonus grows from the knowledge that holding is a form of winning.',

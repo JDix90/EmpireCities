@@ -674,7 +674,7 @@ export const ERA_MAPS = {
       },
       {
         "name": "Han China",
-        "bonus": 4,
+        "bonus": 3,
         "territory_count": 0
       },
       {
@@ -925,7 +925,12 @@ export const ERA_MAPS = {
     "regions": [
       {
         "name": "Western Front",
-        "bonus": 5,
+        "bonus": 4,
+        "territory_count": 0
+      },
+      {
+        "name": "British Isles",
+        "bonus": 2,
         "territory_count": 0
       },
       {

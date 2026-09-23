@@ -28,6 +28,7 @@
  *   SIM_HANDICAP=1 SIM_GAMES=300 pnpm exec tsx scripts/simCampaignStages.ts
  *   SIM_STAGES=last_defenders:5 SIM_MISSIONS=1 pnpm exec tsx scripts/simCampaignStages.ts
  *   SIM_STAGES=last_defenders:1 SIM_AI_COUNT=2 SIM_CLOCK=25 pnpm exec tsx scripts/simCampaignStages.ts
+ *   SIM_PATCH='parthia.reinforce_bonus=0' pnpm exec tsx scripts/simCampaignStages.ts
  */
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -43,6 +44,7 @@ import { executeLandAttack } from '../src/game-engine/combat/executeLandAttack';
 import { aiAttackExchangeBudget, runAiAttackExchanges } from '../src/game-engine/ai/aiAttackGrind';
 import { assignSecretMissions, createSeededRng, hashStringToSeed } from '../src/game-engine/victory/missions';
 import { CAMPAIGN_PATHS, type PathEraConfig } from '../src/modules/campaign/campaignPaths';
+import { getEraFactions } from '../src/game-engine/eras';
 
 /**
  * The era a stage actually runs under. `createEraGame` takes it from this list
@@ -82,6 +84,32 @@ const EXTRA_CARRY = (process.env.SIM_CARRY ?? '').split(',').map((c) => c.trim()
   }, {});
 /** Ignore the path's opening carry, to reproduce a config as it shipped. */
 const NO_CARRY = process.env.SIM_NO_CARRY === '1';
+
+/**
+ * In-memory kit patch, same syntax as simFactionBalance.ts:
+ * `SIM_PATCH='parthia.reinforce_bonus=0;germanic_tribes.home_region_ids=[germanic,steppe]'`,
+ * with `null` to delete a field.
+ *
+ * A faction change and a stage change land on the same win rate, so without
+ * this the two cannot be told apart: when the ancient balance pass moved The
+ * Last Defenders' opening stage, only reverting one faction at a time showed
+ * that the player's own buff was carrying it and the AI's was not.
+ *
+ * Faction ids are unique across eras, so a clause is applied to whichever
+ * era's roster holds it.
+ */
+for (const clause of (process.env.SIM_PATCH ?? '').split(';').map((c) => c.trim()).filter(Boolean)) {
+  const [lhs, rhs] = clause.split('=');
+  const [factionId, field] = (lhs ?? '').split('.');
+  const target = CAMPAIGN_ERAS
+    .flatMap((era) => getEraFactions(era))
+    .find((f) => f.faction_id === factionId) as Record<string, unknown> | undefined;
+  if (!target || !field) throw new Error(`SIM_PATCH: cannot resolve "${clause}"`);
+  if (rhs === 'null') delete target[field];
+  else if (rhs?.startsWith('[') && rhs.endsWith(']')) {
+    target[field] = rhs.slice(1, -1).split(',').map((v) => v.trim()).filter(Boolean);
+  } else target[field] = rhs != null && rhs !== '' && !Number.isNaN(Number(rhs)) ? Number(rhs) : rhs;
+}
 
 const COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6'];
 

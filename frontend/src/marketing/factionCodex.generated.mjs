@@ -28,10 +28,11 @@ export const FACTION_CODEX = [
       {
         "faction_id": "parthia",
         "name": "Parthian Empire",
-        "description": "Mounted archers — whenever an attacker takes Parthian ground, the Parthian shot costs them one more unit.",
+        "description": "Caravan cities pay for the frontier: +3 reinforcements each turn, and anyone who takes Parthian ground loses an extra unit on the way in.",
         "lore": "Ruling the Iranian plateau from horseback and caravan city alike, Parthia bleeds invaders with mobility rather than static walls.",
         "flavor_quote": "Strike, vanish, and let the desert finish the rest.",
         "color": "#8e44ad",
+        "reinforce_bonus": 3,
         "ability_description": "Parting Shot: after losing a territory, immediately deal 1 unit loss to the attacker."
       },
       {
@@ -249,11 +250,11 @@ export const FACTION_CODEX = [
       {
         "faction_id": "japan",
         "name": "Imperial Japan",
-        "description": "Pacific supremacy — +1 attack die on every assault, and a banzai charge adds another once per turn.",
+        "description": "Pacific supremacy — +1 reinforcement per turn, and a banzai charge turns one assault a turn overwhelming.",
         "lore": "Fast carrier warfare and aggressive expansion define Japan at its peak, where initiative matters more than margin for error.",
         "flavor_quote": "In the first storm of war, strike farther than they thought possible.",
         "color": "#e67e22",
-        "passive_attack_bonus": 1,
+        "reinforce_bonus": 1,
         "ability_description": "Banzai Charge: once per turn, one attack exchange uses 4 attack dice (maximum)."
       },
       {
