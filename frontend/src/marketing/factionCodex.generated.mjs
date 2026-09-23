@@ -337,18 +337,17 @@ export const FACTION_CODEX = [
       {
         "faction_id": "western_power",
         "name": "Western Bloc",
-        "description": "Precision warfare — precision_strike is always active; +1 defense die from advanced body armor.",
+        "description": "Precision warfare — an airstrike each turn kills without an exchange, and the front recovers faster than it breaks.",
         "lore": "Satellite eyes, expeditionary logistics, and precision doctrine define a bloc that wins by seeing and striking first.",
         "flavor_quote": "Information arrives before the soldiers do.",
         "color": "#3498db",
-        "passive_attack_bonus": 1,
         "stability_recovery_bonus": 3,
         "ability_description": "Precision Airstrike: once per turn, deal 2 unit losses to any adjacent enemy territory without a full attack exchange."
       },
       {
         "faction_id": "eastern_bloc",
         "name": "Eastern Coalition",
-        "description": "Armored mass — +2 reinforcements per turn; tanks let you move 2 extra units in fortify.",
+        "description": "Armored mass — +2 reinforcements per turn, and the tanks make a second fortify move each turn.",
         "lore": "Centralized command and armored depth give the coalition raw staying power once the battlefield hardens into fronts.",
         "flavor_quote": "Pressure is a weapon when it never stops.",
         "color": "#c0392b",
@@ -358,7 +357,7 @@ export const FACTION_CODEX = [
       {
         "faction_id": "rogue_state",
         "name": "Rogue State",
-        "description": "Asymmetric tactics — +1 defense die and immune to precision_strike attacker bonus.",
+        "description": "Asymmetric tactics — every territory they attack answers back, spawning a free defender where the blow landed.",
         "lore": "Sanctioned, isolated, and unpredictable, the Rogue State survives by turning every invasion into a trap of attrition and ambiguity.",
         "flavor_quote": "If they cannot predict us, they cannot dominate us.",
         "color": "#e74c3c",
@@ -367,21 +366,21 @@ export const FACTION_CODEX = [
       {
         "faction_id": "emerging_power",
         "name": "Emerging Economy",
-        "description": "Rapid industrialization — earn 2 extra production units per turn from every territory with a production building.",
+        "description": "Rapid industrialization — +1 reinforcement per turn, and an economic boom places two more wherever they are needed.",
         "lore": "Factories, ports, and swelling cities let the Emerging Power convert growth itself into strategic momentum.",
         "flavor_quote": "Development is the quietest path to dominance.",
         "color": "#f39c12",
         "reinforce_bonus": 1,
-        "ability_description": "Economic Boom: once per turn, pay 4 tech points to immediately place 2 units anywhere."
+        "ability_description": "Economic Boom: once per turn, immediately place 2 units on any owned territory."
       },
       {
         "faction_id": "petro_state",
         "name": "Petrostate",
-        "description": "Oil wealth — +3 tech points per turn; can buy an extra reinforcement for every 3 owned resource territories.",
+        "description": "Oil wealth — the wells fund an extra unit every turn, placed wherever the pressure is greatest.",
         "lore": "Energy rents and patronage networks give the Petrostate immense bursts of leverage so long as the wells stay secure.",
         "flavor_quote": "Guard the fields and the world will bargain on your terms.",
         "color": "#e67e22",
-        "ability_description": "Oil Wealth: once per turn, spend 6 tech points to place 3 extra units on any owned territory."
+        "ability_description": "Oil Wealth: once per turn, place 1 extra unit on any owned territory."
       },
       {
         "faction_id": "cyber_power",
