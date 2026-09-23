@@ -107,6 +107,13 @@ jobs:
       - name: Backend type-check
         run: pnpm -C backend exec tsc --noEmit
 
+      # backend/tsconfig.json covers src/** only, so nothing under
+      # backend/scripts was ever type-checked — a committed harness called a
+      # two-argument function with three and shipped, because eslint does not
+      # check types and tsc never saw the file.
+      - name: Backend scripts type-check
+        run: pnpm -C backend run typecheck:scripts
+
       # The PG_TEST tier runs against a migrated schema with the era and
       # community maps seeded — the same two commands the local throwaway
       # recipe in CLAUDE.md uses. Migrations are idempotent (tracked in the
