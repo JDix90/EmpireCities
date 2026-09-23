@@ -59,6 +59,28 @@ describe('discovery balance anchors', () => {
     }
   });
 
+  /**
+   * Spain had no ability, and the lore catalog covered for it by advertising a
+   * "Conquistador" button that never existed (removed in #403). What it did
+   * have was the era's last unconditional attack die, and it led the era.
+   *
+   * An attack die compounds, so it is worth everything on a good seat; trading
+   * it for a linear once-per-turn unit is the same trade that took japan
+   * 37 -> 17 in #399 and western_power 36 -> 20 in #401. 300 games at each of
+   * seeds 41, 7 and 99:
+   *
+   *   before            after
+   *   spain  25%  41%   21%  30%
+   *   spread 17.0       14.3
+   *
+   * It pays for the identity Spain never had instead of stacking one on top:
+   * keeping the die AND adding the ability measured at 31%.
+   */
+  it('Spain trades its always-on attack die for a kit it can actually press', () => {
+    expect(byId.get('spain')?.passive_attack_bonus ?? 0).toBe(0);
+    expect(byId.get('spain')?.ability_id).toBe('silver_fleet');
+  });
+
   it('Mughal India pays like the small rich region it is', () => {
     const map = JSON.parse(
       readFileSync(join(__dirname, '../../../../database/maps/era_discovery.json'), 'utf-8'),

@@ -58,10 +58,11 @@ export const FACTION_CODEX = [
       {
         "faction_id": "carthage",
         "name": "Carthaginian Republic",
-        "description": "A maritime trading power anchored in North Africa, reaching across the sea lanes.",
+        "description": "A maritime trading power anchored in North Africa — its gold hires a fresh spear every turn.",
         "lore": "Merchant princes and admirals make Carthage rich, turning harbors and trade routes into weapons that reach across the sea.",
         "flavor_quote": "Gold on the docks is power on the battlefield.",
-        "color": "#2980b9"
+        "color": "#2980b9",
+        "ability_description": "Mercenary Levy: once per turn during draft, place 1 extra unit on a territory you hold."
       },
       {
         "faction_id": "germanic_tribes",
@@ -149,11 +150,11 @@ export const FACTION_CODEX = [
       {
         "faction_id": "spain",
         "name": "Spanish Empire",
-        "description": "Conquistadors press the advantage — +1 attack die on every attack.",
+        "description": "Silver fleets pay for the war — a fresh tercio lands every turn.",
         "lore": "Silver fleets, crusading zeal, and hard-edged conquistadors make Spain a transoceanic empire hungry for rapid expansion.",
         "flavor_quote": "Across the ocean lies another crown to claim.",
         "color": "#f39c12",
-        "passive_attack_bonus": 1
+        "ability_description": "Silver Fleet: once per turn during draft, place 1 extra unit on a territory you hold."
       },
       {
         "faction_id": "portugal",
@@ -243,11 +244,12 @@ export const FACTION_CODEX = [
       {
         "faction_id": "uk",
         "name": "United Kingdom",
-        "description": "Island fortress and global empire — recovers stability quickly in contested ground.",
+        "description": "Island fortress and global empire — the Dominions send a division every turn.",
         "lore": "Britain survives through naval control, imperial links, and the stubborn advantage of making every approach expensive.",
         "flavor_quote": "Rule the routes, and the island cannot be isolated.",
         "color": "#e74c3c",
-        "stability_recovery_bonus": 3
+        "stability_recovery_bonus": 3,
+        "ability_description": "Commonwealth: once per turn during draft, place 1 extra unit on a territory you hold."
       },
       {
         "faction_id": "japan",
@@ -287,11 +289,12 @@ export const FACTION_CODEX = [
       {
         "faction_id": "ussr",
         "name": "Soviet Union",
-        "description": "Command economy and a hardened perimeter — +1 reinforcement per turn.",
+        "description": "Command economy and a hardened perimeter — +1 reinforcement per turn, and every territory taken from them costs the attacker a unit.",
         "lore": "The Soviet bloc hardens its perimeter through ideology, armor, and a security state built to absorb existential pressure.",
         "flavor_quote": "Depth, discipline, and doctrine hold the frontier.",
         "color": "#c0392b",
-        "reinforce_bonus": 1
+        "reinforce_bonus": 1,
+        "ability_description": "Scorched Earth: whenever an enemy captures a territory from you, the attacker loses 1 extra unit."
       },
       {
         "faction_id": "china_cw",
@@ -414,10 +417,12 @@ export const FACTION_CODEX = [
       {
         "faction_id": "confederacy",
         "name": "Confederate Army",
-        "description": "Fighting on interior lines — recovers stability quickly under pressure.",
+        "description": "Fighting on interior lines — +1 reinforcement per turn, and the first attack against them each turn costs the attacker a unit.",
         "lore": "Fighting on familiar ground, the Confederacy leans on interior lines, local commitment, and punishing defensive battles.",
         "flavor_quote": "Make every mile northward cost them twice.",
-        "color": "#c0392b"
+        "color": "#c0392b",
+        "reinforce_bonus": 1,
+        "ability_description": "Interior Lines: the first attack against you each turn costs the attacker 1 extra unit."
       }
     ]
   },

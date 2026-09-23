@@ -23,11 +23,22 @@ export const COLDWAR_FACTIONS: Faction[] = [
     faction_id: 'ussr',
     lineage_id: 'imperial',
     name: 'Soviet Union',
-    description: 'Command economy and a hardened perimeter — +1 reinforcement per turn.',
+    // The USSR had no ability, and it is the one faction of the five that was
+    // genuinely losing: 11% of 900 games against a 17% fair share, eliminated
+    // in 53% when no other seat in the era passed 12%. A forty-point
+    // elimination gap is not a kit that needs tuning, it is a seat being
+    // dogpiled with nothing to make the dogpiling expensive.
+    //
+    // So the kit is a toll rather than income: every tile taken off it costs
+    // the attacker a unit. "Depth, discipline, and doctrine" was already the
+    // flavour line; nothing about it was ever implemented until now.
+    description: 'Command economy and a hardened perimeter — +1 reinforcement per turn, and every territory taken from them costs the attacker a unit.',
     lore: 'The Soviet bloc hardens its perimeter through ideology, armor, and a security state built to absorb existential pressure.',
     flavor_quote: 'Depth, discipline, and doctrine hold the frontier.',
     home_region_ids: ['warsaw_pact'],
     reinforce_bonus: 1,
+    ability_id: 'scorched_earth',
+    ability_description: 'Scorched Earth: whenever an enemy captures a territory from you, the attacker loses 1 extra unit.',
     color: '#c0392b',
   },
   {

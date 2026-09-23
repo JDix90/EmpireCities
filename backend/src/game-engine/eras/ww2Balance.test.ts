@@ -63,6 +63,60 @@ describe('ww2 balance anchors', () => {
     expect(map.regions.map((r) => r.region_id)).toContain('british_isles');
   });
 
+  /**
+   * Two dead kits in this era, and they were dead in different ways.
+   *
+   * The UK had no ability, and the single trait it advertised was
+   * `stability_recovery_bonus`, which does nothing unless stability_enabled is
+   * on — and it defaults FALSE (state/gameSettings.ts). The field is kept,
+   * because it is real when stability IS on; it just no longer stands in for a
+   * kit.
+   *
+   * The Soviet Union's Mass Mobilization was worse: it existed, and it had
+   * never once fired for a bot. Both AI call sites derived "does this ability
+   * need a target?" from `def.ownPlacement`, which mass_mobilization does not
+   * carry, so executeTechAbility was handed `undefined` and rejected the call
+   * silently. Deleting the ability outright changed not one digit of a
+   * 60-game run. See TARGETED_DRAFT_ABILITIES and factionKitParity.test.ts.
+   *
+   * 5 seeds x 300 games, 17% fair share. The USSR fix landed first, so the
+   * "before" column below is already measured against a Soviet Union that
+   * works — otherwise the UK would be tuned against a phantom:
+   *
+   *   before            after
+   *   uk    17.7%  57%  22.6%  41%
+   *   ussr  11.6%       (unchanged here; its ww2 kit now fires)
+   *   spread   7.7      11.2
+   *
+   * The UK is the era leader now, and that is the honest price of it having a
+   * kit at all. THREE different mechanics were measured and every one landed
+   * in the same place — a free unit a turn 22.6%, a per-capture toll 22.7%,
+   * the same unit restricted to front-line tiles 22.4% — because the UK holds
+   * the widest home claim in the era (bonus 10 over nine territories, roughly
+   * double anyone else's, granted deliberately in #399 when it lost the
+   * continent). A once-per-GAME reaction was measured too and was worth
+   * +0.0%: on a 100-turn game, one saved tile is not a kit.
+   *
+   * Paying for it by trimming middle_east_th 4 -> 3 was measured and REJECTED:
+   * it does hold the UK to 18.6%, but the spread goes to 14.0 on the same
+   * seeds — worse than leaving it alone. Same finding as `africa` in ancient.
+   * No ww2 map value is touched.
+   */
+  it('the United Kingdom has a kit, and it is not an inert stat', () => {
+    const uk = byId.get('uk');
+    expect(uk?.ability_id).toBe('commonwealth');
+    expect(uk?.ability_description).toBeTruthy();
+    // The description may mention stability, but it may not BE the kit.
+    expect(uk?.description).not.toMatch(/^Island fortress and global empire — recovers stability/);
+  });
+
+  it('the Middle East still pays 4, because trimming it was measured as worse', () => {
+    const map = JSON.parse(
+      readFileSync(join(__dirname, '../../../../database/maps/era_ww2.json'), 'utf-8'),
+    ) as { regions: { region_id: string; bonus: number }[] };
+    expect(map.regions.find((r) => r.region_id === 'middle_east_th')?.bonus).toBe(4);
+  });
+
   it('Japan is paid in reinforcements, not attack dice', () => {
     // Germany carries the same +1 attack die and won 6% with it. The die is
     // not what Japan was worth — the seat was.

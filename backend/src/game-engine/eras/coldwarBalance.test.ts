@@ -65,6 +65,29 @@ describe('coldwar balance anchors', () => {
     expect(decol).toEqual(['africa_cw']);
   });
 
+  /**
+   * The Soviet Union had no ability at all. It was the one faction of the five
+   * kitless ones that was genuinely losing rather than merely featureless:
+   * 11% of 900 games against a 17% fair share, and eliminated in 53% when no
+   * other seat in the era passed 12%. A forty-point elimination gap is a seat
+   * being dogpiled with nothing that makes dogpiling expensive.
+   *
+   * A toll rather than income, for that reason. 300 games at each of seeds 41,
+   * 7 and 99:
+   *
+   *   before            after
+   *   ussr  11%  53%    17%  40%
+   *   spread 16.3       15.3
+   *
+   * Income was measured too and is the wrong shape: a free unit a turn put it
+   * at 24% and a second reinforcement plus the toll at 19% with elimination
+   * down to 22%, both of which trade one lopsided seat for another.
+   */
+  it('the Soviet Union makes ground taken off it expensive', () => {
+    expect(byId.get('ussr')?.ability_id).toBe('scorched_earth');
+    expect(byId.get('ussr')?.ability_description).toBeTruthy();
+  });
+
   it('no coldwar description promises a defence die or a stat the faction lacks', () => {
     // china_cw and nato_proxy are two of the eight #397 recorded as still
     // promising innate defence dice, which no faction may have at all.

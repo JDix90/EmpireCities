@@ -82,10 +82,31 @@ export const ANCIENT_FACTIONS: Faction[] = [
     faction_id: 'carthage',
     lineage_id: 'maritime',
     name: 'Carthaginian Republic',
-    description: 'A maritime trading power anchored in North Africa, reaching across the sea lanes.',
+    // Carthage shipped with no ability and no numeric bonus of any kind, and
+    // its description promised nothing either — the only faction in the game
+    // whose entire kit was a sentence of scenery.
+    //
+    // It was not WEAK: 17% of 900 games against a 17% fair share, because
+    // `africa` pays 5 for three territories, the densest region on the map. It
+    // was just featureless, and it died for it — 47% eliminated while winning
+    // its share, the profile of a seat that snowballs or collapses with nothing
+    // in hand either way. A hired spear each turn puts it at 20.8% over five
+    // seeds with elimination down to roughly 35%.
+    //
+    // Paying for that by trimming `africa` to 4 was measured across the same
+    // five seeds and REJECTED: it does hold Carthage to 18.4%, but han rises
+    // 38.8% -> 41.2% at every single seed and the era's spread goes 33.2 ->
+    // 35.6. Making the region less worth fighting over helps the faction that
+    // already runs the era, so the trim buys a tidier Carthage number by making
+    // ancient's actual problem worse. The map is left alone; ancient's spread
+    // is set by han at ~39% and germanic/parthia at ~6%, and Carthage is
+    // neither.
+    description: 'A maritime trading power anchored in North Africa — its gold hires a fresh spear every turn.',
     lore: 'Merchant princes and admirals make Carthage rich, turning harbors and trade routes into weapons that reach across the sea.',
     flavor_quote: 'Gold on the docks is power on the battlefield.',
     home_region_ids: ['africa'],
+    ability_id: 'mercenary_levy',
+    ability_description: 'Mercenary Levy: once per turn during draft, place 1 extra unit on a territory you hold.',
     color: '#2980b9',
   },
   {

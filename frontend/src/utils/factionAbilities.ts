@@ -69,6 +69,23 @@ export const FACTION_ABILITY_UI: Record<string, FactionAbilityUiDef> = {
     label: 'Insurgency', emoji: '🥷', scope: 'turn', phase: 'draft',
     enemyTarget: false, style: 'success', hint: 'Place 1 free unit on an owned territory.',
   },
+  // Kits for three factions that previously had none. Without an entry here a
+  // human gets no button at all, which is how a kit ends up existing only on
+  // the server — the client half of the same hole this pass closed on the AI
+  // side. The two reactions added alongside these (scorched_earth,
+  // interior_lines) resolve inside combat and correctly have no entry.
+  mercenary_levy: {
+    label: 'Mercenary Levy', emoji: '💰', scope: 'turn', phase: 'draft',
+    enemyTarget: false, style: 'success', hint: 'Place 1 free unit on an owned territory.',
+  },
+  silver_fleet: {
+    label: 'Silver Fleet', emoji: '🪙', scope: 'turn', phase: 'draft',
+    enemyTarget: false, style: 'success', hint: 'Place 1 free unit on an owned territory.',
+  },
+  commonwealth: {
+    label: 'Commonwealth', emoji: '🎗️', scope: 'turn', phase: 'draft',
+    enemyTarget: false, style: 'success', hint: 'Place 1 free unit on an owned territory.',
+  },
   guerrilla_resistance: {
     label: 'Guerrilla Resistance', emoji: '🌿', scope: 'turn', phase: 'draft',
     enemyTarget: false, style: 'success', hint: 'Place 2 free units on an owned territory.',
