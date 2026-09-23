@@ -15,6 +15,28 @@ This repo is **Borderfall**: a browser-based historical Risk-style game — Reac
 - `pnpm run lint` — ESLint on backend and frontend (`lint:backend` + `lint:frontend`).
 - `pnpm run validate:maps` — validate map JSON under `database/maps/`.
 
+## Balance harnesses (from `backend/`)
+
+Headless, pure-engine simulators. No sockets, no database. Both seed the AI
+planner's jitter, which production leaves on `Math.random` — without that a
+config's measured win rate moves ten points between runs and an A/B means
+nothing.
+
+- `pnpm exec tsx scripts/simFactionBalance.ts` — ranks an era's factions
+  against each other with every seat the same AI and the faction-to-seat
+  mapping rotated per game. `SIM_PATCH` measures a candidate kit before it is
+  written; `SIM_DEAL=1` prints the opening allocation; `SIM_TRACE=1` prints
+  territories held at turn 3/6/10, tiles lost and the turn each seat died,
+  which is what separates "loses its fights" from "never takes anything".
+- `pnpm exec tsx scripts/simCampaignStages.ts` — win rate per campaign stage
+  for a fixed stand-in, plus a breakdown of how each side won. `SIM_HANDICAP=1`
+  applies each stage's starting-unit modifier as the route does; `SIM_STAGES`
+  narrows the sweep; the `SIM_DIFFICULTY` / `SIM_AI_COUNT` / `SIM_CLOCK` family
+  asks "what if" without editing `campaignPaths.ts`.
+
+Both rank configurations against each other. The stand-in is a medium bot, so
+the numbers do not predict what a person scores.
+
 ## Quick pointers
 
 | Area | Path |
