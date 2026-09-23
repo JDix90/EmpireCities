@@ -51,7 +51,20 @@ export const WW2_FACTIONS: Faction[] = [
     faction_id: 'uk',
     lineage_id: 'maritime',
     name: 'United Kingdom',
-    description: 'Island fortress and global empire — recovers stability quickly in contested ground.',
+    // The UK had no ability, and the one trait it advertised was
+    // `stability_recovery_bonus`, which is inert in a normal game —
+    // stability_enabled defaults false (gameSettings.ts). So its whole kit read
+    // as a sentence about a system nobody had switched on. The field stays,
+    // because it is real when stability IS on; it just no longer stands in for
+    // a kit.
+    //
+    // It was not weak — 18% of 900 games against a 17% fair share — but it was
+    // eliminated in 57%, the second-highest in the era. The per-turn defensive
+    // charges measured at 41-44% here and a free unit a turn at 21%, all of
+    // which would have made it the era leader; the once-per-GAME home stand is
+    // the lightest reaction in the file and is the one thing the island is
+    // actually famous for.
+    description: 'Island fortress and global empire — the Dominions send a division every turn.',
     lore: 'Britain survives through naval control, imperial links, and the stubborn advantage of making every approach expensive.',
     flavor_quote: 'Rule the routes, and the island cannot be isolated.',
     // Britain is an island and was sitting inside the continental Western
@@ -64,6 +77,8 @@ export const WW2_FACTIONS: Faction[] = [
     // UK five territories of preferred ground, and it was the British theatre
     // in 1940-42 besides. Nobody else claims it.
     home_region_ids: ['british_isles', 'north_africa_th', 'middle_east_th'],
+    ability_id: 'commonwealth',
+    ability_description: 'Commonwealth: once per turn during draft, place 1 extra unit on a territory you hold.',
     color: '#e74c3c',
     stability_recovery_bonus: 3,
   },

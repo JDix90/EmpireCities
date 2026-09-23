@@ -207,6 +207,7 @@ import {
   getUnderdefendedAttackDiceBonus,
   isOwnedTerritoryAdjacentToEnemy,
   playerHasUnlockedAbility,
+  TARGETED_DRAFT_ABILITIES,
   TERRITORY_ABILITY_DEFS,
 } from '../game-engine/abilities/techAbilities';
 import {
@@ -5702,7 +5703,12 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       state, currentPlayer.player_id, difficulty, techCost,
     );
     if (factionAbilityId && isDraftAbility && !alreadyUsed && affordable) {
-      const needsTarget = !!factionDef?.ownPlacement;
+      // `ownPlacement` is not the only way a draft ability needs a territory:
+      // mass_mobilization and royal_decree take one in executeTechAbility
+      // without advertising it here. Deriving this from ownPlacement alone
+      // handed them `undefined` and the call failed silently below.
+      const needsTarget = !!factionDef?.ownPlacement
+        || TARGETED_DRAFT_ABILITIES.has(factionAbilityId);
       const requiresMoon = factionDef?.ownPlacement?.requiresMoon ?? false;
       const requiresProduction = factionDef?.ownPlacement?.requiresProductionBuilding ?? false;
       const requiresEnemyAdjacent = factionDef?.ownPlacement?.requiresEnemyAdjacent ?? false;

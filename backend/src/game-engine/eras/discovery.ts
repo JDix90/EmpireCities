@@ -6,11 +6,24 @@ export const DISCOVERY_FACTIONS: Faction[] = [
     faction_id: 'spain',
     lineage_id: 'imperial',
     name: 'Spanish Empire',
-    description: 'Conquistadors press the advantage — +1 attack die on every attack.',
+    // Spain had no ability, and the catalog covered for it by advertising a
+    // "Conquistador" button that has never existed (removed in #403). What it
+    // actually had was the era's last unconditional attack die, and it led the
+    // era at 25% of 900 games against a 17% fair share.
+    //
+    // An attack die compounds — captures buy territory, territory buys
+    // reinforcements, those buy more captures — so it is worth everything on a
+    // good seat and little on a bad one. Trading it for a linear once-per-turn
+    // unit is the same medicine that took japan 37 -> 17 in #399 and
+    // western_power 36 -> 20 in #401, and it pays for the identity Spain never
+    // had rather than stacking one on top: 21% -> 19% at the screening seed,
+    // with elimination 43% -> 30%.
+    description: 'Silver fleets pay for the war — a fresh tercio lands every turn.',
     lore: 'Silver fleets, crusading zeal, and hard-edged conquistadors make Spain a transoceanic empire hungry for rapid expansion.',
     flavor_quote: 'Across the ocean lies another crown to claim.',
     home_region_ids: ['europe_disc'],
-    passive_attack_bonus: 1,
+    ability_id: 'silver_fleet',
+    ability_description: 'Silver Fleet: once per turn during draft, place 1 extra unit on a territory you hold.',
     color: '#f39c12',
   },
   {

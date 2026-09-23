@@ -63,7 +63,7 @@ Command the legions of Rome, the cavalry of Parthia, or the armies of Han China.
 | Parthian Empire | Plateau + caravan cities; mobility over walls. | “Strike, vanish, and let the desert finish the rest.” | Parting shot after losses. |
 | Han Dynasty | Granaries, frontier armies, enduring imperial machine. | “Order the provinces, and the empire feeds itself.” | Silk Road tech income spike. |
 | Maurya Empire | Ganges heartland, elephants, centralized court. | “When the elephants move, kingdoms tremble.” | War elephant burst attack. |
-| Carthaginian Republic | Merchants + admirals; sea as weapon. | “Gold on the docks is power on the battlefield.” | Naval supremacy fortify pattern. |
+| Carthaginian Republic | Merchants + admirals; sea as weapon. | “Gold on the docks is power on the battlefield.” | Mercenary levy each turn. |
 | Germanic Tribes | Forest confederations punish overextension. | “The woods are our walls.” | Ambush tempo. |
 
 **Wonder — The Colosseum** (`ANCIENT_WONDER`)  
@@ -439,7 +439,7 @@ Mechanical bonuses (dice, reinforce numbers) are omitted; these strings are the 
 - **Parthian Empire** — *Caravan cities pay for the frontier: +3 reinforcements each turn, and anyone who takes Parthian ground loses an extra unit on the way in.* — Ability: *Parting Shot: after losing a territory, immediately deal 1 unit loss to the attacker.*
 - **Han Dynasty** — *Vast territory and organized bureaucracy generates +2 extra reinforcements per turn.* — Ability: *Silk Road: once per turn during draft, add +3 tech points.*
 - **Maurya Empire** — *War elephants — +1 attack die on every assault, and a second die once per turn.* — Ability: *War Elephants: once per turn, one attack roll uses 4 dice (max).*
-- **Carthaginian Republic** — *A maritime trading power anchored in North Africa, reaching across the sea lanes.*
+- **Carthaginian Republic** — *A maritime trading power anchored in North Africa — its gold hires a fresh spear every turn.* — Ability: *Mercenary Levy: once per turn during draft, place 1 extra unit on a territory you hold.*
 - **Germanic Tribes** — *Fierce forest fighters — one ambush each turn adds an attack die.* — Ability: *Ambush: once per turn, attack from a border territory using 1 extra die.*
 
 ### `medieval`
@@ -453,7 +453,7 @@ Mechanical bonuses (dice, reinforce numbers) are omitted; these strings are the 
 
 ### `discovery`
 
-- **Spanish Empire** — *Conquistadors press the advantage — +1 attack die on every attack.*
+- **Spanish Empire** — *Silver fleets pay for the war — a fresh tercio lands every turn.* — Ability: *Silver Fleet: once per turn during draft, place 1 extra unit on a territory you hold.*
 - **Portuguese Empire** — *Masters of the sea — sea_lanes connections allow 3 attack dice (normally 2) and free sea-lane fortify moves.* — Ability: *Naval Charts: your sea_lanes attacks use the full 3 dice cap instead of the era-limited 2.*
 - **Ottoman Empire** — *Straddling east and west — +2 reinforcements per turn, and an extra attack die on every assault.* — Ability: *Janissaries: once per turn, defend with 3 dice regardless of garrison size.*
 - **English Crown** — *Privateers and merchant adventurers — +1 tech point per sea territory owned.* — Ability: *Privateer: once per turn, steal 1 production unit from an adjacent enemy coastal territory.*
@@ -465,14 +465,14 @@ Mechanical bonuses (dice, reinforce numbers) are omitted; these strings are the 
 - **Third Reich** — *Blitzkrieg doctrine — after a successful capture, may make one immediate bonus attack per turn.* — Ability: *Blitzkrieg: once per turn, after capturing a territory immediately execute a free additional attack from that territory.*
 - **Soviet Union** — *Vast reserves — +2 reinforcements per turn, and once per game a mass mobilisation places five extra units.* — Ability: *Mass Mobilization: once per game, place 5 extra units on any owned territory.*
 - **United States** — *Industrial supremacy — +1 reinforcement per turn; where research is in play, the Arsenal of Democracy turns it into materiel.* — Ability: *Arsenal of Democracy: once per turn during draft, spend 5 production points to place 3 extra units.*
-- **United Kingdom** — *Island fortress and global empire — recovers stability quickly in contested ground.*
+- **United Kingdom** — *Island fortress and global empire — the Dominions send a division every turn.* — Ability: *Commonwealth: once per turn during draft, place 1 extra unit on a territory you hold.*
 - **Imperial Japan** — *Pacific supremacy — +1 reinforcement per turn, and a banzai charge turns one assault a turn overwhelming.* — Ability: *Banzai Charge: once per turn, one attack exchange uses 4 attack dice (maximum).*
 - **Chinese Nationalists** — *Guerrilla resistance — once per turn, a hidden reserve places a free unit on ground you hold.* — Ability: *Guerrilla Warfare: once per turn, place 1 unit on any owned territory for free.*
 
 ### `coldwar`
 
 - **United States** — *Global superpower — +1 reinforcement per turn, and the Marshall Plan lands a unit wherever the alliance needs one.* — Ability: *Marshall Plan: once per turn during draft, place 1 free unit on any allied or newly captured territory.*
-- **Soviet Union** — *Command economy and a hardened perimeter — +1 reinforcement per turn.*
+- **Soviet Union** — *Command economy and a hardened perimeter — +1 reinforcement per turn, and every territory taken from them costs the attacker a unit.* — Ability: *Scorched Earth: whenever an enemy captures a territory from you, the attacker loses 1 extra unit.*
 - **People's Republic of China** — *Vast army — +2 reinforcements per turn, and once a game the whole country mobilises at once.* — Ability: *People's War: once per game, double your reinforcements for one turn.*
 - **United Kingdom** — *Nuclear deterrent and a fleet — +1 reinforcement per turn, an extra attack die, and one attack on the capital that simply does not happen.* — Ability: *Nuclear Deterrence: once per game, cancel an attack against your capital territory entirely.*
 - **Non-Aligned Movement** — *Neither bloc's to command — +1 reinforcement per turn, two more wherever they were struck last turn, and no influence takes hold here.* — Ability: *Guerrilla Resistance: once per turn, place 2 free units on any border territory that was attacked last turn.*
@@ -490,7 +490,7 @@ Mechanical bonuses (dice, reinforce numbers) are omitted; these strings are the 
 ### `acw`
 
 - **Union Army** — *Industrial north — +1 production unit per owned territory; rifle_doctrine applies universally.* — Ability: *Total War: once per game, in one turn place double your normal reinforcements.*
-- **Confederate Army** — *Fighting on interior lines — recovers stability quickly under pressure.*
+- **Confederate Army** — *Fighting on interior lines — +1 reinforcement per turn, and the first attack against them each turn costs the attacker a unit.* — Ability: *Interior Lines: the first attack against you each turn costs the attacker 1 extra unit.*
 
 ### `risorgimento`
 

@@ -162,3 +162,89 @@ describe('applyDefenderPostCombatReactions', () => {
     expect(result2.attacker_losses).toBe(1);
   });
 });
+
+/**
+ * The three reactions added for the previously kitless factions. Each shares a
+ * branch with an existing charge under its own id — the same great_wall /
+ * city_of_peace convention this file already tests — so these cover the new
+ * fiction resolving to the right mechanic, and the gating that stops a shared
+ * branch from firing twice.
+ */
+describe('kits for the factions that had none', () => {
+  it('scorched_earth (USSR) costs the attacker a unit on every capture', () => {
+    const d = player({ faction_id: 'ussr' });
+    const s = state(d, 'coldwar');
+    const from = terr({ territory_id: 'f', owner_id: 'a1', unit_count: 4 });
+    const to = terr({ territory_id: 't', owner_id: 'd1', unit_count: 0 });
+    const result = combat({ territory_captured: true });
+    applyDefenderPostCombatReactions({ state: s, defenderId: 'd1', fromTerritory: from, toTerritory: to, result });
+    expect(result.attacker_losses).toBe(1);
+    expect(from.unit_count).toBe(3);
+  });
+
+  it('scorched_earth does NOT fire when the attack is repelled', () => {
+    const d = player({ faction_id: 'ussr' });
+    const s = state(d, 'coldwar');
+    const from = terr({ territory_id: 'f', owner_id: 'a1', unit_count: 4 });
+    const result = combat({ territory_captured: false });
+    applyDefenderPostCombatReactions({
+      state: s, defenderId: 'd1', fromTerritory: from, toTerritory: terr(), result,
+    });
+    expect(result.attacker_losses).toBe(0);
+    expect(from.unit_count).toBe(4);
+  });
+
+  it('scorched_earth never strands the attacking stack at zero', () => {
+    const d = player({ faction_id: 'ussr' });
+    const s = state(d, 'coldwar');
+    const from = terr({ territory_id: 'f', owner_id: 'a1', unit_count: 1 });
+    const result = combat({ territory_captured: true });
+    applyDefenderPostCombatReactions({
+      state: s, defenderId: 'd1', fromTerritory: from, toTerritory: terr(), result,
+    });
+    expect(from.unit_count).toBe(1);
+    expect(result.attacker_losses).toBe(0);
+  });
+
+  it('interior_lines (Confederacy) tolls the first attack each turn only', () => {
+    const d = player({ faction_id: 'confederacy' });
+    const s = state(d, 'acw');
+    const from = terr({ territory_id: 'f', owner_id: 'a1', unit_count: 6 });
+    const first = combat();
+    applyDefenderPostCombatReactions({
+      state: s, defenderId: 'd1', fromTerritory: from, toTerritory: terr(), result: first,
+    });
+    expect(first.attacker_losses).toBe(1);
+    expect(d.defensive_charge_used_this_turn).toBe(true);
+
+    // Same turn, second attack: the charge is spent.
+    const second = combat();
+    applyDefenderPostCombatReactions({
+      state: s, defenderId: 'd1', fromTerritory: from, toTerritory: terr(), result: second,
+    });
+    expect(second.attacker_losses).toBe(0);
+  });
+
+  it('interior_lines tolls an attack that is repelled, unlike scorched_earth', () => {
+    // The two are deliberately different shapes: a toll on being attacked at
+    // all versus a toll on losing ground. Asserting it so a future refactor
+    // cannot quietly collapse them into one branch.
+    const d = player({ faction_id: 'confederacy' });
+    const s = state(d, 'acw');
+    const result = combat({ territory_captured: false });
+    applyDefenderPostCombatReactions({
+      state: s, defenderId: 'd1', fromTerritory: terr({ territory_id: 'f', owner_id: 'a1', unit_count: 5 }), toTerritory: terr(), result,
+    });
+    expect(result.attacker_losses).toBe(1);
+  });
+
+  it('a faction without the ability gets none of them', () => {
+    const d = player({ faction_id: 'union' });
+    const s = state(d, 'acw');
+    const from = terr({ territory_id: 'f', owner_id: 'a1', unit_count: 5 });
+    const result = combat({ territory_captured: true });
+    applyDefenderPostCombatReactions({ state: s, defenderId: 'd1', fromTerritory: from, toTerritory: terr(), result });
+    expect(result.attacker_losses).toBe(0);
+    expect(from.unit_count).toBe(5);
+  });
+});

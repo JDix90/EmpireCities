@@ -18,10 +18,27 @@ export const ACW_FACTIONS: Faction[] = [
   {
     faction_id: 'confederacy',
     name: 'Confederate Army',
-    description: 'Fighting on interior lines — recovers stability quickly under pressure.',
+    // The Confederacy shipped with no ability and no numeric bonus of any kind,
+    // and its one advertised trait was false: `stability_recovery_bonus` sits on
+    // the Union above, not here, and is inert anyway with stability_enabled
+    // defaulting false. It won 1% of 900 games against a 50% fair share and was
+    // eliminated in 99%.
+    //
+    // Two things were wrong and both are fixed here. The Union drafts 4 a turn
+    // to the Confederacy's 3, which compounds brutally head-to-head; matching it
+    // is worth 99/1 -> 87/13 on its own. The rest is shape: the Confederacy
+    // holds THREE home regions spanning nine territories to the Union's two over
+    // six, so it mans a longer line for its bonus and loses a whole region bonus
+    // more easily. Swapping the two homelands with both kits stripped flips the
+    // era to 53/48, which is what says the gap is position and income rather
+    // than the map being drawn wrong — so neither is redrawn.
+    description: 'Fighting on interior lines — +1 reinforcement per turn, and the first attack against them each turn costs the attacker a unit.',
     lore: 'Fighting on familiar ground, the Confederacy leans on interior lines, local commitment, and punishing defensive battles.',
     flavor_quote: 'Make every mile northward cost them twice.',
     home_region_ids: ['confederate_east', 'confederate_central', 'confederate_west'],
+    reinforce_bonus: 1,
+    ability_id: 'interior_lines',
+    ability_description: 'Interior Lines: the first attack against you each turn costs the attacker 1 extra unit.',
     color: '#c0392b',
   },
 ];

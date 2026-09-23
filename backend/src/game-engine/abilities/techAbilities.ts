@@ -14,6 +14,27 @@ export const GAME_SCOPED_ABILITIES = new Set([
   'peoples_war',
 ]);
 
+/**
+ * Draft abilities whose implementation requires a target territory but whose
+ * def carries no `ownPlacement` to advertise it.
+ *
+ * Both AI call sites derived "does this need a target?" from `ownPlacement`
+ * alone, so these two were handed `territoryId: undefined`, returned
+ * `{ success: false, error: 'Provide territoryId' }`, and were dropped by the
+ * `if (res.success)` guard without surfacing anything. An AI Soviet Union has
+ * therefore never received Mass Mobilization's five units in a live ww2 game,
+ * while a human in the same seat gets them — the exact parity gap
+ * `maybeActivateAiAttackSelfBuff` and the draft-ability block were written to
+ * close. Removing it from the harness changed not one digit of a 60-game run.
+ *
+ * Keep this beside the defs: it is a property of the ability, not of either
+ * caller, and the two call sites drifting apart is what caused the bug.
+ */
+export const TARGETED_DRAFT_ABILITIES = new Set([
+  'mass_mobilization',
+  'royal_decree',
+]);
+
 /** Tech abilities that ignore defense-building bonus when the player attacks. */
 /** Unlocked ability ids that permanently negate defender building dice (not once-per-turn actives). */
 const PASSIVE_IGNORE_DEFENSE_BUILDING = new Set([
@@ -139,6 +160,12 @@ export const TERRITORY_ABILITY_DEFS: Record<string, TerritoryAbilityDef> = {
   // calls the same charge "Supply Insert" until the galaxy kits are rebuilt.
   guerrilla_warfare: { label: 'Guerrilla Warfare', scope: 'turn', phase: 'draft', ownPlacement: { units: 1 } },
   habsberg_garrison: { label: 'Habsburg Garrison', scope: 'turn', phase: 'draft', ownPlacement: { units: 1 } },
+  // Carthage and Spain: the two kitless factions whose fiction is money rather
+  // than manpower — hired spears off the docks, and a silver fleet that buys a
+  // tercio. Same shape as marshall_plan, which is what both were measured as.
+  mercenary_levy: { label: 'Mercenary Levy', scope: 'turn', phase: 'draft', ownPlacement: { units: 1 } },
+  silver_fleet: { label: 'Silver Fleet', scope: 'turn', phase: 'draft', ownPlacement: { units: 1 } },
+  commonwealth: { label: 'Commonwealth', scope: 'turn', phase: 'draft', ownPlacement: { units: 1 } },
   lunar_supply_drop: { label: 'Lunar Supply Drop', scope: 'turn', phase: 'draft', ownPlacement: { units: 2, requiresMoon: true } },
   terraform: { label: 'Terraform', scope: 'turn', phase: 'draft', ownPlacement: { units: 1, restoreStability: true } },
 

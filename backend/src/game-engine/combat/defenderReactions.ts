@@ -13,9 +13,9 @@
  *    are rolled. janissaries reaches "3 dice regardless of garrison" via an extra
  *    defense bonus the caller sizes (see executeLandAttack) — it is no longer an
  *    always-on base in combatModifiers.
- *  - Post-combat reactions (parting_shot, nuclear_deterrence, bourbon_resistance,
- *    collective_defense): applied after dice are resolved and base losses applied,
- *    before the capture block runs.
+ *  - Post-combat reactions (parting_shot, scorched_earth, nuclear_deterrence,
+ *    bourbon_resistance, collective_defense, interior_lines): applied after dice
+ *    are resolved and base losses applied, before the capture block runs.
  *
  * collective_defense (NATO): the first attack against you each turn costs the
  * attacker +1 unit (once per turn). This replaced nato_proxy's old always-on
@@ -103,8 +103,12 @@ export function applyDefenderPostCombatReactions(params: {
   const isHomeRegion = !!toTerritory.region_id
     && (faction?.home_region_ids ?? []).includes(toTerritory.region_id);
 
-  // parting_shot: the attacker loses 1 extra unit whenever they capture from you.
-  if (abilityId === 'parting_shot' && result.territory_captured) {
+  // parting_shot (Parthia) and scorched_earth (the Soviet Union): one charge,
+  // two fictions — the attacker loses 1 extra unit whenever they capture from
+  // you. The Soviet Union was the most-eliminated seat in the Cold War by
+  // forty points, so a toll on every tile taken off it is aimed at exactly the
+  // thing that was wrong with it.
+  if ((abilityId === 'parting_shot' || abilityId === 'scorched_earth') && result.territory_captured) {
     const extra = Math.min(1, Math.max(0, fromTerritory.unit_count - 1));
     fromTerritory.unit_count -= extra;
     result.attacker_losses += extra;
@@ -129,10 +133,15 @@ export function applyDefenderPostCombatReactions(params: {
     defender.used_game_abilities = [...(defender.used_game_abilities ?? []), abilityId];
   }
 
-  // collective_defense (NATO): the first attack against you each opponent turn costs
-  // the attacker +1 unit (once per turn). Replaces the removed always-on
-  // passive_defense_bonus with a gated, theme-matching reaction.
-  if (abilityId === 'collective_defense' && !defender.defensive_charge_used_this_turn) {
+  // collective_defense (NATO) and interior_lines (the Confederacy): one charge,
+  // two fictions — the first attack against you each opponent turn costs the
+  // attacker +1 unit (once per turn). collective_defense replaced nato_proxy's
+  // removed always-on passive_defense_bonus; interior_lines is the Confederate
+  // Army's first kit of any kind, and the reason it is a toll rather than a
+  // stat is that the Confederacy loses on attrition, not on income. Same
+  // convention as great_wall / city_of_peace above.
+  if ((abilityId === 'collective_defense' || abilityId === 'interior_lines')
+    && !defender.defensive_charge_used_this_turn) {
     const extra = Math.min(1, Math.max(0, fromTerritory.unit_count - 1));
     fromTerritory.unit_count -= extra;
     result.attacker_losses += extra;

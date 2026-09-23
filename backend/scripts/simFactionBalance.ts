@@ -78,7 +78,7 @@ import { calculateReinforcements } from '../src/game-engine/combat/combatResolve
 import { getEraFactions } from '../src/game-engine/eras';
 import { getPlayerFaction } from '../src/game-engine/eras/factionLineage';
 import { executeTechAbility } from '../src/game-engine/abilities/executeTechAbility';
-import { GAME_SCOPED_ABILITIES, TERRITORY_ABILITY_DEFS } from '../src/game-engine/abilities/techAbilities';
+import { GAME_SCOPED_ABILITIES, TARGETED_DRAFT_ABILITIES, TERRITORY_ABILITY_DEFS } from '../src/game-engine/abilities/techAbilities';
 
 const ERA = (process.env.SIM_ERA ?? 'medieval') as EraId;
 const MAP_ID = process.env.SIM_MAP ?? `era_${ERA}`;
@@ -206,7 +206,12 @@ function fireFactionAbility(
 
   let territoryId: string | undefined;
   if (phase === 'draft') {
-    if (def.ownPlacement) {
+    // TARGETED_DRAFT_ABILITIES covers the ones that need a territory without
+    // an `ownPlacement` to say so (mass_mobilization, royal_decree). Deriving
+    // this from ownPlacement alone is what made the Soviet Union measure as a
+    // faction with no ability at all: executeTechAbility rejected the call for
+    // want of a target and the failure was silent. Same fix in gameSocket.
+    if (def.ownPlacement || TARGETED_DRAFT_ABILITIES.has(abilityId)) {
       territoryId = Object.values(state.territories)
         .filter((t) => t.owner_id === pid)
         .sort((a, b) => b.unit_count - a.unit_count)[0]?.territory_id;

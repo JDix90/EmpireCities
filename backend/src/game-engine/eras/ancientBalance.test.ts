@@ -44,6 +44,44 @@ describe('ancient era balance anchors', () => {
     expect(byId.get('germanic_tribes')?.home_region_ids).not.toContain('steppe');
   });
 
+  /**
+   * Carthage shipped with no ability and no numeric bonus at all — the only
+   * faction in the game whose entire kit was a sentence of scenery, and one of
+   * five the lore catalog covered for by advertising an ability ("Naval
+   * Supremacy") that had never existed.
+   *
+   * It was not weak. Over 5 seeds x 300 games against a 17% fair share:
+   *
+   *   before            after
+   *   carthage  17.0%   20.8%
+   *   eliminated  47%   34.2%
+   *   era spread 32.7   33.2
+   *
+   * Paying for the kit by trimming `africa` 5 -> 4 was measured over the same
+   * five seeds and REJECTED. It does hold Carthage to 18.4%, but han rises
+   * 38.8% -> 41.2% at EVERY seed and the spread goes 33.2 -> 35.6: making the
+   * densest region on the map less worth fighting over helps the faction that
+   * already runs the era. The map is untouched.
+   *
+   * Ancient's spread is han's, not Carthage's — han wins 38.8% while germanic
+   * and parthia sit at 6-8%. That is a separate pass and this one deliberately
+   * does not pretend to have fixed it.
+   */
+  it('Carthage has a kit at all', () => {
+    const carthage = byId.get('carthage');
+    expect(carthage?.ability_id).toBe('mercenary_levy');
+    expect(carthage?.ability_description).toBeTruthy();
+  });
+
+  it('africa still pays like the dense region it is', () => {
+    // Pinned because trimming it is the obvious "pay for the kit" move and it
+    // was measured as making the era worse, not better.
+    const map = JSON.parse(
+      readFileSync(join(__dirname, '../../../../database/maps/era_ancient.json'), 'utf-8'),
+    ) as { regions: { region_id: string; bonus: number }[] };
+    expect(map.regions.find((r) => r.region_id === 'africa')?.bonus).toBe(5);
+  });
+
   it('Han China is not the best-paying home region as well as the safest', () => {
     // Han China is the only 4-territory homeland on the board that is not
     // contested on three or more sides, and it opens eight doors into empty
