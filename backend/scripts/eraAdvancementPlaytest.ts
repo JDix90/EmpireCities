@@ -166,7 +166,10 @@ async function joinAndStart(socket: Socket, gameId: string, token: string): Prom
   await joinPromise;
 
   socket.on('error', (e: { message?: string }) => console.error('  socket error:', e?.message));
-  const startPromise = onState(socket, (s) => s.turn_number >= 1 && s.phase !== 'lobby', 60_000);
+  // 'lobby' is not a GamePhase, so this guard was always true. The pre-game
+  // phase is 'territory_select'; createGame sets territory_selection false, so
+  // this run never enters it and the wait behaves exactly as before.
+  const startPromise = onState(socket, (s) => s.turn_number >= 1 && s.phase !== 'territory_select', 60_000);
   socket.emit('game:start', { gameId });
   const state = await startPromise;
   console.log(`  started turn ${state.turn_number} phase=${state.phase}`);

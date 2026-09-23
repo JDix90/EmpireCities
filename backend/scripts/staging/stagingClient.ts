@@ -226,7 +226,7 @@ export async function waitForStateUpdate(
 
 export function snapshotFingerprint(state: GameState): string {
   const territorySig = Object.entries(state.territories)
-    .map(([id, t]) => `${id}:${t.owner_id}:${t.units}`)
+    .map(([id, t]) => `${id}:${t.owner_id}:${t.unit_count}`)
     .sort()
     .join('|');
   return [

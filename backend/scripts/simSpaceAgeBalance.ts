@@ -634,6 +634,10 @@ interface GameStat {
   dropAssaultsLanded: number;
   dropAssaultsCaptured: number;
   dropAssaultsCancelled: number;
+  /** Why a declared drop never landed, split three ways. */
+  dropAssaultsCancelledSelfTook: number;
+  dropAssaultsCancelledNoFoothold: number;
+  dropAssaultsCancelledOther: number;
   anyThreeMoonTiles: boolean;
   /** The player who peaked highest on the Moon, and whether they won. */
   moonPeakLeaderWon: boolean;

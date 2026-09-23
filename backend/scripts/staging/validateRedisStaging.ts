@@ -244,7 +244,7 @@ async function runRestartPhase(backendPort: number): Promise<void> {
 
   await freeStagingPort(backendPort);
   console.log(`  spawning isolated backend on :${backendPort}`);
-  let localBackend = await spawnBackend(backendPort, 'staging-restart');
+  let localBackend: ChildProcess | null = await spawnBackend(backendPort, 'staging-restart');
   const testCfg: StagingConfig = { baseUrl: `http://localhost:${backendPort}` };
 
   const guest = await createGuest(testCfg);

@@ -270,7 +270,7 @@ async function runGame(map: GameMap, gameIndex: number): Promise<GameResult> {
 
   const count = (i: number) => ownedIds(state, `ai_${i}`).length;
   const winnerIdx = state.winner_id ? Number(state.winner_id.split('_')[1]) : null;
-  const asRole = (i: number) => (i === grindSeat ? 'grind' : 'poke') as const;
+  const asRole = (i: number): 'grind' | 'poke' => (i === grindSeat ? 'grind' : 'poke');
 
   return {
     winner: winnerIdx === null ? null : asRole(winnerIdx),
