@@ -34,9 +34,19 @@
  *    case — it is a socket state machine over
  *    `blitzkrieg_bonus_attacks_remaining` — and is now mirrored in the attack
  *    loop below. Any future bespoke handler is invisible again until it is.
- *  - Fortify-phase abilities. The loop applies every planned fortify move and
- *    enforces no per-turn limit, so `armored_push` (modern Eastern Bloc), which
- *    grants an extra move, has nothing to grant.
+ *  - Fortify-phase abilities, and not for the reason it looks like. The loop
+ *    applies every planned fortify move without enforcing getFortifyMoveLimit,
+ *    which reads as a one-line fix. It is not, because the cap is not what
+ *    binds: the planner emits AT MOST ONE fortify move per turn. Measured over
+ *    480 turns per era, modern is 82.5% one move and 17.5% none, ww2 47.5%
+ *    one, and ancient zero in every single turn. So `armored_push` (modern
+ *    Eastern Bloc) has nothing to grant whether or not the cap is enforced —
+ *    enforcing it was implemented and run at 300 games times each of three
+ *    seeds across ancient, ww2 and modern, and changed not one game.
+ *    Eastern Bloc's figure from this harness is therefore a FLOOR, not a
+ *    verdict. #401 moved it from 6% to 9% by narrowing the OTHER factions'
+ *    home claims and deliberately left its kit alone; do not balance it on
+ *    this number until the planner can want a second move.
  *  - Anything gated on a system left off: tech trees, economy and stability are
  *    off unless SIM_TECH / SIM_ECONOMY say otherwise, which is the default a
  *    normal game and every campaign stage runs under. That is a real measure of
