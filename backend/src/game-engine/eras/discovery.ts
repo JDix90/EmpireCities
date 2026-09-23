@@ -66,13 +66,19 @@ export const DISCOVERY_FACTIONS: Faction[] = [
     faction_id: 'ming_china',
     lineage_id: 'bastion',
     name: 'Ming Dynasty',
-    description: 'Vast population and the Great Wall — +1 defense die in Asian territories.',
+    // No faction may carry an innate defence die (factionDefense.test.ts), and
+    // there is no region-scoped defence mechanic behind "in Asian territories".
+    // The Great Wall is real, but it is a GATED charge, which is the whole
+    // difference: it fires once per turn, not on every roll.
+    description: 'Vast population and the Great Wall — +1 reinforcement per turn, and one assault each turn breaks on the stonework.',
     lore: 'The Ming command enormous manpower and monumental defenses, preferring layered stability over reckless overreach.',
     flavor_quote: 'The empire endures because its walls are built in both stone and grain.',
     home_region_ids: ['ming_china'],
     reinforce_bonus: 1,
     ability_id: 'great_wall',
-    ability_description: "Great Wall: once per turn, prevent one attack from resolving (the attacker's turn is wasted).",
+    // It does not prevent the attack: defenderReactions gives the defender +2
+    // dice before the roll, the same charge the Abbasids' City of Peace uses.
+    ability_description: 'Great Wall: once per turn, the first attack against you is met with +2 defence dice.',
     color: '#e74c3c',
     stability_recovery_bonus: 3,
   },

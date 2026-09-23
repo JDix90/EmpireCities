@@ -439,25 +439,25 @@ Mechanical bonuses (dice, reinforce numbers) are omitted; these strings are the 
 - **Parthian Empire** — *Caravan cities pay for the frontier: +3 reinforcements each turn, and anyone who takes Parthian ground loses an extra unit on the way in.* — Ability: *Parting Shot: after losing a territory, immediately deal 1 unit loss to the attacker.*
 - **Han Dynasty** — *Vast territory and organized bureaucracy generates +2 extra reinforcements per turn.* — Ability: *Silk Road: once per turn during draft, add +3 tech points.*
 - **Maurya Empire** — *War elephants — +1 attack die on every assault, and a second die once per turn.* — Ability: *War Elephants: once per turn, one attack roll uses 4 dice (max).*
-- **Carthaginian Republic** — *Naval supremacy allows sea-lane fortify moves at no extra cost and +1 defense on coastal territories.* — Ability: *Naval Supremacy: move units along sea connections without restriction during fortify phase.*
+- **Carthaginian Republic** — *A maritime trading power anchored in North Africa, reaching across the sea lanes.*
 - **Germanic Tribes** — *Fierce forest fighters — one ambush each turn adds an attack die.* — Ability: *Ambush: once per turn, attack from a border territory using 1 extra die.*
 
 ### `medieval`
 
-- **Holy Roman Empire** — *Central European power — entrenched defensive doctrine with +1 defense die from faction bonuses.* — Ability: *Imperial Diet: once per turn during draft, gain +2 extra reinforcements per fully owned region.*
-- **Mongol Khanate** — *Devastating cavalry charges — +1 attack die on territories with fewer than 3 defenders.* — Ability: *Great Raid: once per turn, attack a territory and move all (not just 3) units into captured territory.*
-- **Byzantine Empire** — *Sophisticated bureaucracy and Greek fire — +1 defense die in your capital region.* — Ability: *Greek Fire: once per turn, an attacking force loses 1 additional unit before dice are rolled.*
-- **Abbasid Caliphate** — *Intellectual hub and trade mastery — +2 tech points per turn passively.* — Ability: *House of Wisdom: once per turn, reduce the cost of a tech node by 3 (minimum 1).*
+- **Holy Roman Empire** — *Central European power — a standing imperial levy of +1 reinforcement per turn.* — Ability: *Imperial Diet: once per turn during draft, gain +2 extra reinforcements per fully owned region.*
+- **Mongol Khanate** — *Devastating cavalry charges — +1 attack die on every attack, +1 reinforcement per turn.* — Ability: *Horse Archers: once per turn, a volley removes 1 unit from an adjacent enemy territory without a full attack exchange.*
+- **Byzantine Empire** — *A professional army on an imperial payroll — +1 attack die and +2 reinforcements per turn, with Greek fire held in reserve.* — Ability: *Greek Fire: once per turn, an attacking force loses 1 additional unit before dice are rolled.*
+- **Abbasid Caliphate** — *Caravan wealth and a fortified capital — +1 reinforcement per turn, and +2 tech points where research is in play.* — Ability: *City of Peace: once per turn, the first attack against you is met with +2 defence dice.*
 - **Kingdom of France** — *Chivalric knights — cavalry units grant +1 attack die when attacking from a territory you also hold a neighbor of.* — Ability: *Chevauchée: once per turn, raze an enemy territory (reduce unit count by 2) without attacking.*
 - **Kingdom of England** — *Longbowmen add +1 attack die when attacking across a sea connection.* — Ability: *Longbowmen: once per turn, one ranged attack deals 1 unit loss to an adjacent enemy territory without a full attack exchange.*
 
 ### `discovery`
 
-- **Spanish Empire** — *Conquistadors press the advantage — +1 attack die when attacking territories in the Americas or Africa.* — Ability: *Conquistador: once per turn, capture a territory with 1 or 2 defenders without rolling dice (auto-capture, costs 2 of your units).*
+- **Spanish Empire** — *Conquistadors press the advantage — +1 attack die on every attack.*
 - **Portuguese Empire** — *Masters of the sea — sea_lanes connections allow 3 attack dice (normally 2) and free sea-lane fortify moves.* — Ability: *Naval Charts: your sea_lanes attacks use the full 3 dice cap instead of the era-limited 2.*
 - **Ottoman Empire** — *Straddling east and west — +2 reinforcements per turn, and an extra attack die on every assault.* — Ability: *Janissaries: once per turn, defend with 3 dice regardless of garrison size.*
 - **English Crown** — *Privateers and merchant adventurers — +1 tech point per sea territory owned.* — Ability: *Privateer: once per turn, steal 1 production unit from an adjacent enemy coastal territory.*
-- **Ming Dynasty** — *Vast population and the Great Wall — +1 defense die in Asian territories.* — Ability: *Great Wall: once per turn, prevent one attack from resolving (the attacker's turn is wasted).*
+- **Ming Dynasty** — *Vast population and the Great Wall — +1 reinforcement per turn, and one assault each turn breaks on the stonework.* — Ability: *Great Wall: once per turn, the first attack against you is met with +2 defence dice.*
 - **Mughal Empire** — *Rich subcontinent — the spice caravans fund two extra reinforcements each turn, and gunpowder armies press with an extra attack die.* — Ability: *Spice Trade: once per turn, the caravans deliver 2 extra reinforcements.*
 
 ### `ww2`
@@ -465,7 +465,7 @@ Mechanical bonuses (dice, reinforce numbers) are omitted; these strings are the 
 - **Third Reich** — *Blitzkrieg doctrine — after a successful capture, may make one immediate bonus attack per turn.* — Ability: *Blitzkrieg: once per turn, after capturing a territory immediately execute a free additional attack from that territory.*
 - **Soviet Union** — *Vast reserves — +2 reinforcements per turn, and once per game a mass mobilisation places five extra units.* — Ability: *Mass Mobilization: once per game, place 5 extra units on any owned territory.*
 - **United States** — *Industrial supremacy — +1 reinforcement per turn; where research is in play, the Arsenal of Democracy turns it into materiel.* — Ability: *Arsenal of Democracy: once per turn during draft, spend 5 production points to place 3 extra units.*
-- **United Kingdom** — *Island fortress and global empire — +1 defense die; sea-lane fortify is free.* — Ability: *Commonwealth: once per turn, reinforce any owned territory from another owned territory via sea at no movement cost.*
+- **United Kingdom** — *Island fortress and global empire — recovers stability quickly in contested ground.*
 - **Imperial Japan** — *Pacific supremacy — +1 reinforcement per turn, and a banzai charge turns one assault a turn overwhelming.* — Ability: *Banzai Charge: once per turn, one attack exchange uses 4 attack dice (maximum).*
 - **Chinese Nationalists** — *Guerrilla resistance — once per turn, a hidden reserve places a free unit on ground you hold.* — Ability: *Guerrilla Warfare: once per turn, place 1 unit on any owned territory for free.*
 
@@ -490,23 +490,30 @@ Mechanical bonuses (dice, reinforce numbers) are omitted; these strings are the 
 ### `acw`
 
 - **Union Army** — *Industrial north — +1 production unit per owned territory; rifle_doctrine applies universally.* — Ability: *Total War: once per game, in one turn place double your normal reinforcements.*
-- **Confederate Army** — *Defensive masters — +2 defense dice in home (Southern) territory; rifle_doctrine grants extra re-roll.* — Ability: *Southern Defense: once per turn, fortify any number of units within the South region regardless of adjacency.*
+- **Confederate Army** — *Fighting on interior lines — recovers stability quickly under pressure.*
 
 ### `risorgimento`
 
 - **Kingdom of Sardinia** — *The catalyst of Italian unification — carbonari_network influence costs 1 fewer unit; +1 reinforce in Piedmont.* — Ability: *Unification Drive: once per turn, convert a neutral Italian territory within range at zero cost.*
-- **Austrian Empire** — *Conservative power defending the old order — +2 defense dice in Austrian core territories.* — Ability: *Habsburg Garrison: once per turn, immediately place 2 units in any Austrian-held territory under threat.*
-- **Papal States** — *Spiritual influence — carbonari_network range is halved against Papal territories; +1 defense die.* — Ability: *Papal Dispensation: once per turn, prevent one influence attempt against any Papal territory.*
-- **Kingdom of the Two Sicilies** — *Southern stronghold — +1 defense die; Garibaldi attack bonus is negated in Neapolitan territory.* — Ability: *Bourbon Resistance: once per game, prevent an enemy from capturing Sicily for one full turn.*
+- **Austrian Empire** — *Conservative power defending the old order — +1 reinforcement per turn, and a garrison that appears where the line bends.* — Ability: *Habsburg Garrison: once per turn, immediately place 1 unit in any Austrian-held territory.*
+- **Papal States** — *Spiritual influence — the faithful recover quickly, and once a turn a dispensation simply refuses an approach.* — Ability: *Papal Dispensation: once per turn, prevent one influence attempt against any Papal territory.*
+- **Kingdom of the Two Sicilies** — *Southern stronghold — the Bourbon south refuses to fall the first time it is taken.* — Ability: *Bourbon Resistance: once per game, a capture of your capital or homeland is undone.*
 
 ### `space_age`
 
-- **Terran Federation** — *Satellite-backed democracies — +1 attack die on every attack; +2 stability recovery per turn; Satellite Uplink ability.* — Ability: *Satellite Uplink: once per turn, spend 4 tech points to place 2 units on an owned territory bordering an enemy.*
+- **Terran Federation** — *Satellite-backed democracies — +1 attack die on every attack; +2 tech points and +2 stability recovery per turn; Satellite Uplink ability.* — Ability: *Satellite Uplink: once per turn, spend 4 tech points to place 2 units on an owned territory bordering an enemy.*
 - **Sino-Pacific Hegemony** — *Automated industry + AI command — +2 reinforcements per turn; +1 production per tech building each turn; AI Surge ability.* — Ability: *AI Surge: once per turn, spend 5 tech points to place 3 units on any owned territory.*
 - **Climate Alliance** — *Terraforming doctrine — +4 stability recovery per turn; population grows twice as fast; Terraform ability.* — Ability: *Terraform: once per turn, restore stability to 100 in an owned territory and gain 1 free unit there.*
 - **Corporate Enclave** — *Private militaries and techno-capitalism — +4 tech points per turn; Mercenary Contract ability (6 tech points).* — Ability: *Mercenary Contract: once per turn, spend 6 tech points to place 4 units on any territory you own that has a production building.*
 - **Solar Caliphate** — *Energy hegemony of the post-petroleum age — +1 reinforcement per turn; Solar Surge ability.* — Ability: *Solar Surge: once per turn, place 1 unit on an owned territory and gain 2 production.*
-- **Lunar Pioneers** — *Moon-native colonists — Moon access from turn one; +2 defense dice on Moon territories; Lunar Supply Drop ability.* — Ability: *Lunar Supply Drop: once per turn, drop 2 units into any owned Moon territory.*
+- **Lunar Pioneers** — *Moon-native colonists — start with a Launch Pad and Moon access from turn one; +1 reinforcement per turn; +2 defense dice on Moon territories; Lunar Supply Drop ability.* — Ability: *Lunar Supply Drop: once per turn, drop 2 units into any owned Moon territory.*
+
+### `galaxy_age`
+
+- **Stellar Mandate** — *Central admiralty doctrine — Sol III is the cradle: deeper reinforcement on its systems and a population that replaces what it loses. Blockade runners ignore lane seals.* — Ability: *Blockade Runner: once per turn, your next attack across a hyperspace lane ignores an Emergency Seal.*
+- **Forge Syndicate** — *Industrial cartels — shipyard logistics deliver +1 reinforcement per turn and Jump Gates at half price; supply inserts on demand.* — Ability: *Supply Insert: once per turn, place 1 free unit on an owned territory.*
+- **Helion Navigators** — *Lane-mappers and drift pilots — every gateway in the galaxy stays visible to them, and their fleets jump between their own gateways.* — Ability: *Drift Jump: once per turn, fortify between two gateways you hold on different worlds with no connecting route.*
+- **Void Custodians** — *Station enginseers — +1 defence die against any attack across a lane; faster stability recovery. Nexus Station's Gate Ring is the Vault: hold all four tiles for +2 tech per turn and an Emergency Seal on any lane.* — Ability: *Emergency Seal: once per turn, close any hyperspace lane touching Nexus Station to everyone else for one round.*
 
 ---
 

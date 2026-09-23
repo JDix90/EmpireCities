@@ -187,13 +187,13 @@ export const FACTION_CODEX = [
       {
         "faction_id": "ming_china",
         "name": "Ming Dynasty",
-        "description": "Vast population and the Great Wall — +1 defense die in Asian territories.",
+        "description": "Vast population and the Great Wall — +1 reinforcement per turn, and one assault each turn breaks on the stonework.",
         "lore": "The Ming command enormous manpower and monumental defenses, preferring layered stability over reckless overreach.",
         "flavor_quote": "The empire endures because its walls are built in both stone and grain.",
         "color": "#e74c3c",
         "reinforce_bonus": 1,
         "stability_recovery_bonus": 3,
-        "ability_description": "Great Wall: once per turn, prevent one attack from resolving (the attacker's turn is wasted)."
+        "ability_description": "Great Wall: once per turn, the first attack against you is met with +2 defence dice."
       },
       {
         "faction_id": "mughal",
@@ -437,17 +437,17 @@ export const FACTION_CODEX = [
       {
         "faction_id": "austria",
         "name": "Austrian Empire",
-        "description": "Conservative power defending the old order — +2 defense dice in Austrian core territories.",
+        "description": "Conservative power defending the old order — +1 reinforcement per turn, and a garrison that appears where the line bends.",
         "lore": "Vienna defends its Italian possessions through garrisons, dynastic legitimacy, and a deep instinct for suppressing revolt.",
         "flavor_quote": "Empires endure by refusing every easy concession.",
         "color": "#e74c3c",
         "reinforce_bonus": 1,
-        "ability_description": "Habsburg Garrison: once per turn, immediately place 2 units in any Austrian-held territory under threat."
+        "ability_description": "Habsburg Garrison: once per turn, immediately place 1 unit in any Austrian-held territory."
       },
       {
         "faction_id": "papal_states",
         "name": "Papal States",
-        "description": "Spiritual influence — carbonari_network range is halved against Papal territories; +1 defense die.",
+        "description": "Spiritual influence — the faithful recover quickly, and once a turn a dispensation simply refuses an approach.",
         "lore": "The Papal States wield spiritual authority and conservative loyalty, making central Italy as political as it is military.",
         "flavor_quote": "A throne is harder to storm when it claims heaven behind it.",
         "color": "#f1c40f",
@@ -457,11 +457,11 @@ export const FACTION_CODEX = [
       {
         "faction_id": "kingdom_naples",
         "name": "Kingdom of the Two Sicilies",
-        "description": "Southern stronghold — +1 defense die; Garibaldi attack bonus is negated in Neapolitan territory.",
+        "description": "Southern stronghold — the Bourbon south refuses to fall the first time it is taken.",
         "lore": "The Bourbon south is resilient, regional, and wary of northern revolution, relying on stubborn defense and local control.",
         "flavor_quote": "The south does not yield merely because the north arrives with flags.",
         "color": "#d35400",
-        "ability_description": "Bourbon Resistance: once per game, prevent an enemy from capturing Sicily for one full turn."
+        "ability_description": "Bourbon Resistance: once per game, a capture of your capital or homeland is undone."
       }
     ]
   },
