@@ -1,0 +1,29 @@
+{
+  // backend/tsconfig.json includes "src/**/*" only, so nothing under
+  // backend/scripts was ever type-checked — not by `tsc --noEmit`, not in CI.
+  // A committed harness called `getPlayerFaction(state, pid, ERA)` against a
+  // two-argument signature; it returned undefined on every call, a faction
+  // ability silently stopped firing, and eslint and CI both stayed green.
+  //
+  // This config exists alongside that one rather than replacing it: the build
+  // config still type-checks src as CommonJS, which is what it ships as.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // scripts/ sits outside the build's rootDir of ./src, and every file under
+    // it errors TS6059 without this.
+    "rootDir": ".",
+    "noEmit": true,
+    // backend/scripts is ESM run under tsx, deliberately — several scripts use
+    // `import.meta.url` for paths and say in their own headers that they live
+    // here because src compiles to CommonJS, where it is a compile error.
+    // Checking them as CommonJS reports TS1343 on code that is correct.
+    "module": "ESNext",
+    // NOT "Bundler": it respects package.json "exports", which makes redlock's
+    // types unresolvable in src/sockets/gameLock.ts and invents two errors the
+    // real build does not have.
+    "moduleResolution": "Node"
+  },
+  // src comes along because scripts import from it; the errors that matter are
+  // the ones in scripts, and src is checked for real by tsconfig.json.
+  "include": ["scripts/**/*.ts", "src/**/*"]
+}

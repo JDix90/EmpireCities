@@ -21,6 +21,7 @@
     "grant-admin": "tsx scripts/grantAdmin.ts",
     "set-password": "tsx scripts/setUserPassword.ts",
     "validate:redis-staging": "tsx scripts/staging/validateRedisStaging.ts",
+    "typecheck:scripts": "tsc -p tsconfig.scripts.json",
     "lint": "eslint src --ext .ts"
   },
   "dependencies": {
