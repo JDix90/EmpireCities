@@ -96,15 +96,17 @@ export const FACTION_ABILITY_UI: Record<string, FactionAbilityUiDef> = {
     enemyTarget: false, style: 'info', requiresEconomy: true, techCost: 5,
     hint: 'Spend 5 tech points: place 3 units on an owned territory.',
   },
+  // No longer tech-gated: the cost was unpayable in a game with tech trees off,
+  // which is the default, so the button never appeared when it mattered.
   economic_boom: {
     label: 'Economic Boom', emoji: '📈', scope: 'turn', phase: 'draft',
-    enemyTarget: false, style: 'info', requiresEconomy: true, techCost: 3,
-    hint: 'Spend 3 tech points: place 2 units on an owned territory.',
+    enemyTarget: false, style: 'info',
+    hint: 'Place 2 units on an owned territory.',
   },
   oil_wealth: {
     label: 'Oil Wealth', emoji: '🛢️', scope: 'turn', phase: 'draft',
-    enemyTarget: false, style: 'info', requiresEconomy: true, techCost: 6,
-    hint: 'Spend 6 tech points: place 3 units on an owned territory.',
+    enemyTarget: false, style: 'info',
+    hint: 'Place 1 unit on an owned territory.',
   },
   mercenary_contract: {
     label: 'Mercenary Contract', emoji: '💰', scope: 'turn', phase: 'draft',

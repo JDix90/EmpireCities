@@ -145,8 +145,15 @@ export const TERRITORY_ABILITY_DEFS: Record<string, TerritoryAbilityDef> = {
   // ── Faction abilities: tech-point-gated placement (Group B) ─────────────────
   arsenal_of_democracy: { label: 'Arsenal of Democracy', scope: 'turn', phase: 'draft', techCost: 5, ownPlacement: { units: 3 } },
   ai_surge: { label: 'AI Surge', scope: 'turn', phase: 'draft', techCost: 5, ownPlacement: { units: 3 } },
-  economic_boom: { label: 'Economic Boom', scope: 'turn', phase: 'draft', techCost: 3, ownPlacement: { units: 2 } },
-  oil_wealth: { label: 'Oil Wealth', scope: 'turn', phase: 'draft', techCost: 6, ownPlacement: { units: 3 } },
+  // Ungated: 3 tech points is unpayable with tech trees off, which is the
+  // default and every campaign stage, so this was the Emerging Economy's kit
+  // doing nothing at all. Only that faction uses it.
+  economic_boom: { label: 'Economic Boom', scope: 'turn', phase: 'draft', ownPlacement: { units: 2 } },
+  // Ungated for the same reason, but three free units a turn made the
+  // Petrostate the era's runaway on its own (29-33% against a 17% fair
+  // share, measured); one is what the ungated tier is worth. Only that
+  // faction uses it.
+  oil_wealth: { label: 'Oil Wealth', scope: 'turn', phase: 'draft', ownPlacement: { units: 1 } },
   mercenary_contract: { label: 'Mercenary Contract', scope: 'turn', phase: 'draft', techCost: 6, ownPlacement: { units: 4, requiresProductionBuilding: true } },
   satellite_uplink: { label: 'Satellite Uplink', scope: 'turn', phase: 'draft', techCost: 4, ownPlacement: { units: 2, requiresEnemyAdjacent: true } },
   solar_surge: { label: 'Solar Surge', scope: 'turn', phase: 'draft', ownPlacement: { units: 1, grantsProduction: 2 } },

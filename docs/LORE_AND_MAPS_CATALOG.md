@@ -480,11 +480,11 @@ Mechanical bonuses (dice, reinforce numbers) are omitted; these strings are the 
 
 ### `modern`
 
-- **Western Bloc** — *Precision warfare — precision_strike is always active; +1 defense die from advanced body armor.* — Ability: *Precision Airstrike: once per turn, deal 2 unit losses to any adjacent enemy territory without a full attack exchange.*
-- **Eastern Coalition** — *Armored mass — +2 reinforcements per turn; tanks let you move 2 extra units in fortify.* — Ability: *Armored Push: once per turn, execute two fortify moves instead of one.*
-- **Rogue State** — *Asymmetric tactics — +1 defense die and immune to precision_strike attacker bonus.* — Ability: *Insurgency: once per turn, spawn 1 free unit in a border territory that was attacked this turn.*
-- **Emerging Economy** — *Rapid industrialization — earn 2 extra production units per turn from every territory with a production building.* — Ability: *Economic Boom: once per turn, pay 4 tech points to immediately place 2 units anywhere.*
-- **Petrostate** — *Oil wealth — +3 tech points per turn; can buy an extra reinforcement for every 3 owned resource territories.* — Ability: *Oil Wealth: once per turn, spend 6 tech points to place 3 extra units on any owned territory.*
+- **Western Bloc** — *Precision warfare — an airstrike each turn kills without an exchange, and the front recovers faster than it breaks.* — Ability: *Precision Airstrike: once per turn, deal 2 unit losses to any adjacent enemy territory without a full attack exchange.*
+- **Eastern Coalition** — *Armored mass — +2 reinforcements per turn, and the tanks make a second fortify move each turn.* — Ability: *Armored Push: once per turn, execute two fortify moves instead of one.*
+- **Rogue State** — *Asymmetric tactics — every territory they attack answers back, spawning a free defender where the blow landed.* — Ability: *Insurgency: once per turn, spawn 1 free unit in a border territory that was attacked this turn.*
+- **Emerging Economy** — *Rapid industrialization — +1 reinforcement per turn, and an economic boom places two more wherever they are needed.* — Ability: *Economic Boom: once per turn, immediately place 2 units on any owned territory.*
+- **Petrostate** — *Oil wealth — the wells fund an extra unit every turn, placed wherever the pressure is greatest.* — Ability: *Oil Wealth: once per turn, place 1 extra unit on any owned territory.*
 - **Cyber State** — *Digital warfare — once per turn, sabotage an adjacent enemy territory (remove 1 unit before combat).* — Ability: *Cyber Attack: once per turn, remove 1 unit from an adjacent enemy territory without combat.*
 
 ### `acw`

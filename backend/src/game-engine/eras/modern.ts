@@ -6,11 +6,22 @@ export const MODERN_FACTIONS: Faction[] = [
     faction_id: 'western_power',
     lineage_id: 'expansionist',
     name: 'Western Bloc',
-    description: 'Precision warfare — precision_strike is always active; +1 defense die from advanced body armor.',
+    // Two claims, both false. `precision_strike` is an ERA_DEFAULTS modifier
+    // that every faction in this era gets, not a Western perk; and no faction
+    // may carry an innate defence die at all (factionDefense.test.ts). What was
+    // actually here was an attack die — on the era's best-shaped opening, which
+    // is how this seat reached 34% against a 17% fair share. One of the eight
+    // descriptions #397 recorded as still outstanding.
+    description: 'Precision warfare — an airstrike each turn kills without an exchange, and the front recovers faster than it breaks.',
     lore: 'Satellite eyes, expeditionary logistics, and precision doctrine define a bloc that wins by seeing and striking first.',
     flavor_quote: 'Information arrives before the soldiers do.',
     home_region_ids: ['north_america', 'europe'],
-    passive_attack_bonus: 1,
+    // The attack die is gone. It compounds — captures buy territory, territory
+    // buys reinforcements, those buy more captures — so on the widest home
+    // claim in the era (twelve territories across two regions, with Europe
+    // uncontested) it ran away with every measurement: removing it alone took
+    // the era's spread from 28 points to 17.7 across three seeds. Same finding
+    // as Japan in #399 and Spain in #400.
     ability_id: 'precision_airstrike',
     ability_description: 'Precision Airstrike: once per turn, deal 2 unit losses to any adjacent enemy territory without a full attack exchange.',
     color: '#3498db',
@@ -20,7 +31,8 @@ export const MODERN_FACTIONS: Faction[] = [
     faction_id: 'eastern_bloc',
     lineage_id: 'imperial',
     name: 'Eastern Coalition',
-    description: 'Armored mass — +2 reinforcements per turn; tanks let you move 2 extra units in fortify.',
+    // Armored Push grants an extra fortify MOVE, not "2 extra units".
+    description: 'Armored mass — +2 reinforcements per turn, and the tanks make a second fortify move each turn.',
     lore: 'Centralized command and armored depth give the coalition raw staying power once the battlefield hardens into fronts.',
     flavor_quote: 'Pressure is a weapon when it never stops.',
     home_region_ids: ['russia_cis'],
@@ -33,7 +45,11 @@ export const MODERN_FACTIONS: Faction[] = [
     faction_id: 'rogue_state',
     lineage_id: 'bastion',
     name: 'Rogue State',
-    description: 'Asymmetric tactics — +1 defense die and immune to precision_strike attacker bonus.',
+    // Another innate defence die that cannot exist (factionDefense.test.ts),
+    // and an immunity to `precision_strike` with no implementation behind it.
+    // This faction carries no numeric bonus at all; Insurgency is the kit. The
+    // second of #397's outstanding eight.
+    description: 'Asymmetric tactics — every territory they attack answers back, spawning a free defender where the blow landed.',
     lore: 'Sanctioned, isolated, and unpredictable, the Rogue State survives by turning every invasion into a trap of attrition and ambiguity.',
     flavor_quote: 'If they cannot predict us, they cannot dominate us.',
     home_region_ids: ['middle_east'],
@@ -45,25 +61,38 @@ export const MODERN_FACTIONS: Faction[] = [
     faction_id: 'emerging_power',
     lineage_id: 'mercantile',
     name: 'Emerging Economy',
-    description: 'Rapid industrialization — earn 2 extra production units per turn from every territory with a production building.',
+    // There is no per-building production mechanic on this faction — it has a
+    // flat reinforcement and an ability, and the ability cost more than a game
+    // without tech trees can ever pay.
+    description: 'Rapid industrialization — +1 reinforcement per turn, and an economic boom places two more wherever they are needed.',
     lore: 'Factories, ports, and swelling cities let the Emerging Power convert growth itself into strategic momentum.',
     flavor_quote: 'Development is the quietest path to dominance.',
     home_region_ids: ['asia'],
     reinforce_bonus: 1,
     ability_id: 'economic_boom',
-    ability_description: 'Economic Boom: once per turn, pay 4 tech points to immediately place 2 units anywhere.',
+    // "4 tech points" did not even match the 3 the definition charged.
+    ability_description: 'Economic Boom: once per turn, immediately place 2 units on any owned territory.',
     color: '#f39c12',
   },
   {
     faction_id: 'petro_state',
     lineage_id: 'maritime',
     name: 'Petrostate',
-    description: 'Oil wealth — +3 tech points per turn; can buy an extra reinforcement for every 3 owned resource territories.',
+    // No tech_point_income on this faction, and no resource-territory
+    // mechanic anywhere in the engine: both halves advertised nothing.
+    description: 'Oil wealth — the wells fund an extra unit every turn, placed wherever the pressure is greatest.',
     lore: 'Energy rents and patronage networks give the Petrostate immense bursts of leverage so long as the wells stay secure.',
     flavor_quote: 'Guard the fields and the world will bargain on your terms.',
-    home_region_ids: ['middle_east', 'sub_saharan_africa'],
+    // Sub-Saharan Africa is no longer claimed as a homeland. Twelve
+    // territories across two regions made this the widest claim in the era
+    // alongside the Western Bloc's, and with Oil Wealth finally payable the
+    // Petrostate ran away at 29-33%. Trimmed to the Gulf — the region the
+    // archetype is actually named for — it lands at 21% and the era's spread
+    // falls from 24 points to 13. Africa becomes neutral ground everyone can
+    // contest rather than one faction's back garden.
+    home_region_ids: ['middle_east'],
     ability_id: 'oil_wealth',
-    ability_description: 'Oil Wealth: once per turn, spend 6 tech points to place 3 extra units on any owned territory.',
+    ability_description: 'Oil Wealth: once per turn, place 1 extra unit on any owned territory.',
     color: '#e67e22',
   },
   {
