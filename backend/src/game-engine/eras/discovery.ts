@@ -32,11 +32,20 @@ export const DISCOVERY_FACTIONS: Faction[] = [
     faction_id: 'ottoman',
     lineage_id: 'expansionist',
     name: 'Ottoman Empire',
-    description: 'Straddling east and west — +2 reinforcements per turn from controlling the mediterranean sea_routes region.',
+    // The "from controlling the mediterranean sea_routes region" condition in
+    // the old description does not exist: reinforce_bonus is flat and always
+    // has been. Same defect class as the eight corrected in #397.
+    description: 'Straddling east and west — +2 reinforcements per turn, and an extra attack die on every assault.',
     lore: 'From the Balkans to Arabia, Ottoman rule merges disciplined corps and strategic chokepoints into a continental hinge.',
     flavor_quote: 'Hold the straits, and empires must knock at your door.',
     home_region_ids: ['ottoman'],
     reinforce_bonus: 2,
+    // The Ottomans held the best-shaped opening in the era — one contiguous
+    // block, the second-lowest border pressure — and still won 9% against a
+    // 17% fair share, because janissaries is a defender reaction and
+    // reinforcements scale with territory a defensive faction never takes.
+    // The same dead end the Byzantines were in, and the same way out.
+    passive_attack_bonus: 1,
     ability_id: 'janissaries',
     ability_description: 'Janissaries: once per turn, defend with 3 dice regardless of garrison size.',
     color: '#d35400',
@@ -71,12 +80,23 @@ export const DISCOVERY_FACTIONS: Faction[] = [
     faction_id: 'mughal',
     lineage_id: 'mercantile',
     name: 'Mughal Empire',
-    description: 'Rich subcontinent — generates +3 extra tech points per turn.',
+    // The old description promised "+3 extra tech points per turn" and there is
+    // no tech_point_income on this faction at all — it was advertising a field
+    // that does not exist, on top of an ability nobody could pay for.
+    description: 'Rich subcontinent — the spice caravans fund two extra reinforcements each turn, and gunpowder armies press with an extra attack die.',
     lore: 'Courtly wealth, gunpowder armies, and a mosaic of provinces make the Mughals formidable when prosperity is protected.',
     flavor_quote: 'Splendor is strongest when backed by cannon.',
     home_region_ids: ['mughal_india'],
+    // This faction had no numeric bonus of any kind and one ability costing 5
+    // tech points, which is unpayable with tech trees off. It won 3% of 900
+    // games and was eliminated in 81% of them — the worst seat measured in any
+    // era. Spice Trade is ungated now, so the economy lives in the button
+    // rather than a hidden stat; the attack die is what the Byzantines needed
+    // for the same reason, the means to retake what it loses. Income alone was
+    // measured at 1-2% with elimination still over half.
+    passive_attack_bonus: 1,
     ability_id: 'spice_trade',
-    ability_description: 'Spice Trade: once per turn, exchange 5 tech points for 2 extra reinforcements.',
+    ability_description: 'Spice Trade: once per turn, the caravans deliver 2 extra reinforcements.',
     color: '#9b59b6',
   },
 ];

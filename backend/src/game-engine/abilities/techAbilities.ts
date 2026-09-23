@@ -157,7 +157,10 @@ export const TERRITORY_ABILITY_DEFS: Record<string, TerritoryAbilityDef> = {
   mercenary_contract: { label: 'Mercenary Contract', scope: 'turn', phase: 'draft', techCost: 6, ownPlacement: { units: 4, requiresProductionBuilding: true } },
   satellite_uplink: { label: 'Satellite Uplink', scope: 'turn', phase: 'draft', techCost: 4, ownPlacement: { units: 2, requiresEnemyAdjacent: true } },
   solar_surge: { label: 'Solar Surge', scope: 'turn', phase: 'draft', ownPlacement: { units: 1, grantsProduction: 2 } },
-  spice_trade: { label: 'Spice Trade', scope: 'turn', phase: 'draft', techCost: 5, draftReinforcements: 2 },
+  // Ungated on purpose: this was the Mughal Empire's ENTIRE kit, and 5 tech
+  // points is unpayable in a game with tech trees off — the default, and
+  // every campaign stage. It is the only faction that uses it.
+  spice_trade: { label: 'Spice Trade', scope: 'turn', phase: 'draft', draftReinforcements: 2 },
 
   // ── Faction abilities: reinforcement / economy boosts (Group C, draft) ──────
   total_war: { label: 'Total War', scope: 'game', phase: 'draft' },

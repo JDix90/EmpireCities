@@ -213,15 +213,28 @@ describe('executeTechAbility', () => {
     expect(state.territories.t1!.unit_count).toBe(9);
   });
 
-  it('spice_trade spends tech points to add draft reinforcements', () => {
+  it('spice_trade adds draft reinforcements without spending tech points', () => {
+    // It used to cost 5, which is unpayable with tech trees off — the default,
+    // and every campaign stage. That made it the Mughal Empire's entire kit and
+    // left the faction with nothing: 3% of 900 games, eliminated in 81%.
     const state = baseState();
     state.phase = 'draft';
     state.draft_units_remaining = 2;
     state.players[0]!.tech_points = 6;
     const result = executeTechAbility({ state, map, playerId: 'p1', abilityId: 'spice_trade' });
     expect(result.success).toBe(true);
-    expect(state.players[0]!.tech_points).toBe(1);
+    expect(state.players[0]!.tech_points).toBe(6);
     expect(state.draft_units_remaining).toBe(4);
+  });
+
+  it('spice_trade fires with no tech points at all', () => {
+    const state = baseState();
+    state.phase = 'draft';
+    state.draft_units_remaining = 0;
+    state.players[0]!.tech_points = 0;
+    const result = executeTechAbility({ state, map, playerId: 'p1', abilityId: 'spice_trade' });
+    expect(result.success).toBe(true);
+    expect(state.draft_units_remaining).toBe(2);
   });
 
   // ── Group C: reinforcement / economy boosts ─────────────────────────────────
