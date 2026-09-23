@@ -674,7 +674,7 @@ export const ERA_MAPS = {
       },
       {
         "name": "Han China",
-        "bonus": 4,
+        "bonus": 3,
         "territory_count": 0
       },
       {

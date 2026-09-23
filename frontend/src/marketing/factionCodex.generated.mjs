@@ -28,10 +28,11 @@ export const FACTION_CODEX = [
       {
         "faction_id": "parthia",
         "name": "Parthian Empire",
-        "description": "Mounted archers — whenever an attacker takes Parthian ground, the Parthian shot costs them one more unit.",
+        "description": "Caravan cities pay for the frontier: +3 reinforcements each turn, and anyone who takes Parthian ground loses an extra unit on the way in.",
         "lore": "Ruling the Iranian plateau from horseback and caravan city alike, Parthia bleeds invaders with mobility rather than static walls.",
         "flavor_quote": "Strike, vanish, and let the desert finish the rest.",
         "color": "#8e44ad",
+        "reinforce_bonus": 3,
         "ability_description": "Parting Shot: after losing a territory, immediately deal 1 unit loss to the attacker."
       },
       {

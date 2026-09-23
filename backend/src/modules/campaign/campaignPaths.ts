@@ -196,9 +196,15 @@ const REVOLUTIONARY_FLAME: CampaignPath = {
       map_id: 'era_ancient',
       locked_faction: 'rome',
       allowed_victory_conditions: ['secret_mission'],
-      ai_factions: ['parthia', 'germanic_tribes', 'carthage'],
+      // Two openers, not three. The ancient balance pass gave the Germanic
+      // tribes a homeland they can hold, which is worth about nine points to
+      // whoever plays them — here that is the opposition, and this stage fell
+      // from 44% to 26% on it. Dropping the third seat put it back at 44%.
+      // The stage's own text names no faction, so which three was never the
+      // point; how many of them open on the player is.
+      ai_factions: ['parthia', 'germanic_tribes'],
       ai_difficulty: 'easy',
-      ai_count: 3,
+      ai_count: 2,
       starting_unit_modifier: 0,
       intro_text: 'Rome is a republic, not yet an empire, and the Senate is a battlefield of factions. Foreign powers probe the borders. Your mission is not conquest — hold the regions that define Roman identity and demonstrate governance where tyrants only demand tribute.',
       outro_win_text: 'The Republic\'s institutions hold. Revolutionary Spirit ignites: the model of citizen governance will echo through history.',

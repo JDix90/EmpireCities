@@ -435,12 +435,12 @@ Mechanical bonuses (dice, reinforce numbers) are omitted; these strings are the 
 
 ### `ancient`
 
-- **Roman Republic** — *Disciplined legions re-roll their lowest attack die and receive extra reinforcements from Italic territory.* — Ability: *Testudo Formation: once per turn during attack phase, negate all attacker losses on one combat exchange.*
-- **Parthian Empire** — *Mounted archers force attackers into the attack phase with one fewer attack die when assaulting Parthian territories.* — Ability: *Parting Shot: after losing a territory, immediately deal 1 unit loss to the attacker.*
+- **Roman Republic** — *Disciplined legions — +1 reinforcement per turn, and one assault each turn costs Rome nothing.* — Ability: *Testudo Formation: once per turn during attack phase, negate all attacker losses on one combat exchange.*
+- **Parthian Empire** — *Caravan cities pay for the frontier: +3 reinforcements each turn, and anyone who takes Parthian ground loses an extra unit on the way in.* — Ability: *Parting Shot: after losing a territory, immediately deal 1 unit loss to the attacker.*
 - **Han Dynasty** — *Vast territory and organized bureaucracy generates +2 extra reinforcements per turn.* — Ability: *Silk Road: once per turn during draft, add +3 tech points.*
-- **Maurya Empire** — *War elephants add +1 attack die when assaulting territories with 3 or fewer defenders.* — Ability: *War Elephants: once per turn, one attack roll uses 4 dice (max).*
+- **Maurya Empire** — *War elephants — +1 attack die on every assault, and a second die once per turn.* — Ability: *War Elephants: once per turn, one attack roll uses 4 dice (max).*
 - **Carthaginian Republic** — *Naval supremacy allows sea-lane fortify moves at no extra cost and +1 defense on coastal territories.* — Ability: *Naval Supremacy: move units along sea connections without restriction during fortify phase.*
-- **Germanic Tribes** — *Fierce forest fighters — +1 defense die on all defense rolls.* — Ability: *Ambush: once per turn, attack from a border territory using 1 extra die.*
+- **Germanic Tribes** — *Fierce forest fighters — one ambush each turn adds an attack die.* — Ability: *Ambush: once per turn, attack from a border territory using 1 extra die.*
 
 ### `medieval`
 
@@ -463,11 +463,11 @@ Mechanical bonuses (dice, reinforce numbers) are omitted; these strings are the 
 ### `ww2`
 
 - **Third Reich** — *Blitzkrieg doctrine — after a successful capture, may make one immediate bonus attack per turn.* — Ability: *Blitzkrieg: once per turn, after capturing a territory immediately execute a free additional attack from that territory.*
-- **Soviet Union** — *Vast reserves — +2 reinforcements per turn; wartime_logistics allows 3 fortify moves.* — Ability: *Mass Mobilization: once per game, place 5 extra units on any owned territory.*
-- **United States** — *Industrial supremacy — +1 production unit from every owned territory per turn.* — Ability: *Arsenal of Democracy: once per turn during draft, spend 5 production points to place 3 extra units.*
+- **Soviet Union** — *Vast reserves — +2 reinforcements per turn, and once per game a mass mobilisation places five extra units.* — Ability: *Mass Mobilization: once per game, place 5 extra units on any owned territory.*
+- **United States** — *Industrial supremacy — +1 reinforcement per turn; where research is in play, the Arsenal of Democracy turns it into materiel.* — Ability: *Arsenal of Democracy: once per turn during draft, spend 5 production points to place 3 extra units.*
 - **United Kingdom** — *Island fortress and global empire — +1 defense die; sea-lane fortify is free.* — Ability: *Commonwealth: once per turn, reinforce any owned territory from another owned territory via sea at no movement cost.*
-- **Imperial Japan** — *Pacific supremacy — sea-lane attacks use 3 dice; +1 attack die in Pacific or Asia regions.* — Ability: *Banzai Charge: once per turn, one attack exchange uses 4 attack dice (maximum).*
-- **Chinese Nationalists** — *Guerrilla resistance — +1 defense die; can spend production to place hidden reserve units.* — Ability: *Guerrilla Warfare: once per turn, place 1 unit on any owned territory for free.*
+- **Imperial Japan** — *Pacific supremacy — +1 attack die on every assault, and a banzai charge adds another once per turn.* — Ability: *Banzai Charge: once per turn, one attack exchange uses 4 attack dice (maximum).*
+- **Chinese Nationalists** — *Guerrilla resistance — once per turn, a hidden reserve places a free unit on ground you hold.* — Ability: *Guerrilla Warfare: once per turn, place 1 unit on any owned territory for free.*
 
 ### `coldwar`
 
