@@ -51,7 +51,7 @@ import WarfrontResult from '../components/warfront/WarfrontResult';
 import { fetchWarfrontTerrain } from '../services/warfrontApi';
 
 /**
- * Warfront tactical view — Slice A step 3.
+ * Warfront tactical view — Slice A steps 2–4: a solo match against the lab's bots.
  *
  * Admin-only. The route is wrapped `<PrivateRoute><AdminRoute>` in App.tsx and the
  * endpoint it calls is admin-guarded server-side; the terrain endpoint also 404s while
@@ -61,8 +61,10 @@ import { fetchWarfrontTerrain } from '../services/warfrontApi';
  * What works now: the whole economy loop. A seat, villagers you assign to buildings
  * rather than order about (rule II), buildings the terrain decides you may raise (rule
  * IV), provinces colonised at a rising price (rule I) and lost with their seat (rule
- * III), and tribes that raid you from minute two (rule VI). What does not exist yet:
- * the sea, attrition and camps, doctrines, and any opponent but the tribes.
+ * III), tribes that raid you from minute two (rule VI), and up to three opponents played
+ * by the lab's policies. The simulation also has the sea, attrition and camps (rules V,
+ * VII), but this page gives the player no port, lighthouse, embark or camp controls yet;
+ * the truce and doctrines do not exist.
  */
 
 /** The seat the local player takes. The rest are played by the lab's own policies. */

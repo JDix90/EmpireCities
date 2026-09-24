@@ -8,9 +8,15 @@ at 100× speed. Nothing in here touches the existing turn-based game.
 
 What exists: 16.16 fixed-point maths, a seeded generator, a 15 tick/s loop with commands
 stamped two ticks ahead, an entity store, a terrain cell grid with flow-field pathing
-over it, and from step 3 an economy — resources, buildings, villagers assigned to jobs,
-upkeep and starvation. Combat, colonisation, tribes, bots and netcode are later steps and
-are not started here.
+over it; the economy (resources, buildings, villagers assigned to jobs, upkeep and
+starvation); colonisation, seat capture and scoring; combat and tribes; sea lanes, hidden
+convoys, reveal and beach landings; attrition and marching camps; the six policy bots and
+the lab runner (`pnpm run lab` here). The truce (rule VIII) and netcode are not started.
+
+Today it has two hosts, not three: the lab, and the admin-only solo match at
+`/admin/warfront`, which runs the simulation in the browser against the bots. The
+frontend depends on this package; the backend deliberately does not. There is no match
+host yet. The status banner in the brief tracks the roadmap step by step.
 
 ## The one convention: every simulated quantity is an integer
 
@@ -184,9 +190,10 @@ pre-scheduled; `replayHash(replay, ticks, terrain?)` is the one-liner the golden
 Pass `terrain: TerrainGrid.decode(asset)` to `new Sim(...)` for flow-field movement, and a
 scenario carrying `players` and `buildings` to give the match an economy.
 
-**Replay format version 3.** The version is bumped whenever the hashed state changes
-shape — 2 added the economy, 3 added combat cooldowns and the tribes — because an older
-replay would hash differently than it recorded. `fromReplay` refuses it with a clear error
+**Replay format version 6** (`REPLAY_VERSION` in `src/sim.ts`). The version is bumped
+whenever the hashed state changes shape — 2 added the economy, 3 combat cooldowns and the
+tribes, 4 the province-ticks a match is scored on, and later steps bumped it again —
+because an older replay would hash differently than it recorded. `fromReplay` refuses it with a clear error
 rather than replaying it to a quietly different answer: a replay that disagrees with
 itself is exactly the failure this package exists to prevent.
 
