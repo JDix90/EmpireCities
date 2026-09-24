@@ -178,7 +178,13 @@ import { applyDailyPuzzleScenario } from '../game-engine/daily/applyDailyPuzzleS
 import { applyAuthoredScenario } from '../game-engine/scenarios/applyAuthoredScenario';
 import { applyTutorialModuleBoost } from '../game-engine/tutorial/applyTutorialModuleBoost';
 import { applyTutorialSettingsLab } from '../game-engine/tutorial/applyTutorialSettingsLab';
-import { getDailyPuzzleSpec, maybeResolveDailyPuzzle, settleDailyRun } from './dailyPuzzleSocket';
+import {
+  creditedWinnerIds,
+  getDailyPuzzleSpec,
+  maybeResolveDailyPuzzle,
+  settleDailyRun,
+  settleObjectiveAtConquest,
+} from './dailyPuzzleSocket';
 import { computeDailyPuzzleScore } from '../game-engine/daily/puzzleScore';
 import {
   beginPuzzleHumanTurn,
@@ -4856,6 +4862,14 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
   const winnerId = winnerIds[0]!;
   clearTurnTimer(gameId, state);
   appendWinProbabilitySnapshot(state);
+  // An objective day won outright settles on the final board before the result
+  // is persisted or read. Then who is credited with the win: the board's
+  // winners, less a human who won the war and lost the daily challenge.
+  // Everything below that pays for a win (XP, rank, rating, streak, gold,
+  // achievements) reads these, not `winnerIds`.
+  settleObjectiveAtConquest(state, getCachedRoom(gameId)?.map, winnerIds);
+  const creditedIds = creditedWinnerIds(state, winnerIds);
+  const creditedWinnerId: string | undefined = creditedIds[0];
 
   // Idempotency guard: finalizeGame can be entered more than once on the same
   // game — e.g. a resign victory check racing with the turn-timer victory
@@ -4981,7 +4995,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
   // Post-game stats (non-critical — failures logged but game:over still sent)
   let resultCtx: Awaited<ReturnType<typeof recordGameResults>>;
   try {
-    resultCtx = await recordGameResults(gameId, state, winnerIds);
+    resultCtx = await recordGameResults(gameId, state, creditedIds);
   } catch (err) {
     console.error('[Socket] Failed to record game results:', err);
     resultCtx = { ratingDeltas: new Map(), ratingProvisional: new Map(), guestPlayerIds: new Set(), isRanked: false, xpEarnedByPlayer: {} };
@@ -4989,7 +5003,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
 
   const unlockedByPlayer: Record<string, string[]> = {};
   const humanPlayers = state.players.filter((p) => !p.is_ai);
-  const ranks = computeRanks(state.players, winnerIds);
+  const ranks = computeRanks(state.players, creditedIds);
 
   // Per-human activation/retention signal: who finished a game, and the outcome.
   // (For human players, player_id is the user's UUID — see ranked insert below.)
@@ -4999,7 +5013,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
       'game_finished',
       {
         game_id: gameId,
-        won: winnerIds.includes(human.player_id),
+        won: creditedIds.includes(human.player_id),
         victory_type: state.victory_condition ?? null,
         duration_ms: finishedDurationMs,
         turn_count: state.turn_number,
@@ -5018,7 +5032,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
         'tutorial_completed',
         {
           game_id: gameId,
-          won: winnerIds.includes(human.player_id),
+          won: creditedIds.includes(human.player_id),
           lesson_module: state.settings.tutorial_lesson_module ?? 'core',
           is_guest: resultCtx.guestPlayerIds.has(human.player_id),
         },
@@ -5113,7 +5127,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
 
   for (const p of humanPlayers) {
     try {
-      const isWinner = p.player_id === winnerId;
+      const isWinner = p.player_id === creditedWinnerId;
       const client = await pgPool.connect();
       try {
         await client.query('BEGIN');
@@ -5203,7 +5217,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
       // Challenge progress (non-critical)
       const challengeEvent: GameChallengeEvent = {
         userId: p.player_id,
-        won: p.player_id === winnerId,
+        won: p.player_id === creditedWinnerId,
         isRanked: resultCtx.isRanked,
         eraId: state.era ?? '',
         buildingsBuilt: Object.values(state.territories).reduce((sum, t) =>
@@ -5223,7 +5237,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
       checkReferralCompletion(p.player_id).catch(() => {});
 
       // Activity feed events (fire-and-forget)
-      if (p.player_id === winnerId) {
+      if (p.player_id === creditedWinnerId) {
         recordActivity(p.player_id, 'game_won', {
           game_id: gameId,
           era_id: state.era ?? '',

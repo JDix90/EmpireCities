@@ -135,6 +135,29 @@ export function evaluatePuzzleObjective(
 }
 
 /**
+ * Whether the objective stands on a board the human has just won outright —
+ * every rival eliminated. The condition alone decides it. A verb that waits
+ * for the AI's reply (capture, chain, region) is waiting for a turn that can
+ * no longer come: with nobody left to take the target back, holding it now is
+ * holding it through that turn. A hold verb's clock is the same — no one is
+ * left to break the hold before it runs out. A verb that asks for something
+ * done, a tech or a building, stands only if it was done.
+ */
+export function isObjectiveMetAtConquest(
+  state: GameState,
+  map: GameMap,
+  spec: DailyPuzzleSpec,
+  humanPlayerId: string,
+): boolean {
+  if (spec.archetype === 'domination') return false;
+  const human = state.players.find((p) => p.player_id === humanPlayerId);
+  if (!human || human.is_eliminated) return false;
+  if (state.players.some((p) => p.player_id !== humanPlayerId && !p.is_eliminated)) return false;
+  const def = PUZZLE_OBJECTIVES[spec.archetype];
+  return !!def && def.condition(state, map, spec, humanPlayerId);
+}
+
+/**
  * Time up — human did not meet goal before max turns (checked after turn advances).
  */
 export function isPuzzleTimedOut(state: GameState, spec: DailyPuzzleSpec): boolean {
