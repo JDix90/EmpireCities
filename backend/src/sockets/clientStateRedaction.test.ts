@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import type { PlayerState, TerritoryState } from '../types';
-import { redactPlayersForViewer, maskHiddenTerritories, redactSettingsForClient, redactReplaySnapshot } from './clientStateRedaction';
+import {
+  redactPlayersForViewer,
+  maskHiddenTerritories,
+  redactSettingsForClient,
+  redactReplaySnapshot,
+  redactServerOnlyState,
+} from './clientStateRedaction';
 import type { GameState } from '../types';
 
 function player(overrides: Partial<PlayerState>): PlayerState {
@@ -181,6 +187,9 @@ describe('redactReplaySnapshot', () => {
       turn_number: 1,
       card_deck: [{ card_id: 'd1', territory_id: 'a', symbol: 'infantry' }],
       mission_seed_salt: 'salt',
+      puzzle_dice_queue: [6, 5, 4, 3, 2, 1],
+      puzzle_decisions: [{ turn: 1, loss: 12.5, grade: 'inaccuracy' }],
+      puzzle_turn_open: { turn: 1, key: 'k', units: [3], draft_left: 3 },
       players: [
         { player_id: 'p1', is_ai: false, secret_mission: { kind: 'capture_region', region_id: 'r' } },
         { player_id: 'ai_1', is_ai: true, secret_mission: null },
@@ -212,10 +221,17 @@ describe('redactReplaySnapshot', () => {
     expect(JSON.stringify(out)).not.toContain('solution');
   });
 
+  it('withholds the dice stream and a v2 run\'s grading mid-game, as the live game does', () => {
+    const json = JSON.stringify(redactReplaySnapshot(snapshot()));
+    expect(json).not.toContain('puzzle_dice_queue');
+    expect(json).not.toContain('puzzle_decisions');
+    expect(json).not.toContain('puzzle_turn_open');
+  });
+
   it('still withholds the deck, the mission salt and every secret mission', () => {
     const out = redactReplaySnapshot(snapshot());
     expect('card_deck' in out).toBe(false);
-    expect('mission_seed_salt' in out).toBe(false);
+    expect(JSON.stringify(out)).not.toContain('mission_seed_salt');
     expect(out.players.every((p) => p.secret_mission === null)).toBe(true);
   });
 
@@ -223,6 +239,51 @@ describe('redactReplaySnapshot', () => {
     const input = snapshot();
     const before = JSON.stringify(input);
     redactReplaySnapshot(input);
+    expect(JSON.stringify(input)).toBe(before);
+  });
+});
+
+describe('redactServerOnlyState', () => {
+  function daily(phase: string): GameState {
+    return {
+      phase,
+      turn_number: 2,
+      card_deck: [{ card_id: 'd1', territory_id: 'a', symbol: 'infantry' }],
+      mission_seed_salt: 'salt',
+      puzzle_dice_queue: [6, 5, 4, 3, 2, 1],
+      puzzle_decisions: [{ turn: 1, loss: 12.5, grade: 'inaccuracy' }],
+      puzzle_turn_open: { turn: 2, key: 'k', units: [3], draft_left: 3 },
+      territories: { a: { territory_id: 'a', owner_id: 'p1', unit_count: 4, unit_type: 'infantry' } },
+      players: [{ player_id: 'p1', is_ai: false, cards: [{ card_id: 'c1' }], secret_mission: null }],
+      settings: { fog_of_war: false, seed: 'top-secret-seed', daily_challenge_spec: { archetype: 'domination', dice_queue_seed: 7 } },
+    } as unknown as GameState;
+  }
+
+  it("keeps a daily's dice stream, seeds and salt on the server", () => {
+    const json = JSON.stringify(redactServerOnlyState(daily('attack')));
+    for (const secret of ['puzzle_dice_queue', 'mission_seed_salt', 'dice_queue_seed', 'top-secret-seed', 'puzzle_turn_open']) {
+      expect(json).not.toContain(secret);
+    }
+  });
+
+  it("holds a v2 run's graded decisions until the game is over", () => {
+    expect(redactServerOnlyState(daily('attack')).puzzle_decisions).toBeUndefined();
+    expect(redactServerOnlyState(daily('game_over')).puzzle_decisions).toEqual([{ turn: 1, loss: 12.5, grade: 'inaccuracy' }]);
+  });
+
+  it('leaves the viewer-scoped fields to the caller and the board untouched', () => {
+    const out = redactServerOnlyState(daily('attack'));
+    // Hands, missions and the deck are the caller's to redact per viewer.
+    expect(out.players[0].cards).toHaveLength(1);
+    expect(out.card_deck).toHaveLength(1);
+    expect(out.territories.a.unit_count).toBe(4);
+    expect((out.settings as unknown as Record<string, unknown>).fog_of_war).toBe(false);
+  });
+
+  it('never mutates the authoritative state', () => {
+    const input = daily('attack');
+    const before = JSON.stringify(input);
+    redactServerOnlyState(input);
     expect(JSON.stringify(input)).toBe(before);
   });
 });

@@ -4,9 +4,11 @@
  * A daily game stores the day's whole spec: in `games.settings_json` and in
  * every `game_states` snapshot's `settings`. On a v2 day that spec holds the
  * answer key (`v2.solution`, the best line and every graded decision), and on
- * every day the dice seeds that generate the stream every player shares. The
- * live socket and `/api/daily/today` withhold them. These three routes did
- * not, and all three are reachable while the day is still live:
+ * every day the dice seeds that generate the stream every player shares.
+ * Each snapshot also carries that stream itself (`puzzle_dice_queue`), every
+ * roll of the day in order. The live socket and `/api/daily/today` withhold
+ * the spec's secrets. These three routes did not, and all three are reachable
+ * while the day is still live:
  *
  *  - `GET /api/games/:gameId`, one request from any signed-in user;
  *  - `GET /api/games/:gameId/replay`, open to a participant once the game is
@@ -27,7 +29,7 @@ import { v4 as uuidv4 } from 'uuid';
 const enabled = process.env.PG_TEST === '1';
 
 /** Strings that must never appear in any payload these routes return. */
-const SECRETS = ['"solution"', '"dice_queue_seed"', 'top-secret-seed'];
+const SECRETS = ['"solution"', '"dice_queue_seed"', 'top-secret-seed', '"puzzle_dice_queue"', '"mission_seed_salt"'];
 
 describe.runIf(enabled)("a live daily's secrets stay on the server (Postgres)", () => {
   let app: FastifyInstance;
@@ -97,6 +99,8 @@ describe.runIf(enabled)("a live daily's secrets stay on the server (Postgres)", 
         territories: {},
         card_deck: [],
         mission_seed_salt: 'salt',
+        // The day's dice stream: the same for every player of the day.
+        puzzle_dice_queue: [6, 5, 4, 3, 2, 1],
         settings,
       };
       await query(
@@ -154,7 +158,7 @@ describe.runIf(enabled)("a live daily's secrets stay on the server (Postgres)", 
     }
   });
 
-  it('a replay of a daily abandoned inside the grace window does not hand over the answer key', async () => {
+  it("a replay of a daily abandoned inside the grace window hands over none of the day's secrets", async () => {
     // The restart path: abandon on turn 1-2 (no entry is recorded), read the
     // replay, start the day again.
     const player = await seedUser('secrets_abandon');
@@ -169,7 +173,7 @@ describe.runIf(enabled)("a live daily's secrets stay on the server (Postgres)", 
     expect(res.body).toContain('cut the supply line');
   });
 
-  it('a shared replay, which needs no sign-in, does not publish the answer key', async () => {
+  it("a shared replay, which needs no sign-in, publishes none of the day's secrets", async () => {
     const player = await seedUser('secrets_share');
     const gameId = await seedDailyGame(player.id, 'completed', true);
 

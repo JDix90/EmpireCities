@@ -195,7 +195,12 @@ The generator keeps sizing numbers from the date. The gate's criterion inverts:
 
 Outside the band the numbers re-roll up to `GATE_ATTEMPTS` times, as today, the band
 moving toward the miss. The solution (best line, equities per decision, theme) is stored
-with the day's spec at materialization; the sweep test recomputes the horizon. If the
+with the day's spec at materialization, and so in every daily game's settings and saved
+state. It never leaves the server while the day is live: every path that hands a client a
+game's settings or state (the socket, `/api/daily/today`, `GET /api/games/:id` and both
+replay routes) reads the spec through `redactSettingsForClient`, which keeps only
+`toPublicDailyPuzzleV2`'s reading, and the archive shows it once the day is over. The sweep
+test recomputes the horizon. If the
 sweep outgrows CI's budget, the horizon is precomputed into a checked-in artifact that
 CI verifies.
 

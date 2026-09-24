@@ -116,7 +116,12 @@ import { config } from '../config';
 import { registerChatHandlers } from './handlers/chatHandler';
 import { registerSocketRateLimit } from './socketRateLimit';
 import { registerSocketAuth } from './socketAuth';
-import { redactPlayersForViewer, maskHiddenTerritories, redactSettingsForClient } from './clientStateRedaction';
+import {
+  redactPlayersForViewer,
+  maskHiddenTerritories,
+  redactServerOnlyState,
+  redactSettingsForClient,
+} from './clientStateRedaction';
 import { aiPlayerName } from '@borderfall/shared';
 import type { SocketContext } from './handlers/types';
 import { checkAndRecordActionId, clearActionIdempotency } from './actionIdempotency';
@@ -4680,18 +4685,10 @@ function buildClientState(state: GameState, playerId: string | null, fogOfWar: b
 
   const actingPlayerId = state.players[state.current_player_index]?.player_id;
   const stripSecretMissions = (s: GameState): GameState => ({
-    ...s,
-    // mission_seed_salt is server-only; leaking it would let a client
-    // replay the PRNG and read every opponent's mission.
-    mission_seed_salt: undefined,
-    // The daily dice seed is server-only for the same reason: with it a
-    // client knows every roll before it attacks.
-    settings: redactSettingsForClient(s.settings),
-    // Daily v2: the graded decisions carry equities the player must not see
-    // before the run ends (a silent day's whole point); the pre-draft note is
-    // server-only bookkeeping.
-    puzzle_decisions: s.phase === 'game_over' ? s.puzzle_decisions : undefined,
-    puzzle_turn_open: undefined,
+    // What no viewer may hold: the mission salt, the daily seeds, a v2 day's
+    // answer key and graded decisions, and the daily's dice stream (with the
+    // seed or the stream, a client knows every roll before it attacks).
+    ...redactServerOnlyState(s),
     // Reveal each player's secret_mission only to its owner / eliminated players /
     // at game_over, and — when there is no viewing player (spectator/public
     // snapshot) — empty every card hand so spectators can't read players' cards.
