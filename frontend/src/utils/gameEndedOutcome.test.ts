@@ -56,4 +56,21 @@ describe('describeEndedOutcome', () => {
   it('does not call a signed-out viewer the winner', () => {
     expect(describeEndedOutcome(input({ winnerId: 'me', viewerId: null }))).toBe('Darth_Jefe won.');
   });
+
+  describe('a daily game', () => {
+    it('does not call a lost challenge a win, even on a board the player won', () => {
+      // Every rival fell before the goal was met: the game is theirs, the run is not.
+      expect(describeEndedOutcome(input({ winnerId: 'me', dailyWon: false }))).toBe('You won the war, but not the challenge.');
+      expect(describeEndedOutcome(input({ winnerId: 'u2', dailyWon: false }))).toBe('Ada won the war, but not the challenge.');
+    });
+
+    it('keeps the plain lines for a won run and for a bot win', () => {
+      expect(describeEndedOutcome(input({ winnerId: 'me', dailyWon: true }))).toBe('You won this one.');
+      expect(describeEndedOutcome(input({ winnerId: null, dailyWon: false }))).toBe('An AI commander took this one.');
+    });
+
+    it('reads a missing daily result as no daily reading at all', () => {
+      expect(describeEndedOutcome(input({ winnerId: 'me', dailyWon: null }))).toBe('You won this one.');
+    });
+  });
 });

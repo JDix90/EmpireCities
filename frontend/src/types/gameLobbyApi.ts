@@ -63,6 +63,12 @@ export interface GameLobbySnapshot {
   join_code?: string | null;
   /** `games.winner_id` once completed; null when a bot won (bot ids are not UUIDs). */
   winner_id?: string | null;
+  /**
+   * A finished daily game's run result, from its player's daily entry. It can
+   * be false with the player as `winner_id`: every rival fell before the goal
+   * was met. Null for any other game.
+   */
+  daily_won?: boolean | null;
   settings_json: GameLobbySettingsJson | null;
   players: GameLobbyPlayerRow[];
 }

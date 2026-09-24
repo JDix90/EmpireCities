@@ -186,6 +186,7 @@ import {
   settleObjectiveAtConquest,
 } from './dailyPuzzleSocket';
 import { computeDailyPuzzleScore } from '../game-engine/daily/puzzleScore';
+import { dailyRunWonForGame } from '../game-engine/daily/dailyRunResult';
 import {
   beginPuzzleHumanTurn,
   commitPuzzleAttack,
@@ -388,6 +389,8 @@ type WaitingLobbyDetails = {
   players: WaitingLobbyPlayerRow[];
   settings: Record<string, unknown>;
   humanPlayers: WaitingLobbyPlayerRow[];
+  /** A finished daily game's run result (see dailyRunWonForGame); absent otherwise. */
+  dailyWon?: boolean | null;
 };
 
 type LobbyProposalSettingKey =
@@ -603,6 +606,9 @@ export function buildLobbySnapshotPayload(lobby: WaitingLobbyDetails) {
     // Lets the ended-game screen name the winner. NULL for a bot win, and
     // the client reads it as exactly that rather than as "unknown".
     winner_id: lobby.game.winner_id ?? null,
+    // A daily game's run can be lost on a board its player won, so the ended
+    // screen reads this beside winner_id. Null for any other game.
+    daily_won: lobby.dailyWon ?? null,
     settings_json: redactSettingsForClient(lobby.settings),
     players: lobby.players.map((player) => ({
       player_index: player.player_index,
@@ -1248,11 +1254,21 @@ export function initGameSocket(httpServer: HttpServer): Server {
         // client say the match is over and offer the replay and the way back.
         // Emitted to this socket alone: nobody else in the room needs it.
         if (isEndedGameStatus(game.status)) {
+          const endedSettings = parseLobbySettings(game.settings_json);
+          // Only a played-out daily has a run result to show. A failed lookup
+          // costs the line its daily reading, never the join.
+          const dailyWon = game.status === 'completed' && endedSettings.daily_challenge_date
+            ? await dailyRunWonForGame(gameId).catch((err) => {
+              console.error('[Socket] Daily run lookup failed for ended game', gameId, err);
+              return null;
+            })
+            : null;
           socket.emit('game:lobby_updated', buildLobbySnapshotPayload({
             game,
             players,
-            settings: parseLobbySettings(game.settings_json),
+            settings: endedSettings,
             humanPlayers: players.filter((player) => !player.is_ai && !!player.user_id),
+            dailyWon,
           }));
         }
 

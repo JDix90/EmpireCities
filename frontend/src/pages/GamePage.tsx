@@ -281,6 +281,7 @@ function normalizeLobbySnapshot(data: unknown): GameLobbySnapshot | null {
     status: String(d.status ?? ''),
     join_code: (d.join_code as string | null | undefined) ?? null,
     winner_id: typeof d.winner_id === 'string' ? d.winner_id : null,
+    daily_won: typeof d.daily_won === 'boolean' ? d.daily_won : null,
     settings_json: settings,
     players: d.players as GameLobbyPlayerRow[],
   };
@@ -3804,6 +3805,7 @@ export default function GamePage() {
           resultLine={describeEndedOutcome({
             status: lobbySnapshot.status,
             winnerId: lobbySnapshot.winner_id ?? null,
+            dailyWon: lobbySnapshot.daily_won ?? null,
             players: lobbySnapshot.players,
             viewerId: user?.user_id ?? null,
             displayName: playerLobbyDisplayName,

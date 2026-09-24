@@ -80,6 +80,17 @@ describe('buildLobbySnapshotPayload', () => {
     expect(buildLobbySnapshotPayload(legacyRow).winner_id).toBeNull();
   });
 
+  it("carries a daily game's run result, so a lost challenge is not read as a win", () => {
+    // The player holds the board (winner_id) and lost the run: every rival
+    // fell before the goal was met.
+    const lostRun = buildLobbySnapshotPayload({ ...lobby, dailyWon: false });
+    expect(lostRun.winner_id).toBe('u1');
+    expect(lostRun.daily_won).toBe(false);
+    expect(buildLobbySnapshotPayload({ ...lobby, dailyWon: true }).daily_won).toBe(true);
+    // Any other game, or a lobby built without one, says nothing about a run.
+    expect(buildLobbySnapshotPayload(lobby).daily_won).toBeNull();
+  });
+
   it('carries the roster so the ended screen can name who played', () => {
     const payload = buildLobbySnapshotPayload(lobby);
     expect(payload.game_id).toBe('g1');

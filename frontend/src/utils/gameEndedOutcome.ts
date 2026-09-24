@@ -5,6 +5,8 @@ export interface EndedOutcomeInput {
   status: string;
   /** `games.winner_id`: a user id, or null when a bot won (bot ids are not UUIDs). */
   winnerId: string | null;
+  /** A daily game's run result (`daily_won`); null or absent for any other game. */
+  dailyWon?: boolean | null;
   players: GameLobbyPlayerRow[];
   /** The signed-in viewer, if any. */
   viewerId: string | null;
@@ -24,9 +26,16 @@ export interface EndedOutcomeInput {
 export function describeEndedOutcome(input: EndedOutcomeInput): string | null {
   if (input.status !== 'completed') return null;
   if (input.winnerId) {
-    if (input.viewerId && input.winnerId === input.viewerId) return 'You won this one.';
+    // A daily run can be lost on a board its player won: every rival fell
+    // before the goal was met. Say both, as the result screen does.
+    const lostChallenge = input.dailyWon === false;
+    if (input.viewerId && input.winnerId === input.viewerId) {
+      return lostChallenge ? 'You won the war, but not the challenge.' : 'You won this one.';
+    }
     const winner = input.players.find((p) => p.user_id === input.winnerId);
-    return winner ? `${input.displayName(winner)} won.` : null;
+    if (!winner) return null;
+    const name = input.displayName(winner);
+    return lostChallenge ? `${name} won the war, but not the challenge.` : `${name} won.`;
   }
   return input.players.some((p) => p.is_ai) ? 'An AI commander took this one.' : null;
 }
