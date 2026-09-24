@@ -774,8 +774,7 @@
       "name": "Scandinavia",
       "polygon": [[230, 5], [360, 5], [360, 45], [230, 45]],
       "center_point": [295, 25],
-      "region_id": "northern_frontier",
-      "unlock_era_index": 1
+      "region_id": "northern_frontier"
     },
     {
       "territory_id": "volga_bulgaria",
@@ -783,7 +782,6 @@
       "polygon": [[430, 5], [560, 5], [560, 55], [430, 55]],
       "center_point": [495, 30],
       "region_id": "northern_frontier",
-      "unlock_era_index": 1,
       "geo_polygon": [[48,57],[48,63],[59,63],[59,57],[48,57]]
     },
     {
@@ -873,7 +871,6 @@
       "polygon": [[1100, 120], [1180, 120], [1180, 260], [1100, 260]],
       "center_point": [1140, 190],
       "region_id": "far_east",
-      "unlock_era_index": 2,
       "geo_polygon": [[135,31],[135,42],[146,42],[146,31],[135,31]]
     },
     {
@@ -908,8 +905,7 @@
       "name": "Southeast Asia",
       "polygon": [[985, 330], [1085, 330], [1085, 445], [985, 445]],
       "center_point": [1035, 387],
-      "region_id": "southeast_asia",
-      "unlock_era_index": 1
+      "region_id": "southeast_asia"
     },
     {
       "territory_id": "siberia",
@@ -1000,7 +996,6 @@
       "polygon": [[758, 220], [803, 220], [803, 295], [758, 295]],
       "center_point": [780, 257],
       "region_id": "himalaya",
-      "unlock_era_index": 5,
       "geo_polygon": [[80, 27], [80, 36], [98, 36], [98, 27], [80, 27]]
     },
     {
