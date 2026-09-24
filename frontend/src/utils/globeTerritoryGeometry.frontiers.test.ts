@@ -31,8 +31,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ALLOWED_SYNTHETIC: Record<string, ReadonlySet<string>> = {
   // All Ancient frontiers are land/islands with real geometry.
   era_ancient: new Set(),
-  // All Medieval frontiers (incl. kamchatka via inline RU clip) resolve real geometry.
-  era_medieval: new Set(),
   era_discovery: new Set(['southern_ocean']),
   era_ww2: new Set(['mid_pacific', 'south_atlantic_ww2', 'weddell_sea', 'southern_ocean']),
   era_coldwar: new Set([
@@ -67,6 +65,38 @@ function resolvesToRealGeometry(t: RawTerritory): boolean {
   if ((t.iso_codes?.length ?? 0) > 0) return true; // inline legacy list
   return hasGeoMapping(t.territory_id); // preset in territoryGeoMapping
 }
+
+/**
+ * Medieval's seven frontiers were ungated — the whole board is in play from
+ * turn one — so it no longer appears in the sweep below. The tiles did not go
+ * anywhere and neither does their protection: kamchatka is named in the
+ * docstring above as one of the land frontiers that shipped as a gray block
+ * once, and it is exactly the tile that would regress unnoticed if this check
+ * simply went away with the gate.
+ */
+const MEDIEVAL_EX_FRONTIERS = [
+  'vinland', 'caribbean_isles', 'southern_africa', 'madagascar',
+  'australia', 'polynesia', 'kamchatka',
+] as const;
+
+describe('medieval ex-frontier geometry (ungated, still must not be blocks)', () => {
+  it('every one of the seven resolves to real geometry', () => {
+    const map = loadEraMap('era_medieval');
+    const byId = new Map(map.territories.map((t) => [t.territory_id, t]));
+    // They are base territories now, so assert they are no longer gated AND
+    // still draw real geometry — the pair the old sweep gave us for free.
+    const stillGated = MEDIEVAL_EX_FRONTIERS.filter((id) => (byId.get(id)?.unlock_era_index ?? 0) > 0);
+    expect(stillGated, 'these were ungated deliberately').toEqual([]);
+
+    const missing = MEDIEVAL_EX_FRONTIERS.filter((id) => !byId.has(id));
+    expect(missing, 'ungated, not deleted').toEqual([]);
+
+    const blocks = MEDIEVAL_EX_FRONTIERS
+      .filter((id) => !resolvesToRealGeometry(byId.get(id)!))
+      .map((id) => id);
+    expect(blocks, `medieval tiles falling through to a synthetic block: ${blocks.join(', ')}`).toEqual([]);
+  });
+});
 
 describe('era growth-frontier geometry coverage (no gray blocks)', () => {
   for (const [mapId, allowed] of Object.entries(ALLOWED_SYNTHETIC)) {
