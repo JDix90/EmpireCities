@@ -66,4 +66,60 @@ describe('redactGameRowForViewer', () => {
     expect(() => redactGameRowForViewer(a, false)).not.toThrow();
     expect(() => redactGameRowForViewer(b, false)).not.toThrow();
   });
+
+  describe('a Daily v2 day', () => {
+    const v2 = {
+      version: 2,
+      theme: 'cut the supply line',
+      plan: { steps: [{ kind: 'draft', to: 'gaul', when: 'objective_ai' }] },
+      plan_prose: ['While it holds the objective, it reinforces Gaul.'],
+      decisions_target: 2,
+      verdicts: 'before_dice',
+      intent: 'arrows',
+      solution: { equity: 0.7, obvious_equity: 0.4, decisions: [{ turn: 1 }, { turn: 2 }], line: [] },
+    };
+    const v2Row = (intent = 'arrows'): Record<string, unknown> => ({
+      game_id: 'g5',
+      status: 'in_progress',
+      settings_json: {
+        seed: 'top-secret-seed',
+        daily_challenge_spec: { archetype: 'military_capture', dice_queue_seed: 7, v2: { ...v2, intent } },
+      },
+    });
+
+    it("strips the answer key for everyone — this route is one request from any signed-in user", () => {
+      for (const participant of [false, true]) {
+        const row = v2Row();
+        redactGameRowForViewer(row, participant);
+        const spec = (row.settings_json as Record<string, unknown>).daily_challenge_spec as Record<string, unknown>;
+        const pub = spec.v2 as Record<string, unknown>;
+        expect(pub.solution).toBeUndefined();
+        expect(JSON.stringify(row)).not.toContain('solution');
+        // The public reading, exactly as the live socket sends it.
+        expect(pub.theme).toBe('cut the supply line');
+        expect(pub.plan_prose).toEqual(v2.plan_prose);
+        expect(pub.decisions).toBe(2);
+        expect(pub.plan).toEqual(v2.plan);
+        expect(spec.dice_queue_seed).toBeUndefined();
+      }
+    });
+
+    it('withholds the raw plan on a prose day, as the live socket does', () => {
+      const row = v2Row('prose');
+      redactGameRowForViewer(row, true);
+      const pub = ((row.settings_json as Record<string, unknown>).daily_challenge_spec as Record<string, unknown>).v2 as Record<string, unknown>;
+      expect(pub.plan).toBeUndefined();
+      expect(pub.plan_prose).toEqual(v2.plan_prose);
+    });
+
+    it('strips it from a settings_json string too', () => {
+      const row = v2Row();
+      row.settings_json = JSON.stringify(row.settings_json);
+      redactGameRowForViewer(row, false);
+      expect(typeof row.settings_json).toBe('string');
+      expect(row.settings_json as string).not.toContain('solution');
+      expect(row.settings_json as string).not.toContain('dice_queue_seed');
+    });
+  });
 });
+

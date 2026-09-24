@@ -1,4 +1,4 @@
-import type { PlayerState, TerritoryState } from '../types';
+import type { GameState, PlayerState, TerritoryState } from '../types';
 import type { DailyPuzzleV2 } from '../game-engine/daily/dailyPuzzleTypes';
 import { toPublicDailyPuzzleV2 } from '../game-engine/daily/dailyPuzzlePublic';
 
@@ -94,4 +94,57 @@ export function redactSettingsForClient<T extends object>(settings: T): T {
       : rest;
   }
   return out as T;
+}
+
+/**
+ * Strip what no client may hold from a game state, whoever is looking: the
+ * part of the redaction that does not depend on the viewer. `buildClientState`
+ * applies it to every live `game:state` and spectator frame, and
+ * {@link redactReplaySnapshot} to every snapshot a replay serves, so a replay
+ * can never hand over what the live game withheld.
+ *
+ *  - `settings`: the daily seeds and a v2 day's answer key ({@link redactSettingsForClient}).
+ *  - `puzzle_dice_queue`: a daily's dice stream, every roll of the day in
+ *    order. Every player of the day gets the same stream, so one copy gives
+ *    the day away.
+ *  - `mission_seed_salt`: with it a client replays the PRNG and reads every
+ *    opponent's mission.
+ *  - `puzzle_decisions`: a v2 run's graded decisions carry equities the player
+ *    must not see before the run ends; they go out with the game over.
+ *  - `puzzle_turn_open`: server-only bookkeeping for a v2 turn.
+ *
+ * Returns a shallow copy; the authoritative state is never mutated.
+ */
+export function redactServerOnlyState(state: GameState): GameState {
+  return {
+    ...state,
+    settings: state.settings ? redactSettingsForClient(state.settings) : state.settings,
+    puzzle_dice_queue: undefined,
+    mission_seed_salt: undefined,
+    puzzle_decisions: state.phase === 'game_over' ? state.puzzle_decisions : undefined,
+    puzzle_turn_open: undefined,
+  };
+}
+
+/**
+ * A stored snapshot as a replay serves it.
+ *
+ * A replay is reachable while its day is still live: a participant can open
+ * one for a finished or abandoned game, and a shared replay is public. So it
+ * gets {@link redactServerOnlyState} like the live game (the day's seeds, the
+ * v2 answer key and the dice stream stay on the server), and, as it always
+ * has, withholds the deck's draw order and every secret mission. The mission
+ * salt matters here in particular: anyone who saved a replay could otherwise
+ * regenerate the missions of a future game whose id collides.
+ *
+ * Takes a parsed `state_json`; returns a new object and never mutates it.
+ */
+export function redactReplaySnapshot(state: GameState): GameState {
+  const { card_deck: _deck, ...rest } = redactServerOnlyState(state);
+  return {
+    ...rest,
+    players: Array.isArray(rest.players)
+      ? rest.players.map((p) => ({ ...p, secret_mission: null }))
+      : rest.players,
+  } as GameState;
 }

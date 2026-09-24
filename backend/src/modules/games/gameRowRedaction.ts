@@ -1,3 +1,5 @@
+import { redactSettingsForClient } from '../../sockets/clientStateRedaction';
+
 /**
  * Strip participant-only / integrity-sensitive fields from a `GET /api/games/:gameId`
  * row before returning it to a viewer.
@@ -9,11 +11,13 @@
  *
  *  - `join_code` is the private invite credential for friend lobbies — only
  *    participants may see it.
- *  - The daily-challenge deterministic dice seed (`settings_json.seed` and
- *    `settings_json.daily_challenge_spec.dice_queue_seed`) is stripped for
- *    EVERYONE. `/api/daily/today` already withholds it (`toPublicSpec`) so a
- *    player cannot precompute the shared daily's combat rolls; this route used
- *    to return the unstripped `settings_json`, defeating that protection.
+ *  - A daily challenge's secrets in `settings_json` are stripped for EVERYONE:
+ *    the deterministic dice seeds (`seed`, `daily_challenge_spec.dice_queue_seed`),
+ *    which would let a player precompute the shared daily's combat rolls, and
+ *    on a v2 day the answer key (`daily_challenge_spec.v2.solution`). This goes
+ *    through `redactSettingsForClient`, the same redactor the live socket uses,
+ *    so this route cannot withhold less than the game itself does. It used to
+ *    strip the seeds by hand and so missed the answer key when v2 arrived.
  *
  * Mutates `game` in place.
  */
@@ -22,23 +26,16 @@ export function redactGameRowForViewer(game: Record<string, unknown>, isParticip
     delete game.join_code;
   }
 
-  const stripSeed = (settings: Record<string, unknown>): void => {
-    delete settings.seed;
-    const spec = settings.daily_challenge_spec;
-    if (spec && typeof spec === 'object') {
-      delete (spec as Record<string, unknown>).dice_queue_seed;
-    }
-  };
-
   const settings = game.settings_json;
   if (settings && typeof settings === 'object') {
-    stripSeed(settings as Record<string, unknown>);
+    game.settings_json = redactSettingsForClient(settings as Record<string, unknown>);
   } else if (typeof settings === 'string') {
     // Preserve the original string shape if the column came back unparsed.
     try {
-      const parsed = JSON.parse(settings) as Record<string, unknown>;
-      stripSeed(parsed);
-      game.settings_json = JSON.stringify(parsed);
+      const parsed: unknown = JSON.parse(settings);
+      if (parsed && typeof parsed === 'object') {
+        game.settings_json = JSON.stringify(redactSettingsForClient(parsed as Record<string, unknown>));
+      }
     } catch {
       /* leave unparseable settings untouched */
     }

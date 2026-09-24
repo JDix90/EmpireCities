@@ -295,6 +295,10 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
     expect(st.territories.b.owner_id).toBe('p1'); // captured
     expect(st.territories.b.unit_count).toBe(3);  // min(from-1, 3) advanced in
     expect(st.territories.a.unit_count).toBe(1);  // remainder left behind
+    // The seeded dice stream is every roll still to come, and on a daily it is
+    // the same for every player. It stays on the server.
+    expect(st.puzzle_dice_queue).toBeUndefined();
+    expect(JSON.stringify(st)).not.toContain('puzzle_dice_queue');
   });
 
   it('resolves a failed attack without capture', async () => {
