@@ -96,6 +96,7 @@ import {
   type PuzzleReview,
   type PuzzleVerdict,
 } from '../utils/dailyPuzzleV2';
+import { resolveGameOverResult, type DailyRunResult } from '../utils/dailyGameOver';
 import CampaignIntroModal, { type CampaignIntroData } from '../components/game/CampaignIntroModal';
 import InviteFriendsModal from '../components/game/InviteFriendsModal';
 import GameShortcutsModal from '../components/game/GameShortcutsModal';
@@ -280,6 +281,7 @@ function normalizeLobbySnapshot(data: unknown): GameLobbySnapshot | null {
     status: String(d.status ?? ''),
     join_code: (d.join_code as string | null | undefined) ?? null,
     winner_id: typeof d.winner_id === 'string' ? d.winner_id : null,
+    daily_won: typeof d.daily_won === 'boolean' ? d.daily_won : null,
     settings_json: settings,
     players: d.players as GameLobbyPlayerRow[],
   };
@@ -1737,6 +1739,7 @@ export default function GamePage() {
         units_lost?: number; units_destroyed?: number; sea_attacks?: number; eliminations_dealt?: number;
       }>;
       decision_summary?: GameOverModalData['decision_summary'];
+      daily_result?: DailyRunResult;
     }) => {
       const myId = userRef.current?.user_id;
       const xpEarned =
@@ -1744,7 +1747,13 @@ export default function GamePage() {
       const currentEra = useGameStore.getState().gameState?.era;
       const victoryThreshold = useGameStore.getState().gameState?.settings?.victory_threshold;
       const winnerIds = stats.winner_ids ?? [stats.winner_id];
-      setMusicOutcome(!!myId && winnerIds.includes(myId) ? 'victory' : 'defeat');
+      const { isWinner, daily_challenge } = resolveGameOverResult(
+        stats.daily_result,
+        myId,
+        winnerIds,
+        useGameStore.getState().gameState?.settings?.daily_challenge_spec?.goal,
+      );
+      setMusicOutcome(isWinner ? 'victory' : 'defeat');
       const myProgression = myId && stats.progression ? stats.progression[myId] : undefined;
       const vc = stats.victory_condition;
       const probHistory = stats.win_probability_history ?? [];
@@ -1760,7 +1769,7 @@ export default function GamePage() {
       const gameOverData: GameOverModalData = {
         type: 'game_over',
         gameId: gameId as string,
-        isWinner: !!myId && winnerIds.includes(myId),
+        isWinner,
         winnerName: stats.winner_name,
         winnerColor: stats.players.find(p => p.player_id === stats.winner_id)?.color ?? '#fff',
         turnCount: stats.turn_count,
@@ -1784,6 +1793,7 @@ export default function GamePage() {
         ai_difficulty: stats.ai_difficulty ?? null,
         decision_summary: stats.decision_summary,
         puzzle_review: puzzleReviewRef.current ? puzzleReviewView(puzzleReviewRef.current) : undefined,
+        daily_challenge,
         allowReplayDespiteAbandon,
       };
       if (gameId) {
@@ -3795,6 +3805,7 @@ export default function GamePage() {
           resultLine={describeEndedOutcome({
             status: lobbySnapshot.status,
             winnerId: lobbySnapshot.winner_id ?? null,
+            dailyWon: lobbySnapshot.daily_won ?? null,
             players: lobbySnapshot.players,
             viewerId: user?.user_id ?? null,
             displayName: playerLobbyDisplayName,

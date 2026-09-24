@@ -43,6 +43,7 @@ import {
   effectiveMaxPlayers,
 } from './lobbyCapacity';
 import { recordDailyChallengeLoss } from '../../game-engine/daily/recordDailyEntry';
+import { dailyRunWonForGame } from '../../game-engine/daily/dailyRunResult';
 
 /** Optional body for POST /tutorial/start — default matches lobby quick-start (small tutorial map). */
 const TutorialStartSchema = z.object({
@@ -937,6 +938,19 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       [gameId, request.userId],
     );
     redactGameRowForViewer(game, !!participant);
+
+    // A daily game's run can be lost on a board its player won, so the ended
+    // screen reads this beside winner_id. Null for any other game; a failed
+    // lookup costs the line its daily reading, never the page.
+    const settings = game.settings_json;
+    const isDaily = !!settings && typeof settings === 'object'
+      && typeof (settings as Record<string, unknown>).daily_challenge_date === 'string';
+    game.daily_won = game.status === 'completed' && isDaily
+      ? await dailyRunWonForGame(gameId).catch((err) => {
+        request.log.error({ err, gameId }, 'daily run lookup failed');
+        return null;
+      })
+      : null;
 
     return reply.send(game);
   });

@@ -178,8 +178,15 @@ import { applyDailyPuzzleScenario } from '../game-engine/daily/applyDailyPuzzleS
 import { applyAuthoredScenario } from '../game-engine/scenarios/applyAuthoredScenario';
 import { applyTutorialModuleBoost } from '../game-engine/tutorial/applyTutorialModuleBoost';
 import { applyTutorialSettingsLab } from '../game-engine/tutorial/applyTutorialSettingsLab';
-import { getDailyPuzzleSpec, maybeResolveDailyPuzzle } from './dailyPuzzleSocket';
+import {
+  creditedWinnerIds,
+  getDailyPuzzleSpec,
+  maybeResolveDailyPuzzle,
+  settleDailyRun,
+  settleObjectiveAtConquest,
+} from './dailyPuzzleSocket';
 import { computeDailyPuzzleScore } from '../game-engine/daily/puzzleScore';
+import { dailyRunWonForGame } from '../game-engine/daily/dailyRunResult';
 import {
   beginPuzzleHumanTurn,
   commitPuzzleAttack,
@@ -382,6 +389,8 @@ type WaitingLobbyDetails = {
   players: WaitingLobbyPlayerRow[];
   settings: Record<string, unknown>;
   humanPlayers: WaitingLobbyPlayerRow[];
+  /** A finished daily game's run result (see dailyRunWonForGame); absent otherwise. */
+  dailyWon?: boolean | null;
 };
 
 type LobbyProposalSettingKey =
@@ -597,6 +606,9 @@ export function buildLobbySnapshotPayload(lobby: WaitingLobbyDetails) {
     // Lets the ended-game screen name the winner. NULL for a bot win, and
     // the client reads it as exactly that rather than as "unknown".
     winner_id: lobby.game.winner_id ?? null,
+    // A daily game's run can be lost on a board its player won, so the ended
+    // screen reads this beside winner_id. Null for any other game.
+    daily_won: lobby.dailyWon ?? null,
     settings_json: redactSettingsForClient(lobby.settings),
     players: lobby.players.map((player) => ({
       player_index: player.player_index,
@@ -1242,11 +1254,21 @@ export function initGameSocket(httpServer: HttpServer): Server {
         // client say the match is over and offer the replay and the way back.
         // Emitted to this socket alone: nobody else in the room needs it.
         if (isEndedGameStatus(game.status)) {
+          const endedSettings = parseLobbySettings(game.settings_json);
+          // Only a played-out daily has a run result to show. A failed lookup
+          // costs the line its daily reading, never the join.
+          const dailyWon = game.status === 'completed' && endedSettings.daily_challenge_date
+            ? await dailyRunWonForGame(gameId).catch((err) => {
+              console.error('[Socket] Daily run lookup failed for ended game', gameId, err);
+              return null;
+            })
+            : null;
           socket.emit('game:lobby_updated', buildLobbySnapshotPayload({
             game,
             players,
-            settings: parseLobbySettings(game.settings_json),
+            settings: endedSettings,
             humanPlayers: players.filter((player) => !player.is_ai && !!player.user_id),
+            dailyWon,
           }));
         }
 
@@ -4856,6 +4878,14 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
   const winnerId = winnerIds[0]!;
   clearTurnTimer(gameId, state);
   appendWinProbabilitySnapshot(state);
+  // An objective day won outright settles on the final board before the result
+  // is persisted or read. Then who is credited with the win: the board's
+  // winners, less a human who won the war and lost the daily challenge.
+  // Everything below that pays for a win (XP, rank, rating, streak, gold,
+  // achievements) reads these, not `winnerIds`.
+  settleObjectiveAtConquest(state, getCachedRoom(gameId)?.map, winnerIds);
+  const creditedIds = creditedWinnerIds(state, winnerIds);
+  const creditedWinnerId: string | undefined = creditedIds[0];
 
   // Idempotency guard: finalizeGame can be entered more than once on the same
   // game — e.g. a resign victory check racing with the turn-timer victory
@@ -4905,11 +4935,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
       const humanPlayer = state.players.find((p) => !p.is_ai);
       if (humanPlayer) {
         const spec = getDailyPuzzleSpec(state);
-        const isDomination = !spec || spec.archetype === 'domination';
-        let entryWon = humanPlayer.player_id === winnerId;
-        if (entryWon && !isDomination) {
-          entryWon = state.puzzle_objective_met === true;
-        }
+        const { won: entryWon } = settleDailyRun(state, humanPlayer.player_id, winnerIds);
         const mistakes = state.puzzle_feedback_mistakes ?? 0;
         // Daily v2 (docs/DAILY_PUZZLE_V2.md §4): the score is accuracy, not par.
         const v2Run = spec?.v2 ? summarizePuzzleRun(state, entryWon) : null;
@@ -4985,7 +5011,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
   // Post-game stats (non-critical — failures logged but game:over still sent)
   let resultCtx: Awaited<ReturnType<typeof recordGameResults>>;
   try {
-    resultCtx = await recordGameResults(gameId, state, winnerIds);
+    resultCtx = await recordGameResults(gameId, state, creditedIds);
   } catch (err) {
     console.error('[Socket] Failed to record game results:', err);
     resultCtx = { ratingDeltas: new Map(), ratingProvisional: new Map(), guestPlayerIds: new Set(), isRanked: false, xpEarnedByPlayer: {} };
@@ -4993,7 +5019,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
 
   const unlockedByPlayer: Record<string, string[]> = {};
   const humanPlayers = state.players.filter((p) => !p.is_ai);
-  const ranks = computeRanks(state.players, winnerIds);
+  const ranks = computeRanks(state.players, creditedIds);
 
   // Per-human activation/retention signal: who finished a game, and the outcome.
   // (For human players, player_id is the user's UUID — see ranked insert below.)
@@ -5003,7 +5029,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
       'game_finished',
       {
         game_id: gameId,
-        won: winnerIds.includes(human.player_id),
+        won: creditedIds.includes(human.player_id),
         victory_type: state.victory_condition ?? null,
         duration_ms: finishedDurationMs,
         turn_count: state.turn_number,
@@ -5022,7 +5048,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
         'tutorial_completed',
         {
           game_id: gameId,
-          won: winnerIds.includes(human.player_id),
+          won: creditedIds.includes(human.player_id),
           lesson_module: state.settings.tutorial_lesson_module ?? 'core',
           is_guest: resultCtx.guestPlayerIds.has(human.player_id),
         },
@@ -5117,7 +5143,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
 
   for (const p of humanPlayers) {
     try {
-      const isWinner = p.player_id === winnerId;
+      const isWinner = p.player_id === creditedWinnerId;
       const client = await pgPool.connect();
       try {
         await client.query('BEGIN');
@@ -5207,7 +5233,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
       // Challenge progress (non-critical)
       const challengeEvent: GameChallengeEvent = {
         userId: p.player_id,
-        won: p.player_id === winnerId,
+        won: p.player_id === creditedWinnerId,
         isRanked: resultCtx.isRanked,
         eraId: state.era ?? '',
         buildingsBuilt: Object.values(state.territories).reduce((sum, t) =>
@@ -5227,7 +5253,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
       checkReferralCompletion(p.player_id).catch(() => {});
 
       // Activity feed events (fire-and-forget)
-      if (p.player_id === winnerId) {
+      if (p.player_id === creditedWinnerId) {
         recordActivity(p.player_id, 'game_won', {
           game_id: gameId,
           era_id: state.era ?? '',
@@ -5323,6 +5349,11 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
       Array.from(gameCombatStats.get(gameId)?.entries() ?? []).map(([pid, s]) => [pid, s]),
     ),
     decision_summary: decisionSummary,
+    // An objective day can end in the human's favour and still be a lost
+    // challenge; the modal reads this rather than the game's winner.
+    daily_result: humanForSummary && getDailyPuzzleSpec(state)
+      ? settleDailyRun(state, humanForSummary.player_id, winnerIds)
+      : undefined,
   };
   io.to(gameId).emit('game:over', stats);
   // Spectators run on the delayed feed; a slim end-signal lands when their

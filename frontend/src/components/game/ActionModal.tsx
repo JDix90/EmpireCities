@@ -109,6 +109,15 @@ export interface GameOverModalData {
   };
   /** Daily v2 (docs/DAILY_PUZZLE_V2.md §3): the run's decisions, graded, and the share line. */
   puzzle_review?: PuzzleReviewView;
+  /**
+   * An objective day's result. The challenge, not the game, decides the
+   * screen: `unmet` is a game the player won by conquest before meeting the
+   * goal, which scores as a loss (`isWinner` is false).
+   */
+  daily_challenge?: {
+    outcome: 'solved' | 'unmet' | 'failed';
+    goal?: string;
+  };
   insights?: Array<{
     turn: number;
     title: string;
@@ -1265,6 +1274,8 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
 
   const isAbandoned = data.victory_condition === 'abandoned';
   const isAlliance = data.victory_condition === 'alliance_victory';
+  const daily = data.daily_challenge;
+  const wonGameLostChallenge = daily?.outcome === 'unmet';
   const winnerIds = data.winnerIds ?? [];
   const allyName = isAlliance
     ? data.players.find((p) => winnerIds.includes(p.player_id) && p.player_id !== data.players.find((pl) => pl.username === data.winnerName)?.player_id)?.username
@@ -1313,7 +1324,11 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
         showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
         isAbandoned ? 'text-white/50' : data.isWinner ? 'text-yellow-400' : 'text-red-400'
       )}>
-        {isAbandoned ? 'Game Abandoned' : isAlliance && data.isWinner ? '🤝 Alliance Victory!' : data.isWinner ? 'Victory!' : 'Defeat'}
+        {isAbandoned
+          ? 'Game Abandoned'
+          : wonGameLostChallenge
+            ? 'Challenge Failed'
+            : isAlliance && data.isWinner ? '🤝 Alliance Victory!' : data.isWinner ? 'Victory!' : 'Defeat'}
       </h2>
       <p className={clsx(
         'text-white/50 text-sm mb-3 transition-all duration-500 delay-300',
@@ -1321,6 +1336,8 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
       )}>
         {isAbandoned
           ? 'You resigned. The game ended with no human players remaining.'
+          : wonGameLostChallenge
+            ? 'You won the war, but not the challenge.'
           : data.isWinner
             ? isAlliance && allyName
               ? `You and ${allyName} have triumphed together!`
@@ -1353,8 +1370,46 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
         </div>
       )}
 
+      {/* Why a won war is a lost challenge: the goal was the win condition,
+          and taking the whole board ended the game before it was met. */}
+      {wonGameLostChallenge && (
+        <div
+          data-testid="daily-objective-unmet"
+          className={clsx(
+            'mb-5 px-4 py-3 rounded-lg border text-left text-sm transition-all duration-500 delay-350',
+            showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2',
+            'bg-red-500/10 border-red-500/25',
+          )}
+        >
+          {daily?.goal && (
+            <p className="text-white/85 font-medium mb-1.5">Today&apos;s goal: {daily.goal}</p>
+          )}
+          <p className="text-white/65 leading-snug">
+            Defeating every rival ended the game before the goal was met, so today&apos;s
+            challenge counts as a loss. On a challenge day the goal is the win condition.
+            Sometimes it pays to aim for it rather than force a win by conquest, which can
+            end the game early and backfire.
+          </p>
+        </div>
+      )}
+
+      {/* An objective day names its goal, not the board state the game
+          was closed on. */}
+      {daily && daily.outcome !== 'unmet' && (
+        <div className={clsx(
+          'mb-5 px-3 py-2 rounded-lg border text-xs font-medium transition-all duration-500 delay-350',
+          showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2',
+          data.isWinner
+            ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-300'
+            : 'bg-white/5 border-white/10 text-white/45'
+        )}>
+          {daily.outcome === 'solved' ? '🏆 Challenge complete' : 'Challenge failed'}
+          {daily.goal ? ` — ${daily.goal}` : ''}
+        </div>
+      )}
+
       {/* Victory condition reason */}
-      {reasonLabel && (
+      {reasonLabel && !daily && (
         <div className={clsx(
           'mb-5 px-3 py-2 rounded-lg border text-xs font-medium transition-all duration-500 delay-350',
           showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2',

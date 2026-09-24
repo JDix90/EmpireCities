@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { GameMap, GameState } from '../../types';
-import { evaluatePuzzleObjective, isPuzzleTimedOut, puzzleTimeoutOutcome } from './puzzleObjective';
+import { evaluatePuzzleObjective, isObjectiveMetAtConquest, isPuzzleTimedOut, puzzleTimeoutOutcome } from './puzzleObjective';
 import type { DailyPuzzleSpec } from './dailyPuzzleTypes';
 
 const stubMap: GameMap = {
@@ -153,5 +153,84 @@ describe('puzzle objective flow', () => {
     } as unknown as GameState;
 
     expect(evaluatePuzzleObjective(state, stubMap, spec, humanId)).toBe('solved');
+  });
+});
+
+describe('isObjectiveMetAtConquest — the human has just eliminated every rival', () => {
+  const humanId = 'u1';
+  const aiId = 'ai';
+  const base = {
+    title: 'T', intro: 'i', goal: 'g',
+    era_id: 'ancient', map_id: 'm', seed: 1, player_count: 2, max_turns: 10, dice_queue_seed: 1,
+  } as const;
+  const regionMap = {
+    ...stubMap,
+    territories: [
+      { territory_id: 'r1', region_id: 'reg' },
+      { territory_id: 'r2', region_id: 'reg' },
+      { territory_id: 'x', region_id: 'other' },
+    ],
+  } as unknown as GameMap;
+  const board = (
+    owners: Record<string, string | null>,
+    opts: { aiEliminated?: boolean; techs?: string[] } = {},
+  ) => ({
+    players: [
+      { player_id: humanId, is_eliminated: false, unlocked_techs: opts.techs ?? [] },
+      { player_id: aiId, is_ai: true, is_eliminated: opts.aiEliminated ?? true },
+    ],
+    territories: Object.fromEntries(
+      Object.entries(owners).map(([tid, owner]) => [tid, { owner_id: owner, unit_count: 2 }]),
+    ),
+    turn_number: 3,
+    // The capture landed this very turn: the AI's reply never came.
+    puzzle_objective_reached_turn: 3,
+  }) as unknown as GameState;
+
+  it('counts a capture that took the last rival with it — nobody is left to take it back', () => {
+    const spec: DailyPuzzleSpec = { ...base, archetype: 'military_capture', target_territory_id: 'cap' };
+    const state = board({ cap: humanId });
+    // The resolver alone still waits for the reply that cannot come.
+    expect(evaluatePuzzleObjective(state, stubMap, spec, humanId)).toBe('pending');
+    expect(isObjectiveMetAtConquest(state, stubMap, spec, humanId)).toBe(true);
+  });
+
+  it('counts a completed chain and a held region the same way', () => {
+    const chain: DailyPuzzleSpec = { ...base, archetype: 'capture_chain', target_territory_ids: ['a', 'b'] };
+    expect(isObjectiveMetAtConquest(board({ a: humanId, b: humanId }), stubMap, chain, humanId)).toBe(true);
+    const region: DailyPuzzleSpec = { ...base, archetype: 'control_region', region_id: 'reg' };
+    expect(isObjectiveMetAtConquest(board({ r1: humanId, r2: humanId, x: null }), regionMap, region, humanId)).toBe(true);
+  });
+
+  it('counts a hold whose attacker was wiped out before the clock ran down', () => {
+    const spec: DailyPuzzleSpec = { ...base, archetype: 'hold_territory', target_territory_id: 'fort' };
+    expect(isObjectiveMetAtConquest(board({ fort: humanId }), stubMap, spec, humanId)).toBe(true);
+  });
+
+  it('does not count a target, chain or region the human does not hold at the end', () => {
+    // Every rival is gone, but the target is still neutral: the goal was never met.
+    const capture: DailyPuzzleSpec = { ...base, archetype: 'military_capture', target_territory_id: 'cap' };
+    expect(isObjectiveMetAtConquest(board({ cap: null }), stubMap, capture, humanId)).toBe(false);
+    const chain: DailyPuzzleSpec = { ...base, archetype: 'capture_chain', target_territory_ids: ['a', 'b'] };
+    expect(isObjectiveMetAtConquest(board({ a: humanId, b: null }), stubMap, chain, humanId)).toBe(false);
+    const region: DailyPuzzleSpec = { ...base, archetype: 'control_region', region_id: 'reg' };
+    expect(isObjectiveMetAtConquest(board({ r1: humanId, r2: null }), regionMap, region, humanId)).toBe(false);
+  });
+
+  it('does not count anything while a rival is still standing', () => {
+    const spec: DailyPuzzleSpec = { ...base, archetype: 'military_capture', target_territory_id: 'cap' };
+    expect(isObjectiveMetAtConquest(board({ cap: humanId }, { aiEliminated: false }), stubMap, spec, humanId)).toBe(false);
+  });
+
+  it('holds a "do something" verb to the thing being done', () => {
+    // The reported day: every rival gone on turn 1, the tech not yet researched.
+    const tech: DailyPuzzleSpec = { ...base, archetype: 'tech_research', tech_id: 'tech_star_forts' };
+    expect(isObjectiveMetAtConquest(board({}), stubMap, tech, humanId)).toBe(false);
+    expect(isObjectiveMetAtConquest(board({}, { techs: ['tech_star_forts'] }), stubMap, tech, humanId)).toBe(true);
+  });
+
+  it('has nothing to say about a domination day', () => {
+    const spec: DailyPuzzleSpec = { ...base, archetype: 'domination' };
+    expect(isObjectiveMetAtConquest(board({}), stubMap, spec, humanId)).toBe(false);
   });
 });

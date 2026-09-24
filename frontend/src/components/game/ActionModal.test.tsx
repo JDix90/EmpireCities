@@ -258,3 +258,66 @@ describe('ActionModal — Daily v2 decision review', () => {
     await waitFor(() => expect(screen.queryByTestId('puzzle-review')).toBeNull());
   });
 });
+
+describe('ActionModal — daily objective result', () => {
+  const GOAL = 'Research “Star Forts”.';
+
+  it('shows a won war on an unmet objective as a failed challenge, and says why', async () => {
+    render(
+      <ActionModal
+        data={gameOver({
+          isWinner: false,
+          victory_condition: 'last_standing',
+          daily_challenge: { outcome: 'unmet', goal: GOAL },
+        })}
+        onDismiss={() => {}}
+      />,
+    );
+    await waitFor(() => expect(screen.getByTestId('daily-objective-unmet')).toBeTruthy());
+    expect(screen.getByText('Challenge Failed')).toBeTruthy();
+    expect(screen.queryByText('Victory!')).toBeNull();
+    expect(screen.getByText('You won the war, but not the challenge.')).toBeTruthy();
+    expect(screen.getByText(`Today's goal: ${GOAL}`)).toBeTruthy();
+    expect(screen.getByText(/ended the game before the goal was met/)).toBeTruthy();
+    // The game's own victory line would contradict the result.
+    expect(screen.queryByText(/Victory by/)).toBeNull();
+  });
+
+  it('names the goal rather than the board on a solved day', async () => {
+    render(
+      <ActionModal
+        data={gameOver({ victory_condition: 'domination', daily_challenge: { outcome: 'solved', goal: GOAL } })}
+        onDismiss={() => {}}
+      />,
+    );
+    await waitFor(() => expect(screen.getByText('Victory!')).toBeTruthy());
+    expect(screen.getByText(`🏆 Challenge complete — ${GOAL}`)).toBeTruthy();
+    expect(screen.queryByText(/Total Domination/)).toBeNull();
+    expect(screen.queryByTestId('daily-objective-unmet')).toBeNull();
+  });
+
+  it('names the goal on a failed day', async () => {
+    render(
+      <ActionModal
+        data={gameOver({
+          isWinner: false,
+          winnerName: 'AI',
+          victory_condition: 'last_standing',
+          daily_challenge: { outcome: 'failed', goal: GOAL },
+        })}
+        onDismiss={() => {}}
+      />,
+    );
+    await waitFor(() => expect(screen.getByText('Defeat')).toBeTruthy());
+    expect(screen.getByText(`Challenge failed — ${GOAL}`)).toBeTruthy();
+    expect(screen.queryByText(/Last Commander Standing/)).toBeNull();
+  });
+
+  it('leaves an ordinary game on its victory condition', async () => {
+    render(<ActionModal data={gameOver()} onDismiss={() => {}} />);
+    await waitFor(() => expect(screen.getByText('Victory!')).toBeTruthy());
+    expect(screen.getByText(/Victory by Total Domination/)).toBeTruthy();
+    expect(screen.queryByText(/Challenge (complete|failed|Failed)/)).toBeNull();
+    expect(screen.queryByTestId('daily-objective-unmet')).toBeNull();
+  });
+});
