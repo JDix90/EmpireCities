@@ -22,7 +22,7 @@ export const SPACE_AGE_FACTIONS: Faction[] = [
     // inventing a new identity for them.
     tech_point_income: 2,
     ability_id: 'satellite_uplink',
-    ability_description: 'Satellite Uplink: once per turn, spend 4 tech points to place 2 units on an owned territory bordering an enemy.',
+    ability_description: 'Satellite Uplink: once per turn, place 2 units on an owned territory bordering an enemy.',
     color: '#3498db',
     stability_recovery_bonus: 2,
   },
@@ -37,7 +37,7 @@ export const SPACE_AGE_FACTIONS: Faction[] = [
     reinforce_bonus: 2,
     production_per_tech_building: 1,
     ability_id: 'ai_surge',
-    ability_description: 'AI Surge: once per turn, spend 5 tech points to place 3 units on any owned territory.',
+    ability_description: 'AI Surge: once per turn, place 3 units on any owned territory.',
     color: '#c0392b',
   },
   {
@@ -58,13 +58,16 @@ export const SPACE_AGE_FACTIONS: Faction[] = [
     faction_id: 'corpo_enclave',
     lineage_id: 'mercantile',
     name: 'Corporate Enclave',
-    description: 'Private militaries and techno-capitalism — +4 tech points per turn; Mercenary Contract ability (6 tech points).',
+    // Dead twice over: a tech cost it could not pay, AND a production building
+    // that cannot exist — validateBuild rejects every build when the economy
+    // layer is off, which is the default. Last in its era at 9%.
+    description: 'Private militaries and techno-capitalism — +4 tech points per turn, and a contract company on call each turn.',
     lore: 'Post-state megacorporations ruling sovereign coastal cities, blurring the boundary between shareholders and citizens.',
     flavor_quote: 'Loyalty is a line item, not a virtue.',
     home_region_ids: ['coastal_megacities_2100', 'latin_america_2100'],
     tech_point_income: 4,
     ability_id: 'mercenary_contract',
-    ability_description: 'Mercenary Contract: once per turn, spend 6 tech points to place 4 units on any territory you own that has a production building.',
+    ability_description: 'Mercenary Contract: once per turn, place 4 units on a territory you own — a production site is required only where the economy layer is running.',
     color: '#9b59b6',
   },
   {

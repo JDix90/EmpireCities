@@ -129,6 +129,36 @@ describe('every faction ships with a kit', () => {
   });
 
   /**
+   * Existing is not the same as VISIBLE. `requiresEconomy` hides a button
+   * whenever the economy layer is off and `techCost` hides it until the player
+   * can afford it — and both systems default OFF, so either one makes the
+   * button unreachable in a normal game.
+   *
+   * Six faction kits were sitting behind that. Five also had a server-side
+   * cost; `spice_trade` did not — #400 dropped ITS cost and measured Mughal
+   * 3% -> 9% on the strength of it, but missed this file, so the bot got the
+   * kit and the human never saw the button. That asymmetry is the worst shape
+   * this bug takes, because the balance numbers say the faction is fixed.
+   */
+  it('no faction button is hidden by a system that is off by default', () => {
+    const ui = readFileSync(
+      join(__dirname, '../../../../frontend/src/utils/factionAbilities.ts'), 'utf-8',
+    );
+    const body = ui.slice(ui.indexOf('FACTION_ABILITY_UI: Record<string, FactionAbilityUiDef> = {'));
+    const entries = new Map<string, string>();
+    for (const m of body.matchAll(/^ {2}([a-z_][a-z0-9_]*): \{(.*?)^ {2}\},/gms)) {
+      entries.set(m[1]!, m[2]!);
+    }
+    expect(entries.size).toBeGreaterThanOrEqual(30);
+
+    const hidden = ALL_FACTIONS
+      .filter((f) => f.ability_id && entries.has(f.ability_id))
+      .filter((f) => /requiresEconomy|techCost/.test(entries.get(f.ability_id!)!))
+      .map((f) => `${f.faction_id} -> ${f.ability_id}`);
+    expect(hidden).toEqual([]);
+  });
+
+  /**
    * `stability_recovery_bonus` does nothing unless stability_enabled is on, and
    * it defaults FALSE (state/gameSettings.ts). The UK's description led with it
    * as its whole kit, and the Confederacy claimed it without even carrying the

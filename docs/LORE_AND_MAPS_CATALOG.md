@@ -437,7 +437,7 @@ Mechanical bonuses (dice, reinforce numbers) are omitted; these strings are the 
 
 - **Roman Republic** — *Disciplined legions — +1 reinforcement per turn, and one assault each turn costs Rome nothing.* — Ability: *Testudo Formation: once per turn during attack phase, negate all attacker losses on one combat exchange.*
 - **Parthian Empire** — *Caravan cities pay for the frontier: +3 reinforcements each turn, and anyone who takes Parthian ground loses an extra unit on the way in.* — Ability: *Parting Shot: after losing a territory, immediately deal 1 unit loss to the attacker.*
-- **Han Dynasty** — *Vast territory and organized bureaucracy generates +2 extra reinforcements per turn.* — Ability: *Silk Road: once per turn during draft, add +3 tech points.*
+- **Han Dynasty** — *Vast territory and organized bureaucracy — +2 reinforcements per turn, and the caravans bring a fresh levy.* — Ability: *Silk Road: once per turn during draft, place 1 unit on a territory you hold — and +3 tech points where research is in play.*
 - **Maurya Empire** — *War elephants — +1 attack die on every assault, and a second die once per turn.* — Ability: *War Elephants: once per turn, one attack roll uses 4 dice (max).*
 - **Carthaginian Republic** — *A maritime trading power anchored in North Africa — its gold hires a fresh spear every turn.* — Ability: *Mercenary Levy: once per turn during draft, place 1 extra unit on a territory you hold.*
 - **Germanic Tribes** — *Fierce forest fighters — one ambush each turn adds an attack die.* — Ability: *Ambush: once per turn, attack from a border territory using 1 extra die.*
@@ -464,7 +464,7 @@ Mechanical bonuses (dice, reinforce numbers) are omitted; these strings are the 
 
 - **Third Reich** — *Blitzkrieg doctrine — after a successful capture, may make one immediate bonus attack per turn.* — Ability: *Blitzkrieg: once per turn, after capturing a territory immediately execute a free additional attack from that territory.*
 - **Soviet Union** — *Vast reserves — +2 reinforcements per turn, and once per game a mass mobilisation places five extra units.* — Ability: *Mass Mobilization: once per game, place 5 extra units on any owned territory.*
-- **United States** — *Industrial supremacy — +1 reinforcement per turn; where research is in play, the Arsenal of Democracy turns it into materiel.* — Ability: *Arsenal of Democracy: once per turn during draft, spend 5 production points to place 3 extra units.*
+- **United States** — *Industrial supremacy — +1 reinforcement per turn, and the arsenal turns out a fresh division every turn.* — Ability: *Arsenal of Democracy: once per turn during draft, place 1 extra unit on a territory you hold.*
 - **United Kingdom** — *Island fortress and global empire — the Dominions send a division every turn.* — Ability: *Commonwealth: once per turn during draft, place 1 extra unit on a territory you hold.*
 - **Imperial Japan** — *Pacific supremacy — +1 reinforcement per turn, and a banzai charge turns one assault a turn overwhelming.* — Ability: *Banzai Charge: once per turn, one attack exchange uses 4 attack dice (maximum).*
 - **Chinese Nationalists** — *Guerrilla resistance — once per turn, a hidden reserve places a free unit on ground you hold.* — Ability: *Guerrilla Warfare: once per turn, place 1 unit on any owned territory for free.*
@@ -501,10 +501,10 @@ Mechanical bonuses (dice, reinforce numbers) are omitted; these strings are the 
 
 ### `space_age`
 
-- **Terran Federation** — *Satellite-backed democracies — +1 attack die on every attack; +2 tech points and +2 stability recovery per turn; Satellite Uplink ability.* — Ability: *Satellite Uplink: once per turn, spend 4 tech points to place 2 units on an owned territory bordering an enemy.*
-- **Sino-Pacific Hegemony** — *Automated industry + AI command — +2 reinforcements per turn; +1 production per tech building each turn; AI Surge ability.* — Ability: *AI Surge: once per turn, spend 5 tech points to place 3 units on any owned territory.*
+- **Terran Federation** — *Satellite-backed democracies — +1 attack die on every attack; +2 tech points and +2 stability recovery per turn; Satellite Uplink ability.* — Ability: *Satellite Uplink: once per turn, place 2 units on an owned territory bordering an enemy.*
+- **Sino-Pacific Hegemony** — *Automated industry + AI command — +2 reinforcements per turn; +1 production per tech building each turn; AI Surge ability.* — Ability: *AI Surge: once per turn, place 3 units on any owned territory.*
 - **Climate Alliance** — *Terraforming doctrine — +4 stability recovery per turn; population grows twice as fast; Terraform ability.* — Ability: *Terraform: once per turn, restore stability to 100 in an owned territory and gain 1 free unit there.*
-- **Corporate Enclave** — *Private militaries and techno-capitalism — +4 tech points per turn; Mercenary Contract ability (6 tech points).* — Ability: *Mercenary Contract: once per turn, spend 6 tech points to place 4 units on any territory you own that has a production building.*
+- **Corporate Enclave** — *Private militaries and techno-capitalism — +4 tech points per turn, and a contract company on call each turn.* — Ability: *Mercenary Contract: once per turn, place 4 units on a territory you own — a production site is required only where the economy layer is running.*
 - **Solar Caliphate** — *Energy hegemony of the post-petroleum age — +1 reinforcement per turn; Solar Surge ability.* — Ability: *Solar Surge: once per turn, place 1 unit on an owned territory and gain 2 production.*
 - **Lunar Pioneers** — *Moon-native colonists — start with a Launch Pad and Moon access from turn one; +1 reinforcement per turn; +2 defense dice on Moon territories; Lunar Supply Drop ability.* — Ability: *Lunar Supply Drop: once per turn, drop 2 units into any owned Moon territory.*
 

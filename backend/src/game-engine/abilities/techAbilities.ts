@@ -170,8 +170,8 @@ export const TERRITORY_ABILITY_DEFS: Record<string, TerritoryAbilityDef> = {
   terraform: { label: 'Terraform', scope: 'turn', phase: 'draft', ownPlacement: { units: 1, restoreStability: true } },
 
   // ── Faction abilities: tech-point-gated placement (Group B) ─────────────────
-  arsenal_of_democracy: { label: 'Arsenal of Democracy', scope: 'turn', phase: 'draft', techCost: 5, ownPlacement: { units: 3 } },
-  ai_surge: { label: 'AI Surge', scope: 'turn', phase: 'draft', techCost: 5, ownPlacement: { units: 3 } },
+  arsenal_of_democracy: { label: 'Arsenal of Democracy', scope: 'turn', phase: 'draft', ownPlacement: { units: 1 } },
+  ai_surge: { label: 'AI Surge', scope: 'turn', phase: 'draft', ownPlacement: { units: 3 } },
   // Ungated: 3 tech points is unpayable with tech trees off, which is the
   // default and every campaign stage, so this was the Emerging Economy's kit
   // doing nothing at all. Only that faction uses it.
@@ -181,8 +181,8 @@ export const TERRITORY_ABILITY_DEFS: Record<string, TerritoryAbilityDef> = {
   // share, measured); one is what the ungated tier is worth. Only that
   // faction uses it.
   oil_wealth: { label: 'Oil Wealth', scope: 'turn', phase: 'draft', ownPlacement: { units: 1 } },
-  mercenary_contract: { label: 'Mercenary Contract', scope: 'turn', phase: 'draft', techCost: 6, ownPlacement: { units: 4, requiresProductionBuilding: true } },
-  satellite_uplink: { label: 'Satellite Uplink', scope: 'turn', phase: 'draft', techCost: 4, ownPlacement: { units: 2, requiresEnemyAdjacent: true } },
+  mercenary_contract: { label: 'Mercenary Contract', scope: 'turn', phase: 'draft', ownPlacement: { units: 4, requiresProductionBuilding: true } },
+  satellite_uplink: { label: 'Satellite Uplink', scope: 'turn', phase: 'draft', ownPlacement: { units: 2, requiresEnemyAdjacent: true } },
   solar_surge: { label: 'Solar Surge', scope: 'turn', phase: 'draft', ownPlacement: { units: 1, grantsProduction: 2 } },
   // Ungated on purpose: this was the Mughal Empire's ENTIRE kit, and 5 tech
   // points is unpayable in a game with tech trees off — the default, and
@@ -193,7 +193,7 @@ export const TERRITORY_ABILITY_DEFS: Record<string, TerritoryAbilityDef> = {
   total_war: { label: 'Total War', scope: 'game', phase: 'draft' },
   peoples_war: { label: "People's War", scope: 'game', phase: 'draft' },
   imperial_diet: { label: 'Imperial Diet', scope: 'turn', phase: 'draft' },
-  silk_road: { label: 'Silk Road', scope: 'turn', phase: 'draft' },
+  silk_road: { label: 'Silk Road', scope: 'turn', phase: 'draft', ownPlacement: { units: 1 } },
   house_of_wisdom: { label: 'House of Wisdom', scope: 'turn', phase: 'draft' },
 
   // ── Faction abilities: attack self-buffs (Group D, attack) ──────────────────

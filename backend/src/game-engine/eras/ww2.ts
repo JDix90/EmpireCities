@@ -38,13 +38,17 @@ export const WW2_FACTIONS: Faction[] = [
     // The passive is a flat reinforcement, and the Arsenal is tech-costed, so
     // it does nothing at all in a game with tech trees off — which is the
     // default, and every campaign stage.
-    description: 'Industrial supremacy — +1 reinforcement per turn; where research is in play, the Arsenal of Democracy turns it into materiel.',
+    // The hedge in the old copy — "where research is in play" — was accurate
+    // and damning: research is NOT in play by default, so the USA's kit was
+    // one reinforcement. The cost is gone. Three free units a turn was
+    // measured and rejected: it took Germany from 14.6% to 7.0%.
+    description: 'Industrial supremacy — +1 reinforcement per turn, and the arsenal turns out a fresh division every turn.',
     lore: 'Protected by oceans and powered by industry, the United States converts economic depth into global military reach.',
     flavor_quote: 'Assembly lines win wars long before the landing craft arrive.',
     home_region_ids: ['atlantic_th'],
     reinforce_bonus: 1,
     ability_id: 'arsenal_of_democracy',
-    ability_description: 'Arsenal of Democracy: once per turn during draft, spend 5 production points to place 3 extra units.',
+    ability_description: 'Arsenal of Democracy: once per turn during draft, place 1 extra unit on a territory you hold.',
     color: '#3498db',
   },
   {
