@@ -1,4 +1,4 @@
-import type { PlayerState, TerritoryState } from '../types';
+import type { GameState, PlayerState, TerritoryState } from '../types';
 import type { DailyPuzzleV2 } from '../game-engine/daily/dailyPuzzleTypes';
 import { toPublicDailyPuzzleV2 } from '../game-engine/daily/dailyPuzzlePublic';
 
@@ -94,4 +94,29 @@ export function redactSettingsForClient<T extends object>(settings: T): T {
       : rest;
   }
   return out as T;
+}
+
+/**
+ * A stored snapshot as a replay serves it.
+ *
+ * Every snapshot of a daily carries the day's full spec in `settings`: the
+ * seeds, and on a v2 day the answer key. A replay is reachable while that day
+ * is still live (a participant can open one for a finished or abandoned game,
+ * and a shared replay is public), so the settings go through
+ * {@link redactSettingsForClient} like every other path. As before, a replay
+ * also withholds the deck's draw order, `mission_seed_salt` (with it anyone
+ * who saves a replay could regenerate the missions of a future game whose id
+ * collides) and every secret mission.
+ *
+ * Takes a parsed `state_json`; returns a new object and never mutates it.
+ */
+export function redactReplaySnapshot(state: GameState): GameState {
+  const { card_deck: _deck, mission_seed_salt: _salt, ...rest } = state;
+  return {
+    ...rest,
+    settings: rest.settings ? redactSettingsForClient(rest.settings) : rest.settings,
+    players: Array.isArray(rest.players)
+      ? rest.players.map((p) => ({ ...p, secret_mission: null }))
+      : rest.players,
+  } as GameState;
 }

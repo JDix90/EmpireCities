@@ -14,6 +14,7 @@ import { normalizeGameSettings } from '../../game-engine/state/gameSettings';
 import { DEFAULT_CARD_SET_BONUS_CAP } from '../../game-engine/combat/combatResolver';
 import { applyAdminSnapshotsToSettings } from '../../services/adminConfig';
 import { getCancelGameAuthorizationError } from '../../sockets/socketGuards';
+import { redactReplaySnapshot } from '../../sockets/clientStateRedaction';
 import { formatZodError } from '../../utils/formatZodError';
 import { featureFlags, type MoonRacePhaseFlags, type MoonRacePhaseKey } from '../../config/featureFlags';
 import { reachesSpaceAge } from '../../game-engine/eraAdvancement/spines';
@@ -1188,22 +1189,10 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
 
     const snapshots = rows.map((row) => {
       const state = typeof row.state_json === 'string' ? JSON.parse(row.state_json) : row.state_json;
-      if (state && typeof state === 'object') {
-        const s = state as Record<string, unknown>;
-        delete s.card_deck;
-        // mission_seed_salt is the private RNG seed used to assign secret
-        // missions. Leaving it in a downloadable replay would let anyone who
-        // saves one regenerate missions for any future game with a
-        // colliding gameId. Strip it here too.
-        delete s.mission_seed_salt;
-        if (Array.isArray(s.players)) {
-          s.players = (s.players as Array<Record<string, unknown>>).map((p) => ({
-            ...p,
-            secret_mission: null,
-          }));
-        }
-      }
-      return { turn_number: row.turn_number, state };
+      return {
+        turn_number: row.turn_number,
+        state: state && typeof state === 'object' ? redactReplaySnapshot(state as GameState) : state,
+      };
     });
 
     return reply.send({ snapshots });

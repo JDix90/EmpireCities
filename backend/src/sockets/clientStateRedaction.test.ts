@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { PlayerState, TerritoryState } from '../types';
-import { redactPlayersForViewer, maskHiddenTerritories, redactSettingsForClient } from './clientStateRedaction';
+import { redactPlayersForViewer, maskHiddenTerritories, redactSettingsForClient, redactReplaySnapshot } from './clientStateRedaction';
+import type { GameState } from '../types';
 
 function player(overrides: Partial<PlayerState>): PlayerState {
   return {
@@ -171,3 +172,58 @@ describe('redactSettingsForClient — a Daily v2 day', () => {
     expect(out.daily_challenge_spec).toEqual({ archetype: 'economy_build', title: 't' });
   });
 });
+
+describe('redactReplaySnapshot', () => {
+  /** A stored snapshot of a live Daily v2 run, as `game_states.state_json` holds it. */
+  function snapshot(): GameState {
+    return {
+      phase: 'attack',
+      turn_number: 1,
+      card_deck: [{ card_id: 'd1', territory_id: 'a', symbol: 'infantry' }],
+      mission_seed_salt: 'salt',
+      players: [
+        { player_id: 'p1', is_ai: false, secret_mission: { kind: 'capture_region', region_id: 'r' } },
+        { player_id: 'ai_1', is_ai: true, secret_mission: null },
+      ],
+      settings: {
+        fog_of_war: false,
+        seed: 'top-secret-seed',
+        daily_challenge_spec: {
+          archetype: 'military_capture',
+          dice_queue_seed: 7,
+          v2: {
+            version: 2, theme: 't', plan_prose: ['p'], decisions_target: 2, intent: 'arrows', plan: { steps: [] },
+            solution: { equity: 0.7, decisions: [{ turn: 1 }, { turn: 2 }], line: [] },
+          },
+        },
+      },
+    } as unknown as GameState;
+  }
+
+  it("withholds the day's secrets a live daily keeps from its player", () => {
+    const out = redactReplaySnapshot(snapshot());
+    const settings = out.settings as unknown as Record<string, unknown>;
+    const spec = settings.daily_challenge_spec as Record<string, unknown>;
+    expect((spec.v2 as Record<string, unknown>).solution).toBeUndefined();
+    expect((spec.v2 as Record<string, unknown>).decisions).toBe(2);
+    expect(spec.dice_queue_seed).toBeUndefined();
+    expect(settings.seed).toBeUndefined();
+    expect(settings.fog_of_war).toBe(false);
+    expect(JSON.stringify(out)).not.toContain('solution');
+  });
+
+  it('still withholds the deck, the mission salt and every secret mission', () => {
+    const out = redactReplaySnapshot(snapshot());
+    expect('card_deck' in out).toBe(false);
+    expect('mission_seed_salt' in out).toBe(false);
+    expect(out.players.every((p) => p.secret_mission === null)).toBe(true);
+  });
+
+  it('never mutates the stored snapshot', () => {
+    const input = snapshot();
+    const before = JSON.stringify(input);
+    redactReplaySnapshot(input);
+    expect(JSON.stringify(input)).toBe(before);
+  });
+});
+
