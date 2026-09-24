@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import type { Server } from 'socket.io';
 import type { GameMap, GameState } from '../types';
 import type { DailyPuzzleSpec } from '../game-engine/daily/dailyPuzzleTypes';
-import { maybeResolveDailyPuzzle } from './dailyPuzzleSocket';
+import { maybeResolveDailyPuzzle, settleDailyRun } from './dailyPuzzleSocket';
 
 /**
  * The resolver turns an objective status plus the clock into a finished game.
@@ -78,5 +78,32 @@ describe('maybeResolveDailyPuzzle — hold_territory', () => {
     expect(done).toBe(true);
     expect(finalize).toHaveBeenCalledWith(io, 'g1', state, [AI]);
     expect(state.puzzle_objective_met).toBe(false);
+  });
+});
+
+describe('settleDailyRun', () => {
+  it('scores a conquest that beat the objective to the finish as a lost run', () => {
+    // The reported day: research a tech, but the only rival fell on turn 1.
+    // The game is the human's; the challenge is not.
+    const state = stateWith(specFor('tech_research'), HUMAN, 1);
+    expect(settleDailyRun(state, HUMAN, [HUMAN])).toEqual({ won: false, outcome: 'unmet' });
+  });
+
+  it('scores a met objective as a won run', () => {
+    const state = stateWith(specFor('tech_research'), HUMAN, 3);
+    state.puzzle_objective_met = true;
+    expect(settleDailyRun(state, HUMAN, [HUMAN])).toEqual({ won: true, outcome: 'solved' });
+  });
+
+  it('scores a lost game as a failed run', () => {
+    const state = stateWith(specFor('hold_territory'), AI, 3);
+    state.puzzle_objective_met = false;
+    expect(settleDailyRun(state, HUMAN, [AI])).toEqual({ won: false, outcome: 'failed' });
+  });
+
+  it('leaves a domination day to the game result, with no objective outcome', () => {
+    const state = stateWith(specFor('domination'), HUMAN, 4);
+    expect(settleDailyRun(state, HUMAN, [HUMAN])).toEqual({ won: true, outcome: null });
+    expect(settleDailyRun(state, HUMAN, [AI])).toEqual({ won: false, outcome: null });
   });
 });

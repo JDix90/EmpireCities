@@ -11,6 +11,34 @@ export function getDailyPuzzleSpec(state: GameState): DailyPuzzleSpec | null {
   return s.archetype ? s : null;
 }
 
+/**
+ * How a daily run settled, from the human's side. Winning the game is not
+ * winning the challenge: on an objective day the objective has to have been
+ * met as well, so eliminating the only rival before it is done ends the game
+ * in the human's favour and still scores the run as a loss.
+ *
+ * - `solved`: the objective was met.
+ * - `unmet`: the human won the game by another road first — conquest ended it
+ *   before the objective was met.
+ * - `failed`: the human lost the game, or the objective failed or ran out of time.
+ *
+ * `outcome` is null on a domination day, where the game's result is the run's.
+ */
+export interface DailyRunResult {
+  won: boolean;
+  outcome: 'solved' | 'unmet' | 'failed' | null;
+}
+
+export function settleDailyRun(state: GameState, humanPlayerId: string, winnerIds: string[]): DailyRunResult {
+  const wonGame = winnerIds.includes(humanPlayerId);
+  const spec = getDailyPuzzleSpec(state);
+  if (!spec || spec.archetype === 'domination') return { won: wonGame, outcome: null };
+  if (!wonGame) return { won: false, outcome: 'failed' };
+  return state.puzzle_objective_met === true
+    ? { won: true, outcome: 'solved' }
+    : { won: false, outcome: 'unmet' };
+}
+
 export type FinalizeGameFn = (
   io: Server,
   gameId: string,

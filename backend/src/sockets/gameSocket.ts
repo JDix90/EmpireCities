@@ -178,7 +178,7 @@ import { applyDailyPuzzleScenario } from '../game-engine/daily/applyDailyPuzzleS
 import { applyAuthoredScenario } from '../game-engine/scenarios/applyAuthoredScenario';
 import { applyTutorialModuleBoost } from '../game-engine/tutorial/applyTutorialModuleBoost';
 import { applyTutorialSettingsLab } from '../game-engine/tutorial/applyTutorialSettingsLab';
-import { getDailyPuzzleSpec, maybeResolveDailyPuzzle } from './dailyPuzzleSocket';
+import { getDailyPuzzleSpec, maybeResolveDailyPuzzle, settleDailyRun } from './dailyPuzzleSocket';
 import { computeDailyPuzzleScore } from '../game-engine/daily/puzzleScore';
 import {
   beginPuzzleHumanTurn,
@@ -4905,11 +4905,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
       const humanPlayer = state.players.find((p) => !p.is_ai);
       if (humanPlayer) {
         const spec = getDailyPuzzleSpec(state);
-        const isDomination = !spec || spec.archetype === 'domination';
-        let entryWon = humanPlayer.player_id === winnerId;
-        if (entryWon && !isDomination) {
-          entryWon = state.puzzle_objective_met === true;
-        }
+        const { won: entryWon } = settleDailyRun(state, humanPlayer.player_id, winnerIds);
         const mistakes = state.puzzle_feedback_mistakes ?? 0;
         // Daily v2 (docs/DAILY_PUZZLE_V2.md §4): the score is accuracy, not par.
         const v2Run = spec?.v2 ? summarizePuzzleRun(state, entryWon) : null;
@@ -5323,6 +5319,11 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
       Array.from(gameCombatStats.get(gameId)?.entries() ?? []).map(([pid, s]) => [pid, s]),
     ),
     decision_summary: decisionSummary,
+    // An objective day can end in the human's favour and still be a lost
+    // challenge; the modal reads this rather than the game's winner.
+    daily_result: humanForSummary && getDailyPuzzleSpec(state)
+      ? settleDailyRun(state, humanForSummary.player_id, winnerIds)
+      : undefined,
   };
   io.to(gameId).emit('game:over', stats);
   // Spectators run on the delayed feed; a slim end-signal lands when their
