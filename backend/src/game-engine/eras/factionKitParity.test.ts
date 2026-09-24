@@ -165,6 +165,42 @@ describe('every faction draft ability fires on the AI path', () => {
     },
   );
 
+  /**
+   * The gap this file did not close the first time. Every kit above fires when
+   * the player is RICH — the probe state hands out 99 tech points. A kit that
+   * only works when rich is still dead in a normal game, because
+   * tech_trees_enabled and economy_enabled BOTH default false
+   * (state/gameSettings.ts), so nobody ever accrues tech points at all.
+   *
+   * Five kits were sitting behind that: arsenal_of_democracy (usa),
+   * ai_surge (sino_hegemony), satellite_uplink (terran_federation),
+   * mercenary_contract (corpo_enclave, which also demanded a production
+   * building that cannot exist with the economy off) and silk_road (han, which
+   * granted tech points and nothing else — the strongest faction in the
+   * ancient era was playing with no ability at all).
+   *
+   * So the sweep is run again with an empty wallet and the systems off, which
+   * is the game a default match and every campaign stage actually plays.
+   */
+  it.each(DRAFT_KITS.map((f) => [f.faction_id, f.ability_id!] as const))(
+    '%s / %s still fires with no tech points and the economy off',
+    (factionId, abilityId) => {
+      const state = stateWithFaction(factionId);
+      state.players[0]!.tech_points = 0;
+      state.players[0]!.production_points = 0;
+      state.settings.tech_trees_enabled = false;
+      state.settings.economy_enabled = false;
+      const res = executeTechAbility({
+        state,
+        map,
+        playerId: 'p1',
+        abilityId,
+        territoryId: aiTarget(state, map, abilityId),
+      });
+      expect(res.success, `${factionId}/${abilityId}: ${res.error ?? ''}`).toBe(true);
+    },
+  );
+
   it('a game-scoped draft kit is recorded as used, so it cannot fire twice', () => {
     const gameScoped = DRAFT_KITS.filter((f) => GAME_SCOPED_ABILITIES.has(f.ability_id!));
     expect(gameScoped.length).toBeGreaterThan(0);

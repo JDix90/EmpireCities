@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { WW2_FACTIONS } from './ww2';
+import { TERRITORY_ABILITY_DEFS } from '../abilities/techAbilities';
 
 /**
  * WW2's 31-point spread came from two structural faults, and these values are
@@ -108,6 +109,25 @@ describe('ww2 balance anchors', () => {
     expect(uk?.ability_description).toBeTruthy();
     // The description may mention stability, but it may not BE the kit.
     expect(uk?.description).not.toMatch(/^Island fortress and global empire — recovers stability/);
+  });
+
+  /**
+   * A third dead kit in this era, found after the other two. Arsenal of
+   * Democracy charged 5 tech points, so it never fired in a normal game — the
+   * old copy even hedged, "where research is in play", which was accurate and
+   * damning, since research is NOT in play by default. The USA's real kit was
+   * one reinforcement.
+   *
+   * 5 seeds x 300: usa 13.2% -> 14.2%, spread 11.2 -> 11.6.
+   *
+   * Sized at ONE unit, not the three the def carried. Three free units a turn
+   * was measured and took Germany from 14.6% to 7.0%; two took it to 10.3%.
+   * The def's original size was written for a game where you had to pay for it.
+   */
+  it('the Arsenal is payable in a game with no research', () => {
+    expect(TERRITORY_ABILITY_DEFS.arsenal_of_democracy?.techCost ?? 0).toBe(0);
+    expect(TERRITORY_ABILITY_DEFS.arsenal_of_democracy?.ownPlacement?.units).toBe(1);
+    expect(byId.get('usa')?.ability_description).not.toMatch(/spend/i);
   });
 
   it('the Middle East still pays 4, because trimming it was measured as worse', () => {

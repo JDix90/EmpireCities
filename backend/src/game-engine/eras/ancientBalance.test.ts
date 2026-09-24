@@ -73,6 +73,32 @@ describe('ancient era balance anchors', () => {
     expect(carthage?.ability_description).toBeTruthy();
   });
 
+  /**
+   * Han led the era at 38.8% of 1500 games WITH NO WORKING ABILITY. Silk Road
+   * granted 3 tech points and nothing else, and tech_trees_enabled defaults
+   * false, so its whole kit was scenery — the same defect as the five dead
+   * kits fixed alongside it. It now places a caravan levy as well, and the
+   * tech grant is kept for games with research on.
+   *
+   * That fix is deliberately NOT a nerf, and the numbers say it is not one:
+   * han 38.8% -> 38.8%, spread 33.2 -> 32.4 over 5 seeds x 300.
+   *
+   * Han's 38.8% cannot be fixed from faction data and this pass does not
+   * pretend to. Swapping han's and parthia's HOMELANDS moves 48%/8% to 2%/55%
+   * — the seat wins, not the faction, and handing han parthia's +3
+   * reinforcements in the cramped seat still leaves it at 2%. Every kit
+   * package measured (a real ability at reinforce 2, 1 and 0) lands the era
+   * between 33 and 34. Giving parthia the steppe BACKFIRES, dropping parthia
+   * 8% -> 7% and germanic 6% -> 4%, because a second home region stretches its
+   * line — the same lesson the Confederacy taught. Closing this needs map
+   * surgery on han_china's ten doors into empty Asia.
+   */
+  it('Han has a kit that works with research switched off', () => {
+    const han = byId.get('han');
+    expect(han?.ability_id).toBe('silk_road');
+    expect(han?.ability_description).not.toMatch(/^Silk Road: once per turn during draft, add \+3 tech points\.$/);
+  });
+
   it('africa still pays like the dense region it is', () => {
     // Pinned because trimming it is the obvious "pay for the kit" move and it
     // was measured as making the era worse, not better.

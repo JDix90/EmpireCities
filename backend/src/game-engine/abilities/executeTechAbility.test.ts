@@ -181,24 +181,28 @@ describe('executeTechAbility', () => {
   });
 
   // ── Group B: tech-point-gated placement ─────────────────────────────────────
-  it('arsenal_of_democracy spends 5 tech points to place 3 units', () => {
+  it('arsenal_of_democracy places 1 unit and costs nothing', () => {
+    // Was 5 tech points for 3 units, which meant nothing at all in a normal
+    // game: tech_trees_enabled defaults false. Three free units a turn was
+    // measured and rejected — it took Germany from 14.6% to 7.0%.
     const state = baseState();
     state.phase = 'draft';
     state.players[0]!.tech_points = 8;
     const result = executeTechAbility({ state, map, playerId: 'p1', abilityId: 'arsenal_of_democracy', territoryId: 't1' });
     expect(result.success).toBe(true);
-    expect(state.players[0]!.tech_points).toBe(3);
-    expect(state.territories.t1!.unit_count).toBe(8);
+    expect(state.players[0]!.tech_points).toBe(8);
+    expect(state.territories.t1!.unit_count).toBe(6);
   });
 
-  it('rejects arsenal_of_democracy when tech points are insufficient', () => {
+  it('arsenal_of_democracy fires with no tech points at all', () => {
+    // The whole point: a player who has never researched anything still gets
+    // the kit. This is the assertion that fails if a cost is reintroduced.
     const state = baseState();
     state.phase = 'draft';
-    state.players[0]!.tech_points = 2;
+    state.players[0]!.tech_points = 0;
     const result = executeTechAbility({ state, map, playerId: 'p1', abilityId: 'arsenal_of_democracy', territoryId: 't1' });
-    expect(result.success).toBe(false);
-    expect(state.players[0]!.tech_points).toBe(2);
-    expect(state.territories.t1!.unit_count).toBe(5);
+    expect(result.success).toBe(true);
+    expect(state.territories.t1!.unit_count).toBe(6);
   });
 
   it('mercenary_contract requires a production building on the target', () => {
@@ -269,13 +273,17 @@ describe('executeTechAbility', () => {
     expect(state2.draft_units_remaining).toBe(0);
   });
 
-  it('silk_road grants 3 tech points', () => {
+  it('silk_road places a caravan levy AND grants 3 tech points', () => {
+    // The tech grant alone was Han's entire kit, and worth nothing with tech
+    // trees off — the era's strongest faction played with no ability at all.
+    // The grant is kept; the unit is what makes it a kit in a default game.
     const state = baseState();
     state.phase = 'draft';
     state.players[0]!.tech_points = 2;
-    const result = executeTechAbility({ state, map, playerId: 'p1', abilityId: 'silk_road' });
+    const result = executeTechAbility({ state, map, playerId: 'p1', abilityId: 'silk_road', territoryId: 't1' });
     expect(result.success).toBe(true);
     expect(state.players[0]!.tech_points).toBe(5);
+    expect(state.territories.t1!.unit_count).toBe(6);
   });
 
   it('house_of_wisdom sets a pending tech discount', () => {
@@ -382,12 +390,12 @@ describe('satellite_uplink (Terran Federation)', () => {
   }
   const uplinkMap = { ...map, connections: [...map.connections, { from: 't1', to: 't3', type: 'land' as const }] };
 
-  it('places 2 units on an owned territory bordering an enemy and spends 4 tech points', () => {
+  it('places 2 units on an owned territory bordering an enemy, free of charge', () => {
     const state = uplinkState();
     const result = executeTechAbility({ state, map: uplinkMap, playerId: 'p1', abilityId: 'satellite_uplink', territoryId: 't1' });
     expect(result.success).toBe(true);
     expect(state.territories.t1!.unit_count).toBe(7);
-    expect(state.players[0]!.tech_points).toBe(6);
+    expect(state.players[0]!.tech_points).toBe(10);
   });
 
   it('rejects an owned territory with no enemy neighbour', () => {
@@ -406,13 +414,12 @@ describe('satellite_uplink (Terran Federation)', () => {
     expect(result.success).toBe(false);
   });
 
-  it('rejects when the player cannot afford the tech cost', () => {
+  it('fires with no tech points at all — the enemy-adjacency rule is the only gate', () => {
     const state = uplinkState();
-    state.players[0]!.tech_points = 3;
+    state.players[0]!.tech_points = 0;
     const result = executeTechAbility({ state, map: uplinkMap, playerId: 'p1', abilityId: 'satellite_uplink', territoryId: 't1' });
-    expect(result.success).toBe(false);
-    expect(result.error).toBe('Not enough tech points (need 4)');
-    expect(state.territories.t1!.unit_count).toBe(5);
+    expect(result.success).toBe(true);
+    expect(state.territories.t1!.unit_count).toBe(7);
   });
 });
 
@@ -452,18 +459,39 @@ describe('solar_surge (Solar Caliphate)', () => {
   });
 });
 
-describe('mercenary_contract tech cost', () => {
-  it('costs 6 tech points, matching the published faction copy', () => {
+describe('mercenary_contract', () => {
+  it('costs nothing and fires with no tech points', () => {
+    // Was 6 tech points AND a production building: dead twice over in a normal
+    // game, where research is off and validateBuild rejects every build, so no
+    // territory can HAVE a production building. Corpo Enclave was last in its
+    // era at 9%.
     const state = baseState();
     state.phase = 'draft';
-    state.players[0]!.tech_points = 5;
+    state.players[0]!.tech_points = 0;
     state.territories.t1!.buildings = ['production_1'];
-    const short = executeTechAbility({ state, map, playerId: 'p1', abilityId: 'mercenary_contract', territoryId: 't1' });
-    expect(short.success).toBe(false);
-    expect(short.error).toBe('Not enough tech points (need 6)');
-    state.players[0]!.tech_points = 6;
     const ok = executeTechAbility({ state, map, playerId: 'p1', abilityId: 'mercenary_contract', territoryId: 't1' });
     expect(ok.success).toBe(true);
     expect(state.players[0]!.tech_points).toBe(0);
+    expect(state.territories.t1!.unit_count).toBe(9);
+  });
+
+  it('still wants a production site where the economy layer IS running', () => {
+    // The requirement is gated on economy_enabled rather than deleted, so
+    // economy-on games behave exactly as before.
+    const state = baseState();
+    state.phase = 'draft';
+    state.settings.economy_enabled = true;
+    const rejected = executeTechAbility({ state, map, playerId: 'p1', abilityId: 'mercenary_contract', territoryId: 't1' });
+    expect(rejected.success).toBe(false);
+    expect(rejected.error).toBe('Must target a territory with a production building');
+  });
+
+  it('drops the production requirement when the economy layer is off', () => {
+    const state = baseState();
+    state.phase = 'draft';
+    state.settings.economy_enabled = false;
+    const ok = executeTechAbility({ state, map, playerId: 'p1', abilityId: 'mercenary_contract', territoryId: 't1' });
+    expect(ok.success).toBe(true);
+    expect(state.territories.t1!.unit_count).toBe(9);
   });
 });

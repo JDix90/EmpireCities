@@ -103,15 +103,19 @@ export const FACTION_ABILITY_UI: Record<string, FactionAbilityUiDef> = {
     enemyTarget: false, style: 'success', hint: 'Place 1 free unit and restore stability on an owned territory.',
   },
   // ── Group B: tech-point-gated placement (draft, requires economy) ───────────
+  // The five below were hidden in a normal game twice over: a server-side
+  // techCost nobody could pay, and `requiresEconomy` here, which hides the
+  // button whenever the economy layer is off — the default, and every campaign
+  // stage. Both are gone; the abilities are sized where they were measured.
   arsenal_of_democracy: {
     label: 'Arsenal of Democracy', emoji: '🏭', scope: 'turn', phase: 'draft',
-    enemyTarget: false, style: 'info', requiresEconomy: true, techCost: 5,
-    hint: 'Spend 5 tech points: place 3 units on an owned territory.',
+    enemyTarget: false, style: 'info',
+    hint: 'Place 1 extra unit on an owned territory.',
   },
   ai_surge: {
     label: 'AI Surge', emoji: '🤖', scope: 'turn', phase: 'draft',
-    enemyTarget: false, style: 'info', requiresEconomy: true, techCost: 5,
-    hint: 'Spend 5 tech points: place 3 units on an owned territory.',
+    enemyTarget: false, style: 'info',
+    hint: 'Place 3 units on an owned territory.',
   },
   // No longer tech-gated: the cost was unpayable in a game with tech trees off,
   // which is the default, so the button never appeared when it mattered.
@@ -127,13 +131,13 @@ export const FACTION_ABILITY_UI: Record<string, FactionAbilityUiDef> = {
   },
   mercenary_contract: {
     label: 'Mercenary Contract', emoji: '💰', scope: 'turn', phase: 'draft',
-    enemyTarget: false, style: 'info', requiresEconomy: true, techCost: 6,
-    hint: 'Spend 6 tech points: place 4 units on a production territory.',
+    enemyTarget: false, style: 'info',
+    hint: 'Place 4 units on an owned territory.',
   },
   satellite_uplink: {
     label: 'Satellite Uplink', emoji: '🛰️', scope: 'turn', phase: 'draft',
-    enemyTarget: false, style: 'info', requiresEconomy: true, techCost: 4,
-    hint: 'Spend 4 tech points: place 2 units on an owned territory bordering an enemy.',
+    enemyTarget: false, style: 'info',
+    hint: 'Place 2 units on an owned territory bordering an enemy.',
   },
   solar_surge: {
     label: 'Solar Surge', emoji: '☀️', scope: 'turn', phase: 'draft',
@@ -141,9 +145,13 @@ export const FACTION_ABILITY_UI: Record<string, FactionAbilityUiDef> = {
     hint: 'Place 1 free unit on an owned territory and gain 2 production.',
   },
   spice_trade: {
+    // #400 dropped this ability's SERVER-side tech cost and measured Mughal
+    // 3% -> 9% on it — but the client half was missed, so the bot got the kit
+    // and the human never saw a button. Still true until now. That asymmetry
+    // is the worst shape this bug takes, because the balance data says fixed.
     label: 'Spice Trade', emoji: '🌶️', scope: 'turn', phase: 'draft',
-    enemyTarget: null, style: 'info', requiresEconomy: true, techCost: 5,
-    hint: 'Spend 5 tech points: add 2 reinforcements to your draft pool.',
+    enemyTarget: null, style: 'info',
+    hint: 'Add 2 reinforcements to your draft pool.',
   },
   // ── Group C: reinforcement / economy boosts (draft, no territory target) ────
   total_war: {
@@ -159,8 +167,11 @@ export const FACTION_ABILITY_UI: Record<string, FactionAbilityUiDef> = {
     enemyTarget: null, style: 'info', hint: 'Add 1 reinforcement per fully-owned region (max 4).',
   },
   silk_road: {
+    // enemyTarget was null — no territory picker — because the old effect had
+    // no target. It places a unit now, so the player must choose where.
     label: 'Silk Road', emoji: '🐫', scope: 'turn', phase: 'draft',
-    enemyTarget: null, style: 'info', requiresEconomy: true, hint: 'Gain 3 tech points.',
+    enemyTarget: false, style: 'info',
+    hint: 'Place 1 unit on an owned territory; +3 tech points where research is in play.',
   },
   house_of_wisdom: {
     label: 'House of Wisdom', emoji: '📚', scope: 'turn', phase: 'draft',

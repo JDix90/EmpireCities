@@ -52,13 +52,18 @@ export const ANCIENT_FACTIONS: Faction[] = [
     faction_id: 'han',
     lineage_id: 'mercantile',
     name: 'Han Dynasty',
-    description: 'Vast territory and organized bureaucracy generates +2 extra reinforcements per turn.',
+    // Silk Road granted tech points and nothing else, so in a normal game —
+    // tech_trees_enabled defaults false — the era's strongest faction had no
+    // ability at all. It won 38.8% of 1500 games on position and
+    // reinforcements alone. The caravan levy is what makes it a kit; the tech
+    // grant is kept for games with research switched on.
+    description: 'Vast territory and organized bureaucracy — +2 reinforcements per turn, and the caravans bring a fresh levy.',
     lore: 'The Han state binds frontier armies, granaries, and court officials into one of the ancient world\'s most enduring imperial machines.',
     flavor_quote: 'Order the provinces, and the empire feeds itself.',
     home_region_ids: ['han_china'],
     reinforce_bonus: 2,
     ability_id: 'silk_road',
-    ability_description: 'Silk Road: once per turn during draft, add +3 tech points.',
+    ability_description: 'Silk Road: once per turn during draft, place 1 unit on a territory you hold — and +3 tech points where research is in play.',
     color: '#e67e22',
   },
   {

@@ -38,12 +38,12 @@ export const FACTION_CODEX = [
       {
         "faction_id": "han",
         "name": "Han Dynasty",
-        "description": "Vast territory and organized bureaucracy generates +2 extra reinforcements per turn.",
+        "description": "Vast territory and organized bureaucracy — +2 reinforcements per turn, and the caravans bring a fresh levy.",
         "lore": "The Han state binds frontier armies, granaries, and court officials into one of the ancient world's most enduring imperial machines.",
         "flavor_quote": "Order the provinces, and the empire feeds itself.",
         "color": "#e67e22",
         "reinforce_bonus": 2,
-        "ability_description": "Silk Road: once per turn during draft, add +3 tech points."
+        "ability_description": "Silk Road: once per turn during draft, place 1 unit on a territory you hold — and +3 tech points where research is in play."
       },
       {
         "faction_id": "maurya",
@@ -234,12 +234,12 @@ export const FACTION_CODEX = [
       {
         "faction_id": "usa",
         "name": "United States",
-        "description": "Industrial supremacy — +1 reinforcement per turn; where research is in play, the Arsenal of Democracy turns it into materiel.",
+        "description": "Industrial supremacy — +1 reinforcement per turn, and the arsenal turns out a fresh division every turn.",
         "lore": "Protected by oceans and powered by industry, the United States converts economic depth into global military reach.",
         "flavor_quote": "Assembly lines win wars long before the landing craft arrive.",
         "color": "#3498db",
         "reinforce_bonus": 1,
-        "ability_description": "Arsenal of Democracy: once per turn during draft, spend 5 production points to place 3 extra units."
+        "ability_description": "Arsenal of Democracy: once per turn during draft, place 1 extra unit on a territory you hold."
       },
       {
         "faction_id": "uk",
@@ -482,7 +482,7 @@ export const FACTION_CODEX = [
         "color": "#3498db",
         "passive_attack_bonus": 1,
         "stability_recovery_bonus": 2,
-        "ability_description": "Satellite Uplink: once per turn, spend 4 tech points to place 2 units on an owned territory bordering an enemy."
+        "ability_description": "Satellite Uplink: once per turn, place 2 units on an owned territory bordering an enemy."
       },
       {
         "faction_id": "sino_hegemony",
@@ -492,7 +492,7 @@ export const FACTION_CODEX = [
         "flavor_quote": "The machine does not sleep; neither does the empire.",
         "color": "#c0392b",
         "reinforce_bonus": 2,
-        "ability_description": "AI Surge: once per turn, spend 5 tech points to place 3 units on any owned territory."
+        "ability_description": "AI Surge: once per turn, place 3 units on any owned territory."
       },
       {
         "faction_id": "climate_alliance",
@@ -507,11 +507,11 @@ export const FACTION_CODEX = [
       {
         "faction_id": "corpo_enclave",
         "name": "Corporate Enclave",
-        "description": "Private militaries and techno-capitalism — +4 tech points per turn; Mercenary Contract ability (6 tech points).",
+        "description": "Private militaries and techno-capitalism — +4 tech points per turn, and a contract company on call each turn.",
         "lore": "Post-state megacorporations ruling sovereign coastal cities, blurring the boundary between shareholders and citizens.",
         "flavor_quote": "Loyalty is a line item, not a virtue.",
         "color": "#9b59b6",
-        "ability_description": "Mercenary Contract: once per turn, spend 6 tech points to place 4 units on any territory you own that has a production building."
+        "ability_description": "Mercenary Contract: once per turn, place 4 units on a territory you own — a production site is required only where the economy layer is running."
       },
       {
         "faction_id": "solar_caliphate",

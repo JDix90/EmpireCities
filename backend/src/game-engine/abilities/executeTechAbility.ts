@@ -198,10 +198,15 @@ function executeAbilityEffect(params: TechAbilityParams): AbilityExecutionResult
     return { success: true, effect: 'bonus_fortify_move' };
   }
 
-  // ── Silk Road: +3 tech points (Group C) ─────────────────────────────────────
+  // ── Silk Road: +3 tech points AND a caravan levy ────────────────────────────
+  // The tech grant alone was Han's entire kit, and it is worth nothing in a
+  // normal game: tech_trees_enabled defaults false (state/gameSettings.ts), so
+  // the era's strongest faction has been playing with no ability at all. The
+  // grant is kept for tech-on games; the placement is what makes it a kit in
+  // the default one. No early return — the generic ownPlacement block below
+  // does the placing, from the `ownPlacement` now on its def.
   if (abilityId === 'silk_road') {
     currentPlayer.tech_points = (currentPlayer.tech_points ?? 0) + 3;
-    return { success: true, effect: 'faction_tech_points' };
   }
 
   // ── House of Wisdom: discount the next research by 3 tech points (min 1) ────
@@ -229,7 +234,15 @@ function executeAbilityEffect(params: TechAbilityParams): AbilityExecutionResult
     if (def.ownPlacement.requiresMoon && t.world_id !== 'moon' && t.globe_id !== 'moon') {
       return { success: false, error: 'Must target an owned Moon territory' };
     }
+    // Only where buildings can exist. `validateBuild` hard-rejects every build
+    // when economy_enabled is false — which is the default and every campaign
+    // stage — so in a normal game NO territory has a production building and
+    // this check rejected the ability unconditionally. Corpo Enclave's kit was
+    // dead twice over: behind a tech cost it could not pay AND a building that
+    // could not exist. Gating the requirement leaves economy-on games exactly
+    // as they were.
     if (def.ownPlacement.requiresProductionBuilding
+      && state.settings.economy_enabled
       && !(t.buildings ?? []).some((b) => b.startsWith('production'))) {
       return { success: false, error: 'Must target a territory with a production building' };
     }
