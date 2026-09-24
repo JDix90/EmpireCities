@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { SPACE_AGE_FACTIONS } from './spaceage';
 import { TERRITORY_ABILITY_DEFS } from '../abilities/techAbilities';
 
@@ -68,6 +70,51 @@ describe('space age balance anchors', () => {
       expect(f.ability_description ?? '', f.faction_id).not.toMatch(/spend \d+ (tech|production) points/i);
       expect(f.description ?? '', f.faction_id).not.toMatch(/\(\d+ tech points\)/i);
     }
+  });
+
+  /**
+   * lunar_pioneers held the smallest live homeland in the era (4 tiles) while
+   * being dealt 7.7, so it could never concentrate — it started scattered and
+   * died scattered. Across the era, win rate tracks LIVE home size almost
+   * exactly: solar 10 tiles / 30.0%, sino 8 / 18.2%, climate and corpo 6 /
+   * 18.0% and 15.8%, lunar 4 / 7.8%. Terran is the lone exception, holding 12
+   * across two continents it cannot support.
+   *
+   * The Moon cannot be the answer, though the faction is named for it:
+   * `lunar_surface` is forced neutral at game start by design ("nobody has
+   * orbit access at game start"), and adding it to lunar's home_region_ids is
+   * a byte-identical no-op. So is adding any frontier region — they are
+   * era-gated and never placed.
+   *
+   * Moving ONE tile fixes it. Malay Archipelago is as Oceanian as it is Asian
+   * and already borders two Oceania tiles, so it joins oceania_2100: sino 8 ->
+   * 7, lunar 4 -> 5. 5 seeds x 300 games:
+   *
+   *   before            after
+   *   solar     30.0%   25.6%
+   *   climate   18.0%   22.4%
+   *   sino      18.2%   19.8%
+   *   corpo     15.8%   13.4%
+   *   terran    10.2%   10.6%
+   *   lunar      7.8%    8.4%
+   *   spread    22.2    17.4
+   *
+   * That is tighter than the 19.0 this era measured BEFORE the dead kits were
+   * revived, so the kit fix's cost is repaid with interest. Moving a second
+   * tile (Pacific Megastate) was measured and REJECTED: it makes sino the new
+   * runaway at 27.7% and the spread 23.3.
+   */
+  it('Malay Archipelago belongs to Oceania, so Lunar has a homeland it can hold', () => {
+    const map = JSON.parse(
+      readFileSync(join(__dirname, '../../../../database/maps/era_space_age.json'), 'utf-8'),
+    ) as { territories: { name: string; region_id: string }[] };
+    const malay = map.territories.find((t) => t.name === 'Malay Archipelago');
+    expect(malay?.region_id).toBe('oceania_2100');
+    // The rejected second move: Pacific Megastate stays with Terran.
+    const pacific = map.territories.find((t) => t.name === 'Pacific Megastate');
+    expect(pacific?.region_id).toBe('north_america_2100');
+    const oceania = map.territories.filter((t) => t.region_id === 'oceania_2100');
+    expect(oceania.length).toBe(5);
   });
 
   it('Terran Federation keeps the transatlantic homeland its lore names', () => {

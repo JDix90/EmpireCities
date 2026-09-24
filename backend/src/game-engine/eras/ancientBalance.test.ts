@@ -93,6 +93,63 @@ describe('ancient era balance anchors', () => {
    * line — the same lesson the Confederacy taught. Closing this needs map
    * surgery on han_china's ten doors into empty Asia.
    */
+  /**
+   * Han's 38.8% was never a kit and never a door — it was HALF A MAP.
+   *
+   * 29 of era_ancient's 57 territories carry `unlock_era_index > 0`, and in a
+   * normal game they are never placed at all: era_advancement_enabled defaults
+   * false (eraAdvancement/constants.ts types it as the literal `false`), and
+   * `seedsFullBoardAtStart` only ever returns true for space_age behind its own
+   * flag. So ancient was played on 28 tiles, and on those 28 tiles han held the
+   * largest home (4) with only ONE rival adjacent — the only faction with both.
+   *
+   * That is why nothing else moved it, and every failed attempt is recorded
+   * below so they are not retried. Closing han's "ten doors into empty Asia"
+   * changed nothing because five of the six regions behind them (far_east,
+   * southeast_asia, himalaya, insulindia, northern_reaches) are 100% gated —
+   * the doors opened onto tiles that do not exist. Removing four of those edges
+   * and removing six produced BYTE-IDENTICAL results.
+   *
+   * Ungating five of them is the fix. 5 seeds x 300 games, 17% fair share:
+   *
+   *   before            after
+   *   han       38.8%   26.6%
+   *   carthage  20.8%   28.6%
+   *   rome      17.2%   25.2%
+   *   maurya     8.8%    8.4%
+   *   parthia    8.4%    5.6%
+   *   germanic   6.4%    5.6%
+   *   spread    32.4    24.0
+   *
+   * 24 tiles stay gated, so era-advancement games keep a frontier to unlock.
+   * germanic_tribes' own second home region was among the gated ones, so it
+   * had been playing a 2-tile homeland its data says is 4.
+   */
+  it('the five frontier tiles ancient is actually played on are not gated', () => {
+    const map = JSON.parse(
+      readFileSync(join(__dirname, '../../../../database/maps/era_ancient.json'), 'utf-8'),
+    ) as { territories: { territory_id: string; region_id: string; unlock_era_index?: number }[] };
+    const live = map.territories.filter((t) => !(t.unlock_era_index ?? 0));
+    // 28 -> 33. If this drops back the era returns to a 32-point spread.
+    expect(live.length).toBe(33);
+    for (const id of ['scandinavia', 'volga_bulgaria', 'nippon', 'indochina', 'tibet_nepal']) {
+      const t = map.territories.find((x) => x.territory_id === id);
+      expect(t?.unlock_era_index ?? 0, `${id} must stay live`).toBe(0);
+    }
+    // Still a frontier left for era-advancement games.
+    expect(map.territories.length - live.length).toBeGreaterThanOrEqual(20);
+  });
+
+  it("germanic_tribes can actually reach both halves of its own homeland", () => {
+    const map = JSON.parse(
+      readFileSync(join(__dirname, '../../../../database/maps/era_ancient.json'), 'utf-8'),
+    ) as { territories: { region_id: string; unlock_era_index?: number }[] };
+    const gatedHome = map.territories
+      .filter((t) => (byId.get('germanic_tribes')?.home_region_ids ?? []).includes(t.region_id))
+      .filter((t) => (t.unlock_era_index ?? 0) > 0);
+    expect(gatedHome).toEqual([]);
+  });
+
   it('Han has a kit that works with research switched off', () => {
     const han = byId.get('han');
     expect(han?.ability_id).toBe('silk_road');
