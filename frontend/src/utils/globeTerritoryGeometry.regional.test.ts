@@ -119,12 +119,12 @@ describe('era growth-frontier inline geo_polygon globe geometry', () => {
       const byId = new Map(polys.map((p) => [p.territory_id, p]));
       const frontiers = map.territories.filter((t) => Array.isArray(t.geo_polygon));
 
-      it('has growth frontiers', () => {
-        expect(
-          map.territories.filter(
-            (t) => ((t as { unlock_era_index?: number }).unlock_era_index ?? 0) > 0,
-          ).length,
-        ).toBeGreaterThan(0);
+      // Sanity that the sweep below is not vacuous. It keys off geo_polygon,
+      // NOT the era gate, which is what the orientation checks actually read —
+      // so it stays meaningful for medieval, whose frontiers were ungated (the
+      // tiles and their geo_polygons are still here and still checked).
+      it('has inline geo_polygon tiles to check', () => {
+        expect(frontiers.length).toBeGreaterThan(0);
       });
 
       // The regression guard: a frontier with NEITHER a geo_polygon NOR an ISO
