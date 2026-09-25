@@ -789,12 +789,16 @@ Tapping the line or the pill opens a half-height sheet (`mobile-sheet-above-nav`
 
 **Animation budget.** `keepsMapVisualOnPhone(event, viewerId)` filters `mapVisualEvents` before they reach either renderer: keep the viewer's own (`event.playerId === viewerId`) and board-level kinds; drop the rest and acknowledge them immediately so the queue never holds them. The globe flush (`skipAnimationsRef`) runs once when the viewer's turn begins.
 
+**Notices (phase 2).** The strip is the phone's only glanceable channel, so the toasts `ActionNotification` floats top-centre on a desktop (a placement, a fortify, the phase turning over, a free unit from an ability) land in the strip instead. `pickStripSlot` resolves the one line in priority order: a fresh battle against the viewer, then the viewer's own move feedback, then the recap (the full line before the first move, the pill after it). A notice holds the line for 2.2 s, the toast's own dwell; the newest replaces whatever is showing and restarts the clock, so three quick placements read as one line updating, never a backlog. Each slot holds one item and nothing queues behind another: the priority queue is the resolution order, not a waiting line. On a desktop the toast is unchanged.
+
+**Dismiss telemetry (phase 2).** The budget is measured, not assumed. Every tap that closes something the game put on a phone screen is counted against the tier of what it closed (`utils/dismissTaps.ts`): tier 1 for game over, elimination, a lost capital, the resign confirm and an era advance; tier 2 for the player's own attack result; tier 3 for everything else, which today means the turn-1 draft summary, the start briefing, an event card, a first-turn coach card and a "Skip all". The theater timer and Attack again / Blitz close the combat card through the same callback, so `ActionModal`'s `onDismiss` now carries a reason (`'auto'`, `'action'`) and only a real tap counts. The tally is posted once per round, from the start of the viewer's turn to the start of their next one, as `turn_dismiss_taps` with `layout`, `turn`, `tier1`–`tier3`, `era` and `is_tutorial`; zeros are posted too, because the quiet rounds are the denominator. Phones only; the round in progress goes out when the page is left, so a closed tab loses at most the last round. The target is zero in tiers 2 and 3; tier 3 above zero names the next thing to fold into the strip.
+
 **Phases.**
 
 | Phase | Scope |
 |---|---|
-| **1 (this item)** | R1–R10, R12 and R13: strip with watching/acting modes and the badge, sheet on tap, loss pulse on both maps, own-turn-only animations, theater off on phones, banner retired on phones, no own-turn summary modal on phones, zoom hidden on touch, bottom-bar label. |
-| 2 | Fold `ActionNotification` toasts into the strip with one priority queue; log dismiss taps per turn through `/analytics/ui-event`, target zero outside tier 1. |
+| 1 (done) | R1–R10, R12 and R13: strip with watching/acting modes and the badge, sheet on tap, loss pulse on both maps, own-turn-only animations, theater off on phones, banner retired on phones, no own-turn summary modal on phones, zoom hidden on touch, bottom-bar label. |
+| 2 (done) | The `ActionNotification` toasts fold into the strip behind one priority order (`pickStripSlot`); every tap that closes something on a phone is tallied by tier and posted once per round as `turn_dismiss_taps` through `/analytics/ui-event`, target zero outside tier 1. |
 | 3 | Own attack result as an anchored sheet above the bar (keeps Attack again / Blitz); the strip gains a scrubbable history. |
 
 ### Implementation Steps
@@ -805,6 +809,8 @@ Tapping the line or the pill opens a half-height sheet (`mobile-sheet-above-nav`
 4. **`GlobeMap.tsx` / `GameMap.tsx`.** `lossPulseTerritoryIds` → red rings / red pulse. Globe zoom buttons hidden when `isCoarsePointer()`.
 5. **Tests.** `mobileOverlays.test.ts` (predicates, summary, lost ids); `MobileTurnStrip.test.tsx` (never auto-expands on a loss, names the loss, badge after acting, live line only for the viewer's battles, sheet on tap); `combatPresentation.test.ts` (phone case). Desktop tests unchanged.
 6. **Verify live.** Chromium at 390×844 with touch emulation against a real server: watching mode during AI turns, the line and red pulse at turn start after a loss, the pill after the first placement, no `+`/`−`, no theater.
+7. **Notices (phase 2).** `pickStripSlot` in `mobileOverlays.ts`; a `notice` prop on `MobileTurnStrip` fed from `GamePage`'s `notifState`, with `ActionNotification` rendered only off phones.
+8. **Dismiss telemetry (phase 2).** `dismissTaps.ts` (tiers, tally, event properties); `DismissReason` on `ActionModal`'s `onDismiss`; `GamePage` counts taps from the modal, "Skip all", the event card, the coach and the start briefing, and posts the round when the viewer's next turn begins and when the page is left; `turn_dismiss_taps` allowlisted in `analytics.routes.ts`.
 
 ### Files Changed
 
@@ -819,7 +825,10 @@ Tapping the line or the pill opens a half-height sheet (`mobile-sheet-above-nav`
 | `frontend/src/utils/combatPresentation.ts` | `phoneLayout` for incoming attacks |
 | `frontend/src/utils/modalQueueOps.ts` | `dropOwnCombats`: the phone turn end |
 | `frontend/src/store/gameStore.ts` | `fromId`/`toId` on `CombatResult` |
-| `frontend/src/pages/GamePage.tsx` | Wiring above; shorter phase labels |
+| `frontend/src/pages/GamePage.tsx` | Wiring above; shorter phase labels; phase 2: notices to the strip, dismiss-tap rounds |
+| `frontend/src/utils/dismissTaps.ts` | New (phase 2): dismiss tiers, tally, event properties |
+| `frontend/src/components/game/ActionModal.tsx` | Phase 2: `DismissReason` on `onDismiss` (timer and repeat attacks are not taps) |
+| `backend/src/modules/analytics/analytics.routes.ts` | Phase 2: `turn_dismiss_taps` on the ui-event allowlist |
 
 ---
 
@@ -834,7 +843,7 @@ The recommended sequence accounts for dependency chains and impact:
 | **Sprint 3** | M-05, M-11 | Capacitor plugins installed together (one `cap sync`), haptics wired in. |
 | **Sprint 4** | M-06, M-07 | Landscape + keyboard — both require the hooks from Sprint 3 plugins. |
 | **Sprint 5** | M-08, M-09, M-10 | Polish items — lowest risk, lowest urgency. |
-| **Sprint 6** | M-12 (phase 1) | The in-game overlay budget: one strip, own-turn-only animations, map cues. Independent of the sprints above. |
+| **Sprint 6** | M-12 (phases 1–2) | The in-game overlay budget: one strip, own-turn-only animations, map cues; then the toasts folded into the strip and the dismiss taps measured. Independent of the sprints above. |
 
 ### Estimated Scope
 

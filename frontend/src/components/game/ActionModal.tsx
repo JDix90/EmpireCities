@@ -284,6 +284,15 @@ export interface NotificationData {
   accentText: string;
 }
 
+/**
+ * Why a modal closed, when it was not a tap. Undefined (a button, the
+ * backdrop, a key) is a dismissal the player had to make; 'auto' is the
+ * theater timer; 'action' is Attack again or Blitz, which close the card on
+ * their way to the next attack. The phone's dismiss-tap telemetry counts only
+ * the first kind (utils/dismissTaps.ts).
+ */
+export type DismissReason = 'auto' | 'action';
+
 // ─── Animated Die ──────────────────────────────────────────────────────────
 
 function getFastCombat(): boolean {
@@ -371,7 +380,7 @@ export function CombatResultView({
 }: {
   result: CombatResult;
   perspective?: 'attacker' | 'defender';
-  onDismiss: () => void;
+  onDismiss: (reason?: DismissReason) => void;
   repeatAttack?: { fromId: string; toId: string; blitzEligible?: boolean };
   onRepeatAttack?: () => void;
   /** "Blitz the same battle" (game:attack_blitz) — shown only when eligible. */
@@ -408,7 +417,7 @@ export function CombatResultView({
     const maxDice = Math.max(result.attacker_rolls.length, result.defender_rolls.length);
     const settleTime = fast ? 300 : (8 + (maxDice - 1) * 4) * 55 + 500;
     const linger = (fast ? 1_200 : 2_200) + (result.territory_captured ? 800 : 0);
-    const timer = setTimeout(onDismiss, settleTime + linger);
+    const timer = setTimeout(() => onDismiss('auto'), settleTime + linger);
     return () => clearTimeout(timer);
   }, [autoAdvance, result, fast, onDismiss]);
 
@@ -643,7 +652,7 @@ export function CombatResultView({
         {autoAdvance ? (
           <button
             type="button"
-            onClick={onDismiss}
+            onClick={() => onDismiss()}
             className="w-full py-2 rounded-xl text-white/40 hover:text-white/80 text-sm
                        transition-colors flex items-center justify-center gap-1.5"
           >
@@ -654,7 +663,7 @@ export function CombatResultView({
           <>
             <button
               type="button"
-              onClick={onDismiss}
+              onClick={() => onDismiss()}
               className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/[0.15] border border-white/10
                          text-white font-medium transition-all duration-200
                          flex items-center justify-center gap-2 group"
@@ -2134,7 +2143,7 @@ function DraftSummaryView({ data, onDismiss }: { data: DraftSummaryModalData; on
 
 interface ActionModalProps {
   data: ModalData | null;
-  onDismiss: () => void;
+  onDismiss: (reason?: DismissReason) => void;
   onResignConfirm?: () => void;
   /** Eliminated player pressing "Leave" — quit the room, not just the modal. */
   onLeaveGame?: () => void;
@@ -2267,7 +2276,7 @@ export default function ActionModal({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center animate-modal-backdrop pt-safe-4 pb-safe-4 px-safe-4"
       style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(4px)' }}
-      onClick={allowBackdropDismiss ? onDismiss : undefined}
+      onClick={allowBackdropDismiss ? () => onDismiss() : undefined}
     >
       <div
         className="relative px-6 sm:px-8 py-8 rounded-2xl border border-white/[0.08] shadow-2xl animate-modal-in max-h-[min(90vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-2rem))] overflow-y-auto w-full min-w-0 max-w-[min(100%,42rem)]"
@@ -2287,7 +2296,7 @@ export default function ActionModal({
             onRepeatAttack={
               data.repeatAttack && onRepeatCombat
                 ? () => {
-                    onDismiss();
+                    onDismiss('action');
                     onRepeatCombat(data.repeatAttack!.fromId, data.repeatAttack!.toId);
                   }
                 : undefined
@@ -2295,7 +2304,7 @@ export default function ActionModal({
             onBlitzAttack={
               data.repeatAttack && onBlitzCombat
                 ? () => {
-                    onDismiss();
+                    onDismiss('action');
                     onBlitzCombat(data.repeatAttack!.fromId, data.repeatAttack!.toId);
                   }
                 : undefined

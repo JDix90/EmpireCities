@@ -74,6 +74,26 @@ describe('POST /api/analytics/ui-event', () => {
     await app.close();
   });
 
+  it('accepts turn_dismiss_taps with the round tally, zeros included', async () => {
+    const app = await build();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/analytics/ui-event',
+      payload: {
+        event: 'turn_dismiss_taps',
+        properties: { layout: 'phone', turn: '6', tier1: '0', tier2: '1', tier3: '0', era: 'ancient', is_tutorial: 'false' },
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(recordServerEventMock).toHaveBeenCalledWith(
+      'turn_dismiss_taps',
+      expect.objectContaining({ layout: 'phone', turn: '6', tier2: '1', tier3: '0' }),
+      'user-1',
+    );
+    await app.close();
+  });
+
   it('still rejects a name that is not on the allowlist', async () => {
     const app = await build();
     const res = await app.inject({

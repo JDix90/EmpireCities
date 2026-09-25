@@ -1,12 +1,27 @@
 import { useEffect, useRef, useState } from 'react';
-import { ChevronUp, History, Shield, Swords, X } from 'lucide-react';
+import { ArrowRight, ChevronUp, History, Shield, Sword, Swords, X } from 'lucide-react';
 import clsx from 'clsx';
 import type { CombatResult } from '../../store/gameStore';
 import { RecapEntryList, type TurnRecapEntry } from './AiTurnRecapPanel';
-import { combatInvolves, summarizeRecapsForViewer } from '../../utils/mobileOverlays';
+import type { NotificationData } from './ActionModal';
+import { combatInvolves, pickStripSlot, summarizeRecapsForViewer } from '../../utils/mobileOverlays';
 
 /** How long a fresh battle against the viewer holds the line before the summary returns. */
 const LIVE_LINE_MS = 6000;
+/** How long the viewer's own move feedback holds the line: the desktop toast's 1.8 s plus its fade. */
+const NOTICE_LINE_MS = 2200;
+
+/** One of the viewer's own move notices, as GamePage keys them; a new key is a new notice. */
+export interface StripNotice {
+  data: NotificationData;
+  key: number;
+}
+
+const NOTICE_ICONS = {
+  shield: <Shield className="w-3.5 h-3.5" aria-hidden />,
+  arrow: <ArrowRight className="w-3.5 h-3.5" aria-hidden />,
+  sword: <Sword className="w-3.5 h-3.5" aria-hidden />,
+} as const;
 
 /**
  * The phone's one channel for what other players did (docs/MOBILE_UX_PLAN.md
@@ -17,10 +32,14 @@ const LIVE_LINE_MS = 6000;
  * - Acting, before the first move: one line naming what was lost.
  * - Acting, after the first move: a pill in the corner, so the recap stays
  *   one tap away without asking to be dismissed.
+ * - The viewer's own move feedback (a placement, a fortify, the phase turning
+ *   over; the toasts a desktop floats top-centre) takes the line for two
+ *   seconds, the newest replacing the last, then gives it back.
  *
- * Tapping the line or the pill opens a half sheet with the same per-player
- * rows the desktop panel shows. Nothing here ever opens on its own: a lost
- * territory is named in the line and pulsed on the map instead.
+ * `pickStripSlot` decides which of those the one line shows. Tapping the
+ * recap line or the pill opens a half sheet with the same per-player rows the
+ * desktop panel shows. Nothing here ever opens on its own: a lost territory is
+ * named in the line and pulsed on the map instead.
  */
 export default function MobileTurnStrip({
   recaps,
@@ -28,6 +47,7 @@ export default function MobileTurnStrip({
   liveCombat,
   isMyTurn,
   acted,
+  notice = null,
   onOpenFullLog,
 }: {
   recaps: TurnRecapEntry[];
@@ -37,6 +57,8 @@ export default function MobileTurnStrip({
   isMyTurn: boolean;
   /** The viewer has made their first move this turn. */
   acted: boolean;
+  /** The viewer's latest own-move notice; the line shows it briefly, newest first. */
+  notice?: StripNotice | null;
   onOpenFullLog: () => void;
 }) {
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -44,6 +66,8 @@ export default function MobileTurnStrip({
   const [live, setLive] = useState<CombatResult | null>(null);
   const liveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seenLiveRef = useRef<CombatResult | null>(null);
+  const [shownNotice, setShownNotice] = useState<StripNotice | null>(null);
+  const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // A battle against the viewer, during someone else's turn, holds the line
   // briefly. The viewer's own attacks have their modal; other players' fights
@@ -64,7 +88,20 @@ export default function MobileTurnStrip({
     if (liveTimerRef.current) clearTimeout(liveTimerRef.current);
   }, [isMyTurn]);
 
-  useEffect(() => () => { if (liveTimerRef.current) clearTimeout(liveTimerRef.current); }, []);
+  // The viewer's own move feedback holds the line briefly. A newer notice
+  // replaces the one showing and restarts the clock, so quick placements read
+  // as one line updating, never a queue the player waits out.
+  useEffect(() => {
+    if (!notice) return;
+    setShownNotice(notice);
+    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    noticeTimerRef.current = setTimeout(() => setShownNotice(null), NOTICE_LINE_MS);
+  }, [notice]);
+
+  useEffect(() => () => {
+    if (liveTimerRef.current) clearTimeout(liveTimerRef.current);
+    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+  }, []);
 
   // The batch clears when the viewer's turn ends; the sheet and its open rows go with it.
   useEffect(() => {
@@ -75,7 +112,8 @@ export default function MobileTurnStrip({
   }, [recaps.length]);
 
   const summary = summarizeRecapsForViewer(recaps, viewerPlayerId);
-  if (recaps.length === 0 && !live) return null;
+  const slot = pickStripSlot({ live: !!live, notice: !!shownNotice, recaps: recaps.length > 0, isMyTurn, acted });
+  if (slot === 'none') return null;
 
   const sheet = sheetOpen && recaps.length > 0 && (
     <>
@@ -125,7 +163,7 @@ export default function MobileTurnStrip({
   );
 
   // Acting and already moving: the corner pill keeps the recap a tap away.
-  if (isMyTurn && acted) {
+  if (slot === 'pill') {
     return (
       <>
         <button
@@ -153,7 +191,23 @@ export default function MobileTurnStrip({
   return (
     <>
       <div className="absolute bottom-2 inset-x-2 z-20" data-testid="turn-strip">
-        {live ? (
+        {slot === 'notice' && shownNotice ? (
+          <div
+            data-testid="turn-strip-notice"
+            className={clsx(
+              'flex items-center gap-2 px-3 py-2 rounded-lg border bg-bf-surface/95 backdrop-blur-sm shadow-lg text-xs',
+              shownNotice.data.accentBorder,
+            )}
+            role="status"
+            aria-live="polite"
+          >
+            <span className={clsx('shrink-0', shownNotice.data.accentText)}>{NOTICE_ICONS[shownNotice.data.icon]}</span>
+            <span className="truncate flex-1 text-bf-text font-medium">{shownNotice.data.text}</span>
+            {shownNotice.data.subtext && (
+              <span className="shrink-0 text-bf-muted">{shownNotice.data.subtext}</span>
+            )}
+          </div>
+        ) : live ? (
           <div
             data-testid="turn-strip-live"
             className={clsx(

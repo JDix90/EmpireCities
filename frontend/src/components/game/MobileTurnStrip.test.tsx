@@ -146,4 +146,67 @@ describe('MobileTurnStrip', () => {
       expect(screen.queryByTestId('turn-strip-live')).toBeNull();
     });
   });
+
+  describe('notices (phase 2)', () => {
+    beforeEach(() => { vi.useFakeTimers(); });
+    afterEach(() => { vi.useRealTimers(); });
+
+    const deploy = (key: number, remaining: number) => ({
+      key,
+      data: {
+        type: 'reinforce' as const,
+        text: '+1 troops deployed to Persia',
+        subtext: `${remaining} remaining`,
+        icon: 'shield' as const,
+        accentBg: 'bg-emerald-500/20',
+        accentBorder: 'border-emerald-500/30',
+        accentText: 'text-emerald-400',
+      },
+    });
+    const el = (over: Partial<Parameters<typeof MobileTurnStrip>[0]> = {}) => (
+      <MobileTurnStrip recaps={LOSSES} viewerPlayerId={ME} liveCombat={null} isMyTurn acted notice={null} onOpenFullLog={() => {}} {...over} />
+    );
+
+    it("shows the viewer's own move in the line in place of the pill, then gives the pill back", () => {
+      const { rerender } = render(el());
+      expect(screen.getByTestId('turn-strip-pill')).toBeTruthy();
+      rerender(el({ notice: deploy(1, 2) }));
+      const notice = screen.getByTestId('turn-strip-notice');
+      expect(notice.textContent).toContain('+1 troops deployed to Persia');
+      expect(notice.textContent).toContain('2 remaining');
+      expect(screen.queryByTestId('turn-strip-pill')).toBeNull();
+      act(() => { vi.advanceTimersByTime(2300); });
+      expect(screen.queryByTestId('turn-strip-notice')).toBeNull();
+      expect(screen.getByTestId('turn-strip-pill')).toBeTruthy();
+    });
+
+    it('lets a newer notice replace the one showing instead of queueing behind it', () => {
+      const first = deploy(1, 2);
+      const second = deploy(2, 1);
+      const { rerender } = render(el({ notice: first }));
+      act(() => { vi.advanceTimersByTime(1500); });
+      rerender(el({ notice: second }));
+      expect(screen.getByTestId('turn-strip-notice').textContent).toContain('1 remaining');
+      // The clock restarted with the second notice: still up past the first one's deadline.
+      act(() => { vi.advanceTimersByTime(1500); });
+      rerender(el({ notice: second }));
+      expect(screen.getByTestId('turn-strip-notice').textContent).toContain('1 remaining');
+      act(() => { vi.advanceTimersByTime(800); });
+      expect(screen.queryByTestId('turn-strip-notice')).toBeNull();
+    });
+
+    it('shows a notice with nothing else to say, and nothing once it is gone', () => {
+      const { container } = render(el({ recaps: [], notice: deploy(1, 0) }));
+      expect(screen.getByTestId('turn-strip-notice').textContent).toContain('0 remaining');
+      act(() => { vi.advanceTimersByTime(2300); });
+      expect(container.firstChild).toBeNull();
+    });
+
+    it('keeps a fresh battle against the viewer ahead of a notice', () => {
+      const { rerender } = render(el({ recaps: [], isMyTurn: false, acted: false }));
+      rerender(el({ recaps: [], isMyTurn: false, acted: false, liveCombat: combat(), notice: deploy(1, 2) }));
+      expect(screen.getByTestId('turn-strip-live')).toBeTruthy();
+      expect(screen.queryByTestId('turn-strip-notice')).toBeNull();
+    });
+  });
 });
