@@ -866,6 +866,10 @@ Already in place: both renderers cap the device pixel ratio at 1.5, and both sto
 | R4 | **No backdrop blur on the phone game page.** Surfaces that relied on blur behind a faint tint get a solid phone background. |
 | R5 | **The idle globe paints every board change**, for a few frames rather than seconds. Under the budget a turn change wakes it the same way, and a camera tween keeps it awake for exactly its own duration. |
 | R6 | Desktop is unchanged, with one exception that is a fix: an idle globe repaints a board change within a few frames there too, even when no animation announces it. |
+| R7 | *(Phase 2)* **The 2D map renders on demand on phones.** Its ticker runs while something changed or is moving (a commit, a gesture, a running effect) and stops otherwise, as the globe's loop does. |
+| R8 | *(Phase 2)* **The 2D ambient glow is still on phones.** The turn-holder glow and contested borders are drawn once, at the middle of their pulse, not animated forever. On every device the shimmer stops allocating new graphics on each frame. |
+| R9 | *(Phase 2)* **Both WebGL contexts ask for the low-power GPU on phones**, and the 2D map drops multisample antialiasing there. |
+| R10 | *(Phase 2)* **Both Moon insets follow the phone budget.** The inset is a second full renderer; phase 1 budgeted only the main maps. |
 
 ### Design
 
@@ -879,12 +883,31 @@ The cap sits under the libraries rather than inside one because none of them off
 
 **Stylesheet.** `applyPhoneFrameBudget` sets `data-frame-budget="phone"` on `<html>`. Under it `index.css` removes `backdrop-filter` from every element, and caps `animate-pulse`, `animate-pulse-slow`, `animate-ping` and `animate-capture-glow` at three iterations. The coaching tip and the strip's loss pill, the two surfaces that sat on a 10–15% tint behind their blur, get a 95% phone background; the desktop keeps its tint through the `dlayout:` variant.
 
+### Design, phase 2
+
+**The 2D map on demand.** PixiJS draws the whole stage on every tick of the app ticker, whether or not anything moved, so on a phone the 2D map rendered at the full capped rate for as long as the game was open. Under the budget the app is created with `autoStart: false` and its ticker is driven by the same `createRenderWake` rules as the globe:
+
+- **Commits.** An effect with no dependency list, declared after every scene effect, wakes the map for 300 ms after each commit. Anything React changes on the stage (a new board, a selection, a resize) has been drawn into the scene by then.
+- **Gestures.** Pointer down, move, up and wheel on the canvas wake it for 600 ms, and it keeps running while a pointer is down. The reset-view button wakes it too, since it moves the stage without a commit.
+- **Effects.** The map counts as busy while a visual event plays or while one of its effect tickers runs (the coach highlight, the M-12 loss pulse, a strike flash). A running map re-checks every 500 ms whether it can stop.
+- **Visibility.** Coming back to the page repaints once; everything else is unchanged.
+
+Off the budget the ticker never stops, and a late timer from a budgeted moment cannot stop it either. Pointer moves now update only pointers that are actually pressed: a hovering mouse used to be recorded as an active pointer and never removed, which would have read as a finger on the map forever and could turn a later touch into a pinch.
+
+**The ambient glow.** The turn-holder glow and the contested-border lines pulsed on every frame through their own ticker. That loop allocated a new `PIXI.Graphics` for every glowing territory and every contested border on each tick, on every device. The objects are now created once per change and redrawn in place, and destroyed when the layer clears. Under the budget there is no loop at all: the layer is drawn once at a pulse of 0.75, the middle of its range, so the information stays and the animation goes.
+
+**The WebGL contexts.** On phones the 2D map is created with `antialias: false` and `powerPreference: 'low-power'`, and the globe passes `rendererConfig: { powerPreference: 'low-power' }` (globe.gl keeps its own antialias default). Both are read when the renderer is created, so a layout change mid-game keeps the context it started with.
+
+**Moon insets.** Both the globe's and the 2D map's Moon insets now receive the budget: the damping rescale and short wakes on the globe, on-demand rendering and the low-power context on the 2D map.
+
+**Labels.** Phase 2 first listed "territory labels hidden below a zoom level or drawn into the canvas". A survey of the code found nothing for that item to change. The 2D map draws its labels into the canvas already and hides them below 0.6 zoom. The globe has no per-territory labels in the DOM: its HTML layer holds the region labels, capital and building markers, sea-route and wasteland markers and short-lived battle overlays, a few dozen elements at most, and under phase 1 it only updates them while the loop is awake. Hiding the region labels would remove information the player uses, for a small saving, so the item is dropped rather than built.
+
 ### Phases
 
 | Phase | Scope |
 |---|---|
-| **1 (this item)** | R1–R6: the 30 fps cap, the idle and wake budget, the space age decoration under reduced effects, pulses that settle, no blur on phones. |
-| 2 | Per-frame work: territory labels hidden below a zoom level or drawn into the canvas instead of the DOM; the 2D map rendering on demand instead of on every tick; `powerPreference: 'low-power'` for both WebGL contexts; no multisample antialiasing on the 2D map on phones. |
+| 1 (done) | R1–R6: the 30 fps cap, the idle and wake budget, the space age decoration under reduced effects, pulses that settle, no blur on phones. |
+| **2 (this item)** | R7–R10: the 2D map rendering on demand, its ambient glow still, the low-power GPU for both WebGL contexts, no multisample antialiasing on the 2D map, both Moon insets on the budget. The label item first written here is dropped; see *Labels* below. |
 | 3 | Heat-aware: a small Capacitor plugin reading iOS `thermalState` and Android thermal headroom, stepping down to 20 fps with effects off when the device reports it is hot; a battery-saver setting that bundles the same for the web. |
 
 ### Checking it on a device
@@ -905,6 +928,19 @@ Production builds of `main` and of this item, served against a throwaway backend
 | All browser processes during those turns | 3.9 cores | 2.3 cores |
 | Blurred elements on screen | 1 | 0 |
 
+Phase 2, the same setup on the 2D map, `main` with phase 1 against this item:
+
+| Measure (phone, 2D map) | Phase 1 | Phase 2 |
+|---|---|---|
+| Browser GPU process on the viewer's own turn, nothing moving | 3.8 cores, 2.5 frames a second | 0.01 cores, no frames |
+| Browser GPU process during AI turns | 3.8 cores | 2.8–3.0 cores |
+| Frames a second during a drag | 2.4 | 4.1 |
+| WebGL context, 2D map and its Moon inset | antialias on, default GPU | antialias off, low-power GPU |
+| WebGL context, globe and its Moon inset | default GPU | low-power GPU (antialias kept) |
+| Desktop contexts | unchanged | unchanged |
+
+Every battle during the AI turns was painted: in the clean run, all nine within 121–247 ms of the server reporting it.
+
 Headless Chromium rasterises WebGL in software and draws the space age globe at about one frame a second, so it cannot show what the cap saves on a real GPU at 60 or 120 Hz, and its 2D map never reaches 30 frames a second either way. The on-device checks above are the confirmation that counts.
 
 ### Files Changed
@@ -919,6 +955,9 @@ Headless Chromium rasterises WebGL in software and draws the space age globe at 
 | `frontend/src/components/game/MobileCombatSheet.tsx` | No blur |
 | `frontend/src/index.css` | The `data-frame-budget="phone"` rules |
 | `frontend/src/utils/frameBudget.test.ts`, `renderWake.test.ts`, `components/game/GlobeMap.frameBudget.test.tsx` | New: the cap on a fake 60, 90 and 120 Hz display; the wake deadlines; the globe's wiring with react-globe.gl stubbed |
+| `frontend/src/components/game/GameMap.tsx` | Phase 2: on-demand rendering under the budget, the still ambient glow, ambient graphics redrawn in place, the low-power context without antialiasing, the budget passed to the Moon inset, pressed-pointer bookkeeping |
+| `frontend/src/components/game/GameMap.frameBudget.test.tsx` | New (phase 2): the 2D map's wiring with PixiJS replaced by a fake |
+| `frontend/src/components/game/GlobeMap.tsx`, `frontend/src/pages/GamePage.tsx` | Phase 2: the globe's low-power context; the budget passed to the 2D map and to the globe's Moon inset |
 
 ---
 
@@ -934,7 +973,7 @@ The recommended sequence accounts for dependency chains and impact:
 | **Sprint 4** | M-06, M-07 | Landscape + keyboard — both require the hooks from Sprint 3 plugins. |
 | **Sprint 5** | M-08, M-09, M-10 | Polish items — lowest risk, lowest urgency. |
 | **Sprint 6** | M-12 (phases 1–3) | The in-game overlay budget: one strip, own-turn-only animations, map cues; then the toasts folded into the strip and the dismiss taps measured; then the own attack result off the map and a scrubbable history. Independent of the sprints above. |
-| **Sprint 7** | M-13 (phase 1) | The phone frame budget: a 30 fps cap, a render loop that idles between moves, no endless decoration, no blur over the map. Independent of the sprints above. |
+| **Sprint 7** | M-13 (phases 1–2) | The phone frame budget: a 30 fps cap, a render loop that idles between moves, no endless decoration, no blur over the map; then the 2D map rendering on demand, the low-power GPU and both Moon insets on the budget. Independent of the sprints above. |
 
 ### Estimated Scope
 

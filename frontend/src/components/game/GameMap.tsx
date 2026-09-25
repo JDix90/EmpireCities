@@ -38,6 +38,7 @@ import { playMap2dVisualEffect, type TerritoryCentroid } from '../../utils/map2d
 import type { ContestedBorder } from '../../utils/mapAmbientEffects';
 import { prefersReducedMotion } from '../../utils/device';
 import { usePageVisible, isDocumentVisible } from '../../utils/usePageVisible';
+import { createRenderWake, type RenderWake } from '../../utils/renderWake';
 import { subscribeUserPreferences } from '../../utils/userPreferences';
 import { fortifyTraversalFilter, type FrontendMapData } from '../../utils/orbitAccess';
 import MoonInsetFrame from './MoonInsetFrame';
@@ -74,6 +75,15 @@ interface GameMapData {
   regions?: Array<{ region_id: string; name: string; bonus: number }>;
 }
 
+/** Phone budget (M-13 phase 2): frames the map keeps rendering after a commit or a reset. */
+const COMMIT_RENDER_MS = 300;
+/** Phone budget: frames after the last pointer event of a gesture or a hover. */
+const POINTER_RENDER_MS = 600;
+/** Phone budget: how often a running map re-checks whether it can stop. */
+const BUDGET_ACTIVITY_POLL_MS = 500;
+/** Where the ambient glow sits when drawn still under the phone budget: mid-pulse. */
+const STATIC_AMBIENT_PULSE = 0.75;
+
 interface GameMapProps {
   mapData: GameMapData;
   onTerritoryClick: (territoryId: string) => void;
@@ -94,6 +104,13 @@ interface GameMapProps {
   onMapVisualDone?: (eventId: string) => void;
   /** Shorten animations on low-power devices / replay fast-forward. */
   reducedEffects?: boolean;
+  /**
+   * The phone frame budget is on (docs/MOBILE_UX_PLAN.md M-13 phase 2): the
+   * map renders only while something changed or is moving instead of on every
+   * tick, the ambient glow is drawn still, and the canvas asks for the
+   * low-power GPU without multisample antialiasing.
+   */
+  frameBudget?: boolean;
   /** Ambient turn-holder glow + contested border pulses. */
   ambientEnabled?: boolean;
   turnHolderPlayerId?: string | null;
@@ -155,6 +172,7 @@ export default function GameMap({
   mapVisualEvents = [],
   onMapVisualDone,
   reducedEffects = false,
+  frameBudget = false,
   resetViewRef,
   ambientEnabled = false,
   turnHolderPlayerId,
@@ -213,6 +231,33 @@ export default function GameMap({
   const mapVisualQueueRef = useRef<MapVisualEvent[]>([]);
   const mapVisualSeenRef = useRef(new Set<string>());
   const mapVisualPlayingRef = useRef(false);
+
+  // ── Render on demand (phone budget) ───────────────────────────────────────
+  // PixiJS renders the whole stage on every tick of the app ticker, whether or
+  // not anything moved. Under the phone budget the ticker runs only while the
+  // scene needs drawing: after a commit, during a gesture, and while an effect
+  // animates. The same wake rules as the globe (utils/renderWake.ts).
+  const frameBudgetRef = useRef(frameBudget);
+  frameBudgetRef.current = frameBudget;
+  const pointerActiveRef = useRef(false);
+  const renderWakeRef = useRef<RenderWake | null>(null);
+  if (!renderWakeRef.current) {
+    renderWakeRef.current = createRenderWake({
+      resume: () => {
+        const ticker = appRef.current?.ticker;
+        if (ticker && !ticker.started) ticker.start();
+      },
+      // Off the budget the ticker always runs; a late timer must not stop it.
+      pause: () => { if (frameBudgetRef.current) appRef.current?.ticker.stop(); },
+      busy: () =>
+        pointerActiveRef.current ||
+        mapVisualPlayingRef.current ||
+        [pulseTickerRef, lossTickerRef, strikeTickerRef, ambientTickerRef].some((r) => !!r.current?.started),
+      hidden: () => !isDocumentVisible(),
+      pollMs: () => BUDGET_ACTIVITY_POLL_MS,
+    });
+  }
+  useEffect(() => () => renderWakeRef.current?.dispose(), []);
   const [mapVisualDebug, setMapVisualDebug] = useState<{ active: boolean; kind?: string }>({ active: false });
   const onMapVisualDoneRef = useRef(onMapVisualDone);
   onMapVisualDoneRef.current = onMapVisualDone;
@@ -324,18 +369,25 @@ export default function GameMap({
   useEffect(() => {
     if (!canvasRef.current || appRef.current) return;
 
+    const phoneBudget = frameBudgetRef.current;
     const app = new PIXI.Application({
       width,
       height,
       backgroundColor: 0x0a0e1a,
-      antialias: true,
+      // Phones (M-13 phase 2): no multisample antialiasing, and the low-power
+      // GPU where the device has a choice. Flat fills and 1.5 px borders lose
+      // little; the saving is on every frame the map draws.
+      antialias: !phoneBudget,
+      ...(phoneBudget ? { powerPreference: 'low-power' as const } : {}),
       // Cap DPR at 1.5: phones report 2–3, rendering 4–9× the pixels each frame
       // for negligible sharpness gain on flat map fills — a major heat source.
       resolution: Math.min(window.devicePixelRatio || 1, 1.5),
       autoDensity: true,
       // If the app is (re)created while the tab is hidden, don't start the render
       // loop; the visibility effect starts it when the page becomes visible.
-      autoStart: isDocumentVisible(),
+      // Under the phone budget the render wake starts it when there is
+      // something to draw.
+      autoStart: isDocumentVisible() && !phoneBudget,
     });
 
     canvasRef.current.appendChild(app.view as HTMLCanvasElement);
@@ -609,9 +661,17 @@ export default function GameMap({
       labelContainer.visible = s >= 0.6;
     };
 
+    // Under the phone budget a gesture keeps the map rendering; off it this
+    // is a no-op, since the ticker never stops.
+    const wakeForGesture = () => {
+      pointerActiveRef.current = activePointers.size > 0;
+      if (frameBudgetRef.current) renderWakeRef.current?.wake(POINTER_RENDER_MS);
+    };
+
     const onPointerDown = (e: PointerEvent) => {
       canvas.setPointerCapture(e.pointerId);
       activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      wakeForGesture();
       if (activePointers.size === 1) {
         // Double-tap: zoom in 2× centered on tap, or reset if near max zoom
         const now = Date.now();
@@ -643,7 +703,9 @@ export default function GameMap({
     };
 
     const onPointerMove = (e: PointerEvent) => {
-      activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      // A hover (a mouse, no button down) changes territory alpha too.
+      if (activePointers.has(e.pointerId)) activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      wakeForGesture();
       if (activePointers.size === 2) {
         // Pinch-to-zoom
         const pts = [...activePointers.values()];
@@ -661,6 +723,7 @@ export default function GameMap({
 
     const onPointerUp = (e: PointerEvent) => {
       activePointers.delete(e.pointerId);
+      wakeForGesture();
       isDragging = false;
       if (activePointers.size === 1) {
         // Resume single-finger pan from current positions
@@ -676,6 +739,7 @@ export default function GameMap({
       e.preventDefault();
       const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
       scaleAllLayers(Math.max(0.3, Math.min(4, mapContainer.scale.x * zoomFactor)));
+      wakeForGesture();
     };
 
     canvas.addEventListener('pointerdown', onPointerDown);
@@ -689,6 +753,7 @@ export default function GameMap({
       resetViewRef.current = () => {
         syncLayers(0, 0);
         scaleAllLayers(initialScale);
+        if (frameBudgetRef.current) renderWakeRef.current?.wake(COMMIT_RENDER_MS);
       };
     }
 
@@ -1196,53 +1261,74 @@ export default function GameMap({
     // (pageVisible is in this effect's deps).
     if (!pageVisible) return;
 
-    let phase = 0;
-    const ticker = new PIXI.Ticker();
-    ambientTickerRef.current = ticker;
-
-    ticker.add((delta) => {
-      phase += delta * 0.04;
-      const pulse = 0.35 + 0.65 * Math.abs(Math.sin(phase));
-
-      glowLayer.removeChildren();
-      if (turnHolderPlayerId && turnHolderColor && gameState) {
-        const glowColor = hexToPixi(turnHolderColor);
-        for (const territory of mapData.territories) {
-          const tState = gameState.territories[territory.territory_id];
-          if (tState?.owner_id !== turnHolderPlayerId) continue;
-          const c = territoryCentroids.get(territory.territory_id);
-          if (!c) continue;
-          const g = new PIXI.Graphics();
-          g.lineStyle(2.5, glowColor, pulse * 0.55);
-          g.drawCircle(c.x, c.y, 14 + pulse * 6);
-          glowLayer.addChild(g);
-        }
-      }
-
-      borderLayer.removeChildren();
-      for (const edge of contestedBorders) {
-        const from = territoryCentroids.get(edge.fromId);
-        const to = territoryCentroids.get(edge.toId);
-        if (!from || !to) continue;
+    // One Graphics per glowing territory and per contested border, redrawn in
+    // place. The loop used to allocate every one of them afresh on each tick.
+    const glowColor = turnHolderColor ? hexToPixi(turnHolderColor) : 0;
+    const glows: Array<{ g: PIXI.Graphics; x: number; y: number }> = [];
+    if (turnHolderPlayerId && turnHolderColor && gameState) {
+      for (const territory of mapData.territories) {
+        const tState = gameState.territories[territory.territory_id];
+        if (tState?.owner_id !== turnHolderPlayerId) continue;
+        const c = territoryCentroids.get(territory.territory_id);
+        if (!c) continue;
         const g = new PIXI.Graphics();
-        const color = edge.sea ? 0xfacc15 : 0xf87171;
+        glowLayer.addChild(g);
+        glows.push({ g, x: c.x, y: c.y });
+      }
+    }
+    const borders: Array<{ g: PIXI.Graphics; from: TerritoryCentroid; to: TerritoryCentroid; color: number }> = [];
+    for (const edge of contestedBorders) {
+      const from = territoryCentroids.get(edge.fromId);
+      const to = territoryCentroids.get(edge.toId);
+      if (!from || !to) continue;
+      const g = new PIXI.Graphics();
+      borderLayer.addChild(g);
+      borders.push({ g, from, to, color: edge.sea ? 0xfacc15 : 0xf87171 });
+    }
+    const draw = (pulse: number) => {
+      for (const { g, x, y } of glows) {
+        g.clear();
+        g.lineStyle(2.5, glowColor, pulse * 0.55);
+        g.drawCircle(x, y, 14 + pulse * 6);
+      }
+      for (const { g, from, to, color } of borders) {
+        g.clear();
         g.lineStyle(2, color, pulse * 0.75);
         g.moveTo(from.x, from.y);
         g.lineTo(to.x, to.y);
-        borderLayer.addChild(g);
       }
+    };
+    const teardown = () => {
+      for (const child of glowLayer.removeChildren()) child.destroy();
+      for (const child of borderLayer.removeChildren()) child.destroy();
+    };
+
+    // Under the phone budget the glow is drawn once, still, at the middle of
+    // its pulse (M-13 phase 2): an endless shimmer would keep the map
+    // rendering on every frame just to animate decoration.
+    if (frameBudget) {
+      draw(STATIC_AMBIENT_PULSE);
+      return teardown;
+    }
+
+    let phase = 0;
+    const ticker = new PIXI.Ticker();
+    ambientTickerRef.current = ticker;
+    ticker.add((delta) => {
+      phase += delta * 0.04;
+      draw(0.35 + 0.65 * Math.abs(Math.sin(phase)));
     });
     ticker.start();
 
     return () => {
       ticker.destroy();
       ambientTickerRef.current = null;
-      glowLayer.removeChildren();
-      borderLayer.removeChildren();
+      teardown();
     };
   }, [
     ambientEnabled,
     reducedEffects,
+    frameBudget,
     contestedBorders,
     renderConnectionArcs,
     turnHolderPlayerId,
@@ -1261,8 +1347,10 @@ export default function GameMap({
     const app = appRef.current;
     const standaloneTickers = [pulseTickerRef.current, strikeTickerRef.current, lossTickerRef.current];
     if (pageVisible) {
-      if (app && !app.ticker.started) app.ticker.start();
       for (const t of standaloneTickers) if (t && !t.started) t.start();
+      // Under the phone budget, repaint once and let the wake decide the rest.
+      if (frameBudgetRef.current) renderWakeRef.current?.wake(COMMIT_RENDER_MS);
+      else if (app && !app.ticker.started) app.ticker.start();
     } else {
       app?.ticker.stop();
       for (const t of standaloneTickers) t?.stop();
@@ -1292,9 +1380,12 @@ export default function GameMap({
         return;
       }
       mapVisualPlayingRef.current = true;
+      if (frameBudgetRef.current) renderWakeRef.current?.wake(COMMIT_RENDER_MS);
       setMapVisualDebug({ active: true, kind: next.kind });
       playMap2dVisualEffect(layer, next, territoryCentroids, () => {
         mapVisualPlayingRef.current = false;
+        // Paint the effect's last frame (its layer cleared) before idling.
+        if (frameBudgetRef.current) renderWakeRef.current?.wake(COMMIT_RENDER_MS);
         setMapVisualDebug({ active: false });
         playNext();
       });
@@ -1302,6 +1393,21 @@ export default function GameMap({
 
     playNext();
   }, [mapVisualEvents, territoryCentroids, reducedEffects]);
+
+  // Phone budget: every commit may have changed the scene (a new board, a
+  // selection, a resize), so each one gets a few frames. Declared after the
+  // effects above so it runs once they have drawn this commit's changes.
+  useEffect(() => {
+    if (frameBudgetRef.current) renderWakeRef.current?.wake(COMMIT_RENDER_MS);
+  });
+
+  // Leaving the budget (a phone layout widening) hands the ticker back to its
+  // always-on mode.
+  useEffect(() => {
+    if (frameBudget) return;
+    const ticker = appRef.current?.ticker;
+    if (ticker && !ticker.started && isDocumentVisible()) ticker.start();
+  }, [frameBudget]);
 
   const canvas = (
     <div
@@ -1337,6 +1443,7 @@ export default function GameMap({
           height={insetHeight}
           highlightTerritoryId={highlightTerritoryId}
           reducedEffects
+          frameBudget={frameBudget}
           ambientEnabled={false}
           turnHolderPlayerId={turnHolderPlayerId}
           validSourceOwnerId={validSourceOwnerId}
