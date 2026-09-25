@@ -9,7 +9,11 @@
  * roll settles instantly and the card dismisses itself.
  */
 export interface CombatCardMode {
-  /** Queue the card at all. Always true: the dice are the information. */
+  /**
+   * Queue the card at all. True everywhere but one place: on a phone an
+   * incoming attack is carried by the turn strip (docs/MOBILE_UX_PLAN.md
+   * M-12), never by a card over the map.
+   */
   show: boolean;
   /** Dismiss after the dice settle instead of waiting on a click. */
   autoAdvance: boolean;
@@ -27,7 +31,10 @@ export function ownAttackCardMode(opts: {
 }
 
 /** The card for an attack made against the local player. */
-export function incomingAttackCardMode(_opts: { liteMode: boolean }): CombatCardMode {
+export function incomingAttackCardMode(opts: { liteMode: boolean; phoneLayout?: boolean }): CombatCardMode {
+  // A phone gets the result on the turn strip instead: the theater is a
+  // centered card over the map, the one thing the phone layout must not add.
+  if (opts.phoneLayout) return { show: false, autoAdvance: true };
   // The defender's theater already auto-advances; lite mode only makes it
   // quicker (via the same `hurry` fast path), it does not need to hide it.
   return { show: true, autoAdvance: true };

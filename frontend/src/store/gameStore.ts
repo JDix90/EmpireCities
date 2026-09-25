@@ -337,6 +337,9 @@ export interface CombatResult {
   attacker_losses: number;
   defender_losses: number;
   territory_captured: boolean;
+  /** The exchange's territory ids, so a loss can be pointed to on the map. */
+  fromId?: string;
+  toId?: string;
   /** Server-authoritative units left on the attacking territory (newer servers). */
   source_units_after?: number;
   /** Present when this result aggregates a server blitz: exchanges covered. */

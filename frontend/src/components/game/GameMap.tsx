@@ -26,6 +26,9 @@ import { hapticImpact } from '../../utils/haptics';
 import { isTapGesture } from '../../utils/tapGesture';
 import { getRegionPixiColors, getPlayerPixiColor } from '../../constants/accessibleColors';
 import { HIGHLIGHT_PIXI } from '../../constants/highlightColors';
+
+/** A stable empty default, so an absent prop never re-runs the loss-pulse effect. */
+const NO_TERRITORY_IDS: string[] = [];
 import {
   STRIKE_MAP_STYLES,
   type MapStrikeFlashProps,
@@ -78,6 +81,11 @@ interface GameMapProps {
   height?: number;
   /** If set, draw a pulsing gold ring on this territory (tutorial highlighting). */
   highlightTerritoryId?: string;
+  /**
+   * Territories the viewer lost since their last turn, pulsed red from the
+   * start of that turn until their first move (docs/MOBILE_UX_PLAN.md M-12).
+   */
+  lossPulseTerritoryIds?: string[];
   /** Brief territory flash when a strike ability hits (2D map). */
   strikeFlash?: MapStrikeFlashProps | null;
   /** Server-authoritative map visual events (reinforce, combat, fortify). */
@@ -142,6 +150,7 @@ export default function GameMap({
   width = 900,
   height = 600,
   highlightTerritoryId,
+  lossPulseTerritoryIds = NO_TERRITORY_IDS,
   strikeFlash,
   mapVisualEvents = [],
   onMapVisualDone,
@@ -194,6 +203,8 @@ export default function GameMap({
   const strikeLayerRef = useRef<PIXI.Container | null>(null);
   const strikeFlashRef = useRef<PIXI.Graphics | null>(null);
   const pulseTickerRef = useRef<PIXI.Ticker | null>(null);
+  const lossLayerRef = useRef<PIXI.Container | null>(null);
+  const lossTickerRef = useRef<PIXI.Ticker | null>(null);
   const strikeTickerRef = useRef<PIXI.Ticker | null>(null);
   const effectsLayerRef = useRef<PIXI.Container | null>(null);
   const borderLayerRef = useRef<PIXI.Container | null>(null);
@@ -1029,6 +1040,64 @@ export default function GameMap({
     };
   }, [highlightTerritoryId, mapData, canvasW, canvasH, width, height, territoryCenter]);
 
+  // ── Loss pulse (M-12): the map names what the viewer lost while away ──────
+  const lossKey = lossPulseTerritoryIds.join(',');
+  useEffect(() => {
+    const mapContainer = mapContainerRef.current;
+    if (!mapContainer || !mapData) return;
+
+    if (!lossLayerRef.current) {
+      const layer = new PIXI.Container();
+      mapContainer.addChild(layer);
+      lossLayerRef.current = layer;
+    }
+    const layer = lossLayerRef.current;
+    layer.removeChildren();
+
+    const ids = lossKey ? lossKey.split(',') : [];
+    const centers = ids
+      .map((id) => mapData.territories.find((t) => t.territory_id === id))
+      .filter((t): t is NonNullable<typeof t> => !!t)
+      .map((t) => scalePolygon([territoryCenter(t)], canvasW, canvasH, width, height)[0]);
+
+    if (centers.length === 0) {
+      if (lossTickerRef.current) {
+        lossTickerRef.current.destroy();
+        lossTickerRef.current = null;
+      }
+      return;
+    }
+
+    const rings = centers.map(() => {
+      const ring = new PIXI.Graphics();
+      layer.addChild(ring);
+      return ring;
+    });
+
+    let t = 0;
+    if (lossTickerRef.current) lossTickerRef.current.destroy();
+    const ticker = new PIXI.Ticker();
+    lossTickerRef.current = ticker;
+    ticker.add((delta) => {
+      t = (t + delta * 0.03) % (Math.PI * 2);
+      const scale = 1 + 0.18 * Math.sin(t);
+      const alpha = 0.5 + 0.5 * Math.abs(Math.sin(t));
+      const r = 22 * scale;
+      rings.forEach((ring, i) => {
+        const [cx, cy] = centers[i];
+        ring.clear();
+        ring.lineStyle(3, HIGHLIGHT_PIXI.lost, alpha);
+        ring.drawCircle(cx, cy, r);
+      });
+    });
+    if (isDocumentVisible()) ticker.start();
+
+    return () => {
+      ticker.destroy();
+      lossTickerRef.current = null;
+    };
+  }, [lossKey, mapData, canvasW, canvasH, width, height, territoryCenter]);
+
   // ── Strike ability territory flash (2D map) ───────────────────────────────
   useEffect(() => {
     const app = appRef.current;
@@ -1190,7 +1259,7 @@ export default function GameMap({
   // CPU on a backgrounded tab.
   useEffect(() => {
     const app = appRef.current;
-    const standaloneTickers = [pulseTickerRef.current, strikeTickerRef.current];
+    const standaloneTickers = [pulseTickerRef.current, strikeTickerRef.current, lossTickerRef.current];
     if (pageVisible) {
       if (app && !app.ticker.started) app.ticker.start();
       for (const t of standaloneTickers) if (t && !t.started) t.start();

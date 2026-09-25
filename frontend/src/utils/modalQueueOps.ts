@@ -40,3 +40,21 @@ export function replaceOwnCombatsWithSummary(
 
   return [...remaining.slice(0, insertAt), summary, ...remaining.slice(insertAt)];
 }
+
+/**
+ * The phone's version of the turn end (docs/MOBILE_UX_PLAN.md M-12): fold the
+ * turn's own attacks away exactly as above, but queue no summary. The summary
+ * is a full-screen recap of moves the player made themselves seconds ago, and
+ * on a phone it was one more thing to close before the next turn; the HUD's
+ * log keeps every line of it.
+ */
+export function dropOwnCombats(queue: ModalData[], ownCombats: readonly CombatResult[]): ModalData[] {
+  const folded = new Set<CombatResult>(ownCombats);
+  return queue.filter((modal) => {
+    if (modal.type !== 'combat') return true;
+    if (modal.perspective !== 'attacker') return true;
+    if (isCriticalModal(modal)) return true;
+    return !folded.has(modal.result);
+  });
+}
+

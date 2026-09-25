@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { replaceOwnCombatsWithSummary } from './modalQueueOps';
+import { dropOwnCombats, replaceOwnCombatsWithSummary } from './modalQueueOps';
 import type { ModalData, TurnSummaryModalData } from '../components/game/ActionModal';
 import type { CombatResult } from '../store/gameStore';
 
@@ -106,3 +106,37 @@ describe('replaceOwnCombatsWithSummary', () => {
     expect(replaceOwnCombatsWithSummary([], [a], summary)).toEqual([summary]);
   });
 });
+
+describe('dropOwnCombats (the phone turn end)', () => {
+  it("folds this turn's own combat modals away and queues no summary", () => {
+    const a = combat('a');
+    const b = combat('b');
+    const queue: ModalData[] = [
+      { type: 'combat', result: a, perspective: 'attacker' },
+      { type: 'combat', result: b, perspective: 'attacker' },
+    ];
+    expect(dropOwnCombats(queue, [a, b])).toEqual([]);
+  });
+
+  it('keeps everything the desktop fold keeps: critical modals, defender cards, other turns', () => {
+    const mine = combat('mine');
+    const older = combat('older');
+    const capital: ModalData = { type: 'combat', result: { ...combat('capital'), capitalLost: true }, perspective: 'defender' };
+    const incoming: ModalData = { type: 'combat', result: combat('incoming'), perspective: 'defender' };
+    const elimination = { type: 'elimination' } as unknown as ModalData;
+    const queue: ModalData[] = [
+      elimination,
+      capital,
+      { type: 'combat', result: mine, perspective: 'attacker' },
+      incoming,
+      { type: 'combat', result: older, perspective: 'attacker' },
+    ];
+    expect(dropOwnCombats(queue, [mine])).toEqual([
+      elimination,
+      capital,
+      incoming,
+      { type: 'combat', result: older, perspective: 'attacker' },
+    ]);
+  });
+});
+
