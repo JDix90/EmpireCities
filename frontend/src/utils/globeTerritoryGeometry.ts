@@ -1092,3 +1092,73 @@ export function buildTerritoryGlobeGeometries(
     };
   });
 }
+
+/**
+ * How many distinct boards `buildTerritoryGlobeGeometriesShared` keeps. A live
+ * game needs one (the main globe and the Moon inset build the same board); the
+ * rest covers a board that changes mid-game and the build made while the geo
+ * sources were still loading.
+ */
+const SHARED_GEOMETRY_CACHE_SIZE = 3;
+
+/** Builds by input key, least recently used first. */
+const sharedGeometryCache = new Map<string, PolygonData[]>();
+const geoSourceIds = new WeakMap<object, number>();
+let nextGeoSourceId = 1;
+
+function geoSourceId(source: object | null | undefined): number {
+  if (!source) return 0;
+  let id = geoSourceIds.get(source);
+  if (id === undefined) {
+    id = nextGeoSourceId;
+    nextGeoSourceId += 1;
+    geoSourceIds.set(source, id);
+  }
+  return id;
+}
+
+/**
+ * `buildTerritoryGlobeGeometries`, built once per distinct input.
+ *
+ * The build clips Natural Earth countries with turf, which takes about 3 s for
+ * the Space Age board on a desktop core and longer on a phone. GlobeMap paid that
+ * for every map object it was handed. The Moon inset repeated the main globe's
+ * build, a Launch Pad lane (a connections-only change) rebuilt every territory,
+ * and so did each switch back from the 2D map.
+ *
+ * The result depends only on the map fields in the key below and on which geo
+ * sources were passed, so equal inputs get the same PolygonData objects back.
+ * That also lets three-globe keep each territory's triangulated mesh, because it
+ * matches meshes to data by object. The objects are shared, so callers must
+ * not mutate them.
+ */
+export function buildTerritoryGlobeGeometriesShared(
+  mapData: GlobeMapDataForGeometry,
+  inputs: GlobeGeometryInputs,
+): PolygonData[] {
+  const sources = (Object.keys(inputs) as Array<keyof GlobeGeometryInputs>)
+    .sort()
+    .map((k) => `${k}:${geoSourceId(inputs[k])}`);
+  const key = JSON.stringify([
+    sources,
+    mapData.map_id ?? null,
+    mapData.canvas_width ?? null,
+    mapData.canvas_height ?? null,
+    mapData.projection_bounds ?? null,
+    mapData.territories,
+  ]);
+  const cached = sharedGeometryCache.get(key);
+  if (cached) {
+    sharedGeometryCache.delete(key);
+    sharedGeometryCache.set(key, cached);
+    return cached;
+  }
+  const built = buildTerritoryGlobeGeometries(mapData, inputs);
+  sharedGeometryCache.set(key, built);
+  while (sharedGeometryCache.size > SHARED_GEOMETRY_CACHE_SIZE) {
+    const oldest = sharedGeometryCache.keys().next().value;
+    if (oldest === undefined) break;
+    sharedGeometryCache.delete(oldest);
+  }
+  return built;
+}

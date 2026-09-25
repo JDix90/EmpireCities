@@ -14,7 +14,7 @@ import { eraBoardTheme } from '../../constants/eraBoardTheme';
 import { useUiStore } from '../../store/uiStore';
 import { type TerritoryGeoConfig, type ClipBbox } from '../../data/territoryGeoMapping';
 import {
-  buildTerritoryGlobeGeometries,
+  buildTerritoryGlobeGeometriesShared,
   type PolygonData,
 } from '../../utils/globeTerritoryGeometry';
 import { galaxyExoWideHullCapResolution } from '../../utils/galaxyGlobeCapResolution';
@@ -899,7 +899,9 @@ function GlobeMap({
       // NOTE: keep every key of GlobeGeometryInputs here — dropping one (e.g.
       // regionalAdmin1Geo) silently downgrades affected maps to the blocky
       // geo_polygon fallback on the globe while the 2D map still looks correct.
-      buildTerritoryGlobeGeometries(mapData, {
+      // Shared: the Moon inset, a remount and a connections-only map change
+      // reuse one build (seconds of turf clipping on a phone).
+      buildTerritoryGlobeGeometriesShared(mapData, {
         countriesGeo,
         statesGeo,
         risorgimentoGeo,

@@ -1101,7 +1101,7 @@ Production builds of `main` (with M-13) and of this item, served against a throw
 | States with no frame within 3 s, globe, outside the hitch below | 0 | 0 |
 | Globe frames a second during AI turns, replaying recorded timings through the wake at 30 fps | 6.0 | 2.4 |
 
-In every globe run, on both builds, one AI stretch spent about 80% of the main thread in JavaScript for several seconds. A few states waited more than 3 s for a frame, all inside that stretch, and for all but about 0.1 s of each wait the main thread was busy, so no frame could be drawn: a hitch, not a paused loop. It is separate from this item and not investigated here.
+In the globe runs where the page's socket reconnected, which was most of them on both builds, one AI stretch spent about 80% of the main thread in JavaScript for several seconds. A few states waited more than 3 s for a frame, all inside that stretch. For all but about 0.1 s of each wait the main thread was busy, so no frame could be drawn: a hitch, not a paused loop. It is separate from this item. [The map-resend hitch](#follow-up-the-map-resend-hitch) below explains and fixes it.
 
 As before, headless Chromium draws WebGL in software, at about 700 ms a globe frame and 150 ms a 2D frame, so the frame rate itself cannot show what fewer frames save: here the loop is always behind. The frame counts above come from replaying the recorded state timings through the real wake code; the device checks below are the confirmation that counts.
 
@@ -1126,6 +1126,55 @@ The watching pages, the same setup:
 | `frontend/src/components/game/GameMap.tsx`, `GameMap.frameBudget.test.tsx` | A 100 ms commit wake that owes one frame, counted by the app ticker; territory shapes and badge circles redrawn only when their look changes |
 | `frontend/src/hooks/useFrameBudget.ts`, `useFrameBudget.test.ts` | `usePageFrameBudget`: the budget for a page that does not track the layout and battery saver itself |
 | `frontend/src/pages/SpectatorPage.tsx`, `frontend/src/pages/ReplayPage.tsx` | The frame budget, and the reduced tier as Lite mode |
+
+### Follow-up: the map-resend hitch
+
+**What it was.** The globe hitch above is a rejoin. Each time the page's socket reconnects, the game page joins again and the server sends the whole map, about 23 KB for the space age. The page swapped the new copy in, and each globe then rebuilt every territory's shape. On the space age that means two globes, because the Moon inset is a second globe. The build clips Natural Earth countries with turf's `intersect` (59 clips for the space age board), which runs on bignumber.js arithmetic. The new shape objects also made three-globe triangulate every territory again, because it matches its meshes to data by object.
+
+One forced reconnect, profiled on the test machine:
+
+| Cost of a rejoin, space age, globe | Before | After the fix |
+|---|---|---|
+| JavaScript in the 10 s after the resent map arrives | 6.9 s | 0.4 s |
+| Territory geometry builds | 2 (main globe and Moon inset), 4.9 s | 0 |
+| three-globe re-triangulating every territory | 1.1 s | none |
+| Longest task after the reconnect | 5.5 s | 1.6 s (a software-GL frame) |
+| Longest task while the game loads | 5.2–5.7 s, twice in two of four runs | 2.8 s |
+
+One build of each era's board, timed in Node on the same machine; a phone is slower:
+
+| Board | One build |
+|---|---|
+| Space age | 3.2 s, paid twice (the Moon inset) |
+| Ancient | 2.3 s |
+| Cold War | 1.4 s |
+| Risorgimento | 1.1 s |
+| Age of Discovery, Medieval, WWII | about 0.85 s |
+| Modern | 0.56 s |
+| American Civil War | 0.06 s |
+
+**What triggers it.** In the test rig the reconnects came from the rig itself. Software WebGL holds the main thread for about 1.4 s a frame, and the page fell more than half a minute behind the server's messages. The socket.io client then closed the socket when no server ping had been processed for 45 s. On a phone, the same resend follows any rejoin:
+- a dropped connection or a switch between Wi-Fi and mobile data;
+- the app coming back from the background;
+- a server restart;
+- a `GAME_NOT_FOUND` resync.
+
+The second join every page load makes also resends the map. In a space age game the server also pushes a changed map for each new Launch Pad lane. Every switch from the 2D map back to the globe rebuilt the shapes too.
+
+The 2D map was never affected: it caches its geometry per map, and a forced reconnect there cost at most 0.45 s of JavaScript.
+
+**The fix.**
+- **A resent map is kept if nothing changed.** When a `game:map` payload serializes the same as the map the page holds, the page keeps its object (`utils/mapResend.ts`), so nothing keyed on the map rebuilds.
+- **One build per distinct board.** The globe asks `buildTerritoryGlobeGeometriesShared` for its shapes. It caches builds by the map fields the build reads (id, canvas size, projection bounds, territories) and by which geo sources were passed. The Moon inset, a remount and a connections-only change such as a Launch Pad lane then get the same shape objects back, so three-globe keeps its meshes. Up to three boards are kept.
+
+**Checking it on a device.** In a space age game on the globe, turn on airplane mode for a few seconds and turn it off, or background the app for a minute and return. Once the game resyncs, the board should keep responding with no multi-second freeze. In Safari Web Inspector (iOS) or Chrome remote debugging (Android), the resync should show no JavaScript task longer than a frame or two. Without the fix, one task holds the whole geometry rebuild.
+
+| File | Change |
+|------|--------|
+| `frontend/src/utils/mapResend.ts`, `mapResend.test.ts` | `isSameMap`: whether a resent map is the one already held |
+| `frontend/src/pages/GamePage.tsx` | `game:map` keeps the current map object when the resend is identical |
+| `frontend/src/utils/globeTerritoryGeometry.ts`, `globeTerritoryGeometry.shared.test.ts` | `buildTerritoryGlobeGeometriesShared`: one build per distinct board and set of geo sources |
+| `frontend/src/components/game/GlobeMap.tsx` | Builds its territory shapes through the shared build |
 
 ---
 
