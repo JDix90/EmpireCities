@@ -28,6 +28,8 @@ import { useTerritoryGeoSources } from '../../hooks/useTerritoryGeoSources';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import { subscribeUserPreferences } from '../../utils/userPreferences';
 import { isCoarsePointer } from '../../utils/device';
+import { PHONE_FRAME_CAP_FPS, dampingFactorForFrameRate } from '../../utils/frameBudget';
+import { createRenderWake, type RenderWake } from '../../utils/renderWake';
 import { usePageVisibilityEffect } from '../../utils/usePageVisible';
 import {
   SPACE_AGE_WASTELANDS,
@@ -167,6 +169,14 @@ interface GlobeMapProps {
   onEventDone?: (eventId: string) => void;
   /** Lighter motion (mobile / accessibility): no idle globe spin resume after animations */
   reducedEffects?: boolean;
+  /**
+   * The phone frame budget is on (docs/MOBILE_UX_PLAN.md M-13): the page caps
+   * frames at PHONE_FRAME_CAP_FPS, so OrbitControls' per-update damping is
+   * rescaled to feel the same, and the render loop's automatic wakes (a turn
+   * changing hands, the board changing under another player) last a few
+   * frames instead of seconds.
+   */
+  frameBudget?: boolean;
   /** User-controlled globe spin toggle. When false, globe does not auto-rotate. */
   autoSpin?: boolean;
   /**
@@ -322,6 +332,8 @@ type HtmlDatum =
       description: string;
       glyph: string;
       colorRgba: string;
+      /** The endless heartbeat; off under reduced effects, where it only costs frames. */
+      pulse: boolean;
     });
 
 interface ArcDatum {
@@ -640,7 +652,7 @@ function buildHtmlOverlayElement(
         'font-size:11px',
         'font-weight:700',
         'text-shadow:0 0 3px rgba(0,0,0,0.9)',
-        'animation:globeWastelandPulse 3.6s ease-in-out infinite',
+        ...(datum.pulse ? ['animation:globeWastelandPulse 3.6s ease-in-out infinite'] : []),
         'pointer-events:auto',
         'cursor:help',
         'user-select:none',
@@ -726,6 +738,19 @@ const ANIMATION_STYLES = `
 }
 `;
 
+// ── Render-loop budget ─────────────────────────────────────────────────────────
+
+/** How long the loop keeps rendering after an interaction or a queued animation. */
+const RENDER_IDLE_MS = 4000;
+/** How long a board change or (under the phone budget) a turn change keeps it rendering: a few frames. */
+const BOARD_CHANGE_RENDER_MS = 300;
+/** Extra time after a camera tween's own duration, so its last frame lands. */
+const CAMERA_TWEEN_SETTLE_MS = 150;
+/** Under the phone budget, how often a running loop re-checks whether it can idle. */
+const BUDGET_ACTIVITY_POLL_MS = 500;
+/** globe.gl's own OrbitControls damping, tuned for one update per 60 Hz frame. */
+const GLOBE_DAMPING_FACTOR = 0.1;
+
 // ── Component ──────────────────────────────────────────────────────────────────
 
 function GlobeMap({
@@ -736,6 +761,7 @@ function GlobeMap({
   events = EMPTY_EVENTS,
   onEventDone,
   reducedEffects = false,
+  frameBudget = false,
   autoSpin = true,
   cameraFollow = true,
   skipAnimationsRef,
@@ -1084,8 +1110,16 @@ function GlobeMap({
     return t;
   }, []);
 
+  /**
+   * Keeps the render loop awake for `ms`. Filled in once applyRenderActivity
+   * exists below; camera moves call it so a tween never freezes half-way
+   * because the loop idled under it.
+   */
+  const keepRenderingRef = useRef<(ms: number) => void>(() => {});
+
   const panCamera = useCallback((lat: number, lng: number, altitude: number, ms = 800) => {
     noteAutomatedCameraMove();
+    keepRenderingRef.current(ms + CAMERA_TWEEN_SETTLE_MS);
     globeRef.current?.pointOfView({ lat, lng, altitude }, ms);
   }, [noteAutomatedCameraMove]);
 
@@ -1107,6 +1141,7 @@ function GlobeMap({
     const currentAltitude = typeof current?.altitude === 'number' ? current.altitude : 1;
     const next = Math.min(MAX_ZOOM_ALTITUDE, Math.max(MIN_ZOOM_ALTITUDE, currentAltitude * factor));
     if (Math.abs(next - currentAltitude) < 1e-4) return;
+    keepRenderingRef.current(ms + CAMERA_TWEEN_SETTLE_MS);
     globe.pointOfView({ altitude: next }, ms);
   }, []);
 
@@ -1370,35 +1405,39 @@ function GlobeMap({
   // Heat/battery: halt the Three.js render loop while the tab is backgrounded or
   // the screen is locked, and once the scene goes idle (no spin, no queued
   // animation, no recent interaction). react-globe.gl exposes pauseAnimation()/
-  // resumeAnimation() for exactly this. Any pointer activity, queued event, or
-  // visibility regain resumes it via applyRenderActivity().
-  const renderIdleTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const RENDER_IDLE_MS = 4000;
-  const applyRenderActivity = useCallback((interacted: boolean) => {
+  // resumeAnimation() for exactly this. Any pointer activity, queued event,
+  // camera tween, board change or visibility regain resumes it via
+  // applyRenderActivity(), for as long as that thing needs.
+  const frameBudgetRef = useRef(frameBudget);
+  frameBudgetRef.current = frameBudget;
+  const renderWakeRef = useRef<RenderWake | null>(null);
+  if (!renderWakeRef.current) {
+    renderWakeRef.current = createRenderWake({
+      resume: () => globeRef.current?.resumeAnimation?.(),
+      pause: () => globeRef.current?.pauseAnimation?.(),
+      // isAnimatingRef covers the *currently-playing* event (already shifted off
+      // the queue), so a single long animation keeps the loop alive.
+      busy: () =>
+        !!globeRef.current?.controls?.()?.autoRotate ||
+        eventQueueRef.current.length > 0 ||
+        isAnimatingRef.current ||
+        userInteractingRef.current,
+      hidden: () => typeof document !== 'undefined' && document.visibilityState === 'hidden',
+      // Under the phone budget a running loop re-checks every half second, so
+      // it idles soon after the last animation ends.
+      pollMs: () => (frameBudgetRef.current ? BUDGET_ACTIVITY_POLL_MS : RENDER_IDLE_MS),
+    });
+  }
+  useEffect(() => () => renderWakeRef.current?.dispose(), []);
+  /** `interacted`: keep rendering for `awakeMs`. Otherwise: idle if nothing needs the loop. */
+  const applyRenderActivity = useCallback((interacted: boolean, awakeMs: number = RENDER_IDLE_MS) => {
     const globe = globeRef.current;
     if (!globe?.pauseAnimation || !globe.resumeAnimation) return;
-    clearTimeout(renderIdleTimerRef.current);
-    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
-      globe.pauseAnimation();
-      return;
-    }
-    const ctrl = globe.controls?.();
-    const spinning = !!ctrl?.autoRotate;
-    // isAnimatingRef covers the *currently-playing* event (already shifted off the
-    // queue), so a single long animation keeps the loop alive instead of freezing.
-    const animating =
-      eventQueueRef.current.length > 0 || isAnimatingRef.current || userInteractingRef.current;
-    if (interacted || spinning || animating) {
-      globe.resumeAnimation();
-      // Keep polling while active so the loop can idle once spin stops, the
-      // animation queue drains, and interaction ends — cheap (one call / 4s).
-      renderIdleTimerRef.current = setTimeout(() => applyRenderActivity(false), RENDER_IDLE_MS);
-      return;
-    }
-    // Nothing happening — let the loop idle to save power. A pointer event,
-    // queued animation, or visibility change resumes it.
-    globe.pauseAnimation();
+    const wake = renderWakeRef.current!;
+    if (interacted) wake.wake(awakeMs);
+    else wake.check();
   }, []);
+  keepRenderingRef.current = (ms: number) => applyRenderActivity(true, ms);
 
   /**
    * Drive wheel zoom ourselves. OrbitControls scales its own `zoomSpeed` by the
@@ -1442,10 +1481,30 @@ function GlobeMap({
   // every re-render and prevent it from ever idling. New events instead wake the
   // loop from the dedup'd ingestion effect below (via the `hasNew` signal).
   useEffect(() => {
-    applyRenderActivity(true);
-  }, [autoSpin, globeReadyTick, gameState?.current_player_index, applyRenderActivity]);
+    applyRenderActivity(true, frameBudget ? BOARD_CHANGE_RENDER_MS : RENDER_IDLE_MS);
+  }, [autoSpin, globeReadyTick, gameState?.current_player_index, applyRenderActivity, frameBudget]);
 
-  useEffect(() => () => clearTimeout(renderIdleTimerRef.current), []);
+  // The board changed (an owner, a unit count, a building): paint it. With no
+  // animation queued for it, nothing else would wake an idle loop, so the
+  // globe would show the old board until the next touch or turn change. On a
+  // phone that is every other player's move, since M-12 plays only the
+  // viewer's own animations there. Prop updates reach three-globe within a
+  // few milliseconds, so a few frames are enough.
+  useEffect(() => {
+    if (!gameState) return;
+    applyRenderActivity(true, BOARD_CHANGE_RENDER_MS);
+  }, [gameState, applyRenderActivity]);
+
+  // OrbitControls damps per update. Under the frame cap it updates half as
+  // often, so the factor is rescaled to keep a fling coasting as it does at 60.
+  useEffect(() => {
+    const ctrl = globeRef.current?.controls?.();
+    if (!ctrl) return;
+    ctrl.dampingFactor = frameBudget
+      ? dampingFactorForFrameRate(GLOBE_DAMPING_FACTOR, PHONE_FRAME_CAP_FPS)
+      : GLOBE_DAMPING_FACTOR;
+  }, [frameBudget, globeReadyTick]);
+
 
   const getPolygonAltitude = useCallback(
     (polygon: object) => {
@@ -3042,10 +3101,14 @@ function GlobeMap({
       description: w.description,
       glyph: wastelandGlyph(w.kind),
       colorRgba: wastelandColorRgba(w.kind, 0.9),
+      pulse: !reducedEffects,
     }));
-  }, [mapData.map_id, activeWorldId]);
+  }, [mapData.map_id, activeWorldId, reducedEffects]);
 
   const wastelandRings = useMemo((): RingDatum[] => {
+    // Endless decoration: under reduced effects (every phone on the globe) the
+    // markers stay, the rings that keep the render loop busy do not (M-13).
+    if (reducedEffects) return [];
     if (mapData.map_id !== 'era_space_age' || activeWorldId !== 'earth') return [];
     return SPACE_AGE_WASTELANDS.map((w) => {
       const [r, g, b] = wastelandColorRgb(w.kind);
@@ -3063,7 +3126,7 @@ function GlobeMap({
         colorFn: (t: number) => `rgba(${r}, ${g}, ${b}, ${Math.max(0, 0.4 * (1 - t))})`,
       };
     });
-  }, [mapData.map_id, activeWorldId]);
+  }, [mapData.map_id, activeWorldId, reducedEffects]);
 
   // ── Galaxy gateway markers + lane departures ────────────────────────────
   // On a galaxy world's globe the far end of every hyperspace lane is off this

@@ -32,6 +32,7 @@ import { turnTimeoutToastMessage, type TurnTimeoutPayload } from '../utils/turnT
 import { GameNotFoundTracker } from '../utils/gameNotFoundTracker';
 import { dropOwnCombats, replaceOwnCombatsWithSummary } from '../utils/modalQueueOps';
 import { isOwnCardRedemption } from '../utils/cardsRedeemed';
+import { applyPhoneFrameBudget } from '../utils/frameBudget';
 import { DISMISS_TAPS_EVENT, countTap, dismissTierOf, emptyTally, tallyProperties, type DismissTally, type DismissTier } from '../utils/dismissTaps';
 import { plural } from '../utils/plural';
 import { phaseAdvanceLabel } from '../constants/phaseLabels';
@@ -489,6 +490,11 @@ export default function GamePage() {
   // Socket handlers are bound once; they read the layout through this ref.
   const isMobileLayoutRef = useRef(isMobileLayout);
   isMobileLayoutRef.current = isMobileLayout;
+  // The phone frame budget (docs/MOBILE_UX_PLAN.md M-13): while a game is open
+  // on a phone, frames are capped at 30 a second and the stylesheet drops
+  // backdrop blur and endless decorative loops. Leaving the page, or the
+  // layout widening past a phone, turns it off again.
+  useEffect(() => (isMobileLayout ? applyPhoneFrameBudget() : undefined), [isMobileLayout]);
   // Auto-settle the menu pulse after a few seconds so it isn't distracting all
   // game; not persisted, so it gently returns next session until actually used.
   useEffect(() => {
@@ -4723,6 +4729,7 @@ export default function GamePage() {
                         events={phoneGlobeEvents}
                         onEventDone={onMapVisualDone}
                         reducedEffects={reducedGlobe}
+                        frameBudget={isMobileLayout}
                         autoSpin={globeSpinEnabled}
                         cameraFollow={cameraFollowEnabled}
                         skipAnimationsRef={skipGlobeAnimationsRef}
@@ -4834,7 +4841,7 @@ export default function GamePage() {
               <button
                 type="button"
                 onClick={() => resetViewRef.current?.()}
-                className="dlayout:hidden absolute bottom-20 right-3 z-20 w-9 h-9 flex items-center justify-center rounded-lg bg-bf-surface/80 border border-bf-border text-bf-muted hover:text-bf-text backdrop-blur-sm"
+                className="dlayout:hidden absolute bottom-20 right-3 z-20 w-9 h-9 flex items-center justify-center rounded-lg bg-bf-surface/95 border border-bf-border text-bf-muted hover:text-bf-text backdrop-blur-sm"
                 aria-label="Reset map view"
               >
                 <Maximize2 className="w-4 h-4" />
@@ -5550,7 +5557,7 @@ export default function GamePage() {
       {/* Coaching Tip — solo-vs-AI only, dismissible per turn */}
       {coachingTip && coachingTip.turn === gameState?.turn_number && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-40 max-w-md px-3">
-          <div className="bg-amber-500/10 border border-amber-500/40 rounded-lg p-3 shadow-lg backdrop-blur-sm">
+          <div className="bg-amber-950/95 dlayout:bg-amber-500/10 border border-amber-500/40 rounded-lg p-3 shadow-lg backdrop-blur-sm">
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <p className="text-amber-200 text-xs font-semibold uppercase tracking-wider">Coaching</p>

@@ -19,6 +19,7 @@
 10. [M-10 Double-Tap Zoom Behavior (P3)](#m-10-double-tap-zoom-behavior)
 11. [M-11 Capacitor Plugin Hardening (P2)](#m-11-capacitor-plugin-hardening)
 12. [M-12 Mobile Overlay Budget (P0)](#m-12-mobile-overlay-budget)
+13. [M-13 Mobile Frame Budget (P0)](#m-13-mobile-frame-budget)
 
 ---
 
@@ -837,6 +838,88 @@ Tapping the line or the pill opens a half-height sheet (`mobile-sheet-above-nav`
 | `frontend/src/components/game/MobileCombatSheet.tsx` | New (phase 3): the own attack result anchored above the bar |
 | `backend/src/modules/analytics/analytics.routes.ts` | Phase 2: `turn_dismiss_taps` on the ui-event allowlist |
 
+## M-13 Mobile Frame Budget
+
+**Priority:** P0 — The phone gets physically hot during a match. Reported on a space age quick match.
+
+### Current State
+
+A turn-based board changes a few times a turn, but a phone was drawing it as if it were a shooter. Before this item:
+
+| Cost | Where | Why it heats the phone |
+|---|---|---|
+| Unbounded frame rate | The globe's render loop (react-globe.gl), its HTML label layer and three-globe's ring and arc tickers; the 2D map's PixiJS ticker and standalone effect tickers | Every awake frame renders at the display's rate, 60 or 120 Hz. The globe idles after 4 s of quiet, but every touch, turn change and queued animation wakes it for 4 s; the 2D ticker never idles. |
+| Endless space age decoration | Four wasteland markers with an infinite CSS pulse; four rings emitting continuously | Neither checked `reducedEffects`, which every phone on the globe runs with. The pulse keeps the compositor producing frames even while the WebGL loop is paused. |
+| Backdrop blur over a live canvas | The turn strip, its pill, the attack sheet, the reset-view button, the coaching tip, modal scrims | Over a canvas that repaints, the compositor re-blurs the area under each blurred element on every frame. |
+| Endless CSS pulses | The low-time turn-timer chip, the menu's first-visit pulse, the HUD's buff badges | Same as the space age pulse: frames at full rate for as long as they are on screen. |
+| A stale board | The idle globe | With M-12 dropping other players' animations on phones, nothing woke the paused globe when the board changed under another player; it repainted at the next turn change or touch. |
+
+Already in place: both renderers cap the device pixel ratio at 1.5, and both stop while the page is hidden.
+
+### Requirements
+
+| # | Requirement |
+|---|-------------|
+| R1 | **A frame cap on phones.** While a game is open on a phone, everything drawn through `requestAnimationFrame` runs at no more than 30 frames a second: the globe, its labels, its rings and arcs, the 2D map and its effect tickers. The globe's canvas and its HTML labels stay in step. |
+| R2 | **Motion keeps its speed.** Tweens, auto-rotate and tickers are time-based and keep their speed. OrbitControls damping, which is per update, is rescaled so a fling coasts as it did at 60 Hz. |
+| R3 | **No endless decoration on phones.** The wasteland rings are off and the markers still under reduced effects. Decorative CSS pulses play three times and settle. Spinners keep spinning. |
+| R4 | **No backdrop blur on the phone game page.** Surfaces that relied on blur behind a faint tint get a solid phone background. |
+| R5 | **The idle globe paints every board change**, for a few frames rather than seconds. Under the budget a turn change wakes it the same way, and a camera tween keeps it awake for exactly its own duration. |
+| R6 | Desktop is unchanged, with one exception that is a fix: an idle globe repaints a board change within a few frames there too, even when no animation announces it. |
+
+### Design
+
+**The cap.** `utils/frameBudget.ts` replaces `window.requestAnimationFrame` for as long as the game page is open on a phone (`applyPhoneFrameBudget`, from `GamePage`). Callbacks queue; at most 30 times a second the queue runs as one batch with one timestamp, exactly as the browser runs a frame, so every renderer draws the same instant. Between frames a timer sleeps until just before the next frame is due, so the main thread does not wake on every vsync to find out. The cap's ids start at one billion so they never collide with native ids; on release the native `requestAnimationFrame` returns at once, and `cancelAnimationFrame` keeps routing the cap's ids until its queue drains, so a component cancelling its loop while unmounting never cancels someone else's frame.
+
+The cap sits under the libraries rather than inside one because none of them offers a frame-rate setting that covers what it drives. react-globe.gl runs its render loop, its CSS2D label renderer, its camera tweens and three-globe's tickers each on `requestAnimationFrame`; throttling only the WebGL renderer would draw the labels at 60 over polygons at 30, and they would visibly slide during a drag.
+
+**Damping.** `dampingFactorForFrameRate(0.1, 30)` gives 0.19: each update keeps 81% of the remaining motion, which over a second matches 90% per update at 60 Hz.
+
+**Wakes.** The globe's render loop is paused and woken by `createRenderWake` (`utils/renderWake.ts`). A wake says how long to stay awake, and a wake only ever extends the deadline, so a short wake never cuts a longer one short. A pointer, a wheel or a queued animation keeps the 4 s wake. A board change (any new game state) wakes it for 300 ms, a few frames, which is enough for a prop update to reach three-globe and be drawn. Under the budget a turn change does the same, and a running loop re-checks every 500 ms instead of every 4 s whether it can idle. Every camera tween (`panCamera`, `zoomByFactor`) keeps the loop awake for its own duration plus 150 ms, so the camera never freezes half-way.
+
+**Stylesheet.** `applyPhoneFrameBudget` sets `data-frame-budget="phone"` on `<html>`. Under it `index.css` removes `backdrop-filter` from every element, and caps `animate-pulse`, `animate-pulse-slow`, `animate-ping` and `animate-capture-glow` at three iterations. The coaching tip and the strip's loss pill, the two surfaces that sat on a 10–15% tint behind their blur, get a 95% phone background; the desktop keeps its tint through the `dlayout:` variant.
+
+### Phases
+
+| Phase | Scope |
+|---|---|
+| **1 (this item)** | R1–R6: the 30 fps cap, the idle and wake budget, the space age decoration under reduced effects, pulses that settle, no blur on phones. |
+| 2 | Per-frame work: territory labels hidden below a zoom level or drawn into the canvas instead of the DOM; the 2D map rendering on demand instead of on every tick; `powerPreference: 'low-power'` for both WebGL contexts; no multisample antialiasing on the 2D map on phones. |
+| 3 | Heat-aware: a small Capacitor plugin reading iOS `thermalState` and Android thermal headroom, stepping down to 20 fps with effects off when the device reports it is hot; a battery-saver setting that bundles the same for the web. |
+
+### Checking it on a device
+
+- **Frame rate.** Chrome remote debugging (Android) → Rendering → Frame rendering stats, or Safari Web Inspector (iOS) → Timelines → Rendering Frames. On the game page a phone should never exceed 30 frames a second, and should show none while nothing moves.
+- **Endless animations.** In the console, `document.getAnimations().filter(a => a.effect.getTiming().iterations === Infinity && a.playState === 'running').length` should be zero on the game page after a few seconds, spinners aside.
+- **Energy.** Xcode's Energy Impact gauge (iOS) or Android Studio's Energy Profiler, over a few AI turns and a turn of your own.
+
+### Measured in development
+
+Production builds of `main` and of this item, served against a throwaway backend, on an emulated iPhone 13 in headless Chromium, in a space age match against three AIs:
+
+| Measure | `main` | M-13 |
+|---|---|---|
+| `requestAnimationFrame` callbacks a second, idle game page, phone | 60 | 30 |
+| The same on a desktop viewport | 60 | 60 |
+| Browser GPU process during AI turns on the globe (same twelve battles) | 3.8 cores | 1.4 cores |
+| All browser processes during those turns | 3.9 cores | 2.3 cores |
+| Blurred elements on screen | 1 | 0 |
+
+Headless Chromium rasterises WebGL in software and draws the space age globe at about one frame a second, so it cannot show what the cap saves on a real GPU at 60 or 120 Hz, and its 2D map never reaches 30 frames a second either way. The on-device checks above are the confirmation that counts.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `frontend/src/utils/frameBudget.ts` | New: the frame cap, the damping rescale, `applyPhoneFrameBudget` |
+| `frontend/src/utils/renderWake.ts` | New: when the globe's render loop runs; wakes as deadlines that only extend |
+| `frontend/src/pages/GamePage.tsx` | Turns the budget on for phone layouts; `frameBudget` to the globe; solid phone backgrounds on the reset-view button and the coaching tip |
+| `frontend/src/components/game/GlobeMap.tsx` | Wake deadline, board-change repaint, tween wakes, damping rescale, wasteland rings and pulse under reduced effects |
+| `frontend/src/components/game/MobileTurnStrip.tsx` | No blur; a solid loss pill |
+| `frontend/src/components/game/MobileCombatSheet.tsx` | No blur |
+| `frontend/src/index.css` | The `data-frame-budget="phone"` rules |
+| `frontend/src/utils/frameBudget.test.ts`, `renderWake.test.ts`, `components/game/GlobeMap.frameBudget.test.tsx` | New: the cap on a fake 60, 90 and 120 Hz display; the wake deadlines; the globe's wiring with react-globe.gl stubbed |
+
 ---
 
 ## Implementation Order
@@ -851,6 +934,7 @@ The recommended sequence accounts for dependency chains and impact:
 | **Sprint 4** | M-06, M-07 | Landscape + keyboard — both require the hooks from Sprint 3 plugins. |
 | **Sprint 5** | M-08, M-09, M-10 | Polish items — lowest risk, lowest urgency. |
 | **Sprint 6** | M-12 (phases 1–3) | The in-game overlay budget: one strip, own-turn-only animations, map cues; then the toasts folded into the strip and the dismiss taps measured; then the own attack result off the map and a scrubbable history. Independent of the sprints above. |
+| **Sprint 7** | M-13 (phase 1) | The phone frame budget: a 30 fps cap, a render loop that idles between moves, no endless decoration, no blur over the map. Independent of the sprints above. |
 
 ### Estimated Scope
 

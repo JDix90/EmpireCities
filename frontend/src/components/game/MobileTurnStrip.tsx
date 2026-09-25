@@ -255,10 +255,12 @@ export default function MobileTurnStrip({
           data-testid="turn-strip-pill"
           onClick={openSheet}
           className={clsx(
-            'absolute bottom-2 right-2 z-20 inline-flex items-center gap-1 px-2.5 h-9 rounded-full border text-xs font-medium shadow-lg backdrop-blur-sm',
+            'absolute bottom-2 right-2 z-20 inline-flex items-center gap-1 px-2.5 h-9 rounded-full border text-xs font-medium shadow-lg',
+            // Solid backgrounds, no blur: blur over a live map is re-rendered
+            // every frame on a phone (M-13).
             summary.lost.length > 0
-              ? 'bg-red-500/15 border-red-500/40 text-red-300'
-              : 'bg-bf-surface/90 border-bf-border text-bf-muted',
+              ? 'bg-bf-surface/95 border-red-500/50 text-red-300'
+              : 'bg-bf-surface/95 border-bf-border text-bf-muted',
           )}
           aria-label={`While you were away: ${summary.turns} turns`}
         >
@@ -279,7 +281,7 @@ export default function MobileTurnStrip({
           <div
             data-testid="turn-strip-notice"
             className={clsx(
-              'flex items-center gap-2 px-3 py-2 rounded-lg border bg-bf-surface/95 backdrop-blur-sm shadow-lg text-xs',
+              'flex items-center gap-2 px-3 py-2 rounded-lg border bg-bf-surface/95 shadow-lg text-xs',
               shownNotice.data.accentBorder,
             )}
             role="status"
@@ -295,7 +297,7 @@ export default function MobileTurnStrip({
           <div
             data-testid="turn-strip-live"
             className={clsx(
-              'flex items-center gap-2 px-3 py-2 rounded-lg border bg-bf-surface/95 backdrop-blur-sm shadow-lg text-xs',
+              'flex items-center gap-2 px-3 py-2 rounded-lg border bg-bf-surface/95 shadow-lg text-xs',
               live.territory_captured ? 'border-red-500/50' : 'border-bf-border',
             )}
             role="status"
@@ -329,7 +331,7 @@ export default function MobileTurnStrip({
             data-testid="turn-strip-line"
             onClick={openSheet}
             className={clsx(
-              'w-full flex items-center gap-2 px-3 py-2 rounded-lg border bg-bf-surface/95 backdrop-blur-sm shadow-lg text-xs text-left',
+              'w-full flex items-center gap-2 px-3 py-2 rounded-lg border bg-bf-surface/95 shadow-lg text-xs text-left',
               lostNames.length > 0 ? 'border-red-500/40' : 'border-bf-border',
             )}
             aria-expanded={sheetOpen}
