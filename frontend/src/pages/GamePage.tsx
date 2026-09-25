@@ -33,6 +33,7 @@ import { GameNotFoundTracker } from '../utils/gameNotFoundTracker';
 import { dropOwnCombats, replaceOwnCombatsWithSummary } from '../utils/modalQueueOps';
 import { isOwnCardRedemption } from '../utils/cardsRedeemed';
 import { useFrameBudget } from '../hooks/useFrameBudget';
+import { mapReadinessSurface, useMapReadiness } from '../hooks/useMapReadiness';
 import { DISMISS_TAPS_EVENT, countTap, dismissTierOf, emptyTally, tallyProperties, type DismissTally, type DismissTier } from '../utils/dismissTaps';
 import { plural } from '../utils/plural';
 import { phaseAdvanceLabel } from '../constants/phaseLabels';
@@ -857,18 +858,13 @@ export default function GamePage() {
 
   // 2D map and galaxy overview render immediately (no WebGL init), so treat
   // them as "map ready" for the turn-timer ack without waiting on onGlobeReady.
-  useEffect(() => {
-    if (!mapData) return;
-    const instantReady =
-      mapView === '2d' ||
-      (mapView === 'globe' && mapData.map_kind === 'galaxy' && galaxyOverviewMode);
-    if (instantReady) {
-      globeReadyRef.current = true;
-      maybeEmitTurnReady();
-    } else if (mapView === 'globe') {
-      globeReadyRef.current = false;
-    }
-  }, [mapData, mapView, galaxyOverviewMode, maybeEmitTurnReady]);
+  // A globe that has just been shown waits for it. Keyed on what is on screen,
+  // not on the map object (see useMapReadiness).
+  useMapReadiness(
+    mapReadinessSurface(mapData, mapView, galaxyOverviewMode),
+    globeReadyRef,
+    maybeEmitTurnReady,
+  );
 
   useEffect(() => {
     maybeEmitTurnReady();
