@@ -8,6 +8,7 @@ const FAST_COMBAT_KEY = 'cc-fast-combat';
 const GLOBE_SPIN_KEY = 'cc-globe-spin';
 const CAMERA_FOLLOW_KEY = 'cc-camera-follow';
 const LITE_MODE_KEY = 'cc-lite-mode';
+const BATTERY_SAVER_KEY = 'cc-battery-saver';
 const MAP_VIEW_KEY = 'cc-preferred-map-view';
 const CONNECTION_HINTS_KEY = 'cc-connection-hints';
 const SFX_VOLUME_KEY = 'cc-sfx-volume';
@@ -153,6 +154,23 @@ export function isLiteMode(): boolean {
 
 export function setLiteMode(enabled: boolean): void {
   writeBool(LITE_MODE_KEY, enabled);
+}
+
+// ── Battery saver ───────────────────────────────────────────────────────────
+
+/**
+ * Battery saver (docs/MOBILE_UX_PLAN.md M-13 phase 3): the reduced frame
+ * budget on any device, desktop included. 20 frames a second, maps drawn only
+ * when something changes, no blur, and Lite mode's visual rules. A phone
+ * steps down to the same tier on its own when it reports it is running hot;
+ * this is the switch for everyone else, and for players who want it always.
+ */
+export function isBatterySaver(): boolean {
+  return readBool(BATTERY_SAVER_KEY, false);
+}
+
+export function setBatterySaver(enabled: boolean): void {
+  writeBool(BATTERY_SAVER_KEY, enabled);
 }
 
 // ── Default map view ────────────────────────────────────────────────────────

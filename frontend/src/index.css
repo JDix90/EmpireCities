@@ -224,8 +224,9 @@ html[data-high-contrast='true'] .btn-secondary {
 }
 
 /* ── Phone frame budget (docs/MOBILE_UX_PLAN.md M-13) ───────────────────────
-   While a game is open on a phone, <html data-frame-budget="phone"> is set
-   (utils/frameBudget.ts) and two costs go:
+   While a game is open on a phone, or anywhere with battery saver on,
+   <html data-frame-budget> is set to the tier (utils/frameBudget.ts) and two
+   costs go:
 
    - Backdrop blur. Over a canvas that repaints, the compositor re-blurs the
      area under every blurred element on every frame. Surfaces that relied on
@@ -234,14 +235,14 @@ html[data-high-contrast='true'] .btn-secondary {
      producing frames at the display's full rate for as long as it is on
      screen, whatever else the page is doing. A pulse plays three times and
      settles. Spinners keep spinning: a frozen spinner reads as a hang. */
-html[data-frame-budget='phone'] * {
+html[data-frame-budget] * {
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
 }
 
-html[data-frame-budget='phone'] .animate-pulse,
-html[data-frame-budget='phone'] .animate-pulse-slow,
-html[data-frame-budget='phone'] .animate-ping,
-html[data-frame-budget='phone'] .animate-capture-glow {
+html[data-frame-budget] .animate-pulse,
+html[data-frame-budget] .animate-pulse-slow,
+html[data-frame-budget] .animate-ping,
+html[data-frame-budget] .animate-capture-glow {
   animation-iteration-count: 3;
 }

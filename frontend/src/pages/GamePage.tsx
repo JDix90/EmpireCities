@@ -32,7 +32,7 @@ import { turnTimeoutToastMessage, type TurnTimeoutPayload } from '../utils/turnT
 import { GameNotFoundTracker } from '../utils/gameNotFoundTracker';
 import { dropOwnCombats, replaceOwnCombatsWithSummary } from '../utils/modalQueueOps';
 import { isOwnCardRedemption } from '../utils/cardsRedeemed';
-import { applyPhoneFrameBudget } from '../utils/frameBudget';
+import { useFrameBudget } from '../hooks/useFrameBudget';
 import { DISMISS_TAPS_EVENT, countTap, dismissTierOf, emptyTally, tallyProperties, type DismissTally, type DismissTier } from '../utils/dismissTaps';
 import { plural } from '../utils/plural';
 import { phaseAdvanceLabel } from '../constants/phaseLabels';
@@ -153,6 +153,7 @@ import {
   readTutorialProgress,
   writeTutorialProgress,
   clearTutorialProgress,
+  isBatterySaver,
 } from '../utils/userPreferences';
 import { incomingAttackCardMode, ownAttackCardMode } from '../utils/combatPresentation';
 import {
@@ -481,6 +482,7 @@ export default function GamePage() {
   // rotate to landscape. Cleared the first time they open the menu.
   const [pulseMobileMenu, setPulseMobileMenu] = useState(() => !hasSeenMobileMenuHint());
   const [liteModeEnabled, setLiteModeEnabled] = useState(() => isLiteMode());
+  const [batterySaver, setBatterySaverEnabled] = useState(() => isBatterySaver());
   const [connectionHintPreference, setConnectionHintPreference] = useState<ConnectionHintPreference>(
     () => getConnectionHintPreference(),
   );
@@ -490,11 +492,18 @@ export default function GamePage() {
   // Socket handlers are bound once; they read the layout through this ref.
   const isMobileLayoutRef = useRef(isMobileLayout);
   isMobileLayoutRef.current = isMobileLayout;
-  // The phone frame budget (docs/MOBILE_UX_PLAN.md M-13): while a game is open
-  // on a phone, frames are capped at 30 a second and the stylesheet drops
-  // backdrop blur and endless decorative loops. Leaving the page, or the
-  // layout widening past a phone, turns it off again.
-  useEffect(() => (isMobileLayout ? applyPhoneFrameBudget() : undefined), [isMobileLayout]);
+  // The frame budget (docs/MOBILE_UX_PLAN.md M-13): while a game is open on a
+  // phone, frames are capped at 30 a second, the maps draw only when something
+  // changes, and the stylesheet drops backdrop blur and endless decorative
+  // loops. A phone that reports it is running hot steps down to 20 a second
+  // with Lite mode's visuals, and battery saver puts any device on that tier.
+  // Leaving the page turns it all off again.
+  const frameBudget = useFrameBudget({ phoneLayout: isMobileLayout, batterySaver });
+  // Lite mode's visual rules: the player's own setting, or the reduced tier.
+  // The toggle itself still shows the stored setting.
+  const liteVisuals = liteModeEnabled || frameBudget.reduced;
+  const liteVisualsRef = useRef(liteVisuals);
+  liteVisualsRef.current = liteVisuals;
   // Auto-settle the menu pulse after a few seconds so it isn't distracting all
   // game; not persisted, so it gently returns next session until actually used.
   useEffect(() => {
@@ -526,6 +535,7 @@ export default function GamePage() {
     setGlobeSpinEnabled(getGlobeSpinPreference());
     setCameraFollowEnabled(getCameraFollowPreference());
     setLiteModeEnabled(isLiteMode());
+    setBatterySaverEnabled(isBatterySaver());
     setConnectionHintPreference(getConnectionHintPreference());
   }), []);
 
@@ -731,18 +741,18 @@ export default function GamePage() {
   const [eraAdvanceVignette, setEraAdvanceVignette] = useState<{ key: number; eraId?: string } | null>(null);
 
   useEffect(() => {
-    if (prefersReducedMotion() || liteModeEnabled) return;
+    if (prefersReducedMotion() || liteVisuals) return;
     for (const ev of mapVisualEvents) {
       if (ev.kind !== 'era_advance' || seenEraAdvanceVisualsRef.current.has(ev.id)) continue;
       seenEraAdvanceVisualsRef.current.add(ev.id);
       setEraAdvanceVignette({ key: Date.now(), eraId: ev.variant });
     }
-  }, [mapVisualEvents, liteModeEnabled]);
+  }, [mapVisualEvents, liteVisuals]);
 
   const mapAmbientEnabled = useMemo(() => {
     if (!gameState || gameState.phase === 'game_over') return false;
-    return !prefersReducedMotion() && !liteModeEnabled;
-  }, [gameState, liteModeEnabled]);
+    return !prefersReducedMotion() && !liteVisuals;
+  }, [gameState, liteVisuals]);
 
   const galaxyPulse = useGalaxyMapVisualPulse(mapVisualEvents, mapData, mapAmbientEnabled);
 
@@ -884,10 +894,10 @@ export default function GamePage() {
       preference: connectionHintPreference,
       isDenseMap: mapDensityMetrics?.isDense ?? false,
       reducedEffects:
-        prefersReducedMotion() || liteModeEnabled || (isMobileViewport() && mapView === 'globe'),
+        prefersReducedMotion() || liteVisuals || (isMobileViewport() && mapView === 'globe'),
       globeView: mapView === 'globe',
     }),
-    [connectionHintPreference, mapDensityMetrics?.isDense, liteModeEnabled, mapView],
+    [connectionHintPreference, mapDensityMetrics?.isDense, liteVisuals, mapView],
   );
 
   // ── Action Modal state ──────────────────────────────────────────────────
@@ -1281,6 +1291,21 @@ export default function GamePage() {
     notifCounter.current++;
     setNotifState({ data, key: notifCounter.current });
   }, []);
+
+  // M-13 phase 3: when a hot phone steps down, say why the map just got
+  // calmer, once, on the turn strip.
+  useEffect(() => {
+    if (!frameBudget.heatSteppedDown) return;
+    showNotification({
+      type: 'device',
+      text: 'Cooling down',
+      subtext: 'Fewer effects while your phone is hot',
+      icon: 'shield',
+      accentBg: 'bg-sky-500/20',
+      accentBorder: 'border-sky-500/30',
+      accentText: 'text-sky-400',
+    });
+  }, [frameBudget.heatSteppedDown, showNotification]);
 
   // ── Socket setup ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1744,9 +1769,9 @@ export default function GamePage() {
       });
 
       // Lite mode = "skip combat & map ANIMATIONS", not "skip the dice". See
-      // `combatPresentation` for what it used to do instead. Read fresh from
-      // the persisted pref so a mid-game toggle takes effect.
-      const liteMode = isLiteMode();
+      // `combatPresentation` for what it used to do instead. Read through the
+      // ref so a mid-game toggle, or a hot phone stepping down, takes effect.
+      const liteMode = liteVisualsRef.current;
 
       if (isMyAttack) {
         const card = ownAttackCardMode({ liteMode, canRepeatAttack });
@@ -2535,7 +2560,7 @@ export default function GamePage() {
       if (shouldShowFullScreenStrike({
         abilityId,
         prefersReducedMotion: prefersReducedMotion(),
-        liteMode: isLiteMode(),
+        liteMode: liteVisualsRef.current,
       })) {
         setStrikeAnim((prev) => ({
           abilityId: abilityId as StrikeAnimationVariant,
@@ -4383,7 +4408,7 @@ export default function GamePage() {
   }
 
   const reducedGlobe =
-    prefersReducedMotion() || isLiteMode() || (isMobileViewport() && mapView === 'globe');
+    prefersReducedMotion() || liteVisuals || (isMobileViewport() && mapView === 'globe');
   const mapPhaseTintClass = phaseTintClass(gameState.phase, mapAmbientEnabled && !reducedGlobe);
 
   return (
@@ -4729,7 +4754,8 @@ export default function GamePage() {
                         events={phoneGlobeEvents}
                         onEventDone={onMapVisualDone}
                         reducedEffects={reducedGlobe}
-                        frameBudget={isMobileLayout}
+                        frameBudget={frameBudget.active}
+                        frameBudgetFps={frameBudget.fps}
                         autoSpin={globeSpinEnabled}
                         cameraFollow={cameraFollowEnabled}
                         skipAnimationsRef={skipGlobeAnimationsRef}
@@ -4793,7 +4819,8 @@ export default function GamePage() {
                             width={Math.max(240, Math.floor(mapCanvasSize.w * 0.34))}
                             height={Math.max(200, Math.floor(mapCanvasSize.h * 0.34))}
                             reducedEffects={true}
-                            frameBudget={isMobileLayout}
+                            frameBudget={frameBudget.active}
+                            frameBudgetFps={frameBudget.fps}
                             autoSpin={false}
                             activeWorldId="moon"
                             validSourceOwnerId={validSourceOwnerId}
@@ -4821,7 +4848,7 @@ export default function GamePage() {
                 mapVisualEvents={phoneMapVisualEvents}
                 onMapVisualDone={onMapVisualDone}
                 reducedEffects={reducedGlobe}
-                frameBudget={isMobileLayout}
+                frameBudget={frameBudget.active}
                 ambientEnabled={mapAmbientEnabled && !reducedGlobe}
                 turnHolderPlayerId={turnHolderPlayer?.player_id ?? null}
                 validSourceOwnerId={validSourceOwnerId}

@@ -42,6 +42,8 @@ import {
   setCameraFollowPreference,
   isLiteMode,
   setLiteMode,
+  isBatterySaver,
+  setBatterySaver,
   getConnectionHintPreference,
   setConnectionHintPreference,
   CONNECTION_HINT_LABELS,
@@ -89,6 +91,7 @@ export default function SettingsPage() {
   const [globeSpin, setGlobeSpin] = useState(getGlobeSpinPreference);
   const [cameraFollow, setCameraFollow] = useState(getCameraFollowPreference);
   const [liteMode, setLiteModeState] = useState(isLiteMode);
+  const [batterySaver, setBatterySaverState] = useState(isBatterySaver);
   const [connectionHints, setConnectionHints] = useState<ConnectionHintPreference>(getConnectionHintPreference);
   const [sfxVolume, setSfxVolumeState] = useState(getSfxVolume);
   const [sfxMuted, setSfxMutedState] = useState(isSfxMuted);
@@ -113,6 +116,7 @@ export default function SettingsPage() {
     setGlobeSpin(getGlobeSpinPreference());
     setCameraFollow(getCameraFollowPreference());
     setLiteModeState(isLiteMode());
+    setBatterySaverState(isBatterySaver());
     setConnectionHints(getConnectionHintPreference());
     setSfxVolumeState(getSfxVolume());
     setSfxMutedState(isSfxMuted());
@@ -359,6 +363,19 @@ export default function SettingsPage() {
                 onChange={(checked) => {
                   setLiteModeState(checked);
                   setLiteMode(checked);
+                }}
+              />
+            </SettingsRow>
+            <SettingsRow
+              label="Battery saver"
+              description="20 frames a second, fewer effects, and the map drawn only when something changes. The phone apps switch to this on their own when the phone runs hot."
+            >
+              <SettingsToggle
+                label="Battery saver"
+                checked={batterySaver}
+                onChange={(checked) => {
+                  setBatterySaverState(checked);
+                  setBatterySaver(checked);
                 }}
               />
             </SettingsRow>
