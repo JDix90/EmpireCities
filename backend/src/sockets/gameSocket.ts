@@ -2654,7 +2654,9 @@ export function initGameSocket(httpServer: HttpServer): Server {
           `Redeemed card set for +${bonus} units`,
           redeemProbBefore,
         );
-        socket.emit('game:cards_redeemed', { bonus });
+        // The payload names the seat, so a client can tell its own redemption
+        // from one it merely hears about (the AI path below broadcasts).
+        socket.emit('game:cards_redeemed', { bonus, playerId: currentPlayer.player_id });
         broadcastState(io, gameId, state);
         void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
       } catch (err: unknown) {
@@ -5696,7 +5698,9 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       try {
         const bonus = redeemCardSet(state, currentPlayer.player_id, ids);
         state.draft_units_remaining += bonus;
-        io.to(gameId).emit('game:cards_redeemed', { bonus });
+        // Room-wide, so the table can note it; `playerId` is what stops every
+        // human client from taking the toast and the bonus as its own.
+        io.to(gameId).emit('game:cards_redeemed', { bonus, playerId: currentPlayer.player_id });
         await delay();
         broadcastState(io, gameId, state);
         void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
