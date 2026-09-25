@@ -275,7 +275,8 @@ export function isCriticalModal(data: ModalData): boolean {
 }
 
 export interface NotificationData {
-  type: 'reinforce' | 'fortify' | 'phase_change';
+  /** `device`: news about the device rather than the game, such as a hot phone stepping down. */
+  type: 'reinforce' | 'fortify' | 'phase_change' | 'device';
   text: string;
   subtext?: string;
   icon: 'shield' | 'arrow' | 'sword';

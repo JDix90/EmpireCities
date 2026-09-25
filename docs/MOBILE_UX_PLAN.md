@@ -870,10 +870,14 @@ Already in place: both renderers cap the device pixel ratio at 1.5, and both sto
 | R8 | *(Phase 2)* **The 2D ambient glow is still on phones.** The turn-holder glow and contested borders are drawn once, at the middle of their pulse, not animated forever. On every device the shimmer stops allocating new graphics on each frame. |
 | R9 | *(Phase 2)* **Both WebGL contexts ask for the low-power GPU on phones**, and the 2D map drops multisample antialiasing there. |
 | R10 | *(Phase 2)* **Both Moon insets follow the phone budget.** The inset is a second full renderer; phase 1 budgeted only the main maps. |
+| R11 | *(Phase 3)* **A hot phone steps down.** When the device reports serious or critical heat, the budget drops from 30 to 20 frames a second and adds Lite mode's visual rules. It steps back up only after the device has read below serious for two minutes. The player is told once, on the turn strip. |
+| R12 | *(Phase 3)* **Heat comes from the device.** The native apps read iOS `thermalState` and Android's thermal status and headroom through a `Thermal` plugin in the app. Chromium browsers use the Compute Pressure API. A device that reports nothing never steps down. |
+| R13 | *(Phase 3)* **Battery saver.** A setting that puts the game page on the reduced tier on any device, desktop included, whatever the device reports. |
+| R14 | *(Phase 3)* **Web code ahead of an app build is safe.** A native build without the plugin reports no heat, and the game behaves as in phase 2. |
 
 ### Design
 
-**The cap.** `utils/frameBudget.ts` replaces `window.requestAnimationFrame` for as long as the game page is open on a phone (`applyPhoneFrameBudget`, from `GamePage`). Callbacks queue; at most 30 times a second the queue runs as one batch with one timestamp, exactly as the browser runs a frame, so every renderer draws the same instant. Between frames a timer sleeps until just before the next frame is due, so the main thread does not wake on every vsync to find out. The cap's ids start at one billion so they never collide with native ids; on release the native `requestAnimationFrame` returns at once, and `cancelAnimationFrame` keeps routing the cap's ids until its queue drains, so a component cancelling its loop while unmounting never cancels someone else's frame.
+**The cap.** `utils/frameBudget.ts` replaces `window.requestAnimationFrame` for as long as the game page is open on a phone (`applyFrameBudget`, from `GamePage` through `useFrameBudget`). Callbacks queue; at most 30 times a second the queue runs as one batch with one timestamp, exactly as the browser runs a frame, so every renderer draws the same instant. Between frames a timer sleeps until just before the next frame is due, so the main thread does not wake on every vsync to find out. The cap's ids start at one billion so they never collide with native ids; on release the native `requestAnimationFrame` returns at once, and `cancelAnimationFrame` keeps routing the cap's ids until its queue drains, so a component cancelling its loop while unmounting never cancels someone else's frame.
 
 The cap sits under the libraries rather than inside one because none of them offers a frame-rate setting that covers what it drives. react-globe.gl runs its render loop, its CSS2D label renderer, its camera tweens and three-globe's tickers each on `requestAnimationFrame`; throttling only the WebGL renderer would draw the labels at 60 over polygons at 30, and they would visibly slide during a drag.
 
@@ -881,7 +885,7 @@ The cap sits under the libraries rather than inside one because none of them off
 
 **Wakes.** The globe's render loop is paused and woken by `createRenderWake` (`utils/renderWake.ts`). A wake says how long to stay awake, and a wake only ever extends the deadline, so a short wake never cuts a longer one short. A pointer, a wheel or a queued animation keeps the 4 s wake. A board change (any new game state) wakes it for 300 ms, a few frames, which is enough for a prop update to reach three-globe and be drawn. Under the budget a turn change does the same, and a running loop re-checks every 500 ms instead of every 4 s whether it can idle. Every camera tween (`panCamera`, `zoomByFactor`) keeps the loop awake for its own duration plus 150 ms, so the camera never freezes half-way.
 
-**Stylesheet.** `applyPhoneFrameBudget` sets `data-frame-budget="phone"` on `<html>`. Under it `index.css` removes `backdrop-filter` from every element, and caps `animate-pulse`, `animate-pulse-slow`, `animate-ping` and `animate-capture-glow` at three iterations. The coaching tip and the strip's loss pill, the two surfaces that sat on a 10–15% tint behind their blur, get a 95% phone background; the desktop keeps its tint through the `dlayout:` variant.
+**Stylesheet.** `applyFrameBudget` sets `data-frame-budget` on `<html>` to the tier: `standard`, or `reduced` from phase 3. Under either tier `index.css` removes `backdrop-filter` from every element, and caps `animate-pulse`, `animate-pulse-slow`, `animate-ping` and `animate-capture-glow` at three iterations. The coaching tip and the strip's loss pill, the two surfaces that sat on a 10–15% tint behind their blur, get a 95% phone background; the desktop keeps its tint through the `dlayout:` variant.
 
 ### Design, phase 2
 
@@ -902,19 +906,62 @@ Off the budget the ticker never stops, and a late timer from a budgeted moment c
 
 **Labels.** Phase 2 first listed "territory labels hidden below a zoom level or drawn into the canvas". A survey of the code found nothing for that item to change. The 2D map draws its labels into the canvas already and hides them below 0.6 zoom. The globe has no per-territory labels in the DOM: its HTML layer holds the region labels, capital and building markers, sea-route and wasteland markers and short-lived battle overlays, a few dozen elements at most, and under phase 1 it only updates them while the loop is awake. Hiding the region labels would remove information the player uses, for a small saving, so the item is dropped rather than built.
 
+### Design, phase 3
+
+**Two tiers.** `useFrameBudget` (`hooks/useFrameBudget.ts`) picks the game page's tier:
+
+| Situation | Tier | Frames a second | On top of phases 1–2 |
+|---|---|---|---|
+| Desktop layout, battery saver off | none | the display's | nothing: the desktop is unchanged |
+| Phone layout | `standard` | 30 | nothing |
+| Phone layout, the device reports serious or critical | `reduced` | 20 | Lite mode's visual rules |
+| Battery saver on, any layout | `reduced` | 20 | Lite mode's visual rules |
+
+Lite mode's visual rules are the ones `GamePage` already applied for the Lite mode setting ("Reduced animations"): no ambient map glow or phase tint, no era vignette, no full-screen strike, the player's own combat card advancing on its own when it offers no repeat attack, reduced map effects and quieter connection hints. The reduced tier applies them without changing the stored setting, so the toggle still shows what the player chose. Lite mode also silences music and sound effects; the reduced tier does not, because music stopping mid-game with no explanation would be a surprise, and the music volume setting already stops the music engine.
+
+On either tier the maps render on demand, the globe's damping is rescaled for the tier's frame rate, and the stylesheet drops blur and endless pulses. `index.css` now matches the attribute's presence rather than a value, and a tier change re-installs the cap at the new rate.
+
+**Heat sources** (`utils/deviceHeat.ts`). The first available source wins, chosen once per page load:
+
+- **The native plugin**, when the app build carries it (`Capacitor.isPluginAvailable('Thermal')`). It is read at once, every 15 s after, and on each change event.
+  - iOS reports `ProcessInfo.thermalState`. Its four levels, nominal, fair, serious and critical, are the levels used throughout.
+  - Android maps its thermal status: none to nominal, light to fair, moderate to serious, severe and above to critical. From API 30 the thermal headroom forecast raises the level to serious when it predicts severe throttling within ten seconds, so the game sheds work before the phone throttles rather than after. A NaN forecast, which Android returns when a device cannot forecast, changes nothing. Below API 29 it reports `unknown`.
+  - The 15 s poll exists for the forecast, which raises no events; Android answers headroom reads more often than about once a second with NaN.
+- **The Compute Pressure API** (`PressureObserver`, `cpu` source, 2 s samples) in Chromium browsers, on the same four levels. It folds CPU load in with temperature, which is the right signal here too. Chromium ships it on desktop platforms, so phone browsers rarely have it.
+- **Nothing** anywhere else, including Safari. The level never leaves nominal, and battery saver covers those players by hand.
+
+Unknown values read as nominal, so a bad report cannot throttle a cool device. Nothing listens unless the phone budget is on and battery saver is off.
+
+**The governor** (`createHeatGovernor`) turns reports into one decision. Serious or critical steps down at once. Stepping back up waits until the device has reported below serious for a full two minutes, and a hot report during that wait restarts it: a phone handed its full frame rate the moment it dips under the line heats straight back over it.
+
+**The notice.** When a phone steps down, the turn strip shows "Cooling down" with "Fewer effects while your phone is hot" beside it, once, for the strip's usual 2.2 s. Stepping back up is silent.
+
+**Battery saver.** `cc-battery-saver` in local storage, off by default, with a toggle under Settings after Reduced animations. The game page reads it when it opens and on every preference change.
+
+**The native plugins.** Both live in the app rather than in npm packages, so each shell registers them by hand:
+
+- iOS: `ios/App/App/ThermalPlugin.swift`, and `MainViewController.swift`, a `CAPBridgeViewController` subclass that registers the plugin in `capacitorDidLoad`, before the web view loads. `Main.storyboard` names that class instead of Capacitor's.
+- Android: `ThermalPlugin.java`, registered in `MainActivity.onCreate` before `super.onCreate`. The status listener is added in `load` and removed when the activity is destroyed.
+
+Neither needs a permission or a new dependency. The web bundle asks whether the plugin exists before using it, so web code that reaches a native build older than this item behaves as in phase 2.
+
 ### Phases
 
 | Phase | Scope |
 |---|---|
 | 1 (done) | R1–R6: the 30 fps cap, the idle and wake budget, the space age decoration under reduced effects, pulses that settle, no blur on phones. |
-| **2 (this item)** | R7–R10: the 2D map rendering on demand, its ambient glow still, the low-power GPU for both WebGL contexts, no multisample antialiasing on the 2D map, both Moon insets on the budget. The label item first written here is dropped; see *Labels* below. |
-| 3 | Heat-aware: a small Capacitor plugin reading iOS `thermalState` and Android thermal headroom, stepping down to 20 fps with effects off when the device reports it is hot; a battery-saver setting that bundles the same for the web. |
+| 2 (done) | R7–R10: the 2D map rendering on demand, its ambient glow still, the low-power GPU for both WebGL contexts, no multisample antialiasing on the 2D map, both Moon insets on the budget. The label item first written here is dropped; see *Labels* above. |
+| **3 (this item)** | R11–R14, heat-aware: a small Capacitor plugin reading iOS `thermalState` and Android thermal headroom, stepping down to 20 fps with effects off when the device reports it is hot; a battery-saver setting that bundles the same for the web. |
 
 ### Checking it on a device
 
 - **Frame rate.** Chrome remote debugging (Android) → Rendering → Frame rendering stats, or Safari Web Inspector (iOS) → Timelines → Rendering Frames. On the game page a phone should never exceed 30 frames a second, and should show none while nothing moves.
 - **Endless animations.** In the console, `document.getAnimations().filter(a => a.effect.getTiming().iterations === Infinity && a.playState === 'running').length` should be zero on the game page after a few seconds, spinners aside.
 - **Energy.** Xcode's Energy Impact gauge (iOS) or Android Studio's Energy Profiler, over a few AI turns and a turn of your own.
+- **Heat, iOS** (a connected device). Xcode → Window → Devices and Simulators → the device → Device Conditions → Thermal State → Serious → Start. The game should drop to 20 frames a second and show "Cooling down" at once, and return to 30 two minutes after the condition stops.
+- **Heat, Android 10 and later.** `adb shell cmd thermalservice override-status 2` (moderate) steps the game down; `adb shell cmd thermalservice reset` steps it back up two minutes later.
+- **Heat, Chromium.** DevTools Protocol's virtual pressure source: `Emulation.setPressureSourceOverrideEnabled` for `cpu`, then a `serious` state override, on a phone-sized window.
+- **Battery saver.** Settings → Battery saver, then a game on any device: `document.documentElement.dataset.frameBudget` reads `reduced`.
 
 ### Measured in development
 
@@ -928,7 +975,7 @@ Production builds of `main` and of this item, served against a throwaway backend
 | All browser processes during those turns | 3.9 cores | 2.3 cores |
 | Blurred elements on screen | 1 | 0 |
 
-Phase 2, the same setup on the 2D map, `main` with phase 1 against this item:
+Phase 2, the same setup on the 2D map, `main` with phase 1 against this item. Both of these builds were made with `NODE_ENV=development` in the environment, so React ran its development build in each; the comparison is like for like, and the idle result does not depend on it.
 
 | Measure (phone, 2D map) | Phase 1 | Phase 2 |
 |---|---|---|
@@ -942,6 +989,21 @@ Phase 2, the same setup on the 2D map, `main` with phase 1 against this item:
 Every battle during the AI turns was painted: in the clean run, all nine within 121–247 ms of the server reporting it.
 
 Headless Chromium rasterises WebGL in software and draws the space age globe at about one frame a second, so it cannot show what the cap saves on a real GPU at 60 or 120 Hz, and its 2D map never reaches 30 frames a second either way. The on-device checks above are the confirmation that counts.
+
+Phase 3, a production build of this item on the same setup, in a space age match against one AI, with heat reported through DevTools' virtual CPU pressure source:
+
+| Check | Result |
+|---|---|
+| Phone, pressure nominal | `standard`, 30 `requestAnimationFrame` callbacks a second once the globe idles |
+| Pressure set to serious | `reduced` 1.9 s later (the observer samples every 2 s); 20 a second; "Cooling down" on the strip |
+| Pressure back to nominal | still `reduced` 10 s later; `standard` again after 121 s, at 30 a second |
+| Phone, 2D map | the phase tint on the map container, gone once the phone steps down (Lite mode's rules) |
+| Desktop | no budget, 60 a second, the phase tint kept, no pressure observer created |
+| Desktop, battery saver | `reduced`, 20 a second, no phase tint, no pressure observer |
+| Phone, battery saver | `reduced` from the start; critical pressure changes nothing and shows no notice; no pressure observer |
+| Settings | the Battery saver toggle stores `cc-battery-saver` |
+
+The native plugins could not be built here: there is no Xcode and no Android SDK in this environment, and CI builds neither app. The Android plugin was compiled with `javac -Xlint:all -Werror` against stand-in Android and Capacitor classes and run on simulated API levels 28, 29, 30 and 34, and its unit test passes. The Swift was checked against Capacitor 6's sources but not compiled. The device checks above are needed before an app release.
 
 ### Files Changed
 
@@ -958,6 +1020,15 @@ Headless Chromium rasterises WebGL in software and draws the space age globe at 
 | `frontend/src/components/game/GameMap.tsx` | Phase 2: on-demand rendering under the budget, the still ambient glow, ambient graphics redrawn in place, the low-power context without antialiasing, the budget passed to the Moon inset, pressed-pointer bookkeeping |
 | `frontend/src/components/game/GameMap.frameBudget.test.tsx` | New (phase 2): the 2D map's wiring with PixiJS replaced by a fake |
 | `frontend/src/components/game/GlobeMap.tsx`, `frontend/src/pages/GamePage.tsx` | Phase 2: the globe's low-power context; the budget passed to the 2D map and to the globe's Moon inset |
+| `frontend/src/utils/deviceHeat.ts`, `frontend/src/hooks/useFrameBudget.ts` | New (phase 3): the heat sources and the governor; the tier for the game page |
+| `frontend/src/utils/frameBudget.ts`, `frontend/src/index.css` | Phase 3: `standard` and `reduced` tiers (`applyFrameBudget` replaces `applyPhoneFrameBudget`); the rules match either tier |
+| `frontend/src/pages/GamePage.tsx` | Phase 3: the budget through `useFrameBudget`; Lite mode's visual rules on the reduced tier; the tier's frame rate to both globes; the heat notice |
+| `frontend/src/components/game/GlobeMap.tsx` | Phase 3: `frameBudgetFps`, the rate the damping is rescaled for |
+| `frontend/src/components/game/ActionModal.tsx` | Phase 3: a `device` notification type |
+| `frontend/src/utils/userPreferences.ts`, `frontend/src/pages/SettingsPage.tsx` | Phase 3: the battery saver preference and its toggle |
+| `frontend/ios/App/App/ThermalPlugin.swift`, `MainViewController.swift`, `Base.lproj/Main.storyboard`, `App.xcodeproj/project.pbxproj` | New (phase 3): the iOS plugin, the view controller that registers it, and the project entries |
+| `frontend/android/app/src/main/java/com/borderfall/app/ThermalPlugin.java`, `MainActivity.java` | New (phase 3): the Android plugin, registered before the bridge starts |
+| `frontend/src/utils/deviceHeat.test.ts`, `hooks/useFrameBudget.test.ts`, `utils/frameBudget.test.ts`, `pages/SettingsPage.test.tsx`, `android/app/src/test/java/com/borderfall/app/ThermalPluginTest.java` | Phase 3: the sources, the governor, the tiers, the setting, and the Android level mapping |
 
 ---
 
@@ -973,7 +1044,7 @@ The recommended sequence accounts for dependency chains and impact:
 | **Sprint 4** | M-06, M-07 | Landscape + keyboard — both require the hooks from Sprint 3 plugins. |
 | **Sprint 5** | M-08, M-09, M-10 | Polish items — lowest risk, lowest urgency. |
 | **Sprint 6** | M-12 (phases 1–3) | The in-game overlay budget: one strip, own-turn-only animations, map cues; then the toasts folded into the strip and the dismiss taps measured; then the own attack result off the map and a scrubbable history. Independent of the sprints above. |
-| **Sprint 7** | M-13 (phases 1–2) | The phone frame budget: a 30 fps cap, a render loop that idles between moves, no endless decoration, no blur over the map; then the 2D map rendering on demand, the low-power GPU and both Moon insets on the budget. Independent of the sprints above. |
+| **Sprint 7** | M-13 (phases 1–3) | The phone frame budget: a 30 fps cap, a render loop that idles between moves, no endless decoration, no blur over the map; then the 2D map rendering on demand, the low-power GPU and both Moon insets on the budget; then a step down to 20 fps when the phone reports heat, and a battery saver setting. Independent of the sprints above. |
 
 ### Estimated Scope
 

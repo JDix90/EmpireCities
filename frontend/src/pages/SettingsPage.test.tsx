@@ -72,3 +72,41 @@ describe('SettingsPage — language', () => {
     expect(screen.queryByLabelText('Preferred language')).toBeNull();
   });
 });
+
+describe('SettingsPage — battery saver', () => {
+  beforeEach(() => {
+    useAuthStore.setState({
+      user: { user_id: 'u1', username: 'commander', is_guest: false } as never,
+      isAuthenticated: true,
+    } as never);
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+    }) as unknown as typeof window.matchMedia;
+    localStorage.removeItem('cc-battery-saver');
+  });
+
+  afterEach(() => {
+    localStorage.removeItem('cc-battery-saver');
+  });
+
+  it('is off by default, and remembers the choice', () => {
+    renderPage();
+    const toggle = screen.getByLabelText('Battery saver') as HTMLInputElement;
+    expect(toggle.checked).toBe(false);
+    fireEvent.click(toggle);
+    expect(toggle.checked).toBe(true);
+    expect(localStorage.getItem('cc-battery-saver')).toBe('true');
+    fireEvent.click(toggle);
+    expect(localStorage.getItem('cc-battery-saver')).toBe('false');
+  });
+
+  it('shows a saved choice', () => {
+    localStorage.setItem('cc-battery-saver', 'true');
+    renderPage();
+    expect((screen.getByLabelText('Battery saver') as HTMLInputElement).checked).toBe(true);
+  });
+});

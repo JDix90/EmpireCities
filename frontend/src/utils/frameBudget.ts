@@ -24,6 +24,18 @@
 
 /** Frames a second on phones. Half a 60 Hz display, a quarter of a 120 Hz one. */
 export const PHONE_FRAME_CAP_FPS = 30;
+/**
+ * Frames a second on the reduced tier (M-13 phase 3): a phone that reports it
+ * is running hot, or any device with battery saver on.
+ */
+export const REDUCED_FRAME_CAP_FPS = 20;
+
+/** `standard`: a phone. `reduced`: a hot phone, or battery saver on any device. */
+export type FrameBudgetTier = 'standard' | 'reduced';
+
+export function frameCapFor(tier: FrameBudgetTier): number {
+  return tier === 'reduced' ? REDUCED_FRAME_CAP_FPS : PHONE_FRAME_CAP_FPS;
+}
 
 /** A frame counts as due this much early, so vsync jitter never costs a whole frame. */
 const DUE_TOLERANCE_MS = 4;
@@ -206,20 +218,24 @@ export function dampingFactorForFrameRate(baseFactor: number, fps: number, tuned
   return 1 - Math.pow(1 - baseFactor, tunedHz / fps);
 }
 
-/** The attribute on `<html>` that phone-only frame-budget CSS keys off (index.css). */
+/**
+ * The attribute on `<html>` that the frame-budget CSS keys off (index.css).
+ * Its value is the tier, so the page shows which one is in force.
+ */
 export const FRAME_BUDGET_ATTR = 'data-frame-budget';
 
 /**
- * Turns the phone frame budget on for the document: the frame cap, and the
- * attribute the stylesheet uses to drop backdrop blur and endless CSS loops.
- * Returns the function that turns it off.
+ * Turns the frame budget on for the document at a tier: the frame cap, and
+ * the attribute the stylesheet uses to drop backdrop blur and endless CSS
+ * loops. Returns the function that turns it off. Moving between tiers is
+ * turning one off and the other on.
  */
-export function applyPhoneFrameBudget(win: Window & typeof globalThis = window): () => void {
+export function applyFrameBudget(tier: FrameBudgetTier, win: Window & typeof globalThis = window): () => void {
   const root = win.document.documentElement;
-  root.setAttribute(FRAME_BUDGET_ATTR, 'phone');
-  const releaseCap = installFrameCap(PHONE_FRAME_CAP_FPS, win);
+  root.setAttribute(FRAME_BUDGET_ATTR, tier);
+  const releaseCap = installFrameCap(frameCapFor(tier), win);
   return () => {
     releaseCap();
-    if (root.getAttribute(FRAME_BUDGET_ATTR) === 'phone') root.removeAttribute(FRAME_BUDGET_ATTR);
+    if (root.getAttribute(FRAME_BUDGET_ATTR) === tier) root.removeAttribute(FRAME_BUDGET_ATTR);
   };
 }

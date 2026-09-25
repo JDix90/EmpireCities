@@ -177,6 +177,11 @@ interface GlobeMapProps {
    * frames instead of seconds.
    */
   frameBudget?: boolean;
+  /**
+   * The frame rate the budget holds the page to: 30, or 20 on the reduced
+   * tier (M-13 phase 3). The controls' damping is rescaled for it.
+   */
+  frameBudgetFps?: number;
   /** User-controlled globe spin toggle. When false, globe does not auto-rotate. */
   autoSpin?: boolean;
   /**
@@ -768,6 +773,7 @@ function GlobeMap({
   onEventDone,
   reducedEffects = false,
   frameBudget = false,
+  frameBudgetFps = PHONE_FRAME_CAP_FPS,
   autoSpin = true,
   cameraFollow = true,
   skipAnimationsRef,
@@ -1507,9 +1513,9 @@ function GlobeMap({
     const ctrl = globeRef.current?.controls?.();
     if (!ctrl) return;
     ctrl.dampingFactor = frameBudget
-      ? dampingFactorForFrameRate(GLOBE_DAMPING_FACTOR, PHONE_FRAME_CAP_FPS)
+      ? dampingFactorForFrameRate(GLOBE_DAMPING_FACTOR, frameBudgetFps)
       : GLOBE_DAMPING_FACTOR;
-  }, [frameBudget, globeReadyTick]);
+  }, [frameBudget, frameBudgetFps, globeReadyTick]);
 
 
   const getPolygonAltitude = useCallback(

@@ -2,7 +2,9 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   FRAME_BUDGET_ATTR,
   PHONE_FRAME_CAP_FPS,
-  applyPhoneFrameBudget,
+  REDUCED_FRAME_CAP_FPS,
+  applyFrameBudget,
+  frameCapFor,
   createFrameCap,
   dampingFactorForFrameRate,
   installFrameCap,
@@ -211,12 +213,29 @@ describe('installFrameCap', () => {
     release();
   });
 
-  it('marks the document for the phone stylesheet and clears it again', () => {
+  it('marks the document with its tier for the stylesheet and clears it again', () => {
     const { win } = fakeWindow();
-    const off = applyPhoneFrameBudget(win);
-    expect(win.document.documentElement.getAttribute(FRAME_BUDGET_ATTR)).toBe('phone');
+    const off = applyFrameBudget('standard', win);
+    expect(win.document.documentElement.getAttribute(FRAME_BUDGET_ATTR)).toBe('standard');
     off();
     expect(win.document.documentElement.hasAttribute(FRAME_BUDGET_ATTR)).toBe(false);
+  });
+
+  it('holds the reduced tier to 20 frames a second, and steps between tiers cleanly', () => {
+    expect(frameCapFor('standard')).toBe(PHONE_FRAME_CAP_FPS);
+    expect(frameCapFor('reduced')).toBe(REDUCED_FRAME_CAP_FPS);
+    const { d, win, nativeRaf } = fakeWindow(60);
+    const offStandard = applyFrameBudget('standard', win);
+    offStandard();
+    const offReduced = applyFrameBudget('reduced', win);
+    expect(win.document.documentElement.getAttribute(FRAME_BUDGET_ATTR)).toBe('reduced');
+    const l = loop(win);
+    d.advance(2000);
+    expect(l.frames.length).toBeGreaterThanOrEqual(38);
+    expect(l.frames.length).toBeLessThanOrEqual(41);
+    win.cancelAnimationFrame(l.handle());
+    offReduced();
+    expect(win.requestAnimationFrame).toBe(nativeRaf);
   });
 });
 
