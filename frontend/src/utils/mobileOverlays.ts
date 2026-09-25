@@ -71,6 +71,30 @@ export function summarizeRecapsForViewer(recaps: TurnRecapEntry[], viewerId: str
   return out;
 }
 
+/**
+ * One finished round of the viewer's: what the others did while the viewer
+ * waited, then what the viewer did. The strip's sheet scrubs back through
+ * these (M-12 phase 3).
+ */
+export interface RecapRound {
+  /** The game turn the viewer played in this round. */
+  turnNumber: number;
+  entries: TurnRecapEntry[];
+}
+
+/** Rounds the strip's history keeps; older ones roll off. */
+export const MAX_RECAP_ROUNDS = 10;
+
+/**
+ * Appends a finished round, newest last. A round with no battles in it is
+ * not worth a stop on the scrubber, and the oldest roll off past the cap.
+ */
+export function pushRecapRound(history: RecapRound[], round: RecapRound): RecapRound[] {
+  if (round.entries.length === 0) return history;
+  const next = [...history, round];
+  return next.length > MAX_RECAP_ROUNDS ? next.slice(next.length - MAX_RECAP_ROUNDS) : next;
+}
+
 /** What the strip's one line shows, in priority order. */
 export type StripSlot = 'live' | 'notice' | 'recap' | 'pill' | 'none';
 
@@ -82,7 +106,9 @@ export type StripSlot = 'live' | 'notice' | 'recap' | 'pill' | 'none';
  * they missed, as the full line before their first move of the turn and as a
  * pill after it. Each slot holds at most one item, the newest; nothing waits
  * in line behind something else, so three quick placements read as one line
- * updating rather than a backlog of three.
+ * updating rather than a backlog of three. With nothing current to report but
+ * rounds to scrub back through, the pill alone stays, so the history is one
+ * tap away without a line over the map.
  */
 export function pickStripSlot(input: {
   live: boolean;
@@ -90,10 +116,12 @@ export function pickStripSlot(input: {
   recaps: boolean;
   isMyTurn: boolean;
   acted: boolean;
+  /** Finished rounds are available to scrub. */
+  history?: boolean;
 }): StripSlot {
   if (input.live) return 'live';
   if (input.notice) return 'notice';
-  if (!input.recaps) return 'none';
+  if (!input.recaps) return input.history ? 'pill' : 'none';
   return input.isMyTurn && input.acted ? 'pill' : 'recap';
 }
 

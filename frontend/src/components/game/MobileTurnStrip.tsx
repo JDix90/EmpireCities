@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowRight, ChevronUp, History, Shield, Sword, Swords, X } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, ChevronUp, History, Shield, Sword, Swords, X } from 'lucide-react';
 import clsx from 'clsx';
 import type { CombatResult } from '../../store/gameStore';
 import { RecapEntryList, type TurnRecapEntry } from './AiTurnRecapPanel';
 import type { NotificationData } from './ActionModal';
-import { combatInvolves, pickStripSlot, summarizeRecapsForViewer } from '../../utils/mobileOverlays';
+import { combatInvolves, lostTerritoryIds, pickStripSlot, summarizeRecapsForViewer, type RecapRound } from '../../utils/mobileOverlays';
 
 /** How long a fresh battle against the viewer holds the line before the summary returns. */
 const LIVE_LINE_MS = 6000;
@@ -16,6 +16,8 @@ export interface StripNotice {
   data: NotificationData;
   key: number;
 }
+
+const NO_HISTORY: RecapRound[] = [];
 
 const NOTICE_ICONS = {
   shield: <Shield className="w-3.5 h-3.5" aria-hidden />,
@@ -38,8 +40,11 @@ const NOTICE_ICONS = {
  *
  * `pickStripSlot` decides which of those the one line shows. Tapping the
  * recap line or the pill opens a half sheet with the same per-player rows the
- * desktop panel shows. Nothing here ever opens on its own: a lost territory is
- * named in the line and pulsed on the map instead.
+ * desktop panel shows; with a `history` of finished rounds the sheet gains a
+ * scrubber, oldest round at the left and Now at the right, and reports the
+ * scrubbed round's losses through `onScrub` for the map to pulse. Nothing here
+ * ever opens on its own: a lost territory is named in the line and pulsed on
+ * the map instead.
  */
 export default function MobileTurnStrip({
   recaps,
@@ -48,6 +53,8 @@ export default function MobileTurnStrip({
   isMyTurn,
   acted,
   notice = null,
+  history = NO_HISTORY,
+  onScrub,
   onOpenFullLog,
 }: {
   recaps: TurnRecapEntry[];
@@ -59,9 +66,15 @@ export default function MobileTurnStrip({
   acted: boolean;
   /** The viewer's latest own-move notice; the line shows it briefly, newest first. */
   notice?: StripNotice | null;
+  /** Finished rounds, oldest first, to scrub back through (M-12 phase 3). */
+  history?: RecapRound[];
+  /** The territories the viewer lost in the round being scrubbed, for the map; null when not scrubbing. */
+  onScrub?: (lostIds: string[] | null) => void;
   onOpenFullLog: () => void;
 }) {
   const [sheetOpen, setSheetOpen] = useState(false);
+  /** Position on the scrubber: an index into `history`, or `history.length` for Now. */
+  const [scrubPos, setScrubPos] = useState(0);
   const [openEntries, setOpenEntries] = useState<Record<string, boolean>>({});
   const [live, setLive] = useState<CombatResult | null>(null);
   const liveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -111,11 +124,39 @@ export default function MobileTurnStrip({
     }
   }, [recaps.length]);
 
+  // Opens on Now when there is something current, else on the latest round.
+  const openSheet = () => {
+    setScrubPos(recaps.length > 0 || history.length === 0 ? history.length : history.length - 1);
+    setSheetOpen(true);
+  };
+
+  const nowPos = history.length;
+  const viewingNow = scrubPos >= nowPos;
+  const shownRound = viewingNow ? null : history[scrubPos];
+  const shownRecaps = shownRound ? shownRound.entries : recaps;
+
+  // While a past round is on the sheet, the map pulses what the viewer lost
+  // in it; Now and a closed sheet hand the map back to its own rule.
+  useEffect(() => {
+    if (!onScrub) return;
+    onScrub(sheetOpen && shownRound ? lostTerritoryIds(shownRound.entries, viewerPlayerId) : null);
+  }, [onScrub, sheetOpen, shownRound, viewerPlayerId]);
+  const onScrubRef = useRef(onScrub);
+  onScrubRef.current = onScrub;
+  useEffect(() => () => onScrubRef.current?.(null), []);
+
   const summary = summarizeRecapsForViewer(recaps, viewerPlayerId);
-  const slot = pickStripSlot({ live: !!live, notice: !!shownNotice, recaps: recaps.length > 0, isMyTurn, acted });
+  const slot = pickStripSlot({ live: !!live, notice: !!shownNotice, recaps: recaps.length > 0, isMyTurn, acted, history: history.length > 0 });
   if (slot === 'none') return null;
 
-  const sheet = sheetOpen && recaps.length > 0 && (
+  const turnsAgo = nowPos - scrubPos;
+  const sheetTitle = shownRound
+    ? `Turn ${shownRound.turnNumber} · ${turnsAgo} ${turnsAgo === 1 ? 'turn' : 'turns'} ago`
+    : recaps.length > 0
+      ? `While you were away (${summary.turns} ${summary.turns === 1 ? 'turn' : 'turns'})`
+      : 'Nothing new this turn yet';
+
+  const sheet = sheetOpen && (recaps.length > 0 || history.length > 0) && (
     <>
       <button
         type="button"
@@ -131,8 +172,8 @@ export default function MobileTurnStrip({
       >
         <div className="flex items-center gap-2 px-3 py-2 border-b border-bf-border shrink-0">
           <History className="w-4 h-4 text-bf-gold shrink-0" aria-hidden />
-          <span className="font-display text-sm text-bf-gold flex-1 truncate">
-            While you were away ({summary.turns} {summary.turns === 1 ? 'turn' : 'turns'})
+          <span className="font-display text-sm text-bf-gold flex-1 truncate" data-testid="turn-strip-sheet-title">
+            {sheetTitle}
           </span>
           <button
             type="button"
@@ -143,9 +184,52 @@ export default function MobileTurnStrip({
             <X className="w-4 h-4" />
           </button>
         </div>
+        {history.length > 0 && (
+          <div className="px-2 pt-1 border-b border-bf-border shrink-0">
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setScrubPos((p) => Math.max(0, p - 1))}
+                disabled={scrubPos <= 0}
+                className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded text-bf-muted hover:text-bf-text disabled:opacity-30"
+                aria-label="Earlier turn"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <input
+                type="range"
+                min={0}
+                max={nowPos}
+                step={1}
+                value={scrubPos}
+                onChange={(e) => setScrubPos(Number(e.target.value))}
+                className="flex-1 h-8 accent-amber-400"
+                aria-label="Turn history"
+                aria-valuetext={sheetTitle}
+                data-testid="turn-strip-scrubber"
+              />
+              <button
+                type="button"
+                onClick={() => setScrubPos((p) => Math.min(nowPos, p + 1))}
+                disabled={scrubPos >= nowPos}
+                className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded text-bf-muted hover:text-bf-text disabled:opacity-30"
+                aria-label="Later turn"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex justify-between px-9 pb-1 -mt-1 text-[10px] text-bf-muted" aria-hidden>
+              <span>Turn {history[0].turnNumber}</span>
+              <span>Now</span>
+            </div>
+          </div>
+        )}
         <div className="overflow-y-auto divide-y divide-bf-border/50 text-sm">
+          {shownRecaps.length === 0 && (
+            <p className="px-3 py-3 text-xs text-bf-muted">No battles yet this turn.</p>
+          )}
           <RecapEntryList
-            recaps={recaps}
+            recaps={shownRecaps}
             viewerPlayerId={viewerPlayerId}
             openEntries={openEntries}
             onToggle={(key) => setOpenEntries((m) => ({ ...m, [key]: !m[key] }))}
@@ -169,7 +253,7 @@ export default function MobileTurnStrip({
         <button
           type="button"
           data-testid="turn-strip-pill"
-          onClick={() => setSheetOpen(true)}
+          onClick={openSheet}
           className={clsx(
             'absolute bottom-2 right-2 z-20 inline-flex items-center gap-1 px-2.5 h-9 rounded-full border text-xs font-medium shadow-lg backdrop-blur-sm',
             summary.lost.length > 0
@@ -243,7 +327,7 @@ export default function MobileTurnStrip({
           <button
             type="button"
             data-testid="turn-strip-line"
-            onClick={() => setSheetOpen(true)}
+            onClick={openSheet}
             className={clsx(
               'w-full flex items-center gap-2 px-3 py-2 rounded-lg border bg-bf-surface/95 backdrop-blur-sm shadow-lg text-xs text-left',
               lostNames.length > 0 ? 'border-red-500/40' : 'border-bf-border',
