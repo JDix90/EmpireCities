@@ -30,6 +30,7 @@ import { shouldShowSignupNudge, SIGNUP_NUDGE_SHOWN_KEY } from '../utils/signupNu
 import { hapticImpact, hapticNotification, ImpactStyle, NotificationType } from '../utils/haptics';
 import { turnTimeoutToastMessage, type TurnTimeoutPayload } from '../utils/turnTimeout';
 import { GameNotFoundTracker } from '../utils/gameNotFoundTracker';
+import { isSameMap } from '../utils/mapResend';
 import { dropOwnCombats, replaceOwnCombatsWithSummary } from '../utils/modalQueueOps';
 import { isOwnCardRedemption } from '../utils/cardsRedeemed';
 import { useFrameBudget } from '../hooks/useFrameBudget';
@@ -1360,6 +1361,9 @@ export default function GamePage() {
     // creator-owned access).
     socket.on('game:map', (payload: { mapId: string; map: MapData }) => {
       if (!payload?.map) return;
+      // A rejoin resends the map this page already has. Keep the object in
+      // hand so nothing keyed on it rebuilds (see isSameMap).
+      if (isSameMap(mapDataRef.current, payload.map)) return;
       setMapData(payload.map);
       mapDataRef.current = payload.map;
     });
