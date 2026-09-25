@@ -222,3 +222,26 @@ html[data-high-contrast='true'] select {
 html[data-high-contrast='true'] .btn-secondary {
   border-color: rgba(255, 255, 255, 0.28);
 }
+
+/* ── Phone frame budget (docs/MOBILE_UX_PLAN.md M-13) ───────────────────────
+   While a game is open on a phone, <html data-frame-budget="phone"> is set
+   (utils/frameBudget.ts) and two costs go:
+
+   - Backdrop blur. Over a canvas that repaints, the compositor re-blurs the
+     area under every blurred element on every frame. Surfaces that relied on
+     blur behind a faint tint carry a more solid phone background instead.
+   - Endless decorative loops. An infinite CSS animation keeps the compositor
+     producing frames at the display's full rate for as long as it is on
+     screen, whatever else the page is doing. A pulse plays three times and
+     settles. Spinners keep spinning: a frozen spinner reads as a hang. */
+html[data-frame-budget='phone'] * {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+html[data-frame-budget='phone'] .animate-pulse,
+html[data-frame-budget='phone'] .animate-pulse-slow,
+html[data-frame-budget='phone'] .animate-ping,
+html[data-frame-budget='phone'] .animate-capture-glow {
+  animation-iteration-count: 3;
+}

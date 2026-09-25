@@ -33,7 +33,7 @@ export default function MobileCombatSheet({
       data-testid="combat-sheet"
       role="dialog"
       aria-label="Your attack"
-      className="fixed mobile-sheet-above-nav inset-x-0 z-[38] max-h-[55vh] overflow-y-auto rounded-t-2xl border-t border-bf-border bg-bf-surface/[0.97] backdrop-blur-sm shadow-2xl animate-slide-up px-3 pt-3 pb-2"
+      className="fixed mobile-sheet-above-nav inset-x-0 z-[38] max-h-[55vh] overflow-y-auto rounded-t-2xl border-t border-bf-border bg-bf-surface/[0.97] shadow-2xl animate-slide-up px-3 pt-3 pb-2"
     >
       <button
         type="button"
