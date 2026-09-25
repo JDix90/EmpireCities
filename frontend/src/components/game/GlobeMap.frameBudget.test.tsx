@@ -144,6 +144,14 @@ describe('GlobeMap under the phone frame budget', () => {
     expect(globe.controls.dampingFactor).toBeCloseTo(0.1, 5);
   });
 
+  it('asks for the low-power GPU on a phone, and leaves the desktop context alone', () => {
+    const { unmount } = mount();
+    expect(globe.props?.rendererConfig).toEqual({ powerPreference: 'low-power' });
+    unmount();
+    mount({ frameBudget: false, reducedEffects: false });
+    expect(globe.props?.rendererConfig).toBeUndefined();
+  });
+
   it('drops the endless wasteland rings and stills the markers under reduced effects', () => {
     const { unmount } = mount({ reducedEffects: true });
     const rings = (globe.props?.ringsData as Array<{ id: string }>).filter((r) => r.id.startsWith('wasteland-ring-'));

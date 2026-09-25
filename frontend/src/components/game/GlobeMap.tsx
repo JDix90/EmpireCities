@@ -750,6 +750,12 @@ const CAMERA_TWEEN_SETTLE_MS = 150;
 const BUDGET_ACTIVITY_POLL_MS = 500;
 /** globe.gl's own OrbitControls damping, tuned for one update per 60 Hz frame. */
 const GLOBE_DAMPING_FACTOR = 0.1;
+/**
+ * The WebGL context under the phone budget (M-13 phase 2): ask for the
+ * low-power GPU where the device has a choice. Read once, when the globe is
+ * created; globe.gl keeps its own antialias and alpha defaults alongside it.
+ */
+const LOW_POWER_RENDERER = { powerPreference: 'low-power' as const };
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
@@ -3749,6 +3755,7 @@ function GlobeMap({
         htmlAltitude={htmlElAccessors.alt}
         htmlElement={htmlElAccessors.element}
         htmlTransitionDuration={0}
+        rendererConfig={frameBudget ? LOW_POWER_RENDERER : undefined}
 
         /* Arcs (event animations + adjacency indicators) */
         arcsData={combinedArcs}

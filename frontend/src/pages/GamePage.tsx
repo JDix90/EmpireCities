@@ -4793,6 +4793,7 @@ export default function GamePage() {
                             width={Math.max(240, Math.floor(mapCanvasSize.w * 0.34))}
                             height={Math.max(200, Math.floor(mapCanvasSize.h * 0.34))}
                             reducedEffects={true}
+                            frameBudget={isMobileLayout}
                             autoSpin={false}
                             activeWorldId="moon"
                             validSourceOwnerId={validSourceOwnerId}
@@ -4820,6 +4821,7 @@ export default function GamePage() {
                 mapVisualEvents={phoneMapVisualEvents}
                 onMapVisualDone={onMapVisualDone}
                 reducedEffects={reducedGlobe}
+                frameBudget={isMobileLayout}
                 ambientEnabled={mapAmbientEnabled && !reducedGlobe}
                 turnHolderPlayerId={turnHolderPlayer?.player_id ?? null}
                 validSourceOwnerId={validSourceOwnerId}
