@@ -31,6 +31,7 @@ import { hapticImpact, hapticNotification, ImpactStyle, NotificationType } from 
 import { turnTimeoutToastMessage, type TurnTimeoutPayload } from '../utils/turnTimeout';
 import { GameNotFoundTracker } from '../utils/gameNotFoundTracker';
 import { dropOwnCombats, replaceOwnCombatsWithSummary } from '../utils/modalQueueOps';
+import { isOwnCardRedemption } from '../utils/cardsRedeemed';
 import { plural } from '../utils/plural';
 import { phaseAdvanceLabel } from '../constants/phaseLabels';
 import { resolveRejectionText } from '../constants/rejectionMessages';
@@ -1718,7 +1719,16 @@ export default function GamePage() {
       handleMapVisualEvent(payload);
     });
 
-    socket.on('game:cards_redeemed', ({ bonus }: { bonus: number }) => {
+    socket.on('game:cards_redeemed', ({ bonus, playerId }: { bonus: number; playerId?: string }) => {
+      // The AI path broadcasts this to the room. Only the redeeming seat gets
+      // the toast and the reinforcements; everyone else gets a log line, since
+      // adding an AI's bonus to this client's own draft counter was a bug.
+      const viewerIds = [resolvedViewerPlayerIdRef.current, userRef.current?.user_id];
+      if (!isOwnCardRedemption({ bonus, playerId }, viewerIds)) {
+        const who = useGameStore.getState().gameState?.players.find((p) => p.player_id === playerId)?.username ?? 'A commander';
+        setCombatLog((prev) => [...prev, `${who} redeemed a card set for +${bonus} units`]);
+        return;
+      }
       hapticNotification(NotificationType.Success);
       toast.success(`Card set redeemed! +${bonus} bonus units`);
       const curr = useGameStore.getState().draftUnitsRemaining;
