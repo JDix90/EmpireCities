@@ -747,8 +747,23 @@ const ANIMATION_STYLES = `
 
 /** How long the loop keeps rendering after an interaction or a queued animation. */
 const RENDER_IDLE_MS = 4000;
-/** How long a board change or (under the phone budget) a turn change keeps it rendering: a few frames. */
+/** How long a board change keeps it rendering off the budget: a few frames. */
 const BOARD_CHANGE_RENDER_MS = 300;
+/**
+ * Under the frame budget, how long a board change or a turn change keeps it
+ * rendering (M-14). A new state reaches the scene within a few milliseconds
+ * (two chained 1 ms kapsule digests), and 100 ms is still two frames at the
+ * reduced tier's 20 a second. Every other player's move is a board change, so
+ * this is what the globe draws while the AIs play.
+ */
+const BUDGET_BOARD_CHANGE_RENDER_MS = 100;
+/**
+ * Frames a board change is owed under the budget, past the 100 ms if a slow
+ * frame needs it (M-14). The frame drawn as the loop resumes, and one drawn
+ * before three-globe's second digest, may still show the old board; the third
+ * cannot.
+ */
+const BUDGET_BOARD_CHANGE_FRAMES = 3;
 /** Extra time after a camera tween's own duration, so its last frame lands. */
 const CAMERA_TWEEN_SETTLE_MS = 150;
 /** Under the phone budget, how often a running loop re-checks whether it can idle. */
@@ -1438,15 +1453,23 @@ function GlobeMap({
       // Under the phone budget a running loop re-checks every half second, so
       // it idles soon after the last animation ends.
       pollMs: () => (frameBudgetRef.current ? BUDGET_ACTIVITY_POLL_MS : RENDER_IDLE_MS),
+      // three.js counts every frame it renders; globe.gl renders once a tick.
+      framesDrawn: () => {
+        const frame = globeRef.current?.renderer?.()?.info?.render?.frame;
+        return typeof frame === 'number' ? frame : null;
+      },
     });
   }
   useEffect(() => () => renderWakeRef.current?.dispose(), []);
-  /** `interacted`: keep rendering for `awakeMs`. Otherwise: idle if nothing needs the loop. */
-  const applyRenderActivity = useCallback((interacted: boolean, awakeMs: number = RENDER_IDLE_MS) => {
+  /**
+   * `interacted`: keep rendering for `awakeMs`, and until `frames` more frames
+   * are drawn. Otherwise: idle if nothing needs the loop.
+   */
+  const applyRenderActivity = useCallback((interacted: boolean, awakeMs: number = RENDER_IDLE_MS, frames = 0) => {
     const globe = globeRef.current;
     if (!globe?.pauseAnimation || !globe.resumeAnimation) return;
     const wake = renderWakeRef.current!;
-    if (interacted) wake.wake(awakeMs);
+    if (interacted) wake.wake(awakeMs, frames);
     else wake.check();
   }, []);
   keepRenderingRef.current = (ms: number) => applyRenderActivity(true, ms);
@@ -1493,7 +1516,8 @@ function GlobeMap({
   // every re-render and prevent it from ever idling. New events instead wake the
   // loop from the dedup'd ingestion effect below (via the `hasNew` signal).
   useEffect(() => {
-    applyRenderActivity(true, frameBudget ? BOARD_CHANGE_RENDER_MS : RENDER_IDLE_MS);
+    if (frameBudget) applyRenderActivity(true, BUDGET_BOARD_CHANGE_RENDER_MS, BUDGET_BOARD_CHANGE_FRAMES);
+    else applyRenderActivity(true, RENDER_IDLE_MS);
   }, [autoSpin, globeReadyTick, gameState?.current_player_index, applyRenderActivity, frameBudget]);
 
   // The board changed (an owner, a unit count, a building): paint it. With no
@@ -1501,10 +1525,12 @@ function GlobeMap({
   // globe would show the old board until the next touch or turn change. On a
   // phone that is every other player's move, since M-12 plays only the
   // viewer's own animations there. Prop updates reach three-globe within a
-  // few milliseconds, so a few frames are enough.
+  // few milliseconds, so a few frames are enough. The budget's wake is read
+  // through the ref so a new board is the only thing this effect answers to.
   useEffect(() => {
     if (!gameState) return;
-    applyRenderActivity(true, BOARD_CHANGE_RENDER_MS);
+    if (frameBudgetRef.current) applyRenderActivity(true, BUDGET_BOARD_CHANGE_RENDER_MS, BUDGET_BOARD_CHANGE_FRAMES);
+    else applyRenderActivity(true, BOARD_CHANGE_RENDER_MS);
   }, [gameState, applyRenderActivity]);
 
   // OrbitControls damps per update. Under the frame cap it updates half as

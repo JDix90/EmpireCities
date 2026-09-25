@@ -15,6 +15,8 @@ const globe = vi.hoisted(() => ({
   controls: { autoRotate: false, autoRotateSpeed: 0, dampingFactor: 0.1, enabled: true, addEventListener: () => {}, removeEventListener: () => {} },
   props: null as null | Record<string, unknown>,
   pov: { lat: 0, lng: 0, altitude: 1.8 },
+  // three.js's frame counter, when a test wants the renderer to count frames.
+  info: null as null | { render: { frame: number } },
 }));
 
 vi.mock('react-globe.gl', async () => {
@@ -26,7 +28,7 @@ vi.mock('react-globe.gl', async () => {
       resumeAnimation: () => { if (!globe.running) globe.resumes += 1; globe.running = true; },
       controls: () => globe.controls,
       pointOfView: (pov?: Partial<typeof globe.pov>) => { if (pov) Object.assign(globe.pov, pov); return { ...globe.pov }; },
-      renderer: () => ({ setPixelRatio: () => {}, setSize: () => {}, domElement: document.createElement('canvas') }),
+      renderer: () => ({ setPixelRatio: () => {}, setSize: () => {}, domElement: document.createElement('canvas'), ...(globe.info ? { info: globe.info } : {}) }),
       toGlobeCoords: () => null,
     }));
     React.useEffect(() => { (props.onGlobeReady as (() => void) | undefined)?.(); }, []);
@@ -87,6 +89,7 @@ describe('GlobeMap under the phone frame budget', () => {
     globe.resumes = 0;
     globe.controls.dampingFactor = 0.1;
     globe.props = null;
+    globe.info = null;
     window.matchMedia = vi.fn().mockReturnValue({
       matches: false, media: '', onchange: null,
       addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn(),
@@ -113,7 +116,7 @@ describe('GlobeMap under the phone frame budget', () => {
     expect(globe.running).toBe(false);
   });
 
-  it('wakes an idle globe to paint a board change, then idles again', () => {
+  it('wakes an idle globe to paint a board change for two frames at 20 a second, then idles again', () => {
     mount();
     act(() => { vi.advanceTimersByTime(1000); });
     expect(globe.running).toBe(false);
@@ -121,7 +124,47 @@ describe('GlobeMap under the phone frame budget', () => {
     act(() => { useGameStore.setState({ gameState: gameState({ owner: 'ai_1', units: 5 }) as never }); });
     expect(globe.resumes).toBe(before + 1);
     expect(globe.running).toBe(true);
-    act(() => { vi.advanceTimersByTime(350); });
+    // Every other player's move is a board change: under the budget it gets
+    // 100 ms, not the 300 ms the desktop keeps (M-14).
+    act(() => { vi.advanceTimersByTime(90); });
+    expect(globe.running).toBe(true);
+    act(() => { vi.advanceTimersByTime(20); });
+    expect(globe.running).toBe(false);
+  });
+
+  it('owes a board change three frames when a slow frame outlasts the wake', () => {
+    globe.info = { render: { frame: 0 } };
+    mount();
+    act(() => { vi.advanceTimersByTime(2000); });
+    expect(globe.running).toBe(false);
+    act(() => { useGameStore.setState({ gameState: gameState({ owner: 'ai_1', units: 6 }) as never }); });
+    // One frame, 150 ms long: past the wake, with the new board maybe not yet in it.
+    act(() => { vi.advanceTimersByTime(150); globe.info!.render.frame += 1; });
+    expect(globe.running).toBe(true);
+    act(() => { vi.advanceTimersByTime(50); globe.info!.render.frame += 2; });
+    act(() => { vi.advanceTimersByTime(60); });
+    expect(globe.running).toBe(false);
+  });
+
+  it('keeps the 100 ms wake when the frames come on time', () => {
+    globe.info = { render: { frame: 0 } };
+    mount();
+    act(() => { vi.advanceTimersByTime(2000); });
+    act(() => { useGameStore.setState({ gameState: gameState({ owner: 'ai_1', units: 6 }) as never }); });
+    act(() => { vi.advanceTimersByTime(90); globe.info!.render.frame += 3; });
+    expect(globe.running).toBe(true);
+    act(() => { vi.advanceTimersByTime(20); });
+    expect(globe.running).toBe(false);
+  });
+
+  it('keeps a desktop globe painting a board change for 300 ms', () => {
+    mount({ frameBudget: false, reducedEffects: false });
+    act(() => { vi.advanceTimersByTime(5000); });
+    expect(globe.running).toBe(false);
+    act(() => { useGameStore.setState({ gameState: gameState({ owner: 'ai_1', units: 5 }) as never }); });
+    act(() => { vi.advanceTimersByTime(250); });
+    expect(globe.running).toBe(true);
+    act(() => { vi.advanceTimersByTime(100); });
     expect(globe.running).toBe(false);
   });
 

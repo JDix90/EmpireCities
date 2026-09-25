@@ -75,8 +75,19 @@ interface GameMapData {
   regions?: Array<{ region_id: string; name: string; bonus: number }>;
 }
 
-/** Phone budget (M-13 phase 2): frames the map keeps rendering after a commit or a reset. */
-const COMMIT_RENDER_MS = 300;
+/**
+ * Phone budget (M-13 phase 2): how long the map keeps rendering after a commit
+ * or a reset. The commit has already drawn its changes into the scene, so the
+ * next frame shows them; 100 ms is still two frames at the reduced tier's 20 a
+ * second (M-14: every other player's move is a commit while the AIs play).
+ */
+const COMMIT_RENDER_MS = 100;
+/**
+ * Frames a change is owed (M-14): the first frame after a wake always shows it,
+ * since the scene was updated before the wake, but a slow task can hold that
+ * frame past a 100 ms deadline.
+ */
+const COMMIT_FRAMES = 1;
 /** Phone budget: frames after the last pointer event of a gesture or a hover. */
 const POINTER_RENDER_MS = 600;
 /** Phone budget: how often a running map re-checks whether it can stop. */
@@ -209,6 +220,14 @@ export default function GameMap({
   const canvasRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<PIXI.Application | null>(null);
   const territoryGraphicsRef = useRef<Map<string, PIXI.Graphics>>(new Map());
+  /**
+   * What each territory shape and unit-badge circle was last drawn with (M-14).
+   * Redrawing a Graphics makes PixiJS triangulate it again on the next frame,
+   * and every other player's move is a new game state, so shapes are redrawn
+   * only when their look changes. Keyed by the object, so a rebuilt scene
+   * starts empty.
+   */
+  const drawnLookRef = useRef(new WeakMap<PIXI.Graphics, { look: string; rings?: [number, number][][] }>());
   const labelContainerRef = useRef<PIXI.Container | null>(null);
   const unitBadgeLayerRef = useRef<PIXI.Container | null>(null);
   const unitBadgeMapRef = useRef<Map<string, { bg: PIXI.Graphics; text: PIXI.Text; holder: PIXI.Container }>>(new Map());
@@ -240,6 +259,8 @@ export default function GameMap({
   const frameBudgetRef = useRef(frameBudget);
   frameBudgetRef.current = frameBudget;
   const pointerActiveRef = useRef(false);
+  /** Ticks of the app ticker: the frames the map has drawn (the stage renders on each). */
+  const framesDrawnRef = useRef(0);
   const renderWakeRef = useRef<RenderWake | null>(null);
   if (!renderWakeRef.current) {
     renderWakeRef.current = createRenderWake({
@@ -255,6 +276,7 @@ export default function GameMap({
         [pulseTickerRef, lossTickerRef, strikeTickerRef, ambientTickerRef].some((r) => !!r.current?.started),
       hidden: () => !isDocumentVisible(),
       pollMs: () => BUDGET_ACTIVITY_POLL_MS,
+      framesDrawn: () => (appRef.current ? framesDrawnRef.current : null),
     });
   }
   useEffect(() => () => renderWakeRef.current?.dispose(), []);
@@ -392,6 +414,7 @@ export default function GameMap({
 
     canvasRef.current.appendChild(app.view as HTMLCanvasElement);
     appRef.current = app;
+    app.ticker.add(() => { framesDrawnRef.current += 1; });
 
     // Enable panning and zooming
     const stage = app.stage;
@@ -753,7 +776,7 @@ export default function GameMap({
       resetViewRef.current = () => {
         syncLayers(0, 0);
         scaleAllLayers(initialScale);
-        if (frameBudgetRef.current) renderWakeRef.current?.wake(COMMIT_RENDER_MS);
+        if (frameBudgetRef.current) renderWakeRef.current?.wake(COMMIT_RENDER_MS, COMMIT_FRAMES);
       };
     }
 
@@ -916,20 +939,7 @@ export default function GameMap({
       // Wonder glow: thick golden border for territories with a wonder building
       const hasWonder = (tState.buildings ?? []).some((b: string) => b.startsWith('wonder_'));
       const scaledRings = ringsFor(territory.territory_id);
-      if (hasWonder) {
-        // Draw an extra golden ring behind the territory
-        g.clear();
-        for (const scaledPolygon of scaledRings) {
-          if (scaledPolygon.length < 3) continue;
-          g.lineStyle(4, HIGHLIGHT_PIXI.wonder, 0.75);
-          g.beginFill(0, 0);
-          g.moveTo(scaledPolygon[0][0], scaledPolygon[0][1]);
-          for (let i = 1; i < scaledPolygon.length; i++) g.lineTo(scaledPolygon[i][0], scaledPolygon[i][1]);
-          g.closePath();
-          g.endFill();
-        }
-        borderColor = HIGHLIGHT_PIXI.wonder;
-      }
+      if (hasWonder) borderColor = HIGHLIGHT_PIXI.wonder;
       const adjacencyBorderWidth = adjacencyTargets.has(territory.territory_id) && emphasizeAdjacencyBorders
         ? 3.25
         : validSources.has(territory.territory_id)
@@ -941,14 +951,26 @@ export default function GameMap({
               : isContested
                 ? 2.25
                 : 1.25;
-      drawTerritory(
-        g,
-        scaledRings,
-        fillColor,
-        borderColor,
-        adjacencyBorderWidth,
-        isSeaFrontier(territory.territory_id),
-      );
+      const seaFrontier = isSeaFrontier(territory.territory_id);
+      const look = `${fillColor}|${borderColor}|${adjacencyBorderWidth}|${seaFrontier}|${hasWonder}`;
+      const drawn = drawnLookRef.current.get(g);
+      if (!drawn || drawn.look !== look || drawn.rings !== scaledRings) {
+        if (hasWonder) {
+          // Draw an extra golden ring behind the territory
+          g.clear();
+          for (const scaledPolygon of scaledRings) {
+            if (scaledPolygon.length < 3) continue;
+            g.lineStyle(4, HIGHLIGHT_PIXI.wonder, 0.75);
+            g.beginFill(0, 0);
+            g.moveTo(scaledPolygon[0][0], scaledPolygon[0][1]);
+            for (let i = 1; i < scaledPolygon.length; i++) g.lineTo(scaledPolygon[i][0], scaledPolygon[i][1]);
+            g.closePath();
+            g.endFill();
+          }
+        }
+        drawTerritory(g, scaledRings, fillColor, borderColor, adjacencyBorderWidth, seaFrontier);
+        drawnLookRef.current.set(g, { look, rings: scaledRings });
+      }
 
       // ── Unit-count badge (Risk-style army counter at the territory center) ──
       const badgeLayer = unitBadgeLayerRef.current;
@@ -982,12 +1004,16 @@ export default function GameMap({
           const label = String(count);
           if (badge.text.text !== label) badge.text.text = label;
           const radius = label.length >= 3 ? 13 : 10;
-          badge.bg.clear();
           const eraRing = tState.owner_id ? eraRingByOwner.get(tState.owner_id) : undefined;
-          badge.bg.lineStyle(eraRing != null ? 2 : 1.5, eraRing ?? 0xffffff, tState.owner_id ? 0.9 : 0.4);
-          badge.bg.beginFill(tState.owner_id ? shadePixi(fillColor, 0.5) : 0x1b2233, 0.92);
-          badge.bg.drawCircle(0, 0, radius);
-          badge.bg.endFill();
+          const badgeLook = `${radius}|${eraRing ?? ''}|${tState.owner_id ? fillColor : ''}`;
+          if (drawnLookRef.current.get(badge.bg)?.look !== badgeLook) {
+            badge.bg.clear();
+            badge.bg.lineStyle(eraRing != null ? 2 : 1.5, eraRing ?? 0xffffff, tState.owner_id ? 0.9 : 0.4);
+            badge.bg.beginFill(tState.owner_id ? shadePixi(fillColor, 0.5) : 0x1b2233, 0.92);
+            badge.bg.drawCircle(0, 0, radius);
+            badge.bg.endFill();
+            drawnLookRef.current.set(badge.bg, { look: badgeLook });
+          }
         }
       }
     }
@@ -1349,7 +1375,7 @@ export default function GameMap({
     if (pageVisible) {
       for (const t of standaloneTickers) if (t && !t.started) t.start();
       // Under the phone budget, repaint once and let the wake decide the rest.
-      if (frameBudgetRef.current) renderWakeRef.current?.wake(COMMIT_RENDER_MS);
+      if (frameBudgetRef.current) renderWakeRef.current?.wake(COMMIT_RENDER_MS, COMMIT_FRAMES);
       else if (app && !app.ticker.started) app.ticker.start();
     } else {
       app?.ticker.stop();
@@ -1380,12 +1406,12 @@ export default function GameMap({
         return;
       }
       mapVisualPlayingRef.current = true;
-      if (frameBudgetRef.current) renderWakeRef.current?.wake(COMMIT_RENDER_MS);
+      if (frameBudgetRef.current) renderWakeRef.current?.wake(COMMIT_RENDER_MS, COMMIT_FRAMES);
       setMapVisualDebug({ active: true, kind: next.kind });
       playMap2dVisualEffect(layer, next, territoryCentroids, () => {
         mapVisualPlayingRef.current = false;
         // Paint the effect's last frame (its layer cleared) before idling.
-        if (frameBudgetRef.current) renderWakeRef.current?.wake(COMMIT_RENDER_MS);
+        if (frameBudgetRef.current) renderWakeRef.current?.wake(COMMIT_RENDER_MS, COMMIT_FRAMES);
         setMapVisualDebug({ active: false });
         playNext();
       });
@@ -1398,7 +1424,7 @@ export default function GameMap({
   // selection, a resize), so each one gets a few frames. Declared after the
   // effects above so it runs once they have drawn this commit's changes.
   useEffect(() => {
-    if (frameBudgetRef.current) renderWakeRef.current?.wake(COMMIT_RENDER_MS);
+    if (frameBudgetRef.current) renderWakeRef.current?.wake(COMMIT_RENDER_MS, COMMIT_FRAMES);
   });
 
   // Leaving the budget (a phone layout widening) hands the ticker back to its

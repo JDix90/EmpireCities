@@ -951,7 +951,7 @@ Neither needs a permission or a new dependency. The web bundle asks whether the 
 |---|---|
 | 1 (done) | R1–R6: the 30 fps cap, the idle and wake budget, the space age decoration under reduced effects, pulses that settle, no blur on phones. |
 | 2 (done) | R7–R10: the 2D map rendering on demand, its ambient glow still, the low-power GPU for both WebGL contexts, no multisample antialiasing on the 2D map, both Moon insets on the budget. The label item first written here is dropped; see *Labels* above. |
-| **3 (this item)** | R11–R14, heat-aware: a small Capacitor plugin reading iOS `thermalState` and Android thermal headroom, stepping down to 20 fps with effects off when the device reports it is hot; a battery-saver setting that bundles the same for the web. |
+| 3 (done) | R11–R14, heat-aware: a small Capacitor plugin reading iOS `thermalState` and Android thermal headroom, stepping down to 20 fps with effects off when the device reports it is hot; a battery-saver setting that bundles the same for the web. |
 
 ### Checking it on a device
 
@@ -1030,6 +1030,101 @@ The native plugins could not be built here: there is no Xcode and no Android SDK
 | `frontend/android/app/src/main/java/com/borderfall/app/ThermalPlugin.java`, `MainActivity.java` | New (phase 3): the Android plugin, registered before the bridge starts |
 | `frontend/src/utils/deviceHeat.test.ts`, `hooks/useFrameBudget.test.ts`, `utils/frameBudget.test.ts`, `pages/SettingsPage.test.tsx`, `android/app/src/test/java/com/borderfall/app/ThermalPluginTest.java` | Phase 3: the sources, the governor, the tiers, the setting, and the Android level mapping |
 
+## M-14 Frame Budget While Watching
+
+**Priority:** P1 — Follows M-13. In a match against AIs, most of the time on the game page is spent watching other players move, and the spectator and replay pages had no frame budget at all.
+
+### Current State
+
+M-13 made an idle board almost free on a phone. What it left is the time spent watching: other players' turns on the game page, and the two pages that exist only to watch, spectating and replays.
+
+A profile of AI turns in a space age quick match on an emulated iPhone 13 found the cost where it was not expected. The profile used a production build with source maps, against three AIs, with quick match's own settings: a 300 s timer, diplomacy, economy and tech trees.
+
+| Finding | Measured |
+|---|---|
+| State updates during AI turns | About 3–5 full game states a second, 28–34 KB each, mostly within 50 ms of the one before |
+| JavaScript per state, globe | About 1 ms to re-render the game page and about 1 ms for the globe's data update on the test machine. The globe's territory shapes are not rebuilt: they are memoized on the map. |
+| All JavaScript during AI turns, globe | 3–4% of the main thread, three.js's own per-frame work included. The rest was frames being drawn. |
+| Frames per state | Every state keeps the globe drawing for 300 ms (M-13's board-change wake), about 9 frames at 30 a second |
+| Frames during AI turns | Replaying recorded AI-turn timings through the wake: the globe awake 19% of the time, 6 frames a second |
+| Cost of a frame | About 9 ms of three.js JavaScript on the test machine, several times that on a phone, plus the GPU |
+| The 2D map, per state | Every state redrew all 63 territory shapes and unit-badge circles, even when one count changed, and PixiJS triangulated them all again on the next frame: about 1.2 s of the 1.8 s of JavaScript in a 12 s AI stretch went to PixiJS's geometry building, earcut and line building |
+
+So the lever during AI turns is what each update makes the renderers draw, not the work React does per update: the frames the globe draws after it, and the shapes the 2D map rebuilds for it.
+
+The spectator and replay pages never applied the frame budget. A phone watching a match or a replay renders at the display's full rate, with backdrop blur and endless pulses, and the heat step-down and battery saver do nothing there.
+
+### Requirements
+
+| # | Requirement |
+|---|-------------|
+| R1 | **Fewer frames per change under the budget.** A board change or a turn change keeps the globe drawing for 100 ms, not 300, and a commit keeps the 2D map drawing for 100 ms, not 300. 100 ms is still two frames at the reduced tier's 20 a second. The desktop keeps 300 ms. |
+| R2 | **No stale board.** A change is owed frames as well as time: the globe keeps drawing until three frames have been drawn since the change, the 2D map one, even when a slow frame outlasts the 100 ms. Owed frames never hold the loop more than a second past the wake. |
+| R3 | **The spectator and replay pages follow the frame budget**: the phone tier, the heat step-down and battery saver, with the reduced tier applying Lite mode's visual rules there as it does on the game page. |
+| R4 | **The 2D map redraws only what changed.** A territory shape or unit-badge circle is redrawn only when its look changes (colour, border, width, coast, wonder, outline); a new unit count changes only the badge's text. On every device: the output is the same, with less work. |
+
+### Design
+
+**Why owed frames.** A new state reaches the globe's scene a few milliseconds after the render that carries it: react-globe.gl sets the props, and two chained kapsule digests, each debounced by 1 ms, hand them to three-globe. If the loop is already running, a frame can start just before those digests and draw the old board. A wake of 300 ms left room for the next frame. With 100 ms, one slow frame on a slow phone could use up the whole wake, and the loop would pause on the old board. That is the M-13 stale-board bug again, only rarer.
+
+A wake therefore asks for frames as well as time (`utils/renderWake.ts`):
+
+- **The counts.** Frames are counted where the renderers count them: three.js's `renderer.info.render.frame` for the globe, which renders once a tick, and ticks of the app ticker for the 2D map.
+- **How many.** A board or turn change on the globe owes three frames: the frame drawn as the loop resumes and one drawn before the second digest may still show the old board, and the third cannot. A 2D change owes one, since the map applies its changes to the scene before it wakes. Normally the owed frames fall inside the 100 ms and change nothing.
+- **Limits.** Owed frames keep the loop running past the deadline, re-checked every 50 ms, for at most a second, so a renderer that stops drawing cannot hold it awake. A renderer that cannot count frames makes the wake time-only, which is how the desktop and the test stand-ins behave.
+
+**What the change saves.** Replaying the recorded AI-turn timings through the real wake:
+
+| Wake per change | Globe awake during AI turns | Frames a second at 30 fps | At 20 fps |
+|---|---|---|---|
+| 300 ms (M-13) | 19% | 6.0 | 4.1 |
+| 100 ms (this item) | 7% | 2.4 | 1.8 |
+
+**The 2D map's shapes.** Clearing and redrawing a PixiJS Graphics marks its geometry dirty, and the next render triangulates it again with earcut. The territory effect now keeps, per Graphics object, the look it last drew (a string of fill, border colour and width, coast and wonder, plus the outline array's identity) and skips shapes whose look is unchanged; the unit badges' circles do the same with radius, era ring and fill. The record is a `WeakMap` keyed by the Graphics object, so a rebuilt scene, whose shapes are new objects drawn blank at creation, is always coloured in full. A move now redraws the territory that changed hands and the borders around it, and a reinforcement redraws nothing but a number.
+
+**The watching pages.** `usePageFrameBudget` (`hooks/useFrameBudget.ts`) follows the phone layout and the battery saver setting itself and applies the same tiers as the game page. `SpectatorPage` and `ReplayPage` use it: both pass the budget and its frame rate to the globe and the budget to the 2D map, and treat the reduced tier as Lite mode in their reduced-effects and ambient flags. A hot phone steps down there silently; those pages have no turn strip to explain it on.
+
+**Measured, not built: merging state bursts.** Applying the states that arrive within one frame as a single render would cut renders by about 80% during AI turns: 164 states became 33 renders in the recording. But a render costs about 1 ms, and the game page's state handler does per-state work (the draft pool, the reinforcement recap, turn transitions) that would have to be reworked to skip states safely. The saving does not justify that risk, so this is left out.
+
+### Measured in development
+
+Production builds of `main` (with M-13) and of this item, served against a throwaway backend, on an emulated iPhone 13 in headless Chromium, in space age matches against three AIs with quick match's settings, four AI stretches a run:
+
+| Measure (phone, AI turns) | `main` | M-14 |
+|---|---|---|
+| Main-thread JavaScript, 2D map | 19% | 2% |
+| PixiJS geometry rebuilding, 2D map (one profiled 12 s stretch) | 1.2 s | none left in the profile |
+| Main-thread JavaScript, globe | 3% | 3% |
+| States with no frame within 3 s, 2D map | 0 of 334 | 0 of 299 |
+| States with no frame within 3 s, globe, outside the hitch below | 0 | 0 |
+| Globe frames a second during AI turns, replaying recorded timings through the wake at 30 fps | 6.0 | 2.4 |
+
+In every globe run, on both builds, one AI stretch spent about 80% of the main thread in JavaScript for several seconds. A few states waited more than 3 s for a frame, all inside that stretch, and for all but about 0.1 s of each wait the main thread was busy, so no frame could be drawn: a hitch, not a paused loop. It is separate from this item and not investigated here.
+
+As before, headless Chromium draws WebGL in software, at about 700 ms a globe frame and 150 ms a 2D frame, so the frame rate itself cannot show what fewer frames save: here the loop is always behind. The frame counts above come from replaying the recorded state timings through the real wake code; the device checks below are the confirmation that counts.
+
+The watching pages, the same setup:
+
+| Page | Phone | Desktop | Desktop with battery saver |
+|---|---|---|---|
+| Spectating | `standard`, 30 frames a second | no budget, 60 | `reduced`, 20 |
+| Replay | `standard`, 30 | no budget, 60 | `reduced`, 20, phase tint off (Lite mode's rules) |
+
+### Checking it on a device
+
+- **AI turns.** Safari Web Inspector (iOS) → Timelines → Rendering Frames, or Chrome remote debugging (Android) → Performance, during an AI turn on a phone: after each move the globe should draw a short burst of three or four frames, not nine or ten, and every move should show on the board.
+- **Spectating and replays.** On a phone, `document.documentElement.dataset.frameBudget` reads `standard` on both pages, and `reduced` with battery saver on.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `frontend/src/utils/renderWake.ts`, `renderWake.test.ts` | Wakes that owe frames, with a one-second limit |
+| `frontend/src/components/game/GlobeMap.tsx`, `GlobeMap.frameBudget.test.tsx` | Under the budget: a 100 ms board-change and turn-change wake that owes three frames, counted by three.js |
+| `frontend/src/components/game/GameMap.tsx`, `GameMap.frameBudget.test.tsx` | A 100 ms commit wake that owes one frame, counted by the app ticker; territory shapes and badge circles redrawn only when their look changes |
+| `frontend/src/hooks/useFrameBudget.ts`, `useFrameBudget.test.ts` | `usePageFrameBudget`: the budget for a page that does not track the layout and battery saver itself |
+| `frontend/src/pages/SpectatorPage.tsx`, `frontend/src/pages/ReplayPage.tsx` | The frame budget, and the reduced tier as Lite mode |
+
 ---
 
 ## Implementation Order
@@ -1045,6 +1140,7 @@ The recommended sequence accounts for dependency chains and impact:
 | **Sprint 5** | M-08, M-09, M-10 | Polish items — lowest risk, lowest urgency. |
 | **Sprint 6** | M-12 (phases 1–3) | The in-game overlay budget: one strip, own-turn-only animations, map cues; then the toasts folded into the strip and the dismiss taps measured; then the own attack result off the map and a scrubbable history. Independent of the sprints above. |
 | **Sprint 7** | M-13 (phases 1–3) | The phone frame budget: a 30 fps cap, a render loop that idles between moves, no endless decoration, no blur over the map; then the 2D map rendering on demand, the low-power GPU and both Moon insets on the budget; then a step down to 20 fps when the phone reports heat, and a battery saver setting. Independent of the sprints above. |
+| **Sprint 8** | M-14 | The frame budget while watching: fewer frames for each other player's move, owed frames so no move is left undrawn, and the budget on the spectator and replay pages. Follows M-13. |
 
 ### Estimated Scope
 

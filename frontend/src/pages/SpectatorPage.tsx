@@ -36,6 +36,7 @@ import toast from 'react-hot-toast';
 import type { GameState } from '../store/gameStore';
 import { isMobileViewport, prefersReducedMotion } from '../utils/device';
 import { isLiteMode } from '../utils/userPreferences';
+import { usePageFrameBudget } from '../hooks/useFrameBudget';
 import { playStrikeAbilitySound } from '../utils/abilitySoundFeedback';
 import {
   computeContestedBorders,
@@ -102,6 +103,10 @@ export default function SpectatorPage() {
     pushMapVisualLocal,
     onMapVisualDone,
   } = useMapVisualEvents();
+  // The frame budget (docs/MOBILE_UX_PLAN.md M-14): a phone watching a match
+  // gets the game page's 30 fps cap and maps that idle between moves, and
+  // steps down when it runs hot; battery saver does the same on any device.
+  const frameBudget = usePageFrameBudget();
   const eventCardVisualSeenRef = useRef(new Set<string>());
   const mapVisualEventsRef = useRef(mapVisualEvents);
   mapVisualEventsRef.current = mapVisualEvents;
@@ -403,8 +408,10 @@ export default function SpectatorPage() {
     gameState.phase,
   );
   const phaseTint = phaseTintClass(gameState.phase, spectatorAmbientEnabled);
+  // Lite mode's visual rules: the viewer's own setting, or the reduced tier.
+  const liteVisuals = isLiteMode() || frameBudget.reduced;
   const reducedGlobe =
-    prefersReducedMotion() || isLiteMode() || (isMobileViewport() && mapView === 'globe');
+    prefersReducedMotion() || liteVisuals || (isMobileViewport() && mapView === 'globe');
   const connectionHintMode = resolveConnectionHintMode({
     preference: 'auto',
     isDenseMap: computeMapDensityMetrics(mapData).isDense,
@@ -550,6 +557,8 @@ export default function SpectatorPage() {
                   events={globeEvents}
                   onEventDone={onMapVisualDone}
                   reducedEffects={reducedGlobe}
+                  frameBudget={frameBudget.active}
+                  frameBudgetFps={frameBudget.fps}
                   autoSpin={!reducedGlobe}
                   ambientEnabled={spectatorAmbientEnabled && !reducedGlobe}
                   turnHolderPlayerId={currentPlayer?.player_id ?? null}
@@ -588,6 +597,7 @@ export default function SpectatorPage() {
               strikeFlash={mapStrikeFlash}
               mapVisualEvents={mapVisualEvents}
               onMapVisualDone={onMapVisualDone}
+              frameBudget={frameBudget.active}
               ambientEnabled={spectatorAmbientEnabled && !reducedGlobe}
               turnHolderPlayerId={currentPlayer?.player_id ?? null}
               turnHolderColor={currentPlayer?.color}

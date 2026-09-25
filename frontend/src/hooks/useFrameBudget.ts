@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { applyFrameBudget, frameCapFor, type FrameBudgetTier } from '../utils/frameBudget';
 import { createHeatGovernor, defaultHeatSource, type HeatSource } from '../utils/deviceHeat';
+import { isPhoneLayout } from '../utils/device';
+import { isBatterySaver, subscribeUserPreferences } from '../utils/userPreferences';
 
 export interface FrameBudgetState {
   /** The budget is on: a phone layout, or battery saver on any device. */
@@ -63,4 +65,23 @@ export function useFrameBudget(opts: {
   const tier: FrameBudgetTier | null = !active ? null : reduced ? 'reduced' : 'standard';
   useEffect(() => (tier ? applyFrameBudget(tier) : undefined), [tier]);
   return { active, tier, fps: frameCapFor(tier ?? 'standard'), reduced, heatSteppedDown };
+}
+
+/**
+ * The frame budget for a page that watches a game rather than plays it
+ * (spectating, replays; docs/MOBILE_UX_PLAN.md M-14). The same tiers as the
+ * game page, for a page that does not already track the phone layout and the
+ * battery saver setting: this follows both itself.
+ */
+export function usePageFrameBudget(opts: { heatSource?: HeatSource | null } = {}): FrameBudgetState {
+  const [phoneLayout, setPhoneLayout] = useState(() => isPhoneLayout());
+  const [batterySaver, setBatterySaverOn] = useState(() => isBatterySaver());
+  useEffect(() => {
+    const sync = () => setPhoneLayout(isPhoneLayout());
+    sync();
+    window.addEventListener('resize', sync);
+    return () => window.removeEventListener('resize', sync);
+  }, []);
+  useEffect(() => subscribeUserPreferences(() => setBatterySaverOn(isBatterySaver())), []);
+  return useFrameBudget({ phoneLayout, batterySaver, heatSource: opts.heatSource });
 }
