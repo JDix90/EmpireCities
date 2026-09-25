@@ -43,21 +43,25 @@ const pixi = vi.hoisted(() => {
   class FakeGraphics extends FakeContainer {
     /** How often it was cleared: each clear is a redraw PixiJS must triangulate again. */
     clears = 0;
+    /** The line styles drawn since the last clear, as `line:width:color:alpha`. */
+    ops: string[] = [];
     /** Pointer events it listens for: territory shapes are the ones with hover handlers. */
     handlers: string[] = [];
-    clear() { this.clears += 1; return this; }
+    clear() { this.clears += 1; this.ops = []; return this; }
+    lineStyle(width?: number, color?: number, alpha?: number) { this.ops.push(`line:${width}:${color}:${alpha}`); return this; }
     on(event?: string) { if (event) this.handlers.push(event); return this; }
     constructor() {
       super();
       created.graphics += 1;
-      created.graphicsList.push(this);
       // Every drawing call (lineStyle, beginFill, drawCircle, …) chains.
-      return new Proxy(this, {
+      const proxy = new Proxy(this, {
         get(target, prop, receiver) {
           if (prop in target) return Reflect.get(target, prop, receiver);
           return () => receiver;
         },
       });
+      created.graphicsList.push(proxy);
+      return proxy;
     }
   }
   class FakeText extends FakeContainer {
@@ -127,13 +131,14 @@ const earthIds: string[] = spaceAge.territories
   .filter((t: { region_id: string }) => t.region_id !== 'lunar_surface')
   .map((t: { territory_id: string }) => t.territory_id);
 
-function gameState(firstUnits = 3, firstOwner?: string) {
-  const territories: Record<string, { owner_id: string | null; unit_count: number }> = {};
+function gameState(firstUnits = 3, firstOwner?: string, firstBuildings?: string[]) {
+  const territories: Record<string, { owner_id: string | null; unit_count: number; buildings?: string[] }> = {};
   spaceAge.territories.forEach((t: { territory_id: string }, i: number) => {
     territories[t.territory_id] = { owner_id: i % 2 ? 'ai_1' : 'me', unit_count: 3 };
   });
   territories[earthIds[0]].unit_count = firstUnits;
   if (firstOwner) territories[earthIds[0]].owner_id = firstOwner;
+  if (firstBuildings) territories[earthIds[0]].buildings = firstBuildings;
   return {
     game_id: 'g1', era: 'space_age', map_id: 'era_space_age', phase: 'attack', turn_number: 3,
     current_player_index: 1,
@@ -324,6 +329,68 @@ describe('GameMap under the phone frame budget', () => {
       expect(rebuilt.length).toBeGreaterThan(40);
       // Drawn blank when created, then again in its owner's colours.
       expect(rebuilt.every((g) => g.clears >= 2)).toBe(true);
+    });
+  });
+
+  describe('the wonder halo', () => {
+    // HIGHLIGHT_PIXI.wonder (#ffd700): the halo's inner pass, 10 px at 30%.
+    const HALO = `line:10:${0xffd700}:0.3`;
+    const halos = () => pixi.created.graphicsList.filter((g) => g.ops.includes(HALO));
+    const withWonder = (owner?: string) => gameState(3, owner, ['wonder_colossus']);
+    const territoryShapes = () => pixi.created.graphicsList.filter((g) => g.handlers.includes('pointerover'));
+
+    it('rings a territory that has a wonder, above every territory shape', () => {
+      act(() => { useGameStore.setState({ gameState: withWonder() as never }); });
+      render(el());
+      expect(halos()).toHaveLength(1);
+      const [halo] = halos();
+      expect(halo.visible).toBe(true);
+      const layer = halo.parent!;
+      const map = layer.parent!;
+      const shapes = territoryShapes().map((g) => map.children.indexOf(g));
+      expect(Math.min(...shapes)).toBeGreaterThanOrEqual(0);
+      expect(map.children.indexOf(layer)).toBeGreaterThan(Math.max(...shapes));
+    });
+
+    it('survives every redraw of the territory shape', () => {
+      act(() => { useGameStore.setState({ gameState: withWonder() as never }); });
+      render(el());
+      const [halo] = halos();
+      const clears = halo.clears;
+      // The wonder changes hands: its shape is redrawn in the new owner's colour.
+      act(() => { useGameStore.setState({ gameState: withWonder('ai_1') as never }); });
+      act(() => { useGameStore.setState({ gameState: gameState(8, 'ai_1', ['wonder_colossus']) as never }); });
+      expect(halo.ops).toContain(HALO);
+      expect(halo.clears).toBe(clears);
+      expect(halo.visible).toBe(true);
+    });
+
+    it('hides when the wonder is gone, and comes back without being redrawn', () => {
+      act(() => { useGameStore.setState({ gameState: withWonder() as never }); });
+      render(el());
+      const [halo] = halos();
+      const clears = halo.clears;
+      act(() => { useGameStore.setState({ gameState: gameState(3) as never }); });
+      expect(halo.visible).toBe(false);
+      act(() => { useGameStore.setState({ gameState: withWonder() as never }); });
+      expect(halo.visible).toBe(true);
+      expect(halo.clears).toBe(clears);
+      expect(halos()).toHaveLength(1);
+    });
+
+    it('draws no halo where there is no wonder', () => {
+      render(el());
+      expect(halos()).toHaveLength(0);
+    });
+
+    it('draws a new halo for a rebuilt scene', () => {
+      act(() => { useGameStore.setState({ gameState: withWonder() as never }); });
+      const view = render(el());
+      const firstScene = pixi.created.graphicsList.length;
+      view.rerender(el({ width: 420 }));
+      const rebuilt = halos().filter((g) => pixi.created.graphicsList.indexOf(g) >= firstScene);
+      expect(rebuilt).toHaveLength(1);
+      expect(rebuilt[0].visible).toBe(true);
     });
   });
 });
