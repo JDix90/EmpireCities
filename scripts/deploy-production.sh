@@ -158,4 +158,22 @@ else
   df -h / | awk 'NR==2 {print "[deploy] disk: "$3" used, "$4" available ("$5" full)"}'
 fi
 
+# ── Is there a recent backup? ────────────────────────────────────────────────
+# The nightly backup refused to run for 25 days (the database had outgrown the
+# free disk) and nothing said so: its log only speaks to whoever reads it. Every
+# deploy now prints the newest backup's age and warns when it is stale. Warns
+# only — the stack is already up and verified by this point.
+BACKUP_DIR="${BACKUP_DIR:-/var/backups/borderfall}"
+NEWEST_BACKUP="$(ls -1t "${BACKUP_DIR}"/postgres_*.dump "${BACKUP_DIR}"/manual_*.dump 2>/dev/null | head -1 || true)"
+if [ -z "${NEWEST_BACKUP}" ]; then
+  echo "[deploy] WARN: no database backup in ${BACKUP_DIR} (see scripts/backup-databases.sh)" >&2
+else
+  BACKUP_AGE_HOURS=$(( ( $(date +%s) - $(stat -c %Y "${NEWEST_BACKUP}") ) / 3600 ))
+  if [ "${BACKUP_AGE_HOURS}" -ge 48 ]; then
+    echo "[deploy] WARN: newest backup is ${BACKUP_AGE_HOURS}h old ($(basename "${NEWEST_BACKUP}")); check /var/log/borderfall-backup.log" >&2
+  else
+    echo "[deploy] backup: $(basename "${NEWEST_BACKUP}") (${BACKUP_AGE_HOURS}h old)"
+  fi
+fi
+
 echo "[deploy] Done. Stack is up."

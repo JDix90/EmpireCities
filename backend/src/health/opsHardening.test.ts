@@ -42,6 +42,38 @@ describe('deploy-production.sh', () => {
   it('prunes only after the smoke test, so a broken deploy keeps its rollback image', () => {
     expect(src.indexOf('smoke-production.sh')).toBeLessThan(src.indexOf('docker image prune'));
   });
+
+  it('says when the newest backup is stale (the nightly job once failed silently for 25 days)', () => {
+    expect(src).toMatch(/newest backup is \$\{BACKUP_AGE_HOURS\}h old/);
+    expect(src).toMatch(/-ge 48/);
+    expect(src).toMatch(/no database backup in/);
+  });
+});
+
+describe('trim-game-snapshots.sh', () => {
+  const src = read('scripts/trim-game-snapshots.sh');
+
+  it('is a dry run unless --apply is given', () => {
+    expect(src).toMatch(/^APPLY=false$/m);
+    expect(src).toMatch(/Dry run: nothing was deleted/);
+  });
+
+  it('refuses to delete without a recent backup', () => {
+    expect(src.indexOf('BACKUP_MAX_AGE_HOURS')).toBeLessThan(src.indexOf('delete_batches "expired"'));
+    expect(src).toMatch(/ABORTED: no backup in/);
+  });
+
+  it('deletes only game_states rows, in bounded batches', () => {
+    const deletes = src.match(/DELETE FROM \w+/g) ?? [];
+    expect(deletes.length).toBeGreaterThan(0);
+    expect(new Set(deletes)).toEqual(new Set(['DELETE FROM game_states']));
+    expect(src).toMatch(/LIMIT \$\{BATCH\}/);
+  });
+
+  it('checks free disk before VACUUM FULL takes its lock', () => {
+    expect(src.indexOf('df -Pm')).toBeLessThan(src.indexOf('VACUUM (FULL'));
+    expect(src).toMatch(/not enough free disk for the rewrite/);
+  });
 });
 
 describe('backup-databases.sh', () => {
