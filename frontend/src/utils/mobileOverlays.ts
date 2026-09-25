@@ -71,6 +71,32 @@ export function summarizeRecapsForViewer(recaps: TurnRecapEntry[], viewerId: str
   return out;
 }
 
+/** What the strip's one line shows, in priority order. */
+export type StripSlot = 'live' | 'notice' | 'recap' | 'pill' | 'none';
+
+/**
+ * The strip's priority queue, resolved. One line means one thing at a time,
+ * so the order is what the player would want first: a battle against them
+ * that is still fresh, then the feedback for the move they just made (the
+ * toasts that used to float at the top of the screen), then the recap of what
+ * they missed, as the full line before their first move of the turn and as a
+ * pill after it. Each slot holds at most one item, the newest; nothing waits
+ * in line behind something else, so three quick placements read as one line
+ * updating rather than a backlog of three.
+ */
+export function pickStripSlot(input: {
+  live: boolean;
+  notice: boolean;
+  recaps: boolean;
+  isMyTurn: boolean;
+  acted: boolean;
+}): StripSlot {
+  if (input.live) return 'live';
+  if (input.notice) return 'notice';
+  if (!input.recaps) return 'none';
+  return input.isMyTurn && input.acted ? 'pill' : 'recap';
+}
+
 /** The ids of the territories the viewer lost, for the map to pulse. */
 export function lostTerritoryIds(recaps: TurnRecapEntry[], viewerId: string | null | undefined): string[] {
   return summarizeRecapsForViewer(recaps, viewerId).lost

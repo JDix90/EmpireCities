@@ -51,6 +51,13 @@ const UiEventSchema = z.object({
     // send no referrer — those visits are indistinguishable from a typed URL
     // and otherwise count as 'direct'. See services/acquisitionChannel.ts.
     'referral_survey_answered',
+    // Phone overlay budget (docs/MOBILE_UX_PLAN.md M-12): the taps a player
+    // spent closing things in one round, by tier. Tier 1 had to be
+    // acknowledged (game over, elimination, a lost capital, era advance);
+    // tiers 2 and 3 are the budget's target of zero. Posted once per round,
+    // from phone layouts only, zeros included so the quiet rounds count.
+    // Properties: layout, turn, tier1, tier2, tier3, era, is_tutorial.
+    'turn_dismiss_taps',
   ]),
   properties: z.record(z.string().max(64), z.string().max(200)).optional(),
 }).superRefine((value, ctx) => {

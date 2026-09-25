@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { CombatResult } from '../store/gameStore';
 import type { MapVisualEvent } from './mapVisualEvents';
 import type { TurnRecapEntry } from '../components/game/AiTurnRecapPanel';
-import { combatInvolves, keepsMapVisualOnPhone, lostTerritoryIds, summarizeRecapsForViewer } from './mobileOverlays';
+import { combatInvolves, keepsMapVisualOnPhone, lostTerritoryIds, pickStripSlot, summarizeRecapsForViewer } from './mobileOverlays';
 
 const ME = 'me';
 const AI = 'ai_1';
@@ -105,5 +105,30 @@ describe('summarizeRecapsForViewer', () => {
     const noIds = [recap('Admiral Chen', [combat({ toId: undefined, territory_captured: true })])];
     expect(summarizeRecapsForViewer(noIds, ME).lost).toEqual([{ id: null, name: 'Persia' }]);
     expect(lostTerritoryIds(noIds, ME)).toEqual([]);
+  });
+});
+
+describe('pickStripSlot', () => {
+  const quiet = { live: false, notice: false, recaps: true, isMyTurn: true, acted: false };
+
+  it('shows a fresh battle against the viewer before anything else', () => {
+    expect(pickStripSlot({ ...quiet, live: true, notice: true })).toBe('live');
+  });
+
+  it("shows the viewer's own move feedback ahead of the recap, even once they have acted", () => {
+    expect(pickStripSlot({ ...quiet, notice: true })).toBe('notice');
+    expect(pickStripSlot({ ...quiet, notice: true, acted: true })).toBe('notice');
+    expect(pickStripSlot({ ...quiet, notice: true, recaps: false })).toBe('notice');
+  });
+
+  it('falls back to the recap line before the first move and the pill after it', () => {
+    expect(pickStripSlot(quiet)).toBe('recap');
+    expect(pickStripSlot({ ...quiet, acted: true })).toBe('pill');
+    // Watching: the running count, however far the viewer got last turn.
+    expect(pickStripSlot({ ...quiet, isMyTurn: false, acted: true })).toBe('recap');
+  });
+
+  it('shows nothing with nothing to say', () => {
+    expect(pickStripSlot({ ...quiet, recaps: false })).toBe('none');
   });
 });

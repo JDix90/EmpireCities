@@ -32,6 +32,7 @@ import { turnTimeoutToastMessage, type TurnTimeoutPayload } from '../utils/turnT
 import { GameNotFoundTracker } from '../utils/gameNotFoundTracker';
 import { dropOwnCombats, replaceOwnCombatsWithSummary } from '../utils/modalQueueOps';
 import { isOwnCardRedemption } from '../utils/cardsRedeemed';
+import { DISMISS_TAPS_EVENT, countTap, dismissTierOf, emptyTally, tallyProperties, type DismissTally, type DismissTier } from '../utils/dismissTaps';
 import { plural } from '../utils/plural';
 import { phaseAdvanceLabel } from '../constants/phaseLabels';
 import { resolveRejectionText } from '../constants/rejectionMessages';
@@ -77,7 +78,7 @@ import {
 } from '../utils/strikeAnimationMessages';
 import EventCardModal, { type EventCard } from '../components/game/EventCardModal';
 import FeatureExplainerModal from '../components/ui/FeatureExplainerModal';
-import ActionModal, { ActionNotification, ModalData, NotificationData, ReinforcementEntry, FortifyEntry, GameOverModalData, EliminationModalData, DraftSummaryModalData, EraAdvanceModalData, isCriticalModal } from '../components/game/ActionModal';
+import ActionModal, { ActionNotification, ModalData, NotificationData, ReinforcementEntry, FortifyEntry, GameOverModalData, EliminationModalData, DraftSummaryModalData, EraAdvanceModalData, isCriticalModal, DismissReason } from '../components/game/ActionModal';
 import TutorialOverlay from '../components/game/TutorialOverlay';
 import TutorialSettingsLab from '../components/game/TutorialSettingsLab';
 import {
@@ -757,6 +758,11 @@ export default function GamePage() {
   // First-session activation funnel: each event fires at most once per game.
   // Reset when the game changes so a second match is measured fresh.
   const funnelEmittedRef = useRef({ map: false, attack: false, capture: false });
+  // M-12 phase 2: the taps that closed something this round, by tier, posted
+  // once per round as `turn_dismiss_taps` (phones only). A round runs from the
+  // start of the viewer's turn to the start of their next one.
+  const dismissTallyRef = useRef<DismissTally>(emptyTally());
+  const dismissRoundRef = useRef<{ started: boolean; turn: number }>({ started: false, turn: 0 });
   useEffect(() => {
     funnelEmittedRef.current = { map: false, attack: false, capture: false };
   }, [gameId]);
@@ -879,6 +885,9 @@ export default function GamePage() {
 
   // ── Action Modal state ──────────────────────────────────────────────────
   const [modalQueue, setModalQueue] = useState<ModalData[]>([]);
+  // The head modal, readable from stable callbacks (the dismiss handler below).
+  const modalHeadRef = useRef<ModalData | null>(null);
+  modalHeadRef.current = modalQueue[0] ?? null;
   /** Other players' turn recaps since my last turn — non-blocking panel, not modals. */
   const [aiRecaps, setAiRecaps] = useState<TurnRecapEntry[]>([]);
   /** Incoming attacks shown live during the attacker's turn (non-blocking dice theater). */
@@ -1199,6 +1208,38 @@ export default function GamePage() {
     setModalQueue(prev => prev.slice(1));
   }, []);
 
+  /** One tap that closed something on a phone, against the tier of what it closed (M-12 phase 2). */
+  const countDismissTap = useCallback((tier: DismissTier) => {
+    if (!isMobileLayoutRef.current) return;
+    countTap(dismissTallyRef.current, tier);
+  }, []);
+
+  /**
+   * Post the round's dismiss taps and close the round. Runs when the viewer's
+   * next turn begins and when the page is left. A round that never started (a
+   * spectator, or a game left before the viewer's first turn) posts nothing,
+   * and its taps carry into the first round instead of being dropped.
+   */
+  const flushDismissRound = useCallback((state: ClientGameState | null) => {
+    const round = dismissRoundRef.current;
+    if (!round.started) return;
+    dismissRoundRef.current = { started: false, turn: 0 };
+    const tally = dismissTallyRef.current;
+    dismissTallyRef.current = emptyTally();
+    if (!isMobileLayoutRef.current) return;
+    api.post('/analytics/ui-event', {
+      event: DISMISS_TAPS_EVENT,
+      properties: tallyProperties(tally, {
+        turn: round.turn,
+        era: state?.era,
+        isTutorial: state?.settings?.tutorial === true,
+      }),
+    }).catch(() => {});
+  }, []);
+
+  // Leaving the page, or moving on to a rematch, closes the round in progress.
+  useEffect(() => () => { flushDismissRound(useGameStore.getState().gameState); }, [gameId, flushDismissRound]);
+
   /**
    * One action to clear the whole animation backlog: flush the globe's queued
    * animations, drop all incoming-attack theater cards, and dismiss every
@@ -1211,6 +1252,12 @@ export default function GamePage() {
     setDefenderTheaterQueue([]);
     setModalQueue(prev => prev.filter(isCriticalModal));
   }, []);
+
+  /** The same clear-out from a button the player had to tap: one tier-3 dismissal. */
+  const skipAllBacklogByTap = useCallback(() => {
+    countDismissTap(3);
+    skipAllBacklog();
+  }, [countDismissTap, skipAllBacklog]);
 
   const showNotification = useCallback((data: NotificationData) => {
     notifCounter.current++;
@@ -1404,6 +1451,15 @@ export default function GamePage() {
         // still queued when their turn begins is the past, and the strip has
         // already said what happened.
         if (isMobileLayoutRef.current) skipGlobeAnimationsRef.current?.();
+      }
+
+      // M-12 phase 2: a round of dismiss-tap telemetry runs from the start of
+      // the viewer's turn to the start of their next one. The finished round
+      // goes out as the new one begins; the first sight of the viewer's turn
+      // (a page opened mid-turn) starts one without posting.
+      if (isMyTurn && (playerChanged || !dismissRoundRef.current.started)) {
+        flushDismissRound(state);
+        dismissRoundRef.current = { started: true, turn: state.turn_number };
       }
 
       if (
@@ -3333,6 +3389,21 @@ export default function GamePage() {
     [navigate],
   );
 
+  // Closes the head modal and counts the tap against its tier (M-12 phase 2).
+  // The theater timer ('auto') and Attack again / Blitz ('action') close it
+  // through the same callback, and neither is a dismissal the player had to
+  // make. Identity stays stable so the auto-advance timer is not restarted by
+  // every render of this page.
+  const handleGameOverDismissRef = useRef(handleGameOverDismiss);
+  handleGameOverDismissRef.current = handleGameOverDismiss;
+  const handleModalDismiss = useCallback((reason?: DismissReason) => {
+    const head = modalHeadRef.current;
+    const byTap = reason !== 'auto' && reason !== 'action';
+    if (head && byTap) countDismissTap(dismissTierOf(head));
+    if (head?.type === 'game_over') handleGameOverDismissRef.current();
+    else dismissModal();
+  }, [countDismissTap, dismissModal]);
+
   const handleRematch = useCallback(async (cfg: NonNullable<GameOverModalData['rematchConfig']>) => {
     try {
       const res = await api.post<{ game_id: string }>('/games', {
@@ -4604,7 +4675,7 @@ export default function GamePage() {
                         autoSpin={globeSpinEnabled}
                         cameraFollow={cameraFollowEnabled}
                         skipAnimationsRef={skipGlobeAnimationsRef}
-                        onSkipAll={skipAllBacklog}
+                        onSkipAll={skipAllBacklogByTap}
                         onGlobeReady={handleGlobeReady}
                         highlightTerritoryId={tutorialHighlightId}
                         lossPulseTerritoryIds={lossPulseIds}
@@ -4738,6 +4809,7 @@ export default function GamePage() {
               liveCombat={lastCombatResult}
               isMyTurn={mobileIsMyTurn}
               acted={stripActed}
+              notice={notifState}
               onOpenFullLog={() => setMobileHudOpen(true)}
             />
           ) : (
@@ -4761,7 +4833,7 @@ export default function GamePage() {
           {gameState && (
             <GameStartModal
               open={showStartModal}
-              onClose={dismissStartModal}
+              onClose={() => { countDismissTap(3); dismissStartModal(); }}
               gameState={gameState}
               viewerPlayerId={resolvedViewerPlayerIdRef.current ?? user?.user_id ?? null}
               mapNameLookup={mapData}
@@ -5231,7 +5303,7 @@ export default function GamePage() {
           onChoice={(choiceId) => {
             getSocket().emit('game:event_choice', { gameId, choiceId });
           }}
-          onDismiss={() => setActiveEventCard(null)}
+          onDismiss={() => { countDismissTap(3); setActiveEventCard(null); }}
         />
       )}
 
@@ -5382,7 +5454,7 @@ export default function GamePage() {
       {/* Action Modal (blocking — combat results, turn summaries, game over, resign) */}
       <ActionModal
         data={modalQueue[0] ?? null}
-        onDismiss={modalQueue[0]?.type === 'game_over' ? handleGameOverDismiss : dismissModal}
+        onDismiss={handleModalDismiss}
         onResignConfirm={handleResignConfirm}
         onLeaveGame={handleEliminatedLeave}
         onRepeatCombat={handleAttack}
@@ -5392,21 +5464,22 @@ export default function GamePage() {
         onShareClip={handleShareClip}
         onChallengeFriend={user?.is_guest ? undefined : () => navigate('/lobby?challenge=1')}
         onUpgradeAccount={user?.is_guest && ownAuthUiAllowed() ? handleGameOverUpgrade : undefined}
-        onSkipAll={skipAllBacklog}
+        onSkipAll={skipAllBacklogByTap}
         backlogCount={modalQueue.length + defenderTheaterQueue.length}
         mapNameLookup={mapData}
         players={gameState?.players}
       />
 
-      {/* Action Notification (auto-dismiss — reinforcements, fortify, phase changes) */}
-      <ActionNotification key={notifState?.key} data={notifState?.data ?? null} />
+      {/* Action Notification (auto-dismiss — reinforcements, fortify, phase changes).
+          A phone shows it in the turn strip instead (M-12 phase 2). */}
+      {!isMobileLayout && <ActionNotification key={notifState?.key} data={notifState?.data ?? null} />}
 
       {/* First-turn coach (WI1) — one-time per-phase prompt for brand-new players on the globe */}
       {coachPhase && (
         <FirstTurnCoach
           phase={coachPhase}
           unitsToPlace={coachPhase === 'reinforcement' ? draftUnitsRemaining : undefined}
-          onDismiss={() => setCoachPhase(null)}
+          onDismiss={() => { countDismissTap(3); setCoachPhase(null); }}
         />
       )}
 
