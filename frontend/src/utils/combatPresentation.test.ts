@@ -30,4 +30,10 @@ describe('combat presentation', () => {
     expect(incomingAttackCardMode({ liteMode: false }).autoAdvance).toBe(true);
     expect(incomingAttackCardMode({ liteMode: true }).autoAdvance).toBe(true);
   });
+
+  it('never puts the theater over a phone: the turn strip carries the attack there', () => {
+    expect(incomingAttackCardMode({ liteMode: false, phoneLayout: true }).show).toBe(false);
+    expect(incomingAttackCardMode({ liteMode: true, phoneLayout: true }).show).toBe(false);
+    expect(incomingAttackCardMode({ liteMode: false, phoneLayout: false }).show).toBe(true);
+  });
 });

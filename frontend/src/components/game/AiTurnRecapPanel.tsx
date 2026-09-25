@@ -24,7 +24,7 @@ export function appendRecap(list: TurnRecapEntry[], entry: TurnRecapEntry): Turn
 }
 
 /** Stable identity for per-entry UI state — array indexes shift as batches change. */
-function recapKey(recap: TurnRecapEntry): string {
+export function recapKey(recap: TurnRecapEntry): string {
   return `${recap.turnNumber}:${recap.playerName}`;
 }
 
@@ -41,10 +41,89 @@ export function summarizeRecap(combats: CombatResult[]): {
 }
 
 /**
+ * One row per opponent turn, each opening to its battles. Shared by the
+ * desktop panel and the phone strip's sheet, so both read the same rows;
+ * which rows are open is the caller's state.
+ */
+export function RecapEntryList({
+  recaps,
+  viewerPlayerId,
+  openEntries,
+  onToggle,
+}: {
+  recaps: TurnRecapEntry[];
+  viewerPlayerId: string | null;
+  openEntries: Record<string, boolean>;
+  onToggle: (key: string) => void;
+}) {
+  return (
+    <>
+      {recaps.map((recap) => {
+        const stats = summarizeRecap(recap.combats);
+        const key = recapKey(recap);
+        const open = !!openEntries[key];
+        const attackedViewer = !!viewerPlayerId && recap.combats.some((c) => c.defenderId === viewerPlayerId);
+        return (
+          <div key={key} className={clsx('px-3 py-2', attackedViewer && 'border-l-2 border-l-red-500/60 bg-red-500/[0.04]')}>
+            <button
+              type="button"
+              className="w-full flex items-center gap-2 text-left"
+              onClick={() => onToggle(key)}
+              aria-expanded={open}
+            >
+              <span
+                className="w-2.5 h-2.5 rounded-full shrink-0"
+                style={{ backgroundColor: recap.playerColor }}
+                aria-hidden
+              />
+              <span className="text-bf-text truncate flex-1">{recap.playerName}</span>
+              <span className="flex items-center gap-2 text-xs text-bf-muted tabular-nums shrink-0">
+                <span className="flex items-center gap-0.5"><Sword className="w-3 h-3" aria-hidden />{stats.battles}</span>
+                <span className={clsx('flex items-center gap-0.5', stats.captures > 0 && 'text-yellow-400')}>
+                  <Flag className="w-3 h-3" aria-hidden />{stats.captures}
+                </span>
+                <span className="flex items-center gap-0.5"><Skull className="w-3 h-3" aria-hidden />{stats.destroyed}</span>
+              </span>
+            </button>
+            {open && (
+              <div className="mt-1.5 space-y-1 pl-4">
+                {recap.combats.map((c, j) => {
+                  const vsViewer = !!viewerPlayerId && c.defenderId === viewerPlayerId;
+                  return (
+                    <div key={j} className={clsx('flex items-center gap-2 text-xs', vsViewer ? 'text-red-300' : 'text-bf-muted')}>
+                      <span className="truncate flex-1">
+                        {c.fromName ?? '?'} → {c.toName ?? '?'}
+                        {vsViewer && <span className="text-red-400/80"> (you)</span>}
+                      </span>
+                      {c.territory_captured ? (
+                        <span className={clsx('shrink-0', vsViewer ? 'text-red-400 font-medium' : 'text-yellow-400')}>
+                          {vsViewer ? 'Lost!' : 'Captured'}
+                        </span>
+                      ) : c.defender_losses > 0 ? (
+                        <span className="shrink-0">−{c.defender_losses} def</span>
+                      ) : c.attacker_losses > 0 ? (
+                        <span className="shrink-0">−{c.attacker_losses} atk</span>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+/**
  * Non-blocking replacement for the queued per-AI "TURN COMPLETE" modals:
  * a collapsible overlay summarizing what other players did since the local
  * player's last turn. Never intercepts input outside its own box and never
  * consumes the turn clock.
+ *
+ * Desktop only. A phone shows the same recaps on `MobileTurnStrip`, which
+ * never expands over the map (docs/MOBILE_UX_PLAN.md M-12).
  */
 export default function AiTurnRecapPanel({
   recaps,
@@ -128,60 +207,12 @@ export default function AiTurnRecapPanel({
 
       {expanded && (
         <div className="max-h-64 overflow-y-auto border-t border-bf-border/70 divide-y divide-bf-border/50">
-          {recaps.map((recap) => {
-            const stats = summarizeRecap(recap.combats);
-            const key = recapKey(recap);
-            const open = !!openEntries[key];
-            const attackedViewer = !!viewerPlayerId && recap.combats.some((c) => c.defenderId === viewerPlayerId);
-            return (
-              <div key={key} className={clsx('px-3 py-2', attackedViewer && 'border-l-2 border-l-red-500/60 bg-red-500/[0.04]')}>
-                <button
-                  type="button"
-                  className="w-full flex items-center gap-2 text-left"
-                  onClick={() => setOpenEntries((m) => ({ ...m, [key]: !m[key] }))}
-                  aria-expanded={open}
-                >
-                  <span
-                    className="w-2.5 h-2.5 rounded-full shrink-0"
-                    style={{ backgroundColor: recap.playerColor }}
-                    aria-hidden
-                  />
-                  <span className="text-bf-text truncate flex-1">{recap.playerName}</span>
-                  <span className="flex items-center gap-2 text-xs text-bf-muted tabular-nums shrink-0">
-                    <span className="flex items-center gap-0.5"><Sword className="w-3 h-3" aria-hidden />{stats.battles}</span>
-                    <span className={clsx('flex items-center gap-0.5', stats.captures > 0 && 'text-yellow-400')}>
-                      <Flag className="w-3 h-3" aria-hidden />{stats.captures}
-                    </span>
-                    <span className="flex items-center gap-0.5"><Skull className="w-3 h-3" aria-hidden />{stats.destroyed}</span>
-                  </span>
-                </button>
-                {open && (
-                  <div className="mt-1.5 space-y-1 pl-4">
-                    {recap.combats.map((c, j) => {
-                      const vsViewer = !!viewerPlayerId && c.defenderId === viewerPlayerId;
-                      return (
-                        <div key={j} className={clsx('flex items-center gap-2 text-xs', vsViewer ? 'text-red-300' : 'text-bf-muted')}>
-                          <span className="truncate flex-1">
-                            {c.fromName ?? '?'} → {c.toName ?? '?'}
-                            {vsViewer && <span className="text-red-400/80"> (you)</span>}
-                          </span>
-                          {c.territory_captured ? (
-                            <span className={clsx('shrink-0', vsViewer ? 'text-red-400 font-medium' : 'text-yellow-400')}>
-                              {vsViewer ? 'Lost!' : 'Captured'}
-                            </span>
-                          ) : c.defender_losses > 0 ? (
-                            <span className="shrink-0">−{c.defender_losses} def</span>
-                          ) : c.attacker_losses > 0 ? (
-                            <span className="shrink-0">−{c.attacker_losses} atk</span>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          <RecapEntryList
+            recaps={recaps}
+            viewerPlayerId={viewerPlayerId}
+            openEntries={openEntries}
+            onToggle={(key) => setOpenEntries((m) => ({ ...m, [key]: !m[key] }))}
+          />
         </div>
       )}
     </div>

@@ -22,7 +22,8 @@ export type HighlightKey =
   | 'validSource'
   | 'contested'
   | 'wonder'
-  | 'coach';
+  | 'coach'
+  | 'lost';
 
 /** One source of truth per semantic role; PIXI ints and CSS strings derive from these. */
 export const HIGHLIGHT_HEX: Record<HighlightKey, string> = {
@@ -44,6 +45,12 @@ export const HIGHLIGHT_HEX: Record<HighlightKey, string> = {
   wonder: '#ffd700',
   /** Tutorial and first-turn-coach pulse. */
   coach: '#ffd700',
+  /**
+   * A territory the viewer lost since their last turn, pulsed when that turn
+   * starts (docs/MOBILE_UX_PLAN.md M-12). The attack-target red: it already
+   * clears both faction palettes, and the two never show in the same phase.
+   */
+  lost: '#f87171',
 };
 
 function toPixi(hex: string): number {

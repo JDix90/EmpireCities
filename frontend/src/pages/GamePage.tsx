@@ -30,7 +30,7 @@ import { shouldShowSignupNudge, SIGNUP_NUDGE_SHOWN_KEY } from '../utils/signupNu
 import { hapticImpact, hapticNotification, ImpactStyle, NotificationType } from '../utils/haptics';
 import { turnTimeoutToastMessage, type TurnTimeoutPayload } from '../utils/turnTimeout';
 import { GameNotFoundTracker } from '../utils/gameNotFoundTracker';
-import { replaceOwnCombatsWithSummary } from '../utils/modalQueueOps';
+import { dropOwnCombats, replaceOwnCombatsWithSummary } from '../utils/modalQueueOps';
 import { plural } from '../utils/plural';
 import { phaseAdvanceLabel } from '../constants/phaseLabels';
 import { resolveRejectionText } from '../constants/rejectionMessages';
@@ -62,7 +62,8 @@ import AdvanceEraPanel from '../components/game/AdvanceEraPanel';
 import GameChat from '../components/game/GameChat';
 import MobileCardsTray from '../components/game/MobileCardsTray';
 import FirstTurnCoach from '../components/game/FirstTurnCoach';
-import MobileCombatBanner from '../components/game/MobileCombatBanner';
+import MobileTurnStrip from '../components/game/MobileTurnStrip';
+import { keepsMapVisualOnPhone, lostTerritoryIds } from '../utils/mobileOverlays';
 import TerritoryPanel from '../components/game/TerritoryPanel';
 import { canUndoDraftOnTerritory } from '../utils/draftUndo';
 import TechTreeModal, { type TechNode } from '../components/game/TechTreeModal';
@@ -180,6 +181,9 @@ const FLOODED_NA_GLOBE_TEXTURE = '/globe/flooded-ocean.svg';
 
 /** Win probability (0–1) below which we still offer replay after an abandoned game. */
 const LOW_ODDS_ABANDON_REPLAY_THRESHOLD = 0.18;
+
+/** A stable empty default for the loss pulse, so no-loss turns never re-key the map. */
+const NO_LOSS_IDS: string[] = [];
 
 interface MapData {
   map_id: string;
@@ -479,6 +483,9 @@ export default function GamePage() {
   const [mobileCardsTrayOpen, setMobileCardsTrayOpen] = useState(false);
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [isMobileLayout, setIsMobileLayout] = useState(() => isPhoneLayout());
+  // Socket handlers are bound once; they read the layout through this ref.
+  const isMobileLayoutRef = useRef(isMobileLayout);
+  isMobileLayoutRef.current = isMobileLayout;
   // Auto-settle the menu pulse after a few seconds so it isn't distracting all
   // game; not persisted, so it gently returns next session until actually used.
   useEffect(() => {
@@ -690,6 +697,24 @@ export default function GamePage() {
     pushMapVisualLocal,
     onMapVisualDone,
   } = useMapVisualEvents();
+  // The phone's animation budget (M-12): only the viewer's own moves and
+  // board-level visuals reach a renderer; the rest are acknowledged at once
+  // so the queue never holds them. The board itself updates from state.
+  const visualViewerId = viewerPlayer?.player_id ?? null;
+  const phoneMapVisualEvents = useMemo(
+    () => (isMobileLayout ? mapVisualEvents.filter((ev) => keepsMapVisualOnPhone(ev, visualViewerId)) : mapVisualEvents),
+    [isMobileLayout, mapVisualEvents, visualViewerId],
+  );
+  const phoneGlobeEvents = useMemo(
+    () => (isMobileLayout ? globeEvents.filter((ev) => keepsMapVisualOnPhone(ev, visualViewerId)) : globeEvents),
+    [isMobileLayout, globeEvents, visualViewerId],
+  );
+  useEffect(() => {
+    if (!isMobileLayout) return;
+    for (const ev of mapVisualEvents) {
+      if (!keepsMapVisualOnPhone(ev, visualViewerId)) onMapVisualDone(ev.id);
+    }
+  }, [isMobileLayout, mapVisualEvents, visualViewerId, onMapVisualDone]);
   const eventCardVisualSeenRef = useRef(new Set<string>());
   const mapVisualEventsRef = useRef(mapVisualEvents);
   mapVisualEventsRef.current = mapVisualEvents;
@@ -1336,7 +1361,11 @@ export default function GamePage() {
             };
             // Fold this turn's own combat modals into the summary and show it now,
             // rather than appending behind them where it surfaces a turn late.
-            setModalQueue(q => replaceOwnCombatsWithSummary(q, combats, summary));
+            // A phone folds them away and shows no summary at all (M-12): the
+            // recap of the player's own moves is not worth a modal there.
+            setModalQueue(q => (isMobileLayoutRef.current
+              ? dropOwnCombats(q, combats)
+              : replaceOwnCombatsWithSummary(q, combats, summary)));
           }
           ownTurnCombatsRef.current = [];
           ownTurnReinforcementsRef.current = [];
@@ -1370,6 +1399,10 @@ export default function GamePage() {
       // were already watched (or skipped) and live on in the recap panel.
       if (playerChanged && isMyTurn) {
         setDefenderTheaterQueue([]);
+        // A phone animates only the viewer's own moves (M-12); whatever is
+        // still queued when their turn begins is the past, and the strip has
+        // already said what happened.
+        if (isMobileLayoutRef.current) skipGlobeAnimationsRef.current?.();
       }
 
       if (
@@ -1566,6 +1599,8 @@ export default function GamePage() {
         ...data.result,
         fromName,
         toName,
+        fromId: data.fromId,
+        toId: data.toId,
         attackerId: attackerOwner ?? null,
         defenderId: defenderOwner ?? null,
         attackerName,
@@ -1648,9 +1683,10 @@ export default function GamePage() {
             result: { ...enriched, capitalLost: true },
             perspective: 'defender' as const,
           }]);
-        } else if (incomingAttackCardMode({ liteMode }).show) {
+        } else if (incomingAttackCardMode({ liteMode, phoneLayout: isMobileLayoutRef.current }).show) {
           // Already an auto-advancing theater — lite mode makes it quicker via
-          // the same `hurry` fast path, it does not need to hide it.
+          // the same `hurry` fast path, it does not need to hide it. A phone
+          // gets the result on the turn strip instead (M-12).
           setDefenderTheaterQueue(q => [...q, enriched]);
         }
         otherTurnCombatsRef.current.push(enriched);
@@ -3595,6 +3631,17 @@ export default function GamePage() {
   const mobileIsMyTurn =
     !!mobileMyPlayer &&
     gameState?.players[gameState.current_player_index]?.player_id === mobileMyPlayer.player_id;
+  // The strip shrinks to a pill, and the loss pulse ends, on the viewer's
+  // first move of the turn: a placed unit, or the phase already past draft.
+  const stripActed =
+    mobileIsMyTurn &&
+    ((gameState?.draft_deployments_this_turn?.length ?? 0) > 0 ||
+      gameState?.phase === 'attack' ||
+      gameState?.phase === 'fortify');
+  const lossPulseIds = useMemo(
+    () => (isMobileLayout && mobileIsMyTurn && !stripActed ? lostTerritoryIds(aiRecaps, mobileMyPlayer?.player_id ?? null) : NO_LOSS_IDS),
+    [isMobileLayout, mobileIsMyTurn, stripActed, aiRecaps, mobileMyPlayer?.player_id],
+  );
 
   // Auto-open cards tray when forced redemption (5+ cards)
   useEffect(() => {
@@ -4541,7 +4588,7 @@ export default function GamePage() {
                         onTerritoryClick={handleTerritoryClick}
                         width={mapCanvasSize.w}
                         height={mapCanvasSize.h}
-                        events={globeEvents}
+                        events={phoneGlobeEvents}
                         onEventDone={onMapVisualDone}
                         reducedEffects={reducedGlobe}
                         autoSpin={globeSpinEnabled}
@@ -4550,6 +4597,7 @@ export default function GamePage() {
                         onSkipAll={skipAllBacklog}
                         onGlobeReady={handleGlobeReady}
                         highlightTerritoryId={tutorialHighlightId}
+                        lossPulseTerritoryIds={lossPulseIds}
                         ambientEnabled={mapAmbientEnabled && !reducedGlobe}
                         turnHolderPlayerId={turnHolderPlayer?.player_id ?? null}
                         selfPlayerId={resolvedViewerPlayerId}
@@ -4628,8 +4676,9 @@ export default function GamePage() {
                 width={mapCanvasSize.w}
                 height={mapCanvasSize.h}
                 highlightTerritoryId={tutorialHighlightId}
+                lossPulseTerritoryIds={lossPulseIds}
                 strikeFlash={mapStrikeFlash}
-                mapVisualEvents={mapVisualEvents}
+                mapVisualEvents={phoneMapVisualEvents}
                 onMapVisualDone={onMapVisualDone}
                 reducedEffects={reducedGlobe}
                 ambientEnabled={mapAmbientEnabled && !reducedGlobe}
@@ -4670,19 +4719,33 @@ export default function GamePage() {
             </>
           )}
 
-          {/* Non-blocking recap of other players' turns (replaces queued modals) */}
-          <AiTurnRecapPanel
-            recaps={aiRecaps}
-            onDismiss={() => setAiRecaps([])}
-            viewerPlayerId={resolvedViewerPlayerIdRef.current ?? user?.user_id ?? null}
-          />
+          {/* Non-blocking recap of other players' turns (replaces queued modals).
+              A phone gets the one-line strip instead of the panel (M-12). */}
+          {isMobileLayout ? (
+            <MobileTurnStrip
+              recaps={aiRecaps}
+              viewerPlayerId={resolvedViewerPlayerIdRef.current ?? user?.user_id ?? null}
+              liveCombat={lastCombatResult}
+              isMyTurn={mobileIsMyTurn}
+              acted={stripActed}
+              onOpenFullLog={() => setMobileHudOpen(true)}
+            />
+          ) : (
+            <AiTurnRecapPanel
+              recaps={aiRecaps}
+              onDismiss={() => setAiRecaps([])}
+              viewerPlayerId={resolvedViewerPlayerIdRef.current ?? user?.user_id ?? null}
+            />
+          )}
 
-          {/* Live dice theater for attacks against the local player */}
-          <DefenderBattleTheater
-            queue={defenderTheaterQueue}
-            onAdvance={() => setDefenderTheaterQueue(q => q.slice(1))}
-            onSkipAll={skipAllBacklog}
-          />
+          {/* Live dice theater for attacks against the local player (desktop; the strip carries it on phones) */}
+          {!isMobileLayout && (
+            <DefenderBattleTheater
+              queue={defenderTheaterQueue}
+              onAdvance={() => setDefenderTheaterQueue(q => q.slice(1))}
+              onSkipAll={skipAllBacklog}
+            />
+          )}
 
           {/* One-time game-start briefing: turn order + starting resources */}
           {gameState && (
@@ -4813,7 +4876,7 @@ export default function GamePage() {
             );
         const myTurn = !!cp && !!me && cp.player_id === me.player_id;
         const phaseLabel: Record<string, string> = {
-          territory_select: 'Territory Draft', draft: 'Reinforcement', attack: 'Attack', fortify: 'Fortify', game_over: 'Game Over',
+          territory_select: 'Draft', draft: 'Reinforce', attack: 'Attack', fortify: 'Fortify', game_over: 'Game Over',
         };
         const mobileDraftPool = myTurn && gameState.phase === 'draft'
           ? computeDraftPool(
@@ -4975,20 +5038,6 @@ export default function GamePage() {
             onClose={() => setMobileCardsTrayOpen(false)}
           />
         </div>
-      )}
-
-      {/* ── Mobile Combat Banner ──────────────────────────────────────────── */}
-      {/*
-        Suppressed while a combat modal is queued: both render the same dice
-        result from independent triggers (the banner self-gates on a new
-        lastCombatResult, the modal on a queued entry), so on a phone every
-        attack drew its outcome twice — once behind the modal, once under it.
-      */}
-      {modalQueue[0]?.type !== 'combat' && (
-        <MobileCombatBanner
-          lastCombatResult={lastCombatResult}
-          onOpenFullLog={() => setMobileHudOpen(true)}
-        />
       )}
 
       {/* ── Mobile HUD Drawer ─────────────────────────────────────────────── */}

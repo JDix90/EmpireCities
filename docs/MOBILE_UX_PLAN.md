@@ -18,6 +18,7 @@
 9. [M-09 Font Loading Optimization (P3)](#m-09-font-loading-optimization)
 10. [M-10 Double-Tap Zoom Behavior (P3)](#m-10-double-tap-zoom-behavior)
 11. [M-11 Capacitor Plugin Hardening (P2)](#m-11-capacitor-plugin-hardening)
+12. [M-12 Mobile Overlay Budget (P0)](#m-12-mobile-overlay-budget)
 
 ---
 
@@ -735,6 +736,93 @@ The lobby page is a long scrollable list with no pull-to-refresh. Users must nav
 
 ---
 
+## M-12 Mobile Overlay Budget
+
+**Priority:** P0 — On a phone the player closes something before almost every move.
+
+### Current State
+
+Six surfaces float over the map on a phone. Each has its own trigger, its own position, its own timer and its own close button, and none of them knows the others exist:
+
+| Surface | Component | Trigger | Goes away |
+|---|---|---|---|
+| "While you were away" panel | `AiTurnRecapPanel` (top-right, 85vw) | any opponent turn with battles | X, or your turn ends |
+| Combat card above the bar | `MobileCombatBanner` | **every** combat in the game, including AI vs AI | 6 s timer or tap |
+| "Skip animations (N queued)" | `GlobeMap` (top-right) | globe backlog > 0 | backlog drains |
+| Incoming-attack dice theater | `DefenderBattleTheater` (centered, z-40) | attack on you, during the attacker's turn | auto-advance |
+| Phase / fortify toasts | `ActionNotification` | phase change, each move | timer |
+| Blocking modals | `ActionModal` queue | own attacks, turn summary, draft summary, capital loss, game over | tap |
+
+Plus the globe's `+`/`−` zoom buttons sitting on top of the combat card, and a bottom bar whose phase label truncates to "REI… / Yo…" at 390 px.
+
+Each surface was itself a fix (the recap replaced per-AI "TURN COMPLETE" modals; the theater replaced "INCOMING ATTACK!" modals; the banner was deduped against the combat modal). The remaining problem is that nothing arbitrates: at the start of a turn the panel auto-expands because a territory was lost (`AiTurnRecapPanel` pops open on any loss, written for a 290 px desktop corner), the banner narrates an AI-vs-AI fight the player has no stake in, and the globe is still replaying battles the recap has already summarised.
+
+### Requirements
+
+| # | Requirement |
+|---|-------------|
+| R1 | **One channel.** On phones, everything glanceable lands in a single strip above the bottom bar. Nothing else floats over the map for information's sake. |
+| R2 | **Two modes.** *Watching* (not your turn): the strip is a live ticker of battles involving you plus a running count. *Acting* (your turn): the strip is one collapsed line; the map is clear. |
+| R3 | **No auto-expand, ever.** A lost territory is named in the line and pulsed on the map, never shown by covering the map with a panel. |
+| R4 | **No mandatory dismissals outside tier 1.** The strip collapses to a badge on the player's first action of the turn and is reachable from the badge; it never needs an X. |
+| R5 | **The map does the talking.** Territories the viewer lost since their last turn pulse red on the map when their turn starts, until their first action. |
+| R6 | **Only the player's own animations on phones.** Map visuals from other players' turns are not queued; the board updates instantly from state. Board-level visuals (era advance, frontier unlock, board transform, event cards) still play. Any leftover globe backlog is flushed when the player's turn starts. |
+| R7 | **Attacks on the player are not a centered card on phones.** The dice theater is desktop-only; on phones the strip's live line carries the result. |
+| R8 | The combat banner never shows a battle the viewer is not part of. (On phones it is replaced by the strip entirely.) |
+| R9 | Zoom `+`/`−` are hidden on coarse-pointer devices; pinch already zooms. |
+| R10 | The bottom bar's phase label reads in full at 360 px ("Reinforce · 4 units / Your turn"). |
+| R11 | Three tiers, and only one interrupts: **tier 1** must acknowledge (game over, elimination, capital lost, resign confirm, era advance — `isCriticalModal`); **tier 2** needs a decision (own attack result with Attack again / Blitz); **tier 3** glanceable (everything else, via the strip). |
+| R12 | Desktop behaviour is unchanged by phase 1. |
+| R13 | **No own-turn summary modal on phones.** "YOUR TURN COMPLETE" recaps moves the player made seconds ago; the HUD log keeps them. The turn's own attack modals are still folded away at turn end, as on desktop. |
+
+### Design
+
+**The strip.** One line, full width, directly above the bottom bar (where the combat banner sat). Its content is decided by mode:
+
+- *Watching:* while a battle involving the viewer is fresh (6 s), the line reads `Chen → Persia (you) · held, −1` or `Chen → Persia (you) · Lost!` in red, with the dice in miniature. Otherwise the running summary: `⚔ 3 turns · 2 captures`.
+- *Acting, before the first action:* `While you were away · You lost Persia, Hispania · 12 battles`, loss first and in red.
+- *Acting, after the first action:* a small pill at the bottom-right of the map (`🕓 3`) so the recap stays one tap away.
+
+Tapping the line or the pill opens a half-height sheet (`mobile-sheet-above-nav`, like the chat) with the existing per-player entry list and a "View full log →" link into the HUD drawer. Tapping outside closes it.
+
+**Map cues.** `lossPulseTerritoryIds` on both renderers: red rings (globe) / red pulse (2D) on every territory the viewer lost since their last turn, shown from turn start until the first action. Same mechanism as the tutorial highlight ring, different colour.
+
+**Animation budget.** `keepsMapVisualOnPhone(event, viewerId)` filters `mapVisualEvents` before they reach either renderer: keep the viewer's own (`event.playerId === viewerId`) and board-level kinds; drop the rest and acknowledge them immediately so the queue never holds them. The globe flush (`skipAnimationsRef`) runs once when the viewer's turn begins.
+
+**Phases.**
+
+| Phase | Scope |
+|---|---|
+| **1 (this item)** | R1–R10, R12 and R13: strip with watching/acting modes and the badge, sheet on tap, loss pulse on both maps, own-turn-only animations, theater off on phones, banner retired on phones, no own-turn summary modal on phones, zoom hidden on touch, bottom-bar label. |
+| 2 | Fold `ActionNotification` toasts into the strip with one priority queue; log dismiss taps per turn through `/analytics/ui-event`, target zero outside tier 1. |
+| 3 | Own attack result as an anchored sheet above the bar (keeps Attack again / Blitz); the strip gains a scrubbable history. |
+
+### Implementation Steps
+
+1. **Pure helpers, `frontend/src/utils/mobileOverlays.ts`.** `combatInvolves(result, viewerId)`, `keepsMapVisualOnPhone(event, viewerId)`, `summarizeRecapsForViewer(recaps, viewerId)` (battles, captures, attacks on the viewer, lost territory names and ids). `CombatResult` gains `fromId`/`toId` so a loss can be mapped back to a territory.
+2. **`MobileTurnStrip.tsx`.** Props: `recaps`, `viewerPlayerId`, `liveCombat`, `isMyTurn`, `acted`, `onOpenFullLog`. Renders the line / pill / sheet per the modes above; the per-player entry list is lifted out of `AiTurnRecapPanel` into a shared `RecapEntryList` so the desktop panel and the sheet render the same rows.
+3. **`GamePage.tsx`.** On `isMobileLayout`: render the strip instead of `AiTurnRecapPanel`; do not queue the defender theater (`incomingAttackCardMode({ liteMode, phoneLayout })`); filter map visual events with `keepsMapVisualOnPhone` and acknowledge the dropped ones; flush the globe backlog when the viewer's turn begins; derive `acted` from `draft_deployments_this_turn` / phase; compute `lossPulseTerritoryIds` from the recaps; fold the turn's own attack modals away without a summary (`dropOwnCombats`); drop `MobileCombatBanner`; shorten the bottom-bar phase labels.
+4. **`GlobeMap.tsx` / `GameMap.tsx`.** `lossPulseTerritoryIds` → red rings / red pulse. Globe zoom buttons hidden when `isCoarsePointer()`.
+5. **Tests.** `mobileOverlays.test.ts` (predicates, summary, lost ids); `MobileTurnStrip.test.tsx` (never auto-expands on a loss, names the loss, badge after acting, live line only for the viewer's battles, sheet on tap); `combatPresentation.test.ts` (phone case). Desktop tests unchanged.
+6. **Verify live.** Chromium at 390×844 with touch emulation against a real server: watching mode during AI turns, the line and red pulse at turn start after a loss, the pill after the first placement, no `+`/`−`, no theater.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `frontend/src/utils/mobileOverlays.ts` | New: predicates and recap summary |
+| `frontend/src/components/game/MobileTurnStrip.tsx` | New: strip, pill and sheet |
+| `frontend/src/components/game/AiTurnRecapPanel.tsx` | Lift `RecapEntryList`; desktop panel unchanged |
+| `frontend/src/components/game/MobileCombatBanner.tsx` | Removed (replaced by the strip) |
+| `frontend/src/components/game/GlobeMap.tsx` | `lossPulseTerritoryIds`; zoom buttons hidden on touch |
+| `frontend/src/components/game/GameMap.tsx` | `lossPulseTerritoryIds` |
+| `frontend/src/utils/combatPresentation.ts` | `phoneLayout` for incoming attacks |
+| `frontend/src/utils/modalQueueOps.ts` | `dropOwnCombats`: the phone turn end |
+| `frontend/src/store/gameStore.ts` | `fromId`/`toId` on `CombatResult` |
+| `frontend/src/pages/GamePage.tsx` | Wiring above; shorter phase labels |
+
+---
+
 ## Implementation Order
 
 The recommended sequence accounts for dependency chains and impact:
@@ -746,6 +834,7 @@ The recommended sequence accounts for dependency chains and impact:
 | **Sprint 3** | M-05, M-11 | Capacitor plugins installed together (one `cap sync`), haptics wired in. |
 | **Sprint 4** | M-06, M-07 | Landscape + keyboard — both require the hooks from Sprint 3 plugins. |
 | **Sprint 5** | M-08, M-09, M-10 | Polish items — lowest risk, lowest urgency. |
+| **Sprint 6** | M-12 (phase 1) | The in-game overlay budget: one strip, own-turn-only animations, map cues. Independent of the sprints above. |
 
 ### Estimated Scope
 

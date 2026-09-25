@@ -27,6 +27,7 @@ import { HIGHLIGHT_CSS, highlightRgba } from '../../constants/highlightColors';
 import { useTerritoryGeoSources } from '../../hooks/useTerritoryGeoSources';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import { subscribeUserPreferences } from '../../utils/userPreferences';
+import { isCoarsePointer } from '../../utils/device';
 import { usePageVisibilityEffect } from '../../utils/usePageVisible';
 import {
   SPACE_AGE_WASTELANDS,
@@ -188,6 +189,12 @@ interface GlobeMapProps {
   onSkipAll?: () => void;
   /** If set, draw a pulsing gold ring on this territory (tutorial highlighting). */
   highlightTerritoryId?: string;
+  /**
+   * Territories the viewer lost since their last turn, pulsed red from the
+   * start of that turn until their first move (docs/MOBILE_UX_PLAN.md M-12):
+   * the map names the loss so no panel has to.
+   */
+  lossPulseTerritoryIds?: string[];
   /** Override globe surface texture (defaults to Earth blue marble). */
   globeImageUrl?: string;
   /** Override globe bump/topology texture. */
@@ -348,6 +355,9 @@ interface RingDatum {
   repeatPeriod: number;
   colorFn: (t: number) => string;
 }
+
+/** A stable empty default, so an absent prop never re-keys the ring memos. */
+const NO_TERRITORY_IDS: string[] = [];
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -731,6 +741,7 @@ function GlobeMap({
   skipAnimationsRef,
   onSkipAll,
   highlightTerritoryId,
+  lossPulseTerritoryIds = NO_TERRITORY_IDS,
   globeImageUrl = 'https://cdn.jsdelivr.net/npm/three-globe@2.45.1/example/img/earth-blue-marble.jpg',
   bumpImageUrl = 'https://cdn.jsdelivr.net/npm/three-globe@2.45.1/example/img/earth-topology.png',
   atmosphereColor = 'lightskyblue',
@@ -814,6 +825,9 @@ function GlobeMap({
 
   /** Drives visibility of the "Skip animations" control (refs → React state). */
   const [animationUi, setAnimationUi] = useState({ playing: false, backlog: 0 });
+  // Pinch already zooms a touch screen; the buttons only sat on top of the
+  // bottom-bar chrome there (M-12).
+  const [coarsePointer] = useState(() => isCoarsePointer());
   const flushAnimationUi = useCallback(() => {
     // Bail out when nothing changed: this runs from the events-ingestion effect,
     // and an unconditional fresh object here turns any parent re-render into
@@ -3454,11 +3468,31 @@ function GlobeMap({
     return out;
   }, [validSourceOwnerId, gameState, mapData.connections, territoryById, activeWorldId, territoryCenters]);
 
+  // What the viewer lost while away, said by the map (M-12). Red, the
+  // attack-target hue, so it never reads as the gold coach pulse.
+  const lossRings = useMemo((): RingDatum[] => {
+    const out: RingDatum[] = [];
+    for (const tid of lossPulseTerritoryIds) {
+      const center = territoryCenters.get(tid);
+      if (!center) continue;
+      out.push({
+        id: `loss-${tid}`,
+        lat: center.lat,
+        lng: center.lng,
+        maxRadius: 1.1,
+        speed: 1.3,
+        repeatPeriod: 900,
+        colorFn: (x: number) => highlightRgba('lost', Math.max(0, 0.85 - x)),
+      });
+    }
+    return out;
+  }, [lossPulseTerritoryIds, territoryCenters]);
+
   const combinedRings = useMemo(() => {
-    const out = [...rings, ...wastelandRings, ...coachOwnedRings, ...validSourceRings];
+    const out = [...rings, ...wastelandRings, ...coachOwnedRings, ...validSourceRings, ...lossRings];
     if (tutorialRing) out.push(tutorialRing);
     return out;
-  }, [rings, tutorialRing, wastelandRings, coachOwnedRings, validSourceRings]);
+  }, [rings, tutorialRing, wastelandRings, coachOwnedRings, validSourceRings, lossRings]);
 
   const ringAccessors = useMemo(() => ({
     lat: (d: object) => (d as RingDatum).lat,
@@ -3582,7 +3616,7 @@ function GlobeMap({
         desktop and pinch-only on touch, so nothing on screen said the view
         could be zoomed at all.
       */}
-      <div className="absolute bottom-4 right-4 z-30 flex flex-col gap-1">
+      {!coarsePointer && <div className="absolute bottom-4 right-4 z-30 flex flex-col gap-1">
         <button
           type="button"
           data-testid="globe-zoom-in"
@@ -3607,7 +3641,7 @@ function GlobeMap({
         >
           −
         </button>
-      </div>
+      </div>}
       {showSkipAnimations && (
         <button
           type="button"
