@@ -793,13 +793,17 @@ Tapping the line or the pill opens a half-height sheet (`mobile-sheet-above-nav`
 
 **Dismiss telemetry (phase 2).** The budget is measured, not assumed. Every tap that closes something the game put on a phone screen is counted against the tier of what it closed (`utils/dismissTaps.ts`): tier 1 for game over, elimination, a lost capital, the resign confirm and an era advance; tier 2 for the player's own attack result; tier 3 for everything else, which today means the turn-1 draft summary, the start briefing, an event card, a first-turn coach card and a "Skip all". The theater timer and Attack again / Blitz close the combat card through the same callback, so `ActionModal`'s `onDismiss` now carries a reason (`'auto'`, `'action'`) and only a real tap counts. The tally is posted once per round, from the start of the viewer's turn to the start of their next one, as `turn_dismiss_taps` with `layout`, `turn`, `tier1`–`tier3`, `era` and `is_tutorial`; zeros are posted too, because the quiet rounds are the denominator. Phones only; the round in progress goes out when the page is left, so a closed tab loses at most the last round. The target is zero in tiers 2 and 3; tier 3 above zero names the next thing to fold into the strip.
 
+**Own attack sheet (phase 3).** The tier-2 card moves off the map. On a phone the viewer's own attack result renders in `MobileCombatSheet`, anchored above the bottom bar like the territory panel, with no backdrop: the territory that just changed hands is on screen while the dice are read. It reuses `CombatResultView` in a `compact` mode (smaller dice, losses on one line, Attack again and Blitz side by side, no Continue of its own), so every callout, the blitz breakdown, the fast-combat ordering of Attack again / Blitz and the lite-mode auto-advance are the desktop card's own. The sheet closes on its Done button (the one tap, counted as tier 2; the card's own Continue stays on the desktop), on Attack again / Blitz (an action, not a tap; the next result reopens it with fresh dice), on a map selection (the territory panel takes the same anchor) and when the phase or turn moves on. A new result replaces the one showing; nothing queues. Desktop keeps the modal.
+
+**History (phase 3).** When the viewer's turn ends, the round closes into `recapHistory`: the other players' entries gathered while the viewer waited, then the viewer's own turn as a row of its own, labelled by the turn the viewer played. `pushRecapRound` keeps the last ten and skips a round with no battles. The strip's sheet gains a range scrubber above the rows, oldest round at the left and Now at the right, with earlier/later buttons for one step at a time; the header names the round and how long ago it was. While a past round is selected the map pulses the territories the viewer lost in it, through the same `lossPulseTerritoryIds` the turn start uses. With nothing current to report but rounds to scrub, the pill stays alone in the corner, so the history is a tap away without a line over the map.
+
 **Phases.**
 
 | Phase | Scope |
 |---|---|
 | 1 (done) | R1–R10, R12 and R13: strip with watching/acting modes and the badge, sheet on tap, loss pulse on both maps, own-turn-only animations, theater off on phones, banner retired on phones, no own-turn summary modal on phones, zoom hidden on touch, bottom-bar label. |
 | 2 (done) | The `ActionNotification` toasts fold into the strip behind one priority order (`pickStripSlot`); every tap that closes something on a phone is tallied by tier and posted once per round as `turn_dismiss_taps` through `/analytics/ui-event`, target zero outside tier 1. |
-| 3 | Own attack result as an anchored sheet above the bar (keeps Attack again / Blitz); the strip gains a scrubbable history. |
+| 3 (done) | The own attack result is a sheet anchored above the bar (`MobileCombatSheet`): the same dice, callouts and Attack again / Blitz as the desktop card, with the map live behind it. The strip's sheet scrubs back through the last ten rounds, and the map pulses the scrubbed round's losses. |
 
 ### Implementation Steps
 
@@ -811,6 +815,8 @@ Tapping the line or the pill opens a half-height sheet (`mobile-sheet-above-nav`
 6. **Verify live.** Chromium at 390×844 with touch emulation against a real server: watching mode during AI turns, the line and red pulse at turn start after a loss, the pill after the first placement, no `+`/`−`, no theater.
 7. **Notices (phase 2).** `pickStripSlot` in `mobileOverlays.ts`; a `notice` prop on `MobileTurnStrip` fed from `GamePage`'s `notifState`, with `ActionNotification` rendered only off phones.
 8. **Dismiss telemetry (phase 2).** `dismissTaps.ts` (tiers, tally, event properties); `DismissReason` on `ActionModal`'s `onDismiss`; `GamePage` counts taps from the modal, "Skip all", the event card, the coach and the start briefing, and posts the round when the viewer's next turn begins and when the page is left; `turn_dismiss_taps` allowlisted in `analytics.routes.ts`.
+9. **Own attack sheet (phase 3).** `MobileCombatSheet.tsx` wrapping `CombatResultView compact`; `GamePage` routes the viewer's own result there on phones instead of the modal queue, and closes it on a selection or a phase/turn change.
+10. **History (phase 3).** `RecapRound` and `pushRecapRound` in `mobileOverlays.ts`; `GamePage` closes each round into `recapHistory` when the viewer's turn ends; `MobileTurnStrip` takes `history` and reports the scrubbed round's losses through `onScrub`, which `GamePage` feeds to `lossPulseTerritoryIds`.
 
 ### Files Changed
 
@@ -827,7 +833,8 @@ Tapping the line or the pill opens a half-height sheet (`mobile-sheet-above-nav`
 | `frontend/src/store/gameStore.ts` | `fromId`/`toId` on `CombatResult` |
 | `frontend/src/pages/GamePage.tsx` | Wiring above; shorter phase labels; phase 2: notices to the strip, dismiss-tap rounds |
 | `frontend/src/utils/dismissTaps.ts` | New (phase 2): dismiss tiers, tally, event properties |
-| `frontend/src/components/game/ActionModal.tsx` | Phase 2: `DismissReason` on `onDismiss` (timer and repeat attacks are not taps) |
+| `frontend/src/components/game/ActionModal.tsx` | Phase 2: `DismissReason` on `onDismiss` (timer and repeat attacks are not taps); phase 3: `compact` on `CombatResultView` |
+| `frontend/src/components/game/MobileCombatSheet.tsx` | New (phase 3): the own attack result anchored above the bar |
 | `backend/src/modules/analytics/analytics.routes.ts` | Phase 2: `turn_dismiss_taps` on the ui-event allowlist |
 
 ---
@@ -843,7 +850,7 @@ The recommended sequence accounts for dependency chains and impact:
 | **Sprint 3** | M-05, M-11 | Capacitor plugins installed together (one `cap sync`), haptics wired in. |
 | **Sprint 4** | M-06, M-07 | Landscape + keyboard — both require the hooks from Sprint 3 plugins. |
 | **Sprint 5** | M-08, M-09, M-10 | Polish items — lowest risk, lowest urgency. |
-| **Sprint 6** | M-12 (phases 1–2) | The in-game overlay budget: one strip, own-turn-only animations, map cues; then the toasts folded into the strip and the dismiss taps measured. Independent of the sprints above. |
+| **Sprint 6** | M-12 (phases 1–3) | The in-game overlay budget: one strip, own-turn-only animations, map cues; then the toasts folded into the strip and the dismiss taps measured; then the own attack result off the map and a scrubbable history. Independent of the sprints above. |
 
 ### Estimated Scope
 

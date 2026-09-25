@@ -65,7 +65,8 @@ import GameChat from '../components/game/GameChat';
 import MobileCardsTray from '../components/game/MobileCardsTray';
 import FirstTurnCoach from '../components/game/FirstTurnCoach';
 import MobileTurnStrip from '../components/game/MobileTurnStrip';
-import { keepsMapVisualOnPhone, lostTerritoryIds } from '../utils/mobileOverlays';
+import MobileCombatSheet from '../components/game/MobileCombatSheet';
+import { keepsMapVisualOnPhone, lostTerritoryIds, pushRecapRound, type RecapRound } from '../utils/mobileOverlays';
 import TerritoryPanel from '../components/game/TerritoryPanel';
 import { canUndoDraftOnTerritory } from '../utils/draftUndo';
 import TechTreeModal, { type TechNode } from '../components/game/TechTreeModal';
@@ -78,7 +79,7 @@ import {
 } from '../utils/strikeAnimationMessages';
 import EventCardModal, { type EventCard } from '../components/game/EventCardModal';
 import FeatureExplainerModal from '../components/ui/FeatureExplainerModal';
-import ActionModal, { ActionNotification, ModalData, NotificationData, ReinforcementEntry, FortifyEntry, GameOverModalData, EliminationModalData, DraftSummaryModalData, EraAdvanceModalData, isCriticalModal, DismissReason } from '../components/game/ActionModal';
+import ActionModal, { ActionNotification, ModalData, NotificationData, ReinforcementEntry, FortifyEntry, GameOverModalData, EliminationModalData, DraftSummaryModalData, EraAdvanceModalData, isCriticalModal, DismissReason, CombatModalData } from '../components/game/ActionModal';
 import TutorialOverlay from '../components/game/TutorialOverlay';
 import TutorialSettingsLab from '../components/game/TutorialSettingsLab';
 import {
@@ -890,6 +891,17 @@ export default function GamePage() {
   modalHeadRef.current = modalQueue[0] ?? null;
   /** Other players' turn recaps since my last turn — non-blocking panel, not modals. */
   const [aiRecaps, setAiRecaps] = useState<TurnRecapEntry[]>([]);
+  const aiRecapsRef = useRef<TurnRecapEntry[]>([]);
+  aiRecapsRef.current = aiRecaps;
+  /** Finished rounds, oldest first, for the phone strip's scrubbable history (M-12 phase 3). */
+  const [recapHistory, setRecapHistory] = useState<RecapRound[]>([]);
+  /** The turn number of the viewer's current turn, stamped as it begins; it labels the round when it ends. */
+  const myTurnNumberRef = useRef(0);
+  /** Territories the viewer lost in the round being scrubbed on the strip; null while not scrubbing. */
+  const [scrubLossIds, setScrubLossIds] = useState<string[] | null>(null);
+  /** The viewer's own attack result on a phone: a sheet above the bar, never a queued card (M-12 phase 3). */
+  const [ownCombatSheet, setOwnCombatSheet] = useState<{ data: CombatModalData; key: number } | null>(null);
+  const ownCombatSeq = useRef(0);
   /** Incoming attacks shown live during the attacker's turn (non-blocking dice theater). */
   const [defenderTheaterQueue, setDefenderTheaterQueue] = useState<CombatResult[]>([]);
 
@@ -1415,6 +1427,21 @@ export default function GamePage() {
               ? dropOwnCombats(q, combats)
               : replaceOwnCombatsWithSummary(q, combats, summary)));
           }
+          // The round closes: what the others did while the viewer waited,
+          // then what the viewer did, kept for the strip's history (M-12
+          // phase 3). Quiet own turns add no row; a round with nothing in it
+          // is skipped by pushRecapRound.
+          const roundTurn = myTurnNumberRef.current || state.turn_number;
+          const roundEntries: TurnRecapEntry[] = [...aiRecapsRef.current];
+          if (combats.length > 0) {
+            roundEntries.push({
+              playerName: myPlayerData?.username ?? prevPlayer.username,
+              playerColor: myPlayerData?.color ?? prevPlayer.color,
+              turnNumber: roundTurn,
+              combats,
+            });
+          }
+          setRecapHistory((h) => pushRecapRound(h, { turnNumber: roundTurn, entries: roundEntries }));
           ownTurnCombatsRef.current = [];
           ownTurnReinforcementsRef.current = [];
           ownTurnFortificationsRef.current = [];
@@ -1461,6 +1488,7 @@ export default function GamePage() {
         flushDismissRound(state);
         dismissRoundRef.current = { started: true, turn: state.turn_number };
       }
+      if (isMyTurn && (playerChanged || myTurnNumberRef.current === 0)) myTurnNumberRef.current = state.turn_number;
 
       if (
         !draftSummaryShownRef.current &&
@@ -1716,16 +1744,21 @@ export default function GamePage() {
 
       if (isMyAttack) {
         const card = ownAttackCardMode({ liteMode, canRepeatAttack });
-        setModalQueue(q => [
-          ...q,
-          {
-            type: 'combat' as const,
-            result: enriched,
-            perspective: 'attacker' as const,
-            ...(card.autoAdvance ? { autoAdvance: true } : {}),
-            ...(canRepeatAttack ? { repeatAttack: { fromId: data.fromId, toId: data.toId, blitzEligible: repeatBlitzEligible } } : {}),
-          },
-        ]);
+        const ownCard: CombatModalData = {
+          type: 'combat',
+          result: enriched,
+          perspective: 'attacker',
+          ...(card.autoAdvance ? { autoAdvance: true } : {}),
+          ...(canRepeatAttack ? { repeatAttack: { fromId: data.fromId, toId: data.toId, blitzEligible: repeatBlitzEligible } } : {}),
+        };
+        if (isMobileLayoutRef.current) {
+          // A phone reads the result on a sheet above the bar with the map
+          // live behind it (M-12 phase 3); the queue is for cards over the map.
+          ownCombatSeq.current += 1;
+          setOwnCombatSheet({ data: ownCard, key: ownCombatSeq.current });
+        } else {
+          setModalQueue(q => [...q, ownCard]);
+        }
         ownTurnCombatsRef.current.push(enriched);
       } else if (isMyDefense) {
         // Incoming attacks play as a live, auto-advancing dice theater during
@@ -3404,6 +3437,12 @@ export default function GamePage() {
     else dismissModal();
   }, [countDismissTap, dismissModal]);
 
+  /** The own-attack sheet closing: Continue is a tier-2 tap; the lite-mode timer and Attack again / Blitz are not. */
+  const handleOwnCombatSheetDismiss = useCallback((reason?: DismissReason) => {
+    if (reason !== 'auto' && reason !== 'action') countDismissTap(2);
+    setOwnCombatSheet(null);
+  }, [countDismissTap]);
+
   const handleRematch = useCallback(async (cfg: NonNullable<GameOverModalData['rematchConfig']>) => {
     try {
       const res = await api.post<{ game_id: string }>('/games', {
@@ -3719,10 +3758,22 @@ export default function GamePage() {
     ((gameState?.draft_deployments_this_turn?.length ?? 0) > 0 ||
       gameState?.phase === 'attack' ||
       gameState?.phase === 'fortify');
-  const lossPulseIds = useMemo(
-    () => (isMobileLayout && mobileIsMyTurn && !stripActed ? lostTerritoryIds(aiRecaps, mobileMyPlayer?.player_id ?? null) : NO_LOSS_IDS),
-    [isMobileLayout, mobileIsMyTurn, stripActed, aiRecaps, mobileMyPlayer?.player_id],
-  );
+  const lossPulseIds = useMemo(() => {
+    // Scrubbing the strip's history pulses that round's losses instead (M-12 phase 3).
+    if (isMobileLayout && scrubLossIds) return scrubLossIds;
+    return isMobileLayout && mobileIsMyTurn && !stripActed
+      ? lostTerritoryIds(aiRecaps, mobileMyPlayer?.player_id ?? null)
+      : NO_LOSS_IDS;
+  }, [isMobileLayout, scrubLossIds, mobileIsMyTurn, stripActed, aiRecaps, mobileMyPlayer?.player_id]);
+
+  // The own-attack sheet yields to the map: a territory tapped, or the phase
+  // or turn moving on, closes it with no tap to count.
+  useEffect(() => {
+    if (selectedTerritory) setOwnCombatSheet(null);
+  }, [selectedTerritory]);
+  useEffect(() => {
+    setOwnCombatSheet(null);
+  }, [gameState?.phase, gameState?.current_player_index]);
 
   // Auto-open cards tray when forced redemption (5+ cards)
   useEffect(() => {
@@ -4810,6 +4861,8 @@ export default function GamePage() {
               isMyTurn={mobileIsMyTurn}
               acted={stripActed}
               notice={notifState}
+              history={recapHistory}
+              onScrub={setScrubLossIds}
               onOpenFullLog={() => setMobileHudOpen(true)}
             />
           ) : (
@@ -5469,6 +5522,17 @@ export default function GamePage() {
         mapNameLookup={mapData}
         players={gameState?.players}
       />
+
+      {/* The viewer's own attack result on a phone: a sheet above the bar, the map live behind it (M-12 phase 3) */}
+      {isMobileLayout && (
+        <MobileCombatSheet
+          data={ownCombatSheet?.data ?? null}
+          viewKey={ownCombatSheet?.key}
+          onDismiss={handleOwnCombatSheetDismiss}
+          onRepeatCombat={handleAttack}
+          onBlitzCombat={handleBlitzAttack}
+        />
+      )}
 
       {/* Action Notification (auto-dismiss — reinforcements, fortify, phase changes).
           A phone shows it in the turn strip instead (M-12 phase 2). */}

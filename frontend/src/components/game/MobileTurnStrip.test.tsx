@@ -209,4 +209,64 @@ describe('MobileTurnStrip', () => {
       expect(screen.queryByTestId('turn-strip-notice')).toBeNull();
     });
   });
+
+  describe('history (phase 3)', () => {
+    const HISTORY = [
+      { turnNumber: 3, entries: [recap('Marshal Okonkwo', [combat({ attackerId: OTHER_AI, toId: 'hispania', toName: 'Hispania', territory_captured: true })], 3)] },
+      { turnNumber: 4, entries: [recap('Admiral Chen', [combat({ attackerId: AI, defenderId: OTHER_AI })], 4)] },
+    ];
+
+    it('keeps the pill alone when only history is left, and opens on the latest round', () => {
+      const onScrub = vi.fn();
+      strip({ recaps: [], history: HISTORY, isMyTurn: false, onScrub });
+      expect(screen.queryByTestId('turn-strip-line')).toBeNull();
+      fireEvent.click(screen.getByTestId('turn-strip-pill'));
+      expect(screen.getByTestId('turn-strip-sheet-title').textContent).toBe('Turn 4 · 1 turn ago');
+      expect(screen.getByText('Admiral Chen')).toBeTruthy();
+      expect(screen.queryByText('Marshal Okonkwo')).toBeNull();
+      expect((screen.getByTestId('turn-strip-scrubber') as HTMLInputElement).value).toBe('1');
+      // No losses of the viewer's in that round: nothing for the map to pulse.
+      expect(onScrub).toHaveBeenLastCalledWith([]);
+    });
+
+    it('scrubs to an earlier round, pulses its losses, and hands the map back on Now', () => {
+      const onScrub = vi.fn();
+      strip({ history: HISTORY, onScrub });
+      fireEvent.click(screen.getByTestId('turn-strip-line'));
+      // Something current: the sheet opens on Now.
+      const slider = screen.getByTestId('turn-strip-scrubber') as HTMLInputElement;
+      expect(slider.value).toBe('2');
+      expect(screen.getByTestId('turn-strip-sheet-title').textContent).toContain('While you were away');
+      expect(onScrub).toHaveBeenLastCalledWith(null);
+
+      fireEvent.change(slider, { target: { value: '0' } });
+      expect(screen.getByTestId('turn-strip-sheet-title').textContent).toBe('Turn 3 · 2 turns ago');
+      expect(screen.getByText('Marshal Okonkwo')).toBeTruthy();
+      expect(onScrub).toHaveBeenLastCalledWith(['hispania']);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Later turn' }));
+      expect(screen.getByTestId('turn-strip-sheet-title').textContent).toBe('Turn 4 · 1 turn ago');
+      fireEvent.click(screen.getByRole('button', { name: 'Later turn' }));
+      expect(screen.getByTestId('turn-strip-sheet-title').textContent).toContain('While you were away');
+      expect(onScrub).toHaveBeenLastCalledWith(null);
+      expect(screen.getByRole('button', { name: 'Later turn' })).toHaveProperty('disabled', true);
+    });
+
+    it('stops pulsing when the sheet closes', () => {
+      const onScrub = vi.fn();
+      strip({ history: HISTORY, onScrub });
+      fireEvent.click(screen.getByTestId('turn-strip-line'));
+      fireEvent.change(screen.getByTestId('turn-strip-scrubber'), { target: { value: '0' } });
+      expect(onScrub).toHaveBeenLastCalledWith(['hispania']);
+      fireEvent.click(screen.getAllByRole('button', { name: 'Close recap' })[0]);
+      expect(screen.queryByTestId('turn-strip-sheet')).toBeNull();
+      expect(onScrub).toHaveBeenLastCalledWith(null);
+    });
+
+    it('shows no scrubber without history', () => {
+      strip();
+      fireEvent.click(screen.getByTestId('turn-strip-line'));
+      expect(screen.queryByTestId('turn-strip-scrubber')).toBeNull();
+    });
+  });
 });

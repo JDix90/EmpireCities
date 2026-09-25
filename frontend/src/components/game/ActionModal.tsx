@@ -306,7 +306,14 @@ function getFastCombat(): boolean {
  * this keeps the dice inside the modal at any count on desktop and mobile.
  * Sized off the larger of the two sides so both columns stay symmetric.
  */
-function diceSizing(maxDice: number): { box: string; text: string; gap: string } {
+function diceSizing(maxDice: number, compact = false): { box: string; text: string; gap: string } {
+  if (compact) {
+    // The phone's anchored sheet (MobileCombatSheet): one step smaller so the
+    // roll, the outcome and the buttons fit above the bar with the map showing.
+    if (maxDice <= 4) return { box: 'w-10 h-10', text: 'text-lg', gap: 'gap-2' };
+    if (maxDice <= 6) return { box: 'w-9 h-9', text: 'text-base', gap: 'gap-1.5' };
+    return { box: 'w-8 h-8', text: 'text-sm', gap: 'gap-1' };
+  }
   if (maxDice <= 4) return { box: 'w-14 h-14', text: 'text-2xl', gap: 'gap-2.5' };
   if (maxDice <= 6) return { box: 'w-12 h-12', text: 'text-xl', gap: 'gap-2' };
   if (maxDice <= 8) return { box: 'w-10 h-10', text: 'text-lg', gap: 'gap-1.5' };
@@ -377,6 +384,7 @@ export function CombatResultView({
   hurry = false,
   onSkipAll,
   backlogCount = 0,
+  compact = false,
 }: {
   result: CombatResult;
   perspective?: 'attacker' | 'defender';
@@ -393,6 +401,8 @@ export function CombatResultView({
   onSkipAll?: () => void;
   /** How many items are piled up; gates the "Skip all" button. */
   backlogCount?: number;
+  /** Tighter spacing and smaller dice for a sheet anchored above a phone's bottom bar. */
+  compact?: boolean;
 }) {
   const [showResult, setShowResult] = useState(false);
   // A deep backlog drains at fast-combat speed even if the player hasn't opted
@@ -421,7 +431,7 @@ export function CombatResultView({
     return () => clearTimeout(timer);
   }, [autoAdvance, result, fast, onDismiss]);
 
-  const diceSize = diceSizing(Math.max(result.attacker_rolls.length, result.defender_rolls.length));
+  const diceSize = diceSizing(Math.max(result.attacker_rolls.length, result.defender_rolls.length), compact);
 
   const isDefending = perspective === 'defender';
   const headerLabel = isDefending ? 'Incoming Attack!' : perspective === 'attacker' ? 'Your Attack' : 'Battle';
@@ -432,13 +442,13 @@ export function CombatResultView({
   return (
     <div className="w-full min-w-0">
       {/* Header */}
-      <div className="text-center mb-8">
-        <div className={clsx('inline-flex items-center gap-2 px-5 py-2 rounded-full border mb-4', headerBg)}>
+      <div className={clsx('text-center', compact ? 'mb-3' : 'mb-8')}>
+        <div className={clsx('inline-flex items-center gap-2 rounded-full border', compact ? 'px-3 py-1 mb-1.5' : 'px-5 py-2 mb-4', headerBg)}>
           {isDefending ? <Shield className={clsx('w-4 h-4', headerIcon)} /> : <Sword className={clsx('w-4 h-4', headerIcon)} />}
           <span className={clsx('text-sm font-bold tracking-[0.2em] uppercase', headerText)}>{headerLabel}</span>
         </div>
         {result.fromName && result.toName && (
-          <p className="text-white/80 text-lg font-medium">
+          <p className={clsx('text-white/80 font-medium', compact ? 'text-sm' : 'text-lg')}>
             {result.fromName}
             <span className="text-white/30 mx-3">
               <ArrowRight className="w-4 h-4 inline" />
@@ -449,10 +459,10 @@ export function CombatResultView({
       </div>
 
       {/* Dice Area — dice scale + wrap so stacked-bonus rolls stay inside the modal */}
-      <div className="flex gap-4 mb-8">
+      <div className={clsx('flex', compact ? 'gap-3 mb-3' : 'gap-4 mb-8')}>
         {/* Attacker Column */}
         <div className="flex-1 min-w-0">
-          <p className="text-red-400 text-xs font-semibold uppercase tracking-widest mb-3 text-center">
+          <p className={clsx('text-red-400 text-xs font-semibold uppercase tracking-widest text-center', compact ? 'mb-1.5' : 'mb-3')}>
             {result.attackerName ?? 'Attacker'}
           </p>
           <div className={clsx('flex flex-wrap justify-center', diceSize.gap)}>
@@ -463,13 +473,13 @@ export function CombatResultView({
         </div>
 
         {/* VS */}
-        <div className="flex items-center pt-6">
-          <div className="w-px h-16 bg-gradient-to-b from-transparent via-white/20 to-transparent" />
+        <div className={clsx('flex items-center', compact ? 'pt-3' : 'pt-6')}>
+          <div className={clsx('w-px bg-gradient-to-b from-transparent via-white/20 to-transparent', compact ? 'h-10' : 'h-16')} />
         </div>
 
         {/* Defender Column */}
         <div className="flex-1 min-w-0">
-          <p className="text-blue-400 text-xs font-semibold uppercase tracking-widest mb-3 text-center">
+          <p className={clsx('text-blue-400 text-xs font-semibold uppercase tracking-widest text-center', compact ? 'mb-1.5' : 'mb-3')}>
             {result.defenderName ?? 'Defender'}
           </p>
           <div className={clsx('flex flex-wrap justify-center', diceSize.gap)}>
@@ -543,25 +553,25 @@ export function CombatResultView({
         )}
 
         {/* Losses */}
-        <div className="flex gap-3 mb-4">
+        <div className={clsx('flex', compact ? 'gap-2 mb-2' : 'gap-3 mb-4')}>
           {result.attacker_losses > 0 && (
-            <div className="flex-1 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-center">
-              <Skull className="w-4 h-4 mx-auto mb-1 text-red-400/70" />
+            <div className={clsx('flex-1 rounded-xl bg-red-500/10 border border-red-500/20 text-center', compact ? 'py-1.5 px-2 flex items-center justify-center gap-1.5' : 'p-3')}>
+              <Skull className={clsx('text-red-400/70', compact ? 'w-3.5 h-3.5' : 'w-4 h-4 mx-auto mb-1')} />
               <p className="text-red-300 text-sm font-semibold">
                 &minus;{result.attacker_losses} troop{result.attacker_losses > 1 ? 's' : ''}
               </p>
             </div>
           )}
           {result.defender_losses > 0 && (
-            <div className="flex-1 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-center">
-              <Skull className="w-4 h-4 mx-auto mb-1 text-blue-400/70" />
+            <div className={clsx('flex-1 rounded-xl bg-blue-500/10 border border-blue-500/20 text-center', compact ? 'py-1.5 px-2 flex items-center justify-center gap-1.5' : 'p-3')}>
+              <Skull className={clsx('text-blue-400/70', compact ? 'w-3.5 h-3.5' : 'w-4 h-4 mx-auto mb-1')} />
               <p className="text-blue-300 text-sm font-semibold">
                 &minus;{result.defender_losses} defender{result.defender_losses > 1 ? 's' : ''}
               </p>
             </div>
           )}
           {result.attacker_losses === 0 && result.defender_losses === 0 && (
-            <div className="flex-1 p-3 rounded-xl bg-white/5 border border-white/10 text-center">
+            <div className={clsx('flex-1 rounded-xl bg-white/5 border border-white/10 text-center', compact ? 'py-1.5 px-2' : 'p-3')}>
               <p className="text-white/50 text-sm">No losses</p>
             </div>
           )}
@@ -570,7 +580,8 @@ export function CombatResultView({
         {/* Territory Captured / Lost */}
         {result.territory_captured && (
           <div className={clsx(
-            'mb-5 p-4 rounded-xl border text-center',
+            compact ? 'mb-2 p-2' : 'mb-5 p-4',
+            'rounded-xl border text-center',
             isDefending
               ? 'bg-gradient-to-r from-red-500/15 via-red-500/20 to-red-500/15 border-red-500/30'
               : 'bg-gradient-to-r from-amber-500/15 via-yellow-500/20 to-amber-500/15 border-yellow-500/30 animate-capture-glow'
@@ -587,7 +598,7 @@ export function CombatResultView({
               ) : (
                 <>
                   <Crown className="w-5 h-5 text-yellow-400" />
-                  <span className="text-yellow-300 font-bold text-lg tracking-wide font-display">Territory Captured!</span>
+                  <span className={clsx('text-yellow-300 font-bold tracking-wide font-display', compact ? 'text-base' : 'text-lg')}>Territory Captured!</span>
                   <Crown className="w-5 h-5 text-yellow-400" />
                 </>
               )}
@@ -622,34 +633,39 @@ export function CombatResultView({
             The fast-combat preference decides whether one exchange or the
             blitz leads. */}
         {showResult && onRepeatAttack && repeatAttack && !result.territory_captured && perspective === 'attacker' && (
-          <div className={clsx('mb-3 flex gap-2', repeatAttack.blitzEligible && onBlitzAttack && getFastCombatPreference() ? 'flex-col-reverse' : 'flex-col')}>
+          <div
+            className={clsx(
+              'flex gap-2',
+              compact ? 'mb-1' : 'mb-3',
+              repeatAttack.blitzEligible && onBlitzAttack && getFastCombatPreference()
+                ? (compact ? 'flex-row-reverse' : 'flex-col-reverse')
+                : (compact ? 'flex-row' : 'flex-col'),
+            )}
+          >
             <button
               type="button"
               onClick={onRepeatAttack}
-              className="w-full py-3 rounded-xl bg-bf-gold/15 hover:bg-bf-gold/25 border border-bf-gold/40
-                         text-bf-gold font-medium transition-all duration-200
-                         flex items-center justify-center gap-2"
+              className={clsx(compact ? 'py-2.5 text-sm min-w-0' : 'py-3', 'w-full rounded-xl bg-bf-gold/15 hover:bg-bf-gold/25 border border-bf-gold/40 text-bf-gold font-medium transition-all duration-200 flex items-center justify-center gap-2')}
             >
-              <Sword className="w-4 h-4" />
-              Attack again (same battle)
+              <Sword className="w-4 h-4 shrink-0" />
+              {compact ? 'Attack again' : 'Attack again (same battle)'}
             </button>
             {repeatAttack.blitzEligible && onBlitzAttack && (
               <button
                 type="button"
                 onClick={onBlitzAttack}
-                className="w-full py-3 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-400/40
-                           text-red-300 font-medium transition-all duration-200
-                           flex items-center justify-center gap-2"
+                className={clsx(compact ? 'py-2.5 text-sm min-w-0' : 'py-3', 'w-full rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-400/40 text-red-300 font-medium transition-all duration-200 flex items-center justify-center gap-2')}
                 title="Attack repeatedly until the territory falls or you can no longer attack"
               >
-                ⚡ Blitz until captured
+                {compact ? '⚡ Blitz' : '⚡ Blitz until captured'}
               </button>
             )}
           </div>
         )}
 
-        {/* Continue (manual) / Skip hint (theater auto-advances on its own) */}
-        {autoAdvance ? (
+        {/* Continue (manual) / Skip hint (theater auto-advances on its own).
+            The phone's anchored sheet has its own Done button instead. */}
+        {!compact && (autoAdvance ? (
           <button
             type="button"
             onClick={() => onDismiss()}
@@ -664,9 +680,7 @@ export function CombatResultView({
             <button
               type="button"
               onClick={() => onDismiss()}
-              className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/[0.15] border border-white/10
-                         text-white font-medium transition-all duration-200
-                         flex items-center justify-center gap-2 group"
+              className={clsx(compact ? 'py-2.5' : 'py-3', 'w-full rounded-xl bg-white/10 hover:bg-white/[0.15] border border-white/10 text-white font-medium transition-all duration-200 flex items-center justify-center gap-2 group')}
             >
               Continue
               <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
@@ -685,7 +699,7 @@ export function CombatResultView({
               </button>
             )}
           </>
-        )}
+        ))}
       </div>
     </div>
   );

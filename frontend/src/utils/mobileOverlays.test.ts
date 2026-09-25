@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { CombatResult } from '../store/gameStore';
 import type { MapVisualEvent } from './mapVisualEvents';
 import type { TurnRecapEntry } from '../components/game/AiTurnRecapPanel';
-import { combatInvolves, keepsMapVisualOnPhone, lostTerritoryIds, pickStripSlot, summarizeRecapsForViewer } from './mobileOverlays';
+import { MAX_RECAP_ROUNDS, combatInvolves, keepsMapVisualOnPhone, lostTerritoryIds, pickStripSlot, pushRecapRound, summarizeRecapsForViewer } from './mobileOverlays';
 
 const ME = 'me';
 const AI = 'ai_1';
@@ -130,5 +130,31 @@ describe('pickStripSlot', () => {
 
   it('shows nothing with nothing to say', () => {
     expect(pickStripSlot({ ...quiet, recaps: false })).toBe('none');
+  });
+
+  it('keeps the pill alone when only history is left to scrub', () => {
+    expect(pickStripSlot({ ...quiet, recaps: false, history: true })).toBe('pill');
+    expect(pickStripSlot({ ...quiet, recaps: false, history: true, isMyTurn: false })).toBe('pill');
+    // Current recaps still win the line before the first move.
+    expect(pickStripSlot({ ...quiet, history: true })).toBe('recap');
+  });
+});
+
+describe('pushRecapRound', () => {
+  const round = (turnNumber: number) => ({ turnNumber, entries: [recap('Admiral Chen', [combat()], turnNumber)] });
+
+  it('appends newest last and skips a round with no battles', () => {
+    let h = pushRecapRound([], round(3));
+    h = pushRecapRound(h, { turnNumber: 4, entries: [] });
+    h = pushRecapRound(h, round(5));
+    expect(h.map((r) => r.turnNumber)).toEqual([3, 5]);
+  });
+
+  it('rolls the oldest off past the cap', () => {
+    let h: ReturnType<typeof pushRecapRound> = [];
+    for (let t = 1; t <= MAX_RECAP_ROUNDS + 3; t++) h = pushRecapRound(h, round(t));
+    expect(h).toHaveLength(MAX_RECAP_ROUNDS);
+    expect(h[0].turnNumber).toBe(4);
+    expect(h[h.length - 1].turnNumber).toBe(MAX_RECAP_ROUNDS + 3);
   });
 });
