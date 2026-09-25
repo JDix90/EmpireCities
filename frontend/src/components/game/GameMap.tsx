@@ -90,6 +90,15 @@ const COMMIT_RENDER_MS = 100;
 const COMMIT_FRAMES = 1;
 /** Phone budget: frames after the last pointer event of a gesture or a hover. */
 const POINTER_RENDER_MS = 600;
+/**
+ * The halo around a territory with a wonder, drawn in passes from wide and
+ * faint to narrow and stronger so it fades away from the territory's 4 px
+ * gold border rather than ending in a hard second band.
+ */
+const WONDER_GLOW_PASSES = [
+  { width: 18, alpha: 0.12 },
+  { width: 10, alpha: 0.3 },
+] as const;
 /** Phone budget: how often a running map re-checks whether it can stop. */
 const BUDGET_ACTIVITY_POLL_MS = 500;
 /** Where the ambient glow sits when drawn still under the phone budget: mid-pulse. */
@@ -229,6 +238,9 @@ export default function GameMap({
    */
   const drawnLookRef = useRef(new WeakMap<PIXI.Graphics, { look: string; rings?: [number, number][][] }>());
   const labelContainerRef = useRef<PIXI.Container | null>(null);
+  /** The wonder halos, one per territory that has held a wonder, above every territory shape. */
+  const wonderGlowLayerRef = useRef<PIXI.Container | null>(null);
+  const wonderGlowRef = useRef<Map<string, PIXI.Graphics>>(new Map());
   const unitBadgeLayerRef = useRef<PIXI.Container | null>(null);
   const unitBadgeMapRef = useRef<Map<string, { bg: PIXI.Graphics; text: PIXI.Text; holder: PIXI.Container }>>(new Map());
   const mapContainerRef = useRef<PIXI.Container | null>(null);
@@ -446,6 +458,10 @@ export default function GameMap({
     const effectsLayer = new PIXI.Container();
     effectsLayer.eventMode = 'none';
     effectsLayerRef.current = effectsLayer;
+    const wonderGlowLayer = new PIXI.Container();
+    wonderGlowLayer.eventMode = 'none';
+    wonderGlowLayerRef.current = wonderGlowLayer;
+    wonderGlowRef.current.clear();
     const turnGlowLayer = new PIXI.Container();
     turnGlowLayer.eventMode = 'none';
     turnGlowLayerRef.current = turnGlowLayer;
@@ -654,6 +670,9 @@ export default function GameMap({
       }
     }
 
+    // Above every territory shape, so a wonder's halo reads on all sides,
+    // whatever order its neighbours were drawn in.
+    mapContainer.addChild(wonderGlowLayer);
     mapContainer.addChild(turnGlowLayer);
     mapContainer.addChild(borderLayer);
     mapContainer.addChild(capitalLayer);
@@ -795,6 +814,8 @@ export default function GameMap({
       effectsLayerRef.current = null;
       buildingTextMapRef.current.clear();
       territoryGraphicsRef.current.clear();
+      wonderGlowLayerRef.current = null;
+      wonderGlowRef.current.clear();
       unitBadgeLayerRef.current = null;
       unitBadgeMapRef.current.clear();
     };
@@ -952,24 +973,29 @@ export default function GameMap({
                 ? 2.25
                 : 1.25;
       const seaFrontier = isSeaFrontier(territory.territory_id);
-      const look = `${fillColor}|${borderColor}|${adjacencyBorderWidth}|${seaFrontier}|${hasWonder}`;
+      const look = `${fillColor}|${borderColor}|${adjacencyBorderWidth}|${seaFrontier}`;
       const drawn = drawnLookRef.current.get(g);
       if (!drawn || drawn.look !== look || drawn.rings !== scaledRings) {
-        if (hasWonder) {
-          // Draw an extra golden ring behind the territory
-          g.clear();
-          for (const scaledPolygon of scaledRings) {
-            if (scaledPolygon.length < 3) continue;
-            g.lineStyle(4, HIGHLIGHT_PIXI.wonder, 0.75);
-            g.beginFill(0, 0);
-            g.moveTo(scaledPolygon[0][0], scaledPolygon[0][1]);
-            for (let i = 1; i < scaledPolygon.length; i++) g.lineTo(scaledPolygon[i][0], scaledPolygon[i][1]);
-            g.closePath();
-            g.endFill();
-          }
-        }
         drawTerritory(g, scaledRings, fillColor, borderColor, adjacencyBorderWidth, seaFrontier);
         drawnLookRef.current.set(g, { look, rings: scaledRings });
+      }
+
+      // The wonder's halo: its own Graphics in the layer above the territory
+      // shapes, since a ring drawn inside the shape would be cleared by every
+      // redraw of it and covered by the neighbours drawn after it.
+      let glow = wonderGlowRef.current.get(territory.territory_id);
+      if (hasWonder && !glow && wonderGlowLayerRef.current) {
+        glow = new PIXI.Graphics();
+        glow.eventMode = 'none';
+        wonderGlowLayerRef.current.addChild(glow);
+        wonderGlowRef.current.set(territory.territory_id, glow);
+      }
+      if (glow) {
+        if (hasWonder && drawnLookRef.current.get(glow)?.rings !== scaledRings) {
+          drawWonderGlow(glow, scaledRings);
+          drawnLookRef.current.set(glow, { look: 'wonder', rings: scaledRings });
+        }
+        glow.visible = hasWonder;
       }
 
       // ── Unit-count badge (Risk-style army counter at the territory center) ──
@@ -1479,6 +1505,20 @@ export default function GameMap({
       </MoonInsetFrame>
     </div>
   );
+}
+
+/** A wonder's halo: soft gold rings along the territory's outline, fading outwards. */
+function drawWonderGlow(g: PIXI.Graphics, rings: [number, number][][]): void {
+  g.clear();
+  for (const pass of WONDER_GLOW_PASSES) {
+    for (const points of rings) {
+      if (points.length < 3) continue;
+      g.lineStyle(pass.width, HIGHLIGHT_PIXI.wonder, pass.alpha);
+      g.moveTo(points[0][0], points[0][1]);
+      for (let i = 1; i < points.length; i++) g.lineTo(points[i][0], points[i][1]);
+      g.closePath();
+    }
+  }
 }
 
 function drawTerritory(
