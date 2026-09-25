@@ -40,6 +40,7 @@ import {
 } from '../utils/replayTimeLapse';
 import { isMobileViewport, prefersReducedMotion } from '../utils/device';
 import { isLiteMode } from '../utils/userPreferences';
+import { usePageFrameBudget } from '../hooks/useFrameBudget';
 import { inferWorldId } from '@borderfall/shared';
 import { getGalaxyWorldLore } from '../constants/galaxyLore';
 import { resolveGalaxyDrillDownGlobeSkin } from '../utils/galaxyGlobeSkin';
@@ -194,6 +195,13 @@ export default function ReplayPage() {
     onMapVisualDone,
     clearMapVisuals,
   } = useMapVisualEvents();
+  // The frame budget (docs/MOBILE_UX_PLAN.md M-14): a phone watching a replay
+  // gets the game page's 30 fps cap and maps that idle between frames of the
+  // replay, and steps down when it runs hot; battery saver does the same on
+  // any device.
+  const frameBudget = usePageFrameBudget();
+  // Lite mode's visual rules: the viewer's own setting, or the reduced tier.
+  const liteVisuals = isLiteMode() || frameBudget.reduced;
 
   const playbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -620,8 +628,8 @@ export default function ReplayPage() {
 
   const replayAmbientEnabled = useMemo(() => {
     if (!activeReplayState || activeReplayState.phase === 'game_over') return false;
-    return showMapAnimations && !prefersReducedMotion() && !isLiteMode();
-  }, [activeReplayState, showMapAnimations]);
+    return showMapAnimations && !prefersReducedMotion() && !liteVisuals;
+  }, [activeReplayState, showMapAnimations, liteVisuals]);
 
   const galaxyPulse = useGalaxyMapVisualPulse(
     mapVisualEvents,
@@ -780,7 +788,7 @@ export default function ReplayPage() {
   // Mirror GamePage's reduced-globe heuristic: low-power devices and motion-
   // averse users still get the globe, just without continuous spin/effects.
   const reducedGlobe =
-    prefersReducedMotion() || isLiteMode() || (isMobileViewport() && mapView === 'globe') || !showMapAnimations || speed >= 4;
+    prefersReducedMotion() || liteVisuals || (isMobileViewport() && mapView === 'globe') || !showMapAnimations || speed >= 4;
   const replayPhaseTintClass = phaseTintClass(currentState?.phase, replayAmbientEnabled && !reducedGlobe);
 
   return (
@@ -954,6 +962,8 @@ export default function ReplayPage() {
                 events={globeEvents}
                 onEventDone={onMapVisualDone}
                 reducedEffects={reducedGlobe}
+                frameBudget={frameBudget.active}
+                frameBudgetFps={frameBudget.fps}
                 autoSpin={!reducedGlobe}
                 ambientEnabled={replayAmbientEnabled && !reducedGlobe}
                 turnHolderPlayerId={replayTurnHolder?.player_id ?? null}
@@ -1000,6 +1010,7 @@ export default function ReplayPage() {
             mapVisualEvents={mapVisualEvents}
             onMapVisualDone={onMapVisualDone}
             reducedEffects={reducedGlobe}
+            frameBudget={frameBudget.active}
             ambientEnabled={replayAmbientEnabled && !reducedGlobe}
             turnHolderPlayerId={replayTurnHolder?.player_id ?? null}
             turnHolderColor={replayTurnHolder?.color}

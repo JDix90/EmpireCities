@@ -10,7 +10,7 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
 const pixi = vi.hoisted(() => {
-  const created = { graphics: 0, tickers: [] as FakeTicker[], apps: [] as FakeApplication[] };
+  const created = { graphics: 0, graphicsList: [] as FakeGraphics[], tickers: [] as FakeTicker[], apps: [] as FakeApplication[] };
 
   class Point {
     x = 0;
@@ -41,9 +41,16 @@ const pixi = vi.hoisted(() => {
     toGlobal<P>(p: P) { return p; }
   }
   class FakeGraphics extends FakeContainer {
+    /** How often it was cleared: each clear is a redraw PixiJS must triangulate again. */
+    clears = 0;
+    /** Pointer events it listens for: territory shapes are the ones with hover handlers. */
+    handlers: string[] = [];
+    clear() { this.clears += 1; return this; }
+    on(event?: string) { if (event) this.handlers.push(event); return this; }
     constructor() {
       super();
       created.graphics += 1;
+      created.graphicsList.push(this);
       // Every drawing call (lineStyle, beginFill, drawCircle, …) chains.
       return new Proxy(this, {
         get(target, prop, receiver) {
@@ -120,12 +127,13 @@ const earthIds: string[] = spaceAge.territories
   .filter((t: { region_id: string }) => t.region_id !== 'lunar_surface')
   .map((t: { territory_id: string }) => t.territory_id);
 
-function gameState(firstUnits = 3) {
+function gameState(firstUnits = 3, firstOwner?: string) {
   const territories: Record<string, { owner_id: string | null; unit_count: number }> = {};
   spaceAge.territories.forEach((t: { territory_id: string }, i: number) => {
     territories[t.territory_id] = { owner_id: i % 2 ? 'ai_1' : 'me', unit_count: 3 };
   });
   territories[earthIds[0]].unit_count = firstUnits;
+  if (firstOwner) territories[earthIds[0]].owner_id = firstOwner;
   return {
     game_id: 'g1', era: 'space_age', map_id: 'era_space_age', phase: 'attack', turn_number: 3,
     current_player_index: 1,
@@ -158,11 +166,22 @@ function el(props: MapProps = {}) {
   );
 }
 const mainApp = () => pixi.created.apps[0];
+/** Time passing at 30 frames a second: the app ticker ticks whenever it is running. */
+function run(ms: number) {
+  act(() => {
+    for (let t = 0; t < ms; t += 33) {
+      vi.advanceTimersByTime(Math.min(33, ms - t));
+      const app = mainApp();
+      if (app?.ticker.started) app.ticker.tick(1);
+    }
+  });
+}
 
 describe('GameMap under the phone frame budget', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     pixi.created.graphics = 0;
+    pixi.created.graphicsList.length = 0;
     pixi.created.tickers.length = 0;
     pixi.created.apps.length = 0;
     window.matchMedia = vi.fn().mockReturnValue({
@@ -190,47 +209,62 @@ describe('GameMap under the phone frame budget', () => {
   it('renders the first frames, then stops the ticker instead of drawing an unchanged map', () => {
     render(el());
     expect(mainApp().ticker.started).toBe(true);
-    act(() => { vi.advanceTimersByTime(400); });
+    run(400);
     expect(mainApp().ticker.started).toBe(false);
   });
 
-  it('wakes for a board change and idles again', () => {
+  it('wakes for a board change for two frames at 20 a second, and idles again', () => {
     render(el());
-    act(() => { vi.advanceTimersByTime(1000); });
+    run(1000);
     expect(mainApp().ticker.started).toBe(false);
     act(() => { useGameStore.setState({ gameState: gameState(7) as never }); });
     expect(mainApp().ticker.started).toBe(true);
-    act(() => { vi.advanceTimersByTime(400); });
+    // Every other player's move is a commit: 100 ms of frames, not 300 (M-14).
+    run(90);
+    expect(mainApp().ticker.started).toBe(true);
+    run(20);
+    expect(mainApp().ticker.started).toBe(false);
+  });
+
+  it('owes a change its frame when a slow task holds the first one past the deadline', () => {
+    render(el());
+    run(1000);
+    expect(mainApp().ticker.started).toBe(false);
+    act(() => { useGameStore.setState({ gameState: gameState(9) as never }); });
+    // No frame for 150 ms: the main thread was busy. The change is still owed its frame.
+    act(() => { vi.advanceTimersByTime(150); });
+    expect(mainApp().ticker.started).toBe(true);
+    run(60);
     expect(mainApp().ticker.started).toBe(false);
   });
 
   it('keeps rendering for the whole of a gesture, and stops soon after it ends', () => {
     render(el());
-    act(() => { vi.advanceTimersByTime(1000); });
+    run(1000);
     const view = mainApp().view;
     fireEvent.pointerDown(view, { pointerId: 1, clientX: 100, clientY: 100 });
     expect(mainApp().ticker.started).toBe(true);
-    act(() => { vi.advanceTimersByTime(3000); }); // a finger resting on the map
+    run(3000); // a finger resting on the map
     expect(mainApp().ticker.started).toBe(true);
     fireEvent.pointerMove(view, { pointerId: 1, clientX: 140, clientY: 120 });
     fireEvent.pointerUp(view, { pointerId: 1, clientX: 140, clientY: 120 });
-    act(() => { vi.advanceTimersByTime(1200); });
+    run(1200);
     expect(mainApp().ticker.started).toBe(false);
   });
 
   it('keeps rendering while the loss pulse animates, and stops once it clears', () => {
     const view = render(el());
     view.rerender(el({ lossPulseTerritoryIds: [earthIds[0]] }));
-    act(() => { vi.advanceTimersByTime(3000); });
+    run(3000);
     expect(mainApp().ticker.started).toBe(true);
     view.rerender(el({ lossPulseTerritoryIds: [] }));
-    act(() => { vi.advanceTimersByTime(1000); });
+    run(1000);
     expect(mainApp().ticker.started).toBe(false);
   });
 
   it('never stops the ticker on the desktop', () => {
     render(el({ frameBudget: false }));
-    act(() => { vi.advanceTimersByTime(5000); });
+    run(5000);
     expect(mainApp().ticker.started).toBe(true);
   });
 
@@ -241,7 +275,7 @@ describe('GameMap under the phone frame budget', () => {
     it('is drawn still on a phone: no endless shimmer loop', () => {
       render(el(ambient));
       expect(standaloneRunning()).toHaveLength(0);
-      act(() => { vi.advanceTimersByTime(1000); });
+      run(1000);
       expect(mainApp().ticker.started).toBe(false);
     });
 
@@ -253,6 +287,43 @@ describe('GameMap under the phone frame budget', () => {
       const before = pixi.created.graphics;
       for (let i = 0; i < 10; i++) shimmer.tick(1);
       expect(pixi.created.graphics).toBe(before);
+    });
+  });
+
+  describe('redraws only what changed (M-14)', () => {
+    const territoryShapes = () => pixi.created.graphicsList.filter((g) => g.handlers.includes('pointerover'));
+    const clears = (gs: Array<{ clears: number }>) => gs.reduce((n, g) => n + g.clears, 0);
+
+    it('leaves every shape alone when only a unit count changes', () => {
+      render(el());
+      const shapes = territoryShapes();
+      expect(shapes.length).toBeGreaterThan(40);
+      const beforeShapes = clears(shapes);
+      const beforeAll = clears(pixi.created.graphicsList);
+      act(() => { useGameStore.setState({ gameState: gameState(9) as never }); });
+      expect(clears(shapes)).toBe(beforeShapes);
+      // The unit badges' circles too: the count is text, the circle did not change.
+      expect(clears(pixi.created.graphicsList)).toBe(beforeAll);
+    });
+
+    it('redraws the territory that changed hands and the frontline around it, not the whole map', () => {
+      render(el());
+      const shapes = territoryShapes();
+      const before = shapes.map((g) => g.clears);
+      act(() => { useGameStore.setState({ gameState: gameState(3, 'ai_1') as never }); });
+      const redrawn = shapes.filter((g, i) => g.clears > before[i]).length;
+      expect(redrawn).toBeGreaterThan(0);
+      expect(redrawn).toBeLessThan(shapes.length / 3);
+    });
+
+    it('draws every shape of a rebuilt scene', () => {
+      const view = render(el());
+      const firstScene = pixi.created.graphicsList.length;
+      view.rerender(el({ width: 420 }));
+      const rebuilt = territoryShapes().filter((g) => pixi.created.graphicsList.indexOf(g) >= firstScene);
+      expect(rebuilt.length).toBeGreaterThan(40);
+      // Drawn blank when created, then again in its owner's colours.
+      expect(rebuilt.every((g) => g.clears >= 2)).toBe(true);
     });
   });
 });
