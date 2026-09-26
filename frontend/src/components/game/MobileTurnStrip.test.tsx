@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import MobileTurnStrip from './MobileTurnStrip';
 import type { TurnRecapEntry } from './AiTurnRecapPanel';
-import type { CombatResult } from '../../store/gameStore';
+import { useGameStore, type CombatResult, type GameState } from '../../store/gameStore';
+import { useFeatureFlagsStore } from '../../store/featureFlagsStore';
 
 const ME = 'me';
 const AI = 'ai_1';
@@ -115,6 +116,34 @@ describe('MobileTurnStrip', () => {
       expect(live.textContent).toContain('Lost!');
       act(() => { vi.advanceTimersByTime(6100); });
       expect(screen.queryByTestId('turn-strip-live')).toBeNull();
+    });
+
+    it('rolls each side in its dice skin (store_v2_enabled), plain otherwise', () => {
+      const players = [
+        { player_id: AI, cosmetics: undefined },
+        { player_id: ME, cosmetics: { dice: 'bone_dice' } },
+      ];
+      useGameStore.setState({ gameState: { players } as unknown as GameState });
+      const setStoreV2 = (on: boolean) =>
+        useFeatureFlagsStore.setState((st) => ({ flags: { ...st.flags, store_v2_enabled: on } }));
+      const live = () => (
+        <MobileTurnStrip recaps={[]} viewerPlayerId={ME} liveCombat={combat()} isMyTurn={false} acted={false} onOpenFullLog={() => {}} />
+      );
+      try {
+        setStoreV2(true);
+        const { unmount } = render(live());
+        // The AI attacker wears nothing; the viewer defends in bone dice.
+        expect(screen.getAllByTestId('skinned-die')).toHaveLength(1);
+        expect(screen.getByTestId('skinned-die')).toHaveClass('ring-blue-500/80');
+        unmount();
+
+        setStoreV2(false);
+        render(live());
+        expect(screen.queryAllByTestId('skinned-die')).toHaveLength(0);
+      } finally {
+        setStoreV2(false);
+        useGameStore.setState({ gameState: null });
+      }
     });
 
     it('ignores a fight between two other players', () => {

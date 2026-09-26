@@ -5,6 +5,7 @@ import BannerTag from './BannerTag';
 import CosmeticGlyph from './CosmeticGlyph';
 import FrameRing from './FrameRing';
 import { diceEffectClass, diceFaceStyle } from './diceSkin';
+import { useCosmeticMotion } from './useCosmetics';
 
 /**
  * How an item looks when worn: a frame around an avatar, a banner's tag, a
@@ -25,6 +26,7 @@ export default function CosmeticPreview({
   className?: string;
 }) {
   const look = cosmeticLook(cosmeticId);
+  const motion = useCosmeticMotion();
   if (!look || COSMETIC_TYPE_KIND[type] !== look.kind) return null;
 
   let body: React.ReactNode;
@@ -57,7 +59,7 @@ export default function CosmeticPreview({
         <span
           className={clsx(
             'flex h-11 w-11 items-center justify-center rounded-xl font-mono text-xl font-bold',
-            diceEffectClass(look, false),
+            motion && diceEffectClass(look, false),
           )}
           style={diceFaceStyle(look)}
         >

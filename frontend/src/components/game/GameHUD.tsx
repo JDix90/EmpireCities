@@ -14,6 +14,10 @@ import { PhaseProgressBar } from './PhaseProgressBar';
 import { useTurnClarityEnabled } from '../../store/featureFlagsStore';
 import { getEraIdForAdvancementIndex } from '../../utils/eraAdvancement';
 import { AiBadge } from '../ui/AiBadge';
+import { diceLook } from '@borderfall/shared';
+import SkinnedMiniDie from '../cosmetics/SkinnedMiniDie';
+import { FramedDot, PlayerBannerTag } from '../cosmetics/PlayerFlair';
+import { usePlayerCosmetics } from '../cosmetics/useCosmetics';
 import { getSocket } from '../../services/socket';
 import { ARMED_BUFF_LABELS, getAbilityUiDef } from '../../utils/abilityActivationFeedback';
 import { getPlayerGlobalAbilities } from '../../utils/playerAbilities';
@@ -184,6 +188,10 @@ export default function GameHUD({
     draftUnitsRemaining,
     resolvedViewerPlayerId ?? null,
   );
+  // The last battle's dice, each side in its player's skin (store_v2_enabled).
+  const cosmeticsOf = usePlayerCosmetics();
+  const attackerDiceSkin = diceLook(cosmeticsOf(lastCombatResult?.attackerId)?.dice);
+  const defenderDiceSkin = diceLook(cosmeticsOf(lastCombatResult?.defenderId)?.dice);
   const attackerFactionBonus = lastCombatResult?.attacker_bonus_breakdown?.faction ?? 0;
   const defenderFactionBonus = lastCombatResult?.defender_bonus_breakdown?.faction ?? 0;
   const myFactionTriggeredAsAttacker =
@@ -670,10 +678,12 @@ export default function GameHUD({
                   player.is_eliminated && 'opacity-40'
                 )}
               >
-                <div
-                  className="w-3 h-3 rounded-full shrink-0"
-                  style={{ backgroundColor: player.color }}
-                />
+                <FramedDot playerId={player.player_id}>
+                  <div
+                    className="w-3 h-3 rounded-full shrink-0"
+                    style={{ backgroundColor: player.color }}
+                  />
+                </FramedDot>
                 <span className={clsx(
                   'flex-1 flex items-center gap-1.5 min-w-0',
                   player.player_id === user?.user_id ? 'text-bf-gold font-medium' : 'text-bf-text'
@@ -682,6 +692,7 @@ export default function GameHUD({
                   {player.is_away
                     ? <AiBadge away size="xs" showLabel={false} />
                     : player.is_ai && <AiBadge difficulty={player.ai_difficulty} size="xs" showLabel={false} />}
+                  <PlayerBannerTag playerId={player.player_id} />
                 </span>
                 <span className="text-bf-muted text-xs">{player.territory_count}T</span>
                 {gameState.settings.era_advancement_enabled && !player.is_eliminated && (
@@ -722,7 +733,9 @@ export default function GameHUD({
                   <p className="text-bf-muted mb-0.5">{lastCombatResult.attackerName ?? 'Attacker'}</p>
                   <div className="flex gap-1">
                     {lastCombatResult.attacker_rolls.map((roll, i) => (
-                      <span key={i} className="inline-flex items-center justify-center w-5 h-5 rounded bg-red-500/20 text-red-400 font-mono text-xs font-bold">{roll}</span>
+                      attackerDiceSkin
+                        ? <SkinnedMiniDie key={i} value={roll} look={attackerDiceSkin} side="attacker" className="w-5 h-5 text-xs" />
+                        : <span key={i} className="inline-flex items-center justify-center w-5 h-5 rounded bg-red-500/20 text-red-400 font-mono text-xs font-bold">{roll}</span>
                     ))}
                   </div>
                   {lastCombatResult.attacker_losses > 0 && (
@@ -734,7 +747,9 @@ export default function GameHUD({
                   <p className="text-bf-muted mb-0.5">{lastCombatResult.defenderName ?? 'Defender'}</p>
                   <div className="flex gap-1">
                     {lastCombatResult.defender_rolls.map((roll, i) => (
-                      <span key={i} className="inline-flex items-center justify-center w-5 h-5 rounded bg-blue-500/20 text-blue-400 font-mono text-xs font-bold">{roll}</span>
+                      defenderDiceSkin
+                        ? <SkinnedMiniDie key={i} value={roll} look={defenderDiceSkin} side="defender" className="w-5 h-5 text-xs" />
+                        : <span key={i} className="inline-flex items-center justify-center w-5 h-5 rounded bg-blue-500/20 text-blue-400 font-mono text-xs font-bold">{roll}</span>
                     ))}
                   </div>
                   {lastCombatResult.defender_losses > 0 && (

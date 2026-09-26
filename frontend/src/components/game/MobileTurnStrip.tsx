@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, ChevronLeft, ChevronRight, ChevronUp, History, Shield, Sword, Swords, X } from 'lucide-react';
 import clsx from 'clsx';
 import type { CombatResult } from '../../store/gameStore';
+import { diceLook } from '@borderfall/shared';
+import SkinnedMiniDie from '../cosmetics/SkinnedMiniDie';
+import { usePlayerCosmetics } from '../cosmetics/useCosmetics';
 import { RecapEntryList, type TurnRecapEntry } from './AiTurnRecapPanel';
 import type { NotificationData } from './ActionModal';
 import { combatInvolves, lostTerritoryIds, pickStripSlot, summarizeRecapsForViewer, type RecapRound } from '../../utils/mobileOverlays';
@@ -77,6 +80,10 @@ export default function MobileTurnStrip({
   const [scrubPos, setScrubPos] = useState(0);
   const [openEntries, setOpenEntries] = useState<Record<string, boolean>>({});
   const [live, setLive] = useState<CombatResult | null>(null);
+  // The live battle's dice, each side in its player's skin (store_v2_enabled).
+  const cosmeticsOf = usePlayerCosmetics();
+  const attackerDiceSkin = diceLook(cosmeticsOf(live?.attackerId)?.dice);
+  const defenderDiceSkin = diceLook(cosmeticsOf(live?.defenderId)?.dice);
   const liveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seenLiveRef = useRef<CombatResult | null>(null);
   const [shownNotice, setShownNotice] = useState<StripNotice | null>(null);
@@ -310,11 +317,15 @@ export default function MobileTurnStrip({
             </span>
             <span className="flex items-center gap-0.5 shrink-0" aria-label="Dice">
               {live.attacker_rolls.map((r, i) => (
-                <span key={`a${i}`} className="inline-flex items-center justify-center w-4 h-4 rounded bg-red-500/20 text-red-400 font-mono text-[10px] font-bold">{r}</span>
+                attackerDiceSkin
+                  ? <SkinnedMiniDie key={`a${i}`} value={r} look={attackerDiceSkin} side="attacker" className="w-4 h-4 text-[10px]" />
+                  : <span key={`a${i}`} className="inline-flex items-center justify-center w-4 h-4 rounded bg-red-500/20 text-red-400 font-mono text-[10px] font-bold">{r}</span>
               ))}
               <span className="text-bf-muted mx-0.5">·</span>
               {live.defender_rolls.map((r, i) => (
-                <span key={`d${i}`} className="inline-flex items-center justify-center w-4 h-4 rounded bg-blue-500/20 text-blue-400 font-mono text-[10px] font-bold">{r}</span>
+                defenderDiceSkin
+                  ? <SkinnedMiniDie key={`d${i}`} value={r} look={defenderDiceSkin} side="defender" className="w-4 h-4 text-[10px]" />
+                  : <span key={`d${i}`} className="inline-flex items-center justify-center w-4 h-4 rounded bg-blue-500/20 text-blue-400 font-mono text-[10px] font-bold">{r}</span>
               ))}
             </span>
             <span className={clsx('shrink-0 font-medium', live.territory_captured ? 'text-red-400' : 'text-bf-text')}>

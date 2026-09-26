@@ -181,6 +181,18 @@ export const COSMETIC_LOOKS: Readonly<Record<string, CosmeticLook>> = {
   marker_emperor: { kind: 'marker', glyph: 'crown', color: '#c084fc' },
 };
 
+/**
+ * What a player wears in a match: the ids of the slots they have filled.
+ * Taken when the game starts (with store_v2_enabled on) and fixed for its
+ * length; absent for AI seats and for players wearing nothing.
+ */
+export interface PlayerCosmetics {
+  frame?: string;
+  banner?: string;
+  marker?: string;
+  dice?: string;
+}
+
 /** The look for `id`, or null when it has none. */
 export function cosmeticLook(id: string | null | undefined): CosmeticLook | null {
   if (!id || !Object.prototype.hasOwnProperty.call(COSMETIC_LOOKS, id)) return null;

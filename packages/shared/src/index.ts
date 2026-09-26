@@ -33,6 +33,7 @@ export {
   type DiceLook,
   type FrameLook,
   type MarkerLook,
+  type PlayerCosmetics,
   COSMETIC_GLYPHS,
   COSMETIC_LOOKS,
   COSMETIC_TYPE_KIND,

@@ -1,6 +1,7 @@
 import React from 'react';
 import clsx from 'clsx';
 import { frameLook } from '@borderfall/shared';
+import { useCosmeticMotion } from './useCosmetics';
 
 /**
  * A frame's ring around an avatar. The padding is there with or without a
@@ -18,6 +19,7 @@ export default function FrameRing({
   className?: string;
 }) {
   const look = frameLook(frameId);
+  const motion = useCosmeticMotion();
   return (
     <div
       className={clsx('relative inline-flex shrink-0 rounded-full', className)}
@@ -27,7 +29,7 @@ export default function FrameRing({
         <div
           aria-hidden="true"
           data-testid="frame-ring"
-          className={clsx('absolute inset-0 rounded-full', look.motion === 'spin' && 'animate-frame-spin')}
+          className={clsx('absolute inset-0 rounded-full', motion && look.motion === 'spin' && 'animate-frame-spin')}
           style={{
             background: `linear-gradient(90deg, ${look.ring.join(', ')})`,
             boxShadow: look.glow ? `0 0 10px ${look.glow}` : undefined,

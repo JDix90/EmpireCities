@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { PublicDailyPuzzleV2 } from '../utils/dailyPuzzleV2';
-import type { GamePhase, WorldModifiers, WorldRules } from '@borderfall/shared';
+import type { GamePhase, PlayerCosmetics, WorldModifiers, WorldRules } from '@borderfall/shared';
 import { useUiStore } from './uiStore';
 
 /**
@@ -61,6 +61,8 @@ export interface PlayerState {
   mmr: number;
   capital_territory_id?: string | null;
   secret_mission?: SecretMissionPayload | null;
+  /** What the player wears in this match (store_v2_enabled); absent for AI and plain players. */
+  cosmetics?: PlayerCosmetics;
   /**
    * Galactic Age Lane Sovereignty: consecutive turn starts this player has held
    * the corridor bar. Server-ticked; the HUD reads it beside its own live count.

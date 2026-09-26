@@ -3,7 +3,7 @@ import * as PIXI from 'pixi.js';
 import { useGameStore } from '../../store/gameStore';
 import { useUiStore } from '../../store/uiStore';
 import { scalePolygon } from '../../services/mapService';
-import { inferWorldId } from '@borderfall/shared';
+import { inferWorldId, markerLook } from '@borderfall/shared';
 import {
   filterMapToWorld,
   orbitStubsForWorld,
@@ -42,6 +42,8 @@ import { createRenderWake, type RenderWake } from '../../utils/renderWake';
 import { subscribeUserPreferences } from '../../utils/userPreferences';
 import { fortifyTraversalFilter, type FrontendMapData } from '../../utils/orbitAccess';
 import MoonInsetFrame from './MoonInsetFrame';
+import { usePlayerCosmetics } from '../cosmetics/useCosmetics';
+import { markerSvgDataUrl } from '../cosmetics/markerSvg';
 import {
   shouldEmphasizeAdjacencyBorders,
   shouldRenderConnectionArcs,
@@ -74,6 +76,17 @@ interface GameMapData {
   connections: MapConnection[];
   regions?: Array<{ region_id: string; name: string; bonus: number }>;
 }
+
+/**
+ * A capital's map marker pip: where it sits from the territory centre (the
+ * unit badge's top-right; the badge is centred 8px below), its radius, and the
+ * glyph drawn on it.
+ */
+const CAPITAL_MARKER_OFFSET = { x: 11, y: -3 };
+const CAPITAL_MARKER_RADIUS = 8;
+const CAPITAL_MARKER_GLYPH_PX = 12;
+/** The glyph's SVG is rasterised this large and scaled down, so it stays crisp when zoomed. */
+const CAPITAL_MARKER_TEXTURE_PX = 64;
 
 /**
  * Phone budget (M-13 phase 2): how long the map keeps rendering after a commit
@@ -242,6 +255,8 @@ export default function GameMap({
   const wonderGlowLayerRef = useRef<PIXI.Container | null>(null);
   const wonderGlowRef = useRef<Map<string, PIXI.Graphics>>(new Map());
   const unitBadgeLayerRef = useRef<PIXI.Container | null>(null);
+  /** Map markers on capitals (store_v2_enabled): above the unit badges, so they aren't hidden under one. */
+  const capitalMarkerLayerRef = useRef<PIXI.Container | null>(null);
   const unitBadgeMapRef = useRef<Map<string, { bg: PIXI.Graphics; text: PIXI.Text; holder: PIXI.Container }>>(new Map());
   const mapContainerRef = useRef<PIXI.Container | null>(null);
   const capitalLayerRef = useRef<PIXI.Container | null>(null);
@@ -451,6 +466,10 @@ export default function GameMap({
     unitBadgeLayerRef.current = unitBadgeLayer;
     labelContainer.addChild(unitBadgeLayer);
     unitBadgeMapRef.current.clear();
+    const capitalMarkerLayer = new PIXI.Container();
+    capitalMarkerLayer.eventMode = 'none';
+    capitalMarkerLayerRef.current = capitalMarkerLayer;
+    labelContainer.addChild(capitalMarkerLayer);
     const buildingLayer = new PIXI.Container();
     buildingLayer.eventMode = 'none';
     buildingLayerRef.current = buildingLayer;
@@ -818,14 +837,18 @@ export default function GameMap({
       wonderGlowRef.current.clear();
       unitBadgeLayerRef.current = null;
       unitBadgeMapRef.current.clear();
+      capitalMarkerLayerRef.current = null;
     };
   }, [mapData, canvasW, canvasH, width, height, ringsFor, territoryCenter]);
 
   // Capital markers (2D map)
+  const cosmeticsOf = usePlayerCosmetics();
   useEffect(() => {
     const layer = capitalLayerRef.current;
     if (!layer || !gameState) return;
     layer.removeChildren();
+    const markerLayer = capitalMarkerLayerRef.current;
+    markerLayer?.removeChildren();
     for (const player of gameState.players) {
       const capId = player.capital_territory_id;
       if (!capId) continue;
@@ -844,8 +867,34 @@ export default function GameMap({
       g.closePath();
       g.endFill();
       layer.addChild(g);
+
+      // The owner's map marker (store_v2_enabled): a gold-rimmed pip in their
+      // colour, pinned to the unit badge's top-right so the count can't hide it.
+      const marker = markerLook(cosmeticsOf(player.player_id)?.marker);
+      if (!marker || !markerLayer) continue;
+      const px = cx + CAPITAL_MARKER_OFFSET.x;
+      const py = cy + CAPITAL_MARKER_OFFSET.y;
+      const pip = new PIXI.Graphics();
+      pip.lineStyle(1.5, 0xffd700, 1);
+      pip.beginFill(fill, 0.95);
+      pip.drawCircle(px, py, CAPITAL_MARKER_RADIUS);
+      pip.endFill();
+      markerLayer.addChild(pip);
+      const texture = PIXI.Texture.from(markerSvgDataUrl(marker, CAPITAL_MARKER_TEXTURE_PX));
+      if (!texture.baseTexture.valid) {
+        // The SVG loads asynchronously; draw it once it has.
+        texture.baseTexture.once('loaded', () => {
+          if (frameBudgetRef.current) renderWakeRef.current?.wake(COMMIT_RENDER_MS, COMMIT_FRAMES);
+        });
+      }
+      const glyph = new PIXI.Sprite(texture);
+      glyph.anchor.set(0.5);
+      glyph.position.set(px, py);
+      // Scale, not width/height: the texture is 1×1 until its SVG loads.
+      glyph.scale.set(CAPITAL_MARKER_GLYPH_PX / CAPITAL_MARKER_TEXTURE_PX);
+      markerLayer.addChild(glyph);
     }
-  }, [gameState, mapData, canvasW, canvasH, width, height, territoryCenter]);
+  }, [gameState, mapData, canvasW, canvasH, width, height, territoryCenter, cosmeticsOf]);
 
   const adjacencyTargets = useMemo(() => {
     if (!gameState) return new Set<string>();

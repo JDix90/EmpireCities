@@ -244,7 +244,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'store_v2_enabled',
     label: 'Store overhaul',
     description:
-      'A banner slot separate from the frame, unequipping, and every equipped frame and banner drawn on the profile, with previews in My Loadout. Off by default (dark launch) \u2014 off is the store, profiles and matches exactly as before.',
+      'A banner slot separate from the frame, unequipping, and every equipped cosmetic shown where players see each other: frames and banners on the profile and beside names in matches, dice skins in combat, map markers on capitals. A match takes its players\u2019 cosmetics when it starts; switching this off hides them at once, running games included. Off by default (dark launch) \u2014 off is the store, profiles and matches exactly as before.',
   },
   {
     key: 'localization_enabled',
