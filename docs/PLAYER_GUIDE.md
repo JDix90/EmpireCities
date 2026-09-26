@@ -101,6 +101,7 @@ The host selects one or more victory conditions at game creation. The first play
 | **Threshold** | Own ≥ X% of all territories (percentage set by host, e.g., 70%) |
 | **Capital Capture** | Each player starts with a capital territory. Capture your own + all opponents' capitals |
 | **Secret Mission** | Each player receives a hidden objective at game start |
+| **Lunar Hegemony** (Space Age only) | Hold all 9 lunar territories at the end of 7 of your own turns in a row. Not a lobby choice — every Space Age game has it; see [The Moon and victory](#the-moon-and-victory) |
 
 **Secret Mission types:**
 - **Capture territories** — Conquer 2 specific enemy territories
@@ -403,6 +404,8 @@ When the era allows influence, valid targets must lie within **N hops** along ma
 
 The Space Age board is two worlds: 54 Earth territories and **9 lunar ones**. The Moon starts **neutral and garrisoned for everybody** — 4 units on each of the three tiles that sit on an authored orbit lane, 6 on each interior tile. Nobody is dealt a lunar territory at setup, not even the Lunar Pioneers; the Moon is a prize you conquer.
 
+In game, the start briefing's **In this era** section sums the era up in a few lines, and **How the Space Age works** explains the rest. The guide opens by itself after your first Space Age briefing, and afterwards from the link on the Space Program panel. Both are written from your game's own settings, so they only describe the rules that game runs.
+
 ### The Space Program ladder
 
 | Step | What you do | Cost |
@@ -422,6 +425,8 @@ The gate is re-checked on **every** action, and it asks for three things at that
 1. **Lunar Expansion** researched, **and**
 2. a **Launch Pad** on a territory you currently own, **and**
 3. either a **launched Space Station** or the **Space Elevator** wonder.
+
+**Once a rival has landed, the gate gets cheaper.** The moment any other player holds even one lunar territory, the Moon is *contested*, and your requirement drops to just **Spaceport Infrastructure + a Launch Pad** — steps 3 and 4. The first player up earns a head start, not a fortress: without this, breaking a rival's Lunar Hegemony would cost as much as discovering the Moon did. The tracker shows the shorter list while it applies, and the full ladder comes back if the rivals are driven off the Moon.
 
 ### A Launch Pad opens its own lane to the Moon
 
@@ -445,7 +450,7 @@ The era wonder, **Space Elevator** (25 💰), replaces step 6 only: with it stan
 
 ### Lunar Pioneers
 
-The Lunar Pioneers skip the ladder entirely: they have **Moon access from turn one** — no tech, no Launch Pad, no launch. They still need a *lane*, though. Their Earth home is Oceania, so unless they take one of the three spaceports they will still want Spaceport Infrastructure and a Launch Pad to open a route. Once they are up there, they defend Moon territories with **+2 dice** and can drop 2 units into any Moon territory they own each turn (**Lunar Supply Drop**).
+The Lunar Pioneers skip the ladder entirely: they have **Moon access from turn one** — no tech, no launch. They still need a *lane*, and they start with one: with Economy & Buildings on, the faction begins with a **Launch Pad** on its best-connected home territory, and that pad opens its own lane to the Moon. (With the economy off there are no buildings, so they need one of the three spaceports.) Once they are up there, they defend Moon territories with **+2 dice** and can drop 2 units into any Moon territory they own each turn (**Lunar Supply Drop**).
 
 ### Losing your last Launch Pad
 
@@ -465,13 +470,33 @@ Access is a live check, not a permanent unlock. Lose your last Launch Pad and it
 
 Rebuild a Launch Pad anywhere on Earth and access comes straight back; your station launch is remembered for the rest of the game.
 
+### Helium-3 and the orbital powers
+
+Each Moon territory mines **1 Helium-3 (He-3)** at the start of your turn, and the two polar basins mine **2** — 11 a turn for the whole Moon. You can bank up to **30**; the HUD shows your stock. Spend it on:
+
+| Power | What it does | Cost | Needs |
+|-------|--------------|------|-------|
+| **Lunar Export** | Trades He-3 for tech points, one for one | up to 5 He-3 a turn | a Moon territory |
+| **Orbital Drop** | 3 units onto any territory you own, anywhere on the board | 8 He-3 | 3 Moon territories |
+| **Drop Assault** | Mark an Earth territory you don't hold; 3 units land and attack it at the start of your next turn. Everyone sees the mark, so the target can reinforce. One in flight at a time, then a 3-round wait | 10 He-3, paid when you declare it | 3 Moon territories, both when you declare and when it lands |
+| **Dyson Beam** | Removes up to 4 units from any enemy territory (it always leaves 1) | 6 He-3 | the Dyson Array tech and a Moon territory |
+| **Orbital Blockade** | Seals one of the three original orbit lanes against rivals for 2 rounds; you can still cross it | 3 He-3 | either end of that lane |
+
+A Launch Pad's own lane cannot be blockaded, and you can hold one seal at a time.
+
 ### The Moon and victory
 
-Lunar territories are ordinary territories where victory is concerned:
+**Lunar Hegemony** is the Space Age's own way to win, and every Space Age game has it alongside whatever victory conditions the host picked. Hold **all 9 lunar territories** at the end of your turn, **7 of your own turns in a row**, and you win however Earth stands.
+
+- The countdown is shown to **every** player ("Rival holds the Moon · Hegemony in 3"), so nobody loses to a clock they could not see.
+- It **resets outright** the moment a single lunar tile leaves the holder — taking one tile back, from anywhere, starts it over. It is checked at the end of every round too, so a tile lost between turns still counts.
+- The contest rule above is what makes it breakable: once somebody is up there, everyone else needs only Spaceport Infrastructure and a Launch Pad to fly.
+
+Otherwise, lunar territories are ordinary territories where victory is concerned:
 
 - **Domination** by conquest needs *every* territory on the board — the 9 lunar ones included — so nobody takes that route while the Moon sits neutral. (Being the last player standing is scored separately and is unaffected by neutral tiles.)
 - **Threshold** measures your share of every territory in play, so the Moon raises the bar for everyone whether or not anyone goes up there.
-- **Secret missions** are the exception: orbit-gated territories and whole lunar regions are deliberately excluded from mission targets, because a capture objective behind a 63-TP tech ladder would not be a fair race.
+- **Secret missions** handle the Moon separately. The ordinary missions never name a lunar territory or the lunar region, because a capture objective behind a 63-TP tech ladder would not be a fair race against one on Earth. Instead, about 3 in 10 Space Age players are dealt a **Moon mission**, which is about the Moon on purpose: take both poles, hold the whole Moon, hold 3 or 5 lunar territories, or hold 3 while keeping a named rival off it entirely.
 
 ---
 

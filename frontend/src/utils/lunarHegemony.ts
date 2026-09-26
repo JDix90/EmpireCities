@@ -27,6 +27,29 @@ export function hegemonyTurnsFor(settings: GameState['settings'] | null | undefi
   return typeof configured === 'number' && configured > 0 ? configured : HEGEMONY_TURNS;
 }
 
+/**
+ * The victory conditions this game allows, resolved the way the server's
+ * `getAllowedVictoryConditions` resolves them: the list when it has entries,
+ * nothing when it is deliberately empty, else the legacy single type.
+ */
+function allowedVictoryConditions(settings: GameState['settings']): string[] {
+  const list = settings.allowed_victory_conditions;
+  if (Array.isArray(list)) return list;
+  return [settings.victory_type ?? 'domination'];
+}
+
+/**
+ * Whether the Hegemony is live in this game: the phase is on AND the game can
+ * actually be won that way. Mirrors `isLunarHegemonyEnabled` on the backend,
+ * which gates the clock and the contest rule on exactly these two things. A
+ * game created before the Hegemony joined the lobby's own victory list carries
+ * the phase without the condition, and in that game neither rule runs.
+ */
+export function isLunarHegemonyInPlay(settings: GameState['settings'] | null | undefined): boolean {
+  if (settings?.space_age_moon_hegemony_enabled !== true) return false;
+  return allowedVictoryConditions(settings).includes('lunar_hegemony');
+}
+
 export interface HegemonyBanner {
   holderName: string;
   isMe: boolean;
@@ -38,7 +61,10 @@ export function hegemonyBanner(
   viewerId: string | null | undefined,
 ): HegemonyBanner | null {
   const clock = gameState?.lunar_hegemony;
-  if (!gameState?.settings.space_age_moon_hegemony_enabled || !clock) return null;
+  // The victory list matters as well as the phase: the server leaves a clock
+  // alone in a game that cannot be won that way, and counting it down would
+  // send every rival to answer a threat that does not exist.
+  if (!gameState || !isLunarHegemonyInPlay(gameState.settings) || !clock) return null;
   const holder = gameState.players.find((p) => p.player_id === clock.owner_id);
   return {
     holderName: holder?.username ?? 'Someone',

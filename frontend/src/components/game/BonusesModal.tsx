@@ -341,16 +341,27 @@ export default function BonusesModal({ techTree, mapData, onClose }: BonusesModa
                       description: 'You begin with Moon access; no Space Program needed.',
                       valueColor: 'text-emerald-400',
                     }]
-                  : spaceProgram.rungs.map((rung) => ({
-                      icon: rung.done ? '✅' : '⬜',
-                      label: rung.label,
-                      value: rung.done ? 'Done' : 'To do',
-                      description: rung.detail
-                        ?? (rung.key === 'launch_pad'
-                          ? 'A Launch Pad opens an orbit lane from its own territory. Cape Canaveral, Kourou and Gobi already have one.'
-                          : ''),
-                      valueColor: rung.done ? 'text-emerald-400' : 'text-bf-muted',
-                    }))}
+                  : [
+                      ...(spaceProgram.contested
+                        ? [{
+                            icon: '⚔️',
+                            label: 'The Moon is contested',
+                            value: 'Shortcut open',
+                            description: 'A rival holds lunar ground, so Spaceport Infrastructure and a Launch Pad are enough to fly there.',
+                            valueColor: 'text-sky-300',
+                          }]
+                        : []),
+                      ...spaceProgram.rungs.map((rung) => ({
+                        icon: rung.done ? '✅' : '⬜',
+                        label: rung.label,
+                        value: rung.done ? 'Done' : 'To do',
+                        description: rung.detail
+                          ?? (rung.key === 'launch_pad'
+                            ? 'A Launch Pad opens an orbit lane from its own territory. Cape Canaveral, Kourou and Gobi already have one.'
+                            : ''),
+                        valueColor: rung.done ? 'text-emerald-400' : 'text-bf-muted',
+                      })),
+                    ]}
               />
             </section>
           )}
