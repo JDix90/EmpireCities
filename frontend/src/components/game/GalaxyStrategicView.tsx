@@ -87,10 +87,18 @@ export interface GalaxyStrategicViewProps {
   height: number;
   /**
    * When false, orbit lanes render dim red to communicate that the active player
-   * has not satisfied the orbit-access gate (corridors kill switch off). Backend
-   * stays authoritative for the actual claim/attack rejection.
+   * has not satisfied the orbit-access gate: the Galactic Age with the corridors
+   * kill switch off, or Space to Stars while the viewer is still in the Space
+   * Age. Backend stays authoritative for the actual claim/attack rejection.
    */
   orbitAccessAllowed?: boolean;
+  /**
+   * Why the lanes are locked, as the rest of the game words it (`orbitLockReason`
+   * for the viewer's own regime). The two gates above ask for different things —
+   * Lane Charts, or the Space Program — so the view names neither itself; with
+   * no reason given it says the lanes are locked and stops there.
+   */
+  orbitAccessReason?: string | null;
   /**
    * The viewing player. Lane states (corridor / open / closed) are read from
    * their gateways. Falls back to whoever `ownsTerritory` reports as the owner.
@@ -198,6 +206,7 @@ export default function GalaxyStrategicView({
   width,
   height,
   orbitAccessAllowed = true,
+  orbitAccessReason = null,
   viewerPlayerId: viewerPlayerIdProp,
   sealedLaneIds,
   lanesContestableEnabled = false,
@@ -382,7 +391,7 @@ export default function GalaxyStrategicView({
         if (kindLine) lines.push(kindLine);
         const dice = describeLaneDice(viewerLaneDice);
         if (dice && state !== 'closed' && kind === 'authored') lines.push(dice);
-        if (!orbitAccessAllowed) lines.push('Locked — research Lane Charts to cross');
+        if (!orbitAccessAllowed) lines.push(orbitAccessReason ? `Locked — ${orbitAccessReason}` : 'Locked');
         if (canSeal) lines.push('Click to fire an Emergency Seal (1 round)');
 
         return {
@@ -411,7 +420,7 @@ export default function GalaxyStrategicView({
   }, [
     worldLanes, placeById, sizing.donutR, sizing.donutWidth, gameState, viewerPlayerId, viewerColor,
     viewerLaneDice, sealFor, ownerOf, worldOf, playerInfo, territoryName, orbitAccessAllowed,
-    lanesContestableEnabled, sealAnyLane, onSealLane,
+    orbitAccessReason, lanesContestableEnabled, sealAnyLane, onSealLane,
   ]);
 
   /**
@@ -875,11 +884,14 @@ export default function GalaxyStrategicView({
         </div>
       )}
 
-      {/* Footer hint */}
-      <div className="pointer-events-none absolute bottom-3 left-3 px-2 py-1 rounded bg-black/55 border border-bf-border/70 text-bf-muted text-[11px]">
+      {/* Footer hint. Width-capped so a long lock reason wraps in the corner
+          instead of running under the world nodes along the bottom edge. */}
+      <div className="pointer-events-none absolute bottom-3 left-3 max-w-[36rem] px-2 py-1 rounded bg-black/55 border border-bf-border/70 text-bf-muted text-[11px]">
         Galaxy overview · click a world for details · double-click to enter · world tabs also drill in
         {!orbitAccessAllowed && (
-          <span className="ml-2 text-amber-300">· red lanes locked (need Lane Charts)</span>
+          <span className="block text-amber-300">
+            {orbitAccessReason ? `Red lanes locked — ${orbitAccessReason}` : 'Red lanes locked'}
+          </span>
         )}
         {lanesContestableEnabled && (
           <span className="ml-2 text-orange-300">

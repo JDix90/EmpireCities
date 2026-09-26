@@ -545,8 +545,10 @@ export function laneStateFor(state: GameState, fromId: string, toId: string, pla
  * die, and the galaxy's later attack-dice techs stack on top as bonuses.
  */
 export function galaxyLaneAttackDiceCap(state: GameState, attackerId: string): number | undefined {
-  // The setting is only ever baked for Galactic Age games (games.routes.ts), so
-  // it is the era check as well; callers without the map can still ask.
+  // The setting is only ever baked for boards on Galactic Age lane rules — the
+  // Galactic Age and Space to Stars, whose Earth → Moon lanes fall under the cap
+  // from turn one (games.routes.ts `isGalaxyRules`) — so it is the era check as
+  // well; callers without the map can still ask.
   if (!state.settings?.galaxy_corridors_enabled) return undefined;
   // The Hyperlane Anchor used to skip the Chart gate; under corridors there is
   // no gate, so the wonder lifts the lane cap instead — its owner's crossings
