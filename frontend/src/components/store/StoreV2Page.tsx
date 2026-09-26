@@ -242,7 +242,7 @@ export default function StoreV2Page() {
         <LoadoutPanel worn={worn} owned={owned} initial={initial} pending={pendingSlot} onPick={(slot, item) => void setSlot(slot, item)} />
       )}
 
-      <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Show">
+      <div className="-mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap" role="group" aria-label="Show">
         {TYPE_FILTERS.map(({ key, label }) => (
           <button
             key={key}
@@ -250,7 +250,7 @@ export default function StoreV2Page() {
             aria-pressed={filter === key}
             onClick={() => setFilter(key)}
             className={clsx(
-              'min-h-11 rounded-full border px-4 text-sm font-medium transition-colors sm:min-h-0 sm:py-1.5',
+              'min-h-11 shrink-0 rounded-full border px-4 text-sm font-medium transition-colors sm:min-h-0 sm:py-1.5',
               filter === key
                 ? 'border-bf-gold/50 bg-bf-gold/20 text-bf-gold'
                 : 'border-bf-border text-bf-muted hover:border-bf-muted hover:text-bf-text',
@@ -270,12 +270,12 @@ export default function StoreV2Page() {
           <section key={section.id} aria-labelledby={`store-section-${section.id}`} className="mb-8">
             <h2 id={`store-section-${section.id}`} className="font-display text-lg text-bf-gold">{section.title}</h2>
             <p className="mb-3 text-xs text-bf-muted">{section.subtitle}</p>
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               {section.items.map((item) => (
                 <StoreItemCard
                   key={item.cosmetic_id}
                   item={item}
-                  action={itemAction(item, { gold, worn })}
+                  action={itemAction(item, { gold, worn, guest: isGuest })}
                   initial={initial}
                   busy={busyId === item.cosmetic_id}
                   onBuy={() => requestBuy(item)}

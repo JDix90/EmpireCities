@@ -4,6 +4,7 @@ import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest } from '../../middleware/rejectGuest';
 import { query, queryOne, withTransaction } from '../../db/postgres';
 import { formatZodError } from '../../utils/formatZodError';
+import { featureFlags } from '../../config/featureFlags';
 import { grantCosmetic, spendGold } from './purchase';
 
 interface CosmeticRow {
@@ -20,6 +21,8 @@ interface CosmeticRow {
   earned_only: boolean;
   /** True when the item isn't owned and the store doesn't sell it (earned-only, legendary/mythic, or unpriced). */
   locked: boolean;
+  /** The era set it belongs to (migration 046); sold only with store_v2_enabled on. */
+  cosmetic_set: string | null;
 }
 
 interface StoreRefundRow {
@@ -59,7 +62,8 @@ export async function storeRoutes(fastify: FastifyInstance): Promise<void> {
                 AND (COALESCE(c.earned_only, false)
                      OR COALESCE(c.rarity, 'common') IN ('legendary', 'mythic')
                      OR COALESCE(c.price_gems, 0) <= 0)
-              ) AS locked
+              ) AS locked,
+              c.cosmetic_set
        FROM cosmetics c
        LEFT JOIN user_cosmetics uc
          ON uc.cosmetic_id = c.cosmetic_id AND uc.user_id = $1
@@ -77,7 +81,12 @@ export async function storeRoutes(fastify: FastifyInstance): Promise<void> {
        ORDER BY created_at, reason`,
       [request.userId],
     );
-    return reply.send({ catalog: rows, refunds });
+    // With the flag off the catalog is the one from before the overhaul: no
+    // era sets, and each row as it was sent then.
+    const catalog = featureFlags.storeV2Enabled
+      ? rows
+      : rows.filter((r) => r.cosmetic_set === null).map(({ cosmetic_set: _set, ...row }) => row);
+    return reply.send({ catalog, refunds });
   });
 
   // ── POST /api/store/buy ──────────────────────────────────────────────────
@@ -89,11 +98,14 @@ export async function storeRoutes(fastify: FastifyInstance): Promise<void> {
     const { cosmetic_id } = parsed.data;
 
     // Load cosmetic
-    const cosmetic = await queryOne<{ price_gems: number; name: string; rarity: string; earned_only: boolean }>(
-      'SELECT price_gems, name, COALESCE(rarity, $2) AS rarity, COALESCE(earned_only, false) AS earned_only FROM cosmetics WHERE cosmetic_id = $1',
+    const cosmetic = await queryOne<{
+      price_gems: number; name: string; rarity: string; earned_only: boolean; cosmetic_set: string | null;
+    }>(
+      'SELECT price_gems, name, COALESCE(rarity, $2) AS rarity, COALESCE(earned_only, false) AS earned_only, cosmetic_set FROM cosmetics WHERE cosmetic_id = $1',
       [cosmetic_id, 'common'],
     );
-    if (!cosmetic) {
+    // An era set's item doesn't exist for the store with store_v2_enabled off.
+    if (!cosmetic || (cosmetic.cosmetic_set !== null && !featureFlags.storeV2Enabled)) {
       return reply.status(404).send({ error: 'Item not found' });
     }
 

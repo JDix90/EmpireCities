@@ -1,4 +1,4 @@
-import type { CosmeticRarity } from '@borderfall/shared';
+import { COSMETIC_SETS, type CosmeticRarity } from '@borderfall/shared';
 
 /** A catalog row as GET /store/catalog sends it. */
 export interface CatalogItem {
@@ -13,6 +13,8 @@ export interface CatalogItem {
   earned_only?: boolean;
   /** Server-authoritative: not owned and not for sale. */
   locked?: boolean;
+  /** The era set it belongs to (migration 046). */
+  cosmetic_set?: string | null;
 }
 
 export type Slot = 'frame' | 'banner' | 'marker' | 'dice';
@@ -82,12 +84,17 @@ export type ItemAction =
   | { kind: 'short'; need: number }
   | { kind: 'earn' };
 
-export function itemAction(item: CatalogItem, { gold, worn }: { gold: number; worn: Loadout }): ItemAction {
+export function itemAction(
+  item: CatalogItem,
+  { gold, worn, guest = false }: { gold: number; worn: Loadout; guest?: boolean },
+): ItemAction {
   if (item.owned) {
     const slot = SLOT_BY_TYPE[item.type];
     return slot && worn[slot] === item.cosmetic_id ? { kind: 'equipped' } : { kind: 'equip' };
   }
   if (item.locked || item.price_gems <= 0) return { kind: 'earn' };
+  // A guest can't buy at any balance: Buy is where they are asked for an account.
+  if (guest) return { kind: 'buy' };
   const need = item.price_gems - gold;
   return need > 0 ? { kind: 'short', need } : { kind: 'buy' };
 }
@@ -130,21 +137,36 @@ export interface CatalogSection {
   items: CatalogItem[];
 }
 
+/** The era set an item is sold in, if the store knows that set. */
+const setOf = (item: CatalogItem) =>
+  item.cosmetic_set && Object.prototype.hasOwnProperty.call(COSMETIC_SETS, item.cosmetic_set) ? item.cosmetic_set : null;
+
 /**
- * The catalog as the page lays it out: what is for sale, then what is earned
- * in play. Items of a type the loadout has no slot for are left out; the store
- * retired them (migration 044).
+ * The catalog as the page lays it out: each era set, then everything else
+ * for sale, then what is earned in play. Items of a type the loadout has no
+ * slot for are left out; the store retired them (migration 044).
  */
 export function catalogSections(items: CatalogItem[], filter: TypeFilter): CatalogSection[] {
   const shown = items
     .filter((i) => SLOT_BY_TYPE[i.type] && (filter === 'all' || i.type === filter))
     .sort(compareItems);
+  const sets: CatalogSection[] = Object.entries(COSMETIC_SETS).map(([id, set]) => {
+    const setItems = shown.filter((i) => isForSale(i) && setOf(i) === id);
+    const total = setItems.reduce((sum, i) => sum + i.price_gems, 0);
+    return {
+      id: `set-${id}`,
+      title: set.name,
+      subtitle: `${set.era} set · ${setItems.length} ${setItems.length === 1 ? 'item' : 'items'} · ${total.toLocaleString()} gold in all`,
+      items: setItems,
+    };
+  });
   const sections: CatalogSection[] = [
+    ...sets,
     {
       id: 'for-sale',
-      title: 'For sale',
+      title: sets.some((s) => s.items.length > 0) ? 'More for sale' : 'For sale',
       subtitle: 'Bought with gold you earn by playing.',
-      items: shown.filter(isForSale),
+      items: shown.filter((i) => isForSale(i) && !setOf(i)),
     },
     {
       id: 'earned',

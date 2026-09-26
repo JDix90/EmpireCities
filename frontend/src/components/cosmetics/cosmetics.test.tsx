@@ -84,6 +84,14 @@ describe('FrameRing', () => {
   });
 });
 
+describe('FrameRing orbit', () => {
+  it('circles a satellite round the Orbit Ring', () => {
+    render(<FrameRing frameId="frame_orbital_ring"><span>C</span></FrameRing>);
+    expect(screen.getByTestId('frame-orbit')).toHaveClass('animate-frame-spin');
+    expect(screen.getByTestId('frame-ring')).not.toHaveClass('animate-frame-spin');
+  });
+});
+
 describe('BannerTag', () => {
   it('names a glyph-only banner for screen readers', () => {
     render(<BannerTag bannerId="general_banner" />);
@@ -110,6 +118,13 @@ describe('dice skins', () => {
     expect(style.background).toContain('linear-gradient');
     expect(style.color).toBe('#4a3520');
     expect(style.border).toContain('#a8906a');
+  });
+
+  it('texture marble, teak and starfield faces over their colours', () => {
+    expect(diceFaceStyle(diceLook('dice_imperium_marble')!).background).toMatch(/^linear-gradient\(115deg.*linear-gradient\(135deg, #f8fafc/);
+    expect(diceFaceStyle(diceLook('dice_navigator_teak')!).background).toMatch(/^repeating-linear-gradient/);
+    expect(diceFaceStyle(diceLook('dice_orbital_starfield')!).background).toMatch(/^radial-gradient/);
+    expect(diceFaceStyle(diceLook('bone_dice')!).background).toMatch(/^linear-gradient\(135deg/);
   });
 
   it('rock bone dice only while they roll, and always shimmer holographic ones', () => {

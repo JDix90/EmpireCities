@@ -121,8 +121,33 @@ describe('StoreV2Page', () => {
     expect(await within(bannerSlot).findByText('Default')).toBeInTheDocument();
   });
 
+  it('lists the era sets first, each with its era and total', async () => {
+    getMock.mockImplementation(async (url: string) => {
+      if (url === '/store/catalog') {
+        return {
+          data: {
+            catalog: [
+              ...CATALOG,
+              row({ cosmetic_id: 'marker_imperium_temple', type: 'map_marker', name: 'Temple Marker', price_gems: 450, rarity: 'uncommon', cosmetic_set: 'imperium' }),
+              row({ cosmetic_id: 'dice_imperium_marble', type: 'dice_skin', name: 'Marble Dice', price_gems: 250, cosmetic_set: 'imperium' }),
+            ],
+            refunds: [],
+          },
+        };
+      }
+      if (url === '/users/me') return { data: { gold: 220 } };
+      return { data: {} };
+    });
+    renderStore();
+    const imperium = await screen.findByRole('region', { name: 'Imperium' });
+    expect(within(imperium).getByText('Ancient World set · 2 items · 700 gold in all')).toBeInTheDocument();
+    expect(within(imperium).getAllByRole('article').map((a) => a.getAttribute('data-item')))
+      .toEqual(['marker_imperium_temple', 'dice_imperium_marble']);
+    expect(screen.getByRole('region', { name: 'More for sale' })).toBeInTheDocument();
+  });
+
   it('lets guests browse but not buy or equip', async () => {
-    serve();
+    serve({ gold: 0 });
     renderStore({ guest: true });
     const bone = await screen.findByRole('article', { name: 'Ancient Bone Dice' });
     expect(screen.queryByRole('heading', { name: 'Your loadout' })).toBeNull();

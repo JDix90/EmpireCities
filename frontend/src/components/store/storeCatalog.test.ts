@@ -18,6 +18,11 @@ describe('itemAction', () => {
     expect(itemAction(item({ price_gems: 250 }), { gold: 220, worn: none })).toEqual({ kind: 'short', need: 30 });
   });
 
+  it('buy for a guest at any balance: Buy is where they are asked for an account', () => {
+    expect(itemAction(item({ price_gems: 250 }), { gold: 0, worn: none, guest: true })).toEqual({ kind: 'buy' });
+    expect(itemAction(item({ locked: true, price_gems: 0 }), { gold: 0, worn: none, guest: true })).toEqual({ kind: 'earn' });
+  });
+
   it('earn for what the store does not sell', () => {
     expect(itemAction(item({ locked: true, price_gems: 0 }), { gold: 9999, worn: none })).toEqual({ kind: 'earn' });
     expect(itemAction(item({ price_gems: 0 }), { gold: 9999, worn: none })).toEqual({ kind: 'earn' });
@@ -45,6 +50,33 @@ describe('catalogSections', () => {
     expect(catalogSections(catalog, 'all').flatMap((s) => s.items).some((i) => i.type === 'unit_skin')).toBe(false);
     const frames = catalogSections(catalog, 'profile_frame');
     expect(frames.map((s) => s.id)).toEqual(['earned']);
+  });
+});
+
+describe('catalogSections with era sets', () => {
+  const catalog = [
+    item({ cosmetic_id: 'temple', type: 'map_marker', name: 'Temple', price_gems: 450, rarity: 'uncommon', cosmetic_set: 'imperium' }),
+    item({ cosmetic_id: 'laurel', type: 'profile_frame', name: 'Laurel', price_gems: 1000, rarity: 'rare', cosmetic_set: 'imperium' }),
+    item({ cosmetic_id: 'rose', type: 'map_marker', name: 'Rose', price_gems: 200, cosmetic_set: 'navigator' }),
+    item({ cosmetic_id: 'mystery', name: 'Mystery', price_gems: 200, cosmetic_set: 'not_a_set' }),
+    item({ cosmetic_id: 'bone', name: 'Bone', price_gems: 200 }),
+  ];
+
+  it('lists each set first, in the store’s order, with its era and total', () => {
+    const sections = catalogSections(catalog, 'all');
+    expect(sections.map((s) => s.id)).toEqual(['set-imperium', 'set-navigator', 'for-sale']);
+    expect(sections[0]).toMatchObject({ title: 'Imperium', subtitle: 'Ancient World set · 2 items · 1,450 gold in all' });
+    expect(sections[0].items.map((i) => i.cosmetic_id)).toEqual(['laurel', 'temple']);
+  });
+
+  it('keeps an item of an unknown set with everything else for sale', () => {
+    const forSale = catalogSections(catalog, 'all').find((s) => s.id === 'for-sale')!;
+    expect(forSale.title).toBe('More for sale');
+    expect(forSale.items.map((i) => i.cosmetic_id)).toEqual(['bone', 'mystery']);
+  });
+
+  it('drops a set with nothing left under the filter', () => {
+    expect(catalogSections(catalog, 'profile_frame').map((s) => s.id)).toEqual(['set-imperium']);
   });
 });
 
