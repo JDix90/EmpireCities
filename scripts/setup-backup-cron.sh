@@ -18,7 +18,9 @@ if [ ! -x "${BACKUP_SCRIPT}" ]; then
   chmod +x "${BACKUP_SCRIPT}"
 fi
 
-CRON_LINE="${CRON_HOUR} 0 * * * BACKUP_DIR=${BACKUP_DIR} ${BACKUP_SCRIPT} >> ${LOG_FILE} 2>&1"
+# Cron reads the minute first, then the hour. This line once had them the other
+# way round, so the "3:00" backup ran at 00:03 (the dumps' names show it).
+CRON_LINE="0 ${CRON_HOUR} * * * BACKUP_DIR=${BACKUP_DIR} ${BACKUP_SCRIPT} >> ${LOG_FILE} 2>&1"
 
 mkdir -p "${BACKUP_DIR}"
 
@@ -27,7 +29,7 @@ mkdir -p "${BACKUP_DIR}"
   echo "${CRON_LINE}"
 ) | crontab -u "${CRON_USER}" -
 
-echo "[cron] Installed daily backup at ${CRON_HOUR}:00 for user ${CRON_USER}"
+echo "[cron] Installed daily backup at ${CRON_HOUR}:00 server time for user ${CRON_USER}"
 echo "[cron] Backups: ${BACKUP_DIR}"
 echo "[cron] Log: ${LOG_FILE}"
 echo "[cron] Test now: BACKUP_DIR=${BACKUP_DIR} ${BACKUP_SCRIPT}"

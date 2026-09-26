@@ -83,7 +83,7 @@ Update **`FRONTEND_URL`** to `https://…` after HTTPS is live.
 ## 5. Always-on / operations (Stage 2)
 
 - **Restart policy:** Compose uses `restart: unless-stopped` so processes come back after reboot (with Docker enabled on boot).
-- **Backups:** `./scripts/backup-databases.sh` (targets `borderfall_postgres_prod`). Schedule with `./scripts/setup-backup-cron.sh`. Every deploy prints the newest backup's age and warns once it is over 48 hours old; the nightly job refuses to run when the disk cannot hold a dump, and says so only in `/var/log/borderfall-backup.log`.
+- **Backups:** `./scripts/backup-databases.sh` (targets `borderfall_postgres_prod`). Schedule with `./scripts/setup-backup-cron.sh`, which runs it daily at 03:00 server time (`CRON_HOUR` changes the hour). Every deploy prints the newest backup's age and warns once it is over 48 hours old; the nightly job refuses to run when the disk cannot hold a dump, and says so only in `/var/log/borderfall-backup.log`.
 - **Replay snapshots:** `game_states` keeps one snapshot per turn, plus each game's opening board, for `GAME_STATE_RETENTION_DAYS` (default 7) after a game ends. It was once 99% of the database, when every save inserted a new full copy. To bring an existing table in line, after a fresh backup:
   1. `./scripts/trim-game-snapshots.sh` is a dry run showing what would be deleted.
   2. `./scripts/trim-game-snapshots.sh --apply` deletes in small batches while the game stays up.
