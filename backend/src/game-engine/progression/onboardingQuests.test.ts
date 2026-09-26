@@ -5,20 +5,38 @@ const queryOneMock = vi.fn();
 vi.mock('../../db/postgres', () => ({
   query: (...a: unknown[]) => queryMock(...a),
   queryOne: (...a: unknown[]) => queryOneMock(...a),
-  withTransaction: vi.fn(),
+  // The claim and its rewards run on a transaction client; route its queries
+  // through the same mock so each test sees one ordered log of statements.
+  withTransaction: async (fn: (client: unknown) => Promise<unknown>) =>
+    fn({
+      query: async (sql: string, params?: unknown[]) => {
+        const rows = ((await queryMock(sql, params)) ?? []) as unknown[];
+        return { rows, rowCount: rows.length };
+      },
+    }),
 }));
 vi.mock('../../services/analyticsEvents', () => ({ recordServerEvent: vi.fn() }));
 
 import { checkOnboardingQuests } from './progressionService';
 
-function setCompleted(questIds: string[]) {
-  queryMock.mockImplementation(async (sql: string) => {
+/**
+ * `questIds` are already complete. The claim's `INSERT … RETURNING` returns
+ * the row unless `lostRace`, where a concurrent call inserted it first.
+ */
+function setCompleted(questIds: string[], { lostRace = false } = {}) {
+  queryMock.mockImplementation(async (sql: string, params?: unknown[]) => {
     if (sql.includes('SELECT quest_id FROM user_quests')) {
       return questIds.map((quest_id) => ({ quest_id }));
+    }
+    if (sql.includes('INSERT INTO user_quests')) {
+      return lostRace ? [] : [{ quest_id: params?.[1] }];
     }
     return [];
   });
 }
+
+const rewardWrites = () =>
+  queryMock.mock.calls.filter(([sql]) => /UPDATE users|gold_transactions/.test(sql as string));
 
 describe('checkOnboardingQuests', () => {
   beforeEach(() => {
@@ -33,6 +51,15 @@ describe('checkOnboardingQuests', () => {
     expect(quest?.reward_gold).toBe(50);
     const insert = queryMock.mock.calls.find(([sql]) => (sql as string).includes('INSERT INTO user_quests'));
     expect(insert?.[1]).toEqual(['u1', 'first_async']);
+    const ledger = queryMock.mock.calls.find(([sql]) => (sql as string).includes('gold_transactions'));
+    expect(ledger?.[1]).toEqual(['u1', 50, 'Quest: The Long Game']);
+  });
+
+  it('pays nothing when a concurrent call claimed the quest first', async () => {
+    setCompleted([], { lostRace: true });
+    const quest = await checkOnboardingQuests('u1', 'async_start');
+    expect(quest).toBeNull();
+    expect(rewardWrites()).toEqual([]);
   });
 
   it('keeps sequential gating for the ordered chain', async () => {
