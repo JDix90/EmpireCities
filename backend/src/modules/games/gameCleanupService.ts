@@ -5,15 +5,23 @@ const ORPHANED_GAME_GRACE_PERIOD_MS = 4 * 60 * 60 * 1000;
 const ORPHANED_GAME_SWEEP_INTERVAL_MS = 15 * 60 * 1000;
 
 // Keep per-turn replay snapshots for this long after a game ends, then prune.
-// game_states is append-only (one row per turn per game) and was never pruned,
-// so it grew unbounded — heavy on disk, backups, and the MAX(turn) subqueries.
+// game_states keeps one row per turn per game and was never pruned, so it grew
+// unbounded — heavy on disk, backups, and the MAX(turn) subqueries. Seven days
+// covers the post-game window in which replays get watched and shared; at 30,
+// the table outgrew what the disk could back up.
 const GAME_STATE_RETENTION_MS = Math.max(
   60 * 60 * 1000,
-  (parseInt(process.env.GAME_STATE_RETENTION_DAYS || '30', 10) || 30) * 24 * 60 * 60 * 1000,
+  (parseInt(process.env.GAME_STATE_RETENTION_DAYS || '7', 10) || 7) * 24 * 60 * 60 * 1000,
 );
-// Bound how many snapshot rows a single prune deletes, so the FIRST run on an
-// existing (large) table drains over several ticks instead of one giant DELETE.
-const SNAPSHOT_PRUNE_BATCH = 5000;
+// Bound how many snapshot rows a single DELETE removes. A late-game snapshot
+// can be hundreds of KB, and every one takes its TOAST chunks with it: 5,000
+// rows per statement meant gigabytes, well past the pool's 8s statement
+// timeout, so a timed-out prune could never make progress. The sweep instead
+// runs small batches back to back within SNAPSHOT_PRUNE_BUDGET_MS.
+const SNAPSHOT_PRUNE_BATCH = 500;
+// Stays well inside the sweep's lease (SWEEP_LOCK_TTL_MS, 60s), so a sibling
+// instance never starts the same work while this one is still draining.
+const SNAPSHOT_PRUNE_BUDGET_MS = 20_000;
 
 /**
  * Idle time after which a `waiting`/`in_progress` game is considered abandoned.
@@ -135,6 +143,20 @@ export async function deleteExpiredGameStateSnapshots(): Promise<number> {
   return result.length;
 }
 
+/**
+ * Prune expired snapshots in batches until one comes back short (nothing left
+ * to delete) or SNAPSHOT_PRUNE_BUDGET_MS has passed. Returns the rows deleted.
+ */
+export async function drainExpiredGameStateSnapshots(now: () => number = Date.now): Promise<number> {
+  const started = now();
+  let total = 0;
+  for (;;) {
+    const deleted = await deleteExpiredGameStateSnapshots();
+    total += deleted;
+    if (deleted < SNAPSHOT_PRUNE_BATCH || now() - started >= SNAPSHOT_PRUNE_BUDGET_MS) return total;
+  }
+}
+
 export function startOrphanedGameSweep(): void {
   if (orphanedGameSweepInterval) return;
 
@@ -153,7 +175,7 @@ export function startOrphanedGameSweep(): void {
       if (abandoned.length > 0) {
         console.log(`[Games] Marked ${abandoned.length} stale game(s) abandoned`);
       }
-      const prunedSnapshots = await deleteExpiredGameStateSnapshots();
+      const prunedSnapshots = await drainExpiredGameStateSnapshots();
       if (prunedSnapshots > 0) {
         console.log(`[Games] Pruned ${prunedSnapshots} expired game-state snapshot row(s)`);
       }

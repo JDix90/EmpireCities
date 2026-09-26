@@ -3,9 +3,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const queryMock = vi.fn();
 vi.mock('../../db/postgres', () => ({ query: (...a: unknown[]) => queryMock(...a) }));
 
-import { abandonStaleGames, deleteExpiredGameStateSnapshots } from './gameCleanupService';
+import {
+  abandonStaleGames,
+  deleteExpiredGameStateSnapshots,
+  drainExpiredGameStateSnapshots,
+} from './gameCleanupService';
 
 beforeEach(() => queryMock.mockReset());
+
+const rows = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `g${i}` }));
 
 describe('deleteExpiredGameStateSnapshots', () => {
   it('prunes only ended games, batched, and returns the rows-deleted count', async () => {
@@ -19,8 +25,39 @@ describe('deleteExpiredGameStateSnapshots', () => {
     expect(sql).toMatch(/status IN \('completed', 'abandoned'\)/);
     // …and the delete is bounded by a LIMIT so a backlog drains incrementally.
     expect(sql).toMatch(/LIMIT \$2/);
-    expect(params[0]).toBeGreaterThan(0); // retention window in ms
-    expect(params[1]).toBe(5000); // batch size
+    // Small enough to finish inside the pool's 8s statement timeout even when
+    // every row is a late-game snapshot hundreds of KB long.
+    expect(params[1]).toBe(500);
+  });
+
+  it('keeps replays for 7 days after a game ends by default', async () => {
+    queryMock.mockResolvedValue([]);
+    await deleteExpiredGameStateSnapshots();
+    const [, params] = queryMock.mock.calls[0];
+    expect(params[0]).toBe(7 * 24 * 60 * 60 * 1000);
+  });
+});
+
+describe('drainExpiredGameStateSnapshots', () => {
+  it('keeps deleting full batches until one comes back short', async () => {
+    queryMock
+      .mockResolvedValueOnce(rows(500))
+      .mockResolvedValueOnce(rows(500))
+      .mockResolvedValueOnce(rows(120));
+    expect(await drainExpiredGameStateSnapshots()).toBe(1120);
+    expect(queryMock).toHaveBeenCalledTimes(3);
+  });
+
+  it('stops at its time budget, leaving the rest for the next sweep', async () => {
+    let clock = 0;
+    const now = () => clock;
+    queryMock.mockImplementation(async () => {
+      clock += 7_000;
+      return rows(500);
+    });
+    // 20s budget, 7s per batch: the third batch crosses it.
+    expect(await drainExpiredGameStateSnapshots(now)).toBe(1500);
+    expect(queryMock).toHaveBeenCalledTimes(3);
   });
 });
 

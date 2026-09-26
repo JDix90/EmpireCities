@@ -16,6 +16,7 @@ import { syncLaneWeatherLanes } from '../game-engine/state/laneWeather';
 import { pruneStrandedConvoys } from '../game-engine/state/transit';
 import { resolveMap } from './mapResolver';
 import { runWithGameLock } from './gameLock';
+import { SAVE_TURN_SNAPSHOT_SQL } from './gameSnapshotSql';
 import {
   recordPostgresBackupFailure,
   recordRedisSaveFailure,
@@ -290,11 +291,9 @@ export async function withLockedRoom<T>(
   }
 }
 
+/** One snapshot per turn, plus the opening board (see SAVE_TURN_SNAPSHOT_SQL). */
 function writePostgresBackup(gameId: string, state: GameState): void {
-  query(
-    'INSERT INTO game_states (game_id, turn_number, state_json) VALUES ($1, $2, $3)',
-    [gameId, state.turn_number, JSON.stringify(state)],
-  ).catch((err) => {
+  query(SAVE_TURN_SNAPSHOT_SQL, [gameId, state.turn_number, JSON.stringify(state)]).catch((err) => {
     recordPostgresBackupFailure();
     console.error('[DB] Postgres backup write failed for game', gameId, err);
   });
