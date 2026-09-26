@@ -4,6 +4,7 @@ import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest } from '../../middleware/rejectGuest';
 import { query, queryOne, withTransaction } from '../../db/postgres';
 import { formatZodError } from '../../utils/formatZodError';
+import { grantCosmetic, spendGold } from './purchase';
 
 interface CosmeticRow {
   cosmetic_id: string;
@@ -24,6 +25,18 @@ interface CosmeticRow {
 const BuySchema = z.object({
   cosmetic_id: z.string().min(1).max(128),
 });
+
+type PurchaseOutcome =
+  | { code: 'ok'; gold: number }
+  | { code: 'already_owned' }
+  | { code: 'insufficient_gold' };
+
+/** Thrown inside the purchase transaction so a refused purchase rolls back. */
+class PurchaseRefused extends Error {
+  constructor(readonly code: 'already_owned' | 'insufficient_gold') {
+    super(code);
+  }
+}
 
 export async function storeRoutes(fastify: FastifyInstance): Promise<void> {
   // ── GET /api/store/catalog ───────────────────────────────────────────────
@@ -94,43 +107,25 @@ export async function storeRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.send({ message: 'Item added to your collection', cosmetic_id });
     }
 
-    // Paid purchase: run the whole flow inside a transaction so the balance
-    // check, deduction, grant, and audit log are atomic against concurrent
-    // requests. The UPDATE has an explicit `gold >= $price` guard so a race
-    // that slips past the pre-check still can't overdraw.
+    // Paid purchase: the grant and the charge run in one transaction, so
+    // either both happen or neither does. The grant goes first so an owner is
+    // never charged twice, and the charge's `gold >= price` guard stops a
+    // concurrent spend from overdrawing. A refusal must THROW to roll the grant
+    // back: returning from the callback commits, which is how a short balance
+    // used to answer 402 and still leave the item granted.
     try {
-      const result = await withTransaction(async (client) => {
-        // Insert grant first; if already owned, bail out early so we never
-        // charge for a cosmetic the user already has.
-        const grant = await client.query<{ cosmetic_id: string }>(
-          `INSERT INTO user_cosmetics (user_id, cosmetic_id)
-           VALUES ($1, $2)
-           ON CONFLICT (user_id, cosmetic_id) DO NOTHING
-           RETURNING cosmetic_id`,
-          [request.userId, cosmetic_id],
-        );
-        if (grant.rowCount === 0) {
-          return { code: 'already_owned' as const };
+      const result = await withTransaction<PurchaseOutcome>(async (client) => {
+        if (!(await grantCosmetic(client, request.userId, cosmetic_id))) {
+          throw new PurchaseRefused('already_owned');
         }
-
-        const deduct = await client.query<{ gold: number }>(
-          `UPDATE users
-           SET gold = gold - $1
-           WHERE user_id = $2 AND COALESCE(gold, 0) >= $1
-           RETURNING gold`,
-          [cosmetic.price_gems, request.userId],
+        const gold = await spendGold(
+          client, request.userId, cosmetic.price_gems, `Purchased: ${cosmetic.name}`,
         );
-        if (deduct.rowCount === 0) {
-          return { code: 'insufficient_gold' as const };
-        }
-
-        await client.query(
-          `INSERT INTO gold_transactions (user_id, amount, reason)
-           VALUES ($1, $2, $3)`,
-          [request.userId, -cosmetic.price_gems, `Purchased: ${cosmetic.name}`],
-        );
-
-        return { code: 'ok' as const, gold: deduct.rows[0].gold };
+        if (gold === null) throw new PurchaseRefused('insufficient_gold');
+        return { code: 'ok', gold };
+      }).catch((err: unknown): PurchaseOutcome => {
+        if (err instanceof PurchaseRefused) return { code: err.code };
+        throw err;
       });
 
       if (result.code === 'already_owned') {
