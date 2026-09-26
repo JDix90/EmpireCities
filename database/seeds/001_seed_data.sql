@@ -1,5 +1,5 @@
 -- Borderfall Seed Data
--- Seed 001: Achievements and starter cosmetics
+-- Seed 001: Achievements and store cosmetics
 
 -- ============================================================
 -- ACHIEVEMENTS
@@ -24,24 +24,14 @@ INSERT INTO achievements (achievement_id, name, description, xp_reward) VALUES
 ON CONFLICT (achievement_id) DO NOTHING;
 
 -- ============================================================
--- STARTER COSMETICS (free items)
--- ============================================================
-INSERT INTO cosmetics (cosmetic_id, type, name, description, price_gems, is_premium) VALUES
-  ('default_unit',      'unit_skin',      'Standard Infantry',   'The default unit skin.',           0,   FALSE),
-  ('default_dice',      'dice_skin',      'Classic Dice',        'The default dice skin.',           0,   FALSE),
-  ('default_banner',    'profile_banner', 'Recruit Banner',      'The default profile banner.',      0,   FALSE)
-ON CONFLICT (cosmetic_id) DO NOTHING;
-
--- ============================================================
 -- PREMIUM COSMETICS
 -- ============================================================
+-- Unit skins, map themes and the free starters were retired by migration
+-- 044; they are not listed here, or a fresh database would get them back
+-- (seeds run after every migration).
 INSERT INTO cosmetics (cosmetic_id, type, name, description, price_gems, is_premium) VALUES
-  ('roman_legionary',   'unit_skin',      'Roman Legionary',     'Ancient Rome era unit skin.',      300, TRUE),
-  ('wwii_sherman',      'unit_skin',      'Sherman Tank',        'WWII era armored unit skin.',      350, TRUE),
   ('bone_dice',         'dice_skin',      'Ancient Bone Dice',   'Carved bone dice with unique roll animation.', 200, TRUE),
   ('holo_dice',         'dice_skin',      'Holographic Dice',    'Futuristic holographic dice.',     250, TRUE),
-  ('parchment_theme',   'map_theme',      'Parchment & Ink',     'Ancient parchment visual theme for any map.', 600, TRUE),
-  ('radar_theme',       'map_theme',      'Radar Screen',        'Cold War radar screen visual theme.', 600, TRUE),
   ('general_banner',    'profile_banner', 'General Banner',      'Gold-trimmed general profile banner.', 150, TRUE),
   ('emperor_title',     'profile_banner', 'Emperor Title',       'Exclusive Emperor profile title.', 200, TRUE)
 ON CONFLICT (cosmetic_id) DO NOTHING;

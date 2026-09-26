@@ -18,8 +18,14 @@ interface CosmeticRow {
   owned: boolean;
   /** Earned through gameplay (levels, seasons, achievements, …) — never claimable in the store. */
   earned_only: boolean;
-  /** True when the item can't be acquired here right now (earned-only / prestige) and isn't owned. */
+  /** True when the item isn't owned and the store doesn't sell it (earned-only, legendary/mythic, or unpriced). */
   locked: boolean;
+}
+
+interface StoreRefundRow {
+  item: string;
+  gold: number;
+  refunded_at: Date;
 }
 
 const BuySchema = z.object({
@@ -51,7 +57,8 @@ export async function storeRoutes(fastify: FastifyInstance): Promise<void> {
               (
                 uc.cosmetic_id IS NULL
                 AND (COALESCE(c.earned_only, false)
-                     OR COALESCE(c.rarity, 'common') IN ('legendary', 'mythic'))
+                     OR COALESCE(c.rarity, 'common') IN ('legendary', 'mythic')
+                     OR COALESCE(c.price_gems, 0) <= 0)
               ) AS locked
        FROM cosmetics c
        LEFT JOIN user_cosmetics uc
@@ -59,7 +66,18 @@ export async function storeRoutes(fastify: FastifyInstance): Promise<void> {
        ORDER BY c.is_premium ASC, c.price_gems ASC, c.name ASC`,
       [request.userId],
     );
-    return reply.send({ catalog: rows });
+    // Items the store retired (migration 044) and refunded, for the store
+    // page's one-time notice. The ledger row is the only record, and players
+    // can't see their gold history anywhere else in the app.
+    const refunds = await query<StoreRefundRow>(
+      `SELECT substring(reason FROM '^Refund: (.*) \\(retired from the store\\)$') AS item,
+              amount AS gold, created_at AS refunded_at
+       FROM gold_transactions
+       WHERE user_id = $1 AND reason LIKE 'Refund: % (retired from the store)'
+       ORDER BY created_at, reason`,
+      [request.userId],
+    );
+    return reply.send({ catalog: rows, refunds });
   });
 
   // ── POST /api/store/buy ──────────────────────────────────────────────────
@@ -92,19 +110,11 @@ export async function storeRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(403).send({ error: 'This item is earned through gameplay, not the store' });
     }
 
-    // Free items — no gold check, but still need atomic "insert if not owned".
-    if (cosmetic.price_gems === 0) {
-      const inserted = await query<{ cosmetic_id: string }>(
-        `INSERT INTO user_cosmetics (user_id, cosmetic_id)
-         VALUES ($1, $2)
-         ON CONFLICT (user_id, cosmetic_id) DO NOTHING
-         RETURNING cosmetic_id`,
-        [request.userId, cosmetic_id],
-      );
-      if (inserted.length === 0) {
-        return reply.status(409).send({ error: 'You already own this item' });
-      }
-      return reply.send({ message: 'Item added to your collection', cosmetic_id });
+    // The store only sells priced items. Its free-claim path is gone with the
+    // starter items it served (migration 044); twice it handed out rewards
+    // meant to be earned, so a free item is refused rather than granted.
+    if (cosmetic.price_gems <= 0) {
+      return reply.status(403).send({ error: 'This item is not sold in the store' });
     }
 
     // Paid purchase: the grant and the charge run in one transaction, so

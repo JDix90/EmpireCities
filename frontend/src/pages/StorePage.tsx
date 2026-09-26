@@ -1,8 +1,14 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
-import { ShoppingBag, Coins, Package, Shirt, Sword, Layers, Image, CheckCircle, Lock } from 'lucide-react';
+import { ShoppingBag, Coins, Package, Shirt, Sword, Layers, Image, CheckCircle, Lock, X } from 'lucide-react';
+import {
+  markStoreRefundsSeen,
+  storeRefundNoticeText,
+  unseenStoreRefunds,
+  type StoreRefund,
+} from '../utils/storeRefundNotice';
 import SubpageShell from '../components/ui/SubpageShell';
 import GuestGate from '../components/GuestGate';
 import Modal from '../components/ui/Modal';
@@ -33,7 +39,7 @@ interface OwnedItem {
   asset_url: string | null;
 }
 
-type FilterType = 'all' | 'profile_banner' | 'unit_skin' | 'dice_skin' | 'map_theme' | 'map_marker' | 'profile_frame';
+type FilterType = 'all' | 'profile_banner' | 'dice_skin' | 'map_marker' | 'profile_frame';
 
 const TYPE_LABELS: Record<string, string> = {
   profile_banner: 'Banners',
@@ -53,13 +59,13 @@ const TYPE_ICON: Record<string, React.ReactNode> = {
   profile_frame: <Image className="w-3.5 h-3.5" />,
 };
 
+// No Unit Skins or Map Themes chip: migration 044 retired both types, so the
+// chips would only ever open an empty list.
 const FILTER_CHIPS: { key: FilterType | 'all'; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'profile_frame', label: 'Frames' },
   { key: 'profile_banner', label: 'Banners' },
-  { key: 'unit_skin', label: 'Unit Skins' },
   { key: 'dice_skin', label: 'Dice' },
-  { key: 'map_theme', label: 'Map Themes' },
   { key: 'map_marker', label: 'Markers' },
 ];
 
@@ -73,6 +79,9 @@ export default function StorePage() {
   const isGuest = Boolean(user?.is_guest);
   const [tab, setTab] = useState<'catalog' | 'loadout'>('catalog');
   const [catalog, setCatalog] = useState<CosmeticItem[]>([]);
+  /** Items the store retired and refunded this player for (migration 044). */
+  const [refunds, setRefunds] = useState<StoreRefund[]>([]);
+  const [refundsDismissed, setRefundsDismissed] = useState(false);
   const [owned, setOwned] = useState<OwnedItem[]>([]);
   const [filter, setFilter] = useState<FilterType | 'all'>('all');
   const [loadingCatalog, setLoadingCatalog] = useState(true);
@@ -91,6 +100,7 @@ export default function StorePage() {
     try {
       const res = await api.get('/store/catalog');
       setCatalog(res.data.catalog);
+      setRefunds(Array.isArray(res.data.refunds) ? res.data.refunds : []);
     } catch {
       toast.error('Failed to load store catalog');
     } finally {
@@ -139,21 +149,17 @@ export default function StorePage() {
     if (tab === 'loadout') fetchOwned();
   }, [tab, fetchOwned]);
 
-  /** Paid items go through a confirm step; free items collect immediately. */
+  /** Every purchase goes through a confirm step; the store sells only priced items. */
   const requestBuy = (item: CosmeticItem) => {
     if (buyingId) return;
     // Answer before the confirm dialog, so a guest isn't walked through a
     // purchase flow that ends in a refusal. `handleBuy` keeps the same guard as
-    // a backstop for the free-item path and any future caller.
+    // a backstop for any other caller.
     if (isGuest) {
       toast('Spending gold needs a free account — your balance carries over.', { icon: '🪙' });
       return;
     }
-    if (item.price_gems > 0) {
-      setConfirmItem(item);
-      return;
-    }
-    void handleBuy(item);
+    setConfirmItem(item);
   };
 
   const handleBuy = async (item: CosmeticItem) => {
@@ -167,13 +173,9 @@ export default function StorePage() {
     setBuyingId(item.cosmetic_id);
     try {
       const res = await api.post('/store/buy', { cosmetic_id: item.cosmetic_id });
-      // Only mutate local gold when the server actually returned a new
-      // authoritative balance. Free items (price_gems === 0) do not change
-      // the balance and the server response omits `new_balance`; previously
-      // we silently kept the stale value, which usually agreed with the
-      // server but would diverge after gold was earned in another tab. For
-      // paid items the server is authoritative; for free items we proactively
-      // refetch in case background activity changed it.
+      // Only mutate local gold when the server returned a new authoritative
+      // balance; otherwise refetch rather than keep a value that can diverge
+      // after gold was earned in another tab.
       const serverNewBalance = res.data?.new_balance;
       if (typeof serverNewBalance === 'number') {
         setGold(serverNewBalance);
@@ -248,6 +250,27 @@ export default function StorePage() {
     }
   };
 
+  const userId = user?.user_id;
+  const shownRefunds = useMemo(() => {
+    if (!userId || refundsDismissed) return [];
+    try {
+      return unseenStoreRefunds(refunds, window.localStorage, userId);
+    } catch {
+      return refunds; // storage blocked outright: nothing was remembered
+    }
+  }, [refunds, refundsDismissed, userId]);
+
+  const dismissRefunds = () => {
+    if (userId) {
+      try {
+        markStoreRefundsSeen(shownRefunds, window.localStorage, userId);
+      } catch {
+        // storage blocked outright: hidden for this visit only
+      }
+    }
+    setRefundsDismissed(true);
+  };
+
   const displayed = filter === 'all' ? catalog : catalog.filter((c) => c.type === filter);
 
   const groupedOwned = owned.reduce<Record<string, OwnedItem[]>>((acc, item) => {
@@ -280,6 +303,24 @@ export default function StorePage() {
             }
             description="Guest accounts earn gold but can't spend or equip it. Create a free account and the balance — and everything else you've earned — comes with you."
           />
+        )}
+
+        {shownRefunds.length > 0 && (
+          <div
+            role="status"
+            className="mb-6 flex items-start gap-3 rounded-lg border border-bf-gold/30 bg-bf-gold/5 px-3 py-2 text-sm text-bf-text"
+          >
+            <Coins className="w-4 h-4 mt-0.5 shrink-0 text-bf-gold" aria-hidden />
+            <p className="flex-1 py-0.5">{storeRefundNoticeText(shownRefunds)}</p>
+            <button
+              type="button"
+              onClick={dismissRefunds}
+              aria-label="Dismiss refund notice"
+              className="-my-2 -mr-3 shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center text-bf-muted hover:text-bf-text"
+            >
+              <X className="w-4 h-4" aria-hidden />
+            </button>
+          </div>
         )}
 
         {/* Tab bar */}
@@ -380,8 +421,9 @@ export default function StorePage() {
                           <Lock className="w-3.5 h-3.5" />
                           Achievement reward
                         </span>
-                      ) : item.price_gems === 0 ? (
-                        <span className="text-xs text-green-400 font-medium">Free</span>
+                      ) : item.price_gems <= 0 ? (
+                        // Unpriced and not locked means owned: an earned reward.
+                        <span className="text-xs text-bf-muted font-medium">Earned</span>
                       ) : (
                         <span className="flex items-center gap-1 text-bf-gold text-sm font-medium">
                           <Coins className="w-3.5 h-3.5" />
@@ -406,11 +448,7 @@ export default function StorePage() {
                           disabled={buyingId === item.cosmetic_id}
                           className="btn-primary text-xs px-3 py-1 disabled:opacity-60 disabled:cursor-not-allowed"
                         >
-                          {buyingId === item.cosmetic_id
-                            ? 'Buying…'
-                            : item.price_gems === 0
-                            ? 'Get Free'
-                            : 'Buy'}
+                          {buyingId === item.cosmetic_id ? 'Buying…' : 'Buy'}
                         </button>
                       )}
                     </div>
