@@ -8,7 +8,7 @@
  *     POSTGRES_DB=borderfall POSTGRES_PASSWORD= \
  *     pnpm exec vitest run src/modules/store/eraSets.routes.test.ts
  */
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { v4 as uuidv4 } from 'uuid';
 import { COSMETIC_SETS } from '@borderfall/shared';
@@ -33,8 +33,10 @@ describe.runIf(enabled)('era sets (Postgres)', () => {
   const TEMPLE = 'marker_imperium_temple';
 
   const setFlag = (on: boolean) => {
-    if (on) process.env.STORE_V2_ENABLED = 'true';
-    else delete process.env.STORE_V2_ENABLED;
+    process.env.STORE_V2_ENABLED = on ? 'true' : 'false';
+  };
+  const resetFlag = () => {
+    delete process.env.STORE_V2_ENABLED;
   };
 
   async function seedUser(gold: number): Promise<TestUser> {
@@ -69,10 +71,10 @@ describe.runIf(enabled)('era sets (Postgres)', () => {
     await app.ready();
   }, 30_000);
 
-  afterEach(() => setFlag(false));
+  afterEach(resetFlag);
 
   afterAll(async () => {
-    setFlag(false);
+    resetFlag();
     if (app) await app.close();
     if (userIds.length) await query('DELETE FROM users WHERE user_id = ANY($1)', [userIds]).catch(() => {});
   });
@@ -110,6 +112,8 @@ describe.runIf(enabled)('era sets (Postgres)', () => {
   });
 
   describe('with store_v2_enabled off', () => {
+    beforeEach(() => setFlag(false));
+
     it('lists the old catalog exactly: no set items and no set field', async () => {
       const user = await seedUser(5000);
       const catalog = await catalogOf(user);

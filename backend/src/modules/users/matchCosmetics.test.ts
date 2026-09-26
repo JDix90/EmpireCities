@@ -23,8 +23,12 @@ describe('playerCosmetics', () => {
 });
 
 describe('loadMatchCosmetics with store_v2_enabled off', () => {
-  it('reads nothing', async () => {
+  afterEach(() => {
     delete process.env.STORE_V2_ENABLED;
+  });
+
+  it('reads nothing', async () => {
+    process.env.STORE_V2_ENABLED = 'false';
     // No database here: with the flag off it must not query at all.
     expect(await loadMatchCosmetics([uuidv4()])).toEqual(new Map());
   });
@@ -87,6 +91,7 @@ describe.runIf(process.env.PG_TEST === '1')('loadMatchCosmetics (Postgres)', () 
   });
 
   it('takes nothing with the flag off', async () => {
+    process.env.STORE_V2_ENABLED = 'false';
     const dressed = await seedUser({ frame: FRAME });
     expect(await loadMatchCosmetics([dressed])).toEqual(new Map());
   });

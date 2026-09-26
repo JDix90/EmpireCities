@@ -62,6 +62,8 @@ describe('ProfilePage cosmetics', () => {
   });
 
   describe('with store_v2_enabled off', () => {
+    beforeEach(() => setStoreV2(false));
+
     it('draws the four rings it always has, and nothing else', async () => {
       // The avatar's wrapper, which carries the ring's gradient classes.
       const ringOf = (container: HTMLElement) => container.querySelector('.p-1.rounded-full.shrink-0');

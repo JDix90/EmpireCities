@@ -62,7 +62,7 @@ export interface AuthUser {
   avatar_url?: string;
   ratings?: { solo?: RatingInfo; ranked?: RatingInfo };
   equipped_frame?: string | null;
-  /** Its own slot with store_v2_enabled on; off, a banner is worn in `equipped_frame`. */
+  /** The banner worn: its own slot, separate from the frame (migration 045). */
   equipped_banner?: string | null;
   equipped_marker?: string | null;
   equipped_dice?: string | null;

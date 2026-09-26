@@ -244,7 +244,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'store_v2_enabled',
     label: 'Store overhaul',
     description:
-      'The new store page and its era sets, a banner slot separate from the frame, unequipping, and every equipped cosmetic shown where players see each other: frames and banners on the profile and beside names in matches, dice skins in combat, map markers on capitals. A match takes its players\u2019 cosmetics when it starts; switching this off hides them at once, running games included, and takes the era sets off sale. Off by default (dark launch) \u2014 off is the store, profiles and matches exactly as before.',
+      'Every equipped cosmetic shown where players see each other: frames and banners on the profile and beside names in matches, dice skins in combat, map markers on capitals. Also puts the era sets on sale. A match takes its players\u2019 cosmetics when it starts; switching this off hides them at once, running games included, and takes the era sets off sale. The store page, the banner slot and unequipping stay the same either way. On by default; this is its kill switch.',
   },
   {
     key: 'localization_enabled',

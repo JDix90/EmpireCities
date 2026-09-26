@@ -7,10 +7,10 @@
  * something. Every reader goes through `effectiveLoadout` so the profile, the
  * store and matches agree on what a player is wearing.
  *
- * Only the old equip route (the flag off, or before 045) puts a banner in the
- * frame slot; the new one writes back a loadout with none there. So a banner
- * found in the frame slot is always newer than `equipped_banner`, which can
- * only be left over from before the flag was last switched off.
+ * Only the old equip route, removed with the old store page, put a banner in
+ * the frame slot, and the equip route moves any it finds out of it. So a
+ * banner still in the frame slot was chosen after anything in
+ * `equipped_banner`, and wins.
  */
 export interface Loadout {
   frame: string | null;

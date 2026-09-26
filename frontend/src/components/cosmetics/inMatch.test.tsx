@@ -172,6 +172,8 @@ describe('final standings', () => {
 });
 
 describe('cosmetics in a match, with store_v2_enabled off', () => {
+  beforeEach(() => setStoreV2(false));
+
   it('draws nothing new, even in a game that took cosmetics when it started', () => {
     const { container } = renderHud();
     fireEvent.click(screen.getByRole('tab', { name: /Players/ }));

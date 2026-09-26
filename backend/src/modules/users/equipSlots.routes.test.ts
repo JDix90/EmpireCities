@@ -1,12 +1,12 @@
 /**
- * Equip slots with the store overhaul (`store_v2_enabled`) on, and unchanged
- * with it off.
+ * Equip slots: PUT /me/cosmetics/equip, and the slots /me reports.
  *
  * Banners shared `equipped_frame` with frames, so wearing one took the frame
- * off, and nothing could be unequipped: the UPDATE was `COALESCE($1, column)`.
- * With the flag on, a banner has its own slot (migration 045), `null` takes an
- * item off, and a banner left in the frame slot from before reads as the
- * banner. With it off, the route and `/me` behave exactly as before.
+ * off, and nothing could be unequipped: the old route's UPDATE was
+ * `COALESCE($1, column)`. Now a banner has its own slot (migration 045), `null`
+ * takes an item off, and a banner left in the frame slot from before reads as
+ * the banner. The store overhaul flag (`store_v2_enabled`) changes none of it:
+ * switching it off hides cosmetics from other players, not the store.
  *
  * Needs Postgres (migrated schema), gated on PG_TEST=1:
  *   PG_TEST=1 POSTGRES_HOST=127.0.0.1 POSTGRES_PORT=5499 POSTGRES_USER=postgres \
@@ -33,11 +33,6 @@ describe.runIf(enabled)('PUT /api/users/me/cosmetics/equip (Postgres)', () => {
   const BANNER2 = `test_${tag}_banner2`;
   const DICE = `test_${tag}_dice`;
 
-  function setFlag(on: boolean) {
-    if (on) process.env.STORE_V2_ENABLED = 'true';
-    else delete process.env.STORE_V2_ENABLED;
-  }
-
   async function seedUser({ guest = false } = {}): Promise<TestUser> {
     const id = uuidv4();
     const name = `equip_${id.slice(0, 8)}`;
@@ -59,6 +54,8 @@ describe.runIf(enabled)('PUT /api/users/me/cosmetics/equip (Postgres)', () => {
     app.inject({ method: 'PUT', url: '/api/users/me/cosmetics/equip', headers: headers(user), payload });
   const me = async (user: TestUser) =>
     (await app.inject({ method: 'GET', url: '/api/users/me', headers: headers(user) })).json();
+  const profileOf = async (user: TestUser, viewer: TestUser) =>
+    (await app.inject({ method: 'GET', url: `/api/users/${user.id}`, headers: headers(viewer) })).json();
   const stored = async (user: TestUser) =>
     (await query(
       'SELECT equipped_frame, equipped_banner, equipped_marker, equipped_dice FROM users WHERE user_id = $1',
@@ -86,111 +83,100 @@ describe.runIf(enabled)('PUT /api/users/me/cosmetics/equip (Postgres)', () => {
     );
   }, 30_000);
 
-  afterEach(() => setFlag(false));
+  afterEach(() => {
+    delete process.env.STORE_V2_ENABLED;
+  });
 
   afterAll(async () => {
-    setFlag(false);
+    delete process.env.STORE_V2_ENABLED;
     if (app) await app.close();
     if (userIds.length) await query('DELETE FROM users WHERE user_id = ANY($1)', [userIds]).catch(() => {});
     await query('DELETE FROM cosmetics WHERE cosmetic_id = ANY($1)', [[FRAME, BANNER, BANNER2, DICE]]).catch(() => {});
   });
 
-  describe('with store_v2_enabled on', () => {
-    it('wears a banner and a frame together, each in its own slot', async () => {
-      setFlag(true);
-      const user = await seedUser();
+  it('wears a banner and a frame together, each in its own slot', async () => {
+    const user = await seedUser();
 
-      expect((await equip(user, { frame_id: FRAME })).statusCode).toBe(200);
-      const res = await equip(user, { banner_id: BANNER });
+    expect((await equip(user, { frame_id: FRAME })).statusCode).toBe(200);
+    const res = await equip(user, { banner_id: BANNER });
 
-      expect(res.json()).toEqual({ ok: true, equipped: { frame: FRAME, banner: BANNER, marker: null, dice: null } });
-      expect(await stored(user)).toEqual({
-        equipped_frame: FRAME, equipped_banner: BANNER, equipped_marker: null, equipped_dice: null,
-      });
-      expect(await me(user)).toMatchObject({ equipped_frame: FRAME, equipped_banner: BANNER });
+    expect(res.json()).toEqual({ ok: true, equipped: { frame: FRAME, banner: BANNER, marker: null, dice: null } });
+    expect(await stored(user)).toEqual({
+      equipped_frame: FRAME, equipped_banner: BANNER, equipped_marker: null, equipped_dice: null,
     });
-
-    it('takes an item off with null and keeps the slots left out', async () => {
-      setFlag(true);
-      const user = await seedUser();
-      await equip(user, { frame_id: FRAME, banner_id: BANNER, dice_id: DICE });
-
-      const res = await equip(user, { banner_id: null, dice_id: null });
-
-      expect(res.json().equipped).toEqual({ frame: FRAME, banner: null, marker: null, dice: null });
-      expect(await stored(user)).toMatchObject({ equipped_frame: FRAME, equipped_banner: null, equipped_dice: null });
-    });
-
-    it('puts each item only in its own slot, and only if owned', async () => {
-      setFlag(true);
-      const user = await seedUser();
-
-      expect((await equip(user, { frame_id: BANNER })).statusCode).toBe(403);
-      expect((await equip(user, { banner_id: FRAME })).statusCode).toBe(403);
-      expect((await equip(user, { dice_id: `test_${tag}_missing` })).statusCode).toBe(403);
-      expect((await equip(user, { frame_id: 42 })).statusCode).toBe(400);
-      expect(await stored(user)).toMatchObject({ equipped_frame: null, equipped_banner: null, equipped_dice: null });
-    });
-
-    it('reads a banner left in the frame slot as the banner, and moves it when the frame changes', async () => {
-      setFlag(true);
-      const user = await seedUser();
-      await query('UPDATE users SET equipped_frame = $2 WHERE user_id = $1', [user.id, BANNER]);
-
-      expect(await me(user)).toMatchObject({ equipped_frame: null, equipped_banner: BANNER });
-      const other = await seedUser();
-      const profile = (await app.inject({ method: 'GET', url: `/api/users/${user.id}`, headers: headers(other) })).json();
-      expect(profile).toMatchObject({ equipped_frame: null, equipped_banner: BANNER });
-      expect(profile).not.toHaveProperty('equipped_frame_type');
-
-      await equip(user, { frame_id: FRAME });
-
-      expect(await stored(user)).toMatchObject({ equipped_frame: FRAME, equipped_banner: BANNER });
-    });
-
-    it('survives the flag going off and on: the banner last worn wins', async () => {
-      setFlag(true);
-      const user = await seedUser();
-      await equip(user, { frame_id: FRAME, banner_id: BANNER });
-
-      setFlag(false);
-      await equip(user, { frame_id: BANNER2 }); // the old route: the banner takes the frame slot
-      setFlag(true);
-
-      expect(await me(user)).toMatchObject({ equipped_frame: null, equipped_banner: BANNER2 });
-      const res = await equip(user, { dice_id: DICE });
-      expect(res.json().equipped).toEqual({ frame: null, banner: BANNER2, marker: null, dice: DICE });
-      expect(await stored(user)).toMatchObject({ equipped_frame: null, equipped_banner: BANNER2 });
-    });
-
-    it('still refuses guests', async () => {
-      setFlag(true);
-      const guest = await seedUser({ guest: true });
-      expect((await equip(guest, { frame_id: FRAME })).statusCode).toBe(403);
-    });
+    expect(await me(user)).toMatchObject({ equipped_frame: FRAME, equipped_banner: BANNER });
   });
 
-  describe('with store_v2_enabled off', () => {
-    it('equips exactly as before: a banner takes the frame slot and null changes nothing', async () => {
-      const user = await seedUser();
+  it('takes an item off with null and keeps the slots left out', async () => {
+    const user = await seedUser();
+    await equip(user, { frame_id: FRAME, banner_id: BANNER, dice_id: DICE });
 
-      expect((await equip(user, { frame_id: BANNER })).json()).toEqual({ ok: true });
-      expect(await stored(user)).toMatchObject({ equipped_frame: BANNER, equipped_banner: null });
+    const res = await equip(user, { banner_id: null, dice_id: null });
 
-      await equip(user, { frame_id: null });
-      expect(await stored(user)).toMatchObject({ equipped_frame: BANNER });
+    expect(res.json().equipped).toEqual({ frame: FRAME, banner: null, marker: null, dice: null });
+    expect(await stored(user)).toMatchObject({ equipped_frame: FRAME, equipped_banner: null, equipped_dice: null });
+  });
 
-      // The payload from before the overhaul: no banner slot, and the frame's
-      // catalog type stays on the server.
-      const body = await me(user);
-      expect(body).toMatchObject({ equipped_frame: BANNER });
-      expect(body).not.toHaveProperty('equipped_banner');
-      expect(body).not.toHaveProperty('equipped_frame_type');
-      const other = await seedUser();
-      const profile = (await app.inject({ method: 'GET', url: `/api/users/${user.id}`, headers: headers(other) })).json();
-      expect(profile).toMatchObject({ equipped_frame: BANNER });
-      expect(profile).not.toHaveProperty('equipped_banner');
-      expect(profile).not.toHaveProperty('equipped_frame_type');
-    });
+  it('puts each item only in its own slot, and only if owned', async () => {
+    const user = await seedUser();
+
+    expect((await equip(user, { frame_id: BANNER })).statusCode).toBe(403);
+    expect((await equip(user, { banner_id: FRAME })).statusCode).toBe(403);
+    expect((await equip(user, { dice_id: `test_${tag}_missing` })).statusCode).toBe(403);
+    expect((await equip(user, { frame_id: 42 })).statusCode).toBe(400);
+    expect(await stored(user)).toMatchObject({ equipped_frame: null, equipped_banner: null, equipped_dice: null });
+  });
+
+  it('reads a banner left in the frame slot as the banner, and moves it when the frame changes', async () => {
+    const user = await seedUser();
+    await query('UPDATE users SET equipped_frame = $2 WHERE user_id = $1', [user.id, BANNER]);
+
+    expect(await me(user)).toMatchObject({ equipped_frame: null, equipped_banner: BANNER });
+    const profile = await profileOf(user, await seedUser());
+    expect(profile).toMatchObject({ equipped_frame: null, equipped_banner: BANNER });
+    expect(profile).not.toHaveProperty('equipped_frame_type');
+
+    await equip(user, { frame_id: FRAME });
+
+    expect(await stored(user)).toMatchObject({ equipped_frame: FRAME, equipped_banner: BANNER });
+  });
+
+  it('reads a banner the old route put in the frame slot as the one worn last', async () => {
+    // The old route (removed with the old store page) wore a banner in the
+    // frame slot, over one the slot route had already put in the banner slot.
+    const user = await seedUser();
+    await query(
+      'UPDATE users SET equipped_frame = $2, equipped_banner = $3 WHERE user_id = $1',
+      [user.id, BANNER2, BANNER],
+    );
+
+    expect(await me(user)).toMatchObject({ equipped_frame: null, equipped_banner: BANNER2 });
+    const res = await equip(user, { dice_id: DICE });
+    expect(res.json().equipped).toEqual({ frame: null, banner: BANNER2, marker: null, dice: DICE });
+    expect(await stored(user)).toMatchObject({ equipped_frame: null, equipped_banner: BANNER2 });
+  });
+
+  it('still refuses guests', async () => {
+    const guest = await seedUser({ guest: true });
+    expect((await equip(guest, { frame_id: FRAME })).statusCode).toBe(403);
+  });
+
+  it('works the same with store_v2_enabled off: the kill switch leaves the store alone', async () => {
+    process.env.STORE_V2_ENABLED = 'false';
+    const user = await seedUser();
+
+    const res = await equip(user, { frame_id: FRAME, banner_id: BANNER });
+    expect(res.json()).toEqual({ ok: true, equipped: { frame: FRAME, banner: BANNER, marker: null, dice: null } });
+    expect((await equip(user, { frame_id: BANNER2 })).statusCode).toBe(403);
+
+    const body = await me(user);
+    expect(body).toMatchObject({ equipped_frame: FRAME, equipped_banner: BANNER });
+    expect(body).not.toHaveProperty('equipped_frame_type');
+    const profile = await profileOf(user, await seedUser());
+    expect(profile).toMatchObject({ equipped_frame: FRAME, equipped_banner: BANNER });
+    expect(profile).not.toHaveProperty('equipped_frame_type');
+
+    await equip(user, { banner_id: null });
+    expect(await stored(user)).toMatchObject({ equipped_frame: FRAME, equipped_banner: null });
   });
 });

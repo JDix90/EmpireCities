@@ -91,10 +91,11 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // puzzle graded by an exact solver. Dark-launched OFF; with it on, a day is
   // v2 only when its set-piece carries a plan and the gate accepted it.
   daily_puzzle_v2_enabled: () => envOptIn('DAILY_PUZZLE_V2_ENABLED'),
-  // Store overhaul: cosmetics shown where players see each other, a banner
-  // slot of its own, unequipping, the new store page. Dark-launched OFF: off
-  // is the store and every match exactly as before.
-  store_v2_enabled: () => envOptIn('STORE_V2_ENABLED'),
+  // Store overhaul: every equipped cosmetic shown where players see each
+  // other (profiles, matches), and the era sets on sale. The store page, the
+  // banner slot and unequipping are the same either way. On by default; the
+  // admin override is the kill switch.
+  store_v2_enabled: () => envOptOut('STORE_V2_ENABLED'),
 };
 
 /** The code default for one flag (no admin override consulted). */
@@ -342,11 +343,12 @@ export const featureFlags = {
   },
 
   /**
-   * The store overhaul: a banner slot separate from the frame, unequipping,
-   * every cosmetic drawn where players see each other, and the new store page.
-   * Default OFF (dark launch): off, the store, profiles and matches behave
-   * exactly as before. `STORE_V2_ENABLED=true` or the admin override turns it
-   * on, and the override is the kill switch.
+   * The store overhaul as other players see it: every equipped cosmetic drawn
+   * on profiles and in matches, and the era sets on sale. The store page, the
+   * banner slot and unequipping are the same either way. Default ON. Off,
+   * profiles and matches look as before and the era sets aren't sold; the
+   * admin override is the kill switch, and `STORE_V2_ENABLED=false` opts a
+   * deployment out.
    */
   get storeV2Enabled(): boolean {
     return overrideBool('store_v2_enabled');
