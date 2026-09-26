@@ -128,9 +128,10 @@ jobs:
         run: pnpm run test:backend
         env:
           # Opt into the integration tiers. Unit tests mock Redis/Postgres and
-          # need neither service; these flags switch on the files that talk to
-          # the real ones (redisGameStore.test.ts for Redis; the six
-          # PG_TEST-gated files, and spectatorRedaction which needs both).
+          # need neither service; these flags switch on every test file gated
+          # on them: REDIS_TEST for the files that talk to a real Redis,
+          # PG_TEST for those that need the migrated Postgres, and both for a
+          # file that needs both (such as spectatorRedaction.test.ts).
           REDIS_TEST: '1'
           PG_TEST: '1'
 
