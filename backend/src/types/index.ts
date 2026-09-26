@@ -10,6 +10,7 @@ import type {
   MapKind,
   OrbitAccessMode,
   MapWorldDefinition,
+  PlayerCosmetics,
   WorldRules,
   WorldModifiers,
 } from '@borderfall/shared';
@@ -177,6 +178,12 @@ export interface PlayerState {
   secret_mission: SecretMission | null;
   /** Faction chosen at game start (maps to an era faction definition). */
   faction_id?: string;
+  /**
+   * What this player wears in the match (store overhaul): taken at game start
+   * with store_v2_enabled on and fixed for the game. Absent for AI seats, for
+   * players wearing nothing, and in every game started with the flag off.
+   */
+  cosmetics?: PlayerCosmetics;
   /** Accumulated technology points (economy feature). */
   tech_points?: number;
   /** Special/strategic resource count for era abilities. */

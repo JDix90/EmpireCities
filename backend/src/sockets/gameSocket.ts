@@ -110,6 +110,7 @@ import { recordActivity } from '../services/activityService';
 import { recordServerEvent } from '../services/analyticsEvents';
 import { generateAndStorePostMatchAnalysis, updateSkillProfilesFromGameState } from '../services/playerValueEnhancements';
 import { incrementPlayCount } from '../modules/maps/mapService';
+import { loadMatchCosmetics } from '../modules/users/matchCosmetics';
 import type { GameState, GameMap, AiDifficulty, PlayerState, EraId, MapConnection } from '../types';
 import { normalizeGameSettings } from '../game-engine/state/gameSettings';
 import { config } from '../config';
@@ -4175,6 +4176,11 @@ async function startWaitingGameLocked(io: Server, gameId: string): Promise<Start
   const gameMap = await resolveMap(game.map_id);
   if (!gameMap) return { ok: false, code: 'MAP_NOT_FOUND', error: 'Map not found' };
 
+  // What each human wears, fixed for the match (none with store_v2_enabled off).
+  const cosmetics = await loadMatchCosmetics(
+    players.flatMap((p) => (p.user_id && !p.is_ai ? [p.user_id] : [])),
+  );
+
   const playerStates = players.map((p) => ({
     player_id: p.user_id ?? `ai_${p.player_index}`,
     player_index: p.player_index,
@@ -4185,6 +4191,7 @@ async function startWaitingGameLocked(io: Server, gameId: string): Promise<Start
     is_eliminated: false,
     mmr: 1000,
     faction_id: p.faction_id ?? undefined,
+    ...(p.user_id && !p.is_ai && cosmetics.has(p.user_id) ? { cosmetics: cosmetics.get(p.user_id) } : {}),
   }));
 
   const settings = game.settings_json as GameState['settings'];

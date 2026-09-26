@@ -23,6 +23,11 @@ import { getFastCombatPreference } from '../../utils/userPreferences';
 import { eraBoardTheme } from '../../constants/eraBoardTheme';
 import { eraMeta } from '../../constants/eraMeta';
 import { ERA_LABELS } from '../../constants/gameLobbyLabels';
+import { diceLook, type DiceLook } from '@borderfall/shared';
+import { diceEffectClass, diceFaceStyle } from '../cosmetics/diceSkin';
+import { DICE_SIDE_RING } from '../cosmetics/SkinnedMiniDie';
+import { FramedDot, PlayerBannerTag } from '../cosmetics/PlayerFlair';
+import { useCosmeticMotion, usePlayerCosmetics } from '../cosmetics/useCosmetics';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -321,7 +326,7 @@ function diceSizing(maxDice: number, compact = false): { box: string; text: stri
   return { box: 'w-9 h-9', text: 'text-base', gap: 'gap-1.5' };
 }
 
-function AnimatedDie({ value, index, variant, fast, boxClass = 'w-14 h-14', textClass = 'text-2xl' }: { value: number; index: number; variant: 'attacker' | 'defender'; fast?: boolean; boxClass?: string; textClass?: string }) {
+function AnimatedDie({ value, index, variant, fast, boxClass = 'w-14 h-14', textClass = 'text-2xl', skin }: { value: number; index: number; variant: 'attacker' | 'defender'; fast?: boolean; boxClass?: string; textClass?: string; skin?: DiceLook | null }) {
   const [display, setDisplay] = useState(fast ? value : Math.ceil(Math.random() * 6));
   const [settled, setSettled] = useState(!!fast);
 
@@ -342,7 +347,27 @@ function AnimatedDie({ value, index, variant, fast, boxClass = 'w-14 h-14', text
     return () => clearInterval(timer);
   }, [value, index, fast]);
 
+  const motion = useCosmeticMotion();
   const isAttacker = variant === 'attacker';
+  if (skin) {
+    // The roller's dice skin (store_v2_enabled); the red or blue ring still
+    // says whose roll it is.
+    return (
+      <div
+        data-testid="skinned-die"
+        className={clsx(
+          boxClass, textClass,
+          'rounded-xl flex items-center justify-center font-bold font-mono shrink-0 ring-2',
+          DICE_SIDE_RING[variant],
+          settled ? 'animate-dice-settle' : 'opacity-60',
+          motion && diceEffectClass(skin, !settled),
+        )}
+        style={diceFaceStyle(skin)}
+      >
+        {display}
+      </div>
+    );
+  }
   return (
     <div
       className={clsx(
@@ -363,8 +388,8 @@ function AnimatedDie({ value, index, variant, fast, boxClass = 'w-14 h-14', text
 
 // ─── Pip display for die faces (visual embellishment) ──────────────────────
 
-function DieFace({ value, index, variant, fast, boxClass, textClass }: { value: number; index: number; variant: 'attacker' | 'defender'; fast?: boolean; boxClass?: string; textClass?: string }) {
-  return <AnimatedDie value={value} index={index} variant={variant} fast={fast} boxClass={boxClass} textClass={textClass} />;
+function DieFace({ value, index, variant, fast, boxClass, textClass, skin }: { value: number; index: number; variant: 'attacker' | 'defender'; fast?: boolean; boxClass?: string; textClass?: string; skin?: DiceLook | null }) {
+  return <AnimatedDie value={value} index={index} variant={variant} fast={fast} boxClass={boxClass} textClass={textClass} skin={skin} />;
 }
 
 // ─── Combat Result View ────────────────────────────────────────────────────
@@ -433,6 +458,10 @@ export function CombatResultView({
   }, [autoAdvance, result, fast, onDismiss]);
 
   const diceSize = diceSizing(Math.max(result.attacker_rolls.length, result.defender_rolls.length), compact);
+  // Each side rolls in its player's dice skin (store_v2_enabled; null when off).
+  const cosmeticsOf = usePlayerCosmetics();
+  const attackerSkin = diceLook(cosmeticsOf(result.attackerId)?.dice);
+  const defenderSkin = diceLook(cosmeticsOf(result.defenderId)?.dice);
 
   const isDefending = perspective === 'defender';
   const headerLabel = isDefending ? 'Incoming Attack!' : perspective === 'attacker' ? 'Your Attack' : 'Battle';
@@ -465,10 +494,11 @@ export function CombatResultView({
         <div className="flex-1 min-w-0">
           <p className={clsx('text-red-400 text-xs font-semibold uppercase tracking-widest text-center', compact ? 'mb-1.5' : 'mb-3')}>
             {result.attackerName ?? 'Attacker'}
+            <PlayerBannerTag playerId={result.attackerId} className="ml-1.5 align-middle" />
           </p>
           <div className={clsx('flex flex-wrap justify-center', diceSize.gap)}>
             {result.attacker_rolls.map((roll, i) => (
-              <DieFace key={i} value={roll} index={i} variant="attacker" fast={fast} boxClass={diceSize.box} textClass={diceSize.text} />
+              <DieFace key={i} value={roll} index={i} variant="attacker" fast={fast} boxClass={diceSize.box} textClass={diceSize.text} skin={attackerSkin} />
             ))}
           </div>
         </div>
@@ -482,10 +512,11 @@ export function CombatResultView({
         <div className="flex-1 min-w-0">
           <p className={clsx('text-blue-400 text-xs font-semibold uppercase tracking-widest text-center', compact ? 'mb-1.5' : 'mb-3')}>
             {result.defenderName ?? 'Defender'}
+            <PlayerBannerTag playerId={result.defenderId} className="ml-1.5 align-middle" />
           </p>
           <div className={clsx('flex flex-wrap justify-center', diceSize.gap)}>
             {result.defender_rolls.map((roll, i) => (
-              <DieFace key={i} value={roll} index={i} variant="defender" fast={fast} boxClass={diceSize.box} textClass={diceSize.text} />
+              <DieFace key={i} value={roll} index={i} variant="defender" fast={fast} boxClass={diceSize.box} textClass={diceSize.text} skin={defenderSkin} />
             ))}
           </div>
         </div>
@@ -1743,10 +1774,13 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
                   i === 0 ? 'bg-yellow-500/[0.08] border border-yellow-500/15' : 'bg-white/[0.03]'
                 )}>
                   <span className="text-white/30 text-xs w-5 text-right">#{i + 1}</span>
-                  <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+                  <FramedDot playerId={p.player_id}>
+                    <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+                  </FramedDot>
                   <span className={clsx('flex-1 text-left flex items-center gap-1.5 min-w-0', i === 0 ? 'text-yellow-300 font-semibold' : 'text-white/60')}>
                     <span className="truncate">{p.username}</span>
                     {p.is_ai ? <AiBadge difficulty={p.ai_difficulty} size="xs" showLabel={false} /> : null}
+                    <PlayerBannerTag playerId={p.player_id} />
                   </span>
                   <span className="text-white/30 text-xs tabular-nums">{p.territory_count}T</span>
                   {p.is_eliminated && <span className="text-red-400/50 text-xs">Eliminated</span>}

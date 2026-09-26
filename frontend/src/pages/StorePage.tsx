@@ -10,6 +10,8 @@ import {
   type StoreRefund,
 } from '../utils/storeRefundNotice';
 import SubpageShell from '../components/ui/SubpageShell';
+import CosmeticPreview from '../components/cosmetics/CosmeticPreview';
+import { useStoreV2Enabled } from '../store/featureFlagsStore';
 import GuestGate from '../components/GuestGate';
 import Modal from '../components/ui/Modal';
 import { RARITY_COLORS } from '@borderfall/shared';
@@ -59,6 +61,22 @@ const TYPE_ICON: Record<string, React.ReactNode> = {
   profile_frame: <Image className="w-3.5 h-3.5" />,
 };
 
+/** The equip request's key for each type, with store_v2_enabled on: every type has its own slot. */
+const EQUIP_KEY: Record<string, 'frame_id' | 'banner_id' | 'marker_id' | 'dice_id'> = {
+  profile_frame: 'frame_id',
+  profile_banner: 'banner_id',
+  map_marker: 'marker_id',
+  dice_skin: 'dice_id',
+};
+
+/** What the player wears, as PUT /users/me/cosmetics/equip answers with store_v2_enabled on. */
+interface Loadout {
+  frame: string | null;
+  banner: string | null;
+  marker: string | null;
+  dice: string | null;
+}
+
 // No Unit Skins or Map Themes chip: migration 044 retired both types, so the
 // chips would only ever open an empty list.
 const FILTER_CHIPS: { key: FilterType | 'all'; label: string }[] = [
@@ -77,6 +95,7 @@ export default function StorePage() {
   // and get the middleware's developer-facing 403 on the first Buy. They also
   // have a real gold balance the rest of the app never shows them; say so.
   const isGuest = Boolean(user?.is_guest);
+  const storeV2 = useStoreV2Enabled();
   const [tab, setTab] = useState<'catalog' | 'loadout'>('catalog');
   const [catalog, setCatalog] = useState<CosmeticItem[]>([]);
   /** Items the store retired and refunded this player for (migration 044). */
@@ -92,6 +111,7 @@ export default function StorePage() {
   const [equippingId, setEquippingId] = useState<string | null>(null);
   const [gold, setGold] = useState<number>(user?.gold ?? 0);
   const [equippedFrame, setEquippedFrame] = useState<string | null>(user?.equipped_frame ?? null);
+  const [equippedBanner, setEquippedBanner] = useState<string | null>(user?.equipped_banner ?? null);
   const [equippedMarker, setEquippedMarker] = useState<string | null>(user?.equipped_marker ?? null);
   const [equippedDice, setEquippedDice] = useState<string | null>(user?.equipped_dice ?? null);
 
@@ -136,9 +156,10 @@ export default function StorePage() {
   useEffect(() => {
     if (!user) return;
     setEquippedFrame(user.equipped_frame ?? null);
+    setEquippedBanner(user.equipped_banner ?? null);
     setEquippedMarker(user.equipped_marker ?? null);
     setEquippedDice(user.equipped_dice ?? null);
-  }, [user?.user_id, user?.equipped_frame, user?.equipped_marker, user?.equipped_dice]);
+  }, [user?.user_id, user?.equipped_frame, user?.equipped_banner, user?.equipped_marker, user?.equipped_dice]);
 
   useEffect(() => {
     fetchCatalog();
@@ -248,6 +269,53 @@ export default function StorePage() {
     } finally {
       setEquippingId(null);
     }
+  };
+
+  /**
+   * Equip an item, or take it off (`equip` false), with store_v2_enabled on:
+   * each type in its own slot, so a banner no longer takes the frame's place.
+   * The server answers with everything the player now wears.
+   */
+  const setSlot = async (item: OwnedItem, equip: boolean) => {
+    if (equippingId) return;
+    if (isGuest) {
+      toast('Equipping needs a free account — your unlocks carry over.', { icon: '🪙' });
+      return;
+    }
+    const key = EQUIP_KEY[item.type];
+    if (!key) return;
+    setEquippingId(item.cosmetic_id);
+    try {
+      const res = await api.put('/users/me/cosmetics/equip', { [key]: equip ? item.cosmetic_id : null });
+      const worn = (res.data as { equipped?: Loadout } | undefined)?.equipped;
+      if (!worn) throw new Error('The server did not say what is equipped');
+      setEquippedFrame(worn.frame);
+      setEquippedBanner(worn.banner);
+      setEquippedMarker(worn.marker);
+      setEquippedDice(worn.dice);
+      if (user) {
+        setUser({
+          ...user,
+          equipped_frame: worn.frame,
+          equipped_banner: worn.banner,
+          equipped_marker: worn.marker,
+          equipped_dice: worn.dice,
+        });
+      }
+      toast.success(equip ? `${item.name} equipped!` : `${item.name} unequipped`);
+    } catch {
+      toast.error(equip ? 'Failed to equip item' : 'Failed to unequip item');
+    } finally {
+      setEquippingId(null);
+    }
+  };
+
+  /** What each slot holds, by catalog type (store_v2_enabled on). */
+  const wornByType: Record<string, string | null> = {
+    profile_frame: equippedFrame,
+    profile_banner: equippedBanner,
+    map_marker: equippedMarker,
+    dice_skin: equippedDice,
   };
 
   const userId = user?.user_id;
@@ -485,8 +553,9 @@ export default function StorePage() {
                     </h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       {items.map((item) => {
-                        const isEquipped =
-                          ((type === 'profile_frame' || type === 'profile_banner') &&
+                        const isEquipped = storeV2
+                          ? wornByType[type] === item.cosmetic_id
+                          : ((type === 'profile_frame' || type === 'profile_banner') &&
                             equippedFrame === item.cosmetic_id) ||
                           (type === 'map_marker' && equippedMarker === item.cosmetic_id) ||
                           (type === 'dice_skin' && equippedDice === item.cosmetic_id);
@@ -502,18 +571,34 @@ export default function StorePage() {
                               isEquipped ? 'border-bf-gold/40 bg-bf-gold/5' : ''
                             }`}
                           >
+                            {storeV2 && (
+                              <CosmeticPreview cosmeticId={item.cosmetic_id} type={item.type} initial={user?.username} />
+                            )}
                             <p className="font-display text-bf-text text-sm">{item.name}</p>
                             {item.description && (
                               <p className="text-bf-muted text-xs">{item.description}</p>
                             )}
                             <div className="mt-auto pt-2">
-                              {isEquipped ? (
+                              {isEquipped && storeV2 ? (
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="flex items-center gap-1 text-xs text-bf-gold">
+                                    <CheckCircle className="w-3.5 h-3.5" /> Equipped
+                                  </span>
+                                  <button
+                                    onClick={() => setSlot(item, false)}
+                                    disabled={equippingId === item.cosmetic_id}
+                                    className="btn-secondary text-xs px-3 py-1 disabled:opacity-60 disabled:cursor-not-allowed"
+                                  >
+                                    {equippingId === item.cosmetic_id ? 'Unequipping…' : 'Unequip'}
+                                  </button>
+                                </div>
+                              ) : isEquipped ? (
                                 <span className="flex items-center gap-1 text-xs text-bf-gold">
                                   <CheckCircle className="w-3.5 h-3.5" /> Equipped
                                 </span>
                               ) : canEquip ? (
                                 <button
-                                  onClick={() => handleEquip(item)}
+                                  onClick={() => (storeV2 ? setSlot(item, true) : handleEquip(item))}
                                   disabled={equippingId === item.cosmetic_id}
                                   className="btn-secondary text-xs px-3 py-1 disabled:opacity-60 disabled:cursor-not-allowed"
                                 >

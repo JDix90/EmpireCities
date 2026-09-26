@@ -37,6 +37,10 @@ recognized open-source sources, not generated images:
 ## Icons & type
 - Icons: **[lucide](https://lucide.dev/)** (`lucide-react`), an open-source icon
   library.
+- Store cosmetics (frames, banners, map markers, dice) are drawn in code: CSS
+  gradients and colours, plus a few lucide glyphs whose path data is copied
+  into `packages/shared/src/cosmetics.ts` (with lucide's ISC notice) so every
+  renderer can draw them. There are no cosmetic image files.
 - Type: **Cinzel** (display) + **Inter** (body), via Google Fonts.
 - A deliberate brand palette and animations live in `frontend/tailwind.config.js`
   / `frontend/src/index.css` — a real design system, not a template.

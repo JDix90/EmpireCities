@@ -11,6 +11,9 @@ import XpBar from '../components/ui/XpBar';
 import TierBadge from '../components/ui/TierBadge';
 import ReferralPanel from '../components/ui/ReferralPanel';
 import { ownAuthUiAllowed } from '../utils/embedContext';
+import { useStoreV2Enabled } from '../store/featureFlagsStore';
+import FrameRing from '../components/cosmetics/FrameRing';
+import BannerTag from '../components/cosmetics/BannerTag';
 
 /** Format a date string with locale date + browser timezone abbreviation (e.g. "Apr 21, 2025 · PDT"). */
 function formatDate(iso: string): string {
@@ -34,6 +37,8 @@ interface UserProfile {
   created_at: string;
   ratings?: { solo?: RatingInfo; ranked?: RatingInfo };
   equipped_frame?: string | null;
+  /** Sent only with store_v2_enabled on. */
+  equipped_banner?: string | null;
   gold?: number;
 }
 
@@ -46,6 +51,7 @@ interface Achievement {
   unlocked_at?: string;
 }
 
+/** The four rings the profile drew before the store overhaul; with it on, FrameRing draws every frame. */
 const FRAME_GRADIENTS: Record<string, string> = {
   frame_bronze: 'from-amber-700 via-amber-500 to-amber-700',
   frame_silver: 'from-gray-400 via-white to-gray-400',
@@ -104,6 +110,7 @@ export default function ProfilePage() {
   const { userId } = useParams<{ userId?: string }>();
   const { user: currentUser, logout } = useAuthStore();
   const navigate = useNavigate();
+  const storeV2 = useStoreV2Enabled();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [games, setGames] = useState<GameHistory[]>([]);
   const [stats, setStats] = useState<UserStats | null>(null);
@@ -189,6 +196,16 @@ export default function ProfilePage() {
     );
   }
 
+  const avatar = (
+    <div className="w-20 h-20 rounded-full bg-bf-border flex items-center justify-center text-3xl">
+      {profile.avatar_url ? (
+        <img src={profile.avatar_url} alt={profile.username} className="w-full h-full rounded-full object-cover" />
+      ) : (
+        profile.username[0].toUpperCase()
+      )}
+    </div>
+  );
+
   const activeBucket: StatsBucket | null = stats
     ? (activeTab === 'solo' ? stats.solo : activeTab === 'multi' ? stats.multi : stats.hybrid)
     : null;
@@ -201,21 +218,26 @@ export default function ProfilePage() {
     >
         {/* Profile Card */}
         <div className="card flex flex-col sm:flex-row items-center gap-6">
+          {storeV2 ? (
+            <FrameRing frameId={profile.equipped_frame}>{avatar}</FrameRing>
+          ) : (
           <div className={`p-1 rounded-full shrink-0 ${
             profile.equipped_frame && FRAME_GRADIENTS[profile.equipped_frame]
               ? `bg-gradient-to-r ${FRAME_GRADIENTS[profile.equipped_frame]}`
               : ''
           }`}>
-            <div className="w-20 h-20 rounded-full bg-bf-border flex items-center justify-center text-3xl">
-              {profile.avatar_url ? (
-                <img src={profile.avatar_url} alt={profile.username} className="w-full h-full rounded-full object-cover" />
-              ) : (
-                profile.username[0].toUpperCase()
-              )}
-            </div>
+            {avatar}
           </div>
+          )}
           <div className="flex-1 text-center sm:text-left">
+            {storeV2 ? (
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                <h2 className="font-display text-2xl text-bf-gold">{profile.username}</h2>
+                <BannerTag bannerId={profile.equipped_banner} size="md" />
+              </div>
+            ) : (
             <h2 className="font-display text-2xl text-bf-gold">{profile.username}</h2>
+            )}
             <p className="text-bf-muted text-sm mt-1">
               Level {profile.level} · Member since {new Date(profile.created_at).getFullYear()}
             </p>

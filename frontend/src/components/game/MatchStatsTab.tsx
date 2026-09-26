@@ -2,6 +2,7 @@ import React from 'react';
 import clsx from 'clsx';
 import { AiBadge } from '../ui/AiBadge';
 import type { GameOverModalData } from './ActionModal';
+import { FramedDot, PlayerBannerTag } from '../cosmetics/PlayerFlair';
 
 function EfficiencyBar({ pct }: { pct: number }) {
   return (
@@ -194,9 +195,12 @@ export default function MatchStatsTab({
                 >
                   <td className="py-2 pr-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+                      <FramedDot playerId={p.player_id}>
+                        <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+                      </FramedDot>
                       <span className="truncate">{p.username}</span>
                       {p.is_ai && <AiBadge difficulty={p.ai_difficulty} size="xs" showLabel={false} />}
+                      <PlayerBannerTag playerId={p.player_id} />
                       {isMe && <span className="text-bf-gold/60 text-[10px] shrink-0">you</span>}
                     </div>
                   </td>

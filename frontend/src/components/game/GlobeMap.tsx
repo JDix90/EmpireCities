@@ -19,7 +19,9 @@ import {
 } from '../../utils/globeTerritoryGeometry';
 import { galaxyExoWideHullCapResolution } from '../../utils/galaxyGlobeCapResolution';
 import { buildGalaxyWorldTextureFromPolygons } from '../../utils/proceduralPlanet';
-import { inferWorldId } from '@borderfall/shared';
+import { inferWorldId, markerLook, type MarkerLook } from '@borderfall/shared';
+import { usePlayerCosmetics } from '../cosmetics/useCosmetics';
+import { markerSvgElement } from '../cosmetics/markerSvg';
 import { deriveRegionalGlobeView, type GlobeViewConfig } from '../../utils/regionalGlobe';
 import { isFogHidden } from '../../utils/fogVisibility';
 import { getPlayerGlobeColor, getRegionCssColors } from '../../constants/accessibleColors';
@@ -281,6 +283,8 @@ type HtmlDatum =
   | (HtmlDatumBase & {
       kind: 'capital-marker';
       color: string;
+      /** The owner's map marker (store_v2_enabled), drawn on the capital in place of the diamond. */
+      marker?: MarkerLook;
     })
   | (HtmlDatumBase & {
       kind: 'sea-route-marker';
@@ -471,6 +475,24 @@ function buildHtmlOverlayElement(
     }
 
     case 'capital-marker': {
+      if (datum.marker) {
+        // The gold-rimmed badge in the owner's colour, with their marker on it.
+        el.style.cssText = [
+          'width:20px',
+          'height:20px',
+          'border-radius:999px',
+          'border:2px solid #ffd700',
+          `background:${datum.color}`,
+          'box-shadow:0 0 6px rgba(0,0,0,0.85)',
+          'display:flex',
+          'align-items:center',
+          'justify-content:center',
+          'pointer-events:none',
+        ].join(';');
+        el.appendChild(markerSvgElement(datum.marker, 16));
+        el.title = 'Capital';
+        break;
+      }
       el.style.cssText = [
         'width:12px',
         'height:12px',
@@ -2910,6 +2932,7 @@ function GlobeMap({
     return out;
   }, [gameState, territoryCentroids, territoryById, activeWorldId]);
 
+  const cosmeticsOf = usePlayerCosmetics();
   const capitalHtmlOverlays = useMemo((): HtmlDatum[] => {
     if (!gameState) return [];
     const out: HtmlDatum[] = [];
@@ -2919,17 +2942,20 @@ function GlobeMap({
       if (!terr || inferWorldId(terr) !== activeWorldId) continue;
       const c = territoryCentroids.get(pl.capital_territory_id);
       if (!c) continue;
+      const marker = markerLook(cosmeticsOf(pl.player_id)?.marker);
       out.push({
         kind: 'capital-marker',
-        id: `capital-globe-${pl.player_id}`,
+        // A capital that gains a marker is a different element, so rebuild it.
+        id: marker ? `capital-globe-${pl.player_id}-marker` : `capital-globe-${pl.player_id}`,
         lat: c.lat,
         lng: c.lng,
         alt: 0.045,
         color: pl.color,
+        ...(marker ? { marker } : {}),
       });
     }
     return out;
-  }, [gameState, territoryCentroids, territoryById, activeWorldId]);
+  }, [gameState, territoryCentroids, territoryById, activeWorldId, cosmeticsOf]);
 
   const adjacencyArcs = useMemo(() => {
     if (!gameState) return [];

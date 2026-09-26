@@ -181,6 +181,29 @@
   }
 }
 
+/* Holographic dice (store_v2_enabled): a band of light sweeps across the face.
+   Under reduced motion the rule above runs it once, instantly, off the face. */
+.cosmetic-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.cosmetic-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.55) 50%, transparent 70%);
+  transform: translateX(-100%);
+  animation: cosmeticShimmer 2.4s ease-in-out infinite;
+}
+
+@keyframes cosmeticShimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
 /* Phase tint overlays on live map containers (GamePage / Replay / Spectator) */
 .map-phase-tint-draft::after,
 .map-phase-tint-attack::after,
