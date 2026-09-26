@@ -17,7 +17,8 @@ import { v4 as uuidv4 } from 'uuid';
 
 const enabled = process.env.PG_TEST === '1';
 
-describe.runIf(enabled)('multiple accounts per email (Postgres)', () => {
+// bcrypt-bound at the real cost, and CI runs test files in parallel: 5 s is too tight.
+describe.runIf(enabled)('multiple accounts per email (Postgres)', { timeout: 20_000 }, () => {
   let app: FastifyInstance;
   let usersApp: FastifyInstance;
   let query: (sql: string, params?: unknown[]) => Promise<Record<string, unknown>[]>;
