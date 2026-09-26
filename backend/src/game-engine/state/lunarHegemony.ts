@@ -65,9 +65,10 @@ export function hegemonyTurnsFor(state: GameState): number {
  * win the game's victory list allows, so with the setting on and the condition
  * off the clock still ran, still broadcast, and still drew the HUD countdown —
  * for a victory that could never be declared. A rival watching "Hegemony in 2"
- * and going to break it was answering a threat that did not exist. That happens
- * whenever a host picks their own victory conditions on a Space Age game, since
- * `applyOrbitGatedVictoryDefaults` only fills a blank list.
+ * and going to break it was answering a threat that did not exist. That was
+ * every lobby and Quick Match game created while `applyOrbitGatedVictoryDefaults`
+ * added the condition to a blank list only — the lobby always sends one — and
+ * those games keep the settings they were created with.
  *
  * Tying the two together also settles what an era-advancement game gets: the
  * mechanics arm on arrival either way, and the clock appears only in a game that
@@ -209,7 +210,9 @@ export function contestOpensMoonAccess(state: GameState, playerId: string): bool
 export function contestAccessMissing(state: GameState, player: PlayerState): string[] {
   const missing: string[] = [];
   if (!(player.unlocked_techs?.includes('sa_launch_pad_tech') ?? false)) {
-    missing.push('Launch Pad tech');
+    // Named as the tech tree names it. "Launch Pad tech" read like a building
+    // the player could not find in the build menu.
+    missing.push('Spaceport Infrastructure tech');
   }
   const hasLaunchPad = Object.values(state.territories).some(
     (t) => t.owner_id === player.player_id && (t.buildings?.includes('launch_pad') ?? false),

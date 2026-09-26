@@ -232,6 +232,14 @@ describe('the contest rule', () => {
     expect(res.missing).toContain('Launch Pad building');
   });
 
+  it('names the missing tech the way the tech tree does', () => {
+    const state = contestState('p1');
+    state.players[1].unlocked_techs = [];
+    const res = getOrbitAccessResult(state, state.players[1], MAP, 'space_age');
+    expect(res.allowed).toBe(false);
+    expect(res.missing).toEqual(['Spaceport Infrastructure tech']);
+  });
+
   it('leaves the full ladder in place while the Moon is unclaimed', () => {
     const state = contestState(null);
     const res = getOrbitAccessResult(state, state.players[1], MAP, 'space_age');

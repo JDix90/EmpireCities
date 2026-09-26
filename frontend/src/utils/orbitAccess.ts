@@ -9,7 +9,9 @@
  * Keep the rules in sync with `getOrbitAccessResult` on the backend:
  *   - `space_age_moon`: needs Lunar Expansion tech + Launch Pad building +
  *     either a launched Space Station or the Space Elevator wonder, OR be the
- *     Lunar Pioneers faction.
+ *     Lunar Pioneers faction. While the Moon is contested (a rival holds lunar
+ *     ground in a game the Lunar Hegemony can win) Spaceport Infrastructure
+ *     tech + a Launch Pad is enough — see `moonContestOpen`.
  *   - `galaxy_hyperspace`: under corridors (`settings.galaxy_corridors_enabled`,
  *     the default) access is positional and always allowed — lane STATE and the
  *     lane dice cap live in `galaxyLanes.ts`; with the kill switch off it needs
@@ -21,6 +23,7 @@ import { inferWorldId } from '@borderfall/shared';
 import type { GameState } from '../store/gameStore';
 import { orbitLaneId } from './galaxyLanes';
 import { resolvePlayerTechEraId } from './eraAdvancement';
+import { isLunarHegemonyInPlay } from './lunarHegemony';
 
 export type OrbitAccessMode = 'none' | 'space_age_moon' | 'galaxy_hyperspace';
 
@@ -69,6 +72,37 @@ export function countOwnedLunarTerritories(
     if (gameState.territories[t.territory_id]?.owner_id === playerId) count += 1;
   }
   return count;
+}
+
+/**
+ * The contest rule (Moon Race, Phase 3), mirrored from `contestOpensMoonAccess`
+ * on the backend: once a RIVAL holds any lunar tile in a game the Lunar
+ * Hegemony can win, everyone else's Moon access drops to Spaceport
+ * Infrastructure tech plus a Launch Pad. One tile opens it — the clock need not
+ * be running — and it closes again if the rivals are driven off the Moon.
+ *
+ * Reads the map document for the same reason `countOwnedLunarTerritories` does.
+ */
+export function moonContestOpen(
+  mapTerritories: readonly FrontendMapTerritory[] | null | undefined,
+  gameState: GameState | null | undefined,
+  playerId: string | null | undefined,
+): boolean {
+  if (!mapTerritories || !gameState || !playerId) return false;
+  if (!isLunarHegemonyInPlay(gameState.settings)) return false;
+  return mapTerritories.some((t) => {
+    if (inferWorldId(t) !== 'moon') return false;
+    const owner = gameState.territories[t.territory_id]?.owner_id;
+    return owner != null && owner !== playerId;
+  });
+}
+
+/** What the contest rule still asks of a player. Labels match the server's. */
+function contestAccessMissing(techs: readonly string[], hasLaunchPad: boolean): string[] {
+  const missing: string[] = [];
+  if (!techs.includes('sa_launch_pad_tech')) missing.push('Spaceport Infrastructure tech');
+  if (!hasLaunchPad) missing.push('Launch Pad building');
+  return missing;
 }
 
 /**
@@ -171,6 +205,11 @@ export function resolveOrbitAccessModeForPlayer(
 export interface OrbitAccessResult {
   allowed: boolean;
   missing: string[];
+  /**
+   * The contest rule decided this result: a rival holds lunar ground, so
+   * `missing` is the shorter contest list rather than the full ladder.
+   */
+  contested?: boolean;
 }
 
 /** One step of the Space Age Moon ladder, as the player has to perform it. */
@@ -194,6 +233,13 @@ export interface SpaceProgramProgress {
    * reinforce there, but cannot cross a lane until they rebuild.
    */
   strandedWithoutPad: boolean;
+  /**
+   * A rival holds lunar ground, so this player's access rests on the contest
+   * rule rather than the full ladder: `rungs` is cut to the two steps it asks
+   * for and `allowed` follows them. False for anyone the shortcut changes
+   * nothing for — the Lunar Pioneers, and players who finished the ladder.
+   */
+  contested: boolean;
   /**
    * Whether they demonstrably held a pad at some point, which decides whether
    * the stranded copy should say the pad is *gone* or that they still need one.
@@ -220,7 +266,7 @@ export function getSpaceProgramProgress(
 ): SpaceProgramProgress {
   const empty: SpaceProgramProgress = {
     applicable: false, isLunarPioneer: false, allowed: true, rungs: [], strandedWithoutPad: false,
-    everHadPad: false,
+    contested: false, everHadPad: false,
   };
   if (resolveOrbitAccessModeForPlayer(mapData, gameState, playerId, era) !== 'space_age_moon') return empty;
   if (!gameState || !playerId) return empty;
@@ -269,12 +315,23 @@ export function getSpaceProgramProgress(
     { key: 'sa_lunar_expansion', label: 'Research Lunar Expansion', done: hasTech },
   ];
 
+  const ladderDone = hasTech && !!padTerritory && (hasLaunchedStation || hasElevator);
+  const contested = !isLunarPioneer && !ladderDone
+    && moonContestOpen(mapData?.territories, gameState, playerId);
+
   return {
     applicable: true,
     isLunarPioneer,
-    allowed: isLunarPioneer || (hasTech && !!padTerritory && (hasLaunchedStation || hasElevator)),
-    rungs,
+    allowed: isLunarPioneer || ladderDone
+      || (contested && contestAccessMissing(techs, !!padTerritory).length === 0),
+    // Under the contest rule the last three rungs stop mattering, and listing
+    // them would send the player down a research detour the game no longer
+    // asks for.
+    rungs: contested
+      ? rungs.filter((r) => r.key === 'sa_launch_pad_tech' || r.key === 'launch_pad')
+      : rungs,
     strandedWithoutPad: !isLunarPioneer && hasTech && (hasLaunchedStation || hasElevator) && !padTerritory,
+    contested,
     everHadPad: hasLaunchedStation,
   };
 }
@@ -346,7 +403,14 @@ export function getOrbitAccessResult(
     if (!hasTech) missing.push('Lunar Expansion tech');
     if (!hasLaunchPad) missing.push('Launch Pad building');
     if (!hasLaunchedStation && !hasSpaceElevator) missing.push('launched Space Station');
-    return { allowed: missing.length === 0, missing };
+    if (missing.length === 0) return { allowed: true, missing };
+    // The contest rule applies only after the full check, as on the server: it
+    // can open access early, never take it away.
+    if (moonContestOpen(mapData?.territories, gameState, playerId)) {
+      const contestMissing = contestAccessMissing(techs, hasLaunchPad);
+      return { allowed: contestMissing.length === 0, missing: contestMissing, contested: true };
+    }
+    return { allowed: false, missing };
   }
 
   // galaxy_hyperspace — corridors: no tech gate, access is positional (you
@@ -390,8 +454,9 @@ export function formatOrbitAccessError(access: OrbitAccessResult, mode: OrbitAcc
       : `Hyperspace travel requires: ${access.missing.join(' + ')}`;
   }
   if (mode === 'space_age_moon') {
-    return access.missing.length === 0
-      ? 'Moon access locked'
+    if (access.missing.length === 0) return 'Moon access locked';
+    return access.contested
+      ? `The Moon is contested — joining the fight requires: ${access.missing.join(' + ')}`
       : `Moon access requires: ${access.missing.join(' + ')}`;
   }
   return access.missing.length === 0 ? 'Orbit access locked' : `Requires: ${access.missing.join(' + ')}`;

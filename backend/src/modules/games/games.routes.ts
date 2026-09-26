@@ -161,7 +161,9 @@ export const CreateGameSchema = z.object({
  * any such create without an explicit cap gets the max_turns 90 leader-wins
  * backstop. `checkVictory` reads live territory count, so the threshold target
  * self-adjusts if Space Age frontiers are seeded (63 tiles). Explicit caller
- * choices always win. Exported for tests.
+ * choices always win over the backstop. The Lunar Hegemony is the exception:
+ * it is part of the Moon Race rather than a lobby choice, so it joins whatever
+ * list the caller sent whenever its phase is baked. Exported for tests.
  */
 export const ORBIT_GATED_DEFAULT_VICTORY_THRESHOLD = 60;
 export const ORBIT_GATED_DEFAULT_MAX_TURNS = 90;
@@ -172,6 +174,7 @@ export function applyOrbitGatedVictoryDefaults<
   opts: {
     isOrbitGated: boolean;
     callerChoseVictory: boolean;
+    /** The Hegemony phase is baked AND the board has a Moon to hold. */
     lunarHegemony?: boolean;
     isGalacticAge?: boolean;
   },
@@ -181,22 +184,27 @@ export function applyOrbitGatedVictoryDefaults<
   // identity and not merely by value.
   if (!opts.isOrbitGated && !opts.lunarHegemony) return settings;
   const out = { ...settings };
-  if (!opts.callerChoseVictory) {
-    // Every addition only ever fills a blank list; an explicit lobby choice wins.
-    const add: VictoryType[] = [];
-    if (opts.isOrbitGated) add.push('threshold');
-    // Space Age Moon Race, Phase 3: the Hegemony is a THIRD decisive route.
-    // Deliberately NOT conditioned on `isOrbitGated`, because an era-advancement
-    // game that climbs there should be winnable that way too — it just must not
-    // pick up the backstop below with it.
-    if (opts.lunarHegemony) add.push('lunar_hegemony');
-    // Lane Sovereignty is the galaxy's own way to win — hold the corridors, not
-    // the tiles — and ships ON beside the headcount backstop. It is meaningless
-    // off a lane map, so it is never added elsewhere.
-    if (opts.isGalacticAge) add.push('lane_sovereignty');
-    if (add.length > 0) {
-      out.allowed_victory_conditions = [...new Set([...(out.allowed_victory_conditions ?? []), ...add])];
-    }
+  const add: VictoryType[] = [];
+  // The headcount backstop only ever fills a blank list; an explicit lobby
+  // choice of how the match ends wins.
+  if (!opts.callerChoseVictory && opts.isOrbitGated) add.push('threshold');
+  // Space Age Moon Race, Phase 3: the Hegemony is a decisive route of its own,
+  // and it rides with the phase rather than with the lobby's list. It used to
+  // fill a blank list only, but the lobby and Quick Match always send a list,
+  // so it was never added: the clock and the contest rule stayed dark in every
+  // ordinary game. Like the rest of the Moon Race it has no player-facing
+  // opt-out (see resolveMoonRacePhases); the phase flag is the operator's kill
+  // switch. Deliberately NOT conditioned on `isOrbitGated`: whether there is a
+  // Moon to hold is the caller's question, and a game that is not orbit-gated
+  // from turn one must not pick up the backstop below with it.
+  if (opts.lunarHegemony) add.push('lunar_hegemony');
+  // Lane Sovereignty is the galaxy's own way to win — hold the corridors, not
+  // the tiles — and ships ON beside the headcount backstop. It is meaningless
+  // off a lane map, so it is never added elsewhere, and like the backstop it
+  // only fills a blank list.
+  if (!opts.callerChoseVictory && opts.isGalacticAge) add.push('lane_sovereignty');
+  if (add.length > 0) {
+    out.allowed_victory_conditions = [...new Set([...(out.allowed_victory_conditions ?? []), ...add])];
   }
   // The threshold-60 / 90-turn backstop exists for a game that is orbit-gated
   // from turn ONE and would otherwise never end (a large share of the board
@@ -374,6 +382,14 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(400).send({ error: seatRejection });
     }
 
+    // Resolved before the settings are built: whether the board has a Moon
+    // decides whether the Lunar Hegemony is a way this game can end.
+    const gameMap = await resolveMap(map_id);
+    if (!gameMap) {
+      return reply.status(400).send({ error: 'Map not found' });
+    }
+    const mapMeta = buildMapMetaFromDoc(gameMap);
+
     const mergedList: VictoryType[] =
       rawSettings.allowed_victory_conditions && rawSettings.allowed_victory_conditions.length > 0
         ? [...new Set(rawSettings.allowed_victory_conditions)]
@@ -433,7 +449,11 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
           isGalacticAge,
           callerChoseVictory:
             (rawSettings.allowed_victory_conditions?.length ?? 0) > 0 || rawSettings.victory_type != null,
-          lunarHegemony: moonRace.phases.space_age_moon_hegemony_enabled === true,
+          // Only on a board with a Moon to hold. An era-advancement climb bakes
+          // the phase too, but the board transform that would bring it a Moon
+          // is parked, so on its moonless board the route could never fire and
+          // "How to win" would promise a victory that does not exist.
+          lunarHegemony: moonRace.phases.space_age_moon_hegemony_enabled === true && mapMeta.has_moon_territories,
         },
       ),
     );
@@ -468,18 +488,13 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       }
     }
 
-    const gameMap = await resolveMap(map_id);
-    if (!gameMap) {
-      return reply.status(400).send({ error: 'Map not found' });
-    }
-
     const pairing = evaluateEraMapCompatibility({
       era_id,
       map_id,
       settings: settings as unknown as Record<string, unknown>,
       is_admin: request.isAdmin,
       player_count: 1 + ai_count,
-      map_meta: buildMapMetaFromDoc(gameMap),
+      map_meta: mapMeta,
     });
     if (!pairing.allowed && pairing.hardBlock) {
       return reply.status(400).send({ error: pairing.hardBlock });
