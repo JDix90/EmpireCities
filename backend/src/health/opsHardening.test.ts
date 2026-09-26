@@ -134,6 +134,15 @@ describe('backup-databases.sh', () => {
   });
 });
 
+describe('setup-backup-cron.sh', () => {
+  const src = read('scripts/setup-backup-cron.sh');
+
+  it('schedules the backup at CRON_HOUR:00, not CRON_HOUR minutes past midnight', () => {
+    // Cron reads the minute first. Written hour-first, the "3:00" job ran at 00:03.
+    expect(src).toMatch(/CRON_LINE="0 \$\{CRON_HOUR\} \* \* \* /);
+  });
+});
+
 describe('docker-compose.prod.yml', () => {
   const src = read('docker/docker-compose.prod.yml');
 
