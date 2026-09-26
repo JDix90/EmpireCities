@@ -117,7 +117,7 @@ export default function StoreV2Page() {
       applyLoadout(next);
       toast.success(item ? `${item.name} equipped` : `${SLOT_LABELS[slot]} back to default`);
     } catch {
-      toast.error(item ? 'Failed to equip item' : 'Failed to change your loadout');
+      toast.error(item ? 'Failed to equip item' : 'Failed to change your look');
     } finally {
       setPendingSlot(null);
       setBusyId(null);

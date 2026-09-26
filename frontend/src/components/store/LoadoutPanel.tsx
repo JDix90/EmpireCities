@@ -43,8 +43,11 @@ export default function LoadoutPanel({
   return (
     <section aria-labelledby="loadout-heading" className="card mb-6 p-4 sm:p-6">
       <div className="mb-3 flex items-baseline justify-between gap-2">
-        <h2 id="loadout-heading" className="font-display text-bf-gold">Your loadout</h2>
-        <p className="text-xs text-bf-muted">Choose a slot to change it</p>
+        <div>
+          <h2 id="loadout-heading" className="font-display text-bf-gold">Your look</h2>
+          <p className="text-xs text-bf-muted">How rivals see you</p>
+        </div>
+        <p className="text-right text-xs text-bf-muted">Choose a slot to change it</p>
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
         {SLOTS.map((slot) => {

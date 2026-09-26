@@ -112,7 +112,7 @@ describe('StorePage with store_v2_enabled on', () => {
         </Suspense>
       </MemoryRouter>,
     );
-    expect(await screen.findByRole('heading', { name: 'Your loadout' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Your look' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'My Loadout' })).not.toBeInTheDocument();
   });
 });

@@ -105,11 +105,13 @@ describe('StoreV2Page', () => {
     expect(useAuthStore.getState().user).toMatchObject({ gold: 20, equipped_dice: 'bone_dice' });
   });
 
-  it('puts a slot back to Default from the loadout', async () => {
+  it('puts a slot back to Default from Your look', async () => {
     serve({ banner: 'general_banner' });
     putMock.mockResolvedValueOnce({ data: { ok: true, equipped: { frame: null, banner: null, marker: null, dice: null } } });
     renderStore();
-    const bannerSlot = await screen.findByTestId('loadout-slot-banner');
+    const look = await screen.findByRole('region', { name: 'Your look' });
+    expect(within(look).getByText('How rivals see you')).toBeInTheDocument();
+    const bannerSlot = within(look).getByTestId('loadout-slot-banner');
     await within(bannerSlot).findByText('General Banner');
 
     fireEvent.click(bannerSlot);
@@ -150,7 +152,7 @@ describe('StoreV2Page', () => {
     serve({ gold: 0 });
     renderStore({ guest: true });
     const bone = await screen.findByRole('article', { name: 'Ancient Bone Dice' });
-    expect(screen.queryByRole('heading', { name: 'Your loadout' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Your look' })).toBeNull();
     expect(screen.getByText(/Guest accounts earn gold/)).toBeInTheDocument();
 
     fireEvent.click(await within(bone).findByRole('button', { name: 'Buy' }));
