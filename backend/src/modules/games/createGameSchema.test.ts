@@ -210,6 +210,76 @@ describe('Galactic Age lobby payload', () => {
 });
 
 
+describe('Space to Stars lobby payload', () => {
+  // The theater names its own climb — `era_advancement_spine_id` and no preset
+  // (LobbyPage.tsx handleCreateGame). Before the key was whitelisted zod
+  // stripped it, the spine fell back to the default one (which starts in
+  // Ancient), and the route answered every Space to Stars create with "Era
+  // Advancement must start in the Ancient era": the mode could not be created.
+  const spaceToStarsPayload = {
+    era_id: 'space_age',
+    map_id: 'era_ascension_galaxy',
+    max_players: 3,
+    ai_count: 2,
+    ai_difficulty: 'easy',
+    settings: {
+      turn_timer_seconds: 0,
+      allowed_victory_conditions: ['domination'],
+      initial_unit_count: 3,
+      economy_enabled: true,
+      tech_trees_enabled: true,
+      era_advancement_enabled: true,
+      era_advancement_spine_id: 'space_to_stars',
+    },
+  };
+
+  it('keeps the spine the theater names', () => {
+    const parsed = CreateGameSchema.safeParse(spaceToStarsPayload);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.settings.era_advancement_spine_id).toBe('space_to_stars');
+    }
+  });
+
+  it('resolves to that spine rather than the default, which starts in Ancient', () => {
+    // The value the route holds against ASCENSION_GALAXY_SPINE_ID: the create
+    // is refused unless the normalized settings still carry it.
+    const parsed = CreateGameSchema.safeParse(spaceToStarsPayload);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(normalizeGameSettings(parsed.data.settings).era_advancement_spine_id).toBe('space_to_stars');
+    }
+  });
+
+  it('rejects a spine that does not exist', () => {
+    const bad = {
+      ...spaceToStarsPayload,
+      settings: { ...spaceToStarsPayload.settings, era_advancement_spine_id: 'moon_colony' },
+    };
+    expect(CreateGameSchema.safeParse(bad).success).toBe(false);
+  });
+
+  it('leaves a preset-driven climb resolving through its preset', () => {
+    // The Ancient lobby sends a preset and no spine; the new key must not
+    // change what that resolves to.
+    const parsed = CreateGameSchema.safeParse({
+      ...spaceToStarsPayload,
+      era_id: 'ancient',
+      map_id: 'era_ancient',
+      settings: {
+        ...spaceToStarsPayload.settings,
+        era_advancement_spine_id: undefined,
+        era_advancement_preset: 'epic',
+      },
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.settings.era_advancement_spine_id).toBeUndefined();
+      expect(normalizeGameSettings(parsed.data.settings).era_advancement_spine_id).toBe('full_ascension');
+    }
+  });
+});
+
 describe('applyOrbitGatedVictoryDefaults', () => {
   // Domination-only + no turn cap never ends on an orbit-gated board (a large
   // share of tiles sit behind an orbit gate). Galaxy AND standalone Space Age
