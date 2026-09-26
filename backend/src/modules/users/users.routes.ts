@@ -1,10 +1,12 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply } from 'fastify';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest } from '../../middleware/rejectGuest';
-import { query, queryOne } from '../../db/postgres';
+import { query, queryOne, withTransaction } from '../../db/postgres';
+import { featureFlags } from '../../config/featureFlags';
 import { checkOnboardingQuests } from '../../game-engine/progression/progressionService';
+import { effectiveLoadout, loadoutColumns, type Loadout, type LoadoutRow } from './loadout';
 import { andNotTutorialSql } from '../../game-engine/tutorial/tutorialGames';
 import { formatZodError } from '../../utils/formatZodError';
 import { verifyUnsubscribeToken } from '../../utils/unsubscribeToken';
@@ -40,6 +42,92 @@ function buildRatingsMap(rows: RatingRow[]): Record<string, { mu: number; phi: n
   return ratings;
 }
 
+type WornRow<T> = Omit<T, 'equipped_frame_type' | 'equipped_banner'> & { equipped_banner?: string | null };
+
+/**
+ * A user row as the client sees it. With the store overhaul on, each slot says
+ * what the player is wearing (a banner in the frame slot reads as the banner);
+ * off, the payload is the one from before the overhaul, with no banner slot.
+ * The frame's catalog type only serves to work that out and never leaves the
+ * server.
+ */
+function wornSlots<T extends Partial<LoadoutRow>>(row: T): WornRow<T> {
+  const { equipped_frame_type, equipped_banner, ...stored } = row;
+  if (!featureFlags.storeV2Enabled || !('equipped_frame' in row)) return stored;
+  const worn = effectiveLoadout({
+    equipped_frame: row.equipped_frame ?? null,
+    equipped_frame_type: equipped_frame_type ?? null,
+    equipped_banner: equipped_banner ?? null,
+    equipped_marker: row.equipped_marker ?? null,
+    equipped_dice: row.equipped_dice ?? null,
+  });
+  return { ...stored, equipped_frame: worn.frame, equipped_banner: worn.banner };
+}
+
+/** Each equip slot: the body key that sets it and the one catalog type it holds. */
+const EQUIP_SLOTS = [
+  { key: 'frame_id', slot: 'frame', type: 'profile_frame' },
+  { key: 'banner_id', slot: 'banner', type: 'profile_banner' },
+  { key: 'marker_id', slot: 'marker', type: 'map_marker' },
+  { key: 'dice_id', slot: 'dice', type: 'dice_skin' },
+] as const;
+
+const equipValue = z.string().min(1).max(64).nullable().optional();
+/** A key left out keeps its slot, `null` empties it, and an id equips it. */
+const EquipSchema = z.object({
+  frame_id: equipValue,
+  banner_id: equipValue,
+  marker_id: equipValue,
+  dice_id: equipValue,
+});
+
+/**
+ * PUT /me/cosmetics/equip with the store overhaul on: every slot separate (a
+ * banner no longer takes the frame's place) and `null` takes an item off.
+ * Answers with what the player is wearing afterwards.
+ */
+async function equipBySlot(userId: string, body: unknown, reply: FastifyReply) {
+  const parsed = EquipSchema.safeParse(body ?? {});
+  if (!parsed.success) return reply.status(400).send(formatZodError(parsed.error));
+  const changes = parsed.data;
+
+  for (const { key, type } of EQUIP_SLOTS) {
+    const id = changes[key];
+    if (typeof id !== 'string') continue;
+    const owns = await queryOne(
+      `SELECT 1 FROM user_cosmetics uc JOIN cosmetics c ON c.cosmetic_id = uc.cosmetic_id
+       WHERE uc.user_id = $1 AND uc.cosmetic_id = $2 AND c.type = $3`,
+      [userId, id, type],
+    );
+    if (!owns) return reply.status(403).send({ error: 'Cosmetic not owned or wrong type' });
+  }
+
+  // Read, change and write the whole loadout under the row lock, so two equips
+  // at once can't undo each other. Writing it back also moves a pre-045 banner
+  // out of the frame slot, which changes nothing the player sees.
+  const worn = await withTransaction(async (client): Promise<Loadout | null> => {
+    const { rows } = await client.query<LoadoutRow>(
+      `SELECT ${loadoutColumns('u')} FROM users u WHERE u.user_id = $1 FOR UPDATE OF u`,
+      [userId],
+    );
+    if (!rows[0]) return null;
+    const loadout = effectiveLoadout(rows[0]);
+    for (const { key, slot } of EQUIP_SLOTS) {
+      const change = changes[key];
+      if (change !== undefined) loadout[slot] = change;
+    }
+    await client.query(
+      `UPDATE users
+       SET equipped_frame = $2, equipped_banner = $3, equipped_marker = $4, equipped_dice = $5
+       WHERE user_id = $1`,
+      [userId, loadout.frame, loadout.banner, loadout.marker, loadout.dice],
+    );
+    return loadout;
+  });
+  if (!worn) return reply.status(404).send({ error: 'User not found' });
+  return reply.send({ ok: true, equipped: worn });
+}
+
 /** Works before migration 004 (no user_ratings table). */
 async function fetchUserRatingsSafe(userId: string): Promise<Record<string, { mu: number; phi: number; display: number; provisional: boolean }>> {
   try {
@@ -65,6 +153,8 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
       avatar_url: string | null;
       created_at: Date;
       equipped_frame?: string | null;
+      equipped_frame_type?: string | null;
+      equipped_banner?: string | null;
       equipped_marker?: string | null;
       equipped_dice?: string | null;
       gold: number;
@@ -80,7 +170,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     try {
       user = await queryOne<UserRow>(
         `SELECT user_id, username, level, xp, mmr, avatar_url, created_at,
-                equipped_frame, equipped_marker, equipped_dice, COALESCE(gold, 0) AS gold,
+                ${loadoutColumns('users')}, COALESCE(gold, 0) AS gold,
                 COALESCE(onboarding_stage, 0) AS onboarding_stage,
                 COALESCE(win_streak, 0) AS win_streak,
                 COALESCE(daily_streak, 0) AS daily_streak,
@@ -137,7 +227,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     const has_completed_tutorial =
       parseInt(tutorialRow?.cnt ?? '0', 10) > 0 || tutorial_modules_completed.includes('core');
 
-    return reply.send({ ...user, ratings, has_completed_tutorial, tutorial_modules_completed });
+    return reply.send({ ...wornSlots(user), ratings, has_completed_tutorial, tutorial_modules_completed });
   });
 
   // ── POST /api/users/me/tutorial-modules/:moduleId ────────────────────────
@@ -408,6 +498,8 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── PUT /api/users/me/cosmetics/equip ────────────────────────────────────
   fastify.put('/me/cosmetics/equip', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+    if (featureFlags.storeV2Enabled) return equipBySlot(request.userId, request.body, reply);
+
     const body = request.body as { frame_id?: string; marker_id?: string; dice_id?: string } | undefined;
     if (!body) return reply.status(400).send({ error: 'Missing body' });
 
@@ -729,9 +821,11 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     const user = await queryOne<{
       user_id: string; username: string; level: number; xp: number; mmr: number;
       avatar_url: string | null; created_at: Date; equipped_frame: string | null;
+      equipped_frame_type: string | null; equipped_banner: string | null;
     }>(
       `SELECT user_id, username, level, COALESCE(xp, 0) AS xp, mmr, avatar_url,
-              created_at, equipped_frame
+              created_at, equipped_frame, equipped_banner,
+              (SELECT fc.type FROM cosmetics fc WHERE fc.cosmetic_id = users.equipped_frame) AS equipped_frame_type
        FROM users
        WHERE user_id = $1
          AND COALESCE(is_banned, false) = false
@@ -740,7 +834,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     );
     if (!user) return reply.status(404).send({ error: 'User not found' });
     const ratings = await fetchUserRatingsSafe(request.params.userId);
-    return reply.send({ ...user, ratings });
+    return reply.send({ ...wornSlots(user), ratings });
   });
 
   // ── GET /api/users/me/preferences ──────────────────────────────────────

@@ -91,6 +91,10 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // puzzle graded by an exact solver. Dark-launched OFF; with it on, a day is
   // v2 only when its set-piece carries a plan and the gate accepted it.
   daily_puzzle_v2_enabled: () => envOptIn('DAILY_PUZZLE_V2_ENABLED'),
+  // Store overhaul: cosmetics shown where players see each other, a banner
+  // slot of its own, unequipping, the new store page. Dark-launched OFF: off
+  // is the store and every match exactly as before.
+  store_v2_enabled: () => envOptIn('STORE_V2_ENABLED'),
 };
 
 /** The code default for one flag (no admin override consulted). */
@@ -335,6 +339,17 @@ export const featureFlags = {
    */
   get dailyPuzzleV2Enabled(): boolean {
     return overrideBool('daily_puzzle_v2_enabled');
+  },
+
+  /**
+   * The store overhaul: a banner slot separate from the frame, unequipping,
+   * every cosmetic drawn where players see each other, and the new store page.
+   * Default OFF (dark launch): off, the store, profiles and matches behave
+   * exactly as before. `STORE_V2_ENABLED=true` or the admin override turns it
+   * on, and the override is the kill switch.
+   */
+  get storeV2Enabled(): boolean {
+    return overrideBool('store_v2_enabled');
   },
 
 
@@ -710,5 +725,6 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     warfront_enabled: featureFlags.warfrontEnabled,
     localization_enabled: featureFlags.localizationEnabled,
     daily_puzzle_v2_enabled: featureFlags.dailyPuzzleV2Enabled,
+    store_v2_enabled: featureFlags.storeV2Enabled,
   };
 }

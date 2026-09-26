@@ -25,6 +25,24 @@ export {
   inferWorldId,
 } from './worldId';
 
+export {
+  type BannerLook,
+  type CosmeticGlyphName,
+  type CosmeticKind,
+  type CosmeticLook,
+  type DiceLook,
+  type FrameLook,
+  type MarkerLook,
+  COSMETIC_GLYPHS,
+  COSMETIC_LOOKS,
+  COSMETIC_TYPE_KIND,
+  bannerLook,
+  cosmeticLook,
+  diceLook,
+  frameLook,
+  markerLook,
+} from './cosmetics';
+
 /**
  * AI opponent display names. A hand-picked, multicultural roster of commander
  * personas instead of auto-numbered "AI Bot 3", so AI players read as

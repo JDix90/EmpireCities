@@ -241,6 +241,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Serve the daily as a decision puzzle on days whose set-piece carries a scripted-opponent plan: a short clock, the opponent\u2019s plan shown up front, every move graded against an exact solver, accuracy on the board. Days without a plan, Thursday and Sunday stay v1 either way. Off by default (dark launch) \u2014 off is the daily exactly as before.',
   },
   {
+    key: 'store_v2_enabled',
+    label: 'Store overhaul',
+    description:
+      'A banner slot separate from the frame, unequipping, and every equipped frame and banner drawn on the profile, with previews in My Loadout. Off by default (dark launch) \u2014 off is the store, profiles and matches exactly as before.',
+  },
+  {
     key: 'localization_enabled',
     label: 'Localized landing & tutorial',
     description:

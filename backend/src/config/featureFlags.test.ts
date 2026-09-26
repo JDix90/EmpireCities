@@ -210,4 +210,13 @@ describe('featureFlags', () => {
     expect(featureFlags.dailyPuzzleV2Enabled).toBe(true);
     expect(getClientFeatureFlags().daily_puzzle_v2_enabled).toBe(true);
   });
+
+  it('store_v2_enabled defaults to off (dark-launch) and is admin-overridable', () => {
+    expect(featureFlags.storeV2Enabled).toBe(false);
+    expect(getClientFeatureFlags().store_v2_enabled).toBe(false);
+    expect(getFeatureFlagStates().store_v2_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { store_v2_enabled: true } });
+    expect(featureFlags.storeV2Enabled).toBe(true);
+    expect(getClientFeatureFlags().store_v2_enabled).toBe(true);
+  });
 });

@@ -27,6 +27,7 @@ export interface ClientFeatureFlags {
   warfront_enabled: boolean;
   localization_enabled: boolean;
   daily_puzzle_v2_enabled: boolean;
+  store_v2_enabled: boolean;
 }
 
 /**
@@ -83,6 +84,9 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   // Daily Challenge v2 (decision puzzles graded by an exact solver). Dark-launched
   // OFF; the server decides which days are v2, the client renders what it is sent.
   daily_puzzle_v2_enabled: false,
+  // Store overhaul (cosmetics in matches, banner slot, unequip, new store
+  // page). Dark-launched OFF: off is the store and matches exactly as before.
+  store_v2_enabled: false,
 };
 
 interface FeatureFlagsState {
@@ -208,4 +212,12 @@ export function useLocalizationEnabled(): boolean {
  */
 export function useDailyPuzzleV2Enabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.daily_puzzle_v2_enabled);
+}
+
+/**
+ * The store overhaul: cosmetics rendered where players see each other, the
+ * banner slot, unequipping. Off, every surface renders exactly as before.
+ */
+export function useStoreV2Enabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.store_v2_enabled);
 }

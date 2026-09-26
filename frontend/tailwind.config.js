@@ -33,6 +33,10 @@ export default {
         'notif-out':  'notifOut 0.3s ease-in forwards',
         'dice-settle': 'diceSettle 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
         'capture-glow': 'captureGlow 2s ease-in-out infinite',
+        // Cosmetics (store_v2_enabled): the rarest frames turn, bone dice rock
+        // while they roll. index.css's reduced-motion rule stills both.
+        'frame-spin': 'frameSpin 6s linear infinite',
+        'dice-wobble': 'diceWobble 0.24s ease-in-out infinite',
       },
       keyframes: {
         fadeIn: {
@@ -63,6 +67,14 @@ export default {
         captureGlow: {
           '0%, 100%': { boxShadow: '0 0 20px rgba(234, 179, 8, 0.3)' },
           '50%':      { boxShadow: '0 0 40px rgba(234, 179, 8, 0.6)' },
+        },
+        frameSpin: {
+          '0%':   { transform: 'rotate(0deg)' },
+          '100%': { transform: 'rotate(360deg)' },
+        },
+        diceWobble: {
+          '0%, 100%': { transform: 'rotate(-7deg)' },
+          '50%':      { transform: 'rotate(7deg)' },
         },
       },
     },
