@@ -29,8 +29,6 @@ const DATABASE_DIR = join(__dirname, '../../../../database');
 
 /** The seed-002 medals: earned in play, never sold. */
 const MEDALS = ['frame_bronze', 'frame_silver', 'frame_gold', 'frame_champion', 'marker_skull', 'marker_crown'];
-/** The only free items meant to be claimable in the store (seed 001). */
-const STARTERS = ['default_unit', 'default_dice', 'default_banner'];
 
 type Query = (sql: string, params?: unknown[]) => Promise<Record<string, unknown>[]>;
 interface TestUser { id: string; name: string; guest: boolean }
@@ -49,6 +47,8 @@ describe.runIf(enabled)('POST /api/store/buy (Postgres)', () => {
   const DICE = item('dice');
   const LEGENDARY = item('legendary');
   const EARNED = item('earned');
+  /** Priced at 0 but not earned-only: what the retired starters were. */
+  const UNPRICED = item('unpriced');
 
   async function seedUser(gold: number, { guest = false } = {}): Promise<TestUser> {
     const id = uuidv4();
@@ -101,11 +101,15 @@ describe.runIf(enabled)('POST /api/store/buy (Postgres)', () => {
 
     await query(
       `INSERT INTO cosmetics (cosmetic_id, type, name, description, price_gems, is_premium, rarity, earned_only)
-       VALUES ($1, 'profile_banner', $2, 'test', $9, true, 'common', false),
-              ($3, 'dice_skin', $4, 'test', $9, true, 'common', false),
-              ($5, 'profile_frame', $6, 'test', $9, true, 'legendary', false),
-              ($7, 'profile_frame', $8, 'test', 0, true, 'common', true)`,
-      [BANNER.id, BANNER.name, DICE.id, DICE.name, LEGENDARY.id, LEGENDARY.name, EARNED.id, EARNED.name, PRICE],
+       VALUES ($1, 'profile_banner', $2, 'test', $11, true, 'common', false),
+              ($3, 'dice_skin', $4, 'test', $11, true, 'common', false),
+              ($5, 'profile_frame', $6, 'test', $11, true, 'legendary', false),
+              ($7, 'profile_frame', $8, 'test', 0, true, 'common', true),
+              ($9, 'dice_skin', $10, 'test', 0, false, 'common', false)`,
+      [
+        BANNER.id, BANNER.name, DICE.id, DICE.name, LEGENDARY.id, LEGENDARY.name,
+        EARNED.id, EARNED.name, UNPRICED.id, UNPRICED.name, PRICE,
+      ],
     );
   }, 30_000);
 
@@ -115,9 +119,18 @@ describe.runIf(enabled)('POST /api/store/buy (Postgres)', () => {
       await query('DELETE FROM users WHERE user_id = ANY($1)', [userIds]).catch(() => {});
     }
     await query('DELETE FROM cosmetics WHERE cosmetic_id = ANY($1)', [
-      [BANNER.id, DICE.id, LEGENDARY.id, EARNED.id],
+      [BANNER.id, DICE.id, LEGENDARY.id, EARNED.id, UNPRICED.id],
     ]).catch(() => {});
   });
+
+  const catalogFor = (user: TestUser) =>
+    app.inject({
+      method: 'GET',
+      url: '/api/store/catalog',
+      headers: {
+        authorization: `Bearer ${signAccessToken({ sub: user.id, username: user.name, guest: user.guest })}`,
+      },
+    });
 
   it("refuses a purchase the balance can't cover, and grants nothing", async () => {
     const user = await seedUser(PRICE - 1);
@@ -195,6 +208,40 @@ describe.runIf(enabled)('POST /api/store/buy (Postgres)', () => {
     expect(await owns(user, LEGENDARY.id)).toBe(false);
     expect(await owns(guest, BANNER.id)).toBe(false);
   });
+
+  it('refuses an unpriced item instead of handing it out, and lists it as locked', async () => {
+    const user = await seedUser(0);
+
+    const res = await buy(user, UNPRICED.id);
+
+    expect(res.statusCode).toBe(403);
+    expect(res.json().error).toBe('This item is not sold in the store');
+    expect(await owns(user, UNPRICED.id)).toBe(false);
+    const listed = (await catalogFor(user)).json().catalog
+      .find((c: { cosmetic_id: string }) => c.cosmetic_id === UNPRICED.id);
+    expect(listed).toMatchObject({ owned: false, locked: true });
+  });
+
+  it("returns the player's retirement refunds for the store's notice, and nothing else from the ledger", async () => {
+    const user = await seedUser(0);
+    // The reason format is migration 044's.
+    await query(
+      `INSERT INTO gold_transactions (user_id, amount, reason, created_at) VALUES
+         ($1, 600, 'Refund: Radar Screen (retired from the store)', '2026-09-27T03:00:00Z'),
+         ($1, 350, 'Refund: Sherman Tank (retired from the store)', '2026-09-27T03:00:00Z'),
+         ($1, -600, 'Purchased: Radar Screen', '2026-09-01T00:00:00Z'),
+         ($1, 20, 'Game win', '2026-09-02T00:00:00Z')`,
+      [user.id],
+    );
+
+    const res = await catalogFor(user);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().refunds).toEqual([
+      { item: 'Radar Screen', gold: 600, refunded_at: '2026-09-27T03:00:00.000Z' },
+      { item: 'Sherman Tank', gold: 350, refunded_at: '2026-09-27T03:00:00.000Z' },
+    ]);
+  });
 });
 
 describe.runIf(enabled)('earned medals stay out of the store (Postgres)', () => {
@@ -218,7 +265,7 @@ describe.runIf(enabled)('earned medals stay out of the store (Postgres)', () => 
     ({ pgPool } = (await import('../../db/postgres')) as unknown as { pgPool: Pool });
   });
 
-  it('seeds applied after the migrations leave every free item earned-only, bar the starters', async () => {
+  it('seeds applied after the migrations leave every free item earned-only', async () => {
     await inRolledBackTransaction(async (client) => {
       // A fresh database gets its seeds after every migration has run.
       const seeds = readdirSync(join(DATABASE_DIR, 'seeds')).filter((f) => f.endsWith('.sql')).sort();
@@ -228,7 +275,7 @@ describe.runIf(enabled)('earned medals stay out of the store (Postgres)', () => 
         `SELECT cosmetic_id FROM cosmetics
          WHERE COALESCE(price_gems, 0) = 0 AND NOT COALESCE(earned_only, false)`,
       );
-      expect(rows.map((r) => r.cosmetic_id).filter((id) => !STARTERS.includes(id))).toEqual([]);
+      expect(rows.map((r) => r.cosmetic_id)).toEqual([]);
     });
   });
 
