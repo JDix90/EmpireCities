@@ -101,6 +101,7 @@ The host selects one or more victory conditions at game creation. The first play
 | **Threshold** | Own ≥ X% of all territories (percentage set by host, e.g., 70%) |
 | **Capital Capture** | Each player starts with a capital territory. Capture your own + all opponents' capitals |
 | **Secret Mission** | Each player receives a hidden objective at game start |
+| **Lunar Hegemony** (Space Age only) | Hold all 9 lunar territories at the end of 7 of your own turns in a row. Not a lobby choice — every Space Age game has it; see [The Moon and victory](#the-moon-and-victory) |
 
 **Secret Mission types:**
 - **Capture territories** — Conquer 2 specific enemy territories
@@ -423,6 +424,8 @@ The gate is re-checked on **every** action, and it asks for three things at that
 2. a **Launch Pad** on a territory you currently own, **and**
 3. either a **launched Space Station** or the **Space Elevator** wonder.
 
+**Once a rival has landed, the gate gets cheaper.** The moment any other player holds even one lunar territory, the Moon is *contested*, and your requirement drops to just **Spaceport Infrastructure + a Launch Pad** — steps 3 and 4. The first player up earns a head start, not a fortress: without this, breaking a rival's Lunar Hegemony would cost as much as discovering the Moon did. The tracker shows the shorter list while it applies, and the full ladder comes back if the rivals are driven off the Moon.
+
 ### A Launch Pad opens its own lane to the Moon
 
 This is the rule that decides where you play. Earth and the Moon are joined only by **orbit lanes**, and the map ships exactly three:
@@ -467,7 +470,13 @@ Rebuild a Launch Pad anywhere on Earth and access comes straight back; your stat
 
 ### The Moon and victory
 
-Lunar territories are ordinary territories where victory is concerned:
+**Lunar Hegemony** is the Space Age's own way to win, and every Space Age game has it alongside whatever victory conditions the host picked. Hold **all 9 lunar territories** at the end of your turn, **7 of your own turns in a row**, and you win however Earth stands.
+
+- The countdown is shown to **every** player ("Rival holds the Moon · Hegemony in 3"), so nobody loses to a clock they could not see.
+- It **resets outright** the moment a single lunar tile leaves the holder — taking one tile back, from anywhere, starts it over. It is checked at the end of every round too, so a tile lost between turns still counts.
+- The contest rule above is what makes it breakable: once somebody is up there, everyone else needs only Spaceport Infrastructure and a Launch Pad to fly.
+
+Otherwise, lunar territories are ordinary territories where victory is concerned:
 
 - **Domination** by conquest needs *every* territory on the board — the 9 lunar ones included — so nobody takes that route while the Moon sits neutral. (Being the last player standing is scored separately and is unaffected by neutral tiles.)
 - **Threshold** measures your share of every territory in play, so the Moon raises the bar for everyone whether or not anyone goes up there.

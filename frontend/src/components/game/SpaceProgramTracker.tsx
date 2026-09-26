@@ -42,7 +42,9 @@ export default function SpaceProgramTracker({
       <div className={className}>
         <p className="text-xs text-violet-200/90 flex items-center gap-1.5">
           <Rocket className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-          Moon access unlocked — attack across an orbit lane to land.
+          {progress.contested
+            ? 'The Moon is contested and your Launch Pad is enough — attack across an orbit lane to join the fight.'
+            : 'Moon access unlocked — attack across an orbit lane to land.'}
         </p>
       </div>
     );
@@ -63,6 +65,15 @@ export default function SpaceProgramTracker({
           </h3>
           <span className="text-[11px] text-violet-300/80 tabular-nums">{done}/{progress.rungs.length}</span>
         </div>
+
+        {progress.contested && (
+          // The checklist just got shorter without the player doing anything,
+          // so say why.
+          <p className="mt-1.5 text-[11px] text-sky-300/90" data-testid="space-program-contested">
+            A rival has landed, so the Moon is contested: Spaceport Infrastructure and a Launch Pad
+            are enough to join the fight.
+          </p>
+        )}
 
         {progress.strandedWithoutPad && (
           <p className="mt-1.5 text-[11px] text-amber-300/90">

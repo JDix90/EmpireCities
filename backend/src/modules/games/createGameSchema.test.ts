@@ -1,4 +1,7 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { normalizeGameSettings } from '../../game-engine/state/gameSettings';
+import { buildMapMetaFromDoc } from '../../game-engine/lobby/lobbyEraMapCompatibility';
 import { describe, it, expect } from 'vitest';
 import {
   applyOrbitGatedVictoryDefaults,
@@ -162,6 +165,16 @@ describe('Quick Match win-condition payloads', () => {
       expect(out.allowed_victory_conditions).toEqual(['capital', 'domination']);
       expect(out.victory_threshold).toBeUndefined();
       expect(out.max_turns).toBe(90);
+
+      // The Moon Race's own ending rides along with the phase — Quick Match
+      // always sends a list, which is exactly why it used to be left out.
+      const withMoonRace = applyOrbitGatedVictoryDefaults(parsed.data.settings, {
+        isOrbitGated: true,
+        callerChoseVictory: true,
+        lunarHegemony: true,
+      });
+      expect(withMoonRace.allowed_victory_conditions).toEqual(['capital', 'domination', 'lunar_hegemony']);
+      expect(withMoonRace.victory_threshold).toBeUndefined();
     }
   });
 });
@@ -266,6 +279,71 @@ describe('applyOrbitGatedVictoryDefaults', () => {
     const input = { allowed_victory_conditions: ['domination' as const] };
     const out = applyOrbitGatedVictoryDefaults(input, { isOrbitGated: false, callerChoseVictory: false });
     expect(out).toBe(input);
+  });
+
+  describe('the Lunar Hegemony', () => {
+    // It used to fill a blank list only, and the lobby and Quick Match always
+    // send a list — so the Moon Race's own victory never ran in a normal game.
+    it('joins an explicit victory list, without the backstop threshold', () => {
+      const out = applyOrbitGatedVictoryDefaults(
+        { allowed_victory_conditions: ['domination' as const] },
+        { isOrbitGated: true, callerChoseVictory: true, lunarHegemony: true },
+      );
+      expect(out.allowed_victory_conditions).toEqual(['domination', 'lunar_hegemony']);
+      expect(out.victory_threshold).toBeUndefined();
+      expect(out.max_turns).toBe(ORBIT_GATED_DEFAULT_MAX_TURNS);
+    });
+
+    it('sits beside the backstop on a blank list', () => {
+      const out = applyOrbitGatedVictoryDefaults(
+        { allowed_victory_conditions: ['domination' as const] },
+        { isOrbitGated: true, callerChoseVictory: false, lunarHegemony: true },
+      );
+      expect(out.allowed_victory_conditions).toEqual(['domination', 'threshold', 'lunar_hegemony']);
+    });
+
+    it('is never listed twice', () => {
+      const out = applyOrbitGatedVictoryDefaults(
+        { allowed_victory_conditions: ['domination' as const, 'lunar_hegemony' as const] },
+        { isOrbitGated: true, callerChoseVictory: true, lunarHegemony: true },
+      );
+      expect(out.allowed_victory_conditions).toEqual(['domination', 'lunar_hegemony']);
+    });
+
+    it('brings no backstop to a game that is not orbit-gated from turn one', () => {
+      const out = applyOrbitGatedVictoryDefaults(
+        { allowed_victory_conditions: ['domination' as const] },
+        { isOrbitGated: false, callerChoseVictory: true, lunarHegemony: true },
+      );
+      expect(out.allowed_victory_conditions).toEqual(['domination', 'lunar_hegemony']);
+      expect(out.victory_threshold).toBeUndefined();
+      expect(out.max_turns).toBeUndefined();
+    });
+
+    it('stays out when the caller says there is nothing to hold', () => {
+      const input = { allowed_victory_conditions: ['domination' as const] };
+      expect(
+        applyOrbitGatedVictoryDefaults(input, { isOrbitGated: false, callerChoseVictory: true, lunarHegemony: false }),
+      ).toBe(input);
+      const orbitGated = applyOrbitGatedVictoryDefaults(input, {
+        isOrbitGated: true, callerChoseVictory: true, lunarHegemony: false,
+      });
+      expect(orbitGated.allowed_victory_conditions).toEqual(['domination']);
+    });
+
+    it('reads "is there a Moon to hold" off the boards that ship', () => {
+      // The create route passes `lunarHegemony` only when the board has lunar
+      // tiles: an era-advancement climb bakes the phase too, but it climbs on a
+      // moonless board (the board transform is parked), where the route could
+      // never fire. This pins the input that decision rests on.
+      const board = (id: string) => buildMapMetaFromDoc(
+        JSON.parse(readFileSync(join(__dirname, `../../../../database/maps/${id}.json`), 'utf-8')),
+      );
+      expect(board('era_space_age').has_moon_territories).toBe(true);
+      expect(board('era_ascension_galaxy').has_moon_territories).toBe(true);
+      expect(board('era_ancient').has_moon_territories).toBe(false);
+      expect(board('era_galaxy').has_moon_territories).toBe(false);
+    });
   });
 });
 

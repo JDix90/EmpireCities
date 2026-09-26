@@ -104,6 +104,7 @@ describe('GameHUD — tabbed redesign (#9)', () => {
       settings: {
         economy_enabled: true, tech_trees_enabled: true,
         space_age_moon_hegemony_enabled: true,
+        allowed_victory_conditions: ['domination', 'lunar_hegemony'],
       } as GameState['settings'],
       lunar_hegemony: { owner_id: owner, turns_held: turnsHeld, started_turn: 3 },
     } as Partial<GameState>);
@@ -133,6 +134,7 @@ describe('GameHUD — tabbed redesign (#9)', () => {
           settings: {
             economy_enabled: true, tech_trees_enabled: true,
             space_age_moon_hegemony_enabled: true, space_age_hegemony_turns: 5,
+            allowed_victory_conditions: ['domination', 'lunar_hegemony'],
           } as GameState['settings'],
           lunar_hegemony: { owner_id: 'rival', turns_held: 4, started_turn: 3 },
         } as Partial<GameState>),
@@ -150,6 +152,25 @@ describe('GameHUD — tabbed redesign (#9)', () => {
             space_age_moon_hegemony_enabled: true,
           } as GameState['settings'],
         }),
+        draftUnitsRemaining: 0, lastCombatResult: null,
+      } as never);
+      renderHud();
+      expect(screen.queryByTestId('hud-hegemony')).toBeNull();
+    });
+
+    it('shows nothing in a game that cannot be won that way', () => {
+      // The phase without the victory condition: every lobby game created
+      // before the Hegemony joined the lobby's own list. The server leaves such
+      // a clock alone, so counting it down would be a threat that isn't one.
+      useGameStore.setState({
+        gameState: makeState({
+          settings: {
+            economy_enabled: true, tech_trees_enabled: true,
+            space_age_moon_hegemony_enabled: true,
+            allowed_victory_conditions: ['domination'],
+          } as GameState['settings'],
+          lunar_hegemony: { owner_id: 'rival', turns_held: 5, started_turn: 1 },
+        } as Partial<GameState>),
         draftUnitsRemaining: 0, lastCombatResult: null,
       } as never);
       renderHud();

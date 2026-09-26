@@ -243,6 +243,10 @@ const VICTORY_LABELS: Record<string, string> = {
   secret_mission: 'Secret mission',
   capital: 'Capital',
   threshold: 'Threshold',
+  // The two era routes. Without them the waiting room printed the raw keys,
+  // and every Space Age lobby now carries the first.
+  lunar_hegemony: 'Lunar Hegemony',
+  lane_sovereignty: 'Lane Sovereignty',
 };
 
 function formatVictorySummary(settings: GameLobbySettingsJson): string {

@@ -134,4 +134,50 @@ describe('SpaceProgramTracker', () => {
     expect(screen.queryByTestId('space-program-tracker')).not.toBeInTheDocument();
     expect(screen.getByText(/your colonists never left/)).toBeInTheDocument();
   });
+
+  describe('once a rival has landed', () => {
+    // The contest rule: in a game the Lunar Hegemony can win, a rival on the
+    // Moon drops everyone else's requirement to the first two rungs.
+    const contested = (player: Record<string, unknown>, territories: Record<string, unknown> = {}) => ({
+      ...state(
+        { ...player },
+        {
+          moon_near_side_north: { territory_id: 'moon_near_side_north', owner_id: 'p2', unit_count: 2, buildings: [] },
+          ...territories,
+        },
+      ),
+      players: [{ player_id: 'p1', ...player }, { player_id: 'p2' }],
+      settings: {
+        space_age_moon_hegemony_enabled: true,
+        allowed_victory_conditions: ['domination', 'lunar_hegemony'],
+      },
+    }) as unknown as GameState;
+
+    it('says why the checklist got shorter', () => {
+      render(
+        <SpaceProgramTracker gameState={contested({ unlocked_techs: [] })} mapData={mapData} playerId="p1" />,
+      );
+      expect(screen.getByTestId('space-program-contested')).toHaveTextContent(/A rival has landed/);
+      expect(screen.getByText('0/2')).toBeInTheDocument();
+      expect(screen.queryByText('Research Lunar Expansion')).not.toBeInTheDocument();
+    });
+
+    it('opens on the tech and a pad alone', () => {
+      const s = contested(
+        { unlocked_techs: ['sa_launch_pad_tech'] },
+        { la_pampas: { territory_id: 'la_pampas', owner_id: 'p1', unit_count: 3, buildings: ['launch_pad'] } },
+      );
+      render(<SpaceProgramTracker gameState={s} mapData={mapData} playerId="p1" />);
+      expect(screen.queryByTestId('space-program-tracker')).not.toBeInTheDocument();
+      expect(screen.getByText(/The Moon is contested and your Launch Pad is enough/)).toBeInTheDocument();
+    });
+
+    it('keeps the full ladder in a game the Hegemony cannot win', () => {
+      const s = contested({ unlocked_techs: [] });
+      s.settings = { ...s.settings, allowed_victory_conditions: ['domination'] };
+      render(<SpaceProgramTracker gameState={s} mapData={mapData} playerId="p1" />);
+      expect(screen.queryByTestId('space-program-contested')).not.toBeInTheDocument();
+      expect(screen.getByText('0/5')).toBeInTheDocument();
+    });
+  });
 });

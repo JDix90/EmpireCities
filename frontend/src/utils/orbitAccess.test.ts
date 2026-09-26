@@ -2,7 +2,14 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { countOwnedLunarTerritories, type FrontendMapData } from './orbitAccess';
+import {
+  countOwnedLunarTerritories,
+  formatOrbitAccessError,
+  getOrbitAccessResult,
+  getSpaceProgramProgress,
+  moonContestOpen,
+  type FrontendMapData,
+} from './orbitAccess';
 import type { GameState } from '../store/gameStore';
 
 /**
@@ -62,5 +69,127 @@ describe('counting a player\'s Moon territories', () => {
     expect(countOwnedLunarTerritories(undefined, state, 'me')).toBe(0);
     expect(countOwnedLunarTerritories(spaceAge.territories, null, 'me')).toBe(0);
     expect(countOwnedLunarTerritories(spaceAge.territories, state, null)).toBe(0);
+  });
+});
+
+describe('the contest rule, mirrored from the server', () => {
+  // Once a rival holds lunar ground in a game the Hegemony can win, everyone
+  // else can fly on Spaceport Infrastructure and a Launch Pad. The server has
+  // enforced this all along; without the mirror the client kept telling players
+  // to finish a ladder the game no longer asked them to finish.
+  const HEGEMONY = {
+    space_age_moon_hegemony_enabled: true,
+    allowed_victory_conditions: ['domination', 'lunar_hegemony'],
+  };
+
+  const contest = (opts: {
+    moonOwner?: string | null;
+    myTechs?: string[];
+    myPad?: boolean;
+    settings?: Record<string, unknown>;
+    myFaction?: string;
+    launched?: boolean;
+  } = {}): GameState => {
+    const base = stateWith({
+      [lunarIds[0]]: opts.moonOwner === undefined ? 'rival' : opts.moonOwner,
+      na_launch_base: 'me',
+    });
+    if (opts.myPad ?? true) {
+      base.territories.na_launch_base = { ...base.territories.na_launch_base, buildings: ['launch_pad'] };
+    }
+    return {
+      ...base,
+      era: 'space_age',
+      settings: opts.settings ?? HEGEMONY,
+      players: [
+        {
+          player_id: 'me',
+          unlocked_techs: opts.myTechs ?? ['sa_launch_pad_tech'],
+          faction_id: opts.myFaction,
+          space_station_launched: opts.launched,
+        },
+        { player_id: 'rival', unlocked_techs: [] },
+      ],
+    } as unknown as GameState;
+  };
+
+  describe('when the Moon counts as contested', () => {
+    it('opens once a rival holds a single lunar tile', () => {
+      expect(moonContestOpen(spaceAge.territories, contest(), 'me')).toBe(true);
+    });
+
+    it('stays shut while the Moon is empty', () => {
+      expect(moonContestOpen(spaceAge.territories, contest({ moonOwner: null }), 'me')).toBe(false);
+    });
+
+    it('is not opened by your own holding', () => {
+      expect(moonContestOpen(spaceAge.territories, contest({ moonOwner: 'me' }), 'me')).toBe(false);
+    });
+
+    it('stays shut in a game the Hegemony cannot win', () => {
+      // The server gates the rule on the victory list as well as the phase.
+      const settings = { ...HEGEMONY, allowed_victory_conditions: ['domination'] };
+      expect(moonContestOpen(spaceAge.territories, contest({ settings }), 'me')).toBe(false);
+      expect(moonContestOpen(spaceAge.territories, contest({ settings: {} }), 'me')).toBe(false);
+    });
+  });
+
+  describe('what access then costs', () => {
+    it('lets a rival fly on Spaceport Infrastructure and a pad alone', () => {
+      const res = getOrbitAccessResult(spaceAge, contest(), 'me', 'space_age');
+      expect(res).toEqual({ allowed: true, missing: [], contested: true });
+    });
+
+    it('still asks for the pad and the tech, named as the server names them', () => {
+      const res = getOrbitAccessResult(spaceAge, contest({ myTechs: [], myPad: false }), 'me', 'space_age');
+      expect(res.allowed).toBe(false);
+      expect(res.missing).toEqual(['Spaceport Infrastructure tech', 'Launch Pad building']);
+      expect(formatOrbitAccessError(res, 'space_age_moon')).toBe(
+        'The Moon is contested — joining the fight requires: Spaceport Infrastructure tech + Launch Pad building',
+      );
+    });
+
+    it('leaves the full ladder in place while the Moon is unclaimed', () => {
+      const res = getOrbitAccessResult(spaceAge, contest({ moonOwner: null }), 'me', 'space_age');
+      expect(res.allowed).toBe(false);
+      expect(res.contested).toBeUndefined();
+      expect(res.missing).toContain('Lunar Expansion tech');
+      expect(formatOrbitAccessError(res, 'space_age_moon')).toMatch(/^Moon access requires:/);
+    });
+  });
+
+  describe('the Space Program tracker', () => {
+    it('cuts the ladder to the two steps the contest asks for', () => {
+      const progress = getSpaceProgramProgress(spaceAge, contest({ myPad: false }), 'me', 'space_age');
+      expect(progress.contested).toBe(true);
+      expect(progress.rungs.map((r) => r.key)).toEqual(['sa_launch_pad_tech', 'launch_pad']);
+      expect(progress.allowed).toBe(false);
+    });
+
+    it('unlocks with them', () => {
+      const progress = getSpaceProgramProgress(spaceAge, contest(), 'me', 'space_age');
+      expect(progress.contested).toBe(true);
+      expect(progress.allowed).toBe(true);
+    });
+
+    it('keeps all five rungs while the Moon is unclaimed', () => {
+      const progress = getSpaceProgramProgress(spaceAge, contest({ moonOwner: null }), 'me', 'space_age');
+      expect(progress.contested).toBe(false);
+      expect(progress.rungs).toHaveLength(5);
+    });
+
+    it('changes nothing for someone the shortcut does not help', () => {
+      const pioneer = getSpaceProgramProgress(spaceAge, contest({ myFaction: 'lunar_pioneers' }), 'me', 'space_age');
+      expect(pioneer.contested).toBe(false);
+      const finished = getSpaceProgramProgress(
+        spaceAge,
+        contest({ myTechs: ['sa_launch_pad_tech', 'sa_space_station', 'sa_lunar_expansion'], launched: true }),
+        'me',
+        'space_age',
+      );
+      expect(finished.contested).toBe(false);
+      expect(finished.allowed).toBe(true);
+      expect(finished.rungs).toHaveLength(5);
+    });
   });
 });
