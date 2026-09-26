@@ -98,9 +98,9 @@
       },
       "wrapup": {
         "title": "Vous êtes prêt !",
-        "message": "Vous avez bouclé le cycle complet d'un tour — renfort, attaque, fortification — et passé une ère. C'est toute la boucle. La victoire par défaut est la domination : capturer tous les territoires. Les hôtes peuvent aussi choisir le Seuil (une part de la carte), la Conquête des capitales ou les Missions secrètes.",
+        "message": "Vous avez bouclé le cycle complet d'un tour — renfort, attaque, fortification — et passé une ère. C'est toute la boucle. La victoire par défaut est la domination : capturer tous les territoires. Les hôtes peuvent aussi choisir le Seuil (une part de la carte), la Prise des capitales ou les Missions secrètes.",
         "skippedTitle": "Directement dans le jeu",
-        "skippedMessage": "En résumé : à chaque tour, vous renforcez des unités, attaquez les territoires voisins aux dés, puis fortifiez. En chemin, recherchez une technologie et passez de l'Antiquité au Moyen Âge — c'est ce que Risk n'a pas. Gagnez par domination : capturez tous les territoires. (Les hôtes peuvent aussi choisir le Seuil, la Conquête des capitales ou les Missions secrètes.) Là, tout de suite, vous avez des renforts à placer — cliquez sur n'importe quel territoire bleu, puis sur **{{draftButton}}**.",
+        "skippedMessage": "En résumé : à chaque tour, vous renforcez des unités, attaquez les territoires voisins aux dés, puis fortifiez. En chemin, recherchez une technologie et passez de l'Antiquité au Moyen Âge — c'est ce que Risk n'a pas. Gagnez par domination : capturez tous les territoires. (Les hôtes peuvent aussi choisir le Seuil, la Prise des capitales ou les Missions secrètes.) Là, tout de suite, vous avez des renforts à placer — cliquez sur n'importe quel territoire bleu, puis sur **{{draftButton}}**.",
         "detail": "Les vraies parties ajoutent ce que ce plateau a laissé de côté : des cartes de territoire pour des unités bonus, des factions aux pouvoirs uniques, des bâtiments et de la stabilité, le brouillard de guerre, un seuil de passage plus exigeant (plus de recherche et des bâtiments) et toute la colonne de l'Antiquité à l'ère moderne au lieu d'un saut de deux ères."
       }
     },

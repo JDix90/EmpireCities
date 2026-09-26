@@ -1390,8 +1390,8 @@ export default function LobbyPage() {
           diplomacy_enabled: true,
           // The win condition the player picked, plus its own turn cap — the
           // cap is a backstop, not the intended ending, so it scales with the
-          // condition (a 60-turn cap under Conquest would BE the ending). The
-          // default, Majority, is the historical domination+threshold-65/60.
+          // condition (a 60-turn cap under Domination would BE the ending). The
+          // default, the 65% Conquest ending, is the historical domination+threshold-65/60.
           // See quickMatchVictorySettings for the per-condition payloads.
           ...quickMatchVictorySettings(quickMatchPrefs),
         }),

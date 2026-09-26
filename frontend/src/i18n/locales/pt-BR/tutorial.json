@@ -98,9 +98,9 @@
       },
       "wrapup": {
         "title": "Você está pronto!",
-        "message": "Você completou o ciclo inteiro do turno — reforço, ataque, fortificação — e subiu uma era. Esse é todo o ciclo. A forma padrão de vencer é a dominação: capturar todos os territórios. Os anfitriões também podem escolher Limiar (uma parte do mapa), Conquista de capitais ou Missões secretas.",
+        "message": "Você completou o ciclo inteiro do turno — reforço, ataque, fortificação — e subiu uma era. Esse é todo o ciclo. A forma padrão de vencer é a dominação: capturar todos os territórios. Os anfitriões também podem escolher Limiar (uma parte do mapa), Captura de capitais ou Missões secretas.",
         "skippedTitle": "Direto para a ação",
-        "skippedMessage": "O resumo é este: a cada turno você reforça unidades, ataca territórios vizinhos com dados e depois fortifica. No caminho, pesquise uma tecnologia e avance da Antiguidade para a Idade Média — essa é a parte que o Risk não tem. Vença por dominação: capture todos os territórios. (Os anfitriões também podem escolher Limiar, Conquista de capitais ou Missões secretas.) Agora mesmo você tem reforços para posicionar — clique em qualquer território azul e depois em **{{draftButton}}**.",
+        "skippedMessage": "O resumo é este: a cada turno você reforça unidades, ataca territórios vizinhos com dados e depois fortifica. No caminho, pesquise uma tecnologia e avance da Antiguidade para a Idade Média — essa é a parte que o Risk não tem. Vença por dominação: capture todos os territórios. (Os anfitriões também podem escolher Limiar, Captura de capitais ou Missões secretas.) Agora mesmo você tem reforços para posicionar — clique em qualquer território azul e depois em **{{draftButton}}**.",
         "detail": "As partidas reais acrescentam o que este tabuleiro deixou de fora: cartas de território por unidades extras, facções com poderes únicos, construções e estabilidade, névoa de guerra, um portão de avanço mais exigente (mais pesquisa e construções) e a espinha completa da Antiguidade à Era Moderna em vez de um salto de duas eras."
       }
     },

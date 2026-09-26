@@ -99,7 +99,7 @@ The host selects one or more victory conditions at game creation. The first play
 |-----------|-----------|
 | **Domination** (default) | Capture every territory — or be the last player standing |
 | **Threshold** | Own ≥ X% of all territories (percentage set by host, e.g., 70%) |
-| **Capital Conquest** | Each player starts with a capital territory. Capture your own + all opponents' capitals |
+| **Capital Capture** | Each player starts with a capital territory. Capture your own + all opponents' capitals |
 | **Secret Mission** | Each player receives a hidden objective at game start |
 
 **Secret Mission types:**

@@ -59,18 +59,19 @@ describe('QuickMatchOptions', () => {
   it('renders every win condition with the current one pressed', () => {
     render(<QuickMatchOptions prefs={basePrefs} onChange={vi.fn()} onStart={vi.fn()} starting={false} />);
 
-    for (const label of ['Blitz', 'Majority', 'Capitals', 'Conquest']) {
+    for (const label of ['Blitz', 'Conquest', 'Capitals', 'Domination']) {
       expect(screen.getByRole('button', { name: label })).toBeInTheDocument();
     }
-    expect(screen.getByRole('button', { name: 'Majority' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: 'Conquest' })).toHaveAttribute('aria-pressed', 'false');
+    // The default 65% ending is labelled Conquest; the full-board one, Domination.
+    expect(screen.getByRole('button', { name: 'Conquest' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Domination' })).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('reports win-condition changes without mutating the AI setup', () => {
     const onChange = vi.fn();
     render(<QuickMatchOptions prefs={basePrefs} onChange={onChange} onStart={vi.fn()} starting={false} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Conquest' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Domination' }));
     expect(onChange).toHaveBeenCalledWith({ aiCount: 3, aiDifficulty: 'medium', victory: 'conquest' });
   });
 

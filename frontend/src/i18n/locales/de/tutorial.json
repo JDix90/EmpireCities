@@ -98,9 +98,9 @@
       },
       "wrapup": {
         "title": "Du bist bereit!",
-        "message": "Du hast den vollen Rundenzyklus durchlaufen – Verstärkung, Angriff, Befestigung – und bist ein Zeitalter aufgestiegen. Das ist der ganze Kreislauf. Die Standard-Siegbedingung ist Dominanz: Erobere jedes Gebiet. Gastgeber können auch Schwelle (einen Anteil der Karte), Hauptstadteroberung oder Geheimmissionen wählen.",
+        "message": "Du hast den vollen Rundenzyklus durchlaufen – Verstärkung, Angriff, Befestigung – und bist ein Zeitalter aufgestiegen. Das ist der ganze Kreislauf. Die Standard-Siegbedingung ist Dominanz: Erobere jedes Gebiet. Gastgeber können auch Schwelle (einen Anteil der Karte), Hauptstadteinnahme oder Geheimmissionen wählen.",
         "skippedTitle": "Direkt ins Spiel",
-        "skippedMessage": "Kurz gefasst: Jede Runde verstärkst du Einheiten, greifst Nachbargebiete mit Würfeln an und befestigst dann. Unterwegs erforschst du eine Technologie und steigst von der Antike ins Mittelalter auf – das ist der Teil, den Risiko nicht hat. Gewinne durch Dominanz: Erobere jedes Gebiet. (Gastgeber können auch Schwelle, Hauptstadteroberung oder Geheimmissionen wählen.) Gerade jetzt hast du Verstärkungen zu platzieren – klicke auf ein beliebiges blaues Gebiet und dann auf **{{draftButton}}**.",
+        "skippedMessage": "Kurz gefasst: Jede Runde verstärkst du Einheiten, greifst Nachbargebiete mit Würfeln an und befestigst dann. Unterwegs erforschst du eine Technologie und steigst von der Antike ins Mittelalter auf – das ist der Teil, den Risiko nicht hat. Gewinne durch Dominanz: Erobere jedes Gebiet. (Gastgeber können auch Schwelle, Hauptstadteinnahme oder Geheimmissionen wählen.) Gerade jetzt hast du Verstärkungen zu platzieren – klicke auf ein beliebiges blaues Gebiet und dann auf **{{draftButton}}**.",
         "detail": "Echte Partien ergänzen, was dieses Spielfeld weglässt: Gebietskarten für Bonus-Einheiten, Fraktionen mit einzigartigen Kräften, Gebäude und Stabilität, Nebel des Krieges, ein strengeres Aufstiegstor (mehr Forschung plus Gebäude) und die volle Linie von der Antike bis zur Moderne statt eines Sprungs über zwei Zeitalter."
       }
     },
