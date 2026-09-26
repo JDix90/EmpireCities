@@ -69,9 +69,28 @@ export function clipGlobeTerritoryIds(mapData: ClipGlobeMapInput): string[] {
     .map((t) => t.territory_id);
 }
 
+/**
+ * The Space Age Moon's tiles, drawn as the clip's Moon inset. They sit on their
+ * own sphere in the live game as well (a second globe parked in the corner).
+ */
+export function clipMoonTerritoryIds(mapData: ClipGlobeMapInput): string[] {
+  return mapData.territories
+    .filter((t) => t.region_id !== 'sea_routes' && inferWorldId({ ...t, region_id: t.region_id ?? '' }) === 'moon')
+    .map((t) => t.territory_id);
+}
+
+/**
+ * The Moon inset opens on the near side, the face turned toward Earth. Its far
+ * side is beyond any one view, so the inset turns there when fighting does
+ * (see clipCameraDirector), exactly as the Earth board does.
+ */
+const MOON_OPENING_VIEW: ClipGlobeViewConfig = { center_lat: 0, center_lng: 0 };
+
 export interface ClipGlobeResolution {
   /** The globe board, or null when this map has none (galaxy, canvas-only, load failure). */
   globe: ClipGlobeData | null;
+  /** The Moon inset: Space Age maps only, and only alongside an Earth board. */
+  moon: ClipGlobeData | null;
   /**
    * The geo sources are still loading. Callers must wait: a clip generated now
    * would silently fall back to the flat board, and the deep-linked auto-start
@@ -84,24 +103,31 @@ export function useClipGlobeData(mapData: ClipGlobeMapInput, enabled: boolean): 
   const eligible = useMemo(() => enabled && clipGlobeEligible(mapData), [enabled, mapData]);
   const geoSources = useTerritoryGeoSources(mapData, eligible);
 
-  const globe = useMemo(() => {
-    if (!eligible || !geoSources) return null;
+  const { globe, moon } = useMemo(() => {
+    if (!eligible || !geoSources) return { globe: null, moon: null };
     try {
       const polygons = buildTerritoryGlobeGeometries(
         mapData as unknown as GlobeMapDataForGeometry,
         geoSources,
       );
-      return buildClipGlobeData(polygons, {
+      const earth = buildClipGlobeData(polygons, {
         territoryIds: clipGlobeTerritoryIds(mapData),
         globeView: mapData.globe_view ?? null,
       });
+      const moonIds = clipMoonTerritoryIds(mapData);
+      // Same geometry build, filtered to the other world: the lunar tiles are
+      // already in `polygons`, so the inset costs no extra fetch.
+      const moonBoard = earth && moonIds.length > 0
+        ? buildClipGlobeData(polygons, { territoryIds: moonIds, globeView: MOON_OPENING_VIEW })
+        : null;
+      return { globe: earth, moon: moonBoard };
     } catch (err) {
       // The flat authored polygons still render a usable clip — never fail the
       // export over geometry.
       console.warn('[clip] Globe geometry unavailable, falling back to flat board:', err);
-      return null;
+      return { globe: null, moon: null };
     }
   }, [eligible, geoSources, mapData]);
 
-  return { globe, pending: eligible && !geoSources };
+  return { globe, moon, pending: eligible && !geoSources };
 }

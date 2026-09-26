@@ -4,10 +4,13 @@ import {
   clipCameraSettledAt,
   planClipCamera,
   planClipGifFrames,
+  capturesByStep,
   type ClipCameraPath,
   type ClipCameraStep,
 } from './clipCameraDirector';
 import type { ClipFrameState, ClipGlobeData, ClipGlobeTerritory } from './replayClipRenderer';
+import { buildClipGlobeData } from './clipGlobeData';
+import type { PolygonData } from './globeTerritoryGeometry';
 
 const DEG = Math.PI / 180;
 
@@ -260,5 +263,58 @@ describe('planClipGifFrames', () => {
     expect(frames.filter((f) => f.turning).length).toBeLessThanOrEqual(48);
     const total = frames.reduce((sum, f) => sum + f.delayMs, 0);
     expect(total).toBeCloseTo(500 * states.length, 6);
+  });
+});
+
+describe('capturesByStep', () => {
+  it('lists the tiles on the board that changed hands in each moment, none in the opening one', () => {
+    const s = steps(allP1(), allP1({ t3: 'p2' }), allP1({ t3: 'p2' }), allP1({ t3: 'p2', t9: 'p3' }));
+    expect(capturesByStep(worldBoard(), s)).toEqual([[], ['t3'], [], ['t9']]);
+  });
+
+  it('ignores changes to tiles that are not on the board', () => {
+    // The Moon inset asks about its own tiles only; Earth's fighting is not its news.
+    const moonOnly: ClipGlobeData = { territories: [square('moon_a', 0, 0)], camera: { centerLng: 0, centerLat: 0, angularRadiusDeg: 90 } };
+    const s = steps(board({ moon_a: null, t1: 'p1' }), board({ moon_a: null, t1: 'p2' }), board({ moon_a: 'p2', t1: 'p2' }));
+    expect(capturesByStep(moonOnly, s)).toEqual([[], [], ['moon_a']]);
+  });
+
+  it('lists nothing without a board', () => {
+    expect(capturesByStep(null, steps(allP1(), allP1({ t3: 'p2' })))).toEqual([[], []]);
+  });
+});
+
+describe('the Moon inset', () => {
+  /** Authored lunar tiles are wide lon/lat quads, like the Space Age map's. */
+  function lunar(id: string, west: number, east: number, south: number, north: number): PolygonData {
+    return {
+      territory_id: id,
+      name: id,
+      geometry: {
+        type: 'Polygon',
+        coordinates: [[[west, south], [east, south], [east, north], [west, north], [west, south]]],
+      },
+    };
+  }
+
+  it('opens on the near side and turns to a capture on the far side', () => {
+    const moon = buildClipGlobeData(
+      [
+        lunar('near_north', -70, 70, 5, 55),
+        lunar('near_south', -60, 50, -55, -5),
+        lunar('far_north', 95, 175, 5, 55),
+        lunar('far_south', 95, 175, -55, -5),
+      ],
+      { territoryIds: ['near_north', 'near_south', 'far_north', 'far_south'], globeView: { center_lat: 0, center_lng: 0 } },
+    )!;
+    expect(moon.camera.centerLng).toBe(0);
+    expect(moon.camera.angularRadiusDeg).toBe(90);
+
+    const start = board({ near_north: null, near_south: null, far_north: null, far_south: null });
+    const farCaptured = board({ near_north: null, near_south: null, far_north: 'p2', far_south: null });
+    const path = planClipCamera(moon, steps(start, farCaptured))!;
+    expect(path.turns).toHaveLength(1);
+    const settled = centerAt(path, 10_000);
+    expect(angleBetween(settled.lng, settled.lat, 135, 30)).toBeLessThan(10);
   });
 });

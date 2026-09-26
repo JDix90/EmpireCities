@@ -45,6 +45,8 @@ export interface ClipMapData {
   territories: ClipMapTerritory[];
   /** Present when the map resolves to real globe geometry; see buildClipGlobeData. */
   globe?: ClipGlobeData | null;
+  /** Space Age: the Moon's tiles, drawn as an inset in the corner of the globe board. */
+  moon?: ClipGlobeData | null;
 }
 
 export interface ClipPlayer {
@@ -79,6 +81,14 @@ export interface DrawClipFrameOptions {
   camera?: ClipGlobeCamera;
   /** The camera is mid-turn: draw simplified coastlines, which the motion hides. */
   cameraMoving?: boolean;
+  /** The Moon inset's camera; its own opening view when omitted. */
+  moonCamera?: ClipGlobeCamera;
+  moonCameraMoving?: boolean;
+  /**
+   * Moon tiles that changed hands in this moment. When there are any the inset
+   * grows, takes a gold rim and outlines them in gold.
+   */
+  moonCaptured?: readonly string[];
 }
 
 const BG_TOP = '#101724';
@@ -92,6 +102,30 @@ const NEUTRAL = '#2a3346';
 const OCEAN_LIT = '#1d3a5c';
 const OCEAN_DEEP = '#08111f';
 const GLOBE_RIM = 'rgba(130,190,255,0.55)';
+// The Moon inset: grey regolith rather than ocean. Unclaimed tiles are left
+// unfilled, so they read as bare surface rather than Earth's navy sea.
+const MOON_LIT = '#a4a4ab';
+const MOON_DEEP = '#2b2b31';
+const MOON_RIM = 'rgba(225,225,235,0.55)';
+/** Inset radius as a share of the board box's short side: resting, and while its fighting is on screen. */
+const MOON_INSET_SHARE = 0.13;
+const MOON_INSET_ACTIVE_SHARE = 0.17;
+
+const NONE_OUTLINED: ReadonlySet<string> = new Set();
+
+interface SpherePalette {
+  lit: string;
+  deep: string;
+  rim: string;
+  /**
+   * Opacity of owner colors over the surface. Earth's are solid; the Moon's let
+   * the regolith show through, or one empire's tiles turn it into a flat disc.
+   */
+  fillAlpha: number;
+  border: string;
+}
+const EARTH_PALETTE: SpherePalette = { lit: OCEAN_LIT, deep: OCEAN_DEEP, rim: GLOBE_RIM, fillAlpha: 1, border: 'rgba(0,0,0,0.45)' };
+const MOON_PALETTE: SpherePalette = { lit: MOON_LIT, deep: MOON_DEEP, rim: MOON_RIM, fillAlpha: 0.72, border: 'rgba(0,0,0,0.6)' };
 /** How far the globe may overflow the board box's short edge. See drawGlobeBoard. */
 const BOARD_HEIGHT_STRETCH = 1.3;
 
@@ -116,7 +150,21 @@ function polygonBounds(mapData: ClipMapData): { minX: number; minY: number; w: n
 }
 
 export function drawClipFrame(opts: DrawClipFrameOptions): void {
-  const { ctx, width: W, height: H, mapData, state, eraLabel, caption, progress, camera, cameraMoving } = opts;
+  const {
+    ctx,
+    width: W,
+    height: H,
+    mapData,
+    state,
+    eraLabel,
+    caption,
+    progress,
+    camera,
+    cameraMoving,
+    moonCamera,
+    moonCameraMoving,
+    moonCaptured,
+  } = opts;
 
   // Background
   const grad = ctx.createLinearGradient(0, 0, W, H);
@@ -158,8 +206,27 @@ export function drawClipFrame(opts: DrawClipFrameOptions): void {
 
   const box = { left: mapLeft, top: mapTop, width: mapW, height: mapH };
   const drewAny = mapData.globe
-    ? drawGlobeBoard(ctx, W, mapData.globe, box, ownerColor, camera ?? mapData.globe.camera, cameraMoving === true)
+    ? drawGlobeBoard(ctx, W, mapData.globe, box, ownerColor, camera ?? mapData.globe.camera, cameraMoving === true, EARTH_PALETTE)
     : drawFlatBoard(ctx, W, mapData, box, ownerColor);
+
+  if (drewAny && mapData.globe && mapData.moon) {
+    // Unclaimed lunar tiles show bare regolith rather than Earth's navy.
+    const moonOwnerColor = (territoryId: string): string | null => {
+      const owner = state.territories[territoryId]?.owner_id ?? null;
+      return owner ? (playerColor.get(owner) ?? null) : null;
+    };
+    drawMoonInset(
+      ctx,
+      W,
+      H,
+      mapData.moon,
+      box,
+      moonOwnerColor,
+      moonCamera ?? mapData.moon.camera,
+      moonCameraMoving === true,
+      new Set(moonCaptured ?? []),
+    );
+  }
 
   // Caption (reason) — anchored just below the map for any map kind.
   if (caption) {
@@ -341,6 +408,28 @@ function prepareGlobeBoard(
 }
 
 /**
+ * Hand `paint` the shape's cached Path2D, or, where Path2D is unavailable
+ * (jsdom), trace each ring as the current path and call it once per ring.
+ */
+function paintShape(
+  ctx: CanvasRenderingContext2D,
+  shape: PreparedShape,
+  paint: (path: Path2D | null) => void,
+): void {
+  if (shape.path) {
+    paint(shape.path);
+    return;
+  }
+  for (const pts of shape.points) {
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+    ctx.closePath();
+    paint(null);
+  }
+}
+
+/**
  * Globe board: the real lon/lat geometry, orthographically projected.
  *
  * Draw order is ocean disc → territories (clipped to the disc) → shading →
@@ -352,9 +441,11 @@ function drawGlobeBoard(
   W: number,
   globe: ClipGlobeData,
   box: BoardBox,
-  ownerColor: (territoryId: string) => string,
+  ownerColor: (territoryId: string) => string | null,
   camera: ClipGlobeCamera,
   turning: boolean,
+  palette: SpherePalette,
+  outlined: ReadonlySet<string> = NONE_OUTLINED,
 ): boolean {
   if (globe.territories.length === 0) return false;
   const prepared = prepareGlobeBoard(globe, box, camera, turning);
@@ -386,28 +477,37 @@ function drawGlobeBoard(
 
   // Ocean, lit from the upper left so the disc reads as a sphere and not a coin.
   const ocean = ctx.createRadialGradient(lightX, lightY, lightR * 0.05, view.cx, view.cy, lightR);
-  ocean.addColorStop(0, OCEAN_LIT);
-  ocean.addColorStop(1, OCEAN_DEEP);
+  ocean.addColorStop(0, palette.lit);
+  ocean.addColorStop(1, palette.deep);
   ctx.fillStyle = ocean;
   ctx.fillRect(view.cx - radius, view.cy - radius, radius * 2, radius * 2);
 
   ctx.lineJoin = 'round';
   ctx.lineWidth = Math.max(0.6, W * 0.001);
-  ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+  ctx.strokeStyle = palette.border;
   for (const shape of shapes) {
-    ctx.fillStyle = ownerColor(shape.territoryId);
-    if (shape.path) {
-      ctx.fill(shape.path);
-      ctx.stroke(shape.path);
-      continue;
-    }
-    for (const pts of shape.points) {
-      ctx.beginPath();
-      ctx.moveTo(pts[0][0], pts[0][1]);
-      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
+    const fill = ownerColor(shape.territoryId);
+    paintShape(ctx, shape, (path) => {
+      if (fill) {
+        ctx.fillStyle = fill;
+        ctx.globalAlpha = palette.fillAlpha;
+        if (path) ctx.fill(path);
+        else ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      if (path) ctx.stroke(path);
+      else ctx.stroke();
+    });
+  }
+  if (outlined.size > 0) {
+    ctx.lineWidth = Math.max(1.5, W * 0.003);
+    ctx.strokeStyle = GOLD;
+    for (const shape of shapes) {
+      if (!outlined.has(shape.territoryId)) continue;
+      paintShape(ctx, shape, (path) => {
+        if (path) ctx.stroke(path);
+        else ctx.stroke();
+      });
     }
   }
 
@@ -429,11 +529,81 @@ function drawGlobeBoard(
   ctx.beginPath();
   ctx.arc(view.cx, view.cy, radius, 0, Math.PI * 2);
   ctx.lineWidth = Math.max(1, W * 0.0025);
-  ctx.strokeStyle = GLOBE_RIM;
+  ctx.strokeStyle = palette.rim;
   ctx.stroke();
   ctx.restore();
 
   return true;
+}
+
+/**
+ * The Moon, in the bottom-right corner of the globe board — where the live game
+ * parks its own Moon inset, so a Space Age clip reads like the board it came
+ * from. Drawn over Earth's rim on a dark backing disc so the two spheres stay
+ * distinct. In a moment where a Moon tile changes hands it grows toward the
+ * middle and takes a gold rim, since otherwise a capture on a disc this small
+ * is easy to miss.
+ */
+function drawMoonInset(
+  ctx: CanvasRenderingContext2D,
+  W: number,
+  H: number,
+  moon: ClipGlobeData,
+  box: BoardBox,
+  ownerColor: (territoryId: string) => string | null,
+  camera: ClipGlobeCamera,
+  turning: boolean,
+  captured: ReadonlySet<string>,
+): void {
+  const active = captured.size > 0;
+  const r = Math.round(Math.min(box.width, box.height) * (active ? MOON_INSET_ACTIVE_SHARE : MOON_INSET_SHARE));
+  if (r < 8) return;
+  const margin = Math.round(W * 0.02);
+  const inset: BoardBox = {
+    left: box.left + box.width - margin - r * 2,
+    top: box.top + box.height - margin - r * 2,
+    width: r * 2,
+    height: r * 2,
+  };
+  const cx = inset.left + r;
+  const cy = inset.top + r;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r + Math.max(2, r * 0.06), 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(5,8,14,0.9)';
+  ctx.fill();
+  ctx.restore();
+
+  if (!drawGlobeBoard(ctx, W, moon, inset, ownerColor, camera, turning, MOON_PALETTE, captured)) return;
+
+  if (active) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, r + Math.max(2, r * 0.05), 0, Math.PI * 2);
+    ctx.lineWidth = Math.max(2, W * 0.004);
+    ctx.strokeStyle = GOLD;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // The label sits over Earth's rim, so it gets a dark tag of its own.
+  ctx.save();
+  const fontPx = Math.max(9, Math.round(H * 0.018));
+  ctx.font = `600 ${fontPx}px system-ui, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const labelW = ctx.measureText('MOON').width + fontPx;
+  const labelH = Math.round(fontPx * 1.5);
+  const labelY = inset.top - Math.max(4, Math.round(r * 0.1)) - labelH / 2;
+  ctx.fillStyle = 'rgba(5,8,14,0.85)';
+  ctx.beginPath();
+  if (typeof ctx.roundRect === 'function') ctx.roundRect(cx - labelW / 2, labelY - labelH / 2, labelW, labelH, labelH / 2);
+  else ctx.rect(cx - labelW / 2, labelY - labelH / 2, labelW, labelH);
+  ctx.fill();
+  ctx.fillStyle = active ? GOLD : 'rgba(255,255,255,0.75)';
+  ctx.fillText('MOON', cx, labelY + 0.5);
+  ctx.restore();
 }
 
 /**
