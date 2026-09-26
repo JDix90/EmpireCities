@@ -1,4 +1,4 @@
-import { Check, Rocket } from 'lucide-react';
+import { BookOpen, Check, Rocket } from 'lucide-react';
 import { getSpaceProgramProgress, type FrontendMapData } from '../../utils/orbitAccess';
 import type { GameState } from '../../store/gameStore';
 
@@ -12,16 +12,38 @@ import type { GameState } from '../../store/gameStore';
  * 63-point Space Program branch without the game ever telling them what it
  * was for.
  */
+/**
+ * The way back into "How the Space Age works". The guide opens by itself once,
+ * with a player's first Space Age start briefing; after that this link is where
+ * it lives, so it sits on every variant of the tracker.
+ */
+function GuideLink({ onOpenGuide }: { onOpenGuide?: () => void }) {
+  if (!onOpenGuide) return null;
+  return (
+    <button
+      type="button"
+      onClick={onOpenGuide}
+      className="mt-1 inline-flex items-center gap-1 text-[11px] text-violet-300/90 underline underline-offset-2 hover:text-violet-100"
+    >
+      <BookOpen className="w-3 h-3 shrink-0" aria-hidden="true" />
+      How the Space Age works
+    </button>
+  );
+}
+
 export default function SpaceProgramTracker({
   gameState,
   mapData,
   playerId,
   className,
+  onOpenGuide,
 }: {
   gameState: GameState | null;
   mapData: FrontendMapData | null | undefined;
   playerId: string | null | undefined;
   className?: string;
+  /** Opens the Space Age guide; the link is left out when not given. */
+  onOpenGuide?: () => void;
 }) {
   const progress = getSpaceProgramProgress(mapData, gameState, playerId, gameState?.era ?? '');
   if (!progress.applicable) return null;
@@ -33,6 +55,7 @@ export default function SpaceProgramTracker({
           <Rocket className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
           Moon access unlocked — your colonists never left.
         </p>
+        <GuideLink onOpenGuide={onOpenGuide} />
       </div>
     );
   }
@@ -46,6 +69,7 @@ export default function SpaceProgramTracker({
             ? 'The Moon is contested and your Launch Pad is enough — attack across an orbit lane to join the fight.'
             : 'Moon access unlocked — attack across an orbit lane to land.'}
         </p>
+        <GuideLink onOpenGuide={onOpenGuide} />
       </div>
     );
   }
@@ -110,6 +134,7 @@ export default function SpaceProgramTracker({
           A Launch Pad opens an orbit lane from its own territory. Cape Canaveral, Kourou and
           Gobi already have one.
         </p>
+        <GuideLink onOpenGuide={onOpenGuide} />
       </div>
     </div>
   );

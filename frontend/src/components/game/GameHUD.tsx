@@ -21,7 +21,7 @@ import { usePlayerCosmetics } from '../cosmetics/useCosmetics';
 import { getSocket } from '../../services/socket';
 import { ARMED_BUFF_LABELS, getAbilityUiDef } from '../../utils/abilityActivationFeedback';
 import { getPlayerGlobalAbilities } from '../../utils/playerAbilities';
-import { countOwnedLunarTerritories, type FrontendMapData } from '../../utils/orbitAccess';
+import { countOwnedLunarTerritories, lunarTerritoryCount, type FrontendMapData } from '../../utils/orbitAccess';
 import { incomingDropAssaultsAgainst } from '../../utils/dropAssaults';
 import { hegemonyBanner, hegemonyTurnsFor } from '../../utils/lunarHegemony';
 import { laneSovereigntyProgress } from '../../utils/galaxyLanes';
@@ -58,6 +58,8 @@ interface GameHUDProps {
   isTutorial?: boolean;
   onOpenTechTree?: () => void;
   onOpenBonuses?: () => void;
+  /** Opens "How the Space Age works"; offered from the Space Program tracker. */
+  onOpenSpaceAgeGuide?: () => void;
   onAdvanceEra?: () => void;
   onUseAbility?: (abilityId: string, targetId?: string) => void;
   techTree?: Array<{ tech_id: string; unlocks_ability?: string }>;
@@ -113,6 +115,7 @@ export default function GameHUD({
   isTutorial,
   onOpenTechTree,
   onOpenBonuses,
+  onOpenSpaceAgeGuide,
   onAdvanceEra,
   onUseAbility,
   techTree = [],
@@ -381,6 +384,7 @@ export default function GameHUD({
           mapData={mapData}
           playerId={myPlayer?.player_id}
           className="mt-2"
+          onOpenGuide={onOpenSpaceAgeGuide}
         />
         {myPlayer && onAdvanceEra && gameState.settings.era_advancement_enabled && (
           <div className="mt-3 -mx-1 rounded-lg overflow-hidden border border-bf-border/60">
@@ -589,7 +593,11 @@ export default function GameHUD({
                     <span>+{myPlayer.tribute_received_this_turn} TP tribute</span>
                   </div>
                 )}
-                {gameState.settings.space_age_moon_helium3_enabled && (
+                {/* A board with a Moon, not just the phase: an era-advancement
+                    climb bakes the phase at create but reaches the Space Age on
+                    its moonless starting board, where this read "0 He-3" all
+                    game for a resource nobody there could ever mine. */}
+                {gameState.settings.space_age_moon_helium3_enabled && lunarTerritoryCount(mapData?.territories) > 0 && (
                   <div
                     data-testid="hud-helium3"
                     title="Helium-3 — mined from your Moon territories"

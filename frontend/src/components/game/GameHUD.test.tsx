@@ -76,6 +76,15 @@ describe('GameHUD — tabbed redesign (#9)', () => {
     expect(screen.queryByText('Rival')).toBeNull();
   });
 
+  const withMoon = {
+    map_id: 'era_space_age',
+    territories: [
+      { territory_id: 'na_launch_base', region_id: 'north_america_2100' },
+      { territory_id: 'moon_polar_north', region_id: 'lunar_surface', globe_id: 'moon' },
+    ],
+    connections: [],
+  };
+
   it('shows Helium-3 whenever the Space Age lunar economy is on', () => {
     // Shown from the moment the rules are on, not once the player has some: a
     // resource you only discover after already earning it is not an incentive
@@ -88,12 +97,30 @@ describe('GameHUD — tabbed redesign (#9)', () => {
       }),
       draftUnitsRemaining: 0, lastCombatResult: null,
     } as never);
-    renderHud();
+    renderHud({ mapData: withMoon });
     expect(screen.getByTestId('hud-helium3')).toHaveTextContent('0 He-3');
   });
 
   it('keeps Helium-3 off the HUD in every era that does not have a Moon', () => {
     renderHud();
+    expect(screen.queryByTestId('hud-helium3')).toBeNull();
+  });
+
+  it('keeps it off a moonless board even with the phase baked in', () => {
+    // An Epic climb from Ancient carries the Moon Race settings (they are baked
+    // at create for any game that will reach the Space Age) but never gets a
+    // Moon: the board transform that would bring one is parked.
+    useGameStore.setState({
+      gameState: makeState({
+        settings: {
+          economy_enabled: true, tech_trees_enabled: true, space_age_moon_helium3_enabled: true,
+        } as GameState['settings'],
+      }),
+      draftUnitsRemaining: 0, lastCombatResult: null,
+    } as never);
+    renderHud({
+      mapData: { map_id: 'era_ancient', territories: [{ territory_id: 'italia', region_id: 'europe' }], connections: [] },
+    });
     expect(screen.queryByTestId('hud-helium3')).toBeNull();
   });
 

@@ -20,6 +20,8 @@ import {
   readTutorialProgress,
   writeTutorialProgress,
   clearTutorialProgress,
+  hasSeenSpaceAgeGuide,
+  markSpaceAgeGuideSeen,
 } from './userPreferences';
 
 describe('userPreferences', () => {
@@ -47,6 +49,13 @@ describe('userPreferences', () => {
     expect(getSfxMasterGain()).toBeCloseTo(0.8);
     setSfxMuted(true);
     expect(getSfxMasterGain()).toBe(0);
+  });
+
+  it('remembers that the Space Age guide has been seen, under a cc- key', () => {
+    expect(hasSeenSpaceAgeGuide()).toBe(false);
+    markSpaceAgeGuideSeen();
+    expect(hasSeenSpaceAgeGuide()).toBe(true);
+    expect(localStorage.getItem('cc-space-age-guide-seen')).toBe('true');
   });
 
   it('persists colorblind mode', () => {

@@ -75,6 +75,17 @@ export function countOwnedLunarTerritories(
 }
 
 /**
+ * How many lunar territories this board has at all. Zero on every board but the
+ * Space Age ones — an era-advancement climb reaches the Space Age on its own,
+ * moonless board — which is how copy about the Moon knows to stay quiet.
+ */
+export function lunarTerritoryCount(
+  mapTerritories: readonly FrontendMapTerritory[] | null | undefined,
+): number {
+  return mapTerritories?.filter((t) => inferWorldId(t) === 'moon').length ?? 0;
+}
+
+/**
  * The contest rule (Moon Race, Phase 3), mirrored from `contestOpensMoonAccess`
  * on the backend: once a RIVAL holds any lunar tile in a game the Lunar
  * Hegemony can win, everyone else's Moon access drops to Spaceport

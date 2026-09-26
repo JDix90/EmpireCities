@@ -159,27 +159,100 @@ describe('what a Moon Race game tells players before their first turn', () => {
     settings: { ...makeState().settings, ...settings },
   } as Partial<GameState>);
 
-  it('names only the phases this game actually runs', () => {
+  it('gives the era a section of its own, from this game\'s phases', () => {
     render(
       <GameStartModal
         open
         onClose={() => {}}
         gameState={spaceAge({ space_age_moon_helium3_enabled: true })}
         viewerPlayerId="me"
+        moonTiles={9}
       />,
     );
-    expect(screen.getByText(/Moon Race is on/)).toHaveTextContent('lunar tiles mine Helium-3');
-    expect(screen.queryByText(/blockaded/)).not.toBeInTheDocument();
+    const section = screen.getByTestId('start-era-section');
+    expect(section).toHaveTextContent('In this era');
+    expect(section).toHaveTextContent(/9 more territories/);
+    expect(section).toHaveTextContent(/mine Helium-3 every turn/);
+    // The blockade is not running in this game, so it is not named.
+    expect(section).not.toHaveTextContent(/blockade/);
   });
 
-  it('says nothing at all when the race is declined', () => {
-    // The whole promise of unticking the toggle: today's Space Age, unchanged.
+  it('still explains the orbit gate with every phase dark', () => {
+    // The operator's kill switch: the Moon Race off, the Moon itself unchanged.
     render(
-      <GameStartModal open onClose={() => {}} gameState={spaceAge({})} viewerPlayerId="me" />,
+      <GameStartModal open onClose={() => {}} gameState={spaceAge({})} viewerPlayerId="me" moonTiles={9} />,
     );
-    expect(screen.queryByText(/Moon Race is on/)).not.toBeInTheDocument();
-    // The plain orbit-gate note still shows — the Moon still counts.
-    expect(screen.getByText(/The Moon counts too/)).toBeInTheDocument();
+    const section = screen.getByTestId('start-era-section');
+    expect(section).toHaveTextContent(/Spaceport Infrastructure, a Launch Pad/);
+    expect(section).not.toHaveTextContent(/Helium-3/);
+  });
+
+  it('stays quiet on a board with no Moon', () => {
+    render(
+      <GameStartModal open onClose={() => {}} gameState={spaceAge({})} viewerPlayerId="me" moonTiles={0} />,
+    );
+    expect(screen.queryByTestId('start-era-section')).not.toBeInTheDocument();
+  });
+});
+
+describe('How the Space Age works, inside the briefing', () => {
+  const spaceAge = makeState({ era: 'space_age' });
+
+  it('leads a first-timer into the guide instead of straight to battle', () => {
+    // The guide opens by itself once — as the briefing's second page, never as
+    // a second modal stacked on it (the mobile overlay budget).
+    const onClose = vi.fn();
+    const onGuideShown = vi.fn();
+    render(
+      <GameStartModal
+        open
+        onClose={onClose}
+        gameState={spaceAge}
+        viewerPlayerId="me"
+        moonTiles={9}
+        guideFirst
+        onGuideShown={onGuideShown}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: /to battle/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Next: how the Space Age works/ }));
+    expect(onGuideShown).toHaveBeenCalledWith('next');
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByText('How the Space Age works')).toBeInTheDocument();
+    expect(screen.getByTestId('space-age-guide-program')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /to battle/i }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the guide behind a link once it has been seen', () => {
+    const onClose = vi.fn();
+    const onGuideShown = vi.fn();
+    render(
+      <GameStartModal
+        open
+        onClose={onClose}
+        gameState={spaceAge}
+        viewerPlayerId="me"
+        moonTiles={9}
+        onGuideShown={onGuideShown}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^How the Space Age works$/ }));
+    expect(onGuideShown).toHaveBeenCalledWith('link');
+    expect(screen.getByTestId('space-age-guide')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Back to the briefing/ }));
+    expect(screen.getByText('Turn order')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /to battle/i }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('never leads into a guide that has nothing to say', () => {
+    const onClose = vi.fn();
+    render(
+      <GameStartModal open onClose={onClose} gameState={makeState()} viewerPlayerId="me" moonTiles={0} guideFirst />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /to battle/i }));
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -252,8 +325,8 @@ describe('GameStartModal', () => {
     // 9 of the board's territories sit behind an orbit gate, so a stalled
     // domination bar read as a bug rather than as the era's mechanic.
     const state = makeState({ era: 'space_age' });
-    render(<GameStartModal open onClose={() => {}} gameState={state} viewerPlayerId="me" />);
-    expect(screen.getByText(/The Moon counts too/)).toBeInTheDocument();
+    render(<GameStartModal open onClose={() => {}} gameState={state} viewerPlayerId="me" moonTiles={9} />);
+    expect(screen.getByText(/count toward every way to win/)).toBeInTheDocument();
     expect(screen.getByText(/Spaceport Infrastructure, a Launch Pad/)).toBeInTheDocument();
   });
 
@@ -262,13 +335,13 @@ describe('GameStartModal', () => {
       p.player_id === 'me' ? { ...p, faction_id: 'lunar_pioneers' } : p,
     ) as PlayerState[];
     const state = makeState({ era: 'space_age', players: withFaction });
-    render(<GameStartModal open onClose={() => {}} gameState={state} viewerPlayerId="me" />);
-    expect(screen.getByText(/you start with access to it/)).toBeInTheDocument();
+    render(<GameStartModal open onClose={() => {}} gameState={state} viewerPlayerId="me" moonTiles={9} />);
+    expect(screen.getByText(/can land from turn one/)).toBeInTheDocument();
   });
 
   it('says nothing about the Moon outside the Space Age', () => {
-    render(<GameStartModal open onClose={() => {}} gameState={makeState()} viewerPlayerId="me" />);
-    expect(screen.queryByText(/The Moon counts too/)).not.toBeInTheDocument();
+    render(<GameStartModal open onClose={() => {}} gameState={makeState()} viewerPlayerId="me" moonTiles={9} />);
+    expect(screen.queryByTestId('start-era-section')).not.toBeInTheDocument();
   });
 
   it("fetches and shows the viewer's faction ability when factions are enabled", async () => {
