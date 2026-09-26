@@ -1,5 +1,6 @@
+import { Suspense } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { act, render, screen, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import StorePage from './StorePage';
 import { useAuthStore } from '../store/authStore';
@@ -97,14 +98,30 @@ describe('StorePage', () => {
   });
 });
 
-describe('StorePage loadout', () => {
+describe('StorePage with store_v2_enabled on', () => {
+  afterEach(() => act(() => useFeatureFlagsStore.setState((st) => ({ flags: { ...st.flags, store_v2_enabled: false } }))));
+
+  it('serves the overhauled store instead', async () => {
+    serve();
+    useFeatureFlagsStore.setState((st) => ({ flags: { ...st.flags, store_v2_enabled: true } }));
+    useAuthStore.setState({ user: { user_id: 'u1', username: 'commander', is_guest: false, gold: 700 } as never });
+    render(
+      <MemoryRouter initialEntries={['/store']}>
+        <Suspense fallback={null}>
+          <StorePage />
+        </Suspense>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByRole('heading', { name: 'Your loadout' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'My Loadout' })).not.toBeInTheDocument();
+  });
+});
+
+describe('StorePage loadout, store_v2_enabled off', () => {
   const OWNED = [
     { cosmetic_id: 'frame_gold', type: 'profile_frame', name: 'Gold Conqueror', description: null, asset_url: null },
     { cosmetic_id: 'general_banner', type: 'profile_banner', name: 'General Banner', description: null, asset_url: null },
   ];
-  const setStoreV2 = (on: boolean) =>
-    useFeatureFlagsStore.setState((st) => ({ flags: { ...st.flags, store_v2_enabled: on } }));
-
   /** Opens My Loadout wearing the gold frame; answers with the frame card and the banner card. */
   async function openLoadout() {
     getMock.mockImplementation(async (url: string) => {
@@ -134,61 +151,18 @@ describe('StorePage loadout', () => {
     getMock.mockReset();
     putMock.mockReset();
   });
-  // In act: the page is still mounted and re-renders on the flag.
-  afterEach(() => act(() => setStoreV2(false)));
 
-  describe('with store_v2_enabled on', () => {
-    beforeEach(() => setStoreV2(true));
+  it('wears a banner in the frame slot, as before, with nothing to unequip', async () => {
+    const { frameCard, bannerCard } = await openLoadout();
+    expect(screen.queryByRole('button', { name: 'Unequip' })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('cosmetic-preview')).not.toBeInTheDocument();
 
-    it('wears a banner beside the frame, and takes either off', async () => {
-      const { frameCard, bannerCard } = await openLoadout();
-      expect(within(frameCard).getByText('Equipped')).toBeInTheDocument();
-      expect(screen.getAllByTestId('cosmetic-preview')).toHaveLength(2);
+    putMock.mockResolvedValueOnce({ data: { ok: true } });
+    fireEvent.click(within(bannerCard).getByRole('button', { name: 'Equip' }));
 
-      putMock.mockResolvedValueOnce({
-        data: { ok: true, equipped: { frame: 'frame_gold', banner: 'general_banner', marker: null, dice: null } },
-      });
-      fireEvent.click(within(bannerCard).getByRole('button', { name: 'Equip' }));
-      expect(putMock).toHaveBeenCalledWith('/users/me/cosmetics/equip', { banner_id: 'general_banner' });
-      expect(await within(bannerCard).findByText('Equipped')).toBeInTheDocument();
-      expect(within(frameCard).getByText('Equipped')).toBeInTheDocument();
-      expect(useAuthStore.getState().user).toMatchObject({ equipped_frame: 'frame_gold', equipped_banner: 'general_banner' });
-
-      putMock.mockResolvedValueOnce({
-        data: { ok: true, equipped: { frame: null, banner: 'general_banner', marker: null, dice: null } },
-      });
-      fireEvent.click(within(frameCard).getByRole('button', { name: 'Unequip' }));
-      expect(putMock).toHaveBeenLastCalledWith('/users/me/cosmetics/equip', { frame_id: null });
-      expect(await within(frameCard).findByRole('button', { name: 'Equip' })).toBeInTheDocument();
-      expect(within(bannerCard).getByText('Equipped')).toBeInTheDocument();
-      expect(useAuthStore.getState().user?.equipped_frame).toBeNull();
-    });
-
-    it('changes nothing when the server does not say what is worn', async () => {
-      const { frameCard, bannerCard } = await openLoadout();
-
-      putMock.mockResolvedValueOnce({ data: { ok: true } });
-      fireEvent.click(within(bannerCard).getByRole('button', { name: 'Equip' }));
-
-      await waitFor(() => expect(within(bannerCard).getByRole('button', { name: 'Equip' })).toBeEnabled());
-      expect(within(frameCard).getByText('Equipped')).toBeInTheDocument();
-      expect(useAuthStore.getState().user?.equipped_banner).toBeNull();
-    });
-  });
-
-  describe('with store_v2_enabled off', () => {
-    it('wears a banner in the frame slot, as before, with nothing to unequip', async () => {
-      const { frameCard, bannerCard } = await openLoadout();
-      expect(screen.queryByRole('button', { name: 'Unequip' })).not.toBeInTheDocument();
-      expect(screen.queryByTestId('cosmetic-preview')).not.toBeInTheDocument();
-
-      putMock.mockResolvedValueOnce({ data: { ok: true } });
-      fireEvent.click(within(bannerCard).getByRole('button', { name: 'Equip' }));
-
-      expect(putMock).toHaveBeenCalledWith('/users/me/cosmetics/equip', { frame_id: 'general_banner' });
-      expect(await within(bannerCard).findByText('Equipped')).toBeInTheDocument();
-      expect(within(frameCard).getByRole('button', { name: 'Equip' })).toBeInTheDocument();
-      expect(useAuthStore.getState().user?.equipped_frame).toBe('general_banner');
-    });
+    expect(putMock).toHaveBeenCalledWith('/users/me/cosmetics/equip', { frame_id: 'general_banner' });
+    expect(await within(bannerCard).findByText('Equipped')).toBeInTheDocument();
+    expect(within(frameCard).getByRole('button', { name: 'Equip' })).toBeInTheDocument();
+    expect(useAuthStore.getState().user?.equipped_frame).toBe('general_banner');
   });
 });
