@@ -12,11 +12,14 @@ export default function FrameRing({
   frameId,
   children,
   className = 'p-1',
+  glow = 'soft',
 }: {
   frameId: string | null | undefined;
   children: React.ReactNode;
   /** Padding sets the ring's width. */
   className?: string;
+  /** How far a glowing frame's light reaches: `strong` for a large showcase. */
+  glow?: 'soft' | 'strong';
 }) {
   const look = frameLook(frameId);
   const motion = useCosmeticMotion();
@@ -32,7 +35,9 @@ export default function FrameRing({
           className={clsx('absolute inset-0 rounded-full', motion && look.motion === 'spin' && 'animate-frame-spin')}
           style={{
             background: `linear-gradient(90deg, ${look.ring.join(', ')})`,
-            boxShadow: look.glow ? `0 0 10px ${look.glow}` : undefined,
+            boxShadow: look.glow
+              ? glow === 'strong' ? `0 0 22px ${look.glow}, 0 0 4px ${look.glow}` : `0 0 10px ${look.glow}`
+              : undefined,
           }}
         />
       )}

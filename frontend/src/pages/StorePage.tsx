@@ -1,21 +1,24 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
 import { Coins, ShoppingBag, X } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import SubpageShell from '../components/ui/SubpageShell';
-import Modal from '../components/ui/Modal';
 import GuestGate from '../components/GuestGate';
-import CosmeticPreview from '../components/cosmetics/CosmeticPreview';
+import { useCosmeticMotion } from '../components/cosmetics/useCosmetics';
 import {
   markStoreRefundsSeen,
   storeRefundNoticeText,
   unseenStoreRefunds,
   type StoreRefund,
 } from '../utils/storeRefundNotice';
-import LoadoutPanel from '../components/store/LoadoutPanel';
+import EarnedWall from '../components/store/EarnedWall';
+import PurchaseDialog, { type PurchaseState } from '../components/store/PurchaseDialog';
+import SetBand, { STORE_BAND_CARD } from '../components/store/SetBand';
 import StoreItemCard from '../components/store/StoreItemCard';
+import TryOnBar from '../components/store/TryOnBar';
+import YourLook from '../components/store/YourLook';
 import {
   SLOT_BY_TYPE,
   SLOT_KEY,
@@ -31,18 +34,32 @@ import {
 } from '../components/store/storeCatalog';
 
 const GUEST_BUY = 'Spending gold needs a free account — your balance carries over.';
-const GUEST_EQUIP = 'Equipping needs a free account — your unlocks carry over.';
+const GUEST_EQUIP = 'Wearing items needs a free account — your unlocks carry over.';
+
+/** Whether `ref`'s element is on screen. False where IntersectionObserver is missing. */
+function useOnScreen(ref: React.RefObject<Element>): boolean {
+  const [onScreen, setOnScreen] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return undefined;
+    const observer = new IntersectionObserver(([entry]) => setOnScreen(Boolean(entry?.isIntersecting)), { threshold: 0.3 });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [ref]);
+  return onScreen;
+}
 
 /**
- * The store: every item previewed as worn, rarity and price on every card, how
- * much more gold an item needs, equipping right after a purchase, and Your
- * look (with Default) above the catalog. Guests browse everything; buying and
- * equipping stay server-side `rejectGuest`.
+ * The store: every item shown large and lit by its rarity, the era sets on
+ * their own backdrops with how much of each the player has, and Your look,
+ * where anything can be tried on before it is bought or worn. Guests browse
+ * everything; buying and wearing stay server-side `rejectGuest`.
  */
 export default function StorePage() {
   const { user } = useAuthStore();
   const isGuest = Boolean(user?.is_guest);
   const initial = user?.username ?? '?';
+  const motion = useCosmeticMotion();
 
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,12 +68,17 @@ export default function StorePage() {
   const [gold, setGold] = useState<number>(user?.gold ?? 0);
   const [worn, setWorn] = useState<Loadout>(() => loadoutOf(user));
   const [filter, setFilter] = useState<TypeFilter>('all');
-  /** The item a request is in flight for (buy or equip). */
+  /** The item a request is in flight for (buy or wear). */
   const [busyId, setBusyId] = useState<string | null>(null);
-  /** The slot a loadout change is in flight for. */
+  /** The slot a change to Your look is in flight for. */
   const [pendingSlot, setPendingSlot] = useState<Slot | null>(null);
   /** The purchase dialog: confirming, then the item just bought. */
-  const [dialog, setDialog] = useState<{ item: CatalogItem; bought: boolean } | null>(null);
+  const [dialog, setDialog] = useState<PurchaseState | null>(null);
+  /** The item being tried on in Your look. */
+  const [trying, setTrying] = useState<string | null>(null);
+
+  const lookRef = useRef<HTMLElement>(null);
+  const lookOnScreen = useOnScreen(lookRef);
 
   const syncUser = useCallback((patch: Record<string, unknown>) => {
     const current = useAuthStore.getState().user;
@@ -113,11 +135,13 @@ export default function StorePage() {
     try {
       const res = await api.put('/users/me/cosmetics/equip', { [SLOT_KEY[slot]]: item?.cosmetic_id ?? null });
       const next = (res.data as { equipped?: Loadout } | undefined)?.equipped;
-      if (!next) throw new Error('The server did not say what is equipped');
+      if (!next) throw new Error('The server did not say what is worn');
       applyLoadout(next);
-      toast.success(item ? `${item.name} equipped` : `${SLOT_LABELS[slot]} back to default`);
+      // Worn now, so no longer only tried on.
+      if (item) setTrying((current) => (current === item.cosmetic_id ? null : current));
+      toast.success(item ? `Now wearing ${item.name}` : `${SLOT_LABELS[slot]} back to default`);
     } catch {
-      toast.error(item ? 'Failed to equip item' : 'Failed to change your look');
+      toast.error(item ? 'Failed to wear item' : 'Failed to change your look');
     } finally {
       setPendingSlot(null);
       setBusyId(null);
@@ -127,6 +151,18 @@ export default function StorePage() {
   const equipItem = (item: CatalogItem) => {
     const slot = SLOT_BY_TYPE[item.type];
     if (slot) void setSlot(slot, item);
+  };
+
+  /** Try `item` on in Your look, or put it back when it already is. */
+  const tryOn = (item: CatalogItem) => {
+    const slot = SLOT_BY_TYPE[item.type];
+    if (isGuest || !slot) return;
+    // Already worn: there is nothing to try.
+    if (worn[slot] === item.cosmetic_id) {
+      setTrying(null);
+      return;
+    }
+    setTrying((current) => (current === item.cosmetic_id ? null : item.cosmetic_id));
   };
 
   const requestBuy = (item: CatalogItem) => {
@@ -194,20 +230,41 @@ export default function StorePage() {
     setRefundsDismissed(true);
   };
 
-  const owned = useMemo(() => catalog.filter((i) => i.owned && SLOT_BY_TYPE[i.type]), [catalog]);
   const sections = useMemo(() => catalogSections(catalog, filter), [catalog, filter]);
-  const dialogItem = dialog?.item;
+  const tryingItem = useMemo(
+    () => (trying ? catalog.find((i) => i.cosmetic_id === trying) ?? null : null),
+    [catalog, trying],
+  );
+  const tryAction = tryingItem ? itemAction(tryingItem, { gold, worn, guest: isGuest }) : null;
+  const showTryOnBar = Boolean(!isGuest && tryingItem && tryAction && !lookOnScreen && !dialog);
+
+  const renderCard = (item: CatalogItem, variant: 'full' | 'compact', className?: string) => (
+    <StoreItemCard
+      key={item.cosmetic_id}
+      item={item}
+      action={itemAction(item, { gold, worn, guest: isGuest })}
+      initial={initial}
+      busy={busyId === item.cosmetic_id}
+      trying={trying === item.cosmetic_id}
+      onTryOn={isGuest ? undefined : () => tryOn(item)}
+      onBuy={() => requestBuy(item)}
+      onEquip={() => equipItem(item)}
+      variant={variant}
+      className={className}
+    />
+  );
 
   return (
     <SubpageShell
       title="STORE"
       icon={ShoppingBag}
-      maxWidth="5xl"
+      maxWidth="6xl"
+      className={clsx(motion && 'store-motion')}
       headerRight={(
-        <div className="flex items-center gap-1.5 rounded-full border border-bf-gold/30 bg-bf-gold/10 px-3 py-1.5 text-sm font-medium text-bf-gold">
+        <div className="flex items-center gap-1.5 rounded-full border border-bf-gold/35 bg-bf-gold/10 px-3 py-1.5 text-sm font-semibold text-[#f3d98b]">
           <Coins className="h-4 w-4" aria-hidden />
           <span className="tabular-nums">{gold.toLocaleString()}</span>
-          <span className="sr-only">gold</span>
+          <span className="font-normal text-[#c9b27a]">gold</span>
         </div>
       )}
     >
@@ -239,10 +296,25 @@ export default function StorePage() {
       )}
 
       {!isGuest && (
-        <LoadoutPanel worn={worn} owned={owned} initial={initial} pending={pendingSlot} onPick={(slot, item) => void setSlot(slot, item)} />
+        <YourLook
+          sectionRef={lookRef}
+          worn={worn}
+          catalog={catalog}
+          trying={tryingItem}
+          tryAction={tryAction}
+          initial={initial}
+          name={user?.username ?? 'Commander'}
+          pending={pendingSlot}
+          busy={!!busyId}
+          motion={motion}
+          onPick={(slot, item) => void setSlot(slot, item)}
+          onPutBack={() => setTrying(null)}
+          onWearTried={() => tryingItem && equipItem(tryingItem)}
+          onBuyTried={() => tryingItem && requestBuy(tryingItem)}
+        />
       )}
 
-      <div className="-mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap" role="group" aria-label="Show">
+      <div className="-mx-1 mb-5 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap" role="group" aria-label="Show">
         {TYPE_FILTERS.map(({ key, label }) => (
           <button
             key={key}
@@ -252,7 +324,7 @@ export default function StorePage() {
             className={clsx(
               'min-h-11 shrink-0 rounded-full border px-4 text-sm font-medium transition-colors sm:min-h-0 sm:py-1.5',
               filter === key
-                ? 'border-bf-gold/50 bg-bf-gold/20 text-bf-gold'
+                ? 'border-bf-gold/50 bg-bf-gold/20 text-[#f3d98b]'
                 : 'border-bf-border text-bf-muted hover:border-bf-muted hover:text-bf-text',
             )}
           >
@@ -266,89 +338,53 @@ export default function StorePage() {
       ) : sections.length === 0 ? (
         <div className="py-16 text-center text-bf-muted">No items here yet.</div>
       ) : (
-        sections.map((section) => (
-          <section key={section.id} aria-labelledby={`store-section-${section.id}`} className="mb-8">
-            <h2 id={`store-section-${section.id}`} className="font-display text-lg text-bf-gold">{section.title}</h2>
-            <p className="mb-3 text-xs text-bf-muted">{section.subtitle}</p>
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              {section.items.map((item) => (
-                <StoreItemCard
-                  key={item.cosmetic_id}
-                  item={item}
-                  action={itemAction(item, { gold, worn, guest: isGuest })}
-                  initial={initial}
-                  busy={busyId === item.cosmetic_id}
-                  onBuy={() => requestBuy(item)}
-                  onEquip={() => equipItem(item)}
-                />
-              ))}
-            </div>
-          </section>
-        ))
+        <div className="flex flex-col gap-6 sm:gap-8">
+          {sections.map((section) =>
+            section.kind === 'earned' ? (
+              <EarnedWall key={section.id} section={section} canTryOn={!isGuest}>
+                {section.items.map((item) => renderCard(item, 'compact'))}
+              </EarnedWall>
+            ) : (
+              <SetBand key={section.id} section={section}>
+                {section.items.map((item) => renderCard(item, 'full', STORE_BAND_CARD))}
+              </SetBand>
+            ),
+          )}
+        </div>
       )}
 
-      {/* Purchase: confirm, then offer to wear it straight away. */}
-      <Modal
-        open={!!dialog}
-        onClose={() => setDialog(null)}
-        title={dialog?.bought ? 'Purchase complete' : 'Confirm purchase'}
-        className="max-w-sm"
-      >
-        {dialogItem && (
-          <div className="space-y-4">
-            <CosmeticPreview cosmeticId={dialogItem.cosmetic_id} type={dialogItem.type} initial={initial} />
-            {dialog?.bought ? (
-              <>
-                <p className="text-sm text-bf-text">
-                  <span className="font-medium text-bf-gold">{dialogItem.name}</span> is yours.
-                </p>
-                <div className="flex justify-end gap-2">
-                  <button type="button" className="btn-secondary min-h-11 px-4 text-sm" onClick={() => setDialog(null)}>
-                    Done
-                  </button>
-                  {SLOT_BY_TYPE[dialogItem.type] && (
-                    <button
-                      type="button"
-                      className="btn-primary min-h-11 px-4 text-sm disabled:opacity-60"
-                      disabled={!!busyId}
-                      onClick={() => {
-                        setDialog(null);
-                        equipItem(dialogItem);
-                      }}
-                    >
-                      Equip now
-                    </button>
-                  )}
-                </div>
-              </>
-            ) : (
-              <>
-                <p className="text-sm text-bf-text">
-                  Buy <span className="font-medium text-bf-gold">{dialogItem.name}</span> for{' '}
-                  <span className="font-medium tabular-nums text-bf-gold">{dialogItem.price_gems.toLocaleString()} gold</span>?
-                </p>
-                <p className="text-xs text-bf-muted">
-                  Balance after purchase:{' '}
-                  <span className="tabular-nums">{Math.max(0, gold - dialogItem.price_gems).toLocaleString()} gold</span>
-                </p>
-                <div className="flex justify-end gap-2">
-                  <button type="button" className="btn-secondary min-h-11 px-4 text-sm" onClick={() => setDialog(null)}>
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-primary min-h-11 px-4 text-sm disabled:opacity-60"
-                    disabled={!!busyId}
-                    onClick={() => void buy(dialogItem)}
-                  >
-                    {busyId ? 'Buying…' : 'Buy'}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </Modal>
+      {showTryOnBar && tryingItem && tryAction && (
+        <>
+          {/* Room at the end of the page, so the bar never covers the last row. */}
+          <div aria-hidden className="h-24" />
+          <TryOnBar
+            item={tryingItem}
+            action={tryAction}
+            initial={initial}
+            busy={!!busyId}
+            onPutBack={() => setTrying(null)}
+            onBuy={() => requestBuy(tryingItem)}
+            onWear={() => equipItem(tryingItem)}
+          />
+        </>
+      )}
+
+      <PurchaseDialog
+        state={dialog}
+        catalog={catalog}
+        gold={gold}
+        initial={initial}
+        busy={!!busyId}
+        motion={motion}
+        onCancel={() => setDialog(null)}
+        onConfirm={() => dialog && void buy(dialog.item)}
+        onWear={() => {
+          if (!dialog) return;
+          const { item } = dialog;
+          setDialog(null);
+          equipItem(item);
+        }}
+      />
     </SubpageShell>
   );
 }

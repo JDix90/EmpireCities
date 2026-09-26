@@ -65,8 +65,23 @@ describe('catalogSections with era sets', () => {
   it('lists each set first, in the store’s order, with its era and total', () => {
     const sections = catalogSections(catalog, 'all');
     expect(sections.map((s) => s.id)).toEqual(['set-imperium', 'set-navigator', 'for-sale']);
-    expect(sections[0]).toMatchObject({ title: 'Imperium', subtitle: 'Ancient World set · 2 items · 1,450 gold in all' });
+    expect(sections[0]).toMatchObject({
+      kind: 'set',
+      setId: 'imperium',
+      title: 'Imperium',
+      era: 'Ancient World',
+      subtitle: '2 items · 1,450 gold for the whole set',
+      collected: { owned: 0, total: 2 },
+    });
     expect(sections[0].items.map((i) => i.cosmetic_id)).toEqual(['laurel', 'temple']);
+    expect(sections.find((s) => s.id === 'for-sale')?.kind).toBe('sale');
+  });
+
+  it('counts a set’s price and progress over all of it, whatever the filter shows', () => {
+    const owned = catalog.map((i) => (i.cosmetic_id === 'temple' ? { ...i, owned: true } : i));
+    const [imperium] = catalogSections(owned, 'profile_frame');
+    expect(imperium.items.map((i) => i.cosmetic_id)).toEqual(['laurel']);
+    expect(imperium).toMatchObject({ subtitle: '2 items · 1,450 gold for the whole set', collected: { owned: 1, total: 2 } });
   });
 
   it('keeps an item of an unknown set with everything else for sale', () => {

@@ -204,6 +204,141 @@
   }
 }
 
+/* The store's motion. The hover tumble and drop, the float and the sheen run only
+   inside `.store-motion`, which the page drops in lite mode; the entrances are only
+   rendered with motion on. The reduced-motion rule above makes every animation and
+   transition instant, and the purely decorative ones are hidden there (below). */
+.store-plinth .store-pv { transition: transform 0.25s ease; }
+.store-plinth:hover .store-pv,
+.store-plinth:focus-visible .store-pv { transform: scale(1.06); }
+.store-plinth .store-hint { opacity: 0.65; transition: opacity 0.2s; }
+.store-plinth:hover .store-hint,
+.store-plinth:focus-visible .store-hint { opacity: 1; }
+.store-motion .store-plinth:hover .store-die,
+.store-motion .store-plinth:focus-visible .store-die { animation: storeTumble 0.7s ease-in-out; }
+.store-motion .store-plinth:hover .store-pip,
+.store-motion .store-plinth:focus-visible .store-pip { animation: storeDrop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.store-motion .store-tumble-once { animation: storeTumble 0.7s ease-in-out; }
+.store-motion .store-float { animation: storeFloat 5s ease-in-out infinite; }
+
+/* The rarest cards: a band of light crosses them now and then. */
+.store-sheen { position: relative; overflow: hidden; }
+.store-motion .store-sheen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.14) 48%, rgba(255, 255, 255, 0.04) 56%, transparent 70%);
+  background-size: 260% 100%;
+  animation: storeSheen 3.4s ease-in-out infinite;
+}
+
+/* Right after buying: the item arrives, a marker drops onto its capital, coins fly. */
+.store-drop-in { animation: storeDrop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.store-pop { animation: storePop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.store-ripple { opacity: 0; animation: storeRipple 1.4s ease-out 0.45s both; }
+.store-coin {
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 35% 30%, #fff6cf, #e2c46a 45%, #a88a36);
+  box-shadow: 0 0 8px rgba(243, 217, 139, 0.75);
+  opacity: 0;
+  pointer-events: none;
+  animation-duration: 1.5s;
+  animation-timing-function: cubic-bezier(0.15, 0.75, 0.3, 1);
+  animation-fill-mode: both;
+}
+.store-coin-1 { animation-name: storeCoin1; animation-delay: 0.12s; }
+.store-coin-2 { animation-name: storeCoin2; animation-delay: 0.15s; }
+.store-coin-3 { animation-name: storeCoin3; animation-delay: 0.18s; }
+.store-coin-4 { animation-name: storeCoin4; animation-delay: 0.21s; }
+.store-coin-5 { animation-name: storeCoin5; animation-delay: 0.12s; }
+.store-coin-6 { animation-name: storeCoin6; animation-delay: 0.15s; }
+.store-coin-7 { animation-name: storeCoin7; animation-delay: 0.18s; }
+.store-coin-8 { animation-name: storeCoin8; animation-delay: 0.21s; }
+
+/* Run instantly, these would leave the sheen resting on the card's edge and the
+   ripple standing still through its delay; they are decoration, so drop them. */
+@media (prefers-reduced-motion: reduce) {
+  .store-sheen::after,
+  .store-ripple,
+  .store-coin { display: none; }
+}
+
+@keyframes storeTumble {
+  0% { transform: rotate(0); }
+  25% { transform: translateY(-6px) rotate(-16deg); }
+  55% { transform: translateY(0) rotate(12deg); }
+  80% { transform: rotate(-4deg); }
+  100% { transform: rotate(0); }
+}
+@keyframes storeDrop {
+  0% { transform: translateY(-18px) scale(0.8); opacity: 0; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+@keyframes storeFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@keyframes storeSheen {
+  0% { background-position: 130% 0; }
+  100% { background-position: -130% 0; }
+}
+@keyframes storePop {
+  0% { transform: scale(0.6); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes storeRipple {
+  0% { transform: scale(0.3); opacity: 0.85; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+@keyframes storeCoin1 {
+  0% { transform: translate(0, 0) scale(0.4); opacity: 0; }
+  12%, 70% { opacity: 1; }
+  100% { transform: translate(-150px, -58px) rotate(-200deg) scale(1); opacity: 0; }
+}
+@keyframes storeCoin2 {
+  0% { transform: translate(0, 0) scale(0.4); opacity: 0; }
+  12%, 70% { opacity: 1; }
+  100% { transform: translate(-112px, -104px) rotate(160deg) scale(0.9); opacity: 0; }
+}
+@keyframes storeCoin3 {
+  0% { transform: translate(0, 0) scale(0.4); opacity: 0; }
+  12%, 70% { opacity: 1; }
+  100% { transform: translate(-42px, -126px) rotate(-120deg) scale(1.1); opacity: 0; }
+}
+@keyframes storeCoin4 {
+  0% { transform: translate(0, 0) scale(0.4); opacity: 0; }
+  12%, 70% { opacity: 1; }
+  100% { transform: translate(38px, -128px) rotate(140deg) scale(0.95); opacity: 0; }
+}
+@keyframes storeCoin5 {
+  0% { transform: translate(0, 0) scale(0.4); opacity: 0; }
+  12%, 70% { opacity: 1; }
+  100% { transform: translate(112px, -100px) rotate(-180deg) scale(1); opacity: 0; }
+}
+@keyframes storeCoin6 {
+  0% { transform: translate(0, 0) scale(0.4); opacity: 0; }
+  12%, 70% { opacity: 1; }
+  100% { transform: translate(156px, -52px) rotate(210deg) scale(0.85); opacity: 0; }
+}
+@keyframes storeCoin7 {
+  0% { transform: translate(0, 0) scale(0.4); opacity: 0; }
+  12%, 70% { opacity: 1; }
+  100% { transform: translate(-132px, 18px) rotate(90deg) scale(0.8); opacity: 0; }
+}
+@keyframes storeCoin8 {
+  0% { transform: translate(0, 0) scale(0.4); opacity: 0; }
+  12%, 70% { opacity: 1; }
+  100% { transform: translate(134px, 22px) rotate(-100deg) scale(0.8); opacity: 0; }
+}
+
 /* Phase tint overlays on live map containers (GamePage / Replay / Spectator) */
 .map-phase-tint-draft::after,
 .map-phase-tint-attack::after,

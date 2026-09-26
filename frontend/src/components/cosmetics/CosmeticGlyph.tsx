@@ -6,17 +6,20 @@ export default function CosmeticGlyph({
   glyph,
   color,
   className,
+  strokeWidth = 2,
 }: {
   glyph: CosmeticGlyphName;
   color: string;
   className?: string;
+  /** Lucide's 2 by default; thinner for a large, faint emblem. */
+  strokeWidth?: number;
 }) {
   return (
     <svg
       viewBox="0 0 24 24"
       fill="none"
       stroke={color}
-      strokeWidth={2}
+      strokeWidth={strokeWidth}
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}

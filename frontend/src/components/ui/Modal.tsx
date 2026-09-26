@@ -12,6 +12,8 @@ interface ModalProps {
   showCloseButton?: boolean;
   /** Set false for confirmations that should not be casually dismissed. */
   closeOnEscape?: boolean;
+  /** The id of a heading inside `children` that names the dialog, when it has no `title`. */
+  ariaLabelledBy?: string;
 }
 
 export default function Modal({
@@ -22,6 +24,7 @@ export default function Modal({
   className,
   showCloseButton = true,
   closeOnEscape = true,
+  ariaLabelledBy,
 }: ModalProps) {
   useEscapeClose(onClose, open && closeOnEscape);
   if (!open) return null;
@@ -36,7 +39,7 @@ export default function Modal({
           )}
           role="dialog"
           aria-modal="true"
-          aria-labelledby={title ? 'modal-title' : undefined}
+          aria-labelledby={title ? 'modal-title' : ariaLabelledBy}
         >
           {showCloseButton && (
             <button
