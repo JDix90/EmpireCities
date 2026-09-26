@@ -93,8 +93,9 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   daily_puzzle_v2_enabled: () => envOptIn('DAILY_PUZZLE_V2_ENABLED'),
   // Store overhaul: every equipped cosmetic shown where players see each
   // other (profiles, matches), and the era sets on sale. The store page, the
-  // banner slot and unequipping are the same either way. Dark-launched OFF.
-  store_v2_enabled: () => envOptIn('STORE_V2_ENABLED'),
+  // banner slot and unequipping are the same either way. On by default; the
+  // admin override is the kill switch.
+  store_v2_enabled: () => envOptOut('STORE_V2_ENABLED'),
 };
 
 /** The code default for one flag (no admin override consulted). */
@@ -344,10 +345,10 @@ export const featureFlags = {
   /**
    * The store overhaul as other players see it: every equipped cosmetic drawn
    * on profiles and in matches, and the era sets on sale. The store page, the
-   * banner slot and unequipping are the same either way. Default OFF (dark
-   * launch): off, profiles and matches look as before and the era sets aren't
-   * sold. `STORE_V2_ENABLED=true` or the admin override turns it on, and the
-   * override is the kill switch.
+   * banner slot and unequipping are the same either way. Default ON. Off,
+   * profiles and matches look as before and the era sets aren't sold; the
+   * admin override is the kill switch, and `STORE_V2_ENABLED=false` opts a
+   * deployment out.
    */
   get storeV2Enabled(): boolean {
     return overrideBool('store_v2_enabled');

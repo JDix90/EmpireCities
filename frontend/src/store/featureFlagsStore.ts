@@ -85,8 +85,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   // OFF; the server decides which days are v2, the client renders what it is sent.
   daily_puzzle_v2_enabled: false,
   // Store overhaul: cosmetics drawn on profiles and in matches (the store page
-  // is the same either way). Dark-launched OFF.
-  store_v2_enabled: false,
+  // is the same either way). On by default; admin kill switch.
+  store_v2_enabled: true,
 };
 
 interface FeatureFlagsState {
