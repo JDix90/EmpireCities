@@ -155,6 +155,26 @@ else
     | tail -1 | sed 's/^/[deploy] images: /' || true
   docker builder prune -af --filter "until=${PRUNE_KEEP_HOURS}h" 2>/dev/null \
     | tail -1 | sed 's/^/[deploy] build cache: /' || true
+  # Age alone does not bound the cache: a busy week of deploys, or a few
+  # dependency changes at ~2.8GB each, keeps far more than the next build needs.
+  # So also trim it to PRUNE_CACHE_MAX, least recently used first. The
+  # dependency layers every build reuses are the last to go, so builds stay
+  # fast. Newer Docker renamed the flag, so use whichever this one has.
+  PRUNE_CACHE_MAX="${PRUNE_CACHE_MAX:-10GB}"
+  CACHE_PRUNE_HELP="$(docker builder prune --help 2>/dev/null || true)"
+  if grep -q -- '--max-used-space' <<<"${CACHE_PRUNE_HELP}"; then
+    CACHE_CAP_FLAG="--max-used-space"
+  elif grep -q -- '--keep-storage' <<<"${CACHE_PRUNE_HELP}"; then
+    CACHE_CAP_FLAG="--keep-storage"
+  else
+    CACHE_CAP_FLAG=""
+  fi
+  if [ -n "${CACHE_CAP_FLAG}" ]; then
+    docker builder prune -af "${CACHE_CAP_FLAG}" "${PRUNE_CACHE_MAX}" 2>/dev/null \
+      | tail -1 | sed 's/^/[deploy] build cache over the size cap: /' || true
+  else
+    echo "[deploy] WARN: this Docker cannot cap the build cache by size; pruned by age only" >&2
+  fi
   df -h / | awk 'NR==2 {print "[deploy] disk: "$3" used, "$4" available ("$5" full)"}'
 fi
 

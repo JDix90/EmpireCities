@@ -8,10 +8,14 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY backend/package.json ./backend/
 COPY packages/shared/package.json ./packages/shared/
-COPY database ./database
 # package.json `packageManager` pins pnpm@10.9.0 — do not rely on corepack's
 # default (pnpm 11.x requires Node ≥22.13 and breaks on node:20 images).
 RUN corepack enable && corepack prepare pnpm@10.9.0 --activate && pnpm install --frozen-lockfile
+# After the install, not before: nothing in `database/` is a workspace package,
+# and while it sat above this line every map or migration change invalidated
+# the dependency layer. Each such deploy reinstalled every package and left
+# ~0.9GB of image and build cache behind, against ~0.04GB now.
+COPY database ./database
 COPY backend ./backend
 COPY packages/shared ./packages/shared
 RUN cd backend && pnpm run build

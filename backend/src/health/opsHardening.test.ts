@@ -43,10 +43,32 @@ describe('deploy-production.sh', () => {
     expect(src.indexOf('smoke-production.sh')).toBeLessThan(src.indexOf('docker image prune'));
   });
 
+  it('caps the build cache by size too, with whichever flag this Docker has', () => {
+    expect(src).toMatch(/PRUNE_CACHE_MAX="\$\{PRUNE_CACHE_MAX:-10GB\}"/);
+    expect(src).toMatch(/--max-used-space/);
+    expect(src).toMatch(/--keep-storage/);
+    // Capped after the smoke test, like the age-based prune.
+    expect(src.indexOf('smoke-production.sh')).toBeLessThan(src.indexOf('PRUNE_CACHE_MAX='));
+  });
+
   it('says when the newest backup is stale (the nightly job once failed silently for 25 days)', () => {
     expect(src).toMatch(/newest backup is \$\{BACKUP_AGE_HOURS\}h old/);
     expect(src).toMatch(/-ge 48/);
     expect(src).toMatch(/no database backup in/);
+  });
+});
+
+describe('Dockerfile.backend', () => {
+  const src = read('docker/Dockerfile.backend');
+
+  it('installs dependencies before copying database/, so a map change does not reinstall them', () => {
+    // Above the install, every map or migration change invalidated the
+    // dependency layer: ~0.9GB of image and build cache left behind per deploy.
+    const install = src.indexOf('pnpm install');
+    expect(install).toBeGreaterThan(-1);
+    expect(src.indexOf('COPY database')).toBeGreaterThan(install);
+    // Still before the build, which compiles against it.
+    expect(src.indexOf('COPY database')).toBeLessThan(src.indexOf('pnpm run build'));
   });
 });
 
