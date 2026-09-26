@@ -9,11 +9,14 @@ INSERT INTO achievements (achievement_id, name, description, xp_reward) VALUES
   ('ten_streak',        'Unstoppable',        'Achieve a 10-game win streak.',                                   600)
 ON CONFLICT (achievement_id) DO NOTHING;
 
-INSERT INTO cosmetics (cosmetic_id, type, name, description, price_gems, is_premium) VALUES
-  ('frame_bronze',   'profile_frame', 'Bronze Commander',     'A bronze ring for your first victory.',       0, FALSE),
-  ('frame_silver',   'profile_frame', 'Silver Strategist',    'Earned by reaching 1600 ranked rating.',      0, FALSE),
-  ('frame_gold',     'profile_frame', 'Gold Conqueror',       'Awarded for total map domination.',            0, FALSE),
-  ('frame_champion', 'profile_frame', 'Champion Frame',       'A mark of a 10-game win streak.',             0, FALSE),
-  ('marker_skull',   'map_marker',    'Skull Marker',         'Skull territory markers for speed demons.',    0, FALSE),
-  ('marker_crown',   'map_marker',    'Crown Marker',         'Crown territory markers for comeback kings.',  0, FALSE)
+-- Earned-only, set here rather than left to migration 030: seeds run after
+-- migrations, so a row this file inserts never passes through 030's UPDATE.
+-- Without the flag the store's free-claim path handed these out (see 043).
+INSERT INTO cosmetics (cosmetic_id, type, name, description, price_gems, is_premium, earned_only) VALUES
+  ('frame_bronze',   'profile_frame', 'Bronze Commander',     'A bronze ring for your first victory.',       0, FALSE, TRUE),
+  ('frame_silver',   'profile_frame', 'Silver Strategist',    'Earned by reaching 1600 ranked rating.',      0, FALSE, TRUE),
+  ('frame_gold',     'profile_frame', 'Gold Conqueror',       'Awarded for total map domination.',            0, FALSE, TRUE),
+  ('frame_champion', 'profile_frame', 'Champion Frame',       'A mark of a 10-game win streak.',             0, FALSE, TRUE),
+  ('marker_skull',   'map_marker',    'Skull Marker',         'Skull territory markers for speed demons.',    0, FALSE, TRUE),
+  ('marker_crown',   'map_marker',    'Crown Marker',         'Crown territory markers for comeback kings.',  0, FALSE, TRUE)
 ON CONFLICT (cosmetic_id) DO NOTHING;
