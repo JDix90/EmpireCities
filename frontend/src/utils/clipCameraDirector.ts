@@ -220,6 +220,25 @@ function stepStarts(steps: readonly ClipCameraStep[]): number[] {
 }
 
 /**
+ * For each moment, the territories on this board that changed hands since the
+ * moment before; the opening moment has nothing to compare with. The Moon inset
+ * outlines them and grows while there are any.
+ */
+export function capturesByStep(
+  globe: ClipGlobeData | null | undefined,
+  steps: readonly ClipCameraStep[],
+): string[][] {
+  if (!globe) return steps.map(() => []);
+  const ids = globe.territories.map((t) => t.territory_id);
+  return steps.map((step, i) => {
+    if (i === 0) return [];
+    const prev = steps[i - 1].state.territories;
+    const cur = step.state.territories;
+    return ids.filter((id) => (prev[id]?.owner_id ?? null) !== (cur[id]?.owner_id ?? null));
+  });
+}
+
+/**
  * Plan the camera for a clip, or null when the board needs no moving camera —
  * a flat board, a map that locks rotation, or one whose every territory the
  * fixed framing already shows. Null means "draw exactly as before".

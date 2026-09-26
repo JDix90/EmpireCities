@@ -12,7 +12,13 @@
  */
 import { GIFEncoder, quantize, applyPalette } from 'gifenc';
 import { drawClipFrame, type ClipFrameState, type ClipMapData } from './replayClipRenderer';
-import { clipCameraAt, clipCameraSettledAt, planClipCamera, planClipGifFrames } from './clipCameraDirector';
+import {
+  capturesByStep,
+  clipCameraAt,
+  clipCameraSettledAt,
+  planClipCamera,
+  planClipGifFrames,
+} from './clipCameraDirector';
 import type { CondensedFrame } from './replayCondense';
 import { condenseReasonLabel } from './replayCondense';
 
@@ -129,6 +135,9 @@ export async function exportClipVideo(input: ClipExportInput): Promise<ClipResul
   // On a world map the globe turns toward each moment's action; boards one
   // view covers get no plan and keep their single framing (see clipCameraDirector).
   const cameraPath = planClipCamera(input.mapData.globe, plan);
+  // The Space Age Moon inset follows its own fighting the same way.
+  const moonPath = input.mapData.moon ? planClipCamera(input.mapData.moon, plan) : null;
+  const moonCaptures = capturesByStep(input.mapData.moon, plan);
 
   // Cumulative start times so the rAF loop can map elapsed → current frame.
   const starts: number[] = [];
@@ -160,6 +169,7 @@ export async function exportClipVideo(input: ClipExportInput): Promise<ClipResul
     caption: plan[0].caption,
     progress: 0,
     camera: cameraPath ? clipCameraAt(cameraPath, 0).camera : undefined,
+    moonCamera: moonPath ? clipCameraAt(moonPath, 0).camera : undefined,
   });
   recorder.start();
 
@@ -178,6 +188,7 @@ export async function exportClipVideo(input: ClipExportInput): Promise<ClipResul
       }
       const p = plan[idx];
       const view = cameraPath ? clipCameraAt(cameraPath, elapsed) : null;
+      const moonView = moonPath ? clipCameraAt(moonPath, elapsed) : null;
       drawClipFrame({
         ctx,
         width: w,
@@ -189,6 +200,9 @@ export async function exportClipVideo(input: ClipExportInput): Promise<ClipResul
         progress: Math.min(1, elapsed / totalMs),
         camera: view?.camera,
         cameraMoving: view?.moving,
+        moonCamera: moonView?.camera,
+        moonCameraMoving: moonView?.moving,
+        moonCaptured: moonCaptures[idx],
       });
       input.onProgress?.(Math.min(1, elapsed / totalMs));
       if (elapsed >= totalMs) {
@@ -222,6 +236,8 @@ export async function exportClipGif(input: ClipExportInput): Promise<ClipResult>
   if (plan.length === 0) throw new Error('Nothing to export.');
 
   const cameraPath = planClipCamera(input.mapData.globe, plan);
+  const moonPath = input.mapData.moon ? planClipCamera(input.mapData.moon, plan) : null;
+  const moonCaptures = capturesByStep(input.mapData.moon, plan);
   // One frame per moment, plus in-between frames wherever the camera turns.
   const gifFrames = planClipGifFrames(plan, cameraPath);
 
@@ -235,6 +251,9 @@ export async function exportClipGif(input: ClipExportInput): Promise<ClipResult>
       : f.turning
         ? clipCameraAt(cameraPath, f.atMs).camera
         : clipCameraSettledAt(cameraPath, f.atMs);
+    // In-between frames belong to Earth's turns; the inset cuts to wherever its
+    // own camera settles rather than getting frames of its own.
+    const moonCamera = moonPath ? clipCameraSettledAt(moonPath, f.atMs) : undefined;
     drawClipFrame({
       ctx,
       width: w,
@@ -246,6 +265,8 @@ export async function exportClipGif(input: ClipExportInput): Promise<ClipResult>
       progress: totalMs ? f.atMs / totalMs : 0,
       camera,
       cameraMoving: f.turning,
+      moonCamera,
+      moonCaptured: moonCaptures[f.stepIndex],
     });
     const { data } = ctx.getImageData(0, 0, w, h);
     const palette = quantize(data, 256);

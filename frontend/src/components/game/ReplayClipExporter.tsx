@@ -82,8 +82,8 @@ export default function ReplayClipExporter({
    * `null` until it resolves, and for maps that have no globe geometry at all;
    * the renderer then draws the flat authored polygons instead of nothing.
    */
-  const { globe, pending: globePending } = useClipGlobeData(mapData, open);
-  const clipMapData = useMemo<ClipMapData>(() => ({ ...mapData, globe }), [mapData, globe]);
+  const { globe, moon, pending: globePending } = useClipGlobeData(mapData, open);
+  const clipMapData = useMemo<ClipMapData>(() => ({ ...mapData, globe, moon }), [mapData, globe, moon]);
 
   useEffect(() => {
     return () => {
