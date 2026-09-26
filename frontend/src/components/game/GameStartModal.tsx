@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Crown, Swords, Trophy, Target, Shield } from 'lucide-react';
+import { ArrowLeft, BookOpen, Crown, Swords, Trophy, Target, Shield } from 'lucide-react';
 import clsx from 'clsx';
 import Modal from '../ui/Modal';
 import { api } from '../../services/api';
 import { describeSecretMission, type MapNameLookup } from '../../utils/mapDisplayNames';
 import { hegemonyTurnsFor } from '../../utils/lunarHegemony';
+import { describeSpaceAgeEra, spaceAgeGuideInput } from '../../utils/spaceAgeGuide';
+import { SpaceAgeGuideSections } from './SpaceAgeGuide';
 import type { GameState, PlayerState } from '../../store/gameStore';
 
 /**
@@ -104,6 +106,12 @@ interface FactionInfo {
  * acts when) and the viewer's starting resources. Purely informational —
  * the server does not wait on it; dismissing realigns the turn clock via
  * the existing game:turn_ready ack (wired in GamePage).
+ *
+ * A Space Age game adds an "In this era" section, and a second page — "How
+ * the Space Age works" — behind a link in it. On the player's first Space Age
+ * game (`guideFirst`) the primary button turns the page instead of closing, so
+ * the guide opens by itself exactly once without ever being a second modal
+ * stacked on this one (docs/MOBILE_UX_PLAN.md M-12).
  */
 export default function GameStartModal({
   open,
@@ -111,44 +119,45 @@ export default function GameStartModal({
   gameState,
   viewerPlayerId,
   mapNameLookup,
+  moonTiles = 0,
+  guideFirst = false,
+  onGuideShown,
 }: {
   open: boolean;
   onClose: () => void;
   gameState: GameState;
   viewerPlayerId: string | null;
   mapNameLookup?: MapNameLookup | null;
+  /** Lunar tiles on the board; the Space Age section needs a Moon to describe. */
+  moonTiles?: number;
+  /** The viewer has not seen the Space Age guide: lead into it before battle. */
+  guideFirst?: boolean;
+  /** The guide page was shown — by the first-time `'next'` or by the link. */
+  onGuideShown?: (via: 'next' | 'link') => void;
 }) {
+  const [page, setPage] = useState<'briefing' | 'guide'>('briefing');
+  useEffect(() => {
+    if (open) setPage('briefing');
+  }, [open]);
+
   const order = turnOrderFrom(gameState.players, gameState.starting_player_index ?? 0);
   const positionLine = describeViewerPosition(order, viewerPlayerId);
   const viewer = gameState.players.find((p) => p.player_id === viewerPlayerId);
   const showGold = !!gameState.settings.economy_enabled;
   const showTech = !!gameState.settings.tech_trees_enabled;
   const { conditions, turnCap } = describeWinConditions(gameState.settings);
-  // The Moon's territories count toward every condition above, so a player who
-  // is never told the era has an orbit gate reads a stalled domination bar as
-  // a bug. Lunar Pioneers get the shorter version — they start with access.
-  const moonNote = gameState.era === 'space_age'
-    ? viewer?.faction_id === 'lunar_pioneers'
-      ? 'The Moon counts too — you start with access to it.'
-      : 'The Moon counts too. Reach it with the Space Program: Spaceport Infrastructure, a Launch Pad, then the Space Station and Lunar Expansion.'
-    : null;
-  // The Moon Race changes what the Moon is FOR, and this modal is the one
-  // moment every player is guaranteed to read before their first turn. Only
-  // the phases this game actually runs are named — the lobby toggle asks for
-  // the package, the server decides which parts of it exist.
-  const moonRaceNote = gameState.era === 'space_age'
-    ? [
-        gameState.settings.space_age_moon_helium3_enabled
-          ? 'lunar tiles mine Helium-3 for you each turn'
-          : null,
-        gameState.settings.space_age_moon_gated_tier_enabled
-          ? 'the strongest orbital powers need a foothold up there'
-          : null,
-        gameState.settings.space_age_moon_blockade_enabled
-          ? 'orbit lanes can be blockaded'
-          : null,
-      ].filter(Boolean).join(', ')
-    : '';
+  // The Moon counts toward every condition above and sits behind an orbit
+  // gate, and the Moon Race changes what it is FOR. This modal is the one
+  // moment every player is guaranteed to read before their first turn, so the
+  // era's rules get a few lines of their own, written from this game's settings.
+  const guideInput = spaceAgeGuideInput(gameState, viewerPlayerId, moonTiles);
+  const eraLines = describeSpaceAgeEra(guideInput);
+  const leadsIntoGuide = guideFirst && eraLines.length > 0;
+
+  const showGuide = (via: 'next' | 'link') => {
+    setPage('guide');
+    onGuideShown?.(via);
+  };
 
   // Faction name + ability come from the era endpoint (same source the
   // in-game Bonuses modal uses). Best-effort: the section simply doesn't
@@ -171,8 +180,34 @@ export default function GameStartModal({
     };
   }, [open, factionId, gameState.era]);
 
+  // Keyed per page so turning it remounts the dialog: its scroll box would
+  // otherwise open the guide at the depth of the briefing's bottom button.
+  if (page === 'guide') {
+    return (
+      <Modal key="guide" open={open} onClose={onClose} title="How the Space Age works" showCloseButton={false}>
+        <button
+          type="button"
+          onClick={() => setPage('briefing')}
+          className="-mt-2 mb-3 inline-flex items-center gap-1 text-xs text-bf-muted hover:text-bf-text"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" aria-hidden />
+          Back to the briefing
+        </button>
+        <SpaceAgeGuideSections input={guideInput} />
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-4 w-full flex items-center justify-center gap-2 bg-bf-gold text-bf-dark font-display py-2.5 rounded-lg hover:bg-bf-gold/90 transition-colors"
+        >
+          <Swords className="w-4 h-4" aria-hidden />
+          To battle
+        </button>
+      </Modal>
+    );
+  }
+
   return (
-    <Modal open={open} onClose={onClose} title="The battle begins" showCloseButton={false}>
+    <Modal key="briefing" open={open} onClose={onClose} title="The battle begins" showCloseButton={false}>
       {positionLine && (
         <p className="text-bf-text mb-3 -mt-1">
           {positionLine}
@@ -223,14 +258,29 @@ export default function GameStartModal({
         ))}
       </ul>
       {turnCap && <p className="text-xs text-bf-muted mb-1.5 pl-[22px]">{turnCap}.</p>}
-      {moonNote && <p className="text-xs text-violet-300/90 mb-4 pl-[22px]">{moonNote}</p>}
-      {moonRaceNote && (
-        <p className="text-xs text-violet-300/90 mb-4 pl-[22px]">
-          Moon Race is on: {moonRaceNote}.
-        </p>
+      <div className={turnCap ? 'mb-2.5' : 'mb-4'} />
+
+      {eraLines.length > 0 && (
+        <section className="mb-4" data-testid="start-era-section">
+          <h4 className="text-xs font-medium text-bf-muted uppercase tracking-wider mb-2">In this era</h4>
+          <ul className="space-y-1.5">
+            {eraLines.map((line) => (
+              <li key={line.id} className="flex items-start gap-2 text-sm text-bf-text">
+                <span className="w-3.5 shrink-0 text-center leading-5" aria-hidden>{line.icon}</span>
+                <span>{line.text}</span>
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            onClick={() => showGuide('link')}
+            className="mt-2 ml-[22px] inline-flex items-center gap-1 text-xs text-violet-300 underline underline-offset-2 hover:text-violet-100"
+          >
+            <BookOpen className="w-3.5 h-3.5 shrink-0" aria-hidden />
+            How the Space Age works
+          </button>
+        </section>
       )}
-      {!turnCap && !moonNote && <div className="mb-4" />}
-      {(turnCap || moonNote) && <div className="mb-2.5" />}
 
       {viewer?.secret_mission && (
         <>
@@ -277,14 +327,25 @@ export default function GameStartModal({
         </>
       )}
 
-      <button
-        type="button"
-        onClick={onClose}
-        className="w-full flex items-center justify-center gap-2 bg-bf-gold text-bf-dark font-display py-2.5 rounded-lg hover:bg-bf-gold/90 transition-colors"
-      >
-        <Swords className="w-4 h-4" aria-hidden />
-        To battle
-      </button>
+      {leadsIntoGuide ? (
+        <button
+          type="button"
+          onClick={() => showGuide('next')}
+          className="w-full flex items-center justify-center gap-2 bg-bf-gold text-bf-dark font-display py-2.5 rounded-lg hover:bg-bf-gold/90 transition-colors"
+        >
+          <BookOpen className="w-4 h-4" aria-hidden />
+          Next: how the Space Age works
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full flex items-center justify-center gap-2 bg-bf-gold text-bf-dark font-display py-2.5 rounded-lg hover:bg-bf-gold/90 transition-colors"
+        >
+          <Swords className="w-4 h-4" aria-hidden />
+          To battle
+        </button>
+      )}
     </Modal>
   );
 }

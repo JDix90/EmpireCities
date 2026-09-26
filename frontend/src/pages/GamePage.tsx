@@ -58,6 +58,7 @@ import {
 import GameHUD from '../components/game/GameHUD';
 import AiTurnRecapPanel, { appendRecap, type TurnRecapEntry } from '../components/game/AiTurnRecapPanel';
 import GameStartModal, { isOpeningState } from '../components/game/GameStartModal';
+import SpaceAgeGuideModal from '../components/game/SpaceAgeGuide';
 import GameEndedNotice from '../components/game/GameEndedNotice';
 import { describeEndedOutcome } from '../utils/gameEndedOutcome';
 import DefenderBattleTheater from '../components/game/DefenderBattleTheater';
@@ -146,6 +147,8 @@ import {
   persistGlobeSpinPreference,
   hasSeenMobileMenuHint,
   markMobileMenuHintSeen,
+  hasSeenSpaceAgeGuide,
+  markSpaceAgeGuideSeen,
   getCameraFollowPreference,
   isLiteMode,
   persistLiteMode,
@@ -168,6 +171,7 @@ import { inferWorldId, aiPlayerName } from '@borderfall/shared';
 import { viewerHoldsVaultSeal, worldDisplayName, worldsInPlay } from '../utils/galaxyLanes';
 import {
   getOrbitAccessResult,
+  lunarTerritoryCount,
   resolveOrbitAccessModeForPlayer,
   territoryRequiresOrbitAccessForClaim,
   formatOrbitAccessError,
@@ -248,6 +252,12 @@ const VICTORY_LABELS: Record<string, string> = {
   lunar_hegemony: 'Lunar Hegemony',
   lane_sovereignty: 'Lane Sovereignty',
 };
+
+/** "Four worlds, one war." — the Galactic intro's opener, counted off the board. */
+function galaxyWorldCountWord(worlds: number | undefined): string {
+  const words: Record<number, string> = { 2: 'Two', 3: 'Three', 4: 'Four', 5: 'Five', 6: 'Six' };
+  return (worlds != null ? words[worlds] : undefined) ?? 'Many';
+}
 
 function formatVictorySummary(settings: GameLobbySettingsJson): string {
   const raw =
@@ -1037,6 +1047,10 @@ export default function GamePage() {
   const [showTechTree, setShowTechTree] = useState(false);
   const [techTree, setTechTree] = useState<TechNode[]>([]);
   const [showBonuses, setShowBonuses] = useState(false);
+  // "How the Space Age works": the last page of a player's first Space Age
+  // start briefing, and after that a modal behind the Space Program tracker.
+  const [showSpaceAgeGuide, setShowSpaceAgeGuide] = useState(false);
+  const [spaceAgeGuideSeen, setSpaceAgeGuideSeen] = useState(() => hasSeenSpaceAgeGuide());
   const [showSettingsLab, setShowSettingsLab] = useState(false);
   const [tutorialAppliedSettings, setTutorialAppliedSettings] = useState<string[]>([]);
   const [strikeAnim, setStrikeAnim] = useState<{
@@ -3041,6 +3055,27 @@ export default function GamePage() {
     [mapData, gameState, user?.user_id],
   );
 
+  /** Lunar tiles on this board — zero means no Space Age copy to show. */
+  const moonTiles = useMemo(() => lunarTerritoryCount(mapData?.territories), [mapData]);
+  // The tracker also shows for an era-advancement player who climbed into the
+  // Space Age on a moonless board; there is no guide to open there.
+  const spaceAgeGuideAvailable = gameState?.era === 'space_age' && moonTiles > 0;
+
+  /**
+   * Whether the viewer plays under Galactic Age rules right now: the later of
+   * the board's era and their own, as the orbit gate resolves it. On Space to
+   * Stars that is false until the viewer climbs out of the Space Age.
+   */
+  const viewerInGalacticAge = useMemo(
+    () => resolveOrbitAccessModeForPlayer(
+      mapData ?? null,
+      gameState,
+      resolvedViewerPlayerIdRef.current ?? user?.user_id ?? null,
+      gameState?.era ?? '',
+    ) === 'galaxy_hyperspace',
+    [mapData, gameState, user?.user_id],
+  );
+
   const orbitAccessHint = useMemo(() => {
     if (!mapData || !selectedTerritory) return null;
     if (!territoryRequiresOrbitAccessForClaim(mapData, selectedTerritory)) return null;
@@ -3261,6 +3296,16 @@ export default function GamePage() {
       }
     }
   }, [playerTechEra, techTree.length]);
+
+  const noteSpaceAgeGuideSeen = useCallback(() => {
+    markSpaceAgeGuideSeen();
+    setSpaceAgeGuideSeen(true);
+  }, []);
+
+  const handleOpenSpaceAgeGuide = useCallback(() => {
+    noteSpaceAgeGuideSeen();
+    setShowSpaceAgeGuide(true);
+  }, [noteSpaceAgeGuideSeen]);
 
   const handleOpenBonuses = useCallback(() => {
     setShowBonuses(true);
@@ -4570,13 +4615,19 @@ export default function GamePage() {
         shows once per browser. Teaches the two non-obvious things: worlds are
         drilled into individually, and the lanes are positional — you cross
         from a gateway system you hold, and crossings roll fewer dice.
+
+        Gated on the viewer actually being in the Galactic Age, not on the map
+        kind: Space to Stars is a galaxy board that STARTS in the Space Age, so
+        keying on the board alone welcomed players to an era they had not
+        reached, on turn one, on top of the start briefing. Held until the
+        briefing closes for the same reason.
       */}
-      {mapData?.map_kind === 'galaxy' && (
+      {mapData?.map_kind === 'galaxy' && viewerInGalacticAge && !showStartModal && (
         <FeatureExplainerModal
           featureKey="galactic_age_intro"
           icon="🌌"
           title="Welcome to the Galactic Age"
-          description="Four worlds, one war. Every hyperspace lane runs between two gateway systems. Hold a gateway and you can attack straight across its lane — no research needed — but a crossing rolls only 2 dice (3 with Lane Charts), so a defended gateway holds like a coast. Tap a world to drill into it; open the galaxy chart to see every lane and whose gateways it touches."
+          description={`${galaxyWorldCountWord(mapData.worlds?.length)} worlds, one war. Every hyperspace lane runs between two gateway systems. Hold a gateway and you can attack straight across its lane — no research needed — but a crossing rolls only 2 dice (3 with Lane Charts), so a defended gateway holds like a coast. Tap a world to drill into it; open the galaxy chart to see every lane and whose gateways it touches.`}
         />
       )}
 
@@ -4930,6 +4981,14 @@ export default function GamePage() {
               gameState={gameState}
               viewerPlayerId={resolvedViewerPlayerIdRef.current ?? user?.user_id ?? null}
               mapNameLookup={mapData}
+              moonTiles={moonTiles}
+              guideFirst={!spaceAgeGuideSeen}
+              onGuideShown={(via) => {
+                // The first-time page is one more tap the game asked for, so
+                // the overlay budget counts it; opening it by choice is not.
+                if (via === 'next') countDismissTap(3);
+                noteSpaceAgeGuideSeen();
+              }}
             />
           )}
 
@@ -5011,6 +5070,7 @@ export default function GamePage() {
               onExitTutorial={isTutorial ? handleTutorialExit : undefined}
               onOpenTechTree={gameState?.settings.tech_trees_enabled ? handleOpenTechTree : undefined}
               onOpenBonuses={handleOpenBonuses}
+              onOpenSpaceAgeGuide={spaceAgeGuideAvailable ? handleOpenSpaceAgeGuide : undefined}
               onAdvanceEra={gameState?.settings.era_advancement_enabled ? handleAdvanceEra : undefined}
               onUseAbility={
                 (gameState?.settings.tech_trees_enabled || gameState?.settings.factions_enabled)
@@ -5249,6 +5309,7 @@ export default function GamePage() {
               onExitTutorial={isTutorial ? handleTutorialExit : undefined}
               onOpenTechTree={gameState?.settings.tech_trees_enabled ? () => { handleOpenTechTree(); setMobileHudOpen(false); } : undefined}
               onOpenBonuses={() => { handleOpenBonuses(); setMobileHudOpen(false); }}
+              onOpenSpaceAgeGuide={spaceAgeGuideAvailable ? () => { handleOpenSpaceAgeGuide(); setMobileHudOpen(false); } : undefined}
               onAdvanceEra={gameState?.settings.era_advancement_enabled ? () => { handleAdvanceEra(); setMobileHudOpen(false); } : undefined}
               onUseAbility={
                 (gameState?.settings.tech_trees_enabled || gameState?.settings.factions_enabled)
@@ -5376,6 +5437,16 @@ export default function GamePage() {
           techTree={techTree}
           mapData={mapData}
           onClose={() => setShowBonuses(false)}
+        />
+      )}
+
+      {gameState && (
+        <SpaceAgeGuideModal
+          open={showSpaceAgeGuide}
+          onClose={() => setShowSpaceAgeGuide(false)}
+          gameState={gameState}
+          viewerPlayerId={resolvedViewerPlayerIdRef.current ?? user?.user_id ?? null}
+          moonTiles={moonTiles}
         />
       )}
 

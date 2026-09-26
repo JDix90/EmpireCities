@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
 import SpaceProgramTracker from './SpaceProgramTracker';
 import type { FrontendMapData } from '../../utils/orbitAccess';
 import type { GameState } from '../../store/gameStore';
@@ -133,6 +133,41 @@ describe('SpaceProgramTracker', () => {
     render(<SpaceProgramTracker gameState={s} mapData={mapData} playerId="p1" />);
     expect(screen.queryByTestId('space-program-tracker')).not.toBeInTheDocument();
     expect(screen.getByText(/your colonists never left/)).toBeInTheDocument();
+  });
+
+  describe('the way back into the Space Age guide', () => {
+    // The guide opens by itself once, with a player's first Space Age start
+    // briefing. After that the tracker is where it lives — on every variant,
+    // including the one-liners a player sees once they are through the gate.
+    it('offers the guide from the checklist', () => {
+      const onOpenGuide = vi.fn();
+      render(
+        <SpaceProgramTracker gameState={state({ unlocked_techs: [] })} mapData={mapData} playerId="p1" onOpenGuide={onOpenGuide} />,
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'How the Space Age works' }));
+      expect(onOpenGuide).toHaveBeenCalledTimes(1);
+    });
+
+    it('offers it once access is unlocked, and to Lunar Pioneers', () => {
+      const unlocked = state(
+        { unlocked_techs: ['sa_lunar_expansion'], space_station_launched: true },
+        { la_pampas: { territory_id: 'la_pampas', owner_id: 'p1', unit_count: 3, buildings: ['launch_pad'] } },
+      );
+      const { unmount } = render(
+        <SpaceProgramTracker gameState={unlocked} mapData={mapData} playerId="p1" onOpenGuide={() => {}} />,
+      );
+      expect(screen.getByRole('button', { name: 'How the Space Age works' })).toBeInTheDocument();
+      unmount();
+      render(
+        <SpaceProgramTracker gameState={state({ faction_id: 'lunar_pioneers' })} mapData={mapData} playerId="p1" onOpenGuide={() => {}} />,
+      );
+      expect(screen.getByRole('button', { name: 'How the Space Age works' })).toBeInTheDocument();
+    });
+
+    it('leaves the link out when there is no guide to open', () => {
+      render(<SpaceProgramTracker gameState={state({ unlocked_techs: [] })} mapData={mapData} playerId="p1" />);
+      expect(screen.queryByRole('button', { name: 'How the Space Age works' })).not.toBeInTheDocument();
+    });
   });
 
   describe('once a rival has landed', () => {

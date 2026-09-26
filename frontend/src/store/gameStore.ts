@@ -215,6 +215,8 @@ export interface GameState {
     space_age_hegemony_turns?: number;
     /** Phase 4: the Orbital Blockade — seal an authored orbit lane for 3 He-3. */
     space_age_moon_blockade_enabled?: boolean;
+    /** Phase 5: some secret missions are dealt about the Moon. */
+    space_age_moon_missions_enabled?: boolean;
     /** The Tribute knob (§8): 6+ lunar tiles levies 1 TP/turn from players holding none. */
     space_age_moon_tribute_enabled?: boolean;
     async_mode?: boolean;

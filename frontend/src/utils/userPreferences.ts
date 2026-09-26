@@ -20,6 +20,7 @@ const HIGH_CONTRAST_KEY = 'cc-high-contrast';
 const MOBILE_MENU_HINT_SEEN_KEY = 'cc-mobile-menu-hint-seen';
 const TUTORIAL_PROGRESS_KEY = 'cc-tutorial-progress';
 const MOON_INSET_COLLAPSED_KEY = 'cc-moon-inset-collapsed';
+const SPACE_AGE_GUIDE_SEEN_KEY = 'cc-space-age-guide-seen';
 const PUSH_NUDGE_DISMISSED_AT_KEY = 'cc-push-nudge-dismissed-at';
 
 const listeners = new Set<() => void>();
@@ -115,6 +116,20 @@ export function hasSeenMobileMenuHint(): boolean {
 
 export function markMobileMenuHintSeen(): void {
   writeBool(MOBILE_MENU_HINT_SEEN_KEY, true);
+}
+
+// ── Space Age guide ───────────────────────────────────────────────────────────
+// "How the Space Age works" is part of the player's first Space Age start
+// briefing, as the page after it. Once they have seen it, it stays behind a
+// link (in the briefing and on the Space Program tracker): the mobile overlay
+// budget allows a first-time explainer, not one per game.
+
+export function hasSeenSpaceAgeGuide(): boolean {
+  return readBool(SPACE_AGE_GUIDE_SEEN_KEY, false);
+}
+
+export function markSpaceAgeGuideSeen(): void {
+  writeBool(SPACE_AGE_GUIDE_SEEN_KEY, true);
 }
 
 // ── Moon inset ────────────────────────────────────────────────────────────────
