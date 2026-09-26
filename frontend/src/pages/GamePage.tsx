@@ -168,6 +168,7 @@ import { inferWorldId, aiPlayerName } from '@borderfall/shared';
 import { viewerHoldsVaultSeal, worldDisplayName, worldsInPlay } from '../utils/galaxyLanes';
 import {
   getOrbitAccessResult,
+  orbitLockReason,
   resolveOrbitAccessModeForPlayer,
   territoryRequiresOrbitAccessForClaim,
   formatOrbitAccessError,
@@ -3052,12 +3053,10 @@ export default function GamePage() {
    * was galaxy-only, which left Space Age players staring at a greyed-out Moon
    * target with no tooltip and a screen-reader label about hyperspace.
    */
-  const orbitTravelBlockedReason = useMemo(() => {
-    if (!mapData || orbitAccess.allowed) return null;
-    const mode = resolveOrbitAccessModeForPlayer(mapData, gameState, user?.user_id ?? null, gameState?.era ?? '');
-    if (mode === 'none') return null;
-    return formatOrbitAccessError(orbitAccess, mode);
-  }, [mapData, orbitAccess, gameState?.era]);
+  const orbitTravelBlockedReason = useMemo(
+    () => orbitLockReason(mapData ?? null, gameState, user?.user_id ?? null, gameState?.era ?? ''),
+    [mapData, gameState, user?.user_id],
+  );
 
   const handleClaimTerritory = (territoryId: string) => {
     if (territorySelectPendingRef.current) return;
@@ -4719,6 +4718,7 @@ export default function GamePage() {
                       width={mapCanvasSize.w}
                       height={mapCanvasSize.h}
                       orbitAccessAllowed={orbitAccess.allowed}
+                      orbitAccessReason={orbitTravelBlockedReason}
                       viewerPlayerId={resolvedViewerPlayerId}
                       territoryNameOf={(id) => mapData.territories.find((t) => t.territory_id === id)?.name ?? id}
                       sealedLaneIds={galaxySealedLaneIds}

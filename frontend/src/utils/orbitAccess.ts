@@ -366,6 +366,29 @@ export function getOrbitAccessResult(
 }
 
 /**
+ * Why this player cannot cross orbit lanes right now, in the words of their own
+ * orbit regime, or null when they can (or the board has no gate at all).
+ *
+ * The regime is the point. Space to Stars is a galaxy-kind board that STARTS in
+ * the Space Age, so while its lanes are locked the requirement is the Moon
+ * ladder; Lane Charts is only the answer on the Galactic Age board, and only
+ * in a game created with the corridors kill switch off.
+ */
+export function orbitLockReason(
+  mapData: FrontendMapData | null | undefined,
+  gameState: GameState | null,
+  playerId: string | null | undefined,
+  era: string,
+): string | null {
+  if (!mapData) return null;
+  const access = getOrbitAccessResult(mapData, gameState, playerId, era);
+  if (access.allowed) return null;
+  const mode = resolveOrbitAccessModeForPlayer(mapData, gameState, playerId, era);
+  if (mode === 'none') return null;
+  return formatOrbitAccessError(access, mode);
+}
+
+/**
  * True when claiming/attacking this territory crosses an orbit-locked edge
  * (Moon, or galaxy worlds flagged `requires_orbit_access`).
  */

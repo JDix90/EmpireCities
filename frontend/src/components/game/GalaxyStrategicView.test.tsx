@@ -179,9 +179,45 @@ describe('GalaxyStrategicView', () => {
     expect(screen.getByText(/click a lane touching Nexus Station/i)).toBeTruthy();
   });
 
-  it('surfaces the orbit-lock hint when the corridors kill switch gates access', () => {
-    renderView({ orbitAccessAllowed: false });
-    expect(screen.getByText(/need Lane Charts/i)).toBeTruthy();
+  describe('naming what locks the lanes', () => {
+    // The view is shown for two gates that ask for different things: Lane
+    // Charts in a Galactic Age game created with the corridors kill switch off,
+    // and the Moon ladder on Space to Stars, a galaxy board that starts in the
+    // Space Age. It used to say "need Lane Charts" to both.
+    const laneTitles = (container: HTMLElement) =>
+      laneGroups(container).map((g) => g.querySelector('title')?.textContent ?? '');
+    // Only the lock line: an open lane's tooltip also carries the lane dice cap
+    // ("2 dice (3 with Lane Charts)"), which is true on both boards.
+    const lockLines = (container: HTMLElement) =>
+      laneTitles(container).flatMap((t) => t.split('\n').filter((line) => line.startsWith('Locked')));
+
+    it('names Lane Charts when that is the gate', () => {
+      const { container } = renderView({
+        orbitAccessAllowed: false,
+        orbitAccessReason: 'Hyperspace travel requires: Lane Charts tech',
+      });
+      expect(screen.getByText('Red lanes locked — Hyperspace travel requires: Lane Charts tech')).toBeTruthy();
+      expect(lockLines(container)).toHaveLength(laneGroups(container).length);
+      expect(new Set(lockLines(container))).toEqual(new Set(['Locked — Hyperspace travel requires: Lane Charts tech']));
+    });
+
+    it('names the Space Program on a board still in the Space Age', () => {
+      const reason = 'Moon access requires: Lunar Expansion tech + Launch Pad building + launched Space Station';
+      const { container } = renderView({ orbitAccessAllowed: false, orbitAccessReason: reason });
+      expect(screen.getByText(`Red lanes locked — ${reason}`)).toBeTruthy();
+      expect(new Set(lockLines(container))).toEqual(new Set([`Locked — ${reason}`]));
+    });
+
+    it('says the lanes are locked without guessing a requirement when given none', () => {
+      const { container } = renderView({ orbitAccessAllowed: false });
+      expect(screen.getByText('Red lanes locked')).toBeTruthy();
+      expect(new Set(lockLines(container))).toEqual(new Set(['Locked']));
+    });
+
+    it('says nothing about a lock while the lanes are open', () => {
+      renderView({ orbitAccessReason: 'Hyperspace travel requires: Lane Charts tech' });
+      expect(screen.queryByText(/lanes locked/i)).toBeNull();
+    });
   });
 
   it('draws engine-built lanes as their own kind, and never offers one to seal', () => {
