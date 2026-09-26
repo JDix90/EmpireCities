@@ -17,7 +17,7 @@ import { getCancelGameAuthorizationError } from '../../sockets/socketGuards';
 import { redactReplaySnapshot } from '../../sockets/clientStateRedaction';
 import { formatZodError } from '../../utils/formatZodError';
 import { featureFlags, type MoonRacePhaseFlags, type MoonRacePhaseKey } from '../../config/featureFlags';
-import { reachesSpaceAge } from '../../game-engine/eraAdvancement/spines';
+import { isValidSpineId, reachesSpaceAge } from '../../game-engine/eraAdvancement/spines';
 import { recordServerEvent } from '../../services/analyticsEvents';
 import { resolveMap } from '../../sockets/mapResolver';
 import { buildChronicle } from '../../game-engine/chronicle/buildChronicle';
@@ -89,6 +89,25 @@ export const CreateGameSchema = z.object({
       async_turn_deadline_seconds: z.number().int().optional(),
       era_advancement_enabled: z.boolean().optional(),
       era_advancement_preset: z.enum(['skirmish', 'standard', 'epic', 'custom']).optional(),
+      /**
+       * An explicit climb, for the theater that names its own: Space to Stars
+       * sends `space_to_stars` and no preset. Without this entry zod stripped
+       * it, normalizeGameSettings fell back to the default spine (which starts
+       * in Ancient), and the route refused every Space to Stars create with
+       * "Era Advancement must start in the Ancient era".
+       *
+       * Any registered spine is accepted, so a caller can also pair a spine
+       * with another preset's tuning (an explicit spine overrides the preset's).
+       * Nothing rides on a climb's pace — era advancement is never ranked, and
+       * the era achievements read the board's era, not the climb — and the
+       * route still holds Space to Stars to its own, admin-only board and every
+       * other spine to an Ancient start.
+       */
+      era_advancement_spine_id: z
+        .string()
+        .max(64)
+        .refine(isValidSpineId, { message: 'Unknown era advancement spine' })
+        .optional(),
       /** Anti-steamroll cap: max eras any player may lead the trailing living
        * player by. Without this entry zod strips it, so `canAdvanceEra`'s cap
        * could never fire no matter what a caller sent — the same silent-strip
