@@ -98,9 +98,9 @@
       },
       "wrapup": {
         "title": "¡Estás listo!",
-        "message": "Has completado el ciclo de turno entero —refuerzo, ataque, fortificación— y has subido una era. Ese es todo el bucle. La forma de ganar por defecto es la dominación: capturar todos los territorios. Los anfitriones también pueden elegir Umbral (una parte del mapa), Conquista de capitales o Misiones secretas.",
+        "message": "Has completado el ciclo de turno entero —refuerzo, ataque, fortificación— y has subido una era. Ese es todo el bucle. La forma de ganar por defecto es la dominación: capturar todos los territorios. Los anfitriones también pueden elegir Umbral (una parte del mapa), Captura de capitales o Misiones secretas.",
         "skippedTitle": "Directo a la acción",
-        "skippedMessage": "Así es en resumen: cada turno refuerzas unidades, atacas territorios vecinos con dados y luego fortificas. Por el camino investigas una tecnología y avanzas de la Antigüedad al Medievo: esa es la parte que Risk no tiene. Ganas por dominación: capturar todos los territorios. (Los anfitriones también pueden elegir Umbral, Conquista de capitales o Misiones secretas.) Ahora mismo tienes refuerzos por colocar: haz clic en cualquier territorio azul y luego en **{{draftButton}}**.",
+        "skippedMessage": "Así es en resumen: cada turno refuerzas unidades, atacas territorios vecinos con dados y luego fortificas. Por el camino investigas una tecnología y avanzas de la Antigüedad al Medievo: esa es la parte que Risk no tiene. Ganas por dominación: capturar todos los territorios. (Los anfitriones también pueden elegir Umbral, Captura de capitales o Misiones secretas.) Ahora mismo tienes refuerzos por colocar: haz clic en cualquier territorio azul y luego en **{{draftButton}}**.",
         "detail": "Las partidas reales añaden lo que este tablero deja fuera: cartas de territorio por unidades extra, facciones con poderes únicos, edificios y estabilidad, niebla de guerra, una puerta de avance más exigente (más investigación y edificios) y la columna completa de la Antigüedad a la Era moderna en lugar de un salto de dos eras."
       }
     },

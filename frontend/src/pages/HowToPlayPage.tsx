@@ -154,7 +154,7 @@ export default function HowToPlayPage() {
                 <p className="text-xs">Own a set percentage of all territories (e.g. 70%). Faster games.</p>
               </div>
               <div className="bg-bf-dark/50 rounded-lg p-3">
-                <p className="font-medium text-bf-text mb-0.5">Capital Conquest</p>
+                <p className="font-medium text-bf-text mb-0.5">Capital Capture</p>
                 <p className="text-xs">Each player starts with a capital. Capture yours + all opponents' capitals to win.</p>
               </div>
               <div className="bg-bf-dark/50 rounded-lg p-3">

@@ -2,9 +2,9 @@
  * Quick Match preferences — opponent count, AI difficulty, and win criteria.
  *
  * Quick Match stays one-click: the button starts immediately with whatever was
- * used last (default 3 medium AI, Majority). The options popover writes here so
- * an experienced player can play Hard/Expert, a different table size, or a
- * different ending without building a Custom Game every time.
+ * used last (default 3 medium AI, the 65% ending). The options popover writes
+ * here so an experienced player can play Hard/Expert, a different table size,
+ * or a different ending without building a Custom Game every time.
  */
 
 export const QUICK_MATCH_AI_DIFFICULTIES = ['easy', 'medium', 'hard', 'expert'] as const;
@@ -75,11 +75,20 @@ export const QUICK_MATCH_VICTORY_PLANS: Record<QuickMatchVictoryMode, QuickMatch
   },
 };
 
+/**
+ * What the picker calls each ending. The keys are what saved prefs and
+ * analytics store, so they keep their original names while the labels moved.
+ * The 65% ending (`majority`) used to be labelled "Majority", a word that
+ * means "more than half" to everyone else, and Blitz is the ending that stops
+ * at 50%. It is now "Conquest". The full-board ending (`conquest`) is
+ * "Domination", the name the lobby, How to Play and share cards already give
+ * that rule.
+ */
 export const QUICK_MATCH_VICTORY_LABELS: Record<QuickMatchVictoryMode, string> = {
   blitz: 'Blitz',
-  majority: 'Majority',
+  majority: 'Conquest',
   capitals: 'Capitals',
-  conquest: 'Conquest',
+  conquest: 'Domination',
 };
 
 /** One-line "what ends this match", shown under the picker and on the start button. */
@@ -104,8 +113,9 @@ export const DEFAULT_QUICK_MATCH_PREFS: QuickMatchPrefs = {
 };
 
 /**
- * Full Game has always been domination-only, so its default ending is
- * Conquest. Sharing Quick Match's Majority default would have silently turned
+ * Full Game has always been domination-only, so its default ending is the
+ * full-board one (`conquest`, labelled Domination). Sharing Quick Match's 65%
+ * default would have silently turned
  * every Full Game that never touched the picker — including every player whose
  * saved prefs predate it — into a 65% match: the same silent change of match
  * length Quick Match's own default was chosen to avoid.

@@ -1314,7 +1314,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
         return typeof threshold === 'number' && Number.isFinite(threshold)
           ? `Territorial Threshold — held ${threshold}% of all territories`
           : 'Territorial Threshold — held the required share of the map';
-      case 'capital':         return 'Capital Conquest — all rival capitals seized';
+      case 'capital':         return 'Capital Capture — all rival capitals seized';
       case 'secret_mission':  return 'Secret Mission completed';
       case 'lane_sovereignty': return 'Lane Sovereignty — the hyperspace network held, corridor by corridor';
       case 'alliance_victory':return 'Alliance Victory — allied commanders triumphed together';

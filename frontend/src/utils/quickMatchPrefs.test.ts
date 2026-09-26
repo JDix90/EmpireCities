@@ -11,6 +11,8 @@ import {
   saveFullGamePrefs,
   saveQuickMatchPrefs,
   QUICK_MATCH_VICTORY_MODES,
+  QUICK_MATCH_VICTORY_LABELS,
+  QUICK_MATCH_VICTORY_PLANS,
 } from './quickMatchPrefs';
 
 describe('quickMatchPrefs', () => {
@@ -87,7 +89,7 @@ describe('quickMatchPrefs', () => {
       expect(loadFullGamePrefs()).toEqual(DEFAULT_FULL_GAME_PREFS);
     });
 
-    it('defaults Full Game to Conquest, never to Quick Match\'s Majority', () => {
+    it('defaults Full Game to the full-board ending, never to Quick Match\'s 65% one', () => {
       // Full Game has always been domination-only. Inheriting Quick Match's
       // 65% default would have silently shortened every Full Game whose player
       // never opened the picker.
@@ -187,5 +189,18 @@ describe('quickMatchPrefs', () => {
         );
       }
     });
+  });
+});
+
+describe('win condition labels', () => {
+  it('never calls a 65% ending "Majority", and names the full-board ending as the rest of the game does', () => {
+    // "Majority" reads as "more than half", which is Blitz. The full-board
+    // rule is "Domination" in the lobby, How to Play and on share cards.
+    expect(QUICK_MATCH_VICTORY_PLANS.majority.victory_threshold).toBe(65);
+    expect(QUICK_MATCH_VICTORY_LABELS.majority).toBe('Conquest');
+    expect(QUICK_MATCH_VICTORY_PLANS.conquest.requiresFullBoard).toBe(true);
+    expect(QUICK_MATCH_VICTORY_LABELS.conquest).toBe('Domination');
+    expect(Object.values(QUICK_MATCH_VICTORY_LABELS)).not.toContain('Majority');
+    expect(new Set(Object.values(QUICK_MATCH_VICTORY_LABELS)).size).toBe(4);
   });
 });

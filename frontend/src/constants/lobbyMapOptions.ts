@@ -71,7 +71,7 @@ export type QuickMatchEra = (typeof QUICK_MATCH_ERAS)[number];
  * once completed there. A Quick Match whose chosen ending is "hold every
  * territory" therefore must not roll it, or the player's explicit choice would
  * be guaranteed to end on the turn cap instead. Endings that ask for a share of
- * the board (Blitz, Majority) and Capitals are all reachable on the Earth tiles,
+ * the board (Blitz, Conquest) and Capitals are all reachable on the Earth tiles,
  * so they keep the full rotation.
  */
 export const ORBIT_GATED_QUICK_MATCH_ERAS: readonly QuickMatchEra[] = ['space_age'];
