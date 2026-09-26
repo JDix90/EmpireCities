@@ -1,262 +1,175 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import clsx from 'clsx';
+import toast from 'react-hot-toast';
+import { Coins, ShoppingBag, X } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
-import toast from 'react-hot-toast';
-import { ShoppingBag, Coins, Package, Shirt, Sword, Layers, Image, CheckCircle, Lock, X } from 'lucide-react';
+import SubpageShell from '../components/ui/SubpageShell';
+import Modal from '../components/ui/Modal';
+import GuestGate from '../components/GuestGate';
+import CosmeticPreview from '../components/cosmetics/CosmeticPreview';
 import {
   markStoreRefundsSeen,
   storeRefundNoticeText,
   unseenStoreRefunds,
   type StoreRefund,
 } from '../utils/storeRefundNotice';
-import SubpageShell from '../components/ui/SubpageShell';
-import { useStoreV2Enabled } from '../store/featureFlagsStore';
-import { lazyWithChunkRetry } from '../utils/lazyWithChunkRetry';
-import GuestGate from '../components/GuestGate';
-import Modal from '../components/ui/Modal';
-import { RARITY_COLORS } from '@borderfall/shared';
-import type { CosmeticRarity } from '@borderfall/shared';
+import LoadoutPanel from '../components/store/LoadoutPanel';
+import StoreItemCard from '../components/store/StoreItemCard';
+import {
+  SLOT_BY_TYPE,
+  SLOT_KEY,
+  SLOT_LABELS,
+  TYPE_FILTERS,
+  catalogSections,
+  itemAction,
+  loadoutOf,
+  type CatalogItem,
+  type Loadout,
+  type Slot,
+  type TypeFilter,
+} from '../components/store/storeCatalog';
 
-interface CosmeticItem {
-  cosmetic_id: string;
-  type: string;
-  name: string;
-  description: string | null;
-  asset_url: string | null;
-  price_gems: number;
-  is_premium: boolean;
-  owned: boolean;
-  rarity?: CosmeticRarity | null;
-  /** Earned through gameplay (levels/seasons/achievements/…) — not claimable here. */
-  earned_only?: boolean;
-  /** Server-authoritative: item can't be acquired in the store right now and isn't owned. */
-  locked?: boolean;
-}
+const GUEST_BUY = 'Spending gold needs a free account — your balance carries over.';
+const GUEST_EQUIP = 'Equipping needs a free account — your unlocks carry over.';
 
-interface OwnedItem {
-  cosmetic_id: string;
-  type: string;
-  name: string;
-  description: string | null;
-  asset_url: string | null;
-}
-
-type FilterType = 'all' | 'profile_banner' | 'dice_skin' | 'map_marker' | 'profile_frame';
-
-const TYPE_LABELS: Record<string, string> = {
-  profile_banner: 'Banners',
-  unit_skin: 'Unit Skins',
-  dice_skin: 'Dice',
-  map_theme: 'Map Themes',
-  map_marker: 'Markers',
-  profile_frame: 'Frames',
-};
-
-const TYPE_ICON: Record<string, React.ReactNode> = {
-  profile_banner: <Image className="w-3.5 h-3.5" />,
-  unit_skin: <Sword className="w-3.5 h-3.5" />,
-  dice_skin: <Layers className="w-3.5 h-3.5" />,
-  map_theme: <Package className="w-3.5 h-3.5" />,
-  map_marker: <Shirt className="w-3.5 h-3.5" />,
-  profile_frame: <Image className="w-3.5 h-3.5" />,
-};
-
-// No Unit Skins or Map Themes chip: migration 044 retired both types, so the
-// chips would only ever open an empty list.
-const FILTER_CHIPS: { key: FilterType | 'all'; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'profile_frame', label: 'Frames' },
-  { key: 'profile_banner', label: 'Banners' },
-  { key: 'dice_skin', label: 'Dice' },
-  { key: 'map_marker', label: 'Markers' },
-];
-
-/** The overhauled store (store_v2_enabled): its own chunk, so the page players have today doesn't carry it. */
-const StoreV2Page = lazyWithChunkRetry(() => import('../components/store/StoreV2Page'));
-
-/** The store: the overhauled page with store_v2_enabled on, the page players know with it off. */
+/**
+ * The store: every item previewed as worn, rarity and price on every card, how
+ * much more gold an item needs, equipping right after a purchase, and Your
+ * look (with Default) above the catalog. Guests browse everything; buying and
+ * equipping stay server-side `rejectGuest`.
+ */
 export default function StorePage() {
-  return useStoreV2Enabled() ? <StoreV2Page /> : <LegacyStorePage />;
-}
-
-function LegacyStorePage() {
-  const { user, setUser } = useAuthStore();
-  // Buying and equipping are both `rejectGuest` server-side. The nav link that
-  // reaches this page is hidden for guests, but the route itself is only
-  // `PrivateRoute` — so a guest arriving by URL used to browse the catalogue
-  // and get the middleware's developer-facing 403 on the first Buy. They also
-  // have a real gold balance the rest of the app never shows them; say so.
+  const { user } = useAuthStore();
   const isGuest = Boolean(user?.is_guest);
-  const [tab, setTab] = useState<'catalog' | 'loadout'>('catalog');
-  const [catalog, setCatalog] = useState<CosmeticItem[]>([]);
-  /** Items the store retired and refunded this player for (migration 044). */
+  const initial = user?.username ?? '?';
+
+  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [refunds, setRefunds] = useState<StoreRefund[]>([]);
   const [refundsDismissed, setRefundsDismissed] = useState(false);
-  const [owned, setOwned] = useState<OwnedItem[]>([]);
-  const [filter, setFilter] = useState<FilterType | 'all'>('all');
-  const [loadingCatalog, setLoadingCatalog] = useState(true);
-  const [loadingOwned, setLoadingOwned] = useState(false);
-  const [buyingId, setBuyingId] = useState<string | null>(null);
-  /** Paid item awaiting purchase confirmation. */
-  const [confirmItem, setConfirmItem] = useState<CosmeticItem | null>(null);
-  const [equippingId, setEquippingId] = useState<string | null>(null);
   const [gold, setGold] = useState<number>(user?.gold ?? 0);
-  const [equippedFrame, setEquippedFrame] = useState<string | null>(user?.equipped_frame ?? null);
-  const [equippedMarker, setEquippedMarker] = useState<string | null>(user?.equipped_marker ?? null);
-  const [equippedDice, setEquippedDice] = useState<string | null>(user?.equipped_dice ?? null);
+  const [worn, setWorn] = useState<Loadout>(() => loadoutOf(user));
+  const [filter, setFilter] = useState<TypeFilter>('all');
+  /** The item a request is in flight for (buy or equip). */
+  const [busyId, setBusyId] = useState<string | null>(null);
+  /** The slot a loadout change is in flight for. */
+  const [pendingSlot, setPendingSlot] = useState<Slot | null>(null);
+  /** The purchase dialog: confirming, then the item just bought. */
+  const [dialog, setDialog] = useState<{ item: CatalogItem; bought: boolean } | null>(null);
+
+  const syncUser = useCallback((patch: Record<string, unknown>) => {
+    const current = useAuthStore.getState().user;
+    if (current) useAuthStore.getState().setUser({ ...current, ...patch });
+  }, []);
 
   const fetchCatalog = useCallback(async () => {
-    setLoadingCatalog(true);
     try {
       const res = await api.get('/store/catalog');
-      setCatalog(res.data.catalog);
-      setRefunds(Array.isArray(res.data.refunds) ? res.data.refunds : []);
+      setCatalog(Array.isArray(res.data?.catalog) ? res.data.catalog : []);
+      setRefunds(Array.isArray(res.data?.refunds) ? res.data.refunds : []);
     } catch {
-      toast.error('Failed to load store catalog');
+      toast.error('Failed to load the store');
     } finally {
-      setLoadingCatalog(false);
+      setLoading(false);
     }
   }, []);
 
-  const fetchOwned = useCallback(async () => {
-    setLoadingOwned(true);
-    try {
-      const res = await api.get('/users/me/cosmetics');
-      setOwned(res.data.cosmetics ?? res.data);
-    } catch {
-      toast.error('Failed to load your cosmetics');
-    } finally {
-      setLoadingOwned(false);
-    }
-  }, []);
-
-  const fetchGold = useCallback(async () => {
+  const fetchMe = useCallback(async () => {
     try {
       const res = await api.get('/users/me');
-      const newGold = res.data.gold ?? 0;
+      const newGold = res.data?.gold ?? 0;
       setGold(newGold);
-      // Read from store imperatively to avoid capturing `user` as a dep (prevents re-render loop)
-      const storeUser = useAuthStore.getState().user;
-      if (storeUser) useAuthStore.getState().setUser({ ...storeUser, gold: newGold });
+      setWorn(loadoutOf(res.data));
+      syncUser({ gold: newGold });
     } catch {
-      // non-critical
+      // Non-critical: the auth store's copy stands.
     }
-  }, []);
+  }, [syncUser]);
 
   useEffect(() => {
-    if (!user) return;
-    setEquippedFrame(user.equipped_frame ?? null);
-    setEquippedMarker(user.equipped_marker ?? null);
-    setEquippedDice(user.equipped_dice ?? null);
-  }, [user?.user_id, user?.equipped_frame, user?.equipped_marker, user?.equipped_dice]);
+    void fetchCatalog();
+    void fetchMe();
+  }, [fetchCatalog, fetchMe]);
 
-  useEffect(() => {
-    fetchCatalog();
-    fetchGold();
-  }, [fetchCatalog, fetchGold]);
-
-  useEffect(() => {
-    if (tab === 'loadout') fetchOwned();
-  }, [tab, fetchOwned]);
-
-  /** Every purchase goes through a confirm step; the store sells only priced items. */
-  const requestBuy = (item: CosmeticItem) => {
-    if (buyingId) return;
-    // Answer before the confirm dialog, so a guest isn't walked through a
-    // purchase flow that ends in a refusal. `handleBuy` keeps the same guard as
-    // a backstop for any other caller.
-    if (isGuest) {
-      toast('Spending gold needs a free account — your balance carries over.', { icon: '🪙' });
-      return;
-    }
-    setConfirmItem(item);
+  const applyLoadout = (next: Loadout) => {
+    setWorn(next);
+    syncUser({
+      equipped_frame: next.frame,
+      equipped_banner: next.banner,
+      equipped_marker: next.marker,
+      equipped_dice: next.dice,
+    });
   };
 
-  const handleBuy = async (item: CosmeticItem) => {
-    if (buyingId) return;
+  /** Put `item` in its slot, or empty `slot` (Default) when `item` is null. */
+  const setSlot = async (slot: Slot, item: CatalogItem | null) => {
     if (isGuest) {
-      setConfirmItem(null);
-      toast('Spending gold needs a free account — your balance carries over.', { icon: '🪙' });
+      toast(GUEST_EQUIP, { icon: '🪙' });
       return;
     }
-    setConfirmItem(null);
-    setBuyingId(item.cosmetic_id);
+    setPendingSlot(slot);
+    if (item) setBusyId(item.cosmetic_id);
+    try {
+      const res = await api.put('/users/me/cosmetics/equip', { [SLOT_KEY[slot]]: item?.cosmetic_id ?? null });
+      const next = (res.data as { equipped?: Loadout } | undefined)?.equipped;
+      if (!next) throw new Error('The server did not say what is equipped');
+      applyLoadout(next);
+      toast.success(item ? `${item.name} equipped` : `${SLOT_LABELS[slot]} back to default`);
+    } catch {
+      toast.error(item ? 'Failed to equip item' : 'Failed to change your look');
+    } finally {
+      setPendingSlot(null);
+      setBusyId(null);
+    }
+  };
+
+  const equipItem = (item: CatalogItem) => {
+    const slot = SLOT_BY_TYPE[item.type];
+    if (slot) void setSlot(slot, item);
+  };
+
+  const requestBuy = (item: CatalogItem) => {
+    if (busyId) return;
+    // Answer before the dialog, so a guest isn't walked into a refusal.
+    if (isGuest) {
+      toast(GUEST_BUY, { icon: '🪙' });
+      return;
+    }
+    setDialog({ item, bought: false });
+  };
+
+  const buy = async (item: CatalogItem) => {
+    if (busyId) return;
+    setBusyId(item.cosmetic_id);
     try {
       const res = await api.post('/store/buy', { cosmetic_id: item.cosmetic_id });
-      // Only mutate local gold when the server returned a new authoritative
-      // balance; otherwise refetch rather than keep a value that can diverge
-      // after gold was earned in another tab.
-      const serverNewBalance = res.data?.new_balance;
-      if (typeof serverNewBalance === 'number') {
-        setGold(serverNewBalance);
-        if (user) setUser({ ...user, gold: serverNewBalance });
+      const balance = res.data?.new_balance;
+      if (typeof balance === 'number') {
+        setGold(balance);
+        syncUser({ gold: balance });
       } else {
-        void fetchGold();
+        void fetchMe();
       }
-      setCatalog((prev) =>
-        prev.map((c) => (c.cosmetic_id === item.cosmetic_id ? { ...c, owned: true } : c)),
-      );
-      toast.success(`${item.name} added to your collection!`);
+      setCatalog((prev) => prev.map((c) => (c.cosmetic_id === item.cosmetic_id ? { ...c, owned: true, locked: false } : c)));
+      setDialog({ item: { ...item, owned: true }, bought: true });
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status;
       const data = (err as { response?: { data?: { error?: string; balance?: number } } })?.response?.data;
-      // 402 = insufficient gold — server returns the authoritative current
-      // balance. Sync the UI immediately so the player sees why "Buy" is
-      // failing and doesn't pile on retries.
       if (status === 402 && typeof data?.balance === 'number') {
+        // The server's balance is authoritative: show why Buy failed.
         setGold(data.balance);
-        if (user) setUser({ ...user, gold: data.balance });
+        syncUser({ gold: data.balance });
       } else if (status === 409) {
-        // Already owned — the catalog list is stale; refetch so the row flips
-        // to "Collected" instead of leaving the "Buy" button hot.
         void fetchCatalog();
       } else {
-        // For any other failure resync gold defensively — a 500 may have
-        // committed the deduction even though the response failed.
-        void fetchGold();
+        // A failed response may still have committed; resync.
+        void fetchMe();
       }
+      setDialog(null);
       toast.error(data?.error ?? 'Purchase failed');
     } finally {
-      setBuyingId(null);
-    }
-  };
-
-  const handleEquip = async (item: OwnedItem) => {
-    if (equippingId) return;
-    if (isGuest) {
-      toast('Equipping needs a free account — your unlocks carry over.', { icon: '🪙' });
-      return;
-    }
-    const isFrame = item.type === 'profile_frame' || item.type === 'profile_banner';
-    const isMarker = item.type === 'map_marker';
-    const isDice = item.type === 'dice_skin';
-    if (!isFrame && !isMarker && !isDice) {
-      toast('This item type cannot be equipped yet.', { icon: 'ℹ️' });
-      return;
-    }
-    setEquippingId(item.cosmetic_id);
-    try {
-      const payload = isFrame
-        ? { frame_id: item.cosmetic_id }
-        : isMarker
-          ? { marker_id: item.cosmetic_id }
-          : { dice_id: item.cosmetic_id };
-      await api.put('/users/me/cosmetics/equip', payload);
-      if (isFrame) {
-        setEquippedFrame(item.cosmetic_id);
-        if (user) setUser({ ...user, equipped_frame: item.cosmetic_id });
-      } else if (isMarker) {
-        setEquippedMarker(item.cosmetic_id);
-        if (user) setUser({ ...user, equipped_marker: item.cosmetic_id });
-      } else {
-        setEquippedDice(item.cosmetic_id);
-        if (user) setUser({ ...user, equipped_dice: item.cosmetic_id });
-      }
-      toast.success(`${item.name} equipped!`);
-    } catch {
-      toast.error('Failed to equip item');
-    } finally {
-      setEquippingId(null);
+      setBusyId(null);
     }
   };
 
@@ -281,304 +194,161 @@ function LegacyStorePage() {
     setRefundsDismissed(true);
   };
 
-  const displayed = filter === 'all' ? catalog : catalog.filter((c) => c.type === filter);
-
-  const groupedOwned = owned.reduce<Record<string, OwnedItem[]>>((acc, item) => {
-    const key = item.type;
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(item);
-    return acc;
-  }, {});
+  const owned = useMemo(() => catalog.filter((i) => i.owned && SLOT_BY_TYPE[i.type]), [catalog]);
+  const sections = useMemo(() => catalogSections(catalog, filter), [catalog, filter]);
+  const dialogItem = dialog?.item;
 
   return (
     <SubpageShell
       title="STORE"
       icon={ShoppingBag}
-      maxWidth="4xl"
+      maxWidth="5xl"
       headerRight={(
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-bf-gold/10 border border-bf-gold/30 text-bf-gold text-sm font-medium">
-          <Coins className="w-4 h-4" aria-hidden />
+        <div className="flex items-center gap-1.5 rounded-full border border-bf-gold/30 bg-bf-gold/10 px-3 py-1.5 text-sm font-medium text-bf-gold">
+          <Coins className="h-4 w-4" aria-hidden />
           <span className="tabular-nums">{gold.toLocaleString()}</span>
+          <span className="sr-only">gold</span>
         </div>
       )}
     >
-        {isGuest && (
-          <GuestGate
-            className="mb-6"
-            icon={Coins}
-            title={
-              (user?.gold ?? 0) > 0
-                ? `You have ${(user?.gold ?? 0).toLocaleString()} gold banked`
-                : 'Gold you earn is being saved'
-            }
-            description="Guest accounts earn gold but can't spend or equip it. Create a free account and the balance — and everything else you've earned — comes with you."
-          />
-        )}
+      {isGuest && (
+        <GuestGate
+          className="mb-6"
+          icon={Coins}
+          title={gold > 0 ? `You have ${gold.toLocaleString()} gold banked` : 'Gold you earn is being saved'}
+          description="Guest accounts earn gold but can't spend or equip it. Create a free account and the balance — and everything else you've earned — comes with you."
+        />
+      )}
 
-        {shownRefunds.length > 0 && (
-          <div
-            role="status"
-            className="mb-6 flex items-start gap-3 rounded-lg border border-bf-gold/30 bg-bf-gold/5 px-3 py-2 text-sm text-bf-text"
+      {shownRefunds.length > 0 && (
+        <div
+          role="status"
+          className="mb-6 flex items-start gap-3 rounded-lg border border-bf-gold/30 bg-bf-gold/5 px-3 py-2 text-sm text-bf-text"
+        >
+          <Coins className="mt-0.5 h-4 w-4 shrink-0 text-bf-gold" aria-hidden />
+          <p className="flex-1 py-0.5">{storeRefundNoticeText(shownRefunds)}</p>
+          <button
+            type="button"
+            onClick={dismissRefunds}
+            aria-label="Dismiss refund notice"
+            className="-my-2 -mr-3 flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center text-bf-muted hover:text-bf-text"
           >
-            <Coins className="w-4 h-4 mt-0.5 shrink-0 text-bf-gold" aria-hidden />
-            <p className="flex-1 py-0.5">{storeRefundNoticeText(shownRefunds)}</p>
-            <button
-              type="button"
-              onClick={dismissRefunds}
-              aria-label="Dismiss refund notice"
-              className="-my-2 -mr-3 shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center text-bf-muted hover:text-bf-text"
-            >
-              <X className="w-4 h-4" aria-hidden />
-            </button>
-          </div>
-        )}
-
-        {/* Tab bar */}
-        <div className="flex gap-1 mb-6 p-1 bg-bf-dark rounded-lg w-fit border border-bf-border">
-          {(['catalog', 'loadout'] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`px-5 py-2 rounded-md text-sm font-medium transition-all ${
-                tab === t
-                  ? 'bg-bf-gold/15 text-bf-gold border border-bf-gold/30'
-                  : 'text-bf-muted hover:text-bf-text border border-transparent'
-              }`}
-            >
-              {t === 'catalog' ? 'Catalog' : 'My Loadout'}
-            </button>
-          ))}
+            <X className="h-4 w-4" aria-hidden />
+          </button>
         </div>
+      )}
 
-        {/* ── CATALOG TAB ── */}
-        {tab === 'catalog' && (
-          <>
-            {/* Filter chips */}
-            <div className="flex flex-wrap gap-2 mb-6">
-              {FILTER_CHIPS.map(({ key, label }) => (
-                <button
-                  key={key}
-                  onClick={() => setFilter(key)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                    filter === key
-                      ? 'bg-bf-gold/20 border-bf-gold/50 text-bf-gold'
-                      : 'border-bf-border text-bf-muted hover:text-bf-text hover:border-bf-muted'
-                  }`}
-                >
-                  {label}
-                </button>
+      {!isGuest && (
+        <LoadoutPanel worn={worn} owned={owned} initial={initial} pending={pendingSlot} onPick={(slot, item) => void setSlot(slot, item)} />
+      )}
+
+      <div className="-mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap" role="group" aria-label="Show">
+        {TYPE_FILTERS.map(({ key, label }) => (
+          <button
+            key={key}
+            type="button"
+            aria-pressed={filter === key}
+            onClick={() => setFilter(key)}
+            className={clsx(
+              'min-h-11 shrink-0 rounded-full border px-4 text-sm font-medium transition-colors sm:min-h-0 sm:py-1.5',
+              filter === key
+                ? 'border-bf-gold/50 bg-bf-gold/20 text-bf-gold'
+                : 'border-bf-border text-bf-muted hover:border-bf-muted hover:text-bf-text',
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="py-16 text-center text-bf-muted">Loading store…</div>
+      ) : sections.length === 0 ? (
+        <div className="py-16 text-center text-bf-muted">No items here yet.</div>
+      ) : (
+        sections.map((section) => (
+          <section key={section.id} aria-labelledby={`store-section-${section.id}`} className="mb-8">
+            <h2 id={`store-section-${section.id}`} className="font-display text-lg text-bf-gold">{section.title}</h2>
+            <p className="mb-3 text-xs text-bf-muted">{section.subtitle}</p>
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              {section.items.map((item) => (
+                <StoreItemCard
+                  key={item.cosmetic_id}
+                  item={item}
+                  action={itemAction(item, { gold, worn, guest: isGuest })}
+                  initial={initial}
+                  busy={busyId === item.cosmetic_id}
+                  onBuy={() => requestBuy(item)}
+                  onEquip={() => equipItem(item)}
+                />
               ))}
             </div>
+          </section>
+        ))
+      )}
 
-            {loadingCatalog ? (
-              <div className="text-center py-16 text-bf-muted">Loading store…</div>
-            ) : displayed.length === 0 ? (
-              <div className="text-center py-16 text-bf-muted">No items in this category.</div>
+      {/* Purchase: confirm, then offer to wear it straight away. */}
+      <Modal
+        open={!!dialog}
+        onClose={() => setDialog(null)}
+        title={dialog?.bought ? 'Purchase complete' : 'Confirm purchase'}
+        className="max-w-sm"
+      >
+        {dialogItem && (
+          <div className="space-y-4">
+            <CosmeticPreview cosmeticId={dialogItem.cosmetic_id} type={dialogItem.type} initial={initial} />
+            {dialog?.bought ? (
+              <>
+                <p className="text-sm text-bf-text">
+                  <span className="font-medium text-bf-gold">{dialogItem.name}</span> is yours.
+                </p>
+                <div className="flex justify-end gap-2">
+                  <button type="button" className="btn-secondary min-h-11 px-4 text-sm" onClick={() => setDialog(null)}>
+                    Done
+                  </button>
+                  {SLOT_BY_TYPE[dialogItem.type] && (
+                    <button
+                      type="button"
+                      className="btn-primary min-h-11 px-4 text-sm disabled:opacity-60"
+                      disabled={!!busyId}
+                      onClick={() => {
+                        setDialog(null);
+                        equipItem(dialogItem);
+                      }}
+                    >
+                      Equip now
+                    </button>
+                  )}
+                </div>
+              </>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {displayed.map((item) => {
-                  // `locked` is computed server-side: earned-only rewards (levels,
-                  // seasons, prestige, ratings, achievements) and legendary/mythic
-                  // items that the player doesn't yet own. The backend is the
-                  // authoritative gate; this just hides the dead "Get Free" button.
-                  const locked = Boolean(item.locked);
-                  return (
-                  <div
-                    key={item.cosmetic_id}
-                    className={`card flex flex-col gap-3 ${
-                      item.owned ? 'border-bf-gold/20 bg-bf-gold/5' : ''
-                    }`}
+              <>
+                <p className="text-sm text-bf-text">
+                  Buy <span className="font-medium text-bf-gold">{dialogItem.name}</span> for{' '}
+                  <span className="font-medium tabular-nums text-bf-gold">{dialogItem.price_gems.toLocaleString()} gold</span>?
+                </p>
+                <p className="text-xs text-bf-muted">
+                  Balance after purchase:{' '}
+                  <span className="tabular-nums">{Math.max(0, gold - dialogItem.price_gems).toLocaleString()} gold</span>
+                </p>
+                <div className="flex justify-end gap-2">
+                  <button type="button" className="btn-secondary min-h-11 px-4 text-sm" onClick={() => setDialog(null)}>
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-primary min-h-11 px-4 text-sm disabled:opacity-60"
+                    disabled={!!busyId}
+                    onClick={() => void buy(dialogItem)}
                   >
-                    {/* Type badge */}
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-1 text-xs text-bf-muted border border-bf-border rounded-full px-2 py-0.5">
-                        {TYPE_ICON[item.type]}
-                        {TYPE_LABELS[item.type] ?? item.type}
-                      </span>
-                      {item.owned && (
-                        <span className="flex items-center gap-1 text-xs text-bf-gold">
-                          <CheckCircle className="w-3.5 h-3.5" /> Owned
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Name & description */}
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-display text-bf-text">{item.name}</p>
-                        {item.rarity && item.rarity !== 'common' && (
-                          <span
-                            className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
-                            style={{
-                              color: RARITY_COLORS[item.rarity],
-                              backgroundColor: `${RARITY_COLORS[item.rarity]}15`,
-                              border: `1px solid ${RARITY_COLORS[item.rarity]}40`,
-                            }}
-                          >
-                            {item.rarity}
-                          </span>
-                        )}
-                      </div>
-                      {item.description && (
-                        <p className="text-bf-muted text-xs mt-0.5">{item.description}</p>
-                      )}
-                    </div>
-
-                    {/* Price / action */}
-                    <div className="mt-auto pt-2 flex items-center justify-between">
-                      {locked ? (
-                        <span className="flex items-center gap-1 text-bf-muted text-xs font-medium">
-                          <Lock className="w-3.5 h-3.5" />
-                          Achievement reward
-                        </span>
-                      ) : item.price_gems <= 0 ? (
-                        // Unpriced and not locked means owned: an earned reward.
-                        <span className="text-xs text-bf-muted font-medium">Earned</span>
-                      ) : (
-                        <span className="flex items-center gap-1 text-bf-gold text-sm font-medium">
-                          <Coins className="w-3.5 h-3.5" />
-                          {item.price_gems.toLocaleString()}
-                        </span>
-                      )}
-
-                      {item.owned ? (
-                        <span className="text-xs text-bf-muted px-3 py-1 rounded border border-bf-border">
-                          Collected
-                        </span>
-                      ) : locked ? (
-                        <span
-                          className="flex items-center gap-1 text-xs text-bf-muted px-3 py-1 rounded border border-bf-border"
-                          title={item.description ?? 'Unlocked through gameplay achievements'}
-                        >
-                          <Lock className="w-3 h-3" /> Earn in game
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => requestBuy(item)}
-                          disabled={buyingId === item.cosmetic_id}
-                          className="btn-primary text-xs px-3 py-1 disabled:opacity-60 disabled:cursor-not-allowed"
-                        >
-                          {buyingId === item.cosmetic_id ? 'Buying…' : 'Buy'}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  );
-                })}
-              </div>
+                    {busyId ? 'Buying…' : 'Buy'}
+                  </button>
+                </div>
+              </>
             )}
-          </>
+          </div>
         )}
-
-        {/* ── MY LOADOUT TAB ── */}
-        {tab === 'loadout' && (
-          <>
-            {loadingOwned ? (
-              <div className="text-center py-16 text-bf-muted">Loading loadout…</div>
-            ) : owned.length === 0 ? (
-              <div className="text-center py-16 text-bf-muted">
-                You don&apos;t own any cosmetics yet.{' '}
-                <button
-                  className="text-bf-gold underline"
-                  onClick={() => setTab('catalog')}
-                >
-                  Browse the catalog
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-8">
-                {Object.entries(groupedOwned).map(([type, items]) => (
-                  <div key={type}>
-                    <h3 className="flex items-center gap-2 font-display text-bf-gold mb-3">
-                      {TYPE_ICON[type]}
-                      {TYPE_LABELS[type] ?? type}
-                    </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {items.map((item) => {
-                        const isEquipped =
-                          ((type === 'profile_frame' || type === 'profile_banner') &&
-                            equippedFrame === item.cosmetic_id) ||
-                          (type === 'map_marker' && equippedMarker === item.cosmetic_id) ||
-                          (type === 'dice_skin' && equippedDice === item.cosmetic_id);
-                        const canEquip =
-                          type === 'profile_frame' ||
-                          type === 'profile_banner' ||
-                          type === 'map_marker' ||
-                          type === 'dice_skin';
-                        return (
-                          <div
-                            key={item.cosmetic_id}
-                            className={`card flex flex-col gap-2 ${
-                              isEquipped ? 'border-bf-gold/40 bg-bf-gold/5' : ''
-                            }`}
-                          >
-                            <p className="font-display text-bf-text text-sm">{item.name}</p>
-                            {item.description && (
-                              <p className="text-bf-muted text-xs">{item.description}</p>
-                            )}
-                            <div className="mt-auto pt-2">
-                              {isEquipped ? (
-                                <span className="flex items-center gap-1 text-xs text-bf-gold">
-                                  <CheckCircle className="w-3.5 h-3.5" /> Equipped
-                                </span>
-                              ) : canEquip ? (
-                                <button
-                                  onClick={() => handleEquip(item)}
-                                  disabled={equippingId === item.cosmetic_id}
-                                  className="btn-secondary text-xs px-3 py-1 disabled:opacity-60 disabled:cursor-not-allowed"
-                                >
-                                  {equippingId === item.cosmetic_id ? 'Equipping…' : 'Equip'}
-                                </button>
-                              ) : (
-                                <span className="text-xs text-bf-muted">In collection</span>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-
-        {/* Purchase confirmation — one tap shouldn't spend saved-up gold. */}
-        <Modal
-          open={!!confirmItem}
-          onClose={() => setConfirmItem(null)}
-          title="Confirm purchase"
-          className="max-w-sm"
-        >
-          {confirmItem && (
-            <div className="space-y-4">
-              <p className="text-sm text-bf-text">
-                Buy <span className="text-bf-gold font-medium">{confirmItem.name}</span> for{' '}
-                <span className="text-bf-gold font-medium tabular-nums">
-                  {confirmItem.price_gems.toLocaleString()} gold
-                </span>
-                ?
-              </p>
-              <p className="text-xs text-bf-muted">
-                Balance after purchase:{' '}
-                <span className="tabular-nums">{Math.max(0, gold - confirmItem.price_gems).toLocaleString()} gold</span>
-              </p>
-              <div className="flex gap-2 justify-end">
-                <button className="btn-secondary text-sm px-4 py-2" onClick={() => setConfirmItem(null)}>
-                  Cancel
-                </button>
-                <button
-                  className="btn-primary text-sm px-4 py-2 disabled:opacity-60"
-                  disabled={!!buyingId}
-                  onClick={() => void handleBuy(confirmItem)}
-                >
-                  {buyingId ? 'Buying…' : 'Buy'}
-                </button>
-              </div>
-            </div>
-          )}
-        </Modal>
+      </Modal>
     </SubpageShell>
   );
 }

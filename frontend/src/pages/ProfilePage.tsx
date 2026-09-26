@@ -37,7 +37,7 @@ interface UserProfile {
   created_at: string;
   ratings?: { solo?: RatingInfo; ranked?: RatingInfo };
   equipped_frame?: string | null;
-  /** Sent only with store_v2_enabled on. */
+  /** The banner worn: its own slot, separate from the frame. */
   equipped_banner?: string | null;
   gold?: number;
 }

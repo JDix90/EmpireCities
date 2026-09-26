@@ -4,7 +4,6 @@ import { z } from 'zod';
 import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest } from '../../middleware/rejectGuest';
 import { query, queryOne, withTransaction } from '../../db/postgres';
-import { featureFlags } from '../../config/featureFlags';
 import { checkOnboardingQuests } from '../../game-engine/progression/progressionService';
 import { effectiveLoadout, loadoutColumns, type Loadout, type LoadoutRow } from './loadout';
 import { andNotTutorialSql } from '../../game-engine/tutorial/tutorialGames';
@@ -45,15 +44,13 @@ function buildRatingsMap(rows: RatingRow[]): Record<string, { mu: number; phi: n
 type WornRow<T> = Omit<T, 'equipped_frame_type' | 'equipped_banner'> & { equipped_banner?: string | null };
 
 /**
- * A user row as the client sees it. With the store overhaul on, each slot says
- * what the player is wearing (a banner in the frame slot reads as the banner);
- * off, the payload is the one from before the overhaul, with no banner slot.
- * The frame's catalog type only serves to work that out and never leaves the
- * server.
+ * A user row as the client sees it: each slot says what the player is wearing
+ * (a banner in the frame slot reads as the banner). The frame's catalog type
+ * only serves to work that out and never leaves the server.
  */
 function wornSlots<T extends Partial<LoadoutRow>>(row: T): WornRow<T> {
   const { equipped_frame_type, equipped_banner, ...stored } = row;
-  if (!featureFlags.storeV2Enabled || !('equipped_frame' in row)) return stored;
+  if (!('equipped_frame' in row)) return stored;
   const worn = effectiveLoadout({
     equipped_frame: row.equipped_frame ?? null,
     equipped_frame_type: equipped_frame_type ?? null,
@@ -82,9 +79,9 @@ const EquipSchema = z.object({
 });
 
 /**
- * PUT /me/cosmetics/equip with the store overhaul on: every slot separate (a
- * banner no longer takes the frame's place) and `null` takes an item off.
- * Answers with what the player is wearing afterwards.
+ * PUT /me/cosmetics/equip: every slot separate (a banner never takes the
+ * frame's place) and `null` takes an item off. Answers with what the player is
+ * wearing afterwards.
  */
 async function equipBySlot(userId: string, body: unknown, reply: FastifyReply) {
   const parsed = EquipSchema.safeParse(body ?? {});
@@ -498,48 +495,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── PUT /api/users/me/cosmetics/equip ────────────────────────────────────
   fastify.put('/me/cosmetics/equip', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
-    if (featureFlags.storeV2Enabled) return equipBySlot(request.userId, request.body, reply);
-
-    const body = request.body as { frame_id?: string; marker_id?: string; dice_id?: string } | undefined;
-    if (!body) return reply.status(400).send({ error: 'Missing body' });
-
-    if (body.frame_id) {
-      const owns = await queryOne(
-        `SELECT 1 FROM user_cosmetics uc JOIN cosmetics c ON c.cosmetic_id = uc.cosmetic_id
-         WHERE uc.user_id = $1 AND uc.cosmetic_id = $2 AND c.type IN ('profile_frame', 'profile_banner')`,
-        [request.userId, body.frame_id],
-      );
-      if (!owns) return reply.status(403).send({ error: 'Cosmetic not owned or wrong type' });
-    }
-    if (body.marker_id) {
-      const owns = await queryOne(
-        `SELECT 1 FROM user_cosmetics uc JOIN cosmetics c ON c.cosmetic_id = uc.cosmetic_id
-         WHERE uc.user_id = $1 AND uc.cosmetic_id = $2 AND c.type = 'map_marker'`,
-        [request.userId, body.marker_id],
-      );
-      if (!owns) return reply.status(403).send({ error: 'Cosmetic not owned or wrong type' });
-    }
-    if (body.dice_id) {
-      const owns = await queryOne(
-        `SELECT 1 FROM user_cosmetics uc JOIN cosmetics c ON c.cosmetic_id = uc.cosmetic_id
-         WHERE uc.user_id = $1 AND uc.cosmetic_id = $2 AND c.type = 'dice_skin'`,
-        [request.userId, body.dice_id],
-      );
-      if (!owns) return reply.status(403).send({ error: 'Cosmetic not owned or wrong type' });
-    }
-
-    try {
-      await query(
-        `UPDATE users SET equipped_frame = COALESCE($1, equipped_frame),
-                          equipped_marker = COALESCE($2, equipped_marker),
-                          equipped_dice = COALESCE($3, equipped_dice)
-         WHERE user_id = $4`,
-        [body.frame_id ?? null, body.marker_id ?? null, body.dice_id ?? null, request.userId],
-      );
-    } catch {
-      return reply.status(503).send({ error: 'Cosmetic equip requires database migration (equipped_frame columns).' });
-    }
-    return reply.send({ ok: true });
+    return equipBySlot(request.userId, request.body, reply);
   });
 
   const FriendUsernameSchema = z.object({
