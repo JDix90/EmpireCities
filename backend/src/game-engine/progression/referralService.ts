@@ -116,11 +116,19 @@ export async function checkReferralCompletion(userId: string): Promise<void> {
   try {
     await client.query('BEGIN');
 
-    await client.query(
+    // Only the call that moves the referral out of 'pending' pays. Two of the
+    // referee's games finishing together both pass the pending read above; the
+    // second UPDATE waits for the first's row lock, then re-checks this WHERE
+    // against the committed row, finds it completed, and updates nothing.
+    const completed = await client.query(
       `UPDATE referrals SET status = 'completed', completed_at = NOW(), reward_claimed = true
-       WHERE id = $1`,
+       WHERE id = $1 AND status = 'pending'`,
       [referral.id],
     );
+    if (!completed.rowCount) {
+      await client.query('ROLLBACK');
+      return;
+    }
 
     await client.query(
       'UPDATE users SET gold = COALESCE(gold, 0) + $1 WHERE user_id = $2',

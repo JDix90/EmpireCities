@@ -284,29 +284,32 @@ export async function checkOnboardingQuests(
     }
 
     if (matched) {
-      await query(
-        `INSERT INTO user_quests (user_id, quest_id, completed_at)
-         VALUES ($1, $2, NOW()) ON CONFLICT DO NOTHING`,
-        [userId, quest.quest_id],
-      );
-      // Award rewards
-      if (quest.reward_gold > 0) {
-        await query(
-          'UPDATE users SET gold = COALESCE(gold, 0) + $1 WHERE user_id = $2',
-          [quest.reward_gold, userId],
+      // Claim, then pay, in one transaction — and only if this call's INSERT
+      // created the row. Triggers are fired and forgotten from several places
+      // (two quick builds are two concurrent calls), so two can pass the
+      // completed-quests read above together; the (user_id, quest_id) primary
+      // key lets exactly one claim win, and the loser pays nothing. A trigger
+      // matches one quest only, so there is nothing further to look for.
+      const claimed = await withTransaction(async (client) => {
+        const claim = await client.query(
+          `INSERT INTO user_quests (user_id, quest_id, completed_at)
+           VALUES ($1, $2, NOW()) ON CONFLICT DO NOTHING
+           RETURNING quest_id`,
+          [userId, quest.quest_id],
         );
-        await query(
-          'INSERT INTO gold_transactions (user_id, amount, reason) VALUES ($1, $2, $3)',
-          [userId, quest.reward_gold, `Quest: ${quest.title}`],
-        );
-      }
-      if (quest.reward_xp > 0) {
-        await query(
-          'UPDATE users SET xp = xp + $1 WHERE user_id = $2',
-          [quest.reward_xp, userId],
-        );
-      }
-      return quest;
+        if (!claim.rowCount) return false;
+        if (quest.reward_gold > 0) {
+          await awardGold(client, userId, quest.reward_gold, `Quest: ${quest.title}`);
+        }
+        if (quest.reward_xp > 0) {
+          await client.query(
+            'UPDATE users SET xp = xp + $1 WHERE user_id = $2',
+            [quest.reward_xp, userId],
+          );
+        }
+        return true;
+      });
+      return claimed ? quest : null;
     }
   }
 
