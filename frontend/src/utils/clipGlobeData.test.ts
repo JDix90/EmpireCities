@@ -50,6 +50,16 @@ describe('buildClipGlobeData', () => {
     expect(data.territories.map((t) => t.territory_id)).toEqual(['a', 'b']);
   });
 
+  it('carries the map\'s rotation lock, so a regional clip keeps one view', () => {
+    const locked = buildClipGlobeData([box('a', 0, 0), box('b', 4, 0)], {
+      territoryIds: ['a', 'b'],
+      globeView: { center_lat: 0, center_lng: 2, lock_rotation: true },
+    })!;
+    expect(locked.lockRotation).toBe(true);
+    const free = buildClipGlobeData([box('a', 0, 0), box('b', 4, 0)], { territoryIds: ['a', 'b'] })!;
+    expect(free.lockRotation).toBe(false);
+  });
+
   it('carries multipolygon islands as separate rings', () => {
     const multi: PolygonData = {
       territory_id: 'isles',

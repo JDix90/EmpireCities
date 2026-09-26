@@ -18,6 +18,7 @@ import {
   type ClipGlobeCamera,
   type ClipGlobeViewport,
 } from './clipGlobeProjection';
+import { decimateRing } from './clipGlobeData';
 
 export interface ClipMapTerritory {
   territory_id: string;
@@ -34,6 +35,8 @@ export interface ClipGlobeData {
   territories: ClipGlobeTerritory[];
   /** Where the camera looks, and how much of the sphere it must cover. */
   camera: ClipGlobeCamera;
+  /** The map locks the live globe's rotation (regional theaters); its clip camera never moves either. */
+  lockRotation?: boolean;
 }
 
 export interface ClipMapData {
@@ -69,6 +72,13 @@ export interface DrawClipFrameOptions {
   caption: string;
   /** 0..1 playback progress for the bottom bar. */
   progress: number;
+  /**
+   * Where the globe camera looks in this frame; the board's own framing when
+   * omitted. Set by the clip's camera plan (see clipCameraDirector).
+   */
+  camera?: ClipGlobeCamera;
+  /** The camera is mid-turn: draw simplified coastlines, which the motion hides. */
+  cameraMoving?: boolean;
 }
 
 const BG_TOP = '#101724';
@@ -106,7 +116,7 @@ function polygonBounds(mapData: ClipMapData): { minX: number; minY: number; w: n
 }
 
 export function drawClipFrame(opts: DrawClipFrameOptions): void {
-  const { ctx, width: W, height: H, mapData, state, eraLabel, caption, progress } = opts;
+  const { ctx, width: W, height: H, mapData, state, eraLabel, caption, progress, camera, cameraMoving } = opts;
 
   // Background
   const grad = ctx.createLinearGradient(0, 0, W, H);
@@ -148,7 +158,7 @@ export function drawClipFrame(opts: DrawClipFrameOptions): void {
 
   const box = { left: mapLeft, top: mapTop, width: mapW, height: mapH };
   const drewAny = mapData.globe
-    ? drawGlobeBoard(ctx, W, mapData.globe, box, ownerColor)
+    ? drawGlobeBoard(ctx, W, mapData.globe, box, ownerColor, camera ?? mapData.globe.camera, cameraMoving === true)
     : drawFlatBoard(ctx, W, mapData, box, ownerColor);
 
   // Caption (reason) — anchored just below the map for any map kind.
@@ -228,25 +238,61 @@ interface PreparedShape {
 }
 
 interface PreparedGlobeBoard {
-  /** The board box this was projected for; a different frame size reprojects. */
+  /** The board box and camera this was projected for; a change to either reprojects. */
   key: string;
   view: ClipGlobeViewport;
   shapes: PreparedShape[];
 }
 
 /**
- * Projection is frame-invariant — the camera never moves during a clip and only
- * the owner colors change — so every frame after the first replays cached
- * paths.
+ * Projection only changes when the camera does. It holds still for most of a
+ * clip (all of it, on a map it has no need to turn for) and only the owner
+ * colors change meanwhile, so every held frame replays cached paths.
  *
- * This is not a micro-optimization. A world map carries ~46k coastline
- * vertices and four trig calls apiece; reprojecting per frame measured 46ms at
- * 720x1280, which is past the 33ms a 30fps MediaRecorder capture has to spend,
- * so the recorded video visibly dropped frames.
+ * Filling the coastline, not projecting it, is what a frame costs. Measured in
+ * headless Chromium at 720x1280 on the WWII map (~46k vertices): the very first
+ * frame takes ~46ms while everything warms up, then a held frame ~20ms and
+ * reprojecting to a new view only ~1ms more. A 30fps MediaRecorder capture has
+ * 33ms, and a slower device misses it on every frame. During a hold that is
+ * invisible (the dropped frame is identical to the one kept); during a turn it
+ * shows as stutter. So turning frames draw the coarse outlines below, about
+ * half the cost of a held frame, and are not cached; full detail returns once
+ * the camera settles.
+ *
+ * A few views are kept per board: a clip holds on several, and the exporter can
+ * be run again for another aspect.
  */
-const preparedBoards = new WeakMap<ClipGlobeData, PreparedGlobeBoard>();
+const PREPARED_VIEWS_KEPT = 4;
+const preparedBoards = new WeakMap<ClipGlobeData, PreparedGlobeBoard[]>();
 
-function prepareGlobeBoard(globe: ClipGlobeData, box: BoardBox): PreparedGlobeBoard | null {
+/**
+ * Outlines for a turning camera: each territory's largest rings, thinned hard.
+ * Motion hides the lost detail, and far fewer vertices make the frame far
+ * cheaper to fill.
+ */
+const COARSE_RINGS_PER_TERRITORY = 4;
+const COARSE_RING_POINTS = 60;
+const coarseOutlines = new WeakMap<ClipGlobeData, ClipGlobeTerritory[]>();
+
+function coarseTerritories(globe: ClipGlobeData): ClipGlobeTerritory[] {
+  let coarse = coarseOutlines.get(globe);
+  if (!coarse) {
+    coarse = globe.territories.map((t) => ({
+      territory_id: t.territory_id,
+      // Rings arrive largest first (see buildClipGlobeData).
+      rings: t.rings.slice(0, COARSE_RINGS_PER_TERRITORY).map((ring) => decimateRing(ring, COARSE_RING_POINTS)),
+    }));
+    coarseOutlines.set(globe, coarse);
+  }
+  return coarse;
+}
+
+function prepareGlobeBoard(
+  globe: ClipGlobeData,
+  box: BoardBox,
+  camera: ClipGlobeCamera,
+  turning: boolean,
+): PreparedGlobeBoard | null {
   // The sphere is round but the frame is not. Letting the disc run past the
   // short edge (it is clipped to the board box either way) fills a 1:1 or 16:9
   // clip properly instead of leaving a small coin in a wide letterbox; the poles
@@ -256,19 +302,22 @@ function prepareGlobeBoard(globe: ClipGlobeData, box: BoardBox): PreparedGlobeBo
   const view: ClipGlobeViewport = {
     cx: box.left + box.width / 2,
     cy: box.top + box.height / 2,
-    radius: globeRadiusPx(globe.camera, fit),
+    radius: globeRadiusPx(camera, fit),
   };
-  const key = `${box.left}:${box.top}:${box.width}:${box.height}`;
+  const key = `${box.left}:${box.top}:${box.width}:${box.height}|${camera.centerLng}:${camera.centerLat}:${camera.angularRadiusDeg}`;
 
-  const cached = preparedBoards.get(globe);
-  if (cached && cached.key === key) return cached;
+  const kept = preparedBoards.get(globe) ?? [];
+  if (!turning) {
+    const cached = kept.find((b) => b.key === key);
+    if (cached) return cached;
+  }
 
   const canPath = typeof Path2D !== 'undefined';
   const shapes: PreparedShape[] = [];
-  for (const t of globe.territories) {
+  for (const t of turning ? coarseTerritories(globe) : globe.territories) {
     const points: [number, number][][] = [];
     for (const ring of t.rings) {
-      const pts = projectRing(ring, globe.camera, view);
+      const pts = projectRing(ring, camera, view);
       if (pts) points.push(pts);
     }
     if (points.length === 0) continue;
@@ -285,7 +334,9 @@ function prepareGlobeBoard(globe: ClipGlobeData, box: BoardBox): PreparedGlobeBo
   }
 
   const prepared: PreparedGlobeBoard = { key, view, shapes };
-  preparedBoards.set(globe, prepared);
+  // Mid-turn views never repeat; caching them would only evict the ones the
+  // camera is about to hold on.
+  if (!turning) preparedBoards.set(globe, [prepared, ...kept].slice(0, PREPARED_VIEWS_KEPT));
   return prepared;
 }
 
@@ -302,9 +353,11 @@ function drawGlobeBoard(
   globe: ClipGlobeData,
   box: BoardBox,
   ownerColor: (territoryId: string) => string,
+  camera: ClipGlobeCamera,
+  turning: boolean,
 ): boolean {
   if (globe.territories.length === 0) return false;
-  const prepared = prepareGlobeBoard(globe, box);
+  const prepared = prepareGlobeBoard(globe, box, camera, turning);
   if (!prepared || prepared.shapes.length === 0) return false;
   const { view, shapes } = prepared;
   const radius = view.radius;
