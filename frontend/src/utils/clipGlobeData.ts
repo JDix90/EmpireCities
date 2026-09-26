@@ -48,6 +48,8 @@ const FRAMING_MARGIN = 1.12;
 export interface ClipGlobeViewConfig {
   center_lat?: number;
   center_lng?: number;
+  /** Regional theaters lock the live globe's rotation; their clips keep one fixed view too. */
+  lock_rotation?: boolean;
 }
 
 function outerRings(geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon): [number, number][][] {
@@ -77,7 +79,7 @@ function ringSpan(ring: [number, number][]): number {
 }
 
 /** Keep every Nth vertex, and always the first — a closed ring needs no last. */
-function decimate(ring: [number, number][], budget: number): [number, number][] {
+export function decimateRing(ring: [number, number][], budget: number): [number, number][] {
   if (ring.length <= budget) return ring;
   const stride = Math.ceil(ring.length / budget);
   const out: [number, number][] = [];
@@ -113,7 +115,7 @@ export function buildClipGlobeData(
     const rings = outerRings(poly.geometry)
       .sort((a, b) => ringSpan(b) - ringSpan(a))
       .slice(0, MAX_RINGS_PER_TERRITORY)
-      .map((ring) => decimate(ring, MAX_RING_POINTS));
+      .map((ring) => decimateRing(ring, MAX_RING_POINTS));
     if (rings.length === 0) continue;
     territories.push({ territory_id: territoryId, rings });
     for (const ring of rings) {
@@ -146,5 +148,6 @@ export function buildClipGlobeData(
         Math.max(MIN_ANGULAR_RADIUS_DEG, extent.radiusDeg * FRAMING_MARGIN),
       ),
     },
+    lockRotation: globeView?.lock_rotation === true,
   };
 }

@@ -12,6 +12,7 @@
  */
 import { GIFEncoder, quantize, applyPalette } from 'gifenc';
 import { drawClipFrame, type ClipFrameState, type ClipMapData } from './replayClipRenderer';
+import { clipCameraAt, clipCameraSettledAt, planClipCamera, planClipGifFrames } from './clipCameraDirector';
 import type { CondensedFrame } from './replayCondense';
 import { condenseReasonLabel } from './replayCondense';
 
@@ -125,6 +126,9 @@ export async function exportClipVideo(input: ClipExportInput): Promise<ClipResul
 
   const { plan, totalMs } = buildFramePlan(input.frames, input.snapshots);
   if (plan.length === 0) throw new Error('Nothing to export.');
+  // On a world map the globe turns toward each moment's action; boards one
+  // view covers get no plan and keep their single framing (see clipCameraDirector).
+  const cameraPath = planClipCamera(input.mapData.globe, plan);
 
   // Cumulative start times so the rAF loop can map elapsed → current frame.
   const starts: number[] = [];
@@ -146,7 +150,17 @@ export async function exportClipVideo(input: ClipExportInput): Promise<ClipResul
   });
 
   // Draw the first frame before starting so the stream opens with content.
-  drawClipFrame({ ctx, width: w, height: h, mapData: input.mapData, state: plan[0].state, eraLabel: input.eraLabel, caption: plan[0].caption, progress: 0 });
+  drawClipFrame({
+    ctx,
+    width: w,
+    height: h,
+    mapData: input.mapData,
+    state: plan[0].state,
+    eraLabel: input.eraLabel,
+    caption: plan[0].caption,
+    progress: 0,
+    camera: cameraPath ? clipCameraAt(cameraPath, 0).camera : undefined,
+  });
   recorder.start();
 
   const aborted = await new Promise<boolean>((resolve) => {
@@ -163,6 +177,7 @@ export async function exportClipVideo(input: ClipExportInput): Promise<ClipResul
         if (elapsed >= starts[i]) idx = i;
       }
       const p = plan[idx];
+      const view = cameraPath ? clipCameraAt(cameraPath, elapsed) : null;
       drawClipFrame({
         ctx,
         width: w,
@@ -172,6 +187,8 @@ export async function exportClipVideo(input: ClipExportInput): Promise<ClipResul
         eraLabel: input.eraLabel,
         caption: p.caption,
         progress: Math.min(1, elapsed / totalMs),
+        camera: view?.camera,
+        cameraMoving: view?.moving,
       });
       input.onProgress?.(Math.min(1, elapsed / totalMs));
       if (elapsed >= totalMs) {
@@ -204,10 +221,20 @@ export async function exportClipGif(input: ClipExportInput): Promise<ClipResult>
   const { plan, totalMs } = buildFramePlan(input.frames, input.snapshots);
   if (plan.length === 0) throw new Error('Nothing to export.');
 
+  const cameraPath = planClipCamera(input.mapData.globe, plan);
+  // One frame per moment, plus in-between frames wherever the camera turns.
+  const gifFrames = planClipGifFrames(plan, cameraPath);
+
   const gif = GIFEncoder();
-  let elapsed = 0;
-  for (let i = 0; i < plan.length; i++) {
-    const p = plan[i];
+  for (let i = 0; i < gifFrames.length; i++) {
+    const f = gifFrames[i];
+    const p = plan[f.stepIndex];
+    // In-between frames sit mid-turn; held ones show the view the turn settles on.
+    const camera = !cameraPath
+      ? undefined
+      : f.turning
+        ? clipCameraAt(cameraPath, f.atMs).camera
+        : clipCameraSettledAt(cameraPath, f.atMs);
     drawClipFrame({
       ctx,
       width: w,
@@ -216,14 +243,15 @@ export async function exportClipGif(input: ClipExportInput): Promise<ClipResult>
       state: p.state,
       eraLabel: input.eraLabel,
       caption: p.caption,
-      progress: totalMs ? elapsed / totalMs : 0,
+      progress: totalMs ? f.atMs / totalMs : 0,
+      camera,
+      cameraMoving: f.turning,
     });
     const { data } = ctx.getImageData(0, 0, w, h);
     const palette = quantize(data, 256);
     const index = applyPalette(data, palette);
-    gif.writeFrame(index, w, h, { palette, delay: p.durationMs });
-    elapsed += p.durationMs;
-    input.onProgress?.((i + 1) / plan.length);
+    gif.writeFrame(index, w, h, { palette, delay: Math.round(f.delayMs) });
+    input.onProgress?.((i + 1) / gifFrames.length);
     // Yield so the UI/progress bar can update between frames.
     await new Promise((r) => setTimeout(r, 0));
     throwIfAborted(input.signal);
