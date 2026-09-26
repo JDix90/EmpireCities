@@ -54,6 +54,18 @@ export const COSMETIC_GLYPHS = {
     'M7 17 4 20',
     'M3 19 5 21',
   ],
+  shield: [
+    'M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z',
+  ],
+  landmark: ['M3 22h18', 'M6 18V11', 'M10 18V11', 'M14 18V11', 'M18 18V11', 'M12 2 20 7 4 7z'],
+  anchor: ['M12 22V8', 'M5 12H2a10 10 0 0 0 20 0h-3', 'M9 5a3 3 0 1 0 6 0a3 3 0 1 0-6 0'],
+  rocket: [
+    'M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z',
+    'm12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z',
+    'M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0',
+    'M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5',
+  ],
+  satellite: ['M13 7 9 3 5 7l4 4', 'm17 11 4 4-4 4-4-4', 'm8 12 4 4 6-6-4-4Z', 'm16 8 3-3', 'M9 21a6 6 0 0 0-6-6'],
 } as const satisfies Record<string, readonly string[]>;
 
 export type CosmeticGlyphName = keyof typeof COSMETIC_GLYPHS;
@@ -65,8 +77,11 @@ export interface FrameLook {
   ring: readonly string[];
   /** A soft glow around the ring. */
   glow?: string;
-  /** The ring turns slowly. Still when the player prefers reduced motion. */
-  motion?: 'spin';
+  /**
+   * `spin`: the ring turns slowly. `orbit`: a satellite circles the ring.
+   * Both still with reduced motion.
+   */
+  motion?: 'spin' | 'orbit';
 }
 
 /** A tag beside the player's name. */
@@ -103,6 +118,8 @@ export interface DiceLook {
   ink: string;
   /** Border colour. */
   edge: string;
+  /** Texture drawn over the face: marble veins, wood grain, or stars. */
+  pattern?: 'veins' | 'grain' | 'stars';
   /**
    * `wobble`: the die rocks while it rolls. `shimmer`: light sweeps across the
    * face. Both still when the player prefers reduced motion.
@@ -167,6 +184,35 @@ export const COSMETIC_LOOKS: Readonly<Record<string, CosmeticLook>> = {
   bone_dice: { kind: 'dice', face: ['#f8f1de', '#e4d4ad'], ink: '#4a3520', edge: '#a8906a', effect: 'wobble' },
   holo_dice: { kind: 'dice', face: ['#a5f3fc', '#c4b5fd', '#f9a8d4'], ink: '#312e81', edge: '#e0e7ff', effect: 'shimmer' },
 
+  // ── Era sets (migration 046), sold with store_v2_enabled on.
+  // Imperium: the ancient world.
+  frame_imperium_laurel: {
+    kind: 'frame', ring: ['#4d7c0f', '#bef264', '#eab308', '#bef264', '#4d7c0f'], glow: '#eab308',
+  },
+  banner_imperium_standard: {
+    kind: 'banner', glyph: 'shield', label: 'Legate', color: '#fecaca', background: '#450a0a', trim: '#b91c1c',
+  },
+  dice_imperium_marble: { kind: 'dice', face: ['#f8fafc', '#e2e8f0'], ink: '#334155', edge: '#94a3b8', pattern: 'veins' },
+  marker_imperium_temple: { kind: 'marker', glyph: 'landmark', color: '#fde68a' },
+  // Navigator: the age of sail.
+  frame_navigator_compass: { kind: 'frame', ring: ['#7c4a12', '#d6a55c', '#fde7b0', '#d6a55c', '#7c4a12'] },
+  banner_navigator_pennant: {
+    kind: 'banner', glyph: 'anchor', label: 'Admiral', color: '#bfdbfe', background: '#172554', trim: '#3b82f6',
+  },
+  dice_navigator_teak: { kind: 'dice', face: ['#9a5b2b', '#6b3a1a'], ink: '#fef3c7', edge: '#3f2410', pattern: 'grain' },
+  marker_navigator_rose: { kind: 'marker', glyph: 'compass', color: '#93c5fd' },
+  // Orbital: the space age.
+  frame_orbital_ring: {
+    kind: 'frame', ring: ['#0c4a6e', '#38bdf8', '#e0f2fe', '#38bdf8', '#0c4a6e'], glow: '#38bdf8', motion: 'orbit',
+  },
+  banner_orbital_patch: {
+    kind: 'banner', glyph: 'rocket', label: 'Mission', color: '#fed7aa', background: '#0f172a', trim: '#f97316',
+  },
+  dice_orbital_starfield: {
+    kind: 'dice', face: ['#0b1026', '#1e1b4b'], ink: '#e0e7ff', edge: '#6366f1', pattern: 'stars', effect: 'shimmer',
+  },
+  marker_orbital_satellite: { kind: 'marker', glyph: 'satellite', color: '#7dd3fc' },
+
   // ── Kept for anyone who still owns one. Nothing grants these any more, and
   // migration 044 removed them from the catalog except where someone owned one.
   frame_warlord: { kind: 'frame', ring: ['#1c1917', '#b91c1c', '#1c1917'], glow: '#b91c1c' },
@@ -179,6 +225,19 @@ export const COSMETIC_LOOKS: Readonly<Record<string, CosmeticLook>> = {
     kind: 'banner', glyph: 'skull', label: 'Nemesis', color: '#fca5a5', background: '#450a0a', trim: '#dc2626',
   },
   marker_emperor: { kind: 'marker', glyph: 'crown', color: '#c084fc' },
+};
+
+/** An era set's name as the store shows it. Its items carry the set's id in `cosmetics.cosmetic_set`. */
+export interface CosmeticSet {
+  name: string;
+  era: string;
+}
+
+/** The era sets, in the order the store shows them. */
+export const COSMETIC_SETS: Readonly<Record<string, CosmeticSet>> = {
+  imperium: { name: 'Imperium', era: 'Ancient World' },
+  navigator: { name: 'Navigator', era: 'Age of Sail' },
+  orbital: { name: 'Orbital', era: 'Space Age' },
 };
 
 /**
