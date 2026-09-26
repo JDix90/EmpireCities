@@ -132,9 +132,17 @@ export function compareItems(a: CatalogItem, b: CatalogItem): number {
 
 export interface CatalogSection {
   id: string;
+  /** An era set, the rest of what is sold, or what is earned in play. */
+  kind: 'set' | 'sale' | 'earned';
+  /** A set's id (a key of COSMETIC_SETS). */
+  setId?: string;
+  /** A set's era, as its eyebrow. */
+  era?: string;
   title: string;
   subtitle: string;
   items: CatalogItem[];
+  /** How much of a set the player owns: every item of it, whatever the filter shows. */
+  collected?: { owned: number; total: number };
 }
 
 /** The era set an item is sold in, if the store knows that set. */
@@ -144,32 +152,38 @@ const setOf = (item: CatalogItem) =>
 /**
  * The catalog as the page lays it out: each era set, then everything else
  * for sale, then what is earned in play. Items of a type the loadout has no
- * slot for are left out; the store retired them (migration 044).
+ * slot for are left out; the store retired them (migration 044). A set's
+ * price and progress count all of it, so a filter doesn't change them.
  */
 export function catalogSections(items: CatalogItem[], filter: TypeFilter): CatalogSection[] {
-  const shown = items
-    .filter((i) => SLOT_BY_TYPE[i.type] && (filter === 'all' || i.type === filter))
-    .sort(compareItems);
+  const slotted = items.filter((i) => SLOT_BY_TYPE[i.type]);
+  const shown = slotted.filter((i) => filter === 'all' || i.type === filter).sort(compareItems);
   const sets: CatalogSection[] = Object.entries(COSMETIC_SETS).map(([id, set]) => {
-    const setItems = shown.filter((i) => isForSale(i) && setOf(i) === id);
-    const total = setItems.reduce((sum, i) => sum + i.price_gems, 0);
+    const whole = slotted.filter((i) => isForSale(i) && setOf(i) === id);
+    const total = whole.reduce((sum, i) => sum + i.price_gems, 0);
     return {
       id: `set-${id}`,
+      kind: 'set',
+      setId: id,
+      era: set.era,
       title: set.name,
-      subtitle: `${set.era} set · ${setItems.length} ${setItems.length === 1 ? 'item' : 'items'} · ${total.toLocaleString()} gold in all`,
-      items: setItems,
+      subtitle: `${whole.length} ${whole.length === 1 ? 'item' : 'items'} · ${total.toLocaleString()} gold for the whole set`,
+      items: shown.filter((i) => isForSale(i) && setOf(i) === id),
+      collected: { owned: whole.filter((i) => i.owned).length, total: whole.length },
     };
   });
   const sections: CatalogSection[] = [
     ...sets,
     {
       id: 'for-sale',
+      kind: 'sale',
       title: sets.some((s) => s.items.length > 0) ? 'More for sale' : 'For sale',
       subtitle: 'Bought with gold you earn by playing.',
       items: shown.filter((i) => isForSale(i) && !setOf(i)),
     },
     {
       id: 'earned',
+      kind: 'earned',
       title: 'Earned in play',
       subtitle: 'Never sold: win them through levels, streaks, seasons and achievements.',
       items: shown.filter((i) => !isForSale(i)),
