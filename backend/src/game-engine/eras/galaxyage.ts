@@ -75,7 +75,7 @@ export const GALAXY_AGE_FACTIONS: Faction[] = [
   {
     faction_id: 'forge_syndicate',
     name: 'Forge Syndicate',
-    description: 'Industrial cartels — shipyard logistics deliver +1 reinforcement per turn and Jump Gates at half price; supply inserts on demand.',
+    description: 'Industrial cartels — shipyard logistics deliver +2 reinforcements per turn and Jump Gates at half price; supply inserts on demand.',
     lore: 'Shipyards and foundries form the true border between civilization and the dark between stars.',
     flavor_quote: 'We sell the hulls that empires die in.',
     home_region_ids: ['rust_slag_wastes', 'rust_foundry_core', 'rust_ironstorm', 'rust_anchor_works', 'rust_hellas_deeps', 'rust_hesperia'],
