@@ -115,3 +115,13 @@ describe('getAllowedVictoryConditions', () => {
     expect(getAllowedVictoryConditions(s)).toEqual(['threshold']);
   });
 });
+
+describe('galaxy_plain_lanes', () => {
+  it('persists only when explicitly on, and survives re-normalization', () => {
+    expect(normalizeGameSettings({}).galaxy_plain_lanes).toBeUndefined();
+    expect(normalizeGameSettings({ galaxy_plain_lanes: false }).galaxy_plain_lanes).toBeUndefined();
+    const on = normalizeGameSettings({ galaxy_corridors_enabled: true, galaxy_plain_lanes: true });
+    expect(on.galaxy_plain_lanes).toBe(true);
+    expect(normalizeGameSettings(on).galaxy_plain_lanes).toBe(true);
+  });
+});

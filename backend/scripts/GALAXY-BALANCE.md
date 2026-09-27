@@ -34,7 +34,9 @@ SIM_MAP=/tmp/variant.json SIM_GAMES=1000 SIM_THRESHOLD=60 pnpm exec tsx scripts/
 Knobs: `SIM_MAP` (variant map file), `SIM_GAMES`, `SIM_DIFFICULTY`,
 `SIM_MAX_TURNS`, `SIM_SEED`, `SIM_CSV`, `SIM_THRESHOLD`, `SIM_GRIND`,
 `SIM_CORRIDORS`, `SIM_WORLD_RULES`, `SIM_WORLD_RULES_OFF` (comma list of
-`cradle`, `storms`, `forge`, `vault`), `SIM_SOVEREIGNTY`, `SIM_EVENTS`. 4 players,
+`cradle`, `storms`, `forge`, `vault`), `SIM_SOVEREIGNTY`, `SIM_EVENTS`,
+`SIM_FACTION_PATCH` (JSON faction-kit overrides), `SIM_SCATTERED`,
+`SIM_FACTIONS=0`, `SIM_PLAIN_LANES` and `SIM_CATCHUP_PER` (§6). 4 players,
 one per galaxy faction, faction↔seat rotated per game. Factions ON, naval OFF,
 era advancement OFF, stability ON, events OFF (the era's own system defaults are
 economy + tech + factions). The sim asserts that each faction starts on its own
@@ -298,7 +300,151 @@ broadcast the card, and with no socket the sim left it set, re-applying the same
 instant card every round (11.6 "closures" per game where the deck can deal about
 4). The sim now clears it the way `broadcastEventCard` does.
 
-## 6. Open
+## 6. No home worlds (`SIM_SCATTERED=1`)
+
+A candidate mode, measured in the sim only; the engine has no such setting.
+Every player keeps their faction and kit, but the board is dealt the way the
+engine deals a no-factions game: each non-neutral tile is shuffled and dealt
+round-robin at 3 units, so each seat opens with 15 tiles spread over all four
+worlds, and the Vault ring stays neutral (garrison 6). The Custodians' home-unit
+bonus does not apply. The question was whether it plays faster.
+
+1,000 games per seed, A / B / C:
+
+| Metric | Home worlds (live, §2) | Scattered, kits as shipped | Scattered, Forge + Verdan `reinforce_bonus` 0 |
+|---|---|---|---|
+| Sol | 25.0 / 21.5 / 25.3 | 18.3 / **17.3** / **17.2** | 23.1 / 24.9 / 22.0 |
+| Rust | 26.0 / 27.5 / 25.4 | **33.0** / 32.5 / **34.6** | 25.6 / 24.1 / 24.1 |
+| Verdan | 20.9 / 22.1 / 19.8 | 28.9 / 30.4 / 29.5 | 23.4 / 20.9 / 22.5 |
+| Nexus | 28.1 / 28.9 / 29.5 | 19.8 / 19.8 / 18.7 | 27.9 / 30.1 / 31.4 |
+| Avg game length | 27.7 / 26.5 / 27.0 | 25.8 / 24.9 / 26.1 | 23.8 / 23.3 / 23.1 |
+| Turn-10 leader wins | 60.8 / 63.4 / 61.4% | 69.6 / 72.8 / 70.8% | 74.4 / 76.5 / 76.1% |
+| Won by Lane Sovereignty | 35.3 / 36.0 / 35.3% | 32.2 / 30.3 / 27.5% | 29.4 / 30.0 / 28.1% |
+| Worst elimination rate | 25.6% (Sol) | 9.5% (Sol) | 6.2% (Verdan) |
+| Vault held at end | 61.7 / 64.0 / 63.3% | 39.7 / 38.0 / 38.2% | 43.5 / 41.5 / 45.1% |
+| First lane capture (avg turn, by seat) | 1.1–2.8 | 2.7–3.4 | 2.5–3.2 |
+
+Every column is decisive in 99% of games or more and lanes change hands 69–80
+times a game; in both scattered columns 88–91% of seats build a Jump Gate lane.
+
+- **With the kits as shipped it fails the gate:** Forge over 32% on two seeds,
+  Sol under 18% on two. Forge's and Verdan's +2 reinforcements are
+  compensation for where their home worlds sit; with no home worlds they are
+  just two extra units a turn.
+- **Without those two bonuses it passes the win-rate gate on every seed**
+  (20.9–31.4%), with Nexus close to the ceiling on seed C.
+- **It is faster, by 3–4 turns** (about 14%): 23.4 turns against 27.1; with
+  the kits as shipped only 1.5 turns. The first lane capture comes later on
+  average, not sooner, because nobody has to cross a lane to reach an enemy.
+- **The snowball is the cost.** The turn-10 leader wins about 76% of games
+  against about 62% with home worlds. No gate row covers it, but it is the
+  number every earlier phase worked to bring down. Eliminations fall a lot
+  (at most 6.2%): games end by threshold or Sovereignty while everyone is
+  still on the board.
+- **The Vault matters less:** held at the end of about 43% of games against 63%.
+
+Commands, from `backend/`:
+
+```sh
+SIM_SCATTERED=1 SIM_GAMES=1000 SIM_THRESHOLD=60 pnpm exec tsx scripts/simGalaxyBalance.ts
+SIM_SCATTERED=1 SIM_FACTION_PATCH='{"forge_syndicate":{"reinforce_bonus":0},"helion_navigators":{"reinforce_bonus":0}}' \
+  SIM_GAMES=1000 SIM_THRESHOLD=60 pnpm exec tsx scripts/simGalaxyBalance.ts
+```
+
+### Plain lanes: no home worlds, no kits, no lane rules
+
+The further step: lanes stop mattering at all. On top of the scattered start,
+factions are off (seats carry no faction, so no kit and no reinforcement
+bonus), Lane Sovereignty is off, and lanes fight like any border
+(`settings.galaxy_plain_lanes`: no lane dice cap, and the AI stops treating
+gateways as objectives or buying Lane Charts). Corridors stay on, so there is no
+tech gate. World rules stay on; the second column also switches off the Vault,
+whose Emergency Seal is itself a lane rule. `galaxy_plain_lanes` is read by the
+engine but nothing sets it at game creation.
+
+With no factions the four seats are symmetric, so per-seat win rates only show
+noise (21.9–27.7% across all six runs); the numbers that matter are length and
+the snowball. 1,000 games per seed, A / B / C:
+
+| Metric | Home worlds (live, §2) | Scattered, kits, Forge + Verdan +0 | Plain lanes | Plain lanes, Vault off |
+|---|---|---|---|---|
+| Avg game length | 27.7 / 26.5 / 27.0 | 23.8 / 23.3 / 23.1 | 22.2 / 23.0 / 22.8 | 22.2 / 22.4 / 22.8 |
+| Turn-10 leader wins | 60.8 / 63.4 / 61.4% | 74.4 / 76.5 / 76.1% | 79.5 / 78.4 / 77.7% | 81.8 / 79.2 / 76.6% |
+| Decisive | 99.0–99.6% | 99.5–99.9% | 99.8–100% | 99.7–100% |
+| Lane end-owner changes per game | 70–73 | 69–71 | 55–57 | 55–57 |
+| First lane capture (avg turn, by seat) | 1.1–2.8 | 2.5–3.2 | 5.4–5.8 | 5.4–5.8 |
+| Worst elimination rate | 25.6% | 6.2% | 5.9% | 5.8% |
+
+Every plain-lanes game ends by threshold (Sovereignty is off).
+
+- **It is the fastest version measured**: about 22.7 turns against 27.1 with
+  home worlds, 16% shorter.
+- **Lanes really do stop mattering.** Nobody captures across one until turn 5–6
+  on average, and each seat takes only about 3.6 tiles across lanes in a whole
+  game. The fighting happens inside each world.
+- **The snowball is the worst yet:** the turn-10 leader wins about 79% of games.
+  With threshold victory at 60% on a symmetric board, whoever is ahead early
+  gets there first. A higher threshold is the obvious lever to try next, at the
+  cost of some of the speed.
+- **The Vault barely matters here** (held at the end of about a third of games,
+  and switching it off changes nothing measurable).
+
+**A higher threshold does not fix the snowball.** The same plain-lanes run with
+`SIM_THRESHOLD=70`, 1,000 games per seed, A / B / C:
+
+| Metric | Plain lanes, threshold 60 | Plain lanes, threshold 70 |
+|---|---|---|
+| Avg game length | 22.2 / 23.0 / 22.8 | 25.5 / 26.1 / 26.1 |
+| Turn-10 leader wins | 79.5 / 78.4 / 77.7% | 79.7 / 78.1 / 77.7% |
+| Decisive | 99.8–100% | 99.5–100% |
+| Worst elimination rate | 5.9% | 11.1% |
+| Lane end-owner changes per game | 55–57 | 62–64 |
+
+The turn-10 leader wins exactly as often; a higher bar only makes them take
+longer to reach it, which gives back about three of the four turns plain lanes
+saved (25.9 against 27.1 with home worlds). The game is decided by turn 10
+either way, so a fix has to act on the lead itself (a catch-up rule), not on
+the finish line.
+
+**A catch-up rule trades speed for the snowball at about one for one.**
+`SIM_CATCHUP_PER=N` (sim-only): every N territories a player holds above a
+quarter of the board (16) cost one reinforcement at the start of their turn,
+never below 3. Plain lanes, threshold 60, 1,000 games per seed:
+
+| Rule | Seeds | Avg game length | Turn-10 leader wins | Decisive |
+|---|---|---|---|---|
+| none (plain lanes) | A / B / C | 22.2 / 23.0 / 22.8 | 79.5 / 78.4 / 77.7% | 99.8–100% |
+| −1 per 4 over | A | 24.1 | 77.4% | 99.6% |
+| −1 per 3 over | A / B / C | 25.0 / 24.2 / 24.7 | 73.6 / 77.0 / 74.6% | 99.3–99.7% |
+| −1 per 2 over | A / B / C | 27.3 / 27.4 / 26.3 | 69.7 / 69.0 / 70.1% | 99.3–99.7% |
+| −1 per 1 over | A | 45.6 | 52.5% | **89.5%** |
+| *home worlds (live, §2)* | A / B / C | 27.7 / 26.5 / 27.0 | 60.8 / 63.4 / 61.4% | 99.0–99.6% |
+
+Eliminations stay low in every row (at most 7.6%, except 12.1% at −1 per 1).
+
+- **Each turn of length buys a few points of snowball and no more.** −1 per 3
+  costs about 2 turns for 3.5 points; −1 per 2 costs about 4.3 turns for about
+  9 points.
+- **At −1 per 2 the game is exactly as long as home worlds** (27.0 against
+  27.1 turns) and the leader still wins about 70% against about 62%. The home-
+  world game controls the snowball better at the same length: its protection
+  comes from structure (a defensible home, capped lanes, Sovereignty as a second
+  way to win), not from taxing the leader.
+- **At −1 per 1 the rule breaks the game**: 45.6 turns, and 10.5% of games hit the
+  90-turn cap undecided.
+
+So plain lanes is a choice of point on one curve: faster, or less decided early,
+but not both. If the goal is a faster Galactic Age with the current snowball,
+none of these reach it.
+
+Commands, from `backend/`:
+
+```sh
+SIM_SCATTERED=1 SIM_FACTIONS=0 SIM_PLAIN_LANES=1 SIM_SOVEREIGNTY=0 SIM_GAMES=1000 SIM_THRESHOLD=60 \
+  pnpm exec tsx scripts/simGalaxyBalance.ts
+```
+
+## 7. Open
 
 - **Sol is the most often eliminated seat** (~25%; 29.1–29.6% with
   Sovereignty off, just inside the 30% limit). Verdan's +2 reinforcements are
@@ -320,6 +466,18 @@ instant card every round (11.6 "closures" per game where the deck can deal about
 
 ## History
 
+- **2026-09-27 (plain lanes + catch-up, sim only):** −1 reinforcement per N
+  tiles over a quarter. −1 per 2 matches home-world length (27.0 turns) with the
+  leader still winning ~70%; −1 per 1 leaves 10.5% of games undecided.
+- **2026-09-27 (plain lanes at threshold 70, sim only):** 25.9 turns, turn-10
+  leader still wins ~78.5%. The threshold moves the finish, not the snowball.
+- **2026-09-27 (plain lanes, sim only):** scattered start, factions off,
+  Sovereignty off, lanes fight like any border (§6). 22.7 turns against 27.1;
+  turn-10 leader wins ~79%.
+- **2026-09-27 (no home worlds, sim only):** `SIM_SCATTERED=1` measured (§6).
+  With kits as shipped it fails on Forge and Sol; with Forge's and Verdan's
+  `reinforce_bonus` at 0 it passes the win-rate gate, 3–4 turns shorter, but the
+  turn-10 leader wins ~76%.
 - **2026-09-27 (Cradle muster):** Sol's inert Cradle (deploy cap + population)
   replaced by the muster (every 5th round, Sol tiles under 2 units gain 1);
   Verdan `reinforce_bonus` 0 → 2 to pay for it. Sol 22.5 → 23.9, Rust

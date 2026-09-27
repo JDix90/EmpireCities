@@ -553,6 +553,8 @@ export function galaxyLaneAttackDiceCap(state: GameState, attackerId: string): n
   // from turn one (games.routes.ts `isGalaxyRules`) — so it is the era check as
   // well; callers without the map can still ask.
   if (!state.settings?.galaxy_corridors_enabled) return undefined;
+  // Plain lanes: a lane fights like any other border.
+  if (state.settings.galaxy_plain_lanes) return undefined;
   // The Hyperlane Anchor used to skip the Chart gate; under corridors there is
   // no gate, so the wonder lifts the lane cap instead — its owner's crossings
   // roll full dice, like a same-world attack.
