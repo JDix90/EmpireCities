@@ -36,7 +36,7 @@ Knobs: `SIM_MAP` (variant map file), `SIM_GAMES`, `SIM_DIFFICULTY`,
 `SIM_CORRIDORS`, `SIM_WORLD_RULES`, `SIM_WORLD_RULES_OFF` (comma list of
 `cradle`, `storms`, `forge`, `vault`), `SIM_SOVEREIGNTY`, `SIM_EVENTS`,
 `SIM_FACTION_PATCH` (JSON faction-kit overrides), `SIM_SCATTERED`,
-`SIM_FACTIONS=0` and `SIM_PLAIN_LANES` (§6). 4 players,
+`SIM_FACTIONS=0`, `SIM_PLAIN_LANES` and `SIM_CATCHUP_PER` (§6). 4 players,
 one per galaxy faction, faction↔seat rotated per game. Factions ON, naval OFF,
 era advancement OFF, stability ON, events OFF (the era's own system defaults are
 economy + tech + factions). The sim asserts that each faction starts on its own
@@ -406,6 +406,37 @@ saved (25.9 against 27.1 with home worlds). The game is decided by turn 10
 either way, so a fix has to act on the lead itself (a catch-up rule), not on
 the finish line.
 
+**A catch-up rule trades speed for the snowball at about one for one.**
+`SIM_CATCHUP_PER=N` (sim-only): every N territories a player holds above a
+quarter of the board (16) cost one reinforcement at the start of their turn,
+never below 3. Plain lanes, threshold 60, 1,000 games per seed:
+
+| Rule | Seeds | Avg game length | Turn-10 leader wins | Decisive |
+|---|---|---|---|---|
+| none (plain lanes) | A / B / C | 22.2 / 23.0 / 22.8 | 79.5 / 78.4 / 77.7% | 99.8–100% |
+| −1 per 4 over | A | 24.1 | 77.4% | 99.6% |
+| −1 per 3 over | A / B / C | 25.0 / 24.2 / 24.7 | 73.6 / 77.0 / 74.6% | 99.3–99.7% |
+| −1 per 2 over | A / B / C | 27.3 / 27.4 / 26.3 | 69.7 / 69.0 / 70.1% | 99.3–99.7% |
+| −1 per 1 over | A | 45.6 | 52.5% | **89.5%** |
+| *home worlds (live, §2)* | A / B / C | 27.7 / 26.5 / 27.0 | 60.8 / 63.4 / 61.4% | 99.0–99.6% |
+
+Eliminations stay low in every row (at most 7.6%, except 12.1% at −1 per 1).
+
+- **Each turn of length buys a few points of snowball and no more.** −1 per 3
+  costs about 2 turns for 3.5 points; −1 per 2 costs about 4.3 turns for about
+  9 points.
+- **At −1 per 2 the game is exactly as long as home worlds** (27.0 against
+  27.1 turns) and the leader still wins about 70% against about 62%. The home-
+  world game controls the snowball better at the same length: its protection
+  comes from structure (a defensible home, capped lanes, Sovereignty as a second
+  way to win), not from taxing the leader.
+- **At −1 per 1 the rule breaks the game**: 45.6 turns, and 10.5% of games hit the
+  90-turn cap undecided.
+
+So plain lanes is a choice of point on one curve: faster, or less decided early,
+but not both. If the goal is a faster Galactic Age with the current snowball,
+none of these reach it.
+
 Commands, from `backend/`:
 
 ```sh
@@ -435,6 +466,9 @@ SIM_SCATTERED=1 SIM_FACTIONS=0 SIM_PLAIN_LANES=1 SIM_SOVEREIGNTY=0 SIM_GAMES=100
 
 ## History
 
+- **2026-09-27 (plain lanes + catch-up, sim only):** −1 reinforcement per N
+  tiles over a quarter. −1 per 2 matches home-world length (27.0 turns) with the
+  leader still winning ~70%; −1 per 1 leaves 10.5% of games undecided.
 - **2026-09-27 (plain lanes at threshold 70, sim only):** 25.9 turns, turn-10
   leader still wins ~78.5%. The threshold moves the finish, not the snowball.
 - **2026-09-27 (plain lanes, sim only):** scattered start, factions off,

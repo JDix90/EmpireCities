@@ -136,6 +136,25 @@ const FACTIONS_ON = process.env.SIM_FACTIONS !== '0';
 if (!FACTIONS_ON && !SCATTERED) throw new Error('SIM_FACTIONS=0 needs SIM_SCATTERED=1: without factions there are no home worlds');
 /** `SIM_PLAIN_LANES=1`: lanes fight like any border (settings.galaxy_plain_lanes). */
 const PLAIN_LANES = process.env.SIM_PLAIN_LANES === '1';
+/**
+ * `SIM_CATCHUP_PER=N`: a candidate catch-up rule, sim-only. Every N territories a
+ * player holds above a quarter of the board costs one reinforcement, never
+ * below 3. Applied to the draft the engine has just computed, at the start of
+ * each turn (card sets redeemed later in the turn are untouched).
+ */
+const CATCHUP_PER = process.env.SIM_CATCHUP_PER ? Number(process.env.SIM_CATCHUP_PER) : null;
+if (CATCHUP_PER != null && !(CATCHUP_PER >= 1)) throw new Error('SIM_CATCHUP_PER must be a number >= 1');
+
+/** Apply SIM_CATCHUP_PER to the current player's opening draft. */
+function applyCatchup(state: GameState): void {
+  if (CATCHUP_PER == null || state.phase !== 'draft') return;
+  const player = state.players[state.current_player_index];
+  if (!player || player.is_eliminated) return;
+  const fairShare = Object.keys(state.territories).length / state.players.length;
+  const over = Math.max(0, player.territory_count - fairShare);
+  const penalty = Math.floor(over / CATCHUP_PER);
+  state.draft_units_remaining = Math.max(3, state.draft_units_remaining - penalty);
+}
 
 const PLAYERS = 4;
 // One faction per player, in player order. Each faction's home region is a whole
@@ -540,6 +559,7 @@ function runGame(gameIndex: number, sourceMap: GameMap): GameStat {
   });
   if (SCATTERED) scatterStart(state, map, gameIndex);
   else assertHomeworldStart(map, state, factionOf);
+  applyCatchup(state);
 
   const lanes = orbitLanePairs(map);
   const connectionsByKey = new Map(map.connections.map((c) => [laneKey(c.from, c.to), c]));
@@ -585,6 +605,7 @@ function runGame(gameIndex: number, sourceMap: GameMap): GameStat {
       playAiTurn(state, map, player.player_id, DIFFICULTY, dieRoll, jitter, lanes, connectionsByKey, telemetry[player.player_id], (id) => telemetry[id]);
     }
     advanceToNextPlayer(state, map);
+    applyCatchup(state);
     for (const arrival of state.last_transit_arrivals ?? []) {
       const seatT = telemetry[arrival.convoy.owner_id];
       if (!seatT) continue;
@@ -710,7 +731,7 @@ function main(): void {
   for (const s of stats) if (s.winnerFaction) byFaction[s.winnerFaction] = (byFaction[s.winnerFaction] ?? 0) + 1;
 
   console.log(`\nGalactic Age balance — ${GAMES} games · ${PLAYERS}p · ${DIFFICULTY} · maxTurns ${MAX_TURNS}${THRESHOLD != null ? ` · threshold ${THRESHOLD}%` : ''} · ${terr} territories`);
-  console.log(`Seed "${MASTER_SEED}" · attack loop ${GRIND ? 'GRIND (mirrors live AI)' : 'single-exchange (SIM_GRIND=0, legacy)'} · corridors ${CORRIDORS ? 'ON' : 'OFF (SIM_CORRIDORS=0)'} · factions ${Object.keys(FACTION_PATCH).length ? `patched ${JSON.stringify(FACTION_PATCH)}` : 'as shipped'} · world rules ${WORLD_RULES ? (WORLD_RULES_OFF.length ? `ON except ${WORLD_RULES_OFF.join('+')}` : 'ON') : 'OFF (SIM_WORLD_RULES=0)'} · sovereignty ${SOVEREIGNTY ? 'ON' : 'OFF (SIM_SOVEREIGNTY=0)'} · transit ${TRANSIT ? 'ON (SIM_TRANSIT=1)' : 'OFF'}${SCATTERED ? ' · start SCATTERED (SIM_SCATTERED=1, no home worlds)' : ''}${FACTIONS_ON ? '' : ' · factions OFF (SIM_FACTIONS=0, labels are seats)'}${PLAIN_LANES ? ' · PLAIN LANES (SIM_PLAIN_LANES=1)' : ''} · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
+  console.log(`Seed "${MASTER_SEED}" · attack loop ${GRIND ? 'GRIND (mirrors live AI)' : 'single-exchange (SIM_GRIND=0, legacy)'} · corridors ${CORRIDORS ? 'ON' : 'OFF (SIM_CORRIDORS=0)'} · factions ${Object.keys(FACTION_PATCH).length ? `patched ${JSON.stringify(FACTION_PATCH)}` : 'as shipped'} · world rules ${WORLD_RULES ? (WORLD_RULES_OFF.length ? `ON except ${WORLD_RULES_OFF.join('+')}` : 'ON') : 'OFF (SIM_WORLD_RULES=0)'} · sovereignty ${SOVEREIGNTY ? 'ON' : 'OFF (SIM_SOVEREIGNTY=0)'} · transit ${TRANSIT ? 'ON (SIM_TRANSIT=1)' : 'OFF'}${SCATTERED ? ' · start SCATTERED (SIM_SCATTERED=1, no home worlds)' : ''}${FACTIONS_ON ? '' : ' · factions OFF (SIM_FACTIONS=0, labels are seats)'}${PLAIN_LANES ? ' · PLAIN LANES (SIM_PLAIN_LANES=1)' : ''}${CATCHUP_PER != null ? ` · catch-up: -1 reinforcement per ${CATCHUP_PER} tiles over a quarter (SIM_CATCHUP_PER)` : ''} · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
   console.log(`Avg game length (turns):          ${(stats.reduce((a, s) => a + s.turns, 0) / GAMES).toFixed(1)}`);
   console.log(`Decisive (non-turn-limit) wins:   ${pct(decisive.length, GAMES)}`);
   const byCondition = new Map<string, number>();
