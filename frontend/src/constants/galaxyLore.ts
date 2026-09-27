@@ -188,8 +188,8 @@ export const GALAXY_TERRITORY_LORE_DETAIL: Record<string, GalaxyTerritoryLoreDet
   },
   rust_crucible_deep: {
     frontier:
-      'The hub of the west plate. Every road from Tharsis to the isthmus runs past Pavonis, so all five of its borders are contested.',
-    hold: 'The Pavonis crucible pours hull steel in rivers a kilometre wide; its heat bloom shows from orbit on the night side.',
+      'The hub of the west plate, and where the Sulphur Drift lane comes down: the Navigators land in the middle of Tharsis, and every road from there to the isthmus runs past Pavonis.',
+    hold: 'The Pavonis crucible pours hull steel in rivers a kilometre wide; its heat bloom shows from orbit on the night side, and guides the Verdan barges in.',
   },
   rust_smelter_crown: {
     frontier:
@@ -199,8 +199,8 @@ export const GALAXY_TERRITORY_LORE_DETAIL: Record<string, GalaxyTerritoryLoreDet
   // Argyre Marches: the Verdan front.
   rust_furnace_marches: {
     frontier:
-      'Drawn round the Verdan lane at the western edge of the plate — the Navigators land here, and the Syndicate taxes every crate.',
-    hold: 'Furnace towns built from the slag of the towns before them; the lane port is the only thing on the Marches older than a decade.',
+      'The western edge of the plate, behind the Argyre rim — close enough to the Verdan landings that the Syndicate garrisons it before anything else.',
+    hold: 'Furnace towns built from the slag of the towns before them; the old lane port is the only thing on the Marches older than a decade, and it has been dark since the lane moved to Pavonis.',
   },
   rust_oxide_flats: {
     frontier:
@@ -247,13 +247,13 @@ export const GALAXY_TERRITORY_LORE_DETAIL: Record<string, GalaxyTerritoryLoreDet
   },
   rust_hematite_span: {
     frontier:
-      'The old Arabia highlands, split by claims older than the Syndicate — the survey stakes are Diaspora-era steel.',
-    hold: 'Hematite spherules lie on the ground like shot; harvesters sweep them up faster than the wind can bury them.',
+      'The old Arabia highlands and the hub of Hesperia, where the Nexus lane comes down; the Custodians inspect every hull that leaves, and the claims around the port are older than the Syndicate.',
+    hold: 'Hematite spherules lie on the ground like shot; harvesters sweep them up faster than the wind can bury them, and the Span ships them to Nexus for gate time.',
   },
   rust_ferro_span: {
     frontier:
-      'Holds the Nexus lane on the Syrtis shoulder at the eastern edge of the plate; the Custodians inspect every hull that leaves.',
-    hold: 'Plateau and lane port in one: the Span ships the Belt’s output to the Custodians and brings back gate time.',
+      'The Syrtis shoulder at the eastern edge of the plate, facing the Borealis platforms across the slag sea.',
+    hold: 'A plateau of dark basalt; the Span’s wind farms power the Hesperia mines, and its old lane port now handles only the Tailing Drift ferries.',
   },
   // Slag Wastes: platforms in the Borealis slag sea.
   rust_slag_reach: {

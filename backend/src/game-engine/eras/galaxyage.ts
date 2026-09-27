@@ -34,9 +34,12 @@ import type { Faction, TechNode, EraWonder } from './types';
 // - The Shattered Shell (Nexus rebuilt as a hub around the Vault) needed both
 //   halves back, smaller: the Vault's `home_unit_bonus: 1`, and a per-tile tech
 //   modifier of 0.084 so the Custodians' twelve opening tiles earn 1 TP/turn
-//   (0.0625 floored to 0 there). Measured 1,000 games x 3 seeds: bonus alone
-//   left Nexus at 16-19% and Forge at up to 34%; bonus 2 sent Verdan to 34%
-//   and Sol to 14%; bonus 1 + 0.084 put all four factions at 19.7-29.8%.
+//   (0.0625 floored to 0 there). Those two were first chosen on a sim harness
+//   whose games leaked into each other (GALAXY-BALANCE.md §1), and re-checked
+//   on the fixed one with the Rust/Verdan retune in place, 1,000 games x 3
+//   seeds: bonus 0 sends Forge to 51-53% and Nexus to 13-15%; tech 0.0625
+//   puts Forge at 33.4% on seed B; bonus 1 + 0.084 keeps all four inside
+//   18-32%. Both stay.
 // ──────────────────────────────────────────────────────────────────────────
 
 // Lineage ids matter only on a spine that climbs INTO this era — Space to Stars.

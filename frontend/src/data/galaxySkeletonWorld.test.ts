@@ -42,13 +42,15 @@ function reachable(adj: Map<string, string[]>, from: string, without?: string): 
 }
 
 describe('Verdan Reach — the Twilight Ring', () => {
-  it('keeps 16 tiles and a region-bonus total of 12 in five regions', () => {
+  it('keeps 16 tiles and a region-bonus total of 14 in five regions', () => {
+    // 14, not the other worlds' 12: Verdan sat at the 18% floor with 12 on the
+    // fixed harness (GALAXY-BALANCE.md §4).
     expect(tiles).toHaveLength(16);
     const regions = (map.regions as Array<{ region_id: string; bonus: number }>).filter((r) => r.region_id.startsWith('verdan_'));
     expect(regions.map((r) => r.region_id).sort()).toEqual([
       'verdan_brilliance', 'verdan_lumen_crown', 'verdan_mirelands', 'verdan_sporefields', 'verdan_stormbelts',
     ]);
-    expect(regions.reduce((s, r) => s + r.bonus, 0)).toBe(12);
+    expect(regions.reduce((s, r) => s + r.bonus, 0)).toBe(14);
   });
 
   it('is a ring: no tile whose loss cuts the world in two', () => {
@@ -118,13 +120,17 @@ describe('Rust Belt — the Sundered Plate', () => {
     return seen;
   };
 
-  it('keeps 16 tiles and a region-bonus total of 12 in six regions', () => {
+  it('keeps 16 tiles and a region-bonus total of 10 in six regions', () => {
+    // 10, not 12: the Sundered Plate was too good a fortress, with Forge at
+    // 35-39% on the fixed harness (GALAXY-BALANCE.md §4).
     expect(rustTiles).toHaveLength(16);
     const regions = (map.regions as Array<{ region_id: string; bonus: number }>).filter((r) => r.region_id.startsWith('rust_'));
     expect(regions).toHaveLength(6);
-    expect(regions.reduce((s, r) => s + r.bonus, 0)).toBe(12);
-    // The prize: the two crossings, worth the most of any region.
-    expect(regions.find((r) => r.region_id === 'rust_anchor_works')?.bonus).toBe(3);
+    expect(regions.reduce((s, r) => s + r.bonus, 0)).toBe(10);
+    // The prize: the two crossings, still worth as much as any region.
+    const anchor = regions.find((r) => r.region_id === 'rust_anchor_works')?.bonus;
+    expect(anchor).toBe(2);
+    expect(Math.max(...regions.map((r) => r.bonus))).toBe(anchor);
     expect(rustTiles.filter((t) => t.region_id === 'rust_anchor_works').map((t) => t.territory_id).sort())
       .toEqual(['rust_bessemer_cut', 'rust_tether_anchorage']);
   });
@@ -153,7 +159,9 @@ describe('Rust Belt — the Sundered Plate', () => {
       .map((c) => (rustIds.has(c.from) ? c.from : c.to));
     const verdanEnds = endOn('verdan_');
     const nexusEnds = endOn('nexus_');
-    expect(verdanEnds.sort()).toEqual(['rust_anvil_basin', 'rust_furnace_marches']);
+    // One lands on Crucible Deep, the Tharsis hub, so a landing can spread; with
+    // both in Argyre Marches the plate held too easily.
+    expect(verdanEnds.sort()).toEqual(['rust_anvil_basin', 'rust_crucible_deep']);
     for (const id of verdanEnds) expect(west, id).toContain(id);
     expect(nexusEnds).toHaveLength(2);
     for (const id of nexusEnds) expect(west, id).not.toContain(id);
