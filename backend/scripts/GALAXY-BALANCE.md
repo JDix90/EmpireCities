@@ -331,7 +331,7 @@ times a game; in both scattered columns 88–91% of seats build a Jump Gate lane
   compensation for where their home worlds sit; with no home worlds they are
   just two extra units a turn.
 - **Without those two bonuses it passes the win-rate gate on every seed**
-  (22.0–31.4%), with Nexus close to the ceiling on seed C.
+  (20.9–31.4%), with Nexus close to the ceiling on seed C.
 - **It is faster, by 3–4 turns** (about 14%): 23.4 turns against 27.1; with
   the kits as shipped only 1.5 turns. The first lane capture comes later on
   average, not sooner, because nobody has to cross a lane to reach an enemy.
