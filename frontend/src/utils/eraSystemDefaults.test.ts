@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   transitionEraSystemDefaults,
   missingEraSystemsWarning,
+  lockedSystemsForEra,
+  lockedEraSystemsNotice,
   requiredSystemsForEra,
   withRequiredEraSystems,
 } from './eraSystemDefaults';
@@ -122,13 +124,35 @@ describe('withRequiredEraSystems', () => {
 });
 
 describe('missingEraSystemsWarning', () => {
-  it('warns when a required system is off for the selected era', () => {
+  it('warns when a required system is off for an unlocked era', () => {
     expect(missingEraSystemsWarning('space_age', { economy: true, tech_trees: false, factions: false })).toMatch(/Moon/);
-    expect(missingEraSystemsWarning('galaxy_age', off)).toMatch(/[Hh]yperspace/);
   });
 
   it('stays quiet when requirements are met or the era has none', () => {
     expect(missingEraSystemsWarning('space_age', on)).toBeNull();
     expect(missingEraSystemsWarning('ww2', off)).toBeNull();
+  });
+
+  it('never warns for a locked era — its systems cannot be off, and the notice explains them', () => {
+    expect(missingEraSystemsWarning('galaxy_age', off)).toBeNull();
+  });
+});
+
+describe('locked eras', () => {
+  it('locks all three Galactic Age systems, and nothing for any other era', () => {
+    expect([...lockedSystemsForEra('galaxy_age')].sort()).toEqual(['economy', 'factions', 'tech_trees']);
+    for (const era of ['space_age', 'ancient', 'ww2', 'modern', 'acw']) {
+      expect(lockedSystemsForEra(era).size).toBe(0);
+    }
+  });
+
+  it('shows the Galactic Age explanation up front, and no notice for unlocked eras', () => {
+    const notice = lockedEraSystemsNotice('galaxy_age');
+    expect(notice).toMatch(/^Galactic Age always plays with Economy & Buildings, Technology Trees and Asymmetric Factions/);
+    expect(notice).toMatch(/[Hh]yperspace/);
+    // The lock makes the old "without factions" outcome impossible, so the copy no longer describes it.
+    expect(notice).not.toMatch(/[Ww]ithout factions/);
+    expect(lockedEraSystemsNotice('space_age')).toBeNull();
+    expect(lockedEraSystemsNotice('ww2')).toBeNull();
   });
 });

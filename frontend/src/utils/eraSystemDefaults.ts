@@ -8,9 +8,11 @@
  * unreachable for every player and the "Control every territory" domination
  * objective can never be met (the 9 lunar territories stay neutral forever).
  *
- * Selecting such an era pre-checks the systems it needs. The player can still
- * switch them back off (the form then shows the era's warning copy), and
- * switching to an era without requirements reverts only the toggles this
+ * Selecting such an era pre-checks the systems it needs. For most eras the
+ * player can still switch them back off (the form then shows the era's warning
+ * copy). A `locked` era cannot be played without them at all, so the form
+ * disables those checkboxes and shows the explanation up front instead.
+ * Switching to an era without requirements reverts only the toggles this
  * module enabled — never a choice the player made by hand.
  */
 
@@ -20,8 +22,13 @@ export const ERA_SYSTEM_KEYS: readonly EraSystemKey[] = ['economy', 'tech_trees'
 
 interface EraSystemRequirement {
   systems: readonly EraSystemKey[];
-  /** Shown in the form when a required system is switched off anyway. */
+  /**
+   * Unlocked eras: shown when a required system is switched off anyway.
+   * Locked eras: shown whenever the era is selected, explaining the lock.
+   */
   warning: string;
+  /** The required systems cannot be switched off while this era is selected. */
+  locked?: boolean;
 }
 
 export const ERA_REQUIRED_SYSTEMS: Record<string, EraSystemRequirement> = {
@@ -34,12 +41,12 @@ export const ERA_REQUIRED_SYSTEMS: Record<string, EraSystemRequirement> = {
   },
   galaxy_age: {
     systems: ['economy', 'tech_trees', 'factions'],
+    locked: true,
     warning:
-      'Galactic Age needs Economy & Buildings, Technology Trees and Asymmetric Factions: every ' +
-      'faction kit is built around the hyperspace lanes (Emergency Seal, Blockade Runner, Drift ' +
-      'Jump, Supply Insert), Lane Charts and the Hyperlane Anchor shape lane combat, and the ' +
-      'one-faction-per-world start only happens when four players each take a different faction. ' +
-      'Without factions every player begins scattered across all four worlds.',
+      'Galactic Age always plays with Economy & Buildings, Technology Trees and Asymmetric Factions: ' +
+      'every faction kit is built around the hyperspace lanes (Emergency Seal, Blockade Runner, ' +
+      'Drift Jump, Supply Insert), Lane Charts and the Hyperlane Anchor shape lane combat, and the ' +
+      'one-faction-per-world start only happens when four players each take a different faction.',
   },
 };
 
@@ -47,13 +54,29 @@ export function requiredSystemsForEra(eraId: string): readonly EraSystemKey[] {
   return ERA_REQUIRED_SYSTEMS[eraId]?.systems ?? [];
 }
 
-/** Warning copy when the era needs systems that are currently off; null otherwise. */
+/** Systems the player cannot switch off while this era is selected. */
+export function lockedSystemsForEra(eraId: string): ReadonlySet<EraSystemKey> {
+  const requirement = ERA_REQUIRED_SYSTEMS[eraId];
+  return new Set(requirement?.locked ? requirement.systems : []);
+}
+
+/** Explanation shown whenever a locked era is selected; null for other eras. */
+export function lockedEraSystemsNotice(eraId: string): string | null {
+  const requirement = ERA_REQUIRED_SYSTEMS[eraId];
+  return requirement?.locked ? requirement.warning : null;
+}
+
+/**
+ * Warning copy when an unlocked era needs systems that are currently off;
+ * null otherwise. Locked eras never warn: their systems cannot be off, and
+ * `lockedEraSystemsNotice` carries their copy.
+ */
 export function missingEraSystemsWarning(
   eraId: string,
   current: Record<EraSystemKey, boolean>,
 ): string | null {
   const requirement = ERA_REQUIRED_SYSTEMS[eraId];
-  if (!requirement) return null;
+  if (!requirement || requirement.locked) return null;
   return requirement.systems.some((key) => !current[key]) ? requirement.warning : null;
 }
 

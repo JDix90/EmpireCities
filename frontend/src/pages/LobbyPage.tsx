@@ -81,6 +81,8 @@ import {
 import {
   transitionEraSystemDefaults,
   missingEraSystemsWarning,
+  lockedSystemsForEra,
+  lockedEraSystemsNotice,
   withRequiredEraSystems,
   type EraSystemKey,
 } from '../utils/eraSystemDefaults';
@@ -571,6 +573,22 @@ export default function LobbyPage() {
     tech_trees: techTreesEnabled,
     factions: factionsEnabled,
   });
+
+  // Locked eras (Galactic Age) cannot be played without their systems, so the
+  // checkboxes are disabled and the explanation shows up front. This keeps
+  // them on whatever else moves them: Territory Draft and factions exclude
+  // each other, so a draft left on from another era is switched off here.
+  const lockedSystems = lockedSystemsForEra(selectedEra);
+  const lockedSystemsNotice = lockedEraSystemsNotice(selectedEra);
+  useEffect(() => {
+    const locked = lockedSystemsForEra(selectedEra);
+    if (locked.has('economy') && !economyEnabled) setEconomyEnabled(true);
+    if (locked.has('tech_trees') && !techTreesEnabled) setTechTreesEnabled(true);
+    if (locked.has('factions')) {
+      if (!factionsEnabled) setFactionsEnabled(true);
+      if (territorySelection) setTerritorySelection(false);
+    }
+  }, [selectedEra, economyEnabled, techTreesEnabled, factionsEnabled, territorySelection]);
 
   // Conditional advanced settings — each only matters under certain other choices,
   // so they're surfaced in a dedicated "Conditional Settings" section instead of
@@ -2463,15 +2481,24 @@ export default function LobbyPage() {
                             setFactionsEnabled(e.target.checked);
                             if (e.target.checked) setTerritorySelection(false);
                           }}
-                          disabled={territorySelection}
+                          disabled={territorySelection || lockedSystems.has('factions')}
+                          aria-describedby={lockedSystems.has('factions') ? 'era-locked-systems-notice' : undefined}
                           className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
                         />
-                        <span className="leading-snug min-w-0 select-none">Asymmetric Factions</span>
+                        <span className="leading-snug min-w-0 select-none">
+                          Asymmetric Factions
+                          {lockedSystems.has('factions') && <span className="text-xs text-bf-muted"> (required)</span>}
+                        </span>
                       </label>
                     </div>
                   </div>
                     <div className="md:col-span-2 border-t border-bf-border pt-4 mt-2">
                       <label className="label mb-2">Advanced Features</label>
+                      {lockedSystemsNotice && (
+                        <p id="era-locked-systems-notice" className="text-[11px] text-bf-muted mb-3 leading-relaxed">
+                          {lockedSystemsNotice}
+                        </p>
+                      )}
                       {eraSystemsWarning && (
                         <p className="text-[11px] text-amber-400/90 mb-3 leading-relaxed" role="alert">
                           ⚠ {eraSystemsWarning}
@@ -2486,15 +2513,21 @@ export default function LobbyPage() {
                         <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
                           <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'economy_buildings')} />
                           <label htmlFor="create-game-economy" className="contents cursor-pointer">
-                            <input id="create-game-economy" type="checkbox" checked={economyEnabled} onChange={(e) => { autoEnabledSystemsRef.current.delete('economy'); setEconomyEnabled(e.target.checked); }} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
-                            <span className="leading-snug min-w-0 select-none">Economy &amp; Buildings</span>
+                            <input id="create-game-economy" type="checkbox" checked={economyEnabled} onChange={(e) => { autoEnabledSystemsRef.current.delete('economy'); setEconomyEnabled(e.target.checked); }} disabled={lockedSystems.has('economy')} aria-describedby={lockedSystems.has('economy') ? 'era-locked-systems-notice' : undefined} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
+                            <span className="leading-snug min-w-0 select-none">
+                              Economy &amp; Buildings
+                              {lockedSystems.has('economy') && <span className="text-xs text-bf-muted"> (required)</span>}
+                            </span>
                           </label>
                         </div>
                         <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
                           <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'tech_trees')} />
                           <label htmlFor="create-game-tech-trees" className="contents cursor-pointer">
-                            <input id="create-game-tech-trees" type="checkbox" checked={techTreesEnabled} onChange={(e) => { autoEnabledSystemsRef.current.delete('tech_trees'); setTechTreesEnabled(e.target.checked); }} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
-                            <span className="leading-snug min-w-0 select-none">Technology Trees</span>
+                            <input id="create-game-tech-trees" type="checkbox" checked={techTreesEnabled} onChange={(e) => { autoEnabledSystemsRef.current.delete('tech_trees'); setTechTreesEnabled(e.target.checked); }} disabled={lockedSystems.has('tech_trees')} aria-describedby={lockedSystems.has('tech_trees') ? 'era-locked-systems-notice' : undefined} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
+                            <span className="leading-snug min-w-0 select-none">
+                              Technology Trees
+                              {lockedSystems.has('tech_trees') && <span className="text-xs text-bf-muted"> (required)</span>}
+                            </span>
                           </label>
                         </div>
                         <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
