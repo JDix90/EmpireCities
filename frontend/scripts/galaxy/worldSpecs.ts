@@ -13,7 +13,7 @@
  * files ever stop matching these specs.
  */
 
-import { VERDAN_SUBSTELLAR } from '../../src/data/galaxyWorldFrames';
+import { RUST_RIFT_NORTH, RUST_RIFT_SOUTH, VERDAN_SUBSTELLAR } from '../../src/data/galaxyWorldFrames';
 import { polar } from './sphere';
 
 export type LngLat = [number, number];
@@ -44,11 +44,16 @@ export interface VoronoiWorldSpec {
   territories: GalaxyTerritorySpec[];
 }
 
-/** A region of land: a disc, a ring, or a thick great-circle polyline. Sizes in degrees. */
+/**
+ * A region of land (or water, in `cut`): a disc, a ring, a thick great-circle
+ * polyline (optionally tapered, one radius per point), or an ellipse in the
+ * tangent plane. Sizes in degrees; headings from north, clockwise.
+ */
 export type SkeletonShape =
   | { kind: 'cap'; center: LngLat; radius: number }
   | { kind: 'band'; center: LngLat; mid: number; half: number }
-  | { kind: 'capsule'; points: LngLat[]; radius: number };
+  | { kind: 'capsule'; points: LngLat[]; radius: number; radii?: number[] }
+  | { kind: 'ellipse'; center: LngLat; a: number; b: number; heading: number };
 
 export interface SkeletonTerritorySpec {
   id: string;
@@ -69,7 +74,8 @@ export interface SkeletonWorldSpec {
   kind: 'skeleton';
   world_id: string;
   seed: number;
-  land: { add: SkeletonShape[]; cut: SkeletonShape[] };
+  /** Land is `add`, minus `cut`, plus `restore` (an island inside a cut). */
+  land: { add: SkeletonShape[]; cut: SkeletonShape[]; restore?: SkeletonShape[] };
   /** Coastline roughness: amplitude in degrees, base frequency on the unit sphere. */
   noise: { amp: number; freq: number };
   /** Domain warp that bends the skeleton's shapes before they are evaluated. */
@@ -252,35 +258,118 @@ const VERDAN: SkeletonWorldSpec = {
   minTileArea: 0.6,
 };
 
-const RUST: VoronoiWorldSpec = {
-  kind: 'voronoi',
+/**
+ * The Rust Belt — the Sundered Plate.
+ *
+ * One red supercontinent, torn almost in two by the Marineris Rift, a scar of
+ * molten slag. The Tharsis plate to the west carries the volcano foundries;
+ * the Hesperia–Hellas plate to the east carries the deep mines. Three places
+ * cross the rift: the Noctis isthmus (Bessemer Cut), the Tether Anchorage
+ * island where the elevator comes down, and the southern narrows. North lies
+ * the slag sea with two island platforms; the far side is the Oxide Ocean.
+ *
+ * A fortress world: Verdan's lanes come down on the west plate, Nexus's on the
+ * east, so crossing Rust means taking a crossing, and the Anchor Works (the
+ * isthmus and the anchorage, two tiles worth 3) is the prize.
+ */
+const RUST: SkeletonWorldSpec = {
+  kind: 'skeleton',
   world_id: 'rust',
-  prefix: 'rust',
   seed: 7711,
+  land: {
+    add: [
+      { kind: 'ellipse', center: [-138, -8], a: 40, b: 34, heading: 10 }, // Tharsis, the west plate
+      { kind: 'ellipse', center: [-120, 14], a: 26, b: 22, heading: 60 }, // the Tharsis bulge
+      { kind: 'ellipse', center: [-72, -22], a: 30, b: 26, heading: 90 }, // Margaritifer, the rift country
+      { kind: 'ellipse', center: [-10, -18], a: 42, b: 34, heading: 90 }, // Arabia–Hellas, the east plate
+      { kind: 'ellipse', center: [48, -6], a: 30, b: 26, heading: 20 }, // the Syrtis shoulder
+      { kind: 'ellipse', center: [-45, 10], a: 24, b: 14, heading: 80 }, // the Chryse shelf
+      { kind: 'ellipse', center: [-90, 6], a: 20, b: 16, heading: 60 }, // the Noctis highlands
+      { kind: 'capsule', points: [[-165, -48], [-110, -56], [-50, -56], [10, -54], [55, -42]], radius: 14 }, // southern highlands
+      { kind: 'cap', center: [-22, 44], radius: 11 }, // Acidalia platform
+      { kind: 'ellipse', center: [22, 36], a: 14, b: 9, heading: 80 }, // Utopia platform
+    ],
+    cut: [
+      { kind: 'capsule', points: RUST_RIFT_NORTH, radius: 4 },
+      { kind: 'capsule', points: RUST_RIFT_SOUTH, radius: 0, radii: [4, 7, 15.5, 6.5, 4.5, 5] },
+      { kind: 'capsule', points: [[100, 34], [132, 4], [156, -34]], radius: 19 }, // the Oxide Ocean
+      { kind: 'capsule', points: [[180, 70], [180, -70]], radius: 3 }, // keep the antimeridian at sea
+    ],
+    // The anchorage island in the rift lake, larger than the prototype's so it
+    // stays a comfortable tap target on a phone.
+    restore: [{ kind: 'cap', center: [-57, -16], radius: 9 }],
+  },
+  noise: { amp: 5.5, freq: 3 },
+  warp: { amp: 0.07, freq: 2.2 },
+  border: { freq: 4, noise: 1.6 },
   regions: [
-    { region_id: 'rust_slag_wastes', name: 'Rust — Slag Wastes', bonus: 3 },
-    { region_id: 'rust_foundry_core', name: 'Rust — Foundry Core', bonus: 3 },
-    { region_id: 'rust_ironstorm', name: 'Rust — Ironstorm Belt', bonus: 3 },
+    { region_id: 'rust_slag_wastes', name: 'Rust — Slag Wastes', bonus: 1 },
+    { region_id: 'rust_foundry_core', name: 'Rust — Tharsis Foundries', bonus: 2 },
+    { region_id: 'rust_ironstorm', name: 'Rust — Argyre Marches', bonus: 2 },
     { region_id: 'rust_anchor_works', name: 'Rust — Anchor Works', bonus: 3 },
+    { region_id: 'rust_hellas_deeps', name: 'Rust — Hellas Deeps', bonus: 2 },
+    { region_id: 'rust_hesperia', name: 'Rust — Hesperia', bonus: 2 },
   ],
   territories: [
-    { name: 'Slag Reach', region_id: 'rust_slag_wastes' },
-    { name: 'Ferro Span', region_id: 'rust_anchor_works' },
-    { name: 'Cinderworks', region_id: 'rust_foundry_core' },
-    { name: 'Oxide Flats', region_id: 'rust_foundry_core' },
-    { name: 'Tailing Drift', region_id: 'rust_slag_wastes' },
-    { name: 'Anvil Basin', region_id: 'rust_ironstorm' },
-    { name: 'Smelter Crown', region_id: 'rust_anchor_works' },
-    { name: 'Ironstorm Belt', region_id: 'rust_ironstorm' },
-    { name: 'Caldera Foundry', region_id: 'rust_slag_wastes' },
-    { name: 'Tether Anchorage', region_id: 'rust_anchor_works' },
-    { name: 'Bessemer Cut', region_id: 'rust_ironstorm' },
-    { name: 'Dross Hollow', region_id: 'rust_foundry_core' },
-    { name: 'Hematite Span', region_id: 'rust_slag_wastes' },
-    { name: 'Crucible Deep', region_id: 'rust_anchor_works' },
-    { name: 'Scoria Flats', region_id: 'rust_ironstorm' },
-    { name: 'Furnace Marches', region_id: 'rust_foundry_core' },
+    // West plate, Tharsis: the Verdan front.
+    { id: 'rust_caldera_foundry', name: 'Caldera Foundry', region_id: 'rust_foundry_core', at: [-150, 14] }, // Olympus
+    { id: 'rust_crucible_deep', name: 'Crucible Deep', region_id: 'rust_foundry_core', at: [-128, -6] }, // Pavonis
+    { id: 'rust_smelter_crown', name: 'Smelter Crown', region_id: 'rust_foundry_core', at: [-118, 20] }, // Ascraeus
+    { id: 'rust_furnace_marches', name: 'Furnace Marches', region_id: 'rust_ironstorm', at: [-160, -24] },
+    { id: 'rust_oxide_flats', name: 'Oxide Flats', region_id: 'rust_ironstorm', at: [-100, -22] },
+    { id: 'rust_anvil_basin', name: 'Anvil Basin', region_id: 'rust_ironstorm', at: [-128, -48] }, // Argyre
+    // The crossings.
+    { id: 'rust_bessemer_cut', name: 'Bessemer Cut', region_id: 'rust_anchor_works', at: [-93, 8], weight: 0.55 }, // Noctis
+    { id: 'rust_tether_anchorage', name: 'Tether Anchorage', region_id: 'rust_anchor_works', at: [-57, -16] }, // the elevator
+    // East plate, Hesperia–Hellas: the Nexus front.
+    { id: 'rust_cinderworks', name: 'Cinderworks', region_id: 'rust_hellas_deeps', at: [-26, -22] },
+    { id: 'rust_ironstorm_belt', name: 'Ironstorm Belt', region_id: 'rust_hellas_deeps', at: [-20, -52] },
+    { id: 'rust_dross_hollow', name: 'Dross Hollow', region_id: 'rust_hellas_deeps', at: [26, -40] }, // Hellas
+    { id: 'rust_scoria_flats', name: 'Scoria Flats', region_id: 'rust_hesperia', at: [-50, 16] }, // Chryse
+    { id: 'rust_hematite_span', name: 'Hematite Span', region_id: 'rust_hesperia', at: [2, 8] }, // Arabia
+    { id: 'rust_ferro_span', name: 'Ferro Span', region_id: 'rust_hesperia', at: [52, -6] }, // Syrtis
+    // Borealis slag-sea platforms.
+    { id: 'rust_slag_reach', name: 'Slag Reach', region_id: 'rust_slag_wastes', at: [-22, 44], weight: 0.8 }, // Acidalia
+    { id: 'rust_tailing_drift', name: 'Tailing Drift', region_id: 'rust_slag_wastes', at: [22, 36], weight: 0.8 }, // Utopia
   ],
+  landBorders: [
+    // West plate
+    ['rust_caldera_foundry', 'rust_crucible_deep'],
+    ['rust_caldera_foundry', 'rust_furnace_marches'],
+    ['rust_caldera_foundry', 'rust_smelter_crown'],
+    ['rust_crucible_deep', 'rust_anvil_basin'],
+    ['rust_crucible_deep', 'rust_furnace_marches'],
+    ['rust_crucible_deep', 'rust_oxide_flats'],
+    ['rust_crucible_deep', 'rust_smelter_crown'],
+    ['rust_furnace_marches', 'rust_anvil_basin'],
+    ['rust_oxide_flats', 'rust_anvil_basin'],
+    // The Noctis isthmus: the only land crossing of the rift
+    ['rust_crucible_deep', 'rust_bessemer_cut'],
+    ['rust_oxide_flats', 'rust_bessemer_cut'],
+    ['rust_smelter_crown', 'rust_bessemer_cut'],
+    ['rust_bessemer_cut', 'rust_scoria_flats'],
+    // East plate
+    ['rust_cinderworks', 'rust_dross_hollow'],
+    ['rust_cinderworks', 'rust_hematite_span'],
+    ['rust_cinderworks', 'rust_ironstorm_belt'],
+    ['rust_cinderworks', 'rust_scoria_flats'],
+    ['rust_dross_hollow', 'rust_ferro_span'],
+    ['rust_dross_hollow', 'rust_hematite_span'],
+    ['rust_hematite_span', 'rust_ferro_span'],
+    ['rust_ironstorm_belt', 'rust_dross_hollow'],
+    ['rust_scoria_flats', 'rust_hematite_span'],
+  ],
+  seaLinks: [
+    ['rust_tether_anchorage', 'rust_oxide_flats'], // anchorage ferry, west bank
+    ['rust_tether_anchorage', 'rust_cinderworks'], // anchorage ferry, east bank
+    ['rust_anvil_basin', 'rust_ironstorm_belt'], // the southern narrows
+    ['rust_slag_reach', 'rust_scoria_flats'], // the Borealis chain
+    ['rust_slag_reach', 'rust_tailing_drift'],
+    ['rust_tailing_drift', 'rust_hematite_span'],
+    ['rust_tailing_drift', 'rust_ferro_span'],
+  ],
+  maxSeaGap: 14,
+  minTileArea: 0.6,
 };
 
 const NEXUS: VoronoiWorldSpec = {
@@ -324,8 +413,8 @@ const LANES: GalaxyLaneSpec[] = [
   { from: 'sol_guinea', to: 'verdan_chlorophage_span' },
   { from: 'sol_pacific_rim', to: 'verdan_greenfire_vault' },
   { from: 'verdan_photic_crown', to: 'rust_anvil_basin' },
-  { from: 'verdan_sulphur_drift', to: 'rust_crucible_deep' },
-  { from: 'rust_hematite_span', to: 'nexus_antenna_spire' },
+  { from: 'verdan_sulphur_drift', to: 'rust_furnace_marches' },
+  { from: 'rust_ferro_span', to: 'nexus_antenna_spire' },
   { from: 'rust_slag_reach', to: 'nexus_custodian_quarter' },
   { from: 'nexus_harmonic_rim', to: 'sol_amazonia' },
   { from: 'nexus_resonance_vault', to: 'sol_cathay' },

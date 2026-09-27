@@ -1,8 +1,9 @@
 /**
  * Far worlds built from an authored landmass skeleton (`kind: 'skeleton'`).
  *
- *   1. LAND. The spec's shapes (caps, bands, capsules) are signed "degrees
- *      inside" fields; land is their union minus the cuts, evaluated on a
+ *   1. LAND. The spec's shapes (caps, bands, capsules, ellipses) are signed
+ *      "degrees inside" fields; land is their union, minus the cuts, plus any
+ *      restored shapes (an island inside a cut), evaluated on a
  *      domain-warped sphere and roughened with 3D value noise. Noise on the
  *      sphere itself, not on lng/lat, so there is no seam and no polar pinch.
  *   2. TERRITORIES. Every land cell goes to the seed with the shortest path
@@ -21,7 +22,7 @@
  *      adds or removes a border, the build fails instead of shipping a
  *      different game.
  */
-import { angleDeg, dot, sampleGreatCircle, toVec, type Vec3 } from './sphere';
+import { angleDeg, cross, dot, normalize, sampleGreatCircle, samplePolyline, toVec, type Vec3 } from './sphere';
 import type { LngLat, SkeletonShape, SkeletonWorldSpec } from './worldSpecs';
 
 /** Grid step in degrees. Every output coordinate is a multiple of RES / 32. */
@@ -103,11 +104,49 @@ function shapeField(shape: SkeletonShape): Field {
       return (q) => shape.half - Math.abs(angleDeg(q, c) - shape.mid);
     }
     case 'capsule': {
-      const samples = sampleGreatCircle(shape.points, 0.75);
+      if (!shape.radii) {
+        const samples = sampleGreatCircle(shape.points, 0.75);
+        return (q) => {
+          let best = -1;
+          for (const s of samples) { const d = dot(q, s); if (d > best) best = d; }
+          return shape.radius - Math.acos(Math.max(-1, Math.min(1, best))) * (180 / Math.PI);
+        };
+      }
+      // Tapered: each vertex has its own radius, interpolated along the segment.
+      const radii = shape.radii;
+      if (radii.length !== shape.points.length) throw new Error('capsule radii must match its points');
+      const samples = samplePolyline(shape.points, 0.75).map(({ v, seg, t }) => ({
+        v, r: radii[seg] + (radii[seg + 1] - radii[seg]) * t,
+      }));
       return (q) => {
-        let best = -1;
-        for (const s of samples) { const d = dot(q, s); if (d > best) best = d; }
-        return shape.radius - Math.acos(Math.max(-1, Math.min(1, best))) * (180 / Math.PI);
+        let best = -Infinity;
+        for (const s of samples) {
+          const f = s.r - Math.acos(Math.max(-1, Math.min(1, dot(q, s.v)))) * (180 / Math.PI);
+          if (f > best) best = f;
+        }
+        return best;
+      };
+    }
+    case 'ellipse': {
+      // Semi-axes in degrees in the tangent plane at `center`; `a` runs along
+      // `heading` (0 = north, 90 = east). Only the near hemisphere counts.
+      const c = toVec(shape.center[0], shape.center[1]);
+      const east = normalize(cross([0, 0, 1], c));
+      const north = cross(c, east);
+      const h = shape.heading * (Math.PI / 180);
+      const ax: Vec3 = [
+        Math.cos(h) * north[0] + Math.sin(h) * east[0],
+        Math.cos(h) * north[1] + Math.sin(h) * east[1],
+        Math.cos(h) * north[2] + Math.sin(h) * east[2],
+      ];
+      const ay = cross(c, ax);
+      const deg = 180 / Math.PI;
+      return (q) => {
+        if (dot(q, c) <= 0) return -90;
+        const x = Math.asin(Math.max(-1, Math.min(1, dot(q, ax)))) * deg;
+        const y = Math.asin(Math.max(-1, Math.min(1, dot(q, ay)))) * deg;
+        const r = Math.hypot(x / shape.a, y / shape.b);
+        return (1 - r) * Math.min(shape.a, shape.b);
       };
     }
     default: {
@@ -176,6 +215,7 @@ class MinHeap {
 function buildLand(spec: SkeletonWorldSpec): { land: Uint8Array; cost: Float64Array } {
   const add = spec.land.add.map(shapeField);
   const cut = spec.land.cut.map(shapeField);
+  const restore = (spec.land.restore ?? []).map(shapeField);
   const land = new Uint8Array(W * H);
   const cost = new Float64Array(W * H);
   for (let y = 0; y < H; y++) {
@@ -188,6 +228,7 @@ function buildLand(spec: SkeletonWorldSpec): { land: Uint8Array; cost: Float64Ar
       let f = -90;
       for (const s of add) f = Math.max(f, s(q));
       for (const s of cut) f = Math.min(f, -s(q));
+      for (const s of restore) f = Math.max(f, s(q));
       const rough = (fbm3(p, spec.noise.freq, 5, spec.seed + 17) - 0.5) * 2;
       const i = y * W + x;
       land[i] = f + spec.noise.amp * rough > 0 ? 1 : 0;

@@ -68,7 +68,7 @@ export const GALAXY_AGE_FACTIONS: Faction[] = [
     description: 'Industrial cartels — shipyard logistics deliver +1 reinforcement per turn and Jump Gates at half price; supply inserts on demand.',
     lore: 'Shipyards and foundries form the true border between civilization and the dark between stars.',
     flavor_quote: 'We sell the hulls that empires die in.',
-    home_region_ids: ['rust_slag_wastes', 'rust_foundry_core', 'rust_ironstorm', 'rust_anchor_works'],
+    home_region_ids: ['rust_slag_wastes', 'rust_foundry_core', 'rust_ironstorm', 'rust_anchor_works', 'rust_hellas_deeps', 'rust_hesperia'],
     lineage_id: 'mercantile',
     reinforce_bonus: 2,
     // The Syndicate sells the hulls, so it builds the gate network at cost: half

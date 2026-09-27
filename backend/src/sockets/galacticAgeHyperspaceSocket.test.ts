@@ -443,7 +443,7 @@ describe.runIf(redisTestEnabled)('Galactic Age hyperspace — human socket path'
       // (rust_anvil_basin would NOT do: its lane ends on Helion's own
       // verdan_photic_crown, which makes an ordinary corridor fortify.)
       const verdanGate = 'verdan_chlorophage_span';
-      const rustGate = 'rust_hematite_span';
+      const rustGate = 'rust_ferro_span';
       state.territories[verdanGate].owner_id = P[2]; state.territories[verdanGate].unit_count = 9;
       state.territories[rustGate].owner_id = P[2]; state.territories[rustGate].unit_count = 2;
       await seed(gameId, state, map);

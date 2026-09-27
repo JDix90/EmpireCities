@@ -7,3 +7,12 @@
 
 /** Verdan Reach is tidally locked: the Eye sits at the substellar point, [lng, lat]. */
 export const VERDAN_SUBSTELLAR: [number, number] = [0, 50];
+
+/**
+ * The Rust Belt's Marineris Rift, as two great-circle polylines of [lng, lat]:
+ * the northern arm down to the Noctis isthmus, and the southern arm from the
+ * isthmus through the rift lake round the Tether Anchorage to the south polar
+ * sea. The generator cuts the rift out of the land; the painter makes it glow.
+ */
+export const RUST_RIFT_NORTH: Array<[number, number]> = [[-122, 44], [-108, 22], [-99, 11]];
+export const RUST_RIFT_SOUTH: Array<[number, number]> = [[-89, 2], [-72, -8], [-58, -16], [-47, -30], [-45, -48], [-54, -72]];
