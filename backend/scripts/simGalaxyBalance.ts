@@ -210,6 +210,12 @@ interface SeatTelemetry {
   jumpGatesBuilt: number;
   /** Attacks this seat resolved across a temporary Lane Surge. */
   surgeCrossings: number;
+  /** Tiles this seat captured, by the victim's faction ('neutral' for unowned). */
+  capturesFrom: Record<string, number>;
+  /** Tiles this seat captured, by the world they lie on. */
+  capturesOn: Record<string, number>;
+  /** The faction whose capture eliminated this seat, if one did. */
+  eliminatedBy: string | null;
   /** Convoys this seat sent, and how they ended (transit only). */
   convoysSent: number;
   convoysLanded: number;
@@ -239,6 +245,7 @@ function playAiTurn(
   orbitLanePairs: Set<string>,
   connectionsByKey: Map<string, MapConnection>,
   seat: SeatTelemetry,
+  telemetryFor: (playerId: string) => SeatTelemetry,
 ): void {
   state.phase = 'draft';
   // Seed the AI's heuristic jitter. Production leaves it on Math.random, which
@@ -295,9 +302,21 @@ function playAiTurn(
     // the kill-switch game.
     const connection = connectionsByKey.get(laneKey(a.from, a.to));
     for (;;) {
-      const ownerBefore = state.territories[a.to]?.owner_id;
+      const ownerBefore: string | null | undefined = state.territories[a.to]?.owner_id;
+      const victimAliveBefore = ownerBefore ? !state.players.find((p) => p.player_id === ownerBefore)?.is_eliminated : false;
       const outcome = executeLandAttack(state, pid, a.from, a.to, { dieRoll, connection, neutralOffworldCaptureAllowed });
       budget.left -= 1;
+      if (outcome && state.territories[a.to].owner_id === pid && ownerBefore !== pid) {
+        const victim: GameState["players"][number] | undefined = ownerBefore ? state.players.find((p) => p.player_id === ownerBefore) : undefined;
+        const vf = victim?.faction_id ?? 'neutral';
+        seat.capturesFrom[vf] = (seat.capturesFrom[vf] ?? 0) + 1;
+        const w = state.territories[a.to].world_id ?? '?';
+        seat.capturesOn[w] = (seat.capturesOn[w] ?? 0) + 1;
+        if (victim && victimAliveBefore && ownedIds(state, victim.player_id).length === 0) {
+          const me = state.players.find((p) => p.player_id === pid)!;
+          telemetryFor(victim.player_id).eliminatedBy = me.faction_id ?? null;
+        }
+      }
       if (outcome && connection?.source === 'lane_surge') seat.surgeCrossings++;
       if (outcome) {
         if (crossesLane) {
@@ -443,6 +462,9 @@ function runGame(gameIndex: number, map: GameMap): GameStat {
       homeExchanges: 0,
       jumpGatesBuilt: 0,
       surgeCrossings: 0,
+      capturesFrom: {},
+      capturesOn: {},
+      eliminatedBy: null,
       convoysSent: 0,
       convoysLanded: 0,
       convoysTurnedBack: 0,
@@ -467,7 +489,7 @@ function runGame(gameIndex: number, map: GameMap): GameStat {
     guard++;
     const player = state.players[state.current_player_index];
     if (!player.is_eliminated) {
-      playAiTurn(state, map, player.player_id, DIFFICULTY, dieRoll, jitter, lanes, connectionsByKey, telemetry[player.player_id]);
+      playAiTurn(state, map, player.player_id, DIFFICULTY, dieRoll, jitter, lanes, connectionsByKey, telemetry[player.player_id], (id) => telemetry[id]);
     }
     advanceToNextPlayer(state, map);
     for (const arrival of state.last_transit_arrivals ?? []) {
@@ -647,6 +669,32 @@ function main(): void {
     );
   }
   console.log(`  chartT/1stCrossT: turn, averaged over seats that got there · crossEx→crossCap: lane exchanges vs captures`);
+
+  // Who takes tiles from whom, and on which world: a rule on one world can move
+  // a faction that never touches it only through the others' choices.
+  const victims = [...FACTIONS, 'neutral'];
+  console.log(`\n— Captures per game, attacker (row) → victim (column) —`);
+  console.log(`  ${'attacker'.padEnd(20)}${victims.map((v) => v.split('_')[0].slice(0, 8).padStart(10)).join('')}`);
+  for (const f of FACTIONS) {
+    const seats = seatsByFaction.get(f) ?? [];
+    if (seats.length === 0) continue;
+    console.log(`  ${f.padEnd(20)}${victims.map((v) => fixed(avg(seats.map((s) => s.capturesFrom[v] ?? 0))).padStart(10)).join('')}`);
+  }
+  const worldList = worldIds(map);
+  console.log(`\n— Captures per game by world, attacker (row) —`);
+  console.log(`  ${'attacker'.padEnd(20)}${worldList.map((w) => w.slice(0, 8).padStart(10)).join('')}`);
+  for (const f of FACTIONS) {
+    const seats = seatsByFaction.get(f) ?? [];
+    if (seats.length === 0) continue;
+    console.log(`  ${f.padEnd(20)}${worldList.map((w) => fixed(avg(seats.map((s) => s.capturesOn[w] ?? 0))).padStart(10)).join('')}`);
+  }
+  console.log(`\n— Eliminated by (share of this faction's games) —`);
+  for (const f of FACTIONS) {
+    const seats = seatsByFaction.get(f) ?? [];
+    if (seats.length === 0) continue;
+    const by = FACTIONS.map((k) => `${k.split('_')[0]} ${pct(seats.filter((s) => s.eliminatedBy === k).length, seats.length)}`).join(' · ');
+    console.log(`  ${f.padEnd(20)}${by}`);
+  }
 
   // Per-world concentration: a galaxy where every world ends wholly owned by one
   // player has stopped being contested, whatever the win rates say.
