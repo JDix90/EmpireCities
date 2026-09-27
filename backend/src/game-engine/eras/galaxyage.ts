@@ -31,6 +31,12 @@ import type { Faction, TechNode, EraWonder } from './types';
 //   starts neutral and whoever holds all four tiles earns +2 TP/turn and an
 //   Emergency Seal on any lane — a prize the Custodians start nearest to but
 //   must take (see state/worldRules.ts and GALAXY-BALANCE.md).
+// - The Shattered Shell (Nexus rebuilt as a hub around the Vault) needed both
+//   halves back, smaller: the Vault's `home_unit_bonus: 1`, and a per-tile tech
+//   modifier of 0.084 so the Custodians' twelve opening tiles earn 1 TP/turn
+//   (0.0625 floored to 0 there). Measured 1,000 games x 3 seeds: bonus alone
+//   left Nexus at 16-19% and Forge at up to 34%; bonus 2 sent Verdan to 34%
+//   and Sol to 14%; bonus 1 + 0.084 put all four factions at 19.7-29.8%.
 // ──────────────────────────────────────────────────────────────────────────
 
 // Lineage ids matter only on a spine that climbs INTO this era — Space to Stars.

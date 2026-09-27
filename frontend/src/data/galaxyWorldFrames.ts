@@ -16,3 +16,10 @@ export const VERDAN_SUBSTELLAR: [number, number] = [0, 50];
  */
 export const RUST_RIFT_NORTH: Array<[number, number]> = [[-122, 44], [-108, 22], [-99, 11]];
 export const RUST_RIFT_SOUTH: Array<[number, number]> = [[-89, 2], [-72, -8], [-58, -16], [-47, -30], [-45, -48], [-54, -72]];
+
+/**
+ * Nexus Station's Gate crater, [lng, lat]: the Vault's Gate Ring circles it and
+ * the shell's shards radiate from it. It sits on the equator so the shell,
+ * which reaches ~75° from the Gate, clears both poles.
+ */
+export const NEXUS_GATE: [number, number] = [8, 0];

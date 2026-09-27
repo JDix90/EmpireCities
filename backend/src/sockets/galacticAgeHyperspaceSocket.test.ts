@@ -58,7 +58,7 @@ const DENY = 'Hyperspace travel requires: Lane Charts tech';
 /** Kill-switch settings: the classic Chart gate, no lane cap. */
 const GATED = { galaxy_corridors_enabled: false } as unknown as Partial<GameSettings>;
 // Lanes touching Nexus Station (Custodians' world), for Emergency Seal.
-const N1 = { sol: 'sol_amazonia', nexus: 'nexus_harmonic_rim' };
+const N1 = { sol: 'sol_amazonia', nexus: 'nexus_lodgeway' };
 const N2 = { sol: 'sol_cathay', nexus: 'nexus_resonance_vault' };
 
 describe.runIf(redisTestEnabled)('Galactic Age hyperspace — human socket path', () => {
