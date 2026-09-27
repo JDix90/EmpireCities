@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   transitionEraSystemDefaults,
-  missingEraSystemsWarning,
+  lockedSystemsForEra,
+  lockedEraSystemsNotice,
   requiredSystemsForEra,
   withRequiredEraSystems,
 } from './eraSystemDefaults';
@@ -121,14 +122,25 @@ describe('withRequiredEraSystems', () => {
   });
 });
 
-describe('missingEraSystemsWarning', () => {
-  it('warns when a required system is off for the selected era', () => {
-    expect(missingEraSystemsWarning('space_age', { economy: true, tech_trees: false, factions: false })).toMatch(/Moon/);
-    expect(missingEraSystemsWarning('galaxy_age', off)).toMatch(/[Hh]yperspace/);
+describe('locked eras', () => {
+  it('locks every required system, and nothing for eras without requirements', () => {
+    expect([...lockedSystemsForEra('space_age')].sort()).toEqual(['economy', 'tech_trees']);
+    expect([...lockedSystemsForEra('galaxy_age')].sort()).toEqual(['economy', 'factions', 'tech_trees']);
+    for (const era of ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern', 'acw', 'risorgimento']) {
+      expect(lockedSystemsForEra(era).size).toBe(0);
+    }
   });
 
-  it('stays quiet when requirements are met or the era has none', () => {
-    expect(missingEraSystemsWarning('space_age', on)).toBeNull();
-    expect(missingEraSystemsWarning('ww2', off)).toBeNull();
+  it('shows each era\'s explanation up front, and no notice for eras without requirements', () => {
+    const space = lockedEraSystemsNotice('space_age');
+    expect(space).toMatch(/^Space Age always plays with Economy & Buildings and Technology Trees/);
+    expect(space).toMatch(/Moon/);
+    const galaxy = lockedEraSystemsNotice('galaxy_age');
+    expect(galaxy).toMatch(/^Galactic Age always plays with Economy & Buildings, Technology Trees and Asymmetric Factions/);
+    expect(galaxy).toMatch(/[Hh]yperspace/);
+    // The lock makes the old "switched off anyway" outcomes impossible, so the copy no longer describes them.
+    expect(space).not.toMatch(/[Ww]ithout them/);
+    expect(galaxy).not.toMatch(/[Ww]ithout factions/);
+    expect(lockedEraSystemsNotice('ww2')).toBeNull();
   });
 });
