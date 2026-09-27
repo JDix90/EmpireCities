@@ -10,6 +10,8 @@ import {
   colorizeOcean,
   fillEquirectRGBA,
   verdanSea,
+  rustSea,
+  rustRiftDistance,
   type PlanetKind,
 } from './proceduralPlanet';
 
@@ -178,5 +180,29 @@ describe("Verdan's sea (tidally locked)", () => {
         }
       }
     }
+  });
+});
+
+describe("the Rust Belt's sea", () => {
+  const at = (lng: number, lat: number) => rustSea((lng + 180) / 360, (90 - lat) / 180, 7711);
+  const lum = (c: number[]) => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
+
+  it('measures distance to the Marineris Rift', () => {
+    expect(rustRiftDistance(-72, -8)).toBeLessThan(1.5); // a rift vertex
+    expect(rustRiftDistance(130, 10)).toBeGreaterThan(90); // the far side
+  });
+
+  it('glows molten along the rift and stays dark slag elsewhere', () => {
+    const rift = at(-58, -16); // the rift lake
+    const ocean = at(130, 10); // the Oxide Ocean
+    expect(rift[0]).toBeGreaterThan(200);
+    expect(rift[0]).toBeGreaterThan(rift[2] * 3);
+    expect(lum(ocean)).toBeLessThan(60);
+    expect(lum(rift)).toBeGreaterThan(lum(ocean) * 2);
+  });
+
+  it('frosts over at the poles', () => {
+    const pole = at(130, -85);
+    expect(lum(pole)).toBeGreaterThan(150);
   });
 });

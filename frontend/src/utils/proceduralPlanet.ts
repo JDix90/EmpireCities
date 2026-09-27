@@ -16,7 +16,7 @@
  * (callers then fall back to the globe's default), so this is safe under jsdom.
  */
 
-import { VERDAN_SUBSTELLAR } from '../data/galaxyWorldFrames';
+import { RUST_RIFT_NORTH, RUST_RIFT_SOUTH, VERDAN_SUBSTELLAR } from '../data/galaxyWorldFrames';
 
 export type PlanetKind = 'ocean' | 'verdant' | 'desert' | 'city' | 'rocky';
 
@@ -156,6 +156,83 @@ export function verdanSea(u: number, v: number, seed: number): RGB {
   return mix(mix(day, twilight, smoothstep(46, 70, a)), night, smoothstep(96, 116, a));
 }
 
+const RUST_SLAG = hexToRgb('#381910');
+const RUST_RIFT = hexToRgb('#ff6b1a');
+const RUST_RIFT_GLOW = hexToRgb('#ffb347');
+const RUST_FROST = hexToRgb('#dccbbd');
+
+// ── The Rust Belt's rift ──────────────────────────────────────────────────────
+// Great-circle distance (degrees) to the nearest point of the Marineris Rift,
+// on a 1° grid built once on first use: exact per-texel distance to ~200 rift
+// samples would cost ~100M dot products per texture.
+let rustRiftGrid: Float32Array | null = null;
+
+function rustRiftSamples(): Array<[number, number, number]> {
+  const out: Array<[number, number, number]> = [];
+  const rad = Math.PI / 180;
+  const vec = ([lng, lat]: [number, number]): [number, number, number] => [
+    Math.cos(lat * rad) * Math.cos(lng * rad), Math.cos(lat * rad) * Math.sin(lng * rad), Math.sin(lat * rad),
+  ];
+  for (const line of [RUST_RIFT_NORTH, RUST_RIFT_SOUTH]) {
+    for (let i = 0; i < line.length - 1; i++) {
+      const a = vec(line[i]);
+      const b = vec(line[i + 1]);
+      for (let k = 0; k <= 20; k++) {
+        const t = k / 20;
+        const p: [number, number, number] = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+        const n = Math.hypot(p[0], p[1], p[2]);
+        out.push([p[0] / n, p[1] / n, p[2] / n]);
+      }
+    }
+  }
+  return out;
+}
+
+export function rustRiftDistance(lng: number, lat: number): number {
+  if (!rustRiftGrid) {
+    const samples = rustRiftSamples();
+    const grid = new Float32Array(361 * 181);
+    const rad = Math.PI / 180;
+    for (let j = 0; j <= 180; j++) {
+      const la = (90 - j) * rad;
+      for (let i = 0; i <= 360; i++) {
+        const lo = (i - 180) * rad;
+        const x = Math.cos(la) * Math.cos(lo), y = Math.cos(la) * Math.sin(lo), z = Math.sin(la);
+        let best = -1;
+        for (const s of samples) { const d = x * s[0] + y * s[1] + z * s[2]; if (d > best) best = d; }
+        grid[j * 361 + i] = Math.acos(Math.max(-1, Math.min(1, best))) / rad;
+      }
+    }
+    rustRiftGrid = grid;
+  }
+  const fx = Math.max(0, Math.min(360, lng + 180));
+  const fy = Math.max(0, Math.min(180, 90 - lat));
+  const i0 = Math.min(359, Math.floor(fx)), j0 = Math.min(179, Math.floor(fy));
+  const tx = fx - i0, ty = fy - j0;
+  const g = rustRiftGrid;
+  const top = g[j0 * 361 + i0] * (1 - tx) + g[j0 * 361 + i0 + 1] * tx;
+  const bot = g[(j0 + 1) * 361 + i0] * (1 - tx) + g[(j0 + 1) * 361 + i0 + 1] * tx;
+  return top * (1 - ty) + bot * ty;
+}
+
+/**
+ * The Rust Belt's seas: the dark slag of the Borealis and Oxide oceans, lit
+ * from below where the Marineris Rift runs molten through the plate, with
+ * frost at the poles.
+ */
+export function rustSea(u: number, v: number, seed: number): RGB {
+  const lng = u * 360 - 180;
+  const lat = 90 - v * 180;
+  const n1 = fbm(u, v, 5, 5, seed + 31);
+  const n2 = fbm(u, v, 14, 3, seed + 33);
+  const base = scale(RUST_SLAG, 0.75 + 0.5 * n1);
+  const glow = Math.max(0, Math.min(1, 1 - rustRiftDistance(lng, lat) / 8)) ** 1.3;
+  const lava = scale(mix(RUST_RIFT, RUST_RIFT_GLOW, n2), 0.85 + 0.25 * n1);
+  const c = mix(base, lava, glow);
+  const frost = Math.max(smoothstep(70, 80, -lat), smoothstep(74, 84, lat));
+  return mix(c, RUST_FROST, frost * 0.85);
+}
+
 const PAL = {
   sol: ['#0c2549', '#15406f', '#2f6fae', '#5fa0c8'].map(hexToRgb),
   sol_land: ['#2c5c39', '#3f7a47', '#8a8b54', '#b9b58a'].map(hexToRgb),
@@ -289,7 +366,7 @@ export function colorizeLand(kind: PlanetKind, u: number, v: number, seed: numbe
 /** Surface colour for a texel BETWEEN territories (ocean / dark basin / void). */
 export function colorizeOcean(kind: PlanetKind, u: number, v: number, seed: number): RGB {
   if (kind === 'desert') {
-    return ramp(PAL.rust, fbm(u, v, 5, 5, seed + 31) * 0.45); // dark cracked basins (lower ramp)
+    return rustSea(u, v, seed);
   }
   if (kind === 'ocean') {
     return ramp(PAL.sol, fbm(u, v, 5, 5, seed + 21));

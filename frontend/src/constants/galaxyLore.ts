@@ -43,11 +43,11 @@ export const GALAXY_WORLD_LORE: Record<string, GalaxyWorldLore> = {
   },
   rust: {
     display_name: 'Rust Belt',
-    tagline: 'Forge-World — Industrial Syndicate',
+    tagline: 'The Sundered Plate — Forge Syndicate',
     description:
-      "Once a cool red world, Rust Belt was disassembled across two centuries by the Forge Syndicate's mining megacorps. Its ancient volcanoes — Olympus, Tharsis, Pavonis — are now the largest factory complexes ever built; their slopes are hollowed into shipyards stacked dozens of decks deep. Forge citizens are gene-hardened against radiation and dust.",
+      "Once a cool red world, the Rust Belt was disassembled across two centuries by the Forge Syndicate's mining megacorps, and cracked open in the doing. The Marineris Rift now runs molten nearly pole to pole. West of it lies the Tharsis plate, whose old volcanoes — Olympus, Ascraeus, Pavonis — are hollowed into shipyards dozens of decks deep; east of it, the Hesperia–Hellas plate and its deep mines. Forge citizens are gene-hardened against radiation and dust.",
     stakes:
-      'Territory follows slag rivers and tether anchors — Syndicate guild charters redraw holdings whenever a caldera plant changes hands or a tether chapter sells passage.',
+      'Three places cross the rift: the Noctis isthmus, the Tether Anchorage where the space elevator comes down, and the southern narrows. Every guild war on the Belt has been fought over one of them.',
   },
   nexus_station: {
     display_name: 'Nexus Station',
@@ -179,36 +179,92 @@ export const GALAXY_TERRITORY_LORE_DETAIL: Record<string, GalaxyTerritoryLoreDet
     hold: 'Pollen reefs rise out of the cloud-sea — flat, gold, and walkable for the few hours the wind drops.',
   },
 
-  // ── Rust Belt ───────────────────────────────────────────────────────────
-  rust_olympus: {
+  // ── Rust Belt — the Sundered Plate ──────────────────────────────────────
+  // Tharsis Foundries, on the west plate.
+  rust_caldera_foundry: {
     frontier:
-      'Follows pressure bulkheads inside the hollow caldera — guild chapters duel over deck slices whenever a foundry crucible changes allegiance.',
-    hold: 'Olympus shipyards stack kilometers deep; gantry cranes cast shadows long enough to calendar shifts across three time zones of forge smoke.',
+      'Runs round the rim of the Olympus caldera — guild chapters duel over deck slices whenever a foundry crucible changes allegiance.',
+    hold: 'The Olympus shipyards stack kilometres deep; gantry cranes cast shadows long enough to calendar shifts across three time zones of forge smoke.',
   },
-  rust_tharsis: {
+  rust_crucible_deep: {
     frontier:
-      'Geothermal conduit treaties zigzag with slag rivers — whoever controls a vent spine inherits kilometers of radiant trench law.',
-    hold: 'Three live volcanoes feed continent-wide plasma plants; cooling lakes glow dull orange from dumped reactor glass.',
+      'The hub of the west plate. Every road from Tharsis to the isthmus runs past Pavonis, so all five of its borders are contested.',
+    hold: 'The Pavonis crucible pours hull steel in rivers a kilometre wide; its heat bloom shows from orbit on the night side.',
   },
-  rust_marineris: {
+  rust_smelter_crown: {
     frontier:
-      'Anchored to the tether elevator footprint — borders jag along cable shadow corridors where debris shields still orbit from the Syndicate schism.',
-    hold: 'Marineris hosts the counterweight stalk — freight climbers crawl like luminous ants along a cable visible from orbit on clear dust days.',
+      'Bounded on the east by the rift’s northern arm; the cliff-top smelters look straight down into the glow.',
+    hold: 'Ascraeus smelters vent sulphur plumes the Syndicate bottles and sells back to Verdan as fertiliser.',
   },
-  rust_hellas: {
+  // Argyre Marches: the Verdan front.
+  rust_furnace_marches: {
     frontier:
-      'Deep pit mining rights scar the basin rim — each terrace notch records a bankruptcy auction or a guild duel fought in vac suits.',
+      'Drawn round the Verdan lane at the western edge of the plate — the Navigators land here, and the Syndicate taxes every crate.',
+    hold: 'Furnace towns built from the slag of the towns before them; the lane port is the only thing on the Marches older than a decade.',
+  },
+  rust_oxide_flats: {
+    frontier:
+      'The west bank of the rift lake. Its ferries to the Tether Anchorage run on a timetable written in blood feud.',
+    hold: 'Salt flats where the rift lake boils off; oxide crews rake the crust into pigment and propellant.',
+  },
+  rust_anvil_basin: {
+    frontier:
+      'The Argyre impact basin, walled by its own rim. The Photic Crown lane comes down on its floor, and the southern narrows open off its eastern shore.',
+    hold: 'Torch-drive frigate slips glow white-hot at night; mech-frame ranges crater the regolith in overlapping trial circles.',
+  },
+  // Anchor Works: the crossings.
+  rust_bessemer_cut: {
+    frontier:
+      'The only land bridge across the rift. Whoever holds the Cut holds the Belt together — or holds it apart.',
+    hold: 'Noctis Labyrinthus, cut down to one fortified causeway; the Bessemer converters along it never stop, because the heat is the wall.',
+  },
+  rust_tether_anchorage: {
+    frontier:
+      'An island in the rift lake where the space elevator comes down, ferried from both banks and never held by either for long.',
+    hold: 'Freight climbers crawl like luminous ants up a cable visible from orbit on clear dust days; the anchorage pays for half the Syndicate.',
+  },
+  // Hellas Deeps, on the east plate.
+  rust_cinderworks: {
+    frontier:
+      'The east bank of the rift lake, facing the anchorage ferry across water that glows at night.',
+    hold: 'Kilns fired by rift heat bake the east plate’s ore into ingots before it ever leaves the ground.',
+  },
+  rust_ironstorm_belt: {
+    frontier:
+      'Faces Anvil Basin across the southern narrows. The dust storms that name it close the crossing for weeks at a time.',
+    hold: 'Magnetite dunes that sing in the wind; the Belt’s mines run under the storms, not through them.',
+  },
+  rust_dross_hollow: {
+    frontier:
+      'The Hellas basin rim — each terrace notch records a bankruptcy auction or a guild duel fought in vac suits.',
     hold: 'Hellas floor mines pre-Diaspora alloys; acoustic pings still bounce off sealed vault doors nobody admits owning keys for.',
   },
-  rust_cydonia: {
+  // Hesperia: the Nexus front.
+  rust_scoria_flats: {
     frontier:
-      'Custodian observers drew irregular cordons after “terrain incidents” — tourism bans mask sensor grids listening for harmonic wakes in the bedrock.',
-    hold: 'Forge tourists die rich documenting taboo mesas; locals charge danger fees that double whenever satellites eclipse.',
+      'Where the Bessemer causeway lands on the east plate. Every army that crosses the Cut comes down here first.',
+    hold: 'The Chryse lava plains, glassy and black; the Syndicate’s rail yards fan out across them from the causeway head.',
   },
-  rust_argyre: {
+  rust_hematite_span: {
     frontier:
-      'Southern yards inherit tidal dust schedules — borders shift with seasonal storms that bury marker beacons unless guilds pay upkeep.',
-    hold: 'Torch-drive frigate slips glow white-hot at night; mech-frame ranges crater the regolith in overlapping trial circles.',
+      'The old Arabia highlands, split by claims older than the Syndicate — the survey stakes are Diaspora-era steel.',
+    hold: 'Hematite spherules lie on the ground like shot; harvesters sweep them up faster than the wind can bury them.',
+  },
+  rust_ferro_span: {
+    frontier:
+      'Holds the Nexus lane on the Syrtis shoulder at the eastern edge of the plate; the Custodians inspect every hull that leaves.',
+    hold: 'Plateau and lane port in one: the Span ships the Belt’s output to the Custodians and brings back gate time.',
+  },
+  // Slag Wastes: platforms in the Borealis slag sea.
+  rust_slag_reach: {
+    frontier:
+      'A platform in the Borealis slag sea holding the second Nexus lane. Its border is the edge of the platform.',
+    hold: 'Acidalia’s slag was dumped here for a century until it hardened into ground; the lane port sits on the oldest layer.',
+  },
+  rust_tailing_drift: {
+    frontier:
+      'A spoil platform chained to the Hesperia shore by ferry lines that snap in every storm.',
+    hold: 'Utopia’s tailings pile, settle and pile again; the crews who live on the Drift build on whatever held last year.',
   },
 
   // ── Nexus Station ───────────────────────────────────────────────────────

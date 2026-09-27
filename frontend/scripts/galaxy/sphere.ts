@@ -25,11 +25,11 @@ export function dot(a: Vec3, b: Vec3): number {
   return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 }
 
-function cross(a: Vec3, b: Vec3): Vec3 {
+export function cross(a: Vec3, b: Vec3): Vec3 {
   return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 }
 
-function normalize(v: Vec3): Vec3 {
+export function normalize(v: Vec3): Vec3 {
   const n = Math.hypot(v[0], v[1], v[2]) || 1;
   return [v[0] / n, v[1] / n, v[2] / n];
 }
@@ -67,8 +67,16 @@ export function polar(center: LngLat, azimuth: number, dist: number): LngLat {
 
 /** Points every ~`stepDeg` along the great-circle polyline through `points`. */
 export function sampleGreatCircle(points: LngLat[], stepDeg: number): Vec3[] {
+  return samplePolyline(points, stepDeg).map((s) => s.v);
+}
+
+/**
+ * The same samples, each with the segment it lies on and how far along it
+ * (0..1), so a caller can interpolate a per-vertex value such as a radius.
+ */
+export function samplePolyline(points: LngLat[], stepDeg: number): Array<{ v: Vec3; seg: number; t: number }> {
   const vs = points.map(([lng, lat]) => toVec(lng, lat));
-  const out: Vec3[] = [];
+  const out: Array<{ v: Vec3; seg: number; t: number }> = [];
   for (let i = 0; i < vs.length - 1; i++) {
     const a = vs[i];
     const b = vs[i + 1];
@@ -76,12 +84,12 @@ export function sampleGreatCircle(points: LngLat[], stepDeg: number): Vec3[] {
     const n = Math.max(2, Math.floor(om / RAD / stepDeg));
     for (let k = 0; k < n; k++) {
       const t = k / n;
-      if (om < 1e-9) { out.push(a); continue; }
+      if (om < 1e-9) { out.push({ v: a, seg: i, t }); continue; }
       const s0 = Math.sin((1 - t) * om) / Math.sin(om);
       const s1 = Math.sin(t * om) / Math.sin(om);
-      out.push([s0 * a[0] + s1 * b[0], s0 * a[1] + s1 * b[1], s0 * a[2] + s1 * b[2]]);
+      out.push({ v: [s0 * a[0] + s1 * b[0], s0 * a[1] + s1 * b[1], s0 * a[2] + s1 * b[2]], seg: i, t });
     }
   }
-  out.push(vs[vs.length - 1]);
+  out.push({ v: vs[vs.length - 1], seg: vs.length - 2, t: 1 });
   return out;
 }
