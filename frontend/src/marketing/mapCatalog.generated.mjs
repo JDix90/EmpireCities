@@ -660,112 +660,112 @@ export const ERA_MAPS = {
       {
         "name": "Roman West",
         "bonus": 5,
-        "territory_count": 0
+        "territory_count": 5
       },
       {
         "name": "Roman East",
         "bonus": 4,
-        "territory_count": 0
+        "territory_count": 4
       },
       {
         "name": "Parthian Empire",
         "bonus": 4,
-        "territory_count": 0
+        "territory_count": 4
       },
       {
         "name": "Han China",
         "bonus": 3,
-        "territory_count": 0
+        "territory_count": 4
       },
       {
         "name": "Indian Subcontinent",
         "bonus": 4,
-        "territory_count": 0
+        "territory_count": 3
       },
       {
         "name": "Africa",
         "bonus": 5,
-        "territory_count": 0
+        "territory_count": 3
       },
       {
         "name": "Eurasian Steppe",
         "bonus": 5,
-        "territory_count": 0
+        "territory_count": 3
       },
       {
         "name": "Germanic Lands",
         "bonus": 3,
-        "territory_count": 0
+        "territory_count": 2
       },
       {
         "name": "Northern Frontier",
         "bonus": 3,
-        "territory_count": 0
+        "territory_count": 2
       },
       {
         "name": "Sahara",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 1
       },
       {
         "name": "The Far East",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 1
       },
       {
         "name": "Southeast Asia",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 1
       },
       {
         "name": "The Northern Reaches",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 2
       },
       {
         "name": "The Southern Reaches",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 1
       },
       {
         "name": "Oceania",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 3
       },
       {
         "name": "North America",
         "bonus": 4,
-        "territory_count": 0
+        "territory_count": 4
       },
       {
         "name": "South America",
         "bonus": 4,
-        "territory_count": 0
+        "territory_count": 4
       },
       {
         "name": "Insulindia",
         "bonus": 3,
-        "territory_count": 0
+        "territory_count": 3
       },
       {
         "name": "The Caribbean",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 1
       },
       {
         "name": "Horn of Africa",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 1
       },
       {
         "name": "Antarctica",
         "bonus": 3,
-        "territory_count": 0
+        "territory_count": 4
       },
       {
         "name": "The Himalayas",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 1
       }
     ]
   },
@@ -782,62 +782,62 @@ export const ERA_MAPS = {
       {
         "name": "Western Europe",
         "bonus": 5,
-        "territory_count": 0
+        "territory_count": 5
       },
       {
         "name": "Eastern Europe",
         "bonus": 4,
-        "territory_count": 0
+        "territory_count": 4
       },
       {
         "name": "Middle East",
         "bonus": 5,
-        "territory_count": 0
+        "territory_count": 6
       },
       {
         "name": "Mongol Heartland",
         "bonus": 3,
-        "territory_count": 0
+        "territory_count": 3
       },
       {
         "name": "China & Korea",
         "bonus": 3,
-        "territory_count": 0
+        "territory_count": 4
       },
       {
         "name": "India & Sea Routes",
         "bonus": 3,
-        "territory_count": 0
+        "territory_count": 3
       },
       {
         "name": "Africa",
         "bonus": 4,
-        "territory_count": 0
+        "territory_count": 3
       },
       {
         "name": "Scandinavia",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 1
       },
       {
         "name": "New World",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 2
       },
       {
         "name": "Sub-Saharan Frontier",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 2
       },
       {
         "name": "Oceania",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 2
       },
       {
         "name": "Pacific Rim",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 1
       }
     ]
   },
@@ -854,62 +854,62 @@ export const ERA_MAPS = {
       {
         "name": "Europe",
         "bonus": 6,
-        "territory_count": 0
+        "territory_count": 6
       },
       {
         "name": "Ottoman Empire",
         "bonus": 6,
-        "territory_count": 0
+        "territory_count": 7
       },
       {
         "name": "North America",
         "bonus": 3,
-        "territory_count": 0
+        "territory_count": 3
       },
       {
         "name": "South America",
         "bonus": 3,
-        "territory_count": 0
+        "territory_count": 4
       },
       {
         "name": "Africa",
         "bonus": 5,
-        "territory_count": 0
+        "territory_count": 5
       },
       {
         "name": "Mughal India",
         "bonus": 5,
-        "territory_count": 0
+        "territory_count": 3
       },
       {
         "name": "Ming China",
         "bonus": 3,
-        "territory_count": 0
+        "territory_count": 4
       },
       {
         "name": "Sea Routes",
         "bonus": 4,
-        "territory_count": 0
+        "territory_count": 2
       },
       {
         "name": "Polar Frontier",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 1
       },
       {
         "name": "Pacific Frontier",
         "bonus": 3,
-        "territory_count": 0
+        "territory_count": 3
       },
       {
         "name": "Oceania",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 1
       },
       {
         "name": "Antarctic Frontier",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 2
       }
     ]
   },
@@ -926,62 +926,62 @@ export const ERA_MAPS = {
       {
         "name": "Western Front",
         "bonus": 4,
-        "territory_count": 0
+        "territory_count": 5
       },
       {
         "name": "British Isles",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 1
       },
       {
         "name": "Eastern Front",
         "bonus": 5,
-        "territory_count": 0
+        "territory_count": 6
       },
       {
         "name": "North Africa",
         "bonus": 4,
-        "territory_count": 0
+        "territory_count": 4
       },
       {
         "name": "Pacific Theatre",
         "bonus": 5,
-        "territory_count": 0
+        "territory_count": 6
       },
       {
         "name": "China Theatre",
         "bonus": 4,
-        "territory_count": 0
+        "territory_count": 5
       },
       {
         "name": "Atlantic",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 2
       },
       {
         "name": "Middle East",
         "bonus": 4,
-        "territory_count": 0
+        "territory_count": 4
       },
       {
         "name": "Sub-Saharan Africa",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 2
       },
       {
         "name": "Remote Frontiers",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 2
       },
       {
         "name": "Southern Ocean",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 2
       },
       {
         "name": "Antarctica",
         "bonus": 3,
-        "territory_count": 0
+        "territory_count": 3
       }
     ]
   },
@@ -998,72 +998,72 @@ export const ERA_MAPS = {
       {
         "name": "NATO Europe",
         "bonus": 4,
-        "territory_count": 0
+        "territory_count": 6
       },
       {
         "name": "British Isles",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 1
       },
       {
         "name": "Warsaw Pact",
         "bonus": 7,
-        "territory_count": 0
+        "territory_count": 8
       },
       {
         "name": "North America",
         "bonus": 3,
-        "territory_count": 0
+        "territory_count": 4
       },
       {
         "name": "Latin America",
         "bonus": 4,
-        "territory_count": 0
+        "territory_count": 5
       },
       {
         "name": "Middle East",
         "bonus": 5,
-        "territory_count": 0
+        "territory_count": 6
       },
       {
         "name": "Africa",
         "bonus": 5,
-        "territory_count": 0
+        "territory_count": 5
       },
       {
         "name": "South & SE Asia",
         "bonus": 5,
-        "territory_count": 0
+        "territory_count": 4
       },
       {
         "name": "East Asia",
         "bonus": 5,
-        "territory_count": 0
+        "territory_count": 5
       },
       {
         "name": "Polar Frontier",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 1
       },
       {
         "name": "Antarctic Claims",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 2
       },
       {
         "name": "Oceanic Frontier",
         "bonus": 3,
-        "territory_count": 0
+        "territory_count": 2
       },
       {
         "name": "Non-Aligned Pacific",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 1
       },
       {
         "name": "Space Frontier",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 1
       }
     ]
   },
@@ -1080,57 +1080,57 @@ export const ERA_MAPS = {
       {
         "name": "North America",
         "bonus": 5,
-        "territory_count": 0
+        "territory_count": 5
       },
       {
         "name": "South America",
         "bonus": 4,
-        "territory_count": 0
+        "territory_count": 5
       },
       {
         "name": "Europe",
         "bonus": 6,
-        "territory_count": 0
+        "territory_count": 7
       },
       {
         "name": "Russia & CIS",
         "bonus": 7,
-        "territory_count": 0
+        "territory_count": 5
       },
       {
         "name": "Middle East & North Africa",
         "bonus": 6,
-        "territory_count": 0
+        "territory_count": 6
       },
       {
         "name": "Sub-Saharan Africa",
         "bonus": 5,
-        "territory_count": 0
+        "territory_count": 6
       },
       {
         "name": "Asia",
         "bonus": 7,
-        "territory_count": 0
+        "territory_count": 7
       },
       {
         "name": "Oceania & Pacific",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 2
       },
       {
         "name": "Polar Frontier",
         "bonus": 3,
-        "territory_count": 0
+        "territory_count": 3
       },
       {
         "name": "Orbital Frontier",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 2
       },
       {
         "name": "Deep Ocean Frontier",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 2
       }
     ]
   },
@@ -1147,32 +1147,32 @@ export const ERA_MAPS = {
       {
         "name": "Union — Northeast & Lakes",
         "bonus": 4,
-        "territory_count": 0
+        "territory_count": 3
       },
       {
         "name": "Union — Midwest",
         "bonus": 6,
-        "territory_count": 0
+        "territory_count": 3
       },
       {
         "name": "Border States",
         "bonus": 7,
-        "territory_count": 0
+        "territory_count": 3
       },
       {
         "name": "Confederacy — Atlantic",
         "bonus": 4,
-        "territory_count": 0
+        "territory_count": 3
       },
       {
         "name": "Confederacy — Gulf & River",
         "bonus": 4,
-        "territory_count": 0
+        "territory_count": 3
       },
       {
         "name": "Confederacy — Trans-Mississippi",
         "bonus": 5,
-        "territory_count": 0
+        "territory_count": 3
       }
     ]
   },
@@ -1189,32 +1189,32 @@ export const ERA_MAPS = {
       {
         "name": "Northern Italy",
         "bonus": 4,
-        "territory_count": 0
+        "territory_count": 3
       },
       {
         "name": "Adriatic & Romagna",
         "bonus": 3,
-        "territory_count": 0
+        "territory_count": 2
       },
       {
         "name": "Central Italy",
         "bonus": 4,
-        "territory_count": 0
+        "territory_count": 3
       },
       {
         "name": "Southern Mainland",
         "bonus": 4,
-        "territory_count": 0
+        "territory_count": 3
       },
       {
         "name": "Deep South",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 2
       },
       {
         "name": "Sardinia",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 1
       }
     ]
   },
@@ -1231,77 +1231,77 @@ export const ERA_MAPS = {
       {
         "name": "North American Union",
         "bonus": 7,
-        "territory_count": 0
+        "territory_count": 6
       },
       {
         "name": "European Confederacy",
         "bonus": 6,
-        "territory_count": 0
+        "territory_count": 6
       },
       {
         "name": "Sino-Pacific Zone",
         "bonus": 8,
-        "territory_count": 0
+        "territory_count": 7
       },
       {
         "name": "African Union",
         "bonus": 7,
-        "territory_count": 0
+        "territory_count": 6
       },
       {
         "name": "Solar Caliphate Core",
         "bonus": 7,
-        "territory_count": 0
+        "territory_count": 5
       },
       {
         "name": "Central Asia Corridor",
         "bonus": 6,
-        "territory_count": 0
+        "territory_count": 5
       },
       {
         "name": "South American Bloc",
         "bonus": 7,
-        "territory_count": 0
+        "territory_count": 5
       },
       {
         "name": "Pacific Rim Alliance",
         "bonus": 6,
-        "territory_count": 0
+        "territory_count": 5
       },
       {
         "name": "Coastal Megacity Belt",
         "bonus": 3,
-        "territory_count": 0
+        "territory_count": 1
       },
       {
         "name": "Lunar Surface",
         "bonus": 6,
-        "territory_count": 0
+        "territory_count": 9
       },
       {
         "name": "Pacific Frontier",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 2
       },
       {
         "name": "Polar Frontier",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 2
       },
       {
         "name": "Antarctic Claims",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 2
       },
       {
         "name": "Atlantic Platforms",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 1
       },
       {
         "name": "Orbital Gateway",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 1
       }
     ]
   },
@@ -1318,97 +1318,97 @@ export const ERA_MAPS = {
       {
         "name": "Sol — Western Hemisphere",
         "bonus": 3,
-        "territory_count": 0
+        "territory_count": 4
       },
       {
         "name": "Sol — Atlantic Arc",
         "bonus": 3,
-        "territory_count": 0
+        "territory_count": 4
       },
       {
         "name": "Sol — Crescent Reach",
         "bonus": 3,
-        "territory_count": 0
+        "territory_count": 4
       },
       {
         "name": "Sol — Asian Rim",
         "bonus": 3,
-        "territory_count": 0
+        "territory_count": 4
       },
       {
         "name": "Verdan — Dawnrim",
         "bonus": 3,
-        "territory_count": 0
+        "territory_count": 4
       },
       {
         "name": "Verdan — Emberfen",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 3
       },
       {
         "name": "Verdan — Duskrim",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 3
       },
       {
         "name": "Verdan — Storm Belts",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 3
       },
       {
         "name": "Verdan — Brilliance Isles",
         "bonus": 3,
-        "territory_count": 0
+        "territory_count": 3
       },
       {
         "name": "Rust — Slag Wastes",
         "bonus": 1,
-        "territory_count": 0
+        "territory_count": 2
       },
       {
         "name": "Rust — Tharsis Foundries",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 3
       },
       {
         "name": "Rust — Argyre Marches",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 3
       },
       {
         "name": "Rust — Anchor Works",
         "bonus": 3,
-        "territory_count": 0
+        "territory_count": 2
       },
       {
         "name": "Rust — Hellas Deeps",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 3
       },
       {
         "name": "Rust — Hesperia",
         "bonus": 2,
-        "territory_count": 0
+        "territory_count": 3
       },
       {
         "name": "Nexus — Gate Ring",
         "bonus": 3,
-        "territory_count": 0
+        "territory_count": 4
       },
       {
         "name": "Nexus — Vault Ward",
         "bonus": 3,
-        "territory_count": 0
+        "territory_count": 4
       },
       {
         "name": "Nexus — Spire Walk",
         "bonus": 3,
-        "territory_count": 0
+        "territory_count": 4
       },
       {
         "name": "Nexus — Berth Ring",
         "bonus": 3,
-        "territory_count": 0
+        "territory_count": 4
       }
     ]
   }

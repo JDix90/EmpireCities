@@ -91,6 +91,7 @@ export interface CatalogMap {
 }
 
 interface RawMapRegion {
+  region_id?: string;
   name?: string;
   bonus?: number;
   territory_ids?: string[];
@@ -101,7 +102,7 @@ interface RawMap {
   name?: string;
   description?: string;
   era_theme?: string;
-  territories?: unknown[];
+  territories?: { region_id?: string }[];
   connections?: { type?: string }[];
   regions?: RawMapRegion[];
 }
@@ -109,6 +110,17 @@ interface RawMap {
 /** `community_roman_empire_117` → `roman-empire-117`. */
 export function slugForMapId(mapId: string): string {
   return mapId.replace(/^(community|era)_/, '').replace(/_/g, '-');
+}
+
+/**
+ * How many territories a region holds. Community maps list them on the region
+ * (`territory_ids`); the era boards instead put a `region_id` on each territory
+ * and leave the list off, so counting only the list read every era region as 0.
+ */
+function regionSize(raw: RawMap, region: RawMapRegion): number {
+  if (region.territory_ids) return region.territory_ids.length;
+  if (!region.region_id) return 0;
+  return (raw.territories ?? []).filter((t) => t?.region_id === region.region_id).length;
 }
 
 function projectMap(raw: RawMap): CatalogMap {
@@ -125,7 +137,7 @@ function projectMap(raw: RawMap): CatalogMap {
     regions: (raw.regions ?? []).map((r) => ({
       name: r.name ?? '',
       bonus: r.bonus ?? 0,
-      territory_count: r.territory_ids?.length ?? 0,
+      territory_count: regionSize(raw, r),
     })),
   };
 }

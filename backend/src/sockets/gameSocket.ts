@@ -3735,7 +3735,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
         }
         if (!state.lane_blockades) state.lane_blockades = {};
         // Space Age seals cost He-3 and last two rounds; the Galaxy's are free
-        // and last three. canSealLane has already checked affordability.
+        // and last one (laneSealDuration). canSealLane has already checked
+        // affordability.
         const sealCost = laneSealHelium3Cost(state);
         if (sealCost > 0) {
           const sealer = state.players.find((p) => p.player_id === userId);

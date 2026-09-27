@@ -392,13 +392,13 @@ Three readings worth carrying forward:
 
 ### 6.1 Reuse
 
-Everything needed exists for the Galactic Age: `state.lane_blockades`, `canSealLane`, `isLaneSealedForPlayer`, `tickLaneBlockades`, `GALAXY_LANE_SEAL_DURATION = 3`, and the `lanes_contestable_enabled` setting. Space Age is deliberately blocked from it at the create boundary (`games.routes.ts:200`, keyed on `isGalacticAge`).
+Everything needed exists for the Galactic Age: `state.lane_blockades`, `canSealLane`, `isLaneSealedForPlayer`, `tickLaneBlockades`, `GALAXY_LANE_SEAL_DURATION` (3 when this plan was written; 1 since the Galactic Age's Emergency Seal became a free once-per-turn charge), and the `lanes_contestable_enabled` setting. Space Age is deliberately blocked from it at the create boundary (`games.routes.ts:200`, keyed on `isGalacticAge`).
 
 ### 6.2 Changes
 
 1. **Create boundary:** allow `lanes_contestable_enabled` for Space Age when `space_age_moon_blockade_enabled` is on. The phase resolution sets it (§10.2).
 2. **Cost:** sealing costs **3 He-3** in Space Age (Galaxy stays free). Ties defence to the economy; a Hegemon spending on seals is a Hegemon not spending on beams.
-3. **Duration:** `SPACE_AGE_LANE_SEAL_DURATION = 2` (Galaxy's 3 is tuned for a bigger board).
+3. **Duration:** `SPACE_AGE_LANE_SEAL_DURATION = 2`. It was set shorter than the Galaxy's seal, then 3 rounds on a bigger board; the Galaxy's Emergency Seal now lasts 1 (`GALAXY_LANE_SEAL_DURATION`).
 4. **Endpoint ownership** (already required by `canSealLane`): from the Moon end, hold the landing-zone tile; from Earth, hold the anchor. Both are existing "endpoints".
 5. **Seal drops when the owner loses both endpoints.** New check in `tickLaneBlockades`; today a seal outlives its owner's presence.
 
