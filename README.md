@@ -275,21 +275,36 @@ This inserts initial achievements and cosmetic items into PostgreSQL.
 pnpm run seed:maps
 ```
 
-This seeds all era and community maps into PostgreSQL (`maps` table). This step is **required** — without it, no games can be started as the map data will not exist. You should see output like:
+This seeds all era and community maps into PostgreSQL (`maps` table). This step is **required** — without it, no games can be started as the map data will not exist. On a fresh database you should see output like this (21 community-map lines shortened):
 
 ```
-✓ INSERTED: Ancient World (200 AD)          — 28 territories · 40 connections · 8 regions
-✓ INSERTED: Medieval World (1200 AD)        — 29 territories · 41 connections · 8 regions
-✓ INSERTED: Age of Discovery (1600 AD)      — 34 territories · 51 connections · 8 regions
-✓ INSERTED: World War II (1939–1945)        — 35 territories · 53 connections · 8 regions
-✓ INSERTED: Cold War (1947–1991)            — 44 territories · 72 connections · 8 regions
-✓ INSERTED: The Modern Day                  — 43 territories · 94 connections · 8 regions
-✓ INSERTED: American Civil War (1861–1865)  — 18 territories · 37 connections · 6 regions
-✓ INSERTED: Italian Unification (1859–1871) — 14 territories · 23 connections · 6 regions
+════════════════════════════════════════════════════════════
+Borderfall — Map Seeder (PostgreSQL)
+════════════════════════════════════════════════════════════
+  ✓ INSERTED: Ancient World (200 AD)
+  ✓ INSERTED: Medieval World (1200 AD)
+  ✓ INSERTED: Age of Discovery (1600 AD)
+  ✓ INSERTED: World War II (1939–1945)
+  ✓ INSERTED: Cold War (1947–1991)
+  ✓ INSERTED: The Modern Day
+  ✓ INSERTED: American Civil War (1861–1865)
+  ✓ INSERTED: Italian Unification (1859–1871)
+  ✓ INSERTED: Space Age (2100 AD)
+  ✓ INSERTED: Galactic Age
+  ✓ INSERTED: Space to Stars
+  ✓ INSERTED (community): The 14 Nations
+  ✓ INSERTED (community): Strait of Hormuz
+  …
+  ✓ INSERTED (community): Sengoku Japan — Warring States
+
+────────────────────────────────────────────────────────────
+Seeding complete: inserted=32 updated=0 skipped=0
+Total maps in PostgreSQL: 32
+Cleared 0 map cache key(s) from Redis
 ✅ Done.
 ```
 
-Re-running this command is safe — it updates existing maps without resetting play counts or ratings.
+Re-running this command is safe — each map prints `↻ UPDATED:` instead, and existing maps keep their play counts and ratings.
 
 ### Step 6 — Start the Backend
 
