@@ -1337,7 +1337,7 @@ export const ERA_MAPS = {
       },
       {
         "name": "Verdan — Dawnrim",
-        "bonus": 3,
+        "bonus": 4,
         "territory_count": 4
       },
       {
@@ -1357,7 +1357,7 @@ export const ERA_MAPS = {
       },
       {
         "name": "Verdan — Brilliance Isles",
-        "bonus": 3,
+        "bonus": 4,
         "territory_count": 3
       },
       {
@@ -1367,7 +1367,7 @@ export const ERA_MAPS = {
       },
       {
         "name": "Rust — Tharsis Foundries",
-        "bonus": 2,
+        "bonus": 1,
         "territory_count": 3
       },
       {
@@ -1377,7 +1377,7 @@ export const ERA_MAPS = {
       },
       {
         "name": "Rust — Anchor Works",
-        "bonus": 3,
+        "bonus": 2,
         "territory_count": 2
       },
       {

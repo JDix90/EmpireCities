@@ -178,11 +178,14 @@ const VERDAN: SkeletonWorldSpec = {
   warp: { amp: 0.07, freq: 2.2 },
   border: { freq: 4, noise: 1.6 },
   regions: [
-    { region_id: 'verdan_sporefields', name: 'Verdan — Dawnrim', bonus: 3 },
+    // Dawnrim and the Isles each pay 4, for a world total of 14 against the
+    // others' 12: measured on the fixed harness, Verdan sat at the 18% floor with
+    // 12 (see backend/scripts/GALAXY-BALANCE.md §4).
+    { region_id: 'verdan_sporefields', name: 'Verdan — Dawnrim', bonus: 4 },
     { region_id: 'verdan_mirelands', name: 'Verdan — Emberfen', bonus: 2 },
     { region_id: 'verdan_lumen_crown', name: 'Verdan — Duskrim', bonus: 2 },
     { region_id: 'verdan_stormbelts', name: 'Verdan — Storm Belts', bonus: 2 },
-    { region_id: 'verdan_brilliance', name: 'Verdan — Brilliance Isles', bonus: 3 },
+    { region_id: 'verdan_brilliance', name: 'Verdan — Brilliance Isles', bonus: 4 },
   ],
   territories: [
     // Dawn crescent: the Sol / Luna front.
@@ -254,7 +257,14 @@ const VERDAN: SkeletonWorldSpec = {
  *
  * A fortress world: Verdan's lanes come down on the west plate, Nexus's on the
  * east, so crossing Rust means taking a crossing, and the Anchor Works (the
- * isthmus and the anchorage, two tiles worth 3) is the prize.
+ * isthmus and the anchorage) is the prize.
+ *
+ * It was too good a fortress. Measured on the fixed harness, Forge won 35-39%
+ * with both of Verdan's lanes landing in one three-tile region (Argyre Marches)
+ * and Nexus's on Ferro Span. Now one Verdan lane lands on Crucible Deep, the
+ * Tharsis hub, and Nexus's on Hematite Span, the Hesperia hub, so a landing can
+ * spread; and the world pays 10 in region bonuses rather than 12 (Anchor Works
+ * 2, Tharsis 1). See backend/scripts/GALAXY-BALANCE.md §4.
  */
 const RUST: SkeletonWorldSpec = {
   kind: 'skeleton',
@@ -288,9 +298,9 @@ const RUST: SkeletonWorldSpec = {
   border: { freq: 4, noise: 1.6 },
   regions: [
     { region_id: 'rust_slag_wastes', name: 'Rust — Slag Wastes', bonus: 1 },
-    { region_id: 'rust_foundry_core', name: 'Rust — Tharsis Foundries', bonus: 2 },
+    { region_id: 'rust_foundry_core', name: 'Rust — Tharsis Foundries', bonus: 1 },
     { region_id: 'rust_ironstorm', name: 'Rust — Argyre Marches', bonus: 2 },
-    { region_id: 'rust_anchor_works', name: 'Rust — Anchor Works', bonus: 3 },
+    { region_id: 'rust_anchor_works', name: 'Rust — Anchor Works', bonus: 2 },
     { region_id: 'rust_hellas_deeps', name: 'Rust — Hellas Deeps', bonus: 2 },
     { region_id: 'rust_hesperia', name: 'Rust — Hesperia', bonus: 2 },
   ],
@@ -501,8 +511,8 @@ const LANES: GalaxyLaneSpec[] = [
   { from: 'sol_guinea', to: 'verdan_chlorophage_span' },
   { from: 'sol_pacific_rim', to: 'verdan_greenfire_vault' },
   { from: 'verdan_photic_crown', to: 'rust_anvil_basin' },
-  { from: 'verdan_sulphur_drift', to: 'rust_furnace_marches' },
-  { from: 'rust_ferro_span', to: 'nexus_antenna_spire' },
+  { from: 'verdan_sulphur_drift', to: 'rust_crucible_deep' },
+  { from: 'rust_hematite_span', to: 'nexus_antenna_spire' },
   { from: 'rust_slag_reach', to: 'nexus_waystation_loni' },
   { from: 'nexus_lodgeway', to: 'sol_amazonia' },
   { from: 'nexus_resonance_vault', to: 'sol_cathay' },

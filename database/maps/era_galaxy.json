@@ -147,7 +147,7 @@
     {
       "region_id": "verdan_sporefields",
       "name": "Verdan — Dawnrim",
-      "bonus": 3
+      "bonus": 4
     },
     {
       "region_id": "verdan_mirelands",
@@ -167,7 +167,7 @@
     {
       "region_id": "verdan_brilliance",
       "name": "Verdan — Brilliance Isles",
-      "bonus": 3
+      "bonus": 4
     },
     {
       "region_id": "rust_slag_wastes",
@@ -177,7 +177,7 @@
     {
       "region_id": "rust_foundry_core",
       "name": "Rust — Tharsis Foundries",
-      "bonus": 2
+      "bonus": 1
     },
     {
       "region_id": "rust_ironstorm",
@@ -187,7 +187,7 @@
     {
       "region_id": "rust_anchor_works",
       "name": "Rust — Anchor Works",
-      "bonus": 3
+      "bonus": 2
     },
     {
       "region_id": "rust_hellas_deeps",
@@ -29688,11 +29688,11 @@
     },
     {
       "from": "verdan_sulphur_drift",
-      "to": "rust_furnace_marches",
+      "to": "rust_crucible_deep",
       "type": "orbit"
     },
     {
-      "from": "rust_ferro_span",
+      "from": "rust_hematite_span",
       "to": "nexus_antenna_spire",
       "type": "orbit"
     },
