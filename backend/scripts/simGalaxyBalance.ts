@@ -97,6 +97,22 @@ const EVENTS = process.env.SIM_EVENTS === '1';
  * the mechanic was believed.
  */
 const TRANSIT = process.env.SIM_TRANSIT === '1';
+/**
+ * Faction kit overrides for a tuning sweep, as JSON:
+ *   SIM_FACTION_PATCH='{"forge_syndicate":{"reinforce_bonus":1}}'
+ * Patched onto the era's faction definitions before any game starts, the same
+ * objects every engine lookup resolves, so a candidate can be measured without
+ * editing eras/galaxyage.ts. World modifiers and rules live in the map: use
+ * SIM_MAP for those.
+ */
+const FACTION_PATCH: Record<string, Record<string, unknown>> = process.env.SIM_FACTION_PATCH
+  ? JSON.parse(process.env.SIM_FACTION_PATCH)
+  : {};
+for (const [factionId, patch] of Object.entries(FACTION_PATCH)) {
+  const faction = getFactionById('galaxy_age', factionId);
+  if (!faction) throw new Error(`SIM_FACTION_PATCH: unknown galaxy faction "${factionId}"`);
+  Object.assign(faction, patch);
+}
 
 const PLAYERS = 4;
 // One faction per player, in player order. Each faction's home region is a whole
@@ -631,7 +647,7 @@ function main(): void {
   for (const s of stats) if (s.winnerFaction) byFaction[s.winnerFaction] = (byFaction[s.winnerFaction] ?? 0) + 1;
 
   console.log(`\nGalactic Age balance — ${GAMES} games · ${PLAYERS}p · ${DIFFICULTY} · maxTurns ${MAX_TURNS}${THRESHOLD != null ? ` · threshold ${THRESHOLD}%` : ''} · ${terr} territories`);
-  console.log(`Seed "${MASTER_SEED}" · attack loop ${GRIND ? 'GRIND (mirrors live AI)' : 'single-exchange (SIM_GRIND=0, legacy)'} · corridors ${CORRIDORS ? 'ON' : 'OFF (SIM_CORRIDORS=0)'} · world rules ${WORLD_RULES ? (WORLD_RULES_OFF.length ? `ON except ${WORLD_RULES_OFF.join('+')}` : 'ON') : 'OFF (SIM_WORLD_RULES=0)'} · sovereignty ${SOVEREIGNTY ? 'ON' : 'OFF (SIM_SOVEREIGNTY=0)'} · transit ${TRANSIT ? 'ON (SIM_TRANSIT=1)' : 'OFF'} · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
+  console.log(`Seed "${MASTER_SEED}" · attack loop ${GRIND ? 'GRIND (mirrors live AI)' : 'single-exchange (SIM_GRIND=0, legacy)'} · corridors ${CORRIDORS ? 'ON' : 'OFF (SIM_CORRIDORS=0)'} · factions ${Object.keys(FACTION_PATCH).length ? `patched ${JSON.stringify(FACTION_PATCH)}` : 'as shipped'} · world rules ${WORLD_RULES ? (WORLD_RULES_OFF.length ? `ON except ${WORLD_RULES_OFF.join('+')}` : 'ON') : 'OFF (SIM_WORLD_RULES=0)'} · sovereignty ${SOVEREIGNTY ? 'ON' : 'OFF (SIM_SOVEREIGNTY=0)'} · transit ${TRANSIT ? 'ON (SIM_TRANSIT=1)' : 'OFF'} · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
   console.log(`Avg game length (turns):          ${(stats.reduce((a, s) => a + s.turns, 0) / GAMES).toFixed(1)}`);
   console.log(`Decisive (non-turn-limit) wins:   ${pct(decisive.length, GAMES)}`);
   const byCondition = new Map<string, number>();
