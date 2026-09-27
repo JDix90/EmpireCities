@@ -34,7 +34,8 @@ SIM_MAP=/tmp/variant.json SIM_GAMES=1000 SIM_THRESHOLD=60 pnpm exec tsx scripts/
 Knobs: `SIM_MAP` (variant map file), `SIM_GAMES`, `SIM_DIFFICULTY`,
 `SIM_MAX_TURNS`, `SIM_SEED`, `SIM_CSV`, `SIM_THRESHOLD`, `SIM_GRIND`,
 `SIM_CORRIDORS`, `SIM_WORLD_RULES`, `SIM_WORLD_RULES_OFF` (comma list of
-`cradle`, `storms`, `forge`, `vault`), `SIM_SOVEREIGNTY`, `SIM_EVENTS`. 4 players,
+`cradle`, `storms`, `forge`, `vault`), `SIM_SOVEREIGNTY`, `SIM_EVENTS`,
+`SIM_FACTION_PATCH` (JSON faction-kit overrides), `SIM_SCATTERED` (§6). 4 players,
 one per galaxy faction, faction↔seat rotated per game. Factions ON, naval OFF,
 era advancement OFF, stability ON, events OFF (the era's own system defaults are
 economy + tech + factions). The sim asserts that each faction starts on its own
@@ -298,7 +299,58 @@ broadcast the card, and with no socket the sim left it set, re-applying the same
 instant card every round (11.6 "closures" per game where the deck can deal about
 4). The sim now clears it the way `broadcastEventCard` does.
 
-## 6. Open
+## 6. No home worlds (`SIM_SCATTERED=1`)
+
+A candidate mode, measured in the sim only; the engine has no such setting.
+Every player keeps their faction and kit, but the board is dealt the way the
+engine deals a no-factions game: each non-neutral tile is shuffled and dealt
+round-robin at 3 units, so each seat opens with 15 tiles spread over all four
+worlds, and the Vault ring stays neutral (garrison 6). The Custodians' home-unit
+bonus does not apply. The question was whether it plays faster.
+
+1,000 games per seed, A / B / C:
+
+| Metric | Home worlds (live, §2) | Scattered, kits as shipped | Scattered, Forge + Verdan `reinforce_bonus` 0 |
+|---|---|---|---|
+| Sol | 25.0 / 21.5 / 25.3 | 18.3 / **17.3** / **17.2** | 23.1 / 24.9 / 22.0 |
+| Rust | 26.0 / 27.5 / 25.4 | **33.0** / 32.5 / **34.6** | 25.6 / 24.1 / 24.1 |
+| Verdan | 20.9 / 22.1 / 19.8 | 28.9 / 30.4 / 29.5 | 23.4 / 20.9 / 22.5 |
+| Nexus | 28.1 / 28.9 / 29.5 | 19.8 / 19.8 / 18.7 | 27.9 / 30.1 / 31.4 |
+| Avg game length | 27.7 / 26.5 / 27.0 | 25.8 / 24.9 / 26.1 | 23.8 / 23.3 / 23.1 |
+| Turn-10 leader wins | 60.8 / 63.4 / 61.4% | 69.6 / 72.8 / 70.8% | 74.4 / 76.5 / 76.1% |
+| Won by Lane Sovereignty | 35.3 / 36.0 / 35.3% | 32.2 / 30.3 / 27.5% | 29.4 / 30.0 / 28.1% |
+| Worst elimination rate | 25.6% (Sol) | 9.5% (Sol) | 6.2% (Verdan) |
+| Vault held at end | 61.7 / 64.0 / 63.3% | 39.7 / 38.0 / 38.2% | 43.5 / 41.5 / 45.1% |
+| First lane capture (avg turn, by seat) | 1.1–2.8 | 2.7–3.4 | 2.5–3.2 |
+
+Every column is decisive in 99% of games or more and lanes change hands 69–80
+times a game; in both scattered columns 88–91% of seats build a Jump Gate lane.
+
+- **With the kits as shipped it fails the gate:** Forge over 32% on two seeds,
+  Sol under 18% on two. Forge's and Verdan's +2 reinforcements are
+  compensation for where their home worlds sit; with no home worlds they are
+  just two extra units a turn.
+- **Without those two bonuses it passes the win-rate gate on every seed**
+  (22.0–31.4%), with Nexus close to the ceiling on seed C.
+- **It is faster, by 3–4 turns** (about 14%): 23.4 turns against 27.1; with
+  the kits as shipped only 1.5 turns. The first lane capture comes later on
+  average, not sooner, because nobody has to cross a lane to reach an enemy.
+- **The snowball is the cost.** The turn-10 leader wins about 76% of games
+  against about 62% with home worlds. No gate row covers it, but it is the
+  number every earlier phase worked to bring down. Eliminations fall a lot
+  (at most 6.2%): games end by threshold or Sovereignty while everyone is
+  still on the board.
+- **The Vault matters less:** held at the end of about 43% of games against 63%.
+
+Commands, from `backend/`:
+
+```sh
+SIM_SCATTERED=1 SIM_GAMES=1000 SIM_THRESHOLD=60 pnpm exec tsx scripts/simGalaxyBalance.ts
+SIM_SCATTERED=1 SIM_FACTION_PATCH='{"forge_syndicate":{"reinforce_bonus":0},"helion_navigators":{"reinforce_bonus":0}}' \
+  SIM_GAMES=1000 SIM_THRESHOLD=60 pnpm exec tsx scripts/simGalaxyBalance.ts
+```
+
+## 7. Open
 
 - **Sol is the most often eliminated seat** (~25%; 29.1–29.6% with
   Sovereignty off, just inside the 30% limit). Verdan's +2 reinforcements are
@@ -320,6 +372,10 @@ instant card every round (11.6 "closures" per game where the deck can deal about
 
 ## History
 
+- **2026-09-27 (no home worlds, sim only):** `SIM_SCATTERED=1` measured (§6).
+  With kits as shipped it fails on Forge and Sol; with Forge's and Verdan's
+  `reinforce_bonus` at 0 it passes the win-rate gate, 3–4 turns shorter, but the
+  turn-10 leader wins ~76%.
 - **2026-09-27 (Cradle muster):** Sol's inert Cradle (deploy cap + population)
   replaced by the muster (every 5th round, Sol tiles under 2 units gain 1);
   Verdan `reinforce_bonus` 0 → 2 to pay for it. Sol 22.5 → 23.9, Rust
