@@ -245,6 +245,15 @@ describe('buildSkeletonWorld', () => {
     expect(message).toMatch(/sea link verdan_spore_reach–verdan_sulphur_drift crosses [\d.]+° of water \(limit 14°\)/);
   });
 
+  it('keeps corners sharp when a spec asks for fewer smoothing passes', () => {
+    const smoothed = tiles.reduce((n, t) => n + (t.geo_polygon?.length ?? 0), 0);
+    const sharp = clone();
+    sharp.smoothPasses = 0;
+    const points = buildSkeletonWorld(sharp).territories.reduce((n, t) => n + t.ring.length, 0);
+    expect(smoothed).toBeGreaterThan(0);
+    expect(points).toBeLessThan(smoothed / 2);
+  }, 20_000);
+
   it('refuses a seed in the sea', () => {
     const s = clone();
     s.territories[0].at = [180, -60];

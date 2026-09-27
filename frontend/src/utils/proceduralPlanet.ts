@@ -175,6 +175,10 @@ export function verdanSea(u: number, v: number, seed: number): RGB {
   const twilight = scale(VERDAN_SHALLOWS, 0.8 + 0.4 * n1);
   let night = scale(VERDAN_NIGHT_ICE, 0.75 + 0.5 * n2);
   if (n1 > 0.6) night = mix(night, VERDAN_FROST, Math.min(1, (n1 - 0.6) / 0.2) * 0.4);
+  // Pack-ice floes on the black sea: crisp-edged pale patches, as in the design
+  // sketches, rather than a soft frost wash.
+  const floe = smoothstep(0.635, 0.66, fbm(u, v, 9, 4, seed + 41));
+  night = mix(night, VERDAN_FLOE, floe * 0.85);
 
   return mix(mix(day, twilight, smoothstep(46, 70, a)), night, smoothstep(96, 116, a));
 }
@@ -300,9 +304,13 @@ export function rustSea(u: number, v: number, seed: number): RGB {
   const n1 = fbm(u, v, 5, 5, seed + 31);
   const n2 = fbm(u, v, 14, 3, seed + 33);
   const base = scale(RUST_SLAG, 0.75 + 0.5 * n1);
-  const glow = Math.max(0, Math.min(1, 1 - rustRiftDistance(lng, lat) / 8)) ** 1.3;
-  const lava = scale(mix(RUST_RIFT, RUST_RIFT_GLOW, n2), 0.85 + 0.25 * n1);
-  const c = mix(base, lava, glow);
+  // A lava river down the middle of the rift: a thin molten thread, an
+  // orange glow round it, dark slag beyond.
+  const d = rustRiftDistance(lng, lat);
+  const halo = (1 - smoothstep(1, 7, d)) * 0.75;
+  const core = 1 - smoothstep(0.9, 2.8, d + (n2 - 0.5) * 0.8);
+  let c = mix(base, scale(RUST_RIFT, 0.6 + 0.3 * n1), halo);
+  c = mix(c, mix(RUST_RIFT, RUST_RIFT_GLOW, 0.15 + 0.35 * n2), core);
   const frost = Math.max(smoothstep(70, 80, -lat), smoothstep(74, 84, lat));
   return mix(c, RUST_FROST, frost * 0.85);
 }
@@ -321,6 +329,7 @@ const VERDAN_BRILLIANCE_HOT = hexToRgb('#fff4d2');
 const VERDAN_SHALLOWS = hexToRgb('#1a5c56');
 const VERDAN_NIGHT_ICE = hexToRgb('#101a33');
 const VERDAN_FROST = hexToRgb('#34425e');
+const VERDAN_FLOE = hexToRgb('#7b91bd');
 const SOL_PEAK = hexToRgb('#cfc6a6');
 const JUNGLE = hexToRgb('#103a1c');
 const NEXUS_LOW = hexToRgb('#080b1c');
@@ -400,8 +409,8 @@ function smoothstep(a: number, b: number, x: number): number {
  */
 export function colorizeLand(kind: PlanetKind, u: number, v: number, seed: number): RGB {
   if (kind === 'desert') {
-    const e = fbm(u, v, 7, 5, seed) * 0.85 + fbm(u, v, 24, 3, seed + 9) * 0.15;
-    const c = ramp(PAL.rust, 0.5 + 0.5 * e); // upper, sunlit dune half of the ramp
+    const e = fbm(u, v, 12, 5, seed) * 0.85 + fbm(u, v, 24, 3, seed + 9) * 0.15;
+    const c = ramp(PAL.rust, 0.45 + 0.33 * smoothstep(0.25, 0.75, e)); // oxide mottled over dune
     const b = 0.95 + 0.12 * fbm(u, v, 40, 2, seed + 3);
     return [c[0] * b, c[1] * b, c[2] * b];
   }
@@ -422,13 +431,11 @@ export function colorizeLand(kind: PlanetKind, u: number, v: number, seed: numbe
     return c;
   }
   if (kind === 'city') {
-    // Composite shell plating: panel seams from a fine lattice, a few lit ports.
+    // Composite shell plating: pale hull clouded with scorch, faint panel
+    // seams. No lit ports: the light on Nexus is the Gate and the void.
     const p = texelVec(u, v);
-    let c = mix(NEXUS_COMPOSITE, NEXUS_PLATE_LIGHT, fbm(u, v, 6, 4, seed) * 0.55);
-    c = mix(c, NEXUS_VOID, latticeLines(p, 60, 0.08) * 0.5);
-    const spark = fbm(u, v, 55, 2, seed + 8);
-    if (spark > 0.72) c = mix(c, mix(CITY_WARM, CITY_COOL, fbm(u, v, 30, 2, seed + 5)), Math.min(1, (spark - 0.72) / 0.1) * 0.7);
-    return c;
+    const c = mix(NEXUS_COMPOSITE, NEXUS_PLATE_LIGHT, 0.1 + 0.85 * smoothstep(0.3, 0.7, fbm(u, v, 11, 5, seed)));
+    return mix(c, NEXUS_VOID, latticeLines(p, 60, 0.08) * 0.15);
   }
   // rocky
   return ramp(ROCK, 0.45 + 0.5 * fbm(u, v, 6, 5, seed));
