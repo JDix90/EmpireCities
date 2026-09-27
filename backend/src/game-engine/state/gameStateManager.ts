@@ -197,8 +197,12 @@ export function initializeGameState(
   const lunarTerritoryIds = offworldTerritoryIdsForInitialNeutral(map);
   // Galaxy worlds as characters: a vault world's prize region (the Nexus Gate
   // Ring) starts neutral with its authored garrison, so its home faction holds
-  // "all but the ring" and must take it like everyone else.
-  const vaultGarrisons = settingsNorm.world_rules ? vaultRegionGarrisons(map) : new Map<string, number>();
+  // "all but the ring" and must take it like everyone else. This is the board's
+  // starting layout, so it holds even with `world_rules_enabled` off: that kill
+  // switch turns off what the Vault DOES (tech income, the Emergency Seal, AI
+  // weighting), but handing the Custodians the ring at start broke the era's
+  // balance (Nexus ~41% win rate in the sim).
+  const vaultGarrisons = vaultRegionGarrisons(map);
   for (const tid of vaultGarrisons.keys()) lunarTerritoryIds.add(tid);
   // Landing zones (tiles on an orbit lane — where the race arrives) hold a
   // beachhead garrison; the interior is tougher, so the first player to gain
@@ -243,7 +247,6 @@ export function initializeGameState(
       players,
       era,
       settingsNorm.initial_unit_count,
-      settingsNorm.world_rules !== undefined,
     );
     if (!galaxyHomeworldsOk) {
       distributeTerritoriesGeographic(territories, earthMap, players, era, settingsNorm.initial_unit_count);
@@ -1375,7 +1378,6 @@ function tryDistributeGalaxyAgeFactionHomeworlds(
   players: Omit<PlayerState, 'territory_count' | 'cards' | 'capital_territory_id' | 'secret_mission'>[],
   era: EraId,
   initialUnitCount: number,
-  worldRulesEnabled = false,
 ): boolean {
   if (era !== 'galaxy_age' || map.map_kind !== 'galaxy' || players.length !== 4) return false;
 
@@ -1409,10 +1411,10 @@ function tryDistributeGalaxyAgeFactionHomeworlds(
   for (const { playerIndex, worldId } of claimedWorlds) {
     const playerId = players[playerIndex]!.player_id;
     // Worlds as characters: a vault world's home faction starts without the
-    // ring, so the rule may pay them back in units on the tiles they do hold.
-    const homeBonus = worldRulesEnabled
-      ? map.worlds?.find((w) => w.world_id === worldId)?.rules?.vault?.home_unit_bonus ?? 0
-      : 0;
+    // ring, so the rule pays them back in units on the tiles they do hold. Part
+    // of the starting layout, like the neutral ring itself, so it does not
+    // depend on `world_rules_enabled`.
+    const homeBonus = map.worlds?.find((w) => w.world_id === worldId)?.rules?.vault?.home_unit_bonus ?? 0;
     let any = false;
     for (const t of map.territories) {
       if (t.world_id !== worldId) continue;
