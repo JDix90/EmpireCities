@@ -43,6 +43,8 @@ import {
   vaultRegionGarrisons,
   vaultStatuses,
   vaultTechIncome,
+  WORLD_RULE_FIELDS,
+  WORLD_RULE_IDS,
   worldDefenseBuildingBonusDice,
   worldDeployCapBonus,
   worldPopulationGrowthMult,
@@ -114,6 +116,52 @@ describe('world rules snapshot', () => {
     const off = freshGalaxyState({ world_rules_enabled: false });
     expect(off.settings.world_rules).toBeUndefined();
     expect(getWorldRules(off, 'sol')).toEqual({});
+  });
+});
+
+describe('one switch per rule', () => {
+  it('covers every authored rule field exactly once', () => {
+    const owned = WORLD_RULE_IDS.flatMap((id) => WORLD_RULE_FIELDS[id]);
+    expect(new Set(owned).size).toBe(owned.length);
+    const authored = Object.values(buildWorldRuleSnapshot(AUTHORED, true)!).flatMap((r) => Object.keys(r));
+    expect(authored.every((f) => (owned as string[]).includes(f))).toBe(true);
+  });
+
+  it('drops only the switched-off rule from the snapshot', () => {
+    const noStorms = buildWorldRuleSnapshot(AUTHORED, true, ['storms'])!;
+    expect(noStorms.verdan).toBeUndefined();
+    expect(noStorms.sol).toEqual({ deploy_cap_bonus: 2, population_growth_mult: 2 });
+    expect(noStorms.nexus_station.vault?.tech_income).toBe(2);
+    const noneLeft = buildWorldRuleSnapshot(AUTHORED, true, [...WORLD_RULE_IDS]);
+    expect(noneLeft).toBeUndefined();
+  });
+
+  it('keeps known ids only, in a fixed order, and persists nothing when none are off', () => {
+    expect(normalizeGameSettings({}).world_rules_disabled).toBeUndefined();
+    expect(normalizeGameSettings({ world_rules_disabled: [] }).world_rules_disabled).toBeUndefined();
+    const raw = { world_rules_disabled: ['vault', 'bogus', 'storms', 'vault'] } as unknown as Partial<GameSettings>;
+    expect(normalizeGameSettings(raw).world_rules_disabled).toEqual(['storms', 'vault']);
+  });
+
+  it('switching the Cradle off at create leaves the Storms and the Vault working', () => {
+    const state = freshGalaxyState({ world_rules_disabled: ['cradle'] });
+    expect(worldDeployCapBonus(state, 'sol')).toBe(0);
+    expect(worldPopulationGrowthMult(state, 'sol')).toBe(1);
+    expect(getWorldRules(state, 'verdan').storm_threshold).toBe(12);
+    expect(vaultStatuses(state)).toHaveLength(1);
+  });
+
+  it('switching the Vault off stops its payouts but keeps the ring neutral at start', () => {
+    const state = freshGalaxyState({ world_rules_disabled: ['vault'] });
+    expect(vaultStatuses(state)).toEqual([]);
+    for (const t of ringTiles(state)) {
+      expect(t.owner_id).toBeNull();
+      expect(t.unit_count).toBe(6);
+    }
+    for (const t of ringTiles(state)) t.owner_id = 'p_sol';
+    expect(vaultTechIncome(state, 'p_sol')).toBe(0);
+    expect(playerHoldsVaultSeal(state, 'p_sol')).toBe(false);
+    expect(getWorldRules(state, 'verdan').storm_threshold).toBe(12);
   });
 });
 

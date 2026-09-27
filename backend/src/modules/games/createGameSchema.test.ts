@@ -534,3 +534,20 @@ describe('galaxy_corridors_enabled', () => {
     }
   });
 });
+
+describe('world_rules_disabled', () => {
+  // Baked at create from the per-rule galaxy flags, never taken from a client.
+  it('is not part of the create-API whitelist', () => {
+    const parsed = CreateGameSchema.safeParse({
+      era_id: 'galaxy_age',
+      map_id: 'era_galaxy',
+      max_players: 4,
+      ai_count: 3,
+      settings: { allowed_victory_conditions: ['domination'], factions_enabled: true, world_rules_disabled: ['storms'] },
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect((parsed.data.settings as Record<string, unknown>).world_rules_disabled).toBeUndefined();
+    }
+  });
+});

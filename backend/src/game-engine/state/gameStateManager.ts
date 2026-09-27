@@ -116,7 +116,7 @@ export function initializeGameState(
   }
   // Galaxy worlds as characters: the map's per-world RULES, same discipline.
   if (settingsNorm.world_rules_enabled !== false) {
-    const worldRules = buildWorldRuleSnapshot(map, true);
+    const worldRules = buildWorldRuleSnapshot(map, true, settingsNorm.world_rules_disabled ?? []);
     if (worldRules) settingsNorm.world_rules = worldRules;
   }
   const territories: Record<string, TerritoryState> = {};

@@ -27,12 +27,14 @@ SIM_GAMES=1000 SIM_THRESHOLD=60 SIM_SEED=borderfall-galaxy-balance-C \
 SIM_EVENTS=1      SIM_GAMES=1000 SIM_THRESHOLD=60 pnpm exec tsx scripts/simGalaxyBalance.ts # lane weather
 SIM_SOVEREIGNTY=0 SIM_GAMES=1000 SIM_THRESHOLD=60 pnpm exec tsx scripts/simGalaxyBalance.ts # kill switch
 SIM_WORLD_RULES=0 SIM_GAMES=1000 SIM_THRESHOLD=60 pnpm exec tsx scripts/simGalaxyBalance.ts # kill switch
+SIM_WORLD_RULES_OFF=storms SIM_GAMES=1000 SIM_THRESHOLD=60 pnpm exec tsx scripts/simGalaxyBalance.ts # one rule off
 SIM_MAP=/tmp/variant.json SIM_GAMES=1000 SIM_THRESHOLD=60 pnpm exec tsx scripts/simGalaxyBalance.ts # knob sweep
 ```
 
 Knobs: `SIM_MAP` (variant map file), `SIM_GAMES`, `SIM_DIFFICULTY`,
 `SIM_MAX_TURNS`, `SIM_SEED`, `SIM_CSV`, `SIM_THRESHOLD`, `SIM_GRIND`,
-`SIM_CORRIDORS`, `SIM_WORLD_RULES`, `SIM_SOVEREIGNTY`, `SIM_EVENTS`. 4 players,
+`SIM_CORRIDORS`, `SIM_WORLD_RULES`, `SIM_WORLD_RULES_OFF` (comma list of
+`cradle`, `storms`, `forge`, `vault`), `SIM_SOVEREIGNTY`, `SIM_EVENTS`. 4 players,
 one per galaxy faction, faction↔seat rotated per game. Factions ON, naval OFF,
 era advancement OFF, stability ON, events OFF (the era's own system defaults are
 economy + tech + factions). The sim asserts that each faction starts on its own
@@ -159,21 +161,39 @@ the Vault's payouts (tech, Emergency Seal, AI weighting) and every other world
 rule. That restored the start but not the balance: Forge 39–41%, Verdan 13–14%,
 Nexus 12–16% across the three seeds.
 
-Stripping one world's rules at a time from the map, with the rest on (seed A):
+**So the switch is now split per rule.** `galaxy_world_rules_enabled` stays
+the master, and under it each rule has its own flag, default ON:
+`galaxy_rule_cradle_enabled`, `galaxy_rule_storms_enabled`,
+`galaxy_rule_forge_enabled` and `galaxy_rule_vault_enabled`. Games bake the
+switched-off ones at create as `settings.world_rules_disabled`. Switching off
+the Vault stops its payouts; the ring still starts neutral, as above.
 
-| Rules removed | Sol | Rust | Verdan | Nexus | Leader@10 |
-|---|---|---|---|---|---|
-| none (live) | 20.3 | 30.4 | 25.5 | 23.8 | 58.2% |
-| Sol's Cradle | 20.3 | 30.4 | 25.5 | 23.8 | 58.2% |
-| Rust's fort die | 20.1 | 29.6 | 25.4 | 24.9 | 61.3% |
-| Verdan's storms | 29.5 | 35.4 | 14.3 | 20.8 | 71.6% |
-| all but the Vault | 25.1 | 35.3 | 17.1 | 22.5 | 70.0% |
+One rule off at a time through that switch (`SIM_WORLD_RULES_OFF`, 1,000 games
+per seed):
 
-**Verdan's storms are load-bearing on the redesigned board.** They stop a stack
-rolling round the Twilight Ring; without them Forge overruns Verdan and the
-snowball jumps from 58% to ~71%. No choice about the Vault alone brings the
-switch back inside the gate. Sol's Cradle is inert, as before, and Rust's fort
-die barely moves anything.
+| Rule off (A / B / C) | Sol | Rust | Verdan | Nexus | Leader@10 | Gate |
+|---|---|---|---|---|---|---|
+| none (live) | 20.3 / 21.5 / 21.1 | 30.4 / 27.7 / 29.6 | 25.5 / 26.3 / 24.5 | 23.8 / 24.5 / 24.8 | 58.2 / 59.7 / 57.3% | pass |
+| Sol's Cradle | 20.1 / 21.9 / 21.8 | 29.9 / 30.4 / 29.9 | 26.3 / 22.5 / 24.5 | 23.7 / 25.2 / 23.8 | 58.7 / 58.9 / 59.1% | **pass** |
+| Rust's Forge die | 18.6 / 16.5 / 17.9 | 31.5 / 28.9 / 27.8 | 26.6 / 27.5 / 26.2 | 23.3 / 27.1 / 28.1 | 61.1 / 58.6 / 57.5% | fail: Sol |
+| Nexus Vault | 22.5 / 25.0 / 25.3 | 35.3 / 31.6 / 35.3 | 26.9 / 26.8 / 23.5 | 15.3 / 16.6 / 15.9 | 59.9 / 60.1 / 64.2% | fail: Rust, Nexus |
+| Verdan's Storms | 31.2 / 26.9 / 29.4 | 37.6 / 33.2 / 35.3 | 14.4 / 17.8 / 14.3 | 16.8 / 22.1 / 21.0 | 71.9 / 68.4 / 69.1% | fail: all but Sol |
+
+What each switch costs:
+
+- **Cradle:** free. The only rule that can go on its own and stay inside the
+  gate on every seed.
+- **Forge die:** Sol drops just under the floor (16.5–18.6%). It barely moved on
+  seed A alone, but across three seeds it costs Sol about three points, while
+  Rust itself barely moves. Why is not yet understood.
+- **Vault:** the Custodians lose their prize (15–17%) and Forge overshoots.
+- **Storms:** load-bearing, as above. They stop a stack rolling round the
+  Twilight Ring; without them Forge overruns Verdan and the snowball jumps to
+  ~70%.
+
+A switch that fails the gate is still the right tool for a rule that is
+actually broken: a few points of balance against a bug in a live game. The
+table says what each one costs.
 
 Events on is not the live default. On the new board it pushes Forge to 34.7%,
 over the 32% ceiling, so turning events on for this era would need its own pass.
@@ -231,13 +251,11 @@ instant card every round (11.6 "closures" per game where the deck can deal about
   Inside the band, but the next lever should be Sol's.
 - **Sol's Cradle rule does nothing measurable** (§3, §4). A rule that fires
   would be the natural place for that lever.
-- **The world-rules kill switch is not a balanced fallback** (§3). Since the
-  Vault-start fix it keeps the board's starting layout, but Verdan's storms
-  carry the redesigned board and the switch removes them (Forge ~41%, Verdan
-  ~13%). If the switch must stay a safe fallback, it needs to be split per rule,
-  so a misbehaving rule can go without taking the storms with it.
-- **Sol's Cradle and Rust's fort die barely register** (§3); Rust's identity is
-  carried by its geography and modifiers.
+- **Only the Cradle switch is balance-free** (§3). The master and the Storms,
+  Vault and Forge switches each push a faction out of the gate; each is a
+  last resort for a broken rule, not a tuning knob.
+- **Rust's Forge die matters more to Sol than to Rust** (§3): without it Sol
+  loses about three points while Rust barely moves. Not yet explained.
 - **Events on pushes Forge over the ceiling** (34.7%, seed A).
 - **The snowball**: turn-10 leader at ~58%.
 - **Only four-player games are measured**, because that is the only shape the

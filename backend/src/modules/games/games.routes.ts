@@ -444,6 +444,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
           // Galactic Age worlds as characters — same discipline; the map's
           // authored rules are snapshotted at init when this is on.
           world_rules_enabled: isGalaxyRules ? featureFlags.galaxyWorldRulesEnabled : undefined,
+          world_rules_disabled: isGalaxyRules ? featureFlags.galaxyDisabledWorldRules : undefined,
           galaxy_transit_enabled: isGalaxyRules ? featureFlags.galaxyTransitEnabled : undefined,
           // Every Moon Race phase this game runs, resolved above. Spread rather
           // than listed so a sixth phase needs no edit here.
