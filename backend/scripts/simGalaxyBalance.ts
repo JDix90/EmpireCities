@@ -429,7 +429,14 @@ function assertHomeworldStart(map: GameMap, state: GameState, factionOf: Record<
   }
 }
 
-function runGame(gameIndex: number, map: GameMap): GameStat {
+function runGame(gameIndex: number, sourceMap: GameMap): GameStat {
+  // A fresh map per game. Jump Gates and lane weather write their lanes into
+  // `map.connections` as they open and close, so a shared map started each game
+  // with the previous game's last lanes on it: games were not independent, and
+  // one game changed by an unseeded engine roll changed every game after it
+  // (two identical 1,000-game runs of seed B diverged from game 266 on and
+  // differed by up to 4 points per faction).
+  const map = structuredClone(sourceMap);
   const seed = hashStringToSeed(`${MASTER_SEED}:${gameIndex}`);
   const dieRoll = seededDie(seed);
   // Separate stream from the dice so a jitter draw can never shift a roll.
