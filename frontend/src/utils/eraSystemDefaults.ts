@@ -8,12 +8,11 @@
  * unreachable for every player and the "Control every territory" domination
  * objective can never be met (the 9 lunar territories stay neutral forever).
  *
- * Selecting such an era pre-checks the systems it needs. For most eras the
- * player can still switch them back off (the form then shows the era's warning
- * copy). A `locked` era cannot be played without them at all, so the form
- * disables those checkboxes and shows the explanation up front instead.
- * Switching to an era without requirements reverts only the toggles this
- * module enabled — never a choice the player made by hand.
+ * Selecting such an era pre-checks the systems it needs and locks them: the
+ * era cannot be played without them, so the form disables those checkboxes
+ * and shows the era's notice explaining why. Switching to an era without
+ * requirements reverts only the toggles this module enabled — never a choice
+ * the player made by hand.
  */
 
 export type EraSystemKey = 'economy' | 'tech_trees' | 'factions';
@@ -22,27 +21,20 @@ export const ERA_SYSTEM_KEYS: readonly EraSystemKey[] = ['economy', 'tech_trees'
 
 interface EraSystemRequirement {
   systems: readonly EraSystemKey[];
-  /**
-   * Unlocked eras: shown when a required system is switched off anyway.
-   * Locked eras: shown whenever the era is selected, explaining the lock.
-   */
-  warning: string;
-  /** The required systems cannot be switched off while this era is selected. */
-  locked?: boolean;
+  /** Shown whenever the era is selected, explaining why its systems are locked on. */
+  notice: string;
 }
 
 export const ERA_REQUIRED_SYSTEMS: Record<string, EraSystemRequirement> = {
   space_age: {
     systems: ['economy', 'tech_trees'],
-    warning:
-      'Space Age needs Economy & Buildings and Technology Trees: Moon access is unlocked by the ' +
-      'Lunar Expansion tech ladder plus a Launch Pad building. Without them the Moon is unreachable ' +
-      'and full domination is impossible.',
+    notice:
+      'Space Age always plays with Economy & Buildings and Technology Trees: Moon access is unlocked ' +
+      'by the Lunar Expansion tech ladder plus a Launch Pad building.',
   },
   galaxy_age: {
     systems: ['economy', 'tech_trees', 'factions'],
-    locked: true,
-    warning:
+    notice:
       'Galactic Age always plays with Economy & Buildings, Technology Trees and Asymmetric Factions: ' +
       'every faction kit is built around the hyperspace lanes (Emergency Seal, Blockade Runner, ' +
       'Drift Jump, Supply Insert), Lane Charts and the Hyperlane Anchor shape lane combat, and the ' +
@@ -56,28 +48,12 @@ export function requiredSystemsForEra(eraId: string): readonly EraSystemKey[] {
 
 /** Systems the player cannot switch off while this era is selected. */
 export function lockedSystemsForEra(eraId: string): ReadonlySet<EraSystemKey> {
-  const requirement = ERA_REQUIRED_SYSTEMS[eraId];
-  return new Set(requirement?.locked ? requirement.systems : []);
+  return new Set(requiredSystemsForEra(eraId));
 }
 
-/** Explanation shown whenever a locked era is selected; null for other eras. */
+/** Explanation shown whenever an era with required systems is selected; null otherwise. */
 export function lockedEraSystemsNotice(eraId: string): string | null {
-  const requirement = ERA_REQUIRED_SYSTEMS[eraId];
-  return requirement?.locked ? requirement.warning : null;
-}
-
-/**
- * Warning copy when an unlocked era needs systems that are currently off;
- * null otherwise. Locked eras never warn: their systems cannot be off, and
- * `lockedEraSystemsNotice` carries their copy.
- */
-export function missingEraSystemsWarning(
-  eraId: string,
-  current: Record<EraSystemKey, boolean>,
-): string | null {
-  const requirement = ERA_REQUIRED_SYSTEMS[eraId];
-  if (!requirement || requirement.locked) return null;
-  return requirement.systems.some((key) => !current[key]) ? requirement.warning : null;
+  return ERA_REQUIRED_SYSTEMS[eraId]?.notice ?? null;
 }
 
 /** Create-API settings key for each system. */

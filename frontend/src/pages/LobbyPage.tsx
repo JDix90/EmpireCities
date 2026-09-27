@@ -80,7 +80,6 @@ import {
 } from '../constants/galacticAgeAccess';
 import {
   transitionEraSystemDefaults,
-  missingEraSystemsWarning,
   lockedSystemsForEra,
   lockedEraSystemsNotice,
   withRequiredEraSystems,
@@ -568,14 +567,9 @@ export default function LobbyPage() {
     // fight the player's manual unchecks.
   }, [selectedEra]);
 
-  const eraSystemsWarning = missingEraSystemsWarning(selectedEra, {
-    economy: economyEnabled,
-    tech_trees: techTreesEnabled,
-    factions: factionsEnabled,
-  });
-
-  // Locked eras (Galactic Age) cannot be played without their systems, so the
-  // checkboxes are disabled and the explanation shows up front. This keeps
+  // Eras with required systems (Space Age, Galactic Age) cannot be played
+  // without them, so the checkboxes are disabled and the explanation shows up
+  // front. This keeps
   // them on whatever else moves them: Territory Draft and factions exclude
   // each other, so a draft left on from another era is switched off here.
   const lockedSystems = lockedSystemsForEra(selectedEra);
@@ -2497,11 +2491,6 @@ export default function LobbyPage() {
                       {lockedSystemsNotice && (
                         <p id="era-locked-systems-notice" className="text-[11px] text-bf-muted mb-3 leading-relaxed">
                           {lockedSystemsNotice}
-                        </p>
-                      )}
-                      {eraSystemsWarning && (
-                        <p className="text-[11px] text-amber-400/90 mb-3 leading-relaxed" role="alert">
-                          ⚠ {eraSystemsWarning}
                         </p>
                       )}
                       {mapImmersion && (
