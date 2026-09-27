@@ -35,7 +35,8 @@ Knobs: `SIM_MAP` (variant map file), `SIM_GAMES`, `SIM_DIFFICULTY`,
 `SIM_MAX_TURNS`, `SIM_SEED`, `SIM_CSV`, `SIM_THRESHOLD`, `SIM_GRIND`,
 `SIM_CORRIDORS`, `SIM_WORLD_RULES`, `SIM_WORLD_RULES_OFF` (comma list of
 `cradle`, `storms`, `forge`, `vault`), `SIM_SOVEREIGNTY`, `SIM_EVENTS`,
-`SIM_FACTION_PATCH` (JSON faction-kit overrides), `SIM_SCATTERED` (§6). 4 players,
+`SIM_FACTION_PATCH` (JSON faction-kit overrides), `SIM_SCATTERED`,
+`SIM_FACTIONS=0` and `SIM_PLAIN_LANES` (§6). 4 players,
 one per galaxy faction, faction↔seat rotated per game. Factions ON, naval OFF,
 era advancement OFF, stability ON, events OFF (the era's own system defaults are
 economy + tech + factions). The sim asserts that each faction starts on its own
@@ -350,6 +351,51 @@ SIM_SCATTERED=1 SIM_FACTION_PATCH='{"forge_syndicate":{"reinforce_bonus":0},"hel
   SIM_GAMES=1000 SIM_THRESHOLD=60 pnpm exec tsx scripts/simGalaxyBalance.ts
 ```
 
+### Plain lanes: no home worlds, no kits, no lane rules
+
+The further step: lanes stop mattering at all. On top of the scattered start,
+factions are off (seats carry no faction, so no kit and no reinforcement
+bonus), Lane Sovereignty is off, and lanes fight like any border
+(`settings.galaxy_plain_lanes`: no lane dice cap, and the AI stops treating
+gateways as objectives or buying Lane Charts). Corridors stay on, so there is no
+tech gate. World rules stay on; the second column also switches off the Vault,
+whose Emergency Seal is itself a lane rule. `galaxy_plain_lanes` is read by the
+engine but nothing sets it at game creation.
+
+With no factions the four seats are symmetric, so per-seat win rates only show
+noise (21.9–27.7% across all six runs); the numbers that matter are length and
+the snowball. 1,000 games per seed, A / B / C:
+
+| Metric | Home worlds (live, §2) | Scattered, kits, Forge + Verdan +0 | Plain lanes | Plain lanes, Vault off |
+|---|---|---|---|---|
+| Avg game length | 27.7 / 26.5 / 27.0 | 23.8 / 23.3 / 23.1 | 22.2 / 23.0 / 22.8 | 22.2 / 22.4 / 22.8 |
+| Turn-10 leader wins | 60.8 / 63.4 / 61.4% | 74.4 / 76.5 / 76.1% | 79.5 / 78.4 / 77.7% | 81.8 / 79.2 / 76.6% |
+| Decisive | 99.0–99.6% | 99.5–99.9% | 99.8–100% | 99.7–100% |
+| Lane end-owner changes per game | 70–73 | 69–71 | 55–57 | 55–57 |
+| First lane capture (avg turn, by seat) | 1.1–2.8 | 2.5–3.2 | 5.4–5.8 | 5.4–5.8 |
+| Worst elimination rate | 25.6% | 6.2% | 5.9% | 5.8% |
+
+Every plain-lanes game ends by threshold (Sovereignty is off).
+
+- **It is the fastest version measured**: about 22.7 turns against 27.1 with
+  home worlds, 16% shorter.
+- **Lanes really do stop mattering.** Nobody captures across one until turn 5–6
+  on average, and each seat takes only about 3.6 tiles across lanes in a whole
+  game. The fighting happens inside each world.
+- **The snowball is the worst yet:** the turn-10 leader wins about 79% of games.
+  With threshold victory at 60% on a symmetric board, whoever is ahead early
+  gets there first. A higher threshold is the obvious lever to try next, at the
+  cost of some of the speed.
+- **The Vault barely matters here** (held at the end of about a third of games,
+  and switching it off changes nothing measurable).
+
+Commands, from `backend/`:
+
+```sh
+SIM_SCATTERED=1 SIM_FACTIONS=0 SIM_PLAIN_LANES=1 SIM_SOVEREIGNTY=0 SIM_GAMES=1000 SIM_THRESHOLD=60 \
+  pnpm exec tsx scripts/simGalaxyBalance.ts
+```
+
 ## 7. Open
 
 - **Sol is the most often eliminated seat** (~25%; 29.1–29.6% with
@@ -372,6 +418,9 @@ SIM_SCATTERED=1 SIM_FACTION_PATCH='{"forge_syndicate":{"reinforce_bonus":0},"hel
 
 ## History
 
+- **2026-09-27 (plain lanes, sim only):** scattered start, factions off,
+  Sovereignty off, lanes fight like any border (§6). 22.7 turns against 27.1;
+  turn-10 leader wins ~79%.
 - **2026-09-27 (no home worlds, sim only):** `SIM_SCATTERED=1` measured (§6).
   With kits as shipped it fails on Forge and Sol; with Forge's and Verdan's
   `reinforce_bonus` at 0 it passes the win-rate gate, 3–4 turns shorter, but the
