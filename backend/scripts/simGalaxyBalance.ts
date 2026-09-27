@@ -43,6 +43,7 @@ import { getOrbitAccessResult } from '../src/game-engine/state/moonAccess';
 import { applyBuild } from '../src/game-engine/state/economyManager';
 import { applyResearch, validateResearch } from '../src/game-engine/state/techManager';
 import { createSeededRng, hashStringToSeed } from '../src/game-engine/victory/missions';
+import { getFactionById } from '../src/game-engine/eras';
 
 const GAMES = Number(process.env.SIM_GAMES ?? 200);
 const DIFFICULTY = (process.env.SIM_DIFFICULTY ?? 'expert') as AiDifficulty;
@@ -363,6 +364,32 @@ interface GameStat {
 /** Turns at which per-seat territory counts are sampled for the trajectory table. */
 const TERRITORY_SNAPSHOT_TURNS = [10, 30, 60] as const;
 
+/**
+ * Every seat must open on its faction's home world and nowhere else. When a
+ * map's regions stop matching the factions' `home_region_ids`,
+ * tryDistributeGalaxyAgeFactionHomeworlds falls back to a random deal without
+ * a word — and a sim of that game measures a different game. Fail loudly.
+ */
+function assertHomeworldStart(map: GameMap, state: GameState, factionOf: Record<string, string>): void {
+  const worldOfRegion = new Map(map.territories.map((t) => [t.region_id, t.world_id]));
+  const worldOfTile = new Map(map.territories.map((t) => [t.territory_id, t.world_id]));
+  for (const [pid, factionId] of Object.entries(factionOf)) {
+    const home = getFactionById('galaxy_age', factionId)?.home_region_ids?.map((r) => worldOfRegion.get(r));
+    const homeWorld = home?.[0];
+    if (!homeWorld || home.some((w) => w !== homeWorld)) {
+      throw new Error(`${factionId}: home_region_ids do not resolve to one world on this map`);
+    }
+    const owned = ownedIds(state, pid);
+    const stray = owned.filter((id) => worldOfTile.get(id) !== homeWorld);
+    if (owned.length === 0 || stray.length > 0) {
+      throw new Error(
+        `${factionId} did not start on ${homeWorld} alone (owns ${owned.length}, off-world: ${stray.join(', ') || 'none'}) — `
+        + 'the one-faction-per-world start fell back to a random deal',
+      );
+    }
+  }
+}
+
 function runGame(gameIndex: number, map: GameMap): GameStat {
   const seed = hashStringToSeed(`${MASTER_SEED}:${gameIndex}`);
   const dieRoll = seededDie(seed);
@@ -387,6 +414,7 @@ function runGame(gameIndex: number, map: GameMap): GameStat {
   const state = initializeGameState(`galsim_${gameIndex}`, 'galaxy_age', map, players, simSettings(), {
     forceStartingPlayerIndex: 0,
   });
+  assertHomeworldStart(map, state, factionOf);
 
   const lanes = orbitLanePairs(map);
   const connectionsByKey = new Map(map.connections.map((c) => [laneKey(c.from, c.to), c]));
