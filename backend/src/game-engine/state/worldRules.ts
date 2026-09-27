@@ -3,7 +3,7 @@
 // ============================================================
 //
 // Where `WorldModifiers` change a total (a few decimals of income), a world's
-// `rules` change a decision: Sol drafts deeper and breeds faster, Verdan's
+// `rules` change a decision: Sol refills its thin tiles (the muster), Verdan's
 // storms punish stacks, Rust is fortified by building, and Nexus carries the
 // Vault — a prize region that starts neutral and pays its holder. Authored on
 // `map.worlds[].rules`, snapshotted into `settings.world_rules` at init (like
@@ -24,17 +24,16 @@ interface WorldsLike {
 /**
  * The four world rules, each with its own kill switch under the
  * `world_rules_enabled` master. Measured on the redesigned board, they are not
- * equally safe to lose: Verdan's storms hold it together (without them Forge
- * reaches ~35% and Verdan ~14%), while Sol's Cradle is inert. One switch for all
- * four meant a misbehaving Cradle could only be removed by taking the storms
- * with it — see backend/scripts/GALAXY-BALANCE.md §3.
+ * equally safe to lose: only the Forge die can go without failing the balance
+ * gate. One switch for all four meant a misbehaving Cradle could only be
+ * removed by taking the storms with it — see backend/scripts/GALAXY-BALANCE.md §3.
  */
 export const WORLD_RULE_IDS = ['cradle', 'storms', 'forge', 'vault'] as const;
 export type WorldRuleId = (typeof WORLD_RULE_IDS)[number];
 
 /** The `WorldRules` fields each rule owns. */
 export const WORLD_RULE_FIELDS: Record<WorldRuleId, ReadonlyArray<keyof WorldRules>> = {
-  cradle: ['deploy_cap_bonus', 'population_growth_mult', 'muster_threshold', 'muster_units'],
+  cradle: ['deploy_cap_bonus', 'population_growth_mult', 'muster_threshold', 'muster_units', 'muster_every'],
   storms: ['storm_threshold', 'storm_attrition'],
   forge: ['defense_building_bonus_dice'],
   vault: ['vault'],
@@ -74,6 +73,11 @@ export function getWorldRules(state: GameState, worldId: string | undefined | nu
 }
 
 // ── Sol III · the Cradle ──────────────────────────────────────────────────
+//
+// The shipped rule is the muster (`applyCradleMuster`, below the helpers). The
+// deploy-cap bonus and population multiplier were the Cradle's first rule and
+// never moved a game — the cap only binds below 50 stability, and population
+// only scales building income — so they are off the map but still honoured.
 
 /** Extra units the draft may place on one tile here per turn, over the stability cap. */
 export function worldDeployCapBonus(state: GameState, worldId: string | undefined | null): number {
@@ -105,6 +109,7 @@ export function applyCradleMuster(state: GameState): MusterGain[] {
     if (!t.owner_id) continue;
     const r = t.world_id ? rules[t.world_id] : undefined;
     if (!r || r.muster_threshold == null) continue;
+    if (r.muster_every && r.muster_every > 1 && state.turn_number % r.muster_every !== 0) continue;
     if (t.unit_count >= r.muster_threshold) continue;
     const gained = Math.min(r.muster_units ?? 1, r.muster_threshold - t.unit_count);
     if (gained <= 0) continue;

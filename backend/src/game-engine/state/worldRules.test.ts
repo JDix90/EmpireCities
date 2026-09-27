@@ -36,6 +36,7 @@ import { collectProduction, getBuildingDefenseBonus } from './economyManager';
 import { getDeployCap } from './stabilityManager';
 import { canSealLane, EMERGENCY_SEAL_ABILITY_ID } from './moonAccess';
 import {
+  applyCradleMuster,
   applyStormAttrition,
   buildWorldRuleSnapshot,
   getWorldRules,
@@ -87,7 +88,7 @@ describe('world rules snapshot', () => {
   it('collects every authored rule from the galaxy map, and nothing when disabled', () => {
     const snap = buildWorldRuleSnapshot(AUTHORED, true)!;
     expect(Object.keys(snap).sort()).toEqual(['nexus_station', 'rust', 'sol', 'verdan']);
-    expect(snap.sol).toEqual({ deploy_cap_bonus: 2, population_growth_mult: 2 });
+    expect(snap.sol).toEqual({ muster_threshold: 2, muster_every: 5 });
     expect(snap.verdan).toEqual({ storm_threshold: 12, storm_attrition: 1 });
     expect(snap.rust).toEqual({ defense_building_bonus_dice: 1 });
     expect(snap.nexus_station.vault).toEqual({
@@ -110,7 +111,7 @@ describe('world rules snapshot', () => {
 
   it('lands on settings at init, and the flag turns it all off', () => {
     const on = freshGalaxyState();
-    expect(on.settings.world_rules?.sol?.deploy_cap_bonus).toBe(2);
+    expect(on.settings.world_rules?.sol?.muster_threshold).toBe(2);
     expect(getWorldRules(on, 'verdan').storm_threshold).toBe(12);
     expect(getWorldRules(on, 'nowhere')).toEqual({});
     const off = freshGalaxyState({ world_rules_enabled: false });
@@ -130,7 +131,7 @@ describe('one switch per rule', () => {
   it('drops only the switched-off rule from the snapshot', () => {
     const noStorms = buildWorldRuleSnapshot(AUTHORED, true, ['storms'])!;
     expect(noStorms.verdan).toBeUndefined();
-    expect(noStorms.sol).toEqual({ deploy_cap_bonus: 2, population_growth_mult: 2 });
+    expect(noStorms.sol).toEqual({ muster_threshold: 2, muster_every: 5 });
     expect(noStorms.nexus_station.vault?.tech_income).toBe(2);
     const noneLeft = buildWorldRuleSnapshot(AUTHORED, true, [...WORLD_RULE_IDS]);
     expect(noneLeft).toBeUndefined();
@@ -145,8 +146,10 @@ describe('one switch per rule', () => {
 
   it('switching the Cradle off at create leaves the Storms and the Vault working', () => {
     const state = freshGalaxyState({ world_rules_disabled: ['cradle'] });
-    expect(worldDeployCapBonus(state, 'sol')).toBe(0);
-    expect(worldPopulationGrowthMult(state, 'sol')).toBe(1);
+    expect(getWorldRules(state, 'sol')).toEqual({});
+    for (const t of Object.values(state.territories)) if (t.world_id === 'sol') t.unit_count = 1;
+    state.turn_number = 5;
+    expect(applyCradleMuster(state)).toEqual([]);
     expect(getWorldRules(state, 'verdan').storm_threshold).toBe(12);
     expect(vaultStatuses(state)).toHaveLength(1);
   });
@@ -165,22 +168,74 @@ describe('one switch per rule', () => {
   });
 });
 
-describe('Sol III · the Cradle', () => {
-  it('raises the stability deploy cap by the world bonus', () => {
+describe('Sol III · the Cradle (legacy fields)', () => {
+  // Off the shipped map since the muster replaced them (GALAXY-BALANCE.md §4):
+  // the deploy cap only binds below 50 stability and population only scales
+  // building income, so neither ever moved a game. Still honoured if authored.
+  it('raises the stability deploy cap and population growth where authored', () => {
     const state = freshGalaxyState();
+    expect(worldDeployCapBonus(state, 'sol')).toBe(0);
+    expect(worldPopulationGrowthMult(state, 'sol')).toBe(1);
+    state.settings.world_rules = { ...state.settings.world_rules, sol: { deploy_cap_bonus: 2, population_growth_mult: 2 } };
     expect(worldDeployCapBonus(state, 'sol')).toBe(2);
     expect(worldDeployCapBonus(state, 'rust')).toBe(0);
+    expect(worldPopulationGrowthMult(state, 'sol')).toBe(2);
+    expect(worldPopulationGrowthMult(state, undefined)).toBe(1);
     const base = getDeployCap(20, { era: 'galaxy_age', turnNumber: 1 });
     expect(getDeployCap(20, { era: 'galaxy_age', turnNumber: 1, worldDeployCapBonus: 2 })).toBe(base + 2);
-    // No cap at healthy stability, bonus or not.
     expect(getDeployCap(60, { era: 'galaxy_age', worldDeployCapBonus: 2 })).toBe(Infinity);
   });
+});
 
-  it('doubles the population growth chance on Sol only', () => {
+describe('Sol III · the muster', () => {
+  const solTiles = (state: GameState) => Object.values(state.territories).filter((t) => t.world_id === 'sol');
+
+  it('refills owned thin tiles on the world at round start, never above the threshold', () => {
     const state = freshGalaxyState();
-    expect(worldPopulationGrowthMult(state, 'sol')).toBe(2);
-    expect(worldPopulationGrowthMult(state, 'verdan')).toBe(1);
-    expect(worldPopulationGrowthMult(state, undefined)).toBe(1);
+    state.settings.world_rules = { ...state.settings.world_rules, sol: { muster_threshold: 3 } };
+    for (const x of solTiles(state)) x.unit_count = 3;
+    const [a, b, c, d] = solTiles(state);
+    a.owner_id = 'p_sol'; a.unit_count = 1;
+    b.owner_id = 'p_rust'; b.unit_count = 2; // whoever holds it musters
+    c.owner_id = 'p_sol'; c.unit_count = 3;
+    d.owner_id = null; d.unit_count = 1; // neutral tiles do not
+    const rust = Object.values(state.territories).find((t) => t.world_id === 'rust')!;
+    rust.unit_count = 1;
+    const gains = applyCradleMuster(state);
+    expect(gains.map((g) => g.territory_id).sort()).toEqual([a.territory_id, b.territory_id].sort());
+    expect([a.unit_count, b.unit_count, c.unit_count, d.unit_count, rust.unit_count]).toEqual([2, 3, 3, 1, 1]);
+  });
+
+  it('honours muster_units and muster_every', () => {
+    const state = freshGalaxyState();
+    state.settings.world_rules = { ...state.settings.world_rules, sol: { muster_threshold: 4, muster_units: 2, muster_every: 2 } };
+    for (const x of solTiles(state)) x.unit_count = 4;
+    const t = solTiles(state)[0];
+    t.owner_id = 'p_sol';
+    t.unit_count = 3;
+    state.turn_number = 3;
+    expect(applyCradleMuster(state)).toEqual([]);
+    state.turn_number = 4;
+    expect(applyCradleMuster(state)).toEqual([{ territory_id: t.territory_id, gained: 1 }]);
+    expect(t.unit_count).toBe(4);
+  });
+
+  it('ships on Sol: thin tiles refill every 5th round only', () => {
+    const state = freshGalaxyState();
+    const t = Object.values(state.territories).find((x) => x.world_id === 'sol')!;
+    t.unit_count = 1;
+    state.turn_number = 4;
+    expect(applyCradleMuster(state)).toEqual([]);
+    state.turn_number = 5;
+    expect(applyCradleMuster(state)).toContainEqual({ territory_id: t.territory_id, gained: 1 });
+    expect(t.unit_count).toBe(2);
+  });
+
+  it('does nothing with the Cradle or all rules switched off', () => {
+    for (const s of [freshGalaxyState({ world_rules_disabled: ['cradle'] }), freshGalaxyState({ world_rules_enabled: false })]) {
+      for (const t of solTiles(s)) { t.owner_id = 'p_sol'; t.unit_count = 1; }
+      expect(applyCradleMuster(s)).toEqual([]);
+    }
   });
 });
 

@@ -65,6 +65,8 @@ export interface WorldRules {
   muster_threshold?: number;
   /** Units a thin owned tile gains each round under `muster_threshold` (default 1). */
   muster_units?: number;
+  /** Muster only every Nth round (default 1: every round). */
+  muster_every?: number;
   /** At round start a tile holding MORE than this many units loses `storm_attrition` units. */
   storm_threshold?: number;
   /** Units lost by a tile above `storm_threshold` each round (default 1). */
