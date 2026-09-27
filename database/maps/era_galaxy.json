@@ -89,22 +89,86 @@
     }
   ],
   "regions": [
-    { "region_id": "sol_americas", "name": "Sol — Western Hemisphere", "bonus": 3 },
-    { "region_id": "sol_atlantic_arc", "name": "Sol — Atlantic Arc", "bonus": 3 },
-    { "region_id": "sol_crescent", "name": "Sol — Crescent Reach", "bonus": 3 },
-    { "region_id": "sol_asian_rim", "name": "Sol — Asian Rim", "bonus": 3 },
-    { "region_id": "verdan_sporefields", "name": "Verdan — Spore Fields", "bonus": 3 },
-    { "region_id": "verdan_mirelands", "name": "Verdan — Mirelands", "bonus": 3 },
-    { "region_id": "verdan_lumen_crown", "name": "Verdan — Lumen Crown", "bonus": 3 },
-    { "region_id": "verdan_stormbelts", "name": "Verdan — Storm Belts", "bonus": 3 },
-    { "region_id": "rust_slag_wastes", "name": "Rust — Slag Wastes", "bonus": 3 },
-    { "region_id": "rust_foundry_core", "name": "Rust — Foundry Core", "bonus": 3 },
-    { "region_id": "rust_ironstorm", "name": "Rust — Ironstorm Belt", "bonus": 3 },
-    { "region_id": "rust_anchor_works", "name": "Rust — Anchor Works", "bonus": 3 },
-    { "region_id": "nexus_gate_ring", "name": "Nexus — Gate Ring", "bonus": 3 },
-    { "region_id": "nexus_vault_ward", "name": "Nexus — Vault Ward", "bonus": 3 },
-    { "region_id": "nexus_spire_walk", "name": "Nexus — Spire Walk", "bonus": 3 },
-    { "region_id": "nexus_berth_ring", "name": "Nexus — Berth Ring", "bonus": 3 }
+    {
+      "region_id": "sol_americas",
+      "name": "Sol — Western Hemisphere",
+      "bonus": 3
+    },
+    {
+      "region_id": "sol_atlantic_arc",
+      "name": "Sol — Atlantic Arc",
+      "bonus": 3
+    },
+    {
+      "region_id": "sol_crescent",
+      "name": "Sol — Crescent Reach",
+      "bonus": 3
+    },
+    {
+      "region_id": "sol_asian_rim",
+      "name": "Sol — Asian Rim",
+      "bonus": 3
+    },
+    {
+      "region_id": "verdan_sporefields",
+      "name": "Verdan — Spore Fields",
+      "bonus": 3
+    },
+    {
+      "region_id": "verdan_mirelands",
+      "name": "Verdan — Mirelands",
+      "bonus": 3
+    },
+    {
+      "region_id": "verdan_lumen_crown",
+      "name": "Verdan — Lumen Crown",
+      "bonus": 3
+    },
+    {
+      "region_id": "verdan_stormbelts",
+      "name": "Verdan — Storm Belts",
+      "bonus": 3
+    },
+    {
+      "region_id": "rust_slag_wastes",
+      "name": "Rust — Slag Wastes",
+      "bonus": 3
+    },
+    {
+      "region_id": "rust_foundry_core",
+      "name": "Rust — Foundry Core",
+      "bonus": 3
+    },
+    {
+      "region_id": "rust_ironstorm",
+      "name": "Rust — Ironstorm Belt",
+      "bonus": 3
+    },
+    {
+      "region_id": "rust_anchor_works",
+      "name": "Rust — Anchor Works",
+      "bonus": 3
+    },
+    {
+      "region_id": "nexus_gate_ring",
+      "name": "Nexus — Gate Ring",
+      "bonus": 3
+    },
+    {
+      "region_id": "nexus_vault_ward",
+      "name": "Nexus — Vault Ward",
+      "bonus": 3
+    },
+    {
+      "region_id": "nexus_spire_walk",
+      "name": "Nexus — Spire Walk",
+      "bonus": 3
+    },
+    {
+      "region_id": "nexus_berth_ring",
+      "name": "Nexus — Berth Ring",
+      "bonus": 3
+    }
   ],
   "territories": [
     {
