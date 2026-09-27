@@ -299,6 +299,10 @@ export function describeWorldRules(
 ): string[] {
   if (!rules) return [];
   const out: string[] = [];
+  if (rules.muster_threshold != null) {
+    const n = rules.muster_units ?? 1;
+    out.push(`Cradle: at round start any system you hold with fewer than ${rules.muster_threshold} units musters ${n} more`);
+  }
   if (rules.deploy_cap_bonus) {
     out.push(`Cradle: place up to ${rules.deploy_cap_bonus} more units per system each draft, even at low stability`);
   }

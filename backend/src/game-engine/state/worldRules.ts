@@ -34,7 +34,7 @@ export type WorldRuleId = (typeof WORLD_RULE_IDS)[number];
 
 /** The `WorldRules` fields each rule owns. */
 export const WORLD_RULE_FIELDS: Record<WorldRuleId, ReadonlyArray<keyof WorldRules>> = {
-  cradle: ['deploy_cap_bonus', 'population_growth_mult'],
+  cradle: ['deploy_cap_bonus', 'population_growth_mult', 'muster_threshold', 'muster_units'],
   storms: ['storm_threshold', 'storm_attrition'],
   forge: ['defense_building_bonus_dice'],
   vault: ['vault'],
@@ -84,6 +84,34 @@ export function worldDeployCapBonus(state: GameState, worldId: string | undefine
 export function worldPopulationGrowthMult(state: GameState, worldId: string | undefined | null): number {
   const m = getWorldRules(state, worldId).population_growth_mult;
   return m != null && m > 0 ? m : 1;
+}
+
+export interface MusterGain {
+  territory_id: string;
+  gained: number;
+}
+
+/**
+ * Round start: every OWNED tile on a muster world holding FEWER than the
+ * threshold gains `muster_units` (default 1), never above the threshold. The
+ * storms' mirror — the cradle refills what it loses, for whoever holds it.
+ * Neutral tiles do not muster. Returns what was gained so callers can narrate it.
+ */
+export function applyCradleMuster(state: GameState): MusterGain[] {
+  const rules = state.settings.world_rules;
+  if (!rules) return [];
+  const gains: MusterGain[] = [];
+  for (const [tid, t] of Object.entries(state.territories)) {
+    if (!t.owner_id) continue;
+    const r = t.world_id ? rules[t.world_id] : undefined;
+    if (!r || r.muster_threshold == null) continue;
+    if (t.unit_count >= r.muster_threshold) continue;
+    const gained = Math.min(r.muster_units ?? 1, r.muster_threshold - t.unit_count);
+    if (gained <= 0) continue;
+    t.unit_count += gained;
+    gains.push({ territory_id: tid, gained });
+  }
+  return gains;
 }
 
 // ── Verdan Reach · the Storms ─────────────────────────────────────────────

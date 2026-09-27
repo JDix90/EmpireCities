@@ -57,6 +57,14 @@ export interface WorldRules {
   deploy_cap_bonus?: number;
   /** Multiplier on the per-tick population growth chance for tiles on this world. */
   population_growth_mult?: number;
+  /**
+   * At round start every OWNED tile here holding FEWER than this many units
+   * gains `muster_units` (default 1), never above the threshold — the storms'
+   * mirror: a world that refills what it loses.
+   */
+  muster_threshold?: number;
+  /** Units a thin owned tile gains each round under `muster_threshold` (default 1). */
+  muster_units?: number;
   /** At round start a tile holding MORE than this many units loses `storm_attrition` units. */
   storm_threshold?: number;
   /** Units lost by a tile above `storm_threshold` each round (default 1). */

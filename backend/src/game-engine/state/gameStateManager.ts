@@ -34,6 +34,7 @@ import { applyLaneClosure, applyLaneSurge, tickLaneWeather } from './laneWeather
 import { arriveConvoys } from './transit';
 import {
   applyStormAttrition,
+  applyCradleMuster,
   buildWorldRuleSnapshot,
   vaultRegionGarrisons,
   worldDeployCapBonus,
@@ -755,6 +756,8 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
     // Galaxy worlds as characters: the storms shed units from over-stacked
     // tiles once per round, before anyone drafts.
     applyStormAttrition(state);
+    // ...and the cradle refills its thin tiles for whoever holds them.
+    applyCradleMuster(state);
 
     // Galaxy lane weather ages with the round, not with a player's turn: a
     // closure nobody owns cannot wait on whose charge it was.
