@@ -5,6 +5,7 @@ import {
   getDefaultEraAdvancementSettings,
 } from '../eraAdvancement/constants';
 import { isValidSpineId } from '../eraAdvancement/spines';
+import { WORLD_RULE_IDS } from './worldRules';
 import { applyEraAdvancementPreset, isEraAdvancementPreset } from '../eraAdvancement/presets';
 import { getDefaultGameSettingsConfig } from '../../services/adminConfig';
 
@@ -98,6 +99,11 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
   // Galaxy worlds as characters. Default on; baked at create from the
   // galaxy_world_rules_enabled flag; persisted only when explicitly off.
   const worldRulesEnabled = typeof raw.world_rules_enabled === 'boolean' ? raw.world_rules_enabled : true;
+  // Individual rules switched off under that master — known ids only, deduped,
+  // in a fixed order so equal settings serialise equally.
+  const worldRulesDisabled = Array.isArray(raw.world_rules_disabled)
+    ? WORLD_RULE_IDS.filter((id) => (raw.world_rules_disabled as unknown[]).includes(id))
+    : [];
   // Heritage building rights (era advancement). Off by default — baked at
   // create from the era_heritage_buildings_enabled feature flag so a mid-match
   // flag flip can never change a running game's yield math.
@@ -331,6 +337,7 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     // Galaxy per-world identity — persisted only when explicitly disabled (default on).
     world_modifiers_enabled: worldModifiersEnabled ? undefined : false,
     world_rules_enabled: worldRulesEnabled ? undefined : false,
+    world_rules_disabled: worldRulesDisabled.length > 0 ? worldRulesDisabled : undefined,
     // Anti-fortress dice cap — only persisted when explicitly enabled.
     combat_dice_cap_enabled: combatDiceCapEnabled || undefined,
     combat_max_attacker_dice: combatDiceCapEnabled

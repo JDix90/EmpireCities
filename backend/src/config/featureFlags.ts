@@ -71,6 +71,11 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   space_age_frontiers_enabled: () => envOptOut('SPACE_AGE_FRONTIERS_ENABLED'),
   galaxy_corridors_enabled: () => envOptOut('GALAXY_CORRIDORS_ENABLED'),
   galaxy_world_rules_enabled: () => envOptOut('GALAXY_WORLD_RULES_ENABLED'),
+  // One switch per world rule, under the master above.
+  galaxy_rule_cradle_enabled: () => envOptOut('GALAXY_RULE_CRADLE_ENABLED'),
+  galaxy_rule_storms_enabled: () => envOptOut('GALAXY_RULE_STORMS_ENABLED'),
+  galaxy_rule_forge_enabled: () => envOptOut('GALAXY_RULE_FORGE_ENABLED'),
+  galaxy_rule_vault_enabled: () => envOptOut('GALAXY_RULE_VAULT_ENABLED'),
   galaxy_transit_enabled: () => envOptIn('GALAXY_TRANSIT_ENABLED'),
   space_age_moon_race_enabled: () => envOptOut('SPACE_AGE_MOON_RACE_ENABLED'),
   space_age_moon_tribute_enabled: () => envOptIn('SPACE_AGE_MOON_TRIBUTE_ENABLED'),
@@ -533,6 +538,20 @@ export const featureFlags = {
    */
   get galaxyWorldRulesEnabled(): boolean {
     return overrideBool('galaxy_world_rules_enabled');
+  },
+
+  /**
+   * The world rules switched off one at a time, under the master above: Sol's
+   * Cradle, Verdan's Storms, Rust's Forge die and the Nexus Vault's payouts
+   * (`galaxy_rule_<id>_enabled`, each default ON). The master took all four
+   * together, and on the redesigned board the Storms are load-bearing — see
+   * backend/scripts/GALAXY-BALANCE.md §3 — so a misbehaving rule needs its own
+   * switch. Baked into game settings at create as `world_rules_disabled`.
+   */
+  get galaxyDisabledWorldRules(): Array<'cradle' | 'storms' | 'forge' | 'vault'> {
+    return (['cradle', 'storms', 'forge', 'vault'] as const).filter(
+      (id) => !overrideBool(`galaxy_rule_${id}_enabled`),
+    );
   },
 
   /**

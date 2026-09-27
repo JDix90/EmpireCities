@@ -469,9 +469,12 @@ export const GALAXY_LANE_BASE_ATTACK_DICE = 2;
 /**
  * Space Age Orbital Blockade (Moon Race, Phase 4).
  *
- * Two rounds rather than the Galaxy's three: the Space Age board is smaller and
- * a rival's answer — build a Launch Pad, fly your own lane — takes fewer turns,
- * so a longer seal would outlast the counterplay rather than buy time against it.
+ * Two rounds. This was set against the Galaxy's seal when that lasted three: the
+ * Space Age board is smaller and a rival's answer — build a Launch Pad, fly your
+ * own lane — takes fewer turns, so a longer seal would outlast the counterplay
+ * rather than buy time against it. The Galaxy's Emergency Seal has since become a
+ * free once-per-turn charge lasting one round (GALAXY_LANE_SEAL_DURATION), so the
+ * paid Space Age seal is now the longer of the two.
  */
 export const SPACE_AGE_LANE_SEAL_DURATION = 2;
 

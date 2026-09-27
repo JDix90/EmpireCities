@@ -28,7 +28,7 @@ import {
   checkVictory,
   initializeGameState,
 } from '../src/game-engine/state/gameStateManager';
-import { vaultStatuses } from '../src/game-engine/state/worldRules';
+import { isWorldRuleId, vaultStatuses, WORLD_RULE_IDS, type WorldRuleId } from '../src/game-engine/state/worldRules';
 import { syncJumpGateLanes } from '../src/game-engine/state/jumpGates';
 import { syncLaneWeatherLanes } from '../src/game-engine/state/laneWeather';
 import { fortifyBecomesConvoy, launchConvoy } from '../src/game-engine/state/transit';
@@ -67,8 +67,17 @@ const CORRIDORS = process.env.SIM_CORRIDORS !== '0';
  * Worlds as characters (`world_rules_enabled`, default on live): Sol's deploy
  * cap and growth, Verdan's storms, Rust's forge dice, the Nexus Vault.
  * `SIM_WORLD_RULES=0` is the kill switch, for before/after comparisons.
+ * `SIM_WORLD_RULES_OFF=storms,vault` switches individual rules off instead, the
+ * way the per-rule `galaxy_rule_<id>_enabled` flags do.
  */
 const WORLD_RULES = process.env.SIM_WORLD_RULES !== '0';
+const WORLD_RULES_OFF = (process.env.SIM_WORLD_RULES_OFF ?? '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+for (const id of WORLD_RULES_OFF) {
+  if (!isWorldRuleId(id)) throw new Error(`SIM_WORLD_RULES_OFF: unknown rule "${id}" (${WORLD_RULE_IDS.join(', ')})`);
+}
 /**
  * Lane Sovereignty (`lane_sovereignty`), the galaxy's own victory: on by
  * default at create for this era, so on here too. `SIM_SOVEREIGNTY=0` measures
@@ -142,6 +151,7 @@ function simSettings(): GameSettings {
     galaxy_corridors_enabled: CORRIDORS,
     galaxy_transit_enabled: TRANSIT,
     world_rules_enabled: WORLD_RULES,
+    world_rules_disabled: WORLD_RULES_OFF as WorldRuleId[],
     allowed_victory_conditions: [
       'domination',
       ...(THRESHOLD != null ? ['threshold'] : []),
@@ -585,7 +595,7 @@ function main(): void {
   for (const s of stats) if (s.winnerFaction) byFaction[s.winnerFaction] = (byFaction[s.winnerFaction] ?? 0) + 1;
 
   console.log(`\nGalactic Age balance — ${GAMES} games · ${PLAYERS}p · ${DIFFICULTY} · maxTurns ${MAX_TURNS}${THRESHOLD != null ? ` · threshold ${THRESHOLD}%` : ''} · ${terr} territories`);
-  console.log(`Seed "${MASTER_SEED}" · attack loop ${GRIND ? 'GRIND (mirrors live AI)' : 'single-exchange (SIM_GRIND=0, legacy)'} · corridors ${CORRIDORS ? 'ON' : 'OFF (SIM_CORRIDORS=0)'} · world rules ${WORLD_RULES ? 'ON' : 'OFF (SIM_WORLD_RULES=0)'} · sovereignty ${SOVEREIGNTY ? 'ON' : 'OFF (SIM_SOVEREIGNTY=0)'} · transit ${TRANSIT ? 'ON (SIM_TRANSIT=1)' : 'OFF'} · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
+  console.log(`Seed "${MASTER_SEED}" · attack loop ${GRIND ? 'GRIND (mirrors live AI)' : 'single-exchange (SIM_GRIND=0, legacy)'} · corridors ${CORRIDORS ? 'ON' : 'OFF (SIM_CORRIDORS=0)'} · world rules ${WORLD_RULES ? (WORLD_RULES_OFF.length ? `ON except ${WORLD_RULES_OFF.join('+')}` : 'ON') : 'OFF (SIM_WORLD_RULES=0)'} · sovereignty ${SOVEREIGNTY ? 'ON' : 'OFF (SIM_SOVEREIGNTY=0)'} · transit ${TRANSIT ? 'ON (SIM_TRANSIT=1)' : 'OFF'} · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
   console.log(`Avg game length (turns):          ${(stats.reduce((a, s) => a + s.turns, 0) / GAMES).toFixed(1)}`);
   console.log(`Decisive (non-turn-limit) wins:   ${pct(decisive.length, GAMES)}`);
   const byCondition = new Map<string, number>();

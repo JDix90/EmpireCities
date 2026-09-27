@@ -39,5 +39,5 @@ export const LANDING_ERAS: LandingEra[] = [
   { id: 'acw', mapId: 'era_acw', color: '#6b5344', scope: 'regional', territoryCount: 18, playersRange: '2–4' },
   { id: 'risorgimento', mapId: 'era_risorgimento', color: '#008C45', scope: 'regional', territoryCount: 14, playersRange: '2–4' },
   { id: 'space_age', mapId: 'era_space_age', color: '#8E9AF2', scope: 'global', territoryCount: 55, playersRange: '2–6' },
-  { id: 'galaxy_age', mapId: 'era_galaxy', color: '#9FA8DA', scope: 'global', territoryCount: 12, playersRange: '2–4' },
+  { id: 'galaxy_age', mapId: 'era_galaxy', color: '#9FA8DA', scope: 'global', territoryCount: 64, playersRange: '4' },
 ];

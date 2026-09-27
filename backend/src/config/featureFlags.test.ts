@@ -33,6 +33,14 @@ describe('featureFlags', () => {
     }
   });
 
+  it('every Galactic Age world rule is on by default and can be switched off on its own', () => {
+    expect(featureFlags.galaxyDisabledWorldRules).toEqual([]);
+    setAdminConfigCacheForTests({ feature_flags: { galaxy_rule_storms_enabled: false, galaxy_rule_vault_enabled: false } });
+    expect(featureFlags.galaxyDisabledWorldRules).toEqual(['storms', 'vault']);
+    // The master switch is separate and untouched.
+    expect(featureFlags.galaxyWorldRulesEnabled).toBe(true);
+  });
+
   it('map_editor_enabled defaults to on', () => {
     expect(featureFlags.mapEditorEnabled).toBe(true);
     expect(getClientFeatureFlags().map_editor_enabled).toBe(true);

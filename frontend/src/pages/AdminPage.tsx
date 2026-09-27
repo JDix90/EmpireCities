@@ -175,6 +175,30 @@ const CLIENT_FEATURE_FLAGS = [
       "Each world plays by its own rule: Sol places 2 extra units per system each draft and its population grows twice as fast; Verdan's storms strip any system above 12 units at round start; Rust's buildings cost half and its defence buildings roll an extra die; Nexus's Gate Ring starts neutral as the Vault (+2 tech per turn and an Emergency Seal on any lane for whoever holds all four tiles). Baked into each game at creation. On by default; switch off to return to flat worlds for games created afterwards.",
   },
   {
+    key: 'galaxy_rule_cradle_enabled',
+    label: 'Galactic Age rule: Sol\'s Cradle',
+    description:
+      'Sol places 2 extra units per system each draft and its population grows twice as fast. One rule under "worlds as characters" above, which still switches off all four. Baked into each game at creation. On by default; measured as inert, so switching it off alone leaves the balance unchanged.',
+  },
+  {
+    key: 'galaxy_rule_storms_enabled',
+    label: 'Galactic Age rule: Verdan\'s Storms',
+    description:
+      "Any Verdan system above 12 units loses one at round start. Baked into each game at creation. On by default. Load-bearing on the Twilight Ring: in the sim, switching it off lets Forge reach ~35% and drops Verdan to ~14% — only switch it off if the rule itself is broken.",
+  },
+  {
+    key: 'galaxy_rule_forge_enabled',
+    label: 'Galactic Age rule: Rust\'s Forge die',
+    description:
+      "A Rust system with a defence building rolls an extra defence die. (Rust's half-price buildings are a world modifier and stay.) Baked into each game at creation. On by default; switching it off alone barely moves the balance.",
+  },
+  {
+    key: 'galaxy_rule_vault_enabled',
+    label: 'Galactic Age rule: the Nexus Vault',
+    description:
+      "Whoever holds all four Gate Ring tiles earns +2 tech per turn and an Emergency Seal on any lane. The ring still starts neutral with its garrison either way — that is the board's starting layout. Baked into each game at creation. On by default.",
+  },
+  {
     key: 'space_age_frontiers_enabled',
     label: 'Space Age frontiers (standalone)',
     description:

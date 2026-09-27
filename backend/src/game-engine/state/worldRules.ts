@@ -22,17 +22,47 @@ interface WorldsLike {
 }
 
 /**
+ * The four world rules, each with its own kill switch under the
+ * `world_rules_enabled` master. Measured on the redesigned board, they are not
+ * equally safe to lose: Verdan's storms hold it together (without them Forge
+ * reaches ~35% and Verdan ~14%), while Sol's Cradle is inert. One switch for all
+ * four meant a misbehaving Cradle could only be removed by taking the storms
+ * with it — see backend/scripts/GALAXY-BALANCE.md §3.
+ */
+export const WORLD_RULE_IDS = ['cradle', 'storms', 'forge', 'vault'] as const;
+export type WorldRuleId = (typeof WORLD_RULE_IDS)[number];
+
+/** The `WorldRules` fields each rule owns. */
+export const WORLD_RULE_FIELDS: Record<WorldRuleId, ReadonlyArray<keyof WorldRules>> = {
+  cradle: ['deploy_cap_bonus', 'population_growth_mult'],
+  storms: ['storm_threshold', 'storm_attrition'],
+  forge: ['defense_building_bonus_dice'],
+  vault: ['vault'],
+};
+
+export function isWorldRuleId(v: unknown): v is WorldRuleId {
+  return typeof v === 'string' && (WORLD_RULE_IDS as readonly string[]).includes(v);
+}
+
+/**
  * Build the `world_id -> rules` snapshot from a map's worlds[], or undefined
- * when disabled or no world defines any rule.
+ * when disabled or no world defines any rule. `disabled` drops individual rules
+ * (their fields) while the rest still apply.
  */
 export function buildWorldRuleSnapshot(
   map: WorldsLike,
   enabled: boolean,
+  disabled: readonly WorldRuleId[] = [],
 ): Record<string, WorldRules> | undefined {
   if (!enabled || !map.worlds) return undefined;
+  const dropped = new Set<keyof WorldRules>(disabled.flatMap((id) => WORLD_RULE_FIELDS[id] ?? []));
   const snap: Record<string, WorldRules> = {};
   for (const w of map.worlds) {
-    if (w.rules && Object.keys(w.rules).length > 0) snap[w.world_id] = w.rules;
+    if (!w.rules) continue;
+    const kept = Object.fromEntries(
+      Object.entries(w.rules).filter(([k]) => !dropped.has(k as keyof WorldRules)),
+    ) as WorldRules;
+    if (Object.keys(kept).length > 0) snap[w.world_id] = kept;
   }
   return Object.keys(snap).length > 0 ? snap : undefined;
 }

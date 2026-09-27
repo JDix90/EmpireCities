@@ -3,6 +3,7 @@
 // ============================================================
 
 import type { PuzzleDecisionRecord } from '../game-engine/daily/dailyPuzzleTypes';
+import type { WorldRuleId } from '../game-engine/state/worldRules';
 import type {
   GamePhase,
   ConnectionType,
@@ -599,6 +600,12 @@ export interface GameSettings {
    * without rules.
    */
   world_rules_enabled?: boolean;
+  /**
+   * Individual world rules switched off ('cradle' | 'storms' | 'forge' |
+   * 'vault'), under the `world_rules_enabled` master. Baked at create from the
+   * per-rule galaxy flags; persisted only when non-empty.
+   */
+  world_rules_disabled?: WorldRuleId[];
   /** world_id → rules, snapshotted from map.worlds[] at init (see world_rules_enabled). */
   world_rules?: Record<string, WorldRules>;
   /** Max attacker dice after bonuses (clamped to ≥3 base). Default 5 when capping. */

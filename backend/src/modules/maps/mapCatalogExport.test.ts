@@ -87,6 +87,20 @@ describe('map catalog export', () => {
     }
   });
 
+  it('sizes era regions from their territories, so no era page quotes an empty region', () => {
+    // Era boards tag each territory with its region_id rather than listing
+    // territory_ids on the region; counting only the list printed "0 territories"
+    // for every region on every era page.
+    for (const eraId of Object.keys(ERA_MAP_IDS)) {
+      const m = eraMaps[eraId];
+      for (const r of m.regions) {
+        expect(r.territory_count, `${eraId}/${r.name} size`).toBeGreaterThan(0);
+      }
+      const sum = m.regions.reduce((n, r) => n + r.territory_count, 0);
+      expect(sum, `${eraId} regions cover the board`).toBe(m.territory_count);
+    }
+  });
+
   it('gives the era boards no page of their own', () => {
     // The distinction the two lists exist to make: era boards are data for a
     // page that already exists, not twelve more urls.
