@@ -550,7 +550,7 @@ export const FACTION_CODEX = [
       {
         "faction_id": "forge_syndicate",
         "name": "Forge Syndicate",
-        "description": "Industrial cartels — shipyard logistics deliver +1 reinforcement per turn and Jump Gates at half price; supply inserts on demand.",
+        "description": "Industrial cartels — shipyard logistics deliver +2 reinforcements per turn and Jump Gates at half price; supply inserts on demand.",
         "lore": "Shipyards and foundries form the true border between civilization and the dark between stars.",
         "flavor_quote": "We sell the hulls that empires die in.",
         "color": "#e67e22",
