@@ -93,3 +93,34 @@ describe('era_galaxy globe geometry', () => {
     }
   });
 });
+
+describe('era_ascension_galaxy far-world globe geometry', () => {
+  // Space to Stars draws the far worlds from `geo_polygon`, not the era_galaxy
+  // ring module, so the same winding rule has to hold on that path too.
+  const ascensionMap = JSON.parse(
+    fs.readFileSync(
+      path.resolve(__dirname, '../../../database/maps/era_ascension_galaxy.json'),
+      'utf-8',
+    ),
+  ) as { territories: Array<{ territory_id: string; world_id?: string; geo_polygon?: [number, number][] }> };
+  const farIds = new Set(
+    ascensionMap.territories
+      .filter((t) => t.world_id === 'verdan' || t.world_id === 'rust' || t.world_id === 'nexus_station')
+      .map((t) => t.territory_id),
+  );
+  const polys = buildTerritoryGlobeGeometries(
+    ascensionMap as unknown as Parameters<typeof buildTerritoryGlobeGeometries>[0],
+    { countriesGeo: null, statesGeo: null, risorgimentoGeo: null },
+  ).filter((p) => farIds.has(p.territory_id));
+
+  it('draws every far-world tile from its authored ring, math-CW', () => {
+    expect(polys).toHaveLength(48);
+    const byId = new Map(ascensionMap.territories.map((t) => [t.territory_id, t]));
+    for (const p of polys) {
+      const ring = p.geometry.type === 'Polygon' ? p.geometry.coordinates[0] : p.geometry.coordinates[0][0];
+      expect(signedLngLatRingArea(openRing(ring)), p.territory_id).toBeGreaterThan(0);
+      const authored = byId.get(p.territory_id)!.geo_polygon!;
+      expect(openRing(ring).length, p.territory_id).toBe(openRing(authored).length);
+    }
+  });
+});

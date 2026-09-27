@@ -374,8 +374,12 @@ function assertHomeworldStart(map: GameMap, state: GameState, factionOf: Record<
   const worldOfRegion = new Map(map.territories.map((t) => [t.region_id, t.world_id]));
   const worldOfTile = new Map(map.territories.map((t) => [t.territory_id, t.world_id]));
   for (const [pid, factionId] of Object.entries(factionOf)) {
-    const home = getFactionById('galaxy_age', factionId)?.home_region_ids?.map((r) => worldOfRegion.get(r));
-    const homeWorld = home?.[0];
+    // Like the engine, ignore home regions this map does not have (a variant
+    // map may predate one); the ones it does have must all be on one world.
+    const home = (getFactionById('galaxy_age', factionId)?.home_region_ids ?? [])
+      .map((r) => worldOfRegion.get(r))
+      .filter((w): w is string => w !== undefined);
+    const homeWorld = home[0];
     if (!homeWorld || home.some((w) => w !== homeWorld)) {
       throw new Error(`${factionId}: home_region_ids do not resolve to one world on this map`);
     }

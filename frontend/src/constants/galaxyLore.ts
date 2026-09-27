@@ -35,11 +35,11 @@ export const GALAXY_WORLD_LORE: Record<string, GalaxyWorldLore> = {
   },
   verdan: {
     display_name: 'Verdan Reach',
-    tagline: 'Bioluminescent Jungles — Helion Navigators',
+    tagline: 'The Twilight Ring — Helion Navigators',
     description:
-      'A super-Venus terraformed by Helion seedships in 3220 GE. Beneath perpetual sulphur clouds, vast carbon-fixing megalichens have engineered the entire surface into a single photosynthetic organism. By night the canopy glows green; by day, the cloud-tops flicker with electrical storms. The Navigators rule from sky-cities suspended above the methane mists.',
+      'A tidally locked super-Venus, terraformed by Helion seedships in 3220 GE. One face burns under the Brilliance, a white-hot sea of sulphur cloud turning round a storm the size of a continent: the Eye. The other face is black ice. Life holds on only in the twilight between, two crescent continents of glowing fen joined end to end by storm straits into a ring round the world. The Navigators rule from sky-cities that ride the terminator jet stream and never see a sunrise.',
     stakes:
-      'Storm belts and living canopy divide control — fleets bargain corridors through weather Braille scratched into the clouds during four centuries of Navigator civil war.',
+      'The ring has no rear: every stretch of it is somebody’s front. The short way across runs through the Brilliance Isles, and the Stormwall tears apart any army big enough to hold them.',
   },
   rust: {
     display_name: 'Rust Belt',
@@ -92,36 +92,91 @@ export const GALAXY_TERRITORY_LORE_DETAIL: Record<string, GalaxyTerritoryLoreDet
     hold: 'Terraced arcologies climb from Pacific trench vents into thinning oxygen — veterans swear the wind still carries missile coolant from the old wars.',
   },
 
-  // ── Verdan Reach ────────────────────────────────────────────────────────
-  verdan_aurora: {
+  // ── Verdan Reach — the Twilight Ring ─────────────────────────────────────
+  // Dawnrim: the Sol / Luna front.
+  verdan_spore_reach: {
     frontier:
-      'Polar aurora bands ionize navigation — Navigators carved jagged limits wherever Choir dirigibles could hover without shedding lift gas to storms.',
-    hold: 'Sky-platforms hang in polar updrafts; biolum broadcast hymns that double as IFF codes for Helion merchant militias.',
+      'Ends at the north storm strait, where the Stormwall makes the water impassable to anything slower than a Navigator skiff; the border is wherever the last spore beacon still answers.',
+    hold: 'Spore towers seed the jet stream with the ring’s pollen — half the canopy on Verdan grew from what blows off these cliffs.',
   },
-  verdan_stormwall: {
+  verdan_verdigris_span: {
     frontier:
-      'The perpetual hurricane wall shifts yearly — borders are ratchets of wreck buoys and tether anchors left by fleets that tried to punch through.',
-    hold: 'Only storm-rated skiffs survive the methane shear; rescue guilds sell passage maps drawn from lightning-flash telemetry auctions.',
+      'Runs along the frost line on the night-facing shore. The canopy stops where the dark begins, and so does every treaty.',
+    hold: 'Copper-green lichen plateaus cured in cold starlight; the Navigators mine them for the pigment that tints every sky-city hull.',
   },
-  verdan_canopy: {
+  verdan_saffron_mire: {
     frontier:
-      'Follows lichen strain gradients — older treaties locked haul lanes where two incompatible megastructures merge and neither faction will terraform further.',
-    hold: 'Harvest claws rake the upper canopy; lower strata are classified ecological hazards because something beneath answers lidar in Mandate encryption.',
+      'Faces the Brilliance across the first strait of the chord — mire pilots claim every sandbar the day-tide leaves, and lose half of them by evening.',
+    hold: 'Saffron bogs simmer gold under a sun that never sets; skimmer crews ferry spore-oil out to Mycel Deep on the hot wind.',
   },
-  verdan_marsh: {
+  verdan_chlorophage_span: {
     frontier:
-      'Chemosynthetic blooms creep nightly — patrol drones redraw limits each season where violet mycelium breaches containment berms.',
-    hold: 'Marsh pilots swear the ground remembers troop formations; Custodian observers refuse soil samples beyond thirty metre depth.',
+      'Drawn round the landing field of the Sol lane — the Mandate’s first beachhead, fenced by Navigator pylons that have never once been switched off.',
+    hold: 'Chlorophage vines eat anything green that is not them; the lane port is the only clear ground for a hundred kilometres.',
   },
-  verdan_drift: {
+  // Emberfen.
+  verdan_glowmire_shelf: {
     frontier:
-      'Floating castles drift on jet streams — jurisdictional claims tie to anchor cables cut during Navigator succession wars.',
-    hold: 'Refugee sky-enclaves trade salvage rights for maneuvering fuel; Mandate exiles launder identities through drifting passport brokers.',
+      'Ends at the south storm strait. Across the water the Storm Belts glow the same colour, and both shores claim the wrecks between.',
+    hold: 'A drowned shelf of luminous peat that burns without flame; crews navigate by the light of the ground itself.',
   },
-  verdan_brilliance: {
+  verdan_greenfire_vault: {
     frontier:
-      'Navigators refused straight lines here — the brilliance gap exposes molten crust that cooks sensors; borders corkscrew along ash shadow contours.',
-    hold: 'Landing banned under capital letters; black-ops teams still race to drop probes before Choir interceptors burn them mid-descent.',
+      'Walled round the second Sol lane, over seedship vaults sealed in 3220 GE that still hold the stock Helion terraformed the world from.',
+    hold: 'Greenfire orchards glow under the vault domes. Whoever holds the lane holds the seed bank, and both sides know it.',
+  },
+  verdan_lumen_bog: {
+    frontier:
+      'A cape pushed out into the night side. Its border is the terminator itself, and it creeps a few metres a century.',
+    hold: 'The last light before the ice: bog-lanterns, exiles, and a smugglers’ anchorage the dark keeps off every chart.',
+  },
+  // Duskrim: the Rust front.
+  verdan_photic_crown: {
+    frontier:
+      'Holds the Rust lane at the north storm strait. Forge engineers bolted the landing yards straight into the cliffs, and the Navigators never forgave them.',
+    hold: 'Photic towers catch the last of the dusk and beam it inland; the yards below trade spore-oil for Rust alloy.',
+  },
+  verdan_thundercrown_belt: {
+    frontier:
+      'Follows the night-facing ridgeline, where thunderheads break on the ice every evening that never comes.',
+    hold: 'Storm-farm arrays pull lightning from the dusk front — the Belt powers half the sky-cities and is shelled by all of them in turn.',
+  },
+  verdan_witchlight_fen: {
+    frontier:
+      'Its day-facing shore looks across the water to Pollen Sea: the last stepping stone of the chord, and the Duskrim’s door to the Eye.',
+    hold: 'Witchlight marsh flickers blue under a sun that sits on the horizon for ever; ferry clans run the crossing for whoever pays in water.',
+  },
+  // Storm Belts.
+  verdan_mistveil_hollow: {
+    frontier:
+      'A basin walled in by fog. Borders here are drawn in wreck buoys, because nothing else stays put.',
+    hold: 'Methane mist pools in the hollow for months; storm-rated skiffs slip through it to hit Duskrim convoys from behind.',
+  },
+  verdan_cinder_bloom: {
+    frontier:
+      'Faces Glowmire across the south storm strait. Its shore batteries were built to stop exactly one crossing, and have.',
+    hold: 'Fire-blossoms seed in ash and open in lightning strikes; the pollen burns bright enough to read by.',
+  },
+  verdan_sulphur_drift: {
+    frontier:
+      'Anchored on the second Rust lane at the ring’s southern tip. The dunes shift so fast the border is re-surveyed every tide.',
+    hold: 'Sulphur flats drift under the day-glare; Forge refineries at the lane port turn them into the acid the Syndicate etches hulls with.',
+  },
+  // Brilliance Isles: across the day side, through the Eye.
+  verdan_mycel_deep: {
+    frontier:
+      'The first isle out from the Dawn crescent. Claims end where the mycelium mats give way to open cloud-sea.',
+    hold: 'A floating island of fungal mat thick enough to land a frigate on, if the pilot trusts it.',
+  },
+  verdan_emberleaf_basin: {
+    frontier:
+      'The only land beneath the storm. The Eye’s calm is a circle a few hundred kilometres wide, and the Stormwall round it is a border nobody drew.',
+    hold: 'The emberleaf forests grow in the calm at the heart of the Brilliance, where the Navigators crown their Pilot-Regent under a sun directly overhead.',
+  },
+  verdan_pollen_sea: {
+    frontier:
+      'The last isle before the Duskrim. Pollen tides turn the strait yellow, and the border moves with them.',
+    hold: 'Pollen reefs rise out of the cloud-sea — flat, gold, and walkable for the few hours the wind drops.',
   },
 
   // ── Rust Belt ───────────────────────────────────────────────────────────

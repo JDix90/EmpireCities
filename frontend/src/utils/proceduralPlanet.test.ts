@@ -9,6 +9,7 @@ import {
   colorizeLand,
   colorizeOcean,
   fillEquirectRGBA,
+  verdanSea,
   type PlanetKind,
 } from './proceduralPlanet';
 
@@ -85,11 +86,11 @@ describe('colorize', () => {
     const sample = (kind: PlanetKind) => colorize(kind, 0.5, 0.5, 1000);
     const ocean = sample('ocean');
     const desert = sample('desert');
-    const verdant = sample('verdant');
-    // Desert should be warmer (more red than blue); ocean/verdant cooler/greener.
+    const verdantLand = colorizeLand('verdant', 0.5, 0.5, 1000);
+    // Desert should be warmer (more red than blue); ocean cooler; Verdan's canopy green.
     expect(desert[0]).toBeGreaterThan(desert[2]);
     expect(ocean[2]).toBeGreaterThanOrEqual(ocean[0]);
-    expect(verdant[1]).toBeGreaterThan(verdant[0]);
+    expect(verdantLand[1]).toBeGreaterThan(verdantLand[0]);
   });
 });
 
@@ -127,9 +128,10 @@ describe('territory-aligned land/ocean colorizers', () => {
     }
   });
 
-  it('makes land clearly brighter than ocean/void on every world', () => {
+  it('makes land clearly brighter than ocean/void on every world but Verdan', () => {
     const lum = (c: number[]) => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
-    for (const kind of kinds) {
+    // Verdan's day-side sea is the white-hot Brilliance: see its own test below.
+    for (const kind of kinds.filter((k) => k !== 'verdant')) {
       let landSum = 0;
       let oceanSum = 0;
       for (let i = 0; i < 60; i++) {
@@ -140,6 +142,41 @@ describe('territory-aligned land/ocean colorizers', () => {
       }
       // Territories (land) should read lighter than the void/water between them.
       expect(landSum).toBeGreaterThan(oceanSum);
+    }
+  });
+});
+
+describe("Verdan's sea (tidally locked)", () => {
+  // u/v for a lng/lat: u = (lng + 180) / 360, v = (90 - lat) / 180.
+  const at = (lng: number, lat: number) => verdanSea((lng + 180) / 360, (90 - lat) / 180, 4404);
+  const lum = (c: number[]) => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
+
+  it('burns gold on the day side, goes teal in the twilight and black on the night side', () => {
+    const day = at(30, 40); // ~20° from the substellar point [0, 50]
+    const twilight = at(0, -32); // ~82°: the ring
+    const night = at(180, -50); // the antistellar point
+    expect(day[0]).toBeGreaterThan(day[2]); // gold, not blue
+    expect(twilight[1]).toBeGreaterThan(twilight[0]); // teal
+    expect(twilight[2]).toBeGreaterThan(twilight[0]);
+    expect(lum(day)).toBeGreaterThan(lum(twilight));
+    expect(lum(twilight)).toBeGreaterThan(lum(night));
+  });
+
+  it('follows the terminator, not the poles', () => {
+    // The north pole is only 40° from the substellar point: Brilliance, not ice.
+    const pole = at(0, 89.9);
+    expect(pole[0]).toBeGreaterThan(pole[2]);
+    expect(lum(pole)).toBeGreaterThan(150);
+  });
+
+  it('stays in gamut everywhere', () => {
+    for (let lng = -180; lng < 180; lng += 15) {
+      for (let lat = -85; lat <= 85; lat += 10) {
+        for (const ch of at(lng, lat)) {
+          expect(ch).toBeGreaterThanOrEqual(0);
+          expect(ch).toBeLessThanOrEqual(255);
+        }
+      }
     }
   });
 });

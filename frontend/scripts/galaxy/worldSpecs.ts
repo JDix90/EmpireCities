@@ -9,10 +9,12 @@
  * map file itself is output — hand edits to it are overwritten on the next run,
  * which is how the 16-region split went missing from the old generator.
  *
- * Nothing here is a design change: these specs reproduce the shipped board
- * exactly, and a drift test (`src/data/galaxyWorldsDrift.test.ts`) fails if the
- * committed files ever stop matching them.
+ * A drift test (`src/data/galaxyWorldsDrift.test.ts`) fails if the committed
+ * files ever stop matching these specs.
  */
+
+import { VERDAN_SUBSTELLAR } from '../../src/data/galaxyWorldFrames';
+import { polar } from './sphere';
 
 export type LngLat = [number, number];
 
@@ -42,7 +44,49 @@ export interface VoronoiWorldSpec {
   territories: GalaxyTerritorySpec[];
 }
 
-export type FarWorldSpec = VoronoiWorldSpec;
+/** A region of land: a disc, a ring, or a thick great-circle polyline. Sizes in degrees. */
+export type SkeletonShape =
+  | { kind: 'cap'; center: LngLat; radius: number }
+  | { kind: 'band'; center: LngLat; mid: number; half: number }
+  | { kind: 'capsule'; points: LngLat[]; radius: number };
+
+export interface SkeletonTerritorySpec {
+  id: string;
+  name: string;
+  region_id: string;
+  /** A point on land; each land cell goes to the nearest seed by path through land. */
+  at: LngLat;
+  /** Below 1 gives the seed a late start, so the territory comes out smaller. */
+  weight?: number;
+}
+
+/**
+ * A far world built from an authored landmass skeleton (see `skeletonWorld.ts`).
+ * The graph is part of the design: the generator fails unless the geometry
+ * produces exactly `landBorders`, and every `seaLinks` pair crosses real water.
+ */
+export interface SkeletonWorldSpec {
+  kind: 'skeleton';
+  world_id: string;
+  seed: number;
+  land: { add: SkeletonShape[]; cut: SkeletonShape[] };
+  /** Coastline roughness: amplitude in degrees, base frequency on the unit sphere. */
+  noise: { amp: number; freq: number };
+  /** Domain warp that bends the skeleton's shapes before they are evaluated. */
+  warp: { amp: number; freq: number };
+  /** Cost noise in the partition, which makes borders meander. */
+  border: { freq: number; noise: number };
+  regions: GalaxyRegionSpec[];
+  territories: SkeletonTerritorySpec[];
+  landBorders: Array<[string, string]>;
+  seaLinks: Array<[string, string]>;
+  /** Widest water a sea link may cross, in degrees. */
+  maxSeaGap: number;
+  /** Smallest tile, in percent of the sphere, so every tile stays tappable on a phone. */
+  minTileArea: number;
+}
+
+export type FarWorldSpec = VoronoiWorldSpec | SkeletonWorldSpec;
 
 /** One Sol III territory: a group of Natural Earth building blocks, so coastlines stay real. */
 export interface SolTerritorySpec {
@@ -101,35 +145,111 @@ const SOL: SolWorldSpec = {
   ],
 };
 
-const VERDAN: VoronoiWorldSpec = {
-  kind: 'voronoi',
+/**
+ * Verdan Reach — the Twilight Ring.
+ *
+ * Verdan is tidally locked. Its day side is the Brilliance, a white-hot sea of
+ * sulphur cloud turning round a permanent storm, the Eye; its night side is
+ * black ice. The canopy lives only in the twilight between: two crescent
+ * continents of glowing fen, broken at each end by a storm strait, with a chain
+ * of isles running across the Brilliance through the Eye.
+ *
+ * The world is a loop: every region has two land fronts and no rear. Sol's
+ * lanes come down on the Dawn crescent, Rust's on the Dusk crescent, so
+ * crossing Verdan means going round the ring, over a strait, or through the
+ * Eye. Storms cap every stack at 12, so nobody plugs the Eye with one army.
+ *
+ * Everything is placed relative to the substellar point, so the design moves
+ * rigidly with it. It sits at 50°N so the ring clears both poles and its north
+ * storm strait lies on the antimeridian, where no territory may cross.
+ */
+const VERDAN_SUN: LngLat = VERDAN_SUBSTELLAR;
+const vr = (azimuth: number, dist: number): LngLat => polar(VERDAN_SUN, azimuth, dist);
+const VERDAN_RING = 80; // ring centre-line distance from the substellar point
+
+const VERDAN: SkeletonWorldSpec = {
+  kind: 'skeleton',
   world_id: 'verdan',
-  prefix: 'verdan',
   seed: 4404,
+  land: {
+    add: [
+      { kind: 'band', center: VERDAN_SUN, mid: VERDAN_RING, half: 17 }, // the twilight ring
+      { kind: 'cap', center: VERDAN_SUN, radius: 11 }, // the Eye
+      { kind: 'capsule', points: [vr(90, 29), vr(90, 43)], radius: 8.5 }, // Mycel Deep
+      { kind: 'capsule', points: [vr(270, 29), vr(270, 43)], radius: 8.5 }, // Pollen Sea
+      { kind: 'capsule', points: [vr(116, 92), vr(116, 110)], radius: 7.5 }, // Lumen Bog, the night-side cape
+    ],
+    cut: [
+      { kind: 'capsule', points: [vr(0, 55), vr(0, 105)], radius: 3.4 }, // north storm strait
+      { kind: 'capsule', points: [vr(180, 55), vr(180, 105)], radius: 5.5 }, // south storm strait
+    ],
+  },
+  noise: { amp: 5, freq: 3.4 },
+  warp: { amp: 0.07, freq: 2.2 },
+  border: { freq: 4, noise: 1.6 },
   regions: [
-    { region_id: 'verdan_sporefields', name: 'Verdan — Spore Fields', bonus: 3 },
-    { region_id: 'verdan_mirelands', name: 'Verdan — Mirelands', bonus: 3 },
-    { region_id: 'verdan_lumen_crown', name: 'Verdan — Lumen Crown', bonus: 3 },
-    { region_id: 'verdan_stormbelts', name: 'Verdan — Storm Belts', bonus: 3 },
+    { region_id: 'verdan_sporefields', name: 'Verdan — Dawnrim', bonus: 3 },
+    { region_id: 'verdan_mirelands', name: 'Verdan — Emberfen', bonus: 2 },
+    { region_id: 'verdan_lumen_crown', name: 'Verdan — Duskrim', bonus: 2 },
+    { region_id: 'verdan_stormbelts', name: 'Verdan — Storm Belts', bonus: 2 },
+    { region_id: 'verdan_brilliance', name: 'Verdan — Brilliance Isles', bonus: 3 },
   ],
   territories: [
-    { name: 'Spore Reach', region_id: 'verdan_sporefields' },
-    { name: 'Glowmire Shelf', region_id: 'verdan_mirelands' },
-    { name: 'Cinder Bloom', region_id: 'verdan_lumen_crown' },
-    { name: 'Mistveil Hollow', region_id: 'verdan_stormbelts' },
-    { name: 'Chlorophage Span', region_id: 'verdan_sporefields' },
-    { name: 'Saffron Mire', region_id: 'verdan_mirelands' },
-    { name: 'Verdigris Span', region_id: 'verdan_mirelands' },
-    { name: 'Thundercrown Belt', region_id: 'verdan_stormbelts' },
-    { name: 'Lumen Bog', region_id: 'verdan_sporefields' },
-    { name: 'Photic Crown', region_id: 'verdan_lumen_crown' },
-    { name: 'Sulphur Drift', region_id: 'verdan_stormbelts' },
-    { name: 'Pollen Sea', region_id: 'verdan_lumen_crown' },
-    { name: 'Emberleaf Basin', region_id: 'verdan_sporefields' },
-    { name: 'Mycel Deep', region_id: 'verdan_mirelands' },
-    { name: 'Witchlight Fen', region_id: 'verdan_lumen_crown' },
-    { name: 'Greenfire Vault', region_id: 'verdan_stormbelts' },
+    // Dawn crescent: the Sol / Luna front.
+    { id: 'verdan_spore_reach', name: 'Spore Reach', region_id: 'verdan_sporefields', at: vr(34, 72) },
+    { id: 'verdan_verdigris_span', name: 'Verdigris Span', region_id: 'verdan_sporefields', at: vr(40, 90) },
+    { id: 'verdan_saffron_mire', name: 'Saffron Mire', region_id: 'verdan_sporefields', at: vr(84, 70) },
+    { id: 'verdan_chlorophage_span', name: 'Chlorophage Span', region_id: 'verdan_sporefields', at: vr(92, 90) },
+    { id: 'verdan_glowmire_shelf', name: 'Glowmire Shelf', region_id: 'verdan_mirelands', at: vr(136, 72) },
+    { id: 'verdan_greenfire_vault', name: 'Greenfire Vault', region_id: 'verdan_mirelands', at: vr(142, 90) },
+    { id: 'verdan_lumen_bog', name: 'Lumen Bog', region_id: 'verdan_mirelands', at: vr(116, 104), weight: 0.85 },
+    // Dusk crescent: the Rust front.
+    { id: 'verdan_photic_crown', name: 'Photic Crown', region_id: 'verdan_lumen_crown', at: vr(326, 72) },
+    { id: 'verdan_thundercrown_belt', name: 'Thundercrown Belt', region_id: 'verdan_lumen_crown', at: vr(318, 90) },
+    { id: 'verdan_witchlight_fen', name: 'Witchlight Fen', region_id: 'verdan_lumen_crown', at: vr(276, 71) },
+    { id: 'verdan_mistveil_hollow', name: 'Mistveil Hollow', region_id: 'verdan_stormbelts', at: vr(268, 90) },
+    { id: 'verdan_cinder_bloom', name: 'Cinder Bloom', region_id: 'verdan_stormbelts', at: vr(224, 72) },
+    { id: 'verdan_sulphur_drift', name: 'Sulphur Drift', region_id: 'verdan_stormbelts', at: vr(218, 90) },
+    // The Brilliance Isles, across the day side through the Eye. The Eye keeps
+    // its old id so saved games, tests and lore keys survive the rename.
+    { id: 'verdan_mycel_deep', name: 'Mycel Deep', region_id: 'verdan_brilliance', at: vr(90, 36), weight: 0.8 },
+    { id: 'verdan_emberleaf_basin', name: 'The Eye', region_id: 'verdan_brilliance', at: VERDAN_SUN, weight: 0.8 },
+    { id: 'verdan_pollen_sea', name: 'Pollen Sea', region_id: 'verdan_brilliance', at: vr(270, 36), weight: 0.8 },
   ],
+  landBorders: [
+    // Dawnrim and Emberfen
+    ['verdan_spore_reach', 'verdan_verdigris_span'],
+    ['verdan_spore_reach', 'verdan_saffron_mire'],
+    ['verdan_verdigris_span', 'verdan_saffron_mire'],
+    ['verdan_verdigris_span', 'verdan_chlorophage_span'],
+    ['verdan_saffron_mire', 'verdan_chlorophage_span'],
+    ['verdan_saffron_mire', 'verdan_glowmire_shelf'],
+    ['verdan_chlorophage_span', 'verdan_glowmire_shelf'],
+    ['verdan_chlorophage_span', 'verdan_lumen_bog'],
+    ['verdan_glowmire_shelf', 'verdan_greenfire_vault'],
+    ['verdan_glowmire_shelf', 'verdan_lumen_bog'],
+    ['verdan_greenfire_vault', 'verdan_lumen_bog'],
+    // Duskrim and the Storm Belts
+    ['verdan_photic_crown', 'verdan_thundercrown_belt'],
+    ['verdan_photic_crown', 'verdan_witchlight_fen'],
+    ['verdan_thundercrown_belt', 'verdan_witchlight_fen'],
+    ['verdan_thundercrown_belt', 'verdan_mistveil_hollow'],
+    ['verdan_witchlight_fen', 'verdan_mistveil_hollow'],
+    ['verdan_witchlight_fen', 'verdan_cinder_bloom'],
+    ['verdan_mistveil_hollow', 'verdan_cinder_bloom'],
+    ['verdan_mistveil_hollow', 'verdan_sulphur_drift'],
+    ['verdan_cinder_bloom', 'verdan_sulphur_drift'],
+  ],
+  seaLinks: [
+    ['verdan_spore_reach', 'verdan_photic_crown'], // north storm strait
+    ['verdan_glowmire_shelf', 'verdan_cinder_bloom'], // south storm strait
+    ['verdan_saffron_mire', 'verdan_mycel_deep'], // the chord through the Eye
+    ['verdan_mycel_deep', 'verdan_emberleaf_basin'],
+    ['verdan_emberleaf_basin', 'verdan_pollen_sea'],
+    ['verdan_pollen_sea', 'verdan_witchlight_fen'],
+  ],
+  maxSeaGap: 14,
+  minTileArea: 0.6,
 };
 
 const RUST: VoronoiWorldSpec = {

@@ -85,7 +85,7 @@ export const GALAXY_AGE_FACTIONS: Faction[] = [
     description: 'Lane-mappers and drift pilots — every gateway in the galaxy stays visible to them, and their fleets jump between their own gateways.',
     lore: 'Their astrogators tape gravimetric shoals the way ancient sailors mapped reefs.',
     flavor_quote: 'The void has currents; we read them.',
-    home_region_ids: ['verdan_sporefields', 'verdan_mirelands', 'verdan_lumen_crown', 'verdan_stormbelts'],
+    home_region_ids: ['verdan_sporefields', 'verdan_mirelands', 'verdan_lumen_crown', 'verdan_stormbelts', 'verdan_brilliance'],
     lineage_id: 'maritime',
     // Long-Range Sensors is the passive (expandFogVisibilityFromFactionPassive).
     // Drift Jump is applied implicitly by the fortify handler: a fortify between

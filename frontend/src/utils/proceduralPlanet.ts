@@ -16,6 +16,8 @@
  * (callers then fall back to the globe's default), so this is safe under jsdom.
  */
 
+import { VERDAN_SUBSTELLAR } from '../data/galaxyWorldFrames';
+
 export type PlanetKind = 'ocean' | 'verdant' | 'desert' | 'city' | 'rocky';
 
 export interface PlanetProfile {
@@ -118,16 +120,56 @@ function ramp(stops: RGB[], t: number): RGB {
   return mix(stops[i], stops[i + 1], x - i);
 }
 
+function scale(c: RGB, k: number): RGB {
+  return [Math.min(255, c[0] * k), Math.min(255, c[1] * k), Math.min(255, c[2] * k)];
+}
+
+/**
+ * Verdan Reach's sea, by great-circle distance from the substellar point. The
+ * world is tidally locked, so its seas are not water but weather: the
+ * Brilliance (white-hot sulphur cloud wound round the Eye, brightest in the
+ * Stormwall just outside it), twilight shallows along the ring, and black ice
+ * on the night side. Poles mean nothing here; the terminator does.
+ */
+export function verdanSea(u: number, v: number, seed: number): RGB {
+  const rad = Math.PI / 180;
+  const lng = (u * 360 - 180) * rad;
+  const lat = (90 - v * 180) * rad;
+  const sl = VERDAN_SUBSTELLAR[0] * rad;
+  const sp = VERDAN_SUBSTELLAR[1] * rad;
+  const cosA = Math.sin(sp) * Math.sin(lat) + Math.cos(sp) * Math.cos(lat) * Math.cos(lng - sl);
+  const a = Math.acos(Math.max(-1, Math.min(1, cosA))) / rad;
+  const bearing = Math.atan2(
+    Math.sin(lng - sl) * Math.cos(lat),
+    Math.cos(sp) * Math.sin(lat) - Math.sin(sp) * Math.cos(lat) * Math.cos(lng - sl),
+  );
+  const n1 = fbm(u, v, 5, 5, seed + 21);
+  const n2 = fbm(u, v, 12, 3, seed + 23);
+
+  const spiral = 0.5 + 0.5 * Math.sin(bearing * 2 + a * 0.22 + n1 * 4);
+  const wall = Math.exp(-(((a - 17) / 6) ** 2));
+  const day = scale(mix(VERDAN_BRILLIANCE, VERDAN_BRILLIANCE_HOT, Math.min(1, 0.35 * spiral + 0.55 * wall)), 0.82 + 0.22 * n2);
+  const twilight = scale(VERDAN_SHALLOWS, 0.8 + 0.4 * n1);
+  let night = scale(VERDAN_NIGHT_ICE, 0.75 + 0.5 * n2);
+  if (n1 > 0.6) night = mix(night, VERDAN_FROST, Math.min(1, (n1 - 0.6) / 0.2) * 0.4);
+
+  return mix(mix(day, twilight, smoothstep(46, 70, a)), night, smoothstep(96, 116, a));
+}
+
 const PAL = {
   sol: ['#0c2549', '#15406f', '#2f6fae', '#5fa0c8'].map(hexToRgb),
   sol_land: ['#2c5c39', '#3f7a47', '#8a8b54', '#b9b58a'].map(hexToRgb),
-  verdan: ['#0d3f3a', '#176a5d', '#2f8f4a'].map(hexToRgb),
-  verdan_land: ['#1d4d28', '#2f7d3a', '#5fa544', '#9ed06a'].map(hexToRgb),
+  verdan_land: ['#153f2a', '#1c5c3a', '#3f9a5c', '#6fd18a'].map(hexToRgb),
   rust: ['#451d0d', '#6e2f15', '#9a4a22', '#bf7a3e', '#d9a86a'].map(hexToRgb),
 };
 const FROST = hexToRgb('#d8c4b0');
 const ICE = hexToRgb('#eef2f5');
-const VERDAN_ICE = hexToRgb('#dfeede');
+const VERDAN_BIOLUME = hexToRgb('#7fe7c4');
+const VERDAN_BRILLIANCE = hexToRgb('#f7dc85');
+const VERDAN_BRILLIANCE_HOT = hexToRgb('#fff4d2');
+const VERDAN_SHALLOWS = hexToRgb('#1a5c56');
+const VERDAN_NIGHT_ICE = hexToRgb('#101a33');
+const VERDAN_FROST = hexToRgb('#34425e');
 const SOL_PEAK = hexToRgb('#cfc6a6');
 const JUNGLE = hexToRgb('#103a1c');
 const NEXUS_LOW = hexToRgb('#080b1c');
@@ -168,17 +210,7 @@ export function colorize(kind: PlanetKind, u: number, v: number, seed: number): 
 
   if (kind === 'verdant') {
     const e = fbm(u, v, 5, 6, seed);
-    let c: RGB;
-    if (e < 0.4) {
-      c = ramp(PAL.verdan, e / 0.4);
-    } else {
-      const lc = fbm(u, v, 10, 5, seed + 7);
-      c = ramp(PAL.verdan_land, lc);
-      const jungle = fbm(u, v, 16, 3, seed + 2);
-      if (jungle < 0.38) c = mix(c, JUNGLE, 0.5);
-    }
-    if (lat > 0.9) c = mix(c, VERDAN_ICE, ((lat - 0.9) / 0.1) * 0.6);
-    return c;
+    return e < 0.4 ? verdanSea(u, v, seed) : colorizeLand(kind, u, v, seed);
   }
 
   if (kind === 'city') {
@@ -234,6 +266,8 @@ export function colorizeLand(kind: PlanetKind, u: number, v: number, seed: numbe
     let c = ramp(PAL.verdan_land, lc);
     const jungle = fbm(u, v, 16, 3, seed + 2);
     if (jungle < 0.38) c = mix(c, JUNGLE, 0.5);
+    const veins = fbm(u, v, 24, 3, seed + 4);
+    if (veins > 0.68) c = mix(c, VERDAN_BIOLUME, Math.min(1, (veins - 0.68) / 0.12) * 0.45);
     return c;
   }
   if (kind === 'city') {
@@ -261,7 +295,7 @@ export function colorizeOcean(kind: PlanetKind, u: number, v: number, seed: numb
     return ramp(PAL.sol, fbm(u, v, 5, 5, seed + 21));
   }
   if (kind === 'verdant') {
-    return ramp(PAL.verdan, fbm(u, v, 5, 5, seed + 21));
+    return verdanSea(u, v, seed);
   }
   if (kind === 'city') {
     return mix(NEXUS_LOW, NEXUS_HIGH, fbm(u, v, 4, 3, seed + 17) * 0.5); // dark void
@@ -464,11 +498,10 @@ export function buildGalaxyWorldTextureFromPolygons(
         if (t <= 0) c = colorizeOcean(kind, u, v, seed);
         else if (t >= 1) c = colorizeLand(kind, u, v, seed);
         else c = mix(colorizeOcean(kind, u, v, seed), colorizeLand(kind, u, v, seed), t);
-        // Polar caps read frozen on the water worlds regardless of land/ocean.
+        // Polar caps read frozen on Sol regardless of land/ocean. Verdan is
+        // tidally locked: its ice follows the night side (verdanSea), not the poles.
         if (kind === 'ocean' && lat > 0.82) {
           c = mix(c, ICE, Math.min(1, (lat - 0.82) / 0.18) * 0.85);
-        } else if (kind === 'verdant' && lat > 0.9) {
-          c = mix(c, VERDAN_ICE, ((lat - 0.9) / 0.1) * 0.6);
         }
         data[k] = c[0];
         data[k + 1] = c[1];
