@@ -29,6 +29,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { inferWorldId } from '@borderfall/shared';
 import { getGalaxyWorldLore } from '../../constants/galaxyLore';
+import { worldChartArt, type WorldChartArt } from './galaxyWorldArt';
 import type { GameState } from '../../store/gameStore';
 import {
   EMERGENCY_SEAL_WORLD_ID,
@@ -73,6 +74,8 @@ export interface GalaxyMapDatum {
   worlds?: Array<{
     world_id: string;
     display_name: string;
+    /** Authored chart position, [x, y] in [0, 1]; wins over the territory mean. */
+    galaxy_position?: [number, number];
   }>;
 }
 
@@ -128,6 +131,67 @@ function worldBodyColor(worldId: string): string {
   for (let i = 0; i < worldId.length; i++) h = Math.imul(h ^ worldId.charCodeAt(i), 16777619);
   const hue = (h >>> 0) % 360;
   return `hsl(${hue}, 34%, 28%)`;
+}
+
+/** DOM-safe id fragment for a world's gradient and clip path. */
+function artId(worldId: string): string {
+  return worldId.replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+/**
+ * A world's signature mark, drawn inside its disc (clipped to it by the caller):
+ * Verdan's canopy ring round the Brilliance, Rust's rift, Nexus's lit Gate and
+ * fractures, a hint of continents or craters on the rest.
+ */
+function WorldMark({ art, cx, cy, r }: { art: WorldChartArt; cx: number; cy: number; r: number }) {
+  const c = art.markColor;
+  switch (art.mark) {
+    case 'twilight_ring':
+      return (
+        <circle cx={cx} cy={cy} r={r * 0.62} fill="none" stroke={c} strokeWidth={r * 0.2} opacity={0.9} />
+      );
+    case 'rift':
+      return (
+        <>
+          <path
+            d={`M ${cx - r * 0.55} ${cy - r * 0.85} Q ${cx - r * 0.05} ${cy - r * 0.1} ${cx + r * 0.35} ${cy + r * 0.9}`}
+            fill="none" stroke={c} strokeWidth={r * 0.24} opacity={0.35}
+          />
+          <path
+            d={`M ${cx - r * 0.55} ${cy - r * 0.85} Q ${cx - r * 0.05} ${cy - r * 0.1} ${cx + r * 0.35} ${cy + r * 0.9}`}
+            fill="none" stroke={c} strokeWidth={r * 0.09}
+          />
+        </>
+      );
+    case 'gate':
+      return (
+        <>
+          <circle cx={cx} cy={cy} r={r * 0.46} fill="none" stroke="#8d92b3" strokeWidth={r * 0.16} opacity={0.8} />
+          {/* The Gate Ring's four fractures (paths, not <line>: lines on this chart are lanes). */}
+          <path
+            d={`M ${cx} ${cy - r * 0.62} V ${cy + r * 0.62} M ${cx - r * 0.62} ${cy} H ${cx + r * 0.62}`}
+            stroke="#07071a" strokeWidth={r * 0.08}
+          />
+          <circle cx={cx} cy={cy} r={r * 0.2} fill={c} opacity={0.95} />
+        </>
+      );
+    case 'continents':
+      return (
+        <>
+          <ellipse cx={cx - r * 0.35} cy={cy - r * 0.15} rx={r * 0.3} ry={r * 0.45} fill={c} opacity={0.85} />
+          <ellipse cx={cx + r * 0.4} cy={cy + r * 0.2} rx={r * 0.28} ry={r * 0.22} fill={c} opacity={0.85} />
+        </>
+      );
+    case 'craters':
+      return (
+        <>
+          <circle cx={cx - r * 0.3} cy={cy - r * 0.25} r={r * 0.18} fill={c} opacity={0.8} />
+          <circle cx={cx + r * 0.35} cy={cy + r * 0.3} r={r * 0.12} fill={c} opacity={0.8} />
+        </>
+      );
+    default:
+      return null;
+  }
 }
 
 /** Tiny deterministic PRNG so the starfield is stable across renders. */
@@ -220,6 +284,9 @@ export default function GalaxyStrategicView({
 }: GalaxyStrategicViewProps) {
   const [pulsePhase, setPulsePhase] = useState(0);
   const [selectedWorldId, setSelectedWorldId] = useState<string | null>(null);
+  /** Narrow canvases (phones): the legend folds away so it can't cover a world. */
+  const compactLegend = width < 520;
+  const [legendOpen, setLegendOpen] = useState(false);
 
   const worldOf = useMemo(() => {
     const m = new Map<string, string>();
@@ -253,9 +320,14 @@ export default function GalaxyStrategicView({
     [mapData.worlds],
   );
 
+  const authoredPositionOf = useCallback(
+    (wid: string) => mapData.worlds?.find((x) => x.world_id === wid)?.galaxy_position,
+    [mapData.worlds],
+  );
+
   const nodes = useMemo(
-    () => buildWorldNodes(mapData.territories, { ownerOf, playerInfo, displayNameOf }),
-    [mapData.territories, ownerOf, playerInfo, displayNameOf],
+    () => buildWorldNodes(mapData.territories, { ownerOf, playerInfo, displayNameOf, authoredPositionOf }),
+    [mapData.territories, ownerOf, playerInfo, displayNameOf, authoredPositionOf],
   );
 
   const sizing = useMemo(() => nodeSizing(nodes.length, width, height), [nodes.length, width, height]);
@@ -264,13 +336,19 @@ export default function GalaxyStrategicView({
     [sizing.donutR, sizing.fontSize],
   );
 
+  // Labels sit below each node, so the sides only need the node itself; and a
+  // phone keeps the bottom clear of the footer hint.
+  const padX = useMemo(() => sizing.donutR * 1.15 + 8, [sizing.donutR]);
+  const footerReserve = compactLegend ? 64 : 0;
+
   const placeById = useMemo(() => {
-    const raw = fitToViewport(nodes, width, height, pad);
-    const relaxed = relaxPlacements(raw, sizing.donutR * 2.3 + 10, width, height, pad, 90);
+    const layoutH = Math.max(1, height - footerReserve);
+    const raw = fitToViewport(nodes, width, layoutH, pad, padX);
+    const relaxed = relaxPlacements(raw, sizing.donutR * 2.3 + 10, width, layoutH, pad, 90, padX);
     const m = new Map<string, Placement>();
     for (const p of relaxed) m.set(p.world_id, p);
     return m;
-  }, [nodes, width, height, pad, sizing.donutR]);
+  }, [nodes, width, height, pad, padX, footerReserve, sizing.donutR]);
 
   const worldLanes = useMemo(
     () => aggregateOrbitLanes(mapData.connections, worldOf),
@@ -662,6 +740,7 @@ export default function GalaxyStrategicView({
           const isPulsing = pulseActive && pulseWorldId === node.world_id;
           const segs = donutSegments(node, circumference);
           const allNeutral = node.ownership.length === 0;
+          const art = worldChartArt(node.world_id);
           return (
             <g
               key={`world-${node.world_id}`}
@@ -700,16 +779,33 @@ export default function GalaxyStrategicView({
                 />
               )}
 
-              {/* Planet body (+ subtle lit highlight) */}
+              {/* Planet body: the world's own disc where it has one (+ subtle lit highlight) */}
+              {art && (
+                <defs>
+                  <radialGradient id={`bf-world-grad-${artId(node.world_id)}`} cx="42%" cy="40%" r="62%">
+                    {art.stops.map(([offset, color]) => (
+                      <stop key={offset} offset={offset} stopColor={color} />
+                    ))}
+                  </radialGradient>
+                  <clipPath id={`bf-world-clip-${artId(node.world_id)}`}>
+                    <circle cx={p.px} cy={p.py} r={sizing.bodyR} />
+                  </clipPath>
+                </defs>
+              )}
               <circle
                 className="bf-body"
                 cx={p.px}
                 cy={p.py}
                 r={sizing.bodyR}
-                fill={worldBodyColor(node.world_id)}
+                fill={art ? `url(#bf-world-grad-${artId(node.world_id)})` : worldBodyColor(node.world_id)}
                 stroke={viewerLeads ? GOLD : 'rgba(255,255,255,0.12)'}
                 strokeWidth={viewerLeads ? 1.5 : 1}
               />
+              {art && (
+                <g clipPath={`url(#bf-world-clip-${artId(node.world_id)})`} pointerEvents="none">
+                  <WorldMark art={art} cx={p.px} cy={p.py} r={sizing.bodyR} />
+                </g>
+              )}
               <circle
                 cx={p.px - sizing.bodyR * 0.3}
                 cy={p.py - sizing.bodyR * 0.3}
@@ -775,9 +871,25 @@ export default function GalaxyStrategicView({
         })}
       </svg>
 
-      {/* Player legend + lane legend */}
-      {(legendPlayers.length > 0 || showLaneLegend) && (
-        <div className="pointer-events-none absolute top-3 left-3 max-w-[45%] px-2.5 py-2 rounded-lg bg-black/45 border border-bf-border/60">
+      {/* Player legend + lane legend. On a narrow screen it sits over the
+          worlds, so it starts folded behind a "Key" button. */}
+      {(legendPlayers.length > 0 || showLaneLegend) && compactLegend && !legendOpen && (
+        <button
+          type="button"
+          onClick={() => setLegendOpen(true)}
+          className="absolute top-3 left-3 z-10 min-h-[36px] px-3 rounded-lg bg-black/55 border border-bf-border/60 text-[11px] text-bf-text"
+          aria-expanded={false}
+          data-testid="legend-toggle"
+        >
+          Key
+        </button>
+      )}
+      {(legendPlayers.length > 0 || showLaneLegend) && (!compactLegend || legendOpen) && (
+        <div
+          className={`absolute top-3 left-3 max-w-[45%] px-2.5 py-2 rounded-lg bg-black/45 border border-bf-border/60 ${compactLegend ? 'z-10 max-w-[80%] bg-black/80' : 'pointer-events-none'}`}
+          onClick={compactLegend ? () => setLegendOpen(false) : undefined}
+          data-testid="legend-panel"
+        >
           {legendPlayers.length > 0 && (
             <>
               <div className="text-[10px] uppercase tracking-wide text-bf-muted mb-1">Control</div>

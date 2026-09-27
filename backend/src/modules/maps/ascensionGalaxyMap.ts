@@ -51,6 +51,20 @@ const WORLD_CHART_POSITION: Record<string, [number, number]> = {
   moon: [0.30, 0.52],
 };
 
+/**
+ * The chart layout as `worlds[].galaxy_position`, which overrides the territory
+ * average: the ring moon–verdan–rust–nexus–moon as a diamond with Earth hung
+ * off the Moon, so no two lanes cross. The far worlds would otherwise inherit
+ * the galaxy map's positions, laid out for a ring that runs through Sol.
+ */
+export const ASCENSION_WORLD_CHART: Record<string, [number, number]> = {
+  earth: [0.1, 0.5],
+  moon: [0.34, 0.5],
+  verdan: [0.62, 0.14],
+  rust: [0.9, 0.5],
+  nexus_station: [0.62, 0.86],
+};
+
 export function ascensionWorldOf(t: MapTerritory): string {
   if (t.world_id) return t.world_id;
   if (t.globe_id === 'moon') return 'moon';
@@ -116,6 +130,7 @@ export function buildAscensionGalaxyMap(spaceAge: GameMap, galaxy: GameMap): Rec
       atmosphere_altitude: 0.18,
       background_color: 'rgb(8, 12, 28)',
       requires_orbit_access: false,
+      galaxy_position: ASCENSION_WORLD_CHART.earth,
     },
     {
       world_id: 'moon',
@@ -127,11 +142,12 @@ export function buildAscensionGalaxyMap(spaceAge: GameMap, galaxy: GameMap): Rec
       // the Space Age board's own rule, which the legacy moon heuristic applied
       // implicitly until this map gave the Moon a `worlds` entry.
       initial_neutral_garrison: true,
+      galaxy_position: ASCENSION_WORLD_CHART.moon,
     },
     ...ASCENSION_EXO_WORLDS.map((id) => {
       const w = galaxyWorldById.get(id);
       if (!w) throw new Error(`era_galaxy.json has no world "${id}"`);
-      return { ...w, requires_orbit_access: true };
+      return { ...w, requires_orbit_access: true, galaxy_position: ASCENSION_WORLD_CHART[id] };
     }),
   ];
 

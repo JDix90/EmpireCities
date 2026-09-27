@@ -39,8 +39,16 @@ export interface WorldPartitionMap {
 const GEO_FIELDS = ['geo_polygon', 'geo_multipolygon', 'iso_codes', 'geo_config', 'admin1'] as const;
 
 /**
- * The map as it should render for one world. For any world other than Earth the
- * geo hints and the authored canvas size are stripped: the lunar `geo_polygon`s
+ * Worlds drawn from real Natural Earth geometry: Earth, and the Galactic Age's
+ * Sol III, which is the same planet. Every other world's geo hints are
+ * placeholders or its own lng/lat frame, so they are stripped (see below).
+ */
+export const EARTH_LIKE_WORLDS: ReadonlySet<string> = new Set(['earth', 'sol']);
+
+/**
+ * The map as it should render for one world. For any world other than Earth
+ * (or Sol III, the same planet on galaxy maps) the geo hints and the authored
+ * canvas size are stripped: the lunar `geo_polygon`s
  * are Earth lat/lng placeholders that would project the Moon back onto Europe,
  * and dropping `canvas_width`/`canvas_height` lets GameMap fall back to the
  * bounding box of the tiles it was actually given, so the Moon fills its inset.
@@ -50,7 +58,7 @@ export function filterMapToWorld<T extends WorldPartitionMap>(mapData: T, worldI
   if (territories.length === mapData.territories.length && worldId === 'earth') return mapData;
 
   const ids = new Set(territories.map((t) => t.territory_id));
-  const isEarth = worldId === 'earth';
+  const isEarth = EARTH_LIKE_WORLDS.has(worldId);
   const projected = isEarth
     ? territories
     : territories.map((t) => {

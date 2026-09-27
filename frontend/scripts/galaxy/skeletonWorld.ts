@@ -38,6 +38,7 @@ const MIN_SEA_GAP = 2;
 const MAX_ABS_LAT = 80;
 /** Douglas–Peucker tolerance (degrees) before smoothing. */
 const SIMPLIFY_TOL = 0.6;
+/** Chaikin passes on each border chain, unless a spec asks for sharper edges. */
 const SMOOTH_PASSES = 2;
 
 export interface SkeletonTerritory {
@@ -425,9 +426,9 @@ function simplify(pts: LngLat[], tol: number): LngLat[] {
 }
 
 /** Chaikin corner-cutting that keeps both ends fixed. */
-function smoothOpen(pts: LngLat[]): LngLat[] {
+function smoothOpen(pts: LngLat[], passes: number): LngLat[] {
   let cur = pts;
-  for (let pass = 0; pass < SMOOTH_PASSES; pass++) {
+  for (let pass = 0; pass < passes; pass++) {
     if (cur.length < 3) return cur;
     const out: LngLat[] = [cur[0]];
     for (let i = 0; i < cur.length - 1; i++) {
@@ -447,18 +448,18 @@ function smoothOpen(pts: LngLat[]): LngLat[] {
  * neighbour on the other side, which walks the same chain backwards, gets the
  * identical points.
  */
-function shapeChain(chain: Corner[]): LngLat[] {
+function shapeChain(chain: Corner[], passes: number): LngLat[] {
   const rev = [...chain].reverse();
   let flip = false;
   for (let i = 0; i < chain.length; i++) {
     if (chain[i] !== rev[i]) { flip = rev[i] < chain[i]; break; }
   }
   const canon = (flip ? rev : chain).map(cornerLngLat);
-  const done = smoothOpen(simplify(canon, SIMPLIFY_TOL));
+  const done = smoothOpen(simplify(canon, SIMPLIFY_TOL), passes);
   return flip ? done.reverse() : done;
 }
 
-function shapeOutline(label: Int16Array, loop: Corner[]): LngLat[] {
+function shapeOutline(label: Int16Array, loop: Corner[], passes: number): LngLat[] {
   const cuts = loop.map((c, i) => (isJunction(label, c) ? i : -1)).filter((i) => i >= 0);
   if (cuts.length === 0) {
     // A coast with no neighbour at all: split at the first corner and halfway round.
@@ -473,7 +474,7 @@ function shapeOutline(label: Int16Array, loop: Corner[]): LngLat[] {
       chain.push(loop[i]);
       if (i === to && chain.length > 1) break;
     }
-    ring.push(...shapeChain(chain).slice(0, -1));
+    ring.push(...shapeChain(chain, passes).slice(0, -1));
   }
   // Corners run clockwise on screen, i.e. counter-clockwise in lng/lat. The
   // shipped rings are clockwise in lng/lat, so reverse and close.
@@ -576,7 +577,7 @@ export function buildSkeletonWorld(spec: SkeletonWorldSpec): SkeletonWorld {
 
   const territories = ids.map((id, k) => ({
     id,
-    ring: shapeOutline(label, traceOutline(label, k, id)),
+    ring: shapeOutline(label, traceOutline(label, k, id), spec.smoothPasses ?? SMOOTH_PASSES),
     center: interiorPoint(label, k),
     area_pct: Math.round(area[k] * 100) / 100,
   }));

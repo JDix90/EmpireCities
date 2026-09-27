@@ -241,3 +241,54 @@ describe('nodeSizing', () => {
     expect(tiny.fontSize).toBeGreaterThanOrEqual(11);
   });
 });
+
+describe('buildWorldNodes · authored world positions', () => {
+  const territories: GalaxyTerritoryLite[] = [
+    terr('sol_a', 'sol', [0.2, 0.2]),
+    terr('sol_b', 'sol', [0.4, 0.6]),
+    terr('verdan_a', 'verdan', [0.8, 0.2]),
+  ];
+  const base = { ownerOf: () => null, playerInfo, displayNameOf: (w: string) => w };
+
+  it("uses a world's own galaxy_position over its territories' mean", () => {
+    const nodes = buildWorldNodes(territories, {
+      ...base,
+      authoredPositionOf: (w) => (w === 'sol' ? [0.5, 0.14] : undefined),
+    });
+    const sol = nodes.find((n) => n.world_id === 'sol')!;
+    const verdan = nodes.find((n) => n.world_id === 'verdan')!;
+    expect([sol.cx, sol.cy]).toEqual([0.5, 0.14]);
+    // Unauthored worlds keep the territory mean.
+    expect([verdan.cx, verdan.cy]).toEqual([0.8, 0.2]);
+  });
+
+  it('falls back to the territory mean when no world is authored', () => {
+    const sol = buildWorldNodes(territories, base).find((n) => n.world_id === 'sol')!;
+    expect(sol.cx).toBeCloseTo(0.3);
+    expect(sol.cy).toBeCloseTo(0.4);
+  });
+});
+
+describe('fitToViewport · horizontal pad', () => {
+  const diamond = [
+    { world_id: 'n', cx: 0.5, cy: 0.1 },
+    { world_id: 'w', cx: 0.1, cy: 0.5 },
+    { world_id: 'e', cx: 0.9, cy: 0.5 },
+    { world_id: 's', cx: 0.5, cy: 0.9 },
+  ];
+
+  it('defaults padX to pad', () => {
+    const p = fitToViewport(diamond, 390, 800, 130);
+    expect(p.find((x) => x.world_id === 'w')!.px).toBe(130);
+  });
+
+  it('lets side-by-side worlds use the width a phone has', () => {
+    const tight = fitToViewport(diamond, 390, 800, 130);
+    const wide = fitToViewport(diamond, 390, 800, 130, 75);
+    const gap = (ps: typeof tight) => ps.find((x) => x.world_id === 'e')!.px - ps.find((x) => x.world_id === 'w')!.px;
+    expect(gap(tight)).toBe(130);
+    expect(gap(wide)).toBe(240);
+    // The vertical pad is untouched.
+    expect(wide.find((x) => x.world_id === 'n')!.py).toBe(130);
+  });
+});

@@ -12,6 +12,7 @@ import {
   verdanSea,
   rustSea,
   nexusVoid,
+  neutralLandColorFor,
   rustRiftDistance,
   type PlanetKind,
 } from './proceduralPlanet';
@@ -154,15 +155,38 @@ describe("Verdan's sea (tidally locked)", () => {
   const at = (lng: number, lat: number) => verdanSea((lng + 180) / 360, (90 - lat) / 180, 4404);
   const lum = (c: number[]) => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
 
+  // Every texel within 40° of the antistellar point [180, -50]: deep night.
+  const nightSamples = () => {
+    const out: number[][] = [];
+    for (let lng = 130; lng <= 230; lng += 4) {
+      for (let lat = -80; lat <= -20; lat += 3) {
+        const l = lng > 180 ? lng - 360 : lng;
+        const r = Math.PI / 180;
+        const cosD = Math.sin(-50 * r) * Math.sin(lat * r) + Math.cos(-50 * r) * Math.cos(lat * r) * Math.cos((l - 180) * r);
+        if (Math.acos(Math.min(1, cosD)) / r <= 40) out.push(at(l, lat));
+      }
+    }
+    return out;
+  };
+
   it('burns gold on the day side, goes teal in the twilight and black on the night side', () => {
     const day = at(30, 40); // ~20° from the substellar point [0, 50]
     const twilight = at(0, -32); // ~82°: the ring
-    const night = at(180, -50); // the antistellar point
+    const night = nightSamples();
+    const meanNight = night.reduce((s, c) => s + lum(c), 0) / night.length;
     expect(day[0]).toBeGreaterThan(day[2]); // gold, not blue
     expect(twilight[1]).toBeGreaterThan(twilight[0]); // teal
     expect(twilight[2]).toBeGreaterThan(twilight[0]);
     expect(lum(day)).toBeGreaterThan(lum(twilight));
-    expect(lum(twilight)).toBeGreaterThan(lum(night));
+    expect(lum(twilight)).toBeGreaterThan(meanNight);
+  });
+
+  it('scatters pale pack-ice floes over a dark night sea', () => {
+    const night = nightSamples();
+    const floes = night.filter((c) => lum(c) > 110 && c[2] > c[0]);
+    const dark = night.filter((c) => lum(c) < 45);
+    expect(floes.length).toBeGreaterThan(night.length * 0.03);
+    expect(dark.length).toBeGreaterThan(night.length * 0.6);
   });
 
   it('follows the terminator, not the poles', () => {
@@ -191,6 +215,16 @@ describe("the Rust Belt's sea", () => {
   it('measures distance to the Marineris Rift', () => {
     expect(rustRiftDistance(-72, -8)).toBeLessThan(1.5); // a rift vertex
     expect(rustRiftDistance(130, 10)).toBeGreaterThan(90); // the far side
+  });
+
+  it('runs a molten lava river down the rift, with a glow that fades within a few degrees', () => {
+    // Sample across the rift at a vertex of its southern arm, [-72, -8].
+    const centre = at(-72, -8);
+    const shoulder = at(-72, -8 + 6);
+    const beyond = at(-72, -8 + 14);
+    expect(lum(centre)).toBeGreaterThan(lum(shoulder));
+    expect(lum(shoulder)).toBeGreaterThan(lum(beyond));
+    expect(centre[0]).toBeGreaterThan(230);
   });
 
   it('glows molten along the rift and stays dark slag elsewhere', () => {
@@ -231,6 +265,22 @@ describe("Nexus Station's void", () => {
     expect(far).toBeGreaterThan(near * 1.5);
   });
 
+  it('plates the shell in cool hull with no lit ports on it', () => {
+    let warm = 0;
+    let lo = 255;
+    let hi = 0;
+    for (let u = 0; u < 1; u += 0.01) {
+      for (let v = 0.1; v < 0.9; v += 0.02) {
+        const c = colorizeLand('city', u, v, 9021);
+        if (c[0] > c[2]) warm++;
+        lo = Math.min(lo, lum(c));
+        hi = Math.max(hi, lum(c));
+      }
+    }
+    expect(warm).toBe(0);
+    expect(hi - lo).toBeGreaterThan(40); // clouded, not flat
+  });
+
   it('stays in gamut everywhere', () => {
     for (let lng = -180; lng < 180; lng += 15) {
       for (let lat = -85; lat <= 85; lat += 10) {
@@ -240,5 +290,25 @@ describe("Nexus Station's void", () => {
         }
       }
     }
+  });
+});
+
+describe('galaxy neutral land and the Space to Stars Earth', () => {
+  it("gives every designed world's unclaimed tiles its own land colour", () => {
+    for (const id of ['sol', 'earth', 'moon', 'verdan', 'rust', 'nexus_station']) {
+      expect(neutralLandColorFor(id, true), id).toMatch(/^rgb\(/);
+      expect(neutralLandColorFor(id, false), id).toMatch(/^rgba\(.*0\.92\)$/);
+    }
+    expect(neutralLandColorFor('verdan', true)).not.toBe(neutralLandColorFor('rust', true));
+  });
+
+  it('leaves unknown worlds on the default neutral', () => {
+    expect(neutralLandColorFor('xeno', true)).toBeUndefined();
+    expect(neutralLandColorFor(null, true)).toBeUndefined();
+  });
+
+  it("paints Space to Stars' Earth as the ocean world Sol III is, not grey rock", () => {
+    expect(planetKindFor('earth')).toBe('ocean');
+    expect(planetProfileFor('earth').seed).toBe(planetProfileFor('sol').seed);
   });
 });

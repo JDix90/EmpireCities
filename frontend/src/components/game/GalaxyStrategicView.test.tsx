@@ -283,3 +283,49 @@ describe('GalaxyStrategicView', () => {
     expect(container.querySelectorAll('[data-testid="convoy-marker"]')).toHaveLength(0);
   });
 });
+
+describe('GalaxyStrategicView · world discs and the phone legend', () => {
+  it("paints each designed world's disc from its own palette, and keeps the hashed colour for others", () => {
+    const withCustom: GalaxyMapDatum = {
+      ...mapData,
+      territories: [...mapData.territories, { territory_id: 'xeno_a', name: 'Xeno A', region_id: 'x', world_id: 'xeno', galaxy_position: [0.9, 0.9] }],
+    };
+    const { container } = renderView({ mapData: withCustom, width: 900 });
+    const bodies = [...container.querySelectorAll('circle.bf-body')].map((c) => c.getAttribute('fill'));
+    expect(bodies).toContain('url(#bf-world-grad-verdan)');
+    expect(bodies).toContain('url(#bf-world-grad-rust)');
+    expect(bodies).toContain('url(#bf-world-grad-nexus_station)');
+    expect(bodies.some((f) => f?.startsWith('hsl('))).toBe(true); // xeno
+    expect(container.querySelector('#bf-world-grad-verdan')).toBeTruthy();
+  });
+
+  it('places worlds at their authored positions', () => {
+    const authored: GalaxyMapDatum = {
+      ...mapData,
+      worlds: mapData.worlds!.map((w) => ({
+        ...w,
+        galaxy_position: ({ sol: [0.5, 0.1], verdan: [0.9, 0.5], rust: [0.5, 0.9], nexus_station: [0.1, 0.5] } as Record<string, [number, number]>)[w.world_id],
+      })),
+    };
+    const { container } = renderView({ mapData: authored, width: 900 });
+    const cx = (id: string) => Number(container.querySelector(`#bf-world-clip-${id} circle`)?.getAttribute('cx'));
+    const cy = (id: string) => Number(container.querySelector(`#bf-world-clip-${id} circle`)?.getAttribute('cy'));
+    expect(cy('sol')).toBeLessThan(cy('rust'));
+    expect(cx('nexus_station')).toBeLessThan(cx('verdan'));
+  });
+
+  it('folds the legend behind a Key button on a phone-width canvas', () => {
+    renderView({ width: 390, height: 700 });
+    expect(screen.queryByTestId('legend-panel')).toBeNull();
+    fireEvent.click(screen.getByTestId('legend-toggle'));
+    expect(screen.getByTestId('legend-panel')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('legend-panel'));
+    expect(screen.queryByTestId('legend-panel')).toBeNull();
+  });
+
+  it('keeps the legend open on a wide canvas', () => {
+    renderView({ width: 900 });
+    expect(screen.getByTestId('legend-panel')).toBeTruthy();
+    expect(screen.queryByTestId('legend-toggle')).toBeNull();
+  });
+});

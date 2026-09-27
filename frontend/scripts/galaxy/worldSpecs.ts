@@ -64,6 +64,8 @@ export interface SkeletonWorldSpec {
   warp: { amp: number; freq: number };
   /** Cost noise in the partition, which makes borders meander. */
   border: { freq: number; noise: number };
+  /** Chaikin passes on borders and coasts (default 2); fewer keeps corners sharp. */
+  smoothPasses?: number;
   regions: GalaxyRegionSpec[];
   territories: SkeletonTerritorySpec[];
   landBorders: Array<[string, string]>;
@@ -375,11 +377,20 @@ const RUST: SkeletonWorldSpec = {
  * both poles. Every shard keeps its bearing and its neighbours, so the graph is
  * the one measured.
  */
-/** A shard of shell between two bearings and two distances from the Gate. */
-const shard = (az0: number, az1: number, d0: number, d1: number): SkeletonShape => ({
-  kind: 'polygon',
-  points: [nr(az0, d0), nr(az1, d0), nr(az1, d1), nr(az0, d1)],
-});
+/**
+ * A shard of shell between two bearings and two distances from the Gate: a
+ * pentagon whose inner edge faces the Gate and whose outer edge breaks to a
+ * point, so the shell reads as plates of hull rather than rings. `apex` skews
+ * the point off the middle bearing (degrees), which keeps the shards irregular.
+ */
+const shard = (az0: number, az1: number, d0: number, d1: number, apex = 0): SkeletonShape => {
+  const pinch = (az1 - az0) * 0.12; // the inner edge is narrower, so the sides flare
+  const shoulder = d1 - (d1 - d0) * 0.4;
+  return {
+    kind: 'polygon',
+    points: [nr(az0 + pinch, d0), nr(az1 - pinch, d0), nr(az1, shoulder), nr((az0 + az1) / 2 + apex, d1), nr(az0, shoulder)],
+  };
+};
 const nr = (azimuth: number, dist: number): LngLat => polar(NEXUS_GATE, azimuth, dist);
 const fracture = (azimuth: number): SkeletonShape => ({ kind: 'capsule', points: [nr(azimuth, 6), nr(azimuth, 26)], radius: 2.2 });
 
@@ -392,25 +403,28 @@ const NEXUS: SkeletonWorldSpec = {
       { kind: 'band', center: NEXUS_GATE, mid: 15.5, half: 7 }, // the Gate Ring
       // Inner shards, 28–52° out: Spire Walk (north), Berth Ring (south-east,
       // one slab split between Halo Span and Toll Crater), Vault Ward (south-west).
-      shard(320, 354, 28, 52), shard(2, 38, 28, 52),
-      { kind: 'polygon', points: [nr(88, 28), nr(158, 31), nr(158, 52), nr(88, 52)] }, // tilted away from the ring at Toll Crater
-      shard(200, 236, 28, 52), shard(244, 282, 28, 52),
+      shard(320, 354, 28, 52, -4), shard(2, 38, 28, 52, 5),
+      // One slab, split between Halo Span and Toll Crater, tilted away from the
+      // ring at Toll Crater; its outer edge breaks at both territories.
+      { kind: 'polygon', points: [nr(88, 28), nr(158, 31), nr(158, 47), nr(140, 52), nr(108, 52), nr(88, 47)] },
+      shard(200, 236, 28, 52, 3), shard(244, 282, 28, 52, -5),
       // Halo Span's land bridge onto the Gate Ring.
       { kind: 'capsule', points: [nr(102, 20), nr(102, 30)], radius: 2.5 },
       // The broken crown, 58–74° out: six outer shards, each a short bridge
       // from the next.
-      shard(306, 350, 58, 74), shard(2, 62, 58, 74),
-      shard(70, 122, 58, 74), shard(126, 178, 58, 74),
-      shard(188, 240, 58, 74), shard(246, 300, 58, 74),
+      shard(306, 350, 58, 74, 6), shard(2, 62, 58, 74, -8),
+      shard(70, 122, 58, 74, 7), shard(126, 178, 58, 74, -6),
+      shard(188, 240, 58, 74, 8), shard(246, 300, 58, 74, -7),
     ],
     cut: [
       fracture(0), fracture(90), fracture(180), fracture(270), // the Gate Ring's four segments
       { kind: 'cap', center: NEXUS_GATE, radius: 7.5 }, // the Gate crater
     ],
   },
-  noise: { amp: 1.2, freq: 7 },
+  noise: { amp: 0.6, freq: 7 },
   warp: { amp: 0.01, freq: 2.2 },
   border: { freq: 3, noise: 1.6 },
+  smoothPasses: 1, // machined edges, not coastlines
   regions: [
     { region_id: 'nexus_gate_ring', name: 'Nexus — Gate Ring', bonus: 3 },
     { region_id: 'nexus_vault_ward', name: 'Nexus — Vault Ward', bonus: 3 },

@@ -4455,6 +4455,34 @@ export default function GamePage() {
     );
   }
 
+  /**
+   * The all-worlds galaxy chart, shared by the globe and the 2D view: on a
+   * galaxy board "Galaxy chart" means the same thing whichever view is on.
+   */
+  const renderGalaxyChart = (md: NonNullable<typeof mapData>) => (
+    <GalaxyStrategicViewLazy
+      mapData={md}
+      gameState={gameState}
+      selectedTerritoryId={selectedTerritory}
+      onTerritoryClick={handleGalaxyStrategicTerritoryClick}
+      onTerritoryDoubleClick={handleGalaxyStrategicTerritoryDoubleClick}
+      width={mapCanvasSize.w}
+      height={mapCanvasSize.h}
+      orbitAccessAllowed={orbitAccess.allowed}
+      orbitAccessReason={orbitTravelBlockedReason}
+      viewerPlayerId={resolvedViewerPlayerId}
+      territoryNameOf={(id) => md.territories.find((t) => t.territory_id === id)?.name ?? id}
+      sealedLaneIds={galaxySealedLaneIds}
+      lanesContestableEnabled={viewerCanEmergencySeal}
+      sealAnyLane={viewerSealsAnyLane}
+      ownsTerritory={(id) => gameState.territories[id]?.owner_id === resolvedViewerPlayerId}
+      onSealLane={handleSealLane}
+      pulseWorldId={galaxyPulse?.worldId ?? null}
+      pulseKey={galaxyPulse?.key ?? 0}
+      pulseLabel={galaxyPulse?.label ?? null}
+    />
+  );
+
   const reducedGlobe =
     prefersReducedMotion() || liteVisuals || (isMobileViewport() && mapView === 'globe');
   const mapPhaseTintClass = phaseTintClass(gameState.phase, mapAmbientEnabled && !reducedGlobe);
@@ -4543,7 +4571,7 @@ export default function GamePage() {
               Earth + Moon
             </span>
           )}
-          {mapView === 'globe' && mapData?.map_kind === 'galaxy' && (
+          {mapData?.map_kind === 'galaxy' && (
             <>
               <button
                 type="button"
@@ -4579,7 +4607,7 @@ export default function GamePage() {
         players could get stranded on one planet. This always-visible scrollable
         chip row gives mobile parity: jump to the all-worlds chart or any world.
       */}
-      {mapView === 'globe' && mapData?.map_kind === 'galaxy' && (
+      {mapData?.map_kind === 'galaxy' && (
         <div className="dlayout:hidden flex items-center gap-1.5 overflow-x-auto px-2 py-1.5 bg-bf-dark/60 border-b border-bf-border/60 scrollbar-thin">
           <span className="shrink-0 inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-bf-muted/80 pr-0.5">
             <GlobeIcon className="w-3.5 h-3.5" /> Worlds
@@ -4764,27 +4792,7 @@ export default function GamePage() {
               <Suspense fallback={<div className="flex items-center justify-center h-full"><p className="text-bf-muted animate-pulse">Loading globe…</p></div>}>
                 <div className="relative w-full h-full">
                   {mapData.map_kind === 'galaxy' && galaxyOverviewMode ? (
-                    <GalaxyStrategicViewLazy
-                      mapData={mapData}
-                      gameState={gameState}
-                      selectedTerritoryId={selectedTerritory}
-                      onTerritoryClick={handleGalaxyStrategicTerritoryClick}
-                      onTerritoryDoubleClick={handleGalaxyStrategicTerritoryDoubleClick}
-                      width={mapCanvasSize.w}
-                      height={mapCanvasSize.h}
-                      orbitAccessAllowed={orbitAccess.allowed}
-                      orbitAccessReason={orbitTravelBlockedReason}
-                      viewerPlayerId={resolvedViewerPlayerId}
-                      territoryNameOf={(id) => mapData.territories.find((t) => t.territory_id === id)?.name ?? id}
-                      sealedLaneIds={galaxySealedLaneIds}
-                      lanesContestableEnabled={viewerCanEmergencySeal}
-                      sealAnyLane={viewerSealsAnyLane}
-                      ownsTerritory={(id) => gameState.territories[id]?.owner_id === resolvedViewerPlayerId}
-                      onSealLane={handleSealLane}
-                      pulseWorldId={galaxyPulse?.worldId ?? null}
-                      pulseKey={galaxyPulse?.key ?? 0}
-                      pulseLabel={galaxyPulse?.label ?? null}
-                    />
+                    renderGalaxyChart(mapData)
                   ) : (
                     <>
                       {galaxyWorldBanner && (
@@ -4890,9 +4898,14 @@ export default function GamePage() {
                   )}
                 </div>
               </Suspense>
+            ) : mapData.map_kind === 'galaxy' && galaxyOverviewMode ? (
+              <Suspense fallback={<div className="flex items-center justify-center h-full"><p className="text-bf-muted animate-pulse">Loading galaxy chart…</p></div>}>
+                {renderGalaxyChart(mapData)}
+              </Suspense>
             ) : (
               <GameMap
                 mapData={mapData}
+                activeWorldId={mapData.map_kind === 'galaxy' ? focusedWorldId : undefined}
                 moonInset
                 onTerritoryClick={handleTerritoryClick}
                 width={mapCanvasSize.w}

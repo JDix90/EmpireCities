@@ -19,6 +19,7 @@ export {
   type OrbitAccessMode,
   type MapTerritoryWorldLike,
   type MapWorldDefinition,
+  type MapWorldGlobeView,
   type WorldModifiers,
   type WorldRules,
   type WorldVaultRule,

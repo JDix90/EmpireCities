@@ -67,6 +67,14 @@ export interface WorldRules {
   vault?: WorldVaultRule;
 }
 
+/** Opening camera for one world of a galaxy map (see `MapWorldDefinition.globe_view`). */
+export interface MapWorldGlobeView {
+  center_lat: number;
+  center_lng: number;
+  altitude?: number;
+  lock_rotation?: boolean;
+}
+
 /** Per-world rendering + access metadata on galaxy maps (optional on standard maps). */
 export interface MapWorldDefinition {
   world_id: string;
@@ -81,6 +89,18 @@ export interface MapWorldDefinition {
   atmosphere_color?: string;
   atmosphere_altitude?: number;
   background_color?: string;
+  /**
+   * Where this world's node sits on the galaxy chart, [x, y] in [0, 1] with the
+   * origin top-left. Overrides the mean of its territories' `galaxy_position`,
+   * so an authored board can lay its worlds out as a readable ring.
+   */
+  galaxy_position?: [number, number];
+  /**
+   * The globe camera when this world is focused, in the same shape as the
+   * map-level `globe_view`. `lock_rotation` defaults to true there too, so a
+   * world that should keep its idle spin sets it to false.
+   */
+  globe_view?: MapWorldGlobeView;
   /**
    * When true, a player needs hyperspace/orbit access before claiming this world's territories.
    * Movement within the same world does not require orbit tech on galaxy maps.
