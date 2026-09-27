@@ -53,11 +53,6 @@ function normalizeEras(body: unknown): unknown {
   return { maps: sortByMapId(maps.map(stripVolatile)) };
 }
 
-function normalizeCommunity(body: unknown): unknown {
-  const { maps, total } = body as { maps: Record<string, unknown>[]; total: number };
-  return { total, maps: maps.map(stripVolatile) };
-}
-
 function normalizePublic(body: unknown): unknown {
   const { maps, total, page, pages } = body as {
     maps: Record<string, unknown>[];
@@ -104,10 +99,6 @@ async function main(): Promise<void> {
   console.log('\nCapturing endpoints…');
 
   write('eras-list.json', normalizeEras(await get(`${API_URL}/api/maps/eras`)));
-  write(
-    'community-list.json',
-    normalizeCommunity(await get(`${API_URL}/api/maps/community?page=1&limit=10&sort=play_count`)),
-  );
   write(
     'public-list.json',
     normalizePublic(await get(`${API_URL}/api/maps/public?sort=rating&page=1`)),
