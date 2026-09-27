@@ -30,8 +30,8 @@ export interface LandingEra {
 }
 
 export const LANDING_ERAS: LandingEra[] = [
-  { id: 'ancient', mapId: 'era_ancient', color: '#c9a84c', scope: 'global', territoryCount: 28, playersRange: '2–6' },
-  { id: 'medieval', mapId: 'era_medieval', color: '#8b6914', scope: 'global', territoryCount: 29, playersRange: '2–6' },
+  { id: 'ancient', mapId: 'era_ancient', color: '#c9a84c', scope: 'global', territoryCount: 33, playersRange: '2–6' },
+  { id: 'medieval', mapId: 'era_medieval', color: '#8b6914', scope: 'global', territoryCount: 36, playersRange: '2–6' },
   { id: 'discovery', mapId: 'era_discovery', color: '#2e7d9e', scope: 'global', territoryCount: 34, playersRange: '2–6' },
   { id: 'ww2', mapId: 'era_ww2', color: '#5a5a5a', scope: 'global', territoryCount: 35, playersRange: '2–6' },
   { id: 'coldwar', mapId: 'era_coldwar', color: '#1a3a5c', scope: 'global', territoryCount: 44, playersRange: '2–6' },
