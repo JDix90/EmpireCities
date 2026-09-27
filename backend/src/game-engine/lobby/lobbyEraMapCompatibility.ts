@@ -191,7 +191,9 @@ export function evaluateEraMapCompatibility(input: EraMapCompatibilityInput): Er
   // Must be explicitly ON: normalizeGameSettings persists
   // `factions_enabled: factionsEnabled || undefined`, so an off game arrives
   // here with the key absent rather than false.
-  if (isGalactic && settings.factions_enabled !== true) {
+  // Home Worlds off (settings.galaxy_plain_lanes) is the one Galactic Age shape
+  // that is MEANT to deal a scattered start, so it plays without factions.
+  if (isGalactic && settings.factions_enabled !== true && settings.galaxy_plain_lanes !== true) {
     return { allowed: false, hardBlock: GALAXY_FACTIONS_REQUIRED_ERROR, warnings };
   }
 

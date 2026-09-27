@@ -166,7 +166,8 @@ export function evaluateEraMapCompatibility(input: EraMapCompatibilityInput): Er
     if (seats > 0 && seats !== GALAXY_REQUIRED_PLAYERS) {
       return { allowed: false, hardBlock: GALAXY_PLAYER_COUNT_ERROR, warnings };
     }
-    if (settings.factions_enabled !== true) {
+    // Home Worlds off (galaxy_plain_lanes) plays without factions by design.
+    if (settings.factions_enabled !== true && settings.galaxy_plain_lanes !== true) {
       return { allowed: false, hardBlock: GALAXY_FACTIONS_REQUIRED_ERROR, warnings };
     }
   }

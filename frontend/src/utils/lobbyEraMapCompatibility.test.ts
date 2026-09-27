@@ -30,3 +30,17 @@ describe('evaluateEraMapCompatibility — custom pairing note', () => {
     expect(hasCustomPairingNote(result.warnings)).toBe(true);
   });
 });
+
+describe('evaluateEraMapCompatibility — Galactic Age factions', () => {
+  const galaxy = (settings: Record<string, unknown>) =>
+    evaluateEraMapCompatibility({ era_id: 'galaxy_age', map_id: 'era_galaxy', settings, is_admin: true, player_count: 4 });
+
+  it('blocks the home-world game without factions', () => {
+    expect(galaxy({}).hardBlock).toMatch(/Asymmetric Factions/);
+  });
+
+  it('allows factions off when Home Worlds is off (plain lanes)', () => {
+    expect(galaxy({ galaxy_plain_lanes: true }).hardBlock).toBeNull();
+    expect(galaxy({ factions_enabled: true }).hardBlock).toBeNull();
+  });
+});

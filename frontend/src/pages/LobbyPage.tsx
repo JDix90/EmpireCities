@@ -524,6 +524,10 @@ export default function LobbyPage() {
   const [navalEnabled, setNavalEnabled] = useState(false);
   const [stabilityEnabled, setStabilityEnabled] = useState(false);
   const [territorySelection, setTerritorySelection] = useState(false);
+  // Galactic Age "Home Worlds" (default on). Off: a scattered start, no faction
+  // kits, no Lane Sovereignty, lanes as plain borders — the create route turns
+  // `galaxy_home_worlds: false` into those settings.
+  const [galaxyHomeWorlds, setGalaxyHomeWorlds] = useState(true);
   const [coachingEnabled, setCoachingEnabled] = useState(false);
   const [eraAdvancementEnabled, setEraAdvancementEnabled] = useState(false);
   const [eraAdvancementPreset, setEraAdvancementPreset] = useState<'skirmish' | 'standard' | 'epic'>('standard');
@@ -550,6 +554,7 @@ export default function LobbyPage() {
   const autoEnabledSystemsRef = useRef<Set<EraSystemKey>>(new Set());
   useEffect(() => {
     const transition = transitionEraSystemDefaults({
+      options: { galaxyHomeWorlds },
       nextEra: selectedEra,
       current: { economy: economyEnabled, tech_trees: techTreesEnabled, factions: factionsEnabled },
       autoEnabled: autoEnabledSystemsRef.current,
@@ -572,17 +577,38 @@ export default function LobbyPage() {
   // front. This keeps
   // them on whatever else moves them: Territory Draft and factions exclude
   // each other, so a draft left on from another era is switched off here.
-  const lockedSystems = lockedSystemsForEra(selectedEra);
-  const lockedSystemsNotice = lockedEraSystemsNotice(selectedEra);
+  const isGalacticEra = selectedEra === GALACTIC_AGE_ERA_ID;
+  // Home Worlds off plays without faction kits, so factions are forced off.
+  const galaxyHomeWorldsOff = isGalacticEra && !galaxyHomeWorlds;
+  const lockedSystems = lockedSystemsForEra(selectedEra, { galaxyHomeWorlds });
+  const lockedSystemsNotice = lockedEraSystemsNotice(selectedEra, { galaxyHomeWorlds });
   useEffect(() => {
-    const locked = lockedSystemsForEra(selectedEra);
+    const locked = lockedSystemsForEra(selectedEra, { galaxyHomeWorlds });
     if (locked.has('economy') && !economyEnabled) setEconomyEnabled(true);
     if (locked.has('tech_trees') && !techTreesEnabled) setTechTreesEnabled(true);
-    if (locked.has('factions')) {
-      if (!factionsEnabled) setFactionsEnabled(true);
-      if (territorySelection) setTerritorySelection(false);
-    }
-  }, [selectedEra, economyEnabled, techTreesEnabled, factionsEnabled, territorySelection]);
+    if (locked.has('factions') && !factionsEnabled) setFactionsEnabled(true);
+    const offGalaxyWithoutHomeWorlds = selectedEra === GALACTIC_AGE_ERA_ID && !galaxyHomeWorlds;
+    if (offGalaxyWithoutHomeWorlds && factionsEnabled) setFactionsEnabled(false);
+    // The server refuses Territory Draft on the Galactic Age either way.
+    if (selectedEra === GALACTIC_AGE_ERA_ID && territorySelection) setTerritorySelection(false);
+  }, [selectedEra, galaxyHomeWorlds, economyEnabled, techTreesEnabled, factionsEnabled, territorySelection]);
+
+  const onGalaxyHomeWorldsChange = (on: boolean) => {
+    setGalaxyHomeWorlds(on);
+    // Factions follow Home Worlds on this era: the kits need a world each. Owned
+    // by the era defaults either way, so leaving the era reverts them.
+    if (on) autoEnabledSystemsRef.current.add('factions');
+    else autoEnabledSystemsRef.current.delete('factions');
+    setFactionsEnabled(on);
+    // With plain lanes there is no corridor to hold, so Sovereignty goes with them.
+    setVictoryModes((prev) => {
+      const next = new Set(prev);
+      if (on) next.add('lane_sovereignty');
+      else next.delete('lane_sovereignty');
+      if (next.size === 0) next.add('domination');
+      return next;
+    });
+  };
 
   // Conditional advanced settings — each only matters under certain other choices,
   // so they're surfaced in a dedicated "Conditional Settings" section instead of
@@ -683,6 +709,8 @@ export default function LobbyPage() {
       fog_of_war: fogOfWar,
       diplomacy_enabled: diplomacyEnabled,
       factions_enabled: factionsEnabled || undefined,
+      // What the create route bakes for Home Worlds off; the evaluator reads it.
+      galaxy_plain_lanes: galaxyHomeWorldsOff || undefined,
       economy_enabled: economyEnabled || undefined,
       tech_trees_enabled: techTreesEnabled || undefined,
       events_enabled: eventsEnabled || undefined,
@@ -749,7 +777,7 @@ export default function LobbyPage() {
       // Mirror the server's create-time default (applyOrbitGatedVictoryDefaults):
       // the galaxy also plays for Lane Sovereignty, its own way to win.
       setVictoryModes(
-        selectedEra === GALACTIC_AGE_ERA_ID
+        selectedEra === GALACTIC_AGE_ERA_ID && galaxyHomeWorlds
           ? new Set<VictoryMode>(['domination', 'threshold', 'lane_sovereignty'])
           : new Set<VictoryMode>(['domination', 'threshold']),
       );
@@ -1090,6 +1118,7 @@ export default function LobbyPage() {
         card_set_escalating: true,
         diplomacy_enabled: diplomacyEnabled,
         factions_enabled: factionsEnabled || undefined,
+        galaxy_home_worlds: isGalacticEra ? galaxyHomeWorlds : undefined,
         economy_enabled: economyEnabled || undefined,
         tech_trees_enabled: techTreesEnabled || undefined,
         events_enabled: eventsEnabled || undefined,
@@ -2458,7 +2487,7 @@ export default function LobbyPage() {
                           id="territory-draft-top"
                           checked={territorySelection}
                           onChange={(e) => { setTerritorySelection(e.target.checked); if (e.target.checked) setFactionsEnabled(false); }}
-                          disabled={factionsEnabled}
+                          disabled={factionsEnabled || isGalacticEra}
                           className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
                         />
                         <span className="leading-snug min-w-0 select-none">Territory Draft</span>
@@ -2475,16 +2504,32 @@ export default function LobbyPage() {
                             setFactionsEnabled(e.target.checked);
                             if (e.target.checked) setTerritorySelection(false);
                           }}
-                          disabled={territorySelection || lockedSystems.has('factions')}
-                          aria-describedby={lockedSystems.has('factions') ? 'era-locked-systems-notice' : undefined}
+                          disabled={territorySelection || lockedSystems.has('factions') || galaxyHomeWorldsOff}
+                          aria-describedby={lockedSystems.has('factions') || galaxyHomeWorldsOff ? 'era-locked-systems-notice' : undefined}
                           className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
                         />
                         <span className="leading-snug min-w-0 select-none">
                           Asymmetric Factions
                           {lockedSystems.has('factions') && <span className="text-xs text-bf-muted"> (required)</span>}
+                          {galaxyHomeWorldsOff && <span className="text-xs text-bf-muted"> (off without Home Worlds)</span>}
                         </span>
                       </label>
                     </div>
+                    {isGalacticEra && (
+                      <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
+                        <FeatureTooltip text="On: each player starts on their faction's home world and fights outward across the hyperspace lanes. Off: territories are dealt out across all four worlds, lanes are ordinary borders, and there are no faction kits or Lane Sovereignty — a faster game (about 23 turns against 27 in testing) that the early leader wins more often." />
+                        <label htmlFor="galaxy-home-worlds" className="contents cursor-pointer">
+                          <input
+                            type="checkbox"
+                            id="galaxy-home-worlds"
+                            checked={galaxyHomeWorlds}
+                            onChange={(e) => onGalaxyHomeWorldsChange(e.target.checked)}
+                            className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
+                          />
+                          <span className="leading-snug min-w-0 select-none">Home Worlds</span>
+                        </label>
+                      </div>
+                    )}
                   </div>
                     <div className="md:col-span-2 border-t border-bf-border pt-4 mt-2">
                       <label className="label mb-2">Advanced Features</label>
@@ -2704,7 +2749,7 @@ export default function LobbyPage() {
                         ['capital', 'Capital — occupy all opponents\' capitals', 'Each player has a home capital. Capture every rival capital to win — even if they still hold other territories.'],
                         ['secret_mission', 'Secret mission', 'Each player is secretly assigned a unique objective (e.g. control two specific regions, or eliminate a target player). Completing yours wins the game.'],
                         // Galaxy-only: a victory about the network rather than the headcount.
-                        ...(selectedEra === GALACTIC_AGE_ERA_ID
+                        ...(selectedEra === GALACTIC_AGE_ERA_ID && !galaxyHomeWorldsOff
                           ? [['lane_sovereignty', 'Lane Sovereignty — hold the hyperspace network', 'Galactic Age only. A lane is your corridor when you hold BOTH of its gateway systems. Hold 5 of the 8 lanes at the start of your turn, 3 turns running, and you win — so rivals get two rounds to break one corridor and stop it.'] as const]
                           : []),
                       ] as const).map(([id, label, tip]) => (

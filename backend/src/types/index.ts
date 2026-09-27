@@ -521,8 +521,10 @@ export interface GameSettings {
   /**
    * Galactic Age plain lanes: with corridors on, a hyperspace lane fights like
    * any other border — no lane dice cap, and the AI stops treating gateways as
-   * objectives. Measured in the sim only (SIM_PLAIN_LANES); nothing sets it at
-   * create yet. No-op without corridors.
+   * objectives. Baked at create when an admin turns the Galactic Age's Home
+   * Worlds option off (games.routes.ts applyGalaxyHomeWorldsOff), alongside
+   * factions off and no Lane Sovereignty; the sim sets it with SIM_PLAIN_LANES.
+   * No-op without corridors.
    */
   galaxy_plain_lanes?: boolean;
   /**

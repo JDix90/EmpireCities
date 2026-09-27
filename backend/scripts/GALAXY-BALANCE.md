@@ -359,8 +359,13 @@ bonus), Lane Sovereignty is off, and lanes fight like any border
 (`settings.galaxy_plain_lanes`: no lane dice cap, and the AI stops treating
 gateways as objectives or buying Lane Charts). Corridors stay on, so there is no
 tech gate. World rules stay on; the second column also switches off the Vault,
-whose Emergency Seal is itself a lane rule. `galaxy_plain_lanes` is read by the
-engine but nothing sets it at game creation.
+whose Emergency Seal is itself a lane rule.
+
+**This shipped as the lobby's Home Worlds option** (admin-only, default on).
+Turning it off makes the create route bake exactly this configuration:
+factions off, `galaxy_plain_lanes`, and Lane Sovereignty dropped from the
+victory list; no catch-up rule. Four seats are still required, since that is
+the only shape measured.
 
 With no factions the four seats are symmetric, so per-seat win rates only show
 noise (21.9–27.7% across all six runs); the numbers that matter are length and
@@ -466,6 +471,9 @@ SIM_SCATTERED=1 SIM_FACTIONS=0 SIM_PLAIN_LANES=1 SIM_SOVEREIGNTY=0 SIM_GAMES=100
 
 ## History
 
+- **2026-09-27 (Home Worlds option):** the plain-lanes configuration ships as
+  an admin-only lobby option, Home Worlds (default on). Off: scattered start,
+  factions off, plain lanes, no Lane Sovereignty, no catch-up (§6).
 - **2026-09-27 (plain lanes + catch-up, sim only):** −1 reinforcement per N
   tiles over a quarter. −1 per 2 matches home-world length (27.0 turns) with the
   leader still winning ~70%; −1 per 1 leaves 10.5% of games undecided.

@@ -72,6 +72,18 @@ describe('lobbyEraMapCompatibility', () => {
     expect(result.allowed).toBe(true);
   });
 
+  it('allows Home Worlds off: factions off is the point of a plain-lanes game', () => {
+    const result = evaluateEraMapCompatibility({
+      era_id: 'galaxy_age',
+      map_id: 'era_galaxy',
+      settings: { galaxy_plain_lanes: true },
+      is_admin: true,
+      player_count: 4,
+    });
+    expect(result.hardBlock).toBeNull();
+    expect(result.allowed).toBe(true);
+  });
+
   it('does not judge seat count — a half-filled lobby may still select the era', () => {
     // The in-lobby map-change path passes the humans joined so far, not the
     // final seat count, so an exact-4 rule here would block a lobby of one.

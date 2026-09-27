@@ -3,7 +3,9 @@ import { join } from 'node:path';
 import { normalizeGameSettings } from '../../game-engine/state/gameSettings';
 import { buildMapMetaFromDoc } from '../../game-engine/lobby/lobbyEraMapCompatibility';
 import { describe, it, expect } from 'vitest';
+import type { VictoryType } from '../../types';
 import {
+  applyGalaxyHomeWorldsOff,
   applyOrbitGatedVictoryDefaults,
   CreateGameSchema,
   territorySelectionRejection,
@@ -219,6 +221,50 @@ describe('Galactic Age lobby payload', () => {
       settings: { ...galaxyPayload.settings, combat_max_attacker_dice: 2 },
     };
     expect(CreateGameSchema.safeParse(bad).success).toBe(false);
+  });
+
+  it('keeps the Home Worlds choice', () => {
+    const parsed = CreateGameSchema.safeParse({
+      ...galaxyPayload,
+      settings: { ...galaxyPayload.settings, galaxy_home_worlds: false },
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.settings.galaxy_home_worlds).toBe(false);
+  });
+});
+
+describe('Galactic Age with Home Worlds off', () => {
+  it('turns factions off, lanes plain, and drops Lane Sovereignty', () => {
+    expect(applyGalaxyHomeWorldsOff(['domination', 'threshold', 'lane_sovereignty'])).toEqual({
+      allowed_victory_conditions: ['domination', 'threshold'],
+      factions_enabled: false,
+      galaxy_plain_lanes: true,
+    });
+  });
+
+  it('falls back to domination when Sovereignty was the only way to win', () => {
+    expect(applyGalaxyHomeWorldsOff(['lane_sovereignty']).allowed_victory_conditions).toEqual(['domination']);
+  });
+
+  it('survives normalization with factions off and plain lanes on', () => {
+    const s = normalizeGameSettings({
+      factions_enabled: true,
+      galaxy_corridors_enabled: true,
+      ...applyGalaxyHomeWorldsOff(['domination', 'threshold']),
+      victory_threshold: 60,
+    });
+    expect(s.factions_enabled).toBeUndefined();
+    expect(s.galaxy_plain_lanes).toBe(true);
+    expect(s.allowed_victory_conditions).toEqual(['domination', 'threshold']);
+    expect((s as Record<string, unknown>).galaxy_home_worlds).toBeUndefined();
+  });
+
+  it('does not add Lane Sovereignty by default when the lanes are plain', () => {
+    const out = applyOrbitGatedVictoryDefaults(
+      { allowed_victory_conditions: ['domination'] as VictoryType[] },
+      { isOrbitGated: true, isGalacticAge: true, callerChoseVictory: false, laneSovereignty: false },
+    );
+    expect(out.allowed_victory_conditions).not.toContain('lane_sovereignty');
   });
 });
 

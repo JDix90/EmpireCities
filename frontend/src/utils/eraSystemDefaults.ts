@@ -42,18 +42,41 @@ export const ERA_REQUIRED_SYSTEMS: Record<string, EraSystemRequirement> = {
   },
 };
 
-export function requiredSystemsForEra(eraId: string): readonly EraSystemKey[] {
-  return ERA_REQUIRED_SYSTEMS[eraId]?.systems ?? [];
+/** Choices elsewhere in the form that change what an era requires. */
+export interface EraSystemOptions {
+  /**
+   * Galactic Age "Home Worlds" (default on). Off, the era plays with a
+   * scattered start, no faction kits and plain lanes, so factions are not
+   * required — the create route turns them off.
+   */
+  galaxyHomeWorlds?: boolean;
+}
+
+const GALAXY_WITHOUT_HOME_WORLDS: EraSystemRequirement = {
+  systems: ['economy', 'tech_trees'],
+  notice:
+    'Galactic Age without Home Worlds always plays with Economy & Buildings and Technology Trees. ' +
+    'Every player starts with territories scattered across all four worlds, hyperspace lanes are ' +
+    'ordinary borders, and there are no faction kits or Lane Sovereignty.',
+};
+
+function requirementFor(eraId: string, options?: EraSystemOptions): EraSystemRequirement | undefined {
+  if (eraId === 'galaxy_age' && options?.galaxyHomeWorlds === false) return GALAXY_WITHOUT_HOME_WORLDS;
+  return ERA_REQUIRED_SYSTEMS[eraId];
+}
+
+export function requiredSystemsForEra(eraId: string, options?: EraSystemOptions): readonly EraSystemKey[] {
+  return requirementFor(eraId, options)?.systems ?? [];
 }
 
 /** Systems the player cannot switch off while this era is selected. */
-export function lockedSystemsForEra(eraId: string): ReadonlySet<EraSystemKey> {
-  return new Set(requiredSystemsForEra(eraId));
+export function lockedSystemsForEra(eraId: string, options?: EraSystemOptions): ReadonlySet<EraSystemKey> {
+  return new Set(requiredSystemsForEra(eraId, options));
 }
 
 /** Explanation shown whenever an era with required systems is selected; null otherwise. */
-export function lockedEraSystemsNotice(eraId: string): string | null {
-  return ERA_REQUIRED_SYSTEMS[eraId]?.notice ?? null;
+export function lockedEraSystemsNotice(eraId: string, options?: EraSystemOptions): string | null {
+  return requirementFor(eraId, options)?.notice ?? null;
 }
 
 /** Create-API settings key for each system. */
@@ -106,8 +129,10 @@ export function transitionEraSystemDefaults(args: {
   nextEra: string;
   current: Record<EraSystemKey, boolean>;
   autoEnabled: ReadonlySet<EraSystemKey>;
+  /** Form choices that change the next era's requirements (Home Worlds). */
+  options?: EraSystemOptions;
 }): EraSystemTransition {
-  const required = new Set(requiredSystemsForEra(args.nextEra));
+  const required = new Set(requiredSystemsForEra(args.nextEra, args.options));
   const enable: EraSystemKey[] = [];
   const disable: EraSystemKey[] = [];
   const nextAutoEnabled = new Set<EraSystemKey>();

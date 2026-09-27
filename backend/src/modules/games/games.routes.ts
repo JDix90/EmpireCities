@@ -78,6 +78,14 @@ export const CreateGameSchema = z.object({
       card_set_bonus_cap: z.number().int().min(0).max(1000).optional(),
       diplomacy_enabled: z.boolean().default(true),
       factions_enabled: z.boolean().optional(),
+      /**
+       * Galactic Age "Home Worlds" (lobby option, default on). `false` plays the
+       * era with no home worlds: a scattered start, no faction kits, no Lane
+       * Sovereignty, and lanes that fight like any border. Not persisted itself
+       * — the route turns it into factions_enabled / galaxy_plain_lanes / the
+       * victory list (applyGalaxyHomeWorldsOff). Ignored on every other era.
+       */
+      galaxy_home_worlds: z.boolean().optional(),
       economy_enabled: z.boolean().optional(),
       tech_trees_enabled: z.boolean().optional(),
       events_enabled: z.boolean().optional(),
@@ -196,6 +204,8 @@ export function applyOrbitGatedVictoryDefaults<
     /** The Hegemony phase is baked AND the board has a Moon to hold. */
     lunarHegemony?: boolean;
     isGalacticAge?: boolean;
+    /** False when the game has no lanes worth holding (Home Worlds off). */
+    laneSovereignty?: boolean;
   },
 ): T {
   // Nothing to apply off an orbit-gated era unless the Hegemony is in play:
@@ -221,7 +231,7 @@ export function applyOrbitGatedVictoryDefaults<
   // the tiles — and ships ON beside the headcount backstop. It is meaningless
   // off a lane map, so it is never added elsewhere, and like the backstop it
   // only fills a blank list.
-  if (!opts.callerChoseVictory && opts.isGalacticAge) add.push('lane_sovereignty');
+  if (!opts.callerChoseVictory && opts.isGalacticAge && opts.laneSovereignty !== false) add.push('lane_sovereignty');
   if (add.length > 0) {
     out.allowed_victory_conditions = [...new Set([...(out.allowed_victory_conditions ?? []), ...add])];
   }
@@ -293,6 +303,27 @@ export function lanesContestableRejection(opts: {
  * evaluator also runs on the in-lobby map-change path, where `player_count` is
  * the humans joined so far and not the final seat count. Exported for tests.
  */
+/**
+ * Galactic Age with Home Worlds off: no faction kits (factions off, which also
+ * makes the engine deal a scattered start), lanes that fight like any border
+ * (`galaxy_plain_lanes`), and no Lane Sovereignty — with plain lanes there is
+ * no corridor worth holding, so the victory is dropped even if the caller
+ * listed it. Falls back to domination if that empties the list. Measured in
+ * backend/scripts/GALAXY-BALANCE.md §6. Exported for tests.
+ */
+export function applyGalaxyHomeWorldsOff(list: VictoryType[]): {
+  allowed_victory_conditions: VictoryType[];
+  factions_enabled: false;
+  galaxy_plain_lanes: true;
+} {
+  const without = list.filter((v) => v !== 'lane_sovereignty');
+  return {
+    allowed_victory_conditions: without.length > 0 ? without : ['domination'],
+    factions_enabled: false,
+    galaxy_plain_lanes: true,
+  };
+}
+
 export const GALAXY_REQUIRED_PLAYERS = 4;
 export const GALAXY_PLAYER_COUNT_ERROR =
   'Galactic Age needs exactly 4 players — one per world (fill empty seats with AI)';
@@ -424,11 +455,13 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     // (Earth → Moon) and the ring to the far worlds from the moment somebody
     // ascends, so it takes the same three settings the Galactic Age does.
     const isGalaxyRules = isGalacticAge || isAscensionGalaxy;
+    const galaxyHomeWorldsOff = isGalacticAge && rawSettings.galaxy_home_worlds === false;
     const settings = normalizeGameSettings(
       applyOrbitGatedVictoryDefaults(
         {
           ...rawSettings,
           allowed_victory_conditions: mergedList,
+          ...(galaxyHomeWorldsOff ? applyGalaxyHomeWorldsOff(mergedList) : {}),
           // New-game rule defaults, baked HERE rather than as normalizer
           // fallbacks: normalizeGameSettings re-runs on every room load
           // (repairLegacyGameState → gameRoomManager.repairRoom) and re-persists,
@@ -467,6 +500,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
         {
           isOrbitGated: isGalacticAge || isSpaceAge,
           isGalacticAge,
+          laneSovereignty: !galaxyHomeWorldsOff,
           callerChoseVictory:
             (rawSettings.allowed_victory_conditions?.length ?? 0) > 0 || rawSettings.victory_type != null,
           // Only on a board with a Moon to hold. An era-advancement climb bakes

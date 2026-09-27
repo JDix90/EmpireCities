@@ -144,3 +144,28 @@ describe('locked eras', () => {
     expect(lockedEraSystemsNotice('ww2')).toBeNull();
   });
 });
+
+describe('Galactic Age without Home Worlds', () => {
+  const noHomeWorlds = { galaxyHomeWorlds: false };
+
+  it('requires and locks only Economy and Tech Trees — factions are off by design', () => {
+    expect(requiredSystemsForEra('galaxy_age', noHomeWorlds)).toEqual(['economy', 'tech_trees']);
+    expect([...lockedSystemsForEra('galaxy_age', noHomeWorlds)].sort()).toEqual(['economy', 'tech_trees']);
+    // Home Worlds on (or unspecified) keeps all three.
+    expect(requiredSystemsForEra('galaxy_age', { galaxyHomeWorlds: true })).toEqual(['economy', 'tech_trees', 'factions']);
+    // The option means nothing on other eras.
+    expect(requiredSystemsForEra('space_age', noHomeWorlds)).toEqual(['economy', 'tech_trees']);
+  });
+
+  it('explains the mode instead of the faction kits', () => {
+    const notice = lockedEraSystemsNotice('galaxy_age', noHomeWorlds)!;
+    expect(notice).toMatch(/^Galactic Age without Home Worlds always plays with Economy & Buildings and Technology Trees/);
+    expect(notice).toMatch(/scattered across all four worlds/);
+    expect(notice).toMatch(/no faction kits or Lane Sovereignty/);
+  });
+
+  it('does not switch factions on when entering the era with Home Worlds off', () => {
+    const t = transitionEraSystemDefaults({ nextEra: 'galaxy_age', current: off, autoEnabled: new Set(), options: noHomeWorlds });
+    expect(t.enable).toEqual(['economy', 'tech_trees']);
+  });
+});
