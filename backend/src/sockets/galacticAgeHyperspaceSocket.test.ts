@@ -461,14 +461,20 @@ describe.runIf(redisTestEnabled)('Galactic Age hyperspace — human socket path'
   // Territory Draft is rejected for galaxy maps at the create boundary
   // (territorySelectionRejection). This case pins the reason: the exo tiles
   // arrive neutral with zero units, which no attack can ever resolve against.
-  it('territory selection leaves every off-world tile neutral with no garrison', async () => {
+  it('territory selection leaves every off-world tile neutral, with no garrison outside the Vault', async () => {
     const gameId = 'itest-ga-select';
     const map = freshMap(); const state = freshState(gameId, map, { territory_selection: true, ...GATED } as Partial<GameSettings>);
     expect(state.phase).toBe('territory_select');
     const neutralExo = Object.values(state.territories).filter((t) => t.world_id !== 'sol');
-    const zeroUnit = neutralExo.filter((t) => t.owner_id == null && t.unit_count === 0).length;
+    expect(neutralExo.every((t) => t.owner_id == null)).toBe(true);
+    // The Gate Ring is the board's starting layout, not a world rule, so it
+    // holds its garrison even with world rules off; everything else starts empty.
+    const vault = neutralExo.filter((t) => t.region_id === 'nexus_gate_ring');
+    expect(vault).toHaveLength(4);
+    expect(vault.every((t) => t.unit_count === 6)).toBe(true);
+    const zeroUnit = neutralExo.filter((t) => t.unit_count === 0).length;
     console.log(`[select] exo tiles neutral with 0 units at init: ${zeroUnit} of ${neutralExo.length}`);
-    expect(zeroUnit).toBe(neutralExo.length);
+    expect(zeroUnit).toBe(neutralExo.length - vault.length);
     await seed(gameId, state, map);
     const c1 = await connect(P[0]); await joinRoom(P[0], gameId);
     const c2 = await connect(P[1]); await joinRoom(P[1], gameId);
