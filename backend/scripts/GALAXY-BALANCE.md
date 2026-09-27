@@ -44,7 +44,7 @@ silently measuring a scattered start.
 **Every table in §2, §3's fixed-harness rows and §5 is 1,000 games per seed at
 expert with a 90-turn cap**, on the fixed harness (§1), seeds
 `borderfall-galaxy-balance` (A), `…-B` and `…-C`. §2 is the board after the
-Rust/Verdan retune (§4). Numbers published before the harness fix — including
+Cradle muster (§4). Numbers published before the harness fix — including
 the far-world redesign PRs (#443–#447) — came from a harness whose games leaked
 into each other; §3 and §4 keep that history, with those rows marked.
 
@@ -96,28 +96,28 @@ change a game or two per thousand (2 of 1,000 on seed B) and no longer spread:
 two runs of one seed give the same win rates. The noise that remains is sampling
 noise, about ±1.4 points per faction per 1,000-game seed.
 
-## 2. Where the era stands (after the Rust/Verdan retune, live defaults)
+## 2. Where the era stands (after the Cradle muster, live defaults)
 
 Corridors ON, world rules ON, Lane Sovereignty ON, threshold 60 + cap 90.
 
 | Metric | A | B | C |
 |---|---|---|---|
-| Avg game length | 25.6 | 24.4 | 25.9 turns |
-| Decisive (not turn-limit) | 99.5% | 99.8% | 99.8% |
-| Won by Lane Sovereignty | 34.5% | 33.4% | 33.6% |
-| Won by threshold | 65.0% | 66.4% | 66.2% |
-| Territory-leader@turn-10 wins | 63.2% | 63.1% | 60.8% |
-| Lane end-owner changes per game | 65.3 | 62.1 | 66.8 |
-| Vault (Gate Ring) held at end | 61.9% | 64.5% | 62.0% |
-| …of which by the Custodians | 44.8% | 47.5% | 46.0% |
-| Games that opened a Jump Gate lane | 99.9% | 100% | 100% |
+| Avg game length | 27.7 | 26.5 | 27.0 turns |
+| Decisive (not turn-limit) | 99.0% | 99.6% | 99.5% |
+| Won by Lane Sovereignty | 35.3% | 36.0% | 35.3% |
+| Won by threshold | 63.7% | 63.6% | 64.2% |
+| Territory-leader@turn-10 wins | 60.8% | 63.4% | 61.4% |
+| Lane end-owner changes per game | 72.9 | 70.2 | 71.8 |
+| Vault (Gate Ring) held at end | 61.7% | 64.0% | 63.3% |
+| …of which by the Custodians | 45.9% | 45.8% | 46.3% |
+| Games that opened a Jump Gate lane | 99.7% | 99.9% | 99.8% |
 
 | Faction | World | A | B | C | avg | eliminated (A/B/C) |
 |---|---|---|---|---|---|---|
-| stellar_mandate | Sol | 24.7% | 20.3% | 22.5% | **22.5%** | 19.7 / 19.5 / 19.4% |
-| forge_syndicate | Rust | 29.2% | 30.5% | 29.4% | **29.7%** | 7.5 / 7.7 / 8.6% |
-| helion_navigators | Verdan | 19.9% | 19.9% | 20.5% | **20.1%** | 7.0 / 6.5 / 7.6% |
-| void_custodians | Nexus | 26.2% | 29.3% | 27.6% | **27.7%** | 9.4 / 10.4 / 10.6% |
+| stellar_mandate | Sol | 25.0% | 21.5% | 25.3% | **23.9%** | 24.9 / 25.6 / 24.6% |
+| forge_syndicate | Rust | 26.0% | 27.5% | 25.4% | **26.3%** | 10.0 / 9.1 / 6.9% |
+| helion_navigators | Verdan | 20.9% | 22.1% | 19.8% | **20.9%** | 8.3 / 5.6 / 7.5% |
+| void_custodians | Nexus | 28.1% | 28.9% | 29.5% | **28.8%** | 11.0 / 11.6 / 8.8% |
 
 ### The gate
 
@@ -127,24 +127,23 @@ six times per game. Phase 5 adds "Sovereignty ends at least a quarter of decisiv
 games"; Phase 6 adds "gates built in at least half of games" and "a surge lane is
 crossed when it appears".
 
-**Everything passes on every seed.** The spread is 19.9–30.5%. Before the retune
-Forge was over the ceiling on every seed (35.2–39.2%) and Verdan under the floor
-on one.
+**Everything passes on every seed.** The spread is 19.8–29.5%, tighter than the
+retune's 19.9–30.5%.
 
 ### Read
 
-1. **Rust is still the fortress, now a breakable one.** One of Verdan's lanes
+1. **Every rule now fires.** Sol's Cradle was inert until the muster (§4);
+   switching it off now costs Sol ~4 points.
+2. **Rust is still the fortress, now a breakable one.** One of Verdan's lanes
    lands on Crucible Deep, the Tharsis hub, and Nexus's on Hematite Span, the
-   Hesperia hub, so a landing can spread; Forge is eliminated in ~8% of games
-   instead of ~3%.
-2. **Verdan is the weakest seat** at 20.1%, inside the band on every seed.
-3. **Sol is the most often eliminated** (~19.5%) and its win rate varies most by
-   seed (20.3–24.7%).
-4. **The Vault matters more**: held at the end of ~63% of games, by the
-   Custodians in ~46%.
-5. **The snowball is a little stronger**: the turn-10 leader wins ~62% (~60%
-   before the retune).
-6. **Two ways to win, both live.** Sovereignty ends about a third of games.
+   Hesperia hub, so a landing can spread; Forge is eliminated in ~9% of games.
+3. **Verdan is the weakest seat** at 20.9%, inside the band on every seed.
+4. **Sol is the most often eliminated** (~25%, up from ~19.5%): Verdan's +2
+   reinforcements come out of Sol, its natural prey. Inside the 30% limit.
+5. **The Vault matters**: held at the end of ~63% of games, by the Custodians
+   in ~46%.
+6. **The snowball is unchanged**: the turn-10 leader wins ~62%.
+7. **Two ways to win, both live.** Sovereignty ends about a third of games.
 
 ## 3. What each phase moved
 
@@ -163,16 +162,17 @@ comparable with §2.
 | 7 as first published (leaking harness) | 21.0 | 29.2 | 25.4 | 24.4 | 99.4 | 28.0 |
 | 6, pre-redesign board, *fixed harness* | 29.8 | 27.5 | 21.1 | 21.6 | 99.6 | 26.0 |
 | 7 · far-world redesign, *fixed harness* | 24.3 | 36.9 | 18.4 | 20.4 | 99.6 | 25.9 |
-| **7 · Rust/Verdan retune, *fixed harness* (live)** | **22.5** | **29.7** | **20.1** | **27.7** | 99.7 | 25.3 |
-| retune with `SIM_SOVEREIGNTY=0` | 22.7 | 27.7 | 21.6 | 28.0 | 99.4 | 26.8 |
-| retune with `SIM_EVENTS=1` | 19.0 | 30.9 | 22.6 | 27.5 | 98.9 | 27.9 |
-| retune with `SIM_WORLD_RULES=0` | 23.6 | 39.8 | 17.4 | 19.2 | 99.4 | 26.5 |
+| 7 · Rust/Verdan retune, *fixed harness* | 22.5 | 29.7 | 20.1 | 27.7 | 99.7 | 25.3 |
+| **7 · Cradle muster + Verdan +2, *fixed harness* (live)** | **23.9** | **26.3** | **20.9** | **28.8** | 99.4 | 27.1 |
+| muster with `SIM_SOVEREIGNTY=0` | 23.7 | 25.2 | 21.4 | 29.8 | 99.2 | 28.7 |
+| muster with `SIM_EVENTS=1` | 21.1 | 24.8 | 26.0 | 28.1 | 98.6 | 28.6 |
+| muster with `SIM_WORLD_RULES=0` | 19.1 | 35.9 | 18.2 | 26.8 | 99.4 | 27.8 |
 
 *Fixed-harness rows are three-seed averages of 1,000 games each.*
 
-**Sovereignty still does its catch-up job**, now more clearly: without it the
-turn-10 leader wins ~60% instead of ~62%, but Sol is eliminated in a quarter of
-games (24–26%). Both switch settings pass the gate.
+**Sovereignty still does its catch-up job**: without it Sol is eliminated in
+29.1–29.6% of games, just inside the 30% limit, instead of ~25%. Both switch
+settings pass the gate.
 
 **The world-rules kill switch.** It used to hand the Custodians the Vault at
 start (the ring's neutral garrison and their home bonus were gated on it). The
@@ -184,29 +184,32 @@ its own flag, default ON: `galaxy_rule_cradle_enabled`,
 `galaxy_rule_vault_enabled`, baked at create as `settings.world_rules_disabled`.
 
 One rule off at a time through that switch (`SIM_WORLD_RULES_OFF`), fixed
-harness, retuned board, 1,000 games per seed:
+harness, live board (Cradle muster), 1,000 games per seed:
 
 | Rule off (A / B / C) | Sol | Rust | Verdan | Nexus | Leader@10 | Gate |
 |---|---|---|---|---|---|---|
-| none (live) | 24.7 / 20.3 / 22.5 | 29.2 / 30.5 / 29.4 | 19.9 / 19.9 / 20.5 | 26.2 / 29.3 / 27.6 | 63.2 / 63.1 / 60.8% | pass |
-| Sol's Cradle | 24.7 / 20.3 / 22.5 | 29.3 / 30.5 / 29.4 | 19.9 / 19.9 / 20.5 | 26.1 / 29.3 / 27.6 | 63.3 / 63.1 / 60.8% | **pass** |
-| Rust's Forge die | 24.5 / 18.7 / 23.3 | 30.5 / 30.8 / 29.0 | 19.8 / 21.3 / 19.1 | 25.2 / 29.2 / 28.6 | 63.1 / 63.7 / 62.1% | **pass** |
-| Verdan's Storms | 25.5 / 21.9 / 22.7 | 27.0 / 28.5 / 27.4 | 16.7 / 14.9 / 14.8 | 30.8 / 34.7 / 35.1 | 58.9 / 58.0 / 57.7% | fail: Verdan, Nexus |
-| Nexus Vault | 23.5 / 23.5 / 21.0 | 43.9 / 39.9 / 40.7 | 19.4 / 20.2 / 23.7 | 13.2 / 16.4 / 14.6 | 67.3 / 64.1 / 66.3% | fail: Rust, Nexus |
-| all (the master) | 24.1 / 24.3 / 22.4 | 41.0 / 38.9 / 39.4 | 16.5 / 16.1 / 19.6 | 18.4 / 20.7 / 18.6 | 64.5 / 65.9 / 65.4% | fail: Rust, Verdan |
+| none (live) | 25.0 / 21.5 / 25.3 | 26.0 / 27.5 / 25.4 | 20.9 / 22.1 / 19.8 | 28.1 / 28.9 / 29.5 | 60.8 / 63.4 / 61.4% | pass |
+| Sol's Cradle | 21.8 / 18.7 / 19.6 | 25.0 / 28.4 / 24.4 | 23.4 / 22.3 / 22.4 | 29.8 / 30.6 / 33.6 | 60.4 / 61.7 / 60.0% | fail: Nexus (seed C) |
+| Rust's Forge die | 23.8 / 20.5 / 23.3 | 27.8 / 29.5 / 27.1 | 20.8 / 22.0 / 19.5 | 27.6 / 28.0 / 30.1 | 61.0 / 63.6 / 63.4% | **pass** |
+| Verdan's Storms | 26.0 / 23.7 / 26.1 | 20.6 / 21.2 / 21.6 | 16.0 / 15.1 / 13.6 | 37.4 / 40.0 / 38.7 | 54.2 / 55.5 / 56.5% | fail: Verdan, Nexus |
+| Nexus Vault | 23.8 / 24.6 / 24.0 | 37.8 / 36.8 / 35.5 | 23.0 / 22.8 / 24.4 | 15.4 / 15.8 / 16.1 | 65.9 / 66.5 / 67.3% | fail: Rust, Nexus |
+| all (the master) | 20.6 / 17.4 / 19.2 | 35.8 / 38.4 / 33.5 | 18.8 / 16.9 / 18.9 | 24.8 / 27.3 / 28.4 | 59.1 / 58.8 / 59.9% | fail: Sol, Rust, Verdan |
 
 What each switch costs:
 
-- **Cradle:** nothing at all; the runs match live to the decimal.
-- **Forge die:** under a point for anyone. Sol dips to 18.7% on seed B, just
-  inside the floor.
-- **Storms:** Verdan loses ~4.5 points (to ~15.5%) and Nexus climbs over the
-  ceiling on two seeds. The Storms still carry Verdan.
-- **Vault:** the Custodians fall to ~15% and Forge climbs to ~41%.
-- **The master:** Forge ~40%, Verdan ~17%.
+- **Cradle:** Sol loses ~4 points (to ~20%) and the Custodians gain ~2.5,
+  crossing the ceiling on seed C (33.6%). Verdan keeps its +2 reinforcements
+  with nothing to pay for, and gains ~2.
+- **Forge die:** under two points for anyone. The only balance-free switch.
+- **Storms:** Verdan loses ~6 points (to ~15%) and Nexus climbs to ~39%. The
+  Storms still carry Verdan.
+- **Vault:** the Custodians fall to ~16% and Forge climbs to ~37%.
+- **The master:** Forge ~36%, Sol ~19% (17.4% on seed B), Verdan ~18%.
 
-So the Cradle and Forge-die switches are now balance-free; the Storms, Vault and
-master switches are last resorts for a rule that is actually broken.
+So the Forge-die switch is balance-free; the Cradle, Storms, Vault and master
+switches are last resorts for a rule that is actually broken. The Cradle's
+failure is the price of it firing: its offset (Verdan's +2) lives in the
+faction kit, which no world-rule switch reaches.
 
 ## 4. The tuning that got here, and what it cost
 
@@ -228,6 +231,8 @@ tech 0.084 — as chosen on bad numbers and due for re-measurement with the rest
 | **Retune: Rust region bonuses 12 → 10** (Anchor Works 2, Tharsis 1) | With the lanes moved, Forge was still at 34.6% (seed A). | with the next row |
 | **Retune: Verdan region bonuses 12 → 14** (Dawnrim 4, Brilliance Isles 4) | Verdan sat at the floor; raising Rust's alone gave the ground to Nexus. | all four 19.9–30.5% on every seed |
 | **Retune: Vault `home_unit_bonus` 1 and Nexus tech 0.084 re-checked** (*fixed harness*) | Both were chosen on the leaking harness. On the retuned board: bonus 0 sends Forge to 51–53% and Nexus to 13–15%; tech 0.0625 puts Forge at 33.4% on seed B. | both stay |
+| **Cradle: the muster replaces the deploy cap and population** (*fixed harness*) | The old Cradle (`deploy_cap_bonus` 2, `population_growth_mult` 2) was inert: switching it off matched live to the decimal. The deploy cap only binds below 50 stability, which the AI rarely reaches, and population only scales building income, a lever §4 shows is inert. The muster is the storms' mirror, and what the Mandate's description already promised ("a population that replaces what it loses"): every 5th round, each Sol tile held with fewer than 2 units gains 1. | Sol 24.7 → 30.1, Verdan 19.9 → 17.1 (seed A) |
+| **Verdan `reinforce_bonus` 0 → 2** | Verdan is Sol's main target (Sol captures a third more tiles from Verdan than from the Custodians, and three times what it takes from Forge), so every Cradle that fired came out of Verdan's share. +1 held seed A (19.2%) but not B or C (15.9–16.9% with the every-3rd-round muster). | all four 19.8–29.5% on every seed |
 
 These were tried and **rejected on the evidence** (the retune's screening is
 seed A, 1,000 games, fixed harness):
@@ -248,26 +253,45 @@ seed A, 1,000 games, fixed harness):
   worse on both ends, and the gate counts barely changed because captured gates
   get rebuilt.
 
-**Sol's Cradle world rule is inert** (Phase 6, and again on the fixed harness,
-where switching it off changes nothing at all). Removing `population_growth_mult`
-changed nothing on two of three seeds; removing `deploy_cap_bonus` changed
-nothing on any (the deploy cap only binds below 50 stability, which the AI rarely
-reaches). Sol's identity is currently carried by Blockade Runner and by position.
-Giving that world a rule that actually fires is the clearest next balance job.
+**Choosing the muster** (seed A unless noted, 1,000 games each; `N` is the
+threshold, the cadence is how often it fires). A control with `N` = 1, which
+can never fire, matched live exactly, so every shift below is the rule's own:
+
+| Muster | Verdan kit | Sol | Rust | Verdan | Nexus |
+|---|---|---|---|---|---|
+| none (the retune) | — | 24.7 | 29.2 | 19.9 | 26.2 |
+| N 2, every round | — | 32.4 | 30.1 | 17.0 | 20.5 |
+| N 3 / 4 / 5, every round | — | 34.7 / 38.9 / 38.3 | 30.6 / 39.6 / 44.9 | 12.4 / 7.3 / 6.1 | 22.3 / 14.2 / 10.7 |
+| N 2, every 2nd / 3rd / 4th / 5th round | — | 33.9 / 31.0 / 29.7 / 30.1 | 27.9 / 30.2 / 29.3 / 27.2 | 16.7 / 14.3 / 16.4 / 17.1 | 21.5 / 24.5 / 24.6 / 25.6 |
+| N 2, every 3rd, Sol regions 12 → 10 / 8 | — | 29.4 / 27.1 | 26.9 / 27.2 | 17.5 / 16.8 | 26.2 / 28.9 |
+| N 2, every 3rd | +1 (A / B / C) | 29.5 / 28.1 / 30.1 | 25.3 / 27.6 / 25.8 | 19.2 / 16.9 / 15.9 | 26.0 / 27.4 / 28.2 |
+| N 2, every 3rd | +2 (A / B / C) | 27.3 / 24.5 / 27.2 | 27.1 / 26.5 / 23.6 | 18.9 / 20.0 / 18.9 | 26.7 / 29.0 / 30.3 |
+| **N 2, every 5th (shipped)** | **+2 (A / B / C)** | **25.0 / 21.5 / 25.3** | **26.0 / 27.4 / 25.4** | **20.9 / 22.2 / 19.8** | **28.1 / 28.9 / 29.5** |
+
+- **Any muster is a big lever.** Even every 5th round it gives Sol ~5 points,
+  and the effect barely scales with cadence: a 1-unit tile cannot attack and
+  falls to any probe, a 2-unit one does neither.
+- **Where the refill lands matters less than that it lands.** Screened with a
+  throwaway front-line/interior split: front-line tiles only gave Sol 30.5% (every
+  round), interior only 29.0%. Neither shipped; the rule stays one line.
+- **Cutting Sol's region bonuses does not save Verdan.** The ground goes to
+  Nexus. Verdan loses to the muster because it is the seat attacking Sol.
+- **The every-3rd-round muster with Verdan +2 also passes**, but with Verdan at
+  18.9% on two seeds and Nexus at 30.3%; every 5th leaves more room on both.
 
 ## 5. Lane weather (`SIM_EVENTS=1`)
 
 Events are off by default for this era, so weather is measured on its own run.
 
-| Metric (retuned board) | A | B | C |
+| Metric (live board) | A | B | C |
 |---|---|---|---|
-| Nebula Closures per game | 2.3 | 2.2 | 2.2 |
-| Lane Surges per game | 2.2 | 2.2 | 2.2 |
-| Games opening a surge where somebody crossed it | 89.3% | 88.7% | 85.5% |
-| Surge crossings total | 5756 | 6185 | 5785 |
+| Nebula Closures per game | 2.3 | 2.2 | 2.3 |
+| Lane Surges per game | 2.2 | 2.3 | 2.3 |
+| Games opening a surge where somebody crossed it | 89.4% | 88.1% | 88.5% |
+| Surge crossings total | 5931 | 6257 | 6146 |
 
-With events on the retuned board passes the gate (§3), though Sol sits at
-18.3–20.3%.
+With events on the live board passes the gate (§3), though Sol sits at
+19.6–22.4% and is eliminated in up to 28.5% of games.
 
 A harness bug surfaced here too: the socket clears `active_event` once it has
 broadcast the card, and with no socket the sim left it set, re-applying the same
@@ -276,12 +300,15 @@ instant card every round (11.6 "closures" per game where the deck can deal about
 
 ## 6. Open
 
-- **Sol is the most often eliminated seat** (~19.5%; a quarter of games with
-  Sovereignty off) and the most seed-sensitive (20.3–24.7%). Inside the band.
-- **Sol's Cradle rule does nothing measurable** (§3, §4). A rule that fires
-  would be the natural place for Sol's identity.
-- **The Storms, Vault and master switches fail the gate** (§3); each is a last
-  resort for a rule that is actually broken.
+- **Sol is the most often eliminated seat** (~25%; 29.1–29.6% with
+  Sovereignty off, just inside the 30% limit). Verdan's +2 reinforcements are
+  paid for mostly by Sol. The next Sol lever should be defensive.
+- **Only the Forge-die switch is balance-free** (§3); the Cradle, Storms, Vault
+  and master switches each fail the gate and are last resorts for a rule that
+  is actually broken.
+- **Verdan's +2 exists to pay for the Cradle**, and the Cradle switch cannot
+  reach it. Switching the Cradle off in production would leave Verdan with a
+  bonus it no longer needs.
 - **The snowball**: turn-10 leader at ~62%.
 - **Region bonus totals are no longer equal**: Rust 10, Verdan 14, Sol and Nexus
   12. The design principle was 12 per world; the geography now carries the
@@ -293,6 +320,11 @@ instant card every round (11.6 "closures" per game where the deck can deal about
 
 ## History
 
+- **2026-09-27 (Cradle muster):** Sol's inert Cradle (deploy cap + population)
+  replaced by the muster (every 5th round, Sol tiles under 2 units gain 1);
+  Verdan `reinforce_bonus` 0 → 2 to pay for it. Sol 22.5 → 23.9, Rust
+  29.7 → 26.3, Verdan 20.1 → 20.9, Nexus 27.7 → 28.8. Passes the gate on every
+  seed; the Cradle switch now fails it.
 - **2026-09-27 (Rust/Verdan retune):** two lanes back onto hubs, Rust region
   bonuses 12 → 10, Verdan 12 → 14; Vault +1 and Nexus tech 0.084 re-checked and
   kept. Sol 24 → 22.5, Rust 37 → 30, Verdan 18 → 20, Nexus 20 → 28. Passes the

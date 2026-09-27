@@ -29,8 +29,8 @@
         "stability_bonus": 1
       },
       "rules": {
-        "deploy_cap_bonus": 2,
-        "population_growth_mult": 2
+        "muster_threshold": 2,
+        "muster_every": 5
       },
       "galaxy_position": [
         0.5,

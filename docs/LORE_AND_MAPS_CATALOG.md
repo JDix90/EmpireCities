@@ -512,7 +512,7 @@ Mechanical bonuses (dice, reinforce numbers) are omitted; these strings are the 
 
 - **Stellar Mandate** — *Central admiralty doctrine — Sol III is the cradle: deeper reinforcement on its systems and a population that replaces what it loses. Blockade runners ignore lane seals.* — Ability: *Blockade Runner: once per turn, your next attack across a hyperspace lane ignores an Emergency Seal.*
 - **Forge Syndicate** — *Industrial cartels — shipyard logistics deliver +1 reinforcement per turn and Jump Gates at half price; supply inserts on demand.* — Ability: *Supply Insert: once per turn, place 1 free unit on an owned territory.*
-- **Helion Navigators** — *Lane-mappers and drift pilots — every gateway in the galaxy stays visible to them, and their fleets jump between their own gateways.* — Ability: *Drift Jump: once per turn, fortify between two gateways you hold on different worlds with no connecting route.*
+- **Helion Navigators** — *Lane-mappers and drift pilots — +2 reinforcements per turn; every gateway in the galaxy stays visible to them, and their fleets jump between their own gateways.* — Ability: *Drift Jump: once per turn, fortify between two gateways you hold on different worlds with no connecting route.*
 - **Void Custodians** — *Station enginseers — +1 defence die against any attack across a lane; faster stability recovery. Nexus Station's Gate Ring is the Vault: hold all four tiles for +2 tech per turn and an Emergency Seal on any lane.* — Ability: *Emergency Seal: once per turn, close any hyperspace lane touching Nexus Station to everyone else for one round.*
 
 ---

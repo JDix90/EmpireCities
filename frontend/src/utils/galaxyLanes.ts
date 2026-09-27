@@ -261,6 +261,12 @@ export function describeLaneDice(cap: number | undefined): string | null {
     : `Lane attacks roll ${cap} dice`;
 }
 
+function ordinal(n: number): string {
+  const tens = n % 100;
+  if (tens >= 11 && tens <= 13) return `${n}th`;
+  return `${n}${({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th'}`;
+}
+
 function fmtNum(n: number): string {
   return Number.isInteger(n) ? String(n) : String(Math.round(n * 1000) / 1000);
 }
@@ -299,6 +305,11 @@ export function describeWorldRules(
 ): string[] {
   if (!rules) return [];
   const out: string[] = [];
+  if (rules.muster_threshold != null) {
+    const n = rules.muster_units ?? 1;
+    const when = rules.muster_every && rules.muster_every > 1 ? `every ${ordinal(rules.muster_every)} round` : 'every round';
+    out.push(`Cradle: ${when}, any system held here with fewer than ${rules.muster_threshold} units musters ${n} more`);
+  }
   if (rules.deploy_cap_bonus) {
     out.push(`Cradle: place up to ${rules.deploy_cap_bonus} more units per system each draft, even at low stability`);
   }

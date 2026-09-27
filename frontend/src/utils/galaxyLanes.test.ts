@@ -154,6 +154,13 @@ describe('galaxyLanes', () => {
       'Cradle: place up to 2 more units per system each draft, even at low stability',
       'Population grows 2× as fast',
     ]);
+    expect(describeWorldRules({ muster_threshold: 2, muster_every: 5 })).toEqual([
+      'Cradle: every 5th round, any system held here with fewer than 2 units musters 1 more',
+    ]);
+    expect(describeWorldRules({ muster_threshold: 3, muster_units: 2 })).toEqual([
+      'Cradle: every round, any system held here with fewer than 3 units musters 2 more',
+    ]);
+    expect(describeWorldRules({ muster_threshold: 2, muster_every: 2 })[0]).toContain('every 2nd round');
     expect(describeWorldRules({ storm_threshold: 12 })).toEqual([
       'Storms: at round start any system above 12 units loses 1 to the weather',
     ]);

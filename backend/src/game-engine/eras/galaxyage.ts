@@ -9,7 +9,8 @@ import type { Faction, TechNode, EraWonder } from './types';
 //   worlds is positional (hold a gateway, attack across its lane), so the
 //   opening turns are about reaching and holding gateways, not research.
 // - Helion Navigators' old free-hyperspace special case only matters with the
-//   corridors kill switch off; their live kit is gateway sight + Drift Jump.
+//   corridors kill switch off; their live kit is gateway sight + Drift Jump,
+//   plus `reinforce_bonus: 2` since Sol's Cradle started firing (see below).
 // - Forge Syndicate carries `reinforce_bonus: 2`, the only purely economic kit in
 //   the era and the one that kept losing anyway: 12-14% across Phases 5-6 with +1,
 //   19.5% with +2 (400g x 3 seeds on the deterministic harness). A production kit
@@ -64,9 +65,9 @@ export const GALAXY_AGE_FACTIONS: Faction[] = [
     // threshold 60) after Lane Sovereignty and the Jump Gates, -1 was still worth
     // ~10 points of win rate: Sol 34.6% with it, 24.3% without, while the seat
     // itself — four lanes, centre of the ring — is worth about 24%. No other Sol
-    // lever moved the number at all (see GALAXY-BALANCE.md: the Cradle world rule
-    // measures as inert), so the discount was the whole gap. Sol's identity is now
-    // the cradle world and Blockade Runner.
+    // lever moved the number at all (the Cradle world rule was inert then), so the
+    // discount was the whole gap. Sol's identity is now Blockade Runner and the
+    // Cradle muster, which does fire (GALAXY-BALANCE.md §4).
     ability_id: 'blockade_runner',
     ability_description: 'Blockade Runner: once per turn, your next attack across a hyperspace lane ignores an Emergency Seal.',
     color: '#5dade2',
@@ -91,11 +92,16 @@ export const GALAXY_AGE_FACTIONS: Faction[] = [
   {
     faction_id: 'helion_navigators',
     name: 'Helion Navigators',
-    description: 'Lane-mappers and drift pilots — every gateway in the galaxy stays visible to them, and their fleets jump between their own gateways.',
+    description: 'Lane-mappers and drift pilots — +2 reinforcements per turn; every gateway in the galaxy stays visible to them, and their fleets jump between their own gateways.',
     lore: 'Their astrogators tape gravimetric shoals the way ancient sailors mapped reefs.',
     flavor_quote: 'The void has currents; we read them.',
     home_region_ids: ['verdan_sporefields', 'verdan_mirelands', 'verdan_lumen_crown', 'verdan_stormbelts', 'verdan_brilliance'],
     lineage_id: 'maritime',
+    // Paid for the Cradle muster (GALAXY-BALANCE.md §4). Verdan is the seat Sol
+    // feeds on, so any Sol rule that fires comes out of Verdan's share: the
+    // muster alone left Verdan at 16-17%. +1 recovered seed A but not B or C;
+    // +2 holds all three.
+    reinforce_bonus: 2,
     // Long-Range Sensors is the passive (expandFogVisibilityFromFactionPassive).
     // Drift Jump is applied implicitly by the fortify handler: a fortify between
     // two owned gateway tiles on different worlds that has no connected path.

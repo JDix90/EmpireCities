@@ -560,10 +560,11 @@ export const FACTION_CODEX = [
       {
         "faction_id": "helion_navigators",
         "name": "Helion Navigators",
-        "description": "Lane-mappers and drift pilots — every gateway in the galaxy stays visible to them, and their fleets jump between their own gateways.",
+        "description": "Lane-mappers and drift pilots — +2 reinforcements per turn; every gateway in the galaxy stays visible to them, and their fleets jump between their own gateways.",
         "lore": "Their astrogators tape gravimetric shoals the way ancient sailors mapped reefs.",
         "flavor_quote": "The void has currents; we read them.",
         "color": "#2ecc71",
+        "reinforce_bonus": 2,
         "ability_description": "Drift Jump: once per turn, fortify between two gateways you hold on different worlds with no connecting route."
       },
       {
