@@ -519,6 +519,15 @@ export interface GameSettings {
    */
   galaxy_corridors_enabled?: boolean;
   /**
+   * Galactic Age plain lanes: with corridors on, a hyperspace lane fights like
+   * any other border — no lane dice cap, and the AI stops treating gateways as
+   * objectives. Baked at create when an admin turns the Galactic Age's Home
+   * Worlds option off (games.routes.ts applyGalaxyHomeWorldsOff), alongside
+   * factions off and no Lane Sovereignty; the sim sets it with SIM_PLAIN_LANES.
+   * No-op without corridors.
+   */
+  galaxy_plain_lanes?: boolean;
+  /**
    * Galactic Age transit: a fortify between two WORLDS becomes a convoy that
    * lands at the mover's next turn start rather than instantly. Ships OFF —
    * the plan wanted it prototyped and measured before it was believed. Baked at

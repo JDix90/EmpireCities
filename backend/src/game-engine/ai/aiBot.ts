@@ -271,7 +271,7 @@ function attackObjectiveBonus(
   // tile that turns an open lane into my corridor and shuts the rival out of
   // my world. Weighted like an enemy capital so the bot fights for gateways
   // instead of treating them as any other border tile. ⚠ balance
-  if (state.settings.galaxy_corridors_enabled) {
+  if (state.settings.galaxy_corridors_enabled && !state.settings.galaxy_plain_lanes) {
     for (const c of map.connections) {
       if (c.type !== 'orbit') continue;
       const nearEnd = c.from === targetTerritoryId ? c.to : c.to === targetTerritoryId ? c.from : null;
@@ -369,7 +369,8 @@ function selectDraftTarget(
   // Galactic Age corridors: a gateway whose lane is open (the far end is a
   // rival's) is where the invasion lands, so it carries the far end's units as
   // extra threat plus a flat premium; a corridor's home end is quiet. ⚠ balance
-  const corridors = !!state.settings.galaxy_corridors_enabled;
+  // Plain lanes: a gateway is just a border tile.
+  const corridors = !!state.settings.galaxy_corridors_enabled && !state.settings.galaxy_plain_lanes;
   const gateways = corridors ? orbitGatewayTerritoryIds(map) : new Set<string>();
 
   for (const [tid, tState] of Object.entries(state.territories)) {
@@ -1270,7 +1271,9 @@ export function selectAiTechResearch(
         (t.buildings?.includes('wonder_hyperlane_anchor') ?? false),
     );
     const hasChart = unlocked.includes('ga_hyperspace_chart');
-    if (!hasChart && !factionOpenLanes && !hasAnchor) {
+    // Plain lanes: no cap for Lane Charts to lift, so the chart is waste too.
+    const plainLanes = corridorsOn && !!state.settings.galaxy_plain_lanes;
+    if (!hasChart && !factionOpenLanes && !hasAnchor && !plainLanes) {
       const chart = available.find((n) => n.tech_id === 'ga_hyperspace_chart');
       if (chart) return chart.tech_id;
       // Fall back to the prereq if Hyperspace Chart itself isn't yet affordable.

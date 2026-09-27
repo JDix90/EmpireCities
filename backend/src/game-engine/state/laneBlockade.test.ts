@@ -32,6 +32,7 @@ function mkState(opts: {
   blockades?: GameState['lane_blockades'];
   owners?: Record<string, string>;
   corridors?: boolean;
+  plainLanes?: boolean;
   techs?: Record<string, string[]>;
 }): GameState {
   const owners = opts.owners ?? { sol_a: 'p1', verdan_a: 'p2', sol_b: 'p1', nexus_a: 'p4', rust_a: 'p2' };
@@ -41,7 +42,11 @@ function mkState(opts: {
   }));
   return {
     era: 'galaxy_age',
-    settings: { galaxy_corridors_enabled: opts.corridors ?? true, tech_trees_enabled: true },
+    settings: {
+      galaxy_corridors_enabled: opts.corridors ?? true,
+      galaxy_plain_lanes: opts.plainLanes,
+      tech_trees_enabled: true,
+    },
     lane_blockades: opts.blockades,
     players,
     territories: Object.fromEntries(Object.entries(owners).map(([id, o]) => [id, { owner_id: o }])),
@@ -80,6 +85,10 @@ describe('galaxyLaneAttackDiceCap', () => {
   });
   it('applies no cap when corridors are off', () => {
     expect(galaxyLaneAttackDiceCap(mkState({ corridors: false }), 'p1')).toBeUndefined();
+  });
+  it('applies no cap on plain lanes, which fight like any border', () => {
+    expect(galaxyLaneAttackDiceCap(mkState({ plainLanes: true }), 'p1')).toBeUndefined();
+    expect(galaxyLaneAttackDiceCap(mkState({ plainLanes: false }), 'p1')).toBe(2);
   });
 });
 

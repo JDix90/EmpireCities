@@ -65,6 +65,8 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
   // Galactic Age corridors. Baked at create from the galaxy_corridors_enabled
   // feature flag; persisted only when explicitly on; no-op off galaxy maps.
   const galaxyCorridorsEnabled = typeof raw.galaxy_corridors_enabled === 'boolean' ? raw.galaxy_corridors_enabled : false;
+  // Galactic Age plain lanes (lanes fight like any border). Off by default.
+  const galaxyPlainLanes = typeof raw.galaxy_plain_lanes === 'boolean' ? raw.galaxy_plain_lanes : false;
   // Galactic Age transit. Off by default; baked at create from the flag.
   const galaxyTransitEnabled = typeof raw.galaxy_transit_enabled === 'boolean' ? raw.galaxy_transit_enabled : false;
   // Standalone Space Age frontier seeding. Off by default — baked at create from
@@ -316,6 +318,7 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
       : undefined,
     // Galactic Age corridors — only persisted when explicitly enabled.
     galaxy_corridors_enabled: galaxyCorridorsEnabled || undefined,
+    galaxy_plain_lanes: galaxyPlainLanes || undefined,
     galaxy_transit_enabled: galaxyTransitEnabled || undefined,
     // Standalone Space Age frontier seeding — persisted only when explicitly enabled.
     space_age_frontiers_enabled: spaceAgeFrontiersEnabled || undefined,
