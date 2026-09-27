@@ -25,7 +25,11 @@
 
 import voronoi from '@turf/voronoi';
 import { featureCollection, point } from '@turf/helpers';
-import type { FarWorldSpec, GalaxyLaneSpec, GalaxyRegionSpec, GalaxySpecs, LngLat, VoronoiWorldSpec } from './worldSpecs';
+import { buildSkeletonWorld } from './skeletonWorld';
+import type {
+  FarWorldSpec, GalaxyLaneSpec, GalaxyRegionSpec, GalaxySpecs, LngLat,
+  SkeletonTerritorySpec, SkeletonWorldSpec, VoronoiWorldSpec,
+} from './worldSpecs';
 
 export interface GalaxyTerritory {
   territory_id: string;
@@ -157,6 +161,10 @@ function addEdge(adj: Map<string, Set<string>>, a: string, b: string): void {
   (adj.get(b) ?? adj.set(b, new Set()).get(b)!).add(a);
 }
 
+function farTerritoryId(w: FarWorldSpec, t: FarWorldSpec['territories'][number]): string {
+  return w.kind === 'skeleton' ? (t as SkeletonTerritorySpec).id : `${w.prefix}_${slug(t.name)}`;
+}
+
 /** Fail loudly on a spec that would produce a map the engine silently mishandles. */
 export function validateGalaxySpecs(specs: GalaxySpecs, worldIds: string[]): void {
   const errors: string[] = [];
@@ -186,7 +194,7 @@ export function validateGalaxySpecs(specs: GalaxySpecs, worldIds: string[]): voi
     if (w.kind === 'voronoi' && w.territories.length !== COUNT) {
       errors.push(`${w.world_id}: a voronoi world has exactly ${COUNT} territories, got ${w.territories.length}`);
     }
-    for (const t of w.territories) claim(w.world_id, `${w.prefix}_${slug(t.name)}`, t.region_id);
+    for (const t of w.territories) claim(w.world_id, farTerritoryId(w, t), t.region_id);
   }
   for (const regionId of regionWorld.keys()) {
     if (!regionSize.get(regionId)) errors.push(`region ${regionId} has no territories`);
@@ -343,6 +351,33 @@ function buildVoronoiWorld(
   return { territories, connections, rings };
 }
 
+// ── Far worlds: authored landmass skeleton ────────────────────────────────────
+function buildSkeletonFarWorld(
+  world: SkeletonWorldSpec,
+  toCanvas: (lng: number, lat: number) => [number, number],
+  galaxyPos: (lng: number, lat: number) => [number, number],
+): { territories: GalaxyTerritory[]; connections: GalaxyConnection[]; rings: Record<string, LngLat[]> } {
+  const built = buildSkeletonWorld(world);
+  const specById = new Map(world.territories.map((t) => [t.id, t]));
+  const rings: Record<string, LngLat[]> = {};
+  const territories = built.territories.map((t) => {
+    const spec = specById.get(t.id)!;
+    rings[t.id] = t.ring;
+    return {
+      territory_id: t.id, name: spec.name, world_id: world.world_id, region_id: spec.region_id,
+      galaxy_position: galaxyPos(t.center[0], t.center[1]),
+      polygon: t.ring.slice(0, -1).map(([lng, lat]) => toCanvas(lng, lat)),
+      center_point: toCanvas(t.center[0], t.center[1]),
+      geo_polygon: t.ring,
+    };
+  });
+  const connections: GalaxyConnection[] = [
+    ...built.land.map(([from, to]) => ({ from, to, type: 'land' as const })),
+    ...built.sea.map(([from, to]) => ({ from, to, type: 'sea' as const })),
+  ];
+  return { territories, connections, rings };
+}
+
 function buildFarWorld(
   world: FarWorldSpec,
   toCanvas: (lng: number, lat: number) => [number, number],
@@ -351,9 +386,11 @@ function buildFarWorld(
   switch (world.kind) {
     case 'voronoi':
       return buildVoronoiWorld(world, toCanvas, galaxyPos);
+    case 'skeleton':
+      return buildSkeletonFarWorld(world, toCanvas, galaxyPos);
     default: {
-      const never: never = world.kind;
-      throw new Error(`Unknown far-world kind ${String(never)}`);
+      const never: never = world;
+      throw new Error(`Unknown far-world kind ${JSON.stringify(never)}`);
     }
   }
 }
