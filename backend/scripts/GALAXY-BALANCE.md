@@ -389,6 +389,23 @@ Every plain-lanes game ends by threshold (Sovereignty is off).
 - **The Vault barely matters here** (held at the end of about a third of games,
   and switching it off changes nothing measurable).
 
+**A higher threshold does not fix the snowball.** The same plain-lanes run with
+`SIM_THRESHOLD=70`, 1,000 games per seed, A / B / C:
+
+| Metric | Plain lanes, threshold 60 | Plain lanes, threshold 70 |
+|---|---|---|
+| Avg game length | 22.2 / 23.0 / 22.8 | 25.5 / 26.1 / 26.1 |
+| Turn-10 leader wins | 79.5 / 78.4 / 77.7% | 79.7 / 78.1 / 77.7% |
+| Decisive | 99.8–100% | 99.5–100% |
+| Worst elimination rate | 5.9% | 11.1% |
+| Lane end-owner changes per game | 55–57 | 62–64 |
+
+The turn-10 leader wins exactly as often; a higher bar only makes them take
+longer to reach it, which gives back about three of the four turns plain lanes
+saved (25.9 against 27.1 with home worlds). The game is decided by turn 10
+either way, so a fix has to act on the lead itself (a catch-up rule), not on
+the finish line.
+
 Commands, from `backend/`:
 
 ```sh
@@ -418,6 +435,8 @@ SIM_SCATTERED=1 SIM_FACTIONS=0 SIM_PLAIN_LANES=1 SIM_SOVEREIGNTY=0 SIM_GAMES=100
 
 ## History
 
+- **2026-09-27 (plain lanes at threshold 70, sim only):** 25.9 turns, turn-10
+  leader still wins ~78.5%. The threshold moves the finish, not the snowball.
 - **2026-09-27 (plain lanes, sim only):** scattered start, factions off,
   Sovereignty off, lanes fight like any border (§6). 22.7 turns against 27.1;
   turn-10 leader wins ~79%.
