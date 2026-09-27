@@ -144,15 +144,36 @@ phase 7 rows are 1,000 games on the redesigned board.
 | 7 · far-world redesign (this tree) | **21.0** | **29.2** | **25.4** | **24.4** | 99.4 | 28.0 |
 | 7 with `SIM_SOVEREIGNTY=0` (seed A) | 21.7 | 30.6 | 25.4 | 22.3 | 99.4 | 28.3 |
 | 7 with `SIM_EVENTS=1` (seed A) | 20.7 | 34.7 | 22.2 | 22.4 | 98.7 | 29.7 |
-| 7 with `SIM_WORLD_RULES=0` (seed A) | 12.6 | 21.1 | 25.4 | 40.9 | 99.2 | 28.0 |
+| 7 with `SIM_WORLD_RULES=0`, before the Vault-start fix (seed A) | 12.6 | 21.1 | 25.4 | 40.9 | 99.2 | 28.0 |
+| 7 with `SIM_WORLD_RULES=0`, Vault start kept (A / B / C avg) | 31.6 | 40.6 | 13.4 | 14.5 | 99.6 | 26.4 |
 
 The Sovereignty kill switch still leaves a balanced game (turn-10 leader 63%
 without it, 58% with it, so Sovereignty is still doing its catch-up job).
 
-**The world-rules kill switch no longer does.** The Vault is a world rule: with
-rules off there is no neutral Gate Ring garrison, so the Custodians start owning
-all 16 Nexus tiles, Vault included, and win 40.9%. Before the redesign the same
-switch left a playable game. See §6.
+**The world-rules kill switch no longer does, and the Vault was only part of
+it.** At first the switch also removed the Vault's neutral garrison and the
+Custodians' home bonus, so they started owning all 16 Nexus tiles and won 40.9%.
+The starting layout now follows the map whatever the switch says: the Gate Ring
+starts neutral and the Custodians get their +1, while the switch still turns off
+the Vault's payouts (tech, Emergency Seal, AI weighting) and every other world
+rule. That restored the start but not the balance: Forge 39–41%, Verdan 13–14%,
+Nexus 12–16% across the three seeds.
+
+Stripping one world's rules at a time from the map, with the rest on (seed A):
+
+| Rules removed | Sol | Rust | Verdan | Nexus | Leader@10 |
+|---|---|---|---|---|---|
+| none (live) | 20.3 | 30.4 | 25.5 | 23.8 | 58.2% |
+| Sol's Cradle | 20.3 | 30.4 | 25.5 | 23.8 | 58.2% |
+| Rust's fort die | 20.1 | 29.6 | 25.4 | 24.9 | 61.3% |
+| Verdan's storms | 29.5 | 35.4 | 14.3 | 20.8 | 71.6% |
+| all but the Vault | 25.1 | 35.3 | 17.1 | 22.5 | 70.0% |
+
+**Verdan's storms are load-bearing on the redesigned board.** They stop a stack
+rolling round the Twilight Ring; without them Forge overruns Verdan and the
+snowball jumps from 58% to ~71%. No choice about the Vault alone brings the
+switch back inside the gate. Sol's Cradle is inert, as before, and Rust's fort
+die barely moves anything.
 
 Events on is not the live default. On the new board it pushes Forge to 34.7%,
 over the 32% ceiling, so turning events on for this era would need its own pass.
@@ -208,11 +229,15 @@ instant card every round (11.6 "closures" per game where the deck can deal about
 
 - **Sol at 21.0%**, the weakest seat and the most often eliminated (17–20%).
   Inside the band, but the next lever should be Sol's.
-- **Sol's Cradle rule does nothing measurable** (§4). A rule that fires would be
-  the natural place for that lever.
-- **The world-rules kill switch no longer yields a balanced game** (§3): with it
-  off the Custodians start holding the Vault and win ~41%. If the switch is meant
-  to be a safe fallback, the Vault start needs to survive it.
+- **Sol's Cradle rule does nothing measurable** (§3, §4). A rule that fires
+  would be the natural place for that lever.
+- **The world-rules kill switch is not a balanced fallback** (§3). Since the
+  Vault-start fix it keeps the board's starting layout, but Verdan's storms
+  carry the redesigned board and the switch removes them (Forge ~41%, Verdan
+  ~13%). If the switch must stay a safe fallback, it needs to be split per rule,
+  so a misbehaving rule can go without taking the storms with it.
+- **Sol's Cradle and Rust's fort die barely register** (§3); Rust's identity is
+  carried by its geography and modifiers.
 - **Events on pushes Forge over the ceiling** (34.7%, seed A).
 - **The snowball**: turn-10 leader at ~58%.
 - **Only four-player games are measured**, because that is the only shape the
