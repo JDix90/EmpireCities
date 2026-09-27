@@ -132,3 +132,31 @@ describe('worldIdsOnMap', () => {
     expect(worldIdsOnMap(spaceAge)).toEqual(['earth', 'moon']);
   });
 });
+
+describe('filterMapToWorld · galaxy boards', () => {
+  const galaxy = {
+    canvas_width: 1200,
+    canvas_height: 700,
+    projection_bounds: { minLng: -180, maxLng: 180, minLat: -90, maxLat: 90 },
+    territories: [
+      { territory_id: 'sol_a', region_id: 'sol_r', world_id: 'sol', polygon: [[0, 0], [1, 0], [1, 1]] as Array<[number, number]>, geo_polygon: [[0, 0]] },
+      { territory_id: 'verdan_a', region_id: 'verdan_r', world_id: 'verdan', polygon: [[0, 0], [1, 0], [1, 1]] as Array<[number, number]>, geo_polygon: [[1, 1]] },
+    ],
+    connections: [{ from: 'sol_a', to: 'verdan_a', type: 'orbit' as const }],
+  };
+
+  it('treats Sol III like Earth: keeps its geo hints and the authored canvas', () => {
+    const sol = filterMapToWorld(galaxy, 'sol');
+    expect(sol.territories.map((t) => t.territory_id)).toEqual(['sol_a']);
+    expect(sol.territories[0].geo_polygon).toBeDefined();
+    expect(sol.canvas_width).toBe(1200);
+    expect(sol.projection_bounds).toBeDefined();
+  });
+
+  it("strips a far world's geo hints so it draws its own rings in its own frame", () => {
+    const verdan = filterMapToWorld(galaxy, 'verdan');
+    expect(verdan.territories.map((t) => t.territory_id)).toEqual(['verdan_a']);
+    expect(verdan.territories[0].geo_polygon).toBeUndefined();
+    expect(verdan.canvas_width).toBeUndefined();
+  });
+});

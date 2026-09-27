@@ -82,3 +82,20 @@ export function deriveRegionalGlobeView(
     altitude: globeView?.altitude ?? autoAltitude,
   };
 }
+
+/**
+ * The camera config for the world on screen. On a galaxy map the focused
+ * world's authored `globe_view` wins, so each world opens on its own landmark;
+ * every other map (and a galaxy world without one) keeps the map-level view.
+ */
+export function resolveActiveGlobeView(
+  mapData: {
+    map_kind?: string;
+    globe_view?: GlobeViewConfig;
+    worlds?: Array<{ world_id: string; globe_view?: GlobeViewConfig }>;
+  },
+  activeWorldId: string,
+): GlobeViewConfig | undefined {
+  if (mapData.map_kind !== 'galaxy') return mapData.globe_view;
+  return mapData.worlds?.find((w) => w.world_id === activeWorldId)?.globe_view ?? mapData.globe_view;
+}

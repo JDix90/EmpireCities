@@ -5,6 +5,7 @@ import { useUiStore } from '../../store/uiStore';
 import { scalePolygon } from '../../services/mapService';
 import { inferWorldId, markerLook } from '@borderfall/shared';
 import {
+  EARTH_LIKE_WORLDS,
   filterMapToWorld,
   orbitStubsForWorld,
   type WorldPartitionMap,
@@ -344,7 +345,9 @@ export default function GameMap({
   // Maps with no geo hints at all (galaxy worlds, canvas-only custom maps)
   // skip the multi-MB Natural Earth downloads entirely.
   const geoEligible = useMemo(() => {
-    if (mapData.map_kind === 'galaxy') return false;
+    // Galaxy boards: only the real-Earth worlds (Sol III, Space to Stars'
+    // Earth) have Natural Earth geometry; the far worlds draw their own rings.
+    if (mapData.map_kind === 'galaxy' && !EARTH_LIKE_WORLDS.has(activeWorldId)) return false;
     return mapData.territories.some((t) => {
       const geoFields = t as Partial<{
         geo_polygon: unknown; geo_multipolygon: unknown; iso_codes: unknown; geo_config: unknown; admin1: unknown[];
@@ -354,13 +357,13 @@ export default function GameMap({
         geoFields.geo_config || (geoFields.admin1 && geoFields.admin1.length),
       ) || hasGeoMapping(t.territory_id);
     });
-  }, [mapData]);
+  }, [mapData, activeWorldId]);
   const geoSources = useTerritoryGeoSources(mapData, geoEligible);
   const geoLayout = useMemo(() => {
     if (!geoEligible) return null;
     // The turf clipping/union pass is expensive — cache per map+canvas so
     // toggling 2D↔globe (which unmounts this component) doesn't recompute it.
-    const cacheKey = `${mapData.map_id ?? 'unknown'}:${canvasW}x${canvasH}`;
+    const cacheKey = `${mapData.map_id ?? 'unknown'}:${activeWorldId}:${canvasW}x${canvasH}`;
     const cached = geoLayoutCache.get(cacheKey);
     if (cached !== undefined) return cached;
     if (!geoSources) return null;

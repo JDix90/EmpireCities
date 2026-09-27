@@ -12,6 +12,7 @@ import {
   verdanSea,
   rustSea,
   nexusVoid,
+  neutralLandColorFor,
   rustRiftDistance,
   type PlanetKind,
 } from './proceduralPlanet';
@@ -240,5 +241,25 @@ describe("Nexus Station's void", () => {
         }
       }
     }
+  });
+});
+
+describe('galaxy neutral land and the Space to Stars Earth', () => {
+  it("gives every designed world's unclaimed tiles its own land colour", () => {
+    for (const id of ['sol', 'earth', 'moon', 'verdan', 'rust', 'nexus_station']) {
+      expect(neutralLandColorFor(id, true), id).toMatch(/^rgb\(/);
+      expect(neutralLandColorFor(id, false), id).toMatch(/^rgba\(.*0\.92\)$/);
+    }
+    expect(neutralLandColorFor('verdan', true)).not.toBe(neutralLandColorFor('rust', true));
+  });
+
+  it('leaves unknown worlds on the default neutral', () => {
+    expect(neutralLandColorFor('xeno', true)).toBeUndefined();
+    expect(neutralLandColorFor(null, true)).toBeUndefined();
+  });
+
+  it("paints Space to Stars' Earth as the ocean world Sol III is, not grey rock", () => {
+    expect(planetKindFor('earth')).toBe('ocean');
+    expect(planetProfileFor('earth').seed).toBe(planetProfileFor('sol').seed);
   });
 });

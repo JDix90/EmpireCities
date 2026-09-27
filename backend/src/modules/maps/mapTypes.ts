@@ -77,6 +77,10 @@ export interface GameMap {
     atmosphere_altitude?: number;
     background_color?: string;
     requires_orbit_access?: boolean;
+    /** Galaxy chart node position, [x, y] in [0, 1]; see MapWorldDefinition. */
+    galaxy_position?: [number, number];
+    /** Globe camera when this world is focused; see MapWorldDefinition. */
+    globe_view?: { center_lat: number; center_lng: number; altitude?: number; lock_rotation?: boolean };
   }>;
   orbit_access?: 'none' | 'space_age_moon' | 'galaxy_hyperspace';
   territories: Territory[];

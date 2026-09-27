@@ -24,7 +24,11 @@
       "atmosphere_color": "lightskyblue",
       "atmosphere_altitude": 0.18,
       "background_color": "rgb(8, 12, 28)",
-      "requires_orbit_access": false
+      "requires_orbit_access": false,
+      "galaxy_position": [
+        0.1,
+        0.5
+      ]
     },
     {
       "world_id": "moon",
@@ -32,7 +36,11 @@
       "show_atmosphere": false,
       "background_color": "rgb(10, 10, 14)",
       "requires_orbit_access": true,
-      "initial_neutral_garrison": true
+      "initial_neutral_garrison": true,
+      "galaxy_position": [
+        0.34,
+        0.5
+      ]
     },
     {
       "world_id": "verdan",
@@ -49,6 +57,16 @@
       "rules": {
         "storm_threshold": 12,
         "storm_attrition": 1
+      },
+      "galaxy_position": [
+        0.62,
+        0.14
+      ],
+      "globe_view": {
+        "center_lat": 5,
+        "center_lng": 70,
+        "altitude": 2.3,
+        "lock_rotation": false
       }
     },
     {
@@ -65,6 +83,16 @@
       },
       "rules": {
         "defense_building_bonus_dice": 1
+      },
+      "galaxy_position": [
+        0.9,
+        0.5
+      ],
+      "globe_view": {
+        "center_lat": -10,
+        "center_lng": -65,
+        "altitude": 2.3,
+        "lock_rotation": false
       }
     },
     {
@@ -87,6 +115,16 @@
           "emergency_seal": true,
           "home_unit_bonus": 1
         }
+      },
+      "galaxy_position": [
+        0.62,
+        0.86
+      ],
+      "globe_view": {
+        "center_lat": 0,
+        "center_lng": 8,
+        "altitude": 2.3,
+        "lock_rotation": false
       }
     }
   ],

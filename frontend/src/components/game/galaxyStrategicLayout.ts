@@ -4,7 +4,8 @@
  * The overview collapses every territory into ONE node per world (Sol III,
  * Verdan Reach, …) so the chart reads at a glance no matter how many worlds
  * the galaxy grows to. Nothing here is hardcoded to the initial four worlds:
- *   • node positions come from each world's authored `galaxy_position` centroid,
+ *   • node positions come from each world's authored `worlds[].galaxy_position`,
+ *     else the centroid of its territories' `galaxy_position`,
  *   • the caller scales those to fit any viewport (`fitToViewport`),
  *   • overlaps are relaxed apart (`relaxPlacements`) so clustered authoring still
  *     reads cleanly, and
@@ -65,6 +66,8 @@ export interface BuildWorldNodesOptions {
   ownerOf: (territoryId: string) => string | null;
   playerInfo: (playerId: string) => { color: string; name: string } | null;
   displayNameOf: (worldId: string) => string;
+  /** A world's authored chart position (`worlds[].galaxy_position`), which wins over its territories' mean. */
+  authoredPositionOf?: (worldId: string) => [number, number] | undefined;
 }
 
 export function clamp(v: number, lo: number, hi: number): number {
@@ -94,7 +97,9 @@ export function buildWorldNodes(
 
   const nodes: WorldNode[] = [];
   for (const [worldId, members] of groups) {
-    // Centroid from authored galaxy_position (mean of members that carry one).
+    // The world's own authored position if it has one; otherwise the mean of
+    // its members' galaxy_position.
+    const authored = opts.authoredPositionOf?.(worldId);
     let sx = 0;
     let sy = 0;
     let posCount = 0;
@@ -105,7 +110,9 @@ export function buildWorldNodes(
         posCount += 1;
       }
     }
-    const centroid = posCount > 0 ? { cx: sx / posCount, cy: sy / posCount } : fallbackCentroid(worldId);
+    const centroid = authored
+      ? { cx: authored[0], cy: authored[1] }
+      : posCount > 0 ? { cx: sx / posCount, cy: sy / posCount } : fallbackCentroid(worldId);
 
     // Ownership tally.
     const tally = new Map<string, number>();
@@ -183,12 +190,18 @@ export interface Placement {
   py: number;
 }
 
-/** Linear scale of normalized centroids into the padded viewport. */
+/**
+ * Linear scale of normalized centroids into the padded viewport. `padX`
+ * defaults to `pad`; a caller whose labels sit BELOW each node can pass a
+ * smaller horizontal pad, which is what keeps a phone-width chart from
+ * squeezing two side-by-side worlds together.
+ */
 export function fitToViewport(
   nodes: Array<Pick<WorldNode, 'world_id' | 'cx' | 'cy'>>,
   width: number,
   height: number,
   pad: number,
+  padX: number = pad,
 ): Placement[] {
   if (nodes.length === 0) return [];
   if (nodes.length === 1) {
@@ -206,12 +219,12 @@ export function fitToViewport(
   }
   const spanX = maxX - minX;
   const spanY = maxY - minY;
-  const innerW = Math.max(1, width - 2 * pad);
+  const innerW = Math.max(1, width - 2 * padX);
   const innerH = Math.max(1, height - 2 * pad);
   return nodes.map((n) => {
     const fx = spanX > 1e-6 ? (n.cx - minX) / spanX : 0.5;
     const fy = spanY > 1e-6 ? (n.cy - minY) / spanY : 0.5;
-    return { world_id: n.world_id, px: pad + fx * innerW, py: pad + fy * innerH };
+    return { world_id: n.world_id, px: padX + fx * innerW, py: pad + fy * innerH };
   });
 }
 
@@ -228,10 +241,11 @@ export function relaxPlacements(
   height: number,
   pad: number,
   iterations = 80,
+  padX: number = pad,
 ): Placement[] {
   const pts = placements.map((p) => ({ ...p }));
-  const loX = pad;
-  const hiX = Math.max(pad, width - pad);
+  const loX = padX;
+  const hiX = Math.max(padX, width - padX);
   const loY = pad;
   const hiY = Math.max(pad, height - pad);
   for (let iter = 0; iter < iterations; iter++) {

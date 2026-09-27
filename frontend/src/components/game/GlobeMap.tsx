@@ -18,11 +18,11 @@ import {
   type PolygonData,
 } from '../../utils/globeTerritoryGeometry';
 import { galaxyExoWideHullCapResolution } from '../../utils/galaxyGlobeCapResolution';
-import { buildGalaxyWorldTextureFromPolygons } from '../../utils/proceduralPlanet';
+import { buildGalaxyWorldTextureFromPolygons, neutralLandColorFor } from '../../utils/proceduralPlanet';
 import { inferWorldId, markerLook, type MarkerLook } from '@borderfall/shared';
 import { usePlayerCosmetics } from '../cosmetics/useCosmetics';
 import { markerSvgElement } from '../cosmetics/markerSvg';
-import { deriveRegionalGlobeView, type GlobeViewConfig } from '../../utils/regionalGlobe';
+import { deriveRegionalGlobeView, resolveActiveGlobeView, type GlobeViewConfig } from '../../utils/regionalGlobe';
 import { isFogHidden } from '../../utils/fogVisibility';
 import { getPlayerGlobeColor, getRegionCssColors } from '../../constants/accessibleColors';
 import { HIGHLIGHT_CSS, highlightRgba } from '../../constants/highlightColors';
@@ -145,6 +145,8 @@ interface GameMapData {
     atmosphere_altitude?: number;
     background_color?: string;
     requires_orbit_access?: boolean;
+    /** Galaxy maps: this world's opening camera (replaces the map-level `globe_view`). */
+    globe_view?: GlobeViewConfig;
   }>;
   canvas_width?: number;
   canvas_height?: number;
@@ -1074,9 +1076,19 @@ function GlobeMap({
     return centers.size > 0 ? centers : territoryCenters;
   }, [polygonsData, territoryById, activeWorldId, territoryCenters]);
 
+  /**
+   * Galaxy maps: the focused world's authored camera, when it has one, stands
+   * in for the map-level view — each world opens on its own landmark (Verdan's
+   * terminator, the Rust rift, the Nexus Gate) instead of a bounding-box guess.
+   */
+  const activeGlobeView = useMemo(
+    () => resolveActiveGlobeView(mapData, activeWorldId),
+    [mapData.map_kind, mapData.worlds, mapData.globe_view, activeWorldId],
+  );
+
   const regionalGlobe = useMemo(
-    () => deriveRegionalGlobeView(mapData.globe_view, activeWorldCenters),
-    [mapData.globe_view, activeWorldCenters],
+    () => deriveRegionalGlobeView(activeGlobeView, activeWorldCenters),
+    [activeGlobeView, activeWorldCenters],
   );
   /**
    * Regional / authored-bounds maps: every extruded polygon uses cap + side materials.
@@ -1535,14 +1547,17 @@ function GlobeMap({
   usePageVisibilityEffect((visible) => applyRenderActivity(visible));
 
   // Re-evaluate idle state when spin toggles and on turn changes (which can
-  // re-enable the idle auto-spin). NOTE: deliberately NOT keyed on `events` — that
+  // re-enable the idle auto-spin), and when a galaxy map switches worlds: with
+  // spin off the loop sits paused, so a new world's caps, surface and camera
+  // were all set up and never drawn — the tab changed and the old world stayed
+  // on screen. NOTE: deliberately NOT keyed on `events` — that
   // prop is a fresh array every parent render, which would resume the loop on
   // every re-render and prevent it from ever idling. New events instead wake the
   // loop from the dedup'd ingestion effect below (via the `hasNew` signal).
   useEffect(() => {
     if (frameBudget) applyRenderActivity(true, BUDGET_BOARD_CHANGE_RENDER_MS, BUDGET_BOARD_CHANGE_FRAMES);
     else applyRenderActivity(true, RENDER_IDLE_MS);
-  }, [autoSpin, globeReadyTick, gameState?.current_player_index, applyRenderActivity, frameBudget]);
+  }, [autoSpin, globeReadyTick, gameState?.current_player_index, applyRenderActivity, frameBudget, activeWorldId]);
 
   // The board changed (an owner, a unit count, a building): paint it. With no
   // animation queued for it, nothing else would wake an idle loop, so the
@@ -3367,13 +3382,19 @@ function GlobeMap({
   const getPolygonColor = useCallback(
     (polygon: object) => {
       const p = polygon as PolygonData;
-      const empty = isFloodedNorthAmerica
+      // Galaxy maps: an unclaimed tile takes its world's land colour, so a
+      // neutral world reads as that planet rather than a slate ball.
+      const neutralTerritory = mapData.map_kind === 'galaxy' ? territoryById.get(p.territory_id) : undefined;
+      const galaxyNeutral = neutralTerritory
+        ? neutralLandColorFor(inferWorldId(neutralTerritory), useSolidPlayerCaps)
+        : undefined;
+      const empty = galaxyNeutral ?? (isFloodedNorthAmerica
         ? useSolidPlayerCaps
           ? 'rgb(245, 242, 230)'
           : 'rgba(245, 242, 230, 0.98)'
         : useSolidPlayerCaps
           ? 'rgb(45, 52, 72)'
-          : 'rgba(45, 52, 72, 0.92)';
+          : 'rgba(45, 52, 72, 0.92)');
       if (!gameState) {
         if (previewMode) {
           const regionId = territoryRegionMap.get(p.territory_id);
@@ -3426,7 +3447,7 @@ function GlobeMap({
 
       return base;
     },
-    [gameState, previewMode, territoryRegionMap, regionColorMap, useSolidPlayerCaps, isFloodedNorthAmerica, polygonStrikeFlash, polygonCaptureFlash, polygonEraAdvanceFlash],
+    [gameState, previewMode, territoryRegionMap, regionColorMap, useSolidPlayerCaps, isFloodedNorthAmerica, polygonStrikeFlash, polygonCaptureFlash, polygonEraAdvanceFlash, mapData.map_kind, territoryById],
   );
 
   const getPolygonStroke = useCallback(

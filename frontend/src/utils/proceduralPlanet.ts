@@ -34,7 +34,30 @@ const WORLD_PROFILES: Record<string, PlanetProfile> = {
   verdan: { seed: 4404, kind: 'verdant', fallback: '#1f6a4a' },
   rust: { seed: 7711, kind: 'desert', fallback: '#8a3f1e' },
   nexus_station: { seed: 9021, kind: 'city', fallback: '#10162e' },
+  // Space to Stars' Earth is the same planet as Sol III: without a profile it
+  // fell through to 'rocky' and rendered with grey oceans.
+  earth: { seed: 1207, kind: 'ocean', fallback: '#1d3f6b' },
 };
+
+/**
+ * Colour of an UNCLAIMED tile on a galaxy world's globe: a muted version of
+ * the world's own land, so a neutral world still reads as that planet. Unknown
+ * worlds return undefined and keep the globe's default neutral.
+ */
+const NEUTRAL_LAND: Record<string, [number, number, number]> = {
+  sol: [74, 94, 66],
+  earth: [74, 94, 66],
+  moon: [96, 98, 106],
+  verdan: [34, 84, 60],
+  rust: [110, 58, 34],
+  nexus_station: [58, 63, 92],
+};
+
+export function neutralLandColorFor(worldId: string | null | undefined, solid: boolean): string | undefined {
+  const rgb = worldId ? NEUTRAL_LAND[worldId] : undefined;
+  if (!rgb) return undefined;
+  return solid ? `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})` : `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.92)`;
+}
 
 const DEFAULT_PROFILE: PlanetProfile = { seed: 2025, kind: 'rocky', fallback: '#3a4358' };
 
