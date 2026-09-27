@@ -214,6 +214,8 @@ interface SeatTelemetry {
   capturesFrom: Record<string, number>;
   /** Tiles this seat captured, by the world they lie on. */
   capturesOn: Record<string, number>;
+  /** Attack exchanges this seat fought, by the defender's faction. */
+  exchangesVs: Record<string, number>;
   /** The faction whose capture eliminated this seat, if one did. */
   eliminatedBy: string | null;
   /** Convoys this seat sent, and how they ended (transit only). */
@@ -306,6 +308,10 @@ function playAiTurn(
       const victimAliveBefore = ownerBefore ? !state.players.find((p) => p.player_id === ownerBefore)?.is_eliminated : false;
       const outcome = executeLandAttack(state, pid, a.from, a.to, { dieRoll, connection, neutralOffworldCaptureAllowed });
       budget.left -= 1;
+      if (outcome) {
+        const df = ownerBefore ? state.players.find((p) => p.player_id === ownerBefore)?.faction_id ?? '?' : 'neutral';
+        seat.exchangesVs[df] = (seat.exchangesVs[df] ?? 0) + 1;
+      }
       if (outcome && state.territories[a.to].owner_id === pid && ownerBefore !== pid) {
         const victim: GameState["players"][number] | undefined = ownerBefore ? state.players.find((p) => p.player_id === ownerBefore) : undefined;
         const vf = victim?.faction_id ?? 'neutral';
@@ -464,6 +470,7 @@ function runGame(gameIndex: number, map: GameMap): GameStat {
       surgeCrossings: 0,
       capturesFrom: {},
       capturesOn: {},
+      exchangesVs: {},
       eliminatedBy: null,
       convoysSent: 0,
       convoysLanded: 0,
@@ -679,6 +686,13 @@ function main(): void {
     const seats = seatsByFaction.get(f) ?? [];
     if (seats.length === 0) continue;
     console.log(`  ${f.padEnd(20)}${victims.map((v) => fixed(avg(seats.map((s) => s.capturesFrom[v] ?? 0))).padStart(10)).join('')}`);
+  }
+  console.log(`\n— Attack exchanges per game, attacker (row) → defender (column) —`);
+  console.log(`  ${'attacker'.padEnd(20)}${victims.map((v) => v.split('_')[0].slice(0, 8).padStart(10)).join('')}`);
+  for (const f of FACTIONS) {
+    const seats = seatsByFaction.get(f) ?? [];
+    if (seats.length === 0) continue;
+    console.log(`  ${f.padEnd(20)}${victims.map((v) => fixed(avg(seats.map((s) => s.exchangesVs[v] ?? 0))).padStart(10)).join('')}`);
   }
   const worldList = worldIds(map);
   console.log(`\n— Captures per game by world, attacker (row) —`);
