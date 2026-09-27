@@ -97,6 +97,22 @@ const EVENTS = process.env.SIM_EVENTS === '1';
  * the mechanic was believed.
  */
 const TRANSIT = process.env.SIM_TRANSIT === '1';
+/**
+ * Faction kit overrides for a tuning sweep, as JSON:
+ *   SIM_FACTION_PATCH='{"forge_syndicate":{"reinforce_bonus":1}}'
+ * Patched onto the era's faction definitions before any game starts, the same
+ * objects every engine lookup resolves, so a candidate can be measured without
+ * editing eras/galaxyage.ts. World modifiers and rules live in the map: use
+ * SIM_MAP for those.
+ */
+const FACTION_PATCH: Record<string, Record<string, unknown>> = process.env.SIM_FACTION_PATCH
+  ? JSON.parse(process.env.SIM_FACTION_PATCH)
+  : {};
+for (const [factionId, patch] of Object.entries(FACTION_PATCH)) {
+  const faction = getFactionById('galaxy_age', factionId);
+  if (!faction) throw new Error(`SIM_FACTION_PATCH: unknown galaxy faction "${factionId}"`);
+  Object.assign(faction, patch);
+}
 
 const PLAYERS = 4;
 // One faction per player, in player order. Each faction's home region is a whole
@@ -210,6 +226,14 @@ interface SeatTelemetry {
   jumpGatesBuilt: number;
   /** Attacks this seat resolved across a temporary Lane Surge. */
   surgeCrossings: number;
+  /** Tiles this seat captured, by the victim's faction ('neutral' for unowned). */
+  capturesFrom: Record<string, number>;
+  /** Tiles this seat captured, by the world they lie on. */
+  capturesOn: Record<string, number>;
+  /** Attack exchanges this seat fought, by the defender's faction. */
+  exchangesVs: Record<string, number>;
+  /** The faction whose capture eliminated this seat, if one did. */
+  eliminatedBy: string | null;
   /** Convoys this seat sent, and how they ended (transit only). */
   convoysSent: number;
   convoysLanded: number;
@@ -239,6 +263,7 @@ function playAiTurn(
   orbitLanePairs: Set<string>,
   connectionsByKey: Map<string, MapConnection>,
   seat: SeatTelemetry,
+  telemetryFor: (playerId: string) => SeatTelemetry,
 ): void {
   state.phase = 'draft';
   // Seed the AI's heuristic jitter. Production leaves it on Math.random, which
@@ -295,9 +320,25 @@ function playAiTurn(
     // the kill-switch game.
     const connection = connectionsByKey.get(laneKey(a.from, a.to));
     for (;;) {
-      const ownerBefore = state.territories[a.to]?.owner_id;
+      const ownerBefore: string | null | undefined = state.territories[a.to]?.owner_id;
+      const victimAliveBefore = ownerBefore ? !state.players.find((p) => p.player_id === ownerBefore)?.is_eliminated : false;
       const outcome = executeLandAttack(state, pid, a.from, a.to, { dieRoll, connection, neutralOffworldCaptureAllowed });
       budget.left -= 1;
+      if (outcome) {
+        const df = ownerBefore ? state.players.find((p) => p.player_id === ownerBefore)?.faction_id ?? '?' : 'neutral';
+        seat.exchangesVs[df] = (seat.exchangesVs[df] ?? 0) + 1;
+      }
+      if (outcome && state.territories[a.to].owner_id === pid && ownerBefore !== pid) {
+        const victim: GameState["players"][number] | undefined = ownerBefore ? state.players.find((p) => p.player_id === ownerBefore) : undefined;
+        const vf = victim?.faction_id ?? 'neutral';
+        seat.capturesFrom[vf] = (seat.capturesFrom[vf] ?? 0) + 1;
+        const w = state.territories[a.to].world_id ?? '?';
+        seat.capturesOn[w] = (seat.capturesOn[w] ?? 0) + 1;
+        if (victim && victimAliveBefore && ownedIds(state, victim.player_id).length === 0) {
+          const me = state.players.find((p) => p.player_id === pid)!;
+          telemetryFor(victim.player_id).eliminatedBy = me.faction_id ?? null;
+        }
+      }
       if (outcome && connection?.source === 'lane_surge') seat.surgeCrossings++;
       if (outcome) {
         if (crossesLane) {
@@ -404,7 +445,14 @@ function assertHomeworldStart(map: GameMap, state: GameState, factionOf: Record<
   }
 }
 
-function runGame(gameIndex: number, map: GameMap): GameStat {
+function runGame(gameIndex: number, sourceMap: GameMap): GameStat {
+  // A fresh map per game. Jump Gates and lane weather write their lanes into
+  // `map.connections` as they open and close, so a shared map started each game
+  // with the previous game's last lanes on it: games were not independent, and
+  // one game changed by an unseeded engine roll changed every game after it
+  // (two identical 1,000-game runs of seed B diverged from game 266 on and
+  // differed by up to 4 points per faction).
+  const map = structuredClone(sourceMap);
   const seed = hashStringToSeed(`${MASTER_SEED}:${gameIndex}`);
   const dieRoll = seededDie(seed);
   // Separate stream from the dice so a jitter draw can never shift a roll.
@@ -443,6 +491,10 @@ function runGame(gameIndex: number, map: GameMap): GameStat {
       homeExchanges: 0,
       jumpGatesBuilt: 0,
       surgeCrossings: 0,
+      capturesFrom: {},
+      capturesOn: {},
+      exchangesVs: {},
+      eliminatedBy: null,
       convoysSent: 0,
       convoysLanded: 0,
       convoysTurnedBack: 0,
@@ -467,7 +519,7 @@ function runGame(gameIndex: number, map: GameMap): GameStat {
     guard++;
     const player = state.players[state.current_player_index];
     if (!player.is_eliminated) {
-      playAiTurn(state, map, player.player_id, DIFFICULTY, dieRoll, jitter, lanes, connectionsByKey, telemetry[player.player_id]);
+      playAiTurn(state, map, player.player_id, DIFFICULTY, dieRoll, jitter, lanes, connectionsByKey, telemetry[player.player_id], (id) => telemetry[id]);
     }
     advanceToNextPlayer(state, map);
     for (const arrival of state.last_transit_arrivals ?? []) {
@@ -595,7 +647,7 @@ function main(): void {
   for (const s of stats) if (s.winnerFaction) byFaction[s.winnerFaction] = (byFaction[s.winnerFaction] ?? 0) + 1;
 
   console.log(`\nGalactic Age balance — ${GAMES} games · ${PLAYERS}p · ${DIFFICULTY} · maxTurns ${MAX_TURNS}${THRESHOLD != null ? ` · threshold ${THRESHOLD}%` : ''} · ${terr} territories`);
-  console.log(`Seed "${MASTER_SEED}" · attack loop ${GRIND ? 'GRIND (mirrors live AI)' : 'single-exchange (SIM_GRIND=0, legacy)'} · corridors ${CORRIDORS ? 'ON' : 'OFF (SIM_CORRIDORS=0)'} · world rules ${WORLD_RULES ? (WORLD_RULES_OFF.length ? `ON except ${WORLD_RULES_OFF.join('+')}` : 'ON') : 'OFF (SIM_WORLD_RULES=0)'} · sovereignty ${SOVEREIGNTY ? 'ON' : 'OFF (SIM_SOVEREIGNTY=0)'} · transit ${TRANSIT ? 'ON (SIM_TRANSIT=1)' : 'OFF'} · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
+  console.log(`Seed "${MASTER_SEED}" · attack loop ${GRIND ? 'GRIND (mirrors live AI)' : 'single-exchange (SIM_GRIND=0, legacy)'} · corridors ${CORRIDORS ? 'ON' : 'OFF (SIM_CORRIDORS=0)'} · factions ${Object.keys(FACTION_PATCH).length ? `patched ${JSON.stringify(FACTION_PATCH)}` : 'as shipped'} · world rules ${WORLD_RULES ? (WORLD_RULES_OFF.length ? `ON except ${WORLD_RULES_OFF.join('+')}` : 'ON') : 'OFF (SIM_WORLD_RULES=0)'} · sovereignty ${SOVEREIGNTY ? 'ON' : 'OFF (SIM_SOVEREIGNTY=0)'} · transit ${TRANSIT ? 'ON (SIM_TRANSIT=1)' : 'OFF'} · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
   console.log(`Avg game length (turns):          ${(stats.reduce((a, s) => a + s.turns, 0) / GAMES).toFixed(1)}`);
   console.log(`Decisive (non-turn-limit) wins:   ${pct(decisive.length, GAMES)}`);
   const byCondition = new Map<string, number>();
@@ -647,6 +699,39 @@ function main(): void {
     );
   }
   console.log(`  chartT/1stCrossT: turn, averaged over seats that got there · crossEx→crossCap: lane exchanges vs captures`);
+
+  // Who takes tiles from whom, and on which world: a rule on one world can move
+  // a faction that never touches it only through the others' choices.
+  const victims = [...FACTIONS, 'neutral'];
+  console.log(`\n— Captures per game, attacker (row) → victim (column) —`);
+  console.log(`  ${'attacker'.padEnd(20)}${victims.map((v) => v.split('_')[0].slice(0, 8).padStart(10)).join('')}`);
+  for (const f of FACTIONS) {
+    const seats = seatsByFaction.get(f) ?? [];
+    if (seats.length === 0) continue;
+    console.log(`  ${f.padEnd(20)}${victims.map((v) => fixed(avg(seats.map((s) => s.capturesFrom[v] ?? 0))).padStart(10)).join('')}`);
+  }
+  console.log(`\n— Attack exchanges per game, attacker (row) → defender (column) —`);
+  console.log(`  ${'attacker'.padEnd(20)}${victims.map((v) => v.split('_')[0].slice(0, 8).padStart(10)).join('')}`);
+  for (const f of FACTIONS) {
+    const seats = seatsByFaction.get(f) ?? [];
+    if (seats.length === 0) continue;
+    console.log(`  ${f.padEnd(20)}${victims.map((v) => fixed(avg(seats.map((s) => s.exchangesVs[v] ?? 0))).padStart(10)).join('')}`);
+  }
+  const worldList = worldIds(map);
+  console.log(`\n— Captures per game by world, attacker (row) —`);
+  console.log(`  ${'attacker'.padEnd(20)}${worldList.map((w) => w.slice(0, 8).padStart(10)).join('')}`);
+  for (const f of FACTIONS) {
+    const seats = seatsByFaction.get(f) ?? [];
+    if (seats.length === 0) continue;
+    console.log(`  ${f.padEnd(20)}${worldList.map((w) => fixed(avg(seats.map((s) => s.capturesOn[w] ?? 0))).padStart(10)).join('')}`);
+  }
+  console.log(`\n— Eliminated by (share of this faction's games) —`);
+  for (const f of FACTIONS) {
+    const seats = seatsByFaction.get(f) ?? [];
+    if (seats.length === 0) continue;
+    const by = FACTIONS.map((k) => `${k.split('_')[0]} ${pct(seats.filter((s) => s.eliminatedBy === k).length, seats.length)}`).join(' · ');
+    console.log(`  ${f.padEnd(20)}${by}`);
+  }
 
   // Per-world concentration: a galaxy where every world ends wholly owned by one
   // player has stopped being contested, whatever the win rates say.
