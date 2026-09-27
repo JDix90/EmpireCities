@@ -41,7 +41,7 @@ export const GALAXY_UNLOCK_INDEX = 1;
 export const MOON_LANES: Array<{ moon: string; exo: string }> = [
   { moon: 'moon_far_side_north', exo: 'verdan_chlorophage_span' },
   { moon: 'moon_far_side_south', exo: 'verdan_greenfire_vault' },
-  { moon: 'moon_polar_north', exo: 'nexus_harmonic_rim' },
+  { moon: 'moon_polar_north', exo: 'nexus_lodgeway' },
   { moon: 'moon_polar_south', exo: 'nexus_resonance_vault' },
 ];
 

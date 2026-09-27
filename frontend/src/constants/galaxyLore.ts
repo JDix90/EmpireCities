@@ -51,11 +51,11 @@ export const GALAXY_WORLD_LORE: Record<string, GalaxyWorldLore> = {
   },
   nexus_station: {
     display_name: 'Nexus Station',
-    tagline: 'The Pathfinder Vault — Void Custodians',
+    tagline: 'The Shattered Shell — Void Custodians',
     description:
-      "Not a planet but a constructed shellworld the size of Sol's moon — a hollow, cratered sphere of impossibly old composite alloys, locked in a halo orbit between the systems. Its surface is pocked with kilometre-deep impact basins, each one a dormant Pathfinder gateway. Whoever controls Nexus controls the lane network itself.",
+      "Not a planet but a constructed shellworld the size of Sol's moon, hung in a halo orbit between the systems — and broken open when the Gate woke. The Gate crater sits at the centre of the near side, ringed by the four segments of the Vault. Around it the shell has cracked into shards joined by bridges over glowing void; the far hemisphere is gone, a breach into the Pathfinder lattice itself. Whoever controls Nexus controls the lane network.",
     stakes:
-      'Custodian lodges carved spherical mandates along crater rims — each basin treaty ratifies who may wake a gate without invoking Pathfinder contingencies.',
+      'Every road on Nexus leads to the Vault, and no lane lands in it: whoever wants the Gate has to take it from inside the shell, one bridge at a time.',
   },
 };
 
@@ -267,36 +267,90 @@ export const GALAXY_TERRITORY_LORE_DETAIL: Record<string, GalaxyTerritoryLoreDet
     hold: 'Utopia’s tailings pile, settle and pile again; the crews who live on the Drift build on whatever held last year.',
   },
 
-  // ── Nexus Station ───────────────────────────────────────────────────────
-  nexus_valhalla: {
+  // ── Nexus Station — the Shattered Shell ─────────────────────────────────
+  // The Gate Ring: the Vault.
+  nexus_harmonic_rim: {
     frontier:
-      'Valhalla rim forts echo Pathfinder harmonics — Custodian lodges refuse Euclidean borders; limits trace resonance nulls mapped during the Awakening Scare.',
-    hold: 'Only confirmed-active gate on the shell — whoever camps the basin threshold bills tolls in hyperspace transit futures.',
+      'The north-east segment of the Gate Ring, cut from its neighbours by fractures you can see the lattice through.',
+    hold: 'Harmonic dampers line the rim; when the Gate pulses, the whole segment rings like a struck bell and every clock aboard skips.',
   },
-  nexus_asgard: {
+  nexus_gate_threshold: {
     frontier:
-      'Dormant gate seismic masks wander — patrol routes corkscrew along fracture networks left when Custodians pulse-fed the basin to listen for echoes.',
-    hold: 'Silence broadcasts loop endlessly; rookie crews swear the dust spells coordinates if stared at long enough through augmented visors.',
+      'The segment where Halo Span’s causeway comes down — the only place anyone has ever reached the Vault on foot.',
+    hold: 'Customs halls built right to the crater lip; beyond the last window there is nothing but the Gate.',
   },
-  nexus_heimdall: {
+  nexus_echo_concourse: {
     frontier:
-      'Sensor treaty lines stitch across uplift plates — each antenna spine owns a veto wedge because jamming one node blinds half the volume.',
-    hold: 'Heimdall tracks every torch flare in-system; black-market pilots pay fortunes for twelve-minute blind spots.',
+      'Two shards of the Vault Ward bridge into it, which makes it the Ward’s front door and the Custodians’ first worry.',
+    hold: 'A concourse built for pilgrims who stopped coming; the echoes of the Awakening still loop in its acoustics.',
   },
-  nexus_adlinda: {
+  nexus_basin_mandate: {
     frontier:
-      'Regolith subsidence redraws maps — Custodian cordons follow ground-penetrating radar ghosts around sealed vaults declared “nonexistent.”',
-    hold: 'Subsurface listens hear rhythmic pings nobody correlates to ships; dredging permits come signed in blood-equivalent escrow bonds.',
+      'Named for the Basin Mandate, the treaty that decides who may wake the Gate, and signed on this segment for that reason.',
+    hold: 'Lodge halls and archive vaults; every Custodian oath is sworn here, facing the crater.',
   },
-  nexus_tornarsuk: {
+  // Spire Walk.
+  nexus_cordon_march: {
     frontier:
-      'Half-melted Pathfinder spires radiate waste heat — borders hug isotherms where armor plating fails without liquid cooling umbilicals.',
-    hold: 'Basin floor runs hot enough to anneal rifle barrels; veterans stencil prayers into heat sinks before patrol.',
+      'The inner shard whose bridge lands on Basin Mandate. The Cordon was drawn to keep pilgrims off it; now it keeps out armies.',
+    hold: 'Watch-towers and cordon fences on a slab that has sat ten degrees off true since the shell broke.',
   },
-  nexus_loni: {
+  nexus_quietude_basin: {
     frontier:
-      'Dock tariffs drew fractal customs lanes — merchant consortiums inherited weird angles whenever a clan defaulted on berth lineage debts.',
-    hold: 'Loni berths swallow traffic from Verdan and Rust; lane brokers auction queue jumps while holographic statues argue admiralty law.',
+      'Bridged to Harmonic Rim across a moat of open void. Its border is the crack it drifts on.',
+    hold: 'A sensor-dead basin where the lattice noise cancels out — the quietest place on Nexus, and the best place to hide a fleet.',
+  },
+  nexus_antenna_spire: {
+    frontier:
+      'Holds the Rust lane on the north-west crown; its bridge to Custodian Quarter is the Spire Walk’s back door.',
+    hold: 'The Heimdall array: every torch flare in the system arrives here first, and blind spots sell by the minute.',
+  },
+  nexus_lodgeway: {
+    frontier:
+      'The Sol lane lands here, on the crown and not in the Vault: anyone from Sol must cross the whole Spire Walk to reach the Gate.',
+    hold: 'Guest lodges for delegations who are never quite invited in; the Custodians keep them comfortable and far from the crater.',
+  },
+  // Berth Ring.
+  nexus_halo_span: {
+    frontier:
+      'Joined to the Gate Ring by the only land causeway on the shell, and bridged to Harmonic Rim besides.',
+    hold: 'A halo of docking arms round a slab that never stopped spinning; the causeway to the Threshold is the busiest floor on Nexus.',
+  },
+  nexus_toll_crater: {
+    frontier:
+      'Shares its slab with Halo Span; the toll line down the middle is older than the crack.',
+    hold: 'Every hull bound for the Gate pays here; toll-keepers audit cargo in a crater that used to be a berth.',
+  },
+  nexus_waystation_loni: {
+    frontier:
+      'Holds the second Rust lane on the east crown, bridged to Lodgeway across the broken edge of the shell.',
+    hold: 'Loni’s berths swallow the traffic from Rust; lane brokers auction queue jumps while holographic statues argue admiralty law.',
+  },
+  nexus_lattice_berth: {
+    frontier:
+      'The south crown’s last shard before the gap; its bridge to Resonance Vault runs straight over the breach.',
+    hold: 'Ships dock on the lattice itself here — berths hung from Pathfinder struts nobody built.',
+  },
+  // Vault Ward.
+  nexus_vault_approach: {
+    frontier:
+      'The inner shard that bridges into Echo Concourse; every Ward army bound for the Gate musters here.',
+    hold: 'Blast doors and weigh stations. The Approach was built to slow things down, and it does.',
+  },
+  nexus_beacon_hollow: {
+    frontier:
+      'Bridged to Echo Concourse, and cracked off Vault Approach by a fracture that still widens a finger’s breadth a year.',
+    hold: 'A hollow of dead beacons, each the grave-marker of a gate someone woke without asking.',
+  },
+  nexus_resonance_vault: {
+    frontier:
+      'Holds the other Sol lane, on the south-west crown — a lane that lands in the Ward, not the Vault, by treaty and by geometry.',
+    hold: 'Resonance chambers tuned to the Gate, where the Custodians listen for the next Awakening.',
+  },
+  nexus_custodian_quarter: {
+    frontier:
+      'The west crown shard, bridged to Antenna Spire across the gap: the Custodians’ own quarter, and their last line.',
+    hold: 'Cloisters cut into the shell’s outer skin; through the floor grilles you can see the stars that ought to be on the far side of the world.',
   },
 };
 

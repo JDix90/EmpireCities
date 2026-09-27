@@ -1,6 +1,6 @@
 /**
- * The far worlds built from skeleton specs: Verdan Reach (the Twilight Ring)
- * and the Rust Belt (the Sundered Plate).
+ * The far worlds built from skeleton specs: Verdan Reach (the Twilight Ring),
+ * the Rust Belt (the Sundered Plate) and Nexus Station (the Shattered Shell).
  *
  * The generator already refuses geometry whose land borders differ from the
  * spec; these tests pin the design properties the balance work measured, so a
@@ -163,6 +163,68 @@ describe('Rust Belt — the Sundered Plate', () => {
   it('gives every Rust tile its own lore, and no lore to tiles that no longer exist', () => {
     const loreIds = Object.keys(GALAXY_TERRITORY_LORE_DETAIL).filter((k) => k.startsWith('rust_'));
     expect(loreIds.sort()).toEqual([...rustIds].sort());
+  });
+});
+
+describe('Nexus Station — the Shattered Shell', () => {
+  const tilesN = map.territories.filter((t) => t.world_id === 'nexus_station');
+  const idsN = new Set(tilesN.map((t) => t.territory_id));
+  const regionN = new Map(tilesN.map((t) => [t.territory_id, t.region_id]));
+  const edgesN = map.connections.filter((c) => c.type !== 'orbit' && idsN.has(c.from) && idsN.has(c.to));
+  const lanesN = map.connections.filter((c) => c.type === 'orbit' && (idsN.has(c.from) || idsN.has(c.to)));
+  const ring = tilesN.filter((t) => t.region_id === 'nexus_gate_ring').map((t) => t.territory_id);
+  const inner = ['nexus_cordon_march', 'nexus_quietude_basin', 'nexus_halo_span', 'nexus_toll_crater', 'nexus_vault_approach', 'nexus_beacon_hollow'];
+
+  it('keeps 16 tiles in four regions worth 3, and the Vault pays its home faction +1', () => {
+    expect(tilesN).toHaveLength(16);
+    const regions = (map.regions as Array<{ region_id: string; bonus: number }>).filter((r) => r.region_id.startsWith('nexus_'));
+    expect(regions.map((r) => r.bonus)).toEqual([3, 3, 3, 3]);
+    expect(ring).toHaveLength(4);
+    const worlds = map.worlds as Array<{ world_id: string; rules?: { vault?: Record<string, unknown> } }>;
+    expect(worlds.find((w) => w.world_id === 'nexus_station')?.rules?.vault).toMatchObject({
+      region_id: 'nexus_gate_ring', neutral_garrison: 6, home_unit_bonus: 1,
+    });
+  });
+
+  it('is a hub: every inner shard reaches the Gate Ring directly', () => {
+    const touches = (id: string) => edgesN.some((c) => (c.from === id && ring.includes(c.to)) || (c.to === id && ring.includes(c.from)));
+    for (const id of inner) expect(touches(id), id).toBe(true);
+  });
+
+  it('is joined by bridges, with one causeway: only Halo Span touches the ring over land', () => {
+    const land = edgesN.filter((c) => c.type === 'land').map((c) => [c.from, c.to].sort().join('–')).sort();
+    expect(land).toEqual(['nexus_gate_threshold–nexus_halo_span', 'nexus_halo_span–nexus_toll_crater']);
+    expect(edgesN.filter((c) => c.type === 'sea')).toHaveLength(24);
+  });
+
+  it('has no tile whose loss cuts the shell in two', () => {
+    const adj = new Map([...idsN].map((id) => [id, [] as string[]]));
+    for (const e of edgesN) { adj.get(e.from)!.push(e.to); adj.get(e.to)!.push(e.from); }
+    for (const cut of idsN) {
+      const start = [...idsN].find((x) => x !== cut)!;
+      const seen = new Set([start]);
+      const stack = [start];
+      while (stack.length) for (const n of adj.get(stack.pop()!)!) if (n !== cut && !seen.has(n)) { seen.add(n); stack.push(n); }
+      expect(seen.size, `removing ${cut}`).toBe(15);
+    }
+  });
+
+  it('lands every lane on the outer crown, none in the Vault', () => {
+    const endOn = (prefix: string) => lanesN
+      .filter((c) => c.from.startsWith(prefix) || c.to.startsWith(prefix))
+      .map((c) => (idsN.has(c.from) ? c.from : c.to))
+      .sort();
+    expect(endOn('sol_')).toEqual(['nexus_lodgeway', 'nexus_resonance_vault']);
+    expect(endOn('rust_')).toEqual(['nexus_antenna_spire', 'nexus_waystation_loni']);
+    for (const id of [...endOn('sol_'), ...endOn('rust_')]) {
+      expect(regionN.get(id)).not.toBe('nexus_gate_ring');
+      expect(inner).not.toContain(id);
+    }
+  });
+
+  it('gives every Nexus tile its own lore, and no lore to tiles that no longer exist', () => {
+    const loreIds = Object.keys(GALAXY_TERRITORY_LORE_DETAIL).filter((k) => k.startsWith('nexus_'));
+    expect(loreIds.sort()).toEqual([...idsN].sort());
   });
 });
 

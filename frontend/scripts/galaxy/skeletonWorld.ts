@@ -1,11 +1,12 @@
 /**
  * Far worlds built from an authored landmass skeleton (`kind: 'skeleton'`).
  *
- *   1. LAND. The spec's shapes (caps, bands, capsules, ellipses) are signed
- *      "degrees inside" fields; land is their union, minus the cuts, plus any
- *      restored shapes (an island inside a cut), evaluated on a
- *      domain-warped sphere and roughened with 3D value noise. Noise on the
- *      sphere itself, not on lng/lat, so there is no seam and no polar pinch.
+ *   1. LAND. The spec's shapes (caps, bands, capsules, ellipses, convex
+ *      polygons) are signed "degrees inside" fields; land is their union,
+ *      minus the cuts, plus any restored shapes (an island inside a cut),
+ *      evaluated on a domain-warped sphere and roughened with 3D value
+ *      noise. Noise on the sphere itself, not on lng/lat, so there is no seam
+ *      and no polar pinch.
  *   2. TERRITORIES. Every land cell goes to the seed with the shortest path
  *      THROUGH LAND (Dijkstra on the grid, with low-frequency cost noise so
  *      borders meander). A straight-line Voronoi lets a territory straddle a
@@ -147,6 +148,23 @@ function shapeField(shape: SkeletonShape): Field {
         const y = Math.asin(Math.max(-1, Math.min(1, dot(q, ay)))) * deg;
         const r = Math.hypot(x / shape.a, y / shape.b);
         return (1 - r) * Math.min(shape.a, shape.b);
+      };
+    }
+    case 'polygon': {
+      // A convex spherical polygon: inside is the intersection of the
+      // hemispheres bounded by each edge's great circle, facing the centroid.
+      const vs = shape.points.map(([lng, lat]) => toVec(lng, lat));
+      const cen = normalize(vs.reduce<Vec3>((a, v) => [a[0] + v[0], a[1] + v[1], a[2] + v[2]], [0, 0, 0]));
+      const normals = vs.map((v, i) => {
+        let n = normalize(cross(v, vs[(i + 1) % vs.length]));
+        if (dot(n, cen) < 0) n = [-n[0], -n[1], -n[2]];
+        return n;
+      });
+      const deg = 180 / Math.PI;
+      return (q) => {
+        let f = Infinity;
+        for (const n of normals) f = Math.min(f, Math.asin(Math.max(-1, Math.min(1, dot(q, n)))) * deg);
+        return f;
       };
     }
     default: {

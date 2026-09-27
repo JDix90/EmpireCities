@@ -16,7 +16,7 @@
  * (callers then fall back to the globe's default), so this is safe under jsdom.
  */
 
-import { RUST_RIFT_NORTH, RUST_RIFT_SOUTH, VERDAN_SUBSTELLAR } from '../data/galaxyWorldFrames';
+import { NEXUS_GATE, RUST_RIFT_NORTH, RUST_RIFT_SOUTH, VERDAN_SUBSTELLAR } from '../data/galaxyWorldFrames';
 
 export type PlanetKind = 'ocean' | 'verdant' | 'desert' | 'city' | 'rocky';
 
@@ -160,6 +160,57 @@ const RUST_SLAG = hexToRgb('#381910');
 const RUST_RIFT = hexToRgb('#ff6b1a');
 const RUST_RIFT_GLOW = hexToRgb('#ffb347');
 const RUST_FROST = hexToRgb('#dccbbd');
+
+const NEXUS_COMPOSITE = hexToRgb('#3a3f5c');
+const NEXUS_PLATE_LIGHT = hexToRgb('#8d92b3');
+const NEXUS_VOID = hexToRgb('#07071a');
+const NEXUS_LATTICE = hexToRgb('#8c5cff');
+const NEXUS_BREACH = hexToRgb('#6d4dd6');
+const NEXUS_GATE_LIGHT = hexToRgb('#c9a3ff');
+
+/** Unit vector for an equirectangular texel. */
+function texelVec(u: number, v: number): [number, number, number] {
+  const lng = (u * 360 - 180) * (Math.PI / 180);
+  const lat = (90 - v * 180) * (Math.PI / 180);
+  return [Math.cos(lat) * Math.cos(lng), Math.cos(lat) * Math.sin(lng), Math.sin(lat)];
+}
+
+/** 0..1, bright on the lines of a 3D lattice (seamless on the sphere). */
+function latticeLines(p: [number, number, number], scale: number, width: number): number {
+  const d = Math.min(
+    Math.abs(Math.sin(p[0] * scale * Math.PI)),
+    Math.abs(Math.sin(p[1] * scale * Math.PI)),
+    Math.abs(Math.sin(p[2] * scale * Math.PI)),
+  );
+  return Math.max(0, 1 - d / width);
+}
+
+function nexusGateDistance(p: [number, number, number]): number {
+  const g = texelVec((NEXUS_GATE[0] + 180) / 360, (90 - NEXUS_GATE[1]) / 180);
+  return Math.acos(Math.max(-1, Math.min(1, p[0] * g[0] + p[1] * g[1] + p[2] * g[2]))) * (180 / Math.PI);
+}
+
+/**
+ * Nexus Station's void: black-violet space between the shell's shards, crossed
+ * by the Pathfinder lattice, which brightens toward the breached far
+ * hemisphere; the Gate crater at the centre of the near side burns violet.
+ */
+export function nexusVoid(u: number, v: number, seed: number): RGB {
+  const p = texelVec(u, v);
+  const a = nexusGateDistance(p);
+  const n1 = fbm(u, v, 4, 3, seed + 17);
+  const n2 = fbm(u, v, 9, 3, seed + 19);
+  const breach = smoothstep(80, 125, a);
+  const glow = latticeLines(p, 22, 0.12) * (0.18 + 0.5 * breach);
+  let c: RGB = scale(NEXUS_VOID, 0.8 + 0.4 * n1);
+  c = [
+    Math.min(255, c[0] + NEXUS_LATTICE[0] * glow),
+    Math.min(255, c[1] + NEXUS_LATTICE[1] * glow),
+    Math.min(255, c[2] + NEXUS_LATTICE[2] * glow),
+  ];
+  c = mix(c, scale(NEXUS_BREACH, 0.35 + 0.5 * n2), breach * 0.6);
+  return mix(c, NEXUS_GATE_LIGHT, (1 - smoothstep(0, 9, a)) * 0.9);
+}
 
 // ── The Rust Belt's rift ──────────────────────────────────────────────────────
 // Great-circle distance (degrees) to the nearest point of the Marineris Rift,
@@ -348,16 +399,13 @@ export function colorizeLand(kind: PlanetKind, u: number, v: number, seed: numbe
     return c;
   }
   if (kind === 'city') {
-    // Dense, lit cityscape — territories glow against the void.
-    const base = mix(NEXUS_HIGH, NEXUS_DIM, fbm(u, v, 5, 3, seed));
-    const grid = fbm(u, v, 26, 3, seed + 5);
+    // Composite shell plating: panel seams from a fine lattice, a few lit ports.
+    const p = texelVec(u, v);
+    let c = mix(NEXUS_COMPOSITE, NEXUS_PLATE_LIGHT, fbm(u, v, 6, 4, seed) * 0.55);
+    c = mix(c, NEXUS_VOID, latticeLines(p, 60, 0.08) * 0.5);
     const spark = fbm(u, v, 55, 2, seed + 8);
-    if (grid > 0.5) {
-      const warm = mix(CITY_WARM, CITY_COOL, spark);
-      const g = Math.min(1, ((grid - 0.5) / 0.5) * 1.3);
-      return mix(base, warm, g * 0.9);
-    }
-    return base;
+    if (spark > 0.72) c = mix(c, mix(CITY_WARM, CITY_COOL, fbm(u, v, 30, 2, seed + 5)), Math.min(1, (spark - 0.72) / 0.1) * 0.7);
+    return c;
   }
   // rocky
   return ramp(ROCK, 0.45 + 0.5 * fbm(u, v, 6, 5, seed));
@@ -375,7 +423,7 @@ export function colorizeOcean(kind: PlanetKind, u: number, v: number, seed: numb
     return verdanSea(u, v, seed);
   }
   if (kind === 'city') {
-    return mix(NEXUS_LOW, NEXUS_HIGH, fbm(u, v, 4, 3, seed + 17) * 0.5); // dark void
+    return nexusVoid(u, v, seed);
   }
   // rocky
   return mix(ROCK[0], ROCK[1], fbm(u, v, 5, 5, seed + 21) * 0.6);

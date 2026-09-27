@@ -10,10 +10,12 @@
  *                +2 tech per turn and an Emergency Seal on ANY lane
  *
  * The Custodians briefly started with +1 unit per tile (`vault.home_unit_bonus`)
- * to pay for the ring they begin without. It came out again once Lane Sovereignty
- * and the Jump Gates landed: measured at 400 games x 3 seeds it was worth about
- * seven points of win rate (Nexus 34% with it, 27% without) on a seat that no
- * longer needed the help. The field is still supported for other maps.
+ * to pay for the ring they begin without. It came out once Lane Sovereignty and
+ * the Jump Gates landed (Nexus 34% with it, 27% without, 400 games x 3 seeds),
+ * and went back in with the Shattered Shell: the rebuilt world is a hub whose
+ * Vault sits at the centre with every inner shard bridging into it, and without
+ * the bonus the Custodians measured 8% (1,000 games x 3 seeds). See the note in
+ * eras/galaxyage.ts for the tech modifier that went back with it.
  *
  * The numeric world modifiers stay alongside the rules: measured with them cut
  * (200g, seed A) the Custodians fell to 0.5% and Forge to 9.5%, because the
@@ -84,7 +86,7 @@ describe('world rules snapshot', () => {
     expect(snap.verdan).toEqual({ storm_threshold: 12, storm_attrition: 1 });
     expect(snap.rust).toEqual({ defense_building_bonus_dice: 1 });
     expect(snap.nexus_station.vault).toEqual({
-      region_id: RING, neutral_garrison: 6, tech_income: 2, emergency_seal: true,
+      region_id: RING, neutral_garrison: 6, tech_income: 2, emergency_seal: true, home_unit_bonus: 1,
     });
     expect(buildWorldRuleSnapshot(AUTHORED, false)).toBeUndefined();
     expect(buildWorldRuleSnapshot({ worlds: [{ world_id: 'a' }, { world_id: 'b', rules: {} }] }, true)).toBeUndefined();
@@ -176,7 +178,7 @@ describe('Rust Belt · the Forge', () => {
 });
 
 describe('Nexus Station · the Vault', () => {
-  it('starts the Gate Ring neutral with a garrison of 6; the Custodians hold the other twelve', () => {
+  it('starts the Gate Ring neutral with a garrison of 6; the Custodians hold the other twelve, +1 each', () => {
     const state = freshGalaxyState();
     const ring = ringTiles(state);
     expect(ring).toHaveLength(4);
@@ -187,9 +189,9 @@ describe('Nexus Station · the Vault', () => {
     const custodian = Object.values(state.territories).filter((t) => t.owner_id === 'p_nexus');
     expect(custodian).toHaveLength(12);
     expect(custodian.every((t) => t.world_id === 'nexus_station')).toBe(true);
-    // No home bonus on the shipped map: they hold twelve tiles at the same
-    // starting count as everyone else, and must take the ring like everyone else.
-    expect(custodian.every((t) => t.unit_count === 3)).toBe(true);
+    // The Vault's home bonus pays for the ring they begin without: one extra
+    // unit on each of their twelve tiles. Everyone else starts at the plain count.
+    expect(custodian.every((t) => t.unit_count === 4)).toBe(true);
     expect(Object.values(state.territories).filter((t) => t.owner_id === 'p_sol').every((t) => t.unit_count === 3)).toBe(true);
     // The other three homeworlds are whole.
     for (const seat of ['p_sol', 'p_rust', 'p_verdan']) {

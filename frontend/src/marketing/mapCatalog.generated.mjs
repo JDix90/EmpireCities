@@ -1311,8 +1311,8 @@ export const ERA_MAPS = {
     "name": "Galactic Age",
     "description": "Four contested worlds — Sol III, Verdan Reach, Rust Belt, and Nexus Station — linked only by Pathfinder hyperspace lanes. Hold a gateway system to attack across its lane; Lane Charts adds a third die to those crossings.",
     "territory_count": 64,
-    "connection_count": 129,
-    "sea_route_count": 27,
+    "connection_count": 120,
+    "sea_route_count": 51,
     "era_theme": "galaxy_age",
     "regions": [
       {

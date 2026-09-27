@@ -11,6 +11,7 @@ import {
   fillEquirectRGBA,
   verdanSea,
   rustSea,
+  nexusVoid,
   rustRiftDistance,
   type PlanetKind,
 } from './proceduralPlanet';
@@ -204,5 +205,40 @@ describe("the Rust Belt's sea", () => {
   it('frosts over at the poles', () => {
     const pole = at(130, -85);
     expect(lum(pole)).toBeGreaterThan(150);
+  });
+});
+
+describe("Nexus Station's void", () => {
+  const at = (lng: number, lat: number) => nexusVoid((lng + 180) / 360, (90 - lat) / 180, 9021);
+  const lum = (c: number[]) => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
+
+  it('burns violet in the Gate crater and stays dark between the shards', () => {
+    const gate = at(8, 0); // the Gate itself
+    expect(gate[2]).toBeGreaterThan(gate[1]);
+    expect(lum(gate)).toBeGreaterThan(120);
+    let dark = 0;
+    for (let lng = -40; lng <= 60; lng += 5) dark += lum(at(lng, 45));
+    expect(dark / 21).toBeLessThan(60);
+  });
+
+  it('glows brighter on the breached far side than inside the shell', () => {
+    let near = 0;
+    let far = 0;
+    for (let lat = -40; lat <= 40; lat += 5) {
+      near += lum(at(8 + 60, lat));
+      far += lum(at(-172, lat));
+    }
+    expect(far).toBeGreaterThan(near * 1.5);
+  });
+
+  it('stays in gamut everywhere', () => {
+    for (let lng = -180; lng < 180; lng += 15) {
+      for (let lat = -85; lat <= 85; lat += 10) {
+        for (const ch of at(lng, lat)) {
+          expect(ch).toBeGreaterThanOrEqual(0);
+          expect(ch).toBeLessThanOrEqual(255);
+        }
+      }
+    }
   });
 });

@@ -13,7 +13,7 @@
  * files ever stop matching these specs.
  */
 
-import { RUST_RIFT_NORTH, RUST_RIFT_SOUTH, VERDAN_SUBSTELLAR } from '../../src/data/galaxyWorldFrames';
+import { NEXUS_GATE, RUST_RIFT_NORTH, RUST_RIFT_SOUTH, VERDAN_SUBSTELLAR } from '../../src/data/galaxyWorldFrames';
 import { polar } from './sphere';
 
 export type LngLat = [number, number];
@@ -24,36 +24,18 @@ export interface GalaxyRegionSpec {
   bonus: number;
 }
 
-export interface GalaxyTerritorySpec {
-  name: string;
-  region_id: string;
-}
-
-/**
- * A far world laid out as a seeded Voronoi over most of the sphere (the shipped
- * layout). Territories are listed in seed order: seed `i` becomes territory
- * `territories[i]`, so reordering this list moves every border.
- */
-export interface VoronoiWorldSpec {
-  kind: 'voronoi';
-  world_id: string;
-  /** Territory ids are `${prefix}_${slug(name)}`. */
-  prefix: string;
-  seed: number;
-  regions: GalaxyRegionSpec[];
-  territories: GalaxyTerritorySpec[];
-}
-
 /**
  * A region of land (or water, in `cut`): a disc, a ring, a thick great-circle
- * polyline (optionally tapered, one radius per point), or an ellipse in the
- * tangent plane. Sizes in degrees; headings from north, clockwise.
+ * polyline (optionally tapered, one radius per point), an ellipse in the
+ * tangent plane, or a convex spherical polygon. Sizes in degrees; headings
+ * from north, clockwise.
  */
 export type SkeletonShape =
   | { kind: 'cap'; center: LngLat; radius: number }
   | { kind: 'band'; center: LngLat; mid: number; half: number }
   | { kind: 'capsule'; points: LngLat[]; radius: number; radii?: number[] }
-  | { kind: 'ellipse'; center: LngLat; a: number; b: number; heading: number };
+  | { kind: 'ellipse'; center: LngLat; a: number; b: number; heading: number }
+  | { kind: 'polygon'; points: LngLat[] };
 
 export interface SkeletonTerritorySpec {
   id: string;
@@ -92,7 +74,7 @@ export interface SkeletonWorldSpec {
   minTileArea: number;
 }
 
-export type FarWorldSpec = VoronoiWorldSpec | SkeletonWorldSpec;
+export type FarWorldSpec = SkeletonWorldSpec;
 
 /** One Sol III territory: a group of Natural Earth building blocks, so coastlines stay real. */
 export interface SolTerritorySpec {
@@ -372,11 +354,63 @@ const RUST: SkeletonWorldSpec = {
   minTileArea: 0.6,
 };
 
-const NEXUS: VoronoiWorldSpec = {
-  kind: 'voronoi',
+/**
+ * Nexus Station — the Shattered Shell.
+ *
+ * A built world, a hollow shell the size of Sol's moon, broken when the Gate
+ * woke. The Gate crater sits at the centre of the near side, ringed by the four
+ * segments of the Gate Ring (the Vault). Around it the shell has cracked into
+ * three spokes of angular shards, joined by bridges over glowing void, and the
+ * outer shards form a broken crown; the far hemisphere is gone, a breach into
+ * the Pathfinder lattice.
+ *
+ * A hub world: every inner shard bridges into the Gate Ring, and every lane
+ * lands on the outer crown, so the Vault has to be fought for from inside.
+ * Bridges are `sea` links: they draw as crossings and fight like land (galaxy
+ * games run with naval rules off).
+ *
+ * Laid out in the Gate's own frame (bearing, distance). The prototype's crown
+ * reached 104° from the Gate, and a cap that wide always contains a pole; here
+ * the crown sits 58–74° out, so with the Gate on the equator the shell clears
+ * both poles. Every shard keeps its bearing and its neighbours, so the graph is
+ * the one measured.
+ */
+/** A shard of shell between two bearings and two distances from the Gate. */
+const shard = (az0: number, az1: number, d0: number, d1: number): SkeletonShape => ({
+  kind: 'polygon',
+  points: [nr(az0, d0), nr(az1, d0), nr(az1, d1), nr(az0, d1)],
+});
+const nr = (azimuth: number, dist: number): LngLat => polar(NEXUS_GATE, azimuth, dist);
+const fracture = (azimuth: number): SkeletonShape => ({ kind: 'capsule', points: [nr(azimuth, 6), nr(azimuth, 26)], radius: 2.2 });
+
+const NEXUS: SkeletonWorldSpec = {
+  kind: 'skeleton',
   world_id: 'nexus_station',
-  prefix: 'nexus',
   seed: 9021,
+  land: {
+    add: [
+      { kind: 'band', center: NEXUS_GATE, mid: 15.5, half: 7 }, // the Gate Ring
+      // Inner shards, 28–52° out: Spire Walk (north), Berth Ring (south-east,
+      // one slab split between Halo Span and Toll Crater), Vault Ward (south-west).
+      shard(320, 354, 28, 52), shard(2, 38, 28, 52),
+      { kind: 'polygon', points: [nr(88, 28), nr(158, 31), nr(158, 52), nr(88, 52)] }, // tilted away from the ring at Toll Crater
+      shard(200, 236, 28, 52), shard(244, 282, 28, 52),
+      // Halo Span's land bridge onto the Gate Ring.
+      { kind: 'capsule', points: [nr(102, 20), nr(102, 30)], radius: 2.5 },
+      // The broken crown, 58–74° out: six outer shards, each a short bridge
+      // from the next.
+      shard(306, 350, 58, 74), shard(2, 62, 58, 74),
+      shard(70, 122, 58, 74), shard(126, 178, 58, 74),
+      shard(188, 240, 58, 74), shard(246, 300, 58, 74),
+    ],
+    cut: [
+      fracture(0), fracture(90), fracture(180), fracture(270), // the Gate Ring's four segments
+      { kind: 'cap', center: NEXUS_GATE, radius: 7.5 }, // the Gate crater
+    ],
+  },
+  noise: { amp: 1.2, freq: 7 },
+  warp: { amp: 0.01, freq: 2.2 },
+  border: { freq: 3, noise: 1.6 },
   regions: [
     { region_id: 'nexus_gate_ring', name: 'Nexus — Gate Ring', bonus: 3 },
     { region_id: 'nexus_vault_ward', name: 'Nexus — Vault Ward', bonus: 3 },
@@ -384,23 +418,63 @@ const NEXUS: VoronoiWorldSpec = {
     { region_id: 'nexus_berth_ring', name: 'Nexus — Berth Ring', bonus: 3 },
   ],
   territories: [
-    { name: 'Gate Threshold', region_id: 'nexus_gate_ring' },
-    { name: 'Halo Span', region_id: 'nexus_berth_ring' },
-    { name: 'Custodian Quarter', region_id: 'nexus_vault_ward' },
-    { name: 'Basin Mandate', region_id: 'nexus_gate_ring' },
-    { name: 'Resonance Vault', region_id: 'nexus_vault_ward' },
-    { name: 'Lodgeway', region_id: 'nexus_spire_walk' },
-    { name: 'Toll Crater', region_id: 'nexus_berth_ring' },
-    { name: 'Antenna Spire', region_id: 'nexus_spire_walk' },
-    { name: 'Echo Concourse', region_id: 'nexus_gate_ring' },
-    { name: 'Lattice Berth', region_id: 'nexus_berth_ring' },
-    { name: 'Quietude Basin', region_id: 'nexus_spire_walk' },
-    { name: 'Vault Approach', region_id: 'nexus_vault_ward' },
-    { name: 'Harmonic Rim', region_id: 'nexus_gate_ring' },
-    { name: 'Waystation Loni', region_id: 'nexus_berth_ring' },
-    { name: 'Cordon March', region_id: 'nexus_spire_walk' },
-    { name: 'Beacon Hollow', region_id: 'nexus_vault_ward' },
+    // The Gate Ring — the Vault.
+    { id: 'nexus_harmonic_rim', name: 'Harmonic Rim', region_id: 'nexus_gate_ring', at: nr(45, 15) },
+    { id: 'nexus_gate_threshold', name: 'Gate Threshold', region_id: 'nexus_gate_ring', at: nr(150, 15) },
+    { id: 'nexus_echo_concourse', name: 'Echo Concourse', region_id: 'nexus_gate_ring', at: nr(225, 15) },
+    { id: 'nexus_basin_mandate', name: 'Basin Mandate', region_id: 'nexus_gate_ring', at: nr(315, 15) },
+    // Spire Walk.
+    { id: 'nexus_cordon_march', name: 'Cordon March', region_id: 'nexus_spire_walk', at: nr(342, 40) },
+    { id: 'nexus_quietude_basin', name: 'Quietude Basin', region_id: 'nexus_spire_walk', at: nr(18, 40) },
+    { id: 'nexus_antenna_spire', name: 'Antenna Spire', region_id: 'nexus_spire_walk', at: nr(328, 66) },
+    { id: 'nexus_lodgeway', name: 'Lodgeway', region_id: 'nexus_spire_walk', at: nr(26, 66) },
+    // Berth Ring.
+    { id: 'nexus_halo_span', name: 'Halo Span', region_id: 'nexus_berth_ring', at: nr(106, 40) },
+    { id: 'nexus_toll_crater', name: 'Toll Crater', region_id: 'nexus_berth_ring', at: nr(142, 40) },
+    { id: 'nexus_waystation_loni', name: 'Waystation Loni', region_id: 'nexus_berth_ring', at: nr(100, 66) },
+    { id: 'nexus_lattice_berth', name: 'Lattice Berth', region_id: 'nexus_berth_ring', at: nr(146, 66) },
+    // Vault Ward.
+    { id: 'nexus_vault_approach', name: 'Vault Approach', region_id: 'nexus_vault_ward', at: nr(222, 40) },
+    { id: 'nexus_beacon_hollow', name: 'Beacon Hollow', region_id: 'nexus_vault_ward', at: nr(262, 40) },
+    { id: 'nexus_resonance_vault', name: 'Resonance Vault', region_id: 'nexus_vault_ward', at: nr(220, 66) },
+    { id: 'nexus_custodian_quarter', name: 'Custodian Quarter', region_id: 'nexus_vault_ward', at: nr(268, 66) },
   ],
+  landBorders: [
+    ['nexus_gate_threshold', 'nexus_halo_span'], // Halo Span touches the ring directly
+    ['nexus_halo_span', 'nexus_toll_crater'],
+  ],
+  seaLinks: [
+    // The Gate Ring's four segments, bridged across their fractures.
+    ['nexus_harmonic_rim', 'nexus_gate_threshold'],
+    ['nexus_gate_threshold', 'nexus_echo_concourse'],
+    ['nexus_echo_concourse', 'nexus_basin_mandate'],
+    ['nexus_basin_mandate', 'nexus_harmonic_rim'],
+    // Moat bridges: each inner shard reaches the ring.
+    ['nexus_cordon_march', 'nexus_basin_mandate'],
+    ['nexus_quietude_basin', 'nexus_harmonic_rim'],
+    ['nexus_halo_span', 'nexus_harmonic_rim'],
+    ['nexus_toll_crater', 'nexus_gate_threshold'],
+    ['nexus_vault_approach', 'nexus_echo_concourse'],
+    ['nexus_beacon_hollow', 'nexus_echo_concourse'],
+    // Each spoke is a loop of four shards.
+    ['nexus_cordon_march', 'nexus_quietude_basin'],
+    ['nexus_antenna_spire', 'nexus_lodgeway'],
+    ['nexus_cordon_march', 'nexus_antenna_spire'],
+    ['nexus_quietude_basin', 'nexus_lodgeway'],
+    ['nexus_waystation_loni', 'nexus_lattice_berth'],
+    ['nexus_halo_span', 'nexus_waystation_loni'],
+    ['nexus_toll_crater', 'nexus_lattice_berth'],
+    ['nexus_vault_approach', 'nexus_beacon_hollow'],
+    ['nexus_resonance_vault', 'nexus_custodian_quarter'],
+    ['nexus_vault_approach', 'nexus_resonance_vault'],
+    ['nexus_beacon_hollow', 'nexus_custodian_quarter'],
+    // The broken crown: bridges between the spokes' outer shards.
+    ['nexus_lattice_berth', 'nexus_resonance_vault'],
+    ['nexus_custodian_quarter', 'nexus_antenna_spire'],
+    ['nexus_lodgeway', 'nexus_waystation_loni'],
+  ],
+  maxSeaGap: 14,
+  minTileArea: 0.6,
 };
 
 /**
@@ -415,8 +489,8 @@ const LANES: GalaxyLaneSpec[] = [
   { from: 'verdan_photic_crown', to: 'rust_anvil_basin' },
   { from: 'verdan_sulphur_drift', to: 'rust_furnace_marches' },
   { from: 'rust_ferro_span', to: 'nexus_antenna_spire' },
-  { from: 'rust_slag_reach', to: 'nexus_custodian_quarter' },
-  { from: 'nexus_harmonic_rim', to: 'sol_amazonia' },
+  { from: 'rust_slag_reach', to: 'nexus_waystation_loni' },
+  { from: 'nexus_lodgeway', to: 'sol_amazonia' },
   { from: 'nexus_resonance_vault', to: 'sol_cathay' },
 ];
 
