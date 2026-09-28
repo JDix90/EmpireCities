@@ -153,6 +153,18 @@ describe('tickLaneBlockades', () => {
     expect(state.lane_blockades).toEqual({});
   });
 
+  it('lifts an eliminated owner\'s seal at the next seat\'s turn start', () => {
+    // Its owner has no turn start left to age it on: it used to shut the lane
+    // to everyone for the rest of the game.
+    const owner = (owner_id: string, turns_remaining: number) =>
+      ({ owner_id, turns_remaining, tick: 'owner_turn' as const });
+    const state = mkState({ blockades: { a: owner('p1', 2), b: owner('p4', 2) } });
+    state.players.find((p) => p.player_id === 'p4')!.is_eliminated = true;
+    tickLaneBlockades(state, 'p2');
+    // p1 is alive: its seal waits for p1's own turn start, untouched.
+    expect(state.lane_blockades).toEqual({ a: owner('p1', 2) });
+  });
+
   it('leaves a round-clock seal alone at a turn start, and ages it at the wrap', () => {
     // The two clocks must not tread on each other: a board can carry both.
     const blockade = { owner_id: 'p1', turns_remaining: 2 };

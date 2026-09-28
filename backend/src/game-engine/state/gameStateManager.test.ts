@@ -424,6 +424,24 @@ describe('advanceToNextPlayer', () => {
     expect(state.current_player_index).toBe(0);
     expect(state.turn_number).toBe(2);
   });
+
+  it('lifts a Galactic Age seal once its owner is eliminated', () => {
+    // The seal ages at its owner's own turn start, and p1 will never have
+    // another: p2 took p1's last tile. It lifts as the next turn begins.
+    const state = makeState({
+      current_player_index: 1,
+      players: [makePlayer('p1', 0, { is_eliminated: true }), makePlayer('p2', 1), makePlayer('p3', 2)],
+      territories: {
+        t1: makeTerritory('t1', 'p2', 3),
+        t2: makeTerritory('t2', 'p2', 2),
+        t3: makeTerritory('t3', 'p3', 5),
+      },
+      lane_blockades: { 't1::t3': { owner_id: 'p1', turns_remaining: 1, tick: 'owner_turn' } },
+    });
+    advanceToNextPlayer(state, map);
+    expect(state.current_player_index).toBe(2);
+    expect(state.lane_blockades).toEqual({});
+  });
 });
 
 describe('initializeGameState faction distribution', () => {

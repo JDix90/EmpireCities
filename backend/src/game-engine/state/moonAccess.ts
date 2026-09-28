@@ -704,7 +704,16 @@ export function tickLaneBlockades(state: GameState, ownerId?: string): void {
     if (ownerId === undefined) {
       if (clock !== 'round') continue;
     } else {
-      if (clock !== 'owner_turn' || b.owner_id !== ownerId) continue;
+      if (clock !== 'owner_turn') continue;
+      if (b.owner_id !== ownerId) {
+        // An eliminated owner has no turn start left for their seal to age
+        // on, and it shut the lane for the rest of the game. It lifts as the
+        // next seat's turn begins.
+        if (state.players.some((p) => p.player_id === b.owner_id && p.is_eliminated)) {
+          delete state.lane_blockades[id];
+        }
+        continue;
+      }
     }
     // A seal outlives its owner's presence otherwise: they can be thrown off
     // both ends of the lane and it stays shut for the rest of its duration,
