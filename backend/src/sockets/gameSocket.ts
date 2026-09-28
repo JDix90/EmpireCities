@@ -15,7 +15,7 @@ import {
   clearSpectatorGame,
 } from './spectatorBroadcast';
 import { armEvictionTimer, cancelEvictionTimer, pendingEvictionCount } from './evictionTimers';
-import { decideTurnTimerRearm } from './turnTimerRearm';
+import { decideTurnTimerRearm, isTurnTimerJobCurrent } from './turnTimerRearm';
 import {
   initializeGameState,
   getStartingPlayerIndex,
@@ -173,6 +173,7 @@ import {
   cancelTurnTimeout,
   setTurnTimerProcessor,
   stopTurnTimerWorker,
+  turnTimerJobId,
   turnTimerQueue,
 } from '../workers/gameTimerWorker';
 import {
@@ -1074,7 +1075,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
   // ── Phase 7: BullMQ turn timer processor (real-time mode) ─────────────────
   setTurnTimerProcessor(async (job) => {
-    const { gameId } = job.data;
+    const { gameId, deadlineAt } = job.data;
     await runWithGameLock(gameId, async () => {
       const game = await queryOne<{ map_id: string; status: string }>(
         'SELECT map_id, status FROM games WHERE game_id = $1',
@@ -1086,6 +1087,14 @@ export function initGameSocket(httpServer: HttpServer): Server {
       getOrBuildAdjacency(room.map);
 
       if (room.state.phase === 'game_over') return;
+      // Only the clock the game is still running may time it out. A job whose
+      // deadline was cleared or re-armed since (the player ended the phase
+      // while it waited on the lock) must not end the phase that followed.
+      if (!isTurnTimerJobCurrent({
+        jobDeadlineAt: deadlineAt,
+        armedDeadlineAt: room.state.phase_deadline_at,
+        now: Date.now(),
+      })) return;
 
       // Real-time timeout: advance ONE phase (draft → attack → fortify) so the
       // active player doesn't silently forfeit their attack/fortify phases by
@@ -1369,7 +1378,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
           // clock), a missing/expired one gets a fresh timer.
           if (!room.state.settings.async_mode && room.state.phase !== 'game_over' && !currentAiPlayer?.is_ai) {
             try {
-              const job = await turnTimerQueue.getJob(`turn-${gameId}`);
+              const armedDeadline = room.state.phase_deadline_at;
+              const job = typeof armedDeadline === 'number'
+                ? await turnTimerQueue.getJob(turnTimerJobId(gameId, armedDeadline))
+                : undefined;
               const decision = decideTurnTimerRearm({
                 hasScheduledJob: !!job,
                 phase: room.state.phase,
@@ -1379,8 +1391,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
                 deadlineAt: room.state.phase_deadline_at,
                 now: Date.now(),
               });
-              if (decision.kind === 'remaining') {
-                scheduleTurnTimeout(gameId, decision.delayMs).catch((err) =>
+              if (decision.kind === 'remaining' && typeof armedDeadline === 'number') {
+                scheduleTurnTimeout(gameId, armedDeadline).catch((err) =>
                   console.error('[Socket] Turn-timer re-arm (remaining) failed for', gameId, err),
                 );
               } else if (decision.kind === 'fresh') {
@@ -6625,10 +6637,11 @@ function startTurnTimer(io: Server, gameId: string, state: GameState, map: GameM
   }
 
   // ── Real-time mode: BullMQ-backed turn timer (Phase 7) ──
-  state.phase_deadline_at = Date.now() + seconds * 1000;
+  const deadlineAt = Date.now() + seconds * 1000;
+  state.phase_deadline_at = deadlineAt;
   emitPhaseDeadline(io, gameId, state);
   persistArmedDeadline(gameId, state);
-  scheduleTurnTimeout(gameId, seconds * 1000).catch((err) => {
+  scheduleTurnTimeout(gameId, deadlineAt).catch((err) => {
     console.error('[TurnTimer] Failed to schedule turn timeout:', gameId, err);
   });
 }
@@ -6660,15 +6673,14 @@ function emitPhaseDeadline(io: Server, gameId: string, state: GameState): void {
   });
 }
 
-function clearTurnTimer(gameId: string, state?: GameState): void {
-  cancelTurnTimeout(gameId).catch(() => {});
-  if (state) {
-    // No timer running means no deadline — otherwise AI turns and event
-    // pauses keep broadcasting the previous human's expired clock and the
-    // HUD counts down a dead timer to a frozen 0:00.
-    state.phase_deadline_at = null;
-    cancelAsyncDeadline(gameId, state.turn_number).catch(() => {});
-  }
+function clearTurnTimer(gameId: string, state: GameState): void {
+  cancelTurnTimeout(gameId, state.phase_deadline_at).catch(() => {});
+  // No timer running means no deadline — otherwise AI turns and event
+  // pauses keep broadcasting the previous human's expired clock and the
+  // HUD counts down a dead timer to a frozen 0:00. Clearing it is also what
+  // retires a job that could not be cancelled (isTurnTimerJobCurrent).
+  state.phase_deadline_at = null;
+  cancelAsyncDeadline(gameId, state.turn_number).catch(() => {});
 }
 
 /**

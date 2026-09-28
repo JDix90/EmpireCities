@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { decideTurnTimerRearm } from './turnTimerRearm';
+import { decideTurnTimerRearm, isTurnTimerJobCurrent } from './turnTimerRearm';
 
 const NOW = 1_750_000_000_000;
 
@@ -44,5 +44,26 @@ describe('decideTurnTimerRearm', () => {
 
   it('treats a nearly-expired deadline as expired rather than racing the broadcast', () => {
     expect(base({ deadlineAt: NOW + 500 })).toEqual({ kind: 'fresh' });
+  });
+});
+
+describe('isTurnTimerJobCurrent', () => {
+  it('acts on the job for the deadline the game is still running', () => {
+    expect(isTurnTimerJobCurrent({ jobDeadlineAt: NOW, armedDeadlineAt: NOW, now: NOW + 50 })).toBe(true);
+  });
+
+  it('ignores a job whose clock was re-armed since (the player ended the phase first)', () => {
+    expect(isTurnTimerJobCurrent({ jobDeadlineAt: NOW, armedDeadlineAt: NOW + 60_000, now: NOW + 50 })).toBe(false);
+  });
+
+  it('ignores a job whose clock was cleared since (AI turn, choice card, game over)', () => {
+    expect(isTurnTimerJobCurrent({ jobDeadlineAt: NOW, armedDeadlineAt: null, now: NOW + 50 })).toBe(false);
+    expect(isTurnTimerJobCurrent({ jobDeadlineAt: NOW, armedDeadlineAt: undefined, now: NOW + 50 })).toBe(false);
+  });
+
+  it('lets a job queued without a deadline act only once the armed deadline has passed', () => {
+    expect(isTurnTimerJobCurrent({ jobDeadlineAt: undefined, armedDeadlineAt: NOW, now: NOW + 50 })).toBe(true);
+    expect(isTurnTimerJobCurrent({ jobDeadlineAt: undefined, armedDeadlineAt: NOW + 60_000, now: NOW })).toBe(false);
+    expect(isTurnTimerJobCurrent({ jobDeadlineAt: undefined, armedDeadlineAt: null, now: NOW })).toBe(false);
   });
 });
