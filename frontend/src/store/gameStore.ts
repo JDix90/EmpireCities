@@ -400,9 +400,29 @@ export interface CombatResult {
   capitalLost?: boolean;
 }
 
+/**
+ * A fleet battle: a Fleet Attack, or the sea fight at the start of an invasion
+ * across a sea connection. Same dice rules as land (attacker up to 3, defender
+ * up to 2, ties to the defender), but each loss sinks a fleet.
+ */
+export interface NavalCombatResult {
+  fromId: string;
+  toId: string;
+  attacker_rolls: number[];
+  defender_rolls: number[];
+  attacker_losses: number;
+  defender_losses: number;
+  attacker_won: boolean;
+  /** Owners' names as the battle began; a landing can change who holds toId. */
+  attackerName?: string;
+  defenderName?: string;
+}
+
 interface GameStoreState {
   gameState: GameState | null;
   lastCombatResult: CombatResult | null;
+  /** The latest fleet battle; cleared when a land battle elsewhere supersedes it. */
+  lastNavalCombat: NavalCombatResult | null;
   draftUnitsRemaining: number;
   hasMovedThisTurn: boolean;
   hasEarnedCardThisTurn: boolean;
@@ -414,6 +434,7 @@ interface GameStoreState {
 
   setGameState: (state: GameState) => void;
   setLastCombatResult: (result: CombatResult | null) => void;
+  setLastNavalCombat: (result: NavalCombatResult | null) => void;
   setDraftUnitsRemaining: (n: number) => void;
   setHasMovedThisTurn: (v: boolean) => void;
   loadReplay: (snapshots: GameState[]) => void;
@@ -424,6 +445,7 @@ interface GameStoreState {
 export const useGameStore = create<GameStoreState>((set) => ({
   gameState: null,
   lastCombatResult: null,
+  lastNavalCombat: null,
   draftUnitsRemaining: 0,
   hasMovedThisTurn: false,
   hasEarnedCardThisTurn: false,
@@ -433,7 +455,16 @@ export const useGameStore = create<GameStoreState>((set) => ({
   replayFrame: 0,
 
   setGameState: (state) => set({ gameState: state }),
-  setLastCombatResult: (result) => set({ lastCombatResult: result }),
+  // A land battle keeps the fleet battle only when it is the landing that fleet
+  // battle opened (same crossing); any other battle makes it stale.
+  setLastCombatResult: (result) => set((s) => ({
+    lastCombatResult: result,
+    lastNavalCombat:
+      s.lastNavalCombat && result && result.fromId === s.lastNavalCombat.fromId && result.toId === s.lastNavalCombat.toId
+        ? s.lastNavalCombat
+        : null,
+  })),
+  setLastNavalCombat: (result) => set({ lastNavalCombat: result }),
   setDraftUnitsRemaining: (n) => set({ draftUnitsRemaining: n }),
   setHasMovedThisTurn: (v) => set({ hasMovedThisTurn: v }),
   loadReplay: (snapshots) => set({ replayMode: true, replaySnapshots: snapshots, replayFrame: 0, gameState: snapshots[0] ?? null }),
@@ -446,6 +477,7 @@ export const useGameStore = create<GameStoreState>((set) => ({
     set({
       gameState: null,
       lastCombatResult: null,
+      lastNavalCombat: null,
       draftUnitsRemaining: 0,
       hasMovedThisTurn: false,
       hasEarnedCardThisTurn: false,

@@ -2190,8 +2190,27 @@ export default function GamePage() {
 
     socket.on('game:naval_combat_result', ({ fromId, toId, result }: {
       fromId: string; toId: string;
-      result: { attacker_won: boolean; attacker_losses: number; defender_losses: number };
+      result: {
+        attacker_won: boolean; attacker_losses: number; defender_losses: number;
+        attacker_rolls?: number[]; defender_rolls?: number[];
+      };
     }) => {
+      // The dice were always sent; they are now shown (HUD Log tab, "Fleet battle").
+      // Names are taken now, before a landing's state update can flip toId's owner.
+      const navalState = useGameStore.getState().gameState;
+      const nameOfOwner = (tid: string) =>
+        navalState?.players.find((p) => p.player_id === navalState.territories[tid]?.owner_id)?.username;
+      useGameStore.getState().setLastNavalCombat({
+        fromId,
+        toId,
+        attacker_rolls: result.attacker_rolls ?? [],
+        defender_rolls: result.defender_rolls ?? [],
+        attacker_losses: result.attacker_losses,
+        defender_losses: result.defender_losses,
+        attacker_won: result.attacker_won,
+        attackerName: nameOfOwner(fromId),
+        defenderName: nameOfOwner(toId),
+      });
       const mapData = mapDataRef.current;
       const fromName = mapData?.territories.find((t) => t.territory_id === fromId)?.name ?? fromId;
       const toName = mapData?.territories.find((t) => t.territory_id === toId)?.name ?? toId;
