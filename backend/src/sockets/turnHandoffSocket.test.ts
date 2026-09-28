@@ -433,4 +433,129 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
       });
     }, 20_000);
   });
+
+  // ── Choice cards ──────────────────────────────────────────────────────────────
+
+  describe('choice cards', () => {
+    /** Choice x: +1 reinforcement for whoever answers it (credited to the draft pool). */
+    const dilemma: EventCard = {
+      card_id: 'dilemma',
+      title: 'Dilemma',
+      description: 'Pick one',
+      category: 'player_targeted',
+      era_id: 'custom',
+      choices: [
+        { choice_id: 'x', label: 'X', effect: { type: 'units_added', target: 'player', value: 1 } },
+        { choice_id: 'y', label: 'Y', effect: { type: 'units_added', target: 'player', value: 2 } },
+      ],
+    } as EventCard;
+
+    const choiceSettings = {
+      fog_of_war: false,
+      allowed_victory_conditions: ['domination'],
+      turn_timer_seconds: 0,
+      initial_unit_count: 3,
+      card_set_escalating: true,
+      diplomacy_enabled: false,
+      events_enabled: true,
+      event_impact_scaling_enabled: false,
+    } as GameState['settings'];
+
+    it('an away seat whose turn opens on a choice card is covered, and answers it', async () => {
+      const gameId = 'handoff-choice-away';
+      await seed(gameId, buildState(gameId, {
+        era: 'custom' as GameState['era'],
+        phase: 'fortify',
+        turn_number: 2,
+        players: [
+          player('a', 0),
+          // Dropped two minutes ago: the reconnect window is long over.
+          player('b', 1, { is_away: true, away_since: Date.now() - 120_000 }),
+        ],
+        territories: { a1: terr('a1', 'a', 3), b1: terr('b1', 'b', 3) },
+        settings: choiceSettings,
+        seasonal_event_cards: [],
+        pending_event: { card: dilemma, target_player_id: 'b' },
+      }), isolatedMap(gameId, ['a1', 'b1']));
+      const a = await connect('a');
+      await joinRoom('a', gameId);
+
+      // a ends the turn; b's turn opens on the card with nobody there to answer.
+      a.emit('game:advance_phase', { gameId });
+      const s = await waitForRedisState(gameId, (st) => st.turn_number === 3 && st.current_player_index === 0, 10_000);
+      // The away-AI took choice x for b (+1 to b's draft of 3, all onto b1),
+      // played b's turn and handed back; the card did not follow to a.
+      expect({ b1: s.territories.b1.unit_count, card: s.active_event?.card_id ?? null })
+        .toEqual({ b1: 3 + 1 + 3, card: null });
+    }, 20_000);
+
+    it('pauses a present player\'s clock while their choice card waits, then runs it', async () => {
+      const gameId = 'handoff-choice-clock';
+      const aDeadline = Date.now() + 30_000;
+      await seed(gameId, buildState(gameId, {
+        era: 'custom' as GameState['era'],
+        phase: 'fortify',
+        turn_number: 2,
+        players: [player('a', 0), player('b', 1)],
+        territories: { a1: terr('a1', 'a', 3), b1: terr('b1', 'b', 3) },
+        settings: { ...choiceSettings, turn_timer_seconds: 60 },
+        seasonal_event_cards: [],
+        pending_event: { card: dilemma, target_player_id: 'b' },
+        phase_deadline_at: aDeadline,
+      }), isolatedMap(gameId, ['a1', 'b1']));
+      await timer.scheduleTurnTimeout(gameId, aDeadline); // a's clock, still running
+      const a = await connect('a');
+      await joinRoom('a', gameId);
+      const b = await connect('b');
+      await joinRoom('b', gameId);
+
+      const cardShown = new Promise<EventCard>((resolve) => b.once('game:event_card', resolve));
+      a.emit('game:advance_phase', { gameId });
+      expect((await cardShown).card_id).toBe('dilemma');
+      const paused = await waitForRedisState(gameId, (st) => st.current_player_index === 1);
+      await sleep(200);
+      const aJob = await timer.turnTimerQueue.getJob(timer.turnTimerJobId(gameId, aDeadline));
+      // No clock while b decides — neither a fresh one nor a's leftover.
+      expect({ deadline: paused.phase_deadline_at ?? null, aClock: aJob ? await aJob.getState() : 'none' })
+        .toEqual({ deadline: null, aClock: 'none' });
+
+      b.emit('game:event_choice', { gameId, choiceId: 'x' });
+      const running = await waitForRedisState(gameId, (st) => typeof st.phase_deadline_at === 'number');
+      const bJob = await timer.turnTimerQueue.getJob(timer.turnTimerJobId(gameId, running.phase_deadline_at!));
+      expect({
+        card: running.active_event?.card_id ?? null,
+        clockSeconds: Math.round((running.phase_deadline_at! - Date.now()) / 1000),
+        bClock: bJob ? await bJob.getState() : 'none',
+      }).toEqual({ card: null, clockSeconds: 60, bClock: 'delayed' });
+    }, 20_000);
+
+    it('a bot answers its own choice card rather than passing it to the next player', async () => {
+      const gameId = 'handoff-choice-bot';
+      await seed(gameId, buildState(gameId, {
+        era: 'custom' as GameState['era'],
+        phase: 'fortify',
+        turn_number: 2,
+        players: [
+          player('h', 0),
+          player('a1', 1, { is_ai: true, ai_difficulty: 'easy' }),
+          player('a2', 2, { is_ai: true, ai_difficulty: 'easy' }),
+        ],
+        territories: { h1: terr('h1', 'h', 3), t1: terr('t1', 'a1', 3), t2: terr('t2', 'a2', 3) },
+        settings: choiceSettings,
+        seasonal_event_cards: [],
+        pending_event: { card: dilemma, target_player_id: 'a1' },
+      }), isolatedMap(gameId, ['h1', 't1', 't2']));
+      const h = await connect('h');
+      await joinRoom('h', gameId);
+
+      // h ends the turn; a1 opens on its card, a2 plays, the turn returns to h.
+      h.emit('game:advance_phase', { gameId });
+      const s = await waitForRedisState(gameId, (st) => st.turn_number === 3 && st.current_player_index === 0, 15_000);
+      expect({
+        t1: s.territories.t1.unit_count, // a1: 3 + draft 3 + choice x's 1
+        t2: s.territories.t2.unit_count, // a2: 3 + draft 3, nothing of a1's card
+        card: s.active_event?.card_id ?? null,
+      }).toEqual({ t1: 7, t2: 6, card: null });
+    }, 30_000);
+  });
 });

@@ -1164,9 +1164,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
         return;
       }
 
-      if (!room.state.active_event?.choices?.length) {
-        startTurnTimer(io, gameId, room.state, room.map);
-      }
+      // Pauses a present player's clock on a choice card; covers an away seat.
+      startTurnTimer(io, gameId, room.state, room.map);
 
       if (room.state.players[room.state.current_player_index].is_ai) {
         setTimeout(() => processAiTurn(io, gameId), 1500);
@@ -2464,8 +2463,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
         if (state.players[state.current_player_index].is_ai) {
           clearTurnTimer(gameId, state);
           setTimeout(() => processAiTurn(io, gameId), 1500);
-        } else if (!state.active_event?.choices?.length) {
-          // Don't start timer while a choice-based event awaits resolution
+        } else {
+          // Pauses a present player's clock on a choice card; covers an away seat.
           startTurnTimer(io, gameId, state, map);
         }
       }
@@ -5536,6 +5535,24 @@ function maybeActivateAiAttackSelfBuff(state: GameState, map: GameMap, player: P
   }
 }
 
+/**
+ * The seat to move is a bot, or an away seat the AI covers, and its turn
+ * opened on a choice card: take the first choice (the AI's pick) for that
+ * seat, as a human answers the card before playing on.
+ */
+function resolveChoiceCardForAi(io: Server, gameId: string, state: GameState): void {
+  const card = state.active_event;
+  const choice = card?.choices?.[0];
+  if (!card || !choice) return;
+  const result = resolveEventChoice(state, card.card_id, choice.choice_id);
+  if (result) {
+    emitEventCardMapVisuals(io, gameId, { cardId: card.card_id, effect: choice.effect, result });
+  }
+  io.to(gameId).emit('game:event_card_resolved', { cardId: card.card_id });
+  queueSpectatorEvent(gameId, 'game:event_card_resolved', { cardId: card.card_id });
+  broadcastState(io, gameId, state);
+}
+
 async function processAiTurn(io: Server, gameId: string): Promise<void> {
   if (await isAiTurnInFlight(gameId)) return;
   if (!(await tryAcquireAiTurn(gameId))) return;
@@ -5551,6 +5568,10 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   const currentPlayer = state.players[state.current_player_index];
   // Run for AI seats and for *away* human seats (the AI covers their turn).
   if (!currentPlayer.is_ai && !currentPlayer.is_away) return;
+
+  // Answer the choice card this turn opened with before playing, as a human
+  // must. Left pending, it outlived the turn and reached the next player.
+  resolveChoiceCardForAi(io, gameId, state);
 
   const difficulty = currentPlayer.ai_difficulty ?? 'medium';
   // Fog-fair AI planning: when fog_of_war is on, humans see only their own
@@ -6469,30 +6490,12 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
 
   if (await doVictoryCheck()) return;
 
-  // If there's an active event with choices and next player is AI, auto-resolve
-  if (state.active_event?.choices?.length && state.players[state.current_player_index].is_ai) {
-    const aiEvent = state.active_event;
-    const choices = aiEvent?.choices;
-    if (!choices?.length) return;
-    const choice = choices[0]!;
-    const eventResult = resolveEventChoice(state, aiEvent.card_id, choice.choice_id);
-    if (eventResult) {
-      emitEventCardMapVisuals(io, gameId, {
-        cardId: aiEvent.card_id,
-        effect: choice.effect,
-        result: eventResult,
-      });
-    }
-    io.to(gameId).emit('game:event_card_resolved', { cardId: '' });
-    queueSpectatorEvent(gameId, 'game:event_card_resolved', { cardId: '' });
-    broadcastState(io, gameId, state);
-  }
-
-  // Chain if next player is also AI; otherwise restart turn timer for human
+  // Chain if next player is also AI (it answers its own choice card as its
+  // turn opens); otherwise start the human's clock — paused on a choice card,
+  // or handed to the away-AI for an away seat.
   if (state.players[state.current_player_index].is_ai) {
     setTimeout(() => processAiTurn(io, gameId), 1000);
-  } else if (!state.active_event?.choices?.length) {
-    // Don't start timer while a choice-based event awaits human resolution
+  } else {
     startTurnTimer(io, gameId, state, map);
   }
     // 30s (was 15s): an aggressive expert turn on a large map can chain enough
@@ -6610,6 +6613,15 @@ function startTurnTimer(io: Server, gameId: string, state: GameState, map: GameM
   // (Async games never mark seats away; the async deadline handles absence.)
   if (currentPlayer.is_away && !currentPlayer.is_ai && !state.settings.async_mode) {
     scheduleAwayAiTurn(io, gameId, currentPlayer.away_since);
+    return;
+  }
+  // A choice card pauses a present player's clock until they choose
+  // (game:event_choice restarts it). Checked after the away branch, which is
+  // why the turn hand-offs call this even with a choice pending: an away seat
+  // has nobody to choose, and its away-AI answers the card (processAiTurn).
+  if (state.active_event?.choices?.length) {
+    emitPhaseDeadline(io, gameId, state);
+    persistArmedDeadline(gameId, state);
     return;
   }
   const seconds = state.settings.turn_timer_seconds;
