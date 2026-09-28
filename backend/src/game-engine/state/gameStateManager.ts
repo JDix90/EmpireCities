@@ -1327,7 +1327,9 @@ export function checkVictory(state: GameState, map: GameMap): { winnerIds: strin
       allowed.includes('threshold') &&
       settings.victory_threshold != null
     ) {
-      const need = Math.ceil(totalTerritories * (settings.victory_threshold / 100));
+      // Integer maths: `total * (pct / 100)` rounds in binary floating point,
+      // so 55% of 100 came out 55.000000000000007 and demanded a 56th territory.
+      const need = Math.ceil((totalTerritories * settings.victory_threshold) / 100);
       if (player.territory_count >= need) condition = 'threshold';
     }
 

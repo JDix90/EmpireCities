@@ -1058,6 +1058,31 @@ describe('checkVictory', () => {
     });
     expect(checkVictory(state, victoryMap)).toEqual({ winnerIds: ['p1'], condition: 'threshold' });
   });
+
+  it.each([
+    // [territories, threshold %, held that wins]: each once cost a territory
+    // more than the percentage, because total * (pct / 100) rounded up in float.
+    [100, 55, 55],
+    [100, 28, 28],
+    [25, 28, 7],
+    [150, 68, 102],
+  ])('%i territories at %i%% is won by holding exactly %i', (total, pct, need) => {
+    const territories: Record<string, TerritoryState> = {};
+    for (let i = 0; i < total; i++) {
+      territories[`t${i}`] = { territory_id: `t${i}`, owner_id: i < need ? 'p1' : 'p2', unit_count: 1 } as TerritoryState;
+    }
+    const at = (held: number) => makeState({
+      settings: makeSettings({ allowed_victory_conditions: ['threshold'], victory_threshold: pct }),
+      territories,
+      players: [
+        makePlayer('p1', 0, { territory_count: held }),
+        // Below every threshold tested, so only p1 can be the one that wins.
+        makePlayer('p2', 1, { territory_count: 1 }),
+      ],
+    });
+    expect(checkVictory(at(need), victoryMap)?.condition).toBe('threshold');
+    expect(checkVictory(at(need - 1), victoryMap)).toBeNull();
+  });
 });
 
 describe('checkVictory turn cap (max_turns)', () => {

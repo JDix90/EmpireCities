@@ -10,7 +10,7 @@
  * Mirrors the `threshold` branch of `checkVictory` in
  * `backend/src/game-engine/state/gameStateManager.ts`, which is authoritative:
  * the share is of EVERY territory in the game state, unowned ones included,
- * and the count needed is `Math.ceil(total * (threshold / 100))` — the same
+ * and the count needed is `Math.ceil((total * threshold) / 100)` — the same
  * expression, so the tracker and the server never disagree about the last
  * territory.
  */
@@ -61,7 +61,7 @@ export function mapControlProgress(
   const total = Object.keys(gameState.territories).length;
   if (total === 0) return null;
   const held = player.territory_count;
-  const needed = Math.ceil(total * (thresholdPct / 100));
+  const needed = Math.ceil((total * thresholdPct) / 100);
   return {
     held,
     total,
