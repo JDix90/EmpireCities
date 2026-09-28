@@ -101,3 +101,21 @@ describe('Territory Draft', () => {
     expect(Object.values(state.territories).every((t) => t.stability == null)).toBe(true);
   });
 });
+
+describe('Territory Draft opening income', () => {
+  it('pays the opening economy tick once the draft ends, as a dealt game gets at creation', () => {
+    const state = draftGame({ economy_enabled: true, tech_trees_enabled: true });
+    const before = state.players.map((p) => p.special_resource ?? 0);
+    runDraftOnTimeouts(state);
+    state.players.forEach((p, i) => {
+      // 3 territories each: at least the 1-PP base income on top of the 4 PP start.
+      expect(p.special_resource ?? 0).toBeGreaterThan(before[i]!);
+    });
+  });
+
+  it('pays nothing extra when the economy is off', () => {
+    const state = draftGame();
+    runDraftOnTimeouts(state);
+    expect(state.players.every((p) => !p.special_resource)).toBe(true);
+  });
+});

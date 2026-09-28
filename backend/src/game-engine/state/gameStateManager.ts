@@ -786,6 +786,12 @@ export function completeTerritorySelection(state: GameState, map: GameMap): void
     assignCapitals(state);
   }
   if (state.settings.stability_enabled) initializeStability(state);
+  // The opening income tick initializeGameState skips for a draft (with no
+  // territory owned it would pay only the per-territory minimums). Paid here,
+  // on the drafted board, under the same conditions as a dealt game.
+  if (state.settings.economy_enabled && state.settings.tech_trees_enabled && !state.settings.tutorial) {
+    applyOpeningEconomyTick(state);
+  }
 
   const firstPlayer = state.players[starterIdx]!;
   state.draft_units_remaining = calculateReinforcements(
