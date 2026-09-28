@@ -382,3 +382,51 @@ describe('GameHUD — Lane Sovereignty tracker', () => {
     expect(screen.queryByTestId('lane-sovereignty-progress')).toBeNull();
   });
 });
+
+describe('GameHUD — map control tracker', () => {
+  // Quick Match's default ending: hold 65% of the 35 territories WW2 deals.
+  const thresholdState = (overrides: Partial<GameState['settings']> = {}) => {
+    const territories: Record<string, { owner_id: string | null }> = {};
+    for (let i = 0; i < 35; i++) territories[`t${i}`] = { owner_id: i < 9 ? 'me' : 'rival' };
+    return makeState({
+      settings: {
+        allowed_victory_conditions: ['domination', 'threshold'],
+        victory_threshold: 65,
+        ...overrides,
+      } as GameState['settings'],
+      players: [player('me', 0, { territory_count: 9 }), player('rival', 1, { territory_count: 26 })],
+      territories: territories as unknown as GameState['territories'],
+    });
+  };
+
+  beforeEach(() => {
+    try { localStorage.clear(); } catch { /* ignore */ }
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+      addListener: vi.fn(), removeListener: vi.fn(),
+    }) as unknown as typeof window.matchMedia;
+    useAuthStore.setState({ user: { user_id: 'me', username: 'me', level: 1, xp: 0, mmr: 1000 } } as never);
+  });
+
+  it('shows the share of the map held against the share that wins', () => {
+    useGameStore.setState({ gameState: thresholdState(), draftUnitsRemaining: 0, lastCombatResult: null } as never);
+    renderHud({ resolvedViewerPlayerId: 'me' });
+    const panel = screen.getByTestId('map-control-progress');
+    expect(panel.textContent).toContain('25% of 65%');
+    expect(panel.textContent).toContain('9 of 23 territories');
+    expect(panel.textContent).toContain('14 more to go');
+    expect(screen.getByRole('meter', { name: 'Map control' })).toHaveAttribute('aria-valuenow', '25');
+    // It is an objective: the empty-state line must not claim there are none.
+    expect(screen.queryByText(/No objectives/)).toBeNull();
+  });
+
+  it('stays hidden when the game is not won by holding a share of the map', () => {
+    useGameStore.setState({
+      gameState: thresholdState({ allowed_victory_conditions: ['domination'] }),
+      draftUnitsRemaining: 0,
+      lastCombatResult: null,
+    } as never);
+    renderHud({ resolvedViewerPlayerId: 'me' });
+    expect(screen.queryByTestId('map-control-progress')).toBeNull();
+  });
+});
