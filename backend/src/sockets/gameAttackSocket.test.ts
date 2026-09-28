@@ -574,6 +574,31 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
     expect(resultFired).toBe(false);
   });
 
+  // ── Fleet Attack ───────────────────────────────────────────────────────────
+
+  it('refuses a Fleet Attack on an empty harbour instead of fighting a phantom ship', async () => {
+    const gameId = 'itest-fleet-empty';
+    const seaMap = { ...buildMap(gameId), connections: [{ from: 'a', to: 'b', type: 'sea' as const }] };
+    const base = buildState(gameId, []);
+    await seed(gameId, buildState(gameId, [], {
+      phase: 'attack',
+      territories: {
+        a: { ...terr('a', 'p1', 4), naval_units: 3 },
+        b: { ...terr('b', 'p2', 1), naval_units: 0 },
+        c: terr('c', 'p3', 5),
+      },
+      settings: { ...base.settings, naval_enabled: true },
+    }), seaMap);
+    const client = await connect('p1');
+    await joinRoom('p1', gameId);
+
+    const err = waitFor<{ message: string }>(client, 'error');
+    client.emit('game:naval_attack', { gameId, fromId: 'a', toId: 'b', action_id: 'fleet1' });
+    expect((await err).message).toBe('No enemy fleet to attack');
+    const after = await getGameState(gameId);
+    expect(after?.territories.a.naval_units).toBe(3);
+  });
+
   // ── Fog of War: map visuals must not leak hidden garrisons ─────────────────
 
   type Visual = { kind: string; territoryId: string; units?: number; totalAfter?: number };

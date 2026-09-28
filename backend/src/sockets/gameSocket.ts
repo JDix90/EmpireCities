@@ -2768,6 +2768,11 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (toTerritory.naval_units == null) {
         return socket.emit('error', { message: 'Target is not a coastal territory' });
       }
+      // An empty harbour has nothing to sink. This used to fight a phantom
+      // ship (`naval_units || 1`), so an attacker could lose fleets to nothing.
+      if (toTerritory.naval_units <= 0) {
+        return socket.emit('error', { message: 'No enemy fleet to attack' });
+      }
 
       // Validate sea connection
       const seaConnected = map.connections.some(
@@ -2789,7 +2794,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       }
 
       const navalAttackProbBefore = captureProbBefore(state, userId);
-      const navalResult = resolveNavalCombat(fromTerritory.naval_units, toTerritory.naval_units || 1);
+      const navalResult = resolveNavalCombat(fromTerritory.naval_units, toTerritory.naval_units);
       fromTerritory.naval_units = Math.max(0, fromTerritory.naval_units - navalResult.attacker_losses);
       toTerritory.naval_units = Math.max(0, (toTerritory.naval_units ?? 0) - navalResult.defender_losses);
 
