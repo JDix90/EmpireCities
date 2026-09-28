@@ -185,9 +185,13 @@ describe.runIf(redisTestEnabled)('away seat socket integration', () => {
 
   // ── Harness helpers ───────────────────────────────────────────────────────────
 
-  async function seed(gameId: string, state: GameState): Promise<void> {
+  async function seed(
+    gameId: string,
+    state: GameState,
+    map: GameMap = isolatedMap(gameId, Object.keys(state.territories)),
+  ): Promise<void> {
     await setGameState(gameId, state);
-    await setGameMap(gameId, isolatedMap(gameId, Object.keys(state.territories)));
+    await setGameMap(gameId, map);
     lobby.players.set(gameId, state.players.map((p) => lobbyRow(p.is_ai ? null : p.player_id, p.player_index, p.is_ai)));
     lobby.settings.set(gameId, state.settings as Record<string, unknown>);
     createdGames.push(gameId);
@@ -315,6 +319,41 @@ describe.runIf(redisTestEnabled)('away seat socket integration', () => {
       const s = (await getGameState(gameId))!;
       expect({ turn: s.turn_number, seat: s.current_player_index, phase: s.phase, tile: s.territories[`${h}1`].unit_count })
         .toEqual({ turn: 2, seat: 0, phase: 'draft', tile: 3 });
+    }, 20_000);
+
+    it('finishes a half-played turn from the phase its player left', async () => {
+      const gameId = 'away-half-turn';
+      // a drafted, attacked and made the one fortify move a turn allows, then
+      // dropped. a's rear tile a0 could still reinforce a1, and a1 could take b1
+      // (b keeps b2, so the game would go on).
+      await seed(gameId, twoHumans(gameId, 'half-a', 'half-b', {
+        phase: 'fortify',
+        fortify_moves_used: 1,
+        draft_units_remaining: 0,
+        players: [player('half-a', 0, { is_away: true, away_since: Date.now() - 120_000 }), player('half-b', 1)],
+        territories: {
+          a0: terr('a0', 'half-a', 8), a1: terr('a1', 'half-a', 6),
+          b1: terr('b1', 'half-b', 1), b2: terr('b2', 'half-b', 3),
+        },
+      }), {
+        ...isolatedMap(gameId, ['a0', 'a1', 'b1', 'b2']),
+        connections: [{ from: 'a0', to: 'a1', type: 'land' }, { from: 'a1', to: 'b1', type: 'land' }],
+      } as GameMap);
+      const b = await join('half-b', gameId);
+      const phasesForA: string[] = [];
+      let combats = 0;
+      b.on('game:state', (st: GameState) => { if (st.current_player_index === 0) phasesForA.push(st.phase); });
+      b.on('game:combat_result', () => { combats += 1; });
+
+      // b's join re-arms the away-AI, which ends a's turn: no second draft or
+      // attack phase, and no fortify move beyond the one a already made.
+      const s = await waitForRedisState(gameId, (st) => st.current_player_index === 1, 8_000);
+      expect({
+        replayed: phasesForA.filter((p) => p === 'draft' || p === 'attack'),
+        combats,
+        tiles: [s.territories.a0.unit_count, s.territories.a1.unit_count, s.territories.b1.unit_count],
+        b1Owner: s.territories.b1.owner_id,
+      }).toEqual({ replayed: [], combats: 0, tiles: [8, 6, 1], b1Owner: 'half-b' });
     }, 20_000);
 
     it('waits while nobody else is at the table, and covers the seat once someone is back', async () => {

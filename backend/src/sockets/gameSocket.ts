@@ -5732,7 +5732,16 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     return;
   }
 
+  // A player who dropped mid-turn left it half played. Their away-AI finishes
+  // it from the phase they were in: replaying it from the draft gave the seat
+  // a second draft and attack phase, and a fresh fortify allowance. A bot's
+  // turn always starts from the draft.
+  const resumeAt = currentPlayer.is_away && (state.phase === 'attack' || state.phase === 'fortify')
+    ? state.phase
+    : 'draft';
+
   // ── Draft Phase ────────────────────────────────────────────────────────
+  if (resumeAt === 'draft') {
   state.phase = 'draft';
 
   // Economy FIRST: build + research before evaluating advancement, so a bot that
@@ -6039,7 +6048,10 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     }
   }
 
+  } // resumeAt === 'draft'
+
   // ── Attack Phase ───────────────────────────────────────────────────────
+  if (resumeAt !== 'fortify') {
   state.draft_units_remaining = 0;
   state.phase = 'attack';
 
@@ -6502,10 +6514,12 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     if (grindOutcome.aborted) return;
     if (aiAttackGrindEnabled && aiAttackBudget.left <= 0) break;
   }
+  } // resumeAt !== 'fortify'
 
   // ── Fortify Phase ──────────────────────────────────────────────────────
+  // A resumed fortify keeps the moves its player already made.
+  if (resumeAt !== 'fortify') state.fortify_moves_used = 0;
   state.phase = 'fortify';
-  state.fortify_moves_used = 0;
 
   // AI parity: Armored Push grants +1 fortify move. Activate it only when the AI
   // has more fortify moves planned than its base limit allows, so the extra move
