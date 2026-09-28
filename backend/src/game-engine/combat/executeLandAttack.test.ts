@@ -89,15 +89,28 @@ describe('executeLandAttack', () => {
     expect(s.players[0].territory_count).toBe(2);
   });
 
-  it('does NOT allow neutral capture outside era-advancement games (standard unchanged)', () => {
+  it('conquers a neutral Earth garrison on a classic board too (resigned or bombed land)', () => {
+    // No map_era_floor (classic non-growth board). A resigned player's land and
+    // an atom-bombed tile are neutral garrisons; refusing them here froze them
+    // for the rest of the game, and Domination with them.
     const s = state(
       { a: terr('a', 'p1', 10), neutral: terr('neutral', null, 2, { world_id: 'earth' }) },
+      [player('p1', { territory_count: 1 })],
+      { era_advancement_enabled: false },
+    );
+    const out = executeLandAttack(s, 'p1', 'a', 'neutral', { dieRoll: diceFrom([6, 6, 6, 1, 1]) });
+    expect(out?.captured).toBe(true);
+    expect(s.territories.neutral.owner_id).toBe('p1');
+  });
+
+  it('never attacks an empty neutral (a cleared scenario or Daily board)', () => {
+    const s = state(
+      { a: terr('a', 'p1', 10), empty: terr('empty', null, 0, { world_id: 'earth' }) },
       [player('p1')],
       { era_advancement_enabled: false },
     );
-    // No map_era_floor (classic non-growth board) → neutrals stay untouchable.
-    expect(executeLandAttack(s, 'p1', 'a', 'neutral', { dieRoll: diceFrom([6, 6, 6, 1]) })).toBeNull();
-    expect(s.territories.neutral.owner_id).toBeNull();
+    expect(executeLandAttack(s, 'p1', 'a', 'empty', { dieRoll: diceFrom([6, 6, 6]) })).toBeNull();
+    expect(s.territories.empty.owner_id).toBeNull();
   });
 
   it('conquers a neutral Earth frontier in a standalone seeded-board game (map_era_floor > 0)', () => {

@@ -76,9 +76,18 @@ describe('AI frontier expansion', () => {
     expect(attacksFrontier).toBe(true);
   });
 
-  it('does NOT plan a neutral attack on a classic non-growth board (era off, floor 0)', () => {
+  it('plans an attack on a neutral Earth garrison on a classic board too (era off, floor 0)', () => {
+    // A resigned player's land or an atom-bombed tile: the runtime lets anyone
+    // take it on any board (executeLandAttack), so the AI must go for it too.
     const map = makeMap('earth');
     const state = makeState(map, terr('frontier', null, 3), false, { mapEraFloor: 0 });
+    const actions = computeAiTurn(state, map, 'hard');
+    expect(actions.some((a) => a.type === 'attack' && a.to === 'frontier')).toBe(true);
+  });
+
+  it('does NOT plan an attack on an empty neutral, which the runtime refuses', () => {
+    const map = makeMap('earth');
+    const state = makeState(map, terr('frontier', null, 0), true);
     const actions = computeAiTurn(state, map, 'hard');
     expect(actions.some((a) => a.type === 'attack' && a.to === 'frontier')).toBe(false);
   });

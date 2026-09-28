@@ -48,16 +48,28 @@ describe('computePhaseAdjacencyTargets', () => {
     expect(targets.has('milan')).toBe(false);
   });
 
-  it('excludes neutral (unowned) neighbors from attack by default', () => {
+  it('offers a neutral garrison on a classic board, but never an empty neutral', () => {
+    // A resigned player's land or an atom-bombed tile holds units and the server
+    // lets anyone take it; an empty neutral (a cleared Daily board) it refuses.
     const state = miniState('attack');
-    (state.territories as Record<string, unknown>).frontier = {
-      territory_id: 'frontier',
+    (state.territories as Record<string, unknown>).held = {
+      territory_id: 'held',
       owner_id: null,
       unit_count: 3,
     };
-    const conns = [...connections, { from: 'rome', to: 'frontier', type: 'land' as const }];
+    (state.territories as Record<string, unknown>).empty = {
+      territory_id: 'empty',
+      owner_id: null,
+      unit_count: 0,
+    };
+    const conns = [
+      ...connections,
+      { from: 'rome', to: 'held', type: 'land' as const },
+      { from: 'rome', to: 'empty', type: 'land' as const },
+    ];
     const targets = computePhaseAdjacencyTargets(state, conns, { attackSource: 'rome' });
-    expect(targets.has('frontier')).toBe(false);
+    expect(targets.has('held')).toBe(true);
+    expect(targets.has('empty')).toBe(false);
   });
 
   it('allows attacking neutral frontier neighbors in era-advancement games', () => {
@@ -300,10 +312,17 @@ describe('listDirectAttackSources', () => {
     expect(rows.map((r) => r.territoryId)).toEqual(['turin', 'rome']);
   });
 
-  it('does not offer a neutral the rules make untakeable', () => {
-    // Same board, era advancement off and no orbit lane: computePhaseAdjacencyTargets
-    // refuses the neutral, so this must too rather than offering a doomed click.
+  it('offers a neutral garrison on a classic board too (a resigned player\'s land)', () => {
     const neutral = siegeState({ milan: { owner_id: null, unit_count: 2 } });
+    const rows = listDirectAttackSources(neutral, siegeConnections, 'milan', 'p1', names);
+    expect(rows.map((r) => r.territoryId)).toEqual(['turin', 'rome']);
+  });
+
+  it('does not offer a neutral the rules make untakeable', () => {
+    // An empty neutral, era advancement off and no orbit lane:
+    // computePhaseAdjacencyTargets refuses it, so this must too rather than
+    // offering a doomed click.
+    const neutral = siegeState({ milan: { owner_id: null, unit_count: 0 } });
     expect(listDirectAttackSources(neutral, siegeConnections, 'milan', 'p1', names)).toEqual([]);
   });
 

@@ -444,9 +444,9 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
     }, 20_000);
   });
 
-  // ── Resigning on your own turn ────────────────────────────────────────────────
+  // ── Resigning ───────────────────────────────────────────────────────────────────
 
-  describe('resigning on your own turn', () => {
+  describe('resigning', () => {
     it('in the Territory Draft passes the pick, and the draft goes on to its end', async () => {
       const gameId = 'handoff-resign-pick';
       await seed(gameId, buildState(gameId, {
@@ -520,6 +520,33 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
         aClock: 'none',
         bClock: 'delayed',
       });
+    }, 20_000);
+
+    it('leaves the resigner\'s land to be fought over, on a classic board too', async () => {
+      const gameId = 'handoff-resign-land';
+      await seed(gameId, buildState(gameId, {
+        phase: 'attack',
+        turn_number: 4,
+        players: [player('land-a', 0), player('land-b', 1), player('land-c', 2)],
+        territories: { a1: terr('a1', 'land-a', 6), b1: terr('b1', 'land-b', 4), c1: terr('c1', 'land-c', 3) },
+      }), {
+        ...isolatedMap(gameId, ['a1', 'b1', 'c1']),
+        connections: [{ from: 'a1', to: 'b1', type: 'land' }],
+      } as GameMap);
+      const b = await connect('land-b');
+      await joinRoom('land-b', gameId);
+      const a = await connect('land-a');
+      await joinRoom('land-a', gameId);
+
+      // b resigns on a's turn: b1 goes neutral, its garrison halved to 2.
+      b.emit('game:resign', { gameId });
+      await waitForRedisState(gameId, (s) => s.territories.b1.owner_id === null);
+      const outcome = Promise.race([
+        new Promise<string>((resolve) => a.once('game:combat_result', () => resolve('combat'))),
+        new Promise<string>((resolve) => a.once('error', (e: { message?: string }) => resolve(`error: ${e.message}`))),
+      ]);
+      a.emit('game:attack', { gameId, fromId: 'a1', toId: 'b1' });
+      expect(await outcome).toBe('combat');
     }, 20_000);
   });
 
