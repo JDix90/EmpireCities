@@ -1,5 +1,8 @@
 import { X } from 'lucide-react';
 import { CombatResultView, type CombatModalData, type DismissReason } from './ActionModal';
+import NavalDiceResult from './NavalDiceResult';
+import type { NavalCombatResult } from '../../store/gameStore';
+import type { MapNameLookup } from '../../utils/mapDisplayNames';
 
 /**
  * The player's own attack result on a phone (docs/MOBILE_UX_PLAN.md M-12,
@@ -14,20 +17,28 @@ import { CombatResultView, type CombatModalData, type DismissReason } from './Ac
  */
 export default function MobileCombatSheet({
   data,
+  naval = null,
+  mapNameLookup,
   viewKey,
   onDismiss,
   onRepeatCombat,
   onBlitzCombat,
 }: {
   data: CombatModalData | null;
+  /**
+   * The fleet battle, shown above the land dice: alone for a Fleet Attack,
+   * or the sea fight that opened a landing across a sea connection.
+   */
+  naval?: NavalCombatResult | null;
+  mapNameLookup?: MapNameLookup | null;
   /** Changes with each result, so a repeat of the same battle rolls its dice again. */
   viewKey?: number;
   onDismiss: (reason?: DismissReason) => void;
   onRepeatCombat?: (fromId: string, toId: string) => void;
   onBlitzCombat?: (fromId: string, toId: string) => void;
 }) {
-  if (!data) return null;
-  const repeat = data.repeatAttack;
+  if (!data && !naval) return null;
+  const repeat = data?.repeatAttack;
   return (
     <div
       data-testid="combat-sheet"
@@ -44,6 +55,17 @@ export default function MobileCombatSheet({
       >
         <X className="w-4 h-4" />
       </button>
+      {naval && (
+        <div className="pr-8">
+          <NavalDiceResult
+            result={naval}
+            attackerName={naval.attackerName}
+            defenderName={naval.defenderName}
+            mapNameLookup={mapNameLookup}
+          />
+        </div>
+      )}
+      {data && (
       <CombatResultView
         key={viewKey}
         compact
@@ -70,6 +92,7 @@ export default function MobileCombatSheet({
             : undefined
         }
       />
+      )}
     </div>
   );
 }

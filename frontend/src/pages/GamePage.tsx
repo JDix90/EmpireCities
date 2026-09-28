@@ -19,7 +19,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { useGameStore, CombatResult, type GameState as ClientGameState } from '../store/gameStore';
+import { useGameStore, CombatResult, type GameState as ClientGameState, type NavalCombatResult } from '../store/gameStore';
 import { useUiStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
 import { useFeatureFlagsStore, useFirstTurnCoachEnabled, useSignupNudgeEnabled, useAsyncOnboardingEnabled, useTurnClarityEnabled, useBackgroundMusicEnabled } from '../store/featureFlagsStore';
@@ -930,7 +930,7 @@ export default function GamePage() {
   /** Territories the viewer lost in the round being scrubbed on the strip; null while not scrubbing. */
   const [scrubLossIds, setScrubLossIds] = useState<string[] | null>(null);
   /** The viewer's own attack result on a phone: a sheet above the bar, never a queued card (M-12 phase 3). */
-  const [ownCombatSheet, setOwnCombatSheet] = useState<{ data: CombatModalData; key: number } | null>(null);
+  const [ownCombatSheet, setOwnCombatSheet] = useState<{ data: CombatModalData | null; naval?: NavalCombatResult | null; key: number } | null>(null);
   const ownCombatSeq = useRef(0);
   /** Incoming attacks shown live during the attacker's turn (non-blocking dice theater). */
   const [defenderTheaterQueue, setDefenderTheaterQueue] = useState<CombatResult[]>([]);
@@ -1807,7 +1807,9 @@ export default function GamePage() {
           // A phone reads the result on a sheet above the bar with the map
           // live behind it (M-12 phase 3); the queue is for cards over the map.
           ownCombatSeq.current += 1;
-          setOwnCombatSheet({ data: ownCard, key: ownCombatSeq.current });
+          // A sea landing's fleet battle (kept in the store only for this
+          // same crossing) rides on the same sheet, above the land dice.
+          setOwnCombatSheet({ data: ownCard, naval: useGameStore.getState().lastNavalCombat, key: ownCombatSeq.current });
         } else {
           setModalQueue(q => [...q, ownCard]);
         }
@@ -2211,13 +2213,25 @@ export default function GamePage() {
         attackerName: nameOfOwner(fromId),
         defenderName: nameOfOwner(toId),
       });
+      // Your own fleet battle on a phone opens the combat sheet too. A Fleet
+      // Attack has no land battle after it, so this is the only place its dice
+      // show without opening the menu; a sea landing replaces this sheet with
+      // one carrying both battles when its land result arrives.
+      if (isMobileLayoutRef.current && navalState?.territories[fromId]?.owner_id === userRef.current?.user_id) {
+        ownCombatSeq.current += 1;
+        setOwnCombatSheet({ data: null, naval: useGameStore.getState().lastNavalCombat, key: ownCombatSeq.current });
+      }
       const mapData = mapDataRef.current;
       const fromName = mapData?.territories.find((t) => t.territory_id === fromId)?.name ?? fromId;
       const toName = mapData?.territories.find((t) => t.territory_id === toId)?.name ?? toId;
       const outcome = result.attacker_won
         ? `Fleet victory — ${fromName} broke through to ${toName}`
         : `Fleet repelled — defenders held ${toName}`;
-      toast(outcome, { icon: '⚓', duration: 3000 });
+      // On a phone your own fleet battle opens the combat sheet (below), which
+      // already says how it went; the toast would only cover the sheet's buttons.
+      const ownPhoneBattle = isMobileLayoutRef.current
+        && useGameStore.getState().gameState?.territories[fromId]?.owner_id === userRef.current?.user_id;
+      if (!ownPhoneBattle) toast(outcome, { icon: '⚓', duration: 3000 });
       setCombatLog((prev) => [
         ...prev,
         `Naval: ${fromName} → ${toName}: ${result.attacker_won ? 'attacker won' : 'defender held'} (−${result.attacker_losses} / −${result.defender_losses} fleets)`,
@@ -5683,6 +5697,8 @@ export default function GamePage() {
       {isMobileLayout && (
         <MobileCombatSheet
           data={ownCombatSheet?.data ?? null}
+          naval={ownCombatSheet?.naval ?? null}
+          mapNameLookup={mapData}
           viewKey={ownCombatSheet?.key}
           onDismiss={handleOwnCombatSheetDismiss}
           onRepeatCombat={handleAttack}

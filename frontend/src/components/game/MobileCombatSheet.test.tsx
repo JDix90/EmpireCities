@@ -44,6 +44,27 @@ describe('MobileCombatSheet', () => {
   });
   afterEach(() => { vi.useRealTimers(); });
 
+  const fleetBattle = {
+    fromId: 'gaul', toId: 'hispania', attacker_rolls: [6, 3], defender_rolls: [4],
+    attacker_losses: 0, defender_losses: 1, attacker_won: true,
+    attackerName: 'Darth_Jefe', defenderName: 'Admiral Chen',
+  };
+
+  it('shows a Fleet Attack\u2019s dice on their own, with Done', () => {
+    render(<MobileCombatSheet data={null} naval={fleetBattle} onDismiss={() => {}} />);
+    expect(screen.getByTestId('naval-dice-result')).toHaveTextContent('Fleet battle');
+    expect(screen.getByTestId('combat-sheet-done')).toBeInTheDocument();
+  });
+
+  it('puts a sea landing\u2019s fleet battle above its land dice', () => {
+    render(<MobileCombatSheet data={card()} naval={fleetBattle} onDismiss={() => {}} />);
+    const naval = screen.getByTestId('naval-dice-result');
+    const sheet = screen.getByTestId('combat-sheet');
+    // The fleet battle is the sheet's first block; the land view follows it.
+    expect(sheet.textContent!.indexOf('Fleet battle')).toBeLessThan(sheet.textContent!.indexOf('Hispania', sheet.textContent!.indexOf('Every defending')));
+    expect(naval).toHaveTextContent('Lost 1 fleet');
+  });
+
   it('renders nothing without a result', () => {
     const { container } = render(<MobileCombatSheet data={null} onDismiss={() => {}} />);
     expect(container.firstChild).toBeNull();
