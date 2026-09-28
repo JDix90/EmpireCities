@@ -3148,17 +3148,11 @@ export function initGameSocket(httpServer: HttpServer): Server {
           targetOwnerName: targetOwner?.username ?? null,
         }), { state, map });
         socket.emit('game:ability_result', { ...execResult, abilityId, success: true });
+        // A winning bomb ends the game before anything is broadcast or saved:
+        // the board used to go out, and be saved, in a live phase first.
+        if (await finishIfWon(io, gameId, state, map)) return;
         broadcastState(io, gameId, state);
         void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
-        const atomBombVictoryResult = checkVictory(state, map);
-        if (atomBombVictoryResult) {
-          const { winnerIds, condition } = atomBombVictoryResult;
-          state.phase = 'game_over';
-          state.winner_id = winnerIds[0]!;
-          state.winner_ids = winnerIds;
-          state.victory_condition = condition;
-          finalizeGame(io, gameId, state, winnerIds);
-        }
         return;
       }
 

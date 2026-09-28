@@ -667,6 +667,25 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
         .toEqual({ winner: 'era-a', condition: 'transcendence' });
     }, 20_000);
 
+    it('an atom bomb that takes the last rival\'s last tile ends the game before the board goes out', async () => {
+      const gameId = 'handoff-win-bomb';
+      await seed(gameId, buildState(gameId, {
+        era: 'ww2',
+        phase: 'attack',
+        // A bomb carried over from an earlier era: no tech tree needed to fire it.
+        players: [player('bomb-a', 0, { legacy_ability_charges: { atom_bomb: 1 } }), player('bomb-b', 1)],
+        territories: { a1: terr('a1', 'bomb-a', 6), b1: terr('b1', 'bomb-b', 3) },
+      }), isolatedMap(gameId, ['a1', 'b1']));
+      const a = await connect('bomb-a');
+      await joinRoom('bomb-a', gameId);
+
+      const firstState = new Promise<GameState>((resolve) => a.once('game:state', resolve));
+      a.emit('game:use_ability', { gameId, abilityId: 'atom_bomb', params: { territoryId: 'b1' } });
+      const s = await firstState;
+      expect({ phase: s.phase, winner: s.winner_id, condition: s.victory_condition })
+        .toEqual({ phase: 'game_over', winner: 'bomb-a', condition: 'last_standing' });
+    }, 20_000);
+
     it('a bot that reaches the final era with a wonder in hand wins on the spot too', async () => {
       const gameId = 'handoff-win-bot';
       const t1 = { ...terr('t1', 'erabot-a1', 3), buildings: ['wonder_colosseum'] } as TerritoryState;
