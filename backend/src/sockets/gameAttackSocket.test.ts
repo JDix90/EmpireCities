@@ -574,6 +574,49 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
     expect(resultFired).toBe(false);
   });
 
+  // ── Fog of War: map visuals must not leak hidden garrisons ─────────────────
+
+  type Visual = { kind: string; territoryId: string; units?: number; totalAfter?: number };
+
+  it('keeps a hidden reinforcement\'s totals from opponents who cannot see it under fog', async () => {
+    const gameId = 'itest-fog-visual';
+    // a–b–c chain: p2 (b) borders a and sees it; p3 (c) does not.
+    await seed(gameId, buildState(gameId, [], {
+      phase: 'draft', current_player_index: 0, draft_units_remaining: 3,
+      territories: { a: terr('a', 'p1', 2), b: terr('b', 'p2', 1), c: terr('c', 'p3', 5) },
+      settings: { ...buildState(gameId, []).settings, fog_of_war: true },
+    }), buildMap(gameId));
+    const c1 = await connect('p1');
+    const c2 = await connect('p2');
+    const c3 = await connect('p3');
+    for (const id of ['p1', 'p2', 'p3']) await joinRoom(id, gameId);
+
+    const seen2 = waitFor<Visual>(c2, 'game:map_visual');
+    const seen3 = waitFor<Visual>(c3, 'game:map_visual');
+    c1.emit('game:draft', { gameId, territoryId: 'a', units: 2, action_id: 'fog1' });
+
+    expect(await seen2).toMatchObject({ kind: 'reinforce', territoryId: 'a', units: 2, totalAfter: 4 });
+    const hidden = await seen3;
+    expect(hidden).toMatchObject({ kind: 'reinforce', territoryId: 'a' });
+    expect(hidden.units).toBeUndefined();
+    expect(hidden.totalAfter).toBeUndefined();
+  });
+
+  it('still shows everyone the totals when fog is off', async () => {
+    const gameId = 'itest-nofog-visual';
+    await seed(gameId, buildState(gameId, [], {
+      phase: 'draft', current_player_index: 0, draft_units_remaining: 3,
+      territories: { a: terr('a', 'p1', 2), b: terr('b', 'p2', 1), c: terr('c', 'p3', 5) },
+    }), buildMap(gameId));
+    const c1 = await connect('p1');
+    const c3 = await connect('p3');
+    for (const id of ['p1', 'p3']) await joinRoom(id, gameId);
+
+    const seen3 = waitFor<Visual>(c3, 'game:map_visual');
+    c1.emit('game:draft', { gameId, territoryId: 'a', units: 2, action_id: 'nofog1' });
+    expect(await seen3).toMatchObject({ kind: 'reinforce', territoryId: 'a', units: 2, totalAfter: 4 });
+  });
+
   // ── Draft undo (reinforcement placement reversal) ──────────────────────────
 
   function draftState(gameId: string, overrides: Partial<GameState> = {}): GameState {

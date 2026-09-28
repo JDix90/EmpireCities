@@ -257,13 +257,48 @@ export function emitEventCardMapVisuals(
   }));
 }
 
-/** Broadcast a map visual to every human in the match (players + spectators). */
+/**
+ * A visual as one viewer may see it under Fog of War. `units` and `totalAfter`
+ * are exact garrison figures (a reinforce's "Total: N"), so they go only to a
+ * viewer who can see every territory the visual touches; everyone else still
+ * gets the animation, without the numbers. `visible` null = a spectator, who
+ * sees no counts in a fog game at all.
+ */
+export function redactMapVisualForViewer(
+  payload: MapVisualEventPayload,
+  visible: ReadonlySet<string> | null,
+): MapVisualEventPayload {
+  const sees = (id: string | undefined) => !id || (visible?.has(id) ?? false);
+  if (sees(payload.territoryId) && sees(payload.fromTerritoryId)) return payload;
+  const { units: _units, totalAfter: _totalAfter, ...rest } = payload;
+  return rest;
+}
+
+/** Per-player visibility for a fog game; see `emitMapVisual`. */
+export interface MapVisualFogView {
+  viewers: Array<{ playerId: string; visible: ReadonlySet<string> }>;
+}
+
+/**
+ * Broadcast a map visual to every human in the match (players + spectators).
+ * With `fog`, each player gets it through their own user room, redacted to
+ * what they can see, instead of one room-wide emit that told every opponent
+ * the exact garrison of a territory fog was hiding from them.
+ */
 export function emitMapVisual(
   io: Server,
   gameId: string,
   event: Omit<MapVisualEventPayload, 'id'>,
+  fog?: MapVisualFogView,
 ): MapVisualEventPayload {
   const payload: MapVisualEventPayload = { ...event, id: randomUUID() };
+  if (fog) {
+    for (const viewer of fog.viewers) {
+      io.to(`user:${viewer.playerId}`).emit('game:map_visual', redactMapVisualForViewer(payload, viewer.visible));
+    }
+    queueSpectatorEvent(gameId, 'game:map_visual', redactMapVisualForViewer(payload, null));
+    return payload;
+  }
   io.to(gameId).emit('game:map_visual', payload);
   // Spectators get the visual through the delayed feed so it fires when their
   // (30s-delayed) board shows the matching state, not half a minute early.
