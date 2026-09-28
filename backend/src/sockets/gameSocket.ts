@@ -1619,7 +1619,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         `Deployed ${units} unit${units === 1 ? '' : 's'} to ${territoryName(map, territoryId)}`,
         draftProbBefore,
       );
-      emitMapVisual(io, gameId, buildReinforceMapVisual({
+      emitVisual(io, gameId, state, buildReinforceMapVisual({
         territoryId,
         units,
         totalAfter: territory.unit_count,
@@ -1875,7 +1875,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
           const navalPayload = { fromId, toId, result: crossing.navalResult };
           io.to(gameId).emit('game:naval_combat_result', navalPayload);
           queueSpectatorEvent(gameId, 'game:naval_combat_result', navalPayload);
-          emitMapVisual(io, gameId, buildNavalMapVisual({
+          emitVisual(io, gameId, state, buildNavalMapVisual({
             fromId,
             toId,
             attackerId: userId,
@@ -2063,7 +2063,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (maybeResolveDailyPuzzle(io, gameId, room, stateBeforePuzzle, userId, finalizeGame)) {
         commitActionDecision(gameId, state, userId, 'attack', attackSummary, attackProbBefore);
         io.to(gameId).emit('game:combat_result', { fromId, toId, result });
-        emitMapVisual(io, gameId, buildCombatMapVisual({
+        emitVisual(io, gameId, state, buildCombatMapVisual({
           fromId,
           toId,
           attackerId: userId,
@@ -2097,7 +2097,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       }
 
       io.to(gameId).emit('game:combat_result', { fromId, toId, result });
-      emitMapVisual(io, gameId, buildCombatMapVisual({
+      emitVisual(io, gameId, state, buildCombatMapVisual({
         fromId,
         toId,
         attackerId: userId,
@@ -2362,7 +2362,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       }
 
       io.to(gameId).emit('game:combat_result', { fromId, toId, result });
-      emitMapVisual(io, gameId, buildCombatMapVisual({
+      emitVisual(io, gameId, state, buildCombatMapVisual({
         fromId,
         toId,
         attackerId: userId,
@@ -2598,7 +2598,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
           : `Fortified ${territoryName(map, fromId)} → ${territoryName(map, toId)} with ${units} unit${units === 1 ? '' : 's'}`,
         fortifyProbBefore,
       );
-      emitMapVisual(io, gameId, buildFortifyMapVisual({
+      emitVisual(io, gameId, state, buildFortifyMapVisual({
         fromTerritoryId: fromId,
         toTerritoryId: toId,
         units,
@@ -2800,7 +2800,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       );
       io.to(gameId).emit('game:naval_combat_result', { fromId, toId, result: navalResult });
       queueSpectatorEvent(gameId, 'game:naval_combat_result', { fromId, toId, result: navalResult });
-      emitMapVisual(io, gameId, buildNavalMapVisual({
+      emitVisual(io, gameId, state, buildNavalMapVisual({
         fromId,
         toId,
         attackerId: userId,
@@ -2858,7 +2858,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       }
 
       const nextEraId = getEraIdForAdvancementIndex(state, currentPlayer.current_era_index ?? 0);
-      emitMapVisual(io, gameId, buildEraAdvanceMapVisual({
+      emitVisual(io, gameId, state, buildEraAdvanceMapVisual({
         playerId: userId,
         eraId: nextEraId,
         state,
@@ -3307,7 +3307,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         : isDetenteUse ? 'detente' as const
           : 'seize' as const;
 
-      emitMapVisual(io, gameId, buildInfluenceMapVisual({
+      emitVisual(io, gameId, state, buildInfluenceMapVisual({
         targetId,
         actorId: userId,
         previousOwnerId: previousOwner,
@@ -4090,7 +4090,7 @@ function emitAutoDraftMapVisuals(
   const playerId = state.players[state.current_player_index]?.player_id;
   if (!playerId) return;
   for (const row of placements) {
-    emitMapVisual(io, gameId, buildReinforceMapVisual({
+    emitVisual(io, gameId, state, buildReinforceMapVisual({
       territoryId: row.territory_id,
       units: row.units,
       totalAfter: row.totalAfter,
@@ -4676,6 +4676,54 @@ async function broadcastSpectatorCount(io: Server, gameId: string): Promise<void
   io.to(`${gameId}:spectators`).emit('game:spectator_count', { count });
 }
 
+/**
+ * Territories whose exact intel a player may see in a fog game: their own,
+ * everything bordering them (border scouting), and whatever recon or a faction
+ * passive reveals. The one rule for both `game:state` and map visuals.
+ */
+function fogVisibleTerritoryIds(state: GameState, playerId: string, map?: GameMap): Set<string> {
+  const visibleIds = new Set<string>();
+  for (const [tid, tState] of Object.entries(state.territories)) {
+    if (tState.owner_id === playerId) visibleIds.add(tid);
+  }
+  // The adjacency cache only fills once some handler has built it, and on a
+  // fresh process the first actions (a draft, a phase change) never do: every
+  // border then read as hidden, in game:state and the AI's fogged view alike.
+  // Build it from the room's map instead of trusting a cold cache.
+  const roomMap = map ?? getCachedRoom(state.game_id)?.map;
+  const adj = roomMap ? getOrBuildAdjacency(roomMap) : adjacencyByMapId.get(state.map_id);
+  if (adj) {
+    for (const tid of Array.from(visibleIds)) {
+      for (const neighbour of adj.get(tid) ?? []) visibleIds.add(neighbour);
+    }
+    expandFogVisibilityFromRecon(state, playerId, visibleIds, adj);
+    expandFogVisibilityFromFactionPassive(state, playerId, visibleIds, adj);
+  }
+  return visibleIds;
+}
+
+/**
+ * Emit a map visual, per viewer when fog is on. Every visual in this file goes
+ * through here: a room-wide emit carried a reinforce's exact "Total: N" to
+ * every opponent, fog or not.
+ */
+function emitVisual(
+  io: Server,
+  gameId: string,
+  state: GameState,
+  event: Parameters<typeof emitMapVisual>[2],
+): void {
+  if (!state.settings.fog_of_war) {
+    emitMapVisual(io, gameId, event);
+    return;
+  }
+  emitMapVisual(io, gameId, event, {
+    viewers: state.players
+      .filter((p) => !p.is_ai)
+      .map((p) => ({ playerId: p.player_id, visible: fogVisibleTerritoryIds(state, p.player_id) })),
+  });
+}
+
 function buildClientState(state: GameState, playerId: string | null, fogOfWar: boolean): GameState {
   // Viewer-scoped era advancement status (transport-only). Computed from the
   // unfiltered state — it describes the viewer's own empire, which fog never
@@ -4714,24 +4762,7 @@ function buildClientState(state: GameState, playerId: string | null, fogOfWar: b
   if (!fogOfWar) return attachEraPreview(stripSecretMissions(state));
 
   // Fog is on. Compute which territories' exact intel the viewer may see.
-  const visibleIds = new Set<string>();
-  if (playerId !== null) {
-    // Player view: owned territories are always visible…
-    for (const [tid, tState] of Object.entries(state.territories)) {
-      if (tState.owner_id === playerId) visibleIds.add(tid);
-    }
-    // …plus adjacent (border scouting) and recon-revealed territories.
-    const adj = adjacencyByMapId.get(state.map_id);
-    if (adj) {
-      for (const tid of Array.from(visibleIds)) {
-        for (const neighbour of adj.get(tid) ?? []) {
-          visibleIds.add(neighbour);
-        }
-      }
-      expandFogVisibilityFromRecon(state, playerId, visibleIds, adj);
-      expandFogVisibilityFromFactionPassive(state, playerId, visibleIds, adj);
-    }
-  }
+  const visibleIds = playerId !== null ? fogVisibleTerritoryIds(state, playerId) : new Set<string>();
   // Spectator view (playerId === null) in a fog game: visibleIds stays EMPTY, so
   // maskHiddenTerritories masks every territory's exact intel below. Spectators
   // see board control (ownership / borders) but not troop/building/fleet counts,
@@ -5609,7 +5640,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     const advanceResult = executeAdvanceEra(state, currentPlayer.player_id, map);
     if (advanceResult.success) {
       const nextEraId = getEraIdForAdvancementIndex(state, currentPlayer.current_era_index ?? 0);
-      emitMapVisual(io, gameId, buildEraAdvanceMapVisual({
+      emitVisual(io, gameId, state, buildEraAdvanceMapVisual({
         playerId: currentPlayer.player_id,
         eraId: nextEraId,
         state,
@@ -5746,7 +5777,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
         state.draft_placements_this_turn = state.draft_placements_this_turn ?? {};
         state.draft_placements_this_turn[action.to] = (state.draft_placements_this_turn[action.to] ?? 0) + clamped;
       }
-      emitMapVisual(io, gameId, buildReinforceMapVisual({
+      emitVisual(io, gameId, state, buildReinforceMapVisual({
         territoryId: action.to,
         units: clamped,
         totalAfter: t.unit_count,
@@ -6198,7 +6229,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       if (aiCrossing.navalResult) {
         io.to(gameId).emit('game:naval_combat_result', { fromId: attackFromId, toId: attackToId, result: aiCrossing.navalResult });
         queueSpectatorEvent(gameId, 'game:naval_combat_result', { fromId: attackFromId, toId: attackToId, result: aiCrossing.navalResult });
-        emitMapVisual(io, gameId, buildNavalMapVisual({
+        emitVisual(io, gameId, state, buildNavalMapVisual({
           fromId: attackFromId,
           toId: attackToId,
           attackerId: currentPlayer.player_id,
@@ -6320,7 +6351,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
         }
         syncTerritoryCounts(state);
         io.to(gameId).emit('game:combat_result', { fromId: attackFromId, toId: attackToId, result });
-        emitMapVisual(io, gameId, buildCombatMapVisual({
+        emitVisual(io, gameId, state, buildCombatMapVisual({
           fromId: attackFromId,
           toId: attackToId,
           attackerId: currentPlayer.player_id,
@@ -6394,7 +6425,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
         to.unit_count += action.units;
       }
       state.fortify_moves_used = (state.fortify_moves_used ?? 0) + 1;
-      emitMapVisual(io, gameId, buildFortifyMapVisual({
+      emitVisual(io, gameId, state, buildFortifyMapVisual({
         fromTerritoryId: action.from,
         toTerritoryId: action.to,
         units: action.units,
@@ -6500,7 +6531,7 @@ async function runDailyV2OpponentTurn(
       syncTerritoryCounts(state);
       recordCombatResult(gameId, currentPlayer.player_id, human.player_id, result, { isSea: isSeaEdge(fromId, toId) });
       io.to(gameId).emit('game:combat_result', { fromId, toId, result });
-      emitMapVisual(io, gameId, buildCombatMapVisual({
+      emitVisual(io, gameId, state, buildCombatMapVisual({
         fromId,
         toId,
         attackerId: currentPlayer.player_id,
@@ -6520,7 +6551,7 @@ async function runDailyV2OpponentTurn(
     },
     onMarch: (fromId, toId, units) => {
       state.fortify_moves_used = (state.fortify_moves_used ?? 0) + 1;
-      emitMapVisual(io, gameId, buildFortifyMapVisual({
+      emitVisual(io, gameId, state, buildFortifyMapVisual({
         fromTerritoryId: fromId,
         toTerritoryId: toId,
         units,
