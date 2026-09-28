@@ -508,7 +508,9 @@ export default function LobbyPage() {
   const [aiCount, setAiCount] = useState(3);
   const [aiDifficulty, setAiDifficulty] = useState('medium');
   const [fogOfWar, setFogOfWar] = useState(false);
-  const [diplomacyEnabled, setDiplomacyEnabled] = useState(true);
+  // Off like every other opt-in rule in this form. The create route defaults an
+  // omitted flag to ON, which is why handleCreateGame always sends it.
+  const [diplomacyEnabled, setDiplomacyEnabled] = useState(false);
   const [turnTimer, setTurnTimer] = useState(300);
   type VictoryMode = 'domination' | 'threshold' | 'capital' | 'secret_mission' | 'lane_sovereignty';
   const [victoryModes, setVictoryModes] = useState<Set<VictoryMode>>(
