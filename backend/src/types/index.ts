@@ -1073,6 +1073,11 @@ export interface GameState {
   blitzkrieg_bonus_attacks_remaining?: number;
   /** Currently active event card awaiting resolution (events feature). */
   active_event?: EventCard;
+  /**
+   * This round's single-player event card, waiting for its target's turn.
+   * Server-only: it would tell a client which card is coming and to whom.
+   */
+  pending_event?: { card: EventCard; target_player_id: string };
   /** Transient: result of last instant event effect application (cleared after broadcast). */
   active_event_result?: EventEffectResult;
   /** Seasonal event cards injected at game start — merged into era deck when drawing. */
