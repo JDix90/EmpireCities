@@ -45,7 +45,8 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
   const cardBonusCap = typeof raw.card_set_bonus_cap === 'number' && Number.isFinite(raw.card_set_bonus_cap)
     ? Math.max(0, Math.floor(raw.card_set_bonus_cap))
     : undefined;
-  const dip = typeof raw.diplomacy_enabled === 'boolean' ? raw.diplomacy_enabled : true;
+  // Off unless asked for, like every other opt-in rule.
+  const dip = typeof raw.diplomacy_enabled === 'boolean' ? raw.diplomacy_enabled : false;
   const factionsEnabled = typeof raw.factions_enabled === 'boolean' ? raw.factions_enabled : false;
   const economyEnabled = typeof raw.economy_enabled === 'boolean' ? raw.economy_enabled : false;
   const techTreesEnabled = typeof raw.tech_trees_enabled === 'boolean' ? raw.tech_trees_enabled : false;

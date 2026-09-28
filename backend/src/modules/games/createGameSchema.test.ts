@@ -597,3 +597,10 @@ describe('world_rules_disabled', () => {
     }
   });
 });
+
+describe('CreateGameSchema diplomacy default', () => {
+  it('creates games with diplomacy off unless the caller asks for it', () => {
+    const parsed = CreateGameSchema.parse({ era_id: 'ww2', map_id: 'era_ww2', max_players: 4, settings: {} });
+    expect(parsed.settings.diplomacy_enabled).toBe(false);
+  });
+});

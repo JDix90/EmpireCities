@@ -135,7 +135,7 @@ const TOOLTIP_FACTS: Array<{ id: string; says: RegExp[]; neverSays: RegExp[] }> 
   // One card when the round wraps, not one per player turn.
   { id: 'create-game-events', says: [/Every round after the first/, /choice of two/], neverSays: [/drawn each turn/i] },
   // Fleets only come from Ports and Naval Bases; nothing blockades.
-  { id: 'create-game-naval', says: [/Economy & Buildings/, /no one can attack across the sea/], neverSays: [/blockade/i, /distant shores/i] },
+  { id: 'create-game-naval', says: [/Economy & Buildings on too/, /Ports/], neverSays: [/blockade/i, /distant shores/i] },
   // Rebellion is a <=10% rule; income scaling needs the economy.
   { id: 'create-game-stability', says: [/10% or less/, /Economy & Buildings/], neverSays: [/Low stability reduces income/i] },
   // Ownership stays visible to everyone under fog.
@@ -176,7 +176,7 @@ describe('LobbyPage Custom Game tooltips', () => {
     await screen.findByText('Advanced Features');
     const text = tooltipFor('create-game-era-advancement');
     expect(text).toMatch(/armies shrink by 30%/);
-    expect(text).toMatch(/Turns on Economy & Buildings, Technology Trees and Population & Stability/);
+    expect(text).toMatch(/Turns on Economy & Buildings/);
     expect(text).not.toMatch(/Stronger units/i);
   });
 });
@@ -202,16 +202,46 @@ describe('LobbyPage Custom Game rules the copy depends on', () => {
     expect(body.settings.card_set_bonus_cap).toBe(0);
   });
 
-  it('locks on the systems Era Advancement always plays with', async () => {
+  it('Era Advancement locks Economy on and leaves research and stability optional', async () => {
     renderCustomGame('ancient');
     await screen.findByText('Advanced Features');
     fireEvent.click(checkbox('create-game-era-advancement'));
-    for (const id of ['create-game-economy', 'create-game-tech-trees', 'create-game-stability']) {
-      expect({ id, checked: checkbox(id).checked, disabled: checkbox(id).disabled })
-        .toEqual({ id, checked: true, disabled: true });
-    }
-    // Naval and events stay the player's choice.
-    expect(checkbox('create-game-naval').disabled).toBe(false);
-    expect(checkbox('create-game-events').disabled).toBe(false);
+    expect(checkbox('create-game-economy')).toMatchObject({ checked: true, disabled: true });
+    fireEvent.click(checkbox('create-game-tech-trees'));
+    fireEvent.click(checkbox('create-game-stability'));
+    fireEvent.click(checkbox('create-game-naval'));
+    fireEvent.click(screen.getByRole('button', { name: /Create & Enter Lobby/ }));
+    await waitFor(() => expect(postMock).toHaveBeenCalledWith('/games', expect.anything()));
+    const body = postMock.mock.calls.find(([url]) => url === '/games')![1] as { settings: Record<string, unknown> };
+    expect(body.settings).toMatchObject({ era_advancement_enabled: true, economy_enabled: true });
+    expect(body.settings.tech_trees_enabled).toBeUndefined();
+    expect(body.settings.stability_enabled).toBeUndefined();
+  });
+
+  it.each(['create-game-tech-trees', 'create-game-naval'])('ticking %s turns Economy on and locks it', async (id) => {
+    renderCustomGame();
+    await screen.findByText('Advanced Features');
+    fireEvent.click(checkbox(id));
+    expect(checkbox('create-game-economy')).toMatchObject({ checked: true, disabled: true });
+    fireEvent.click(checkbox(id));
+    expect(checkbox('create-game-economy')).toMatchObject({ checked: false, disabled: false });
+    fireEvent.click(checkbox(id));
+    fireEvent.click(screen.getByRole('button', { name: /Create & Enter Lobby/ }));
+    await waitFor(() => expect(postMock).toHaveBeenCalledWith('/games', expect.anything()));
+    const body = postMock.mock.calls.find(([url]) => url === '/games')![1] as { settings: Record<string, unknown> };
+    expect(body.settings.economy_enabled).toBe(true);
+  });
+
+  it('shows the curated map lore and rules, without the flavour line', async () => {
+    useAuthStore.setState({ user: { user_id: 'u1', username: 'c', is_guest: false, xp: 50 } as never, isAuthenticated: true });
+    render(
+      <MemoryRouter initialEntries={['/lobby?map=community_divided_japan']}>
+        <LobbyPage />
+      </MemoryRouter>,
+    );
+    await screen.findByText('Advanced Features');
+    const text = tooltipFor('create-game-naval');
+    expect(text).toMatch(/Rules: Attacking across a sea connection/);
+    expect(text).not.toMatch(/How it feels here/);
   });
 });

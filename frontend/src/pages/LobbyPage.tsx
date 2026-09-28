@@ -289,7 +289,6 @@ const FULL_GAME_FEATURES: Array<{ label: string; desc: string }> = [
   { label: 'Population & Stability', desc: 'Keep conquered lands stable enough to hold them.' },
   { label: 'Naval Warfare', desc: 'Fleets, ports, and contested sea lanes.' },
   { label: 'Historical Events', desc: 'Era-specific event cards shake up each game.' },
-  { label: 'Diplomacy', desc: 'Forge truces and alliances with your rivals.' },
 ];
 
 interface PublicGame {
@@ -584,12 +583,16 @@ export default function LobbyPage() {
   const galaxyHomeWorldsOff = isGalacticEra && !galaxyHomeWorlds;
   const lockedSystems = lockedSystemsForEra(selectedEra, { galaxyHomeWorlds });
   const lockedSystemsNotice = lockedEraSystemsNotice(selectedEra, { galaxyHomeWorlds });
-  // Era Advancement (and Space to Stars, an advancement board by construction)
-  // always runs with the economy, research and stability layers: handleCreateGame
-  // sends all three whatever the boxes say, so the boxes are locked on to match
-  // rather than offering an "off" the game would ignore.
-  const eraAdvancementSystemsForced =
-    isAscensionGalaxyMap(selectedTheaterMapId)
+  // Economy & Buildings is what pays for everything below it: Tech Points are
+  // paid inside collectProduction, fleets only come from Ports, and the server
+  // refuses Era Advancement (and Space to Stars, an advancement board by
+  // construction) without it. Any of those ticks Economy and locks it on, and
+  // handleCreateGame sends it from this same flag. Research and stability stay
+  // optional: the advance gate simply skips a system that is off.
+  const economyRequired =
+    techTreesEnabled
+    || navalEnabled
+    || isAscensionGalaxyMap(selectedTheaterMapId)
     || (eraAdvancementLobbyEnabled && eraAdvancementEnabled && selectedEra === 'ancient');
   useEffect(() => {
     const locked = lockedSystemsForEra(selectedEra, { galaxyHomeWorlds });
@@ -1158,11 +1161,7 @@ export default function LobbyPage() {
         combat_max_attacker_dice: combatDiceCapEnabled ? combatMaxAttackerDice : undefined,
         combat_max_defender_dice: combatDiceCapEnabled ? combatMaxDefenderDice : undefined,
       };
-      if (eraAdvancementSystemsForced) {
-        settings.economy_enabled = true;
-        settings.tech_trees_enabled = true;
-        settings.stability_enabled = true;
-      }
+      if (economyRequired) settings.economy_enabled = true;
       if (allowed.includes('threshold')) {
         settings.victory_threshold = victoryThresholdPct;
       }
@@ -1437,7 +1436,7 @@ export default function LobbyPage() {
           turn_timer_seconds: 300,
           initial_unit_count: 3,
           card_set_escalating: true,
-          diplomacy_enabled: true,
+          diplomacy_enabled: false,
           // The win condition the player picked, plus its own turn cap — the
           // cap is a backstop, not the intended ending, so it scales with the
           // condition (a 60-turn cap under Domination would BE the ending). The
@@ -1484,7 +1483,7 @@ export default function LobbyPage() {
           ...quickMatchVictorySettings(fullGamePrefs),
           initial_unit_count: 3,
           card_set_escalating: true,
-          diplomacy_enabled: true,
+          diplomacy_enabled: false,
           economy_enabled: true,
           tech_trees_enabled: true,
           stability_enabled: true,
@@ -2549,27 +2548,27 @@ export default function LobbyPage() {
                       )}
                       {mapImmersion && (
                         <p className="text-[11px] text-bf-muted mb-3 leading-relaxed">
-                          Hover each (i) for theater-specific lore layered on the normal rules — tuned for this map.
+                          Hover each (i) for this theater’s lore alongside the standard rules.
                         </p>
                       )}
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                         <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
                           <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'economy_buildings')} />
                           <label htmlFor="create-game-economy" className="contents cursor-pointer">
-                            <input id="create-game-economy" type="checkbox" checked={economyEnabled || eraAdvancementSystemsForced} onChange={(e) => { autoEnabledSystemsRef.current.delete('economy'); setEconomyEnabled(e.target.checked); }} disabled={lockedSystems.has('economy') || eraAdvancementSystemsForced} aria-describedby={lockedSystems.has('economy') ? 'era-locked-systems-notice' : undefined} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
+                            <input id="create-game-economy" type="checkbox" checked={economyEnabled || economyRequired} onChange={(e) => { autoEnabledSystemsRef.current.delete('economy'); setEconomyEnabled(e.target.checked); }} disabled={lockedSystems.has('economy') || economyRequired} aria-describedby={lockedSystems.has('economy') ? 'era-locked-systems-notice' : undefined} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
                             <span className="leading-snug min-w-0 select-none">
                               Economy &amp; Buildings
-                              {(lockedSystems.has('economy') || eraAdvancementSystemsForced) && <span className="text-xs text-bf-muted"> (required)</span>}
+                              {(lockedSystems.has('economy') || economyRequired) && <span className="text-xs text-bf-muted"> (required)</span>}
                             </span>
                           </label>
                         </div>
                         <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
                           <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'tech_trees')} />
                           <label htmlFor="create-game-tech-trees" className="contents cursor-pointer">
-                            <input id="create-game-tech-trees" type="checkbox" checked={techTreesEnabled || eraAdvancementSystemsForced} onChange={(e) => { autoEnabledSystemsRef.current.delete('tech_trees'); setTechTreesEnabled(e.target.checked); }} disabled={lockedSystems.has('tech_trees') || eraAdvancementSystemsForced} aria-describedby={lockedSystems.has('tech_trees') ? 'era-locked-systems-notice' : undefined} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
+                            <input id="create-game-tech-trees" type="checkbox" checked={techTreesEnabled} onChange={(e) => { autoEnabledSystemsRef.current.delete('tech_trees'); setTechTreesEnabled(e.target.checked); }} disabled={lockedSystems.has('tech_trees')} aria-describedby={lockedSystems.has('tech_trees') ? 'era-locked-systems-notice' : undefined} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
                             <span className="leading-snug min-w-0 select-none">
                               Technology Trees
-                              {(lockedSystems.has('tech_trees') || eraAdvancementSystemsForced) && <span className="text-xs text-bf-muted"> (required)</span>}
+                              {lockedSystems.has('tech_trees') && <span className="text-xs text-bf-muted"> (required)</span>}
                             </span>
                           </label>
                         </div>
@@ -2590,11 +2589,8 @@ export default function LobbyPage() {
                         <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
                           <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'population_stability')} />
                           <label htmlFor="create-game-stability" className="contents cursor-pointer">
-                            <input id="create-game-stability" type="checkbox" checked={stabilityEnabled || eraAdvancementSystemsForced} onChange={(e) => setStabilityEnabled(e.target.checked)} disabled={eraAdvancementSystemsForced} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
-                            <span className="leading-snug min-w-0 select-none">
-                              Population &amp; Stability
-                              {eraAdvancementSystemsForced && <span className="text-xs text-bf-muted"> (required)</span>}
-                            </span>
+                            <input id="create-game-stability" type="checkbox" checked={stabilityEnabled} onChange={(e) => setStabilityEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
+                            <span className="leading-snug min-w-0 select-none">Population &amp; Stability</span>
                           </label>
                         </div>
                         <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
@@ -2622,7 +2618,7 @@ export default function LobbyPage() {
                         )}
                         {eraAdvancementLobbyEnabled && selectedEra === 'ancient' && (
                           <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                            <FeatureTooltip text="Each player can advance their civilization to the next era mid-match, at their own pace. The gate is a building, early research and a stable empire; the price is a few turns of production. Advancing brings the next era’s rules and tech tree, a one-time arrival bonus and an extra die against players in earlier eras — but your armies shrink by 30%, your research starts over, and you defend weaker until your next turn. Turns on Economy & Buildings, Technology Trees and Population & Stability." />
+                            <FeatureTooltip text="Each player can advance their civilization to the next era mid-match, at their own pace. The gate is a building, plus early research and a stable empire when those systems are on; the price is a few turns of production. Advancing brings the next era’s rules and tech tree, a one-time arrival bonus and an extra die against players in earlier eras — but your armies shrink by 30%, your research starts over, and you defend weaker until your next turn. Turns on Economy & Buildings, which it needs." />
                             <label htmlFor="create-game-era-advancement" className="contents cursor-pointer">
                               <input
                                 id="create-game-era-advancement"
@@ -2631,10 +2627,9 @@ export default function LobbyPage() {
                                 onChange={(e) => {
                                   setEraAdvancementEnabled(e.target.checked);
                                   if (e.target.checked) {
-                                    // Default to the full-game experience. Economy,
-                                    // research and stability stay locked on while
-                                    // this is ticked (eraAdvancementSystemsForced);
-                                    // naval and events remain optional.
+                                    // Default to the full-game experience. Economy
+                                    // stays locked on while this is ticked
+                                    // (economyRequired); the rest remain optional.
                                     setEconomyEnabled(true);
                                     setTechTreesEnabled(true);
                                     setStabilityEnabled(true);

@@ -3456,7 +3456,7 @@ export default function GamePage() {
           allowed_victory_conditions: ['domination'],
           initial_unit_count: 3,
           card_set_escalating: true,
-          diplomacy_enabled: true,
+          diplomacy_enabled: false,
         },
       });
       setPostTutorialPrompt(false);

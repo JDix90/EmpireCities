@@ -987,10 +987,9 @@ export function getCustomMapImmersion(mapId: string | null | undefined): CustomM
  *
  * Each line describes what the server actually does with the setting, in the
  * words the game shows in play (PP and TP as the HUD chips say, building names
- * from BUILDING_DISPLAY). Two dependencies are spelled out because the lobby
- * does not enforce them: Tech Points and fleets are both paid out by the
- * economy (collectProduction and Port/Naval Base income), so Technology Trees
- * or Naval Warfare without Economy & Buildings earns nothing to spend.
+ * from BUILDING_DISPLAY). Tech Points and fleets are both paid out by the
+ * economy (collectProduction and Port/Naval Base income), which is why the
+ * lobby turns Economy & Buildings on with Technology Trees or Naval Warfare.
  */
 const MECHANIC_BASE: Record<AdvancedFeatureKey, string> = {
   territory_draft:
@@ -1000,11 +999,11 @@ const MECHANIC_BASE: Record<AdvancedFeatureKey, string> = {
   economy_buildings:
     'Earn Production Points (PP) at the start of each turn: 1 for every 3 territories, plus what your buildings make. Spend PP on Workshops (more PP), Palisades (extra defense dice) and their upgrades, and on your era’s Wonder, which only one player can build. Laboratories only pay out with Technology Trees on, and Ports need Naval Warfare. Capturing a territory razes its buildings, except a Wonder.',
   tech_trees:
-    'Spend Tech Points (TP) on your era’s tech tree: extra attack or defense dice, more reinforcements, more TP, new buildings and special abilities. TP comes from Economy & Buildings — 1 for every 5 territories, plus Laboratories — so turn that on too: with Technology Trees alone you start with no TP and earn next to none.',
+    'Spend Tech Points (TP) on your era’s tech tree: extra attack or defense dice, more reinforcements, more TP, new buildings and special abilities. TP comes from Economy & Buildings — 1 for every 5 territories, plus Laboratories — so ticking this turns Economy & Buildings on too.',
   historical_events:
     'Every round after the first opens with a card from this era’s event deck: plagues, revolts, windfalls, crises and forced truces. Some hit every player; others hit one, and some of those offer a choice of two responses. Effects grow stronger as the game goes on. Cards that change production or stability only matter with Economy & Buildings or Population & Stability on.',
   naval_warfare:
-    'Attacking across a sea connection takes a fleet: each crossing uses one, and fleets on the far shore fight first and add defense dice. Fleets come from Ports (+1 a turn) and Naval Bases (+2) on coastal territories, so turn on Economy & Buildings too — without it no one can attack across the sea at all. You can also move fleets between your own coasts and sink enemy fleets with Fleet Attack.',
+    'Attacking across a sea connection takes a fleet: each crossing uses one, and fleets on the far shore fight first and add defense dice. Fleets come from Ports (+1 a turn) and Naval Bases (+2) on coastal territories, so ticking this turns Economy & Buildings on too. You can also move fleets between your own coasts and sink enemy fleets with Fleet Attack.',
   population_stability:
     'Each territory has Stability (0–100%) and Population (1–10). Below 50% stability a territory takes only a few reinforcements per turn, and at 10% or less it can rebel, losing units and even the territory. Stability recovers every turn, and at 50% or more population can grow. Captured territories drop to 30% stability with half their population. With Economy & Buildings on, both scale what your buildings produce.',
   fog_of_war:
@@ -1019,6 +1018,8 @@ export function advancedFeatureTooltip(mapId: string | null | undefined, key: Ad
   const base = MECHANIC_BASE[key];
   const imm = getCustomMapImmersion(mapId);
   if (!imm) return base;
-  const { lore, effectFlavor } = imm.advanced[key];
-  return `${lore}\n\nHow it feels here: ${effectFlavor}\n\nRules: ${base}`;
+  // Lore and rules only. `effectFlavor` described map-specific rules the engine
+  // does not have (fleets blockading straits, halved reinforcements), so it is
+  // no longer shown next to the rules it contradicted.
+  return `${imm.advanced[key].lore}\n\nRules: ${base}`;
 }
