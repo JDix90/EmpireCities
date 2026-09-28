@@ -30,6 +30,9 @@ import {
   repairDraftUnitsIfMissing,
   autoPlaceDraftUnits,
   advancePhaseOnTimeout,
+  claimSelectionTerritory,
+  claimableTerritoryIds,
+  isUnclaimedOwner,
 } from '../game-engine/state/gameStateManager';
 import { calculateReinforcements } from '../game-engine/combat/combatResolver';
 import { getMarchToSeaBonus, recordMarchToSeaResult } from '../game-engine/combat/combatModifiers';
@@ -646,9 +649,6 @@ async function emitLobbyProposalUpdates(io: Server, gameId: string, details?: Wa
   }
 }
 
-function isUnclaimedOwner(ownerId: string | null | undefined): boolean {
-  return ownerId == null || ownerId === '' || ownerId === 'neutral';
-}
 
 function isSocketUsersTurn(state: GameState, socketUserId: string, _socketUsername?: string): boolean {
   // The username argument is preserved for call-site compatibility but is
@@ -1091,6 +1091,22 @@ export function initGameSocket(httpServer: HttpServer): Server {
       // active player doesn't silently forfeit their attack/fortify phases by
       // letting the draft clock run out. Only a fortify-phase timeout ends the turn.
       const adv = advancePhaseOnTimeout(room.state, room.map);
+
+      if (adv.kind === 'selection') {
+        // Territory Draft: a pick was made for the seat that timed out.
+        io.to(gameId).emit('game:turn_timeout', { phaseAdvanced: room.state.phase === 'draft' ? 'draft' : 'territory_select' });
+        await saveGameState(gameId, room.state);
+        broadcastState(io, gameId, room.state);
+        const next = room.state.players[room.state.current_player_index];
+        if (next.is_ai && room.state.phase === 'territory_select') {
+          setTimeout(() => processAiTerritorySelect(io, gameId), 800);
+        } else if (next.is_ai) {
+          setTimeout(() => processAiTurn(io, gameId), 1500);
+        } else {
+          startTurnTimer(io, gameId, room.state, room.map);
+        }
+        return;
+      }
 
       if (adv.kind === 'phase') {
         if (adv.autoDraft.total > 0) {
@@ -1688,58 +1704,19 @@ export function initGameSocket(httpServer: HttpServer): Server {
         }
       }
 
-      // Claim the territory
-      territory.owner_id = userId;
-      territory.unit_count = state.settings.initial_unit_count;
-      currentPlayer.territory_count = Object.values(state.territories).filter((t) => t.owner_id === userId).length;
-
-      // Advance to next player (round-robin, skip eliminated)
-      const total = state.players.length;
-      let next = (state.current_player_index + 1) % total;
-      let attempts = 0;
-      while (state.players[next].is_eliminated && attempts < total) {
-        next = (next + 1) % total;
-        attempts++;
-      }
-      state.current_player_index = next;
-      state.turn_started_at = Date.now();
-
-      // Check if all territories are claimed. Orbit-gated tiles (the Space Age
-      // Moon) are exempt — nobody can hold orbit access at game start, so
-      // counting them would soft-lock the selection phase forever.
-      const selectionExempt = selectionExemptTerritoryIds(map);
-      const unclaimed = Object.values(state.territories).filter(
-        (t) => isUnclaimedOwner(t.owner_id) && !selectionExempt.has(t.territory_id),
-      ).length;
-      if (unclaimed === 0) {
-        // Transition to draft phase
-        state.phase = 'draft';
-        state.draft_placements_this_turn = {};
-        state.draft_deployments_this_turn = [];
-        const starterIdx = getStartingPlayerIndex(state);
-        state.current_player_index = starterIdx;
-        state.turn_number = 1;
-        state.turn_started_at = Date.now();
-        const firstPlayer = state.players[starterIdx];
-        const bonus = calculateContinentBonuses(state, map, firstPlayer.player_id);
-        const passiveReinforceBonus = getPlayerReinforceBonus(state, firstPlayer.player_id);
-        state.draft_units_remaining = calculateReinforcements(
-          firstPlayer.territory_count,
-          bonus,
-          state.players.length,
-        ) + passiveReinforceBonus;
-      }
+      const { completed: selectionDone } = claimSelectionTerritory(state, map, territoryId);
 
       broadcastState(io, gameId, state);
       void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
 
       // If next player is AI and still in territory_select, trigger AI pick
       const nextPlayer = state.players[state.current_player_index];
-      if (nextPlayer.is_ai && state.phase === 'territory_select') {
+      if (nextPlayer.is_ai && !selectionDone) {
         setTimeout(() => processAiTerritorySelect(io, gameId), 800);
-      } else if (nextPlayer.is_ai && state.phase === 'draft') {
+      } else if (nextPlayer.is_ai) {
         setTimeout(() => processAiTurn(io, gameId), 1500);
-      } else if (!nextPlayer.is_ai && state.phase === 'draft') {
+      } else if (!nextPlayer.is_ai) {
+        // Each human pick gets its own clock, in the draft as in play.
         startTurnTimer(io, gameId, state, map);
       }
       });
@@ -5403,17 +5380,7 @@ async function processAiTerritorySelect(io: Server, gameId: string): Promise<voi
   if (!currentPlayer.is_ai && !currentPlayer.is_away) return;
 
   const difficulty = currentPlayer.ai_difficulty ?? 'medium';
-  // Orbit/Moon parity: exclude territories the AI couldn't legally claim (same gate
-  // humans hit via territoryRequiresOrbitAccessForClaim). Access doesn't depend on
-  // the specific territory, so resolve it once.
-  const aiHasOrbitAccess = getOrbitAccessResult(state, currentPlayer, map, state.era).allowed;
-  const unclaimed = Object.entries(state.territories)
-    .filter(([id, t]) =>
-      isUnclaimedOwner(t.owner_id)
-      && (aiHasOrbitAccess || !territoryRequiresOrbitAccessForClaim(map, id))
-      // Seeded neutral frontiers are conquered in play, not drafted in selection.
-      && (map.territories.find((mt) => mt.territory_id === id)?.unlock_era_index ?? 0) <= 0)
-    .map(([id]) => id);
+  const unclaimed = claimableTerritoryIds(state, map, currentPlayer.player_id);
 
   if (unclaimed.length === 0) return;
 
@@ -5474,59 +5441,18 @@ async function processAiTerritorySelect(io: Server, gameId: string): Promise<voi
     chosenId = unclaimed[Math.floor(Math.random() * unclaimed.length)];
   }
 
-  // Claim the territory
-  const territory = state.territories[chosenId];
-  territory.owner_id = currentPlayer.player_id;
-  territory.unit_count = state.settings.initial_unit_count;
-  currentPlayer.territory_count = Object.values(state.territories).filter(
-    (t) => t.owner_id === currentPlayer.player_id
-  ).length;
-
-  // Advance to next player
-  const total = state.players.length;
-  let next = (state.current_player_index + 1) % total;
-  let attempts = 0;
-  while (state.players[next].is_eliminated && attempts < total) {
-    next = (next + 1) % total;
-    attempts++;
-  }
-  state.current_player_index = next;
-  state.turn_started_at = Date.now();
-
-  // Check if all territories are claimed (orbit-gated tiles exempt — see the
-  // human select handler; counting them would soft-lock the phase).
-  const selectionExempt = selectionExemptTerritoryIds(map);
-  const remaining = Object.values(state.territories).filter(
-    (t) => isUnclaimedOwner(t.owner_id) && !selectionExempt.has(t.territory_id),
-  ).length;
-  if (remaining === 0) {
-    state.phase = 'draft';
-    state.draft_placements_this_turn = {};
-    state.draft_deployments_this_turn = [];
-    const starterIdx = getStartingPlayerIndex(state);
-    state.current_player_index = starterIdx;
-    state.turn_number = 1;
-    state.turn_started_at = Date.now();
-    const firstPlayer = state.players[starterIdx];
-    const bonus = calculateContinentBonuses(state, map, firstPlayer.player_id);
-    const passiveReinforceBonus = getPlayerReinforceBonus(state, firstPlayer.player_id);
-    state.draft_units_remaining = calculateReinforcements(
-      firstPlayer.territory_count,
-      bonus,
-      state.players.length,
-    ) + passiveReinforceBonus;
-  }
+  const { completed: selectionDone } = claimSelectionTerritory(state, map, chosenId);
 
   broadcastState(io, gameId, state);
   void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
 
   // Chain: next AI pick or transition to human/draft
   const nextPlayer = state.players[state.current_player_index];
-  if (nextPlayer.is_ai && state.phase === 'territory_select') {
+  if (nextPlayer.is_ai && !selectionDone) {
     setTimeout(() => processAiTerritorySelect(io, gameId), 800);
-  } else if (nextPlayer.is_ai && state.phase === 'draft') {
+  } else if (nextPlayer.is_ai) {
     setTimeout(() => processAiTurn(io, gameId), 1500);
-  } else if (!nextPlayer.is_ai && state.phase === 'draft') {
+  } else if (!nextPlayer.is_ai) {
     startTurnTimer(io, gameId, state, map);
   }
   }, { durationMs: 10000 });
