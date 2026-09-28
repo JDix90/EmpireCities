@@ -228,12 +228,20 @@ export function computePhaseAdjacencyTargets(
       if (isJumpGateOnlyEdge(connections, source, neighborId)) continue;
       if (neighborOwner && neighborOwner !== sourceOwner) {
         result.add(neighborId);
-      } else if (!neighborOwner && (gameState.settings?.era_advancement_enabled === true || orbitNeighbors.has(neighborId))) {
+      } else if (
+        !neighborOwner
+        && (gameState.settings?.era_advancement_enabled === true
+          || orbitNeighbors.has(neighborId)
+          || (gameState.territories[neighborId]?.unit_count ?? 0) >= 1)
+      ) {
         // Neutral (unowned) capturable targets the UI must offer or they'd be
         // invisible:
-        //  - era-advancement growth spawns NEUTRAL Earth frontiers (EA games), and
+        //  - era-advancement growth spawns NEUTRAL Earth frontiers (EA games),
         //  - orbit-connected neutrals are the off-world race (Moon/galaxy), takeable
-        //    in any mode once the attacker has access.
+        //    in any mode once the attacker has access, and
+        //  - any neutral garrison on any board: a resigned player's land, an
+        //    atom-bombed tile, ground rebels took. An empty neutral (a cleared
+        //    Daily board) holds no units and the server refuses it.
         // The picker renders orbit targets with a lock when access is denied, and
         // the server stays authoritative on the access check either way. On the
         // globe the caller's per-world `territoryFilter` drops cross-world endpoints

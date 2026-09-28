@@ -357,11 +357,24 @@ export async function persistGameStateAfterMutation(gameId: string, state: GameS
   schedulePostgresBackup(gameId, state);
 }
 
-/** Full flush: Redis + Postgres immediately (game over, leave, shutdown). */
+/** Full flush: Redis + Postgres immediately (game over, shutdown). */
 export async function flushGameState(gameId: string, state: GameState): Promise<void> {
   cancelPendingPostgresSave(gameId);
   await persistStateToRedis(gameId, state);
   writePostgresBackup(gameId, state);
+}
+
+/**
+ * Write this game's debounced Postgres backup now, if one is pending (a player
+ * leaving, the last one disconnecting). It never writes Redis, so it needs no
+ * game lock: flushGameState from such a caller wrote back the copy it loaded
+ * before the lock was taken, over any move made in between.
+ */
+export function flushPendingPostgresSave(gameId: string): void {
+  if (!pendingPostgresSaves.has(gameId)) return;
+  const latest = pendingPostgresState.get(gameId);
+  cancelPendingPostgresSave(gameId);
+  if (latest) writePostgresBackup(gameId, latest);
 }
 
 export async function flushAllPendingPostgresSaves(): Promise<void> {

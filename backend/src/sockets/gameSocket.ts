@@ -145,6 +145,7 @@ import {
   GameRoomNotFoundError,
   persistGameStateAfterMutation,
   flushGameState,
+  flushPendingPostgresSave,
   flushAllPendingPostgresSaves,
   saveGameMapAuthoritative,
   evictGameRoom,
@@ -1186,8 +1187,14 @@ export function initGameSocket(httpServer: HttpServer): Server {
       }
 
       // Fortify timed out → turn handed to the next player (advanceToNextPlayer
-      // already ran inside advancePhaseOnTimeout).
+      // already ran inside advancePhaseOnTimeout). The rest of the hand-off is
+      // every other hand-off's: without it, the incoming player's Drop Assault
+      // waited a round, their convoys' arrivals went unannounced, and the map
+      // kept last round's lane weather.
       io.to(gameId).emit('game:turn_timeout', { phaseAdvanced: 'next_turn' });
+      landPendingDropAssaults(io, gameId, room.state, room.map);
+      await syncLaneWeatherAndBroadcastMap(io, gameId, room);
+      broadcastTransitArrivals(io, gameId, room.state, room.map);
       {
         // Turn-passing can end the game (turn-cap stalemate guard).
         const timeoutVictory = checkVictory(room.state, room.map);
@@ -2779,6 +2786,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
         return;
       }
+      if (await finishIfWon(io, gameId, state, map)) return;
       broadcastState(io, gameId, state);
       void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
       });
@@ -2956,6 +2964,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         captureProbBefore(state, userId),
       );
       socket.emit('game:advance_era_result', { success: true, era_id: nextEraId });
+      if (await finishIfWon(io, gameId, state, room.map)) return;
       broadcastState(io, gameId, state);
       void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
       });
@@ -3139,17 +3148,11 @@ export function initGameSocket(httpServer: HttpServer): Server {
           targetOwnerName: targetOwner?.username ?? null,
         }), { state, map });
         socket.emit('game:ability_result', { ...execResult, abilityId, success: true });
+        // A winning bomb ends the game before anything is broadcast or saved:
+        // the board used to go out, and be saved, in a live phase first.
+        if (await finishIfWon(io, gameId, state, map)) return;
         broadcastState(io, gameId, state);
         void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
-        const atomBombVictoryResult = checkVictory(state, map);
-        if (atomBombVictoryResult) {
-          const { winnerIds, condition } = atomBombVictoryResult;
-          state.phase = 'game_over';
-          state.winner_id = winnerIds[0]!;
-          state.winner_ids = winnerIds;
-          state.victory_condition = condition;
-          finalizeGame(io, gameId, state, winnerIds);
-        }
         return;
       }
 
@@ -3683,7 +3686,9 @@ export function initGameSocket(httpServer: HttpServer): Server {
         return;
       }
 
-      await saveGameState(gameId, state);
+      // Bring the Postgres backup up to date. Never a save of `state`: this
+      // handler holds no lock, and that copy predates any move made since.
+      flushPendingPostgresSave(gameId);
 
       const humansConnected = await hasHumanConnections(gameId, state);
       if (!humansConnected) {
@@ -3826,6 +3831,12 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       const proposer = state.players.find((p) => p.player_id === proposerId);
       const target = state.players.find((p) => p.player_id === userId);
+      // An offer lapses once either side is out of the game. Accepting one set a
+      // truce with a player no longer playing, and credited both sides with it.
+      if (proposer?.is_eliminated || target?.is_eliminated) {
+        void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
+        return socket.emit('error', { message: 'That truce offer has lapsed: a player in it is out of the game' });
+      }
 
       if (accepted && proposer && target) {
         const entry = state.diplomacy.find(
@@ -4069,7 +4080,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
           const humansConnected = await hasHumanConnections(gameId, room.state);
           if (!humansConnected) {
-            await saveGameState(gameId, room.state);
+            // As in game:leave: no lock here, so never save the loaded copy.
+            flushPendingPostgresSave(gameId);
             armGameEviction(io, gameId, room.state.map_id, 'after disconnect');
           }
           // Mark the departed human's seat as away so the AI covers their turns
@@ -4111,6 +4123,24 @@ export async function shutdownGameSocket(io: Server): Promise<void> {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * End the game now if the move just made won it. For a move that can complete
+ * a win without taking a territory (a wonder built or an era reached, which
+ * Transcendence needs): checking only at the next hand-off left the incoming
+ * player's turn start (income, events, rebellions) to run on a won board first.
+ */
+async function finishIfWon(io: Server, gameId: string, state: GameState, map: GameMap): Promise<boolean> {
+  const victory = checkVictory(state, map);
+  if (!victory) return false;
+  state.phase = 'game_over';
+  state.winner_id = victory.winnerIds[0]!;
+  state.winner_ids = victory.winnerIds;
+  state.victory_condition = victory.condition;
+  await finalizeGame(io, gameId, state, victory.winnerIds);
+  broadcastState(io, gameId, state);
+  return true;
+}
 
 /**
  * After advanceToNextPlayer, if an event card was drawn, broadcast it and clear
@@ -5732,7 +5762,16 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     return;
   }
 
+  // A player who dropped mid-turn left it half played. Their away-AI finishes
+  // it from the phase they were in: replaying it from the draft gave the seat
+  // a second draft and attack phase, and a fresh fortify allowance. A bot's
+  // turn always starts from the draft.
+  const resumeAt = currentPlayer.is_away && (state.phase === 'attack' || state.phase === 'fortify')
+    ? state.phase
+    : 'draft';
+
   // ── Draft Phase ────────────────────────────────────────────────────────
+  if (resumeAt === 'draft') {
   state.phase = 'draft';
 
   // Economy FIRST: build + research before evaluating advancement, so a bot that
@@ -5758,6 +5797,8 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       }
     }
     broadcastState(io, gameId, state);
+    // A wonder can complete Transcendence: the bot wins now, as a human would.
+    if (await doVictoryCheck()) return;
   }
 
   if (
@@ -5780,6 +5821,8 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       room.map = await applyEraBoardChange(io, gameId, state, map, nextEraId);
       broadcastState(io, gameId, state);
       void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
+      // Reaching the final era can complete Transcendence.
+      if (await doVictoryCheck()) return;
       await delay();
     }
   }
@@ -6039,7 +6082,10 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     }
   }
 
+  } // resumeAt === 'draft'
+
   // ── Attack Phase ───────────────────────────────────────────────────────
+  if (resumeAt !== 'fortify') {
   state.draft_units_remaining = 0;
   state.phase = 'attack';
 
@@ -6502,10 +6548,12 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     if (grindOutcome.aborted) return;
     if (aiAttackGrindEnabled && aiAttackBudget.left <= 0) break;
   }
+  } // resumeAt !== 'fortify'
 
   // ── Fortify Phase ──────────────────────────────────────────────────────
+  // A resumed fortify keeps the moves its player already made.
+  if (resumeAt !== 'fortify') state.fortify_moves_used = 0;
   state.phase = 'fortify';
-  state.fortify_moves_used = 0;
 
   // AI parity: Armored Push grants +1 fortify move. Activate it only when the AI
   // has more fortify moves planned than its base limit allows, so the extra move

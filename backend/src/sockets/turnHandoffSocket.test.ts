@@ -1,7 +1,8 @@
 /**
  * Turn hand-off paths through the real socket server and a real Redis room:
  * the real-time turn clock, event cards across hand-offs, AI turns around game
- * over, and choice cards on away seats.
+ * over, resigning, wins that must not wait for a hand-off, and choice cards on
+ * away seats.
  *
  * Redis-gated like the rest of the Redis tier. It starts the BullMQ turn-timer
  * worker, so run it on a Redis no other suite is scheduling turn timers on:
@@ -299,6 +300,25 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
         p2Clock: p2Job ? await p2Job.getState() : 'none',
       }).toEqual({ seat: 1, phase: 'draft', draftLeft: 3, p2Clock: 'delayed' });
     }, 20_000);
+
+    it('lands the incoming player\'s Drop Assault when a fortify timeout hands them the turn', async () => {
+      const gameId = 'handoff-clock-drop';
+      const p1Deadline = Date.now() + 150;
+      await seed(gameId, buildState(gameId, {
+        phase: 'fortify',
+        turn_number: 4,
+        phase_deadline_at: p1Deadline,
+        settings: { ...buildState(gameId, {}).settings, turn_timer_seconds: 60 },
+        // p2 declared a drop on p1's tile last round: it resolves as p2's turn
+        // begins, the way every other hand-off resolves it (landed, or called
+        // off here, since p2 holds no lunar foothold).
+        drop_assaults: [{ owner_id: 'p2', target_id: 'a', declared_turn: 3, units: 3 }],
+      }), isolatedMap(gameId, ['a', 'b']));
+      await timer.scheduleTurnTimeout(gameId, p1Deadline); // p1's fortify clock runs out
+
+      const s = await waitForRedisState(gameId, (st) => st.current_player_index === 1);
+      expect(s.drop_assaults ?? []).toEqual([]);
+    }, 20_000);
   });
 
   // ── Event cards across hand-offs ─────────────────────────────────────────────
@@ -444,9 +464,9 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
     }, 20_000);
   });
 
-  // ── Resigning on your own turn ────────────────────────────────────────────────
+  // ── Resigning ───────────────────────────────────────────────────────────────────
 
-  describe('resigning on your own turn', () => {
+  describe('resigning', () => {
     it('in the Territory Draft passes the pick, and the draft goes on to its end', async () => {
       const gameId = 'handoff-resign-pick';
       await seed(gameId, buildState(gameId, {
@@ -520,6 +540,184 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
         aClock: 'none',
         bClock: 'delayed',
       });
+    }, 20_000);
+
+    it('leaves the resigner\'s land to be fought over, on a classic board too', async () => {
+      const gameId = 'handoff-resign-land';
+      await seed(gameId, buildState(gameId, {
+        phase: 'attack',
+        turn_number: 4,
+        players: [player('land-a', 0), player('land-b', 1), player('land-c', 2)],
+        territories: { a1: terr('a1', 'land-a', 6), b1: terr('b1', 'land-b', 4), c1: terr('c1', 'land-c', 3) },
+      }), {
+        ...isolatedMap(gameId, ['a1', 'b1', 'c1']),
+        connections: [{ from: 'a1', to: 'b1', type: 'land' }],
+      } as GameMap);
+      const b = await connect('land-b');
+      await joinRoom('land-b', gameId);
+      const a = await connect('land-a');
+      await joinRoom('land-a', gameId);
+
+      // b resigns on a's turn: b1 goes neutral, its garrison halved to 2.
+      b.emit('game:resign', { gameId });
+      await waitForRedisState(gameId, (s) => s.territories.b1.owner_id === null);
+      const outcome = Promise.race([
+        new Promise<string>((resolve) => a.once('game:combat_result', () => resolve('combat'))),
+        new Promise<string>((resolve) => a.once('error', (e: { message?: string }) => resolve(`error: ${e.message}`))),
+      ]);
+      a.emit('game:attack', { gameId, fromId: 'a1', toId: 'b1' });
+      expect(await outcome).toBe('combat');
+    }, 20_000);
+
+    it('lapses the resigner\'s truce offer rather than let it be accepted', async () => {
+      const gameId = 'handoff-resign-truce';
+      await seed(gameId, buildState(gameId, {
+        phase: 'attack',
+        turn_number: 4,
+        players: [player('truce-a', 0), player('truce-b', 1), player('truce-c', 2)],
+        territories: { a1: terr('a1', 'truce-a', 3), b1: terr('b1', 'truce-b', 3), c1: terr('c1', 'truce-c', 3) },
+        settings: { ...buildState(gameId, {}).settings, diplomacy_enabled: true },
+        diplomacy: [{ player_index_a: 0, player_index_b: 1, status: 'neutral', truce_turns_remaining: 0 }],
+        pending_truces: [{ proposer_id: 'truce-b', target_id: 'truce-a' }],
+      }), isolatedMap(gameId, ['a1', 'b1', 'c1']));
+      const b = await connect('truce-b');
+      await joinRoom('truce-b', gameId);
+      const a = await connect('truce-a');
+      await joinRoom('truce-a', gameId);
+
+      b.emit('game:resign', { gameId });
+      await waitForRedisState(gameId, (s) => s.players[1]!.is_eliminated);
+      const reply = Promise.race([
+        new Promise<string>((resolve) => a.once('game:truce_result', () => resolve('accepted'))),
+        new Promise<string>((resolve) => a.once('error', (e: { message?: string }) => resolve(e.message ?? ''))),
+      ]);
+      a.emit('game:truce_response', { gameId, proposerId: 'truce-b', accepted: true });
+      expect(await reply).toMatch(/lapsed/);
+      const s = await waitForRedisState(gameId, (st) => (st.pending_truces ?? []).length === 0);
+      expect({ status: s.diplomacy[0]!.status, credited: s.players[0]!.truces_established ?? [] })
+        .toEqual({ status: 'neutral', credited: [] });
+    }, 20_000);
+  });
+
+  // ── Winning without a capture ───────────────────────────────────────────────
+
+  describe('winning without a capture', () => {
+    // Transcendence: the final era of the spine (Medieval on 'poc') and a wonder.
+    const transcendenceSettings = {
+      fog_of_war: false,
+      allowed_victory_conditions: ['domination', 'transcendence'],
+      turn_timer_seconds: 0,
+      initial_unit_count: 3,
+      card_set_escalating: true,
+      diplomacy_enabled: false,
+      era_advancement_enabled: true,
+      era_advancement_spine_id: 'poc',
+      economy_enabled: true,
+    } as GameState['settings'];
+
+    /** The first game:state the room is told is over, or null after `ms`. */
+    function gameOverState(client: ClientSocket, ms = 3_000): Promise<GameState | null> {
+      return new Promise((resolve) => {
+        const t = setTimeout(() => resolve(null), ms);
+        client.on('game:state', (s: GameState) => {
+          if (s.phase === 'game_over') { clearTimeout(t); resolve(s); }
+        });
+      });
+    }
+
+    it('a wonder that completes Transcendence wins on the spot', async () => {
+      const gameId = 'handoff-win-wonder';
+      await seed(gameId, buildState(gameId, {
+        players: [
+          player('wonder-a', 0, { current_era_index: 1, special_resource: 500 }),
+          player('wonder-b', 1),
+        ],
+        territories: { a1: terr('a1', 'wonder-a', 3), b1: terr('b1', 'wonder-b', 3) },
+        settings: transcendenceSettings,
+      }), isolatedMap(gameId, ['a1', 'b1']));
+      const a = await connect('wonder-a');
+      await joinRoom('wonder-a', gameId);
+
+      const over = gameOverState(a);
+      a.emit('game:build', { gameId, territoryId: 'a1', buildingType: 'wonder_cathedral' });
+      const s = await over;
+      expect(s && { winner: s.winner_id, condition: s.victory_condition })
+        .toEqual({ winner: 'wonder-a', condition: 'transcendence' });
+    }, 20_000);
+
+    it('reaching the final era with a wonder in hand wins on the spot', async () => {
+      const gameId = 'handoff-win-era';
+      const a1 = { ...terr('a1', 'era-a', 3), buildings: ['wonder_colosseum'] } as TerritoryState;
+      await seed(gameId, buildState(gameId, {
+        era: 'ancient',
+        players: [
+          player('era-a', 0, { current_era_index: 0, special_resource: 500 }),
+          player('era-b', 1),
+        ],
+        territories: { a1, b1: terr('b1', 'era-b', 3) },
+        settings: transcendenceSettings,
+      }), isolatedMap(gameId, ['a1', 'b1']));
+      const a = await connect('era-a');
+      await joinRoom('era-a', gameId);
+
+      const over = gameOverState(a);
+      a.emit('game:advance_era', { gameId });
+      const s = await over;
+      expect(s && { winner: s.winner_id, condition: s.victory_condition })
+        .toEqual({ winner: 'era-a', condition: 'transcendence' });
+    }, 20_000);
+
+    it('an atom bomb that takes the last rival\'s last tile ends the game before the board goes out', async () => {
+      const gameId = 'handoff-win-bomb';
+      await seed(gameId, buildState(gameId, {
+        era: 'ww2',
+        phase: 'attack',
+        // A bomb carried over from an earlier era: no tech tree needed to fire it.
+        players: [player('bomb-a', 0, { legacy_ability_charges: { atom_bomb: 1 } }), player('bomb-b', 1)],
+        territories: { a1: terr('a1', 'bomb-a', 6), b1: terr('b1', 'bomb-b', 3) },
+      }), isolatedMap(gameId, ['a1', 'b1']));
+      const a = await connect('bomb-a');
+      await joinRoom('bomb-a', gameId);
+
+      const firstState = new Promise<GameState>((resolve) => a.once('game:state', resolve));
+      a.emit('game:use_ability', { gameId, abilityId: 'atom_bomb', params: { territoryId: 'b1' } });
+      const s = await firstState;
+      expect({ phase: s.phase, winner: s.winner_id, condition: s.victory_condition })
+        .toEqual({ phase: 'game_over', winner: 'bomb-a', condition: 'last_standing' });
+    }, 20_000);
+
+    it('a bot that reaches the final era with a wonder in hand wins on the spot too', async () => {
+      const gameId = 'handoff-win-bot';
+      const t1 = { ...terr('t1', 'erabot-a1', 3), buildings: ['wonder_colosseum'] } as TerritoryState;
+      await seed(gameId, buildState(gameId, {
+        era: 'ancient',
+        phase: 'fortify',
+        turn_number: 5,
+        players: [
+          player('erabot-h', 0),
+          // An expert with gold to spare on a quiet board advances as its turn opens.
+          player('erabot-a1', 1, { is_ai: true, ai_difficulty: 'expert', current_era_index: 0, special_resource: 500 }),
+        ],
+        territories: { h1: terr('h1', 'erabot-h', 3), t1 },
+        settings: transcendenceSettings,
+      }), isolatedMap(gameId, ['h1', 't1']));
+      const h = await connect('erabot-h');
+      await joinRoom('erabot-h', gameId);
+      const botPhases: string[] = [];
+      let backToHuman = false;
+      h.on('game:state', (st: GameState) => {
+        if (st.current_player_index === 1) botPhases.push(st.phase);
+        else if (botPhases.length > 0) backToHuman = true;
+      });
+
+      h.emit('game:advance_phase', { gameId }); // h ends the turn; the bot's opens
+      const finalized = () => pg.poolCalls.some((sql) => sql.includes("SET status = 'completed'"));
+      for (let i = 0; i < 300 && !finalized(); i++) await sleep(25);
+      await sleep(300);
+      // The bot's era advance ends the game in its draft: no attack or fortify
+      // played on a won board, and no hand-off first.
+      expect({ finalized: finalized(), playedOn: botPhases.filter((p) => p !== 'draft'), backToHuman })
+        .toEqual({ finalized: true, playedOn: [], backToHuman: false });
     }, 20_000);
   });
 

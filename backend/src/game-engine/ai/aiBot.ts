@@ -559,22 +559,16 @@ function selectAttacks(
       const nOwner = nState.owner_id;
       if (nOwner && isTruceActive(state, playerId, nOwner)) continue;
 
-      // Neutral targets: Earth frontiers (Era Advancement growth) are capturable
-      // only in era-advancement games; neutral OFF-WORLD garrisons (the Moon)
-      // are capturable once this AI holds orbit access — the same rule the
-      // runtime applies in executeLandAttack. Skip un-capturable neutrals so
-      // the AI doesn't waste its per-turn attack budget on rejected attacks.
+      // Neutral targets: an Earth-side neutral garrison is capturable on every
+      // board, and a neutral OFF-WORLD garrison (the Moon) once this AI holds
+      // orbit access — the same rule the runtime applies in executeLandAttack,
+      // which also refuses an empty neutral. Skip the rest so the AI doesn't
+      // waste its per-turn attack budget on rejected attacks.
       const targetIsNeutral = !nOwner;
       if (targetIsNeutral) {
         const targetOffworld = !!nState.world_id && nState.world_id !== 'earth';
-        if (targetOffworld) {
-          if (!hasOrbitAccess) continue;
-        } else if (!state.settings.era_advancement_enabled && (state.map_era_floor ?? 0) <= 0) {
-          // Earth frontiers are capturable in era-advancement games AND in a
-          // standalone seeded-board game (map_era_floor>0) — mirror the same gate
-          // executeLandAttack uses so the AI doesn't skip conquerable frontiers.
-          continue;
-        }
+        if (targetOffworld && !hasOrbitAccess) continue;
+        if (nState.unit_count < 1) continue;
       }
 
       const attackUnits = tState.unit_count - 1;

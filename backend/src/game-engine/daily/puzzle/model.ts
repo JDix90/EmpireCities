@@ -9,8 +9,8 @@
  * the sweep's parity test are what keep the two from drifting.
  *
  * Territories outside the set-piece are neutral and empty (clear_board), and
- * the engine refuses attacks on neutral tiles on a classic board, so the
- * in-play set is closed: nothing enters and nothing leaves.
+ * the engine refuses attacks on an empty neutral tile, so the in-play set is
+ * closed: nothing enters and nothing leaves.
  */
 import { assaultRulesKey, type AssaultRules, type DiceDoctrine } from './dice';
 
