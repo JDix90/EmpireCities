@@ -102,6 +102,8 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
 
   // ── Fixtures ────────────────────────────────────────────────────────────────
 
+  // Tests with bots seat their own player ids: game:state goes to per-user
+  // rooms, and a bot turn a test left queued can still broadcast after it ends.
   function player(id: string, idx: number, extras: Partial<PlayerState> = {}): PlayerState {
     return {
       player_id: id,
@@ -327,21 +329,21 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
         phase: 'fortify',
         turn_number: 2,
         players: [
-          player('h', 0),
-          player('a1', 1, { is_ai: true, ai_difficulty: 'easy' }),
-          player('a2', 2, { is_ai: true, ai_difficulty: 'easy' }),
-          player('a3', 3, { is_ai: true, ai_difficulty: 'easy' }),
+          player('bots-h', 0),
+          player('bots-a1', 1, { is_ai: true, ai_difficulty: 'easy' }),
+          player('bots-a2', 2, { is_ai: true, ai_difficulty: 'easy' }),
+          player('bots-a3', 3, { is_ai: true, ai_difficulty: 'easy' }),
         ],
         territories: {
-          h1: terr('h1', 'h', 3), t1: terr('t1', 'a1', 3), t2: terr('t2', 'a2', 3), t3: terr('t3', 'a3', 3),
+          h1: terr('h1', 'bots-h', 3), t1: terr('t1', 'bots-a1', 3), t2: terr('t2', 'bots-a2', 3), t3: terr('t3', 'bots-a3', 3),
         },
         settings: eventSettings,
         seasonal_event_cards: [],
         // This round's card goes to a2, at the start of a2's own turn.
-        pending_event: { card, target_player_id: 'a2' },
+        pending_event: { card, target_player_id: 'bots-a2' },
       }), isolatedMap(gameId, ['h1', 't1', 't2', 't3']));
-      const h = await connect('h');
-      await joinRoom('h', gameId);
+      const h = await connect('bots-h');
+      await joinRoom('bots-h', gameId);
       const shown: string[] = [];
       h.on('game:event_card', (c: EventCard) => shown.push(c.card_id));
 
@@ -361,13 +363,13 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
         era: 'custom' as GameState['era'],
         phase: 'fortify',
         turn_number: 2,
-        players: [player('h', 0), player('a1', 1, { is_ai: true, ai_difficulty: 'easy' })],
-        territories: { h1: terr('h1', 'h', 3), t1: terr('t1', 'a1', 3) },
+        players: [player('solo-h', 0), player('solo-a1', 1, { is_ai: true, ai_difficulty: 'easy' })],
+        territories: { h1: terr('h1', 'solo-h', 3), t1: terr('t1', 'solo-a1', 3) },
         settings: eventSettings,
         seasonal_event_cards: [card],
       }), isolatedMap(gameId, ['h1', 't1']));
-      const h = await connect('h');
-      await joinRoom('h', gameId);
+      const h = await connect('solo-h');
+      await joinRoom('solo-h', gameId);
       const shown: string[] = [];
       h.on('game:event_card', (c: EventCard) => shown.push(c.card_id));
 
@@ -400,11 +402,11 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
       await seed(gameId, buildState(gameId, {
         phase: 'fortify',
         turn_number: 1, // inside the resign grace window: the game is abandoned, no stats
-        players: [player('h', 0), player('a1', 1, { is_ai: true, ai_difficulty: 'easy' })],
-        territories: { h1: terr('h1', 'h', 3), t1: terr('t1', 'a1', 3) },
+        players: [player('over-h', 0), player('over-a1', 1, { is_ai: true, ai_difficulty: 'easy' })],
+        territories: { h1: terr('h1', 'over-h', 3), t1: terr('t1', 'over-a1', 3) },
       }), isolatedMap(gameId, ['h1', 't1']));
-      const h = await connect('h');
-      await joinRoom('h', gameId);
+      const h = await connect('over-h');
+      await joinRoom('over-h', gameId);
 
       // End the turn (the bot's turn is queued 1.5s out), then resign in that gap.
       h.emit('game:advance_phase', { gameId });
@@ -468,17 +470,17 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
         phase: 'fortify',
         turn_number: 2,
         players: [
-          player('a', 0),
+          player('away-a', 0),
           // Dropped two minutes ago: the reconnect window is long over.
-          player('b', 1, { is_away: true, away_since: Date.now() - 120_000 }),
+          player('away-b', 1, { is_away: true, away_since: Date.now() - 120_000 }),
         ],
-        territories: { a1: terr('a1', 'a', 3), b1: terr('b1', 'b', 3) },
+        territories: { a1: terr('a1', 'away-a', 3), b1: terr('b1', 'away-b', 3) },
         settings: choiceSettings,
         seasonal_event_cards: [],
-        pending_event: { card: dilemma, target_player_id: 'b' },
+        pending_event: { card: dilemma, target_player_id: 'away-b' },
       }), isolatedMap(gameId, ['a1', 'b1']));
-      const a = await connect('a');
-      await joinRoom('a', gameId);
+      const a = await connect('away-a');
+      await joinRoom('away-a', gameId);
 
       // a ends the turn; b's turn opens on the card with nobody there to answer.
       a.emit('game:advance_phase', { gameId });
@@ -496,18 +498,18 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
         era: 'custom' as GameState['era'],
         phase: 'fortify',
         turn_number: 2,
-        players: [player('a', 0), player('b', 1)],
-        territories: { a1: terr('a1', 'a', 3), b1: terr('b1', 'b', 3) },
+        players: [player('clock-a', 0), player('clock-b', 1)],
+        territories: { a1: terr('a1', 'clock-a', 3), b1: terr('b1', 'clock-b', 3) },
         settings: { ...choiceSettings, turn_timer_seconds: 60 },
         seasonal_event_cards: [],
-        pending_event: { card: dilemma, target_player_id: 'b' },
+        pending_event: { card: dilemma, target_player_id: 'clock-b' },
         phase_deadline_at: aDeadline,
       }), isolatedMap(gameId, ['a1', 'b1']));
       await timer.scheduleTurnTimeout(gameId, aDeadline); // a's clock, still running
-      const a = await connect('a');
-      await joinRoom('a', gameId);
-      const b = await connect('b');
-      await joinRoom('b', gameId);
+      const a = await connect('clock-a');
+      await joinRoom('clock-a', gameId);
+      const b = await connect('clock-b');
+      await joinRoom('clock-b', gameId);
 
       const cardShown = new Promise<EventCard>((resolve) => b.once('game:event_card', resolve));
       a.emit('game:advance_phase', { gameId });
@@ -536,17 +538,17 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
         phase: 'fortify',
         turn_number: 2,
         players: [
-          player('h', 0),
-          player('a1', 1, { is_ai: true, ai_difficulty: 'easy' }),
-          player('a2', 2, { is_ai: true, ai_difficulty: 'easy' }),
+          player('botcard-h', 0),
+          player('botcard-a1', 1, { is_ai: true, ai_difficulty: 'easy' }),
+          player('botcard-a2', 2, { is_ai: true, ai_difficulty: 'easy' }),
         ],
-        territories: { h1: terr('h1', 'h', 3), t1: terr('t1', 'a1', 3), t2: terr('t2', 'a2', 3) },
+        territories: { h1: terr('h1', 'botcard-h', 3), t1: terr('t1', 'botcard-a1', 3), t2: terr('t2', 'botcard-a2', 3) },
         settings: choiceSettings,
         seasonal_event_cards: [],
-        pending_event: { card: dilemma, target_player_id: 'a1' },
+        pending_event: { card: dilemma, target_player_id: 'botcard-a1' },
       }), isolatedMap(gameId, ['h1', 't1', 't2']));
-      const h = await connect('h');
-      await joinRoom('h', gameId);
+      const h = await connect('botcard-h');
+      await joinRoom('botcard-h', gameId);
 
       // h ends the turn; a1 opens on its card, a2 plays, the turn returns to h.
       h.emit('game:advance_phase', { gameId });
