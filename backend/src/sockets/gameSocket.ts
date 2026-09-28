@@ -1054,8 +1054,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
           return;
         }
       }
+      broadcastEventCard(io, gameId, state, map); // before the save: see broadcastEventCard
       await saveGameState(gameId, state);
-      broadcastEventCard(io, gameId, state, map);
       broadcastState(io, gameId, state);
       maybeEmitCoachingTip(io, gameId, state, map);
 
@@ -1153,8 +1153,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
           return;
         }
       }
+      broadcastEventCard(io, gameId, room.state, room.map); // before the save: see broadcastEventCard
       await saveGameState(gameId, room.state);
-      broadcastEventCard(io, gameId, room.state, room.map);
       broadcastState(io, gameId, room.state);
       maybeEmitCoachingTip(io, gameId, room.state, room.map);
 
@@ -4032,6 +4032,8 @@ export async function shutdownGameSocket(io: Server): Promise<void> {
 /**
  * After advanceToNextPlayer, if an event card was drawn, broadcast it and clear
  * instant (no-choice) events. Choice-based events stay on state until resolved.
+ * Call this BEFORE the hand-off is saved: a state saved with an instant card
+ * still active reloads with it, and the next hand-off applied it again.
  */
 function broadcastEventCard(io: Server, gameId: string, state: GameState, map: GameMap): void {
   if (!state.active_event) return;
@@ -6458,8 +6460,8 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   landPendingDropAssaults(io, gameId, state, map);
   await syncLaneWeatherAndBroadcastMap(io, gameId, room);
   broadcastTransitArrivals(io, gameId, state, map);
+  broadcastEventCard(io, gameId, state, map); // before the save: see broadcastEventCard
   await saveGameState(gameId, state);
-  broadcastEventCard(io, gameId, state, map);
   broadcastState(io, gameId, state);
   maybeEmitCoachingTip(io, gameId, state, map);
 

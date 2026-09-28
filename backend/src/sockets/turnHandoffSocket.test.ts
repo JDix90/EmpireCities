@@ -40,7 +40,7 @@ import { createServer, type Server as HttpServer } from 'http';
 import type { AddressInfo } from 'net';
 import type { Server as IOServer } from 'socket.io';
 import { io as ClientIO, type Socket as ClientSocket } from 'socket.io-client';
-import type { GameState, GameMap, PlayerState, TerritoryState } from '../types';
+import type { GameState, GameMap, PlayerState, TerritoryState, EventCard } from '../types';
 
 const redisTestEnabled = process.env.REDIS_TEST === '1';
 
@@ -286,5 +286,106 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
         p2Clock: p2Job ? await p2Job.getState() : 'none',
       }).toEqual({ seat: 1, phase: 'draft', draftLeft: 3, p2Clock: 'delayed' });
     }, 20_000);
+  });
+
+  // ── Event cards across hand-offs ─────────────────────────────────────────────
+
+  describe('event cards across hand-offs', () => {
+    /** +5 on the human's own tile: whoever's turn applies it, each application shows. */
+    function levyOn(tileId: string, extra: Partial<EventCard> = {}): EventCard {
+      return {
+        card_id: `levy_${tileId}`,
+        title: 'Levy',
+        description: `+5 units on ${tileId}`,
+        category: 'global',
+        era_id: 'custom',
+        effect: { type: 'units_added', target: 'territory', target_id: tileId, value: 5 },
+        ...extra,
+      } as EventCard;
+    }
+
+    // 'custom' has no era deck, so the only cards in play are the test's own.
+    const eventSettings = {
+      fog_of_war: false,
+      allowed_victory_conditions: ['domination'],
+      turn_timer_seconds: 0,
+      initial_unit_count: 3,
+      card_set_escalating: true,
+      diplomacy_enabled: false,
+      events_enabled: true,
+      event_impact_scaling_enabled: false,
+    } as GameState['settings'];
+
+    it('applies a card once when bots hand the turn to bots', async () => {
+      const gameId = 'handoff-event-bots';
+      const card = levyOn('h1');
+      await seed(gameId, buildState(gameId, {
+        era: 'custom' as GameState['era'],
+        phase: 'fortify',
+        turn_number: 2,
+        players: [
+          player('h', 0),
+          player('a1', 1, { is_ai: true, ai_difficulty: 'easy' }),
+          player('a2', 2, { is_ai: true, ai_difficulty: 'easy' }),
+          player('a3', 3, { is_ai: true, ai_difficulty: 'easy' }),
+        ],
+        territories: {
+          h1: terr('h1', 'h', 3), t1: terr('t1', 'a1', 3), t2: terr('t2', 'a2', 3), t3: terr('t3', 'a3', 3),
+        },
+        settings: eventSettings,
+        seasonal_event_cards: [],
+        // This round's card goes to a2, at the start of a2's own turn.
+        pending_event: { card, target_player_id: 'a2' },
+      }), isolatedMap(gameId, ['h1', 't1', 't2', 't3']));
+      const h = await connect('h');
+      await joinRoom('h', gameId);
+      const shown: string[] = [];
+      h.on('game:event_card', (c: EventCard) => shown.push(c.card_id));
+
+      // h ends the turn; a1, a2 and a3 play; the turn comes back to h.
+      h.emit('game:advance_phase', { gameId });
+      const s = await waitForRedisState(gameId, (st) => st.turn_number === 3 && st.current_player_index === 0, 15_000);
+      expect({ h1: s.territories.h1.unit_count, shown: shown.filter((id) => id === card.card_id).length })
+        .toEqual({ h1: 8, shown: 1 });
+      expect(s.active_event).toBeUndefined();
+    }, 30_000);
+
+    it('applies a card once when a bot hands the turn to a human with no turn timer', async () => {
+      const gameId = 'handoff-event-solo';
+      // Hits every player at the start of each round; the round opens on h.
+      const card = levyOn('h1', { affects_all_players: true });
+      await seed(gameId, buildState(gameId, {
+        era: 'custom' as GameState['era'],
+        phase: 'fortify',
+        turn_number: 2,
+        players: [player('h', 0), player('a1', 1, { is_ai: true, ai_difficulty: 'easy' })],
+        territories: { h1: terr('h1', 'h', 3), t1: terr('t1', 'a1', 3) },
+        settings: eventSettings,
+        seasonal_event_cards: [card],
+      }), isolatedMap(gameId, ['h1', 't1']));
+      const h = await connect('h');
+      await joinRoom('h', gameId);
+      const shown: string[] = [];
+      h.on('game:event_card', (c: EventCard) => shown.push(c.card_id));
+
+      // h ends the turn; a1 plays; round 3 opens on h with the card.
+      h.emit('game:advance_phase', { gameId });
+      const opened = await waitForRedisState(gameId, (st) => st.turn_number === 3 && st.current_player_index === 0, 15_000);
+      // Applied at the hand-off and retired before the save: an untimed human
+      // turn writes nothing until h acts, so this is the state h's turn reloads.
+      expect(opened.territories.h1.unit_count).toBe(3 + 5);
+      expect(opened.active_event).toBeUndefined();
+      // h plays an ordinary turn — draft (3 units, auto-placed on h1), attack,
+      // fortify — and ends it. a1's next turn is 1.5s away, so the board read
+      // below is the hand-off's alone.
+      for (const expected of ['attack', 'fortify'] as const) {
+        h.emit('game:advance_phase', { gameId });
+        await waitForRedisState(gameId, (st) => st.phase === expected);
+      }
+      h.emit('game:advance_phase', { gameId });
+      const s = await waitForRedisState(gameId, (st) => st.current_player_index === 1);
+      expect({ h1: s.territories.h1.unit_count, shown: shown.filter((id) => id === card.card_id).length })
+        .toEqual({ h1: 3 + 5 + 3, shown: 1 });
+    }, 30_000);
   });
 });
