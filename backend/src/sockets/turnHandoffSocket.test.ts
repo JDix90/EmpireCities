@@ -1,7 +1,8 @@
 /**
  * Turn hand-off paths through the real socket server and a real Redis room:
  * the real-time turn clock, event cards across hand-offs, AI turns around game
- * over, and choice cards on away seats.
+ * over, resigning, wins that must not wait for a hand-off, and choice cards on
+ * away seats.
  *
  * Redis-gated like the rest of the Redis tier. It starts the BullMQ turn-timer
  * worker, so run it on a Redis no other suite is scheduling turn timers on:
@@ -566,6 +567,109 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
       ]);
       a.emit('game:attack', { gameId, fromId: 'a1', toId: 'b1' });
       expect(await outcome).toBe('combat');
+    }, 20_000);
+  });
+
+  // ── Winning without a capture ───────────────────────────────────────────────
+
+  describe('winning without a capture', () => {
+    // Transcendence: the final era of the spine (Medieval on 'poc') and a wonder.
+    const transcendenceSettings = {
+      fog_of_war: false,
+      allowed_victory_conditions: ['domination', 'transcendence'],
+      turn_timer_seconds: 0,
+      initial_unit_count: 3,
+      card_set_escalating: true,
+      diplomacy_enabled: false,
+      era_advancement_enabled: true,
+      era_advancement_spine_id: 'poc',
+      economy_enabled: true,
+    } as GameState['settings'];
+
+    /** The first game:state the room is told is over, or null after `ms`. */
+    function gameOverState(client: ClientSocket, ms = 3_000): Promise<GameState | null> {
+      return new Promise((resolve) => {
+        const t = setTimeout(() => resolve(null), ms);
+        client.on('game:state', (s: GameState) => {
+          if (s.phase === 'game_over') { clearTimeout(t); resolve(s); }
+        });
+      });
+    }
+
+    it('a wonder that completes Transcendence wins on the spot', async () => {
+      const gameId = 'handoff-win-wonder';
+      await seed(gameId, buildState(gameId, {
+        players: [
+          player('wonder-a', 0, { current_era_index: 1, special_resource: 500 }),
+          player('wonder-b', 1),
+        ],
+        territories: { a1: terr('a1', 'wonder-a', 3), b1: terr('b1', 'wonder-b', 3) },
+        settings: transcendenceSettings,
+      }), isolatedMap(gameId, ['a1', 'b1']));
+      const a = await connect('wonder-a');
+      await joinRoom('wonder-a', gameId);
+
+      const over = gameOverState(a);
+      a.emit('game:build', { gameId, territoryId: 'a1', buildingType: 'wonder_cathedral' });
+      const s = await over;
+      expect(s && { winner: s.winner_id, condition: s.victory_condition })
+        .toEqual({ winner: 'wonder-a', condition: 'transcendence' });
+    }, 20_000);
+
+    it('reaching the final era with a wonder in hand wins on the spot', async () => {
+      const gameId = 'handoff-win-era';
+      const a1 = { ...terr('a1', 'era-a', 3), buildings: ['wonder_colosseum'] } as TerritoryState;
+      await seed(gameId, buildState(gameId, {
+        era: 'ancient',
+        players: [
+          player('era-a', 0, { current_era_index: 0, special_resource: 500 }),
+          player('era-b', 1),
+        ],
+        territories: { a1, b1: terr('b1', 'era-b', 3) },
+        settings: transcendenceSettings,
+      }), isolatedMap(gameId, ['a1', 'b1']));
+      const a = await connect('era-a');
+      await joinRoom('era-a', gameId);
+
+      const over = gameOverState(a);
+      a.emit('game:advance_era', { gameId });
+      const s = await over;
+      expect(s && { winner: s.winner_id, condition: s.victory_condition })
+        .toEqual({ winner: 'era-a', condition: 'transcendence' });
+    }, 20_000);
+
+    it('a bot that reaches the final era with a wonder in hand wins on the spot too', async () => {
+      const gameId = 'handoff-win-bot';
+      const t1 = { ...terr('t1', 'erabot-a1', 3), buildings: ['wonder_colosseum'] } as TerritoryState;
+      await seed(gameId, buildState(gameId, {
+        era: 'ancient',
+        phase: 'fortify',
+        turn_number: 5,
+        players: [
+          player('erabot-h', 0),
+          // An expert with gold to spare on a quiet board advances as its turn opens.
+          player('erabot-a1', 1, { is_ai: true, ai_difficulty: 'expert', current_era_index: 0, special_resource: 500 }),
+        ],
+        territories: { h1: terr('h1', 'erabot-h', 3), t1 },
+        settings: transcendenceSettings,
+      }), isolatedMap(gameId, ['h1', 't1']));
+      const h = await connect('erabot-h');
+      await joinRoom('erabot-h', gameId);
+      const botPhases: string[] = [];
+      let backToHuman = false;
+      h.on('game:state', (st: GameState) => {
+        if (st.current_player_index === 1) botPhases.push(st.phase);
+        else if (botPhases.length > 0) backToHuman = true;
+      });
+
+      h.emit('game:advance_phase', { gameId }); // h ends the turn; the bot's opens
+      const finalized = () => pg.poolCalls.some((sql) => sql.includes("SET status = 'completed'"));
+      for (let i = 0; i < 300 && !finalized(); i++) await sleep(25);
+      await sleep(300);
+      // The bot's era advance ends the game in its draft: no attack or fortify
+      // played on a won board, and no hand-off first.
+      expect({ finalized: finalized(), playedOn: botPhases.filter((p) => p !== 'draft'), backToHuman })
+        .toEqual({ finalized: true, playedOn: [], backToHuman: false });
     }, 20_000);
   });
 

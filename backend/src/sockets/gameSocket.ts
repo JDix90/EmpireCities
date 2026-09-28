@@ -2786,6 +2786,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
         return;
       }
+      if (await finishIfWon(io, gameId, state, map)) return;
       broadcastState(io, gameId, state);
       void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
       });
@@ -2963,6 +2964,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         captureProbBefore(state, userId),
       );
       socket.emit('game:advance_era_result', { success: true, era_id: nextEraId });
+      if (await finishIfWon(io, gameId, state, room.map)) return;
       broadcastState(io, gameId, state);
       void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
       });
@@ -4121,6 +4123,24 @@ export async function shutdownGameSocket(io: Server): Promise<void> {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * End the game now if the move just made won it. For a move that can complete
+ * a win without taking a territory (a wonder built or an era reached, which
+ * Transcendence needs): checking only at the next hand-off left the incoming
+ * player's turn start (income, events, rebellions) to run on a won board first.
+ */
+async function finishIfWon(io: Server, gameId: string, state: GameState, map: GameMap): Promise<boolean> {
+  const victory = checkVictory(state, map);
+  if (!victory) return false;
+  state.phase = 'game_over';
+  state.winner_id = victory.winnerIds[0]!;
+  state.winner_ids = victory.winnerIds;
+  state.victory_condition = victory.condition;
+  await finalizeGame(io, gameId, state, victory.winnerIds);
+  broadcastState(io, gameId, state);
+  return true;
+}
 
 /**
  * After advanceToNextPlayer, if an event card was drawn, broadcast it and clear
@@ -5777,6 +5797,8 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       }
     }
     broadcastState(io, gameId, state);
+    // A wonder can complete Transcendence: the bot wins now, as a human would.
+    if (await doVictoryCheck()) return;
   }
 
   if (
@@ -5799,6 +5821,8 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       room.map = await applyEraBoardChange(io, gameId, state, map, nextEraId);
       broadcastState(io, gameId, state);
       void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
+      // Reaching the final era can complete Transcendence.
+      if (await doVictoryCheck()) return;
       await delay();
     }
   }
