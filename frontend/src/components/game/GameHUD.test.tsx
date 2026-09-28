@@ -430,3 +430,37 @@ describe('GameHUD — map control tracker', () => {
     expect(screen.queryByTestId('map-control-progress')).toBeNull();
   });
 });
+
+describe('GameHUD — fleet battle dice', () => {
+  beforeEach(() => {
+    try { localStorage.clear(); } catch { /* ignore */ }
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+      addListener: vi.fn(), removeListener: vi.fn(),
+    }) as unknown as typeof window.matchMedia;
+    useAuthStore.setState({ user: { user_id: 'me', username: 'me', level: 1, xp: 0, mmr: 1000 } } as never);
+  });
+
+  it('shows a fleet battle’s dice in the Log tab, above the landing’s', () => {
+    useGameStore.setState({
+      gameState: makeState(),
+      draftUnitsRemaining: 0,
+      lastCombatResult: {
+        attacker_rolls: [5], defender_rolls: [2], attacker_losses: 0, defender_losses: 1,
+        territory_captured: true, fromId: 'a', toId: 'b',
+      },
+      lastNavalCombat: {
+        fromId: 'a', toId: 'b', attacker_rolls: [6, 1], defender_rolls: [4],
+        attacker_losses: 1, defender_losses: 1, attacker_won: true,
+      },
+    } as never);
+    renderHud();
+    fireEvent.click(screen.getByRole('tab', { name: /Log/ }));
+    const naval = screen.getByTestId('naval-dice-result');
+    expect(naval).toHaveTextContent('Fleet battle');
+    expect(naval).toHaveTextContent('Lost 1 fleet');
+    // Fleet battle first, then the land battle's "Territory Captured!".
+    const captured = screen.getByText('Territory Captured!');
+    expect(naval.compareDocumentPosition(captured) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});

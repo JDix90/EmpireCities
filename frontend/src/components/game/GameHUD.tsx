@@ -5,6 +5,7 @@ import { ArrowRight, ChevronDown, ChevronUp, Clock, CreditCard, Flag, LogOut, Sa
 import clsx from 'clsx';
 import { computeDraftPool } from '../../utils/draftPool';
 import EraModifierBadge from './EraModifierBadge';
+import NavalDiceResult from './NavalDiceResult';
 import SpaceProgramTracker from './SpaceProgramTracker';
 import AdvanceEraPanel from './AdvanceEraPanel';
 import EraTimelineStrip from './EraTimelineStrip';
@@ -133,7 +134,7 @@ export default function GameHUD({
   onConnectionHintPreferenceChange,
   denseMap = false,
 }: GameHUDProps) {
-  const { gameState, draftUnitsRemaining, lastCombatResult } = useGameStore();
+  const { gameState, draftUnitsRemaining, lastCombatResult, lastNavalCombat } = useGameStore();
   const { user } = useAuthStore();
   const [showCards, setShowCards] = useState(false);
   const [selectedCards, setSelectedCards] = useState<string[]>([]);
@@ -147,6 +148,7 @@ export default function GameHUD({
   // Seed with the mount-time result so re-joining a game mid-combat doesn't
   // flash a phantom "new result" dot before the player has done anything.
   const lastResultRef = useRef(lastCombatResult);
+  const lastNavalRef = useRef(lastNavalCombat);
 
   useEffect(() => subscribeUserPreferences(() => {
     setFastCombat(getFastCombatPreference());
@@ -166,7 +168,11 @@ export default function GameHUD({
       lastResultRef.current = lastCombatResult;
       if (activeTab !== 'log') setLogUnread(true);
     }
-  }, [lastCombatResult, activeTab]);
+    if (lastNavalCombat && lastNavalCombat !== lastNavalRef.current) {
+      lastNavalRef.current = lastNavalCombat;
+      if (activeTab !== 'log') setLogUnread(true);
+    }
+  }, [lastCombatResult, lastNavalCombat, activeTab]);
 
   const currentPlayer = gameState?.players[gameState?.current_player_index ?? 0];
   const myPlayer = resolvedViewerPlayerId
@@ -731,8 +737,17 @@ export default function GameHUD({
       {/* Combat Log */}
       {activeTab === 'log' && (
         <div className="p-4">
-          {gameState.phase === 'attack' && isMyTurn && !lastCombatResult && (
+          {gameState.phase === 'attack' && isMyTurn && !lastCombatResult && !lastNavalCombat && (
             <p className="text-xs text-bf-muted/70 mb-3 italic">Each attack is one battle round — repeat to keep fighting.</p>
+          )}
+          {/* A sea crossing's fleet battle comes first, so it sits above the landing's dice. */}
+          {lastNavalCombat && (
+            <NavalDiceResult
+              result={lastNavalCombat}
+              attackerName={lastNavalCombat.attackerName}
+              defenderName={lastNavalCombat.defenderName}
+              mapNameLookup={mapNameLookup}
+            />
           )}
           {lastCombatResult && (
             <div className="mb-3 p-3 bg-bf-dark rounded-lg border border-bf-border text-xs space-y-2">
@@ -810,7 +825,7 @@ export default function GameHUD({
                 )}>{entry}</p>
               ))}
             </div>
-          ) : !lastCombatResult && (
+          ) : !lastCombatResult && !lastNavalCombat && (
             <p className="text-xs text-bf-muted/70 text-center py-4">No battles yet this game.</p>
           )}
         </div>
