@@ -145,6 +145,7 @@ import {
   GameRoomNotFoundError,
   persistGameStateAfterMutation,
   flushGameState,
+  flushPendingPostgresSave,
   flushAllPendingPostgresSaves,
   saveGameMapAuthoritative,
   evictGameRoom,
@@ -3689,7 +3690,9 @@ export function initGameSocket(httpServer: HttpServer): Server {
         return;
       }
 
-      await saveGameState(gameId, state);
+      // Bring the Postgres backup up to date. Never a save of `state`: this
+      // handler holds no lock, and that copy predates any move made since.
+      flushPendingPostgresSave(gameId);
 
       const humansConnected = await hasHumanConnections(gameId, state);
       if (!humansConnected) {
@@ -4075,7 +4078,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
           const humansConnected = await hasHumanConnections(gameId, room.state);
           if (!humansConnected) {
-            await saveGameState(gameId, room.state);
+            // As in game:leave: no lock here, so never save the loaded copy.
+            flushPendingPostgresSave(gameId);
             armGameEviction(io, gameId, room.state.map_id, 'after disconnect');
           }
           // Mark the departed human's seat as away so the AI covers their turns

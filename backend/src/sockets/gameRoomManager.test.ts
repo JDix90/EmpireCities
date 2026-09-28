@@ -25,7 +25,7 @@ vi.mock('./redisGameStore', () => ({
   isAiInFlight: vi.fn(),
 }));
 
-import { queryOne } from '../db/postgres';
+import { query, queryOne } from '../db/postgres';
 import { resolveMap } from './mapResolver';
 import { getGameState, getGameMap, setGameState, getConnectedPlayers } from './redisGameStore';
 import {
@@ -34,6 +34,7 @@ import {
   mapIdForSavedState,
   persistGameStateAfterMutation,
   flushGameState,
+  flushPendingPostgresSave,
   setCachedRoom,
   deleteCachedRoom,
   getCachedRoom,
@@ -166,6 +167,39 @@ describe('flushGameState', () => {
     const state = makeState('game-flush-1');
     await flushGameState('game-flush-1', state);
     expect(setGameState).toHaveBeenCalledWith('game-flush-1', state);
+  });
+});
+
+/**
+ * The flush game:leave and the last disconnect use: they hold no game lock, so
+ * it must never write a room they loaded (see gameLeaveSocket.test.ts).
+ */
+describe('flushPendingPostgresSave', () => {
+  const backupsOf = (gameId: string) =>
+    vi.mocked(query).mock.calls.filter(([, params]) => (params as unknown[] | undefined)?.[0] === gameId);
+
+  beforeEach(() => {
+    vi.mocked(setGameState).mockReset();
+    vi.mocked(setGameState).mockResolvedValue(undefined);
+  });
+
+  it('writes the pending Postgres backup now, once, and never touches Redis', async () => {
+    const state = makeState('game-flush-2', 4);
+    await persistGameStateAfterMutation('game-flush-2', state);
+    vi.mocked(setGameState).mockClear();
+
+    flushPendingPostgresSave('game-flush-2');
+    expect(backupsOf('game-flush-2').map(([, params]) => params)).toEqual([
+      ['game-flush-2', 4, JSON.stringify(state)],
+    ]);
+    await new Promise((r) => setTimeout(r, 900)); // past the debounce: nothing more is written
+    expect(backupsOf('game-flush-2')).toHaveLength(1);
+    expect(setGameState).not.toHaveBeenCalled();
+  });
+
+  it('writes nothing when no backup is pending', () => {
+    flushPendingPostgresSave('game-flush-3');
+    expect(backupsOf('game-flush-3')).toHaveLength(0);
   });
 });
 
