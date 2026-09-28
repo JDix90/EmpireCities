@@ -56,6 +56,7 @@ import {
   phaseTintClass,
 } from '../utils/mapAmbientEffects';
 import GameHUD from '../components/game/GameHUD';
+import { MapControlChip } from '../components/game/MapControlTracker';
 import AiTurnRecapPanel, { appendRecap, type TurnRecapEntry } from '../components/game/AiTurnRecapPanel';
 import GameStartModal, { isOpeningState } from '../components/game/GameStartModal';
 import SpaceAgeGuideModal from '../components/game/SpaceAgeGuide';
@@ -169,6 +170,7 @@ import { computeMapDensityMetrics } from '../utils/mapInteractionDensity';
 import ConnectionHintsSetting from '../components/game/ConnectionHintsSetting';
 import { inferWorldId, aiPlayerName } from '@borderfall/shared';
 import { viewerHoldsVaultSeal, worldDisplayName, worldsInPlay } from '../utils/galaxyLanes';
+import { mapControlProgress } from '../utils/mapControl';
 import {
   getOrbitAccessResult,
   lunarTerritoryCount,
@@ -3456,7 +3458,7 @@ export default function GamePage() {
           allowed_victory_conditions: ['domination'],
           initial_unit_count: 3,
           card_set_escalating: true,
-          diplomacy_enabled: true,
+          diplomacy_enabled: false,
         },
       });
       setPostTutorialPrompt(false);
@@ -3827,6 +3829,9 @@ export default function GamePage() {
             p.player_id === user?.user_id ||
             (!!user?.username && p.username === user.username),
         );
+  // Territory Threshold games (Quick Match's 50% and 65% endings among them):
+  // the viewer's share of the map against the share that wins, in the top bar.
+  const viewerMapControl = mapControlProgress(gameState, mobileMyPlayer?.player_id ?? null);
   const mobileIsMyTurn =
     !!mobileMyPlayer &&
     gameState?.players[gameState.current_player_index]?.player_id === mobileMyPlayer.player_id;
@@ -4503,15 +4508,23 @@ export default function GamePage() {
           fixed era, so it read "Ancient World" seconds after the arrival modal
           announced Medieval. Falls back to the map era for spectators and for
           games without era advancement.
+
+          It gives way to the map-control meter when a phone is short of room:
+          truncated first, and dropped with its separator below 360px, where
+          all that would be left of it is "A…".
         */}
         <span
-          className="text-bf-muted text-xs capitalize"
+          className={clsx(
+            'text-bf-muted text-xs capitalize min-w-0 truncate',
+            viewerMapControl && 'max-[359px]:hidden',
+          )}
           title={gameState.settings.era_advancement_enabled ? 'Your civilization\u2019s current era' : undefined}
         >
           {formatEraLabel(playerTechEra ?? gameState.era)}
         </span>
-        <span className="text-bf-muted text-xs">·</span>
-        <span className="text-bf-muted text-xs">Turn {gameState.turn_number}</span>
+        <span className={clsx('text-bf-muted text-xs', viewerMapControl && 'max-[359px]:hidden')}>·</span>
+        <span className="text-bf-muted text-xs whitespace-nowrap shrink-0">Turn {gameState.turn_number}</span>
+        {viewerMapControl && <MapControlChip progress={viewerMapControl} />}
         <div className="flex-1" />
         {/* Globe/2D toggle — full buttons on desktop, icon-only on mobile */}
         <div className="flex gap-1">

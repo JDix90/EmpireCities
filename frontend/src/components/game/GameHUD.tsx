@@ -25,6 +25,8 @@ import { countOwnedLunarTerritories, lunarTerritoryCount, type FrontendMapData }
 import { incomingDropAssaultsAgainst } from '../../utils/dropAssaults';
 import { hegemonyBanner, hegemonyTurnsFor } from '../../utils/lunarHegemony';
 import { laneSovereigntyProgress } from '../../utils/galaxyLanes';
+import { mapControlProgress } from '../../utils/mapControl';
+import { MapControlObjective } from './MapControlTracker';
 import {
   describeSecretMission,
   resolveTerritoryName,
@@ -183,6 +185,8 @@ export default function GameHUD({
   // Galactic Age Lane Sovereignty: corridors held now (computed here, since the
   // viewer always sees their own tiles) beside the server-ticked round streak.
   const sovereignty = laneSovereigntyProgress(gameState, mapData?.connections, myPlayer?.player_id ?? null);
+  // Territory Threshold: share of the map held against the share that wins.
+  const mapControl = mapControlProgress(gameState, myPlayer?.player_id ?? null);
   const turnClarityEnabled = useTurnClarityEnabled();
   const draftPool = computeDraftPool(
     gameState,
@@ -461,9 +465,10 @@ export default function GameHUD({
 
       {activeTab === 'status' && (
         <>
-          {myPlayer && (myPlayer.capital_territory_id || myPlayer.secret_mission || sovereignty.applicable) && (
+          {myPlayer && (myPlayer.capital_territory_id || myPlayer.secret_mission || sovereignty.applicable || mapControl) && (
             <div className="px-4 py-3 border-b border-bf-border bg-bf-dark/40">
               <h3 className="text-xs font-medium text-bf-muted uppercase tracking-wider mb-2">Objectives</h3>
+              {mapControl && <MapControlObjective progress={mapControl} />}
               {sovereignty.applicable && (
                 <div className="mb-2" data-testid="lane-sovereignty-progress">
                   <p className="text-xs text-bf-text">
@@ -665,7 +670,7 @@ export default function GameHUD({
             </div>
           )}
 
-          {!myPlayer?.capital_territory_id && !myPlayer?.secret_mission && !sovereignty.applicable
+          {!myPlayer?.capital_territory_id && !myPlayer?.secret_mission && !sovereignty.applicable && !mapControl
             && !(gameState.settings.economy_enabled || gameState.settings.tech_trees_enabled)
             && !(myPlayer && myPlayer.cards.length > 0) && (
             <p className="px-4 py-6 text-xs text-bf-muted/70 text-center">No objectives, resources, or cards yet.</p>

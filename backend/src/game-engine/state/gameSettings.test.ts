@@ -125,3 +125,10 @@ describe('galaxy_plain_lanes', () => {
     expect(normalizeGameSettings(on).galaxy_plain_lanes).toBe(true);
   });
 });
+
+describe('diplomacy default', () => {
+  it('is off when a caller leaves it out, like every other opt-in rule', () => {
+    expect(normalizeGameSettings({}).diplomacy_enabled).toBe(false);
+    expect(normalizeGameSettings({ diplomacy_enabled: true }).diplomacy_enabled).toBe(true);
+  });
+});

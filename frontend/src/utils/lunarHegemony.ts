@@ -32,7 +32,7 @@ export function hegemonyTurnsFor(settings: GameState['settings'] | null | undefi
  * `getAllowedVictoryConditions` resolves them: the list when it has entries,
  * nothing when it is deliberately empty, else the legacy single type.
  */
-function allowedVictoryConditions(settings: GameState['settings']): string[] {
+export function allowedVictoryConditions(settings: GameState['settings']): string[] {
   const list = settings.allowed_victory_conditions;
   if (Array.isArray(list)) return list;
   return [settings.victory_type ?? 'domination'];

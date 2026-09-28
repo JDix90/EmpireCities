@@ -982,24 +982,32 @@ export function getCustomMapImmersion(mapId: string | null | undefined): CustomM
   return CUSTOM_MAP_IMMERSION[mapId] ?? null;
 }
 
-/** Default mechanic blurbs (lobby tooltips) — prepended by theater lore when a curated map is selected. */
+/**
+ * Default mechanic blurbs (lobby tooltips) — prepended by theater lore when a curated map is selected.
+ *
+ * Each line describes what the server actually does with the setting, in the
+ * words the game shows in play (PP and TP as the HUD chips say, building names
+ * from BUILDING_DISPLAY). Tech Points and fleets are both paid out by the
+ * economy (collectProduction and Port/Naval Base income), which is why the
+ * lobby turns Economy & Buildings on with Technology Trees or Naval Warfare.
+ */
 const MECHANIC_BASE: Record<AdvancedFeatureKey, string> = {
   territory_draft:
-    'All territories start neutral. Players take turns selecting which territories they want instead of random assignment. Incompatible with Asymmetric Factions.',
+    'Instead of a random deal, players take turns claiming one territory at a time until the whole map is taken; each claim starts with 3 units. Can’t be combined with Asymmetric Factions.',
   asymmetric_factions:
-    "Each player or faction starts with a unique bonus — extra units, defensive perks, or special abilities tied to the era's major powers. Incompatible with Territory Draft.",
+    'Each player leads one of the era’s powers — chosen in the waiting room or assigned at random — with its own kit: extra reinforcements or dice, and a special ability. Territories are dealt around each power’s homeland instead of at random. An era with fewer powers than players leaves the extra seats without one. Can’t be combined with Territory Draft.',
   economy_buildings:
-    'Territories generate Production Points each turn. Spend them to construct buildings (farms, forts, ports, labs) that boost income, defense, research, or naval power.',
+    'Earn Production Points (PP) at the start of each turn: 1 for every 3 territories, plus what your buildings make. Spend PP on Workshops (more PP), Palisades (extra defense dice) and their upgrades, and on your era’s Wonder, which only one player can build. Laboratories only pay out with Technology Trees on, and Ports need Naval Warfare. Capturing a territory razes its buildings, except a Wonder.',
   tech_trees:
-    'Earn Tech Points and research upgrades — improved combat dice, faster production, naval range, or era-specific breakthroughs — that compound advantages over time.',
+    'Spend Tech Points (TP) on your era’s tech tree: extra attack or defense dice, more reinforcements, more TP, new buildings and special abilities. TP comes from Economy & Buildings — 1 for every 5 territories, plus Laboratories — so ticking this turns Economy & Buildings on too.',
   historical_events:
-    'Era-specific event cards are drawn each turn — plagues, rebellions, trade booms, or political crises. Some affect all players; others let you choose a strategic response.',
+    'Every round after the first opens with a card from this era’s event deck: plagues, revolts, windfalls, crises and forced truces. Some hit every player; others hit one, and some of those offer a choice of two responses. Effects grow stronger as the game goes on. Cards that change production or stability only matter with Economy & Buildings or Population & Stability on.',
   naval_warfare:
-    'Coastal territories can build and station fleets. Move fleets across sea connections to project power, blockade enemies, or launch amphibious attacks on distant shores.',
+    'Attacking across a sea connection takes a fleet: each crossing uses one, and fleets on the far shore fight first and add defense dice. Fleets come from Ports (+1 a turn) and Naval Bases (+2) on coastal territories, so ticking this turns Economy & Buildings on too. You can also move fleets between your own coasts and sink enemy fleets with Fleet Attack.',
   population_stability:
-    'Each territory tracks stability (0–100%) and population (1–10). Low stability reduces income, caps unit placement, and risks rebellion. High stability grows population, which boosts production. Captured territories start at 30% stability with halved population. Select factions gain faster stability recovery.',
+    'Each territory has Stability (0–100%) and Population (1–10). Below 50% stability a territory takes only a few reinforcements per turn, and at 10% or less it can rebel, losing units and even the territory. Stability recovers every turn, and at 50% or more population can grow. Captured territories drop to 30% stability with half their population. With Economy & Buildings on, both scale what your buildings produce.',
   fog_of_war:
-    'Players can only see territories they own and neighboring enemy positions. Hidden territories conceal unit counts, making scouting and border control more important.',
+    'You still see who owns every territory, but unit counts, buildings, fleets and stability are hidden except on your own territories and the ones bordering them. Some techs and factions reveal more. The AI plays under the same fog.',
 };
 
 /**
@@ -1010,6 +1018,8 @@ export function advancedFeatureTooltip(mapId: string | null | undefined, key: Ad
   const base = MECHANIC_BASE[key];
   const imm = getCustomMapImmersion(mapId);
   if (!imm) return base;
-  const { lore, effectFlavor } = imm.advanced[key];
-  return `${lore}\n\nHow it feels here: ${effectFlavor}\n\nRules: ${base}`;
+  // Lore and rules only. `effectFlavor` described map-specific rules the engine
+  // does not have (fleets blockading straits, halved reinforcements), so it is
+  // no longer shown next to the rules it contradicted.
+  return `${imm.advanced[key].lore}\n\nRules: ${base}`;
 }
