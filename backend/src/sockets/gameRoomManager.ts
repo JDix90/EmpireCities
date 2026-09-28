@@ -139,6 +139,24 @@ export async function hasHumanConnections(gameId: string, state: GameState): Pro
   return [...local.values()].some((pid) => state.players.some((p) => p.player_id === pid && !p.is_ai));
 }
 
+/**
+ * Is a human other than `playerId`, still in the game, connected? That is who
+ * an away seat's turn keeps waiting. Same presence sources as
+ * hasHumanConnections.
+ */
+export async function hasOtherActiveHumanConnected(
+  gameId: string,
+  state: GameState,
+  playerId: string,
+): Promise<boolean> {
+  const waiting = (pid: string) =>
+    pid !== playerId && state.players.some((p) => p.player_id === pid && !p.is_ai && !p.is_eliminated);
+  const connectedIds = await getConnectedPlayers(gameId);
+  if (connectedIds.length > 0) return connectedIds.some(waiting);
+  const local = connectedSocketsByGame.get(gameId);
+  return !!local && [...local.values()].some(waiting);
+}
+
 function repairRoom(state: GameState, map: GameMap): void {
   repairDraftUnitsIfMissing(state, map);
   repairLegacyGameState(state, map);

@@ -27,7 +27,7 @@ vi.mock('./redisGameStore', () => ({
 
 import { queryOne } from '../db/postgres';
 import { resolveMap } from './mapResolver';
-import { getGameState, getGameMap, setGameState } from './redisGameStore';
+import { getGameState, getGameMap, setGameState, getConnectedPlayers } from './redisGameStore';
 import {
   loadAuthoritativeRoom,
   loadGameRoomFromPostgres,
@@ -37,6 +37,8 @@ import {
   setCachedRoom,
   deleteCachedRoom,
   getCachedRoom,
+  connectSocket,
+  hasOtherActiveHumanConnected,
 } from './gameRoomManager';
 import { resetMigrationMetrics, getMigrationMetrics } from './migrationMetrics';
 
@@ -204,5 +206,41 @@ describe('recovering a board that has transformed era', () => {
 
     expect(resolveMap).toHaveBeenCalledWith('era_medieval');
     expect(room?.map.map_id).toBe('era_medieval');
+  });
+});
+
+/**
+ * The away-AI covers a seat only while someone else is at the table waiting on
+ * it (driveCurrentSeatIfAi).
+ */
+describe('hasOtherActiveHumanConnected', () => {
+  const withPlayers = (players: Array<Partial<GameState['players'][number]>>): GameState =>
+    ({ ...makeState('game-presence'), players } as unknown as GameState);
+  const table = withPlayers([
+    { player_id: 'away', is_ai: false, is_eliminated: false },
+    { player_id: 'other', is_ai: false, is_eliminated: false },
+    { player_id: 'out', is_ai: false, is_eliminated: true },
+    { player_id: 'bot', is_ai: true, is_eliminated: false },
+  ]);
+
+  beforeEach(() => {
+    deleteCachedRoom('game-presence');
+    vi.mocked(getConnectedPlayers).mockReset().mockResolvedValue([]);
+  });
+
+  it('counts another human still in the game', async () => {
+    vi.mocked(getConnectedPlayers).mockResolvedValue(['away', 'other']);
+    expect(await hasOtherActiveHumanConnected('game-presence', table, 'away')).toBe(true);
+  });
+
+  it('does not count the seat itself, a bot or an eliminated player', async () => {
+    vi.mocked(getConnectedPlayers).mockResolvedValue(['away', 'out', 'bot']);
+    expect(await hasOtherActiveHumanConnected('game-presence', table, 'away')).toBe(false);
+  });
+
+  it('reads this instance\'s sockets when Redis holds no presence', async () => {
+    expect(await hasOtherActiveHumanConnected('game-presence', table, 'away')).toBe(false);
+    connectSocket('game-presence', 'socket-1', 'other');
+    expect(await hasOtherActiveHumanConnected('game-presence', table, 'away')).toBe(true);
   });
 });

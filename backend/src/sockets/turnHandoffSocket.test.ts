@@ -204,6 +204,14 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
     throw new Error(`server socket for ${userId} not found`);
   }
 
+  /** joinRoom, and record the player as at the table, as game:join does. */
+  async function joinRoomPresent(userId: string, gameId: string): Promise<void> {
+    await joinRoom(userId, gameId);
+    const s = [...ioServer.sockets.sockets.values()].find((sk) => sk.data?.userId === userId)!;
+    const { onPlayerConnected } = await import('./gameRoomManager');
+    await onPlayerConnected(gameId, s.id, userId);
+  }
+
   function sleep(ms: number): Promise<void> {
     return new Promise((r) => setTimeout(r, ms));
   }
@@ -436,6 +444,85 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
     }, 20_000);
   });
 
+  // ── Resigning on your own turn ────────────────────────────────────────────────
+
+  describe('resigning on your own turn', () => {
+    it('in the Territory Draft passes the pick, and the draft goes on to its end', async () => {
+      const gameId = 'handoff-resign-pick';
+      await seed(gameId, buildState(gameId, {
+        phase: 'territory_select',
+        turn_number: 1,
+        players: [player('pick-a', 0), player('pick-b', 1), player('pick-c', 2)],
+        territories: {
+          a: terr('a', 'pick-a', 3), b: terr('b', 'pick-b', 3), c: terr('c', 'pick-c', 3), d: terr('d', null, 0),
+        },
+        settings: { ...buildState(gameId, {}).settings, territory_selection: true },
+      }), isolatedMap(gameId, ['a', 'b', 'c', 'd']));
+      const a = await connect('pick-a');
+      await joinRoom('pick-a', gameId);
+      const b = await connect('pick-b');
+      await joinRoom('pick-b', gameId);
+      const c = await connect('pick-c');
+      await joinRoom('pick-c', gameId);
+
+      a.emit('game:resign', { gameId });
+      const passed = await waitForRedisState(gameId, (s) => s.players[0]!.is_eliminated);
+      // b picks next, and a's tile is back in the pool.
+      expect({ phase: passed.phase, seat: passed.current_player_index, a: passed.territories.a.owner_id })
+        .toEqual({ phase: 'territory_select', seat: 1, a: null });
+
+      b.emit('game:select_territory', { gameId, territoryId: 'a' });
+      await waitForRedisState(gameId, (s) => s.current_player_index === 2);
+      c.emit('game:select_territory', { gameId, territoryId: 'd' });
+      const s = await waitForRedisState(gameId, (st) => st.phase !== 'territory_select');
+      // The last claim ends the draft the normal way: turn one opens on a
+      // board where every tile has an owner and a garrison.
+      expect({
+        phase: s.phase,
+        turn: s.turn_number,
+        a: [s.territories.a.owner_id, s.territories.a.unit_count],
+        d: [s.territories.d.owner_id, s.territories.d.unit_count],
+      }).toEqual({ phase: 'draft', turn: 1, a: ['pick-b', 3], d: ['pick-c', 3] });
+    }, 20_000);
+
+    it('hands the next player a fresh clock, and the resigner\'s never fires on it', async () => {
+      const gameId = 'handoff-resign-clock';
+      const aDeadline = Date.now() + 1_000; // a had a second left of a 60s clock
+      await seed(gameId, buildState(gameId, {
+        phase: 'attack',
+        turn_number: 4, // past the resign grace window: the game goes on
+        players: [player('rclock-a', 0), player('rclock-b', 1), player('rclock-c', 2)],
+        territories: { a1: terr('a1', 'rclock-a', 3), b1: terr('b1', 'rclock-b', 3), c1: terr('c1', 'rclock-c', 3) },
+        settings: { ...buildState(gameId, {}).settings, turn_timer_seconds: 60 },
+        phase_deadline_at: aDeadline,
+      }), isolatedMap(gameId, ['a1', 'b1', 'c1']));
+      await timer.scheduleTurnTimeout(gameId, aDeadline); // a's clock, still running
+      const a = await connect('rclock-a');
+      await joinRoom('rclock-a', gameId);
+
+      a.emit('game:resign', { gameId });
+      const handed = await waitForRedisState(gameId, (s) => s.current_player_index === 1);
+      await sleep(1_500); // past a's deadline
+      const s = (await getGameState(gameId))!;
+      const aJob = await timer.turnTimerQueue.getJob(timer.turnTimerJobId(gameId, aDeadline));
+      const bJob = await timer.turnTimerQueue.getJob(timer.turnTimerJobId(gameId, s.phase_deadline_at ?? 0));
+      // b's draft is untouched and runs on b's own 60s clock.
+      expect({
+        phase: s.phase,
+        draftLeft: s.draft_units_remaining,
+        freshClock: (s.phase_deadline_at ?? 0) - aDeadline > 50_000,
+        aClock: aJob ? await aJob.getState() : 'none',
+        bClock: bJob ? await bJob.getState() : 'none',
+      }).toEqual({
+        phase: 'draft',
+        draftLeft: handed.draft_units_remaining,
+        freshClock: true,
+        aClock: 'none',
+        bClock: 'delayed',
+      });
+    }, 20_000);
+  });
+
   // ── Choice cards ──────────────────────────────────────────────────────────────
 
   describe('choice cards', () => {
@@ -480,7 +567,8 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
         pending_event: { card: dilemma, target_player_id: 'away-b' },
       }), isolatedMap(gameId, ['a1', 'b1']));
       const a = await connect('away-a');
-      await joinRoom('away-a', gameId);
+      // Present: the away-AI covers a seat only while someone else waits on it.
+      await joinRoomPresent('away-a', gameId);
 
       // a ends the turn; b's turn opens on the card with nobody there to answer.
       a.emit('game:advance_phase', { gameId });
