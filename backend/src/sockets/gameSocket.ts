@@ -1410,6 +1410,21 @@ export function initGameSocket(httpServer: HttpServer): Server {
             }
           }
 
+          // Another player's away seat is covered by an in-memory timer, which a
+          // restart or deploy loses. Re-arm it here: the clock restore below
+          // does too, but only in a game with a turn timer.
+          if (
+            currentAiPlayer?.is_away &&
+            !currentAiPlayer.is_ai &&
+            currentAiPlayer.player_id !== userId &&
+            !room.state.settings.async_mode &&
+            room.state.phase !== 'game_over' &&
+            !awayAiTimers.has(gameId) &&
+            !(await isAiTurnInFlight(gameId))
+          ) {
+            scheduleAwayAiTurn(io, gameId, currentAiPlayer.away_since);
+          }
+
           // Real-time games: an eviction race or restart can cancel the BullMQ
           // timeout while clients keep an armed deadline — the HUD clock dies
           // at 0:00 and the phase never advances. Restore it on (re)join: an

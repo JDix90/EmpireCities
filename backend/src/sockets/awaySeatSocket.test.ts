@@ -62,6 +62,7 @@ describe.runIf(redisTestEnabled)('away seat socket integration', () => {
   let setGameMap: (id: string, m: GameMap) => Promise<void>;
   let deleteGameKeys: (id: string) => Promise<void>;
   let shutdownGameSocket: (io: IOServer) => Promise<void>;
+  let timer: typeof import('../workers/gameTimerWorker');
 
   const openClients: ClientSocket[] = [];
   const createdGames: string[] = [];
@@ -77,6 +78,7 @@ describe.runIf(redisTestEnabled)('away seat socket integration', () => {
     deleteGameKeys = store.deleteGameKeys;
     const redisMod = await import('../db/redis');
     await redisMod.redis.connect().catch(() => { /* lazyConnect — may already be connecting */ });
+    timer = await import('../workers/gameTimerWorker');
 
     httpServer = createServer();
     ioServer = sockets.initGameSocket(httpServer);
@@ -92,7 +94,14 @@ describe.runIf(redisTestEnabled)('away seat socket integration', () => {
 
   afterEach(async () => {
     while (openClients.length) openClients.pop()?.disconnect();
-    for (const id of createdGames.splice(0)) await deleteGameKeys(id).catch(() => {});
+    const ids = createdGames.splice(0);
+    // No worker runs here, but a clock a timed test armed must not wait in the
+    // queue for a suite that starts one.
+    const jobs = await timer.turnTimerQueue.getJobs(['delayed', 'waiting']).catch(() => []);
+    await Promise.all(jobs
+      .filter((j) => j && ids.includes(j.data.gameId))
+      .map((j) => j.remove().catch(() => {})));
+    for (const id of ids) await deleteGameKeys(id).catch(() => {});
   });
 
   // ── Fixtures ────────────────────────────────────────────────────────────────
@@ -258,6 +267,31 @@ describe.runIf(redisTestEnabled)('away seat socket integration', () => {
 
       const s = await waitForRedisState(gameId, (st) => !seat(st, 'back-b').is_away, 6_000).catch(() => null);
       expect(s && seat(s, 'back-b').is_away).toBe(false);
+    }, 20_000);
+  });
+
+  // ── Covering an away seat ─────────────────────────────────────────────────────
+
+  describe('covering an away seat', () => {
+    it.each([
+      ['an untimed', 0],
+      ['a timed', 60],
+    ])('after a restart, %s game covers the away seat once a player joins', async (_label, seconds) => {
+      const gameId = `away-restart-${seconds}`;
+      const [a, b] = [`restart${seconds}-a`, `restart${seconds}-b`];
+      // b dropped two minutes ago, on b's turn. The away-AI timer that was
+      // waiting to cover it went down with the process that armed it.
+      await seed(gameId, twoHumans(gameId, a, b, {
+        current_player_index: 1,
+        players: [player(a, 0), player(b, 1, { is_away: true, away_since: Date.now() - 120_000 })],
+        settings: { ...baseSettings, turn_timer_seconds: seconds },
+      }));
+      await join(a, gameId);
+
+      const s = await waitForRedisState(gameId, (st) => st.current_player_index === 0, 8_000).catch(() => null);
+      // The away-AI drafted b's 3 units onto b's tile and handed the turn back.
+      expect(s && { seat: s.current_player_index, bTile: s.territories[`${b}1`].unit_count })
+        .toEqual({ seat: 0, bTile: 6 });
     }, 20_000);
   });
 });
