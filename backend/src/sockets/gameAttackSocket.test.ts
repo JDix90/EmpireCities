@@ -602,6 +602,27 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
     expect(hidden.totalAfter).toBeUndefined();
   });
 
+  it('shows bordering territories in fogged state before anything has built adjacency', async () => {
+    // A fresh map id: nothing in this process has built its adjacency yet, and
+    // ending a draft with no units left emits no visual that would build it.
+    const gameId = 'itest-fog-cold-adjacency';
+    await seed(gameId, buildState(gameId, [], {
+      phase: 'draft', current_player_index: 0, draft_units_remaining: 0,
+      territories: { a: terr('a', 'p1', 2), b: terr('b', 'p2', 1), c: terr('c', 'p3', 5) },
+      settings: { ...buildState(gameId, []).settings, fog_of_war: true },
+    }), buildMap(gameId));
+    const c1 = await connect('p1');
+    await joinRoom('p1', gameId);
+
+    const next = waitFor<GameState>(c1, 'game:state');
+    c1.emit('game:advance_phase', { gameId, action_id: 'cold1' });
+    const view = await next;
+    expect(view.phase).toBe('attack');
+    // b borders p1's a: its garrison is scouted. c does not: it stays hidden.
+    expect(view.territories.b.unit_count).toBe(1);
+    expect(view.territories.c.unit_count).toBe(-1);
+  });
+
   it('still shows everyone the totals when fog is off', async () => {
     const gameId = 'itest-nofog-visual';
     await seed(gameId, buildState(gameId, [], {

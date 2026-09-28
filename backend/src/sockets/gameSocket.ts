@@ -4686,9 +4686,12 @@ function fogVisibleTerritoryIds(state: GameState, playerId: string, map?: GameMa
   for (const [tid, tState] of Object.entries(state.territories)) {
     if (tState.owner_id === playerId) visibleIds.add(tid);
   }
-  // The cache only fills once a handler has built it; with the map in hand,
-  // build it rather than silently hiding every border.
-  const adj = map ? getOrBuildAdjacency(map) : adjacencyByMapId.get(state.map_id);
+  // The adjacency cache only fills once some handler has built it, and on a
+  // fresh process the first actions (a draft, a phase change) never do: every
+  // border then read as hidden, in game:state and the AI's fogged view alike.
+  // Build it from the room's map instead of trusting a cold cache.
+  const roomMap = map ?? getCachedRoom(state.game_id)?.map;
+  const adj = roomMap ? getOrBuildAdjacency(roomMap) : adjacencyByMapId.get(state.map_id);
   if (adj) {
     for (const tid of Array.from(visibleIds)) {
       for (const neighbour of adj.get(tid) ?? []) visibleIds.add(neighbour);
@@ -4717,7 +4720,7 @@ function emitVisual(
   emitMapVisual(io, gameId, event, {
     viewers: state.players
       .filter((p) => !p.is_ai)
-      .map((p) => ({ playerId: p.player_id, visible: fogVisibleTerritoryIds(state, p.player_id, getCachedRoom(gameId)?.map) })),
+      .map((p) => ({ playerId: p.player_id, visible: fogVisibleTerritoryIds(state, p.player_id) })),
   });
 }
 
