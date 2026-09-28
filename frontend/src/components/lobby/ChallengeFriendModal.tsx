@@ -30,7 +30,7 @@ export default function ChallengeFriendModal({ open, onClose }: ChallengeFriendM
   const navigate = useNavigate();
   const [aiCount, setAiCount] = useState(0);
   const [turnTimer, setTurnTimer] = useState(86400);
-  const [diplomacyEnabled, setDiplomacyEnabled] = useState(true);
+  const [diplomacyEnabled, setDiplomacyEnabled] = useState(false);
   const [creating, setCreating] = useState(false);
   const [result, setResult] = useState<{ gameId: string; joinCode: string } | null>(null);
   const [copied, setCopied] = useState(false);
@@ -42,7 +42,7 @@ export default function ChallengeFriendModal({ open, onClose }: ChallengeFriendM
     setCopied(false);
     setAiCount(0);
     setTurnTimer(86400);
-    setDiplomacyEnabled(true);
+    setDiplomacyEnabled(false);
   };
 
   const handleClose = () => {

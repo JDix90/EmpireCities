@@ -76,7 +76,7 @@ export const CreateGameSchema = z.object({
       card_set_escalating: z.boolean().default(true),
       /** 0 = uncapped (the classic unbounded schedule). */
       card_set_bonus_cap: z.number().int().min(0).max(1000).optional(),
-      diplomacy_enabled: z.boolean().default(true),
+      diplomacy_enabled: z.boolean().default(false),
       factions_enabled: z.boolean().optional(),
       /**
        * Galactic Age "Home Worlds" (lobby option, default on). `false` plays the
