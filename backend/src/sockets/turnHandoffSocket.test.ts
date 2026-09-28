@@ -12,7 +12,9 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 
 // Postgres is incidental here, as in gameAttackSocket.test.ts, except that the
-// timer processor looks its game up before acting: answer "in progress".
+// timer processor looks its game up before acting (answer "in progress") and
+// the game-over tests read which pool writes were attempted.
+const pg = vi.hoisted(() => ({ poolCalls: [] as string[] }));
 vi.mock('../db/postgres', () => {
   const result = { rows: [] as unknown[], rowCount: 0 };
   const client = { query: async () => result, release: () => {} };
@@ -26,7 +28,7 @@ vi.mock('../db/postgres', () => {
     connectPostgres: async () => {},
     pgConnectionHint: () => null,
     pgPool: {
-      query: async () => result,
+      query: async (sql: string) => { pg.poolCalls.push(sql); return result; },
       connect: async () => client,
       end: async () => {},
       on: () => {},
@@ -95,6 +97,7 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
       .filter((j) => j && ids.includes(j.data.gameId))
       .map((j) => j.remove().catch(() => {})));
     for (const id of ids) await deleteGameKeys(id).catch(() => {});
+    pg.poolCalls.length = 0;
   });
 
   // ── Fixtures ────────────────────────────────────────────────────────────────
@@ -387,5 +390,47 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
       expect({ h1: s.territories.h1.unit_count, shown: shown.filter((id) => id === card.card_id).length })
         .toEqual({ h1: 3 + 5 + 3, shown: 1 });
     }, 30_000);
+  });
+
+  // ── AI turns around game over ─────────────────────────────────────────────────
+
+  describe('AI turns around game over', () => {
+    it('a bot turn queued before the last human resigns does not play the finished game', async () => {
+      const gameId = 'handoff-resign-bot';
+      await seed(gameId, buildState(gameId, {
+        phase: 'fortify',
+        turn_number: 1, // inside the resign grace window: the game is abandoned, no stats
+        players: [player('h', 0), player('a1', 1, { is_ai: true, ai_difficulty: 'easy' })],
+        territories: { h1: terr('h1', 'h', 3), t1: terr('t1', 'a1', 3) },
+      }), isolatedMap(gameId, ['h1', 't1']));
+      const h = await connect('h');
+      await joinRoom('h', gameId);
+
+      // End the turn (the bot's turn is queued 1.5s out), then resign in that gap.
+      h.emit('game:advance_phase', { gameId });
+      await waitForRedisState(gameId, (s) => s.current_player_index === 1);
+      const over = new Promise<{ victory_condition: string }>((resolve) => h.once('game:over', resolve));
+      h.emit('game:resign', { gameId });
+      expect((await over).victory_condition).toBe('abandoned');
+
+      const statesAfter: string[] = [];
+      const oversAfter: string[] = [];
+      h.on('game:state', (s: GameState) => statesAfter.push(s.phase));
+      h.on('game:over', (o: { victory_condition: string }) => oversAfter.push(o.victory_condition));
+      await sleep(3_500); // past the queued turn and any turn it would have played
+
+      const s = (await getGameState(gameId))!;
+      expect({
+        livePhasesAfterOver: statesAfter.filter((p) => p !== 'game_over'),
+        secondGameOver: oversAfter,
+        persisted: [s.phase, s.victory_condition],
+        finalizeAttempts: pg.poolCalls.filter((sql) => sql.includes("SET status = 'completed'")).length,
+      }).toEqual({
+        livePhasesAfterOver: [],
+        secondGameOver: [],
+        persisted: ['game_over', 'abandoned'],
+        finalizeAttempts: 0,
+      });
+    }, 20_000);
   });
 });

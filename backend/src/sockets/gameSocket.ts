@@ -129,6 +129,7 @@ import {
 import { aiPlayerName } from '@borderfall/shared';
 import type { SocketContext } from './handlers/types';
 import { checkAndRecordActionId, clearActionIdempotency } from './actionIdempotency';
+import { MARK_GAME_COMPLETED_SQL } from './gameCompletionSql';
 import { captureProbBefore, commitActionDecision, clearDecisionLog, getDecisionLog, summarizeDecisionLog, territoryName } from './actionAttribution';
 import { evaluateCoachingTip } from '../game-engine/coaching/coachingDetectors';
 import { getFortifyUnitsValidationError, getStartGameAuthorizationError } from './socketGuards';
@@ -4928,10 +4929,10 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
   // `recordGameResults` a second time, doubling rating/XP deltas and writing
   // duplicate achievement rows.
   //
-  // Gate on the `games.status` transition: the UPDATE only fires when status
-  // is not already 'completed'. If rowCount is 0, another finalizer already
-  // ran and we bail before any downstream writes (ratings, achievements,
-  // campaign, notifications).
+  // Gate on the `games.status` transition: the UPDATE only fires when the
+  // game is not already finished — 'completed', or 'abandoned', which awards
+  // nothing (MARK_GAME_COMPLETED_SQL). If rowCount is 0 we bail before any
+  // downstream writes (ratings, achievements, campaign, notifications).
   let firstFinalize = false;
   // `games.winner_id` is a UUID referencing users. AI players use synthetic
   // string ids like "ai_1" that are not valid UUIDs, so we must persist NULL
@@ -4939,14 +4940,10 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
   const winnerPlayer = state.players.find((p) => p.player_id === winnerId);
   const persistedWinnerId = winnerPlayer?.is_ai ? null : winnerId;
   try {
-    const res = await pgPool.query(
-      `UPDATE games SET status = $1, ended_at = NOW(), winner_id = $2
-       WHERE game_id = $3 AND status <> 'completed'`,
-      ['completed', persistedWinnerId, gameId],
-    );
+    const res = await pgPool.query(MARK_GAME_COMPLETED_SQL, [persistedWinnerId, gameId]);
     firstFinalize = (res.rowCount ?? 0) > 0;
     if (!firstFinalize) {
-      console.warn(`[Socket] finalizeGame called for already-completed game ${gameId}; skipping duplicate writes.`);
+      console.warn(`[Socket] finalizeGame called for already-finished game ${gameId}; skipping duplicate writes.`);
       return;
     }
     await saveGameState(gameId, state);
@@ -5545,6 +5542,11 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   try {
   await withLockedRoom(gameId, async (room) => {
   const { state, map } = room;
+
+  // Every caller queues this turn 1–1.5s ahead; a resign or a win can end the
+  // game in between, and the bot must not play on (and re-finalize) the final
+  // board.
+  if (state.phase === 'game_over') return;
 
   const currentPlayer = state.players[state.current_player_index];
   // Run for AI seats and for *away* human seats (the AI covers their turn).
