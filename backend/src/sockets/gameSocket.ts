@@ -3963,8 +3963,14 @@ export function initGameSocket(httpServer: HttpServer): Server {
           broadcastState(io, gameId, state);
           return;
         }
+        // The resigner's clock stops with their turn: left running, it timed
+        // out the next player's phase at the resigner's deadline.
         if (state.players[state.current_player_index].is_ai) {
+          clearTurnTimer(gameId, state);
           setTimeout(() => processAiTurn(io, gameId), 1500);
+        } else {
+          // Pauses a present player's clock on a choice card; covers an away seat.
+          startTurnTimer(io, gameId, state, map);
         }
       }
 

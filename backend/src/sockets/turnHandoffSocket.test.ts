@@ -476,6 +476,43 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
         d: [s.territories.d.owner_id, s.territories.d.unit_count],
       }).toEqual({ phase: 'draft', turn: 1, a: ['pick-b', 3], d: ['pick-c', 3] });
     }, 20_000);
+
+    it('hands the next player a fresh clock, and the resigner\'s never fires on it', async () => {
+      const gameId = 'handoff-resign-clock';
+      const aDeadline = Date.now() + 1_000; // a had a second left of a 60s clock
+      await seed(gameId, buildState(gameId, {
+        phase: 'attack',
+        turn_number: 4, // past the resign grace window: the game goes on
+        players: [player('rclock-a', 0), player('rclock-b', 1), player('rclock-c', 2)],
+        territories: { a1: terr('a1', 'rclock-a', 3), b1: terr('b1', 'rclock-b', 3), c1: terr('c1', 'rclock-c', 3) },
+        settings: { ...buildState(gameId, {}).settings, turn_timer_seconds: 60 },
+        phase_deadline_at: aDeadline,
+      }), isolatedMap(gameId, ['a1', 'b1', 'c1']));
+      await timer.scheduleTurnTimeout(gameId, aDeadline); // a's clock, still running
+      const a = await connect('rclock-a');
+      await joinRoom('rclock-a', gameId);
+
+      a.emit('game:resign', { gameId });
+      const handed = await waitForRedisState(gameId, (s) => s.current_player_index === 1);
+      await sleep(1_500); // past a's deadline
+      const s = (await getGameState(gameId))!;
+      const aJob = await timer.turnTimerQueue.getJob(timer.turnTimerJobId(gameId, aDeadline));
+      const bJob = await timer.turnTimerQueue.getJob(timer.turnTimerJobId(gameId, s.phase_deadline_at ?? 0));
+      // b's draft is untouched and runs on b's own 60s clock.
+      expect({
+        phase: s.phase,
+        draftLeft: s.draft_units_remaining,
+        freshClock: (s.phase_deadline_at ?? 0) - aDeadline > 50_000,
+        aClock: aJob ? await aJob.getState() : 'none',
+        bClock: bJob ? await bJob.getState() : 'none',
+      }).toEqual({
+        phase: 'draft',
+        draftLeft: handed.draft_units_remaining,
+        freshClock: true,
+        aClock: 'none',
+        bClock: 'delayed',
+      });
+    }, 20_000);
   });
 
   // ── Choice cards ──────────────────────────────────────────────────────────────
