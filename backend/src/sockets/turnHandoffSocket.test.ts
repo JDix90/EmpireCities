@@ -568,6 +568,35 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
       a.emit('game:attack', { gameId, fromId: 'a1', toId: 'b1' });
       expect(await outcome).toBe('combat');
     }, 20_000);
+
+    it('lapses the resigner\'s truce offer rather than let it be accepted', async () => {
+      const gameId = 'handoff-resign-truce';
+      await seed(gameId, buildState(gameId, {
+        phase: 'attack',
+        turn_number: 4,
+        players: [player('truce-a', 0), player('truce-b', 1), player('truce-c', 2)],
+        territories: { a1: terr('a1', 'truce-a', 3), b1: terr('b1', 'truce-b', 3), c1: terr('c1', 'truce-c', 3) },
+        settings: { ...buildState(gameId, {}).settings, diplomacy_enabled: true },
+        diplomacy: [{ player_index_a: 0, player_index_b: 1, status: 'neutral', truce_turns_remaining: 0 }],
+        pending_truces: [{ proposer_id: 'truce-b', target_id: 'truce-a' }],
+      }), isolatedMap(gameId, ['a1', 'b1', 'c1']));
+      const b = await connect('truce-b');
+      await joinRoom('truce-b', gameId);
+      const a = await connect('truce-a');
+      await joinRoom('truce-a', gameId);
+
+      b.emit('game:resign', { gameId });
+      await waitForRedisState(gameId, (s) => s.players[1]!.is_eliminated);
+      const reply = Promise.race([
+        new Promise<string>((resolve) => a.once('game:truce_result', () => resolve('accepted'))),
+        new Promise<string>((resolve) => a.once('error', (e: { message?: string }) => resolve(e.message ?? ''))),
+      ]);
+      a.emit('game:truce_response', { gameId, proposerId: 'truce-b', accepted: true });
+      expect(await reply).toMatch(/lapsed/);
+      const s = await waitForRedisState(gameId, (st) => (st.pending_truces ?? []).length === 0);
+      expect({ status: s.diplomacy[0]!.status, credited: s.players[0]!.truces_established ?? [] })
+        .toEqual({ status: 'neutral', credited: [] });
+    }, 20_000);
   });
 
   // ── Winning without a capture ───────────────────────────────────────────────

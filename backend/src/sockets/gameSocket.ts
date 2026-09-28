@@ -3837,6 +3837,12 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       const proposer = state.players.find((p) => p.player_id === proposerId);
       const target = state.players.find((p) => p.player_id === userId);
+      // An offer lapses once either side is out of the game. Accepting one set a
+      // truce with a player no longer playing, and credited both sides with it.
+      if (proposer?.is_eliminated || target?.is_eliminated) {
+        void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
+        return socket.emit('error', { message: 'That truce offer has lapsed: a player in it is out of the game' });
+      }
 
       if (accepted && proposer && target) {
         const entry = state.diplomacy.find(

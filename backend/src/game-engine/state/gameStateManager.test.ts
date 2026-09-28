@@ -425,6 +425,32 @@ describe('advanceToNextPlayer', () => {
     expect(state.turn_number).toBe(2);
   });
 
+  it('calls off the Drop Assaults and truce offers of a player who is out', () => {
+    // p1 was eliminated with a drop in the air and offers on the table. p1 has
+    // no turn start left to land the drop or expire the offer at.
+    const state = makeState({
+      current_player_index: 1,
+      players: [makePlayer('p1', 0, { is_eliminated: true }), makePlayer('p2', 1), makePlayer('p3', 2)],
+      territories: {
+        t1: makeTerritory('t1', 'p2', 3),
+        t2: makeTerritory('t2', 'p2', 2),
+        t3: makeTerritory('t3', 'p3', 5),
+      },
+      drop_assaults: [
+        { owner_id: 'p1', target_id: 't1', declared_turn: 1, units: 3 },
+        { owner_id: 'p2', target_id: 't3', declared_turn: 1, units: 3 },
+      ],
+      pending_truces: [
+        { proposer_id: 'p1', target_id: 'p2' },
+        { proposer_id: 'p2', target_id: 'p1' },
+        { proposer_id: 'p2', target_id: 'p3' },
+      ],
+    });
+    advanceToNextPlayer(state, map); // p3's turn
+    expect(state.drop_assaults).toEqual([{ owner_id: 'p2', target_id: 't3', declared_turn: 1, units: 3 }]);
+    expect(state.pending_truces).toEqual([{ proposer_id: 'p2', target_id: 'p3' }]);
+  });
+
   it('lifts a Galactic Age seal once its owner is eliminated', () => {
     // The seal ages at its owner's own turn start, and p1 will never have
     // another: p2 took p1's last tile. It lifts as the next turn begins.

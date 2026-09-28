@@ -982,12 +982,22 @@ function passTurn(state: GameState, map?: GameMap): void {
 
   // Expire any pending truce proposals sent by the player whose turn is now starting.
   // The target had until the proposer's next turn to respond; after that the proposal
-  // is silently discarded so it can never permanently block re-proposals.
+  // is silently discarded so it can never permanently block re-proposals. One from
+  // or to a player who is out of the game lapses now: an eliminated proposer has no
+  // next turn, so theirs used to stand for good.
+  const eliminatedIds = new Set(state.players.filter((p) => p.is_eliminated).map((p) => p.player_id));
   if (state.pending_truces?.length) {
     const nextPlayerId = state.players[next].player_id;
     state.pending_truces = state.pending_truces.filter(
-      (pt) => pt.proposer_id !== nextPlayerId,
+      (pt) => pt.proposer_id !== nextPlayerId
+        && !eliminatedIds.has(pt.proposer_id) && !eliminatedIds.has(pt.target_id),
     );
+  }
+  // A Drop Assault lands as its owner's turn begins, which never comes again for
+  // a player who is out: theirs is called off, where it used to keep its target's
+  // incoming-drop marker up for the rest of the game.
+  if (state.drop_assaults?.length) {
+    state.drop_assaults = state.drop_assaults.filter((d) => !eliminatedIds.has(d.owner_id));
   }
 
   const nextPlayer = state.players[next];
