@@ -887,7 +887,14 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
     state.active_event = undefined;
     state.active_event_result = undefined;
   }
+  passTurn(state, map);
+}
 
+/**
+ * The hand-off itself: from the seat to move to the next living one, running
+ * the round's effects (when it wraps) and the incoming player's turn start.
+ */
+function passTurn(state: GameState, map?: GameMap): void {
   // Lunar Hegemony (Phase 3): the outgoing player's turn is ending, which is
   // exactly when "hold the whole Moon at the end of your turn" is judged.
   // `checkVictory` reads the completed clock; the callers all run it right
@@ -1040,6 +1047,13 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
   // Apply stability recovery tick
   if (state.settings.stability_enabled) {
     applyStabilityTick(state, nextPlayer.player_id);
+    // Rebels took the incoming player's last territory: they are out before
+    // their turn begins, and it passes on to the next living seat. (Not via
+    // advanceToNextPlayer: a card the round opened with is still to apply.)
+    if (nextPlayer.is_eliminated && state.players.some((p) => !p.is_eliminated)) {
+      passTurn(state, map);
+      return;
+    }
   }
 
   // Tick temporary modifiers from event cards

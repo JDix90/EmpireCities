@@ -65,6 +65,9 @@ export function initializeStability(state: GameState): void {
  * Per-turn stability recovery, rebellion check, and population growth
  * for the active player. Called once per turn in advanceToNextPlayer.
  *
+ * A player whose last territory rebels is eliminated, as losing it in battle
+ * would; advanceToNextPlayer then passes the turn on.
+ *
  * Returns a list of territory IDs that rebelled (lost units or went unowned).
  */
 export function applyStabilityTick(
@@ -72,6 +75,7 @@ export function applyStabilityTick(
   playerId: string,
 ): string[] {
   const rebellions: string[] = [];
+  let lostTerritory = false;
   const factionBonus = getFactionStabilityBonus(state, playerId);
   const growthChance = getPopulationGrowthChance(state, playerId);
 
@@ -84,9 +88,12 @@ export function applyStabilityTick(
         t.unit_count -= 1;
         rebellions.push(tid);
         if (t.unit_count <= 0) {
-          // Territory goes unowned
+          // The rebels take the territory, and hold it with one unit. Left
+          // empty it could never be attacked, so it was lost to everyone for
+          // the rest of the game, and Domination with it.
+          lostTerritory = true;
           t.owner_id = null;
-          t.unit_count = 0;
+          t.unit_count = 1;
           t.stability = undefined;
           t.population = undefined;
           // Update territory count
@@ -140,6 +147,11 @@ export function applyStabilityTick(
       }
     }
   }
+
+  // Rebels took the player's last territory. Left in play, a player holding
+  // nothing kept taking turns, and Last Standing could never be won.
+  const player = state.players.find((p) => p.player_id === playerId);
+  if (lostTerritory && player && player.territory_count === 0) player.is_eliminated = true;
 
   return rebellions;
 }
