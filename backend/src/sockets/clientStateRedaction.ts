@@ -123,6 +123,7 @@ export function redactServerOnlyState(state: GameState): GameState {
     mission_seed_salt: undefined,
     puzzle_decisions: state.phase === 'game_over' ? state.puzzle_decisions : undefined,
     puzzle_turn_open: undefined,
+    pending_event: undefined,
   };
 }
 

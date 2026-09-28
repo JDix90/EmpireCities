@@ -834,6 +834,16 @@ export function autoPickSelectionTerritory(
 }
 
 /**
+ * Who receives this round's single-player event card: the living seats in
+ * index order, one per round, so every player gets the same share of targeted
+ * cards and choices over a game. Called after `turn_number` has advanced.
+ */
+export function eventTargetForRound(state: GameState): string {
+  const living = state.players.filter((p) => !p.is_eliminated).sort((a, b) => a.player_index - b.player_index);
+  return living[Math.max(0, state.turn_number - 2) % living.length]!.player_id;
+}
+
+/**
  * Calculate continent bonuses for a given player.
  */
 export function calculateContinentBonuses(
@@ -918,13 +928,19 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
     if (state.settings.events_enabled) {
       const deck = [...getEraDeck(state.era), ...(state.seasonal_event_cards ?? [])];
       const card = drawRandomCard(deck);
-      if (card) {
-        if (card.choices && card.choices.length > 0) {
-          // Card requires a choice — store it for the next player to resolve
+      // An undelivered card from last round (its target was eliminated) lapses.
+      state.pending_event = undefined;
+      if (card && (card.effect || card.choices?.length)) {
+        if (card.affects_all_players && !card.choices?.length) {
+          // Hits every player: resolve now, whoever opens the round.
           state.active_event = card;
-        } else if (card.effect) {
-          // Instant effect — apply immediately (current player context will be the next player)
-          state.active_event = card; // temporarily set so applyEventEffect uses correct player
+        } else {
+          // One player's card (or a choice). It used to fire here too, and the
+          // player whose turn opens the round is always the lowest living seat,
+          // so one seat received every targeted card and every choice all game.
+          // The target now rotates through the living seats, round by round,
+          // and the card fires at the start of that player's own turn.
+          state.pending_event = { card, target_player_id: eventTargetForRound(state) };
         }
       }
     }
@@ -1016,6 +1032,11 @@ export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
   // Tick temporary modifiers from event cards
   if (state.settings.events_enabled) {
     tickTemporaryModifiers(state, nextPlayer.player_id);
+    // This round's single-player card reaches its target as their turn begins.
+    if (state.pending_event?.target_player_id === nextPlayer.player_id) {
+      state.active_event = state.pending_event.card;
+      state.pending_event = undefined;
+    }
     // Apply instant event cards now (current_player_index is set to next player)
     if (state.active_event && (!state.active_event.choices || state.active_event.choices.length === 0) && state.active_event.effect) {
       // Lane weather rewrites the GRAPH, so it needs the map — which the generic
