@@ -1650,7 +1650,10 @@ export default function TerritoryPanel({
                   </div>
                 )}
                 {/* Naval attack: standalone fleet strike on enemy coastal territory */}
+                {/* Hidden only when the harbour is known to be empty; under fog the
+                    count may be hidden, and the server has the final say. */}
                 {navalSource && navalSource !== selectedTerritory && isEnemy &&
+                 tState.naval_units !== 0 &&
                  gameState.phase === 'attack' && onNavalAttack && (
                   <button
                     className="btn-danger w-full text-sm flex items-center justify-center gap-2"
