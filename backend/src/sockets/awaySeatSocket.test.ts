@@ -293,5 +293,45 @@ describe.runIf(redisTestEnabled)('away seat socket integration', () => {
       expect(s && { seat: s.current_player_index, bTile: s.territories[`${b}1`].unit_count })
         .toEqual({ seat: 0, bTile: 6 });
     }, 20_000);
+
+    it.each([
+      ['a solo game', 'solo', {}],
+      ['a Daily Challenge', 'daily', { daily_challenge_date: '2026-09-28', daily_challenge_spec: { archetype: 'domination', par_turns: 6 } }],
+    ])('leaves a lone player\'s seat to its player in %s', async (_label, key, extra) => {
+      const gameId = `away-lone-${key}`;
+      const [h, bot] = [`lone${key}-h`, `lone${key}-bot`];
+      await seed(gameId, twoHumans(gameId, h, bot, {
+        turn_number: 2,
+        players: [player(h, 0), player(bot, 1, { is_ai: true, ai_difficulty: 'easy' })],
+        settings: { ...baseSettings, ...extra } as GameState['settings'],
+      }));
+      const client = await join(h, gameId);
+
+      client.disconnect(); // mid-turn: the phone sleeps, the tab drops
+      await waitForRedisState(gameId, (st) => !!seat(st, h).is_away);
+      await sleep(3_000); // past the reconnect window and the cover's 1s lag
+
+      // Nobody else is waiting on h: the run is h's to play when h is back.
+      const s = (await getGameState(gameId))!;
+      expect({ turn: s.turn_number, seat: s.current_player_index, phase: s.phase, tile: s.territories[`${h}1`].unit_count })
+        .toEqual({ turn: 2, seat: 0, phase: 'draft', tile: 3 });
+    }, 20_000);
+
+    it('waits while nobody else is at the table, and covers the seat once someone is back', async () => {
+      const gameId = 'away-empty-table';
+      await seed(gameId, twoHumans(gameId, 'empty-a', 'empty-b', { current_player_index: 1 }));
+      const a = await join('empty-a', gameId);
+      const b = await join('empty-b', gameId);
+
+      a.disconnect();
+      b.disconnect(); // on b's own turn, and a is gone too
+      await waitForRedisState(gameId, (st) => !!seat(st, 'empty-b').is_away);
+      await sleep(3_000); // past the reconnect window and the cover's 1s lag
+      expect((await getGameState(gameId))!.current_player_index).toBe(1);
+
+      await join('empty-a', gameId);
+      const s = await waitForRedisState(gameId, (st) => st.current_player_index === 0, 8_000).catch(() => null);
+      expect(s && s.territories['empty-b1'].unit_count).toBe(6);
+    }, 25_000);
   });
 });

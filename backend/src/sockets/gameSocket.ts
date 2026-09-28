@@ -151,6 +151,7 @@ import {
   onPlayerConnected,
   onPlayerDisconnected,
   hasHumanConnections,
+  hasOtherActiveHumanConnected,
   forEachConnectedGame,
   tryAcquireAiTurn,
   releaseAiTurn,
@@ -677,8 +678,9 @@ class SeatReclaimedDuringAiTurn extends Error {}
 // Away-seat model: when a human disconnects, their seat is marked *away* (see
 // markPlayerAway / markSeatAway) — NOT converted to AI. The AI merely covers the
 // seat's turns after a short reconnect window (AWAY_AI_GRACE_MS, derived from the
-// persisted away_since so it survives restarts), and the player reclaims instantly
-// on return. These maps hold the per-game in-memory timers used to drive that.
+// persisted away_since so it survives restarts) while someone else is at the table
+// (driveCurrentSeatIfAi), and the player reclaims instantly on return. These maps
+// hold the per-game in-memory timers used to drive that.
 //
 // Background reclaim retries, keyed `${gameId}:${playerId}`. A reclaim that
 // arrives while an away-AI turn holds the room lock is retried until it lands (or
@@ -826,6 +828,13 @@ async function driveCurrentSeatIfAi(io: Server, gameId: string): Promise<void> {
   if (!room) return;
   const current = room.state.players[room.state.current_player_index];
   if (!current || (!current.is_ai && !current.is_away)) return;
+  // The away-AI covers a seat so the players still at the table are not kept
+  // waiting. With nobody else there (a solo game, a Daily Challenge, a table
+  // that all dropped) the seat waits for its player, whose run must be scored
+  // on their own moves. A player who joins re-arms the cover (game:join).
+  if (!current.is_ai && !(await hasOtherActiveHumanConnected(gameId, room.state, current.player_id).catch(() => false))) {
+    return;
+  }
   if (room.state.phase === 'territory_select') {
     void processAiTerritorySelect(io, gameId);
   } else {
@@ -5716,6 +5725,9 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   // (docs/DAILY_PUZZLE_V2.md §5.2) instead of the bot.
   const v2Puzzle = dailyV2Puzzle(room);
   if (v2Puzzle) {
+    // The authored plan is the opponent's: never play it from the player's
+    // own seat, which the run grades on the player's moves.
+    if (!currentPlayer.is_ai) return;
     await runDailyV2OpponentTurn(io, gameId, room, currentPlayer, v2Puzzle, delay, doVictoryCheck);
     return;
   }
@@ -6682,7 +6694,8 @@ function startTurnTimer(io: Server, gameId: string, state: GameState, map: GameM
   }
   const currentPlayer = state.players[state.current_player_index];
   // Away human seat: the AI covers the turn after the reconnect window — in BOTH
-  // timed and untimed games, so the table never stalls on an absent player. This
+  // timed and untimed games, so the table never stalls on an absent player (with
+  // nobody else at the table, driveCurrentSeatIfAi leaves the seat to wait). This
   // is checked before the no-timer early-return below for exactly that reason.
   // (Async games never mark seats away; the async deadline handles absence.)
   if (currentPlayer.is_away && !currentPlayer.is_ai && !state.settings.async_mode) {

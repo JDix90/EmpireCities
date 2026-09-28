@@ -204,6 +204,14 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
     throw new Error(`server socket for ${userId} not found`);
   }
 
+  /** joinRoom, and record the player as at the table, as game:join does. */
+  async function joinRoomPresent(userId: string, gameId: string): Promise<void> {
+    await joinRoom(userId, gameId);
+    const s = [...ioServer.sockets.sockets.values()].find((sk) => sk.data?.userId === userId)!;
+    const { onPlayerConnected } = await import('./gameRoomManager');
+    await onPlayerConnected(gameId, s.id, userId);
+  }
+
   function sleep(ms: number): Promise<void> {
     return new Promise((r) => setTimeout(r, ms));
   }
@@ -559,7 +567,8 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
         pending_event: { card: dilemma, target_player_id: 'away-b' },
       }), isolatedMap(gameId, ['a1', 'b1']));
       const a = await connect('away-a');
-      await joinRoom('away-a', gameId);
+      // Present: the away-AI covers a seat only while someone else waits on it.
+      await joinRoomPresent('away-a', gameId);
 
       // a ends the turn; b's turn opens on the card with nobody there to answer.
       a.emit('game:advance_phase', { gameId });
