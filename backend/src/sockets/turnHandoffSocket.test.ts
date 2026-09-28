@@ -299,6 +299,25 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
         p2Clock: p2Job ? await p2Job.getState() : 'none',
       }).toEqual({ seat: 1, phase: 'draft', draftLeft: 3, p2Clock: 'delayed' });
     }, 20_000);
+
+    it('lands the incoming player\'s Drop Assault when a fortify timeout hands them the turn', async () => {
+      const gameId = 'handoff-clock-drop';
+      const p1Deadline = Date.now() + 150;
+      await seed(gameId, buildState(gameId, {
+        phase: 'fortify',
+        turn_number: 4,
+        phase_deadline_at: p1Deadline,
+        settings: { ...buildState(gameId, {}).settings, turn_timer_seconds: 60 },
+        // p2 declared a drop on p1's tile last round: it resolves as p2's turn
+        // begins, the way every other hand-off resolves it (landed, or called
+        // off here, since p2 holds no lunar foothold).
+        drop_assaults: [{ owner_id: 'p2', target_id: 'a', declared_turn: 3, units: 3 }],
+      }), isolatedMap(gameId, ['a', 'b']));
+      await timer.scheduleTurnTimeout(gameId, p1Deadline); // p1's fortify clock runs out
+
+      const s = await waitForRedisState(gameId, (st) => st.current_player_index === 1);
+      expect(s.drop_assaults ?? []).toEqual([]);
+    }, 20_000);
   });
 
   // ── Event cards across hand-offs ─────────────────────────────────────────────

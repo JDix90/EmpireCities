@@ -1186,8 +1186,14 @@ export function initGameSocket(httpServer: HttpServer): Server {
       }
 
       // Fortify timed out → turn handed to the next player (advanceToNextPlayer
-      // already ran inside advancePhaseOnTimeout).
+      // already ran inside advancePhaseOnTimeout). The rest of the hand-off is
+      // every other hand-off's: without it, the incoming player's Drop Assault
+      // waited a round, their convoys' arrivals went unannounced, and the map
+      // kept last round's lane weather.
       io.to(gameId).emit('game:turn_timeout', { phaseAdvanced: 'next_turn' });
+      landPendingDropAssaults(io, gameId, room.state, room.map);
+      await syncLaneWeatherAndBroadcastMap(io, gameId, room);
+      broadcastTransitArrivals(io, gameId, room.state, room.map);
       {
         // Turn-passing can end the game (turn-cap stalemate guard).
         const timeoutVictory = checkVictory(room.state, room.map);
