@@ -33,6 +33,7 @@ import {
   claimSelectionTerritory,
   claimableTerritoryIds,
   isUnclaimedOwner,
+  passSelectionPick,
 } from '../game-engine/state/gameStateManager';
 import { calculateReinforcements } from '../game-engine/combat/combatResolver';
 import { getMarchToSeaBonus, recordMarchToSeaResult } from '../game-engine/combat/combatModifiers';
@@ -3931,7 +3932,19 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       // Game continues — advance turn if it was this player's turn.
       const currentPlayer = state.players[state.current_player_index];
-      if (currentPlayer.player_id === userId) {
+      if (currentPlayer.player_id === userId && state.phase === 'territory_select') {
+        // Territory Draft: pass the pick, as a claim or a timeout does. The
+        // turn hand-off below would end the draft, leaving the unclaimed tiles
+        // neutral at 0 units and no capitals, stability or opening income.
+        // The resigner's tiles went back to the pool above.
+        passSelectionPick(state);
+        if (state.players[state.current_player_index].is_ai) {
+          clearTurnTimer(gameId, state);
+          setTimeout(() => processAiTerritorySelect(io, gameId), 800);
+        } else {
+          startTurnTimer(io, gameId, state, map);
+        }
+      } else if (currentPlayer.player_id === userId) {
         advanceToNextPlayer(state, map);
         landPendingDropAssaults(io, gameId, state, map);
         await syncLaneWeatherAndBroadcastMap(io, gameId, room);

@@ -730,6 +730,22 @@ export function claimableTerritoryIds(state: GameState, map: GameMap, playerId: 
 }
 
 /**
+ * Hand the draft pick to the next living seat: after a claim, after a seat
+ * that timed out with nothing to claim, and when the seat to pick resigns.
+ */
+export function passSelectionPick(state: GameState): void {
+  const total = state.players.length;
+  let next = (state.current_player_index + 1) % total;
+  let attempts = 0;
+  while (state.players[next].is_eliminated && attempts < total) {
+    next = (next + 1) % total;
+    attempts++;
+  }
+  state.current_player_index = next;
+  state.turn_started_at = Date.now();
+}
+
+/**
  * Claim one territory for the seat to move, pass the pick to the next living
  * seat, and end the draft once every claimable territory is taken. The caller
  * validates the pick; this is the shared bookkeeping for the human handler,
@@ -745,16 +761,7 @@ export function claimSelectionTerritory(
   territory.owner_id = player.player_id;
   territory.unit_count = state.settings.initial_unit_count;
   player.territory_count = Object.values(state.territories).filter((t) => t.owner_id === player.player_id).length;
-
-  const total = state.players.length;
-  let next = (state.current_player_index + 1) % total;
-  let attempts = 0;
-  while (state.players[next].is_eliminated && attempts < total) {
-    next = (next + 1) % total;
-    attempts++;
-  }
-  state.current_player_index = next;
-  state.turn_started_at = Date.now();
+  passSelectionPick(state);
 
   // Orbit-gated tiles are exempt: nobody holds orbit access at game start, so
   // counting them would soft-lock the phase.
@@ -822,11 +829,7 @@ export function autoPickSelectionTerritory(
       completeTerritorySelection(state, map);
       return { territoryId: null, completed: true };
     }
-    const total = state.players.length;
-    let next = (state.current_player_index + 1) % total;
-    while (state.players[next].is_eliminated && next !== state.current_player_index) next = (next + 1) % total;
-    state.current_player_index = next;
-    state.turn_started_at = Date.now();
+    passSelectionPick(state);
     return { territoryId: null, completed: false };
   }
   const territoryId = options[randomInt(0, options.length)]!;

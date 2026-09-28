@@ -436,6 +436,48 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
     }, 20_000);
   });
 
+  // ── Resigning on your own turn ────────────────────────────────────────────────
+
+  describe('resigning on your own turn', () => {
+    it('in the Territory Draft passes the pick, and the draft goes on to its end', async () => {
+      const gameId = 'handoff-resign-pick';
+      await seed(gameId, buildState(gameId, {
+        phase: 'territory_select',
+        turn_number: 1,
+        players: [player('pick-a', 0), player('pick-b', 1), player('pick-c', 2)],
+        territories: {
+          a: terr('a', 'pick-a', 3), b: terr('b', 'pick-b', 3), c: terr('c', 'pick-c', 3), d: terr('d', null, 0),
+        },
+        settings: { ...buildState(gameId, {}).settings, territory_selection: true },
+      }), isolatedMap(gameId, ['a', 'b', 'c', 'd']));
+      const a = await connect('pick-a');
+      await joinRoom('pick-a', gameId);
+      const b = await connect('pick-b');
+      await joinRoom('pick-b', gameId);
+      const c = await connect('pick-c');
+      await joinRoom('pick-c', gameId);
+
+      a.emit('game:resign', { gameId });
+      const passed = await waitForRedisState(gameId, (s) => s.players[0]!.is_eliminated);
+      // b picks next, and a's tile is back in the pool.
+      expect({ phase: passed.phase, seat: passed.current_player_index, a: passed.territories.a.owner_id })
+        .toEqual({ phase: 'territory_select', seat: 1, a: null });
+
+      b.emit('game:select_territory', { gameId, territoryId: 'a' });
+      await waitForRedisState(gameId, (s) => s.current_player_index === 2);
+      c.emit('game:select_territory', { gameId, territoryId: 'd' });
+      const s = await waitForRedisState(gameId, (st) => st.phase !== 'territory_select');
+      // The last claim ends the draft the normal way: turn one opens on a
+      // board where every tile has an owner and a garrison.
+      expect({
+        phase: s.phase,
+        turn: s.turn_number,
+        a: [s.territories.a.owner_id, s.territories.a.unit_count],
+        d: [s.territories.d.owner_id, s.territories.d.unit_count],
+      }).toEqual({ phase: 'draft', turn: 1, a: ['pick-b', 3], d: ['pick-c', 3] });
+    }, 20_000);
+  });
+
   // ── Choice cards ──────────────────────────────────────────────────────────────
 
   describe('choice cards', () => {
