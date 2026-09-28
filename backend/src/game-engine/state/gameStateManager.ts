@@ -27,7 +27,13 @@ import {
   isMissionComplete,
 } from '../victory/missions';
 import { inferWorldId } from '@borderfall/shared';
-import { offworldTerritoryIdsForInitialNeutral, tickLaneBlockades } from './moonAccess';
+import {
+  getOrbitAccessResult,
+  offworldTerritoryIdsForInitialNeutral,
+  selectionExemptTerritoryIds,
+  territoryRequiresOrbitAccessForClaim,
+  tickLaneBlockades,
+} from './moonAccess';
 import { buildWorldModifierSnapshot } from './worldModifiers';
 import { hasLaneSovereignty, tickLaneSovereignty } from '../victory/laneSovereignty';
 import { applyLaneClosure, applyLaneSurge, tickLaneWeather } from './laneWeather';
@@ -698,6 +704,135 @@ export function syncTerritoryCounts(state: GameState): void {
   }
 }
 
+// ── Territory Draft (territory_select phase) ──────────────────────────────────
+
+/** A territory nobody holds yet. Legacy rows used '' or 'neutral' for "no owner". */
+export function isUnclaimedOwner(ownerId: string | null | undefined): boolean {
+  return ownerId == null || ownerId === '' || ownerId === 'neutral';
+}
+
+/**
+ * Territories the seat to move may claim right now. Seeded frontiers are
+ * conquered in play rather than drafted, and orbit-gated tiles need the
+ * same access a human would.
+ */
+export function claimableTerritoryIds(state: GameState, map: GameMap, playerId: string): string[] {
+  const player = state.players.find((p) => p.player_id === playerId);
+  if (!player) return [];
+  const hasOrbitAccess = getOrbitAccessResult(state, player, map, state.era).allowed;
+  const unlockIndex = new Map(map.territories.map((t) => [t.territory_id, t.unlock_era_index ?? 0]));
+  return Object.entries(state.territories)
+    .filter(([id, t]) =>
+      isUnclaimedOwner(t.owner_id)
+      && (hasOrbitAccess || !territoryRequiresOrbitAccessForClaim(map, id))
+      && (unlockIndex.get(id) ?? 0) <= 0)
+    .map(([id]) => id);
+}
+
+/**
+ * Claim one territory for the seat to move, pass the pick to the next living
+ * seat, and end the draft once every claimable territory is taken. The caller
+ * validates the pick; this is the shared bookkeeping for the human handler,
+ * the AI and the timeout auto-pick.
+ */
+export function claimSelectionTerritory(
+  state: GameState,
+  map: GameMap,
+  territoryId: string,
+): { completed: boolean } {
+  const player = state.players[state.current_player_index]!;
+  const territory = state.territories[territoryId]!;
+  territory.owner_id = player.player_id;
+  territory.unit_count = state.settings.initial_unit_count;
+  player.territory_count = Object.values(state.territories).filter((t) => t.owner_id === player.player_id).length;
+
+  const total = state.players.length;
+  let next = (state.current_player_index + 1) % total;
+  let attempts = 0;
+  while (state.players[next].is_eliminated && attempts < total) {
+    next = (next + 1) % total;
+    attempts++;
+  }
+  state.current_player_index = next;
+  state.turn_started_at = Date.now();
+
+  // Orbit-gated tiles are exempt: nobody holds orbit access at game start, so
+  // counting them would soft-lock the phase.
+  const exempt = selectionExemptTerritoryIds(map);
+  const unclaimed = Object.values(state.territories).filter(
+    (t) => isUnclaimedOwner(t.owner_id) && !exempt.has(t.territory_id),
+  ).length;
+  if (unclaimed > 0) return { completed: false };
+  completeTerritorySelection(state, map);
+  return { completed: true };
+}
+
+/**
+ * Start turn one once the map is claimed. Everything `initializeGameState`
+ * sets up from ownership had nothing to read in a draft game — nobody held a
+ * tile at creation — so it runs here instead: capitals (else Capital victory
+ * can never fire) and stability (else the whole layer stays inert).
+ */
+export function completeTerritorySelection(state: GameState, map: GameMap): void {
+  state.phase = 'draft';
+  state.draft_placements_this_turn = {};
+  state.draft_deployments_this_turn = [];
+  const starterIdx = getStartingPlayerIndex(state);
+  state.current_player_index = starterIdx;
+  state.turn_number = 1;
+  state.turn_started_at = Date.now();
+
+  if (getAllowedVictoryConditions(normalizeGameSettings(state.settings)).includes('capital')) {
+    assignCapitals(state);
+  }
+  if (state.settings.stability_enabled) initializeStability(state);
+  // The opening income tick initializeGameState skips for a draft (with no
+  // territory owned it would pay only the per-territory minimums). Paid here,
+  // on the drafted board, under the same conditions as a dealt game.
+  if (state.settings.economy_enabled && state.settings.tech_trees_enabled && !state.settings.tutorial) {
+    applyOpeningEconomyTick(state);
+  }
+
+  const firstPlayer = state.players[starterIdx]!;
+  state.draft_units_remaining = calculateReinforcements(
+    firstPlayer.territory_count,
+    calculateContinentBonuses(state, map, firstPlayer.player_id),
+    state.players.length,
+  ) + getPlayerReinforceBonus(state, firstPlayer.player_id);
+}
+
+/**
+ * The seat to move ran out of time in the draft: claim a random claimable
+ * territory for it and move on. Ending the phase instead would leave the
+ * remaining tiles neutral at 0 units, which no attack can ever take.
+ */
+export function autoPickSelectionTerritory(
+  state: GameState,
+  map: GameMap,
+): { territoryId: string | null; completed: boolean } {
+  const player = state.players[state.current_player_index];
+  const options = player ? claimableTerritoryIds(state, map, player.player_id) : [];
+  if (options.length === 0) {
+    // Nothing this seat may claim (e.g. only orbit-gated tiles left): pass.
+    const exempt = selectionExemptTerritoryIds(map);
+    const stuck = Object.values(state.territories).every(
+      (t) => !isUnclaimedOwner(t.owner_id) || exempt.has(t.territory_id),
+    );
+    if (stuck) {
+      completeTerritorySelection(state, map);
+      return { territoryId: null, completed: true };
+    }
+    const total = state.players.length;
+    let next = (state.current_player_index + 1) % total;
+    while (state.players[next].is_eliminated && next !== state.current_player_index) next = (next + 1) % total;
+    state.current_player_index = next;
+    state.turn_started_at = Date.now();
+    return { territoryId: null, completed: false };
+  }
+  const territoryId = options[randomInt(0, options.length)]!;
+  return { territoryId, ...claimSelectionTerritory(state, map, territoryId) };
+}
+
 /**
  * Calculate continent bonuses for a given player.
  */
@@ -939,6 +1074,7 @@ export interface AutoDraftResult {
 
 export type TimeoutPhaseAdvance =
   | { kind: 'phase'; newPhase: 'attack' | 'fortify'; autoDraft: AutoDraftResult }
+  | { kind: 'selection'; territoryId: string | null; completed: boolean }
   | { kind: 'turn' };
 
 /**
@@ -954,6 +1090,11 @@ export type TimeoutPhaseAdvance =
  * caller should restart their timer) or `{ kind: 'turn' }` when the turn advanced.
  */
 export function advancePhaseOnTimeout(state: GameState, map?: GameMap): TimeoutPhaseAdvance {
+  // Territory Draft: pick for the seat that timed out. Falling through to the
+  // turn hand-off below set phase = 'draft' and abandoned every unclaimed tile.
+  if (state.phase === 'territory_select' && map) {
+    return { kind: 'selection', ...autoPickSelectionTerritory(state, map) };
+  }
   if (state.phase === 'draft') {
     const autoDraft = state.draft_units_remaining > 0
       ? autoPlaceDraftUnits(state)
