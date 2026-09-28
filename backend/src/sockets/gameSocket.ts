@@ -15,7 +15,7 @@ import {
   clearSpectatorGame,
 } from './spectatorBroadcast';
 import { armEvictionTimer, cancelEvictionTimer, pendingEvictionCount } from './evictionTimers';
-import { decideTurnTimerRearm } from './turnTimerRearm';
+import { decideTurnTimerRearm, isTurnTimerJobCurrent } from './turnTimerRearm';
 import {
   initializeGameState,
   getStartingPlayerIndex,
@@ -129,6 +129,7 @@ import {
 import { aiPlayerName } from '@borderfall/shared';
 import type { SocketContext } from './handlers/types';
 import { checkAndRecordActionId, clearActionIdempotency } from './actionIdempotency';
+import { MARK_GAME_COMPLETED_SQL } from './gameCompletionSql';
 import { captureProbBefore, commitActionDecision, clearDecisionLog, getDecisionLog, summarizeDecisionLog, territoryName } from './actionAttribution';
 import { evaluateCoachingTip } from '../game-engine/coaching/coachingDetectors';
 import { getFortifyUnitsValidationError, getStartGameAuthorizationError } from './socketGuards';
@@ -173,6 +174,7 @@ import {
   cancelTurnTimeout,
   setTurnTimerProcessor,
   stopTurnTimerWorker,
+  turnTimerJobId,
   turnTimerQueue,
 } from '../workers/gameTimerWorker';
 import {
@@ -1053,8 +1055,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
           return;
         }
       }
+      broadcastEventCard(io, gameId, state, map); // before the save: see broadcastEventCard
       await saveGameState(gameId, state);
-      broadcastEventCard(io, gameId, state, map);
       broadcastState(io, gameId, state);
       maybeEmitCoachingTip(io, gameId, state, map);
 
@@ -1074,7 +1076,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
   // ── Phase 7: BullMQ turn timer processor (real-time mode) ─────────────────
   setTurnTimerProcessor(async (job) => {
-    const { gameId } = job.data;
+    const { gameId, deadlineAt } = job.data;
     await runWithGameLock(gameId, async () => {
       const game = await queryOne<{ map_id: string; status: string }>(
         'SELECT map_id, status FROM games WHERE game_id = $1',
@@ -1086,6 +1088,14 @@ export function initGameSocket(httpServer: HttpServer): Server {
       getOrBuildAdjacency(room.map);
 
       if (room.state.phase === 'game_over') return;
+      // Only the clock the game is still running may time it out. A job whose
+      // deadline was cleared or re-armed since (the player ended the phase
+      // while it waited on the lock) must not end the phase that followed.
+      if (!isTurnTimerJobCurrent({
+        jobDeadlineAt: deadlineAt,
+        armedDeadlineAt: room.state.phase_deadline_at,
+        now: Date.now(),
+      })) return;
 
       // Real-time timeout: advance ONE phase (draft → attack → fortify) so the
       // active player doesn't silently forfeit their attack/fortify phases by
@@ -1144,8 +1154,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
           return;
         }
       }
+      broadcastEventCard(io, gameId, room.state, room.map); // before the save: see broadcastEventCard
       await saveGameState(gameId, room.state);
-      broadcastEventCard(io, gameId, room.state, room.map);
       broadcastState(io, gameId, room.state);
       maybeEmitCoachingTip(io, gameId, room.state, room.map);
 
@@ -1154,9 +1164,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
         return;
       }
 
-      if (!room.state.active_event?.choices?.length) {
-        startTurnTimer(io, gameId, room.state, room.map);
-      }
+      // Pauses a present player's clock on a choice card; covers an away seat.
+      startTurnTimer(io, gameId, room.state, room.map);
 
       if (room.state.players[room.state.current_player_index].is_ai) {
         setTimeout(() => processAiTurn(io, gameId), 1500);
@@ -1369,7 +1378,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
           // clock), a missing/expired one gets a fresh timer.
           if (!room.state.settings.async_mode && room.state.phase !== 'game_over' && !currentAiPlayer?.is_ai) {
             try {
-              const job = await turnTimerQueue.getJob(`turn-${gameId}`);
+              const armedDeadline = room.state.phase_deadline_at;
+              const job = typeof armedDeadline === 'number'
+                ? await turnTimerQueue.getJob(turnTimerJobId(gameId, armedDeadline))
+                : undefined;
               const decision = decideTurnTimerRearm({
                 hasScheduledJob: !!job,
                 phase: room.state.phase,
@@ -1379,8 +1391,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
                 deadlineAt: room.state.phase_deadline_at,
                 now: Date.now(),
               });
-              if (decision.kind === 'remaining') {
-                scheduleTurnTimeout(gameId, decision.delayMs).catch((err) =>
+              if (decision.kind === 'remaining' && typeof armedDeadline === 'number') {
+                scheduleTurnTimeout(gameId, armedDeadline).catch((err) =>
                   console.error('[Socket] Turn-timer re-arm (remaining) failed for', gameId, err),
                 );
               } else if (decision.kind === 'fresh') {
@@ -2451,8 +2463,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
         if (state.players[state.current_player_index].is_ai) {
           clearTurnTimer(gameId, state);
           setTimeout(() => processAiTurn(io, gameId), 1500);
-        } else if (!state.active_event?.choices?.length) {
-          // Don't start timer while a choice-based event awaits resolution
+        } else {
+          // Pauses a present player's clock on a choice card; covers an away seat.
           startTurnTimer(io, gameId, state, map);
         }
       }
@@ -4020,6 +4032,8 @@ export async function shutdownGameSocket(io: Server): Promise<void> {
 /**
  * After advanceToNextPlayer, if an event card was drawn, broadcast it and clear
  * instant (no-choice) events. Choice-based events stay on state until resolved.
+ * Call this BEFORE the hand-off is saved: a state saved with an instant card
+ * still active reloads with it, and the next hand-off applied it again.
  */
 function broadcastEventCard(io: Server, gameId: string, state: GameState, map: GameMap): void {
   if (!state.active_event) return;
@@ -4914,10 +4928,10 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
   // `recordGameResults` a second time, doubling rating/XP deltas and writing
   // duplicate achievement rows.
   //
-  // Gate on the `games.status` transition: the UPDATE only fires when status
-  // is not already 'completed'. If rowCount is 0, another finalizer already
-  // ran and we bail before any downstream writes (ratings, achievements,
-  // campaign, notifications).
+  // Gate on the `games.status` transition: the UPDATE only fires when the
+  // game is not already finished — 'completed', or 'abandoned', which awards
+  // nothing (MARK_GAME_COMPLETED_SQL). If rowCount is 0 we bail before any
+  // downstream writes (ratings, achievements, campaign, notifications).
   let firstFinalize = false;
   // `games.winner_id` is a UUID referencing users. AI players use synthetic
   // string ids like "ai_1" that are not valid UUIDs, so we must persist NULL
@@ -4925,14 +4939,10 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
   const winnerPlayer = state.players.find((p) => p.player_id === winnerId);
   const persistedWinnerId = winnerPlayer?.is_ai ? null : winnerId;
   try {
-    const res = await pgPool.query(
-      `UPDATE games SET status = $1, ended_at = NOW(), winner_id = $2
-       WHERE game_id = $3 AND status <> 'completed'`,
-      ['completed', persistedWinnerId, gameId],
-    );
+    const res = await pgPool.query(MARK_GAME_COMPLETED_SQL, [persistedWinnerId, gameId]);
     firstFinalize = (res.rowCount ?? 0) > 0;
     if (!firstFinalize) {
-      console.warn(`[Socket] finalizeGame called for already-completed game ${gameId}; skipping duplicate writes.`);
+      console.warn(`[Socket] finalizeGame called for already-finished game ${gameId}; skipping duplicate writes.`);
       return;
     }
     await saveGameState(gameId, state);
@@ -5525,6 +5535,24 @@ function maybeActivateAiAttackSelfBuff(state: GameState, map: GameMap, player: P
   }
 }
 
+/**
+ * The seat to move is a bot, or an away seat the AI covers, and its turn
+ * opened on a choice card: take the first choice (the AI's pick) for that
+ * seat, as a human answers the card before playing on.
+ */
+function resolveChoiceCardForAi(io: Server, gameId: string, state: GameState): void {
+  const card = state.active_event;
+  const choice = card?.choices?.[0];
+  if (!card || !choice) return;
+  const result = resolveEventChoice(state, card.card_id, choice.choice_id);
+  if (result) {
+    emitEventCardMapVisuals(io, gameId, { cardId: card.card_id, effect: choice.effect, result });
+  }
+  io.to(gameId).emit('game:event_card_resolved', { cardId: card.card_id });
+  queueSpectatorEvent(gameId, 'game:event_card_resolved', { cardId: card.card_id });
+  broadcastState(io, gameId, state);
+}
+
 async function processAiTurn(io: Server, gameId: string): Promise<void> {
   if (await isAiTurnInFlight(gameId)) return;
   if (!(await tryAcquireAiTurn(gameId))) return;
@@ -5532,9 +5560,18 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   await withLockedRoom(gameId, async (room) => {
   const { state, map } = room;
 
+  // Every caller queues this turn 1–1.5s ahead; a resign or a win can end the
+  // game in between, and the bot must not play on (and re-finalize) the final
+  // board.
+  if (state.phase === 'game_over') return;
+
   const currentPlayer = state.players[state.current_player_index];
   // Run for AI seats and for *away* human seats (the AI covers their turn).
   if (!currentPlayer.is_ai && !currentPlayer.is_away) return;
+
+  // Answer the choice card this turn opened with before playing, as a human
+  // must. Left pending, it outlived the turn and reached the next player.
+  resolveChoiceCardForAi(io, gameId, state);
 
   const difficulty = currentPlayer.ai_difficulty ?? 'medium';
   // Fog-fair AI planning: when fog_of_war is on, humans see only their own
@@ -6446,37 +6483,19 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   landPendingDropAssaults(io, gameId, state, map);
   await syncLaneWeatherAndBroadcastMap(io, gameId, room);
   broadcastTransitArrivals(io, gameId, state, map);
+  broadcastEventCard(io, gameId, state, map); // before the save: see broadcastEventCard
   await saveGameState(gameId, state);
-  broadcastEventCard(io, gameId, state, map);
   broadcastState(io, gameId, state);
   maybeEmitCoachingTip(io, gameId, state, map);
 
   if (await doVictoryCheck()) return;
 
-  // If there's an active event with choices and next player is AI, auto-resolve
-  if (state.active_event?.choices?.length && state.players[state.current_player_index].is_ai) {
-    const aiEvent = state.active_event;
-    const choices = aiEvent?.choices;
-    if (!choices?.length) return;
-    const choice = choices[0]!;
-    const eventResult = resolveEventChoice(state, aiEvent.card_id, choice.choice_id);
-    if (eventResult) {
-      emitEventCardMapVisuals(io, gameId, {
-        cardId: aiEvent.card_id,
-        effect: choice.effect,
-        result: eventResult,
-      });
-    }
-    io.to(gameId).emit('game:event_card_resolved', { cardId: '' });
-    queueSpectatorEvent(gameId, 'game:event_card_resolved', { cardId: '' });
-    broadcastState(io, gameId, state);
-  }
-
-  // Chain if next player is also AI; otherwise restart turn timer for human
+  // Chain if next player is also AI (it answers its own choice card as its
+  // turn opens); otherwise start the human's clock — paused on a choice card,
+  // or handed to the away-AI for an away seat.
   if (state.players[state.current_player_index].is_ai) {
     setTimeout(() => processAiTurn(io, gameId), 1000);
-  } else if (!state.active_event?.choices?.length) {
-    // Don't start timer while a choice-based event awaits human resolution
+  } else {
     startTurnTimer(io, gameId, state, map);
   }
     // 30s (was 15s): an aggressive expert turn on a large map can chain enough
@@ -6596,6 +6615,15 @@ function startTurnTimer(io: Server, gameId: string, state: GameState, map: GameM
     scheduleAwayAiTurn(io, gameId, currentPlayer.away_since);
     return;
   }
+  // A choice card pauses a present player's clock until they choose
+  // (game:event_choice restarts it). Checked after the away branch, which is
+  // why the turn hand-offs call this even with a choice pending: an away seat
+  // has nobody to choose, and its away-AI answers the card (processAiTurn).
+  if (state.active_event?.choices?.length) {
+    emitPhaseDeadline(io, gameId, state);
+    persistArmedDeadline(gameId, state);
+    return;
+  }
   const seconds = state.settings.turn_timer_seconds;
   if (!seconds || seconds <= 0) return;
   if (currentPlayer.is_ai) return;
@@ -6625,10 +6653,11 @@ function startTurnTimer(io: Server, gameId: string, state: GameState, map: GameM
   }
 
   // ── Real-time mode: BullMQ-backed turn timer (Phase 7) ──
-  state.phase_deadline_at = Date.now() + seconds * 1000;
+  const deadlineAt = Date.now() + seconds * 1000;
+  state.phase_deadline_at = deadlineAt;
   emitPhaseDeadline(io, gameId, state);
   persistArmedDeadline(gameId, state);
-  scheduleTurnTimeout(gameId, seconds * 1000).catch((err) => {
+  scheduleTurnTimeout(gameId, deadlineAt).catch((err) => {
     console.error('[TurnTimer] Failed to schedule turn timeout:', gameId, err);
   });
 }
@@ -6660,15 +6689,14 @@ function emitPhaseDeadline(io: Server, gameId: string, state: GameState): void {
   });
 }
 
-function clearTurnTimer(gameId: string, state?: GameState): void {
-  cancelTurnTimeout(gameId).catch(() => {});
-  if (state) {
-    // No timer running means no deadline — otherwise AI turns and event
-    // pauses keep broadcasting the previous human's expired clock and the
-    // HUD counts down a dead timer to a frozen 0:00.
-    state.phase_deadline_at = null;
-    cancelAsyncDeadline(gameId, state.turn_number).catch(() => {});
-  }
+function clearTurnTimer(gameId: string, state: GameState): void {
+  cancelTurnTimeout(gameId, state.phase_deadline_at).catch(() => {});
+  // No timer running means no deadline — otherwise AI turns and event
+  // pauses keep broadcasting the previous human's expired clock and the
+  // HUD counts down a dead timer to a frozen 0:00. Clearing it is also what
+  // retires a job that could not be cancelled (isTurnTimerJobCurrent).
+  state.phase_deadline_at = null;
+  cancelAsyncDeadline(gameId, state.turn_number).catch(() => {});
 }
 
 /**

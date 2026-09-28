@@ -86,6 +86,37 @@ describe('event card targeting', () => {
     expect(got).toEqual(['p0', 'p2', 'p0', 'p2']);
   });
 
+  it('applies an instant card once even if a hand-off leaves it active', () => {
+    // +5 on one tile: whoever holds it, each application shows.
+    const levy: EventCard = {
+      card_id: 'test_levy_tile', title: 'Levy', description: '', category: 'military', era_id: 'custom',
+      effect: { type: 'units_added', target: 'territory', target_id: 'a', value: 5 },
+    } as EventCard;
+    const state = game(levy);
+    state.seasonal_event_cards = [];
+    state.pending_event = { card: levy, target_player_id: 'p1' };
+    const before = state.territories.a!.unit_count;
+
+    state.phase = 'fortify';
+    advanceToNextPlayer(state, map); // p1's turn opens with the card
+    expect(state.territories.a!.unit_count).toBe(before + 5);
+
+    // A caller that saved before retiring the card reloads it still active.
+    state.phase = 'fortify';
+    advanceToNextPlayer(state, map);
+    expect(state.territories.a!.unit_count).toBe(before + 5);
+    expect(state.active_event).toBeUndefined();
+  });
+
+  it('keeps an unresolved choice card across a hand-off', () => {
+    const state = game(choice);
+    state.seasonal_event_cards = [];
+    state.active_event = choice;
+    state.phase = 'fortify';
+    advanceToNextPlayer(state, map);
+    expect(state.active_event?.card_id).toBe('test_choice');
+  });
+
   it('keeps the queued card off the client state', async () => {
     const { redactServerOnlyState } = await import('../../sockets/clientStateRedaction');
     const state = game(targeted);

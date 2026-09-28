@@ -875,6 +875,16 @@ export function calculateContinentBonuses(
  * Skips eliminated players and wraps around.
  */
 export function advanceToNextPlayer(state: GameState, map?: GameMap): void {
+  // An instant card is applied below, at the hand-off that makes it active,
+  // and the socket layer retires it once announced (broadcastEventCard). One
+  // still set here has therefore been applied already — it survived in a state
+  // saved before it was retired — and must not fire again. A choice card
+  // stays until someone resolves it.
+  if (state.active_event && !state.active_event.choices?.length) {
+    state.active_event = undefined;
+    state.active_event_result = undefined;
+  }
+
   // Lunar Hegemony (Phase 3): the outgoing player's turn is ending, which is
   // exactly when "hold the whole Moon at the end of your turn" is judged.
   // `checkVictory` reads the completed clock; the callers all run it right

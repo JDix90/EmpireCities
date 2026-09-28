@@ -11,6 +11,12 @@ const QUEUE_NAME = 'game-turn-timer';
 
 export interface TurnTimerPayload {
   gameId: string;
+  /**
+   * The `phase_deadline_at` this job was armed for. The processor acts only
+   * while the game still carries that deadline (see isTurnTimerJobCurrent).
+   * Absent on jobs queued before jobs carried it.
+   */
+  deadlineAt?: number;
 }
 
 const connection = {
@@ -34,24 +40,41 @@ export function setTurnTimerProcessor(fn: (job: Job<TurnTimerPayload>) => Promis
   processorFn = fn;
 }
 
-export async function scheduleTurnTimeout(gameId: string, delayMs: number): Promise<void> {
-  const jobId = `turn-${gameId}`;
+/**
+ * One job per armed clock, named by its deadline.
+ *
+ * Every clock of a game used to share the id `turn-<gameId>`. The processor
+ * arms the next phase's clock while its own job is still active, and BullMQ
+ * neither removes an active job nor adds a job whose id already exists, so
+ * that re-arm was dropped: a timed game stopped timing out after one expiry.
+ */
+export function turnTimerJobId(gameId: string, deadlineAt: number): string {
+  return `turn-${gameId}-${deadlineAt}`;
+}
+
+export async function scheduleTurnTimeout(gameId: string, deadlineAt: number): Promise<void> {
+  const jobId = turnTimerJobId(gameId, deadlineAt);
   try {
     const existing = await turnTimerQueue.getJob(jobId);
     if (existing) await existing.remove();
   } catch {
     // ignore
   }
-  await turnTimerQueue.add('turn-expire', { gameId }, { jobId, delay: delayMs });
+  await turnTimerQueue.add(
+    'turn-expire',
+    { gameId, deadlineAt },
+    { jobId, delay: Math.max(0, deadlineAt - Date.now()) },
+  );
 }
 
-export async function cancelTurnTimeout(gameId: string): Promise<void> {
-  const jobId = `turn-${gameId}`;
+export async function cancelTurnTimeout(gameId: string, deadlineAt: number | null | undefined): Promise<void> {
+  if (typeof deadlineAt !== 'number') return;
   try {
-    const job = await turnTimerQueue.getJob(jobId);
+    const job = await turnTimerQueue.getJob(turnTimerJobId(gameId, deadlineAt));
     if (job) await job.remove();
   } catch {
-    // ignore
+    // An active job cannot be removed. It is still harmless: the processor
+    // ignores a job whose deadline the game no longer carries.
   }
 }
 

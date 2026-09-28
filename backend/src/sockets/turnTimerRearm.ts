@@ -41,3 +41,23 @@ export function decideTurnTimerRearm(opts: {
   }
   return { kind: 'fresh' };
 }
+
+/**
+ * Whether a fired turn-timer job still speaks for the game's armed clock.
+ *
+ * A job carries the `phase_deadline_at` it was armed for, and every re-arm or
+ * clear changes that field. A job for any other deadline is stale: it fired
+ * while the player's own end-turn held the room lock, or it could not be
+ * removed because it was already running. Acting on it would time out a phase
+ * the game has since moved on to — the next player's draft, say.
+ */
+export function isTurnTimerJobCurrent(opts: {
+  jobDeadlineAt: number | undefined;
+  armedDeadlineAt: number | null | undefined;
+  now: number;
+}): boolean {
+  if (typeof opts.jobDeadlineAt === 'number') return opts.jobDeadlineAt === opts.armedDeadlineAt;
+  // A job queued before jobs carried their deadline: act only once the armed
+  // deadline has passed, so it cannot cut short a clock armed after it.
+  return typeof opts.armedDeadlineAt === 'number' && opts.armedDeadlineAt <= opts.now + 1_000;
+}
