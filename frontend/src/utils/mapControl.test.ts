@@ -97,3 +97,10 @@ describe('mapControlThreshold', () => {
     expect(mapControlThreshold(settings('65'))).toBeNull();
   });
 });
+
+describe('mapControlProgress rounding', () => {
+  it('needs exactly the stated share, matching the server (55% of 100 is 55)', () => {
+    expect(mapControlProgress(mkState({ total: 100, held: 55, settings: { victory_threshold: 55 } }), 'me'))
+      .toMatchObject({ needed: 55, remaining: 0 });
+  });
+});
