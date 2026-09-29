@@ -2601,7 +2601,7 @@ export default function LobbyPage() {
                           </label>
                         </div>
                         <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                          <FeatureTooltip text="Lets human players offer each other truces during the attack phase. An accepted truce lasts 3 rounds and blocks attacks between you unless one side breaks it, which hands the other bonus dice against the breaker. AI players always decline, so this only matters with other people at the table. Historical Events can impose truces either way." />
+                          <FeatureTooltip text="Lets human players offer each other truces during the attack phase. An accepted truce lasts 3 rounds. Either side can still attack the other, by any means, but that breaks the truce: the attacker confirms first, and the other side gets an extra die against them. AI players always decline, so this only matters with other people at the table. Historical Events can impose truces either way." />
                           <label htmlFor="create-game-diplomacy" className="contents cursor-pointer">
                             <input id="create-game-diplomacy" type="checkbox" checked={diplomacyEnabled} onChange={(e) => setDiplomacyEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
                             <span className="leading-snug min-w-0 select-none">Diplomacy</span>

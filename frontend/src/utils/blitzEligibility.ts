@@ -5,18 +5,17 @@
  *
  * Deliberately narrower than a single attack:
  * - never across a sea lane (the crossing pays fleets/bombardment per attack);
- * - never through an active truce (breaking one is a confirmed diplomatic act,
- *   done with a single attack);
  * - never in a daily challenge (each attack is graded as its own move).
+ *
+ * A truce is no bar: a blitz on a truce partner breaks the truce, confirmed
+ * first exactly as a single attack is.
  */
 export function canOfferBlitz(opts: {
   flagEnabled: boolean;
-  hasActiveTruce: boolean;
   connectionType?: string;
   isDailyChallenge: boolean;
 }): boolean {
   if (!opts.flagEnabled) return false;
-  if (opts.hasActiveTruce) return false;
   if (opts.connectionType === 'sea') return false;
   if (opts.isDailyChallenge) return false;
   return true;

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { GameState } from '../../types';
-import { executeTechAbility } from './executeTechAbility';
+import { executeTechAbility, isHostileTerritoryAbility } from './executeTechAbility';
 
 function baseState(): GameState {
   return {
@@ -493,5 +493,21 @@ describe('mercenary_contract', () => {
     const ok = executeTechAbility({ state, map, playerId: 'p1', abilityId: 'mercenary_contract', territoryId: 't1' });
     expect(ok.success).toBe(true);
     expect(state.territories.t1!.unit_count).toBe(9);
+  });
+});
+
+describe('isHostileTerritoryAbility', () => {
+  it('names what is fired at another player\'s ground: a truce partner\'s breaks the truce', () => {
+    for (const id of ['atom_bomb', 'drop_assault', 'nuclear_strike', 'dyson_beam', 'longbowmen', 'privateer']) {
+      expect({ id, hostile: isHostileTerritoryAbility(id) }).toEqual({ id, hostile: true });
+    }
+  });
+
+  it('leaves out buffs, recon and abilities used on your own ground', () => {
+    // Air Strike carries a unit reduction but buffs the next attack, which is
+    // judged on its own.
+    for (const id of ['air_strike', 'siege_assault', 'spy_network', 'royal_decree', 'orbital_drop', 'lunar_export']) {
+      expect({ id, hostile: isHostileTerritoryAbility(id) }).toEqual({ id, hostile: false });
+    }
   });
 });

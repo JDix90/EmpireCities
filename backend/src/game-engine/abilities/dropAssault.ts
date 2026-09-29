@@ -33,6 +33,7 @@ import type { DropAssault, GameMap, GameState, TerritoryState } from '../../type
 import { executeLandAttack, type LandAttackOutcome } from '../combat/executeLandAttack';
 import { syncTerritoryCounts } from '../state/gameStateManager';
 import { countLunarTerritories } from '../state/helium3';
+import { activeTruceBetween, breakTruceBetween } from '../state/truces';
 import { areMoonPowersEnabled } from './moonPowers';
 import { TERRITORY_ABILITY_DEFS } from './techAbilities';
 
@@ -163,6 +164,8 @@ export interface DropAssaultResolution {
   /** Owner of the target immediately before the battle, for elimination handling. */
   previousOwner?: string | null;
   captured?: boolean;
+  /** The landing broke a truce with `previousOwner`, made while the drop was in flight. */
+  truceBroken?: boolean;
 }
 
 /** Discard the transient origin and put the board back in a consistent state. */
@@ -236,9 +239,14 @@ export function resolveDropAssaultsFor(
     state.territories[originId] = origin;
 
     const previousOwner = target.owner_id;
+    // Declaring on a truce partner broke that truce then. One made while the
+    // drop was in flight does not stop it: the landing breaks it, fought at +1
+    // defense die like any attack that breaks a truce.
+    const breaksTruce = !!activeTruceBetween(state, playerId, previousOwner);
     const outcome = executeLandAttack(state, playerId, originId, assault.target_id, {
       dieRoll: opts.dieRoll,
       onCapture: opts.onCapture,
+      extraDefenseBonuses: breaksTruce ? { truce_break: 1 } : undefined,
     });
 
     if (!outcome) {
@@ -261,9 +269,11 @@ export function resolveDropAssaultsFor(
       if (survivors > 0) state.territories[assault.target_id].unit_count += survivors;
     }
     removeVirtualOrigin(state, originId);
+    if (breaksTruce) breakTruceBetween(state, playerId, previousOwner);
 
     resolutions.push({
       assault, status: 'landed', outcome, previousOwner, captured: outcome.captured,
+      ...(breaksTruce ? { truceBroken: true } : {}),
     });
   }
   return resolutions;

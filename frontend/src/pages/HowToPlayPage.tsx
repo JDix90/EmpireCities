@@ -289,7 +289,8 @@ export default function HowToPlayPage() {
               </p>
               <p>
                 <strong className="text-bf-text">Diplomacy</strong> — Propose truces with other
-                players during a game. Both sides must agree.
+                players during a game. Both sides must agree, and a truce lasts 3 rounds. Nothing
+                stops either side attacking the other, but any attack breaks it.
               </p>
             </div>
           </Section>

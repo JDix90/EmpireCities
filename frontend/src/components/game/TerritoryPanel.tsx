@@ -527,7 +527,8 @@ export default function TerritoryPanel({
   );
 
   // "Blitz until captured": same legality as the single attack, minus the
-  // cases the server refuses to auto-repeat (sea lanes, truces, dailies).
+  // cases the server refuses to auto-repeat (sea lanes, dailies). On a truce
+  // partner it breaks the truce, confirmed first as a single attack is.
   const attackConnectionType = attackSource
     ? mapConnections?.find(
         (c) =>
@@ -539,7 +540,6 @@ export default function TerritoryPanel({
     !!onBlitzAttack &&
     canOfferBlitz({
       flagEnabled: attackBlitzFlag,
-      hasActiveTruce,
       connectionType: attackConnectionType,
       isDailyChallenge:
         typeof gameState.settings?.daily_challenge_date === 'string' &&
@@ -553,7 +553,6 @@ export default function TerritoryPanel({
     directAttackSources.some((src) =>
       canOfferBlitz({
         flagEnabled: attackBlitzFlag,
-        hasActiveTruce,
         connectionType: src.connectionType,
         isDailyChallenge:
           typeof gameState.settings?.daily_challenge_date === 'string' &&
@@ -1152,7 +1151,6 @@ export default function TerritoryPanel({
                       !!onBlitzAttack &&
                       canOfferBlitz({
                         flagEnabled: attackBlitzFlag,
-                        hasActiveTruce,
                         connectionType: src.connectionType,
                         isDailyChallenge:
                           typeof gameState.settings?.daily_challenge_date === 'string' &&
@@ -1190,8 +1188,8 @@ export default function TerritoryPanel({
                             className="min-w-[44px] rounded-lg bg-bf-gold/15 hover:bg-bf-gold/25
                                        border border-bf-gold/40 text-bf-gold font-medium transition-all"
                             onClick={() => onBlitzAttack!(src.territoryId, selectedTerritory)}
-                            aria-label={`Blitz ${selectedTerritory} from ${src.name} until captured`}
-                            title="Attack repeatedly until the territory falls or you can no longer attack"
+                            aria-label={`${hasActiveTruce ? 'Break truce and blitz' : 'Blitz'} ${selectedTerritory} from ${src.name} until captured`}
+                            title={`${hasActiveTruce ? 'Break the truce and attack' : 'Attack'} repeatedly until the territory falls or you can no longer attack`}
                           >
                             ⚡
                           </button>
@@ -1233,12 +1231,25 @@ export default function TerritoryPanel({
                     </p>
                   </div>
                 ) : hasActiveTruce ? (
-                  <button
-                    className="btn-warning w-full text-sm flex items-center justify-center gap-2"
-                    onClick={() => onAttack(attackSource, selectedTerritory)}
-                  >
-                    ⚠ Break Truce &amp; Attack
-                  </button>
+                  <div className={clsx('flex gap-2', blitzIsPrimary ? 'flex-col-reverse' : 'flex-col')}>
+                    <button
+                      className="btn-warning w-full text-sm flex items-center justify-center gap-2"
+                      onClick={() => onAttack(attackSource, selectedTerritory)}
+                    >
+                      ⚠ Break Truce &amp; Attack
+                    </button>
+                    {blitzOffered && (
+                      <button
+                        className="w-full text-sm flex items-center justify-center gap-2 py-2 rounded-lg
+                                   bg-bf-gold/15 hover:bg-bf-gold/25 border border-bf-gold/40 text-bf-gold
+                                   font-medium transition-all"
+                        onClick={() => onBlitzAttack!(attackSource, selectedTerritory)}
+                        title="Break the truce and attack repeatedly until the territory falls or you can no longer attack"
+                      >
+                        ⚡ Break Truce &amp; Blitz
+                      </button>
+                    )}
+                  </div>
                 ) : (
                   // Two ways to fight: one exchange, or press until decided.
                   // The fast-combat preference decides which leads.

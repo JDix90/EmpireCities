@@ -62,6 +62,7 @@ import { resolveEventChoice, getTemporaryModifierValue, getDisplayScaledCard } f
 import { moveFleets, resolveNavalCombat, resolveSeaCrossing } from '../game-engine/state/navalManager';
 import { onInfluenceStabilityPenalty, getDeployCap } from '../game-engine/state/stabilityManager';
 import { eliminatePlayer } from '../game-engine/state/elimination';
+import { activeTruceBetween, breakTruceBetween } from '../game-engine/state/truces';
 import { getAdjacentTerritoryIds, getInfluenceHopLimit, isTerritoryReachableWithinHops } from '../game-engine/state/influenceManager';
 import { playerHoldsVaultSeal, worldDeployCapBonus } from '../game-engine/state/worldRules';
 import { isJumpGateOnlyEdge, jumpGatePartners, syncJumpGateLanes } from '../game-engine/state/jumpGates';
@@ -270,6 +271,7 @@ import {
 import {
   executeTechAbility,
   isGameScopedAbility,
+  isHostileTerritoryAbility,
 } from '../game-engine/abilities/executeTechAbility';
 import {
   attachCombatAbilityCallouts,
@@ -1884,6 +1886,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
       // defenderPlayer is hoisted so the retaliation-bonus check below can also use it.
       const defenderPlayer = state.players.find((p) => p.player_id === toTerritory.owner_id);
 
+      // Truce: refused until the attacker confirms the break. Checked before the
+      // retaliation die below is taken, so a refused attack cannot spend it.
+      if (refuseUnconfirmedTruceBreak(socket, state, userId, defenderPlayer?.player_id, breakTruce)) return;
+
       // Retaliation bonus: if a previous attacker broke their truce with us, consume that stored
       // die and add it to this attack — one use only, triggered on the very next attack.
       let truceRetaliationBonus = 0;
@@ -1894,43 +1900,6 @@ export function initGameSocket(httpServer: HttpServer): Server {
         if (retalIdx !== -1) {
           truceRetaliationBonus = currentPlayer.truce_break_retaliations[retalIdx].dice_bonus;
           currentPlayer.truce_break_retaliations.splice(retalIdx, 1);
-        }
-      }
-
-      // Truce enforcement: block unless the attacker explicitly opts to break it
-      let truceBrokenDefenseBonus = 0;
-      if (defenderPlayer) {
-        const truceEntry = state.diplomacy.find(
-          (d) =>
-            (d.player_index_a === currentPlayer.player_index && d.player_index_b === defenderPlayer.player_index) ||
-            (d.player_index_a === defenderPlayer.player_index && d.player_index_b === currentPlayer.player_index),
-        );
-        if (truceEntry?.status === 'truce' && truceEntry.truce_turns_remaining > 0) {
-          if (!breakTruce) {
-            return emitGameError(socket, GameErrorCode.TRUCE_ACTIVE, 'You have an active truce with this player');
-          }
-          // Player confirmed the truce break — nullify and apply loyalty penalties
-          truceEntry.status = 'neutral';
-          truceEntry.truce_turns_remaining = 0;
-          truceBrokenDefenseBonus = 1; // defender gets +1 die for this single attack
-
-          // Grant the betrayed player a one-use +1 attack die for their next attack against us
-          if (!defenderPlayer.truce_break_retaliations) defenderPlayer.truce_break_retaliations = [];
-          const existing = defenderPlayer.truce_break_retaliations.find(
-            (r) => r.against_player_id === userId,
-          );
-          if (existing) {
-            existing.dice_bonus += 1; // stack if somehow broken twice before use
-          } else {
-            defenderPlayer.truce_break_retaliations.push({ against_player_id: userId, dice_bonus: 1 });
-          }
-
-          // Notify the betrayed player immediately
-          io.to(`user:${defenderPlayer.player_id}`).emit('game:truce_broken', {
-            breakerName: currentPlayer.username,
-            breakerColor: currentPlayer.color,
-            breakerId: userId,
-          });
         }
       }
 
@@ -1948,11 +1917,19 @@ export function initGameSocket(httpServer: HttpServer): Server {
       // ship survives to ferry the troops, the landing proceeds and any surviving
       // enemy fleet bombards it (bonus defender dice below). This removes the
       // "island + naval base = unconquerable" attrition spiral.
+      const seaAssault = !!state.settings.naval_enabled && connection?.type === 'sea';
+      if (seaAssault && (!fromTerritory.naval_units || fromTerritory.naval_units <= 0)) {
+        return emitGameError(socket, GameErrorCode.INSUFFICIENT_UNITS, 'No fleet to traverse sea lane');
+      }
+
+      // The attack is committed from here, the crossing included: a confirmed
+      // one on a truce partner breaks the truce, and the defender gets +1 die
+      // for this attack. It used to break before the fleet check above, so a
+      // refused sea attack still cost the truce.
+      const truceBrokenDefenseBonus = breakTruceAndAlert(io, state, currentPlayer, defenderPlayer?.player_id) ? 1 : 0;
+
       let navalBombardmentDefenseBonus = 0;
-      if (state.settings.naval_enabled && connection?.type === 'sea') {
-        if (!fromTerritory.naval_units || fromTerritory.naval_units <= 0) {
-          return emitGameError(socket, GameErrorCode.INSUFFICIENT_UNITS, 'No fleet to traverse sea lane');
-        }
+      if (seaAssault) {
         const crossing = resolveSeaCrossing(fromTerritory, toTerritory);
         if (crossing.navalResult) {
           const navalPayload = { fromId, toId, result: crossing.navalResult };
@@ -2199,11 +2176,12 @@ export function initGameSocket(httpServer: HttpServer): Server {
     // "Attack until captured" as ONE event: repeated executeLandAttack
     // exchanges resolved server-side (executeBlitzAttack), emitted as one
     // aggregated game:combat_result. Deliberately narrower than game:attack —
-    // land only, never breaks a truce, never in a daily puzzle — so a
-    // convenience button cannot commit a diplomatic act or wreck a per-move
-    // graded score on the player's behalf. One event, so turn timers and the
-    // room lock see it exactly like a single attack.
-    socket.on('game:attack_blitz', async ({ gameId, fromId, toId, action_id }: { gameId: string; fromId: string; toId: string; action_id?: string }) => {
+    // land only, never in a daily puzzle — so a convenience button cannot
+    // wreck a per-move graded score on the player's behalf. A blitz on a truce
+    // partner breaks the truce like any attack, and like any attack only once
+    // the player has confirmed it (`breakTruce`). One event, so turn timers and
+    // the room lock see it exactly like a single attack.
+    socket.on('game:attack_blitz', async ({ gameId, fromId, toId, action_id, breakTruce }: { gameId: string; fromId: string; toId: string; action_id?: string; breakTruce?: boolean }) => {
       await mutateLockedRoom(gameId, socket, 5000, async (room) => {
       if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state, map } = room;
@@ -2274,19 +2252,11 @@ export function initGameSocket(httpServer: HttpServer): Server {
         }
       }
 
-      // Truce: the blitz never carries the break — breaking is a deliberate
-      // diplomatic act with its own confirmation, made with a single attack.
+      // Truce: refused until the player confirms the break, as a single attack is.
       const defenderPlayer = state.players.find((p) => p.player_id === toTerritory.owner_id);
-      if (defenderPlayer) {
-        const truceEntry = state.diplomacy.find(
-          (d) =>
-            (d.player_index_a === currentPlayer.player_index && d.player_index_b === defenderPlayer.player_index) ||
-            (d.player_index_a === defenderPlayer.player_index && d.player_index_b === currentPlayer.player_index),
-        );
-        if (truceEntry?.status === 'truce' && truceEntry.truce_turns_remaining > 0) {
-          return emitGameError(socket, GameErrorCode.TRUCE_ACTIVE, 'You have an active truce with this player — break it with a single attack first');
-        }
-      }
+      if (refuseUnconfirmedTruceBreak(socket, state, userId, defenderPlayer?.player_id, breakTruce)) return;
+      // Confirmed: the first exchange is the attack that breaks it, fought at +1 defense die.
+      const breaksTruce = !!activeTruceBetween(state, userId, defenderPlayer?.player_id);
 
       // Retaliation die: consumed exactly as one manual attack would consume it
       // — spliced now, applied to the first exchange only.
@@ -2336,6 +2306,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
             march_to_sea: exchangeMarchBonus,
           };
         },
+        extraDefenseBonuses: (i) => ({ truce_break: i === 0 && breaksTruce ? 1 : 0 }),
         onExchangeResolved: (outcome) => {
           const exchangeCaptured = outcome.result.territory_captured;
           // A capture re-arms blitzkrieg BEFORE the consume step — the same
@@ -2360,6 +2331,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (!blitz) {
         return emitGameError(socket, GameErrorCode.ACTION_FAILED, 'Invalid attack');
       }
+      if (breaksTruce) breakTruceAndAlert(io, state, currentPlayer, defenderPlayer?.player_id);
       const result = blitz.result;
       const firstExchange = blitz.exchanges[0];
       const lastExchange = blitz.exchanges[blitz.exchanges.length - 1];
@@ -2826,8 +2798,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
     });
 
     // ── Naval Attack (standalone fleet combat / blockade) ────────────────────
-    socket.on('game:naval_attack', async ({ gameId, fromId, toId, action_id }: {
-      gameId: string; fromId: string; toId: string; action_id?: string;
+    socket.on('game:naval_attack', async ({ gameId, fromId, toId, action_id, breakTruce }: {
+      gameId: string; fromId: string; toId: string; action_id?: string; breakTruce?: boolean;
     }) => {
       await mutateLockedRoom(gameId, socket, 5000, async (room) => {
       if (!checkAndRecordActionId(gameId, userId, action_id)) return;
@@ -2864,21 +2836,13 @@ export function initGameSocket(httpServer: HttpServer): Server {
       );
       if (!seaConnected) return socket.emit('error', { message: 'No sea connection' });
 
-      // Enforce active truce — naval attacks are blocked just like land attacks
-      const navalDefenderPlayer = state.players.find((p) => p.player_id === toTerritory.owner_id);
-      if (navalDefenderPlayer) {
-        const navalTruceEntry = state.diplomacy.find(
-          (d) =>
-            (d.player_index_a === currentPlayer.player_index && d.player_index_b === navalDefenderPlayer.player_index) ||
-            (d.player_index_a === navalDefenderPlayer.player_index && d.player_index_b === currentPlayer.player_index),
-        );
-        if (navalTruceEntry?.status === 'truce' && navalTruceEntry.truce_turns_remaining > 0) {
-          return socket.emit('error', { message: 'You have an active truce with this player' });
-        }
-      }
+      // Truce: a Fleet Attack on a truce partner breaks it like a land attack,
+      // once confirmed, and their fleet gets +1 die for this attack.
+      if (refuseUnconfirmedTruceBreak(socket, state, userId, toTerritory.owner_id, breakTruce)) return;
+      const truceBrokenDefenseDie = breakTruceAndAlert(io, state, currentPlayer, toTerritory.owner_id) ? 1 : 0;
 
       const navalAttackProbBefore = captureProbBefore(state, userId);
-      const navalResult = resolveNavalCombat(fromTerritory.naval_units, toTerritory.naval_units);
+      const navalResult = resolveNavalCombat(fromTerritory.naval_units, toTerritory.naval_units, truceBrokenDefenseDie);
       fromTerritory.naval_units = Math.max(0, fromTerritory.naval_units - navalResult.attacker_losses);
       toTerritory.naval_units = Math.max(0, (toTerritory.naval_units ?? 0) - navalResult.defender_losses);
 
@@ -3015,11 +2979,12 @@ export function initGameSocket(httpServer: HttpServer): Server {
     // ── Use Ability ──────────────────────────────────────────────────────────
     // Generic handler for once-per-turn faction/tech abilities not covered by
     // dedicated events (influence, blitzkrieg, etc.).
-    socket.on('game:use_ability', async ({ gameId, abilityId, params, action_id }: {
+    socket.on('game:use_ability', async ({ gameId, abilityId, params, action_id, breakTruce }: {
       gameId: string;
       abilityId: string;
       params?: Record<string, unknown>;
       action_id?: string;
+      breakTruce?: boolean;
     }) => {
       await mutateLockedRoom(gameId, socket, 5000, async (room) => {
       if (!checkAndRecordActionId(gameId, userId, action_id)) return;
@@ -3063,6 +3028,14 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (!hasFactionAbility && !hasTechAbility && !hasLegacyCharge && !hasMoonGroundAbility) {
         return socket.emit('error', { message: `Ability '${abilityId}' is not available to you` });
       }
+
+      // A strike, bomb or Drop Assault on a truce partner's ground breaks the
+      // truce like an attack, once confirmed. Refused before the use is recorded.
+      const abilityTargetId = typeof params?.territoryId === 'string' ? params.territoryId : undefined;
+      const hostileTargetOwnerId = abilityTargetId && isHostileTerritoryAbility(abilityId)
+        ? state.territories[abilityTargetId]?.owner_id
+        : null;
+      if (refuseUnconfirmedTruceBreak(socket, state, userId, hostileTargetOwnerId, breakTruce)) return;
 
       const abilityProbBefore = captureProbBefore(state, userId);
       const recordAbility = (summary: string) => {
@@ -3116,6 +3089,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
         delete remaining[abilityId];
         currentPlayer.legacy_ability_charges = remaining;
       }
+
+      // The strike went off, or the Drop Assault was declared: either breaks
+      // any truce with the target's owner.
+      breakTruceAndAlert(io, state, currentPlayer, hostileTargetOwnerId);
 
       if (execResult.effect === 'atom_bomb_detonated' && execResult.territoryId) {
         const previousOwner = execResult.previousOwner;
@@ -3205,7 +3182,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
     // Converts a neutral or enemy territory within influence_range hops of any
     // owned territory, costing 3 of the current player's units (spread across
     // adjacent owned territories). Only one use per turn.
-    socket.on('game:influence', async ({ gameId, targetId, action_id }: { gameId: string; targetId: string; action_id?: string }) => {
+    socket.on('game:influence', async ({ gameId, targetId, action_id, breakTruce }: { gameId: string; targetId: string; action_id?: string; breakTruce?: boolean }) => {
       await mutateLockedRoom(gameId, socket, 5000, async (room) => {
       if (!checkAndRecordActionId(gameId, userId, action_id)) return;
       const { state, map } = room;
@@ -3229,6 +3206,9 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const target = state.territories[targetId];
       if (!target) return socket.emit('error', { message: 'Invalid territory' });
       if (target.owner_id === userId) return socket.emit('error', { message: 'Cannot influence your own territory' });
+      // Seizing a truce partner's territory breaks the truce like an attack,
+      // once confirmed. Refused before Papal Dispensation spends its charge.
+      if (refuseUnconfirmedTruceBreak(socket, state, userId, target.owner_id, breakTruce)) return;
 
       // Papal Dispensation: the first influence attempt against the Papal States
       // each turn is rejected outright. The charge refreshes every turn.
@@ -3334,6 +3314,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       const previousOwner = target.owner_id;
       const influenceProbBefore = captureProbBefore(state, userId);
+      breakTruceAndAlert(io, state, currentPlayer, previousOwner);
       target.owner_id = userId;
       target.unit_count = 1;
       if (isGaribaldiUse) {
@@ -4689,6 +4670,46 @@ function maybeEmitCoachingTip(io: Server, gameId: string, state: GameState, map:
 }
 
 /**
+ * Nothing forbids attacking a truce partner, but it breaks the truce, and only
+ * once the attacker has said so: an attack on one without `breakTruce` is
+ * refused with TRUCE_ACTIVE, and the client asks first. True when refused.
+ */
+function refuseUnconfirmedTruceBreak(
+  socket: Socket,
+  state: GameState,
+  attackerId: string,
+  targetOwnerId: string | null | undefined,
+  confirmed: boolean | undefined,
+): boolean {
+  if (confirmed === true || !activeTruceBetween(state, attackerId, targetOwnerId)) return false;
+  emitGameError(socket, GameErrorCode.TRUCE_ACTIVE, 'You have an active truce with this player');
+  return true;
+}
+
+/**
+ * Break the truce an attack has just committed to crossing, if there is one,
+ * and tell the betrayed player at once. True when a truce was broken.
+ */
+function breakTruceAndAlert(
+  io: Server,
+  state: GameState,
+  breaker: PlayerState,
+  betrayedId: string | null | undefined,
+): boolean {
+  if (!breakTruceBetween(state, breaker.player_id, betrayedId)) return false;
+  alertTruceBroken(io, breaker, betrayedId!);
+  return true;
+}
+
+function alertTruceBroken(io: Server, breaker: PlayerState, betrayedId: string): void {
+  io.to(`user:${betrayedId}`).emit('game:truce_broken', {
+    breakerName: breaker.username,
+    breakerColor: breaker.color,
+    breakerId: breaker.player_id,
+  });
+}
+
+/**
  * Land any Drop Assault the incoming player declared last turn (Space Age Moon
  * Race, Phase 2b).
  *
@@ -4736,6 +4757,7 @@ function landPendingDropAssaults(
 
     const defenderId = res.previousOwner ?? null;
     const defender = defenderId ? state.players.find((p) => p.player_id === defenderId) : undefined;
+    if (res.truceBroken && defenderId) alertTruceBroken(io, player, defenderId);
     const payload = {
       playerId: player.player_id,
       playerName: player.username,
