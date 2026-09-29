@@ -102,6 +102,21 @@ export function applyOpeningEconomyTick(state: GameState): void {
 }
 
 /**
+ * Economy without Technology Trees gets no opening tick (above: it needs
+ * both), so its first player began turn one with nothing to spend, while
+ * every later seat is paid as its turn begins (passTurn). This pays that
+ * first turn-start production. Tutorials, campaign missions and daily
+ * challenges, the starts with a fixed first seat (shouldRandomizeStartingPlayer),
+ * are authored around their opening resources and keep them.
+ */
+function payFirstTurnProduction(state: GameState): void {
+  const { economy_enabled, tech_trees_enabled } = state.settings;
+  if (!economy_enabled || tech_trees_enabled || !shouldRandomizeStartingPlayer(state.settings)) return;
+  const first = state.players[state.current_player_index];
+  if (first) collectProduction(state, first.player_id);
+}
+
+/**
  * Initialize a brand-new GameState from a map and player list.
  */
 export function initializeGameState(
@@ -476,6 +491,7 @@ export function initializeGameState(
   ) {
     applyOpeningEconomyTick(state);
   }
+  if (!isTerritorySelect) payFirstTurnProduction(state);
 
   // Inject seasonal event cards into the game-start deck
   if (settingsNorm.events_enabled) {
@@ -803,6 +819,7 @@ export function completeTerritorySelection(state: GameState, map: GameMap): void
   if (state.settings.economy_enabled && state.settings.tech_trees_enabled && !state.settings.tutorial) {
     applyOpeningEconomyTick(state);
   }
+  payFirstTurnProduction(state);
 
   const firstPlayer = state.players[starterIdx]!;
   state.draft_units_remaining = calculateReinforcements(
