@@ -376,8 +376,11 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     const gameId = uuidv4();
     const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#ecf0f1'];
 
-    const totalPlayers = 1 + ai_count;
-    const gameType = ai_count === 0 ? 'multiplayer' : ai_count >= totalPlayers - 1 ? 'solo' : 'hybrid';
+    // A game with AI waits as `solo`: invite-only, so Open Games never lists
+    // it. Its open seats are just the form's max_players, which the host never
+    // chose, and a listing row cannot show the bots. Game start sets the real
+    // type from who took a seat.
+    const gameType = ai_count === 0 ? 'multiplayer' : 'solo';
 
     let gameInsertOk = false;
     let assignedJoinCode: string | null = null;
