@@ -686,7 +686,15 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
     expect(truceOf(await getGameState(gameId))).toEqual({ status: 'truce', turns: 2 });
   }
 
-  type TruceBroken = { breakerId: string; breakerName: string };
+  type TruceBroken = { breakerId: string; breakerName: string; gameId?: string };
+
+  /**
+   * The partner's next truce-broken alert from `gameId`. It goes to their user
+   * room, like their state, so it names its game.
+   */
+  function waitForTruceBroken(client: ClientSocket, gameId: string): Promise<TruceBroken> {
+    return waitFor<TruceBroken>(client, 'game:truce_broken', 5_000, (a) => a.gameId === gameId);
+  }
 
   it('breaks a truce with a confirmed land attack, at +1 defense die, and tells the partner', async () => {
     const gameId = 'itest-truce-land';
@@ -698,11 +706,11 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
 
     await expectTruceRefusal(client, gameId, 'game:attack', { fromId: 'a', toId: 'b' });
 
-    const alert = waitFor<TruceBroken>(partner, 'game:truce_broken');
+    const alert = waitForTruceBroken(partner, gameId);
     const combat = waitFor<CombatPayload>(client, 'game:combat_result');
     client.emit('game:attack', { gameId, fromId: 'a', toId: 'b', breakTruce: true });
     expect((await combat).result.defender_rolls).toHaveLength(2);
-    expect(await alert).toMatchObject({ breakerId: 'p1', breakerName: 'P1' });
+    expect(await alert).toMatchObject({ breakerId: 'p1', breakerName: 'P1', gameId });
     await waitForRedisState(gameId, (s) => s.territories.b.owner_id === 'p1');
     const after = await getGameState(gameId);
     expect(truceOf(after)).toEqual({ status: 'neutral', turns: 0 });
@@ -741,7 +749,7 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
 
     await expectTruceRefusal(client, gameId, 'game:attack_blitz', { fromId: 'a', toId: 'b' });
 
-    const alert = waitFor<TruceBroken>(partner, 'game:truce_broken');
+    const alert = waitForTruceBroken(partner, gameId);
     const combat = waitFor<CombatPayload>(client, 'game:combat_result');
     client.emit('game:attack_blitz', { gameId, fromId: 'a', toId: 'b', breakTruce: true });
     await combat;
@@ -766,7 +774,7 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
 
     await expectTruceRefusal(client, gameId, 'game:naval_attack', { fromId: 'a', toId: 'b' });
 
-    const alert = waitFor<TruceBroken>(partner, 'game:truce_broken');
+    const alert = waitForTruceBroken(partner, gameId);
     const naval = waitFor<{ result: { defender_rolls: number[] } }>(client, 'game:naval_combat_result');
     client.emit('game:naval_attack', { gameId, fromId: 'a', toId: 'b', breakTruce: true });
     // One fleet rolls one die; the break adds the second.
@@ -794,7 +802,7 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
     expect(refused?.players[0]!.legacy_ability_charges).toEqual({ atom_bomb: 1 });
     expect(refused?.players[0]!.used_game_abilities ?? []).not.toContain('atom_bomb');
 
-    const alert = waitFor<TruceBroken>(partner, 'game:truce_broken');
+    const alert = waitForTruceBroken(partner, gameId);
     client.emit('game:use_ability', { gameId, abilityId: 'atom_bomb', params: { territoryId: 'b' }, breakTruce: true });
     expect((await alert).breakerId).toBe('p1');
     await waitForRedisState(gameId, (s) => s.territories.b.owner_id === null);
@@ -815,7 +823,7 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
 
     await expectTruceRefusal(client, gameId, 'game:influence', { targetId: 'b' });
 
-    const alert = waitFor<TruceBroken>(partner, 'game:truce_broken');
+    const alert = waitForTruceBroken(partner, gameId);
     const result = waitFor<{ success: boolean; previousOwner: string }>(client, 'game:influence_result');
     client.emit('game:influence', { gameId, targetId: 'b', breakTruce: true });
     expect(await result).toMatchObject({ success: true, previousOwner: 'p2' });
@@ -841,9 +849,57 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
     });
   });
 
+  // ── Events for one player name their game ───────────────────────────────────
+  // They go to the player's user room, which every socket the player has open
+  // receives, whichever game it shows. The page drops another game's.
+
+  it('tells the target of a truce offer which game it comes from', async () => {
+    const gameId = 'itest-truce-offer';
+    await seed(gameId, buildState(gameId, [], {
+      settings: { ...buildState(gameId, []).settings, diplomacy_enabled: true },
+    }), buildMap(gameId));
+    const client = await connect('p1');
+    const partner = await connect('p2');
+    await joinRoom('p1', gameId);
+
+    const offer = waitFor<{ gameId: string; proposerId: string }>(
+      partner, 'game:truce_proposal', 5_000, (o) => o.gameId === gameId,
+    );
+    client.emit('game:propose_truce', { gameId, targetPlayerId: 'p2' });
+    expect(await offer).toMatchObject({ gameId, proposerId: 'p1', proposerName: 'P1' });
+  });
+
+  it('tells the player which game a coaching tip is for', async () => {
+    const gameId = 'itest-coaching-tip';
+    // p1 opens their draft holding a with one unit, beside p2's b: a thin border.
+    await seed(gameId, buildState(gameId, [], {
+      phase: 'draft', current_player_index: 0, draft_units_remaining: 3,
+      coaching_eligible: true,
+      players: [player('p1', 0), player('p2', 1, { is_ai: true }), player('p3', 2, { is_ai: true })],
+      territories: { a: terr('a', 'p1', 1), b: terr('b', 'p2', 1), c: terr('c', 'p3', 5) },
+    }), buildMap(gameId));
+    const client = await connect('p1');
+    await joinRoom('p1', gameId);
+
+    // Turning coaching on in your own draft gives a tip at once.
+    const tip = waitFor<{ category: string; gameId?: string }>(
+      client, 'game:coaching_tip', 5_000, (t) => t.gameId === gameId,
+    );
+    client.emit('game:set_coaching', { gameId, enabled: true });
+    expect(await tip).toMatchObject({ category: 'thin_border', gameId });
+  });
+
   // ── Fog of War: map visuals must not leak hidden garrisons ─────────────────
 
-  type Visual = { kind: string; territoryId: string; units?: number; totalAfter?: number };
+  type Visual = { kind: string; territoryId: string; units?: number; totalAfter?: number; gameId?: string };
+
+  /**
+   * The next map visual from `gameId`. Under fog each player's copy goes to
+   * their user room, like their state, so a visual names its game.
+   */
+  function waitForVisual(client: ClientSocket, gameId: string): Promise<Visual> {
+    return waitFor<Visual>(client, 'game:map_visual', 5_000, (v) => v.gameId === gameId);
+  }
 
   it('keeps a hidden reinforcement\'s totals from opponents who cannot see it under fog', async () => {
     const gameId = 'itest-fog-visual';
@@ -858,11 +914,11 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
     const c3 = await connect('p3');
     for (const id of ['p1', 'p2', 'p3']) await joinRoom(id, gameId);
 
-    const seen2 = waitFor<Visual>(c2, 'game:map_visual');
-    const seen3 = waitFor<Visual>(c3, 'game:map_visual');
+    const seen2 = waitForVisual(c2, gameId);
+    const seen3 = waitForVisual(c3, gameId);
     c1.emit('game:draft', { gameId, territoryId: 'a', units: 2, action_id: 'fog1' });
 
-    expect(await seen2).toMatchObject({ kind: 'reinforce', territoryId: 'a', units: 2, totalAfter: 4 });
+    expect(await seen2).toMatchObject({ kind: 'reinforce', territoryId: 'a', units: 2, totalAfter: 4, gameId });
     const hidden = await seen3;
     expect(hidden).toMatchObject({ kind: 'reinforce', territoryId: 'a' });
     expect(hidden.units).toBeUndefined();
@@ -925,7 +981,7 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
     const c3 = await connect('p3');
     for (const id of ['p1', 'p3']) await joinRoom(id, gameId);
 
-    const seen3 = waitFor<Visual>(c3, 'game:map_visual');
+    const seen3 = waitForVisual(c3, gameId);
     c1.emit('game:draft', { gameId, territoryId: 'a', units: 2, action_id: 'nofog1' });
     expect(await seen3).toMatchObject({ kind: 'reinforce', territoryId: 'a', units: 2, totalAfter: 4 });
   });
