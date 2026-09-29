@@ -260,11 +260,39 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
     throw new Error(`server socket for ${userId} not found`);
   }
 
-  function waitFor<T = unknown>(client: ClientSocket, event: string, timeoutMs = 5_000): Promise<T> {
+  function waitFor<T = unknown>(
+    client: ClientSocket,
+    event: string,
+    timeoutMs = 5_000,
+    accept: (payload: T) => boolean = () => true,
+  ): Promise<T> {
     return new Promise((resolve, reject) => {
-      const t = setTimeout(() => reject(new Error(`timeout waiting for ${event}`)), timeoutMs);
-      client.once(event, (payload: T) => { clearTimeout(t); resolve(payload); });
+      const onEvent = (payload: T) => {
+        if (!accept(payload)) return;
+        clearTimeout(t);
+        client.off(event, onEvent);
+        resolve(payload);
+      };
+      const t = setTimeout(() => {
+        client.off(event, onEvent);
+        reject(new Error(`timeout waiting for ${event}`));
+      }, timeoutMs);
+      client.on(event, onEvent);
     });
+  }
+
+  /**
+   * The next `game:state` for `gameId`, skipping any other game's.
+   *
+   * broadcastState sends each human their state through their user room
+   * (`user:p1`), and the Redis adapter carries that to every socket server on
+   * the same Redis. In CI that includes the socket test files running beside
+   * this one, several of which seat a human `p1` too. So the next `game:state`
+   * this client receives can be from another file's game. GamePage skips other
+   * games' states the same way.
+   */
+  function waitForState(client: ClientSocket, gameId: string): Promise<GameState> {
+    return waitFor<GameState>(client, 'game:state', 5_000, (s) => s.game_id === gameId);
   }
 
   /**
@@ -295,7 +323,7 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
     await joinRoom('p1', gameId);
 
     const combat = waitFor<CombatPayload>(client, 'game:combat_result');
-    const stateEvt = waitFor<GameState>(client, 'game:state');
+    const stateEvt = waitForState(client, gameId);
     client.emit('game:attack', { gameId, fromId: 'a', toId: 'b' });
 
     const cr = await combat;
@@ -337,7 +365,7 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
     await joinRoom('p1', gameId);
 
     const elim = waitFor<{ playerId: string; eliminatorId: string }>(client, 'game:player_eliminated');
-    const stateEvt = waitFor<GameState>(client, 'game:state');
+    const stateEvt = waitForState(client, gameId);
     client.emit('game:attack', { gameId, fromId: 'a', toId: 'b' });
 
     const e = await elim;
@@ -364,13 +392,13 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
     const client = await connect('p1');
     await joinRoom('p1', gameId);
 
-    const firstState = waitFor<GameState>(client, 'game:state');
+    const firstState = waitForState(client, gameId);
     client.emit('game:attack', { gameId, fromId: 'a', toId: 'b' });
     await firstState;
     // The first attack persists fire-and-forget; wait for it before reloading.
     await waitForRedisState(gameId, (s) => s.territories.b.owner_id === 'p1');
 
-    const secondState = waitFor<GameState>(client, 'game:state');
+    const secondState = waitForState(client, gameId);
     client.emit('game:attack', { gameId, fromId: 'b', toId: 'c' });
     const st = await secondState;
 
@@ -536,7 +564,7 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
     await joinRoom('p1', gameId);
 
     const combat = waitFor<CombatPayload>(client, 'game:combat_result');
-    const stateEvt = waitFor<GameState>(client, 'game:state');
+    const stateEvt = waitForState(client, gameId);
     client.emit('game:attack', { gameId, fromId: 'm1', toId: 'm2' });
 
     expect((await combat).result.territory_captured).toBe(true);
@@ -854,8 +882,8 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
     const c3 = await connect('p3');
     for (const id of ['p1', 'p3']) await joinRoom(id, gameId);
 
-    const own = waitFor<GameState>(c1, 'game:state');
-    const rival = waitFor<GameState>(c3, 'game:state');
+    const own = waitForState(c1, gameId);
+    const rival = waitForState(c3, gameId);
     c1.emit('game:draft', { gameId, territoryId: 'a', units: 2, action_id: 'fogtally1' });
     const [mine, theirs] = await Promise.all([own, rival]);
     // p3 (at c) cannot see a: the tile is masked, and so is the tally.
@@ -878,7 +906,7 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
     const c1 = await connect('p1');
     await joinRoom('p1', gameId);
 
-    const next = waitFor<GameState>(c1, 'game:state');
+    const next = waitForState(c1, gameId);
     c1.emit('game:advance_phase', { gameId, action_id: 'cold1' });
     const view = await next;
     expect(view.phase).toBe('attack');
