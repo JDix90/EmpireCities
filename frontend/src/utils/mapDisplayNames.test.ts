@@ -6,6 +6,7 @@ import {
   resolveRegionName,
   resolveTerritoryName,
 } from './mapDisplayNames';
+import type { PlayerState } from '../store/gameStore';
 
 const lookup = {
   territories: [
@@ -35,6 +36,17 @@ describe('mapDisplayNames', () => {
       lookup,
     );
     expect(text).toBe('Own Central America & Caribbean and Argentina & Uruguay');
+  });
+
+  it('says when an eliminate mission can no longer succeed', () => {
+    const mission = { kind: 'eliminate_player' as const, target_player_id: 't' };
+    const target = (over: Partial<PlayerState>) =>
+      [{ player_id: 't', username: 'Sam', is_eliminated: false, ...over }] as PlayerState[];
+    expect(describeSecretMission(mission, target({}), null, 'me')).toBe('Eliminate Sam');
+    expect(describeSecretMission(mission, target({ is_eliminated: true, eliminated_by: 'rival' }), null, 'me'))
+      .toBe('Eliminate Sam — failed: Sam is out, but not by your hand');
+    expect(describeSecretMission(mission, target({ is_eliminated: true, eliminated_by: null }), null, 'me'))
+      .toBe('Eliminate Sam — failed: Sam is out, but not by your hand');
   });
 
   it('formats era labels from ERA_LABELS', () => {

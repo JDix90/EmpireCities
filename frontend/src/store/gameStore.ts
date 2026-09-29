@@ -56,6 +56,8 @@ export interface PlayerState {
   /** Disconnected human whose turns the AI is temporarily covering (reclaimable on return). */
   is_away?: boolean;
   is_eliminated: boolean;
+  /** Who eliminated this player; null when nobody did (resigned, rebels). */
+  eliminated_by?: string | null;
   territory_count: number;
   cards: { card_id: string; symbol: string }[];
   mmr: number;

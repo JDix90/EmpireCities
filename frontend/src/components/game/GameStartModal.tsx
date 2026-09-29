@@ -295,7 +295,7 @@ export default function GameStartModal({
           <h4 className="text-xs font-medium text-bf-muted uppercase tracking-wider mb-2">Your secret mission</h4>
           <p className="flex items-start gap-2 text-sm text-bf-text mb-4">
             <Target className="w-3.5 h-3.5 text-bf-gold shrink-0 mt-0.5" aria-hidden />
-            <span>{describeSecretMission(viewer.secret_mission, gameState.players, mapNameLookup)}</span>
+            <span>{describeSecretMission(viewer.secret_mission, gameState.players, mapNameLookup, viewer.player_id)}</span>
           </p>
         </>
       ) : missionDealtAfterDraft && (

@@ -43,10 +43,15 @@ export function formatEraLabel(eraId: string | undefined | null): string {
   return ERA_LABELS[eraId] ?? humanizeMapId(eraId);
 }
 
+/**
+ * `holderId` is the player whose mission it is: with it, an "Eliminate X"
+ * mission that can no longer succeed says so.
+ */
 export function describeSecretMission(
   mission: SecretMissionPayload,
   players: PlayerState[],
   lookup?: MapNameLookup | null,
+  holderId?: string,
 ): string {
   if (mission.kind === 'capture_territories' && mission.territory_ids?.length) {
     const names = mission.territory_ids.map((id) => resolveTerritoryName(id, lookup));
@@ -54,7 +59,12 @@ export function describeSecretMission(
   }
   if (mission.kind === 'eliminate_player' && mission.target_player_id) {
     const target = players.find((p) => p.player_id === mission.target_player_id);
-    return `Eliminate ${target?.username ?? 'opponent'}`;
+    const name = target?.username ?? 'opponent';
+    // Only the holder's own kill completes it.
+    if (holderId && target?.is_eliminated && target.eliminated_by !== holderId) {
+      return `Eliminate ${name} — failed: ${name} is out, but not by your hand`;
+    }
+    return `Eliminate ${name}`;
   }
   if (mission.kind === 'control_regions' && mission.region_ids?.length) {
     const names = mission.region_ids.map((id) => resolveRegionName(id, lookup));

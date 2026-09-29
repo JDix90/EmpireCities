@@ -7,6 +7,7 @@ import type { GameState } from '../../types';
 import { getPlayerFaction } from '../eras/factionLineage';
 import { getWorldModifier } from './worldModifiers';
 import { worldPopulationGrowthMult } from './worldRules';
+import { eliminatePlayer } from './elimination';
 
 /**
  * CSPRNG-backed [0, 1) replacement for Math.random(). Stability/population
@@ -151,7 +152,7 @@ export function applyStabilityTick(
   // Rebels took the player's last territory. Left in play, a player holding
   // nothing kept taking turns, and Last Standing could never be won.
   const player = state.players.find((p) => p.player_id === playerId);
-  if (lostTerritory && player && player.territory_count === 0) player.is_eliminated = true;
+  if (lostTerritory && player && player.territory_count === 0) eliminatePlayer(player, null);
 
   return rebellions;
 }

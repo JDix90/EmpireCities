@@ -61,6 +61,7 @@ import { getPlayerFaction } from '../game-engine/eras/factionLineage';
 import { resolveEventChoice, getTemporaryModifierValue, getDisplayScaledCard } from '../game-engine/events/eventCardManager';
 import { moveFleets, resolveNavalCombat, resolveSeaCrossing } from '../game-engine/state/navalManager';
 import { onInfluenceStabilityPenalty, getDeployCap } from '../game-engine/state/stabilityManager';
+import { eliminatePlayer } from '../game-engine/state/elimination';
 import { getAdjacentTerritoryIds, getInfluenceHopLimit, isTerritoryReachableWithinHops } from '../game-engine/state/influenceManager';
 import { playerHoldsVaultSeal, worldDeployCapBonus } from '../game-engine/state/worldRules';
 import { isJumpGateOnlyEdge, jumpGatePartners, syncJumpGateLanes } from '../game-engine/state/jumpGates';
@@ -3121,7 +3122,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         if (previousOwner) {
           const prevPlayer = state.players.find((p) => p.player_id === previousOwner);
           if (prevPlayer && prevPlayer.territory_count === 0) {
-            prevPlayer.is_eliminated = true;
+            eliminatePlayer(prevPlayer, userId);
             currentPlayer.cards.push(...prevPlayer.cards);
             prevPlayer.cards = [];
             recordElimination(gameId, userId);
@@ -3353,7 +3354,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (previousOwner) {
         const prevPlayer = state.players.find((p) => p.player_id === previousOwner);
         if (prevPlayer && prevPlayer.territory_count === 0) {
-          prevPlayer.is_eliminated = true;
+          eliminatePlayer(prevPlayer, userId);
           currentPlayer.cards.push(...prevPlayer.cards);
           prevPlayer.cards = [];
           recordElimination(gameId, userId);
@@ -3881,7 +3882,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const player = state.players.find((p) => p.player_id === userId);
       if (!player || player.is_eliminated) return socket.emit('error', { message: 'Cannot resign' });
 
-      player.is_eliminated = true;
+      eliminatePlayer(player, null);
       player.has_resigned = true;
 
       // Make all their territories neutral (unowned)
@@ -6372,7 +6373,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
       if (previousOwner) {
         const prevPlayer = state.players.find((p) => p.player_id === previousOwner);
         if (prevPlayer && prevPlayer.territory_count === 0) {
-          prevPlayer.is_eliminated = true;
+          eliminatePlayer(prevPlayer, currentPlayer.player_id);
           currentPlayer.cards.push(...prevPlayer.cards);
           prevPlayer.cards = [];
           recordElimination(gameId, currentPlayer.player_id);

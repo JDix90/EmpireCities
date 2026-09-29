@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { assignSecretMissions, isMissionComplete } from './missions';
 import { checkVictory, initializeGameState } from '../state/gameStateManager';
+import { executeLandAttack } from '../combat/executeLandAttack';
 import type { GameMap, GameState, PlayerState } from '../../types';
 
 function mkPlayer(id: string, overrides: Partial<PlayerState> = {}): PlayerState {
@@ -77,35 +78,16 @@ describe('isMissionComplete', () => {
     expect(isMissionComplete(state, miniMap, p)).toBe(true);
   });
 
-  it('eliminate_player when target eliminated', () => {
-    const p1: PlayerState = {
-      player_id: 'p1',
-      player_index: 0,
-      username: 'a',
-      color: '#fff',
-      is_ai: false,
-      is_eliminated: false,
-      territory_count: 1,
-      cards: [],
-      mmr: 1000,
-      capital_territory_id: null,
-      secret_mission: { kind: 'eliminate_player', target_player_id: 'p2' },
-    };
-    const p2: PlayerState = {
-      player_id: 'p2',
-      player_index: 1,
-      username: 'b',
-      color: '#000',
-      is_ai: false,
-      is_eliminated: true,
-      territory_count: 0,
-      cards: [],
-      mmr: 1000,
-      capital_territory_id: null,
-      secret_mission: null,
-    };
+  it('eliminate_player completes on the holder\'s own kill, and only on it', () => {
+    const p1 = mkPlayer('p1', { secret_mission: { kind: 'eliminate_player', target_player_id: 'p2' } });
+    const p2 = mkPlayer('p2', { player_index: 1, is_eliminated: true, territory_count: 0 });
     const state = baseState([p1, p2]);
-    expect(isMissionComplete(state, miniMap, p1)).toBe(true);
+    for (const [by, done] of [['p1', true], ['p3', false], [null, false], [undefined, false]] as const) {
+      p2.eliminated_by = by;
+      // Someone else's kill, a resignation or rebels (null), or a save from
+      // before the eliminator was recorded (undefined): the mission fails.
+      expect({ by, done: isMissionComplete(state, miniMap, p1) }).toEqual({ by, done });
+    }
   });
 
   it('reach_era completes once the player hits the target era index', () => {
@@ -114,6 +96,30 @@ describe('isMissionComplete', () => {
     expect(isMissionComplete(state, miniMap, below)).toBe(false);
     below.current_era_index = 2;
     expect(isMissionComplete(state, miniMap, below)).toBe(true);
+  });
+});
+
+describe('an eliminate mission when someone else gets there first', () => {
+  it('wins for the player who took the last territory, and not for anyone else', () => {
+    // p1 and p3 both hold "Eliminate p2". p3 takes p2's last territory.
+    const map: GameMap = {
+      ...miniMap,
+      connections: [{ from: 'a', to: 'c', type: 'land' }],
+    } as GameMap;
+    const p1 = mkPlayer('p1', { secret_mission: { kind: 'eliminate_player', target_player_id: 'p2' } });
+    const p2 = mkPlayer('p2', { player_index: 1 });
+    const p3 = mkPlayer('p3', { player_index: 2, secret_mission: { kind: 'eliminate_player', target_player_id: 'p2' } });
+    const state = baseState([p1, p2, p3]);
+    state.territories = {
+      a: { territory_id: 'a', owner_id: 'p3', unit_count: 10, unit_type: 'infantry' },
+      b: { territory_id: 'b', owner_id: 'p1', unit_count: 3, unit_type: 'infantry' },
+      c: { territory_id: 'c', owner_id: 'p2', unit_count: 1, unit_type: 'infantry' },
+    };
+    const rolls = [6, 6, 6, 1]; // p3's three dice, then p2's one
+    expect(executeLandAttack(state, 'p3', 'a', 'c', { dieRoll: () => rolls.shift() ?? 1 })?.captured).toBe(true);
+    expect(p2).toMatchObject({ is_eliminated: true, eliminated_by: 'p3' });
+    expect(isMissionComplete(state, map, p1)).toBe(false);
+    expect(checkVictory(state, map)).toEqual({ winnerIds: ['p3'], condition: 'secret_mission' });
   });
 });
 

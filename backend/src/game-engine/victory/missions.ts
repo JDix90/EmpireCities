@@ -302,8 +302,10 @@ export function isMissionComplete(state: GameState, map: GameMap, player: Player
       );
     }
     case 'eliminate_player': {
+      // The holder has to do it. A target someone else eliminates, or who
+      // resigns or falls to rebels, fails the mission for good.
       const target = state.players.find((p) => p.player_id === m.target_player_id);
-      return target?.is_eliminated === true;
+      return target?.is_eliminated === true && target.eliminated_by === player.player_id;
     }
     case 'control_regions':
       return playerOwnsAllTerritoriesInRegions(state, map, player.player_id, m.region_ids);

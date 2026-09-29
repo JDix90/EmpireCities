@@ -105,7 +105,7 @@ The host selects one or more victory conditions at game creation. The first play
 
 **Secret Mission types:**
 - **Capture territories** — Conquer 2 specific enemy territories
-- **Eliminate player** — Eliminate a specific opponent entirely
+- **Eliminate player** — Eliminate a specific opponent yourself. If anyone else takes them out, they resign, or rebels take their last territory, the mission fails
 - **Control regions** — Control 1 or 2 entire continents
 - **Alliance** (rare, 4+ player games) — You and a secret ally each hold ≥20% of all territories
 

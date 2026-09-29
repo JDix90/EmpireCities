@@ -512,7 +512,7 @@ export default function GameHUD({
               {myPlayer.secret_mission && (
                 <p className="text-xs text-bf-text mt-1">
                   <span className="text-bf-muted">Mission: </span>
-                  {describeSecretMission(myPlayer.secret_mission, gameState.players, mapNameLookup)}
+                  {describeSecretMission(myPlayer.secret_mission, gameState.players, mapNameLookup, myPlayer.player_id)}
                 </p>
               )}
             </div>
