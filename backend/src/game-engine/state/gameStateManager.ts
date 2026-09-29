@@ -938,9 +938,12 @@ function passTurn(state: GameState, map?: GameMap): void {
     // is on, so a board carrying both works.
     tickLaneBlockades(state);
 
-    // Decrement truce timers once per round (not per player turn)
+    // Decrement truce timers once per round (not per player turn). An agreed
+    // truce's rounds are the ones after it is accepted, so the round it was
+    // accepted in ends without a tick (see agreeTruce).
     for (const entry of state.diplomacy) {
       if (entry.status === 'truce' && entry.truce_turns_remaining > 0) {
+        if (entry.truce_agreed_turn === state.turn_number - 1) continue;
         entry.truce_turns_remaining--;
         if (entry.truce_turns_remaining === 0) {
           entry.status = 'neutral';

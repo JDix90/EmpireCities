@@ -347,6 +347,8 @@ function applyEventEffectInner(
         if (entry) {
           entry.status = 'truce';
           entry.truce_turns_remaining = effect.value || 1;
+          // A card's truce counts the round it lands in (agreed ones do not).
+          entry.truce_agreed_turn = undefined;
         }
       }
       break;

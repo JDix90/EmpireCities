@@ -339,6 +339,12 @@ export interface DiplomacyEntry {
   player_index_b: number;
   status: DiplomacyStatus;
   truce_turns_remaining: number;
+  /**
+   * The round (`turn_number`) an agreed truce was accepted in. That round is
+   * not one of its rounds, so the countdown skips the wrap that ends it (see
+   * agreeTruce). Absent on event truces, which count the round they land in.
+   */
+  truce_agreed_turn?: number;
 }
 
 export interface TerritoryCard {
