@@ -13,7 +13,7 @@
  * page with a not-found branch should get a case here too.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import AnswerPage from './AnswerPage';
 import DailyArchivePage from './DailyArchivePage';
@@ -54,7 +54,10 @@ describe('soft-404 states are not indexable', () => {
       </MemoryRouter>,
     );
     expect(await screen.findByText(/no archived challenge/i)).toBeTruthy();
-    expect(isNoindexed()).toBe(true);
+    // useNoindex adds the tag in an effect, after the render that shows the
+    // copy. That render follows a failed fetch, outside act(), so its effects
+    // can still be pending when findByText resolves: wait for the tag.
+    await waitFor(() => expect(isNoindexed()).toBe(true));
   });
 
   it('a real archived day stays indexable', async () => {
@@ -79,6 +82,9 @@ describe('soft-404 states are not indexable', () => {
       </MemoryRouter>,
     );
     expect(await screen.findByText(/all roads/i)).toBeTruthy();
+    // The same render's effects set the title, so once it shows, a stray
+    // noindex from that render would be in the head too.
+    await waitFor(() => expect(document.title).toMatch(/all roads/i));
     // The regression that would hurt most: a blanket noindex on real content.
     expect(isNoindexed()).toBe(false);
   });
