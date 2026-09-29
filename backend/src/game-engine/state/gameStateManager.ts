@@ -1135,21 +1135,20 @@ export interface AutoDraftResult {
 }
 
 export type TimeoutPhaseAdvance =
-  | { kind: 'phase'; newPhase: 'attack' | 'fortify'; autoDraft: AutoDraftResult }
   | { kind: 'selection'; territoryId: string | null; completed: boolean }
-  | { kind: 'turn' };
+  | { kind: 'turn'; autoDraft: AutoDraftResult };
 
 /**
- * Advance a single phase when a real-time turn timer expires.
+ * What a real-time turn timer's expiry does.
  *
- * Previously a timeout always jumped straight to the next player, so a player who
- * timed out while still in the draft phase silently forfeited their attack and
- * fortify phases. This walks the active player through draft → attack → fortify one
- * step per expiry (mirroring manual `game:advance_phase`), only handing the turn to
- * the next player once the fortify phase times out.
+ * The clock covers the whole turn (draft, attack and fortify together) and
+ * runs on through phase changes. When it runs out, reinforcements still
+ * unplaced are placed for the player and the turn passes on (`{ kind: 'turn' }`).
+ * It used to time out one phase at a time and restart a full clock for each,
+ * so a "5 minute" turn could run fifteen.
  *
- * Returns `{ kind: 'phase' }` when the same player continues into a new phase (the
- * caller should restart their timer) or `{ kind: 'turn' }` when the turn advanced.
+ * The Territory Draft keeps its clock per pick: an expiry picks for the seat
+ * (`{ kind: 'selection' }`).
  */
 export function advancePhaseOnTimeout(state: GameState, map?: GameMap): TimeoutPhaseAdvance {
   // Territory Draft: pick for the seat that timed out. Falling through to the
@@ -1157,22 +1156,13 @@ export function advancePhaseOnTimeout(state: GameState, map?: GameMap): TimeoutP
   if (state.phase === 'territory_select' && map) {
     return { kind: 'selection', ...autoPickSelectionTerritory(state, map) };
   }
-  if (state.phase === 'draft') {
-    const autoDraft = state.draft_units_remaining > 0
-      ? autoPlaceDraftUnits(state)
-      : { total: 0, placements: [] };
-    state.draft_units_remaining = 0;
-    state.phase = 'attack';
-    return { kind: 'phase', newPhase: 'attack', autoDraft };
-  }
-  if (state.phase === 'attack') {
-    state.phase = 'fortify';
-    return { kind: 'phase', newPhase: 'fortify', autoDraft: { total: 0, placements: [] } };
-  }
-  // fortify (or any unexpected phase) → hand the turn to the next player.
+  const autoDraft = state.phase === 'draft' && state.draft_units_remaining > 0
+    ? autoPlaceDraftUnits(state)
+    : { total: 0, placements: [] };
+  state.draft_units_remaining = 0;
   state.fortify_moves_used = 0;
   advanceToNextPlayer(state, map);
-  return { kind: 'turn' };
+  return { kind: 'turn', autoDraft };
 }
 
 /**

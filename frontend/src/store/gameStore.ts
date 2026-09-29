@@ -325,9 +325,9 @@ export interface GameState {
   draft_deployments_this_turn?: Array<{ territory_id: string; units: number }>;
   turn_started_at: number;
   /**
-   * Server-authoritative deadline (Unix ms) for the current phase's timer.
-   * Re-armed per phase (including timeout auto-advances). Absent on older
-   * servers — fall back to turn_started_at + turn_timer_seconds.
+   * Server-authoritative deadline (Unix ms) for the current turn's timer, or a
+   * Territory Draft pick's. It runs on through the turn's phases. Absent on
+   * older servers — fall back to turn_started_at + turn_timer_seconds.
    */
   phase_deadline_at?: number | null;
   winner_id?: string;

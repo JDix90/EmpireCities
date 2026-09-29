@@ -160,34 +160,27 @@ describe('autoPlaceDraftUnits', () => {
 // ── advancePhaseOnTimeout ─────────────────────────────────────────────────────
 
 describe('advancePhaseOnTimeout', () => {
-  it('auto-places draft units and moves draft → attack for the same player', () => {
+  // The clock covers the whole turn: whichever phase it runs out in, the turn ends.
+  it('places what is left of the draft and ends the turn', () => {
     const state = makeState({ phase: 'draft', draft_units_remaining: 5 });
     const result = advancePhaseOnTimeout(state);
-    expect(result.kind).toBe('phase');
-    if (result.kind === 'phase') {
-      expect(result.newPhase).toBe('attack');
-      expect(result.autoDraft.total).toBe(5);
-    }
-    expect(state.phase).toBe('attack');
-    expect(state.draft_units_remaining).toBe(0);
-    expect(state.current_player_index).toBe(0);
-  });
-
-  it('moves attack → fortify without ending the turn', () => {
-    const state = makeState({ phase: 'attack' });
-    const result = advancePhaseOnTimeout(state);
-    expect(result.kind).toBe('phase');
-    if (result.kind === 'phase') expect(result.newPhase).toBe('fortify');
-    expect(state.phase).toBe('fortify');
-    expect(state.current_player_index).toBe(0);
-  });
-
-  it('ends the turn from fortify, advancing to the next player in draft', () => {
-    const state = makeState({ phase: 'fortify', current_player_index: 0 });
-    const result = advancePhaseOnTimeout(state);
     expect(result.kind).toBe('turn');
+    if (result.kind === 'turn') expect(result.autoDraft.total).toBe(5);
     expect(state.current_player_index).toBe(1);
     expect(state.phase).toBe('draft');
+  });
+
+  it('ends the turn from the attack phase, fortify and all', () => {
+    const state = makeState({ phase: 'attack', current_player_index: 0 });
+    const result = advancePhaseOnTimeout(state);
+    expect(result).toEqual({ kind: 'turn', autoDraft: { total: 0, placements: [] } });
+    expect({ seat: state.current_player_index, phase: state.phase }).toEqual({ seat: 1, phase: 'draft' });
+  });
+
+  it('ends the turn from fortify', () => {
+    const state = makeState({ phase: 'fortify', current_player_index: 0 });
+    expect(advancePhaseOnTimeout(state).kind).toBe('turn');
+    expect({ seat: state.current_player_index, phase: state.phase }).toEqual({ seat: 1, phase: 'draft' });
   });
 });
 

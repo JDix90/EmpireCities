@@ -243,28 +243,76 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
   // ── The real-time turn clock ────────────────────────────────────────────────
 
   describe('real-time turn clock', () => {
-    it('keeps timing out an idle seat, phase after phase, into the next turn', async () => {
-      const gameId = 'handoff-clock-chain';
+    it('times the whole turn: a phase change keeps the clock, and its expiry ends the turn', async () => {
+      const gameId = 'handoff-clock-turn';
+      const p1Deadline = Date.now() + 1_500;
+      await seed(gameId, buildState(gameId, {
+        phase_deadline_at: p1Deadline,
+        settings: { ...buildState(gameId, {}).settings, turn_timer_seconds: 60 },
+      }), isolatedMap(gameId, ['a', 'b']));
+      await timer.scheduleTurnTimeout(gameId, p1Deadline);
+      const p1 = await connect('p1');
+      await joinRoom('p1', gameId);
+      const timedOut = new Promise((resolve) => p1.once('game:turn_timeout', resolve));
+
+      // Ending the draft does not restart the clock: it covers the whole turn.
+      p1.emit('game:advance_phase', { gameId });
+      const attacking = await waitForRedisState(gameId, (st) => st.phase === 'attack');
+      expect(attacking.phase_deadline_at).toBe(p1Deadline);
+
+      // It runs out mid-attack: the turn ends there, fortify and all, and p2's
+      // begins with a clock of its own.
+      expect(await timedOut).toEqual({ phaseAdvanced: 'next_turn', appliedDraft: false, unitsPlaced: 0 });
+      // (The hand-off is saved a moment before p2's clock is armed.)
+      const s = await waitForRedisState(gameId, (st) =>
+        st.current_player_index === 1 && (st.phase_deadline_at ?? 0) > Date.now() + 10_000);
+      expect({ phase: s.phase, clockSeconds: Math.round((s.phase_deadline_at! - Date.now()) / 1000) })
+        .toEqual({ phase: 'draft', clockSeconds: 60 });
+    }, 20_000);
+
+    it('places what is left of the draft when the clock runs out in it, and ends the turn', async () => {
+      const gameId = 'handoff-clock-draft';
+      const p1Deadline = Date.now() + 300;
       await seed(gameId, buildState(gameId, {
         draft_units_remaining: 3,
-        settings: { ...buildState(gameId, {}).settings, turn_timer_seconds: 1 },
+        phase_deadline_at: p1Deadline,
+        settings: { ...buildState(gameId, {}).settings, turn_timer_seconds: 60 },
+      }), isolatedMap(gameId, ['a', 'b']));
+      const p1 = await connect('p1');
+      await joinRoom('p1', gameId);
+      const timedOut = new Promise((resolve) => p1.once('game:turn_timeout', resolve));
+      const placedFor = new Promise<{ kind: string; playerId: string }>((resolve) => p1.once('game:map_visual', resolve));
+      await timer.scheduleTurnTimeout(gameId, p1Deadline);
+
+      expect(await timedOut).toEqual({ phaseAdvanced: 'next_turn', appliedDraft: true, unitsPlaced: 3 });
+      // The placement is shown as p1's, though the turn has passed to p2.
+      expect(await placedFor).toMatchObject({ kind: 'reinforce', playerId: 'p1' });
+      const s = await waitForRedisState(gameId, (st) => st.current_player_index === 1);
+      expect({ a: s.territories.a.unit_count, seat: s.current_player_index, phase: s.phase })
+        .toEqual({ a: 3 + 3, seat: 1, phase: 'draft' });
+    }, 20_000);
+
+    it('keeps an async turn\'s deadline through its phases', async () => {
+      const gameId = 'handoff-async-turn';
+      const deadline = Date.now() + 86_400_000;
+      await seed(gameId, buildState(gameId, {
+        phase_deadline_at: deadline,
+        settings: {
+          ...buildState(gameId, {}).settings,
+          turn_timer_seconds: 86400,
+          async_mode: true,
+          async_turn_deadline_seconds: 86400,
+        },
       }), isolatedMap(gameId, ['a', 'b']));
       const p1 = await connect('p1');
       await joinRoom('p1', gameId);
 
-      // Ending the draft arms p1's attack clock; then nobody acts again. Each
-      // expiry arms the next clock from inside the timer's own job.
-      p1.emit('game:advance_phase', { gameId });
-      await waitForRedisState(gameId, (s) => s.phase === 'attack');
-
-      const seen: string[] = [];
-      const record = (s: GameState) => {
-        const key = `${s.current_player_index}:${s.phase}`;
-        if (seen[seen.length - 1] !== key) seen.push(key);
-        return s.current_player_index === 1 && s.phase === 'attack';
-      };
-      await waitForRedisState(gameId, record, 10_000).catch(() => undefined);
-      expect(seen).toEqual(['0:attack', '0:fortify', '1:draft', '1:attack']);
+      p1.emit('game:advance_phase', { gameId }); // draft → attack
+      await waitForRedisState(gameId, (st) => st.phase === 'attack');
+      p1.emit('game:advance_phase', { gameId }); // attack → fortify
+      const s = await waitForRedisState(gameId, (st) => st.phase === 'fortify');
+      // Each phase used to set a fresh day from the moment it began.
+      expect(s.phase_deadline_at).toBe(deadline);
     }, 20_000);
 
     it('ignores a timeout that fired while the player\'s own end-turn held the lock', async () => {
@@ -901,6 +949,11 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
         clockSeconds: Math.round((running.phase_deadline_at! - Date.now()) / 1000),
         bClock: bJob ? await bJob.getState() : 'none',
       }).toEqual({ card: null, clockSeconds: 60, bClock: 'delayed' });
+
+      // That is the turn's clock: it runs on through b's phases.
+      b.emit('game:advance_phase', { gameId });
+      const attacking = await waitForRedisState(gameId, (st) => st.phase === 'attack');
+      expect(attacking.phase_deadline_at).toBe(running.phase_deadline_at);
     }, 20_000);
 
     it('a bot answers its own choice card rather than passing it to the next player', async () => {
