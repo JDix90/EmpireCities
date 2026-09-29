@@ -120,7 +120,7 @@ When creating a game, the host can configure:
 | **Era & Map** | Ancient, Medieval, Discovery, WW2, Cold War, Modern, ACW, Risorgimento, Space Age, Custom, or community maps. **Galactic Age** is an admin preview: its map and factions ship with the game and you can browse them in the **Codex** (badged *Coming soon*), but the server refuses to create a game on it unless your account is an administrator |
 | **Players** | 2–8 (mix of human and AI) |
 | **AI Bots** | 0–7 bots at Easy / Medium / Hard / Expert difficulty |
-| **Turn Timer** | None, 3 min, 5 min, 10 min, or async (12h / 24h / 72h). One clock covers your whole turn: when it runs out, reinforcements you have not placed are placed for you and your turn ends. A choice card holds the clock until you answer it |
+| **Turn Timer** | None, 3 min, 5 min, 10 min, or async (12h / 24h / 72h). One clock covers your whole turn: when it runs out, reinforcements you have not placed are placed for you and your turn ends. A choice card holds a timed clock until you answer it. An async deadline keeps running through it: see [Event Cards](#event-cards) |
 | **Victory** | Domination, Threshold, Capital, Secret Mission (can enable multiple) |
 | **Fog of War** | Only see owned territories + immediate neighbors |
 | **Territory Draft** | Players pick starting territories instead of random assignment |
@@ -311,6 +311,7 @@ At the **start of each game round** (after all players have taken a turn), an er
 
 - **Instant events** apply their effect immediately (e.g., "+2 units to all your territories" or "All players lose 1 unit from their weakest territory"). You see a summary modal and click "Continue."
 - **Choice events** present 2–3 options with different tradeoffs. You click your preferred choice and its effect applies. Example: "The Silk Road is open — invest in trade (+3 resources) or military expansion (+5 units on a random territory)."
+- **Choice events and the clock:** a turn timer waits while you choose. In an async game your deadline keeps running instead. If it lapses before you choose, the first option is taken for you and your turn ends.
 
 ### Temporary Modifiers
 

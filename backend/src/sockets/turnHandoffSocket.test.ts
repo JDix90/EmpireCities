@@ -2,7 +2,8 @@
  * Turn hand-off paths through the real socket server and a real Redis room:
  * the real-time turn clock, Territory Draft clocks (real time and async),
  * event cards across hand-offs, AI turns around game over, resigning, wins
- * that must not wait for a hand-off, and choice cards on away seats.
+ * that must not wait for a hand-off, and choice cards (away seats, bots, the
+ * turn clock, async days).
  *
  * Redis-gated like the rest of the Redis tier. It starts the BullMQ turn-timer
  * and async-deadline workers, so run it on a Redis no other suite is
@@ -1100,6 +1101,132 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
       b.emit('game:advance_phase', { gameId });
       const attacking = await waitForRedisState(gameId, (st) => st.phase === 'attack');
       expect(attacking.phase_deadline_at).toBe(running.phase_deadline_at);
+    }, 20_000);
+
+    /** An async game: a day per turn. */
+    const asyncChoiceSettings = {
+      ...choiceSettings,
+      turn_timer_seconds: 86400,
+      async_mode: true,
+      async_turn_deadline_seconds: 86400,
+    } as GameState['settings'];
+
+    it('tells an async player whose turn opens on a choice card, and runs their day through it', async () => {
+      const gameId = 'handoff-choice-async';
+      await seed(gameId, buildState(gameId, {
+        era: 'custom' as GameState['era'],
+        phase: 'fortify',
+        turn_number: 2,
+        players: [player('async-a', 0), player('async-b', 1)],
+        territories: { a1: terr('a1', 'async-a', 3), b1: terr('b1', 'async-b', 3) },
+        settings: asyncChoiceSettings,
+        seasonal_event_cards: [],
+        pending_event: { card: dilemma, target_player_id: 'async-b' },
+      }), isolatedMap(gameId, ['a1', 'b1']));
+      const a = await connect('async-a');
+      await joinRoom('async-a', gameId);
+      const b = await connect('async-b');
+      await joinRoom('async-b', gameId);
+      const told: unknown[] = [];
+      b.on('lobby:your_turn', (payload) => told.push(payload));
+
+      // a ends the turn; b's opens on the card, and b is told.
+      a.emit('game:advance_phase', { gameId });
+      const opened = await waitForRedisState(gameId, (st) =>
+        st.current_player_index === 1 && (st.phase_deadline_at ?? 0) > Date.now() + 23 * 3600_000);
+      expect(opened.active_event?.card_id).toBe('dilemma');
+      await sleep(100);
+      expect(told).toHaveLength(1);
+
+      // Answering the card neither restarts b's day nor tells b a second time.
+      b.emit('game:event_choice', { gameId, choiceId: 'x' });
+      const answered = await waitForRedisState(gameId, (st) => !st.active_event);
+      await sleep(200);
+      expect({ deadline: answered.phase_deadline_at, told: told.length })
+        .toEqual({ deadline: opened.phase_deadline_at, told: 1 });
+    }, 20_000);
+
+    it('answers a card left open when the async day lapses, and passes the turn on without it', async () => {
+      const gameId = 'handoff-choice-async-lapse';
+      await seed(gameId, buildState(gameId, {
+        era: 'custom' as GameState['era'],
+        phase: 'draft',
+        turn_number: 3,
+        current_player_index: 1,
+        players: [player('lapse-a', 0), player('lapse-b', 1)],
+        territories: { a1: terr('a1', 'lapse-a', 3), b1: terr('b1', 'lapse-b', 3) },
+        settings: asyncChoiceSettings,
+        seasonal_event_cards: [],
+        active_event: dilemma,
+        draft_units_remaining: 3,
+      }), isolatedMap(gameId, ['a1', 'b1']));
+      await asyncWorker.scheduleAsyncDeadline(gameId, 3, 1, 0); // b's day is up, the card unanswered
+
+      const s = await waitForRedisState(gameId, (st) => st.current_player_index === 0);
+      // Choice x put +1 in b's pool, and the lapse placed the pool (3 + 1) on b1.
+      // The card did not follow the turn to a.
+      expect({ b1: s.territories.b1.unit_count, card: s.active_event?.card_id ?? null })
+        .toEqual({ b1: 3 + 1 + 3, card: null });
+    }, 20_000);
+
+    it('a lapse that hands the turn to a choice card tells the next player, and arms their day', async () => {
+      const gameId = 'handoff-choice-async-relay';
+      await seed(gameId, buildState(gameId, {
+        era: 'custom' as GameState['era'],
+        phase: 'attack',
+        turn_number: 3,
+        current_player_index: 1,
+        players: [player('relay-a', 0), player('relay-b', 1), player('relay-c', 2)],
+        territories: {
+          a1: terr('a1', 'relay-a', 3), b1: terr('b1', 'relay-b', 3), c1: terr('c1', 'relay-c', 3),
+        },
+        settings: asyncChoiceSettings,
+        seasonal_event_cards: [],
+        pending_event: { card: dilemma, target_player_id: 'relay-c' },
+      }), isolatedMap(gameId, ['a1', 'b1', 'c1']));
+      const c = await connect('relay-c');
+      const told: unknown[] = [];
+      c.on('lobby:your_turn', (payload) => told.push(payload));
+      await asyncWorker.scheduleAsyncDeadline(gameId, 3, 1, 0); // b's day is up
+
+      // c's turn opens on the card, still in round 3.
+      const s = await waitForRedisState(gameId, (st) =>
+        st.current_player_index === 2 && (st.phase_deadline_at ?? 0) > Date.now() + 23 * 3600_000);
+      expect(s.active_event?.card_id).toBe('dilemma');
+      await sleep(100);
+      expect(told).toHaveLength(1);
+    }, 20_000);
+
+    it('gives a turn left paused on its card its day once answered, without telling the player again', async () => {
+      // Before the day ran through the card, the card held it: such a turn has
+      // no deadline, and its player was never told.
+      const gameId = 'handoff-choice-async-paused';
+      await seed(gameId, buildState(gameId, {
+        era: 'custom' as GameState['era'],
+        phase: 'draft',
+        turn_number: 3,
+        current_player_index: 1,
+        players: [player('paused-a', 0), player('paused-b', 1)],
+        territories: { a1: terr('a1', 'paused-a', 3), b1: terr('b1', 'paused-b', 3) },
+        settings: asyncChoiceSettings,
+        seasonal_event_cards: [],
+        active_event: dilemma,
+        draft_units_remaining: 3,
+        phase_deadline_at: null,
+      }), isolatedMap(gameId, ['a1', 'b1']));
+      const b = await connect('paused-b');
+      await joinRoom('paused-b', gameId);
+      const told: unknown[] = [];
+      b.on('lobby:your_turn', (payload) => told.push(payload));
+
+      b.emit('game:event_choice', { gameId, choiceId: 'x' });
+      await waitForRedisState(gameId, (st) =>
+        !st.active_event && (st.phase_deadline_at ?? 0) > Date.now() + 23 * 3600_000);
+      await sleep(200);
+      // Found by game rather than by job id, which is the worker's to choose.
+      const days = (await asyncWorker.asyncDeadlineQueue.getJobs(['delayed']))
+        .filter((j) => j?.data.gameId === gameId);
+      expect({ told: told.length, days: days.length }).toEqual({ told: 0, days: 1 });
     }, 20_000);
 
     it('a bot answers its own choice card rather than passing it to the next player', async () => {
