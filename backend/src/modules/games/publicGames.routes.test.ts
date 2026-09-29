@@ -223,4 +223,46 @@ describe.runIf(enabled)('GET /api/games/public — only joinable lobbies (Postgr
     const rows = (await listPublic(viewer.id, viewer.name)).json() as PublicGameRow[];
     expect(rows.map((r) => r.game_id)).not.toContain(ranked);
   });
+
+  it("a friend challenge is never listed, so a stranger can't take the friend's seat", async () => {
+    const host = await seedUser('pub_chal_host');
+    const stranger = await seedUser('pub_chal_stranger');
+    // ChallengeFriendModal's request, through the real create route: a 1v1
+    // with no AI, which the create route stores as an ordinary multiplayer lobby.
+    const challenge = {
+      era_id: 'ancient',
+      map_id: 'era_ancient',
+      max_players: 2,
+      ai_count: 0,
+      ai_difficulty: 'medium',
+      settings: {
+        turn_timer_seconds: 86400,
+        allowed_victory_conditions: ['domination'],
+        initial_unit_count: 3,
+        card_set_escalating: true,
+        diplomacy_enabled: false,
+        async_mode: true,
+        async_turn_deadline_seconds: 86400,
+      },
+    };
+    const create = async (payload: Record<string, unknown>) => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/games',
+        headers: { authorization: `Bearer ${signAccessToken({ sub: host.id, username: host.name, guest: false })}` },
+        payload,
+      });
+      expect(res.statusCode).toBe(201);
+      const { game_id: gameId } = res.json() as { game_id: string };
+      gameIds.push(gameId);
+      return gameId;
+    };
+    const privateGame = await create({ ...challenge, is_private: true });
+    // The same lobby without the flag, for contrast: an ordinary open game.
+    const openGame = await create(challenge);
+
+    const ids = ((await listPublic(stranger.id, stranger.name)).json() as PublicGameRow[]).map((r) => r.game_id);
+    expect(ids).not.toContain(privateGame);
+    expect(ids).toContain(openGame);
+  });
 });
