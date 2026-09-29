@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { v4 as uuidv4, validate as uuidValidate } from 'uuid';
 import { z } from 'zod';
-import type { EraId, GameState, VictoryType } from '../../types';
+import type { EraId, GameState } from '../../types';
 import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest } from '../../middleware/rejectGuest';
 import { shedIfPoolSaturated } from '../../middleware/poolAdmission';
@@ -10,13 +10,11 @@ import { aiPlayerName } from '@borderfall/shared';
 import { redis } from '../../db/redis';
 import { generateJoinCode, normalizeJoinInput } from '../../utils/joinCode';
 import { getGameIo, startWaitingGame } from '../../sockets/gameSocket';
-import { normalizeGameSettings } from '../../game-engine/state/gameSettings';
-import { DEFAULT_CARD_SET_BONUS_CAP } from '../../game-engine/combat/combatResolver';
 import { applyAdminSnapshotsToSettings } from '../../services/adminConfig';
 import { getCancelGameAuthorizationError } from '../../sockets/socketGuards';
 import { redactReplaySnapshot } from '../../sockets/clientStateRedaction';
 import { formatZodError } from '../../utils/formatZodError';
-import { featureFlags, type MoonRacePhaseFlags, type MoonRacePhaseKey } from '../../config/featureFlags';
+import { featureFlags } from '../../config/featureFlags';
 import { isValidSpineId, reachesSpaceAge } from '../../game-engine/eraAdvancement/spines';
 import { recordServerEvent } from '../../services/analyticsEvents';
 import { resolveMap } from '../../sockets/mapResolver';
@@ -38,6 +36,7 @@ import {
   ASCENSION_GALAXY_SPINE_ID,
 } from '../../game-engine/lobby/lobbyMapChange';
 import { redactGameRowForViewer } from './gameRowRedaction';
+import { bakeCreateGameSettings, resolveMoonRacePhases } from './createGameSettings';
 import {
   EFFECTIVE_MAX_PLAYERS_SQL,
   PUBLIC_LOBBY_GAME_TYPES,
@@ -180,78 +179,14 @@ export const CreateGameSchema = z.object({
   is_private: z.boolean().default(false),
 });
 
-/**
- * Orbit-gated eras (Galactic Age, standalone Space Age) can't finish by
- * domination alone: a large share of the board sits behind an orbit gate — the
- * neutral Moon, or the three hyperspace-locked galaxy worlds — so "hold every
- * tile" is effectively unreachable and, with no turn cap, the game never ends.
- * Sims: galaxy ~16% decisive at medium in 90 turns; Space Age ~93% of medium
- * games hit the 80-turn cap and domination NEVER fired in 120 games. So an
- * orbit-gated create that picked no victory conditions gets threshold 60%
- * alongside domination — reachable on the home board WITHOUT the gated tiles
- * (galaxy ⌈64·0.6⌉=39; Space Age ⌈55·0.6⌉=33 ≤ 46 reachable Earth tiles) — and
- * any such create without an explicit cap gets the max_turns 90 leader-wins
- * backstop. `checkVictory` reads live territory count, so the threshold target
- * self-adjusts if Space Age frontiers are seeded (63 tiles). Explicit caller
- * choices always win over the backstop. The Lunar Hegemony is the exception:
- * it is part of the Moon Race rather than a lobby choice, so it joins whatever
- * list the caller sent whenever its phase is baked. Exported for tests.
- */
-export const ORBIT_GATED_DEFAULT_VICTORY_THRESHOLD = 60;
-export const ORBIT_GATED_DEFAULT_MAX_TURNS = 90;
-export function applyOrbitGatedVictoryDefaults<
-  T extends { allowed_victory_conditions?: VictoryType[]; victory_threshold?: number; max_turns?: number },
->(
-  settings: T,
-  opts: {
-    isOrbitGated: boolean;
-    callerChoseVictory: boolean;
-    /** The Hegemony phase is baked AND the board has a Moon to hold. */
-    lunarHegemony?: boolean;
-    isGalacticAge?: boolean;
-    /** False when the game has no lanes worth holding (Home Worlds off). */
-    laneSovereignty?: boolean;
-  },
-): T {
-  // Nothing to apply off an orbit-gated era unless the Hegemony is in play:
-  // return the caller's own object so a non-Space-Age create is untouched, by
-  // identity and not merely by value.
-  if (!opts.isOrbitGated && !opts.lunarHegemony) return settings;
-  const out = { ...settings };
-  const add: VictoryType[] = [];
-  // The headcount backstop only ever fills a blank list; an explicit lobby
-  // choice of how the match ends wins.
-  if (!opts.callerChoseVictory && opts.isOrbitGated) add.push('threshold');
-  // Space Age Moon Race, Phase 3: the Hegemony is a decisive route of its own,
-  // and it rides with the phase rather than with the lobby's list. It used to
-  // fill a blank list only, but the lobby and Quick Match always send a list,
-  // so it was never added: the clock and the contest rule stayed dark in every
-  // ordinary game. Like the rest of the Moon Race it has no player-facing
-  // opt-out (see resolveMoonRacePhases); the phase flag is the operator's kill
-  // switch. Deliberately NOT conditioned on `isOrbitGated`: whether there is a
-  // Moon to hold is the caller's question, and a game that is not orbit-gated
-  // from turn one must not pick up the backstop below with it.
-  if (opts.lunarHegemony) add.push('lunar_hegemony');
-  // Lane Sovereignty is the galaxy's own way to win — hold the corridors, not
-  // the tiles — and ships ON beside the headcount backstop. It is meaningless
-  // off a lane map, so it is never added elsewhere, and like the backstop it
-  // only fills a blank list.
-  if (!opts.callerChoseVictory && opts.isGalacticAge && opts.laneSovereignty !== false) add.push('lane_sovereignty');
-  if (add.length > 0) {
-    out.allowed_victory_conditions = [...new Set([...(out.allowed_victory_conditions ?? []), ...add])];
-  }
-  // The threshold-60 / 90-turn backstop exists for a game that is orbit-gated
-  // from turn ONE and would otherwise never end (a large share of the board
-  // sits behind an orbit gate, so domination is unreachable). An era-advancement
-  // climb is not that game: capping a marathon at 90 turns would be a different
-  // game entirely, so this stays scoped to the start era.
-  if (!opts.isOrbitGated) return out;
-  if (!opts.callerChoseVictory && typeof out.victory_threshold !== 'number') {
-    out.victory_threshold = ORBIT_GATED_DEFAULT_VICTORY_THRESHOLD;
-  }
-  if (typeof out.max_turns !== 'number') out.max_turns = ORBIT_GATED_DEFAULT_MAX_TURNS;
-  return out;
-}
+// Moved with the create-settings bake; still exported from here for tests.
+export {
+  ORBIT_GATED_DEFAULT_MAX_TURNS,
+  ORBIT_GATED_DEFAULT_VICTORY_THRESHOLD,
+  applyGalaxyHomeWorldsOff,
+  applyOrbitGatedVictoryDefaults,
+  resolveMoonRacePhases,
+} from './createGameSettings';
 
 /**
  * Territory Draft cannot work on a galaxy map. Orbit-gated tiles are exempt from
@@ -308,27 +243,6 @@ export function lanesContestableRejection(opts: {
  * evaluator also runs on the in-lobby map-change path, where `player_count` is
  * the humans joined so far and not the final seat count. Exported for tests.
  */
-/**
- * Galactic Age with Home Worlds off: no faction kits (factions off, which also
- * makes the engine deal a scattered start), lanes that fight like any border
- * (`galaxy_plain_lanes`), and no Lane Sovereignty — with plain lanes there is
- * no corridor worth holding, so the victory is dropped even if the caller
- * listed it. Falls back to domination if that empties the list. Measured in
- * backend/scripts/GALAXY-BALANCE.md §6. Exported for tests.
- */
-export function applyGalaxyHomeWorldsOff(list: VictoryType[]): {
-  allowed_victory_conditions: VictoryType[];
-  factions_enabled: false;
-  galaxy_plain_lanes: true;
-} {
-  const without = list.filter((v) => v !== 'lane_sovereignty');
-  return {
-    allowed_victory_conditions: without.length > 0 ? without : ['domination'],
-    factions_enabled: false,
-    galaxy_plain_lanes: true,
-  };
-}
-
 export const GALAXY_REQUIRED_PLAYERS = 4;
 export const GALAXY_PLAYER_COUNT_ERROR =
   'Galactic Age needs exactly 4 players — one per world (fill empty seats with AI)';
@@ -338,43 +252,6 @@ export function galaxyPlayerCountRejection(opts: {
 }): string | null {
   if (!opts.isGalacticAge || opts.totalPlayers === GALAXY_REQUIRED_PLAYERS) return null;
   return GALAXY_PLAYER_COUNT_ERROR;
-}
-
-/**
- * The Space Age Moon Race resolution (docs/space-age-moon/README.md §10.2).
- *
- * ONE question: does the operator ship this phase yet. There is deliberately no
- * second, player-facing one.
- *
- * The Moon Race IS the Space Age — the lunar economy, the gated tier, the
- * Hegemony victory are what separate the era from rocket-flavoured Earth. An era
- * whose defining mechanic is optional does not have a defining mechanic: half
- * the games would be the old grind, "Space Age" would name two different games,
- * and a host would be making that choice for four other people before any of
- * them knew what it meant. So every Space Age game gets every shipped phase.
- *
- * The per-phase flags stay what they always were — dark-launch and kill
- * switches for the operator, not a game mode. `featureFlags.moonRacePhases` is
- * their single definition, so a sixth phase is one line there and reaches every
- * Space Age game the moment it is promoted.
- *
- * Exported for tests.
- */
-export function resolveMoonRacePhases(opts: {
-  isSpaceAge: boolean;
-  /** What the operator ships — `featureFlags.moonRacePhases`. */
-  shipped: MoonRacePhaseFlags;
-}): { enabled: boolean; phases: Partial<Record<MoonRacePhaseKey, true>> } {
-  const phases: Partial<Record<MoonRacePhaseKey, true>> = {};
-  if (opts.isSpaceAge) {
-    for (const [key, on] of Object.entries(opts.shipped) as [MoonRacePhaseKey, boolean][]) {
-      // Only ever `true` or absent: normalizeGameSettings persists a phase key
-      // solely when it is on, so writing an explicit `false` would round-trip to
-      // undefined anyway and make settings comparisons lie in the meantime.
-      if (on) phases[key] = true;
-    }
-  }
-  return { enabled: Object.keys(phases).length > 0, phases };
 }
 
 export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
@@ -445,77 +322,14 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     }
     const mapMeta = buildMapMetaFromDoc(gameMap);
 
-    const mergedList: VictoryType[] =
-      rawSettings.allowed_victory_conditions && rawSettings.allowed_victory_conditions.length > 0
-        ? [...new Set(rawSettings.allowed_victory_conditions)]
-        : rawSettings.victory_type
-          ? [rawSettings.victory_type]
-          : ['domination'];
-    // Standalone Space Age frontier seeding is server-controlled via the feature
-    // flag (the schema never accepts it from the client). Bake the live value into
-    // the settings at create so the engine reads a fixed setting and stays pure.
-    const isSpaceAge = isSpaceAgeEra;
-    // Boards whose hyperspace lanes follow Galactic Age rules — the lane dice
-    // cap, world rules and convoys. Space to Stars has lanes from turn one
-    // (Earth → Moon) and the ring to the far worlds from the moment somebody
-    // ascends, so it takes the same three settings the Galactic Age does.
-    const isGalaxyRules = isGalacticAge || isAscensionGalaxy;
-    const galaxyHomeWorldsOff = isGalacticAge && rawSettings.galaxy_home_worlds === false;
-    const settings = normalizeGameSettings(
-      applyOrbitGatedVictoryDefaults(
-        {
-          ...rawSettings,
-          allowed_victory_conditions: mergedList,
-          ...(galaxyHomeWorldsOff ? applyGalaxyHomeWorldsOff(mergedList) : {}),
-          // New-game rule defaults, baked HERE rather than as normalizer
-          // fallbacks: normalizeGameSettings re-runs on every room load
-          // (repairLegacyGameState → gameRoomManager.repairRoom) and re-persists,
-          // so a default changed there would silently re-rule matches already in
-          // progress. At the create boundary an in-flight game keeps the rules it
-          // started under, and an explicit client value still wins.
-          combat_dice_cap_enabled: rawSettings.combat_dice_cap_enabled ?? true,
-          card_set_bonus_cap: rawSettings.card_set_bonus_cap ?? DEFAULT_CARD_SET_BONUS_CAP,
-          space_age_frontiers_enabled: isSpaceAge ? featureFlags.spaceAgeFrontiersEnabled : undefined,
-          // Galactic Age corridors: same bake-at-create discipline as the
-          // frontier flag, so the engine reads a fixed setting and stays pure.
-          galaxy_corridors_enabled: isGalaxyRules ? featureFlags.galaxyCorridorsEnabled : undefined,
-          // Galactic Age worlds as characters — same discipline; the map's
-          // authored rules are snapshotted at init when this is on.
-          world_rules_enabled: isGalaxyRules ? featureFlags.galaxyWorldRulesEnabled : undefined,
-          world_rules_disabled: isGalaxyRules ? featureFlags.galaxyDisabledWorldRules : undefined,
-          galaxy_transit_enabled: isGalaxyRules ? featureFlags.galaxyTransitEnabled : undefined,
-          // Every Moon Race phase this game runs, resolved above. Spread rather
-          // than listed so a sixth phase needs no edit here.
-          ...moonRace.phases,
-          // Tribute (§8) is a knob, not a phase: its own flag, and it applies
-          // wherever the Moon Race does rather than needing a Space Age start.
-          space_age_moon_tribute_enabled:
-            (moonRace.enabled && featureFlags.spaceAgeMoonTributeEnabled) || undefined,
-          // The blockade IS lane sealing, so the phase flag arms the underlying
-          // mechanic rather than asking the lobby to set two things that must
-          // agree. An explicit client value still wins.
-          lanes_contestable_enabled: rawSettings.lanes_contestable_enabled ?? (spaceAgeBlockade || undefined),
-          // Heritage building rights + modernize. Server-controlled: the schema
-          // never accepts it from the client, and baking the live flag here (not
-          // in the normalizer, which re-runs on every room load) keeps a running
-          // game on the rules it started under.
-          era_heritage_buildings_enabled: featureFlags.eraHeritageBuildingsEnabled,
-          era_wonder_per_era_enabled: featureFlags.eraWonderPerEraEnabled,
-        },
-        {
-          isOrbitGated: isGalacticAge || isSpaceAge,
-          isGalacticAge,
-          laneSovereignty: !galaxyHomeWorldsOff,
-          callerChoseVictory:
-            (rawSettings.allowed_victory_conditions?.length ?? 0) > 0 || rawSettings.victory_type != null,
-          // Only on a board with a Moon to hold. An era-advancement climb bakes
-          // the phase too, but the board transform that would bring it a Moon
-          // is parked, so on its moonless board the route could never fire and
-          // "How to win" would promise a victory that does not exist.
-          lunarHegemony: moonRace.phases.space_age_moon_hegemony_enabled === true && mapMeta.has_moon_territories,
-        },
-      ),
-    );
+    // The caller's choices, the new-game rule defaults, and what the era and
+    // map bring with them. A waiting room's Map & Era vote bakes the same way.
+    const settings = bakeCreateGameSettings({
+      era_id,
+      map_id,
+      settings: rawSettings,
+      hasMoon: mapMeta.has_moon_territories,
+    });
 
     if (settings.era_advancement_enabled) {
       if (!featureFlags.eraAdvancementLobbyEnabled && !request.isAdmin) {

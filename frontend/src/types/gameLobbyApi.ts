@@ -29,6 +29,8 @@ export interface GameLobbySettingsJson {
   events_enabled?: boolean;
   naval_enabled?: boolean;
   stability_enabled?: boolean;
+  territory_selection?: boolean;
+  async_mode?: boolean;
   // Daily challenge metadata (populated by /api/daily/start)
   daily_challenge_date?: string;
   daily_challenge_spec?: {

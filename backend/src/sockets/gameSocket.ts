@@ -175,6 +175,12 @@ import {
   validateLobbyMapChangePair,
 } from '../game-engine/lobby/lobbyEraMapCompatibility';
 import {
+  applyLobbySettingVote,
+  lobbySettingVoteRejection,
+  lobbyVoteBringsAlong,
+  rebakeSettingsForMapChange,
+} from '../modules/games/createGameSettings';
+import {
   scheduleTurnTimeout,
   cancelTurnTimeout,
   setTurnTimerProcessor,
@@ -557,21 +563,27 @@ async function applyApprovedLobbyMapChange(
   );
   await query('UPDATE game_players SET faction_id = NULL WHERE game_id = $1', [gameId]);
 
-  if (lobby.settings.era_advancement_enabled && value.era_id !== 'ancient') {
-    const nextSettings = normalizeGameSettings({
-      ...lobby.settings,
-      era_advancement_enabled: undefined,
-    });
-    await query('UPDATE games SET settings_json = $2 WHERE game_id = $1', [gameId, JSON.stringify(nextSettings)]);
-  }
-
+  // The settings the lobby would have been created with on the new theater:
+  // what the old one baked in (the Space Age's Moon Race, lunar victory and
+  // turn cap) goes, and what the new one needs comes, as at create.
   const gameMap = await resolveMap(value.map_id);
+  const nextSettings = {
+    ...rebakeSettingsForMapChange({
+      settings: lobby.settings,
+      from: { era_id: lobby.game.era_id, map_id: lobby.game.map_id },
+      to: value,
+      hasMoon: gameMap ? buildMapMetaFromDoc(gameMap).has_moon_territories : false,
+    }),
+    max_players: typeof lobby.settings.max_players === 'number' ? lobby.settings.max_players : lobby.players.length,
+  };
+  await query('UPDATE games SET settings_json = $2 WHERE game_id = $1', [gameId, JSON.stringify(nextSettings)]);
+
   if (gameMap) {
     // Lobby preview: for a standalone Space Age game with frontier seeding baked
     // in, show the full authored board so preview matches the in-game board;
     // otherwise the starting board (era-advancement growth appears in-game as eras
     // advance). No-op for maps without growth tags.
-    const previewFloor = seedsFullBoardAtStart(value.era_id as EraId, lobby.settings, gameMap) ? maxUnlockEra(gameMap) : 0;
+    const previewFloor = seedsFullBoardAtStart(value.era_id as EraId, nextSettings, gameMap) ? maxUnlockEra(gameMap) : 0;
     io.to(gameId).emit('game:map', { mapId: value.map_id, map: projectMapToEraFloor(gameMap, previewFloor) });
   }
 }
@@ -3536,6 +3548,15 @@ export function initGameSocket(httpServer: HttpServer): Server {
         }
       } else if (String(lobby.settings[settingKey]) === String(parsedValue)) {
         return socket.emit('error', { message: 'That setting is already active' });
+      } else {
+        const rejection = lobbySettingVoteRejection({
+          era_id: lobby.game.era_id,
+          map_id: lobby.game.map_id,
+          settings: lobby.settings,
+          setting: settingKey,
+          value: parsedValue,
+        });
+        if (rejection) return socket.emit('error', { message: rejection });
       }
 
       const current = lobbyProposalsByGame.get(gameId) ?? [];
@@ -3549,7 +3570,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
         proposerName: player.username ?? socket.data?.username ?? username,
         setting: settingKey,
         label: definition.label,
-        displayValue: definition.displayValue(parsedValue),
+        // Say what else the change turns on, so nobody votes for it blind.
+        displayValue: [definition.displayValue(parsedValue), lobbyVoteBringsAlong(lobby.settings, settingKey, parsedValue)]
+          .filter(Boolean)
+          .join(' — '),
         proposedValue: parsedValue,
         yesVotes: [userId],
         noVotes: [],
@@ -3588,10 +3612,24 @@ export function initGameSocket(httpServer: HttpServer): Server {
             proposal.proposedValue as LobbyMapChangeValue,
           );
         } else {
-          const normalized = normalizeGameSettings({
-            ...lobby.settings,
-            [proposal.setting]: proposal.proposedValue,
+          // Other votes may have passed since this one was proposed.
+          const rejection = lobbySettingVoteRejection({
+            era_id: lobby.game.era_id,
+            map_id: lobby.game.map_id,
+            settings: lobby.settings,
+            setting: proposal.setting,
+            value: proposal.proposedValue,
           });
+          if (rejection) {
+            const rest = proposals.filter((entry) => entry.id !== proposal.id);
+            if (rest.length > 0) lobbyProposalsByGame.set(gameId, rest);
+            else lobbyProposalsByGame.delete(gameId);
+            await emitLobbyProposalUpdates(io, gameId, lobby);
+            return socket.emit('error', { message: `That proposal can no longer pass: ${rejection}` });
+          }
+          const normalized = normalizeGameSettings(
+            applyLobbySettingVote(lobby.settings, proposal.setting, proposal.proposedValue),
+          );
           const nextSettings = {
             ...normalized,
             max_players:
