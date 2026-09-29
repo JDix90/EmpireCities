@@ -65,7 +65,7 @@ Layered so no single failure ejects a player or kills other games:
 
 | Worker / sweep | File | Trigger | Purpose |
 |---|---|---|---|
-| Turn timer | `backend/src/workers/gameTimerWorker.ts` | BullMQ queue `game-turn-timer` | Real-time turn/phase timeouts |
+| Turn timer | `backend/src/workers/gameTimerWorker.ts` | BullMQ queue `game-turn-timer` | Real-time turn timeouts: one clock per turn, running through its phases (one per pick in a Territory Draft) |
 | Async deadline | `backend/src/workers/asyncDeadlineWorker.ts` | BullMQ queue `async-deadlines` | 12h/24h/72h async-game deadlines |
 | Matchmaking | `backend/src/modules/matchmaking/matchmaking.routes.ts` | every 5s | Pair ranked-queue players, create games |
 | Season | `backend/src/game-engine/progression/seasonService.ts` | hourly | 90-day seasons + reward distribution |

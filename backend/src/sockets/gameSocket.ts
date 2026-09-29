@@ -1176,9 +1176,9 @@ export function initGameSocket(httpServer: HttpServer): Server {
         now: Date.now(),
       })) return;
 
-      // Real-time timeout: advance ONE phase (draft → attack → fortify) so the
-      // active player doesn't silently forfeit their attack/fortify phases by
-      // letting the draft clock run out. Only a fortify-phase timeout ends the turn.
+      // The turn's clock ran out, in whichever phase: reinforcements still
+      // unplaced are placed and the turn passes on (advancePhaseOnTimeout).
+      const timedOutPlayerId = room.state.players[room.state.current_player_index]?.player_id;
       const adv = advancePhaseOnTimeout(room.state, room.map);
 
       if (adv.kind === 'selection') {
@@ -1187,31 +1187,17 @@ export function initGameSocket(httpServer: HttpServer): Server {
         return;
       }
 
-      if (adv.kind === 'phase') {
-        if (adv.autoDraft.total > 0) {
-          emitAutoDraftMapVisuals(io, gameId, room.state, adv.autoDraft.placements);
-        }
-        // Same player continues into the next phase — re-arm their timer first
-        // so the saved/broadcast state carries the fresh phase_deadline_at.
-        startTurnTimer(io, gameId, room.state, room.map);
-        io.to(gameId).emit('game:turn_timeout', {
-          phaseAdvanced: adv.newPhase,
-          appliedDraft: adv.autoDraft.total > 0,
-          unitsPlaced: adv.autoDraft.total,
-          deadline_at: room.state.phase_deadline_at ?? null,
-        });
-        await saveGameState(gameId, room.state);
-        broadcastState(io, gameId, room.state);
-        maybeEmitCoachingTip(io, gameId, room.state, room.map);
-        return;
+      // The rest of the hand-off is every other hand-off's: without it, the
+      // incoming player's Drop Assault waited a round, their convoys' arrivals
+      // went unannounced, and the map kept last round's lane weather.
+      if (adv.autoDraft.total > 0) {
+        emitAutoDraftMapVisuals(io, gameId, room.state, adv.autoDraft.placements, timedOutPlayerId);
       }
-
-      // Fortify timed out → turn handed to the next player (advanceToNextPlayer
-      // already ran inside advancePhaseOnTimeout). The rest of the hand-off is
-      // every other hand-off's: without it, the incoming player's Drop Assault
-      // waited a round, their convoys' arrivals went unannounced, and the map
-      // kept last round's lane weather.
-      io.to(gameId).emit('game:turn_timeout', { phaseAdvanced: 'next_turn' });
+      io.to(gameId).emit('game:turn_timeout', {
+        phaseAdvanced: 'next_turn',
+        appliedDraft: adv.autoDraft.total > 0,
+        unitsPlaced: adv.autoDraft.total,
+      });
       landPendingDropAssaults(io, gameId, room.state, room.map);
       await syncLaneWeatherAndBroadcastMap(io, gameId, room);
       broadcastTransitArrivals(io, gameId, room.state, room.map);
@@ -2476,14 +2462,11 @@ export function initGameSocket(httpServer: HttpServer): Server {
         state.phase = 'attack';
         // Daily v2: the draft as a whole is one decision, graded now.
         if (advancePuzzle) commitPuzzleDraft(advancePuzzle, state);
-        // Restart the per-phase clock so the timeout deadline is consistent whether
-        // the player advances manually or lets the timer fire.
-        if (!state.active_event?.choices?.length) startTurnTimer(io, gameId, state, map);
+        // The turn's clock runs on: it covers draft, attack and fortify together.
       } else if (state.phase === 'attack') {
         // Daily v2: stopping is a move too.
         if (advancePuzzle) commitPuzzleEndAttack(advancePuzzle, state);
         state.phase = 'fortify';
-        if (!state.active_event?.choices?.length) startTurnTimer(io, gameId, state, map);
       } else if (state.phase === 'fortify') {
         // Defensive reset: `advanceToNextPlayer` resets fortify_moves_used at
         // turn start, but we also clear it here so any code path that reads
@@ -4252,8 +4235,9 @@ function emitAutoDraftMapVisuals(
   gameId: string,
   state: GameState,
   placements: Array<{ territory_id: string; units: number; totalAfter: number }>,
+  /** Whose units they are, when the turn has already passed on. */
+  playerId = state.players[state.current_player_index]?.player_id,
 ): void {
-  const playerId = state.players[state.current_player_index]?.player_id;
   if (!playerId) return;
   for (const row of placements) {
     emitVisual(io, gameId, state, buildReinforceMapVisual({
