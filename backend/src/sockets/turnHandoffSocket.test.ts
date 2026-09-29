@@ -1,11 +1,12 @@
 /**
  * Turn hand-off paths through the real socket server and a real Redis room:
- * the real-time turn clock, event cards across hand-offs, AI turns around game
- * over, resigning, wins that must not wait for a hand-off, and choice cards on
- * away seats.
+ * the real-time turn clock, Territory Draft clocks (real time and async),
+ * event cards across hand-offs, AI turns around game over, resigning, wins
+ * that must not wait for a hand-off, and choice cards on away seats.
  *
  * Redis-gated like the rest of the Redis tier. It starts the BullMQ turn-timer
- * worker, so run it on a Redis no other suite is scheduling turn timers on:
+ * and async-deadline workers, so run it on a Redis no other suite is
+ * scheduling either on:
  *   redis-server --port 6399 --save '' --appendonly no --requirepass chronoredis --daemonize yes
  *   REDIS_TEST=1 REDIS_HOST=localhost REDIS_PORT=6399 \
  *     pnpm exec vitest run src/sockets/turnHandoffSocket.test.ts
@@ -58,6 +59,7 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
   let deleteGameKeys: (id: string) => Promise<void>;
   let shutdownGameSocket: (io: IOServer) => Promise<void>;
   let timer: typeof import('../workers/gameTimerWorker');
+  let asyncWorker: typeof import('../workers/asyncDeadlineWorker');
 
   const openClients: ClientSocket[] = [];
   const createdGames: string[] = [];
@@ -80,6 +82,8 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
     await new Promise<void>((resolve) => httpServer.listen(0, resolve));
     port = (httpServer.address() as AddressInfo).port;
     timer.startTurnTimerWorker();
+    asyncWorker = await import('../workers/asyncDeadlineWorker');
+    asyncWorker.startAsyncDeadlineWorker();
   }, 30_000);
 
   afterAll(async () => {
@@ -95,6 +99,10 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
     // Drop any clock a test left armed so it cannot fire into a later test.
     const jobs = await timer.turnTimerQueue.getJobs(['delayed', 'waiting']).catch(() => []);
     await Promise.all(jobs
+      .filter((j) => j && ids.includes(j.data.gameId))
+      .map((j) => j.remove().catch(() => {})));
+    const asyncJobs = await asyncWorker.asyncDeadlineQueue.getJobs(['delayed', 'waiting']).catch(() => []);
+    await Promise.all(asyncJobs
       .filter((j) => j && ids.includes(j.data.gameId))
       .map((j) => j.remove().catch(() => {})));
     for (const id of ids) await deleteGameKeys(id).catch(() => {});
@@ -318,6 +326,82 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
 
       const s = await waitForRedisState(gameId, (st) => st.current_player_index === 1);
       expect(s.drop_assaults ?? []).toEqual([]);
+    }, 20_000);
+  });
+
+  // ── Territory Draft clocks ──────────────────────────────────────────────────
+
+  describe('Territory Draft clocks', () => {
+    /** Two seats drafting four one-tile regions; `owners` pre-claims some. */
+    function draftState(
+      gameId: string,
+      settings: Partial<GameState['settings']>,
+      over: Partial<GameState> = {},
+      owners: Record<string, string> = {},
+    ): GameState {
+      const seats = [`${gameId}-1`, `${gameId}-2`];
+      const tiles = ['a', 'b', 'c', 'd'];
+      return buildState(gameId, {
+        phase: 'territory_select',
+        turn_number: 1,
+        players: seats.map((id, i) => player(id, i, {
+          territory_count: tiles.filter((t) => owners[t] === id).length,
+        })),
+        territories: Object.fromEntries(tiles.map((t) => [t, terr(t, owners[t] ?? null, owners[t] ? 3 : 0)])),
+        settings: { ...buildState(gameId, {}).settings, territory_selection: true, ...settings },
+        ...over,
+      });
+    }
+
+    const ASYNC_DAY = { turn_timer_seconds: 86400, async_mode: true, async_turn_deadline_seconds: 86400 };
+
+    it('a real-time pick that times out is made for the seat, and the draft goes on', async () => {
+      const gameId = 'handoff-draft-clock';
+      const deadline = Date.now() + 150;
+      await seed(gameId, draftState(gameId, { turn_timer_seconds: 60 }, { phase_deadline_at: deadline }),
+        isolatedMap(gameId, ['a', 'b', 'c', 'd']));
+      await timer.scheduleTurnTimeout(gameId, deadline);
+
+      const s = await waitForRedisState(gameId, (st) => st.current_player_index === 1);
+      expect({
+        phase: s.phase,
+        picked: Object.values(s.territories).filter((t) => t.owner_id === `${gameId}-1`).map((t) => t.unit_count),
+        unclaimed: Object.values(s.territories).filter((t) => !t.owner_id).length,
+      }).toEqual({ phase: 'territory_select', picked: [3], unclaimed: 3 });
+    }, 20_000);
+
+    it('an async pick whose deadline lapses is made for the seat, and the next pick gets its day', async () => {
+      const gameId = 'handoff-draft-async';
+      await seed(gameId, draftState(gameId, ASYNC_DAY), isolatedMap(gameId, ['a', 'b', 'c', 'd']));
+      await asyncWorker.scheduleAsyncDeadline(gameId, 1, 0, 0); // seat 0's day is up
+
+      // The next seat's clock is persisted just after the pick is saved.
+      const s = await waitForRedisState(gameId, (st) => st.current_player_index === 1 && st.phase_deadline_at != null);
+      expect({
+        phase: s.phase,
+        picked: Object.values(s.territories).filter((t) => t.owner_id === `${gameId}-1`).map((t) => t.unit_count),
+        unclaimed: Object.values(s.territories).filter((t) => !t.owner_id).length,
+        nextPickHasADay: (s.phase_deadline_at ?? 0) - Date.now() > 23 * 3600_000,
+      }).toEqual({ phase: 'territory_select', picked: [3], unclaimed: 3, nextPickHasADay: true });
+    }, 20_000);
+
+    it('an async lapse on the last pick ends the draft with every territory claimed', async () => {
+      const gameId = 'handoff-draft-async-last';
+      const [s1, s2] = [`${gameId}-1`, `${gameId}-2`];
+      await seed(gameId, draftState(gameId, ASYNC_DAY, { current_player_index: 1 }, { a: s1, b: s2, c: s1 }),
+        isolatedMap(gameId, ['a', 'b', 'c', 'd']));
+      await asyncWorker.scheduleAsyncDeadline(gameId, 1, 1, 0); // seat 1's day is up
+
+      const s = await waitForRedisState(gameId, (st) => st.phase !== 'territory_select');
+      expect({
+        phase: s.phase,
+        turn: s.turn_number,
+        board: Object.values(s.territories).map((t) => [t.territory_id, t.owner_id, t.unit_count]),
+      }).toEqual({
+        phase: 'draft',
+        turn: 1,
+        board: [['a', s1, 3], ['b', s2, 3], ['c', s1, 3], ['d', s2, 3]],
+      });
     }, 20_000);
   });
 

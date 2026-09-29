@@ -1072,6 +1072,16 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (state.phase === 'game_over') return;
       if (state.turn_number !== turnNumber || state.current_player_index !== playerIndex) return;
 
+      // Territory Draft: pick for the seat whose deadline lapsed and carry on,
+      // as the real-time clock does. Forfeiting the turn below set the draft
+      // phase and left every unclaimed tile neutral at 0 units, which no
+      // attack can take.
+      if (state.phase === 'territory_select') {
+        advancePhaseOnTimeout(state, map);
+        await finishSelectionTimeout(io, gameId, room);
+        return;
+      }
+
       const autoDraft = autoPlaceDraftUnits(state);
       if (autoDraft.total > 0) {
         emitAutoDraftMapVisuals(io, gameId, state, autoDraft.placements);
@@ -1153,17 +1163,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       if (adv.kind === 'selection') {
         // Territory Draft: a pick was made for the seat that timed out.
-        io.to(gameId).emit('game:turn_timeout', { phaseAdvanced: room.state.phase === 'draft' ? 'draft' : 'territory_select' });
-        await saveGameState(gameId, room.state);
-        broadcastState(io, gameId, room.state);
-        const next = room.state.players[room.state.current_player_index];
-        if (next.is_ai && room.state.phase === 'territory_select') {
-          setTimeout(() => processAiTerritorySelect(io, gameId), 800);
-        } else if (next.is_ai) {
-          setTimeout(() => processAiTurn(io, gameId), 1500);
-        } else {
-          startTurnTimer(io, gameId, room.state, room.map);
-        }
+        await finishSelectionTimeout(io, gameId, room);
         return;
       }
 
@@ -5526,6 +5526,26 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
     void evictGameRoom(gameId);
     clearActionIdempotency(gameId);
   }, 30000);
+}
+
+/**
+ * A Territory Draft pick was just made for a seat whose clock ran out, real
+ * time or async: announce it, save, and drive whoever picks next (or, if that
+ * pick ended the draft, whoever opens turn one).
+ */
+async function finishSelectionTimeout(io: Server, gameId: string, room: ActiveGameRoom): Promise<void> {
+  const { state, map } = room;
+  io.to(gameId).emit('game:turn_timeout', { phaseAdvanced: state.phase === 'draft' ? 'draft' : 'territory_select' });
+  await saveGameState(gameId, state);
+  broadcastState(io, gameId, state);
+  const next = state.players[state.current_player_index];
+  if (next.is_ai && state.phase === 'territory_select') {
+    setTimeout(() => processAiTerritorySelect(io, gameId), 800);
+  } else if (next.is_ai) {
+    setTimeout(() => processAiTurn(io, gameId), 1500);
+  } else {
+    startTurnTimer(io, gameId, state, map);
+  }
 }
 
 async function processAiTerritorySelect(io: Server, gameId: string): Promise<void> {
