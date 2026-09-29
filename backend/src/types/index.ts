@@ -996,10 +996,10 @@ export interface GameState {
   draft_deployments_this_turn?: Array<{ territory_id: string; units: number }>;
   turn_started_at: number;       // Unix timestamp ms
   /**
-   * Server-authoritative deadline (Unix ms) for the current phase's turn timer.
-   * Reset every time the timer is (re)armed — including the fresh per-phase timer
-   * granted after a timeout auto-advance — so client countdowns never go stale.
-   * Null/absent when no timer is running (timer disabled or AI turn).
+   * Server-authoritative deadline (Unix ms) for the current turn's timer, or a
+   * Territory Draft pick's. Armed as the turn begins and kept through its
+   * phases: the clock covers draft, attack and fortify together. Null/absent
+   * when no timer is running (timer disabled, AI turn, a choice card open).
    */
   phase_deadline_at?: number | null;
   /** One-shot guard: the resign-suggestion coaching tip fires at most once per game. */

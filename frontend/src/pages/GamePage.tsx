@@ -2363,10 +2363,10 @@ export default function GamePage() {
       if (gs) setGameState({ ...gs, phase_deadline_at: deadline_at });
     });
 
-    // The active player's clock ran out and the server auto-advanced a phase
-    // (or ended the turn). Tell the affected player what just happened — the
-    // event arrives before the state broadcast, so the local current player
-    // is still the one who timed out.
+    // The active player's clock ran out and the server ended their turn. Tell
+    // the affected player what just happened — the event arrives before the
+    // state broadcast, so the local current player is still the one who timed
+    // out.
     socket.on('game:turn_timeout', (payload: TurnTimeoutPayload) => {
       const gs = useGameStore.getState().gameState;
       const myId = userRef.current?.user_id;

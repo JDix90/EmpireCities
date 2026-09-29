@@ -218,9 +218,9 @@ export default function GameHUD({
     (lastCombatResult.defenderId === myPlayer.player_id) &&
     defenderFactionBonus > 0;
 
-  // Turn timer countdown. Prefers the server-authoritative phase deadline
-  // (re-armed on every phase, including timeout auto-advances) and recomputes
-  // from the clock each tick so the display can't drift or go stale at 0:00.
+  // Turn timer countdown. Prefers the server-authoritative deadline (one per
+  // turn, running on through its phases) and recomputes from the clock each
+  // tick so the display can't drift or go stale at 0:00.
   //
   // Null-vs-undefined matters: a server that KNOWS the timer is off right now
   // (AI turns, choice-event pauses) sends phase_deadline_at: null — show no
