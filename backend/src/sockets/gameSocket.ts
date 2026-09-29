@@ -1097,6 +1097,12 @@ export function initGameSocket(httpServer: HttpServer): Server {
         return;
       }
 
+      // The day ran through a choice card nobody answered: answer it with the
+      // first choice, as a bot or an away seat does, before the turn is
+      // forfeited. Left open, it would pass to the next player's turn. First,
+      // so reinforcements the card grants are placed with the rest.
+      resolveChoiceCardForAi(io, gameId, state);
+
       const autoDraft = autoPlaceDraftUnits(state);
       if (autoDraft.total > 0) {
         emitAutoDraftMapVisuals(io, gameId, state, autoDraft.placements);
@@ -1139,9 +1145,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
         return;
       }
 
-      if (!state.active_event?.choices?.length) {
-        startTurnTimer(io, gameId, state, map);
-      }
+      // Also when the next turn opens on a choice card: the day runs through it.
+      startTurnTimer(io, gameId, state, map);
       if (state.players[state.current_player_index].is_ai) {
         setTimeout(() => processAiTurn(io, gameId), 1500);
       }
@@ -3445,7 +3450,16 @@ export function initGameSocket(httpServer: HttpServer): Server {
       broadcastState(io, gameId, state);
       // Restart turn timer now that the blocking event choice is resolved (human players only)
       if (!room.state.players[room.state.current_player_index].is_ai) {
-        startTurnTimer(io, gameId, room.state, room.map);
+        if (!room.state.settings.async_mode) {
+          startTurnTimer(io, gameId, room.state, room.map);
+        } else if (room.state.phase_deadline_at == null) {
+          // An async day has run since the turn opened, card or not:
+          // restarting it would grant a fresh one and tell the player again.
+          // A turn with no deadline was paused on its card before days ran
+          // through cards. It gets its day now, without telling a player who
+          // is here to answer.
+          startTurnTimer(io, gameId, room.state, room.map, { notify: false });
+        }
       }
       });
     });
@@ -5732,7 +5746,8 @@ function maybeActivateAiAttackSelfBuff(state: GameState, map: GameMap, player: P
 /**
  * The seat to move is a bot, or an away seat the AI covers, and its turn
  * opened on a choice card: take the first choice (the AI's pick) for that
- * seat, as a human answers the card before playing on.
+ * seat, as a human answers the card before playing on. An async seat whose
+ * day lapsed with the card still open gets the same answer.
  */
 function resolveChoiceCardForAi(io: Server, gameId: string, state: GameState): void {
   const card = state.active_event;
@@ -6812,7 +6827,18 @@ async function runDailyV2OpponentTurn(
   startTurnTimer(io, gameId, state, map);
 }
 
-function startTurnTimer(io: Server, gameId: string, state: GameState, map: GameMap): void {
+/**
+ * Arm the clock for the seat to move. `notify: false` arms an async deadline
+ * without telling the player it is their turn, for a player already acting on
+ * it (see game:event_choice).
+ */
+function startTurnTimer(
+  io: Server,
+  gameId: string,
+  state: GameState,
+  map: GameMap,
+  opts: { notify?: boolean } = {},
+): void {
   clearTurnTimer(gameId, state);
   // Re-decide the away-AI timer for this turn (cleared here; re-armed below if the
   // current seat is away). Keeps a returning player from leaving a stale timer.
@@ -6835,7 +6861,11 @@ function startTurnTimer(io: Server, gameId: string, state: GameState, map: GameM
   // (game:event_choice restarts it). Checked after the away branch, which is
   // why the turn hand-offs call this even with a choice pending: an away seat
   // has nobody to choose, and its away-AI answers the card (processAiTurn).
-  if (state.active_event?.choices?.length) {
+  // Not in an async game: there the day runs through the card, and the player
+  // is told it is their turn now. Paused, a player who was not watching was
+  // never told, and the game waited on them. A day that lapses with the card
+  // open answers it for them (the deadline processor).
+  if (state.active_event?.choices?.length && !state.settings.async_mode) {
     emitPhaseDeadline(io, gameId, state);
     persistArmedDeadline(gameId, state);
     return;
@@ -6862,8 +6892,10 @@ function startTurnTimer(io: Server, gameId: string, state: GameState, map: GameM
 
     // Notify the player it's their turn — in-app on every socket they have
     // open, then push/email. `io` is what makes the in-app channel possible.
-    notifyTurnChange(gameId, currentPlayer.player_id, state, io)
-      .catch((err) => console.error('[Socket] Failed to notify turn change:', err));
+    if (opts.notify !== false) {
+      notifyTurnChange(gameId, currentPlayer.player_id, state, io)
+        .catch((err) => console.error('[Socket] Failed to notify turn change:', err));
+    }
 
     return;
   }

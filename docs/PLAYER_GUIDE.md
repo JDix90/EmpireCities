@@ -311,6 +311,7 @@ At the **start of each game round** (after all players have taken a turn), an er
 
 - **Instant events** apply their effect immediately (e.g., "+2 units to all your territories" or "All players lose 1 unit from their weakest territory"). You see a summary modal and click "Continue."
 - **Choice events** present 2–3 options with different tradeoffs. You click your preferred choice and its effect applies. Example: "The Silk Road is open — invest in trade (+3 resources) or military expansion (+5 units on a random territory)."
+- **Choice events and the clock:** a turn timer waits while you choose. In an async game your deadline keeps running instead. If it lapses before you choose, the first option is taken for you and your turn ends.
 
 ### Temporary Modifiers
 
