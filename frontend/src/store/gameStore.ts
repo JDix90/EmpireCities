@@ -36,7 +36,9 @@ export interface SecretMissionPayload {
     /** Space Age Moon Race, Phase 5: hold at least `tiles` lunar territories. */
     | 'lunar_foothold'
     /** Phase 5: stand on the Moon while a named rival holds none of it. */
-    | 'lunar_denial';
+    | 'lunar_denial'
+    /** Two humans each hold `territory_threshold` territories at once. */
+    | 'alliance';
   territory_ids?: [string, string];
   target_player_id?: string;
   region_ids?: string[];
@@ -44,6 +46,9 @@ export interface SecretMissionPayload {
   era_id?: string;
   /** Lunar Foothold: how many Moon territories the objective needs. */
   tiles?: number;
+  /** Alliance: the partner, and the territories each of the two must hold. */
+  ally_player_id?: string;
+  territory_threshold?: number;
 }
 
 export interface PlayerState {
@@ -56,6 +61,8 @@ export interface PlayerState {
   /** Disconnected human whose turns the AI is temporarily covering (reclaimable on return). */
   is_away?: boolean;
   is_eliminated: boolean;
+  /** Who eliminated this player; null when nobody did (resigned, rebels). */
+  eliminated_by?: string | null;
   territory_count: number;
   cards: { card_id: string; symbol: string }[];
   mmr: number;

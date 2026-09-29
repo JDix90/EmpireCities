@@ -760,6 +760,9 @@ function selectInfluenceTarget(
   for (const tid of reachable) {
     const t = state.territories[tid];
     if (!t) continue;
+    // Seizing a truce partner's ground breaks the truce. The bot honours its
+    // truces here as its attack planner does.
+    if (t.owner_id && isTruceActive(state, playerId, t.owner_id)) continue;
     const score = (t.owner_id === null ? -10 : 0) + t.unit_count;
     if (score < bestScore) {
       bestScore = score;

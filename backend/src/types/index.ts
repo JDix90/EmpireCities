@@ -168,6 +168,12 @@ export interface PlayerState {
    */
   ai_takeover?: boolean;
   is_eliminated: boolean;
+  /**
+   * Who eliminated this player: the player whose attack, bomb or Influence took
+   * their last territory, or null when nobody did (a resignation, a rebellion).
+   * Unset while in play, and on saves from before it was recorded.
+   */
+  eliminated_by?: string | null;
   /** True when the player voluntarily resigned (ranks below other eliminated players). */
   has_resigned?: boolean;
   territory_count: number;

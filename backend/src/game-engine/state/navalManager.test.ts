@@ -4,6 +4,7 @@ import {
   navalBombardmentDefenseDice,
   resolveSeaCrossing,
   NAVAL_BOMBARDMENT_DEFENSE_CAP,
+  resolveNavalCombat,
 } from './navalManager';
 
 function terr(navalUnits: number): TerritoryState {
@@ -90,5 +91,13 @@ describe('resolveSeaCrossing', () => {
     // Both outcomes are reachable from a 1-v-2 crossing (coin-flip-ish).
     expect(sunkSeen).toBe(true);
     expect(landedSeen).toBe(true);
+  });
+});
+
+describe('resolveNavalCombat', () => {
+  it('rolls one die per defending fleet up to two, plus the extra die a truce break adds', () => {
+    expect(resolveNavalCombat(3, 1).defender_rolls).toHaveLength(1);
+    expect(resolveNavalCombat(3, 1, 1).defender_rolls).toHaveLength(2);
+    expect(resolveNavalCombat(3, 4, 1).defender_rolls).toHaveLength(3);
   });
 });

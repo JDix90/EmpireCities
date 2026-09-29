@@ -7,6 +7,7 @@ import { onCaptureStabilityPenalty } from '../state/stabilityManager';
 import { computeLandCombatModifiers } from './combatModifiers';
 import { resolveCombat } from './combatResolver';
 import { applyDefenderPostCombatReactions, consumeDefenderPreCombatCharges } from './defenderReactions';
+import { eliminatePlayer } from '../state/elimination';
 
 type ConsumedAttackBuffs = ReturnType<typeof consumeAttackBuffs>;
 type ConsumedDefenderCharges = ReturnType<typeof consumeDefenderPreCombatCharges>;
@@ -219,7 +220,7 @@ export function executeLandAttack(
     }
     const defender = state.players.find((p) => p.player_id === defenderId);
     if (defender && defender.territory_count === 0) {
-      defender.is_eliminated = true;
+      eliminatePlayer(defender, attackerId);
       defenderEliminated = true;
       attacker.cards.push(...defender.cards);
       defender.cards = [];

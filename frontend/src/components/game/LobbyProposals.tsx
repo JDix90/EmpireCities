@@ -20,6 +20,7 @@ import {
 } from '../../utils/lobbyEraMapCompatibility';
 import { fetchMapById, type GameMap } from '../../services/mapService';
 import LobbyEraMapWarnings from '../lobby/LobbyEraMapWarnings';
+import { isLobbyProposalOffered } from '../../utils/lobbyProposalRules';
 
 interface Proposal {
   id: string;
@@ -283,6 +284,9 @@ export default function LobbyProposals({
   }, [gameId, selectedSetting, selectedValue]);
 
   const settingDef = PROPOSABLE_SETTINGS.find((s) => s.key === selectedSetting);
+  // Stored settings keep a switch only when it is on, so a missing one is off.
+  const currentValue = (key: string, sample: unknown) =>
+    currentSettings?.[key] ?? (typeof sample === 'boolean' ? false : undefined);
 
   const previewLabel = formatRulesAndTheaterDisplay(previewSelection.era_id, previewSelection.map_id);
   const previewIsCurrent = isSameMapSelection(
@@ -463,9 +467,14 @@ export default function LobbyProposals({
               className="w-full bg-bf-surface border border-bf-border rounded px-2 py-1.5 text-sm text-bf-text"
             >
               <option value="">Select a setting…</option>
-              {PROPOSABLE_SETTINGS.map((s) => (
-                <option key={s.key} value={s.key}>{s.label}</option>
-              ))}
+              {PROPOSABLE_SETTINGS
+                // A setting with no value left to propose is not offered.
+                .filter((s) => s.options.some((o) =>
+                  isLobbyProposalOffered(currentSettings, s.key, o.value)
+                  && String(o.value) !== String(currentValue(s.key, o.value))))
+                .map((s) => (
+                  <option key={s.key} value={s.key}>{s.label}</option>
+                ))}
             </select>
             {settingDef && (
               <select
@@ -475,10 +484,8 @@ export default function LobbyProposals({
               >
                 <option value="">Select a value…</option>
                 {settingDef.options
-                  .filter((o) => {
-                    const current = currentSettings?.[selectedSetting];
-                    return String(o.value) !== String(current);
-                  })
+                  .filter((o) => String(o.value) !== String(currentValue(selectedSetting, o.value))
+                    && isLobbyProposalOffered(currentSettings, selectedSetting, o.value))
                   .map((o) => (
                     <option key={String(o.value)} value={String(o.value)}>{o.display}</option>
                   ))}

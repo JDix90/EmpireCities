@@ -309,3 +309,37 @@ describe('choosing a Drop Assault target', () => {
     expect(shouldAiExportHelium3(state, map, 'bot')).toBe(false);
   });
 });
+
+describe('the bot honours its truces with the Moon powers', () => {
+  // Beaming or dropping on a truce partner breaks the truce. The bot's attack
+  // planner never picks a partner, and neither do these.
+  function withTruce(state: GameState) {
+    state.players.forEach((p, i) => { p.player_index = i; });
+    state.diplomacy = [{ player_index_a: 0, player_index_b: 1, status: 'truce', truce_turns_remaining: 2 }];
+    return state;
+  }
+
+  it('does not beam a truce partner\'s stack', () => {
+    const map = mkMap([['home', 'front']]);
+    const seeds = [{ id: 'home', owner: 'bot', units: 3 }, { id: 'front', owner: 'rival', units: 9 }];
+    expect(selectAiDysonBeamTarget(mkState(seeds), map, 'bot')).toBe('front');
+    expect(selectAiDysonBeamTarget(withTruce(mkState(seeds)), map, 'bot')).toBeNull();
+  });
+
+  it('does not drop on a truce partner\'s ground', () => {
+    const seed = (id: string, owner: string) => ({
+      territory_id: id, owner_id: owner, unit_count: 3, unit_type: 'infantry',
+      buildings: [], region_id: 'euro_2100', globe_id: 'earth',
+    } as never);
+    const build = () => {
+      const state = mkState(Array.from({ length: 9 }, (_, i) => ({ id: `moon_${i}`, owner: 'bot', moon: true })), { helium3: 30 });
+      state.territories.euro_west = seed('euro_west', 'bot');
+      state.territories.euro_north = seed('euro_north', 'rival');
+      state.turn_number = 20;
+      state.map_era_floor = 1;
+      return state;
+    };
+    expect(selectAiDropAssaultTarget(build(), 'bot')).toBe('euro_north');
+    expect(selectAiDropAssaultTarget(withTruce(build()), 'bot')).toBeNull();
+  });
+});

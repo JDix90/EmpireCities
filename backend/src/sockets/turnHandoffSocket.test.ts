@@ -731,7 +731,9 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
 
     it('reaching the final era with a wonder in hand wins on the spot', async () => {
       const gameId = 'handoff-win-era';
-      const a1 = { ...terr('a1', 'era-a', 3), buildings: ['wonder_colosseum'] } as TerritoryState;
+      // The wonder is what wins; the workshop is the building the era gate
+      // asks for, which a wonder does not count toward.
+      const a1 = { ...terr('a1', 'era-a', 3), buildings: ['wonder_colosseum', 'production_1'] } as TerritoryState;
       await seed(gameId, buildState(gameId, {
         era: 'ancient',
         players: [

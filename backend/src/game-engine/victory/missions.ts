@@ -248,20 +248,44 @@ export function assignSecretMissions(
     player.secret_mission = mission;
   }
 
-  // Alliance missions: ~20% chance in 4+ player games; assign as pairs
-  if (state.players.length >= 4 && rng() < 0.20) {
-    const humanPlayers = state.players.filter((p) => !p.is_ai);
+  // Alliance missions: ~20% chance in 4+ player games; assign as pairs of
+  // humans still in the game (one can resign during a Territory Draft).
+  const seated = state.players.filter((p) => !p.is_eliminated);
+  if (seated.length >= 4 && rng() < 0.20) {
+    const humanPlayers = seated.filter((p) => !p.is_ai);
     if (humanPlayers.length >= 2) {
-      const totalTerritories = map.territories.length;
-      const threshold = Math.floor(totalTerritories * 0.20);
+      const threshold = allianceTerritoryThreshold(state);
       const picked = pickManyUnique(humanPlayers, 2, rng);
-      if (picked.length === 2) {
+      // Never dealt half-won: a pair where either ally already holds the
+      // threshold keeps its ordinary missions.
+      const open = picked.every((p) => countTerritoriesHeldBy(state, p.player_id) < threshold);
+      if (picked.length === 2 && open) {
         const [ally1, ally2] = picked as [typeof humanPlayers[0], typeof humanPlayers[0]];
         ally1.secret_mission = { kind: 'alliance', ally_player_id: ally2.player_id, territory_threshold: threshold };
         ally2.secret_mission = { kind: 'alliance', ally_player_id: ally1.player_id, territory_threshold: threshold };
       }
     }
   }
+}
+
+/**
+ * Territories each ally must hold to win an alliance mission: an even share of
+ * the tiles dealt, plus 7% of them. WW2 deals 35 tiles, so 4 seats need 12
+ * each, 5 need 10 and 6 need 9. In simulated medium-AI games that wins about as
+ * often as the two allies' own missions would have. The old rule, 20% of the
+ * whole map, ignored the seat count: every alliance in a 4-seat WW2 game was
+ * dealt already won.
+ */
+export function allianceTerritoryThreshold(state: GameState): number {
+  const seats = state.players.filter((p) => !p.is_eliminated).length;
+  const dealt = Object.values(state.territories).filter((t) => t.owner_id != null).length;
+  // ceil(dealt × (1/seats + 7/100)) in integers: the float form rounds up a
+  // whole number that comes out a hair over.
+  return Math.ceil((dealt * (100 + 7 * seats)) / (100 * seats));
+}
+
+function countTerritoriesHeldBy(state: GameState, playerId: string): number {
+  return Object.values(state.territories).filter((t) => t.owner_id === playerId).length;
 }
 
 /** Each player's capital = lexicographically first owned territory id (deterministic). */
@@ -302,8 +326,10 @@ export function isMissionComplete(state: GameState, map: GameMap, player: Player
       );
     }
     case 'eliminate_player': {
+      // The holder has to do it. A target someone else eliminates, or who
+      // resigns or falls to rebels, fails the mission for good.
       const target = state.players.find((p) => p.player_id === m.target_player_id);
-      return target?.is_eliminated === true;
+      return target?.is_eliminated === true && target.eliminated_by === player.player_id;
     }
     case 'control_regions':
       return playerOwnsAllTerritoriesInRegions(state, map, player.player_id, m.region_ids);

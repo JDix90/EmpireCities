@@ -16,7 +16,7 @@
  *   REDIS_TEST=1 REDIS_HOST=localhost REDIS_PORT=6390 \
  *     pnpm exec vitest run src/sockets/gameAttackSocket.test.ts
  */
-import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 
 // These tests drive a real socket.io server against a real Redis room. The
 // Postgres side is incidental — the debounced state backup, the win path's
@@ -66,6 +66,7 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
   let setGameMap: (id: string, m: GameMap) => Promise<void>;
   let deleteGameKeys: (id: string) => Promise<void>;
   let shutdownGameSocket: (io: IOServer) => Promise<void>;
+  let redisClient: typeof import('../db/redis').redis;
 
   const openClients: ClientSocket[] = [];
   const createdGames: string[] = [];
@@ -80,6 +81,7 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
     setGameMap = store.setGameMap;
     deleteGameKeys = store.deleteGameKeys;
     const redisMod = await import('../db/redis');
+    redisClient = redisMod.redis;
     await redisMod.redis.connect().catch(() => { /* lazyConnect — may already be connecting */ });
 
     httpServer = createServer();
@@ -96,6 +98,17 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
     await shutdownGameSocket(ioServer).catch(() => { /* worker teardown best-effort */ });
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
   }, 30_000);
+
+  // The socket rate limiter is Redis-backed and keyed by user id: 30 gameplay
+  // events per 10 s. Every test here acts as the same three users, so without
+  // a reset the file's own traffic, or a re-run inside the window, throttles a
+  // later test, and a throttled event is dropped without a reply.
+  beforeEach(async () => {
+    for (const user of ['p1', 'p2', 'p3']) {
+      const keys = await redisClient.keys(`rl:sock:${user}:*`);
+      if (keys.length) await redisClient.del(...keys);
+    }
+  });
 
   afterEach(async () => {
     while (openClients.length) openClients.pop()?.disconnect();
@@ -597,6 +610,190 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
     expect((await err).message).toBe('No enemy fleet to attack');
     const after = await getGameState(gameId);
     expect(after?.territories.a.naval_units).toBe(3);
+  });
+
+  // ── Truces: any attack on a partner breaks it, once confirmed ───────────────
+
+  /**
+   * p1 and p2 hold a truce. p2 also holds `d`, off the board's edges, so no
+   * test here eliminates them.
+   */
+  function truceState(gameId: string, dice: number[], overrides: Partial<GameState> = {}): GameState {
+    const base = buildState(gameId, dice);
+    return buildState(gameId, dice, {
+      players: [
+        player('p1', 0, { territory_count: 1 }),
+        player('p2', 1, { territory_count: 2 }),
+        player('p3', 2, { territory_count: 1 }),
+      ],
+      territories: { ...base.territories, d: terr('d', 'p2', 3) },
+      diplomacy: [{ player_index_a: 0, player_index_b: 1, status: 'truce', truce_turns_remaining: 2 }],
+      settings: { ...base.settings, diplomacy_enabled: true },
+      ...overrides,
+    });
+  }
+
+  function truceMap(gameId: string): GameMap {
+    const base = buildMap(gameId);
+    return {
+      ...base,
+      territories: [
+        ...base.territories,
+        { territory_id: 'd', name: 'D', polygon: [], center_point: [3, 3], region_id: 'r' },
+      ],
+    } as GameMap;
+  }
+
+  const truceOf = (s: GameState | null) => s?.diplomacy[0] && {
+    status: s.diplomacy[0].status, turns: s.diplomacy[0].truce_turns_remaining,
+  };
+
+  /** Emit without `breakTruce`: refused, nothing spent, the truce stands. */
+  async function expectTruceRefusal(
+    client: ClientSocket, gameId: string, event: string, payload: Record<string, unknown>,
+  ): Promise<void> {
+    const err = waitFor<{ message: string; code?: string }>(client, 'error');
+    client.emit(event, { gameId, ...payload });
+    expect(await err).toEqual({ message: 'You have an active truce with this player', code: 'TRUCE_ACTIVE' });
+    expect(truceOf(await getGameState(gameId))).toEqual({ status: 'truce', turns: 2 });
+  }
+
+  type TruceBroken = { breakerId: string; breakerName: string };
+
+  it('breaks a truce with a confirmed land attack, at +1 defense die, and tells the partner', async () => {
+    const gameId = 'itest-truce-land';
+    // Three attacker dice, then the defender's two: one for the unit, one for the break.
+    await seed(gameId, truceState(gameId, [6, 6, 6, 1, 1]), truceMap(gameId));
+    const client = await connect('p1');
+    const partner = await connect('p2');
+    await joinRoom('p1', gameId);
+
+    await expectTruceRefusal(client, gameId, 'game:attack', { fromId: 'a', toId: 'b' });
+
+    const alert = waitFor<TruceBroken>(partner, 'game:truce_broken');
+    const combat = waitFor<CombatPayload>(client, 'game:combat_result');
+    client.emit('game:attack', { gameId, fromId: 'a', toId: 'b', breakTruce: true });
+    expect((await combat).result.defender_rolls).toHaveLength(2);
+    expect(await alert).toMatchObject({ breakerId: 'p1', breakerName: 'P1' });
+    await waitForRedisState(gameId, (s) => s.territories.b.owner_id === 'p1');
+    const after = await getGameState(gameId);
+    expect(truceOf(after)).toEqual({ status: 'neutral', turns: 0 });
+    expect(after?.players[1]!.truce_break_retaliations).toEqual([{ against_player_id: 'p1', dice_bonus: 1 }]);
+  });
+
+  it('keeps the truce when a sea attack is refused for want of a fleet', async () => {
+    const gameId = 'itest-truce-no-fleet';
+    const base = truceState(gameId, []);
+    await seed(gameId, truceState(gameId, [], {
+      territories: { ...base.territories, a: { ...terr('a', 'p1', 4), naval_units: 0 } },
+      settings: { ...base.settings, naval_enabled: true },
+    }), { ...truceMap(gameId), connections: [{ from: 'a', to: 'b', type: 'sea' as const }] });
+    const client = await connect('p1');
+    const partner = await connect('p2');
+    await joinRoom('p1', gameId);
+    let alerted = false;
+    partner.on('game:truce_broken', () => { alerted = true; });
+
+    const err = waitFor<{ message: string }>(client, 'error');
+    client.emit('game:attack', { gameId, fromId: 'a', toId: 'b', breakTruce: true });
+    expect((await err).message).toBe('No fleet to traverse sea lane');
+    expect(truceOf(await getGameState(gameId))).toEqual({ status: 'truce', turns: 2 });
+    // The break used to come before this refusal: no attack, and the partner
+    // still heard the truce was broken.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(alerted).toBe(false);
+  });
+
+  it('lets a blitz break a truce once confirmed, instead of refusing it outright', async () => {
+    const gameId = 'itest-truce-blitz';
+    await seed(gameId, truceState(gameId, []), truceMap(gameId));
+    const client = await connect('p1');
+    const partner = await connect('p2');
+    await joinRoom('p1', gameId);
+
+    await expectTruceRefusal(client, gameId, 'game:attack_blitz', { fromId: 'a', toId: 'b' });
+
+    const alert = waitFor<TruceBroken>(partner, 'game:truce_broken');
+    const combat = waitFor<CombatPayload>(client, 'game:combat_result');
+    client.emit('game:attack_blitz', { gameId, fromId: 'a', toId: 'b', breakTruce: true });
+    await combat;
+    expect((await alert).breakerId).toBe('p1');
+    await waitForRedisState(gameId, (s) => s.diplomacy[0]?.status === 'neutral');
+  });
+
+  it('lets a Fleet Attack break a truce once confirmed, at +1 defense die', async () => {
+    const gameId = 'itest-truce-fleet';
+    const base = truceState(gameId, []);
+    await seed(gameId, truceState(gameId, [], {
+      territories: {
+        ...base.territories,
+        a: { ...terr('a', 'p1', 4), naval_units: 3 },
+        b: { ...terr('b', 'p2', 1), naval_units: 1 },
+      },
+      settings: { ...base.settings, naval_enabled: true },
+    }), { ...truceMap(gameId), connections: [{ from: 'a', to: 'b', type: 'sea' as const }] });
+    const client = await connect('p1');
+    const partner = await connect('p2');
+    await joinRoom('p1', gameId);
+
+    await expectTruceRefusal(client, gameId, 'game:naval_attack', { fromId: 'a', toId: 'b' });
+
+    const alert = waitFor<TruceBroken>(partner, 'game:truce_broken');
+    const naval = waitFor<{ result: { defender_rolls: number[] } }>(client, 'game:naval_combat_result');
+    client.emit('game:naval_attack', { gameId, fromId: 'a', toId: 'b', breakTruce: true });
+    // One fleet rolls one die; the break adds the second.
+    expect((await naval).result.defender_rolls).toHaveLength(2);
+    expect((await alert).breakerId).toBe('p1');
+    await waitForRedisState(gameId, (s) => s.diplomacy[0]?.status === 'neutral');
+  });
+
+  it('lets an atom bomb break a truce once confirmed, and spends nothing when refused', async () => {
+    const gameId = 'itest-truce-bomb';
+    const base = truceState(gameId, []);
+    await seed(gameId, truceState(gameId, [], {
+      era: 'ww2',
+      players: [
+        player('p1', 0, { territory_count: 1, legacy_ability_charges: { atom_bomb: 1 } }),
+        ...base.players.slice(1),
+      ],
+    }), truceMap(gameId));
+    const client = await connect('p1');
+    const partner = await connect('p2');
+    await joinRoom('p1', gameId);
+
+    await expectTruceRefusal(client, gameId, 'game:use_ability', { abilityId: 'atom_bomb', params: { territoryId: 'b' } });
+    const refused = await getGameState(gameId);
+    expect(refused?.players[0]!.legacy_ability_charges).toEqual({ atom_bomb: 1 });
+    expect(refused?.players[0]!.used_game_abilities ?? []).not.toContain('atom_bomb');
+
+    const alert = waitFor<TruceBroken>(partner, 'game:truce_broken');
+    client.emit('game:use_ability', { gameId, abilityId: 'atom_bomb', params: { territoryId: 'b' }, breakTruce: true });
+    expect((await alert).breakerId).toBe('p1');
+    await waitForRedisState(gameId, (s) => s.territories.b.owner_id === null);
+    expect(truceOf(await getGameState(gameId))).toEqual({ status: 'neutral', turns: 0 });
+  });
+
+  it('lets Influence seize a truce partner\'s territory once confirmed, breaking the truce', async () => {
+    const gameId = 'itest-truce-influence';
+    const base = truceState(gameId, []);
+    await seed(gameId, truceState(gameId, [], {
+      era: 'cold_war',
+      era_modifiers: { influence_spread: true, influence_range: 1 },
+      territories: { ...base.territories, a: terr('a', 'p1', 6) },
+    }), truceMap(gameId));
+    const client = await connect('p1');
+    const partner = await connect('p2');
+    await joinRoom('p1', gameId);
+
+    await expectTruceRefusal(client, gameId, 'game:influence', { targetId: 'b' });
+
+    const alert = waitFor<TruceBroken>(partner, 'game:truce_broken');
+    const result = waitFor<{ success: boolean; previousOwner: string }>(client, 'game:influence_result');
+    client.emit('game:influence', { gameId, targetId: 'b', breakTruce: true });
+    expect(await result).toMatchObject({ success: true, previousOwner: 'p2' });
+    expect((await alert).breakerId).toBe('p1');
+    await waitForRedisState(gameId, (s) => s.territories.b.owner_id === 'p1');
+    expect(truceOf(await getGameState(gameId))).toEqual({ status: 'neutral', turns: 0 });
   });
 
   // ── Fog of War: map visuals must not leak hidden garrisons ─────────────────

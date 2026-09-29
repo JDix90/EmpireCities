@@ -395,8 +395,9 @@ export const featureFlags = {
   /**
    * When true, players get the "Attack until captured" button: one
    * game:attack_blitz event resolves repeated exchanges server-side (land
-   * only, never breaks a truce, never in daily puzzles). Default ON; the kill
-   * switch restores click-per-exchange combat.
+   * only, never in daily puzzles; on a truce partner it breaks the truce,
+   * confirmed first like a single attack). Default ON; the kill switch
+   * restores click-per-exchange combat.
    */
   get attackBlitzEnabled(): boolean {
     return overrideBool('attack_blitz_enabled');

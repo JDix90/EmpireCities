@@ -84,7 +84,8 @@ describe('a rebellion that takes a territory', () => {
   it('eliminates the player whose last territory it was', () => {
     const state = game([terr('z0', 'p0', 1, 5), terr('z1', 'p1', 6, 80)], ['p0', 'p1']);
     applyStabilityTick(state, 'p0');
-    expect(state.players[0]).toMatchObject({ territory_count: 0, is_eliminated: true });
+    // Nobody did it: an "Eliminate p0" mission fails rather than completes.
+    expect(state.players[0]).toMatchObject({ territory_count: 0, is_eliminated: true, eliminated_by: null });
   });
 });
 

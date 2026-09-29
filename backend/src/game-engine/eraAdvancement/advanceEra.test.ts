@@ -141,14 +141,48 @@ describe('computeAdvanceCost', () => {
   });
 });
 
+describe('the gate without Technology Trees', () => {
+  // Lobby copy: "The gate is a building, plus early research and a stable
+  // empire when those systems are on". The building used to sit inside the
+  // research check, so with Technology Trees unticked there was no gate at all.
+  function noTechState(buildings: string[]) {
+    const territories = baseTerritories();
+    for (const t of Object.values(territories)) (t as { buildings?: string[] }).buildings = [];
+    (territories.t1 as { buildings?: string[] }).buildings = buildings;
+    return baseState({
+      territories,
+      settings: { ...baseState().settings, tech_trees_enabled: false, stability_enabled: false },
+    });
+  }
+
+  it('still needs a building before a player can advance', () => {
+    const result = canAdvanceEra(noTechState([]), 'human');
+    expect(result).toMatchObject({ canAdvance: false, error: 'Build at least 1 building (0/1)' });
+  });
+
+  it('advances once the building is up', () => {
+    expect(canAdvanceEra(noTechState(['production_1']), 'human').canAdvance).toBe(true);
+  });
+
+  it('shows the building requirement in the client preview', () => {
+    const preview = buildAdvanceEraClientPreview(noTechState([]), 'human');
+    expect(preview?.readiness).toMatchObject({ met: false, buildings: { current: 0, required: 1 } });
+  });
+});
+
 describe('era_advancement_max_lead anti-steamroll cap', () => {
-  // Isolate the cap: tech + stability gates off so only gold + the lead cap apply.
+  // Isolate the cap: tech + stability gates off, and the leader holding enough
+  // buildings for any step's gate, so only gold + the lead cap apply.
   function capState(maxLead: number | undefined, leaderEra: number) {
     return baseState({
       players: [
         basePlayer({ player_id: 'leader', current_era_index: leaderEra, special_resource: 100000, last_turn_production_income: 10 }),
         basePlayer({ player_id: 'laggard', player_index: 1, current_era_index: 0 }),
       ],
+      territories: {
+        ...baseTerritories(),
+        t1: { ...baseTerritories().t1, owner_id: 'leader', buildings: ['production_1', 'defense_1', 'tech_gen_1'] },
+      },
       settings: {
         ...baseState().settings,
         tech_trees_enabled: false,

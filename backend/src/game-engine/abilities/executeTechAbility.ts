@@ -415,6 +415,17 @@ export function isGameScopedAbility(abilityId: string): boolean {
   return GAME_SCOPED_ABILITIES.has(abilityId);
 }
 
+/**
+ * Abilities aimed at another player's territory: a strike, the atom bomb, a
+ * Drop Assault. Used on a truce partner's ground, one breaks the truce. Air
+ * Strike carries a unit reduction but is a buff for the next attack, which
+ * breaks the truce itself if it lands on a partner.
+ */
+export function isHostileTerritoryAbility(abilityId: string): boolean {
+  const def = TERRITORY_ABILITY_DEFS[abilityId];
+  return (def?.unitReduction != null && !def.selfBuff) || abilityId === 'atom_bomb' || abilityId === 'drop_assault';
+}
+
 export function consumeAttackBuffs(player: PlayerState): {
   preAttackDamage: number;
   extraAttackDie: boolean;

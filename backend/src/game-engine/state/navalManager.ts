@@ -117,10 +117,12 @@ function rollDice(count: number): number[] {
 /**
  * Resolve fleet-vs-fleet combat.
  * Mirror of land combat: compare sorted dice, attacker wins ties only on strict >.
+ * `extraDefenseDice` adds to the defender's roll the way land combat's defense
+ * bonuses do: +1 when the attack breaks a truce.
  */
-export function resolveNavalCombat(attackerFleets: number, defenderFleets: number): NavalCombatResult {
+export function resolveNavalCombat(attackerFleets: number, defenderFleets: number, extraDefenseDice = 0): NavalCombatResult {
   const aDice = Math.min(attackerFleets, 3);
-  const dDice = Math.min(defenderFleets, 2);
+  const dDice = Math.min(defenderFleets, 2) + extraDefenseDice;
 
   const aRolls = rollDice(aDice).sort((a, b) => b - a);
   const dRolls = rollDice(dDice).sort((a, b) => b - a);

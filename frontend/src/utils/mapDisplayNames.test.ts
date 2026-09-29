@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   describeSecretMission,
   formatEraLabel,
+  formatSecretMissionReveal,
   humanizeMapId,
   resolveRegionName,
   resolveTerritoryName,
 } from './mapDisplayNames';
+import type { PlayerState } from '../store/gameStore';
 
 const lookup = {
   territories: [
@@ -35,6 +37,33 @@ describe('mapDisplayNames', () => {
       lookup,
     );
     expect(text).toBe('Own Central America & Caribbean and Argentina & Uruguay');
+  });
+
+  it('says when an eliminate mission can no longer succeed', () => {
+    const mission = { kind: 'eliminate_player' as const, target_player_id: 't' };
+    const target = (over: Partial<PlayerState>) =>
+      [{ player_id: 't', username: 'Sam', is_eliminated: false, ...over }] as PlayerState[];
+    expect(describeSecretMission(mission, target({}), null, 'me')).toBe('Eliminate Sam');
+    expect(describeSecretMission(mission, target({ is_eliminated: true, eliminated_by: 'rival' }), null, 'me'))
+      .toBe('Eliminate Sam — failed: Sam is out, but not by your hand');
+    expect(describeSecretMission(mission, target({ is_eliminated: true, eliminated_by: null }), null, 'me'))
+      .toBe('Eliminate Sam — failed: Sam is out, but not by your hand');
+  });
+
+  it('names an alliance partner, shows both counts, and says when the ally is out', () => {
+    const mission = { kind: 'alliance' as const, ally_player_id: 'sam', territory_threshold: 12 };
+    const players = (sam: Partial<PlayerState> = {}) => [
+      { player_id: 'me', username: 'Me', territory_count: 9, is_eliminated: false },
+      { player_id: 'sam', username: 'Sam', territory_count: 8, is_eliminated: false, ...sam },
+    ] as PlayerState[];
+    expect(describeSecretMission(mission, players(), null, 'me'))
+      .toBe('Hold 12 territories each with your ally Sam (you 9 · Sam 8)');
+    expect(describeSecretMission(mission, players(), null))
+      .toBe('Hold 12 territories each with your ally Sam');
+    expect(describeSecretMission(mission, players({ is_eliminated: true, territory_count: 0 }), null, 'me'))
+      .toBe('Hold 12 territories each with your ally Sam — failed: Sam is out');
+    // Revealed to the others when a player is out or the game ends.
+    expect(formatSecretMissionReveal(mission, null, players())).toBe('Hold 12 territories each with ally Sam');
   });
 
   it('formats era labels from ERA_LABELS', () => {

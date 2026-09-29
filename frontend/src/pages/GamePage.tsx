@@ -132,6 +132,7 @@ import { getAbilityActivationMessage } from '../utils/abilityActivationFeedback'
 import { playAbilityActivationSound, playStrikeAbilitySound } from '../utils/abilitySoundFeedback';
 import { playFrontierUnlockSound } from '../utils/gameSounds';
 import { formatEraLabel } from '../utils/mapDisplayNames';
+import { isHostileAbility, trucePartnerOwning } from '../utils/truces';
 import BrandWordmark from '../components/ui/BrandWordmark';
 import { AiBadge } from '../components/ui/AiBadge';
 import type { GameLobbySnapshot, GameLobbyPlayerRow, GameLobbySettingsJson } from '../types/gameLobbyApi';
@@ -1073,10 +1074,13 @@ export default function GamePage() {
   } | null>(null);
 
   const [truceBreakerConfirm, setTruceBreakerConfirm] = useState<{
-    fromId: string;
-    toId: string;
     defenderName: string;
     defenderColor: string;
+    /** The breaking attack rolls dice, so the defender gets +1 die in it. */
+    defenseDie: boolean;
+    confirmLabel: string;
+    /** Sends the action again, the break confirmed. */
+    send: () => void;
   } | null>(null);
 
   // Guards ending the reinforcement phase with unplaced units (the server would
@@ -1612,7 +1616,7 @@ export default function GamePage() {
       if (playerChanged || (phaseChanged && !isMyTurn) || (phaseChanged && state.phase === 'fortify')) {
         useUiStore.getState().reset();
         // The truce-break confirm modal lives in local state (not uiStore); clear
-        // it too so it can't submit an attack with stale from/to after the turn moves on.
+        // it too so it can't submit a stale action after the turn moves on.
         setTruceBreakerConfirm(null);
       }
 
@@ -1782,7 +1786,6 @@ export default function GamePage() {
       );
       const repeatBlitzEligible = canOfferBlitz({
         flagEnabled: useFeatureFlagsStore.getState().flags.attack_blitz_enabled,
-        hasActiveTruce: false, // they just fought — no truce stands between them
         connectionType: repeatConnection?.type,
         isDailyChallenge:
           typeof state?.settings?.daily_challenge_date === 'string' &&
@@ -2480,8 +2483,8 @@ export default function GamePage() {
       setSelectedTerritory(null);
       // Also drop transient targeting/confirmation state that could otherwise
       // mis-fire after a rejected action: a stale fleet source would drive the
-      // next naval submit, and the truce-break confirm modal auto-submits an
-      // attack with its captured from/to when confirmed.
+      // next naval submit, and the truce-break confirm modal re-sends the action
+      // it captured when confirmed.
       setNavalSource(null);
       setTruceBreakerConfirm(null);
       // A territory-select pick can be rejected (e.g. not your pick) without a
@@ -3149,50 +3152,59 @@ export default function GamePage() {
     advancePhaseNow();
   };
 
-  const handleAttack = (fromId: string, toId: string) => {
-    // If the target territory is owned by a player we have an active truce with, ask before breaking it
-    if (gameState && user?.user_id) {
-      const targetOwnerId = gameState.territories[toId]?.owner_id;
-      if (targetOwnerId) {
-        const myPlayer = gameState.players.find((p) => p.player_id === user.user_id);
-        const targetOwner = gameState.players.find((p) => p.player_id === targetOwnerId);
-        if (myPlayer && targetOwner) {
-          const truceEntry = gameState.diplomacy?.find(
-            (e) =>
-              (e.player_index_a === myPlayer.player_index && e.player_index_b === targetOwner.player_index) ||
-              (e.player_index_a === targetOwner.player_index && e.player_index_b === myPlayer.player_index),
-          );
-          if (truceEntry?.status === 'truce' && (truceEntry.truce_turns_remaining ?? 0) > 0) {
-            setTruceBreakerConfirm({
-              fromId,
-              toId,
-              defenderName: targetOwner.username,
-              defenderColor: targetOwner.color,
-            });
-            return;
-          }
-        }
-      }
-    }
-
-    withPuzzleVerdict({ kind: 'attack', from: fromId, to: toId }, () => {
-      getSocket().emit('game:attack', { gameId, fromId, toId });
+  /**
+   * Any attack on a truce partner breaks the truce, so ask first. True when the
+   * dialog opened; its confirm calls `send(true)`, which the server needs as
+   * `breakTruce` or it refuses the action.
+   */
+  const askBeforeBreakingTruce = useCallback((
+    territoryId: string,
+    opts: { defenseDie: boolean; confirmLabel: string },
+    send: (breakTruce: boolean) => void,
+  ): boolean => {
+    const state = useGameStore.getState().gameState;
+    const myId = useAuthStore.getState().user?.user_id;
+    const partner = state && myId ? trucePartnerOwning(state, myId, territoryId) : null;
+    if (!partner) return false;
+    setTruceBreakerConfirm({
+      defenderName: partner.username,
+      defenderColor: partner.color,
+      ...opts,
+      send: () => send(true),
     });
-    setAttackSource(null);
-    setNavalSource(null);
-    setFortifyUnits(1);
-    setSelectedTerritory(null);
+    return true;
+  }, []);
+
+  const handleAttack = (fromId: string, toId: string) => {
+    const send = (breakTruce: boolean) => {
+      if (breakTruce) {
+        getSocket().emit('game:attack', { gameId, fromId, toId, breakTruce: true });
+      } else {
+        withPuzzleVerdict({ kind: 'attack', from: fromId, to: toId }, () => {
+          getSocket().emit('game:attack', { gameId, fromId, toId });
+        });
+      }
+      setAttackSource(null);
+      setNavalSource(null);
+      setFortifyUnits(1);
+      setSelectedTerritory(null);
+    };
+    if (askBeforeBreakingTruce(toId, { defenseDie: true, confirmLabel: 'Break Truce & Attack' }, send)) return;
+    send(false);
   };
 
-  // "Blitz until captured": one event, server resolves repeated exchanges.
-  // Never offered through a truce (TerritoryPanel/modal gate it), so no
-  // break-truce dialog here; the server enforces every gate regardless.
+  // "Blitz until captured": one event, server resolves repeated exchanges. On
+  // a truce partner it asks first, as a single attack does.
   const handleBlitzAttack = (fromId: string, toId: string) => {
-    getSocket().emit('game:attack_blitz', { gameId, fromId, toId });
-    setAttackSource(null);
-    setNavalSource(null);
-    setFortifyUnits(1);
-    setSelectedTerritory(null);
+    const send = (breakTruce: boolean) => {
+      getSocket().emit('game:attack_blitz', { gameId, fromId, toId, ...(breakTruce ? { breakTruce: true } : {}) });
+      setAttackSource(null);
+      setNavalSource(null);
+      setFortifyUnits(1);
+      setSelectedTerritory(null);
+    };
+    if (askBeforeBreakingTruce(toId, { defenseDie: true, confirmLabel: 'Break Truce & Blitz' }, send)) return;
+    send(false);
   };
 
   const handleDraft = (territoryId: string, units: number) => {
@@ -3360,20 +3372,32 @@ export default function GamePage() {
   }, [gameId]);
 
   const handleNavalAttack = useCallback((fromId: string, toId: string) => {
-    getSocket().emit('game:naval_attack', { gameId, fromId, toId });
-  }, [gameId]);
+    const send = (breakTruce: boolean) =>
+      getSocket().emit('game:naval_attack', { gameId, fromId, toId, ...(breakTruce ? { breakTruce: true } : {}) });
+    if (askBeforeBreakingTruce(toId, { defenseDie: true, confirmLabel: 'Break Truce & Attack' }, send)) return;
+    send(false);
+  }, [gameId, askBeforeBreakingTruce]);
 
   const handleInfluence = useCallback((targetId: string) => {
-    getSocket().emit('game:influence', { gameId, targetId });
-  }, [gameId]);
+    const send = (breakTruce: boolean) =>
+      getSocket().emit('game:influence', { gameId, targetId, ...(breakTruce ? { breakTruce: true } : {}) });
+    if (askBeforeBreakingTruce(targetId, { defenseDie: false, confirmLabel: 'Break Truce & Influence' }, send)) return;
+    send(false);
+  }, [gameId, askBeforeBreakingTruce]);
 
   const handleUseAbility = useCallback((abilityId: string, targetId?: string) => {
-    getSocket().emit('game:use_ability', {
+    const send = (breakTruce: boolean) => getSocket().emit('game:use_ability', {
       gameId,
       abilityId,
       params: targetId ? { territoryId: targetId } : undefined,
+      ...(breakTruce ? { breakTruce: true } : {}),
     });
-  }, [gameId]);
+    if (
+      targetId && isHostileAbility(abilityId)
+      && askBeforeBreakingTruce(targetId, { defenseDie: false, confirmLabel: 'Break Truce & Strike' }, send)
+    ) return;
+    send(false);
+  }, [gameId, askBeforeBreakingTruce]);
 
   const handleProposeTruce = useCallback((targetPlayerId: string) => {
     getSocket().emit('game:propose_truce', { gameId, targetPlayerId });
@@ -5577,13 +5601,15 @@ export default function GamePage() {
               </span>. Breaking it carries consequences:
             </p>
             <ul className="text-xs text-white/60 space-y-2 mb-5 pl-1">
-              <li className="flex items-start gap-2">
-                <span className="text-base mt-0.5">🛡</span>
-                <span>
-                  <span className="text-white/90 font-medium">{truceBreakerConfirm.defenderName}</span>{' '}
-                  gets <span className="text-amber-300 font-semibold">+1 defense die</span> for this attack
-                </span>
-              </li>
+              {truceBreakerConfirm.defenseDie && (
+                <li className="flex items-start gap-2">
+                  <span className="text-base mt-0.5">🛡</span>
+                  <span>
+                    <span className="text-white/90 font-medium">{truceBreakerConfirm.defenderName}</span>{' '}
+                    gets <span className="text-amber-300 font-semibold">+1 defense die</span> for this attack
+                  </span>
+                </li>
+              )}
               <li className="flex items-start gap-2">
                 <span className="text-base mt-0.5">⚔️</span>
                 <span>
@@ -5602,22 +5628,13 @@ export default function GamePage() {
               </button>
               <button
                 onClick={() => {
-                  getSocket().emit('game:attack', {
-                    gameId,
-                    fromId: truceBreakerConfirm.fromId,
-                    toId: truceBreakerConfirm.toId,
-                    breakTruce: true,
-                  });
-                  setAttackSource(null);
-                  setNavalSource(null);
-                  setFortifyUnits(1);
-                  setSelectedTerritory(null);
+                  truceBreakerConfirm.send();
                   setTruceBreakerConfirm(null);
                 }}
                 className="flex-1 py-2.5 rounded-xl bg-amber-600/25 hover:bg-amber-600/35
                            border border-amber-500/40 text-amber-300 font-medium text-sm transition-all"
               >
-                ⚔️ Break Truce &amp; Attack
+                ⚔️ {truceBreakerConfirm.confirmLabel}
               </button>
             </div>
           </div>

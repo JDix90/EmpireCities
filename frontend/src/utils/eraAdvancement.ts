@@ -116,7 +116,9 @@ export function getAdvanceEraClientStatus(
   if (atMaxEra) blockers.push('Already at maximum era');
   if (!canPhase) blockers.push('Available during Reinforcement or Fortify phase');
   if (readiness && !readiness.met) {
-    if (gateMode === 'percent') {
+    // The readiness's own mode: without Technology Trees the gate is the
+    // building alone, whatever mode the settings name.
+    if (readiness.mode === 'percent') {
       blockers.push(`Research ${techRequired} technologies (${techUnlocked}/${techRequired})`);
     } else {
       if (!tier1Met) {
@@ -237,14 +239,17 @@ export function listEraGateRows(
         });
       }
     }
-    if (status.buildingsRequired > 0) {
-      rows.push({
-        key: 'buildings',
-        ok: status.buildingsMet,
-        chip: `Bldg ${status.buildingsCurrent}/${status.buildingsRequired}`,
-        label: `Buildings built: ${status.buildingsCurrent}/${status.buildingsRequired}`,
-      });
-    }
+  }
+
+  // The building gate applies without Technology Trees too; only the percent
+  // tech gate goes without one.
+  if (status.buildingsRequired > 0 && (!techTrees || status.gateMode === 'milestone')) {
+    rows.push({
+      key: 'buildings',
+      ok: status.buildingsMet,
+      chip: `Bldg ${status.buildingsCurrent}/${status.buildingsRequired}`,
+      label: `Buildings built: ${status.buildingsCurrent}/${status.buildingsRequired}`,
+    });
   }
 
   if (status.stabilityGate != null) {

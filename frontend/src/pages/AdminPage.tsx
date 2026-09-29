@@ -95,7 +95,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'attack_blitz_enabled',
     label: 'Blitz attacks',
     description:
-      'Give players the "Blitz until captured" button: one action resolves repeated dice exchanges server-side until the territory falls or the attacker can no longer continue. Land only, never breaks a truce, never in daily challenges. Off restores click-per-exchange combat; single attacks are unaffected either way. On by default.',
+      'Give players the "Blitz until captured" button: one action resolves repeated dice exchanges server-side until the territory falls or the attacker can no longer continue. Land only, never in daily challenges; on a truce partner it breaks the truce, confirmed first like a single attack. Off restores click-per-exchange combat; single attacks are unaffected either way. On by default.',
   },
   {
     key: 'background_music_enabled',

@@ -132,15 +132,14 @@ export function canAdvanceEra(state: GameState, playerId: string): AdvanceEraGat
     }
   }
 
-  if (state.settings.tech_trees_enabled) {
-    const readiness = evaluateEraAdvancementReadiness(state, playerId);
-    if (!readiness.met) {
-      return {
-        canAdvance: false,
-        error: readiness.error ?? 'Research and economy requirements not met',
-        cost,
-      };
-    }
+  // The building gate always; research too when Technology Trees are on.
+  const readiness = evaluateEraAdvancementReadiness(state, playerId);
+  if (!readiness.met) {
+    return {
+      canAdvance: false,
+      error: readiness.error ?? 'Research and economy requirements not met',
+      cost,
+    };
   }
 
   // The Space Program gate (`space_to_stars`). Leaving the Space Age for the
@@ -269,7 +268,7 @@ export function getAdvanceEraPreview(state: GameState, playerId: string): {
 
   let techProgress: { unlocked: number; required: number } | undefined;
   let readiness: ReturnType<typeof evaluateEraAdvancementReadiness> | undefined;
-  if (player && state.settings.tech_trees_enabled) {
+  if (player) {
     readiness = evaluateEraAdvancementReadiness(state, playerId);
     if (readiness.mode === 'percent' && readiness.percent) {
       techProgress = readiness.percent;

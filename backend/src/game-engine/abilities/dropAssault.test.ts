@@ -300,3 +300,48 @@ describe('an eliminated player\'s drop', () => {
     expect(state.drop_assaults).toHaveLength(0);
   });
 });
+
+describe('a drop on a truce partner', () => {
+  // Declaring on a partner breaks the truce then (the socket asks first). This
+  // is the other case: a truce agreed while the drop was in flight.
+  function agreeTruce(state: GameState) {
+    state.players.forEach((p, i) => { p.player_index = i; });
+    state.diplomacy = [{ player_index_a: 0, player_index_b: 1, status: 'truce', truce_turns_remaining: 3 }];
+  }
+
+  it('lands anyway, breaking the truce, and the defender gets +1 die', () => {
+    const state = mkState([...EARTH, ...MOON]);
+    declareDropAssault(state, 'p1', 'euro_spaceport');
+    agreeTruce(state);
+    declaredLastTurn(state);
+    const [res] = resolveDropAssaultsFor(state, MAP, 'p1', { dieRoll: attackerWins() });
+
+    expect(res).toMatchObject({ status: 'landed', truceBroken: true, previousOwner: 'p2' });
+    // Two defenders roll two dice; the break adds a third.
+    expect(res.outcome?.result.defender_rolls).toHaveLength(3);
+    expect(state.diplomacy[0]).toMatchObject({ status: 'neutral', truce_turns_remaining: 0 });
+    expect(state.players[1].truce_break_retaliations).toEqual([{ against_player_id: 'p1', dice_bonus: 1 }]);
+  });
+
+  it('leaves the truce standing when the drop never lands', () => {
+    const state = mkState([...EARTH, ...MOON]);
+    declareDropAssault(state, 'p1', 'euro_spaceport');
+    agreeTruce(state);
+    declaredLastTurn(state);
+    state.territories.moon_polar_north.owner_id = 'p2'; // thrown off the Moon in flight
+    const [res] = resolveDropAssaultsFor(state, MAP, 'p1', { dieRoll: attackerWins() });
+
+    expect(res).toMatchObject({ status: 'cancelled', cancelCode: 'lost_foothold' });
+    expect(res.truceBroken).toBeUndefined();
+    expect(state.diplomacy[0]).toMatchObject({ status: 'truce', truce_turns_remaining: 3 });
+  });
+
+  it('is no business of the truce rules when the target is nobody\'s partner', () => {
+    const state = mkState([...EARTH, ...MOON]);
+    declareDropAssault(state, 'p1', 'euro_spaceport');
+    declaredLastTurn(state);
+    const [res] = resolveDropAssaultsFor(state, MAP, 'p1', { dieRoll: attackerWins() });
+    expect(res.truceBroken).toBeUndefined();
+    expect(res.outcome?.result.defender_rolls).toHaveLength(2);
+  });
+});
