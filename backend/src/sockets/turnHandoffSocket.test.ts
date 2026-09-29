@@ -1077,8 +1077,10 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
       await waitForRedisState(gameId, (st) =>
         !st.active_event && (st.phase_deadline_at ?? 0) > Date.now() + 23 * 3600_000);
       await sleep(200);
-      const job = await asyncWorker.asyncDeadlineQueue.getJob(`deadline-${gameId}-3`);
-      expect({ told: told.length, job: await job?.getState() }).toEqual({ told: 0, job: 'delayed' });
+      // Found by game rather than by job id, which is the worker's to choose.
+      const days = (await asyncWorker.asyncDeadlineQueue.getJobs(['delayed']))
+        .filter((j) => j?.data.gameId === gameId);
+      expect({ told: told.length, days: days.length }).toEqual({ told: 0, days: 1 });
     }, 20_000);
 
     it('a bot answers its own choice card rather than passing it to the next player', async () => {
