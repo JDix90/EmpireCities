@@ -15,7 +15,7 @@ import {
   clearSpectatorGame,
 } from './spectatorBroadcast';
 import { armEvictionTimer, cancelEvictionTimer, pendingEvictionCount } from './evictionTimers';
-import { decideTurnTimerRearm, isTurnTimerJobCurrent } from './turnTimerRearm';
+import { decideTurnTimerRearm, isTurnTimerJobCurrent, isAsyncDeadlineJobCurrent } from './turnTimerRearm';
 import {
   initializeGameState,
   getStartingPlayerIndex,
@@ -192,6 +192,8 @@ import {
   scheduleAsyncDeadline,
   cancelAsyncDeadline,
   setDeadlineProcessor,
+  asyncDeadlineJobId,
+  asyncDeadlineQueue,
 } from '../workers/asyncDeadlineWorker';
 import { notifyTurnChange } from '../services/notificationService';
 import type { DailyPuzzleSpec } from '../game-engine/daily/dailyPuzzleTypes';
@@ -1070,7 +1072,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
   // ── Register async deadline processor ───────────────────────────────────
   setDeadlineProcessor(async (job) => {
-    const { gameId, turnNumber, playerIndex } = job.data;
+    const { gameId } = job.data;
     await runWithGameLock(gameId, async () => {
       const game = await queryOne<{ map_id: string; status: string }>(
         'SELECT map_id, status FROM games WHERE game_id = $1',
@@ -1083,9 +1085,16 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       const { state, map } = room;
 
-      // Stale-job guard: only process if turn/player still match
+      // Stale-job guard: only the deadline the seat to move still has may
+      // lapse (see isAsyncDeadlineJobCurrent).
       if (state.phase === 'game_over') return;
-      if (state.turn_number !== turnNumber || state.current_player_index !== playerIndex) return;
+      if (!isAsyncDeadlineJobCurrent({
+        job: job.data,
+        turnNumber: state.turn_number,
+        playerIndex: state.current_player_index,
+        armedDeadlineAt: state.phase_deadline_at,
+        now: Date.now(),
+      })) return;
 
       // Territory Draft: pick for the seat whose deadline lapsed and carry on,
       // as the real-time clock does. Forfeiting the turn below set the draft
@@ -1481,26 +1490,25 @@ export function initGameSocket(httpServer: HttpServer): Server {
             }
           }
 
-          // For async games, ensure the deadline job is still scheduled (may be lost on server restart)
+          // For async games, ensure the deadline job is still scheduled (may be
+          // lost on server restart). The job is named by the deadline the game
+          // carries. A turn with none on record falls back to the deadline
+          // stored in Postgres, as before. One already past gets ten seconds.
           if (room.state.settings.async_mode && room.state.phase !== 'game_over' && !currentAiPlayer?.is_ai) {
-            import('../workers/asyncDeadlineWorker').then(({ asyncDeadlineQueue }) => {
-              const jobId = `deadline-${gameId}-${room!.state.turn_number}`;
-              asyncDeadlineQueue.getJob(jobId).then((job) => {
-                if (!job) {
-                  // Re-schedule from DB deadline
-                  queryOne<{ async_turn_deadline: Date | null }>(
-                    'SELECT async_turn_deadline FROM games WHERE game_id = $1',
-                    [gameId],
-                  ).then((g) => {
-                    if (g?.async_turn_deadline) {
-                      const remainingSec = Math.max(10, Math.floor((new Date(g.async_turn_deadline).getTime() - Date.now()) / 1000));
-                      scheduleAsyncDeadline(gameId, room!.state.turn_number, room!.state.current_player_index, remainingSec)
-                        .catch(() => {});
-                    }
-                  }).catch(() => {});
-                }
-              }).catch(() => {});
-            }).catch(() => {});
+            const { turn_number: turnNumber, current_player_index: playerIndex, phase_deadline_at: armed } = room.state;
+            const restore = (deadlineAt: number) =>
+              asyncDeadlineQueue.getJob(asyncDeadlineJobId(gameId, deadlineAt)).then((job) => {
+                if (!job) return scheduleAsyncDeadline(gameId, turnNumber, playerIndex, deadlineAt, { minDelayMs: 10_000 });
+              });
+            const restored = typeof armed === 'number'
+              ? restore(armed)
+              : queryOne<{ async_turn_deadline: Date | null }>(
+                'SELECT async_turn_deadline FROM games WHERE game_id = $1',
+                [gameId],
+              ).then((g) => {
+                if (g?.async_turn_deadline) return restore(new Date(g.async_turn_deadline).getTime());
+              });
+            restored.catch((err) => console.error('[Socket] Async deadline restore failed for', gameId, err));
           }
         }
 
@@ -6862,7 +6870,8 @@ function startTurnTimer(
   // ── Async mode: use persistent BullMQ job instead of in-memory timer ──
   if (state.settings.async_mode) {
     const deadlineSec = state.settings.async_turn_deadline_seconds ?? seconds;
-    state.phase_deadline_at = Date.now() + deadlineSec * 1000;
+    const deadlineAt = Date.now() + deadlineSec * 1000;
+    state.phase_deadline_at = deadlineAt;
     emitPhaseDeadline(io, gameId, state);
     persistArmedDeadline(gameId, state);
     // Write deadline to DB for querying
@@ -6872,7 +6881,7 @@ function startTurnTimer(
     ).catch((err) => console.error('[Socket] Failed to write async deadline:', err));
 
     // Schedule BullMQ job
-    scheduleAsyncDeadline(gameId, state.turn_number, state.current_player_index, deadlineSec)
+    scheduleAsyncDeadline(gameId, state.turn_number, state.current_player_index, deadlineAt)
       .catch((err) => console.error('[Socket] Failed to schedule async deadline:', err));
 
     // Notify the player it's their turn — in-app on every socket they have
@@ -6923,13 +6932,16 @@ function emitPhaseDeadline(io: Server, gameId: string, state: GameState): void {
 }
 
 function clearTurnTimer(gameId: string, state: GameState): void {
+  // Both kinds of job are named by the deadline they were armed for, so the
+  // hand-offs cancel the outgoing seat's here, before it is cleared.
   cancelTurnTimeout(gameId, state.phase_deadline_at).catch(() => {});
+  cancelAsyncDeadline(gameId, state.phase_deadline_at).catch(() => {});
   // No timer running means no deadline — otherwise AI turns and event
   // pauses keep broadcasting the previous human's expired clock and the
   // HUD counts down a dead timer to a frozen 0:00. Clearing it is also what
-  // retires a job that could not be cancelled (isTurnTimerJobCurrent).
+  // retires a job that could not be cancelled (isTurnTimerJobCurrent,
+  // isAsyncDeadlineJobCurrent).
   state.phase_deadline_at = null;
-  cancelAsyncDeadline(gameId, state.turn_number).catch(() => {});
 }
 
 /**

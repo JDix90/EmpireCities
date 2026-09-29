@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { decideTurnTimerRearm, isTurnTimerJobCurrent } from './turnTimerRearm';
+import { decideTurnTimerRearm, isTurnTimerJobCurrent, isAsyncDeadlineJobCurrent } from './turnTimerRearm';
 
 const NOW = 1_750_000_000_000;
 
@@ -65,5 +65,46 @@ describe('isTurnTimerJobCurrent', () => {
     expect(isTurnTimerJobCurrent({ jobDeadlineAt: undefined, armedDeadlineAt: NOW, now: NOW + 50 })).toBe(true);
     expect(isTurnTimerJobCurrent({ jobDeadlineAt: undefined, armedDeadlineAt: NOW + 60_000, now: NOW })).toBe(false);
     expect(isTurnTimerJobCurrent({ jobDeadlineAt: undefined, armedDeadlineAt: null, now: NOW })).toBe(false);
+  });
+});
+
+describe('isAsyncDeadlineJobCurrent', () => {
+  /** The game: seat 1 to move on turn 3, its deadline armed for NOW. */
+  function current(
+    job: Parameters<typeof isAsyncDeadlineJobCurrent>[0]['job'],
+    game: { turnNumber?: number; playerIndex?: number; armedDeadlineAt?: number | null; now?: number } = {},
+  ): boolean {
+    return isAsyncDeadlineJobCurrent({
+      job,
+      turnNumber: game.turnNumber ?? 3,
+      playerIndex: game.playerIndex ?? 1,
+      armedDeadlineAt: game.armedDeadlineAt === undefined ? NOW : game.armedDeadlineAt,
+      now: game.now ?? NOW + 50,
+    });
+  }
+
+  it('lapses the deadline the seat to move still has', () => {
+    expect(current({ turnNumber: 3, playerIndex: 1, deadlineAt: NOW })).toBe(true);
+  });
+
+  it('ignores a job for another turn or seat', () => {
+    expect(current({ turnNumber: 2, playerIndex: 1, deadlineAt: NOW })).toBe(false);
+    expect(current({ turnNumber: 3, playerIndex: 0, deadlineAt: NOW })).toBe(false);
+  });
+
+  it('ignores a job for a deadline the seat no longer has, though turn and seat match', () => {
+    // A Territory Draft's picks and turn one all run as turn 1: the seat's
+    // earlier deadline must not cut its next one short.
+    expect(current({ turnNumber: 3, playerIndex: 1, deadlineAt: NOW - 3_600_000 })).toBe(false);
+  });
+
+  it('leaves it to turn and seat when the game has no deadline on record', () => {
+    expect(current({ turnNumber: 3, playerIndex: 1, deadlineAt: NOW }, { armedDeadlineAt: null })).toBe(true);
+    expect(current({ turnNumber: 3, playerIndex: 0, deadlineAt: NOW }, { armedDeadlineAt: null })).toBe(false);
+  });
+
+  it('lets a job queued without a deadline act only once the armed deadline has passed', () => {
+    expect(current({ turnNumber: 3, playerIndex: 1 })).toBe(true);
+    expect(current({ turnNumber: 3, playerIndex: 1 }, { armedDeadlineAt: NOW + 3_600_000 })).toBe(false);
   });
 });

@@ -16,6 +16,12 @@ export interface AsyncDeadlinePayload {
   gameId: string;
   turnNumber: number;
   playerIndex: number;
+  /**
+   * The `phase_deadline_at` this job was armed for. The processor acts only
+   * while the game still carries that deadline (see isAsyncDeadlineJobCurrent).
+   * Absent on jobs queued before jobs carried it.
+   */
+  deadlineAt?: number;
 }
 
 const connection = {
@@ -36,19 +42,36 @@ export const asyncDeadlineQueue = new Queue<AsyncDeadlinePayload>(QUEUE_NAME, {
 });
 
 /**
- * Schedule a deadline job for the current turn of an async game.
- * Call this from startTurnTimer when async_mode is true.
+ * One job per armed deadline, named by it, as `turnTimerJobId` names the
+ * real-time clock's.
+ *
+ * Every deadline of a turn used to share the id `deadline-<gameId>-<turn>`,
+ * and the turn number holds for a whole round, and from a Territory Draft
+ * into turn one. A lapse arms the next seat's deadline while its own job is
+ * still active, and BullMQ neither removes an active job nor adds a job whose
+ * id already exists, so that deadline could be dropped: the next seat's turn
+ * never lapsed. A seat in the id would not be enough either, since turn one
+ * can open on the seat whose last draft pick lapsed.
+ */
+export function asyncDeadlineJobId(gameId: string, deadlineAt: number): string {
+  return `deadline-${gameId}-${deadlineAt}`;
+}
+
+/**
+ * Schedule the deadline armed for the seat to move in an async game: the
+ * game's `phase_deadline_at`. Called from startTurnTimer when async_mode is
+ * true. `minDelayMs` holds off a deadline that has already passed.
  */
 export async function scheduleAsyncDeadline(
   gameId: string,
   turnNumber: number,
   playerIndex: number,
-  deadlineSeconds: number,
+  deadlineAt: number,
+  opts: { minDelayMs?: number } = {},
 ): Promise<void> {
-  const jobId = `deadline-${gameId}-${turnNumber}`;
-  const delayMs = deadlineSeconds * 1000;
+  const jobId = asyncDeadlineJobId(gameId, deadlineAt);
 
-  // Remove any stale job for this game+turn before scheduling
+  // Replace a job already queued for this deadline.
   try {
     const existing = await asyncDeadlineQueue.getJob(jobId);
     if (existing) await existing.remove();
@@ -58,21 +81,23 @@ export async function scheduleAsyncDeadline(
 
   await asyncDeadlineQueue.add(
     'turn-deadline',
-    { gameId, turnNumber, playerIndex },
-    { jobId, delay: delayMs },
+    { gameId, turnNumber, playerIndex, deadlineAt },
+    { jobId, delay: Math.max(opts.minDelayMs ?? 0, deadlineAt - Date.now()) },
   );
 }
 
 /**
- * Cancel a pending deadline (e.g. player submitted their turn early).
+ * Cancel the job for a deadline the game no longer runs (e.g. the player
+ * ended their turn early).
  */
-export async function cancelAsyncDeadline(gameId: string, turnNumber: number): Promise<void> {
-  const jobId = `deadline-${gameId}-${turnNumber}`;
+export async function cancelAsyncDeadline(gameId: string, deadlineAt: number | null | undefined): Promise<void> {
+  if (typeof deadlineAt !== 'number') return;
   try {
-    const job = await asyncDeadlineQueue.getJob(jobId);
+    const job = await asyncDeadlineQueue.getJob(asyncDeadlineJobId(gameId, deadlineAt));
     if (job) await job.remove();
   } catch {
-    // Job may already be processing or completed — ignore
+    // An active job cannot be removed. It is still harmless: the processor
+    // ignores a job whose deadline the game no longer carries.
   }
 }
 
@@ -83,8 +108,13 @@ export async function cancelAsyncDeadline(gameId: string, turnNumber: number): P
 // because the worker needs access to broadcast/finalize helpers in gameSocket.
 let processorFn: ((job: Job<AsyncDeadlinePayload>) => Promise<void>) | null = null;
 
-export function setDeadlineProcessor(fn: (job: Job<AsyncDeadlinePayload>) => Promise<void>): void {
+/** Register the processor. Returns the one it replaced, so a test can restore it. */
+export function setDeadlineProcessor(
+  fn: (job: Job<AsyncDeadlinePayload>) => Promise<void>,
+): ((job: Job<AsyncDeadlinePayload>) => Promise<void>) | null {
+  const previous = processorFn;
   processorFn = fn;
+  return previous;
 }
 
 let worker: Worker<AsyncDeadlinePayload> | null = null;
