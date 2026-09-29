@@ -107,7 +107,7 @@ The host selects one or more victory conditions at game creation. The first play
 - **Capture territories** — Conquer 2 specific enemy territories
 - **Eliminate player** — Eliminate a specific opponent yourself. If anyone else takes them out, they resign, or rebels take their last territory, the mission fails
 - **Control regions** — Control 1 or 2 entire continents
-- **Alliance** (rare, 4+ player games) — You and a secret ally each hold ≥20% of all territories
+- **Alliance** (rare, 4+ player games with 2+ humans) — You and a named ally each hold an even share of the territories dealt, plus 7% of them: 12 each in a 4-player WW2 game. Your mission shows both counts
 
 ---
 

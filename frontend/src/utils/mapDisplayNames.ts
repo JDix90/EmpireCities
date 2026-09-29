@@ -45,7 +45,8 @@ export function formatEraLabel(eraId: string | undefined | null): string {
 
 /**
  * `holderId` is the player whose mission it is: with it, an "Eliminate X"
- * mission that can no longer succeed says so.
+ * mission that can no longer succeed says so, and an alliance shows both
+ * allies' territory counts.
  */
 export function describeSecretMission(
   mission: SecretMissionPayload,
@@ -80,6 +81,17 @@ export function describeSecretMission(
     const target = players.find((p) => p.player_id === mission.target_player_id);
     return `Hold the Moon while ${target?.username ?? 'an opponent'} holds none of it`;
   }
+  if (mission.kind === 'alliance' && mission.ally_player_id && mission.territory_threshold) {
+    const ally = players.find((p) => p.player_id === mission.ally_player_id);
+    const name = ally?.username ?? 'your ally';
+    const goal = `Hold ${mission.territory_threshold} territories each with your ally ${name}`;
+    // Both allies have to be standing when they get there.
+    if (ally?.is_eliminated) return `${goal} — failed: ${name} is out`;
+    const holder = holderId ? players.find((p) => p.player_id === holderId) : undefined;
+    return holder && ally
+      ? `${goal} (you ${holder.territory_count} · ${name} ${ally.territory_count})`
+      : goal;
+  }
   return 'Complete your secret objective';
 }
 
@@ -89,6 +101,8 @@ export type SecretMissionLike = {
   target_player_id?: string;
   region_ids?: string[];
   ally_player_id?: string;
+  /** Alliance: the territories each ally must hold. */
+  territory_threshold?: number;
   era_id?: string;
   /** Space Age Moon Race, Phase 5: Lunar Foothold's tile count. */
   tiles?: number;
@@ -116,7 +130,10 @@ export function formatSecretMissionReveal(
         .join(', ')}`;
     case 'alliance': {
       const ally = players?.find((p) => p.player_id === mission.ally_player_id);
-      return `Form alliance with ${ally?.username ?? 'another player'}`;
+      const name = ally?.username ?? 'another player';
+      return mission.territory_threshold
+        ? `Hold ${mission.territory_threshold} territories each with ally ${name}`
+        : `Form alliance with ${name}`;
     }
     case 'reach_era':
       return `Advance to the ${formatEraLabel(mission.era_id)}`;

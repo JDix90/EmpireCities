@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { assignSecretMissions, isMissionComplete } from './missions';
+import { allianceTerritoryThreshold, assignSecretMissions, isMissionComplete } from './missions';
 import { checkVictory, initializeGameState } from '../state/gameStateManager';
 import { executeLandAttack } from '../combat/executeLandAttack';
 import type { GameMap, GameState, PlayerState } from '../../types';
@@ -488,5 +488,116 @@ describe('lunar missions — assignment', () => {
     const state = lunarState(solo, true);
     assignSecretMissions(state, lunarMap, () => 0.1);
     expect(solo[0].secret_mission!.kind).not.toBe('lunar_denial');
+  });
+});
+
+describe('alliance missions', () => {
+  // era_ww2 authors 42 tiles and holds 7 frontiers back for Era Advancement,
+  // so a game deals 35.
+  const ww2 = JSON.parse(
+    readFileSync(join(__dirname, '../../../../database/maps/era_ww2.json'), 'utf8'),
+  ) as GameMap;
+
+  function initWw2(gameId: string, seats: number, humans: number): GameState {
+    return initializeGameState(
+      gameId,
+      'ww2',
+      ww2,
+      Array.from({ length: seats }, (_, i) => ({
+        player_id: `p${i + 1}`, player_index: i, username: `P${i + 1}`, color: '#abc',
+        is_ai: i >= humans, is_eliminated: false, mmr: 1000,
+      })),
+      {
+        fog_of_war: false,
+        allowed_victory_conditions: ['secret_mission'],
+        turn_timer_seconds: 0,
+        initial_unit_count: 3,
+        card_set_escalating: true,
+        diplomacy_enabled: false,
+      },
+    );
+  }
+
+  /** A one-region board dealt `counts[i]` tiles to seat i, every seat human. */
+  function dealtBoard(counts: number[], eliminated: string[] = []): { state: GameState; map: GameMap } {
+    const total = counts.reduce((a, b) => a + b, 0);
+    const map = {
+      ...miniMap,
+      territories: Array.from({ length: total }, (_, i) => ({
+        territory_id: `t${i}`, name: `T${i}`, polygon: [], center_point: [0, 0], region_id: 'north',
+      })),
+    } as GameMap;
+    const players = counts.map((n, i) => mkPlayer(`p${i + 1}`, {
+      player_index: i, territory_count: n, is_eliminated: eliminated.includes(`p${i + 1}`),
+    }));
+    const state = baseState(players);
+    state.territories = {};
+    let t = 0;
+    counts.forEach((n, i) => {
+      for (let k = 0; k < n; k++, t++) {
+        state.territories[`t${t}`] = { territory_id: `t${t}`, owner_id: `p${i + 1}`, unit_count: 1, unit_type: 'infantry' };
+      }
+    });
+    return { state, map };
+  }
+
+  // A constant 0.1 takes the alliance branch (< 0.20) and pairs the first two
+  // humans still seated.
+  const allianceRoll = () => 0.1;
+  const alliesOf = (state: GameState) =>
+    state.players.filter((p) => p.secret_mission?.kind === 'alliance').map((p) => p.player_id);
+
+  it('asks each ally for an even share of the tiles dealt, plus 7% of them', () => {
+    // 35 dealt: 8.75 + 2.45 → 12 at 4 seats, 7 + 2.45 → 10 at 5, 5.83 + 2.45 → 9 at 6.
+    expect([4, 5, 6].map((n) => allianceTerritoryThreshold(initWw2('ww2-threshold', n, 2)))).toEqual([12, 10, 9]);
+  });
+
+  it('is never won at the deal (100 seeded 4-seat WW2 games with two humans)', () => {
+    let alliances = 0;
+    for (let i = 0; i < 100; i++) {
+      const state = initWw2(`ww2-alliance-${i}`, 4, 2);
+      const allies = state.players.filter((p) => p.secret_mission?.kind === 'alliance');
+      if (allies.length === 0) continue;
+      alliances += 1;
+      expect(allies.map((p) => p.is_ai)).toEqual([false, false]);
+      expect(allies.map((p) => p.secret_mission)).toEqual([
+        { kind: 'alliance', ally_player_id: allies[1]!.player_id, territory_threshold: 12 },
+        { kind: 'alliance', ally_player_id: allies[0]!.player_id, territory_threshold: 12 },
+      ]);
+      expect({ game: i, victory: checkVictory(state, ww2) }).toEqual({ game: i, victory: null });
+    }
+    // Guard against a vacuous pass: about one game in six deals an alliance.
+    expect(alliances).toBeGreaterThan(5);
+  });
+
+  it('pairs two allies neither of whom holds the threshold yet', () => {
+    // 20 dealt at 4 seats: ceil(5 + 1.4) = 7 each.
+    const { state, map } = dealtBoard([5, 5, 5, 5]);
+    assignSecretMissions(state, map, allianceRoll);
+    expect(alliesOf(state)).toEqual(['p1', 'p2']);
+    expect(state.players[0]!.secret_mission).toEqual({ kind: 'alliance', ally_player_id: 'p2', territory_threshold: 7 });
+  });
+
+  it('is never dealt half-won: an ally already at the threshold keeps an ordinary mission', () => {
+    const { state, map } = dealtBoard([8, 4, 4, 4]);
+    assignSecretMissions(state, map, allianceRoll);
+    expect(alliesOf(state)).toEqual([]);
+    expect(state.players.map((p) => p.secret_mission?.kind)).not.toContain(undefined);
+  });
+
+  it('never pairs a player who resigned during the draft, nor counts their seat', () => {
+    // p1 resigned: their tiles went neutral. 20 dealt among the 4 still seated.
+    const { state, map } = dealtBoard([0, 5, 5, 5, 5], ['p1']);
+    assignSecretMissions(state, map, allianceRoll);
+    expect(alliesOf(state)).toEqual(['p2', 'p3']);
+    expect(state.players[1]!.secret_mission).toEqual({ kind: 'alliance', ally_player_id: 'p3', territory_threshold: 7 });
+  });
+
+  it('needs four players still seated', () => {
+    // Holdings the half-won guard cannot mask: were p1's seat counted, p1 and
+    // p2 would both be short of the threshold and paired.
+    const { state, map } = dealtBoard([0, 2, 8, 8], ['p1']);
+    assignSecretMissions(state, map, allianceRoll);
+    expect(alliesOf(state)).toEqual([]);
   });
 });
