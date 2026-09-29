@@ -796,6 +796,23 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
     expect(truceOf(await getGameState(gameId))).toEqual({ status: 'neutral', turns: 0 });
   });
 
+  it('dates an accepted truce to its round, so its three rounds are the ones after it', async () => {
+    const gameId = 'itest-truce-accept';
+    await seed(gameId, buildState(gameId, [], {
+      diplomacy: [{ player_index_a: 0, player_index_b: 1, status: 'neutral', truce_turns_remaining: 0 }],
+      pending_truces: [{ proposer_id: 'p1', target_id: 'p2' }],
+      settings: { ...buildState(gameId, []).settings, diplomacy_enabled: true },
+    }), buildMap(gameId));
+    const c2 = await connect('p2');
+    await joinRoom('p2', gameId);
+
+    c2.emit('game:truce_response', { gameId, proposerId: 'p1', accepted: true });
+    await waitForRedisState(gameId, (s) => s.diplomacy[0]?.status === 'truce');
+    expect((await getGameState(gameId))!.diplomacy[0]).toMatchObject({
+      status: 'truce', truce_turns_remaining: 3, truce_agreed_turn: 3,
+    });
+  });
+
   // ── Fog of War: map visuals must not leak hidden garrisons ─────────────────
 
   type Visual = { kind: string; territoryId: string; units?: number; totalAfter?: number };
@@ -822,6 +839,31 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
     expect(hidden).toMatchObject({ kind: 'reinforce', territoryId: 'a' });
     expect(hidden.units).toBeUndefined();
     expect(hidden.totalAfter).toBeUndefined();
+  });
+
+  it('keeps where a rival reinforced out of the state sent to players who cannot see it', async () => {
+    const gameId = 'itest-fog-placements';
+    // With Stability on, a draft keeps a per-territory tally for the cap.
+    const stable = { stability: 80, population: 3 };
+    await seed(gameId, buildState(gameId, [], {
+      phase: 'draft', current_player_index: 0, draft_units_remaining: 3,
+      territories: { a: terr('a', 'p1', 2, stable), b: terr('b', 'p2', 1, stable), c: terr('c', 'p3', 5, stable) },
+      settings: { ...buildState(gameId, []).settings, fog_of_war: true, stability_enabled: true },
+    }), buildMap(gameId));
+    const c1 = await connect('p1');
+    const c3 = await connect('p3');
+    for (const id of ['p1', 'p3']) await joinRoom(id, gameId);
+
+    const own = waitFor<GameState>(c1, 'game:state');
+    const rival = waitFor<GameState>(c3, 'game:state');
+    c1.emit('game:draft', { gameId, territoryId: 'a', units: 2, action_id: 'fogtally1' });
+    const [mine, theirs] = await Promise.all([own, rival]);
+    // p3 (at c) cannot see a: the tile is masked, and so is the tally.
+    expect({
+      mine: mine.draft_placements_this_turn,
+      hiddenTile: theirs.territories.a.unit_count,
+      theirs: theirs.draft_placements_this_turn,
+    }).toEqual({ mine: { a: 2 }, hiddenTile: -1, theirs: undefined });
   });
 
   it('shows bordering territories in fogged state before anything has built adjacency', async () => {

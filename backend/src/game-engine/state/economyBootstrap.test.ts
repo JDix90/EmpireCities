@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { GameMap, GameSettings } from '../../types';
-import { initializeGameState } from './gameStateManager';
+import { advanceToNextPlayer, initializeGameState } from './gameStateManager';
 
 function makeMiniMap(): GameMap {
   return {
@@ -86,6 +86,50 @@ describe('economy+tech bootstrap', () => {
     for (const player of state.players) {
       expect(player.tech_points).toBeUndefined();
       expect(player.special_resource).toBeUndefined();
+    }
+  });
+});
+
+describe('economy without Technology Trees', () => {
+  const economyOnly: GameSettings = {
+    fog_of_war: false,
+    turn_timer_seconds: 0,
+    initial_unit_count: 3,
+    card_set_escalating: true,
+    diplomacy_enabled: false,
+    economy_enabled: true,
+    tech_trees_enabled: false,
+  };
+
+  it('pays the first player at their first turn start, as every later seat is paid at its own', () => {
+    const map = makeMiniMap();
+    const state = initializeGameState('economy-only', 'ancient', map, players, economyOnly);
+    const first = state.players[state.current_player_index]!;
+    const firstTurn = first.special_resource;
+    advanceToNextPlayer(state, map);
+    const secondTurn = state.players[state.current_player_index]!.special_resource;
+    // Both hold 3 territories: 1 PP each as their first turn begins.
+    expect({ firstTurn, secondTurn }).toEqual({ firstTurn: 1, secondTurn: 1 });
+  });
+
+  it('pays nobody before their turn: the seat to move second starts at zero', () => {
+    const state = initializeGameState('economy-only-2', 'ancient', makeMiniMap(), players, economyOnly);
+    const waiting = state.players.filter((_, i) => i !== state.current_player_index);
+    expect(waiting.map((p) => p.special_resource)).toEqual([0]);
+  });
+
+  it('leaves authored starts alone: the tutorial, campaign missions and daily challenges', () => {
+    const authored: Partial<GameSettings>[] = [
+      { tutorial: true },
+      { is_campaign: true },
+      { daily_challenge_date: '2026-09-29' },
+    ];
+    for (const extra of authored) {
+      const state = initializeGameState('economy-only-authored', 'ancient', makeMiniMap(), players, {
+        ...economyOnly,
+        ...extra,
+      });
+      expect(state.players.map((p) => p.special_resource)).toEqual([0, 0]);
     }
   });
 });

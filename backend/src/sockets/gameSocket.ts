@@ -62,7 +62,7 @@ import { resolveEventChoice, getTemporaryModifierValue, getDisplayScaledCard } f
 import { moveFleets, resolveNavalCombat, resolveSeaCrossing } from '../game-engine/state/navalManager';
 import { onInfluenceStabilityPenalty, getDeployCap } from '../game-engine/state/stabilityManager';
 import { eliminatePlayer } from '../game-engine/state/elimination';
-import { activeTruceBetween, breakTruceBetween } from '../game-engine/state/truces';
+import { activeTruceBetween, agreeTruce, breakTruceBetween } from '../game-engine/state/truces';
 import { getAdjacentTerritoryIds, getInfluenceHopLimit, isTerritoryReachableWithinHops } from '../game-engine/state/influenceManager';
 import { playerHoldsVaultSeal, worldDeployCapBonus } from '../game-engine/state/worldRules';
 import { isJumpGateOnlyEdge, jumpGatePartners, syncJumpGateLanes } from '../game-engine/state/jumpGates';
@@ -3869,10 +3869,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
             (e.player_index_a === proposer.player_index && e.player_index_b === target.player_index) ||
             (e.player_index_a === target.player_index && e.player_index_b === proposer.player_index),
         );
-        if (entry) {
-          entry.status = 'truce';
-          entry.truce_turns_remaining = 3;
-        }
+        if (entry) agreeTruce(state, entry);
         // Track for diplomat achievement
         if (!proposer.is_ai) {
           proposer.truces_established = [...new Set([...(proposer.truces_established ?? []), target.player_id])];
@@ -4951,9 +4948,12 @@ function buildClientState(state: GameState, playerId: string | null, fogOfWar: b
     players: redactPlayersForViewer(s.players, playerId, state.phase),
     // The reinforcement undo stack is the acting player's private working state —
     // strip it for every other viewer (and spectators) so fog can't be sidestepped
-    // by reading where the current player just deployed.
+    // by reading where the current player just deployed. The Stability cap's
+    // per-territory tally says the same thing, so it goes with it.
     draft_deployments_this_turn:
       playerId !== null && playerId === actingPlayerId ? s.draft_deployments_this_turn : undefined,
+    draft_placements_this_turn:
+      playerId !== null && playerId === actingPlayerId ? s.draft_placements_this_turn : undefined,
   });
 
   // No fog → everyone (players and spectators) sees full territory intel.

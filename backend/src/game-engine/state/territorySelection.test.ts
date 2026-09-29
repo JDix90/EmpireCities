@@ -115,6 +115,16 @@ describe('Territory Draft opening income', () => {
     });
   });
 
+  it('pays the first player their turn-one production when Technology Trees are off', () => {
+    const state = draftGame({ economy_enabled: true, stability_enabled: false });
+    runDraftOnTimeouts(state);
+    const first = state.players[state.current_player_index]!;
+    const others = state.players.filter((p) => p !== first);
+    // 3 territories each after the draft: 1 PP for the player about to move.
+    expect({ first: first.special_resource, others: others.map((p) => p.special_resource) })
+      .toEqual({ first: 1, others: [0] });
+  });
+
   it('pays nothing extra when the economy is off', () => {
     const state = draftGame();
     runDraftOnTimeouts(state);

@@ -46,8 +46,10 @@ export function effectiveMaxPlayers(settings: Record<string, unknown> | string |
  * single-player session, so they are not advertised — and campaign, which never
  * writes `max_players`, was genuinely joinable before this filter existed.
  *
- * `hybrid` (human seats open alongside bots) stays listed: that is the whole
- * point of an under-filled lobby.
+ * Create stores a game with AI as `solo`, invite-only until it starts, when
+ * the real type is set from who took a seat. So no waiting lobby is `hybrid`
+ * today. It stays listed so that one would be, should create ever make one:
+ * human seats open alongside bots are the point of an under-filled lobby.
  */
 export const PUBLIC_LOBBY_GAME_TYPES = ['multiplayer', 'hybrid'] as const;
 

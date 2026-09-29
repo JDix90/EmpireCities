@@ -748,5 +748,8 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     localization_enabled: featureFlags.localizationEnabled,
     daily_puzzle_v2_enabled: featureFlags.dailyPuzzleV2Enabled,
     store_v2_enabled: featureFlags.storeV2Enabled,
+    // Read by the Custom Game form to say whether a Space Age game can also be
+    // won on the Moon (the Lunar Hegemony rides with the Moon Race).
+    space_age_moon_race_enabled: featureFlags.spaceAgeMoonRaceEnabled,
   };
 }

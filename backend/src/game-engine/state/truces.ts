@@ -36,9 +36,26 @@ export function breakTruceBetween(state: GameState, breakerId: string, betrayedI
   if (!entry || !betrayed) return false;
   entry.status = 'neutral';
   entry.truce_turns_remaining = 0;
+  entry.truce_agreed_turn = undefined;
   if (!betrayed.truce_break_retaliations) betrayed.truce_break_retaliations = [];
   const owed = betrayed.truce_break_retaliations.find((r) => r.against_player_id === breakerId);
   if (owed) owed.dice_bonus += 1; // stack if somehow broken twice before use
   else betrayed.truce_break_retaliations.push({ against_player_id: breakerId, dice_bonus: 1 });
   return true;
+}
+
+/** Rounds an agreed truce lasts: the lobby, How to Play and the offer all say three. */
+export const TRUCE_ROUNDS = 3;
+
+/**
+ * Put an accepted truce in force between the entry's two players, for the
+ * three rounds after this one. The countdown drops as each round ends, and
+ * this round used to be the first of the three, so a truce agreed on the
+ * round's last turn covered only two of the partner's. The round it is
+ * accepted in is recorded and ends without a tick (passTurn).
+ */
+export function agreeTruce(state: GameState, entry: DiplomacyEntry): void {
+  entry.status = 'truce';
+  entry.truce_turns_remaining = TRUCE_ROUNDS;
+  entry.truce_agreed_turn = state.turn_number;
 }
