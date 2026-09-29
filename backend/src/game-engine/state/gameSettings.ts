@@ -93,6 +93,13 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
   // create from the space_age_moon_blockade_enabled feature flag, which also
   // turns on lanes_contestable_enabled for the game.
   const spaceAgeMoonBlockadeEnabled = typeof raw.space_age_moon_blockade_enabled === 'boolean' ? raw.space_age_moon_blockade_enabled : false;
+  // Lane sealing (canSealLane). An explicit value wins. The key was missing from
+  // this whitelist, so every game lost it at create and a Space Age seal was
+  // refused all game: a game stored without it takes it from the blockade phase
+  // it was created with, which is what the create route arms it from.
+  const lanesContestableEnabled = typeof raw.lanes_contestable_enabled === 'boolean'
+    ? raw.lanes_contestable_enabled
+    : spaceAgeMoonBlockadeEnabled || undefined;
   // Space Age Tribute (Moon Race §8). Off by default — its own knob, not part
   // of the Moon Race package.
   const spaceAgeMoonTributeEnabled = typeof raw.space_age_moon_tribute_enabled === 'boolean' ? raw.space_age_moon_tribute_enabled : false;
@@ -336,6 +343,8 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     space_age_moon_missions_enabled: spaceAgeMoonMissionsEnabled || undefined,
     // Space Age Orbital Blockade — persisted only when explicitly enabled.
     space_age_moon_blockade_enabled: spaceAgeMoonBlockadeEnabled || undefined,
+    // Lane sealing — an explicit false is kept, so it survives the next load.
+    lanes_contestable_enabled: lanesContestableEnabled,
     // Space Age Tribute — persisted only when explicitly enabled.
     space_age_moon_tribute_enabled: spaceAgeMoonTributeEnabled || undefined,
     // Galaxy per-world identity — persisted only when explicitly disabled (default on).

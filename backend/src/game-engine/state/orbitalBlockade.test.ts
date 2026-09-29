@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { GameMap, GameState, PlayerState } from '../../types';
+import { normalizeGameSettings } from './gameSettings';
 import {
   GALAXY_LANE_SEAL_DURATION,
   SPACE_AGE_LANE_SEAL_DURATION,
@@ -92,6 +93,27 @@ describe('what the Space Age lets you seal', () => {
     const state = mkState({ era: 'galaxy_age' });
     const viaVault = canSealLane(state, MAP, PAD_EARTH, PAD_MOON, 'p2', undefined, { vaultHolder: true });
     expect(viaVault.ok).toBe(true);
+  });
+
+  it('seals in a game whose settings came through the normalizer', () => {
+    // What initializeGameState stores and every room load re-runs. The switch
+    // used to be dropped here, and every Space Age seal was refused all game.
+    const state = mkState();
+    state.settings = normalizeGameSettings({
+      fog_of_war: false,
+      allowed_victory_conditions: ['domination', 'threshold', 'lunar_hegemony'],
+      victory_threshold: 60,
+      turn_timer_seconds: 300,
+      initial_unit_count: 3,
+      card_set_escalating: true,
+      diplomacy_enabled: false,
+      economy_enabled: true,
+      tech_trees_enabled: true,
+      space_age_moon_helium3_enabled: true,
+      space_age_moon_blockade_enabled: true,
+      lanes_contestable_enabled: true,
+    });
+    expect(canSealLane(state, MAP, ANCHOR_EARTH, ANCHOR_MOON, 'p1')).toMatchObject({ ok: true });
   });
 
   it('refuses a lane you hold neither end of', () => {
