@@ -38,7 +38,7 @@ Monorepo (pnpm workspaces): `frontend/` (SPA), `backend/` (API + realtime), `pac
 
 > ⚠️ **Older docs said "in-memory game state with Postgres snapshots."** That model was replaced by the Redis migration (Phases 5–8 — see the header comment in `gameRoomManager.ts`). A backend restart no longer loses live games: state reloads from Redis, and timer jobs survive in BullMQ.
 
-Turn timers and async deadlines are **BullMQ jobs** in Redis ([backend/src/workers/gameTimerWorker.ts](../backend/src/workers/gameTimerWorker.ts), [asyncDeadlineWorker.ts](../backend/src/workers/asyncDeadlineWorker.ts)) — they fire even if the process that armed them died. The server stamps `phase_deadline_at` into game state so clients render a server-authoritative countdown.
+Turn timers and async deadlines are **BullMQ jobs** in Redis ([backend/src/workers/gameTimerWorker.ts](../backend/src/workers/gameTimerWorker.ts), [asyncDeadlineWorker.ts](../backend/src/workers/asyncDeadlineWorker.ts)) — they fire even if the process that armed them died. The server stamps `phase_deadline_at` into game state so clients render a server-authoritative countdown. Each job is named by the `phase_deadline_at` it was armed for, and acts only while the game still carries that deadline. So a job that could not be cancelled (BullMQ will not remove a running one) never ends a later turn, and a deadline armed while one runs is never lost to an id it still holds.
 
 Gameplay is **server-authoritative**: clients emit intents (`game:attack`, `game:draft`, …); all validation, dice, and state mutation happen server-side inside the lock; clients receive `game:state` broadcasts (fog-of-war filtered per viewer by `buildClientState`).
 

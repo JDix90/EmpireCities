@@ -61,3 +61,33 @@ export function isTurnTimerJobCurrent(opts: {
   // deadline has passed, so it cannot cut short a clock armed after it.
   return typeof opts.armedDeadlineAt === 'number' && opts.armedDeadlineAt <= opts.now + 1_000;
 }
+
+/**
+ * Whether a fired async deadline job still speaks for the seat to move.
+ *
+ * The turn and seat it was armed for must still be the game's. Past that, a
+ * job carries the `phase_deadline_at` it was armed for, and while the game
+ * carries a deadline the two must match. A job for any other deadline is
+ * stale: its seat ended the turn while it waited on the room lock, or it could
+ * not be removed because it was already running. Turn and seat alone would let
+ * it act again, because a seat can move twice under one turn number: the
+ * Territory Draft's picks and turn one all run as turn 1.
+ *
+ * A game with no deadline on record leaves it to the turn and seat, as before.
+ * The join restore rebuilds such a turn's job from the deadline stored in
+ * Postgres.
+ */
+export function isAsyncDeadlineJobCurrent(opts: {
+  job: { turnNumber: number; playerIndex: number; deadlineAt?: number };
+  turnNumber: number;
+  playerIndex: number;
+  armedDeadlineAt: number | null | undefined;
+  now: number;
+}): boolean {
+  if (opts.job.turnNumber !== opts.turnNumber || opts.job.playerIndex !== opts.playerIndex) return false;
+  if (typeof opts.armedDeadlineAt !== 'number') return true;
+  if (typeof opts.job.deadlineAt === 'number') return opts.job.deadlineAt === opts.armedDeadlineAt;
+  // A job queued before jobs carried their deadline: act only once the armed
+  // deadline has passed, so it cannot cut short a deadline armed after it.
+  return opts.armedDeadlineAt <= opts.now + 1_000;
+}

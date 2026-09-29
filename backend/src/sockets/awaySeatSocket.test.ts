@@ -14,6 +14,8 @@ import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest
 const lobby = vi.hoisted(() => ({
   players: new Map<string, Array<Record<string, unknown>>>(),
   settings: new Map<string, Record<string, unknown>>(),
+  /** games.async_turn_deadline, for the async deadline restore on join. */
+  asyncDeadlines: new Map<string, Date>(),
 }));
 vi.mock('../db/postgres', () => {
   const result = { rows: [] as unknown[], rowCount: 0 };
@@ -31,6 +33,10 @@ vi.mock('../db/postgres', () => {
       }
       if (sql.includes('SELECT map_id, status FROM games')) return { map_id: gameId, status: 'in_progress' };
       if (sql.includes('SELECT map_id FROM games')) return { map_id: gameId };
+      if (sql.includes('SELECT async_turn_deadline FROM games')) {
+        const at = lobby.asyncDeadlines.get(gameId);
+        return at ? { async_turn_deadline: at } : null;
+      }
       return null;
     },
     withTransaction: async (fn: (c: typeof client) => Promise<unknown>) => fn(client),
@@ -63,6 +69,7 @@ describe.runIf(redisTestEnabled)('away seat socket integration', () => {
   let deleteGameKeys: (id: string) => Promise<void>;
   let shutdownGameSocket: (io: IOServer) => Promise<void>;
   let timer: typeof import('../workers/gameTimerWorker');
+  let asyncWorker: typeof import('../workers/asyncDeadlineWorker');
 
   const openClients: ClientSocket[] = [];
   const createdGames: string[] = [];
@@ -79,6 +86,7 @@ describe.runIf(redisTestEnabled)('away seat socket integration', () => {
     const redisMod = await import('../db/redis');
     await redisMod.redis.connect().catch(() => { /* lazyConnect — may already be connecting */ });
     timer = await import('../workers/gameTimerWorker');
+    asyncWorker = await import('../workers/asyncDeadlineWorker');
 
     httpServer = createServer();
     ioServer = sockets.initGameSocket(httpServer);
@@ -101,7 +109,14 @@ describe.runIf(redisTestEnabled)('away seat socket integration', () => {
     await Promise.all(jobs
       .filter((j) => j && ids.includes(j.data.gameId))
       .map((j) => j.remove().catch(() => {})));
-    for (const id of ids) await deleteGameKeys(id).catch(() => {});
+    const asyncJobs = await asyncWorker.asyncDeadlineQueue.getJobs(['delayed', 'waiting']).catch(() => []);
+    await Promise.all(asyncJobs
+      .filter((j) => j && ids.includes(j.data.gameId))
+      .map((j) => j.remove().catch(() => {})));
+    for (const id of ids) {
+      lobby.asyncDeadlines.delete(id);
+      await deleteGameKeys(id).catch(() => {});
+    }
   });
 
   // ── Fixtures ────────────────────────────────────────────────────────────────
@@ -372,5 +387,70 @@ describe.runIf(redisTestEnabled)('away seat socket integration', () => {
       const s = await waitForRedisState(gameId, (st) => st.current_player_index === 0, 8_000).catch(() => null);
       expect(s && s.territories['empty-b1'].unit_count).toBe(6);
     }, 25_000);
+  });
+
+  // ── Restoring an async deadline on join ──────────────────────────────────────
+
+  describe('restoring an async deadline on join', () => {
+    const asyncSettings = {
+      ...baseSettings,
+      turn_timer_seconds: 86400,
+      async_mode: true,
+      async_turn_deadline_seconds: 86400,
+    } as GameState['settings'];
+
+    /** The async deadline job named for `deadlineAt`, once queued, or null. */
+    async function asyncJob(gameId: string, deadlineAt: number) {
+      const id = asyncWorker.asyncDeadlineJobId(gameId, deadlineAt);
+      for (let i = 0; i < 100 && !(await asyncWorker.asyncDeadlineQueue.getJob(id)); i++) await sleep(20);
+      const job = await asyncWorker.asyncDeadlineQueue.getJob(id);
+      return job ? { state: await job.getState(), data: job.data } : null;
+    }
+
+    it('re-queues a lost deadline job under the deadline the game carries', async () => {
+      const gameId = 'away-async-restore';
+      const day = Date.now() + 86_400_000;
+      await seed(gameId, twoHumans(gameId, 'restore-a', 'restore-b', {
+        current_player_index: 1, settings: asyncSettings, phase_deadline_at: day,
+      }));
+
+      // Anyone's return restores it: here the player who is waiting.
+      await join('restore-a', gameId);
+      expect(await asyncJob(gameId, day)).toEqual({
+        state: 'delayed',
+        data: { gameId, turnNumber: 5, playerIndex: 1, deadlineAt: day },
+      });
+    }, 20_000);
+
+    it('gives a deadline that passed while its job was lost ten seconds, not a lapse mid-join', async () => {
+      const gameId = 'away-async-restore-past';
+      const past = Date.now() - 60_000;
+      await seed(gameId, twoHumans(gameId, 'past-a', 'past-b', {
+        current_player_index: 1, settings: asyncSettings, phase_deadline_at: past,
+      }));
+
+      await join('past-a', gameId);
+      await asyncJob(gameId, past);
+      const job = await asyncWorker.asyncDeadlineQueue.getJob(asyncWorker.asyncDeadlineJobId(gameId, past));
+      // Queued for later ('delayed'), not due at once ('waiting'); and still
+      // named for the deadline the game carries, so it may lapse it.
+      expect({ state: await job?.getState(), delay: job?.opts.delay, deadlineAt: job?.data.deadlineAt })
+        .toEqual({ state: 'delayed', delay: 10_000, deadlineAt: past });
+    }, 20_000);
+
+    it('falls back to the deadline stored in Postgres when the game carries none', async () => {
+      const gameId = 'away-async-restore-stored';
+      const stored = Date.now() + 3_600_000;
+      lobby.asyncDeadlines.set(gameId, new Date(stored));
+      await seed(gameId, twoHumans(gameId, 'stored-a', 'stored-b', {
+        current_player_index: 1, settings: asyncSettings,
+      }));
+
+      await join('stored-a', gameId);
+      expect(await asyncJob(gameId, stored)).toEqual({
+        state: 'delayed',
+        data: { gameId, turnNumber: 5, playerIndex: 1, deadlineAt: stored },
+      });
+    }, 20_000);
   });
 });

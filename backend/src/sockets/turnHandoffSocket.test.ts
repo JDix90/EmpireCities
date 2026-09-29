@@ -240,6 +240,25 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
     }
   }
 
+  /** Poll until `check` holds, or give up after `timeoutMs`. */
+  async function until(check: () => Promise<boolean>, timeoutMs = 5_000): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (!(await check())) {
+      if (Date.now() > deadline) throw new Error('timed out waiting for a condition');
+      await sleep(20);
+    }
+  }
+
+  /**
+   * The async deadline job armed for `deadlineAt`, once it is queued (it is
+   * scheduled just after the state is saved), or null if it never is.
+   */
+  async function waitForAsyncJob(gameId: string, deadlineAt: number) {
+    const id = asyncWorker.asyncDeadlineJobId(gameId, deadlineAt);
+    await until(async () => !!(await asyncWorker.asyncDeadlineQueue.getJob(id)), 2_000).catch(() => {});
+    return (await asyncWorker.asyncDeadlineQueue.getJob(id)) ?? null;
+  }
+
   // ── The real-time turn clock ────────────────────────────────────────────────
 
   describe('real-time turn clock', () => {
@@ -420,25 +439,29 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
 
     it('an async pick whose deadline lapses is made for the seat, and the next pick gets its day', async () => {
       const gameId = 'handoff-draft-async';
-      await seed(gameId, draftState(gameId, ASYNC_DAY), isolatedMap(gameId, ['a', 'b', 'c', 'd']));
-      await asyncWorker.scheduleAsyncDeadline(gameId, 1, 0, 0); // seat 0's day is up
+      const due = Date.now();
+      await seed(gameId, draftState(gameId, ASYNC_DAY, { phase_deadline_at: due }), isolatedMap(gameId, ['a', 'b', 'c', 'd']));
+      await asyncWorker.scheduleAsyncDeadline(gameId, 1, 0, due); // seat 0's day is up
 
       // The next seat's clock is persisted just after the pick is saved.
       const s = await waitForRedisState(gameId, (st) => st.current_player_index === 1 && st.phase_deadline_at != null);
+      const job = await waitForAsyncJob(gameId, s.phase_deadline_at!);
       expect({
         phase: s.phase,
         picked: Object.values(s.territories).filter((t) => t.owner_id === `${gameId}-1`).map((t) => t.unit_count),
         unclaimed: Object.values(s.territories).filter((t) => !t.owner_id).length,
         nextPickHasADay: (s.phase_deadline_at ?? 0) - Date.now() > 23 * 3600_000,
-      }).toEqual({ phase: 'territory_select', picked: [3], unclaimed: 3, nextPickHasADay: true });
+        nextPickJob: [await job?.getState(), job?.data.playerIndex],
+      }).toEqual({ phase: 'territory_select', picked: [3], unclaimed: 3, nextPickHasADay: true, nextPickJob: ['delayed', 1] });
     }, 20_000);
 
     it('an async lapse on the last pick ends the draft with every territory claimed', async () => {
       const gameId = 'handoff-draft-async-last';
       const [s1, s2] = [`${gameId}-1`, `${gameId}-2`];
-      await seed(gameId, draftState(gameId, ASYNC_DAY, { current_player_index: 1 }, { a: s1, b: s2, c: s1 }),
+      const due = Date.now();
+      await seed(gameId, draftState(gameId, ASYNC_DAY, { current_player_index: 1, phase_deadline_at: due }, { a: s1, b: s2, c: s1 }),
         isolatedMap(gameId, ['a', 'b', 'c', 'd']));
-      await asyncWorker.scheduleAsyncDeadline(gameId, 1, 1, 0); // seat 1's day is up
+      await asyncWorker.scheduleAsyncDeadline(gameId, 1, 1, due); // seat 1's day is up
 
       const s = await waitForRedisState(gameId, (st) => st.phase !== 'territory_select');
       expect({
@@ -450,6 +473,129 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
         turn: 1,
         board: [['a', s1, 3], ['b', s2, 3], ['c', s1, 3], ['d', s2, 3]],
       });
+    }, 20_000);
+  });
+
+  // ── Async deadline jobs ──────────────────────────────────────────────────────
+
+  describe('async deadline jobs', () => {
+    const ASYNC_DAY = { turn_timer_seconds: 86400, async_mode: true, async_turn_deadline_seconds: 86400 };
+
+    it('keeps a deadline armed from inside the job that lapsed', async () => {
+      // A lapse arms the next deadline while BullMQ still holds its own job.
+      // The next one here is the same seat's under the same turn number, as
+      // when turn one opens on the seat whose last draft pick lapsed.
+      const gameId = 'deadline-ids-probe';
+      createdGames.push(gameId);
+      const lapsed = Date.now();
+      const next = lapsed + 3_600_000;
+      let armedInside = false;
+      const previous = asyncWorker.setDeadlineProcessor(async (job) => {
+        if (job.data.gameId !== gameId) return previous?.(job);
+        await asyncWorker.scheduleAsyncDeadline(gameId, 1, 0, next);
+        armedInside = true;
+      });
+      try {
+        await asyncWorker.scheduleAsyncDeadline(gameId, 1, 0, lapsed);
+        const lapsedId = asyncWorker.asyncDeadlineJobId(gameId, lapsed);
+        await until(async () => armedInside && !(await asyncWorker.asyncDeadlineQueue.getJob(lapsedId)));
+      } finally {
+        asyncWorker.setDeadlineProcessor(previous!);
+      }
+      const job = await asyncWorker.asyncDeadlineQueue.getJob(asyncWorker.asyncDeadlineJobId(gameId, next));
+      expect({ state: await job?.getState(), seat: job?.data.playerIndex }).toEqual({ state: 'delayed', seat: 0 });
+    }, 20_000);
+
+    it('a lapse within a round leaves the next seat its deadline job', async () => {
+      const gameId = 'deadline-ids-round';
+      const due = Date.now();
+      await seed(gameId, buildState(gameId, {
+        turn_number: 3,
+        current_player_index: 1,
+        players: [player('round-a', 0), player('round-b', 1), player('round-c', 2)],
+        territories: { a1: terr('a1', 'round-a', 3), b1: terr('b1', 'round-b', 3), c1: terr('c1', 'round-c', 3) },
+        settings: { ...buildState(gameId, {}).settings, ...ASYNC_DAY },
+        phase_deadline_at: due,
+      }), isolatedMap(gameId, ['a1', 'b1', 'c1']));
+      await asyncWorker.scheduleAsyncDeadline(gameId, 3, 1, due); // b's day is up
+
+      const s = await waitForRedisState(gameId, (st) =>
+        st.current_player_index === 2 && (st.phase_deadline_at ?? 0) > Date.now() + 23 * 3600_000);
+      const job = await waitForAsyncJob(gameId, s.phase_deadline_at!);
+      expect({ turn: s.turn_number, job: await job?.getState(), seat: job?.data.playerIndex })
+        .toEqual({ turn: 3, job: 'delayed', seat: 2 });
+    }, 20_000);
+
+    it('turn one that opens on the seat whose last draft pick lapsed gets its deadline job', async () => {
+      const gameId = 'deadline-ids-draft-end';
+      const [s1, s2] = [`${gameId}-1`, `${gameId}-2`];
+      const due = Date.now();
+      await seed(gameId, buildState(gameId, {
+        phase: 'territory_select',
+        turn_number: 1,
+        current_player_index: 1,
+        starting_player_index: 1,
+        players: [player(s1, 0, { territory_count: 2 }), player(s2, 1, { territory_count: 1 })],
+        territories: { a: terr('a', s1, 3), b: terr('b', s2, 3), c: terr('c', s1, 3), d: terr('d', null, 0) },
+        settings: { ...buildState(gameId, {}).settings, territory_selection: true, ...ASYNC_DAY },
+        phase_deadline_at: due,
+      }), isolatedMap(gameId, ['a', 'b', 'c', 'd']));
+      await asyncWorker.scheduleAsyncDeadline(gameId, 1, 1, due); // seat 1's last pick lapses
+
+      // Its pick ends the draft, and turn one, still turn 1, is seat 1's too.
+      const s = await waitForRedisState(gameId, (st) =>
+        st.phase === 'draft' && (st.phase_deadline_at ?? 0) > Date.now() + 23 * 3600_000);
+      const job = await waitForAsyncJob(gameId, s.phase_deadline_at!);
+      expect({ turn: s.turn_number, seat: s.current_player_index, job: await job?.getState(), jobSeat: job?.data.playerIndex })
+        .toEqual({ turn: 1, seat: 1, job: 'delayed', jobSeat: 1 });
+    }, 20_000);
+
+    it('ending a turn early cancels its deadline job, and arms the next seat\'s', async () => {
+      const gameId = 'deadline-ids-early';
+      const aDay = Date.now() + 86_400_000;
+      await seed(gameId, buildState(gameId, {
+        phase: 'fortify',
+        turn_number: 2,
+        players: [player('early-a', 0), player('early-b', 1)],
+        territories: { a1: terr('a1', 'early-a', 3), b1: terr('b1', 'early-b', 3) },
+        settings: { ...buildState(gameId, {}).settings, ...ASYNC_DAY },
+        phase_deadline_at: aDay,
+      }), isolatedMap(gameId, ['a1', 'b1']));
+      await asyncWorker.scheduleAsyncDeadline(gameId, 2, 0, aDay);
+      const a = await connect('early-a');
+      await joinRoom('early-a', gameId);
+
+      a.emit('game:advance_phase', { gameId });
+      const s = await waitForRedisState(gameId, (st) =>
+        st.current_player_index === 1 && (st.phase_deadline_at ?? 0) > aDay);
+      const bJob = await waitForAsyncJob(gameId, s.phase_deadline_at!);
+      const aId = asyncWorker.asyncDeadlineJobId(gameId, aDay);
+      await until(async () => !(await asyncWorker.asyncDeadlineQueue.getJob(aId)), 2_000).catch(() => {});
+      expect({ aJob: (await asyncWorker.asyncDeadlineQueue.getJob(aId)) ?? null, bJob: await bJob?.getState() })
+        .toEqual({ aJob: null, bJob: 'delayed' });
+    }, 20_000);
+
+    it('a job for a deadline the seat no longer has does not end its turn', async () => {
+      const gameId = 'deadline-ids-stale';
+      const stale = Date.now() - 1_000;
+      await seed(gameId, buildState(gameId, {
+        turn_number: 3,
+        current_player_index: 1,
+        players: [player('stale-a', 0), player('stale-b', 1)],
+        territories: { a1: terr('a1', 'stale-a', 3), b1: terr('b1', 'stale-b', 3) },
+        settings: { ...buildState(gameId, {}).settings, ...ASYNC_DAY },
+        draft_units_remaining: 3,
+        // b's day was armed again since (under the same turn and seat).
+        phase_deadline_at: Date.now() + 86_400_000,
+      }), isolatedMap(gameId, ['a1', 'b1']));
+      await asyncWorker.scheduleAsyncDeadline(gameId, 3, 1, stale);
+
+      const staleId = asyncWorker.asyncDeadlineJobId(gameId, stale);
+      await until(async () => !(await asyncWorker.asyncDeadlineQueue.getJob(staleId)));
+      await sleep(200);
+      const s = (await getGameState(gameId))!;
+      expect({ seat: s.current_player_index, b1: s.territories.b1.unit_count, pool: s.draft_units_remaining })
+        .toEqual({ seat: 1, b1: 3, pool: 3 });
     }, 20_000);
   });
 
