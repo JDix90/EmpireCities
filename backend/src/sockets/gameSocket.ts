@@ -2507,7 +2507,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
           clearTurnTimer(gameId, state);
           setTimeout(() => processAiTurn(io, gameId), 1500);
         } else {
-          // Pauses a present player's clock on a choice card; covers an away seat.
+          // Pauses a timed clock on a choice card; covers an away seat.
           startTurnTimer(io, gameId, state, map);
         }
       }
@@ -4059,7 +4059,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
           clearTurnTimer(gameId, state);
           setTimeout(() => processAiTurn(io, gameId), 1500);
         } else {
-          // Pauses a present player's clock on a choice card; covers an away seat.
+          // Pauses a timed clock on a choice card; covers an away seat.
           startTurnTimer(io, gameId, state, map);
         }
       }
@@ -6705,8 +6705,9 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   if (await doVictoryCheck()) return;
 
   // Chain if next player is also AI (it answers its own choice card as its
-  // turn opens); otherwise start the human's clock — paused on a choice card,
-  // or handed to the away-AI for an away seat.
+  // turn opens); otherwise start the human's clock (a timed clock pauses on a
+  // choice card, an async day runs through it), or hand an away seat to the
+  // away-AI.
   if (state.players[state.current_player_index].is_ai) {
     setTimeout(() => processAiTurn(io, gameId), 1000);
   } else {
