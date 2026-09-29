@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import type { GameMap, GameState, PlayerState, SecretMission } from '../../types';
 import { getMaxEraIndex, getStateSpineSteps } from '../eraAdvancement/spines';
 import { territoryUnlockEra } from '../eraAdvancement/territoryUnlock';
@@ -119,9 +120,22 @@ function pickManyUnique<T>(items: T[], count: number, rng: () => number): T[] {
 }
 
 /**
+ * Deal every player's secret mission, from the game's private salt: at init on
+ * a dealt board, and when the Territory Draft ends on a drafted one. Before
+ * then nobody holds a tile, so a capture or region mission could name ground
+ * its holder was about to draft, and win on turn one.
+ */
+export function dealSecretMissions(state: GameState, map: GameMap): void {
+  // Legacy saves predate the salt; one without it would seed from game_id alone.
+  state.mission_seed_salt ??= randomBytes(16).toString('hex');
+  const seed = hashStringToSeed(`${state.game_id}:${state.mission_seed_salt}:secret_missions`);
+  assignSecretMissions(state, map, createSeededRng(seed));
+}
+
+/**
  * Assign secret missions when `secret_mission` is an allowed victory mode.
  * Caller must supply an RNG seeded from `game_id + mission_seed_salt` (see
- * `gameStateManager.startGame`). Using just `game_id` would let any client
+ * `dealSecretMissions`). Using just `game_id` would let any client
  * regenerate every opponent's mission from the public game URL.
  *
  * Regions that contain zero territories on the resolved map are filtered out
@@ -185,6 +199,12 @@ export function assignSecretMissions(
         .map(([id]) => id),
     );
     const enemyOwned = territoryIds.filter((id) => !owned.has(id));
+    // A region the player already holds whole would be a mission won the moment
+    // it is dealt — likelier after a Territory Draft, where players draft whole
+    // regions for the bonus.
+    const openRegionIds = regionIds.filter(
+      (rid) => !playerOwnsAllTerritoriesInRegions(state, map, player.player_id, [rid]),
+    );
     const roll = rng();
     let mission: SecretMission;
 
@@ -211,9 +231,9 @@ export function assignSecretMissions(
     } else if (roll < 0.67 && others.length > 0) {
       const target = others[Math.floor(rng() * others.length)]!;
       mission = { kind: 'eliminate_player', target_player_id: target.player_id };
-    } else if (regionIds.length >= 2) {
+    } else if (openRegionIds.length >= 2) {
       const m = rng() < 0.5 ? 1 : 2;
-      const picks = pickManyUnique(regionIds, Math.min(m, regionIds.length), rng);
+      const picks = pickManyUnique(openRegionIds, Math.min(m, openRegionIds.length), rng);
       mission = { kind: 'control_regions', region_ids: picks };
     } else if (enemyOwned.length >= 2) {
       const [a, b] = pickManyUnique(enemyOwned, 2, rng);

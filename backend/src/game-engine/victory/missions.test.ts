@@ -132,6 +132,20 @@ describe('assignSecretMissions — era missions', () => {
   });
 });
 
+describe('assignSecretMissions — never a mission already won', () => {
+  it('does not name a region its holder already holds whole', () => {
+    // p1 holds all of north. The rolls take the region branch (0.9), a
+    // one-region mission (0.1) and the first region in the pool (0): north.
+    const rolls = [0.9, 0.1, 0];
+    const state = baseState([mkPlayer('p1'), mkPlayer('p2')]);
+    assignSecretMissions(state, miniMap, () => rolls.shift() ?? 0);
+    for (const p of state.players) {
+      expect({ player: p.player_id, won: isMissionComplete(state, miniMap, p) })
+        .toEqual({ player: p.player_id, won: false });
+    }
+  });
+});
+
 describe('assignSecretMissions — orbit-gated targets excluded', () => {
   // A map with a Moon: moon tiles are behind the orbit-access ladder, so no
   // mission may target them or their region — that assignment would be wildly
