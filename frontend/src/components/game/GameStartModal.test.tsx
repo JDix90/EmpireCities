@@ -320,6 +320,23 @@ describe('GameStartModal', () => {
     expect(screen.getByText('Eliminate AI Bot 2')).toBeInTheDocument();
   });
 
+  it('says when a Territory Draft deals the secret mission', () => {
+    // The server deals missions once the map is claimed, so the draft opens
+    // with none.
+    const state = makeState({
+      phase: 'territory_select',
+      settings: { ...makeState().settings, allowed_victory_conditions: ['secret_mission'] },
+    });
+    render(<GameStartModal open onClose={() => {}} gameState={state} viewerPlayerId="me" />);
+    expect(screen.getByText('Your secret mission')).toBeInTheDocument();
+    expect(screen.getByText('Dealt when the draft ends.')).toBeInTheDocument();
+  });
+
+  it('says nothing about a mission when the game has none', () => {
+    render(<GameStartModal open onClose={() => {}} gameState={makeState({ phase: 'territory_select' })} viewerPlayerId="me" />);
+    expect(screen.queryByText('Your secret mission')).toBeNull();
+  });
+
   it('tells a Space Age player the Moon counts and how to reach it', () => {
     // "How to win" listed domination and threshold without ever mentioning that
     // 9 of the board's territories sit behind an orbit gate, so a stalled

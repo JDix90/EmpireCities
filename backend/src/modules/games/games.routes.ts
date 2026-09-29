@@ -173,6 +173,11 @@ export const CreateGameSchema = z.object({
    * is filled by AI (nothing to wait for). Used by Quick Match.
    */
   auto_start: z.boolean().default(false),
+  /**
+   * Keep the lobby out of Open Games: its seats are for whoever the host sends
+   * the link or join code to. Used by Challenge-a-friend.
+   */
+  is_private: z.boolean().default(false),
 });
 
 /**
@@ -379,7 +384,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     if (!body.success) {
       return reply.status(400).send(formatZodError(body.error));
     }
-    const { era_id, map_id, max_players, settings: rawSettings, ai_count, ai_difficulty, auto_start } = body.data;
+    const { era_id, map_id, max_players, settings: rawSettings, ai_count, ai_difficulty, auto_start, is_private } = body.data;
 
     const isGalacticAge = era_id === 'galaxy_age' || map_id === 'era_galaxy';
     if (isGalacticAge && !request.isAdmin) {
@@ -566,9 +571,9 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       const joinCode = generateJoinCode();
       try {
         await query(
-          `INSERT INTO games (game_id, map_id, era_id, status, settings_json, game_type, join_code, async_mode)
-           VALUES ($1, $2, $3, 'waiting', $4, $5, $6, $7)`,
-          [gameId, map_id, era_id, JSON.stringify(applyAdminSnapshotsToSettings({ ...settings, max_players })), gameType, joinCode, !!settings.async_mode],
+          `INSERT INTO games (game_id, map_id, era_id, status, settings_json, game_type, join_code, async_mode, is_private)
+           VALUES ($1, $2, $3, 'waiting', $4, $5, $6, $7, $8)`,
+          [gameId, map_id, era_id, JSON.stringify(applyAdminSnapshotsToSettings({ ...settings, max_players })), gameType, joinCode, !!settings.async_mode, is_private],
         );
         gameInsertOk = true;
         assignedJoinCode = joinCode;
@@ -771,6 +776,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
        WHERE g.status = 'waiting'
          AND g.game_type = ANY($2)
          AND g.is_ranked = false
+         AND g.is_private = false
          AND EXISTS (
            SELECT 1
            FROM game_players human_gp

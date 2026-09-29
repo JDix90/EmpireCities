@@ -50,20 +50,26 @@ function difficultyLabel(difficulty?: string | null): string {
 }
 
 /**
- * Player-facing win-condition phrases from the game settings. Mirrors the
- * server's resolution order in normalizeGameSettings (allowed list → single
- * victory_type → domination default; OR semantics between conditions).
+ * The game's win conditions. Mirrors the server's resolution order in
+ * normalizeGameSettings (allowed list → single victory_type → domination).
+ */
+function winConditionKinds(settings: GameState['settings']): string[] {
+  return Array.isArray(settings.allowed_victory_conditions) && settings.allowed_victory_conditions.length > 0
+    ? settings.allowed_victory_conditions
+    : typeof settings.victory_type === 'string' && settings.victory_type
+      ? [settings.victory_type]
+      : ['domination'];
+}
+
+/**
+ * Player-facing win-condition phrases from the game settings, with OR
+ * semantics between conditions.
  */
 export function describeWinConditions(settings: GameState['settings']): {
   conditions: string[];
   turnCap: string | null;
 } {
-  const raw =
-    Array.isArray(settings.allowed_victory_conditions) && settings.allowed_victory_conditions.length > 0
-      ? settings.allowed_victory_conditions
-      : typeof settings.victory_type === 'string' && settings.victory_type
-        ? [settings.victory_type]
-        : ['domination'];
+  const raw = winConditionKinds(settings);
   const conditions = raw.map((kind) => {
     switch (kind) {
       case 'domination':
@@ -146,6 +152,8 @@ export default function GameStartModal({
   const showGold = !!gameState.settings.economy_enabled;
   const showTech = !!gameState.settings.tech_trees_enabled;
   const { conditions, turnCap } = describeWinConditions(gameState.settings);
+  const missionDealtAfterDraft = gameState.phase === 'territory_select'
+    && winConditionKinds(gameState.settings).includes('secret_mission');
   // The Moon counts toward every condition above and sits behind an orbit
   // gate, and the Moon Race changes what it is FOR. This modal is the one
   // moment every player is guaranteed to read before their first turn, so the
@@ -282,12 +290,21 @@ export default function GameStartModal({
         </section>
       )}
 
-      {viewer?.secret_mission && (
+      {viewer?.secret_mission ? (
         <>
           <h4 className="text-xs font-medium text-bf-muted uppercase tracking-wider mb-2">Your secret mission</h4>
           <p className="flex items-start gap-2 text-sm text-bf-text mb-4">
             <Target className="w-3.5 h-3.5 text-bf-gold shrink-0 mt-0.5" aria-hidden />
             <span>{describeSecretMission(viewer.secret_mission, gameState.players, mapNameLookup)}</span>
+          </p>
+        </>
+      ) : missionDealtAfterDraft && (
+        <>
+          {/* A Territory Draft deals missions once the map is claimed. */}
+          <h4 className="text-xs font-medium text-bf-muted uppercase tracking-wider mb-2">Your secret mission</h4>
+          <p className="flex items-start gap-2 text-sm text-bf-muted mb-4">
+            <Target className="w-3.5 h-3.5 text-bf-gold shrink-0 mt-0.5" aria-hidden />
+            <span>Dealt when the draft ends.</span>
           </p>
         </>
       )}

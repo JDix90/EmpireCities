@@ -62,6 +62,8 @@ export default function ChallengeFriendModal({ open, onClose }: ChallengeFriendM
         max_players: Math.min(8, 2 + aiCount),
         ai_count: aiCount,
         ai_difficulty: 'medium',
+        // The open seat is the friend's: keep the game out of Open Games.
+        is_private: true,
         settings: {
           turn_timer_seconds: turnTimer,
           allowed_victory_conditions: ['domination'],

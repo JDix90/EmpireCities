@@ -126,6 +126,36 @@ describe('the phases survive the trip into a game', () => {
       }),
     ).not.toBeNull();
   });
+
+  // canSealLane reads the lane-seal switch, not the phase. The create route bakes
+  // the switch beside the phase and then normalizes, and the key was missing
+  // from the whitelist: every Space Age seal was refused all game.
+  const base = {
+    fog_of_war: false,
+    turn_timer_seconds: 300,
+    initial_unit_count: 3,
+    card_set_escalating: true,
+    diplomacy_enabled: false,
+    allowed_victory_conditions: ['domination' as const],
+  };
+  const live = resolveMoonRacePhases({ isSpaceAge: true, shipped: ALL }).phases;
+
+  it('keeps the lane-seal switch the blockade arms, on every load', () => {
+    const created = normalizeGameSettings({ ...base, ...live, lanes_contestable_enabled: true });
+    expect(normalizeGameSettings(created).lanes_contestable_enabled).toBe(true);
+  });
+
+  it('gives the switch back to a game stored without it', () => {
+    // Every Space Age game created before this fix lost it at create.
+    expect(normalizeGameSettings({ ...base, ...live }).lanes_contestable_enabled).toBe(true);
+  });
+
+  it('keeps an explicit off, and arms nothing without the blockade', () => {
+    const off = normalizeGameSettings({ ...base, ...live, lanes_contestable_enabled: false });
+    expect(normalizeGameSettings(off).lanes_contestable_enabled).toBe(false);
+    const dark = resolveMoonRacePhases({ isSpaceAge: true, shipped: NONE }).phases;
+    expect(normalizeGameSettings({ ...base, ...dark }).lanes_contestable_enabled).toBeUndefined();
+  });
 });
 
 describe('a create request cannot reach the Moon Race', () => {

@@ -3,7 +3,9 @@ import {
   initializeGameState,
   advancePhaseOnTimeout,
   checkVictory,
+  claimSelectionTerritory,
 } from './gameStateManager';
+import { isMissionComplete } from '../victory/missions';
 import type { GameMap, GameSettings } from '../../types';
 
 const map: GameMap = {
@@ -117,5 +119,57 @@ describe('Territory Draft opening income', () => {
     const state = draftGame();
     runDraftOnTimeouts(state);
     expect(state.players.every((p) => !p.special_resource)).toBe(true);
+  });
+});
+
+describe('Territory Draft with secret missions', () => {
+  // Three two-tile regions. Seats alternate from seat 0, so the picks below give
+  // p1 all of `west` and p2 all of `mid`, and split `east`.
+  const regionMap = {
+    map_id: 'draft_regions',
+    name: 'Draft regions',
+    territories: [['w1', 'west'], ['w2', 'west'], ['m1', 'mid'], ['m2', 'mid'], ['e1', 'east'], ['e2', 'east']]
+      .map(([id, region]) => ({ territory_id: id, name: id, polygon: [], center_point: [0, 0], region_id: region })),
+    connections: [
+      { from: 'w1', to: 'w2', type: 'land' }, { from: 'w2', to: 'm1', type: 'land' },
+      { from: 'm1', to: 'm2', type: 'land' }, { from: 'm2', to: 'e1', type: 'land' },
+      { from: 'e1', to: 'e2', type: 'land' },
+    ],
+    regions: ['west', 'mid', 'east'].map((r) => ({ region_id: r, name: r, bonus: 2 })),
+  } as unknown as GameMap;
+  const picks = ['w1', 'm1', 'w2', 'm2', 'e1', 'e2'];
+
+  function missionDraft(gameId: string) {
+    const settings = {
+      fog_of_war: false,
+      allowed_victory_conditions: ['secret_mission'],
+      turn_timer_seconds: 300,
+      initial_unit_count: 3,
+      card_set_escalating: true,
+      diplomacy_enabled: false,
+      territory_selection: true,
+    } as GameSettings;
+    const players = ['p1', 'p2'].map((id, i) => ({
+      player_id: id, player_index: i, username: id, color: '#000', is_ai: false, is_eliminated: false, mmr: 1000,
+    }));
+    return initializeGameState(gameId, 'ww2', regionMap, players, settings, { forceStartingPlayerIndex: 0 });
+  }
+
+  it('deals no mission until the draft ends, so nobody can draft theirs', () => {
+    const state = missionDraft('draft-missions');
+    expect(state.players.map((p) => p.secret_mission ?? null)).toEqual([null, null]);
+  });
+
+  it('deals every mission once the map is claimed, none of them already won', () => {
+    for (let i = 0; i < 40; i++) {
+      const state = missionDraft(`draft-missions-${i}`);
+      for (const id of picks) claimSelectionTerritory(state, regionMap, id);
+      expect(state.phase).toBe('draft');
+      for (const p of state.players) {
+        expect(p.secret_mission).toBeTruthy();
+        expect(isMissionComplete(state, regionMap, p)).toBe(false);
+      }
+      expect(checkVictory(state, regionMap)).toBeNull();
+    }
   });
 });

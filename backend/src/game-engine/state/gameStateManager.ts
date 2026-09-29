@@ -21,9 +21,7 @@ import { initializeStability, applyStabilityTick, getDeployCap } from './stabili
 import { getWonderReinforceBonus, applyWonderProductionIncome } from './wonderManager';
 import {
   assignCapitals,
-  assignSecretMissions,
-  createSeededRng,
-  hashStringToSeed,
+  dealSecretMissions,
   isMissionComplete,
 } from '../victory/missions';
 import { inferWorldId } from '@borderfall/shared';
@@ -454,9 +452,9 @@ export function initializeGameState(
   if (allowed.includes('capital')) {
     assignCapitals(state);
   }
-  if (allowed.includes('secret_mission')) {
-    const seed = hashStringToSeed(`${gameId}:${state.mission_seed_salt}:secret_missions`);
-    assignSecretMissions(state, map, createSeededRng(seed));
+  // A Territory Draft deals them when the draft ends (completeTerritorySelection).
+  if (allowed.includes('secret_mission') && !isTerritorySelect) {
+    dealSecretMissions(state, map);
   }
 
   // Initialize naval units on coastal territories when naval warfare is enabled
@@ -778,7 +776,9 @@ export function claimSelectionTerritory(
  * Start turn one once the map is claimed. Everything `initializeGameState`
  * sets up from ownership had nothing to read in a draft game — nobody held a
  * tile at creation — so it runs here instead: capitals (else Capital victory
- * can never fire) and stability (else the whole layer stays inert).
+ * can never fire), secret missions (else a capture or region mission could name
+ * ground its holder then drafted) and stability (else the whole layer stays
+ * inert).
  */
 export function completeTerritorySelection(state: GameState, map: GameMap): void {
   state.phase = 'draft';
@@ -789,8 +789,12 @@ export function completeTerritorySelection(state: GameState, map: GameMap): void
   state.turn_number = 1;
   state.turn_started_at = Date.now();
 
-  if (getAllowedVictoryConditions(normalizeGameSettings(state.settings)).includes('capital')) {
+  const allowed = getAllowedVictoryConditions(normalizeGameSettings(state.settings));
+  if (allowed.includes('capital')) {
     assignCapitals(state);
+  }
+  if (allowed.includes('secret_mission')) {
+    dealSecretMissions(state, map);
   }
   if (state.settings.stability_enabled) initializeStability(state);
   // The opening income tick initializeGameState skips for a draft (with no
