@@ -13,6 +13,7 @@ import { proceduralWorldTextureUrl } from '../utils/proceduralPlanet';
 import EraAdvanceVignette from '../components/game/EraAdvanceVignette';
 import { useMapVisualEvents } from '../hooks/useMapVisualEvents';
 import type { MapVisualEvent } from '../utils/mapVisualEvents';
+import { isForAnotherGame } from '../utils/gameScopedEvents';
 import GameChat from '../components/game/GameChat';
 import { AiBadge } from '../components/ui/AiBadge';
 import AtomBombAnimation, { type StrikeAnimationVariant } from '../components/game/AtomBombAnimation';
@@ -210,6 +211,9 @@ export default function SpectatorPage() {
     if (socket.connected) join();
 
     const onGameState = (state: GameState & { _spectator_seq?: number }) => {
+      // A spectator who plays elsewhere also gets their own games' states, on
+      // their user room. Only the watched game's belong on this board.
+      if (isForAnotherGame(state.game_id, gameId)) return;
       // The delayed feed re-broadcasts snapshots; skip ones we already have so
       // an unchanged state doesn't force a re-render every tick.
       const seq = state._spectator_seq;
@@ -298,6 +302,7 @@ export default function SpectatorPage() {
     socket.on('game:strike_animation', handleStrikeAnimationEvent);
 
     const onMapVisual = (payload: MapVisualEvent) => {
+      if (isForAnotherGame(payload.gameId, gameId)) return;
       markEventCardVisualSeen(payload, eventCardVisualSeenRef.current);
       handleMapVisualEvent(payload);
     };
