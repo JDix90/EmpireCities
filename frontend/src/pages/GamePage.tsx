@@ -33,6 +33,7 @@ import { GameNotFoundTracker } from '../utils/gameNotFoundTracker';
 import { isSameMap } from '../utils/mapResend';
 import { dropOwnCombats, replaceOwnCombatsWithSummary } from '../utils/modalQueueOps';
 import { isOwnCardRedemption } from '../utils/cardsRedeemed';
+import { isForAnotherGame } from '../utils/gameScopedEvents';
 import { useFrameBudget } from '../hooks/useFrameBudget';
 import { mapReadinessSurface, useMapReadiness } from '../hooks/useMapReadiness';
 import { DISMISS_TAPS_EVENT, countTap, dismissTierOf, emptyTally, tallyProperties, type DismissTally, type DismissTier } from '../utils/dismissTaps';
@@ -1402,11 +1403,12 @@ export default function GamePage() {
     });
 
     socket.on('game:state', (state: ClientGameState) => {
-      // Guard against cross-game state bleed: the socket is a singleton, so a
+      // Guard against cross-game state bleed: a player's state goes to their
+      // user room, which this socket shares with every game they are in, and a
       // stale room subscription from a previously-open game can deliver that
-      // game's broadcasts here. Ignore any state that isn't for this route's
+      // game's broadcasts too. Ignore any state that isn't for this route's
       // game so the view doesn't flicker between two games.
-      if (state.game_id && state.game_id !== gameId) return;
+      if (isForAnotherGame(state.game_id, gameId)) return;
       // Reconnecting players only receive game:state, not game:started — keep UI in sync
       if (lobbyTimeoutRef.current) {
         clearTimeout(lobbyTimeoutRef.current);
@@ -1859,6 +1861,7 @@ export default function GamePage() {
     });
 
     socket.on('game:map_visual', (payload: MapVisualEvent) => {
+      if (isForAnotherGame(payload.gameId, gameId)) return;
       markEventCardVisualSeen(payload, eventCardVisualSeenRef.current);
       handleMapVisualEvent(payload);
     });
@@ -2315,6 +2318,8 @@ export default function GamePage() {
       proposerName: string;
       proposerColor: string;
     }) => {
+      // An offer in another game waits there: joining a game re-sends its offers.
+      if (isForAnotherGame(proposal.gameId, gameId)) return;
       setTruceProposal(proposal);
     });
 
@@ -2350,7 +2355,9 @@ export default function GamePage() {
       breakerName: string;
       breakerColor: string;
       breakerId: string;
+      gameId?: string;
     }) => {
+      if (isForAnotherGame(payload.gameId, gameId)) return;
       toast(`${payload.breakerName} broke your truce! You have +1 attack die against them.`, {
         icon: '⚔️',
         duration: 6000,
@@ -2637,17 +2644,20 @@ export default function GamePage() {
 
     socket.on('game:strike_animation', handleStrikeAnimationEvent);
 
-    socket.on('game:campaign_advanced', ({ campaign_id, next_era }: {
+    socket.on('game:campaign_advanced', ({ campaign_id, next_era, gameId: eventGameId }: {
       campaign_id: string;
       next_era: string;
       path_carry?: Record<string, number>;
+      gameId?: string;
     }) => {
+      if (isForAnotherGame(eventGameId, gameId)) return;
       campaignAdvancedRef.current = { campaign_id, next_era };
       const nextLabel = ERA_LABELS[next_era] ?? next_era;
       toast.success(`Era cleared — next: ${nextLabel}`, { duration: 4000 });
     });
 
-    socket.on('game:coaching_tip', (tip: { turn: number; category: string; title: string; body: string }) => {
+    socket.on('game:coaching_tip', (tip: { turn: number; category: string; title: string; body: string; gameId?: string }) => {
+      if (isForAnotherGame(tip.gameId, gameId)) return;
       setCoachingTip(tip);
     });
 

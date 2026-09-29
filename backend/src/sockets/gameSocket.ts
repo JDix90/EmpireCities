@@ -137,6 +137,7 @@ import { captureProbBefore, commitActionDecision, clearDecisionLog, getDecisionL
 import { evaluateCoachingTip } from '../game-engine/coaching/coachingDetectors';
 import { getFortifyUnitsValidationError, getStartGameAuthorizationError } from './socketGuards';
 import { buildRedisAdapter } from './redisAdapter';
+import { emitToPlayer } from './playerEvents';
 import { isPlayerConnected } from './redisGameStore';
 import {
   getCachedRoom,
@@ -3772,8 +3773,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (!state.pending_truces) state.pending_truces = [];
       state.pending_truces.push({ proposer_id: userId, target_id: targetPlayerId });
 
-      io.to(`user:${targetPlayerId}`).emit('game:truce_proposal', {
-        gameId,
+      emitToPlayer(io, gameId, targetPlayerId, 'game:truce_proposal', {
         proposerId: userId,
         proposerName: proposer.username,
         proposerColor: proposer.color,
@@ -4707,7 +4707,7 @@ function maybeEmitCoachingTip(io: Server, gameId: string, state: GameState, map:
     );
   }
 
-  io.to(`user:${human.player_id}`).emit('game:coaching_tip', tip);
+  emitToPlayer(io, gameId, human.player_id, 'game:coaching_tip', tip);
 }
 
 /**
@@ -4738,12 +4738,12 @@ function breakTruceAndAlert(
   betrayedId: string | null | undefined,
 ): boolean {
   if (!breakTruceBetween(state, breaker.player_id, betrayedId)) return false;
-  alertTruceBroken(io, breaker, betrayedId!);
+  alertTruceBroken(io, state.game_id, breaker, betrayedId!);
   return true;
 }
 
-function alertTruceBroken(io: Server, breaker: PlayerState, betrayedId: string): void {
-  io.to(`user:${betrayedId}`).emit('game:truce_broken', {
+function alertTruceBroken(io: Server, gameId: string, breaker: PlayerState, betrayedId: string): void {
+  emitToPlayer(io, gameId, betrayedId, 'game:truce_broken', {
     breakerName: breaker.username,
     breakerColor: breaker.color,
     breakerId: breaker.player_id,
@@ -4788,7 +4788,7 @@ function landPendingDropAssaults(
   for (const res of resolutions) {
     const targetName = territoryName(map, res.assault.target_id);
     if (res.status === 'cancelled') {
-      io.to(`user:${player.player_id}`).emit('game:drop_assault_cancelled', {
+      emitToPlayer(io, gameId, player.player_id, 'game:drop_assault_cancelled', {
         targetTerritoryId: res.assault.target_id,
         targetName,
         reason: res.cancelReason ?? 'The drop was cancelled',
@@ -4798,7 +4798,7 @@ function landPendingDropAssaults(
 
     const defenderId = res.previousOwner ?? null;
     const defender = defenderId ? state.players.find((p) => p.player_id === defenderId) : undefined;
-    if (res.truceBroken && defenderId) alertTruceBroken(io, player, defenderId);
+    if (res.truceBroken && defenderId) alertTruceBroken(io, gameId, player, defenderId);
     const payload = {
       playerId: player.player_id,
       playerName: player.username,
@@ -5072,7 +5072,7 @@ async function handleCampaignCompletion(io: Server, gameId: string, state: GameS
          WHERE campaign_id = $5`,
         [newIdx, newPrestige, JSON.stringify(updatedCarry), JSON.stringify(updatedNarrative), campaignRow.campaign_id],
       );
-      io.to(`user:${winnerId}`).emit('game:campaign_advanced', {
+      emitToPlayer(io, gameId, winnerId, 'game:campaign_advanced', {
         next_era: CAMPAIGN_ERAS[newIdx],
         campaign_id: campaignRow.campaign_id,
         path_carry: updatedCarry,

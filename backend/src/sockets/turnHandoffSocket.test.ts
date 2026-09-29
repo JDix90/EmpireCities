@@ -395,6 +395,37 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
       const s = await waitForRedisState(gameId, (st) => st.current_player_index === 1);
       expect(s.drop_assaults ?? []).toEqual([]);
     }, 20_000);
+
+    it('tells the partner which game a landing Drop Assault broke their truce in', async () => {
+      const gameId = 'handoff-drop-truce';
+      const moon = (id: string) => ({ ...terr(id, 'drop-b', 1), world_id: 'moon' }) as TerritoryState;
+      await seed(gameId, buildState(gameId, {
+        phase: 'fortify',
+        turn_number: 4,
+        players: [player('drop-a', 0), player('drop-b', 1)],
+        // drop-b holds the lunar foothold a landing needs, and declared on a1
+        // last round; the truce came after, and the landing breaks it.
+        territories: {
+          a1: terr('a1', 'drop-a', 3), a2: terr('a2', 'drop-a', 3),
+          m1: moon('m1'), m2: moon('m2'), m3: moon('m3'),
+        },
+        diplomacy: [{ player_index_a: 0, player_index_b: 1, status: 'truce', truce_turns_remaining: 2 }],
+        settings: { ...buildState(gameId, {}).settings, diplomacy_enabled: true },
+        drop_assaults: [{ owner_id: 'drop-b', target_id: 'a1', declared_turn: 3, units: 3 }],
+      }), isolatedMap(gameId, ['a1', 'a2', 'm1', 'm2', 'm3']));
+      const a = await connect('drop-a');
+      await joinRoom('drop-a', gameId);
+
+      // The alert goes to drop-a's user room, so it names its game.
+      const alert = new Promise<{ breakerId: string; gameId?: string }>((resolve, reject) => {
+        const t = setTimeout(() => reject(new Error('no truce-broken alert for this game')), 5_000);
+        a.on('game:truce_broken', (p: { breakerId: string; gameId?: string }) => {
+          if (p.gameId === gameId) { clearTimeout(t); resolve(p); }
+        });
+      });
+      a.emit('game:advance_phase', { gameId }); // drop-a ends the turn; drop-b's opens and the drop lands
+      expect(await alert).toMatchObject({ breakerId: 'drop-b', gameId });
+    }, 20_000);
   });
 
   // ── Territory Draft clocks ──────────────────────────────────────────────────

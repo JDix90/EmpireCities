@@ -39,6 +39,11 @@ export interface MapVisualEventPayload {
   regionId?: string;
   global?: boolean;
   cardId?: string;
+  /**
+   * The game it belongs to. Under fog each player's copy goes to their user
+   * room, which every page they have open receives, so the client checks it.
+   */
+  gameId?: string;
 }
 
 export function playerColor(state: GameState, playerId: string | null | undefined): string | undefined {
@@ -291,7 +296,7 @@ export function emitMapVisual(
   event: Omit<MapVisualEventPayload, 'id'>,
   fog?: MapVisualFogView,
 ): MapVisualEventPayload {
-  const payload: MapVisualEventPayload = { ...event, id: randomUUID() };
+  const payload: MapVisualEventPayload = { ...event, id: randomUUID(), gameId };
   if (fog) {
     for (const viewer of fog.viewers) {
       io.to(`user:${viewer.playerId}`).emit('game:map_visual', redactMapVisualForViewer(payload, viewer.visible));

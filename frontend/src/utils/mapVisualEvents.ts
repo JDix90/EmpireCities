@@ -34,6 +34,8 @@ export interface MapVisualEvent {
   regionId?: string;
   global?: boolean;
   cardId?: string;
+  /** The game it belongs to: under fog a visual reaches every page its player has open. */
+  gameId?: string;
 }
 
 /** GlobeMap historically used this name — alias for compatibility. */
