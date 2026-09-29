@@ -995,9 +995,9 @@ const MECHANIC_BASE: Record<AdvancedFeatureKey, string> = {
   territory_draft:
     'Instead of a random deal, players take turns claiming one territory at a time until the whole map is taken; each claim starts with 3 units. Can’t be combined with Asymmetric Factions.',
   asymmetric_factions:
-    'Each player leads one of the era’s powers — chosen in the waiting room or assigned at random — with its own kit: extra reinforcements or dice, and a special ability. Territories are dealt around each power’s homeland instead of at random. An era with fewer powers than players leaves the extra seats without one. Can’t be combined with Territory Draft.',
+    'Each player leads one of the era’s powers — chosen in the waiting room or assigned at random — with its own kit: a special ability, and for most powers extra reinforcements or dice. Territories are dealt around each power’s homeland instead of at random, or around the best-connected free territory on a map without that homeland. An era with fewer powers than players leaves the extra seats without one. Can’t be combined with Territory Draft.',
   economy_buildings:
-    'Earn Production Points (PP) at the start of each turn: 1 for every 3 territories, plus what your buildings make. Spend PP on Workshops (more PP), Palisades (extra defense dice) and their upgrades, and on your era’s Wonder, which only one player can build. Laboratories only pay out with Technology Trees on, and Ports need Naval Warfare. Capturing a territory razes its buildings, except a Wonder.',
+    'Earn Production Points (PP) at the start of each turn: 1 for every 3 territories, plus what your buildings make. Spend PP on Workshops (more PP), Palisades (extra defense dice) and their upgrades, and on your era’s Wonder, which only one player can build. Laboratories only pay out with Technology Trees on, and Ports need Naval Warfare. A territory won in battle loses its buildings, except a Wonder; one taken by Influence keeps them.',
   tech_trees:
     'Spend Tech Points (TP) on your era’s tech tree: extra attack or defense dice, more reinforcements, more TP, new buildings and special abilities. TP comes from Economy & Buildings — 1 for every 5 territories, plus Laboratories — so ticking this turns Economy & Buildings on too.',
   historical_events:
@@ -1005,9 +1005,9 @@ const MECHANIC_BASE: Record<AdvancedFeatureKey, string> = {
   naval_warfare:
     'Attacking across a sea connection takes a fleet: each crossing uses one, and fleets on the far shore fight first and add defense dice. Fleets come from Ports (+1 a turn) and Naval Bases (+2) on coastal territories, so ticking this turns Economy & Buildings on too. You can also move fleets between your own coasts and sink enemy fleets with Fleet Attack.',
   population_stability:
-    'Each territory has Stability (0–100%) and Population (1–10). Below 50% stability a territory takes only a few reinforcements per turn, and at 10% or less it can rebel, losing units and even the territory. Stability recovers every turn, and at 50% or more population can grow. Captured territories drop to 30% stability with half their population. With Economy & Buildings on, both scale what your buildings produce.',
+    'Each territory has Stability (0–100%) and Population (1–10). Below 50% stability a territory takes only a few reinforcements per turn, and at 10% or less it can rebel, losing units and even the territory. Stability recovers every turn, and at 50% or more population can grow. Captured territories drop to 30% stability with half their population. With Economy & Buildings on, both scale the PP and TP your buildings produce, though not the fleets from Ports and Naval Bases.',
   fog_of_war:
-    'You still see who owns every territory, but unit counts, buildings, fleets and stability are hidden except on your own territories and the ones bordering them. Some techs and factions reveal more. The AI plays under the same fog.',
+    'You still see who owns every territory, but unit counts, buildings, fleets and stability are hidden except on your own territories and the ones bordering them. Some techs reveal more, as does one Galactic Age faction. The AI plays under the same fog.',
 };
 
 /**

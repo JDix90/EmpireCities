@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import { MemoryRouter } from 'react-router-dom';
 import LobbyPage from './LobbyPage';
 import { useAuthStore } from '../store/authStore';
+import { useFeatureFlagsStore } from '../store/featureFlagsStore';
 
 const getMock = vi.fn();
 const postMock = vi.fn();
@@ -127,9 +128,12 @@ const TOOLTIP_FACTS: Array<{ id: string; says: RegExp[]; neverSays: RegExp[] }> 
   // Territories are dealt round-robin, one claim at a time, 3 units each.
   { id: 'territory-draft-top', says: [/one territory at a time/, /3 units/], neverSays: [/start neutral/i] },
   // Kits come from the era's roster; seats past it get none (the Civil War has 2).
-  { id: 'asymmetric-factions-top', says: [/homeland/, /extra seats without one/], neverSays: [/defensive perks/i] },
+  // 18 of the 52 powers have no reinforcement or dice bonus, and a homeland
+  // missing from the map seeds the best-connected free territory instead.
+  { id: 'asymmetric-factions-top', says: [/homeland/, /extra seats without one/, /for most powers extra reinforcements or dice/, /best-connected free territory/], neverSays: [/defensive perks/i, /kit: extra reinforcements or dice/] },
   // The building chain is Workshop/Palisade/Laboratory/Port; no farms exist.
-  { id: 'create-game-economy', says: [/Production Points \(PP\)/, /Workshops/, /Ports need Naval Warfare/], neverSays: [/farms/i] },
+  // Only a capture in battle razes (onTerritoryCapture); Influence keeps them.
+  { id: 'create-game-economy', says: [/Production Points \(PP\)/, /Workshops/, /Ports need Naval Warfare/, /taken by Influence keeps them/], neverSays: [/farms/i, /Capturing a territory razes/] },
   // TP is paid inside collectProduction, which returns early with economy off.
   { id: 'create-game-tech-trees', says: [/Tech Points \(TP\)/, /Economy & Buildings/], neverSays: [/faster production/i, /naval range/i] },
   // One card when the round wraps, not one per player turn.
@@ -137,13 +141,16 @@ const TOOLTIP_FACTS: Array<{ id: string; says: RegExp[]; neverSays: RegExp[] }> 
   // Fleets only come from Ports and Naval Bases; nothing blockades.
   { id: 'create-game-naval', says: [/Economy & Buildings on too/, /Ports/], neverSays: [/blockade/i, /distant shores/i] },
   // Rebellion is a <=10% rule; income scaling needs the economy.
-  { id: 'create-game-stability', says: [/10% or less/, /Economy & Buildings/], neverSays: [/Low stability reduces income/i] },
+  // Fleet income (collectFleetIncome) is flat; PP and TP are scaled.
+  { id: 'create-game-stability', says: [/10% or less/, /Economy & Buildings/, /not the fleets/], neverSays: [/Low stability reduces income/i, /both scale what your buildings produce/] },
   // Ownership stays visible to everyone under fog.
-  { id: 'create-game-fog', says: [/who owns every territory/, /AI plays under the same fog/], neverSays: [/only see territories they own/i] },
+  // The one faction that sees further is the Galactic Age's Helion Navigators.
+  { id: 'create-game-fog', says: [/who owns every territory/, /AI plays under the same fog/, /one Galactic Age faction/], neverSays: [/only see territories they own/i, /techs and factions reveal/] },
   // Truces are human-to-human; AI always declines. There is no alliance mechanic.
   { id: 'create-game-diplomacy', says: [/AI players always decline/, /3 rounds/], neverSays: [/alliances/i, /Disable for/i] },
   // "Draft" is the reinforcement phase, not Territory Draft.
-  { id: 'create-game-coaching', says: [/reinforcement phases/], neverSays: [/draft phases/i] },
+  // No tip on the game's opening turn; one resign suggestion a game.
+  { id: 'create-game-coaching', says: [/reinforcement phases/, /after the game’s opening turn/, /suggests resigning/], neverSays: [/draft phases/i] },
 ];
 
 describe('LobbyPage Custom Game tooltips', () => {
@@ -175,7 +182,8 @@ describe('LobbyPage Custom Game tooltips', () => {
     renderCustomGame('ancient');
     await screen.findByText('Advanced Features');
     const text = tooltipFor('create-game-era-advancement');
-    expect(text).toMatch(/armies shrink by 30%/);
+    expect(text).toMatch(/army shrinks by about 30%/);
+    expect(text).toMatch(/every territory keeps at least 1 unit/);
     expect(text).toMatch(/Turns on Economy & Buildings/);
     expect(text).not.toMatch(/Stronger units/i);
   });
@@ -243,5 +251,66 @@ describe('LobbyPage Custom Game rules the copy depends on', () => {
     const text = tooltipFor('create-game-naval');
     expect(text).toMatch(/Rules: Attacking across a sea connection/);
     expect(text).not.toMatch(/How it feels here/);
+  });
+});
+
+describe('LobbyPage Custom Game victory conditions', () => {
+  beforeEach(() => {
+    getMock.mockReset();
+    postMock.mockReset();
+    getMock.mockImplementation(() => Promise.reject(new Error('offline')));
+    postMock.mockResolvedValue({ data: { game_id: 'g1' } });
+    stubMatchMedia();
+    useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, space_age_moon_race_enabled: true } }));
+  });
+
+  it('says a Capital win needs your own capital as well as every rival one', async () => {
+    renderCustomGame();
+    await screen.findByText('Advanced Features');
+    expect(tooltipFor('create-game-victory-capital')).toMatch(/Hold your own and capture every rival capital/);
+  });
+
+  it('describes secret missions as they are dealt', async () => {
+    renderCustomGame();
+    await screen.findByText('Advanced Features');
+    const text = tooltipFor('create-game-victory-secret_mission');
+    expect(text).toMatch(/eliminate a named player yourself/);
+    expect(text).toMatch(/one or two named regions/);
+    expect(text).toMatch(/two players can draw the same one/);
+    expect(text).not.toMatch(/unique/i);
+  });
+
+  it('sends at most 99% as a territory threshold, the most the server accepts', async () => {
+    renderCustomGame();
+    await screen.findByText('Advanced Features');
+    fireEvent.click(checkbox('create-game-victory-threshold'));
+    fireEvent.change(screen.getByLabelText('Threshold %'), { target: { value: '100' } });
+    fireEvent.click(screen.getByRole('button', { name: /Create & Enter Lobby/ }));
+    await waitFor(() => expect(postMock).toHaveBeenCalledWith('/games', expect.anything()));
+    const body = postMock.mock.calls.find(([url]) => url === '/games')![1] as { settings: Record<string, unknown> };
+    expect(body.settings.victory_threshold).toBe(99);
+  });
+
+  it('names the endings a Space Age game adds: the Lunar Hegemony and the turn cap', async () => {
+    renderCustomGame('space_age');
+    await screen.findByText('Advanced Features');
+    const note = screen.getByTestId('create-game-extra-endings').textContent ?? '';
+    expect(note).toMatch(/every lunar territory for 7 of your own turns in a row also wins/);
+    expect(note).toMatch(/by the end of turn 90, the player holding the most territories wins/);
+  });
+
+  it('leaves the Lunar Hegemony out when the Moon Race is switched off', async () => {
+    useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, space_age_moon_race_enabled: false } }));
+    renderCustomGame('space_age');
+    await screen.findByText('Advanced Features');
+    const note = screen.getByTestId('create-game-extra-endings').textContent ?? '';
+    expect(note).not.toMatch(/lunar/i);
+    expect(note).toMatch(/by the end of turn 90/);
+  });
+
+  it('adds no note for an era without endings of its own', async () => {
+    renderCustomGame('ww2');
+    await screen.findByText('Advanced Features');
+    expect(screen.queryByTestId('create-game-extra-endings')).toBeNull();
   });
 });

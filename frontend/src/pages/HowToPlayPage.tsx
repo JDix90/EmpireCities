@@ -155,14 +155,14 @@ export default function HowToPlayPage() {
               </div>
               <div className="bg-bf-dark/50 rounded-lg p-3">
                 <p className="font-medium text-bf-text mb-0.5">Capital Capture</p>
-                <p className="text-xs">Each player starts with a capital. Capture yours + all opponents' capitals to win.</p>
+                <p className="text-xs">Each player starts with a capital. Hold yours and capture every opponent's to win.</p>
               </div>
               <div className="bg-bf-dark/50 rounded-lg p-3">
                 <p className="font-medium text-bf-text mb-0.5">Secret Mission</p>
                 <p className="text-xs">
-                  Each player gets a hidden objective — eliminate a specific player, control certain
-                  continents, or capture key territories. Complete yours before anyone else. Some
-                  players may even be secret allies.
+                  Each player gets a hidden objective — eliminate a specific player yourself, control
+                  certain continents, or capture key territories. Complete yours before anyone else.
+                  Two players can draw the same one, and some may even be secret allies.
                 </p>
               </div>
             </div>

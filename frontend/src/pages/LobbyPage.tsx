@@ -14,7 +14,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { useEraAdvancementLobbyEnabled, useMapEditorEnabled, useMatchAlertsEnabled, useRankedMultiSizeEnabled, useSpectateEnabled, useTodayPanelEnabled } from '../store/featureFlagsStore';
+import { useEraAdvancementLobbyEnabled, useMapEditorEnabled, useMatchAlertsEnabled, useRankedMultiSizeEnabled, useSpaceAgeMoonRaceEnabled, useSpectateEnabled, useTodayPanelEnabled } from '../store/featureFlagsStore';
+import { HEGEMONY_TURNS } from '../utils/lunarHegemony';
 import { RANKED_MIN_OPPONENTS, describeRankedGameSize, getRankedOpponents, rankedEraSize, saveRankedOpponents } from '../utils/rankedPrefs';
 import { clearRankedSearchMarker, setRankedSearchMarker } from '../utils/rankedSearchMarker';
 import { GUEST_NO_PERSIST, GUEST_KEEP_STATS_CTA } from '../utils/guestGate';
@@ -261,6 +262,9 @@ const RANKED_ERA_IDS = new Set([
 ]);
 const RANKED_ERAS = ERAS.filter((e) => RANKED_ERA_IDS.has(e.id));
 
+/** The turn cap every orbit-gated game gets at create: ORBIT_GATED_DEFAULT_MAX_TURNS in backend createGameSettings.ts. */
+const ORBIT_GATED_TURN_CAP = 90;
+
 const ERA_MAP_IDS: Record<string, string> = {
   ancient:   'era_ancient',
   medieval:  'era_medieval',
@@ -369,6 +373,7 @@ export default function LobbyPage() {
   const { user, logout, accessToken, refreshUser } = useAuthStore();
   const mapEditorEnabled = useMapEditorEnabled();
   const eraAdvancementLobbyEnabled = useEraAdvancementLobbyEnabled();
+  const spaceAgeMoonRaceEnabled = useSpaceAgeMoonRaceEnabled();
   const todayPanelEnabled = useTodayPanelEnabled();
   const spectateEnabled = useSpectateEnabled();
   const navigate = useNavigate();
@@ -507,8 +512,8 @@ export default function LobbyPage() {
   const [aiCount, setAiCount] = useState(3);
   const [aiDifficulty, setAiDifficulty] = useState('medium');
   const [fogOfWar, setFogOfWar] = useState(false);
-  // Off like every other opt-in rule in this form. The create route defaults an
-  // omitted flag to ON, which is why handleCreateGame always sends it.
+  // Off like every other opt-in rule in this form, and like the create route's
+  // default for an omitted flag. handleCreateGame sends it either way.
   const [diplomacyEnabled, setDiplomacyEnabled] = useState(false);
   const [turnTimer, setTurnTimer] = useState(300);
   type VictoryMode = 'domination' | 'threshold' | 'capital' | 'secret_mission' | 'lane_sovereignty';
@@ -715,6 +720,17 @@ export default function LobbyPage() {
       .catch(() => { if (!cancelled) setTheaterMapDoc(null); });
     return () => { cancelled = true; };
   }, [selectedTheaterMapId]);
+
+  // Ways an orbit-gated game ends that are not lobby choices, added at create
+  // (applyOrbitGatedVictoryDefaults): a 90-turn cap, and on a Space Age board
+  // with a Moon, the Lunar Hegemony, which rides with the Moon Race.
+  const theaterIsSpaceAge = selectedEra === 'space_age' || selectedTheaterMapId === ERA_MAP_IDS.space_age;
+  const theaterIsOrbitGated = theaterIsSpaceAge
+    || selectedEra === GALACTIC_AGE_ERA_ID || selectedTheaterMapId === ERA_MAP_IDS[GALACTIC_AGE_ERA_ID];
+  const theaterHasMoon = theaterMapDoc
+    ? buildMapMetaFromGameMap(theaterMapDoc).has_moon_territories
+    : selectedTheaterMapId === ERA_MAP_IDS.space_age;
+  const lunarHegemonyEnds = theaterIsSpaceAge && spaceAgeMoonRaceEnabled && theaterHasMoon;
 
   const createPairingCompatibility = React.useMemo(() => {
     const settings: Record<string, unknown> = {
@@ -2609,7 +2625,7 @@ export default function LobbyPage() {
                         </div>
                         {aiCount > 0 && (
                           <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                            <FeatureTooltip text="At the start of each of your reinforcement phases, shows at most one tip: a sharp drop in your win chances, a region under threat or within reach, or a thinly held border. Only for a lone human against AI — if other people join, it switches off when the game starts." />
+                            <FeatureTooltip text="At the start of each of your reinforcement phases after the game’s opening turn, shows at most one tip: a sharp drop in your win chances, a region under threat or within reach, or a thinly held border. Once a game, after 10 rounds with under a 5% chance to win, it suggests resigning. Only for a lone human against AI — if other people join, it switches off when the game starts." />
                             <label htmlFor="create-game-coaching" className="contents cursor-pointer">
                               <input id="create-game-coaching" type="checkbox" checked={coachingEnabled} onChange={(e) => setCoachingEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
                               <span className="leading-snug min-w-0 select-none">In-Turn Coaching <span className="text-xs text-bf-muted">(solo vs AI only)</span></span>
@@ -2618,7 +2634,7 @@ export default function LobbyPage() {
                         )}
                         {eraAdvancementLobbyEnabled && selectedEra === 'ancient' && (
                           <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                            <FeatureTooltip text="Each player can advance their civilization to the next era mid-match, at their own pace. The gate is a building, plus early research and a stable empire when those systems are on; the price is a few turns of production. Advancing brings the next era’s rules and tech tree, a one-time arrival bonus and an extra die against players in earlier eras — but your armies shrink by 30%, your research starts over, and you defend weaker until your next turn. Turns on Economy & Buildings, which it needs." />
+                            <FeatureTooltip text="Each player can advance their civilization to the next era mid-match, at their own pace. The gate is a building, plus early research and a stable empire when those systems are on; the price is a few turns of production. Advancing brings the next era’s rules and tech tree, a one-time arrival bonus and an extra die against players in earlier eras — but your army shrinks by about 30% (every territory keeps at least 1 unit, so big stacks lose more), your research starts over, and you defend weaker until your next turn. Turns on Economy & Buildings, which it needs." />
                             <label htmlFor="create-game-era-advancement" className="contents cursor-pointer">
                               <input
                                 id="create-game-era-advancement"
@@ -2755,12 +2771,18 @@ export default function LobbyPage() {
                   <div className="md:col-span-2">
                     <label className="label">Victory conditions</label>
                     <p className="text-xs text-bf-muted mb-2">A player wins if they meet any checked condition (last player standing always wins).</p>
+                    {theaterIsOrbitGated && (
+                      <p className="text-xs text-bf-muted mb-2" data-testid="create-game-extra-endings">
+                        {lunarHegemonyEnds && `Holding every lunar territory for ${HEGEMONY_TURNS} of your own turns in a row also wins (the Lunar Hegemony). `}
+                        If nobody has won by the end of turn {ORBIT_GATED_TURN_CAP}, the player holding the most territories wins.
+                      </p>
+                    )}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {([
                         ['domination', 'Domination — control every territory', 'Own every single territory on the map simultaneously. A difficult but decisive conquest victory.'],
                         ['threshold', 'Territory threshold', 'Win by controlling a set percentage of territories (configurable below). Rewards sustained expansion over total domination.'],
-                        ['capital', 'Capital — occupy all opponents\' capitals', 'Each player has a home capital. Capture every rival capital to win — even if they still hold other territories.'],
-                        ['secret_mission', 'Secret mission', 'Each player is secretly assigned a unique objective (e.g. control two specific regions, or eliminate a target player). Completing yours wins the game.'],
+                        ['capital', 'Capital — occupy all opponents\' capitals', 'Each player has a home capital. Hold your own and capture every rival capital to win — even if they still hold other territories.'],
+                        ['secret_mission', 'Secret mission', 'Each player is secretly dealt an objective: capture two named territories, hold one or two named regions, or eliminate a named player yourself (if anyone else does, the mission fails). Era Advancement and the Space Age add era and Moon objectives, and with four or more seats two human players may share an alliance instead. Objectives are dealt separately, so two players can draw the same one. Completing yours wins the game.'],
                         // Galaxy-only: a victory about the network rather than the headcount.
                         ...(selectedEra === GALACTIC_AGE_ERA_ID && !galaxyHomeWorldsOff
                           ? [['lane_sovereignty', 'Lane Sovereignty — hold the hyperspace network', 'Galactic Age only. A lane is your corridor when you hold BOTH of its gateway systems. Hold 5 of the 8 lanes at the start of your turn, 3 turns running, and you win — so rivals get two rounds to break one corridor and stop it.'] as const]
@@ -2791,7 +2813,7 @@ export default function LobbyPage() {
                           max={99}
                           className="input w-24 py-1.5"
                           value={victoryThresholdPct}
-                          onChange={(e) => setVictoryThresholdPct(Number(e.target.value) || 65)}
+                          onChange={(e) => setVictoryThresholdPct(Math.min(99, Math.max(1, Number(e.target.value) || 65)))}
                         />
                       </div>
                     )}

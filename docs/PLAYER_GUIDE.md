@@ -99,7 +99,7 @@ The host selects one or more victory conditions at game creation. The first play
 |-----------|-----------|
 | **Domination** (default) | Capture every territory — or be the last player standing |
 | **Threshold** | Own ≥ X% of all territories (percentage set by host, e.g., 70%) |
-| **Capital Capture** | Each player starts with a capital territory. Capture your own + all opponents' capitals |
+| **Capital Capture** | Each player starts with a capital territory. Hold your own and capture every opponent's |
 | **Secret Mission** | Each player receives a hidden objective at game start |
 | **Lunar Hegemony** (Space Age only) | Hold all 9 lunar territories at the end of 7 of your own turns in a row. Not a lobby choice — every Space Age game has it; see [The Moon and victory](#the-moon-and-victory) |
 
@@ -108,6 +108,10 @@ The host selects one or more victory conditions at game creation. The first play
 - **Eliminate player** — Eliminate a specific opponent yourself. If anyone else takes them out, they resign, or rebels take their last territory, the mission fails
 - **Control regions** — Control 1 or 2 entire continents
 - **Alliance** (rare, 4+ player games with 2+ humans) — You and a named ally each hold an even share of the territories dealt, plus 7% of them: 12 each in a 4-player WW2 game. Your mission shows both counts
+- **Reach an era** (Era Advancement games) — Advance your civilization to a named era
+- **Moon missions** (Space Age) — See [The Moon and victory](#the-moon-and-victory)
+
+Each player's mission is dealt separately, so two players can draw the same one.
 
 ---
 

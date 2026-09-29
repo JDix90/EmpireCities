@@ -28,6 +28,7 @@ export interface ClientFeatureFlags {
   localization_enabled: boolean;
   daily_puzzle_v2_enabled: boolean;
   store_v2_enabled: boolean;
+  space_age_moon_race_enabled: boolean;
 }
 
 /**
@@ -87,6 +88,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   // Store overhaul: cosmetics drawn on profiles and in matches (the store page
   // is the same either way). On by default; admin kill switch.
   store_v2_enabled: true,
+  // The Space Age Moon Race, Lunar Hegemony included. On by default; admin kill switch.
+  space_age_moon_race_enabled: true,
 };
 
 interface FeatureFlagsState {
@@ -220,4 +223,13 @@ export function useDailyPuzzleV2Enabled(): boolean {
  */
 export function useStoreV2Enabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.store_v2_enabled);
+}
+
+/**
+ * The Space Age Moon Race, one operator switch for the whole lunar package.
+ * The Custom Game form reads it to say whether a Space Age game can also be
+ * won by the Lunar Hegemony, which rides with it.
+ */
+export function useSpaceAgeMoonRaceEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.space_age_moon_race_enabled);
 }
