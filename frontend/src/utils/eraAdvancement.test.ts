@@ -220,6 +220,26 @@ describe('listEraGateRows / countEraGateBlockers', () => {
     expect(rows.map((r) => r.key)).toEqual(['tier1', 'stability', 'gold']);
   });
 
+  it('lists the building gate without Technology Trees, and names it as the blocker', () => {
+    // Without Technology Trees the server's readiness is the building alone.
+    const state = baseState({
+      settings: { era_advancement_enabled: true, tech_trees_enabled: false, stability_enabled: false },
+      era_advancement_preview: basePreview({
+        can_advance: false,
+        stability: undefined,
+        stability_gate: undefined,
+        readiness: {
+          met: false,
+          mode: 'milestone',
+          buildings: { met: false, current: 0, required: 1, label: 'buildings' },
+        },
+      }),
+    } as Partial<GameState>);
+    const { rows, status } = rowsFor(state);
+    expect(rows.map((r) => r.key)).toEqual(['buildings', 'gold']);
+    expect(status.blockers).toEqual(['Build at least 1 building (0/1)']);
+  });
+
   it('adds the phase requirement only while it blocks', () => {
     for (const phase of ['draft', 'fortify']) {
       const allowed = rowsFor(baseState({ phase } as Partial<GameState>));

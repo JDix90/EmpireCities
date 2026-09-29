@@ -50,8 +50,22 @@ export function evaluateEraAdvancementReadiness(
   state: GameState,
   playerId: string,
 ): EraAdvancementReadinessResult {
+  // The effective gate overlays per-spine-step overrides and catch-up relaxation
+  // onto the global milestone settings.
+  const gate = getEffectiveMilestoneGate(state, playerId);
+  const buildingsCurrent = countPlayerBuildings(state, playerId);
+  const buildings: EraAdvancementReadinessCheck = {
+    met: buildingsCurrent >= gate.min_buildings,
+    current: buildingsCurrent,
+    required: gate.min_buildings,
+    label: 'buildings',
+  };
+  const buildingsError = `Build at least ${gate.min_buildings} building${gate.min_buildings === 1 ? '' : 's'} (${buildingsCurrent}/${gate.min_buildings})`;
+
+  // The building is the gate in every game; research joins it only with
+  // Technology Trees on, since without them there is nothing to research.
   if (!state.settings.tech_trees_enabled) {
-    return { met: true, mode: 'milestone' };
+    return { met: buildings.met, mode: 'milestone', error: buildings.met ? undefined : buildingsError, buildings };
   }
 
   const mode = resolveTechGateMode(state);
@@ -72,14 +86,9 @@ export function evaluateEraAdvancementReadiness(
     };
   }
 
-  // The effective gate overlays per-spine-step overrides and catch-up relaxation
-  // onto the global milestone settings.
-  const gate = getEffectiveMilestoneGate(state, playerId);
-
   const tier1Current = countUnlockedTechsByTier(state, playerId, 1, 1);
   const tier2Current = countUnlockedTechsByTier(state, playerId, 2, 2);
   const tier3Current = gate.min_tier3_techs > 0 ? countUnlockedTechsByTier(state, playerId, 3, 3) : 0;
-  const buildingsCurrent = countPlayerBuildings(state, playerId);
 
   const tier1: EraAdvancementReadinessCheck = {
     met: tier1Current >= gate.min_tier1_techs,
@@ -101,13 +110,6 @@ export function evaluateEraAdvancementReadiness(
       label: 'tier-3 technologies',
     }
     : undefined;
-  const buildings: EraAdvancementReadinessCheck = {
-    met: buildingsCurrent >= gate.min_buildings,
-    current: buildingsCurrent,
-    required: gate.min_buildings,
-    label: 'buildings',
-  };
-
   const met = tier1.met && tier2.met && (tier3?.met ?? true) && buildings.met;
   let error: string | undefined;
   if (!tier1.met) {
@@ -117,7 +119,7 @@ export function evaluateEraAdvancementReadiness(
   } else if (tier3 && !tier3.met) {
     error = `Research at least ${gate.min_tier3_techs} tier-3 technolog${gate.min_tier3_techs === 1 ? 'y' : 'ies'} (${tier3Current}/${gate.min_tier3_techs})`;
   } else if (!buildings.met) {
-    error = `Build at least ${gate.min_buildings} building${gate.min_buildings === 1 ? '' : 's'} (${buildingsCurrent}/${gate.min_buildings})`;
+    error = buildingsError;
   }
 
   return {

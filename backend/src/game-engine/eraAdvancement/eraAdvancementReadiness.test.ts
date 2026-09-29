@@ -120,11 +120,20 @@ describe('evaluateEraAdvancementReadiness', () => {
     expect(result.percent).toEqual({ unlocked: 4, required: 4 });
   });
 
-  it('skips gate when tech trees are disabled', () => {
-    const state = baseState({
-      settings: { ...baseState().settings, tech_trees_enabled: false },
+  it('without Technology Trees, the building is the whole gate', () => {
+    const noTech = { ...baseState().settings, tech_trees_enabled: false };
+    // A Workshop and no research: nothing to research, so that is enough.
+    const built = evaluateEraAdvancementReadiness(baseState({ settings: noTech }), 'human');
+    expect(built).toMatchObject({ met: true, buildings: { met: true, current: 1, required: 1 } });
+    expect(built.tier1).toBeUndefined();
+
+    // No building: the gate holds, research or not.
+    const bare = baseState({ settings: noTech });
+    for (const t of Object.values(bare.territories)) t.buildings = [];
+    expect(evaluateEraAdvancementReadiness(bare, 'human')).toMatchObject({
+      met: false,
+      error: 'Build at least 1 building (0/1)',
     });
-    expect(evaluateEraAdvancementReadiness(state, 'human').met).toBe(true);
   });
 
   it('omits the tier-3 check when no tier-3 is required', () => {
