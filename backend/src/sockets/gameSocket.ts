@@ -4948,9 +4948,12 @@ function buildClientState(state: GameState, playerId: string | null, fogOfWar: b
     players: redactPlayersForViewer(s.players, playerId, state.phase),
     // The reinforcement undo stack is the acting player's private working state —
     // strip it for every other viewer (and spectators) so fog can't be sidestepped
-    // by reading where the current player just deployed.
+    // by reading where the current player just deployed. The Stability cap's
+    // per-territory tally says the same thing, so it goes with it.
     draft_deployments_this_turn:
       playerId !== null && playerId === actingPlayerId ? s.draft_deployments_this_turn : undefined,
+    draft_placements_this_turn:
+      playerId !== null && playerId === actingPlayerId ? s.draft_placements_this_turn : undefined,
   });
 
   // No fog → everyone (players and spectators) sees full territory intel.

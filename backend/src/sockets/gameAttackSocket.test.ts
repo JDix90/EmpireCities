@@ -841,6 +841,31 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
     expect(hidden.totalAfter).toBeUndefined();
   });
 
+  it('keeps where a rival reinforced out of the state sent to players who cannot see it', async () => {
+    const gameId = 'itest-fog-placements';
+    // With Stability on, a draft keeps a per-territory tally for the cap.
+    const stable = { stability: 80, population: 3 };
+    await seed(gameId, buildState(gameId, [], {
+      phase: 'draft', current_player_index: 0, draft_units_remaining: 3,
+      territories: { a: terr('a', 'p1', 2, stable), b: terr('b', 'p2', 1, stable), c: terr('c', 'p3', 5, stable) },
+      settings: { ...buildState(gameId, []).settings, fog_of_war: true, stability_enabled: true },
+    }), buildMap(gameId));
+    const c1 = await connect('p1');
+    const c3 = await connect('p3');
+    for (const id of ['p1', 'p3']) await joinRoom(id, gameId);
+
+    const own = waitFor<GameState>(c1, 'game:state');
+    const rival = waitFor<GameState>(c3, 'game:state');
+    c1.emit('game:draft', { gameId, territoryId: 'a', units: 2, action_id: 'fogtally1' });
+    const [mine, theirs] = await Promise.all([own, rival]);
+    // p3 (at c) cannot see a: the tile is masked, and so is the tally.
+    expect({
+      mine: mine.draft_placements_this_turn,
+      hiddenTile: theirs.territories.a.unit_count,
+      theirs: theirs.draft_placements_this_turn,
+    }).toEqual({ mine: { a: 2 }, hiddenTile: -1, theirs: undefined });
+  });
+
   it('shows bordering territories in fogged state before anything has built adjacency', async () => {
     // A fresh map id: nothing in this process has built its adjacency yet, and
     // ending a draft with no units left emits no visual that would build it.
