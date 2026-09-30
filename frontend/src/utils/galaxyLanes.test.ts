@@ -14,6 +14,8 @@ import {
   laneStateFor,
   convoysFor,
   describeColonies,
+  describeColonyKitChanges,
+  factionReinforceBonus,
   describeConvoy,
   describeLaneKind,
   laneKindOf,
@@ -276,6 +278,27 @@ describe('the Colonies board', () => {
     expect(laneSovereigntyProgress(mk(3), mapData.connections, 'me').roundsNeeded).toBe(3);
     expect(laneSovereigntyProgress(mk(4), mapData.connections, 'me').roundsNeeded).toBe(3);
     expect([2, 3, 4].map(laneSovereigntyRoundsFor)).toEqual([5, 3, 3]);
+  });
+
+  it("reads a kit's reinforcement bonus as the Colonies board sets it", () => {
+    const navigators = {
+      faction_id: 'helion_navigators', name: 'Helion Navigators',
+      reinforce_bonus: 2, colony_reinforce_bonus: { '2': 1 },
+    };
+    const forge = { faction_id: 'forge_syndicate', name: 'Forge Syndicate', reinforce_bonus: 2 };
+    const game = (seats: number, colonies: boolean) => ({
+      players: Array.from({ length: seats }, (_, i) => ({ faction_id: [navigators, forge, navigators, forge][i]!.faction_id })),
+      galaxy_mode: colonies ? { id: 'colonies' as const, neutral_worlds: ['rust'] } : undefined,
+    }) as unknown as GameState;
+    expect(factionReinforceBonus(game(2, true), navigators)).toBe(1);
+    expect(factionReinforceBonus(game(3, true), navigators)).toBe(2);
+    expect(factionReinforceBonus(game(2, false), navigators)).toBe(2);
+    expect(factionReinforceBonus(game(2, true), forge)).toBe(2);
+    expect(describeColonyKitChanges(game(2, true), [navigators, forge])).toEqual([
+      'The Helion Navigators draft +1 a turn in this game, not +2.',
+    ]);
+    expect(describeColonyKitChanges(game(3, true), [navigators, forge])).toEqual([]);
+    expect(describeColonyKitChanges(game(2, false), [navigators, forge])).toEqual([]);
   });
 
   it('names the colonies for the start briefing', () => {

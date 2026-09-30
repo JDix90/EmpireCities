@@ -13,6 +13,7 @@ import { getSpaceProgramProgress, type FrontendMapData } from '../../utils/orbit
 import {
   describeWorldModifiers,
   describeWorldRules,
+  factionReinforceBonus,
   gatewayTerritoryIds,
   laneAttackDiceCap,
   laneStateFor,
@@ -128,6 +129,8 @@ interface FactionInfo {
   passive_attack_bonus?: number;
   passive_defense_bonus?: number;
   reinforce_bonus?: number;
+  /** Galactic Age Colonies: the bonus at a seat count, where it differs from the kit's. */
+  colony_reinforce_bonus?: Record<string, number>;
   tech_cost_discount?: number;
   stability_recovery_bonus?: number;
   /** Galactic Age: extra defence die against any attack across a hyperspace lane. */
@@ -171,6 +174,10 @@ export default function BonusesModal({ techTree, mapData, onClose }: BonusesModa
   }, [factionEraId, myPlayer?.faction_id, gameState?.settings.factions_enabled]);
 
   if (!gameState || !myPlayer) return null;
+
+  // What the faction actually drafts in this game: a Colonies board can set a
+  // kit's bonus apart from the kit (the Navigators draft +1 in a duel).
+  const factionReinforce = factionData ? factionReinforceBonus(gameState, factionData) : 0;
 
   // ── Space Age Moon ladder ───────────────────────────────────────────────────
   // The Space Age has no era-modifier flag (its signature is the orbit gate),
@@ -435,12 +442,14 @@ export default function BonusesModal({ techTree, mapData, onClose }: BonusesModa
                           valueColor: 'text-blue-300',
                         }]
                       : []),
-                    ...(factionData.reinforce_bonus
+                    ...(factionReinforce
                       ? [{
                           icon: '🪖',
                           label: 'Faction Reinforcement Bonus',
-                          value: `+${factionData.reinforce_bonus} / turn`,
-                          description: 'Added at the start of each of your draft phases.',
+                          value: `+${factionReinforce} / turn`,
+                          description: factionReinforce === (factionData.reinforce_bonus ?? 0)
+                            ? 'Added at the start of each of your draft phases.'
+                            : `Added at the start of each of your draft phases — +${factionData.reinforce_bonus ?? 0} in other games; this Colonies board sets it at +${factionReinforce}.`,
                           valueColor: 'text-amber-300',
                         }]
                       : []),

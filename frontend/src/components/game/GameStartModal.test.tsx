@@ -423,3 +423,30 @@ describe('what a Galactic Age Colonies game tells players before their first tur
     expect(screen.queryByTestId('start-colonies-section')).not.toBeInTheDocument();
   });
 });
+
+describe("what a Colonies duel tells players about a kit it changes", () => {
+  it('names the Navigators drafting +1 in a duel, from the whole roster', async () => {
+    const { api } = await import('../../services/api');
+    vi.mocked(api.get).mockResolvedValueOnce({
+      data: {
+        factions: [
+          { faction_id: 'helion_navigators', name: 'Helion Navigators', reinforce_bonus: 2, colony_reinforce_bonus: { '2': 1 } },
+          { faction_id: 'forge_syndicate', name: 'Forge Syndicate', reinforce_bonus: 2 },
+        ],
+      },
+    });
+    const duel = makeState({
+      era: 'galaxy_age',
+      players: [
+        player({ player_id: 'me', player_index: 0, username: 'Jeff', faction_id: 'forge_syndicate' }),
+        player({ player_id: 'a1', player_index: 1, username: 'AI Bot 1', is_ai: true, faction_id: 'helion_navigators' }),
+      ],
+      settings: { ...makeState().settings, factions_enabled: true },
+      galaxy_mode: { id: 'colonies', neutral_worlds: ['nexus_station', 'rust'] },
+    } as Partial<GameState>);
+    render(<GameStartModal open onClose={() => {}} gameState={duel} viewerPlayerId="me" />);
+    // A rival's kit, not the viewer's: the briefing reads the whole roster.
+    expect(await screen.findByText('The Helion Navigators draft +1 a turn in this game, not +2.')).toBeInTheDocument();
+  });
+});
+

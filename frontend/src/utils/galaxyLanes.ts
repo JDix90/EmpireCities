@@ -133,6 +133,44 @@ export function describeLaneKind(kind: LaneKind): string | null {
   return null;
 }
 
+/** The reinforcement fields of a faction, as the era's factions endpoint sends them. */
+export interface FactionReinforceKit {
+  faction_id: string;
+  name: string;
+  reinforce_bonus?: number;
+  /** Colonies board only: the bonus at a seat count, keyed by seats (JSON keys are strings). */
+  colony_reinforce_bonus?: Record<string, number>;
+}
+
+/**
+ * A faction's flat reinforcement bonus in this game. Mirrors backend
+ * `factionReinforceBonus`: the kit's, unless the Colonies board sets another for
+ * this seat count.
+ */
+export function factionReinforceBonus(
+  gameState: Pick<GameState, 'galaxy_mode' | 'players'> | null | undefined,
+  faction: Pick<FactionReinforceKit, 'reinforce_bonus' | 'colony_reinforce_bonus'>,
+): number {
+  const kit = faction.reinforce_bonus ?? 0;
+  if (gameState?.galaxy_mode?.id !== 'colonies') return kit;
+  return faction.colony_reinforce_bonus?.[String(gameState.players.length)] ?? kit;
+}
+
+/** The start briefing's lines for seated kits this Colonies board changes. */
+export function describeColonyKitChanges(
+  gameState: Pick<GameState, 'galaxy_mode' | 'players'> | null | undefined,
+  factions: FactionReinforceKit[],
+): string[] {
+  if (gameState?.galaxy_mode?.id !== 'colonies') return [];
+  const seated = new Set(gameState.players.map((p) => p.faction_id).filter(Boolean));
+  return factions.flatMap((f) => {
+    if (!seated.has(f.faction_id)) return [];
+    const kit = f.reinforce_bonus ?? 0;
+    const here = factionReinforceBonus(gameState, f);
+    return here === kit ? [] : [`The ${f.name} draft +${here} a turn in this game, not +${kit}.`];
+  });
+}
+
 /**
  * The start briefing's line for a Colonies board, or null for the classic
  * start. Mirrors `state.galaxy_mode` (backend state/galaxyModes.ts).

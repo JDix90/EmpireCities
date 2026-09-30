@@ -43,6 +43,12 @@ export interface Faction {
   /** Extra reinforcement units per turn. */
   reinforce_bonus?: number;
   /**
+   * Galactic Age Colonies board only (state/galaxyModes.ts): the faction's
+   * `reinforce_bonus` at a given seat count, where it differs from the kit's.
+   * Keyed by seats; a count not listed keeps `reinforce_bonus`. ⚠ balance.
+   */
+  colony_reinforce_bonus?: Partial<Record<number, number>>;
+  /**
    * Flat tech-point discount on every research (floor: effective cost 1).
    * A deliberately gentle tempo lever: worth ~1 TP per research (~8-10/game),
    * unlike a per-turn income which compounds every turn.

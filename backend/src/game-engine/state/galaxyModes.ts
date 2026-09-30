@@ -21,6 +21,7 @@
 
 import type { EraId, GameMap, GameState, MapConnection } from '../../types';
 import { getEraFactions } from '../eras';
+import type { Faction } from '../eras/types';
 import { GALAXY_MODE_LANE_SOURCE, ringGapLanes } from './galaxyRing';
 import { orbitLaneId } from './moonAccess';
 
@@ -98,6 +99,19 @@ export function colonyLayout(map: GameMap, homeWorlds: readonly string[]): Galax
     neutral_worlds: neutralWorlds,
     ...(lanes.length > 0 ? { lanes } : {}),
   };
+}
+
+/**
+ * A faction's flat reinforcement bonus in this game: its kit's, unless the
+ * Colonies board sets another for this seat count (`colony_reinforce_bonus`).
+ */
+export function factionReinforceBonus(
+  state: GameState,
+  faction: Pick<Faction, 'reinforce_bonus' | 'colony_reinforce_bonus'>,
+): number {
+  const kit = faction.reinforce_bonus ?? 0;
+  if (state.galaxy_mode?.id !== 'colonies') return kit;
+  return faction.colony_reinforce_bonus?.[state.players.length] ?? kit;
 }
 
 /** A colony tile's opening garrison: gateways (on a lane) hold fewer than the interior. */

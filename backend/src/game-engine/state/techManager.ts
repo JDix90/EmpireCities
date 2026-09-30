@@ -9,6 +9,7 @@ import { getPlayerFaction } from '../eras/factionLineage';
 import { resolvePlayerEraId } from '../eraAdvancement/constants';
 import { getTechEchoBonus } from '../eraAdvancement/techEcho';
 import { getWonderTechCostMultiplier } from './wonderManager';
+import { factionReinforceBonus } from './galaxyModes';
 
 function getPlayerTechEra(state: GameState, playerId: string): EraId {
   const player = state.players.find((p) => p.player_id === playerId);
@@ -180,10 +181,11 @@ export function getPlayerReinforceBonus(state: GameState, playerId: string): num
     );
   }
 
-  // Faction passive reinforce bonus
+  // Faction passive reinforce bonus (the Colonies board may set its own for a
+  // kit at its seat count — state/galaxyModes.ts)
   if (state.settings.factions_enabled && player.faction_id) {
     const faction = getPlayerFaction(state, player);
-    if (faction) bonus += faction.reinforce_bonus ?? 0;
+    if (faction) bonus += factionReinforceBonus(state, faction);
   }
 
   // Tech node reinforce bonuses
