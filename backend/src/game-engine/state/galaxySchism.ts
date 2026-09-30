@@ -146,24 +146,24 @@ export function schismSplitKey(splitWorlds: Iterable<string>): string {
  */
 export const PARTIAL_ALLIED_TUNING: Record<number, Record<string, Record<string, number>>> = {
   5: {
-    nexus_station: { sol: 3, verdan: 3, rust: 3, nexus_station: 0 },
-    rust: { sol: 3, verdan: 3, rust: 2, nexus_station: 3 },
-    sol: { sol: -2, verdan: 3, rust: 3, nexus_station: 3 },
-    verdan: { sol: 3, verdan: -1, rust: 3, nexus_station: 3 },
+    nexus_station: { sol: 2, verdan: 2, rust: 3, nexus_station: 0 },
+    rust: { sol: 4, verdan: 3, rust: -1, nexus_station: 3 },
+    sol: { sol: -1, verdan: 4, rust: 2, nexus_station: 1 },
+    verdan: { sol: 6, verdan: 1, rust: 9, nexus_station: 3 },
   },
   6: {
-    'nexus_station+rust': { sol: 3, verdan: 3, rust: 2, nexus_station: 0 },
-    'nexus_station+sol': { sol: -2, verdan: 3, rust: 3, nexus_station: 0 },
-    'nexus_station+verdan': { sol: 3, verdan: -1, rust: 3, nexus_station: 0 },
+    'nexus_station+rust': { sol: 8, verdan: 5, rust: 1, nexus_station: 2 },
+    'nexus_station+sol': { sol: -4, verdan: -1, rust: 4, nexus_station: -2 },
+    'nexus_station+verdan': { sol: -3, verdan: -4, rust: 13, nexus_station: 2 },
     'rust+sol': { sol: -2, verdan: 3, rust: 2, nexus_station: 3 },
-    'rust+verdan': { sol: 3, verdan: -1, rust: 2, nexus_station: 3 },
-    'sol+verdan': { sol: -2, verdan: -1, rust: 3, nexus_station: 3 },
+    'rust+verdan': { sol: 7, verdan: -1, rust: 0, nexus_station: 7 },
+    'sol+verdan': { sol: -2, verdan: -2, rust: 8, nexus_station: -1 },
   },
   7: {
-    'nexus_station+rust+sol': { sol: -2, verdan: 3, rust: 2, nexus_station: 0 },
-    'nexus_station+rust+verdan': { sol: 3, verdan: -1, rust: 2, nexus_station: 0 },
-    'nexus_station+sol+verdan': { sol: -2, verdan: -1, rust: 3, nexus_station: 0 },
-    'rust+sol+verdan': { sol: -2, verdan: -1, rust: 2, nexus_station: 3 },
+    'nexus_station+rust+sol': { sol: 0, verdan: 3, rust: 0, nexus_station: 1 },
+    'nexus_station+rust+verdan': { sol: 3, verdan: 0, rust: 2, nexus_station: 1 },
+    'nexus_station+sol+verdan': { sol: -3, verdan: -3, rust: 6, nexus_station: -1 },
+    'rust+sol+verdan': { sol: -2, verdan: -1, rust: 3, nexus_station: 3 },
   },
 };
 
