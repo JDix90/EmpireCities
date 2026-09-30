@@ -15,12 +15,13 @@
 //       (galaxyRing.ts): without them the seat in the middle of the three
 //       borders both rivals and never touches the colony.
 //
-//   Schism (8 seats) — every world shared by two houses of its faction, each on
-//       one half of it (galaxySchism.ts).
+//   Schism (5–8 seats) — a world shared by two houses of its faction, each on
+//       one half of it (galaxySchism.ts): every world at eight, and at five to
+//       seven (the Partial Schism) as many as there are seats over four, the
+//       others held whole as at four seats.
 //
 // The modes need home worlds, so they play only with factions on (the lobby's
-// "Home Worlds"). Without them every seat count gets the scattered deal. The
-// mode planned for five to seven seats is in docs/GALACTIC_AGE_MODES.md.
+// "Home Worlds"). Without them every seat count gets the scattered deal.
 
 import type { EraId, GalaxyColoniesMode, GameMap, GameState, MapConnection } from '../../types';
 import { getEraFactions } from '../eras';
@@ -39,13 +40,14 @@ export const GALAXY_HOME_WORLD_IDS: ReadonlySet<string> = new Set<string>([
 /** Seats with one home world each: Colonies below four, the classic start at four. */
 export const GALAXY_MIN_SEATS = 2;
 export const GALAXY_CLASSIC_SEATS = 4;
-/** Seats of a Schism game: two houses to every world (galaxySchism.ts). */
+/** Seats of a full Schism game: two houses to every world (galaxySchism.ts). */
 export const GALAXY_SCHISM_SEATS = 8;
 /**
- * Every seat count a Galactic Age game supports. Five to seven have no board
- * yet (Partial Schism, docs/GALACTIC_AGE_MODES.md).
+ * Every seat count a Galactic Age game supports: Colonies at two and three, the
+ * classic start at four, the Partial Schism at five to seven and the Schism at
+ * eight.
  */
-export const GALAXY_SEAT_COUNTS: readonly number[] = [2, 3, 4, GALAXY_SCHISM_SEATS];
+export const GALAXY_SEAT_COUNTS: readonly number[] = [2, 3, 4, 5, 6, 7, GALAXY_SCHISM_SEATS];
 export const GALAXY_MAX_SEATS = GALAXY_SCHISM_SEATS;
 
 /**
@@ -82,7 +84,7 @@ export function factionHomeWorld(map: GameMap, faction: Pick<Faction, 'home_regi
  * the Galactic Age on its galaxy map, two to four seats, and every seat on a
  * faction whose home regions all lie on one of the four worlds, no two sharing a
  * world. Null otherwise, and the caller falls back to the geographic deal.
- * (Eight seats share the worlds instead: galaxySchism.ts.)
+ * (Five to eight seats share worlds instead: galaxySchism.ts.)
  */
 export function resolveGalaxyHomeWorlds(
   era: EraId,

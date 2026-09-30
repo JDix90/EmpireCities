@@ -3,18 +3,21 @@
 // ============================================================
 //
 // Two boards deal teams, and the team rules are the engine's (state/teams.ts):
-//   • ALLIED HOUSES (the Schism's eight seats, House Relations "Allied"): each
-//     world's two houses are one side, four sides of two. They share their
-//     faction's kit and their world, so the Concord and the Lane Crown have
-//     nothing to settle between them (galaxySchism.ts leaves both out).
+//   • ALLIED HOUSES (the Schism's five to eight seats, House Relations
+//     "Allied"): every world is one side. A split world's two houses are a side
+//     of two, sharing their faction's kit and their world, so the Concord and
+//     the Lane Crown have nothing to settle between them (galaxySchism.ts leaves
+//     both out); in a Partial Schism a seat holding a whole world is a side of
+//     one. Four sides, whatever the seat count.
 //   • 2v2 (four seats, the lobby's "2v2"): the four home worlds pair off into
 //     two sides of two, as GALAXY_2V2_PAIRS says.
 //
-// Allies never play back to back. The seats are reordered so the sides take
-// turns in rotation (A B C D A B C D at eight seats, A B A B at four), each side
-// keeping its members in the order they were seated. Back to back, a side would
-// play two turns running, and the gateway one ally softened the other would
-// take before anyone could answer.
+// Allies never play back to back. The seats are reordered so each side's turns
+// come round as evenly spaced as they can (A B C D A B C D at eight seats,
+// A B A B at four, A B C A D at five with one pair), each side keeping its
+// members in the order they were seated. Back to back, a side would play two
+// turns running, and the gateway one ally softened the other would take before
+// anyone could answer.
 
 import type { EraId, GameMap, GameSettings, GameTeam, PlayerState } from '../../types';
 import { getEraFactions } from '../eras';
@@ -81,7 +84,9 @@ export function galaxyTeamsFor(
     const teams = [...firstSeatOf.entries()]
       .sort((a, b) => a[1] - b[1])
       .map(([world, seat]) => ({ team_id: world, name: factionName(era, players[seat]!.faction_id), player_ids: seatsOn([world]) }));
-    return teams.length === 4 && teams.every((t) => t.player_ids.length === 2) ? teams : null;
+    return teams.length === 4 && teams.every((t) => t.player_ids.length >= 1 && t.player_ids.length <= 2)
+      ? teams
+      : null;
   }
 
   if (isTwoVersusTwoSeating(era, map, players.length, settings)) {
@@ -97,8 +102,12 @@ export function galaxyTeamsFor(
 }
 
 /**
- * Reorder the seats so the sides alternate: the first member of every side, in
- * the order the sides were first seated, then every second member, and so on.
+ * Reorder the seats so each side's turns come round evenly spaced: the sides, in
+ * the order they were first seated, lay their members at even intervals round
+ * the table (a side of k members at places j, j + n/k, … round n seats, for its
+ * place j among the sides; its members take them in their own seat order), and
+ * the seats are read off in order. With sides of equal size that is the first
+ * member of every side, then every second member, and so on.
  * Mutates `players` (and each `player_index`, which is the seat) and returns
  * the teams with their members in the new seat order and numbered ids.
  */
@@ -110,11 +119,14 @@ export function seatTeamsApart<T extends { player_id: string; player_index: numb
   const sides = [...teams]
     .map((t) => ({ ...t, player_ids: [...t.player_ids].sort((a, b) => seatOf.get(a)! - seatOf.get(b)!) }))
     .sort((a, b) => seatOf.get(a.player_ids[0]!)! - seatOf.get(b.player_ids[0]!)!);
-  const order: string[] = [];
-  const rounds = Math.max(...sides.map((s) => s.player_ids.length));
-  for (let r = 0; r < rounds; r++) {
-    for (const side of sides) if (side.player_ids[r]) order.push(side.player_ids[r]!);
-  }
+  const seated = sides.reduce((n, side) => n + side.player_ids.length, 0);
+  const placed = sides.flatMap((side, j) => {
+    const k = side.player_ids.length;
+    const places = side.player_ids.map((_, m) => (j + (m * seated) / k) % seated).sort((a, b) => a - b);
+    return side.player_ids.map((id, m) => ({ id, at: places[m]!, j, m }));
+  });
+  placed.sort((a, b) => a.at - b.at || a.j - b.j || a.m - b.m);
+  const order = placed.map((p) => p.id);
   // Anyone the teams leave out keeps their place at the end, in seat order.
   for (const p of players) if (!order.includes(p.player_id)) order.push(p.player_id);
   const byId = new Map(players.map((p) => [p.player_id, p]));

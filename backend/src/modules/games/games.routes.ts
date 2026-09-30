@@ -90,10 +90,10 @@ export const CreateGameSchema = z.object({
        */
       galaxy_home_worlds: z.boolean().optional(),
       /**
-       * Galactic Age Schism (eight seats): how each world's two houses start —
-       * `concord` (a truce for the opening rounds, the default), `civil_war`, or
-       * `allied` (the two houses are a team). Persisted only as Civil War or
-       * Allied; read when the board is dealt.
+       * Galactic Age Schism (five to eight seats): how a split world's two
+       * houses start — `concord` (a truce for the opening rounds, the default),
+       * `civil_war`, or `allied` (every world's seats are a team). Persisted
+       * only as Civil War or Allied; read when the board is dealt.
        */
       galaxy_house_relations: z.enum(['concord', 'civil_war', 'allied']).optional(),
       /**
@@ -247,13 +247,14 @@ export function lanesContestableRejection(opts: {
 }
 
 /**
- * A Galactic Age lobby seats two to four players, or eight (lobbyCapacity.ts):
- * four home worlds, with the unclaimed ones opening as colonies below four, and
- * two houses to a world at eight. Checked here on the form's own numbers, the
- * seat cap it asks for and the seats it fills with AI, because the humans who
- * join later are held to that cap by `/:gameId/join` and game start checks the
- * final count. A fifth player used to slip through this way: the form asked for
- * eight seats and filled four.
+ * A Galactic Age lobby seats two to eight players (lobbyCapacity.ts): four home
+ * worlds, with the unclaimed ones opening as colonies below four, and from five
+ * up two houses to a shared world, one world per seat over four. Checked here
+ * on the form's own numbers, the seat cap it asks for and the seats it fills
+ * with AI, because the humans who join later are held to that cap by
+ * `/:gameId/join` and game start checks the final count. (A fifth player once
+ * slipped through this way, when five seats had no board: the form asked for
+ * eight seats and filled four.)
  *
  * Enforced HERE rather than in evaluateEraMapCompatibility because the shared
  * evaluator also runs on the in-lobby map-change path, where `player_count` is

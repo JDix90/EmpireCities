@@ -41,10 +41,12 @@ Knobs: `SIM_MAP` (variant map file), `SIM_GAMES`, `SIM_DIFFICULTY`,
 `SIM_HOUSE_RELATIONS`, `SIM_CONCORD_ROUNDS`, `SIM_LANE_CROWN`,
 `SIM_SCHISM_HALVES`, `SIM_SCHISM_OPENING` and `SIM_SCHISM_REINFORCE` (§8), and
 `SIM_2V2`, `SIM_2V2_PAIRS`, `SIM_ALLIED_REINFORCE`, `SIM_ALLIED_OPENING` and
-`SIM_CEASEFIRE` (§9).
+`SIM_CEASEFIRE` (§9), and `SIM_PARTIAL_UNCLAIMED`, `SIM_PARTIAL_HALVES` and
+`SIM_PARTIAL_ALLIED` (§10).
 4 players by default, one per galaxy faction, faction↔seat rotated per game; at
-2 or 3 the line-up also rotates through every combination of factions; at 8
-every faction plays twice (§8). Factions ON, naval OFF,
+2 or 3 the line-up also rotates through every combination of factions; at 5 to 7
+every choice of split worlds is played (§10); at 8 every faction plays twice
+(§8). Factions ON, naval OFF,
 era advancement OFF, stability ON, events OFF (the era's own system defaults are
 economy + tech + factions). The sim asserts that each faction starts on its own
 home world, so a map whose home regions stop resolving fails loudly instead of
@@ -656,7 +658,7 @@ Shipped (`SCHISM_HALVES`, `SCHISM_TUNING`):
     (8.2%) and Hellas (8.6%) sit just under.
   - Civil War: seven within ±28%; the Western Mandate is at 17.1%.
 - The four-player elimination limit (30%) does not carry over. With one winner
-  in eight, most houses end eliminated; the rates are in the table and in §10.
+  in eight, most houses end eliminated; the rates are in the table and in §11.
 
 Two, three and four seats are unchanged: seed A reproduces §2 and §7 to the
 decimal.
@@ -859,7 +861,257 @@ each member keeps their own streak on them. The rounds are set by the number of
 sides (`LANE_SOVEREIGNTY_ROUNDS_BY_SIDES`), not seats: two sides play as two
 players (5), four as four (3).
 
-## 10. Open
+## 10. Partial Schism — five to seven players (`SIM_PLAYERS=5`, `6`, `7`)
+
+At five to seven seats one world splits for each seat over four, shared by two
+houses as at eight (§8). Under the Concord or in Civil War every seat is a house
+on half a world: a world dealt to one seat has one house, alone, and its other
+half opens **unclaimed**, neutral and garrisoned (`PARTIAL_SCHISM_TUNING`).
+Allied, every world is one side, and a seat alone on its world holds all of it.
+The design is in [docs/GALACTIC_AGE_MODES.md](../../docs/GALACTIC_AGE_MODES.md).
+
+The sim plays every choice of split worlds: 4 at five seats, 6 at six, 4 at
+seven. Each block of games plays one choice, from a seeded shuffle of the seats
+rotated a seat per game, and a house alone opens on either half, drawn. A cycle
+is 20, 36 or 28 games, so every run here is **1,260 games**, a whole number of
+cycles at each count. `assertSchismStart` fails a run whose houses, unclaimed
+halves or whole worlds were not dealt as measured.
+
+The partial tables read two roles:
+- a house **with a rival** (on a split world) against a house **alone** (or,
+  Allied, a seat holding a whole world), each against its baseline: 1/seats,
+  or 25% Allied, where a side wins whole;
+- and each half in each role, labelled "Western Mandate" or "Western Mandate
+  alone".
+
+Shipped:
+- **The unclaimed half's garrison**, gateway / inland: 9 / 11 at five seats,
+  10 / 12 at six, 12 / 14 at seven.
+- **Units a turn by half** (`PARTIAL_SCHISM_HALVES`), in place of the eight-seat
+  numbers, with every half opening at the standard count:
+
+  | Half | With a rival | Alone |
+  |---|---|---|
+  | Western / Eastern Mandate | +5 / +1 | +1 / 0 |
+  | Dawnrim / Duskrim Navigators | 0 / −2 | +1 / −1 |
+  | Tharsis / Hellas Syndicate | −1 / +1 | −2 / +2 |
+  | Ward / Berth Custodians | +1 / 0 | 0 / 0 |
+
+- **Allied** (`PARTIAL_ALLIED_TUNING`, in place of `ALLIED_TUNING`): each house
+  of a side of two drafts Sol −2, Verdan −1, Rust +2 or Nexus 0 a turn (the
+  eight-seat numbers less one, since a side of two plays two turns a round); a
+  seat holding a whole world alone drafts +3 a turn, whichever world.
+- **As at eight seats:** the Concord (3 rounds, between a split world's houses),
+  the Lane Crown (+2; a house alone wears it with its unclaimed half's gateways
+  too), and Lane Sovereignty at 5 lanes for 3 rounds (listed for five to seven in
+  `LANE_SOVEREIGNTY_ROUNDS_BY_SEATS`).
+
+**1,260 games per seed, live defaults (threshold 60, cap 90); ranges over seeds
+A, B and C, the Concord and Civil War together unless split:**
+
+| Metric | Five seats | Six | Seven |
+|---|---|---|---|
+| Avg game length, Concord / Civil War | 34.8–34.9 / 34.1–35.3 | 37.4–37.9 / 36.5–37.4 | 39.2–40.3 / 38.6–38.9 |
+| Decisive (not turn-limit) | 98.5–99.4% | 98.1–98.8% | 97.5–98.5% |
+| Won by Lane Sovereignty | 33.9–38.3% | 35.7–39.0% | 39.0–43.3% |
+| Territory-leader@turn-10 wins | 47.0–52.1% (baseline 20%) | 43.8–46.3% (16.7%) | 39.2–44.6% (14.3%) |
+| First seat wins | 18.7–22.0% | 15.3–17.7% | 13.7–17.5% |
+| Lane end-owner changes per game | 91–95 | 117–122 | 140–149 |
+| Lane Crown worn (the winner wore it) | 85.8–87.9% (78.5–82.1%) | 84.8–88.1% (77.7–81.2%) | 84.9–87.7% (77.1–81.4%) |
+| A house with a rival / alone, Concord | 19.3–20.1 / 19.9–20.4% | 15.4–16.5 / 16.9–19.2% | 13.8–14.1 / 15.4–17.1% |
+| A house with a rival / alone, Civil War | 19.2–20.2 / 19.9–20.5% | 16.0–16.1 / 17.7–18.1% | 14.2–14.4 / 13.8–14.8% |
+
+| Faction, per seat (Concord / Civil War) | Five seats (band 14.4–25.6%) | Six (12.0–21.3%) | Seven (10.3–18.3%) |
+|---|---|---|---|
+| Sol | 17.7–19.6 / 19.6–22.8% | **11.9**–13.0 / 15.0–16.0% | 11.3–12.4 / 13.0–14.1% |
+| Rust | 19.8–22.2 / 21.1–22.7% | 16.9–19.3 / 17.6–18.6% | 14.7–15.8 / 15.4–16.5% |
+| Verdan | 21.6–23.3 / 20.9–22.2% | 16.6–18.9 / 16.2–17.5% | 13.1–14.1 / 12.1–12.5% |
+| Nexus | 17.2–18.6 / 15.2–15.7% | 17.8–18.3 / 15.8–17.1% | 16.1–16.9 / 15.1–15.6% |
+
+**Allied** (sides, seeds A / B / C; baseline 25%):
+
+| Side | Five seats | Six | Seven |
+|---|---|---|---|
+| Sol | 26.5 / 26.7 / 26.5% | 22.1 / 22.5 / 22.8% | 23.7 / 24.8 / 24.3% |
+| Verdan | 24.0 / 24.5 / 23.7% | 25.6 / 26.9 / 28.3% | 22.8 / 22.7 / 25.5% |
+| Rust | 23.3 / 22.9 / 23.2% | 23.1 / 23.1 / 21.7% | 23.7 / 22.6 / 22.2% |
+| Nexus | 26.2 / 25.9 / 26.6% | 29.2 / 27.5 / 27.2% | 29.8 / 29.8 / 28.0% |
+| Game length (turns) | 29.4–30.2 | 28.5–29.1 | 26.3–27.3 |
+| Won by Lane Sovereignty | 37.7–40.1% | 33.2–36.0% | 36.4–37.9% |
+| Territory-leader@turn-10's side wins | 48.1–52.0% | 54.4–55.3% | 59.0–62.0% |
+| First seat's side wins | 24.4–27.4% | 24.5–27.9% | 22.9–25.3% |
+
+**The gate** is the four-player gate scaled to each count:
+- Decisive ≥ 80%: passes.
+- Every faction within ±28% of 1/seats per seat, on every seed: passes but for
+  one reading. The Mandate at six seats under the Concord won 11.9% on seed C,
+  against a floor of 12.0% (12.8 and 13.0% on A and B). It is the weakest
+  faction at six seats in both relations, and at seven under the Concord
+  (§11).
+- Allied, every side within ±28% of 25% (18–32%) on every seed: passes, at
+  21.7–29.8%.
+- Sovereignty a real ending but not the only one: passes, at 34–43%.
+- Lanes changing hands: passes.
+- The roles: a house with a rival and a house alone are each within ±28% of
+  1/seats on every seed; Allied, a side of two per seat 25.3–30.2% and a seat
+  holding a whole world 19.8–24.2%.
+- Per half and role, pooled over the seeds (sixteen labels a count):
+  - Concord: 14, 11 and 12 of 16 within ±28% at five, six and seven seats.
+    Outside ±40%: the Western Mandate with a rival at five (10.8%, 0.54×) and
+    six (9.7%, 0.58×), Duskrim with a rival at five (31.9%, 1.59×), and the
+    Ward and Berth Custodians alone at seven (1.68× and 1.49×).
+  - Civil War: 13, 15 and 12 of 16 within ±28%. Outside ±40%: Duskrim with a
+    rival at five (1.57×) and Hellas with a rival at seven (1.45×).
+- The four-player elimination limit (30%) does not carry over, as at eight.
+  The Mandate's seats end eliminated in 29.0–33.5% of games at five seats,
+  41.2–47.0% at six and 50.3–53.3% at seven; the other factions' in
+  16.4–37.6%.
+
+**Two, three, four and eight seats are unchanged.** On seed A, two, three and
+four players reproduce main on every line (1,200 games each), and so does 2v2
+at four (480 games). At eight seats, 480 games on seed A:
+- The Concord and Allied houses replay main game for game, except games that
+  also vary between runs of the same code, on stability's unseeded rebellion
+  roll (§1).
+- Concord: over three runs each, games 26 and 158 varied on main and 26 and 365
+  on the branch. One branch run matched main in every game but 26.
+- Allied: game 107 varied on main, and the branch matched main in every other
+  game.
+- On the 1,200-game reports, the Concord differs from main by at most 0.2 point,
+  on 20 lines; main differs from itself by up to 0.3 point, on 28.
+
+The halves' eight-seat numbers, `ALLIED_TUNING` and the eight-seat deal are
+read unchanged.
+
+### How it got there
+
+**As planned: whole worlds, and a catch-up for the houses.** The first board
+dealt every unsplit world whole, as at four seats, with a per-seat-count bonus
+for the houses (`SIM_PARTIAL_HOUSE`, `SIM_PARTIAL_OPENING`, since removed). Seed
+A, 420 games, threshold 60:
+
+| Seats | Catch-up | Houses | Whole worlds |
+|---|---|---|---|
+| 5 | none | 1.8% | 32.1% |
+| 6 | none | 4.1% | 41.9% |
+| 7 | none | 5.0% | 70.0% |
+| 5 | +3 units a tile at the start | 3.7% | 30.9% |
+| 5 | +5 a turn, +3 a tile | 7.7% | 28.2% |
+| 5 | +10 a turn | 8.6% | 27.6% |
+| 5 | +15 a turn | 12.4% | 25.1% |
+| 5 | +10 a turn, +6 a tile | 12.4% | 25.1% |
+| 5 | whole worlds −3 a turn | 2.7% | 31.5% |
+| 5 | the Concord all game | 5.8% | 29.4% |
+| 7 | +5 a turn, +3 a tile | 13.0% | 21.9% |
+
+- The baselines are 20%, 16.7% and 14.3%.
+- Even +15 a turn left Sol's houses at 1.4% and Nexus's at 5.2%. What gain there
+  was came from the Verdan houses, at 37.1%.
+- A house's only land border is its rival, as strong as it is. A whole world
+  starts with twice the land and all four gateways behind lane-capped dice. More
+  units kept houses alive (eliminated 46% → 8% at +15) without letting them win.
+- At seven seats, +5 a turn with +3 a tile came close, at the cost of 51.5-turn
+  games with 9.3% ending at the turn cap.
+
+**The unclaimed half.** Starting the seat alone on half its world, with the
+other half neutral, evened the roles at once (a sim-only prototype, the halves'
+eight-seat numbers in place; seed A, 420 games):
+
+| Garrison (gateway / inland) | Five seats | Six | Seven |
+|---|---|---|---|
+| 6 / 8 | 14.9 / 23.4% | 13.2 / 23.6% | 11.9 / 28.3% |
+| 10 / 12 | 19.8 / 20.2% | 15.0 / 19.9% | 13.1 / 21.4% |
+
+(houses with a rival / the seat alone)
+
+**The halves' numbers.** The eight-seat numbers do not carry over:
+- With them, the houses ran 4.8–51.4% at five seats. Duskrim's +2 and Tharsis's
+  +3 were paid for facing each other; with one of them alone, they overran
+  their neighbours.
+- Plain halves (no numbers) put every faction within ±28% at five and six
+  seats, but left the Western Mandate at 0.1–0.3× its share in every role:
+  Sol's west still has the long border.
+- One number per half then over-served one role. At +3, the Western Mandate
+  alone ran 1.4–1.8× its share while the Western house with a rival stayed at
+  0.6–0.8×. So each half has a number with a rival and one alone.
+- Four rounds of 1,260-game runs at every count, on seed A, led to a first
+  table. By the RMS of the sixteen seat labels around their share (percentage
+  points, five / six / seven seats):
+
+  | Round | RMS |
+  |---|---|
+  | one number per half (Sol +3 / 0) | 6.9 / 5.3 / 5.0 |
+  | a number with a rival and one alone (Sol +4 / 0 with a rival) | 5.2 / 3.7 / 4.2 |
+  | Sol +4 / +1 with a rival, Ward +2, Berth −1 alone | 5.3 / 4.1 / 4.0 |
+  | Sol +5 / +2 with a rival | 6.0 / 4.4 / 5.5 |
+
+  - Past this point the runs moved within their own noise. The same number read
+    1.19× and 1.54× on consecutive runs, one seed each.
+  - So a table was fixed from the second and third rounds (with a rival: Sol
+    +4 / 0, Dawnrim +1, Ward +2) and measured on three seeds.
+- **That table failed at seven seats.** It held every faction within ±28% at
+  five and six, but at seven the Mandate won 10.0–10.9% under the Concord and
+  the Custodians 17.8–19.4%, against a band of 10.3–18.3%: outside it on every
+  seed, one faction or the other. Pooled over the seeds, both Sol houses fell
+  short with a rival, and the houses beside them on the ring, the Dawnrim
+  Navigators and the Ward Custodians, won what they lost.
+- **The shipped table** moves a unit a turn to each Sol house with a rival,
+  from the Dawnrim Navigators and the Ward Custodians with a rival. At seven
+  seats under the Concord that moved the Mandate to 11.3–12.4% and the
+  Custodians to 16.1–16.9%, inside the band on every seed. At six it did not
+  help: the Mandate stayed at 11.9–13.0% (12.4–12.6% before). Its two houses
+  on a split world eliminate each other in 11–20% of games there, and a unit a
+  turn more for both did not raise their share.
+
+**Allied: whole worlds, and a side of two against a side of one.** A seat alone
+on its world holds all of it here, so each side opens on one world. A side of
+two still plays two turns a round:
+
+| Allied numbers (house / whole world) | Five seats | Six | Seven |
+|---|---|---|---|
+| none (the eight-seat `ALLIED_TUNING` only) | 35.0 / 21.7% | 35.5 / 14.5% | 29.9 / 10.2% |
+| −1 / +2 | 29.3 / 23.6% | 29.9 / 20.1% | 25.7 / 22.9% |
+| −1 / +3 (shipped) | 27.1 / 24.3% | 30.4 / 19.6% | 25.3 / 24.0% |
+
+(win rate per seat on a side of two / on a side of one; baseline 25%, since a
+side wins whole. Seed A, 420 games.)
+
+The eight-seat numbers less one, by world, then passed on three seeds
+(`PARTIAL_ALLIED_TUNING`, above). Averaged over the deal every side passes, but
+a side's chances depend on whether its world splits (1,260 games × 3 seeds,
+pooled):
+
+| Side | Five seats | Six | Seven |
+|---|---|---|---|
+| Sol | 17.7 / 29.6% | 17.8 / 27.1% | 18.2 / 42.4% |
+| Verdan | 24.7 / 23.9% | 30.3 / 23.7% | 23.6 / 23.9% |
+| Rust | 44.2 / 16.0% | 38.5 / 6.7% | 29.8 / 1.9% |
+| Nexus | 26.6 / 26.1% | 31.1 / 24.8% | 30.6 / 25.0% |
+
+(the side's win rate when its world splits, a side of two / when one seat holds
+it whole; baseline 25%)
+
+Three screens tried to even that out (seed A, 1,260 games at each count):
+- **Sol's houses 0 and its whole world +1, Rust's houses 0 and whole +7,
+  Nexus's houses −1:** the Sol side won 32.8–48.8%, outside the gate at every
+  count, and a lone Rust seat still 7.3% at seven.
+- **Sol's houses −1 and whole +1, Rust's houses +1 and whole +8:** the Sol side
+  30.3–33.7%, and a lone Rust seat 7.0% at seven.
+- **Rust's houses +1, and whole-world numbers by seat count** (Rust +8 / +12 /
+  +14, Sol +2 / +3 / 0): a lone Rust seat 14.6–18.9%, but the Sol side 32.4% at
+  five, Verdan's 32.8% at seven, and the Custodian houses 15.1–15.2% at five
+  and six.
+
+The numbers are coupled round the ring. At five seats with Sol split, the
+third screen changed only the lone Rust seat's number (+3 → +8). That seat
+stayed where it was (20.0 → 19.4%), and 13 points moved from Nexus to the Sol
+houses (15.6 → 29.2%): a stronger Rust seat wears down Verdan and Nexus, and
+the Sol houses, which border both, take the gain.
+
+So the validated numbers ship, and evening out each configuration is left to a
+search over whole-world numbers by seat count (§11).
+
+## 11. Open
 
 - **Sol is the most often eliminated seat** (~25%; 29.1–29.6% with
   Sovereignty off, just inside the 30% limit). Verdan's +2 reinforcements are
@@ -876,15 +1128,23 @@ players (5), four as four (3).
   difference.
 - **Verdan against the Custodians** is still the most lopsided duel, 64–74%
   (§7), though inside the gate since the duel bonus.
-- **Five to seven players** have no board yet; the create route, the join cap
-  and game start hold the era to two to four, or eight (docs/GALACTIC_AGE_MODES.md).
-- **The Schism's house numbers were tuned against the AI** (§8), which never
-  breaks a truce and drafts everything onto one tile. Houses played by people
-  may want them retuned; the per-turn form was chosen so a retune never needs a
-  lopsided opening.
+- **The Schism's house numbers were tuned against the AI** (§8, §10), which
+  never breaks a truce and drafts everything onto one tile. Houses played by
+  people may want them retuned; the per-turn form was chosen so a retune never
+  needs a lopsided opening.
 - **The Schism's elimination rates** are those of an eight-player game: the
   Eastern Mandate ends eliminated in ~69% of games. Nothing in the four-player
-  gate covers that yet.
+  gate covers that yet. At five to seven seats the Mandate's seats end
+  eliminated in 29–53% of games (§10).
+- **The Mandate is the weakest faction at six seats, and at seven under the
+  Concord** (§10): 11.9–13.0% at six under the Concord, once just under the
+  band (12.0%), and 11.3–12.4% at seven. Under the Concord its two houses on a split world win 0.54–0.75× their
+  share at five and six seats (0.69–1.11× in Civil War), and a unit a turn more
+  for both did not help. A per-count number, or a lever aimed at the Concord's
+  three rounds, is the next thing to try.
+- **The Partial Schism's halves are uneven at the edges** (§10): Duskrim with a
+  rival wins ~1.6× its share at five seats, and the Custodian houses alone
+  1.5–1.7× at seven.
 - **Allied Sol houses end eliminated in 53–55% of games** (§9), though their
   side wins its share: one Sol house often holds on for both.
 - **2v2 snowballs**: the side leading at turn 10 wins ~83% of games against a
@@ -892,9 +1152,23 @@ players (5), four as four (3).
   read the snowball; the 1v1 duel (§7) sits at ~72%.
 - **Team numbers were tuned against the AI**, which does not coordinate with
   its ally. Two people on one side may play it differently.
+- **Allied lone seats depend on their world** (§10). A seat holding Rust alone
+  wins 16.0% at five seats, 6.7% at six and 1.9% at seven; one holding Sol
+  alone wins 42.4% at seven; Rust's houses as a side of two win 44.2% at five.
+  Every side passes the gate averaged over the deal. The numbers are coupled
+  round the ring, so evening out each configuration wants a search over
+  whole-world numbers by seat count, not another hand retune.
 
 ## History
 
+- **2026-09-30 (Partial Schism):** five to seven seats on the Galactic Age
+  (§10). One world splits for each seat over four. A world dealt to one seat
+  has one house, alone on half of it, and its other half opens unclaimed
+  (garrison 9 / 11, 10 / 12 and 12 / 14). Each half has units a turn with a
+  rival and alone. Allied, a seat alone holds its world whole, with numbers by
+  world. Every faction within the gate on every seed but one reading (the
+  Mandate at six seats under the Concord, 11.9% against 12.0%); Allied sides
+  21.7–29.8%. Two, three, four and eight seats unchanged.
 - **2026-09-30 (Teams):** Allied houses at eight seats and 2v2 at four (§9),
   on engine-wide team rules: no friendly fire, an opening ceasefire, shared
   regions, lanes, vision and victory. 2v2 pairs the worlds across the ring's

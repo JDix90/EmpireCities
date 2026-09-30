@@ -347,11 +347,11 @@ describe('LobbyPage Custom Game — Galactic Age seats', () => {
     expect(body.max_players).toBe(4);
   });
 
-  it('refuses a fifth seat before sending the form', async () => {
+  it('refuses a fifth seat without the Schism before sending the form, and says to switch it on', async () => {
     renderGalactic();
     await screen.findByText('Advanced Features');
     fireEvent.change(screen.getByDisplayValue('3 AI opponents'), { target: { value: '4' } });
-    expect(await screen.findByText(/Galactic Age seats 2 to 4 players/)).toBeInTheDocument();
+    expect(await screen.findByText(/More than 4 players need the Schism/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Create & Enter Lobby/ }));
     await new Promise((r) => setTimeout(r, 50));
     expect(postMock).not.toHaveBeenCalledWith('/games', expect.anything());
@@ -360,10 +360,10 @@ describe('LobbyPage Custom Game — Galactic Age seats', () => {
   it('asks for eight seats and sends the house relations when the Schism is on', async () => {
     renderGalactic();
     await screen.findByText('Advanced Features');
-    fireEvent.click(screen.getByLabelText(/Schism \(eight players\)/));
+    fireEvent.click(screen.getByLabelText(/Schism \(five to eight players\)/));
     fireEvent.change(screen.getByDisplayValue('3 AI opponents'), { target: { value: '7' } });
     fireEvent.change(screen.getByLabelText('House Relations'), { target: { value: 'civil_war' } });
-    expect(screen.queryByText(/Galactic Age seats 2 to 4 players/)).toBeNull();
+    expect(screen.queryByText(/Galactic Age seats 2 to 8 players|need the Schism/)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /Create & Enter Lobby/ }));
     await waitFor(() => expect(postMock).toHaveBeenCalledWith('/games', expect.anything()));
     const body = postMock.mock.calls.find(([url]) => url === '/games')![1] as {
@@ -378,10 +378,10 @@ describe('LobbyPage Custom Game — Galactic Age seats', () => {
     renderGalactic();
     await screen.findByText('Advanced Features');
     expect(screen.queryByLabelText('House Relations')).toBeNull();
-    fireEvent.click(screen.getByLabelText(/Schism \(eight players\)/));
+    fireEvent.click(screen.getByLabelText(/Schism \(five to eight players\)/));
     expect((screen.getByLabelText('House Relations') as HTMLSelectElement).value).toBe('concord');
     // Off again: back to four seats, and nothing about houses.
-    fireEvent.click(screen.getByLabelText(/Schism \(eight players\)/));
+    fireEvent.click(screen.getByLabelText(/Schism \(five to eight players\)/));
     fireEvent.click(screen.getByRole('button', { name: /Create & Enter Lobby/ }));
     await waitFor(() => expect(postMock).toHaveBeenCalledWith('/games', expect.anything()));
     const body = postMock.mock.calls.find(([url]) => url === '/games')![1] as {
@@ -394,9 +394,9 @@ describe('LobbyPage Custom Game — Galactic Age seats', () => {
   it('needs Home Worlds for the Schism', async () => {
     renderGalactic();
     await screen.findByText('Advanced Features');
-    fireEvent.click(screen.getByLabelText(/Schism \(eight players\)/));
+    fireEvent.click(screen.getByLabelText(/Schism \(five to eight players\)/));
     fireEvent.click(screen.getByLabelText('Home Worlds'));
-    const schism = screen.getByLabelText(/Schism \(eight players\)/) as HTMLInputElement;
+    const schism = screen.getByLabelText(/Schism \(five to eight players\)/) as HTMLInputElement;
     expect(schism.disabled).toBe(true);
     expect(schism.checked).toBe(false);
     expect(screen.queryByLabelText('House Relations')).toBeNull();
@@ -406,10 +406,10 @@ describe('LobbyPage Custom Game — Galactic Age seats', () => {
     renderGalactic();
     await screen.findByText('Advanced Features');
     fireEvent.click(checkbox('create-game-victory-secret_mission'));
-    fireEvent.click(screen.getByLabelText(/Schism \(eight players\)/));
+    fireEvent.click(screen.getByLabelText(/Schism \(five to eight players\)/));
     fireEvent.change(screen.getByDisplayValue('3 AI opponents'), { target: { value: '7' } });
     fireEvent.change(screen.getByLabelText('House Relations'), { target: { value: 'allied' } });
-    expect(screen.getByText(/Four teams of two: a world's houses never attack each other/)).toBeInTheDocument();
+    expect(screen.getByText(/Every world is one team: its two houses, or with five to seven players the one player holding it whole/)).toBeInTheDocument();
     expect(screen.getByText(/A team wins if it meets any checked condition/)).toBeInTheDocument();
     const mission = checkbox('create-game-victory-secret_mission');
     expect(mission.disabled).toBe(true);
@@ -430,7 +430,7 @@ describe('LobbyPage Custom Game — Galactic Age seats', () => {
     renderGalactic();
     await screen.findByText('Advanced Features');
     fireEvent.click(checkbox('create-game-victory-secret_mission'));
-    fireEvent.click(screen.getByLabelText(/Schism \(eight players\)/));
+    fireEvent.click(screen.getByLabelText(/Schism \(five to eight players\)/));
     fireEvent.change(screen.getByLabelText('House Relations'), { target: { value: 'allied' } });
     fireEvent.change(screen.getByLabelText('House Relations'), { target: { value: 'civil_war' } });
     expect(checkbox('create-game-victory-secret_mission')).toMatchObject({ disabled: false, checked: true });
@@ -469,9 +469,9 @@ describe('LobbyPage Custom Game — Galactic Age seats', () => {
     renderGalactic();
     await screen.findByText('Advanced Features');
     fireEvent.click(screen.getByLabelText(/2v2 \(four players\)/));
-    fireEvent.click(screen.getByLabelText(/Schism \(eight players\)/));
+    fireEvent.click(screen.getByLabelText(/Schism \(five to eight players\)/));
     expect(screen.queryByLabelText(/2v2 \(four players\)/)).toBeNull();
-    fireEvent.click(screen.getByLabelText(/Schism \(eight players\)/));
+    fireEvent.click(screen.getByLabelText(/Schism \(five to eight players\)/));
     fireEvent.click(screen.getByLabelText('Home Worlds'));
     const twoVersusTwo = screen.getByLabelText(/2v2 \(four players\)/) as HTMLInputElement;
     expect(twoVersusTwo.disabled).toBe(true);

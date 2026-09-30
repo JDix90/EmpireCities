@@ -194,7 +194,23 @@ export interface GalaxySchismHouse {
   reinforce_bonus?: number;
 }
 
-/** Galactic Age Schism board (eight seats): two houses to every world. Mirrors backend types. */
+/**
+ * One seat of an Allied Partial Schism (five to seven seats) alone on its
+ * faction's world: a side of one, holding the whole world. Mirrors backend types.
+ */
+export interface GalaxySchismWholeWorld {
+  player_id: string;
+  world_id: string;
+  /** Units a turn this seat drafts on top of its kit. */
+  reinforce_bonus?: number;
+}
+
+/**
+ * Galactic Age Schism board: two houses to every world at eight seats; at five
+ * to seven (the Partial Schism) one world per seat over four. Each other world
+ * has one house, its other half unclaimed, or with Allied houses one seat
+ * holding it whole. Mirrors backend types.
+ */
 export interface GalaxySchismMode {
   id: 'schism';
   relations: GalaxyHouseRelations;
@@ -202,7 +218,16 @@ export interface GalaxySchismMode {
   concord_rounds: number;
   /** Units a turn the Lane Crown is worth in this game (0 when the houses are Allied). */
   lane_crown_bonus: number;
+  /**
+   * One per seat on a half of its world, in seat order: every seat, except an
+   * Allied Partial Schism's seats holding whole worlds. A world with one house
+   * has its other half unclaimed.
+   */
   houses: GalaxySchismHouse[];
+  /** An Allied Partial Schism's seats alone on their worlds, in seat order (absent otherwise). */
+  whole_worlds?: GalaxySchismWholeWorld[];
+  /** The garrison each unclaimed half opened with (a Partial Schism under the Concord or in Civil War). */
+  unclaimed_garrison?: { gateway: number; interior: number };
   /** Each world's gateway tiles: a house holding all of its home world's wears the Lane Crown. */
   crown_gateways: Record<string, string[]>;
   lanes?: Array<{ from: string; to: string }>;

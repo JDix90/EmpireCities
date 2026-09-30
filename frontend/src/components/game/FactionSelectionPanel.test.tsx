@@ -1,8 +1,8 @@
 /**
  * The waiting room's faction picker holds each faction to the seats it may
- * take: one, or two in a Galactic Age Schism lobby, where every world's faction
- * is dealt to two houses (backend lobbyCapacity.seatsPerFaction, which the
- * faction-select endpoint enforces).
+ * take: one, or two in a Galactic Age lobby of five seats or more, where a
+ * faction picked twice splits its world between two houses (backend
+ * lobbyCapacity.seatsPerFaction, which the faction-select endpoint enforces).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -60,6 +60,11 @@ describe('FactionSelectionPanel — seats per faction', () => {
     expect((await option('Forge Syndicate')).disabled).toBe(false);
   });
 
+  it('keeps a faction open for a second house in a five-seat lobby', async () => {
+    render(<FactionSelectionPanel lobby={lobby(5, ['stellar_mandate'])} eraId="galaxy_age" />);
+    expect((await option('Stellar Mandate')).disabled).toBe(false);
+  });
+
   it('closes a faction at one seat in any other lobby', async () => {
     render(<FactionSelectionPanel lobby={lobby(4, ['stellar_mandate'])} eraId="galaxy_age" />);
     expect((await option('Stellar Mandate')).disabled).toBe(true);
@@ -86,9 +91,16 @@ describe('FactionSelectionPanel — a team lobby', () => {
     expect(screen.getByTestId('faction-team-note')).toHaveTextContent(/Pick the same faction as a friend/);
   });
 
-  it('adds nothing to a free-for-all lobby', async () => {
-    render(<FactionSelectionPanel lobby={lobby(8, [], { galaxy_house_relations: 'concord' })} eraId="galaxy_age" />);
+  it('names no team in a free-for-all lobby, and says how a Schism shares worlds', async () => {
+    const { unmount } = render(<FactionSelectionPanel lobby={lobby(8, [], { galaxy_house_relations: 'concord' })} eraId="galaxy_age" />);
     await screen.findByRole('option', { name: 'Stellar Mandate' });
     expect(screen.queryByTestId('faction-team-note')).toBeNull();
+    expect(screen.getByTestId('faction-schism-note')).toHaveTextContent(/two players on one faction split its world/);
+    unmount();
+
+    render(<FactionSelectionPanel lobby={lobby(4, [])} eraId="galaxy_age" />);
+    await screen.findByRole('option', { name: 'Stellar Mandate' });
+    expect(screen.queryByTestId('faction-team-note')).toBeNull();
+    expect(screen.queryByTestId('faction-schism-note')).toBeNull();
   });
 });

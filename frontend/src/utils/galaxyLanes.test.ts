@@ -20,6 +20,7 @@ import {
   holdsLaneCrown,
   schismHouseOf,
   schismRivalOf,
+  schismWholeWorldOf,
   describeConvoy,
   describeLaneKind,
   laneKindOf,
@@ -323,10 +324,12 @@ describe('the Colonies board', () => {
 });
 
 describe('the Schism board', () => {
+  // Two worlds of an eight-seat board: every world has two houses.
   const houses = [
     { player_id: 'me', world_id: 'sol', half: 0 as const, name: 'Western Mandate' },
     { player_id: 'rival', world_id: 'sol', half: 1 as const, name: 'Eastern Mandate' },
     { player_id: 'far', world_id: 'verdan', half: 0 as const, name: 'Dawnrim Navigators' },
+    { player_id: 'farther', world_id: 'verdan', half: 1 as const, name: 'Duskrim Navigators' },
   ];
   const schism = (relations: 'concord' | 'civil_war' | 'allied', owners: Record<string, string> = {}) => ({
     players: [
@@ -407,6 +410,78 @@ describe('the Schism board', () => {
     expect(lines[0]).toMatch(/^Eight houses, two to every world/);
     expect(lines[1]).toBe("The Concord: each world's two houses start under a truce for the first 3 rounds.");
     expect(describeSchism(mkState(), 'me', mapData)).toEqual([]);
+  });
+});
+
+describe('the Partial Schism board', () => {
+  // Five seats: Sol shared by two houses, Verdan and Nexus with one seat each.
+  const partial = (relations: 'concord' | 'civil_war' | 'allied') => ({
+    players: [
+      { player_id: 'me', username: 'Commander' },
+      { player_id: 'rival', username: 'Rival' },
+      { player_id: 'far', username: 'Far' },
+      { player_id: 'near', username: 'Near' },
+    ],
+    territories: {},
+    galaxy_mode: {
+      id: 'schism' as const,
+      relations,
+      concord_rounds: relations === 'concord' ? 3 : 0,
+      lane_crown_bonus: relations === 'allied' ? 0 : 2,
+      houses: [
+        { player_id: 'me', world_id: 'sol', half: 0 as const, name: 'Western Mandate' },
+        { player_id: 'rival', world_id: 'sol', half: 1 as const, name: 'Eastern Mandate' },
+        ...(relations === 'allied' ? [] : [
+          { player_id: 'far', world_id: 'verdan', half: 1 as const, name: 'Duskrim Navigators' },
+          { player_id: 'near', world_id: 'nexus_station', half: 0 as const, name: 'Ward Custodians', reinforce_bonus: 1 },
+        ]),
+      ],
+      ...(relations === 'allied'
+        ? { whole_worlds: [
+          { player_id: 'far', world_id: 'verdan' },
+          { player_id: 'near', world_id: 'nexus_station', reinforce_bonus: 2 },
+        ] }
+        : { unclaimed_garrison: { gateway: 9, interior: 11 } }),
+      crown_gateways: {},
+    },
+  }) as unknown as GameState;
+
+  it("briefs a house alone on its world on the unclaimed half, and the Crown it can win", () => {
+    expect(describeSchism(partial('concord'), 'far', mapData)).toEqual([
+      'You are the Duskrim Navigators, alone on Verdan Reach: its other half starts unclaimed, with 9 units on each gateway and 11 inland. Take it and the world is yours.',
+      'Sol III is shared by two rival houses. The Concord: the two houses on Sol III start under a truce for the first 3 rounds.',
+      "The Lane Crown: hold all four of Verdan Reach's gateways, your two and the unclaimed half's, and you draft +2 reinforcements a turn.",
+    ]);
+    expect(describeSchism(partial('civil_war'), 'near', mapData).slice(1, 3)).toEqual([
+      'Your half is the harder ground: the Ward Custodians drafts +1 a turn on top of the kit.',
+      'Sol III is shared by two rival houses. Civil War: the two houses on Sol III are enemies from the first turn.',
+    ]);
+    expect(schismRivalOf(partial('concord'), 'far')).toBeNull();
+  });
+
+  it('briefs an Allied seat on its whole world, and the number it drafts', () => {
+    expect(describeSchism(partial('allied'), 'near', mapData)).toEqual([
+      'You hold all of Nexus Station, a side of your own. Sol III is shared by two Allied houses, a side together.',
+      'Alone against sides of two, you draft +2 a turn on top of the kit.',
+    ]);
+    expect(describeSchism(partial('allied'), 'far', mapData)).toHaveLength(1);
+    expect(schismWholeWorldOf(partial('allied'), 'near')).toMatchObject({ world_id: 'nexus_station' });
+    expect(schismWholeWorldOf(partial('concord'), 'near')).toBeNull();
+  });
+
+  it('briefs a spectator on which worlds are shared, and a house with a rival as at eight seats', () => {
+    expect(describeSchism(partial('concord'), null, mapData)).toEqual([
+      'Sol III is shared by two houses, who split the world and share its kit. Every other world has one house on half of it: the other half starts unclaimed, with 9 units on each gateway and 11 inland.',
+      'The Concord: the two houses on Sol III start under a truce for the first 3 rounds.',
+      "The Lane Crown: a house that holds all four of its world's gateways drafts +2 reinforcements a turn.",
+    ]);
+    expect(describeSchism(partial('allied'), null, mapData)).toEqual([
+      'Sol III is shared by two houses, who split the world and share its kit; every other world is held whole by one player.',
+      'Allied: every world is one side — its two houses, or the one player holding it.',
+    ]);
+    expect(describeSchism(partial('concord'), 'me', mapData)[0]).toBe(
+      'You are the Western Mandate. The Eastern Mandate (Rival) holds the rest of Sol III, with the same kit.',
+    );
   });
 });
 

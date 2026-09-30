@@ -1,11 +1,25 @@
 // ============================================================
-// Galactic Age Schism — eight seats, two houses to every world
+// Galactic Age Schism — two houses to a world, at five to eight seats
 // ============================================================
 //
 // At eight seats every world is shared. Each faction is dealt to two seats, and
 // each of the two — a HOUSE — opens on one half of the faction's home world
 // with the faction's kit: the same abilities on both, told apart by house name
 // and colour. Every house has a rival at home and enemies across its lanes.
+//
+// At five to seven seats (the PARTIAL SCHISM) only as many worlds split as
+// there are seats over four; each other world is dealt to one seat. Which
+// worlds split follows the faction picks (two seats on one faction split its
+// world); the deal fills in the rest. Under the Concord or in Civil War every
+// seat is still a house on half a world: a house alone on its world faces not a
+// rival but its world's UNCLAIMED half, which opens neutral and garrisoned like
+// a colony. Measured, nothing else could even the seats out: a seat on a whole
+// world against houses on halves won three to seven times as often, and no
+// number of extra units for the houses closed it (GALAXY-BALANCE.md §10).
+// Allied, every world is one side, so a seat alone on its world holds all of
+// it, as at four seats. The halves' eight-seat numbers even a world's two halves
+// against each other with a rival on every world; the partial board has its
+// own (PARTIAL_SCHISM_HALVES, PARTIAL_SCHISM_TUNING).
 //
 // The halves are authored (SCHISM_HALVES) because the four worlds do not split
 // the same way. Every half is connected, the two halves of a world are the same
@@ -33,10 +47,10 @@
 // game (galaxyTeams.ts), which never fights the other.
 //
 // The LANE CROWN: a house holding all four of its home world's gateways (its own
-// two and its rival's) drafts extra units every turn it holds them. Schism-only:
-// at four seats every player holds their whole world from the first turn. Not
-// worn by Allied houses either, for the same reason: between them they hold
-// their whole world from the first turn.
+// two and its rival's, or its unclaimed half's) drafts extra units every turn it
+// holds them. Schism-only: at four seats every player holds their whole world
+// from the first turn. Not worn by Allied houses either, for the same reason:
+// between them they hold their whole world from the first turn.
 
 import { randomInt } from 'crypto';
 import type {
@@ -45,11 +59,12 @@ import type {
   GalaxyHouseRelations,
   GalaxySchismHouse,
   GalaxySchismMode,
+  GalaxySchismWholeWorld,
   GameMap,
   GameState,
 } from '../../types';
 import { getEraFactions } from '../eras';
-import { factionHomeWorld, GALAXY_HOME_WORLD_IDS, GALAXY_SCHISM_SEATS } from './galaxyModes';
+import { factionHomeWorld, GALAXY_CLASSIC_SEATS, GALAXY_HOME_WORLD_IDS, GALAXY_SCHISM_SEATS } from './galaxyModes';
 import { gatewaysByWorld } from './galaxyRing';
 import { vaultRegionGarrisons } from './worldRules';
 
@@ -91,6 +106,54 @@ export const ALLIED_TUNING: Record<string, { reinforce: number; opening: number 
   verdan: { reinforce: 0, opening: 0 },
   rust: { reinforce: 3, opening: 0 },
   nexus_station: { reinforce: 1, opening: 0 },
+};
+
+/**
+ * The garrison a lone house's unclaimed half opens with, by seat count, on its
+ * gateway tiles (the ends of its lanes) and inland: a Partial Schism under the
+ * Concord or in Civil War. ⚠ Balance: measured in
+ * backend/scripts/GALAXY-BALANCE.md §10; the sim's SIM_PARTIAL_UNCLAIMED
+ * patches this object. Recorded on the board when it is dealt.
+ */
+export const PARTIAL_SCHISM_TUNING: Record<number, { unclaimed: { gateway: number; interior: number } }> = {
+  5: { unclaimed: { gateway: 9, interior: 11 } },
+  6: { unclaimed: { gateway: 10, interior: 12 } },
+  7: { unclaimed: { gateway: 12, interior: 14 } },
+};
+
+/**
+ * Allied houses' numbers at five to seven seats, by world, in place of
+ * ALLIED_TUNING (measured with four sides of two): units a turn on top of the
+ * kit for each house of a side of two, and for a seat holding the whole world
+ * alone, a side of one. A side of two plays two turns a round. ⚠ Balance:
+ * measured in backend/scripts/GALAXY-BALANCE.md §10; the sim's
+ * SIM_PARTIAL_ALLIED patches this object. Recorded on each seat when the board
+ * is dealt.
+ */
+export const PARTIAL_ALLIED_TUNING: Record<string, { house: number; whole: number }> = {
+  sol: { house: -2, whole: 3 },
+  verdan: { house: -1, whole: 3 },
+  rust: { house: 2, whole: 3 },
+  nexus_station: { house: 0, whole: 3 },
+};
+
+/**
+ * Units a turn for the house on each half of a world at five to seven seats,
+ * under the Concord or in Civil War, in the order of SCHISM_HALVES' halves:
+ *   rival: a house sharing its world, which evens a world's two halves against
+ *     each other, as the halves' own numbers do at eight seats;
+ *   alone: a house alone on its world, against its unclaimed half.
+ * They replace the halves' eight-seat numbers (`reinforce_bonus`,
+ * `opening_bonus`), which were measured with a rival on every world and a
+ * rival on each of its neighbours. ⚠ Balance: measured in
+ * backend/scripts/GALAXY-BALANCE.md §10; the sim's SIM_PARTIAL_HALVES patches
+ * this object. Recorded on each house when the board is dealt.
+ */
+export const PARTIAL_SCHISM_HALVES: Record<string, { rival: [number, number]; alone: [number, number] }> = {
+  sol: { rival: [5, 1], alone: [1, 0] }, // Western, Eastern Mandate
+  verdan: { rival: [0, -2], alone: [1, -1] }, // Dawnrim, Duskrim Navigators
+  rust: { rival: [-1, 1], alone: [-2, 2] }, // Tharsis, Hellas Syndicate
+  nexus_station: { rival: [1, 0], alone: [0, 0] }, // Ward, Berth Custodians
 };
 
 export interface SchismHalf {
@@ -213,15 +276,24 @@ export const SCHISM_HALVES: Readonly<Record<string, readonly [SchismHalf, Schism
   ],
 };
 
-/** A Schism deal: the Galactic Age on its galaxy map, at eight seats. */
+/**
+ * A Schism deal: the Galactic Age on its galaxy map, at five to eight seats
+ * (five to seven are the Partial Schism).
+ */
 export function isSchismSeating(era: EraId, map: GameMap, seats: number): boolean {
-  return era === 'galaxy_age' && map.map_kind === 'galaxy' && seats === GALAXY_SCHISM_SEATS;
+  return era === 'galaxy_age' && map.map_kind === 'galaxy'
+    && seats > GALAXY_CLASSIC_SEATS && seats <= GALAXY_SCHISM_SEATS;
+}
+
+/** How many worlds split at this many seats: one per seat over four, every world at eight. */
+export function schismSplitWorldCount(seats: number): number {
+  return Math.max(0, Math.min(GALAXY_HOME_WORLD_IDS.size, seats - GALAXY_CLASSIC_SEATS));
 }
 
 /**
- * The factions a Schism game deals, two seats each: every era faction whose
- * home regions lie on one of the four worlds, one per world. Null when the era
- * does not have exactly that (no Schism is dealt then).
+ * The factions a Schism game deals: every era faction whose home regions lie on
+ * one of the four worlds, one per world. Null when the era does not have
+ * exactly that (no Schism is dealt then).
  */
 function schismFactions(era: EraId, map: GameMap): Map<string, string> | null {
   const out = new Map<string, string>();
@@ -232,7 +304,7 @@ function schismFactions(era: EraId, map: GameMap): Map<string, string> | null {
     out.set(f.faction_id, world);
     worlds.add(world);
   }
-  return out.size * 2 === GALAXY_SCHISM_SEATS && worlds.size === GALAXY_HOME_WORLD_IDS.size ? out : null;
+  return out.size === GALAXY_HOME_WORLD_IDS.size && worlds.size === GALAXY_HOME_WORLD_IDS.size ? out : null;
 }
 
 function shuffle<T>(items: T[], rng: SchismRng): T[] {
@@ -244,11 +316,18 @@ function shuffle<T>(items: T[], rng: SchismRng): T[] {
 }
 
 /**
- * Deal each world's faction to exactly two seats, in place. A seat's own pick
- * stands while its faction has a slot left; when three or more seats pick one
- * faction, two of them keep it (drawn by `rng`) and the rest join the seats with
- * no pick, which take the slots left in shuffled order. Returns false, changing
- * nothing, when this is not a Schism deal.
+ * Deal every world's faction to one or two seats, in place, so that exactly
+ * `schismSplitWorldCount` worlds have two: all four at eight seats.
+ *   • A seat's own pick stands while its faction has a seat left. When three or
+ *     more seats pick one faction, two of them keep it (drawn by `rng`).
+ *   • At five to seven seats, when more factions were picked twice than worlds
+ *     may split, the pairs that stand are drawn, and each other gives one seat
+ *     back (drawn too).
+ *   • Every seat without a faction then takes one: first a faction nobody
+ *     holds, then a second seat on each world still to split, a world nobody
+ *     picked before one a seat picked alone, so a lone pick keeps its world
+ *     whole where it can.
+ * Returns false, changing nothing, when this is not a Schism deal.
  */
 export function dealSchismFactions(
   era: EraId,
@@ -259,12 +338,12 @@ export function dealSchismFactions(
   if (!isSchismSeating(era, map, players.length)) return false;
   const factions = schismFactions(era, map);
   if (!factions) return false;
+  const split = schismSplitWorldCount(players.length);
 
-  const slots = new Map<string, number>([...factions.keys()].map((f) => [f, 2]));
   const wanting = new Map<string, number[]>();
   const unassigned: number[] = [];
   players.forEach((p, idx) => {
-    if (p.faction_id && slots.has(p.faction_id)) {
+    if (p.faction_id && factions.has(p.faction_id)) {
       const list = wanting.get(p.faction_id) ?? [];
       list.push(idx);
       wanting.set(p.faction_id, list);
@@ -272,16 +351,40 @@ export function dealSchismFactions(
       unassigned.push(idx);
     }
   });
+  const kept = new Map<string, number[]>();
   for (const [factionId, seats] of wanting) {
     const keep = seats.length > 2 ? shuffle(seats, rng).slice(0, 2) : seats;
-    for (const idx of seats) {
-      if (keep.includes(idx)) slots.set(factionId, slots.get(factionId)! - 1);
-      else unassigned.push(idx);
+    for (const idx of seats) if (!keep.includes(idx)) unassigned.push(idx);
+    kept.set(factionId, keep);
+  }
+  const pairs = [...kept.entries()].filter(([, seats]) => seats.length === 2).map(([factionId]) => factionId);
+  if (pairs.length > split) {
+    const standing = new Set(shuffle([...pairs], rng).slice(0, split));
+    for (const factionId of pairs) {
+      if (standing.has(factionId)) continue;
+      const seats = kept.get(factionId)!;
+      const out = rng(0, 2);
+      unassigned.push(seats[out]!);
+      kept.set(factionId, [seats[1 - out]!]);
     }
-    for (const idx of keep) players[idx]!.faction_id = factionId;
+  }
+  for (const [factionId, seats] of kept) for (const idx of seats) players[idx]!.faction_id = factionId;
+
+  // Seats each faction ends with: two on the worlds that split, one elsewhere.
+  const held = (factionId: string) => kept.get(factionId)?.length ?? 0;
+  const target = new Map<string, number>([...factions.keys()].map((f) => [f, held(f) === 2 ? 2 : 1]));
+  let toSplit = split - [...target.values()].filter((n) => n === 2).length;
+  // A tier is drawn from only when not all of it splits.
+  const tier = (list: string[]) => (list.length > toSplit ? shuffle(list, rng) : list);
+  for (const list of [[...factions.keys()].filter((f) => held(f) === 0), [...factions.keys()].filter((f) => held(f) === 1)]) {
+    for (const factionId of tier(list)) {
+      if (toSplit <= 0) break;
+      target.set(factionId, 2);
+      toSplit--;
+    }
   }
   const left = shuffle(
-    [...slots.entries()].flatMap(([factionId, n]) => Array.from({ length: n }, () => factionId)),
+    [...target.entries()].flatMap(([factionId, n]) => Array.from({ length: n - held(factionId) }, () => factionId)),
     rng,
   );
   unassigned.sort((a, b) => a - b).forEach((idx, i) => {
@@ -313,10 +416,12 @@ export function schismHalvesFor(map: GameMap): Readonly<Record<string, readonly 
 
 /**
  * The Schism board for these seats, or null when this game does not deal one
- * (not eight seats, or the seats are not two to a faction's world, or the map
- * is not the one the halves were authored for). Which of a world's two houses
- * takes which half is drawn by `rng`, unless `forceHalves` (player id → half)
- * says; the houses are listed in seat order.
+ * (not five to eight seats, or the seats are not one or two to each faction's
+ * world with the right number of worlds split, or the map is not the one the
+ * halves were authored for). Which of a world's two houses takes which half,
+ * and which half a house alone on its world opens on, is drawn by `rng` unless
+ * `forceHalves` (player id → half) says. Houses and whole-world seats are
+ * listed in seat order.
  */
 export function schismLayout(
   era: EraId,
@@ -336,28 +441,52 @@ export function schismLayout(
     if (!world) return null;
     seatsByWorld.set(world, [...(seatsByWorld.get(world) ?? []), i]);
   }
-  if ([...seatsByWorld.values()].some((seats) => seats.length !== 2)) return null;
+  const counts = [...seatsByWorld.values()].map((seats) => seats.length);
+  if (
+    seatsByWorld.size !== GALAXY_HOME_WORLD_IDS.size
+    || counts.some((n) => n < 1 || n > 2)
+    || counts.filter((n) => n === 2).length !== schismSplitWorldCount(players.length)
+  ) return null;
 
   const rng = opts.rng ?? randomInt;
+  const allied = relations === 'allied';
+  const partial = players.length < GALAXY_SCHISM_SEATS ? PARTIAL_SCHISM_TUNING[players.length] : undefined;
+  // A house's own units a turn: its world's Allied numbers, or its half's.
+  const houseBonus = (world: string, half: 0 | 1, alone: boolean): number => {
+    if (allied) return partial ? PARTIAL_ALLIED_TUNING[world]?.house ?? 0 : ALLIED_TUNING[world]?.reinforce ?? 0;
+    if (!partial) return halves[world]![half].reinforce_bonus ?? 0;
+    return PARTIAL_SCHISM_HALVES[world]?.[alone ? 'alone' : 'rival'][half] ?? 0;
+  };
   const houseOf = new Map<number, GalaxySchismHouse>();
+  const wholeOf = new Map<number, GalaxySchismWholeWorld>();
+  const addHouse = (seat: number, world: string, half: 0 | 1, alone: boolean) => {
+    const reinforce = houseBonus(world, half, alone);
+    houseOf.set(seat, {
+      player_id: players[seat]!.player_id,
+      world_id: world,
+      half,
+      name: halves[world]![half].house,
+      ...(reinforce ? { reinforce_bonus: reinforce } : {}),
+    });
+  };
   // World order is fixed so a seeded rng deals the same halves every time.
   for (const world of [...seatsByWorld.keys()].sort()) {
-    const [a, b] = seatsByWorld.get(world)!;
-    const forced = opts.forceHalves?.[players[a!]!.player_id];
-    const halfOfA: 0 | 1 = forced ?? (rng(0, 2) === 0 ? 0 : 1);
-    const halfOfB: 0 | 1 = halfOfA === 0 ? 1 : 0;
-    for (const [seat, half] of [[a!, halfOfA], [b!, halfOfB]] as const) {
-      const reinforce = relations === 'allied'
-        ? ALLIED_TUNING[world]?.reinforce ?? 0
-        : halves[world]![half].reinforce_bonus ?? 0;
-      houseOf.set(seat, {
-        player_id: players[seat]!.player_id,
+    const seats = seatsByWorld.get(world)!;
+    const forced = opts.forceHalves?.[players[seats[0]!]!.player_id];
+    if (seats.length === 1 && allied) {
+      // An Allied side of one holds its whole world.
+      const reinforce = PARTIAL_ALLIED_TUNING[world]?.whole ?? 0;
+      wholeOf.set(seats[0]!, {
+        player_id: players[seats[0]!]!.player_id,
         world_id: world,
-        half,
-        name: halves[world]![half].house,
         ...(reinforce ? { reinforce_bonus: reinforce } : {}),
       });
+      continue;
     }
+    const half: 0 | 1 = forced ?? (rng(0, 2) === 0 ? 0 : 1);
+    // A house alone on its world opens on this half; the other is unclaimed.
+    addHouse(seats[0]!, world, half, seats.length === 1);
+    if (seats.length === 2) addHouse(seats[1]!, world, half === 0 ? 1 : 0, false);
   }
 
   const gateways = gatewaysByWorld(map);
@@ -369,9 +498,24 @@ export function schismLayout(
     relations,
     concord_rounds: relations === 'concord' ? SCHISM_TUNING.concordRounds : 0,
     lane_crown_bonus: relations === 'allied' ? 0 : SCHISM_TUNING.laneCrownBonus,
-    houses: players.map((_, i) => houseOf.get(i)!),
+    houses: players.flatMap((_, i) => houseOf.get(i) ?? []),
+    ...(partial && allied ? { whole_worlds: players.flatMap((_, i) => wholeOf.get(i) ?? []) } : {}),
+    ...(partial && !allied ? { unclaimed_garrison: { ...partial.unclaimed } } : {}),
     crown_gateways: crownGateways,
   };
+}
+
+/**
+ * The tiles of every unclaimed half on this board: the half of a world its lone
+ * house did not open on (a Partial Schism under the Concord or in Civil War).
+ * Empty on any other board.
+ */
+export function schismUnclaimedTiles(mode: Pick<GalaxySchismMode, 'houses'>): string[] {
+  const perWorld = new Map<string, GalaxySchismHouse[]>();
+  for (const h of mode.houses) perWorld.set(h.world_id, [...(perWorld.get(h.world_id) ?? []), h]);
+  return [...perWorld.values()].flatMap((houses) => (houses.length === 1
+    ? [...(SCHISM_HALVES[houses[0]!.world_id]?.[houses[0]!.half === 0 ? 1 : 0].tiles ?? [])]
+    : []));
 }
 
 /** The tiles a house opens on. */
@@ -381,13 +525,17 @@ export function schismHouseTiles(house: Pick<GalaxySchismHouse, 'world_id' | 'ha
 
 /**
  * Extra units a house opens with on each of its tiles: its half's
- * `opening_bonus`, or its world's ALLIED_TUNING when the houses are Allied.
+ * `opening_bonus`, or its world's ALLIED_TUNING when the houses are Allied. A
+ * Partial Schism under the Concord or in Civil War opens every half even: the
+ * halves' eight-seat numbers are not its own (PARTIAL_SCHISM_HALVES).
  */
 export function schismOpeningBonus(
   house: Pick<GalaxySchismHouse, 'world_id' | 'half'>,
   relations: GalaxyHouseRelations = 'concord',
+  seats: number = GALAXY_SCHISM_SEATS,
 ): number {
   if (relations === 'allied') return ALLIED_TUNING[house.world_id]?.opening ?? 0;
+  if (seats < GALAXY_SCHISM_SEATS) return 0;
   return SCHISM_HALVES[house.world_id]?.[house.half].opening_bonus ?? 0;
 }
 
@@ -398,7 +546,7 @@ export function schismHouseOf(state: Pick<GameState, 'galaxy_mode'>, playerId: s
   return mode.houses.find((h) => h.player_id === playerId) ?? null;
 }
 
-/** The other house on a player's home world. */
+/** The other house on a player's home world (none for a house alone on its world). */
 export function schismRivalOf(state: Pick<GameState, 'galaxy_mode'>, playerId: string): GalaxySchismHouse | null {
   const mode = state.galaxy_mode;
   const mine = schismHouseOf(state, playerId);
@@ -448,9 +596,23 @@ export function holdsLaneCrown(state: Pick<GameState, 'galaxy_mode' | 'territori
   return gateways.length > 0 && gateways.every((id) => state.territories[id]?.owner_id === playerId);
 }
 
-/** The house's own units a turn, as recorded when the board was dealt (0 off a Schism board). */
+/** An Allied Partial Schism seat that holds its whole world alone, if this player is one. */
+export function schismWholeWorldOf(
+  state: Pick<GameState, 'galaxy_mode'>,
+  playerId: string,
+): GalaxySchismWholeWorld | null {
+  const mode = state.galaxy_mode;
+  if (mode?.id !== 'schism') return null;
+  return mode.whole_worlds?.find((w) => w.player_id === playerId) ?? null;
+}
+
+/**
+ * The seat's own units a turn on a Schism board, as recorded when the board was
+ * dealt: its house's, or in an Allied Partial Schism a whole world's (0
+ * elsewhere).
+ */
 export function houseReinforceBonus(state: Pick<GameState, 'galaxy_mode'>, playerId: string): number {
-  return schismHouseOf(state, playerId)?.reinforce_bonus ?? 0;
+  return schismHouseOf(state, playerId)?.reinforce_bonus ?? schismWholeWorldOf(state, playerId)?.reinforce_bonus ?? 0;
 }
 
 /** The Lane Crown's reinforcements for this player this turn (0 without it). */

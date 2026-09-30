@@ -1,14 +1,15 @@
 /**
- * A Galactic Age lobby seats two to four, or eight for the Schism, through the
- * real create and join routes.
+ * A Galactic Age lobby seats two to eight — Colonies, the classic start, and
+ * from five the Schism — through the real create and join routes.
  *
- * Reported in the seat-count review: the lobby form asked for eight seats and
- * filled four with AI, so a fifth player could join by code and get a start the
- * engine has no board for. The create route now holds the form to a count the
- * era plays, the join route caps a Galactic lobby at the largest such count
- * within its own cap (four for five to seven), and Open Games never lists a
- * Galactic lobby — the era is admin-only, and a lobby that waits for humans
- * waits for the ones it was sent to.
+ * Reported in the seat-count review, when five to seven seats had no board:
+ * the lobby form asked for eight seats and filled four with AI, so a fifth
+ * player could join by code and get a start the engine had none for. The
+ * create route holds the form to a count the era plays, the join route caps a
+ * Galactic lobby at the largest such count within its own cap (now every count
+ * from two to eight), and Open Games never lists a Galactic lobby — the era is
+ * admin-only, and a lobby that waits for humans waits for the ones it was sent
+ * to.
  *
  * Needs Postgres (migrated schema, maps seeded), gated on PG_TEST=1:
  *   PG_TEST=1 POSTGRES_HOST=127.0.0.1 POSTGRES_PORT=5499 POSTGRES_USER=postgres \
@@ -21,7 +22,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 const enabled = process.env.PG_TEST === '1';
 
-describe.runIf(enabled)('Galactic Age lobbies seat two to four, or eight (Postgres)', () => {
+describe.runIf(enabled)('Galactic Age lobbies seat two to eight (Postgres)', () => {
   let app: FastifyInstance;
   let query: (sql: string, params?: unknown[]) => Promise<Record<string, unknown>[]>;
   let signAccessToken: (p: { sub: string; username: string; guest?: boolean; admin?: boolean }) => string;
@@ -98,13 +99,20 @@ describe.runIf(enabled)('Galactic Age lobbies seat two to four, or eight (Postgr
     }
   });
 
-  it('refuses a form asking for five to seven seats', async () => {
+  it('opens a six-seat lobby, a Partial Schism, that takes humans up to six and no further', async () => {
     const admin = await seedUser('gal_admin6');
-    for (const seats of [5, 6, 7]) {
-      const res = await createGalaxy(admin, seats, 3);
-      expect(res.statusCode).toBe(400);
-      expect(res.json()).toMatchObject({ error: GALAXY_PLAYER_COUNT_ERROR });
-    }
+    const res = await createGalaxy(admin, 6, 3);
+    expect(res.statusCode).toBe(201);
+    const { game_id: gameId } = res.json() as { game_id: string };
+    gameIds.push(gameId);
+
+    // Host + three AI: two human seats left, then the lobby is full.
+    const [a, b, c] = [await seedUser('gal6_a'), await seedUser('gal6_b'), await seedUser('gal6_c')];
+    expect((await join(gameId, a)).statusCode).toBe(200);
+    expect((await join(gameId, b)).statusCode).toBe(200);
+    const seventh = await join(gameId, c);
+    expect(seventh.statusCode).toBe(409);
+    expect(seventh.json()).toMatchObject({ code: 'full' });
   });
 
   it('opens an eight-seat Schism lobby that takes humans up to eight and no further', async () => {
@@ -179,7 +187,7 @@ describe.runIf(enabled)('Galactic Age lobbies seat two to four, or eight (Postgr
     expect(ids).toContain(ordinary);
   });
 
-  it('caps a stored cap of five to seven seats at four, where a fifth seat has no board', async () => {
+  it('holds a stored cap of six seats to six, now that five to seven have a board', async () => {
     const host = await seedUser('gal_legacy_host');
     const gameId = uuidv4();
     gameIds.push(gameId);
@@ -200,8 +208,13 @@ describe.runIf(enabled)('Galactic Age lobbies seat two to four, or eight (Postgr
         [gameId, i],
       );
     }
-    const fifth = await seedUser('gal_legacy_fifth');
-    const res = await join(gameId, fifth);
+    // Host + three AI: a fifth and sixth seat for humans, then the lobby is full.
+    const [fifth, sixth, seventh] = [
+      await seedUser('gal_legacy_fifth'), await seedUser('gal_legacy_sixth'), await seedUser('gal_legacy_seventh'),
+    ];
+    expect((await join(gameId, fifth)).statusCode).toBe(200);
+    expect((await join(gameId, sixth)).statusCode).toBe(200);
+    const res = await join(gameId, seventh);
     expect(res.statusCode).toBe(409);
     expect(res.json()).toMatchObject({ code: 'full' });
   });

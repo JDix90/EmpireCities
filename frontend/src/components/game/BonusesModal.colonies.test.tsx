@@ -138,6 +138,36 @@ describe('BonusesModal — the Lane Crown on a Schism board', () => {
     expect(screen.queryByText(/Lane Crown/)).toBeNull();
   });
 
+  it('tells a house alone on its world the Crown is its two gateways and the unclaimed half\'s', async () => {
+    const game = schismGame(2);
+    const mode = game.galaxy_mode as { houses: Array<{ player_id: string }>; unclaimed_garrison?: unknown };
+    mode.houses = mode.houses.filter((h) => h.player_id === 'me');
+    mode.unclaimed_garrison = { gateway: 9, interior: 11 };
+    useGameStore.setState({ gameState: game } as never);
+    render(<BonusesModal techTree={[]} onClose={() => {}} />);
+    expect(await screen.findByText('Lane Crown · Western Mandate')).toBeInTheDocument();
+    expect(screen.getByText(/your two and the unclaimed half's — and you draft \+2 a turn/)).toBeInTheDocument();
+  });
+
+  it("shows an Allied seat holding a whole world its own number, and no Crown", async () => {
+    const game = schismGame(4);
+    const mode = game.galaxy_mode as {
+      relations: string; concord_rounds: number; lane_crown_bonus: number;
+      houses: Array<{ player_id: string }>; whole_worlds?: unknown;
+    };
+    mode.relations = 'allied';
+    mode.concord_rounds = 0;
+    mode.lane_crown_bonus = 0;
+    mode.houses = [];
+    mode.whole_worlds = [{ player_id: 'me', world_id: 'sol', reinforce_bonus: 2 }];
+    useGameStore.setState({ gameState: game } as never);
+    render(<BonusesModal techTree={[]} onClose={() => {}} />);
+    expect(await screen.findByText('Whole World · Sol III')).toBeInTheDocument();
+    expect(screen.getByText(/You hold Sol III alone, a side of one against sides of two houses, so the board adds this/)).toBeInTheDocument();
+    expect(screen.queryByText(/Lane Crown/)).toBeNull();
+    expect(screen.queryByText(/House Bonus/)).toBeNull();
+  });
+
   it('has no Lane Crown row off a Schism board', async () => {
     useGameStore.setState({ gameState: galaxyGame(4, false) } as never);
     render(<BonusesModal techTree={[]} onClose={() => {}} />);

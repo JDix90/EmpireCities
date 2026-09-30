@@ -70,33 +70,32 @@ describe('the Galactic Age seat cap', () => {
     expect(isGalacticAgeGame('ww2', 'era_ww2')).toBe(false);
   });
 
-  it('seats two to four, or eight for the Schism', () => {
+  it('seats two to eight: Colonies, the classic start, and the Schism from five', () => {
     const E = GALAXY_PLAYER_COUNT_ERROR;
     expect([1, 2, 3, 4, 5, 6, 7, 8, 9].map(galaxySeatCountError)).toEqual([
-      E, null, null, null, E, E, E, null, E,
+      E, null, null, null, null, null, null, null, E,
     ]);
-    expect(GALAXY_PLAYER_COUNT_ERROR).toMatch(/2 to 4 players .* or 8 for the Schism/);
+    expect(GALAXY_PLAYER_COUNT_ERROR).toMatch(/2 to 8 players .* from 5 the Schism/);
   });
 
-  it('caps a Galactic lobby at the largest count it plays, and leaves the rest alone', () => {
-    // Eight is a Schism lobby; four to seven stop at four, where a fifth seat has no board.
-    expect(lobbySeatCap({ max_players: 8 }, 'galaxy_age', 'era_galaxy')).toBe(8);
-    expect(lobbySeatCap({}, 'galaxy_age', 'era_galaxy')).toBe(8);
-    for (const max_players of [4, 5, 6, 7]) {
-      expect(lobbySeatCap({ max_players }, 'galaxy_age', 'era_galaxy')).toBe(4);
+  it('caps a Galactic lobby at its own cap, since every count from two to eight has a board', () => {
+    for (const max_players of [2, 3, 4, 5, 6, 7, 8]) {
+      expect(lobbySeatCap({ max_players }, 'galaxy_age', 'era_galaxy')).toBe(max_players);
     }
-    expect(lobbySeatCap({ max_players: 6 }, 'custom', 'era_galaxy')).toBe(4);
-    expect(lobbySeatCap({ max_players: 3 }, 'galaxy_age', 'era_galaxy')).toBe(3);
-    expect(lobbySeatCap({ max_players: 2 }, 'galaxy_age', 'era_galaxy')).toBe(2);
+    expect(lobbySeatCap({}, 'galaxy_age', 'era_galaxy')).toBe(8);
+    expect(lobbySeatCap({ max_players: 6 }, 'custom', 'era_galaxy')).toBe(6);
     expect(lobbySeatCap({ max_players: 8 }, 'ww2', 'era_ww2')).toBe(8);
     expect(lobbySeatCap({ max_players: 6 }, 'space_age', 'era_space_age')).toBe(6);
   });
 
-  it('lets two seats share a faction only in a Schism lobby', () => {
-    expect(seatsPerFaction({ max_players: 8 }, 'galaxy_age', 'era_galaxy')).toBe(2);
+  it('lets two seats share a faction in a lobby that can seat a Schism, five seats or more', () => {
+    for (const max_players of [5, 6, 7, 8]) {
+      expect(seatsPerFaction({ max_players }, 'galaxy_age', 'era_galaxy')).toBe(2);
+    }
     expect(seatsPerFaction(JSON.stringify({ max_players: 8 }), 'custom', 'era_galaxy')).toBe(2);
-    expect(seatsPerFaction({ max_players: 4 }, 'galaxy_age', 'era_galaxy')).toBe(1);
-    expect(seatsPerFaction({ max_players: 6 }, 'galaxy_age', 'era_galaxy')).toBe(1);
+    for (const max_players of [2, 3, 4]) {
+      expect(seatsPerFaction({ max_players }, 'galaxy_age', 'era_galaxy')).toBe(1);
+    }
     expect(seatsPerFaction({ max_players: 8 }, 'ww2', 'era_ww2')).toBe(1);
   });
 });

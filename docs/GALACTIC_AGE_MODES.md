@@ -1,9 +1,9 @@
 # Galactic Age modes — one map, a game for every seat count
 
-**Status:** in progress. Step 1 (Colonies, two and three players), step 2
-(the Schism, eight players, with the Concord and Civil War) and step 3 (teams:
-Allied houses at eight and 2v2 at four) are built and measured. Step 4 is the
-agreed design, not yet built. The Galactic Age is admin-only; nothing here is
+**Status:** built. Step 1 (Colonies, two and three players), step 2 (the
+Schism, eight players, with the Concord and Civil War), step 3 (teams: Allied
+houses at eight and 2v2 at four) and step 4 (the Partial Schism, five to seven
+players) are built and measured. The Galactic Age is admin-only; nothing here is
 player-facing until it opens.
 
 Every other era plays classic Risk on its own map. The Galactic Age has one map,
@@ -39,12 +39,13 @@ split.
 | 3 | **Colonies** | Three home worlds; the fourth opens neutral, and two extra lanes join every world to every other | built |
 | 4 | **Classic** | One home world each | shipped |
 | 4 | **2v2** | One home world each, in two teams: Sol and Rust against Verdan and Nexus | built |
-| 5–7 | **Partial Schism** | One to three worlds shared by two houses | planned (step 4) |
+| 5–7 | **Partial Schism** | One to three worlds shared by two houses; a house alone on each other world, its other half unclaimed (with Allied houses, held whole) | built |
 | 8 | **Schism** | Every world shared by two houses, as rivals or, with Allied houses, as four teams | built |
 
-The create route, the join cap and game start hold the era to 2–4 seats or 8
-(`backend/src/modules/games/lobbyCapacity.ts`). Five to seven have no board yet;
-they used to get a scattered start across worlds no seat could reach.
+The create route, the join cap and game start hold the era to 2–8 seats
+(`backend/src/modules/games/lobbyCapacity.ts`). Before the Partial Schism, five
+to seven had no board and were refused; they once got a scattered start across
+worlds no seat could reach.
 
 ## Colonies (two and three players) — built
 
@@ -179,10 +180,11 @@ eight-player game.
     turn one, so it would change the classic game.
   - The upgraded world rule once suggested for it was not needed.
 - **Lane Sovereignty** is unchanged: 5 of the 8 lanes, held for 3 rounds.
-- **The lobby.** "Schism (eight players)" asks for eight seats and shows the
-  House Relations choice. It needs Home Worlds.
-  - The game starts once all eight seats are filled, with AI opponents plus
-    the invited players.
+- **The lobby.** "Schism (five to eight players)" asks for eight seats and
+  shows the House Relations choice. It needs Home Worlds.
+  - The game plays the board for however many seats are filled when it starts,
+    with AI opponents plus the invited players: the Partial Schism at five to
+    seven, the Schism at eight.
   - Started with two to four seats, it plays that count's board instead.
 - **Unification** (still open): eliminating your co-world house could hand you
   their kit ability or a permanent Crown.
@@ -217,7 +219,8 @@ and the search behind each number):
 - `state.galaxy_mode`: the houses dealt, with their bonuses, the relations, the
   Concord rounds and the Crown's worth. A retune never changes a game in
   progress.
-- `lobbyCapacity.seatsPerFaction`: two seats per faction in a Schism lobby.
+- `lobbyCapacity.seatsPerFaction`: two seats per faction in a lobby of five
+  seats or more.
 
 ## Teams — Allied houses and 2v2 (built)
 
@@ -269,8 +272,9 @@ an ally, so nothing about a free-for-all game changes.
 **The boards** (`state/galaxyTeams.ts`)
 
 - **Allied houses:** the Schism's House Relations set to Allied. Each world's
-  two houses are one side: four sides of two, each sharing a faction, its kit
-  and its world.
+  two houses are one side: at eight seats four sides of two, each sharing a
+  faction, its kit and its world. At five to seven seats a player alone on a
+  world is a side of one, holding it whole (see the Partial Schism).
   - No Concord and no Lane Crown: between them the two houses hold their whole
     world from turn one.
   - Tuned per world, both houses alike (`ALLIED_TUNING`), in units a turn: Sol
@@ -332,12 +336,115 @@ and the sweeps behind each number):
 - `state.teams`: the sides a game was dealt, in seat order.
 - `frontend/src/utils/teams.ts`: the client's mirror of the rules.
 
-## Partial Schism (five to seven players) — planned (step 4)
+## Partial Schism (five to seven players) — built
 
-One to three worlds are shared; the rest stay single-owner. Still to decide:
-- which worlds split (fixed or random);
-- a catch-up bonus for houses on a split world, which start with half a world;
-- balance at each count separately.
+**Rules** (`backend/src/game-engine/state/galaxySchism.ts`)
+
+- **One world splits for each player over four**: one at five, two at six,
+  three at seven. A split world is shared as at eight seats: the same halves,
+  the same kit, and the Concord or Civil War between its two houses.
+- **Which worlds split follows the picks.**
+  - A faction picked by two players splits its world.
+  - When more factions are picked twice than worlds may split, the pairs that
+    stand are drawn, and each other pair gives a seat back.
+  - Players without a pick fill in the rest: first a faction nobody holds, then
+    a second seat on each world still to split. A world nobody picked splits
+    before one a player picked alone, so a lone pick keeps its world where it
+    can.
+  - With nobody picking, the split worlds are drawn.
+- **Every seat is a house on half a world.** A world dealt to one player has one
+  house, alone, on a half drawn at random. The other half starts **unclaimed**:
+  neutral and garrisoned, like a colony.
+  - The garrison is 9 units on each gateway and 11 inland at five seats, 10 and
+    12 at six, and 12 and 14 at seven.
+  - It thickens as houses alone get rarer. At seven, the one house alone is the
+    only seat without a rival at home.
+- **Why not whole worlds.** The plan was to deal the other worlds whole, as at
+  four seats, and give the houses a catch-up bonus. Measured, a seat on a whole
+  world won three to seven times as often as a house, and nothing closed the
+  gap:
+  - tried: up to +15 units a turn, thicker openings, a lighter whole world, and
+    a Concord lasting the whole game;
+  - a split world's two houses fight each other, boxed in behind their lanes,
+    while a whole world starts with twice the land and all four gateways;
+  - the larger bonuses only made the Verdan houses the strongest seats, while
+    Sol's and Nexus's stayed near zero.
+
+  Starting every seat on half a world closed the gap at every seat count
+  (GALAXY-BALANCE.md §10).
+- **Each half has its own numbers**, in units a turn: one for a house with a
+  rival, one for a house alone. The eight-seat numbers were measured with a
+  rival on every world and do not carry over, and every half opens at the
+  standard count.
+
+  | Half | With a rival | Alone |
+  |---|---|---|
+  | Western Mandate | +5 | +1 |
+  | Eastern Mandate | +1 | 0 |
+  | Dawnrim Navigators | 0 | +1 |
+  | Duskrim Navigators | −2 | −1 |
+  | Tharsis Syndicate | −1 | −2 |
+  | Hellas Syndicate | +1 | +2 |
+  | Ward Custodians | +1 | 0 |
+  | Berth Custodians | 0 | 0 |
+- **The Lane Crown** works as at eight seats: hold all four of your world's
+  gateways. For a house alone, that means its own two and the unclaimed half's.
+- **The Concord** is only between a split world's two houses.
+- **Allied houses.** Every world is one side.
+  - A split world's two houses are a side of two, as at eight seats.
+  - A player alone on a world holds all of it, a side of one, and nothing is
+    unclaimed.
+  - A side of two plays two turns a round, so the numbers are by world and by
+    side (`PARTIAL_ALLIED_TUNING`): each house of a side of two drafts Sol −2,
+    Verdan −1, Rust +2 or Nexus 0 a turn, and a seat holding a whole world
+    drafts +3 a turn, whichever world.
+  - The sides are seated so their turns come round as evenly spaced as they
+    can: A B C A D at five.
+- **Lane Sovereignty** is 5 lanes for 3 rounds, as at eight seats.
+- **The lobby.**
+  - The Schism switch reads "Schism (five to eight players)". It seats up to
+    eight, and the game plays the count seated at the start.
+  - Two players may pick one faction in any lobby of five seats or more. The
+    waiting room explains how shared factions split.
+
+**Balance** (1,260 games × 3 seeds, live defaults;
+[GALAXY-BALANCE.md §10](../backend/scripts/GALAXY-BALANCE.md) has every table
+and the screens behind each number):
+
+| | Five players | Six | Seven |
+|---|---|---|---|
+| Game length (Concord) | 34.9 turns | 37.6 turns | 39.6 turns |
+| Won by Lane Sovereignty | 34–38% | 36–39% | 39–43% |
+| Turn-10 leader wins | 47–52% (baseline 20%) | 44–46% (16.7%) | 39–45% (14.3%) |
+| Faction win rates per seat (Concord) | 17.2–23.3% | 11.9–19.3% | 11.3–16.9% |
+| Houses with a rival / alone (Concord) | 19.3–20.1 / 19.9–20.4% | 15.4–16.5 / 16.9–19.2% | 13.8–14.1 / 15.4–17.1% |
+| Allied sides | 22.9–26.7% | 21.7–29.2% | 22.2–29.8% |
+
+- **Every faction passes the gate on every seed but once.** The Mandate at six
+  seats under the Concord won 11.9% on one seed, against a floor of 12.0% (12.8
+  and 13.0% on the others). It is the weakest faction at six seats, and at
+  seven under the Concord. Under the Concord its two houses on a split world
+  win well under their share; in Civil War, close to it.
+- **Civil War passes on every seed**: factions at 15.2–22.8% at five seats,
+  15.0–18.6% at six and 12.1–16.5% at seven.
+- **A house with a rival and a house alone are even** at every count, each
+  within ±28% of its share on every seed.
+- **Allied passes on every seed**, but a side's chances depend on whether its
+  world splits. A seat holding Rust alone wins 16% at five seats and 2% at
+  seven; one holding Sol alone wins 42% at seven. The numbers are coupled round
+  the ring, and three screens failed to even this out inside the gate, so it
+  stays open.
+- **Two, three, four and eight players are unchanged**: two to four reproduce
+  main exactly, and eight seats match main as closely as main matches itself.
+
+**Code:**
+- `galaxySchism.ts`: the deal (`dealSchismFactions`), the board
+  (`schismLayout`), the unclaimed halves (`schismUnclaimedTiles`), and the
+  numbers (`PARTIAL_SCHISM_TUNING`, `PARTIAL_SCHISM_HALVES`,
+  `PARTIAL_ALLIED_TUNING`).
+- `state.galaxy_mode`: every house, with its numbers, and either the unclaimed
+  halves' garrison (Concord and Civil War) or the whole worlds (Allied).
+- `galaxyTeams.ts`: Allied sides of one and of two, and the seat spacing.
 
 A wilder alternative was considered: **Corsairs**, stateless raiders built
 around the lanes. It is shelved as the hardest to balance.
@@ -356,7 +463,8 @@ rather than hard-coded as era special cases:
   - per-seat numbers live in small tables
     (`LANE_SOVEREIGNTY_ROUNDS_BY_SEATS`, `COLONY_GARRISONS`, `SCHISM_HALVES`,
     `SCHISM_TUNING`, `ALLIED_TUNING`, `GALAXY_2V2_PAIRS`,
-    `LANE_SOVEREIGNTY_ROUNDS_BY_SIDES`, `TEAM_TUNING`) that the balance sim can
+    `LANE_SOVEREIGNTY_ROUNDS_BY_SIDES`, `TEAM_TUNING`, `PARTIAL_SCHISM_TUNING`,
+    `PARTIAL_SCHISM_HALVES`, `PARTIAL_ALLIED_TUNING`) that the balance sim can
     patch;
   - teams are data too: `state.teams` lists the sides, and the engine's team
     rules read it.
@@ -382,6 +490,7 @@ rewrite. Whether any should is a separate discussion.
    War. **Done.**
 3. **Allied houses**: shared victory, no friendly attacks, shared vision, team
    UI. This also enables 2v2 at four. **Done.**
-4. **Partial Schism (five to seven)**.
+4. **Partial Schism (five to seven)**: a house alone on each unshared world,
+   its other half unclaimed; Allied sides of one and two. **Done.**
 
 Every step is admin-only and measured on the balance sim before it merges.
