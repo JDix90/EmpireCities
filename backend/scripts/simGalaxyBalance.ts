@@ -1,23 +1,27 @@
 /**
  * Headless AI-vs-AI Galactic Age balance simulator.
  *
- * Drives the PURE game engine (no sockets, no DB) for N four-player galaxy_age
- * games on era_galaxy.json and reports the balance signals that matter for the
- * multi-world map after the 6->16 territory densification:
- *   - per-FACTION win rate (4p baseline = 25%); flags any faction > ~35%,
+ * Drives the PURE game engine (no sockets, no DB) for N galaxy_age games on
+ * era_galaxy.json — four players by default, or two or three with SIM_PLAYERS —
+ * and reports the balance signals that matter for the multi-world map after the
+ * 6->16 territory densification:
+ *   - per-FACTION win rate, as a share of the games each faction played
+ *     (baseline 1/players; flags a faction 40% above or below it),
  *   - game length (pacing) + decisive vs turn-limit,
  *   - snowball: win rate of the territory leader at turn 10,
  *   - peak territory spread (leader - laggard).
  *
- * Galaxy starts REQUIRE exactly 4 players, each on a distinct galaxy faction, so
- * tryDistributeGalaxyAgeFactionHomeworlds gives each its whole home world. Era
- * advancement is OFF (galaxy is the terminal era); factions ON; naval OFF (the
- * worlds are linked by orbit lanes, not sea). Combat dice are seeded per game.
+ * Every player is on a distinct galaxy faction, so each gets its whole home world
+ * (tryDistributeGalaxyAgeFactionHomeworlds); below four players the rest of the
+ * worlds open as neutral colonies (state/galaxyModes.ts). Era advancement is OFF
+ * (galaxy is the terminal era); factions ON; naval OFF (the worlds are linked by
+ * orbit lanes, not sea). Combat dice are seeded per game.
  *
  * Run (from backend/):
  *   pnpm exec tsx scripts/simGalaxyBalance.ts
  *   SIM_GAMES=500 SIM_DIFFICULTY=expert SIM_MAX_TURNS=90 \
  *     SIM_CSV=/tmp/galaxy_balance.csv pnpm exec tsx scripts/simGalaxyBalance.ts
+ *   SIM_PLAYERS=2 SIM_GAMES=240 pnpm exec tsx scripts/simGalaxyBalance.ts
  */
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
@@ -32,6 +36,18 @@ import {
 import { isWorldRuleId, vaultStatuses, WORLD_RULE_IDS, type WorldRuleId } from '../src/game-engine/state/worldRules';
 import { syncJumpGateLanes } from '../src/game-engine/state/jumpGates';
 import { syncLaneWeatherLanes } from '../src/game-engine/state/laneWeather';
+import {
+  COLONY_GARRISONS,
+  GALAXY_MAX_SEATS,
+  GALAXY_MIN_SEATS,
+  syncGalaxyModeLanes,
+} from '../src/game-engine/state/galaxyModes';
+import { GALAXY_MODE_LANE_SOURCE, neighbouringWorlds } from '../src/game-engine/state/galaxyRing';
+import { vaultRegionGarrisons } from '../src/game-engine/state/worldRules';
+import {
+  LANE_SOVEREIGNTY_CORRIDORS_NEEDED,
+  LANE_SOVEREIGNTY_ROUNDS_BY_SEATS,
+} from '../src/game-engine/victory/laneSovereignty';
 import { fortifyBecomesConvoy, launchConvoy } from '../src/game-engine/state/transit';
 import { computeAiTurn, selectAiBuildingPlacement, selectAiTechResearch } from '../src/game-engine/ai/aiBot';
 import {
@@ -156,9 +172,37 @@ function applyCatchup(state: GameState): void {
   state.draft_units_remaining = Math.max(3, state.draft_units_remaining - penalty);
 }
 
-const PLAYERS = 4;
-// One faction per player, in player order. Each faction's home region is a whole
-// world, so player i starts on a distinct world.
+/**
+ * `SIM_PLAYERS=2|3|4` (default 4). Below four the engine deals the Colonies
+ * board: the worlds nobody calls home open neutral, and at three the ring's two
+ * gaps are bridged all game.
+ */
+const PLAYERS = Number(process.env.SIM_PLAYERS ?? 4);
+if (!Number.isInteger(PLAYERS) || PLAYERS < GALAXY_MIN_SEATS || PLAYERS > GALAXY_MAX_SEATS) {
+  throw new Error(`SIM_PLAYERS must be ${GALAXY_MIN_SEATS}–${GALAXY_MAX_SEATS}`);
+}
+/**
+ * `SIM_COLONY_GARRISON=gateway,interior`: a colony world's opening garrison,
+ * patched onto the engine's COLONY_GARRISONS before any game starts (the same
+ * object the engine reads). Colonies only exist below four players.
+ */
+if (process.env.SIM_COLONY_GARRISON) {
+  const [gateway, interior] = process.env.SIM_COLONY_GARRISON.split(',').map(Number);
+  if (!(gateway >= 1 && interior >= 1)) throw new Error('SIM_COLONY_GARRISON must be "gateway,interior", both >= 1');
+  Object.assign(COLONY_GARRISONS, { gateway, interior });
+}
+/**
+ * `SIM_SOVEREIGNTY_ROUNDS=N`: the rounds a Lane Sovereignty streak must run at
+ * this player count, patched onto the engine's LANE_SOVEREIGNTY_ROUNDS_BY_SEATS
+ * the same way.
+ */
+if (process.env.SIM_SOVEREIGNTY_ROUNDS) {
+  const rounds = Number(process.env.SIM_SOVEREIGNTY_ROUNDS);
+  if (!(Number.isInteger(rounds) && rounds >= 1)) throw new Error('SIM_SOVEREIGNTY_ROUNDS must be a whole number >= 1');
+  LANE_SOVEREIGNTY_ROUNDS_BY_SEATS[PLAYERS] = rounds;
+}
+// Each faction's home region is a whole world, so every player starts on a
+// distinct world.
 const FACTIONS = ['stellar_mandate', 'forge_syndicate', 'helion_navigators', 'void_custodians'] as const;
 const FACTION_WORLD: Record<string, string> = {
   stellar_mandate: 'Sol',
@@ -166,6 +210,34 @@ const FACTION_WORLD: Record<string, string> = {
   helion_navigators: 'Verdan',
   void_custodians: 'Nexus',
 };
+const FACTION_WORLD_ID: Record<string, string> = {
+  stellar_mandate: 'sol',
+  forge_syndicate: 'rust',
+  helion_navigators: 'verdan',
+  void_custodians: 'nexus_station',
+};
+
+/** Every way to pick `k` of the four factions, in FACTIONS order. */
+function factionLineups(k: number): string[][] {
+  const out: string[][] = [];
+  const pick = (start: number, acc: string[]): void => {
+    if (acc.length === k) {
+      out.push(acc);
+      return;
+    }
+    for (let i = start; i < FACTIONS.length; i++) pick(i + 1, [...acc, FACTIONS[i]]);
+  };
+  pick(0, []);
+  return out;
+}
+/**
+ * The line-ups games cycle through: all four factions at four players; below,
+ * every combination of that many (six pairs, four triples). Within a line-up the
+ * seat order rotates too, so a full cycle is lineups × players games (4, 12, 12)
+ * and no faction is confounded with a seat or a partner.
+ */
+const LINEUPS = factionLineups(PLAYERS);
+const CYCLE = LINEUPS.length * PLAYERS;
 const COLORS = ['#5dade2', '#e67e22', '#2ecc71', '#9b59b6'];
 
 function loadMap(): GameMap {
@@ -459,6 +531,14 @@ interface GameStat {
   /** Lane weather cards that actually edited the graph this game. */
   weatherClosures: number;
   weatherSurges: number;
+  /** Two players only: whether their home worlds share lanes, or face across the ring. */
+  layout: 'adjacent' | 'opposite' | null;
+  /** Colonies: the turn a player first took a colony tile (null if never, or no colonies). */
+  colonyFirstCaptureTurn: number | null;
+  /** Colonies: colony tiles held by any player, at each snapshot turn reached. */
+  colonyHeldAt: Record<number, number>;
+  /** How many colony tiles the game opened with (0 at four players). */
+  colonyTiles: number;
 }
 
 /** Turns at which per-seat territory counts are sampled for the trajectory table. */
@@ -494,13 +574,49 @@ function assertHomeworldStart(map: GameMap, state: GameState, factionOf: Record<
   }
 }
 
+/**
+ * Below four players the worlds nobody calls home must open as colonies: every
+ * tile neutral and garrisoned, the mode recorded, and at three players the
+ * ring's two gaps bridged on the map copy. Like assertHomeworldStart, a start
+ * that quietly fell back to something else would be measured as this one.
+ */
+function assertColonyStart(map: GameMap, state: GameState): void {
+  const mode = state.galaxy_mode;
+  const bridges = map.connections.filter((c) => c.source === GALAXY_MODE_LANE_SOURCE).length;
+  if (PLAYERS === 4) {
+    if (mode || bridges > 0) throw new Error('a four-player game was dealt a board mode');
+    return;
+  }
+  if (mode?.id !== 'colonies' || mode.neutral_worlds.length !== 4 - PLAYERS) {
+    throw new Error(`${PLAYERS} players did not open on the Colonies board (${JSON.stringify(mode)})`);
+  }
+  for (const t of Object.values(state.territories)) {
+    if (!mode.neutral_worlds.includes(t.world_id ?? '')) continue;
+    if (t.owner_id !== null || t.unit_count < 1) {
+      throw new Error(`colony tile ${t.territory_id} opened held or empty (${t.owner_id}, ${t.unit_count})`);
+    }
+  }
+  if (bridges !== (PLAYERS === 3 ? 2 : 0)) {
+    throw new Error(`${PLAYERS} players opened with ${bridges} bridging lanes`);
+  }
+}
+
 /** Re-deal the opening board with no home worlds (see SIM_SCATTERED). */
 function scatterStart(state: GameState, map: GameMap, gameIndex: number): void {
   const rng = createSeededRng(hashStringToSeed(`${MASTER_SEED}:scatter:${gameIndex}`));
+  // Below four players the engine laid the colonies out; a scattered start has
+  // none, so their tiles are dealt too (the Vault ring stays neutral either way)
+  // and the three-player bridges come down.
+  const colonyWorlds = new Set(state.galaxy_mode?.neutral_worlds ?? []);
+  const vault = vaultRegionGarrisons(map);
   const ids = Object.values(state.territories)
-    .filter((t) => t.owner_id)
+    .filter((t) => t.owner_id || (colonyWorlds.has(t.world_id ?? '') && !vault.has(t.territory_id)))
     .map((t) => t.territory_id)
     .sort();
+  if (state.galaxy_mode) {
+    state.galaxy_mode = undefined;
+    syncGalaxyModeLanes(map, state);
+  }
   for (let i = ids.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
     [ids[i], ids[j]] = [ids[j]!, ids[i]!];
@@ -535,8 +651,10 @@ function runGame(gameIndex: number, sourceMap: GameMap): GameStat {
   // Separate stream from the dice so a jitter draw can never shift a roll.
   const jitter = createSeededRng(hashStringToSeed(`${MASTER_SEED}:jitter:${gameIndex}`));
   // Rotate faction-to-player assignment per game so faction win rate isn't
-  // confounded with turn order (player 0 acts first).
-  const rot = gameIndex % PLAYERS;
+  // confounded with turn order (player 0 acts first). At four players this is
+  // the one line-up rotated a seat per game, as it always was.
+  const lineup = LINEUPS[gameIndex % LINEUPS.length]!;
+  const rot = Math.floor(gameIndex / LINEUPS.length) % PLAYERS;
   const players = Array.from({ length: PLAYERS }, (_, i) => ({
     player_id: `ai_${i}`,
     player_index: i,
@@ -545,7 +663,7 @@ function runGame(gameIndex: number, sourceMap: GameMap): GameStat {
     is_ai: true,
     is_eliminated: false,
     mmr: 1000,
-    faction_id: FACTIONS[(i + rot) % PLAYERS],
+    faction_id: lineup[(i + rot) % PLAYERS]!,
   }));
   const factionOf: Record<string, string> = {};
   for (const p of players) factionOf[p.player_id] = p.faction_id;
@@ -558,8 +676,21 @@ function runGame(gameIndex: number, sourceMap: GameMap): GameStat {
     forceStartingPlayerIndex: 0,
   });
   if (SCATTERED) scatterStart(state, map, gameIndex);
-  else assertHomeworldStart(map, state, factionOf);
+  else {
+    assertHomeworldStart(map, state, factionOf);
+    assertColonyStart(map, state);
+  }
   applyCatchup(state);
+  // Two players: are the home worlds neighbours on the ring, or across it?
+  const homes = players.map((p) => FACTION_WORLD_ID[p.faction_id]!).sort();
+  const layout: GameStat['layout'] = PLAYERS !== 2
+    ? null
+    : neighbouringWorlds(map).has(`${homes[0]}::${homes[1]}`) ? 'adjacent' : 'opposite';
+  const colonyTiles = Object.values(state.territories)
+    .filter((t) => (state.galaxy_mode?.neutral_worlds ?? []).includes(t.world_id ?? ''))
+    .map((t) => t.territory_id);
+  let colonyFirstCaptureTurn: number | null = null;
+  const colonyHeldAt: Record<number, number> = {};
 
   const lanes = orbitLanePairs(map);
   const connectionsByKey = new Map(map.connections.map((c) => [laneKey(c.from, c.to), c]));
@@ -650,6 +781,12 @@ function runGame(gameIndex: number, sourceMap: GameMap): GameStat {
           snapshots[p.player_id][turn] = ownedIds(state, p.player_id).length;
         }
       }
+      if (colonyTiles.length > 0 && colonyHeldAt[turn] == null) {
+        colonyHeldAt[turn] = colonyTiles.filter((id) => state.territories[id]?.owner_id).length;
+      }
+    }
+    if (colonyFirstCaptureTurn == null && colonyTiles.some((id) => state.territories[id]?.owner_id)) {
+      colonyFirstCaptureTurn = state.turn_number;
     }
 
     if (!t10Captured && state.turn_number >= 10) { t10Captured = true; t10Leader = territoryLeader(state); }
@@ -701,6 +838,10 @@ function runGame(gameIndex: number, sourceMap: GameMap): GameStat {
     laneFlips,
     weatherClosures,
     weatherSurges,
+    layout,
+    colonyFirstCaptureTurn,
+    colonyHeldAt,
+    colonyTiles: colonyTiles.length,
   };
 }
 
@@ -729,25 +870,66 @@ function main(): void {
   const byFaction: Record<string, number> = {};
   for (const f of FACTIONS) byFaction[f] = 0;
   for (const s of stats) if (s.winnerFaction) byFaction[s.winnerFaction] = (byFaction[s.winnerFaction] ?? 0) + 1;
+  // Below four players a faction sits out some games, so its win rate is a share
+  // of the games it played (at four players that is every game).
+  const played: Record<string, number> = {};
+  for (const s of stats) for (const seat of s.seats) played[seat.faction] = (played[seat.faction] ?? 0) + 1;
 
   console.log(`\nGalactic Age balance — ${GAMES} games · ${PLAYERS}p · ${DIFFICULTY} · maxTurns ${MAX_TURNS}${THRESHOLD != null ? ` · threshold ${THRESHOLD}%` : ''} · ${terr} territories`);
-  console.log(`Seed "${MASTER_SEED}" · attack loop ${GRIND ? 'GRIND (mirrors live AI)' : 'single-exchange (SIM_GRIND=0, legacy)'} · corridors ${CORRIDORS ? 'ON' : 'OFF (SIM_CORRIDORS=0)'} · factions ${Object.keys(FACTION_PATCH).length ? `patched ${JSON.stringify(FACTION_PATCH)}` : 'as shipped'} · world rules ${WORLD_RULES ? (WORLD_RULES_OFF.length ? `ON except ${WORLD_RULES_OFF.join('+')}` : 'ON') : 'OFF (SIM_WORLD_RULES=0)'} · sovereignty ${SOVEREIGNTY ? 'ON' : 'OFF (SIM_SOVEREIGNTY=0)'} · transit ${TRANSIT ? 'ON (SIM_TRANSIT=1)' : 'OFF'}${SCATTERED ? ' · start SCATTERED (SIM_SCATTERED=1, no home worlds)' : ''}${FACTIONS_ON ? '' : ' · factions OFF (SIM_FACTIONS=0, labels are seats)'}${PLAIN_LANES ? ' · PLAIN LANES (SIM_PLAIN_LANES=1)' : ''}${CATCHUP_PER != null ? ` · catch-up: -1 reinforcement per ${CATCHUP_PER} tiles over a quarter (SIM_CATCHUP_PER)` : ''} · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
+  console.log(`Seed "${MASTER_SEED}" · attack loop ${GRIND ? 'GRIND (mirrors live AI)' : 'single-exchange (SIM_GRIND=0, legacy)'} · corridors ${CORRIDORS ? 'ON' : 'OFF (SIM_CORRIDORS=0)'} · factions ${Object.keys(FACTION_PATCH).length ? `patched ${JSON.stringify(FACTION_PATCH)}` : 'as shipped'} · world rules ${WORLD_RULES ? (WORLD_RULES_OFF.length ? `ON except ${WORLD_RULES_OFF.join('+')}` : 'ON') : 'OFF (SIM_WORLD_RULES=0)'} · sovereignty ${SOVEREIGNTY ? `ON (${LANE_SOVEREIGNTY_CORRIDORS_NEEDED} lanes, ${LANE_SOVEREIGNTY_ROUNDS_BY_SEATS[PLAYERS]} rounds)` : 'OFF (SIM_SOVEREIGNTY=0)'}${PLAYERS < 4 && !SCATTERED ? ` · colonies ${COLONY_GARRISONS.gateway}/${COLONY_GARRISONS.interior} (gateway/interior)` : ''} · transit ${TRANSIT ? 'ON (SIM_TRANSIT=1)' : 'OFF'}${SCATTERED ? ' · start SCATTERED (SIM_SCATTERED=1, no home worlds)' : ''}${FACTIONS_ON ? '' : ' · factions OFF (SIM_FACTIONS=0, labels are seats)'}${PLAIN_LANES ? ' · PLAIN LANES (SIM_PLAIN_LANES=1)' : ''}${CATCHUP_PER != null ? ` · catch-up: -1 reinforcement per ${CATCHUP_PER} tiles over a quarter (SIM_CATCHUP_PER)` : ''} · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
+  if (GAMES % CYCLE !== 0) {
+    console.log(`⚠ ${GAMES} games is not a multiple of the ${CYCLE}-game line-up cycle, so factions and seats are sampled unevenly\n`);
+  }
   console.log(`Avg game length (turns):          ${(stats.reduce((a, s) => a + s.turns, 0) / GAMES).toFixed(1)}`);
   console.log(`Decisive (non-turn-limit) wins:   ${pct(decisive.length, GAMES)}`);
   const byCondition = new Map<string, number>();
   for (const s of stats) byCondition.set(s.victory, (byCondition.get(s.victory) ?? 0) + 1);
   console.log(`Victory breakdown:                ${[...byCondition.entries()].sort((a, b) => b[1] - a[1]).map(([c, n]) => `${c} ${pct(n, GAMES)}`).join(' · ')}`);
   console.log(`Territory-leader@turn10 win rate: ${pct(withT10.filter((s) => s.t10LeaderWon).length, withT10.length)}  (snowball signal; ${pct(1, PLAYERS)} baseline)`);
+  console.log(`First-seat win rate:              ${pct(stats.filter((s) => s.seats[0]?.won).length, GAMES)}  (${pct(1, PLAYERS)} baseline; seat 0 moves first)`);
   console.log(`Avg peak territory spread:        ${(stats.reduce((a, s) => a + s.maxTerritorySpread, 0) / GAMES).toFixed(1)} (leader − laggard, of ${terr})`);
   console.log(`Lane end-owner changes per game:  ${fixed(avg(stats.map((s) => s.laneFlips)))} (corridor health; a lane that never changes hands is a wall)`);
-  console.log(`\n— Per-faction win rate (4p baseline = 25%) —`);
+  console.log(`\n— Per-faction win rate (${PLAYERS}p baseline = ${pct(1, PLAYERS)} of the games it played) —`);
   for (const f of FACTIONS) {
     const wins = byFaction[f];
-    const flag = wins / GAMES > 0.35 ? '  <== high' : wins / GAMES < 0.15 ? '  <== low' : '';
-    console.log(`  ${f.padEnd(20)} ${FACTION_WORLD[f].padEnd(7)} ${pct(wins, GAMES).padStart(6)}${flag}`);
+    const games = played[f] ?? 0;
+    if (games === 0) continue;
+    const rate = wins / games;
+    const flag = rate > 1.4 / PLAYERS ? '  <== high' : rate < 0.6 / PLAYERS ? '  <== low' : '';
+    console.log(`  ${f.padEnd(20)} ${FACTION_WORLD[f].padEnd(7)} ${pct(wins, games).padStart(6)}${flag}${games !== GAMES ? `  (of ${games})` : ''}`);
   }
   const noWinner = stats.filter((s) => !s.winnerFaction).length;
   if (noWinner) console.log(`  (no winner / turn-limit):           ${pct(noWinner, GAMES)}`);
+
+  // ── Colonies ──────────────────────────────────────────────────────────────
+  // The mode is a race for the unclaimed worlds: when do players reach them, how
+  // much of them is settled, and (two players) does it matter whether the home
+  // worlds are neighbours or face each other across the ring?
+  const colonyGames = stats.filter((s) => s.colonyTiles > 0);
+  if (colonyGames.length > 0) {
+    const tiles = colonyGames[0]!.colonyTiles;
+    const reached = colonyGames.filter((s) => s.colonyFirstCaptureTurn != null);
+    const held = TERRITORY_SNAPSHOT_TURNS.map((t) =>
+      `@${t} ${fixed(avg(colonyGames.map((s) => s.colonyHeldAt[t]).filter((n): n is number => n != null)))}`,
+    ).join(' · ');
+    console.log(`\n— Colonies (${tiles} tiles open neutral) —`);
+    console.log(`  First colony tile taken: turn ${fixed(avg(reached.map((s) => s.colonyFirstCaptureTurn!)))} (in ${pct(reached.length, colonyGames.length)} of games)`);
+    console.log(`  Colony tiles settled:    ${held}`);
+  }
+  if (PLAYERS === 2) {
+    for (const layout of ['opposite', 'adjacent'] as const) {
+      const games = stats.filter((s) => s.layout === layout);
+      if (games.length === 0) continue;
+      const conditions = new Map<string, number>();
+      for (const g of games) conditions.set(g.victory, (conditions.get(g.victory) ?? 0) + 1);
+      console.log(
+        `  ${layout.padEnd(9)} homes: ${String(games.length).padStart(4)} games · ${fixed(avg(games.map((g) => g.turns)))} turns · `
+        + `decisive ${pct(games.filter((g) => g.decisive).length, games.length)} · `
+        + `${[...conditions.entries()].sort((a, b) => b[1] - a[1]).map(([c, n]) => `${c} ${pct(n, games.length)}`).join(' · ')} · `
+        + `first seat wins ${pct(games.filter((g) => g.seats[0]?.won).length, games.length)}`,
+      );
+    }
+  }
 
   // ── Per-faction diagnostics ────────────────────────────────────────────────
   // Win rate alone can't say WHY a faction loses. These columns separate the
@@ -887,13 +1069,15 @@ function main(): void {
       'faction', 'won', 'eliminated', 'chart_turn', 'first_cross_capture_turn',
       'cross_exchanges', 'cross_captures', 'home_exchanges', 'final_territories',
       ...TERRITORY_SNAPSHOT_TURNS.map((t) => `territories_at_${t}`),
+      'players', 'seat', 'layout',
     ].join(',');
     const rows = stats.flatMap((s) =>
-      s.seats.map((seat) => [
+      s.seats.map((seat, i) => [
         s.game, s.turns, s.victory, s.decisive, s.maxTerritorySpread,
         seat.faction, seat.won, seat.eliminated, seat.chartTurn ?? '', seat.firstCrossCaptureTurn ?? '',
         seat.crossExchanges, seat.crossCaptures, seat.homeExchanges, seat.finalTerritories,
         ...TERRITORY_SNAPSHOT_TURNS.map((t) => seat.territoriesAtTurn[t] ?? ''),
+        PLAYERS, i, s.layout ?? '',
       ].join(',')),
     );
     writeFileSync(CSV_PATH, [header, ...rows].join('\n') + '\n');
