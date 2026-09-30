@@ -2,8 +2,8 @@
  * Headless AI-vs-AI Galactic Age balance simulator.
  *
  * Drives the PURE game engine (no sockets, no DB) for N galaxy_age games on
- * era_galaxy.json — four players by default, or two, three or eight with
- * SIM_PLAYERS — and reports the balance signals that matter for the multi-world map after the
+ * era_galaxy.json — four players by default, or two to eight with SIM_PLAYERS —
+ * and reports the balance signals that matter for the multi-world map after the
  * 6->16 territory densification:
  *   - per-FACTION win rate, as a share of the games each faction played
  *     (baseline 1/players; flags a faction 40% above or below it),
@@ -14,7 +14,9 @@
  * Every player is on a distinct galaxy faction, so each gets its whole home world
  * (tryDistributeGalaxyAgeFactionHomeworlds); below four players the rest of the
  * worlds open as neutral colonies (state/galaxyModes.ts). At eight every faction
- * has two seats, each a house on half its world (state/galaxySchism.ts). Era advancement is OFF
+ * has two seats, each a house on half its world (state/galaxySchism.ts); at five
+ * to seven (the Partial Schism) one world per seat over four is split that way
+ * and the others are held whole. Era advancement is OFF
  * (galaxy is the terminal era); factions ON; naval OFF (the worlds are linked by
  * orbit lanes, not sea). Combat dice are seeded per game.
  *
@@ -25,6 +27,7 @@
  *   SIM_PLAYERS=2 SIM_GAMES=240 pnpm exec tsx scripts/simGalaxyBalance.ts
  *   SIM_PLAYERS=8 SIM_GAMES=240 SIM_HOUSE_RELATIONS=civil_war pnpm exec tsx scripts/simGalaxyBalance.ts
  *   SIM_PLAYERS=8 SIM_GAMES=240 SIM_HOUSE_RELATIONS=allied pnpm exec tsx scripts/simGalaxyBalance.ts
+ *   SIM_PLAYERS=5 SIM_GAMES=1260 SIM_PARTIAL_HOUSE=1 pnpm exec tsx scripts/simGalaxyBalance.ts
  *   SIM_PLAYERS=4 SIM_GAMES=240 SIM_2V2=1 pnpm exec tsx scripts/simGalaxyBalance.ts
  */
 import { readFileSync, writeFileSync } from 'fs';
@@ -42,6 +45,7 @@ import { syncJumpGateLanes } from '../src/game-engine/state/jumpGates';
 import { syncLaneWeatherLanes } from '../src/game-engine/state/laneWeather';
 import {
   COLONY_GARRISONS,
+  GALAXY_CLASSIC_SEATS,
   GALAXY_SCHISM_SEATS,
   GALAXY_SEAT_COUNTS,
   syncGalaxyModeLanes,
@@ -50,10 +54,12 @@ import {
   ALLIED_TUNING,
   holdsLaneCrown,
   normalizeHouseRelations,
+  PARTIAL_SCHISM_TUNING,
   SCHISM_HALVES,
   SCHISM_TUNING,
   schismHouseOf,
   schismHouseTiles,
+  schismWholeWorldOf,
 } from '../src/game-engine/state/galaxySchism';
 import { activeTruceBetween } from '../src/game-engine/state/truces';
 import { GALAXY_2V2_PAIRS } from '../src/game-engine/state/galaxyTeams';
@@ -192,17 +198,36 @@ function applyCatchup(state: GameState): void {
 }
 
 /**
- * `SIM_PLAYERS=2|3|4|8` (default 4). Below four the engine deals the Colonies
+ * `SIM_PLAYERS=2..8` (default 4). Below four the engine deals the Colonies
  * board: the worlds nobody calls home open neutral, and at three the ring's two
  * gaps are bridged all game. Eight deals the Schism: two houses to every world.
+ * Five to seven deal the Partial Schism: one world per seat over four split
+ * between two houses, the others held whole.
  */
 const PLAYERS = Number(process.env.SIM_PLAYERS ?? 4);
 if (!GALAXY_SEAT_COUNTS.includes(PLAYERS)) {
   throw new Error(`SIM_PLAYERS must be one of ${GALAXY_SEAT_COUNTS.join(', ')}`);
 }
-const SCHISM = PLAYERS === GALAXY_SCHISM_SEATS;
+/** Any Schism board: five to eight players. */
+const SCHISM = PLAYERS > GALAXY_CLASSIC_SEATS;
+/** The Partial Schism: five to seven players, some worlds held whole. */
+const PARTIAL = SCHISM && PLAYERS < GALAXY_SCHISM_SEATS;
 /**
- * Schism knobs (eight players only), patched onto the engine's SCHISM_TUNING
+ * `SIM_PARTIAL_HOUSE=N` and `SIM_PARTIAL_WHOLE=N` (five to seven players):
+ * units a turn for a house and for a seat on a whole world; `SIM_PARTIAL_OPENING=N`,
+ * extra units on every tile a house opens with. Patched onto this seat count's
+ * PARTIAL_SCHISM_TUNING.
+ */
+for (const [knob, field] of [['SIM_PARTIAL_HOUSE', 'house'], ['SIM_PARTIAL_WHOLE', 'whole'], ['SIM_PARTIAL_OPENING', 'opening']] as const) {
+  const raw = process.env[knob];
+  if (raw == null || raw === '') continue;
+  if (!PARTIAL) throw new Error(`${knob} needs SIM_PLAYERS of 5, 6 or 7`);
+  const n = Number(raw);
+  if (!Number.isInteger(n)) throw new Error(`${knob} must be a whole number`);
+  PARTIAL_SCHISM_TUNING[PLAYERS] = { ...PARTIAL_SCHISM_TUNING[PLAYERS]!, [field]: n };
+}
+/**
+ * Schism knobs (five to eight players), patched onto the engine's SCHISM_TUNING
  * the way SIM_COLONY_GARRISON is:
  *   SIM_HOUSE_RELATIONS=concord|civil_war|allied — how a world's two houses
  *     start (the lobby setting; the Concord by default). Allied makes them a
@@ -362,28 +387,49 @@ function factionLineups(k: number): string[][] {
  * every combination of that many (six pairs, four triples). Within a line-up the
  * seat order rotates too, so a full cycle is lineups × players games (4, 12, 12)
  * and no faction is confounded with a seat or a partner. Eight players have one
- * line-up, every faction twice (schismSeating).
+ * line-up, every faction twice (schismSeating). Five to seven have one per way
+ * to choose the worlds that split (4, 6 and 4 of them): every faction once, and
+ * the split ones twice, so a cycle is 20, 36 or 28 games, and 1,260 games is a
+ * whole number of cycles at each.
  */
-const LINEUPS = SCHISM ? [[...FACTIONS, ...FACTIONS]] : factionLineups(PLAYERS);
+const LINEUPS = PARTIAL
+  ? factionLineups(PLAYERS - GALAXY_CLASSIC_SEATS).map((split) => [...FACTIONS, ...split])
+  : SCHISM ? [[...FACTIONS, ...FACTIONS]] : factionLineups(PLAYERS);
 const CYCLE = LINEUPS.length * PLAYERS;
 const COLORS = ['#5dade2', '#e67e22', '#2ecc71', '#9b59b6'];
 
 /**
- * Eight players: which faction and which half of its world each seat takes.
- * Every block of eight games starts from a seeded shuffle of the eight houses
- * and rotates it a seat per game, so each house sits in every seat once a block
- * while the blocks vary which houses sit next to which (a world's two houses
- * one seat apart, or four).
+ * Five to eight players: which faction each seat takes, and a house's half of
+ * its world (none for a seat holding a whole world). Every block of games, one
+ * per seat, starts from a seeded shuffle of the seats and rotates it a seat per
+ * game, so each seat sits in every place once a block while the blocks vary
+ * which seats sit next to which (a world's two houses one seat apart, or four).
+ * At five to seven each block is one line-up, the blocks taking the line-ups in
+ * turn, so every choice of split worlds is played as often.
  */
-function schismSeating(gameIndex: number): Array<{ faction: string; half: 0 | 1 }> {
-  const rng = createSeededRng(hashStringToSeed(`${MASTER_SEED}:schism:${Math.floor(gameIndex / PLAYERS)}`));
-  const houses = FACTIONS.flatMap((faction) => [0, 1].map((half) => ({ faction, half: half as 0 | 1 })));
-  for (let i = houses.length - 1; i > 0; i--) {
+function schismSeating(gameIndex: number): Array<{ faction: string; half: 0 | 1 | null }> {
+  const block = Math.floor(gameIndex / PLAYERS);
+  const rng = createSeededRng(hashStringToSeed(`${MASTER_SEED}:schism:${block}`));
+  const lineup = LINEUPS[block % LINEUPS.length]!;
+  const twice = new Set(lineup.filter((f, i) => lineup.indexOf(f) !== i));
+  const seats = FACTIONS.flatMap((faction) => (twice.has(faction)
+    ? [0, 1].map((half) => ({ faction, half: half as 0 | 1 | null }))
+    : [{ faction, half: null as 0 | 1 | null }]));
+  for (let i = seats.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
-    [houses[i], houses[j]] = [houses[j]!, houses[i]!];
+    [seats[i], seats[j]] = [seats[j]!, seats[i]!];
   }
   const rot = gameIndex % PLAYERS;
-  return houses.map((_, i) => houses[(i + rot) % PLAYERS]!);
+  return seats.map((_, i) => seats[(i + rot) % PLAYERS]!);
+}
+
+/** A seat's label in the Schism tables: its house's name, or "<World> whole". */
+function schismSeatLabel(state: GameState, playerId: string): string {
+  const house = schismHouseOf(state, playerId);
+  if (house) return house.name;
+  const whole = schismWholeWorldOf(state, playerId);
+  const world = whole ? Object.entries(FACTION_WORLD_ID).find(([, w]) => w === whole.world_id)?.[0] : undefined;
+  return world ? `${FACTION_WORLD[world]} whole` : '?';
 }
 
 function loadMap(): GameMap {
@@ -701,8 +747,10 @@ interface GameStat {
   weatherSurges: number;
   /** Two players only: whether their home worlds share lanes, or face across the ring. */
   layout: 'adjacent' | 'opposite' | null;
-  /** Schism: each seat's house name, in seat order. */
+  /** Schism: each seat's house name (a Partial Schism's whole world "<World> whole"), in seat order. */
   houses: string[] | null;
+  /** Partial Schism: the worlds that split, e.g. "Rust+Sol". */
+  split: string | null;
   /** Team games: each seat's side, named by its worlds (e.g. "Rust+Sol"), in seat order. */
   teams: string[] | null;
   /** Schism: turn starts each seat began wearing the Lane Crown. */
@@ -781,16 +829,30 @@ function assertColonyStart(map: GameMap, state: GameState): void {
 }
 
 /**
- * Eight players must open on the Schism board: each seat on its half of its
- * faction's world and nothing else, the Vault ring neutral, and a world's two
- * houses under the Concord exactly when that is the relations being measured.
+ * Five to eight players must open on the Schism board: each house on its half of
+ * its faction's world and nothing else, each seat of a Partial Schism's whole
+ * world on all of it (assertHomeworldStart checks it holds nothing else), the
+ * Vault ring neutral, and a world's two houses under the Concord exactly when
+ * that is the relations being measured.
  */
-function assertSchismStart(state: GameState, halfOf: Record<string, 0 | 1>): void {
+function assertSchismStart(map: GameMap, state: GameState, halfOf: Record<string, 0 | 1>): void {
   const mode = state.galaxy_mode;
   if (mode?.id !== 'schism' || mode.relations !== HOUSE_RELATIONS) {
-    throw new Error(`eight players did not open on the Schism board (${JSON.stringify(mode)})`);
+    throw new Error(`${PLAYERS} players did not open on the Schism board (${JSON.stringify(mode)})`);
   }
+  if (mode.houses.length !== 2 * (PLAYERS - GALAXY_CLASSIC_SEATS)
+    || (mode.whole_worlds?.length ?? 0) !== GALAXY_SCHISM_SEATS - PLAYERS) {
+    throw new Error(`${PLAYERS} players opened with ${mode.houses.length} houses and ${mode.whole_worlds?.length ?? 0} whole worlds`);
+  }
+  const vault = vaultRegionGarrisons(map);
   for (const p of state.players) {
+    const whole = schismWholeWorldOf(state, p.player_id);
+    if (whole) {
+      if (halfOf[p.player_id] !== undefined) throw new Error(`${p.player_id} was seated as a house but dealt a whole world`);
+      const tiles = map.territories.filter((t) => t.world_id === whole.world_id && !vault.has(t.territory_id)).map((t) => t.territory_id).sort();
+      if (ownedIds(state, p.player_id).join() !== tiles.join()) throw new Error(`${p.player_id} did not open on all of ${whole.world_id}`);
+      continue;
+    }
     const house = schismHouseOf(state, p.player_id);
     if (!house || house.half !== halfOf[p.player_id]) throw new Error(`${p.player_id} was dealt the wrong half`);
     const owned = ownedIds(state, p.player_id);
@@ -814,7 +876,10 @@ function assertTeamStart(state: GameState, factionOf: Record<string, string>): v
   const worldOf = (id: string) => FACTION_WORLD_ID[factionOf[id]!]!;
   const expected = TWO_V_TWO ? GALAXY_2V2_PAIRS.map((pair) => [...pair].sort().join('+')) : FACTIONS.map((f) => FACTION_WORLD_ID[f]!).sort();
   const dealt = teams.map((t) => [...new Set(t.player_ids.map(worldOf))].sort().join('+')).sort();
-  if (teams.length !== expected.length || dealt.join() !== [...expected].sort().join() || teams.some((t) => t.player_ids.length !== 2)) {
+  // Every side holds its worlds' seats: two per world in 2v2, one or two in Allied.
+  const seatsOn = (t: { player_ids: string[] }) =>
+    Object.keys(factionOf).filter((id) => t.player_ids.map(worldOf).includes(worldOf(id))).length;
+  if (teams.length !== expected.length || dealt.join() !== [...expected].sort().join() || teams.some((t) => t.player_ids.length !== seatsOn(t))) {
     throw new Error(`the sides were not dealt as measured (${JSON.stringify(teams)})`);
   }
   const sideOfSeat = state.players.map((p) => teams.findIndex((t) => t.player_ids.includes(p.player_id)));
@@ -889,7 +954,12 @@ function runGame(gameIndex: number, sourceMap: GameMap): GameStat {
     faction_id: seating ? seating[i]!.faction : lineup[(i + rot) % PLAYERS]!,
   }));
   const halfOf: Record<string, 0 | 1> = {};
-  if (seating) players.forEach((p, i) => { halfOf[p.player_id] = seating[i]!.half; });
+  if (seating) {
+    players.forEach((p, i) => {
+      const half = seating[i]!.half;
+      if (half !== null) halfOf[p.player_id] = half;
+    });
+  }
   const factionOf: Record<string, string> = {};
   for (const p of players) factionOf[p.player_id] = p.faction_id;
   seatLabel.clear();
@@ -904,13 +974,18 @@ function runGame(gameIndex: number, sourceMap: GameMap): GameStat {
   if (SCATTERED) scatterStart(state, map, gameIndex);
   else {
     assertHomeworldStart(map, state, factionOf);
-    if (SCHISM) assertSchismStart(state, halfOf);
+    if (SCHISM) assertSchismStart(map, state, halfOf);
     else assertColonyStart(map, state);
     if (TEAMS) assertTeamStart(state, factionOf);
   }
 
   const houses = SCHISM && !SCATTERED
-    ? state.players.map((p) => schismHouseOf(state, p.player_id)?.name ?? '?')
+    ? state.players.map((p) => schismSeatLabel(state, p.player_id))
+    : null;
+  // Partial Schism: the worlds that split this game, e.g. "Rust+Sol".
+  const split = PARTIAL && !SCATTERED && state.galaxy_mode?.id === 'schism'
+    ? [...new Set(state.galaxy_mode.houses.map((h) => h.world_id))]
+      .map((w) => FACTION_WORLD[Object.entries(FACTION_WORLD_ID).find(([, id]) => id === w)![0]]!).sort().join('+')
     : null;
   const teams = TEAMS && !SCATTERED
     ? state.players.map((p) => {
@@ -1109,6 +1184,7 @@ function runGame(gameIndex: number, sourceMap: GameMap): GameStat {
     colonyHeldAt,
     colonyTiles: colonyTiles.length,
     houses,
+    split,
     teams,
     crownTurns,
     crownFirstTurn,
@@ -1127,6 +1203,10 @@ function avg(xs: number[]): number {
 
 function fixed(n: number, places = 1): string {
   return Number.isFinite(n) ? n.toFixed(places) : '—';
+}
+
+function signed(n: number): string {
+  return n >= 0 ? `+${n}` : String(n);
 }
 
 function main(): void {
@@ -1150,7 +1230,7 @@ function main(): void {
   for (const s of stats) for (const seat of s.seats) played[seat.faction] = (played[seat.faction] ?? 0) + 1;
 
   console.log(`\nGalactic Age balance — ${GAMES} games · ${PLAYERS}p · ${DIFFICULTY} · maxTurns ${MAX_TURNS}${THRESHOLD != null ? ` · threshold ${THRESHOLD}%` : ''} · ${terr} territories`);
-  console.log(`Seed "${MASTER_SEED}" · attack loop ${GRIND ? 'GRIND (mirrors live AI)' : 'single-exchange (SIM_GRIND=0, legacy)'} · corridors ${CORRIDORS ? 'ON' : 'OFF (SIM_CORRIDORS=0)'} · factions ${Object.keys(FACTION_PATCH).length ? `patched ${JSON.stringify(FACTION_PATCH)}` : 'as shipped'} · world rules ${WORLD_RULES ? (WORLD_RULES_OFF.length ? `ON except ${WORLD_RULES_OFF.join('+')}` : 'ON') : 'OFF (SIM_WORLD_RULES=0)'} · sovereignty ${SOVEREIGNTY ? `ON (${LANE_SOVEREIGNTY_CORRIDORS_NEEDED} lanes, ${(TEAMS ? LANE_SOVEREIGNTY_ROUNDS_BY_SIDES[SIDES] : LANE_SOVEREIGNTY_ROUNDS_BY_SEATS[PLAYERS]) ?? LANE_SOVEREIGNTY_ROUNDS} rounds${TEAMS ? ` for ${SIDES} sides` : ''})` : 'OFF (SIM_SOVEREIGNTY=0)'}${PLAYERS < 4 && !SCATTERED ? ` · colonies ${COLONY_GARRISONS.gateway}/${COLONY_GARRISONS.interior} (gateway/interior)` : ''}${TWO_V_TWO ? ` · 2v2 ${GALAXY_2V2_PAIRS.map((p) => p.join('+')).join(' vs ')}` : ''}${TEAMS ? ` · opening ceasefire ${TEAM_TUNING.openingCeasefire ? 'ON' : 'OFF (SIM_CEASEFIRE=0)'}` : ''}${SCHISM && !SCATTERED ? ` · schism ${HOUSE_RELATIONS === 'concord' ? `Concord ${SCHISM_TUNING.concordRounds} rounds` : HOUSE_RELATIONS === 'allied' ? `Allied ${JSON.stringify(ALLIED_TUNING)}` : 'Civil War'}, Lane Crown +${HOUSE_RELATIONS === 'allied' ? 0 : SCHISM_TUNING.laneCrownBonus}${process.env.SIM_SCHISM_HALVES ? ' · halves patched (SIM_SCHISM_HALVES)' : ''}${process.env.SIM_SCHISM_OPENING ? ` · opening ${process.env.SIM_SCHISM_OPENING}` : ''}${process.env.SIM_SCHISM_REINFORCE ? ` · house reinforce ${process.env.SIM_SCHISM_REINFORCE}` : ''}` : ''} · transit ${TRANSIT ? 'ON (SIM_TRANSIT=1)' : 'OFF'}${SCATTERED ? ' · start SCATTERED (SIM_SCATTERED=1, no home worlds)' : ''}${FACTIONS_ON ? '' : ' · factions OFF (SIM_FACTIONS=0, labels are seats)'}${PLAIN_LANES ? ' · PLAIN LANES (SIM_PLAIN_LANES=1)' : ''}${CATCHUP_PER != null ? ` · catch-up: -1 reinforcement per ${CATCHUP_PER} tiles over a quarter (SIM_CATCHUP_PER)` : ''} · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
+  console.log(`Seed "${MASTER_SEED}" · attack loop ${GRIND ? 'GRIND (mirrors live AI)' : 'single-exchange (SIM_GRIND=0, legacy)'} · corridors ${CORRIDORS ? 'ON' : 'OFF (SIM_CORRIDORS=0)'} · factions ${Object.keys(FACTION_PATCH).length ? `patched ${JSON.stringify(FACTION_PATCH)}` : 'as shipped'} · world rules ${WORLD_RULES ? (WORLD_RULES_OFF.length ? `ON except ${WORLD_RULES_OFF.join('+')}` : 'ON') : 'OFF (SIM_WORLD_RULES=0)'} · sovereignty ${SOVEREIGNTY ? `ON (${LANE_SOVEREIGNTY_CORRIDORS_NEEDED} lanes, ${(TEAMS ? LANE_SOVEREIGNTY_ROUNDS_BY_SIDES[SIDES] : LANE_SOVEREIGNTY_ROUNDS_BY_SEATS[PLAYERS]) ?? LANE_SOVEREIGNTY_ROUNDS} rounds${TEAMS ? ` for ${SIDES} sides` : ''})` : 'OFF (SIM_SOVEREIGNTY=0)'}${PLAYERS < 4 && !SCATTERED ? ` · colonies ${COLONY_GARRISONS.gateway}/${COLONY_GARRISONS.interior} (gateway/interior)` : ''}${TWO_V_TWO ? ` · 2v2 ${GALAXY_2V2_PAIRS.map((p) => p.join('+')).join(' vs ')}` : ''}${TEAMS ? ` · opening ceasefire ${TEAM_TUNING.openingCeasefire ? 'ON' : 'OFF (SIM_CEASEFIRE=0)'}` : ''}${SCHISM && !SCATTERED ? ` · schism ${HOUSE_RELATIONS === 'concord' ? `Concord ${SCHISM_TUNING.concordRounds} rounds` : HOUSE_RELATIONS === 'allied' ? `Allied ${JSON.stringify(ALLIED_TUNING)}` : 'Civil War'}, Lane Crown +${HOUSE_RELATIONS === 'allied' ? 0 : SCHISM_TUNING.laneCrownBonus}${process.env.SIM_SCHISM_HALVES ? ' · halves patched (SIM_SCHISM_HALVES)' : ''}${process.env.SIM_SCHISM_OPENING ? ` · opening ${process.env.SIM_SCHISM_OPENING}` : ''}${process.env.SIM_SCHISM_REINFORCE ? ` · house reinforce ${process.env.SIM_SCHISM_REINFORCE}` : ''}${PARTIAL ? ` · partial catch-up house ${signed(PARTIAL_SCHISM_TUNING[PLAYERS]!.house)} whole ${signed(PARTIAL_SCHISM_TUNING[PLAYERS]!.whole)} opening ${signed(PARTIAL_SCHISM_TUNING[PLAYERS]!.opening)}` : ''}` : ''} · transit ${TRANSIT ? 'ON (SIM_TRANSIT=1)' : 'OFF'}${SCATTERED ? ' · start SCATTERED (SIM_SCATTERED=1, no home worlds)' : ''}${FACTIONS_ON ? '' : ' · factions OFF (SIM_FACTIONS=0, labels are seats)'}${PLAIN_LANES ? ' · PLAIN LANES (SIM_PLAIN_LANES=1)' : ''}${CATCHUP_PER != null ? ` · catch-up: -1 reinforcement per ${CATCHUP_PER} tiles over a quarter (SIM_CATCHUP_PER)` : ''} · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
   if (GAMES % CYCLE !== 0) {
     console.log(`⚠ ${GAMES} games is not a multiple of the ${CYCLE}-game line-up cycle, so factions and seats are sampled unevenly\n`);
   }
@@ -1224,13 +1304,48 @@ function main(): void {
   }
 
   // ── Schism ────────────────────────────────────────────────────────────────
-  // Eight houses, two to a world. The faction table above is per seat; this one
+  // Houses, two to a split world. The faction table above is per seat; this one
   // splits each faction into its two houses, whose halves are not the same
-  // ground, and says who wore the Lane Crown and who died first to whom.
+  // ground, and says who wore the Lane Crown and who died first to whom. In a
+  // Partial Schism a seat holding a whole world is a row of its own.
   const schismGames = stats.filter((s) => s.houses);
+  if (schismGames.length > 0 && PARTIAL) {
+    // The Partial Schism's own question: does half a world keep up with a whole
+    // one? The catch-up (PARTIAL_SCHISM_TUNING) is tuned on this table.
+    const isWhole = (label: string) => label.endsWith(' whole');
+    const roleRow = (label: string, seats: SeatStat[]) => {
+      const rate = seats.filter((x) => x.won).length / Math.max(1, seats.length);
+      const flag = rate > 1.28 / SIDES ? '  <== high' : rate < 0.72 / SIDES ? '  <== low' : '';
+      console.log(
+        `  ${label.padEnd(22)}${pct(seats.filter((x) => x.won).length, seats.length).padStart(7)}`
+        + `${pct(seats.filter((x) => x.eliminated).length, seats.length).padStart(7)}`
+        + `${fixed(avg(seats.map((x) => x.territoriesAtTurn[10]).filter((n): n is number => n != null))).padStart(6)}`
+        + `${fixed(avg(seats.map((x) => x.territoriesAtTurn[30]).filter((n): n is number => n != null))).padStart(6)}`
+        + `${fixed(avg(seats.map((x) => x.finalTerritories))).padStart(6)}${String(seats.length).padStart(7)}${flag}`,
+      );
+    };
+    const seatsWhere = (games: GameStat[], keep: (label: string) => boolean) =>
+      games.flatMap((s) => s.seats.filter((_, i) => keep(s.houses![i]!)));
+    console.log(`\n— Partial Schism: houses and whole worlds (baseline ${pct(1, SIDES)} of games${TEAMS ? ', per seat, with its side' : ''}) —`);
+    console.log(`  ${'seat'.padEnd(22)}${'wins'.padStart(7)}${'elim'.padStart(7)}${'@10'.padStart(6)}${'@30'.padStart(6)}${'@end'.padStart(6)}${'seats'.padStart(7)}`);
+    roleRow('every house', seatsWhere(schismGames, (l) => !isWhole(l)));
+    roleRow('every whole world', seatsWhere(schismGames, isWhole));
+    const splits = [...new Set(schismGames.map((s) => s.split!))].sort();
+    console.log(`\n— Partial Schism by the worlds that split: houses | whole worlds —`);
+    for (const split of splits) {
+      const games = schismGames.filter((s) => s.split === split);
+      const houseSeats = seatsWhere(games, (l) => !isWhole(l));
+      const wholeSeats = seatsWhere(games, isWhole);
+      const turns = fixed(avg(games.map((g) => g.turns)));
+      console.log(
+        `  ${`${split} split`.padEnd(24)}${pct(houseSeats.filter((x) => x.won).length, houseSeats.length).padStart(7)} |`
+        + `${pct(wholeSeats.filter((x) => x.won).length, wholeSeats.length).padStart(7)}   ${String(games.length).padStart(4)} games · ${turns} turns`,
+      );
+    }
+  }
   if (schismGames.length > 0) {
     const names = [...new Set(schismGames.flatMap((s) => s.houses!))].sort();
-    console.log(`\n— Schism houses (baseline ${pct(1, SIDES)} of games) —`);
+    console.log(`\n— Schism ${PARTIAL ? 'seats' : 'houses'} (baseline ${pct(1, SIDES)} of games) —`);
     console.log(`  ${'house'.padEnd(22)}${'wins'.padStart(7)}${'elim'.padStart(7)}${'crown'.padStart(7)}${'@10'.padStart(6)}${'@30'.padStart(6)}${'@end'.padStart(6)}`);
     for (const name of names) {
       const seats = schismGames.flatMap((s) => s.seats.flatMap((seat, i) => (s.houses![i] === name ? [{ seat, crown: s.crownTurns[i]! }] : [])));
@@ -1251,7 +1366,7 @@ function main(): void {
     const decided = schismGames.filter((s) => s.seats.some((seat) => seat.won));
     console.log(`  Lane Crown worn in ${pct(crowned.length, schismGames.length)} of games, first on turn ${fixed(avg(crowned.map((s) => s.crownFirstTurn!)))} · the winner wore it in ${pct(winnerCrowned.length, decided.length)} of decided games`);
     const elim = schismGames.filter((s) => s.firstElimTurn != null);
-    console.log(`  First house out: turn ${fixed(avg(elim.map((s) => s.firstElimTurn!)))} (in ${pct(elim.length, schismGames.length)} of games) · by its own world's other house in ${pct(elim.filter((s) => s.firstElimByRival).length, elim.length)}`);
+    console.log(`  First ${PARTIAL ? 'seat' : 'house'} out: turn ${fixed(avg(elim.map((s) => s.firstElimTurn!)))} (in ${pct(elim.length, schismGames.length)} of games) · by its own world's other house in ${pct(elim.filter((s) => s.firstElimByRival).length, elim.length)}`);
     const shortName = (n: string): string => n.split(' ')[0]!.slice(0, 7);
     console.log(`\n— Schism captures per game, attacker house (row) → victim house (column) —`);
     console.log(`  ${'attacker'.padEnd(22)}${[...names, 'neutral'].map((v) => shortName(v).padStart(8)).join('')}`);
@@ -1409,7 +1524,7 @@ function main(): void {
       'faction', 'won', 'eliminated', 'chart_turn', 'first_cross_capture_turn',
       'cross_exchanges', 'cross_captures', 'home_exchanges', 'final_territories',
       ...TERRITORY_SNAPSHOT_TURNS.map((t) => `territories_at_${t}`),
-      'players', 'seat', 'layout', 'house', 'crown_turns', 'team',
+      'players', 'seat', 'layout', 'house', 'crown_turns', 'team', 'split',
     ].join(',');
     const rows = stats.flatMap((s) =>
       s.seats.map((seat, i) => [
@@ -1417,7 +1532,7 @@ function main(): void {
         seat.faction, seat.won, seat.eliminated, seat.chartTurn ?? '', seat.firstCrossCaptureTurn ?? '',
         seat.crossExchanges, seat.crossCaptures, seat.homeExchanges, seat.finalTerritories,
         ...TERRITORY_SNAPSHOT_TURNS.map((t) => seat.territoriesAtTurn[t] ?? ''),
-        PLAYERS, i, s.layout ?? '', s.houses?.[i] ?? '', s.crownTurns[i] ?? 0, s.teams?.[i] ?? '',
+        PLAYERS, i, s.layout ?? '', s.houses?.[i] ?? '', s.crownTurns[i] ?? 0, s.teams?.[i] ?? '', s.split ?? '',
       ].join(',')),
     );
     writeFileSync(CSV_PATH, [header, ...rows].join('\n') + '\n');
