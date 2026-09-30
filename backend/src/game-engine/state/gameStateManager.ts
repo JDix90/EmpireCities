@@ -41,6 +41,7 @@ import { applyLaneClosure, applyLaneSurge, laneSurgeHasGap, tickLaneWeather } fr
 import { colonyGarrison, colonyLayout, resolveGalaxyHomeWorlds, syncGalaxyModeLanes } from './galaxyModes';
 import {
   dealSchismFactions,
+  floorSchismDraft,
   normalizeHouseRelations,
   openConcord,
   schismHouseTiles,
@@ -532,6 +533,7 @@ export function initializeGameState(
   // Ensure first draft turn follows the same reinforcement rules as subsequent turns.
   if (!isTerritorySelect) {
     state.draft_units_remaining += getPlayerReinforceBonus(state, firstPlayer.player_id);
+    floorSchismDraft(state);
   }
 
   // Private salt — 128 bits from CSPRNG. The client knows `game_id` (it's in
@@ -1137,6 +1139,7 @@ function passTurn(state: GameState, map?: GameMap): void {
       state.players.length,
     );
   }
+  floorSchismDraft(state);
 
   appendWinProbabilitySnapshot(state);
 

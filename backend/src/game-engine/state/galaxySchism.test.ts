@@ -472,6 +472,27 @@ describe('the Partial Schism layout', () => {
     expect(schismSplitKey(['sol', 'nexus_station'])).toBe('nexus_station+sol');
   });
 
+  it("drafts nothing, not a negative count, when a seat's number outweighs its draft", () => {
+    // Five seats with Sol split: a Sol house drafts at least 3, and here -20 on top.
+    PARTIAL_ALLIED_TUNING[5]!.sol!.sol = -20;
+    const { state, map } = startWith(FIVE, { galaxy_house_relations: 'allied' });
+    const solHouses = state.players.filter((p) => p.faction_id === 'stellar_mandate').map((p) => p.player_id);
+    expect(solHouses).toHaveLength(2);
+    expect(houseReinforceBonus(state, solHouses[0]!)).toBe(-20);
+    let solTurns = 0;
+    for (let turn = 0; turn < 10; turn++) {
+      const current = state.players[state.current_player_index]!.player_id;
+      if (solHouses.includes(current)) {
+        solTurns++;
+        expect(state.draft_units_remaining).toBe(0);
+      } else {
+        expect(state.draft_units_remaining).toBeGreaterThan(0);
+      }
+      advanceToNextPlayer(state, map);
+    }
+    expect(solTurns).toBe(4);
+  });
+
   it('records the garrison its unclaimed halves open with, by seat count', () => {
     PARTIAL_SCHISM_TUNING[6]!.unclaimed = { gateway: 7, interior: 9 };
     const mode = schismLayout('galaxy_age', AUTHORED, seats([...FIVE, 'void_custodians']), 'civil_war')!;

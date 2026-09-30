@@ -648,6 +648,15 @@ export function houseReinforceBonus(state: Pick<GameState, 'galaxy_mode'>, playe
   return schismHouseOf(state, playerId)?.reinforce_bonus ?? schismWholeWorldOf(state, playerId)?.reinforce_bonus ?? 0;
 }
 
+/**
+ * A seat's own number can outweigh a small draft (a house at −4 against the 3
+ * units every turn drafts at least): on a Schism board it then drafts none, not
+ * a negative count that a card trade-in would have to pay off first.
+ */
+export function floorSchismDraft(state: Pick<GameState, 'galaxy_mode' | 'draft_units_remaining'>): void {
+  if (state.galaxy_mode?.id === 'schism' && state.draft_units_remaining < 0) state.draft_units_remaining = 0;
+}
+
 /** The Lane Crown's reinforcements for this player this turn (0 without it). */
 export function laneCrownBonus(state: Pick<GameState, 'galaxy_mode' | 'territories'>, playerId: string): number {
   const mode = state.galaxy_mode;
