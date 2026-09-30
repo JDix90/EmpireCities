@@ -6,7 +6,7 @@ import { api } from '../../services/api';
 import { describeSecretMission, type MapNameLookup } from '../../utils/mapDisplayNames';
 import { hegemonyTurnsFor } from '../../utils/lunarHegemony';
 import { describeSpaceAgeEra, spaceAgeGuideInput } from '../../utils/spaceAgeGuide';
-import { describeColonies, laneSovereigntyRoundsFor } from '../../utils/galaxyLanes';
+import { describeColonies, describeColonyKitChanges, laneSovereigntyRoundsFor } from '../../utils/galaxyLanes';
 import { SpaceAgeGuideSections } from './SpaceAgeGuide';
 import type { GameState, PlayerState } from '../../store/gameStore';
 
@@ -105,6 +105,8 @@ interface FactionInfo {
   name: string;
   description?: string;
   ability_description?: string;
+  reinforce_bonus?: number;
+  colony_reinforce_bonus?: Record<string, number>;
 }
 
 /**
@@ -172,8 +174,12 @@ export default function GameStartModal({
   // Faction name + ability come from the era endpoint (same source the
   // in-game Bonuses modal uses). Best-effort: the section simply doesn't
   // render until/unless the fetch succeeds.
-  const [faction, setFaction] = useState<FactionInfo | null>(null);
+  const [factions, setFactions] = useState<FactionInfo[]>([]);
   const factionId = gameState.settings.factions_enabled ? viewer?.faction_id ?? null : null;
+  const faction = factionId ? factions.find((f) => f.faction_id === factionId) ?? null : null;
+  // The whole roster, not just the viewer's: a Colonies board can change a
+  // rival's kit too, and the briefing says so.
+  const colonyKitChanges = describeColonyKitChanges(gameState, factions);
   useEffect(() => {
     if (!open || !factionId) return;
     let cancelled = false;
@@ -181,8 +187,7 @@ export default function GameStartModal({
       .get(`/eras/${gameState.era}/factions`)
       .then((res) => {
         if (cancelled) return;
-        const all: FactionInfo[] = res.data?.factions ?? [];
-        setFaction(all.find((f) => f.faction_id === factionId) ?? null);
+        setFactions(res.data?.factions ?? []);
       })
       .catch(() => {});
     return () => {
@@ -277,6 +282,9 @@ export default function GameStartModal({
             <Globe2 className="w-3.5 h-3.5 text-bf-gold shrink-0 mt-0.5" aria-hidden />
             <span>{colonies}</span>
           </p>
+          {colonyKitChanges.map((line) => (
+            <p key={line} className="text-xs text-bf-muted mt-1 pl-[22px]">{line}</p>
+          ))}
         </section>
       )}
 

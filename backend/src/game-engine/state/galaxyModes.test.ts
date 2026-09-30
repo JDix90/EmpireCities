@@ -19,9 +19,12 @@ import { advanceToNextPlayer, initializeGameState } from './gameStateManager';
 import {
   COLONY_GARRISONS,
   colonyLayout,
+  factionReinforceBonus,
   resolveGalaxyHomeWorlds,
   syncGalaxyModeLanes,
 } from './galaxyModes';
+import { getPlayerReinforceBonus } from './techManager';
+import { getFactionById } from '../eras';
 import { GALAXY_MODE_LANE_SOURCE, neighbouringWorlds, ringGapLanes } from './galaxyRing';
 import { applyLaneSurge, laneSurgeHasGap } from './laneWeather';
 import { orbitLaneId } from './moonAccess';
@@ -263,3 +266,37 @@ describe('when there are no colonies', () => {
     expect(colonyLayout(AUTHORED, ['sol', 'rust', 'verdan', 'nexus_station'])).toBeNull();
   });
 });
+
+describe("the Navigators' duel bonus", () => {
+  // Their +2 was set at four seats, where the second point pays for Sol's
+  // Cradle; in a two-player Colonies game it made them the strongest duellist.
+  it('drafts +1 in a two-player Colonies game, from the opening draft on', () => {
+    const { state } = galaxyGame(['helion_navigators', 'stellar_mandate']);
+    expect(getPlayerReinforceBonus(state, 'p_helion_navigators')).toBe(1);
+    // Seat 0 opens: 16 tiles (5) + Verdan's regions (14, a third at two seats: 4) + the bonus.
+    expect(state.draft_units_remaining).toBe(5 + 4 + 1);
+  });
+
+  it('keeps +2 at three and four seats, and every other kit keeps its own', () => {
+    for (const factions of [
+      ['helion_navigators', 'stellar_mandate', 'forge_syndicate'],
+      ['helion_navigators', 'stellar_mandate', 'forge_syndicate', 'void_custodians'],
+    ]) {
+      const { state } = galaxyGame(factions);
+      expect(getPlayerReinforceBonus(state, 'p_helion_navigators')).toBe(2);
+    }
+    const duel = galaxyGame(['forge_syndicate', 'void_custodians']).state;
+    expect(getPlayerReinforceBonus(duel, 'p_forge_syndicate')).toBe(2);
+    expect(getPlayerReinforceBonus(duel, 'p_void_custodians')).toBe(0);
+  });
+
+  it('reads the kit anywhere but the Colonies board', () => {
+    const navigators = getFactionById('galaxy_age', 'helion_navigators')!;
+    const noMode = { players: [{}, {}], galaxy_mode: undefined } as unknown as GameState;
+    expect(factionReinforceBonus(noMode, navigators)).toBe(2);
+    const colonies = { players: [{}, {}], galaxy_mode: { id: 'colonies', neutral_worlds: [] } } as unknown as GameState;
+    expect(factionReinforceBonus(colonies, navigators)).toBe(1);
+    expect(factionReinforceBonus(colonies, { reinforce_bonus: 3 })).toBe(3);
+  });
+});
+

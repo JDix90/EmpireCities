@@ -66,6 +66,12 @@ to get a scattered start across worlds no seat could reach.
   - That is six at four seats and four at three. At two seats with three rounds
     it would be two, and Sovereignty ended 63% of duels. Five rounds restores
     four.
+- **The Helion Navigators draft +1 in a duel, not +2.**
+  - Their second point pays for Sol's Cradle at four seats. In a duel, region
+    bonuses shrink to a third and a flat bonus doesn't, so it made them the
+    strongest seat.
+  - Kits the board changes are data on the faction: `colony_reinforce_bonus`,
+    keyed by seat count.
 - **Home Worlds off** deals the scattered start at any seat count, and there are
   no colonies.
 
@@ -75,18 +81,16 @@ and the sweeps behind each number):
 
 | | Two players | Three players |
 |---|---|---|
-| Game length | 23.4 turns | 26.1 turns |
+| Game length | 23.5 turns | 26.1 turns |
 | Won by Lane Sovereignty | 45% | 38% |
-| Turn-10 leader wins | 73.5% | 62% (four players: 62%) |
-| Faction win rates | Sol 55, Rust 40, **Verdan 65.5**, Nexus 39.5% | 25–39%, all inside the band |
+| Turn-10 leader wins | 72% | 62% (four players: 62%) |
+| Faction win rates | Sol 56, Rust 42, Verdan 59, Nexus 43% | 25–39% |
 
-- **Three players pass every gate.**
-- **Two players pass every gate except Verdan,** 1–2 points over the band, and
-  Verdan beats the Custodians in 80% of duels. The measured cause is Verdan's
-  flat +2 reinforcements. In a duel, region bonuses scale down to a third while
-  that +2 doesn't. Four players need the +2 to pay for Sol's Cradle, so any fix
-  belongs to Colonies. The candidate is scaling flat faction bonuses with the
-  seat count, the way region bonuses already scale.
+- **Both counts pass every gate**, with every faction inside the band.
+- **Verdan against the Custodians** is still the most one-sided duel, at 64–74%.
+  It was 79–83% before the Navigators' duel bonus.
+- **Rejected: halving every flat faction bonus in a duel.** It fixed Verdan and
+  broke the Forge (34.5–37%), whose +2 is its base kit.
 - **Rejected: handing a seated Custodian their Vault ring.** It gave them 81%
   of duels.
 
@@ -95,6 +99,8 @@ and the sweeps behind each number):
 - `galaxyRing.ts`: the ring geometry it shares with the Lane Surge.
 - `state.galaxy_mode`: what a game was dealt.
 - `LANE_SOVEREIGNTY_ROUNDS_BY_SEATS` in `victory/laneSovereignty.ts`.
+- `colony_reinforce_bonus` on the faction (`eras/galaxyage.ts`), read by
+  `factionReinforceBonus`.
 
 ## House relations — planned (steps 2–3)
 

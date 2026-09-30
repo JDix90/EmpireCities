@@ -462,50 +462,55 @@ Colonies needs home worlds, so it plays with factions on; Home Worlds off deals
 the scattered start at any seat count. Design and the modes planned for five to
 eight seats: [docs/GALACTIC_AGE_MODES.md](../../docs/GALACTIC_AGE_MODES.md).
 
-Shipped: colony garrison **5 on a gateway, 7 inland** (a Vault ring keeps its
-authored 6), and Lane Sovereignty **5 of 8 lanes for 5 rounds at two seats**, 3
-at three (`LANE_SOVEREIGNTY_ROUNDS_BY_SEATS`). Four seats are untouched: seed A
-at 1,000 games reproduces §2's column to the decimal.
+Shipped:
+- colony garrison **5 on a gateway, 7 inland** (a Vault ring keeps its
+  authored 6);
+- Lane Sovereignty **5 of 8 lanes for 5 rounds at two seats**, 3 at three
+  (`LANE_SOVEREIGNTY_ROUNDS_BY_SEATS`);
+- at two seats the Helion Navigators draft **+1 instead of +2**
+  (`colony_reinforce_bonus` in `eras/galaxyage.ts`).
+
+Four seats are untouched: seed A at 1,000 games reproduces §2's column to the
+decimal.
 
 **1,200 games per seed (a whole number of line-up cycles), live defaults
 (threshold 60, cap 90), A / B / C:**
 
 | Metric | Two players | Three players |
 |---|---|---|
-| Avg game length | 23.4 / 23.3 / 23.4 | 26.0 / 26.2 / 26.2 |
-| Decisive (not turn-limit) | 99.8 / 99.8 / 99.8% | 99.5 / 99.3 / 99.2% |
-| Won by Lane Sovereignty | 44.7 / 44.7 / 45.3% | 38.6 / 38.5 / 37.6% |
-| Territory-leader@turn-10 wins | 73.5 / 74.4 / 72.6% | 63.0 / 62.4 / 61.3% |
-| First seat wins (baseline 50 / 33%) | 49.0 / 49.0 / 46.7% | 31.8 / 35.8 / 33.7% |
+| Avg game length | 23.4 / 23.5 / 23.5 | 26.0 / 26.2 / 26.2 |
+| Decisive (not turn-limit) | 99.8 / 99.8 / 99.9% | 99.5 / 99.3 / 99.2% |
+| Won by Lane Sovereignty | 44.5 / 44.4 / 46.4% | 38.6 / 38.5 / 37.6% |
+| Territory-leader@turn-10 wins | 72.0 / 73.5 / 70.1% | 63.0 / 62.4 / 61.3% |
+| First seat wins (baseline 50 / 33%) | 48.4 / 49.1 / 47.0% | 31.8 / 35.8 / 33.7% |
 | Worst elimination rate | 0% | 1.9 / 1.4 / 1.9% |
-| Lane end-owner changes per game | 18.6 / 19.2 / 18.8 | 95.4 / 96.9 / 98.4 |
+| Lane end-owner changes per game | 19.3 / 19.5 / 19.1 | 95.4 / 96.9 / 98.4 |
 | First colony tile taken | turn 1.2–1.3 | turn 1.2 |
 | Colony tiles held at turn 10 / 30 | 16 / 28 of 32 | 11 / 15 of 16 |
-| Vault held at end (by the Custodians) | 46–49% (30–32%) | 43–46% (29–34%) |
+| Vault held at end (by the Custodians) | 47–50% (30–32%) | 43–46% (29–34%) |
 
 | Faction | World | Two players (of the games it played; 50%) | Three players (33.3%) |
 |---|---|---|---|
-| stellar_mandate | Sol | 55.2 / 55.7 / 54.8% | 30.7 / 31.1 / 31.4% |
-| forge_syndicate | Rust | 39.5 / 39.8 / 40.0% | 38.3 / 39.2 / 33.1% |
-| helion_navigators | Verdan | **65.5 / 65.0 / 66.0%** | 36.6 / 37.7 / 38.6% |
-| void_custodians | Nexus | 39.8 / 39.5 / 39.2% | 27.8 / 25.3 / 30.2% |
+| stellar_mandate | Sol | 56.2 / 56.7 / 54.7% | 30.7 / 31.1 / 31.4% |
+| forge_syndicate | Rust | 42.3 / 42.5 / 42.3% | 38.3 / 39.2 / 33.1% |
+| helion_navigators | Verdan | 58.7 / 59.5 / 57.7% | 36.6 / 37.7 / 38.6% |
+| void_custodians | Nexus | 42.8 / 41.3 / 45.3% | 27.8 / 25.3 / 30.2% |
 
 The gate, scaled to the seat count (every faction within ±28% of 1/players,
-as 18–32% is at four): **three players pass everything on every seed**, with a
-turn-10 snowball no worse than four players'. **Two players pass everything but
-Verdan**, 1–2 points over the 64% line. Duels are decided by matchup (row beats
-column, A / B / C):
+as 18–32% is at four): **both pass everything on every seed.** Three players'
+turn-10 snowball is no worse than four players'; a duel's is higher (70–74%).
+Duels are decided by matchup (row beats column, A / B / C):
 
 | | Sol | Rust | Verdan | Nexus |
 |---|---|---|---|---|
-| **Sol** | — | 60 / 62 / 62% | 42 / 44 / 42% | 64 / 62 / 61% |
-| **Rust** | 40 / 38 / 38% | — | 42 / 40 / 43% | 36 / 40 / 38% |
-| **Verdan** | 58 / 56 / 58% | 58 / 60 / 57% | — | **80 / 79 / 83%** |
-| **Nexus** | 36 / 38 / 39% | 64 / 60 / 62% | 20 / 21 / 17% | — |
+| **Sol** | — | 60 / 62 / 62% | 44 / 46 / 42% | 64 / 62 / 61% |
+| **Rust** | 40 / 38 / 38% | — | 51 / 48 / 50% | 36 / 40 / 38% |
+| **Verdan** | 56 / 54 / 58% | 49 / 52 / 50% | — | 72 / 74 / 64% |
+| **Nexus** | 36 / 38 / 39% | 64 / 60 / 62% | 28 / 26 / 36% | — |
 
 Whether the homes are neighbours or face each other across the ring matters
-little: 22.6–23.2 turns across the ring, 23.3–23.9 as neighbours; Sovereignty
-ends 37–39% of the first and 48–49% of the second.
+little: 23.1–23.5 turns across the ring, 23.4–23.7 as neighbours; Sovereignty
+ends 37–40% of the first and 48–50% of the second.
 
 ### How it got there
 
@@ -537,7 +542,7 @@ restores four:
 |---|---|---|---|
 | 3 | 960 | 62.8% | 21.1 |
 | 4 | 960 | 54.1% | 22.3 |
-| **5** | 1,200 × 3 | 44.7–45.3% | 23.3–23.4 |
+| **5** | 1,200 × 3 | 44.7–45.3% (44.4–46.4% with the duel bonus) | 23.3–23.4 |
 | 6 | 960 | 39.0% | 24.2 |
 
 Three players keep three rounds: 37.6–38.6% of games, beside four players' 35%.
@@ -547,24 +552,38 @@ because at four seats it gave Nexus ~41% (the Vault comment in
 `gameStateManager.ts`). In Colonies (at the 3 / 4 garrison, 480 games) it gave
 them 81% of duels and 79% at three players.
 
-**What Verdan's duel edge is made of** (two players, 1,200 games, seed A):
+**The Navigators' duel bonus.** With every kit as it plays at four seats,
+Verdan won 65.0–66.0% of its duels and 79–83% against the Custodians, 1–2
+points over the band. What that edge is made of (seed A, before the fix):
 
 | Variant | Verdan | Verdan beats Nexus | Nexus |
 |---|---|---|---|
-| Shipped | 65.5% | 80% | 39.8% |
-| Verdan `reinforce_bonus` 1 (sim only) | 58.7% | 72% | 42.8% |
+| Kits as at four seats | 65.5% | 80% | 39.8% |
+| Verdan's +2 at +1 | 58.7% | 72% | 42.8% |
 | Storms off | 65.8% | 80% | 39.7% |
 | Vault off | 70.3% | 89% | 30.3% |
 | Sovereignty off | 64.8% | — | 39.8% |
 
-A flat +2 reinforcements is a bigger share of a duel's income, where region
-bonuses scale down to a third (`clamp(players, 2, 12) / 6`), and Verdan's +2
-pays for Sol's Cradle at four seats (§4), so it is not Colonies' to change.
+A flat +2 is a bigger share of a duel's income, where region bonuses scale down
+to a third (`clamp(players, 2, 12) / 6`) and the flat bonus does not. Scaling
+every flat bonus the same way traded Verdan's problem for the Forge's: its +2 is
+its base kit, where Verdan's second point pays for Sol's Cradle (§4). So the
+duel rule is the Navigators' alone:
 
-**Lane weather** (`SIM_EVENTS=1`): two players get 1.8 closures and 1.7 surges a
-game, crossed in 67% of the games that open one. Three players get no surges
-at all — both gaps are already bridged, so the round's draw leaves the card out
-— and 2.4 closures; Nexus drops to 25.0%, still inside the band.
+| Two players, 1,200 games × 3 seeds | Sol | Rust | Verdan | Nexus | Verdan beats Nexus |
+|---|---|---|---|---|---|
+| Kits as at four seats | 54.8–55.7 | 39.5–40.0 | **65.0–66.0** | 39.2–39.8 | 79–83% |
+| Forge and Verdan at +1 | 59.3–60.5 | **34.5–37.0** | 58.0–61.0 | 43.7–47.0 | 64–74% |
+| **Verdan at +1** (shipped) | 54.7–56.7 | 42.3–42.5 | 57.7–59.5 | 41.3–45.3 | 64–74% |
+
+It is the only change at two seats; three and four seats reproduce their
+earlier runs exactly.
+
+**Lane weather** (`SIM_EVENTS=1`): two players get 1.7 closures and 1.7 surges a
+game, crossed in 68% of the games that open one; every faction stays inside the
+band (Sol 48.5, Rust 53.3, Verdan 57.2, Nexus 41.0%). Three players get no
+surges at all — both gaps are already bridged, so the round's draw leaves the
+card out — and 2.4 closures; Nexus drops to 25.0%, still inside the band.
 
 Commands, from `backend/`:
 
@@ -573,6 +592,8 @@ SIM_PLAYERS=2 SIM_GAMES=1200 SIM_THRESHOLD=60 pnpm exec tsx scripts/simGalaxyBal
 SIM_PLAYERS=3 SIM_GAMES=1200 SIM_THRESHOLD=60 pnpm exec tsx scripts/simGalaxyBalance.ts
 SIM_PLAYERS=2 SIM_COLONY_GARRISON=4,6 SIM_SOVEREIGNTY_ROUNDS=3 SIM_GAMES=960 SIM_THRESHOLD=60 \
   pnpm exec tsx scripts/simGalaxyBalance.ts        # a sweep row
+SIM_PLAYERS=2 SIM_FACTION_PATCH='{"helion_navigators":{"colony_reinforce_bonus":{}}}' \
+  SIM_GAMES=1200 SIM_THRESHOLD=60 pnpm exec tsx scripts/simGalaxyBalance.ts  # before the duel bonus
 ```
 
 ## 8. Open
@@ -590,15 +611,18 @@ SIM_PLAYERS=2 SIM_COLONY_GARRISON=4,6 SIM_SOVEREIGNTY_ROUNDS=3 SIM_GAMES=960 SIM
 - **Region bonus totals are no longer equal**: Rust 10, Verdan 14, Sol and Nexus
   12. The design principle was 12 per world; the geography now carries the
   difference.
-- **Verdan in duels** (§7): 65–66% at two players, and 80% against the
-  Custodians. The measured lever is its +2 reinforcements, which four players
-  need. A Colonies-only answer — scaling flat faction bonuses with the seat
-  count the way region bonuses already scale — is the candidate to try.
+- **Verdan against the Custodians** is still the most lopsided duel, 64–74%
+  (§7), though inside the gate since the duel bonus.
 - **Five to eight players** have no board yet; the create route, the join cap
   and game start hold the era to two to four (docs/GALACTIC_AGE_MODES.md).
 
 ## History
 
+- **2026-09-30 (Colonies duel bonus):** at two seats the Helion Navigators
+  draft +1, not +2 (`colony_reinforce_bonus`). Verdan 65.5 → 58.6% of its
+  duels, against the Custodians 81 → 70%; every faction at 41–60%, so two
+  players pass the gate. Halving the Forge's +2 as well was measured and
+  rejected (Forge 34.5–37%). Three and four seats unchanged.
 - **2026-09-30 (Colonies):** two and three seats on the Galactic Age. The
   worlds nobody calls home open neutral (garrison 5 gateway / 7 inland); three
   seats bridge the ring's gaps all game; Lane Sovereignty needs 5 rounds at two

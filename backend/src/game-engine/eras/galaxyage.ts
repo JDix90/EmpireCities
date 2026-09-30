@@ -102,6 +102,14 @@ export const GALAXY_AGE_FACTIONS: Faction[] = [
     // muster alone left Verdan at 16-17%. +1 recovered seed A but not B or C;
     // +2 holds all three.
     reinforce_bonus: 2,
+    // ...and in a two-player Colonies duel it is one too many (GALAXY-BALANCE.md
+    // §7). Region bonuses shrink to a third at two seats and a flat bonus does
+    // not, so the Navigators won 65-66% of their duels and 79-83% against the
+    // Custodians. +1 there: 57.7-59.5%, and 64-74% against the Custodians,
+    // with every faction at 41-60%. Halving the Forge's +2 as well broke the
+    // Forge (34.5-37%): theirs is the kit, where this second point is the
+    // Cradle's.
+    colony_reinforce_bonus: { 2: 1 },
     // Long-Range Sensors is the passive (expandFogVisibilityFromFactionPassive).
     // Drift Jump is applied implicitly by the fortify handler: a fortify between
     // two owned gateway tiles on different worlds that has no connected path.
