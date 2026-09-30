@@ -290,7 +290,11 @@ describe('ActionModal — daily objective result', () => {
         onDismiss={() => {}}
       />,
     );
-    await waitFor(() => expect(screen.getByText('Victory!')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Challenge Complete!')).toBeTruthy());
+    expect(screen.getByText("You met today's goal.")).toBeTruthy();
+    // The generic conquest copy contradicts a goal like "hold Ukraine".
+    expect(screen.queryByText('You have conquered the world!')).toBeNull();
+    expect(screen.queryByText('Victory!')).toBeNull();
     expect(screen.getByText(`🏆 Challenge complete — ${GOAL}`)).toBeTruthy();
     expect(screen.queryByText(/Total Domination/)).toBeNull();
     expect(screen.queryByTestId('daily-objective-unmet')).toBeNull();

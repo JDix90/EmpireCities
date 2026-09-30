@@ -1,7 +1,7 @@
 /**
  * The daily leaderboard's ordering across the v1 → v2 seam (migration 042,
  * docs/DAILY_PUZZLE_V2.md §4): a v2 day ranks by accuracy, first-try and
- * attempts with `won` shown but never ranked; a v1 day keeps its exact order.
+ * attempts, winners first; a v1 day keeps its exact order.
  *
  * Needs Postgres (migrated schema), gated on PG_TEST=1:
  *   PG_TEST=1 POSTGRES_HOST=127.0.0.1 POSTGRES_PORT=5499 POSTGRES_USER=postgres \
@@ -21,7 +21,8 @@ describe('dailyLeaderboardOrder — the SQL fragment', () => {
     expect(DAILY_LEADERBOARD_COLUMNS).toContain('dce.attempts');
     expect(DAILY_LEADERBOARD_COLUMNS).toContain('puzzle_version');
     expect(DAILY_LEADERBOARD_ORDER_BY).not.toMatch(/\bu\./);
-    expect(DAILY_LEADERBOARD_ORDER_BY.trim().startsWith('(')).toBe(true);
+    // Winning the challenge outranks everything else on every day.
+    expect(DAILY_LEADERBOARD_ORDER_BY.trim().startsWith('dce.won DESC,')).toBe(true);
   });
 });
 
@@ -114,7 +115,7 @@ describe.runIf(enabled)('dailyLeaderboardOrder — against Postgres', () => {
     expect(rows.every((r) => r.puzzle_version === 1)).toBe(true);
   });
 
-  it('a v2 day ranks score (accuracy), then first-try, then attempts, then completion time; won is shown, never ranked', async () => {
+  it('a v2 day ranks score (accuracy), then first-try, then attempts, then completion time; winners always rank above losers', async () => {
     const lostButAccurate = await seedUser('v2lost');
     const wonSloppy = await seedUser('v2sloppy');
     const retried = await seedUser('v2retried');
@@ -130,9 +131,12 @@ describe.runIf(enabled)('dailyLeaderboardOrder — against Postgres', () => {
     await seedEntry(V2_DATE, abandoned, { won: false, score: 0, turns: 3, version: 2 });
     const rows = await board(V2_DATE);
     const order = rows.map((r) => String(r.username).split('_')[0]);
-    expect(order).toEqual(['v2lost', 'v2first', 'v2later', 'v2retried', 'v2sloppy', 'v2quit']);
-    expect(rows[0].won).toBe(false);
-    expect(rows[0].accuracy).toBe(98.5);
+    // A loss never outranks a win, however accurate: the accurate loss leads the
+    // losers, and the sloppy win still trails the other winners.
+    expect(order).toEqual(['v2first', 'v2later', 'v2retried', 'v2sloppy', 'v2lost', 'v2quit']);
+    expect(rows[0].won).toBe(true);
+    expect(rows[4].won).toBe(false);
+    expect(rows[4].accuracy).toBe(98.5);
     expect(rows[0].puzzle_version).toBe(2);
     expect(rows[rows.length - 1].accuracy).toBeNull();
   });

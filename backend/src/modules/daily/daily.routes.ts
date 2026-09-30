@@ -169,8 +169,8 @@ export async function dailyRoutes(fastify: FastifyInstance): Promise<void> {
     // grading actually measures (1000 minus mistake penalties). Turn count
     // breaks ties, so domination days — where every winner scores 1000 —
     // rank exactly as before.
-    // On a v2 day the same query ranks by accuracy, first-try and attempts
-    // (dailyLeaderboardOrder.ts); `won` is shown, never ranked.
+    // On a v2 day winners still come first, then accuracy, first-try and
+    // attempts (dailyLeaderboardOrder.ts).
     const leaderboard = await query<{
       username: string;
       won: boolean;
