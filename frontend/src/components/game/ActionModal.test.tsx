@@ -321,3 +321,48 @@ describe('ActionModal — daily objective result', () => {
     expect(screen.queryByTestId('daily-objective-unmet')).toBeNull();
   });
 });
+
+describe('ActionModal — a side wins together', () => {
+  const players: GameOverModalData['players'] = [
+    { player_id: 'me', username: 'Jeff', color: '#f00', territory_count: 4, is_eliminated: false, is_ai: false },
+    { player_id: 'x', username: 'Rival', color: '#0f0', territory_count: 9, is_eliminated: false, is_ai: true },
+    { player_id: 'pal', username: 'Ally', color: '#00f', territory_count: 0, is_eliminated: true, is_ai: true },
+    { player_id: 'y', username: 'Other', color: '#ff0', territory_count: 3, is_eliminated: false, is_ai: true },
+  ];
+  const teamWin = (overrides: Partial<GameOverModalData> = {}) => gameOver({
+    players,
+    winnerName: 'Jeff',
+    winnerIds: ['me', 'pal'],
+    winningTeamName: 'Stellar Mandate & Forge Syndicate',
+    viewerId: 'me',
+    victory_condition: 'lane_sovereignty',
+    ...overrides,
+  });
+
+  it('names the side and the viewer\'s allies, and ranks the whole side first', async () => {
+    render(<ActionModal data={teamWin()} onDismiss={() => {}} />);
+    await waitFor(() => expect(screen.getByText('🤝 Team Victory!')).toBeTruthy());
+    expect(screen.getByText('The Stellar Mandate & Forge Syndicate win together: you and Ally.')).toBeTruthy();
+    const standings = screen.getByText('Final Standings').parentElement!;
+    // The eliminated ally still ranks above a rival holding more.
+    expect([...standings.querySelectorAll('.truncate')].map((n) => n.textContent)).toEqual(['Jeff', 'Ally', 'Rival', 'Other']);
+  });
+
+  it('tells the other side who beat them', async () => {
+    render(<ActionModal data={teamWin({ isWinner: false, viewerId: 'x' })} onDismiss={() => {}} />);
+    await waitFor(() => expect(screen.getByText('Defeat')).toBeTruthy());
+    expect(screen.getByText('The Stellar Mandate & Forge Syndicate win the game.')).toBeTruthy();
+  });
+
+  it("names the other winner to the second winner of an alliance, not themselves", async () => {
+    // The ally's screen: winnerName is the first winner, and the viewer is the second.
+    render(
+      <ActionModal
+        data={gameOver({ players, winnerName: 'Jeff', winnerIds: ['me', 'pal'], viewerId: 'pal', victory_condition: 'alliance_victory' })}
+        onDismiss={() => {}}
+      />,
+    );
+    await waitFor(() => expect(screen.getByText('🤝 Alliance Victory!')).toBeTruthy());
+    expect(screen.getByText('You and Jeff have triumphed together!')).toBeTruthy();
+  });
+});

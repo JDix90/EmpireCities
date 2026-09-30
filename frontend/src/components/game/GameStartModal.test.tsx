@@ -465,6 +465,55 @@ describe('what a Schism briefing tells each house', () => {
   });
 });
 
+describe('what a team game tells players before their first turn', () => {
+  const TEAMS = [
+    { team_id: 'team_1', name: 'Stellar Mandate & Forge Syndicate', player_ids: ['me', 'a2'] },
+    { team_id: 'team_2', name: 'Helion Navigators & Void Custodians', player_ids: ['a1', 'a3'] },
+  ];
+  const teamState = (overrides: Partial<GameState> = {}) => makeState({
+    era: 'galaxy_age',
+    players: [
+      ...players,
+      player({ player_id: 'a3', player_index: 3, username: 'AI Bot 3', is_ai: true }),
+    ],
+    teams: TEAMS,
+    settings: {
+      ...makeState().settings,
+      allowed_victory_conditions: ['domination', 'threshold', 'capital', 'lane_sovereignty'],
+      victory_threshold: 75,
+    },
+    ...overrides,
+  } as Partial<GameState>);
+
+  it('phrases every condition for the side, and counts Sovereignty by sides', () => {
+    expect(describeWinConditions(teamState().settings, 4, 2).conditions).toEqual([
+      'Your side controls every territory',
+      'Your side controls 75% of the map between you',
+      'Your side holds every capital',
+      'Your side holds both gateways of 5 hyperspace lanes for 5 turns running',
+    ]);
+    // Eight seats in four sides: three rounds, as a four-player game.
+    expect(describeWinConditions(teamState().settings, 8, 4).conditions[3]).toBe(
+      'Your side holds both gateways of 5 hyperspace lanes for 3 turns running',
+    );
+    // No sides: the free-for-all phrasing, rounds by seats.
+    expect(describeWinConditions(teamState().settings, 4).conditions[0]).toBe('Control every territory');
+  });
+
+  it("names the viewer's side and the one it faces", () => {
+    render(<GameStartModal open onClose={() => {}} gameState={teamState()} viewerPlayerId="me" />);
+    const section = screen.getByTestId('start-teams-section');
+    expect(section).toHaveTextContent('Your side, the Stellar Mandate & Forge Syndicate: you and AI Bot 2.');
+    expect(section).toHaveTextContent('Against the Helion Navigators & Void Custodians: AI Bot 1 and AI Bot 3.');
+    expect(screen.getByText('Your side holds both gateways of 5 hyperspace lanes for 5 turns running')).toBeInTheDocument();
+  });
+
+  it('is absent from a free-for-all game', () => {
+    render(<GameStartModal open onClose={() => {}} gameState={makeState()} viewerPlayerId="me" />);
+    expect(screen.queryByTestId('start-teams-section')).not.toBeInTheDocument();
+  });
+});
+
 describe("what a Colonies duel tells players about a kit it changes", () => {
   it('names the Navigators drafting +1 in a duel, from the whole roster', async () => {
     const { api } = await import('../../services/api');

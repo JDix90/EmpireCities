@@ -91,10 +91,16 @@ export const CreateGameSchema = z.object({
       galaxy_home_worlds: z.boolean().optional(),
       /**
        * Galactic Age Schism (eight seats): how each world's two houses start —
-       * `concord` (a truce for the opening rounds, the default) or `civil_war`.
-       * Persisted only as Civil War; read when the board is dealt.
+       * `concord` (a truce for the opening rounds, the default), `civil_war`, or
+       * `allied` (the two houses are a team). Persisted only as Civil War or
+       * Allied; read when the board is dealt.
        */
-      galaxy_house_relations: z.enum(['concord', 'civil_war']).optional(),
+      galaxy_house_relations: z.enum(['concord', 'civil_war', 'allied']).optional(),
+      /**
+       * Galactic Age 2v2 (four seats): the home worlds pair off into two teams.
+       * Persisted only when on; read when the board is dealt.
+       */
+      galaxy_2v2: z.boolean().optional(),
       economy_enabled: z.boolean().optional(),
       tech_trees_enabled: z.boolean().optional(),
       events_enabled: z.boolean().optional(),

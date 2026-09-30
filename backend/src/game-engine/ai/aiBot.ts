@@ -31,6 +31,7 @@ import {
 import { getWorldRules, vaultRegionIds } from '../state/worldRules';
 import { isJumpGateOnlyEdge } from '../state/jumpGates';
 import { corridorCompletionTargets, laneSovereigntyProgress } from '../victory/laneSovereignty';
+import { isFriendlyOwner, isShieldedFrom } from '../state/teams';
 
 export interface AiAction {
   type: 'draft' | 'attack' | 'fortify' | 'end_phase';
@@ -221,7 +222,7 @@ export function evaluateBoard(
     if (tState.owner_id !== playerId) continue;
     const neighbors = adjacency[tid] || [];
     const enemyNeighbors = neighbors.filter(
-      (nid) => state.territories[nid]?.owner_id !== playerId
+      (nid) => !isFriendlyOwner(state, playerId, state.territories[nid]?.owner_id)
     );
     if (enemyNeighbors.length === 0) continue;
     const enemyUnits = enemyNeighbors.reduce(
@@ -376,8 +377,9 @@ function selectDraftTarget(
   for (const [tid, tState] of Object.entries(state.territories)) {
     if (tState.owner_id !== playerId) continue;
     const neighbors = adjacency[tid] || [];
+    // An ally's border is as quiet as the player's own (state/teams.ts).
     const enemyNeighbors = neighbors.filter(
-      (nid) => state.territories[nid]?.owner_id !== playerId
+      (nid) => !isFriendlyOwner(state, playerId, state.territories[nid]?.owner_id)
     );
     if (enemyNeighbors.length === 0) continue;
     // Galaxy storms (Verdan): stacking past the threshold only feeds the weather.
@@ -453,7 +455,7 @@ export function chooseEmergencySealLane(
       const nearT = state.territories[near];
       const farT = state.territories[far];
       if (!nearT || !farT || nearT.owner_id !== playerId) continue;
-      if (!farT.owner_id || farT.owner_id === playerId) continue;
+      if (!farT.owner_id || isFriendlyOwner(state, playerId, farT.owner_id)) continue;
       const threat = farT.unit_count - nearT.unit_count;
       if (threat <= 0) continue;
       if (!best || threat > best.threat) best = { from: near, to: far, threat };
@@ -550,6 +552,9 @@ function selectAttacks(
     for (const nid of neighbors) {
       const nState = state.territories[nid];
       if (!nState || nState.owner_id === playerId) continue;
+      // No friendly fire in a team game, and no attack on another side during
+      // its opening ceasefire (state/teams.ts).
+      if (isShieldedFrom(state, playerId, nState.owner_id)) continue;
 
       // A Jump Gate lane carries no attack (state/jumpGates.ts), so planning one
       // would burn a turn's exchange budget on a move the resolver refuses.
@@ -763,6 +768,7 @@ function selectInfluenceTarget(
     // Seizing a truce partner's ground breaks the truce. The bot honours its
     // truces here as its attack planner does.
     if (t.owner_id && isTruceActive(state, playerId, t.owner_id)) continue;
+    if (isShieldedFrom(state, playerId, t.owner_id)) continue;
     const score = (t.owner_id === null ? -10 : 0) + t.unit_count;
     if (score < bestScore) {
       bestScore = score;
@@ -793,8 +799,9 @@ function selectFortify(
   for (const [tid, tState] of Object.entries(state.territories)) {
     if (tState.owner_id !== playerId || tState.unit_count <= 1) continue;
     const neighbors = adjacency[tid] || [];
+    // Behind an ally's line counts as interior (state/teams.ts).
     const isInterior = neighbors.every(
-      (nid) => state.territories[nid]?.owner_id === playerId
+      (nid) => isFriendlyOwner(state, playerId, state.territories[nid]?.owner_id)
     );
     if (!isInterior) continue;
 
@@ -829,12 +836,15 @@ function findNearestBorder(
     const neighbors = adjacency[current] || [];
     for (const nid of neighbors) {
       if (visited.has(nid)) continue;
-      if (state.territories[nid]?.owner_id !== playerId) {
+      const owner = state.territories[nid]?.owner_id;
+      if (!isFriendlyOwner(state, playerId, owner)) {
         // current is a border territory
         return current;
       }
       visited.add(nid);
-      queue.push(nid);
+      // The walk crosses only the player's own ground: fortify cannot move
+      // units through an ally's.
+      if (owner === playerId) queue.push(nid);
     }
   }
   return null;

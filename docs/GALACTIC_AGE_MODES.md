@@ -1,9 +1,10 @@
 # Galactic Age modes — one map, a game for every seat count
 
-**Status:** in progress. Step 1 (Colonies, two and three players) and step 2
-(the Schism, eight players, with the Concord and Civil War) are built and
-measured. Steps 3–4 are the agreed design, not yet built. The Galactic Age is
-admin-only; nothing here is player-facing until it opens.
+**Status:** in progress. Step 1 (Colonies, two and three players), step 2
+(the Schism, eight players, with the Concord and Civil War) and step 3 (teams:
+Allied houses at eight and 2v2 at four) are built and measured. Step 4 is the
+agreed design, not yet built. The Galactic Age is admin-only; nothing here is
+player-facing until it opens.
 
 Every other era plays classic Risk on its own map. The Galactic Age has one map,
 four worlds in a ring, and it plays differently depending on how many seats the
@@ -37,8 +38,9 @@ split.
 | 2 | **Colonies** | Two home worlds; the other two open neutral and garrisoned | built |
 | 3 | **Colonies** | Three home worlds; the fourth opens neutral, and two extra lanes join every world to every other | built |
 | 4 | **Classic** | One home world each | shipped |
+| 4 | **2v2** | One home world each, in two teams: Sol and Rust against Verdan and Nexus | built |
 | 5–7 | **Partial Schism** | One to three worlds shared by two houses | planned (step 4) |
-| 8 | **Schism** | Every world shared by two houses | built |
+| 8 | **Schism** | Every world shared by two houses, as rivals or, with Allied houses, as four teams | built |
 
 The create route, the join cap and game start hold the era to 2–4 seats or 8
 (`backend/src/modules/games/lobbyCapacity.ts`). Five to seven have no board yet;
@@ -103,7 +105,7 @@ and the sweeps behind each number):
 - `colony_reinforce_bonus` on the faction (`eras/galaxyage.ts`), read by
   `factionReinforceBonus`.
 
-## House relations — Concord and Civil War built (step 2), Allied planned (step 3)
+## House relations — Concord, Civil War and Allied (built)
 
 Schism puts two houses on one world. A single lobby setting, **House Relations**
 (`galaxy_house_relations`), decides how they start:
@@ -116,11 +118,9 @@ Schism puts two houses on one world. A single lobby setting, **House Relations**
   for its next attack on the breaker. The AI keeps every truce, so an AI house
   never breaks it. The territory panel shows the rounds left.
 - **Civil War — built.** The houses start hostile, for chaos from turn one.
-- **Allied — planned (step 3).** The two houses are a team:
-  - they cannot attack each other;
-  - they win together (the engine already supports more than one winner, since
-    secret-mission alliances use it);
-  - they share vision under fog, and the game screen shows them as a team.
+- **Allied — built (step 3).** The two houses are one team, on the team rules
+  below: they never attack each other, share vision and regions, and win
+  together. There is no Concord and no Lane Crown between them.
 
 Concord is the default because it protects the opening. In the balance data the
 turn-10 leader wins about 62% of four-player games. A house crushed by its
@@ -219,11 +219,118 @@ and the search behind each number):
   progress.
 - `lobbyCapacity.seatsPerFaction`: two seats per faction in a Schism lobby.
 
-## Allied houses — planned (step 3)
+## Teams — Allied houses and 2v2 (built)
 
-The team rules above, built once and used by every mode: shared victory, no
-attacks between allies, shared vision under fog, and a team display. It also
-unlocks **2v2 on the four-player board** almost for free.
+The team rules belong to the engine, not to a board
+(`backend/src/game-engine/state/teams.ts`), and every board that deals teams
+plays by them. A game has teams when `state.teams` lists its sides. A game
+without them plays free-for-all, and every team helper answers as if nobody had
+an ally, so nothing about a free-for-all game changes.
+
+**The rules**
+
+- **No friendly fire.** Nothing a player can aim at another player's ground can
+  be aimed at an ally's: an attack, a blitz, a Fleet Attack, a strike, the bomb,
+  a Drop Assault, Influence.
+  - The engine refuses it where each act resolves, and the socket refuses it
+    with a reason (`ALLY_TARGET`).
+  - The AI never plans it, and an ally's border is as quiet to it as its own.
+  - An event card that picks an opponent never picks an ally, and a truce is
+    only ever offered to an enemy.
+- **An opening ceasefire.** No side attacks another until every seat has had
+  its first turn (`CEASEFIRE`); neutral ground stays open. Without it the side
+  that moved first won 65% of 2v2 games.
+- **Seats alternate.** The seats are reordered so the sides take turns in
+  rotation (A B C D A B C D, or A B A B). Back to back, a side would play two
+  turns running.
+- **Shared regions.** A region a side holds whole between its members pays its
+  bonus once, to the member holding the most of it (a tie goes to the earlier
+  seat).
+- **Shared lanes.** An ally's gateway counts as your own. A lane with one end
+  each is the side's corridor for Lane Sovereignty, and an ally's lane seal
+  lets you through.
+- **Shared vision.** Under fog a player sees whatever an ally sees.
+- **Shared victory.** A side wins together:
+  - the last side standing wins;
+  - domination and the threshold count the side's territories together;
+  - the capital reading needs every living capital in the side's hands;
+  - Lane Sovereignty, the Lunar Hegemony and Transcendence win for the side
+    when any member completes them. Each member keeps their own Sovereignty
+    streak on the side's corridors, and the rounds a streak needs are set by
+    the number of sides, not seats;
+  - when every human's side is out, or the turn cap passes, the leading side
+    wins;
+  - an eliminated member wins with their side, and is paid as a winner;
+  - resigning concedes for your side: the last human to resign credits the
+    leading other side.
+- **No secret missions.** A mission is a win of one's own, and one could name an
+  ally to eliminate, so a team game drops the condition. The lobby greys it out.
+
+**The boards** (`state/galaxyTeams.ts`)
+
+- **Allied houses:** the Schism's House Relations set to Allied. Each world's
+  two houses are one side: four sides of two, each sharing a faction, its kit
+  and its world.
+  - No Concord and no Lane Crown: between them the two houses hold their whole
+    world from turn one.
+  - Tuned per world, both houses alike (`ALLIED_TUNING`), in units a turn: Sol
+    −1, Verdan 0, Rust +3, Nexus +1. Every house opens at the standard count;
+    the halves' own numbers settle a rivalry these houses do not have.
+  - Lane Sovereignty needs 3 rounds, as at four players.
+  - The waiting room says to pick the same faction as a friend to share a side.
+- **2v2:** the lobby's "2v2 (four players)", with Home Worlds on. The home
+  worlds pair **across the ring's gaps**: Sol and Rust against Verdan and Nexus
+  (the Stellar Mandate and the Forge Syndicate against the Helion Navigators
+  and the Void Custodians).
+  - Every lane is a front, and every player borders both enemies. Paired with
+    a neighbour instead, Verdan's side won nine games in ten.
+  - A player's faction is their side.
+  - Lane Sovereignty needs 5 rounds, as in a duel.
+  - Switching 2v2 on moves the lobby's threshold default from 60% to 75%: a
+    side starts on half the map.
+  - Started with two or three players, the game plays that count's board.
+
+**What players see**
+
+- The start briefing has a Teams section: your side, who you face and the
+  rules. Win conditions are phrased for the side.
+- The HUD lists the players under their sides. Map control and Lane
+  Sovereignty count the side's territories and corridors.
+- The territory panel marks an ally's ground, offers nothing hostile there,
+  names the member who collects a shared region, and explains the ceasefire.
+- The result screen reads "Team Victory", names the winning side and lists
+  every member, the eliminated included, at the top of the standings.
+
+**Balance** (1,200 games × 3 seeds, shipped defaults;
+[GALAXY-BALANCE.md §9](../backend/scripts/GALAXY-BALANCE.md) has every table
+and the sweeps behind each number):
+
+| | 2v2 | Allied houses |
+|---|---|---|
+| Game length | 15.9–16.3 turns | 28.6–29.3 turns |
+| Won by Lane Sovereignty | 45–48% | 38–40% |
+| Side win rates | Sol & Rust 46.5–50.3%, Verdan & Nexus 49.8–53.5% (baseline 50%) | Sol 23.0–25.3, Verdan 26.3–28.9, Rust 25.3–26.7, Nexus 21.4–23.3% (baseline 25%) |
+| First seat's side wins | 50.5–53.6% | 24.6–27.3% |
+| Turn-10 leader's side wins | about 83% | 63–66% |
+
+- **Both boards pass the gate on every seed**, read by sides: each within ±28%
+  of its share.
+- **The ceasefire is part of the tuning.** Without it, the side moving first
+  won 66% of 2v2 games, and the Allied sides ran 13.9–39.4%.
+- **2v2 snowballs**: the side leading at turn 10 wins about 83% of games that
+  last about 16 turns.
+- **Allied Sol houses end eliminated in about half of games**, though their
+  side wins its share.
+- **Free-for-all is unchanged**: two, three and four players reproduce main
+  exactly, and the Concord Schism matches it as closely as main matches itself.
+
+**Code:**
+- `state/teams.ts`: the rules every hostile path checks, and the shared-region
+  reading.
+- `state/galaxyTeams.ts`: the two boards' deals and the seat order.
+- `victory/teamVictory.ts`: the side-by-side reading of every condition.
+- `state.teams`: the sides a game was dealt, in seat order.
+- `frontend/src/utils/teams.ts`: the client's mirror of the rules.
 
 ## Partial Schism (five to seven players) — planned (step 4)
 
@@ -248,13 +355,18 @@ rather than hard-coded as era special cases:
     and re-projected when a room is rebuilt;
   - per-seat numbers live in small tables
     (`LANE_SOVEREIGNTY_ROUNDS_BY_SEATS`, `COLONY_GARRISONS`, `SCHISM_HALVES`,
-    `SCHISM_TUNING`) that the balance sim can patch.
+    `SCHISM_TUNING`, `ALLIED_TUNING`, `GALAXY_2V2_PAIRS`,
+    `LANE_SOVEREIGNTY_ROUNDS_BY_SIDES`, `TEAM_TUNING`) that the balance sim can
+    patch;
+  - teams are data too: `state.teams` lists the sides, and the engine's team
+    rules read it.
 - **Every mode is measured before it opens.** `simGalaxyBalance.ts` runs any
   seat count (`SIM_PLAYERS`), rotates every faction line-up and seat, and
   reports win rates as a share of the games each faction played.
 - **The gate** is four players' gate scaled by seat count:
   - decisive in 80% of games or more;
-  - each faction within ±28% of 1/players;
+  - each faction within ±28% of 1/players (in a team game, each side within
+    ±28% of 1/sides);
   - no faction eliminated in more than 30% of games;
   - lanes changing hands;
   - Sovereignty a real ending, not the only one.
@@ -269,7 +381,7 @@ rewrite. Whether any should is a separate discussion.
 2. **Schism at eight**, with shared kits, the Lane Crown, and Concord / Civil
    War. **Done.**
 3. **Allied houses**: shared victory, no friendly attacks, shared vision, team
-   UI. This also enables 2v2 at four.
+   UI. This also enables 2v2 at four. **Done.**
 4. **Partial Schism (five to seven)**.
 
 Every step is admin-only and measured on the balance sim before it merges.

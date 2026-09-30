@@ -86,6 +86,32 @@ describe('mapControlProgress', () => {
   });
 });
 
+describe('mapControlProgress in a team game', () => {
+  it("counts the side's territories together, as the server reads the threshold", () => {
+    const state = {
+      settings: { allowed_victory_conditions: ['threshold'], victory_threshold: 75 },
+      territories: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [`t${i}`, { owner_id: null }])),
+      players: [
+        { player_id: 'me', territory_count: 8, is_eliminated: false },
+        { player_id: 'x', territory_count: 3, is_eliminated: false },
+        { player_id: 'pal', territory_count: 6, is_eliminated: false },
+        { player_id: 'y', territory_count: 3, is_eliminated: false },
+      ],
+      teams: [
+        { team_id: 'team_1', name: 'Us', player_ids: ['me', 'pal'] },
+        { team_id: 'team_2', name: 'Them', player_ids: ['x', 'y'] },
+      ],
+    } as unknown as GameState;
+    // 75% of 20 is 15; 8 + 6 is one short.
+    expect(mapControlProgress(state, 'me')).toEqual({
+      held: 14, total: 20, heldPct: 70, thresholdPct: 75, needed: 15, remaining: 1, side: true,
+    });
+    expect(mapControlProgress({ ...state, teams: undefined }, 'me')).toEqual({
+      held: 8, total: 20, heldPct: 40, thresholdPct: 75, needed: 15, remaining: 7,
+    });
+  });
+});
+
 describe('mapControlThreshold', () => {
   it('normalizes the percentage as normalizeGameSettings does', () => {
     const settings = (victory_threshold: unknown) =>

@@ -6,7 +6,7 @@ import { GameLobbySnapshot } from '../../types/gameLobbyApi';
 import FactionLoreModal, { type FactionLoreInfo } from './FactionLoreModal';
 import { AiBadge } from '../ui/AiBadge';
 import { aiPlayerName } from '@borderfall/shared';
-import { seatsPerFaction } from '../../utils/lobbyEraMapCompatibility';
+import { galaxyTeamPickNote, seatsPerFaction } from '../../utils/lobbyEraMapCompatibility';
 
 interface FactionInfo {
   faction_id: string;
@@ -80,9 +80,20 @@ export default function FactionSelectionPanel({ lobby, eraId }: FactionSelection
 
   if (!lobby.settings_json?.factions_enabled) return null;
 
+  // A team lobby (Galactic Age 2v2, Allied houses): picking a faction picks a side.
+  const teamNote = galaxyTeamPickNote(
+    lobby.era_id,
+    lobby.map_id,
+    lobby.settings_json,
+    (id) => factions.find((f) => f.faction_id === id)?.name ?? id,
+  );
+
   return (
     <div className="card mb-6 animate-fade-in">
       <h3 className="font-display text-xl text-bf-gold mb-4">Faction Selection</h3>
+      {teamNote && (
+        <p className="text-xs text-bf-muted -mt-2 mb-3" data-testid="faction-team-note">{teamNote}</p>
+      )}
       {loading ? (
         <p className="text-bf-muted">Loading factions…</p>
       ) : (

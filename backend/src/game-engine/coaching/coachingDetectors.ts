@@ -27,6 +27,7 @@ import type {
   PlayerState,
   TerritoryState,
 } from '../../types';
+import { isFriendlyOwner } from '../state/teams';
 
 const PROBABILITY_DROP_THRESHOLD = 0.05;
 const REGION_PROGRESS_THRESHOLD = 0.7;
@@ -125,7 +126,8 @@ const opponentRegionThreatDetector: Detector = ({ state, map, human }) => {
     const threatByOwner = new Map<string, number>();
     for (const t of territoriesInRegion) {
       const ownerId = state.territories[t.territory_id]?.owner_id;
-      if (!ownerId || ownerId === human.player_id) continue;
+      // An ally closing on a region is no threat (state/teams.ts).
+      if (!ownerId || isFriendlyOwner(state, human.player_id, ownerId)) continue;
       threatByOwner.set(ownerId, (threatByOwner.get(ownerId) ?? 0) + 1);
     }
 
@@ -227,7 +229,7 @@ const thinBorderDetector: Detector = ({ state, map, human }) => {
     let enemyNeighbors = 0;
     for (const adjId of neighbors) {
       const adjOwner = state.territories[adjId]?.owner_id;
-      if (adjOwner && adjOwner !== human.player_id) enemyNeighbors++;
+      if (adjOwner && !isFriendlyOwner(state, human.player_id, adjOwner)) enemyNeighbors++;
     }
     if (enemyNeighbors === 0) continue;
     if (enemyNeighbors > weakestNeighbors) {

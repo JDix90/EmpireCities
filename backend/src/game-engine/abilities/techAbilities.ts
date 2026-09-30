@@ -3,6 +3,7 @@ import { getEraTechTreeForPlayer } from '../state/techManager';
 import { getPlayerEraModifiers } from '../state/eraModifiers';
 import { getAdjacentTerritoryIds } from '../state/influenceManager';
 import { getOrbitAccessResult, isLaneSealedForPlayer } from '../state/moonAccess';
+import { areAllies } from '../state/teams';
 
 /** Abilities consumed once per game (not per turn). */
 export const GAME_SCOPED_ABILITIES = new Set([
@@ -330,7 +331,8 @@ export function hasPassiveAdjacentRecon(state: GameState, playerId: string): boo
 /**
  * Whether an owned territory borders (over any connection type) a territory
  * held by another player. Neutral neighbours don't count — the point of a
- * frontline-only placement (satellite_uplink) is that it can't fortify the rear.
+ * frontline-only placement (satellite_uplink) is that it can't fortify the rear
+ * — and nor do an ally's in a team game.
  */
 export function isOwnedTerritoryAdjacentToEnemy(
   state: GameState,
@@ -342,7 +344,7 @@ export function isOwnedTerritoryAdjacentToEnemy(
     const otherId = c.from === territoryId ? c.to : c.to === territoryId ? c.from : null;
     if (!otherId) return false;
     const owner = state.territories[otherId]?.owner_id;
-    return owner != null && owner !== playerId;
+    return owner != null && owner !== playerId && !areAllies(state, playerId, owner);
   });
 }
 
@@ -386,6 +388,7 @@ export function isEnemyTerritoryReachableForAbility(
 ): boolean {
   const target = state.territories[targetId];
   if (!target || target.owner_id === playerId || target.owner_id == null) return false;
+  if (areAllies(state, playerId, target.owner_id)) return false;
 
   const ownedIds = Object.entries(state.territories)
     .filter(([, t]) => t.owner_id === playerId)

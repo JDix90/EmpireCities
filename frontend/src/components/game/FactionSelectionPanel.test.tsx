@@ -17,6 +17,8 @@ vi.mock('../../services/api', () => ({
         factions: [
           { faction_id: 'stellar_mandate', name: 'Stellar Mandate', description: '' },
           { faction_id: 'forge_syndicate', name: 'Forge Syndicate', description: '' },
+          { faction_id: 'helion_navigators', name: 'Helion Navigators', description: '' },
+          { faction_id: 'void_custodians', name: 'Void Custodians', description: '' },
         ],
       },
     })),
@@ -24,13 +26,13 @@ vi.mock('../../services/api', () => ({
   },
 }));
 
-function lobby(maxPlayers: number, holders: Array<string | null>): GameLobbySnapshot {
+function lobby(maxPlayers: number, holders: Array<string | null>, settings: Record<string, unknown> = {}): GameLobbySnapshot {
   return {
     game_id: 'g1',
     era_id: 'galaxy_age',
     map_id: 'era_galaxy',
     status: 'waiting',
-    settings_json: { factions_enabled: true, max_players: maxPlayers },
+    settings_json: { factions_enabled: true, max_players: maxPlayers, ...settings },
     players: [
       { player_index: 0, user_id: 'me', username: 'me', player_color: '#fff', is_ai: false, faction_id: null },
       ...holders.map((faction_id, i) => ({
@@ -62,5 +64,31 @@ describe('FactionSelectionPanel — seats per faction', () => {
     render(<FactionSelectionPanel lobby={lobby(4, ['stellar_mandate'])} eraId="galaxy_age" />);
     expect((await option('Stellar Mandate')).disabled).toBe(true);
     expect((await option('Forge Syndicate')).disabled).toBe(false);
+  });
+});
+
+describe('FactionSelectionPanel — a team lobby', () => {
+  beforeEach(() => {
+    useAuthStore.setState({ user: { user_id: 'me', username: 'me' } as never, isAuthenticated: true });
+  });
+
+  it('says a 2v2 faction is a side, naming the factions by the roster', async () => {
+    render(<FactionSelectionPanel lobby={lobby(4, [], { galaxy_2v2: true })} eraId="galaxy_age" />);
+    await screen.findByRole('option', { name: 'Stellar Mandate' });
+    expect(screen.getByTestId('faction-team-note')).toHaveTextContent(
+      '2v2: your faction is your team, Stellar Mandate and Forge Syndicate against Helion Navigators and Void Custodians.',
+    );
+  });
+
+  it('says how Allied houses pair up', async () => {
+    render(<FactionSelectionPanel lobby={lobby(8, [], { galaxy_house_relations: 'allied' })} eraId="galaxy_age" />);
+    await screen.findByRole('option', { name: 'Stellar Mandate' });
+    expect(screen.getByTestId('faction-team-note')).toHaveTextContent(/Pick the same faction as a friend/);
+  });
+
+  it('adds nothing to a free-for-all lobby', async () => {
+    render(<FactionSelectionPanel lobby={lobby(8, [], { galaxy_house_relations: 'concord' })} eraId="galaxy_age" />);
+    await screen.findByRole('option', { name: 'Stellar Mandate' });
+    expect(screen.queryByTestId('faction-team-note')).toBeNull();
   });
 });

@@ -134,6 +134,7 @@ import { playAbilityActivationSound, playStrikeAbilitySound } from '../utils/abi
 import { playFrontierUnlockSound } from '../utils/gameSounds';
 import { formatEraLabel } from '../utils/mapDisplayNames';
 import { isHostileAbility, trucePartnerOwning } from '../utils/truces';
+import { teamOf } from '../utils/teams';
 import BrandWordmark from '../components/ui/BrandWordmark';
 import { AiBadge } from '../components/ui/AiBadge';
 import type { GameLobbySnapshot, GameLobbyPlayerRow, GameLobbySettingsJson } from '../types/gameLobbyApi';
@@ -1977,6 +1978,8 @@ export default function GamePage() {
         victory_threshold: typeof victoryThreshold === 'number' ? victoryThreshold : undefined,
         eraName: currentEra ? (ERA_LABELS[currentEra] ?? currentEra) : undefined,
         winnerIds,
+        winningTeamName: teamOf(useGameStore.getState().gameState, winnerIds[0])?.name,
+        viewerId: myId,
         progression: myProgression,
         rematchConfig: stats.rematch_config,
         combat_stats: stats.combat_stats,

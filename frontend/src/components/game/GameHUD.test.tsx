@@ -442,6 +442,88 @@ describe('GameHUD — map control tracker', () => {
   });
 });
 
+describe('GameHUD — a team game', () => {
+  const TEAMS = [
+    { team_id: 'team_1', name: 'Stellar Mandate & Forge Syndicate', player_ids: ['me', 'pal'] },
+    { team_id: 'team_2', name: 'Helion Navigators & Void Custodians', player_ids: ['rival', 'other'] },
+  ];
+  const galaxyMap = {
+    map_kind: 'galaxy' as const,
+    territories: [],
+    connections: [{ from: 'g1', to: 'g2', type: 'orbit' as const }],
+  };
+  const teamState = (teams: typeof TEAMS | null = TEAMS) => makeState({
+    era: 'galaxy_age',
+    teams: teams ?? undefined,
+    settings: {
+      allowed_victory_conditions: ['threshold', 'lane_sovereignty'],
+      victory_threshold: 75,
+    } as GameState['settings'],
+    players: [
+      player('me', 0, { territory_count: 5 }),
+      player('rival', 1, { username: 'Rival', territory_count: 2 }),
+      player('pal', 2, { username: 'Pal', territory_count: 1 }),
+      player('other', 3, { username: 'Other', territory_count: 2 }),
+    ],
+    territories: Object.fromEntries(
+      ['me', 'me', 'me', 'me', 'me', 'rival', 'rival', 'pal', 'other', 'other'].map((owner, i) => [
+        i === 0 ? 'g1' : i === 7 ? 'g2' : `t${i}`,
+        { owner_id: owner },
+      ]),
+    ) as unknown as GameState['territories'],
+  } as Partial<GameState>);
+
+  beforeEach(() => {
+    try { localStorage.clear(); } catch { /* ignore */ }
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+      addListener: vi.fn(), removeListener: vi.fn(),
+    }) as unknown as typeof window.matchMedia;
+    useAuthStore.setState({ user: { user_id: 'me', username: 'me', level: 1, xp: 0, mmr: 1000 } } as never);
+  });
+
+  it('lists each side under its name, members in seat order', () => {
+    useGameStore.setState({ gameState: teamState(), draftUnitsRemaining: 0, lastCombatResult: null } as never);
+    renderHud({ mapData: galaxyMap, resolvedViewerPlayerId: 'me' });
+    fireEvent.click(screen.getByRole('tab', { name: /Players/ }));
+    const headings = screen.getAllByTestId('hud-team-heading');
+    expect(headings.map((h) => h.textContent)).toEqual([
+      'Stellar Mandate & Forge Syndicate · your side',
+      'Helion Navigators & Void Custodians',
+    ]);
+    // Each heading is followed by its side's players, in seat order.
+    const order = [...document.querySelectorAll('[data-testid="hud-team-heading"], .truncate')].map((n) => n.textContent);
+    expect(order).toEqual([
+      'Stellar Mandate & Forge Syndicate · your side', 'me', 'Pal',
+      'Helion Navigators & Void Custodians', 'Rival', 'Other',
+    ]);
+  });
+
+  it("counts the side's share of the map, and the side's corridors", () => {
+    useGameStore.setState({ gameState: teamState(), draftUnitsRemaining: 0, lastCombatResult: null } as never);
+    renderHud({ mapData: galaxyMap, resolvedViewerPlayerId: 'me' });
+    const control = screen.getByTestId('map-control-progress');
+    expect(control.textContent).toContain('Map control (your side): 60% of 75%');
+    expect(control.textContent).toContain('6 of 8 territories');
+    expect(control.textContent).toContain('Hold 75% of the map as a side');
+    const sovereignty = screen.getByTestId('lane-sovereignty-progress');
+    // g1 is mine and g2 my ally's: one corridor, held by the side.
+    expect(sovereignty.textContent).toContain('corridors 1 of 1');
+    expect(sovereignty.textContent).toContain("you or an ally, to make it your side's corridor");
+    // Two sides: the streak runs five rounds, as a duel's does.
+    expect(sovereignty.textContent).toContain('held 0 of 5 rounds');
+  });
+
+  it('is one list, counted player by player, without teams', () => {
+    useGameStore.setState({ gameState: teamState(null), draftUnitsRemaining: 0, lastCombatResult: null } as never);
+    renderHud({ mapData: galaxyMap, resolvedViewerPlayerId: 'me' });
+    expect(screen.getByTestId('map-control-progress').textContent).toContain('Map control: 50% of 75%');
+    expect(screen.getByTestId('lane-sovereignty-progress').textContent).toContain('corridors 0 of 1');
+    fireEvent.click(screen.getByRole('tab', { name: /Players/ }));
+    expect(screen.queryByTestId('hud-team-heading')).toBeNull();
+  });
+});
+
 describe('GameHUD — fleet battle dice', () => {
   beforeEach(() => {
     try { localStorage.clear(); } catch { /* ignore */ }

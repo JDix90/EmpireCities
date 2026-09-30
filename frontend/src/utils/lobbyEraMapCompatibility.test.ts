@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { GALAXY_PLAYER_COUNT_ERROR, evaluateEraMapCompatibility, seatsPerFaction } from './lobbyEraMapCompatibility';
+import {
+  GALAXY_PLAYER_COUNT_ERROR,
+  evaluateEraMapCompatibility,
+  galaxyTeamPickNote,
+  seatsPerFaction,
+} from './lobbyEraMapCompatibility';
 
 const hasCustomPairingNote = (warnings: Array<{ message: string }>) =>
   warnings.some((w) => w.message.startsWith('Custom pairing'));
@@ -78,5 +83,33 @@ describe('seatsPerFaction', () => {
     expect(seatsPerFaction('custom', 'era_galaxy', { max_players: 8 })).toBe(2);
     expect(seatsPerFaction('galaxy_age', 'era_galaxy', { max_players: 4 })).toBe(1);
     expect(seatsPerFaction('ww2', 'era_ww2', { max_players: 8 })).toBe(1);
+  });
+});
+
+describe('galaxyTeamPickNote', () => {
+  const name = (id: string) => ({
+    stellar_mandate: 'Stellar Mandate', forge_syndicate: 'Forge Syndicate',
+    helion_navigators: 'Helion Navigators', void_custodians: 'Void Custodians',
+  } as Record<string, string>)[id] ?? id;
+
+  it('names the 2v2 sides by the factions paired across the ring', () => {
+    expect(galaxyTeamPickNote('galaxy_age', 'era_galaxy', { max_players: 4, galaxy_2v2: true }, name)).toBe(
+      '2v2: your faction is your team, Stellar Mandate and Forge Syndicate against Helion Navigators and Void Custodians.',
+    );
+  });
+
+  it('pairs two seats on a faction when the houses are Allied', () => {
+    expect(galaxyTeamPickNote('galaxy_age', 'era_galaxy', { max_players: 8, galaxy_house_relations: 'allied' }, name))
+      .toMatch(/^Allied houses: the two players on each faction are one team/);
+  });
+
+  it('says nothing for a free-for-all lobby', () => {
+    expect(galaxyTeamPickNote('galaxy_age', 'era_galaxy', { max_players: 4 }, name)).toBeNull();
+    expect(galaxyTeamPickNote('galaxy_age', 'era_galaxy', { max_players: 8, galaxy_house_relations: 'civil_war' }, name)).toBeNull();
+    // 2v2 is a four-seat board; Allied is an eight-seat one.
+    expect(galaxyTeamPickNote('galaxy_age', 'era_galaxy', { max_players: 3, galaxy_2v2: true }, name)).toBeNull();
+    expect(galaxyTeamPickNote('galaxy_age', 'era_galaxy', { max_players: 4, galaxy_house_relations: 'allied' }, name)).toBeNull();
+    expect(galaxyTeamPickNote('ww2', 'era_ww2', { max_players: 4, galaxy_2v2: true }, name)).toBeNull();
+    expect(galaxyTeamPickNote('galaxy_age', 'era_galaxy', null, name)).toBeNull();
   });
 });

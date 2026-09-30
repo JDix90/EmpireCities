@@ -539,7 +539,8 @@ export default function LobbyPage() {
   // Galactic Age Schism: eight seats, two houses to every world (needs Home
   // Worlds). The House relations setting decides how a world's two houses start.
   const [galaxySchism, setGalaxySchism] = useState(false);
-  const [galaxyHouseRelations, setGalaxyHouseRelations] = useState<'concord' | 'civil_war'>('concord');
+  const [galaxyHouseRelations, setGalaxyHouseRelations] = useState<'concord' | 'civil_war' | 'allied'>('concord');
+  const [galaxy2v2, setGalaxy2v2] = useState(false);
   const [coachingEnabled, setCoachingEnabled] = useState(false);
   const [eraAdvancementEnabled, setEraAdvancementEnabled] = useState(false);
   const [eraAdvancementPreset, setEraAdvancementPreset] = useState<'skirmish' | 'standard' | 'epic'>('standard');
@@ -596,6 +597,11 @@ export default function LobbyPage() {
   const galaxySchismOn = isGalacticEra && galaxyHomeWorlds && galaxySchism;
   // The seats a Galactic lobby asks for: four (Colonies below), or eight.
   const galaxySeatCap = galaxySchismOn ? GALAXY_SCHISM_PLAYERS : GALAXY_MAX_PLAYERS;
+  // 2v2 pairs the four home worlds into two sides; it needs Home Worlds and
+  // plays on the four-player board, so not with the Schism.
+  const galaxy2v2On = isGalacticEra && galaxyHomeWorlds && !galaxySchismOn && galaxy2v2;
+  // A team game (Allied houses, or 2v2) plays without secret missions.
+  const galaxyTeamsOn = galaxy2v2On || (galaxySchismOn && galaxyHouseRelations === 'allied');
   const lockedSystems = lockedSystemsForEra(selectedEra, { galaxyHomeWorlds });
   const lockedSystemsNotice = lockedEraSystemsNotice(selectedEra, { galaxyHomeWorlds });
   // Economy & Buildings is what pays for everything below it: Tech Points are
@@ -619,6 +625,15 @@ export default function LobbyPage() {
     // The server refuses Territory Draft on the Galactic Age either way.
     if (selectedEra === GALACTIC_AGE_ERA_ID && territorySelection) setTerritorySelection(false);
   }, [selectedEra, galaxyHomeWorlds, economyEnabled, techTreesEnabled, factionsEnabled, territorySelection]);
+
+  // 2v2 starts each side on half the board, so the 60% threshold a four-way
+  // game uses is only seven tiles away: switching 2v2 on moves the default to
+  // 75%, measured in GALAXY-BALANCE.md §9 (and back when it is switched off).
+  // A threshold the host has set to something else is left alone.
+  const onGalaxy2v2Change = (on: boolean) => {
+    setGalaxy2v2(on);
+    setVictoryThresholdPct((pct) => (on && pct === 60 ? 75 : !on && pct === 75 ? 60 : pct));
+  };
 
   const onGalaxyHomeWorldsChange = (on: boolean) => {
     setGalaxyHomeWorlds(on);
@@ -1150,7 +1165,9 @@ export default function LobbyPage() {
       const mapId = selectedTheaterMapId;
       const eraId = selectedEra;
       const isAscensionTheater = isAscensionGalaxyMap(mapId);
-      const allowed = Array.from(victoryModes) as VictoryMode[];
+      // A team game plays without secret missions (the server drops them too).
+      const chosen = (Array.from(victoryModes) as VictoryMode[]).filter((m) => !(galaxyTeamsOn && m === 'secret_mission'));
+      const allowed: VictoryMode[] = chosen.length > 0 ? chosen : ['domination'];
       const settings: Record<string, unknown> = {
         fog_of_war: fogOfWar,
         allowed_victory_conditions: allowed,
@@ -1161,6 +1178,7 @@ export default function LobbyPage() {
         factions_enabled: factionsEnabled || undefined,
         galaxy_home_worlds: isGalacticEra ? galaxyHomeWorlds : undefined,
         galaxy_house_relations: galaxySchismOn ? galaxyHouseRelations : undefined,
+        galaxy_2v2: galaxy2v2On || undefined,
         economy_enabled: economyEnabled || undefined,
         tech_trees_enabled: techTreesEnabled || undefined,
         events_enabled: eventsEnabled || undefined,
@@ -2589,6 +2607,25 @@ export default function LobbyPage() {
                         </label>
                       </div>
                     )}
+                    {isGalacticEra && !galaxySchismOn && (
+                      <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
+                        <FeatureTooltip text="Four players in two teams: Sol and Rust against Verdan and Nexus, the worlds across the ring from each other, so every lane is a front. Allies never attack each other, see what each other sees, and win together; your faction is your team. No team attacks the other until every player has had a turn. Started with two or three players, the game plays that count's board instead. Needs Home Worlds." />
+                        <label htmlFor="galaxy-2v2" className="contents cursor-pointer">
+                          <input
+                            type="checkbox"
+                            id="galaxy-2v2"
+                            checked={galaxy2v2On}
+                            onChange={(e) => onGalaxy2v2Change(e.target.checked)}
+                            disabled={!galaxyHomeWorlds}
+                            className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
+                          />
+                          <span className="leading-snug min-w-0 select-none">
+                            2v2 (four players)
+                            {!galaxyHomeWorlds && <span className="text-xs text-bf-muted"> (needs Home Worlds)</span>}
+                          </span>
+                        </label>
+                      </div>
+                    )}
                     {galaxySchismOn && (
                       <div className="sm:col-span-2">
                         <label htmlFor="galaxy-house-relations" className="label">House Relations</label>
@@ -2596,15 +2633,20 @@ export default function LobbyPage() {
                           id="galaxy-house-relations"
                           className="input"
                           value={galaxyHouseRelations}
-                          onChange={(e) => setGalaxyHouseRelations(e.target.value === 'civil_war' ? 'civil_war' : 'concord')}
+                          onChange={(e) => setGalaxyHouseRelations(
+                            e.target.value === 'civil_war' || e.target.value === 'allied' ? e.target.value : 'concord',
+                          )}
                         >
                           <option value="concord">Concord — each world's houses start under a truce</option>
                           <option value="civil_war">Civil War — no truce, war from the first turn</option>
+                          <option value="allied">Allied — each world's two houses are one team</option>
                         </select>
                         <p className="text-xs text-bf-muted mt-1">
                           {galaxyHouseRelations === 'concord'
                             ? 'A truce for the opening rounds, so each house can face outward first. Breaking it early is allowed, at the usual cost: your target gets a defence die, then a die against you.'
-                            : 'The two houses on every world are enemies from turn one.'}
+                            : galaxyHouseRelations === 'allied'
+                              ? "Four teams of two: a world's houses never attack each other, see what each other sees, and win together. Pick the same faction as a friend to share a world. No team attacks another until every player has had a turn, and there is no Lane Crown."
+                              : 'The two houses on every world are enemies from turn one.'}
                         </p>
                       </div>
                     )}
@@ -2824,7 +2866,11 @@ export default function LobbyPage() {
                     )}
                   <div className="md:col-span-2">
                     <label className="label">Victory conditions</label>
-                    <p className="text-xs text-bf-muted mb-2">A player wins if they meet any checked condition (last player standing always wins).</p>
+                    <p className="text-xs text-bf-muted mb-2">
+                      {galaxyTeamsOn
+                        ? 'A team wins if it meets any checked condition between its members (the last team standing always wins).'
+                        : 'A player wins if they meet any checked condition (last player standing always wins).'}
+                    </p>
                     {theaterIsOrbitGated && (
                       <p className="text-xs text-bf-muted mb-2" data-testid="create-game-extra-endings">
                         {lunarHegemonyEnds && `Holding every lunar territory for ${HEGEMONY_TURNS} of your own turns in a row also wins (the Lunar Hegemony). `}
@@ -2849,10 +2895,14 @@ export default function LobbyPage() {
                               id={`create-game-victory-${id}`}
                               type="checkbox"
                               className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
-                              checked={victoryModes.has(id)}
+                              checked={victoryModes.has(id) && !(galaxyTeamsOn && id === 'secret_mission')}
                               onChange={() => toggleVictoryMode(id)}
+                              disabled={galaxyTeamsOn && id === 'secret_mission'}
                             />
-                            <span className="leading-snug min-w-0 select-none">{label}</span>
+                            <span className="leading-snug min-w-0 select-none">
+                              {label}
+                              {galaxyTeamsOn && id === 'secret_mission' && <span className="text-xs text-bf-muted"> (not in team games)</span>}
+                            </span>
                           </label>
                         </div>
                       ))}

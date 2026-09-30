@@ -852,6 +852,45 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
       });
     }, 20_000);
 
+    it('in a team game, concedes for the side: the other side wins whole, never the resigner\'s ally', async () => {
+      const gameId = 'handoff-resign-team';
+      await seed(gameId, buildState(gameId, {
+        phase: 'attack',
+        turn_number: 4, // past the grace window: the game is decided, not abandoned
+        players: [
+          player('team-h', 0),
+          player('team-x', 1, { is_ai: true, ai_difficulty: 'easy', territory_count: 2 }),
+          // The human's ally holds the most land: crediting the leading AI, as a
+          // free-for-all game does, would hand the resigner's own side the win.
+          player('team-ally', 2, { is_ai: true, ai_difficulty: 'easy', territory_count: 5 }),
+          player('team-y', 3, { is_ai: true, ai_difficulty: 'easy' }),
+        ],
+        teams: [
+          { team_id: 'team_1', name: 'Us', player_ids: ['team-h', 'team-ally'] },
+          { team_id: 'team_2', name: 'Them', player_ids: ['team-x', 'team-y'] },
+        ],
+        territories: {
+          h1: terr('h1', 'team-h', 3),
+          x1: terr('x1', 'team-x', 3), x2: terr('x2', 'team-x', 3),
+          l1: terr('l1', 'team-ally', 3), l2: terr('l2', 'team-ally', 3), l3: terr('l3', 'team-ally', 3),
+          l4: terr('l4', 'team-ally', 3), l5: terr('l5', 'team-ally', 3),
+          y1: terr('y1', 'team-y', 3),
+        },
+      } as Partial<GameState>), isolatedMap(gameId, ['h1', 'x1', 'x2', 'l1', 'l2', 'l3', 'l4', 'l5', 'y1']));
+      const h = await connect('team-h');
+      await joinRoom('team-h', gameId);
+
+      // The room is told through its state: this file's Postgres stub never
+      // confirms the completion write that game:over waits on.
+      const over = new Promise<GameState>((resolve) => {
+        h.on('game:state', (s: GameState) => { if (s.phase === 'game_over') resolve(s); });
+      });
+      h.emit('game:resign', { gameId });
+      const s = await over;
+      expect({ winners: s.winner_ids, condition: s.victory_condition })
+        .toEqual({ winners: ['team-x', 'team-y'], condition: 'resignation' });
+    }, 20_000);
+
     it('leaves the resigner\'s land to be fought over, on a classic board too', async () => {
       const gameId = 'handoff-resign-land';
       await seed(gameId, buildState(gameId, {

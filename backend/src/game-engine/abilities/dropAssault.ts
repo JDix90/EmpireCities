@@ -34,6 +34,7 @@ import { executeLandAttack, type LandAttackOutcome } from '../combat/executeLand
 import { syncTerritoryCounts } from '../state/gameStateManager';
 import { countLunarTerritories } from '../state/helium3';
 import { activeTruceBetween, breakTruceBetween } from '../state/truces';
+import { areAllies, isShieldedFrom } from '../state/teams';
 import { areMoonPowersEnabled } from './moonPowers';
 import { TERRITORY_ABILITY_DEFS } from './techAbilities';
 
@@ -58,11 +59,15 @@ export const DROP_ASSAULT_COOLDOWN_TURNS = 3;
  */
 const VIRTUAL_ORIGIN_PREFIX = '__drop_assault_origin__';
 
-/** Whether a territory can be dropped on: Earth ground somebody else holds, or nobody. */
+/**
+ * Whether a territory can be dropped on: Earth ground somebody else holds, or
+ * nobody. Never an ally's in a team game, nor another side's during the
+ * opening ceasefire (state/teams.ts).
+ */
 export function isDropAssaultTarget(state: GameState, playerId: string, territoryId: string): boolean {
   const t = state.territories[territoryId];
   if (!t) return false;
-  if (t.owner_id === playerId) return false;
+  if (t.owner_id === playerId || isShieldedFrom(state, playerId, t.owner_id)) return false;
   // Earth only. The Moon is reached by orbit lanes and contested on the ground;
   // letting the drop skip that would make the lanes decorative.
   return inferWorldId({
@@ -224,6 +229,14 @@ export function resolveDropAssaultsFor(
       resolutions.push({
         assault, status: 'cancelled', cancelCode: 'already_held',
         cancelReason: 'You already hold the target',
+      });
+      continue;
+    }
+    // An ally took it while the drop was in flight: it lands on nobody's toes.
+    if (areAllies(state, playerId, target.owner_id)) {
+      resolutions.push({
+        assault, status: 'cancelled', cancelCode: 'already_held',
+        cancelReason: 'An ally holds the target',
       });
       continue;
     }

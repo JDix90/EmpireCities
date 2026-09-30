@@ -25,6 +25,7 @@ import { risorgimentoEvents } from './decks/risorgimento';
 import { spaceageEvents } from './decks/spaceage';
 import { galaxyageEvents } from './decks/galaxyage';
 import { applyStabilityChange, applyGlobalStabilityChange } from '../state/stabilityManager';
+import { areAllies } from '../state/teams';
 
 const ERA_DECKS: Record<string, EventCard[]> = {
   ancient: ancientEvents,
@@ -274,9 +275,11 @@ function applyEventEffectInner(
       break;
     }
     case 'enemy_units_removed': {
-      // Remove units from a random opponent's territories
+      // Remove units from a random opponent's territories — never an ally's in
+      // a team game (state/teams.ts).
       const opponents = state.players.filter(
-        (p) => !p.is_eliminated && p.player_id !== currentPlayer.player_id,
+        (p) => !p.is_eliminated && p.player_id !== currentPlayer.player_id
+          && !areAllies(state, currentPlayer.player_id, p.player_id),
       );
       if (opponents.length > 0) {
         const opponent = opponents[randomInt(0, opponents.length)];
@@ -319,8 +322,10 @@ function applyEventEffectInner(
     case 'truce': {
       // Force a truce between the current player and their most recently fought opponent.
       // Priority: last attacked player → any opponent currently at war → random.
+      // Allies never fight (state/teams.ts), so a truce is only ever with an enemy.
       const opponents = state.players.filter(
-        (p) => !p.is_eliminated && p.player_id !== currentPlayer.player_id,
+        (p) => !p.is_eliminated && p.player_id !== currentPlayer.player_id
+          && !areAllies(state, currentPlayer.player_id, p.player_id),
       );
       if (opponents.length > 0) {
         let opponent = opponents.find(

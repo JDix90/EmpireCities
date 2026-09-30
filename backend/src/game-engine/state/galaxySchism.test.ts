@@ -228,9 +228,10 @@ describe('the Schism layout', () => {
     expect(schismLayout('galaxy_age', AUTHORED, seats(FACTIONS), 'concord')).toBeNull();
   });
 
-  it('reads anything but Civil War as the Concord', () => {
+  it('reads anything but Civil War or Allied as the Concord', () => {
     expect(normalizeHouseRelations('civil_war')).toBe('civil_war');
-    for (const raw of ['concord', undefined, 'allied', 7]) expect(normalizeHouseRelations(raw)).toBe('concord');
+    expect(normalizeHouseRelations('allied')).toBe('allied');
+    for (const raw of ['concord', undefined, 'rivals', 7]) expect(normalizeHouseRelations(raw)).toBe('concord');
   });
 });
 

@@ -19,6 +19,7 @@
 import { inferWorldId, type WorldModifiers, type WorldRules } from '@borderfall/shared';
 import type { GalaxySchismHouse, GameState } from '../store/gameStore';
 import { getGalaxyWorldLore } from '../constants/galaxyLore';
+import { areAllies, isFriendlyOwner } from './teams';
 
 export type LaneState = 'corridor' | 'open' | 'closed';
 
@@ -54,16 +55,19 @@ interface LaneMapData {
   worlds?: Array<{ world_id: string; display_name?: string }>;
 }
 
-/** Mirrors backend `laneStateFor`: which ends of the lane the player holds. */
+/**
+ * Mirrors backend `laneStateFor`: which ends of the lane the player holds. In a
+ * team game an ally's gateway counts as the player's (utils/teams).
+ */
 export function laneStateFor(
-  gameState: Pick<GameState, 'territories'>,
+  gameState: Pick<GameState, 'territories'> & Partial<Pick<GameState, 'teams'>>,
   fromId: string,
   toId: string,
   playerId: string | null | undefined,
 ): LaneState {
   if (!playerId) return 'closed';
-  const a = gameState.territories[fromId]?.owner_id === playerId;
-  const b = gameState.territories[toId]?.owner_id === playerId;
+  const a = isFriendlyOwner(gameState, playerId, gameState.territories[fromId]?.owner_id);
+  const b = isFriendlyOwner(gameState, playerId, gameState.territories[toId]?.owner_id);
   if (a && b) return 'corridor';
   if (a || b) return 'open';
   return 'closed';
@@ -79,15 +83,15 @@ export function laneSealFor(
   return seal && seal.turns_remaining > 0 ? seal : null;
 }
 
-/** Mirrors backend `isLaneSealedForPlayer`: the sealer crosses their own seal. */
+/** Mirrors backend `isLaneSealedForPlayer`: the sealer, and the sealer's allies, cross their own seal. */
 export function isLaneSealedForPlayer(
-  gameState: Pick<GameState, 'lane_blockades'>,
+  gameState: Pick<GameState, 'lane_blockades'> & Partial<Pick<GameState, 'teams'>>,
   fromId: string,
   toId: string,
   playerId: string | null | undefined,
 ): boolean {
   const seal = laneSealFor(gameState, fromId, toId);
-  return !!seal && seal.owner_id !== playerId;
+  return !!seal && seal.owner_id !== playerId && !areAllies(gameState, playerId, seal.owner_id);
 }
 
 /**
@@ -250,13 +254,16 @@ export function describeSchism(
   const house = schismHouseOf(gameState, viewerId);
   const rival = schismRivalOf(gameState, viewerId);
   const crown = `+${mode.lane_crown_bonus} reinforcement${mode.lane_crown_bonus === 1 ? '' : 's'} a turn`;
+  const allied = mode.relations === 'allied';
   if (!house || !rival) {
     return [
       'Eight houses, two to every world: each faction is dealt to two players, who split its home world and share its kit.',
-      mode.relations === 'concord' && rounds > 0
-        ? `The Concord: each world's two houses start under a truce for the first ${roundsText}.`
-        : 'Civil War: the two houses on every world are enemies from the first turn.',
-      `The Lane Crown: a house that holds all four of its world's gateways drafts ${crown}.`,
+      allied
+        ? "Allied: each world's two houses are one side."
+        : mode.relations === 'concord' && rounds > 0
+          ? `The Concord: each world's two houses start under a truce for the first ${roundsText}.`
+          : 'Civil War: the two houses on every world are enemies from the first turn.',
+      ...(allied ? [] : [`The Lane Crown: a house that holds all four of its world's gateways drafts ${crown}.`]),
     ];
   }
   const world = worldDisplayName(mapData, house.world_id);
@@ -269,10 +276,12 @@ export function describeSchism(
   return [
     `You are the ${house.name}. The ${rival.name} (${rivalName}) holds the rest of ${world}, with the same kit.`,
     ...bonusLines,
-    mode.relations === 'concord' && rounds > 0
-      ? `The Concord: you and the ${rival.name} are under a truce for the first ${roundsText}. Attacking them before it ends breaks it: they defend that attack with an extra die, and get an extra die for their next attack on you.`
-      : `Civil War: the ${rival.name} is your enemy from the first turn.`,
-    `The Lane Crown: hold all four of ${world}'s gateways, your two and theirs, and you draft ${crown}.`,
+    allied
+      ? `Allied: the ${rival.name} is your ally, not your rival.`
+      : mode.relations === 'concord' && rounds > 0
+        ? `The Concord: you and the ${rival.name} are under a truce for the first ${roundsText}. Attacking them before it ends breaks it: they defend that attack with an extra die, and get an extra die for their next attack on you.`
+        : `Civil War: the ${rival.name} is your enemy from the first turn.`,
+    ...(allied ? [] : [`The Lane Crown: hold all four of ${world}'s gateways, your two and theirs, and you draft ${crown}.`]),
   ];
 }
 
@@ -556,10 +565,21 @@ export const LANE_SOVEREIGNTY_CORRIDORS_NEEDED = 5;
 export const LANE_SOVEREIGNTY_ROUNDS = 3;
 /** Mirrors backend LANE_SOVEREIGNTY_ROUNDS_BY_SEATS: one rival breaks a streak on fewer turns. */
 export const LANE_SOVEREIGNTY_ROUNDS_BY_SEATS: Record<number, number> = { 2: 5, 3: 3, 4: 3, 8: 3 };
+/** Mirrors backend LANE_SOVEREIGNTY_ROUNDS_BY_SIDES: a team game counts its sides instead. */
+export const LANE_SOVEREIGNTY_ROUNDS_BY_SIDES: Record<number, number> = { 2: 5, 4: 3 };
 
 /** Rounds a streak must run in a game with this many seats. */
 export function laneSovereigntyRoundsFor(seats: number): number {
   return LANE_SOVEREIGNTY_ROUNDS_BY_SEATS[seats] ?? LANE_SOVEREIGNTY_ROUNDS;
+}
+
+/** Rounds a streak must run in this game: by its sides in a team game, else by its seats. */
+export function laneSovereigntyRoundsForGame(
+  gameState: Partial<Pick<GameState, 'players' | 'teams'>> | null | undefined,
+): number {
+  const sides = gameState?.teams?.length ?? 0;
+  if (sides > 0) return LANE_SOVEREIGNTY_ROUNDS_BY_SIDES[sides] ?? LANE_SOVEREIGNTY_ROUNDS;
+  return laneSovereigntyRoundsFor(gameState?.players?.length ?? 0);
 }
 
 /** Authored orbit lanes — the board sovereignty is played on. */
@@ -579,23 +599,24 @@ export interface LaneSovereigntyProgress {
 }
 
 export function laneSovereigntyProgress(
-  gameState: Pick<GameState, 'settings' | 'territories' | 'players'> | null | undefined,
+  gameState: (Pick<GameState, 'settings' | 'territories' | 'players'> & Partial<Pick<GameState, 'teams'>>) | null | undefined,
   connections: Array<{ from: string; to: string; type?: string; source?: string }> | undefined,
   playerId: string | null | undefined,
 ): LaneSovereigntyProgress {
   const lanes = authoredOrbitLanes(connections ?? []);
   const needed = Math.min(LANE_SOVEREIGNTY_CORRIDORS_NEEDED, lanes.length);
-  const roundsNeeded = laneSovereigntyRoundsFor(gameState?.players?.length ?? 0);
+  const roundsNeeded = laneSovereigntyRoundsForGame(gameState);
   const allowed = gameState?.settings?.allowed_victory_conditions ?? [];
   const applicable = !!gameState && !!playerId && needed > 0 && allowed.includes('lane_sovereignty');
   if (!applicable) {
     return { applicable: false, held: 0, needed, streak: 0, roundsNeeded };
   }
+  // A side holds its corridors together: an ally's gateway counts as yours.
   let held = 0;
   for (const lane of lanes) {
     if (
-      gameState.territories[lane.from]?.owner_id === playerId
-      && gameState.territories[lane.to]?.owner_id === playerId
+      isFriendlyOwner(gameState, playerId, gameState.territories[lane.from]?.owner_id)
+      && isFriendlyOwner(gameState, playerId, gameState.territories[lane.to]?.owner_id)
     ) held += 1;
   }
   const player = gameState.players.find((p) => p.player_id === playerId);

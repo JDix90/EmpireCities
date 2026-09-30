@@ -7,6 +7,7 @@ import { resolvePlayerEraId } from '../eraAdvancement/constants';
 import { isLaneClosedByWeather } from './laneWeather';
 import type { GameState, PlayerState, GameMap, EraId, OrbitAccessMode, MapConnection } from '../../types';
 import { contestAccessMissing, contestOpensMoonAccess } from './lunarHegemony';
+import { areAllies, isFriendlyOwner } from './teams';
 
 export interface MoonAccessState {
   hasTech: boolean;
@@ -528,11 +529,11 @@ export type LaneState = 'corridor' | 'open' | 'closed';
  *   closed   — the player holds neither end; their way in is intra-world.
  * Purely descriptive under corridors (the crossing rule is "hold one end"), but
  * it is what the chart paints, what the AI weighs, and what Lane Sovereignty
- * will count.
+ * will count. In a team game an ally's gateway counts as the player's.
  */
 export function laneStateFor(state: GameState, fromId: string, toId: string, playerId: string): LaneState {
-  const a = state.territories[fromId]?.owner_id === playerId;
-  const b = state.territories[toId]?.owner_id === playerId;
+  const a = isFriendlyOwner(state, playerId, state.territories[fromId]?.owner_id);
+  const b = isFriendlyOwner(state, playerId, state.territories[toId]?.owner_id);
   if (a && b) return 'corridor';
   if (a || b) return 'open';
   return 'closed';
@@ -574,7 +575,8 @@ export function playerOwnsHyperlaneAnchor(state: GameState, playerId: string): b
 
 /**
  * True when an active lane seal owned by ANOTHER player blocks `playerId` from
- * crossing the orbit edge from→to. The sealer can still use their own lane.
+ * crossing the orbit edge from→to. The sealer can still use their own lane, and
+ * so can the sealer's allies in a team game (state/teams.ts).
  */
 export function isLaneSealedForPlayer(state: GameState, fromId: string, toId: string, playerId: string): boolean {
   // Lane weather (a Nebula Closure) shuts a lane for EVERYONE, including the
@@ -582,7 +584,7 @@ export function isLaneSealedForPlayer(state: GameState, fromId: string, toId: st
   if (isLaneClosedByWeather(state, fromId, toId)) return true;
   const bl = state.lane_blockades?.[orbitLaneId(fromId, toId)];
   if (!bl || bl.turns_remaining <= 0) return false;
-  return bl.owner_id !== playerId;
+  return bl.owner_id !== playerId && !areAllies(state, playerId, bl.owner_id);
 }
 
 export interface SealLaneCheck { ok: boolean; error?: string; laneId?: string }

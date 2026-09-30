@@ -24,3 +24,12 @@ describe('describeMapControl', () => {
       .toBe('You hold 66% of the map — 65% wins.');
   });
 });
+
+describe('describeMapControl in a team game', () => {
+  it("speaks for the viewer's side", () => {
+    expect(describeMapControl({ ...progress, side: true }))
+      .toBe('Your side holds 42% of the map. 65% wins — 10 more territories.');
+    expect(describeMapControl({ ...progress, held: 28, heldPct: 66, remaining: 0, side: true }))
+      .toBe('Your side holds 66% of the map — 65% wins.');
+  });
+});

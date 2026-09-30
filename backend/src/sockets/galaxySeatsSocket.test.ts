@@ -105,7 +105,7 @@ describe.runIf(redisTestEnabled)('Galactic Age seats at game start', () => {
   });
 
   /** A waiting Galactic lobby: the host, then `aiSeats` bots, factions on as the create route bakes them. */
-  function seedGalaxyLobby(gameId: string, host: string, aiSeats: number): void {
+  function seedGalaxyLobby(gameId: string, host: string, aiSeats: number, settings: Record<string, unknown> = {}): void {
     db.games.set(gameId, {
       game_id: gameId, era_id: 'galaxy_age', map_id: 'era_galaxy', status: 'waiting',
       settings_json: {
@@ -113,6 +113,7 @@ describe.runIf(redisTestEnabled)('Galactic Age seats at game start', () => {
         victory_threshold: 60, turn_timer_seconds: 0, initial_unit_count: 3, card_set_escalating: true,
         diplomacy_enabled: false, factions_enabled: true, economy_enabled: true, tech_trees_enabled: true,
         galaxy_corridors_enabled: true, max_turns: 90, max_players: 8,
+        ...settings,
       },
     });
     db.players.set(gameId, [
@@ -200,5 +201,47 @@ describe.runIf(redisTestEnabled)('Galactic Age seats at game start', () => {
       const rival = mode.houses.find((h) => h.world_id === house.world_id && h.player_id !== house.player_id)!;
       expect(activeTruceBetween(state, house.player_id, rival.player_id)).not.toBeNull();
     }
+  }, 30_000);
+
+  it("starts eight Allied seats: a side per world, the sides seated in turn, no Concord", async () => {
+    const gameId = uuidv4();
+    const host = `host_${gameId.slice(0, 8)}`;
+    seedGalaxyLobby(gameId, host, 7, { galaxy_house_relations: 'allied' });
+    const client = await hostIn(gameId, host);
+
+    expect(await start(client, gameId)).toEqual({ started: true });
+    const state = (await getGameState(gameId))!;
+    const mode = state.galaxy_mode;
+    expect(mode?.id === 'schism' ? mode.relations : null).toBe('allied');
+    expect(state.teams).toHaveLength(4);
+    const sideOf = (id: string) => state.teams!.findIndex((t) => t.player_ids.includes(id));
+    state.players.forEach((p, i) => {
+      expect(p.player_index).toBe(i);
+      expect(sideOf(p.player_id)).not.toBe(sideOf(state.players[(i + 1) % 8]!.player_id));
+    });
+    for (const team of state.teams!) {
+      const [a, b] = team.player_ids;
+      const factionOf = (id: string) => state.players.find((p) => p.player_id === id)!.faction_id;
+      expect(factionOf(a!)).toBe(factionOf(b!));
+      expect(activeTruceBetween(state, a!, b!)).toBeNull();
+    }
+  }, 30_000);
+
+  it('starts a 2v2 lobby as two sides of two worlds across the ring', async () => {
+    const gameId = uuidv4();
+    const host = `host_${gameId.slice(0, 8)}`;
+    seedGalaxyLobby(gameId, host, 3, { galaxy_2v2: true, max_players: 4 });
+    const client = await hostIn(gameId, host);
+
+    expect(await start(client, gameId)).toEqual({ started: true });
+    const state = (await getGameState(gameId))!;
+    expect(state.galaxy_mode).toBeUndefined();
+    const factionsOf = (ids: string[]) => ids.map((id) => state.players.find((p) => p.player_id === id)!.faction_id).sort();
+    expect(state.teams!.map((t) => factionsOf(t.player_ids)).sort()).toEqual([
+      ['forge_syndicate', 'stellar_mandate'],
+      ['helion_navigators', 'void_custodians'],
+    ]);
+    expect(state.players.map((p) => state.teams!.findIndex((t) => t.player_ids.includes(p.player_id))))
+      .toEqual([0, 1, 0, 1]);
   }, 30_000);
 });

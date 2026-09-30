@@ -39,7 +39,9 @@ Knobs: `SIM_MAP` (variant map file), `SIM_GAMES`, `SIM_DIFFICULTY`,
 `SIM_FACTIONS=0`, `SIM_PLAIN_LANES` and `SIM_CATCHUP_PER` (§6),
 `SIM_PLAYERS`, `SIM_COLONY_GARRISON` and `SIM_SOVEREIGNTY_ROUNDS` (§7), and
 `SIM_HOUSE_RELATIONS`, `SIM_CONCORD_ROUNDS`, `SIM_LANE_CROWN`,
-`SIM_SCHISM_HALVES`, `SIM_SCHISM_OPENING` and `SIM_SCHISM_REINFORCE` (§8).
+`SIM_SCHISM_HALVES`, `SIM_SCHISM_OPENING` and `SIM_SCHISM_REINFORCE` (§8), and
+`SIM_2V2`, `SIM_2V2_PAIRS`, `SIM_ALLIED_REINFORCE`, `SIM_ALLIED_OPENING` and
+`SIM_CEASEFIRE` (§9).
 4 players by default, one per galaxy faction, faction↔seat rotated per game; at
 2 or 3 the line-up also rotates through every combination of factions; at 8
 every faction plays twice (§8). Factions ON, naval OFF,
@@ -654,7 +656,7 @@ Shipped (`SCHISM_HALVES`, `SCHISM_TUNING`):
     (8.2%) and Hellas (8.6%) sit just under.
   - Civil War: seven within ±28%; the Western Mandate is at 17.1%.
 - The four-player elimination limit (30%) does not carry over. With one winner
-  in eight, most houses end eliminated; the rates are in the table and in §9.
+  in eight, most houses end eliminated; the rates are in the table and in §10.
 
 Two, three and four seats are unchanged: seed A reproduces §2 and §7 to the
 decimal.
@@ -726,7 +728,138 @@ equal split with two gateways a half, the others as drawn):
 - The Crown stays at +2: at 0 the Crown is a label, and +4 moves nothing.
 - Sovereignty stays at 3 rounds: at 2 it takes over.
 
-## 9. Open
+## 9. Teams — Allied houses and 2v2 (`SIM_HOUSE_RELATIONS=allied`, `SIM_2V2=1`)
+
+Two boards deal teams (`state/galaxyTeams.ts`), and both play by the engine's
+team rules (`state/teams.ts`): no friendly fire, an opening ceasefire, shared
+regions, lanes, vision and victory. The design is in
+[docs/GALACTIC_AGE_MODES.md](../../docs/GALACTIC_AGE_MODES.md). A side wins or
+loses whole, so the gate reads **sides**: each within ±28% of 1/sides, with the
+first seat's side and the turn-10 leader's side against the same baseline.
+`assertTeamStart` fails a run whose sides were not dealt as measured, or whose
+allies sit back to back.
+
+Shipped:
+- **2v2:** the home worlds paired across the ring's gaps, Sol & Rust against
+  Verdan & Nexus (`GALAXY_2V2_PAIRS`); Lane Sovereignty 5 rounds for two sides
+  (`LANE_SOVEREIGNTY_ROUNDS_BY_SIDES`); the lobby's threshold default 75%.
+- **Allied houses:** every world's two houses one side; no Concord and no Lane
+  Crown; per-world units a turn for both houses (`ALLIED_TUNING`): Sol −1,
+  Verdan 0, Rust +3, Nexus +1, and every house opens at the standard count (the
+  halves' opening adjustments are the Schism's); Lane Sovereignty 3 rounds for
+  four sides; threshold 60%.
+- **Both:** the opening ceasefire (`TEAM_TUNING`): no side attacks another until
+  every seat has had its first turn.
+
+**1,200 games per seed, shipped defaults, A / B / C:**
+
+| Metric | 2v2 (threshold 75) | Allied houses (threshold 60) |
+|---|---|---|
+| Avg game length | 16.3 / 15.9 / 16.1 | 28.8 / 28.6 / 29.3 |
+| Decisive (not turn-limit) | 99.9 / 100 / 100% | 99.9 / 99.6 / 99.8% |
+| Won by Lane Sovereignty | 47.8 / 45.4 / 45.9% | 37.5 / 38.3 / 40.2% |
+| Territory-leader@turn-10's side wins | 82.8 / 83.6 / 82.8% (baseline 50%) | 63.1 / 66.4 / 62.8% (baseline 25%) |
+| First seat's side wins | 53.6 / 51.0 / 50.5% (50%) | 25.9 / 27.3 / 24.6% (25%) |
+
+| Side | Wins (A / B / C) | Seats eliminated |
+|---|---|---|
+| 2v2 · Sol & Rust | 50.3 / 48.3 / 46.5% | 0.8–1.1% |
+| 2v2 · Verdan & Nexus | 49.8 / 51.7 / 53.5% | 0.5–0.6% |
+| Allied · Sol | 23.0 / 24.3 / 25.3% | 52.5–54.8% |
+| Allied · Verdan | 28.9 / 26.3 / 27.3% | 11.2–13.4% |
+| Allied · Rust | 26.7 / 26.2 / 25.3% | 12.7–13.6% |
+| Allied · Nexus | 21.4 / 23.3 / 22.2% | 38.3–40.4% |
+
+**The gate:** every side within ±28% on every seed (2v2 36–64%, Allied
+18–32%); decisive ≥ 80%; Sovereignty a real ending and not the only one; lanes
+changing hands. Both boards pass.
+
+**Free-for-all is untouched.** On seed A, two, three and four players
+reproduce main exactly (1,200 games each, every line of the report). The
+Concord Schism at eight differs from main by at most 0.1 point on a few lines,
+and so does main against itself: of 240 eight-seat games, one replays
+differently from run to run on main too, on stability's unseeded rebellion roll
+(§1). The other 239 match main game for game.
+
+### How it got there
+
+**2v2: which worlds pair** (240 games, seed A, before the ceasefire, at
+thresholds 60, 70, 80 and off):
+
+| Pairing | Sides |
+|---|---|
+| Across the gaps: Sol & Rust against Verdan & Nexus (shipped) | 47.1–52.9% each |
+| Neighbours: Sol & Verdan against Rust & Nexus | 90.0 / 10.0% |
+| Neighbours: Verdan & Rust against Sol & Nexus | 91.7–92.1 / 7.9–8.3% |
+
+Paired with a neighbour, a side's shared border never fights, and Verdan's side
+won nine games in ten whichever neighbour it had. Across the gaps every world
+borders both enemies, every lane is a front, and the sides come out even.
+
+**2v2: the opening ceasefire.** Without one, the side that moved first won 65% of
+games (240 games, seed A, 5 rounds, threshold 75). With the seats alternating,
+the other side's last seat had been attacked twice before it moved at all.
+Measured with sim-only prototypes before the engine rule was written:
+
+| Opening | First seat's side | Length |
+|---|---|---|
+| Nothing | 65.4% | 15.2 |
+| A one-round truce between the sides | 52.1% | 16.6 |
+| A two-round truce | 65.4% | 18.2 |
+| The second side opening +1 unit a tile | 17.1% | 13.8 |
+| The second side +1, with the one-round truce | 19.2% | 16.0 |
+| The second side +2 | 5.0% | 11.2 |
+| **The engine's rule: no side attacks another until every seat has had its first turn** | **51.7%** | 16.4 |
+
+A truce counts rounds from seat 0, and a game can start at any seat, so its
+first round is a partial one. The engine's rule counts the first round from
+the starting seat instead (`inOpeningCeasefire`). The 1,200-game runs above
+confirm it: 50.5–53.6% with it, 66.3% without (seed A, 14.8 turns).
+
+**2v2: rounds and threshold** (240 games, seed A, with the one-round truce):
+
+| Sovereignty rounds | Threshold 70% | 75% | 80% |
+|---|---|---|---|
+| 3 | 14.5 turns · Sovereignty 67.5% | 14.7 · 80.8% | 14.9 · 94.2% |
+| 4 | 15.4 · 45.0% | 15.9 · 65.4% | 16.2 · 83.3% |
+| 5 | 15.9 · 31.7% | **16.6 · 47.5%** | 17.1 · 71.7% |
+| 6 | 16.4 · 13.8% | 17.4 · 33.8% | 18.2 · 49.6% |
+
+A side starts on half the map, so at the four-player default of 60% the
+threshold is as little as seven tiles away: it ended 75–97% of games, in about
+ten turns. Five
+rounds and 75% split the endings about evenly. Five rounds is what two players
+already use (§7): a streak has as many enemy turns to survive.
+
+**Allied houses** (480 games, seed A, threshold 60):
+
+| Step | Sol | Verdan | Rust | Nexus | First seat's side |
+|---|---|---|---|---|---|
+| The Schism's house numbers, regions per player, no ceasefire | 62.3% | 1.3% | 35.0% | 1.5% | 31.5% |
+| Every house at 0 | 24.4% | 11.3% | 54.0% | 10.4% | 31.5% |
+| At 0, with shared regions and the ceasefire | 49.0% | 22.3% | 10.2% | 18.5% | 24.8% |
+
+- The Schism's numbers even out two rival halves of one world; allies have no
+  rivalry to settle, so those numbers do not carry over.
+- With shared regions, Verdan's and Nexus's split regions pay their bonus, and
+  Sol's two houses between them hold four whole regions with a lane to each
+  neighbour apiece. The Syndicate's houses sit between Verdan and Nexus and
+  take a pounding from both.
+- A greedy search over units a turn per world took it from there, 480 games a
+  step. Each step tried the two sides furthest from 25% moved a unit toward it,
+  and the leader down a unit with the laggard up. In four moves the distance
+  from 25% (RMS over the sides) fell from 14.7 to 1.8: Sol −1, Verdan 0, Rust
+  +3, Nexus +1 gave 25.8 / 25.8 / 26.5 / 21.9%, 28.7 turns, Sovereignty 39.0%.
+  The fifth step found nothing better, and it ships.
+- Without the ceasefire the same numbers fail (seed A, 1,200 games): Nexus 39.4,
+  Verdan 28.2, Rust 18.5, Sol 13.9%. The ceasefire is part of the tuning.
+
+**Lane Sovereignty in a team game** counts corridors an ally helps hold, and
+each member keeps their own streak on them. The rounds are set by the number of
+sides (`LANE_SOVEREIGNTY_ROUNDS_BY_SIDES`), not seats: two sides play as two
+players (5), four as four (3).
+
+## 10. Open
 
 - **Sol is the most often eliminated seat** (~25%; 29.1–29.6% with
   Sovereignty off, just inside the 30% limit). Verdan's +2 reinforcements are
@@ -752,9 +885,21 @@ equal split with two gateways a half, the others as drawn):
 - **The Schism's elimination rates** are those of an eight-player game: the
   Eastern Mandate ends eliminated in ~69% of games. Nothing in the four-player
   gate covers that yet.
+- **Allied Sol houses end eliminated in 53–55% of games** (§9), though their
+  side wins its share: one Sol house often holds on for both.
+- **2v2 snowballs**: the side leading at turn 10 wins ~83% of games against a
+  50% baseline, in games of about 16 turns. It passes the gate, which does not
+  read the snowball; the 1v1 duel (§7) sits at ~72%.
+- **Team numbers were tuned against the AI**, which does not coordinate with
+  its ally. Two people on one side may play it differently.
 
 ## History
 
+- **2026-09-30 (Teams):** Allied houses at eight seats and 2v2 at four (§9),
+  on engine-wide team rules: no friendly fire, an opening ceasefire, shared
+  regions, lanes, vision and victory. 2v2 pairs the worlds across the ring's
+  gaps (sides 46.5–53.5%); Allied houses draft Sol −1, Rust +3, Nexus +1 a turn
+  (sides 21.4–28.9%). Free-for-all unchanged.
 - **2026-09-30 (Schism):** eight seats on the Galactic Age, two houses to every
   world (§8). Halves authored per world; per-turn house bonuses and lighter
   Custodian openings even them out. Concord (a 3-round truce) or Civil War; the

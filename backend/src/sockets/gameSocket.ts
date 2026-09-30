@@ -63,6 +63,8 @@ import { moveFleets, resolveNavalCombat, resolveSeaCrossing } from '../game-engi
 import { onInfluenceStabilityPenalty, getDeployCap } from '../game-engine/state/stabilityManager';
 import { eliminatePlayer } from '../game-engine/state/elimination';
 import { activeTruceBetween, agreeTruce, breakTruceBetween } from '../game-engine/state/truces';
+import { areAllies, isShieldedFrom, isTeamGame, shieldedTargetError, sideOf } from '../game-engine/state/teams';
+import { concededTeamWinners } from '../game-engine/victory/teamVictory';
 import { getAdjacentTerritoryIds, getInfluenceHopLimit, isTerritoryReachableWithinHops } from '../game-engine/state/influenceManager';
 import { playerHoldsVaultSeal, worldDeployCapBonus } from '../game-engine/state/worldRules';
 import { isJumpGateOnlyEdge, jumpGatePartners, syncJumpGateLanes } from '../game-engine/state/jumpGates';
@@ -1842,6 +1844,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (!toTerritory || toTerritory.owner_id === userId) {
         return emitGameError(socket, GameErrorCode.INVALID_TERRITORY, 'Invalid defending territory');
       }
+      if (refuseShieldedTarget(socket, state, userId, toTerritory.owner_id)) return;
       if (fromTerritory.unit_count < 2) {
         return emitGameError(socket, GameErrorCode.INSUFFICIENT_UNITS, 'Not enough units to attack');
       }
@@ -2218,6 +2221,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (!toTerritory || toTerritory.owner_id === userId) {
         return emitGameError(socket, GameErrorCode.INVALID_TERRITORY, 'Invalid defending territory');
       }
+      if (refuseShieldedTarget(socket, state, userId, toTerritory.owner_id)) return;
       if (fromTerritory.unit_count < 2) {
         return emitGameError(socket, GameErrorCode.INSUFFICIENT_UNITS, 'Not enough units to attack');
       }
@@ -2828,6 +2832,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (!toTerritory || toTerritory.owner_id === userId) {
         return socket.emit('error', { message: 'Invalid target territory' });
       }
+      if (refuseShieldedTarget(socket, state, userId, toTerritory.owner_id)) return;
       if (!fromTerritory.naval_units || fromTerritory.naval_units <= 0) {
         return socket.emit('error', { message: 'No fleets to attack with' });
       }
@@ -3045,6 +3050,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const hostileTargetOwnerId = abilityTargetId && isHostileTerritoryAbility(abilityId)
         ? state.territories[abilityTargetId]?.owner_id
         : null;
+      if (refuseShieldedTarget(socket, state, userId, hostileTargetOwnerId)) return;
       if (refuseUnconfirmedTruceBreak(socket, state, userId, hostileTargetOwnerId, breakTruce)) return;
 
       const abilityProbBefore = captureProbBefore(state, userId);
@@ -3216,6 +3222,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const target = state.territories[targetId];
       if (!target) return socket.emit('error', { message: 'Invalid territory' });
       if (target.owner_id === userId) return socket.emit('error', { message: 'Cannot influence your own territory' });
+      if (refuseShieldedTarget(socket, state, userId, target.owner_id)) return;
       // Seizing a truce partner's territory breaks the truce like an attack,
       // once confirmed. Refused before Papal Dispensation spends its charge.
       if (refuseUnconfirmedTruceBreak(socket, state, userId, target.owner_id, breakTruce)) return;
@@ -3737,6 +3744,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (!proposer || proposer.is_eliminated) return socket.emit('error', { message: 'Invalid proposer' });
       if (!target || target.is_eliminated) return socket.emit('error', { message: 'Target is eliminated' });
       if (proposer.player_id === target.player_id) return socket.emit('error', { message: 'Cannot propose truce to yourself' });
+      // Allies already never fight (state/teams.ts): a truce between them would say nothing.
+      if (areAllies(state, proposer.player_id, target.player_id)) return socket.emit('error', { message: 'You are already allies' });
       if (state.phase !== 'attack') return socket.emit('error', { message: 'Can only propose truces during attack phase' });
 
       // Check no existing truce
@@ -3951,8 +3960,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
         const survivingAi = state.players
           .filter((p) => !p.is_eliminated && p.is_ai)
           .sort((a, b) => b.territory_count - a.territory_count);
+        // A team game credits the leading side but the resigner's (teamVictory.ts).
+        const teamWinners = isTeamGame(state) ? concededTeamWinners(state, userId) : null;
         const inGraceWindow = state.turn_number <= RESIGN_GRACE_TURNS;
-        const haveAiWinner = survivingAi.length > 0;
+        const haveAiWinner = isTeamGame(state) ? teamWinners != null : survivingAi.length > 0;
 
         if (inGraceWindow || !haveAiWinner) {
           state.phase = 'game_over';
@@ -4003,12 +4014,12 @@ export function initGameSocket(httpServer: HttpServer): Server {
         // and run the normal finalize path so the resigner takes a real loss.
         // The condition is 'resignation', not 'last_standing' — nobody was
         // eliminated, and the defeat screen should say what actually happened.
-        const aiWinner = survivingAi[0]!;
+        const creditedWinners = teamWinners ?? [survivingAi[0]!.player_id];
         state.phase = 'game_over';
-        state.winner_id = aiWinner.player_id;
-        state.winner_ids = [aiWinner.player_id];
+        state.winner_id = creditedWinners[0]!;
+        state.winner_ids = creditedWinners;
         state.victory_condition = 'resignation';
-        await finalizeGame(io, gameId, state, [aiWinner.player_id]);
+        await finalizeGame(io, gameId, state, creditedWinners);
         broadcastState(io, gameId, state);
         return;
       }
@@ -4721,6 +4732,27 @@ function maybeEmitCoachingTip(io: Server, gameId: string, state: GameState, map:
 }
 
 /**
+ * No friendly fire in a team game (state/teams.ts): an attack, strike, bomb,
+ * Drop Assault or Influence aimed at an ally's ground is refused with
+ * ALLY_TARGET, and one aimed at another side during the opening ceasefire with
+ * CEASEFIRE, before anything changes. True when refused.
+ */
+function refuseShieldedTarget(
+  socket: Socket,
+  state: GameState,
+  playerId: string,
+  targetOwnerId: string | null | undefined,
+): boolean {
+  if (!isShieldedFrom(state, playerId, targetOwnerId)) return false;
+  emitGameError(
+    socket,
+    areAllies(state, playerId, targetOwnerId) ? GameErrorCode.ALLY_TARGET : GameErrorCode.CEASEFIRE,
+    shieldedTargetError(state, playerId, targetOwnerId),
+  );
+  return true;
+}
+
+/**
  * Nothing forbids attacking a truce partner, but it breaks the truce, and only
  * once the attacker has said so: an attack on one without `breakTruce` is
  * refused with TRUCE_ACTIVE, and the client asks first. True when refused.
@@ -4888,9 +4920,12 @@ async function broadcastSpectatorCount(io: Server, gameId: string): Promise<void
  * passive reveals. The one rule for both `game:state` and map visuals.
  */
 function fogVisibleTerritoryIds(state: GameState, playerId: string, map?: GameMap): Set<string> {
+  // Shared vision in a team game (state/teams.ts): a player sees whatever any
+  // ally sees. Alone in a free-for-all game, the side is just the player.
+  const side = sideOf(state, playerId);
   const visibleIds = new Set<string>();
   for (const [tid, tState] of Object.entries(state.territories)) {
-    if (tState.owner_id === playerId) visibleIds.add(tid);
+    if (tState.owner_id && side.includes(tState.owner_id)) visibleIds.add(tid);
   }
   // The adjacency cache only fills once some handler has built it, and on a
   // fresh process the first actions (a draft, a phase change) never do: every
@@ -4902,8 +4937,10 @@ function fogVisibleTerritoryIds(state: GameState, playerId: string, map?: GameMa
     for (const tid of Array.from(visibleIds)) {
       for (const neighbour of adj.get(tid) ?? []) visibleIds.add(neighbour);
     }
-    expandFogVisibilityFromRecon(state, playerId, visibleIds, adj);
-    expandFogVisibilityFromFactionPassive(state, playerId, visibleIds, adj);
+    for (const id of side) {
+      expandFogVisibilityFromRecon(state, id, visibleIds, adj);
+      expandFogVisibilityFromFactionPassive(state, id, visibleIds, adj);
+    }
   }
   return visibleIds;
 }
@@ -5108,8 +5145,9 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
   // Everything below that pays for a win (XP, rank, rating, streak, gold,
   // achievements) reads these, not `winnerIds`.
   settleObjectiveAtConquest(state, getCachedRoom(gameId)?.map, winnerIds);
+  // Every credited winner is paid as a winner: a side that wins together
+  // (state/teams.ts), or both allies of an alliance mission.
   const creditedIds = creditedWinnerIds(state, winnerIds);
-  const creditedWinnerId: string | undefined = creditedIds[0];
 
   // Idempotency guard: finalizeGame can be entered more than once on the same
   // game — e.g. a resign victory check racing with the turn-timer victory
@@ -5126,8 +5164,10 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
   // `games.winner_id` is a UUID referencing users. AI players use synthetic
   // string ids like "ai_1" that are not valid UUIDs, so we must persist NULL
   // for AI wins and keep the synthetic id only in the in-memory/broadcast state.
-  const winnerPlayer = state.players.find((p) => p.player_id === winnerId);
-  const persistedWinnerId = winnerPlayer?.is_ai ? null : winnerId;
+  // A side of AI and humans records its first human.
+  const persistedWinnerId = winnerIds.find(
+    (id) => state.players.find((p) => p.player_id === id)?.is_ai === false,
+  ) ?? null;
   try {
     const res = await pgPool.query(MARK_GAME_COMPLETED_SQL, [persistedWinnerId, gameId]);
     firstFinalize = (res.rowCount ?? 0) > 0;
@@ -5363,7 +5403,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
 
   for (const p of humanPlayers) {
     try {
-      const isWinner = p.player_id === creditedWinnerId;
+      const isWinner = creditedIds.includes(p.player_id);
       const client = await pgPool.connect();
       try {
         await client.query('BEGIN');
@@ -5453,7 +5493,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
       // Challenge progress (non-critical)
       const challengeEvent: GameChallengeEvent = {
         userId: p.player_id,
-        won: p.player_id === creditedWinnerId,
+        won: creditedIds.includes(p.player_id),
         isRanked: resultCtx.isRanked,
         eraId: state.era ?? '',
         buildingsBuilt: Object.values(state.territories).reduce((sum, t) =>
@@ -5473,7 +5513,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
       checkReferralCompletion(p.player_id).catch(() => {});
 
       // Activity feed events (fire-and-forget)
-      if (p.player_id === creditedWinnerId) {
+      if (creditedIds.includes(p.player_id)) {
         recordActivity(p.player_id, 'game_won', {
           game_id: gameId,
           era_id: state.era ?? '',
@@ -6366,6 +6406,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
 
       const target = state.territories[action.to];
       if (!target || target.owner_id === currentPlayer.player_id) continue;
+      if (isShieldedFrom(state, currentPlayer.player_id, target.owner_id)) continue;
       // Papal Dispensation parity: the Papal States blocks the first influence
       // attempt against it each turn (consumes the per-turn charge).
       if (target.owner_id && state.settings.factions_enabled) {
@@ -6479,6 +6520,10 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     const to = state.territories[attackToId];
     if (!from || !to || from.unit_count < 2 || from.owner_id !== currentPlayer.player_id) continue;
     if (to.owner_id === currentPlayer.player_id) continue;
+    // No friendly fire, nor attacks across the opening ceasefire (state/teams.ts).
+    // executeLandAttack refuses them too, but a sea crossing below would already
+    // have fought the defender's fleet.
+    if (isShieldedFrom(state, currentPlayer.player_id, to.owner_id)) continue;
 
     const aiConnection = map.connections.find(
       (c) => (c.from === attackFromId && c.to === attackToId) || (c.from === attackToId && c.to === attackFromId),
