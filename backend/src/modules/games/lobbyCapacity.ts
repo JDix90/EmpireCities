@@ -10,6 +10,8 @@
  * different rules. Both now read this one.
  */
 
+import { GALAXY_MAX_SEATS, GALAXY_MIN_SEATS } from '../../game-engine/state/galaxyModes';
+
 /** Seats a lobby has when `settings_json` says nothing — the games table's own default. */
 export const DEFAULT_MAX_PLAYERS = 8;
 /** Hard bounds on a seat cap, whatever a stored settings blob claims. */
@@ -35,6 +37,47 @@ export function effectiveMaxPlayers(settings: Record<string, unknown> | string |
   const raw = parsed?.max_players;
   if (typeof raw !== 'number' || !Number.isFinite(raw)) return DEFAULT_MAX_PLAYERS;
   return Math.min(MAX_MAX_PLAYERS, Math.max(MIN_MAX_PLAYERS, Math.floor(raw)));
+}
+
+/** A Galactic Age game: its era, or the galaxy board under another era id. */
+export function isGalacticAgeGame(eraId: string | null | undefined, mapId: string | null | undefined): boolean {
+  return eraId === 'galaxy_age' || mapId === 'era_galaxy';
+}
+
+/**
+ * The SQL twin of {@link isGalacticAgeGame} for table alias `g`. Open Games
+ * never lists one: the era is admin-only, and a lobby that waits for humans
+ * waits for the ones it was sent to — however it came to be Galactic (created
+ * that way, or switched by a Map & Era vote).
+ */
+export const GALACTIC_AGE_GAME_SQL = `(g.era_id = 'galaxy_age' OR g.map_id = 'era_galaxy')`;
+
+/**
+ * The Galactic Age seats two to four players. Its four worlds are four home
+ * worlds, and below four the ones nobody calls home open as neutral colonies
+ * (game-engine/state/galaxyModes.ts); five or more have no board yet, and the
+ * engine would deal them a scattered start across worlds they cannot reach.
+ */
+export const GALAXY_PLAYER_COUNT_ERROR =
+  `Galactic Age seats ${GALAXY_MIN_SEATS} to ${GALAXY_MAX_SEATS} players — one per home world`;
+
+/** Null when a Galactic Age game can seat this many players, the error otherwise. */
+export function galaxySeatCountError(seats: number): string | null {
+  return seats >= GALAXY_MIN_SEATS && seats <= GALAXY_MAX_SEATS ? null : GALAXY_PLAYER_COUNT_ERROR;
+}
+
+/**
+ * The seat cap `/:gameId/join` and `/:gameId/invite` enforce: the lobby's own
+ * cap, and never more than a Galactic Age game can seat — including a lobby
+ * created before its form sent four, which stored eight.
+ */
+export function lobbySeatCap(
+  settings: Record<string, unknown> | string | null | undefined,
+  eraId: string | null | undefined,
+  mapId: string | null | undefined,
+): number {
+  const cap = effectiveMaxPlayers(settings);
+  return isGalacticAgeGame(eraId, mapId) ? Math.min(cap, GALAXY_MAX_SEATS) : cap;
 }
 
 /**

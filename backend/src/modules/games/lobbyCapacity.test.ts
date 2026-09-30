@@ -6,8 +6,12 @@
 import { describe, it, expect } from 'vitest';
 import {
   DEFAULT_MAX_PLAYERS,
+  GALAXY_PLAYER_COUNT_ERROR,
   PUBLIC_LOBBY_GAME_TYPES,
   effectiveMaxPlayers,
+  galaxySeatCountError,
+  isGalacticAgeGame,
+  lobbySeatCap,
 } from './lobbyCapacity';
 
 describe('effectiveMaxPlayers', () => {
@@ -53,5 +57,29 @@ describe('PUBLIC_LOBBY_GAME_TYPES', () => {
     expect([...PUBLIC_LOBBY_GAME_TYPES]).toEqual(['multiplayer', 'hybrid']);
     // Campaign, daily and tutorial all insert game_type 'solo'.
     expect(PUBLIC_LOBBY_GAME_TYPES).not.toContain('solo');
+  });
+});
+
+describe('the Galactic Age seat cap', () => {
+  it('knows a Galactic game by its era or its board', () => {
+    expect(isGalacticAgeGame('galaxy_age', 'era_galaxy')).toBe(true);
+    expect(isGalacticAgeGame('custom', 'era_galaxy')).toBe(true);
+    expect(isGalacticAgeGame('galaxy_age', 'some_map')).toBe(true);
+    expect(isGalacticAgeGame('space_age', 'era_ascension_galaxy')).toBe(false);
+    expect(isGalacticAgeGame('ww2', 'era_ww2')).toBe(false);
+  });
+
+  it('seats two to four', () => {
+    expect([1, 2, 3, 4, 5, 8].map(galaxySeatCountError)).toEqual([
+      GALAXY_PLAYER_COUNT_ERROR, null, null, null, GALAXY_PLAYER_COUNT_ERROR, GALAXY_PLAYER_COUNT_ERROR,
+    ]);
+  });
+
+  it('caps a Galactic lobby at four even when it stored eight, and leaves the rest alone', () => {
+    expect(lobbySeatCap({ max_players: 8 }, 'galaxy_age', 'era_galaxy')).toBe(4);
+    expect(lobbySeatCap({}, 'galaxy_age', 'era_galaxy')).toBe(4);
+    expect(lobbySeatCap({ max_players: 3 }, 'galaxy_age', 'era_galaxy')).toBe(3);
+    expect(lobbySeatCap({ max_players: 8 }, 'ww2', 'era_ww2')).toBe(8);
+    expect(lobbySeatCap({ max_players: 6 }, 'space_age', 'era_space_age')).toBe(6);
   });
 });

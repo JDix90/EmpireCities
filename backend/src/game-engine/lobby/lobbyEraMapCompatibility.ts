@@ -174,19 +174,18 @@ export function evaluateEraMapCompatibility(input: EraMapCompatibilityInput): Er
     }
   }
 
-  // The era's designed start — one faction per world — is produced by
-  // tryDistributeGalaxyAgeFactionHomeworlds, which fires ONLY for exactly four
-  // seats holding four distinct galaxy factions. Every other shape silently
-  // falls through to geographic distribution across all 64 tiles, so each seat
-  // begins holding territory on worlds it cannot reach: measured at 2p and 3p,
-  // every seat starts spread over three or four worlds, and a 2p game ends in
-  // ~16 turns because both players open with half the board. Block the shapes
-  // that cannot produce the designed start rather than shipping the fallback.
+  // The era's designed start — every seat on its faction's home world, and
+  // below four seats the unclaimed worlds open as colonies — is dealt by
+  // tryDistributeGalaxyAgeFactionHomeworlds and state/galaxyModes.ts, for two to
+  // four seats on distinct galaxy factions. Without factions it silently falls
+  // through to geographic distribution across all 64 tiles, so each seat begins
+  // holding territory on worlds it cannot reach. Block the shapes that cannot
+  // produce the designed start rather than shipping the fallback.
   // Seat count is NOT checked here: this evaluator also runs on the in-lobby
   // map-change path, which passes the humans who have joined so far rather than
-  // the final seat count (AI seats are added at create), so an exact-4 rule
-  // would block a half-filled lobby from ever selecting the era. The create
-  // boundary owns that rule — see galaxyPlayerCountRejection in games.routes.ts.
+  // the final seat count (AI seats are added at create), so a seat rule would
+  // block a half-filled lobby from ever selecting the era. Create, join and game
+  // start own that rule — see galaxyPlayerCountRejection in games.routes.ts.
   // Factions is a real lobby setting on both paths, so it belongs here.
   // Must be explicitly ON: normalizeGameSettings persists
   // `factions_enabled: factionsEnabled || undefined`, so an off game arrives
