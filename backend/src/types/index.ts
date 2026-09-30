@@ -371,15 +371,15 @@ export interface GalaxySchismHouse {
   name: string;
   /**
    * Units a turn this house drafts on top of its kit: its half's
-   * `reinforce_bonus`, or its world's ALLIED_TUNING when the houses are Allied,
-   * plus a Partial Schism's half-world catch-up.
+   * `reinforce_bonus` (at five to seven seats PARTIAL_SCHISM_HALVES'), or its
+   * world's ALLIED_TUNING when the houses are Allied.
    */
   reinforce_bonus?: number;
 }
 
 /**
- * One seat of a Partial Schism (five to seven seats) that holds its faction's
- * whole home world, as at four seats.
+ * One seat of an Allied Partial Schism (five to seven seats) alone on its
+ * faction's world: a side of one, holding the whole world as at four seats.
  */
 export interface GalaxySchismWholeWorld {
   player_id: string;
@@ -391,7 +391,9 @@ export interface GalaxySchismWholeWorld {
 /**
  * Galactic Age Schism board (state/galaxySchism.ts): every world split between
  * two houses at eight seats; at five to seven (the Partial Schism) as many as
- * there are seats over four, the others held whole.
+ * there are seats over four. Each other world has one seat: a house alone,
+ * whose world's other half opens unclaimed, or with Allied houses a seat
+ * holding the whole world.
  */
 export interface GalaxySchismMode {
   id: 'schism';
@@ -400,10 +402,20 @@ export interface GalaxySchismMode {
   concord_rounds: number;
   /** Units a turn the Lane Crown is worth in this game (0 when the houses are Allied). */
   lane_crown_bonus: number;
-  /** One per seat on a split world, in seat order: every seat at eight. */
+  /**
+   * One per seat on a half of its world, in seat order: every seat, except an
+   * Allied Partial Schism's seats holding whole worlds. A world with one house
+   * has its other half unclaimed.
+   */
   houses: GalaxySchismHouse[];
-  /** A Partial Schism's seats on whole worlds, in seat order (absent at eight seats). */
+  /** An Allied Partial Schism's seats alone on their worlds, in seat order (absent otherwise). */
   whole_worlds?: GalaxySchismWholeWorld[];
+  /**
+   * The garrison each unclaimed half opened with, on its gateway tiles and
+   * inland (a Partial Schism under the Concord or in Civil War; absent
+   * otherwise). The tiles are the halves no house opened on.
+   */
+  unclaimed_garrison?: { gateway: number; interior: number };
   /** Each world's gateway tiles: a house holding all of its home world's wears the Lane Crown. */
   crown_gateways: Record<string, string[]>;
   /** Lanes the mode keeps open all game (none today; see galaxyModeConnections). */

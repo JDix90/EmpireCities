@@ -10,12 +10,15 @@
  *   • five to seven seats deal exactly one world per seat over four to two
  *     seats and every other world to one: picks stand where they fit, a world
  *     nobody picked splits before one a seat picked alone;
- *   • each house opens on its half and nothing else, a Partial Schism's whole
- *     world opens as at four seats, and the Vault ring stays neutral;
+ *   • each house opens on its half and nothing else; a house alone on its world
+ *     faces its other half unclaimed, neutral and garrisoned; an Allied side
+ *     of one opens on its whole world as at four seats; the Vault ring stays
+ *     neutral;
  *   • the Concord is an ordinary truce between each split world's two houses,
  *     for the rounds the game recorded, and Civil War opens none;
  *   • the Lane Crown pays only a house, for all four of its own world's gateways;
- *   • the Partial Schism's catch-up is recorded on each seat and drafted;
+ *   • the Partial Schism's own numbers are recorded when the board is dealt,
+ *     and drafted;
  *   • four seats, other eras and a scattered start deal no Schism.
  */
 import { afterEach, describe, it, expect } from 'vitest';
@@ -31,6 +34,7 @@ import {
   isSchismSeating,
   laneCrownBonus,
   normalizeHouseRelations,
+  PARTIAL_SCHISM_HALVES,
   PARTIAL_SCHISM_TUNING,
   SCHISM_HALVES,
   SCHISM_TUNING,
@@ -40,6 +44,7 @@ import {
   schismOpeningBonus,
   schismRivalOf,
   schismSplitWorldCount,
+  schismUnclaimedTiles,
   schismWholeWorldOf,
 } from './galaxySchism';
 import { gatewaysByWorld } from './galaxyRing';
@@ -109,6 +114,19 @@ function count(players: Array<{ faction_id?: string | null }>): Record<string, n
 
 /** Five seats: the Mandate twice (p0 and p4), every other faction once. */
 const FIVE = [...FACTIONS, 'stellar_mandate'];
+
+/** Tiles on a lane: an unclaimed half's gateways, which open with the gateway garrison. */
+const ON_LANE = new Set(AUTHORED.connections.filter((c) => c.type === 'orbit').flatMap((c) => [c.from, c.to]));
+
+/** Put the Partial Schism's tables back after a test that patches them. */
+function restorePartialTables(): () => void {
+  const tuning = JSON.parse(JSON.stringify(PARTIAL_SCHISM_TUNING)) as typeof PARTIAL_SCHISM_TUNING;
+  const halves = JSON.parse(JSON.stringify(PARTIAL_SCHISM_HALVES)) as typeof PARTIAL_SCHISM_HALVES;
+  return () => {
+    for (const n of Object.keys(tuning)) PARTIAL_SCHISM_TUNING[Number(n)] = JSON.parse(JSON.stringify(tuning[Number(n)]));
+    for (const w of Object.keys(halves)) PARTIAL_SCHISM_HALVES[w] = JSON.parse(JSON.stringify(halves[w]));
+  };
+}
 
 /** A seeded `randomInt(min, max)`, max exclusive. */
 function seededInt(seed: number): (min: number, max: number) => number {
@@ -355,41 +373,75 @@ describe('the Schism layout', () => {
 });
 
 describe('the Partial Schism layout', () => {
-  const saved = JSON.parse(JSON.stringify(PARTIAL_SCHISM_TUNING)) as typeof PARTIAL_SCHISM_TUNING;
-  afterEach(() => {
-    for (const n of Object.keys(saved)) PARTIAL_SCHISM_TUNING[Number(n)] = { ...saved[Number(n)]! };
+  afterEach(restorePartialTables());
+
+  it('makes every seat a house: two on a split world, one alone on each other world, in seat order', () => {
+    const mode = schismLayout('galaxy_age', AUTHORED, seats(FIVE), 'concord', { forceHalves: { p1: 0, p2: 1, p3: 0 } })!;
+    expect(mode.houses.map((h) => [h.player_id, h.world_id])).toEqual([
+      ['p0', 'sol'], ['p1', 'rust'], ['p2', 'verdan'], ['p3', 'nexus_station'], ['p4', 'sol'],
+    ]);
+    expect(mode.houses[0]!.half + mode.houses[4]!.half).toBe(1);
+    expect(mode.houses.slice(1, 4).map((h) => [h.half, h.name])).toEqual([
+      [0, SCHISM_HALVES.rust![0].house],
+      [1, SCHISM_HALVES.verdan![1].house],
+      [0, SCHISM_HALVES.nexus_station![0].house],
+    ]);
+    expect(mode.whole_worlds).toBeUndefined();
+    expect(mode.unclaimed_garrison).toEqual(PARTIAL_SCHISM_TUNING[5]!.unclaimed);
+    // The halves no house opened on are unclaimed.
+    expect(schismUnclaimedTiles(mode).sort()).toEqual([
+      ...SCHISM_HALVES.rust![1].tiles, ...SCHISM_HALVES.verdan![0].tiles, ...SCHISM_HALVES.nexus_station![1].tiles,
+    ].sort());
+    // Seven seats: three worlds split, one house alone wherever it sits.
+    const seven = schismLayout('galaxy_age', AUTHORED, seats(['forge_syndicate', ...FACTIONS, 'void_custodians', 'stellar_mandate']), 'concord')!;
+    expect(seven.houses.map((h) => h.player_id)).toEqual(['p0', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6']);
+    expect(schismUnclaimedTiles(seven)).toHaveLength(SCHISM_HALVES.verdan![0].tiles.length);
   });
 
-  it('makes houses of a split world\'s seats and deals every other world whole, each in seat order', () => {
-    PARTIAL_SCHISM_TUNING[5] = { house: 0, whole: 0 };
-    const mode = schismLayout('galaxy_age', AUTHORED, seats(FIVE), 'concord')!;
-    expect(mode.houses.map((h) => [h.player_id, h.world_id])).toEqual([['p0', 'sol'], ['p4', 'sol']]);
-    expect(mode.houses[0]!.half + mode.houses[1]!.half).toBe(1);
+  it('seats an Allied side of one on its whole world, with nothing unclaimed', () => {
+    PARTIAL_SCHISM_TUNING[5]!.allied = { house: 0, whole: 0 };
+    const mode = schismLayout('galaxy_age', AUTHORED, seats(FIVE), 'allied')!;
+    expect(mode.houses.map((h) => h.player_id)).toEqual(['p0', 'p4']);
     expect(mode.whole_worlds).toEqual([
       { player_id: 'p1', world_id: 'rust' },
       { player_id: 'p2', world_id: 'verdan' },
       { player_id: 'p3', world_id: 'nexus_station' },
     ]);
-    // Seven seats: three worlds split, the one left whole wherever it sits.
-    const seven = schismLayout('galaxy_age', AUTHORED, seats(['forge_syndicate', ...FACTIONS, 'void_custodians', 'stellar_mandate']), 'concord')!;
-    expect(seven.houses.map((h) => h.player_id)).toEqual(['p0', 'p1', 'p2', 'p4', 'p5', 'p6']);
-    expect(seven.whole_worlds).toEqual([{ player_id: 'p3', world_id: 'verdan' }]);
+    expect(mode.unclaimed_garrison).toBeUndefined();
+    expect(schismUnclaimedTiles(mode)).toEqual([]);
   });
 
-  it('records the catch-up on every seat, on top of each house\'s own numbers', () => {
-    PARTIAL_SCHISM_TUNING[5] = { house: 2, whole: -1 };
-    const mode = schismLayout('galaxy_age', AUTHORED, seats(FIVE), 'concord', { forceHalves: { p0: 0 } })!;
-    expect(mode.houses.map((h) => h.reinforce_bonus ?? 0)).toEqual([
-      (SCHISM_HALVES.sol![0].reinforce_bonus ?? 0) + 2,
-      (SCHISM_HALVES.sol![1].reinforce_bonus ?? 0) + 2,
-    ]);
-    expect(mode.whole_worlds!.map((w) => w.reinforce_bonus)).toEqual([-1, -1, -1]);
-    const allied = schismLayout('galaxy_age', AUTHORED, seats(FIVE), 'allied')!;
-    expect(allied.houses.map((h) => h.reinforce_bonus ?? 0)).toEqual([ALLIED_TUNING.sol!.reinforce + 2, ALLIED_TUNING.sol!.reinforce + 2]);
-    // Another seat count's numbers are its own.
-    const six = schismLayout('galaxy_age', AUTHORED, seats([...FIVE, 'void_custodians']), 'concord', { forceHalves: { p0: 0 } })!;
-    expect(six.houses.find((h) => h.player_id === 'p0')!.reinforce_bonus ?? 0)
-      .toBe((SCHISM_HALVES.sol![0].reinforce_bonus ?? 0) + PARTIAL_SCHISM_TUNING[6]!.house);
+  it("records each half's partial number, with a rival or alone, in place of the eight-seat one", () => {
+    Object.assign(PARTIAL_SCHISM_HALVES, {
+      sol: { rival: [2, -1], alone: [5, 5] },
+      rust: { rival: [5, 5], alone: [3, 1] },
+      verdan: { rival: [0, 0], alone: [0, 0] },
+    });
+    const mode = schismLayout('galaxy_age', AUTHORED, seats(FIVE), 'concord', { forceHalves: { p0: 0, p1: 1, p2: 1 } })!;
+    const bonusOf = (id: string) => mode.houses.find((h) => h.player_id === id)!.reinforce_bonus;
+    expect([bonusOf('p0'), bonusOf('p4')]).toEqual([2, -1]);
+    // A house alone on Rust's second half.
+    expect(bonusOf('p1')).toBe(1);
+    // Duskrim's +2 at eight seats is not the partial board's.
+    expect(SCHISM_HALVES.verdan![1].reinforce_bonus).toBeGreaterThan(0);
+    expect(bonusOf('p2')).toBeUndefined();
+    // Nor are the halves' eight-seat openings.
+    expect(schismOpeningBonus(mode.houses.find((h) => h.player_id === 'p3')!, 'concord', 5)).toBe(0);
+    expect(schismOpeningBonus({ world_id: 'nexus_station', half: 1 }, 'concord', 8)).toBe(SCHISM_HALVES.nexus_station![1].opening_bonus);
+  });
+
+  it('records the Allied numbers on each house and each whole world', () => {
+    PARTIAL_SCHISM_TUNING[5]!.allied = { house: 1, whole: 2 };
+    const mode = schismLayout('galaxy_age', AUTHORED, seats(FIVE), 'allied')!;
+    expect(mode.houses.map((h) => h.reinforce_bonus ?? 0)).toEqual([ALLIED_TUNING.sol!.reinforce + 1, ALLIED_TUNING.sol!.reinforce + 1]);
+    expect(mode.whole_worlds!.map((w) => w.reinforce_bonus)).toEqual([2, 2, 2]);
+  });
+
+  it('records the garrison its unclaimed halves open with, by seat count', () => {
+    PARTIAL_SCHISM_TUNING[6]!.unclaimed = { gateway: 7, interior: 9 };
+    const mode = schismLayout('galaxy_age', AUTHORED, seats([...FIVE, 'void_custodians']), 'civil_war')!;
+    expect(mode.unclaimed_garrison).toEqual({ gateway: 7, interior: 9 });
+    expect(mode.concord_rounds).toBe(0);
   });
 
   it('keeps the Concord and the Crown numbers of the eight-seat board', () => {
@@ -573,49 +625,46 @@ describe('the Lane Crown', () => {
 });
 
 describe('a five-to-seven-seat game (the Partial Schism)', () => {
-  const saved = JSON.parse(JSON.stringify(PARTIAL_SCHISM_TUNING)) as typeof PARTIAL_SCHISM_TUNING;
-  afterEach(() => {
-    for (const n of Object.keys(saved)) PARTIAL_SCHISM_TUNING[Number(n)] = { ...saved[Number(n)]! };
-  });
-  const wholeTiles = (world: string) => AUTHORED.territories
-    .filter((t) => t.world_id === world && !VAULT_RING.includes(t.territory_id))
-    .map((t) => t.territory_id)
-    .sort();
+  afterEach(restorePartialTables());
 
   it.each([
     [5, FIVE],
     [6, [...FIVE, 'void_custodians']],
     [7, [...FIVE, 'void_custodians', 'forge_syndicate']],
-  ])('at %i seats opens each house on its half and each whole world whole, with the Vault ring neutral', (n, factions) => {
+  ])('at %i seats opens every house on its half, each unclaimed half neutral and garrisoned, the Vault ring neutral', (n, factions) => {
+    PARTIAL_SCHISM_TUNING[n]!.unclaimed = { gateway: 7, interior: 9 };
     const { state } = startWith(factions);
     const mode = state.galaxy_mode;
     expect(mode?.id).toBe('schism');
     if (mode?.id !== 'schism') return;
-    expect(mode.houses).toHaveLength(2 * (n - 4));
-    expect(mode.whole_worlds).toHaveLength(8 - n);
+    expect(mode.houses).toHaveLength(n);
+    expect(mode.whole_worlds).toBeUndefined();
     for (const house of mode.houses) {
       const half = SCHISM_HALVES[house.world_id]![house.half];
       expect(owned(state, house.player_id)).toEqual([...half.tiles].sort());
       const vaultBonus = house.world_id === 'nexus_station' ? 1 : 0;
       for (const id of half.tiles) {
-        expect(state.territories[id]!.unit_count).toBe(Math.max(1, 3 + vaultBonus + schismOpeningBonus(house, 'concord', n)));
+        expect(state.territories[id]!.unit_count).toBe(3 + vaultBonus + schismOpeningBonus(house, 'concord', n));
       }
     }
-    for (const whole of mode.whole_worlds!) {
-      expect(owned(state, whole.player_id)).toEqual(wholeTiles(whole.world_id));
-      const vaultBonus = whole.world_id === 'nexus_station' ? 1 : 0;
-      for (const id of wholeTiles(whole.world_id)) expect(state.territories[id]!.unit_count).toBe(3 + vaultBonus);
+    const unclaimed = schismUnclaimedTiles(mode);
+    expect(new Set(unclaimed.map((id) => state.territories[id]!.world_id)).size).toBe(8 - n);
+    for (const id of unclaimed) {
+      expect(state.territories[id]).toMatchObject({ owner_id: null, unit_count: ON_LANE.has(id) ? 7 : 9 });
     }
     for (const id of VAULT_RING) {
       expect(state.territories[id]).toMatchObject({ owner_id: null, unit_count: 6 });
     }
+    const unowned = Object.values(state.territories).filter((t) => !t.owner_id).map((t) => t.territory_id).sort();
+    expect(unowned).toEqual([...VAULT_RING, ...unclaimed].sort());
     for (const p of state.players) expect(p.territory_count).toBe(owned(state, p.player_id).length);
   });
 
-  it('deals a whole world exactly as the four-seat start does', () => {
+  it('opens an Allied side of one on its whole world, as the four-seat start does', () => {
     const four = startWith(FACTIONS).state;
-    const { state } = startWith(FIVE);
+    const { state } = startWith(FIVE, { galaxy_house_relations: 'allied' });
     for (const id of ['p1', 'p2', 'p3']) {
+      expect(schismWholeWorldOf(state, id)).not.toBeNull();
       expect(owned(state, id)).toEqual(owned(four, id));
       for (const t of owned(four, id)) expect(state.territories[t]!.unit_count).toBe(four.territories[t]!.unit_count);
     }
@@ -626,13 +675,12 @@ describe('a five-to-seven-seat game (the Partial Schism)', () => {
     const mode = state.galaxy_mode;
     expect(mode?.id).toBe('schism');
     if (mode?.id !== 'schism') return;
-    expect(mode.houses).toHaveLength(2 * (n - 4));
-    expect(mode.whole_worlds).toHaveLength(8 - n);
+    expect(mode.houses).toHaveLength(n);
     const unowned = Object.values(state.territories).filter((t) => !t.owner_id).map((t) => t.territory_id).sort();
-    expect(unowned).toEqual([...VAULT_RING].sort());
+    expect(unowned).toEqual([...VAULT_RING, ...schismUnclaimedTiles(mode)].sort());
   });
 
-  it('opens the Concord between the split world\'s houses and nobody else', () => {
+  it("opens the Concord between the split world's houses and nobody else", () => {
     const { state } = startWith(FIVE);
     const houses = ['p0', 'p4'];
     for (const a of state.players) {
@@ -644,33 +692,39 @@ describe('a five-to-seven-seat game (the Partial Schism)', () => {
     }
     expect(schismRivalOf(state, 'p0')!.player_id).toBe('p4');
     expect(schismRivalOf(state, 'p1')).toBeNull();
-    expect(schismHouseOf(state, 'p1')).toBeNull();
-    expect(schismWholeWorldOf(state, 'p1')).toMatchObject({ player_id: 'p1', world_id: 'rust' });
-    expect(schismWholeWorldOf(state, 'p0')).toBeNull();
+    expect(schismHouseOf(state, 'p1')).toMatchObject({ player_id: 'p1', world_id: 'rust' });
+    expect(schismWholeWorldOf(state, 'p1')).toBeNull();
   });
 
-  it('crowns only a house: a whole world holds its gateways from the start and wears nothing', () => {
-    const { state } = startWith(FIVE);
+  it("crowns a house alone on its world once it holds its unclaimed half's gateways too", () => {
+    const { state } = startWith(FIVE, {}, { p1: 0 });
     const mode = state.galaxy_mode;
     if (mode?.id !== 'schism') throw new Error('no Schism');
-    for (const id of mode.crown_gateways.rust!) expect(state.territories[id]!.owner_id).toBe('p1');
+    const rust = mode.crown_gateways.rust!;
+    expect(rust.filter((id) => state.territories[id]!.owner_id === 'p1')).toHaveLength(2);
+    expect(rust.filter((id) => state.territories[id]!.owner_id === null)).toHaveLength(2);
     expect(holdsLaneCrown(state, 'p1')).toBe(false);
-    expect(laneCrownBonus(state, 'p1')).toBe(0);
-    for (const id of mode.crown_gateways.sol!) state.territories[id]!.owner_id = 'p0';
-    expect(laneCrownBonus(state, 'p0')).toBe(mode.lane_crown_bonus);
+    for (const id of rust) state.territories[id]!.owner_id = 'p1';
+    expect(laneCrownBonus(state, 'p1')).toBe(mode.lane_crown_bonus);
   });
 
-  it('drafts the catch-up each seat was dealt, every turn', () => {
-    PARTIAL_SCHISM_TUNING[5] = { house: 1, whole: 2 };
-    const { state } = startWith(FIVE, {}, { p0: 0 });
-    PARTIAL_SCHISM_TUNING[5] = { house: 0, whole: 0 };
-    const plain = startWith(FIVE, {}, { p0: 0 }).state;
+  it("drafts each house's partial number every turn, whatever the table says later", () => {
+    PARTIAL_SCHISM_HALVES.rust = { rival: [0, 0], alone: [2, 2] };
+    const { state } = startWith(FIVE, {}, { p1: 0 });
+    PARTIAL_SCHISM_HALVES.rust = { rival: [0, 0], alone: [0, 0] };
+    const plain = startWith(FIVE, {}, { p1: 0 }).state;
     expect(houseReinforceBonus(state, 'p1')).toBe(2);
     expect(houseReinforceBonus(plain, 'p1')).toBe(0);
     expect(getPlayerReinforceBonus(state, 'p1') - getPlayerReinforceBonus(plain, 'p1')).toBe(2);
-    expect(getPlayerReinforceBonus(state, 'p0') - getPlayerReinforceBonus(plain, 'p0')).toBe(1);
-    // The dealt game keeps its numbers whatever the table says now.
-    expect(houseReinforceBonus(state, 'p3')).toBe(2);
+  });
+
+  it("drafts an Allied whole world's number every turn", () => {
+    PARTIAL_SCHISM_TUNING[5]!.allied = { house: 0, whole: 2 };
+    const { state } = startWith(FIVE, { galaxy_house_relations: 'allied' });
+    PARTIAL_SCHISM_TUNING[5]!.allied = { house: 0, whole: 0 };
+    const plain = startWith(FIVE, { galaxy_house_relations: 'allied' }).state;
+    expect(houseReinforceBonus(state, 'p1')).toBe(2);
+    expect(getPlayerReinforceBonus(state, 'p1') - getPlayerReinforceBonus(plain, 'p1')).toBe(2);
   });
 });
 

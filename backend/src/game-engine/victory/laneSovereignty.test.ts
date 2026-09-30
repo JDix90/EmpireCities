@@ -224,7 +224,7 @@ describe('the rounds, by seat count', () => {
         needed: LANE_SOVEREIGNTY_CORRIDORS_NEEDED, roundsNeeded: LANE_SOVEREIGNTY_ROUNDS,
       });
     }
-    expect(LANE_SOVEREIGNTY_ROUNDS_BY_SEATS).toEqual({ 2: 5, 3: 3, 4: 3, 8: 3 });
+    expect(LANE_SOVEREIGNTY_ROUNDS_BY_SEATS).toEqual({ 2: 5, 3: 3, 4: 3, 5: 3, 6: 3, 7: 3, 8: 3 });
   });
 
   it('counts seats, not survivors: an elimination does not change the rule mid-game', () => {

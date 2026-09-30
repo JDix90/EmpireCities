@@ -46,6 +46,7 @@ import {
   schismHouseTiles,
   schismLayout,
   schismOpeningBonus,
+  schismUnclaimedTiles,
 } from './galaxySchism';
 import { arriveConvoys } from './transit';
 import {
@@ -282,6 +283,10 @@ export function initializeGameState(
     }
     for (const tid of colonyTileIds) lunarTerritoryIds.add(tid);
   }
+  // Partial Schism: the half of a world its lone house did not open on starts
+  // neutral too, with the garrison the board records (galaxySchism.ts).
+  const unclaimedTileIds = new Set(schism?.unclaimed_garrison ? schismUnclaimedTiles(schism) : []);
+  for (const tid of unclaimedTileIds) lunarTerritoryIds.add(tid);
   // Landing zones (tiles on an orbit lane — where the race arrives) hold a
   // beachhead garrison; the interior is tougher, so the first player to gain
   // orbit access establishes a foothold but can't sweep the whole world in one
@@ -296,9 +301,13 @@ export function initializeGameState(
     }
   }
   // A Vault region keeps its authored garrison on a colony world too.
+  const unclaimedGarrison = schism?.unclaimed_garrison;
   const neutralOffworldGarrison = (tid: string): number =>
     vaultGarrisons.get(tid)
       ?? (colonyTileIds.has(tid) ? colonyGarrison(orbitTouched.has(tid)) : undefined)
+      ?? (unclaimedGarrison && unclaimedTileIds.has(tid)
+        ? (orbitTouched.has(tid) ? unclaimedGarrison.gateway : unclaimedGarrison.interior)
+        : undefined)
       ?? (orbitTouched.has(tid) ? NEUTRAL_OFFWORLD_LANDING_GARRISON : NEUTRAL_OFFWORLD_INTERIOR_GARRISON);
 
   // Build a map view that excludes neutral-garrison territories AND any orbit/land
@@ -1698,9 +1707,10 @@ function tryDistributeGalaxyAgeFactionHomeworlds(
  * Deal each Schism house its half of its home world (galaxySchism.ts), at the
  * initial unit count plus a Vault world's home-unit bonus, which pays for the
  * neutral ring as it does in the whole-world deal, plus the half's own opening
- * bonus. In a Partial Schism each seat on a whole world is dealt all of it, as
- * at four seats. `map` is the distributable view. Returns false so callers fall
- * back to geographic distribution.
+ * bonus. A lone house's unclaimed half is not in the distributable view: it
+ * opens neutral. In an Allied Partial Schism each seat on a whole world is
+ * dealt all of it, as at four seats. `map` is the distributable view. Returns
+ * false so callers fall back to geographic distribution.
  */
 function distributeSchismHouses(
   territories: Record<string, TerritoryState>,

@@ -37,7 +37,8 @@
 //     5 corridors / 3 rounds → 62.8% of games                  (it takes over)
 //     6 corridors / 3 rounds → 10.7%                           (barely fires)
 //     5 corridors / 5 rounds → 44.7–45.3%, avg 23.4 turns      (shipped)
-// Three seats keep three rounds: 37.6–38.6% of games. Eight seats (the Schism)
+// Three seats keep three rounds: 37.6–38.6% of games. Five to seven (the
+// Partial Schism, GALAXY-BALANCE.md §10) keep them too. Eight seats (the Schism)
 // keep them too, seed A of GALAXY-BALANCE.md §8:
 //     5 corridors / 2 rounds → 54.2% of games                  (it takes over)
 //     5 corridors / 3 rounds → 41.3–44.2% (A–C), avg 40.6 turns (shipped)
@@ -50,7 +51,7 @@ import { isFriendlyOwner } from '../state/teams';
 /** Authored lanes whose gateways a player must hold, of the map's total. */
 export const LANE_SOVEREIGNTY_CORRIDORS_NEEDED = 5;
 
-/** Consecutive turn starts at or above the corridor bar before the game ends — at three, four and eight seats. */
+/** Consecutive turn starts at or above the corridor bar before the game ends — at three to eight seats. */
 export const LANE_SOVEREIGNTY_ROUNDS = 3;
 
 /**
@@ -59,7 +60,7 @@ export const LANE_SOVEREIGNTY_ROUNDS = 3;
  * survive: (rounds - 1) x (seats - 1). Three rounds is six rival turns at four
  * seats and four at three, but only two at two, where the bar then ended 63% of
  * games; five rounds restores four. At eight it is fourteen, and three rounds
- * still end about 43% of games. ⚠ balance: the two-seat sweep (and why the
+ * still end about 43% of games; five to seven end about 35–45% at three. ⚠ balance: the two-seat sweep (and why the
  * corridor bar stays at five) is in backend/scripts/GALAXY-BALANCE.md. A seat
  * count not listed uses LANE_SOVEREIGNTY_ROUNDS. The balance sim's
  * SIM_SOVEREIGNTY_ROUNDS patches this object.
@@ -68,6 +69,9 @@ export const LANE_SOVEREIGNTY_ROUNDS_BY_SEATS: Record<number, number> = {
   2: 5,
   3: LANE_SOVEREIGNTY_ROUNDS,
   4: LANE_SOVEREIGNTY_ROUNDS,
+  5: LANE_SOVEREIGNTY_ROUNDS,
+  6: LANE_SOVEREIGNTY_ROUNDS,
+  7: LANE_SOVEREIGNTY_ROUNDS,
   8: LANE_SOVEREIGNTY_ROUNDS,
 };
 

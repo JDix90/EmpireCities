@@ -249,7 +249,7 @@ describe('an Allied houses start', () => {
 describe('an Allied Partial Schism start', () => {
   const saved = JSON.parse(JSON.stringify(PARTIAL_SCHISM_TUNING)) as typeof PARTIAL_SCHISM_TUNING;
   afterEach(() => {
-    for (const n of Object.keys(saved)) PARTIAL_SCHISM_TUNING[Number(n)] = { ...saved[Number(n)]! };
+    for (const n of Object.keys(saved)) PARTIAL_SCHISM_TUNING[Number(n)] = JSON.parse(JSON.stringify(saved[Number(n)]));
   });
 
   it('seats every world as one side, never back to back, with no Concord', () => {
@@ -274,8 +274,8 @@ describe('an Allied Partial Schism start', () => {
     }
   });
 
-  it("records each house's Allied numbers plus the catch-up, and each whole world's catch-up", () => {
-    PARTIAL_SCHISM_TUNING[5] = { house: 1, whole: 2 };
+  it("records each house's Allied numbers plus the partial board's, and each whole world's", () => {
+    PARTIAL_SCHISM_TUNING[5]!.allied = { house: 1, whole: 2 };
     const { state } = start([...FACTIONS, 'stellar_mandate'], { galaxy_house_relations: 'allied' });
     for (const p of state.players) {
       const house = schismHouseOf(state, p.player_id);
