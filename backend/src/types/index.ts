@@ -372,7 +372,8 @@ export interface GalaxySchismHouse {
   /**
    * Units a turn this house drafts on top of its kit: its half's
    * `reinforce_bonus` (at five to seven seats PARTIAL_SCHISM_HALVES'), or its
-   * world's ALLIED_TUNING when the houses are Allied.
+   * world's ALLIED_TUNING when the houses are Allied (at five to seven seats
+   * its board's PARTIAL_ALLIED_TUNING).
    */
   reinforce_bonus?: number;
 }
@@ -384,7 +385,7 @@ export interface GalaxySchismHouse {
 export interface GalaxySchismWholeWorld {
   player_id: string;
   world_id: string;
-  /** Units a turn this seat drafts on top of its kit (Partial Schism tuning). */
+  /** Units a turn this seat drafts on top of its kit: its board's PARTIAL_ALLIED_TUNING. */
   reinforce_bonus?: number;
 }
 

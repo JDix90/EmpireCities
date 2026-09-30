@@ -394,10 +394,14 @@ and the sweeps behind each number):
   - A split world's two houses are a side of two, as at eight seats.
   - A player alone on a world holds all of it, a side of one, and nothing is
     unclaimed.
-  - A side of two plays two turns a round, so the numbers are by world and by
-    side (`PARTIAL_ALLIED_TUNING`): each house of a side of two drafts Sol −2,
-    Verdan −1, Rust +2 or Nexus 0 a turn, and a seat holding a whole world
-    drafts +3 a turn, whichever world.
+  - A side of two plays two turns a round, and a side's chances turn on which
+    sides it faces, so the numbers go board by board, by the worlds that split
+    (`PARTIAL_ALLIED_TUNING`, keyed by `schismSplitKey`). A board has one
+    number a world, from −4 to +13 units a turn: each house of a side of two
+    drafts it, or the seat holding that world whole.
+    [GALAXY-BALANCE.md §10](../backend/scripts/GALAXY-BALANCE.md) lists them.
+  - A seat whose number outweighs its draft drafts nothing that turn, never a
+    negative count (`floorSchismDraft`).
   - The sides are seated so their turns come round as evenly spaced as they
     can: A B C A D at five.
 - **Lane Sovereignty** is 5 lanes for 3 rounds, as at eight seats.
@@ -418,7 +422,8 @@ and the screens behind each number):
 | Turn-10 leader wins | 47–52% (baseline 20%) | 44–46% (16.7%) | 39–45% (14.3%) |
 | Faction win rates per seat (Concord) | 17.2–23.3% | 11.9–19.3% | 11.3–16.9% |
 | Houses with a rival / alone (Concord) | 19.3–20.1 / 19.9–20.4% | 15.4–16.5 / 16.9–19.2% | 13.8–14.1 / 15.4–17.1% |
-| Allied sides | 22.9–26.7% | 21.7–29.2% | 22.2–29.8% |
+| Allied sides | 20.4–31.2% | 19.8–29.1% | 20.9–30.9% |
+| Allied, every side of every board | 5.4 points RMS from 25% | 5.4 | 5.1 |
 
 - **Every faction passes the gate on every seed but once.** The Mandate at six
   seats under the Concord won 11.9% on one seed, against a floor of 12.0% (12.8
@@ -429,11 +434,12 @@ and the screens behind each number):
   15.0–18.6% at six and 12.1–16.5% at seven.
 - **A house with a rival and a house alone are even** at every count, each
   within ±28% of its share on every seed.
-- **Allied passes on every seed**, but a side's chances depend on whether its
-  world splits. A seat holding Rust alone wins 16% at five seats and 2% at
-  seven; one holding Sol alone wins 42% at seven. The numbers are coupled round
-  the ring, and three screens failed to even this out inside the gate, so it
-  stays open.
+- **Allied passes on every seed**, measured on seeds the search never used.
+  Board by board, the sides sit 5.1–5.4 points RMS from 25%, against 8.8–14.7
+  with one number a world. At seven seats, a seat holding Rust alone now wins
+  14%, not 2%, and one holding Sol alone 24%, not 42%. The least even boards
+  are those where two neighbouring worlds both split: there, one unit a turn
+  flips which pair wins.
 - **Two, three, four and eight players are unchanged**: two to four reproduce
   main exactly, and eight seats match main as closely as main matches itself.
 
