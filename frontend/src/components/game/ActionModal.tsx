@@ -1342,6 +1342,9 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
   const isAlliance = data.victory_condition === 'alliance_victory';
   const daily = data.daily_challenge;
   const wonGameLostChallenge = daily?.outcome === 'unmet';
+  // A met objective is the day's win. "You have conquered the world!" over a
+  // run whose goal was to hold Ukraine for three turns says the wrong thing.
+  const challengeComplete = daily?.outcome === 'solved';
   // Co-winners named from the viewer's side of the table: an ally is any other
   // winner. (Named against `winnerName` it read "You and <your own name>" to
   // the second winner; that stays the fallback when no viewer is given.)
@@ -1398,6 +1401,8 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
           ? 'Game Abandoned'
           : wonGameLostChallenge
             ? 'Challenge Failed'
+            : challengeComplete
+              ? 'Challenge Complete!'
             : isTeamWin && data.isWinner ? '🤝 Team Victory!'
               : isAlliance && data.isWinner ? '🤝 Alliance Victory!' : data.isWinner ? 'Victory!' : 'Defeat'}
       </h2>
@@ -1409,6 +1414,8 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
           ? 'You resigned. The game ended with no human players remaining.'
           : wonGameLostChallenge
             ? 'You won the war, but not the challenge.'
+          : challengeComplete
+            ? "You met today's goal."
           : data.isWinner
             ? isTeamWin
               ? coWinnerNames.length > 0

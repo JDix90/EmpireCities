@@ -116,8 +116,9 @@ flag on, so the week can migrate set-piece by set-piece.
 - **Star**: no blunder, at most one inaccuracy, no takeback. **Crown**: every decision
   graded best on first attempt.
 - **Streak**: completion — the run reached game over, won or lost.
-- **Leaderboard**: score ↓, then first-try ↓, then attempts ↑, then completion time ↑.
-  `won` is shown, never ranked.
+- **Leaderboard**: won ↓, then score ↓, then first-try ↓, then attempts ↑, then completion
+  time ↑. Winning the challenge is the goal, so a loss never ranks above a win; accuracy
+  orders players within the winners and within the losers.
 
 ## 5. System design
 
