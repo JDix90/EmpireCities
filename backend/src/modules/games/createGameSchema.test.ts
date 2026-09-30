@@ -577,20 +577,20 @@ describe('territorySelectionRejection', () => {
 });
 
 describe('galaxyPlayerCountRejection', () => {
-  // Two to four seats each deal a designed start — four home worlds, or
-  // Colonies below four — and eight deals the Schism, two houses to a world.
-  // Five to seven have no board: the engine would scatter every seat.
-  it('accepts a lobby of two to four seats, or eight, however many of them are AI', () => {
-    for (const maxPlayers of [2, 3, 4, 8]) {
+  // Every count from two to eight deals a designed start: Colonies below four,
+  // four home worlds at four, and from five the Schism, two houses to a world
+  // (at five to seven one world per seat over four, the others held whole).
+  it('accepts a lobby of two to eight seats, however many of them are AI', () => {
+    for (const maxPlayers of [2, 3, 4, 5, 6, 7, 8]) {
       for (let aiCount = 0; aiCount < maxPlayers; aiCount++) {
         expect(galaxyPlayerCountRejection({ isGalacticAge: true, maxPlayers, aiCount })).toBeNull();
       }
     }
   });
 
-  it('rejects a lobby of five to seven seats', () => {
-    for (const maxPlayers of [5, 6, 7]) {
-      expect(galaxyPlayerCountRejection({ isGalacticAge: true, maxPlayers, aiCount: 3 }))
+  it('rejects a lobby of one seat, or more than eight', () => {
+    for (const maxPlayers of [1, 9]) {
+      expect(galaxyPlayerCountRejection({ isGalacticAge: true, maxPlayers, aiCount: 0 }))
         .toBe(GALAXY_PLAYER_COUNT_ERROR);
     }
   });

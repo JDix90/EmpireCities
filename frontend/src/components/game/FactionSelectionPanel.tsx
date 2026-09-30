@@ -6,7 +6,7 @@ import { GameLobbySnapshot } from '../../types/gameLobbyApi';
 import FactionLoreModal, { type FactionLoreInfo } from './FactionLoreModal';
 import { AiBadge } from '../ui/AiBadge';
 import { aiPlayerName } from '@borderfall/shared';
-import { galaxyTeamPickNote, seatsPerFaction } from '../../utils/lobbyEraMapCompatibility';
+import { galaxySchismPickNote, galaxyTeamPickNote, seatsPerFaction } from '../../utils/lobbyEraMapCompatibility';
 
 interface FactionInfo {
   faction_id: string;
@@ -55,7 +55,7 @@ export default function FactionSelectionPanel({ lobby, eraId }: FactionSelection
   });
 
   // Faction id -> seats holding it. A faction is taken once it has all the
-  // seats it may: one, or two in a Galactic Age Schism lobby.
+  // seats it may: one, or two in a Galactic Age lobby of five seats or more.
   const holders = new Map<string, number>();
   for (const f of Object.values(playerFactions)) if (f) holders.set(f, (holders.get(f) ?? 0) + 1);
   const perFaction = seatsPerFaction(lobby.era_id, lobby.map_id, lobby.settings_json);
@@ -87,12 +87,17 @@ export default function FactionSelectionPanel({ lobby, eraId }: FactionSelection
     lobby.settings_json,
     (id) => factions.find((f) => f.faction_id === id)?.name ?? id,
   );
+  // A free-for-all Schism lobby: picking a faction twice splits its world.
+  const schismNote = galaxySchismPickNote(lobby.era_id, lobby.map_id, lobby.settings_json);
 
   return (
     <div className="card mb-6 animate-fade-in">
       <h3 className="font-display text-xl text-bf-gold mb-4">Faction Selection</h3>
       {teamNote && (
         <p className="text-xs text-bf-muted -mt-2 mb-3" data-testid="faction-team-note">{teamNote}</p>
+      )}
+      {schismNote && (
+        <p className="text-xs text-bf-muted -mt-2 mb-3" data-testid="faction-schism-note">{schismNote}</p>
       )}
       {loading ? (
         <p className="text-bf-muted">Loading factions…</p>

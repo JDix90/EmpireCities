@@ -536,8 +536,9 @@ export default function LobbyPage() {
   // kits, no Lane Sovereignty, lanes as plain borders — the create route turns
   // `galaxy_home_worlds: false` into those settings.
   const [galaxyHomeWorlds, setGalaxyHomeWorlds] = useState(true);
-  // Galactic Age Schism: eight seats, two houses to every world (needs Home
-  // Worlds). The House relations setting decides how a world's two houses start.
+  // Galactic Age Schism: five to eight seats, two houses to a shared world —
+  // every world at eight, one per seat over four below (needs Home Worlds). The
+  // House relations setting decides how a world's two houses start.
   const [galaxySchism, setGalaxySchism] = useState(false);
   const [galaxyHouseRelations, setGalaxyHouseRelations] = useState<'concord' | 'civil_war' | 'allied'>('concord');
   const [galaxy2v2, setGalaxy2v2] = useState(false);
@@ -595,7 +596,8 @@ export default function LobbyPage() {
   const galaxyHomeWorldsOff = isGalacticEra && !galaxyHomeWorlds;
   // The Schism deals houses onto home worlds, so it needs Home Worlds on.
   const galaxySchismOn = isGalacticEra && galaxyHomeWorlds && galaxySchism;
-  // The seats a Galactic lobby asks for: four (Colonies below), or eight.
+  // The seats a Galactic lobby asks for: four (Colonies below), or eight with
+  // the Schism, which plays whatever count from five to eight is seated at start.
   const galaxySeatCap = galaxySchismOn ? GALAXY_SCHISM_PLAYERS : GALAXY_MAX_PLAYERS;
   // 2v2 pairs the four home worlds into two sides; it needs Home Worlds and
   // plays on the four-player board, so not with the Schism.
@@ -1216,8 +1218,8 @@ export default function LobbyPage() {
       const res = await api.post('/games', {
         era_id: eraId,
         map_id: mapId,
-        // The Galactic Age seats two to four, or eight for the Schism; every
-        // other era up to eight.
+        // The Galactic Age seats up to four, or up to eight with the Schism;
+        // every other era up to eight.
         max_players: isGalacticEra ? galaxySeatCap : 8,
         ai_count: aiCount,
         ai_difficulty: aiDifficulty,
@@ -2590,7 +2592,7 @@ export default function LobbyPage() {
                     )}
                     {isGalacticEra && (
                       <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                        <FeatureTooltip text="Eight players, two houses to every world. Each faction goes to two players, who split its home world between them and share its kit. Every house has a rival at home and enemies across its lanes. Hold all four of your world's gateways — your own two and your rival's — and you wear the Lane Crown, worth extra reinforcements every turn. The Schism needs all eight seats filled — AI opponents plus the players you invite; started with two to four, the game plays that count's board instead. Needs Home Worlds." />
+                        <FeatureTooltip text="Five to eight players, with two houses to a shared world. A faction dealt to two players is split between them: each takes half its home world and shares its kit, with a rival at home and enemies across its lanes. At eight every world is shared. With five to seven, one world is shared for each player over four and the rest are held whole, as at four, and the houses on half a world are given more to start with to make up for it. Hold all four of your world's gateways — your own two and your rival's — and you wear the Lane Crown, worth extra reinforcements every turn. The game plays the board for however many seats are filled when it starts — AI opponents plus the players you invite; started with two to four, it plays that count's board instead. Needs Home Worlds." />
                         <label htmlFor="galaxy-schism" className="contents cursor-pointer">
                           <input
                             type="checkbox"
@@ -2601,7 +2603,7 @@ export default function LobbyPage() {
                             className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
                           />
                           <span className="leading-snug min-w-0 select-none">
-                            Schism (eight players)
+                            Schism (five to eight players)
                             {!galaxyHomeWorlds && <span className="text-xs text-bf-muted"> (needs Home Worlds)</span>}
                           </span>
                         </label>
@@ -2645,7 +2647,7 @@ export default function LobbyPage() {
                           {galaxyHouseRelations === 'concord'
                             ? 'A truce for the opening rounds, so each house can face outward first. Breaking it early is allowed, at the usual cost: your target gets a defence die, then a die against you.'
                             : galaxyHouseRelations === 'allied'
-                              ? "Four teams of two: a world's houses never attack each other, see what each other sees, and win together. Pick the same faction as a friend to share a world. No team attacks another until every player has had a turn, and there is no Lane Crown."
+                              ? "Every world is one team: its two houses, or with five to seven players the one player holding it whole. Teammates never attack each other, see what each other sees, and win together. Pick the same faction as a friend to share a world. No team attacks another until every player has had a turn, and there is no Lane Crown."
                               : 'The two houses on every world are enemies from turn one.'}
                         </p>
                       </div>

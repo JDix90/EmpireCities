@@ -124,26 +124,30 @@ export function buildMapMetaFromGameMap(map: GameMap): MapCompatibilityMeta {
 }
 
 /**
- * Seats a Galactic Age game supports: four home worlds, and below four the
- * unclaimed worlds open as colonies; or eight, the Schism, two houses to every
- * world. Five to seven have no board. Mirrors backend lobbyCapacity.ts.
+ * Seats a Galactic Age game supports: two to eight. Four home worlds, and below
+ * four the unclaimed worlds open as colonies; from five, the Schism, two houses
+ * to a shared world: one world per seat over four at five to seven (the Partial
+ * Schism), every world at eight. Mirrors backend lobbyCapacity.ts.
  */
 export const GALAXY_MIN_PLAYERS = 2;
 /** One home world each: Colonies below this, the classic start at it. */
 export const GALAXY_MAX_PLAYERS = 4;
-/** The Schism: two houses to each of the four worlds. */
+/** The full Schism: two houses to each of the four worlds. */
 export const GALAXY_SCHISM_PLAYERS = 8;
-export const GALAXY_SEAT_COUNTS: readonly number[] = [2, 3, 4, GALAXY_SCHISM_PLAYERS];
+export const GALAXY_SEAT_COUNTS: readonly number[] = [2, 3, 4, 5, 6, 7, GALAXY_SCHISM_PLAYERS];
 export const GALAXY_PLAYER_COUNT_ERROR =
-  `Galactic Age seats ${GALAXY_MIN_PLAYERS} to ${GALAXY_MAX_PLAYERS} players — one per home world — or ${GALAXY_SCHISM_PLAYERS} for the Schism, two to a world`;
+  `Galactic Age seats ${GALAXY_MIN_PLAYERS} to ${GALAXY_SCHISM_PLAYERS} players — one per home world up to ${GALAXY_MAX_PLAYERS}, and from ${GALAXY_MAX_PLAYERS + 1} the Schism, two houses to a shared world`;
+/** The create form's own refusal: more than four seats on a lobby without the Schism. */
+export const GALAXY_SCHISM_NEEDED_ERROR =
+  `More than ${GALAXY_MAX_PLAYERS} players need the Schism, where two houses share a world — switch it on to seat up to ${GALAXY_SCHISM_PLAYERS}`;
 export const GALAXY_FACTIONS_REQUIRED_ERROR =
   'Galactic Age needs Asymmetric Factions on — each player commands one world';
 
 /**
- * Seats one faction may take in a lobby: two in a Galactic Age Schism lobby
- * (eight seats, each world's faction dealt to two houses), one elsewhere.
- * Mirrors backend `seatsPerFaction` (lobbyCapacity.ts), which the faction pick
- * enforces.
+ * Seats one faction may take in a lobby: two in a Galactic Age lobby that can
+ * seat a Schism (five or more seats: a faction picked twice splits its world
+ * between two houses), one elsewhere. Mirrors backend `seatsPerFaction`
+ * (lobbyCapacity.ts), which the faction pick enforces.
  */
 export function seatsPerFaction(
   eraId: string | null | undefined,
@@ -152,7 +156,7 @@ export function seatsPerFaction(
 ): number {
   const galactic = eraId === 'galaxy_age' || mapId === 'era_galaxy';
   const cap = typeof settings?.max_players === 'number' ? settings.max_players : 8;
-  return galactic && cap >= GALAXY_SCHISM_PLAYERS ? 2 : 1;
+  return galactic && cap > GALAXY_MAX_PLAYERS ? 2 : 1;
 }
 
 /**
@@ -166,8 +170,9 @@ export const GALAXY_2V2_FACTION_PAIRS: ReadonlyArray<readonly [string, string]> 
 
 /**
  * How a Galactic Age lobby's teams form, for the waiting room: in 2v2 a
- * player's faction is their side; with Allied houses the two seats on a faction
- * are one. Null for a free-for-all lobby.
+ * player's faction is their side; with Allied houses the seats on a faction
+ * are one (a player alone on a faction holds its world whole, a side of one).
+ * Null for a free-for-all lobby.
  */
 export function galaxyTeamPickNote(
   eraId: string | null | undefined,
@@ -178,14 +183,32 @@ export function galaxyTeamPickNote(
   const galactic = eraId === 'galaxy_age' || mapId === 'era_galaxy';
   if (!galactic || !settings) return null;
   const cap = typeof settings.max_players === 'number' ? settings.max_players : 8;
-  if (cap >= GALAXY_SCHISM_PLAYERS && settings.galaxy_house_relations === 'allied') {
-    return 'Allied houses: the two players on each faction are one team and share its world. Pick the same faction as a friend to play on one side.';
+  if (cap > GALAXY_MAX_PLAYERS && settings.galaxy_house_relations === 'allied') {
+    return 'Allied houses: the players on each faction are one team and share its world. Pick the same faction as a friend to play on one side.';
   }
   if (cap === GALAXY_MAX_PLAYERS && settings.galaxy_2v2 === true) {
     const [a, b] = GALAXY_2V2_FACTION_PAIRS.map((pair) => pair.map(factionName).join(' and '));
     return `2v2: your faction is your team, ${a} against ${b}.`;
   }
   return null;
+}
+
+/**
+ * How a free-for-all Schism lobby deals factions, for the waiting room: two
+ * players on one faction split its world as rival houses, and below eight
+ * players only so many worlds split. Null for any other lobby (an Allied one
+ * has galaxyTeamPickNote instead).
+ */
+export function galaxySchismPickNote(
+  eraId: string | null | undefined,
+  mapId: string | null | undefined,
+  settings: { max_players?: unknown; galaxy_house_relations?: unknown } | null | undefined,
+): string | null {
+  const galactic = eraId === 'galaxy_age' || mapId === 'era_galaxy';
+  if (!galactic || !settings) return null;
+  const cap = typeof settings.max_players === 'number' ? settings.max_players : 8;
+  if (cap <= GALAXY_MAX_PLAYERS || settings.galaxy_house_relations === 'allied') return null;
+  return 'Schism: two players on one faction split its world as rival houses. With five to seven players one world splits per player over four — if more factions are picked twice, the deal draws which stay shared.';
 }
 
 export function evaluateEraMapCompatibility(input: EraMapCompatibilityInput): EraMapCompatibilityResult {
@@ -225,12 +248,17 @@ export function evaluateEraMapCompatibility(input: EraMapCompatibilityInput): Er
   // the seat count from the create route (galaxyPlayerCountRejection). The form
   // knows the seats it fills (host + AI) and the cap it asks for — four, or
   // eight for the Schism — so it can refuse the overflow before submitting;
-  // humans can take the rest.
+  // humans can take the rest. Five or more on a four-seat lobby is a Schism the
+  // host has not switched on, and says so.
   if (isGalactic) {
     const seats = input.player_count ?? 0;
     const cap = input.max_players ?? GALAXY_MAX_PLAYERS;
-    if (!GALAXY_SEAT_COUNTS.includes(cap) || seats > cap) {
+    if (!GALAXY_SEAT_COUNTS.includes(cap)) {
       return { allowed: false, hardBlock: GALAXY_PLAYER_COUNT_ERROR, warnings };
+    }
+    if (seats > cap) {
+      const needsSchism = cap === GALAXY_MAX_PLAYERS && seats <= GALAXY_SCHISM_PLAYERS;
+      return { allowed: false, hardBlock: needsSchism ? GALAXY_SCHISM_NEEDED_ERROR : GALAXY_PLAYER_COUNT_ERROR, warnings };
     }
     // Home Worlds off (galaxy_plain_lanes) plays without factions by design.
     if (settings.factions_enabled !== true && settings.galaxy_plain_lanes !== true) {

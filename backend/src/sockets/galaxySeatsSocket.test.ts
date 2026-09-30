@@ -1,10 +1,9 @@
 /**
- * The Galactic Age seats two to four, or eight, and game start is the last place
- * that holds a lobby to it: a lobby created before the create route capped the
- * seat count, a Schism lobby short of eight, or one switched to the era by a
- * vote, can still reach Start with five. And a lobby the era can seat starts on
- * the board its seat count deals — at three, the Colonies board with the ring's
- * two gaps bridged on the game's map copy; at eight, the Schism.
+ * The Galactic Age seats two to eight, and game start is the last place that
+ * holds a lobby to it: a host alone, with nobody and no AI to play, can still
+ * reach Start. And a lobby the era can seat starts on the board its seat count
+ * deals — at three, the Colonies board with the ring's two gaps bridged on the
+ * game's map copy; at five to seven, the Partial Schism; at eight, the Schism.
  *
  * Drives the real game:start handler over socket.io against Redis. The waiting
  * lobby (the games and game_players rows) is held in memory in place of
@@ -152,15 +151,38 @@ describe.runIf(redisTestEnabled)('Galactic Age seats at game start', () => {
     });
   }
 
-  it('refuses a lobby seating five, and leaves it waiting', async () => {
+  it('refuses a lobby seating one, and leaves it waiting', async () => {
     const gameId = uuidv4();
     const host = `host_${gameId.slice(0, 8)}`;
-    seedGalaxyLobby(gameId, host, 4);
+    seedGalaxyLobby(gameId, host, 0);
     const client = await hostIn(gameId, host);
 
     expect(await start(client, gameId)).toEqual({ error: GALAXY_PLAYER_COUNT_ERROR });
     expect(db.games.get(gameId)!.status).toBe('waiting');
     expect(await getGameState(gameId)).toBeNull();
+  }, 30_000);
+
+  it('starts five seats on the Partial Schism: one world split between two houses, three held whole', async () => {
+    const gameId = uuidv4();
+    const host = `host_${gameId.slice(0, 8)}`;
+    seedGalaxyLobby(gameId, host, 4);
+    const client = await hostIn(gameId, host);
+
+    expect(await start(client, gameId)).toEqual({ started: true });
+    const state = (await getGameState(gameId))!;
+    const mode = state.galaxy_mode;
+    expect(mode?.id).toBe('schism');
+    if (mode?.id !== 'schism') return;
+    expect(mode.houses).toHaveLength(2);
+    expect(mode.whole_worlds).toHaveLength(3);
+    const [a, b] = mode.houses;
+    expect(a!.world_id).toBe(b!.world_id);
+    expect(activeTruceBetween(state, a!.player_id, b!.player_id)).not.toBeNull();
+    for (const whole of mode.whole_worlds!) {
+      const owned = Object.values(state.territories).filter((t) => t.owner_id === whole.player_id);
+      expect(owned.length).toBe(whole.world_id === 'nexus_station' ? 12 : 16);
+      expect(owned.every((t) => t.world_id === whole.world_id)).toBe(true);
+    }
   }, 30_000);
 
   it('starts three seats on the Colonies board, bridges and all', async () => {

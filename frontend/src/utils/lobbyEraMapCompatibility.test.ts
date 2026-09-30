@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   GALAXY_PLAYER_COUNT_ERROR,
+  GALAXY_SCHISM_NEEDED_ERROR,
+  galaxySchismPickNote,
   evaluateEraMapCompatibility,
   galaxyTeamPickNote,
   seatsPerFaction,
@@ -62,24 +64,33 @@ describe('evaluateEraMapCompatibility — Galactic Age seats', () => {
     for (const n of [1, 2, 3, 4]) expect(seats(n, 4).hardBlock).toBeNull();
   });
 
-  it('refuses a fifth before the form is sent', () => {
-    expect(seats(5).hardBlock).toBe(GALAXY_PLAYER_COUNT_ERROR);
-    expect(seats(8).hardBlock).toBe(GALAXY_PLAYER_COUNT_ERROR);
-    expect(seats(5, 4).hardBlock).toBe(GALAXY_PLAYER_COUNT_ERROR);
+  it('refuses a fifth without the Schism before the form is sent, and says to switch it on', () => {
+    expect(seats(5).hardBlock).toBe(GALAXY_SCHISM_NEEDED_ERROR);
+    expect(seats(8).hardBlock).toBe(GALAXY_SCHISM_NEEDED_ERROR);
+    expect(seats(5, 4).hardBlock).toBe(GALAXY_SCHISM_NEEDED_ERROR);
+    expect(seats(9, 4).hardBlock).toBe(GALAXY_PLAYER_COUNT_ERROR);
   });
 
   it('lets a Schism form fill up to eight', () => {
     for (const n of [1, 4, 5, 8]) expect(seats(n, 8).hardBlock).toBeNull();
+    expect(seats(9, 8).hardBlock).toBe(GALAXY_PLAYER_COUNT_ERROR);
+  });
+
+  it('holds a five-to-seven seat cap to itself', () => {
+    for (const cap of [5, 6, 7]) {
+      expect(seats(cap, cap).hardBlock).toBeNull();
+      expect(seats(cap + 1, cap).hardBlock).toBe(GALAXY_PLAYER_COUNT_ERROR);
+    }
   });
 
   it('refuses a seat cap the era does not play', () => {
-    for (const cap of [5, 6, 7]) expect(seats(1, cap).hardBlock).toBe(GALAXY_PLAYER_COUNT_ERROR);
+    for (const cap of [1, 9]) expect(seats(1, cap).hardBlock).toBe(GALAXY_PLAYER_COUNT_ERROR);
   });
 });
 
 describe('seatsPerFaction', () => {
-  it('lets two seats share a faction in a Schism lobby, and one anywhere else', () => {
-    expect(seatsPerFaction('galaxy_age', 'era_galaxy', { max_players: 8 })).toBe(2);
+  it('lets two seats share a faction in a lobby that can seat a Schism, and one anywhere else', () => {
+    for (const max_players of [5, 6, 7, 8]) expect(seatsPerFaction('galaxy_age', 'era_galaxy', { max_players })).toBe(2);
     expect(seatsPerFaction('custom', 'era_galaxy', { max_players: 8 })).toBe(2);
     expect(seatsPerFaction('galaxy_age', 'era_galaxy', { max_players: 4 })).toBe(1);
     expect(seatsPerFaction('ww2', 'era_ww2', { max_players: 8 })).toBe(1);
@@ -98,18 +109,36 @@ describe('galaxyTeamPickNote', () => {
     );
   });
 
-  it('pairs two seats on a faction when the houses are Allied', () => {
-    expect(galaxyTeamPickNote('galaxy_age', 'era_galaxy', { max_players: 8, galaxy_house_relations: 'allied' }, name))
-      .toMatch(/^Allied houses: the two players on each faction are one team/);
+  it('pairs the seats on a faction when the houses are Allied, at five seats or more', () => {
+    for (const max_players of [5, 8]) {
+      expect(galaxyTeamPickNote('galaxy_age', 'era_galaxy', { max_players, galaxy_house_relations: 'allied' }, name))
+        .toMatch(/^Allied houses: the players on each faction are one team/);
+    }
   });
 
   it('says nothing for a free-for-all lobby', () => {
     expect(galaxyTeamPickNote('galaxy_age', 'era_galaxy', { max_players: 4 }, name)).toBeNull();
     expect(galaxyTeamPickNote('galaxy_age', 'era_galaxy', { max_players: 8, galaxy_house_relations: 'civil_war' }, name)).toBeNull();
-    // 2v2 is a four-seat board; Allied is an eight-seat one.
+    // 2v2 is a four-seat board; Allied needs five seats or more.
     expect(galaxyTeamPickNote('galaxy_age', 'era_galaxy', { max_players: 3, galaxy_2v2: true }, name)).toBeNull();
     expect(galaxyTeamPickNote('galaxy_age', 'era_galaxy', { max_players: 4, galaxy_house_relations: 'allied' }, name)).toBeNull();
     expect(galaxyTeamPickNote('ww2', 'era_ww2', { max_players: 4, galaxy_2v2: true }, name)).toBeNull();
     expect(galaxyTeamPickNote('galaxy_age', 'era_galaxy', null, name)).toBeNull();
+  });
+});
+
+describe('galaxySchismPickNote', () => {
+  it('explains shared factions in a free-for-all Schism lobby', () => {
+    for (const max_players of [5, 8]) {
+      expect(galaxySchismPickNote('galaxy_age', 'era_galaxy', { max_players })).toMatch(/^Schism: two players on one faction split its world/);
+      expect(galaxySchismPickNote('galaxy_age', 'era_galaxy', { max_players, galaxy_house_relations: 'civil_war' })).not.toBeNull();
+    }
+  });
+
+  it('says nothing for an Allied lobby, which has its own note, or a lobby of four or fewer', () => {
+    expect(galaxySchismPickNote('galaxy_age', 'era_galaxy', { max_players: 8, galaxy_house_relations: 'allied' })).toBeNull();
+    expect(galaxySchismPickNote('galaxy_age', 'era_galaxy', { max_players: 4 })).toBeNull();
+    expect(galaxySchismPickNote('ww2', 'era_ww2', { max_players: 8 })).toBeNull();
+    expect(galaxySchismPickNote('galaxy_age', 'era_galaxy', null)).toBeNull();
   });
 });

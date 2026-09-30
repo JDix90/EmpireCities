@@ -10,7 +10,7 @@
  * different rules. Both now read this one.
  */
 
-import { GALAXY_CLASSIC_SEATS, GALAXY_MIN_SEATS, GALAXY_SCHISM_SEATS, GALAXY_SEAT_COUNTS } from '../../game-engine/state/galaxyModes';
+import { GALAXY_CLASSIC_SEATS, GALAXY_MAX_SEATS, GALAXY_MIN_SEATS, GALAXY_SEAT_COUNTS } from '../../game-engine/state/galaxyModes';
 
 /** Seats a lobby has when `settings_json` says nothing — the games table's own default. */
 export const DEFAULT_MAX_PLAYERS = 8;
@@ -53,14 +53,13 @@ export function isGalacticAgeGame(eraId: string | null | undefined, mapId: strin
 export const GALACTIC_AGE_GAME_SQL = `(g.era_id = 'galaxy_age' OR g.map_id = 'era_galaxy')`;
 
 /**
- * The Galactic Age seats two to four players, or eight. Its four worlds are four
- * home worlds: below four the ones nobody calls home open as neutral colonies,
- * and at eight every world is shared by two houses, the Schism
- * (game-engine/state/galaxyModes.ts, galaxySchism.ts). Five to seven have no
- * board yet, and the engine would deal them a scattered start.
+ * The Galactic Age seats two to eight players. Its four worlds are four home
+ * worlds: below four the ones nobody calls home open as neutral colonies, and
+ * from five up the Schism has two houses share a world, one world per seat over
+ * four (game-engine/state/galaxyModes.ts, galaxySchism.ts).
  */
 export const GALAXY_PLAYER_COUNT_ERROR =
-  `Galactic Age seats ${GALAXY_MIN_SEATS} to ${GALAXY_CLASSIC_SEATS} players — one per home world — or ${GALAXY_SCHISM_SEATS} for the Schism, two to a world`;
+  `Galactic Age seats ${GALAXY_MIN_SEATS} to ${GALAXY_MAX_SEATS} players — one per home world up to ${GALAXY_CLASSIC_SEATS}, and from ${GALAXY_CLASSIC_SEATS + 1} the Schism, two houses to a shared world`;
 
 /** Null when a Galactic Age game can seat this many players, the error otherwise. */
 export function galaxySeatCountError(seats: number): string | null {
@@ -70,9 +69,9 @@ export function galaxySeatCountError(seats: number): string | null {
 /**
  * The seat cap `/:gameId/join` and `/:gameId/invite` enforce: the lobby's own
  * cap, and never more than a Galactic Age game can seat. For the Galactic Age
- * that is the largest seat count it plays within the lobby's cap: eight for a
- * Schism lobby, and four for anything from four to seven, so a fifth seat is
- * never sold on a board that has none.
+ * that is the largest seat count it plays within the lobby's cap, which since
+ * every count from two to eight has a board is the cap itself; kept as a rule
+ * so a seat is never sold on a count that has none.
  */
 export function lobbySeatCap(
   settings: Record<string, unknown> | string | null | undefined,
@@ -85,16 +84,19 @@ export function lobbySeatCap(
 }
 
 /**
- * Seats one faction may take in a lobby: two in a Galactic Age Schism lobby
- * (eight seats, every world's faction dealt to two houses), one everywhere
- * else. The waiting room's faction pick holds each faction to this.
+ * Seats one faction may take in a lobby: two in a Galactic Age lobby that can
+ * seat a Schism (five or more seats: a faction picked twice splits its world
+ * between two houses), one everywhere else. The waiting room's faction pick
+ * holds each faction to this. At five to seven seats only one world per seat
+ * over four splits, and the deal draws which pairs stand when more factions
+ * were picked twice (galaxySchism.ts dealSchismFactions).
  */
 export function seatsPerFaction(
   settings: Record<string, unknown> | string | null | undefined,
   eraId: string | null | undefined,
   mapId: string | null | undefined,
 ): number {
-  return isGalacticAgeGame(eraId, mapId) && lobbySeatCap(settings, eraId, mapId) === GALAXY_SCHISM_SEATS ? 2 : 1;
+  return isGalacticAgeGame(eraId, mapId) && lobbySeatCap(settings, eraId, mapId) > GALAXY_CLASSIC_SEATS ? 2 : 1;
 }
 
 /**
