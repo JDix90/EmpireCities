@@ -244,6 +244,39 @@ describe('recovering a board that has transformed era', () => {
 });
 
 /**
+ * A three-seat Colonies game bridges the ring's gaps with lanes that live in
+ * state and the game's map copy, not the authored file. A room rebuilt from the
+ * authored map (Postgres recovery) must regain them, like Jump Gate lanes.
+ */
+describe('recovering a Colonies board', () => {
+  beforeEach(() => {
+    deleteCachedRoom('game-colonies');
+    vi.mocked(queryOne).mockReset();
+    vi.mocked(resolveMap).mockReset();
+  });
+
+  it('puts the bridging lanes back on the rebuilt map copy', async () => {
+    const saved: GameState = {
+      ...makeState('game-colonies'),
+      map_id: 'era_galaxy',
+      galaxy_mode: { id: 'colonies', neutral_worlds: ['nexus_station'], lanes: [{ from: 'rust_a', to: 'sol_a' }] },
+    };
+    const authored: GameMap = {
+      ...makeMap(),
+      map_id: 'era_galaxy',
+      connections: [{ from: 'sol_b', to: 'verdan_b', type: 'orbit' }],
+    };
+    vi.mocked(queryOne).mockResolvedValue({ state_json: saved });
+    vi.mocked(resolveMap).mockResolvedValue(authored);
+
+    const room = await loadGameRoomFromPostgres('game-colonies', 'era_galaxy');
+
+    expect(room?.map.connections).toContainEqual({ from: 'rust_a', to: 'sol_a', type: 'orbit', source: 'galaxy_mode' });
+    expect(room?.map.connections).toHaveLength(2);
+  });
+});
+
+/**
  * The away-AI covers a seat only while someone else is at the table waiting on
  * it (driveCurrentSeatIfAi).
  */

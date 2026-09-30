@@ -973,6 +973,18 @@ export interface GameState {
     surges?: Array<{ from: string; to: string; turns_remaining: number }>;
   };
   /**
+   * Galactic Age board mode (state/galaxyModes.ts): the start this game was
+   * dealt when it is not the classic one-world-per-player start. Colonies (two
+   * or three seats): `neutral_worlds` started neutral and garrisoned; at three
+   * seats `lanes` bridge the ring's two gaps all game, projected onto the map
+   * copy as `source: 'galaxy_mode'` connections by `syncGalaxyModeLanes`.
+   */
+  galaxy_mode?: {
+    id: 'colonies';
+    neutral_worlds: string[];
+    lanes?: Array<{ from: string; to: string }>;
+  };
+  /**
    * Galactic Age transit: convoys crossing between worlds. Units leave their
    * source at once and land at the mover's next turn start — or turn back if the
    * destination is no longer theirs. Off unless `galaxy_transit_enabled`.
@@ -1337,10 +1349,11 @@ export interface MapConnection {
    * authored file: a Launch Pad opens an orbit lane from its territory to the
    * nearest Moon landing zone (state/moonAccess.ts `syncLaunchPadLanes`), and a
    * pair of Jump Gates opens a private lane between two worlds
-   * (state/jumpGates.ts `syncJumpGateLanes`). Authored maps never carry this
-   * field, and Lane Sovereignty counts only lanes without it.
+   * (state/jumpGates.ts `syncJumpGateLanes`). Lane weather and a Galactic Age
+   * board mode add lanes the same way (`lane_surge`, `galaxy_mode`). Authored
+   * maps never carry this field, and Lane Sovereignty counts only lanes without it.
    */
-  source?: 'launch_pad' | 'jump_gate' | 'lane_surge';
+  source?: 'launch_pad' | 'jump_gate' | 'lane_surge' | 'galaxy_mode';
 }
 
 export interface MapRegion {

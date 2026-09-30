@@ -24,6 +24,8 @@ import {
   tickLaneSovereignty,
   LANE_SOVEREIGNTY_CORRIDORS_NEEDED,
   LANE_SOVEREIGNTY_ROUNDS,
+  LANE_SOVEREIGNTY_ROUNDS_BY_SEATS,
+  roundsNeededFor,
 } from './laneSovereignty';
 
 const AUTHORED = JSON.parse(
@@ -45,9 +47,9 @@ function settings(overrides: Partial<GameSettings> = {}): GameSettings {
   } as unknown as GameSettings;
 }
 
-function freshGalaxy(overrides: Partial<GameSettings> = {}): { state: GameState; map: GameMap } {
+function freshGalaxy(overrides: Partial<GameSettings> = {}, seats = SEAT.length): { state: GameState; map: GameMap } {
   const map = JSON.parse(JSON.stringify(AUTHORED)) as GameMap;
-  const players = SEAT.map((id, i) => ({
+  const players = SEAT.slice(0, seats).map((id, i) => ({
     player_id: id, player_index: i, username: id, color: '#fff',
     is_ai: false, is_eliminated: false, mmr: 1000, faction_id: FACTIONS[i],
   }));
@@ -195,5 +197,40 @@ describe('progress, for the HUD and the AI', () => {
     const p = laneSovereigntyProgress(off.state, off.map, 'p_sol');
     expect(p.applicable).toBe(false);
     expect(p.held).toBe(0);
+  });
+});
+
+describe('the rounds, by seat count', () => {
+  it('asks a two-seat streak for five rounds: one rival has fewer turns to break it', () => {
+    const { state, map } = freshGalaxy({}, 2);
+    expect(state.galaxy_mode?.id).toBe('colonies');
+    expect(roundsNeededFor(state)).toBe(5);
+    grantCorridors(state, map, 'p_sol', LANE_SOVEREIGNTY_CORRIDORS_NEEDED);
+    for (let round = 1; round < 5; round++) {
+      tickLaneSovereignty(state, map, 'p_sol');
+      expect(hasLaneSovereignty(state, 'p_sol')).toBe(false);
+      expect(checkVictory(state, map)).toBeNull();
+    }
+    expect(laneSovereigntyProgress(state, map, 'p_sol')).toMatchObject({ streak: 4, roundsNeeded: 5 });
+    tickLaneSovereignty(state, map, 'p_sol');
+    expect(checkVictory(state, map)).toEqual({ winnerIds: ['p_sol'], condition: 'lane_sovereignty' });
+  });
+
+  it('keeps three rounds at three and four seats, and the same corridor bar everywhere', () => {
+    for (const seats of [3, 4]) {
+      const { state, map } = freshGalaxy({}, seats);
+      expect(roundsNeededFor(state)).toBe(LANE_SOVEREIGNTY_ROUNDS);
+      expect(laneSovereigntyProgress(state, map, 'p_sol')).toMatchObject({
+        needed: LANE_SOVEREIGNTY_CORRIDORS_NEEDED, roundsNeeded: LANE_SOVEREIGNTY_ROUNDS,
+      });
+    }
+    expect(LANE_SOVEREIGNTY_ROUNDS_BY_SEATS).toEqual({ 2: 5, 3: 3, 4: 3 });
+  });
+
+  it('counts seats, not survivors: an elimination does not change the rule mid-game', () => {
+    const { state } = freshGalaxy();
+    state.players[1].is_eliminated = true;
+    state.players[2].is_eliminated = true;
+    expect(roundsNeededFor(state)).toBe(LANE_SOVEREIGNTY_ROUNDS);
   });
 });

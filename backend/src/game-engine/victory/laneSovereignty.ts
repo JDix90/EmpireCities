@@ -4,7 +4,8 @@
 //
 // Every other way to win this game counts tiles. Sovereignty counts CONNECTIONS:
 // hold both gateways of five of the eight authored hyperspace lanes at the start
-// of your turn, three turns running, and the network is yours. It rewards exactly
+// of your turn, three turns running (five in a two-player game), and the network
+// is yours. It rewards exactly
 // what the corridor rules are about — beachheads on other people's worlds — and,
 // unlike a headcount, everyone can see it coming two rounds out.
 //
@@ -27,6 +28,13 @@
 // Six corridors means twelve of the sixteen gateway tiles, which mostly happens
 // to players who were already winning on the headcount; the third round is the
 // lever that leaves rivals a window to break one corridor and stop it.
+//
+// Two seats (the Colonies board, state/galaxyModes.ts) needed the rounds again,
+// 1,200 games × 3 seeds for the shipped row:
+//     5 corridors / 3 rounds → 62.8% of games                  (it takes over)
+//     6 corridors / 3 rounds → 10.7%                           (barely fires)
+//     5 corridors / 5 rounds → 44.7–45.3%, avg 23.4 turns      (shipped)
+// Three seats keep three rounds: 37.6–38.6% of games.
 
 import type { GameMap, GameState, MapConnection } from '../../types';
 import { getAllowedVictoryConditions } from '../state/gameSettings';
@@ -34,8 +42,32 @@ import { getAllowedVictoryConditions } from '../state/gameSettings';
 /** Authored lanes whose gateways a player must hold, of the map's total. */
 export const LANE_SOVEREIGNTY_CORRIDORS_NEEDED = 5;
 
-/** Consecutive turn starts at or above the corridor bar before the game ends. */
+/** Consecutive turn starts at or above the corridor bar before the game ends — at three and four seats. */
 export const LANE_SOVEREIGNTY_ROUNDS = 3;
+
+/**
+ * Rounds a streak must run, by seat count. A streak breaks on a rival's turn
+ * between the holder's, so the rounds set how many rival turns it has to
+ * survive: (rounds - 1) x (seats - 1). Three rounds is six rival turns at four
+ * seats and four at three, but only two at two, where the bar then ended 63% of
+ * games; five rounds restores four. ⚠ balance: the two-seat sweep (and why the
+ * corridor bar stays at five) is in backend/scripts/GALAXY-BALANCE.md. A seat
+ * count not listed uses LANE_SOVEREIGNTY_ROUNDS. The balance sim's
+ * SIM_SOVEREIGNTY_ROUNDS patches this object.
+ */
+export const LANE_SOVEREIGNTY_ROUNDS_BY_SEATS: Record<number, number> = {
+  2: 5,
+  3: LANE_SOVEREIGNTY_ROUNDS,
+  4: LANE_SOVEREIGNTY_ROUNDS,
+};
+
+/**
+ * Rounds a streak must run in this game, by its seat count. Seats, not living
+ * players: the rule a game starts with is the one it ends with.
+ */
+export function roundsNeededFor(state: GameState): number {
+  return LANE_SOVEREIGNTY_ROUNDS_BY_SEATS[state.players.length] ?? LANE_SOVEREIGNTY_ROUNDS;
+}
 
 /**
  * The lanes sovereignty is played on: authored orbit connections only. Engine-
@@ -87,7 +119,7 @@ export function tickLaneSovereignty(state: GameState, map: GameMap, playerId: st
 export function hasLaneSovereignty(state: GameState, playerId: string): boolean {
   if (!laneSovereigntyEnabled(state)) return false;
   const player = state.players.find((p) => p.player_id === playerId);
-  return (player?.lane_sovereignty_streak ?? 0) >= LANE_SOVEREIGNTY_ROUNDS;
+  return (player?.lane_sovereignty_streak ?? 0) >= roundsNeededFor(state);
 }
 
 export interface LaneSovereigntyProgress {
@@ -114,7 +146,7 @@ export function laneSovereigntyProgress(
     held: applicable ? countCorridors(state, map, playerId) : 0,
     needed,
     streak: player?.lane_sovereignty_streak ?? 0,
-    roundsNeeded: LANE_SOVEREIGNTY_ROUNDS,
+    roundsNeeded: roundsNeededFor(state),
   };
 }
 

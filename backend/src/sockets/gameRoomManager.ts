@@ -13,6 +13,7 @@ import { ERA_GROWTH_MAP_IDS, mapHasEraGrowth, repairEraTerritoryGrowth } from '.
 import { syncLaunchPadLanes } from '../game-engine/state/moonAccess';
 import { syncJumpGateLanes } from '../game-engine/state/jumpGates';
 import { syncLaneWeatherLanes } from '../game-engine/state/laneWeather';
+import { syncGalaxyModeLanes } from '../game-engine/state/galaxyModes';
 import { pruneStrandedConvoys } from '../game-engine/state/transit';
 import { resolveMap } from './mapResolver';
 import { runWithGameLock } from './gameLock';
@@ -171,6 +172,8 @@ function repairRoom(state: GameState, map: GameMap): void {
   syncJumpGateLanes(map, state);
   // Lane weather surges are state too, and a rehydrated room must carry them.
   syncLaneWeatherLanes(map, state);
+  // So are the lanes a Galactic Age board mode keeps open all game (Colonies).
+  syncGalaxyModeLanes(map, state);
   pruneStrandedConvoys(map, state);
 }
 
