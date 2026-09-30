@@ -184,6 +184,13 @@ export interface GameState {
   pending_truces?: Array<{ proposer_id: string; target_id: string }>;
   /** Active hyperspace-lane seals (Void Custodians' Emergency Seal), keyed by canonical lane id. */
   lane_blockades?: Record<string, { owner_id: string; turns_remaining: number }>;
+  /**
+   * Galactic Age board mode, when this game was not dealt the classic
+   * one-world-per-player start. Colonies (two or three seats): `neutral_worlds`
+   * opened neutral and garrisoned; at three seats `lanes` bridge the ring's two
+   * gaps all game (they reach the map as `source: 'galaxy_mode'` lanes).
+   */
+  galaxy_mode?: { id: 'colonies'; neutral_worlds: string[]; lanes?: Array<{ from: string; to: string }> };
   /** Galaxy transit: convoys in the void, visible to everyone as public commitments. */
   transits?: Array<{
     id: string;

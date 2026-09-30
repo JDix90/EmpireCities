@@ -49,6 +49,7 @@ Status: **current** (maintained, carries source-of-truth pointers) · **point-in
 | [era-advancement/](era-advancement/README.md) | Era Advancement feature design (stages 0–3) | design-archive |
 | [WARFRONT_RTS_MODE.md](WARFRONT_RTS_MODE.md) | Warfront: real-time-strategy mode on the globe — design brief; admin-only solo prototype built through Slice A step 4, no fun verdict yet | experimental |
 | [DAILY_PUZZLE_V2.md](DAILY_PUZZLE_V2.md) | Daily Challenge v2: decision puzzles scored by win probability, not dice — agreed design, dark behind `daily_puzzle_v2_enabled` | in progress |
+| [GALACTIC_AGE_MODES.md](GALACTIC_AGE_MODES.md) | Galactic Age modes by seat count: Colonies (2–3 players, built), Schism and House relations (5–8, planned) — agreed design; the era is admin-only | in progress |
 
 Root-level: [README.md](../README.md) (canonical setup), [DEPLOYMENT.md](../DEPLOYMENT.md), [CONTRIBUTING.md](../CONTRIBUTING.md), [AGENTS.md](../AGENTS.md), [PRIVACY_POLICY.md](../PRIVACY_POLICY.md), [TERMS_AND_CONDITIONS.md](../TERMS_AND_CONDITIONS.md).
 

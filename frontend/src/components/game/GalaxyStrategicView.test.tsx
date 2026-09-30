@@ -255,6 +255,24 @@ describe('GalaxyStrategicView', () => {
     expect(onSealLane).toHaveBeenCalledTimes(1);
   });
 
+  it('draws a colony lane as a charted lane — sealable, dice capped — but says Sovereignty skips it', () => {
+    const colonies: GalaxyMapDatum = {
+      ...mapData,
+      // Three seats on the Colonies board: a bridge across the ring's gap.
+      connections: [...mapData.connections, { from: 'sol_a', to: 'nexus_a', type: 'orbit', source: 'galaxy_mode' }],
+    };
+    const onSealLane = vi.fn();
+    const { container } = renderView({ mapData: colonies, lanesContestableEnabled: true, sealAnyLane: true, onSealLane });
+    const lane = laneGroups(container).find((g) => g.dataset.laneId === 'nexus_a::sol_a')!;
+    expect(lane.dataset.laneKind).toBe('colony');
+    const title = lane.querySelector('title')!.textContent!;
+    expect(title).toContain('Colony lane');
+    expect(title).toContain('Lane attacks roll 2 dice');
+    fireEvent.click(lane.querySelector('line[stroke="transparent"]')!);
+    expect(onSealLane).toHaveBeenCalledTimes(1);
+    expect((onSealLane.mock.calls[0] as string[]).slice().sort()).toEqual(['nexus_a', 'sol_a']);
+  });
+
   it('draws a convoy on the lane it is crossing, with its unit count', () => {
     const inTransit = mkGameState({
       settings: {

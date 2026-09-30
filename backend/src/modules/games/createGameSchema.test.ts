@@ -537,23 +537,32 @@ describe('territorySelectionRejection', () => {
 });
 
 describe('galaxyPlayerCountRejection', () => {
-  // Four seats with four distinct factions is the only shape that produces the
-  // designed one-faction-per-world start; anything else scatters every seat
-  // across worlds it cannot reach.
-  it('accepts exactly four seats', () => {
-    expect(galaxyPlayerCountRejection({ isGalacticAge: true, totalPlayers: 4 })).toBeNull();
+  // Two to four seats each deal a designed start — four home worlds, or
+  // Colonies below four. Five or more have no board: the engine scatters every
+  // seat across worlds it cannot reach.
+  it('accepts a lobby of two to four seats, however many of them are AI', () => {
+    for (const maxPlayers of [2, 3, 4]) {
+      for (let aiCount = 0; aiCount < maxPlayers; aiCount++) {
+        expect(galaxyPlayerCountRejection({ isGalacticAge: true, maxPlayers, aiCount })).toBeNull();
+      }
+    }
   });
 
-  it('rejects every other seat count', () => {
-    for (const seats of [1, 2, 3, 5, 6, 8]) {
-      expect(galaxyPlayerCountRejection({ isGalacticAge: true, totalPlayers: seats }))
+  it('rejects a lobby that could seat five or more — the form used to ask for eight', () => {
+    for (const maxPlayers of [5, 6, 8]) {
+      expect(galaxyPlayerCountRejection({ isGalacticAge: true, maxPlayers, aiCount: 3 }))
         .toBe(GALAXY_PLAYER_COUNT_ERROR);
     }
   });
 
+  it('rejects more AI than the lobby has seats', () => {
+    expect(galaxyPlayerCountRejection({ isGalacticAge: true, maxPlayers: 3, aiCount: 3 }))
+      .toBe(GALAXY_PLAYER_COUNT_ERROR);
+  });
+
   it('leaves other eras alone', () => {
-    for (const seats of [2, 3, 5]) {
-      expect(galaxyPlayerCountRejection({ isGalacticAge: false, totalPlayers: seats })).toBeNull();
+    for (const maxPlayers of [2, 5, 8]) {
+      expect(galaxyPlayerCountRejection({ isGalacticAge: false, maxPlayers, aiCount: 7 })).toBeNull();
     }
   });
 });

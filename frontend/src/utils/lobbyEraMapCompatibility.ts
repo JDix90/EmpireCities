@@ -117,10 +117,14 @@ export function buildMapMetaFromGameMap(map: GameMap): MapCompatibilityMeta {
   };
 }
 
-/** Seats a Galactic Age game needs for the one-faction-per-world start. */
-export const GALAXY_REQUIRED_PLAYERS = 4;
+/**
+ * Seats a Galactic Age game supports: four home worlds, and below four the
+ * unclaimed worlds open as colonies. Mirrors backend lobbyCapacity.ts.
+ */
+export const GALAXY_MIN_PLAYERS = 2;
+export const GALAXY_MAX_PLAYERS = 4;
 export const GALAXY_PLAYER_COUNT_ERROR =
-  'Galactic Age needs exactly 4 players — one per world (fill empty seats with AI)';
+  `Galactic Age seats ${GALAXY_MIN_PLAYERS} to ${GALAXY_MAX_PLAYERS} players — one per home world`;
 export const GALAXY_FACTIONS_REQUIRED_ERROR =
   'Galactic Age needs Asymmetric Factions on — each player commands one world';
 
@@ -158,12 +162,12 @@ export function evaluateEraMapCompatibility(input: EraMapCompatibilityInput): Er
   }
 
   // Mirrors the server rules: factions come from the shared pairing evaluator,
-  // the exact-4 seat count from the create route (galaxyPlayerCountRejection).
-  // The form knows the FINAL seat count (human + AI), so unlike the in-lobby
-  // map-change path it can apply both and explain them before submitting.
+  // the seat count from the create route (galaxyPlayerCountRejection). The form
+  // knows the seats it fills (host + AI) and never asks for more than four, so
+  // it can refuse a fifth before submitting; humans can take the rest.
   if (isGalactic) {
     const seats = input.player_count ?? 0;
-    if (seats > 0 && seats !== GALAXY_REQUIRED_PLAYERS) {
+    if (seats > GALAXY_MAX_PLAYERS) {
       return { allowed: false, hardBlock: GALAXY_PLAYER_COUNT_ERROR, warnings };
     }
     // Home Worlds off (galaxy_plain_lanes) plays without factions by design.

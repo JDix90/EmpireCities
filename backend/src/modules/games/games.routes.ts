@@ -39,8 +39,12 @@ import { redactGameRowForViewer } from './gameRowRedaction';
 import { bakeCreateGameSettings, resolveMoonRacePhases } from './createGameSettings';
 import {
   EFFECTIVE_MAX_PLAYERS_SQL,
+  GALACTIC_AGE_GAME_SQL,
+  GALAXY_PLAYER_COUNT_ERROR,
   PUBLIC_LOBBY_GAME_TYPES,
-  effectiveMaxPlayers,
+  galaxySeatCountError,
+  isGalacticAgeGame,
+  lobbySeatCap,
 } from './lobbyCapacity';
 import { recordDailyChallengeLoss } from '../../game-engine/daily/recordDailyEntry';
 import { dailyRunWonForGame } from '../../game-engine/daily/dailyRunResult';
@@ -231,27 +235,26 @@ export function lanesContestableRejection(opts: {
 }
 
 /**
- * The Galactic Age needs exactly four seats. The one-faction-per-world start
- * (tryDistributeGalaxyAgeFactionHomeworlds) fires only for four seats holding
- * four distinct galaxy factions; every other shape falls through to geographic
- * distribution over all 64 tiles, so each seat begins holding territory on
- * worlds it cannot reach — measured at 2p and 3p, every seat starts spread over
- * three or four worlds, and a 2p game ends in ~16 turns because both players
- * open with half the board.
+ * A Galactic Age lobby seats two to four players (lobbyCapacity.ts): four home
+ * worlds, with the unclaimed ones opening as colonies below four. Checked here
+ * on the form's own numbers, the seat cap it asks for and the seats it fills
+ * with AI, because the humans who join later are held to that cap by
+ * `/:gameId/join` and game start checks the final count. Five or more used to
+ * slip through this way: the form asked for eight seats and filled four.
  *
  * Enforced HERE rather than in evaluateEraMapCompatibility because the shared
  * evaluator also runs on the in-lobby map-change path, where `player_count` is
  * the humans joined so far and not the final seat count. Exported for tests.
  */
-export const GALAXY_REQUIRED_PLAYERS = 4;
-export const GALAXY_PLAYER_COUNT_ERROR =
-  'Galactic Age needs exactly 4 players — one per world (fill empty seats with AI)';
+export { GALAXY_PLAYER_COUNT_ERROR };
 export function galaxyPlayerCountRejection(opts: {
   isGalacticAge: boolean;
-  totalPlayers: number;
+  maxPlayers: number;
+  aiCount: number;
 }): string | null {
-  if (!opts.isGalacticAge || opts.totalPlayers === GALAXY_REQUIRED_PLAYERS) return null;
-  return GALAXY_PLAYER_COUNT_ERROR;
+  if (!opts.isGalacticAge) return null;
+  if (galaxySeatCountError(opts.maxPlayers)) return GALAXY_PLAYER_COUNT_ERROR;
+  return 1 + opts.aiCount > opts.maxPlayers ? GALAXY_PLAYER_COUNT_ERROR : null;
 }
 
 export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
@@ -263,14 +266,14 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     }
     const { era_id, map_id, max_players, settings: rawSettings, ai_count, ai_difficulty, auto_start, is_private } = body.data;
 
-    const isGalacticAge = era_id === 'galaxy_age' || map_id === 'era_galaxy';
+    const isGalacticAge = isGalacticAgeGame(era_id, map_id);
     if (isGalacticAge && !request.isAdmin) {
       return reply.status(403).send({ error: 'Galactic Age is coming soon and is only available to administrators.' });
     }
     // Space to Stars: Space Age rules on a board that carries the Galactic Age
     // behind its second spine step. NOT `isGalacticAge` — that flag also demands
-    // the era's one-faction-per-world start (exactly four seats, four galaxy
-    // factions), and this board starts on Earth with Space Age factions. What it
+    // the era's home-world start (two to four seats, distinct galaxy factions),
+    // and this board starts on Earth with Space Age factions. What it
     // does share is the era's rule set for the lanes it inherits, so the three
     // galaxy settings are baked below for both.
     const isAscensionGalaxy = map_id === ASCENSION_GALAXY_MAP_ID;
@@ -308,7 +311,8 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
 
     const seatRejection = galaxyPlayerCountRejection({
       isGalacticAge,
-      totalPlayers: 1 + ai_count,
+      maxPlayers: max_players,
+      aiCount: ai_count,
     });
     if (seatRejection) {
       return reply.status(400).send({ error: seatRejection });
@@ -594,6 +598,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
          AND g.game_type = ANY($2)
          AND g.is_ranked = false
          AND g.is_private = false
+         AND NOT ${GALACTIC_AGE_GAME_SQL}
          AND EXISTS (
            SELECT 1
            FROM game_players human_gp
@@ -873,16 +878,16 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
 
     const result = await withTransaction<JoinResult>(async (client) => {
       const { rows: gameRows } = await client.query<{
-        status: string; settings_json: Record<string, unknown> | string;
+        status: string; settings_json: Record<string, unknown> | string; era_id: string; map_id: string;
       }>(
-        'SELECT status, settings_json FROM games WHERE game_id = $1 FOR UPDATE',
+        'SELECT status, settings_json, era_id, map_id FROM games WHERE game_id = $1 FOR UPDATE',
         [request.params.gameId],
       );
       if (gameRows.length === 0) return { code: 'not_found' };
       const game = gameRows[0];
       if (game.status !== 'waiting') return { code: 'not_waiting' };
 
-      const maxPlayers = effectiveMaxPlayers(game.settings_json);
+      const maxPlayers = lobbySeatCap(game.settings_json, game.era_id, game.map_id);
 
       const { rows: players } = await client.query<{ player_index: number; user_id: string | null }>(
         'SELECT player_index, user_id FROM game_players WHERE game_id = $1 ORDER BY player_index',
@@ -937,9 +942,10 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
         status: string;
         settings_json: Record<string, unknown>;
         era_id: string;
+        map_id: string;
         join_code: string | null;
       }>(
-        `SELECT status, settings_json, era_id, join_code FROM games WHERE game_id = $1`,
+        `SELECT status, settings_json, era_id, map_id, join_code FROM games WHERE game_id = $1`,
         [gameId],
       );
       if (!game) return reply.status(404).send({ error: 'Game not found' });
@@ -966,7 +972,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
         'SELECT player_index, user_id FROM game_players WHERE game_id = $1 ORDER BY player_index',
         [gameId],
       );
-      const maxPlayers = effectiveMaxPlayers(game.settings_json);
+      const maxPlayers = lobbySeatCap(game.settings_json, game.era_id, game.map_id);
       if (players.length >= maxPlayers) return reply.status(409).send({ error: 'Game is full' });
 
       const already = players.some((p) => p.user_id === friendId);

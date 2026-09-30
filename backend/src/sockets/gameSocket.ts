@@ -181,6 +181,7 @@ import {
   lobbyVoteBringsAlong,
   rebakeSettingsForMapChange,
 } from '../modules/games/createGameSettings';
+import { galaxySeatCountError, isGalacticAgeGame } from '../modules/games/lobbyCapacity';
 import {
   scheduleTurnTimeout,
   cancelTurnTimeout,
@@ -4271,7 +4272,7 @@ function buildGameStartedPayload(gameId: string, state: GameState): {
 
 export type StartGameResult =
   | { ok: true }
-  | { ok: false; code: 'NOT_FOUND' | 'ALREADY_STARTED' | 'INVALID_STATUS' | 'MAP_NOT_FOUND'; error: string };
+  | { ok: false; code: 'NOT_FOUND' | 'ALREADY_STARTED' | 'INVALID_STATUS' | 'MAP_NOT_FOUND' | 'SEAT_COUNT'; error: string };
 
 /**
  * Transition a waiting game to in_progress: initialize state, cache the room,
@@ -4304,6 +4305,15 @@ async function startWaitingGameLocked(io: Server, gameId: string): Promise<Start
      ORDER BY gp.player_index`,
     [gameId],
   );
+
+  // The Galactic Age deals a board for two to four seats and no other count
+  // (lobbyCapacity.ts). Create and join hold a lobby to that; this catches the
+  // rest — a lobby switched to the era by a Map & Era vote, or one created
+  // before the cap, still seating eight.
+  if (isGalacticAgeGame(game.era_id, game.map_id)) {
+    const seatError = galaxySeatCountError(players.length);
+    if (seatError) return { ok: false, code: 'SEAT_COUNT', error: seatError };
+  }
 
   // Load map (tutorial maps are hardcoded; others from Postgres via getMapById)
   const gameMap = await resolveMap(game.map_id);

@@ -388,3 +388,38 @@ describe('GameStartModal', () => {
     expect(isOpeningState({ turn_number: 1 } as GameState)).toBe(true);
   });
 });
+
+describe('what a Galactic Age Colonies game tells players before their first turn', () => {
+  const galaxy = (overrides: Partial<GameState> = {}) => makeState({
+    era: 'galaxy_age',
+    settings: { ...makeState().settings, allowed_victory_conditions: ['lane_sovereignty'] },
+    ...overrides,
+  } as Partial<GameState>);
+
+  it('counts Lane Sovereignty rounds for this game\'s seats', () => {
+    const settings = galaxy().settings;
+    expect(describeWinConditions(settings, 2).conditions).toEqual(['Hold both gateways of 5 hyperspace lanes for 5 turns running']);
+    expect(describeWinConditions(settings, 3).conditions).toEqual(['Hold both gateways of 5 hyperspace lanes for 3 turns running']);
+    expect(describeWinConditions(settings, 4).conditions).toEqual(['Hold both gateways of 5 hyperspace lanes for 3 turns running']);
+  });
+
+  it('names the colonies when the board has them, and says nothing otherwise', () => {
+    const { unmount } = render(
+      <GameStartModal
+        open
+        onClose={() => {}}
+        gameState={galaxy({ galaxy_mode: { id: 'colonies', neutral_worlds: ['nexus_station'], lanes: [{ from: 'a', to: 'b' }] } })}
+        viewerPlayerId="me"
+      />,
+    );
+    const section = screen.getByTestId('start-colonies-section');
+    expect(section).toHaveTextContent(/Nexus Station starts neutral and garrisoned/);
+    expect(section).toHaveTextContent(/Two extra lanes link every world/);
+    // Three seats in the fixture: the briefing reads three rounds.
+    expect(screen.getByText('Hold both gateways of 5 hyperspace lanes for 3 turns running')).toBeInTheDocument();
+    unmount();
+
+    render(<GameStartModal open onClose={() => {}} gameState={galaxy()} viewerPlayerId="me" />);
+    expect(screen.queryByTestId('start-colonies-section')).not.toBeInTheDocument();
+  });
+});

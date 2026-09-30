@@ -34,7 +34,8 @@ import {
 } from './moonAccess';
 import { buildWorldModifierSnapshot } from './worldModifiers';
 import { hasLaneSovereignty, tickLaneSovereignty } from '../victory/laneSovereignty';
-import { applyLaneClosure, applyLaneSurge, tickLaneWeather } from './laneWeather';
+import { applyLaneClosure, applyLaneSurge, laneSurgeHasGap, tickLaneWeather } from './laneWeather';
+import { colonyGarrison, colonyLayout, resolveGalaxyHomeWorlds, syncGalaxyModeLanes } from './galaxyModes';
 import { arriveConvoys } from './transit';
 import {
   applyStormAttrition,
@@ -205,6 +206,14 @@ export function initializeGameState(
     });
   }
 
+  // Galactic Age home worlds: each seat's faction world, when this game deals
+  // them (state/galaxyModes.ts). With fewer than four seats the worlds nobody
+  // calls home start neutral as colonies — the Colonies board mode.
+  const galaxyHomeWorlds = settingsNorm.factions_enabled && !settingsNorm.territory_selection
+    ? resolveGalaxyHomeWorlds(era, map, players)
+    : null;
+  const galaxyMode = galaxyHomeWorlds ? colonyLayout(map, galaxyHomeWorlds) : null;
+
   // Worlds explicitly flagged `initial_neutral_garrison: true` — and Space Age's
   // legacy moon — start NEUTRAL with a small garrison instead of being distributed.
   // For Space Age this preserves the original "tech up to claim the moon" race;
@@ -224,6 +233,15 @@ export function initializeGameState(
   // balance (Nexus ~41% win rate in the sim).
   const vaultGarrisons = vaultRegionGarrisons(map);
   for (const tid of vaultGarrisons.keys()) lunarTerritoryIds.add(tid);
+  // Colonies: every tile of a world no player calls home starts neutral too.
+  const colonyTileIds = new Set<string>();
+  if (galaxyMode) {
+    const colonyWorlds = new Set(galaxyMode.neutral_worlds);
+    for (const t of map.territories) {
+      if (t.world_id && colonyWorlds.has(t.world_id)) colonyTileIds.add(t.territory_id);
+    }
+    for (const tid of colonyTileIds) lunarTerritoryIds.add(tid);
+  }
   // Landing zones (tiles on an orbit lane — where the race arrives) hold a
   // beachhead garrison; the interior is tougher, so the first player to gain
   // orbit access establishes a foothold but can't sweep the whole world in one
@@ -237,8 +255,10 @@ export function initializeGameState(
       orbitTouched.add(c.to);
     }
   }
+  // A Vault region keeps its authored garrison on a colony world too.
   const neutralOffworldGarrison = (tid: string): number =>
     vaultGarrisons.get(tid)
+      ?? (colonyTileIds.has(tid) ? colonyGarrison(orbitTouched.has(tid)) : undefined)
       ?? (orbitTouched.has(tid) ? NEUTRAL_OFFWORLD_LANDING_GARRISON : NEUTRAL_OFFWORLD_INTERIOR_GARRISON);
 
   // Build a map view that excludes neutral-garrison territories AND any orbit/land
@@ -265,7 +285,7 @@ export function initializeGameState(
       territories,
       earthMap,
       players,
-      era,
+      galaxyHomeWorlds,
       settingsNorm.initial_unit_count,
     );
     if (!galaxyHomeworldsOk) {
@@ -451,6 +471,8 @@ export function initializeGameState(
     blitzkrieg_attacked: false,
   };
 
+  if (galaxyMode) state.galaxy_mode = galaxyMode;
+
   // Ensure first draft turn follows the same reinforcement rules as subsequent turns.
   if (!isTerritorySelect) {
     state.draft_units_remaining += getPlayerReinforceBonus(state, firstPlayer.player_id);
@@ -542,6 +564,8 @@ export function initializeGameState(
   // here removes that divergence: the same call, idempotent (it returns false
   // when there is nothing to add), on every path that starts a game.
   syncLaunchPadLanes(map, state);
+  // A three-seat Colonies game bridges the ring's gaps from turn one, the same way.
+  syncGalaxyModeLanes(map, state);
 
   appendWinProbabilitySnapshot(state);
   return state;
@@ -970,7 +994,9 @@ function passTurn(state: GameState, map?: GameMap): void {
 
     // Draw an event card at the start of each new round
     if (state.settings.events_enabled) {
-      const deck = [...getEraDeck(state.era), ...(state.seasonal_event_cards ?? [])];
+      const deck = [...getEraDeck(state.era), ...(state.seasonal_event_cards ?? [])]
+        // A Lane Surge with no gap left to bridge would be a card that does nothing.
+        .filter((c) => c.effect?.type !== 'lane_surge' || !map || laneSurgeHasGap(map));
       const card = drawRandomCard(deck);
       // An undelivered card from last round (its target was eliminated) lapses.
       state.pending_event = undefined;
@@ -1573,60 +1599,25 @@ function shuffleArray<T>(arr: T[]): T[] {
   return arr;
 }
 
-/** The four `era_galaxy` world ids — each is one lore faction's homeworld. */
-const GALAXY_HOME_WORLD_IDS = new Set<string>([
-  'sol',
-  'verdan',
-  'rust',
-  'nexus_station',
-]);
-
 /**
- * When exactly four players each pick one of the four Galactic Age factions,
- * assign every territory on each faction's home WORLD to that player (no
- * cross-world swaps from `distributeTerritoriesGeographic` rebalance). The
- * home world is derived from the faction's home regions — the galaxy map
- * subdivides each world into several bonus regions, so a faction's home
- * regions must all live on one world. Returns false so callers fall back to
- * geographic distribution.
+ * Deal each player their faction's whole home WORLD (no cross-world swaps from
+ * `distributeTerritoriesGeographic` rebalance), when `resolveGalaxyHomeWorlds`
+ * found one distinct world per seat — two to four seats. With fewer than four,
+ * the other worlds were already set aside as neutral colonies (`map` here is
+ * the distributable view), so this deals only the home worlds. Returns false so
+ * callers fall back to geographic distribution.
  */
 function tryDistributeGalaxyAgeFactionHomeworlds(
   territories: Record<string, TerritoryState>,
   map: GameMap,
   players: Omit<PlayerState, 'territory_count' | 'cards' | 'capital_territory_id' | 'secret_mission'>[],
-  era: EraId,
+  homeWorlds: readonly string[] | null,
   initialUnitCount: number,
 ): boolean {
-  if (era !== 'galaxy_age' || map.map_kind !== 'galaxy' || players.length !== 4) return false;
+  if (!homeWorlds || homeWorlds.length !== players.length) return false;
 
-  const factionDefs = getEraFactions(era);
-  const byFactionId = new Map(factionDefs.map((f) => [f.faction_id, f]));
-
-  const claimedWorlds: { playerIndex: number; worldId: string }[] = [];
-
-  for (let i = 0; i < players.length; i++) {
-    const p = players[i];
-    if (!p.faction_id) return false;
-    const fac = byFactionId.get(p.faction_id);
-    if (!fac?.home_region_ids?.length) return false;
-    const homeRegions = new Set(fac.home_region_ids);
-    const worlds = new Set<string>();
-    for (const t of map.territories) {
-      if (t.region_id && homeRegions.has(t.region_id) && t.world_id) worlds.add(t.world_id);
-    }
-    if (worlds.size !== 1) return false;
-    const worldId = [...worlds][0]!;
-    if (!GALAXY_HOME_WORLD_IDS.has(worldId)) return false;
-    claimedWorlds.push({ playerIndex: i, worldId });
-  }
-
-  const uniqueWorlds = new Set(claimedWorlds.map((c) => c.worldId));
-  if (uniqueWorlds.size !== 4) return false;
-  for (const required of GALAXY_HOME_WORLD_IDS) {
-    if (!uniqueWorlds.has(required)) return false;
-  }
-
-  for (const { playerIndex, worldId } of claimedWorlds) {
+  for (let playerIndex = 0; playerIndex < players.length; playerIndex++) {
+    const worldId = homeWorlds[playerIndex]!;
     const playerId = players[playerIndex]!.player_id;
     // Worlds as characters: a vault world's home faction starts without the
     // ring, so the rule pays them back in units on the tiles they do hold. Part

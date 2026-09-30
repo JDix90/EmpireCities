@@ -314,3 +314,47 @@ describe('LobbyPage Custom Game victory conditions', () => {
     expect(screen.queryByTestId('create-game-extra-endings')).toBeNull();
   });
 });
+
+describe('LobbyPage Custom Game — Galactic Age seats', () => {
+  beforeEach(() => {
+    getMock.mockReset();
+    postMock.mockReset();
+    navigateMock.mockReset();
+    getMock.mockImplementation(() => Promise.reject(new Error('offline')));
+    postMock.mockResolvedValue({ data: { game_id: 'g1' } });
+    stubMatchMedia();
+    useAuthStore.setState({
+      user: { user_id: 'u1', username: 'commander', is_guest: false, is_admin: true, xp: 50 } as never,
+      isAuthenticated: true,
+    });
+  });
+
+  function renderGalactic() {
+    return render(
+      <MemoryRouter initialEntries={['/lobby?era=galaxy_age']}>
+        <LobbyPage />
+      </MemoryRouter>,
+    );
+  }
+
+  it('asks for four seats, not eight — the fifth used to join by code', async () => {
+    renderGalactic();
+    await screen.findByText('Advanced Features');
+    fireEvent.click(screen.getByRole('button', { name: /Create & Enter Lobby/ }));
+    await waitFor(() => expect(postMock).toHaveBeenCalledWith('/games', expect.anything()));
+    const body = postMock.mock.calls.find(([url]) => url === '/games')![1] as { era_id: string; max_players: number };
+    expect(body.era_id).toBe('galaxy_age');
+    expect(body.max_players).toBe(4);
+  });
+
+  it('refuses a fifth seat before sending the form', async () => {
+    renderGalactic();
+    await screen.findByText('Advanced Features');
+    fireEvent.change(screen.getByDisplayValue('3 AI opponents'), { target: { value: '4' } });
+    expect(await screen.findByText(/Galactic Age seats 2 to 4 players/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Create & Enter Lobby/ }));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(postMock).not.toHaveBeenCalledWith('/games', expect.anything());
+  });
+});
+

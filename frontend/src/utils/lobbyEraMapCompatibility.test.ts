@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { evaluateEraMapCompatibility } from './lobbyEraMapCompatibility';
+import { GALAXY_PLAYER_COUNT_ERROR, evaluateEraMapCompatibility } from './lobbyEraMapCompatibility';
 
 const hasCustomPairingNote = (warnings: Array<{ message: string }>) =>
   warnings.some((w) => w.message.startsWith('Custom pairing'));
@@ -42,5 +42,21 @@ describe('evaluateEraMapCompatibility — Galactic Age factions', () => {
   it('allows factions off when Home Worlds is off (plain lanes)', () => {
     expect(galaxy({ galaxy_plain_lanes: true }).hardBlock).toBeNull();
     expect(galaxy({ factions_enabled: true }).hardBlock).toBeNull();
+  });
+});
+
+describe('evaluateEraMapCompatibility — Galactic Age seats', () => {
+  const seats = (player_count: number) =>
+    evaluateEraMapCompatibility({
+      era_id: 'galaxy_age', map_id: 'era_galaxy', settings: { factions_enabled: true }, is_admin: true, player_count,
+    });
+
+  it('lets the form fill up to four seats — the rest are for humans to take', () => {
+    for (const n of [1, 2, 3, 4]) expect(seats(n).hardBlock).toBeNull();
+  });
+
+  it('refuses a fifth before the form is sent', () => {
+    expect(seats(5).hardBlock).toBe(GALAXY_PLAYER_COUNT_ERROR);
+    expect(seats(8).hardBlock).toBe(GALAXY_PLAYER_COUNT_ERROR);
   });
 });

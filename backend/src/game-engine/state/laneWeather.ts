@@ -19,53 +19,14 @@
 // obeys every corridor rule, because as far as the resolver is concerned it is
 // just another lane while it lasts.
 
-import { inferWorldId } from '@borderfall/shared';
 import type { EventEffectResult, GameMap, GameState, MapConnection } from '../../types';
+import { authoredLanes, GALAXY_MODE_LANE_SOURCE, gatewaysByWorld, ringGapLanes } from './galaxyRing';
 import { orbitLaneId } from './moonAccess';
 
 /** Rounds a closure or a surge lasts. Two: long enough to plan around, short enough to wait out. */
 export const LANE_WEATHER_DURATION = 2;
 
 export const LANE_SURGE_LANE_SOURCE = 'lane_surge';
-
-/** Authored lanes only — weather does not close a lane the players built. */
-function authoredLanes(map: GameMap): MapConnection[] {
-  return map.connections.filter((c) => c.type === 'orbit' && !c.source);
-}
-
-/** Gateway tiles grouped by world, from the authored ring. */
-function gatewaysByWorld(map: GameMap): Map<string, string[]> {
-  const byId = new Map(map.territories.map((t) => [t.territory_id, t]));
-  const out = new Map<string, string[]>();
-  for (const c of authoredLanes(map)) {
-    for (const id of [c.from, c.to]) {
-      const t = byId.get(id);
-      if (!t) continue;
-      const world = inferWorldId(t);
-      const list = out.get(world) ?? [];
-      if (!list.includes(id)) list.push(id);
-      out.set(world, list);
-    }
-  }
-  for (const list of out.values()) list.sort();
-  return out;
-}
-
-/** World pairs the authored ring already joins. */
-function neighbouringWorlds(map: GameMap): Set<string> {
-  const byId = new Map(map.territories.map((t) => [t.territory_id, t]));
-  const out = new Set<string>();
-  for (const c of authoredLanes(map)) {
-    const a = byId.get(c.from);
-    const b = byId.get(c.to);
-    if (!a || !b) continue;
-    const wa = inferWorldId(a);
-    const wb = inferWorldId(b);
-    if (wa === wb) continue;
-    out.add(wa < wb ? `${wa}::${wb}` : `${wb}::${wa}`);
-  }
-  return out;
-}
 
 function weather(state: GameState): NonNullable<GameState['lane_weather']> {
   if (!state.lane_weather) state.lane_weather = {};
@@ -101,28 +62,41 @@ export function applyLaneClosure(state: GameState, map: GameMap): EventEffectRes
   return { lane_weather: { kind: 'closure', from: pick.from, to: pick.to, rounds: LANE_WEATHER_DURATION } };
 }
 
+/** Lanes the board mode keeps open all game (Colonies at three seats), by lane id. */
+function permanentLaneIds(map: GameMap): Set<string> {
+  return new Set(
+    map.connections.filter((c) => c.source === GALAXY_MODE_LANE_SOURCE).map((c) => orbitLaneId(c.from, c.to)),
+  );
+}
+
+/**
+ * True when a Lane Surge has somewhere to open on this map: a gap in the ring
+ * the board mode does not already keep open. A three-seat Colonies board has
+ * bridged both for good, so the round's draw leaves the card out rather than
+ * deal a surge that does nothing.
+ */
+export function laneSurgeHasGap(map: GameMap): boolean {
+  if (gatewaysByWorld(map).size < 3) return false; // every world already borders every other
+  const permanent = permanentLaneIds(map);
+  return ringGapLanes(map).some(({ from, to }) => !permanent.has(orbitLaneId(from, to)));
+}
+
 /**
  * Lane Surge: open a temporary lane between two worlds the ring does not join,
  * so two players who were never neighbours are — for two rounds. Joins the
  * gateway tiles of each world, so the surge lands where the infrastructure is.
  */
 export function applyLaneSurge(state: GameState, map: GameMap): EventEffectResult {
-  const byWorld = gatewaysByWorld(map);
-  const worlds = [...byWorld.keys()].sort();
-  if (worlds.length < 3) return {}; // every world already borders every other
-  const joined = neighbouringWorlds(map);
+  if (gatewaysByWorld(map).size < 3) return {}; // every world already borders every other
   const live = new Set((state.lane_weather?.surges ?? []).map((s) => orbitLaneId(s.from, s.to)));
-  for (let i = 0; i < worlds.length; i++) {
-    for (let j = i + 1; j < worlds.length; j++) {
-      const key = `${worlds[i]}::${worlds[j]}`;
-      if (joined.has(key)) continue;
-      const from = byWorld.get(worlds[i])?.[0];
-      const to = byWorld.get(worlds[j])?.[0];
-      if (!from || !to || live.has(orbitLaneId(from, to))) continue;
-      const w = weather(state);
-      w.surges = [...(w.surges ?? []), { from, to, turns_remaining: LANE_WEATHER_DURATION }];
-      return { lane_weather: { kind: 'surge', from, to, rounds: LANE_WEATHER_DURATION } };
-    }
+  // A gap the board mode keeps open all game needs no surge.
+  const permanent = permanentLaneIds(map);
+  for (const { from, to } of ringGapLanes(map)) {
+    const id = orbitLaneId(from, to);
+    if (live.has(id) || permanent.has(id)) continue;
+    const w = weather(state);
+    w.surges = [...(w.surges ?? []), { from, to, turns_remaining: LANE_WEATHER_DURATION }];
+    return { lane_weather: { kind: 'surge', from, to, rounds: LANE_WEATHER_DURATION } };
   }
   return {};
 }
