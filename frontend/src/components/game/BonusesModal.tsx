@@ -15,6 +15,9 @@ import {
   describeWorldRules,
   factionReinforceBonus,
   gatewayTerritoryIds,
+  holdsLaneCrown,
+  schismHouseOf,
+  schismRivalOf,
   laneAttackDiceCap,
   laneStateFor,
   prettyRegionId,
@@ -178,6 +181,12 @@ export default function BonusesModal({ techTree, mapData, onClose }: BonusesModa
   // What the faction actually drafts in this game: a Colonies board can set a
   // kit's bonus apart from the kit (the Navigators draft +1 in a duel).
   const factionReinforce = factionData ? factionReinforceBonus(gameState, factionData) : 0;
+
+  // Schism: the viewer's house, and whether it wears the Lane Crown right now.
+  const schismMode = gameState.galaxy_mode?.id === 'schism' ? gameState.galaxy_mode : null;
+  const schismHouse = schismHouseOf(gameState, myPlayer.player_id);
+  const schismRival = schismRivalOf(gameState, myPlayer.player_id);
+  const crownWorn = holdsLaneCrown(gameState, myPlayer.player_id);
 
   // ── Space Age Moon ladder ───────────────────────────────────────────────────
   // The Space Age has no era-modifier flag (its signature is the orbit gate),
@@ -440,6 +449,30 @@ export default function BonusesModal({ techTree, mapData, onClose }: BonusesModa
                           value: `+${factionData.passive_defense_bonus} die`,
                           description: 'Added to your defense rolls every battle.',
                           valueColor: 'text-blue-300',
+                        }]
+                      : []),
+                    ...(schismHouse?.reinforce_bonus
+                      ? [{
+                          icon: '🏰',
+                          label: `House Bonus · ${schismHouse.name}`,
+                          value: schismHouse.reinforce_bonus > 0
+                            ? `+${schismHouse.reinforce_bonus} / turn`
+                            : `−${-schismHouse.reinforce_bonus} / turn`,
+                          description: schismHouse.reinforce_bonus > 0
+                            ? `Your half of ${worldDisplayName(mapData, schismHouse.world_id)} is the harder ground, so the board pays it back at the start of each of your draft phases.`
+                            : `Your half of ${worldDisplayName(mapData, schismHouse.world_id)} is the richer ground, so you draft that many fewer at the start of each of your draft phases.`,
+                          valueColor: schismHouse.reinforce_bonus > 0 ? 'text-amber-300' : 'text-red-300',
+                        }]
+                      : []),
+                    ...(schismMode && schismHouse
+                      ? [{
+                          icon: '👑',
+                          label: `Lane Crown · ${schismHouse.name}`,
+                          value: crownWorn ? `+${schismMode.lane_crown_bonus} / turn` : 'not worn',
+                          description: crownWorn
+                            ? `You hold all four of ${worldDisplayName(mapData, schismHouse.world_id)}'s gateways: the Lane Crown adds this at the start of each of your draft phases, for as long as you hold them.`
+                            : `Hold all four of ${worldDisplayName(mapData, schismHouse.world_id)}'s gateways — your two${schismRival ? ` and the ${schismRival.name}'s` : ''} — and you draft +${schismMode.lane_crown_bonus} a turn while you keep them.`,
+                          valueColor: crownWorn ? 'text-amber-300' : 'text-bf-muted',
                         }]
                       : []),
                     ...(factionReinforce

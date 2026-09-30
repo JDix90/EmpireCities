@@ -1,7 +1,8 @@
 # Galactic Age modes — one map, a game for every seat count
 
-**Status:** in progress. Step 1 (Colonies, two and three players) is built and
-measured. Steps 2–4 are the agreed design, not yet built. The Galactic Age is
+**Status:** in progress. Step 1 (Colonies, two and three players) and step 2
+(the Schism, eight players, with the Concord and Civil War) are built and
+measured. Steps 3–4 are the agreed design, not yet built. The Galactic Age is
 admin-only; nothing here is player-facing until it opens.
 
 Every other era plays classic Risk on its own map. The Galactic Age has one map,
@@ -37,11 +38,11 @@ split.
 | 3 | **Colonies** | Three home worlds; the fourth opens neutral, and two extra lanes join every world to every other | built |
 | 4 | **Classic** | One home world each | shipped |
 | 5–7 | **Partial Schism** | One to three worlds shared by two houses | planned (step 4) |
-| 8 | **Schism** | Every world shared by two houses | planned (step 2) |
+| 8 | **Schism** | Every world shared by two houses | built |
 
-The create route, the join cap and game start hold the era to 2–4 seats until
-Schism exists (`backend/src/modules/games/lobbyCapacity.ts`). Five or more used
-to get a scattered start across worlds no seat could reach.
+The create route, the join cap and game start hold the era to 2–4 seats or 8
+(`backend/src/modules/games/lobbyCapacity.ts`). Five to seven have no board yet;
+they used to get a scattered start across worlds no seat could reach.
 
 ## Colonies (two and three players) — built
 
@@ -102,17 +103,20 @@ and the sweeps behind each number):
 - `colony_reinforce_bonus` on the faction (`eras/galaxyage.ts`), read by
   `factionReinforceBonus`.
 
-## House relations — planned (steps 2–3)
+## House relations — Concord and Civil War built (step 2), Allied planned (step 3)
 
-Schism puts two houses on one world. A single lobby setting decides how they
-start:
+Schism puts two houses on one world. A single lobby setting, **House Relations**
+(`galaxy_house_relations`), decides how they start:
 
-- **Concord (default).** The two houses on a world begin under a truce, using
-  the existing truce system. That gives them a few rounds to face outward before
-  deciding when to betray. Breaking the Concord carries the ordinary truce-break
-  rules, so the betrayed house gets its defence and retaliation dice.
-- **Civil War.** The houses start hostile, for chaos from turn one.
-- **Allied.** The two houses are a team:
+- **Concord (default) — built.** The two houses on a world begin under a truce,
+  using the existing truce system, for the first **3 rounds** (the first round
+  counts). That gives them time to face outward before deciding when to
+  betray. Breaking the Concord carries the ordinary truce-break rules: the
+  betrayed house defends that attack with an extra die, then gets an extra die
+  for its next attack on the breaker. The AI keeps every truce, so an AI house
+  never breaks it. The territory panel shows the rounds left.
+- **Civil War — built.** The houses start hostile, for chaos from turn one.
+- **Allied — planned (step 3).** The two houses are a team:
   - they cannot attack each other;
   - they win together (the engine already supports more than one winner, since
     secret-mission alliances use it);
@@ -123,26 +127,97 @@ turn-10 leader wins about 62% of four-player games. A house crushed by its
 co-world rival in round two is effectively out, and that is miserable in an
 eight-player game.
 
-## Schism (eight players) — planned (step 2)
+## Schism (eight players) — built
 
-- **Two houses per world, split by lane side.** Each house holds the half of its
-  world whose two gateways face one neighbour. Every house then has an enemy
-  across its lanes and a rival at home.
-- **Shared kits.** Both houses on a world play that world's faction: same
-  abilities, different colours and names ("Mandate Loyalists" and "Mandate
-  Secessionists"). Four new rival factions stay an option for later.
-- **The Lane Crown.** Hold all four of your world's gateways and you control
-  every lane off your world. The prize might be +2 reinforcements and an
-  upgraded world rule; its numbers come from the sim. Lose a gateway, lose the
-  Crown. It is **Schism-only**: in a four-player game everyone holds their whole
-  world from turn one, so it would change the classic game's balance.
-- **The Nexus Schism.** The two Nexus houses start either side of the neutral
-  Vault, so the lane-sealing prize becomes a civil war.
-- **Unification** (open question): eliminating your co-world house could hand
-  you their kit ability or a permanent Crown.
+**Rules** (`backend/src/game-engine/state/galaxySchism.ts`)
 
-Eight is the first Schism count because every world is split the same way. That
-makes it the most symmetric case, and so the easiest to balance first.
+- **Every faction is dealt to two seats.** A seat's pick stands while its
+  faction has a seat left. When three seats pick one faction, two keep it at
+  random, and the rest take the seats left over, shuffled. The waiting room
+  lets two players pick each faction.
+- **Two houses per world, on authored halves.** Each house opens on one half of
+  its faction's home world, drawn at random: eight connected tiles, or six on
+  Nexus Station, whose Gate Ring stays neutral. Each half holds two of the
+  world's four gateways.
+  - **Rust and Verdan** split by lane side, so each house faces one neighbour.
+  - **Sol** splits west and east along its bonus regions (the Americas and the
+    Atlantic arc against the Crescent and the Asian rim). Each Sol house has
+    one lane to Verdan and one to Nexus. Sol's lane-side split cuts three of
+    its four regions.
+  - **Nexus Station** cannot split by lane side: its four gateways alternate
+    around the Vault. Its two houses start either side of the neutral Vault
+    (the Vault Ward and the Berth Ring), each with one lane to Rust and one to
+    Sol. The lane-sealing prize between them becomes a civil war.
+- **Shared kits.** Both houses on a world play that world's faction: the same
+  abilities, told apart by colour and house name (Western and Eastern Mandate,
+  Dawnrim and Duskrim Navigators, Tharsis and Hellas Syndicate, Ward and Berth
+  Custodians). Four new rival factions stay an option for later.
+- **House bonuses.** The halves are not the same ground. Each half carries a
+  bonus in units a turn, recorded on the house when the board is dealt:
+
+  | House | Units a turn | Why |
+  |---|---|---|
+  | Western Mandate | +3 | its border with the east is four tiles long against the east's two |
+  | Duskrim Navigators | +2 | its lanes lead only to Tharsis, which grinds it down |
+  | Dawnrim Navigators | +1 | holds the richer Verdan regions, but faces both Sol houses |
+  | Tharsis Syndicate | +3 | its lanes lead only to the Duskrim house |
+  | Hellas Syndicate | −1 | faces the two Custodian houses, and eats Tharsis without it |
+  | Ward / Berth Custodians | −1 each | the Custodians' kit and the Vault at their door |
+
+  The two Custodian houses also open lighter: the Ward at 3 units a tile, the
+  Berth at 2. At four seats the Custodians get 4 a tile for starting without
+  the ring; here neither house would hold it whole anyway.
+  - The compensation is per turn wherever it could be. A house that opened far
+    larger than its rival could break the Concord in round one, which the AI
+    never does and a player would.
+  - Opening units were tried first and rejected for that reason: evening out
+    Sol that way needed the West at 6 units a tile against the East's 2.
+- **The Lane Crown.** Hold all four of your world's gateways (your own two and
+  your rival's) and you draft **+2 a turn** while you keep them. Lose one, and
+  you lose the Crown.
+  - It is **Schism-only**: at four seats everyone holds their whole world from
+    turn one, so it would change the classic game.
+  - The upgraded world rule once suggested for it was not needed.
+- **Lane Sovereignty** is unchanged: 5 of the 8 lanes, held for 3 rounds.
+- **The lobby.** "Schism (eight players)" asks for eight seats and shows the
+  House Relations choice. It needs Home Worlds.
+  - The game starts once all eight seats are filled, with AI opponents plus
+    the invited players.
+  - Started with two to four seats, it plays that count's board instead.
+- **Unification** (still open): eliminating your co-world house could hand you
+  their kit ability or a permanent Crown.
+
+**Balance** (1,200 games × 3 seeds, live defaults;
+[GALAXY-BALANCE.md §8](../backend/scripts/GALAXY-BALANCE.md) has every table
+and the search behind each number):
+
+| | Concord (default) | Civil War |
+|---|---|---|
+| Game length | 40.6 turns | 39.6 turns |
+| Won by Lane Sovereignty | 43% | 45% |
+| Turn-10 leader wins (baseline 12.5%) | 38% | 42% |
+| First seat wins | 12.6% | 14.4% |
+| Faction win rate per seat | Sol 12.5, Rust 11.0, Verdan 11.2, Nexus 15.3% | 10.5–14.5% |
+| House win rates | 8.2–15.6% | 9.4–17.1% |
+
+- **Every faction passes the gate** on every seed.
+- **Houses:** the halves are not the same ground, and it shows at the edges.
+  Under the Concord every house is within ±40% of its 12.5%; six are within
+  ±28%. Duskrim (8.2%) and Hellas (8.6%) sit just under.
+- **Without compensation** the houses ran 1.3–35.2%. The Concord's length and
+  the Crown's size barely moved that; the split per world and the house
+  bonuses did.
+- **Tuned against the AI**, which never breaks a truce. Houses played by people
+  may want the numbers revisited, and the per-turn form keeps any retune off
+  the opening.
+
+**Code:**
+- `galaxySchism.ts`: the halves and their numbers, the deal, the Concord and
+  the Crown.
+- `state.galaxy_mode`: the houses dealt, with their bonuses, the relations, the
+  Concord rounds and the Crown's worth. A retune never changes a game in
+  progress.
+- `lobbyCapacity.seatsPerFaction`: two seats per faction in a Schism lobby.
 
 ## Allied houses — planned (step 3)
 
@@ -172,8 +247,8 @@ rather than hard-coded as era special cases:
     (`syncGalaxyModeLanes`, the same discipline as Jump Gate and surge lanes),
     and re-projected when a room is rebuilt;
   - per-seat numbers live in small tables
-    (`LANE_SOVEREIGNTY_ROUNDS_BY_SEATS`, `COLONY_GARRISONS`) that the balance
-    sim can patch.
+    (`LANE_SOVEREIGNTY_ROUNDS_BY_SEATS`, `COLONY_GARRISONS`, `SCHISM_HALVES`,
+    `SCHISM_TUNING`) that the balance sim can patch.
 - **Every mode is measured before it opens.** `simGalaxyBalance.ts` runs any
   seat count (`SIM_PLAYERS`), rotates every faction line-up and seat, and
   reports win rates as a share of the games each faction played.
@@ -192,7 +267,7 @@ rewrite. Whether any should is a separate discussion.
 1. **Colonies (two and three players)**, the seat guard, per-seat Sovereignty
    and sims at every count. **Done.**
 2. **Schism at eight**, with shared kits, the Lane Crown, and Concord / Civil
-   War.
+   War. **Done.**
 3. **Allied houses**: shared victory, no friendly attacks, shared vision, team
    UI. This also enables 2v2 at four.
 4. **Partial Schism (five to seven)**.

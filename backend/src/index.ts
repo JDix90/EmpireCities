@@ -50,6 +50,7 @@ import { describeDailySchedule } from './game-engine/daily/dailySchedule';
 import { startDailyPrewarm, stopDailyPrewarm } from './game-engine/daily/dailyPrewarmService';
 import { startIndexNowDailySweep, stopIndexNowDailySweep } from './services/indexNowDailySweep';
 import { startOrphanedGameSweep, stopOrphanedGameSweep } from './modules/games/gameCleanupService';
+import { seatsPerFaction } from './modules/games/lobbyCapacity';
 import { startGuestCleanupSweep, stopGuestCleanupSweep } from './modules/users/guestCleanupService';
 import { initSentry, captureException } from './services/sentry';
 import { refreshAdminConfigCache, startAdminConfigSubscriber, stopAdminConfigSubscriber } from './services/adminConfig';
@@ -344,8 +345,8 @@ async function bootstrap(): Promise<void> {
 
     if (!gameId) return reply.status(400).send({ error: 'game_id is required' });
 
-    const game = await queryOne<{ status: string; settings_json: unknown }>(
-      'SELECT status, settings_json FROM games WHERE game_id = $1',
+    const game = await queryOne<{ status: string; settings_json: unknown; era_id: string | null; map_id: string | null }>(
+      'SELECT status, settings_json, era_id, map_id FROM games WHERE game_id = $1',
       [gameId],
     );
     if (!game) return reply.status(404).send({ error: 'Game not found' });
@@ -385,12 +386,15 @@ async function bootstrap(): Promise<void> {
 
     if (!targetRow) return reply.status(404).send({ error: 'Player not found in this game' });
 
-    // Ensure no other player has already claimed this faction
+    // Ensure no other player has already claimed this faction (two may share
+    // one in a Galactic Age Schism lobby — lobbyCapacity.seatsPerFaction)
     if (factionId) {
-      const collision = players.find(
+      const holders = players.filter(
         (p) => p.faction_id === factionId && p.player_index !== targetRow!.player_index,
       );
-      if (collision) return reply.status(409).send({ error: 'That faction is already taken by another player' });
+      if (holders.length >= seatsPerFaction(settings, game.era_id, game.map_id)) {
+        return reply.status(409).send({ error: 'That faction is already taken by another player' });
+      }
     }
 
     await query(

@@ -17,7 +17,7 @@
  */
 
 import { inferWorldId, type WorldModifiers, type WorldRules } from '@borderfall/shared';
-import type { GameState } from '../store/gameStore';
+import type { GalaxySchismHouse, GameState } from '../store/gameStore';
 import { getGalaxyWorldLore } from '../constants/galaxyLore';
 
 export type LaneState = 'corridor' | 'open' | 'closed';
@@ -186,6 +186,94 @@ export function describeColonies(
   const prize = names.length === 1 ? 'a colony for whoever takes it' : 'colonies for whoever takes them';
   const lanes = (mode.lanes?.length ?? 0) > 0 ? ' Two extra lanes link every world to every other.' : '';
   return `${worlds} ${verb} neutral and garrisoned — ${prize}.${lanes}`;
+}
+
+/** This game's house for a player, if it is a Schism game. Mirrors backend `schismHouseOf`. */
+export function schismHouseOf(
+  gameState: Pick<GameState, 'galaxy_mode'> | null | undefined,
+  playerId: string | null | undefined,
+): GalaxySchismHouse | null {
+  const mode = gameState?.galaxy_mode;
+  if (mode?.id !== 'schism' || !playerId) return null;
+  return mode.houses.find((h) => h.player_id === playerId) ?? null;
+}
+
+/** The other house on a player's home world. Mirrors backend `schismRivalOf`. */
+export function schismRivalOf(
+  gameState: Pick<GameState, 'galaxy_mode'> | null | undefined,
+  playerId: string | null | undefined,
+): GalaxySchismHouse | null {
+  const mode = gameState?.galaxy_mode;
+  const mine = schismHouseOf(gameState, playerId);
+  if (mode?.id !== 'schism' || !mine) return null;
+  return mode.houses.find((h) => h.world_id === mine.world_id && h.player_id !== mine.player_id) ?? null;
+}
+
+/**
+ * True while a player holds every gateway of their house's home world: the
+ * Lane Crown. Mirrors backend `holdsLaneCrown`.
+ */
+export function holdsLaneCrown(
+  gameState: Pick<GameState, 'galaxy_mode' | 'territories'> | null | undefined,
+  playerId: string | null | undefined,
+): boolean {
+  const mode = gameState?.galaxy_mode;
+  const house = schismHouseOf(gameState, playerId);
+  if (mode?.id !== 'schism' || !house || !gameState) return false;
+  const gateways = mode.crown_gateways[house.world_id] ?? [];
+  return gateways.length > 0 && gateways.every((id) => gameState.territories[id]?.owner_id === playerId);
+}
+
+/**
+ * A house's own reinforcement bonus in words: "the Western Mandate drafts +3 a
+ * turn on top of the kit", or "… drafts 1 fewer a turn than the kit".
+ */
+export function describeHouseBonus(houseName: string, bonus: number): string {
+  return bonus >= 0
+    ? `the ${houseName} drafts +${bonus} a turn on top of the kit`
+    : `the ${houseName} drafts ${-bonus} fewer a turn than the kit`;
+}
+
+/**
+ * The start briefing's lines for a Schism board, from the viewer's seat (a
+ * spectator gets the board in general). Empty for any other board.
+ */
+export function describeSchism(
+  gameState: Pick<GameState, 'galaxy_mode' | 'players'> | null | undefined,
+  viewerId: string | null | undefined,
+  mapData?: LaneMapData | null,
+): string[] {
+  const mode = gameState?.galaxy_mode;
+  if (mode?.id !== 'schism' || !gameState) return [];
+  const rounds = mode.concord_rounds;
+  const roundsText = `${rounds} round${rounds === 1 ? '' : 's'}`;
+  const house = schismHouseOf(gameState, viewerId);
+  const rival = schismRivalOf(gameState, viewerId);
+  const crown = `+${mode.lane_crown_bonus} reinforcement${mode.lane_crown_bonus === 1 ? '' : 's'} a turn`;
+  if (!house || !rival) {
+    return [
+      'Eight houses, two to every world: each faction is dealt to two players, who split its home world and share its kit.',
+      mode.relations === 'concord' && rounds > 0
+        ? `The Concord: each world's two houses start under a truce for the first ${roundsText}.`
+        : 'Civil War: the two houses on every world are enemies from the first turn.',
+      `The Lane Crown: a house that holds all four of its world's gateways drafts ${crown}.`,
+    ];
+  }
+  const world = worldDisplayName(mapData, house.world_id);
+  const rivalName = gameState.players.find((p) => p.player_id === rival.player_id)?.username ?? 'your rival';
+  const bonusLines = ([['Your', house], ['Their', rival]] as const).flatMap(([whose, h]) => {
+    const n = h.reinforce_bonus ?? 0;
+    if (n === 0) return [];
+    return [`${whose} half is the ${n > 0 ? 'harder' : 'richer'} ground: ${describeHouseBonus(h.name, n)}.`];
+  });
+  return [
+    `You are the ${house.name}. The ${rival.name} (${rivalName}) holds the rest of ${world}, with the same kit.`,
+    ...bonusLines,
+    mode.relations === 'concord' && rounds > 0
+      ? `The Concord: you and the ${rival.name} are under a truce for the first ${roundsText}. Attacking them before it ends breaks it: they defend that attack with an extra die, and get an extra die for their next attack on you.`
+      : `Civil War: the ${rival.name} is your enemy from the first turn.`,
+    `The Lane Crown: hold all four of ${world}'s gateways, your two and theirs, and you draft ${crown}.`,
+  ];
 }
 
 export interface GatewayLane {
@@ -467,7 +555,7 @@ export function viewerHoldsVaultSeal(
 export const LANE_SOVEREIGNTY_CORRIDORS_NEEDED = 5;
 export const LANE_SOVEREIGNTY_ROUNDS = 3;
 /** Mirrors backend LANE_SOVEREIGNTY_ROUNDS_BY_SEATS: one rival breaks a streak on fewer turns. */
-export const LANE_SOVEREIGNTY_ROUNDS_BY_SEATS: Record<number, number> = { 2: 5, 3: 3, 4: 3 };
+export const LANE_SOVEREIGNTY_ROUNDS_BY_SEATS: Record<number, number> = { 2: 5, 3: 3, 4: 3, 8: 3 };
 
 /** Rounds a streak must run in a game with this many seats. */
 export function laneSovereigntyRoundsFor(seats: number): number {

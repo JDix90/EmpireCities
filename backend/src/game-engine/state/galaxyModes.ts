@@ -15,11 +15,14 @@
 //       (galaxyRing.ts): without them the seat in the middle of the three
 //       borders both rivals and never touches the colony.
 //
-// Colonies needs home worlds, so it plays only with factions on (the lobby's
+//   Schism (8 seats) — every world shared by two houses of its faction, each on
+//       one half of it (galaxySchism.ts).
+//
+// The modes need home worlds, so they play only with factions on (the lobby's
 // "Home Worlds"). Without them every seat count gets the scattered deal. The
-// modes planned for five to eight seats are in docs/GALACTIC_AGE_MODES.md.
+// mode planned for five to seven seats is in docs/GALACTIC_AGE_MODES.md.
 
-import type { EraId, GameMap, GameState, MapConnection } from '../../types';
+import type { EraId, GalaxyColoniesMode, GameMap, GameState, MapConnection } from '../../types';
 import { getEraFactions } from '../eras';
 import type { Faction } from '../eras/types';
 import { GALAXY_MODE_LANE_SOURCE, ringGapLanes } from './galaxyRing';
@@ -33,9 +36,17 @@ export const GALAXY_HOME_WORLD_IDS: ReadonlySet<string> = new Set<string>([
   'nexus_station',
 ]);
 
-/** Seats a Galactic Age game supports: Colonies at two and three, the classic start at four. */
+/** Seats with one home world each: Colonies below four, the classic start at four. */
 export const GALAXY_MIN_SEATS = 2;
-export const GALAXY_MAX_SEATS = 4;
+export const GALAXY_CLASSIC_SEATS = 4;
+/** Seats of a Schism game: two houses to every world (galaxySchism.ts). */
+export const GALAXY_SCHISM_SEATS = 8;
+/**
+ * Every seat count a Galactic Age game supports. Five to seven have no board
+ * yet (Partial Schism, docs/GALACTIC_AGE_MODES.md).
+ */
+export const GALAXY_SEAT_COUNTS: readonly number[] = [2, 3, 4, GALAXY_SCHISM_SEATS];
+export const GALAXY_MAX_SEATS = GALAXY_SCHISM_SEATS;
 
 /**
  * A colony world's opening garrison: its gateway tiles (the ends of its lanes,
@@ -49,10 +60,29 @@ export const COLONY_GARRISONS = { gateway: 5, interior: 7 };
 export type GalaxyModeState = NonNullable<GameState['galaxy_mode']>;
 
 /**
+ * The world a faction calls home on this map: the one world all of its home
+ * regions lie on, if that is one of the four. The galaxy map splits each world
+ * into several bonus regions, so a faction's home regions must all live on one
+ * world. Null for any other faction.
+ */
+export function factionHomeWorld(map: GameMap, faction: Pick<Faction, 'home_region_ids'>): string | null {
+  if (!faction.home_region_ids?.length) return null;
+  const homeRegions = new Set(faction.home_region_ids);
+  const found = new Set<string>();
+  for (const t of map.territories) {
+    if (t.region_id && homeRegions.has(t.region_id) && t.world_id) found.add(t.world_id);
+  }
+  if (found.size !== 1) return null;
+  const worldId = [...found][0]!;
+  return GALAXY_HOME_WORLD_IDS.has(worldId) ? worldId : null;
+}
+
+/**
  * Each player's home world, in player order, when this game deals home worlds:
  * the Galactic Age on its galaxy map, two to four seats, and every seat on a
  * faction whose home regions all lie on one of the four worlds, no two sharing a
  * world. Null otherwise, and the caller falls back to the geographic deal.
+ * (Eight seats share the worlds instead: galaxySchism.ts.)
  */
 export function resolveGalaxyHomeWorlds(
   era: EraId,
@@ -60,24 +90,15 @@ export function resolveGalaxyHomeWorlds(
   players: ReadonlyArray<{ faction_id?: string | null }>,
 ): string[] | null {
   if (era !== 'galaxy_age' || map.map_kind !== 'galaxy') return null;
-  if (players.length < GALAXY_MIN_SEATS || players.length > GALAXY_MAX_SEATS) return null;
+  if (players.length < GALAXY_MIN_SEATS || players.length > GALAXY_CLASSIC_SEATS) return null;
 
   const byFactionId = new Map(getEraFactions(era).map((f) => [f.faction_id, f]));
   const worlds: string[] = [];
   for (const p of players) {
     if (!p.faction_id) return null;
     const fac = byFactionId.get(p.faction_id);
-    if (!fac?.home_region_ids?.length) return null;
-    // The galaxy map splits each world into several bonus regions, so a
-    // faction's home regions must all live on one world.
-    const homeRegions = new Set(fac.home_region_ids);
-    const found = new Set<string>();
-    for (const t of map.territories) {
-      if (t.region_id && homeRegions.has(t.region_id) && t.world_id) found.add(t.world_id);
-    }
-    if (found.size !== 1) return null;
-    const worldId = [...found][0]!;
-    if (!GALAXY_HOME_WORLD_IDS.has(worldId)) return null;
+    const worldId = fac ? factionHomeWorld(map, fac) : null;
+    if (!worldId) return null;
     worlds.push(worldId);
   }
   if (new Set(worlds).size !== worlds.length) return null;
@@ -89,7 +110,7 @@ export function resolveGalaxyHomeWorlds(
  * (every world has a player). Neutral worlds are sorted; the three-seat lanes
  * come from `ringGapLanes`, in the order a Lane Surge would try them.
  */
-export function colonyLayout(map: GameMap, homeWorlds: readonly string[]): GalaxyModeState | null {
+export function colonyLayout(map: GameMap, homeWorlds: readonly string[]): GalaxyColoniesMode | null {
   const claimed = new Set(homeWorlds);
   const neutralWorlds = [...GALAXY_HOME_WORLD_IDS].filter((w) => !claimed.has(w)).sort();
   if (neutralWorlds.length === 0) return null;

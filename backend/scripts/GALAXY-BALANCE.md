@@ -36,10 +36,13 @@ Knobs: `SIM_MAP` (variant map file), `SIM_GAMES`, `SIM_DIFFICULTY`,
 `SIM_CORRIDORS`, `SIM_WORLD_RULES`, `SIM_WORLD_RULES_OFF` (comma list of
 `cradle`, `storms`, `forge`, `vault`), `SIM_SOVEREIGNTY`, `SIM_EVENTS`,
 `SIM_FACTION_PATCH` (JSON faction-kit overrides), `SIM_SCATTERED`,
-`SIM_FACTIONS=0`, `SIM_PLAIN_LANES` and `SIM_CATCHUP_PER` (§6), and
-`SIM_PLAYERS`, `SIM_COLONY_GARRISON` and `SIM_SOVEREIGNTY_ROUNDS` (§7). 4 players
-by default, one per galaxy faction, faction↔seat rotated per game; at 2 or 3
-the line-up also rotates through every combination of factions. Factions ON, naval OFF,
+`SIM_FACTIONS=0`, `SIM_PLAIN_LANES` and `SIM_CATCHUP_PER` (§6),
+`SIM_PLAYERS`, `SIM_COLONY_GARRISON` and `SIM_SOVEREIGNTY_ROUNDS` (§7), and
+`SIM_HOUSE_RELATIONS`, `SIM_CONCORD_ROUNDS`, `SIM_LANE_CROWN`,
+`SIM_SCHISM_HALVES`, `SIM_SCHISM_OPENING` and `SIM_SCHISM_REINFORCE` (§8).
+4 players by default, one per galaxy faction, faction↔seat rotated per game; at
+2 or 3 the line-up also rotates through every combination of factions; at 8
+every faction plays twice (§8). Factions ON, naval OFF,
 era advancement OFF, stability ON, events OFF (the era's own system defaults are
 economy + tech + factions). The sim asserts that each faction starts on its own
 home world, so a map whose home regions stop resolving fails loudly instead of
@@ -596,7 +599,134 @@ SIM_PLAYERS=2 SIM_FACTION_PATCH='{"helion_navigators":{"colony_reinforce_bonus":
   SIM_GAMES=1200 SIM_THRESHOLD=60 pnpm exec tsx scripts/simGalaxyBalance.ts  # before the duel bonus
 ```
 
-## 8. Open
+## 8. Schism — eight players (`SIM_PLAYERS=8`)
+
+At eight seats every world is shared by two houses of its faction, each on one
+half of it (`state/galaxySchism.ts`); the design is in
+[docs/GALACTIC_AGE_MODES.md](../../docs/GALACTIC_AGE_MODES.md). The sim deals
+every faction twice. Each block of eight games starts from a seeded shuffle of
+the eight houses and rotates it a seat per game, so every house sits in every
+seat once a block while the blocks vary who sits next to whom. Win rates are
+per house (baseline 12.5%) and, in the faction table, per seat of that faction.
+
+Shipped (`SCHISM_HALVES`, `SCHISM_TUNING`):
+- the halves: Sol west / east, Verdan and Rust by lane side, Nexus's Vault Ward
+  against its Berth Ring;
+- house bonuses in units a turn: Western Mandate +3, Dawnrim Navigators +1,
+  Duskrim Navigators +2, Tharsis Syndicate +3, Hellas Syndicate −1, Ward and
+  Berth Custodians −1;
+- the Custodian houses open at 3 (Ward) and 2 (Berth) units a tile, not 4;
+- Concord 3 rounds, Lane Crown +2, Lane Sovereignty 5 lanes for 3 rounds.
+
+**1,200 games per seed, live defaults (threshold 60, cap 90), A / B / C:**
+
+| Metric | Concord (default) | Civil War |
+|---|---|---|
+| Avg game length | 40.2 / 40.6 / 41.1 | 39.7 / 39.6 / 39.5 |
+| Decisive (not turn-limit) | 97.6 / 98.0 / 97.9% | 97.8 / 98.2 / 97.8% |
+| Won by Lane Sovereignty | 41.3 / 44.2 / 42.7% | 41.9 / 44.7 / 47.2% |
+| Territory-leader@turn-10 wins (baseline 12.5%) | 38.6 / 36.6 / 38.5% | 38.8 / 44.1 / 42.6% |
+| First seat wins (baseline 12.5%) | 13.7 / 13.3 / 10.9% | 13.9 / 14.3 / 14.9% |
+| Lane end-owner changes per game | 162 / 165 / 164 | 158 / 156 / 156 |
+| Lane Crown worn (the winner wore it) | 83–87% (76–80%) | 84–87% (77–80%) |
+| First house out, turn (by its own world's other house) | 14.7–15.0 (48–50%) | 14.0–14.1 (45–49%) |
+| Faction win rate per seat: Sol / Rust / Verdan / Nexus | 12.5 / 11.0 / 11.2 / 15.3% | 14.2 / 10.5 / 10.8 / 14.5% |
+
+| House | Wins, Concord (A / B / C) | Wins, Civil War | Eliminated (Concord) | Wore the Crown (Concord) |
+|---|---|---|---|---|
+| Western Mandate | 15.7 / 14.8 / 11.7% | 18.3 / 15.1 / 17.8% | 53.3 / 53.6 / 52.5% | 17.3 / 17.9 / 15.3% |
+| Eastern Mandate | 11.2 / 11.0 / 10.6% | 10.0 / 12.1 / 11.8% | 69.3 / 68.8 / 69.3% | 14.4 / 15.3 / 14.8% |
+| Dawnrim Navigators | 15.0 / 14.4 / 13.2% | 11.5 / 12.2 / 10.3% | 37.5 / 39.0 / 39.7% | 9.3 / 9.9 / 8.3% |
+| Duskrim Navigators | 6.8 / 8.5 / 9.3% | 11.4 / 10.2 / 9.3% | 29.6 / 31.4 / 29.6% | 8.3 / 9.8 / 11.5% |
+| Tharsis Syndicate | 13.1 / 12.9 / 14.3% | 11.5 / 12.3 / 11.3% | 30.8 / 31.3 / 31.3% | 16.0 / 17.8 / 19.8% |
+| Hellas Syndicate | 8.0 / 8.6 / 9.1% | 7.8 / 10.7 / 9.7% | 45.3 / 47.1 / 49.6% | 11.2 / 12.8 / 10.5% |
+| Ward Custodians | 14.8 / 15.2 / 16.8% | 12.7 / 13.9 / 14.8% | 46.4 / 47.8 / 47.2% | 19.7 / 20.7 / 22.2% |
+| Berth Custodians | 15.5 / 14.7 / 15.1% | 16.9 / 13.7 / 14.9% | 48.5 / 47.8 / 47.3% | 20.3 / 21.7 / 21.3% |
+
+**The gate** is the four-player gate scaled to eight seats:
+- Decisive ≥ 80%: passes.
+- Every faction within ±28% of 1/8 per seat (9.0–16.0%): passes on every
+  seed, with Nexus at 14.9–16.0% the closest.
+- Sovereignty a real ending but not the only one: passes, at 41–47%.
+- Lanes changing hands: passes.
+- Per house, averaged over the seeds:
+  - Concord: all eight within ±40% (7.5–17.5%); six within ±28%. Duskrim
+    (8.2%) and Hellas (8.6%) sit just under.
+  - Civil War: seven within ±28%; the Western Mandate is at 17.1%.
+- The four-player elimination limit (30%) does not carry over. With one winner
+  in eight, most houses end eliminated; the rates are in the table and in §9.
+
+Two, three and four seats are unchanged: seed A reproduces §2 and §7 to the
+decimal.
+
+### How it got there
+
+**As first drawn, nothing evening the halves out** (480 games, seed A): the
+houses ran 1.3–35.2%. Every world's two houses split on geometry, and after the
+Concord the stronger ate the weaker:
+- Western Mandate 1.3%, Eastern 22.7%. The Eastern Mandate eliminated the
+  Western in 37% of games: Maghreb borders four western tiles.
+- Tharsis 1.9%, Hellas 13.8%.
+- Dawnrim 4.8%, Duskrim 12.5%.
+- Spire Custodians 7.9%, Berth 35.2%. This was the first Nexus split, the
+  Spire Walk against the Berth Ring.
+
+The house rules barely moved it (seed A, 480 games):
+
+| Change | Houses | Sovereignty |
+|---|---|---|
+| As drawn (Concord 3, Crown +2) | 1.3–35.2% | 47.1% |
+| Civil War | 3.1–28.1% | 43.5% |
+| Concord 1 / 5 rounds | 2.1–26.3% / 1.7–30.4% | 42.9 / 47.3% |
+| Lane Crown 0 / +4 | 1.9–32.3% / 1.5–36.3% | 45.4 / 48.8% |
+
+**Every other split, screened** (240 games each; one world's every connected
+equal split with two gateways a half, the others as drawn):
+- **Sol, 18 splits.** Every split other than west / east breaks bonus regions,
+  and both Sol houses lose (3–8% each where they come out even).
+- **Nexus, 3 splits.** The Vault Ward against the Berth Ring evened the two
+  Custodian houses (15.4 / 18.8%), so it ships.
+- **Rust, 55 splits.** None rescues the Verdan-facing house: its lanes lead only
+  to one Verdan house, whose lanes lead only back.
+- **Verdan, 23 splits.** The one that shipped gives each house three border
+  tiles. The first, with Cinder Bloom on the Dawnrim side, gave the Dawnrim a
+  salient into three Duskrim tiles.
+
+**Opening units, then units a turn.**
+- A local search over per-half opening units reached a house spread (RMS
+  around 12.5%) of 3.8. That needed the West at 6 units a tile against the
+  East's 2.
+- A player would break the Concord in round one against a house that thin; the
+  AI never does, so the sim cannot see it. So the compensation moved into a
+  per-turn house bonus, with openings even except the Custodians'.
+- Grids at 960 and 1,200 games, then three seeds for the finalists, chose the
+  shipped numbers: RMS 2.7 over three seeds.
+- Rejected on the way:
+  - the Custodian houses with no per-turn penalty (Nexus 17–18% a seat, at 3
+    or 4 units a tile);
+  - a penalty on one Custodian house only (the other took its place);
+  - and the first Verdan split (Duskrim 7–8% whatever its bonus).
+
+**Seed A of the shipped board, one number moved** (1,200 games):
+
+| Change | Length | Sovereignty | Houses | RMS | Crown worn | First out by own world |
+|---|---|---|---|---|---|---|
+| Shipped (Concord 3, Crown +2, 3 rounds) | 40.2 | 41.3% | 6.8–15.7% | 3.3 | 83.0% | 49.0% |
+| Civil War | 39.7 | 41.9% | 7.8–18.3% | 3.3 | 85.8% | 48.4% |
+| Concord 1 round | 39.9 | 42.7% | 8.6–16.9% | 2.7 | 85.8% | 49.5% |
+| Concord 5 rounds | 42.3 | 39.3% | 7.8–16.4% | 3.6 | 83.5% | 48.7% |
+| Lane Crown 0 | 40.7 | 42.2% | 7.9–16.4% | 3.1 | 83.0% | 48.6% |
+| Lane Crown +4 | 41.0 | 44.6% | 7.8–15.6% | 3.0 | 83.0% | 49.0% |
+| Sovereignty 2 rounds | 39.2 | 54.2% | 6.8–15.8% | 3.3 | 81.9% | 49.0% |
+| Sovereignty 4 rounds | 41.0 | 30.8% | 7.2–15.8% | 3.2 | 83.3% | 49.0% |
+
+- Neither the Concord's length nor the Crown's size moves the balance beyond
+  noise.
+- The Concord stays at 3, the ordinary truce's length.
+- The Crown stays at +2: at 0 the Crown is a label, and +4 moves nothing.
+- Sovereignty stays at 3 rounds: at 2 it takes over.
+
+## 9. Open
 
 - **Sol is the most often eliminated seat** (~25%; 29.1–29.6% with
   Sovereignty off, just inside the 30% limit). Verdan's +2 reinforcements are
@@ -613,11 +743,23 @@ SIM_PLAYERS=2 SIM_FACTION_PATCH='{"helion_navigators":{"colony_reinforce_bonus":
   difference.
 - **Verdan against the Custodians** is still the most lopsided duel, 64–74%
   (§7), though inside the gate since the duel bonus.
-- **Five to eight players** have no board yet; the create route, the join cap
-  and game start hold the era to two to four (docs/GALACTIC_AGE_MODES.md).
+- **Five to seven players** have no board yet; the create route, the join cap
+  and game start hold the era to two to four, or eight (docs/GALACTIC_AGE_MODES.md).
+- **The Schism's house numbers were tuned against the AI** (§8), which never
+  breaks a truce and drafts everything onto one tile. Houses played by people
+  may want them retuned; the per-turn form was chosen so a retune never needs a
+  lopsided opening.
+- **The Schism's elimination rates** are those of an eight-player game: the
+  Eastern Mandate ends eliminated in ~69% of games. Nothing in the four-player
+  gate covers that yet.
 
 ## History
 
+- **2026-09-30 (Schism):** eight seats on the Galactic Age, two houses to every
+  world (§8). Halves authored per world; per-turn house bonuses and lighter
+  Custodian openings even them out. Concord (a 3-round truce) or Civil War; the
+  Lane Crown pays +2. Every faction within the gate on every seed; houses at
+  8.2–15.6% averaged over three seeds. Two, three and four seats unchanged.
 - **2026-09-30 (Colonies duel bonus):** at two seats the Helion Navigators
   draft +1, not +2 (`colony_reinforce_bonus`). Verdan 65.5 → 58.6% of its
   duels, against the Custodians 81 → 70%; every faction at 41–60%, so two

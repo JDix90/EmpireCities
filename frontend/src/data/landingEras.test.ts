@@ -2,14 +2,15 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { LANDING_ERAS } from './landingEras';
-import { GALAXY_MAX_PLAYERS, GALAXY_MIN_PLAYERS } from '../utils/lobbyEraMapCompatibility';
+import { GALAXY_MAX_PLAYERS, GALAXY_MIN_PLAYERS, GALAXY_SCHISM_PLAYERS } from '../utils/lobbyEraMapCompatibility';
 
 /**
  * The landing cards' numbers are typed by hand next to maps that change
  * underneath them. The Galactic Age card said 12 territories long after the
  * board became four 16-tile worlds, and its seat range has moved with the
- * rule (exactly four, then two to four once Colonies arrived —
- * GALAXY_MIN_PLAYERS / GALAXY_MAX_PLAYERS); Ancient and Medieval kept their old
+ * rule (exactly four, then two to four once Colonies arrived, then eight too
+ * with the Schism — GALAXY_MIN_PLAYERS / GALAXY_MAX_PLAYERS /
+ * GALAXY_SCHISM_PLAYERS); Ancient and Medieval kept their old
  * counts after territories on them were unlocked.
  *
  * A card counts the territories in play when a game starts. Tiles tagged
@@ -35,6 +36,6 @@ describe('landing era cards', () => {
   it('quotes the Galactic Age seat count as it is enforced', () => {
     const galaxy = LANDING_ERAS.find((e) => e.id === 'galaxy_age');
     expect(galaxy).toBeDefined();
-    expect(galaxy!.playersRange).toBe(`${GALAXY_MIN_PLAYERS}–${GALAXY_MAX_PLAYERS}`);
+    expect(galaxy!.playersRange).toBe(`${GALAXY_MIN_PLAYERS}–${GALAXY_MAX_PLAYERS} or ${GALAXY_SCHISM_PLAYERS}`);
   });
 });

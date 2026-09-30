@@ -6,7 +6,7 @@ import { api } from '../../services/api';
 import { describeSecretMission, type MapNameLookup } from '../../utils/mapDisplayNames';
 import { hegemonyTurnsFor } from '../../utils/lunarHegemony';
 import { describeSpaceAgeEra, spaceAgeGuideInput } from '../../utils/spaceAgeGuide';
-import { describeColonies, describeColonyKitChanges, laneSovereigntyRoundsFor } from '../../utils/galaxyLanes';
+import { describeColonies, describeColonyKitChanges, describeSchism, laneSovereigntyRoundsFor } from '../../utils/galaxyLanes';
 import { SpaceAgeGuideSections } from './SpaceAgeGuide';
 import type { GameState, PlayerState } from '../../store/gameStore';
 
@@ -156,6 +156,7 @@ export default function GameStartModal({
   const showTech = !!gameState.settings.tech_trees_enabled;
   const { conditions, turnCap } = describeWinConditions(gameState.settings, gameState.players.length);
   const colonies = describeColonies(gameState.galaxy_mode);
+  const schism = describeSchism(gameState, viewerPlayerId);
   const missionDealtAfterDraft = gameState.phase === 'territory_select'
     && winConditionKinds(gameState.settings).includes('secret_mission');
   // The Moon counts toward every condition above and sits behind an orbit
@@ -285,6 +286,20 @@ export default function GameStartModal({
           {colonyKitChanges.map((line) => (
             <p key={line} className="text-xs text-bf-muted mt-1 pl-[22px]">{line}</p>
           ))}
+        </section>
+      )}
+
+      {schism.length > 0 && (
+        <section className="mb-4" data-testid="start-schism-section">
+          <h4 className="text-xs font-medium text-bf-muted uppercase tracking-wider mb-2">Schism</h4>
+          <ul className="space-y-1.5">
+            {schism.map((line) => (
+              <li key={line} className="flex items-start gap-2 text-sm text-bf-text">
+                <Globe2 className="w-3.5 h-3.5 text-bf-gold shrink-0 mt-0.5" aria-hidden />
+                <span>{line}</span>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 

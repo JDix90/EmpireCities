@@ -356,5 +356,50 @@ describe('LobbyPage Custom Game — Galactic Age seats', () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(postMock).not.toHaveBeenCalledWith('/games', expect.anything());
   });
+
+  it('asks for eight seats and sends the house relations when the Schism is on', async () => {
+    renderGalactic();
+    await screen.findByText('Advanced Features');
+    fireEvent.click(screen.getByLabelText(/Schism \(eight players\)/));
+    fireEvent.change(screen.getByDisplayValue('3 AI opponents'), { target: { value: '7' } });
+    fireEvent.change(screen.getByLabelText('House Relations'), { target: { value: 'civil_war' } });
+    expect(screen.queryByText(/Galactic Age seats 2 to 4 players/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Create & Enter Lobby/ }));
+    await waitFor(() => expect(postMock).toHaveBeenCalledWith('/games', expect.anything()));
+    const body = postMock.mock.calls.find(([url]) => url === '/games')![1] as {
+      max_players: number; ai_count: number; settings: Record<string, unknown>;
+    };
+    expect(body.max_players).toBe(8);
+    expect(body.ai_count).toBe(7);
+    expect(body.settings.galaxy_house_relations).toBe('civil_war');
+  });
+
+  it('starts every Schism under the Concord unless told otherwise, and sends no relations without it', async () => {
+    renderGalactic();
+    await screen.findByText('Advanced Features');
+    expect(screen.queryByLabelText('House Relations')).toBeNull();
+    fireEvent.click(screen.getByLabelText(/Schism \(eight players\)/));
+    expect((screen.getByLabelText('House Relations') as HTMLSelectElement).value).toBe('concord');
+    // Off again: back to four seats, and nothing about houses.
+    fireEvent.click(screen.getByLabelText(/Schism \(eight players\)/));
+    fireEvent.click(screen.getByRole('button', { name: /Create & Enter Lobby/ }));
+    await waitFor(() => expect(postMock).toHaveBeenCalledWith('/games', expect.anything()));
+    const body = postMock.mock.calls.find(([url]) => url === '/games')![1] as {
+      max_players: number; settings: Record<string, unknown>;
+    };
+    expect(body.max_players).toBe(4);
+    expect(body.settings.galaxy_house_relations).toBeUndefined();
+  });
+
+  it('needs Home Worlds for the Schism', async () => {
+    renderGalactic();
+    await screen.findByText('Advanced Features');
+    fireEvent.click(screen.getByLabelText(/Schism \(eight players\)/));
+    fireEvent.click(screen.getByLabelText('Home Worlds'));
+    const schism = screen.getByLabelText(/Schism \(eight players\)/) as HTMLInputElement;
+    expect(schism.disabled).toBe(true);
+    expect(schism.checked).toBe(false);
+    expect(screen.queryByLabelText('House Relations')).toBeNull();
+  });
 });
 

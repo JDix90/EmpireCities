@@ -89,6 +89,12 @@ export const CreateGameSchema = z.object({
        * victory list (applyGalaxyHomeWorldsOff). Ignored on every other era.
        */
       galaxy_home_worlds: z.boolean().optional(),
+      /**
+       * Galactic Age Schism (eight seats): how each world's two houses start —
+       * `concord` (a truce for the opening rounds, the default) or `civil_war`.
+       * Persisted only as Civil War; read when the board is dealt.
+       */
+      galaxy_house_relations: z.enum(['concord', 'civil_war']).optional(),
       economy_enabled: z.boolean().optional(),
       tech_trees_enabled: z.boolean().optional(),
       events_enabled: z.boolean().optional(),
@@ -235,12 +241,13 @@ export function lanesContestableRejection(opts: {
 }
 
 /**
- * A Galactic Age lobby seats two to four players (lobbyCapacity.ts): four home
- * worlds, with the unclaimed ones opening as colonies below four. Checked here
- * on the form's own numbers, the seat cap it asks for and the seats it fills
- * with AI, because the humans who join later are held to that cap by
- * `/:gameId/join` and game start checks the final count. Five or more used to
- * slip through this way: the form asked for eight seats and filled four.
+ * A Galactic Age lobby seats two to four players, or eight (lobbyCapacity.ts):
+ * four home worlds, with the unclaimed ones opening as colonies below four, and
+ * two houses to a world at eight. Checked here on the form's own numbers, the
+ * seat cap it asks for and the seats it fills with AI, because the humans who
+ * join later are held to that cap by `/:gameId/join` and game start checks the
+ * final count. A fifth player used to slip through this way: the form asked for
+ * eight seats and filled four.
  *
  * Enforced HERE rather than in evaluateEraMapCompatibility because the shared
  * evaluator also runs on the in-lobby map-change path, where `player_count` is

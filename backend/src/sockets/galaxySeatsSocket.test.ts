@@ -1,9 +1,10 @@
 /**
- * The Galactic Age seats two to four, and game start is the last place that
- * holds a lobby to it: a lobby created before the create route capped the seat
- * count, or switched to the era by a vote, can still reach Start with five. And
- * a lobby inside the range starts on the board its seat count deals — at three,
- * the Colonies board with the ring's two gaps bridged on the game's map copy.
+ * The Galactic Age seats two to four, or eight, and game start is the last place
+ * that holds a lobby to it: a lobby created before the create route capped the
+ * seat count, a Schism lobby short of eight, or one switched to the era by a
+ * vote, can still reach Start with five. And a lobby the era can seat starts on
+ * the board its seat count deals — at three, the Colonies board with the ring's
+ * two gaps bridged on the game's map copy; at eight, the Schism.
  *
  * Drives the real game:start handler over socket.io against Redis. The waiting
  * lobby (the games and game_players rows) is held in memory in place of
@@ -66,6 +67,7 @@ import type { AddressInfo } from 'net';
 import type { Server as IOServer } from 'socket.io';
 import { io as ClientIO, type Socket as ClientSocket } from 'socket.io-client';
 import { GALAXY_PLAYER_COUNT_ERROR } from '../modules/games/lobbyCapacity';
+import { activeTruceBetween } from '../game-engine/state/truces';
 
 const redisTestEnabled = process.env.REDIS_TEST === '1';
 
@@ -168,10 +170,35 @@ describe.runIf(redisTestEnabled)('Galactic Age seats at game start', () => {
 
     expect(await start(client, gameId)).toEqual({ started: true });
     const state = await getGameState(gameId);
-    expect(state?.galaxy_mode?.id).toBe('colonies');
-    expect(state?.galaxy_mode?.neutral_worlds).toHaveLength(1);
+    const mode = state?.galaxy_mode;
+    expect(mode?.id).toBe('colonies');
+    expect(mode?.id === 'colonies' ? mode.neutral_worlds : null).toHaveLength(1);
     // The persisted map copy — what a reconnecting client is sent — carries the bridges.
     const map = await getGameMap(gameId);
     expect(map?.connections.filter((c) => c.source === 'galaxy_mode')).toHaveLength(2);
+  }, 30_000);
+
+  it("starts eight seats on the Schism board: every faction twice, each world's houses under the Concord", async () => {
+    const gameId = uuidv4();
+    const host = `host_${gameId.slice(0, 8)}`;
+    seedGalaxyLobby(gameId, host, 7);
+    const client = await hostIn(gameId, host);
+
+    expect(await start(client, gameId)).toEqual({ started: true });
+    const state = (await getGameState(gameId))!;
+    const mode = state.galaxy_mode;
+    expect(mode?.id).toBe('schism');
+    if (mode?.id !== 'schism') return;
+    expect(mode.relations).toBe('concord');
+    const perFaction = new Map<string, number>();
+    for (const p of state.players) perFaction.set(p.faction_id!, (perFaction.get(p.faction_id!) ?? 0) + 1);
+    expect([...perFaction.values()]).toEqual([2, 2, 2, 2]);
+    for (const house of mode.houses) {
+      const owned = Object.values(state.territories).filter((t) => t.owner_id === house.player_id);
+      expect(owned.length).toBe(house.world_id === 'nexus_station' ? 6 : 8);
+      expect(owned.every((t) => t.world_id === house.world_id)).toBe(true);
+      const rival = mode.houses.find((h) => h.world_id === house.world_id && h.player_id !== house.player_id)!;
+      expect(activeTruceBetween(state, house.player_id, rival.player_id)).not.toBeNull();
+    }
   }, 30_000);
 });

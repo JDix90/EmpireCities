@@ -55,6 +55,7 @@ import {
 } from '../constants/lobbyMapOptions';
 import {
   GALAXY_MAX_PLAYERS,
+  GALAXY_SCHISM_PLAYERS,
   LOBBY_THEATER_OPTIONS,
   buildMapMetaFromGameMap,
   evaluateEraMapCompatibility,
@@ -535,6 +536,10 @@ export default function LobbyPage() {
   // kits, no Lane Sovereignty, lanes as plain borders — the create route turns
   // `galaxy_home_worlds: false` into those settings.
   const [galaxyHomeWorlds, setGalaxyHomeWorlds] = useState(true);
+  // Galactic Age Schism: eight seats, two houses to every world (needs Home
+  // Worlds). The House relations setting decides how a world's two houses start.
+  const [galaxySchism, setGalaxySchism] = useState(false);
+  const [galaxyHouseRelations, setGalaxyHouseRelations] = useState<'concord' | 'civil_war'>('concord');
   const [coachingEnabled, setCoachingEnabled] = useState(false);
   const [eraAdvancementEnabled, setEraAdvancementEnabled] = useState(false);
   const [eraAdvancementPreset, setEraAdvancementPreset] = useState<'skirmish' | 'standard' | 'epic'>('standard');
@@ -587,6 +592,10 @@ export default function LobbyPage() {
   const isGalacticEra = selectedEra === GALACTIC_AGE_ERA_ID;
   // Home Worlds off plays without faction kits, so factions are forced off.
   const galaxyHomeWorldsOff = isGalacticEra && !galaxyHomeWorlds;
+  // The Schism deals houses onto home worlds, so it needs Home Worlds on.
+  const galaxySchismOn = isGalacticEra && galaxyHomeWorlds && galaxySchism;
+  // The seats a Galactic lobby asks for: four (Colonies below), or eight.
+  const galaxySeatCap = galaxySchismOn ? GALAXY_SCHISM_PLAYERS : GALAXY_MAX_PLAYERS;
   const lockedSystems = lockedSystemsForEra(selectedEra, { galaxyHomeWorlds });
   const lockedSystemsNotice = lockedEraSystemsNotice(selectedEra, { galaxyHomeWorlds });
   // Economy & Buildings is what pays for everything below it: Tech Points are
@@ -754,6 +763,7 @@ export default function LobbyPage() {
       settings,
       is_admin: user?.is_admin === true,
       player_count: 1 + aiCount,
+      max_players: isGalacticEra ? galaxySeatCap : undefined,
       map_meta: theaterMapDoc ? buildMapMetaFromGameMap(theaterMapDoc) : null,
     });
   }, [
@@ -771,6 +781,8 @@ export default function LobbyPage() {
     eraAdvancementEnabled,
     user?.is_admin,
     aiCount,
+    isGalacticEra,
+    galaxySeatCap,
     theaterMapDoc,
   ]);
 
@@ -1148,6 +1160,7 @@ export default function LobbyPage() {
         diplomacy_enabled: diplomacyEnabled,
         factions_enabled: factionsEnabled || undefined,
         galaxy_home_worlds: isGalacticEra ? galaxyHomeWorlds : undefined,
+        galaxy_house_relations: galaxySchismOn ? galaxyHouseRelations : undefined,
         economy_enabled: economyEnabled || undefined,
         tech_trees_enabled: techTreesEnabled || undefined,
         events_enabled: eventsEnabled || undefined,
@@ -1185,8 +1198,9 @@ export default function LobbyPage() {
       const res = await api.post('/games', {
         era_id: eraId,
         map_id: mapId,
-        // The Galactic Age seats two to four; every other era up to eight.
-        max_players: isGalacticEra ? GALAXY_MAX_PLAYERS : 8,
+        // The Galactic Age seats two to four, or eight for the Schism; every
+        // other era up to eight.
+        max_players: isGalacticEra ? galaxySeatCap : 8,
         ai_count: aiCount,
         ai_difficulty: aiDifficulty,
         settings,
@@ -2554,6 +2568,44 @@ export default function LobbyPage() {
                           />
                           <span className="leading-snug min-w-0 select-none">Home Worlds</span>
                         </label>
+                      </div>
+                    )}
+                    {isGalacticEra && (
+                      <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
+                        <FeatureTooltip text="Eight players, two houses to every world. Each faction goes to two players, who split its home world between them and share its kit. Every house has a rival at home and enemies across its lanes. Hold all four of your world's gateways — your own two and your rival's — and you wear the Lane Crown, worth extra reinforcements every turn. The Schism needs all eight seats filled — AI opponents plus the players you invite; started with two to four, the game plays that count's board instead. Needs Home Worlds." />
+                        <label htmlFor="galaxy-schism" className="contents cursor-pointer">
+                          <input
+                            type="checkbox"
+                            id="galaxy-schism"
+                            checked={galaxySchismOn}
+                            onChange={(e) => setGalaxySchism(e.target.checked)}
+                            disabled={!galaxyHomeWorlds}
+                            className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
+                          />
+                          <span className="leading-snug min-w-0 select-none">
+                            Schism (eight players)
+                            {!galaxyHomeWorlds && <span className="text-xs text-bf-muted"> (needs Home Worlds)</span>}
+                          </span>
+                        </label>
+                      </div>
+                    )}
+                    {galaxySchismOn && (
+                      <div className="sm:col-span-2">
+                        <label htmlFor="galaxy-house-relations" className="label">House Relations</label>
+                        <select
+                          id="galaxy-house-relations"
+                          className="input"
+                          value={galaxyHouseRelations}
+                          onChange={(e) => setGalaxyHouseRelations(e.target.value === 'civil_war' ? 'civil_war' : 'concord')}
+                        >
+                          <option value="concord">Concord — each world's houses start under a truce</option>
+                          <option value="civil_war">Civil War — no truce, war from the first turn</option>
+                        </select>
+                        <p className="text-xs text-bf-muted mt-1">
+                          {galaxyHouseRelations === 'concord'
+                            ? 'A truce for the opening rounds, so each house can face outward first. Breaking it early is allowed, at the usual cost: your target gets a defence die, then a die against you.'
+                            : 'The two houses on every world are enemies from turn one.'}
+                        </p>
                       </div>
                     )}
                   </div>

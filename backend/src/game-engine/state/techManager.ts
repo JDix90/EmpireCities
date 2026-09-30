@@ -10,6 +10,7 @@ import { resolvePlayerEraId } from '../eraAdvancement/constants';
 import { getTechEchoBonus } from '../eraAdvancement/techEcho';
 import { getWonderTechCostMultiplier } from './wonderManager';
 import { factionReinforceBonus } from './galaxyModes';
+import { houseReinforceBonus, laneCrownBonus } from './galaxySchism';
 
 function getPlayerTechEra(state: GameState, playerId: string): EraId {
   const player = state.players.find((p) => p.player_id === playerId);
@@ -187,6 +188,10 @@ export function getPlayerReinforceBonus(state: GameState, playerId: string): num
     const faction = getPlayerFaction(state, player);
     if (faction) bonus += factionReinforceBonus(state, faction);
   }
+
+  // Schism (galaxySchism.ts): the house's own bonus, and the Lane Crown for
+  // every gateway of its home world
+  bonus += houseReinforceBonus(state, playerId) + laneCrownBonus(state, playerId);
 
   // Tech node reinforce bonuses
   if (state.settings.tech_trees_enabled) {

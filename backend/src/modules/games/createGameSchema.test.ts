@@ -231,6 +231,28 @@ describe('Galactic Age lobby payload', () => {
     expect(parsed.success).toBe(true);
     if (parsed.success) expect(parsed.data.settings.galaxy_home_worlds).toBe(false);
   });
+
+  it('keeps the Schism house relations, and refuses anything else', () => {
+    for (const relations of ['concord', 'civil_war'] as const) {
+      const parsed = CreateGameSchema.safeParse({
+        ...galaxyPayload,
+        max_players: 8,
+        settings: { ...galaxyPayload.settings, galaxy_house_relations: relations },
+      });
+      expect(parsed.success).toBe(true);
+      if (parsed.success) expect(parsed.data.settings.galaxy_house_relations).toBe(relations);
+    }
+    expect(CreateGameSchema.safeParse({
+      ...galaxyPayload,
+      settings: { ...galaxyPayload.settings, galaxy_house_relations: 'allied' },
+    }).success).toBe(false);
+  });
+
+  it('persists Civil War, and the Concord as the default it is', () => {
+    expect(normalizeGameSettings({ galaxy_house_relations: 'civil_war' }).galaxy_house_relations).toBe('civil_war');
+    expect(normalizeGameSettings({ galaxy_house_relations: 'concord' }).galaxy_house_relations).toBeUndefined();
+    expect(normalizeGameSettings({}).galaxy_house_relations).toBeUndefined();
+  });
 });
 
 describe('Galactic Age with Home Worlds off', () => {
@@ -538,18 +560,18 @@ describe('territorySelectionRejection', () => {
 
 describe('galaxyPlayerCountRejection', () => {
   // Two to four seats each deal a designed start — four home worlds, or
-  // Colonies below four. Five or more have no board: the engine scatters every
-  // seat across worlds it cannot reach.
-  it('accepts a lobby of two to four seats, however many of them are AI', () => {
-    for (const maxPlayers of [2, 3, 4]) {
+  // Colonies below four — and eight deals the Schism, two houses to a world.
+  // Five to seven have no board: the engine would scatter every seat.
+  it('accepts a lobby of two to four seats, or eight, however many of them are AI', () => {
+    for (const maxPlayers of [2, 3, 4, 8]) {
       for (let aiCount = 0; aiCount < maxPlayers; aiCount++) {
         expect(galaxyPlayerCountRejection({ isGalacticAge: true, maxPlayers, aiCount })).toBeNull();
       }
     }
   });
 
-  it('rejects a lobby that could seat five or more — the form used to ask for eight', () => {
-    for (const maxPlayers of [5, 6, 8]) {
+  it('rejects a lobby of five to seven seats', () => {
+    for (const maxPlayers of [5, 6, 7]) {
       expect(galaxyPlayerCountRejection({ isGalacticAge: true, maxPlayers, aiCount: 3 }))
         .toBe(GALAXY_PLAYER_COUNT_ERROR);
     }
@@ -557,6 +579,8 @@ describe('galaxyPlayerCountRejection', () => {
 
   it('rejects more AI than the lobby has seats', () => {
     expect(galaxyPlayerCountRejection({ isGalacticAge: true, maxPlayers: 3, aiCount: 3 }))
+      .toBe(GALAXY_PLAYER_COUNT_ERROR);
+    expect(galaxyPlayerCountRejection({ isGalacticAge: true, maxPlayers: 8, aiCount: 8 }))
       .toBe(GALAXY_PLAYER_COUNT_ERROR);
   });
 

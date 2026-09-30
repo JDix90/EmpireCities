@@ -6,6 +6,7 @@ import { GameLobbySnapshot } from '../../types/gameLobbyApi';
 import FactionLoreModal, { type FactionLoreInfo } from './FactionLoreModal';
 import { AiBadge } from '../ui/AiBadge';
 import { aiPlayerName } from '@borderfall/shared';
+import { seatsPerFaction } from '../../utils/lobbyEraMapCompatibility';
 
 interface FactionInfo {
   faction_id: string;
@@ -53,8 +54,13 @@ export default function FactionSelectionPanel({ lobby, eraId }: FactionSelection
     playerFactions[p.user_id || `ai_${p.player_index}`] = p.faction_id || null;
   });
 
-  // Set of all picked faction_ids
-  const takenFactions = new Set(Object.values(playerFactions).filter(Boolean));
+  // Faction id -> seats holding it. A faction is taken once it has all the
+  // seats it may: one, or two in a Galactic Age Schism lobby.
+  const holders = new Map<string, number>();
+  for (const f of Object.values(playerFactions)) if (f) holders.set(f, (holders.get(f) ?? 0) + 1);
+  const perFaction = seatsPerFaction(lobby.era_id, lobby.map_id, lobby.settings_json);
+  const isTaken = (factionId: string, playerKey: string) =>
+    playerFactions[playerKey] !== factionId && (holders.get(factionId) ?? 0) >= perFaction;
 
   const handleSelect = async (playerKey: string, factionId: string) => {
     setSubmitting(playerKey);
@@ -118,7 +124,7 @@ export default function FactionSelectionPanel({ lobby, eraId }: FactionSelection
                           <option
                             key={f.faction_id}
                             value={f.faction_id}
-                            disabled={takenFactions.has(f.faction_id) && playerFactions[playerKey] !== f.faction_id}
+                            disabled={isTaken(f.faction_id, playerKey)}
                           >
                             {f.name}
                           </option>

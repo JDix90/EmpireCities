@@ -15,7 +15,11 @@ import {
   convoysFor,
   describeColonies,
   describeColonyKitChanges,
+  describeSchism,
   factionReinforceBonus,
+  holdsLaneCrown,
+  schismHouseOf,
+  schismRivalOf,
   describeConvoy,
   describeLaneKind,
   laneKindOf,
@@ -277,7 +281,7 @@ describe('the Colonies board', () => {
     expect(laneSovereigntyProgress(mk(2), mapData.connections, 'me').roundsNeeded).toBe(5);
     expect(laneSovereigntyProgress(mk(3), mapData.connections, 'me').roundsNeeded).toBe(3);
     expect(laneSovereigntyProgress(mk(4), mapData.connections, 'me').roundsNeeded).toBe(3);
-    expect([2, 3, 4].map(laneSovereigntyRoundsFor)).toEqual([5, 3, 3]);
+    expect([2, 3, 4, 8].map(laneSovereigntyRoundsFor)).toEqual([5, 3, 3, 3]);
   });
 
   it("reads a kit's reinforcement bonus as the Colonies board sets it", () => {
@@ -313,5 +317,82 @@ describe('the Colonies board', () => {
     }, mapData)).toBe(
       'Nexus Station starts neutral and garrisoned — a colony for whoever takes it. Two extra lanes link every world to every other.',
     );
+  });
+});
+
+describe('the Schism board', () => {
+  const houses = [
+    { player_id: 'me', world_id: 'sol', half: 0 as const, name: 'Western Mandate' },
+    { player_id: 'rival', world_id: 'sol', half: 1 as const, name: 'Eastern Mandate' },
+    { player_id: 'far', world_id: 'verdan', half: 0 as const, name: 'Dawnrim Navigators' },
+  ];
+  const schism = (relations: 'concord' | 'civil_war', owners: Record<string, string> = {}) => ({
+    players: [
+      { player_id: 'me', username: 'Commander' },
+      { player_id: 'rival', username: 'Rival' },
+      { player_id: 'far', username: 'Far' },
+    ],
+    territories: Object.fromEntries(Object.entries(owners).map(([id, owner]) => [id, { owner_id: owner }])),
+    galaxy_mode: {
+      id: 'schism' as const,
+      relations,
+      concord_rounds: relations === 'concord' ? 3 : 0,
+      lane_crown_bonus: 2,
+      houses,
+      crown_gateways: { sol: ['sol_a', 'sol_b'], verdan: ['verdan_a'] },
+    },
+  }) as unknown as GameState;
+
+  it("finds a player's house and the rival on their world", () => {
+    const state = schism('concord');
+    expect(schismHouseOf(state, 'me')?.name).toBe('Western Mandate');
+    expect(schismRivalOf(state, 'me')?.player_id).toBe('rival');
+    expect(schismRivalOf(state, 'rival')?.player_id).toBe('me');
+    expect(schismHouseOf(state, 'nobody')).toBeNull();
+    expect(schismHouseOf({ galaxy_mode: { id: 'colonies', neutral_worlds: [] } } as unknown as GameState, 'me')).toBeNull();
+  });
+
+  it("wears the Lane Crown with every gateway of the house's own world, and no other", () => {
+    expect(holdsLaneCrown(schism('concord', { sol_a: 'me', sol_b: 'rival' }), 'me')).toBe(false);
+    expect(holdsLaneCrown(schism('concord', { sol_a: 'me', sol_b: 'me' }), 'me')).toBe(true);
+    expect(holdsLaneCrown(schism('concord', { verdan_a: 'me' }), 'me')).toBe(false);
+    expect(holdsLaneCrown(mkState({ owners: { sol_a: 'me', sol_b: 'me' } }), 'me')).toBe(false);
+  });
+
+  it('briefs a house on its rival, the Concord and the Crown', () => {
+    expect(describeSchism(schism('concord'), 'me', mapData)).toEqual([
+      'You are the Western Mandate. The Eastern Mandate (Rival) holds the rest of Sol III, with the same kit.',
+      'The Concord: you and the Eastern Mandate are under a truce for the first 3 rounds. Attacking them before it ends breaks it: they defend that attack with an extra die, and get an extra die for their next attack on you.',
+      "The Lane Crown: hold all four of Sol III's gateways, your two and theirs, and you draft +2 reinforcements a turn.",
+    ]);
+    expect(describeSchism(schism('civil_war'), 'me', mapData)[1]).toBe(
+      'Civil War: the Eastern Mandate is your enemy from the first turn.',
+    );
+  });
+
+  it("names a house's own bonus, from either side of the world", () => {
+    const withBonus = (bonus: number, holder: 'me' | 'rival') => {
+      const state = schism('concord');
+      const mode = state.galaxy_mode as { houses: Array<{ player_id: string; reinforce_bonus?: number }> };
+      mode.houses = mode.houses.map((h) => (h.player_id === holder ? { ...h, reinforce_bonus: bonus } : h));
+      return state;
+    };
+    expect(describeSchism(withBonus(2, 'me'), 'me', mapData)[1]).toBe(
+      'Your half is the harder ground: the Western Mandate drafts +2 a turn on top of the kit.',
+    );
+    expect(describeSchism(withBonus(1, 'rival'), 'me', mapData)[1]).toBe(
+      'Their half is the harder ground: the Eastern Mandate drafts +1 a turn on top of the kit.',
+    );
+    expect(describeSchism(withBonus(-1, 'me'), 'me', mapData)[1]).toBe(
+      'Your half is the richer ground: the Western Mandate drafts 1 fewer a turn than the kit.',
+    );
+    expect(describeSchism(schism('concord'), 'me', mapData)).toHaveLength(3);
+  });
+
+  it('briefs a spectator on the board, and says nothing on any other board', () => {
+    const lines = describeSchism(schism('concord'), null, mapData);
+    expect(lines[0]).toMatch(/^Eight houses, two to every world/);
+    expect(lines[1]).toBe("The Concord: each world's two houses start under a truce for the first 3 rounds.");
+    expect(describeSchism(mkState(), 'me', mapData)).toEqual([]);
   });
 });

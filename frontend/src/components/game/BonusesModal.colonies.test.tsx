@@ -69,3 +69,62 @@ describe('BonusesModal — the faction reinforcement bonus on a Colonies board',
     expect(screen.getByText('Added at the start of each of your draft phases.')).toBeInTheDocument();
   });
 });
+
+describe('BonusesModal — the Lane Crown on a Schism board', () => {
+  beforeEach(() => {
+    useAuthStore.setState({ user: { user_id: 'me', username: 'me' } as never, isAuthenticated: true });
+  });
+
+  function schismGame(myGateways: number): GameState {
+    const gateways = ['sol_amazonia', 'sol_cathay', 'sol_guinea', 'sol_pacific_rim'];
+    const base = galaxyGame(2, false);
+    return {
+      ...base,
+      territories: Object.fromEntries(gateways.map((id, i) => [id, { owner_id: i < myGateways ? 'me' : 'p1', unit_count: 3 }])),
+      galaxy_mode: {
+        id: 'schism',
+        relations: 'concord',
+        concord_rounds: 3,
+        lane_crown_bonus: 2,
+        houses: [
+          { player_id: 'me', world_id: 'sol', half: 0, name: 'Western Mandate' },
+          { player_id: 'p1', world_id: 'sol', half: 1, name: 'Eastern Mandate' },
+        ],
+        crown_gateways: { sol: gateways },
+      },
+    } as unknown as GameState;
+  }
+
+  it('says how to win it while the house does not wear it', async () => {
+    useGameStore.setState({ gameState: schismGame(2) } as never);
+    render(<BonusesModal techTree={[]} onClose={() => {}} />);
+    expect(await screen.findByText('Lane Crown · Western Mandate')).toBeInTheDocument();
+    expect(screen.getByText('not worn')).toBeInTheDocument();
+    expect(screen.getByText(/your two and the Eastern Mandate's — and you draft \+2 a turn/)).toBeInTheDocument();
+  });
+
+  it('shows the +2 while the house holds all four gateways', async () => {
+    useGameStore.setState({ gameState: schismGame(4) } as never);
+    render(<BonusesModal techTree={[]} onClose={() => {}} />);
+    expect(await screen.findByText('Lane Crown · Western Mandate')).toBeInTheDocument();
+    expect(screen.getByText(/the Lane Crown adds this at the start of each of your draft phases/)).toBeInTheDocument();
+    expect(screen.queryByText('not worn')).toBeNull();
+  });
+
+  it("shows the house's own bonus when its half has one", async () => {
+    const game = schismGame(2);
+    const mode = game.galaxy_mode as { houses: Array<{ player_id: string; reinforce_bonus?: number }> };
+    mode.houses = mode.houses.map((h) => (h.player_id === 'me' ? { ...h, reinforce_bonus: 2 } : h));
+    useGameStore.setState({ gameState: game } as never);
+    render(<BonusesModal techTree={[]} onClose={() => {}} />);
+    expect(await screen.findByText('House Bonus · Western Mandate')).toBeInTheDocument();
+    expect(screen.getByText(/is the harder ground, so the board pays it back/)).toBeInTheDocument();
+  });
+
+  it('has no Lane Crown row off a Schism board', async () => {
+    useGameStore.setState({ gameState: galaxyGame(4, false) } as never);
+    render(<BonusesModal techTree={[]} onClose={() => {}} />);
+    await screen.findByText('+2 / turn');
+    expect(screen.queryByText(/Lane Crown/)).toBeNull();
+  });
+});

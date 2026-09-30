@@ -2,8 +2,8 @@
  * Headless AI-vs-AI Galactic Age balance simulator.
  *
  * Drives the PURE game engine (no sockets, no DB) for N galaxy_age games on
- * era_galaxy.json — four players by default, or two or three with SIM_PLAYERS —
- * and reports the balance signals that matter for the multi-world map after the
+ * era_galaxy.json — four players by default, or two, three or eight with
+ * SIM_PLAYERS — and reports the balance signals that matter for the multi-world map after the
  * 6->16 territory densification:
  *   - per-FACTION win rate, as a share of the games each faction played
  *     (baseline 1/players; flags a faction 40% above or below it),
@@ -13,7 +13,8 @@
  *
  * Every player is on a distinct galaxy faction, so each gets its whole home world
  * (tryDistributeGalaxyAgeFactionHomeworlds); below four players the rest of the
- * worlds open as neutral colonies (state/galaxyModes.ts). Era advancement is OFF
+ * worlds open as neutral colonies (state/galaxyModes.ts). At eight every faction
+ * has two seats, each a house on half its world (state/galaxySchism.ts). Era advancement is OFF
  * (galaxy is the terminal era); factions ON; naval OFF (the worlds are linked by
  * orbit lanes, not sea). Combat dice are seeded per game.
  *
@@ -22,6 +23,7 @@
  *   SIM_GAMES=500 SIM_DIFFICULTY=expert SIM_MAX_TURNS=90 \
  *     SIM_CSV=/tmp/galaxy_balance.csv pnpm exec tsx scripts/simGalaxyBalance.ts
  *   SIM_PLAYERS=2 SIM_GAMES=240 pnpm exec tsx scripts/simGalaxyBalance.ts
+ *   SIM_PLAYERS=8 SIM_GAMES=240 SIM_HOUSE_RELATIONS=civil_war pnpm exec tsx scripts/simGalaxyBalance.ts
  */
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
@@ -38,14 +40,24 @@ import { syncJumpGateLanes } from '../src/game-engine/state/jumpGates';
 import { syncLaneWeatherLanes } from '../src/game-engine/state/laneWeather';
 import {
   COLONY_GARRISONS,
-  GALAXY_MAX_SEATS,
-  GALAXY_MIN_SEATS,
+  GALAXY_SCHISM_SEATS,
+  GALAXY_SEAT_COUNTS,
   syncGalaxyModeLanes,
 } from '../src/game-engine/state/galaxyModes';
+import {
+  holdsLaneCrown,
+  normalizeHouseRelations,
+  SCHISM_HALVES,
+  SCHISM_TUNING,
+  schismHouseOf,
+  schismHouseTiles,
+} from '../src/game-engine/state/galaxySchism';
+import { activeTruceBetween } from '../src/game-engine/state/truces';
 import { GALAXY_MODE_LANE_SOURCE, neighbouringWorlds } from '../src/game-engine/state/galaxyRing';
 import { vaultRegionGarrisons } from '../src/game-engine/state/worldRules';
 import {
   LANE_SOVEREIGNTY_CORRIDORS_NEEDED,
+  LANE_SOVEREIGNTY_ROUNDS,
   LANE_SOVEREIGNTY_ROUNDS_BY_SEATS,
 } from '../src/game-engine/victory/laneSovereignty';
 import { fortifyBecomesConvoy, launchConvoy } from '../src/game-engine/state/transit';
@@ -173,13 +185,80 @@ function applyCatchup(state: GameState): void {
 }
 
 /**
- * `SIM_PLAYERS=2|3|4` (default 4). Below four the engine deals the Colonies
+ * `SIM_PLAYERS=2|3|4|8` (default 4). Below four the engine deals the Colonies
  * board: the worlds nobody calls home open neutral, and at three the ring's two
- * gaps are bridged all game.
+ * gaps are bridged all game. Eight deals the Schism: two houses to every world.
  */
 const PLAYERS = Number(process.env.SIM_PLAYERS ?? 4);
-if (!Number.isInteger(PLAYERS) || PLAYERS < GALAXY_MIN_SEATS || PLAYERS > GALAXY_MAX_SEATS) {
-  throw new Error(`SIM_PLAYERS must be ${GALAXY_MIN_SEATS}–${GALAXY_MAX_SEATS}`);
+if (!GALAXY_SEAT_COUNTS.includes(PLAYERS)) {
+  throw new Error(`SIM_PLAYERS must be one of ${GALAXY_SEAT_COUNTS.join(', ')}`);
+}
+const SCHISM = PLAYERS === GALAXY_SCHISM_SEATS;
+/**
+ * Schism knobs (eight players only), patched onto the engine's SCHISM_TUNING
+ * the way SIM_COLONY_GARRISON is:
+ *   SIM_HOUSE_RELATIONS=concord|civil_war — how a world's two houses start
+ *     (the lobby setting; the Concord by default).
+ *   SIM_CONCORD_ROUNDS=N — rounds the Concord truce covers.
+ *   SIM_LANE_CROWN=N — units a turn for holding all four home gateways.
+ *   SIM_SCHISM_HALVES='{"verdan":[[...],[...]]}' — alternative halves for a
+ *     world, tile lists replacing SCHISM_HALVES' (house names kept).
+ */
+const HOUSE_RELATIONS = normalizeHouseRelations(process.env.SIM_HOUSE_RELATIONS ?? 'concord');
+if (process.env.SIM_HOUSE_RELATIONS && process.env.SIM_HOUSE_RELATIONS !== HOUSE_RELATIONS) {
+  throw new Error('SIM_HOUSE_RELATIONS must be concord or civil_war');
+}
+if (process.env.SIM_CONCORD_ROUNDS) {
+  const rounds = Number(process.env.SIM_CONCORD_ROUNDS);
+  if (!(Number.isInteger(rounds) && rounds >= 0)) throw new Error('SIM_CONCORD_ROUNDS must be a whole number >= 0');
+  SCHISM_TUNING.concordRounds = rounds;
+}
+if (process.env.SIM_LANE_CROWN) {
+  const bonus = Number(process.env.SIM_LANE_CROWN);
+  if (!(Number.isInteger(bonus) && bonus >= 0)) throw new Error('SIM_LANE_CROWN must be a whole number >= 0');
+  SCHISM_TUNING.laneCrownBonus = bonus;
+}
+/**
+ * `SIM_SCHISM_OPENING='{"sol":[1,0],"nexus_station":[0,-1]}'`: each half's
+ * opening_bonus (extra units per tile at the start), by world, patched onto
+ * SCHISM_HALVES. Worlds not listed keep theirs.
+ */
+if (process.env.SIM_SCHISM_OPENING) {
+  const patch = JSON.parse(process.env.SIM_SCHISM_OPENING) as Record<string, [number, number]>;
+  for (const [world, bonuses] of Object.entries(patch)) {
+    const halves = SCHISM_HALVES[world];
+    if (!halves) throw new Error(`SIM_SCHISM_OPENING: unknown world "${world}"`);
+    (SCHISM_HALVES as Record<string, unknown>)[world] = [
+      { ...halves[0], opening_bonus: bonuses[0] },
+      { ...halves[1], opening_bonus: bonuses[1] },
+    ];
+  }
+}
+/**
+ * `SIM_SCHISM_REINFORCE='{"sol":[2,0]}'`: each half's reinforce_bonus (units a
+ * turn for the house on it), by world, patched onto SCHISM_HALVES.
+ */
+if (process.env.SIM_SCHISM_REINFORCE) {
+  const patch = JSON.parse(process.env.SIM_SCHISM_REINFORCE) as Record<string, [number, number]>;
+  for (const [world, bonuses] of Object.entries(patch)) {
+    const halves = SCHISM_HALVES[world];
+    if (!halves) throw new Error(`SIM_SCHISM_REINFORCE: unknown world "${world}"`);
+    (SCHISM_HALVES as Record<string, unknown>)[world] = [
+      { ...halves[0], reinforce_bonus: bonuses[0] },
+      { ...halves[1], reinforce_bonus: bonuses[1] },
+    ];
+  }
+}
+if (process.env.SIM_SCHISM_HALVES) {
+  const patch = JSON.parse(process.env.SIM_SCHISM_HALVES) as Record<string, [string[], string[]]>;
+  for (const [world, [a, b]] of Object.entries(patch)) {
+    const halves = SCHISM_HALVES[world];
+    if (!halves) throw new Error(`SIM_SCHISM_HALVES: unknown world "${world}"`);
+    (SCHISM_HALVES as Record<string, unknown>)[world] = [
+      { ...halves[0], tiles: a },
+      { ...halves[1], tiles: b },
+    ];
+  }
 }
 /**
  * `SIM_COLONY_GARRISON=gateway,interior`: a colony world's opening garrison,
@@ -234,11 +313,30 @@ function factionLineups(k: number): string[][] {
  * The line-ups games cycle through: all four factions at four players; below,
  * every combination of that many (six pairs, four triples). Within a line-up the
  * seat order rotates too, so a full cycle is lineups × players games (4, 12, 12)
- * and no faction is confounded with a seat or a partner.
+ * and no faction is confounded with a seat or a partner. Eight players have one
+ * line-up, every faction twice (schismSeating).
  */
-const LINEUPS = factionLineups(PLAYERS);
+const LINEUPS = SCHISM ? [[...FACTIONS, ...FACTIONS]] : factionLineups(PLAYERS);
 const CYCLE = LINEUPS.length * PLAYERS;
 const COLORS = ['#5dade2', '#e67e22', '#2ecc71', '#9b59b6'];
+
+/**
+ * Eight players: which faction and which half of its world each seat takes.
+ * Every block of eight games starts from a seeded shuffle of the eight houses
+ * and rotates it a seat per game, so each house sits in every seat once a block
+ * while the blocks vary which houses sit next to which (a world's two houses
+ * one seat apart, or four).
+ */
+function schismSeating(gameIndex: number): Array<{ faction: string; half: 0 | 1 }> {
+  const rng = createSeededRng(hashStringToSeed(`${MASTER_SEED}:schism:${Math.floor(gameIndex / PLAYERS)}`));
+  const houses = FACTIONS.flatMap((faction) => [0, 1].map((half) => ({ faction, half: half as 0 | 1 })));
+  for (let i = houses.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [houses[i], houses[j]] = [houses[j]!, houses[i]!];
+  }
+  const rot = gameIndex % PLAYERS;
+  return houses.map((_, i) => houses[(i + rot) % PLAYERS]!);
+}
 
 function loadMap(): GameMap {
   // `SIM_MAP=/path/to/variant.json` runs a tuning variant without touching the
@@ -278,6 +376,7 @@ function simSettings(): GameSettings {
     tech_trees_enabled: true,
     stability_enabled: true,
     era_advancement_enabled: false, // galaxy is the terminal era
+    galaxy_house_relations: HOUSE_RELATIONS,
     galaxy_corridors_enabled: CORRIDORS,
     galaxy_plain_lanes: PLAIN_LANES || undefined,
     galaxy_transit_enabled: TRANSIT,
@@ -349,6 +448,10 @@ interface SeatTelemetry {
   exchangesVs: Record<string, number>;
   /** The faction whose capture eliminated this seat, if one did. */
   eliminatedBy: string | null;
+  /** Schism: tiles this seat captured, by the victim's house ('neutral' for unowned). */
+  capturesFromHouse: Record<string, number>;
+  /** Schism: the house whose capture eliminated this seat, if one did. */
+  eliminatedByHouse: string | null;
   /** Convoys this seat sent, and how they ended (transit only). */
   convoysSent: number;
   convoysLanded: number;
@@ -373,6 +476,8 @@ interface SeatTelemetry {
  * seats carry no faction_id, so telemetry reads the label from here.
  */
 const seatLabel = new Map<string, string>();
+/** Schism: each seat's house name for the current game (empty otherwise). */
+const houseLabel = new Map<string, string>();
 
 function playAiTurn(
   state: GameState,
@@ -453,11 +558,14 @@ function playAiTurn(
         const victim: GameState["players"][number] | undefined = ownerBefore ? state.players.find((p) => p.player_id === ownerBefore) : undefined;
         const vf = victim ? seatLabel.get(victim.player_id) ?? 'neutral' : 'neutral';
         seat.capturesFrom[vf] = (seat.capturesFrom[vf] ?? 0) + 1;
+        const vh = victim ? houseLabel.get(victim.player_id) ?? 'neutral' : 'neutral';
+        seat.capturesFromHouse[vh] = (seat.capturesFromHouse[vh] ?? 0) + 1;
         const w = state.territories[a.to].world_id ?? '?';
         seat.capturesOn[w] = (seat.capturesOn[w] ?? 0) + 1;
         if (victim && victimAliveBefore && ownedIds(state, victim.player_id).length === 0) {
           const me = state.players.find((p) => p.player_id === pid)!;
           telemetryFor(victim.player_id).eliminatedBy = seatLabel.get(me.player_id) ?? null;
+          telemetryFor(victim.player_id).eliminatedByHouse = houseLabel.get(me.player_id) ?? null;
         }
       }
       if (outcome && connection?.source === 'lane_surge') seat.surgeCrossings++;
@@ -533,6 +641,15 @@ interface GameStat {
   weatherSurges: number;
   /** Two players only: whether their home worlds share lanes, or face across the ring. */
   layout: 'adjacent' | 'opposite' | null;
+  /** Schism: each seat's house name, in seat order. */
+  houses: string[] | null;
+  /** Schism: turn starts each seat began wearing the Lane Crown. */
+  crownTurns: number[];
+  /** Schism: the first turn any house began wearing the Lane Crown (null if none did). */
+  crownFirstTurn: number | null;
+  /** Schism: the round the first house was eliminated, and by its world's other house or not. */
+  firstElimTurn: number | null;
+  firstElimByRival: boolean | null;
   /** Colonies: the turn a player first took a colony tile (null if never, or no colonies). */
   colonyFirstCaptureTurn: number | null;
   /** Colonies: colony tiles held by any player, at each snapshot turn reached. */
@@ -601,13 +718,37 @@ function assertColonyStart(map: GameMap, state: GameState): void {
   }
 }
 
+/**
+ * Eight players must open on the Schism board: each seat on its half of its
+ * faction's world and nothing else, the Vault ring neutral, and a world's two
+ * houses under the Concord exactly when that is the relations being measured.
+ */
+function assertSchismStart(state: GameState, halfOf: Record<string, 0 | 1>): void {
+  const mode = state.galaxy_mode;
+  if (mode?.id !== 'schism' || mode.relations !== HOUSE_RELATIONS) {
+    throw new Error(`eight players did not open on the Schism board (${JSON.stringify(mode)})`);
+  }
+  for (const p of state.players) {
+    const house = schismHouseOf(state, p.player_id);
+    if (!house || house.half !== halfOf[p.player_id]) throw new Error(`${p.player_id} was dealt the wrong half`);
+    const owned = ownedIds(state, p.player_id);
+    const tiles = [...schismHouseTiles(house)].sort();
+    if (owned.join() !== tiles.join()) throw new Error(`${house.name} opened on ${owned.join()} not its half`);
+    const rival = mode.houses.find((h) => h.world_id === house.world_id && h.player_id !== p.player_id)!;
+    const truce = !!activeTruceBetween(state, p.player_id, rival.player_id);
+    if (truce !== (HOUSE_RELATIONS === 'concord' && SCHISM_TUNING.concordRounds > 0)) {
+      throw new Error(`${house.name} and ${rival.name} opened ${truce ? 'under' : 'without'} a truce`);
+    }
+  }
+}
+
 /** Re-deal the opening board with no home worlds (see SIM_SCATTERED). */
 function scatterStart(state: GameState, map: GameMap, gameIndex: number): void {
   const rng = createSeededRng(hashStringToSeed(`${MASTER_SEED}:scatter:${gameIndex}`));
   // Below four players the engine laid the colonies out; a scattered start has
   // none, so their tiles are dealt too (the Vault ring stays neutral either way)
   // and the three-player bridges come down.
-  const colonyWorlds = new Set(state.galaxy_mode?.neutral_worlds ?? []);
+  const colonyWorlds = new Set(state.galaxy_mode?.id === 'colonies' ? state.galaxy_mode.neutral_worlds : []);
   const vault = vaultRegionGarrisons(map);
   const ids = Object.values(state.territories)
     .filter((t) => t.owner_id || (colonyWorlds.has(t.world_id ?? '') && !vault.has(t.territory_id)))
@@ -655,6 +796,7 @@ function runGame(gameIndex: number, sourceMap: GameMap): GameStat {
   // the one line-up rotated a seat per game, as it always was.
   const lineup = LINEUPS[gameIndex % LINEUPS.length]!;
   const rot = Math.floor(gameIndex / LINEUPS.length) % PLAYERS;
+  const seating = SCHISM ? schismSeating(gameIndex) : null;
   const players = Array.from({ length: PLAYERS }, (_, i) => ({
     player_id: `ai_${i}`,
     player_index: i,
@@ -663,8 +805,10 @@ function runGame(gameIndex: number, sourceMap: GameMap): GameStat {
     is_ai: true,
     is_eliminated: false,
     mmr: 1000,
-    faction_id: lineup[(i + rot) % PLAYERS]!,
+    faction_id: seating ? seating[i]!.faction : lineup[(i + rot) % PLAYERS]!,
   }));
+  const halfOf: Record<string, 0 | 1> = {};
+  if (seating) players.forEach((p, i) => { halfOf[p.player_id] = seating[i]!.half; });
   const factionOf: Record<string, string> = {};
   for (const p of players) factionOf[p.player_id] = p.faction_id;
   seatLabel.clear();
@@ -674,20 +818,32 @@ function runGame(gameIndex: number, sourceMap: GameMap): GameStat {
 
   const state = initializeGameState(`galsim_${gameIndex}`, 'galaxy_age', map, enginePlayers, simSettings(), {
     forceStartingPlayerIndex: 0,
+    ...(SCHISM ? { forceSchismHalves: halfOf } : {}),
   });
   if (SCATTERED) scatterStart(state, map, gameIndex);
   else {
     assertHomeworldStart(map, state, factionOf);
-    assertColonyStart(map, state);
+    if (SCHISM) assertSchismStart(state, halfOf);
+    else assertColonyStart(map, state);
   }
+  const houses = SCHISM && !SCATTERED
+    ? state.players.map((p) => schismHouseOf(state, p.player_id)?.name ?? '?')
+    : null;
+  houseLabel.clear();
+  if (houses) state.players.forEach((p, i) => houseLabel.set(p.player_id, houses[i]!));
+  const crownTurns = state.players.map(() => 0);
+  let crownFirstTurn: number | null = null;
+  let firstElimTurn: number | null = null;
+  let firstElimByRival: boolean | null = null;
   applyCatchup(state);
   // Two players: are the home worlds neighbours on the ring, or across it?
   const homes = players.map((p) => FACTION_WORLD_ID[p.faction_id]!).sort();
   const layout: GameStat['layout'] = PLAYERS !== 2
     ? null
     : neighbouringWorlds(map).has(`${homes[0]}::${homes[1]}`) ? 'adjacent' : 'opposite';
+  const colonyWorldIds = state.galaxy_mode?.id === 'colonies' ? state.galaxy_mode.neutral_worlds : [];
   const colonyTiles = Object.values(state.territories)
-    .filter((t) => (state.galaxy_mode?.neutral_worlds ?? []).includes(t.world_id ?? ''))
+    .filter((t) => colonyWorldIds.includes(t.world_id ?? ''))
     .map((t) => t.territory_id);
   let colonyFirstCaptureTurn: number | null = null;
   const colonyHeldAt: Record<number, number> = {};
@@ -709,6 +865,8 @@ function runGame(gameIndex: number, sourceMap: GameMap): GameStat {
       capturesOn: {},
       exchangesVs: {},
       eliminatedBy: null,
+      capturesFromHouse: {},
+      eliminatedByHouse: null,
       convoysSent: 0,
       convoysLanded: 0,
       convoysTurnedBack: 0,
@@ -737,6 +895,22 @@ function runGame(gameIndex: number, sourceMap: GameMap): GameStat {
     }
     advanceToNextPlayer(state, map);
     applyCatchup(state);
+    if (houses) {
+      // The Crown pays at the wearer's own turn start, which is now.
+      const next = state.players[state.current_player_index]!;
+      if (!next.is_eliminated && holdsLaneCrown(state, next.player_id)) {
+        crownTurns[state.current_player_index]!++;
+        if (crownFirstTurn == null) crownFirstTurn = state.turn_number;
+      }
+      if (firstElimTurn == null) {
+        const out = state.players.find((p) => p.is_eliminated);
+        if (out) {
+          firstElimTurn = state.turn_number;
+          const killer = telemetry[out.player_id]?.eliminatedBy;
+          firstElimByRival = killer === factionOf[out.player_id];
+        }
+      }
+    }
     for (const arrival of state.last_transit_arrivals ?? []) {
       const seatT = telemetry[arrival.convoy.owner_id];
       if (!seatT) continue;
@@ -842,6 +1016,11 @@ function runGame(gameIndex: number, sourceMap: GameMap): GameStat {
     colonyFirstCaptureTurn,
     colonyHeldAt,
     colonyTiles: colonyTiles.length,
+    houses,
+    crownTurns,
+    crownFirstTurn,
+    firstElimTurn,
+    firstElimByRival,
   };
 }
 
@@ -876,7 +1055,7 @@ function main(): void {
   for (const s of stats) for (const seat of s.seats) played[seat.faction] = (played[seat.faction] ?? 0) + 1;
 
   console.log(`\nGalactic Age balance — ${GAMES} games · ${PLAYERS}p · ${DIFFICULTY} · maxTurns ${MAX_TURNS}${THRESHOLD != null ? ` · threshold ${THRESHOLD}%` : ''} · ${terr} territories`);
-  console.log(`Seed "${MASTER_SEED}" · attack loop ${GRIND ? 'GRIND (mirrors live AI)' : 'single-exchange (SIM_GRIND=0, legacy)'} · corridors ${CORRIDORS ? 'ON' : 'OFF (SIM_CORRIDORS=0)'} · factions ${Object.keys(FACTION_PATCH).length ? `patched ${JSON.stringify(FACTION_PATCH)}` : 'as shipped'} · world rules ${WORLD_RULES ? (WORLD_RULES_OFF.length ? `ON except ${WORLD_RULES_OFF.join('+')}` : 'ON') : 'OFF (SIM_WORLD_RULES=0)'} · sovereignty ${SOVEREIGNTY ? `ON (${LANE_SOVEREIGNTY_CORRIDORS_NEEDED} lanes, ${LANE_SOVEREIGNTY_ROUNDS_BY_SEATS[PLAYERS]} rounds)` : 'OFF (SIM_SOVEREIGNTY=0)'}${PLAYERS < 4 && !SCATTERED ? ` · colonies ${COLONY_GARRISONS.gateway}/${COLONY_GARRISONS.interior} (gateway/interior)` : ''} · transit ${TRANSIT ? 'ON (SIM_TRANSIT=1)' : 'OFF'}${SCATTERED ? ' · start SCATTERED (SIM_SCATTERED=1, no home worlds)' : ''}${FACTIONS_ON ? '' : ' · factions OFF (SIM_FACTIONS=0, labels are seats)'}${PLAIN_LANES ? ' · PLAIN LANES (SIM_PLAIN_LANES=1)' : ''}${CATCHUP_PER != null ? ` · catch-up: -1 reinforcement per ${CATCHUP_PER} tiles over a quarter (SIM_CATCHUP_PER)` : ''} · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
+  console.log(`Seed "${MASTER_SEED}" · attack loop ${GRIND ? 'GRIND (mirrors live AI)' : 'single-exchange (SIM_GRIND=0, legacy)'} · corridors ${CORRIDORS ? 'ON' : 'OFF (SIM_CORRIDORS=0)'} · factions ${Object.keys(FACTION_PATCH).length ? `patched ${JSON.stringify(FACTION_PATCH)}` : 'as shipped'} · world rules ${WORLD_RULES ? (WORLD_RULES_OFF.length ? `ON except ${WORLD_RULES_OFF.join('+')}` : 'ON') : 'OFF (SIM_WORLD_RULES=0)'} · sovereignty ${SOVEREIGNTY ? `ON (${LANE_SOVEREIGNTY_CORRIDORS_NEEDED} lanes, ${LANE_SOVEREIGNTY_ROUNDS_BY_SEATS[PLAYERS] ?? LANE_SOVEREIGNTY_ROUNDS} rounds)` : 'OFF (SIM_SOVEREIGNTY=0)'}${PLAYERS < 4 && !SCATTERED ? ` · colonies ${COLONY_GARRISONS.gateway}/${COLONY_GARRISONS.interior} (gateway/interior)` : ''}${SCHISM && !SCATTERED ? ` · schism ${HOUSE_RELATIONS === 'concord' ? `Concord ${SCHISM_TUNING.concordRounds} rounds` : 'Civil War'}, Lane Crown +${SCHISM_TUNING.laneCrownBonus}${process.env.SIM_SCHISM_HALVES ? ' · halves patched (SIM_SCHISM_HALVES)' : ''}${process.env.SIM_SCHISM_OPENING ? ` · opening ${process.env.SIM_SCHISM_OPENING}` : ''}${process.env.SIM_SCHISM_REINFORCE ? ` · house reinforce ${process.env.SIM_SCHISM_REINFORCE}` : ''}` : ''} · transit ${TRANSIT ? 'ON (SIM_TRANSIT=1)' : 'OFF'}${SCATTERED ? ' · start SCATTERED (SIM_SCATTERED=1, no home worlds)' : ''}${FACTIONS_ON ? '' : ' · factions OFF (SIM_FACTIONS=0, labels are seats)'}${PLAIN_LANES ? ' · PLAIN LANES (SIM_PLAIN_LANES=1)' : ''}${CATCHUP_PER != null ? ` · catch-up: -1 reinforcement per ${CATCHUP_PER} tiles over a quarter (SIM_CATCHUP_PER)` : ''} · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
   if (GAMES % CYCLE !== 0) {
     console.log(`⚠ ${GAMES} games is not a multiple of the ${CYCLE}-game line-up cycle, so factions and seats are sampled unevenly\n`);
   }
@@ -928,6 +1107,54 @@ function main(): void {
         + `${[...conditions.entries()].sort((a, b) => b[1] - a[1]).map(([c, n]) => `${c} ${pct(n, games.length)}`).join(' · ')} · `
         + `first seat wins ${pct(games.filter((g) => g.seats[0]?.won).length, games.length)}`,
       );
+    }
+  }
+
+  // ── Schism ────────────────────────────────────────────────────────────────
+  // Eight houses, two to a world. The faction table above is per seat; this one
+  // splits each faction into its two houses, whose halves are not the same
+  // ground, and says who wore the Lane Crown and who died first to whom.
+  const schismGames = stats.filter((s) => s.houses);
+  if (schismGames.length > 0) {
+    const names = [...new Set(schismGames.flatMap((s) => s.houses!))].sort();
+    console.log(`\n— Schism houses (baseline ${pct(1, PLAYERS)} of games) —`);
+    console.log(`  ${'house'.padEnd(22)}${'wins'.padStart(7)}${'elim'.padStart(7)}${'crown'.padStart(7)}${'@10'.padStart(6)}${'@30'.padStart(6)}${'@end'.padStart(6)}`);
+    for (const name of names) {
+      const seats = schismGames.flatMap((s) => s.seats.flatMap((seat, i) => (s.houses![i] === name ? [{ seat, crown: s.crownTurns[i]! }] : [])));
+      const rate = seats.filter((x) => x.seat.won).length / Math.max(1, seats.length);
+      const flag = rate > 1.28 / PLAYERS ? '  <== high' : rate < 0.72 / PLAYERS ? '  <== low' : '';
+      console.log(
+        `  ${name.padEnd(22)}${pct(seats.filter((x) => x.seat.won).length, seats.length).padStart(7)}`
+        + `${pct(seats.filter((x) => x.seat.eliminated).length, seats.length).padStart(7)}`
+        + `${pct(seats.filter((x) => x.crown > 0).length, seats.length).padStart(7)}`
+        + `${fixed(avg(seats.map((x) => x.seat.territoriesAtTurn[10]).filter((n): n is number => n != null))).padStart(6)}`
+        + `${fixed(avg(seats.map((x) => x.seat.territoriesAtTurn[30]).filter((n): n is number => n != null))).padStart(6)}`
+        + `${fixed(avg(seats.map((x) => x.seat.finalTerritories))).padStart(6)}${flag}`,
+      );
+    }
+    console.log(`  crown: share of the house's games in which it wore the Lane Crown for at least one turn start (±28% band flagged)`);
+    const crowned = schismGames.filter((s) => s.crownFirstTurn != null);
+    const winnerCrowned = schismGames.filter((s) => s.seats.some((seat, i) => seat.won && s.crownTurns[i]! > 0));
+    const decided = schismGames.filter((s) => s.seats.some((seat) => seat.won));
+    console.log(`  Lane Crown worn in ${pct(crowned.length, schismGames.length)} of games, first on turn ${fixed(avg(crowned.map((s) => s.crownFirstTurn!)))} · the winner wore it in ${pct(winnerCrowned.length, decided.length)} of decided games`);
+    const elim = schismGames.filter((s) => s.firstElimTurn != null);
+    console.log(`  First house out: turn ${fixed(avg(elim.map((s) => s.firstElimTurn!)))} (in ${pct(elim.length, schismGames.length)} of games) · by its own world's other house in ${pct(elim.filter((s) => s.firstElimByRival).length, elim.length)}`);
+    const shortName = (n: string): string => n.split(' ')[0]!.slice(0, 7);
+    console.log(`\n— Schism captures per game, attacker house (row) → victim house (column) —`);
+    console.log(`  ${'attacker'.padEnd(22)}${[...names, 'neutral'].map((v) => shortName(v).padStart(8)).join('')}`);
+    for (const name of names) {
+      const seats = schismGames.flatMap((s) => s.seats.filter((_, i) => s.houses![i] === name));
+      console.log(`  ${name.padEnd(22)}${[...names, 'neutral'].map((v) => fixed(avg(seats.map((x) => x.capturesFromHouse[v] ?? 0))).padStart(8)).join('')}`);
+    }
+    console.log(`\n— Schism eliminated by (share of this house's games) —`);
+    for (const name of names) {
+      const seats = schismGames.flatMap((s) => s.seats.filter((_, i) => s.houses![i] === name));
+      const by = names
+        .map((k) => [k, seats.filter((x) => x.eliminatedByHouse === k).length] as const)
+        .filter(([, n]) => n > 0)
+        .map(([k, n]) => `${shortName(k)} ${pct(n, seats.length)}`)
+        .join(' · ');
+      console.log(`  ${name.padEnd(22)}${by || '—'}`);
     }
   }
 
@@ -1069,7 +1296,7 @@ function main(): void {
       'faction', 'won', 'eliminated', 'chart_turn', 'first_cross_capture_turn',
       'cross_exchanges', 'cross_captures', 'home_exchanges', 'final_territories',
       ...TERRITORY_SNAPSHOT_TURNS.map((t) => `territories_at_${t}`),
-      'players', 'seat', 'layout',
+      'players', 'seat', 'layout', 'house', 'crown_turns',
     ].join(',');
     const rows = stats.flatMap((s) =>
       s.seats.map((seat, i) => [
@@ -1077,7 +1304,7 @@ function main(): void {
         seat.faction, seat.won, seat.eliminated, seat.chartTurn ?? '', seat.firstCrossCaptureTurn ?? '',
         seat.crossExchanges, seat.crossCaptures, seat.homeExchanges, seat.finalTerritories,
         ...TERRITORY_SNAPSHOT_TURNS.map((t) => seat.territoriesAtTurn[t] ?? ''),
-        PLAYERS, i, s.layout ?? '',
+        PLAYERS, i, s.layout ?? '', s.houses?.[i] ?? '', s.crownTurns[i] ?? 0,
       ].join(',')),
     );
     writeFileSync(CSV_PATH, [header, ...rows].join('\n') + '\n');
