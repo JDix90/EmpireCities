@@ -18,6 +18,7 @@ import {
   holdsLaneCrown,
   schismHouseOf,
   schismRivalOf,
+  schismWholeWorldOf,
   laneAttackDiceCap,
   laneStateFor,
   prettyRegionId,
@@ -186,6 +187,8 @@ export default function BonusesModal({ techTree, mapData, onClose }: BonusesModa
   const schismMode = gameState.galaxy_mode?.id === 'schism' ? gameState.galaxy_mode : null;
   const schismHouse = schismHouseOf(gameState, myPlayer.player_id);
   const schismRival = schismRivalOf(gameState, myPlayer.player_id);
+  // An Allied Partial Schism's seat alone on a whole world.
+  const schismWhole = schismWholeWorldOf(gameState, myPlayer.player_id);
   const crownWorn = holdsLaneCrown(gameState, myPlayer.player_id);
 
   // ── Space Age Moon ladder ───────────────────────────────────────────────────
@@ -469,6 +472,19 @@ export default function BonusesModal({ techTree, mapData, onClose }: BonusesModa
                           valueColor: schismHouse.reinforce_bonus > 0 ? 'text-amber-300' : 'text-red-300',
                         }]
                       : []),
+                    ...(schismWhole?.reinforce_bonus
+                      ? [{
+                          icon: '🌍',
+                          label: `Whole World · ${worldDisplayName(mapData, schismWhole.world_id)}`,
+                          value: schismWhole.reinforce_bonus > 0
+                            ? `+${schismWhole.reinforce_bonus} / turn`
+                            : `−${-schismWhole.reinforce_bonus} / turn`,
+                          description: schismWhole.reinforce_bonus > 0
+                            ? `You hold ${worldDisplayName(mapData, schismWhole.world_id)} alone, a side of one against sides of two houses, so the board adds this at the start of each of your draft phases.`
+                            : `You hold ${worldDisplayName(mapData, schismWhole.world_id)} alone, a side of one against sides of two houses who split theirs, so you draft that many fewer at the start of each of your draft phases.`,
+                          valueColor: schismWhole.reinforce_bonus > 0 ? 'text-amber-300' : 'text-red-300',
+                        }]
+                      : []),
                     // Allied houses play without the Crown (worth 0 on their board).
                     ...(schismMode && schismHouse && schismMode.lane_crown_bonus > 0
                       ? [{
@@ -477,7 +493,7 @@ export default function BonusesModal({ techTree, mapData, onClose }: BonusesModa
                           value: crownWorn ? `+${schismMode.lane_crown_bonus} / turn` : 'not worn',
                           description: crownWorn
                             ? `You hold all four of ${worldDisplayName(mapData, schismHouse.world_id)}'s gateways: the Lane Crown adds this at the start of each of your draft phases, for as long as you hold them.`
-                            : `Hold all four of ${worldDisplayName(mapData, schismHouse.world_id)}'s gateways — your two${schismRival ? ` and the ${schismRival.name}'s` : ''} — and you draft +${schismMode.lane_crown_bonus} a turn while you keep them.`,
+                            : `Hold all four of ${worldDisplayName(mapData, schismHouse.world_id)}'s gateways — your two${schismRival ? ` and the ${schismRival.name}'s` : " and the unclaimed half's"} — and you draft +${schismMode.lane_crown_bonus} a turn while you keep them.`,
                           valueColor: crownWorn ? 'text-amber-300' : 'text-bf-muted',
                         }]
                       : []),

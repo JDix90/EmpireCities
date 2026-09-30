@@ -17,7 +17,7 @@
  */
 
 import { inferWorldId, type WorldModifiers, type WorldRules } from '@borderfall/shared';
-import type { GalaxySchismHouse, GameState } from '../store/gameStore';
+import type { GalaxySchismHouse, GalaxySchismWholeWorld, GameState } from '../store/gameStore';
 import { getGalaxyWorldLore } from '../constants/galaxyLore';
 import { areAllies, isFriendlyOwner } from './teams';
 
@@ -202,7 +202,17 @@ export function schismHouseOf(
   return mode.houses.find((h) => h.player_id === playerId) ?? null;
 }
 
-/** The other house on a player's home world. Mirrors backend `schismRivalOf`. */
+/** An Allied Partial Schism seat that holds its whole world alone, if this player is one. Mirrors backend `schismWholeWorldOf`. */
+export function schismWholeWorldOf(
+  gameState: Pick<GameState, 'galaxy_mode'> | null | undefined,
+  playerId: string | null | undefined,
+): GalaxySchismWholeWorld | null {
+  const mode = gameState?.galaxy_mode;
+  if (mode?.id !== 'schism' || !playerId) return null;
+  return mode.whole_worlds?.find((w) => w.player_id === playerId) ?? null;
+}
+
+/** The other house on a player's home world (none for a house alone on it). Mirrors backend `schismRivalOf`. */
 export function schismRivalOf(
   gameState: Pick<GameState, 'galaxy_mode'> | null | undefined,
   playerId: string | null | undefined,
@@ -238,6 +248,11 @@ export function describeHouseBonus(houseName: string, bonus: number): string {
     : `the ${houseName} drafts ${-bonus} fewer a turn than the kit`;
 }
 
+/** "A", "A and B", "A, B and C". */
+function listNames(names: readonly string[]): string {
+  return names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
 /**
  * The start briefing's lines for a Schism board, from the viewer's seat (a
  * spectator gets the board in general). Empty for any other board.
@@ -253,8 +268,56 @@ export function describeSchism(
   const roundsText = `${rounds} round${rounds === 1 ? '' : 's'}`;
   const house = schismHouseOf(gameState, viewerId);
   const rival = schismRivalOf(gameState, viewerId);
+  const whole = schismWholeWorldOf(gameState, viewerId);
   const crown = `+${mode.lane_crown_bonus} reinforcement${mode.lane_crown_bonus === 1 ? '' : 's'} a turn`;
   const allied = mode.relations === 'allied';
+
+  // The Partial Schism (five to seven seats): only some worlds are shared.
+  const housesOn = new Map<string, number>();
+  for (const h of mode.houses) housesOn.set(h.world_id, (housesOn.get(h.world_id) ?? 0) + 1);
+  const shared = [...housesOn.entries()].filter(([, n]) => n === 2).map(([w]) => w);
+  const partial = (mode.whole_worlds?.length ?? 0) > 0 || [...housesOn.values()].some((n) => n === 1);
+  if (partial) {
+    const sharedNames = listNames(shared.map((w) => worldDisplayName(mapData, w)));
+    const are = shared.length === 1 ? 'is' : 'are';
+    const garrison = mode.unclaimed_garrison
+      ? `${mode.unclaimed_garrison.gateway} units on each gateway and ${mode.unclaimed_garrison.interior} inland`
+      : 'a garrison';
+    const relationsLine = allied
+      ? 'Allied: every world is one side — its two houses, or the one player holding it.'
+      : mode.relations === 'concord' && rounds > 0
+        ? `The Concord: the two houses on ${sharedNames} start under a truce for the first ${roundsText}.`
+        : `Civil War: the two houses on ${sharedNames} are enemies from the first turn.`;
+    if (whole) {
+      const n = whole.reinforce_bonus ?? 0;
+      return [
+        `You hold all of ${worldDisplayName(mapData, whole.world_id)}, a side of your own. ${sharedNames} ${are} shared by two Allied houses, a side together.`,
+        ...(n === 0 ? [] : [n > 0
+          ? `Alone against sides of two, you draft +${n} a turn on top of the kit.`
+          : `Alone against sides of two, you draft ${-n} fewer a turn than the kit.`]),
+      ];
+    }
+    if (house && !rival) {
+      const world = worldDisplayName(mapData, house.world_id);
+      const n = house.reinforce_bonus ?? 0;
+      return [
+        `You are the ${house.name}, alone on ${world}: its other half starts unclaimed, with ${garrison}. Take it and the world is yours.`,
+        ...(n === 0 ? [] : [`Your half is the ${n > 0 ? 'harder' : 'richer'} ground: ${describeHouseBonus(house.name, n)}.`]),
+        `${sharedNames} ${are} shared by two rival houses. ${relationsLine}`,
+        `The Lane Crown: hold all four of ${world}'s gateways, your two and the unclaimed half's, and you draft ${crown}.`,
+      ];
+    }
+    if (!house) {
+      return [
+        allied
+          ? `${sharedNames} ${are} shared by two houses, who split the world and share its kit; every other world is held whole by one player.`
+          : `${sharedNames} ${are} shared by two houses, who split the world and share its kit. Every other world has one house on half of it: the other half starts unclaimed, with ${garrison}.`,
+        relationsLine,
+        ...(allied ? [] : [`The Lane Crown: a house that holds all four of its world's gateways drafts ${crown}.`]),
+      ];
+    }
+  }
+
   if (!house || !rival) {
     return [
       'Eight houses, two to every world: each faction is dealt to two players, who split its home world and share its kit.',
@@ -564,7 +627,7 @@ export function viewerHoldsVaultSeal(
 export const LANE_SOVEREIGNTY_CORRIDORS_NEEDED = 5;
 export const LANE_SOVEREIGNTY_ROUNDS = 3;
 /** Mirrors backend LANE_SOVEREIGNTY_ROUNDS_BY_SEATS: one rival breaks a streak on fewer turns. */
-export const LANE_SOVEREIGNTY_ROUNDS_BY_SEATS: Record<number, number> = { 2: 5, 3: 3, 4: 3, 8: 3 };
+export const LANE_SOVEREIGNTY_ROUNDS_BY_SEATS: Record<number, number> = { 2: 5, 3: 3, 4: 3, 5: 3, 6: 3, 7: 3, 8: 3 };
 /** Mirrors backend LANE_SOVEREIGNTY_ROUNDS_BY_SIDES: a team game counts its sides instead. */
 export const LANE_SOVEREIGNTY_ROUNDS_BY_SIDES: Record<number, number> = { 2: 5, 4: 3 };
 

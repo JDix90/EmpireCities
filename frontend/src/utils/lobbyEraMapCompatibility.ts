@@ -208,7 +208,7 @@ export function galaxySchismPickNote(
   if (!galactic || !settings) return null;
   const cap = typeof settings.max_players === 'number' ? settings.max_players : 8;
   if (cap <= GALAXY_MAX_PLAYERS || settings.galaxy_house_relations === 'allied') return null;
-  return 'Schism: two players on one faction split its world as rival houses. With five to seven players one world splits per player over four — if more factions are picked twice, the deal draws which stay shared.';
+  return 'Schism: two players on one faction split its world as rival houses, and a player alone on a faction takes half its world, the other half unclaimed. With five to seven players one world splits per player over four — if more factions are picked twice, the deal draws which stay shared.';
 }
 
 export function evaluateEraMapCompatibility(input: EraMapCompatibilityInput): EraMapCompatibilityResult {
