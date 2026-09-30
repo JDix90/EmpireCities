@@ -122,19 +122,49 @@ export const PARTIAL_SCHISM_TUNING: Record<number, { unclaimed: { gateway: numbe
 };
 
 /**
- * Allied houses' numbers at five to seven seats, by world, in place of
- * ALLIED_TUNING (measured with four sides of two): units a turn on top of the
- * kit for each house of a side of two, and for a seat holding the whole world
- * alone, a side of one. A side of two plays two turns a round. ⚠ Balance:
- * measured in backend/scripts/GALAXY-BALANCE.md §10; the sim's
- * SIM_PARTIAL_ALLIED patches this object. Recorded on each seat when the board
- * is dealt.
+ * The key PARTIAL_ALLIED_TUNING files a board under: the worlds that split, by
+ * id, sorted and joined by '+' ("rust" at five seats, "nexus_station+sol" at
+ * six, "rust+sol+verdan" at seven).
  */
-export const PARTIAL_ALLIED_TUNING: Record<string, { house: number; whole: number }> = {
-  sol: { house: -2, whole: 3 },
-  verdan: { house: -1, whole: 3 },
-  rust: { house: 2, whole: 3 },
-  nexus_station: { house: 0, whole: 3 },
+export function schismSplitKey(splitWorlds: Iterable<string>): string {
+  return [...splitWorlds].sort().join('+');
+}
+
+/**
+ * Allied numbers at five to seven seats, in place of ALLIED_TUNING (measured
+ * with four sides of two): units a turn on top of the kit, by seat count, then
+ * by the worlds that split (schismSplitKey), then by world. A split world's
+ * number is each of its two houses', a side of two; a world held whole is its
+ * seat's, a side of one.
+ *
+ * They are set board by board because a side's chances turn on which sides it
+ * faces, not only on its own world: a side of two plays two turns a round, and
+ * a strong side across the ring wears down the neighbours of whoever sits
+ * opposite it. ⚠ Balance: measured in backend/scripts/GALAXY-BALANCE.md §10;
+ * the sim's SIM_PARTIAL_ALLIED patches the run's seat count. Recorded on each
+ * seat when the board is dealt.
+ */
+export const PARTIAL_ALLIED_TUNING: Record<number, Record<string, Record<string, number>>> = {
+  5: {
+    nexus_station: { sol: 3, verdan: 3, rust: 3, nexus_station: 0 },
+    rust: { sol: 3, verdan: 3, rust: 2, nexus_station: 3 },
+    sol: { sol: -2, verdan: 3, rust: 3, nexus_station: 3 },
+    verdan: { sol: 3, verdan: -1, rust: 3, nexus_station: 3 },
+  },
+  6: {
+    'nexus_station+rust': { sol: 3, verdan: 3, rust: 2, nexus_station: 0 },
+    'nexus_station+sol': { sol: -2, verdan: 3, rust: 3, nexus_station: 0 },
+    'nexus_station+verdan': { sol: 3, verdan: -1, rust: 3, nexus_station: 0 },
+    'rust+sol': { sol: -2, verdan: 3, rust: 2, nexus_station: 3 },
+    'rust+verdan': { sol: 3, verdan: -1, rust: 2, nexus_station: 3 },
+    'sol+verdan': { sol: -2, verdan: -1, rust: 3, nexus_station: 3 },
+  },
+  7: {
+    'nexus_station+rust+sol': { sol: -2, verdan: 3, rust: 2, nexus_station: 0 },
+    'nexus_station+rust+verdan': { sol: 3, verdan: -1, rust: 2, nexus_station: 0 },
+    'nexus_station+sol+verdan': { sol: -2, verdan: -1, rust: 3, nexus_station: 0 },
+    'rust+sol+verdan': { sol: -2, verdan: -1, rust: 2, nexus_station: 3 },
+  },
 };
 
 /**
@@ -451,9 +481,12 @@ export function schismLayout(
   const rng = opts.rng ?? randomInt;
   const allied = relations === 'allied';
   const partial = players.length < GALAXY_SCHISM_SEATS ? PARTIAL_SCHISM_TUNING[players.length] : undefined;
-  // A house's own units a turn: its world's Allied numbers, or its half's.
+  // Allied at five to seven seats, this board's numbers: one a world, by the worlds that split.
+  const splitWorlds = [...seatsByWorld.entries()].filter(([, seats]) => seats.length === 2).map(([world]) => world);
+  const alliedNumbers = partial && allied ? PARTIAL_ALLIED_TUNING[players.length]?.[schismSplitKey(splitWorlds)] : undefined;
+  // A house's own units a turn: its world's Allied number, or its half's.
   const houseBonus = (world: string, half: 0 | 1, alone: boolean): number => {
-    if (allied) return partial ? PARTIAL_ALLIED_TUNING[world]?.house ?? 0 : ALLIED_TUNING[world]?.reinforce ?? 0;
+    if (allied) return partial ? alliedNumbers?.[world] ?? 0 : ALLIED_TUNING[world]?.reinforce ?? 0;
     if (!partial) return halves[world]![half].reinforce_bonus ?? 0;
     return PARTIAL_SCHISM_HALVES[world]?.[alone ? 'alone' : 'rival'][half] ?? 0;
   };
@@ -475,7 +508,7 @@ export function schismLayout(
     const forced = opts.forceHalves?.[players[seats[0]!]!.player_id];
     if (seats.length === 1 && allied) {
       // An Allied side of one holds its whole world.
-      const reinforce = PARTIAL_ALLIED_TUNING[world]?.whole ?? 0;
+      const reinforce = alliedNumbers?.[world] ?? 0;
       wholeOf.set(seats[0]!, {
         player_id: players[seats[0]!]!.player_id,
         world_id: world,
