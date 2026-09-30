@@ -125,9 +125,9 @@ export const PARTIAL_SCHISM_TUNING: Record<number, {
   unclaimed: { gateway: number; interior: number };
   allied: { house: number; whole: number };
 }> = {
-  5: { unclaimed: { gateway: 10, interior: 12 }, allied: { house: 0, whole: 0 } },
-  6: { unclaimed: { gateway: 10, interior: 12 }, allied: { house: 0, whole: 0 } },
-  7: { unclaimed: { gateway: 10, interior: 12 }, allied: { house: 0, whole: 0 } },
+  5: { unclaimed: { gateway: 9, interior: 11 }, allied: { house: -1, whole: 3 } },
+  6: { unclaimed: { gateway: 10, interior: 12 }, allied: { house: -1, whole: 3 } },
+  7: { unclaimed: { gateway: 12, interior: 14 }, allied: { house: -1, whole: 3 } },
 };
 
 /**
@@ -143,10 +143,10 @@ export const PARTIAL_SCHISM_TUNING: Record<number, {
  * this object. Recorded on each house when the board is dealt.
  */
 export const PARTIAL_SCHISM_HALVES: Record<string, { rival: [number, number]; alone: [number, number] }> = {
-  sol: { rival: [0, 0], alone: [0, 0] },
-  verdan: { rival: [0, 0], alone: [0, 0] },
-  rust: { rival: [0, 0], alone: [0, 0] },
-  nexus_station: { rival: [0, 0], alone: [0, 0] },
+  sol: { rival: [4, 0], alone: [1, 0] }, // Western, Eastern Mandate
+  verdan: { rival: [1, -2], alone: [1, -1] }, // Dawnrim, Duskrim Navigators
+  rust: { rival: [-1, 1], alone: [-2, 2] }, // Tharsis, Hellas Syndicate
+  nexus_station: { rival: [2, 0], alone: [0, 0] }, // Ward, Berth Custodians
 };
 
 export interface SchismHalf {
