@@ -150,10 +150,10 @@ export const PARTIAL_ALLIED_TUNING: Record<string, { house: number; whole: numbe
  * this object. Recorded on each house when the board is dealt.
  */
 export const PARTIAL_SCHISM_HALVES: Record<string, { rival: [number, number]; alone: [number, number] }> = {
-  sol: { rival: [4, 0], alone: [1, 0] }, // Western, Eastern Mandate
-  verdan: { rival: [1, -2], alone: [1, -1] }, // Dawnrim, Duskrim Navigators
+  sol: { rival: [5, 1], alone: [1, 0] }, // Western, Eastern Mandate
+  verdan: { rival: [0, -2], alone: [1, -1] }, // Dawnrim, Duskrim Navigators
   rust: { rival: [-1, 1], alone: [-2, 2] }, // Tharsis, Hellas Syndicate
-  nexus_station: { rival: [2, 0], alone: [0, 0] }, // Ward, Berth Custodians
+  nexus_station: { rival: [1, 0], alone: [0, 0] }, // Ward, Berth Custodians
 };
 
 export interface SchismHalf {
