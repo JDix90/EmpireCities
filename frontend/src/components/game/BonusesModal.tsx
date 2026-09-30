@@ -481,7 +481,8 @@ export default function BonusesModal({ techTree, mapData, onClose }: BonusesModa
                             : `−${-schismWhole.reinforce_bonus} / turn`,
                           description: schismWhole.reinforce_bonus > 0
                             ? `You hold ${worldDisplayName(mapData, schismWhole.world_id)} alone, a side of one against sides of two houses, so the board adds this at the start of each of your draft phases.`
-                            : `You hold ${worldDisplayName(mapData, schismWhole.world_id)} alone, a side of one against sides of two houses who split theirs, so you draft that many fewer at the start of each of your draft phases.`,
+                            // Set board by board: some boards favour a world held whole.
+                            : `You hold ${worldDisplayName(mapData, schismWhole.world_id)} alone, a side of one, and on this board it would win more than its share, so you draft that many fewer at the start of each of your draft phases.`,
                           valueColor: schismWhole.reinforce_bonus > 0 ? 'text-amber-300' : 'text-red-300',
                         }]
                       : []),

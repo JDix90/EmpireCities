@@ -168,6 +168,24 @@ describe('BonusesModal — the Lane Crown on a Schism board', () => {
     expect(screen.queryByText(/House Bonus/)).toBeNull();
   });
 
+  it('tells an Allied seat holding a whole world why its board drafts it fewer', async () => {
+    const game = schismGame(4);
+    const mode = game.galaxy_mode as {
+      relations: string; concord_rounds: number; lane_crown_bonus: number;
+      houses: Array<{ player_id: string }>; whole_worlds?: unknown;
+    };
+    mode.relations = 'allied';
+    mode.concord_rounds = 0;
+    mode.lane_crown_bonus = 0;
+    mode.houses = [];
+    mode.whole_worlds = [{ player_id: 'me', world_id: 'sol', reinforce_bonus: -3 }];
+    useGameStore.setState({ gameState: game } as never);
+    render(<BonusesModal techTree={[]} onClose={() => {}} />);
+    expect(await screen.findByText('Whole World · Sol III')).toBeInTheDocument();
+    expect(screen.getByText('−3 / turn')).toBeInTheDocument();
+    expect(screen.getByText(/You hold Sol III alone, a side of one, and on this board it would win more than its share, so you draft that many fewer/)).toBeInTheDocument();
+  });
+
   it('has no Lane Crown row off a Schism board', async () => {
     useGameStore.setState({ gameState: galaxyGame(4, false) } as never);
     render(<BonusesModal techTree={[]} onClose={() => {}} />);
