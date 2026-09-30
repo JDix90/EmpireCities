@@ -54,6 +54,7 @@ import {
   isAscensionGalaxyMap,
 } from '../constants/lobbyMapOptions';
 import {
+  GALAXY_MAX_PLAYERS,
   LOBBY_THEATER_OPTIONS,
   buildMapMetaFromGameMap,
   evaluateEraMapCompatibility,
@@ -1184,7 +1185,8 @@ export default function LobbyPage() {
       const res = await api.post('/games', {
         era_id: eraId,
         map_id: mapId,
-        max_players: 8,
+        // The Galactic Age seats two to four; every other era up to eight.
+        max_players: isGalacticEra ? GALAXY_MAX_PLAYERS : 8,
         ai_count: aiCount,
         ai_difficulty: aiDifficulty,
         settings,
@@ -2541,7 +2543,7 @@ export default function LobbyPage() {
                     </div>
                     {isGalacticEra && (
                       <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                        <FeatureTooltip text="On: each player starts on their faction's home world and fights outward across the hyperspace lanes. Off: territories are dealt out across all four worlds, lanes are ordinary borders, and there are no faction kits or Lane Sovereignty — a faster game (about 23 turns against 27 in testing) that the early leader wins more often." />
+                        <FeatureTooltip text="On: each player starts on their faction's home world and fights outward across the hyperspace lanes. With two or three players, the worlds nobody calls home start neutral and garrisoned, as colonies to take — and with three, two extra lanes link every world to every other. Off: territories are dealt out across all four worlds, lanes are ordinary borders, and there are no faction kits or Lane Sovereignty — a faster game (about 23 turns against 27 in testing) that the early leader wins more often." />
                         <label htmlFor="galaxy-home-worlds" className="contents cursor-pointer">
                           <input
                             type="checkbox"
@@ -2785,7 +2787,7 @@ export default function LobbyPage() {
                         ['secret_mission', 'Secret mission', 'Each player is secretly dealt an objective: capture two named territories, hold one or two named regions, or eliminate a named player yourself (if anyone else does, the mission fails). Era Advancement and the Space Age add era and Moon objectives, and with four or more seats two human players may share an alliance instead. Objectives are dealt separately, so two players can draw the same one. Completing yours wins the game.'],
                         // Galaxy-only: a victory about the network rather than the headcount.
                         ...(selectedEra === GALACTIC_AGE_ERA_ID && !galaxyHomeWorldsOff
-                          ? [['lane_sovereignty', 'Lane Sovereignty — hold the hyperspace network', 'Galactic Age only. A lane is your corridor when you hold BOTH of its gateway systems. Hold 5 of the 8 lanes at the start of your turn, 3 turns running, and you win — so rivals get two rounds to break one corridor and stop it.'] as const]
+                          ? [['lane_sovereignty', 'Lane Sovereignty — hold the hyperspace network', 'Galactic Age only. A lane is your corridor when you hold BOTH of its gateway systems. Hold 5 of the 8 lanes at the start of your turn, 3 turns running (5 in a two-player game), and you win — so rivals get time to break one corridor and stop it.'] as const]
                           : []),
                       ] as const).map(([id, label, tip]) => (
                         <div key={id} className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">

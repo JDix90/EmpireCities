@@ -13,8 +13,12 @@ import {
   laneSealFor,
   laneStateFor,
   convoysFor,
+  describeColonies,
   describeConvoy,
+  describeLaneKind,
+  laneKindOf,
   laneSovereigntyProgress,
+  laneSovereigntyRoundsFor,
   laneTouchesSealWorld,
   orbitLaneId,
   prettyRegionId,
@@ -240,5 +244,51 @@ describe('galaxyLanes', () => {
     const nameOf = (id: string) => id.toUpperCase();
     expect(describeConvoy(transits[0], nameOf)).toBe('6 units from A arrive next turn');
     expect(describeConvoy(transits[1], nameOf)).toBe('2 units from B arrive in 2 turns');
+  });
+});
+
+describe('the Colonies board', () => {
+  it('reads a colony lane as charted all game, and outside Lane Sovereignty', () => {
+    expect(laneKindOf('galaxy_mode')).toBe('colony');
+    expect(describeLaneKind('colony')).toMatch(/Colony lane — open all game/);
+    expect(describeLaneKind('colony')).toMatch(/Sovereignty counts only the eight charted lanes/);
+    const withBridge = {
+      ...mapData,
+      connections: [...mapData.connections, { from: 'verdan_a', to: 'nexus_a', type: 'orbit' as const, source: 'galaxy_mode' }],
+    };
+    expect(gatewayLanesFor(withBridge, 'verdan_a').find((l) => l.farId === 'nexus_a')?.kind).toBe('colony');
+    // …and the HUD's corridor count never includes it.
+    const state = {
+      settings: { allowed_victory_conditions: ['lane_sovereignty'] },
+      players: [{ player_id: 'me' }, { player_id: 'rival' }, { player_id: 'third' }],
+      territories: { verdan_a: { owner_id: 'me' }, nexus_a: { owner_id: 'me' } },
+    } as unknown as GameState;
+    expect(laneSovereigntyProgress(state, withBridge.connections, 'me').held).toBe(0);
+  });
+
+  it('asks a two-player streak for five rounds, and three or four players for three', () => {
+    const mk = (seats: number) => ({
+      settings: { allowed_victory_conditions: ['lane_sovereignty'] },
+      players: Array.from({ length: seats }, (_, i) => ({ player_id: i === 0 ? 'me' : `p${i}` })),
+      territories: {},
+    }) as unknown as GameState;
+    expect(laneSovereigntyProgress(mk(2), mapData.connections, 'me').roundsNeeded).toBe(5);
+    expect(laneSovereigntyProgress(mk(3), mapData.connections, 'me').roundsNeeded).toBe(3);
+    expect(laneSovereigntyProgress(mk(4), mapData.connections, 'me').roundsNeeded).toBe(3);
+    expect([2, 3, 4].map(laneSovereigntyRoundsFor)).toEqual([5, 3, 3]);
+  });
+
+  it('names the colonies for the start briefing', () => {
+    expect(describeColonies(undefined)).toBeNull();
+    expect(describeColonies({ id: 'colonies', neutral_worlds: ['nexus_station', 'verdan'] }, mapData)).toBe(
+      'Nexus Station and Verdan Reach start neutral and garrisoned — colonies for whoever takes them.',
+    );
+    expect(describeColonies({
+      id: 'colonies',
+      neutral_worlds: ['nexus_station'],
+      lanes: [{ from: 'a', to: 'b' }, { from: 'c', to: 'd' }],
+    }, mapData)).toBe(
+      'Nexus Station starts neutral and garrisoned — a colony for whoever takes it. Two extra lanes link every world to every other.',
+    );
   });
 });

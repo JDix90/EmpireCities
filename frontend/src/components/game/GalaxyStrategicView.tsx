@@ -416,9 +416,11 @@ export default function GalaxyStrategicView({
         const fromOwner = ownerOf(from);
         const toOwner = ownerOf(to);
         const touchesSealWorld = worldOf(from) === EMERGENCY_SEAL_WORLD_ID || worldOf(to) === EMERGENCY_SEAL_WORLD_ID;
-        // Only the authored ring can be sealed: the Custodians close Pathfinder
+        // Only the charted lanes can be sealed — the authored ring, and a colony
+        // lane the board keeps open all game: the Custodians close Pathfinder
         // lanes, not somebody's private gate thread.
-        const canSeal = kind === 'authored'
+        const charted = kind === 'authored' || kind === 'colony';
+        const canSeal = charted
           && lanesContestableEnabled && !!onSealLane && !seal && (sealAnyLane || touchesSealWorld);
 
         let stroke: string;
@@ -468,7 +470,7 @@ export default function GalaxyStrategicView({
         const kindLine = describeLaneKind(kind);
         if (kindLine) lines.push(kindLine);
         const dice = describeLaneDice(viewerLaneDice);
-        if (dice && state !== 'closed' && kind === 'authored') lines.push(dice);
+        if (dice && state !== 'closed' && charted) lines.push(dice);
         if (!orbitAccessAllowed) lines.push(orbitAccessReason ? `Locked — ${orbitAccessReason}` : 'Locked');
         if (canSeal) lines.push('Click to fire an Emergency Seal (1 round)');
 

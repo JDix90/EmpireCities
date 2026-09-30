@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, BookOpen, Crown, Swords, Trophy, Target, Shield } from 'lucide-react';
+import { ArrowLeft, BookOpen, Crown, Globe2, Swords, Trophy, Target, Shield } from 'lucide-react';
 import clsx from 'clsx';
 import Modal from '../ui/Modal';
 import { api } from '../../services/api';
 import { describeSecretMission, type MapNameLookup } from '../../utils/mapDisplayNames';
 import { hegemonyTurnsFor } from '../../utils/lunarHegemony';
 import { describeSpaceAgeEra, spaceAgeGuideInput } from '../../utils/spaceAgeGuide';
+import { describeColonies, laneSovereigntyRoundsFor } from '../../utils/galaxyLanes';
 import { SpaceAgeGuideSections } from './SpaceAgeGuide';
 import type { GameState, PlayerState } from '../../store/gameStore';
 
@@ -65,7 +66,7 @@ function winConditionKinds(settings: GameState['settings']): string[] {
  * Player-facing win-condition phrases from the game settings, with OR
  * semantics between conditions.
  */
-export function describeWinConditions(settings: GameState['settings']): {
+export function describeWinConditions(settings: GameState['settings'], seats = 0): {
   conditions: string[];
   turnCap: string | null;
 } {
@@ -87,7 +88,7 @@ export function describeWinConditions(settings: GameState['settings']): {
         // Moon Race game shows on its very first screen.
         return `Hold every lunar territory for ${hegemonyTurnsFor(settings)} turns of your own in a row`;
       case 'lane_sovereignty':
-        return 'Hold both gateways of 5 hyperspace lanes for 3 turns running';
+        return `Hold both gateways of 5 hyperspace lanes for ${laneSovereigntyRoundsFor(seats)} turns running`;
       default:
         return kind;
     }
@@ -151,7 +152,8 @@ export default function GameStartModal({
   const viewer = gameState.players.find((p) => p.player_id === viewerPlayerId);
   const showGold = !!gameState.settings.economy_enabled;
   const showTech = !!gameState.settings.tech_trees_enabled;
-  const { conditions, turnCap } = describeWinConditions(gameState.settings);
+  const { conditions, turnCap } = describeWinConditions(gameState.settings, gameState.players.length);
+  const colonies = describeColonies(gameState.galaxy_mode);
   const missionDealtAfterDraft = gameState.phase === 'territory_select'
     && winConditionKinds(gameState.settings).includes('secret_mission');
   // The Moon counts toward every condition above and sits behind an orbit
@@ -267,6 +269,16 @@ export default function GameStartModal({
       </ul>
       {turnCap && <p className="text-xs text-bf-muted mb-1.5 pl-[22px]">{turnCap}.</p>}
       <div className={turnCap ? 'mb-2.5' : 'mb-4'} />
+
+      {colonies && (
+        <section className="mb-4" data-testid="start-colonies-section">
+          <h4 className="text-xs font-medium text-bf-muted uppercase tracking-wider mb-2">Colonies</h4>
+          <p className="flex items-start gap-2 text-sm text-bf-text">
+            <Globe2 className="w-3.5 h-3.5 text-bf-gold shrink-0 mt-0.5" aria-hidden />
+            <span>{colonies}</span>
+          </p>
+        </section>
+      )}
 
       {eraLines.length > 0 && (
         <section className="mb-4" data-testid="start-era-section">

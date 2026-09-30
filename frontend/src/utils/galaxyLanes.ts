@@ -111,14 +111,17 @@ export function laneAttackDiceCap(
 
 /**
  * What opened this lane. Authored lanes are the ring the era is fought over; the
- * other two are engine-added and behave differently — a Jump Gate lane carries
- * no attack, and a surge lane blows over after two rounds.
+ * others are engine-added and behave differently — a Jump Gate lane carries no
+ * attack, a surge lane blows over after two rounds, and a colony lane (three
+ * seats on the Colonies board) stays all game but is not one of the eight lanes
+ * Lane Sovereignty counts.
  */
-export type LaneKind = 'authored' | 'jump_gate' | 'lane_surge';
+export type LaneKind = 'authored' | 'jump_gate' | 'lane_surge' | 'colony';
 
 export function laneKindOf(source: string | undefined): LaneKind {
   if (source === 'jump_gate') return 'jump_gate';
   if (source === 'lane_surge') return 'lane_surge';
+  if (source === 'galaxy_mode') return 'colony';
   return 'authored';
 }
 
@@ -126,7 +129,25 @@ export function laneKindOf(source: string | undefined): LaneKind {
 export function describeLaneKind(kind: LaneKind): string | null {
   if (kind === 'jump_gate') return 'Jump Gate lane — your units only, no attacks';
   if (kind === 'lane_surge') return 'Lane Surge — a temporary lane, it blows over';
+  if (kind === 'colony') return 'Colony lane — open all game; Lane Sovereignty counts only the eight charted lanes';
   return null;
+}
+
+/**
+ * The start briefing's line for a Colonies board, or null for the classic
+ * start. Mirrors `state.galaxy_mode` (backend state/galaxyModes.ts).
+ */
+export function describeColonies(
+  mode: GameState['galaxy_mode'],
+  mapData?: LaneMapData | null,
+): string | null {
+  if (mode?.id !== 'colonies' || mode.neutral_worlds.length === 0) return null;
+  const names = mode.neutral_worlds.map((w) => worldDisplayName(mapData, w));
+  const worlds = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  const verb = names.length === 1 ? 'starts' : 'start';
+  const prize = names.length === 1 ? 'a colony for whoever takes it' : 'colonies for whoever takes them';
+  const lanes = (mode.lanes?.length ?? 0) > 0 ? ' Two extra lanes link every world to every other.' : '';
+  return `${worlds} ${verb} neutral and garrisoned — ${prize}.${lanes}`;
 }
 
 export interface GatewayLane {
@@ -400,12 +421,20 @@ export function viewerHoldsVaultSeal(
 // ── Lane Sovereignty ──────────────────────────────────────────────────────
 // Client mirror of `backend/src/game-engine/victory/laneSovereignty.ts`: hold
 // both gateways of five of the eight AUTHORED lanes at the start of your turn,
-// three turns running. Engine-added lanes (a Jump Gate, a Launch Pad — anything
-// carrying `source`) never count, so a player cannot build their own win.
-// Advisory, like everything else here: the streak itself comes from the server.
+// three turns running — five in a two-player game. Engine-added lanes (a Jump
+// Gate, a Launch Pad, a colony lane — anything carrying `source`) never count,
+// so a player cannot build their own win. Advisory, like everything else here:
+// the streak itself comes from the server.
 
 export const LANE_SOVEREIGNTY_CORRIDORS_NEEDED = 5;
 export const LANE_SOVEREIGNTY_ROUNDS = 3;
+/** Mirrors backend LANE_SOVEREIGNTY_ROUNDS_BY_SEATS: one rival breaks a streak on fewer turns. */
+export const LANE_SOVEREIGNTY_ROUNDS_BY_SEATS: Record<number, number> = { 2: 5, 3: 3, 4: 3 };
+
+/** Rounds a streak must run in a game with this many seats. */
+export function laneSovereigntyRoundsFor(seats: number): number {
+  return LANE_SOVEREIGNTY_ROUNDS_BY_SEATS[seats] ?? LANE_SOVEREIGNTY_ROUNDS;
+}
 
 /** Authored orbit lanes — the board sovereignty is played on. */
 export function authoredOrbitLanes(
@@ -430,10 +459,11 @@ export function laneSovereigntyProgress(
 ): LaneSovereigntyProgress {
   const lanes = authoredOrbitLanes(connections ?? []);
   const needed = Math.min(LANE_SOVEREIGNTY_CORRIDORS_NEEDED, lanes.length);
+  const roundsNeeded = laneSovereigntyRoundsFor(gameState?.players?.length ?? 0);
   const allowed = gameState?.settings?.allowed_victory_conditions ?? [];
   const applicable = !!gameState && !!playerId && needed > 0 && allowed.includes('lane_sovereignty');
   if (!applicable) {
-    return { applicable: false, held: 0, needed, streak: 0, roundsNeeded: LANE_SOVEREIGNTY_ROUNDS };
+    return { applicable: false, held: 0, needed, streak: 0, roundsNeeded };
   }
   let held = 0;
   for (const lane of lanes) {
@@ -448,7 +478,7 @@ export function laneSovereigntyProgress(
     held,
     needed,
     streak: player?.lane_sovereignty_streak ?? 0,
-    roundsNeeded: LANE_SOVEREIGNTY_ROUNDS,
+    roundsNeeded,
   };
 }
 

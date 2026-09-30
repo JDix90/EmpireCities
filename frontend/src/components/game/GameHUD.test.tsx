@@ -371,7 +371,18 @@ describe('GameHUD — Lane Sovereignty tracker', () => {
     renderHud({ mapData: galaxyMap, resolvedViewerPlayerId: 'me' });
     const panel = screen.getByTestId('lane-sovereignty-progress');
     expect(panel.textContent).toContain('corridors 1 of 3');
-    expect(panel.textContent).toContain('held 1 of 3 rounds');
+    // A two-player duel runs the streak for five rounds, not three: one rival
+    // has fewer turns in which to break it (LANE_SOVEREIGNTY_ROUNDS_BY_SEATS).
+    expect(panel.textContent).toContain('held 1 of 5 rounds');
+    expect(panel.textContent).toContain('at the start of 5 turns running');
+  });
+
+  it('counts three rounds with three or four seats', () => {
+    const state = galaxyState();
+    state.players = [...state.players, player('third', 2), player('fourth', 3)];
+    useGameStore.setState({ gameState: state, draftUnitsRemaining: 0, lastCombatResult: null } as never);
+    renderHud({ mapData: galaxyMap, resolvedViewerPlayerId: 'me' });
+    expect(screen.getByTestId('lane-sovereignty-progress').textContent).toContain('held 1 of 3 rounds');
   });
 
   it('stays hidden when the game is not playing for it', () => {
