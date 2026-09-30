@@ -160,6 +160,41 @@ export interface AdvanceEraClientPreview {
   };
 }
 
+/** Galactic Age Colonies board (two or three seats). Mirrors backend types. */
+export interface GalaxyColoniesMode {
+  id: 'colonies';
+  neutral_worlds: string[];
+  lanes?: Array<{ from: string; to: string }>;
+}
+
+/** How a Schism world's two houses start. */
+export type GalaxyHouseRelations = 'concord' | 'civil_war';
+
+/** One seat of a Schism game: the half of its faction's home world it opened on. */
+export interface GalaxySchismHouse {
+  player_id: string;
+  world_id: string;
+  half: 0 | 1;
+  /** e.g. "Western Mandate". */
+  name: string;
+  /** Units a turn this house drafts on top of its kit. */
+  reinforce_bonus?: number;
+}
+
+/** Galactic Age Schism board (eight seats): two houses to every world. Mirrors backend types. */
+export interface GalaxySchismMode {
+  id: 'schism';
+  relations: GalaxyHouseRelations;
+  /** Rounds the Concord truce covered, counting the first (0 in Civil War). */
+  concord_rounds: number;
+  /** Units a turn the Lane Crown is worth in this game. */
+  lane_crown_bonus: number;
+  houses: GalaxySchismHouse[];
+  /** Each world's gateway tiles: a house holding all of its home world's wears the Lane Crown. */
+  crown_gateways: Record<string, string[]>;
+  lanes?: Array<{ from: string; to: string }>;
+}
+
 export interface GameState {
   game_id: string;
   era: string;
@@ -189,8 +224,9 @@ export interface GameState {
    * one-world-per-player start. Colonies (two or three seats): `neutral_worlds`
    * opened neutral and garrisoned; at three seats `lanes` bridge the ring's two
    * gaps all game (they reach the map as `source: 'galaxy_mode'` lanes).
+   * Schism (eight seats): two houses to every world, each on half of it.
    */
-  galaxy_mode?: { id: 'colonies'; neutral_worlds: string[]; lanes?: Array<{ from: string; to: string }> };
+  galaxy_mode?: GalaxyColoniesMode | GalaxySchismMode;
   /** Galaxy transit: convoys in the void, visible to everyone as public commitments. */
   transits?: Array<{
     id: string;

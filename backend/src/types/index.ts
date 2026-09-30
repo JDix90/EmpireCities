@@ -334,6 +334,44 @@ export interface PlayerState {
   era_advanced_this_turn?: boolean;
 }
 
+/** Galactic Age Colonies board (two or three seats, state/galaxyModes.ts). */
+export interface GalaxyColoniesMode {
+  id: 'colonies';
+  neutral_worlds: string[];
+  lanes?: Array<{ from: string; to: string }>;
+}
+
+/** How a Schism world's two houses start (a lobby setting, `galaxy_house_relations`). */
+export type GalaxyHouseRelations = 'concord' | 'civil_war';
+
+/** One seat of a Schism game: the half of its faction's home world it opened on. */
+export interface GalaxySchismHouse {
+  player_id: string;
+  world_id: string;
+  /** Which of the world's two authored halves (SCHISM_HALVES) the house opened on. */
+  half: 0 | 1;
+  /** The house's name, e.g. "Western Mandate". */
+  name: string;
+  /** Units a turn this house drafts on top of its kit (its half's `reinforce_bonus`). */
+  reinforce_bonus?: number;
+}
+
+/** Galactic Age Schism board (eight seats, state/galaxySchism.ts). */
+export interface GalaxySchismMode {
+  id: 'schism';
+  relations: GalaxyHouseRelations;
+  /** Rounds the Concord truce covered, counting the first (0 in Civil War). */
+  concord_rounds: number;
+  /** Units a turn the Lane Crown is worth in this game. */
+  lane_crown_bonus: number;
+  /** One per seat, in seat order. */
+  houses: GalaxySchismHouse[];
+  /** Each world's gateway tiles: a house holding all of its home world's wears the Lane Crown. */
+  crown_gateways: Record<string, string[]>;
+  /** Lanes the mode keeps open all game (none today; see galaxyModeConnections). */
+  lanes?: Array<{ from: string; to: string }>;
+}
+
 export interface DiplomacyEntry {
   player_index_a: number;
   player_index_b: number;
@@ -546,6 +584,13 @@ export interface GameSettings {
    * create from the `galaxy_transit_enabled` feature flag; no-op off galaxy maps.
    */
   galaxy_transit_enabled?: boolean;
+  /**
+   * Galactic Age Schism (eight seats): how the two houses on each world start —
+   * under the Concord, a truce for the opening rounds, or in Civil War. Absent
+   * means the Concord; persisted only when it is Civil War. Read once, when the
+   * board is dealt, and recorded on `galaxy_mode`. No-op at any other seat count.
+   */
+  galaxy_house_relations?: GalaxyHouseRelations;
   /**
    * Standalone Space Age: when true, the 8 authored `unlock_era_index` frontier
    * tiles (the 2100 expansion) are seeded as neutral garrisons at game start so a
@@ -978,12 +1023,9 @@ export interface GameState {
    * or three seats): `neutral_worlds` started neutral and garrisoned; at three
    * seats `lanes` bridge the ring's two gaps all game, projected onto the map
    * copy as `source: 'galaxy_mode'` connections by `syncGalaxyModeLanes`.
+   * Schism (eight seats, state/galaxySchism.ts): two houses to every world.
    */
-  galaxy_mode?: {
-    id: 'colonies';
-    neutral_worlds: string[];
-    lanes?: Array<{ from: string; to: string }>;
-  };
+  galaxy_mode?: GalaxyColoniesMode | GalaxySchismMode;
   /**
    * Galactic Age transit: convoys crossing between worlds. Units leave their
    * source at once and land at the mover's next turn start — or turn back if the

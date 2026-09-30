@@ -424,6 +424,47 @@ describe('what a Galactic Age Colonies game tells players before their first tur
   });
 });
 
+describe('what a Schism briefing tells each house', () => {
+  const schismState = (relations: 'concord' | 'civil_war') => makeState({
+    era: 'galaxy_age',
+    players: [
+      player({ player_id: 'me', player_index: 0, username: 'Jeff', faction_id: 'stellar_mandate' }),
+      player({ player_id: 'a1', player_index: 1, username: 'AI Bot 1', is_ai: true, faction_id: 'stellar_mandate' }),
+    ],
+    settings: { ...makeState().settings, factions_enabled: true },
+    galaxy_mode: {
+      id: 'schism',
+      relations,
+      concord_rounds: relations === 'concord' ? 3 : 0,
+      lane_crown_bonus: 2,
+      houses: [
+        { player_id: 'me', world_id: 'sol', half: 0, name: 'Western Mandate' },
+        { player_id: 'a1', world_id: 'sol', half: 1, name: 'Eastern Mandate' },
+      ],
+      crown_gateways: { sol: ['sol_amazonia', 'sol_cathay', 'sol_guinea', 'sol_pacific_rim'] },
+    },
+  } as Partial<GameState>);
+
+  it('names the house, the rival at home, the Concord and the Crown', () => {
+    render(<GameStartModal open onClose={() => {}} gameState={schismState('concord')} viewerPlayerId="me" />);
+    const section = screen.getByTestId('start-schism-section');
+    expect(section).toHaveTextContent('You are the Western Mandate. The Eastern Mandate (AI Bot 1) holds the rest of Sol III');
+    expect(section).toHaveTextContent(/The Concord: you and the Eastern Mandate are under a truce for the first 3 rounds/);
+    expect(section).toHaveTextContent(/The Lane Crown: hold all four of Sol III's gateways/);
+    expect(screen.queryByTestId('start-colonies-section')).not.toBeInTheDocument();
+  });
+
+  it('says Civil War when there is no Concord', () => {
+    render(<GameStartModal open onClose={() => {}} gameState={schismState('civil_war')} viewerPlayerId="me" />);
+    expect(screen.getByTestId('start-schism-section')).toHaveTextContent('Civil War: the Eastern Mandate is your enemy from the first turn.');
+  });
+
+  it('is absent from any other board', () => {
+    render(<GameStartModal open onClose={() => {}} gameState={makeState()} viewerPlayerId="me" />);
+    expect(screen.queryByTestId('start-schism-section')).not.toBeInTheDocument();
+  });
+});
+
 describe("what a Colonies duel tells players about a kit it changes", () => {
   it('names the Navigators drafting +1 in a duel, from the whole roster', async () => {
     const { api } = await import('../../services/api');

@@ -1,13 +1,14 @@
 /**
- * A Galactic Age lobby seats two to four, through the real create and join
- * routes.
+ * A Galactic Age lobby seats two to four, or eight for the Schism, through the
+ * real create and join routes.
  *
  * Reported in the seat-count review: the lobby form asked for eight seats and
  * filled four with AI, so a fifth player could join by code and get a start the
- * engine has no board for. The create route now holds the form to four, the
- * join route caps any Galactic lobby at four (one created before the fix stored
- * eight), and Open Games never lists a Galactic lobby — the era is admin-only,
- * and a lobby that waits for humans waits for the ones it was sent to.
+ * engine has no board for. The create route now holds the form to a count the
+ * era plays, the join route caps a Galactic lobby at the largest such count
+ * within its own cap (four for five to seven), and Open Games never lists a
+ * Galactic lobby — the era is admin-only, and a lobby that waits for humans
+ * waits for the ones it was sent to.
  *
  * Needs Postgres (migrated schema, maps seeded), gated on PG_TEST=1:
  *   PG_TEST=1 POSTGRES_HOST=127.0.0.1 POSTGRES_PORT=5499 POSTGRES_USER=postgres \
@@ -20,7 +21,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 const enabled = process.env.PG_TEST === '1';
 
-describe.runIf(enabled)('Galactic Age lobbies seat two to four (Postgres)', () => {
+describe.runIf(enabled)('Galactic Age lobbies seat two to four, or eight (Postgres)', () => {
   let app: FastifyInstance;
   let query: (sql: string, params?: unknown[]) => Promise<Record<string, unknown>[]>;
   let signAccessToken: (p: { sub: string; username: string; guest?: boolean; admin?: boolean }) => string;
@@ -97,11 +98,29 @@ describe.runIf(enabled)('Galactic Age lobbies seat two to four (Postgres)', () =
     }
   });
 
-  it('refuses the form that asked for eight seats', async () => {
+  it('refuses a form asking for five to seven seats', async () => {
+    const admin = await seedUser('gal_admin6');
+    for (const seats of [5, 6, 7]) {
+      const res = await createGalaxy(admin, seats, 3);
+      expect(res.statusCode).toBe(400);
+      expect(res.json()).toMatchObject({ error: GALAXY_PLAYER_COUNT_ERROR });
+    }
+  });
+
+  it('opens an eight-seat Schism lobby that takes humans up to eight and no further', async () => {
     const admin = await seedUser('gal_admin8');
-    const res = await createGalaxy(admin, 8, 3);
-    expect(res.statusCode).toBe(400);
-    expect(res.json()).toMatchObject({ error: GALAXY_PLAYER_COUNT_ERROR });
+    const res = await createGalaxy(admin, 8, 5);
+    expect(res.statusCode).toBe(201);
+    const { game_id: gameId } = res.json() as { game_id: string };
+    gameIds.push(gameId);
+
+    // Host + five AI: two human seats left, then the lobby is full.
+    const [a, b, c] = [await seedUser('gal8_a'), await seedUser('gal8_b'), await seedUser('gal8_c')];
+    expect((await join(gameId, a)).statusCode).toBe(200);
+    expect((await join(gameId, b)).statusCode).toBe(200);
+    const ninth = await join(gameId, c);
+    expect(ninth.statusCode).toBe(409);
+    expect(ninth.json()).toMatchObject({ code: 'full' });
   });
 
   it('refuses more AI than the seats it asked for', async () => {
@@ -160,14 +179,14 @@ describe.runIf(enabled)('Galactic Age lobbies seat two to four (Postgres)', () =
     expect(ids).toContain(ordinary);
   });
 
-  it('caps a lobby created before the fix, which stored eight seats, at four', async () => {
+  it('caps a stored cap of five to seven seats at four, where a fifth seat has no board', async () => {
     const host = await seedUser('gal_legacy_host');
     const gameId = uuidv4();
     gameIds.push(gameId);
     await query(
       `INSERT INTO games (game_id, map_id, era_id, status, settings_json, game_type)
        VALUES ($1, 'era_galaxy', 'galaxy_age', 'waiting', $2::jsonb, 'solo')`,
-      [gameId, JSON.stringify({ max_players: 8, factions_enabled: true })],
+      [gameId, JSON.stringify({ max_players: 6, factions_enabled: true })],
     );
     await query(
       `INSERT INTO game_players (game_id, user_id, player_index, player_color, is_ai)

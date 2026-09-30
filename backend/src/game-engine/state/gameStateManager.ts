@@ -3,7 +3,7 @@ import { randomBytes, randomInt } from 'crypto';
 import type {
   GameState, PlayerState, TerritoryState, TerritoryCard,
   GameMap, GameSettings, EraId, DiplomacyEntry, WinProbabilitySnapshot,
-  VictoryConditionKey,
+  VictoryConditionKey, GalaxySchismMode,
 } from '../../types';
 import { getEraFactions } from '../eras';
 import { calculateReinforcements, getCardSetBonus } from '../combat/combatResolver';
@@ -36,6 +36,14 @@ import { buildWorldModifierSnapshot } from './worldModifiers';
 import { hasLaneSovereignty, tickLaneSovereignty } from '../victory/laneSovereignty';
 import { applyLaneClosure, applyLaneSurge, laneSurgeHasGap, tickLaneWeather } from './laneWeather';
 import { colonyGarrison, colonyLayout, resolveGalaxyHomeWorlds, syncGalaxyModeLanes } from './galaxyModes';
+import {
+  dealSchismFactions,
+  normalizeHouseRelations,
+  openConcord,
+  schismHouseTiles,
+  schismLayout,
+  schismOpeningBonus,
+} from './galaxySchism';
 import { arriveConvoys } from './transit';
 import {
   applyStormAttrition,
@@ -75,6 +83,12 @@ export function pickStartingPlayerIndex(
 export interface InitializeGameStateOptions {
   /** Test/dev override — skips random draw when set. */
   forceStartingPlayerIndex?: number;
+  /**
+   * Test/sim override for a Schism deal (galaxySchism.ts): which half of its
+   * world each house opens on, by player id. Skips the random draw for any
+   * world whose first-seated house is listed.
+   */
+  forceSchismHalves?: Readonly<Record<string, 0 | 1>>;
 }
 
 /** Resolved starting seat for draft/territory-select transitions (persists after init). */
@@ -160,8 +174,12 @@ export function initializeGameState(
     };
   }
 
+  // Schism (eight Galactic Age seats): every world's faction goes to two seats
+  // instead (state/galaxySchism.ts).
+  const schismDealt = settingsNorm.factions_enabled && dealSchismFactions(era, map, players);
+
   // Assign factions to players (unique picks, resolve conflicts with dice roll) when enabled
-  if (settingsNorm.factions_enabled) {
+  if (settingsNorm.factions_enabled && !schismDealt) {
     const eraFactions = getEraFactions(era);
     // Map: faction_id -> array of player indices who want it
     const factionRequests: Record<string, number[]> = {};
@@ -212,7 +230,14 @@ export function initializeGameState(
   const galaxyHomeWorlds = settingsNorm.factions_enabled && !settingsNorm.territory_selection
     ? resolveGalaxyHomeWorlds(era, map, players)
     : null;
-  const galaxyMode = galaxyHomeWorlds ? colonyLayout(map, galaxyHomeWorlds) : null;
+  const colonies = galaxyHomeWorlds ? colonyLayout(map, galaxyHomeWorlds) : null;
+  // Eight seats: two houses to every world, each on half of it.
+  const schism = schismDealt && !settingsNorm.territory_selection
+    ? schismLayout(era, map, players, normalizeHouseRelations(settingsNorm.galaxy_house_relations), {
+      forceHalves: initOptions?.forceSchismHalves,
+    })
+    : null;
+  const galaxyMode = colonies ?? schism;
 
   // Worlds explicitly flagged `initial_neutral_garrison: true` — and Space Age's
   // legacy moon — start NEUTRAL with a small garrison instead of being distributed.
@@ -235,8 +260,8 @@ export function initializeGameState(
   for (const tid of vaultGarrisons.keys()) lunarTerritoryIds.add(tid);
   // Colonies: every tile of a world no player calls home starts neutral too.
   const colonyTileIds = new Set<string>();
-  if (galaxyMode) {
-    const colonyWorlds = new Set(galaxyMode.neutral_worlds);
+  if (colonies) {
+    const colonyWorlds = new Set(colonies.neutral_worlds);
     for (const t of map.territories) {
       if (t.world_id && colonyWorlds.has(t.world_id)) colonyTileIds.add(t.territory_id);
     }
@@ -281,13 +306,15 @@ export function initializeGameState(
   if (settingsNorm.territory_selection) {
     // All territories stay neutral; players will pick during 'territory_select' phase
   } else if (settingsNorm.factions_enabled) {
-    const galaxyHomeworldsOk = tryDistributeGalaxyAgeFactionHomeworlds(
-      territories,
-      earthMap,
-      players,
-      galaxyHomeWorlds,
-      settingsNorm.initial_unit_count,
-    );
+    const galaxyHomeworldsOk = schism
+      ? distributeSchismHouses(territories, earthMap, schism, settingsNorm.initial_unit_count)
+      : tryDistributeGalaxyAgeFactionHomeworlds(
+        territories,
+        earthMap,
+        players,
+        galaxyHomeWorlds,
+        settingsNorm.initial_unit_count,
+      );
     if (!galaxyHomeworldsOk) {
       distributeTerritoriesGeographic(territories, earthMap, players, era, settingsNorm.initial_unit_count);
     }
@@ -350,6 +377,8 @@ export function initializeGameState(
       });
     }
   }
+  // Schism under the Concord: each world's two houses open under a truce.
+  if (schism) openConcord(diplomacy, players, schism);
 
   const economyTechBootstrap =
     settingsNorm.economy_enabled
@@ -1636,6 +1665,34 @@ function tryDistributeGalaxyAgeFactionHomeworlds(
     if (!any) return false;
   }
 
+  return true;
+}
+
+/**
+ * Deal each Schism house its half of its home world (galaxySchism.ts), at the
+ * initial unit count plus a Vault world's home-unit bonus, which pays for the
+ * neutral ring as it does in the whole-world deal, plus the half's own opening
+ * bonus. `map` is the distributable view. Returns false so callers fall back to
+ * geographic distribution.
+ */
+function distributeSchismHouses(
+  territories: Record<string, TerritoryState>,
+  map: GameMap,
+  schism: GalaxySchismMode,
+  initialUnitCount: number,
+): boolean {
+  for (const house of schism.houses) {
+    const homeBonus = map.worlds?.find((w) => w.world_id === house.world_id)?.rules?.vault?.home_unit_bonus ?? 0;
+    const units = Math.max(1, initialUnitCount + homeBonus + schismOpeningBonus(house));
+    const tiles = schismHouseTiles(house);
+    if (tiles.length === 0) return false;
+    for (const tid of tiles) {
+      const st = territories[tid];
+      if (!st) return false;
+      st.owner_id = house.player_id;
+      st.unit_count = units;
+    }
+  }
   return true;
 }
 

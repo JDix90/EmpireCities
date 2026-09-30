@@ -4306,10 +4306,10 @@ async function startWaitingGameLocked(io: Server, gameId: string): Promise<Start
     [gameId],
   );
 
-  // The Galactic Age deals a board for two to four seats and no other count
-  // (lobbyCapacity.ts). Create and join hold a lobby to that; this catches the
-  // rest — a lobby switched to the era by a Map & Era vote, or one created
-  // before the cap, still seating eight.
+  // The Galactic Age deals a board for two to four seats, or eight, and no
+  // other count (lobbyCapacity.ts). Create and join hold a lobby to that; this
+  // catches the rest — a Schism lobby started short of eight, a lobby switched
+  // to the era by a Map & Era vote, or one created before the cap.
   if (isGalacticAgeGame(game.era_id, game.map_id)) {
     const seatError = galaxySeatCountError(players.length);
     if (seatError) return { ok: false, code: 'SEAT_COUNT', error: seatError };

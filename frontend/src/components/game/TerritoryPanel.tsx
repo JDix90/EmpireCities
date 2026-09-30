@@ -1249,6 +1249,12 @@ export default function TerritoryPanel({
                         ⚡ Break Truce &amp; Blitz
                       </button>
                     )}
+                    {/* Schism's Concord is a truce the players never proposed, so say whose it is and how long it has left. */}
+                    {gameState.galaxy_mode?.id === 'schism' && (
+                      <p className="text-xs text-bf-muted text-center" data-testid="concord-rounds-left">
+                        The Concord with {owner?.username ?? 'this house'}: {activeTruceEntry!.truce_turns_remaining} round{activeTruceEntry!.truce_turns_remaining === 1 ? '' : 's'} left.
+                      </p>
+                    )}
                   </div>
                 ) : (
                   // Two ways to fight: one exchange, or press until decided.

@@ -70,6 +70,8 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
   const galaxyPlainLanes = typeof raw.galaxy_plain_lanes === 'boolean' ? raw.galaxy_plain_lanes : false;
   // Galactic Age transit. Off by default; baked at create from the flag.
   const galaxyTransitEnabled = typeof raw.galaxy_transit_enabled === 'boolean' ? raw.galaxy_transit_enabled : false;
+  // Galactic Age Schism house relations. The Concord unless Civil War is chosen.
+  const galaxyCivilWar = raw.galaxy_house_relations === 'civil_war';
   // Standalone Space Age frontier seeding. Off by default — baked at create from
   // the space_age_frontiers_enabled feature flag; no-op off space_age.
   const spaceAgeFrontiersEnabled = typeof raw.space_age_frontiers_enabled === 'boolean' ? raw.space_age_frontiers_enabled : false;
@@ -328,6 +330,8 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     galaxy_corridors_enabled: galaxyCorridorsEnabled || undefined,
     galaxy_plain_lanes: galaxyPlainLanes || undefined,
     galaxy_transit_enabled: galaxyTransitEnabled || undefined,
+    // Galactic Age Schism — persisted only when it is Civil War.
+    galaxy_house_relations: galaxyCivilWar ? 'civil_war' : undefined,
     // Standalone Space Age frontier seeding — persisted only when explicitly enabled.
     space_age_frontiers_enabled: spaceAgeFrontiersEnabled || undefined,
     // Space Age lunar economy — persisted only when explicitly enabled. A field

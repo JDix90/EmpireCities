@@ -38,6 +38,12 @@ export interface EraMapCompatibilityInput {
   is_ranked?: boolean;
   is_admin?: boolean;
   player_count?: number;
+  /**
+   * The seat cap the create form asks for. Only the Galactic Age reads it: four
+   * (Colonies below four, one world each at four) or eight (the Schism).
+   * Absent — the in-lobby Map & Era vote — reads as four.
+   */
+  max_players?: number;
   map_meta?: MapCompatibilityMeta | null;
 }
 
@@ -119,14 +125,35 @@ export function buildMapMetaFromGameMap(map: GameMap): MapCompatibilityMeta {
 
 /**
  * Seats a Galactic Age game supports: four home worlds, and below four the
- * unclaimed worlds open as colonies. Mirrors backend lobbyCapacity.ts.
+ * unclaimed worlds open as colonies; or eight, the Schism, two houses to every
+ * world. Five to seven have no board. Mirrors backend lobbyCapacity.ts.
  */
 export const GALAXY_MIN_PLAYERS = 2;
+/** One home world each: Colonies below this, the classic start at it. */
 export const GALAXY_MAX_PLAYERS = 4;
+/** The Schism: two houses to each of the four worlds. */
+export const GALAXY_SCHISM_PLAYERS = 8;
+export const GALAXY_SEAT_COUNTS: readonly number[] = [2, 3, 4, GALAXY_SCHISM_PLAYERS];
 export const GALAXY_PLAYER_COUNT_ERROR =
-  `Galactic Age seats ${GALAXY_MIN_PLAYERS} to ${GALAXY_MAX_PLAYERS} players — one per home world`;
+  `Galactic Age seats ${GALAXY_MIN_PLAYERS} to ${GALAXY_MAX_PLAYERS} players — one per home world — or ${GALAXY_SCHISM_PLAYERS} for the Schism, two to a world`;
 export const GALAXY_FACTIONS_REQUIRED_ERROR =
   'Galactic Age needs Asymmetric Factions on — each player commands one world';
+
+/**
+ * Seats one faction may take in a lobby: two in a Galactic Age Schism lobby
+ * (eight seats, each world's faction dealt to two houses), one elsewhere.
+ * Mirrors backend `seatsPerFaction` (lobbyCapacity.ts), which the faction pick
+ * enforces.
+ */
+export function seatsPerFaction(
+  eraId: string | null | undefined,
+  mapId: string | null | undefined,
+  settings: { max_players?: unknown } | null | undefined,
+): number {
+  const galactic = eraId === 'galaxy_age' || mapId === 'era_galaxy';
+  const cap = typeof settings?.max_players === 'number' ? settings.max_players : 8;
+  return galactic && cap >= GALAXY_SCHISM_PLAYERS ? 2 : 1;
+}
 
 export function evaluateEraMapCompatibility(input: EraMapCompatibilityInput): EraMapCompatibilityResult {
   const warnings: CompatibilityWarning[] = [];
@@ -163,11 +190,13 @@ export function evaluateEraMapCompatibility(input: EraMapCompatibilityInput): Er
 
   // Mirrors the server rules: factions come from the shared pairing evaluator,
   // the seat count from the create route (galaxyPlayerCountRejection). The form
-  // knows the seats it fills (host + AI) and never asks for more than four, so
-  // it can refuse a fifth before submitting; humans can take the rest.
+  // knows the seats it fills (host + AI) and the cap it asks for — four, or
+  // eight for the Schism — so it can refuse the overflow before submitting;
+  // humans can take the rest.
   if (isGalactic) {
     const seats = input.player_count ?? 0;
-    if (seats > GALAXY_MAX_PLAYERS) {
+    const cap = input.max_players ?? GALAXY_MAX_PLAYERS;
+    if (!GALAXY_SEAT_COUNTS.includes(cap) || seats > cap) {
       return { allowed: false, hardBlock: GALAXY_PLAYER_COUNT_ERROR, warnings };
     }
     // Home Worlds off (galaxy_plain_lanes) plays without factions by design.
