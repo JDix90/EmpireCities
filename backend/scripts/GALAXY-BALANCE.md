@@ -897,14 +897,42 @@ Shipped:
   | Tharsis / Hellas Syndicate | −1 / +1 | −2 / +2 |
   | Ward / Berth Custodians | +1 / 0 | 0 / 0 |
 
-- **Allied** (`PARTIAL_ALLIED_TUNING`, in place of `ALLIED_TUNING`): each house
-  of a side of two drafts Sol −2, Verdan −1, Rust +2 or Nexus 0 a turn (the
-  eight-seat numbers less one, since a side of two plays two turns a round); a
-  seat holding a whole world alone drafts +3 a turn, whichever world.
+- **Allied** (`PARTIAL_ALLIED_TUNING`, in place of `ALLIED_TUNING`): units a
+  turn set board by board, by the worlds that split (the table below). A side
+  of two plays two turns a round, and a side's chances turn on which sides it
+  faces, so no one number a world fits every board. A seat whose number
+  outweighs its draft (a house at −4 against the 3 units every turn drafts at
+  least) drafts nothing that turn, never a negative count (`floorSchismDraft`).
 - **As at eight seats:** the Concord (3 rounds, between a split world's houses),
   the Lane Crown (+2; a house alone wears it with its unclaimed half's gateways
   too), and Lane Sovereignty at 5 lanes for 3 rounds (listed for five to seven in
   `LANE_SOVEREIGNTY_ROUNDS_BY_SEATS`).
+
+**Allied numbers, board by board** (units a turn on top of the kit; bold: each
+house of a side of two; plain: the seat holding that world whole):
+
+| Five seats: worlds that split | Sol | Verdan | Rust | Nexus |
+|---|---|---|---|---|
+| Sol | **−1** | +4 | +2 | +1 |
+| Verdan | +6 | **+1** | +9 | +3 |
+| Rust | +4 | +3 | **−1** | +3 |
+| Nexus | +2 | +2 | +3 | **0** |
+
+| Six seats: worlds that split | Sol | Verdan | Rust | Nexus |
+|---|---|---|---|---|
+| Sol + Verdan | **−2** | **−2** | +8 | −1 |
+| Sol + Rust | **−2** | +3 | **+2** | +3 |
+| Sol + Nexus | **−4** | −1 | +4 | **−2** |
+| Verdan + Rust | +7 | **−1** | **0** | +7 |
+| Verdan + Nexus | −3 | **−4** | +13 | **+2** |
+| Rust + Nexus | +8 | +5 | **+1** | **+2** |
+
+| Seven seats: worlds that split | Sol | Verdan | Rust | Nexus |
+|---|---|---|---|---|
+| Sol + Verdan + Rust | **−2** | **−1** | **+3** | +3 |
+| Sol + Verdan + Nexus | **−3** | **−3** | +6 | **−1** |
+| Sol + Rust + Nexus | **0** | +3 | **0** | **+1** |
+| Verdan + Rust + Nexus | +3 | **0** | **+2** | **+1** |
 
 **1,260 games per seed, live defaults (threshold 60, cap 90); ranges over seeds
 A, B and C, the Concord and Civil War together unless split:**
@@ -928,18 +956,58 @@ A, B and C, the Concord and Civil War together unless split:**
 | Verdan | 21.6–23.3 / 20.9–22.2% | 16.6–18.9 / 16.2–17.5% | 13.1–14.1 / 12.1–12.5% |
 | Nexus | 17.2–18.6 / 15.2–15.7% | 17.8–18.3 / 15.8–17.1% | 16.1–16.9 / 15.1–15.6% |
 
-**Allied** (sides, seeds A / B / C; baseline 25%):
+**Allied** (sides, on seeds S / T / U, which no step of the search used;
+baseline 25%):
 
 | Side | Five seats | Six | Seven |
 |---|---|---|---|
-| Sol | 26.5 / 26.7 / 26.5% | 22.1 / 22.5 / 22.8% | 23.7 / 24.8 / 24.3% |
-| Verdan | 24.0 / 24.5 / 23.7% | 25.6 / 26.9 / 28.3% | 22.8 / 22.7 / 25.5% |
-| Rust | 23.3 / 22.9 / 23.2% | 23.1 / 23.1 / 21.7% | 23.7 / 22.6 / 22.2% |
-| Nexus | 26.2 / 25.9 / 26.6% | 29.2 / 27.5 / 27.2% | 29.8 / 29.8 / 28.0% |
-| Game length (turns) | 29.4–30.2 | 28.5–29.1 | 26.3–27.3 |
-| Won by Lane Sovereignty | 37.7–40.1% | 33.2–36.0% | 36.4–37.9% |
-| Territory-leader@turn-10's side wins | 48.1–52.0% | 54.4–55.3% | 59.0–62.0% |
-| First seat's side wins | 24.4–27.4% | 24.5–27.9% | 22.9–25.3% |
+| Sol | 29.6 / 27.9 / 31.2% | 26.3 / 29.1 / 29.0% | 26.1 / 24.8 / 26.1% |
+| Verdan | 24.0 / 26.2 / 26.3% | 28.0 / 25.8 / 27.4% | 30.0 / 30.9 / 28.7% |
+| Rust | 21.1 / 21.7 / 20.4% | 26.0 / 24.5 / 23.8% | 20.9 / 21.5 / 23.3% |
+| Nexus | 25.2 / 24.2 / 22.1% | 19.8 / 20.6 / 19.8% | 23.0 / 22.9 / 21.8% |
+| Game length (turns) | 31.6–32.0 | 29.3–30.3 | 28.5–29.0 |
+| Decisive (not turn-limit) | 98.5–98.7% | 98.3–99.6% | 99.5–99.7% |
+| Won by Lane Sovereignty | 35.6–37.2% | 31.3–32.6% | 31.5–36.9% |
+| Territory-leader@turn-10's side wins | 47.5–48.3% | 52.6–55.6% | 55.4–60.6% |
+| First seat's side wins | 28.0–29.6% | 25.6–26.1% | 23.3–25.2% |
+
+**Allied, board by board** (a side's win rate on each board, the three seeds
+pooled: the first, by-world numbers on seeds A–C → the shipped numbers on
+seeds S–U; bold: a side of two):
+
+| Five seats: worlds that split | Sol | Verdan | Rust | Nexus |
+|---|---|---|---|---|
+| Sol | **18 → 26** | 34 → 26 | 20 → 17 | 29 → 31 |
+| Verdan | 31 → 38 | **25 → 26** | 10 → 18 | 34 → 18 |
+| Rust | 28 → 24 | 12 → 22 | **44 → 30** | 15 → 24 |
+| Nexus | 29 → 31 | 25 → 27 | 19 → 19 | **27 → 23** |
+
+| Six seats: worlds that split | Sol | Verdan | Rust | Nexus |
+|---|---|---|---|---|
+| Sol + Verdan | **9 → 31** | **52 → 33** | 4 → 20 | 36 → 16 |
+| Sol + Rust | **29 → 28** | 19 → 19 | **27 → 29** | 25 → 24 |
+| Sol + Nexus | **16 → 36** | 34 → 24 | 10 → 20 | **40 → 21** |
+| Verdan + Rust | 25 → 21 | **16 → 35** | **46 → 28** | 13 → 17 |
+| Verdan + Nexus | 33 → 29 | **23 → 27** | 6 → 23 | **38 → 22** |
+| Rust + Nexus | 23 → 25 | 18 → 25 | **43 → 30** | **16 → 20** |
+
+| Seven seats: worlds that split | Sol | Verdan | Rust | Nexus |
+|---|---|---|---|---|
+| Sol + Verdan + Rust | **28 → 28** | **33 → 34** | **15 → 19** | 25 → 19 |
+| Sol + Verdan + Nexus | **13 → 25** | **22 → 35** | 2 → 14 | **63 → 25** |
+| Sol + Rust + Nexus | **14 → 25** | 24 → 25 | **42 → 26** | **20 → 24** |
+| Verdan + Rust + Nexus | 42 → 24 | **17 → 25** | **32 → 28** | **9 → 23** |
+
+Every side of every board around 25%, in points RMS: 8.8 → 5.4 at five seats,
+12.7 → 5.4 at six and 14.7 → 5.1 at seven (4.5–6.7 on any one seed). 45 of the
+56 cells sit within 18–32%, against 22. Averaged over the deal, by role:
+
+| Side: its world split / held whole | Five seats | Six | Seven |
+|---|---|---|---|
+| Sol | 17.7 / 29.6 → 25.5 / 30.9% | 17.8 / 27.1 → 31.4 / 24.8% | 18.2 / 42.4 → 26.2 / 24.1% |
+| Verdan | 24.7 / 23.9 → 26.2 / 25.3% | 30.3 / 23.7 → 31.7 / 22.4% | 23.6 / 23.9 → 31.4 / 25.3% |
+| Rust | 44.2 / 16.0 → 29.6 / 18.2% | 38.5 / 6.7 → 28.8 / 20.7% | 29.8 / 1.9 → 24.4 / 14.3% |
+| Nexus | 26.6 / 26.1 → 23.4 / 24.0% | 31.1 / 24.8 → 21.0 / 19.1% | 30.6 / 25.0 → 23.9 / 18.6% |
 
 **The gate** is the four-player gate scaled to each count:
 - Decisive ≥ 80%: passes.
@@ -949,12 +1017,13 @@ A, B and C, the Concord and Civil War together unless split:**
   faction at six seats in both relations, and at seven under the Concord
   (§11).
 - Allied, every side within ±28% of 25% (18–32%) on every seed: passes, at
-  21.7–29.8%.
+  19.8–31.2% on seeds S, T and U. The first, by-world numbers read 21.7–29.8%
+  on A–C, but as the average of boards at 1.9–63.2%.
 - Sovereignty a real ending but not the only one: passes, at 34–43%.
 - Lanes changing hands: passes.
 - The roles: a house with a rival and a house alone are each within ±28% of
-  1/seats on every seed; Allied, a side of two per seat 25.3–30.2% and a seat
-  holding a whole world 19.8–24.2%.
+  1/seats on every seed; Allied, a side of two per seat 25.2–28.8% and a seat
+  holding a whole world 19.6–24.9%.
 - Per half and role, pooled over the seeds (sixteen labels a count):
   - Concord: 14, 11 and 12 of 16 within ±28% at five, six and seven seats.
     Outside ±40%: the Western Mandate with a rival at five (10.8%, 0.54×) and
@@ -982,6 +1051,12 @@ at four (480 games). At eight seats, 480 games on seed A:
 
 The halves' eight-seat numbers, `ALLIED_TUNING` and the eight-seat deal are
 read unchanged.
+
+The Allied numbers board by board, and the draft floor, left every other mode
+as it was. On seed A, 100 games each, the Concord at five to eight seats and
+the Allied houses at eight replay the by-world code game for game, except one
+game each at six, seven and eight seats that also varied between runs of the
+by-world code.
 
 ### How it got there
 
@@ -1071,25 +1146,17 @@ two still plays two turns a round:
 |---|---|---|---|
 | none (the eight-seat `ALLIED_TUNING` only) | 35.0 / 21.7% | 35.5 / 14.5% | 29.9 / 10.2% |
 | −1 / +2 | 29.3 / 23.6% | 29.9 / 20.1% | 25.7 / 22.9% |
-| −1 / +3 (shipped) | 27.1 / 24.3% | 30.4 / 19.6% | 25.3 / 24.0% |
+| −1 / +3 (shipped first) | 27.1 / 24.3% | 30.4 / 19.6% | 25.3 / 24.0% |
 
 (win rate per seat on a side of two / on a side of one; baseline 25%, since a
 side wins whole. Seed A, 420 games.)
 
-The eight-seat numbers less one, by world, then passed on three seeds
-(`PARTIAL_ALLIED_TUNING`, above). Averaged over the deal every side passes, but
-a side's chances depend on whether its world splits (1,260 games × 3 seeds,
-pooled):
-
-| Side | Five seats | Six | Seven |
-|---|---|---|---|
-| Sol | 17.7 / 29.6% | 17.8 / 27.1% | 18.2 / 42.4% |
-| Verdan | 24.7 / 23.9% | 30.3 / 23.7% | 23.6 / 23.9% |
-| Rust | 44.2 / 16.0% | 38.5 / 6.7% | 29.8 / 1.9% |
-| Nexus | 26.6 / 26.1% | 31.1 / 24.8% | 30.6 / 25.0% |
-
-(the side's win rate when its world splits, a side of two / when one seat holds
-it whole; baseline 25%)
+The eight-seat numbers less one, by world, shipped first: each house of a side
+of two drafted Sol −2, Verdan −1, Rust +2 or Nexus 0, and a whole world +3.
+They passed on three seeds. Averaged over the deal every side passed, but a
+side's chances depended on whether its world split (the by-role table above,
+left of each arrow). A lone Rust seat won 16.0% at five seats, 6.7% at six and
+1.9% at seven, a lone Sol seat 42.4% at seven, and Rust's houses 44.2% at five.
 
 Three screens tried to even that out (seed A, 1,260 games at each count):
 - **Sol's houses 0 and its whole world +1, Rust's houses 0 and whole +7,
@@ -1108,8 +1175,43 @@ stayed where it was (20.0 → 19.4%), and 13 points moved from Nexus to the Sol
 houses (15.6 → 29.2%): a stronger Rust seat wears down Verdan and Nexus, and
 the Sol houses, which border both, take the gain.
 
-So the validated numbers ship, and evening out each configuration is left to a
-search over whole-world numbers by seat count (§11).
+**Numbers board by board.** A board (the worlds that split) reads only its own
+four numbers, so each board is its own problem: four numbers, four sides, every
+side toward 25%. The search ran on the sim, seed A, 1,260 games a count:
+- **One run per number** gave the sensitivities, and a least-squares step
+  predicted how far each form of table could go (points RMS of every side of
+  every board around 25%, five / six / seven seats, from 9.0 / 12.8 / 14.8):
+
+  | Numbers | Predicted |
+  |---|---|
+  | by world and seat count (8 a count) | 4.6 / 9.3 / 5.9 |
+  | by board (one a world, 16 / 24 / 16 a count) | 2.5 / 5.2 / 4.5 |
+
+  Where two worlds split, their pairs fight each other as much as anyone
+  else, so no one number a world fits every board.
+- **The first step overshot.** At seven seats with Rust alone, cutting the
+  Nexus and Sol pairs handed Verdan's 80% of those games.
+- **So the steps became damped.** Each side's number moved by the log of its
+  shortfall from 25%, and the step went to the cheaper lever: a house number
+  moves its side's strength about 0.2–0.3 a unit, a whole-world number
+  0.04–0.15. Every table tried was kept, and each board started from its best.
+- **Where two neighbouring pairs both split, one unit flips which of them
+  wins.** Six seats with Sol and Verdan split: 39 / 23% at Sol −2, 14 / 46% at
+  Sol −3. Those boards stay the least even.
+- **Candidates were chosen on seeds A–E pooled**, then checked on fresh seeds
+  and adjusted where a seed broke the side gate:
+  - Verdan's side at six seats won 34.1% on seed E, so Verdan's numbers came
+    down on the boards where it ran high.
+  - Rust's side at five won 17.6% on seed Y, so Rust's houses went from −2 to
+    −1 where Rust splits. Lifting a lone Rust seat instead lifted Sol: a
+    stronger Rust wears down Verdan and Nexus, which border Sol.
+- **Sol's houses at −4** (six seats, Sol and Nexus split) can outweigh a small
+  draft. Every turn drafts at least 3 units plus the kit, and Sol's kit adds
+  none. With Sol at −3, that board's four sides sat 11.7–17.6 points RMS from
+  25%, against 4.3 at −4. So −4 stays, and such a seat drafts nothing that turn
+  (`floorSchismDraft`).
+- **The shipped code was validated on seeds S, T and U**, which no step of the
+  search used.
 
 ## 11. Open
 
@@ -1152,15 +1254,30 @@ search over whole-world numbers by seat count (§11).
   read the snowball; the 1v1 duel (§7) sits at ~72%.
 - **Team numbers were tuned against the AI**, which does not coordinate with
   its ally. Two people on one side may play it differently.
-- **Allied lone seats depend on their world** (§10). A seat holding Rust alone
-  wins 16.0% at five seats, 6.7% at six and 1.9% at seven; one holding Sol
-  alone wins 42.4% at seven; Rust's houses as a side of two win 44.2% at five.
-  Every side passes the gate averaged over the deal. The numbers are coupled
-  round the ring, so evening out each configuration wants a search over
-  whole-world numbers by seat count, not another hand retune.
+- **Some Allied Partial Schism boards are still uneven** (§10), though the
+  numbers now go board by board (5.1–5.4 points RMS around 25%, from 8.8–14.7):
+  - five seats, Verdan split: the lone Sol seat wins 38%;
+  - six seats: with Sol and Nexus split, Sol's houses win 36%; with Verdan
+    split beside Sol or Rust, Verdan's houses 33–35% and the lone Nexus seat
+    16–17%;
+  - seven seats, Sol, Verdan and Nexus split: Verdan's houses 35%, the lone
+    Rust seat 14%.
+
+  Where two neighbouring pairs both split, one unit a turn flips which of them
+  wins, so whole numbers cannot land between. Averaged over the deal the sides
+  read 19.8–31.2%, inside the gate but wider than the by-world numbers'
+  21.7–29.8%: Sol at five seats and Verdan at seven run high, Nexus at six low.
 
 ## History
 
+- **2026-09-30 (Allied lone seats):** Allied Partial Schism numbers set board
+  by board, by the worlds that split (§10), in place of one number a world. On
+  seeds no step of the search used, every side of every board sits 5.1–5.4
+  points RMS from 25% (8.8–14.7 before); a lone Rust seat at seven 1.9 →
+  14.3%, a lone Sol seat at seven 42.4 → 24.1%, Rust's houses at five 44.2 →
+  29.6%. Sides 19.8–31.2% averaged over the deal. A seat whose number outweighs
+  its draft drafts none, not a negative count (`floorSchismDraft`). Every other
+  mode unchanged.
 - **2026-09-30 (Partial Schism):** five to seven seats on the Galactic Age
   (§10). One world splits for each seat over four. A world dealt to one seat
   has one house, alone on half of it, and its other half opens unclaimed
