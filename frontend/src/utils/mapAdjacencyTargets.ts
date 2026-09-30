@@ -1,4 +1,5 @@
 import type { GameState } from '../store/gameStore';
+import { isShieldedFrom } from './teams';
 
 export interface MapConnection {
   from: string;
@@ -226,6 +227,9 @@ export function computePhaseAdjacencyTargets(
 
     if (gameState.phase === 'attack') {
       if (isJumpGateOnlyEdge(connections, source, neighborId)) continue;
+      // An ally's ground is never a target in a team game, nor another side's
+      // during its opening ceasefire (utils/teams).
+      if (isShieldedFrom(gameState, sourceOwner, neighborOwner)) continue;
       if (neighborOwner && neighborOwner !== sourceOwner) {
         result.add(neighborId);
       } else if (
@@ -403,8 +407,9 @@ export function listDirectAttackSources(
 ): DirectAttackSourceRow[] {
   if (!gameState || !viewerId || gameState.phase !== 'attack') return [];
   const targetOwner = gameState.territories[targetTerritoryId]?.owner_id;
-  // Enemy-held or a capturable neutral; never your own territory.
-  if (targetOwner === viewerId) return [];
+  // Enemy-held or a capturable neutral; never your own territory, an ally's, or
+  // another side's during a team game's opening ceasefire.
+  if (targetOwner === viewerId || isShieldedFrom(gameState, viewerId, targetOwner)) return [];
 
   return listBorderingOwned(gameState, connections, targetTerritoryId, viewerId)
     .filter((sourceId) => canAttackFrom(gameState, sourceId, viewerId))

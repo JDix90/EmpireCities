@@ -155,6 +155,39 @@ export function seatsPerFaction(
   return galactic && cap >= GALAXY_SCHISM_PLAYERS ? 2 : 1;
 }
 
+/**
+ * A Galactic Age 2v2 lobby's two sides, by the factions whose home worlds pair
+ * up across the ring's gaps. Mirrors backend GALAXY_2V2_PAIRS (galaxyTeams.ts).
+ */
+export const GALAXY_2V2_FACTION_PAIRS: ReadonlyArray<readonly [string, string]> = [
+  ['stellar_mandate', 'forge_syndicate'],
+  ['helion_navigators', 'void_custodians'],
+];
+
+/**
+ * How a Galactic Age lobby's teams form, for the waiting room: in 2v2 a
+ * player's faction is their side; with Allied houses the two seats on a faction
+ * are one. Null for a free-for-all lobby.
+ */
+export function galaxyTeamPickNote(
+  eraId: string | null | undefined,
+  mapId: string | null | undefined,
+  settings: { max_players?: unknown; galaxy_2v2?: unknown; galaxy_house_relations?: unknown } | null | undefined,
+  factionName: (factionId: string) => string,
+): string | null {
+  const galactic = eraId === 'galaxy_age' || mapId === 'era_galaxy';
+  if (!galactic || !settings) return null;
+  const cap = typeof settings.max_players === 'number' ? settings.max_players : 8;
+  if (cap >= GALAXY_SCHISM_PLAYERS && settings.galaxy_house_relations === 'allied') {
+    return 'Allied houses: the two players on each faction are one team and share its world. Pick the same faction as a friend to play on one side.';
+  }
+  if (cap === GALAXY_MAX_PLAYERS && settings.galaxy_2v2 === true) {
+    const [a, b] = GALAXY_2V2_FACTION_PAIRS.map((pair) => pair.map(factionName).join(' and '));
+    return `2v2: your faction is your team, ${a} against ${b}.`;
+  }
+  return null;
+}
+
 export function evaluateEraMapCompatibility(input: EraMapCompatibilityInput): EraMapCompatibilityResult {
   const warnings: CompatibilityWarning[] = [];
   const { era_id, map_id, settings } = input;

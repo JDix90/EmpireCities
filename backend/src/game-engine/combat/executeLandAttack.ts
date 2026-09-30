@@ -8,6 +8,7 @@ import { computeLandCombatModifiers } from './combatModifiers';
 import { resolveCombat } from './combatResolver';
 import { applyDefenderPostCombatReactions, consumeDefenderPreCombatCharges } from './defenderReactions';
 import { eliminatePlayer } from '../state/elimination';
+import { isShieldedFrom } from '../state/teams';
 
 type ConsumedAttackBuffs = ReturnType<typeof consumeAttackBuffs>;
 type ConsumedDefenderCharges = ReturnType<typeof consumeDefenderPreCombatCharges>;
@@ -83,6 +84,11 @@ export function executeLandAttack(
   if (!from || !to || !attacker) return null;
   if (from.owner_id !== attackerId) return null;
   if (to.owner_id === attackerId) return null;
+  // No friendly fire in a team game (state/teams.ts): an ally's ground is never
+  // a target, nor another side's during the opening ceasefire. Every land attack
+  // comes through here — a player's, a blitz's, the AI's, a Drop Assault's
+  // landing — so this is the rule the others restate.
+  if (isShieldedFrom(state, attackerId, to.owner_id)) return null;
   // Neutral (owner-less) territories:
   //  1. An Earth-side neutral GARRISON is conquerable on every board: an Era
   //     Advancement frontier (eraAdvancement/territoryUnlock.ts), a standalone

@@ -12,14 +12,16 @@
  * the share is of EVERY territory in the game state, unowned ones included,
  * and the count needed is `Math.ceil((total * threshold) / 100)` — the same
  * expression, so the tracker and the server never disagree about the last
- * territory.
+ * territory. In a team game the side's territories count together, as
+ * `checkTeamVictory` (backend victory/teamVictory.ts) reads the threshold.
  */
 
 import type { GameState } from '../store/gameStore';
 import { allowedVictoryConditions } from './lunarHegemony';
+import { allyIdsOf } from './teams';
 
 export interface MapControlProgress {
-  /** Territories the player holds (the server's `territory_count`). */
+  /** Territories the player holds (the server's `territory_count`), or their side holds between them. */
   held: number;
   /** Every territory in the game — the denominator the server divides by. */
   total: number;
@@ -31,6 +33,8 @@ export interface MapControlProgress {
   needed: number;
   /** Territories still to take; 0 once the threshold is met. */
   remaining: number;
+  /** True in a team game: `held` counts the player's whole side. */
+  side?: boolean;
 }
 
 /**
@@ -50,7 +54,7 @@ export function mapControlThreshold(settings: GameState['settings'] | null | und
  * the eliminated), or the board is empty.
  */
 export function mapControlProgress(
-  gameState: Pick<GameState, 'settings' | 'territories' | 'players'> | null | undefined,
+  gameState: (Pick<GameState, 'settings' | 'territories' | 'players'> & Partial<Pick<GameState, 'teams'>>) | null | undefined,
   playerId: string | null | undefined,
 ): MapControlProgress | null {
   if (!gameState || !playerId) return null;
@@ -60,7 +64,11 @@ export function mapControlProgress(
   if (!player || player.is_eliminated) return null;
   const total = Object.keys(gameState.territories).length;
   if (total === 0) return null;
-  const held = player.territory_count;
+  const allies = allyIdsOf(gameState, playerId);
+  const held = gameState.players.reduce(
+    (n, p) => (p.player_id === playerId || allies.includes(p.player_id) ? n + p.territory_count : n),
+    0,
+  );
   const needed = Math.ceil((total * thresholdPct) / 100);
   return {
     held,
@@ -69,5 +77,6 @@ export function mapControlProgress(
     thresholdPct,
     needed,
     remaining: Math.max(0, needed - held),
+    ...(allies.length > 0 ? { side: true } : {}),
   };
 }

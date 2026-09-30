@@ -60,6 +60,7 @@ import {
 } from '../../utils/galaxyLanes';
 import { countOwnedLunarTerritories } from '../../utils/orbitAccess';
 import { dropAssaultsTargeting } from '../../utils/dropAssaults';
+import { areAllies, inOpeningCeasefire, isFriendlyOwner, regionBonusHolder } from '../../utils/teams';
 
 interface TerritoryPanelProps {
   mapTerritories: Array<{
@@ -385,7 +386,13 @@ export default function TerritoryPanel({
     gameState.players[gameState.current_player_index]?.player_id === myPlayerId;
   const isUnowned = tState.owner_id == null || tState.owner_id === '' || tState.owner_id === 'neutral';
   const isMine = !!myPlayerId && tState.owner_id === myPlayerId;
-  const isEnemy = !!myPlayerId && !isUnowned && tState.owner_id !== myPlayerId;
+  // Team games (utils/teams): an ally's ground is neither yours nor an enemy's.
+  // Nothing is aimed at it — no attack, strike, Influence or truce offer.
+  const isAlly = !!myPlayerId && areAllies(gameState, myPlayerId, tState.owner_id);
+  const isEnemy = !!myPlayerId && !isUnowned && tState.owner_id !== myPlayerId && !isAlly;
+  // ...and during a team game's opening ceasefire, an enemy's ground is off
+  // limits too, until every player has had a turn.
+  const ceasefire = inOpeningCeasefire(gameState);
   // Fog-of-war: server sends unit_count -1 (and strips buildings/fleets/stability)
   // for territories this player hasn't revealed. Don't render scouting intel for them.
   const fogHidden = isFogHidden(tState);
@@ -635,6 +642,9 @@ export default function TerritoryPanel({
               <span className="flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: owner.color }} />
                 {owner.username}
+                {isAlly && (
+                  <span className="text-emerald-300" data-testid="territory-ally-tag"> · your ally</span>
+                )}
               </span>
             ) : 'Unowned'}
           </p>
@@ -876,10 +886,19 @@ export default function TerritoryPanel({
         const regionColor = regionColors[regionIdx % regionColors.length];
         const regionTerritories = mapTerritories.filter((t) => t.region_id === mapTerritory.region_id);
         const totalInRegion = regionTerritories.length;
+        // In a team game the side's tiles count toward a region, and the one who
+        // holds most of it collects (utils/teams regionBonusHolder).
         const ownedInRegion = myPlayerId
-          ? regionTerritories.filter((t) => gameState.territories[t.territory_id]?.owner_id === myPlayerId).length
+          ? regionTerritories.filter((t) => isFriendlyOwner(gameState, myPlayerId, gameState.territories[t.territory_id]?.owner_id)).length
           : 0;
+        const regionHolder = regionBonusHolder(
+          gameState,
+          regionTerritories.map((t) => gameState.territories[t.territory_id]?.owner_id),
+        );
         const controlsRegion = !!myPlayerId && totalInRegion > 0 && ownedInRegion === totalInRegion;
+        const allyCollects = controlsRegion && !!regionHolder && regionHolder !== myPlayerId
+          ? gameState.players.find((p) => p.player_id === regionHolder)?.username ?? 'your ally'
+          : null;
         const playerCount = gameState.players.length;
         const effBonus = effectiveContinentBonus(regionDef.bonus, playerCount);
         const bonusScaled = effBonus !== regionDef.bonus;
@@ -917,6 +936,9 @@ export default function TerritoryPanel({
                   {ownedInRegion}/{totalInRegion}{controlsRegion && ' ✓'}
                 </span>
               </div>
+            )}
+            {allyCollects && (
+              <p className="text-[10px] text-emerald-300/90 mt-1">Your side holds it: {allyCollects} collects the bonus.</p>
             )}
           </div>
         );
@@ -1118,7 +1140,9 @@ export default function TerritoryPanel({
               {!attackSource && (isMine || isEnemy) &&
                (isMine ? attackNeighbors.length === 0 : directAttackSources.length === 0) && (
                 <p className="text-xs text-bf-muted/80">
-                  {isMine
+                  {ceasefire
+                    ? 'Opening ceasefire: no side attacks another until every player has had a turn.'
+                    : isMine
                     ? tState.unit_count >= MIN_ATTACK_UNITS
                       ? 'No enemy borders this territory. Attack from one that does.'
                       : `Needs at least ${MIN_ATTACK_UNITS} units to attack — one has to hold the territory.`
@@ -1250,7 +1274,7 @@ export default function TerritoryPanel({
                       </button>
                     )}
                     {/* Schism's Concord is a truce the players never proposed, so say whose it is and how long it has left. */}
-                    {gameState.galaxy_mode?.id === 'schism' && (
+                    {gameState.galaxy_mode?.id === 'schism' && gameState.galaxy_mode.relations === 'concord' && (
                       <p className="text-xs text-bf-muted text-center" data-testid="concord-rounds-left">
                         The Concord with {owner?.username ?? 'this house'}: {activeTruceEntry!.truce_turns_remaining} round{activeTruceEntry!.truce_turns_remaining === 1 ? '' : 's'} left.
                       </p>
@@ -1307,7 +1331,7 @@ export default function TerritoryPanel({
           {/* Tech / faction ability buttons — phase-gated per each ability's own def.phase */}
           {onUseAbility && (!attackSource || attackSource === selectedTerritory) && myPlayer && (() => {
             const allAbilities = getPlayerTerritoryAbilities(gameState, myPlayer, techTree, {
-              isEnemy,
+              isEnemy: isEnemy && !ceasefire,
               isMine,
               isUnowned,
             }, countOwnedLunarTerritories(mapTerritories, gameState, myPlayer.player_id));
@@ -1379,7 +1403,7 @@ export default function TerritoryPanel({
               ) : (
                 <>
                   {/* Influence Spread / Carbonari Network */}
-                  {(isEnemy || isUnowned) && onInfluence &&
+                  {((isEnemy && !ceasefire) || isUnowned) && onInfluence &&
                    (gameState.era_modifiers?.influence_spread || gameState.era_modifiers?.carbonari_network) && (() => {
                     const cooldown = (gameState as any).influence_cooldown_remaining ?? 0;
                     const myPlayer = gameState.players.find((p) => p.player_id === myPlayerId);
@@ -1721,7 +1745,7 @@ export default function TerritoryPanel({
               const regionColor = regionColors[regionIdx % regionColors.length];
               const regionTerritories = mapTerritories.filter((t) => t.region_id === mapTerritory.region_id);
               const ownedInRegion = myPlayerId
-                ? regionTerritories.filter((t) => gameState.territories[t.territory_id]?.owner_id === myPlayerId).length
+                ? regionTerritories.filter((t) => isFriendlyOwner(gameState, myPlayerId, gameState.territories[t.territory_id]?.owner_id)).length
                 : 0;
               const playerCount = gameState.players.length;
               const effBonus = effectiveContinentBonus(regionDef.bonus, playerCount);

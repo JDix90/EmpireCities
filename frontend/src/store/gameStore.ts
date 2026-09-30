@@ -167,8 +167,21 @@ export interface GalaxyColoniesMode {
   lanes?: Array<{ from: string; to: string }>;
 }
 
-/** How a Schism world's two houses start. */
-export type GalaxyHouseRelations = 'concord' | 'civil_war';
+/** How a Schism world's two houses start: under the Concord, in Civil War, or Allied as a team. */
+export type GalaxyHouseRelations = 'concord' | 'civil_war' | 'allied';
+
+/**
+ * A side in a team game (the Galactic Age's Allied houses and 2v2): its members
+ * never attack one another, share vision under fog, and win together. Mirrors
+ * backend types.
+ */
+export interface GameTeam {
+  team_id: string;
+  /** e.g. "Stellar Mandate", or "Stellar Mandate & Forge Syndicate". */
+  name: string;
+  /** Members, in seat order. */
+  player_ids: string[];
+}
 
 /** One seat of a Schism game: the half of its faction's home world it opened on. */
 export interface GalaxySchismHouse {
@@ -185,9 +198,9 @@ export interface GalaxySchismHouse {
 export interface GalaxySchismMode {
   id: 'schism';
   relations: GalaxyHouseRelations;
-  /** Rounds the Concord truce covered, counting the first (0 in Civil War). */
+  /** Rounds the Concord truce covered, counting the first (0 in Civil War and Allied). */
   concord_rounds: number;
-  /** Units a turn the Lane Crown is worth in this game. */
+  /** Units a turn the Lane Crown is worth in this game (0 when the houses are Allied). */
   lane_crown_bonus: number;
   houses: GalaxySchismHouse[];
   /** Each world's gateway tiles: a house holding all of its home world's wears the Lane Crown. */
@@ -227,6 +240,8 @@ export interface GameState {
    * Schism (eight seats): two houses to every world, each on half of it.
    */
   galaxy_mode?: GalaxyColoniesMode | GalaxySchismMode;
+  /** The sides of a team game (Allied houses, 2v2); absent in a free-for-all game. */
+  teams?: GameTeam[];
   /** Galaxy transit: convoys in the void, visible to everyone as public commitments. */
   transits?: Array<{
     id: string;

@@ -14,6 +14,7 @@ import {
 } from './techAbilities';
 import { checkMoonPowerRequirement, spendMoonPowerCost } from './moonPowers';
 import { declareDropAssault } from './dropAssault';
+import { isShieldedFrom, shieldedTargetError } from '../state/teams';
 
 export interface AbilityExecutionResult {
   success: boolean;
@@ -302,6 +303,7 @@ function executeAbilityEffect(params: TechAbilityParams): AbilityExecutionResult
     if (!target) return { success: false, error: 'Invalid territory' };
     if (target.owner_id === playerId) return { success: false, error: 'Cannot target your own territory' };
     if (target.owner_id == null) return { success: false, error: 'Cannot target a neutral territory' };
+    if (isShieldedFrom(state, playerId, target.owner_id)) return { success: false, error: shieldedTargetError(state, playerId, target.owner_id) };
 
     if (!isEnemyTerritoryReachableForAbility(state, map, playerId, territoryId, def)) {
       return { success: false, error: 'Target territory is out of range' };
@@ -342,6 +344,7 @@ function executeAbilityEffect(params: TechAbilityParams): AbilityExecutionResult
     const target = state.territories[territoryId];
     if (!target) return { success: false, error: 'Invalid territory' };
     if (target.owner_id === playerId) return { success: false, error: 'Cannot bomb your own territory' };
+    if (isShieldedFrom(state, playerId, target.owner_id)) return { success: false, error: shieldedTargetError(state, playerId, target.owner_id) };
 
     currentPlayer.used_game_abilities = [...(currentPlayer.used_game_abilities ?? []), abilityId];
 

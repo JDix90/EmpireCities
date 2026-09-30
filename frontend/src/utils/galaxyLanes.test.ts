@@ -25,6 +25,8 @@ import {
   laneKindOf,
   laneSovereigntyProgress,
   laneSovereigntyRoundsFor,
+  laneSovereigntyRoundsForGame,
+  LANE_SOVEREIGNTY_ROUNDS_BY_SIDES,
   laneTouchesSealWorld,
   orbitLaneId,
   prettyRegionId,
@@ -326,7 +328,7 @@ describe('the Schism board', () => {
     { player_id: 'rival', world_id: 'sol', half: 1 as const, name: 'Eastern Mandate' },
     { player_id: 'far', world_id: 'verdan', half: 0 as const, name: 'Dawnrim Navigators' },
   ];
-  const schism = (relations: 'concord' | 'civil_war', owners: Record<string, string> = {}) => ({
+  const schism = (relations: 'concord' | 'civil_war' | 'allied', owners: Record<string, string> = {}) => ({
     players: [
       { player_id: 'me', username: 'Commander' },
       { player_id: 'rival', username: 'Rival' },
@@ -337,7 +339,7 @@ describe('the Schism board', () => {
       id: 'schism' as const,
       relations,
       concord_rounds: relations === 'concord' ? 3 : 0,
-      lane_crown_bonus: 2,
+      lane_crown_bonus: relations === 'allied' ? 0 : 2,
       houses,
       crown_gateways: { sol: ['sol_a', 'sol_b'], verdan: ['verdan_a'] },
     },
@@ -389,10 +391,78 @@ describe('the Schism board', () => {
     expect(describeSchism(schism('concord'), 'me', mapData)).toHaveLength(3);
   });
 
+  it('briefs an Allied house on its partner, with no Crown to fight over', () => {
+    expect(describeSchism(schism('allied'), 'me', mapData)).toEqual([
+      'You are the Western Mandate. The Eastern Mandate (Rival) holds the rest of Sol III, with the same kit.',
+      'Allied: the Eastern Mandate is your ally, not your rival.',
+    ]);
+    expect(describeSchism(schism('allied'), null, mapData)).toEqual([
+      expect.stringMatching(/^Eight houses, two to every world/),
+      "Allied: each world's two houses are one side.",
+    ]);
+  });
+
   it('briefs a spectator on the board, and says nothing on any other board', () => {
     const lines = describeSchism(schism('concord'), null, mapData);
     expect(lines[0]).toMatch(/^Eight houses, two to every world/);
     expect(lines[1]).toBe("The Concord: each world's two houses start under a truce for the first 3 rounds.");
     expect(describeSchism(mkState(), 'me', mapData)).toEqual([]);
+  });
+});
+
+describe('lanes in a team game', () => {
+  // me and pal are one side, rival the other.
+  const teams = [
+    { team_id: 'team_1', name: 'Us', player_ids: ['me', 'pal'] },
+    { team_id: 'team_2', name: 'Them', player_ids: ['rival'] },
+  ];
+  const withTeams = (state: GameState, on = true) => ({ ...state, teams: on ? teams : undefined }) as GameState;
+
+  it("make a lane the side's corridor when an ally holds the far end", () => {
+    const owners = { sol_a: 'me', verdan_a: 'pal', sol_b: 'me', nexus_a: 'rival' };
+    expect(laneStateFor(withTeams(mkState({ owners })), 'sol_a', 'verdan_a', 'me')).toBe('corridor');
+    expect(laneStateFor(withTeams(mkState({ owners })), 'sol_a', 'verdan_a', 'pal')).toBe('corridor');
+    expect(laneStateFor(withTeams(mkState({ owners })), 'sol_b', 'nexus_a', 'me')).toBe('open');
+    expect(laneStateFor(withTeams(mkState({ owners }), false), 'sol_a', 'verdan_a', 'me')).toBe('open');
+  });
+
+  it("let the sealer's allies through its seal, and nobody else", () => {
+    const seals = { [orbitLaneId('sol_b', 'nexus_a')]: { owner_id: 'pal', turns_remaining: 1 } };
+    expect(isLaneSealedForPlayer(withTeams(mkState({ seals })), 'sol_b', 'nexus_a', 'me')).toBe(false);
+    expect(isLaneSealedForPlayer(withTeams(mkState({ seals })), 'sol_b', 'nexus_a', 'rival')).toBe(true);
+    expect(isLaneSealedForPlayer(withTeams(mkState({ seals }), false), 'sol_b', 'nexus_a', 'me')).toBe(true);
+  });
+
+  it('count Lane Sovereignty corridors the side holds together, over rounds set by the sides', () => {
+    const connections = [
+      { from: 'a1', to: 'b1', type: 'orbit' },
+      { from: 'a2', to: 'b2', type: 'orbit' },
+      { from: 'a3', to: 'b3', type: 'orbit' },
+    ];
+    const mk = (sides?: typeof teams) => ({
+      settings: { allowed_victory_conditions: ['lane_sovereignty'] },
+      players: ['me', 'rival', 'pal', 'foe'].map((player_id) => ({ player_id, lane_sovereignty_streak: player_id === 'me' ? 1 : 0 })),
+      territories: Object.fromEntries(
+        Object.entries({ a1: 'me', b1: 'pal', a2: 'pal', b2: 'pal', a3: 'me', b3: 'rival' }).map(([k, v]) => [k, { owner_id: v }]),
+      ),
+      teams: sides,
+    }) as unknown as GameState;
+
+    // a1–b1 is shared with an ally, a2–b2 is the ally's own; a3–b3 is a front.
+    expect(laneSovereigntyProgress(mk(teams), connections, 'me')).toEqual(
+      { applicable: true, held: 2, needed: 3, streak: 1, roundsNeeded: LANE_SOVEREIGNTY_ROUNDS_BY_SIDES[2] },
+    );
+    // Four seats but two sides: the streak runs the two-sided count.
+    expect(laneSovereigntyRoundsForGame(mk(teams))).toBe(5);
+    const fourSides = [
+      { team_id: 'team_1', name: 'A', player_ids: ['me'] },
+      { team_id: 'team_2', name: 'B', player_ids: ['rival'] },
+      { team_id: 'team_3', name: 'C', player_ids: ['pal'] },
+      { team_id: 'team_4', name: 'D', player_ids: ['foe'] },
+    ];
+    expect(laneSovereigntyRoundsForGame(mk(fourSides))).toBe(3);
+    // Without teams: the ally's gateway is someone else's, and the seats set the rounds.
+    expect(laneSovereigntyProgress(mk(), connections, 'me')).toMatchObject({ held: 0, roundsNeeded: 3 });
+    expect(laneSovereigntyRoundsForGame(null)).toBe(3);
   });
 });

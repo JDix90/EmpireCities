@@ -46,6 +46,10 @@ export const GameErrorCode = {
   ALREADY_ADVANCED: 'ALREADY_ADVANCED',
   /** An active truce with the target player blocks the attack. */
   TRUCE_ACTIVE: 'TRUCE_ACTIVE',
+  /** The target is an ally's (a team game): allies never attack each other. */
+  ALLY_TARGET: 'ALLY_TARGET',
+  /** A team game's opening ceasefire: no side attacks another until every player has had a turn. */
+  CEASEFIRE: 'CEASEFIRE',
   /** A galaxy hyperspace lane between the territories is sealed. */
   LANE_SEALED: 'LANE_SEALED',
   /** Orbit/moon access rules deny the move (e.g. no launch capability). */

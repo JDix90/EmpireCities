@@ -233,7 +233,7 @@ describe('Galactic Age lobby payload', () => {
   });
 
   it('keeps the Schism house relations, and refuses anything else', () => {
-    for (const relations of ['concord', 'civil_war'] as const) {
+    for (const relations of ['concord', 'civil_war', 'allied'] as const) {
       const parsed = CreateGameSchema.safeParse({
         ...galaxyPayload,
         max_players: 8,
@@ -244,14 +244,32 @@ describe('Galactic Age lobby payload', () => {
     }
     expect(CreateGameSchema.safeParse({
       ...galaxyPayload,
-      settings: { ...galaxyPayload.settings, galaxy_house_relations: 'allied' },
+      settings: { ...galaxyPayload.settings, galaxy_house_relations: 'teams' },
     }).success).toBe(false);
   });
 
-  it('persists Civil War, and the Concord as the default it is', () => {
+  it('persists Civil War and Allied, and the Concord as the default it is', () => {
     expect(normalizeGameSettings({ galaxy_house_relations: 'civil_war' }).galaxy_house_relations).toBe('civil_war');
+    expect(normalizeGameSettings({ galaxy_house_relations: 'allied' }).galaxy_house_relations).toBe('allied');
     expect(normalizeGameSettings({ galaxy_house_relations: 'concord' }).galaxy_house_relations).toBeUndefined();
+    expect(normalizeGameSettings({ galaxy_house_relations: 'teams' }).galaxy_house_relations).toBeUndefined();
     expect(normalizeGameSettings({}).galaxy_house_relations).toBeUndefined();
+  });
+
+  it('keeps 2v2, and persists it only when it is on', () => {
+    const parsed = CreateGameSchema.safeParse({
+      ...galaxyPayload,
+      settings: { ...galaxyPayload.settings, galaxy_2v2: true },
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.settings.galaxy_2v2).toBe(true);
+    expect(CreateGameSchema.safeParse({
+      ...galaxyPayload,
+      settings: { ...galaxyPayload.settings, galaxy_2v2: 'yes' },
+    }).success).toBe(false);
+    expect(normalizeGameSettings({ galaxy_2v2: true }).galaxy_2v2).toBe(true);
+    expect(normalizeGameSettings({ galaxy_2v2: false }).galaxy_2v2).toBeUndefined();
+    expect(normalizeGameSettings({}).galaxy_2v2).toBeUndefined();
   });
 });
 

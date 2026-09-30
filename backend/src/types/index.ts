@@ -341,8 +341,25 @@ export interface GalaxyColoniesMode {
   lanes?: Array<{ from: string; to: string }>;
 }
 
-/** How a Schism world's two houses start (a lobby setting, `galaxy_house_relations`). */
-export type GalaxyHouseRelations = 'concord' | 'civil_war';
+/**
+ * How a Schism world's two houses start (a lobby setting, `galaxy_house_relations`):
+ * under the Concord's truce, in Civil War, or Allied, as a team (state/teams.ts).
+ */
+export type GalaxyHouseRelations = 'concord' | 'civil_war' | 'allied';
+
+/**
+ * A side in a team game (state/teams.ts): its members never attack one another,
+ * see whatever any of them sees under fog, and win together, an eliminated
+ * member included. Dealt at game start by a Galactic Age team board (Allied
+ * houses, 2v2) and fixed for the game.
+ */
+export interface GameTeam {
+  team_id: string;
+  /** Display name, e.g. "Stellar Mandate". */
+  name: string;
+  /** Members, in seat order. */
+  player_ids: string[];
+}
 
 /** One seat of a Schism game: the half of its faction's home world it opened on. */
 export interface GalaxySchismHouse {
@@ -352,7 +369,10 @@ export interface GalaxySchismHouse {
   half: 0 | 1;
   /** The house's name, e.g. "Western Mandate". */
   name: string;
-  /** Units a turn this house drafts on top of its kit (its half's `reinforce_bonus`). */
+  /**
+   * Units a turn this house drafts on top of its kit: its half's
+   * `reinforce_bonus`, or its world's ALLIED_TUNING when the houses are Allied.
+   */
   reinforce_bonus?: number;
 }
 
@@ -360,9 +380,9 @@ export interface GalaxySchismHouse {
 export interface GalaxySchismMode {
   id: 'schism';
   relations: GalaxyHouseRelations;
-  /** Rounds the Concord truce covered, counting the first (0 in Civil War). */
+  /** Rounds the Concord truce covered, counting the first (0 in Civil War and Allied). */
   concord_rounds: number;
-  /** Units a turn the Lane Crown is worth in this game. */
+  /** Units a turn the Lane Crown is worth in this game (0 when the houses are Allied). */
   lane_crown_bonus: number;
   /** One per seat, in seat order. */
   houses: GalaxySchismHouse[];
@@ -591,6 +611,12 @@ export interface GameSettings {
    * board is dealt, and recorded on `galaxy_mode`. No-op at any other seat count.
    */
   galaxy_house_relations?: GalaxyHouseRelations;
+  /**
+   * Galactic Age 2v2 (four seats): the four home worlds pair off into two sides
+   * of two (state/galaxyTeams.ts). Persisted only when on; read once, when the
+   * board is dealt. No-op at any other seat count.
+   */
+  galaxy_2v2?: boolean;
   /**
    * Standalone Space Age: when true, the 8 authored `unlock_era_index` frontier
    * tiles (the 2100 expansion) are seeded as neutral garrisons at game start so a
@@ -1026,6 +1052,11 @@ export interface GameState {
    * Schism (eight seats, state/galaxySchism.ts): two houses to every world.
    */
   galaxy_mode?: GalaxyColoniesMode | GalaxySchismMode;
+  /**
+   * The sides of a team game (state/teams.ts): the Galactic Age's Allied houses
+   * and 2v2. Absent in a free-for-all game, which is every other game.
+   */
+  teams?: GameTeam[];
   /**
    * Galactic Age transit: convoys crossing between worlds. Units leave their
    * source at once and land at the mover's next turn start — or turn back if the

@@ -18,6 +18,9 @@
 //     means three of their turns, and a corridor taken and lost between their
 //     turns never scores. `tickLaneSovereignty` is called from
 //     `advanceToNextPlayer` beside the seal tick.
+// In a team game a side holds its corridors together: a gateway an ally holds
+// counts as the player's, each member keeps their own streak on the side's
+// corridors, and a member's streak wins for the side (victory/teamVictory.ts).
 //
 // The two numbers are ⚠ balance, swept at 200 games (expert, threshold 60,
 // seed A) against how often sovereignty ENDS a game — it should be a real
@@ -42,6 +45,7 @@
 
 import type { GameMap, GameState, MapConnection } from '../../types';
 import { getAllowedVictoryConditions } from '../state/gameSettings';
+import { isFriendlyOwner } from '../state/teams';
 
 /** Authored lanes whose gateways a player must hold, of the map's total. */
 export const LANE_SOVEREIGNTY_CORRIDORS_NEEDED = 5;
@@ -68,10 +72,27 @@ export const LANE_SOVEREIGNTY_ROUNDS_BY_SEATS: Record<number, number> = {
 };
 
 /**
- * Rounds a streak must run in this game, by its seat count. Seats, not living
- * players: the rule a game starts with is the one it ends with.
+ * Rounds a streak must run in a team game (state/teams.ts), by how many sides it
+ * has. A side holds its corridors together and each member keeps a streak, so
+ * the rounds count the ENEMY turns between a holder's turns: at two sides that
+ * is two a round, at four it is six. ⚠ balance, measured in
+ * backend/scripts/GALAXY-BALANCE.md §9; the sim's SIM_SOVEREIGNTY_ROUNDS
+ * patches this object in a team game. A side count not listed uses
+ * LANE_SOVEREIGNTY_ROUNDS.
+ */
+export const LANE_SOVEREIGNTY_ROUNDS_BY_SIDES: Record<number, number> = {
+  2: 5,
+  4: LANE_SOVEREIGNTY_ROUNDS,
+};
+
+/**
+ * Rounds a streak must run in this game, by its seat count, or by its sides in
+ * a team game. Seats, not living players: the rule a game starts with is the
+ * one it ends with.
  */
 export function roundsNeededFor(state: GameState): number {
+  const sides = state.teams?.length ?? 0;
+  if (sides > 0) return LANE_SOVEREIGNTY_ROUNDS_BY_SIDES[sides] ?? LANE_SOVEREIGNTY_ROUNDS;
   return LANE_SOVEREIGNTY_ROUNDS_BY_SEATS[state.players.length] ?? LANE_SOVEREIGNTY_ROUNDS;
 }
 
@@ -83,13 +104,17 @@ export function authoredOrbitLanes(map: GameMap): MapConnection[] {
   return map.connections.filter((c) => c.type === 'orbit' && !c.source);
 }
 
-/** Authored lanes on which this player holds BOTH gateways. */
+/**
+ * Authored lanes on which this player holds BOTH gateways. In a team game a
+ * gateway an ally holds counts as the player's (state/teams.ts): a side builds
+ * the network together.
+ */
 export function countCorridors(state: GameState, map: GameMap, playerId: string): number {
   let n = 0;
   for (const c of authoredOrbitLanes(map)) {
     if (
-      state.territories[c.from]?.owner_id === playerId
-      && state.territories[c.to]?.owner_id === playerId
+      isFriendlyOwner(state, playerId, state.territories[c.from]?.owner_id)
+      && isFriendlyOwner(state, playerId, state.territories[c.to]?.owner_id)
     ) n += 1;
   }
   return n;
@@ -168,8 +193,8 @@ export function corridorCompletionTargets(
 ): Set<string> {
   const out = new Set<string>();
   for (const c of authoredOrbitLanes(map)) {
-    const fromMine = state.territories[c.from]?.owner_id === playerId;
-    const toMine = state.territories[c.to]?.owner_id === playerId;
+    const fromMine = isFriendlyOwner(state, playerId, state.territories[c.from]?.owner_id);
+    const toMine = isFriendlyOwner(state, playerId, state.territories[c.to]?.owner_id);
     if (fromMine === toMine) continue; // corridor already, or closed to them
     out.add(fromMine ? c.to : c.from);
   }

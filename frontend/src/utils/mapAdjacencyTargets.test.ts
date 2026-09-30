@@ -552,3 +552,52 @@ describe('a Jump Gate lane is not an attack target', () => {
     expect([...targets]).toEqual(['b']);
   });
 });
+
+describe('attack targets in a team game', () => {
+  /** p1 and p2 are allies against p3; `wild` is a neutral garrison. */
+  function teamState(turn_number: number): GameState {
+    return {
+      phase: 'attack',
+      turn_number,
+      current_player_index: 0,
+      starting_player_index: 0,
+      territories: {
+        rome: { territory_id: 'rome', owner_id: 'p1', unit_count: 5 },
+        milan: { territory_id: 'milan', owner_id: 'p2', unit_count: 1 },
+        turin: { territory_id: 'turin', owner_id: 'p3', unit_count: 1 },
+        wild: { territory_id: 'wild', owner_id: null, unit_count: 2 },
+      },
+      players: [
+        { player_id: 'p1', username: 'One', color: '#f00', player_index: 0, is_ai: false },
+        { player_id: 'p2', username: 'Two', color: '#0f0', player_index: 1, is_ai: true },
+        { player_id: 'p3', username: 'Three', color: '#00f', player_index: 2, is_ai: true },
+      ],
+      teams: [
+        { team_id: 'team_1', name: 'Us', player_ids: ['p1', 'p2'] },
+        { team_id: 'team_2', name: 'Them', player_ids: ['p3'] },
+      ],
+    } as unknown as GameState;
+  }
+  const links = [
+    { from: 'rome', to: 'milan', type: 'land' as const },
+    { from: 'rome', to: 'turin', type: 'land' as const },
+    { from: 'rome', to: 'wild', type: 'land' as const },
+  ];
+
+  it("never offers an ally's ground", () => {
+    const targets = computePhaseAdjacencyTargets(teamState(4), links, { attackSource: 'rome' });
+    expect([...targets].sort()).toEqual(['turin', 'wild']);
+    expect(listDirectAttackSources(teamState(4), links, 'milan', 'p1', new Map())).toEqual([]);
+  });
+
+  it('offers only neutral ground during the opening ceasefire', () => {
+    const targets = computePhaseAdjacencyTargets(teamState(1), links, { attackSource: 'rome' });
+    expect([...targets]).toEqual(['wild']);
+    expect(listDirectAttackSources(teamState(1), links, 'turin', 'p1', new Map())).toEqual([]);
+  });
+
+  it('offers the ally as ever without teams', () => {
+    const ffa = { ...teamState(1), teams: undefined } as GameState;
+    expect([...computePhaseAdjacencyTargets(ffa, links, { attackSource: 'rome' })].sort()).toEqual(['milan', 'turin', 'wild']);
+  });
+});

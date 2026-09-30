@@ -1,11 +1,12 @@
 import clsx from 'clsx';
 import type { MapControlProgress } from '../../utils/mapControl';
 
-/** "You hold 42% of the map. 65% wins — 10 more territories." */
+/** "You hold 42% of the map. 65% wins — 10 more territories." ("Your side holds" in a team game.) */
 export function describeMapControl(p: MapControlProgress): string {
-  if (p.remaining === 0) return `You hold ${p.heldPct}% of the map — ${p.thresholdPct}% wins.`;
+  const who = p.side ? 'Your side holds' : 'You hold';
+  if (p.remaining === 0) return `${who} ${p.heldPct}% of the map — ${p.thresholdPct}% wins.`;
   const more = p.remaining === 1 ? '1 more territory' : `${p.remaining} more territories`;
-  return `You hold ${p.heldPct}% of the map. ${p.thresholdPct}% wins — ${more}.`;
+  return `${who} ${p.heldPct}% of the map. ${p.thresholdPct}% wins — ${more}.`;
 }
 
 /** Share of the map held, with a tick where the threshold sits. */
@@ -68,7 +69,7 @@ export function MapControlObjective({ progress }: { progress: MapControlProgress
   return (
     <div className="mb-2" data-testid="map-control-progress" {...meterProps(progress)}>
       <p className="text-xs text-bf-text">
-        <span className="text-bf-muted">Map control: </span>
+        <span className="text-bf-muted">{progress.side ? 'Map control (your side): ' : 'Map control: '}</span>
         <span className={progress.remaining === 0 ? 'text-bf-gold font-medium' : ''}>
           {progress.heldPct}% of {progress.thresholdPct}%
         </span>
@@ -78,7 +79,7 @@ export function MapControlObjective({ progress }: { progress: MapControlProgress
       </p>
       <MapControlBar progress={progress} className="mt-1" />
       <p className="text-[10px] text-bf-muted/80 mt-0.5 leading-snug">
-        Hold {progress.thresholdPct}% of the map — {progress.needed} of its {progress.total} territories — to win
+        Hold {progress.thresholdPct}% of the map{progress.side ? ' as a side' : ''} — {progress.needed} of its {progress.total} territories — to win
         {progress.remaining > 0
           ? `. ${progress.remaining} more to go.`
           : '.'}

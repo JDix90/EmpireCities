@@ -29,11 +29,14 @@
 //
 // House relations (the lobby's `galaxy_house_relations`) decide how a world's
 // two houses start: under the CONCORD, a truce on the ordinary truce rules for
-// the opening rounds, or in CIVIL WAR, with none.
+// the opening rounds; in CIVIL WAR, with none; or ALLIED, as one side of a team
+// game (galaxyTeams.ts), which never fights the other.
 //
 // The LANE CROWN: a house holding all four of its home world's gateways (its own
 // two and its rival's) drafts extra units every turn it holds them. Schism-only:
-// at four seats every player holds their whole world from the first turn.
+// at four seats every player holds their whole world from the first turn. Not
+// worn by Allied houses either, for the same reason: between them they hold
+// their whole world from the first turn.
 
 import { randomInt } from 'crypto';
 import type {
@@ -53,11 +56,11 @@ import { vaultRegionGarrisons } from './worldRules';
 /** `randomInt(min, max)`: max exclusive, as node's crypto. */
 export type SchismRng = (min: number, max: number) => number;
 
-export const GALAXY_HOUSE_RELATIONS: readonly GalaxyHouseRelations[] = ['concord', 'civil_war'];
+export const GALAXY_HOUSE_RELATIONS: readonly GalaxyHouseRelations[] = ['concord', 'civil_war', 'allied'];
 
-/** A stored relations setting, read leniently: anything but Civil War is the Concord. */
+/** A stored relations setting, read leniently: anything but Civil War or Allied is the Concord. */
 export function normalizeHouseRelations(raw: unknown): GalaxyHouseRelations {
-  return raw === 'civil_war' ? 'civil_war' : 'concord';
+  return raw === 'civil_war' || raw === 'allied' ? raw : 'concord';
 }
 
 /**
@@ -69,6 +72,26 @@ export function normalizeHouseRelations(raw: unknown): GalaxyHouseRelations {
  *   laneCrownBonus: units a turn for holding all four of your world's gateways.
  */
 export const SCHISM_TUNING = { concordRounds: 3, laneCrownBonus: 2 };
+
+/**
+ * Allied houses' numbers, by world, the same for both of its houses: units a
+ * turn each drafts on top of its kit, and extra units on every tile it opens
+ * with (a tile never opens below 1). The Schism's per-half numbers settle a
+ * rivalry between a world's two halves; Allied houses have none, so a world's
+ * pair is tuned as the one side it is. ⚠ Balance: measured in
+ * backend/scripts/GALAXY-BALANCE.md §9; the sim's SIM_ALLIED_REINFORCE and
+ * SIM_ALLIED_OPENING patch this object. Recorded on each house when the board
+ * is dealt, as the Schism's are.
+ */
+export const ALLIED_TUNING: Record<string, { reinforce: number; opening: number }> = {
+  // Sol's houses hold four whole regions between them and a lane to each
+  // neighbour apiece; the Syndicate's sit between Verdan's and Nexus's, both of
+  // which collect their split regions now, and take a pounding from both sides.
+  sol: { reinforce: -1, opening: 0 },
+  verdan: { reinforce: 0, opening: 0 },
+  rust: { reinforce: 3, opening: 0 },
+  nexus_station: { reinforce: 1, opening: 0 },
+};
 
 export interface SchismHalf {
   /** The house that opens here, e.g. "Western Mandate". */
@@ -324,7 +347,9 @@ export function schismLayout(
     const halfOfA: 0 | 1 = forced ?? (rng(0, 2) === 0 ? 0 : 1);
     const halfOfB: 0 | 1 = halfOfA === 0 ? 1 : 0;
     for (const [seat, half] of [[a!, halfOfA], [b!, halfOfB]] as const) {
-      const reinforce = halves[world]![half].reinforce_bonus ?? 0;
+      const reinforce = relations === 'allied'
+        ? ALLIED_TUNING[world]?.reinforce ?? 0
+        : halves[world]![half].reinforce_bonus ?? 0;
       houseOf.set(seat, {
         player_id: players[seat]!.player_id,
         world_id: world,
@@ -343,7 +368,7 @@ export function schismLayout(
     id: 'schism',
     relations,
     concord_rounds: relations === 'concord' ? SCHISM_TUNING.concordRounds : 0,
-    lane_crown_bonus: SCHISM_TUNING.laneCrownBonus,
+    lane_crown_bonus: relations === 'allied' ? 0 : SCHISM_TUNING.laneCrownBonus,
     houses: players.map((_, i) => houseOf.get(i)!),
     crown_gateways: crownGateways,
   };
@@ -354,8 +379,15 @@ export function schismHouseTiles(house: Pick<GalaxySchismHouse, 'world_id' | 'ha
   return SCHISM_HALVES[house.world_id]?.[house.half].tiles ?? [];
 }
 
-/** Extra units a house opens with on each of its tiles (its half's `opening_bonus`). */
-export function schismOpeningBonus(house: Pick<GalaxySchismHouse, 'world_id' | 'half'>): number {
+/**
+ * Extra units a house opens with on each of its tiles: its half's
+ * `opening_bonus`, or its world's ALLIED_TUNING when the houses are Allied.
+ */
+export function schismOpeningBonus(
+  house: Pick<GalaxySchismHouse, 'world_id' | 'half'>,
+  relations: GalaxyHouseRelations = 'concord',
+): number {
+  if (relations === 'allied') return ALLIED_TUNING[house.world_id]?.opening ?? 0;
   return SCHISM_HALVES[house.world_id]?.[house.half].opening_bonus ?? 0;
 }
 

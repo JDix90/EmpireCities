@@ -43,6 +43,7 @@ import {
   subscribeUserPreferences,
 } from '../../utils/userPreferences';
 import { Link } from 'react-router-dom';
+import { allyIdsOf, playerGroups } from '../../utils/teams';
 
 interface GameHUDProps {
   onAdvancePhase: () => void;
@@ -498,8 +499,10 @@ export default function GameHUD({
                     ))}
                   </div>
                   <p className="text-[10px] text-bf-muted/80 mt-0.5 leading-snug">
-                    Hold both gateways of a lane to make it your corridor. Win by holding
-                    {' '}{sovereignty.needed} at the start of {sovereignty.roundsNeeded} turns running.
+                    {allyIdsOf(gameState, myPlayer.player_id).length > 0
+                      ? "Hold both gateways of a lane, you or an ally, to make it your side's corridor."
+                      : 'Hold both gateways of a lane to make it your corridor.'}
+                    {' '}Win by holding {sovereignty.needed} at the start of {sovereignty.roundsNeeded} turns running.
                   </p>
                 </div>
               )}
@@ -688,47 +691,64 @@ export default function GameHUD({
       {activeTab === 'players' && (
         <div className="p-4">
           <div className="space-y-2">
-            {gameState.players.map((player, idx) => (
-              <div
-                key={player.player_id}
-                className={clsx(
-                  'flex items-center gap-2 p-2 rounded-lg text-sm transition-colors',
-                  idx === gameState.current_player_index && 'bg-bf-dark ring-1 ring-bf-gold/40',
-                  player.is_eliminated && 'opacity-40'
+            {/* A team game lists each side under its name (utils/teams). */}
+            {playerGroups(gameState, user?.user_id).map((group) => (
+              <React.Fragment key={group.team?.team_id ?? 'players'}>
+                {group.team && (
+                  <p
+                    className="text-[10px] uppercase tracking-wider text-bf-muted pt-1 first:pt-0"
+                    data-testid="hud-team-heading"
+                  >
+                    {group.team.name}
+                    {group.mine && <span className="text-emerald-300"> · your side</span>}
+                  </p>
                 )}
-              >
-                <FramedDot playerId={player.player_id}>
-                  <div
-                    className="w-3 h-3 rounded-full shrink-0"
-                    style={{ backgroundColor: player.color }}
-                  />
-                </FramedDot>
-                <span className={clsx(
-                  'flex-1 flex items-center gap-1.5 min-w-0',
-                  player.player_id === user?.user_id ? 'text-bf-gold font-medium' : 'text-bf-text'
-                )}>
-                  <span className="truncate">{player.username}</span>
-                  {player.is_away
-                    ? <AiBadge away size="xs" showLabel={false} />
-                    : player.is_ai && <AiBadge difficulty={player.ai_difficulty} size="xs" showLabel={false} />}
-                  <PlayerBannerTag playerId={player.player_id} />
-                </span>
-                <span className="text-bf-muted text-xs">{player.territory_count}T</span>
-                {gameState.settings.era_advancement_enabled && !player.is_eliminated && (
-                  <span className="text-[10px] px-1 py-0.5 rounded bg-bf-dark border border-bf-border text-bf-muted shrink-0">
-                    {ERA_LABELS[getEraIdForAdvancementIndex(gameState, player.current_era_index ?? 0)] ?? 'Ancient'}
-                  </span>
-                )}
-                {gameState.settings.era_advancement_enabled
-                  && (player.era_transition_turns_remaining ?? 0) > 0 && (
-                  <span className="text-[10px] px-1 py-0.5 rounded bg-amber-500/15 border border-amber-500/40 text-amber-400 shrink-0">
-                    Vuln
-                  </span>
-                )}
-                {player.is_eliminated && (
-                  <span className="text-red-500 text-xs">✗</span>
-                )}
-              </div>
+                {group.players.map((player) => {
+                  const idx = gameState.players.indexOf(player);
+                  return (
+                    <div
+                      key={player.player_id}
+                      className={clsx(
+                        'flex items-center gap-2 p-2 rounded-lg text-sm transition-colors',
+                        idx === gameState.current_player_index && 'bg-bf-dark ring-1 ring-bf-gold/40',
+                        player.is_eliminated && 'opacity-40'
+                      )}
+                    >
+                      <FramedDot playerId={player.player_id}>
+                        <div
+                          className="w-3 h-3 rounded-full shrink-0"
+                          style={{ backgroundColor: player.color }}
+                        />
+                      </FramedDot>
+                      <span className={clsx(
+                        'flex-1 flex items-center gap-1.5 min-w-0',
+                        player.player_id === user?.user_id ? 'text-bf-gold font-medium' : 'text-bf-text'
+                      )}>
+                        <span className="truncate">{player.username}</span>
+                        {player.is_away
+                          ? <AiBadge away size="xs" showLabel={false} />
+                          : player.is_ai && <AiBadge difficulty={player.ai_difficulty} size="xs" showLabel={false} />}
+                        <PlayerBannerTag playerId={player.player_id} />
+                      </span>
+                      <span className="text-bf-muted text-xs">{player.territory_count}T</span>
+                      {gameState.settings.era_advancement_enabled && !player.is_eliminated && (
+                        <span className="text-[10px] px-1 py-0.5 rounded bg-bf-dark border border-bf-border text-bf-muted shrink-0">
+                          {ERA_LABELS[getEraIdForAdvancementIndex(gameState, player.current_era_index ?? 0)] ?? 'Ancient'}
+                        </span>
+                      )}
+                      {gameState.settings.era_advancement_enabled
+                        && (player.era_transition_turns_remaining ?? 0) > 0 && (
+                        <span className="text-[10px] px-1 py-0.5 rounded bg-amber-500/15 border border-amber-500/40 text-amber-400 shrink-0">
+                          Vuln
+                        </span>
+                      )}
+                      {player.is_eliminated && (
+                        <span className="text-red-500 text-xs">✗</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </React.Fragment>
             ))}
           </div>
         </div>

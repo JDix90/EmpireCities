@@ -401,5 +401,84 @@ describe('LobbyPage Custom Game — Galactic Age seats', () => {
     expect(schism.checked).toBe(false);
     expect(screen.queryByLabelText('House Relations')).toBeNull();
   });
-});
 
+  it('sends Allied houses, and plays a team game without secret missions', async () => {
+    renderGalactic();
+    await screen.findByText('Advanced Features');
+    fireEvent.click(checkbox('create-game-victory-secret_mission'));
+    fireEvent.click(screen.getByLabelText(/Schism \(eight players\)/));
+    fireEvent.change(screen.getByDisplayValue('3 AI opponents'), { target: { value: '7' } });
+    fireEvent.change(screen.getByLabelText('House Relations'), { target: { value: 'allied' } });
+    expect(screen.getByText(/Four teams of two: a world's houses never attack each other/)).toBeInTheDocument();
+    expect(screen.getByText(/A team wins if it meets any checked condition/)).toBeInTheDocument();
+    const mission = checkbox('create-game-victory-secret_mission');
+    expect(mission.disabled).toBe(true);
+    expect(mission.checked).toBe(false);
+    expect(screen.getByText('(not in team games)')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Create & Enter Lobby/ }));
+    await waitFor(() => expect(postMock).toHaveBeenCalledWith('/games', expect.anything()));
+    const body = postMock.mock.calls.find(([url]) => url === '/games')![1] as {
+      max_players: number; settings: Record<string, unknown>;
+    };
+    expect(body.max_players).toBe(8);
+    expect(body.settings.galaxy_house_relations).toBe('allied');
+    expect(body.settings.allowed_victory_conditions).not.toContain('secret_mission');
+    expect(body.settings.galaxy_2v2).toBeUndefined();
+  });
+
+  it('keeps the secret mission for Concord and Civil War', async () => {
+    renderGalactic();
+    await screen.findByText('Advanced Features');
+    fireEvent.click(checkbox('create-game-victory-secret_mission'));
+    fireEvent.click(screen.getByLabelText(/Schism \(eight players\)/));
+    fireEvent.change(screen.getByLabelText('House Relations'), { target: { value: 'allied' } });
+    fireEvent.change(screen.getByLabelText('House Relations'), { target: { value: 'civil_war' } });
+    expect(checkbox('create-game-victory-secret_mission')).toMatchObject({ disabled: false, checked: true });
+  });
+
+  it('sends 2v2 at four seats and moves the threshold to 75%, and back', async () => {
+    renderGalactic();
+    await screen.findByText('Advanced Features');
+    expect((screen.getByLabelText('Threshold %') as HTMLInputElement).value).toBe('60');
+    fireEvent.click(screen.getByLabelText(/2v2 \(four players\)/));
+    expect((screen.getByLabelText('Threshold %') as HTMLInputElement).value).toBe('75');
+    expect(checkbox('create-game-victory-secret_mission').disabled).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: /Create & Enter Lobby/ }));
+    await waitFor(() => expect(postMock).toHaveBeenCalledWith('/games', expect.anything()));
+    const body = postMock.mock.calls.find(([url]) => url === '/games')![1] as {
+      max_players: number; settings: Record<string, unknown>;
+    };
+    expect(body.max_players).toBe(4);
+    expect(body.settings.galaxy_2v2).toBe(true);
+    expect(body.settings.victory_threshold).toBe(75);
+    expect(body.settings.galaxy_house_relations).toBeUndefined();
+
+    fireEvent.click(screen.getByLabelText(/2v2 \(four players\)/));
+    expect((screen.getByLabelText('Threshold %') as HTMLInputElement).value).toBe('60');
+  });
+
+  it("leaves a threshold the host set alone when 2v2 is switched", async () => {
+    renderGalactic();
+    await screen.findByText('Advanced Features');
+    fireEvent.change(screen.getByLabelText('Threshold %'), { target: { value: '70' } });
+    fireEvent.click(screen.getByLabelText(/2v2 \(four players\)/));
+    expect((screen.getByLabelText('Threshold %') as HTMLInputElement).value).toBe('70');
+  });
+
+  it('offers 2v2 only on the four-player board, with Home Worlds', async () => {
+    renderGalactic();
+    await screen.findByText('Advanced Features');
+    fireEvent.click(screen.getByLabelText(/2v2 \(four players\)/));
+    fireEvent.click(screen.getByLabelText(/Schism \(eight players\)/));
+    expect(screen.queryByLabelText(/2v2 \(four players\)/)).toBeNull();
+    fireEvent.click(screen.getByLabelText(/Schism \(eight players\)/));
+    fireEvent.click(screen.getByLabelText('Home Worlds'));
+    const twoVersusTwo = screen.getByLabelText(/2v2 \(four players\)/) as HTMLInputElement;
+    expect(twoVersusTwo.disabled).toBe(true);
+    expect(twoVersusTwo.checked).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: /Create & Enter Lobby/ }));
+    await waitFor(() => expect(postMock).toHaveBeenCalledWith('/games', expect.anything()));
+    const body = postMock.mock.calls.find(([url]) => url === '/games')![1] as { settings: Record<string, unknown> };
+    expect(body.settings.galaxy_2v2).toBeUndefined();
+  });
+});

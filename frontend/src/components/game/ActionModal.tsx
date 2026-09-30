@@ -100,8 +100,12 @@ export interface GameOverModalData {
   victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory' | 'abandoned' | 'turn_limit' | 'resignation' | 'humans_eliminated' | 'lunar_hegemony' | 'lane_sovereignty';
   /** Human-readable era name for the share card (e.g., "World War II"). */
   eraName?: string;
-  /** All winner player_ids — two entries for alliance_victory. */
+  /** All winner player_ids — two entries for alliance_victory, a whole side in a team game. */
   winnerIds?: string[];
+  /** The winning side's name, when a team game ended (utils/teams). */
+  winningTeamName?: string;
+  /** The local player's id, so co-winners can be named from their point of view. */
+  viewerId?: string;
   /** Progression data from server (Phase 2). */
   progression?: {
     win_streak: number;
@@ -1300,7 +1304,14 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
     setTimeout(() => setCopyStatus('idle'), 2000);
   };
 
-  const sortedPlayers = [...data.players].sort((a, b) => b.territory_count - a.territory_count);
+  const winnerIds = data.winnerIds ?? [];
+  // A side wins together (a team game): its members lead the standings and
+  // share the highlight, eliminated or not.
+  const isTeamWin = !!data.winningTeamName && data.victory_condition !== 'abandoned';
+  const isStandingsWinner = (playerId: string, rank: number) => (isTeamWin ? winnerIds.includes(playerId) : rank === 0);
+  const sortedPlayers = [...data.players].sort((a, b) =>
+    (isTeamWin ? Number(winnerIds.includes(b.player_id)) - Number(winnerIds.includes(a.player_id)) : 0)
+    || b.territory_count - a.territory_count);
   const probHistory = data.win_probability_history;
 
   const victoryReasonLabel = (
@@ -1331,10 +1342,14 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
   const isAlliance = data.victory_condition === 'alliance_victory';
   const daily = data.daily_challenge;
   const wonGameLostChallenge = daily?.outcome === 'unmet';
-  const winnerIds = data.winnerIds ?? [];
-  const allyName = isAlliance
-    ? data.players.find((p) => winnerIds.includes(p.player_id) && p.player_id !== data.players.find((pl) => pl.username === data.winnerName)?.player_id)?.username
-    : undefined;
+  // Co-winners named from the viewer's side of the table: an ally is any other
+  // winner. (Named against `winnerName` it read "You and <your own name>" to
+  // the second winner; that stays the fallback when no viewer is given.)
+  const selfId = data.viewerId ?? data.players.find((pl) => pl.username === data.winnerName)?.player_id;
+  const coWinnerNames = data.players
+    .filter((p) => winnerIds.includes(p.player_id) && p.player_id !== selfId)
+    .map((p) => p.username);
+  const allyName = isAlliance ? coWinnerNames[0] : undefined;
 
   const reasonLabel = victoryReasonLabel(data.victory_condition, data.victory_threshold);
 
@@ -1383,7 +1398,8 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
           ? 'Game Abandoned'
           : wonGameLostChallenge
             ? 'Challenge Failed'
-            : isAlliance && data.isWinner ? '🤝 Alliance Victory!' : data.isWinner ? 'Victory!' : 'Defeat'}
+            : isTeamWin && data.isWinner ? '🤝 Team Victory!'
+              : isAlliance && data.isWinner ? '🤝 Alliance Victory!' : data.isWinner ? 'Victory!' : 'Defeat'}
       </h2>
       <p className={clsx(
         'text-white/50 text-sm mb-3 transition-all duration-500 delay-300',
@@ -1394,16 +1410,22 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
           : wonGameLostChallenge
             ? 'You won the war, but not the challenge.'
           : data.isWinner
-            ? isAlliance && allyName
-              ? `You and ${allyName} have triumphed together!`
-              : 'You have conquered the world!'
-            : isAlliance
-              ? 'Defeated by an Alliance.'
-              : `${data.winnerName} has won the game`}
+            ? isTeamWin
+              ? coWinnerNames.length > 0
+                ? `The ${data.winningTeamName} win together: you and ${coWinnerNames.join(' and ')}.`
+                : `The ${data.winningTeamName} win together.`
+              : isAlliance && allyName
+                ? `You and ${allyName} have triumphed together!`
+                : 'You have conquered the world!'
+            : isTeamWin
+              ? `The ${data.winningTeamName} win the game.`
+              : isAlliance
+                ? 'Defeated by an Alliance.'
+                : `${data.winnerName} has won the game`}
       </p>
 
-      {/* Alliance co-winners display */}
-      {isAlliance && winnerIds.length >= 2 && (
+      {/* Alliance (or winning side) co-winners display */}
+      {(isAlliance || isTeamWin) && winnerIds.length >= 2 && (
         <div className={clsx(
           'mb-4 flex items-center justify-center gap-3 transition-all duration-500 delay-300',
           showContent ? 'opacity-100' : 'opacity-0'
@@ -1771,13 +1793,13 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
               {sortedPlayers.map((p, i) => (
                 <div key={p.player_id} className={clsx(
                   'flex items-center gap-3 p-2.5 rounded-lg text-sm',
-                  i === 0 ? 'bg-yellow-500/[0.08] border border-yellow-500/15' : 'bg-white/[0.03]'
+                  isStandingsWinner(p.player_id, i) ? 'bg-yellow-500/[0.08] border border-yellow-500/15' : 'bg-white/[0.03]'
                 )}>
                   <span className="text-white/30 text-xs w-5 text-right">#{i + 1}</span>
                   <FramedDot playerId={p.player_id}>
                     <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
                   </FramedDot>
-                  <span className={clsx('flex-1 text-left flex items-center gap-1.5 min-w-0', i === 0 ? 'text-yellow-300 font-semibold' : 'text-white/60')}>
+                  <span className={clsx('flex-1 text-left flex items-center gap-1.5 min-w-0', isStandingsWinner(p.player_id, i) ? 'text-yellow-300 font-semibold' : 'text-white/60')}>
                     <span className="truncate">{p.username}</span>
                     {p.is_ai ? <AiBadge difficulty={p.ai_difficulty} size="xs" showLabel={false} /> : null}
                     <PlayerBannerTag playerId={p.player_id} />

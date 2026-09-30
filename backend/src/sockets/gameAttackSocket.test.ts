@@ -986,6 +986,118 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
     expect(await seen3).toMatchObject({ kind: 'reinforce', territoryId: 'a', units: 2, totalAfter: 4 });
   });
 
+  // ── Teams: no friendly fire, the opening ceasefire, shared vision ─────────
+
+  const TEAMS = [
+    { team_id: 'team_1', name: 'Us', player_ids: ['p1', 'p2'] },
+    { team_id: 'team_2', name: 'Them', player_ids: ['p3'] },
+  ];
+
+  /** p1 and p2 are allies against p3, with no truce between anyone; p2 also holds `d`. */
+  function teamState(gameId: string, overrides: Partial<GameState> = {}): GameState {
+    return truceState(gameId, [], { diplomacy: [], teams: TEAMS, ...overrides } as Partial<GameState>);
+  }
+
+  async function expectRefusal(
+    client: ClientSocket, gameId: string, event: string, payload: Record<string, unknown>,
+    expected: { message: string; code: string },
+  ): Promise<void> {
+    const err = waitFor<{ message: string; code?: string }>(client, 'error');
+    client.emit(event, { gameId, ...payload });
+    expect(await err).toEqual(expected);
+  }
+
+  const ALLY_REFUSAL = { message: 'You cannot attack an ally', code: 'ALLY_TARGET' };
+
+  it("refuses every attack on an ally's ground, and spends nothing", async () => {
+    const gameId = 'itest-team-ally';
+    const base = teamState(gameId);
+    await seed(gameId, teamState(gameId, {
+      era: 'ww2',
+      era_modifiers: { influence_spread: true, influence_range: 1 },
+      players: [
+        player('p1', 0, { territory_count: 1, legacy_ability_charges: { atom_bomb: 1 } }),
+        ...base.players.slice(1),
+      ],
+    }), truceMap(gameId));
+    const client = await connect('p1');
+    await joinRoom('p1', gameId);
+
+    await expectRefusal(client, gameId, 'game:attack', { fromId: 'a', toId: 'b' }, ALLY_REFUSAL);
+    await expectRefusal(client, gameId, 'game:attack_blitz', { fromId: 'a', toId: 'b' }, ALLY_REFUSAL);
+    await expectRefusal(client, gameId, 'game:influence', { targetId: 'b' }, ALLY_REFUSAL);
+    await expectRefusal(client, gameId, 'game:use_ability', { abilityId: 'atom_bomb', params: { territoryId: 'b' } }, ALLY_REFUSAL);
+    const after = await getGameState(gameId);
+    expect(after?.territories.b).toMatchObject({ owner_id: 'p2', unit_count: 1 });
+    expect(after?.territories.a.unit_count).toBe(4);
+    expect(after?.players[0]!.legacy_ability_charges).toEqual({ atom_bomb: 1 });
+  });
+
+  it("refuses a Fleet Attack on an ally's harbour before either fleet fights", async () => {
+    const gameId = 'itest-team-fleet';
+    const base = teamState(gameId);
+    await seed(gameId, teamState(gameId, {
+      territories: {
+        ...base.territories,
+        a: { ...terr('a', 'p1', 4), naval_units: 3 },
+        b: { ...terr('b', 'p2', 1), naval_units: 1 },
+      },
+      settings: { ...base.settings, naval_enabled: true },
+    }), { ...truceMap(gameId), connections: [{ from: 'a', to: 'b', type: 'sea' as const }] });
+    const client = await connect('p1');
+    await joinRoom('p1', gameId);
+
+    await expectRefusal(client, gameId, 'game:naval_attack', { fromId: 'a', toId: 'b' }, ALLY_REFUSAL);
+    const after = await getGameState(gameId);
+    expect(after?.territories.a).toMatchObject({ unit_count: 4, naval_units: 3 });
+    expect(after?.territories.b).toMatchObject({ owner_id: 'p2', unit_count: 1, naval_units: 1 });
+  });
+
+  it('refuses an attack on the other side until every player has had a turn', async () => {
+    const gameId = 'itest-team-ceasefire';
+    const base = teamState(gameId);
+    // b is the enemy's here; the game is in its first round.
+    await seed(gameId, teamState(gameId, {
+      turn_number: 1,
+      territories: { ...base.territories, b: terr('b', 'p3', 1), c: terr('c', 'p2', 5) },
+      players: [
+        player('p1', 0, { territory_count: 1 }),
+        player('p2', 1, { territory_count: 2 }),
+        player('p3', 2, { territory_count: 1 }),
+      ],
+    }), truceMap(gameId));
+    const client = await connect('p1');
+    await joinRoom('p1', gameId);
+
+    await expectRefusal(client, gameId, 'game:attack', { fromId: 'a', toId: 'b' }, {
+      message: 'The opening ceasefire holds until every player has had a turn',
+      code: 'CEASEFIRE',
+    });
+    expect((await getGameState(gameId))?.territories.b).toMatchObject({ owner_id: 'p3', unit_count: 1 });
+  });
+
+  it('shows a player whatever an ally sees under fog', async () => {
+    const gameId = 'itest-team-fog';
+    // p1 at a borders b; c is two tiles off. Allied with c's holder, p1 sees it.
+    await seed(gameId, buildState(gameId, [], {
+      phase: 'draft', current_player_index: 0, draft_units_remaining: 0,
+      territories: { a: terr('a', 'p1', 2), b: terr('b', 'p2', 1), c: terr('c', 'p3', 5) },
+      settings: { ...buildState(gameId, []).settings, fog_of_war: true },
+      teams: [
+        { team_id: 'team_1', name: 'Us', player_ids: ['p1', 'p3'] },
+        { team_id: 'team_2', name: 'Them', player_ids: ['p2'] },
+      ],
+    } as Partial<GameState>), buildMap(gameId));
+    const c1 = await connect('p1');
+    await joinRoom('p1', gameId);
+
+    const next = waitForState(c1, gameId);
+    c1.emit('game:advance_phase', { gameId, action_id: 'teamfog1' });
+    const view = await next;
+    expect(view.territories.c.unit_count).toBe(5);
+    expect(view.territories.b.unit_count).toBe(1);
+  });
+
   // ── Draft undo (reinforcement placement reversal) ──────────────────────────
 
   function draftState(gameId: string, overrides: Partial<GameState> = {}): GameState {

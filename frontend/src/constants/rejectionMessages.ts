@@ -21,6 +21,8 @@ export const REJECTION_GUIDANCE: Record<string, string> = {
   PATH_NOT_CONNECTED: "Fortify only moves along a connected chain of territories you own.",
   ALREADY_ADVANCED: "You advanced an era this turn, so you can't attack until your next turn.",
   TRUCE_ACTIVE: "You have a truce with this player. Try again, and confirm you are breaking it.",
+  ALLY_TARGET: "That's your ally's ground. Allies never attack each other.",
+  CEASEFIRE: "The opening ceasefire holds until every player has had a turn.",
   INVALID_TERRITORY: "That territory can't be used for this action. Pick a highlighted one.",
   NON_INTEGER_UNITS: "Enter a whole number of units.",
   ACTION_IN_FLIGHT: "Still processing your last action — give it a moment and try again.",

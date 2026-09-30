@@ -34,6 +34,9 @@ import {
 } from './moonAccess';
 import { buildWorldModifierSnapshot } from './worldModifiers';
 import { hasLaneSovereignty, tickLaneSovereignty } from '../victory/laneSovereignty';
+import { checkTeamVictory } from '../victory/teamVictory';
+import { isTeamGame, regionBonusHolder } from './teams';
+import { dropSecretMissions, galaxyTeamsFor, seatTeamsApart } from './galaxyTeams';
 import { applyLaneClosure, applyLaneSurge, laneSurgeHasGap, tickLaneWeather } from './laneWeather';
 import { colonyGarrison, colonyLayout, resolveGalaxyHomeWorlds, syncGalaxyModeLanes } from './galaxyModes';
 import {
@@ -223,6 +226,17 @@ export function initializeGameState(
       if (availableFactions[i]) assignedFactions.add(availableFactions[i]);
     });
   }
+
+  // Galactic Age team boards (state/galaxyTeams.ts): Allied houses at eight
+  // seats, 2v2 at four. Dealt once the factions are, and the seats reordered so
+  // allies never play back to back, before anything below reads a seat.
+  const teamsDealt = settingsNorm.factions_enabled && !settingsNorm.territory_selection
+    ? galaxyTeamsFor(era, map, players, settingsNorm)
+    : null;
+  const teams = teamsDealt ? seatTeamsApart(players, teamsDealt) : null;
+  // A secret mission is a win of one's own, and could name an ally to
+  // eliminate: a team game plays without them.
+  if (teams) dropSecretMissions(settingsNorm);
 
   // Galactic Age home worlds: each seat's faction world, when this game deals
   // them (state/galaxyModes.ts). With fewer than four seats the worlds nobody
@@ -451,7 +465,9 @@ export function initializeGameState(
     ?? pickStartingPlayerIndex(playerStates.length, settingsNorm);
   const firstPlayer = playerStates[startingPlayerIndex];
   const isTerritorySelect = !!settingsNorm.territory_selection;
-  const continentBonus = isTerritorySelect ? 0 : calculateContinentBonusesForPlayer(territories, map, firstPlayer.player_id);
+  const continentBonus = isTerritorySelect
+    ? 0
+    : calculateContinentBonusesForPlayer(territories, map, firstPlayer.player_id, { teams: teams ?? undefined });
   const initialDraft = isTerritorySelect ? 0 : calculateReinforcements(
     firstPlayer.territory_count,
     continentBonus,
@@ -501,6 +517,7 @@ export function initializeGameState(
   };
 
   if (galaxyMode) state.galaxy_mode = galaxyMode;
+  if (teams) state.teams = teams;
 
   // Ensure first draft turn follows the same reinforcement rules as subsequent turns.
   if (!isTerritorySelect) {
@@ -740,15 +757,19 @@ export function appendWinProbabilitySnapshot(state: GameState): void {
 function calculateContinentBonusesForPlayer(
   territories: Record<string, TerritoryState>,
   map: GameMap,
-  playerId: string
+  playerId: string,
+  // A team game's sides (state/teams.ts): a region allies hold whole pays too.
+  sides: Pick<GameState, 'teams'> = {},
 ): number {
   let bonus = 0;
   for (const region of map.regions) {
     const regionTerritories = map.territories.filter((t) => t.region_id === region.region_id);
-    const ownsAll = regionTerritories.every(
-      (t) => territories[t.territory_id]?.owner_id === playerId
-    );
-    if (ownsAll) bonus += region.bonus;
+    const owners = regionTerritories.map((t) => territories[t.territory_id]?.owner_id);
+    // The player holding it all; in a team game, one side (state/teams.ts).
+    const holds = isTeamGame(sides)
+      ? regionBonusHolder(sides, owners) === playerId
+      : owners.every((owner) => owner === playerId);
+    if (holds) bonus += region.bonus;
   }
   return bonus;
 }
@@ -939,10 +960,12 @@ export function calculateContinentBonuses(
       (t) => t.region_id === region.region_id && state.territories[t.territory_id] !== undefined
     );
     if (regionTerritories.length === 0) continue;
-    const ownsAll = regionTerritories.every(
-      (t) => state.territories[t.territory_id]?.owner_id === playerId
-    );
-    if (ownsAll) bonus += region.bonus;
+    const owners = regionTerritories.map((t) => state.territories[t.territory_id]?.owner_id);
+    // The player holding it all; in a team game, one side (state/teams.ts).
+    const holds = isTeamGame(state)
+      ? regionBonusHolder(state, owners) === playerId
+      : owners.every((owner) => owner === playerId);
+    if (holds) bonus += region.bonus;
   }
   return bonus;
 }
@@ -1087,7 +1110,7 @@ function passTurn(state: GameState, map?: GameMap): void {
     nextPlayer.era_transition_turns_remaining = Math.max(0, (nextPlayer.era_transition_turns_remaining ?? 0) - 1);
   }
   if (map) {
-    const bonus = calculateContinentBonusesForPlayer(state.territories, map, nextPlayer.player_id);
+    const bonus = calculateContinentBonusesForPlayer(state.territories, map, nextPlayer.player_id, state);
     const passiveReinforceBonus = getPlayerReinforceBonus(state, nextPlayer.player_id);
     const wonderReinforceBonus = state.settings.economy_enabled
       ? getWonderReinforceBonus(state, nextPlayer.player_id)
@@ -1332,7 +1355,7 @@ export function repairDraftUnitsIfMissing(state: GameState, map: GameMap): void 
   }
   const p = state.players[state.current_player_index];
   if (!p) return;
-  const bonus = calculateContinentBonusesForPlayer(state.territories, map, p.player_id);
+  const bonus = calculateContinentBonusesForPlayer(state.territories, map, p.player_id, state);
   state.draft_units_remaining = calculateReinforcements(
     p.territory_count,
     bonus,
@@ -1377,6 +1400,8 @@ function playerSatisfiesCapitalVictory(state: GameState, playerId: string): bool
  * Check if the game has a winner based on configured victory conditions (OR semantics).
  */
 export function checkVictory(state: GameState, map: GameMap): { winnerIds: string[]; condition: VictoryConditionKey } | null {
+  // A team game is judged side by side (victory/teamVictory.ts).
+  if (isTeamGame(state)) return checkTeamVictory(state, map);
   const activePlayers = state.players.filter((p) => !p.is_eliminated);
   if (activePlayers.length === 1) return { winnerIds: [activePlayers[0].player_id], condition: 'last_standing' };
 
@@ -1683,7 +1708,7 @@ function distributeSchismHouses(
 ): boolean {
   for (const house of schism.houses) {
     const homeBonus = map.worlds?.find((w) => w.world_id === house.world_id)?.rules?.vault?.home_unit_bonus ?? 0;
-    const units = Math.max(1, initialUnitCount + homeBonus + schismOpeningBonus(house));
+    const units = Math.max(1, initialUnitCount + homeBonus + schismOpeningBonus(house, schism.relations));
     const tiles = schismHouseTiles(house);
     if (tiles.length === 0) return false;
     for (const tid of tiles) {

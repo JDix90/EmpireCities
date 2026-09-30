@@ -121,6 +121,23 @@ describe('BonusesModal — the Lane Crown on a Schism board', () => {
     expect(screen.getByText(/is the harder ground, so the board pays it back/)).toBeInTheDocument();
   });
 
+  it('plays Allied houses without the Crown, and names their tuning as the side', async () => {
+    const game = schismGame(4);
+    const mode = game.galaxy_mode as {
+      relations: string; concord_rounds: number; lane_crown_bonus: number;
+      houses: Array<{ player_id: string; reinforce_bonus?: number }>;
+    };
+    mode.relations = 'allied';
+    mode.concord_rounds = 0;
+    mode.lane_crown_bonus = 0;
+    mode.houses = mode.houses.map((h) => ({ ...h, reinforce_bonus: 3 }));
+    useGameStore.setState({ gameState: game } as never);
+    render(<BonusesModal techTree={[]} onClose={() => {}} />);
+    expect(await screen.findByText('House Bonus · Western Mandate')).toBeInTheDocument();
+    expect(screen.getByText(/Both Allied houses of Sol III draft this extra/)).toBeInTheDocument();
+    expect(screen.queryByText(/Lane Crown/)).toBeNull();
+  });
+
   it('has no Lane Crown row off a Schism board', async () => {
     useGameStore.setState({ gameState: galaxyGame(4, false) } as never);
     render(<BonusesModal techTree={[]} onClose={() => {}} />);

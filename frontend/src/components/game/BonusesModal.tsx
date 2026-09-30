@@ -458,13 +458,19 @@ export default function BonusesModal({ techTree, mapData, onClose }: BonusesModa
                           value: schismHouse.reinforce_bonus > 0
                             ? `+${schismHouse.reinforce_bonus} / turn`
                             : `−${-schismHouse.reinforce_bonus} / turn`,
-                          description: schismHouse.reinforce_bonus > 0
-                            ? `Your half of ${worldDisplayName(mapData, schismHouse.world_id)} is the harder ground, so the board pays it back at the start of each of your draft phases.`
-                            : `Your half of ${worldDisplayName(mapData, schismHouse.world_id)} is the richer ground, so you draft that many fewer at the start of each of your draft phases.`,
+                          description: schismMode?.relations === 'allied'
+                            // Allied houses are tuned as the side they are, not as rival halves.
+                            ? schismHouse.reinforce_bonus > 0
+                              ? `Both Allied houses of ${worldDisplayName(mapData, schismHouse.world_id)} draft this extra at the start of each of their draft phases, to even the sides.`
+                              : `Both Allied houses of ${worldDisplayName(mapData, schismHouse.world_id)} draft that many fewer at the start of each of their draft phases, to even the sides.`
+                            : schismHouse.reinforce_bonus > 0
+                              ? `Your half of ${worldDisplayName(mapData, schismHouse.world_id)} is the harder ground, so the board pays it back at the start of each of your draft phases.`
+                              : `Your half of ${worldDisplayName(mapData, schismHouse.world_id)} is the richer ground, so you draft that many fewer at the start of each of your draft phases.`,
                           valueColor: schismHouse.reinforce_bonus > 0 ? 'text-amber-300' : 'text-red-300',
                         }]
                       : []),
-                    ...(schismMode && schismHouse
+                    // Allied houses play without the Crown (worth 0 on their board).
+                    ...(schismMode && schismHouse && schismMode.lane_crown_bonus > 0
                       ? [{
                           icon: '👑',
                           label: `Lane Crown · ${schismHouse.name}`,

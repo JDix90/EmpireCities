@@ -1,12 +1,20 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, BookOpen, Crown, Globe2, Swords, Trophy, Target, Shield } from 'lucide-react';
+import { ArrowLeft, BookOpen, Crown, Globe2, Swords, Trophy, Target, Shield, Users } from 'lucide-react';
 import clsx from 'clsx';
 import Modal from '../ui/Modal';
 import { api } from '../../services/api';
 import { describeSecretMission, type MapNameLookup } from '../../utils/mapDisplayNames';
 import { hegemonyTurnsFor } from '../../utils/lunarHegemony';
 import { describeSpaceAgeEra, spaceAgeGuideInput } from '../../utils/spaceAgeGuide';
-import { describeColonies, describeColonyKitChanges, describeSchism, laneSovereigntyRoundsFor } from '../../utils/galaxyLanes';
+import {
+  describeColonies,
+  describeColonyKitChanges,
+  describeSchism,
+  LANE_SOVEREIGNTY_ROUNDS,
+  LANE_SOVEREIGNTY_ROUNDS_BY_SIDES,
+  laneSovereigntyRoundsFor,
+} from '../../utils/galaxyLanes';
+import { describeTeams } from '../../utils/teams';
 import { SpaceAgeGuideSections } from './SpaceAgeGuide';
 import type { GameState, PlayerState } from '../../store/gameStore';
 
@@ -64,23 +72,27 @@ function winConditionKinds(settings: GameState['settings']): string[] {
 
 /**
  * Player-facing win-condition phrases from the game settings, with OR
- * semantics between conditions.
+ * semantics between conditions. In a team game (`sides` > 0) a side meets
+ * them together, and Sovereignty's rounds are read by sides.
  */
-export function describeWinConditions(settings: GameState['settings'], seats = 0): {
+export function describeWinConditions(settings: GameState['settings'], seats = 0, sides = 0): {
   conditions: string[];
   turnCap: string | null;
 } {
   const raw = winConditionKinds(settings);
+  const team = sides > 0;
   const conditions = raw.map((kind) => {
     switch (kind) {
       case 'domination':
-        return 'Control every territory';
+        return team ? 'Your side controls every territory' : 'Control every territory';
       case 'threshold':
         return typeof settings.victory_threshold === 'number'
-          ? `Control ${settings.victory_threshold}% of the map`
+          ? team
+            ? `Your side controls ${settings.victory_threshold}% of the map between you`
+            : `Control ${settings.victory_threshold}% of the map`
           : 'Control most of the map';
       case 'capital':
-        return 'Hold your capital and capture every enemy capital';
+        return team ? 'Your side holds every capital' : 'Hold your capital and capture every enemy capital';
       case 'secret_mission':
         return 'Complete your secret mission';
       case 'lunar_hegemony':
@@ -88,7 +100,9 @@ export function describeWinConditions(settings: GameState['settings'], seats = 0
         // Moon Race game shows on its very first screen.
         return `Hold every lunar territory for ${hegemonyTurnsFor(settings)} turns of your own in a row`;
       case 'lane_sovereignty':
-        return `Hold both gateways of 5 hyperspace lanes for ${laneSovereigntyRoundsFor(seats)} turns running`;
+        return team
+          ? `Your side holds both gateways of 5 hyperspace lanes for ${LANE_SOVEREIGNTY_ROUNDS_BY_SIDES[sides] ?? LANE_SOVEREIGNTY_ROUNDS} turns running`
+          : `Hold both gateways of 5 hyperspace lanes for ${laneSovereigntyRoundsFor(seats)} turns running`;
       default:
         return kind;
     }
@@ -154,9 +168,14 @@ export default function GameStartModal({
   const viewer = gameState.players.find((p) => p.player_id === viewerPlayerId);
   const showGold = !!gameState.settings.economy_enabled;
   const showTech = !!gameState.settings.tech_trees_enabled;
-  const { conditions, turnCap } = describeWinConditions(gameState.settings, gameState.players.length);
+  const { conditions, turnCap } = describeWinConditions(
+    gameState.settings,
+    gameState.players.length,
+    gameState.teams?.length ?? 0,
+  );
   const colonies = describeColonies(gameState.galaxy_mode);
   const schism = describeSchism(gameState, viewerPlayerId);
+  const teams = describeTeams(gameState, viewerPlayerId);
   const missionDealtAfterDraft = gameState.phase === 'territory_select'
     && winConditionKinds(gameState.settings).includes('secret_mission');
   // The Moon counts toward every condition above and sits behind an orbit
@@ -296,6 +315,20 @@ export default function GameStartModal({
             {schism.map((line) => (
               <li key={line} className="flex items-start gap-2 text-sm text-bf-text">
                 <Globe2 className="w-3.5 h-3.5 text-bf-gold shrink-0 mt-0.5" aria-hidden />
+                <span>{line}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {teams.length > 0 && (
+        <section className="mb-4" data-testid="start-teams-section">
+          <h4 className="text-xs font-medium text-bf-muted uppercase tracking-wider mb-2">Teams</h4>
+          <ul className="space-y-1.5">
+            {teams.map((line) => (
+              <li key={line} className="flex items-start gap-2 text-sm text-bf-text">
+                <Users className="w-3.5 h-3.5 text-bf-gold shrink-0 mt-0.5" aria-hidden />
                 <span>{line}</span>
               </li>
             ))}

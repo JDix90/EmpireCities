@@ -264,7 +264,13 @@ export function buildChronicle(snapshots: Snapshot[], map: GameMap): ChronicleRe
   const winnerIds = last.winner_ids ?? (last.winner_id ? [last.winner_id] : []);
   if (winnerIds.length > 0) {
     const names = winnerIds.map(who).join(' and ');
-    add(last.turn_number, 'conclusion', `${names} ${winnerIds.length > 1 ? 'stand' : 'stands'} alone`, {
+    // A side wins together (state/teams.ts), an eliminated member included, so
+    // it is named as the side rather than as survivors standing alone.
+    const side = last.teams?.find((t) => t.player_ids.includes(winnerIds[0]!));
+    const title = side
+      ? `The ${side.name} win together: ${names}`
+      : `${names} ${winnerIds.length > 1 ? 'stand' : 'stands'} alone`;
+    add(last.turn_number, 'conclusion', title, {
       eraId: finalEraId,
       playerId: winnerIds[0],
       detail: conclusionDetail(last),

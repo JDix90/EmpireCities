@@ -24,6 +24,7 @@ import { countLunarTerritories, isHelium3Enabled, LUNAR_EXPORT_MAX } from '../st
 import { TERRITORY_ABILITY_DEFS, playerHasUnlockedAbility } from '../abilities/techAbilities';
 import { areMoonPowersEnabled } from '../abilities/moonPowers';
 import { activeTruceBetween } from '../state/truces';
+import { isShieldedFrom } from '../state/teams';
 import { SPACE_AGE_LANE_SEAL_HELIUM3_COST, canSealLane } from '../state/moonAccess';
 import {
   DROP_ASSAULT_HELIUM3_COST,
@@ -85,6 +86,7 @@ export function selectAiDysonBeamTarget(
       if (neighbour.unit_count < AI_DYSON_BEAM_THREAT_UNITS) continue;
       // A beam on a truce partner breaks the truce; the bot honours its truces.
       if (activeTruceBetween(state, playerId, neighbour.owner_id)) continue;
+      if (isShieldedFrom(state, playerId, neighbour.owner_id)) continue;
       // Ties break on id so a replayed seed makes the same choice.
       if (!best || neighbour.unit_count > best.units
         || (neighbour.unit_count === best.units && neighbourId < best.id)) {
@@ -167,6 +169,7 @@ export function selectAiDropAssaultTarget(
     if (!isDropAssaultTarget(state, playerId, t.territory_id)) continue;
     // Declaring on a truce partner breaks the truce; the bot honours its truces.
     if (activeTruceBetween(state, playerId, t.owner_id)) continue;
+    if (isShieldedFrom(state, playerId, t.owner_id)) continue;
     if (!best || t.unit_count < best.units
       || (t.unit_count === best.units && t.territory_id < best.id)) {
       best = { id: t.territory_id, units: t.unit_count };
