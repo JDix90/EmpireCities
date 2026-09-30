@@ -1,12 +1,13 @@
 /**
- * Galactic Age team boards (state/galaxyTeams.ts): Allied houses at eight
- * seats and 2v2 at four.
+ * Galactic Age team boards (state/galaxyTeams.ts): Allied houses at five to
+ * eight seats and 2v2 at four.
  *
  * The cases that matter:
- *   • Allied houses deal one side per world, its two houses; 2v2 deals the two
- *     pairs GALAXY_2V2_PAIRS names; every other game deals none;
- *   • the seats are reordered so the sides alternate, each keeping its own
- *     seat order, and every seat index matches its place;
+ *   • Allied houses deal one side per world, its two houses (or, in a Partial
+ *     Schism, the one seat holding it whole); 2v2 deals the two pairs
+ *     GALAXY_2V2_PAIRS names; every other game deals none;
+ *   • the seats are reordered so no side ever plays back to back, each keeping
+ *     its own seat order, and every seat index matches its place;
  *   • an Allied board opens with no Concord, no Lane Crown and the world's
  *     ALLIED_TUNING on each house; a team game plays without secret missions;
  *   • a region the side holds whole pays its bonus, where a split one used to
@@ -18,7 +19,15 @@ import { join } from 'path';
 import type { GameMap, GameSettings, GameState, GameTeam } from '../../types';
 import { calculateContinentBonuses, initializeGameState } from './gameStateManager';
 import { dropSecretMissions, GALAXY_2V2_PAIRS, galaxyTeamsFor, seatTeamsApart } from './galaxyTeams';
-import { ALLIED_TUNING, holdsLaneCrown, laneCrownBonus, schismHouseOf, schismHouseTiles } from './galaxySchism';
+import {
+  ALLIED_TUNING,
+  holdsLaneCrown,
+  laneCrownBonus,
+  PARTIAL_SCHISM_TUNING,
+  schismHouseOf,
+  schismHouseTiles,
+  schismWholeWorldOf,
+} from './galaxySchism';
 import { activeTruceBetween } from './truces';
 import { areAllies } from './teams';
 import { getPlayerReinforceBonus } from './techManager';
@@ -77,6 +86,15 @@ describe('which games deal teams', () => {
     expect(teams!.find((t) => t.player_ids.includes('p0'))!.player_ids).toEqual(['p0', 'p4']);
   });
 
+  it('Allied houses at five to seven: one side per world, a whole world a side of one', () => {
+    const teams = galaxyTeamsFor('galaxy_age', AUTHORED, seats([...FACTIONS, 'stellar_mandate']), { galaxy_house_relations: 'allied' })!;
+    expect(teams.map((t) => t.player_ids)).toEqual([['p0', 'p4'], ['p1'], ['p2'], ['p3']]);
+    const seven = galaxyTeamsFor('galaxy_age', AUTHORED, seats([...FACTIONS, ...FACTIONS.slice(0, 3)]), { galaxy_house_relations: 'allied' })!;
+    expect(seven.map((t) => t.player_ids.length)).toEqual([2, 2, 2, 1]);
+    // Not when a world has no seat, or three.
+    expect(galaxyTeamsFor('galaxy_age', AUTHORED, seats([...FACTIONS.slice(0, 3), 'stellar_mandate', 'forge_syndicate']), { galaxy_house_relations: 'allied' })).toBeNull();
+  });
+
   it('2v2: the two pairs of worlds across the ring', () => {
     const teams = galaxyTeamsFor('galaxy_age', AUTHORED, seats(FACTIONS), { galaxy_2v2: true })!;
     expect(GALAXY_2V2_PAIRS).toEqual([['sol', 'rust'], ['verdan', 'nexus_station']]);
@@ -113,6 +131,51 @@ describe('seating the sides apart', () => {
       { team_id: 'team_1', name: 'A', player_ids: ['a1', 'a2'] },
       { team_id: 'team_2', name: 'B', player_ids: ['b1', 'b2'] },
     ]);
+  });
+
+  it('spaces an uneven side round the table: A B C A D at five', () => {
+    const ids = ['a1', 'a2', 'b', 'c', 'd'];
+    const players = seats(Array(5).fill(null)).map((p, i) => ({ ...p, player_id: ids[i]! }));
+    const teams: GameTeam[] = [
+      { team_id: 'w', name: 'A', player_ids: ['a1', 'a2'] },
+      { team_id: 'x', name: 'B', player_ids: ['b'] },
+      { team_id: 'y', name: 'C', player_ids: ['c'] },
+      { team_id: 'z', name: 'D', player_ids: ['d'] },
+    ];
+    const seated = seatTeamsApart(players, teams);
+    expect(players.map((p) => p.player_id)).toEqual(['a1', 'b', 'c', 'a2', 'd']);
+    expect(seated[0]).toEqual({ team_id: 'team_1', name: 'A', player_ids: ['a1', 'a2'] });
+  });
+
+  it.each([
+    [[2, 1, 1, 1]],
+    [[2, 2, 1, 1]],
+    [[2, 2, 2, 1]],
+  ])('never seats allies back to back, whatever the seating, with sides of %j', (sizes) => {
+    const ids = sizes.flatMap((k, t) => Array.from({ length: k }, (_, m) => `${'abcd'[t]}${m}`));
+    const sideOf = (id: string) => id[0];
+    const permutations = (xs: string[]): string[][] => (xs.length <= 1 ? [xs]
+      : xs.flatMap((x, i) => permutations([...xs.slice(0, i), ...xs.slice(i + 1)]).map((rest) => [x, ...rest])));
+    const wrong: string[] = [];
+    for (const order of permutations(ids)) {
+      const players = seats(Array(order.length).fill(null)).map((p, i) => ({ ...p, player_id: order[i]! }));
+      const teams: GameTeam[] = sizes.map((_, t) => ({
+        team_id: `t${t}`, name: 'abcd'[t]!, player_ids: ids.filter((id) => sideOf(id) === 'abcd'[t]),
+      }));
+      const seated = seatTeamsApart(players, teams);
+      const n = players.length;
+      const got = `${order.join(' ')} -> ${players.map((p) => p.player_id).join(' ')}`;
+      for (let i = 0; i < n; i++) {
+        if (sideOf(players[i]!.player_id) === sideOf(players[(i + 1) % n]!.player_id)) wrong.push(`back to back: ${got}`);
+        if (players[i]!.player_index !== i) wrong.push(`seat index: ${got}`);
+      }
+      // Each side keeps its members in the order they were seated.
+      for (const team of seated) {
+        const inSeatOrder = [...team.player_ids].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+        if (team.player_ids.join() !== inSeatOrder.join()) wrong.push(`member order: ${got}`);
+      }
+    }
+    expect(wrong).toEqual([]);
   });
 
   it('never seats allies back to back at eight', () => {
@@ -180,6 +243,45 @@ describe('an Allied houses start', () => {
     for (const id of mode.crown_gateways[world]!) state.territories[id]!.owner_id = me;
     expect(holdsLaneCrown(state, me)).toBe(true);
     expect(laneCrownBonus(state, me)).toBe(0);
+  });
+});
+
+describe('an Allied Partial Schism start', () => {
+  const saved = JSON.parse(JSON.stringify(PARTIAL_SCHISM_TUNING)) as typeof PARTIAL_SCHISM_TUNING;
+  afterEach(() => {
+    for (const n of Object.keys(saved)) PARTIAL_SCHISM_TUNING[Number(n)] = { ...saved[Number(n)]! };
+  });
+
+  it('seats every world as one side, never back to back, with no Concord', () => {
+    // Every world's seats side by side, the worst seating for it.
+    const { state } = start(['stellar_mandate', 'stellar_mandate', 'forge_syndicate', 'forge_syndicate',
+      'helion_navigators', 'void_custodians'], { galaxy_house_relations: 'allied' });
+    expect(state.teams!.map((t) => t.player_ids.length).sort()).toEqual([1, 1, 2, 2]);
+    const n = state.players.length;
+    for (let i = 0; i < n; i++) {
+      expect(areAllies(state, state.players[i]!.player_id, state.players[(i + 1) % n]!.player_id)).toBe(false);
+      expect(state.players[i]!.player_index).toBe(i);
+    }
+    const mode = state.galaxy_mode;
+    if (mode?.id !== 'schism') throw new Error('no schism');
+    expect(mode.relations).toBe('allied');
+    expect(mode.concord_rounds).toBe(0);
+    for (const team of state.teams!) {
+      const worlds = new Set(team.player_ids.map((id) => worldOf(state, id)));
+      expect(worlds.size).toBe(1);
+      if (team.player_ids.length === 2) expect(activeTruceBetween(state, team.player_ids[0]!, team.player_ids[1]!)).toBeNull();
+      else expect(schismWholeWorldOf(state, team.player_ids[0]!)).not.toBeNull();
+    }
+  });
+
+  it("records each house's Allied numbers plus the catch-up, and each whole world's catch-up", () => {
+    PARTIAL_SCHISM_TUNING[5] = { house: 1, whole: 2 };
+    const { state } = start([...FACTIONS, 'stellar_mandate'], { galaxy_house_relations: 'allied' });
+    for (const p of state.players) {
+      const house = schismHouseOf(state, p.player_id);
+      if (house) expect(house.reinforce_bonus ?? 0).toBe(ALLIED_TUNING[house.world_id]!.reinforce + 1);
+      else expect(schismWholeWorldOf(state, p.player_id)!.reinforce_bonus).toBe(2);
+    }
   });
 });
 

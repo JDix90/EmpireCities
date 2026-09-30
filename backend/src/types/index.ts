@@ -371,12 +371,28 @@ export interface GalaxySchismHouse {
   name: string;
   /**
    * Units a turn this house drafts on top of its kit: its half's
-   * `reinforce_bonus`, or its world's ALLIED_TUNING when the houses are Allied.
+   * `reinforce_bonus`, or its world's ALLIED_TUNING when the houses are Allied,
+   * plus a Partial Schism's half-world catch-up.
    */
   reinforce_bonus?: number;
 }
 
-/** Galactic Age Schism board (eight seats, state/galaxySchism.ts). */
+/**
+ * One seat of a Partial Schism (five to seven seats) that holds its faction's
+ * whole home world, as at four seats.
+ */
+export interface GalaxySchismWholeWorld {
+  player_id: string;
+  world_id: string;
+  /** Units a turn this seat drafts on top of its kit (Partial Schism tuning). */
+  reinforce_bonus?: number;
+}
+
+/**
+ * Galactic Age Schism board (state/galaxySchism.ts): every world split between
+ * two houses at eight seats; at five to seven (the Partial Schism) as many as
+ * there are seats over four, the others held whole.
+ */
 export interface GalaxySchismMode {
   id: 'schism';
   relations: GalaxyHouseRelations;
@@ -384,8 +400,10 @@ export interface GalaxySchismMode {
   concord_rounds: number;
   /** Units a turn the Lane Crown is worth in this game (0 when the houses are Allied). */
   lane_crown_bonus: number;
-  /** One per seat, in seat order. */
+  /** One per seat on a split world, in seat order: every seat at eight. */
   houses: GalaxySchismHouse[];
+  /** A Partial Schism's seats on whole worlds, in seat order (absent at eight seats). */
+  whole_worlds?: GalaxySchismWholeWorld[];
   /** Each world's gateway tiles: a house holding all of its home world's wears the Lane Crown. */
   crown_gateways: Record<string, string[]>;
   /** Lanes the mode keeps open all game (none today; see galaxyModeConnections). */
@@ -605,10 +623,11 @@ export interface GameSettings {
    */
   galaxy_transit_enabled?: boolean;
   /**
-   * Galactic Age Schism (eight seats): how the two houses on each world start —
-   * under the Concord, a truce for the opening rounds, or in Civil War. Absent
-   * means the Concord; persisted only when it is Civil War. Read once, when the
-   * board is dealt, and recorded on `galaxy_mode`. No-op at any other seat count.
+   * Galactic Age Schism (five to eight seats): how the two houses on a split
+   * world start — under the Concord, a truce for the opening rounds, in Civil
+   * War, or Allied, every world's seats one team. Absent means the Concord;
+   * persisted only when it is Civil War or Allied. Read once, when the board is
+   * dealt, and recorded on `galaxy_mode`. No-op at any other seat count.
    */
   galaxy_house_relations?: GalaxyHouseRelations;
   /**
@@ -1049,7 +1068,8 @@ export interface GameState {
    * or three seats): `neutral_worlds` started neutral and garrisoned; at three
    * seats `lanes` bridge the ring's two gaps all game, projected onto the map
    * copy as `source: 'galaxy_mode'` connections by `syncGalaxyModeLanes`.
-   * Schism (eight seats, state/galaxySchism.ts): two houses to every world.
+   * Schism (five to eight seats, state/galaxySchism.ts): two houses to a split
+   * world, every world at eight; at five to seven the others held whole.
    */
   galaxy_mode?: GalaxyColoniesMode | GalaxySchismMode;
   /**

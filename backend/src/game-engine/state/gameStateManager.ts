@@ -177,8 +177,8 @@ export function initializeGameState(
     };
   }
 
-  // Schism (eight Galactic Age seats): every world's faction goes to two seats
-  // instead (state/galaxySchism.ts).
+  // Schism (five to eight Galactic Age seats): a split world's faction goes to
+  // two seats instead, every world's at eight (state/galaxySchism.ts).
   const schismDealt = settingsNorm.factions_enabled && dealSchismFactions(era, map, players);
 
   // Assign factions to players (unique picks, resolve conflicts with dice roll) when enabled
@@ -227,9 +227,10 @@ export function initializeGameState(
     });
   }
 
-  // Galactic Age team boards (state/galaxyTeams.ts): Allied houses at eight
-  // seats, 2v2 at four. Dealt once the factions are, and the seats reordered so
-  // allies never play back to back, before anything below reads a seat.
+  // Galactic Age team boards (state/galaxyTeams.ts): Allied houses at five to
+  // eight seats, 2v2 at four. Dealt once the factions are, and the seats
+  // reordered so allies never play back to back, before anything below reads a
+  // seat.
   const teamsDealt = settingsNorm.factions_enabled && !settingsNorm.territory_selection
     ? galaxyTeamsFor(era, map, players, settingsNorm)
     : null;
@@ -245,7 +246,7 @@ export function initializeGameState(
     ? resolveGalaxyHomeWorlds(era, map, players)
     : null;
   const colonies = galaxyHomeWorlds ? colonyLayout(map, galaxyHomeWorlds) : null;
-  // Eight seats: two houses to every world, each on half of it.
+  // Five to eight seats: two houses to a split world, each on half of it.
   const schism = schismDealt && !settingsNorm.territory_selection
     ? schismLayout(era, map, players, normalizeHouseRelations(settingsNorm.galaxy_house_relations), {
       forceHalves: initOptions?.forceSchismHalves,
@@ -1697,8 +1698,9 @@ function tryDistributeGalaxyAgeFactionHomeworlds(
  * Deal each Schism house its half of its home world (galaxySchism.ts), at the
  * initial unit count plus a Vault world's home-unit bonus, which pays for the
  * neutral ring as it does in the whole-world deal, plus the half's own opening
- * bonus. `map` is the distributable view. Returns false so callers fall back to
- * geographic distribution.
+ * bonus. In a Partial Schism each seat on a whole world is dealt all of it, as
+ * at four seats. `map` is the distributable view. Returns false so callers fall
+ * back to geographic distribution.
  */
 function distributeSchismHouses(
   territories: Record<string, TerritoryState>,
@@ -1706,9 +1708,12 @@ function distributeSchismHouses(
   schism: GalaxySchismMode,
   initialUnitCount: number,
 ): boolean {
+  const homeBonusOf = (worldId: string) =>
+    map.worlds?.find((w) => w.world_id === worldId)?.rules?.vault?.home_unit_bonus ?? 0;
+  const seats = schism.houses.length + (schism.whole_worlds?.length ?? 0);
   for (const house of schism.houses) {
-    const homeBonus = map.worlds?.find((w) => w.world_id === house.world_id)?.rules?.vault?.home_unit_bonus ?? 0;
-    const units = Math.max(1, initialUnitCount + homeBonus + schismOpeningBonus(house, schism.relations));
+    const opening = schismOpeningBonus(house, schism.relations, seats);
+    const units = Math.max(1, initialUnitCount + homeBonusOf(house.world_id) + opening);
     const tiles = schismHouseTiles(house);
     if (tiles.length === 0) return false;
     for (const tid of tiles) {
@@ -1717,6 +1722,18 @@ function distributeSchismHouses(
       st.owner_id = house.player_id;
       st.unit_count = units;
     }
+  }
+  for (const whole of schism.whole_worlds ?? []) {
+    let any = false;
+    for (const t of map.territories) {
+      if (t.world_id !== whole.world_id) continue;
+      const st = territories[t.territory_id];
+      if (!st) return false;
+      st.owner_id = whole.player_id;
+      st.unit_count = initialUnitCount + homeBonusOf(whole.world_id);
+      any = true;
+    }
+    if (!any) return false;
   }
   return true;
 }

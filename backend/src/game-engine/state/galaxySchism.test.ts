@@ -1,29 +1,37 @@
 /**
- * Galactic Age Schism — eight seats, two houses to every world.
+ * Galactic Age Schism — two houses to a world: every world at eight seats, and
+ * at five to seven (the Partial Schism) one world per seat over four.
  *
  * The cases that matter:
  *   • the authored halves partition the committed map: every world's tiles but
  *     the Vault ring, two connected halves of one size, two gateways each;
  *   • eight seats deal every faction exactly twice, keeping picks while a
  *     faction has a seat left, and nothing else changes how factions are dealt;
- *   • each house opens on its half and nothing else, the Vault ring neutral;
- *   • the Concord is an ordinary truce between each world's two houses, for the
- *     rounds the game recorded, and Civil War opens none;
- *   • the Lane Crown pays only for all four of the house's own world's gateways;
+ *   • five to seven seats deal exactly one world per seat over four to two
+ *     seats and every other world to one: picks stand where they fit, a world
+ *     nobody picked splits before one a seat picked alone;
+ *   • each house opens on its half and nothing else, a Partial Schism's whole
+ *     world opens as at four seats, and the Vault ring stays neutral;
+ *   • the Concord is an ordinary truce between each split world's two houses,
+ *     for the rounds the game recorded, and Civil War opens none;
+ *   • the Lane Crown pays only a house, for all four of its own world's gateways;
+ *   • the Partial Schism's catch-up is recorded on each seat and drafted;
  *   • four seats, other eras and a scattered start deal no Schism.
  */
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import type { GameMap, GameSettings, GameState } from '../../types';
 import { advanceToNextPlayer, initializeGameState } from './gameStateManager';
 import {
+  ALLIED_TUNING,
   dealSchismFactions,
   holdsLaneCrown,
   houseReinforceBonus,
   isSchismSeating,
   laneCrownBonus,
   normalizeHouseRelations,
+  PARTIAL_SCHISM_TUNING,
   SCHISM_HALVES,
   SCHISM_TUNING,
   schismHalvesFor,
@@ -31,6 +39,8 @@ import {
   schismLayout,
   schismOpeningBonus,
   schismRivalOf,
+  schismSplitWorldCount,
+  schismWholeWorldOf,
 } from './galaxySchism';
 import { gatewaysByWorld } from './galaxyRing';
 import { activeTruceBetween } from './truces';
@@ -73,14 +83,32 @@ function schismGame(
   overrides: Partial<GameSettings> = {},
   forceHalves?: Record<string, 0 | 1>,
 ): { state: GameState; map: GameMap } {
+  return startWith([...FACTIONS, ...FACTIONS], overrides, forceHalves);
+}
+
+/** A Galactic Age start with these picks in seat order, halves by `forceHalves` when given. */
+function startWith(
+  factions: Array<string | null>,
+  overrides: Partial<GameSettings> = {},
+  forceHalves?: Record<string, 0 | 1>,
+): { state: GameState; map: GameMap } {
   const map = JSON.parse(JSON.stringify(AUTHORED)) as GameMap;
-  const players = seats([...FACTIONS, ...FACTIONS]);
-  const state = initializeGameState('t_schism', 'galaxy_age', map, players as never, settings(overrides), {
+  const state = initializeGameState('t_schism', 'galaxy_age', map, seats(factions) as never, settings(overrides), {
     forceStartingPlayerIndex: 0,
     ...(forceHalves ? { forceSchismHalves: forceHalves } : {}),
   });
   return { state, map };
 }
+
+/** Seats per faction, keyed and sorted by faction. */
+function count(players: Array<{ faction_id?: string | null }>): Record<string, number> {
+  const out = new Map<string, number>();
+  for (const p of players) out.set(p.faction_id!, (out.get(p.faction_id!) ?? 0) + 1);
+  return Object.fromEntries([...out.entries()].sort());
+}
+
+/** Five seats: the Mandate twice (p0 and p4), every other faction once. */
+const FIVE = [...FACTIONS, 'stellar_mandate'];
 
 /** A seeded `randomInt(min, max)`, max exclusive. */
 function seededInt(seed: number): (min: number, max: number) => number {
@@ -150,11 +178,6 @@ describe('the authored halves', () => {
 });
 
 describe('dealing factions at eight seats', () => {
-  const count = (players: Array<{ faction_id?: string | null }>) => {
-    const out = new Map<string, number>();
-    for (const p of players) out.set(p.faction_id!, (out.get(p.faction_id!) ?? 0) + 1);
-    return Object.fromEntries([...out.entries()].sort());
-  };
   const twiceEach = Object.fromEntries([...FACTIONS].sort().map((f) => [f, 2]));
 
   it('deals every faction exactly twice when nobody picks', () => {
@@ -180,10 +203,100 @@ describe('dealing factions at eight seats', () => {
 
   it('deals nothing at another seat count, era or board', () => {
     expect(dealSchismFactions('galaxy_age', AUTHORED, seats(Array(4).fill(null)))).toBe(false);
+    expect(dealSchismFactions('galaxy_age', AUTHORED, seats(Array(9).fill(null)))).toBe(false);
     expect(dealSchismFactions('space_age', AUTHORED, seats(Array(8).fill(null)))).toBe(false);
     expect(dealSchismFactions('galaxy_age', { ...AUTHORED, map_kind: 'standard' }, seats(Array(8).fill(null)))).toBe(false);
-    expect(isSchismSeating('galaxy_age', AUTHORED, 8)).toBe(true);
-    expect([2, 3, 4, 5, 6, 7].some((n) => isSchismSeating('galaxy_age', AUTHORED, n))).toBe(false);
+    expect([5, 6, 7, 8].every((n) => isSchismSeating('galaxy_age', AUTHORED, n))).toBe(true);
+    expect([2, 3, 4, 9].some((n) => isSchismSeating('galaxy_age', AUTHORED, n))).toBe(false);
+  });
+});
+
+describe('dealing factions at five to seven seats', () => {
+  /** Seats per faction, smallest first: one to each whole world, two to each split one. */
+  const shape = (players: Array<{ faction_id?: string | null }>) => Object.values(count(players)).sort();
+
+  it('splits one world per seat over four', () => {
+    expect([4, 5, 6, 7, 8].map(schismSplitWorldCount)).toEqual([0, 1, 2, 3, 4]);
+  });
+
+  it.each([5, 6, 7])('at %i seats deals every faction, splitting the worlds it must, when nobody picks', (n) => {
+    for (let seed = 1; seed <= 6; seed++) {
+      const players = seats(Array(n).fill(null));
+      expect(dealSchismFactions('galaxy_age', AUTHORED, players, seededInt(seed))).toBe(true);
+      expect(Object.keys(count(players))).toEqual([...FACTIONS].sort());
+      expect(shape(players)).toEqual([...Array(8 - n).fill(1), ...Array(n - 4).fill(2)]);
+    }
+  });
+
+  it('draws which worlds split when the picks leave it open', () => {
+    const split = new Set<string>();
+    for (let seed = 1; seed <= 40; seed++) {
+      const players = seats(Array(5).fill(null));
+      dealSchismFactions('galaxy_age', AUTHORED, players, seededInt(seed));
+      for (const [factionId, n] of Object.entries(count(players))) if (n === 2) split.add(factionId);
+    }
+    expect([...split].sort()).toEqual([...FACTIONS].sort());
+  });
+
+  it('keeps picks that fit: two seats on a faction split its world', () => {
+    const players = seats(['void_custodians', null, 'void_custodians', null, null]);
+    expect(dealSchismFactions('galaxy_age', AUTHORED, players, seededInt(3))).toBe(true);
+    expect(count(players)).toEqual({ forge_syndicate: 1, helion_navigators: 1, stellar_mandate: 1, void_custodians: 2 });
+    expect([players[0]!.faction_id, players[2]!.faction_id]).toEqual(['void_custodians', 'void_custodians']);
+  });
+
+  it('leaves a full set of picks as it is', () => {
+    const picks = ['stellar_mandate', 'forge_syndicate', 'forge_syndicate', 'helion_navigators', 'void_custodians', 'helion_navigators'];
+    const players = seats(picks);
+    expect(dealSchismFactions('galaxy_age', AUTHORED, players, seededInt(9))).toBe(true);
+    expect(players.map((p) => p.faction_id)).toEqual(picks);
+  });
+
+  it('keeps two of three picks of a faction and deals the third a world nobody picked', () => {
+    for (let seed = 1; seed <= 6; seed++) {
+      const players = seats(['void_custodians', 'void_custodians', 'void_custodians', null, null]);
+      dealSchismFactions('galaxy_age', AUTHORED, players, seededInt(seed));
+      expect(count(players)).toEqual({ forge_syndicate: 1, helion_navigators: 1, stellar_mandate: 1, void_custodians: 2 });
+    }
+  });
+
+  it('breaks up the pairs the seats have no room for, drawing which stands, and deals the seat that gives way elsewhere', () => {
+    // Five seats split one world, and two factions were picked twice.
+    const stood = new Set<string>();
+    for (let seed = 1; seed <= 20; seed++) {
+      const players = seats(['stellar_mandate', 'stellar_mandate', 'forge_syndicate', 'forge_syndicate', null]);
+      dealSchismFactions('galaxy_age', AUTHORED, players, seededInt(seed));
+      const dealt = count(players);
+      expect([dealt.stellar_mandate, dealt.forge_syndicate].sort()).toEqual([1, 2]);
+      expect([dealt.helion_navigators, dealt.void_custodians]).toEqual([1, 1]);
+      // Each of them still holds a seat that picked it.
+      expect([players[0]!.faction_id, players[1]!.faction_id]).toContain('stellar_mandate');
+      expect([players[2]!.faction_id, players[3]!.faction_id]).toContain('forge_syndicate');
+      expect(['helion_navigators', 'void_custodians']).toContain(players[4]!.faction_id);
+      stood.add(dealt.stellar_mandate === 2 ? 'stellar_mandate' : 'forge_syndicate');
+    }
+    expect([...stood].sort()).toEqual(['forge_syndicate', 'stellar_mandate']);
+  });
+
+  it('splits worlds nobody picked before one a seat picked alone', () => {
+    // Six seats split two worlds; one seat picked the Mandate.
+    for (let seed = 1; seed <= 12; seed++) {
+      const players = seats(['stellar_mandate', null, null, null, null, null]);
+      dealSchismFactions('galaxy_age', AUTHORED, players, seededInt(seed));
+      expect(players[0]!.faction_id).toBe('stellar_mandate');
+      expect(count(players).stellar_mandate).toBe(1);
+      expect(shape(players)).toEqual([1, 1, 2, 2]);
+    }
+  });
+
+  it('splits a world picked alone when every world was picked, keeping every pick', () => {
+    // Seven seats split three worlds, and each faction has one pick.
+    for (let seed = 1; seed <= 6; seed++) {
+      const players = seats([...FACTIONS, null, null, null]);
+      dealSchismFactions('galaxy_age', AUTHORED, players, seededInt(seed));
+      expect(players.slice(0, 4).map((p) => p.faction_id)).toEqual(FACTIONS);
+      expect(shape(players)).toEqual([1, 2, 2, 2]);
+    }
   });
 });
 
@@ -228,10 +341,70 @@ describe('the Schism layout', () => {
     expect(schismLayout('galaxy_age', AUTHORED, seats(FACTIONS), 'concord')).toBeNull();
   });
 
+  it('has no whole worlds at eight seats', () => {
+    const mode = schismLayout('galaxy_age', AUTHORED, seats([...FACTIONS, ...FACTIONS]), 'concord')!;
+    expect(mode.whole_worlds).toBeUndefined();
+    expect(mode.houses).toHaveLength(8);
+  });
+
   it('reads anything but Civil War or Allied as the Concord', () => {
     expect(normalizeHouseRelations('civil_war')).toBe('civil_war');
     expect(normalizeHouseRelations('allied')).toBe('allied');
     for (const raw of ['concord', undefined, 'rivals', 7]) expect(normalizeHouseRelations(raw)).toBe('concord');
+  });
+});
+
+describe('the Partial Schism layout', () => {
+  const saved = JSON.parse(JSON.stringify(PARTIAL_SCHISM_TUNING)) as typeof PARTIAL_SCHISM_TUNING;
+  afterEach(() => {
+    for (const n of Object.keys(saved)) PARTIAL_SCHISM_TUNING[Number(n)] = { ...saved[Number(n)]! };
+  });
+
+  it('makes houses of a split world\'s seats and deals every other world whole, each in seat order', () => {
+    PARTIAL_SCHISM_TUNING[5] = { house: 0, whole: 0 };
+    const mode = schismLayout('galaxy_age', AUTHORED, seats(FIVE), 'concord')!;
+    expect(mode.houses.map((h) => [h.player_id, h.world_id])).toEqual([['p0', 'sol'], ['p4', 'sol']]);
+    expect(mode.houses[0]!.half + mode.houses[1]!.half).toBe(1);
+    expect(mode.whole_worlds).toEqual([
+      { player_id: 'p1', world_id: 'rust' },
+      { player_id: 'p2', world_id: 'verdan' },
+      { player_id: 'p3', world_id: 'nexus_station' },
+    ]);
+    // Seven seats: three worlds split, the one left whole wherever it sits.
+    const seven = schismLayout('galaxy_age', AUTHORED, seats(['forge_syndicate', ...FACTIONS, 'void_custodians', 'stellar_mandate']), 'concord')!;
+    expect(seven.houses.map((h) => h.player_id)).toEqual(['p0', 'p1', 'p2', 'p4', 'p5', 'p6']);
+    expect(seven.whole_worlds).toEqual([{ player_id: 'p3', world_id: 'verdan' }]);
+  });
+
+  it('records the catch-up on every seat, on top of each house\'s own numbers', () => {
+    PARTIAL_SCHISM_TUNING[5] = { house: 2, whole: -1 };
+    const mode = schismLayout('galaxy_age', AUTHORED, seats(FIVE), 'concord', { forceHalves: { p0: 0 } })!;
+    expect(mode.houses.map((h) => h.reinforce_bonus ?? 0)).toEqual([
+      (SCHISM_HALVES.sol![0].reinforce_bonus ?? 0) + 2,
+      (SCHISM_HALVES.sol![1].reinforce_bonus ?? 0) + 2,
+    ]);
+    expect(mode.whole_worlds!.map((w) => w.reinforce_bonus)).toEqual([-1, -1, -1]);
+    const allied = schismLayout('galaxy_age', AUTHORED, seats(FIVE), 'allied')!;
+    expect(allied.houses.map((h) => h.reinforce_bonus ?? 0)).toEqual([ALLIED_TUNING.sol!.reinforce + 2, ALLIED_TUNING.sol!.reinforce + 2]);
+    // Another seat count's numbers are its own.
+    const six = schismLayout('galaxy_age', AUTHORED, seats([...FIVE, 'void_custodians']), 'concord', { forceHalves: { p0: 0 } })!;
+    expect(six.houses.find((h) => h.player_id === 'p0')!.reinforce_bonus ?? 0)
+      .toBe((SCHISM_HALVES.sol![0].reinforce_bonus ?? 0) + PARTIAL_SCHISM_TUNING[6]!.house);
+  });
+
+  it('keeps the Concord and the Crown numbers of the eight-seat board', () => {
+    const mode = schismLayout('galaxy_age', AUTHORED, seats(FIVE), 'concord')!;
+    expect(mode.concord_rounds).toBe(SCHISM_TUNING.concordRounds);
+    expect(mode.lane_crown_bonus).toBe(SCHISM_TUNING.laneCrownBonus);
+    expect(Object.keys(mode.crown_gateways).sort()).toEqual(['nexus_station', 'rust', 'sol', 'verdan']);
+  });
+
+  it('is not dealt unless every world has one seat or two', () => {
+    const threeOnSol = seats(['stellar_mandate', 'stellar_mandate', 'stellar_mandate', 'forge_syndicate', 'helion_navigators']);
+    expect(schismLayout('galaxy_age', AUTHORED, threeOnSol, 'concord')).toBeNull();
+    const nexusEmpty = seats([...FACTIONS.slice(0, 3), ...FACTIONS.slice(0, 3)]);
+    expect(schismLayout('galaxy_age', AUTHORED, nexusEmpty, 'concord')).toBeNull();
+    expect(schismLayout('galaxy_age', AUTHORED, seats([...FACTIONS.slice(0, 4), null]), 'concord')).toBeNull();
   });
 });
 
@@ -399,12 +572,123 @@ describe('the Lane Crown', () => {
   });
 });
 
+describe('a five-to-seven-seat game (the Partial Schism)', () => {
+  const saved = JSON.parse(JSON.stringify(PARTIAL_SCHISM_TUNING)) as typeof PARTIAL_SCHISM_TUNING;
+  afterEach(() => {
+    for (const n of Object.keys(saved)) PARTIAL_SCHISM_TUNING[Number(n)] = { ...saved[Number(n)]! };
+  });
+  const wholeTiles = (world: string) => AUTHORED.territories
+    .filter((t) => t.world_id === world && !VAULT_RING.includes(t.territory_id))
+    .map((t) => t.territory_id)
+    .sort();
+
+  it.each([
+    [5, FIVE],
+    [6, [...FIVE, 'void_custodians']],
+    [7, [...FIVE, 'void_custodians', 'forge_syndicate']],
+  ])('at %i seats opens each house on its half and each whole world whole, with the Vault ring neutral', (n, factions) => {
+    const { state } = startWith(factions);
+    const mode = state.galaxy_mode;
+    expect(mode?.id).toBe('schism');
+    if (mode?.id !== 'schism') return;
+    expect(mode.houses).toHaveLength(2 * (n - 4));
+    expect(mode.whole_worlds).toHaveLength(8 - n);
+    for (const house of mode.houses) {
+      const half = SCHISM_HALVES[house.world_id]![house.half];
+      expect(owned(state, house.player_id)).toEqual([...half.tiles].sort());
+      const vaultBonus = house.world_id === 'nexus_station' ? 1 : 0;
+      for (const id of half.tiles) {
+        expect(state.territories[id]!.unit_count).toBe(Math.max(1, 3 + vaultBonus + schismOpeningBonus(house, 'concord', n)));
+      }
+    }
+    for (const whole of mode.whole_worlds!) {
+      expect(owned(state, whole.player_id)).toEqual(wholeTiles(whole.world_id));
+      const vaultBonus = whole.world_id === 'nexus_station' ? 1 : 0;
+      for (const id of wholeTiles(whole.world_id)) expect(state.territories[id]!.unit_count).toBe(3 + vaultBonus);
+    }
+    for (const id of VAULT_RING) {
+      expect(state.territories[id]).toMatchObject({ owner_id: null, unit_count: 6 });
+    }
+    for (const p of state.players) expect(p.territory_count).toBe(owned(state, p.player_id).length);
+  });
+
+  it('deals a whole world exactly as the four-seat start does', () => {
+    const four = startWith(FACTIONS).state;
+    const { state } = startWith(FIVE);
+    for (const id of ['p1', 'p2', 'p3']) {
+      expect(owned(state, id)).toEqual(owned(four, id));
+      for (const t of owned(four, id)) expect(state.territories[t]!.unit_count).toBe(four.territories[t]!.unit_count);
+    }
+  });
+
+  it.each([5, 6, 7])('deals a partial board at %i seats when nobody picks', (n) => {
+    const { state } = startWith(Array(n).fill(null));
+    const mode = state.galaxy_mode;
+    expect(mode?.id).toBe('schism');
+    if (mode?.id !== 'schism') return;
+    expect(mode.houses).toHaveLength(2 * (n - 4));
+    expect(mode.whole_worlds).toHaveLength(8 - n);
+    const unowned = Object.values(state.territories).filter((t) => !t.owner_id).map((t) => t.territory_id).sort();
+    expect(unowned).toEqual([...VAULT_RING].sort());
+  });
+
+  it('opens the Concord between the split world\'s houses and nobody else', () => {
+    const { state } = startWith(FIVE);
+    const houses = ['p0', 'p4'];
+    for (const a of state.players) {
+      for (const b of state.players) {
+        if (a === b) continue;
+        const both = houses.includes(a.player_id) && houses.includes(b.player_id);
+        expect(!!activeTruceBetween(state, a.player_id, b.player_id)).toBe(both);
+      }
+    }
+    expect(schismRivalOf(state, 'p0')!.player_id).toBe('p4');
+    expect(schismRivalOf(state, 'p1')).toBeNull();
+    expect(schismHouseOf(state, 'p1')).toBeNull();
+    expect(schismWholeWorldOf(state, 'p1')).toMatchObject({ player_id: 'p1', world_id: 'rust' });
+    expect(schismWholeWorldOf(state, 'p0')).toBeNull();
+  });
+
+  it('crowns only a house: a whole world holds its gateways from the start and wears nothing', () => {
+    const { state } = startWith(FIVE);
+    const mode = state.galaxy_mode;
+    if (mode?.id !== 'schism') throw new Error('no Schism');
+    for (const id of mode.crown_gateways.rust!) expect(state.territories[id]!.owner_id).toBe('p1');
+    expect(holdsLaneCrown(state, 'p1')).toBe(false);
+    expect(laneCrownBonus(state, 'p1')).toBe(0);
+    for (const id of mode.crown_gateways.sol!) state.territories[id]!.owner_id = 'p0';
+    expect(laneCrownBonus(state, 'p0')).toBe(mode.lane_crown_bonus);
+  });
+
+  it('drafts the catch-up each seat was dealt, every turn', () => {
+    PARTIAL_SCHISM_TUNING[5] = { house: 1, whole: 2 };
+    const { state } = startWith(FIVE, {}, { p0: 0 });
+    PARTIAL_SCHISM_TUNING[5] = { house: 0, whole: 0 };
+    const plain = startWith(FIVE, {}, { p0: 0 }).state;
+    expect(houseReinforceBonus(state, 'p1')).toBe(2);
+    expect(houseReinforceBonus(plain, 'p1')).toBe(0);
+    expect(getPlayerReinforceBonus(state, 'p1') - getPlayerReinforceBonus(plain, 'p1')).toBe(2);
+    expect(getPlayerReinforceBonus(state, 'p0') - getPlayerReinforceBonus(plain, 'p0')).toBe(1);
+    // The dealt game keeps its numbers whatever the table says now.
+    expect(houseReinforceBonus(state, 'p3')).toBe(2);
+  });
+});
+
 describe('no Schism', () => {
   it('at four seats, with the classic start untouched', () => {
     const map = JSON.parse(JSON.stringify(AUTHORED)) as GameMap;
     const state = initializeGameState('t_four', 'galaxy_age', map, seats(FACTIONS) as never, settings(), {
       forceStartingPlayerIndex: 0,
     });
+    expect(state.galaxy_mode).toBeUndefined();
+    expect(state.diplomacy.every((d) => d.status === 'neutral')).toBe(true);
+  });
+
+  it('with Home Worlds off: five seats get the scattered start and no houses', () => {
+    const map = JSON.parse(JSON.stringify(AUTHORED)) as GameMap;
+    const state = initializeGameState('t_scatter5', 'galaxy_age', map, seats(Array(5).fill(null)) as never, settings({
+      factions_enabled: false,
+    }), { forceStartingPlayerIndex: 0 });
     expect(state.galaxy_mode).toBeUndefined();
     expect(state.diplomacy.every((d) => d.status === 'neutral')).toBe(true);
   });
