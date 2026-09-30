@@ -436,14 +436,20 @@ describe('the Partial Schism layout', () => {
   it("records each world's partial Allied numbers, in place of the eight-seat ones, on each house and each whole world", () => {
     Object.assign(PARTIAL_ALLIED_TUNING, {
       sol: { house: 1, whole: 9 },
-      rust: { house: 9, whole: 4 },
-      verdan: { house: 9, whole: 2 },
-      nexus_station: { house: 9, whole: -1 },
+      rust: { house: 3, whole: 4 },
+      verdan: { house: 5, whole: 2 },
+      nexus_station: { house: 7, whole: -1 },
     });
     const mode = schismLayout('galaxy_age', AUTHORED, seats(FIVE), 'allied')!;
     expect(mode.houses.map((h) => h.reinforce_bonus)).toEqual([1, 1]);
     expect(ALLIED_TUNING.sol!.reinforce).not.toBe(1);
     expect(mode.whole_worlds!.map((w) => [w.world_id, w.reinforce_bonus])).toEqual([['rust', 4], ['verdan', 2], ['nexus_station', -1]]);
+    // Seven seats split Rust, Verdan and Nexus: each world's houses draft that world's number.
+    const seven = schismLayout('galaxy_age', AUTHORED, seats([...FACTIONS, 'forge_syndicate', 'helion_navigators', 'void_custodians']), 'allied')!;
+    expect(seven.houses.map((h) => [h.world_id, h.reinforce_bonus])).toEqual([
+      ['rust', 3], ['verdan', 5], ['nexus_station', 7], ['rust', 3], ['verdan', 5], ['nexus_station', 7],
+    ]);
+    expect(seven.whole_worlds!.map((w) => [w.world_id, w.reinforce_bonus])).toEqual([['sol', 9]]);
     // Eight seats keep ALLIED_TUNING.
     const eight = schismLayout('galaxy_age', AUTHORED, seats([...FACTIONS, ...FACTIONS]), 'allied')!;
     expect(eight.houses[0]!.reinforce_bonus ?? 0).toBe(ALLIED_TUNING.sol!.reinforce);
