@@ -408,6 +408,34 @@ describe('advanceToNextPlayer', () => {
     expect(state.phase).toBe('draft');
   });
 
+  it("pays a region a side holds whole to the member holding most of it, at that member's turn start", () => {
+    // p1 and p3 are allies; p3 holds two of R1's three tiles, p1 the third.
+    const game = (current: number, teams?: GameState['teams']) => makeState({
+      current_player_index: current,
+      phase: 'fortify',
+      players: [
+        makePlayer('p1', 0, { territory_count: 1 }),
+        makePlayer('p2', 1),
+        makePlayer('p3', 2, { territory_count: 2 }),
+      ],
+      territories: { t1: makeTerritory('t1', 'p1', 3), t2: makeTerritory('t2', 'p3', 3), t3: makeTerritory('t3', 'p3', 3) },
+      ...(teams ? { teams } : {}),
+    });
+    const sides: GameState['teams'] = [
+      { team_id: 'team_1', name: 'Us', player_ids: ['p1', 'p3'] },
+      { team_id: 'team_2', name: 'Them', player_ids: ['p2'] },
+    ];
+    const draftAtTurnOf = (current: number, teams?: GameState['teams']) => {
+      const state = game(current, teams);
+      advanceToNextPlayer(state, map);
+      return state.draft_units_remaining;
+    };
+    // p3's turn (after p2): the side holds R1 and p3 holds most of it.
+    expect(draftAtTurnOf(1, sides) - draftAtTurnOf(1)).toBe(calculateReinforcements(2, 2, 3) - calculateReinforcements(2, 0, 3));
+    // p1's turn (after p3): p1 holds less of R1 than its ally, so nothing more.
+    expect(draftAtTurnOf(2, sides)).toBe(draftAtTurnOf(2));
+  });
+
   it('wraps around and increments turn number', () => {
     const state = makeState({
       current_player_index: 1,
