@@ -34,6 +34,7 @@ import {
   isSchismSeating,
   laneCrownBonus,
   normalizeHouseRelations,
+  PARTIAL_ALLIED_TUNING,
   PARTIAL_SCHISM_HALVES,
   PARTIAL_SCHISM_TUNING,
   SCHISM_HALVES,
@@ -122,9 +123,11 @@ const ON_LANE = new Set(AUTHORED.connections.filter((c) => c.type === 'orbit').f
 function restorePartialTables(): () => void {
   const tuning = JSON.parse(JSON.stringify(PARTIAL_SCHISM_TUNING)) as typeof PARTIAL_SCHISM_TUNING;
   const halves = JSON.parse(JSON.stringify(PARTIAL_SCHISM_HALVES)) as typeof PARTIAL_SCHISM_HALVES;
+  const allied = JSON.parse(JSON.stringify(PARTIAL_ALLIED_TUNING)) as typeof PARTIAL_ALLIED_TUNING;
   return () => {
     for (const n of Object.keys(tuning)) PARTIAL_SCHISM_TUNING[Number(n)] = JSON.parse(JSON.stringify(tuning[Number(n)]));
     for (const w of Object.keys(halves)) PARTIAL_SCHISM_HALVES[w] = JSON.parse(JSON.stringify(halves[w]));
+    for (const w of Object.keys(allied)) PARTIAL_ALLIED_TUNING[w] = { ...allied[w]! };
   };
 }
 
@@ -399,7 +402,7 @@ describe('the Partial Schism layout', () => {
   });
 
   it('seats an Allied side of one on its whole world, with nothing unclaimed', () => {
-    PARTIAL_SCHISM_TUNING[5]!.allied = { house: 0, whole: 0 };
+    for (const w of Object.keys(PARTIAL_ALLIED_TUNING)) PARTIAL_ALLIED_TUNING[w] = { house: 0, whole: 0 };
     const mode = schismLayout('galaxy_age', AUTHORED, seats(FIVE), 'allied')!;
     expect(mode.houses.map((h) => h.player_id)).toEqual(['p0', 'p4']);
     expect(mode.whole_worlds).toEqual([
@@ -430,11 +433,20 @@ describe('the Partial Schism layout', () => {
     expect(schismOpeningBonus({ world_id: 'nexus_station', half: 1 }, 'concord', 8)).toBe(SCHISM_HALVES.nexus_station![1].opening_bonus);
   });
 
-  it('records the Allied numbers on each house and each whole world', () => {
-    PARTIAL_SCHISM_TUNING[5]!.allied = { house: 1, whole: 2 };
+  it("records each world's partial Allied numbers, in place of the eight-seat ones, on each house and each whole world", () => {
+    Object.assign(PARTIAL_ALLIED_TUNING, {
+      sol: { house: 1, whole: 9 },
+      rust: { house: 9, whole: 4 },
+      verdan: { house: 9, whole: 2 },
+      nexus_station: { house: 9, whole: -1 },
+    });
     const mode = schismLayout('galaxy_age', AUTHORED, seats(FIVE), 'allied')!;
-    expect(mode.houses.map((h) => h.reinforce_bonus ?? 0)).toEqual([ALLIED_TUNING.sol!.reinforce + 1, ALLIED_TUNING.sol!.reinforce + 1]);
-    expect(mode.whole_worlds!.map((w) => w.reinforce_bonus)).toEqual([2, 2, 2]);
+    expect(mode.houses.map((h) => h.reinforce_bonus)).toEqual([1, 1]);
+    expect(ALLIED_TUNING.sol!.reinforce).not.toBe(1);
+    expect(mode.whole_worlds!.map((w) => [w.world_id, w.reinforce_bonus])).toEqual([['rust', 4], ['verdan', 2], ['nexus_station', -1]]);
+    // Eight seats keep ALLIED_TUNING.
+    const eight = schismLayout('galaxy_age', AUTHORED, seats([...FACTIONS, ...FACTIONS]), 'allied')!;
+    expect(eight.houses[0]!.reinforce_bonus ?? 0).toBe(ALLIED_TUNING.sol!.reinforce);
   });
 
   it('records the garrison its unclaimed halves open with, by seat count', () => {
@@ -719,9 +731,9 @@ describe('a five-to-seven-seat game (the Partial Schism)', () => {
   });
 
   it("drafts an Allied whole world's number every turn", () => {
-    PARTIAL_SCHISM_TUNING[5]!.allied = { house: 0, whole: 2 };
+    PARTIAL_ALLIED_TUNING.rust = { house: 0, whole: 2 };
     const { state } = startWith(FIVE, { galaxy_house_relations: 'allied' });
-    PARTIAL_SCHISM_TUNING[5]!.allied = { house: 0, whole: 0 };
+    PARTIAL_ALLIED_TUNING.rust = { house: 0, whole: 0 };
     const plain = startWith(FIVE, { galaxy_house_relations: 'allied' }).state;
     expect(houseReinforceBonus(state, 'p1')).toBe(2);
     expect(getPlayerReinforceBonus(state, 'p1') - getPlayerReinforceBonus(plain, 'p1')).toBe(2);

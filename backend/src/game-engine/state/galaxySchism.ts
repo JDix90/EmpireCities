@@ -109,25 +109,32 @@ export const ALLIED_TUNING: Record<string, { reinforce: number; opening: number 
 };
 
 /**
- * The Partial Schism's numbers, by seat count:
- *   unclaimed: the garrison a lone house's unclaimed half opens with, on its
- *     gateway tiles (the ends of its lanes) and inland — under the Concord or
- *     in Civil War;
- *   allied: units a turn on top of the kit when the houses are Allied, for a
- *     house (one of a side of two) and for a seat holding a whole world alone.
- * ⚠ Balance: measured in backend/scripts/GALAXY-BALANCE.md §10; the sim's
- * SIM_PARTIAL_UNCLAIMED, SIM_PARTIAL_ALLIED_HOUSE and SIM_PARTIAL_ALLIED_WHOLE
- * patch this object. Recorded on the board when it is dealt (the garrison) or
- * on each seat (the units a turn), so a retune never re-rules a game in
- * progress.
+ * The garrison a lone house's unclaimed half opens with, by seat count, on its
+ * gateway tiles (the ends of its lanes) and inland: a Partial Schism under the
+ * Concord or in Civil War. ⚠ Balance: measured in
+ * backend/scripts/GALAXY-BALANCE.md §10; the sim's SIM_PARTIAL_UNCLAIMED
+ * patches this object. Recorded on the board when it is dealt.
  */
-export const PARTIAL_SCHISM_TUNING: Record<number, {
-  unclaimed: { gateway: number; interior: number };
-  allied: { house: number; whole: number };
-}> = {
-  5: { unclaimed: { gateway: 9, interior: 11 }, allied: { house: -1, whole: 3 } },
-  6: { unclaimed: { gateway: 10, interior: 12 }, allied: { house: -1, whole: 3 } },
-  7: { unclaimed: { gateway: 12, interior: 14 }, allied: { house: -1, whole: 3 } },
+export const PARTIAL_SCHISM_TUNING: Record<number, { unclaimed: { gateway: number; interior: number } }> = {
+  5: { unclaimed: { gateway: 9, interior: 11 } },
+  6: { unclaimed: { gateway: 10, interior: 12 } },
+  7: { unclaimed: { gateway: 12, interior: 14 } },
+};
+
+/**
+ * Allied houses' numbers at five to seven seats, by world, in place of
+ * ALLIED_TUNING (measured with four sides of two): units a turn on top of the
+ * kit for each house of a side of two, and for a seat holding the whole world
+ * alone, a side of one. A side of two plays two turns a round. ⚠ Balance:
+ * measured in backend/scripts/GALAXY-BALANCE.md §10; the sim's
+ * SIM_PARTIAL_ALLIED patches this object. Recorded on each seat when the board
+ * is dealt.
+ */
+export const PARTIAL_ALLIED_TUNING: Record<string, { house: number; whole: number }> = {
+  sol: { house: -2, whole: 3 },
+  verdan: { house: -1, whole: 3 },
+  rust: { house: 2, whole: 3 },
+  nexus_station: { house: 0, whole: 3 },
 };
 
 /**
@@ -446,7 +453,7 @@ export function schismLayout(
   const partial = players.length < GALAXY_SCHISM_SEATS ? PARTIAL_SCHISM_TUNING[players.length] : undefined;
   // A house's own units a turn: its world's Allied numbers, or its half's.
   const houseBonus = (world: string, half: 0 | 1, alone: boolean): number => {
-    if (allied) return (ALLIED_TUNING[world]?.reinforce ?? 0) + (partial?.allied.house ?? 0);
+    if (allied) return partial ? PARTIAL_ALLIED_TUNING[world]?.house ?? 0 : ALLIED_TUNING[world]?.reinforce ?? 0;
     if (!partial) return halves[world]![half].reinforce_bonus ?? 0;
     return PARTIAL_SCHISM_HALVES[world]?.[alone ? 'alone' : 'rival'][half] ?? 0;
   };
@@ -468,7 +475,7 @@ export function schismLayout(
     const forced = opts.forceHalves?.[players[seats[0]!]!.player_id];
     if (seats.length === 1 && allied) {
       // An Allied side of one holds its whole world.
-      const reinforce = partial?.allied.whole ?? 0;
+      const reinforce = PARTIAL_ALLIED_TUNING[world]?.whole ?? 0;
       wholeOf.set(seats[0]!, {
         player_id: players[seats[0]!]!.player_id,
         world_id: world,

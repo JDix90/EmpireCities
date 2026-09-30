@@ -23,7 +23,7 @@ import {
   ALLIED_TUNING,
   holdsLaneCrown,
   laneCrownBonus,
-  PARTIAL_SCHISM_TUNING,
+  PARTIAL_ALLIED_TUNING,
   schismHouseOf,
   schismHouseTiles,
   schismWholeWorldOf,
@@ -247,9 +247,9 @@ describe('an Allied houses start', () => {
 });
 
 describe('an Allied Partial Schism start', () => {
-  const saved = JSON.parse(JSON.stringify(PARTIAL_SCHISM_TUNING)) as typeof PARTIAL_SCHISM_TUNING;
+  const saved = JSON.parse(JSON.stringify(PARTIAL_ALLIED_TUNING)) as typeof PARTIAL_ALLIED_TUNING;
   afterEach(() => {
-    for (const n of Object.keys(saved)) PARTIAL_SCHISM_TUNING[Number(n)] = JSON.parse(JSON.stringify(saved[Number(n)]));
+    for (const w of Object.keys(saved)) PARTIAL_ALLIED_TUNING[w] = { ...saved[w]! };
   });
 
   it('seats every world as one side, never back to back, with no Concord', () => {
@@ -274,12 +274,12 @@ describe('an Allied Partial Schism start', () => {
     }
   });
 
-  it("records each house's Allied numbers plus the partial board's, and each whole world's", () => {
-    PARTIAL_SCHISM_TUNING[5]!.allied = { house: 1, whole: 2 };
+  it("records the partial board's Allied numbers on each house and each whole world", () => {
+    for (const w of Object.keys(PARTIAL_ALLIED_TUNING)) PARTIAL_ALLIED_TUNING[w] = { house: 1, whole: 2 };
     const { state } = start([...FACTIONS, 'stellar_mandate'], { galaxy_house_relations: 'allied' });
     for (const p of state.players) {
       const house = schismHouseOf(state, p.player_id);
-      if (house) expect(house.reinforce_bonus ?? 0).toBe(ALLIED_TUNING[house.world_id]!.reinforce + 1);
+      if (house) expect(house.reinforce_bonus).toBe(1);
       else expect(schismWholeWorldOf(state, p.player_id)!.reinforce_bonus).toBe(2);
     }
   });

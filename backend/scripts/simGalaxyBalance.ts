@@ -55,6 +55,7 @@ import {
   ALLIED_TUNING,
   holdsLaneCrown,
   normalizeHouseRelations,
+  PARTIAL_ALLIED_TUNING,
   PARTIAL_SCHISM_HALVES,
   PARTIAL_SCHISM_TUNING,
   SCHISM_HALVES,
@@ -224,10 +225,11 @@ const PARTIAL = SCHISM && PLAYERS < GALAXY_SCHISM_SEATS;
  *   SIM_PARTIAL_HALVES='{"sol":{"rival":[3,-1],"alone":[1,0]}}' — units a turn
  *     for the house on each half, with a rival and alone, by world (worlds and
  *     roles not listed keep theirs);
- *   SIM_PARTIAL_ALLIED_HOUSE=N and SIM_PARTIAL_ALLIED_WHOLE=N — Allied units a
- *     turn for a house and for a seat alone on a whole world.
+ *   SIM_PARTIAL_ALLIED='{"rust":{"house":0,"whole":6}}' — Allied units a turn,
+ *     by world, for each house of a side of two and for a seat holding the
+ *     whole world alone (worlds and fields not listed keep theirs).
  */
-const partialKnobs = ['SIM_PARTIAL_UNCLAIMED', 'SIM_PARTIAL_HALVES', 'SIM_PARTIAL_ALLIED_HOUSE', 'SIM_PARTIAL_ALLIED_WHOLE'];
+const partialKnobs = ['SIM_PARTIAL_UNCLAIMED', 'SIM_PARTIAL_HALVES', 'SIM_PARTIAL_ALLIED'];
 for (const knob of partialKnobs) {
   if (process.env[knob] && !PARTIAL) throw new Error(`${knob} needs SIM_PLAYERS of 5, 6 or 7`);
 }
@@ -251,11 +253,16 @@ if (process.env.SIM_PARTIAL_HALVES) {
     }
   }
 }
-for (const [knob, field] of [['SIM_PARTIAL_ALLIED_HOUSE', 'house'], ['SIM_PARTIAL_ALLIED_WHOLE', 'whole']] as const) {
-  const raw = process.env[knob];
-  if (!raw) continue;
-  if (!Number.isInteger(Number(raw))) throw new Error(`${knob} must be a whole number`);
-  PARTIAL_SCHISM_TUNING[PLAYERS]!.allied = { ...PARTIAL_SCHISM_TUNING[PLAYERS]!.allied, [field]: Number(raw) };
+if (process.env.SIM_PARTIAL_ALLIED) {
+  const patch = JSON.parse(process.env.SIM_PARTIAL_ALLIED) as Record<string, Partial<Record<'house' | 'whole', number>>>;
+  for (const [world, fields] of Object.entries(patch)) {
+    const entry = PARTIAL_ALLIED_TUNING[world];
+    if (!entry) throw new Error(`SIM_PARTIAL_ALLIED: unknown world "${world}"`);
+    for (const [field, n] of Object.entries(fields) as Array<['house' | 'whole', number]>) {
+      if (!(field in entry) || !Number.isInteger(n)) throw new Error(`SIM_PARTIAL_ALLIED: "${world}.${field}" needs house or whole and a whole number`);
+      entry[field] = n;
+    }
+  }
 }
 /**
  * Schism knobs (five to eight players), patched onto the engine's SCHISM_TUNING
@@ -1281,7 +1288,7 @@ function main(): void {
 
   console.log(`\nGalactic Age balance — ${GAMES} games · ${PLAYERS}p · ${DIFFICULTY} · maxTurns ${MAX_TURNS}${THRESHOLD != null ? ` · threshold ${THRESHOLD}%` : ''} · ${terr} territories`);
   console.log(`Seed "${MASTER_SEED}" · attack loop ${GRIND ? 'GRIND (mirrors live AI)' : 'single-exchange (SIM_GRIND=0, legacy)'} · corridors ${CORRIDORS ? 'ON' : 'OFF (SIM_CORRIDORS=0)'} · factions ${Object.keys(FACTION_PATCH).length ? `patched ${JSON.stringify(FACTION_PATCH)}` : 'as shipped'} · world rules ${WORLD_RULES ? (WORLD_RULES_OFF.length ? `ON except ${WORLD_RULES_OFF.join('+')}` : 'ON') : 'OFF (SIM_WORLD_RULES=0)'} · sovereignty ${SOVEREIGNTY ? `ON (${LANE_SOVEREIGNTY_CORRIDORS_NEEDED} lanes, ${(TEAMS ? LANE_SOVEREIGNTY_ROUNDS_BY_SIDES[SIDES] : LANE_SOVEREIGNTY_ROUNDS_BY_SEATS[PLAYERS]) ?? LANE_SOVEREIGNTY_ROUNDS} rounds${TEAMS ? ` for ${SIDES} sides` : ''})` : 'OFF (SIM_SOVEREIGNTY=0)'}${PLAYERS < 4 && !SCATTERED ? ` · colonies ${COLONY_GARRISONS.gateway}/${COLONY_GARRISONS.interior} (gateway/interior)` : ''}${TWO_V_TWO ? ` · 2v2 ${GALAXY_2V2_PAIRS.map((p) => p.join('+')).join(' vs ')}` : ''}${TEAMS ? ` · opening ceasefire ${TEAM_TUNING.openingCeasefire ? 'ON' : 'OFF (SIM_CEASEFIRE=0)'}` : ''}${SCHISM && !SCATTERED ? ` · schism ${HOUSE_RELATIONS === 'concord' ? `Concord ${SCHISM_TUNING.concordRounds} rounds` : HOUSE_RELATIONS === 'allied' ? `Allied ${JSON.stringify(ALLIED_TUNING)}` : 'Civil War'}, Lane Crown +${HOUSE_RELATIONS === 'allied' ? 0 : SCHISM_TUNING.laneCrownBonus}${process.env.SIM_SCHISM_HALVES ? ' · halves patched (SIM_SCHISM_HALVES)' : ''}${process.env.SIM_SCHISM_OPENING ? ` · opening ${process.env.SIM_SCHISM_OPENING}` : ''}${process.env.SIM_SCHISM_REINFORCE ? ` · house reinforce ${process.env.SIM_SCHISM_REINFORCE}` : ''}${PARTIAL ? (HOUSE_RELATIONS === 'allied'
-    ? ` · partial Allied house ${signed(PARTIAL_SCHISM_TUNING[PLAYERS]!.allied.house)} whole ${signed(PARTIAL_SCHISM_TUNING[PLAYERS]!.allied.whole)}`
+    ? ` · partial Allied ${JSON.stringify(PARTIAL_ALLIED_TUNING)}`
     : ` · partial unclaimed ${PARTIAL_SCHISM_TUNING[PLAYERS]!.unclaimed.gateway}/${PARTIAL_SCHISM_TUNING[PLAYERS]!.unclaimed.interior}, halves ${JSON.stringify(PARTIAL_SCHISM_HALVES)}`) : ''}` : ''} · transit ${TRANSIT ? 'ON (SIM_TRANSIT=1)' : 'OFF'}${SCATTERED ? ' · start SCATTERED (SIM_SCATTERED=1, no home worlds)' : ''}${FACTIONS_ON ? '' : ' · factions OFF (SIM_FACTIONS=0, labels are seats)'}${PLAIN_LANES ? ' · PLAIN LANES (SIM_PLAIN_LANES=1)' : ''}${CATCHUP_PER != null ? ` · catch-up: -1 reinforcement per ${CATCHUP_PER} tiles over a quarter (SIM_CATCHUP_PER)` : ''} · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
   if (GAMES % CYCLE !== 0) {
     console.log(`⚠ ${GAMES} games is not a multiple of the ${CYCLE}-game line-up cycle, so factions and seats are sampled unevenly\n`);
