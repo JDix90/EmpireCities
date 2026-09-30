@@ -4,6 +4,7 @@
  * ground can be attacked, and the panel says why; a region the side holds
  * names the member who collects its bonus. A free-for-all game reads as ever.
  */
+import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import TerritoryPanel from './TerritoryPanel';
@@ -58,7 +59,7 @@ function game(opts: { teams?: boolean; turn?: number } = {}): GameState {
   } as unknown as GameState;
 }
 
-function show(state: GameState, territoryId: string) {
+function show(state: GameState, territoryId: string, extra: Partial<React.ComponentProps<typeof TerritoryPanel>> = {}) {
   useGameStore.setState({ gameState: state, draftUnitsRemaining: 0 } as never);
   useUiStore.setState({ selectedTerritory: territoryId, attackSource: null, navalSource: null } as never);
   return render(
@@ -70,6 +71,7 @@ function show(state: GameState, territoryId: string) {
       onAttack={() => {}}
       onDraft={() => {}}
       onClose={() => {}}
+      {...extra}
     />,
   );
 }
@@ -87,6 +89,23 @@ describe('TerritoryPanel in a team game', () => {
     show(game(), 'friend');
     expect(screen.getByTestId('territory-ally-tag')).toHaveTextContent('your ally');
     expect(screen.queryByRole('button', { name: /Attack from/ })).toBeNull();
+  });
+
+  it("offers no Influence or truce on an ally's ground, as it does on an enemy's", () => {
+    // An era with Influence, and diplomacy on: both are offered on an enemy's tile.
+    const game2 = () => ({
+      ...game(),
+      era_modifiers: { influence_spread: true },
+      settings: { fog_of_war: false, diplomacy_enabled: true },
+    }) as unknown as GameState;
+    const handlers = { onInfluence: () => {}, onProposeTruce: () => {} };
+    const { unmount } = show(game2(), 'friend', handlers);
+    expect(screen.queryByText(/Seize via Influence/)).toBeNull();
+    expect(screen.queryByText(/truce/i)).toBeNull();
+    unmount();
+    show(game2(), 'enemy', handlers);
+    expect(screen.getByText(/Seize via Influence/)).toBeInTheDocument();
+    expect(screen.getByText(/AI players do not accept truces/)).toBeInTheDocument();
   });
 
   it('names the ally who collects a region the side holds', () => {
