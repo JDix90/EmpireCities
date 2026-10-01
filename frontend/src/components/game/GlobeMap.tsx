@@ -4,10 +4,11 @@
  * Supports animated event overlays: reinforcements, combat, and fortification.
  */
 
-import React, { useRef, useMemo, useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import React, { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 import Globe, { type GlobeMethods } from 'react-globe.gl';
 import { FastForward } from 'lucide-react';
-const GameMapLazy = lazy(() => import('./GameMap'));
+import MapUnavailable from './MapUnavailable';
+import { webglAvailable } from '../../utils/webglSupport';
 import { useGameStore } from '../../store/gameStore';
 import { resolvePlayerTechEraId } from '../../utils/eraAdvancement';
 import { eraBoardTheme } from '../../constants/eraBoardTheme';
@@ -4062,8 +4063,9 @@ function GlobeMap({
 }
 
 // ── WebGL-aware export ─────────────────────────────────────────────────────────
-// Detects WebGL support at runtime; falls back to the 2D SVG GameMap so the
-// game remains fully playable on browsers/devices without GPU acceleration.
+// Detects WebGL support at runtime. Without it neither the globe nor the 2D map
+// (PixiJS) can draw, so the map area explains what is missing (MapUnavailable)
+// and the rest of the game page stays up.
 export { GlobeMap as GlobeMapCore };
 
 function GlobeMapWithFallback(props: GlobeMapProps) {
@@ -4071,47 +4073,23 @@ function GlobeMapWithFallback(props: GlobeMapProps) {
   const onGlobeReadyRef = useRef(props.onGlobeReady);
   onGlobeReadyRef.current = props.onGlobeReady;
 
+  // Asked once a page, and the probe's context handed straight back.
   useEffect(() => {
-    try {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('webgl') ?? canvas.getContext('experimental-webgl');
-      setWebglOk(!!ctx);
-    } catch {
-      setWebglOk(false);
-    }
+    setWebglOk(webglAvailable());
   }, []);
 
-  // The 2D fallback never mounts the globe, so its onGlobeReady would never
-  // fire — signal readiness once the lighter 2D map path is chosen so the
-  // turn-ready ack still happens for non-WebGL clients.
+  // Without WebGL the globe never mounts, so its onGlobeReady would never fire:
+  // signal readiness once that is known, so the turn-ready ack still happens
+  // for non-WebGL clients.
   useEffect(() => {
     if (webglOk === false) onGlobeReadyRef.current?.();
   }, [webglOk]);
 
   if (webglOk === null) return null;
 
-  if (!webglOk) {
-    return (
-      <div style={{ width: props.width, height: props.height, position: 'relative' }}>
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-amber-800/80 text-amber-100 text-xs px-3 py-1 rounded-full pointer-events-none">
-          3D globe unavailable — showing 2D map
-        </div>
-        <Suspense fallback={<div className="flex items-center justify-center h-full text-bf-muted text-sm">Loading 2D map…</div>}>
-          <GameMapLazy
-            mapData={props.mapData}
-            onTerritoryClick={props.onTerritoryClick ?? (() => {})}
-            width={props.width}
-            height={props.height}
-            highlightTerritoryId={props.highlightTerritoryId}
-            connectionHintMode={props.connectionHintMode}
-            reducedEffects={props.reducedEffects}
-            ambientEnabled={props.ambientEnabled}
-            contestedBorders={props.contestedBorders}
-          />
-        </Suspense>
-      </div>
-    );
-  }
+  // No WebGL: the 2D map cannot stand in either, since PixiJS needs it too, so
+  // the map says what is missing instead of failing the page.
+  if (!webglOk) return <MapUnavailable width={props.width} height={props.height} />;
 
   return <GlobeMap {...props} />;
 }

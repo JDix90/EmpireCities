@@ -52,6 +52,7 @@ import {
 } from '../../utils/connectionHints';
 import { computePhaseAdjacencyTargets, computeValidSources } from '../../utils/mapAdjacencyTargets';
 import { effectiveContinentBonus } from '../../utils/continentBonus';
+import MapUnavailable from './MapUnavailable';
 
 interface MapTerritory {
   territory_id: string;
@@ -212,6 +213,20 @@ function shadePixi(color: number, factor: number): number {
   return (r << 16) | (g << 8) | b;
 }
 
+/**
+ * The map's PixiJS application, or null where the browser gives it no WebGL
+ * context. PixiJS has no other renderer and throws from its constructor then:
+ * WebGL turned off or unsupported, or refused for the page after a GPU crash.
+ */
+function createMapApp(options: ConstructorParameters<typeof PIXI.Application>[0]): PIXI.Application | null {
+  try {
+    return new PIXI.Application(options);
+  } catch (err) {
+    console.warn('[GameMap] No WebGL renderer, showing MapUnavailable:', err);
+    return null;
+  }
+}
+
 // Moon inset geometry, shared by the box and the canvas drawn inside it.
 const INSET_FRACTION = 0.34;
 const INSET_MIN_W = 200;
@@ -338,6 +353,9 @@ export default function GameMap({
   }
   useEffect(() => () => renderWakeRef.current?.dispose(), []);
   const [mapVisualDebug, setMapVisualDebug] = useState<{ active: boolean; kind?: string }>({ active: false });
+  // PixiJS got no WebGL context (createMapApp): nothing can draw the map.
+  const [rendererUnavailable, setRendererUnavailable] = useState(false);
+  const rendererUnavailableRef = useRef(false);
   const onMapVisualDoneRef = useRef(onMapVisualDone);
   onMapVisualDoneRef.current = onMapVisualDone;
   /** Pixi pointer handlers are registered once; keep latest parent callback without re-initing the canvas. */
@@ -451,7 +469,7 @@ export default function GameMap({
     if (!canvasRef.current || appRef.current) return;
 
     const phoneBudget = frameBudgetRef.current;
-    const app = new PIXI.Application({
+    const app = createMapApp({
       width,
       height,
       backgroundColor: 0x0a0e1a,
@@ -470,6 +488,13 @@ export default function GameMap({
       // something to draw.
       autoStart: isDocumentVisible() && !phoneBudget,
     });
+    // No renderer used to take the whole page into its error screen: the map
+    // says what is missing in its place instead (MapUnavailable).
+    if (!app) {
+      rendererUnavailableRef.current = true;
+      setRendererUnavailable(true);
+      return;
+    }
 
     canvasRef.current.appendChild(app.view as HTMLCanvasElement);
     appRef.current = app;
@@ -1523,6 +1548,11 @@ export default function GameMap({
       if (mapVisualPlayingRef.current) return;
       const layer = effectsLayerRef.current;
       if (!layer) {
+        // No renderer, so no layer will come: nothing is waiting to play.
+        if (rendererUnavailableRef.current) {
+          mapVisualQueueRef.current = [];
+          return;
+        }
         window.setTimeout(playNext, 32);
         return;
       }
@@ -1560,6 +1590,8 @@ export default function GameMap({
     const ticker = appRef.current?.ticker;
     if (ticker && !ticker.started && isDocumentVisible()) ticker.start();
   }, [frameBudget]);
+
+  if (rendererUnavailable) return <MapUnavailable />;
 
   const canvas = (
     <div

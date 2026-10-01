@@ -419,13 +419,25 @@ describe('GalaxySplitView: globe panes', () => {
     expect(props.skipAnimationsRef!.current).toBeNull();
   });
 
-  it('draws the flat maps where the browser has no WebGL, ready at once', () => {
+  it('shows one message where the browser has no WebGL, ready at once', () => {
     webgl.available = false;
     const props = globeProps();
     show({ globeProps: props });
+    // Neither the globes nor the flat maps can draw: PixiJS needs WebGL too.
     expect(globes.size).toBe(0);
-    expect([...maps.keys()]).toEqual(['sol', 'verdan', 'rust', 'nexus_station']);
+    expect(maps.size).toBe(0);
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+    expect(screen.getByRole('alert')).toHaveTextContent("This browser can't draw the map");
+    expect(screen.queryByTestId('galaxy-split-lanes')).toBeNull();
+    // The turn clock is not left waiting on globes that will never draw.
     expect(props.onGlobeReady).toHaveBeenCalledTimes(1);
     expect(props.skipAnimationsRef!.current).toBeNull();
+  });
+
+  it('shows the same message in the 2D view', () => {
+    webgl.available = false;
+    show();
+    expect(maps.size).toBe(0);
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
   });
 });
