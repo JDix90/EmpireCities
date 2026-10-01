@@ -43,13 +43,13 @@ Beyond live multiplayer, the game includes a ranked matchmaking queue with Glick
 
 | Era | Period | Territories | Connections | Regions |
 |---|---|---|---|---|
-| Ancient World | 200 AD | 28 | 40 | 8 |
-| Medieval World | 1200 AD | 29 | 41 | 8 |
-| Age of Discovery | 1600 AD | 34 | 51 | 8 |
-| World War II | 1939–1945 | 35 | 53 | 8 |
-| Cold War | 1947–1991 | 44 | 72 | 8 |
-| The Modern Day | Present | 43 | 94 | 8 |
-| American Civil War | 1861–1865 | 18 | 37 | 6 |
+| Ancient World | 200 AD | 33 | 53 | 12 |
+| Medieval World | 1200 AD | 36 | 57 | 12 |
+| Age of Discovery | 1600 AD | 34 | 53 | 8 |
+| World War II | 1939–1945 | 35 | 51 | 9 |
+| Cold War | 1947–1991 | 44 | 64 | 9 |
+| The Modern Day | Present | 43 | 82 | 8 |
+| American Civil War | 1861–1865 | 18 | 38 | 6 |
 | Italian Unification | 1859–1871 | 14 | 23 | 6 |
 | Space Age | 2100 AD | 63 | 128 | 15 |
 

@@ -213,7 +213,14 @@ export default function MapHubPage() {
         </div>
         <p className="text-bf-muted text-xs mb-3 line-clamp-2">{meta.description}</p>
         <div className="flex items-center gap-3 text-xs text-bf-muted mb-3">
-          <span className="flex items-center gap-1"><Map className="w-3 h-3" />{map.territory_count} territories</span>
+          <span className="flex items-center gap-1">
+            <Map className="w-3 h-3" />{map.territory_count} territories
+            {(map.expansion_territory_count ?? 0) > 0 && (
+              <span className="text-bf-muted/70" title="Frontier territories that open through Era Advancement">
+                (+{map.expansion_territory_count} as eras advance)
+              </span>
+            )}
+          </span>
           <span className="flex items-center gap-1"><Globe className="w-3 h-3" />{map.region_count} regions</span>
           {map.play_count > 0 && (
             <span className="flex items-center gap-1"><Users className="w-3 h-3" />{map.play_count.toLocaleString()}</span>

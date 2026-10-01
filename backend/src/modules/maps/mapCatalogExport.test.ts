@@ -101,6 +101,27 @@ describe('map catalog export', () => {
     }
   });
 
+  it('quotes the starting board, with the era frontiers alongside', () => {
+    // Ancient authors 57 tiles but a game on it deals 33; the other 24 (and
+    // the ten regions made only of them) open through Era Advancement. The
+    // lobby, the era page and the Map Hub all read this count, so none of them
+    // can promise a board the game then does not start on (playtest PT-001).
+    expect(eraMaps.ancient).toMatchObject({
+      territory_count: 33,
+      expansion_territory_count: 24,
+      expansion_region_count: 10,
+    });
+    expect(eraMaps.ancient.regions).toHaveLength(12);
+    // The standalone Space Age seeds its frontiers neutral from turn one
+    // (README, "Playable Eras"), so its whole file is the starting board.
+    expect(eraMaps.space_age).toMatchObject({ territory_count: 63, expansion_territory_count: 0 });
+    // Community maps author no frontiers: nothing changes for them.
+    for (const m of catalog) {
+      expect(m.expansion_territory_count, `${m.map_id} frontiers`).toBe(0);
+      expect(m.expansion_region_count, `${m.map_id} frontier regions`).toBe(0);
+    }
+  });
+
   it('gives the era boards no page of their own', () => {
     // The distinction the two lists exist to make: era boards are data for a
     // page that already exists, not twelve more urls.

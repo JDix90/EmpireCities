@@ -20,6 +20,11 @@ export interface Territory {
   galaxy_position?: [number, number];
   globe_image_url?: string;
   bump_image_url?: string;
+  /**
+   * Era-advancement growth: > 0 marks a frontier dealt only once the game's
+   * era floor reaches it. Not on the starting board (utils/startingBoard.ts).
+   */
+  unlock_era_index?: number;
 }
 
 export interface Connection {
@@ -86,7 +91,10 @@ export interface MapSummary {
   name: string;
   description: string;
   era_theme: string;
+  /** The starting board, not every authored territory. */
   territory_count: number;
+  /** Frontier territories that open through Era Advancement; absent or 0 when none. */
+  expansion_territory_count?: number;
   region_count: number;
   is_public: boolean;
   play_count: number;

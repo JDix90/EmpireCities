@@ -38,6 +38,7 @@ export const LANDING_ERAS: LandingEra[] = [
   { id: 'modern', mapId: 'era_modern', color: '#2ecc71', scope: 'global', territoryCount: 43, playersRange: '2–6' },
   { id: 'acw', mapId: 'era_acw', color: '#6b5344', scope: 'regional', territoryCount: 18, playersRange: '2–4' },
   { id: 'risorgimento', mapId: 'era_risorgimento', color: '#008C45', scope: 'regional', territoryCount: 14, playersRange: '2–4' },
-  { id: 'space_age', mapId: 'era_space_age', color: '#8E9AF2', scope: 'global', territoryCount: 55, playersRange: '2–6' },
+  // The standalone Space Age deals its 8 frontier tiles from turn one, so its starting board is the whole file.
+  { id: 'space_age', mapId: 'era_space_age', color: '#8E9AF2', scope: 'global', territoryCount: 63, playersRange: '2–6' },
   { id: 'galaxy_age', mapId: 'era_galaxy', color: '#9FA8DA', scope: 'global', territoryCount: 64, playersRange: '2–4 or 8' },
 ];

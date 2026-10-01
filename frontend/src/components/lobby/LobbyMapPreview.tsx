@@ -7,6 +7,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { Globe, Loader2, Map as MapIcon } from 'lucide-react';
 import clsx from 'clsx';
 import { fetchMapById, GameMap, ERA_METADATA } from '../../services/mapService';
+import { startingBoardTerritoryCount } from '../../utils/startingBoard';
 import { GlobeMapLazy, preloadGlobeChunks } from '../../utils/globeLoader';
 import MapPreview from './MapPreview';
 
@@ -152,7 +153,7 @@ export default function LobbyMapPreview({
       </div>
 
       <div className="absolute bottom-2 right-2 z-20 text-[10px] text-bf-muted pointer-events-none">
-        {map.territories.length} territories
+        {startingBoardTerritoryCount(map)} territories
       </div>
 
       {view === '2d' ? (

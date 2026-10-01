@@ -5,6 +5,7 @@
  */
 
 import type { PoolClient } from 'pg';
+import { startingBoardRegions, startingBoardTerritories } from '../../modules/maps/startingBoard';
 import { query, queryOne, withTransaction } from './index';
 import type {
   Connection,
@@ -110,8 +111,9 @@ function rowToSummary(row: Pick<MapRow, 'map_id' | 'name' | 'description' | 'era
     name: row.name,
     description: row.description ?? '',
     era_theme: row.era_theme ?? 'custom',
-    territory_count: row.territories.length,
-    region_count: row.regions.length,
+    territory_count: startingBoardTerritories(row.map_id, row.territories).length,
+    expansion_territory_count: row.territories.length - startingBoardTerritories(row.map_id, row.territories).length,
+    region_count: startingBoardRegions(row.map_id, row.territories, row.regions).length,
     is_public: row.is_public,
     play_count: row.play_count ?? 0,
     avg_rating: Number(row.rating ?? 0),

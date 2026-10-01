@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { LANDING_ERAS } from './landingEras';
 import { GALAXY_MAX_PLAYERS, GALAXY_MIN_PLAYERS, GALAXY_SCHISM_PLAYERS } from '../utils/lobbyEraMapCompatibility';
+import { startingBoardTerritoryCount } from '../utils/startingBoard';
 
 /**
  * The landing cards' numbers are typed by hand next to maps that change
@@ -16,13 +17,16 @@ import { GALAXY_MAX_PLAYERS, GALAXY_MIN_PLAYERS, GALAXY_SCHISM_PLAYERS } from '.
  * A card counts the territories in play when a game starts. Tiles tagged
  * `unlock_era_index > 0` are held back until era advancement reaches them
  * (gameStateManager skips them at init; see territoryUnlockEra), and era
- * advancement is off by default, so they are not counted.
+ * advancement is off by default, so they are not counted — except on the
+ * standalone Space Age, which deals its frontiers from turn one. The same
+ * rule (utils/startingBoard.ts) sizes the lobby and Map Hub previews, so a
+ * card and the room it leads to agree.
  */
 function territoriesInPlayAtStart(mapId: string): number {
   const map = JSON.parse(
     readFileSync(join(__dirname, `../../../database/maps/${mapId}.json`), 'utf8'),
-  ) as { territories: Array<{ unlock_era_index?: number }> };
-  return map.territories.filter((t) => Math.max(0, t.unlock_era_index ?? 0) === 0).length;
+  ) as { map_id: string; territories: Array<{ unlock_era_index?: number }> };
+  return startingBoardTerritoryCount(map);
 }
 
 describe('landing era cards', () => {

@@ -6,6 +6,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { fetchMapById, GameMap, ERA_METADATA, scalePolygon } from '../../services/mapService';
+import { startingBoardTerritoryCount } from '../../utils/startingBoard';
 import { Loader2 } from 'lucide-react';
 
 // Distinct region colors for preview
@@ -98,7 +99,7 @@ export default function MapPreview({
             {meta.label} · {meta.year}
           </div>
           <div className="absolute top-2 right-2 z-10 text-xs text-gray-400">
-            {map.territories.length} territories
+            {startingBoardTerritoryCount(map)} territories
           </div>
         </>
       )}

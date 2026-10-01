@@ -19,6 +19,7 @@
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { startingBoardRegionSize, startingBoardTerritories } from './startingBoard';
 
 /**
  * The maps that get their OWN page, in the order /maps lists them.
@@ -81,8 +82,13 @@ export interface CatalogMap {
   map_id: string;
   name: string;
   description: string;
+  /** The starting board: what a game on this map opens with (see startingBoard.ts). */
   territory_count: number;
-  /** Borders plus sea lanes — a rough measure of how open the board plays. */
+  /** Frontier territories authored for later eras, dealt only through Era Advancement; 0 when none. */
+  expansion_territory_count: number;
+  /** Regions made entirely of those frontiers; they are left out of `regions`. */
+  expansion_region_count: number;
+  /** Borders plus sea lanes on the starting board — a rough measure of how open it plays. */
   connection_count: number;
   /** How many of the connections are sea routes rather than land borders. */
   sea_route_count: number;
@@ -102,8 +108,8 @@ interface RawMap {
   name?: string;
   description?: string;
   era_theme?: string;
-  territories?: { region_id?: string }[];
-  connections?: { type?: string }[];
+  territories?: { territory_id?: string; region_id?: string; unlock_era_index?: number }[];
+  connections?: { from?: string; to?: string; type?: string }[];
   regions?: RawMapRegion[];
 }
 
@@ -113,32 +119,44 @@ export function slugForMapId(mapId: string): string {
 }
 
 /**
- * How many territories a region holds. Community maps list them on the region
- * (`territory_ids`); the era boards instead put a `region_id` on each territory
- * and leave the list off, so counting only the list read every era region as 0.
+ * Project a map the way a player meets it: the STARTING board. Era maps author
+ * later-era frontier tiles that a game only deals through Era Advancement
+ * (Ancient: 57 authored, 33 dealt), so counting the file promised a bigger
+ * board than the one the lobby then started. The frontier total is kept
+ * alongside so a page can still say how far the board grows.
+ *
+ * Region sizes come from startingBoardRegionSize: community maps list members
+ * on the region (`territory_ids`); the era boards instead put a `region_id` on
+ * each territory and leave the list off, so counting only the list read every
+ * era region as 0. A region made entirely of frontiers is left out and counted
+ * in `expansion_region_count`, so no page quotes a "+0" region nobody can hold.
  */
-function regionSize(raw: RawMap, region: RawMapRegion): number {
-  if (region.territory_ids) return region.territory_ids.length;
-  if (!region.region_id) return 0;
-  return (raw.territories ?? []).filter((t) => t?.region_id === region.region_id).length;
-}
-
 function projectMap(raw: RawMap): CatalogMap {
   const mapId = raw.map_id ?? '';
+  const authored = raw.territories ?? [];
+  const starting = startingBoardTerritories(mapId, authored);
+  const onBoard = new Set(starting.map((t) => t.territory_id));
+  const connections = (raw.connections ?? []).filter(
+    (c) => !c.from || !c.to || (onBoard.has(c.from) && onBoard.has(c.to)),
+  );
+  const sized = (raw.regions ?? []).map((r) => ({
+    name: r.name ?? '',
+    bonus: r.bonus ?? 0,
+    territory_count: startingBoardRegionSize(mapId, authored, r),
+  }));
+  const regions = sized.filter((r) => r.territory_count > 0);
   return {
     slug: slugForMapId(mapId),
     map_id: mapId,
     name: raw.name ?? '',
     description: raw.description ?? '',
-    territory_count: raw.territories?.length ?? 0,
-    connection_count: raw.connections?.length ?? 0,
-    sea_route_count: (raw.connections ?? []).filter((c) => c?.type === 'sea').length,
+    territory_count: starting.length,
+    expansion_territory_count: authored.length - starting.length,
+    expansion_region_count: sized.length - regions.length,
+    connection_count: connections.length,
+    sea_route_count: connections.filter((c) => c?.type === 'sea').length,
     era_theme: raw.era_theme ?? 'custom',
-    regions: (raw.regions ?? []).map((r) => ({
-      name: r.name ?? '',
-      bonus: r.bonus ?? 0,
-      territory_count: regionSize(raw, r),
-    })),
+    regions,
   };
 }
 
