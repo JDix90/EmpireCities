@@ -160,6 +160,18 @@ function distributePlayerBonusUnitsOnTerritories(
 }
 
 /** Draw a random card from a deck. Returns undefined if deck is empty. */
+/**
+ * True when a card would force a truce (as its effect or as one of its
+ * choices). Truces are the Diplomacy system; a game whose host switched
+ * Diplomacy off must not grow one out of the event deck, complete with the
+ * break-truce dialog and its penalties (playtest PT-011). The round draw
+ * filters these cards out; applyEventEffect refuses the effect as well, for
+ * seasonal cards and states saved before the filter.
+ */
+export function cardForcesTruce(card: Pick<EventCard, 'effect' | 'choices'>): boolean {
+  return card.effect?.type === 'truce' || !!card.choices?.some((c) => c.effect?.type === 'truce');
+}
+
 export function drawRandomCard(deck: EventCard[]): EventCard | undefined {
   if (deck.length === 0) return undefined;
   // CSPRNG so the next event card cannot be predicted by clients.
@@ -323,6 +335,8 @@ function applyEventEffectInner(
       // Force a truce between the current player and their most recently fought opponent.
       // Priority: last attacked player → any opponent currently at war → random.
       // Allies never fight (state/teams.ts), so a truce is only ever with an enemy.
+      // No Diplomacy, no truces: the host turned the whole system off.
+      if (!state.settings.diplomacy_enabled) break;
       const opponents = state.players.filter(
         (p) => !p.is_eliminated && p.player_id !== currentPlayer.player_id
           && !areAllies(state, currentPlayer.player_id, p.player_id),

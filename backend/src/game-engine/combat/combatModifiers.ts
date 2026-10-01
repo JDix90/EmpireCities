@@ -272,7 +272,11 @@ export function computeLandCombatModifiers(params: LandCombatModifierParams): La
   const techAttackBonus = state.settings.tech_trees_enabled
     ? getPlayerAttackBonus(state, attackerId)
     : 0;
-  const factionAttackBonus = attackerFaction?.passive_attack_bonus ?? 0;
+  // A sea-scoped passive (England's Longbowmen) only fires on a sea crossing.
+  const factionAttackBonus =
+    attackerFaction?.passive_attack_bonus_scope === 'sea' && !isSea
+      ? 0
+      : attackerFaction?.passive_attack_bonus ?? 0;
   const eventAttackBonus = state.settings.events_enabled
     ? getTemporaryModifierValue(state, attackerId, 'attack_modifier')
     : 0;

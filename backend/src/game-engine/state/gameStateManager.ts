@@ -14,7 +14,7 @@ import { applyHelium3Income } from './helium3';
 import { syncLaunchPadLanes } from './moonAccess';
 import { applyMoonTribute, clearTributeReceived } from './moonTribute';
 import { hasCompletedHegemony, tickLunarHegemony } from './lunarHegemony';
-import { getEraDeck, drawRandomCard, applyEventEffect, tickTemporaryModifiers } from '../events/eventCardManager';
+import { getEraDeck, drawRandomCard, applyEventEffect, tickTemporaryModifiers, cardForcesTruce } from '../events/eventCardManager';
 import { getActiveSeasonalDeck } from '../events/seasonalDecks';
 import { initializeNavalUnits, collectFleetIncome } from './navalManager';
 import { initializeStability, applyStabilityTick, getDeployCap } from './stabilityManager';
@@ -1078,7 +1078,10 @@ function passTurn(state: GameState, map?: GameMap): void {
     if (state.settings.events_enabled) {
       const deck = [...getEraDeck(state.era), ...(state.seasonal_event_cards ?? [])]
         // A Lane Surge with no gap left to bridge would be a card that does nothing.
-        .filter((c) => c.effect?.type !== 'lane_surge' || !map || laneSurgeHasGap(map));
+        .filter((c) => c.effect?.type !== 'lane_surge' || !map || laneSurgeHasGap(map))
+        // A forced truce is a Diplomacy effect; with Diplomacy off the card is
+        // not in this game's deck (see cardForcesTruce).
+        .filter((c) => !cardForcesTruce(c) || !!state.settings.diplomacy_enabled);
       const card = drawRandomCard(deck);
       // An undelivered card from last round (its target was eliminated) lapses.
       state.pending_event = undefined;

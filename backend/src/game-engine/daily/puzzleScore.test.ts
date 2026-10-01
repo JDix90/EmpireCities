@@ -17,8 +17,12 @@ describe('computeDailyPuzzleScore', () => {
     expect(computeDailyPuzzleScore({ won: true, turns: 40, par: 1, mistakes: 0 })).toBe(0);
   });
 
-  it('without par, or on a loss, it is the pre-par score', () => {
+  it('without par it is the pre-par score', () => {
     expect(computeDailyPuzzleScore({ won: true, turns: 9, mistakes: 1 })).toBe(988);
-    expect(computeDailyPuzzleScore({ won: false, turns: 2, par: 5, mistakes: 0 })).toBe(PAR_BASE);
+  });
+
+  it('scores a failed run 0, so a loss never sits level with a win', () => {
+    expect(computeDailyPuzzleScore({ won: false, turns: 2, par: 5, mistakes: 0 })).toBe(0);
+    expect(computeDailyPuzzleScore({ won: false, turns: 9, mistakes: 3 })).toBe(0);
   });
 });

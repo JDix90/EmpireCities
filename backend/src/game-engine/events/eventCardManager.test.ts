@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { GameState, PlayerState, TerritoryState, EventCard } from '../../types';
 import {
   applyEventEffect,
+  cardForcesTruce,
   getEventMagnitudeScale,
   getEventProgressionLevel,
   getDisplayScaledCard,
@@ -251,5 +252,42 @@ describe('getDisplayScaledCard', () => {
     expect(out.magnitude_scale).toBeUndefined();
     expect(out.effect?.value).toBe(2);
     expect(out).not.toBe(instantCard);
+  });
+});
+
+describe('truce event cards and the Diplomacy setting', () => {
+  const atWar = () => [{
+    player_index_a: 0, player_index_b: 1, status: 'war' as const, truce_turns_remaining: 0,
+  }] as unknown as GameState['diplomacy'];
+
+  it('forces a truce when Diplomacy is on', () => {
+    const state = baseState({
+      settings: { events_enabled: true, diplomacy_enabled: true } as GameState['settings'],
+      diplomacy: atWar(),
+    });
+    applyEventEffect(state, { type: 'truce', target: 'player', value: 2 }, false);
+    expect(state.diplomacy[0]).toMatchObject({ status: 'truce', truce_turns_remaining: 2 });
+  });
+
+  it('does nothing when the host switched Diplomacy off', () => {
+    // A game created with Diplomacy off grew a truce out of the Ancient deck,
+    // complete with the break-truce dialog and its penalties (PT-011).
+    const state = baseState({
+      settings: { events_enabled: true, diplomacy_enabled: false } as GameState['settings'],
+      diplomacy: atWar(),
+    });
+    applyEventEffect(state, { type: 'truce', target: 'player', value: 2 }, false);
+    expect(state.diplomacy[0]).toMatchObject({ status: 'war', truce_turns_remaining: 0 });
+  });
+
+  it('recognises a truce as the card effect or as one of its choices', () => {
+    expect(cardForcesTruce({ effect: { type: 'truce', target: 'player', value: 2 } } as EventCard)).toBe(true);
+    expect(cardForcesTruce({
+      choices: [
+        { choice_id: 'a', label: 'A', effect: { type: 'units_added', target: 'player', value: 1 } },
+        { choice_id: 'b', label: 'B', effect: { type: 'truce', target: 'player', value: 1 } },
+      ],
+    } as unknown as EventCard)).toBe(true);
+    expect(cardForcesTruce({ effect: { type: 'units_added', target: 'player', value: 1 } } as EventCard)).toBe(false);
   });
 });

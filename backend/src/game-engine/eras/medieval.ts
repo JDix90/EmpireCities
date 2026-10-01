@@ -117,6 +117,7 @@ export const MEDIEVAL_FACTIONS: Faction[] = [
     flavor_quote: 'Let the channel narrow them and the arrows finish them.',
     home_region_ids: ['western_europe'],
     passive_attack_bonus: 1,
+    passive_attack_bonus_scope: 'sea',
     ability_id: 'longbowmen',
     ability_description: 'Longbowmen: once per turn, one ranged attack deals 1 unit loss to an adjacent enemy territory without a full attack exchange.',
     color: '#c0392b',
