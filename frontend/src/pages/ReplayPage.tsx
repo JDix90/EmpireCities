@@ -28,6 +28,7 @@ import {
 import clsx from 'clsx';
 import { useAuthStore } from '../store/authStore';
 import { loadReplaySnapshots, ReplayNotPublicError } from '../utils/replayLoader';
+import { boardKeyOf, projectMapToBoard } from '../utils/projectMapToBoard';
 import { replayBackTarget } from '../utils/replayBackTarget';
 import { buildCondensedTimeline, condenseReasonLabel } from '../utils/replayCondense';
 import ReplayClipExporter from '../components/game/ReplayClipExporter';
@@ -131,7 +132,16 @@ export default function ReplayPage() {
   const { replaySnapshots, replayFrame, loadReplay, setReplayFrame, clearGame, gameState } = useGameStore();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
-  const [mapData, setMapData] = useState<MapData | null>(null);
+  const [authoredMap, setMapData] = useState<MapData | null>(null);
+  // The authored map lists every territory the board can ever hold; era maps
+  // author later-era frontiers that only unlock through Era Advancement. A
+  // frame draws just the tiles its snapshot has in play, so a 33-territory
+  // Ancient game replays on 33 territories, not the 57 the file carries.
+  const boardKey = boardKeyOf((gameState ?? replaySnapshots[replayFrame])?.territories);
+  const mapData = useMemo(
+    () => (authoredMap && boardKey ? projectMapToBoard(authoredMap, new Set(boardKey.split('|'))) : authoredMap),
+    [authoredMap, boardKey],
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // Set when a replay exists but isn't public and the viewer can't see it.
