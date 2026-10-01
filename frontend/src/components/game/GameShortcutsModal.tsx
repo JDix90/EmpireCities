@@ -10,6 +10,7 @@ const SHORTCUTS: ShortcutRow[] = [
   { key: 'Enter / Space', label: 'Advance phase / End turn' },
   { key: '?', label: 'Show this shortcuts panel' },
   { key: 'Esc', label: 'Deselect territory / Close panel' },
+  { key: 'L', label: 'List territories — select one without the mouse' },
   { key: 'C', label: 'Open chat' },
   { key: 'T', label: 'Open tech tree' },
   { key: 'B', label: 'Show continent bonuses' },
