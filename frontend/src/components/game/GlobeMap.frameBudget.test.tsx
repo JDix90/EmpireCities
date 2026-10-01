@@ -168,6 +168,21 @@ describe('GlobeMap under the phone frame budget', () => {
     expect(globe.running).toBe(false);
   });
 
+  it('wakes an idle globe to paint new shapes, as Natural Earth arriving brings', () => {
+    const props = { onTerritoryClick: () => {}, width: 390, height: 600, selfPlayerId: 'me', autoSpin: false };
+    const { rerender } = render(<GlobeMapCore {...props} mapData={spaceAge} />);
+    act(() => { vi.advanceTimersByTime(5000); });
+    expect(globe.running).toBe(false);
+    // The same board with one territory fewer: new shapes to draw.
+    rerender(<GlobeMapCore {...props} mapData={{ ...spaceAge, territories: spaceAge.territories.slice(1) }} />);
+    expect(globe.running).toBe(true);
+    act(() => { vi.advanceTimersByTime(400); });
+    expect(globe.running).toBe(false);
+    // A new map object with the same shapes is nothing new to paint.
+    rerender(<GlobeMapCore {...props} mapData={{ ...spaceAge, territories: spaceAge.territories.slice(1) }} />);
+    expect(globe.running).toBe(false);
+  });
+
   it('keeps the loop awake for the whole of a camera tween', () => {
     mount({ frameBudget: false, reducedEffects: false });
     act(() => { vi.advanceTimersByTime(5000); });
