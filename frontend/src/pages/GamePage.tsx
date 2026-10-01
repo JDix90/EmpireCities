@@ -1487,7 +1487,13 @@ export default function GamePage() {
           const combats = [...ownTurnCombatsRef.current];
           const reinforcements = [...ownTurnReinforcementsRef.current];
           const fortifications = [...ownTurnFortificationsRef.current];
-          if (combats.length > 0 || reinforcements.length > 0 || fortifications.length > 0) {
+          // The tutorial narrates its own turns; its summary carousel popped
+          // over the lesson card at the start of turn 2 and intercepted Next
+          // (PT-007). The recap strip below still records the round.
+          if (
+            !state.settings.tutorial
+            && (combats.length > 0 || reinforcements.length > 0 || fortifications.length > 0)
+          ) {
             const summary = {
               type: 'turn_summary' as const,
               playerName: myPlayerData?.username ?? prevPlayer.username,
@@ -5653,7 +5659,11 @@ export default function GamePage() {
         />
       )}
 
-      {activeEventCard && gameState && user && (
+      {/* One full-screen modal at a time: an event card waits until the action
+          queue (turn summary, combat, eliminations) is empty. Both used to
+          render at once at the same z-index, so a global event sat unread under
+          the turn summary and Escape closed neither (PT-014). */}
+      {activeEventCard && gameState && user && modalQueue.length === 0 && (
         <EventCardModal
           card={activeEventCard}
           isMyTurn={gameState.players[gameState.current_player_index]?.player_id === user.user_id}

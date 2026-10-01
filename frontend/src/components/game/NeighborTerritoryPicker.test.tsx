@@ -4,8 +4,45 @@ import NeighborTerritoryPicker from './NeighborTerritoryPicker';
 import type { NeighborTargetRow } from '../../utils/mapAdjacencyTargets';
 
 function row(over: Partial<NeighborTargetRow> = {}): NeighborTargetRow {
-  return { territoryId: 'milan', name: 'Milan', unitCount: 3, isSea: false, isOrbit: false, ...over };
+  return { territoryId: 'milan', name: 'Milan', unitCount: 3, isSea: false, needsFleet: false, isOrbit: false, ...over };
 }
+
+describe('NeighborTerritoryPicker — sea lanes without a fleet (PT-010)', () => {
+  it('shows the target disabled with the reason instead of a live attack', () => {
+    const onAttack = vi.fn();
+    render(
+      <NeighborTerritoryPicker
+        phase="attack"
+        sourceName="Greece"
+        neighbors={[row({ territoryId: 'anatolia', name: 'Anatolia', isSea: true, needsFleet: true })]}
+        onSelect={() => {}}
+        onAttack={onAttack}
+      />,
+    );
+    const btn = screen.getByRole('button', { name: /Anatolia — needs a fleet to cross the sea lane/ });
+    expect(btn).toBeDisabled();
+    expect(btn).toHaveTextContent(/needs a fleet/);
+    fireEvent.click(btn);
+    expect(onAttack).not.toHaveBeenCalled();
+    // Inspecting the target still works.
+    expect(screen.getByRole('button', { name: /Inspect Anatolia/ })).toBeEnabled();
+  });
+
+  it('keeps a sea lane attackable when a fleet is present', () => {
+    const onAttack = vi.fn();
+    render(
+      <NeighborTerritoryPicker
+        phase="attack"
+        sourceName="Greece"
+        neighbors={[row({ territoryId: 'anatolia', name: 'Anatolia', isSea: true, needsFleet: false })]}
+        onSelect={() => {}}
+        onAttack={onAttack}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Attack Anatolia' }));
+    expect(onAttack).toHaveBeenCalledWith('anatolia');
+  });
+});
 
 describe('NeighborTerritoryPicker — attack rows attack', () => {
   it('fires the attack from the wide row, not just the narrow button', () => {

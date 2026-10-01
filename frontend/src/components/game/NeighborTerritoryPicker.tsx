@@ -3,6 +3,10 @@ import { Anchor, Sword, Rocket, Lock, Info } from 'lucide-react';
 import type { NeighborTargetRow } from '../../utils/mapAdjacencyTargets';
 import { plural } from '../../utils/plural';
 
+/** Why a sea-lane attack row is disabled (PT-010). */
+const NEEDS_FLEET_HINT =
+  'Sea crossings need a fleet at the attacking territory when Naval Warfare is on — build a Port there or move a fleet in first.';
+
 interface NeighborTerritoryPickerProps {
   phase: 'attack' | 'fortify';
   sourceName: string;
@@ -69,13 +73,17 @@ export default function NeighborTerritoryPicker({
       )}>
         {neighbors.map((neighbor) => {
           const isOrbit = neighbor.isOrbit;
+          const isAttack = phase === 'attack' && !!onAttack;
           const locked = orbitLocked && isOrbit;
+          // A sea crossing with no fleet at the source: the server refuses it,
+          // so it is offered greyed out with the reason, not as a live button.
+          const fleetless = isAttack && neighbor.needsFleet;
+          const blocked = locked || fleetless;
           const accent = isOrbit
             ? 'border-violet-600/55 bg-violet-950/40 text-violet-100 hover:border-violet-400/70 hover:bg-violet-900/45'
             : phase === 'attack'
               ? 'border-red-700/50 bg-red-950/35 text-red-100 hover:border-red-500/70 hover:bg-red-900/40'
               : 'border-emerald-700/45 bg-emerald-950/30 text-emerald-100 hover:border-emerald-500/60 hover:bg-emerald-900/35';
-          const isAttack = phase === 'attack' && !!onAttack;
           return (
             <div
               key={neighbor.territoryId}
@@ -92,17 +100,19 @@ export default function NeighborTerritoryPicker({
               */}
               <button
                 type="button"
-                disabled={locked}
-                title={locked ? orbitLockReason : undefined}
+                disabled={blocked}
+                title={locked ? orbitLockReason : fleetless ? NEEDS_FLEET_HINT : undefined}
                 className={clsx(
                   'flex-1 rounded-md border text-left text-xs transition-colors touch-manipulation',
                   compact ? 'min-h-[32px] px-2 py-1' : 'min-h-[36px] px-2.5 py-1.5',
                   accent,
-                  locked && 'opacity-50 cursor-not-allowed',
+                  blocked && 'opacity-50 cursor-not-allowed',
                 )}
                 aria-label={
                   locked
                     ? `${neighbor.name} locked — ${orbitLockReason ?? 'orbit access required'}`
+                    : fleetless
+                      ? `${neighbor.name} — needs a fleet to cross the sea lane`
                     : isAttack
                       ? isOrbit
                         ? `Hyperspace assault on ${neighbor.targetWorldName ?? neighbor.name}`
@@ -110,7 +120,7 @@ export default function NeighborTerritoryPicker({
                       : `Select ${neighbor.name}`
                 }
                 onClick={() => {
-                  if (locked) return;
+                  if (blocked) return;
                   if (isAttack) onAttack!(neighbor.territoryId);
                   else onSelect(neighbor.territoryId);
                 }}
@@ -124,7 +134,7 @@ export default function NeighborTerritoryPicker({
                 </span>
                 <span className="text-[10px] opacity-75 block whitespace-nowrap">
                   {neighbor.unitCount === -1 ? '? units' : plural(neighbor.unitCount, 'unit')}
-                  {neighbor.isSea ? ' · sea' : ''}
+                  {neighbor.isSea ? (fleetless ? ' · sea · needs a fleet' : ' · sea') : ''}
                   {isOrbit ? ` · ${neighbor.targetWorldName ?? 'hyperspace'}` : ''}
                   {isOrbit && isAttack && neighbor.laneDice != null ? ` · ${neighbor.laneDice} dice` : ''}
                 </span>
