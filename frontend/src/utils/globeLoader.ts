@@ -11,6 +11,13 @@ import { lazy } from 'react';
 export const GlobeMapLazy = lazy(() => import('../components/game/GlobeMap'));
 export const GalaxyStrategicViewLazy = lazy(() => import('../components/game/GalaxyStrategicView'));
 export const GalaxySplitViewLazy = lazy(() => import('../components/game/GalaxySplitView'));
+/**
+ * The globe without its 2D fallback, for Split's globe panes: the view checks
+ * WebGL once for all of them and falls back to its own flat panes.
+ */
+export const GlobeMapCoreLazy = lazy(() =>
+  import('../components/game/GlobeMap').then((m) => ({ default: m.GlobeMapCore })),
+);
 export const GlobeMapEditorLazy = lazy(() => import('../components/editor/GlobeMapEditor'));
 
 let preloadPromise: Promise<unknown> | null = null;

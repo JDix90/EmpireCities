@@ -66,3 +66,41 @@ export function resolveGalaxyDrillDownGlobeSkin(input: {
     backgroundColor: base.backgroundColor,
   };
 }
+
+/** A world's skin, in GlobeMap's props. */
+export interface GalaxyWorldGlobeProps {
+  globeImageUrl: string | undefined;
+  bumpImageUrl: string;
+  showAtmosphere: boolean;
+  atmosphereColor: string;
+  atmosphereAltitude: number;
+  backgroundColor: string | undefined;
+}
+
+/**
+ * A galaxy world's globe as Split's pane draws it (GalaxySplitView): its
+ * procedural surface (`proceduralUrl`, the texture the single globe opens the
+ * world on), else its authored one, under its own atmosphere and void.
+ * Procedural worlds are albedo-only, so there is no bump map ('' rather than
+ * undefined, which would put the Earth's on it).
+ */
+export function galaxyWorldGlobeProps(
+  worlds: GalaxyWorldSkinRow[] | undefined,
+  worldId: string,
+  proceduralUrl: string | undefined,
+): GalaxyWorldGlobeProps {
+  const world = resolveGalaxyDrillDownGlobeSkin({
+    worlds,
+    territories: undefined,
+    focusedWorldId: worldId,
+    selectedTerritoryId: null,
+  });
+  return {
+    globeImageUrl: proceduralUrl ?? world.globeImageUrl,
+    bumpImageUrl: '',
+    showAtmosphere: world.showAtmosphere,
+    atmosphereColor: world.atmosphereColor,
+    atmosphereAltitude: world.atmosphereAltitude,
+    backgroundColor: world.backgroundColor,
+  };
+}

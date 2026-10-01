@@ -131,4 +131,32 @@ describe('splitLanes', () => {
     expect(drawn.length).toBe(lanes.length - 4); // Verdan's two lanes to Sol and two to Rust
     expect(drawn.every((l) => worldOf.get(l.from) !== 'verdan' && worldOf.get(l.to) !== 'verdan')).toBe(true);
   });
+
+  it('marks the end of a lane whose gateway is round the back of its globe', () => {
+    const one = lanes[0]!;
+    const world = worldOf.get(one.from)!;
+    const turnedAway = {
+      ...everywhere,
+      [world]: new Map([...everywhere[world]!].map(([id, p]) => [id, id === one.from ? { ...p, behind: true } : p])),
+    };
+    const drawn = splitLanes(galaxy.connections, (id) => worldOf.get(id), cells, turnedAway, g);
+    const lane = drawn.find((l) => l.from === one.from)!;
+    expect([lane.hidden1, lane.hidden2]).toEqual([true, false]);
+    // Every other lane has both its gateways in sight.
+    expect(drawn.filter((l) => l !== lane).every((l) => !l.hidden1 && !l.hidden2)).toBe(true);
+  });
+
+  it("keeps a gateway off a zoomed globe's pane on the pane's edge", () => {
+    const one = lanes[0]!;
+    const world = worldOf.get(one.from)!;
+    const cell = cells.find((c) => c.world.world_id === world)!;
+    const zoomed = {
+      ...everywhere,
+      [world]: new Map([...everywhere[world]!].map(([id, p]) => [id, id === one.from ? { x: -40, y: 900 } : p])),
+    };
+    const lane = splitLanes(galaxy.connections, (id) => worldOf.get(id), cells, zoomed, g).find((l) => l.from === one.from)!;
+    // Its pane's left edge and the bottom of its canvas.
+    expect([lane.x1, lane.y1]).toEqual([cell.col * (400 + 6) + 1, cell.row * (300 + 30 + 6) + 30 + 1 + 300]);
+    expect(lane.hidden1).toBe(true);
+  });
 });

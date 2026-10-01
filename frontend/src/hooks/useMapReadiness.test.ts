@@ -35,16 +35,18 @@ describe('mapReadinessSurface', () => {
     expect(mapReadinessSurface(undefined, '2d', true)).toBeNull();
   });
 
-  it('draws the 2D map and the galaxy overview at once', () => {
+  it('draws the 2D map and the galaxy chart at once', () => {
     expect(mapReadinessSurface(spaceAge(), '2d', false)).toBe('instant');
+    // A galaxy world's flat map, or Split's flat maps.
     expect(mapReadinessSurface(galaxy(), '2d', false)).toBe('instant');
     expect(mapReadinessSurface(galaxy(), 'globe', true)).toBe('instant');
   });
 
-  it('waits for a globe, a galaxy world included', () => {
+  it("waits for a globe: one galaxy world's, or Split's in the Globe view", () => {
     expect(mapReadinessSurface(spaceAge(), 'globe', false)).toBe('globe');
-    // The overview setting only means something on a galaxy map.
+    // The chart setting only means something on a galaxy map.
     expect(mapReadinessSurface(spaceAge(), 'globe', true)).toBe('globe');
+    // Split is not the chart: its globes report when they are drawn.
     expect(mapReadinessSurface(galaxy(), 'globe', false)).toBe('globe');
   });
 });

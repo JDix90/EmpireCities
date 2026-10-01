@@ -532,7 +532,8 @@ game whose final board is gone stays counted but not described.
 On desktop a Galactic Age board has three views:
 - the **Galaxy chart**: each world is one node, ringed by its owners' shares;
 - a **world tab**: one world's globe or 2D map;
-- **Split**: every world's 2D map at once (`GalaxySplitView`).
+- **Split**: every world at once (`GalaxySplitView`), as globes or as 2D
+  maps, following the Globe / 2D Map switch.
 
 How Split behaves:
 - **Layout.** Panes keep the chart's ring order, clockwise from the top-left
@@ -542,13 +543,18 @@ How Split behaves:
   systems, and a button that opens the world on its own.
 - **Lanes.** They run across the panes from gateway to gateway, styled as on
   the chart: the viewer's corridor in their colour, an open lane blue, a
-  closed one dim, a seal orange. A picked gateway's lanes stand out.
-- **Interaction.** The panes hold still; to zoom, open a world. Selecting a
-  gateway lights its target across a lane in the pane that draws it. A lane
-  the player cannot cross is left out: sealed against them, or locked without
-  Lane Charts.
-- **Desktop only.** Split always uses flat maps, whichever view toggle is on.
-  A phone shows the chart in its place.
+  closed one dim, a seal orange. A picked gateway's lanes stand out. On a
+  globe a gateway can face away: its lane then runs, dimmed, to the planet's
+  edge where the gateway would come into view, and follows as the globe turns.
+- **Interaction.** Selecting a gateway lights its target across a lane in the
+  pane that draws it. A lane the player cannot cross is left out: sealed
+  against them, or locked without Lane Charts.
+  - 2D maps hold still; to zoom, open a world.
+  - Globes turn and zoom like the single globe, and spin on other players'
+    turns while Spin is on. Each globe plays only its own world's battles,
+    and frames them while "Follow the action" is on.
+- **Desktop only.** A phone shows the chart in its place. A browser without
+  WebGL gets the 2D maps.
 - **Remembered.** Each browser keeps the last choice between the chart and
   Split (`cc-galaxy-overview`).
 

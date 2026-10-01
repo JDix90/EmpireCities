@@ -72,6 +72,7 @@ import {
   type LaneState,
 } from '../../utils/galaxyLanes';
 import { effectiveContinentBonus } from '../../utils/continentBonus';
+import { globeScreenAnchor, type ScreenAnchor } from '../../utils/globeScreenAnchor';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -249,6 +250,42 @@ interface GlobeMapProps {
   onGlobeReady?: () => void;
   /** Lobby / map-hub preview: region-colored caps without live game state. */
   previewMode?: boolean;
+  /**
+   * Draw each hyperspace lane leaving this world as a short beam off its
+   * gateway (the default). Split draws whole lanes across its panes instead
+   * (GalaxySplitView), so its globes turn the beams off.
+   */
+  showOrbitStubs?: boolean;
+  /**
+   * Light targets and valid sources from the whole board's connections, not
+   * just this world's, so a gateway's target across a lane lights on the globe
+   * that draws it (GalaxySplitView). A lane the player cannot cross (no access,
+   * or sealed against them) is left out, as the server refuses it.
+   */
+  targetsAcrossWorlds?: boolean;
+  /**
+   * Play visual events, rings and turn-start framing only where they land on
+   * the active world. Split's globes each take every event and play their own
+   * world's, as its flat maps do; an event elsewhere is acknowledged and left
+   * to the globe that draws it.
+   */
+  ownWorldEffectsOnly?: boolean;
+  /**
+   * Where each of this world's territories shows on the canvas, in canvas
+   * pixels, reported when the globe is ready or resized and whenever its
+   * camera moves. One round the back of the globe is reported on the planet's
+   * edge, marked `behind` (utils/globeScreenAnchor.ts). Split draws its lanes
+   * between these.
+   */
+  onTerritoryCenters?: (centers: ReadonlyMap<string, ScreenAnchor>) => void;
+  /**
+   * Hand the WebGL context back to the browser when this globe goes away. A
+   * browser keeps only so many live (Chrome 16, dropping the oldest past
+   * that), and three.js gives one back only when it is garbage-collected.
+   * Split puts up four globes at a time, so a player switching views runs
+   * past the limit within a few switches.
+   */
+  releaseContextOnUnmount?: boolean;
 }
 
 /**
@@ -800,6 +837,8 @@ const GLOBE_DAMPING_FACTOR = 0.1;
  * created; globe.gl keeps its own antialias and alpha defaults alongside it.
  */
 const LOW_POWER_RENDERER = { powerPreference: 'low-power' as const };
+/** A galaxy gateway's diamond marker sits this high (globe radii); Split's lanes meet it there. */
+const GATEWAY_MARKER_ALT = 0.03;
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
@@ -835,6 +874,11 @@ function GlobeMap({
   connectionHintMode = 'full',
   onGlobeReady,
   previewMode = false,
+  showOrbitStubs = true,
+  targetsAcrossWorlds = false,
+  ownWorldEffectsOnly = false,
+  onTerritoryCenters,
+  releaseContextOnUnmount = false,
 }: GlobeMapProps) {
   const isFloodedNorthAmerica =
     mapData.map_id === 'community_flooded_north_america' ||
@@ -980,8 +1024,23 @@ function GlobeMap({
     return centers;
   }, [polygonsData]);
 
-  const territoryCentersRef = useRef(territoryCenters);
-  territoryCentersRef.current = territoryCenters;
+  /**
+   * The centres animations, rings and turn-start framing look up: every
+   * world's, or only the active world's when `ownWorldEffectsOnly`, so an
+   * event elsewhere finds nothing to draw on this globe.
+   */
+  const effectCenters = useMemo(() => {
+    if (!ownWorldEffectsOnly) return territoryCenters;
+    const own = new Map<string, { lat: number; lng: number }>();
+    for (const [tid, c] of territoryCenters) {
+      const t = territoryById.get(tid);
+      if (t && inferWorldId(t) === activeWorldId) own.set(tid, c);
+    }
+    return own;
+  }, [ownWorldEffectsOnly, territoryCenters, territoryById, activeWorldId]);
+
+  const territoryCentersRef = useRef(effectCenters);
+  territoryCentersRef.current = effectCenters;
 
   const startPolygonStrikeFlash = useCallback((territoryId: string, abilityId: MapStrikeAbilityId) => {
     const style = STRIKE_MAP_STYLES[abilityId];
@@ -1465,6 +1524,42 @@ function GlobeMap({
     renderer.setSize(width, height);
   }, [width, height, globeReadyTick]);
 
+  // react-globe.gl builds its globe while this component renders, so the globe
+  // can load and report ready before a slow render commits (Split renders four
+  // at once). A report that comes before the mount is held for it.
+  const mountedRef = useRef(false);
+  const readyBeforeMountRef = useRef(false);
+  const releaseContextRef = useRef(releaseContextOnUnmount);
+  releaseContextRef.current = releaseContextOnUnmount;
+  const rendererRef = useRef<{ dispose?: () => void; forceContextLoss?: () => void } | null>(null);
+  useEffect(() => {
+    const renderer = globeRef.current?.renderer?.();
+    if (renderer) rendererRef.current = renderer;
+  }, [globeReadyTick]);
+  useEffect(() => {
+    mountedRef.current = true;
+    if (readyBeforeMountRef.current) {
+      readyBeforeMountRef.current = false;
+      setGlobeReadyTick((t) => t + 1);
+    }
+    return () => {
+      mountedRef.current = false;
+      if (!releaseContextRef.current) return;
+      // Development's StrictMode unmounts once and mounts again at once: only a
+      // globe still unmounted a tick later gives its context back.
+      window.setTimeout(() => {
+        if (mountedRef.current) return;
+        const renderer = rendererRef.current;
+        try {
+          renderer?.dispose?.();
+          renderer?.forceContextLoss?.();
+        } catch {
+          // Gone with its canvas already.
+        }
+      }, 0);
+    };
+  }, []);
+
   // Heat/battery: halt the Three.js render loop while the tab is backgrounded or
   // the screen is locked, and once the scene goes idle (no spin, no queued
   // animation, no recent interaction). react-globe.gl exposes pauseAnimation()/
@@ -1571,6 +1666,20 @@ function GlobeMap({
     if (frameBudgetRef.current) applyRenderActivity(true, BUDGET_BOARD_CHANGE_RENDER_MS, BUDGET_BOARD_CHANGE_FRAMES);
     else applyRenderActivity(true, BOARD_CHANGE_RENDER_MS);
   }, [gameState, applyRenderActivity]);
+
+  // New shapes, and the labels placed on them: paint them. Natural Earth
+  // arriving for an Earth-like world, or a board that grew a territory, would
+  // otherwise wait on an idle loop for the next touch or turn, the old shapes
+  // on screen and the new labels not yet placed. Keyed on the built shapes,
+  // which are shared by content, so a map re-sent unchanged is nothing new.
+  // Owed frames see it through a slow frame, as with four globes in Split.
+  useEffect(() => {
+    applyRenderActivity(
+      true,
+      frameBudgetRef.current ? BUDGET_BOARD_CHANGE_RENDER_MS : BOARD_CHANGE_RENDER_MS,
+      BUDGET_BOARD_CHANGE_FRAMES,
+    );
+  }, [polygonsData, applyRenderActivity]);
 
   // OrbitControls damps per update. Under the frame cap it updates half as
   // often, so the factor is rescaled to keep a fling coasting as it does at 60.
@@ -2805,11 +2914,29 @@ function GlobeMap({
   const showSkipAnimations =
     !previewMode && animationUi.playing && animationUi.backlog > 0;
 
+  /**
+   * `ownWorldEffectsOnly`: whether an event lands on this world. Its territory,
+   * or one it touches, is here; or it names no territory at all (a global
+   * event), which every globe plays on its own world.
+   */
+  const playsOnThisWorld = useCallback((ev: GlobeEvent) => {
+    const ids = [ev.territoryId, ...(ev.affectedTerritories ?? []).map((r) => r.territory_id)];
+    const own = territoryCentersRef.current;
+    if (ids.some((id) => own.has(id))) return true;
+    return !ids.some((id) => territoryById.has(id));
+  }, [territoryById]);
+
   useEffect(() => {
     let hasNew = false;
     for (const ev of events) {
       if (!seenEventIdsRef.current.has(ev.id)) {
         seenEventIdsRef.current.add(ev.id);
+        // Another world's event is acknowledged and left to the globe that
+        // draws it, so it never waits in this globe's queue.
+        if (ownWorldEffectsOnly && !playsOnThisWorld(ev)) {
+          onEventDone?.(ev.id);
+          continue;
+        }
         eventQueueRef.current.push(ev);
         onEventDone?.(ev.id);
         hasNew = true;
@@ -2827,7 +2954,7 @@ function GlobeMap({
       applyRenderActivity(true);
       if (!isAnimatingRef.current) playNextRef.current();
     }
-  }, [events, onEventDone, flushAnimationUi, applyRenderActivity]);
+  }, [events, onEventDone, flushAnimationUi, applyRenderActivity, ownWorldEffectsOnly, playsOnThisWorld]);
 
   // Cleanup timers on unmount
   useEffect(() => {
@@ -3269,7 +3396,7 @@ function GlobeMap({
     id: `gateway-marker-${g.territoryId}`,
     lat: g.center.lat,
     lng: g.center.lng,
-    alt: 0.03,
+    alt: GATEWAY_MARKER_ALT,
     onClickTerritoryId: g.territoryId,
     tooltip: g.tooltip,
     color: g.color,
@@ -3279,7 +3406,7 @@ function GlobeMap({
   })), [gatewayLaneInfo, selectedTerritory, attackSource]);
 
   const gatewayLaneArcs = useMemo((): ArcDatum[] => {
-    if (gatewayLaneInfo.length === 0) return [];
+    if (!showOrbitStubs || gatewayLaneInfo.length === 0) return [];
     // Beam away from the world's populated centre so the lane reads as leaving.
     let cx = 0;
     let cy = 0;
@@ -3317,7 +3444,7 @@ function GlobeMap({
         clickForwardTerritoryId: g.territoryId,
       };
     });
-  }, [gatewayLaneInfo, mapData.territories, activeWorldId, territoryCentroids]);
+  }, [showOrbitStubs, gatewayLaneInfo, mapData.territories, activeWorldId, territoryCentroids]);
 
   const combinedHtmlOverlays = useMemo(
     () => [
@@ -3340,9 +3467,57 @@ function GlobeMap({
     ],
   );
 
+  // ── Split: where this world's territories show ─────────────────────────
+  // Split draws its lanes between globes (GalaxySplitView), so each globe says
+  // where its systems show on its canvas, again whenever its camera moves.
+  const worldCentroids = useMemo(() => {
+    const m = new Map<string, { lat: number; lng: number }>();
+    for (const [tid, c] of territoryCentroids) {
+      const t = territoryById.get(tid);
+      if (t && inferWorldId(t) === activeWorldId) m.set(tid, c);
+    }
+    return m;
+  }, [territoryCentroids, territoryById, activeWorldId]);
+  const onTerritoryCentersRef = useRef(onTerritoryCenters);
+  onTerritoryCentersRef.current = onTerritoryCenters;
+  const reportScreenCenters = useCallback(() => {
+    const report = onTerritoryCentersRef.current;
+    const globe = globeRef.current;
+    if (!report || !globe?.getScreenCoords) return;
+    // The controls move the camera just before a frame renders, and three.js
+    // refreshes its matrices only as it renders: bring them up to date first.
+    globe.camera?.()?.updateMatrixWorld?.();
+    const pov = globe.pointOfView();
+    const project = (lat: number, lng: number, alt: number) => globe.getScreenCoords(lat, lng, alt);
+    const out = new Map<string, ScreenAnchor>();
+    for (const [tid, c] of worldCentroids) {
+      out.set(tid, globeScreenAnchor(c.lat, c.lng, pov, project, GATEWAY_MARKER_ALT));
+    }
+    report(out);
+  }, [worldCentroids]);
+  useEffect(() => {
+    reportScreenCenters();
+  }, [reportScreenCenters, globeReadyTick, width, height]);
+
   const adjacencyTargets = useMemo(() => {
     const source = attackSource ?? selectedTerritory;
     if (!gameState || !source) return new Set<string>();
+    const canTraverse = fortifyTraversalFilter(
+      mapData as unknown as FrontendMapData,
+      gameState,
+      gameState.territories[source]?.owner_id ?? null,
+      gameState.era ?? '',
+    );
+    // Split: the whole board's routes, less the lanes this player cannot
+    // cross, from a source on any world. Only the polygons this globe draws
+    // take the highlight, so the set needs no per-world filter.
+    if (targetsAcrossWorlds) {
+      return computePhaseAdjacencyTargets(gameState, mapData.connections.filter(canTraverse), {
+        attackSource: source,
+        fortifyReachable: true,
+        canTraverse,
+      });
+    }
     return computePhaseAdjacencyTargets(gameState, mapData.connections, {
       attackSource: source,
       territoryFilter: (territoryId) => {
@@ -3353,12 +3528,7 @@ function GlobeMap({
       // neighbours — see the 2D map. The per-world filter still scopes what is
       // drawn to the world on screen, so the Moon lights up in the Moon inset.
       fortifyReachable: true,
-      canTraverse: fortifyTraversalFilter(
-        mapData as unknown as FrontendMapData,
-        gameState,
-        gameState.territories[source]?.owner_id ?? null,
-        gameState.era ?? '',
-      ),
+      canTraverse,
     });
   }, [
     gameState,
@@ -3367,6 +3537,7 @@ function GlobeMap({
     mapData,
     territoryById,
     activeWorldId,
+    targetsAcrossWorlds,
   ]);
 
   const emphasizeAdjacencyBorders = shouldEmphasizeAdjacencyBorders(connectionHintMode);
@@ -3543,7 +3714,7 @@ function GlobeMap({
   // ── Tutorial highlight ring ──────────────────────────────────────────────
   const tutorialRing = useMemo((): RingDatum | null => {
     if (!highlightTerritoryId) return null;
-    const center = territoryCenters.get(highlightTerritoryId);
+    const center = effectCenters.get(highlightTerritoryId);
     if (!center) return null;
     return {
       id: `tutorial-highlight-${highlightTerritoryId}`,
@@ -3554,7 +3725,7 @@ function GlobeMap({
       repeatPeriod: 800,
       colorFn: (t: number) => `rgba(255, 215, 0, ${Math.max(0, 1 - t)})`,
     };
-  }, [highlightTerritoryId, territoryCenters]);
+  }, [highlightTerritoryId, effectCenters]);
 
   // First-turn coach (WI1): pulse every territory the new player owns during the
   // reinforcement step so "tap one of your glowing territories" has an obvious
@@ -3564,7 +3735,7 @@ function GlobeMap({
     const out: RingDatum[] = [];
     for (const [tid, t] of Object.entries(gameState.territories)) {
       if (t.owner_id !== coachHighlightOwnerId) continue;
-      const center = territoryCenters.get(tid);
+      const center = effectCenters.get(tid);
       if (!center) continue;
       out.push({
         id: `coach-own-${tid}`,
@@ -3577,28 +3748,35 @@ function GlobeMap({
       });
     }
     return out;
-  }, [coachHighlightOwnerId, gameState, territoryCenters]);
+  }, [coachHighlightOwnerId, gameState, effectCenters]);
 
   // Valid-source hint (turn-clarity): softly ring the territories the viewer can
   // act FROM this attack/fortify turn, so the first click is obvious. Emerald so
   // it never reads as the gold tutorial/coach pulse; scoped to the active world.
   const validSourceRings = useMemo((): RingDatum[] => {
     if (!validSourceOwnerId || !gameState) return [];
-    const sources = computeValidSources(gameState, mapData.connections, validSourceOwnerId, {
-      territoryFilter: (territoryId) => {
-        const terr = territoryById.get(territoryId);
-        return !!terr && inferWorldId(terr) === activeWorldId;
-      },
-      // Orbit parity with the server's fortify BFS. The per-world filter above
-      // already hides cross-world endpoints on the globe, but it says nothing
-      // about a lane traversed part-way along a route.
-      canTraverse: fortifyTraversalFilter(
-        mapData as unknown as FrontendMapData, gameState, validSourceOwnerId, gameState.era ?? '',
-      ),
-    });
+    const canTraverse = fortifyTraversalFilter(
+      mapData as unknown as FrontendMapData, gameState, validSourceOwnerId, gameState.era ?? '',
+    );
+    const onThisWorld = (territoryId: string) => {
+      const terr = territoryById.get(territoryId);
+      return !!terr && inferWorldId(terr) === activeWorldId;
+    };
+    // Split: a gateway whose only enemies are across a lane can act too, so
+    // the whole board's routes are read and this world's sources ringed.
+    const sources = targetsAcrossWorlds
+      ? computeValidSources(gameState, mapData.connections.filter(canTraverse), validSourceOwnerId, { canTraverse })
+      : computeValidSources(gameState, mapData.connections, validSourceOwnerId, {
+        territoryFilter: onThisWorld,
+        // Orbit parity with the server's fortify BFS. The per-world filter above
+        // already hides cross-world endpoints on the globe, but it says nothing
+        // about a lane traversed part-way along a route.
+        canTraverse,
+      });
     const out: RingDatum[] = [];
     for (const tid of sources) {
-      const center = territoryCenters.get(tid);
+      if (targetsAcrossWorlds && !onThisWorld(tid)) continue;
+      const center = effectCenters.get(tid);
       if (!center) continue;
       out.push({
         id: `valid-source-${tid}`,
@@ -3616,14 +3794,14 @@ function GlobeMap({
       });
     }
     return out;
-  }, [validSourceOwnerId, gameState, mapData.connections, territoryById, activeWorldId, territoryCenters]);
+  }, [validSourceOwnerId, gameState, mapData.connections, territoryById, activeWorldId, effectCenters, targetsAcrossWorlds]);
 
   // What the viewer lost while away, said by the map (M-12). Red, the
   // attack-target hue, so it never reads as the gold coach pulse.
   const lossRings = useMemo((): RingDatum[] => {
     const out: RingDatum[] = [];
     for (const tid of lossPulseTerritoryIds) {
-      const center = territoryCenters.get(tid);
+      const center = effectCenters.get(tid);
       if (!center) continue;
       out.push({
         id: `loss-${tid}`,
@@ -3636,7 +3814,7 @@ function GlobeMap({
       });
     }
     return out;
-  }, [lossPulseTerritoryIds, territoryCenters]);
+  }, [lossPulseTerritoryIds, effectCenters]);
 
   const combinedRings = useMemo(() => {
     const out = [...rings, ...wastelandRings, ...coachOwnedRings, ...validSourceRings, ...lossRings];
@@ -3873,9 +4051,11 @@ function GlobeMap({
         ringRepeatPeriod={ringAccessors.repeatPeriod}
 
         onGlobeReady={() => {
-          setGlobeReadyTick((t) => t + 1);
+          if (mountedRef.current) setGlobeReadyTick((t) => t + 1);
+          else readyBeforeMountRef.current = true;
           onGlobeReady?.();
         }}
+        onZoom={onTerritoryCenters ? reportScreenCenters : undefined}
       />
     </div>
   );

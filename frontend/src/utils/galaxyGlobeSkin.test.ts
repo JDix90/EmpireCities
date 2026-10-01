@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveGalaxyDrillDownGlobeSkin } from './galaxyGlobeSkin';
+import { galaxyWorldGlobeProps, resolveGalaxyDrillDownGlobeSkin } from './galaxyGlobeSkin';
 
 describe('resolveGalaxyDrillDownGlobeSkin', () => {
   const worlds = [
@@ -61,5 +61,35 @@ describe('resolveGalaxyDrillDownGlobeSkin', () => {
     });
     expect(r.globeImageUrl).toContain('t1-override');
     expect(r2.globeImageUrl).toBeUndefined();
+  });
+});
+
+describe('galaxyWorldGlobeProps', () => {
+  const worlds = [
+    { world_id: 'verdan', globe_image_url: 'verdan.jpg', bump_image_url: 'verdan-bump.png', atmosphere_color: '#7fe7a3', atmosphere_altitude: 0.24, background_color: 'rgb(8, 24, 18)' },
+    { world_id: 'rust', show_atmosphere: false },
+  ];
+
+  it("dresses a world's globe in its procedural surface, its atmosphere and its void, with no bump", () => {
+    expect(galaxyWorldGlobeProps(worlds, 'verdan', 'data:verdan')).toEqual({
+      globeImageUrl: 'data:verdan',
+      bumpImageUrl: '',
+      showAtmosphere: true,
+      atmosphereColor: '#7fe7a3',
+      atmosphereAltitude: 0.24,
+      backgroundColor: 'rgb(8, 24, 18)',
+    });
+  });
+
+  it('falls back to the authored surface, and to the default atmosphere', () => {
+    expect(galaxyWorldGlobeProps(worlds, 'verdan', undefined).globeImageUrl).toBe('verdan.jpg');
+    expect(galaxyWorldGlobeProps(worlds, 'rust', undefined)).toEqual({
+      globeImageUrl: undefined,
+      bumpImageUrl: '',
+      showAtmosphere: false,
+      atmosphereColor: 'lightskyblue',
+      atmosphereAltitude: 0.15,
+      backgroundColor: undefined,
+    });
   });
 });
