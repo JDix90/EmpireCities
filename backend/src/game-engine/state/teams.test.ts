@@ -97,17 +97,18 @@ describe('the opening ceasefire', () => {
     expect(inOpeningCeasefire(teamState({ turn_number: 2, current_player_index: 0 }))).toBe(false);
   });
 
-  it('runs on into turn 2 until the starting seat is up again', () => {
-    // Seats 2 and 3 play turn 1; the counter rolls over at seat 0, whose first
-    // turn is in turn 2, as is seat 1's. Seat 2's second turn ends it.
+  it('lasts exactly the first round whichever seat starts', () => {
+    // Seats 2, 3, 0 and 1 all play in turn 1 — the counter advances when play
+    // returns to the starting seat, not when the seat index wraps — so seat
+    // 2's second turn, which opens turn 2, ends it.
     const at = (turn_number: number, current_player_index: number) =>
       inOpeningCeasefire(teamState({ turn_number, current_player_index, starting_player_index: 2 }));
     expect(at(1, 2)).toBe(true);
     expect(at(1, 3)).toBe(true);
-    expect(at(2, 0)).toBe(true);
-    expect(at(2, 1)).toBe(true);
+    expect(at(1, 0)).toBe(true);
+    expect(at(1, 1)).toBe(true);
     expect(at(2, 2)).toBe(false);
-    expect(at(3, 0)).toBe(false);
+    expect(at(2, 0)).toBe(false);
   });
 
   it('shields enemies, and never neutral ground or your own', () => {

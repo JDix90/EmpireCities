@@ -446,6 +446,43 @@ describe('advanceToNextPlayer', () => {
     expect(state.turn_number).toBe(2);
   });
 
+  it('counts a round from the starting seat, not from seat 0', () => {
+    // A random start at seat 1: the order is 1 → 2 → 0 → 1. Seat 0's first
+    // turn is still turn 1; the counter advances when seat 1 is up again.
+    const players = [makePlayer('p1', 0), makePlayer('p2', 1), makePlayer('p3', 2)];
+    const after = (current: number) => {
+      const state = makeState({ current_player_index: current, starting_player_index: 1, players });
+      advanceToNextPlayer(state, map);
+      return { next: state.current_player_index, turn: state.turn_number };
+    };
+    expect(after(1)).toEqual({ next: 2, turn: 1 });
+    expect(after(2)).toEqual({ next: 0, turn: 1 });
+    expect(after(0)).toEqual({ next: 1, turn: 2 });
+  });
+
+  it('still ends the round at the starting seat once that seat is out', () => {
+    const players = [makePlayer('p1', 0), makePlayer('p2', 1, { is_eliminated: true }), makePlayer('p3', 2)];
+    const after = (current: number) => {
+      const state = makeState({ current_player_index: current, starting_player_index: 1, players });
+      advanceToNextPlayer(state, map);
+      return { next: state.current_player_index, turn: state.turn_number };
+    };
+    // The hand-off 2 → 0 stays inside the round; 0 → 2 skips the empty
+    // starting seat and crosses the boundary, so seat 2 opens the next round.
+    expect(after(2)).toEqual({ next: 0, turn: 1 });
+    expect(after(0)).toEqual({ next: 2, turn: 2 });
+  });
+
+  it('keeps counting rounds for the last player standing', () => {
+    const state = makeState({
+      current_player_index: 0,
+      starting_player_index: 1,
+      players: [makePlayer('p1', 0), makePlayer('p2', 1, { is_eliminated: true })],
+    });
+    advanceToNextPlayer(state, map);
+    expect({ next: state.current_player_index, turn: state.turn_number }).toEqual({ next: 0, turn: 2 });
+  });
+
   it('calls off the Drop Assaults and truce offers of a player who is out', () => {
     // p1 was eliminated with a drop in the air and offers on the table. p1 has
     // no turn start left to land the drop or expire the offer at.

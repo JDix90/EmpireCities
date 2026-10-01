@@ -38,6 +38,8 @@ function game(card: EventCard) {
     events_enabled: true,
   } as GameSettings);
   state.seasonal_event_cards = [card];
+  // Seat 0 opens every round: rounds are counted from the starting seat.
+  state.starting_player_index = 0;
   state.current_player_index = 0;
   return state;
 }

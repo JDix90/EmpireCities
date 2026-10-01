@@ -69,15 +69,15 @@ export function isFriendlyOwner(
  * moving first decided too many team games: the side that moved first won 65%
  * of 2v2 games, because the other side's last seat was attacked twice before it
  * had moved at all (backend/scripts/GALAXY-BALANCE.md §9). The first round is
- * counted from the starting seat. The turn counter rolls over at seat 0, so a
- * game that starts at another seat is still in its first round early in turn 2.
+ * counted from the starting seat, and so is the turn counter (see
+ * gameStateManager's handOffCrossesSeat): turn 1 lasts exactly until the
+ * starting seat is up again, whichever seat that is.
  */
 export function inOpeningCeasefire(
   state: Pick<GameState, 'teams' | 'turn_number' | 'current_player_index' | 'starting_player_index'>,
 ): boolean {
   if (!isTeamGame(state) || !TEAM_TUNING.openingCeasefire) return false;
-  const start = state.starting_player_index ?? 0;
-  return state.turn_number === 1 || (state.turn_number === 2 && state.current_player_index < start);
+  return state.turn_number === 1;
 }
 
 /**
