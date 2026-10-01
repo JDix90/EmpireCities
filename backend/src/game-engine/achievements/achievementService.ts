@@ -17,6 +17,9 @@ export interface AchievementContext {
   opponentAvgMu: number;
 }
 
+/** SQL predicate on `games g`: the row is not a tutorial game (same test the profile stats use). */
+const NOT_TUTORIAL_GAME = "COALESCE(g.settings_json::jsonb->>'tutorial', 'false') <> 'true'";
+
 const ACHIEVEMENT_COSMETIC_MAP: Record<string, string> = {
   first_blood: 'frame_bronze',
   conqueror: 'frame_gold',
@@ -31,14 +34,22 @@ export async function checkAndUnlockAchievements(
 ): Promise<string[]> {
   const unlocked: string[] = [];
   const { userId, gameId, gameState, winnerId: _winnerId, rank, totalPlayers: _totalPlayers, isRanked, playerMu, opponentAvgMu } = ctx;
-  const isWinner = rank === 1;
+  // The tutorial is a lesson: it unlocks tutorial_complete and nothing else.
+  // Its guaranteed win used to grant First Blood, Conqueror, Speed Demon and
+  // the era mastery badge while the profile's stats and the First Victory
+  // quest (both of which skip tutorial games) said no game had been won yet
+  // (playtest PT-008). Prior-game counts below skip tutorial games the same
+  // way the profile does, so the first real win is still "first".
+  const isTutorial = !!gameState.settings.tutorial;
+  const isWinner = rank === 1 && !isTutorial;
 
   // first_blood: first ever win
   if (isWinner) {
     const prior = await client.query<{ cnt: string }>(
       `SELECT COUNT(*) AS cnt FROM game_players gp
        JOIN games g ON g.game_id = gp.game_id
-       WHERE gp.user_id = $1 AND gp.final_rank = 1 AND g.game_id != $2 AND g.status = 'completed'`,
+       WHERE gp.user_id = $1 AND gp.final_rank = 1 AND g.game_id != $2 AND g.status = 'completed'
+         AND ${NOT_TUTORIAL_GAME}`,
       [userId, gameId],
     );
     if (parseInt(prior.rows[0]?.cnt ?? '0', 10) === 0) {
@@ -100,24 +111,24 @@ export async function checkAndUnlockAchievements(
   }
 
   // tutorial_complete: finish the tutorial game
-  if (gameState.settings.tutorial) {
+  if (isTutorial) {
     unlocked.push('tutorial_complete');
   }
 
   // card_shark: redeem 5+ card sets in a single game
   const playerForCards = gameState.players.find((p) => p.player_id === userId);
-  if ((playerForCards?.cards_redeemed_count ?? 0) >= 5) {
+  if (!isTutorial && (playerForCards?.cards_redeemed_count ?? 0) >= 5) {
     unlocked.push('card_shark');
   }
 
   // blitzkrieg: capture 10+ territories in a single turn
   const playerForBlitz = gameState.players.find((p) => p.player_id === userId);
-  if ((playerForBlitz?.territories_captured_turn_max ?? 0) >= 10) {
+  if (!isTutorial && (playerForBlitz?.territories_captured_turn_max ?? 0) >= 10) {
     unlocked.push('blitzkrieg');
   }
 
   // diplomat: establish a truce with every other human player in a single game
-  if (gameState.settings.diplomacy_enabled) {
+  if (!isTutorial && gameState.settings.diplomacy_enabled) {
     const playerForDiplomacy = gameState.players.find((p) => p.player_id === userId);
     const otherHumanIds = gameState.players
       .filter((p) => p.player_id !== userId && !p.is_ai)
@@ -150,11 +161,11 @@ export async function checkAndUnlockAchievements(
   }
 
   // ten_streak
-  const recentGames = await client.query<{ won: boolean }>(
+  const recentGames = isTutorial ? { rows: [] as { won: boolean }[] } : await client.query<{ won: boolean }>(
     `SELECT (gp.final_rank = 1) AS won
      FROM game_players gp
      JOIN games g ON g.game_id = gp.game_id
-     WHERE gp.user_id = $1 AND g.status = 'completed'
+     WHERE gp.user_id = $1 AND g.status = 'completed' AND ${NOT_TUTORIAL_GAME}
      ORDER BY g.ended_at DESC
      LIMIT 10`,
     [userId],
@@ -164,10 +175,10 @@ export async function checkAndUnlockAchievements(
   }
 
   // veteran: 50+ games
-  const totalGames = await client.query<{ cnt: string }>(
+  const totalGames = isTutorial ? { rows: [] as { cnt: string }[] } : await client.query<{ cnt: string }>(
     `SELECT COUNT(*) AS cnt FROM game_players gp
      JOIN games g ON g.game_id = gp.game_id
-     WHERE gp.user_id = $1 AND g.status = 'completed'`,
+     WHERE gp.user_id = $1 AND g.status = 'completed' AND ${NOT_TUTORIAL_GAME}`,
     [userId],
   );
   if (parseInt(totalGames.rows[0]?.cnt ?? '0', 10) >= 50) {
@@ -175,7 +186,7 @@ export async function checkAndUnlockAchievements(
   }
 
   // strategist: ranked mu >= 1500 (check in context)
-  if (isRanked && playerMu >= 1500) {
+  if (!isTutorial && isRanked && playerMu >= 1500) {
     unlocked.push('strategist');
   }
 

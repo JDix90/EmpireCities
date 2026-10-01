@@ -6,6 +6,10 @@
  * the score says how a run compares to the obvious line: solve a turn under
  * par and you are ahead of it, a turn over and you are behind. Risky moves
  * still cost. The leaderboard already sorts won, then score, then turns.
+ *
+ * A failed run scores 0. It used to keep the 1000 base, so a loss sat on the
+ * board at the same number as a par win and only the Win/Loss tag told them
+ * apart (playtest PT-018).
  */
 export const PAR_BASE = 1000;
 export const PAR_STEP = 50;
@@ -22,6 +26,7 @@ export interface DailyScoreInput {
 }
 
 export function computeDailyPuzzleScore(input: DailyScoreInput): number {
+  if (!input.won) return 0;
   const base =
     input.won && typeof input.par === 'number' && Number.isFinite(input.par)
       ? PAR_BASE + PAR_STEP * (input.par - input.turns)

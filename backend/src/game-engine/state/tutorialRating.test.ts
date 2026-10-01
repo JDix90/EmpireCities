@@ -172,6 +172,19 @@ describe.runIf(enabled)('the tutorial does not rate the player (Postgres)', () =
     expect(Math.round(Number(rows[0].phi))).toBe(120);
   });
 
+  it('does not rate the daily challenge either (PT-018)', async () => {
+    const u = await seedUser('daily_rate_loss');
+    const g = await seedGame(u, false);
+    const daily = state(u, false, false);
+    daily.settings = { ...daily.settings, daily_challenge_date: '2026-10-01' } as GameState['settings'];
+
+    const ctx = await recordGameResults(g, daily, ['ai_1']);
+
+    expect(await ratingRow(u)).toEqual([]);
+    expect(ctx.ratingDeltas.get(u) ?? 0).toBe(0);
+    expect(Number((await userRow(u))[0].mmr)).toBe(1000);
+  });
+
   it('still records the tutorial outcome and pays its XP', async () => {
     const u = await seedUser('tut_rate_xp');
     const g = await seedGame(u, true);

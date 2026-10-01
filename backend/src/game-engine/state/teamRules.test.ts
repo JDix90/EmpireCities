@@ -147,6 +147,8 @@ describe('an event card that picks an opponent', () => {
   it('forces a truce with an enemy, never an ally', () => {
     for (let i = 0; i < 20; i++) {
       const s = state();
+      // Truces are the Diplomacy system; the card does nothing with it off.
+      s.settings = { ...s.settings, diplomacy_enabled: true };
       s.diplomacy = [
         { player_index_a: 0, player_index_b: 1, status: 'neutral', truce_turns_remaining: 0 },
         { player_index_a: 0, player_index_b: 2, status: 'neutral', truce_turns_remaining: 0 },

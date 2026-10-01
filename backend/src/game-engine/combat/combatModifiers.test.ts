@@ -127,6 +127,36 @@ describe('computeLandCombatModifiers', () => {
     expect(mods.finalAttackerDiceOverride).toBe(3);
   });
 
+  it("applies England's Longbowmen die across a sea connection only, as the faction card says", () => {
+    // The card reads "+1 attack die when attacking across a sea connection";
+    // the passive used to land on every attack (PT-012).
+    const england = () => baseState({
+      era: 'medieval',
+      map_id: 'era_medieval',
+      settings: {
+        fog_of_war: false, turn_timer_seconds: 0, initial_unit_count: 3, card_set_escalating: true,
+        diplomacy_enabled: false, tech_trees_enabled: false, factions_enabled: true,
+        economy_enabled: false, events_enabled: false, naval_enabled: false, stability_enabled: false,
+      },
+      players: [
+        basePlayer({ faction_id: 'england' }),
+        basePlayer({ player_id: 'p2', player_index: 1, username: 'Defender' }),
+      ],
+    });
+    const roll = (connection: MapConnection) => computeLandCombatModifiers({
+      state: england(),
+      fromId: 'a',
+      toId: 'b',
+      attackerId: 'p1',
+      defenderId: 'p2',
+      attackingUnits: 8,
+      defendingUnits: 3,
+      connection,
+    });
+    expect(roll(seaConn).attackerBonusBreakdown.total).toBe(1);
+    expect(roll(landConn).attackerBonusBreakdown.total).toBe(0);
+  });
+
   it('janissaries is no longer an always-on base here (gated once-per-turn upstream)', () => {
     const state = baseState({
       settings: {

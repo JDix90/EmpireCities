@@ -28,7 +28,7 @@ const choice: EventCard = {
 const everyone: EventCard = { ...targeted, card_id: 'test_all', affects_all_players: true };
 
 /** A 3-seat game whose only event card is `card` ('custom' has no era deck). */
-function game(card: EventCard) {
+function game(card: EventCard, settings: Partial<GameSettings> = {}) {
   const players = ['p0', 'p1', 'p2'].map((id, i) => ({
     player_id: id, player_index: i, username: id, color: '#000', is_ai: true, is_eliminated: false, mmr: 1000,
   }));
@@ -36,6 +36,7 @@ function game(card: EventCard) {
     fog_of_war: false, victory_type: 'domination', allowed_victory_conditions: ['domination'],
     turn_timer_seconds: 0, initial_unit_count: 3, card_set_escalating: true, diplomacy_enabled: false,
     events_enabled: true,
+    ...settings,
   } as GameSettings);
   state.seasonal_event_cards = [card];
   // Seat 0 opens every round: rounds are counted from the starting seat.
@@ -45,8 +46,8 @@ function game(card: EventCard) {
 }
 
 /** Plays `turns` turns and records whose turn each card reached, clearing it as the socket layer does. */
-function recipients(card: EventCard, turns: number): string[] {
-  const state = game(card);
+function recipients(card: EventCard, turns: number, settings: Partial<GameSettings> = {}): string[] {
+  const state = game(card, settings);
   const got: string[] = [];
   for (let i = 0; i < turns; i++) {
     state.phase = 'fortify';
@@ -67,6 +68,12 @@ describe('event card targeting', () => {
 
   it('rotates choice cards the same way, so every player gets to choose', () => {
     expect(recipients(choice, 12)).toEqual(['p0', 'p1', 'p2', 'p0']);
+  });
+
+  it('leaves truce cards out of the deck when Diplomacy is off, and deals them when it is on', () => {
+    const truce: EventCard = { ...targeted, card_id: 'test_truce', effect: { type: 'truce', target: 'player', value: 2 } };
+    expect(recipients(truce, 12, { diplomacy_enabled: false })).toEqual([]);
+    expect(recipients(truce, 12, { diplomacy_enabled: true })).toEqual(['p0', 'p1', 'p2', 'p0']);
   });
 
   it('still resolves cards that hit every player at the start of the round', () => {

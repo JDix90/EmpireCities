@@ -214,7 +214,13 @@ export async function recordGameResults(
      * happen and onboarding still pays. Only the competitive number is
      * withheld. `tutorialRating.test.ts` pins both directions.
      */
-    const ratesPlayers = !state.settings.tutorial;
+    /**
+     * Nor is the daily challenge. It is a solo puzzle against a scripted bot
+     * with its own board (daily_challenge_entries, puzzle_score); losing it
+     * cost −21 Solo rating in the playtest (PT-018). XP and the daily entry
+     * still stand, as for the tutorial.
+     */
+    const ratesPlayers = !state.settings.tutorial && !state.settings.daily_challenge_date;
 
     for (const p of humanPlayers) {
       const rank = ranks.get(p.player_id) ?? totalPlayers;

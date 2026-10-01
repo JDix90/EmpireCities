@@ -38,6 +38,12 @@ export interface Faction {
   home_region_ids: string[];
   /** Passive combat modifier applied to this faction's attacks (+dice / re-roll). */
   passive_attack_bonus?: number;
+  /**
+   * Where `passive_attack_bonus` applies: every attack (default), or only an
+   * attack across a sea connection. England's Longbowmen are described as a
+   * sea-crossing bonus and were applied to every attack (playtest PT-012).
+   */
+  passive_attack_bonus_scope?: 'all' | 'sea';
   /** Passive combat modifier applied when defending. */
   passive_defense_bonus?: number;
   /** Extra reinforcement units per turn. */
