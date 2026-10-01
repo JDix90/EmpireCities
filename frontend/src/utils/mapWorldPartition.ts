@@ -35,6 +35,13 @@ export interface WorldPartitionMap {
   [key: string]: unknown;
 }
 
+/**
+ * A galaxy world's frame margin, as a share of the world's larger side. Those
+ * worlds are authored edge to edge, so without it the rim's borders and the
+ * names along it are cut by the canvas edge.
+ */
+const GALAXY_FRAME_MARGIN = 0.06;
+
 /** Geo hints that make `GameMap` take the Natural Earth projection path. */
 const GEO_FIELDS = ['geo_polygon', 'geo_multipolygon', 'iso_codes', 'geo_config', 'admin1'] as const;
 
@@ -59,11 +66,42 @@ export function filterMapToWorld<T extends WorldPartitionMap>(mapData: T, worldI
 
   const ids = new Set(territories.map((t) => t.territory_id));
   const isEarth = EARTH_LIKE_WORLDS.has(worldId);
+  // A far world draws in its own frame: its tiles' bounding box, with the
+  // origin at the box's top-left. GameMap sizes a canvas with no authored size
+  // to that box but scales it from (0, 0), so a world authored away from the
+  // corner (Nexus Station sits right of centre on the galaxy board) landed
+  // offset by the corner and ran off the canvas. The Moon is authored at the
+  // corner, so it does not move. A galaxy world's frame also keeps a margin.
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  if (!isEarth) {
+    for (const t of territories) {
+      for (const [x, y] of t.polygon) {
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  const framed = Number.isFinite(minX);
+  const margin = framed && mapData.map_kind === 'galaxy'
+    ? Math.round(Math.max(maxX - minX, maxY - minY) * GALAXY_FRAME_MARGIN)
+    : 0;
+  const dx = framed ? minX - margin : 0;
+  const dy = framed ? minY - margin : 0;
   const projected = isEarth
     ? territories
     : territories.map((t) => {
         const copy = { ...t } as WorldPartitionTerritory;
         for (const field of GEO_FIELDS) delete copy[field];
+        if (dx || dy) {
+          copy.polygon = t.polygon.map(([x, y]) => [x - dx, y - dy] as [number, number]);
+          const center = t.center_point as [number, number] | undefined;
+          if (center) copy.center_point = [center[0] - dx, center[1] - dy];
+        }
         return copy;
       });
 
@@ -77,9 +115,15 @@ export function filterMapToWorld<T extends WorldPartitionMap>(mapData: T, worldI
   } as T;
 
   if (!isEarth) {
-    delete (out as WorldPartitionMap).canvas_width;
-    delete (out as WorldPartitionMap).canvas_height;
     delete (out as WorldPartitionMap).projection_bounds;
+    if (margin) {
+      // GameMap's box fallback would leave the margin off the far sides.
+      (out as WorldPartitionMap).canvas_width = maxX - minX + margin * 2;
+      (out as WorldPartitionMap).canvas_height = maxY - minY + margin * 2;
+    } else {
+      delete (out as WorldPartitionMap).canvas_width;
+      delete (out as WorldPartitionMap).canvas_height;
+    }
   }
   return out;
 }

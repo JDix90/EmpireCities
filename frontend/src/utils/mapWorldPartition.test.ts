@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 import { filterMapToWorld, orbitStubsForWorld, worldIdsOnMap, type WorldPartitionMap } from './mapWorldPartition';
 
 /**
@@ -158,5 +160,52 @@ describe('filterMapToWorld · galaxy boards', () => {
     expect(verdan.territories.map((t) => t.territory_id)).toEqual(['verdan_a']);
     expect(verdan.territories[0].geo_polygon).toBeUndefined();
     expect(verdan.canvas_width).toBeUndefined();
+  });
+
+  it("moves a far world authored away from the corner to its own frame's origin", () => {
+    // GameMap sizes the canvas to the tiles' box but scales from (0, 0): left
+    // where it was authored, this world ran off the right of the canvas.
+    const nexus = {
+      territories: [
+        { territory_id: 'n1', region_id: 'n', world_id: 'nexus_station', polygon: [[384, 100], [500, 72], [520, 200]] as Array<[number, number]>, center_point: [470, 130] },
+        { territory_id: 'n2', region_id: 'n', world_id: 'nexus_station', polygon: [[700, 400], [867, 410], [800, 628]] as Array<[number, number]>, center_point: [790, 480] },
+      ],
+      connections: [],
+    };
+    const framed = filterMapToWorld(nexus, 'nexus_station');
+    expect(framed.territories.map((t) => t.polygon)).toEqual([
+      [[0, 28], [116, 0], [136, 128]],
+      [[316, 328], [483, 338], [416, 556]],
+    ]);
+    expect(framed.territories.map((t) => t.center_point)).toEqual([[86, 58], [406, 408]]);
+    // The source map is left as it was.
+    expect(nexus.territories[0].polygon[0]).toEqual([384, 100]);
+  });
+
+  it("frames a galaxy world with a margin, so its rim stays on the canvas", () => {
+    const board = {
+      map_kind: 'galaxy',
+      canvas_width: 1200,
+      canvas_height: 700,
+      territories: [
+        { territory_id: 'r1', region_id: 'r', world_id: 'rust', polygon: [[11, 115], [400, 115], [400, 300]] as Array<[number, number]>, center_point: [300, 200] },
+        { territory_id: 'r2', region_id: 'r', world_id: 'rust', polygon: [[500, 400], [860, 663], [600, 600]] as Array<[number, number]>, center_point: [650, 550] },
+      ],
+      connections: [],
+    };
+    const rust = filterMapToWorld(board, 'rust');
+    // The box is 849 × 548; a 6% margin of its larger side is 51 on every side.
+    expect([rust.canvas_width, rust.canvas_height]).toEqual([849 + 102, 548 + 102]);
+    expect(rust.territories[0].polygon[0]).toEqual([51, 51]);
+    expect(rust.territories[1].polygon[1]).toEqual([849 + 51, 548 + 51]);
+    expect(rust.territories[0].center_point).toEqual([300 - 11 + 51, 200 - 115 + 51]);
+  });
+
+  it('leaves the Space Age Moon where it was authored, at the corner', () => {
+    const map = JSON.parse(readFileSync(resolve(process.cwd(), '../database/maps/era_space_age.json'), 'utf8')) as WorldPartitionMap;
+    const authored = map.territories.filter((t) => t.region_id === 'lunar_surface');
+    expect(authored.length).toBeGreaterThan(0);
+    const moon = filterMapToWorld(map, 'moon');
+    expect(moon.territories.map((t) => t.polygon)).toEqual(authored.map((t) => t.polygon));
   });
 });
