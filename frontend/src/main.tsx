@@ -16,10 +16,15 @@ import { useFeatureFlagsStore } from './store/featureFlagsStore';
 captureAttribution();
 
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN as string | undefined;
+// The deployed commit, baked in at build time (scripts/deploy-production.sh).
+// Without a release Sentry discards sessions, so crash-free rates stay empty,
+// and it cannot say which deploy an error first came in with.
+const SENTRY_RELEASE = (import.meta.env.VITE_SENTRY_RELEASE as string | undefined) || undefined;
 if (SENTRY_DSN) {
   Sentry.init({
     dsn: SENTRY_DSN,
     environment: import.meta.env.MODE,
+    release: SENTRY_RELEASE,
     tracesSampleRate: import.meta.env.PROD ? 0.2 : 1.0,
   });
 }

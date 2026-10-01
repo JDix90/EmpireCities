@@ -29,7 +29,7 @@ Edit `.env.production`:
 - **`FRONTEND_URL`** — Must match the exact origin users use (`https://your.domain` or `http://ip:port`). CORS and Socket.io rely on this.
 - **`JWT_ACCESS_SECRET`** / **`JWT_REFRESH_SECRET`** — Use long random values (e.g. `openssl rand -hex 32`).
 - Database passwords — change defaults.
-- **`SENTRY_DSN`** / **`VITE_SENTRY_DSN`** — Optional but recommended for production error monitoring.
+- **`SENTRY_DSN`** / **`VITE_SENTRY_DSN`** — Optional but recommended for production error monitoring. The release each report is filed under (`SENTRY_RELEASE`, the deployed commit) is set by the deploy script, not here.
 - **`SMTP_*`** — Recommended for password reset and async turn emails (`SMTP_FROM` on your domain).
 
 ## 2. Build and start the stack
@@ -44,7 +44,8 @@ chmod +x scripts/deploy-production.sh scripts/seed-production.sh scripts/backup-
 Or manually:
 
 ```bash
-docker compose -f docker/docker-compose.prod.yml --env-file .env.production up -d --build
+SENTRY_RELEASE=$(git rev-parse --short HEAD) \
+  docker compose -f docker/docker-compose.prod.yml --env-file .env.production up -d --build
 ```
 
 - **Migrations** run automatically when the backend container starts (`docker/entrypoint-backend.sh`).

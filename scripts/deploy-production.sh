@@ -74,6 +74,14 @@ if ! "${SCRIPT_DIR}/check-embed-origins.sh" --from-file "${ENV_FILE}" --label "$
   exit 1
 fi
 
+# ── Name the release Sentry files every report under ─────────────────────────
+# The commit being deployed, unless the shell already names one. Both images
+# bake it in at build time (docker-compose.prod.yml); without a release Sentry
+# keeps no crash-free session data and cannot say which deploy an error came in
+# with. A --no-build restart keeps the release its images were built at.
+export SENTRY_RELEASE="${SENTRY_RELEASE:-$(git rev-parse --short HEAD 2>/dev/null || true)}"
+echo "[deploy] Sentry release: ${SENTRY_RELEASE:-none (not a git checkout)}"
+
 if [ "${NO_BUILD}" = true ]; then
   docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" up -d
 else
