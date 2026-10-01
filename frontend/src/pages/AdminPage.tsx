@@ -22,6 +22,7 @@ import {
 import { api } from '../services/api';
 import Modal from '../components/ui/Modal';
 import AdminAnalyticsPanel, { type AnalyticsReport } from '../components/admin/AdminAnalyticsPanel';
+import AdminGalaxyReportPanel from '../components/admin/AdminGalaxyReportPanel';
 import { useFeatureFlagsStore } from '../store/featureFlagsStore';
 
 const CLIENT_FEATURE_FLAGS = [
@@ -295,12 +296,14 @@ type TabKey =
   | 'maps'
   | 'dependencies'
   | 'audit'
-  | 'warfront';
+  | 'warfront'
+  | 'galaxy';
 
 const tabs: Array<{ key: TabKey; label: string; description: string }> = [
   { key: 'overview', label: 'Overview', description: 'Volume, health, trends' },
   { key: 'analytics', label: 'Analytics', description: 'Funnel & retention' },
   { key: 'balance', label: 'Balance', description: 'Factions, eras, maps, pace' },
+  { key: 'galaxy', label: 'Galactic Age', description: 'Finished games & win rates' },
   { key: 'ranked', label: 'Ranked', description: 'Rating distribution' },
   { key: 'config', label: 'Config', description: 'Live tuning & flags' },
   { key: 'users', label: 'Users', description: 'Search & moderation' },
@@ -629,6 +632,8 @@ export default function AdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [deps, setDeps] = useState<DependencyReport | null>(null);
   const [warfront, setWarfront] = useState<WarfrontStatusView | null>(null);
+  // The Galactic Age panel fetches for itself; Refresh bumps this to make it refetch.
+  const [galaxyRefresh, setGalaxyRefresh] = useState(0);
   const [statOptions, setStatOptions] = useState<{ era_ids: string[]; map_ids: string[] }>({ era_ids: [], map_ids: [] });
   const [resetModalOpen, setResetModalOpen] = useState(false);
   const [resetSubmitting, setResetSubmitting] = useState(false);
@@ -721,6 +726,8 @@ export default function AdminPage() {
         } else if (tab === 'warfront') {
           const res = await api.get<WarfrontStatusView>('/admin/warfront/status');
           setWarfront(res.data ?? null);
+        } else if (tab === 'galaxy') {
+          setGalaxyRefresh((n) => n + 1);
         }
       } catch (e: unknown) {
         const err = e as { response?: { data?: { error?: string } } };
@@ -735,6 +742,12 @@ export default function AdminPage() {
   useEffect(() => {
     void loadTab(activeTab);
   }, [activeTab, loadTab]);
+
+  // Back to 0 off the Galactic Age tab, so the next visit mounts its panel on
+  // that visit's first load, and the panel fetches once rather than twice.
+  useEffect(() => {
+    if (activeTab !== 'galaxy') setGalaxyRefresh(0);
+  }, [activeTab]);
 
   // Approve/reject a community map, then refresh the queue. Reject prompts
   // for the reason the owner will see in My Maps.
@@ -1216,6 +1229,12 @@ export default function AdminPage() {
         {!loading && activeTab === 'analytics' && (
           <div className="mt-6">
             <AdminAnalyticsPanel data={funnel} />
+          </div>
+        )}
+
+        {!loading && activeTab === 'galaxy' && galaxyRefresh > 0 && (
+          <div className="mt-6">
+            <AdminGalaxyReportPanel refreshKey={galaxyRefresh} />
           </div>
         )}
 
