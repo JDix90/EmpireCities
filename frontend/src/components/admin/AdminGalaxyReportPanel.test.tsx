@@ -46,7 +46,12 @@ const report: GalaxyReport = {
     median_minutes: 42,
     modes: [{ mode: 'partial_schism', seats: 5, relations: 'allied', games: 2, avg_turns: 30.5 }],
     endings: [{ victory: 'lane_sovereignty', games: 1 }, { victory: 'turn_limit', games: 1 }],
-    factions: [rate('stellar_mandate', 4, 4, 0.25, 0.51, 1), rate('forge_syndicate', 0, 2, 0.25, 0, 0.66)],
+    factions: [
+      rate('stellar_mandate', 4, 4, 0.25, 0.51, 1),
+      // Above its share, but the interval still holds the share: not flagged.
+      rate('helion_navigators', 3, 8, 0.25, 0.14, 0.69),
+      rate('forge_syndicate', 0, 2, 0.25, 0, 0.66),
+    ],
     roles: [rate('ally', 4, 4, 0.25, 0.51, 1), rate('whole', 0, 20, 0.25, 0, 0.16)],
     houses: [{ ...rate('Western Mandate|ally', 2, 2, 0.25, 0.34, 1), house: 'Western Mandate', role: 'ally' }],
     players: [rate('human', 2, 3, 0.25, 0.21, 0.94), rate('ai:expert', 2, 7, 0.25, 0.08, 0.64)],
@@ -98,6 +103,8 @@ describe('AdminGalaxyReportPanel', () => {
     const rust = screen.getByLabelText(/^Forge Syndicate \(Rust\): won 0 of 2 seats/);
     expect(rust).not.toHaveTextContent('above share');
     expect(rust).not.toHaveTextContent('below share');
+    const verdan = screen.getByLabelText(/^Helion Navigators \(Verdan\): won 3 of 8 seats, 37.5%/);
+    expect(verdan).not.toHaveTextContent('above share');
 
     expect(screen.getByText('Lane Sovereignty', { selector: 'span' })).toBeInTheDocument();
     expect(screen.getByText('Turn limit')).toBeInTheDocument();

@@ -133,11 +133,25 @@ describe.runIf(enabled)('the Galactic Age report, recorded and read back (Postgr
 
   it('counts a finished Galactic Age game with no record as unrecorded, and nothing else', async () => {
     const before = (await loadGalaxyReport(ALL)).unrecorded_games;
-    await seedGame();
+    const gameId = await seedGame();
     await seedGame({ eraId: 'ww2', mapId: 'era_ww2' });
     await seedGame({ status: 'in_progress' });
     await seedGame({ settings: { era_advancement_enabled: true } });
     expect((await loadGalaxyReport(ALL)).unrecorded_games).toBe(before + 1);
+    // Recorded, it is described rather than counted.
+    const state = alliedFive([]);
+    await recordGalaxyGameResult(gameId, state, solSide(state));
+    expect((await loadGalaxyReport(ALL)).unrecorded_games).toBe(before);
+  });
+
+  it("records a game whose player's account was deleted before it ended, without the link", async () => {
+    const gone = uuidv4(); // never a users row: the account went mid-game
+    const gameId = await seedGame();
+    const state = alliedFive([gone]);
+    expect(await recordGalaxyGameResult(gameId, state, solSide(state))).toBe(true);
+    const game = (await loadGalaxyReport(ALL)).games.find((g) => g.game_id === gameId)!;
+    const seat = game.seat_results[state.players.findIndex((p) => p.player_id === gone)]!;
+    expect(seat).toMatchObject({ user_id: null, username: null, is_ai: false });
   });
 
   it("keeps the game when a player's account is deleted, and drops the link", async () => {

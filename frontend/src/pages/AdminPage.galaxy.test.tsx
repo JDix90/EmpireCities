@@ -73,6 +73,8 @@ describe('Admin → Galactic Age tab', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Galactic Age/ }));
     await screen.findByText('No finished Galactic Age games recorded for these filters.');
     fireEvent.click(screen.getByRole('button', { name: /Overview/ }));
+    // Let Overview finish loading: the page hides every tab while it loads.
+    await waitFor(() => expect(screen.queryByText('Loading…')).toBeNull());
     fireEvent.click(screen.getByRole('button', { name: /Galactic Age/ }));
     await screen.findByText('No finished Galactic Age games recorded for these filters.');
     await new Promise((r) => setTimeout(r, 50));
