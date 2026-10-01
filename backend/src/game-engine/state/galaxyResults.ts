@@ -183,22 +183,26 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  *
  * A seat's user id is kept only while the account exists (the subselect), as in
  * game_players, so the record never fails on an account deleted mid-game.
+ *
+ * `finishedAt` is when the game ended: now, unless a backfill knows better
+ * (modules/admin/galaxyBackfill.ts records a game long after it ended).
  */
 export async function recordGalaxyGameResult(
   gameId: string,
   state: GameState,
   winnerIds: readonly string[],
+  finishedAt: Date | string | null = null,
 ): Promise<boolean> {
   const result = summarizeGalaxyGame(state, winnerIds);
   if (!result) return false;
   return withTransaction(async (client) => {
     const inserted = await client.query(
       `INSERT INTO galaxy_game_results
-         (game_id, seats, mode, relations, board, victory, turns, first_seat, humans)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         (game_id, seats, mode, relations, board, victory, turns, first_seat, humans, finished_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, COALESCE($10::timestamptz, NOW()))
        ON CONFLICT (game_id) DO NOTHING`,
       [gameId, result.seats, result.mode, result.relations, result.board, result.victory,
-        result.turns, result.first_seat, result.humans],
+        result.turns, result.first_seat, result.humans, finishedAt],
     );
     if (!inserted.rowCount) return false;
     for (const s of result.seat_results) {

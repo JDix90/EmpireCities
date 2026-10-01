@@ -30,6 +30,7 @@ import { andNotTutorialSql } from '../../game-engine/tutorial/tutorialGames';
 import { featureFlags } from '../../config/featureFlags';
 import { buildWarfrontStatus, loadWarfrontTerrain } from './warfrontStatus';
 import { loadGalaxyReport } from './galaxyReport';
+import { backfillGalaxyResults } from './galaxyBackfill';
 import { GALAXY_GAME_MODES } from '../../game-engine/state/galaxyResults';
 
 /** Galactic Age report filters; `days` 0 (or absent) reads all time. */
@@ -711,6 +712,14 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
       title: row.spec.title,
       deleted_games,
     });
+  });
+
+  // Galactic Age: record the finished games the report has no record of, from
+  // their saved boards while those last (modules/admin/galaxyBackfill.ts).
+  fastify.post('/actions/galaxy-backfill', { preHandler: [authenticate, requireAdmin] }, async (request, reply) => {
+    const result = await backfillGalaxyResults();
+    await writeAuditLog(request.userId, 'galaxy_results_backfilled', result);
+    return reply.send(result);
   });
 
   fastify.post('/actions/matchmaking-pause', { preHandler: [authenticate, requireAdmin] }, async (request, reply) => {

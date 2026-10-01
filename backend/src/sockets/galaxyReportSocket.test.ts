@@ -219,7 +219,7 @@ describe.runIf(redisTestEnabled)('the Galactic Age report records a game finaliz
     await conquer('galaxy-report-socket-1', 'galaxy_age');
     const game = spies.tx.find((q) => q.sql.includes('INSERT INTO galaxy_game_results'));
     expect(game, 'the game was recorded').toBeDefined();
-    expect(game!.params).toEqual(['galaxy-report-socket-1', 2, 'scattered', null, null, 'last_standing', 1, null, 1]);
+    expect(game!.params).toEqual(['galaxy-report-socket-1', 2, 'scattered', null, null, 'last_standing', 1, null, 1, null]);
     const seats = spies.tx.filter((q) => q.sql.includes('INSERT INTO galaxy_game_result_seats'));
     expect(seats.map((q) => [q.params[1], q.params[3], q.params[4], q.params[11]])).toEqual([
       [0, false, null, true],
