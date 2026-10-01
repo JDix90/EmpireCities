@@ -8,6 +8,8 @@
  */
 export const pixi = (() => {
   const created = { graphics: 0, graphicsList: [] as FakeGraphics[], tickers: [] as FakeTicker[], apps: [] as FakeApplication[] };
+  /** Set `supported` false for a browser without WebGL: the Application throws as PixiJS's does. */
+  const webgl = { supported: true };
 
   class Point {
     x = 0;
@@ -93,6 +95,7 @@ export const pixi = (() => {
     screen: { width: number; height: number };
     destroyed = false;
     constructor(options: Record<string, unknown>) {
+      if (!webgl.supported) throw new Error('Unable to auto-detect a suitable renderer.');
       this.options = options;
       this.view = document.createElement('canvas');
       (this.view as unknown as { setPointerCapture: () => void }).setPointerCapture = () => {};
@@ -105,6 +108,7 @@ export const pixi = (() => {
   }
   return {
     created,
+    webgl,
     module: {
       Application: FakeApplication,
       Container: FakeContainer,

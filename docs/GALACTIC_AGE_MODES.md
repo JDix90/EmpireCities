@@ -554,7 +554,7 @@ How Split behaves:
     turns while Spin is on. Each globe plays only its own world's battles,
     and frames them while "Follow the action" is on.
 - **Desktop only.** A phone shows the chart in its place. A browser without
-  WebGL gets the 2D maps.
+  WebGL gets a message in the view's place: the 2D maps need it too.
 - **Remembered.** Each browser keeps the last choice between the chart and
   Split (`cc-galaxy-overview`).
 

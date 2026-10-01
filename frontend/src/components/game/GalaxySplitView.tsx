@@ -13,11 +13,12 @@
  *    the player opens a world on its own.
  *  - Globe: the globe (GlobeMap), turned and zoomed as the single globe is,
  *    and spinning on other players' turns while the player's Spin is on.
- *    Without WebGL, the flat maps stand in.
  * Either way its targets read across lanes (`targetsAcrossWorlds`): pick a
  * gateway in one pane and the system it can strike lights in the next. Clicks,
  * selection and visual events are the single map's: the selection lives in
  * the shared UI store, and a pane plays only the events on its own world.
+ * Without WebGL neither can draw (PixiJS needs it too), and one message
+ * (MapUnavailable) stands in for the whole view.
  *
  * The lanes run across the grid, gateway to gateway, drawn as the chart draws
  * them (galaxyLaneStyle.ts) over the maps: each pane reports where it drew its
@@ -50,6 +51,7 @@ import { GlobeMapCoreLazy } from '../../utils/globeLoader';
 import { webglAvailable } from '../../utils/webglSupport';
 import { galaxyWorldGlobeProps } from '../../utils/galaxyGlobeSkin';
 import { proceduralWorldTextureUrl } from '../../utils/proceduralPlanet';
+import MapUnavailable from './MapUnavailable';
 
 type GameMapProps = ComponentProps<typeof GameMap>;
 type GlobeMapProps = ComponentProps<typeof GlobeMap>;
@@ -303,9 +305,12 @@ export default function GalaxySplitView({
   const gridWidth = layout.cols * paneWidth + (layout.cols - 1) * SPLIT_GAP_PX;
   const gridHeight = layout.rows * (paneHeight + SPLIT_HEADER_PX) + (layout.rows - 1) * SPLIT_GAP_PX;
 
-  // Globes when the page shows globes and the browser can draw them.
+  // Globes when the page shows globes and the browser can draw them. Without
+  // WebGL the flat maps cannot draw either (PixiJS needs it too): one message
+  // stands in for the whole view.
+  const canDraw = webglAvailable();
   const wantsGlobes = !!globeProps;
-  const globes = wantsGlobes && webglAvailable();
+  const globes = wantsGlobes && canDraw;
 
   // Where each pane drew its systems. A flat map and a globe put a system in
   // different places, so a change of pane starts a new record.
@@ -336,7 +341,7 @@ export default function GalaxySplitView({
   const viewerColor = (viewerPlayerId && playerInfo(viewerPlayerId)?.color) || GOLD;
 
   // Ready, for the turn-ready ack, once every pane's globe is drawn: each time
-  // the globes come up. Without WebGL the flat panes stand in, drawn at once.
+  // the globes come up. Without WebGL the message stands in, shown at once.
   const onGlobeReadyRef = useRef(globeProps?.onGlobeReady);
   onGlobeReadyRef.current = globeProps?.onGlobeReady;
   const worldIdsRef = useRef<string[]>([]);
@@ -349,8 +354,8 @@ export default function GalaxySplitView({
     onGlobeReadyRef.current?.();
   };
   useEffect(() => {
-    if (wantsGlobes && !globes) onGlobeReadyRef.current?.();
-  }, [wantsGlobes, globes]);
+    if (wantsGlobes && !canDraw) onGlobeReadyRef.current?.();
+  }, [wantsGlobes, canDraw]);
 
   // The page's "skip animations" flushes every globe pane's queue.
   const paneSkips = useRef(new Map<string, { current: (() => void) | null }>());
@@ -372,6 +377,8 @@ export default function GalaxySplitView({
       skipAnimationsRef.current = null;
     };
   }, [skipAnimationsRef, globes]);
+
+  if (!canDraw) return <MapUnavailable width={width} height={height} />;
 
   return (
     <div className="relative" style={{ width: gridWidth, height: gridHeight }} data-testid="galaxy-split-view">

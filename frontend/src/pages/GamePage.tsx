@@ -190,6 +190,7 @@ import { getGalaxyWorldLore } from '../constants/galaxyLore';
 import { resolveGalaxyDrillDownGlobeSkin } from '../utils/galaxyGlobeSkin';
 import { proceduralWorldTextureUrl } from '../utils/proceduralPlanet';
 import { GalaxySplitViewLazy, GalaxyStrategicViewLazy, GlobeMapLazy, preloadGlobeChunks } from '../utils/globeLoader';
+import { webglAvailable } from '../utils/webglSupport';
 import { ownAuthUiAllowed } from '../utils/embedContext';
 /** "a", "a and b", "a, b and c" — plain English for a short list of names. */
 function formatList(items: string[]): string {
@@ -5018,7 +5019,8 @@ export default function GamePage() {
                             : (customGlobeSkin?.backgroundColor ?? eraAtmosphereBg)
                         }
                       />
-                      {hasMoonTerritories && (
+                      {/* Without WebGL the globe's message stands for the whole map, not a second one in the inset. */}
+                      {hasMoonTerritories && webglAvailable() && (
                         <MoonInsetFrame className="w-[34%] h-[34%] min-w-[240px] min-h-[200px] max-w-[400px] max-h-[320px]">
                           <GlobeMapLazy
                             mapData={mapData}
