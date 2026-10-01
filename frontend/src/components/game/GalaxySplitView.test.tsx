@@ -1,26 +1,39 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
-/** Each pane's map, as GalaxySplitView rendered it. */
-const maps = vi.hoisted(() => [] as Array<Record<string, unknown>>);
-vi.mock('./GameMap', () => ({
-  default: (props: Record<string, unknown>) => {
-    maps.push(props);
-    const world = props.activeWorldId as string;
-    return (
-      <button
-        type="button"
-        data-testid={`map-${world}`}
-        onClick={() => (props.onTerritoryClick as (id: string) => void)(`${world}_1`)}
-      />
-    );
-  },
-}));
+/** Each pane's map as GalaxySplitView last rendered it, by world, in the order the panes render. */
+const maps = vi.hoisted(() => new Map<string, Record<string, unknown>>());
+/** Where every mock map says it drew each of its systems. */
+const DRAWN_AT = { x: 100, y: 50 };
+vi.mock('./GameMap', async () => {
+  const { useEffect } = await import('react');
+  return {
+    default: (props: Record<string, unknown>) => {
+      const world = props.activeWorldId as string;
+      maps.set(world, props);
+      useEffect(() => {
+        const territories = (props.mapData as { territories: Array<{ territory_id: string; world_id: string }> }).territories;
+        const report = props.onTerritoryCenters as ((c: ReadonlyMap<string, { x: number; y: number }>) => void) | undefined;
+        report?.(new Map(territories.filter((t) => t.world_id === world).map((t) => [t.territory_id, DRAWN_AT])));
+      }, [world]);
+      return (
+        <button
+          type="button"
+          data-testid={`map-${world}`}
+          onClick={() => (props.onTerritoryClick as (id: string) => void)(`${world}_1`)}
+        />
+      );
+    },
+  };
+});
 
 import GalaxySplitView, { SPLIT_GAP_PX, SPLIT_HEADER_PX, type SplitPaneMapProps } from './GalaxySplitView';
 import type { GameState } from '../../store/gameStore';
+import { useUiStore } from '../../store/uiStore';
+import { LANE_COLORS } from './galaxyLaneStyle';
+import { orbitLaneId } from '../../utils/galaxyLanes';
 
 const galaxy = JSON.parse(readFileSync(resolve(process.cwd(), '../database/maps/era_galaxy.json'), 'utf8'));
 const solIds: string[] = galaxy.territories
@@ -82,8 +95,13 @@ function panes() {
 }
 
 beforeEach(() => {
-  maps.length = 0;
+  maps.clear();
   onTerritoryClick.mockReset();
+  useUiStore.setState({ selectedTerritory: null, attackSource: null });
+});
+
+afterEach(() => {
+  useUiStore.setState({ selectedTerritory: null, attackSource: null });
 });
 
 describe('GalaxySplitView', () => {
@@ -101,8 +119,8 @@ describe('GalaxySplitView', () => {
     show();
     const paneWidth = Math.floor((1000 - SPLIT_GAP_PX) / 2);
     const paneHeight = Math.floor((700 - SPLIT_GAP_PX) / 2) - SPLIT_HEADER_PX;
-    expect(maps.map((m) => m.activeWorldId)).toEqual(['sol', 'verdan', 'rust', 'nexus_station']);
-    for (const m of maps) {
+    expect([...maps.keys()]).toEqual(['sol', 'verdan', 'rust', 'nexus_station']);
+    for (const m of maps.values()) {
       expect(m).toMatchObject({
         mapData: galaxy,
         width: paneWidth,
@@ -110,6 +128,8 @@ describe('GalaxySplitView', () => {
         lockCamera: true,
         targetsAcrossWorlds: true,
         ambientEnabled: false,
+        // The view draws whole lanes across the panes instead.
+        showOrbitStubs: false,
         // The single map's props, passed through untouched.
         mapVisualEvents: events,
         validSourceOwnerId: 'me',
@@ -156,9 +176,82 @@ describe('GalaxySplitView', () => {
       { name: 'Sol III', cell: ['1', '1'] },
       { name: 'Verdan Reach', cell: ['1', '2'] },
     ]);
-    expect(maps[0]).toMatchObject({
+    expect(maps.get('sol')).toMatchObject({
       width: Math.floor((1000 - SPLIT_GAP_PX) / 2),
       height: 700 - SPLIT_HEADER_PX,
     });
+  });
+});
+
+describe('GalaxySplitView: the lanes across the panes', () => {
+  interface Connection { from: string; to: string; type: string }
+  const worldOf = new Map(
+    (galaxy.territories as Array<{ territory_id: string; world_id: string }>).map((t) => [t.territory_id, t.world_id]),
+  );
+  const lanes = (galaxy.connections as Connection[]).filter((c) => c.type === 'orbit');
+  const between = (a: string, b: string) => lanes.filter((c) => {
+    const ws = [worldOf.get(c.from), worldOf.get(c.to)];
+    return ws.includes(a) && ws.includes(b);
+  });
+  /** Sol to Verdan: the viewer holds both ends of one, one end of the other. Rust to Nexus: sealed. */
+  const [corridor, open] = between('sol', 'verdan') as [Connection, Connection];
+  const sealed = between('rust', 'nexus_station')[0]!;
+
+  function laneState(): GameState {
+    const state = gameState();
+    for (const id of Object.keys(state.territories)) state.territories[id]!.owner_id = 'ai_1';
+    state.territories[corridor.from]!.owner_id = 'me';
+    state.territories[corridor.to]!.owner_id = 'me';
+    state.territories[open.from]!.owner_id = 'me';
+    (state as unknown as { lane_blockades: object }).lane_blockades = {
+      [orbitLaneId(sealed.from, sealed.to)]: { owner_id: 'ai_1', turns_remaining: 1 },
+    };
+    return state;
+  }
+
+  const lane = (c: Connection) =>
+    screen.getByTestId('galaxy-split-lanes').querySelector(`g[data-lane="${orbitLaneId(c.from, c.to)}"]`)!;
+  const stroke = (c: Connection) => lane(c).querySelector('line')!.getAttribute('stroke');
+
+  it('runs every lane from gateway to gateway, across the gap between panes', () => {
+    show();
+    const drawn = screen.getByTestId('galaxy-split-lanes').querySelectorAll('g[data-lane]');
+    expect(drawn).toHaveLength(lanes.length);
+    // Sol III's pane is top left, Verdan Reach's top right: each end is its
+    // pane's corner, below the header and inside the map's border, plus where
+    // the map drew the gateway.
+    const paneWidth = Math.floor((1000 - SPLIT_GAP_PX) / 2);
+    const at = (world: string) => world === 'sol'
+      ? [1 + DRAWN_AT.x, SPLIT_HEADER_PX + 1 + DRAWN_AT.y]
+      : [paneWidth + SPLIT_GAP_PX + 1 + DRAWN_AT.x, SPLIT_HEADER_PX + 1 + DRAWN_AT.y];
+    const line = lane(corridor).querySelector('line')!;
+    expect([line.getAttribute('x1'), line.getAttribute('y1')].map(Number)).toEqual(at(worldOf.get(corridor.from)!));
+    expect([line.getAttribute('x2'), line.getAttribute('y2')].map(Number)).toEqual(at(worldOf.get(corridor.to)!));
+  });
+
+  it("draws each lane as the chart does: the viewer's corridor, an open lane, a seal", () => {
+    show({ gameState: laneState() });
+    expect(stroke(corridor)).toBe('#c0392b');
+    expect(stroke(open)).toBe(LANE_COLORS.open);
+    expect(stroke(sealed)).toBe(LANE_COLORS.sealed);
+    // The rest the viewer holds no end of.
+    expect(stroke(between('verdan', 'rust')[0]!)).toBe(LANE_COLORS.closed);
+  });
+
+  it("makes the picked gateway's lane stand out", () => {
+    useUiStore.setState({ attackSource: open.from });
+    show({ gameState: laneState() });
+    expect(lane(open)).toHaveAttribute('data-picked', 'true');
+    expect(lane(open)).toHaveAttribute('opacity', '1');
+    expect(lane(open).querySelector('line')).toHaveAttribute('stroke-width', String(1.8 + 1.2));
+    expect(lane(corridor)).not.toHaveAttribute('data-picked');
+    expect(lane(corridor)).toHaveAttribute('opacity', '0.75');
+  });
+
+  it('shows every unsealed lane locked to a viewer who cannot cross', () => {
+    show({ gameState: laneState(), laneAccessAllowed: false });
+    expect(stroke(corridor)).toBe(LANE_COLORS.gated);
+    expect(stroke(open)).toBe(LANE_COLORS.gated);
+    expect(stroke(sealed)).toBe(LANE_COLORS.sealed);
   });
 });

@@ -180,6 +180,18 @@ interface GameMapProps {
    * access, or sealed against them) is left out, as the server refuses it.
    */
   targetsAcrossWorlds?: boolean;
+  /**
+   * Draw each orbit lane leaving this world as a stub off its gateway (the
+   * default). Split draws whole lanes across its panes instead, so its panes
+   * turn the stubs off.
+   */
+  showOrbitStubs?: boolean;
+  /**
+   * Where each territory is drawn on the canvas, in canvas pixels before any
+   * pan or zoom, reported whenever it changes (a resize, the real shapes
+   * arriving). Split draws its lanes between these.
+   */
+  onTerritoryCenters?: (centers: ReadonlyMap<string, { x: number; y: number }>) => void;
 }
 
 function hexToPixi(hex: string): number {
@@ -230,6 +242,8 @@ export default function GameMap({
   moonInset = false,
   lockCamera = false,
   targetsAcrossWorlds = false,
+  showOrbitStubs = true,
+  onTerritoryCenters,
 }: GameMapProps) {
   // Render one world at a time. The Space Age map authors its lunar tiles in
   // the same canvas space as Earth, so without this the Moon is painted on top
@@ -240,8 +254,8 @@ export default function GameMap({
     [rawMapData, activeWorldId],
   );
   const orbitStubs = useMemo(
-    () => orbitStubsForWorld(rawMapData as unknown as WorldPartitionMap, activeWorldId),
-    [rawMapData, activeWorldId],
+    () => (showOrbitStubs ? orbitStubsForWorld(rawMapData as unknown as WorldPartitionMap, activeWorldId) : []),
+    [rawMapData, activeWorldId, showOrbitStubs],
   );
   // Only the Earth canvas hosts the inset, so the nested render cannot recurse.
   const showsMoonInset = moonInset
@@ -1374,6 +1388,12 @@ export default function GameMap({
     }
     return m;
   }, [mapData, canvasW, canvasH, width, height, ringsFor, territoryCenter]);
+
+  const onTerritoryCentersRef = useRef(onTerritoryCenters);
+  onTerritoryCentersRef.current = onTerritoryCenters;
+  useEffect(() => {
+    onTerritoryCentersRef.current?.(territoryCentroids);
+  }, [territoryCentroids]);
 
   // ── Ambient contested borders + turn-holder shimmer ───────────────────────
   useEffect(() => {
