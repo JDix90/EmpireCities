@@ -1233,7 +1233,9 @@ side toward 25%. The search ran on the sim, seed A, 1,260 games a count:
 - **The Schism's house numbers were tuned against the AI** (§8, §10), which
   never breaks a truce and drafts everything onto one tile. Houses played by
   people may want them retuned; the per-turn form was chosen so a retune never
-  needs a lopsided opening.
+  needs a lopsided opening. Admin → Galactic Age reads finished games the way
+  this file reads the sim (per seat against 1 / sides, with a 95% interval), so
+  people's games can be checked against these tables as they accrue.
 - **The Schism's elimination rates** are those of an eight-player game: the
   Eastern Mandate ends eliminated in ~69% of games. Nothing in the four-player
   gate covers that yet. At five to seven seats the Mandate's seats end
@@ -1253,7 +1255,8 @@ side toward 25%. The search ran on the sim, seed A, 1,260 games a count:
   50% baseline, in games of about 16 turns. It passes the gate, which does not
   read the snowball; the 1v1 duel (§7) sits at ~72%.
 - **Team numbers were tuned against the AI**, which does not coordinate with
-  its ally. Two people on one side may play it differently.
+  its ally. Two people on one side may play it differently; Admin → Galactic
+  Age records each finished game's sides to tell.
 - **Some Allied Partial Schism boards are still uneven** (§10), though the
   numbers now go board by board (5.1–5.4 points RMS around 25%, from 8.8–14.7):
   - five seats, Verdan split: the lone Sol seat wins 38%;

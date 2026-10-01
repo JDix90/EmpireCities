@@ -488,6 +488,36 @@ rather than hard-coded as era special cases:
 Built this way, other eras could adopt modes of their own later without a
 rewrite. Whether any should is a separate discussion.
 
+## Real games: the admin report
+
+Every number above was tuned against the AI. The report under
+**Admin → Galactic Age** reads the games people actually finish.
+
+**What is recorded.** As a Galactic Age game ends, `finalizeGame` records it
+(`recordGalaxyGameResult`, migration 048):
+- the board it dealt: the mode, the seat count, the house relations and, on a
+  Partial Schism, the worlds that split;
+- the ending, the turn count and the seat that moved first;
+- each seat's faction, world, house, role and side, and its own board number;
+- whether the seat was human or AI (with the AI's difficulty);
+- whether it was credited with the win, eliminated or resigned.
+
+Every other game records nothing. The dealt board otherwise lives only in the
+game's state snapshots, which are pruned 7 days after the game ends.
+
+**How it reads.** The report (`GET /api/admin/metrics/galaxy`, admin-only) reads
+win rates as the balance sim does: per seat, against the seat's fair share of its
+game, 1 / sides. Each rate shows a 95% interval and the gate's ±28% band, since
+a handful of playtests reads nothing like 1,260 sim games. The report covers:
+- faction, role, Schism house, and human against AI;
+- the first seat;
+- how games ended and the boards played;
+- the newest games, seat by seat.
+
+The filters are the window, the seat count, the board and the house relations.
+Finished games from before the report started recording are counted but not
+described.
+
 ## Build order
 
 1. **Colonies (two and three players)**, the seat guard, per-seat Sovereignty
