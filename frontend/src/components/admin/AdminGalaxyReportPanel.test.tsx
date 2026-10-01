@@ -2,11 +2,24 @@ import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 const getMock = vi.fn();
-vi.mock('../../services/api', () => ({ api: { get: (...a: unknown[]) => getMock(...a) } }));
+const postMock = vi.fn();
+vi.mock('../../services/api', () => ({
+  api: { get: (...a: unknown[]) => getMock(...a), post: (...a: unknown[]) => postMock(...a) },
+}));
+const toastMock = vi.hoisted(() => {
+  const fn = vi.fn() as ReturnType<typeof vi.fn> & { success: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> };
+  fn.success = vi.fn();
+  fn.error = vi.fn();
+  return fn;
+});
+vi.mock('react-hot-toast', () => ({ default: toastMock }));
 
 import AdminGalaxyReportPanel, {
+  backfillSummary,
   pct,
+  savedBoardsNote,
   seriesByDay,
+  type GalaxyBackfillResult,
   type GalaxyRate,
   type GalaxyReport,
   type GalaxyReportSeat,
@@ -83,9 +96,15 @@ const empty: GalaxyReport = {
   games: [],
 };
 
+const NOTHING_SKIPPED: GalaxyBackfillResult['skipped'] = { no_saved_board: 0, not_finished: 0, no_winner: 0, not_recorded: 0 };
+
 beforeEach(() => {
   getMock.mockReset();
   getMock.mockResolvedValue({ data: report });
+  postMock.mockReset();
+  toastMock.mockReset();
+  toastMock.success.mockReset();
+  toastMock.error.mockReset();
 });
 
 describe('AdminGalaxyReportPanel', () => {
@@ -116,7 +135,51 @@ describe('AdminGalaxyReportPanel', () => {
     expect(screen.getByText('Deleted account')).toBeInTheDocument();
     expect(screen.getByText(/· resigned/)).toBeInTheDocument();
     expect(screen.getByText('42 min')).toBeInTheDocument();
-    expect(screen.getByText(/1 finished Galactic Age game in\s+this window ended before the report started recording/)).toBeInTheDocument();
+    // The one unrecorded game's board is gone (no recoverable_games: an older backend reads as none).
+    expect(screen.getByText(/^1 finished Galactic Age game in this window is missing from the report: it ended/)).toBeInTheDocument();
+    expect(screen.getByText(/^Its final board isn't saved, so it can't be recovered\./)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Recover/ })).toBeNull();
+  });
+
+  it('recovers the unrecorded games that still have a saved board, then reads the report again', async () => {
+    getMock.mockResolvedValueOnce({ data: { ...report, unrecorded_games: 3, recoverable_games: 2 } });
+    getMock.mockResolvedValueOnce({ data: { ...report, unrecorded_games: 1, recoverable_games: 0 } });
+    postMock.mockResolvedValueOnce({ data: { checked: 2, recorded: 2, skipped: NOTHING_SKIPPED, more: false } });
+    render(<AdminGalaxyReportPanel />);
+    expect(await screen.findByText(/^3 finished Galactic Age games in this window are missing from the report/)).toBeInTheDocument();
+    expect(screen.getByText(/^2 of them still have their final boards saved, so those can be recorded now\./)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Recover 2 games' }));
+    expect(screen.getByRole('button', { name: 'Recovering…' })).toBeDisabled();
+    await waitFor(() => expect(toastMock.success).toHaveBeenCalledWith('Recovered 2 games.', expect.anything()));
+    expect(postMock).toHaveBeenCalledWith('/admin/actions/galaxy-backfill');
+    // Read again: the two recovered games are described now, and the last one can't be.
+    expect(await screen.findByText(/^1 finished Galactic Age game in this window is missing/)).toBeInTheDocument();
+    expect(getMock).toHaveBeenCalledTimes(2);
+    expect(getMock).toHaveBeenLastCalledWith('/admin/metrics/galaxy', { params: {} });
+    expect(screen.queryByRole('button', { name: /^Recover/ })).toBeNull();
+  });
+
+  it('says what a recovery that recorded nothing found, and the server error when it fails', async () => {
+    getMock.mockResolvedValue({ data: { ...report, unrecorded_games: 1, recoverable_games: 1 } });
+    postMock.mockResolvedValueOnce({
+      data: { checked: 1, recorded: 0, skipped: { ...NOTHING_SKIPPED, not_finished: 1 }, more: false },
+    });
+    render(<AdminGalaxyReportPanel />);
+    expect(await screen.findByText(/^Its final board is still saved, so it can be recorded now\./)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Recover 1 game' }));
+    await waitFor(() => expect(toastMock).toHaveBeenCalledWith(
+      'Recovered 0 games; 1 game never saved a game-over board.', expect.anything(),
+    ));
+    expect(toastMock.success).not.toHaveBeenCalled();
+    await waitFor(() => expect(getMock).toHaveBeenCalledTimes(2));
+
+    postMock.mockRejectedValueOnce({ response: { data: { error: 'Admin access required' } } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Recover 1 game' }));
+    await waitFor(() => expect(toastMock.error).toHaveBeenCalledWith('Admin access required'));
+    // Nothing was recorded, so the report is not read again; the button is back.
+    expect(getMock).toHaveBeenCalledTimes(2);
+    expect(await screen.findByRole('button', { name: 'Recover 1 game' })).toBeEnabled();
   });
 
   it('switches the win-rate breakdown between factions, roles, houses and players', async () => {
@@ -169,6 +232,25 @@ describe('AdminGalaxyReportPanel', () => {
 });
 
 describe('formatting', () => {
+  it('says what a recovery did, and why it skipped what it skipped', () => {
+    expect(backfillSummary({ checked: 2, recorded: 2, skipped: NOTHING_SKIPPED, more: false })).toBe('Recovered 2 games.');
+    expect(backfillSummary({
+      checked: 50, recorded: 1, more: true,
+      skipped: { no_saved_board: 1, not_finished: 2, no_winner: 0, not_recorded: 46 },
+    })).toBe(
+      'Recovered 1 game; 1 game had no saved board left, 2 games never saved a game-over board, '
+      + '46 games could not be recorded. More remain: recover again.',
+    );
+    expect(backfillSummary({ checked: 1, recorded: 0, skipped: { ...NOTHING_SKIPPED, no_winner: 1 }, more: false }))
+      .toBe('Recovered 0 games; 1 game named no winner.');
+  });
+
+  it('says whether the unrecorded games can still be recorded', () => {
+    expect(savedBoardsNote(2, 2)).toMatch(/^Their final boards are still saved, so they can be recorded now\./);
+    expect(savedBoardsNote(3, 1)).toMatch(/^1 of them still has its final board saved, so it can be recorded now\./);
+    expect(savedBoardsNote(2, 0)).toMatch(/^Their final boards aren't saved, so they can't be recovered\./);
+  });
+
   it('prints a rate without a trailing .0', () => {
     expect(pct(0.25)).toBe('25%');
     expect(pct(0.125)).toBe('12.5%');

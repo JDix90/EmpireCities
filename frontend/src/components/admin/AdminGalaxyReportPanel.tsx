@@ -11,6 +11,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { ArrowDown, ArrowUp, Trophy } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { api } from '../../services/api';
 
 export type GalaxyGameMode = 'colonies' | 'home_worlds' | '2v2' | 'partial_schism' | 'schism' | 'scattered';
@@ -81,9 +82,20 @@ export interface GalaxyReport {
   filters: { days: number | null; seats: number | null; mode: GalaxyGameMode | null; relations: GalaxyRelations | null };
   total_games: number;
   truncated: boolean;
+  /** Finished Galactic Age games in the window with no record. */
   unrecorded_games: number;
+  /** Of those, the ones whose game-over board is still saved. Optional for rollout: older backends won't send it. */
+  recoverable_games?: number;
   analytics: GalaxyAnalytics;
   games: GalaxyReportGame[];
+}
+
+/** What POST /admin/actions/galaxy-backfill did (backend modules/admin/galaxyBackfill.ts). */
+export interface GalaxyBackfillResult {
+  checked: number;
+  recorded: number;
+  skipped: { no_saved_board: number; not_finished: number; no_winner: number; not_recorded: number };
+  more: boolean;
 }
 
 interface Filters {
@@ -167,6 +179,36 @@ const BREAKDOWNS: Array<{ key: Breakdown; label: string }> = [
 /** 0.125 → "12.5%", 0.25 → "25%". */
 export function pct(x: number): string {
   return `${(x * 100).toFixed(1).replace(/\.0$/, '')}%`;
+}
+
+function countOf(n: number, one: string, many: string): string {
+  return `${n.toLocaleString()} ${n === 1 ? one : many}`;
+}
+
+/** Whether the unrecorded games can still be recorded: only from their final, game-over board. */
+export function savedBoardsNote(unrecorded: number, recoverable: number): string {
+  const kept = 'Saved boards are kept for 7 days after a game ends, by default.';
+  if (recoverable <= 0) {
+    return `${unrecorded === 1 ? "Its final board isn't saved, so it" : "Their final boards aren't saved, so they"} can't be recovered. ${kept}`;
+  }
+  if (recoverable >= unrecorded) {
+    return `${unrecorded === 1 ? 'Its final board is still saved, so it' : 'Their final boards are still saved, so they'} can be recorded now. ${kept}`;
+  }
+  return `${countOf(recoverable, 'of them still has its final board saved, so it', 'of them still have their final boards saved, so those')} can be recorded now. ${kept}`;
+}
+
+/** What a backfill did, in a sentence. */
+export function backfillSummary(r: GalaxyBackfillResult): string {
+  const notes = ([
+    [r.skipped.no_saved_board, 'had no saved board left'],
+    [r.skipped.not_finished, 'never saved a game-over board'],
+    [r.skipped.no_winner, 'named no winner'],
+    [r.skipped.not_recorded, 'could not be recorded'],
+  ] as const)
+    .filter(([n]) => n > 0)
+    .map(([n, why]) => `${countOf(n, 'game', 'games')} ${why}`);
+  return `Recovered ${countOf(r.recorded, 'game', 'games')}${notes.length ? `; ${notes.join(', ')}` : ''}.`
+    + (r.more ? ' More remain: recover again.' : '');
 }
 
 function worldList(key: string): string {
@@ -346,6 +388,8 @@ export default function AdminGalaxyReportPanel({ refreshKey = 0 }: { refreshKey?
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [breakdown, setBreakdown] = useState<Breakdown>('factions');
+  const [reload, setReload] = useState(0);
+  const [recovering, setRecovering] = useState(false);
 
   useEffect(() => {
     let stale = false;
@@ -371,7 +415,25 @@ export default function AdminGalaxyReportPanel({ refreshKey = 0 }: { refreshKey?
     return () => {
       stale = true;
     };
-  }, [filters, refreshKey]);
+  }, [filters, refreshKey, reload]);
+
+  /** Record the unrecorded games that still have a saved board, then read the report again. */
+  const recover = () => {
+    setRecovering(true);
+    api
+      .post<GalaxyBackfillResult>('/admin/actions/galaxy-backfill')
+      .then((res) => {
+        const summary = backfillSummary(res.data);
+        if (res.data.recorded > 0) toast.success(summary, { duration: 8000 });
+        else toast(summary, { duration: 8000 });
+        setReload((n) => n + 1);
+      })
+      .catch((e: unknown) => {
+        const err = e as { response?: { data?: { error?: string } } };
+        toast.error(err?.response?.data?.error ?? 'Failed to recover the unrecorded games');
+      })
+      .finally(() => setRecovering(false));
+  };
 
   const { points: days, weekly } = useMemo(() => seriesByDay(report?.analytics.by_day ?? []), [report]);
 
@@ -433,6 +495,8 @@ export default function AdminGalaxyReportPanel({ refreshKey = 0 }: { refreshKey?
   }
 
   const a = report.analytics;
+  const unrecorded = report.unrecorded_games;
+  const recoverable = report.recoverable_games ?? 0;
   const human = a.players.find((p) => p.key === 'human');
   const rows = rateRows(a, breakdown);
   const endingMax = Math.max(1, ...a.endings.map((e) => e.games));
@@ -449,11 +513,31 @@ export default function AdminGalaxyReportPanel({ refreshKey = 0 }: { refreshKey?
           Every Galactic Age game is recorded as it ends: the board it dealt, each seat&apos;s faction, house, role and
           side, and who won. Win rates are per seat against the seat&apos;s fair share of its game (1 / sides), as the
           balance sim reads them.
-          {report.unrecorded_games > 0 && (
-            <> {report.unrecorded_games.toLocaleString()} finished Galactic Age {report.unrecorded_games === 1 ? 'game' : 'games'} in
-            this window ended before the report started recording and {report.unrecorded_games === 1 ? 'is' : 'are'} not counted.</>
-          )}
         </p>
+
+        {unrecorded > 0 && (
+          <div className="space-y-2 rounded-xl border border-bf-border bg-cc-panel/50 p-4 text-sm">
+            <p className="text-bf-text">
+              {countOf(unrecorded, 'finished Galactic Age game', 'finished Galactic Age games')} in this window{' '}
+              {unrecorded === 1
+                ? 'is missing from the report: it ended before the report started recording, or its record failed to write.'
+                : 'are missing from the report: they ended before the report started recording, or their records failed to write.'}
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-bf-muted">{savedBoardsNote(unrecorded, recoverable)}</p>
+              {recoverable > 0 && (
+                <button
+                  type="button"
+                  onClick={recover}
+                  disabled={recovering || loading}
+                  className="rounded-lg border border-bf-gold/60 bg-bf-gold/10 px-3 py-1.5 text-sm font-medium text-bf-gold hover:bg-bf-gold/20 disabled:opacity-50"
+                >
+                  {recovering ? 'Recovering…' : `Recover ${countOf(recoverable, 'game', 'games')}`}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {a.games === 0 ? (
           <div className="rounded-xl border border-bf-border bg-cc-panel/50 p-6 text-center">
