@@ -515,8 +515,17 @@ a handful of playtests reads nothing like 1,260 sim games. The report covers:
 - the newest games, seat by seat.
 
 The filters are the window, the seat count, the board and the house relations.
-Finished games from before the report started recording are counted but not
-described.
+
+**Games with no record.** A finished game is missing from the report if it
+ended before the report started recording, or if its record failed to write
+(the record is non-critical, so a failure never blocks the game's end). The
+report counts these games and says how many still have their final board saved.
+That is the game-over board `finalizeGame` saves as a game ends.
+**Recover** (`POST /api/admin/actions/galaxy-backfill`, admin-only and
+audit-logged) records those games from that board, so each record matches the
+one `finalizeGame` would have written, dated when the game ended. Each call
+reads up to 50 games, oldest first, because those boards are pruned soonest. A
+game whose final board is gone stays counted but not described.
 
 ## Build order
 
