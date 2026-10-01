@@ -120,3 +120,30 @@ describe('GET /api/admin/metrics/galaxy', () => {
     await app.close();
   });
 });
+
+describe('POST /api/admin/actions/galaxy-backfill', () => {
+  const backfillQueried = () =>
+    queryMock.mock.calls.some(([sql]) => /ORDER BY g\.ended_at ASC NULLS LAST/.test(String(sql)));
+
+  it('refuses a non-admin', async () => {
+    const app = await buildApp();
+    const res = await app.inject({ method: 'POST', url: '/api/admin/actions/galaxy-backfill' });
+    expect(res.statusCode).toBe(403);
+    expect(backfillQueried()).toBe(false);
+    await app.close();
+  });
+
+  it('runs for an admin, answers what it did, and writes the audit log', async () => {
+    const app = await buildApp();
+    const res = await app.inject({ method: 'POST', url: '/api/admin/actions/galaxy-backfill', headers: ADMIN });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({
+      checked: 0, recorded: 0, more: false,
+      skipped: { no_saved_board: 0, not_finished: 0, no_winner: 0, not_recorded: 0 },
+    });
+    expect(backfillQueried()).toBe(true);
+    const audit = queryMock.mock.calls.find(([sql]) => /INSERT INTO admin_audit_log/.test(String(sql)));
+    expect(audit?.[1]).toEqual(['user-1', 'galaxy_results_backfilled', expect.stringContaining('"recorded":0')]);
+    await app.close();
+  });
+});

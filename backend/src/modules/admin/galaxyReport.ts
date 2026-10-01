@@ -12,7 +12,7 @@
 import { query, queryOne } from '../../db/postgres';
 import type { GalaxyGameMode, GalaxySeatRole } from '../../game-engine/state/galaxyResults';
 import type { GalaxyHouseRelations } from '../../types';
-import { GALACTIC_AGE_GAME_SQL } from '../games/lobbyCapacity';
+import { GAME_OVER_BOARD_SAVED_SQL, UNRECORDED_GALAXY_GAMES_SQL } from './galaxyBackfill';
 
 export interface GalaxyReportSeat {
   seat: number;
@@ -103,8 +103,13 @@ export interface GalaxyReport {
   total_games: number;
   /** More games matched than the analytics read (GALAXY_ANALYTICS_CAP, newest first). */
   truncated: boolean;
-  /** Finished Galactic Age games in the window with no record: they ended before the report existed. */
+  /**
+   * Finished Galactic Age games in the window with no record: they ended before
+   * the report recorded games, or their record failed to write.
+   */
   unrecorded_games: number;
+  /** Of those, the ones whose game-over board is still saved, which the backfill can record. */
+  recoverable_games: number;
   analytics: GalaxyAnalytics;
   /** The newest games, up to GALAXY_LIST_LIMIT. */
   games: GalaxyReportGame[];
@@ -323,16 +328,15 @@ export async function loadGalaxyReport(filters: GalaxyReportFilters): Promise<Ga
       params,
     ))?.n ?? rows.length)
     : rows.length;
-  // Games the report cannot describe: finished before it recorded them. Only the
-  // window filters them; their seats and board are what was never recorded.
-  const unrecorded = await queryOne<{ n: string }>(
-    `SELECT COUNT(*)::text AS n
+  // Games the report cannot describe: no record. Only the window filters them;
+  // their seats and board are what was never recorded. Those whose game-over
+  // board is still saved are what the backfill (galaxyBackfill.ts) can record.
+  const unrecorded = await queryOne<{ n: string; recoverable: string }>(
+    `SELECT COUNT(*)::text AS n,
+            COUNT(*) FILTER (WHERE ${GAME_OVER_BOARD_SAVED_SQL})::text AS recoverable
      FROM games g
-     WHERE g.status = 'completed'
-       AND ${GALACTIC_AGE_GAME_SQL}
-       AND COALESCE((g.settings_json->>'era_advancement_enabled')::boolean, false) = false
-       AND ($1::int IS NULL OR g.ended_at >= NOW() - make_interval(days => $1::int))
-       AND NOT EXISTS (SELECT 1 FROM galaxy_game_results r WHERE r.game_id = g.game_id)`,
+     WHERE ${UNRECORDED_GALAXY_GAMES_SQL}
+       AND ($1::int IS NULL OR g.ended_at >= NOW() - make_interval(days => $1::int))`,
     [filters.days],
   );
 
@@ -341,6 +345,7 @@ export async function loadGalaxyReport(filters: GalaxyReportFilters): Promise<Ga
     total_games: total,
     truncated,
     unrecorded_games: Number(unrecorded?.n ?? 0),
+    recoverable_games: Number(unrecorded?.recoverable ?? 0),
     analytics: buildGalaxyAnalytics(games),
     games: games.slice(0, GALAXY_LIST_LIMIT),
   };

@@ -27,6 +27,7 @@ describe.runIf(enabled)('the Galactic Age report, recorded and read back (Postgr
   let query: (sql: string, params?: unknown[]) => Promise<Record<string, unknown>[]>;
   let recordGalaxyGameResult: (gameId: string, state: GameState, winnerIds: readonly string[]) => Promise<boolean>;
   let loadGalaxyReport: (filters: GalaxyReportFilters) => Promise<GalaxyReport>;
+  let backfillGalaxyResults: typeof import('./galaxyBackfill').backfillGalaxyResults;
   let initializeGameState: typeof import('../../game-engine/state/gameStateManager').initializeGameState;
   const userIds: string[] = [];
   const gameIds: string[] = [];
@@ -42,16 +43,36 @@ describe.runIf(enabled)('the Galactic Age report, recorded and read back (Postgr
     return { id, name };
   }
 
-  async function seedGame(opts: { eraId?: string; mapId?: string; status?: string; settings?: object } = {}) {
+  async function seedGame(
+    opts: { eraId?: string; mapId?: string; status?: string; settings?: object; endedDaysAgo?: number } = {},
+  ) {
     const gameId = uuidv4();
     gameIds.push(gameId);
     await query(
       `INSERT INTO games (game_id, map_id, era_id, status, settings_json, game_type, started_at, ended_at)
-       VALUES ($1, $2, $3, $4, $5::jsonb, 'custom', NOW() - INTERVAL '40 minutes', NOW())`,
+       VALUES ($1, $2, $3, $4, $5::jsonb, 'custom',
+               NOW() - make_interval(days => $6::int, mins => 40), NOW() - make_interval(days => $6::int))`,
       [gameId, opts.mapId ?? 'era_galaxy', opts.eraId ?? 'galaxy_age', opts.status ?? 'completed',
-        JSON.stringify(opts.settings ?? {})],
+        JSON.stringify(opts.settings ?? {}), opts.endedDaysAgo ?? 0],
     );
     return gameId;
+  }
+
+  /** A game's last saved board (game_states), as finalizeGame leaves one. */
+  async function saveBoard(gameId: string, state: GameState): Promise<void> {
+    await query(
+      `INSERT INTO game_states (game_id, turn_number, state_json) VALUES ($1, $2, $3::jsonb)`,
+      [gameId, state.turn_number, JSON.stringify(state)],
+    );
+  }
+
+  /** alliedFive, ended: Sol's side won. */
+  function finishedAlliedFive(humans: string[] = []): GameState {
+    const state = alliedFive(humans);
+    state.phase = 'game_over';
+    state.winner_ids = solSide(state);
+    state.winner_id = state.winner_ids[0];
+    return state;
   }
 
   /** Five seats Allied: the listed humans first, AI bots after. */
@@ -84,6 +105,7 @@ describe.runIf(enabled)('the Galactic Age report, recorded and read back (Postgr
     });
     ({ recordGalaxyGameResult } = await import('../../game-engine/state/galaxyResults'));
     ({ loadGalaxyReport } = await import('./galaxyReport'));
+    ({ backfillGalaxyResults } = await import('./galaxyBackfill'));
     ({ initializeGameState } = await import('../../game-engine/state/gameStateManager'));
   }, 30_000);
 
@@ -163,6 +185,84 @@ describe.runIf(enabled)('the Galactic Age report, recorded and read back (Postgr
     const game = (await loadGalaxyReport(ALL)).games.find((g) => g.game_id === gameId)!;
     const seat = game.seat_results[state.players.findIndex((p) => p.player_id === c.id)]!;
     expect(seat).toMatchObject({ user_id: null, username: null, is_ai: false });
+  });
+
+  it('counts the unrecorded games whose game-over board is still saved as recoverable', async () => {
+    const before = await loadGalaxyReport(ALL);
+    const ended = await seedGame();
+    await saveBoard(ended, alliedFive([])); // an earlier turn's board, kept for the replay
+    await saveBoard(ended, { ...finishedAlliedFive(), turn_number: 32 } as GameState);
+    await seedGame(); // its boards pruned
+    const lastSaveFailed = await seedGame();
+    await saveBoard(lastSaveFailed, alliedFive([])); // its game-over board never saved
+    // Ended on the turn it opened: the opening board is kept beside the game-over
+    // board of the same turn, and the later save is the last board.
+    const openingTurn = await seedGame();
+    await saveBoard(openingTurn, alliedFive([]));
+    await saveBoard(openingTurn, finishedAlliedFive());
+    const after = await loadGalaxyReport(ALL);
+    expect(after.unrecorded_games).toBe(before.unrecorded_games + 4);
+    expect(after.recoverable_games).toBe(before.recoverable_games + 2);
+  });
+
+  it('backfills an unrecorded game from its game-over board, as it ended, and only once', async () => {
+    const d = await seedUser('gal_d');
+    const old = await seedGame({ endedDaysAgo: 3 });
+    const state = finishedAlliedFive([d.id]);
+    await saveBoard(old, alliedFive([d.id])); // an earlier turn's board, kept for the replay
+    state.turn_number = 32;
+    await saveBoard(old, state);
+    const pruned = await seedGame();
+    const midGame = await seedGame();
+    await saveBoard(midGame, alliedFive([]));
+    const noWinner = await seedGame();
+    await saveBoard(noWinner, { ...finishedAlliedFive(), winner_ids: [], winner_id: undefined } as GameState);
+    const openingTurn = await seedGame({ endedDaysAgo: 2 });
+    await saveBoard(openingTurn, alliedFive([])); // the opening board, kept beside the same turn's game-over board
+    await saveBoard(openingTurn, finishedAlliedFive());
+    const ours = [old, pruned, midGame, noWinner, openingTurn];
+
+    const result = await backfillGalaxyResults();
+    expect(result.recorded).toBeGreaterThanOrEqual(1);
+    expect(result.skipped.no_winner).toBeGreaterThanOrEqual(1);
+    // A game with no saved board, or whose last board is not the game-over one, is not read at all.
+    expect(result.skipped).toMatchObject({ no_saved_board: 0, not_finished: 0 });
+    const recorded = await query(
+      `SELECT r.game_id, r.finished_at = g.ended_at AS dated_as_ended
+       FROM galaxy_game_results r JOIN games g USING (game_id) WHERE r.game_id = ANY($1)`,
+      [ours],
+    );
+    expect(recorded.map((r) => r.game_id).sort()).toEqual([old, openingTurn].sort());
+    // Dated when it ended, to the microsecond: compared in SQL, not through a JS Date.
+    expect(recorded.every((r) => r.dated_as_ended === true)).toBe(true);
+
+    // The record finalizeGame would have written, from the last board.
+    const game = (await loadGalaxyReport(ALL)).games.find((g) => g.game_id === old)!;
+    expect(game).toMatchObject({ mode: 'partial_schism', relations: 'allied', board: 'sol', victory: 'lane_sovereignty', turns: 32 });
+    expect(game.seat_results.filter((s) => s.won).map((s) => s.world_id)).toEqual(['sol', 'sol']);
+    expect(game.seat_results.find((s) => s.user_id === d.id)).toMatchObject({ username: d.name });
+
+    // Run again: recorded games are no longer candidates; the rest stay as they were.
+    await backfillGalaxyResults();
+    const again = await query('SELECT game_id FROM galaxy_game_results WHERE game_id = ANY($1)', [ours]);
+    expect(again.map((r) => r.game_id).sort()).toEqual([old, openingTurn].sort());
+    const seats = await query('SELECT COUNT(*)::int AS n FROM galaxy_game_result_seats WHERE game_id = $1', [old]);
+    expect(seats[0]!.n).toBe(5);
+  });
+
+  it('backfills the oldest boards first, a batch at a time, and says when more remain', async () => {
+    const older = await seedGame({ endedDaysAgo: 6 });
+    await saveBoard(older, finishedAlliedFive());
+    const newer = await seedGame({ endedDaysAgo: 5 });
+    await saveBoard(newer, finishedAlliedFive());
+    const recorded = async () =>
+      (await query('SELECT game_id FROM galaxy_game_results WHERE game_id = ANY($1)', [[older, newer]]))
+        .map((r) => r.game_id);
+
+    expect(await backfillGalaxyResults(1)).toMatchObject({ checked: 1, recorded: 1, more: true });
+    expect(await recorded()).toEqual([older]);
+    expect(await backfillGalaxyResults(1)).toMatchObject({ checked: 1, recorded: 1 });
+    expect((await recorded()).sort()).toEqual([older, newer].sort());
   });
 
   it('records nothing for a game outside the Galactic Age', async () => {
