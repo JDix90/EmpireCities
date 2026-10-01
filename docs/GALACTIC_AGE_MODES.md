@@ -527,6 +527,28 @@ one `finalizeGame` would have written, dated when the game ended. Each call
 reads up to 50 games, oldest first, because those boards are pruned soonest. A
 game whose final board is gone stays counted but not described.
 
+## Seeing every world: Split
+
+On desktop a Galactic Age board has three views:
+- the **Galaxy chart**: each world is one node, ringed by its owners' shares;
+- a **world tab**: one world's globe or 2D map;
+- **Split**: every world's 2D map at once (`GalaxySplitView`).
+
+How Split behaves:
+- **Layout.** Panes keep the chart's ring order, clockwise from the top-left
+  (Sol III, Verdan Reach, Rust Belt, Nexus Station on the shipped board), so
+  every lane joins two side-by-side panes.
+- **Pane header.** It shows the world's owners as a bar, the viewer's count of
+  systems, and a button that opens the world on its own.
+- **Interaction.** The panes hold still; to zoom, open a world. Selecting a
+  gateway lights its target across a lane in the pane that draws it. A lane
+  the player cannot cross is left out: sealed against them, or locked without
+  Lane Charts.
+- **Desktop only.** Split always uses flat maps, whichever view toggle is on.
+  A phone shows the chart in its place.
+- **Remembered.** Each browser keeps the last choice between the chart and
+  Split (`cc-galaxy-overview`).
+
 ## Build order
 
 1. **Colonies (two and three players)**, the seat guard, per-seat Sovereignty

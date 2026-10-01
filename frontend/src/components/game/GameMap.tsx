@@ -167,6 +167,19 @@ interface GameMapProps {
   activeWorldId?: string;
   /** Render the Moon in an inset beside this map (Earth canvas only). */
   moonInset?: boolean;
+  /**
+   * Hold the view still: no drag, pinch, wheel or double-tap zoom, only taps.
+   * Split's panes (GalaxySplitView) each fit their world and stay put; a player
+   * opens a world on its own to zoom.
+   */
+  lockCamera?: boolean;
+  /**
+   * Light targets and valid sources from the whole board's connections, not
+   * just this world's, so a gateway's target across a lane lights up in the
+   * pane that draws it (GalaxySplitView). A lane the player cannot cross (no
+   * access, or sealed against them) is left out, as the server refuses it.
+   */
+  targetsAcrossWorlds?: boolean;
 }
 
 function hexToPixi(hex: string): number {
@@ -215,6 +228,8 @@ export default function GameMap({
   contestedBorders = [],
   connectionHintMode = 'full',
   moonInset = false,
+  lockCamera = false,
+  targetsAcrossWorlds = false,
 }: GameMapProps) {
   // Render one world at a time. The Space Age map authors its lunar tiles in
   // the same canvas space as Earth, so without this the Moon is painted on top
@@ -736,6 +751,8 @@ export default function GameMap({
       canvas.setPointerCapture(e.pointerId);
       activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       wakeForGesture();
+      // A locked view only takes taps, which the territory shapes handle.
+      if (lockCamera) return;
       if (activePointers.size === 1) {
         // Double-tap: zoom in 2× centered on tap, or reset if near max zoom
         const now = Date.now();
@@ -770,6 +787,7 @@ export default function GameMap({
       // A hover (a mouse, no button down) changes territory alpha too.
       if (activePointers.has(e.pointerId)) activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       wakeForGesture();
+      if (lockCamera) return;
       if (activePointers.size === 2) {
         // Pinch-to-zoom
         const pts = [...activePointers.values()];
@@ -800,6 +818,7 @@ export default function GameMap({
 
     // Mouse-wheel zoom (desktop)
     const onWheel = (e: WheelEvent) => {
+      if (lockCamera) return;
       e.preventDefault();
       const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
       scaleAllLayers(Math.max(0.3, Math.min(4, mapContainer.scale.x * zoomFactor)));
@@ -842,7 +861,7 @@ export default function GameMap({
       unitBadgeMapRef.current.clear();
       capitalMarkerLayerRef.current = null;
     };
-  }, [mapData, canvasW, canvasH, width, height, ringsFor, territoryCenter]);
+  }, [mapData, canvasW, canvasH, width, height, ringsFor, territoryCenter, lockCamera]);
 
   // Capital markers (2D map)
   const cosmeticsOf = usePlayerCosmetics();
@@ -903,35 +922,44 @@ export default function GameMap({
     if (!gameState) return new Set<string>();
     const source = attackSource ?? selectedTerritory;
     if (!source) return new Set<string>();
-    return computePhaseAdjacencyTargets(gameState, mapData.connections, {
-      attackSource: source,
-      // Fortify: light every territory the source can reach, not just its
-      // neighbours. The panel's picker stays neighbours-only — a reachable list
-      // is the size of the player's empire, which the map can show at no cost
-      // and a phone-sized list cannot.
-      fortifyReachable: true,
-      canTraverse: fortifyTraversalFilter(
-        rawMapData as unknown as FrontendMapData,
-        gameState,
-        gameState.territories[source]?.owner_id ?? null,
-        gameState.era ?? '',
-      ),
-    });
-  }, [gameState, attackSource, selectedTerritory, mapData.connections, rawMapData]);
+    const canTraverse = fortifyTraversalFilter(
+      rawMapData as unknown as FrontendMapData,
+      gameState,
+      gameState.territories[source]?.owner_id ?? null,
+      gameState.era ?? '',
+    );
+    return computePhaseAdjacencyTargets(
+      gameState,
+      targetsAcrossWorlds ? rawMapData.connections.filter(canTraverse) : mapData.connections,
+      {
+        attackSource: source,
+        // Fortify: light every territory the source can reach, not just its
+        // neighbours. The panel's picker stays neighbours-only — a reachable list
+        // is the size of the player's empire, which the map can show at no cost
+        // and a phone-sized list cannot.
+        fortifyReachable: true,
+        canTraverse,
+      },
+    );
+  }, [gameState, attackSource, selectedTerritory, mapData.connections, rawMapData, targetsAcrossWorlds]);
 
   // Valid-source hint (turn-clarity): territories the viewer can act FROM this
   // phase, outlined until they pick one. Only populated when validSourceOwnerId
   // is set (flag on, my attack/fortify turn, no source selected).
   const validSources = useMemo(() => {
     if (!gameState || !validSourceOwnerId) return new Set<string>();
-    return computeValidSources(gameState, mapData.connections, validSourceOwnerId, {
-      // Orbit parity with the server's fortify BFS: a lane this player cannot
-      // cross is not a route, so tiles behind it are not valid sources.
-      canTraverse: fortifyTraversalFilter(
-        rawMapData as unknown as FrontendMapData, gameState, validSourceOwnerId, gameState.era ?? '',
-      ),
-    });
-  }, [gameState, validSourceOwnerId, mapData.connections]);
+    // Orbit parity with the server's fortify BFS: a lane this player cannot
+    // cross is not a route, so tiles behind it are not valid sources.
+    const canTraverse = fortifyTraversalFilter(
+      rawMapData as unknown as FrontendMapData, gameState, validSourceOwnerId, gameState.era ?? '',
+    );
+    return computeValidSources(
+      gameState,
+      targetsAcrossWorlds ? rawMapData.connections.filter(canTraverse) : mapData.connections,
+      validSourceOwnerId,
+      { canTraverse },
+    );
+  }, [gameState, validSourceOwnerId, mapData.connections, rawMapData, targetsAcrossWorlds]);
 
   const emphasizeAdjacencyBorders = shouldEmphasizeAdjacencyBorders(connectionHintMode);
   const renderConnectionArcs = shouldRenderConnectionArcs(connectionHintMode);
@@ -1517,7 +1545,7 @@ export default function GameMap({
     <div
       ref={canvasRef}
       className="w-full h-full overflow-hidden rounded-lg border border-bf-border"
-      style={{ cursor: 'grab' }}
+      style={{ cursor: lockCamera ? 'default' : 'grab' }}
       data-testid="map-visual-canvas"
       data-map-visual-active={mapVisualDebug.active ? 'true' : undefined}
       data-last-kind={mapVisualDebug.kind}
