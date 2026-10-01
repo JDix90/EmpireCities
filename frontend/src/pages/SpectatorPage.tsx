@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useLayoutEffect, useState, useRef } from 'react';
+import { Suspense, useEffect, useLayoutEffect, useMemo, useState, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Eye, Users, Globe as GlobeIcon, Map as MapIcon } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
@@ -8,6 +8,7 @@ import { connectSocket, getSocket } from '../services/socket';
 import { api } from '../services/api';
 import GameMap from '../components/game/GameMap';
 import { GalaxyStrategicViewLazy, GlobeMapLazy, preloadGlobeChunks } from '../utils/globeLoader';
+import { boardKeyOf, projectMapToBoard } from '../utils/projectMapToBoard';
 import { inferWorldId } from '@borderfall/shared';
 import { proceduralWorldTextureUrl } from '../utils/proceduralPlanet';
 import EraAdvanceVignette from '../components/game/EraAdvanceVignette';
@@ -81,7 +82,14 @@ export default function SpectatorPage() {
   const spectateEnabled = useSpectateEnabled();
   const flagsLoaded = useFeatureFlagsStore((s) => s.loaded);
   const { gameState, setGameState, clearGame } = useGameStore();
-  const [mapData, setMapData] = useState<MapData | null>(null);
+  const [authoredMap, setMapData] = useState<MapData | null>(null);
+  // The REST map carries every authored territory, era-locked frontiers
+  // included; draw only what the live state has in play (as the replay does).
+  const boardKey = boardKeyOf(gameState?.territories);
+  const mapData = useMemo(
+    () => (authoredMap && boardKey ? projectMapToBoard(authoredMap, new Set(boardKey.split('|'))) : authoredMap),
+    [authoredMap, boardKey],
+  );
   const [spectatorCount, setSpectatorCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
