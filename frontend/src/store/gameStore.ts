@@ -335,6 +335,8 @@ export interface GameState {
     era_advancement_preset?: 'skirmish' | 'standard' | 'epic' | 'custom';
     era_advancement_cost_mult?: number;
     era_advancement_cost_escalation?: number;
+    /** Share of a player's units kept when they advance an era (engine default 0.7). */
+    era_advancement_conversion_ratio?: number;
     era_advancement_max_era_index?: number;
     era_advancement_tech_gate_pct?: number;
     era_advancement_tech_gate_mode?: 'milestone' | 'percent';

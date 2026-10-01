@@ -3,7 +3,7 @@ import { Sparkles, AlertTriangle, Check, X, ChevronDown, ChevronUp } from 'lucid
 import clsx from 'clsx';
 import type { GameState, PlayerState } from '../../store/gameStore';
 import { ERA_LABELS } from '../../constants/gameLobbyLabels';
-import { getAdvanceEraClientStatus, listEraGateRows } from '../../utils/eraAdvancement';
+import { eraAdvanceUnitLossPct, getAdvanceEraClientStatus, listEraGateRows } from '../../utils/eraAdvancement';
 
 interface AdvanceEraPanelProps {
   gameState: GameState;
@@ -154,6 +154,10 @@ export default function AdvanceEraPanel({
           <>
             <p className="text-xs text-bf-muted">
               Advance mid-match for stronger era-tier combat. Costs scale with your production income.
+            </p>
+            <p className="text-xs text-amber-200/90">
+              The climb consolidates your armies: about {eraAdvanceUnitLossPct(gameState.settings)}% of your
+              units are lost for good, and your defenders fight weaker until your next turn.
             </p>
             {status.nextSignatureName && (
               <p className="flex items-start gap-1.5 text-xs text-bf-gold/90 rounded border border-bf-gold/25 bg-bf-gold/10 px-2 py-1.5">

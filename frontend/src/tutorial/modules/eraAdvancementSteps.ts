@@ -45,14 +45,14 @@ export const ERA_ADVANCEMENT_STEPS: TutorialStep[] = [
     title: 'Advance to Medieval',
     // Do not assert the gate is already clear: this step is reached after the
     // first research, and the gate needs a tier-2 tech on top of the tier-1s.
-    message: 'Once every gate chip is green, open the Era panel and use **Advance Era**. Your units carry forward, your tech resets to the new era, and you gain a signature payoff.',
+    message: 'Once every gate chip is green, open the Era panel and use **Advance Era**. About 70% of your units carry forward — the rest are lost for good — your tech resets to the new era, and you gain a signature payoff.',
     requireAction: 'era_advanced',
     hint: 'Still short? Research the missing nodes first — the Era Advancement panel in your sidebar shows what is left, and the Advance button lights up when nothing is.',
   },
   {
     id: 'ea_signature',
     title: 'Vulnerable, but Stronger',
-    message: 'You are now Medieval. For one turn your defense is weaker — the vulnerability window — but you gained the era\'s signature reward and a fresh, stronger tech tree.',
+    message: 'You are now Medieval. Your army is smaller — the units lost in the climb do not come back — and for one turn your defense is weaker, the vulnerability window. In return you gained the era\'s signature reward and a fresh, stronger tech tree.',
     whyItMatters: 'Plan advances when you are safe from attack, and spend your signature before it lapses.',
   },
   {

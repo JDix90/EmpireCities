@@ -128,7 +128,7 @@ import {
   scheduleEventCardMapVisualBackup,
 } from '../utils/eventCardMapVisual';
 import { ERA_LABELS, formatLobbyMapLabel, formatLobbyPairingLabel } from '../constants/gameLobbyLabels';
-import { resolvePlayerTechEraId } from '../utils/eraAdvancement';
+import { eraAdvanceUnitLossPct, resolvePlayerTechEraId } from '../utils/eraAdvancement';
 import { eraBoardTheme } from '../constants/eraBoardTheme';
 import { getAbilityActivationMessage } from '../utils/abilityActivationFeedback';
 import { playAbilityActivationSound, playStrikeAbilitySound } from '../utils/abilitySoundFeedback';
@@ -2097,7 +2097,12 @@ export default function GamePage() {
         // toast with a richer payoff card naming the newly-unlocked ability.
         setModalQueue((prev) => [
           ...prev,
-          { type: 'era_advance', eraId: era_id, ...(payoff ?? {}) } as EraAdvanceModalData,
+          {
+            type: 'era_advance',
+            eraId: era_id,
+            unitLossPct: eraAdvanceUnitLossPct(useGameStore.getState().gameState?.settings),
+            ...(payoff ?? {}),
+          } as EraAdvanceModalData,
         ]);
       } else {
         toast.success(
