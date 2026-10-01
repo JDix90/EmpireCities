@@ -22,5 +22,11 @@ RUN cd backend && pnpm run build
 ENV NODE_ENV=production
 COPY docker/entrypoint-backend.sh /entrypoint-backend.sh
 RUN chmod +x /entrypoint-backend.sh
+# The deployed commit, for Sentry: the Node SDK reads SENTRY_RELEASE itself, and
+# docker-compose.prod.yml passes it in. Baked into the image, so a restart
+# without a rebuild keeps the release its code came from; last, so a new value
+# rebuilds only this layer.
+ARG SENTRY_RELEASE=
+ENV SENTRY_RELEASE=$SENTRY_RELEASE
 EXPOSE 3001
 ENTRYPOINT ["/entrypoint-backend.sh"]

@@ -50,6 +50,7 @@
 | `RESEND_API_KEY` | falls back to `SMTP_PASS` | Explicit Resend API key (takes precedence) |
 | `FCM_SERVICE_ACCOUNT_PATH` | — | Path to Firebase Admin service-account JSON; enables server push. In the prod compose stack this is the path **inside** the backend container: the host directory `/etc/borderfall/secrets` is bind-mounted read-only at `/run/secrets/borderfall`, so the value is `/run/secrets/borderfall/service-account-fcm.json` |
 | `SENTRY_DSN` | — | Backend error reporting (also whitelists the ingest host in CSP) |
+| `SENTRY_RELEASE` | — | The release Sentry files reports under, normally the deployed commit; read by the Sentry SDK itself. `scripts/deploy-production.sh` sets it, and `docker-compose.prod.yml` bakes it into the backend image and the frontend build (`VITE_SENTRY_RELEASE`). Without it Sentry keeps no crash-free session data |
 | `CSP_EXTRA_CONNECT_ORIGINS` | — | Comma-separated https/wss origins added to CSP `connect-src` |
 | `PASSWORD_RESET_DEV_LOG` | — | Non-prod: log reset URLs to stdout when SMTP is unconfigured |
 | `UNSUBSCRIBE_TOKEN_SECRET` | falls back to `JWT_ACCESS_SECRET` | HMAC secret for one-click email-unsubscribe links (set it so JWT secret rotation doesn't invalidate links already in inboxes) |
@@ -112,6 +113,7 @@ Env vars: a flag defaulting **on** is disabled with `X=false`; one defaulting **
 | `VITE_API_URL` | REST base when API is on another origin (default: same-origin `/api` via proxy) |
 | `VITE_SOCKET_URL` | Socket.io origin (default: same-origin) |
 | `VITE_SENTRY_DSN` | Frontend error reporting |
+| `VITE_SENTRY_RELEASE` | The release on frontend reports and sessions; the prod build takes it from `SENTRY_RELEASE` (see the backend table) |
 | `VITE_SUPPORT_EMAIL` | Contact shown on Privacy/Terms (default `support@borderfall.com`) |
 | `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID`, `VITE_FIREBASE_VAPID_KEY` | Web push. The first five come from the Firebase web app registration, the VAPID key from Cloud Messaging → Web Push certificates. Unset → the app shows no push UI at all (`getWebPushStatus()` = `unconfigured`). The page hands the config to `public/firebase-messaging-sw.js` through the worker's registration URL query string (`buildServiceWorkerUrl`), so nothing injects it at build time; permission is asked only from the opt-in controls (Settings → Notifications → This browser, and the lobby card), never on load. Forwarded as build args by `docker-compose.prod.yml` → `Dockerfile.frontend`. Native builds use Capacitor instead |
 | `VITE_TENOR_API_KEY` | In-chat GIF search (feature hidden without it) |
