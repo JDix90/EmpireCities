@@ -184,6 +184,7 @@ import {
   rebakeSettingsForMapChange,
 } from '../modules/games/createGameSettings';
 import { galaxySeatCountError, isGalacticAgeGame } from '../modules/games/lobbyCapacity';
+import { recordGalaxyGameResult } from '../game-engine/state/galaxyResults';
 import {
   scheduleTurnTimeout,
   cancelTurnTimeout,
@@ -5265,6 +5266,15 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
     } catch (campErr) {
       console.error('[Socket] Campaign hook failed:', campErr);
     }
+  }
+
+  // Galactic Age report (admin-only, non-critical): the board this game dealt
+  // and who won, kept after its snapshots are pruned. Any other game records
+  // nothing and never reaches the database.
+  try {
+    await recordGalaxyGameResult(gameId, state, creditedIds);
+  } catch (galaxyErr) {
+    console.error('[Socket] Failed to record Galactic Age result:', galaxyErr);
   }
 
   // Post-game stats (non-critical — failures logged but game:over still sent)
