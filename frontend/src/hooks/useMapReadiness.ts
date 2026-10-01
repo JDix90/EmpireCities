@@ -1,21 +1,26 @@
 import { useEffect, type MutableRefObject } from 'react';
 
 /**
- * What the turn-ready ack (B-06) waits for on screen. The 2D map and the galaxy
- * overview draw at once. The globe reports when it is ready through
- * react-globe.gl's onGlobeReady, once for each globe that mounts.
+ * What the turn-ready ack (B-06) waits for on screen. The 2D map and a galaxy
+ * board's all-worlds views (the chart, and Split's flat maps) draw at once. The
+ * globe reports when it is ready through react-globe.gl's onGlobeReady, once for
+ * each globe that mounts.
  */
 export type MapReadinessSurface = 'instant' | 'globe';
 
-/** The surface the game page shows, or null before the map has loaded. */
+/**
+ * The surface the game page shows, or null before the map has loaded.
+ * `galaxyAllWorlds`: a galaxy board is showing every world at once (the chart or
+ * Split), not one world's globe.
+ */
 export function mapReadinessSurface(
   mapData: { map_id: string; map_kind?: string } | null | undefined,
   mapView: '2d' | 'globe',
-  galaxyOverviewMode: boolean,
+  galaxyAllWorlds: boolean,
 ): MapReadinessSurface | null {
   if (!mapData) return null;
   if (mapView === '2d') return 'instant';
-  if (mapData.map_kind === 'galaxy' && galaxyOverviewMode) return 'instant';
+  if (mapData.map_kind === 'galaxy' && galaxyAllWorlds) return 'instant';
   return 'globe';
 }
 

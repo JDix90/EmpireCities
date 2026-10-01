@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   getInitialMapView,
   setMapViewPreference,
+  getGalaxyOverviewPreference,
+  setGalaxyOverviewPreference,
   persistLiteMode,
   getFastCombatPreference,
   getSfxVolume,
@@ -148,6 +150,22 @@ describe('userPreferences', () => {
     it('ignores a junk stored value rather than opening on nothing', () => {
       localStorage.setItem('cc-preferred-map-view', 'isometric');
       expect(getInitialMapView()).toBe('globe');
+    });
+  });
+
+  describe('galaxy overview', () => {
+    it('opens on the chart until the player picks Split, and remembers either', () => {
+      expect(getGalaxyOverviewPreference()).toBe('chart');
+      setGalaxyOverviewPreference('split');
+      expect(localStorage.getItem('cc-galaxy-overview')).toBe('split');
+      expect(getGalaxyOverviewPreference()).toBe('split');
+      setGalaxyOverviewPreference('chart');
+      expect(getGalaxyOverviewPreference()).toBe('chart');
+    });
+
+    it('ignores a junk stored value', () => {
+      localStorage.setItem('cc-galaxy-overview', 'grid');
+      expect(getGalaxyOverviewPreference()).toBe('chart');
     });
   });
 

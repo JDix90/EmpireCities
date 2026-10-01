@@ -3,13 +3,14 @@
  * Import this module from route shells only — never from landing/lobby pages.
  *
  * Chunks loaded on first call:
- *   - GlobeMap / GalaxyStrategicView component code
+ *   - GlobeMap / GalaxyStrategicView / GalaxySplitView component code
  *   - globe-runtime, three-vendor, geo-vendor (via Vite manualChunks)
  */
 import { lazy } from 'react';
 
 export const GlobeMapLazy = lazy(() => import('../components/game/GlobeMap'));
 export const GalaxyStrategicViewLazy = lazy(() => import('../components/game/GalaxyStrategicView'));
+export const GalaxySplitViewLazy = lazy(() => import('../components/game/GalaxySplitView'));
 export const GlobeMapEditorLazy = lazy(() => import('../components/editor/GlobeMapEditor'));
 
 let preloadPromise: Promise<unknown> | null = null;

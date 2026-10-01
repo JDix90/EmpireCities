@@ -7,6 +7,7 @@ import {
   CreditCard,
   Globe as GlobeIcon,
   Keyboard,
+  LayoutGrid,
   Link2,
   Map as MapIcon,
   Maximize2,
@@ -147,6 +148,9 @@ import type { SheetSnap } from '../hooks/useBottomSheetSnap';
 import {
   getInitialMapView,
   persistMapView,
+  getGalaxyOverviewPreference,
+  setGalaxyOverviewPreference,
+  type GalaxyOverviewPreference,
   getGlobeSpinPreference,
   persistGlobeSpinPreference,
   hasSeenMobileMenuHint,
@@ -185,7 +189,7 @@ import {
 import { getGalaxyWorldLore } from '../constants/galaxyLore';
 import { resolveGalaxyDrillDownGlobeSkin } from '../utils/galaxyGlobeSkin';
 import { proceduralWorldTextureUrl } from '../utils/proceduralPlanet';
-import { GalaxyStrategicViewLazy, GlobeMapLazy, preloadGlobeChunks } from '../utils/globeLoader';
+import { GalaxySplitViewLazy, GalaxyStrategicViewLazy, GlobeMapLazy, preloadGlobeChunks } from '../utils/globeLoader';
 import { ownAuthUiAllowed } from '../utils/embedContext';
 /** "a", "a and b", "a, b and c" — plain English for a short list of names. */
 function formatList(items: string[]): string {
@@ -480,7 +484,11 @@ export default function GamePage() {
   const [isStartingGame, setIsStartingGame] = useState(false);
   const [isHost, setIsHost] = useState(false);
   const [mapView, setMapView] = useState<'2d' | 'globe'>(getInitialMapView);
-  const [galaxyOverviewMode, setGalaxyOverviewMode] = useState(true);
+  /**
+   * A galaxy board's view: the all-worlds chart, Split (every world's map at
+   * once, components/game/GalaxySplitView.tsx), or one world, `focusedWorldId`.
+   */
+  const [galaxyView, setGalaxyView] = useState<'chart' | 'split' | 'world'>('chart');
   /** Socket `game:joined` seat — resolves viewer player_id before auth.user hydrates */
   const [joinPlayerIndex, setJoinPlayerIndex] = useState<number | null>(null);
   const joinPlayerIndexRef = useRef<number | null>(null);
@@ -514,6 +522,9 @@ export default function GamePage() {
   // Socket handlers are bound once; they read the layout through this ref.
   const isMobileLayoutRef = useRef(isMobileLayout);
   isMobileLayoutRef.current = isMobileLayout;
+  // Split is a desktop view: in a phone layout the chart stands in for it.
+  const galaxySplitMode = galaxyView === 'split' && !isMobileLayout;
+  const galaxyOverviewMode = galaxyView === 'chart' || (galaxyView === 'split' && isMobileLayout);
   // The frame budget (docs/MOBILE_UX_PLAN.md M-13): while a game is open on a
   // phone, frames are capped at 30 a second, the maps draw only when something
   // changes, and the stylesheet drops backdrop blur and endless decorative
@@ -882,7 +893,7 @@ export default function GamePage() {
   // A globe that has just been shown waits for it. Keyed on what is on screen,
   // not on the map object (see useMapReadiness).
   useMapReadiness(
-    mapReadinessSurface(mapData, mapView, galaxyOverviewMode),
+    mapReadinessSurface(mapData, mapView, galaxyOverviewMode || galaxySplitMode),
     globeReadyRef,
     maybeEmitTurnReady,
   );
@@ -2989,13 +3000,25 @@ export default function GamePage() {
         const t = md.territories.find((x) => x.territory_id === territoryId);
         if (t) {
           setFocusedWorldId(inferWorldId(t));
-          setGalaxyOverviewMode(false);
+          setGalaxyView('world');
         }
       }
       handleTerritoryClick(territoryId);
     },
     [handleTerritoryClick],
   );
+
+  /** Show a galaxy board's all-worlds view, and remember it for the next game. */
+  const showGalaxyOverview = useCallback((view: GalaxyOverviewPreference) => {
+    setGalaxyView(view);
+    setGalaxyOverviewPreference(view);
+  }, []);
+
+  /** Open one world on its own: its world tab, or a Split pane's open button. */
+  const openGalaxyWorld = useCallback((worldId: string) => {
+    setFocusedWorldId(worldId);
+    setGalaxyView('world');
+  }, []);
 
   const focusedWorldSkin = useMemo(() => {
     if (!mapData?.worlds) return null;
@@ -3037,7 +3060,7 @@ export default function GamePage() {
       setGalaxyWorldBanner(null);
       return;
     }
-    if (galaxyOverviewMode) {
+    if (galaxyOverviewMode || galaxySplitMode) {
       setGalaxyWorldBanner(null);
       return;
     }
@@ -3046,7 +3069,7 @@ export default function GamePage() {
     setGalaxyWorldBanner({ display_name: lore.display_name, tagline: lore.tagline });
     const t = window.setTimeout(() => setGalaxyWorldBanner(null), 1500);
     return () => window.clearTimeout(t);
-  }, [mapData?.map_kind, galaxyOverviewMode, focusedWorldId]);
+  }, [mapData?.map_kind, galaxyOverviewMode, galaxySplitMode, focusedWorldId]);
 
   // Galaxy contestable lanes: ids of currently-sealed orbit lanes + the seal action.
   const galaxySealedLaneIds = useMemo(
@@ -3986,13 +4009,13 @@ export default function GamePage() {
     const md = mapData;
     if (!md) return;
     if (md.map_kind === 'galaxy') {
-      setGalaxyOverviewMode(true);
+      setGalaxyView(getGalaxyOverviewPreference());
       const wid =
         worldsInPlay(md)[0]?.world_id ??
         inferWorldId(md.territories[0] ?? { territory_id: '', region_id: '' });
       setFocusedWorldId(wid);
     } else {
-      setGalaxyOverviewMode(false);
+      setGalaxyView('world');
       setFocusedWorldId('earth');
     }
   }, [mapData?.map_id]);
@@ -4644,21 +4667,27 @@ export default function GamePage() {
             <>
               <button
                 type="button"
-                onClick={() => setGalaxyOverviewMode(true)}
+                onClick={() => showGalaxyOverview('chart')}
                 className={`hidden dlayout:inline-flex min-h-[40px] px-2 py-1 text-xs rounded ${galaxyOverviewMode ? 'bg-bf-gold/20 text-bf-gold' : 'text-bf-muted hover:text-bf-text'}`}
               >
                 Galaxy chart
+              </button>
+              <button
+                type="button"
+                onClick={() => showGalaxyOverview('split')}
+                className={`hidden dlayout:inline-flex min-h-[40px] items-center gap-1 px-2 py-1 text-xs rounded ${galaxySplitMode ? 'bg-bf-gold/20 text-bf-gold' : 'text-bf-muted hover:text-bf-text'}`}
+                aria-pressed={galaxySplitMode}
+                title="Every world's map at once"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" aria-hidden /> Split
               </button>
               <div className="hidden dlayout:flex flex-wrap gap-1 max-w-[min(420px,40vw)] justify-end">
                 {galaxyWorldTabs.map((w) => (
                   <button
                     key={w.world_id}
                     type="button"
-                    onClick={() => {
-                      setFocusedWorldId(w.world_id);
-                      setGalaxyOverviewMode(false);
-                    }}
-                    className={`min-h-[36px] px-2.5 py-1.5 text-[11px] rounded border ${focusedWorldId === w.world_id && !galaxyOverviewMode ? 'border-bf-gold text-bf-gold bg-bf-gold/10' : 'border-bf-border text-bf-muted hover:text-bf-text'}`}
+                    onClick={() => openGalaxyWorld(w.world_id)}
+                    className={`min-h-[36px] px-2.5 py-1.5 text-[11px] rounded border ${focusedWorldId === w.world_id && galaxyView === 'world' ? 'border-bf-gold text-bf-gold bg-bf-gold/10' : 'border-bf-border text-bf-muted hover:text-bf-text'}`}
                   >
                     {w.display_name}
                   </button>
@@ -4683,7 +4712,7 @@ export default function GamePage() {
           </span>
           <button
             type="button"
-            onClick={() => setGalaxyOverviewMode(true)}
+            onClick={() => setGalaxyView('chart')}
             className={`shrink-0 inline-flex items-center gap-1 min-h-[36px] px-2.5 py-1 text-[11px] rounded border ${galaxyOverviewMode ? 'border-bf-gold text-bf-gold bg-bf-gold/10' : 'border-bf-border text-bf-muted'}`}
             aria-pressed={galaxyOverviewMode}
           >
@@ -4693,12 +4722,9 @@ export default function GamePage() {
             <button
               key={w.world_id}
               type="button"
-              onClick={() => {
-                setFocusedWorldId(w.world_id);
-                setGalaxyOverviewMode(false);
-              }}
-              className={`shrink-0 min-h-[36px] px-2.5 py-1 text-[11px] rounded border whitespace-nowrap ${focusedWorldId === w.world_id && !galaxyOverviewMode ? 'border-bf-gold text-bf-gold bg-bf-gold/10' : 'border-bf-border text-bf-muted'}`}
-              aria-pressed={focusedWorldId === w.world_id && !galaxyOverviewMode}
+              onClick={() => openGalaxyWorld(w.world_id)}
+              className={`shrink-0 min-h-[36px] px-2.5 py-1 text-[11px] rounded border whitespace-nowrap ${focusedWorldId === w.world_id && galaxyView === 'world' ? 'border-bf-gold text-bf-gold bg-bf-gold/10' : 'border-bf-border text-bf-muted'}`}
+              aria-pressed={focusedWorldId === w.world_id && galaxyView === 'world'}
             >
               {w.display_name}
             </button>
@@ -4857,7 +4883,33 @@ export default function GamePage() {
             />
           )}
           {mapData && sizeReady ? (
-            mapView === 'globe' ? (
+            mapData.map_kind === 'galaxy' && galaxySplitMode ? (
+              <Suspense fallback={<div className="flex items-center justify-center h-full"><p className="text-bf-muted animate-pulse">Loading worlds…</p></div>}>
+                <GalaxySplitViewLazy
+                  mapData={mapData}
+                  gameState={gameState}
+                  width={mapCanvasSize.w}
+                  height={mapCanvasSize.h}
+                  viewerPlayerId={resolvedViewerPlayerId}
+                  mapProps={{
+                    onTerritoryClick: handleTerritoryClick,
+                    highlightTerritoryId: tutorialHighlightId,
+                    lossPulseTerritoryIds: lossPulseIds,
+                    strikeFlash: mapStrikeFlash,
+                    mapVisualEvents: phoneMapVisualEvents,
+                    onMapVisualDone,
+                    reducedEffects: reducedGlobe,
+                    frameBudget: frameBudget.active,
+                    turnHolderPlayerId: turnHolderPlayer?.player_id ?? null,
+                    validSourceOwnerId,
+                    turnHolderColor: turnHolderPlayer?.color,
+                    contestedBorders,
+                    connectionHintMode,
+                  }}
+                  onOpenWorld={openGalaxyWorld}
+                />
+              </Suspense>
+            ) : mapView === 'globe' ? (
               <Suspense fallback={<div className="flex items-center justify-center h-full"><p className="text-bf-muted animate-pulse">Loading globe…</p></div>}>
                 <div className="relative w-full h-full">
                   {mapData.map_kind === 'galaxy' && galaxyOverviewMode ? (

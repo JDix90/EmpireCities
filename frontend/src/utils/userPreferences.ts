@@ -10,6 +10,7 @@ const CAMERA_FOLLOW_KEY = 'cc-camera-follow';
 const LITE_MODE_KEY = 'cc-lite-mode';
 const BATTERY_SAVER_KEY = 'cc-battery-saver';
 const MAP_VIEW_KEY = 'cc-preferred-map-view';
+const GALAXY_OVERVIEW_KEY = 'cc-galaxy-overview';
 const CONNECTION_HINTS_KEY = 'cc-connection-hints';
 const SFX_VOLUME_KEY = 'cc-sfx-volume';
 const SFX_MUTED_KEY = 'cc-sfx-muted';
@@ -208,6 +209,24 @@ export function getInitialMapView(): MapViewPreference {
 
 export function setMapViewPreference(mode: MapViewPreference): void {
   writeString(MAP_VIEW_KEY, mode);
+}
+
+// ── Galactic Age overview ───────────────────────────────────────────────────
+
+/** How a galaxy board shows every world at once: the chart, or a map per world. */
+export type GalaxyOverviewPreference = 'chart' | 'split';
+
+/**
+ * Which all-worlds view a Galactic Age board opens on. The galaxy chart is the
+ * default; Split (components/game/GalaxySplitView.tsx) is a desktop view the
+ * player chooses, remembered here. A phone shows the chart either way.
+ */
+export function getGalaxyOverviewPreference(): GalaxyOverviewPreference {
+  return readString(GALAXY_OVERVIEW_KEY, ['chart', 'split'] as const, 'chart');
+}
+
+export function setGalaxyOverviewPreference(view: GalaxyOverviewPreference): void {
+  writeString(GALAXY_OVERVIEW_KEY, view);
 }
 
 // ── Connection hints ────────────────────────────────────────────────────────
