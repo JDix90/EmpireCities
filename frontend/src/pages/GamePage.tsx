@@ -9,6 +9,7 @@ import {
   Keyboard,
   LayoutGrid,
   Link2,
+  List as ListIcon,
   Map as MapIcon,
   Maximize2,
   Menu,
@@ -111,6 +112,7 @@ import { resolveGameOverResult, type DailyRunResult } from '../utils/dailyGameOv
 import CampaignIntroModal, { type CampaignIntroData } from '../components/game/CampaignIntroModal';
 import InviteFriendsModal from '../components/game/InviteFriendsModal';
 import GameShortcutsModal from '../components/game/GameShortcutsModal';
+import TerritoryListDialog from '../components/game/TerritoryListDialog';
 import LobbyProposals from '../components/game/LobbyProposals';
 import LobbyMapPreview from '../components/lobby/LobbyMapPreview';
 import FactionSelectionPanel from '../components/game/FactionSelectionPanel';
@@ -1063,6 +1065,8 @@ export default function GamePage() {
   const factionNotifShownRef = useReactRef(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  // Keyboard path onto the canvas map: a list of the board's territories (PT-005).
+  const [showTerritoryList, setShowTerritoryList] = useState(false);
   const [showTechTree, setShowTechTree] = useState(false);
   const [techTree, setTechTree] = useState<TechNode[]>([]);
   const [showBonuses, setShowBonuses] = useState(false);
@@ -1251,6 +1255,9 @@ export default function GamePage() {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
       if (e.key === '?') setShowShortcuts((s) => !s);
+      if ((e.key === 'l' || e.key === 'L') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        setShowTerritoryList((s) => !s);
+      }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -4535,6 +4542,17 @@ export default function GamePage() {
           )}
         </div>
         {showShortcuts && <GameShortcutsModal onClose={() => setShowShortcuts(false)} />}
+        {showTerritoryList && gameState && mapData && (
+          <TerritoryListDialog
+            territories={mapData.territories}
+            regions={mapData.regions}
+            gameState={gameState}
+            viewerPlayerId={resolvedViewerPlayerId ?? viewerPlayer?.player_id ?? null}
+            selectedTerritoryId={selectedTerritory}
+            onSelect={handleTerritoryClick}
+            onClose={() => setShowTerritoryList(false)}
+          />
+        )}
         {showInviteModal && gameId && (
           <InviteFriendsModal
             gameId={gameId}
@@ -4649,6 +4667,17 @@ export default function GamePage() {
             className={`hidden dlayout:inline-flex min-h-[40px] min-w-[40px] px-2 py-1 text-xs rounded ${mapView === '2d' ? 'bg-bf-gold/20 text-bf-gold' : 'text-bf-muted hover:text-bf-text'}`}
           >
             2D Map
+          </button>
+          {/* The map itself is a canvas nothing can tab to; this is the keyboard way onto it. */}
+          <button
+            type="button"
+            onClick={() => setShowTerritoryList(true)}
+            className="min-h-[40px] min-w-[40px] px-2 py-1 text-xs rounded text-bf-muted hover:text-bf-text inline-flex items-center gap-1"
+            aria-label="List territories (L)"
+            title="List territories (L)"
+          >
+            <ListIcon className="w-4 h-4" />
+            <span className="hidden dlayout:inline">Territories</span>
           </button>
           {mapView === 'globe' && (
             <button
