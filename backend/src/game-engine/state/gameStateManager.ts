@@ -102,6 +102,17 @@ export function getStartingPlayerIndex(state: GameState): number {
 }
 
 /**
+ * True when handing the turn from seat `from` to seat `to` (forward in seat
+ * order, wrapping) passes over or lands on `seat`. A hand-off that never moves
+ * (`to === from`, one player left) is a full lap and crosses every seat.
+ */
+export function handOffCrossesSeat(from: number, to: number, seat: number, total: number): boolean {
+  if (total <= 0) return false;
+  const lap = (n: number) => (((n % total) + total) % total) || total;
+  return lap(seat - from) <= lap(to - from);
+}
+
+/**
  * One production + tech income tick for every player at game start
  * (economy+tech bootstrap). Both helpers credit the player internally
  * (special_resource / tech_points), mirroring the per-turn tick in
@@ -1018,7 +1029,14 @@ function passTurn(state: GameState, map?: GameMap): void {
     next = (next + 1) % total;
     attempts++;
   }
-  if (next <= state.current_player_index) {
+  // A round ends when the hand-off crosses the starting seat, so every
+  // player's first turn is turn 1 whichever seat the random start picked, and
+  // an eliminated starting seat still marks the boundary. (The counter used
+  // to roll over whenever the seat index wrapped past the last seat, which
+  // labelled a non-starting host's first turn "Turn 2" and shifted everything
+  // keyed to the turn number — turn caps, speed achievements, the daily par,
+  // the resign grace window — by one seat.)
+  if (handOffCrossesSeat(state.current_player_index, next, getStartingPlayerIndex(state), total)) {
     state.turn_number++;
 
     // Round-end sweep for the Hegemony clock. The end-of-turn tick above only
@@ -1070,8 +1088,8 @@ function passTurn(state: GameState, map?: GameMap): void {
           state.active_event = card;
         } else {
           // One player's card (or a choice). It used to fire here too, and the
-          // player whose turn opens the round is always the lowest living seat,
-          // so one seat received every targeted card and every choice all game.
+          // player whose turn opens the round is always the same seat, so one
+          // seat received every targeted card and every choice all game.
           // The target now rotates through the living seats, round by round,
           // and the card fires at the start of that player's own turn.
           state.pending_event = { card, target_player_id: eventTargetForRound(state) };
