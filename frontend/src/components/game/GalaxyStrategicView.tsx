@@ -57,6 +57,7 @@ import {
   type Placement,
   type WorldNode,
 } from './galaxyStrategicLayout';
+import { LANE_COLORS, laneStroke } from './galaxyLaneStyle';
 
 export interface GalaxyMapDatum {
   map_id?: string;
@@ -209,12 +210,6 @@ function mulberry32(seed: number): () => number {
 const GOLD = '#e6b34d';
 const NEUTRAL_COLOR = 'rgba(150, 160, 180, 0.5)';
 
-export const LANE_COLORS = {
-  open: 'rgba(120, 200, 255, 0.78)',
-  closed: 'rgba(150, 160, 180, 0.32)',
-  sealed: 'rgba(255, 120, 60, 0.95)',
-  gated: 'rgba(255, 110, 110, 0.5)',
-} as const;
 
 interface DonutSegment {
   color: string;
@@ -423,42 +418,13 @@ export default function GalaxyStrategicView({
         const canSeal = charted
           && lanesContestableEnabled && !!onSealLane && !seal && (sealAnyLane || touchesSealWorld);
 
-        let stroke: string;
-        let strokeWidth: number;
-        let dash: string;
-        let flow = false;
-        if (seal) {
-          stroke = LANE_COLORS.sealed;
-          strokeWidth = 2.6;
-          dash = '4 4';
-        } else if (!orbitAccessAllowed) {
-          stroke = LANE_COLORS.gated;
-          strokeWidth = 1.7;
-          dash = '3 6';
-        } else if (state === 'corridor') {
-          stroke = viewerColor;
-          strokeWidth = 2.4;
-          dash = '11 4';
-          flow = true;
-        } else if (state === 'open') {
-          stroke = LANE_COLORS.open;
-          strokeWidth = 1.8;
-          dash = '7 6';
-          flow = true;
-        } else {
-          stroke = LANE_COLORS.closed;
-          strokeWidth = 1.2;
-          dash = '2 5';
-        }
-        // Engine-added lanes read as what they are: a gate lane is a thin private
-        // thread, a surge a loose temporary one. Neither is the authored ring.
-        if (kind === 'jump_gate') {
-          strokeWidth = Math.min(strokeWidth, 1.6);
-          dash = '1 4';
-        } else if (kind === 'lane_surge') {
-          strokeWidth = Math.min(strokeWidth, 1.8);
-          dash = '5 3';
-        }
+        const { stroke, strokeWidth, dash, flow } = laneStroke({
+          sealed: !!seal,
+          accessAllowed: orbitAccessAllowed,
+          state,
+          kind,
+          viewerColor,
+        });
 
         const lines = [
           `${territoryName(from)} ↔ ${territoryName(to)}`,
