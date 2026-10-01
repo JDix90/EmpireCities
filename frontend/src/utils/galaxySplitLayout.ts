@@ -72,6 +72,14 @@ export function splitLayout<W extends SplitWorld>(worlds: readonly W[]): SplitLa
   };
 }
 
+/** Where a pane drew a territory, in its canvas pixels. */
+export interface PaneCenter {
+  x: number;
+  y: number;
+  /** Round the back of a globe pane: (x, y) is the planet's edge (utils/globeScreenAnchor.ts). */
+  behind?: boolean;
+}
+
 /** One lane across the grid: its two gateways, and where each is drawn. */
 export interface SplitLane {
   /** orbitLaneId: the lane's id, either way round. */
@@ -84,6 +92,12 @@ export interface SplitLane {
   y1: number;
   x2: number;
   y2: number;
+  /**
+   * The gateway at (x1, y1), or at (x2, y2), is out of sight: round the back of
+   * its globe, or off its pane, so that end is where it leaves the view.
+   */
+  hidden1: boolean;
+  hidden2: boolean;
 }
 
 /** The grid's measures, as GalaxySplitView lays it out. */
@@ -102,18 +116,28 @@ export interface SplitGeometry {
  * gateway, in the grid's pixels: a pane's origin plus where its map drew the
  * gateway (`centers`, per world). A lane whose gateway a pane has not reported
  * yet is left out until it has.
+ *
+ * A gateway out of sight, round the back of a globe or off a zoomed globe's
+ * pane, marks its end hidden; one off the pane is pulled back to the pane's
+ * edge, so a lane never runs over the next pane.
  */
 export function splitLanes(
   connections: ReadonlyArray<{ from: string; to: string; type: string; source?: string }>,
   worldOf: (territoryId: string) => string | undefined,
   cells: ReadonlyArray<SplitCell<SplitWorld>>,
-  centers: Readonly<Record<string, ReadonlyMap<string, { x: number; y: number }>>>,
+  centers: Readonly<Record<string, ReadonlyMap<string, PaneCenter>>>,
   g: SplitGeometry,
 ): SplitLane[] {
   const origin = new Map(cells.map((c) => [
     c.world.world_id,
     { x: c.col * (g.paneWidth + g.gap) + g.inset, y: c.row * (g.paneHeight + g.header + g.gap) + g.header + g.inset },
   ]));
+  /** A gateway in grid pixels, kept on its pane. */
+  const end = (o: { x: number; y: number }, p: PaneCenter) => {
+    const x = Math.min(Math.max(p.x, 0), g.paneWidth);
+    const y = Math.min(Math.max(p.y, 0), g.paneHeight);
+    return { x: o.x + x, y: o.y + y, hidden: !!p.behind || x !== p.x || y !== p.y };
+  };
   const seen = new Set<string>();
   const out: SplitLane[] = [];
   for (const c of connections) {
@@ -129,7 +153,12 @@ export function splitLanes(
     const key = orbitLaneId(c.from, c.to);
     if (seen.has(key)) continue;
     seen.add(key);
-    out.push({ key, from: c.from, to: c.to, source: c.source, x1: oa.x + pa.x, y1: oa.y + pa.y, x2: ob.x + pb.x, y2: ob.y + pb.y });
+    const a = end(oa, pa);
+    const b = end(ob, pb);
+    out.push({
+      key, from: c.from, to: c.to, source: c.source,
+      x1: a.x, y1: a.y, x2: b.x, y2: b.y, hidden1: a.hidden, hidden2: b.hidden,
+    });
   }
   return out;
 }
