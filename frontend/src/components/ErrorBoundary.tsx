@@ -1,4 +1,5 @@
 import React from 'react';
+import { captureReactException } from '@sentry/react';
 
 interface Props {
   children: React.ReactNode;
@@ -22,6 +23,13 @@ export default class ErrorBoundary extends React.Component<Props, State> {
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error('[ErrorBoundary] Uncaught error:', error, info.componentStack);
+    // Once React has caught an error here, a production build never hands it to
+    // Sentry's global handlers: without this, every crash behind this screen
+    // went unrecorded. Marked as Sentry's own boundary marks it (unhandled
+    // unless a fallback stands in). Sends nothing where Sentry has no DSN.
+    captureReactException(error, info, {
+      mechanism: { type: 'auto.function.react.error_boundary', handled: !!this.props.fallback },
+    });
   }
 
   render() {
