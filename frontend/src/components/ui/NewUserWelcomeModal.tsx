@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { X, GraduationCap, Zap, BookOpen } from 'lucide-react';
 import { APP_NAME } from '../../constants/brand';
 import { tutorialModuleMinutes } from '../../tutorial';
+import { isColorblindMode, setColorblindMode } from '../../utils/userPreferences';
 
 const WELCOME_SEEN_KEY = 'bf-lobby-welcomed';
 
@@ -36,6 +37,10 @@ export default function NewUserWelcomeModal({
   onJumpIn,
   onDismiss,
 }: NewUserWelcomeModalProps) {
+  // The default seat palette carries a red/green pair; the colorblind-safe
+  // palette existed but only in Settings, so a player who needed it met the
+  // clash first (PT-016). Offer it before the first board is drawn.
+  const [colorblind, setColorblind] = useState(() => isColorblindMode());
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm px-4 pt-safe pb-safe"
@@ -105,6 +110,23 @@ export default function NewUserWelcomeModal({
             </p>
           </div>
         </button>
+
+        <label className="flex items-start gap-3 mb-4 text-left text-xs text-bf-muted cursor-pointer select-none">
+          <input
+            id="welcome-colorblind-colors"
+            type="checkbox"
+            className="mt-0.5"
+            checked={colorblind}
+            onChange={(e) => {
+              setColorblindMode(e.target.checked);
+              setColorblind(e.target.checked);
+            }}
+          />
+          <span>
+            <span className="text-bf-text">Colorblind-friendly player colors</span> — distinct for red/green and
+            blue/yellow vision. You can change this any time in Settings.
+          </span>
+        </label>
 
         {/* Tertiary dismiss */}
         <p className="text-center text-xs text-bf-muted">

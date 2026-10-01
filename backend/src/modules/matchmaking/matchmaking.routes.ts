@@ -51,7 +51,8 @@ function getBucketSettings(): Record<Bucket, { turn_timer_seconds: number; label
   return getMatchmakingConfig().buckets as Record<Bucket, { turn_timer_seconds: number; label: string; async_mode?: boolean }>;
 }
 
-const COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#ecf0f1'];
+// Keep in step with games.routes.ts: seat 7 is pink, not a second orange (PT-016).
+const COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#ff69b4', '#ecf0f1'];
 
 let _io: Server | null = null;
 let matchmakingPaused = false;

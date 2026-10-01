@@ -217,6 +217,14 @@ export {
  */
 export const TERRITORY_SELECTION_GALAXY_ERROR =
   'Territory Draft is not available in the Galactic Age — worlds behind a hyperspace gate cannot be drafted';
+/**
+ * Postgres rejects a non-UUID `game_id` with a 22P02 error, which surfaced as
+ * a 500 and left the game page on "Loading lobby…" for a mistyped link
+ * (playtest PT-015). A well-formed id that does not exist is already a 404;
+ * a malformed one is the same thing to the player.
+ */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function territorySelectionRejection(opts: {
   territorySelection?: boolean;
   isGalacticAge: boolean;
@@ -392,7 +400,8 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     const gameId = uuidv4();
-    const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#ecf0f1'];
+    // Seat 7 was a second orange (#e67e22) next to seat 4's #f39c12 (PT-016).
+    const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#ff69b4', '#ecf0f1'];
 
     // A game with AI waits as `solo`: invite-only, so Open Games never lists
     // it. Its open seats are just the form's max_players, which the host never
@@ -819,6 +828,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
   // ── GET /api/games/:gameId ───────────────────────────────────────────────
   fastify.get<{ Params: { gameId: string } }>('/:gameId', { preHandler: authenticate }, async (request, reply) => {
     const { gameId } = request.params;
+    if (!UUID_RE.test(gameId)) return reply.status(404).send({ error: 'Game not found' });
     const game = await queryOne<Record<string, unknown>>(
       `SELECT g.*,
               json_agg(json_build_object(
@@ -1084,6 +1094,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     { preHandler: authenticate },
     async (request, reply) => {
     const { gameId } = request.params;
+    if (!UUID_RE.test(gameId)) return reply.status(404).send({ error: 'Game not found' });
 
     const fromOffset = Math.max(0, parseInt(request.query.from ?? '0', 10) || 0);
     const limitTurns = Math.min(200, Math.max(1, parseInt(request.query.limit ?? '200', 10) || 200));

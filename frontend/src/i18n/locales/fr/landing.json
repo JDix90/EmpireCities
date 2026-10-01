@@ -93,6 +93,10 @@
   },
   "footer": {
     "copyright": "© 2026 {{appName}}. Tous droits réservés.",
+    "howToPlay": "Comment jouer",
+    "eras": "Époques",
+    "maps": "Cartes",
+    "codex": "Codex",
     "about": "À propos",
     "privacy": "Politique de confidentialité",
     "terms": "Conditions d'utilisation",

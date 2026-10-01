@@ -191,8 +191,9 @@ export default function HowToPlayPage() {
                 or async (12h / 24h / 72h). No timer for casual play.
               </p>
               <p>
-                <strong className="text-bf-text">Fog of War</strong> — When enabled, you only see
-                territories you own and their immediate neighbors. Everything else is hidden.
+                <strong className="text-bf-text">Fog of War</strong> — When enabled, you still see who
+                holds every territory, but the unit counts, buildings and stability of enemy territories
+                that don&apos;t border yours are hidden (shown as &ldquo;?&rdquo;).
               </p>
               <p>
                 <strong className="text-bf-text">Territory Draft</strong> — Instead of random starting

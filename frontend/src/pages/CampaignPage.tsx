@@ -375,6 +375,10 @@ export default function CampaignPage() {
   const [continuing, setContinuing] = useState<string | null>(null);
   const [showPathSelection, setShowPathSelection] = useState(false);
   const [showGuestGate, setShowGuestGate] = useState(false);
+  // Choosing a path used to create and open the Era 1 game on the spot, with
+  // no settings shown and no way back; the run then sat in HQ as "active"
+  // (PT-017). The choice now opens a confirmation first.
+  const [pendingStart, setPendingStart] = useState<{ pathId?: string; name: string; tagline?: string } | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(searchParams.get('campaign_id'));
 
   const refresh = React.useCallback(async () => {
@@ -444,6 +448,46 @@ export default function CampaignPage() {
     }
   };
 
+  const startConfirm = pendingStart && (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 pt-safe pb-safe"
+      onClick={() => setPendingStart(null)}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="campaign-start-title"
+        className="bg-bf-surface border border-bf-border rounded-xl p-5 sm:p-6 w-full max-w-sm"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="text-[11px] uppercase tracking-widest text-bf-muted mb-1">Start a campaign</p>
+        <h3 id="campaign-start-title" className="font-display text-lg text-bf-gold mb-1">{pendingStart.name}</h3>
+        {pendingStart.tagline && <p className="text-xs text-bf-muted italic mb-3">{pendingStart.tagline}</p>}
+        <p className="text-sm text-bf-muted mb-5">
+          This creates your first era&apos;s game right away and opens it. The run then stays in Campaign HQ
+          until you finish it, so start when you have time for a full era.
+        </p>
+        <div className="flex gap-3">
+          <button type="button" className="btn-secondary flex-1" onClick={() => setPendingStart(null)}>
+            Not yet
+          </button>
+          <button
+            type="button"
+            className="btn-primary flex-1 disabled:opacity-60"
+            disabled={starting}
+            onClick={() => {
+              const pathId = pendingStart.pathId;
+              setPendingStart(null);
+              void handleStartWithPath(pathId);
+            }}
+          >
+            {starting ? 'Starting…' : 'Start campaign'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   const handleContinue = async (campaign: Campaign) => {
     if (campaign.status === 'completed') return;
     setContinuing(campaign.campaign_id);
@@ -507,13 +551,25 @@ export default function CampaignPage() {
             paths={availablePaths}
             activePathIds={activePathIds}
             hasActiveClassic={hasActiveClassic}
-            onSelect={(pathId) => handleStartWithPath(pathId)}
-            onClassic={() => handleStartWithPath(undefined)}
+            onSelect={(pathId) => {
+              // A guest cannot start one at all: the account offer, not a confirm.
+              if (isGuest) { setShowGuestGate(true); return; }
+              const path = availablePaths.find((p) => p.path_id === pathId);
+              setPendingStart({ pathId, name: path?.name ?? 'Campaign', tagline: path?.tagline });
+            }}
+            onClassic={() => {
+              if (isGuest) { setShowGuestGate(true); return; }
+              setPendingStart({
+                name: 'Classic Campaign',
+                tagline: 'Free faction choice, standard progression — no narrative path.',
+              });
+            }}
             onCancel={() => setShowPathSelection(false)}
             starting={starting}
             canCancel={campaigns.length > 0}
           />
           {guestGate}
+          {startConfirm}
       </SubpageShell>
     );
   }

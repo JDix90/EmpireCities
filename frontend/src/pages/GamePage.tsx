@@ -2782,7 +2782,18 @@ export default function GamePage() {
         const next = normalizeLobbySnapshot(res.data);
         if (next) setLobbySnapshot(next);
       })
-      .catch(() => setLobbySnapshot(null));
+      .catch((err: unknown) => {
+        setLobbySnapshot(null);
+        // A definite answer from the server (not a dropped connection) means
+        // the page will never load: say so instead of "Loading lobby…" for
+        // ever (PT-015). The screen only shows while no game state is loaded.
+        const status = (err as { response?: { status?: number } })?.response?.status;
+        if (status === 404 || status === 400) {
+          setLobbyLoadError('This game does not exist, or the link is wrong.');
+        } else if (typeof status === 'number' && status >= 500) {
+          setLobbyLoadError('The game could not be loaded right now. Check the link and try again.');
+        }
+      });
   }, [gameId]);
 
   // ── Tutorial territory highlight ─────────────────────────────────────────

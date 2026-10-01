@@ -7,6 +7,7 @@ const PALETTE_NAMES: Record<string, string> = {
   '#9b59b6': 'purple',
   '#1abc9c': 'teal',
   '#e67e22': 'amber',
+  '#ff69b4': 'pink',
   '#ecf0f1': 'white',
 };
 
