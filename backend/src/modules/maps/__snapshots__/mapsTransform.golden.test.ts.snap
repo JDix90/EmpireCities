@@ -108,6 +108,7 @@ exports[`rowToSummary — golden snapshot > full row transforms to expected MapS
   "creator_id": "system",
   "description": "The age of the Mongol conquests, Crusades, and feudal kingdoms.",
   "era_theme": "medieval",
+  "expansion_territory_count": 0,
   "is_public": true,
   "map_id": "era_medieval",
   "name": "Medieval World (1200 AD)",

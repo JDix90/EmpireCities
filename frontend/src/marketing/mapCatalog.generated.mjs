@@ -17,6 +17,8 @@ export const MAP_CATALOG = [
     "name": "Roman Empire — 117 A.D.",
     "description": "The Roman Empire at its height under Trajan, 117 A.D. Forty-one provinces from Britannia to Mesopotamia — Italia and the islands at the core, the Hispanic, Gallic, and Danubian west, the Greek and Anatolian east, the Levantine Oriens, and the African and Egyptian south — ringed by the Germanic, Dacian, and Parthian frontiers and bound together by the Mediterranean sea-lanes. Hold Rome or rise from the provinces to claim the purple.",
     "territory_count": 41,
+    "expansion_territory_count": 0,
+    "expansion_region_count": 0,
     "connection_count": 80,
     "sea_route_count": 26,
     "era_theme": "ancient",
@@ -74,6 +76,8 @@ export const MAP_CATALOG = [
     "name": "Sengoku Japan — Warring States",
     "description": "Japan in the age of the warring states. Thirty-eight provinces from Satsuma to Ezo contest the realm as the great clans — Shimazu, Mōri, Oda, Takeda, Uesugi, Hōjō, Date, Tokugawa — fight to march on Kyōto and unify the country. Mountain passes and the Inland Sea decide where the fighting can happen at all.",
     "territory_count": 38,
+    "expansion_territory_count": 0,
+    "expansion_region_count": 0,
     "connection_count": 88,
     "sea_route_count": 38,
     "era_theme": "medieval",
@@ -126,6 +130,8 @@ export const MAP_CATALOG = [
     "name": "Napoleonic Europe — 1812",
     "description": "Europe at the zenith of Napoleon's power, 1812. Forty-four states from Portugal to Moscow — the French Empire and its satellites against the coalition of Britain, Russia, Prussia, Austria, and the embers of Spain. March on the enemy capital, or hold the line from Lisbon to the Niemen.",
     "territory_count": 44,
+    "expansion_territory_count": 0,
+    "expansion_region_count": 0,
     "connection_count": 110,
     "sea_route_count": 27,
     "era_theme": "discovery",
@@ -183,6 +189,8 @@ export const MAP_CATALOG = [
     "name": "Mongol Empire — 1279",
     "description": "The Mongol Empire at its height, 1279, the year Kublai Khan completed the conquest of Song China. Thirty-six provinces across the largest contiguous land empire in history — Yuan China, the Mongol heartland, the Chagatai khanate, the Ilkhanate of Persia, and the Golden Horde over the Rus' and the steppe. Reunite the ulus or break it apart.",
     "territory_count": 36,
+    "expansion_territory_count": 0,
+    "expansion_region_count": 0,
     "connection_count": 84,
     "sea_route_count": 9,
     "era_theme": "medieval",
@@ -230,6 +238,8 @@ export const MAP_CATALOG = [
     "name": "Europe — Death of Charlemagne, 814 A.D.",
     "description": "Europe at the death of Charlemagne in 814. The Frankish Empire towers over the continent, ringed by the Eastern Roman and Abbasid worlds, the Emirate of Córdoba, the Norse north, and a frontier of Slavic, Bulgar, Avar, Magyar and Khazar peoples. Hold the Carolingian heartland or rise from the marches to inherit the empire.",
     "territory_count": 46,
+    "expansion_territory_count": 0,
+    "expansion_region_count": 0,
     "connection_count": 91,
     "sea_route_count": 20,
     "era_theme": "custom",
@@ -297,6 +307,8 @@ export const MAP_CATALOG = [
     "name": "Fractured China — Warlord Era",
     "description": "China in the warlord era, splintered into rival cliques: Fengtian holds Manchuria, Zhili the North China Plain, frontier khanates and Xinjiang guard the Gobi and the Tian Shan, Tibet rules its plateau, the Yunnan and Sichuan cliques the southwest, and the wealthy treaty ports of Jiangnan and the southern cliques of Guangdong command the coast. A continental theater of river borders, mountain walls, and contested sea lanes to Taiwan and Hainan.",
     "territory_count": 30,
+    "expansion_territory_count": 0,
+    "expansion_region_count": 0,
     "connection_count": 64,
     "sea_route_count": 4,
     "era_theme": "custom",
@@ -354,6 +366,8 @@ export const MAP_CATALOG = [
     "name": "Surviving Byzantium",
     "description": "An alternate Aegean where the Empire of the Romans endured. Constantinople still guards the Bosphorus, Byzantine Anatolia and Greece flank the wine-dark sea, and a shrunken Ottoman rump, Bulgaria, Serbia, the Latin islanders of the Aegean, and the Levantine ports all contest the straits. A naval theater where no power rules without a fleet.",
     "territory_count": 33,
+    "expansion_territory_count": 0,
+    "expansion_region_count": 0,
     "connection_count": 64,
     "sea_route_count": 19,
     "era_theme": "custom",
@@ -401,6 +415,8 @@ export const MAP_CATALOG = [
     "name": "Balkanized India",
     "description": "The subcontinent shattered into rival successor states after the empire's fall — Sikh Punjab, Hindustan of the Gangetic plain, the Bengal delta, the Maratha Confederacy of the Deccan, the Dravidian south, Gujarat's merchant coast, Himalayan Kashmir, the Rajput desert kingdoms, and island Lanka. The mountains and the monsoon rivers drew these borders long before the crowns did.",
     "territory_count": 33,
+    "expansion_territory_count": 0,
+    "expansion_region_count": 0,
     "connection_count": 67,
     "sea_route_count": 3,
     "era_theme": "custom",
@@ -458,6 +474,8 @@ export const MAP_CATALOG = [
     "name": "Uncolonized Africa",
     "description": "Africa as a mosaic of its own indigenous powers, before the Scramble — the Maghreb and its Atlas, the Sahelian empires of the Niger bend, the Nile of Egypt and Nubia, the Abyssinian highlands and the Horn, the Swahili trading coast, the Kongo and the rainforest basin, the stone cities of Zimbabwe and the Cape, and the forest kingdoms of the Guinea Coast. Madagascar rides offshore, joined by sea.",
     "territory_count": 38,
+    "expansion_territory_count": 0,
+    "expansion_region_count": 0,
     "connection_count": 77,
     "sea_route_count": 2,
     "era_theme": "custom",
@@ -510,6 +528,8 @@ export const MAP_CATALOG = [
     "name": "Maritime Southeast Asia",
     "description": "The great archipelago of Nusantara and its mainland rim — Srivijaya's Sumatra, Majapahit's Java, the jungled mass of Borneo, the Malay peninsula guarding the Strait of Malacca, the scattered Philippine isles, Sulawesi and the spice-rich Moluccas, and the Indochinese kingdoms of Burma, Siam, Đại Việt and Champa. A theater ruled by the sea: whoever holds the straits holds the trade winds, and every island is won or lost by fleet.",
     "territory_count": 34,
+    "expansion_territory_count": 0,
+    "expansion_region_count": 0,
     "connection_count": 64,
     "sea_route_count": 35,
     "era_theme": "custom",
@@ -567,6 +587,8 @@ export const MAP_CATALOG = [
     "name": "Balkanized South America",
     "description": "South America shattered into its post-Bolivarian successor states — Greater Argentina on the Pampas, the Empire of Brazil across the Atlantic east and the Amazon, Gran Colombia along the Caribbean and Orinoco, the Andean Federation high on the cordillera, the long ribbon of Chile pinned between the mountains and the Pacific, and the landlocked Guaraní heartland. Borders run with the great rivers, the Andean spine, and Patagonia's long tapering reach toward Tierra del Fuego.",
     "territory_count": 34,
+    "expansion_territory_count": 0,
+    "expansion_region_count": 0,
     "connection_count": 70,
     "sea_route_count": 0,
     "era_theme": "custom",
@@ -609,6 +631,8 @@ export const MAP_CATALOG = [
     "name": "Great Britain 925 A.D.",
     "description": "Medieval Britain divided among Anglo-Saxon, Viking, Welsh, and Scottish kingdoms. Control England's heartland or unite the Celtic fringes to dominate the isles.",
     "territory_count": 14,
+    "expansion_territory_count": 0,
+    "expansion_region_count": 0,
     "connection_count": 23,
     "sea_route_count": 2,
     "era_theme": "custom",
@@ -652,9 +676,11 @@ export const ERA_MAPS = {
     "map_id": "era_ancient",
     "name": "Ancient World (200 AD)",
     "description": "The world at the height of the Roman Empire. Legion Tactics applies here: an attack with three dice re-rolls its lowest, so a half-committed push fares worse than it would in any other era.",
-    "territory_count": 57,
-    "connection_count": 114,
-    "sea_route_count": 42,
+    "territory_count": 33,
+    "expansion_territory_count": 24,
+    "expansion_region_count": 10,
+    "connection_count": 53,
+    "sea_route_count": 9,
     "era_theme": "ancient",
     "regions": [
       {
@@ -703,11 +729,6 @@ export const ERA_MAPS = {
         "territory_count": 2
       },
       {
-        "name": "Sahara",
-        "bonus": 2,
-        "territory_count": 1
-      },
-      {
         "name": "The Far East",
         "bonus": 2,
         "territory_count": 1
@@ -716,51 +737,6 @@ export const ERA_MAPS = {
         "name": "Southeast Asia",
         "bonus": 2,
         "territory_count": 1
-      },
-      {
-        "name": "The Northern Reaches",
-        "bonus": 2,
-        "territory_count": 2
-      },
-      {
-        "name": "The Southern Reaches",
-        "bonus": 2,
-        "territory_count": 1
-      },
-      {
-        "name": "Oceania",
-        "bonus": 2,
-        "territory_count": 3
-      },
-      {
-        "name": "North America",
-        "bonus": 4,
-        "territory_count": 4
-      },
-      {
-        "name": "South America",
-        "bonus": 4,
-        "territory_count": 4
-      },
-      {
-        "name": "Insulindia",
-        "bonus": 3,
-        "territory_count": 3
-      },
-      {
-        "name": "The Caribbean",
-        "bonus": 2,
-        "territory_count": 1
-      },
-      {
-        "name": "Horn of Africa",
-        "bonus": 2,
-        "territory_count": 1
-      },
-      {
-        "name": "Antarctica",
-        "bonus": 3,
-        "territory_count": 4
       },
       {
         "name": "The Himalayas",
@@ -775,6 +751,8 @@ export const ERA_MAPS = {
     "name": "Medieval World (1200 AD)",
     "description": "The age of the Mongol conquests, Crusades, and feudal kingdoms. No era doctrine applies, so the factions carry the game: the Khanate attacks with an extra die and Greek Fire burns a unit off an attacker before the dice come out.",
     "territory_count": 36,
+    "expansion_territory_count": 0,
+    "expansion_region_count": 0,
     "connection_count": 57,
     "sea_route_count": 19,
     "era_theme": "medieval",
@@ -846,9 +824,11 @@ export const ERA_MAPS = {
     "map_id": "era_discovery",
     "name": "Age of Discovery (1600 AD)",
     "description": "The world in the age of colonial empires and global sea trade. Attacks across water roll two dice instead of three, so a crossing is never as safe as the same odds on land.",
-    "territory_count": 41,
-    "connection_count": 66,
-    "sea_route_count": 30,
+    "territory_count": 34,
+    "expansion_territory_count": 7,
+    "expansion_region_count": 4,
+    "connection_count": 53,
+    "sea_route_count": 19,
     "era_theme": "discovery",
     "regions": [
       {
@@ -890,26 +870,6 @@ export const ERA_MAPS = {
         "name": "Sea Routes",
         "bonus": 4,
         "territory_count": 2
-      },
-      {
-        "name": "Polar Frontier",
-        "bonus": 2,
-        "territory_count": 1
-      },
-      {
-        "name": "Pacific Frontier",
-        "bonus": 3,
-        "territory_count": 3
-      },
-      {
-        "name": "Oceania",
-        "bonus": 2,
-        "territory_count": 1
-      },
-      {
-        "name": "Antarctic Frontier",
-        "bonus": 2,
-        "territory_count": 2
       }
     ]
   },
@@ -918,9 +878,11 @@ export const ERA_MAPS = {
     "map_id": "era_ww2",
     "name": "World War II (1939–1945)",
     "description": "The greatest conflict in human history. Wartime Logistics lets you fortify twice a turn, so reserves can answer two theaters while other eras are still answering one.",
-    "territory_count": 42,
-    "connection_count": 63,
-    "sea_route_count": 29,
+    "territory_count": 35,
+    "expansion_territory_count": 7,
+    "expansion_region_count": 3,
+    "connection_count": 51,
+    "sea_route_count": 17,
     "era_theme": "ww2",
     "regions": [
       {
@@ -967,21 +929,6 @@ export const ERA_MAPS = {
         "name": "Sub-Saharan Africa",
         "bonus": 2,
         "territory_count": 2
-      },
-      {
-        "name": "Remote Frontiers",
-        "bonus": 2,
-        "territory_count": 2
-      },
-      {
-        "name": "Southern Ocean",
-        "bonus": 2,
-        "territory_count": 2
-      },
-      {
-        "name": "Antarctica",
-        "bonus": 3,
-        "territory_count": 3
       }
     ]
   },
@@ -990,9 +937,11 @@ export const ERA_MAPS = {
     "map_id": "era_coldwar",
     "name": "Cold War (1947–1991)",
     "description": "The world divided between two superpowers. Influence takes a weak neighbour outright for three units and no dice, then sits on a three-turn cooldown.",
-    "territory_count": 51,
-    "connection_count": 78,
-    "sea_route_count": 30,
+    "territory_count": 44,
+    "expansion_territory_count": 7,
+    "expansion_region_count": 5,
+    "connection_count": 64,
+    "sea_route_count": 16,
     "era_theme": "coldwar",
     "regions": [
       {
@@ -1039,31 +988,6 @@ export const ERA_MAPS = {
         "name": "East Asia",
         "bonus": 5,
         "territory_count": 5
-      },
-      {
-        "name": "Polar Frontier",
-        "bonus": 2,
-        "territory_count": 1
-      },
-      {
-        "name": "Antarctic Claims",
-        "bonus": 2,
-        "territory_count": 2
-      },
-      {
-        "name": "Oceanic Frontier",
-        "bonus": 3,
-        "territory_count": 2
-      },
-      {
-        "name": "Non-Aligned Pacific",
-        "bonus": 2,
-        "territory_count": 1
-      },
-      {
-        "name": "Space Frontier",
-        "bonus": 2,
-        "territory_count": 1
       }
     ]
   },
@@ -1072,9 +996,11 @@ export const ERA_MAPS = {
     "map_id": "era_modern",
     "name": "The Modern Day",
     "description": "The world as it stands today. Precision Strike rewards mass: commit four units or more and the attack rolls three dice.",
-    "territory_count": 50,
-    "connection_count": 94,
-    "sea_route_count": 32,
+    "territory_count": 43,
+    "expansion_territory_count": 7,
+    "expansion_region_count": 3,
+    "connection_count": 82,
+    "sea_route_count": 23,
     "era_theme": "modern",
     "regions": [
       {
@@ -1116,21 +1042,6 @@ export const ERA_MAPS = {
         "name": "Oceania & Pacific",
         "bonus": 2,
         "territory_count": 2
-      },
-      {
-        "name": "Polar Frontier",
-        "bonus": 3,
-        "territory_count": 3
-      },
-      {
-        "name": "Orbital Frontier",
-        "bonus": 2,
-        "territory_count": 2
-      },
-      {
-        "name": "Deep Ocean Frontier",
-        "bonus": 2,
-        "territory_count": 2
       }
     ]
   },
@@ -1140,6 +1051,8 @@ export const ERA_MAPS = {
     "name": "American Civil War (1861–1865)",
     "description": "Union versus Confederacy: fight for the Eastern Theater, the Mississippi, and the Trans-Mississippi West.",
     "territory_count": 18,
+    "expansion_territory_count": 0,
+    "expansion_region_count": 0,
     "connection_count": 38,
     "sea_route_count": 1,
     "era_theme": "acw",
@@ -1182,6 +1095,8 @@ export const ERA_MAPS = {
     "name": "Italian Unification (1859–1871)",
     "description": "Risorgimento Italy: from Piedmont and the Two Sicilies to a united kingdom. Territories follow modern provincial outlines grouped into historical regions.",
     "territory_count": 14,
+    "expansion_territory_count": 0,
+    "expansion_region_count": 0,
     "connection_count": 23,
     "sea_route_count": 2,
     "era_theme": "risorgimento",
@@ -1224,6 +1139,8 @@ export const ERA_MAPS = {
     "name": "Space Age (2100 AD)",
     "description": "The world as it may be in 2100 — climate-reshaped borders, corporate enclaves, planetary megastates — plus a second globe representing a contested lunar surface. Research Lunar Expansion, build a Launch Pad, and launch your Space Station to claim the Moon.",
     "territory_count": 63,
+    "expansion_territory_count": 0,
+    "expansion_region_count": 0,
     "connection_count": 128,
     "sea_route_count": 58,
     "era_theme": "space_age",
@@ -1311,6 +1228,8 @@ export const ERA_MAPS = {
     "name": "Galactic Age",
     "description": "Four contested worlds — Sol III, Verdan Reach, Rust Belt, and Nexus Station — linked only by Pathfinder hyperspace lanes. Hold a gateway system to attack across its lane; Lane Charts adds a third die to those crossings.",
     "territory_count": 64,
+    "expansion_territory_count": 0,
+    "expansion_region_count": 0,
     "connection_count": 120,
     "sea_route_count": 51,
     "era_theme": "galaxy_age",

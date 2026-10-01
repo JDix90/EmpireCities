@@ -100,7 +100,11 @@ export interface MapSummary {
   name: string;
   description: string;
   era_theme: string;
+  /** The starting board (see startingBoard.ts), not every authored territory. */
   territory_count: number;
+  /** Frontier territories dealt only through Era Advancement; 0 when the map has none. */
+  expansion_territory_count: number;
+  /** Regions with at least one territory on the starting board. */
   region_count: number;
   is_public: boolean;
   play_count: number;

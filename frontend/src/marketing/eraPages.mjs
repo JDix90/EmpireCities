@@ -31,11 +31,11 @@ export const ERA_PAGE_COPY = {
     years: '3000 BC – 400 AD',
     title: 'Ancient Warfare Strategy Game — Free in Your Browser',
     description:
-      'Rome, Parthia, Han China, Carthage and Maurya on a 57-territory ancient world map. '
+      'Rome, Parthia, Han China, Carthage and Maurya on a 33-territory ancient world map. '
       + 'Free turn-based strategy in your browser — no download, no account.',
     h1: 'The Ancient World',
     hook:
-      'The widest opening board in the game at 57 territories across 22 regions, which makes the '
+      'A 33-territory opening board across 12 regions that grows to 57 as the eras advance, which makes the '
       + 'first dozen turns a land grab rather than a war — there is simply more neutral ground than '
       + 'anyone can reach. Rome rewards discipline and Parthia punishes overreach; the Germanic '
       + 'tribes are the cheapest way to learn how much a defensible frontier is worth.',
@@ -58,7 +58,7 @@ export const ERA_PAGE_COPY = {
     title: 'Age of Discovery Strategy Game — Free in Your Browser',
     description:
       'Spain, Portugal, the Ottomans, Ming and the Mughals as ocean-going empires on a '
-      + '41-territory map. Free turn-based strategy, nothing to install.',
+      + '34-territory map. Free turn-based strategy, nothing to install.',
     h1: 'The Age of Discovery',
     hook:
       'The era where sea lanes start mattering as much as borders: fleets turn a distant coast into '
@@ -96,7 +96,7 @@ export const ERA_PAGE_COPY = {
     years: '1939 – 1945',
     title: 'WW2 Strategy Game — Free Turn-Based Browser Game',
     description:
-      'World War II as turn-based strategy: the Reich, the USSR, the US, Britain, Japan and Nationalist China on a 42-territory map. Free in your browser.',
+      'World War II as turn-based strategy: the Reich, the USSR, the US, Britain, Japan and Nationalist China on a 35-territory map. Free in your browser.',
     h1: 'World War II',
     hook:
       'Six powers on a global board, which means the war is never one war — the Pacific and the '
@@ -108,10 +108,10 @@ export const ERA_PAGE_COPY = {
     title: 'Cold War Strategy Game — Free in Your Browser',
     description:
       'The Cold War as turn-based strategy: two superpowers, China, NATO and the Non-Aligned '
-      + 'Movement across a 51-territory world. Free browser game, no download.',
+      + 'Movement across a 44-territory world. Free browser game, no download.',
     h1: 'The Cold War',
     hook:
-      'The largest Earth board in the game at 51 territories across 13 regions, and the one where '
+      'The largest Earth board in the game at 44 territories across 9 regions, and the one where '
       + 'position beats conquest — the Non-Aligned Movement exists to make the middle of the map '
       + 'worth contesting rather than taking. Expect long games decided on the periphery.',
   },
@@ -119,7 +119,7 @@ export const ERA_PAGE_COPY = {
     years: '2026',
     title: 'Modern Strategy Game — Free Turn-Based Browser Game',
     description:
-      'Present-day powers on a 50-territory world map: blocs, rogue states, petrostates and cyber states. Free turn-based strategy in your browser.',
+      'Present-day powers on a 43-territory world map: blocs, rogue states, petrostates and cyber states. Free turn-based strategy in your browser.',
     h1: 'The Modern Day',
     hook:
       'The only era whose factions are archetypes rather than nations — a petrostate and a cyber '
@@ -182,6 +182,12 @@ export function eraPageBlocks(era) {
         ...(era.board
           ? [
             { k: 'Board', v: `${era.board.name} — ${count(era.board.territory_count, 'territory', 'territories')}` },
+            ...(era.board.expansion_territory_count > 0
+              ? [{
+                k: 'Grows to',
+                v: `${count(era.board.territory_count + era.board.expansion_territory_count, 'territory', 'territories')} as the eras advance`,
+              }]
+              : []),
             { k: 'Regions', v: String(era.board.regions.length) },
           ]
           : []),
