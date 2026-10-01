@@ -387,6 +387,12 @@ export interface GameState {
   era_spine?: Array<{ era_id: string; signature_id?: string }>;
   /** Viewer-scoped era advancement status — present when era advancement is enabled. */
   era_advancement_preview?: AdvanceEraClientPreview;
+  /**
+   * Viewer-scoped Stability deploy caps, present during the viewer's own draft
+   * when Stability is on: units each owned territory can still take this turn.
+   * Tiles with no cap (stability 50+) are absent.
+   */
+  draft_deploy_caps?: Record<string, number>;
   /** Fortify moves the current player has spent this turn (vs the per-turn limit). */
   fortify_moves_used?: number;
   era_modifiers?: {

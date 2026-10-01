@@ -4983,6 +4983,33 @@ function buildClientState(state: GameState, playerId: string | null, fogOfWar: b
     return preview ? { ...withModifiers, era_advancement_preview: preview } : withModifiers;
   };
 
+  // Viewer-scoped Stability deploy caps (transport-only), attached while it is
+  // the viewer's own draft: how many more units each of their territories can
+  // still take this turn. The territory panel offered "Place 12" on a tile
+  // whose cap was 3 and learned the limit only from the server's refusal
+  // (playtest PT-009); with the cap in the payload it shows and clamps it.
+  const attachDraftCaps = (s: GameState): GameState => {
+    if (!playerId || !state.settings.stability_enabled || state.phase !== 'draft') return s;
+    const viewer = state.players[state.current_player_index];
+    if (!viewer || viewer.player_id !== playerId) return s;
+    const placements = state.draft_placements_this_turn ?? {};
+    const caps: Record<string, number> = {};
+    for (const t of Object.values(state.territories)) {
+      if (t.owner_id !== playerId) continue;
+      const cap = getDeployCap(t.stability, {
+        era: state.era,
+        turnNumber: state.turn_number,
+        economyEnabled: !!state.settings.economy_enabled,
+        playerSpecialResource: viewer.special_resource ?? 0,
+        worldDeployCapBonus: worldDeployCapBonus(state, t.world_id),
+      });
+      // Infinity (stability 50+) has no JSON form and means "no cap": leave it out.
+      if (!Number.isFinite(cap)) continue;
+      caps[t.territory_id] = Math.max(0, cap - (placements[t.territory_id] ?? 0));
+    }
+    return { ...s, draft_deploy_caps: caps };
+  };
+
   const actingPlayerId = state.players[state.current_player_index]?.player_id;
   const stripSecretMissions = (s: GameState): GameState => ({
     // What no viewer may hold: the mission salt, the daily seeds, a v2 day's
@@ -5005,7 +5032,7 @@ function buildClientState(state: GameState, playerId: string | null, fogOfWar: b
 
   // No fog → everyone (players and spectators) sees full territory intel.
   // (Spectator card hands are still emptied by redactPlayersForViewer.)
-  if (!fogOfWar) return attachEraPreview(stripSecretMissions(state));
+  if (!fogOfWar) return attachDraftCaps(attachEraPreview(stripSecretMissions(state)));
 
   // Fog is on. Compute which territories' exact intel the viewer may see.
   const visibleIds = playerId !== null ? fogVisibleTerritoryIds(state, playerId) : new Set<string>();
@@ -5028,7 +5055,7 @@ function buildClientState(state: GameState, playerId: string | null, fogOfWar: b
     );
   }
 
-  return attachEraPreview(stripSecretMissions(filtered));
+  return attachDraftCaps(attachEraPreview(stripSecretMissions(filtered)));
 }
 
 async function saveGameState(gameId: string, state: GameState): Promise<void> {

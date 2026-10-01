@@ -1159,6 +1159,13 @@ export interface GameState {
    * `buildClientState`. Transport-only: never set on the authoritative state.
    */
   era_advancement_preview?: AdvanceEraClientPreview;
+  /**
+   * Viewer-scoped Stability deploy caps, attached per-player at broadcast by
+   * `buildClientState` while it is the viewer's own draft: how many more units
+   * each of their territories can still take this turn (tiles with no cap are
+   * left out). Transport-only: never set on the authoritative state.
+   */
+  draft_deploy_caps?: Record<string, number>;
   era_modifiers?: EraModifiers;
   /** Number of fortify moves used this turn (limit enforced by wartime_logistics). */
   fortify_moves_used?: number;

@@ -601,3 +601,38 @@ describe('attack targets in a team game', () => {
     expect([...computePhaseAdjacencyTargets(ffa, links, { attackSource: 'rome' })].sort()).toEqual(['milan', 'turin', 'wild']);
   });
 });
+
+describe('sea lanes without a fleet (PT-010)', () => {
+  const seaState = (fleets: number): GameState => ({
+    phase: 'attack',
+    settings: { naval_enabled: true },
+    territories: {
+      greece: { territory_id: 'greece', owner_id: 'p1', unit_count: 5, naval_units: fleets },
+      anatolia: { territory_id: 'anatolia', owner_id: 'p2', unit_count: 2, naval_units: 0 },
+    },
+    players: [
+      { player_id: 'p1', username: 'Human', color: '#f00', player_index: 0, is_ai: false },
+      { player_id: 'p2', username: 'AI', color: '#00f', player_index: 1, is_ai: true },
+    ],
+  } as unknown as GameState);
+  const sea = [{ from: 'greece', to: 'anatolia', type: 'sea' as const }];
+  const names = new Map([['greece', 'Greece'], ['anatolia', 'Anatolia']]);
+
+  it('marks a sea-lane target as needing a fleet when the source has none', () => {
+    const rows = listNeighborTargets(seaState(0), sea, 'greece', names);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ territoryId: 'anatolia', isSea: true, needsFleet: true });
+    expect(listNeighborTargets(seaState(1), sea, 'greece', names)[0]!.needsFleet).toBe(false);
+  });
+
+  it('does not offer a fleetless sea source as a direct attack on the enemy panel', () => {
+    expect(listDirectAttackSources(seaState(0), sea, 'anatolia', 'p1', names)).toEqual([]);
+    expect(listDirectAttackSources(seaState(1), sea, 'anatolia', 'p1', names).map((r) => r.territoryId)).toEqual(['greece']);
+  });
+
+  it('ignores fleets when Naval Warfare is off', () => {
+    const off = seaState(0);
+    (off as unknown as { settings: { naval_enabled: boolean } }).settings.naval_enabled = false;
+    expect(listNeighborTargets(off, sea, 'greece', names)[0]!.needsFleet).toBe(false);
+  });
+});

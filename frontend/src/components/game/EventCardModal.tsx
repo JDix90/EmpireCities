@@ -85,12 +85,12 @@ function EventCardModal({ card, isMyTurn, onChoice, onDismiss }: Props) {
   const style = CATEGORY_STYLES[card.category] ?? CATEGORY_STYLES.global;
   const hasChoices = card.choices && card.choices.length > 0;
 
-  // Enter dismisses a no-choice event card (matches the Continue button).
-  // Choice cards are left alone so Enter can't accidentally pick an option.
+  // Enter or Escape dismisses a no-choice event card (matches the Continue
+  // button). Choice cards are left alone so a key can't pick an option.
   React.useEffect(() => {
     if (hasChoices) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Enter') {
+      if (e.key === 'Enter' || e.key === 'Escape') {
         e.preventDefault();
         onDismiss();
       }

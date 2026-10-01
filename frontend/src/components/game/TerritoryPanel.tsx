@@ -370,6 +370,16 @@ export default function TerritoryPanel({
     : 0;
   if (!selectedTerritory || !gameState) return null;
 
+  // Stability deploy cap for this tile, from the server's per-viewer payload
+  // (absent when Stability is off, the tile sits at 50+ stability, or it is
+  // not this viewer's draft). The dial is clamped to it so the panel never
+  // offers a placement the server would refuse (PT-009).
+  const deployCapLeft = gameState.draft_deploy_caps?.[selectedTerritory];
+  const placeablePool = deployCapLeft == null ? draftPool : Math.min(draftPool, deployCapLeft);
+  const deployCapNote =
+    deployCapLeft != null && deployCapLeft < draftPool ? ` · stability cap: ${deployCapLeft} more here` : '';
+  const deployCapReached = draftPool > 0 && placeablePool <= 0;
+
   const tState = gameState.territories[selectedTerritory];
   const mapTerritory = mapTerritories.find((t) => t.territory_id === selectedTerritory);
   if (!tState || !mapTerritory) return null;
@@ -533,6 +543,27 @@ export default function TerritoryPanel({
     [gameState, mapConnections, selectedTerritory, myPlayerId],
   );
 
+  /**
+   * Bordering stacks that could attack this tile but for a fleet: Naval Warfare
+   * on, a sea lane between, no ship at the source. The server refuses these
+   * ("No fleet to traverse sea lane"), so they are not offered — and the player
+   * is told why, instead of "too thin" or "nothing borders it" (PT-010).
+   */
+  const fleetlessSeaSources = React.useMemo(
+    () =>
+      gameState.settings.naval_enabled && (isEnemy || isUnowned)
+        ? borderingOwned.filter((id) => {
+            const conn = mapConnections?.find(
+              (c) => (c.from === id && c.to === selectedTerritory) || (c.from === selectedTerritory && c.to === id),
+            );
+            return conn?.type === 'sea'
+              && (gameState.territories[id]?.naval_units ?? 0) <= 0
+              && canAttackFrom(gameState, id, myPlayerId);
+          })
+        : [],
+    [gameState, mapConnections, selectedTerritory, myPlayerId, borderingOwned, isEnemy, isUnowned],
+  );
+
   // "Blitz until captured": same legality as the single attack, minus the
   // cases the server refuses to auto-repeat (sea lanes, dailies). On a truce
   // partner it breaks the truce, confirmed first as a single attack is.
@@ -675,14 +706,20 @@ export default function TerritoryPanel({
             <span className="text-bf-muted text-sm">units on this territory</span>
           </div>
           <div>
-            <label className="label text-xs">Place reinforcements ({draftPool} remaining)</label>
-            <QuickPlace
-              pool={draftPool}
-              size="lg"
-              onPlace={(n) => onDraft(selectedTerritory, n)}
-              onUndo={canDraftUndo ? onDraftUndo : undefined}
-              canUndo={canDraftUndo}
-            />
+            <label className="label text-xs">Place reinforcements ({draftPool} remaining{deployCapNote})</label>
+            {deployCapReached ? (
+              <p className="text-xs text-amber-300/90" role="status">
+                Stability cap reached — this territory can take no more units this turn. Place the rest elsewhere.
+              </p>
+            ) : (
+              <QuickPlace
+                pool={placeablePool}
+                size="lg"
+                onPlace={(n) => onDraft(selectedTerritory, n)}
+                onUndo={canDraftUndo ? onDraftUndo : undefined}
+                canUndo={canDraftUndo}
+              />
+            )}
           </div>
         </div>
       )}
@@ -1005,7 +1042,10 @@ export default function TerritoryPanel({
                 </div>
               )}
               {tState.stability < 30 && (
-                <p className="text-xs text-red-400 mt-1">⚠ Low stability — deploy cap reduced</p>
+                <p className="text-xs text-red-400 mt-1">
+                  ⚠ Low stability — deploy cap reduced
+                  {deployCapLeft != null ? ` (${deployCapLeft} more ${deployCapLeft === 1 ? 'unit' : 'units'} here this turn)` : ''}
+                </p>
               )}
               {tState.stability <= 10 && (
                 <p className="text-xs text-red-300 mt-0.5">⚠ Rebellion risk — territory may revolt</p>
@@ -1089,13 +1129,19 @@ export default function TerritoryPanel({
           {/* Draft (always at top if available) */}
           {isMine && gameState.phase === 'draft' && draftPool > 0 && !isMobileDraftPlacementMode && (
             <div>
-              <label className="label text-xs">Place Reinforcements ({draftPool} remaining)</label>
-              <QuickPlace
-                pool={draftPool}
-                onPlace={(n) => onDraft(selectedTerritory, n)}
-                onUndo={canDraftUndo ? onDraftUndo : undefined}
-                canUndo={canDraftUndo}
-              />
+              <label className="label text-xs">Place Reinforcements ({draftPool} remaining{deployCapNote})</label>
+              {deployCapReached ? (
+                <p className="text-xs text-amber-300/90" role="status">
+                  Stability cap reached — this territory can take no more units this turn. Place the rest elsewhere.
+                </p>
+              ) : (
+                <QuickPlace
+                  pool={placeablePool}
+                  onPlace={(n) => onDraft(selectedTerritory, n)}
+                  onUndo={canDraftUndo ? onDraftUndo : undefined}
+                  canUndo={canDraftUndo}
+                />
+              )}
             </div>
           )}
 
@@ -1149,9 +1195,11 @@ export default function TerritoryPanel({
                     : /* Enemy ground: if anything of mine bordered it with enough
                          units, it would be listed above — so these two are the
                          only reasons left. */
-                      borderingOwned.length > 0
-                        ? `Your territories next to this one are too thin — an attack needs ${MIN_ATTACK_UNITS} units.`
-                        : 'None of your territories border this one.'}
+                      fleetlessSeaSources.length > 0
+                        ? 'Your territories across the sea from this one have no fleet — a sea crossing needs a ship when Naval Warfare is on.'
+                        : borderingOwned.length > 0
+                          ? `Your territories next to this one are too thin — an attack needs ${MIN_ATTACK_UNITS} units.`
+                          : 'None of your territories border this one.'}
                 </p>
               )}
               {/*

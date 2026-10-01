@@ -269,6 +269,13 @@ export interface NeighborTargetRow {
   ownerName?: string;
   isSea: boolean;
   /**
+   * A sea lane the attacker cannot use yet: Naval Warfare is on and the source
+   * holds no fleet, so the server would refuse the attack ("No fleet to
+   * traverse sea lane"). The picker shows the row disabled and says why
+   * (PT-010); the direct-attack list leaves such sources out.
+   */
+  needsFleet: boolean;
+  /**
    * Reached via an `orbit` (hyperspace) connection — i.e. this target sits on a
    * different world. Drives the hyperspace treatment + lock badge in the picker
    * so a cross-world strike never reads as a plain land attack.
@@ -312,6 +319,10 @@ export function listNeighborTargets(
 
   const source = options.attackSource ?? sourceTerritoryId;
   const rows: NeighborTargetRow[] = [];
+  // Mirrors the server's sea-assault gate: with Naval Warfare on, crossing a
+  // sea lane takes a fleet at the source.
+  const navalOn = !!gameState.settings?.naval_enabled;
+  const sourceFleets = gameState.territories[source]?.naval_units ?? 0;
 
   for (const territoryId of targets) {
     const tState = gameState.territories[territoryId];
@@ -325,6 +336,7 @@ export function listNeighborTargets(
       unitCount: tState.unit_count === -1 ? -1 : tState.unit_count,
       ownerName: owner?.username,
       isSea,
+      needsFleet: navalOn && isSea && sourceFleets <= 0,
       isOrbit,
       targetWorldName: isOrbit ? options.worldNameOf?.(territoryId) : undefined,
     });
@@ -417,7 +429,7 @@ export function listDirectAttackSources(
       listNeighborTargets(gameState, connections, sourceId, territoryNames, {
         attackSource: sourceId,
         worldNameOf: options.worldNameOf,
-      }).some((n) => n.territoryId === targetTerritoryId),
+      }).some((n) => n.territoryId === targetTerritoryId && !n.needsFleet),
     )
     .map((sourceId) => ({
       territoryId: sourceId,
