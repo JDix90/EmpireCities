@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
-import { clockwiseFromTopLeft, splitLayout, type SplitWorld } from './galaxySplitLayout';
+import { clockwiseFromTopLeft, splitLanes, splitLayout, type SplitGeometry, type SplitWorld } from './galaxySplitLayout';
 
 const galaxy = JSON.parse(readFileSync(resolve(process.cwd(), '../database/maps/era_galaxy.json'), 'utf8')) as {
   territories: Array<{ territory_id: string; world_id: string }>;
@@ -82,5 +82,53 @@ describe('clockwiseFromTopLeft', () => {
     // Every world on one spot: no angle to go by, so the ids decide.
     const piled = [at(0.5, 0.5, 'b'), at(0.5, 0.5, 'a'), at(0.5, 0.5, 'c')];
     expect(clockwiseFromTopLeft(piled).map((w) => w.world_id)).toEqual(['a', 'b', 'c']);
+  });
+});
+
+describe('splitLanes', () => {
+  const worldOf = new Map(galaxy.territories.map((t) => [t.territory_id, t.world_id]));
+  const cells = splitLayout(shipped).cells;
+  const g: SplitGeometry = { paneWidth: 400, paneHeight: 300, gap: 6, header: 30, inset: 1 };
+  /** Every pane reports each of its systems at (10, 20) on its canvas. */
+  const everywhere = Object.fromEntries(shipped.map((w) => [
+    w.world_id,
+    new Map(galaxy.territories.filter((t) => t.world_id === w.world_id).map((t) => [t.territory_id, { x: 10, y: 20 }])),
+  ]));
+  const lanes = galaxy.connections.filter((c) => c.type === 'orbit');
+
+  it("runs every lane from its gateway in one pane to its gateway in the next", () => {
+    const drawn = splitLanes(galaxy.connections, (id) => worldOf.get(id), cells, everywhere, g);
+    expect(drawn).toHaveLength(lanes.length);
+    // A pane's canvas starts at its cell, below its header, inside the map's border.
+    const corner = (row: number, col: number) => [col * (400 + 6) + 1 + 10, row * (300 + 30 + 6) + 30 + 1 + 20];
+    const cellOf = new Map(cells.map((c) => [c.world.world_id, c]));
+    for (const lane of drawn) {
+      const a = cellOf.get(worldOf.get(lane.from)!)!;
+      const b = cellOf.get(worldOf.get(lane.to)!)!;
+      expect([lane.x1, lane.y1]).toEqual(corner(a.row, a.col));
+      expect([lane.x2, lane.y2]).toEqual(corner(b.row, b.col));
+    }
+  });
+
+  it('draws a lane once whichever way it is listed, and only lanes between worlds', () => {
+    const one = lanes[0]!;
+    const neighbour = galaxy.territories.find(
+      (t) => t.world_id === worldOf.get(one.from) && t.territory_id !== one.from,
+    )!.territory_id;
+    const listed = [
+      one,
+      { ...one, from: one.to, to: one.from },
+      // An orbit edge inside one world is no lane between panes, nor is a land edge.
+      { from: one.from, to: neighbour, type: 'orbit' },
+      { from: one.from, to: neighbour, type: 'land' },
+    ];
+    expect(splitLanes(listed, (id) => worldOf.get(id), cells, everywhere, g).map((l) => l.from)).toEqual([one.from]);
+  });
+
+  it("waits for a pane that has not reported where it drew its gateways", () => {
+    const withoutVerdan = Object.fromEntries(Object.entries(everywhere).filter(([w]) => w !== 'verdan'));
+    const drawn = splitLanes(galaxy.connections, (id) => worldOf.get(id), cells, withoutVerdan, g);
+    expect(drawn.length).toBe(lanes.length - 4); // Verdan's two lanes to Sol and two to Rust
+    expect(drawn.every((l) => worldOf.get(l.from) !== 'verdan' && worldOf.get(l.to) !== 'verdan')).toBe(true);
   });
 });

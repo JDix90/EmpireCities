@@ -540,6 +540,9 @@ How Split behaves:
   every lane joins two side-by-side panes.
 - **Pane header.** It shows the world's owners as a bar, the viewer's count of
   systems, and a button that opens the world on its own.
+- **Lanes.** They run across the panes from gateway to gateway, styled as on
+  the chart: the viewer's corridor in their colour, an open lane blue, a
+  closed one dim, a seal orange. A picked gateway's lanes stand out.
 - **Interaction.** The panes hold still; to zoom, open a world. Selecting a
   gateway lights its target across a lane in the pane that draws it. A lane
   the player cannot cross is left out: sealed against them, or locked without

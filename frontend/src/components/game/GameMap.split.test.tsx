@@ -179,3 +179,36 @@ describe('a Split pane: held still', () => {
     expect([mapContainer.x, mapContainer.y]).toEqual([60, 40]);
   });
 });
+
+describe('a Split pane: the lanes are the view\'s to draw', () => {
+  /** The lane stubs' labels ("→ Rust"), which sit with the names. */
+  const stubLabels = () => {
+    const labels = pixi.created.apps[0]!.stage.children[1]!;
+    return labels.children
+      .map((c) => (c as unknown as { text?: string }).text)
+      .filter((t): t is string => typeof t === 'string' && t.startsWith('→'));
+  };
+
+  it("reports where it drew each of its world's systems, on its canvas", () => {
+    const report = vi.fn();
+    pane({ activeWorldId: 'verdan', onTerritoryCenters: report });
+    const centers = report.mock.calls.at(-1)![0] as ReadonlyMap<string, { x: number; y: number }>;
+    const verdan = galaxy.territories.filter((t) => t.world_id === 'verdan').map((t) => t.territory_id);
+    expect([...centers.keys()].sort()).toEqual([...verdan].sort());
+    for (const p of centers.values()) {
+      expect(p.x).toBeGreaterThan(0);
+      expect(p.x).toBeLessThan(480);
+      expect(p.y).toBeGreaterThan(0);
+      expect(p.y).toBeLessThan(320);
+    }
+  });
+
+  it('draws its lane stubs by default, and none when the view draws the lanes', () => {
+    pane({ activeWorldId: 'verdan' });
+    // Verdan Reach has two lanes to Sol III and two to Rust Belt.
+    expect(stubLabels()).toHaveLength(4);
+    pixi.created.apps.length = 0;
+    pane({ activeWorldId: 'verdan', showOrbitStubs: false });
+    expect(stubLabels()).toEqual([]);
+  });
+});

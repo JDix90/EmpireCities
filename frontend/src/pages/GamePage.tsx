@@ -4907,6 +4907,7 @@ export default function GamePage() {
                     connectionHintMode,
                   }}
                   onOpenWorld={openGalaxyWorld}
+                  laneAccessAllowed={orbitAccess.allowed}
                 />
               </Suspense>
             ) : mapView === 'globe' ? (
