@@ -29,6 +29,16 @@ import { getAnalyticsReport } from '../../services/analyticsQueries';
 import { andNotTutorialSql } from '../../game-engine/tutorial/tutorialGames';
 import { featureFlags } from '../../config/featureFlags';
 import { buildWarfrontStatus, loadWarfrontTerrain } from './warfrontStatus';
+import { loadGalaxyReport } from './galaxyReport';
+import { GALAXY_GAME_MODES } from '../../game-engine/state/galaxyResults';
+
+/** Galactic Age report filters; `days` 0 (or absent) reads all time. */
+const GalaxyReportQuerySchema = z.object({
+  days: z.coerce.number().int().min(0).max(3650).optional(),
+  seats: z.coerce.number().int().min(2).max(8).optional(),
+  mode: z.enum(GALAXY_GAME_MODES).optional(),
+  relations: z.enum(['concord', 'civil_war', 'allied']).optional(),
+});
 
 const DateFilterSchema = z.object({
   from: z.string().optional(),
@@ -267,6 +277,20 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
     const days = Math.max(1, Math.min(365, Number.isFinite(raw) ? Math.floor(raw) : 30));
     const report = await getAnalyticsReport(days);
     return reply.send(report);
+  });
+
+  // Galactic Age: finished games and their analytics, from the records
+  // finalizeGame keeps (modules/admin/galaxyReport.ts). Admin-only like the era.
+  fastify.get('/metrics/galaxy', { preHandler: [authenticate, requireAdmin] }, async (request, reply) => {
+    const parsed = GalaxyReportQuerySchema.safeParse(request.query ?? {});
+    if (!parsed.success) return reply.status(400).send({ error: 'Invalid query params' });
+    const { days, seats, mode, relations } = parsed.data;
+    return reply.send(await loadGalaxyReport({
+      days: days ? days : null,
+      seats: seats ?? null,
+      mode: mode ?? null,
+      relations: relations ?? null,
+    }));
   });
 
   fastify.get('/metrics/eras', { preHandler: [authenticate, requireAdmin] }, async (_request, reply) => {
