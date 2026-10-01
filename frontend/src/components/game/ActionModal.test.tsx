@@ -69,6 +69,17 @@ describe('ActionModal — era advance payoff', () => {
     expect(screen.getByText(/Vulnerable window/)).toBeTruthy();
   });
 
+  it('names the permanent unit cut separately from the one-turn vulnerable window', () => {
+    render(<ActionModal data={eraAdvance({ unitLossPct: 30 })} onDismiss={() => {}} />);
+    expect(screen.getByText(/about 30% of your units were lost in the climb/)).toBeTruthy();
+    expect(screen.getByText(/they do not come back/)).toBeTruthy();
+  });
+
+  it('leaves the unit-cut line out when the climb removed nothing', () => {
+    render(<ActionModal data={eraAdvance({ unitLossPct: 0 })} onDismiss={() => {}} />);
+    expect(screen.queryByText(/Armies consolidated/)).toBeNull();
+  });
+
   it('omits the new-power and vulnerability sections when absent', () => {
     render(
       <ActionModal

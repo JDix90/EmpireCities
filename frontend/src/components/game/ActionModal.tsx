@@ -3,7 +3,7 @@ import { CombatResult } from '../../store/gameStore';
 import { useAuthStore } from '../../store/authStore';
 import MatchStatsTab from './MatchStatsTab';
 import { AiBadge } from '../ui/AiBadge';
-import { Sword, Swords, Shield, ArrowRight, Crown, Skull, Flag, ChevronRight, ChevronLeft, Plus, Trophy, LogOut, Eye, Share2, Check, Flame, Coins, Link2, ExternalLink, Copy, RotateCcw, Film, Clapperboard, MessageCircle, FastForward } from 'lucide-react';
+import { Sword, Swords, Shield, ArrowRight, Crown, Skull, Flag, ChevronRight, ChevronLeft, Plus, Trophy, LogOut, Eye, Share2, Check, Flame, Coins, Link2, ExternalLink, Copy, RotateCcw, Film, Clapperboard, MessageCircle, FastForward, Users } from 'lucide-react';
 import clsx from 'clsx';
 import CombatAbilityCallouts from './CombatAbilityCallouts';
 import ComeBackTomorrowPanel from './ComeBackTomorrowPanel';
@@ -245,6 +245,12 @@ export interface EraAdvanceModalData {
   legacyLabel?: string;
   /** True while the post-advance vulnerability window is open (this turn). */
   vulnerable?: boolean;
+  /**
+   * Share of the player's units the climb removed for good (engine: units
+   * become floor(total × conversion ratio)). Shown so the permanent cut is
+   * never mistaken for the one-turn vulnerability window.
+   */
+  unitLossPct?: number;
 }
 
 export type ModalData =
@@ -2288,6 +2294,15 @@ function EraAdvanceView({ data, onDismiss }: { data: EraAdvanceModalData; onDism
           <ArrowRight size={16} className="mt-0.5 shrink-0 text-bf-gold" />
           <span>A fresh tech tree is open — research new {theme.label}-era technologies.</span>
         </div>
+        {typeof data.unitLossPct === 'number' && data.unitLossPct > 0 && (
+          <div className="flex items-start gap-2 text-sm text-bf-muted">
+            <Users size={16} className="mt-0.5 shrink-0 text-bf-gold" />
+            <span>
+              Armies consolidated: about {data.unitLossPct}% of your units were lost in the climb.
+              Unlike the vulnerable window, they do not come back.
+            </span>
+          </div>
+        )}
         {data.legacyLabel && (
           <div className="flex items-start gap-2 text-sm text-bf-muted">
             <Crown size={16} className="mt-0.5 shrink-0 text-bf-gold" />

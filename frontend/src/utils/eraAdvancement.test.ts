@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { AdvanceEraClientPreview, GameState, PlayerState } from '../store/gameStore';
 import {
+  eraAdvanceUnitLossPct,
   getAdvanceEraClientStatus,
   getEraIdForAdvancementIndex,
   resolvePlayerTechEraId,
@@ -298,5 +299,14 @@ describe('listEraGateRows / countEraGateBlockers', () => {
     const gold = rows.find((r) => r.key === 'gold')!;
     expect(gold.ok).toBe(false);
     expect(gold.chip).toBe('Gold pending');
+  });
+});
+
+describe('eraAdvanceUnitLossPct', () => {
+  it('reads the lobby ratio and falls back to the engine default of 70% kept', () => {
+    expect(eraAdvanceUnitLossPct(undefined)).toBe(30);
+    expect(eraAdvanceUnitLossPct({})).toBe(30);
+    expect(eraAdvanceUnitLossPct({ era_advancement_conversion_ratio: 0.5 })).toBe(50);
+    expect(eraAdvanceUnitLossPct({ era_advancement_conversion_ratio: 1 })).toBe(0);
   });
 });

@@ -286,3 +286,20 @@ export function listEraGateRows(
 export function countEraGateBlockers(gameState: GameState, status: AdvanceEraClientStatus): number {
   return listEraGateRows(gameState, status).filter((r) => !r.ok).length;
 }
+
+/** The engine's default share of units kept on an advance when the lobby set no ratio (advanceEra.ts). */
+const DEFAULT_ERA_ADVANCE_CONVERSION_RATIO = 0.7;
+
+/**
+ * Percentage of a player's units removed, for good, when they advance an era.
+ * The engine keeps floor(total × ratio) and redistributes the rest across the
+ * player's territories; those units never come back. This is distinct from the
+ * one-turn vulnerability window, which only weakens defence. Every piece of
+ * copy that describes the climb reads this so it cannot drift from the setting.
+ */
+export function eraAdvanceUnitLossPct(
+  settings?: { era_advancement_conversion_ratio?: number } | null,
+): number {
+  const ratio = settings?.era_advancement_conversion_ratio ?? DEFAULT_ERA_ADVANCE_CONVERSION_RATIO;
+  return Math.max(0, Math.min(100, Math.round((1 - ratio) * 100)));
+}
