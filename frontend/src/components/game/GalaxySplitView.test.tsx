@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent, within, act } from '@testing-library/react';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
@@ -29,7 +29,40 @@ vi.mock('./GameMap', async () => {
   };
 });
 
-import GalaxySplitView, { SPLIT_GAP_PX, SPLIT_HEADER_PX, type SplitPaneMapProps } from './GalaxySplitView';
+/** Each globe pane as GalaxySplitView last rendered it, by world. */
+const globes = vi.hoisted(() => new Map<string, Record<string, unknown>>());
+/** Gateways the globe stubs report round the back of their planet. */
+const turnedAway = vi.hoisted(() => new Set<string>());
+/** Each globe's own "skip animations", by world. */
+const globeSkips = vi.hoisted(() => new Map<string, () => void>());
+vi.mock('./GlobeMap', async () => {
+  const { useEffect } = await import('react');
+  const { vi: v } = await import('vitest');
+  function GlobeStub(props: Record<string, unknown>) {
+    const world = props.activeWorldId as string;
+    globes.set(world, props);
+    useEffect(() => {
+      const territories = (props.mapData as { territories: Array<{ territory_id: string; world_id: string }> }).territories;
+      const report = props.onTerritoryCenters as ((c: ReadonlyMap<string, object>) => void) | undefined;
+      report?.(new Map(territories.filter((t) => t.world_id === world).map((t) => [
+        t.territory_id,
+        turnedAway.has(t.territory_id) ? { x: 20, y: 30, behind: true } : { x: 100, y: 50 },
+      ])));
+      const skip = v.fn();
+      globeSkips.set(world, skip);
+      const ref = props.skipAnimationsRef as { current: (() => void) | null };
+      ref.current = skip;
+      return () => { ref.current = null; };
+    }, [world]);
+    return <div data-testid={`globe-${world}`} />;
+  }
+  return { default: GlobeStub, GlobeMapCore: GlobeStub };
+});
+const webgl = vi.hoisted(() => ({ available: true }));
+vi.mock('../../utils/webglSupport', () => ({ webglAvailable: () => webgl.available }));
+vi.mock('../../utils/proceduralPlanet', () => ({ proceduralWorldTextureUrl: (w: string) => `procedural:${w}` }));
+
+import GalaxySplitView, { SPLIT_GAP_PX, SPLIT_HEADER_PX, type SplitPaneGlobeProps, type SplitPaneMapProps } from './GalaxySplitView';
 import type { GameState } from '../../store/gameStore';
 import { useUiStore } from '../../store/uiStore';
 import { LANE_COLORS } from './galaxyLaneStyle';
@@ -96,12 +129,16 @@ function panes() {
 
 beforeEach(() => {
   maps.clear();
+  globes.clear();
+  turnedAway.clear();
+  globeSkips.clear();
+  webgl.available = true;
   onTerritoryClick.mockReset();
   useUiStore.setState({ selectedTerritory: null, attackSource: null });
 });
 
 afterEach(() => {
-  useUiStore.setState({ selectedTerritory: null, attackSource: null });
+  act(() => { useUiStore.setState({ selectedTerritory: null, attackSource: null }); });
 });
 
 describe('GalaxySplitView', () => {
@@ -253,5 +290,142 @@ describe('GalaxySplitView: the lanes across the panes', () => {
     expect(stroke(corridor)).toBe(LANE_COLORS.gated);
     expect(stroke(open)).toBe(LANE_COLORS.gated);
     expect(stroke(sealed)).toBe(LANE_COLORS.sealed);
+  });
+});
+
+describe('GalaxySplitView: globe panes', () => {
+  interface Connection { from: string; to: string; type: string }
+  const worldOf = new Map(
+    (galaxy.territories as Array<{ territory_id: string; world_id: string }>).map((t) => [t.territory_id, t.world_id]),
+  );
+  const solToVerdan = (galaxy.connections as Connection[]).find((c) => c.type === 'orbit'
+    && new Set([worldOf.get(c.from), worldOf.get(c.to)]).size === 2
+    && [c.from, c.to].every((id) => ['sol', 'verdan'].includes(worldOf.get(id)!)))!;
+  const solGate = worldOf.get(solToVerdan.from) === 'sol' ? solToVerdan.from : solToVerdan.to;
+
+  const events: never[] = [];
+  function globeProps(over: Partial<SplitPaneGlobeProps> = {}): SplitPaneGlobeProps {
+    return {
+      onTerritoryClick,
+      events,
+      onEventDone: vi.fn(),
+      autoSpin: true,
+      cameraFollow: false,
+      selfPlayerId: 'me',
+      validSourceOwnerId: 'me',
+      connectionHintMode: 'borders',
+      onGlobeReady: vi.fn(),
+      skipAnimationsRef: { current: null },
+      ...over,
+    };
+  }
+  const lane = (c: Connection) =>
+    screen.getByTestId('galaxy-split-lanes').querySelector(`g[data-lane="${orbitLaneId(c.from, c.to)}"]`)!;
+
+  it("draws each world as its own globe in the Globe view, dressed as that world", async () => {
+    const props = globeProps();
+    show({ globeProps: props });
+    await screen.findByTestId('globe-nexus_station');
+    expect([...globes.keys()]).toEqual(['sol', 'verdan', 'rust', 'nexus_station']);
+    expect(maps.size).toBe(0);
+    const paneWidth = Math.floor((1000 - SPLIT_GAP_PX) / 2);
+    const paneHeight = Math.floor((700 - SPLIT_GAP_PX) / 2) - SPLIT_HEADER_PX;
+    for (const g of globes.values()) {
+      expect(g).toMatchObject({
+        mapData: galaxy,
+        width: paneWidth,
+        height: paneHeight,
+        targetsAcrossWorlds: true,
+        ownWorldEffectsOnly: true,
+        showOrbitStubs: false,
+        ambientEnabled: false,
+        // Four at a time: each hands its WebGL context back when it goes.
+        releaseContextOnUnmount: true,
+        // The single globe's props, passed through untouched.
+        onTerritoryClick,
+        events,
+        autoSpin: true,
+        cameraFollow: false,
+        selfPlayerId: 'me',
+        validSourceOwnerId: 'me',
+        // Procedural worlds carry no bump map.
+        bumpImageUrl: '',
+      });
+      // The view's own, for the whole of it.
+      expect(g.onGlobeReady).not.toBe(props.onGlobeReady);
+      expect(g.skipAnimationsRef).not.toBe(props.skipAnimationsRef);
+    }
+    // Each in its own world's surface, atmosphere and void.
+    expect(globes.get('verdan')).toMatchObject({
+      globeImageUrl: 'procedural:verdan',
+      atmosphereColor: '#7fe7a3',
+      atmosphereAltitude: 0.24,
+      backgroundColor: 'rgb(8, 24, 18)',
+    });
+    expect(globes.get('rust')).toMatchObject({ globeImageUrl: 'procedural:rust', atmosphereColor: '#d97a3c' });
+  });
+
+  it('runs the lanes to the globes, dimmed and to the edge where a gateway is round the back', async () => {
+    turnedAway.add(solGate);
+    show({ gameState: gameState(), globeProps: globeProps() });
+    await screen.findByTestId('globe-nexus_station');
+    const g = lane(solToVerdan);
+    expect(g).toHaveAttribute('data-out-of-sight', 'true');
+    expect(g).toHaveAttribute('opacity', String(0.75 * 0.5));
+    // A globe has no border: its canvas starts at its pane's corner.
+    const paneWidth = Math.floor((1000 - SPLIT_GAP_PX) / 2);
+    const line = g.querySelector('line')!;
+    const ends = [[line.getAttribute('x1'), line.getAttribute('y1')], [line.getAttribute('x2'), line.getAttribute('y2')]]
+      .map((p) => p.map(Number));
+    const solEnd = worldOf.get(solToVerdan.from) === 'sol' ? ends[0] : ends[1];
+    const verdanEnd = worldOf.get(solToVerdan.from) === 'sol' ? ends[1] : ends[0];
+    expect(solEnd).toEqual([20, SPLIT_HEADER_PX + 30]);
+    expect(verdanEnd).toEqual([paneWidth + SPLIT_GAP_PX + 100, SPLIT_HEADER_PX + 50]);
+    // The gateway in sight keeps its dot; the one round the back has none.
+    const dots = [...g.querySelectorAll('circle')].map((c) => [Number(c.getAttribute('cx')), Number(c.getAttribute('cy'))]);
+    expect(dots).toEqual([verdanEnd]);
+    // A lane with both gateways in sight is drawn as on the flat maps.
+    const other = (galaxy.connections as Connection[]).find((c) => c.type === 'orbit'
+      && [c.from, c.to].every((id) => ['rust', 'nexus_station'].includes(worldOf.get(id)!)))!;
+    expect(lane(other)).not.toHaveAttribute('data-out-of-sight');
+    expect(lane(other)).toHaveAttribute('opacity', '0.75');
+    expect(lane(other).querySelectorAll('circle')).toHaveLength(2);
+  });
+
+  it('tells the turn clock once every globe is drawn', async () => {
+    const props = globeProps();
+    show({ globeProps: props });
+    await screen.findByTestId('globe-nexus_station');
+    const ready = (w: string) => act(() => { (globes.get(w)!.onGlobeReady as () => void)(); });
+    ready('sol');
+    ready('verdan');
+    ready('rust');
+    expect(props.onGlobeReady).not.toHaveBeenCalled();
+    ready('nexus_station');
+    expect(props.onGlobeReady).toHaveBeenCalledTimes(1);
+    ready('sol');
+    expect(props.onGlobeReady).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips every globe's queued animations from the page's one control", async () => {
+    const props = globeProps();
+    const { unmount } = render(
+      <GalaxySplitView mapData={galaxy} gameState={gameState()} width={1000} height={700} mapProps={mapProps} globeProps={props} onOpenWorld={() => {}} />,
+    );
+    await screen.findByTestId('globe-nexus_station');
+    act(() => { props.skipAnimationsRef!.current!(); });
+    expect([...globeSkips.values()].map((skip) => (skip as ReturnType<typeof vi.fn>).mock.calls.length)).toEqual([1, 1, 1, 1]);
+    unmount();
+    expect(props.skipAnimationsRef!.current).toBeNull();
+  });
+
+  it('draws the flat maps where the browser has no WebGL, ready at once', () => {
+    webgl.available = false;
+    const props = globeProps();
+    show({ globeProps: props });
+    expect(globes.size).toBe(0);
+    expect([...maps.keys()]).toEqual(['sol', 'verdan', 'rust', 'nexus_station']);
+    expect(props.onGlobeReady).toHaveBeenCalledTimes(1);
+    expect(props.skipAnimationsRef!.current).toBeNull();
   });
 });

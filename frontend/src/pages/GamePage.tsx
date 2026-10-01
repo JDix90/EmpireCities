@@ -890,10 +890,11 @@ export default function GamePage() {
 
   // 2D map and galaxy overview render immediately (no WebGL init), so treat
   // them as "map ready" for the turn-timer ack without waiting on onGlobeReady.
-  // A globe that has just been shown waits for it. Keyed on what is on screen,
-  // not on the map object (see useMapReadiness).
+  // A globe that has just been shown waits for it, and so do Split's globes in
+  // the Globe view. Keyed on what is on screen, not on the map object (see
+  // useMapReadiness).
   useMapReadiness(
-    mapReadinessSurface(mapData, mapView, galaxyOverviewMode || galaxySplitMode),
+    mapReadinessSurface(mapData, mapView, galaxyOverviewMode),
     globeReadyRef,
     maybeEmitTurnReady,
   );
@@ -4906,6 +4907,27 @@ export default function GamePage() {
                     contestedBorders,
                     connectionHintMode,
                   }}
+                  globeProps={mapView === 'globe' ? {
+                    onTerritoryClick: handleTerritoryClick,
+                    events: phoneGlobeEvents,
+                    onEventDone: onMapVisualDone,
+                    reducedEffects: reducedGlobe,
+                    frameBudget: frameBudget.active,
+                    frameBudgetFps: frameBudget.fps,
+                    autoSpin: globeSpinEnabled,
+                    cameraFollow: cameraFollowEnabled,
+                    skipAnimationsRef: skipGlobeAnimationsRef,
+                    onSkipAll: skipAllBacklogByTap,
+                    onGlobeReady: handleGlobeReady,
+                    highlightTerritoryId: tutorialHighlightId,
+                    lossPulseTerritoryIds: lossPulseIds,
+                    turnHolderPlayerId: turnHolderPlayer?.player_id ?? null,
+                    selfPlayerId: resolvedViewerPlayerId,
+                    coachHighlightOwnerId: coachPhase === 'reinforcement' ? resolvedViewerPlayerId : null,
+                    validSourceOwnerId,
+                    contestedBorders,
+                    connectionHintMode,
+                  } : undefined}
                   onOpenWorld={openGalaxyWorld}
                   laneAccessAllowed={orbitAccess.allowed}
                 />
