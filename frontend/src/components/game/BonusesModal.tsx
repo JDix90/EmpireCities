@@ -29,7 +29,7 @@ import {
 // ── Static data ───────────────────────────────────────────────────────────────
 
 const MODIFIER_INFO = [
-  { key: 'legion_reroll',       label: 'Legion Tactics',      description: 'Attacker may re-roll one die when attacking with 3 dice.',               icon: '⚔️' },
+  { key: 'legion_reroll',       label: 'Legion Tactics',      description: 'The attacker\'s lowest die is re-rolled once, automatically, keeping the better result.',               icon: '⚔️' },
   { key: 'castle_fortification',label: 'Castle Fortification', description: 'Defenders with 4+ units roll an extra die.',                            icon: '🏰' },
   { key: 'sea_lanes',           label: 'Sea Lanes',            description: 'Sea-route attacks are limited to 2 attack dice.',                       icon: '⚓' },
   { key: 'wartime_logistics',   label: 'Wartime Logistics',    description: 'May fortify twice per turn.',                                           icon: '🚂' },

@@ -30,7 +30,7 @@ export const ERA_LABELS: Record<string, string> = {
   discovery: 'Age of Discovery',
   ww2: 'World War II',
   coldwar: 'Cold War',
-  modern: 'Modern Day',
+  modern: 'The Modern Day',
   acw: 'American Civil War',
   risorgimento: 'Italian Unification',
   space_age: 'Space Age',

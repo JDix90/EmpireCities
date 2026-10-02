@@ -159,11 +159,11 @@ export const FACTION_CODEX = [
       {
         "faction_id": "portugal",
         "name": "Portuguese Empire",
-        "description": "Masters of the sea — sea_lanes connections allow 3 attack dice (normally 2) and free sea-lane fortify moves.",
+        "description": "Masters of the sea — sea-lane connections allow 3 attack dice (normally 2) and free sea-lane fortify moves.",
         "lore": "Portugal lives by charts, caravels, and coastal strongpoints, turning sea lanes into a private imperial network.",
         "flavor_quote": "Map the current, own the world beyond it.",
         "color": "#27ae60",
-        "ability_description": "Naval Charts: your sea_lanes attacks use the full 3 dice cap instead of the era-limited 2."
+        "ability_description": "Naval Charts: your sea-lane attacks use the full 3 dice cap instead of the era-limited 2."
       },
       {
         "faction_id": "ottoman",
@@ -412,7 +412,7 @@ export const FACTION_CODEX = [
         "color": "#3498db",
         "reinforce_bonus": 1,
         "stability_recovery_bonus": 3,
-        "ability_description": "Total War: once per game, in one turn place double your normal reinforcements."
+        "ability_description": "Total War: once per game, add 6 reinforcements to your draft pool in a single turn."
       },
       {
         "faction_id": "confederacy",

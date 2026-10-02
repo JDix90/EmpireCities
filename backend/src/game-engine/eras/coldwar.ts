@@ -144,7 +144,7 @@ export const COLDWAR_TECH_TREE: TechNode[] = [
   {
     tech_id: 'cw_bunker',
     name: 'Hardened Bunkers',
-    description: 'Underground command — unlocks defense_1 building.',
+    description: 'Underground command — unlocks the Palisade.',
     tier: 1,
     cost: 4,
     unlocks_building: 'defense_1',
@@ -152,7 +152,7 @@ export const COLDWAR_TECH_TREE: TechNode[] = [
   {
     tech_id: 'cw_industry',
     name: 'Heavy Industry',
-    description: 'Steel and coal production — unlocks production_1 building.',
+    description: 'Steel and coal production — unlocks the Workshop.',
     tier: 1,
     cost: 4,
     unlocks_building: 'production_1',
@@ -178,7 +178,7 @@ export const COLDWAR_TECH_TREE: TechNode[] = [
   {
     tech_id: 'cw_fortified_zone',
     name: 'Fortified Zone',
-    description: 'Militarized borders — unlocks defense_2 building.',
+    description: 'Militarized borders — unlocks the Fortress.',
     tier: 2,
     prerequisite: 'cw_bunker',
     cost: 8,
@@ -187,7 +187,7 @@ export const COLDWAR_TECH_TREE: TechNode[] = [
   {
     tech_id: 'cw_space_race',
     name: 'Space Race',
-    description: 'Prestige and technology — unlocks tech_gen_1 building and +3 tech per turn.',
+    description: 'Prestige and technology — unlocks the Laboratory and +3 tech per turn.',
     tier: 2,
     prerequisite: 'cw_industry',
     cost: 8,
@@ -216,7 +216,7 @@ export const COLDWAR_TECH_TREE: TechNode[] = [
   {
     tech_id: 'cw_missile_shield',
     name: 'Missile Defense Shield',
-    description: 'ABM systems — unlocks defense_3 building; first attack each turn against your capital has -1 attacker die.',
+    description: 'ABM systems — unlocks the Citadel; first attack each turn against your capital has -1 attacker die.',
     tier: 3,
     prerequisite: 'cw_fortified_zone',
     cost: 13,
@@ -226,7 +226,7 @@ export const COLDWAR_TECH_TREE: TechNode[] = [
   {
     tech_id: 'cw_satellite',
     name: 'Satellite Network',
-    description: 'Spy satellites — unlocks tech_gen_2 building and reveal all territories once per turn.',
+    description: 'Spy satellites — unlocks the Research Center and reveal all territories once per turn.',
     tier: 3,
     prerequisite: 'cw_space_race',
     cost: 12,

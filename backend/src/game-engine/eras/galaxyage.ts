@@ -186,7 +186,7 @@ export const GALAXY_AGE_TECH_TREE: TechNode[] = [
   {
     tech_id: 'ga_battle_fabricators',
     name: 'Battle Fabricators',
-    description: 'Front-line nano-forges — unlocks production_1 and +2 tech points per turn.',
+    description: 'Front-line nano-forges — unlocks the Workshop and +2 tech points per turn.',
     tier: 2,
     cost: 11,
     prerequisite: 'ga_hyperspace_chart',
@@ -218,7 +218,7 @@ export const GALAXY_AGE_TECH_TREE: TechNode[] = [
   {
     tech_id: 'ga_solar_foundries',
     name: 'Solar Foundries',
-    description: 'Skimming stellar flux — unlocks tech_gen_1 and +4 tech points per turn.',
+    description: 'Skimming stellar flux — unlocks the Laboratory and +4 tech points per turn.',
     tier: 3,
     cost: 16,
     prerequisite: 'ga_battle_fabricators',

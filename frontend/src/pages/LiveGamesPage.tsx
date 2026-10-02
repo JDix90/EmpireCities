@@ -59,6 +59,9 @@ export default function LiveGamesPage() {
         <div className="py-16 text-center">
           <Eye className="w-12 h-12 text-bf-muted/30 mx-auto mb-4" />
           <p className="text-bf-muted">Spectating is currently disabled</p>
+          <p className="text-bf-muted/70 text-sm mt-2 max-w-md mx-auto">
+            Live games and spectate links will work again when the feature is switched back on. In the meantime the Replays on a finished game's results screen are the way to watch a match.
+          </p>
           <Link to="/lobby" className="inline-block mt-3 text-bf-gold hover:text-white transition-colors text-sm">
             ← Back to the lobby
           </Link>

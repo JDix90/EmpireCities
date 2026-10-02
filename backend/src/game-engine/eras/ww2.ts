@@ -140,7 +140,7 @@ export const WW2_TECH_TREE: TechNode[] = [
   {
     tech_id: 'ww2_bunkers',
     name: 'Bunker Network',
-    description: 'Reinforced defensive positions — unlocks defense_1 building.',
+    description: 'Reinforced defensive positions — unlocks the Palisade.',
     tier: 1,
     cost: 4,
     unlocks_building: 'defense_1',
@@ -148,7 +148,7 @@ export const WW2_TECH_TREE: TechNode[] = [
   {
     tech_id: 'ww2_war_industry',
     name: 'War Industry',
-    description: 'Convert civilian industry to military production — unlocks production_1 building.',
+    description: 'Convert civilian industry to military production — unlocks the Workshop.',
     tier: 1,
     cost: 4,
     unlocks_building: 'production_1',
@@ -174,7 +174,7 @@ export const WW2_TECH_TREE: TechNode[] = [
   {
     tech_id: 'ww2_fortifications',
     name: 'Maginot-Line Fortifications',
-    description: 'Deep defensive works — unlocks defense_2 building.',
+    description: 'Deep defensive works — unlocks the Fortress.',
     tier: 2,
     prerequisite: 'ww2_bunkers',
     cost: 8,
@@ -183,7 +183,7 @@ export const WW2_TECH_TREE: TechNode[] = [
   {
     tech_id: 'ww2_munitions',
     name: 'Mass Munitions',
-    description: 'Industrial-scale weapons production — unlocks tech_gen_1 building and +2 tech per turn.',
+    description: 'Industrial-scale weapons production — unlocks the Laboratory and +2 tech per turn.',
     tier: 2,
     prerequisite: 'ww2_war_industry',
     cost: 7,
@@ -213,7 +213,7 @@ export const WW2_TECH_TREE: TechNode[] = [
   {
     tech_id: 'ww2_fortress_europe',
     name: 'Fortress Europe',
-    description: 'Atlantic Wall-style defenses — unlocks defense_3 building.',
+    description: 'Atlantic Wall-style defenses — unlocks the Citadel.',
     tier: 3,
     prerequisite: 'ww2_fortifications',
     cost: 13,
@@ -222,7 +222,7 @@ export const WW2_TECH_TREE: TechNode[] = [
   {
     tech_id: 'ww2_radar',
     name: 'Radar Network',
-    description: 'Early warning systems — unlocks tech_gen_2 building and +3 tech per turn.',
+    description: 'Early warning systems — unlocks the Research Center and +3 tech per turn.',
     tier: 3,
     prerequisite: 'ww2_munitions',
     cost: 11,

@@ -32,7 +32,7 @@ These are applied on top of faction passives when the era is active:
 
 | Era | Modifier | Meaning (high level) |
 |-----|----------|----------------------|
-| `ancient` | `legion_reroll: true` | Roman legion doctrine: attacker may re-roll lowest attack die. |
+| `ancient` | `legion_reroll: true` | Roman legion doctrine: the attacker's lowest die is re-rolled once automatically, keeping the better result. |
 | `medieval` | _(none)_ | Baseline medieval; power comes from factions/tech. |
 | `discovery` | `sea_lanes: true` | Sea-lane attacks use fewer dice by default; tech/cartography can restore full dice. |
 | `ww2` | `wartime_logistics: true` | Extra fortify mobility (logistics pressure). |
@@ -454,7 +454,7 @@ Mechanical bonuses (dice, reinforce numbers) are omitted; these strings are the 
 ### `discovery`
 
 - **Spanish Empire** — *Silver fleets pay for the war — a fresh tercio lands every turn.* — Ability: *Silver Fleet: once per turn during draft, place 1 extra unit on a territory you hold.*
-- **Portuguese Empire** — *Masters of the sea — sea_lanes connections allow 3 attack dice (normally 2) and free sea-lane fortify moves.* — Ability: *Naval Charts: your sea_lanes attacks use the full 3 dice cap instead of the era-limited 2.*
+- **Portuguese Empire** — *Masters of the sea — sea-lane connections allow 3 attack dice (normally 2) and free sea-lane fortify moves.* — Ability: *Naval Charts: your sea-lane attacks use the full 3 dice cap instead of the era-limited 2.*
 - **Ottoman Empire** — *Straddling east and west — +2 reinforcements per turn, and an extra attack die on every assault.* — Ability: *Janissaries: once per turn, defend with 3 dice regardless of garrison size.*
 - **English Crown** — *Privateers and merchant adventurers — +1 tech point per sea territory owned.* — Ability: *Privateer: once per turn, steal 1 production unit from an adjacent enemy coastal territory.*
 - **Ming Dynasty** — *Vast population and the Great Wall — +1 reinforcement per turn, and one assault each turn breaks on the stonework.* — Ability: *Great Wall: once per turn, the first attack against you is met with +2 defence dice.*
@@ -489,7 +489,7 @@ Mechanical bonuses (dice, reinforce numbers) are omitted; these strings are the 
 
 ### `acw`
 
-- **Union Army** — *Industrial north — +1 production unit per owned territory; rifle_doctrine applies universally.* — Ability: *Total War: once per game, in one turn place double your normal reinforcements.*
+- **Union Army** — *Industrial north — +1 production unit per owned territory; rifle_doctrine applies universally.* — Ability: *Total War: once per game, add 6 reinforcements to your draft pool in a single turn.*
 - **Confederate Army** — *Fighting on interior lines — +1 reinforcement per turn, and the first attack against them each turn costs the attacker a unit.* — Ability: *Interior Lines: the first attack against you each turn costs the attacker 1 extra unit.*
 
 ### `risorgimento`

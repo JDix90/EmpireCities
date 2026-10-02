@@ -124,7 +124,7 @@ export const MODERN_TECH_TREE: TechNode[] = [
   {
     tech_id: 'mod_fortification',
     name: 'Military Bases',
-    description: 'Permanent installations — unlocks defense_1 building.',
+    description: 'Permanent installations — unlocks the Palisade.',
     tier: 1,
     cost: 4,
     unlocks_building: 'defense_1',
@@ -132,7 +132,7 @@ export const MODERN_TECH_TREE: TechNode[] = [
   {
     tech_id: 'mod_economy',
     name: 'Digital Economy',
-    description: 'Tech-driven growth — unlocks production_1 building.',
+    description: 'Tech-driven growth — unlocks the Workshop.',
     tier: 1,
     cost: 4,
     unlocks_building: 'production_1',
@@ -159,7 +159,7 @@ export const MODERN_TECH_TREE: TechNode[] = [
   {
     tech_id: 'mod_cyber_defense',
     name: 'Cyber Defense',
-    description: 'Hardened networks — unlocks defense_2 building.',
+    description: 'Hardened networks — unlocks the Fortress.',
     tier: 2,
     prerequisite: 'mod_fortification',
     cost: 8,
@@ -168,7 +168,7 @@ export const MODERN_TECH_TREE: TechNode[] = [
   {
     tech_id: 'mod_ai_industry',
     name: 'AI-Driven Industry',
-    description: 'Automated production — unlocks tech_gen_1 building and +2 tech per turn.',
+    description: 'Automated production — unlocks the Laboratory and +2 tech per turn.',
     tier: 2,
     prerequisite: 'mod_economy',
     cost: 8,
@@ -198,7 +198,7 @@ export const MODERN_TECH_TREE: TechNode[] = [
   {
     tech_id: 'mod_fortress',
     name: 'Fortress State',
-    description: 'Comprehensive defense network — unlocks defense_3 building.',
+    description: 'Comprehensive defense network — unlocks the Citadel.',
     tier: 3,
     prerequisite: 'mod_cyber_defense',
     cost: 13,
@@ -208,7 +208,7 @@ export const MODERN_TECH_TREE: TechNode[] = [
   {
     tech_id: 'mod_quantum',
     name: 'Quantum Computing',
-    description: 'Quantum advantage — unlocks tech_gen_2 building and +4 tech per turn.',
+    description: 'Quantum advantage — unlocks the Research Center and +4 tech per turn.',
     tier: 3,
     prerequisite: 'mod_ai_industry',
     cost: 13,

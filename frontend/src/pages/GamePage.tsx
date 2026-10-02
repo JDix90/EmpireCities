@@ -289,9 +289,28 @@ function formatVictorySummary(settings: GameLobbySettingsJson): string {
   return parts.join(', ');
 }
 
+/** The optional rule systems a lobby runs with, named the way the lobby form names them. */
+function formatSystemsSummary(settings: GameLobbySettingsJson): string {
+  const systems: Array<[keyof GameLobbySettingsJson, string]> = [
+    ['factions_enabled', 'Factions'],
+    ['economy_enabled', 'Economy'],
+    ['tech_trees_enabled', 'Tech Trees'],
+    ['stability_enabled', 'Stability'],
+    ['events_enabled', 'Events'],
+    ['naval_enabled', 'Naval'],
+  ];
+  const on = systems.filter(([key]) => !!settings[key]).map(([, label]) => label);
+  return on.length > 0 ? on.join(' · ') : 'Classic rules only';
+}
+
 function formatTurnTimer(seconds: unknown): string {
   const n = typeof seconds === 'number' ? seconds : Number(seconds);
   if (!Number.isFinite(n) || n <= 0) return 'Off';
+  // Async games carry multi-hour clocks; "720:00" reads as twelve minutes.
+  if (n >= 3600 && n % 3600 === 0) {
+    const h = n / 3600;
+    return `${h} ${h === 1 ? 'hour' : 'hours'} per turn`;
+  }
   const m = Math.floor(n / 60);
   const s = n % 60;
   return `${m}:${s.toString().padStart(2, '0')}`;
@@ -1968,9 +1987,14 @@ export default function GamePage() {
       const myId = userRef.current?.user_id;
       const xpEarned =
         myId && stats.xp_earned_by_player ? stats.xp_earned_by_player[myId] : undefined;
-      const currentEra = useGameStore.getState().gameState?.era;
-      const victoryThreshold = useGameStore.getState().gameState?.settings?.victory_threshold;
+      const endState = useGameStore.getState().gameState;
       const winnerIds = stats.winner_ids ?? [stats.winner_id];
+      // The share card names the era the game was *won* in. With era
+      // advancement on, `gameState.era` is the starting era; the winner's own
+      // tier is the one that decided the match.
+      const winnerPlayer = endState?.players.find((p) => p.player_id === winnerIds[0]);
+      const currentEra = endState ? resolvePlayerTechEraId(endState, winnerPlayer) : undefined;
+      const victoryThreshold = endState?.settings?.victory_threshold;
       const { isWinner, daily_challenge } = resolveGameOverResult(
         stats.daily_result,
         myId,
@@ -4359,6 +4383,10 @@ export default function GamePage() {
                     <div className="rounded-lg border border-bf-border bg-bf-dark/60 p-3">
                       <dt className="text-[10px] uppercase tracking-wider text-bf-muted mb-1">Diplomacy</dt>
                       <dd className="text-bf-text font-medium">{settings.diplomacy_enabled ? 'On' : 'Off'}</dd>
+                    </div>
+                    <div className="rounded-lg border border-bf-border bg-bf-dark/60 p-3 sm:col-span-2 xl:col-span-3">
+                      <dt className="text-[10px] uppercase tracking-wider text-bf-muted mb-1">Systems</dt>
+                      <dd className="text-bf-text font-medium">{formatSystemsSummary(settings)}</dd>
                     </div>
                     {!!settings.era_advancement_enabled && (
                       <div className="rounded-lg border border-bf-gold/30 bg-bf-gold/10 p-3 sm:col-span-2">

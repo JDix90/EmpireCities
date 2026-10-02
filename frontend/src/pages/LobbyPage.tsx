@@ -419,18 +419,17 @@ export default function LobbyPage() {
     }
     setCampaignMeReady(false);
     try {
-      const res = await api.get<LobbyCampaignMe>('/campaign/me');
-      setCampaignMe(res.data);
-    } catch (e) {
-      if (axios.isAxiosError(e) && e.response?.status === 404) {
-        setCampaignMe(null);
-      } else {
-        setCampaignMe(null);
-      }
+      const res = await api.get<LobbyCampaignMe | ''>('/campaign/me');
+      // 204: no campaign yet. (Older servers answered 404; treat that the same.)
+      setCampaignMe(res.status === 204 || !res.data ? null : res.data);
+    } catch {
+      setCampaignMe(null);
     } finally {
       setCampaignMeReady(true);
     }
-  }, [user]);
+    // Keyed on the identity, not the `user` object: the post-load profile sync
+    // replaces that object and used to fire this request a second time.
+  }, [user?.user_id, user?.is_guest]);
 
   useEffect(() => {
     void fetchCampaignMe();

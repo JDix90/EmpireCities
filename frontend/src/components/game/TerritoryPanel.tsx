@@ -1260,7 +1260,7 @@ export default function TerritoryPanel({
                             className="min-w-[44px] rounded-lg bg-bf-gold/15 hover:bg-bf-gold/25
                                        border border-bf-gold/40 text-bf-gold font-medium transition-all"
                             onClick={() => onBlitzAttack!(src.territoryId, selectedTerritory)}
-                            aria-label={`${hasActiveTruce ? 'Break truce and blitz' : 'Blitz'} ${selectedTerritory} from ${src.name} until captured`}
+                            aria-label={`${hasActiveTruce ? 'Break truce and blitz' : 'Blitz'} ${territoryNameById.get(selectedTerritory) ?? selectedTerritory} from ${src.name} until captured`}
                             title={`${hasActiveTruce ? 'Break the truce and attack' : 'Attack'} repeatedly until the territory falls or you can no longer attack`}
                           >
                             ⚡
