@@ -8,20 +8,16 @@ import { isValidSpineId } from '../eraAdvancement/spines';
 import { WORLD_RULE_IDS } from './worldRules';
 import { applyEraAdvancementPreset, isEraAdvancementPreset } from '../eraAdvancement/presets';
 import { getDefaultGameSettingsConfig } from '../../services/adminConfig';
+import { isTutorialLessonModule } from '../tutorial/tutorialModules';
 
 const VICTORY_TYPES: VictoryType[] = [
   'domination', 'secret_mission', 'capital', 'threshold', 'transcendence',
   'lunar_hegemony', 'lane_sovereignty',
 ];
 
-const TUTORIAL_LESSON_MODULES = ['core', 'advanced_settings', 'faction_ability', 'tech_tree', 'era_advancement'] as const;
 
 function isVictoryType(v: unknown): v is VictoryType {
   return typeof v === 'string' && (VICTORY_TYPES as readonly string[]).includes(v);
-}
-
-function isTutorialLessonModule(v: unknown): v is (typeof TUTORIAL_LESSON_MODULES)[number] {
-  return typeof v === 'string' && (TUTORIAL_LESSON_MODULES as readonly string[]).includes(v);
 }
 
 /**

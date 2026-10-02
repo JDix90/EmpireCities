@@ -4,6 +4,7 @@
 
 import type { PuzzleDecisionRecord } from '../game-engine/daily/dailyPuzzleTypes';
 import type { WorldRuleId } from '../game-engine/state/worldRules';
+import type { TutorialLessonModule } from '../game-engine/tutorial/tutorialModules';
 import type {
   GamePhase,
   ConnectionType,
@@ -493,8 +494,8 @@ export interface GameSettings {
   card_set_bonus_cap?: number;
   diplomacy_enabled: boolean;
   tutorial?: boolean;
-  /** Active lesson pack when `tutorial` is true (core, advanced_settings, faction_ability, tech_tree). */
-  tutorial_lesson_module?: 'core' | 'advanced_settings' | 'faction_ability' | 'tech_tree' | 'era_advancement';
+  /** Active lesson pack when `tutorial` is true (game-engine/tutorial/tutorialModules.ts). */
+  tutorial_lesson_module?: TutorialLessonModule;
   /** Bonus TP granted at tutorial module start (tech_tree lesson). */
   tutorial_grant_tech_points?: number;
   /**

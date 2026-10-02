@@ -91,6 +91,7 @@ import ActionModal, { ActionNotification, ModalData, NotificationData, Reinforce
 import TutorialOverlay from '../components/game/TutorialOverlay';
 import TutorialSettingsLab from '../components/game/TutorialSettingsLab';
 import {
+  TUTORIAL_MODULES,
   getTutorialSteps,
   isTutorialStepCentered,
   markTutorialModuleComplete,
@@ -1831,6 +1832,16 @@ export default function GamePage() {
           funnelEmittedRef.current.capture = true;
           api.post('/analytics/ui-event', { event: 'first_territory_captured', properties: { era, is_tutorial: isTut } }).catch(() => {});
         }
+        // A tutorial card waiting on a capture: the one it names, or any.
+        if (territory_captured && state?.settings?.tutorial) {
+          const step = tutorialStepsRef.current[tutorialStepRef.current];
+          if (
+            step?.requireAction === 'territory_captured'
+            && (!step.targetTerritoryId || step.targetTerritoryId === data.toId)
+          ) {
+            setTutorialStep((s) => Math.min(s + 1, tutorialStepsRef.current.length));
+          }
+        }
       }
       // Prefer the server's count: deriving it locally double-subtracted
       // losses whenever the game:state broadcast landed before this event,
@@ -2018,6 +2029,19 @@ export default function GamePage() {
         useGameStore.getState().gameState?.settings?.daily_challenge_spec?.goal,
       );
       setMusicOutcome(isWinner ? 'victory' : 'defeat');
+      // A lesson whose last beat is the win itself: the card waiting on it
+      // advances, and the lesson is recorded as done here, because the
+      // game-over screen (not the card) is where the player goes next.
+      if (endState?.settings?.tutorial && isWinner) {
+        const step = tutorialStepsRef.current[tutorialStepRef.current];
+        if (step?.requireAction === 'game_won') {
+          setTutorialStep((s) => Math.min(s + 1, tutorialStepsRef.current.length));
+        }
+        const lesson = endState.settings.tutorial_lesson_module ?? 'core';
+        if (TUTORIAL_MODULES.find((m) => m.id === lesson)?.completesOnVictory) {
+          markTutorialModuleComplete(lesson);
+        }
+      }
       const myProgression = myId && stats.progression ? stats.progression[myId] : undefined;
       const vc = stats.victory_condition;
       const probHistory = stats.win_probability_history ?? [];
@@ -2118,9 +2142,18 @@ export default function GamePage() {
       );
     });
 
-    socket.on('game:build_result', ({ success, error }: { success: boolean; error?: string }) => {
+    socket.on('game:build_result', ({ success, error, buildingType }: { success: boolean; error?: string; buildingType?: string }) => {
       if (!success) toast.error(error ?? 'Build failed');
-      else toast.success('Building constructed!', { duration: 2000 });
+      else {
+        toast.success('Building constructed!', { duration: 2000 });
+        const gs = useGameStore.getState().gameState;
+        if (gs?.settings?.tutorial && buildingType?.startsWith('wonder_')) {
+          const step = tutorialStepsRef.current[tutorialStepRef.current];
+          if (step?.requireAction === 'wonder_built') {
+            setTutorialStep((s) => Math.min(s + 1, tutorialStepsRef.current.length));
+          }
+        }
+      }
     });
 
     socket.on('game:tutorial_settings_applied', ({ applied }: { applied: string[] }) => {
@@ -2862,6 +2895,10 @@ export default function GamePage() {
     const isMyTurn = gameState.players[gameState.current_player_index]?.player_id === myId;
     if (!isMyTurn) return undefined;
 
+    // A card that names its system highlights it, whatever the phase.
+    const target = tutorialSteps[tutorialStep]?.targetTerritoryId;
+    if (target) return target;
+
     if (sid === 'draft_do' && gameState.phase === 'draft') {
       // Highlight the owned territory with the most units (best draft target).
       const owned = Object.entries(gameState.territories)
@@ -3094,6 +3131,12 @@ export default function GamePage() {
   const showGalaxyOverview = useCallback((view: GalaxyOverviewPreference) => {
     setGalaxyView(view);
     setGalaxyOverviewPreference(view);
+    if (view === 'chart' && useGameStore.getState().gameState?.settings?.tutorial) {
+      const step = tutorialStepsRef.current[tutorialStepRef.current];
+      if (step?.requireAction === 'galaxy_chart_opened') {
+        setTutorialStep((s) => Math.min(s + 1, tutorialStepsRef.current.length));
+      }
+    }
   }, []);
 
   /** Open one world on its own: its world tab, or a Split pane's open button. */
@@ -3784,8 +3827,11 @@ export default function GamePage() {
   }, [tutorialLessonModule, tutorialCombined]);
 
   const handleTutorialMarkModuleComplete = useCallback(() => {
+    // "Skip to the end" lands on the last card without the lesson having
+    // been played; its button still leads out, but records nothing.
+    if (tutorialSkipped) return;
     markLessonComplete();
-  }, [markLessonComplete]);
+  }, [markLessonComplete, tutorialSkipped]);
 
   const handleLaunchTutorialModule = useCallback(
     async (module: TutorialLessonModule) => {

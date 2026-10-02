@@ -28,6 +28,14 @@ describe('tutorial progression', () => {
     expect(getCompletedTutorialModules()).toContain('advanced_settings');
   });
 
+  it('keeps a galaxy lesson\'s completion and drops ids no lesson has', () => {
+    localStorage.setItem(
+      'borderfall_tutorial_modules_completed_v2',
+      JSON.stringify(['core', 'galaxy_lane_sovereignty', 'galaxy_everything']),
+    );
+    expect(getCompletedTutorialModules()).toEqual(['core', 'galaxy_lane_sovereignty']);
+  });
+
   it('advances the draft card when the player leaves the draft phase', () => {
     const step = getTutorialSteps('core').find((s) => s.id === 'draft_do');
     expect(

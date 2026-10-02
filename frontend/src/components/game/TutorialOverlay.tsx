@@ -404,7 +404,7 @@ export default function TutorialOverlay({
               >
                 {t('overlay.next')}
               </button>
-              {step.id === 'welcome' && onSkipToEnd && (
+              {(step.id === 'welcome' || step.skippable) && onSkipToEnd && (
                 <button
                   type="button"
                   data-testid="tutorial-skip-btn"

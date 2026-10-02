@@ -23,3 +23,14 @@ export const CORE_TUTORIAL_GRANT_GOLD = 16;
  */
 export const ERA_LESSON_GRANT_TECH_POINTS = 24;
 export const ERA_LESSON_GRANT_GOLD = 60;
+
+/**
+ * Galactic Age · Lane Sovereignty. The lesson has the player research Lane
+ * Charts (the third attack die across a lane) before the capture that
+ * completes their fifth corridor. The grant is that one tech's cost, so the
+ * tree offers a choice the budget then settles; the galaxy's other tier-1
+ * root costs less, so a player who picks it instead still crosses the lane,
+ * at two dice, and `galaxyLaneSovereigntyScenario.test.ts` holds the units to
+ * a margin that wins either way.
+ */
+export const GALAXY_LANE_SOVEREIGNTY_GRANT_TECH_POINTS = 5;

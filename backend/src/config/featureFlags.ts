@@ -88,6 +88,11 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // Experimental Warfront RTS mode (docs/WARFRONT_RTS_MODE.md). Admin-only on top
   // of this flag, so the flag gates a surface only admins can reach anyway.
   warfront_enabled: () => envOptIn('WARFRONT_ENABLED'),
+  // The Galactic Age tutorial track (one lesson per galaxy victory condition,
+  // frontend/src/tutorial/modules/galaxy*). Dark-launched OFF while the era
+  // itself is "Coming Soon": the start route refuses these lessons and the
+  // client hides them until an operator switches this on.
+  galaxy_tutorial_enabled: () => envOptIn('GALAXY_TUTORIAL_ENABLED'),
   // Localized landing page + tutorial (frontend/src/i18n). Dark-launched OFF:
   // the translated bundles ship in the client but nobody is routed to them
   // until this is on. Client-only effect.
@@ -700,6 +705,18 @@ export const featureFlags = {
   },
 
   /**
+   * The Galactic Age tutorial track: lessons that play the galaxy board, one
+   * per victory condition. Default OFF — the era is admin-only until it opens,
+   * and nothing about it is player-facing before then. `POST /games/tutorial/start`
+   * refuses a galaxy lesson while this is off, and the Academy page and the
+   * recommended-next logic leave them out. `GALAXY_TUTORIAL_ENABLED=true` or
+   * the admin override switches it on.
+   */
+  get galaxyTutorialEnabled(): boolean {
+    return overrideBool('galaxy_tutorial_enabled');
+  },
+
+  /**
    * Localized landing page and tutorial (frontend/src/i18n). Off means English
    * for everyone whatever the browser says; on lets the client honour the
    * stored `cc-lang` choice or the browser language. Default OFF until the
@@ -745,6 +762,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     era_heritage_buildings_enabled: featureFlags.eraHeritageBuildingsEnabled,
     era_wonder_per_era_enabled: featureFlags.eraWonderPerEraEnabled,
     warfront_enabled: featureFlags.warfrontEnabled,
+    galaxy_tutorial_enabled: featureFlags.galaxyTutorialEnabled,
     localization_enabled: featureFlags.localizationEnabled,
     daily_puzzle_v2_enabled: featureFlags.dailyPuzzleV2Enabled,
     store_v2_enabled: featureFlags.storeV2Enabled,

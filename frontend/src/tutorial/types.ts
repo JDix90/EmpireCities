@@ -3,23 +3,70 @@ export const TUTORIAL_V2_ENABLED =
   typeof import.meta.env.VITE_TUTORIAL_V2 === 'undefined' ||
   import.meta.env.VITE_TUTORIAL_V2 !== '0';
 
-export type TutorialLessonModule =
-  | 'core'
-  | 'advanced_settings'
-  | 'faction_ability'
-  | 'tech_tree'
-  | 'era_advancement';
+/**
+ * The lesson ids, in the order the Academy lists them. Mirrors the backend's
+ * registry (backend/src/game-engine/tutorial/tutorialModules.ts): the start
+ * route and the completion endpoint accept exactly these.
+ */
+export const CORE_TUTORIAL_MODULE_IDS = [
+  'core',
+  'advanced_settings',
+  'faction_ability',
+  'tech_tree',
+  'era_advancement',
+] as const;
 
+/**
+ * The Galactic Age track: one lesson per galaxy victory condition, plus the
+ * primer. Dark-launched behind `galaxy_tutorial_enabled` (featureFlagsStore):
+ * the Academy, the recommended-next logic and the wrap-up links leave them out
+ * while it is off, and the server refuses to start one.
+ */
+export const GALAXY_TUTORIAL_MODULE_IDS = [
+  'galaxy_lane_sovereignty',
+] as const;
+
+export const TUTORIAL_MODULE_IDS = [...CORE_TUTORIAL_MODULE_IDS, ...GALAXY_TUTORIAL_MODULE_IDS] as const;
+
+export type TutorialLessonModule = (typeof TUTORIAL_MODULE_IDS)[number];
+export type GalaxyTutorialLessonModule = (typeof GALAXY_TUTORIAL_MODULE_IDS)[number];
+
+export function isTutorialLessonModule(v: unknown): v is TutorialLessonModule {
+  return typeof v === 'string' && (TUTORIAL_MODULE_IDS as readonly string[]).includes(v);
+}
+
+export function isGalaxyTutorialModule(v: unknown): v is GalaxyTutorialLessonModule {
+  return typeof v === 'string' && (GALAXY_TUTORIAL_MODULE_IDS as readonly string[]).includes(v);
+}
+
+/**
+ * What a card waits on. Every one of these is something the game actually
+ * reports (see `isActionOnlyRequireAction`), so a card never waits on a thing
+ * the player cannot do:
+ *   - `territory_captured`: the player's own attack captured a territory — the
+ *     step's `targetTerritoryId`, when it names one, else any;
+ *   - `my_next_turn`: the turn came back round to the player (an edge, unlike
+ *     `my_turn`, which is a state check and is satisfied throughout the
+ *     player's own turn — see `isMyTurnGateSatisfied`);
+ *   - `wonder_built`: the player raised their era's wonder;
+ *   - `galaxy_chart_opened`: the player opened the Galaxy chart;
+ *   - `game_won`: the game ended with the player among the winners.
+ */
 export type TutorialRequireAction =
   | 'draft'
   | 'end_phase'
   | 'my_turn'
+  | 'my_next_turn'
   | 'tech_researched'
   | 'ability_used'
   | 'settings_explored'
   | 'bonuses_opened'
   | 'tech_tree_opened'
-  | 'era_advanced';
+  | 'era_advanced'
+  | 'territory_captured'
+  | 'wonder_built'
+  | 'galaxy_chart_opened'
+  | 'game_won';
 
 export type TutorialStepVariant = 'wrapup' | 'module_complete';
 
@@ -58,6 +105,18 @@ export interface TutorialStep {
    */
   skippedTitle?: string;
   skippedMessage?: string;
+  /**
+   * The system this card is about: highlighted on the board while it is the
+   * player's turn, and, on a `territory_captured` card, the one capture that
+   * satisfies the gate.
+   */
+  targetTerritoryId?: string;
+  /**
+   * Offer "Skip to the end" on this card. The core lesson's `welcome` card
+   * always does; a deep dive opts in per card, since its last card must then
+   * carry honest skip copy (`skippedTitle` / `skippedMessage`).
+   */
+  skippable?: boolean;
 }
 
 export interface TutorialModuleMeta {
@@ -65,6 +124,14 @@ export interface TutorialModuleMeta {
   title: string;
   description: string;
   estimatedMinutes: number;
+  /** A Galactic Age lesson: listed and recommended only while `galaxy_tutorial_enabled` is on. */
+  galaxy?: boolean;
+  /**
+   * The lesson's last beat is winning the match, so the game-over screen, not a
+   * card, is where the player ends up: finishing the game as a winner records
+   * the lesson as done.
+   */
+  completesOnVictory?: boolean;
 }
 
 export const TUTORIAL_MODULES: TutorialModuleMeta[] = [
@@ -100,6 +167,16 @@ export const TUTORIAL_MODULES: TutorialModuleMeta[] = [
     title: 'Era Advancement',
     description: 'Climb from Ancient to Medieval: clear the gate, advance, and ride out the vulnerability window.',
     estimatedMinutes: 5,
+  },
+  {
+    id: 'galaxy_lane_sovereignty',
+    title: 'Galactic Age: Lane Sovereignty',
+    description: 'Hyperspace lanes, gateways and corridors: take a fifth corridor across a lane and hold the network to win.',
+    // Six cards of reading and four turns of play on the galaxy board: a
+    // research, a draft, one lane crossing, then two held turns.
+    estimatedMinutes: 7,
+    galaxy: true,
+    completesOnVictory: true,
   },
 ];
 

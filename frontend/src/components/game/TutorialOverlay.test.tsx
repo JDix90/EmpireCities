@@ -84,6 +84,28 @@ describe('TutorialOverlay', () => {
     expect(onSkip).toHaveBeenCalledTimes(1);
   });
 
+  it('shows Skip on a deep-dive card that opts in, and not on one that does not', () => {
+    const onSkipToEnd = vi.fn();
+    const { rerender } = overlay(
+      [{ id: 'gls_welcome', title: 'W', message: 'm', skippable: true } as TutorialStep],
+      { onSkipToEnd, lessonModule: 'galaxy_lane_sovereignty' },
+    );
+    fireEvent.click(screen.getByTestId('tutorial-skip-btn'));
+    expect(onSkipToEnd).toHaveBeenCalledTimes(1);
+    rerender(
+      <TutorialOverlay
+        steps={[{ id: 'fa_welcome', title: 'W', message: 'm' } as TutorialStep]}
+        stepIndex={0}
+        lessonModule="faction_ability"
+        onAdvance={noop}
+        onContinuePlaying={noop}
+        onReturnToLobby={noop}
+        onSkipToEnd={onSkipToEnd}
+      />,
+    );
+    expect(screen.queryByTestId('tutorial-skip-btn')).toBeNull();
+  });
+
   describe('wrap-up reached by skipping', () => {
     const wrapup = {
       id: 'wrapup',

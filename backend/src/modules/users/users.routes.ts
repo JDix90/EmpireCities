@@ -7,6 +7,7 @@ import { query, queryOne, withTransaction } from '../../db/postgres';
 import { checkOnboardingQuests } from '../../game-engine/progression/progressionService';
 import { effectiveLoadout, loadoutColumns, type Loadout, type LoadoutRow } from './loadout';
 import { andNotTutorialSql } from '../../game-engine/tutorial/tutorialGames';
+import { isTutorialLessonModule } from '../../game-engine/tutorial/tutorialModules';
 import { formatZodError } from '../../utils/formatZodError';
 import { verifyUnsubscribeToken } from '../../utils/unsubscribeToken';
 import { recordServerEvent } from '../../services/analyticsEvents';
@@ -231,10 +232,9 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // ── POST /api/users/me/tutorial-modules/:moduleId ────────────────────────
-  const VALID_MODULES = new Set(['core', 'advanced_settings', 'faction_ability', 'tech_tree', 'era_advancement']);
   fastify.post('/me/tutorial-modules/:moduleId', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
     const { moduleId } = request.params as { moduleId: string };
-    if (!VALID_MODULES.has(moduleId)) {
+    if (!isTutorialLessonModule(moduleId)) {
       return reply.status(400).send({ error: `Unknown tutorial module: ${moduleId}` });
     }
     try {

@@ -1,0 +1,87 @@
+/**
+ * How each Galactic Age lesson is set up: its board, its seats and the
+ * settings the game is created with. `POST /games/tutorial/start` reads one
+ * of these for a galaxy module instead of the WW2/Ancient defaults the other
+ * lessons share.
+ *
+ * The galaxy settings are baked from the live feature flags exactly as the
+ * create route bakes them (modules/games/createGameSettings.ts): the lesson
+ * teaches the rules production plays, so if an operator has switched the
+ * corridors or a world rule off, the lesson plays without them too.
+ */
+import type { AiDifficulty, GameSettings, VictoryType } from '../../types';
+import { featureFlags } from '../../config/featureFlags';
+import { GALAXY_LANE_SOVEREIGNTY_SCENARIO } from './galaxyLaneSovereigntyScenario';
+import { GALAXY_LANE_SOVEREIGNTY_GRANT_TECH_POINTS } from './tutorialGrants';
+import type { GalaxyTutorialLessonModule } from './tutorialModules';
+
+export interface TutorialSeat {
+  faction_id: string | null;
+  is_ai: boolean;
+  ai_difficulty?: AiDifficulty;
+}
+
+export interface GalaxyTutorialGameSpec {
+  mapId: string;
+  eraId: 'galaxy_age' | 'space_age';
+  /** Seat 0 is the human; the rest are inserted in this order. */
+  seats: TutorialSeat[];
+  settings: Partial<GameSettings> & Record<string, unknown>;
+}
+
+const TUTORIAL_AI: TutorialSeat['ai_difficulty'] = 'tutorial';
+
+/** The settings every galaxy lesson shares; a lesson's own settings go on top. */
+function galaxySettingsBase(lessonModule: GalaxyTutorialLessonModule, seats: number, victory: VictoryType[]) {
+  return {
+    fog_of_war: false,
+    allowed_victory_conditions: victory,
+    victory_type: victory[0] ?? 'domination',
+    turn_timer_seconds: 0,
+    initial_unit_count: 3,
+    card_set_escalating: false,
+    diplomacy_enabled: false,
+    tutorial: true,
+    tutorial_lesson_module: lessonModule,
+    max_players: seats,
+    // The era's own systems (frontend/src/utils/eraSystemDefaults.ts locks
+    // all three on for a Galactic Age lobby). Factions are what deal the home
+    // worlds; the economy and tech trees are what Lane Charts and the Vault
+    // need to mean anything.
+    factions_enabled: true,
+    economy_enabled: true,
+    tech_trees_enabled: true,
+    stability_enabled: false,
+    combat_dice_cap_enabled: true,
+    // Baked from the live flags, as the create route does.
+    galaxy_corridors_enabled: featureFlags.galaxyCorridorsEnabled,
+    world_rules_enabled: featureFlags.galaxyWorldRulesEnabled,
+    world_rules_disabled: featureFlags.galaxyDisabledWorldRules,
+    galaxy_transit_enabled: featureFlags.galaxyTransitEnabled,
+  };
+}
+
+export function galaxyTutorialGameSpec(lessonModule: GalaxyTutorialLessonModule): GalaxyTutorialGameSpec {
+  switch (lessonModule) {
+    case 'galaxy_lane_sovereignty': {
+      // Three seats: see galaxyLaneSovereigntyScenario.ts for why, and for
+      // which AI seat is which.
+      const seats: TutorialSeat[] = [
+        { faction_id: 'helion_navigators', is_ai: false },
+        { faction_id: 'void_custodians', is_ai: true, ai_difficulty: TUTORIAL_AI },
+        { faction_id: 'forge_syndicate', is_ai: true, ai_difficulty: TUTORIAL_AI },
+      ];
+      return {
+        mapId: 'era_galaxy',
+        eraId: 'galaxy_age',
+        seats,
+        settings: {
+          ...galaxySettingsBase(lessonModule, seats.length, ['domination', 'lane_sovereignty']),
+          // Exactly Lane Charts: the third die across a lane, and nothing else.
+          tutorial_grant_tech_points: GALAXY_LANE_SOVEREIGNTY_GRANT_TECH_POINTS,
+          authored_scenario: GALAXY_LANE_SOVEREIGNTY_SCENARIO,
+        },
+      };
+    }
+  }
+}

@@ -48,7 +48,11 @@
     "advanced_settings": { "title": "Réglages avancés", "description": "Comment les règles optionnelles changent le rythme et la stratégie." },
     "faction_ability": { "title": "Capacités de faction", "description": "Bonus passifs et pouvoirs utilisables une fois par tour ou par partie." },
     "tech_tree": { "title": "Arbre technologique", "description": "Coûts de recherche, prérequis et améliorations de combat." },
-    "era_advancement": { "title": "Passage d'ère", "description": "Passez de l'Antiquité au Moyen Âge : franchissez le seuil, avancez et tenez pendant la fenêtre de vulnérabilité." }
+    "era_advancement": { "title": "Passage d'ère", "description": "Passez de l'Antiquité au Moyen Âge : franchissez le seuil, avancez et tenez pendant la fenêtre de vulnérabilité." },
+    "galaxy_lane_sovereignty": {
+      "title": "Ère galactique : Lane Sovereignty",
+      "description": "Routes hyperspatiales, gateways et corridors : prenez un cinquième corridor à travers une route et tenez le réseau pour gagner."
+    }
   },
   "steps": {
     "core": {
@@ -242,6 +246,59 @@
       "tt_complete": {
         "title": "Leçon sur la technologie terminée",
         "message": "Vous avez recherché un nœud et vu comment les bonus se cumulent. Dans les parties complètes, tracez un chemin vers les capacités dont votre stratégie a besoin."
+      }
+    },
+    "galaxy_lane_sovereignty": {
+      "gls_welcome": {
+        "title": "Lane Sovereignty",
+        "message": "L'Ère galactique, ce sont quatre mondes en anneau — **Sol III – Verdan Reach – Rust Belt – Nexus Station** — reliés par huit routes hyperspatiales, chacune aboutissant à un système **gateway** à chaque bout. Vous jouez les Helion Navigators de Verdan Reach, et cette partie ajoute la victoire propre à la galaxie : **Lane Sovereignty**.",
+        "detail": "Une route est votre **corridor** quand vous tenez ses deux gateways. Tenez 5 des 8 routes au début de votre tour, 3 tours de suite, et le réseau est à vous. Un duel ou un 2v2 demande 5 tours, et seules les huit routes cartographiées comptent.",
+        "hint": "Vous tenez déjà quatre corridors. Cette leçon prend le cinquième et le garde. Cliquez sur Suivant, ou passez à la fin pour entrer directement en jeu."
+      },
+      "gls_chart": {
+        "title": "Lisez la carte galactique",
+        "message": "Le plateau s'ouvre sur la **Galaxy chart**. Cliquez sur le bouton **Galaxy chart** au-dessus du plateau — c'est ainsi que l'on revient de n'importe quel onglet de monde — et lisez les routes : une route de **votre couleur** est un corridor, une route **bleue** est ouverte (vous tenez un bout), une route estompée vous est fermée. Le panneau des objectifs, dans la barre latérale, tient le compte : **corridors 4 of 5 · held 0 of 3 rounds**.",
+        "detail": "À trois sièges, des routes coloniales comblent les deux trous de l'anneau. Elles portent les attaques comme n'importe quelle route, mais Lane Sovereignty ne compte que les huit routes cartographiées.",
+        "hint": "Sur téléphone, la puce Galaxy chart est dans la rangée « Worlds » au-dessus du plateau. Un onglet de monde ouvre ce monde seul."
+      },
+      "gls_charts": {
+        "title": "Recherchez Lane Charts",
+        "message": "Une attaque à travers une route lance au plus **2 dés**, pas 3 — un gateway défendu tient comme une côte. **Lane Charts** rachète le troisième dé. Ouvrez l'arbre technologique et recherchez-le ; vous avez reçu exactement son coût.",
+        "detail": "Lane Charts est la racine de niveau 1 des routes dans la galaxie. La merveille Hyperlane Anchor lève entièrement le plafond, et les Void Custodians lancent un dé de plus quand ils défendent une route.",
+        "hint": "La recherche est permise à toute phase de votre tour. Touchez « Ouvrir l'arbre technologique » ci-dessous."
+      },
+      "gls_draft": {
+        "title": "Empilez sur votre gateway",
+        "message": "Cliquez sur **Hematite Span** — votre gateway sur Rust Belt, en surbrillance —, réglez sur **All** et appuyez sur **Place**. Puis cliquez sur le bouton doré **{{draftButton}}**.",
+        "detail": "Ouvrez l'onglet **Rust Belt** pour le trouver. Sa carte Gateway indique la route vers Nexus Station comme **Open** : vous tenez ce bout, et les Void Custodians tiennent **Antenna Spire** à l'autre.",
+        "hint": "Les Navigators reçoivent +2 renforts par tour. Gardez les piles de Verdan Reach sous 12 : ses tempêtes retirent une unité par manche à tout ce qui dépasse."
+      },
+      "gls_cross": {
+        "title": "Traversez la route",
+        "message": "Cliquez sur **Hematite Span**, puis sur **Antenna Spire** de l'autre côté de la route. La ligne d'attaque indique les dés qu'une traversée lance. Attaquez encore, ou **Attack until captured**, jusqu'à la chute du gateway.",
+        "detail": "Le prendre fait de la route Rust–Nexus votre cinquième corridor. La carte de combat montre le dé de défense supplémentaire des Custodians sur une traversée — douze contre deux l'emporte en quelques jets.",
+        "hint": "Seule une attaque lancée depuis un gateway peut traverser une route : la route est la frontière."
+      },
+      "gls_hold_1": {
+        "title": "Cinq corridors — tenez-les",
+        "message": "Le panneau des objectifs affiche **corridors 5 of 5**. La série n'avance qu'au début de **votre** tour : cliquez sur **{{attackButton}}** puis sur **{{fortifyButton}}**, et regardez passer les deux tours adverses.",
+        "detail": "Un rival brise un corridor en prenant l'un de ses gateways pendant son tour, avant que votre série n'avance. Les adversaires du tutoriel n'attaquent jamais ; les vrais, si."
+      },
+      "gls_hold_2": {
+        "title": "1 manche sur 3 tenue",
+        "message": "À vous de nouveau, et la série a avancé : **held 1 of 3 rounds**. Placez vos renforts là où ils étayent un gateway, puis menez le tour jusqu'à **{{fortifyButton}}**.",
+        "detail": "Un Void Custodian pourrait gagner une manche avec un **Emergency Seal** : il ferme à tous les autres une route touchant Nexus Station jusqu'à son prochain tour. Cela arrête les attaques à travers la route, pas le corridor lui-même."
+      },
+      "gls_win": {
+        "title": "2 sur 3 tenues — encore un début de tour",
+        "message": "Terminez ce tour aussi. Quand votre tour reviendra, la série atteindra 3 et la partie se terminera sur **Lane Sovereignty** avant que vous ne placiez une unité.",
+        "detail": "Toute victoire galactique sauf la Domination est jugée à partir de la manche 2, une fois que chaque siège a joué ; les trois manches de la Sovereignty s'en chargent d'elles-mêmes."
+      },
+      "gls_complete": {
+        "title": "Lane Sovereignty terminée",
+        "message": "Vous avez traversé une route, achevé un cinquième corridor et tenu le réseau pendant trois débuts de tour. Dans une vraie partie, les rivaux vous disputent chaque gateway, et un corridor qui tombe pendant leur tour remet votre série à zéro.",
+        "skippedTitle": "Directement en jeu",
+        "skippedMessage": "En résumé : tenez les deux gateways de 5 des 8 routes cartographiées au début de votre tour, 3 tours de suite (5 en duel ou en 2v2). Vous tenez quatre corridors maintenant. Prenez **Antenna Spire** depuis **Hematite Span** à travers la route pour le cinquième, puis gardez-le. Vous avez des renforts à placer : cliquez sur **Hematite Span**, puis sur {{draftButton}}."
       }
     }
   }

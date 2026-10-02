@@ -260,6 +260,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Second gate on the Warfront surfaces: the Admin → Warfront tab’s terrain endpoint now, the match host and the lab in later steps. Every one of them is admin-only regardless of this flag (server-enforced), so switching it on exposes nothing to players. Off by default — this is the kill switch for an experiment.',
   },
   {
+    key: 'galaxy_tutorial_enabled',
+    label: 'Galactic Age tutorial track',
+    description:
+      'List the Galactic Age lessons in the Academy (one per galaxy victory condition: Lane Sovereignty first, the rest as they ship) and let POST /games/tutorial/start run them on the galaxy board. Off by default while the era is Coming Soon — the server refuses a galaxy lesson while this is off, so nothing player-facing changes until it is on.',
+  },
+  {
     key: 'daily_puzzle_v2_enabled',
     label: 'Daily Challenge v2 (decision puzzles)',
     description:
