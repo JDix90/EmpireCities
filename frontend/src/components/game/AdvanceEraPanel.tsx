@@ -90,16 +90,19 @@ export default function AdvanceEraPanel({
 
   // Terse on purpose: this shares one sidebar row with the section label,
   // and a long phrase truncates the label into "ERA A…".
-  // Counted from the rows below, never from `status.blockers`: the blocker list
-  // includes requirements this panel doesn't draw (the phase gate), so counting
-  // it produced a total the player could not account for.
+  // Counted from the rows below, never from `status.blockers`, and never
+  // counting the phase row: that row comes and goes with the attack phase, so
+  // counting it made the number climb from 1 to 2 and back within one turn.
+  // The list still draws it, so what blocks the button stays visible.
   const gateRows = listEraGateRows(gameState, status);
-  const unmetRows = gateRows.filter((r) => !r.ok);
+  const unmetGateRows = gateRows.filter((r) => !r.ok && r.key !== 'phase');
   const summaryStatus = status.atMaxEra
     ? 'Max era'
     : status.ready
       ? 'Ready!'
-      : `${unmetRows.length} to go`;
+      : unmetGateRows.length === 0
+        ? 'Ready after attacks'
+        : `${unmetGateRows.length} to go`;
 
   return (
     <div className="border-b border-bf-gold/30 bg-bf-gold/5">

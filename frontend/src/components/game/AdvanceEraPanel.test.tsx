@@ -140,7 +140,7 @@ describe('AdvanceEraPanel — the summary counts only what it lists', () => {
     } as unknown as GameState;
   }
 
-  it('lists the phase requirement it counts, rather than an all-green list over "1 to go"', () => {
+  it('does not count the phase gate, which comes and goes within a turn, but still lists it', () => {
     render(
       <AdvanceEraPanel
         gameState={readyState('attack')}
@@ -149,7 +149,8 @@ describe('AdvanceEraPanel — the summary counts only what it lists', () => {
         onAdvanceEra={() => {}}
       />,
     );
-    expect(screen.getByText('1 to go')).toBeInTheDocument();
+    expect(screen.getByText('Ready after attacks')).toBeInTheDocument();
+    expect(screen.queryByText(/to go/)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /Era Advancement/ }));
     expect(screen.getByText(/Advance during your Reinforcement or Fortify phase/)).toBeInTheDocument();
   });

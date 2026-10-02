@@ -330,7 +330,7 @@ function conclusionDetail(last: GameState): string | undefined {
     case 'humans_eliminated': return 'No human commander remained to contest it.';
     case 'turn_limit': return 'Time ran out with them holding the strongest position.';
     case 'lunar_hegemony': return 'They held the Moon long enough that Earth stopped mattering.';
-    case 'resignation': return 'The last opponent conceded the field.';
+    case 'resignation': return 'A commander conceded the field.';
     default: return undefined;
   }
 }

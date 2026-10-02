@@ -170,20 +170,36 @@ export function getCardSetBonus(redemptionCount: number, cap?: number): number {
 }
 
 /**
+ * A region's reinforcement bonus at a given table size.
+ *
+ * Region bonuses are scaled by active player count: with few players each side
+ * owns a larger share of the map, so full-region control (and stacked bonuses) is
+ * much more common than in a 6-player game. Reference size is 6 players. A held
+ * region is never worth nothing, though: on small two-player maps the plain
+ * floor paid +0 for three of four regions, so the scaled value floors at +1.
+ */
+export function scaleRegionBonus(rawBonus: number, playerCount: number = 6): number {
+  if (rawBonus <= 0) return 0;
+  const pc = Math.max(2, Math.min(playerCount, 12));
+  return Math.max(1, Math.floor((rawBonus * pc) / 6));
+}
+
+/**
  * Calculate the base reinforcement units for a player.
  * Minimum of 3 units guaranteed (from territory count).
  *
- * Continent bonuses are scaled by active player count: with few players each side
- * owns a larger share of the map, so full-region control (and stacked bonuses) is
- * much more common than in a 6-player game. Reference size is 6 players.
+ * `continentBonuses` is the sum of the player's held regions, each already
+ * scaled by `scaleRegionBonus` (the `calculateContinentBonuses*` helpers do
+ * that). `playerCount` is kept so callers read the same; the per-region
+ * scaling moved to the helpers so the +1 floor applies to each region rather
+ * than to the total.
  */
 export function calculateReinforcements(
   territoryCount: number,
   continentBonuses: number,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   playerCount: number = 6
 ): number {
   const base = Math.max(3, Math.floor(territoryCount / 3));
-  const pc = Math.max(2, Math.min(playerCount, 12));
-  const scaledContinent = Math.floor((continentBonuses * pc) / 6);
-  return base + scaledContinent;
+  return base + Math.max(0, Math.floor(continentBonuses));
 }

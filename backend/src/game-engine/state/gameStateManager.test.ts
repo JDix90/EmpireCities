@@ -306,7 +306,9 @@ describe('calculateContinentBonuses', () => {
 
   it('awards the bonus for the in-play part while a frontier member is still locked', () => {
     const state = makeState({ territories: { base: makeTerritory('base', 'p1', 1) } });
-    expect(calculateContinentBonuses(state, growthMap(), 'p1')).toBe(3);
+    // The helper returns the table-scaled value: a raw 3 at two players is
+    // max(1, floor(3 × 2 / 6)) = 1 (scaleRegionBonus).
+    expect(calculateContinentBonuses(state, growthMap(), 'p1')).toBe(1);
   });
 
   it('withholds the bonus once the frontier is in play but not yet owned', () => {
@@ -319,7 +321,7 @@ describe('calculateContinentBonuses', () => {
     expect(calculateContinentBonuses(state, growthMap(), 'p1')).toBe(0);
     // ...and restores it once the frontier is conquered.
     state.territories.frontier.owner_id = 'p1';
-    expect(calculateContinentBonuses(state, growthMap(), 'p1')).toBe(3);
+    expect(calculateContinentBonuses(state, growthMap(), 'p1')).toBe(1);
   });
 
   it('does not award a vacuous bonus for an all-locked region (none in play)', () => {

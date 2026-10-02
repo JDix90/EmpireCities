@@ -211,7 +211,14 @@ export interface EliminationModalData {
 
 export interface ResignModalData {
   type: 'resign_confirm';
+  /** Current round; inside the grace window a resignation abandons the game unrated. */
+  turnNumber?: number;
+  /** No other human is still in the game, so the win is credited to the strongest AI. */
+  aiOnly?: boolean;
 }
+
+/** Mirrors RESIGN_GRACE_TURNS in backend/src/sockets/gameSocket.ts. */
+export const RESIGN_GRACE_TURNS = 2;
 
 export interface DraftRatingRow {
   playerId: string;
@@ -1342,7 +1349,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
       case 'abandoned':       return 'Game ended — no human players remained';
       case 'lunar_hegemony':  return 'Lunar Hegemony — the whole Moon held, turn after turn';
       case 'turn_limit':      return 'Turn Limit Reached — strongest position wins';
-      case 'resignation':     return 'Resignation — the last commander conceded the field';
+      case 'resignation':     return 'Resignation — a commander conceded the field';
       case 'humans_eliminated': return 'No Commanders Remain — every human player was eliminated';
       default:                return null;
     }
@@ -2136,13 +2143,21 @@ function EliminationView({
 
 // ─── Resign Confirm View ────────────────────────────────────────────────────
 
-function ResignConfirmView({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
+function ResignConfirmView({ data, onConfirm, onCancel }: { data: ResignModalData; onConfirm: () => void; onCancel: () => void }) {
+  const inGrace = typeof data.turnNumber === 'number' && data.turnNumber <= RESIGN_GRACE_TURNS;
   return (
     <div className="w-full max-w-md mx-auto text-center">
       <Flag className="w-12 h-12 text-white/30 mx-auto mb-4" />
       <h2 className="text-xl font-bold font-display text-white mb-2">Resign Game?</h2>
-      <p className="text-white/50 text-sm mb-6">
+      <p className="text-white/50 text-sm mb-3">
         Your territories will become neutral. This cannot be undone.
+      </p>
+      <p className="text-white/40 text-xs mb-6" data-testid="resign-rating-note">
+        {typeof data.turnNumber !== 'number'
+          ? `Resigning in turns 1–${RESIGN_GRACE_TURNS} abandons the game with no rating change; from turn ${RESIGN_GRACE_TURNS + 1} it counts as a loss.`
+          : inGrace
+            ? `Turn ${data.turnNumber}: still inside the opening grace window, so this abandons the game — no rating change and no result recorded.`
+            : `Turn ${data.turnNumber}: this counts as a loss and will affect your rating.${data.aiOnly ? ' The strongest remaining AI is credited with the win.' : ''}`}
       </p>
       <div className="flex gap-3">
         <button
@@ -2429,7 +2444,7 @@ export default function ActionModal({
             players={players}
           />
         )}
-        {data.type === 'resign_confirm' && <ResignConfirmView onConfirm={() => { onResignConfirm?.(); onDismiss(); }} onCancel={onDismiss} />}
+        {data.type === 'resign_confirm' && <ResignConfirmView data={data} onConfirm={() => { onResignConfirm?.(); onDismiss(); }} onCancel={onDismiss} />}
         {data.type === 'draft_summary' && <DraftSummaryView data={data} onDismiss={onDismiss} />}
         {data.type === 'era_advance' && <EraAdvanceView data={data} onDismiss={onDismiss} />}
       </div>

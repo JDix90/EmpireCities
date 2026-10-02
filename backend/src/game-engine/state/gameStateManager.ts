@@ -6,7 +6,7 @@ import type {
   VictoryConditionKey, GalaxySchismMode,
 } from '../../types';
 import { getEraFactions } from '../eras';
-import { calculateReinforcements, getCardSetBonus } from '../combat/combatResolver';
+import { calculateReinforcements, getCardSetBonus, scaleRegionBonus } from '../combat/combatResolver';
 import { getAllowedVictoryConditions, normalizeGameSettings } from './gameSettings';
 import { collectProduction } from './economyManager';
 import { applyTechPointIncome, getPlayerReinforceBonus } from './techManager';
@@ -489,7 +489,7 @@ export function initializeGameState(
   const isTerritorySelect = !!settingsNorm.territory_selection;
   const continentBonus = isTerritorySelect
     ? 0
-    : calculateContinentBonusesForPlayer(territories, map, firstPlayer.player_id, { teams: teams ?? undefined });
+    : calculateContinentBonusesForPlayer(territories, map, firstPlayer.player_id, { teams: teams ?? undefined }, playerStates.length);
   const initialDraft = isTerritorySelect ? 0 : calculateReinforcements(
     firstPlayer.territory_count,
     continentBonus,
@@ -783,6 +783,8 @@ function calculateContinentBonusesForPlayer(
   playerId: string,
   // A team game's sides (state/teams.ts): a region allies hold whole pays too.
   sides: Pick<GameState, 'teams'> = {},
+  // Table size for the per-region scaling (scaleRegionBonus).
+  playerCount: number = 6,
 ): number {
   let bonus = 0;
   for (const region of map.regions) {
@@ -792,7 +794,7 @@ function calculateContinentBonusesForPlayer(
     const holds = isTeamGame(sides)
       ? regionBonusHolder(sides, owners) === playerId
       : owners.every((owner) => owner === playerId);
-    if (holds) bonus += region.bonus;
+    if (holds) bonus += scaleRegionBonus(region.bonus, playerCount);
   }
   return bonus;
 }
@@ -965,7 +967,9 @@ export function eventTargetForRound(state: GameState): string {
 }
 
 /**
- * Calculate continent bonuses for a given player.
+ * Calculate continent bonuses for a given player: the sum over regions held in
+ * full of `scaleRegionBonus(region.bonus, players)` — the effective
+ * reinforcement value at this table size, not the map's raw numbers.
  */
 export function calculateContinentBonuses(
   state: GameState,
@@ -988,7 +992,7 @@ export function calculateContinentBonuses(
     const holds = isTeamGame(state)
       ? regionBonusHolder(state, owners) === playerId
       : owners.every((owner) => owner === playerId);
-    if (holds) bonus += region.bonus;
+    if (holds) bonus += scaleRegionBonus(region.bonus, state.players.length);
   }
   return bonus;
 }
@@ -1389,7 +1393,7 @@ export function repairDraftUnitsIfMissing(state: GameState, map: GameMap): void 
   }
   const p = state.players[state.current_player_index];
   if (!p) return;
-  const bonus = calculateContinentBonusesForPlayer(state.territories, map, p.player_id, state);
+  const bonus = calculateContinentBonusesForPlayer(state.territories, map, p.player_id, state, state.players.length);
   state.draft_units_remaining = calculateReinforcements(
     p.territory_count,
     bonus,

@@ -18,6 +18,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import type { GameMap, GameSettings, GameState, GameTeam } from '../../types';
 import { calculateContinentBonuses, initializeGameState } from './gameStateManager';
+import { scaleRegionBonus } from '../combat/combatResolver';
 import { dropSecretMissions, GALAXY_2V2_PAIRS, galaxyTeamsFor, seatTeamsApart } from './galaxyTeams';
 import {
   ALLIED_TUNING,
@@ -347,7 +348,7 @@ describe('a region the side holds whole', () => {
     const otherBonus = calculateContinentBonuses(state, map, other);
     const teams = state.teams;
     state.teams = undefined;
-    expect(withSide - calculateContinentBonuses(state, map, most)).toBe(bonus);
+    expect(withSide - calculateContinentBonuses(state, map, most)).toBe(scaleRegionBonus(bonus, state.players.length));
     expect(calculateContinentBonuses(state, map, other)).toBe(otherBonus);
     state.teams = teams;
   });
