@@ -4,6 +4,7 @@ import { TECH_TREE_STEPS } from './modules/techTreeSteps';
 import { ERA_ADVANCEMENT_STEPS } from './modules/eraAdvancementSteps';
 import { COMBINED_CORE_TUTORIAL_STEPS } from './modules/combinedCoreSteps';
 import { GALAXY_LANE_SOVEREIGNTY_STEPS } from './modules/galaxyLaneSovereigntySteps';
+import { GALAXY_TRANSCENDENCE_STEPS } from './modules/galaxyTranscendenceSteps';
 import type { TutorialLessonModule, TutorialRequireAction, TutorialStep } from './types';
 import {
   CORE_TUTORIAL_MODULE_IDS,
@@ -28,6 +29,8 @@ export function getTutorialSteps(module: TutorialLessonModule): TutorialStep[] {
       return ERA_ADVANCEMENT_STEPS;
     case 'galaxy_lane_sovereignty':
       return GALAXY_LANE_SOVEREIGNTY_STEPS;
+    case 'galaxy_transcendence':
+      return GALAXY_TRANSCENDENCE_STEPS;
     case 'core':
     default:
       return COMBINED_CORE_TUTORIAL_STEPS;
@@ -135,6 +138,7 @@ export function isTutorialStepCentered(step: TutorialStep | undefined): boolean 
     'ea_signature',
     'ea_complete',
     'gls_welcome',
+    'gtr_welcome',
   ]);
   return centeredIds.has(step.id);
 }
@@ -219,6 +223,7 @@ export function isActionOnlyRequireAction(action: TutorialRequireAction | undefi
     action === 'era_advanced' ||
     action === 'my_next_turn' ||
     action === 'territory_captured' ||
+    action === 'building_built' ||
     action === 'wonder_built' ||
     action === 'galaxy_chart_opened' ||
     action === 'game_won'

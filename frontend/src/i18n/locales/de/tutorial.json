@@ -52,6 +52,10 @@
     "galaxy_lane_sovereignty": {
       "title": "Galaktisches Zeitalter: Lane Sovereignty",
       "description": "Hyperraumrouten, Gateways und Korridore: Nimm einen fünften Korridor über eine Route ein und halte das Netz, um zu gewinnen."
+    },
+    "galaxy_transcendence": {
+      "title": "Galaktisches Zeitalter: Transzendenz",
+      "description": "Der Aufstieg „Space to Stars“: Erfülle das Tor des Weltraumzeitalters, erreiche das Galaktische Zeitalter und errichte den Hyperlane Anchor, um zu gewinnen."
     }
   },
   "steps": {
@@ -299,6 +303,52 @@
         "message": "Du hast eine Route überquert, einen fünften Korridor vollendet und das Netz drei Zugbeginne lang gehalten. In einer echten Partie kämpfen die Rivalen um jedes Gateway, und ein Korridor, der in ihrem Zug fällt, setzt deine Serie auf null zurück.",
         "skippedTitle": "Direkt ins Spiel",
         "skippedMessage": "Kurz gefasst: Halte beide Gateways von 5 der 8 kartierten Routen zu Beginn deines Zuges, 3 Züge in Folge (5 im Duell oder 2v2). Vier Korridore hältst du jetzt. Nimm **Antenna Spire** von **Hematite Span** aus über die Route für den fünften und halte ihn. Gerade jetzt hast du Verstärkungen zu platzieren – klicke auf **Hematite Span** und dann auf {{draftButton}}."
+      }
+    },
+    "galaxy_transcendence": {
+      "gtr_welcome": {
+        "title": "Transzendenz",
+        "message": "Diese Partie spielt den Aufstieg **Space to Stars**: Sie beginnt im **Weltraumzeitalter** auf der Erde und dem Mond, und die drei fernen Welten des Galaktischen Zeitalters sind erst auf dem Spielfeld, wenn jemand es erreicht. Du spielst die **Lunar Pioneers**. **Transzendenz** ist der Sieg für den Spieler, der das letzte Zeitalter der Linie – hier das Galaktische Zeitalter – erreicht und ein Wunder hält.",
+        "detail": "Das Weltraumzeitalter zu verlassen braucht das Meilensteintor (2 Technologien der Stufe 1, 2 der Stufe 2 und 1 der Stufe 3 sowie 3 Gebäude) und ein funktionierendes **Raumfahrtprogramm**. Die Pioneers haben vom ersten Zug an Zugang zum Mond, für dich besteht das Tor also aus Forschung und Gebäuden. Wie jeder Sieg außer Dominanz wird Transzendenz ab Runde 2 gewertet.",
+        "hint": "Du hast die Forschung und die Produktionspunkte erhalten, die der Aufstieg braucht – mit wenig Spielraum. Klicke auf Weiter oder überspringe zum Ende und steig direkt ein."
+      },
+      "gtr_research": {
+        "title": "Forsche auf das Tor zu",
+        "message": "Öffne den Technologiebaum. Die Leiste **Advancement gate → Galactic Age** oben listet die Chips, die du erfüllen musst. Erforsche zuerst **Megacity Logistics**: Es schaltet die Workshop frei, und das Tor verlangt drei Gebäude – dein Launch Pad auf **Southern African Union** ist bereits eines.",
+        "detail": "Der günstigste Weg durch das Tor: Megacity Logistics und Digital Warfare (die beiden Wurzeln der Stufe 1), darauf Fusion Power Grid und AI-Directed Command, dann Hypersonic Swarm oder Quantum Computing Grid für die Stufe 3.",
+        "hint": "Forschen ist in jeder Phase deines Zuges erlaubt. Tippe unten auf „Technologiebaum öffnen“."
+      },
+      "gtr_build": {
+        "title": "Errichte eine Workshop",
+        "message": "Klicke auf **Australian Meridian** – hervorgehoben – und errichte im Abschnitt **Build** eine **Workshop** (3 PP). Bauen ist in der Verstärkungs- und der Befestigungsphase erlaubt.",
+        "detail": "Errichte danach eine zweite auf einem anderen deiner Systeme: Mit dem Launch Pad sind das die drei Gebäude des Tors. Eine Workshop bringt +1 PP pro Zug, und die Anzahl ist es, die das Tor liest."
+      },
+      "gtr_gate": {
+        "title": "Erfülle das Tor und steige auf",
+        "message": "Beende die Forschung und die zweite Workshop, bis jeder Chip in der Leiste grün ist, und drücke dann direkt in der Leiste auf **Advance to Galactic Age** (das Feld **Era Advancement** in der Seitenleiste hat denselben Button). Der Aufstieg kostet ebenfalls PP.",
+        "detail": "Der Aufstieg konsolidiert deine Armeen: Etwa 30 % deiner Einheiten gehen endgültig verloren, und für einen Zug verteidigen deine Truppen schwächer. Deine Forschung des Weltraumzeitalters wird gelöscht – das neue Zeitalter sperrt seine Routen über Position, nicht über Technologie – und du erhältst das **Pathfinder Gate**: Die Routen zu Welten, die du noch nicht erreicht hast, gehören zwei Runden lang dir allein.",
+        "hint": "Steige in deiner Verstärkungs- oder Befestigungsphase auf. Fehlt ein Chip? Die Leiste nennt, was fehlt."
+      },
+      "gtr_arrive": {
+        "title": "Die fernen Welten öffnen sich",
+        "message": "Du bist im Galaktischen Zeitalter. Drei neue Welt-Tabs – **Verdan Reach**, **Rust Belt**, **Nexus Station** – haben sich für alle als neutrale Grenzgebiete geöffnet, die Gateways am schwächsten, und deine Fraktion ist ihrer Linie zu den **Helion Navigators** gefolgt. Klicke über dem Spielfeld auf **Galaxy chart**, um den Ring zu sehen.",
+        "detail": "Dein Rivale ist noch im Weltraumzeitalter, auf der Mondleiter. Das Galaktische Zeitalter sperrt seine Routen über das Halten eines Gateways, die gelöschte Forschung hat dich also nichts gekostet, was du noch brauchst."
+      },
+      "gtr_wonder": {
+        "title": "Errichte den Hyperlane Anchor",
+        "message": "Das Wunder deines Zeitalters ist jetzt der **Hyperlane Anchor** (22 PP). Klicke auf eines deiner Systeme und errichte ihn aus der Wunderzeile am Ende des Abschnitts **Build**.",
+        "detail": "Transzendenz braucht das letzte Zeitalter und ein Wunder in der Hand; der Anchor lässt deine Angriffe über Hyperraumrouten außerdem mit vollen Würfeln rollen. Ein Wunder pro Partie – wer es zuerst errichtet, behält es."
+      },
+      "gtr_win": {
+        "title": "Gewertet ab Runde 2",
+        "message": "Ist noch Runde 1, beende deinen Zug mit **{{fortifyButton}}**: Der Sieg kommt, sobald Runde 2 beginnt, bevor du eine Einheit setzt. In Runde 2 oder später errichtet, endete die Partie in dem Moment, in dem der Anchor stand.",
+        "detail": "Die Runde-2-Regel schützt jeden alternativen Sieg: Eine Hauptstadt mit ihren drei Starteinheiten könnte sonst den Würfeln des ersten Sitzes zum Opfer fallen, bevor der letzte Sitz eine gesetzt hat."
+      },
+      "gtr_complete": {
+        "title": "Transzendenz abgeschlossen",
+        "message": "Du hast das Tor des Weltraumzeitalters erfüllt, bist mit dem Pathfinder Gate im Galaktischen Zeitalter angekommen und hast den Hyperlane Anchor errichtet. In einer echten Space-to-Stars-Partie braucht jeder andere Sitz das volle Raumfahrtprogramm, um dir zu folgen, und die fernen Welten gehören dir, um als Erster zu landen.",
+        "skippedTitle": "Direkt ins Spiel",
+        "skippedMessage": "Kurz gefasst: Forsche über das Tor hinaus (2 Technologien der Stufe 1, 2 der Stufe 2, 1 der Stufe 3, 3 Gebäude), drücke in der Tor-Leiste des Technologiebaums auf **Advance to Galactic Age** und errichte dann auf einem beliebigen deiner Systeme den **Hyperlane Anchor**. Der Sieg wird ab Runde 2 gewertet. Gerade jetzt hast du Verstärkungen zu platzieren – klicke auf eines deiner Systeme und dann auf {{draftButton}}."
       }
     }
   }

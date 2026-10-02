@@ -34,3 +34,17 @@ export const ERA_LESSON_GRANT_GOLD = 60;
  * a margin that wins either way.
  */
 export const GALAXY_LANE_SOVEREIGNTY_GRANT_TECH_POINTS = 5;
+
+/**
+ * Galactic Age · Transcendence, on the Space to Stars board. The gate out of
+ * the Space Age is 2 tier-1, 2 tier-2 and 1 tier-3 technologies (the spine
+ * step's own overrides) and 3 buildings; the cheapest research that clears it
+ * (`GALAXY_TRANSCENDENCE_RESEARCH_PATH`) costs 41, and the grant leaves three
+ * points over so a player who takes Climate Shielding's cheaper Palisade route
+ * instead of the Workshop one is not stranded a point short. The gold covers
+ * the two buildings the Launch Pad does not supply, the advance itself and
+ * the Hyperlane Anchor that completes the win, with a little slack;
+ * `galaxyTranscendenceScenario.test.ts` recomputes each from the real settings.
+ */
+export const GALAXY_TRANSCENDENCE_GRANT_TECH_POINTS = 44;
+export const GALAXY_TRANSCENDENCE_GRANT_GOLD = 48;
