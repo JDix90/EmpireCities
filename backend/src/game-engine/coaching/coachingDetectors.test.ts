@@ -133,6 +133,11 @@ describe('evaluateCoachingTip', () => {
     expect(tip!.category).toBe('probability_drop');
     expect(tip!.body).toContain('45%');
     expect(tip!.body).toContain('30%');
+    // The series is a share of the board, not calibrated odds, and the
+    // post-game chart calls it position share; the tip must not call it a
+    // probability.
+    expect(tip!.body).toContain('Your share of the board dropped from 45% to 30%');
+    expect(tip!.body).not.toMatch(/probabilit/i);
   });
 
   it('does NOT fire probability_drop for a small swing under threshold', () => {
@@ -242,6 +247,8 @@ describe('resign suggestion detector', () => {
     const tip = evaluateCoachingTip(state, makeMap());
     expect(tip).not.toBeNull();
     expect(tip!.category).toBe('resign_suggestion');
+    expect(tip!.body).toContain('Your share of the board has been under 5% for 10 rounds');
+    expect(tip!.body).not.toMatch(/probabilit/i);
   });
 
   it('does not fire at 9 snapshots', () => {

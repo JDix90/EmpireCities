@@ -171,7 +171,7 @@ export function buildInsightsFromSnapshots(rows: ReplaySnapshotRow[]): InsightIt
     const beforePct = Math.round(s.probBefore * 100);
     const afterPct = Math.round(s.probAfter * 100);
     const probPhrase = probPct > 0
-      ? ` Win probability shifted from ${beforePct}% to ${afterPct}%.`
+      ? ` Your share of the board moved from ${beforePct}% to ${afterPct}%.`
       : '';
     const impactHigh = probPct >= 10 || Math.abs(tDelta) >= 3;
     const tWord = (n: number) => `territor${Math.abs(n) === 1 ? 'y' : 'ies'}`;
@@ -283,9 +283,12 @@ function titleFromDecision(decision: ActionDecision): string {
 }
 
 /**
- * Generates a structured insight from a single decision's probability swing.
- * The narrative is grounded in the *exact* observed change in win probability
- * caused by that specific player choice — no inference required.
+ * Generates a structured insight from a single decision's swing in the
+ * player's share of the board (`computeWinProbabilities`: territory and army
+ * share blended and renormalized, a position rather than calibrated odds, so
+ * the copy never calls it a probability). The narrative is grounded in the
+ * *exact* observed change caused by that specific player choice — no
+ * inference required.
  */
 function insightFromDecision(decision: ActionDecision): InsightItem {
   const before = Math.round(decision.prob_before * 100);
@@ -295,7 +298,7 @@ function insightFromDecision(decision: ActionDecision): InsightItem {
   const direction = decision.prob_delta > 0 ? 'gained ground' : 'lost ground';
   const impactHigh = Math.abs(decision.prob_delta) >= HIGH_IMPACT_DELTA;
   const explanation =
-    `${decision.summary}. Win probability ${swung} from ${before}% to ${after}% (${deltaPct >= 0 ? '+' : ''}${deltaPct} pts).`;
+    `${decision.summary}. Your share of the board ${swung} from ${before}% to ${after}% (${deltaPct >= 0 ? '+' : ''}${deltaPct} pts).`;
 
   const alternative =
     decision.prob_delta < 0
@@ -345,7 +348,7 @@ function actionTypeAlternative(type: ActionDecision['action_type'], wasPositive:
     case 'event_choice':
       return 'Re-read the event text carefully — many choices have a hidden cost paid over later turns.';
     case 'influence':
-      return 'Influence works best on weakly-defended territories that complete a region; solo grabs rarely move probability.';
+      return 'Influence works best on weakly-defended territories that complete a region; solo grabs rarely move your share of the board.';
     case 'ability':
       return 'Powerful abilities are best saved for moments where they tip a fight you would otherwise lose.';
     default:

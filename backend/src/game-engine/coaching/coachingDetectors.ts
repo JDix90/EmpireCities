@@ -79,7 +79,7 @@ const resignSuggestionDetector: Detector = ({ state, human }) => {
     turn: state.turn_number,
     category: 'resign_suggestion',
     title: 'This one looks out of reach',
-    body: `Your win probability has been under ${Math.round(RESIGN_PROBABILITY_THRESHOLD * 100)}% for ${RESIGN_SNAPSHOT_STREAK} rounds. Fighting on is always your call — comebacks happen — but resigning ends it cleanly and gets you into a fresh match sooner.`,
+    body: `Your share of the board has been under ${Math.round(RESIGN_PROBABILITY_THRESHOLD * 100)}% for ${RESIGN_SNAPSHOT_STREAK} rounds. Fighting on is always your call — comebacks happen — but resigning ends it cleanly and gets you into a fresh match sooner.`,
   };
 };
 
@@ -105,7 +105,7 @@ const probabilityDropDetector: Detector = ({ state, human }) => {
     turn: state.turn_number,
     category: 'probability_drop',
     title: 'Your position weakened last turn',
-    body: `Your win probability dropped from ${beforePct}% to ${afterPct}%. Consider consolidating before pressing on offense — thin frontlines compound losses quickly.`,
+    body: `Your share of the board dropped from ${beforePct}% to ${afterPct}%. Consider consolidating before pressing on offense — thin frontlines compound losses quickly.`,
   };
 };
 
