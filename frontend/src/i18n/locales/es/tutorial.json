@@ -52,6 +52,10 @@
     "galaxy_lane_sovereignty": {
       "title": "Era Galáctica: Lane Sovereignty",
       "description": "Rutas hiperespaciales, gateways y corredores: toma un quinto corredor a través de una ruta y conserva la red para ganar."
+    },
+    "galaxy_transcendence": {
+      "title": "Era Galáctica: Trascendencia",
+      "description": "La ascensión Space to Stars: supera la puerta de la Era Espacial, llega a la Era Galáctica y levanta el Hyperlane Anchor para ganar."
     }
   },
   "steps": {
@@ -299,6 +303,52 @@
         "message": "Cruzaste una ruta, completaste un quinto corredor y mantuviste la red durante tres inicios de turno. En una partida real los rivales te disputan cada gateway, y un corredor que cae en su turno devuelve tu racha a cero.",
         "skippedTitle": "Directo a la partida",
         "skippedMessage": "En pocas palabras: controla los dos gateways de 5 de las 8 rutas cartografiadas al inicio de tu turno, 3 turnos seguidos (5 en un duelo o un 2v2). Ahora controlas cuatro corredores. Toma **Antenna Spire** desde **Hematite Span** a través de la ruta para el quinto, y consérvalo. Ahora mismo tienes refuerzos que colocar: haz clic en **Hematite Span** y luego en {{draftButton}}."
+      }
+    },
+    "galaxy_transcendence": {
+      "gtr_welcome": {
+        "title": "Trascendencia",
+        "message": "Esta partida juega la ascensión **Space to Stars**: empieza en la **Era Espacial**, en la Tierra y la Luna, y los tres mundos lejanos de la Era Galáctica no están en el tablero hasta que alguien la alcanza. Juegas con los **Lunar Pioneers**. La **Trascendencia** es la victoria del jugador que llega a la última era de la columna —aquí la Era Galáctica— y posee una maravilla.",
+        "detail": "Salir de la Era Espacial requiere la puerta de hitos (2 tecnologías de nivel 1, 2 de nivel 2 y 1 de nivel 3, y 3 edificios) y un **Programa Espacial** en marcha. Los Pioneers tienen acceso a la Luna desde el primer turno, así que para ti la puerta es investigación y edificios. Como toda victoria salvo Dominación, la Trascendencia se juzga desde la ronda 2.",
+        "hint": "Se te han concedido la investigación y los puntos de producción que la ascensión necesita, con poco margen. Haz clic en Siguiente, o salta al final para entrar directamente."
+      },
+      "gtr_research": {
+        "title": "Investiga hacia la puerta",
+        "message": "Abre el árbol tecnológico. La barra **Advancement gate → Galactic Age** de arriba lista los chips que hay que completar. Investiga primero **Megacity Logistics**: desbloquea la Workshop, y la puerta pide tres edificios; tu Launch Pad en **Southern African Union** ya es uno.",
+        "detail": "El camino más barato por la puerta: Megacity Logistics y Digital Warfare (las dos raíces de nivel 1), Fusion Power Grid y AI-Directed Command sobre ellas, y luego Hypersonic Swarm o Quantum Computing Grid como nivel 3.",
+        "hint": "Se puede investigar en cualquier fase de tu turno. Pulsa «Abrir árbol tecnológico» abajo."
+      },
+      "gtr_build": {
+        "title": "Levanta una Workshop",
+        "message": "Haz clic en **Australian Meridian** —resaltado— y en su sección **Build** levanta una **Workshop** (3 PP). Se puede construir en las fases de Refuerzo y Fortificación.",
+        "detail": "Después levanta una segunda en otro de tus sistemas: con el Launch Pad son los tres edificios de la puerta. Una Workshop paga +1 PP por turno, y el recuento es lo que la puerta lee."
+      },
+      "gtr_gate": {
+        "title": "Supera la puerta y avanza",
+        "message": "Termina la investigación y la segunda Workshop hasta que todos los chips de la barra estén en verde, y pulsa **Advance to Galactic Age** ahí mismo, en la barra (el panel **Era Advancement** de la barra lateral tiene el mismo botón). El avance también cuesta PP.",
+        "detail": "Avanzar consolida tus ejércitos: cerca del 30 % de tus unidades se pierden para siempre, y durante un turno tus defensores luchan más débiles. Tu investigación de la Era Espacial se borra —la era que llega cierra sus rutas por posición, no por tecnología— y obtienes el **Pathfinder Gate**: las rutas a mundos que aún no has alcanzado son solo tuyas durante dos rondas.",
+        "hint": "Avanza en tu fase de Refuerzo o de Fortificación. ¿Falta un chip? La barra indica qué falta."
+      },
+      "gtr_arrive": {
+        "title": "Los mundos lejanos se abren",
+        "message": "Estás en la Era Galáctica. Tres pestañas de mundo nuevas —**Verdan Reach**, **Rust Belt**, **Nexus Station**— se abrieron para todos como fronteras neutrales, con los gateways más débiles, y tu facción siguió su linaje hasta los **Helion Navigators**. Haz clic en **Galaxy chart** sobre el tablero para ver el anillo.",
+        "detail": "Tu rival sigue en la Era Espacial, en la escalera lunar. La Era Galáctica cierra sus rutas según quién controla un gateway, así que el borrado tecnológico no te costó nada que aún necesites."
+      },
+      "gtr_wonder": {
+        "title": "Levanta el Hyperlane Anchor",
+        "message": "La maravilla de tu era es ahora el **Hyperlane Anchor** (22 PP). Haz clic en cualquiera de tus sistemas y levántalo desde la fila de maravilla al final de la sección **Build**.",
+        "detail": "La Trascendencia necesita la era final y una maravilla en tu poder; el Anchor además hace que tus ataques a través de rutas hiperespaciales tiren todos los dados. Una maravilla por partida: quien la levanta primero se la queda."
+      },
+      "gtr_win": {
+        "title": "Se juzga desde la ronda 2",
+        "message": "Si todavía es la ronda 1, termina tu turno con **{{fortifyButton}}**: la victoria llega al abrirse la ronda 2, antes de que coloques una unidad. Levantado en la ronda 2 o después, la partida terminó en cuanto el Anchor se alzó.",
+        "detail": "La regla de la ronda 2 protege toda victoria alternativa: una capital con sus tres unidades iniciales podría caer ante los dados del primer asiento antes de que el último hubiera colocado una."
+      },
+      "gtr_complete": {
+        "title": "Trascendencia completada",
+        "message": "Superaste la puerta de la Era Espacial, llegaste a la Era Galáctica con el Pathfinder Gate en la mano y levantaste el Hyperlane Anchor. En una partida real de Space to Stars, cada otro asiento necesita el Programa Espacial completo para seguirte, y los mundos lejanos son tuyos para aterrizar primero.",
+        "skippedTitle": "Directo a la partida",
+        "skippedMessage": "En pocas palabras: investiga más allá de la puerta (2 tecnologías de nivel 1, 2 de nivel 2, 1 de nivel 3, 3 edificios), pulsa **Advance to Galactic Age** en la barra de la puerta del árbol tecnológico y luego levanta el **Hyperlane Anchor** en cualquier sistema que controles. La victoria se juzga desde la ronda 2. Ahora mismo tienes refuerzos que colocar: haz clic en cualquiera de tus sistemas y luego en {{draftButton}}."
       }
     }
   }

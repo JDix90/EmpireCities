@@ -12,7 +12,12 @@
 import type { AiDifficulty, GameSettings, VictoryType } from '../../types';
 import { featureFlags } from '../../config/featureFlags';
 import { GALAXY_LANE_SOVEREIGNTY_SCENARIO } from './galaxyLaneSovereigntyScenario';
-import { GALAXY_LANE_SOVEREIGNTY_GRANT_TECH_POINTS } from './tutorialGrants';
+import { GALAXY_TRANSCENDENCE_SCENARIO } from './galaxyTranscendenceScenario';
+import {
+  GALAXY_LANE_SOVEREIGNTY_GRANT_TECH_POINTS,
+  GALAXY_TRANSCENDENCE_GRANT_GOLD,
+  GALAXY_TRANSCENDENCE_GRANT_TECH_POINTS,
+} from './tutorialGrants';
 import type { GalaxyTutorialLessonModule } from './tutorialModules';
 
 export interface TutorialSeat {
@@ -80,6 +85,33 @@ export function galaxyTutorialGameSpec(lessonModule: GalaxyTutorialLessonModule)
           // Exactly Lane Charts: the third die across a lane, and nothing else.
           tutorial_grant_tech_points: GALAXY_LANE_SOVEREIGNTY_GRANT_TECH_POINTS,
           authored_scenario: GALAXY_LANE_SOVEREIGNTY_SCENARIO,
+        },
+      };
+    }
+    case 'galaxy_transcendence': {
+      // The Space to Stars board: a Space Age start whose spine ends in the
+      // Galactic Age. See galaxyTranscendenceScenario.ts for the seats.
+      const seats: TutorialSeat[] = [
+        { faction_id: 'lunar_pioneers', is_ai: false },
+        { faction_id: 'terran_federation', is_ai: true, ai_difficulty: TUTORIAL_AI },
+      ];
+      return {
+        mapId: 'era_ascension_galaxy',
+        eraId: 'space_age',
+        seats,
+        settings: {
+          ...galaxySettingsBase(lessonModule, seats.length, ['domination', 'transcendence']),
+          era_advancement_enabled: true,
+          era_advancement_spine_id: 'space_to_stars',
+          // The core lesson's Skirmish pace for the one advance the lesson
+          // makes: the cost is the income floor times this.
+          era_advancement_cost_mult: 1.6,
+          // The step's own overrides set the tier-2, tier-3 and building bar;
+          // two tier-1 roots are what those tier-2s need anyway.
+          era_advancement_min_tier1_techs: 2,
+          tutorial_grant_tech_points: GALAXY_TRANSCENDENCE_GRANT_TECH_POINTS,
+          tutorial_grant_gold: GALAXY_TRANSCENDENCE_GRANT_GOLD,
+          authored_scenario: GALAXY_TRANSCENDENCE_SCENARIO,
         },
       };
     }

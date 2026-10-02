@@ -2147,9 +2147,10 @@ export default function GamePage() {
       else {
         toast.success('Building constructed!', { duration: 2000 });
         const gs = useGameStore.getState().gameState;
-        if (gs?.settings?.tutorial && buildingType?.startsWith('wonder_')) {
+        if (gs?.settings?.tutorial && buildingType) {
           const step = tutorialStepsRef.current[tutorialStepRef.current];
-          if (step?.requireAction === 'wonder_built') {
+          const isWonder = buildingType.startsWith('wonder_');
+          if (step?.requireAction === (isWonder ? 'wonder_built' : 'building_built')) {
             setTutorialStep((s) => Math.min(s + 1, tutorialStepsRef.current.length));
           }
         }

@@ -23,6 +23,7 @@ export const CORE_TUTORIAL_LESSON_MODULES = [
 /** One module per Galactic Age victory condition, plus the primer; grows per PR. */
 export const GALAXY_TUTORIAL_LESSON_MODULES = [
   'galaxy_lane_sovereignty',
+  'galaxy_transcendence',
 ] as const;
 
 export const TUTORIAL_LESSON_MODULES = [

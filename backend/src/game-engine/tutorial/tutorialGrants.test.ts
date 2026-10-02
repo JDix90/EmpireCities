@@ -5,8 +5,14 @@ import {
   ERA_LESSON_GRANT_GOLD,
   ERA_LESSON_GRANT_TECH_POINTS,
   GALAXY_LANE_SOVEREIGNTY_GRANT_TECH_POINTS,
+  GALAXY_TRANSCENDENCE_GRANT_GOLD,
+  GALAXY_TRANSCENDENCE_GRANT_TECH_POINTS,
 } from './tutorialGrants';
-import { GALAXY_AGE_TECH_TREE } from '../eras/galaxyage';
+import { GALAXY_AGE_TECH_TREE, GALAXY_AGE_WONDER } from '../eras/galaxyage';
+import { SPACE_AGE_TECH_TREE } from '../eras/spaceage';
+import { DEFAULT_BUILDING_COSTS } from '../state/economyManager';
+import { galaxyTutorialGameSpec } from './galaxyTutorialGames';
+import { GALAXY_TRANSCENDENCE_RESEARCH_PATH } from './galaxyTranscendenceScenario';
 import { normalizeGameSettings } from '../state/gameSettings';
 import { computeAdvanceCost } from '../eraAdvancement/advanceEra';
 import { getEffectiveMilestoneGate } from '../eraAdvancement/spines';
@@ -100,5 +106,51 @@ describe('tutorial grants', () => {
     expect(GALAXY_LANE_SOVEREIGNTY_GRANT_TECH_POINTS).toBe(laneCharts.cost);
     const cheapest = Math.min(...GALAXY_AGE_TECH_TREE.map((n) => n.cost));
     expect(GALAXY_LANE_SOVEREIGNTY_GRANT_TECH_POINTS).toBeLessThan(laneCharts.cost + cheapest);
+  });
+
+  it('funds the Transcendence lesson through the Space to Stars gate, the advance and the Anchor', () => {
+    // The gate out of the Space Age is the spine step's own: 2 tier-2, 1
+    // tier-3, 3 buildings, plus the lesson's 2 tier-1. The research grant must
+    // cover the named path through it, and the gold the two Workshops the
+    // Launch Pad does not supply, the advance and the Hyperlane Anchor.
+    const spec = galaxyTutorialGameSpec('galaxy_transcendence');
+    const settings = normalizeGameSettings(spec.settings);
+    const human: PlayerState = {
+      player_id: 'human', player_index: 0, username: 'Human', color: '#fff', is_ai: false,
+      is_eliminated: false, territory_count: 6, cards: [], capital_territory_id: null,
+      secret_mission: null, mmr: 1000, current_era_index: 0, last_turn_production_income: 0,
+    };
+    const state = {
+      game_id: 'g', era: 'space_age', map_id: 'era_ascension_galaxy', phase: 'draft',
+      current_player_index: 0, turn_number: 1, players: [human], territories: {}, card_deck: [],
+      card_set_redemption_count: 0, diplomacy: [], settings, draft_units_remaining: 0,
+      draft_placements_this_turn: {}, turn_started_at: 0, win_probability_history: [],
+      fortify_moves_used: 0, influence_cooldown_remaining: 0, blitzkrieg_attacked: false,
+    } as unknown as GameState;
+
+    const gate = getEffectiveMilestoneGate(state, 'human');
+    expect(gate).toEqual({ min_tier1_techs: 2, min_tier2_techs: 2, min_tier3_techs: 1, min_buildings: 3 });
+
+    const byId = new Map(SPACE_AGE_TECH_TREE.map((n) => [n.tech_id, n]));
+    const path = GALAXY_TRANSCENDENCE_RESEARCH_PATH.map((id) => byId.get(id)!);
+    // The path clears the tiers the gate asks for, with every prerequisite inside it.
+    const tiers = (t: number) => path.filter((n) => n.tier === t).length;
+    expect(tiers(1)).toBeGreaterThanOrEqual(gate.min_tier1_techs);
+    expect(tiers(2)).toBeGreaterThanOrEqual(gate.min_tier2_techs);
+    expect(tiers(3)).toBeGreaterThanOrEqual(gate.min_tier3_techs);
+    const inPath = new Set(path.map((n) => n.tech_id));
+    for (const n of path) if (n.prerequisite) expect(inPath.has(n.prerequisite), n.tech_id).toBe(true);
+    const pathCost = path.reduce((sum, n) => sum + n.cost, 0);
+    expect(GALAXY_TRANSCENDENCE_GRANT_TECH_POINTS).toBeGreaterThanOrEqual(pathCost);
+    // …and no more than one cheap detour over it: a budget, not a pile.
+    const cheapest = Math.min(...SPACE_AGE_TECH_TREE.map((n) => n.cost));
+    expect(GALAXY_TRANSCENDENCE_GRANT_TECH_POINTS).toBeLessThan(pathCost + 2 * cheapest);
+
+    const workshops = (gate.min_buildings - 1) * DEFAULT_BUILDING_COSTS.production_1; // the pad is the third
+    const advance = computeAdvanceCost(state, human);
+    const anchor = DEFAULT_BUILDING_COSTS[GALAXY_AGE_WONDER.wonder_id];
+    expect(anchor).toBe(GALAXY_AGE_WONDER.cost);
+    expect(GALAXY_TRANSCENDENCE_GRANT_GOLD).toBeGreaterThanOrEqual(workshops + advance + anchor);
+    expect(GALAXY_TRANSCENDENCE_GRANT_GOLD).toBeLessThan(workshops + advance + anchor + DEFAULT_BUILDING_COSTS.production_1 * 3);
   });
 });

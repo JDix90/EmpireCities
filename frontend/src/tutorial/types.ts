@@ -24,6 +24,7 @@ export const CORE_TUTORIAL_MODULE_IDS = [
  */
 export const GALAXY_TUTORIAL_MODULE_IDS = [
   'galaxy_lane_sovereignty',
+  'galaxy_transcendence',
 ] as const;
 
 export const TUTORIAL_MODULE_IDS = [...CORE_TUTORIAL_MODULE_IDS, ...GALAXY_TUTORIAL_MODULE_IDS] as const;
@@ -48,6 +49,7 @@ export function isGalaxyTutorialModule(v: unknown): v is GalaxyTutorialLessonMod
  *   - `my_next_turn`: the turn came back round to the player (an edge, unlike
  *     `my_turn`, which is a state check and is satisfied throughout the
  *     player's own turn — see `isMyTurnGateSatisfied`);
+ *   - `building_built`: the player raised any building that is not a wonder;
  *   - `wonder_built`: the player raised their era's wonder;
  *   - `galaxy_chart_opened`: the player opened the Galaxy chart;
  *   - `game_won`: the game ended with the player among the winners.
@@ -64,6 +66,7 @@ export type TutorialRequireAction =
   | 'tech_tree_opened'
   | 'era_advanced'
   | 'territory_captured'
+  | 'building_built'
   | 'wonder_built'
   | 'galaxy_chart_opened'
   | 'game_won';
@@ -174,6 +177,16 @@ export const TUTORIAL_MODULES: TutorialModuleMeta[] = [
     description: 'Hyperspace lanes, gateways and corridors: take a fifth corridor across a lane and hold the network to win.',
     // Six cards of reading and four turns of play on the galaxy board: a
     // research, a draft, one lane crossing, then two held turns.
+    estimatedMinutes: 7,
+    galaxy: true,
+    completesOnVictory: true,
+  },
+  {
+    id: 'galaxy_transcendence',
+    title: 'Galactic Age: Transcendence',
+    description: 'The Space to Stars climb: clear the Space Age gate, arrive in the Galactic Age and raise the Hyperlane Anchor to win.',
+    // Seven cards of reading and one long turn of play: five researches, two
+    // builds, the advance and the wonder, then the win at the next round.
     estimatedMinutes: 7,
     galaxy: true,
     completesOnVictory: true,

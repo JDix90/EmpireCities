@@ -52,6 +52,10 @@
     "galaxy_lane_sovereignty": {
       "title": "Ère galactique : Lane Sovereignty",
       "description": "Routes hyperspatiales, gateways et corridors : prenez un cinquième corridor à travers une route et tenez le réseau pour gagner."
+    },
+    "galaxy_transcendence": {
+      "title": "Ère galactique : Transcendance",
+      "description": "L'ascension Space to Stars : franchissez le seuil de l'Ère spatiale, arrivez dans l'Ère galactique et érigez le Hyperlane Anchor pour gagner."
     }
   },
   "steps": {
@@ -299,6 +303,52 @@
         "message": "Vous avez traversé une route, achevé un cinquième corridor et tenu le réseau pendant trois débuts de tour. Dans une vraie partie, les rivaux vous disputent chaque gateway, et un corridor qui tombe pendant leur tour remet votre série à zéro.",
         "skippedTitle": "Directement en jeu",
         "skippedMessage": "En résumé : tenez les deux gateways de 5 des 8 routes cartographiées au début de votre tour, 3 tours de suite (5 en duel ou en 2v2). Vous tenez quatre corridors maintenant. Prenez **Antenna Spire** depuis **Hematite Span** à travers la route pour le cinquième, puis gardez-le. Vous avez des renforts à placer : cliquez sur **Hematite Span**, puis sur {{draftButton}}."
+      }
+    },
+    "galaxy_transcendence": {
+      "gtr_welcome": {
+        "title": "Transcendance",
+        "message": "Cette partie joue l'ascension **Space to Stars** : elle s'ouvre dans l'**Ère spatiale**, sur la Terre et la Lune, et les trois mondes lointains de l'Ère galactique ne sont pas sur le plateau tant que personne ne l'atteint. Vous jouez les **Lunar Pioneers**. La **Transcendance** est la victoire du joueur qui atteint la dernière ère de la colonne — ici l'Ère galactique — en tenant une merveille.",
+        "detail": "Quitter l'Ère spatiale demande le seuil d'étapes (2 technologies de niveau 1, 2 de niveau 2 et 1 de niveau 3, et 3 bâtiments) et un **programme spatial** en état de marche. Les Pioneers ont accès à la Lune dès le premier tour : pour vous, le seuil se résume à la recherche et aux bâtiments. Comme toute victoire sauf la Domination, la Transcendance est jugée à partir de la manche 2.",
+        "hint": "Vous avez reçu la recherche et les points de production que l'ascension demande, avec peu de marge. Cliquez sur Suivant, ou passez à la fin pour entrer directement en jeu."
+      },
+      "gtr_research": {
+        "title": "Recherchez vers le seuil",
+        "message": "Ouvrez l'arbre technologique. Le rail **Advancement gate → Galactic Age** en haut liste les jetons à remplir. Recherchez d'abord **Megacity Logistics** : elle débloque la Workshop, et le seuil demande trois bâtiments — votre Launch Pad sur **Southern African Union** en est déjà un.",
+        "detail": "Le chemin le moins cher à travers le seuil : Megacity Logistics et Digital Warfare (les deux racines de niveau 1), Fusion Power Grid et AI-Directed Command par-dessus, puis Hypersonic Swarm ou Quantum Computing Grid pour le niveau 3.",
+        "hint": "La recherche est permise à toute phase de votre tour. Touchez « Ouvrir l'arbre technologique » ci-dessous."
+      },
+      "gtr_build": {
+        "title": "Érigez une Workshop",
+        "message": "Cliquez sur **Australian Meridian** — en surbrillance — et, dans sa section **Build**, érigez une **Workshop** (3 PP). On construit pendant les phases de Renfort et de Fortification.",
+        "detail": "Puis érigez-en une deuxième sur un autre de vos systèmes : avec le Launch Pad, cela fait les trois bâtiments du seuil. Une Workshop rapporte +1 PP par tour, et c'est le nombre que le seuil lit."
+      },
+      "gtr_gate": {
+        "title": "Franchissez le seuil et avancez",
+        "message": "Terminez la recherche et la deuxième Workshop jusqu'à ce que chaque jeton du rail soit vert, puis appuyez sur **Advance to Galactic Age** directement dans le rail (le panneau **Era Advancement** de la barre latérale a le même bouton). L'avancée coûte aussi des PP.",
+        "detail": "Avancer consolide vos armées : environ 30 % de vos unités sont perdues pour de bon, et pendant un tour vos défenseurs se battent affaiblis. Votre recherche de l'Ère spatiale est effacée — l'ère qui arrive verrouille ses routes par la position, pas par la technologie — et vous recevez le **Pathfinder Gate** : les routes vers les mondes que vous n'avez pas encore atteints sont à vous seul pendant deux manches.",
+        "hint": "Avancez pendant votre phase de Renfort ou de Fortification. Un jeton manque ? Le rail nomme ce qui manque."
+      },
+      "gtr_arrive": {
+        "title": "Les mondes lointains s'ouvrent",
+        "message": "Vous êtes dans l'Ère galactique. Trois nouveaux onglets de monde — **Verdan Reach**, **Rust Belt**, **Nexus Station** — se sont ouverts pour tous en frontières neutres, gateways les moins défendus, et votre faction a suivi sa lignée jusqu'aux **Helion Navigators**. Cliquez sur **Galaxy chart** au-dessus du plateau pour voir l'anneau.",
+        "detail": "Votre rival est encore dans l'Ère spatiale, sur l'échelle lunaire. L'Ère galactique verrouille ses routes selon qui tient un gateway, donc l'effacement de la recherche ne vous a rien coûté dont vous ayez encore besoin."
+      },
+      "gtr_wonder": {
+        "title": "Érigez le Hyperlane Anchor",
+        "message": "La merveille de votre ère est maintenant le **Hyperlane Anchor** (22 PP). Cliquez sur l'un de vos systèmes et érigez-le depuis la ligne de merveille au bas de la section **Build**.",
+        "detail": "La Transcendance demande la dernière ère et une merveille en main ; le Anchor fait aussi lancer tous les dés à vos attaques à travers les routes hyperspatiales. Une merveille par partie : qui l'érige en premier la garde."
+      },
+      "gtr_win": {
+        "title": "Jugée à partir de la manche 2",
+        "message": "Si c'est encore la manche 1, terminez votre tour avec **{{fortifyButton}}** : la victoire tombe à l'ouverture de la manche 2, avant que vous ne placiez une unité. Érigé en manche 2 ou plus tard, la partie s'est terminée dès que le Anchor s'est dressé.",
+        "detail": "La règle de la manche 2 protège toute victoire alternative : une capitale avec ses trois unités de départ pourrait sinon tomber sous les dés du premier siège avant que le dernier n'en ait placé une."
+      },
+      "gtr_complete": {
+        "title": "Transcendance terminée",
+        "message": "Vous avez franchi le seuil de l'Ère spatiale, êtes arrivé dans l'Ère galactique avec le Pathfinder Gate en main et avez érigé le Hyperlane Anchor. Dans une vraie partie Space to Stars, chaque autre siège a besoin du programme spatial complet pour vous suivre, et les mondes lointains sont à vous pour y débarquer en premier.",
+        "skippedTitle": "Directement en jeu",
+        "skippedMessage": "En résumé : recherchez au-delà du seuil (2 technologies de niveau 1, 2 de niveau 2, 1 de niveau 3, 3 bâtiments), appuyez sur **Advance to Galactic Age** dans le rail du seuil de l'arbre technologique, puis érigez le **Hyperlane Anchor** sur n'importe quel système que vous tenez. La victoire est jugée à partir de la manche 2. Vous avez des renforts à placer : cliquez sur l'un de vos systèmes, puis sur {{draftButton}}."
       }
     }
   }

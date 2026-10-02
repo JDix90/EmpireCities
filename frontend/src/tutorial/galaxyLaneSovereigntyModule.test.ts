@@ -176,12 +176,16 @@ describe('the galaxy track in the recommended-next logic', () => {
     expect(getRecommendedTutorialModule({ galaxyEnabled: false })).toBeNull();
   });
 
-  it('comes after every core lesson, once the flag is on', () => {
+  it('comes after every core lesson, once the flag is on, in the track\'s own order', () => {
     localStorage.setItem('borderfall_tutorial_modules_completed_v2', JSON.stringify(allCore.slice(0, 4)));
     expect(getRecommendedTutorialModule({ galaxyEnabled: true })).toBe('era_advancement');
-    localStorage.setItem('borderfall_tutorial_modules_completed_v2', JSON.stringify(allCore));
-    expect(getRecommendedTutorialModule({ galaxyEnabled: true })).toBe('galaxy_lane_sovereignty');
-    localStorage.setItem('borderfall_tutorial_modules_completed_v2', JSON.stringify([...allCore, 'galaxy_lane_sovereignty']));
+    const done = [...allCore];
+    for (const galaxyModule of GALAXY_TUTORIAL_MODULE_IDS) {
+      localStorage.setItem('borderfall_tutorial_modules_completed_v2', JSON.stringify(done));
+      expect(getRecommendedTutorialModule({ galaxyEnabled: true })).toBe(galaxyModule);
+      done.push(galaxyModule);
+    }
+    localStorage.setItem('borderfall_tutorial_modules_completed_v2', JSON.stringify(done));
     expect(getRecommendedTutorialModule({ galaxyEnabled: true })).toBeNull();
   });
 });
