@@ -522,7 +522,7 @@ export default function GameHUD({
                     {capitalVictoryOn && (
                       <span className="block text-bf-muted mt-0.5">
                         {capitalHeld
-                          ? 'Capital victory: hold it and take every rival capital.'
+                          ? 'Capital victory: hold it and take every rival capital (judged from round 2).'
                           : 'You cannot win by capitals until you retake it.'}
                       </span>
                     )}

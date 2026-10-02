@@ -1160,7 +1160,60 @@ describe('checkVictory', () => {
         makePlayer('p2', 1, { territory_count: 1 }),
       ],
     });
+    state.turn_number = 2;
     expect(checkVictory(state, victoryMap)).toEqual({ winnerIds: ['p1'], condition: 'threshold' });
+  });
+
+  describe('the opening round', () => {
+    // An AI took a human's 2-unit capital on its own first turn and won by
+    // capitals before the human had placed a unit (victory/openingRound.ts).
+    const capitalState = (turn: number) => {
+      const state = makeState({
+        settings: makeSettings({ allowed_victory_conditions: ['capital'] }),
+        players: [
+          makePlayer('p1', 0, { territory_count: 2, capital_territory_id: 'a' }),
+          makePlayer('p2', 1, { territory_count: 1, capital_territory_id: 'b' }),
+        ],
+        territories: {
+          a: makeTerritory('a', 'p1', 3),
+          b: makeTerritory('b', 'p1', 1),
+          c: makeTerritory('c', 'p2', 3),
+        },
+      });
+      state.turn_number = turn;
+      return state;
+    };
+
+    it('does not award a capital win in round 1', () => {
+      expect(checkVictory(capitalState(1), victoryMap)).toBeNull();
+    });
+
+    it('awards the same capital win once the round has rolled over', () => {
+      expect(checkVictory(capitalState(2), victoryMap)).toEqual({ winnerIds: ['p1'], condition: 'capital' });
+    });
+
+    it('holds threshold wins in round 1 too', () => {
+      const state = makeState({
+        settings: makeSettings({ allowed_victory_conditions: ['threshold'], victory_threshold: 50 }),
+        players: [makePlayer('p1', 0, { territory_count: 2 }), makePlayer('p2', 1, { territory_count: 1 })],
+      });
+      state.turn_number = 1;
+      expect(checkVictory(state, victoryMap)).toBeNull();
+    });
+
+    it('still ends a round-1 domination at once', () => {
+      const state = makeState({
+        players: [makePlayer('p1', 0, { territory_count: 3 }), makePlayer('p2', 1, { territory_count: 0 })],
+      });
+      state.turn_number = 1;
+      expect(checkVictory(state, victoryMap)).toEqual({ winnerIds: ['p1'], condition: 'domination' });
+    });
+
+    it('lets a daily puzzle judge its objective on turn 1', () => {
+      const state = capitalState(1);
+      state.settings.daily_challenge_date = '2026-10-02';
+      expect(checkVictory(state, victoryMap)).toEqual({ winnerIds: ['p1'], condition: 'capital' });
+    });
   });
 
   it.each([
@@ -1175,15 +1228,19 @@ describe('checkVictory', () => {
     for (let i = 0; i < total; i++) {
       territories[`t${i}`] = { territory_id: `t${i}`, owner_id: i < need ? 'p1' : 'p2', unit_count: 1 } as TerritoryState;
     }
-    const at = (held: number) => makeState({
-      settings: makeSettings({ allowed_victory_conditions: ['threshold'], victory_threshold: pct }),
-      territories,
-      players: [
-        makePlayer('p1', 0, { territory_count: held }),
-        // Below every threshold tested, so only p1 can be the one that wins.
-        makePlayer('p2', 1, { territory_count: 1 }),
-      ],
-    });
+    const at = (held: number) => {
+      const s = makeState({
+        settings: makeSettings({ allowed_victory_conditions: ['threshold'], victory_threshold: pct }),
+        territories,
+        players: [
+          makePlayer('p1', 0, { territory_count: held }),
+          // Below every threshold tested, so only p1 can be the one that wins.
+          makePlayer('p2', 1, { territory_count: 1 }),
+        ],
+      });
+      s.turn_number = 2; // threshold is judged from round 2 (victory/openingRound.ts)
+      return s;
+    };
     expect(checkVictory(at(need), victoryMap)?.condition).toBe('threshold');
     expect(checkVictory(at(need - 1), victoryMap)).toBeNull();
   });

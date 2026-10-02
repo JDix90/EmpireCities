@@ -18,6 +18,7 @@
 
 import type { GameMap, GameState, PlayerState, VictoryConditionKey } from '../../types';
 import { getMaxEraIndex } from '../eraAdvancement/spines';
+import { alternativeVictoriesLive } from './openingRound';
 import { getAllowedVictoryConditions, normalizeGameSettings } from '../state/gameSettings';
 import { hasCompletedHegemony } from '../state/lunarHegemony';
 import { hasLaneSovereignty } from './laneSovereignty';
@@ -108,6 +109,8 @@ export function checkTeamVictory(state: GameState, map: GameMap): TeamVictoryRes
   const allowed = getAllowedVictoryConditions(settings);
   const totalTerritories = Object.keys(state.territories).length;
   const winners: Array<{ side: string[]; condition: VictoryConditionKey }> = [];
+  // Everything but domination waits for the opening round (openingRound.ts).
+  const alternatesLive = alternativeVictoriesLive(state);
 
   for (const side of live) {
     const members = side.filter(isLive).map((id) => byId.get(id)!) as PlayerState[];
@@ -115,26 +118,26 @@ export function checkTeamVictory(state: GameState, map: GameMap): TeamVictoryRes
     let condition: VictoryConditionKey | null = null;
 
     if (allowed.includes('domination') && held >= totalTerritories) condition = 'domination';
-    if (condition == null && allowed.includes('threshold') && settings.victory_threshold != null) {
+    if (condition == null && alternatesLive && allowed.includes('threshold') && settings.victory_threshold != null) {
       const need = Math.ceil((totalTerritories * settings.victory_threshold) / 100);
       if (held >= need) condition = 'threshold';
     }
-    if (condition == null && allowed.includes('lunar_hegemony')
+    if (condition == null && alternatesLive && allowed.includes('lunar_hegemony')
       && members.some((p) => hasCompletedHegemony(state, p.player_id))) {
       condition = 'lunar_hegemony';
     }
-    if (condition == null && allowed.includes('capital') && sideHoldsEveryCapital(state, side)) {
+    if (condition == null && alternatesLive && allowed.includes('capital') && sideHoldsEveryCapital(state, side)) {
       condition = 'capital';
     }
-    if (condition == null && allowed.includes('lane_sovereignty')
+    if (condition == null && alternatesLive && allowed.includes('lane_sovereignty')
       && members.some((p) => hasLaneSovereignty(state, p.player_id))) {
       condition = 'lane_sovereignty';
     }
-    if (condition == null && allowed.includes('secret_mission')
+    if (condition == null && alternatesLive && allowed.includes('secret_mission')
       && members.some((p) => p.secret_mission && p.secret_mission.kind !== 'alliance' && isMissionComplete(state, map, p))) {
       condition = 'secret_mission';
     }
-    if (condition == null && allowed.includes('transcendence') && settings.era_advancement_enabled
+    if (condition == null && alternatesLive && allowed.includes('transcendence') && settings.era_advancement_enabled
       && members.some((p) => (p.current_era_index ?? 0) >= getMaxEraIndex(state) && holdsWonder(state, p.player_id))) {
       condition = 'transcendence';
     }

@@ -82,9 +82,12 @@ describe('Territory Draft', () => {
       expect(p.capital_territory_id).toBeTruthy();
       expect(state.territories[p.capital_territory_id!]!.owner_id).toBe(p.player_id);
     }
-    // Take the rival's capital: the capital win is now reachable.
+    // Take the rival's capital: the capital win is now reachable — from round
+    // 2, when alternative wins go live (victory/openingRound.ts).
     const [p1, p2] = state.players;
     state.territories[p2!.capital_territory_id!]!.owner_id = p1!.player_id;
+    expect(checkVictory(state, map)).toBeNull();
+    state.turn_number = 2;
     expect(checkVictory(state, map)?.condition).toBe('capital');
   });
 

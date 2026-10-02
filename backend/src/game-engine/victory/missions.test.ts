@@ -36,7 +36,8 @@ function baseState(players: PlayerState[]): GameState {
     map_id: 'm',
     phase: 'attack',
     current_player_index: 0,
-    turn_number: 1,
+    // Missions and transcendence are judged from round 2 (victory/openingRound.ts).
+    turn_number: 2,
     players,
     territories: {
       a: { territory_id: 'a', owner_id: 'p1', unit_count: 3, unit_type: 'infantry' },

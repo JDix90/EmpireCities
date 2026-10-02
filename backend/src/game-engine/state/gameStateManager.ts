@@ -36,6 +36,7 @@ import { buildWorldModifierSnapshot } from './worldModifiers';
 import { hasLaneSovereignty, tickLaneSovereignty } from '../victory/laneSovereignty';
 import { checkTeamVictory } from '../victory/teamVictory';
 import { isTeamGame, regionBonusHolder } from './teams';
+import { alternativeVictoriesLive } from '../victory/openingRound';
 import { dropSecretMissions, galaxyTeamsFor, seatTeamsApart } from './galaxyTeams';
 import { applyLaneClosure, applyLaneSurge, laneSurgeHasGap, tickLaneWeather } from './laneWeather';
 import { colonyGarrison, colonyLayout, resolveGalaxyHomeWorlds, syncGalaxyModeLanes } from './galaxyModes';
@@ -1463,9 +1464,11 @@ export function checkVictory(state: GameState, map: GameMap): { winnerIds: strin
   const allowed = getAllowedVictoryConditions(settings);
   const totalTerritories = Object.keys(state.territories).length;
   const winners: Array<{ winnerIds: string[]; condition: VictoryConditionKey }> = [];
+  // Everything but domination waits for the opening round (victory/openingRound.ts).
+  const alternatesLive = alternativeVictoriesLive(state);
 
   // Alliance victory check (secret_mission mode)
-  if (allowed.includes('secret_mission')) {
+  if (alternatesLive && allowed.includes('secret_mission')) {
     for (let i = 0; i < activePlayers.length; i++) {
       const p1 = activePlayers[i];
       if (p1.secret_mission?.kind !== 'alliance') continue;
@@ -1493,6 +1496,7 @@ export function checkVictory(state: GameState, map: GameMap): { winnerIds: strin
 
     if (
       condition == null &&
+      alternatesLive &&
       allowed.includes('threshold') &&
       settings.victory_threshold != null
     ) {
@@ -1506,21 +1510,21 @@ export function checkVictory(state: GameState, map: GameMap): { winnerIds: strin
     // end of turn by `tickLunarHegemony`; this only reads whether it has run
     // out. Placed with the other alternates — `last_standing` still pre-empts
     // it, which is fine: a hegemon who also cleared Earth has won either way.
-    if (condition == null && allowed.includes('lunar_hegemony')) {
+    if (condition == null && alternatesLive && allowed.includes('lunar_hegemony')) {
       if (hasCompletedHegemony(state, player.player_id)) condition = 'lunar_hegemony';
     }
 
-    if (condition == null && allowed.includes('capital')) {
+    if (condition == null && alternatesLive && allowed.includes('capital')) {
       if (playerSatisfiesCapitalVictory(state, player.player_id)) condition = 'capital';
     }
 
     // Lane Sovereignty (galaxy): the streak is banked at the holder's own turn
     // start, so this only reads it — see victory/laneSovereignty.ts.
-    if (condition == null && allowed.includes('lane_sovereignty')) {
+    if (condition == null && alternatesLive && allowed.includes('lane_sovereignty')) {
       if (hasLaneSovereignty(state, player.player_id)) condition = 'lane_sovereignty';
     }
 
-    if (condition == null && allowed.includes('secret_mission') && player.secret_mission) {
+    if (condition == null && alternatesLive && allowed.includes('secret_mission') && player.secret_mission) {
       if (player.secret_mission.kind !== 'alliance' && isMissionComplete(state, map, player)) condition = 'secret_mission';
     }
 
@@ -1530,6 +1534,7 @@ export function checkVictory(state: GameState, map: GameMap): { winnerIds: strin
     // the player owns) since the base-era wonder helper wouldn't track later eras.
     if (
       condition == null
+      && alternatesLive
       && allowed.includes('transcendence')
       && settings.era_advancement_enabled
       && (player.current_era_index ?? 0) >= getMaxEraIndex(state)
