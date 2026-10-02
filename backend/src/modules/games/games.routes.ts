@@ -528,9 +528,9 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(400).send(formatZodError(parsed.error));
     }
     const lessonModule = parsed.data.lesson_module ?? 'core';
-    // The Galactic Age lessons are dark-launched with the era: refused here,
-    // server-side, until `galaxy_tutorial_enabled` is on — the client hides
-    // them behind the same flag, but hiding a control is not a gate.
+    // The Galactic Age lessons have a kill switch: refused here, server-side,
+    // while `galaxy_tutorial_enabled` is off — the client hides them behind
+    // the same flag, but hiding a control is not a gate.
     if (isGalaxyTutorialModule(lessonModule)) {
       if (!featureFlags.galaxyTutorialEnabled) {
         return reply.status(403).send({ error: GALAXY_TUTORIAL_CLOSED_ERROR });

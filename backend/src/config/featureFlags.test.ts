@@ -192,13 +192,13 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().match_alerts_enabled).toBe(true);
   });
 
-  it('galaxy_tutorial_enabled defaults to off (dark-launched with the era) and is admin-overridable', () => {
-    expect(featureFlags.galaxyTutorialEnabled).toBe(false);
-    expect(getClientFeatureFlags().galaxy_tutorial_enabled).toBe(false);
-    expect(getFeatureFlagStates().galaxy_tutorial_enabled).toEqual({ code_default: false, overridden: false, effective: false });
-    setAdminConfigCacheForTests({ feature_flags: { galaxy_tutorial_enabled: true } });
+  it('galaxy_tutorial_enabled defaults to on (the track has shipped) with an admin kill switch', () => {
     expect(featureFlags.galaxyTutorialEnabled).toBe(true);
     expect(getClientFeatureFlags().galaxy_tutorial_enabled).toBe(true);
+    expect(getFeatureFlagStates().galaxy_tutorial_enabled).toEqual({ code_default: true, overridden: false, effective: true });
+    setAdminConfigCacheForTests({ feature_flags: { galaxy_tutorial_enabled: false } });
+    expect(featureFlags.galaxyTutorialEnabled).toBe(false);
+    expect(getClientFeatureFlags().galaxy_tutorial_enabled).toBe(false);
   });
 
   it('warfront_enabled defaults to off (experimental, admin-only) and is admin-overridable', () => {

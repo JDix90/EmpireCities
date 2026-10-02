@@ -1,9 +1,9 @@
 /**
  * The Galactic Age lessons through the real tutorial start route: refused
- * server-side while `galaxy_tutorial_enabled` is off (hiding the Academy card
- * is not a gate), and seated as the lesson's spec says once it is on — the
- * human first, every seat with its faction, the AI seats at tutorial
- * difficulty.
+ * server-side while `galaxy_tutorial_enabled` is switched off (hiding the
+ * Academy card is not a gate), and seated as the lesson's spec says while it
+ * is on, which it is by default — the human first, every seat with its
+ * faction, the AI seats at tutorial difficulty.
  *
  * Needs Postgres (migrated schema, maps seeded), gated on PG_TEST=1:
  *   PG_TEST=1 POSTGRES_HOST=127.0.0.1 POSTGRES_PORT=5499 POSTGRES_USER=postgres \
@@ -78,7 +78,9 @@ describe.runIf(enabled)('Galactic Age tutorial lessons (Postgres)', () => {
     }
   });
 
-  it('refuses a galaxy lesson while the flag is off, and still starts the core one', async () => {
+  it('refuses a galaxy lesson while the flag is switched off, and still starts the core one', async () => {
+    // On by default; the admin kill switch is what closes the track.
+    setAdminConfigCacheForTests({ feature_flags: { galaxy_tutorial_enabled: false } });
     const user = await seedUser('gtut_off');
     const refused = await startLesson(user, 'galaxy_lane_sovereignty');
     expect(refused.statusCode).toBe(403);
