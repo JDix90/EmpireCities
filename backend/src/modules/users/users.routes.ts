@@ -17,6 +17,9 @@ import {
   parseFriendRequestsPolicy,
 } from './friendRequestPolicy';
 
+/** Postgres uuid text form; anything else cannot be a user_id. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const DeleteAccountSchema = z.object({
   password: z.string().min(1, 'Password is required to delete your account').max(128),
 });
@@ -774,6 +777,11 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   // state to outsiders. The SELECT list explicitly enumerates safe public
   // fields — never `email`, `password_hash`, `is_admin`, or `is_banned`.
   fastify.get<{ Params: { userId: string } }>('/:userId', async (request, reply) => {
+    // A username or a mistyped link is not a uuid; Postgres rejects it with a
+    // 500 (22P02) and the profile page then reads "try again in a moment".
+    if (!UUID_RE.test(request.params.userId)) {
+      return reply.status(404).send({ error: 'User not found' });
+    }
     const user = await queryOne<{
       user_id: string; username: string; level: number; xp: number; mmr: number;
       avatar_url: string | null; created_at: Date; equipped_frame: string | null;
