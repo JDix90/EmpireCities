@@ -26,6 +26,7 @@ export const GALAXY_TUTORIAL_MODULE_IDS = [
   'galaxy_lane_sovereignty',
   'galaxy_transcendence',
   'galaxy_secret_missions',
+  'galaxy_capital',
 ] as const;
 
 export const TUTORIAL_MODULE_IDS = [...CORE_TUTORIAL_MODULE_IDS, ...GALAXY_TUTORIAL_MODULE_IDS] as const;
@@ -202,6 +203,16 @@ export const TUTORIAL_MODULES: TutorialModuleMeta[] = [
     // Five cards of reading and one turn of play: two lane crossings, then
     // the win as round 2 opens.
     estimatedMinutes: 5,
+    galaxy: true,
+    completesOnVictory: true,
+  },
+  {
+    id: 'galaxy_capital',
+    title: 'Galactic Age: Capital Capture',
+    description: 'Capitals sit on gateways here: hold Amazon Basin and take the Navigators\' capital across its lane to win.',
+    // Four cards of reading and one turn of play: one lane crossing, then the
+    // win as round 2 opens.
+    estimatedMinutes: 4,
     galaxy: true,
     completesOnVictory: true,
   },
