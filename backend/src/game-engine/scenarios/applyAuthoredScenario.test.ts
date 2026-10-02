@@ -124,6 +124,21 @@ describe('applyAuthoredScenario', () => {
     expect(state.territories.a).toMatchObject({ owner_id: AI, unit_count: 4 });
   });
 
+  it('replaces the human seat\'s dealt mission, and only when the game dealt one', () => {
+    const state = stateWith({ a: { owner_id: HUMAN, unit_count: 2 } });
+    const mission = { kind: 'capture_territories', territory_ids: ['a', 'b'] } as const;
+    // No mission dealt (the game is not played for them): nothing is granted.
+    applyAuthoredScenario(state, mapFor(state.territories), { human_secret_mission: mission }, HUMAN, AI);
+    expect(state.players[0].secret_mission).toBeUndefined();
+    // Dealt one: the lesson's known objective replaces it, the AI's stays.
+    state.players[0].secret_mission = { kind: 'eliminate_player', target_player_id: AI };
+    state.players[1].secret_mission = { kind: 'eliminate_player', target_player_id: HUMAN };
+    applyAuthoredScenario(state, mapFor(state.territories), { human_secret_mission: mission }, HUMAN, AI);
+    expect(state.players[0].secret_mission).toEqual(mission);
+    expect(state.players[0].secret_mission).not.toBe(mission); // a copy, not the shared literal
+    expect(state.players[1].secret_mission).toEqual({ kind: 'eliminate_player', target_player_id: HUMAN });
+  });
+
   it('resolves seat labels to the real player ids', () => {
     const state = stateWith({ a: { owner_id: null, unit_count: 0 }, b: { owner_id: null, unit_count: 0 } });
     const scenario: AuthoredScenario = {

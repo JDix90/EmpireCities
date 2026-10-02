@@ -56,6 +56,10 @@
     "galaxy_transcendence": {
       "title": "Era Galáctica: Trascendencia",
       "description": "La ascensión Space to Stars: supera la puerta de la Era Espacial, llega a la Era Galáctica y levanta el Hyperlane Anchor para ganar."
+    },
+    "galaxy_secret_missions": {
+      "title": "Era Galáctica: Misiones secretas",
+      "description": "Lo que la galaxia hace con las misiones y las alianzas: toma los dos gateways de Sol que nombra tu misión, a través de sus rutas, y gana."
     }
   },
   "steps": {
@@ -349,6 +353,51 @@
         "message": "Superaste la puerta de la Era Espacial, llegaste a la Era Galáctica con el Pathfinder Gate en la mano y levantaste el Hyperlane Anchor. En una partida real de Space to Stars, cada otro asiento necesita el Programa Espacial completo para seguirte, y los mundos lejanos son tuyos para aterrizar primero.",
         "skippedTitle": "Directo a la partida",
         "skippedMessage": "En pocas palabras: investiga más allá de la puerta (2 tecnologías de nivel 1, 2 de nivel 2, 1 de nivel 3, 3 edificios), pulsa **Advance to Galactic Age** en la barra de la puerta del árbol tecnológico y luego levanta el **Hyperlane Anchor** en cualquier sistema que controles. La victoria se juzga desde la ronda 2. Ahora mismo tienes refuerzos que colocar: haz clic en cualquiera de tus sistemas y luego en {{draftButton}}."
+      }
+    },
+    "galaxy_secret_missions": {
+      "gsm_welcome": {
+        "title": "Misiones secretas en la galaxia",
+        "message": "Esta partida se juega por **misiones secretas**: cada asiento recibe un objetivo privado al empezar, y completar el tuyo gana. Juegas con los Helion Navigators de **Verdan Reach**; la Stellar Mandate controla **Sol III** al otro lado de dos rutas hiperespaciales. La tuya dice **Own Guinea Coast and Pacific Rim**: los dos gateways de Sol que miran a tu mundo.",
+        "detail": "La galaxia cambia el reparto. Una misión nunca nombra un mundo detrás de una puerta hiperespacial, y aquí lo es todo mundo salvo Sol III: cada misión de captura o control de este mapa nombra terreno de Sol, así que siempre está a un cruce de ruta. Un asiento que ya controla todo Sol solo puede sacar una misión de eliminación. Las misiones se juzgan desde la ronda 2.",
+        "hint": "Haz clic en Siguiente, o salta al final para entrar directamente."
+      },
+      "gsm_objectives": {
+        "title": "Lee tu misión",
+        "message": "El panel **Objectives** de la pestaña Status de la barra lateral la muestra: **Mission: Own Guinea Coast and Pacific Rim**. Nadie más puede verla: una misión solo se revela a quien la tiene, a los jugadores eliminados y en la pantalla de resultados. La misión de la Mandate es igual de privada.",
+        "detail": "En este tablero hay tres tipos de misión: poseer dos sistemas con nombre, controlar una o dos regiones con nombre, o eliminar tú mismo a un jugador concreto (si lo hace otro, la misión falla). El avance de era añade «alcanzar una era»; la Era Espacial, objetivos lunares.",
+        "whyItMatters": "Un rival que adivine tu misión puede retener el único gateway que necesitas. Dos asientos pueden incluso sacar el mismo objetivo: las misiones se reparten por separado."
+      },
+      "gsm_alliance": {
+        "title": "Alianzas, y por qué no aquí",
+        "message": "En una partida de **cuatro o más asientos con al menos dos humanos**, más o menos en un reparto de cada cinco dos de ellos reciben una **alianza** en lugar de misiones: cada uno debe controlar una parte igual de los sistemas repartidos más un 7 % —21 each en el tablero galáctico de cuatro asientos—, con ambos aún en pie, y ganan juntos con una Victoria por alianza.",
+        "detail": "Las partidas por equipos prescinden de las misiones: en un 2v2 o con casas aliadas una misión podría nombrar a un aliado para eliminarlo, así que el lobby desactiva la condición. Un humano contra la IA nunca recibe una alianza, y por eso esta lección realiza una misión de captura."
+      },
+      "gsm_draft": {
+        "title": "Apila en un gateway",
+        "message": "Haz clic en **Chlorophage Span** —tu gateway frente a Guinea Coast, resaltado—, elige **All** y pulsa **Place**. Después haz clic en el botón dorado **{{draftButton}}**.",
+        "detail": "Su tarjeta de gateway muestra la ruta a Sol III como **Open**: controlas este extremo y la Mandate controla Guinea Coast en el otro. Greenfire Vault, tu otro gateway, mira a Pacific Rim de la misma forma.",
+        "hint": "Los Navigators reclutan +2 por turno. Mantén las pilas de Verdan Reach por debajo de 12: sus tormentas quitan una unidad por ronda a todo lo que sea más alto."
+      },
+      "gsm_first": {
+        "title": "Toma el primer gateway",
+        "message": "Haz clic en **Chlorophage Span**, luego en **Guinea Coast** al otro lado de la ruta, y ataca hasta que caiga: un ataque de ruta tira como máximo 2 dados, así que **Attack until captured** te ahorra clics. Cualquier gateway primero; la misión lee los dos.",
+        "detail": "Hasta 3 atacantes avanzan por su cuenta. Deja el resto: Guinea Coast limita con cinco sistemas de Sol, pero la misión solo quiere el gateway."
+      },
+      "gsm_second": {
+        "title": "Toma el segundo",
+        "message": "Ahora la otra ruta: **Greenfire Vault → Pacific Rim**. Cuando los dos sistemas nombrados sean tuyos, la línea de misión del panel Objectives estará cumplida, y la partida también, desde la ronda 2."
+      },
+      "gsm_win": {
+        "title": "Se juzga desde la ronda 2",
+        "message": "Los dos gateways son tuyos. Si todavía es la ronda 1, termina tu turno con **{{attackButton}}** y **{{fortifyButton}}**: la victoria llega al abrirse la ronda 2, antes de que coloques una unidad. Completada en la ronda 2 o después, la partida terminó con la captura.",
+        "detail": "Consérvalos durante el turno de la Mandate. Una misión se juzga por lo que controlas en la comprobación, no por lo que tomaste una vez."
+      },
+      "gsm_complete": {
+        "title": "Misiones secretas completadas",
+        "message": "Leíste una misión, tomaste los dos sistemas que nombraba a través de sus rutas y ganaste con ella. En una partida galáctica real, quien controla Sol solo puede sacar una misión de eliminación, y las misiones de captura de todos los demás apuntan a Sol: espera compañía en sus gateways.",
+        "skippedTitle": "Directo a la partida",
+        "skippedMessage": "En pocas palabras: tu misión está en el panel Objectives —**Own Guinea Coast and Pacific Rim**, los dos gateways de Sol al otro lado de tus rutas. Toma **Guinea Coast** desde **Chlorophage Span** y **Pacific Rim** desde **Greenfire Vault**; la victoria se juzga desde la ronda 2. Ahora mismo tienes refuerzos que colocar: haz clic en **Chlorophage Span** y luego en {{draftButton}}."
       }
     }
   }

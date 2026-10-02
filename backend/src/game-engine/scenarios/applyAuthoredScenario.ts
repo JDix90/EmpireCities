@@ -58,6 +58,13 @@ export function applyAuthoredScenario(
     }
   }
 
+  // A known objective for a lesson about them: replaces the dealt mission on
+  // a seat that holds one, so a game without secret missions never gains one.
+  if (scenario.human_secret_mission && humanPlayerId) {
+    const human = state.players.find((p) => p.player_id === humanPlayerId);
+    if (human?.secret_mission) human.secret_mission = { ...scenario.human_secret_mission };
+  }
+
   if (scenario.grants && humanPlayerId) {
     const human = state.players.find((p) => p.player_id === humanPlayerId);
     if (human) {

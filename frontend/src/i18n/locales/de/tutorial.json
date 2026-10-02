@@ -56,6 +56,10 @@
     "galaxy_transcendence": {
       "title": "Galaktisches Zeitalter: Transzendenz",
       "description": "Der Aufstieg „Space to Stars“: Erfülle das Tor des Weltraumzeitalters, erreiche das Galaktische Zeitalter und errichte den Hyperlane Anchor, um zu gewinnen."
+    },
+    "galaxy_secret_missions": {
+      "title": "Galaktisches Zeitalter: Geheimmissionen",
+      "description": "Was die Galaxis mit Missionen und Allianzen macht: Nimm die beiden Sol-Gateways, die deine Mission nennt, über ihre Routen ein und gewinne."
     }
   },
   "steps": {
@@ -349,6 +353,51 @@
         "message": "Du hast das Tor des Weltraumzeitalters erfüllt, bist mit dem Pathfinder Gate im Galaktischen Zeitalter angekommen und hast den Hyperlane Anchor errichtet. In einer echten Space-to-Stars-Partie braucht jeder andere Sitz das volle Raumfahrtprogramm, um dir zu folgen, und die fernen Welten gehören dir, um als Erster zu landen.",
         "skippedTitle": "Direkt ins Spiel",
         "skippedMessage": "Kurz gefasst: Forsche über das Tor hinaus (2 Technologien der Stufe 1, 2 der Stufe 2, 1 der Stufe 3, 3 Gebäude), drücke in der Tor-Leiste des Technologiebaums auf **Advance to Galactic Age** und errichte dann auf einem beliebigen deiner Systeme den **Hyperlane Anchor**. Der Sieg wird ab Runde 2 gewertet. Gerade jetzt hast du Verstärkungen zu platzieren – klicke auf eines deiner Systeme und dann auf {{draftButton}}."
+      }
+    },
+    "galaxy_secret_missions": {
+      "gsm_welcome": {
+        "title": "Geheimmissionen in der Galaxis",
+        "message": "Diese Partie wird um **Geheimmissionen** gespielt: Jeder Sitz erhält zu Beginn ein privates Ziel, und wer seines erfüllt, gewinnt. Du spielst die Helion Navigators von **Verdan Reach**; die Stellar Mandate hält **Sol III** jenseits zweier Hyperraumrouten. Deine lautet **Own Guinea Coast and Pacific Rim** – die beiden Sol-Gateways, die deiner Welt zugewandt sind.",
+        "detail": "Die Galaxis verändert die Verteilung. Eine Mission nennt nie eine Welt hinter einem Hyperraum-Gate, und hier ist jede Welt außer Sol III eine: Jede Erober- oder Kontrollmission auf dieser Karte nennt Sol-Boden, liegt also immer eine Routenüberquerung entfernt. Ein Sitz, der bereits ganz Sol hält, kann nur eine Eliminierungsmission ziehen. Missionen werden ab Runde 2 gewertet.",
+        "hint": "Klicke auf Weiter oder überspringe zum Ende und steig direkt ein."
+      },
+      "gsm_objectives": {
+        "title": "Lies deine Mission",
+        "message": "Das Feld **Objectives** im Status-Tab der Seitenleiste zeigt sie: **Mission: Own Guinea Coast and Pacific Rim**. Niemand sonst kann sie sehen – eine Mission wird nur ihrem Halter, ausgeschiedenen Spielern und auf dem Ergebnisbildschirm enthüllt. Die Mission der Mandate ist genauso privat.",
+        "detail": "Drei Missionsarten gibt es auf diesem Spielfeld: zwei genannte Systeme besitzen, eine oder zwei genannte Regionen kontrollieren oder einen genannten Spieler selbst eliminieren (tut es jemand anders, scheitert die Mission). Der Zeitalteraufstieg fügt „ein Zeitalter erreichen“ hinzu, das Weltraumzeitalter Mondziele.",
+        "whyItMatters": "Ein Rivale, der deine Mission errät, kann das eine Gateway halten, das du brauchst. Zwei Sitze können sogar dasselbe Ziel ziehen: Missionen werden getrennt verteilt."
+      },
+      "gsm_alliance": {
+        "title": "Allianzen – und warum nicht hier",
+        "message": "In einer Partie mit **vier oder mehr Sitzen und mindestens zwei Menschen** erhalten etwa bei jeder fünften Verteilung zwei von ihnen statt Missionen eine **Allianz**: Jeder muss einen gleichen Anteil der verteilten Systeme plus 7 % halten – 21 each auf dem Galaxie-Spielfeld mit vier Sitzen –, beide müssen noch im Spiel sein, und sie gewinnen gemeinsam durch einen Allianzsieg.",
+        "detail": "Teamspiele lassen Missionen ganz weg: In einem 2v2 oder mit verbündeten Häusern könnte eine Mission einen Verbündeten zur Eliminierung nennen, deshalb graut die Lobby die Bedingung aus. Ein Mensch gegen die KI kann nie eine Allianz erhalten – darum führt diese Lektion eine Erobermission durch."
+      },
+      "gsm_draft": {
+        "title": "Stapel auf ein Gateway",
+        "message": "Klicke auf **Chlorophage Span** – dein Gateway gegenüber Guinea Coast, hervorgehoben –, wähle **All** und drücke **Place**. Klicke dann auf den goldenen Button **{{draftButton}}**.",
+        "detail": "Seine Gateway-Karte führt die Route nach Sol III als **Open**: Du hältst dieses Ende, die Mandate hält Guinea Coast am anderen. Greenfire Vault, dein anderes Gateway, liegt Pacific Rim auf dieselbe Weise gegenüber.",
+        "hint": "Navigators erhalten +2 Verstärkung pro Zug. Halte die Stapel auf Verdan Reach unter 12: Seine Stürme nehmen allem, was höher ist, jede Runde eine Einheit."
+      },
+      "gsm_first": {
+        "title": "Nimm das erste Gateway",
+        "message": "Klicke auf **Chlorophage Span**, dann über die Route auf **Guinea Coast**, und greife an, bis es fällt – ein Routenangriff würfelt höchstens mit 2 Würfeln, **Attack until captured** spart das Klicken. Welches Gateway zuerst, ist egal: Die Mission liest beide.",
+        "detail": "Bis zu 3 Angreifer rücken von selbst nach. Lass den Rest stehen: Guinea Coast grenzt an fünf Sol-Systeme, aber die Mission will nur das Gateway."
+      },
+      "gsm_second": {
+        "title": "Nimm das zweite",
+        "message": "Jetzt die andere Route: **Greenfire Vault → Pacific Rim**. Sind beide genannten Systeme deins, ist die Missionszeile im Feld Objectives erfüllt – und die Partie auch, ab Runde 2."
+      },
+      "gsm_win": {
+        "title": "Gewertet ab Runde 2",
+        "message": "Beide Gateways gehören dir. Ist noch Runde 1, beende deinen Zug mit **{{attackButton}}** und **{{fortifyButton}}**: Der Sieg kommt, sobald Runde 2 beginnt, bevor du eine Einheit setzt. In Runde 2 oder später erfüllt, endete die Partie mit der Eroberung.",
+        "detail": "Halte sie durch den Zug der Mandate. Eine Mission wird nach dem gewertet, was du bei der Prüfung hältst, nicht nach dem, was du einmal genommen hast."
+      },
+      "gsm_complete": {
+        "title": "Geheimmissionen abgeschlossen",
+        "message": "Du hast eine Mission gelesen, beide darin genannten Systeme über ihre Routen genommen und damit gewonnen. In einer echten Galaxie-Partie kann ein Sol-Halter nur eine Eliminierungsmission ziehen, und die Erobermissionen aller anderen zeigen auf Sol – rechne also mit Gesellschaft auf seinen Gateways.",
+        "skippedTitle": "Direkt ins Spiel",
+        "skippedMessage": "Kurz gefasst: Deine Mission steht im Feld Objectives – **Own Guinea Coast and Pacific Rim**, die beiden Sol-Gateways jenseits deiner Routen. Nimm **Guinea Coast** von **Chlorophage Span** aus und **Pacific Rim** von **Greenfire Vault** aus; der Sieg wird ab Runde 2 gewertet. Gerade jetzt hast du Verstärkungen zu platzieren – klicke auf **Chlorophage Span** und dann auf {{draftButton}}."
       }
     }
   }

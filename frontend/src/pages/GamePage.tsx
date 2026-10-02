@@ -93,6 +93,7 @@ import TutorialSettingsLab from '../components/game/TutorialSettingsLab';
 import {
   TUTORIAL_MODULES,
   getTutorialSteps,
+  isOwnMissionVisiblyComplete,
   isTutorialStepCentered,
   markTutorialModuleComplete,
   shouldAdvanceTutorialOnState,
@@ -1716,6 +1717,11 @@ export default function GamePage() {
             players: state.players,
             isMyDraftTurn,
             draftLeft,
+            ownMissionComplete: isOwnMissionVisiblyComplete({
+              mission: me?.secret_mission,
+              myPlayerId: me?.player_id ?? null,
+              territories: state.territories,
+            }),
           });
           if (!shouldAdvance) return cur;
           // The practice AI's turn resolves in ~2s, which used to yank the

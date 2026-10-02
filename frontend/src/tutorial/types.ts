@@ -25,6 +25,7 @@ export const CORE_TUTORIAL_MODULE_IDS = [
 export const GALAXY_TUTORIAL_MODULE_IDS = [
   'galaxy_lane_sovereignty',
   'galaxy_transcendence',
+  'galaxy_secret_missions',
 ] as const;
 
 export const TUTORIAL_MODULE_IDS = [...CORE_TUTORIAL_MODULE_IDS, ...GALAXY_TUTORIAL_MODULE_IDS] as const;
@@ -52,6 +53,8 @@ export function isGalaxyTutorialModule(v: unknown): v is GalaxyTutorialLessonMod
  *   - `building_built`: the player raised any building that is not a wonder;
  *   - `wonder_built`: the player raised their era's wonder;
  *   - `galaxy_chart_opened`: the player opened the Galaxy chart;
+ *   - `mission_complete`: the player's own secret mission reads complete on
+ *     the board they can see (a capture mission with every named system held);
  *   - `game_won`: the game ended with the player among the winners.
  */
 export type TutorialRequireAction =
@@ -69,6 +72,7 @@ export type TutorialRequireAction =
   | 'building_built'
   | 'wonder_built'
   | 'galaxy_chart_opened'
+  | 'mission_complete'
   | 'game_won';
 
 export type TutorialStepVariant = 'wrapup' | 'module_complete';
@@ -188,6 +192,16 @@ export const TUTORIAL_MODULES: TutorialModuleMeta[] = [
     // Seven cards of reading and one long turn of play: five researches, two
     // builds, the advance and the wonder, then the win at the next round.
     estimatedMinutes: 7,
+    galaxy: true,
+    completesOnVictory: true,
+  },
+  {
+    id: 'galaxy_secret_missions',
+    title: 'Galactic Age: Secret Missions',
+    description: 'What the galaxy does to missions and alliances: take the two Sol gateways your mission names, across their lanes, and win.',
+    // Five cards of reading and one turn of play: two lane crossings, then
+    // the win as round 2 opens.
+    estimatedMinutes: 5,
     galaxy: true,
     completesOnVictory: true,
   },
