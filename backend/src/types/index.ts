@@ -466,6 +466,13 @@ export interface AuthoredScenario {
   };
   /** Wipe every territory to neutral/0 before applying `starting_board`. */
   clear_board?: boolean;
+  /**
+   * The human seat's secret mission, replacing the one `dealSecretMissions`
+   * drew at init. A lesson about missions needs a known objective; the deal
+   * is seeded from a per-game salt and cannot be. Only applied when the game
+   * plays for secret missions (the seat holds one to replace).
+   */
+  human_secret_mission?: SecretMission;
 }
 
 export interface GameSettings {

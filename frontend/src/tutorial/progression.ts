@@ -5,6 +5,7 @@ import { ERA_ADVANCEMENT_STEPS } from './modules/eraAdvancementSteps';
 import { COMBINED_CORE_TUTORIAL_STEPS } from './modules/combinedCoreSteps';
 import { GALAXY_LANE_SOVEREIGNTY_STEPS } from './modules/galaxyLaneSovereigntySteps';
 import { GALAXY_TRANSCENDENCE_STEPS } from './modules/galaxyTranscendenceSteps';
+import { GALAXY_SECRET_MISSIONS_STEPS } from './modules/galaxySecretMissionsSteps';
 import type { TutorialLessonModule, TutorialRequireAction, TutorialStep } from './types';
 import {
   CORE_TUTORIAL_MODULE_IDS,
@@ -31,6 +32,8 @@ export function getTutorialSteps(module: TutorialLessonModule): TutorialStep[] {
       return GALAXY_LANE_SOVEREIGNTY_STEPS;
     case 'galaxy_transcendence':
       return GALAXY_TRANSCENDENCE_STEPS;
+    case 'galaxy_secret_missions':
+      return GALAXY_SECRET_MISSIONS_STEPS;
     case 'core':
     default:
       return COMBINED_CORE_TUTORIAL_STEPS;
@@ -139,6 +142,8 @@ export function isTutorialStepCentered(step: TutorialStep | undefined): boolean 
     'ea_complete',
     'gls_welcome',
     'gtr_welcome',
+    'gsm_welcome',
+    'gsm_alliance',
   ]);
   return centeredIds.has(step.id);
 }
@@ -177,9 +182,13 @@ export function shouldAdvanceTutorialOnState(args: {
   players: Array<{ player_id: string }>;
   isMyDraftTurn: boolean;
   draftLeft: number;
+  /** The viewer's own secret mission reads complete on the board they can see. */
+  ownMissionComplete?: boolean;
 }): boolean {
   const { step } = args;
   if (!step?.requireAction) return false;
+
+  if (step.requireAction === 'mission_complete') return args.ownMissionComplete === true;
 
   if (step.requireAction === 'my_turn') {
     return isMyTurnGateSatisfied({
@@ -210,6 +219,24 @@ export function shouldAdvanceTutorialOnState(args: {
   return false;
 }
 
+/**
+ * Whether the viewer's own secret mission reads complete from the board they
+ * can see: a capture mission with every named system held. The server judges
+ * the win (from round 2); this only tells a card the player has done their
+ * part. Other mission kinds answer false — a lesson gating on this deals a
+ * capture mission.
+ */
+export function isOwnMissionVisiblyComplete(args: {
+  mission: { kind: string; territory_ids?: string[] } | null | undefined;
+  myPlayerId: string | null;
+  territories: Record<string, { owner_id: string | null }>;
+}): boolean {
+  const { mission, myPlayerId, territories } = args;
+  if (!mission || !myPlayerId || mission.kind !== 'capture_territories') return false;
+  const ids = mission.territory_ids ?? [];
+  return ids.length > 0 && ids.every((id) => territories[id]?.owner_id === myPlayerId);
+}
+
 export function isActionOnlyRequireAction(action: TutorialRequireAction | undefined): boolean {
   return (
     action === 'draft' ||
@@ -226,6 +253,7 @@ export function isActionOnlyRequireAction(action: TutorialRequireAction | undefi
     action === 'building_built' ||
     action === 'wonder_built' ||
     action === 'galaxy_chart_opened' ||
+    action === 'mission_complete' ||
     action === 'game_won'
   );
 }

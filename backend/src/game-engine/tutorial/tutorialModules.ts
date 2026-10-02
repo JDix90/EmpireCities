@@ -24,6 +24,7 @@ export const CORE_TUTORIAL_LESSON_MODULES = [
 export const GALAXY_TUTORIAL_LESSON_MODULES = [
   'galaxy_lane_sovereignty',
   'galaxy_transcendence',
+  'galaxy_secret_missions',
 ] as const;
 
 export const TUTORIAL_LESSON_MODULES = [

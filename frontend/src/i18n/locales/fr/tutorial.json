@@ -56,6 +56,10 @@
     "galaxy_transcendence": {
       "title": "Ère galactique : Transcendance",
       "description": "L'ascension Space to Stars : franchissez le seuil de l'Ère spatiale, arrivez dans l'Ère galactique et érigez le Hyperlane Anchor pour gagner."
+    },
+    "galaxy_secret_missions": {
+      "title": "Ère galactique : Missions secrètes",
+      "description": "Ce que la galaxie fait des missions et des alliances : prenez les deux gateways de Sol que votre mission nomme, à travers leurs routes, et gagnez."
     }
   },
   "steps": {
@@ -349,6 +353,51 @@
         "message": "Vous avez franchi le seuil de l'Ère spatiale, êtes arrivé dans l'Ère galactique avec le Pathfinder Gate en main et avez érigé le Hyperlane Anchor. Dans une vraie partie Space to Stars, chaque autre siège a besoin du programme spatial complet pour vous suivre, et les mondes lointains sont à vous pour y débarquer en premier.",
         "skippedTitle": "Directement en jeu",
         "skippedMessage": "En résumé : recherchez au-delà du seuil (2 technologies de niveau 1, 2 de niveau 2, 1 de niveau 3, 3 bâtiments), appuyez sur **Advance to Galactic Age** dans le rail du seuil de l'arbre technologique, puis érigez le **Hyperlane Anchor** sur n'importe quel système que vous tenez. La victoire est jugée à partir de la manche 2. Vous avez des renforts à placer : cliquez sur l'un de vos systèmes, puis sur {{draftButton}}."
+      }
+    },
+    "galaxy_secret_missions": {
+      "gsm_welcome": {
+        "title": "Missions secrètes dans la galaxie",
+        "message": "Cette partie se joue aux **missions secrètes** : chaque siège reçoit un objectif privé à l'ouverture, et accomplir le vôtre fait gagner. Vous jouez les Helion Navigators de **Verdan Reach** ; la Stellar Mandate tient **Sol III** de l'autre côté de deux routes hyperspatiales. La vôtre dit **Own Guinea Coast and Pacific Rim** — les deux gateways de Sol qui font face à votre monde.",
+        "detail": "La galaxie change la donne. Une mission ne nomme jamais un monde derrière une porte hyperspatiale, et ici tout monde sauf Sol III en est un : toute mission de capture ou de contrôle sur cette carte nomme du terrain de Sol, donc toujours à une traversée de route. Un siège qui tient déjà tout Sol ne peut tirer qu'une mission d'élimination. Les missions sont jugées à partir de la manche 2.",
+        "hint": "Cliquez sur Suivant, ou passez à la fin pour entrer directement en jeu."
+      },
+      "gsm_objectives": {
+        "title": "Lisez votre mission",
+        "message": "Le panneau **Objectives** de l'onglet Status de la barre latérale l'affiche : **Mission: Own Guinea Coast and Pacific Rim**. Personne d'autre ne la voit : une mission n'est révélée qu'à son détenteur, aux joueurs éliminés et sur l'écran de résultat. Celle de la Mandate est tout aussi privée.",
+        "detail": "Trois sortes de missions existent sur ce plateau : posséder deux systèmes nommés, contrôler une ou deux régions nommées, ou éliminer vous-même un joueur nommé (si quelqu'un d'autre le fait, la mission échoue). Le passage d'ère ajoute « atteindre une ère » ; l'Ère spatiale, des objectifs lunaires.",
+        "whyItMatters": "Un rival qui devine votre mission peut tenir le seul gateway dont vous avez besoin. Deux sièges peuvent même tirer le même objectif : les missions sont distribuées séparément."
+      },
+      "gsm_alliance": {
+        "title": "Les alliances, et pourquoi pas ici",
+        "message": "Dans une partie de **quatre sièges ou plus avec au moins deux humains**, environ une distribution sur cinq donne à deux d'entre eux une **alliance** au lieu de missions : chacun doit tenir une part égale des systèmes distribués plus 7 % — 21 each sur le plateau galactique à quatre sièges —, les deux encore en lice, et ils gagnent ensemble par une Victoire d'alliance.",
+        "detail": "Les parties en équipe se passent entièrement de missions : en 2v2 ou avec des maisons alliées, une mission pourrait nommer un allié à éliminer, alors le salon grise la condition. Un humain contre l'IA ne reçoit jamais d'alliance, c'est pourquoi cette leçon accomplit une mission de capture."
+      },
+      "gsm_draft": {
+        "title": "Empilez sur un gateway",
+        "message": "Cliquez sur **Chlorophage Span** — votre gateway face à Guinea Coast, en surbrillance —, réglez sur **All** et appuyez sur **Place**. Puis cliquez sur le bouton doré **{{draftButton}}**.",
+        "detail": "Sa carte Gateway indique la route vers Sol III comme **Open** : vous tenez ce bout, la Mandate tient Guinea Coast à l'autre. Greenfire Vault, votre autre gateway, fait face à Pacific Rim de la même façon.",
+        "hint": "Les Navigators reçoivent +2 renforts par tour. Gardez les piles de Verdan Reach sous 12 : ses tempêtes retirent une unité par manche à tout ce qui dépasse."
+      },
+      "gsm_first": {
+        "title": "Prenez le premier gateway",
+        "message": "Cliquez sur **Chlorophage Span**, puis sur **Guinea Coast** de l'autre côté de la route, et attaquez jusqu'à sa chute — une attaque de route lance au plus 2 dés, alors **Attack until captured** vous épargne les clics. N'importe quel gateway en premier : la mission lit les deux.",
+        "detail": "Jusqu'à 3 attaquants entrent d'eux-mêmes. Laissez le reste : Guinea Coast borde cinq systèmes de Sol, mais la mission ne veut que le gateway."
+      },
+      "gsm_second": {
+        "title": "Prenez le second",
+        "message": "Maintenant l'autre route : **Greenfire Vault → Pacific Rim**. Quand les deux systèmes nommés sont à vous, la ligne de mission du panneau Objectives est remplie, et la partie aussi — à partir de la manche 2."
+      },
+      "gsm_win": {
+        "title": "Jugée à partir de la manche 2",
+        "message": "Les deux gateways sont à vous. Si c'est encore la manche 1, terminez votre tour avec **{{attackButton}}** et **{{fortifyButton}}** : la victoire tombe à l'ouverture de la manche 2, avant que vous ne placiez une unité. Accomplie en manche 2 ou plus tard, la partie s'est terminée sur la capture.",
+        "detail": "Tenez-les pendant le tour de la Mandate. Une mission est jugée sur ce que vous tenez au moment de la vérification, pas sur ce que vous avez pris un jour."
+      },
+      "gsm_complete": {
+        "title": "Missions secrètes terminées",
+        "message": "Vous avez lu une mission, pris les deux systèmes qu'elle nommait à travers leurs routes, et gagné grâce à elle. Dans une vraie partie galactique, qui tient Sol ne peut tirer qu'une mission d'élimination, et les missions de capture de tous les autres visent Sol — attendez-vous à de la compagnie sur ses gateways.",
+        "skippedTitle": "Directement en jeu",
+        "skippedMessage": "En résumé : votre mission est dans le panneau Objectives — **Own Guinea Coast and Pacific Rim**, les deux gateways de Sol de l'autre côté de vos routes. Prenez **Guinea Coast** depuis **Chlorophage Span** et **Pacific Rim** depuis **Greenfire Vault** ; la victoire est jugée à partir de la manche 2. Vous avez des renforts à placer : cliquez sur **Chlorophage Span**, puis sur {{draftButton}}."
       }
     }
   }

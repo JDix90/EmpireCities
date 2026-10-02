@@ -23,6 +23,7 @@ import { FACTION_ABILITY_STEPS } from './modules/factionAbilitySteps';
 import { TECH_TREE_STEPS } from './modules/techTreeSteps';
 import { GALAXY_LANE_SOVEREIGNTY_STEPS } from './modules/galaxyLaneSovereigntySteps';
 import { GALAXY_TRANSCENDENCE_STEPS } from './modules/galaxyTranscendenceSteps';
+import { GALAXY_SECRET_MISSIONS_STEPS } from './modules/galaxySecretMissionsSteps';
 
 /** The subset of i18next's `t` these helpers need; a test can pass a stub. */
 export type TranslateFn = (
@@ -55,6 +56,7 @@ export const TUTORIAL_STEP_LISTS: Record<TutorialLessonModule, readonly Tutorial
   era_advancement: ERA_ADVANCEMENT_STEPS,
   galaxy_lane_sovereignty: GALAXY_LANE_SOVEREIGNTY_STEPS,
   galaxy_transcendence: GALAXY_TRANSCENDENCE_STEPS,
+  galaxy_secret_missions: GALAXY_SECRET_MISSIONS_STEPS,
 };
 
 /**

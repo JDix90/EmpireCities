@@ -13,6 +13,7 @@ import type { AiDifficulty, GameSettings, VictoryType } from '../../types';
 import { featureFlags } from '../../config/featureFlags';
 import { GALAXY_LANE_SOVEREIGNTY_SCENARIO } from './galaxyLaneSovereigntyScenario';
 import { GALAXY_TRANSCENDENCE_SCENARIO } from './galaxyTranscendenceScenario';
+import { GALAXY_SECRET_MISSIONS_SCENARIO } from './galaxySecretMissionsScenario';
 import {
   GALAXY_LANE_SOVEREIGNTY_GRANT_TECH_POINTS,
   GALAXY_TRANSCENDENCE_GRANT_GOLD,
@@ -112,6 +113,24 @@ export function galaxyTutorialGameSpec(lessonModule: GalaxyTutorialLessonModule)
           tutorial_grant_tech_points: GALAXY_TRANSCENDENCE_GRANT_TECH_POINTS,
           tutorial_grant_gold: GALAXY_TRANSCENDENCE_GRANT_GOLD,
           authored_scenario: GALAXY_TRANSCENDENCE_SCENARIO,
+        },
+      };
+    }
+    case 'galaxy_secret_missions': {
+      // Navigators against the Mandate across the two Sol–Verdan lanes; see
+      // galaxySecretMissionsScenario.ts. Played for missions only, so the
+      // Objectives panel shows the mission and nothing beside it.
+      const seats: TutorialSeat[] = [
+        { faction_id: 'helion_navigators', is_ai: false },
+        { faction_id: 'stellar_mandate', is_ai: true, ai_difficulty: TUTORIAL_AI },
+      ];
+      return {
+        mapId: 'era_galaxy',
+        eraId: 'galaxy_age',
+        seats,
+        settings: {
+          ...galaxySettingsBase(lessonModule, seats.length, ['domination', 'secret_mission']),
+          authored_scenario: GALAXY_SECRET_MISSIONS_SCENARIO,
         },
       };
     }
