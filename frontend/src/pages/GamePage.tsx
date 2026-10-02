@@ -502,6 +502,20 @@ export default function GamePage() {
 
   const [mapData, setMapData] = useState<MapData | null>(null);
   const [combatLog, setCombatLog] = useState<string[]>([]);
+  /**
+   * An elimination card held back until the combat result that caused it has
+   * been queued, so the dice and the capture show before "Player Eliminated".
+   * The server emits player_eliminated first; eliminations with no combat
+   * (events, bombs) release on the timer.
+   */
+  const pendingEliminationRef = useRef<{ data: EliminationModalData; timer: ReturnType<typeof setTimeout> } | null>(null);
+  const flushPendingElimination = useCallback(() => {
+    const pending = pendingEliminationRef.current;
+    if (!pending) return;
+    clearTimeout(pending.timer);
+    pendingEliminationRef.current = null;
+    setModalQueue((q) => [...q, pending.data]);
+  }, []);
   const [gameStarted, setGameStarted] = useState(false);
   const [isStartingGame, setIsStartingGame] = useState(false);
   const [isHost, setIsHost] = useState(false);
@@ -1886,6 +1900,8 @@ export default function GamePage() {
       } else {
         otherTurnCombatsRef.current.push(enriched);
       }
+      // Now the dice are queued, an elimination this result caused can follow.
+      flushPendingElimination();
 
       // Always append to combat log sidebar
       let logEntry = `${attackerName} attacked ${toName} from ${fromName}`;
@@ -2074,7 +2090,10 @@ export default function GamePage() {
         isSelf,
         secretMission: secretMission ?? null,
       };
-      setModalQueue(q => [...q, elData]);
+      // Hold it for the combat result that follows (or 1.5 s, for eliminations
+      // with no dice). Two in a row: release the earlier one first.
+      flushPendingElimination();
+      pendingEliminationRef.current = { data: elData, timer: setTimeout(flushPendingElimination, 1500) };
     });
 
     socket.on('game:player_resigned', ({ playerName }: { playerId: string; playerName: string }) => {
@@ -2738,6 +2757,10 @@ export default function GamePage() {
       socket.off('game:coaching_tip');
       socket.off('game:chat_message');
       socket.off('game:player_eliminated');
+      if (pendingEliminationRef.current) {
+        clearTimeout(pendingEliminationRef.current.timer);
+        pendingEliminationRef.current = null;
+      }
       socket.off('game:player_resigned');
       socket.off('game:player_away');
       socket.off('game:player_returned');

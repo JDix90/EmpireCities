@@ -335,7 +335,9 @@ export default function GameHUD({
           />
         )}
         <p className="text-xs text-bf-muted">
-          Turn {gameState.turn_number} · {isMyTurn ? 'Your turn' : `${currentPlayer?.username}'s turn`}
+          {gameState.phase === 'game_over'
+            ? `Game over · ${gameState.turn_number} ${gameState.turn_number === 1 ? 'turn' : 'turns'}`
+            : `Turn ${gameState.turn_number} · ${isMyTurn ? 'Your turn' : `${currentPlayer?.username}'s turn`}`}
         </p>
         {timeLeft !== null && !gameState.settings.async_mode && (
           <div className={clsx(
@@ -398,7 +400,7 @@ export default function GameHUD({
           className="mt-2"
           onOpenGuide={onOpenSpaceAgeGuide}
         />
-        {myPlayer && onAdvanceEra && gameState.settings.era_advancement_enabled && (
+        {myPlayer && onAdvanceEra && gameState.settings.era_advancement_enabled && gameState.phase !== 'game_over' && (
           <div className="mt-3 -mx-1 rounded-lg overflow-hidden border border-bf-border/60">
             <EraTimelineStrip gameState={gameState} myPlayer={myPlayer} />
             <AdvanceEraPanel

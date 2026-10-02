@@ -358,6 +358,9 @@ export default function TerritoryPanel({
   const { user } = useAuthStore();
   const [fortifyAmount, setFortifyAmount] = React.useState(1);
   const [navalMoveCount, setNavalMoveCount] = React.useState(1);
+  /** Owner a truce offer is being confirmed for; breaking a truce confirms first, so offering one does too. */
+  const [truceConfirmFor, setTruceConfirmFor] = React.useState<string | null>(null);
+  React.useEffect(() => { setTruceConfirmFor(null); }, [selectedTerritory]);
 
   const draftPool = gameState
     ? computeDraftPool(
@@ -1545,12 +1548,36 @@ export default function TerritoryPanel({
                       );
                     }
 
+                    if (truceConfirmFor === tState.owner_id) {
+                      return (
+                        <div className="rounded-lg border border-green-600/40 bg-green-900/20 p-2 text-center space-y-2" data-testid="truce-confirm">
+                          <p className="text-xs text-green-200">
+                            Offer {owner?.username} a 3-round truce? Either side can still attack, but breaking it gives the other side an extra die.
+                          </p>
+                          <div className="flex gap-2">
+                            <button
+                              className="flex-1 text-xs py-1.5 rounded border border-bf-border text-bf-muted hover:text-bf-text transition-colors"
+                              onClick={() => setTruceConfirmFor(null)}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              className="flex-1 text-xs py-1.5 rounded border border-green-500/60 bg-green-800/40 text-green-200 hover:bg-green-700/40 transition-colors"
+                              onClick={() => { setTruceConfirmFor(null); onProposeTruce(tState.owner_id!); onClose(); }}
+                            >
+                              Send offer
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    }
+
                     return (
                       <button
                         className="w-full text-sm flex items-center justify-center gap-2 py-2 rounded-lg
                                    border border-green-600/40 bg-green-900/20 text-green-300
                                    hover:bg-green-800/30 hover:border-green-500/60 transition-colors"
-                        onClick={() => { onProposeTruce(tState.owner_id!); onClose(); }}
+                        onClick={() => setTruceConfirmFor(tState.owner_id!)}
                       >
                         🤝 Propose Truce <span className="text-green-400/60 text-xs">(3 rounds)</span>
                       </button>
