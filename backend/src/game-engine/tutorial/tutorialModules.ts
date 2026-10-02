@@ -7,7 +7,7 @@
  * to one list and not another starts fine and is then refused when the player
  * finishes it, so every backend reader takes the list from here.
  *
- * The Galactic Age modules are listed apart because they are dark-launched:
+ * The Galactic Age modules are listed apart because they have a kill switch:
  * the start route refuses them while `galaxy_tutorial_enabled` is off, and the
  * client hides them behind the same flag.
  */

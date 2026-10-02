@@ -88,11 +88,11 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // Experimental Warfront RTS mode (docs/WARFRONT_RTS_MODE.md). Admin-only on top
   // of this flag, so the flag gates a surface only admins can reach anyway.
   warfront_enabled: () => envOptIn('WARFRONT_ENABLED'),
-  // The Galactic Age tutorial track (one lesson per galaxy victory condition,
-  // frontend/src/tutorial/modules/galaxy*). Dark-launched OFF while the era
-  // itself is "Coming Soon": the start route refuses these lessons and the
-  // client hides them until an operator switches this on.
-  galaxy_tutorial_enabled: () => envOptIn('GALAXY_TUTORIAL_ENABLED'),
+  // The Galactic Age tutorial track (the primer and one lesson per galaxy
+  // victory condition, frontend/src/tutorial/modules/galaxy*). On by default
+  // now that the track has shipped; this is its kill switch: off, the start
+  // route refuses these lessons and the client hides them.
+  galaxy_tutorial_enabled: () => envOptOut('GALAXY_TUTORIAL_ENABLED'),
   // Localized landing page + tutorial (frontend/src/i18n). Dark-launched OFF:
   // the translated bundles ship in the client but nobody is routed to them
   // until this is on. Client-only effect.
@@ -705,12 +705,11 @@ export const featureFlags = {
   },
 
   /**
-   * The Galactic Age tutorial track: lessons that play the galaxy board, one
-   * per victory condition. Default OFF — the era is admin-only until it opens,
-   * and nothing about it is player-facing before then. `POST /games/tutorial/start`
-   * refuses a galaxy lesson while this is off, and the Academy page and the
-   * recommended-next logic leave them out. `GALAXY_TUTORIAL_ENABLED=true` or
-   * the admin override switches it on.
+   * The Galactic Age tutorial track: the primer and one lesson per galaxy
+   * victory condition, playing the galaxy board. Default ON; this is the kill
+   * switch. Off, `POST /games/tutorial/start` refuses a galaxy lesson and the
+   * Academy page and the recommended-next logic leave them out.
+   * `GALAXY_TUTORIAL_ENABLED=false` or the admin override switches it off.
    */
   get galaxyTutorialEnabled(): boolean {
     return overrideBool('galaxy_tutorial_enabled');

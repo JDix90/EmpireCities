@@ -17,10 +17,11 @@ export const CORE_TUTORIAL_MODULE_IDS = [
 ] as const;
 
 /**
- * The Galactic Age track: one lesson per galaxy victory condition, plus the
- * primer. Dark-launched behind `galaxy_tutorial_enabled` (featureFlagsStore):
- * the Academy, the recommended-next logic and the wrap-up links leave them out
- * while it is off, and the server refuses to start one.
+ * The Galactic Age track: the primer, then one lesson per galaxy victory
+ * condition. Behind `galaxy_tutorial_enabled` (featureFlagsStore), on by
+ * default with an admin kill switch: the Academy, the recommended-next logic
+ * and the wrap-up links leave them out while it is off, and the server
+ * refuses to start one.
  */
 export const GALAXY_TUTORIAL_MODULE_IDS = [
   'galaxy_primer',

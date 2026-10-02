@@ -80,9 +80,9 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   era_wonder_per_era_enabled: false,
   // Experimental Warfront RTS mode: admin-only surfaces, and off by default on top.
   warfront_enabled: false,
-  // The Galactic Age tutorial track. Dark-launched OFF with the era: the
-  // Academy hides the galaxy lessons and the server refuses to start one.
-  galaxy_tutorial_enabled: false,
+  // The Galactic Age tutorial track. On by default; admin kill switch. Off,
+  // the Academy hides the galaxy lessons and the server refuses to start one.
+  galaxy_tutorial_enabled: true,
   // Localized landing + tutorial (src/i18n). Dark-launched OFF: the bundles
   // ship but everyone sees English until an operator turns this on.
   localization_enabled: false,
@@ -196,9 +196,10 @@ export function useWarfrontEnabled(): boolean {
 }
 
 /**
- * The Galactic Age tutorial track (src/tutorial/modules/galaxy*). Off, the
- * Academy lists the five core lessons only and nothing recommends a galaxy
- * one; the server refuses to start one either way.
+ * The Galactic Age tutorial track (src/tutorial/modules/galaxy*). On by
+ * default. Off (the admin kill switch), the Academy lists the five core
+ * lessons only and nothing recommends a galaxy one; the server refuses to
+ * start one either way.
  */
 export function useGalaxyTutorialEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.galaxy_tutorial_enabled);

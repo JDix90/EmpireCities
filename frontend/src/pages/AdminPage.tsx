@@ -263,7 +263,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'galaxy_tutorial_enabled',
     label: 'Galactic Age tutorial track',
     description:
-      'List the Galactic Age lessons in the Academy (one per galaxy victory condition: Lane Sovereignty first, the rest as they ship) and let POST /games/tutorial/start run them on the galaxy board. Off by default while the era is Coming Soon — the server refuses a galaxy lesson while this is off, so nothing player-facing changes until it is on.',
+      'List the Galactic Age lessons in the Academy (the primer, then Lane Sovereignty, Transcendence, Secret Missions, Capital, Threshold and Domination) and let POST /games/tutorial/start run them on the galaxy board. On by default; this is the kill switch — the server refuses a galaxy lesson while it is off, and the Academy hides them.',
   },
   {
     key: 'daily_puzzle_v2_enabled',
