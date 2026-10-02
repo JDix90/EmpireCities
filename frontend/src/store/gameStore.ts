@@ -1,3 +1,4 @@
+import type { TutorialLessonModule } from '../tutorial/types';
 import { create } from 'zustand';
 import type { PublicDailyPuzzleV2 } from '../utils/dailyPuzzleV2';
 import type { GamePhase, PlayerCosmetics, WorldModifiers, WorldRules } from '@borderfall/shared';
@@ -312,7 +313,7 @@ export interface GameState {
     async_mode?: boolean;
     async_turn_deadline_seconds?: number;
     tutorial?: boolean;
-    tutorial_lesson_module?: 'core' | 'advanced_settings' | 'faction_ability' | 'tech_tree' | 'era_advancement';
+    tutorial_lesson_module?: TutorialLessonModule;
     tutorial_grant_tech_points?: number;
     /** This tutorial was created as the combined first game (island + era climb). */
     tutorial_combined?: boolean;

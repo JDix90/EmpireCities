@@ -3,9 +3,16 @@ import { FACTION_ABILITY_STEPS } from './modules/factionAbilitySteps';
 import { TECH_TREE_STEPS } from './modules/techTreeSteps';
 import { ERA_ADVANCEMENT_STEPS } from './modules/eraAdvancementSteps';
 import { COMBINED_CORE_TUTORIAL_STEPS } from './modules/combinedCoreSteps';
+import { GALAXY_LANE_SOVEREIGNTY_STEPS } from './modules/galaxyLaneSovereigntySteps';
 import type { TutorialLessonModule, TutorialRequireAction, TutorialStep } from './types';
-import { TUTORIAL_V2_ENABLED } from './types';
+import {
+  CORE_TUTORIAL_MODULE_IDS,
+  GALAXY_TUTORIAL_MODULE_IDS,
+  TUTORIAL_V2_ENABLED,
+  isTutorialLessonModule,
+} from './types';
 import { api } from '../services/api';
+import { useFeatureFlagsStore } from '../store/featureFlagsStore';
 
 const STORAGE_KEY = 'borderfall_tutorial_modules_completed_v2';
 
@@ -19,6 +26,8 @@ export function getTutorialSteps(module: TutorialLessonModule): TutorialStep[] {
       return TECH_TREE_STEPS;
     case 'era_advancement':
       return ERA_ADVANCEMENT_STEPS;
+    case 'galaxy_lane_sovereignty':
+      return GALAXY_LANE_SOVEREIGNTY_STEPS;
     case 'core':
     default:
       return COMBINED_CORE_TUTORIAL_STEPS;
@@ -31,9 +40,7 @@ export function getCompletedTutorialModules(): TutorialLessonModule[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((m): m is TutorialLessonModule =>
-      ['core', 'advanced_settings', 'faction_ability', 'tech_tree', 'era_advancement'].includes(m as string),
-    );
+    return parsed.filter((m): m is TutorialLessonModule => isTutorialLessonModule(m));
   } catch {
     return [];
   }
@@ -59,8 +66,8 @@ export function mergeServerTutorialModules(serverModules: string[]): void {
   const local = new Set(getCompletedTutorialModules());
   let changed = false;
   for (const mod of serverModules) {
-    if (['core', 'advanced_settings', 'faction_ability', 'tech_tree', 'era_advancement'].includes(mod) && !local.has(mod as TutorialLessonModule)) {
-      local.add(mod as TutorialLessonModule);
+    if (isTutorialLessonModule(mod) && !local.has(mod)) {
+      local.add(mod);
       changed = true;
     }
   }
@@ -72,13 +79,26 @@ export function mergeServerTutorialModules(serverModules: string[]): void {
   }
 }
 
-export function getRecommendedTutorialModule(): TutorialLessonModule | null {
+/**
+ * The next lesson to suggest: the first deep dive not yet done, in Academy
+ * order, then — once every core lesson is done and the galaxy track is open —
+ * the first galaxy lesson not yet done. `galaxyEnabled` defaults to the live
+ * flag; tests pass it explicitly.
+ */
+export function getRecommendedTutorialModule(
+  opts: { galaxyEnabled?: boolean } = {},
+): TutorialLessonModule | null {
   if (!TUTORIAL_V2_ENABLED) return null;
   const done = new Set(getCompletedTutorialModules());
-  if (!done.has('advanced_settings')) return 'advanced_settings';
-  if (!done.has('faction_ability')) return 'faction_ability';
-  if (!done.has('tech_tree')) return 'tech_tree';
-  if (!done.has('era_advancement')) return 'era_advancement';
+  for (const mod of CORE_TUTORIAL_MODULE_IDS) {
+    if (mod === 'core') continue; // the Academy's own primary card, never "recommended next"
+    if (!done.has(mod)) return mod;
+  }
+  const galaxyEnabled = opts.galaxyEnabled ?? useFeatureFlagsStore.getState().flags.galaxy_tutorial_enabled;
+  if (!galaxyEnabled) return null;
+  for (const mod of GALAXY_TUTORIAL_MODULE_IDS) {
+    if (!done.has(mod)) return mod;
+  }
   return null;
 }
 
@@ -114,6 +134,7 @@ export function isTutorialStepCentered(step: TutorialStep | undefined): boolean 
     'ea_gate',
     'ea_signature',
     'ea_complete',
+    'gls_welcome',
   ]);
   return centeredIds.has(step.id);
 }
@@ -164,6 +185,16 @@ export function shouldAdvanceTutorialOnState(args: {
     });
   }
 
+  // The turn coming back round: an edge, so a card can sit through the
+  // player's own phases and advance only once the rivals have played.
+  if (step.requireAction === 'my_next_turn') {
+    return args.playerChanged && isMyTurnGateSatisfied({
+      myPlayerId: args.myPlayerId,
+      players: args.players,
+      currentPlayerIndex: args.newPlayerIndex,
+    });
+  }
+
   if (step.requireAction === 'draft') {
     return args.nextPhase === 'attack' || (args.isMyDraftTurn && args.draftLeft === 0);
   }
@@ -185,6 +216,11 @@ export function isActionOnlyRequireAction(action: TutorialRequireAction | undefi
     action === 'settings_explored' ||
     action === 'bonuses_opened' ||
     action === 'tech_tree_opened' ||
-    action === 'era_advanced'
+    action === 'era_advanced' ||
+    action === 'my_next_turn' ||
+    action === 'territory_captured' ||
+    action === 'wonder_built' ||
+    action === 'galaxy_chart_opened' ||
+    action === 'game_won'
   );
 }

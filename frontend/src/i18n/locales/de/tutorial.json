@@ -48,7 +48,11 @@
     "advanced_settings": { "title": "Erweiterte Einstellungen", "description": "Wie optionale Regeln Tempo und Strategie verändern." },
     "faction_ability": { "title": "Fraktionsfähigkeiten", "description": "Passive Boni und Kräfte, die einmal pro Runde oder pro Partie einsetzbar sind." },
     "tech_tree": { "title": "Technologiebaum", "description": "Forschungskosten, Voraussetzungen und Kampfverbesserungen." },
-    "era_advancement": { "title": "Zeitalteraufstieg", "description": "Steige von der Antike ins Mittelalter auf: Erfülle das Tor, steige auf und überstehe das Verwundbarkeitsfenster." }
+    "era_advancement": { "title": "Zeitalteraufstieg", "description": "Steige von der Antike ins Mittelalter auf: Erfülle das Tor, steige auf und überstehe das Verwundbarkeitsfenster." },
+    "galaxy_lane_sovereignty": {
+      "title": "Galaktisches Zeitalter: Lane Sovereignty",
+      "description": "Hyperraumrouten, Gateways und Korridore: Nimm einen fünften Korridor über eine Route ein und halte das Netz, um zu gewinnen."
+    }
   },
   "steps": {
     "core": {
@@ -242,6 +246,59 @@
       "tt_complete": {
         "title": "Technologielektion abgeschlossen",
         "message": "Du hast einen Knoten erforscht und gesehen, wie sich Boni stapeln. Plane in vollen Partien einen Pfad zu den Fähigkeiten, die deine Strategie braucht."
+      }
+    },
+    "galaxy_lane_sovereignty": {
+      "gls_welcome": {
+        "title": "Lane Sovereignty",
+        "message": "Das Galaktische Zeitalter sind vier Welten in einem Ring – **Sol III – Verdan Reach – Rust Belt – Nexus Station** –, verbunden durch acht Hyperraumrouten, die an beiden Enden auf einem **Gateway**-System landen. Du spielst die Helion Navigators von Verdan Reach, und diese Partie hat den eigenen Sieg der Galaxis: **Lane Sovereignty**.",
+        "detail": "Eine Route ist dein **Korridor**, wenn du beide ihrer Gateways hältst. Halte 5 der 8 Routen zu Beginn deines Zuges, 3 Züge in Folge, und das Netz gehört dir. Ein Duell oder ein 2v2 braucht stattdessen 5 Züge, und nur die acht kartierten Routen zählen.",
+        "hint": "Vier Korridore hältst du bereits. Diese Lektion nimmt den fünften und hält ihn. Klicke auf Weiter – oder überspringe zum Ende und steig direkt ein."
+      },
+      "gls_chart": {
+        "title": "Lies die Galaxiekarte",
+        "message": "Das Spielfeld öffnet sich auf der **Galaxy chart**. Klicke über dem Spielfeld auf den Button **Galaxy chart** – so kommst du aus jedem Welt-Tab zurück – und lies die Routen: Eine Route in **deiner Farbe** ist ein Korridor, eine **blaue** Route ist offen (du hältst ein Ende), eine gedimmte Route ist für dich geschlossen. Das Ziele-Feld in der Seitenleiste zählt mit: **corridors 4 of 5 · held 0 of 3 rounds**.",
+        "detail": "Bei drei Sitzen überbrücken Kolonierouten die beiden Lücken des Rings. Sie tragen Angriffe wie jede Route, aber Lane Sovereignty zählt nur die acht kartierten.",
+        "hint": "Auf dem Handy sitzt der Chip Galaxy chart in der Reihe „Worlds“ über dem Spielfeld. Ein Welt-Tab öffnet diese Welt allein."
+      },
+      "gls_charts": {
+        "title": "Erforsche Lane Charts",
+        "message": "Ein Angriff über eine Route würfelt höchstens mit **2 Würfeln**, nicht 3 – ein verteidigtes Gateway hält wie eine Küste. **Lane Charts** kauft den dritten Würfel zurück. Öffne den Technologiebaum und erforsche es; du hast genau seine Kosten erhalten.",
+        "detail": "Lane Charts ist die Routen-Wurzel der Stufe 1 in der Galaxis. Das Wunder Hyperlane Anchor hebt die Grenze ganz auf, und die Void Custodians würfeln einen zusätzlichen Würfel, wenn sie eine Route verteidigen.",
+        "hint": "Forschen ist in jeder Phase deines Zuges erlaubt. Tippe unten auf „Technologiebaum öffnen“."
+      },
+      "gls_draft": {
+        "title": "Stapel auf dein Gateway",
+        "message": "Klicke auf **Hematite Span** – dein hervorgehobenes Gateway im Rust Belt –, wähle **All** und drücke **Place**. Klicke dann auf den goldenen Button **{{draftButton}}**.",
+        "detail": "Öffne den Tab **Rust Belt**, um es zu finden. Seine Gateway-Karte führt die Route nach Nexus Station als **Open**: Du hältst dieses Ende, und die Void Custodians halten **Antenna Spire** am anderen.",
+        "hint": "Navigators erhalten +2 Verstärkung pro Zug. Halte die Stapel auf Verdan Reach unter 12: Seine Stürme nehmen allem, was höher ist, jede Runde eine Einheit."
+      },
+      "gls_cross": {
+        "title": "Überquere die Route",
+        "message": "Klicke auf **Hematite Span** und dann über die Route auf **Antenna Spire**. Die Angriffszeile zeigt die Würfel, die eine Überquerung rollt. Greif erneut an – oder **Attack until captured** –, bis das Gateway fällt.",
+        "detail": "Es einzunehmen macht die Route Rust–Nexus zu deinem fünften Korridor. Die Kampfkarte zeigt den zusätzlichen Verteidigungswürfel der Custodians bei einer Routenüberquerung – zwölf gegen zwei setzt sich über ein paar Würfe durch.",
+        "hint": "Nur ein Angriff von einem Gateway aus kann eine Route überqueren: Die Route ist die Grenze."
+      },
+      "gls_hold_1": {
+        "title": "Fünf Korridore – jetzt halten",
+        "message": "Das Ziele-Feld zeigt **corridors 5 of 5**. Die Serie wächst nur zu Beginn **deines** Zuges, also klicke auf **{{attackButton}}** und dann auf **{{fortifyButton}}** und sieh zu, wie die zwei gegnerischen Züge vergehen.",
+        "detail": "Ein Rivale bricht einen Korridor, indem er in seinem Zug eines der beiden Gateways nimmt – bevor deine Serie tickt. Die Tutorial-Gegner greifen nie an; echte schon."
+      },
+      "gls_hold_2": {
+        "title": "1 von 3 Runden gehalten",
+        "message": "Wieder dein Zug, und die Serie hat getickt: **held 1 of 3 rounds**. Setze deine Verstärkungen dort, wo sie ein Gateway stützen, und spiele den Zug bis **{{fortifyButton}}** durch.",
+        "detail": "Ein Void Custodian könnte sich mit einem **Emergency Seal** eine Runde erkaufen: Es schließt eine Route, die Nexus Station berührt, bis zu seinem nächsten Zug für alle anderen. Es stoppt die Angriffe über eine Route, nicht den Korridor selbst."
+      },
+      "gls_win": {
+        "title": "2 von 3 gehalten – noch ein Zugbeginn",
+        "message": "Beende auch diesen Zug. Wenn dein Zug wieder an der Reihe ist, erreicht die Serie 3, und die Partie endet mit **Lane Sovereignty**, bevor du eine Einheit setzt.",
+        "detail": "Jeder Galaxie-Sieg außer Dominanz wird ab Runde 2 gewertet, sobald jeder Sitz einen Zug hatte; die drei Runden der Sovereignty erledigen das von selbst."
+      },
+      "gls_complete": {
+        "title": "Lane Sovereignty abgeschlossen",
+        "message": "Du hast eine Route überquert, einen fünften Korridor vollendet und das Netz drei Zugbeginne lang gehalten. In einer echten Partie kämpfen die Rivalen um jedes Gateway, und ein Korridor, der in ihrem Zug fällt, setzt deine Serie auf null zurück.",
+        "skippedTitle": "Direkt ins Spiel",
+        "skippedMessage": "Kurz gefasst: Halte beide Gateways von 5 der 8 kartierten Routen zu Beginn deines Zuges, 3 Züge in Folge (5 im Duell oder 2v2). Vier Korridore hältst du jetzt. Nimm **Antenna Spire** von **Hematite Span** aus über die Route für den fünften und halte ihn. Gerade jetzt hast du Verstärkungen zu platzieren – klicke auf **Hematite Span** und dann auf {{draftButton}}."
       }
     }
   }

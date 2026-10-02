@@ -4,7 +4,9 @@ import {
   CORE_TUTORIAL_GRANT_TECH_POINTS,
   ERA_LESSON_GRANT_GOLD,
   ERA_LESSON_GRANT_TECH_POINTS,
+  GALAXY_LANE_SOVEREIGNTY_GRANT_TECH_POINTS,
 } from './tutorialGrants';
+import { GALAXY_AGE_TECH_TREE } from '../eras/galaxyage';
 import { normalizeGameSettings } from '../state/gameSettings';
 import { computeAdvanceCost } from '../eraAdvancement/advanceEra';
 import { getEffectiveMilestoneGate } from '../eraAdvancement/spines';
@@ -91,5 +93,12 @@ describe('tutorial grants', () => {
     expect(ERA_LESSON_GRANT_GOLD).toBeGreaterThanOrEqual(
       computeAdvanceCost(state, state.players[0]),
     );
+  });
+
+  it('funds Lane Charts for the Lane Sovereignty lesson, and nothing more', () => {
+    const laneCharts = GALAXY_AGE_TECH_TREE.find((n) => n.tech_id === 'ga_hyperspace_chart')!;
+    expect(GALAXY_LANE_SOVEREIGNTY_GRANT_TECH_POINTS).toBe(laneCharts.cost);
+    const cheapest = Math.min(...GALAXY_AGE_TECH_TREE.map((n) => n.cost));
+    expect(GALAXY_LANE_SOVEREIGNTY_GRANT_TECH_POINTS).toBeLessThan(laneCharts.cost + cheapest);
   });
 });

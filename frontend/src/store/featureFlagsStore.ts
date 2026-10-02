@@ -25,6 +25,7 @@ export interface ClientFeatureFlags {
   era_heritage_buildings_enabled: boolean;
   era_wonder_per_era_enabled: boolean;
   warfront_enabled: boolean;
+  galaxy_tutorial_enabled: boolean;
   localization_enabled: boolean;
   daily_puzzle_v2_enabled: boolean;
   store_v2_enabled: boolean;
@@ -79,6 +80,9 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   era_wonder_per_era_enabled: false,
   // Experimental Warfront RTS mode: admin-only surfaces, and off by default on top.
   warfront_enabled: false,
+  // The Galactic Age tutorial track. Dark-launched OFF with the era: the
+  // Academy hides the galaxy lessons and the server refuses to start one.
+  galaxy_tutorial_enabled: false,
   // Localized landing + tutorial (src/i18n). Dark-launched OFF: the bundles
   // ship but everyone sees English until an operator turns this on.
   localization_enabled: false,
@@ -189,6 +193,15 @@ export function useAsyncTurnAlertsEnabled(): boolean {
  */
 export function useWarfrontEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.warfront_enabled);
+}
+
+/**
+ * The Galactic Age tutorial track (src/tutorial/modules/galaxy*). Off, the
+ * Academy lists the five core lessons only and nothing recommends a galaxy
+ * one; the server refuses to start one either way.
+ */
+export function useGalaxyTutorialEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.galaxy_tutorial_enabled);
 }
 
 export function useAttackBlitzEnabled(): boolean {

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { GraduationCap, BookOpen, Settings2, Swords, FlaskConical, Sparkles } from 'lucide-react';
+import { GraduationCap, BookOpen, Settings2, Swords, FlaskConical, Sparkles, Orbit } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import BrandWordmark from '../components/ui/BrandWordmark';
 import LanguageSwitcher from '../components/ui/LanguageSwitcher';
@@ -18,6 +18,7 @@ import {
   type TutorialLessonModule,
 } from '../tutorial';
 import { localizeTutorialModuleMeta } from '../tutorial/localize';
+import { useGalaxyTutorialEnabled } from '../store/featureFlagsStore';
 
 const MODULE_ICONS: Record<TutorialLessonModule, React.ElementType> = {
   core: GraduationCap,
@@ -25,6 +26,7 @@ const MODULE_ICONS: Record<TutorialLessonModule, React.ElementType> = {
   faction_ability: Swords,
   tech_tree: FlaskConical,
   era_advancement: Sparkles,
+  galaxy_lane_sovereignty: Orbit,
 };
 
 /**
@@ -54,6 +56,12 @@ export default function TutorialPage() {
    */
   const [autoStartFailed, setAutoStartFailed] = useState(false);
   const [completed, setCompleted] = useState<TutorialLessonModule[]>([]);
+  // The Galactic Age lessons are dark-launched with the era: the server
+  // refuses to start one while the flag is off, so they are not offered.
+  const galaxyEnabled = useGalaxyTutorialEnabled();
+  const listedModules = TUTORIAL_MODULES.filter(
+    (m) => (TUTORIAL_V2_ENABLED || m.id === 'core') && (!m.galaxy || galaxyEnabled),
+  );
 
   const moduleParam = searchParams.get('module') as TutorialLessonModule | null;
   const autoStart = searchParams.get('start') === '1';
@@ -111,13 +119,13 @@ export default function TutorialPage() {
     if (!autoStart && !moduleParam) return;
     if (startedRef.current) return;
     startedRef.current = true;
-    const mod = moduleParam && TUTORIAL_MODULES.some((m) => m.id === moduleParam)
+    const mod = moduleParam && listedModules.some((m) => m.id === moduleParam)
       ? moduleParam
       : 'core';
     void startLesson(mod);
   }, [hydrated, bootstrapped, autoStart, moduleParam]);
 
-  const recommended = getRecommendedTutorialModule();
+  const recommended = getRecommendedTutorialModule({ galaxyEnabled });
   const recommendedMeta = recommended
     ? TUTORIAL_MODULES.find((m) => m.id === recommended)
     : undefined;
@@ -210,7 +218,7 @@ export default function TutorialPage() {
         )}
 
         <div className="space-y-3">
-          {TUTORIAL_MODULES.filter((m) => TUTORIAL_V2_ENABLED || m.id === 'core').map((mod) => {
+          {listedModules.map((mod) => {
             const Icon = MODULE_ICONS[mod.id];
             const done = completed.includes(mod.id);
             const copy = localizeTutorialModuleMeta(mod, t);

@@ -192,6 +192,15 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().match_alerts_enabled).toBe(true);
   });
 
+  it('galaxy_tutorial_enabled defaults to off (dark-launched with the era) and is admin-overridable', () => {
+    expect(featureFlags.galaxyTutorialEnabled).toBe(false);
+    expect(getClientFeatureFlags().galaxy_tutorial_enabled).toBe(false);
+    expect(getFeatureFlagStates().galaxy_tutorial_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { galaxy_tutorial_enabled: true } });
+    expect(featureFlags.galaxyTutorialEnabled).toBe(true);
+    expect(getClientFeatureFlags().galaxy_tutorial_enabled).toBe(true);
+  });
+
   it('warfront_enabled defaults to off (experimental, admin-only) and is admin-overridable', () => {
     expect(featureFlags.warfrontEnabled).toBe(false);
     expect(getClientFeatureFlags().warfront_enabled).toBe(false);

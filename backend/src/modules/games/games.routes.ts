@@ -26,6 +26,8 @@ import {
   ERA_LESSON_GRANT_GOLD,
   ERA_LESSON_GRANT_TECH_POINTS,
 } from '../../game-engine/tutorial/tutorialGrants';
+import { isGalaxyTutorialModule, TUTORIAL_LESSON_MODULES } from '../../game-engine/tutorial/tutorialModules';
+import { galaxyTutorialGameSpec, type TutorialSeat } from '../../game-engine/tutorial/galaxyTutorialGames';
 import {
   ASCENSION_GALAXY_ADVANCEMENT_ERROR,
   buildMapMetaFromDoc,
@@ -52,10 +54,12 @@ import { dailyRunWonForGame } from '../../game-engine/daily/dailyRunResult';
 /** Optional body for POST /tutorial/start — default matches lobby quick-start (small tutorial map). */
 const TutorialStartSchema = z.object({
   era: z.enum(['ancient', 'ww2']).optional(),
-  lesson_module: z
-    .enum(['core', 'advanced_settings', 'faction_ability', 'tech_tree', 'era_advancement'])
-    .optional(),
+  lesson_module: z.enum(TUTORIAL_LESSON_MODULES).optional(),
 });
+
+/** What the Galactic Age lessons answer while their flag is off. */
+export const GALAXY_TUTORIAL_CLOSED_ERROR =
+  'The Galactic Age tutorial is not open yet.';
 
 const victoryConditionEnum = z.enum([
   'domination', 'secret_mission', 'capital', 'threshold', 'transcendence',
@@ -279,6 +283,35 @@ export function galaxyPlayerCountRejection(opts: {
   return 1 + opts.aiCount > opts.maxPlayers ? GALAXY_PLAYER_COUNT_ERROR : null;
 }
 
+/** The seat colours a tutorial deals, in seat order; the human is always first. */
+const TUTORIAL_SEAT_COLORS = ['#3498db', '#e74c3c', '#e67e22', '#9b59b6'];
+
+/**
+ * Seat a tutorial's players: the human at seat 0, then each AI seat with its
+ * difficulty. A galaxy lesson gives every seat a faction so the home-world
+ * deal is the one its authored opening was written against; the other lessons
+ * leave the AI's faction to the engine, as they always have.
+ */
+async function insertTutorialSeats(gameId: string, userId: string, seats: TutorialSeat[]): Promise<void> {
+  for (let i = 0; i < seats.length; i++) {
+    const seat = seats[i]!;
+    const color = TUTORIAL_SEAT_COLORS[i % TUTORIAL_SEAT_COLORS.length]!;
+    if (seat.is_ai) {
+      await query(
+        `INSERT INTO game_players (game_id, user_id, player_index, player_color, is_ai, ai_difficulty, faction_id)
+         VALUES ($1, NULL, $2, $3, true, $4, $5)`,
+        [gameId, i, color, seat.ai_difficulty ?? 'tutorial', seat.faction_id],
+      );
+    } else {
+      await query(
+        `INSERT INTO game_players (game_id, user_id, player_index, player_color, is_ai, faction_id)
+         VALUES ($1, $2, $3, $4, false, $5)`,
+        [gameId, userId, i, color, seat.faction_id],
+      );
+    }
+  }
+}
+
 export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
   // ── POST /api/games ──────────────────────────────────────────────────────
   fastify.post('/', { preHandler: [shedIfPoolSaturated, authenticate], config: { rateLimit: { max: 15, timeWindow: '1 minute' } } }, async (request, reply) => {
@@ -495,6 +528,24 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(400).send(formatZodError(parsed.error));
     }
     const lessonModule = parsed.data.lesson_module ?? 'core';
+    // The Galactic Age lessons are dark-launched with the era: refused here,
+    // server-side, until `galaxy_tutorial_enabled` is on — the client hides
+    // them behind the same flag, but hiding a control is not a gate.
+    if (isGalaxyTutorialModule(lessonModule)) {
+      if (!featureFlags.galaxyTutorialEnabled) {
+        return reply.status(403).send({ error: GALAXY_TUTORIAL_CLOSED_ERROR });
+      }
+      const spec = galaxyTutorialGameSpec(lessonModule);
+      const galaxyGameId = uuidv4();
+      await query(
+        `INSERT INTO games (game_id, map_id, era_id, status, settings_json, game_type)
+         VALUES ($1, $2, $3, 'waiting', $4, 'solo')`,
+        [galaxyGameId, spec.mapId, spec.eraId, JSON.stringify(applyAdminSnapshotsToSettings(spec.settings))],
+      );
+      await insertTutorialSeats(galaxyGameId, request.userId, spec.seats);
+      recordServerEvent('tutorial_started', { game_id: galaxyGameId, lesson_module: lessonModule }, request.userId);
+      return reply.status(201).send({ game_id: galaxyGameId });
+    }
     // The deep-dive modules use the WW2 globe for a consistent surface. Era
     // Advancement is the exception: it must start in the Ancient era (the spine's
     // first step), so it runs on the Ancient map.
@@ -584,17 +635,10 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       [gameId, mapId, eraId, JSON.stringify(applyAdminSnapshotsToSettings(tutorialSettings))],
     );
 
-    const colors = ['#3498db', '#e74c3c'];
-    await query(
-      `INSERT INTO game_players (game_id, user_id, player_index, player_color, is_ai, faction_id)
-       VALUES ($1, $2, 0, $3, false, $4)`,
-      [gameId, request.userId, colors[0], humanFactionId],
-    );
-    await query(
-      `INSERT INTO game_players (game_id, user_id, player_index, player_color, is_ai, ai_difficulty)
-       VALUES ($1, NULL, 1, $2, true, 'tutorial')`,
-      [gameId, colors[1]],
-    );
+    await insertTutorialSeats(gameId, request.userId, [
+      { faction_id: humanFactionId, is_ai: false },
+      { faction_id: null, is_ai: true, ai_difficulty: 'tutorial' },
+    ]);
 
     recordServerEvent('tutorial_started', { game_id: gameId, lesson_module: lessonModule }, request.userId);
     return reply.status(201).send({ game_id: gameId });
