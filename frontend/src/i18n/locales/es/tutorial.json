@@ -64,6 +64,10 @@
     "galaxy_capital": {
       "title": "Era Galáctica: Captura de capital",
       "description": "Aquí las capitales están en gateways: conserva Amazon Basin y toma la capital de los Navigators a través de su ruta para ganar."
+    },
+    "galaxy_threshold": {
+      "title": "Era Galáctica: Umbral de territorio",
+      "description": "La galaxia cuenta todos los sistemas, colonias incluidas: controlas 38 de los 39 que exige el 60 %; toma el 39.º por tierra y gana."
     }
   },
   "steps": {
@@ -437,6 +441,41 @@
         "message": "Conservaste Amazon Basin y tomaste Chlorophage Span a través de su ruta. En una partida galáctica real, las capitales en gateways son los sistemas por los que todos luchan dos veces: como capitales y como extremos de ruta.",
         "skippedTitle": "Directo a la partida",
         "skippedMessage": "En pocas palabras: conserva tu capital, **Amazon Basin**, y toma la capital de los Navigators, **Chlorophage Span**, desde **Guinea Coast** a través de la ruta; la victoria se juzga desde la ronda 2. Ahora mismo tienes refuerzos que colocar: haz clic en **Guinea Coast** y luego en {{draftButton}}."
+      }
+    },
+    "galaxy_threshold": {
+      "gth_welcome": {
+        "title": "Umbral de territorio en la galaxia",
+        "message": "Esta partida se juega por la victoria de **Umbral**: controla el **60 %** del mapa. Eres la Stellar Mandate de **Sol III**, ya has colonizado toda **Nexus Station** y has desembarcado seis sistemas adentro en **Verdan Reach**, a través de las dos rutas Sol–Verdan. Los Helion Navigators controlan el resto de Verdan. El **Rust Belt** es una colonia neutral que nadie ha reclamado.",
+        "detail": "La galaxia cuenta **todos** los sistemas del tablero, colonias neutrales incluidas: el 60 % de 64 es 38,4, así que la victoria exige **39**. La dominación exigiría los 64 —cada guarnición colonial además de cada rival—, y por eso una sala galáctica abre con el Umbral activado al 60 % a su lado, y un límite de 90 rondas detrás de ambos.",
+        "hint": "Haz clic en Siguiente, o salta al final para entrar directamente."
+      },
+      "gth_meter": {
+        "title": "Lee el medidor de control del mapa",
+        "message": "La barra superior muestra **59%/60%**, y el panel **Objectives** de la pestaña Status de la barra lateral lo detalla: **Map control: 59% of 60% · 38 of 39 territories**, con **Hold 60% of the map — 39 of its 64 territories — to win. 1 more to go.** debajo. La cuota se redondea hacia abajo, así que el medidor nunca anuncia una victoria que el servidor no haya dado.",
+        "detail": "La cantidad necesaria es el número entero igual o superior al 60 % del tablero; el medidor y el servidor usan la misma expresión, así que nunca discrepan sobre el último sistema. En un 2v2 o con casas aliadas, los sistemas de tu bando cuentan juntos, y la sala mueve el valor por defecto al **75 %** al activar el 2v2. Se juzga desde la ronda 2, como toda victoria salvo la dominación.",
+        "whyItMatters": "Nadie refuerza una colonia. Los dieciséis sistemas neutrales de Rust están dentro de los 64 los controle quien los controle, así que en una partida real las colonias son el camino más barato hacia la cifra."
+      },
+      "gth_draft": {
+        "title": "Apila en Saffron Mire",
+        "message": "Haz clic en **Saffron Mire** —tu sistema de cabeza de puente junto a Spore Reach, resaltado—, elige **All** y pulsa **Place**. Después haz clic en el botón dorado **{{draftButton}}**.",
+        "detail": "Un imperio de 38 sistemas recluta a lo grande: un tercio de sus sistemas, más una bonificación por cada región que controla entera —cada una escalada por el número de asientos, un tercio de su valor indicado con dos, y nunca por debajo de uno. Algo que saber de Verdan en una partida real: sus tormentas quitan una unidad por ronda a cualquier pila por encima de 12."
+      },
+      "gth_take": {
+        "title": "Toma el 39.º sistema",
+        "message": "Haz clic en **Saffron Mire** y luego en **Spore Reach**, a su lado. Es un ataque terrestre en el mismo mundo, así que tira los 3 dados completos: sin límite de ruta. **Attack until captured** insiste hasta que caiga, y hasta 3 de tus atacantes avanzan por su cuenta.",
+        "detail": "Cualquier sistema valdría: el 39.º podría haber sido igualmente una guarnición neutral del Rust Belt al otro lado de una ruta. Los Navigators controlan Spore Reach con dos unidades y sin bonificación de defensa."
+      },
+      "gth_win": {
+        "title": "Se juzga desde la ronda 2",
+        "message": "El medidor marca **60% of 60% · 39 of 39 territories** en dorado. Si todavía es la ronda 1, termina tu turno con **{{attackButton}}** y **{{fortifyButton}}**: la victoria llega al abrirse la ronda 2, antes de que coloques una unidad. Tomado en la ronda 2 o después, la partida terminó con la captura.",
+        "detail": "Cada asiento tiene un primer turno antes de que se lea umbral alguno: un asiento al que repartieron un mundo entero podría cruzar la línea antes de que el último hubiera colocado una unidad. En una partida real el límite de 90 rondas es el otro extremo del mismo recuento: pasado, sin nadie por encima de la línea, gana quien tenga más sistemas."
+      },
+      "gth_complete": {
+        "title": "Umbral de territorio completado",
+        "message": "Tomaste el 39.º sistema y cruzaste el 60 % de la galaxia. En una partida real el recuento es el mismo controle quien controle el resto: colonias, rivales y guarniciones vacías están todas dentro de los 64, y el medidor de la barra superior te dice cuántos más necesitas.",
+        "skippedTitle": "Directo a la partida",
+        "skippedMessage": "En pocas palabras: controlas **38 de los 39** sistemas que el 60 % de este tablero exige. Toma uno más —**Spore Reach**, junto a tu **Saffron Mire**— y la victoria se juzga desde la ronda 2. Ahora mismo tienes refuerzos que colocar: haz clic en **Saffron Mire** y luego en {{draftButton}}."
       }
     }
   }

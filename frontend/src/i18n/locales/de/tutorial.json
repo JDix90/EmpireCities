@@ -64,6 +64,10 @@
     "galaxy_capital": {
       "title": "Galaktisches Zeitalter: Hauptstadteinnahme",
       "description": "Hauptstädte liegen hier auf Gateways: Halte Amazon Basin und nimm die Hauptstadt der Navigators über ihre Route ein, um zu gewinnen."
+    },
+    "galaxy_threshold": {
+      "title": "Galaktisches Zeitalter: Gebietsschwelle",
+      "description": "Die Galaxis zählt jedes System, Kolonien eingeschlossen: Du hältst 38 der 39, die 60 % brauchen – nimm das 39. am Boden ein und gewinne."
     }
   },
   "steps": {
@@ -437,6 +441,41 @@
         "message": "Du hast Amazon Basin gehalten und Chlorophage Span über seine Route eingenommen. In einer echten Galaxie-Partie sind die Hauptstädte auf Gateways die Systeme, um die alle doppelt kämpfen – als Hauptstädte und als Enden von Routen.",
         "skippedTitle": "Direkt ins Spiel",
         "skippedMessage": "Kurz gefasst: Halte deine Hauptstadt **Amazon Basin** und nimm die Hauptstadt der Navigators, **Chlorophage Span**, von **Guinea Coast** aus über die Route ein; der Sieg wird ab Runde 2 gewertet. Gerade jetzt hast du Verstärkungen zu platzieren – klicke auf **Guinea Coast** und dann auf {{draftButton}}."
+      }
+    },
+    "galaxy_threshold": {
+      "gth_welcome": {
+        "title": "Gebietsschwelle in der Galaxis",
+        "message": "Diese Partie wird um den **Schwellensieg** gespielt: Halte **60 %** der Karte. Du bist die Stellar Mandate von **Sol III**, hast bereits ganz **Nexus Station** besiedelt und bist über die beiden Routen Sol–Verdan sechs Systeme tief auf **Verdan Reach** gelandet. Die Helion Navigators halten den Rest von Verdan. Der **Rust Belt** ist eine neutrale Kolonie, die niemand beansprucht hat.",
+        "detail": "Die Galaxis zählt **jedes** System auf dem Spielfeld, die neutralen Kolonien eingeschlossen: 60 % von 64 sind 38,4, der Sieg braucht also **39**. Dominanz bräuchte alle 64 – jede Koloniegarnison ebenso wie jeden Rivalen –, weshalb eine Galaxis-Lobby mit der Schwelle bei 60 % daneben öffnet, mit einem 90-Runden-Limit hinter beiden.",
+        "hint": "Klicke auf Weiter oder überspringe zum Ende und steig direkt ein."
+      },
+      "gth_meter": {
+        "title": "Lies die Kartenkontroll-Anzeige",
+        "message": "Die obere Leiste zeigt **59%/60%**, und das Feld **Objectives** im Tab Status der Seitenleiste schreibt es aus: **Map control: 59% of 60% · 38 of 39 territories**, darunter **Hold 60% of the map — 39 of its 64 territories — to win. 1 more to go.** Der Anteil wird abgerundet, die Anzeige behauptet also nie einen Sieg, den der Server nicht gegeben hat.",
+        "detail": "Die nötige Zahl ist die ganze Zahl bei oder über 60 % des Spielfelds; Anzeige und Server verwenden denselben Ausdruck und sind sich über das letzte System nie uneins. In einem 2v2 oder mit verbündeten Häusern zählen die Systeme deiner Seite zusammen, und die Lobby setzt den Standard auf **75 %**, sobald 2v2 eingeschaltet wird. Gewertet ab Runde 2, wie jeder Sieg außer Dominanz.",
+        "whyItMatters": "Niemand verstärkt eine Kolonie. Die sechzehn neutralen Rust-Systeme sitzen in den 64, wer sie auch hält – in einer echten Partie sind die Kolonien also der günstigste Weg zur Zahl."
+      },
+      "gth_draft": {
+        "title": "Stapel auf Saffron Mire",
+        "message": "Klicke auf **Saffron Mire** – dein Brückenkopf-System neben Spore Reach, hervorgehoben –, wähle **All** und drücke **Place**. Klicke dann auf den goldenen Button **{{draftButton}}**.",
+        "detail": "Ein Reich aus 38 Systemen zieht groß nach: ein Drittel seiner Systeme plus einen Bonus für jede vollständig gehaltene Region – jeder skaliert mit der Sitzzahl, bei zweien ein Drittel des angegebenen Werts, und nie unter eins. Eines zu Verdan in einer echten Partie: Seine Stürme nehmen jedem Stapel über 12 jede Runde eine Einheit."
+      },
+      "gth_take": {
+        "title": "Nimm das 39. System",
+        "message": "Klicke auf **Saffron Mire** und dann auf **Spore Reach** daneben. Das ist ein Bodenangriff auf derselben Welt, er würfelt also mit allen 3 Würfeln – keine Routengrenze. **Attack until captured** drückt nach, bis es fällt, und bis zu 3 deiner Angreifer rücken von selbst nach.",
+        "detail": "Jedes System täte es: Das 39. hätte genauso gut eine neutrale Garnison im Rust Belt jenseits einer Route sein können. Die Navigators halten Spore Reach mit zwei Einheiten und ohne Verteidigungsbonus."
+      },
+      "gth_win": {
+        "title": "Gewertet ab Runde 2",
+        "message": "Die Anzeige zeigt **60% of 60% · 39 of 39 territories** in Gold. Ist noch Runde 1, beende deinen Zug mit **{{attackButton}}** und **{{fortifyButton}}**: Der Sieg kommt, sobald Runde 2 beginnt, bevor du eine Einheit setzt. In Runde 2 oder später eingenommen, endete die Partie mit der Eroberung.",
+        "detail": "Jeder Sitz bekommt einen ersten Zug, bevor eine Schwelle gelesen wird: Ein Sitz, dem eine ganze Welt zugeteilt wurde, könnte die Linie sonst überschreiten, bevor der letzte Sitz eine Einheit gesetzt hat. In einer echten Partie ist das 90-Runden-Limit das andere Ende derselben Zählung – danach, wenn niemand über der Linie ist, gewinnen die meisten Systeme."
+      },
+      "gth_complete": {
+        "title": "Gebietsschwelle abgeschlossen",
+        "message": "Du hast das 39. System eingenommen und 60 % der Galaxis überschritten. In einer echten Partie ist die Zählung dieselbe, wer auch den Rest hält: Kolonien, Rivalen und leere Garnisonen sitzen alle in den 64, und die Anzeige in der oberen Leiste sagt dir, wie viele du noch brauchst.",
+        "skippedTitle": "Direkt ins Spiel",
+        "skippedMessage": "Kurz gefasst: Du hältst **38 der 39** Systeme, die 60 % dieses Spielfelds brauchen. Nimm eines mehr – **Spore Reach**, neben deinem **Saffron Mire** –, und der Sieg wird ab Runde 2 gewertet. Gerade jetzt hast du Verstärkungen zu platzieren – klicke auf **Saffron Mire** und dann auf {{draftButton}}."
       }
     }
   }

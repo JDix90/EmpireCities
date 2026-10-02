@@ -15,6 +15,7 @@ import { GALAXY_LANE_SOVEREIGNTY_SCENARIO } from './galaxyLaneSovereigntyScenari
 import { GALAXY_TRANSCENDENCE_SCENARIO } from './galaxyTranscendenceScenario';
 import { GALAXY_SECRET_MISSIONS_SCENARIO } from './galaxySecretMissionsScenario';
 import { GALAXY_CAPITAL_SCENARIO } from './galaxyCapitalScenario';
+import { GALAXY_THRESHOLD_LESSON_PERCENT, GALAXY_THRESHOLD_SCENARIO } from './galaxyThresholdScenario';
 import {
   GALAXY_LANE_SOVEREIGNTY_GRANT_TECH_POINTS,
   GALAXY_TRANSCENDENCE_GRANT_GOLD,
@@ -149,6 +150,24 @@ export function galaxyTutorialGameSpec(lessonModule: GalaxyTutorialLessonModule)
         settings: {
           ...galaxySettingsBase(lessonModule, seats.length, ['domination', 'capital']),
           authored_scenario: GALAXY_CAPITAL_SCENARIO,
+        },
+      };
+    }
+    case 'galaxy_threshold': {
+      // The Mandate holding Sol, Nexus Station and a Verdan beachhead, one
+      // system short of the galaxy default's 60%; see galaxyThresholdScenario.ts.
+      const seats: TutorialSeat[] = [
+        { faction_id: 'stellar_mandate', is_ai: false },
+        { faction_id: 'helion_navigators', is_ai: true, ai_difficulty: TUTORIAL_AI },
+      ];
+      return {
+        mapId: 'era_galaxy',
+        eraId: 'galaxy_age',
+        seats,
+        settings: {
+          ...galaxySettingsBase(lessonModule, seats.length, ['domination', 'threshold']),
+          victory_threshold: GALAXY_THRESHOLD_LESSON_PERCENT,
+          authored_scenario: GALAXY_THRESHOLD_SCENARIO,
         },
       };
     }

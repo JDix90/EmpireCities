@@ -27,6 +27,7 @@ export const GALAXY_TUTORIAL_MODULE_IDS = [
   'galaxy_transcendence',
   'galaxy_secret_missions',
   'galaxy_capital',
+  'galaxy_threshold',
 ] as const;
 
 export const TUTORIAL_MODULE_IDS = [...CORE_TUTORIAL_MODULE_IDS, ...GALAXY_TUTORIAL_MODULE_IDS] as const;
@@ -212,6 +213,16 @@ export const TUTORIAL_MODULES: TutorialModuleMeta[] = [
     description: 'Capitals sit on gateways here: hold Amazon Basin and take the Navigators\' capital across its lane to win.',
     // Four cards of reading and one turn of play: one lane crossing, then the
     // win as round 2 opens.
+    estimatedMinutes: 4,
+    galaxy: true,
+    completesOnVictory: true,
+  },
+  {
+    id: 'galaxy_threshold',
+    title: 'Galactic Age: Territory Threshold',
+    description: 'The galaxy counts every system, colonies included: you hold 38 of the 39 that 60% needs — take the 39th by ground and win.',
+    // Four cards of reading and one turn of play: one ground attack, then
+    // the win as round 2 opens.
     estimatedMinutes: 4,
     galaxy: true,
     completesOnVictory: true,
