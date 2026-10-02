@@ -10,10 +10,19 @@ export interface ReplayPreviewData extends ReplayOgOptions {
 }
 
 /** Humanize an era id like `era_industrial` → `Industrial`. */
+/** Era ids whose Title Case split is not a name anyone uses. */
+const ERA_LABEL_OVERRIDES: Record<string, string> = {
+  ww2: 'World War II',
+  coldwar: 'Cold War',
+  acw: 'American Civil War',
+};
+
 export function humanizeEra(eraId: string | null | undefined): string {
   if (!eraId) return 'Custom';
-  return eraId
-    .replace(/^era_/, '')
+  const bare = eraId.replace(/^era_/, '');
+  const override = ERA_LABEL_OVERRIDES[bare];
+  if (override) return override;
+  return bare
     .split(/[_-]/)
     .filter(Boolean)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))

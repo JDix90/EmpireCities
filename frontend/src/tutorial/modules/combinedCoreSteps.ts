@@ -67,7 +67,7 @@ export const COMBINED_CORE_TUTORIAL_STEPS: TutorialStep[] = [
     // centre is cheap and opens the board, the north is a fair fight, and the
     // south is the one that should look wrong.
     message: 'Click one of your territories (2+ units), then an adjacent enemy one. **Tuscany & Latium → Umbria & Abruzzo** is the cheap opening: it holds 2 and borders both of the other Adriatic lands, so taking it puts you next to everything. **Lombardy & Piedmont → Veneto & Emilia** is the slower flank: 3 defenders across a broad northern front.',
-    detail: 'Attacker rolls up to 3 dice, defender up to 2. Highest are compared pair by pair; the loser of each pair loses a unit and ties go to the defender. You capture a territory when its last defender falls.',
+    detail: 'Attacker rolls up to 3 dice, defender up to 2 — those are the base counts; faction abilities, technologies, events and era rules can add dice on top. Highest are compared pair by pair; the loser of each pair loses a unit and ties go to the defender. You capture a territory when its last defender falls.',
     hint: `Attack as often as you like — or not at all. When you're done, click the gold **${phaseAdvanceLabel('attack')}** button.`,
     // Bottom-centre runs 630px tall here and sits squarely on the eastern half
     // of the board this card is telling the player to click. See `cardPosition`
@@ -84,9 +84,9 @@ export const COMBINED_CORE_TUTORIAL_STEPS: TutorialStep[] = [
   },
   {
     id: 'turn_ends',
-    title: 'Now Watch the Opponent',
-    message: 'Their turn runs the same three phases. You\'ll see their dice, their captures, and the active player highlighted in the sidebar in real time.',
-    detail: 'Nothing to do here — the next card arrives when the turn comes back to you.',
+    title: 'The Opponent Moves',
+    message: 'Their turn runs the same three phases. The sidebar highlights whoever is active, and their dice and captures land in the turn log — a fast AI may already be done by the time you read this.',
+    detail: 'Nothing to do here — the next card arrives as soon as the turn is back with you.',
     requireAction: 'my_turn',
   },
   {
@@ -107,7 +107,7 @@ export const COMBINED_CORE_TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'ea_advance',
     title: 'Advance to Medieval',
-    message: 'One more technology and every gate chip turns green. Then hit **Advance Era** — the button appears right there in the tech tree\'s gate rail.',
+    message: 'When every gate chip is green, hit **Advance Era** — the button appears right there in the tech tree\'s gate rail. One more technology is all this board\'s gate still wants.',
     detail: 'Advancing consolidates your armies: about 30% of your units are removed for good, spread across your territories, and for one turn afterwards your defenders fight weaker — the vulnerability window. Your research resets to a fresh, stronger Medieval tree; you keep an echo of your old bonuses and gain the era\'s signature reward.',
     hint: 'Climbing in your reinforcement phase means the new era\'s strength applies to the attacks you make this turn. Short on a chip? The rail names what\'s missing, and the Advance button lights up the moment nothing is.',
     requireAction: 'era_advanced',

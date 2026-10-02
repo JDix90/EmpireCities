@@ -4,6 +4,7 @@ import SubpageShell from '../components/ui/SubpageShell';
 import { ERA_LABELS } from '../constants/gameLobbyLabels';
 import FactionLoreModal, { type FactionLoreInfo } from '../components/game/FactionLoreModal';
 import { FACTION_CODEX } from '../marketing/factionCodex.generated.mjs';
+import { useAuthStore } from '../store/authStore';
 
 /**
  * /codex — every faction, grouped by era.
@@ -25,9 +26,17 @@ import { FACTION_CODEX } from '../marketing/factionCodex.generated.mjs';
  */
 export default function CodexPage() {
   const [selected, setSelected] = useState<FactionLoreInfo | null>(null);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   return (
-    <SubpageShell title="FACTION CODEX" icon={BookOpen} maxWidth="4xl" contentClassName="space-y-8">
+    <SubpageShell
+      title="FACTION CODEX"
+      icon={BookOpen}
+      maxWidth="4xl"
+      contentClassName="space-y-8"
+      backHref={isAuthenticated ? '/lobby' : '/'}
+      backLabel={isAuthenticated ? 'Lobby' : 'Home'}
+    >
       <p className="text-bf-muted text-sm -mt-2">Browse all factions across every era.</p>
       <p className="text-bf-muted/70 text-xs -mt-6 flex items-center gap-1.5">
         <span className="w-2.5 h-2.5 rounded-full bg-bf-gold/70 inline-block" />

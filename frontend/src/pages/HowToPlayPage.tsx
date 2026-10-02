@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight, Swords, Shield, Dices, CreditCard, Trophy, S
 import { APP_NAME } from '../constants/brand';
 import SubpageShell from '../components/ui/SubpageShell';
 import { FAQ } from '../marketing/seoContent.mjs';
+import { useAuthStore } from '../store/authStore';
 
 /* ─── Collapsible section ─────────────────────────────────── */
 function Section({ icon: Icon, title, children, defaultOpen = false }: {
@@ -31,8 +32,16 @@ function Section({ icon: Icon, title, children, defaultOpen = false }: {
 
 /* ─── Page ────────────────────────────────────────────────── */
 export default function HowToPlayPage() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   return (
-    <SubpageShell title="HOW TO PLAY" icon={BookOpen} maxWidth="2xl" contentClassName="space-y-6 pb-12">
+    <SubpageShell
+      title="HOW TO PLAY"
+      icon={BookOpen}
+      maxWidth="2xl"
+      contentClassName="space-y-6 pb-12"
+      backHref={isAuthenticated ? '/lobby' : '/'}
+      backLabel={isAuthenticated ? 'Lobby' : 'Home'}
+    >
         <p className="text-bf-muted">
           Everything you need to know to play {APP_NAME}. Sections are collapsible — expand what you need.
         </p>
@@ -52,7 +61,7 @@ export default function HowToPlayPage() {
             </p>
             <p>
               You can play with friends, random opponents, or AI bots. Games can be real-time (fast
-              turn timers) or asynchronous (24–72 hour turns).
+              turn timers) or asynchronous (12–72 hour turns).
             </p>
           </Section>
 
@@ -270,7 +279,7 @@ export default function HowToPlayPage() {
             <div className="space-y-1.5 text-xs">
               <p>
                 <strong className="text-bf-text">Daily Challenge</strong> — A new puzzle scenario
-                every day. Compete for the fastest completion time on the leaderboard.
+                every day. The leaderboard ranks wins first, then score, then the fewest turns taken.
               </p>
               <p>
                 <strong className="text-bf-text">Campaign</strong> — A series of linked scenarios

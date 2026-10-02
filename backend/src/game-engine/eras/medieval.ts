@@ -138,7 +138,7 @@ export const MEDIEVAL_TECH_TREE: TechNode[] = [
   {
     tech_id: 'medieval_castle_keep',
     name: 'Castle Keep',
-    description: 'Stout stone keeps — unlocks the defense_1 building (grants +1 defender die when garrisoned).',
+    description: 'Stout stone keeps — unlocks the Palisade (grants +1 defender die when garrisoned).',
     tier: 1,
     cost: 4,
     unlocks_building: 'defense_1',
@@ -146,7 +146,7 @@ export const MEDIEVAL_TECH_TREE: TechNode[] = [
   {
     tech_id: 'medieval_guilds',
     name: 'Merchant Guilds',
-    description: 'Urban commerce — unlocks production_1 building.',
+    description: 'Urban commerce — unlocks the Workshop.',
     tier: 1,
     cost: 3,
     unlocks_building: 'production_1',
@@ -173,7 +173,7 @@ export const MEDIEVAL_TECH_TREE: TechNode[] = [
   {
     tech_id: 'medieval_concentric_castle',
     name: 'Concentric Castle',
-    description: 'Rings of walls — unlocks defense_2 building.',
+    description: 'Rings of walls — unlocks the Fortress.',
     tier: 2,
     prerequisite: 'medieval_castle_keep',
     cost: 7,
@@ -182,7 +182,7 @@ export const MEDIEVAL_TECH_TREE: TechNode[] = [
   {
     tech_id: 'medieval_banking',
     name: 'Banking System',
-    description: 'Florentine banking networks — unlocks tech_gen_1 building and +2 tech points per turn.',
+    description: 'Florentine banking networks — unlocks the Laboratory and +2 tech points per turn.',
     tier: 2,
     prerequisite: 'medieval_guilds',
     cost: 6,
@@ -212,7 +212,7 @@ export const MEDIEVAL_TECH_TREE: TechNode[] = [
   {
     tech_id: 'medieval_citadel',
     name: 'Citadel',
-    description: 'Impregnable city-fortress — unlocks defense_3 building.',
+    description: 'Impregnable city-fortress — unlocks the Citadel.',
     tier: 3,
     prerequisite: 'medieval_concentric_castle',
     cost: 12,
@@ -221,7 +221,7 @@ export const MEDIEVAL_TECH_TREE: TechNode[] = [
   {
     tech_id: 'medieval_renaissance',
     name: 'Early Renaissance',
-    description: 'Cultural flourishing — unlocks tech_gen_2 building and +3 tech points per turn.',
+    description: 'Cultural flourishing — unlocks the Research Center and +3 tech points per turn.',
     tier: 3,
     prerequisite: 'medieval_banking',
     cost: 11,

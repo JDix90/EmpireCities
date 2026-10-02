@@ -177,7 +177,7 @@ export const ERA_METADATA: Record<string, {
   },
   modern: {
     label: 'The Modern Day',
-    year: '2025',
+    year: '2026',
     color: '#2ECC71',
     bgColor: '#0B1A0F',
     description: 'Command modern superpowers, build alliances, and dominate the 21st-century geopolitical landscape.',
