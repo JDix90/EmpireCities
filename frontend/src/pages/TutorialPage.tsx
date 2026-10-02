@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { GraduationCap, BookOpen, Settings2, Swords, FlaskConical, Sparkles, Orbit, Rocket, Target, Crown, Percent } from 'lucide-react';
+import { GraduationCap, BookOpen, Settings2, Swords, FlaskConical, Sparkles, Orbit, Rocket, Target, Crown, Percent, Flag } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import BrandWordmark from '../components/ui/BrandWordmark';
 import LanguageSwitcher from '../components/ui/LanguageSwitcher';
@@ -31,6 +31,7 @@ const MODULE_ICONS: Record<TutorialLessonModule, React.ElementType> = {
   galaxy_secret_missions: Target,
   galaxy_capital: Crown,
   galaxy_threshold: Percent,
+  galaxy_domination: Flag,
 };
 
 /**

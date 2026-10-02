@@ -8,6 +8,7 @@ import { GALAXY_TRANSCENDENCE_STEPS } from './modules/galaxyTranscendenceSteps';
 import { GALAXY_SECRET_MISSIONS_STEPS } from './modules/galaxySecretMissionsSteps';
 import { GALAXY_CAPITAL_STEPS } from './modules/galaxyCapitalSteps';
 import { GALAXY_THRESHOLD_STEPS } from './modules/galaxyThresholdSteps';
+import { GALAXY_DOMINATION_STEPS } from './modules/galaxyDominationSteps';
 import type { TutorialLessonModule, TutorialRequireAction, TutorialStep } from './types';
 import {
   CORE_TUTORIAL_MODULE_IDS,
@@ -40,6 +41,8 @@ export function getTutorialSteps(module: TutorialLessonModule): TutorialStep[] {
       return GALAXY_CAPITAL_STEPS;
     case 'galaxy_threshold':
       return GALAXY_THRESHOLD_STEPS;
+    case 'galaxy_domination':
+      return GALAXY_DOMINATION_STEPS;
     case 'core':
     default:
       return COMBINED_CORE_TUTORIAL_STEPS;
@@ -154,6 +157,8 @@ export function isTutorialStepCentered(step: TutorialStep | undefined): boolean 
     'gcp_rules',
     'gth_welcome',
     'gth_meter',
+    'gdm_welcome',
+    'gdm_rules',
   ]);
   return centeredIds.has(step.id);
 }

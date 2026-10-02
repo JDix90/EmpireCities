@@ -68,6 +68,10 @@
     "galaxy_threshold": {
       "title": "Era Galáctica: Umbral de territorio",
       "description": "La galaxia cuenta todos los sistemas, colonias incluidas: controlas 38 de los 39 que exige el 60 %; toma el 39.º por tierra y gana."
+    },
+    "galaxy_domination": {
+      "title": "Era Galáctica: Dominación",
+      "description": "Aquí la dominación termina cuando cae el último rival, no el último sistema: toma el último gateway de los Navigators y la partida termina al instante, colonias intactas."
     }
   },
   "steps": {
@@ -476,6 +480,41 @@
         "message": "Tomaste el 39.º sistema y cruzaste el 60 % de la galaxia. En una partida real el recuento es el mismo controle quien controle el resto: colonias, rivales y guarniciones vacías están todas dentro de los 64, y el medidor de la barra superior te dice cuántos más necesitas.",
         "skippedTitle": "Directo a la partida",
         "skippedMessage": "En pocas palabras: controlas **38 de los 39** sistemas que el 60 % de este tablero exige. Toma uno más —**Spore Reach**, junto a tu **Saffron Mire**— y la victoria se juzga desde la ronda 2. Ahora mismo tienes refuerzos que colocar: haz clic en **Saffron Mire** y luego en {{draftButton}}."
+      }
+    },
+    "galaxy_domination": {
+      "gdm_welcome": {
+        "title": "Dominación en la galaxia",
+        "message": "Esta partida se juega solo por **Dominación**: la introducción dice **Control every territory**, y en este tablero eso son los **64** sistemas. Eres la Stellar Mandate de **Sol III**. Los Helion Navigators han quedado con un solo sistema en **Verdan Reach** —**Greenfire Vault**, el gateway frente a tu Pacific Rim—, y tú controlas los otros quince a su alrededor. **Nexus Station** y el **Rust Belt** son colonias neutrales.",
+        "detail": "Esto es lo que la galaxia hace con la dominación: la partida nunca llega a ella. En cuanto cae el último rival, el servidor termina la partida como **Last Commander Standing**, la única victoria que se juzga al instante y no desde la ronda 2; así que las **32** guarniciones coloniales nunca hace falta tomarlas, y un resultado galáctico nunca dice Total Domination mientras quede un rival en la partida. Por eso una sala galáctica real combina la dominación con el Umbral.",
+        "hint": "Haz clic en Siguiente, o salta al final para entrar directamente."
+      },
+      "gdm_rules": {
+        "title": "Last Commander Standing",
+        "message": "La pestaña **Status** de la barra lateral no muestra ningún objetivo para la dominación: no hay nada que contar salvo el propio tablero. Lo que termina la partida es una eliminación: cuando un asiento pierde su último sistema, la pantalla **Player Eliminated** dice quién lo tomó, y si no queda nadie más, la pantalla de resultado muestra **Last Commander Standing — all opponents eliminated**.",
+        "detail": "Las eliminaciones se juzgan también en la ronda 1, por eso una capital con dos unidades o un gateway solitario es un riesgo real en el primer turno. Las colonias neutrales no son de nadie, así que tomarlas o ignorarlas no cambia nada aquí; en una partida de Umbral sí cuentan. Rendirse también es una eliminación, sin acreditar a nadie.",
+        "whyItMatters": "Un rival con un solo sistema está a un ataque de terminar la partida, y un rival que lo sabe recluta al menos tres unidades por turno sobre él."
+      },
+      "gdm_draft": {
+        "title": "Apila en Glowmire Shelf",
+        "message": "Haz clic en **Glowmire Shelf** —tu sistema junto a Greenfire Vault, resaltado—, elige **All** y pulsa **Place**. Después haz clic en el botón dorado **{{draftButton}}**.",
+        "detail": "En una partida real, un asiento con un solo sistema sigue reclutando al menos tres unidades por turno sobre él, así que cuanto más aguante, más difícil se vuelve. El oponente del tutorial nunca ataca, pero sí reforzaría: tómalo ahora."
+      },
+      "gdm_take": {
+        "title": "Toma su último sistema",
+        "message": "Haz clic en **Glowmire Shelf** y luego en **Greenfire Vault**, a su lado. Un ataque terrestre tira los 3 dados completos; **Attack until captured** insiste hasta que caiga. La captura elimina a los Navigators, y sin rival que quede, la partida termina en el acto.",
+        "detail": "Sin esperar a la ronda 2: Last Commander Standing se juzga en el momento en que ocurre. Verás la pantalla Player Eliminated y después el resultado."
+      },
+      "gdm_win": {
+        "title": "Se juzga al instante",
+        "message": "La pantalla de resultado muestra **Victory!** con **Last Commander Standing — all opponents eliminated** debajo: no Total Domination, aunque la dominación era la única condición fijada. **32** sistemas neutrales siguen en pie en Nexus Station y el Rust Belt; ninguno importó.",
+        "detail": "Esa es la dominación de la galaxia en la práctica: elimina a todo rival y deja las colonias a quien las quiera. Contra rivales que conservan sus mundos natales eso puede llevar mucho tiempo, y por eso una sala galáctica real añade el umbral del 60 % y un límite de 90 rondas."
+      },
+      "gdm_complete": {
+        "title": "Dominación completada",
+        "message": "Eliminaste al último rival y la galaxia terminó la partida al instante. Aquí la dominación es una carrera hacia el último asiento, no hacia el último sistema; las colonias son asunto del Umbral.",
+        "skippedTitle": "Directo a la partida",
+        "skippedMessage": "En pocas palabras: los Navigators controlan un sistema, **Greenfire Vault**, y tú controlas **Glowmire Shelf** a su lado. Tómalo y la partida termina al instante como Last Commander Standing, sin esperar a la ronda 2. Ahora mismo tienes refuerzos que colocar: haz clic en **Glowmire Shelf** y luego en {{draftButton}}."
       }
     }
   }

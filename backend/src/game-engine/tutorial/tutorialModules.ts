@@ -27,6 +27,7 @@ export const GALAXY_TUTORIAL_LESSON_MODULES = [
   'galaxy_secret_missions',
   'galaxy_capital',
   'galaxy_threshold',
+  'galaxy_domination',
 ] as const;
 
 export const TUTORIAL_LESSON_MODULES = [

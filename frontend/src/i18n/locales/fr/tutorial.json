@@ -68,6 +68,10 @@
     "galaxy_threshold": {
       "title": "Ère galactique : Seuil territorial",
       "description": "La galaxie compte chaque système, colonies comprises : vous tenez 38 des 39 qu'exigent 60 % — prenez le 39e au sol et gagnez."
+    },
+    "galaxy_domination": {
+      "title": "Ère galactique : Domination",
+      "description": "Ici la domination s'achève quand le dernier rival tombe, pas le dernier système : prenez le dernier gateway des Navigators et la partie s'arrête aussitôt, colonies intactes."
     }
   },
   "steps": {
@@ -476,6 +480,41 @@
         "message": "Vous avez pris le 39e système et franchi 60 % de la galaxie. Dans une vraie partie, le décompte est le même quel que soit le détenteur du reste : colonies, rivaux et garnisons vides sont tous dans les 64, et la jauge de la barre du haut vous dit combien il vous en manque.",
         "skippedTitle": "Directement en jeu",
         "skippedMessage": "En résumé : vous tenez **38 des 39** systèmes qu'exigent 60 % de ce plateau. Prenez-en un de plus — **Spore Reach**, à côté de votre **Saffron Mire** — et la victoire est jugée à partir de la manche 2. Vous avez des renforts à placer : cliquez sur **Saffron Mire**, puis sur {{draftButton}}."
+      }
+    },
+    "galaxy_domination": {
+      "gdm_welcome": {
+        "title": "Domination dans la galaxie",
+        "message": "Cette partie se joue à la **domination** seule : le briefing indique **Control every territory**, et sur ce plateau ce sont les **64** systèmes. Vous êtes la Stellar Mandate de **Sol III**. Les Helion Navigators n'ont plus qu'un système sur **Verdan Reach** — **Greenfire Vault**, le gateway face à votre Pacific Rim —, et vous tenez les quinze autres autour. **Nexus Station** et le **Rust Belt** sont des colonies neutres.",
+        "detail": "Voici ce que la galaxie fait de la domination : la partie n'y arrive jamais. À l'instant où le dernier rival tombe, le serveur termine la partie en **Last Commander Standing**, la seule victoire jugée aussitôt plutôt qu'à partir de la manche 2 — les **32** garnisons coloniales n'ont donc jamais besoin d'être prises, et un résultat galactique n'affiche jamais Total Domination tant qu'un rival est en jeu. C'est pour cela qu'un vrai salon galactique associe la domination au seuil.",
+        "hint": "Cliquez sur Suivant, ou passez à la fin pour entrer directement en jeu."
+      },
+      "gdm_rules": {
+        "title": "Last Commander Standing",
+        "message": "L'onglet **Status** de la barre latérale n'affiche aucun objectif pour la domination : il n'y a rien à compter sinon le plateau lui-même. Ce qui termine la partie, c'est une élimination : quand un siège perd son dernier système, l'écran **Player Eliminated** nomme qui l'a pris, et s'il ne reste personne d'autre, l'écran de résultat affiche **Last Commander Standing — all opponents eliminated**.",
+        "detail": "Les éliminations sont jugées dès la manche 1 aussi, et c'est pourquoi une capitale à deux unités ou un gateway isolé est un vrai risque au premier tour. Les colonies neutres n'appartiennent à personne : les prendre ou les ignorer ne change rien ici ; dans une partie au seuil, elles comptent. Un abandon est aussi une élimination, créditée à personne.",
+        "whyItMatters": "Un rival à qui il ne reste qu'un système est à une attaque de la fin de partie — et un rival qui le sait y recrute au moins trois unités par tour."
+      },
+      "gdm_draft": {
+        "title": "Empilez sur Glowmire Shelf",
+        "message": "Cliquez sur **Glowmire Shelf** — votre système à côté de Greenfire Vault, en surbrillance —, réglez sur **All** et appuyez sur **Place**. Puis cliquez sur le bouton doré **{{draftButton}}**.",
+        "detail": "Dans une vraie partie, un siège réduit à un système y recrute encore au moins trois unités par tour : plus il tient, plus c'est dur. L'adversaire du tutoriel n'attaque jamais, mais il renforcerait — prenez-le maintenant."
+      },
+      "gdm_take": {
+        "title": "Prenez leur dernier système",
+        "message": "Cliquez sur **Glowmire Shelf**, puis sur **Greenfire Vault** à côté. Une attaque au sol lance les 3 dés complets ; **Attack until captured** insiste jusqu'à sa chute. La capture élimine les Navigators, et sans rival restant, la partie s'arrête sur-le-champ.",
+        "detail": "Pas d'attente de la manche 2 : Last Commander Standing est jugé à l'instant où cela arrive. Vous verrez l'écran Player Eliminated, puis le résultat."
+      },
+      "gdm_win": {
+        "title": "Jugée aussitôt",
+        "message": "L'écran de résultat affiche **Victory!** avec **Last Commander Standing — all opponents eliminated** en dessous — pas Total Domination, bien que la domination ait été la seule condition fixée. **32** systèmes neutres tiennent encore sur Nexus Station et le Rust Belt ; aucun n'a compté.",
+        "detail": "C'est la domination de la galaxie en pratique : éliminez chaque rival, et laissez les colonies à qui les veut. Contre des rivaux qui tiennent leurs mondes natals, cela peut prendre longtemps — c'est pourquoi un vrai salon galactique ajoute le seuil de 60 % et une limite de 90 manches."
+      },
+      "gdm_complete": {
+        "title": "Domination terminée",
+        "message": "Vous avez éliminé le dernier rival et la galaxie a terminé la partie aussitôt. Ici la domination est une course au dernier siège, pas au dernier système ; les colonies sont l'affaire du seuil.",
+        "skippedTitle": "Directement en jeu",
+        "skippedMessage": "En résumé : les Navigators tiennent un système, **Greenfire Vault**, et vous tenez **Glowmire Shelf** à côté. Prenez-le et la partie s'arrête aussitôt en Last Commander Standing — sans attendre la manche 2. Vous avez des renforts à placer : cliquez sur **Glowmire Shelf**, puis sur {{draftButton}}."
       }
     }
   }

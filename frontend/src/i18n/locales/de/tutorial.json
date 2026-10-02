@@ -68,6 +68,10 @@
     "galaxy_threshold": {
       "title": "Galaktisches Zeitalter: Gebietsschwelle",
       "description": "Die Galaxis zählt jedes System, Kolonien eingeschlossen: Du hältst 38 der 39, die 60 % brauchen – nimm das 39. am Boden ein und gewinne."
+    },
+    "galaxy_domination": {
+      "title": "Galaktisches Zeitalter: Dominanz",
+      "description": "Dominanz endet hier, wenn der letzte Rivale fällt, nicht das letzte System: Nimm das letzte Gateway der Navigators, und die Partie endet sofort, Kolonien unberührt."
     }
   },
   "steps": {
@@ -476,6 +480,41 @@
         "message": "Du hast das 39. System eingenommen und 60 % der Galaxis überschritten. In einer echten Partie ist die Zählung dieselbe, wer auch den Rest hält: Kolonien, Rivalen und leere Garnisonen sitzen alle in den 64, und die Anzeige in der oberen Leiste sagt dir, wie viele du noch brauchst.",
         "skippedTitle": "Direkt ins Spiel",
         "skippedMessage": "Kurz gefasst: Du hältst **38 der 39** Systeme, die 60 % dieses Spielfelds brauchen. Nimm eines mehr – **Spore Reach**, neben deinem **Saffron Mire** –, und der Sieg wird ab Runde 2 gewertet. Gerade jetzt hast du Verstärkungen zu platzieren – klicke auf **Saffron Mire** und dann auf {{draftButton}}."
+      }
+    },
+    "galaxy_domination": {
+      "gdm_welcome": {
+        "title": "Dominanz in der Galaxis",
+        "message": "Diese Partie wird allein um **Dominanz** gespielt: Das Briefing sagt **Control every territory**, und auf diesem Spielfeld sind das alle **64** Systeme. Du bist die Stellar Mandate von **Sol III**. Die Helion Navigators sind auf ein System auf **Verdan Reach** geschrumpft – **Greenfire Vault**, das Gateway gegenüber deinem Pacific Rim –, und du hältst die anderen fünfzehn darum herum. **Nexus Station** und der **Rust Belt** sind neutrale Kolonien.",
+        "detail": "Das macht die Galaxis aus der Dominanz: Die Partie kommt nie dort an. Sobald der letzte Rivale fällt, beendet der Server das Spiel als **Last Commander Standing**, dem einen Sieg, der sofort statt ab Runde 2 gewertet wird – die **32** Koloniegarnisonen müssen also nie eingenommen werden, und ein Galaxis-Ergebnis lautet nie Total Domination, solange ein Rivale im Spiel ist. Deshalb kombiniert eine echte Galaxis-Lobby Dominanz mit der Schwelle.",
+        "hint": "Klicke auf Weiter oder überspringe zum Ende und steig direkt ein."
+      },
+      "gdm_rules": {
+        "title": "Last Commander Standing",
+        "message": "Der Tab **Status** der Seitenleiste führt für Dominanz kein Ziel auf – es gibt nichts zu zählen außer dem Spielfeld selbst. Was die Partie beendet, ist ein Ausscheiden: Verliert ein Sitz sein letztes System, nennt der Bildschirm **Player Eliminated**, wer es genommen hat, und ist niemand sonst mehr übrig, zeigt der Ergebnisbildschirm **Last Commander Standing — all opponents eliminated**.",
+        "detail": "Ausscheiden wird auch in Runde 1 gewertet, weshalb eine Hauptstadt mit zwei Einheiten oder ein einzelnes Gateway im ersten Zug ein echtes Risiko ist. Neutrale Kolonien gehören niemandem, sie zu nehmen oder zu ignorieren ändert hier also nichts; in einer Schwellen-Partie zählen sie. Eine Aufgabe ist ebenfalls ein Ausscheiden, niemandem gutgeschrieben.",
+        "whyItMatters": "Ein Rivale mit nur noch einem System ist einen Angriff vom Ende der Partie entfernt – und ein Rivale, der das weiß, zieht mindestens drei Einheiten pro Zug darauf nach."
+      },
+      "gdm_draft": {
+        "title": "Stapel auf Glowmire Shelf",
+        "message": "Klicke auf **Glowmire Shelf** – dein System neben Greenfire Vault, hervorgehoben –, wähle **All** und drücke **Place**. Klicke dann auf den goldenen Button **{{draftButton}}**.",
+        "detail": "In einer echten Partie zieht ein Sitz mit nur noch einem System weiterhin mindestens drei Einheiten pro Zug darauf nach; je länger es steht, desto schwerer wird es. Der Tutorial-Gegner greift nie an, würde aber verstärken – nimm es jetzt."
+      },
+      "gdm_take": {
+        "title": "Nimm ihr letztes System",
+        "message": "Klicke auf **Glowmire Shelf** und dann auf **Greenfire Vault** daneben. Ein Bodenangriff würfelt mit allen 3 Würfeln; **Attack until captured** drückt nach, bis es fällt. Die Eroberung scheidet die Navigators aus, und ohne verbliebenen Rivalen endet die Partie auf der Stelle.",
+        "detail": "Kein Warten auf Runde 2: Last Commander Standing wird in dem Moment gewertet, in dem es passiert. Du siehst den Bildschirm Player Eliminated und dann das Ergebnis."
+      },
+      "gdm_win": {
+        "title": "Sofort gewertet",
+        "message": "Der Ergebnisbildschirm zeigt **Victory!** mit **Last Commander Standing — all opponents eliminated** darunter – nicht Total Domination, obwohl Dominanz die einzige eingestellte Bedingung war. **32** neutrale Systeme stehen noch auf Nexus Station und im Rust Belt; keines davon spielte eine Rolle.",
+        "detail": "Das ist die Dominanz der Galaxis in der Praxis: Schalte jeden Rivalen aus und überlass die Kolonien, wer sie will. Gegen Rivalen, die ihre Heimatwelten halten, kann das lange dauern – deshalb fügt eine echte Galaxis-Lobby die 60-%-Schwelle und ein 90-Runden-Limit hinzu."
+      },
+      "gdm_complete": {
+        "title": "Dominanz abgeschlossen",
+        "message": "Du hast den letzten Rivalen ausgeschaltet, und die Galaxis hat die Partie sofort beendet. Dominanz ist hier ein Rennen um den letzten Sitz, nicht um das letzte System; die Kolonien sind Sache der Schwelle.",
+        "skippedTitle": "Direkt ins Spiel",
+        "skippedMessage": "Kurz gefasst: Die Navigators halten ein System, **Greenfire Vault**, und du hältst **Glowmire Shelf** daneben. Nimm es, und die Partie endet sofort als Last Commander Standing – kein Warten auf Runde 2. Gerade jetzt hast du Verstärkungen zu platzieren – klicke auf **Glowmire Shelf** und dann auf {{draftButton}}."
       }
     }
   }
