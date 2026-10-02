@@ -619,8 +619,8 @@ export function CombatResultView({
           )}
         </div>
 
-        {/* Territory Captured / Lost */}
-        {result.territory_captured && (
+        {/* Territory Captured / Lost — after the dice settle, like the rest of the result. */}
+        {showResult && result.territory_captured && (
           <div className={clsx(
             compact ? 'mb-2 p-2' : 'mb-5 p-4',
             'rounded-xl border text-center',

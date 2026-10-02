@@ -3038,6 +3038,18 @@ function GlobeMap({
         color,
       });
     }
+    // Two regions whose centroids nearly coincide (the tutorial's Tyrrhenian
+    // and Adriatic coasts) drew on top of each other. Nudge the later label a
+    // label-height south of the one it collides with.
+    const LAT_GAP = 1.6;
+    const LNG_GAP = 7;
+    for (let i = 1; i < out.length; i++) {
+      for (let j = 0; j < i; j++) {
+        if (Math.abs(out[i].lat - out[j].lat) < LAT_GAP && Math.abs(out[i].lng - out[j].lng) < LNG_GAP) {
+          out[i] = { ...out[i], lat: out[j].lat - LAT_GAP };
+        }
+      }
+    }
     return out;
   }, [mapData.regions, mapData.territories, territoryCentroids, regionColorMap, activeWorldId, gameState?.players.length]);
 

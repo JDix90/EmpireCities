@@ -1,3 +1,4 @@
+import { getAbilityUiDef } from './abilityActivationFeedback';
 export interface StrikeAnimationEvent {
   abilityId: string;
   attackerId: string;
@@ -91,7 +92,8 @@ export function getStrikeToastMessage(
     return unitReductionStrikeToast(event, targetName, viewer, cfg);
   }
 
-  return `☢️ ${attacker} used ${event.abilityId.replace(/_/g, ' ')} on ${targetName}.`;
+  const def = getAbilityUiDef(event.abilityId);
+  return `${def?.emoji ?? '💥'} ${attacker} used ${def ? def.label : event.abilityId.replace(/_/g, ' ')} on ${targetName}.`;
 }
 
 export function getStrikeCombatLogLine(event: StrikeAnimationEvent, targetName: string): string {
@@ -116,5 +118,6 @@ export function getStrikeCombatLogLine(event: StrikeAnimationEvent, targetName: 
     return unitReductionCombatLog(event, targetName, cfg);
   }
 
-  return `☢️ ${event.attackerName} struck ${targetName}`;
+  const def = getAbilityUiDef(event.abilityId);
+  return `${def?.emoji ?? '💥'} ${event.attackerName} used ${def ? def.label : event.abilityId.replace(/_/g, ' ')} on ${targetName}`;
 }
