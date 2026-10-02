@@ -398,3 +398,48 @@ describe('ActionModal — the winner\'s line matches how the game ended', () => 
     await waitFor(() => expect(screen.getByText('You have conquered the world!')).toBeTruthy());
   });
 });
+
+describe('ActionModal — the post-game chart is a position share, with the finish where this game ends', () => {
+  // Three snapshots: the chart only draws from two.
+  const history: GameOverModalData['win_probability_history'] = [
+    { step: 1, turn: 1, probabilities: { p1: 0.5, ai_1: 0.5 } },
+    { step: 2, turn: 2, probabilities: { p1: 0.7, ai_1: 0.3 } },
+    { step: 3, turn: 3, probabilities: { p1: 1, ai_1: 0 } },
+  ];
+  const charted = (overrides: Partial<GameOverModalData> = {}) =>
+    gameOver({ win_probability_history: history, ...overrides });
+  // The plot runs from y=10 to y=140, so a share p sits at 140 - 130p.
+  const yOf = (share: number) => String(140 - 130 * share);
+
+  it('is labelled as the share it is, not as win odds', async () => {
+    render(<ActionModal data={charted()} onDismiss={() => {}} />);
+    await waitFor(() => expect(screen.getByText('Position share over time')).toBeTruthy());
+    expect(screen.queryByText(/win probability/i)).toBeNull();
+    expect(screen.getByText(/Position, not odds of winning/)).toBeTruthy();
+  });
+
+  it('draws the dashed line at the Territory Threshold a Conquest game is won at', async () => {
+    render(<ActionModal data={charted({ map_control_threshold: 65 })} onDismiss={() => {}} />);
+    const finish = await screen.findByTestId('position-share-finish');
+    expect(finish.getAttribute('y1')).toBe(yOf(0.65));
+    expect(screen.getByText('65%')).toBeTruthy();
+    // 65 is clear of the 50% gridline, which stays as a reading aid.
+    expect(screen.getByText('50%')).toBeTruthy();
+    expect(screen.getByText(/65% of the map this game's Territory Threshold win needed/)).toBeTruthy();
+  });
+
+  it('lets a Blitz finish stand in for the 50% gridline instead of printing it twice', async () => {
+    render(<ActionModal data={charted({ map_control_threshold: 50 })} onDismiss={() => {}} />);
+    const finish = await screen.findByTestId('position-share-finish');
+    expect(finish.getAttribute('y1')).toBe(yOf(0.5));
+    expect(screen.getAllByText('50%')).toHaveLength(1);
+  });
+
+  it('has no dashed line when no share of the map ends the game, and says where the finish is', async () => {
+    render(<ActionModal data={charted({ map_control_threshold: null })} onDismiss={() => {}} />);
+    await waitFor(() => expect(screen.getByText('Position share over time')).toBeTruthy());
+    expect(screen.queryByTestId('position-share-finish')).toBeNull();
+    expect(screen.getByText(/the whole map, or the last player standing/)).toBeTruthy();
+    expect(screen.getByText('50%')).toBeTruthy();
+  });
+});

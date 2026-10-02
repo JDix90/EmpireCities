@@ -181,7 +181,7 @@ import { computeMapDensityMetrics } from '../utils/mapInteractionDensity';
 import ConnectionHintsSetting from '../components/game/ConnectionHintsSetting';
 import { inferWorldId, aiPlayerName } from '@borderfall/shared';
 import { viewerHoldsVaultSeal, worldDisplayName, worldsInPlay } from '../utils/galaxyLanes';
-import { mapControlProgress } from '../utils/mapControl';
+import { mapControlProgress, mapControlThreshold } from '../utils/mapControl';
 import {
   getOrbitAccessResult,
   lunarTerritoryCount,
@@ -2076,6 +2076,7 @@ export default function GamePage() {
         xpEarned,
         victory_condition: stats.victory_condition,
         victory_threshold: typeof victoryThreshold === 'number' ? victoryThreshold : undefined,
+        map_control_threshold: mapControlThreshold(endState?.settings),
         eraName: currentEra ? (ERA_LABELS[currentEra] ?? currentEra) : undefined,
         winnerIds,
         winningTeamName: teamOf(useGameStore.getState().gameState, winnerIds[0])?.name,
