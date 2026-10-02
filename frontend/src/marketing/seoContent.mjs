@@ -105,7 +105,7 @@ export const ERA_CODEX_LABELS = {
   discovery: 'Age of Discovery',
   ww2: 'World War II',
   coldwar: 'Cold War',
-  modern: 'Modern Day',
+  modern: 'The Modern Day',
   acw: 'American Civil War',
   risorgimento: 'Italian Unification',
   space_age: 'Space Age',
@@ -372,7 +372,7 @@ const STATIC_MARKETING_PAGES = [
       {
         type: 'p',
         text:
-          'Control territory. Eliminate rivals by taking their last region, complete your '
+          'Control territory. Eliminate rivals by taking their last territory, complete your '
           + 'objective, or outlast the field. Holding whole continents earns bonus reinforcements '
           + 'each turn, so the map is a constant trade-off between expanding and defending what '
           + 'you already hold.',

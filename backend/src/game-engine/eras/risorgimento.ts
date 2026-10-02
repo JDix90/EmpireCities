@@ -79,7 +79,7 @@ export const RISORGIMENTO_TECH_TREE: TechNode[] = [
   {
     tech_id: 'riso_fortifications',
     name: 'Field Fortifications',
-    description: 'Modern earthworks — unlocks defense_1 building.',
+    description: 'Modern earthworks — unlocks the Palisade.',
     tier: 1,
     cost: 3,
     unlocks_building: 'defense_1',
@@ -87,7 +87,7 @@ export const RISORGIMENTO_TECH_TREE: TechNode[] = [
   {
     tech_id: 'riso_banking',
     name: 'Piedmontese Banking',
-    description: 'Northern industrial finance — unlocks production_1 building.',
+    description: 'Northern industrial finance — unlocks the Workshop.',
     tier: 1,
     cost: 3,
     unlocks_building: 'production_1',
@@ -114,7 +114,7 @@ export const RISORGIMENTO_TECH_TREE: TechNode[] = [
   {
     tech_id: 'riso_walls',
     name: 'City Walls',
-    description: 'Renaissance fortifications — unlocks defense_2 building.',
+    description: 'Renaissance fortifications — unlocks the Fortress.',
     tier: 2,
     prerequisite: 'riso_fortifications',
     cost: 6,
@@ -123,7 +123,7 @@ export const RISORGIMENTO_TECH_TREE: TechNode[] = [
   {
     tech_id: 'riso_trade',
     name: 'Mediterranean Trade',
-    description: 'Sea commerce — unlocks tech_gen_1 building and +2 tech per turn.',
+    description: 'Sea commerce — unlocks the Laboratory and +2 tech per turn.',
     tier: 2,
     prerequisite: 'riso_banking',
     cost: 5,
@@ -143,7 +143,7 @@ export const RISORGIMENTO_TECH_TREE: TechNode[] = [
   {
     tech_id: 'riso_artillery',
     name: 'Field Artillery',
-    description: 'Modern cannon — negates enemy defense_1 building bonus.',
+    description: 'Modern cannon — negates enemy Palisade bonus.',
     tier: 3,
     prerequisite: 'riso_bersaglieri',
     cost: 10,
@@ -153,7 +153,7 @@ export const RISORGIMENTO_TECH_TREE: TechNode[] = [
   {
     tech_id: 'riso_citadel',
     name: 'Citadel',
-    description: 'Impregnable fortress — unlocks defense_3 building.',
+    description: 'Impregnable fortress — unlocks the Citadel.',
     tier: 3,
     prerequisite: 'riso_walls',
     cost: 10,
@@ -162,7 +162,7 @@ export const RISORGIMENTO_TECH_TREE: TechNode[] = [
   {
     tech_id: 'riso_unification',
     name: 'Proclamation of Unity',
-    description: 'National consciousness — unlocks tech_gen_2 building and +3 tech per turn.',
+    description: 'National consciousness — unlocks the Research Center and +3 tech per turn.',
     tier: 3,
     prerequisite: 'riso_trade',
     cost: 9,

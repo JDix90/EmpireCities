@@ -11,7 +11,7 @@ export const ACW_FACTIONS: Faction[] = [
     home_region_ids: ['union_northeast', 'union_midwest'],
     reinforce_bonus: 1,
     ability_id: 'total_war',
-    ability_description: 'Total War: once per game, in one turn place double your normal reinforcements.',
+    ability_description: 'Total War: once per game, add 6 reinforcements to your draft pool in a single turn.',
     color: '#3498db',
     stability_recovery_bonus: 3,
   },
@@ -57,7 +57,7 @@ export const ACW_TECH_TREE: TechNode[] = [
   {
     tech_id: 'acw_earthworks',
     name: 'Field Earthworks',
-    description: 'Hasty fortifications — unlocks defense_1 building.',
+    description: 'Hasty fortifications — unlocks the Palisade.',
     tier: 1,
     cost: 3,
     unlocks_building: 'defense_1',
@@ -65,7 +65,7 @@ export const ACW_TECH_TREE: TechNode[] = [
   {
     tech_id: 'acw_railroads',
     name: 'Railroad Network',
-    description: 'Rapid troop movement — unlocks production_1 building and allows 2 fortify moves per turn.',
+    description: 'Rapid troop movement — unlocks the Workshop and allows 2 fortify moves per turn.',
     tier: 1,
     cost: 4,
     unlocks_building: 'production_1',
@@ -93,7 +93,7 @@ export const ACW_TECH_TREE: TechNode[] = [
   {
     tech_id: 'acw_redoubts',
     name: 'Redoubts and Redans',
-    description: 'Angled earthworks — unlocks defense_2 building.',
+    description: 'Angled earthworks — unlocks the Fortress.',
     tier: 2,
     prerequisite: 'acw_earthworks',
     cost: 7,
@@ -102,7 +102,7 @@ export const ACW_TECH_TREE: TechNode[] = [
   {
     tech_id: 'acw_supply_lines',
     name: 'Supply Lines',
-    description: 'Organized logistics — unlocks tech_gen_1 building and +2 tech per turn.',
+    description: 'Organized logistics — unlocks the Laboratory and +2 tech per turn.',
     tier: 2,
     prerequisite: 'acw_railroads',
     cost: 6,
@@ -133,7 +133,7 @@ export const ACW_TECH_TREE: TechNode[] = [
   {
     tech_id: 'acw_fortified_lines',
     name: 'Permanent Lines',
-    description: 'Trench warfare network — unlocks defense_3 building.',
+    description: 'Trench warfare network — unlocks the Citadel.',
     tier: 3,
     prerequisite: 'acw_redoubts',
     cost: 11,
@@ -142,7 +142,7 @@ export const ACW_TECH_TREE: TechNode[] = [
   {
     tech_id: 'acw_industry',
     name: 'Industrial Arsenal',
-    description: 'Total war industry — unlocks tech_gen_2 building and +3 tech per turn.',
+    description: 'Total war industry — unlocks the Research Center and +3 tech per turn.',
     tier: 3,
     prerequisite: 'acw_supply_lines',
     cost: 10,

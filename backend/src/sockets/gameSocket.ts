@@ -4032,7 +4032,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
         state.phase = 'game_over';
         state.winner_id = winnerId;
         state.winner_ids = winnerIds;
-        state.victory_condition = condition;
+        // A resignation that leaves one commander standing is still a
+        // resignation: nobody was eliminated, and the game-over screen should
+        // say so rather than "all opponents eliminated".
+        state.victory_condition = condition === 'last_standing' ? 'resignation' : condition;
         await finalizeGame(io, gameId, state, winnerIds);
         broadcastState(io, gameId, state);
         return;

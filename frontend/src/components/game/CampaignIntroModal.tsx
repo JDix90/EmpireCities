@@ -92,7 +92,7 @@ export default function CampaignIntroModal({ data, onBegin }: CampaignIntroModal
             <Flag className="w-4 h-4 text-bf-gold/80 mx-auto mb-1.5" />
             <p className="text-[10px] uppercase tracking-wider text-bf-muted mb-0.5">Faction</p>
             <p className="text-sm text-bf-text font-medium leading-tight">
-              {data.lockedFaction ? titleCase(data.lockedFaction) : 'Free choice'}
+              {data.lockedFaction ? titleCase(data.lockedFaction) : 'Assigned when the era begins'}
             </p>
           </div>
           <div className="rounded-lg border border-bf-border bg-bf-dark/50 px-3 py-3 text-center">

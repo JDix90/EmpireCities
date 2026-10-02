@@ -150,7 +150,7 @@ export const ANCIENT_TECH_TREE: TechNode[] = [
   {
     tech_id: 'ancient_stone_walls',
     name: 'Stone Walls',
-    description: 'Permanent fortifications — unlocks the defense_1 building.',
+    description: 'Permanent fortifications — unlocks the Palisade.',
     tier: 1,
     cost: 4,
     unlocks_building: 'defense_1',
@@ -158,7 +158,7 @@ export const ANCIENT_TECH_TREE: TechNode[] = [
   {
     tech_id: 'ancient_granaries',
     name: 'Granaries',
-    description: 'Improved food storage — unlocks the production_1 building.',
+    description: 'Improved food storage — unlocks the Workshop.',
     tier: 1,
     cost: 3,
     unlocks_building: 'production_1',
@@ -185,7 +185,7 @@ export const ANCIENT_TECH_TREE: TechNode[] = [
   {
     tech_id: 'ancient_fortified_camps',
     name: 'Fortified Camps',
-    description: 'Permanent legion camps — unlocks the defense_2 building.',
+    description: 'Permanent legion camps — unlocks the Fortress.',
     tier: 2,
     prerequisite: 'ancient_stone_walls',
     cost: 7,
@@ -214,8 +214,8 @@ export const ANCIENT_TECH_TREE: TechNode[] = [
   // Tier 3
   {
     tech_id: 'ancient_legion_tactics',
-    name: 'Legion Tactics',
-    description: 'Advanced formation tactics: attacker re-rolls lowest die on ALL exchanges (stacks with legion_reroll era modifier).',
+    name: 'Cohort Doctrine',
+    description: 'Disciplined cohort manoeuvre — +1 attack bonus on every assault, on top of the Ancient era re-roll.',
     tier: 3,
     prerequisite: 'ancient_siege_engines',
     cost: 11,
@@ -224,7 +224,7 @@ export const ANCIENT_TECH_TREE: TechNode[] = [
   {
     tech_id: 'ancient_fortresses',
     name: 'Fortresses',
-    description: 'Continental fortresses — unlocks the defense_3 building.',
+    description: 'Continental fortresses — unlocks the Citadel.',
     tier: 3,
     prerequisite: 'ancient_fortified_camps',
     cost: 11,
@@ -233,7 +233,7 @@ export const ANCIENT_TECH_TREE: TechNode[] = [
   {
     tech_id: 'ancient_great_library',
     name: 'Great Library',
-    description: 'Centre of learning — unlocks the tech_gen_2 building and grants +2 tech points per turn.',
+    description: 'Centre of learning — unlocks the Research Center and grants +2 tech points per turn.',
     tier: 3,
     prerequisite: 'ancient_trade_routes',
     cost: 10,

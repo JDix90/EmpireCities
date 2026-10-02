@@ -93,7 +93,7 @@ const ERA_LABELS: Record<string, string> = {
   discovery: 'Age of Discovery',
   ww2: 'World War II',
   coldwar: 'Cold War',
-  modern: 'Modern Day',
+  modern: 'The Modern Day',
   acw: 'American Civil War',
   risorgimento: 'Italian Unification',
   space_age: 'Space Age',
@@ -122,6 +122,9 @@ export default function ProfilePage() {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [tutorialLaunching, setTutorialLaunching] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadStatus, setLoadStatus] = useState<number | null>(null);
+  // A 404 is a wrong username, not an outage — the copy should say which.
+  const isNotFound = loadError === null || loadStatus === 404;
   const [achievementProgress, setAchievementProgress] = useState<Record<string, { current: number; target: number }>>({});
 
   const targetId = userId ?? currentUser?.user_id;
@@ -130,6 +133,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!targetId) return;
     setLoadError(null);
+    setLoadStatus(null);
     Promise.all([
       isOwnProfile ? api.get('/users/me') : api.get(`/users/${targetId}`),
       isOwnProfile ? api.get('/users/me/games') : Promise.resolve({ data: [] }),
@@ -150,6 +154,7 @@ export default function ProfilePage() {
       setAchievementProgress(progressRes.data ?? {});
     }).catch((err: unknown) => {
       const msg = axios.isAxiosError(err) ? (err.response?.data as { error?: string })?.error ?? err.message : 'Failed to load profile';
+      setLoadStatus(axios.isAxiosError(err) ? err.response?.status ?? null : null);
       setLoadError(msg);
       toast.error(typeof msg === 'string' ? msg : 'Failed to load profile');
     }).finally(() => setLoading(false));
@@ -185,11 +190,11 @@ export default function ProfilePage() {
       >
         <div className="text-center py-16 space-y-4">
           <p className="text-bf-muted">{loadError ?? 'User not found.'}</p>
-          {loadError && (
-              <p className="text-bf-muted/70 text-sm max-w-md mx-auto">
-                This profile could not be loaded right now. Please try again in a moment.
-              </p>
-          )}
+          <p className="text-bf-muted/70 text-sm max-w-md mx-auto">
+            {isNotFound
+              ? 'No commander goes by that name. Check the spelling — profile links use the exact username.'
+              : 'This profile could not be loaded right now. Please try again in a moment.'}
+          </p>
           <Link to="/lobby" className="btn-secondary text-sm inline-block">Back to Lobby</Link>
         </div>
       </SubpageShell>
@@ -470,7 +475,7 @@ export default function ProfilePage() {
               // profile — show gold (progression) in the tile instead.
               isOwnProfile && currentUser?.is_guest
                 ? { label: 'Gold', value: (profile.gold ?? 0).toLocaleString(), icon: Trophy }
-                : { label: 'MMR Rating', value: profile.mmr, icon: Trophy },
+                : { label: 'Solo Rating', value: profile.ratings?.solo?.display ?? profile.mmr, icon: Trophy },
               { label: 'Level', value: profile.level, icon: Sword },
               { label: 'Total XP', value: (profile.xp ?? 0).toLocaleString(), icon: Map },
             ].map(({ label, value, icon: Icon }) => (

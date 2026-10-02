@@ -67,7 +67,7 @@ describe('mapDisplayNames', () => {
   });
 
   it('formats era labels from ERA_LABELS', () => {
-    expect(formatEraLabel('modern')).toBe('Modern Day');
+    expect(formatEraLabel('modern')).toBe('The Modern Day');
     expect(formatEraLabel('custom')).toBe('Community map');
   });
 });

@@ -307,7 +307,7 @@ const ERA_TITLES: Record<string, string> = {
   discovery: 'Age of Discovery',
   ww2: 'Second World War',
   coldwar: 'Cold War',
-  modern: 'Modern Day',
+  modern: 'The Modern Day',
   acw: 'American Civil War',
   risorgimento: 'Italian Unification',
   space_age: 'Space Age',

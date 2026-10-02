@@ -135,7 +135,7 @@ export const SPACE_AGE_TECH_TREE: TechNode[] = [
   {
     tech_id: 'sa_megacity',
     name: 'Megacity Logistics',
-    description: 'Vertical cities and automated supply chains — unlocks production_1 building.',
+    description: 'Vertical cities and automated supply chains — unlocks the Workshop.',
     tier: 1,
     cost: 4,
     unlocks_building: 'production_1',
@@ -143,7 +143,7 @@ export const SPACE_AGE_TECH_TREE: TechNode[] = [
   {
     tech_id: 'sa_climate_shield',
     name: 'Climate Shielding',
-    description: 'Weather-proof bunkers — +1 defense die; unlocks defense_1 building.',
+    description: 'Weather-proof bunkers — +1 defense die; unlocks the Palisade.',
     tier: 1,
     cost: 4,
     defense_bonus: 1,
@@ -173,7 +173,7 @@ export const SPACE_AGE_TECH_TREE: TechNode[] = [
   {
     tech_id: 'sa_fusion_power',
     name: 'Fusion Power Grid',
-    description: 'Abundant energy — unlocks tech_gen_1 building and +3 tech points per turn.',
+    description: 'Abundant energy — unlocks the Laboratory and +3 tech points per turn.',
     tier: 2,
     prerequisite: 'sa_megacity',
     cost: 9,
@@ -204,7 +204,7 @@ export const SPACE_AGE_TECH_TREE: TechNode[] = [
   {
     tech_id: 'sa_quantum_grid',
     name: 'Quantum Computing Grid',
-    description: 'Post-classical computation — unlocks tech_gen_2 building and +5 tech points per turn.',
+    description: 'Post-classical computation — unlocks the Research Center and +5 tech points per turn.',
     tier: 3,
     prerequisite: 'sa_fusion_power',
     cost: 14,

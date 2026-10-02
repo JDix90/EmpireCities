@@ -18,7 +18,7 @@ const MODIFIER_INFO: ModifierInfo[] = [
   {
     key: 'legion_reroll',
     label: 'Legion Tactics',
-    description: 'Attacker may re-roll one die when attacking with 3 dice.',
+    description: 'The attacker\'s lowest die is re-rolled once, automatically, keeping the better result.',
     icon: '⚔️',
   },
   {

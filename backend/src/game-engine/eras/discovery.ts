@@ -30,7 +30,7 @@ export const DISCOVERY_FACTIONS: Faction[] = [
     faction_id: 'portugal',
     lineage_id: 'maritime',
     name: 'Portuguese Empire',
-    description: 'Masters of the sea — sea_lanes connections allow 3 attack dice (normally 2) and free sea-lane fortify moves.',
+    description: 'Masters of the sea — sea-lane connections allow 3 attack dice (normally 2) and free sea-lane fortify moves.',
     lore: 'Portugal lives by charts, caravels, and coastal strongpoints, turning sea lanes into a private imperial network.',
     flavor_quote: 'Map the current, own the world beyond it.',
     home_region_ids: ['europe_disc'],
@@ -38,7 +38,7 @@ export const DISCOVERY_FACTIONS: Faction[] = [
     // sea_lanes attacks roll the full 3-dice cap. No general passive attack bonus,
     // so land attacks are unaffected — matching the faction description.
     ability_id: 'naval_charts',
-    ability_description: 'Naval Charts: your sea_lanes attacks use the full 3 dice cap instead of the era-limited 2.',
+    ability_description: 'Naval Charts: your sea-lane attacks use the full 3 dice cap instead of the era-limited 2.',
     color: '#27ae60',
   },
   {
@@ -126,7 +126,7 @@ export const DISCOVERY_TECH_TREE: TechNode[] = [
   {
     tech_id: 'discovery_cartography',
     name: 'Cartography',
-    description: 'Better maps: sea_lanes attack uses full 3 dice (removes the 2-die cap from era modifier).',
+    description: 'Better maps: a sea-lane attack uses the full 3 dice (removes the 2-die cap from the era modifier).',
     tier: 1,
     cost: 5,
     attack_bonus: 1,
@@ -134,7 +134,7 @@ export const DISCOVERY_TECH_TREE: TechNode[] = [
   {
     tech_id: 'discovery_fortifications',
     name: 'Star Forts',
-    description: 'Bastion-trace fortification — unlocks defense_1 building.',
+    description: 'Bastion-trace fortification — unlocks the Palisade.',
     tier: 1,
     cost: 4,
     unlocks_building: 'defense_1',
@@ -142,7 +142,7 @@ export const DISCOVERY_TECH_TREE: TechNode[] = [
   {
     tech_id: 'discovery_plantations',
     name: 'Colonial Plantations',
-    description: 'Lucrative colonial agriculture — unlocks production_1 building.',
+    description: 'Lucrative colonial agriculture — unlocks the Workshop.',
     tier: 1,
     cost: 3,
     unlocks_building: 'production_1',
@@ -169,7 +169,7 @@ export const DISCOVERY_TECH_TREE: TechNode[] = [
   {
     tech_id: 'discovery_citadel',
     name: 'Colonial Citadel',
-    description: 'Reinforced fortifications — unlocks defense_2 building.',
+    description: 'Reinforced fortifications — unlocks the Fortress.',
     tier: 2,
     prerequisite: 'discovery_fortifications',
     cost: 7,
@@ -178,7 +178,7 @@ export const DISCOVERY_TECH_TREE: TechNode[] = [
   {
     tech_id: 'discovery_mercantilism',
     name: 'Mercantilism',
-    description: 'State-directed commerce — unlocks tech_gen_1 building and +2 tech per turn.',
+    description: 'State-directed commerce — unlocks the Laboratory and +2 tech per turn.',
     tier: 2,
     prerequisite: 'discovery_plantations',
     cost: 6,
@@ -208,7 +208,7 @@ export const DISCOVERY_TECH_TREE: TechNode[] = [
   {
     tech_id: 'discovery_fortress_network',
     name: 'Fortress Network',
-    description: 'Coordinated fortresses — unlocks defense_3 building.',
+    description: 'Coordinated fortresses — unlocks the Citadel.',
     tier: 3,
     prerequisite: 'discovery_citadel',
     cost: 12,
@@ -217,7 +217,7 @@ export const DISCOVERY_TECH_TREE: TechNode[] = [
   {
     tech_id: 'discovery_stock_exchange',
     name: 'Stock Exchange',
-    description: 'Amsterdam-style finance — unlocks tech_gen_2 and +3 tech points per turn.',
+    description: 'Amsterdam-style finance — unlocks the Research Center and +3 tech points per turn.',
     tier: 3,
     prerequisite: 'discovery_mercantilism',
     cost: 11,

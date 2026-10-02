@@ -96,7 +96,7 @@ From [backend/src/index.ts](../backend/src/index.ts): `validateProductionEnv` (f
 - **Postgres** (48 migrations in [database/migrations/](../database/migrations)): `users` (identity + progression columns: xp/level/gold/streaks/`is_guest`), `games`/`game_players` (lobby + results), `game_states` (state backups), `user_ratings` (Glicko-2 `mu/phi/sigma` per `solo|ranked`), `refresh_tokens` (rotation), `maps`/`map_ratings` (**map documents as JSONB** — migrated from MongoDB), achievements/cosmetics/quests/seasons, `admin_config` (feature-flag overrides), `galaxy_game_results`/`galaxy_game_result_seats` (each finished Galactic Age game's board and seats, for the admin report; kept after its snapshots are pruned).
 - **Redis key families**: `game:<id>:{state,map,connected,psockets:<playerId>,ai-flight,lock}` and BullMQ queues. Leaderboards are Postgres `user_ratings` (see `modules/leaderboard/`), with Redis used only as a plain JSON cache — there are no `leaderboard:<era>` sorted sets.
 - **Maps vs games**: map *documents* (territories, connections, geo data) live in Postgres JSONB and are seeded by `pnpm run seed:maps`; game *state* references a `map_id`. Map authoring: [database/maps/MAP_CREATION.md](../database/maps/MAP_CREATION.md).
-- Glicko ratings: display = `round(mu)`, provisional while `phi > 150`. Solo games rate against synthetic AI opponents (wins only — losses can't farm AI padding).
+- Glicko ratings: display = `round(mu)`, provisional while `phi > 150`. Solo games rate against synthetic AI opponents: wins, losses and resignations after turn 2 all count; a resignation inside the turn 1–2 grace window is recorded as abandoned with no rating change, and tutorial and daily-challenge games are never rated.
 
 ## Repo layout & dependency groups
 

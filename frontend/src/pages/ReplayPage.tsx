@@ -61,6 +61,14 @@ import {
 import { GalaxyStrategicViewLazy, GlobeMapLazy, preloadGlobeChunks } from '../utils/globeLoader';
 
 const SPEED_OPTIONS = [0.5, 1, 2, 4, 8] as const;
+/** Phase ids as the game calls them in the HUD, not raw snake_case. */
+const REPLAY_PHASE_LABELS: Record<string, string> = {
+  territory_select: 'territory draft',
+  reinforce: 'reinforcement',
+  attack: 'attack',
+  fortify: 'fortify',
+  game_over: 'game over',
+};
 const REPLAY_MAP_FX_HINT_KEY = 'replay_map_fx_hint_dismissed';
 type Speed = (typeof SPEED_OPTIONS)[number];
 
@@ -1046,8 +1054,8 @@ export default function ReplayPage() {
         {/* Phase indicator */}
         {currentState && (
           <div className="absolute top-3 left-3 flex flex-col gap-1.5 items-start">
-            <div className="bg-bf-surface/90 border border-bf-border rounded-lg px-3 py-1.5 text-xs text-bf-gold capitalize">
-              {currentState.players[currentState.current_player_index]?.username}'s {currentState.phase} phase
+            <div className="bg-bf-surface/90 border border-bf-border rounded-lg px-3 py-1.5 text-xs text-bf-gold">
+              {currentState.players[currentState.current_player_index]?.username}'s {REPLAY_PHASE_LABELS[currentState.phase] ?? currentState.phase} phase
             </div>
             {playbackMode === 'highlights' && condensedByIndex.has(replayFrame) && (
               <div className="flex items-center gap-1.5 bg-bf-gold/15 border border-bf-gold/30 rounded-lg px-2.5 py-1 text-[11px] text-bf-gold">
