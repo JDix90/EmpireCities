@@ -75,6 +75,10 @@ describe('CampaignPage guest gate', () => {
     postMock.mockResolvedValue({ data: { campaign_id: 'c1', game_id: 'g1' } });
     renderPage(false);
     fireEvent.click(await screen.findByRole('button', { name: /Iron Road/ }));
+    // The choice opens a confirmation first (PT-017); nothing is created until it is accepted.
+    expect(await screen.findByRole('dialog', { name: /Iron Road/ })).toBeInTheDocument();
+    expect(postMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: /Start campaign/ }));
 
     await waitFor(() => expect(postMock).toHaveBeenCalledWith('/campaign/start', { path_id: 'iron' }));
     expect(screen.queryByText(/Campaigns need an account/)).not.toBeInTheDocument();

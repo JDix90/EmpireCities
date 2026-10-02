@@ -93,6 +93,10 @@
   },
   "footer": {
     "copyright": "© 2026 {{appName}}. All rights reserved.",
+    "howToPlay": "How to Play",
+    "eras": "Eras",
+    "maps": "Maps",
+    "codex": "Codex",
     "about": "About",
     "privacy": "Privacy Policy",
     "terms": "Terms of Service",

@@ -78,6 +78,7 @@ export const ACCESSIBLE_REGION_PIXI_COLORS: readonly number[] = [
 ];
 
 const DEFAULT_PLAYER_PIXI: Record<string, number> = {
+  '#ff69b4': 0xff69b4,
   '#e74c3c': 0xe74c3c,
   '#3498db': 0x3498db,
   '#2ecc71': 0x2ecc71,
@@ -89,6 +90,7 @@ const DEFAULT_PLAYER_PIXI: Record<string, number> = {
 };
 
 const DEFAULT_PLAYER_CSS: Record<string, string> = {
+  '#ff69b4': 'rgba(255, 105, 180, 0.96)',
   '#e74c3c': 'rgba(231, 76, 60, 0.96)',
   '#3498db': 'rgba(52, 152, 219, 0.96)',
   '#2ecc71': 'rgba(46, 204, 113, 0.96)',
@@ -100,6 +102,7 @@ const DEFAULT_PLAYER_CSS: Record<string, string> = {
 };
 
 const DEFAULT_PLAYER_CSS_SOLID: Record<string, string> = {
+  '#ff69b4': 'rgb(255, 105, 180)',
   '#e74c3c': 'rgb(231, 76, 60)',
   '#3498db': 'rgb(52, 152, 219)',
   '#2ecc71': 'rgb(46, 204, 113)',
@@ -110,7 +113,13 @@ const DEFAULT_PLAYER_CSS_SOLID: Record<string, string> = {
   '#ecf0f1': 'rgb(236, 240, 241)',
 };
 
-/** The default (non-colorblind) player palette, in seat order. */
+/**
+ * The default (non-colorblind) player palette, in seat order. Seat 7 is pink;
+ * it was a second orange (#e67e22) beside seat 4's #f39c12, near-identical
+ * even with full colour vision (PT-016). The old hex stays in the maps above
+ * so games seated before the change still render; the server's seat lists
+ * (games.routes.ts, matchmaking.routes.ts) hand out this order.
+ */
 export const STANDARD_PLAYER_ORDER = [
   '#e74c3c',
   '#3498db',
@@ -118,7 +127,7 @@ export const STANDARD_PLAYER_ORDER = [
   '#f39c12',
   '#9b59b6',
   '#1abc9c',
-  '#e67e22',
+  '#ff69b4',
   '#ecf0f1',
 ] as const;
 

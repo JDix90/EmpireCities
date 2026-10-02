@@ -480,6 +480,12 @@ export default function LandingPage() {
       <footer className="border-t border-bf-border pt-8 pb-safe-8 text-center text-bf-muted text-sm space-y-2">
         <p>{t('footer.copyright', { appName: APP_NAME })}</p>
         <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
+          {/* The rules and the era guides were reachable only by URL or from
+              other pages' footers: a newcomer had no path to them (PT-006). */}
+          <Link to="/how-to-play" className="text-bf-gold/80 hover:text-bf-gold">{t('footer.howToPlay')}</Link>
+          <Link to="/eras" className="text-bf-gold/80 hover:text-bf-gold">{t('footer.eras')}</Link>
+          <Link to="/game-maps" className="text-bf-gold/80 hover:text-bf-gold">{t('footer.maps')}</Link>
+          <Link to="/codex" className="text-bf-gold/80 hover:text-bf-gold">{t('footer.codex')}</Link>
           <Link to="/about" className="text-bf-gold/80 hover:text-bf-gold">{t('footer.about')}</Link>
           <Link to="/privacy" className="text-bf-gold/80 hover:text-bf-gold">{t('footer.privacy')}</Link>
           <Link to="/terms" className="text-bf-gold/80 hover:text-bf-gold">{t('footer.terms')}</Link>

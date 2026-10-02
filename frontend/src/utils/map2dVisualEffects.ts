@@ -42,6 +42,7 @@ const PLAYER_HEX: Record<string, number> = {
   '#9b59b6': 0x9b59b6,
   '#1abc9c': 0x1abc9c,
   '#e67e22': 0xe67e22,
+  '#ff69b4': 0xff69b4,
   '#ecf0f1': 0xecf0f1,
 };
 
