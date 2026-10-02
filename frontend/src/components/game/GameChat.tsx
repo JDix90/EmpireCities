@@ -172,6 +172,11 @@ export default function GameChat({ gameId, embedded = false, defaultOpen = false
                 {renderMessage(m.message)}
               </div>
             ))}
+            {messages.length === 0 && (
+              <p className="text-[11px] text-bf-muted/70 italic">
+                Chat is live only — messages aren't stored, so they won't be here after a reload.
+              </p>
+            )}
             <div ref={bottomRef} />
           </div>
 

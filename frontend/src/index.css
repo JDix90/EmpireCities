@@ -43,6 +43,7 @@
   .btn-primary {
     @apply bg-bf-gold text-bf-dark font-semibold px-6 py-2.5 rounded-lg min-h-[44px] inline-flex items-center justify-center
            hover:brightness-110 active:brightness-90 transition-all duration-150
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-bf-dark
            disabled:opacity-50 disabled:cursor-not-allowed;
     touch-action: manipulation;
   }
@@ -50,19 +51,22 @@
   .btn-secondary {
     @apply bg-bf-surface border border-bf-border text-bf-text font-medium px-6 py-2.5 rounded-lg min-h-[44px] inline-flex items-center justify-center
            hover:bg-bf-border transition-all duration-150
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bf-gold focus-visible:ring-offset-2 focus-visible:ring-offset-bf-dark
            disabled:opacity-50 disabled:cursor-not-allowed;
     touch-action: manipulation;
   }
 
   .btn-danger {
     @apply bg-red-700 text-white font-semibold px-6 py-2.5 rounded-lg
-           hover:bg-red-600 active:bg-red-800 transition-all duration-150;
+           hover:bg-red-600 active:bg-red-800 transition-all duration-150
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-bf-dark;
     touch-action: manipulation;
   }
 
   .btn-warning {
     @apply bg-amber-700/30 border border-amber-500/40 text-amber-300 font-semibold px-6 py-2.5 rounded-lg
-           hover:bg-amber-700/40 hover:border-amber-400/50 active:bg-amber-800/40 transition-all duration-150;
+           hover:bg-amber-700/40 hover:border-amber-400/50 active:bg-amber-800/40 transition-all duration-150
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-bf-dark;
     touch-action: manipulation;
   }
 

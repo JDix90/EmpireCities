@@ -386,6 +386,9 @@ export default function SpectatorPage() {
       <div className="min-h-screen bg-bf-dark flex flex-col items-center justify-center gap-4">
         <Eye className="w-12 h-12 text-bf-muted/30" />
         <p className="text-bf-muted">Spectating is currently disabled</p>
+        <p className="text-bf-muted/70 text-sm max-w-md text-center">
+          This link will work again when spectating is switched back on.
+        </p>
         <Link to="/lobby" className="text-bf-gold hover:text-white transition-colors text-sm">
           ← Back to the lobby
         </Link>
