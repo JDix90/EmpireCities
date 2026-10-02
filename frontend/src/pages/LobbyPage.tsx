@@ -565,6 +565,12 @@ export default function LobbyPage() {
   // onChange handlers below clear the mark). Runs on mount too, so ?era=
   // deep links from the era gallery get the same defaults.
   const autoEnabledSystemsRef = useRef<Set<EraSystemKey>>(new Set());
+  /**
+   * Systems the Era Advancement tick switched on for the player (it defaults
+   * to the full-game experience). Unticking it puts exactly these back; a box
+   * the player ticked themselves, before or after, stays as they left it.
+   */
+  const eraAdvancementAutoTickedRef = useRef<Set<'tech_trees' | 'stability' | 'naval' | 'events'>>(new Set());
   useEffect(() => {
     const transition = transitionEraSystemDefaults({
       options: { galaxyHomeWorlds },
@@ -2678,7 +2684,7 @@ export default function LobbyPage() {
                         <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
                           <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'tech_trees')} />
                           <label htmlFor="create-game-tech-trees" className="contents cursor-pointer">
-                            <input id="create-game-tech-trees" type="checkbox" checked={techTreesEnabled} onChange={(e) => { autoEnabledSystemsRef.current.delete('tech_trees'); setTechTreesEnabled(e.target.checked); }} disabled={lockedSystems.has('tech_trees')} aria-describedby={lockedSystems.has('tech_trees') ? 'era-locked-systems-notice' : undefined} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
+                            <input id="create-game-tech-trees" type="checkbox" checked={techTreesEnabled} onChange={(e) => { autoEnabledSystemsRef.current.delete('tech_trees'); eraAdvancementAutoTickedRef.current.delete('tech_trees'); setTechTreesEnabled(e.target.checked); }} disabled={lockedSystems.has('tech_trees')} aria-describedby={lockedSystems.has('tech_trees') ? 'era-locked-systems-notice' : undefined} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
                             <span className="leading-snug min-w-0 select-none">
                               Technology Trees
                               {lockedSystems.has('tech_trees') && <span className="text-xs text-bf-muted"> (required)</span>}
@@ -2688,21 +2694,21 @@ export default function LobbyPage() {
                         <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
                           <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'historical_events')} />
                           <label htmlFor="create-game-events" className="contents cursor-pointer">
-                            <input id="create-game-events" type="checkbox" checked={eventsEnabled} onChange={(e) => setEventsEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
+                            <input id="create-game-events" type="checkbox" checked={eventsEnabled} onChange={(e) => { eraAdvancementAutoTickedRef.current.delete('events'); setEventsEnabled(e.target.checked); }} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
                             <span className="leading-snug min-w-0 select-none">Historical Events</span>
                           </label>
                         </div>
                         <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
                           <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'naval_warfare')} />
                           <label htmlFor="create-game-naval" className="contents cursor-pointer">
-                            <input id="create-game-naval" type="checkbox" checked={navalEnabled} onChange={(e) => setNavalEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
-                            <span className="leading-snug min-w-0 select-none">Naval Warfare</span>
+                            <input id="create-game-naval" type="checkbox" checked={navalEnabled} onChange={(e) => { eraAdvancementAutoTickedRef.current.delete('naval'); setNavalEnabled(e.target.checked); }} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
+                            <span className="leading-snug min-w-0 select-none">Naval Warfare <span className="text-xs text-bf-muted">(needs Economy &amp; Buildings — fleets come from Ports)</span></span>
                           </label>
                         </div>
                         <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
                           <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'population_stability')} />
                           <label htmlFor="create-game-stability" className="contents cursor-pointer">
-                            <input id="create-game-stability" type="checkbox" checked={stabilityEnabled} onChange={(e) => setStabilityEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
+                            <input id="create-game-stability" type="checkbox" checked={stabilityEnabled} onChange={(e) => { eraAdvancementAutoTickedRef.current.delete('stability'); setStabilityEnabled(e.target.checked); }} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
                             <span className="leading-snug min-w-0 select-none">Population &amp; Stability</span>
                           </label>
                         </div>
@@ -2738,22 +2744,36 @@ export default function LobbyPage() {
                                 type="checkbox"
                                 checked={eraAdvancementEnabled}
                                 onChange={(e) => {
-                                  setEraAdvancementEnabled(e.target.checked);
-                                  if (e.target.checked) {
+                                  const on = e.target.checked;
+                                  setEraAdvancementEnabled(on);
+                                  const auto = eraAdvancementAutoTickedRef.current;
+                                  if (on) {
                                     // Default to the full-game experience. Economy
                                     // stays locked on while this is ticked
-                                    // (economyRequired); the rest remain optional.
+                                    // (economyRequired); the rest remain optional,
+                                    // and the ones this tick flipped are remembered
+                                    // so unticking puts them back.
                                     setEconomyEnabled(true);
-                                    setTechTreesEnabled(true);
-                                    setStabilityEnabled(true);
-                                    setNavalEnabled(true);
-                                    setEventsEnabled(true);
+                                    auto.clear();
+                                    if (!techTreesEnabled) { auto.add('tech_trees'); setTechTreesEnabled(true); }
+                                    if (!stabilityEnabled) { auto.add('stability'); setStabilityEnabled(true); }
+                                    if (!navalEnabled) { auto.add('naval'); setNavalEnabled(true); }
+                                    if (!eventsEnabled) { auto.add('events'); setEventsEnabled(true); }
+                                  } else {
+                                    if (auto.has('tech_trees')) setTechTreesEnabled(false);
+                                    if (auto.has('stability')) setStabilityEnabled(false);
+                                    if (auto.has('naval')) setNavalEnabled(false);
+                                    if (auto.has('events')) setEventsEnabled(false);
+                                    auto.clear();
                                   }
                                 }}
                                 className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
                               />
                               <span className="leading-snug min-w-0 select-none">Era Advancement <span className="text-xs text-bf-muted">(advance through the ages mid-match)</span></span>
                             </label>
+                            <p className="col-start-2 col-span-2 text-xs text-bf-muted mt-1">
+                              Requires Economy &amp; Buildings. Ticking it also switches on Technology, Population &amp; Stability, Naval Warfare and Historical Events — untick any you don't want; unticking Era Advancement puts them back.
+                            </p>
                             {eraAdvancementEnabled && (
                               <div className="col-start-2 col-span-2 mt-2">
                                 <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Era advancement preset">

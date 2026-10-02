@@ -59,6 +59,7 @@ export default function MobileTurnStrip({
   history = NO_HISTORY,
   onScrub,
   onOpenFullLog,
+  beforeFirstTurn = false,
 }: {
   recaps: TurnRecapEntry[];
   viewerPlayerId: string | null;
@@ -74,7 +75,10 @@ export default function MobileTurnStrip({
   /** The territories the viewer lost in the round being scrubbed, for the map; null when not scrubbing. */
   onScrub?: (lostIds: string[] | null) => void;
   onOpenFullLog: () => void;
+  /** The viewer has not had a turn yet: these moves happened before it, not while they were away. */
+  beforeFirstTurn?: boolean;
 }) {
+  const awayLabel = beforeFirstTurn ? 'Before your first turn' : 'While you were away';
   const [sheetOpen, setSheetOpen] = useState(false);
   /** Position on the scrubber: an index into `history`, or `history.length` for Now. */
   const [scrubPos, setScrubPos] = useState(0);
@@ -160,7 +164,7 @@ export default function MobileTurnStrip({
   const sheetTitle = shownRound
     ? `Turn ${shownRound.turnNumber} · ${turnsAgo} ${turnsAgo === 1 ? 'turn' : 'turns'} ago`
     : recaps.length > 0
-      ? `While you were away (${summary.turns} ${summary.turns === 1 ? 'turn' : 'turns'})`
+      ? `${awayLabel} (${summary.turns} ${summary.turns === 1 ? 'turn' : 'turns'})`
       : 'Nothing new this turn yet';
 
   const sheet = sheetOpen && (recaps.length > 0 || history.length > 0) && (
@@ -175,7 +179,7 @@ export default function MobileTurnStrip({
         data-testid="turn-strip-sheet"
         className="fixed mobile-sheet-above-nav inset-x-0 z-[38] max-h-[45vh] rounded-t-2xl border-t border-bf-border bg-bf-surface shadow-2xl flex flex-col animate-slide-up"
         role="dialog"
-        aria-label="While you were away"
+        aria-label={awayLabel}
       >
         <div className="flex items-center gap-2 px-3 py-2 border-b border-bf-border shrink-0">
           <History className="w-4 h-4 text-bf-gold shrink-0" aria-hidden />
@@ -269,7 +273,7 @@ export default function MobileTurnStrip({
               ? 'bg-bf-surface/95 border-red-500/50 text-red-300'
               : 'bg-bf-surface/95 border-bf-border text-bf-muted',
           )}
-          aria-label={`While you were away: ${summary.turns} turns`}
+          aria-label={`${awayLabel}: ${summary.turns} turns`}
         >
           <History className="w-3.5 h-3.5" aria-hidden />
           <span className="tabular-nums">{summary.turns}</span>
@@ -356,7 +360,7 @@ export default function MobileTurnStrip({
                 </>
               ) : isMyTurn ? (
                 <>
-                  While you were away
+                  {awayLabel}
                   <span className="text-bf-muted"> · {summary.battles} {summary.battles === 1 ? 'battle' : 'battles'}</span>
                   {summary.captures > 0 && (
                     <span className="text-bf-muted"> · {summary.captures} {summary.captures === 1 ? 'capture' : 'captures'}</span>
