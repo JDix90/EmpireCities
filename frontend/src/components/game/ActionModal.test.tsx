@@ -381,3 +381,20 @@ describe('ActionModal — a side wins together', () => {
     expect(screen.getByText('You and Jeff have triumphed together!')).toBeTruthy();
   });
 });
+
+describe('ActionModal — the winner\'s line matches how the game ended', () => {
+  it('does not claim a conquest after a resignation', async () => {
+    render(<ActionModal data={gameOver({ victory_condition: 'resignation' })} onDismiss={() => {}} />);
+    await waitFor(() => expect(screen.getByText('Your last rival conceded the field.')).toBeTruthy());
+    expect(screen.queryByText('You have conquered the world!')).toBeNull();
+    expect(screen.getByText(/Victory by Resignation/)).toBeTruthy();
+  });
+
+  it('names the capitals on a capital win, and keeps the conquest line for domination', async () => {
+    const { unmount } = render(<ActionModal data={gameOver({ victory_condition: 'capital' })} onDismiss={() => {}} />);
+    await waitFor(() => expect(screen.getByText('Every rival capital is yours.')).toBeTruthy());
+    unmount();
+    render(<ActionModal data={gameOver({ victory_condition: 'domination' })} onDismiss={() => {}} />);
+    await waitFor(() => expect(screen.getByText('You have conquered the world!')).toBeTruthy());
+  });
+});
