@@ -97,7 +97,7 @@ export interface GameOverModalData {
   /** Territory share (percent of all territories) the `threshold` win required. */
   victory_threshold?: number;
   /** Which victory condition ended the game. */
-  victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory' | 'abandoned' | 'turn_limit' | 'resignation' | 'humans_eliminated' | 'lunar_hegemony' | 'lane_sovereignty';
+  victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory' | 'abandoned' | 'turn_limit' | 'resignation' | 'humans_eliminated' | 'lunar_hegemony' | 'lane_sovereignty' | 'transcendence';
   /** Human-readable era name for the share card (e.g., "World War II"). */
   eraName?: string;
   /** All winner player_ids — two entries for alliance_victory, a whole side in a team game. */
@@ -1350,6 +1350,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
       case 'lunar_hegemony':  return 'Lunar Hegemony — the whole Moon held, turn after turn';
       case 'turn_limit':      return 'Turn Limit Reached — strongest position wins';
       case 'resignation':     return 'Resignation — a commander conceded the field';
+      case 'transcendence':   return 'Transcendence — the final era reached with a wonder in hand';
       case 'humans_eliminated': return 'No Commanders Remain — every human player was eliminated';
       default:                return null;
     }
@@ -1357,6 +1358,22 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
 
   const isAbandoned = data.victory_condition === 'abandoned';
   const isAlliance = data.victory_condition === 'alliance_victory';
+  // The winner's own line, by how the game actually ended. "You have conquered
+  // the world!" over a resignation or a capital win said the wrong thing; the
+  // reason line below it still names the condition.
+  const soloWinLine = ((): string => {
+    switch (data.victory_condition) {
+      case 'resignation':     return 'Your last rival conceded the field.';
+      case 'capital':         return 'Every rival capital is yours.';
+      case 'threshold':       return 'You hold the share of the map the game asked for.';
+      case 'secret_mission':  return 'Your secret mission is complete.';
+      case 'turn_limit':      return 'The turn limit fell with you in the strongest position.';
+      case 'lunar_hegemony':  return 'The Moon is yours, and so is the game.';
+      case 'lane_sovereignty': return 'The hyperspace network is yours.';
+      case 'transcendence':   return 'You have transcended the final era.';
+      default:                return 'You have conquered the world!';
+    }
+  })();
   const daily = data.daily_challenge;
   const wonGameLostChallenge = daily?.outcome === 'unmet';
   // A met objective is the day's win. "You have conquered the world!" over a
@@ -1440,7 +1457,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
                 : `The ${data.winningTeamName} win together.`
               : isAlliance && allyName
                 ? `You and ${allyName} have triumphed together!`
-                : 'You have conquered the world!'
+                : soloWinLine
             : isTeamWin
               ? `The ${data.winningTeamName} win the game.`
               : isAlliance
