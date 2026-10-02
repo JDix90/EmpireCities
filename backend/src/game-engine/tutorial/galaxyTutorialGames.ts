@@ -16,6 +16,7 @@ import { GALAXY_TRANSCENDENCE_SCENARIO } from './galaxyTranscendenceScenario';
 import { GALAXY_SECRET_MISSIONS_SCENARIO } from './galaxySecretMissionsScenario';
 import { GALAXY_CAPITAL_SCENARIO } from './galaxyCapitalScenario';
 import { GALAXY_THRESHOLD_LESSON_PERCENT, GALAXY_THRESHOLD_SCENARIO } from './galaxyThresholdScenario';
+import { GALAXY_DOMINATION_SCENARIO } from './galaxyDominationScenario';
 import {
   GALAXY_LANE_SOVEREIGNTY_GRANT_TECH_POINTS,
   GALAXY_TRANSCENDENCE_GRANT_GOLD,
@@ -168,6 +169,24 @@ export function galaxyTutorialGameSpec(lessonModule: GalaxyTutorialLessonModule)
           ...galaxySettingsBase(lessonModule, seats.length, ['domination', 'threshold']),
           victory_threshold: GALAXY_THRESHOLD_LESSON_PERCENT,
           authored_scenario: GALAXY_THRESHOLD_SCENARIO,
+        },
+      };
+    }
+    case 'galaxy_domination': {
+      // The Navigators down to one Verdan gateway, the Mandate holding the
+      // rest of the world around it; see galaxyDominationScenario.ts. Played
+      // for Domination alone, so the result shows what the galaxy makes of it.
+      const seats: TutorialSeat[] = [
+        { faction_id: 'stellar_mandate', is_ai: false },
+        { faction_id: 'helion_navigators', is_ai: true, ai_difficulty: TUTORIAL_AI },
+      ];
+      return {
+        mapId: 'era_galaxy',
+        eraId: 'galaxy_age',
+        seats,
+        settings: {
+          ...galaxySettingsBase(lessonModule, seats.length, ['domination']),
+          authored_scenario: GALAXY_DOMINATION_SCENARIO,
         },
       };
     }
