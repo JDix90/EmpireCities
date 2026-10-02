@@ -1518,7 +1518,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
             ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-300'
             : 'bg-white/5 border-white/10 text-white/45'
         )}>
-          {data.isWinner ? '🏆 ' : ''}Victory by {reasonLabel}
+          {data.isWinner ? '🏆 ' : ''}{data.victory_condition === 'abandoned' ? reasonLabel : `Victory by ${reasonLabel}`}
         </div>
       )}
 
@@ -2144,7 +2144,10 @@ function EliminationView({
 // ─── Resign Confirm View ────────────────────────────────────────────────────
 
 function ResignConfirmView({ data, onConfirm, onCancel }: { data: ResignModalData; onConfirm: () => void; onCancel: () => void }) {
-  const inGrace = typeof data.turnNumber === 'number' && data.turnNumber <= RESIGN_GRACE_TURNS;
+  // The grace window (turns 1–2, abandoned and unrated) exists only when no
+  // other human is left in the game. With rivals still playing, a resignation
+  // is a loss at any turn — saying otherwise cost a playtester 66 rating.
+  const inGrace = data.aiOnly !== false && typeof data.turnNumber === 'number' && data.turnNumber <= RESIGN_GRACE_TURNS;
   return (
     <div className="w-full max-w-md mx-auto text-center">
       <Flag className="w-12 h-12 text-white/30 mx-auto mb-4" />
@@ -2153,11 +2156,13 @@ function ResignConfirmView({ data, onConfirm, onCancel }: { data: ResignModalDat
         Your territories will become neutral. This cannot be undone.
       </p>
       <p className="text-white/40 text-xs mb-6" data-testid="resign-rating-note">
-        {typeof data.turnNumber !== 'number'
-          ? `Resigning in turns 1–${RESIGN_GRACE_TURNS} abandons the game with no rating change; from turn ${RESIGN_GRACE_TURNS + 1} it counts as a loss.`
-          : inGrace
-            ? `Turn ${data.turnNumber}: still inside the opening grace window, so this abandons the game — no rating change and no result recorded.`
-            : `Turn ${data.turnNumber}: this counts as a loss and will affect your rating.${data.aiOnly ? ' The strongest remaining AI is credited with the win.' : ''}`}
+        {data.aiOnly === false
+          ? `Other commanders are still in the game, so this counts as a loss and will affect your rating${typeof data.turnNumber === 'number' ? ` (turn ${data.turnNumber})` : ''}. If you are their last rival, they take the win.`
+          : typeof data.turnNumber !== 'number'
+            ? `Against AI only, resigning in turns 1–${RESIGN_GRACE_TURNS} abandons the game with no rating change; from turn ${RESIGN_GRACE_TURNS + 1} it counts as a loss.`
+            : inGrace
+              ? `Turn ${data.turnNumber}: still inside the opening grace window, so this abandons the game — no rating change and no result recorded.`
+              : `Turn ${data.turnNumber}: this counts as a loss and will affect your rating. The strongest remaining AI is credited with the win.`}
       </p>
       <div className="flex gap-3">
         <button

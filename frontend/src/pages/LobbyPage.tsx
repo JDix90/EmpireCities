@@ -570,7 +570,7 @@ export default function LobbyPage() {
    * to the full-game experience). Unticking it puts exactly these back; a box
    * the player ticked themselves, before or after, stays as they left it.
    */
-  const eraAdvancementAutoTickedRef = useRef<Set<'tech_trees' | 'stability' | 'naval' | 'events'>>(new Set());
+  const eraAdvancementAutoTickedRef = useRef<Set<'economy' | 'tech_trees' | 'stability' | 'naval' | 'events'>>(new Set());
   useEffect(() => {
     const transition = transitionEraSystemDefaults({
       options: { galaxyHomeWorlds },
@@ -2674,7 +2674,7 @@ export default function LobbyPage() {
                         <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
                           <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'economy_buildings')} />
                           <label htmlFor="create-game-economy" className="contents cursor-pointer">
-                            <input id="create-game-economy" type="checkbox" checked={economyEnabled || economyRequired} onChange={(e) => { autoEnabledSystemsRef.current.delete('economy'); setEconomyEnabled(e.target.checked); }} disabled={lockedSystems.has('economy') || economyRequired} aria-describedby={lockedSystems.has('economy') ? 'era-locked-systems-notice' : undefined} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
+                            <input id="create-game-economy" type="checkbox" checked={economyEnabled || economyRequired} onChange={(e) => { autoEnabledSystemsRef.current.delete('economy'); eraAdvancementAutoTickedRef.current.delete('economy'); setEconomyEnabled(e.target.checked); }} disabled={lockedSystems.has('economy') || economyRequired} aria-describedby={lockedSystems.has('economy') ? 'era-locked-systems-notice' : undefined} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
                             <span className="leading-snug min-w-0 select-none">
                               Economy &amp; Buildings
                               {(lockedSystems.has('economy') || economyRequired) && <span className="text-xs text-bf-muted"> (required)</span>}
@@ -2753,13 +2753,15 @@ export default function LobbyPage() {
                                     // (economyRequired); the rest remain optional,
                                     // and the ones this tick flipped are remembered
                                     // so unticking puts them back.
-                                    setEconomyEnabled(true);
                                     auto.clear();
+                                    if (!economyEnabled) { auto.add('economy'); }
+                                    setEconomyEnabled(true);
                                     if (!techTreesEnabled) { auto.add('tech_trees'); setTechTreesEnabled(true); }
                                     if (!stabilityEnabled) { auto.add('stability'); setStabilityEnabled(true); }
                                     if (!navalEnabled) { auto.add('naval'); setNavalEnabled(true); }
                                     if (!eventsEnabled) { auto.add('events'); setEventsEnabled(true); }
                                   } else {
+                                    if (auto.has('economy')) setEconomyEnabled(false);
                                     if (auto.has('tech_trees')) setTechTreesEnabled(false);
                                     if (auto.has('stability')) setStabilityEnabled(false);
                                     if (auto.has('naval')) setNavalEnabled(false);

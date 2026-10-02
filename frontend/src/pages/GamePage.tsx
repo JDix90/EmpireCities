@@ -6133,6 +6133,22 @@ export default function GamePage() {
         </div>
       )}
 
+      {/* Mounted here as well as in the pre-game room: the "List territories" button
+          and the L shortcut live in this branch, and the list is the keyboard way
+          onto the map. */}
+        {showShortcuts && <GameShortcutsModal onClose={() => setShowShortcuts(false)} />}
+        {showTerritoryList && gameState && mapData && (
+          <TerritoryListDialog
+            territories={mapData.territories}
+            regions={mapData.regions}
+            gameState={gameState}
+            viewerPlayerId={resolvedViewerPlayerId ?? viewerPlayer?.player_id ?? null}
+            selectedTerritoryId={selectedTerritory}
+            onSelect={handleTerritoryClick}
+            onClose={() => setShowTerritoryList(false)}
+          />
+        )}
+
     </div>
   );
 }
