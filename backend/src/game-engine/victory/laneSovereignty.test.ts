@@ -139,6 +139,7 @@ describe('the streak, and the win', () => {
     tickLaneSovereignty(state, map, 'p_sol');
     expect(state.players[0].lane_sovereignty_streak).toBe(LANE_SOVEREIGNTY_ROUNDS);
     expect(hasLaneSovereignty(state, 'p_sol')).toBe(true);
+    state.turn_number = LANE_SOVEREIGNTY_ROUNDS + 1; // the streak took that many rounds; wins are judged from round 2
     expect(checkVictory(state, map)).toEqual({ winnerIds: ['p_sol'], condition: 'lane_sovereignty' });
   });
 
@@ -170,6 +171,8 @@ describe('the streak, and the win', () => {
       advanceToNextPlayer(state, map);
       expect(state.players[0].lane_sovereignty_streak).toBe(round);
     }
+    // The streak spans rounds; the win itself is judged from round 2 (victory/openingRound.ts).
+    state.turn_number = Math.max(state.turn_number, 2);
     expect(checkVictory(state, map)?.condition).toBe('lane_sovereignty');
   });
 
@@ -213,6 +216,7 @@ describe('the rounds, by seat count', () => {
     }
     expect(laneSovereigntyProgress(state, map, 'p_sol')).toMatchObject({ streak: 4, roundsNeeded: 5 });
     tickLaneSovereignty(state, map, 'p_sol');
+    state.turn_number = 6; // five rounds have passed; alternative wins are live from round 2
     expect(checkVictory(state, map)).toEqual({ winnerIds: ['p_sol'], condition: 'lane_sovereignty' });
   });
 

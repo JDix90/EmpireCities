@@ -165,7 +165,7 @@ export default function HowToPlayPage() {
               </div>
               <div className="bg-bf-dark/50 rounded-lg p-3">
                 <p className="font-medium text-bf-text mb-0.5">Capital Capture</p>
-                <p className="text-xs">Each player starts with a capital. Hold yours and capture every opponent's to win.</p>
+                <p className="text-xs">Each player starts with a capital. Hold yours and capture every opponent's to win. Like every win other than Domination, it is judged from round 2, once everyone has had a turn.</p>
               </div>
               <div className="bg-bf-dark/50 rounded-lg p-3">
                 <p className="font-medium text-bf-text mb-0.5">Secret Mission</p>

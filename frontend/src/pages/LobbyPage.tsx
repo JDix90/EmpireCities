@@ -2903,8 +2903,8 @@ export default function LobbyPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {([
                         ['domination', 'Domination — control every territory', 'Own every single territory on the map simultaneously. A difficult but decisive conquest victory.'],
-                        ['threshold', 'Territory threshold', 'Win by controlling a set percentage of territories (configurable below). Rewards sustained expansion over total domination.'],
-                        ['capital', 'Capital — occupy all opponents\' capitals', 'Each player has a home capital. Hold your own and capture every rival capital to win — even if they still hold other territories.'],
+                        ['threshold', 'Territory threshold', 'Win by controlling a set percentage of territories (configurable below). Rewards sustained expansion over total domination. Judged from round 2, once everyone has had a turn.'],
+                        ['capital', 'Capital — occupy all opponents\' capitals', 'Each player has a home capital. Hold your own and capture every rival capital to win — even if they still hold other territories. Judged from round 2, once everyone has had a turn.'],
                         ['secret_mission', 'Secret mission', 'Each player is secretly dealt an objective: capture two named territories, hold one or two named regions, or eliminate a named player yourself (if anyone else does, the mission fails). Era Advancement and the Space Age add era and Moon objectives, and with four or more seats two human players may share an alliance instead. Objectives are dealt separately, so two players can draw the same one. Completing yours wins the game.'],
                         // Galaxy-only: a victory about the network rather than the headcount.
                         ...(selectedEra === GALACTIC_AGE_ERA_ID && !galaxyHomeWorldsOff
