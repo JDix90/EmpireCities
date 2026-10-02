@@ -60,6 +60,10 @@
     "galaxy_secret_missions": {
       "title": "Galaktisches Zeitalter: Geheimmissionen",
       "description": "Was die Galaxis mit Missionen und Allianzen macht: Nimm die beiden Sol-Gateways, die deine Mission nennt, über ihre Routen ein und gewinne."
+    },
+    "galaxy_capital": {
+      "title": "Galaktisches Zeitalter: Hauptstadteinnahme",
+      "description": "Hauptstädte liegen hier auf Gateways: Halte Amazon Basin und nimm die Hauptstadt der Navigators über ihre Route ein, um zu gewinnen."
     }
   },
   "steps": {
@@ -398,6 +402,41 @@
         "message": "Du hast eine Mission gelesen, beide darin genannten Systeme über ihre Routen genommen und damit gewonnen. In einer echten Galaxie-Partie kann ein Sol-Halter nur eine Eliminierungsmission ziehen, und die Erobermissionen aller anderen zeigen auf Sol – rechne also mit Gesellschaft auf seinen Gateways.",
         "skippedTitle": "Direkt ins Spiel",
         "skippedMessage": "Kurz gefasst: Deine Mission steht im Feld Objectives – **Own Guinea Coast and Pacific Rim**, die beiden Sol-Gateways jenseits deiner Routen. Nimm **Guinea Coast** von **Chlorophage Span** aus und **Pacific Rim** von **Greenfire Vault** aus; der Sieg wird ab Runde 2 gewertet. Gerade jetzt hast du Verstärkungen zu platzieren – klicke auf **Chlorophage Span** und dann auf {{draftButton}}."
+      }
+    },
+    "galaxy_capital": {
+      "gcp_welcome": {
+        "title": "Hauptstadteinnahme in der Galaxis",
+        "message": "Diese Partie wird um den **Hauptstadtsieg** gespielt: Halte deine eigene Hauptstadt und nimm die jedes Rivalen ein. Du bist die Stellar Mandate von **Sol III**, und deine Hauptstadt ist **Amazon Basin**. Die Helion Navigators halten **Verdan Reach**, und ihre ist **Chlorophage Span**.",
+        "detail": "Die Verteilung legt die Hauptstadt jedes Sitzes zu Spielbeginn fest, und auf diesem Spielfeld fielen beide auf **Gateways**: Amazon Basin ist Sols Tor nach Nexus Station, Chlorophage Span ist Verdans Tor gegenüber deiner Guinea Coast. Der entscheidende Angriff ist hier also eine Routenüberquerung mit der Routengrenze von 2 Würfeln.",
+        "hint": "Klicke auf Weiter oder überspringe zum Ende und steig direkt ein."
+      },
+      "gcp_rules": {
+        "title": "Lies die Hauptstädte",
+        "message": "Jede Hauptstadt ist auf der Karte markiert, und das Feld **Objectives** in der Seitenleiste zeigt **Your capital: Amazon Basin** mit der Regel darunter: Halte sie und nimm jede gegnerische Hauptstadt, gewertet ab Runde 2. Verlierst du Amazon Basin, wird das Feld rot – du kannst nicht über Hauptstädte gewinnen, bis du sie zurückeroberst.",
+        "detail": "Nur lebende Rivalen zählen: Die Hauptstadt eines ausgeschiedenen Sitzes muss nicht mehr gehalten werden. In einem 2v2 oder mit verbündeten Häusern gewinnt die Seite, wenn jede lebende Hauptstadt in den Händen ihrer Mitglieder ist.",
+        "whyItMatters": "Eine Hauptstadt auf einem Gateway ist Preis und Tür zugleich. Wer Chlorophage Span hält, hält das ferne Ende der Route Sol–Verdan – und damit einen Sovereignty-Korridor."
+      },
+      "gcp_draft": {
+        "title": "Stapel auf Guinea Coast",
+        "message": "Klicke auf **Guinea Coast** – dein Gateway gegenüber Chlorophage Span, hervorgehoben –, wähle **All** und drücke **Place**. Klicke dann auf den goldenen Button **{{draftButton}}**.",
+        "detail": "Seine Gateway-Karte führt die Route nach Verdan Reach als **Open**: Du hältst dieses Ende, die Navigators halten ihre Hauptstadt am anderen. Amazon Basin braucht nichts: Der Tutorial-Gegner greift nie an, aber in einer echten Partie ist deine Hauptstadt das System, das du besetzt."
+      },
+      "gcp_cross": {
+        "title": "Nimm die gegnerische Hauptstadt",
+        "message": "Klicke auf **Guinea Coast** und dann über die Route auf **Chlorophage Span**. Ein Routenangriff würfelt höchstens mit 2 Würfeln; **Attack until captured** drückt nach, bis die Hauptstadt fällt, und bis zu 3 deiner Angreifer rücken von selbst nach.",
+        "detail": "Die Navigators verteidigen eine Route ohne zusätzlichen Würfel. Acht gegen zwei setzt sich über ein paar Würfe durch die Grenze durch."
+      },
+      "gcp_win": {
+        "title": "Gewertet ab Runde 2",
+        "message": "Beide Hauptstädte gehören dir. Ist noch Runde 1, beende deinen Zug mit **{{attackButton}}** und **{{fortifyButton}}**: Der Sieg kommt, sobald Runde 2 beginnt, bevor du eine Einheit setzt. In Runde 2 oder später eingenommen, endete die Partie mit der Eroberung.",
+        "detail": "Die Runde-2-Regel gibt es vor allem für Hauptstädte: Mit drei Starteinheiten könnte eine Hauptstadt sonst den Würfeln des ersten Sitzes zum Opfer fallen, bevor der letzte Sitz eine gesetzt hat."
+      },
+      "gcp_complete": {
+        "title": "Hauptstadteinnahme abgeschlossen",
+        "message": "Du hast Amazon Basin gehalten und Chlorophage Span über seine Route eingenommen. In einer echten Galaxie-Partie sind die Hauptstädte auf Gateways die Systeme, um die alle doppelt kämpfen – als Hauptstädte und als Enden von Routen.",
+        "skippedTitle": "Direkt ins Spiel",
+        "skippedMessage": "Kurz gefasst: Halte deine Hauptstadt **Amazon Basin** und nimm die Hauptstadt der Navigators, **Chlorophage Span**, von **Guinea Coast** aus über die Route ein; der Sieg wird ab Runde 2 gewertet. Gerade jetzt hast du Verstärkungen zu platzieren – klicke auf **Guinea Coast** und dann auf {{draftButton}}."
       }
     }
   }

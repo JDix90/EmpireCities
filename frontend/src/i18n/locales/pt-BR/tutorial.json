@@ -60,6 +60,10 @@
     "galaxy_secret_missions": {
       "title": "Era Galáctica: Missões secretas",
       "description": "O que a galáxia faz com missões e alianças: tome os dois gateways de Sol que a sua missão nomeia, através das rotas deles, e vença."
+    },
+    "galaxy_capital": {
+      "title": "Era Galáctica: Captura de capital",
+      "description": "Aqui as capitais ficam em gateways: mantenha Amazon Basin e tome a capital dos Navigators através da rota dela para vencer."
     }
   },
   "steps": {
@@ -398,6 +402,41 @@
         "message": "Você leu uma missão, tomou os dois sistemas que ela nomeava através das rotas deles e venceu com ela. Numa partida galáctica real, quem controla Sol só pode tirar uma missão de eliminação, e as missões de captura de todos os outros apontam para Sol — então espere companhia nos gateways dele.",
         "skippedTitle": "Direto para o jogo",
         "skippedMessage": "Em resumo: a sua missão está no painel Objectives — **Own Guinea Coast and Pacific Rim**, os dois gateways de Sol do outro lado das suas rotas. Tome **Guinea Coast** a partir de **Chlorophage Span** e **Pacific Rim** a partir de **Greenfire Vault**; a vitória é julgada a partir da rodada 2. Agora mesmo você tem reforços para posicionar — clique em **Chlorophage Span** e depois em {{draftButton}}."
+      }
+    },
+    "galaxy_capital": {
+      "gcp_welcome": {
+        "title": "Captura de capital na galáxia",
+        "message": "Esta partida é jogada pela vitória por **Capital**: mantenha a sua própria capital e tome a de cada rival. Você é a Stellar Mandate de **Sol III**, e a sua capital é **Amazon Basin**. Os Helion Navigators controlam **Verdan Reach**, e a deles é **Chlorophage Span**.",
+        "detail": "A distribuição fixa a capital de cada assento na abertura da partida, e neste tabuleiro as duas caíram em **gateways**: Amazon Basin é a porta de Sol para Nexus Station, Chlorophage Span é a porta de Verdan de frente para a sua Guinea Coast. Então o ataque vencedor aqui é uma travessia de rota, no limite de 2 dados das rotas.",
+        "hint": "Clique em Avançar, ou pule para o fim para entrar direto no jogo."
+      },
+      "gcp_rules": {
+        "title": "Leia as capitais",
+        "message": "Toda capital está marcada no mapa, e o painel **Objectives** na barra lateral mostra **Your capital: Amazon Basin** com a regra embaixo: mantenha-a e tome toda capital rival, julgado a partir da rodada 2. Perca Amazon Basin e o painel fica vermelho — você não pode vencer por capitais até retomá-la.",
+        "detail": "Só rivais vivos contam: a capital de um assento eliminado não precisa mais ser mantida. Num 2v2 ou com casas aliadas, o lado vence quando toda capital viva está nas mãos dos seus membros, somadas.",
+        "whyItMatters": "Uma capital num gateway é o prêmio e a porta ao mesmo tempo. Quem controla Chlorophage Span controla a ponta distante da rota Sol–Verdan, e com ela um corredor de Sovereignty."
+      },
+      "gcp_draft": {
+        "title": "Empilhe em Guinea Coast",
+        "message": "Clique em **Guinea Coast** — seu gateway de frente para Chlorophage Span, destacado —, escolha **All** e pressione **Place**. Depois clique no botão dourado **{{draftButton}}**.",
+        "detail": "O cartão de gateway dele lista a rota para Verdan Reach como **Open**: você controla esta ponta, os Navigators controlam a capital deles na outra. Amazon Basin não precisa de nada: o oponente do tutorial nunca ataca, mas numa partida real a sua capital é o sistema a guarnecer."
+      },
+      "gcp_cross": {
+        "title": "Tome a capital rival",
+        "message": "Clique em **Guinea Coast** e depois em **Chlorophage Span** do outro lado da rota. Um ataque de rota rola no máximo 2 dados; **Attack until captured** insiste até a capital cair, e até 3 dos seus atacantes avançam sozinhos.",
+        "detail": "Os Navigators defendem uma rota sem dado extra. Oito contra dois vence o limite em poucas rolagens."
+      },
+      "gcp_win": {
+        "title": "Julgada a partir da rodada 2",
+        "message": "As duas capitais são suas. Se ainda for a rodada 1, termine seu turno com **{{attackButton}}** e **{{fortifyButton}}**: a vitória chega quando a rodada 2 abre, antes de você posicionar uma unidade. Tomada na rodada 2 ou depois, a partida terminou na captura.",
+        "detail": "A regra da rodada 2 existe sobretudo pelas capitais: com três unidades iniciais, uma capital poderia cair para os dados do primeiro assento antes de o último ter posicionado uma."
+      },
+      "gcp_complete": {
+        "title": "Captura de capital concluída",
+        "message": "Você manteve Amazon Basin e tomou Chlorophage Span através da rota dela. Numa partida galáctica real, as capitais em gateways são os sistemas pelos quais todos lutam duas vezes — como capitais e como pontas de rotas.",
+        "skippedTitle": "Direto para o jogo",
+        "skippedMessage": "Em resumo: mantenha a sua capital, **Amazon Basin**, e tome a capital dos Navigators, **Chlorophage Span**, a partir de **Guinea Coast** através da rota; a vitória é julgada a partir da rodada 2. Agora mesmo você tem reforços para posicionar — clique em **Guinea Coast** e depois em {{draftButton}}."
       }
     }
   }

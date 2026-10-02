@@ -14,6 +14,7 @@ import { featureFlags } from '../../config/featureFlags';
 import { GALAXY_LANE_SOVEREIGNTY_SCENARIO } from './galaxyLaneSovereigntyScenario';
 import { GALAXY_TRANSCENDENCE_SCENARIO } from './galaxyTranscendenceScenario';
 import { GALAXY_SECRET_MISSIONS_SCENARIO } from './galaxySecretMissionsScenario';
+import { GALAXY_CAPITAL_SCENARIO } from './galaxyCapitalScenario';
 import {
   GALAXY_LANE_SOVEREIGNTY_GRANT_TECH_POINTS,
   GALAXY_TRANSCENDENCE_GRANT_GOLD,
@@ -131,6 +132,23 @@ export function galaxyTutorialGameSpec(lessonModule: GalaxyTutorialLessonModule)
         settings: {
           ...galaxySettingsBase(lessonModule, seats.length, ['domination', 'secret_mission']),
           authored_scenario: GALAXY_SECRET_MISSIONS_SCENARIO,
+        },
+      };
+    }
+    case 'galaxy_capital': {
+      // The Mandate against the Navigators across the Guinea Coast lane; see
+      // galaxyCapitalScenario.ts for why these two seats and this lane.
+      const seats: TutorialSeat[] = [
+        { faction_id: 'stellar_mandate', is_ai: false },
+        { faction_id: 'helion_navigators', is_ai: true, ai_difficulty: TUTORIAL_AI },
+      ];
+      return {
+        mapId: 'era_galaxy',
+        eraId: 'galaxy_age',
+        seats,
+        settings: {
+          ...galaxySettingsBase(lessonModule, seats.length, ['domination', 'capital']),
+          authored_scenario: GALAXY_CAPITAL_SCENARIO,
         },
       };
     }

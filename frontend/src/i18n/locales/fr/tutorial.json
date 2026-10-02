@@ -60,6 +60,10 @@
     "galaxy_secret_missions": {
       "title": "Ère galactique : Missions secrètes",
       "description": "Ce que la galaxie fait des missions et des alliances : prenez les deux gateways de Sol que votre mission nomme, à travers leurs routes, et gagnez."
+    },
+    "galaxy_capital": {
+      "title": "Ère galactique : Prise de capitale",
+      "description": "Ici les capitales sont sur des gateways : tenez Amazon Basin et prenez la capitale des Navigators à travers sa route pour gagner."
     }
   },
   "steps": {
@@ -398,6 +402,41 @@
         "message": "Vous avez lu une mission, pris les deux systèmes qu'elle nommait à travers leurs routes, et gagné grâce à elle. Dans une vraie partie galactique, qui tient Sol ne peut tirer qu'une mission d'élimination, et les missions de capture de tous les autres visent Sol — attendez-vous à de la compagnie sur ses gateways.",
         "skippedTitle": "Directement en jeu",
         "skippedMessage": "En résumé : votre mission est dans le panneau Objectives — **Own Guinea Coast and Pacific Rim**, les deux gateways de Sol de l'autre côté de vos routes. Prenez **Guinea Coast** depuis **Chlorophage Span** et **Pacific Rim** depuis **Greenfire Vault** ; la victoire est jugée à partir de la manche 2. Vous avez des renforts à placer : cliquez sur **Chlorophage Span**, puis sur {{draftButton}}."
+      }
+    },
+    "galaxy_capital": {
+      "gcp_welcome": {
+        "title": "Prise de capitale dans la galaxie",
+        "message": "Cette partie se joue à la victoire par **capitale** : tenez la vôtre et prenez celle de chaque rival. Vous êtes la Stellar Mandate de **Sol III**, et votre capitale est **Amazon Basin**. Les Helion Navigators tiennent **Verdan Reach**, et la leur est **Chlorophage Span**.",
+        "detail": "La distribution fixe la capitale de chaque siège à l'ouverture, et sur ce plateau les deux sont tombées sur des **gateways** : Amazon Basin est la porte de Sol vers Nexus Station, Chlorophage Span la porte de Verdan face à votre Guinea Coast. L'attaque gagnante est donc ici une traversée de route, au plafond de 2 dés des routes.",
+        "hint": "Cliquez sur Suivant, ou passez à la fin pour entrer directement en jeu."
+      },
+      "gcp_rules": {
+        "title": "Lisez les capitales",
+        "message": "Chaque capitale est marquée sur la carte, et le panneau **Objectives** de la barre latérale affiche **Your capital: Amazon Basin** avec la règle en dessous : tenez-la et prenez chaque capitale rivale, jugé à partir de la manche 2. Perdez Amazon Basin et le panneau vire au rouge — vous ne pouvez pas gagner par les capitales tant que vous ne l'avez pas reprise.",
+        "detail": "Seuls les rivaux vivants comptent : la capitale d'un siège éliminé n'a plus à être tenue. En 2v2 ou avec des maisons alliées, le camp gagne quand chaque capitale vivante est entre les mains de ses membres.",
+        "whyItMatters": "Une capitale sur un gateway est à la fois le prix et la porte. Qui tient Chlorophage Span tient le bout lointain de la route Sol–Verdan, et avec lui un corridor de Sovereignty."
+      },
+      "gcp_draft": {
+        "title": "Empilez sur Guinea Coast",
+        "message": "Cliquez sur **Guinea Coast** — votre gateway face à Chlorophage Span, en surbrillance —, réglez sur **All** et appuyez sur **Place**. Puis cliquez sur le bouton doré **{{draftButton}}**.",
+        "detail": "Sa carte Gateway indique la route vers Verdan Reach comme **Open** : vous tenez ce bout, les Navigators tiennent leur capitale à l'autre. Amazon Basin n'a besoin de rien : l'adversaire du tutoriel n'attaque jamais, mais dans une vraie partie votre capitale est le système à garnir."
+      },
+      "gcp_cross": {
+        "title": "Prenez la capitale rivale",
+        "message": "Cliquez sur **Guinea Coast**, puis sur **Chlorophage Span** de l'autre côté de la route. Une attaque de route lance au plus 2 dés ; **Attack until captured** insiste jusqu'à la chute de la capitale, et jusqu'à 3 de vos attaquants entrent d'eux-mêmes.",
+        "detail": "Les Navigators défendent une route sans dé supplémentaire. Huit contre deux l'emporte sur le plafond en quelques jets."
+      },
+      "gcp_win": {
+        "title": "Jugée à partir de la manche 2",
+        "message": "Les deux capitales sont à vous. Si c'est encore la manche 1, terminez votre tour avec **{{attackButton}}** et **{{fortifyButton}}** : la victoire tombe à l'ouverture de la manche 2, avant que vous ne placiez une unité. Prise en manche 2 ou plus tard, la partie s'est terminée sur la capture.",
+        "detail": "La règle de la manche 2 existe avant tout pour les capitales : avec trois unités de départ, une capitale pourrait sinon tomber sous les dés du premier siège avant que le dernier n'en ait placé une."
+      },
+      "gcp_complete": {
+        "title": "Prise de capitale terminée",
+        "message": "Vous avez tenu Amazon Basin et pris Chlorophage Span à travers sa route. Dans une vraie partie galactique, les capitales sur gateways sont les systèmes que tout le monde dispute deux fois — comme capitales, et comme bouts de routes.",
+        "skippedTitle": "Directement en jeu",
+        "skippedMessage": "En résumé : tenez votre capitale, **Amazon Basin**, et prenez la capitale des Navigators, **Chlorophage Span**, depuis **Guinea Coast** à travers la route ; la victoire est jugée à partir de la manche 2. Vous avez des renforts à placer : cliquez sur **Guinea Coast**, puis sur {{draftButton}}."
       }
     }
   }
