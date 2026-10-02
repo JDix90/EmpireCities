@@ -420,7 +420,9 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
     );
 
     if (!campaign) {
-      return reply.status(404).send({ error: 'No campaign found' });
+      // Not an error: most accounts have no campaign, and the lobby asks on
+      // every visit. A 404 here was two red console lines per lobby load.
+      return reply.status(204).send();
     }
 
     const entries = await query<{

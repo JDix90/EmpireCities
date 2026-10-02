@@ -1025,6 +1025,7 @@ function TurnSummaryView({
           <button
             onClick={goPrev}
             disabled={safeSlideIndex === 0}
+            aria-label="Previous slide"
             className="p-1.5 rounded-lg hover:bg-white/10 disabled:opacity-20 transition-colors"
           >
             <ChevronLeft className="w-4 h-4 text-white/60" />
@@ -1034,6 +1035,8 @@ function TurnSummaryView({
               <button
                 key={i}
                 onClick={() => { setAutoPaused(true); goTo(i); }}
+                aria-label={`Slide ${i + 1} of ${slides.length}`}
+                aria-current={i === safeSlideIndex ? 'true' : undefined}
                 className={clsx(
                   'w-2 h-2 rounded-full transition-all duration-300',
                   i === safeSlideIndex ? 'bg-white w-6' : 'bg-white/25 hover:bg-white/40'
@@ -1044,6 +1047,7 @@ function TurnSummaryView({
           <button
             onClick={goNext}
             disabled={isLastSlide}
+            aria-label="Next slide"
             className="p-1.5 rounded-lg hover:bg-white/10 disabled:opacity-20 transition-colors"
           >
             <ChevronRight className="w-4 h-4 text-white/60" />

@@ -54,6 +54,21 @@ import { computePhaseAdjacencyTargets, computeValidSources } from '../../utils/m
 import { effectiveContinentBonus } from '../../utils/continentBonus';
 import MapUnavailable from './MapUnavailable';
 
+/**
+ * Destroy a standalone effect ticker exactly once. A `PIXI.Ticker` that has
+ * already been destroyed has a null listener head, and Pixi 7's `destroy()`
+ * reads `_head.next` without checking — the strike flash destroys its own
+ * ticker when the flash ends, and the effect cleanup then destroyed it again
+ * on unmount: "Cannot read properties of null (reading 'next')", caught by
+ * the error boundary on the way back to the lobby.
+ */
+const destroyedTickers = new WeakSet<PIXI.Ticker>();
+function destroyTicker(ticker: PIXI.Ticker | null | undefined): void {
+  if (!ticker || destroyedTickers.has(ticker)) return;
+  destroyedTickers.add(ticker);
+  ticker.destroy();
+}
+
 interface MapTerritory {
   territory_id: string;
   name: string;
@@ -1240,7 +1255,7 @@ export default function GameMap({
 
     if (!highlightTerritoryId) {
       if (pulseTickerRef.current) {
-        pulseTickerRef.current.destroy();
+        destroyTicker(pulseTickerRef.current);
         pulseTickerRef.current = null;
       }
       return;
@@ -1255,7 +1270,7 @@ export default function GameMap({
     highlightRingRef.current = ring;
 
     let t = 0;
-    if (pulseTickerRef.current) pulseTickerRef.current.destroy();
+    destroyTicker(pulseTickerRef.current);
     const ticker = new PIXI.Ticker();
     pulseTickerRef.current = ticker;
     ticker.add((delta) => {
@@ -1271,7 +1286,7 @@ export default function GameMap({
     if (isDocumentVisible()) ticker.start();
 
     return () => {
-      ticker.destroy();
+      destroyTicker(ticker);
       pulseTickerRef.current = null;
     };
   }, [highlightTerritoryId, mapData, canvasW, canvasH, width, height, territoryCenter]);
@@ -1298,7 +1313,7 @@ export default function GameMap({
 
     if (centers.length === 0) {
       if (lossTickerRef.current) {
-        lossTickerRef.current.destroy();
+        destroyTicker(lossTickerRef.current);
         lossTickerRef.current = null;
       }
       return;
@@ -1311,7 +1326,7 @@ export default function GameMap({
     });
 
     let t = 0;
-    if (lossTickerRef.current) lossTickerRef.current.destroy();
+    destroyTicker(lossTickerRef.current);
     const ticker = new PIXI.Ticker();
     lossTickerRef.current = ticker;
     ticker.add((delta) => {
@@ -1329,7 +1344,7 @@ export default function GameMap({
     if (isDocumentVisible()) ticker.start();
 
     return () => {
-      ticker.destroy();
+      destroyTicker(ticker);
       lossTickerRef.current = null;
     };
   }, [lossKey, mapData, canvasW, canvasH, width, height, territoryCenter]);
@@ -1350,7 +1365,7 @@ export default function GameMap({
     strikeFlashRef.current = null;
 
     if (strikeTickerRef.current) {
-      strikeTickerRef.current.destroy();
+      destroyTicker(strikeTickerRef.current);
       strikeTickerRef.current = null;
     }
 
@@ -1374,7 +1389,7 @@ export default function GameMap({
     ticker.add(() => {
       const elapsed = Date.now() - started;
       if (elapsed >= style.mapFlashMs) {
-        ticker.destroy();
+        destroyTicker(ticker);
         strikeTickerRef.current = null;
         layer.removeChildren();
         strikeFlashRef.current = null;
@@ -1397,7 +1412,7 @@ export default function GameMap({
     if (isDocumentVisible()) ticker.start();
 
     return () => {
-      ticker.destroy();
+      destroyTicker(ticker);
       strikeTickerRef.current = null;
     };
   }, [strikeFlash, mapData, canvasW, canvasH, width, height, ringsFor]);
@@ -1427,7 +1442,7 @@ export default function GameMap({
     if (!glowLayer || !borderLayer) return;
 
     if (ambientTickerRef.current) {
-      ambientTickerRef.current.destroy();
+      destroyTicker(ambientTickerRef.current);
       ambientTickerRef.current = null;
     }
     glowLayer.removeChildren();
@@ -1498,7 +1513,7 @@ export default function GameMap({
     ticker.start();
 
     return () => {
-      ticker.destroy();
+      destroyTicker(ticker);
       ambientTickerRef.current = null;
       teardown();
     };

@@ -1,5 +1,6 @@
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
+import SubpageShell from './components/ui/SubpageShell';
 import { Toaster } from 'react-hot-toast';
 import { useAuthStore, selectIsAdminFromToken } from './store/authStore';
 import { useFeatureFlagsStore, useMapEditorEnabled } from './store/featureFlagsStore';
@@ -208,7 +209,21 @@ function MapEditorRoute({ children }: { children: React.ReactNode }) {
     return <RouteLoadingFallback />;
   }
   if (!mapEditorEnabled) {
-    return <Navigate to="/lobby" replace />;
+    // Say why rather than bouncing to the lobby: a player who typed /editor
+    // or followed an old link otherwise lands somewhere else with no clue.
+    return (
+      <PrivateRoute>
+        <SubpageShell title="MAP EDITOR" backHref="/maps" backLabel="Map Hub" maxWidth="lg">
+          <div className="py-16 text-center space-y-3">
+            <p className="text-bf-muted">The map editor is not open on this account yet.</p>
+            <p className="text-bf-muted/70 text-sm max-w-md mx-auto">
+              Community maps are still playable from the Map Hub, and the editor will appear in the lobby menu when it is available to you.
+            </p>
+            <Link to="/maps" className="btn-secondary text-sm inline-block">Browse the Map Hub</Link>
+          </div>
+        </SubpageShell>
+      </PrivateRoute>
+    );
   }
   return <PrivateRoute>{children}</PrivateRoute>;
 }
@@ -254,13 +269,25 @@ export default function App() {
           /* best-effort profile re-fetch — flags like is_admin will reflect on next nav */
         }
       };
+      // The silent refresh never writes the "session expired" notice itself
+      // (it also runs from the socket and the API interceptor). Here we know a
+      // session existed a moment ago, so a rejected cookie means it expired —
+      // tell the login page, which otherwise shows a bare form.
+      const noteSessionExpired = () => {
+        try {
+          sessionStorage.setItem('cc-auth-notice', 'session_expired');
+        } catch { /* ignore */ }
+      };
       try {
         let outcome = await state.refreshToken({ silent: true });
         if (outcome === 'ok') {
           await syncProfile();
           return;
         }
-        if (outcome === 'invalid') return;
+        if (outcome === 'invalid') {
+          noteSessionExpired();
+          return;
+        }
         // 'unreachable': the reload may have raced a backend restart/deploy.
         // Don't hold the splash screen hostage — mark bootstrapped now (the
         // session is still marked authenticated, so the user stays on their
@@ -274,7 +301,10 @@ export default function App() {
             await syncProfile();
             return;
           }
-          if (outcome === 'invalid') return;
+          if (outcome === 'invalid') {
+            noteSessionExpired();
+            return;
+          }
         }
       } finally {
         useAuthStore.getState().setBootstrapped(true);
