@@ -3471,7 +3471,10 @@ export default function GamePage() {
   }, [gameId]);
 
   const handleResignRequest = () => {
-    pushModal({ type: 'resign_confirm' });
+    const gs = useGameStore.getState().gameState;
+    const me = userRef.current?.user_id;
+    const aiOnly = !!gs && !gs.players.some((p) => !p.is_ai && !p.is_eliminated && p.player_id !== me);
+    pushModal({ type: 'resign_confirm', turnNumber: gs?.turn_number, aiOnly });
   };
 
   const handleResignConfirm = () => {

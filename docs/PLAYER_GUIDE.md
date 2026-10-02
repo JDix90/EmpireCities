@@ -41,7 +41,7 @@ Each turn has three phases:
 | Component | Units |
 |-----------|-------|
 | Base | 1 per 3 territories you own (minimum 3) |
-| Continent bonus | Extra units for owning all territories in a continent (scaled by player count) |
+| Continent bonus | Extra units for owning all territories in a continent (scaled by player count, never below +1) |
 | Card trade-in | Bonus units from redeeming a card set (see below) |
 
 Some games also include a **Territory Selection** phase before the first turn, where players take turns picking starting territories.

@@ -1,6 +1,6 @@
 import { randomInt } from 'crypto';
 import type { GameState, GameMap, AiDifficulty, BuildingType } from '../../types';
-import { calculateReinforcements } from '../combat/combatResolver';
+import { calculateReinforcements, scaleRegionBonus } from '../combat/combatResolver';
 import { captureProbability } from '../combat/combatOdds';
 import { computeLandCombatModifiers } from '../combat/combatModifiers';
 import { calculateContinentBonuses } from '../state/gameStateManager';
@@ -240,7 +240,8 @@ export function evaluateBoard(
 
   // C: Continent bonus ratio
   const continentBonus = calculateContinentBonuses(state, map, playerId);
-  const maxPossibleBonus = map.regions.reduce((s, r) => s + r.bonus, 0);
+  // Same scaling as the held bonus, so the ratio compares like with like.
+  const maxPossibleBonus = map.regions.reduce((s, r) => s + scaleRegionBonus(r.bonus, state.players.length), 0);
   const C = maxPossibleBonus > 0 ? continentBonus / maxPossibleBonus : 0;
 
   // Weighted sum (weights tuned for balanced play)

@@ -116,19 +116,22 @@ export function rulesKey(ctx: PuzzleContext, from: number, to: number): string {
 
 /**
  * combatResolver.calculateReinforcements: max(3, floor(territories / 3)) plus
- * floor(regionBonus × players / 6) for every region held in full. Tech,
- * faction and wonder bonuses are all off in a daily.
+ * max(1, floor(regionBonus × players / 6)) for every region held in full
+ * (combatResolver.scaleRegionBonus). Tech, faction and wonder bonuses are all
+ * off in a daily.
  */
 export function reinforcements(ctx: PuzzleContext, s: PuzzleState, who: Owner): number {
   const owned = territoriesOf(s, who);
   if (owned.length === 0) return 0;
+  const pc = Math.max(2, Math.min(ctx.playerCount, 12));
   let bonus = 0;
   for (const r of ctx.regions) {
-    if (r.members.every((m) => s.owner[m] === who)) bonus += r.bonus;
+    if (r.bonus > 0 && r.members.every((m) => s.owner[m] === who)) {
+      bonus += Math.max(1, Math.floor((r.bonus * pc) / 6));
+    }
   }
   const base = Math.max(3, Math.floor(owned.length / 3));
-  const pc = Math.max(2, Math.min(ctx.playerCount, 12));
-  return base + Math.floor((bonus * pc) / 6);
+  return base + bonus;
 }
 
 function conditionMet(ctx: PuzzleContext, s: PuzzleState): boolean {

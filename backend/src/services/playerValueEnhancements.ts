@@ -191,7 +191,7 @@ export function buildInsightsFromSnapshots(rows: ReplaySnapshotRow[]): InsightIt
         explanation:
           `You gained ${tDelta} ${tWord(tDelta)} this turn but overextended your position.` + probPhrase,
         alternative:
-          'Reinforce existing holdings before expanding — thin frontlines are easier for opponents to exploit.',
+          `Hold ${tDelta === 1 ? 'that territory' : `${Math.min(tDelta, 2)} of those ${tDelta} territories`} with a real garrison before pushing on — the ${probPct}-point drop says the new line was thinner than it looked.`,
       };
     }
 
@@ -204,7 +204,7 @@ export function buildInsightsFromSnapshots(rows: ReplaySnapshotRow[]): InsightIt
         explanation:
           `You lost ${Math.abs(tDelta)} ${tWord(tDelta)} this turn, but consolidated into a stronger defensive position.` + probPhrase,
         alternative:
-          'Hold the tighter perimeter and target region-completing territories to convert defense into bonus income.',
+          `Keep the tighter perimeter from turn ${s.turn}; the next gain worth making is a territory that completes a region, so the ground pays reinforcements.`,
       };
     }
 
@@ -221,7 +221,9 @@ export function buildInsightsFromSnapshots(rows: ReplaySnapshotRow[]): InsightIt
         prob_delta: pDelta,
         explanation: body + probPhrase,
         alternative:
-          'Pressure adjacent weak borders next turn to convert momentum into region bonus control.',
+          tDelta > 0
+            ? `Spend turn ${s.turn + 1} on the weakest border next to the ${tWord(tDelta)} you took, before the opponent reinforces it.`
+            : `Press the opponent who lost ground on turn ${s.turn} while their stacks are thin, rather than opening a second front.`,
       };
     }
 
@@ -238,7 +240,9 @@ export function buildInsightsFromSnapshots(rows: ReplaySnapshotRow[]): InsightIt
       prob_delta: pDelta,
       explanation: body + probPhrase,
       alternative:
-        'Reinforce a connected defensive cluster before attacking to avoid overextension and chain losses.',
+        tDelta < 0
+          ? `Fall back to a connected cluster around what remains and let the ${Math.abs(tDelta)} lost ${tWord(tDelta)} go; retaking ${Math.abs(tDelta) === 1 ? 'it' : 'them'} piecemeal is how chain losses start.`
+          : `Spend a turn reinforcing one connected cluster before the next attack — the ${probPct}-point slide came without losing ground, which points at thin defence.`,
     };
   });
 }

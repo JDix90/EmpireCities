@@ -359,7 +359,7 @@ export default function MatchStatsTab({
           {distinctWorst && (
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-white/70 text-sm">Worst move</p>
+                <p className="text-white/70 text-sm">Costliest move</p>
                 <p className="text-white/40 text-[11px]">
                   Turn {distinctWorst.turn} · {distinctWorst.summary}
                 </p>

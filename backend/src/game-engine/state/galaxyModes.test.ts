@@ -273,8 +273,9 @@ describe("the Navigators' duel bonus", () => {
   it('drafts +1 in a two-player Colonies game, from the opening draft on', () => {
     const { state } = galaxyGame(['helion_navigators', 'stellar_mandate']);
     expect(getPlayerReinforceBonus(state, 'p_helion_navigators')).toBe(1);
-    // Seat 0 opens: 16 tiles (5) + Verdan's regions (14, a third at two seats: 4) + the bonus.
-    expect(state.draft_units_remaining).toBe(5 + 4 + 1);
+    // Seat 0 opens: 16 tiles (5) + Verdan's regions, each scaled to two seats
+    // and floored at +1 (scaleRegionBonus; a raw 14 across them pays 5) + the bonus.
+    expect(state.draft_units_remaining).toBe(5 + 5 + 1);
   });
 
   it('keeps +2 at three and four seats, and every other kit keeps its own', () => {

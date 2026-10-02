@@ -299,11 +299,10 @@ export function getTutorialMap(): GameMap {
     ],
     /**
      * Bonus 3, not 2: continent bonuses scale by player count
-     * (`floor(bonus × clamp(players,2,12) / 6)`, see `calculateReinforcements`),
-     * and this map is only ever played 1v1 — at 2 players a bonus of 2 rounds
-     * to **+0**, so the realm labels read "+0" and holding a whole realm paid
-     * nothing. 3 is the smallest value that survives the scaling, giving the
-     * +1 the tutorial's draft step points at.
+     * (`max(1, floor(bonus × clamp(players,2,12) / 6))`, see `scaleRegionBonus`),
+     * and this map is only ever played 1v1. The +1 floor now keeps a bonus of 2
+     * from reading "+0", but 3 is kept so the realm labels and the +1 the
+     * tutorial's draft step points at stay exactly as authored.
      */
     regions: [
       { region_id: 'tut_west', name: 'Tyrrhenian Coast', bonus: 3 },

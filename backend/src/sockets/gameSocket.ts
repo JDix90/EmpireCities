@@ -2131,9 +2131,15 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const attackSummary = (() => {
         const fromName = territoryName(map, fromId);
         const toName = territoryName(map, toId);
+        // An exchange that killed defenders without taking the tile is not a
+        // failure, and "failed (lost 0)" read as one on the Match Stats panel.
         const outcome = result.territory_captured
           ? `captured ${toName}`
-          : `failed (lost ${result.attacker_losses})`;
+          : result.defender_losses > 0 && result.attacker_losses === 0
+            ? `destroyed ${result.defender_losses} defender${result.defender_losses === 1 ? '' : 's'}, ${toName} still holds`
+            : result.defender_losses > 0
+              ? `traded ${result.attacker_losses} for ${result.defender_losses}, ${toName} still holds`
+              : `repelled (lost ${result.attacker_losses})`;
         return `Attacked ${fromName} → ${toName} with ${attackerUnitsCommitted} units; ${outcome}`;
       })();
 

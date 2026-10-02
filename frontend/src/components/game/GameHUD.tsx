@@ -22,6 +22,7 @@ import { usePlayerCosmetics } from '../cosmetics/useCosmetics';
 import { getSocket } from '../../services/socket';
 import { ARMED_BUFF_LABELS, getAbilityUiDef } from '../../utils/abilityActivationFeedback';
 import { getPlayerGlobalAbilities } from '../../utils/playerAbilities';
+import { FACTION_ABILITY_UI, getAvailableFactionAbilityId } from '../../utils/factionAbilities';
 import { countOwnedLunarTerritories, lunarTerritoryCount, type FrontendMapData } from '../../utils/orbitAccess';
 import { incomingDropAssaultsAgainst } from '../../utils/dropAssaults';
 import { hegemonyBanner, hegemonyTurnsFor } from '../../utils/lunarHegemony';
@@ -964,6 +965,34 @@ export default function GameHUD({
                 </button>
               );
             });
+          })()}
+          {/* Territory-targeted faction abilities and truces live in a territory's
+              panel. Say so here, where the player looks for them first. */}
+          {(() => {
+            const abilityId = getAvailableFactionAbilityId(gameState, myPlayer);
+            const def = abilityId ? FACTION_ABILITY_UI[abilityId] : undefined;
+            const targeted = def && def.enemyTarget !== null ? def : null;
+            const humanRivals = gameState.settings.diplomacy_enabled
+              && gameState.players.some((p) => !p.is_ai && !p.is_eliminated && p.player_id !== myPlayer.player_id);
+            if (!targeted && !humanRivals) return null;
+            const phaseWord = targeted?.phase === 'any' ? 'any phase' : `your ${targeted?.phase} phase`;
+            const where = targeted?.neutralTarget
+              ? 'a neutral territory'
+              : targeted?.enemyTarget
+                ? 'an enemy territory'
+                : 'one of your territories';
+            return (
+              <div className="text-[11px] text-bf-muted leading-snug rounded border border-bf-border/60 px-2 py-1.5 space-y-0.5" data-testid="sidebar-ability-hints">
+                {targeted && (
+                  <p>
+                    {targeted.emoji} <span className="text-bf-text">{targeted.label}</span> ({targeted.scope === 'game' ? 'once/game' : 'once/turn'}): select {where} in {phaseWord} — the button is in its panel.
+                  </p>
+                )}
+                {humanRivals && (
+                  <p>🤝 <span className="text-bf-text">Truces</span>: propose one from a rival's territory panel during your attack phase.</p>
+                )}
+              </div>
+            );
           })()}
           {/* Tech tree shortcut — researched during your turn, so kept accessible. */}
           {onOpenTechTree && (

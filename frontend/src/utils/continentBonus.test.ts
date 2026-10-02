@@ -23,10 +23,16 @@ describe('effectiveContinentBonus', () => {
     expect(effectiveContinentBonus(0, 4)).toBe(0);
   });
 
-  it('mirrors the backend calculateReinforcements scaling formula', () => {
-    // backend: scaledContinent = floor((bonus * clamp(pc,2,12)) / 6)
+  it('never pays +0 for a held region (the Great Britain 925 two-player case)', () => {
+    expect(effectiveContinentBonus(1, 2)).toBe(1); // floor(2/6) = 0 → floored
+    expect(effectiveContinentBonus(2, 2)).toBe(1); // floor(4/6) = 0 → floored
+    expect(effectiveContinentBonus(1, 5)).toBe(1); // floor(5/6) = 0 → floored
+  });
+
+  it('mirrors the backend scaleRegionBonus formula', () => {
+    // backend: bonus > 0 ? max(1, floor((bonus * clamp(pc,2,12)) / 6)) : 0
     const backendScale = (bonus: number, pc: number) =>
-      Math.floor((bonus * Math.max(2, Math.min(pc, 12))) / 6);
+      bonus > 0 ? Math.max(1, Math.floor((bonus * Math.max(2, Math.min(pc, 12))) / 6)) : 0;
     for (const bonus of [0, 2, 3, 4, 5, 7]) {
       for (const pc of [1, 2, 3, 4, 5, 6, 8, 12, 20]) {
         expect(effectiveContinentBonus(bonus, pc)).toBe(backendScale(bonus, pc));
