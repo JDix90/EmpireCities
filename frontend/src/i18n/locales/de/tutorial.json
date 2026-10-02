@@ -41,7 +41,8 @@
     "waitBonusesOpened": "Öffne das Boni-Panel, um fortzufahren…",
     "waitTechTreeOpened": "Öffne den Technologiebaum, um fortzufahren…",
     "waitDefault": "Führe die Aktion aus, um fortzufahren…",
-    "exitTutorial": "Tutorial verlassen"
+    "exitTutorial": "Tutorial verlassen",
+    "openLinkedLesson": "Zuerst lesen: {{title}}"
   },
   "modules": {
     "core": { "title": "Grundtutorial", "description": "Verstärkung, Angriff, Befestigung und dein erster Zeitalteraufstieg." },
@@ -72,6 +73,10 @@
     "galaxy_domination": {
       "title": "Galaktisches Zeitalter: Dominanz",
       "description": "Dominanz endet hier, wenn der letzte Rivale fällt, nicht das letzte System: Nimm das letzte Gateway der Navigators, und die Partie endet sofort, Kolonien unberührt."
+    },
+    "galaxy_primer": {
+      "title": "Galaktisches Zeitalter: Die Unterschiede",
+      "description": "Sechs Karten dazu, was die Galaxis ändert – Routen, Gateways, Weltregeln, Spielfelder und Siege – auf einem echten Spielfeld für vier Sitze, vor den sechs Lektionen, die je einen Sieg spielen."
     }
   },
   "steps": {
@@ -515,6 +520,46 @@
         "message": "Du hast den letzten Rivalen ausgeschaltet, und die Galaxis hat die Partie sofort beendet. Dominanz ist hier ein Rennen um den letzten Sitz, nicht um das letzte System; die Kolonien sind Sache der Schwelle.",
         "skippedTitle": "Direkt ins Spiel",
         "skippedMessage": "Kurz gefasst: Die Navigators halten ein System, **Greenfire Vault**, und du hältst **Glowmire Shelf** daneben. Nimm es, und die Partie endet sofort als Last Commander Standing – kein Warten auf Runde 2. Gerade jetzt hast du Verstärkungen zu platzieren – klicke auf **Glowmire Shelf** und dann auf {{draftButton}}."
+      }
+    },
+    "galaxy_primer": {
+      "gpr_welcome": {
+        "title": "Das Galaktische Zeitalter in Kürze",
+        "message": "**Vier Welten, ein Krieg.** Das Galaktische Zeitalter wird auf **Sol III**, **Verdan Reach**, dem **Rust Belt** und **Nexus Station** gespielt, zu einem Ring verbunden durch **8 Hyperraumrouten**. Jede Route verläuft zwischen zwei **Gateway**-Systemen: Hältst du ein Gateway, kannst du direkt über seine Route angreifen, ohne Forschung. Eine Überquerung würfelt nur mit **2 Würfeln** (3 mit **Lane Charts**), ein verteidigtes Gateway hält also wie eine Küste; das Wunder **Hyperlane Anchor** hebt die Grenze für seinen Besitzer auf.",
+        "detail": "Dieser Primer sind sechs Karten zum Lesen auf einem echten Spielfeld für vier Sitze – du bist die Stellar Mandate von Sol III, mit einem Tutorial-Gegner auf jeder anderen Welt – und ein Klick. Jede Karte endet dort, wo eine der sechs Lektionen des Galaktischen Zeitalters beginnt.",
+        "hint": "Klicke auf Weiter oder überspringe zum Ende und steig direkt ein."
+      },
+      "gpr_chart": {
+        "title": "Lies das Spielfeld",
+        "message": "Klicke auf den Button **Galaxy chart** über dem Spielfeld (auf dem Handy auf den Chip **Galaxy chart** in der Zeile Worlds). Seine Legende **Lanes** lautet **Corridor · both gateways yours**, **Open · you hold one end**, **Closed · take a gateway first** und **Sealed · Emergency Seal, 1 round**. Ein Welt-Tab öffnet diese Welt allein; **Split** zeigt die Karte jeder Welt auf einmal.",
+        "detail": "Klicke auf einer Welt auf ein Gateway-System: Seine Karte **Gateway** führt jede Route mit der fernen Welt, ihrem Zustand und den Würfeln einer Überquerung auf – **Lane attacks roll 2 dice (3 with Lane Charts)**.",
+        "hint": "Doppelklicke auf eine Welt im Chart oder auf ihren Button **Enter world →**, um hineinzugehen."
+      },
+      "gpr_worlds": {
+        "title": "Weltregeln und Ausrüstungen",
+        "message": "Jede Welt spielt nach einer eigenen Regel, aufgeführt im Start-Briefing und im Feld **Bonuses**. **Sol III** – Cradle: every 5th round, any system held here with fewer than 2 units musters 1 more. **Verdan Reach** – Storms: at round start any system above 12 units loses 1 to the weather. **Rust Belt** – Forge: a system with a defence building rolls +1 extra defence die. **Nexus Station** – The Vault: Nexus Gate Ring starts neutral (garrison 6); hold all of it for +2 tech per turn and one Emergency Seal per turn on any lane. Its home faction starts with +1 unit per system, paying for the ring it begins without.",
+        "detail": "Die Ausrüstungen. **Stellar Mandate**: die Cradle oben und **Blockade Runner** – einmal pro Zug ignoriert dein nächster Angriff über eine Hyperraumroute ein Emergency Seal. **Forge Syndicate**: +2 Verstärkungen pro Zug, Jump Gates zum halben Preis und **Supply Insert** – einmal pro Zug 1 freie Einheit auf ein eigenes Gebiet setzen. **Helion Navigators**: +2 Verstärkungen pro Zug (+1 in einem Duell mit zwei Sitzen), jedes Gateway der Galaxis sichtbar und **Drift Jump** – einmal pro Zug zwischen zwei eigenen Gateways auf verschiedenen Welten ohne verbindende Route befestigen. **Void Custodians**: +1 Verteidigungswürfel gegen jeden Angriff über eine Route, schnellere Stabilitätserholung und das **Emergency Seal** – einmal pro Zug jede Hyperraumroute an Nexus Station für alle anderen eine Runde lang schließen."
+      },
+      "gpr_boards": {
+        "title": "Spielfelder und Seiten",
+        "message": "**Home Worlds** in der Lobby teilt jeder Fraktion ihre eigene Welt zu, und das Spielfeld folgt der Sitzzahl. **Colonies** bei zwei oder drei Sitzen: Die Welten, die niemand sein Zuhause nennt, beginnen neutral und besetzt – 5 Einheiten auf jedem Gateway und 7 im Inneren –, und bei drei Sitzen überbrücken zwei zusätzliche Routen die Lücken des Rings. Der klassische Start bei vier. Das **Schism** bei fünf bis acht: zwei Häuser auf einer geteilten Welt, jedes auf einer Hälfte mit der Ausrüstung der Fraktion, unter der **Concord** (ein Waffenstillstand für die ersten 3 Runden), im **Civil War** oder **Allied** als eine Seite. Ein Haus, das alle vier Gateways seiner Welt hält, trägt die **Lane Crown**: +2 Einheiten pro Zug.",
+        "detail": "**2v2** paart die vier Heimatwelten über den Ring hinweg – Sol III und der Rust Belt gegen Verdan Reach und Nexus Station –, sodass jede Route eine Front ist. Verbündete greifen einander nie an, sehen, was der andere sieht, und gewinnen gemeinsam: Schwelle und Dominanz zählen die Systeme der Seite zusammen, und die Lobby setzt den Schwellen-Standard auf 75 %. Eine Team-Partie spielt ohne Geheimmissionen."
+      },
+      "gpr_lanes": {
+        "title": "Routenwetter, Siegel und Tore",
+        "message": "Die Karte selbst kann sich ändern. Zwei Ereigniskarten bearbeiten sie für **zwei Runden**: **Nebula Closure** schließt die umkämpfteste Route für alle, und **Lane Surge** öffnet eine vorübergehende Route zwischen zwei Welten, die der Ring nicht verbindet. Ein **Emergency Seal** – das der Void Custodians oder des Vault-Halters – schließt eine Route an Nexus Station für alle anderen eine Runde lang; der Blockade Runner der Mandate ignoriert es.",
+        "detail": "**Jump Gates** sind Routen, die du selbst baust: ein Tor auf einer Welt und ein weiteres auf einer zweiten – je 12 Produktion, die Hälfte für die Forge, eines pro Welt – öffnen eine private Route, die nur deine eigenen Einheiten bewegt und nie einen Angriff trägt, und mit jedem der beiden Tore stirbt. Lane Sovereignty zählt nur die acht kartierten Routen: nie einen Surge, eine Kolonieroute oder ein Jump Gate."
+      },
+      "gpr_wins": {
+        "title": "Sieben Wege zum Sieg, sechs Lektionen",
+        "message": "**Lane Sovereignty** ist der eigene Sieg der Galaxis: Halte 5 der 8 kartierten Routen als Korridore zu Beginn deines Zuges, 3 Züge in Folge – 5 in einem Duell oder einem 2v2. **Threshold** zählt jedes System, Kolonien eingeschlossen: 60 % von 64 sind 39, und eine Galaxis-Lobby öffnet damit bei 60 % – 75 % im 2v2 – mit einem 90-Runden-Limit dahinter. **Capital**: Die Hauptstadt jedes Sitzes ist das erste seiner zugeteilten Systeme in Listenreihenfolge, und auf dieser Karte ist das auf jeder Welt ein Gateway. **Secret Missions** nennen nie Boden hinter einem Hyperraumtor, jede Eroberungs- oder Kontrollmission nennt hier also Sol III, und ein Sitz, der ganz Sol hält, kann nur eine Eliminierungsmission ziehen. **Domination** endet, wenn der letzte Rivale fällt – Last Commander Standing, sofort gewertet. **Transcendence** braucht das Spielfeld Space to Stars: Steig vom Space Age ins Galaktische Zeitalter auf und errichte ein Wunder.",
+        "detail": "Jeder Sieg außer Dominanz wird ab Runde 2 gewertet, sobald jeder Sitz einen Zug hatte. Das Feld **Objectives** im Tab Status der Seitenleiste führt Buch über die, um die dieses Spielfeld spielt: **Map control** und **Lane Sovereignty**. Jede der sechs Lektionen des Galaktischen Zeitalters spielt einen dieser Siege auf einem gestalteten Spielfeld bis zum Ende."
+      },
+      "gpr_complete": {
+        "title": "Primer abgeschlossen",
+        "message": "Das ist die Gestalt des Galaktischen Zeitalters: vier Welten, acht Routen, Gateways, die entscheiden, wer wen angreifen kann, eine Regel je Welt, Spielfelder nach Sitzzahl und jeder Sieg außer Dominanz ab Runde 2 gewertet. Die sechs Lektionen spielen je einen Sieg bis zum Ende – beginne mit Lane Sovereignty, dem eigenen Sieg der Galaxis.",
+        "skippedTitle": "Direkt ins Spiel",
+        "skippedMessage": "Du hast das Lesen übersprungen. Kurz gefasst: vier Welten im Ring, acht Routen zwischen Gateway-Systemen, Überquerungen mit 2 Würfeln (3 mit Lane Charts), eine Regel je Welt und jeder Sieg außer Dominanz ab Runde 2 gewertet. Back to lobby bringt dich zu den sechs Lektionen, die je einen Sieg bis zum Ende spielen."
       }
     }
   }

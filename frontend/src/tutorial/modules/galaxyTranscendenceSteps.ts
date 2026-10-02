@@ -33,6 +33,7 @@ export const GALAXY_TRANSCENDENCE_STEPS: TutorialStep[] = [
     detail: 'Leaving the Space Age takes the milestone gate (2 tier-1, 2 tier-2 and 1 tier-3 technologies, and 3 buildings) and a working **Space Program**. The Pioneers have Moon access from turn one, so for you the gate is research and buildings. Like every win but Domination, Transcendence is judged from round 2.',
     hint: 'You have been granted the research and the production points the climb needs, with little to spare. Click Next, or Skip to the end to jump straight in.',
     skippable: true,
+    linkModule: 'galaxy_primer',
   },
   {
     id: 'gtr_research',

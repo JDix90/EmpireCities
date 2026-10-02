@@ -41,7 +41,8 @@
     "waitBonusesOpened": "Ouvrez le panneau des bonus pour continuer…",
     "waitTechTreeOpened": "Ouvrez l'arbre technologique pour continuer…",
     "waitDefault": "Effectuez l'action pour continuer…",
-    "exitTutorial": "Quitter le tutoriel"
+    "exitTutorial": "Quitter le tutoriel",
+    "openLinkedLesson": "À lire d'abord : {{title}}"
   },
   "modules": {
     "core": { "title": "Tutoriel de base", "description": "Renfort, attaque, fortification et votre premier passage d'ère." },
@@ -72,6 +73,10 @@
     "galaxy_domination": {
       "title": "Ère galactique : Domination",
       "description": "Ici la domination s'achève quand le dernier rival tombe, pas le dernier système : prenez le dernier gateway des Navigators et la partie s'arrête aussitôt, colonies intactes."
+    },
+    "galaxy_primer": {
+      "title": "Ère galactique : Les différences",
+      "description": "Six cartes sur ce que la galaxie change — routes, gateways, règles de monde, plateaux et victoires — sur un vrai plateau à quatre sièges, avant les six leçons qui jouent chacune une victoire."
     }
   },
   "steps": {
@@ -515,6 +520,46 @@
         "message": "Vous avez éliminé le dernier rival et la galaxie a terminé la partie aussitôt. Ici la domination est une course au dernier siège, pas au dernier système ; les colonies sont l'affaire du seuil.",
         "skippedTitle": "Directement en jeu",
         "skippedMessage": "En résumé : les Navigators tiennent un système, **Greenfire Vault**, et vous tenez **Glowmire Shelf** à côté. Prenez-le et la partie s'arrête aussitôt en Last Commander Standing — sans attendre la manche 2. Vous avez des renforts à placer : cliquez sur **Glowmire Shelf**, puis sur {{draftButton}}."
+      }
+    },
+    "galaxy_primer": {
+      "gpr_welcome": {
+        "title": "L'Ère galactique, en bref",
+        "message": "**Quatre mondes, une guerre.** L'Ère galactique se joue sur **Sol III**, **Verdan Reach**, le **Rust Belt** et **Nexus Station**, reliés en anneau par **8 routes hyperspatiales**. Chaque route court entre deux systèmes **gateway** : tenez un gateway et vous pouvez attaquer droit à travers sa route, sans recherche. Une traversée ne lance que **2 dés** (3 avec **Lane Charts**), un gateway défendu tient donc comme une côte ; la merveille **Hyperlane Anchor** lève le plafond pour son propriétaire.",
+        "detail": "Ce primer, ce sont six cartes à lire sur un vrai plateau à quatre sièges — vous êtes la Stellar Mandate de Sol III, avec un adversaire du tutoriel sur chaque autre monde — et une chose à cliquer. Chaque carte s'arrête là où commence l'une des six leçons de l'Ère galactique.",
+        "hint": "Cliquez sur Suivant, ou passez à la fin pour entrer directement en jeu."
+      },
+      "gpr_chart": {
+        "title": "Lisez le plateau",
+        "message": "Cliquez sur le bouton **Galaxy chart** au-dessus du plateau (sur téléphone, la puce **Galaxy chart** de la rangée Worlds). Sa légende **Lanes** indique **Corridor · both gateways yours**, **Open · you hold one end**, **Closed · take a gateway first** et **Sealed · Emergency Seal, 1 round**. Un onglet de monde ouvre ce monde seul ; **Split** affiche la carte de chaque monde en même temps.",
+        "detail": "Sur un monde, cliquez sur un système gateway : sa carte **Gateway** liste chaque route avec le monde lointain, son état et les dés qu'une traversée lance — **Lane attacks roll 2 dice (3 with Lane Charts)**.",
+        "hint": "Double-cliquez sur un monde de la carte, ou sur son bouton **Enter world →**, pour y entrer."
+      },
+      "gpr_worlds": {
+        "title": "Règles de monde et kits",
+        "message": "Chaque monde joue selon une règle qui lui est propre, listée dans le briefing de départ et le panneau **Bonuses**. **Sol III** — Cradle: every 5th round, any system held here with fewer than 2 units musters 1 more. **Verdan Reach** — Storms: at round start any system above 12 units loses 1 to the weather. **Rust Belt** — Forge: a system with a defence building rolls +1 extra defence die. **Nexus Station** — The Vault: Nexus Gate Ring starts neutral (garrison 6); hold all of it for +2 tech per turn and one Emergency Seal per turn on any lane. Its home faction starts with +1 unit per system, paying for the ring it begins without.",
+        "detail": "Les kits. **Stellar Mandate** : le Cradle ci-dessus, et **Blockade Runner** — une fois par tour, votre prochaine attaque à travers une route hyperspatiale ignore un Emergency Seal. **Forge Syndicate** : +2 renforts par tour, des Jump Gates à moitié prix, et **Supply Insert** — une fois par tour, placez 1 unité gratuite sur un territoire à vous. **Helion Navigators** : +2 renforts par tour (+1 dans un duel à deux sièges), chaque gateway de la galaxie visible, et **Drift Jump** — une fois par tour, fortifiez entre deux gateways que vous tenez sur des mondes différents sans route qui les relie. **Void Custodians** : +1 dé de défense contre toute attaque à travers une route, une récupération de stabilité plus rapide, et l'**Emergency Seal** — une fois par tour, fermez à tous les autres, pour une manche, n'importe quelle route hyperspatiale touchant Nexus Station."
+      },
+      "gpr_boards": {
+        "title": "Plateaux et camps",
+        "message": "**Home Worlds**, dans le salon, distribue à chaque faction son propre monde, et le plateau suit le nombre de sièges. **Colonies**, à deux ou trois sièges : les mondes que personne n'appelle chez soi commencent neutres et garnis — 5 unités sur chaque gateway et 7 à l'intérieur —, et à trois sièges deux routes supplémentaires comblent les trous de l'anneau. Le départ classique à quatre. Le **Schism**, de cinq à huit : deux maisons sur un monde partagé, chacune sur sa moitié avec le kit de la faction, sous le **Concord** (une trêve pour les 3 premières manches), en **Civil War**, ou **Allied** comme un seul camp. Une maison tenant les quatre gateways de son monde porte la **Lane Crown** : +2 unités par tour.",
+        "detail": "**2v2** apparie les quatre mondes natals à travers l'anneau — Sol III et le Rust Belt contre Verdan Reach et Nexus Station —, si bien que chaque route est un front. Les alliés ne s'attaquent jamais, voient ce que l'autre voit et gagnent ensemble : le seuil et la domination comptent les systèmes du camp ensemble, et le salon passe le seuil par défaut à 75 %. Une partie en équipes se joue sans missions secrètes."
+      },
+      "gpr_lanes": {
+        "title": "Météo des routes, sceaux et portes",
+        "message": "La carte elle-même peut changer. Deux cartes d'événement la modifient pour **deux manches** : **Nebula Closure** ferme à tous la route la plus disputée, et **Lane Surge** ouvre une route temporaire entre deux mondes que l'anneau ne relie pas. Un **Emergency Seal** — celui des Void Custodians, ou du détenteur de la Vault — ferme à tous les autres, pour une manche, une route touchant Nexus Station ; le Blockade Runner de la Mandate l'ignore.",
+        "detail": "Les **Jump Gates** sont des routes que vous bâtissez : une porte sur un monde et une autre sur un second — 12 de production chacune, moitié prix pour la Forge, une par monde — ouvrent une route privée qui ne déplace que vos propres unités, ne porte jamais d'attaque, et meurt avec l'une ou l'autre porte. Lane Sovereignty ne compte que les huit routes cartographiées : jamais un surge, une route coloniale ou une Jump Gate."
+      },
+      "gpr_wins": {
+        "title": "Sept façons de gagner, six leçons",
+        "message": "**Lane Sovereignty** est celle de la galaxie : tenez 5 des 8 routes cartographiées comme corridors au début de votre tour, 3 tours de suite — 5 dans un duel ou un 2v2. **Threshold** compte chaque système, colonies comprises : 60 % de 64 font 39, et un salon galactique s'ouvre avec ce seuil activé à 60 % — 75 % en 2v2 — avec une limite de 90 manches derrière. **Capital** : la capitale de chaque siège est le premier de ses systèmes distribués dans l'ordre de la liste, et sur cette carte c'est un gateway sur chaque monde. **Secret Missions** ne nomment jamais de terrain derrière une porte hyperspatiale, si bien que toute mission de capture ou de contrôle nomme ici Sol III, et un siège tenant tout Sol ne peut tirer qu'une mission d'élimination. **Domination** s'achève quand le dernier rival tombe — Last Commander Standing, jugée aussitôt. **Transcendence** demande le plateau Space to Stars : montez de l'Ère spatiale à l'Ère galactique et érigez une merveille.",
+        "detail": "Toute victoire sauf la domination est jugée à partir de la manche 2, une fois que chaque siège a joué un tour. Le panneau **Objectives** de l'onglet Status de la barre latérale tient le compte de celles que ce plateau joue : **Map control** et **Lane Sovereignty**. Chacune des six leçons de l'Ère galactique joue l'une de ces victoires jusqu'au bout sur un plateau conçu pour elle."
+      },
+      "gpr_complete": {
+        "title": "Primer terminé",
+        "message": "Voilà la forme de l'Ère galactique : quatre mondes, huit routes, des gateways qui décident qui peut attaquer qui, une règle par monde, des plateaux selon le nombre de sièges, et toute victoire sauf la domination jugée à partir de la manche 2. Les six leçons jouent chacune une victoire jusqu'au bout — commencez par Lane Sovereignty, celle de la galaxie.",
+        "skippedTitle": "Directement en jeu",
+        "skippedMessage": "Vous avez sauté la lecture. En bref : quatre mondes en anneau, huit routes entre systèmes gateway, des traversées à 2 dés (3 avec Lane Charts), une règle par monde, et toute victoire sauf la domination jugée à partir de la manche 2. Back to lobby vous mène aux six leçons, qui jouent chacune une victoire jusqu'au bout."
       }
     }
   }

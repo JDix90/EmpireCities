@@ -41,6 +41,7 @@
     "waitBonusesOpened": "Open the Bonuses panel to continue…",
     "waitTechTreeOpened": "Open the Tech Tree to continue…",
     "waitDefault": "Complete the action to continue…",
-    "exitTutorial": "Exit Tutorial"
+    "exitTutorial": "Exit Tutorial",
+    "openLinkedLesson": "Read first: {{title}}"
   }
 }

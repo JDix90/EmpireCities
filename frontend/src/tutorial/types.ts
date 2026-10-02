@@ -23,6 +23,7 @@ export const CORE_TUTORIAL_MODULE_IDS = [
  * while it is off, and the server refuses to start one.
  */
 export const GALAXY_TUTORIAL_MODULE_IDS = [
+  'galaxy_primer',
   'galaxy_lane_sovereignty',
   'galaxy_transcendence',
   'galaxy_secret_missions',
@@ -127,6 +128,12 @@ export interface TutorialStep {
    * carry honest skip copy (`skippedTitle` / `skippedMessage`).
    */
   skippable?: boolean;
+  /**
+   * Another lesson this card points at, offered as a button that leaves this
+   * game for that lesson (`onLaunchModule`). The Galactic Age lessons link
+   * their welcome cards to the primer this way.
+   */
+  linkModule?: TutorialLessonModule;
 }
 
 export interface TutorialModuleMeta {
@@ -177,6 +184,14 @@ export const TUTORIAL_MODULES: TutorialModuleMeta[] = [
     title: 'Era Advancement',
     description: 'Climb from Ancient to Medieval: clear the gate, advance, and ride out the vulnerability window.',
     estimatedMinutes: 5,
+  },
+  {
+    id: 'galaxy_primer',
+    title: 'Galactic Age: The Differences',
+    description: 'Six cards on what the galaxy changes — lanes, gateways, world rules, boards and wins — on a real four-seat board, before the six lessons that each play one win.',
+    // Six cards of reading and one click; nothing to win.
+    estimatedMinutes: 4,
+    galaxy: true,
   },
   {
     id: 'galaxy_lane_sovereignty',

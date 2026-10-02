@@ -35,6 +35,7 @@ export const GALAXY_LANE_SOVEREIGNTY_STEPS: TutorialStep[] = [
     detail: 'A lane is your **corridor** when you hold both of its gateways. Hold 5 of the 8 lanes at the start of your turn, 3 turns running, and the network is yours. A duel or a 2v2 needs 5 turns instead, and only the eight charted lanes count.',
     hint: 'You already hold four corridors. This lesson takes the fifth and holds it. Click Next, or Skip to the end to jump straight in.',
     skippable: true,
+    linkModule: 'galaxy_primer',
   },
   {
     id: 'gls_chart',

@@ -27,6 +27,7 @@ export const GALAXY_DOMINATION_STEPS: TutorialStep[] = [
     detail: 'Here is what the galaxy does to Domination: the game never gets there. The moment the last rival falls the server ends the match as **Last Commander Standing**, the one win judged at once rather than from round 2 — so the **32** colony garrisons never need taking, and a galaxy result never reads Total Domination while a rival is in the game. That is why a real galaxy lobby pairs Domination with the Threshold.',
     hint: 'Click Next, or Skip to the end to jump straight in.',
     skippable: true,
+    linkModule: 'galaxy_primer',
   },
   {
     id: 'gdm_rules',
