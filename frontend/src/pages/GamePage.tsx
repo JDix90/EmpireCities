@@ -3135,16 +3135,24 @@ export default function GamePage() {
   );
 
   /** Show a galaxy board's all-worlds view, and remember it for the next game. */
+  /**
+   * A tutorial card waiting on the Galaxy chart being opened advances. A no-op
+   * outside a tutorial game; both the desktop button and the phone chip call
+   * it, so a lesson is never stranded on the chip that bypasses the preference.
+   */
+  const noteTutorialGalaxyChartOpened = useCallback(() => {
+    if (!useGameStore.getState().gameState?.settings?.tutorial) return;
+    const step = tutorialStepsRef.current[tutorialStepRef.current];
+    if (step?.requireAction === 'galaxy_chart_opened') {
+      setTutorialStep((s) => Math.min(s + 1, tutorialStepsRef.current.length));
+    }
+  }, []);
+
   const showGalaxyOverview = useCallback((view: GalaxyOverviewPreference) => {
     setGalaxyView(view);
     setGalaxyOverviewPreference(view);
-    if (view === 'chart' && useGameStore.getState().gameState?.settings?.tutorial) {
-      const step = tutorialStepsRef.current[tutorialStepRef.current];
-      if (step?.requireAction === 'galaxy_chart_opened') {
-        setTutorialStep((s) => Math.min(s + 1, tutorialStepsRef.current.length));
-      }
-    }
-  }, []);
+    if (view === 'chart') noteTutorialGalaxyChartOpened();
+  }, [noteTutorialGalaxyChartOpened]);
 
   /** Open one world on its own: its world tab, or a Split pane's open button. */
   const openGalaxyWorld = useCallback((worldId: string) => {
@@ -4880,7 +4888,10 @@ export default function GamePage() {
           </span>
           <button
             type="button"
-            onClick={() => setGalaxyView('chart')}
+            onClick={() => {
+              setGalaxyView('chart');
+              noteTutorialGalaxyChartOpened();
+            }}
             className={`shrink-0 inline-flex items-center gap-1 min-h-[36px] px-2.5 py-1 text-[11px] rounded border ${galaxyOverviewMode ? 'border-bf-gold text-bf-gold bg-bf-gold/10' : 'border-bf-border text-bf-muted'}`}
             aria-pressed={galaxyOverviewMode}
           >

@@ -20,8 +20,9 @@ export const CORE_TUTORIAL_LESSON_MODULES = [
   'era_advancement',
 ] as const;
 
-/** One module per Galactic Age victory condition, plus the primer; grows per PR. */
+/** The primer first, then one module per Galactic Age victory condition. */
 export const GALAXY_TUTORIAL_LESSON_MODULES = [
+  'galaxy_primer',
   'galaxy_lane_sovereignty',
   'galaxy_transcendence',
   'galaxy_secret_missions',

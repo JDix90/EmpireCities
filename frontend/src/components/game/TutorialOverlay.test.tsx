@@ -106,6 +106,37 @@ describe('TutorialOverlay', () => {
     expect(screen.queryByTestId('tutorial-skip-btn')).toBeNull();
   });
 
+  it('offers the lesson a card links to, and launches it', () => {
+    const onLaunchModule = vi.fn();
+    overlay(
+      [{ id: 'gls_welcome', title: 'W', message: 'm', skippable: true, linkModule: 'galaxy_primer' } as TutorialStep],
+      { onLaunchModule, onSkipToEnd: noop, lessonModule: 'galaxy_lane_sovereignty' },
+    );
+    const link = screen.getByTestId('tutorial-linked-lesson-btn');
+    expect(link.textContent).toContain('Galactic Age: The Differences');
+    fireEvent.click(link);
+    expect(onLaunchModule).toHaveBeenCalledWith('galaxy_primer');
+  });
+
+  it('shows no link button on a card without one, or when nothing can launch a lesson', () => {
+    const { rerender } = overlay(
+      [{ id: 'gls_welcome', title: 'W', message: 'm' } as TutorialStep],
+      { onLaunchModule: vi.fn(), lessonModule: 'galaxy_lane_sovereignty' },
+    );
+    expect(screen.queryByTestId('tutorial-linked-lesson-btn')).toBeNull();
+    rerender(
+      <TutorialOverlay
+        steps={[{ id: 'gls_welcome', title: 'W', message: 'm', linkModule: 'galaxy_primer' } as TutorialStep]}
+        stepIndex={0}
+        lessonModule="galaxy_lane_sovereignty"
+        onAdvance={noop}
+        onContinuePlaying={noop}
+        onReturnToLobby={noop}
+      />,
+    );
+    expect(screen.queryByTestId('tutorial-linked-lesson-btn')).toBeNull();
+  });
+
   describe('wrap-up reached by skipping', () => {
     const wrapup = {
       id: 'wrapup',

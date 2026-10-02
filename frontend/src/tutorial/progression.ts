@@ -3,6 +3,7 @@ import { FACTION_ABILITY_STEPS } from './modules/factionAbilitySteps';
 import { TECH_TREE_STEPS } from './modules/techTreeSteps';
 import { ERA_ADVANCEMENT_STEPS } from './modules/eraAdvancementSteps';
 import { COMBINED_CORE_TUTORIAL_STEPS } from './modules/combinedCoreSteps';
+import { GALAXY_PRIMER_STEPS } from './modules/galaxyPrimerSteps';
 import { GALAXY_LANE_SOVEREIGNTY_STEPS } from './modules/galaxyLaneSovereigntySteps';
 import { GALAXY_TRANSCENDENCE_STEPS } from './modules/galaxyTranscendenceSteps';
 import { GALAXY_SECRET_MISSIONS_STEPS } from './modules/galaxySecretMissionsSteps';
@@ -31,6 +32,8 @@ export function getTutorialSteps(module: TutorialLessonModule): TutorialStep[] {
       return TECH_TREE_STEPS;
     case 'era_advancement':
       return ERA_ADVANCEMENT_STEPS;
+    case 'galaxy_primer':
+      return GALAXY_PRIMER_STEPS;
     case 'galaxy_lane_sovereignty':
       return GALAXY_LANE_SOVEREIGNTY_STEPS;
     case 'galaxy_transcendence':
@@ -149,6 +152,11 @@ export function isTutorialStepCentered(step: TutorialStep | undefined): boolean 
     'ea_gate',
     'ea_signature',
     'ea_complete',
+    'gpr_welcome',
+    'gpr_worlds',
+    'gpr_boards',
+    'gpr_lanes',
+    'gpr_wins',
     'gls_welcome',
     'gtr_welcome',
     'gsm_welcome',

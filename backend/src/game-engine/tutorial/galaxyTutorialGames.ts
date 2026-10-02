@@ -72,6 +72,29 @@ function galaxySettingsBase(lessonModule: GalaxyTutorialLessonModule, seats: num
 
 export function galaxyTutorialGameSpec(lessonModule: GalaxyTutorialLessonModule): GalaxyTutorialGameSpec {
   switch (lessonModule) {
+    case 'galaxy_primer': {
+      // The classic four-seat board, as dealt: every faction on its home
+      // world, nothing authored, played under the galaxy lobby's own default
+      // victory list (createGameSettings.ts applyOrbitGatedVictoryDefaults)
+      // so the Objectives panel shows the Map Control meter and the Lane
+      // Sovereignty count the primer's cards point at. The primer is read,
+      // not won: its last card marks it complete.
+      const seats: TutorialSeat[] = [
+        { faction_id: 'stellar_mandate', is_ai: false },
+        { faction_id: 'helion_navigators', is_ai: true, ai_difficulty: TUTORIAL_AI },
+        { faction_id: 'forge_syndicate', is_ai: true, ai_difficulty: TUTORIAL_AI },
+        { faction_id: 'void_custodians', is_ai: true, ai_difficulty: TUTORIAL_AI },
+      ];
+      return {
+        mapId: 'era_galaxy',
+        eraId: 'galaxy_age',
+        seats,
+        settings: {
+          ...galaxySettingsBase(lessonModule, seats.length, ['domination', 'threshold', 'lane_sovereignty']),
+          victory_threshold: GALAXY_THRESHOLD_LESSON_PERCENT,
+        },
+      };
+    }
     case 'galaxy_lane_sovereignty': {
       // Three seats: see galaxyLaneSovereigntyScenario.ts for why, and for
       // which AI seat is which.

@@ -31,6 +31,7 @@ export const GALAXY_SECRET_MISSIONS_STEPS: TutorialStep[] = [
     detail: 'The galaxy changes the deal. A mission never names a world behind a hyperspace gate, and here every world but Sol III is one: every capture or control mission on this map names Sol ground, so it is always a lane crossing away. A seat that already holds all of Sol can only ever draw an eliminate mission. Missions are judged from round 2.',
     hint: 'Click Next, or Skip to the end to jump straight in.',
     skippable: true,
+    linkModule: 'galaxy_primer',
   },
   {
     id: 'gsm_objectives',

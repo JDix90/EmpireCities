@@ -343,6 +343,25 @@ export default function TutorialOverlay({
               {t('overlay.openSettingsLab')}
             </button>
           )}
+          {/* A card that points at another lesson: one tap leaves this game for it. */}
+          {step.linkModule && onLaunchModule && (() => {
+            const linked = TUTORIAL_MODULES.find((m) => m.id === step.linkModule);
+            if (!linked) return null;
+            const done = completedModules.includes(linked.id);
+            return (
+              <button
+                type="button"
+                data-testid="tutorial-linked-lesson-btn"
+                onClick={() => onLaunchModule(linked.id)}
+                className="btn-secondary text-sm w-full mb-2 flex justify-between items-center gap-2"
+              >
+                <span>{t('overlay.openLinkedLesson', { title: localizeTutorialModuleMeta(linked, t).title })}</span>
+                <span className="text-[10px] text-bf-muted shrink-0">
+                  {done ? t('overlay.done') : t('overlay.minutesShort', { minutes: linked.estimatedMinutes })}
+                </span>
+              </button>
+            );
+          })()}
 
           {step.variant === 'wrapup' ? (
             <div className="flex flex-col gap-2 mt-2">

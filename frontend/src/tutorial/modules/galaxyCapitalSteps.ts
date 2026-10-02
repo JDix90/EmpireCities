@@ -25,6 +25,7 @@ export const GALAXY_CAPITAL_STEPS: TutorialStep[] = [
     detail: 'The deal fixes each seat\'s capital as the game opens, and on this board both fell on **gateways**: Amazon Basin is Sol\'s door to Nexus Station, Chlorophage Span is Verdan\'s door facing your Guinea Coast. So the winning attack here is a lane crossing, at the 2-die lane cap.',
     hint: 'Click Next, or Skip to the end to jump straight in.',
     skippable: true,
+    linkModule: 'galaxy_primer',
   },
   {
     id: 'gcp_rules',

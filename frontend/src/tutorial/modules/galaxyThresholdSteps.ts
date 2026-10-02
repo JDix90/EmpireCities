@@ -27,6 +27,7 @@ export const GALAXY_THRESHOLD_STEPS: TutorialStep[] = [
     detail: 'The galaxy counts **every** system on the board, the neutral colonies included: 60% of 64 is 38.4, so the win needs **39**. Domination would need all 64 — every colony garrison as well as every rival — which is why a galaxy lobby opens with Threshold on at 60% beside it, and a 90-turn limit behind both.',
     hint: 'Click Next, or Skip to the end to jump straight in.',
     skippable: true,
+    linkModule: 'galaxy_primer',
   },
   {
     id: 'gth_meter',
