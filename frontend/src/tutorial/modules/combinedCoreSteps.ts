@@ -67,7 +67,7 @@ export const COMBINED_CORE_TUTORIAL_STEPS: TutorialStep[] = [
     // centre is cheap and opens the board, the north is a fair fight, and the
     // south is the one that should look wrong.
     message: 'Click one of your territories (2+ units), then an adjacent enemy one. **Tuscany & Latium → Umbria & Abruzzo** is the cheap opening: it holds 2 and borders both of the other Adriatic lands, so taking it puts you next to everything. **Lombardy & Piedmont → Veneto & Emilia** is the slower flank: 3 defenders across a broad northern front.',
-    detail: 'Attacker rolls up to 3 dice, defender up to 2. Highest are compared pair by pair; the loser of each pair loses a unit and ties go to the defender. You capture a territory when its last defender falls.',
+    detail: 'Attacker rolls up to 3 dice, defender up to 2. Highest are compared pair by pair; the loser of each pair loses a unit and ties go to the defender. You capture a territory when its last defender falls, and up to 3 of your surviving attackers move in on their own — no prompt, and one always stays behind.',
     hint: `Attack as often as you like — or not at all. When you're done, click the gold **${phaseAdvanceLabel('attack')}** button.`,
     // Bottom-centre runs 630px tall here and sits squarely on the eastern half
     // of the board this card is telling the player to click. See `cardPosition`

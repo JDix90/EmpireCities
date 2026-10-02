@@ -506,12 +506,26 @@ export default function GameHUD({
                   </p>
                 </div>
               )}
-              {myPlayer.capital_territory_id && (
-                <p className="text-xs text-bf-text">
-                  <span className="text-bf-muted">Your capital: </span>
-                  <span>{resolveTerritoryName(myPlayer.capital_territory_id, mapNameLookup)}</span>
-                </p>
-              )}
+              {myPlayer.capital_territory_id && (() => {
+                // A lost capital is the one objective state that is easy to miss
+                // on an AI turn, and in a Capital game it blocks the win.
+                const capitalHeld = gameState.territories[myPlayer.capital_territory_id]?.owner_id === myPlayer.player_id;
+                const capitalVictoryOn = (gameState.settings.allowed_victory_conditions ?? []).includes('capital');
+                return (
+                  <p className={clsx('text-xs', capitalHeld ? 'text-bf-text' : 'text-red-300')} data-testid="hud-capital">
+                    <span className="text-bf-muted">Your capital: </span>
+                    <span>{resolveTerritoryName(myPlayer.capital_territory_id, mapNameLookup)}</span>
+                    {!capitalHeld && <span className="font-medium"> — lost</span>}
+                    {capitalVictoryOn && (
+                      <span className="block text-bf-muted mt-0.5">
+                        {capitalHeld
+                          ? 'Capital victory: hold it and take every rival capital.'
+                          : 'You cannot win by capitals until you retake it.'}
+                      </span>
+                    )}
+                  </p>
+                );
+              })()}
               {myPlayer.secret_mission && (
                 <p className="text-xs text-bf-text mt-1">
                   <span className="text-bf-muted">Mission: </span>
@@ -673,6 +687,11 @@ export default function GameHUD({
                   )}
                   {selectedCards.length > 0 && selectedCards.length < 3 && (
                     <p className="text-xs text-bf-muted">Select {3 - selectedCards.length} more</p>
+                  )}
+                  {selectedCards.length === 0 && (
+                    <p className="text-xs text-bf-muted">
+                      Pick 3 to redeem for extra reinforcements during your draft: three of a kind, one of each, or a pair plus a wild.
+                    </p>
                   )}
                 </div>
               )}

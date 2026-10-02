@@ -129,11 +129,14 @@ export default function AiTurnRecapPanel({
   recaps,
   onDismiss,
   viewerPlayerId = null,
+  beforeFirstTurn = false,
 }: {
   recaps: TurnRecapEntry[];
   onDismiss: () => void;
   /** Highlights entries where this player was attacked; auto-expands on territory loss. */
   viewerPlayerId?: string | null;
+  /** The viewer has not had a turn yet: these moves happened before it, not while they were away. */
+  beforeFirstTurn?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [openEntries, setOpenEntries] = useState<Record<string, boolean>>({});
@@ -180,7 +183,7 @@ export default function AiTurnRecapPanel({
           aria-expanded={expanded}
         >
           <span className="truncate">
-            While you were away ({recaps.length} {recaps.length === 1 ? 'turn' : 'turns'}
+            {beforeFirstTurn ? 'Before your first turn' : 'While you were away'} ({recaps.length} {recaps.length === 1 ? 'turn' : 'turns'}
             {totalCaptures > 0 ? `, ${totalCaptures} ${totalCaptures === 1 ? 'capture' : 'captures'}` : ''})
           </span>
           {attacksOnViewer > 0 && (

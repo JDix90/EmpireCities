@@ -1880,7 +1880,11 @@ export default function GamePage() {
         logEntry += ` — destroyed ${plural(defender_losses, 'defender')}`;
       }
       if (territory_captured) {
-        logEntry += ` and captured ${toName}!`;
+        // The engine moves min(survivors − 1, 3), at least 1, into the capture;
+        // there is no prompt, so the log says what happened.
+        const after = data.result.source_units_after;
+        const movedIn = typeof after === 'number' ? Math.max(1, Math.min(after - 1, 3)) : null;
+        logEntry += ` and captured ${toName}!${movedIn !== null ? ` ${plural(movedIn, 'unit')} moved in.` : ''}`;
       }
       setCombatLog((prev) => [...prev, logEntry]);
 
@@ -3942,6 +3946,10 @@ export default function GamePage() {
   // Territory Threshold games (Quick Match's 50% and 65% endings among them):
   // the viewer's share of the map against the share that wins, in the top bar.
   const viewerMapControl = mapControlProgress(gameState, mobileMyPlayer?.player_id ?? null);
+  // Round 1 with no finished own turn in this session: the opponents' moves
+  // happened before the viewer's first turn, so the recap must not say "away".
+  // (A reload mid-round-1 after acting also reads as first turn; harmless.)
+  const beforeFirstTurn = (gameState?.turn_number ?? 1) <= 1 && recapHistory.length === 0;
   const mobileIsMyTurn =
     !!mobileMyPlayer &&
     gameState?.players[gameState.current_player_index]?.player_id === mobileMyPlayer.player_id;
@@ -5164,6 +5172,7 @@ export default function GamePage() {
               notice={notifState}
               history={recapHistory}
               onScrub={setScrubLossIds}
+              beforeFirstTurn={beforeFirstTurn}
               onOpenFullLog={() => setMobileHudOpen(true)}
             />
           ) : (
@@ -5171,6 +5180,7 @@ export default function GamePage() {
               recaps={aiRecaps}
               onDismiss={() => setAiRecaps([])}
               viewerPlayerId={resolvedViewerPlayerIdRef.current ?? user?.user_id ?? null}
+              beforeFirstTurn={beforeFirstTurn}
             />
           )}
 

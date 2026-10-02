@@ -93,7 +93,8 @@ const PROPOSABLE_SETTINGS: SettingOption[] = [
     key: 'naval_enabled',
     label: 'Naval',
     options: [
-      { value: true, display: 'On' },
+      // The server turns Economy on with it (fleets come from Ports); say so.
+      { value: true, display: 'On (also turns on Economy)' },
       { value: false, display: 'Off' },
     ],
   },

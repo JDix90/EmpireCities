@@ -107,8 +107,9 @@ export default function HowToPlayPage() {
               </p>
             </div>
             <p>
-              You capture a territory when its last defending unit is destroyed. At least 1 attacking
-              unit moves in automatically. Attacking is always optional — you can skip the phase.
+              You capture a territory when its last defending unit is destroyed. Up to 3 of the surviving
+              attackers move in automatically (at least 1 always moves in, and at least 1 stays behind) — there
+              is no move-in prompt. Attacking is always optional — you can skip the phase.
             </p>
             <p>
               When optional rules are on (factions, tech, buildings, wonders, events, sea lanes), attack and
