@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ExternalLink, X } from 'lucide-react';
 import clsx from 'clsx';
 import { safeLocalStorage } from '../../utils/safeStorage';
 
@@ -10,6 +11,12 @@ interface FeatureExplainerModalProps {
   description: string;
   icon?: string;
   className?: string;
+  /**
+   * A way onward under the description — a lesson, a guide. Opens in a new
+   * tab so the game behind the explainer keeps its place, and counts as
+   * having read the explainer.
+   */
+  link?: { to: string; label: string };
 }
 
 export default function FeatureExplainerModal({
@@ -18,6 +25,7 @@ export default function FeatureExplainerModal({
   description,
   icon = '💡',
   className,
+  link,
 }: FeatureExplainerModalProps) {
   const storageKey = `explainer_seen_${featureKey}`;
   const [visible, setVisible] = useState(false);
@@ -58,6 +66,18 @@ export default function FeatureExplainerModal({
           <div className="text-3xl mb-3">{icon}</div>
           <h3 className="text-lg font-display text-bf-gold mb-2 pr-8">{title}</h3>
           <p className="text-sm text-bf-muted leading-relaxed">{description}</p>
+          {link && (
+            <Link
+              to={link.to}
+              target="_blank"
+              rel="noopener"
+              onClick={dismiss}
+              className="mt-3 inline-flex items-center gap-1 text-sm text-bf-gold hover:underline"
+            >
+              {link.label}
+              <ExternalLink size={14} aria-hidden />
+            </Link>
+          )}
 
           <button
             onClick={dismiss}

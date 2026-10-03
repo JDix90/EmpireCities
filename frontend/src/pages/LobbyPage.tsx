@@ -90,6 +90,7 @@ import {
 } from '../utils/eraSystemDefaults';
 import NewUserWelcomeModal, { hasSeenWelcome, markWelcomeSeen } from '../components/ui/NewUserWelcomeModal';
 import { TUTORIAL_MODULES, TUTORIAL_V2_ENABLED, getCompletedTutorialModules, tutorialModuleMinutes } from '../tutorial';
+import GalaxyLessonsOffer from '../components/lobby/GalaxyLessonsOffer';
 import { Settings2, FlaskConical, Radio, Activity, Eye, Swords, ChevronDown } from 'lucide-react';
 import { ownAuthUiAllowed } from '../utils/embedContext';
 
@@ -2093,7 +2094,10 @@ export default function LobbyPage() {
                   Short deep-dive lessons on optional features. Pick any you haven&apos;t tried.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {TUTORIAL_MODULES.filter((m) => m.id !== 'core').map((mod) => {
+                  {/* The deep dives every era shares. The Galactic Age track is
+                      offered where a Galactic Age game is set up (GalaxyLessonsOffer)
+                      and listed in full on the Academy page. */}
+                  {TUTORIAL_MODULES.filter((m) => m.id !== 'core' && !m.galaxy).map((mod) => {
                     const done = completedModules.includes(mod.id);
                     const Icon =
                       mod.id === 'advanced_settings' ? Settings2 :
@@ -2658,6 +2662,9 @@ export default function LobbyPage() {
                       </div>
                     )}
                   </div>
+                    {isGalacticEra && (
+                      <GalaxyLessonsOffer completedModules={completedModules} className="md:col-span-2" />
+                    )}
                     <div className="md:col-span-2 border-t border-bf-border pt-4 mt-2">
                       <label className="label mb-2">Advanced Features</label>
                       {lockedSystemsNotice && (

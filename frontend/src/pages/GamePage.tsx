@@ -24,7 +24,7 @@ import {
 import { useGameStore, CombatResult, type GameState as ClientGameState } from '../store/gameStore';
 import { useUiStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
-import { useFeatureFlagsStore, useFirstTurnCoachEnabled, useSignupNudgeEnabled, useAsyncOnboardingEnabled, useTurnClarityEnabled, useBackgroundMusicEnabled } from '../store/featureFlagsStore';
+import { useFeatureFlagsStore, useFirstTurnCoachEnabled, useSignupNudgeEnabled, useAsyncOnboardingEnabled, useTurnClarityEnabled, useBackgroundMusicEnabled, useGalaxyTutorialEnabled } from '../store/featureFlagsStore';
 import { useBackgroundMusic } from '../hooks/useBackgroundMusic';
 import { backgroundMusic, musicBedFor, musicTensionFor, type MusicCadence } from '../audio/backgroundMusic';
 import { canOfferBlitz } from '../utils/blitzEligibility';
@@ -98,6 +98,7 @@ import {
   markTutorialModuleComplete,
   shouldAdvanceTutorialOnState,
   type TutorialLessonModule,
+  tutorialModuleMinutes,
 } from '../tutorial';
 import TutorialAccountPromptModal from '../components/game/TutorialAccountPromptModal';
 import GuestSignupNudgeModal from '../components/game/GuestSignupNudgeModal';
@@ -653,6 +654,7 @@ export default function GamePage() {
   const signupNudgeFlag = useSignupNudgeEnabled();
   const asyncOnboardingFlag = useAsyncOnboardingEnabled();
   const turnClarityFlag = useTurnClarityEnabled();
+  const galaxyTutorialFlag = useGalaxyTutorialEnabled();
   const coachEligible = shouldShowFirstTurnCoach({
     xp: user?.xp,
     isTutorial,
@@ -4953,6 +4955,12 @@ export default function GamePage() {
           icon="🌌"
           title="Welcome to the Galactic Age"
           description={`${galaxyWorldCountWord(mapData.worlds?.length)} worlds, one war. Every hyperspace lane runs between two gateway systems. Hold a gateway and you can attack straight across its lane — no research needed — but a crossing rolls only 2 dice (3 with Lane Charts), so a defended gateway holds like a coast. Tap a world to drill into it; open the galaxy chart to see every lane and whose gateways it touches.`}
+          // The Galactic Age lessons are offered here, where the game begins,
+          // rather than on the lobby's Training Academy grid. A new tab: the
+          // game behind the explainer keeps its place.
+          link={galaxyTutorialFlag
+            ? { to: '/tutorial?module=galaxy_primer&start=1', label: `Take the Galactic Age primer first (~${tutorialModuleMinutes('galaxy_primer')} min, new tab)` }
+            : undefined}
         />
       )}
 
