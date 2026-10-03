@@ -5506,6 +5506,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
         // Lets the funnel segment guest activation (the cohort the signup nudge
         // targets) and measure guest finish → upgrade conversion.
         is_guest: resultCtx.guestPlayerIds.has(human.player_id),
+        first_match: state.settings.first_match === true,
       },
       human.player_id,
     );

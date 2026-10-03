@@ -36,6 +36,13 @@ export interface CompletionStats {
   avg_minutes: number | null;
   avg_turns: number | null;
 }
+export interface FirstMatchStats {
+  started: number;
+  finished: number;
+  won: number;
+  next_day_cohort: number;
+  next_day: number;
+}
 export interface EventVolumeRow {
   event: string;
   n: number;
@@ -57,6 +64,8 @@ export interface AnalyticsReport {
   /** Optional for rollout: older backends won't send it. */
   tutorial?: TutorialCohortRow[];
   completion: CompletionStats;
+  /** Optional for rollout: older backends won't send it. */
+  first_match?: FirstMatchStats;
   volume: EventVolumeRow[];
 }
 
@@ -247,6 +256,41 @@ export default function AdminAnalyticsPanel({ data }: { data: AnalyticsReport | 
             client. &quot;Account&quot; is the same test the retention split uses — registered directly or
             upgraded from guest at any point — so a guest who finishes and then signs up counts
             as an account here too.
+          </p>
+        </section>
+      )}
+
+      {/* The easy first match (Admin → Config, "Easy first match"): did
+          newcomers finish it, win it, and come back the next day? Shown once
+          any have been played. */}
+      {data.first_match && data.first_match.started > 0 && (
+        <section className="rounded-xl border border-bf-border bg-cc-panel/50 p-4">
+          <p className="text-sm font-semibold text-bf-text">
+            First matches{' '}
+            <span className="text-xs font-normal text-bf-muted">· last {data.window_days}d</span>
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Stat label="Started" value={data.first_match.started.toLocaleString()} />
+            <Stat
+              label="Finished"
+              value={pctText(data.first_match.finished, data.first_match.started)}
+              sub={`${data.first_match.finished}/${data.first_match.started} started`}
+            />
+            <Stat
+              label="Won"
+              value={pctText(data.first_match.won, data.first_match.finished)}
+              sub={`${data.first_match.won}/${data.first_match.finished} finished`}
+            />
+            <Stat
+              label="Back next day"
+              value={pctText(data.first_match.next_day, data.first_match.next_day_cohort)}
+              sub={`${data.first_match.next_day}/${data.first_match.next_day_cohort} finishers`}
+            />
+          </div>
+          <p className="mt-2 text-xs text-bf-muted">
+            A first match is a player&apos;s first Quick Match while &quot;Easy first match&quot; is on: one
+            Easy bot on Great Britain 925. &quot;Back next day&quot; uses the D1 rule (any event the day
+            after finishing) and counts only finishes from before today.
           </p>
         </section>
       )}

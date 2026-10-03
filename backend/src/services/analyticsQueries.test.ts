@@ -13,6 +13,7 @@ import {
   getFunnelMetrics,
   getVisitorFunnel,
   getCompletionStats,
+  getFirstMatchStats,
   getEventVolume,
   getAcquisitionBySource,
   getAnalyticsReport,
@@ -191,10 +192,29 @@ describe('analyticsQueries', () => {
     expect(sql).toContain('GROUP BY user_id');
   });
 
+  it('getFirstMatchStats reads the first-match tag on both events and applies the D1 rule', async () => {
+    queryMock.mockResolvedValueOnce([{ started: 5, finished: 4, won: 3, next_day_cohort: 3, next_day: 2 }]);
+    const r = await getFirstMatchStats(14);
+    expect(r).toEqual({ started: 5, finished: 4, won: 3, next_day_cohort: 3, next_day: 2 });
+    const [sql, params] = queryMock.mock.calls[0]!;
+    expect(params).toEqual([14]);
+    expect(sql).toMatch(/event = 'game_created'/);
+    expect(sql).toMatch(/event = 'game_finished'/);
+    expect(String(sql).match(/properties->>'first_match'/g)).toHaveLength(2);
+    // A finish only joins the next-day cohort once its next day can have happened.
+    expect(sql).toMatch(/d0 <= CURRENT_DATE - 1/);
+    expect(sql).toMatch(/e\.created_at::date = f\.d0 \+ 1/);
+  });
+
+  it('getFirstMatchStats reads zeros on an empty window', async () => {
+    queryMock.mockResolvedValueOnce([{}]);
+    expect(await getFirstMatchStats(30)).toEqual({ started: 0, finished: 0, won: 0, next_day_cohort: 0, next_day: 0 });
+  });
+
   it('getAnalyticsReport assembles every section plus the lifetime total', async () => {
     // Promise.all invokes the section queries in array order: visitors, funnel,
     // retention, retention-by-cohort, completion, acquisition, volume,
-    // tutorial — then queryOne(total). The order is positional, so inserting a
+    // tutorial, first matches — and queryOne(total), mocked separately. The order is positional, so inserting a
     // section anywhere but the end
     // without adding its row shifts every later mock onto the wrong query.
     queryMock
@@ -211,7 +231,8 @@ describe('analyticsQueries', () => {
       .mockResolvedValueOnce([
         { is_account: true, started: 2, completed: 2 },
         { is_account: false, started: 5, completed: 1 },
-      ]);
+      ])
+      .mockResolvedValueOnce([{ started: 4, finished: 3, won: 2, next_day_cohort: 2, next_day: 1 }]);
     queryOneMock.mockResolvedValueOnce({ total: 42 });
 
     const r = await getAnalyticsReport(30);
@@ -231,6 +252,7 @@ describe('analyticsQueries', () => {
       { cohort: 'guest', started: 5, completed: 1 },
     ]);
     expect(r.completion.avg_minutes).toBe(15);
+    expect(r.first_match).toEqual({ started: 4, finished: 3, won: 2, next_day_cohort: 2, next_day: 1 });
     expect(r.acquisition).toEqual([
       { source: 'reddit', channel: 'social', signups: 3, accounts: 1, activated: 1 },
     ]);

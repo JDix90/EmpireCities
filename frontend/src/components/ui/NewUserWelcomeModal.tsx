@@ -23,6 +23,8 @@ export function markWelcomeSeen(): void {
 }
 
 interface NewUserWelcomeModalProps {
+  /** Replaces the Quick Match card's line, e.g. when the next match is the player's first. */
+  quickMatchLine?: string;
   onStartTutorial: () => void;
   onJumpIn: () => void;
   onDismiss: () => void;
@@ -33,6 +35,7 @@ interface NewUserWelcomeModalProps {
  * Presents two clear paths and dismisses on any selection.
  */
 export default function NewUserWelcomeModal({
+  quickMatchLine,
   onStartTutorial,
   onJumpIn,
   onDismiss,
@@ -106,7 +109,8 @@ export default function NewUserWelcomeModal({
           <div className="min-w-0">
             <p className="font-display text-bf-gold text-base mb-0.5">Quick Match</p>
             <p className="text-bf-muted text-xs leading-relaxed">
-              3 AI opponents on a random era map — start now, no waiting. Best if you already know territory strategy games.
+              {quickMatchLine ??
+                '3 AI opponents on a random era map — start now, no waiting. Best if you already know territory strategy games.'}
             </p>
           </div>
         </button>

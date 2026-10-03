@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import {
   buildMapMetaFromDoc,
   evaluateEraMapCompatibility,
@@ -167,5 +169,26 @@ describe('lobbyEraMapCompatibility', () => {
     });
     expect(result.allowed).toBe(false);
     expect(result.hardBlock).toMatch(/starts in Ancient/i);
+  });
+});
+
+describe('the first match pairing', () => {
+  // frontend/src/utils/firstMatch.ts: one Easy bot on Great Britain 925 under
+  // medieval rules. The create route runs this check, so a block here would
+  // make every newcomer's first Quick Match fail to start.
+  it('is allowed: Great Britain 925 under its recommended medieval rules, two seats', () => {
+    const doc = JSON.parse(
+      readFileSync(join(__dirname, '../../../../database/maps/community_britain_925.json'), 'utf-8'),
+    );
+    expect(recommendedRulesEraForTheater('community_britain_925')).toBe('medieval');
+    const result = evaluateEraMapCompatibility({
+      era_id: 'medieval',
+      map_id: 'community_britain_925',
+      settings: { first_match: true, allowed_victory_conditions: ['domination', 'threshold'], victory_threshold: 65 },
+      player_count: 2,
+      map_meta: buildMapMetaFromDoc(doc),
+    });
+    expect(result.allowed).toBe(true);
+    expect(result.hardBlock).toBeNull();
   });
 });

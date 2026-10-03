@@ -320,6 +320,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Serve the daily as a decision puzzle on days whose set-piece carries a scripted-opponent plan: a short clock, the opponent\u2019s plan shown up front, every move graded against an exact solver, accuracy on the board. Days without a plan, Thursday and Sunday stay v1 either way. Off by default (dark launch) \u2014 off is the daily exactly as before.',
   },
   {
+    key: 'first_match_easy_enabled',
+    label: 'Easy first match',
+    description:
+      'A player\u2019s first Quick Match (no finished game yet, and no Quick Match setup of their own) is one Easy bot on Great Britain 925 instead of their setup on a random era: a short, winnable first game. The Analytics tab counts these under First matches. Off by default (dark launch) \u2014 off is Quick Match exactly as before.',
+  },
+  {
     key: 'store_v2_enabled',
     label: 'Store overhaul',
     description:

@@ -877,6 +877,12 @@ export interface GameSettings {
   campaign_intro_text?: string;
   /** Daily challenge date (YYYY-MM-DD) when this session is the daily. */
   daily_challenge_date?: string;
+  /**
+   * The player's first Quick Match, built by the client while
+   * `first_match_easy_enabled` is on. Only an analytics tag: the game's rules
+   * come from its other settings.
+   */
+  first_match?: boolean;
   /** Serialized daily puzzle spec from `daily_challenges.spec_json`. */
   daily_challenge_spec?: Record<string, unknown>;
   /**
