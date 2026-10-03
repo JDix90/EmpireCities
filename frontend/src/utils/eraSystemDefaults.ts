@@ -89,12 +89,12 @@ const SYSTEM_SETTING_KEYS = {
 /**
  * Merge the systems an era requires into a create-game settings payload.
  *
- * For one-click flows that never show the Advanced Features form — Quick
- * Match's random era rotation above all — landing on an orbit-gated era must
- * still produce a game where its headline mechanic works: a Space Age quick
- * match without Economy + Tech Trees has an unreachable Moon and an
- * unwinnable domination objective. Eras without requirements pass through
- * untouched, so classic quick matches stay classic.
+ * For one-click flows that never show the Advanced Features form, landing on
+ * an orbit-gated era must still produce a game where its headline mechanic
+ * works: a Space Age game without Economy + Tech Trees has an unreachable Moon
+ * and an unwinnable domination objective. Quick Match's rotation no longer
+ * includes such an era, so for it this is a guard rather than a change. Eras
+ * without requirements pass through untouched.
  */
 export function withRequiredEraSystems<T extends Record<string, unknown>>(
   eraId: string,

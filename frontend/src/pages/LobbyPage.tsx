@@ -32,13 +32,12 @@ import axios from 'axios';
 import { getSocketUrl } from '../config/env';
 import { io as ioClient, Socket as IOSocket } from 'socket.io-client';
 import { ERA_LABELS, formatLobbyPairingLabel, formatWeeklyScoring } from '../constants/gameLobbyLabels';
-import { isCommunityTheaterMap, pickQuickMatchEra, quickMatchEraPool } from '../constants/lobbyMapOptions';
+import { isCommunityTheaterMap, pickQuickMatchEra } from '../constants/lobbyMapOptions';
 import QuickMatchOptions from '../components/lobby/QuickMatchOptions';
 import VictoryCriteriaPicker from '../components/lobby/VictoryCriteriaPicker';
 import AiOpponentPicker from '../components/lobby/AiOpponentPicker';
 import {
   describeQuickMatchPrefs,
-  quickMatchRequiresFullBoard,
   quickMatchVictorySettings,
   QUICK_MATCH_VICTORY_HINTS,
   QUICK_MATCH_VICTORY_LABELS,
@@ -1467,14 +1466,8 @@ export default function LobbyPage() {
     setQuickOptionsOpen(false);
     try {
       // Random era each match — always-Ancient got repetitive (player
-      // feedback). Pool: the seven global world maps; see QUICK_MATCH_ERAS.
-      // Conquest ("hold every territory") narrows the pool: Space Age keeps a
-      // third of its board behind an orbit gate, so rolling it would guarantee
-      // the match ended on the turn cap instead of the chosen condition.
-      const era = pickQuickMatchEra(
-        Math.random,
-        quickMatchEraPool({ requiresFullBoard: quickMatchRequiresFullBoard(quickMatchPrefs) }),
-      );
+      // feedback). Pool: the six Earth world maps; see QUICK_MATCH_ERAS.
+      const era = pickQuickMatchEra(Math.random);
       const res = await api.post('/games', {
         era_id: era,
         map_id: ERA_MAP_IDS[era],
@@ -1486,10 +1479,10 @@ export default function LobbyPage() {
         // "Quick" means quick: the server starts the match before responding,
         // so the player lands directly in turn 1 instead of a pre-game room.
         auto_start: true,
-        // withRequiredEraSystems: when the rotation lands on an orbit-gated
-        // era (Space Age), enable the systems its headline mechanic needs —
-        // otherwise the Moon is unreachable and domination can't complete.
-        // Classic eras pass through unchanged.
+        // withRequiredEraSystems: a pass-through for every era in the Quick
+        // Match rotation; it only adds systems for orbit-gated eras, which the
+        // rotation no longer includes. Kept so a future pool entry can't ship
+        // without the systems its map needs.
         settings: withRequiredEraSystems(era, {
           turn_timer_seconds: 300,
           initial_unit_count: 3,
@@ -1726,7 +1719,7 @@ export default function LobbyPage() {
                   {quickSoloLoading ? 'Starting…' : 'Quick Match'}
                 </span>
                 <span className="text-[11px] font-normal opacity-75">
-                  Classic Risk vs {quickMatchPrefs.aiCount} AI · {QUICK_MATCH_VICTORY_LABELS[quickMatchPrefs.victory]}
+                  {QUICK_MATCH_VICTORY_LABELS[quickMatchPrefs.victory]} · vs {quickMatchPrefs.aiCount} AI · random era
                 </span>
               </button>
               <button

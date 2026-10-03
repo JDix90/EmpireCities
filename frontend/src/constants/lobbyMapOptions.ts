@@ -48,9 +48,14 @@ export const LOBBY_ERA_MAP_IDS: Record<string, string> = {
 };
 
 /**
- * Eras eligible for Quick Match's random rotation: the seven "Global"
- * world maps. Regional theaters (ACW, Risorgimento) are excluded — they're
- * smaller-scope by design — and Galactic Age is admin-gated.
+ * Eras eligible for Quick Match's random rotation: the six Earth world maps,
+ * all played on classic rules. Regional theaters (ACW, Risorgimento) are
+ * excluded — they're smaller-scope by design — and Galactic Age is admin-gated.
+ *
+ * Space Age is out too. It forces the economy and tech trees on, and keeps nine
+ * lunar tiles behind an orbit gate, so a Quick Match that rolled it was a
+ * different game from the one the button offers — and a "hold every territory"
+ * ending there could only finish on the turn cap.
  */
 export const QUICK_MATCH_ERAS = [
   'ancient',
@@ -59,28 +64,8 @@ export const QUICK_MATCH_ERAS = [
   'ww2',
   'coldwar',
   'modern',
-  'space_age',
 ] as const;
 export type QuickMatchEra = (typeof QUICK_MATCH_ERAS)[number];
-
-/**
- * Pool eras where a large share of the board sits behind an orbit gate.
- *
- * Space Age's nine lunar tiles are reached only through the Lunar Expansion
- * tech ladder plus a Launch Pad, and in the engine's own sims domination never
- * once completed there. A Quick Match whose chosen ending is "hold every
- * territory" therefore must not roll it, or the player's explicit choice would
- * be guaranteed to end on the turn cap instead. Endings that ask for a share of
- * the board (Blitz, Conquest) and Capitals are all reachable on the Earth tiles,
- * so they keep the full rotation.
- */
-export const ORBIT_GATED_QUICK_MATCH_ERAS: readonly QuickMatchEra[] = ['space_age'];
-
-/** The rotation a Quick Match rolls from, narrowed when the ending needs the whole board. */
-export function quickMatchEraPool(opts: { requiresFullBoard: boolean } = { requiresFullBoard: false }): readonly QuickMatchEra[] {
-  if (!opts.requiresFullBoard) return QUICK_MATCH_ERAS;
-  return QUICK_MATCH_ERAS.filter((era) => !ORBIT_GATED_QUICK_MATCH_ERAS.includes(era));
-}
 
 /** Random Quick Match era; `random` and the pool are injectable for tests. */
 export function pickQuickMatchEra(

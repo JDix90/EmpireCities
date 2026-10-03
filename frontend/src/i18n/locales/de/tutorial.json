@@ -85,7 +85,7 @@
         "title": "Willkommen, Kommandant!",
         "message": "Borderfall ist ein Strategiespiel um die Kontrolle von Gebieten. Jede Runde läuft Verstärkung → Angriff → Befestigung. Du hältst die drei Gebiete der **Tyrrhenian Coast** (Tyrrhenische Küste), der Westseite Italiens; ein Gegner hält die **Adriatic Coast** (Adriaküste).",
         "detail": "Die Verstärkung gibt dir 1 Einheit pro 3 Gebiete (mindestens 3), plus einen Bonus für ein komplett gehaltenes Reich – du hältst die ganze tyrrhenische Seite, dieser Bonus gehört also schon dir.",
-        "hint": "Schon mal Risiko gespielt? Dann fühlst du dich sofort zu Hause – und diese Partie ergänzt den Teil, den Risiko nicht hat. Klicke auf „Weiter“ oder auf „Zum Ende springen“, um direkt loszulegen."
+        "hint": "Schon mal ein Eroberungs-Brettspiel gespielt? Dann fühlst du dich sofort zu Hause – und diese Partie ergänzt den Teil, den solche Spiele nicht haben: den Aufstieg durch die Zeitalter. Klicke auf „Weiter“ oder auf „Zum Ende springen“, um direkt loszulegen."
       },
       "draft_do": {
         "title": "Platziere deine Verstärkungen",
@@ -129,7 +129,7 @@
         "title": "Du bist bereit!",
         "message": "Du hast den vollen Rundenzyklus durchlaufen – Verstärkung, Angriff, Befestigung – und bist ein Zeitalter aufgestiegen. Das ist der ganze Kreislauf. Die Standard-Siegbedingung ist Dominanz: Erobere jedes Gebiet. Gastgeber können auch Schwelle (einen Anteil der Karte), Hauptstadteinnahme oder Geheimmissionen wählen.",
         "skippedTitle": "Direkt ins Spiel",
-        "skippedMessage": "Kurz gefasst: Jede Runde verstärkst du Einheiten, greifst Nachbargebiete mit Würfeln an und befestigst dann. Unterwegs erforschst du eine Technologie und steigst von der Antike ins Mittelalter auf – das ist der Teil, den Risiko nicht hat. Gewinne durch Dominanz: Erobere jedes Gebiet. (Gastgeber können auch Schwelle, Hauptstadteinnahme oder Geheimmissionen wählen.) Gerade jetzt hast du Verstärkungen zu platzieren – klicke auf ein beliebiges blaues Gebiet und dann auf **{{draftButton}}**.",
+        "skippedMessage": "Kurz gefasst: Jede Runde verstärkst du Einheiten, greifst Nachbargebiete mit Würfeln an und befestigst dann. Unterwegs erforschst du eine Technologie und steigst von der Antike ins Mittelalter auf – das ist der Teil, den klassische Eroberungsspiele nicht haben. Gewinne durch Dominanz: Erobere jedes Gebiet. (Gastgeber können auch Schwelle, Hauptstadteinnahme oder Geheimmissionen wählen.) Gerade jetzt hast du Verstärkungen zu platzieren – klicke auf ein beliebiges blaues Gebiet und dann auf **{{draftButton}}**.",
         "detail": "Echte Partien ergänzen, was dieses Spielfeld weglässt: Gebietskarten für Bonus-Einheiten, Fraktionen mit einzigartigen Kräften, Gebäude und Stabilität, Nebel des Krieges, ein strengeres Aufstiegstor (mehr Forschung plus Gebäude) und die volle Linie von der Antike bis zur Moderne statt eines Sprungs über zwei Zeitalter."
       }
     },

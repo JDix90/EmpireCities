@@ -45,7 +45,7 @@ export const COMBINED_CORE_TUTORIAL_STEPS: TutorialStep[] = [
     title: 'Welcome, Commander!',
     message: `${APP_NAME} is a strategy game of territory control. Each turn runs Draft → Attack → Fortify. You hold the three territories of the **Tyrrhenian Coast** — the western side of Italy; an opponent holds the **Adriatic Coast**.`,
     detail: 'Draft gives you 1 unit per 3 territories (minimum 3), plus a bonus for holding an entire realm — you hold all of the Tyrrhenian side, so that bonus is already yours.',
-    hint: 'Played Risk before? You\'ll feel right at home — and this match adds the part Risk doesn\'t have. Click "Next", or "Skip to the end" to jump straight in.',
+    hint: 'Played a territory-conquest board game before? You\'ll feel right at home — and this match adds the part those games don\'t have: climbing through the eras. Click "Next", or "Skip to the end" to jump straight in.',
   },
   {
     id: 'draft_do',
@@ -120,7 +120,7 @@ export const COMBINED_CORE_TUTORIAL_STEPS: TutorialStep[] = [
     // unplaced, so give them the shape of the loop and their next click —
     // never a recap of play they didn't do.
     skippedTitle: 'Jumping Straight In',
-    skippedMessage: 'Here is the shape of it: each turn you draft units, attack neighbouring territories with dice, then fortify. Research a tech and advance Ancient → Medieval along the way — that is the part Risk doesn\'t have. Win by domination: capture every territory. (Hosts can also pick Threshold, Capital Capture, or Secret Missions.) Right now you have reinforcements to place — click any blue territory, then Begin Attack.',
+    skippedMessage: 'Here is the shape of it: each turn you draft units, attack neighbouring territories with dice, then fortify. Research a tech and advance Ancient → Medieval along the way — that is the part classic conquest games don\'t have. Win by domination: capture every territory. (Hosts can also pick Threshold, Capital Capture, or Secret Missions.) Right now you have reinforcements to place — click any blue territory, then Begin Attack.',
     detail: 'Real matches add what this board left out: territory cards for bonus units, factions with unique powers, buildings and stability, fog of war, a stiffer advancement gate (more research plus buildings), and the full Ancient → Modern spine instead of a two-era hop.',
     variant: 'wrapup',
   },

@@ -146,9 +146,8 @@ describe('Quick Match win-condition payloads', () => {
   });
 
   it('accepts the Capitals fragment on Space Age, which Conquest never rolls', () => {
-    // Capital victory is reachable on the Earth tiles, so Space Age stays in
-    // the rotation for it; only the full-board ending narrows the pool
-    // (frontend quickMatchEraPool).
+    // Capital victory is reachable on the Earth tiles. Quick Match no longer
+    // rolls Space Age, but a custom game can still pair the two.
     const parsed = CreateGameSchema.safeParse(
       payloadFor(
         { ...QUICK_MATCH_VICTORY_FRAGMENTS.capitals, economy_enabled: true, tech_trees_enabled: true },

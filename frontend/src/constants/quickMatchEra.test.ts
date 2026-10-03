@@ -1,11 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
-  ORBIT_GATED_QUICK_MATCH_ERAS,
   pickQuickMatchEra,
-  quickMatchEraPool,
   QUICK_MATCH_ERAS,
   LOBBY_ERA_MAP_IDS,
 } from './lobbyMapOptions';
+import { withRequiredEraSystems } from '../utils/eraSystemDefaults';
 
 describe('pickQuickMatchEra', () => {
   it('covers every pool era across the random range', () => {
@@ -44,27 +43,16 @@ describe('pickQuickMatchEra', () => {
   });
 });
 
-describe('quickMatchEraPool', () => {
-  it('is the whole rotation for endings that only need a share of the board', () => {
-    expect(quickMatchEraPool({ requiresFullBoard: false })).toEqual(QUICK_MATCH_ERAS);
-    expect(quickMatchEraPool()).toEqual(QUICK_MATCH_ERAS);
+describe('the Quick Match rotation', () => {
+  it('leaves out Space Age, so every Quick Match is the classic game the button offers', () => {
+    // Space Age forces the economy and tech trees on and keeps nine lunar tiles
+    // behind an orbit gate, where a Domination ending can only end on the cap.
+    expect(QUICK_MATCH_ERAS).not.toContain('space_age');
   });
 
-  it('drops orbit-gated eras when the ending needs the whole board', () => {
-    // Space Age keeps nine tiles behind the orbit gate: a Conquest match there
-    // could only ever end on the turn cap, which is the confusion the win
-    // condition picker exists to remove.
-    const pool = quickMatchEraPool({ requiresFullBoard: true });
-    for (const era of ORBIT_GATED_QUICK_MATCH_ERAS) {
-      expect(pool).not.toContain(era);
-    }
-    expect(pool.length).toBe(QUICK_MATCH_ERAS.length - ORBIT_GATED_QUICK_MATCH_ERAS.length);
-    expect(pool.length).toBeGreaterThan(0);
-  });
-
-  it('every orbit-gated entry is actually in the rotation (no dead names)', () => {
-    for (const era of ORBIT_GATED_QUICK_MATCH_ERAS) {
-      expect(QUICK_MATCH_ERAS).toContain(era);
+  it('needs no extra systems for any era it can roll', () => {
+    for (const era of QUICK_MATCH_ERAS) {
+      expect(withRequiredEraSystems(era, {})).toEqual({});
     }
   });
 });
