@@ -14,7 +14,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { useEraAdvancementLobbyEnabled, useMapEditorEnabled, useMatchAlertsEnabled, useRankedMultiSizeEnabled, useSpaceAgeMoonRaceEnabled, useSpectateEnabled, useTodayPanelEnabled } from '../store/featureFlagsStore';
+import { useEraAdvancementLobbyEnabled, useFirstMatchEasyEnabled, useMapEditorEnabled, useMatchAlertsEnabled, useRankedMultiSizeEnabled, useSpaceAgeMoonRaceEnabled, useSpectateEnabled, useTodayPanelEnabled } from '../store/featureFlagsStore';
 import { HEGEMONY_TURNS } from '../utils/lunarHegemony';
 import { RANKED_MIN_OPPONENTS, describeRankedGameSize, getRankedOpponents, rankedEraSize, saveRankedOpponents } from '../utils/rankedPrefs';
 import { clearRankedSearchMarker, setRankedSearchMarker } from '../utils/rankedSearchMarker';
@@ -46,8 +46,17 @@ import {
   QUICK_MATCH_DIFFICULTY_LABELS,
   saveFullGamePrefs,
   saveQuickMatchPrefs,
+  hasSavedQuickMatchPrefs,
   type QuickMatchPrefs,
 } from '../utils/quickMatchPrefs';
+import {
+  FIRST_MATCH_BUTTON_LINE,
+  FIRST_MATCH_CARD_LINE,
+  FIRST_MATCH_ERA_ID,
+  FIRST_MATCH_MAP_ID,
+  FIRST_MATCH_PREFS,
+  fetchFirstMatchPending,
+} from '../utils/firstMatch';
 import {
   ASCENSION_GALAXY_SPINE_ID,
   isAscensionGalaxyMap,
@@ -389,6 +398,24 @@ export default function LobbyPage() {
   const [quickMatchPrefs, setQuickMatchPrefs] = useState<QuickMatchPrefs>(() => loadQuickMatchPrefs());
   const [quickOptionsOpen, setQuickOptionsOpen] = useState(false);
   const quickOptionsRef = useRef<HTMLDivElement>(null);
+  // Whether the next Quick Match is the player's first (utils/firstMatch.ts):
+  // null while unknown, and false whenever the feature is off.
+  const firstMatchEasyEnabled = useFirstMatchEasyEnabled();
+  const [firstMatchPending, setFirstMatchPending] = useState<boolean | null>(null);
+  const userId = user?.user_id;
+  useEffect(() => {
+    if (!firstMatchEasyEnabled || !userId) {
+      setFirstMatchPending(false);
+      return;
+    }
+    let cancelled = false;
+    void fetchFirstMatchPending((url) => api.get(url), hasSavedQuickMatchPrefs()).then((pending) => {
+      if (!cancelled) setFirstMatchPending(pending);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [firstMatchEasyEnabled, userId]);
   const [fullGameLoading, setFullGameLoading] = useState(false);
   // Full Game setup — separate prefs from Quick Match (a long campaign table
   // and a quick-stomp table are different choices).
@@ -1439,6 +1466,8 @@ export default function LobbyPage() {
   const updateQuickMatchPrefs = (prefs: QuickMatchPrefs) => {
     setQuickMatchPrefs(prefs);
     saveQuickMatchPrefs(prefs);
+    // A setup of their own is the player's choice: it replaces the first match.
+    setFirstMatchPending(false);
   };
 
   // Close the Quick Match options popover on outside click / Escape.
@@ -1465,17 +1494,25 @@ export default function LobbyPage() {
     setQuickSoloLoading(true);
     setQuickOptionsOpen(false);
     try {
+      // A player's first Quick Match swaps their setup and the random era for
+      // one Easy bot on a small map (utils/firstMatch.ts). Asked again here
+      // only if the lobby's own check has not answered yet.
+      const firstMatch =
+        firstMatchEasyEnabled &&
+        (firstMatchPending ?? (await fetchFirstMatchPending((url) => api.get(url), hasSavedQuickMatchPrefs())));
+      const prefs = firstMatch ? FIRST_MATCH_PREFS : quickMatchPrefs;
       // Random era each match — always-Ancient got repetitive (player
       // feedback). Pool: the six Earth world maps; see QUICK_MATCH_ERAS.
-      const era = pickQuickMatchEra(Math.random);
+      const era = firstMatch ? FIRST_MATCH_ERA_ID : pickQuickMatchEra(Math.random);
+      const mapId = firstMatch ? FIRST_MATCH_MAP_ID : ERA_MAP_IDS[era];
       const res = await api.post('/games', {
         era_id: era,
-        map_id: ERA_MAP_IDS[era],
+        map_id: mapId,
         // Auto-start needs every non-host seat AI-filled, so the table size
         // follows the chosen opponent count.
-        max_players: quickMatchPrefs.aiCount + 1,
-        ai_count: quickMatchPrefs.aiCount,
-        ai_difficulty: quickMatchPrefs.aiDifficulty,
+        max_players: prefs.aiCount + 1,
+        ai_count: prefs.aiCount,
+        ai_difficulty: prefs.aiDifficulty,
         // "Quick" means quick: the server starts the match before responding,
         // so the player lands directly in turn 1 instead of a pre-game room.
         auto_start: true,
@@ -1493,7 +1530,9 @@ export default function LobbyPage() {
           // condition (a 60-turn cap under Domination would BE the ending). The
           // default, the 65% Conquest ending, is the historical domination+threshold-65/60.
           // See quickMatchVictorySettings for the per-condition payloads.
-          ...quickMatchVictorySettings(quickMatchPrefs),
+          ...quickMatchVictorySettings(prefs),
+          // Tags the game for the Analytics tab's first-match rows.
+          ...(firstMatch ? { first_match: true } : {}),
         }),
       });
       navigate(`/game/${res.data.game_id}`);
@@ -1584,6 +1623,7 @@ export default function LobbyPage() {
     <div className="min-h-screen bg-bf-dark" {...pullHandlers}>
       {showWelcomeModal && (
         <NewUserWelcomeModal
+          quickMatchLine={firstMatchPending ? FIRST_MATCH_CARD_LINE : undefined}
           onStartTutorial={() => void handleWelcomeTutorial()}
           onJumpIn={() => void handleWelcomeQuickSolo()}
           onDismiss={() => { markWelcomeSeen(); setShowWelcomeModal(false); }}
@@ -1719,7 +1759,9 @@ export default function LobbyPage() {
                   {quickSoloLoading ? 'Starting…' : 'Quick Match'}
                 </span>
                 <span className="text-[11px] font-normal opacity-75">
-                  {QUICK_MATCH_VICTORY_LABELS[quickMatchPrefs.victory]} · vs {quickMatchPrefs.aiCount} AI · random era
+                  {firstMatchPending
+                    ? FIRST_MATCH_BUTTON_LINE
+                    : `${QUICK_MATCH_VICTORY_LABELS[quickMatchPrefs.victory]} · vs ${quickMatchPrefs.aiCount} AI · random era`}
                 </span>
               </button>
               <button
@@ -2049,7 +2091,9 @@ export default function LobbyPage() {
                       {quickSoloLoading ? 'Starting…' : 'Quick Match'}
                     </p>
                     <p className="text-bf-muted text-xs mt-1">
-                      {describeQuickMatchPrefs(quickMatchPrefs)} opponents ready — start now. Random era map.
+                      {firstMatchPending
+                        ? FIRST_MATCH_CARD_LINE
+                        : `${describeQuickMatchPrefs(quickMatchPrefs)} opponents ready — start now. Random era map.`}
                     </p>
                     <p className="text-bf-muted text-xs mt-1">
                       Win by: {QUICK_MATCH_VICTORY_HINTS[quickMatchPrefs.victory]}

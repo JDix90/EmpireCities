@@ -284,6 +284,15 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().daily_puzzle_v2_enabled).toBe(true);
   });
 
+  it('first_match_easy_enabled defaults to off (dark-launch) and is admin-overridable', () => {
+    expect(featureFlags.firstMatchEasyEnabled).toBe(false);
+    expect(getClientFeatureFlags().first_match_easy_enabled).toBe(false);
+    expect(getFeatureFlagStates().first_match_easy_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { first_match_easy_enabled: true } });
+    expect(featureFlags.firstMatchEasyEnabled).toBe(true);
+    expect(getClientFeatureFlags().first_match_easy_enabled).toBe(true);
+  });
+
   it('store_v2_enabled defaults to on, and the admin override is its kill switch', () => {
     expect(featureFlags.storeV2Enabled).toBe(true);
     expect(getClientFeatureFlags().store_v2_enabled).toBe(true);

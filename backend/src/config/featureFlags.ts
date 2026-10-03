@@ -125,6 +125,10 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // banner slot and unequipping are the same either way. On by default; the
   // admin override is the kill switch.
   store_v2_enabled: () => envOptOut('STORE_V2_ENABLED'),
+  // A player's first Quick Match: one Easy bot on Great Britain 925 instead of
+  // their saved setup on a random era, so a newcomer's first game is short and
+  // winnable (scripts/simFirstMatch.ts measured the choice). Dark-launched OFF.
+  first_match_easy_enabled: () => envOptIn('FIRST_MATCH_EASY_ENABLED'),
 };
 
 /** The code default for one flag (no admin override consulted). */
@@ -369,6 +373,16 @@ export const featureFlags = {
    */
   get dailyPuzzleV2Enabled(): boolean {
     return overrideBool('daily_puzzle_v2_enabled');
+  },
+
+  /**
+   * A player's first Quick Match — no finished game yet — is one Easy bot on
+   * Great Britain 925. The client builds that game; the server only keeps the
+   * game's `first_match` tag, and only while this is on. Default OFF;
+   * `FIRST_MATCH_EASY_ENABLED=true` or the admin override turns it on.
+   */
+  get firstMatchEasyEnabled(): boolean {
+    return overrideBool('first_match_easy_enabled');
   },
 
   /**
@@ -889,6 +903,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     localization_enabled: featureFlags.localizationEnabled,
     daily_puzzle_v2_enabled: featureFlags.dailyPuzzleV2Enabled,
     store_v2_enabled: featureFlags.storeV2Enabled,
+    first_match_easy_enabled: featureFlags.firstMatchEasyEnabled,
     // Read by the Custom Game form to say whether a Space Age game can also be
     // won on the Moon (the Lunar Hegemony rides with the Moon Race).
     space_age_moon_race_enabled: featureFlags.spaceAgeMoonRaceEnabled,

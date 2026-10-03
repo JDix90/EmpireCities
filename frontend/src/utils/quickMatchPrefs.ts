@@ -162,6 +162,16 @@ export function sanitizeQuickMatchPrefs(
   return prefs;
 }
 
+/** Whether the player has saved a Quick Match setup of their own (the picker saves on every change). */
+export function hasSavedQuickMatchPrefs(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return localStorage.getItem(QUICK_MATCH_STORAGE_KEY) !== null;
+  } catch {
+    return false;
+  }
+}
+
 function loadPrefs(storageKey: string, defaults: QuickMatchPrefs): QuickMatchPrefs {
   if (typeof window === 'undefined') return { ...defaults };
   try {

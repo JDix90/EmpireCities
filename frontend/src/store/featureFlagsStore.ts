@@ -30,6 +30,7 @@ export interface ClientFeatureFlags {
   daily_puzzle_v2_enabled: boolean;
   store_v2_enabled: boolean;
   space_age_moon_race_enabled: boolean;
+  first_match_easy_enabled: boolean;
 }
 
 /**
@@ -92,6 +93,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   // Store overhaul: cosmetics drawn on profiles and in matches (the store page
   // is the same either way). On by default; admin kill switch.
   store_v2_enabled: true,
+  // A player's first Quick Match is one Easy bot on a small map. Dark-launched OFF.
+  first_match_easy_enabled: false,
   // The Space Age Moon Race, Lunar Hegemony included. On by default; admin kill switch.
   space_age_moon_race_enabled: true,
 };
@@ -246,4 +249,9 @@ export function useStoreV2Enabled(): boolean {
  */
 export function useSpaceAgeMoonRaceEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.space_age_moon_race_enabled);
+}
+
+/** A player's first Quick Match is one Easy bot on a small map (utils/firstMatch.ts). */
+export function useFirstMatchEasyEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.first_match_easy_enabled);
 }

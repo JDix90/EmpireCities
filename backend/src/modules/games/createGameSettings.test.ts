@@ -163,6 +163,17 @@ describe('Galactic Age buildings v2 is baked at create from its flag', () => {
     expect(created(WW2, { ww2_bomb_ai: true }).ww2_bomb_ai).toBeUndefined();
   });
 
+  it('keeps the first-match tag only while the feature is on', () => {
+    const BRITAIN = { era_id: 'medieval', map_id: 'community_britain_925' };
+    // Off: a client's tag is dropped, so the Analytics tab counts nothing.
+    expect(created(BRITAIN, { first_match: true }).first_match).toBeUndefined();
+    setAdminConfigCacheForTests({ feature_flags: { first_match_easy_enabled: true } });
+    expect(created(BRITAIN, { first_match: true }).first_match).toBe(true);
+    // An ordinary Quick Match is never tagged.
+    expect(created(BRITAIN).first_match).toBeUndefined();
+    expect(created(BRITAIN, { first_match: false }).first_match).toBeUndefined();
+  });
+
   it('the WW2 science line is baked the same way', () => {
     expect(created(WW2).ww2_manhattan_science).toBeUndefined();
     setAdminConfigCacheForTests({ feature_flags: { ww2_manhattan_science_enabled: true } });

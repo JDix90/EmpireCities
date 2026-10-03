@@ -3,6 +3,7 @@ import {
   DEFAULT_FULL_GAME_PREFS,
   DEFAULT_QUICK_MATCH_PREFS,
   describeQuickMatchPrefs,
+  hasSavedQuickMatchPrefs,
   loadFullGamePrefs,
   loadQuickMatchPrefs,
   quickMatchVictorySettings,
@@ -113,6 +114,14 @@ describe('quickMatchPrefs', () => {
   it('describes prefs for button copy', () => {
     expect(describeQuickMatchPrefs({ aiCount: 3, aiDifficulty: 'medium', victory: 'majority' })).toBe('3 Medium AI');
     expect(describeQuickMatchPrefs({ aiCount: 7, aiDifficulty: 'expert', victory: 'conquest' })).toBe('7 Expert AI');
+  });
+
+  describe('hasSavedQuickMatchPrefs', () => {
+    it('is true only once the player has saved a setup of their own', () => {
+      expect(hasSavedQuickMatchPrefs()).toBe(false);
+      saveQuickMatchPrefs({ ...DEFAULT_QUICK_MATCH_PREFS, aiCount: 2 });
+      expect(hasSavedQuickMatchPrefs()).toBe(true);
+    });
   });
 
   describe('quickMatchVictorySettings', () => {

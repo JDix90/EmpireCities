@@ -74,6 +74,8 @@ export const CreateGameSchema = z.object({
   settings: z
     .object({
       fog_of_war: z.boolean().default(false),
+      /** The player's first Quick Match (see featureFlags.firstMatchEasyEnabled). Kept only while that flag is on. */
+      first_match: z.boolean().optional(),
       allowed_victory_conditions: z.array(victoryConditionEnum).min(1).max(5).optional(),
       /** Legacy single-select; ignored when `allowed_victory_conditions` is set. */
       victory_type: victoryConditionEnum.optional(),
@@ -515,6 +517,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
         game_type: gameType,
         status: startedStatus,
         is_tutorial: false,
+        first_match: settings.first_match === true,
       },
       request.userId,
     );

@@ -25,6 +25,10 @@ import AdminAnalyticsPanel, { type AnalyticsReport } from '../components/admin/A
 import AdminGalaxyReportPanel from '../components/admin/AdminGalaxyReportPanel';
 import { useFeatureFlagsStore } from '../store/featureFlagsStore';
 
+/** Shown on every stats tab: whose play the numbers leave out (backend services/statsExclusion.ts). */
+const STATS_EXCLUSION_NOTE =
+  'Games played only by admin and test accounts are left out; mark test accounts on the Users tab.';
+
 const CLIENT_FEATURE_FLAGS = [
   {
     key: 'analytics_events_enabled',
@@ -318,6 +322,12 @@ const CLIENT_FEATURE_FLAGS = [
     label: 'Daily Challenge v2 (decision puzzles)',
     description:
       'Serve the daily as a decision puzzle on days whose set-piece carries a scripted-opponent plan: a short clock, the opponent\u2019s plan shown up front, every move graded against an exact solver, accuracy on the board. Days without a plan, Thursday and Sunday stay v1 either way. Off by default (dark launch) \u2014 off is the daily exactly as before.',
+  },
+  {
+    key: 'first_match_easy_enabled',
+    label: 'Easy first match',
+    description:
+      'A player\u2019s first Quick Match (no finished game yet, and no Quick Match setup of their own) is one Easy bot on Great Britain 925 instead of their setup on a random era: a short, winnable first game. The Analytics tab counts these under First matches. Off by default (dark launch) \u2014 off is Quick Match exactly as before.',
   },
   {
     key: 'store_v2_enabled',
@@ -655,6 +665,8 @@ export default function AdminPage() {
       is_banned: boolean;
       is_admin: boolean;
       is_guest: boolean;
+      /** A test account: its play stays out of the stats, like an admin's. */
+      exclude_from_stats?: boolean;
       created_at: string;
       last_login_at: string | null;
       games_played: number;
@@ -921,6 +933,11 @@ export default function AdminPage() {
     }
   }
 
+  async function setTestAccount(userId: string, test: boolean) {
+    await postAction('/admin/actions/set-test-account', { user_id: userId, test });
+    await loadTab('users');
+  }
+
   async function setUserBanned(userId: string, banned: boolean) {
     const ok = window.confirm(banned ? 'Ban this user? They will not be able to log in.' : 'Unban this user?');
     if (!ok) return;
@@ -1073,6 +1090,7 @@ export default function AdminPage() {
               <div>
                 <p className="text-sm font-medium text-bf-text">Game counts date filter</p>
                 <p className="text-xs text-bf-muted">Filters games by <code className="text-bf-gold/90">created_at</code> (UTC).</p>
+                <p className="text-xs text-bf-muted">{STATS_EXCLUSION_NOTE}</p>
               </div>
               <div className="flex flex-wrap items-end gap-2">
                 <label className="text-xs text-bf-muted">
@@ -1296,7 +1314,7 @@ export default function AdminPage() {
           <div className="mt-6 space-y-6">
             <p className="text-sm text-bf-muted">
               Faction stats are from completed games with a recorded <code className="text-bf-gold/90">faction_id</code>.
-              Era and map charts use completed games with known duration.
+              Era and map charts use completed games with known duration. {STATS_EXCLUSION_NOTE}
             </p>
             <div className="rounded-xl border border-bf-border bg-cc-panel/50 p-4">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -1638,6 +1656,7 @@ export default function AdminPage() {
                       <td className="px-3 py-2 text-xs">
                         {u.is_admin ? <span className="mr-1 text-bf-gold">admin</span> : null}
                         {u.is_guest ? <span className="mr-1 text-sky-300">guest</span> : null}
+                        {u.exclude_from_stats ? <span className="mr-1 text-violet-300">test</span> : null}
                         {u.is_banned ? <span className="text-red-300">banned</span> : <span className="text-bf-muted">ok</span>}
                       </td>
                       <td className="px-3 py-2 text-xs text-bf-muted">{new Date(u.created_at).toLocaleDateString()}</td>
@@ -1670,6 +1689,17 @@ export default function AdminPage() {
                           >
                             Reset stats…
                           </button>
+                          {/* Admins are always left out of the stats; this marks anyone else. */}
+                          {!u.is_admin && (
+                            <button
+                              type="button"
+                              className="text-violet-300 hover:underline"
+                              title="Test accounts' games stay out of the Overview, Analytics, Balance and Ranked stats"
+                              onClick={() => void setTestAccount(u.user_id, !u.exclude_from_stats)}
+                            >
+                              {u.exclude_from_stats ? 'Unmark test' : 'Mark test'}
+                            </button>
+                          )}
                           {!u.is_admin && (
                             <button
                               type="button"

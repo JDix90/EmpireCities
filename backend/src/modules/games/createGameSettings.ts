@@ -248,6 +248,9 @@ export function bakeCreateGameSettings(input: Theater & {
         // game on the rules it started under.
         era_heritage_buildings_enabled: featureFlags.eraHeritageBuildingsEnabled,
         era_wonder_per_era_enabled: featureFlags.eraWonderPerEraEnabled,
+        // The first-match tag counts toward the Analytics tab's first-match
+        // rows, so it is kept only while the feature is on.
+        first_match: (rawSettings.first_match === true && featureFlags.firstMatchEasyEnabled) || undefined,
       },
       {
         isOrbitGated: isGalacticAge || isSpaceAge,

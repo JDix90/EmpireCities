@@ -6,8 +6,14 @@
  * Cohorts are defined by each user's first `guest_created`/`user_registered`
  * event, so everything here only covers signups AFTER analytics was enabled —
  * there's no retroactive history, by design.
+ *
+ * Admin and test accounts are left out (services/statsExclusion.ts): their
+ * signups, starts and finishes never enter a cohort. Anonymous visitor events
+ * have no account to judge, so the visitor funnel and the all-time event total
+ * include everyone.
  */
 import { query, queryOne } from '../db/postgres';
+import { countedEventSql } from './statsExclusion';
 import {
   classifyAcquisitionSource,
   CHANNEL_ORDER,
@@ -65,6 +71,20 @@ export interface CompletionStats {
   avg_turns: number | null;
 }
 
+/**
+ * First Quick Matches built while `first_match_easy_enabled` is on, read from
+ * the `first_match` property on `game_created` and `game_finished`.
+ */
+export interface FirstMatchStats {
+  started: number;
+  finished: number;
+  won: number;
+  /** Finishers whose finish day is over, so a next-day return is possible. */
+  next_day_cohort: number;
+  /** Of those, how many had any event the following day (the D1 rule). */
+  next_day: number;
+}
+
 export interface EventVolumeRow {
   event: string;
   n: number;
@@ -117,6 +137,7 @@ export interface AnalyticsReport {
   /** Did they finish the tutorial — split the same way. */
   tutorial: TutorialCohortRow[];
   completion: CompletionStats;
+  first_match: FirstMatchStats;
   acquisition: AcquisitionRow[];
   acquisition_channels: AcquisitionChannelRow[];
   volume: EventVolumeRow[];
@@ -141,6 +162,7 @@ export async function getFunnelMetrics(days: number): Promise<FunnelMetrics> {
        FROM analytics_events
        WHERE event IN ('guest_created', 'user_registered') AND user_id IS NOT NULL
          AND created_at >= NOW() - make_interval(days => $1::int)
+         AND ${countedEventSql('analytics_events')}
        GROUP BY user_id
      )
      SELECT
@@ -181,6 +203,7 @@ export async function getRetentionMetrics(): Promise<RetentionMetrics> {
        SELECT user_id, MIN(created_at)::date AS d0
        FROM analytics_events
        WHERE event IN ('guest_created', 'user_registered') AND user_id IS NOT NULL
+         AND ${countedEventSql('analytics_events')}
        GROUP BY user_id
      )
      SELECT
@@ -232,6 +255,7 @@ export async function getRetentionByCohort(): Promise<RetentionCohortRow[]> {
        SELECT user_id, MIN(created_at)::date AS d0
        FROM analytics_events
        WHERE event IN ('guest_created', 'user_registered') AND user_id IS NOT NULL
+         AND ${countedEventSql('analytics_events')}
        GROUP BY user_id
      ),
      classified AS (
@@ -292,6 +316,7 @@ export async function getTutorialFunnel(days: number): Promise<TutorialCohortRow
        FROM analytics_events
        WHERE event = 'tutorial_started' AND user_id IS NOT NULL
          AND created_at >= NOW() - make_interval(days => $1::int)
+         AND ${countedEventSql('analytics_events')}
        GROUP BY user_id
      ),
      classified AS (
@@ -341,7 +366,8 @@ export async function getCompletionStats(days: number): Promise<CompletionStats>
        ROUND(AVG((properties->>'duration_ms')::numeric) / 60000, 1) AS avg_minutes,
        ROUND(AVG((properties->>'turn_count')::numeric), 1) AS avg_turns
      FROM analytics_events
-     WHERE event = 'game_finished' AND created_at >= NOW() - make_interval(days => $1::int)`,
+     WHERE event = 'game_finished' AND created_at >= NOW() - make_interval(days => $1::int)
+       AND ${countedEventSql('analytics_events')}`,
     [days],
   );
   return {
@@ -353,12 +379,47 @@ export async function getCompletionStats(days: number): Promise<CompletionStats>
   };
 }
 
+/** First-match games started, finished and won in the window, and next-day returns. */
+export async function getFirstMatchStats(days: number): Promise<FirstMatchStats> {
+  const [row] = await query<Record<string, unknown>>(
+    `WITH finished AS (
+       SELECT user_id, created_at::date AS d0, (properties->>'won')::boolean AS won
+       FROM analytics_events
+       WHERE event = 'game_finished'
+         AND (properties->>'first_match')::boolean
+         AND created_at >= NOW() - make_interval(days => $1::int)
+         AND ${countedEventSql('analytics_events')}
+     )
+     SELECT
+       (SELECT COUNT(*) FROM analytics_events
+         WHERE event = 'game_created'
+           AND (properties->>'first_match')::boolean
+           AND created_at >= NOW() - make_interval(days => $1::int)
+           AND ${countedEventSql('analytics_events')})::int AS started,
+       COUNT(*)::int AS finished,
+       COUNT(*) FILTER (WHERE won)::int AS won,
+       COUNT(*) FILTER (WHERE d0 <= CURRENT_DATE - 1)::int AS next_day_cohort,
+       COUNT(*) FILTER (WHERE d0 <= CURRENT_DATE - 1 AND EXISTS (
+         SELECT 1 FROM analytics_events e WHERE e.user_id = f.user_id AND e.created_at::date = f.d0 + 1))::int AS next_day
+     FROM finished f`,
+    [days],
+  );
+  return {
+    started: num(row?.started),
+    finished: num(row?.finished),
+    won: num(row?.won),
+    next_day_cohort: num(row?.next_day_cohort),
+    next_day: num(row?.next_day),
+  };
+}
+
 /** Raw event histogram in the trailing window. */
 export async function getEventVolume(days: number): Promise<EventVolumeRow[]> {
   const rows = await query<Record<string, unknown>>(
     `SELECT event, COUNT(*)::int AS n
      FROM analytics_events
      WHERE created_at >= NOW() - make_interval(days => $1::int)
+       AND ${countedEventSql('analytics_events')}
      GROUP BY event ORDER BY n DESC`,
     [days],
   );
@@ -383,6 +444,7 @@ export async function getAcquisitionBySource(days: number): Promise<AcquisitionR
        FROM analytics_events
        WHERE event IN ('guest_created', 'user_registered') AND user_id IS NOT NULL
          AND created_at >= NOW() - make_interval(days => $1::int)
+         AND ${countedEventSql('analytics_events')}
        ORDER BY user_id, created_at ASC
      )
      SELECT
@@ -481,7 +543,7 @@ export async function getAnalyticsReport(days: number): Promise<AnalyticsReport>
   // NOTE: the section queries share one mocked `query` in the unit test, which
   // matches them positionally — a new section goes on the END of this list so
   // it cannot shift the mocks of the ones above it.
-  const [visitors, funnel, retention, retentionByCohort, completion, acquisition, volume, tutorial, totalRow] = await Promise.all([
+  const [visitors, funnel, retention, retentionByCohort, completion, acquisition, volume, tutorial, totalRow, firstMatch] = await Promise.all([
     getVisitorFunnel(days),
     getFunnelMetrics(days),
     getRetentionMetrics(),
@@ -491,6 +553,7 @@ export async function getAnalyticsReport(days: number): Promise<AnalyticsReport>
     getEventVolume(days),
     getTutorialFunnel(days),
     queryOne<{ total: number }>(`SELECT COUNT(*)::int AS total FROM analytics_events`),
+    getFirstMatchStats(days),
   ]);
   return {
     window_days: days,
@@ -501,6 +564,7 @@ export async function getAnalyticsReport(days: number): Promise<AnalyticsReport>
     retention_by_cohort: retentionByCohort,
     tutorial,
     completion,
+    first_match: firstMatch,
     acquisition,
     acquisition_channels: foldAcquisitionByChannel(acquisition),
     volume,

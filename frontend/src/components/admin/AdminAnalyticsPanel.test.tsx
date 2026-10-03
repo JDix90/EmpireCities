@@ -55,6 +55,29 @@ describe('AdminAnalyticsPanel', () => {
     expect(screen.getByText('(15/20)')).toBeTruthy();
   });
 
+  it('shows first matches once any were played, and nothing for an older backend', () => {
+    const { unmount } = render(<AdminAnalyticsPanel data={report} />);
+    expect(screen.queryByText('First matches')).toBeNull();
+    unmount();
+    const { unmount: unmountEmpty } = render(
+      <AdminAnalyticsPanel
+        data={{ ...report, first_match: { started: 0, finished: 0, won: 0, next_day_cohort: 0, next_day: 0 } }}
+      />,
+    );
+    expect(screen.queryByText('First matches')).toBeNull();
+    unmountEmpty();
+    render(
+      <AdminAnalyticsPanel
+        data={{ ...report, first_match: { started: 10, finished: 8, won: 6, next_day_cohort: 6, next_day: 3 } }}
+      />,
+    );
+    expect(screen.getByText('First matches')).toBeTruthy();
+    expect(screen.getByText('8/10 started')).toBeTruthy();
+    expect(screen.getByText('6/8 finished')).toBeTruthy();
+    expect(screen.getByText('3/6 finishers')).toBeTruthy();
+    expect(screen.getByText('75%')).toBeTruthy();
+  });
+
   it('shows an enable hint when nothing has been recorded yet', () => {
     render(<AdminAnalyticsPanel data={{ ...report, total_events: 0 }} />);
     expect(screen.getByText(/No analytics events yet/i)).toBeTruthy();
