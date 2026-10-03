@@ -205,6 +205,10 @@ describe('buildChronicle', () => {
     expect(decisive).toHaveLength(1);
     expect(decisive[0].turn).toBe(5);
     expect(decisive[0].detail).toContain('40 points');
+    // A share of the board, as the post-game chart labels the same series,
+    // never "odds": nobody's odds are known, only their position.
+    expect(decisive[0].detail).toContain('Their share of the board swings 40 points');
+    expect(decisive[0].detail).not.toMatch(/odds|probabilit/i);
 
     const noise = [
       { step: 0, turn: 2, probabilities: { red: 0.5, blue: 0.5 } },

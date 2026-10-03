@@ -256,7 +256,7 @@ export function buildChronicle(snapshots: Snapshot[], map: GameMap): ChronicleRe
     add(decisive.turn, 'decisive_turn', `The war turns for ${who(decisive.playerId)}`, {
       eraId,
       playerId: decisive.playerId,
-      detail: `Their odds swing ${Math.round(decisive.delta * 100)} points in a single turn — the largest shift of the match.`,
+      detail: `Their share of the board swings ${Math.round(decisive.delta * 100)} points in a single turn — the largest shift of the match.`,
     });
   }
 

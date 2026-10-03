@@ -73,6 +73,24 @@ describe('buildInsightsFromSnapshots — resignation handling', () => {
     const insights = buildInsightsFromSnapshots(rows);
     expect(insights.some((i) => i.turn === 2)).toBe(true);
   });
+
+  it('names the swing as a share of the board, never as a probability', () => {
+    // The series is each player's territory + army share, renormalized over
+    // survivors (computeWinProbabilities): a position, not calibrated odds.
+    // The post-game chart calls it position share, and so does the copy here.
+    const history = [
+      { step: 0, turn: 1, probabilities: { human: 0.5, bot: 0.5 } },
+      { step: 1, turn: 2, probabilities: { human: 0.3, bot: 0.7 } },
+    ];
+    const rows = [
+      { turn_number: 1, state_json: snapshotState(1, 7) },
+      { turn_number: 2, state_json: { ...snapshotState(2, 3), win_probability_history: history } },
+    ];
+    const insights = buildInsightsFromSnapshots(rows);
+    const turn2 = insights.find((i) => i.turn === 2);
+    expect(turn2?.explanation).toContain('Your share of the board moved from 50% to 30%');
+    expect(insights.every((i) => !/probabilit/i.test(i.explanation + i.alternative))).toBe(true);
+  });
 });
 
 function decision(overrides: Partial<ActionDecision> = {}): ActionDecision {
@@ -173,6 +191,9 @@ describe('buildInsightsFromDecisionLog', () => {
     expect(first.explanation).toContain('41%');
     expect(first.explanation).toContain('33%');
     expect(first.explanation).toContain('-8 pts');
+    // A share of the board, not a probability (see the snapshot test above).
+    expect(first.explanation).toContain('Your share of the board fell from 41% to 33%');
+    expect(first.explanation).not.toMatch(/probabilit/i);
   });
 
   it('orders surfaced insights chronologically by step (action order), not by magnitude', () => {
