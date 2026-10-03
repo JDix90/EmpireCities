@@ -40,6 +40,7 @@ import {
 } from '../../utils/mapAdjacencyTargets';
 import { effectiveContinentBonus } from '../../utils/continentBonus';
 import { inferWorldId, techNodeBuildingUnlocks } from '@borderfall/shared';
+import { dailyBuildFocus, unavailableBuildings } from '../../utils/dailyBuildFocus';
 import {
   EMERGENCY_SEAL_ABILITY_ID,
   describeLaneDice,
@@ -1932,11 +1933,18 @@ export default function TerritoryPanel({
         ));
         // Galactic Age buildings v2 names the standard buildings for the era.
         const nameEra = gameState.settings.galaxy_buildings_v2 ? viewerEra : undefined;
+        // A daily build or research day, and any game without tech trees:
+        // what today's goal counts, and the buildings that cannot matter here,
+        // each with its reason (utils/dailyBuildFocus).
+        const focus = dailyBuildFocus(gameState.settings);
+        const unavailable = unavailableBuildings(gameState, mapConnections, myPlayerId);
         // Orbital infrastructure: the server stamps `gateway` only in a game
         // that plays the rule, so the stamp alone is the condition.
         const orbital = gameState.settings.galaxy_orbital_buildings === true && tState.gateway === true;
         let eraWonderProp: Parameters<typeof BuildingPanel>[0]['eraWonder'] = undefined;
-        if (wonderMeta) {
+        // Not on a build or research day: a wonder counts toward neither goal,
+        // and its price is more than the day's whole budget.
+        if (wonderMeta && !focus) {
           let alreadyBuilt = false;
           let builderName: string | undefined;
           for (const [tid, tState2] of Object.entries(gameState.territories)) {
@@ -1978,6 +1986,8 @@ export default function TerritoryPanel({
             onOpenTechTree={onOpenTechTree}
             nameEra={nameEra}
             orbital={orbital}
+            unavailable={unavailable}
+            focus={focus}
           />
         );
       })()}

@@ -134,6 +134,15 @@ interface Props {
    * on the panel, because it reverses the rule every other tile plays by.
    */
   orbital?: boolean;
+  /**
+   * Buildings that cannot matter in this game, each with the reason: a
+   * Laboratory with tech trees off, a Palisade on a daily board nothing can
+   * reach (utils/dailyBuildFocus). Listed and disabled with the reason, as a
+   * tech lock is; hiding them would make the era look emptier than it is.
+   */
+  unavailable?: Record<string, string>;
+  /** A daily build or research day: what today's goal counts (utils/dailyBuildFocus). */
+  focus?: { note: string; countsToward: string[] } | null;
 }
 
 function BuildingPanel({
@@ -153,6 +162,8 @@ function BuildingPanel({
   modernizeTechFor = {},
   nameEra,
   orbital = false,
+  unavailable = {},
+  focus = null,
 }: Props) {
   const heritageSet = new Set(heritageUnlocks);
   const canBuild = isMine && isMyTurn && (phase === 'draft' || phase === 'fortify');
@@ -280,34 +291,49 @@ function BuildingPanel({
       {/* Build options */}
       {canBuild && filteredOptions.length > 0 && (
         <div className="space-y-1">
+          {focus && (
+            <p className="mb-1.5 text-[11px] leading-snug text-amber-200/80" data-testid="build-focus-note">
+              {focus.note}
+            </p>
+          )}
           {filteredOptions.map((b) => {
             const meta = buildingMetaForEra(b, nameEra);
             if (!meta) return null;
-            const lockedBy = techLocks[b];
+            // A building that cannot matter here outranks a tech lock: no
+            // research makes a Laboratory useful in a game without tech trees.
+            const blockedBy = unavailable[b];
+            const lockedBy = blockedBy ? undefined : techLocks[b];
             const affordable = playerResources >= meta.cost;
             // A tech lock outranks the price: no amount of saving opens it, so
             // the row shows the research it needs instead of what it costs.
-            const enabled = lockedBy ? !!onOpenTechTree : affordable;
+            const enabled = blockedBy ? false : lockedBy ? !!onOpenTechTree : affordable;
+            // On a build or research day, a live row that does not count.
+            const offGoal = !!focus && !blockedBy && !focus.countsToward.includes(b);
             return (
               <button
                 key={b}
                 onClick={() => {
+                  if (blockedBy) return;
                   if (lockedBy) onOpenTechTree?.();
                   else if (affordable) onBuild(b);
                 }}
                 disabled={!enabled}
                 title={
-                  lockedBy
-                    ? `Locked until you research ${lockedBy}${onOpenTechTree ? ' — open the Tech Tree' : ''}`
-                    : affordable ? undefined : `Need ${meta.cost - playerResources} more resources`
+                  blockedBy
+                    ? blockedBy
+                    : lockedBy
+                      ? `Locked until you research ${lockedBy}${onOpenTechTree ? ' — open the Tech Tree' : ''}`
+                      : affordable ? undefined : `Need ${meta.cost - playerResources} more resources`
                 }
                 className={clsx(
                   'w-full px-2 py-1 rounded text-xs border transition-colors text-left',
-                  lockedBy
-                    ? 'border-blue-800/50 bg-blue-950/30 text-blue-300/80 hover:bg-blue-900/30'
-                    : affordable
-                      ? 'border-amber-700/60 bg-amber-900/30 text-amber-200 hover:bg-amber-800/40'
-                      : 'border-gray-700/40 bg-gray-800/30 text-gray-500 cursor-not-allowed opacity-60',
+                  blockedBy
+                    ? 'border-gray-700/40 bg-gray-800/30 text-gray-500 cursor-not-allowed opacity-60'
+                    : lockedBy
+                      ? 'border-blue-800/50 bg-blue-950/30 text-blue-300/80 hover:bg-blue-900/30'
+                      : affordable
+                        ? 'border-amber-700/60 bg-amber-900/30 text-amber-200 hover:bg-amber-800/40'
+                        : 'border-gray-700/40 bg-gray-800/30 text-gray-500 cursor-not-allowed opacity-60',
                   lockedBy && !onOpenTechTree && 'cursor-not-allowed opacity-70',
                 )}
               >
@@ -317,8 +343,18 @@ function BuildingPanel({
                     <span className="whitespace-nowrap">{meta.label}</span>
                     <span className="text-gray-400 truncate">— {meta.description}</span>
                   </span>
-                  {!lockedBy && <span className="ml-1 font-mono shrink-0">{meta.cost}💰</span>}
+                  {!lockedBy && !blockedBy && <span className="ml-1 font-mono shrink-0">{meta.cost}💰</span>}
                 </span>
+                {blockedBy && (
+                  <span className="mt-0.5 block text-gray-400" data-testid={`build-unavailable-${b}`}>
+                    {blockedBy}
+                  </span>
+                )}
+                {offGoal && (
+                  <span className="mt-0.5 block text-gray-500" data-testid={`build-off-goal-${b}`}>
+                    Not today&apos;s goal
+                  </span>
+                )}
                 {/* Second line, not a right-hand column: at this panel's 288px a
                     "Needs <tech>" chip beside the name squeezed the effect text
                     down to "— +1 P…" and wrapped the name onto two lines. */}
