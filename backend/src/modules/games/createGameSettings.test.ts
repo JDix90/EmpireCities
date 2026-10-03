@@ -149,12 +149,14 @@ describe('Galactic Age buildings v2 is baked at create from its flag', () => {
     expect(created(SPACE, { economy_enabled: true, tech_trees_enabled: true }).galaxy_powers).toBeUndefined();
   });
 
-  it('the WW2 bots and the bomb are baked wherever the WW2 tree can be played', () => {
+  it('the WW2 bots and the bomb are baked only into games that start in WW2', () => {
     expect(created(WW2).ww2_bomb_ai).toBeUndefined();
     setAdminConfigCacheForTests({ feature_flags: { ww2_bomb_ai_enabled: true } });
     expect(created(WW2).ww2_bomb_ai).toBe(true);
-    // A climb passes through WW2; a Galactic Age game never plays its tree.
-    expect(created({ era_id: 'ancient', map_id: 'era_ancient' }, { era_advancement_enabled: true }).ww2_bomb_ai).toBe(true);
+    // A WW2 start that climbs onward keeps it; a climb from an earlier era,
+    // which reaches WW2 one seat at a time, does not (§5 of the design doc).
+    expect(created(WW2, { era_advancement_enabled: true }).ww2_bomb_ai).toBe(true);
+    expect(created({ era_id: 'ancient', map_id: 'era_ancient' }, { era_advancement_enabled: true }).ww2_bomb_ai).toBeUndefined();
     expect(created(GALAXY, galaxyLobby).ww2_bomb_ai).toBeUndefined();
     // A lobby cannot set it: the bake owns the key.
     setAdminConfigCacheForTests({ feature_flags: { ww2_bomb_ai_enabled: false } });
@@ -165,7 +167,8 @@ describe('Galactic Age buildings v2 is baked at create from its flag', () => {
     expect(created(WW2).ww2_manhattan_science).toBeUndefined();
     setAdminConfigCacheForTests({ feature_flags: { ww2_manhattan_science_enabled: true } });
     expect(created(WW2).ww2_manhattan_science).toBe(true);
-    expect(created({ era_id: 'ancient', map_id: 'era_ancient' }, { era_advancement_enabled: true }).ww2_manhattan_science).toBe(true);
+    expect(created(WW2, { era_advancement_enabled: true }).ww2_manhattan_science).toBe(true);
+    expect(created({ era_id: 'ancient', map_id: 'era_ancient' }, { era_advancement_enabled: true }).ww2_manhattan_science).toBeUndefined();
     expect(created(GALAXY, galaxyLobby).ww2_manhattan_science).toBeUndefined();
   });
 
@@ -173,7 +176,8 @@ describe('Galactic Age buildings v2 is baked at create from its flag', () => {
     expect(created(WW2).ww2_atomic_arsenal).toBeUndefined();
     setAdminConfigCacheForTests({ feature_flags: { ww2_atomic_arsenal_enabled: true } });
     expect(created(WW2).ww2_atomic_arsenal).toBe(true);
-    expect(created({ era_id: 'ancient', map_id: 'era_ancient' }, { era_advancement_enabled: true }).ww2_atomic_arsenal).toBe(true);
+    expect(created(WW2, { era_advancement_enabled: true }).ww2_atomic_arsenal).toBe(true);
+    expect(created({ era_id: 'ancient', map_id: 'era_ancient' }, { era_advancement_enabled: true }).ww2_atomic_arsenal).toBeUndefined();
     expect(created(GALAXY, galaxyLobby).ww2_atomic_arsenal).toBeUndefined();
   });
 
