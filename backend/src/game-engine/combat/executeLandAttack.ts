@@ -129,7 +129,10 @@ export function executeLandAttack(
     ? Math.max(0, 3 - Math.min(to.unit_count, 2))
     : 0;
 
-  const { finalAttackerDiceOverride, defenderDiceOverride, attackerBonusBreakdown, defenderBonusBreakdown } =
+  const {
+    finalAttackerDiceOverride, defenderDiceOverride, attackerBonusBreakdown, defenderBonusBreakdown,
+    attackerDieFaces, defenderDieFaces,
+  } =
     computeLandCombatModifiers({
       state,
       fromId,
@@ -168,10 +171,16 @@ export function executeLandAttack(
     // rifle_doctrine both re-roll attacker dice, so the doctrine that applies
     // is the one the attacking player has climbed to.
     getPlayerEraModifiers(state, from.owner_id),
+    // Garrison doctrines (state/garrisonDoctrines.ts): d8s for a Forward
+    // attacker or a Hardened defender; six faces otherwise.
+    { attacker: attackerDieFaces, defender: defenderDieFaces },
   );
   // Mirror the socket: surface the dice-bonus breakdowns for client display.
   result.attacker_bonus_breakdown = attackerBonusBreakdown;
   result.defender_bonus_breakdown = defenderBonusBreakdown;
+  // Name the doctrine behind any d8s, so the battle report can say why.
+  if (attackerDieFaces !== 6) result.attacker_doctrine = 'forward';
+  if (defenderDieFaces !== 6) result.defender_doctrine = 'hardened';
 
   const base = {
     attackBuffs,

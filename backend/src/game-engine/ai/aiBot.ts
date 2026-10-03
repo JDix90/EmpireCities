@@ -33,6 +33,12 @@ import { getWorldRules, vaultRegionIds } from '../state/worldRules';
 import { isJumpGateOnlyEdge } from '../state/jumpGates';
 import { corridorCompletionTargets, laneSovereigntyProgress } from '../victory/laneSovereignty';
 import { isFriendlyOwner, isShieldedFrom } from '../state/teams';
+import {
+  GARRISON_DOCTRINE_TUNING,
+  garrisonsEnabled,
+  validateGarrisonDoctrine,
+} from '../state/garrisonDoctrines';
+import type { GarrisonDoctrine } from '@borderfall/shared';
 
 export interface AiAction {
   type: 'draft' | 'attack' | 'fortify' | 'end_phase';
@@ -663,6 +669,10 @@ function selectAttacks(
             ? state.settings.era_advancement_vuln_defense_mult ?? 0.75
             : undefined,
           legionReroll: !!eraModifiers.legion_reroll,
+          // Garrison doctrines: a Hardened target defends on d8s, a Forward
+          // source attacks on them — the planner prices the dice it will roll.
+          attackerDieFaces: mods.attackerDieFaces,
+          defenderDieFaces: mods.defenderDieFaces,
         });
         favorability = 3 * pCapture - 1;
       } else {
@@ -1192,6 +1202,83 @@ export function selectAiBuildingPlacement(
     if (result) return result;
   }
   return null;
+}
+
+/** Doctrines a bot buys in one turn: medium trains one garrison, hard and expert two. */
+const AI_DOCTRINES_PER_TURN: Partial<Record<AiDifficulty, number>> = { medium: 1, hard: 2, expert: 2 };
+
+/**
+ * Garrison doctrines this bot buys this turn (state/garrisonDoctrines.ts), in
+ * the order to apply them. Called after the turn's plan is made and before its
+ * attacks resolve, so a Forward garrison is in place for the crossing it was
+ * bought for.
+ *
+ *   Forward (hard and expert): on the source of the bot's highest-ranked
+ *     planned attack across a hyperspace lane — the doctrine is worth its price
+ *     on the tile that is about to fight.
+ *   Hardened (medium, hard and expert): on its gateways whose lane lands on a
+ *     rival's ground, most threatened first by the units massed at the far ends.
+ *
+ * Every pick passes the same validator the human socket handler uses, against
+ * a running PP budget, so the bot never queues a purchase it cannot make.
+ * Easy and tutorial bots never train garrisons.
+ */
+export function selectAiGarrisonDoctrines(
+  state: GameState,
+  map: GameMap,
+  playerId: string,
+  difficulty: AiDifficulty,
+  plannedActions: AiAction[],
+): Array<{ territoryId: string; doctrine: GarrisonDoctrine }> {
+  const cap = AI_DOCTRINES_PER_TURN[difficulty] ?? 0;
+  if (cap === 0 || !garrisonsEnabled(state) || !state.settings.economy_enabled) return [];
+  const player = state.players.find((p) => p.player_id === playerId);
+  if (!player) return [];
+
+  const cost = GARRISON_DOCTRINE_TUNING.cost;
+  let budget = player.special_resource ?? 0;
+  const picks: Array<{ territoryId: string; doctrine: GarrisonDoctrine }> = [];
+  const taken = new Set<string>();
+  const tryPick = (territoryId: string, doctrine: GarrisonDoctrine): boolean => {
+    if (picks.length >= cap || budget < cost || taken.has(territoryId)) return false;
+    // The validator reads the live purse, which earlier picks have not spent
+    // yet; the running budget above covers that.
+    if (!validateGarrisonDoctrine(state, playerId, territoryId, doctrine).valid) return false;
+    picks.push({ territoryId, doctrine });
+    taken.add(territoryId);
+    budget -= cost;
+    return true;
+  };
+
+  // Lanes a garrison can fight across: every orbit edge except a Jump Gate's,
+  // which carries no attack (state/jumpGates.ts).
+  const lanes = map.connections.filter((c) => c.type === 'orbit' && c.source !== 'jump_gate');
+  const laneKey = (a: string, b: string): string => (a < b ? `${a}::${b}` : `${b}::${a}`);
+  const laneSet = new Set(lanes.map((c) => laneKey(c.from, c.to)));
+
+  if (difficulty === 'hard' || difficulty === 'expert') {
+    const crossing = plannedActions.find(
+      (a) => a.type === 'attack' && a.from && a.to && laneSet.has(laneKey(a.from, a.to)),
+    );
+    if (crossing?.from) tryPick(crossing.from, 'forward');
+  }
+
+  const threatened = new Map<string, number>();
+  for (const c of lanes) {
+    for (const [near, far] of [[c.from, c.to], [c.to, c.from]] as const) {
+      const n = state.territories[near];
+      const f = state.territories[far];
+      if (!n || !f || n.owner_id !== playerId) continue;
+      if (!f.owner_id || isFriendlyOwner(state, playerId, f.owner_id)) continue;
+      threatened.set(near, (threatened.get(near) ?? 0) + Math.max(0, f.unit_count));
+    }
+  }
+  const ranked = [...threatened.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  for (const [territoryId] of ranked) {
+    if (picks.length >= cap || budget < cost) break;
+    tryPick(territoryId, 'hardened');
+  }
+  return picks;
 }
 
 type AvailableTech = ReturnType<typeof getEraTechTree>[number];

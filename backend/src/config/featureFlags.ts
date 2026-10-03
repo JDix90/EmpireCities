@@ -83,6 +83,8 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   galaxy_buildings_v2_enabled: () => envOptIn('GALAXY_BUILDINGS_V2_ENABLED'),
   // Phase 2: a gateway's buildings survive capture. Dark-launched OFF; baked at create.
   galaxy_orbital_buildings_enabled: () => envOptIn('GALAXY_ORBITAL_BUILDINGS_ENABLED'),
+  // Phase 3: Hardened and Forward garrison doctrines (d8 dice). Dark-launched OFF; baked at create.
+  galaxy_garrisons_enabled: () => envOptIn('GALAXY_GARRISONS_ENABLED'),
   space_age_moon_race_enabled: () => envOptOut('SPACE_AGE_MOON_RACE_ENABLED'),
   space_age_moon_tribute_enabled: () => envOptIn('SPACE_AGE_MOON_TRIBUTE_ENABLED'),
   ranked_multi_size_enabled: () => envOptIn('RANKED_MULTI_SIZE_ENABLED'),
@@ -601,6 +603,19 @@ export const featureFlags = {
    */
   get galaxyOrbitalBuildingsEnabled(): boolean {
     return overrideBool('galaxy_orbital_buildings_enabled');
+  },
+
+  /**
+   * Galactic Age buildings, Phase 3 (docs/GALACTIC_AGE_BUILDINGS.md §5):
+   * garrison doctrines. A tile with a building can train its garrison Hardened
+   * (defends on d8s) or Forward (attacks from it roll d8s), one at a time, for
+   * PP once Lattice Logistics is researched. Default OFF (dark launch); baked
+   * into game settings at create as `galaxy_garrisons`, so a flip never
+   * re-rules a match in progress. Kill switch: `GALAXY_GARRISONS_ENABLED` or
+   * the `galaxy_garrisons_enabled` admin override.
+   */
+  get galaxyGarrisonsEnabled(): boolean {
+    return overrideBool('galaxy_garrisons_enabled');
   },
 
   /**

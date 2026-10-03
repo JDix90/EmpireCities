@@ -311,6 +311,45 @@ export function techNodeBuildingUnlocks(node: TechNodeBuildingUnlocks): string[]
   return node.unlocks_building ? [node.unlocks_building] : [];
 }
 
+// ── Galactic Age garrison doctrines (docs/GALACTIC_AGE_BUILDINGS.md §5) ──────
+//
+// A doctrine is a property of a tile's garrison, not of its units: Hardened
+// makes the stack defending the tile roll d8s, Forward makes attacks launched
+// from it roll d8s. One per tile, bought with PP. Dice COUNTS never change, so
+// a Forward crossing of a hyperspace lane still rolls the lane's two dice.
+// Read by the server's rule (state/garrisonDoctrines.ts) and the client's
+// panels, so the two always name and price them alike.
+
+export type GarrisonDoctrine = 'hardened' | 'forward';
+
+export const GARRISON_DOCTRINE_IDS: readonly GarrisonDoctrine[] = ['hardened', 'forward'];
+
+/** Opening PP price of either doctrine (a knob; the sim sets it). */
+export const GARRISON_DOCTRINE_COST = 6;
+
+/** Faces on a doctrine side's dice. A d8 beats a d6 in a matchup 56% of the time. */
+export const GARRISON_DOCTRINE_DIE_FACES = 8;
+
+/** The research that opens doctrines: the galaxy tree's economic root. */
+export const GARRISON_DOCTRINE_TECH_ID = 'ga_lattice_logistics';
+
+export const GARRISON_DOCTRINE_DISPLAY: Record<GarrisonDoctrine, { name: string; short: string; effect: string }> = {
+  hardened: {
+    name: 'Hardened garrison',
+    short: 'Hardened',
+    effect: 'The stack defending this system rolls d8 dice.',
+  },
+  forward: {
+    name: 'Forward garrison',
+    short: 'Forward',
+    effect: 'Attacks launched from this system roll d8 dice.',
+  },
+};
+
+export function isGarrisonDoctrine(value: unknown): value is GarrisonDoctrine {
+  return value === 'hardened' || value === 'forward';
+}
+
 /** One-line effect for a building id, or an empty string for an unknown id. */
 export function buildingEffect(buildingId: string): string {
   return BUILDING_DISPLAY[buildingId]?.effect ?? '';

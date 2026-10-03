@@ -215,6 +215,13 @@ describe('featureFlags', () => {
     expect(featureFlags.galaxyOrbitalBuildingsEnabled).toBe(true);
   });
 
+  it('galaxy_garrisons_enabled defaults to off (dark launch) and is admin-overridable', () => {
+    expect(featureFlags.galaxyGarrisonsEnabled).toBe(false);
+    expect(getFeatureFlagStates().galaxy_garrisons_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { galaxy_garrisons_enabled: true } });
+    expect(featureFlags.galaxyGarrisonsEnabled).toBe(true);
+  });
+
   it('warfront_enabled defaults to off (experimental, admin-only) and is admin-overridable', () => {
     expect(featureFlags.warfrontEnabled).toBe(false);
     expect(getClientFeatureFlags().warfront_enabled).toBe(false);

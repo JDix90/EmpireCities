@@ -23,7 +23,7 @@ import { getFastCombatPreference } from '../../utils/userPreferences';
 import { eraBoardTheme } from '../../constants/eraBoardTheme';
 import { eraMeta } from '../../constants/eraMeta';
 import { ERA_LABELS } from '../../constants/gameLobbyLabels';
-import { diceLook, type DiceLook } from '@borderfall/shared';
+import { diceLook, GARRISON_DOCTRINE_DISPLAY, type DiceLook } from '@borderfall/shared';
 import { diceEffectClass, diceFaceStyle } from '../cosmetics/diceSkin';
 import { DICE_SIDE_RING } from '../cosmetics/SkinnedMiniDie';
 import { FramedDot, PlayerBannerTag } from '../cosmetics/PlayerFlair';
@@ -352,8 +352,8 @@ function diceSizing(maxDice: number, compact = false): { box: string; text: stri
   return { box: 'w-9 h-9', text: 'text-base', gap: 'gap-1.5' };
 }
 
-function AnimatedDie({ value, index, variant, fast, boxClass = 'w-14 h-14', textClass = 'text-2xl', skin }: { value: number; index: number; variant: 'attacker' | 'defender'; fast?: boolean; boxClass?: string; textClass?: string; skin?: DiceLook | null }) {
-  const [display, setDisplay] = useState(fast ? value : Math.ceil(Math.random() * 6));
+function AnimatedDie({ value, index, variant, fast, boxClass = 'w-14 h-14', textClass = 'text-2xl', skin, faces = 6 }: { value: number; index: number; variant: 'attacker' | 'defender'; fast?: boolean; boxClass?: string; textClass?: string; skin?: DiceLook | null; faces?: number }) {
+  const [display, setDisplay] = useState(fast ? value : Math.ceil(Math.random() * faces));
   const [settled, setSettled] = useState(!!fast);
 
   useEffect(() => {
@@ -362,7 +362,7 @@ function AnimatedDie({ value, index, variant, fast, boxClass = 'w-14 h-14', text
     const totalFrames = 8 + index * 4;
     const timer = setInterval(() => {
       if (frame < totalFrames) {
-        setDisplay(Math.ceil(Math.random() * 6));
+        setDisplay(Math.ceil(Math.random() * faces));
         frame++;
       } else {
         setDisplay(value);
@@ -371,31 +371,41 @@ function AnimatedDie({ value, index, variant, fast, boxClass = 'w-14 h-14', text
       }
     }, 55);
     return () => clearInterval(timer);
-  }, [value, index, fast]);
+  }, [value, index, fast, faces]);
 
   const motion = useCosmeticMotion();
   const isAttacker = variant === 'attacker';
+  // A garrison doctrine's d8: an amber outline and a corner label on top of
+  // whichever look the side has, so it reads as different dice, not a skin.
+  const d8 = faces === 8;
+  const d8Class = d8 ? 'relative outline outline-2 outline-offset-2 outline-amber-300/80' : undefined;
+  const d8Badge = d8 ? (
+    <span className="absolute -top-1.5 -right-1.5 rounded bg-amber-400 px-0.5 text-[9px] font-bold leading-none text-black" aria-hidden="true">d8</span>
+  ) : null;
   if (skin) {
     // The roller's dice skin (store_v2_enabled); the red or blue ring still
     // says whose roll it is.
     return (
       <div
-        data-testid="skinned-die"
+        data-testid={d8 ? 'skinned-die-d8' : 'skinned-die'}
         className={clsx(
           boxClass, textClass,
           'rounded-xl flex items-center justify-center font-bold font-mono shrink-0 ring-2',
           DICE_SIDE_RING[variant],
           settled ? 'animate-dice-settle' : 'opacity-60',
           motion && diceEffectClass(skin, !settled),
+          d8Class,
         )}
         style={diceFaceStyle(skin)}
       >
         {display}
+        {d8Badge}
       </div>
     );
   }
   return (
     <div
+      data-testid={d8 ? 'die-d8' : undefined}
       className={clsx(
         boxClass, textClass,
         'rounded-xl flex items-center justify-center font-bold font-mono shrink-0',
@@ -404,18 +414,20 @@ function AnimatedDie({ value, index, variant, fast, boxClass = 'w-14 h-14', text
           ? isAttacker
             ? 'bg-red-500/25 text-red-300 ring-2 ring-red-500/40 animate-dice-settle'
             : 'bg-blue-500/25 text-blue-300 ring-2 ring-blue-500/40 animate-dice-settle'
-          : 'bg-white/5 text-white/30'
+          : 'bg-white/5 text-white/30',
+        d8Class,
       )}
     >
       {display}
+      {d8Badge}
     </div>
   );
 }
 
 // ─── Pip display for die faces (visual embellishment) ──────────────────────
 
-function DieFace({ value, index, variant, fast, boxClass, textClass, skin }: { value: number; index: number; variant: 'attacker' | 'defender'; fast?: boolean; boxClass?: string; textClass?: string; skin?: DiceLook | null }) {
-  return <AnimatedDie value={value} index={index} variant={variant} fast={fast} boxClass={boxClass} textClass={textClass} skin={skin} />;
+function DieFace({ value, index, variant, fast, boxClass, textClass, skin, faces }: { value: number; index: number; variant: 'attacker' | 'defender'; fast?: boolean; boxClass?: string; textClass?: string; skin?: DiceLook | null; faces?: number }) {
+  return <AnimatedDie value={value} index={index} variant={variant} fast={fast} boxClass={boxClass} textClass={textClass} skin={skin} faces={faces} />;
 }
 
 // ─── Combat Result View ────────────────────────────────────────────────────
@@ -524,7 +536,7 @@ export function CombatResultView({
           </p>
           <div className={clsx('flex flex-wrap justify-center', diceSize.gap)}>
             {result.attacker_rolls.map((roll, i) => (
-              <DieFace key={i} value={roll} index={i} variant="attacker" fast={fast} boxClass={diceSize.box} textClass={diceSize.text} skin={attackerSkin} />
+              <DieFace key={i} value={roll} index={i} variant="attacker" fast={fast} boxClass={diceSize.box} textClass={diceSize.text} skin={attackerSkin} faces={result.attacker_die_faces} />
             ))}
           </div>
         </div>
@@ -542,7 +554,7 @@ export function CombatResultView({
           </p>
           <div className={clsx('flex flex-wrap justify-center', diceSize.gap)}>
             {result.defender_rolls.map((roll, i) => (
-              <DieFace key={i} value={roll} index={i} variant="defender" fast={fast} boxClass={diceSize.box} textClass={diceSize.text} skin={defenderSkin} />
+              <DieFace key={i} value={roll} index={i} variant="defender" fast={fast} boxClass={diceSize.box} textClass={diceSize.text} skin={defenderSkin} faces={result.defender_die_faces} />
             ))}
           </div>
         </div>
@@ -559,6 +571,21 @@ export function CombatResultView({
             callouts={result.combat_ability_callouts!}
             perspective={perspective}
           />
+        )}
+        {/* Garrison doctrines: say why a side rolled d8s. */}
+        {(result.attacker_doctrine || result.defender_doctrine) && (
+          <div className="mb-4 space-y-2" data-testid="doctrine-callout">
+            {result.attacker_doctrine && (
+              <p className="text-xs px-3 py-2 rounded-lg border border-amber-400/60 bg-amber-500/10 text-amber-200">
+                🎯 {GARRISON_DOCTRINE_DISPLAY[result.attacker_doctrine].name}: the attack rolled d8s
+              </p>
+            )}
+            {result.defender_doctrine && (
+              <p className="text-xs px-3 py-2 rounded-lg border border-amber-400/60 bg-amber-500/10 text-amber-200">
+                🛡️ {GARRISON_DOCTRINE_DISPLAY[result.defender_doctrine].name}: the defence rolled d8s
+              </p>
+            )}
+          </div>
         )}
         {((result.attacker_bonus_breakdown?.faction ?? 0) > 0 || (result.defender_bonus_breakdown?.faction ?? 0) > 0) && (
           <div className="mb-4 space-y-2">

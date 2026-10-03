@@ -182,6 +182,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Buildings on a gateway system (either end of a charted hyperspace lane) survive capture and pass to the captor, the way a captured Jump Gate end already keeps its lane; interior systems are razed as before and wonders keep their own rule. Baked into each game at creation. OFF by default (dark launch) — Phase 2 of docs/GALACTIC_AGE_BUILDINGS.md; promote on its sim gate.',
   },
   {
+    key: 'galaxy_garrisons_enabled',
+    label: 'Galactic Age garrison doctrines',
+    description:
+      'A system with any building can train its garrison Hardened (the stack defending it rolls d8s) or Forward (attacks launched from it roll d8s), one at a time, for 6 PP once Lattice Logistics is researched. Dice counts never change, so a lane crossing still rolls two. Captured systems lose their doctrine. Baked into each game at creation. OFF by default (dark launch) — Phase 3 of docs/GALACTIC_AGE_BUILDINGS.md; promote on its sim gate.',
+  },
+  {
     key: 'galaxy_world_rules_enabled',
     label: 'Galactic Age worlds as characters',
     description:

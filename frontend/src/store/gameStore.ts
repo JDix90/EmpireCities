@@ -25,6 +25,8 @@ export interface TerritoryState {
   building_eras?: Record<string, number>;
   /** Anchors an authored orbit lane; present only under `galaxy_orbital_buildings`. */
   gateway?: boolean;
+  /** Garrison doctrine this tile's stack holds (`galaxy_garrisons`); hidden under fog. */
+  garrison_doctrine?: 'hardened' | 'forward';
   naval_units?: number;
   stability?: number;
   population?: number;
@@ -298,6 +300,8 @@ export interface GameState {
     galaxy_buildings_v2?: boolean;
     /** Galactic Age orbital infrastructure: a gateway's buildings survive capture. Baked at create. */
     galaxy_orbital_buildings?: boolean;
+    /** Galactic Age garrison doctrines: Hardened / Forward d8 garrisons. Baked at create. */
+    galaxy_garrisons?: boolean;
     /** Galaxy per-world identity: world_id → modifiers, snapshotted from the map at init. */
     world_modifiers_enabled?: boolean;
     world_modifiers?: Record<string, WorldModifiers>;
@@ -470,6 +474,12 @@ export interface CombatResult {
     attacker_losses: number;
     defender_losses: number;
   }>;
+  /** Faces on each side's dice when not six (garrison doctrines). */
+  attacker_die_faces?: number;
+  defender_die_faces?: number;
+  /** The doctrine behind a side's d8s. */
+  attacker_doctrine?: 'forward';
+  defender_doctrine?: 'hardened';
   attacker_bonus_breakdown?: {
     tech?: number;
     faction?: number;

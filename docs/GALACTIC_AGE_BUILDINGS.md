@@ -181,6 +181,27 @@ A doctrine is a property of a tile's garrison, not of its units, so nothing has 
 - UI: the combat report colours d8 dice differently and names the doctrine in the bonus breakdown; the building panel offers the two as a toggle on tiles that qualify; the Bonuses modal lists doctrines held. The tutorial primer's world card gains a sentence.
 - AI (hard and expert): Hardened on a gateway whose far gateway is enemy-held; Forward on the gateway it plans to cross from this turn, bought in the draft phase before the attack. Medium buys Hardened only.
 
+**Shipped (dark):** `state/garrisonDoctrines.ts` behind `galaxy_garrisons_enabled`, baked as `settings.galaxy_garrisons` for every galaxy-rules theater. The shared package holds the names, price, tech and faces (`GARRISON_DOCTRINE_*`) so the server and the panels agree. `resolveCombat` takes per-side faces; with both at six it consumes the d6 stream exactly as before, and a d8 drawn from a d6 roller (the seeded sim, a test, a puzzle queue) is built from two d6s by rejection, so it stays uniform and reproducible. `computeLandCombatModifiers` returns `attackerDieFaces` / `defenderDieFaces`; the executor passes them on and names the doctrine in the result; blitzes and drop assaults inherit both. The AI's capture odds (`combatOdds.ts`) enumerate any face count, so bots price a Hardened target and a Forward source. A doctrine applies only while its tile is held (a stack that went neutral keeps none), is masked under fog like the buildings, and is cleared by every capture. The socket takes `game:set_garrison_doctrine` through the same validator the bots and the sim use; bots buy after the turn's plan and before its attacks, at most two a turn (one for medium), against a running PP budget. The battle report marks d8s and names the doctrine; the building panel offers the toggle and names what blocks it; the Bonuses modal lists the garrisons held. The primer's sentence waits for promotion, as Phase 2's cards do, because a tutorial game bakes the live flags.
+
+**Measured (1,000 games per cell, seed `borderfall-galaxy-balance`, expert, 6 PP), against the control:**
+
+| seats | | length | decisive | turn-10 leader | lane end-owner changes | PP banked | factions (Sol / Rust / Verdan / Nexus) |
+|---|---|---|---|---|---|---|---|
+| 4 | control | 29.5 | 99.2% | 60.6% | 70.8 | 212 | 25.3 / 24.5 / 27.3 / 22.9 |
+| 4 | **doctrines** | 30.2 | 99.1% | 58.3% | 74.2 | 185 | 24.6 / 25.0 / 27.7 / 22.7 |
+| 2 | control | 29.0 | 98.5% | 68.6% | 21.9 | 472 | 64.3 / 26.6 / 64.8 / 44.3 |
+| 2 | **doctrines** | 28.0 | 99.2% | 68.6% | 20.9 | 405 | 65.3 / 25.8 / 64.2 / 44.7 |
+| 8 | control | 42.9 | 96.9% | 38.3% | 172.0 | 132 | 13.0 / 12.1 / 10.7 / 14.2 |
+| 8 | **doctrines** | 43.0 | 97.0% | 38.0% | 173.4 | 109 | 13.3 / 12.1 / 10.3 / 14.3 |
+
+| seats | bought per seat per game (H / F) | used in games where a seat could (H / F) | win share of seats that bought (H / F) | d8 exchanges per seat per game (attacking / defending) |
+|---|---|---|---|---|
+| 4 | 2.6 / 2.6 | 89.8% / 92.9% | 27.3% / 30.4% | 9.7 / 4.0 |
+| 2 | 3.0 / 2.8 | 77.7% / 84.5% | 50.6% / 58.6% | 8.0 / 5.2 |
+| 8 | 1.8 / 1.9 | 95.5% / 98.0% | 22.2% / 22.6% | 6.9 / 2.5 |
+
+Every §8 line holds at every seat count: the bands are where the control put them (the Schism houses too, Duskrim's low reading included), length moves less than a turn, decisiveness and the turn-10 leader do not move against it, both doctrines are bought in well over 60% of the games where a seat could, the seats that buy them win under 60% of their games, and **PP banked falls** — by 13% at four seats, 14% at two and 18% at eight, the first phase to move that line. Two readings to keep honest: every seat that lives long enough researches Lattice Logistics, so "could" is nearly everyone; and the users' win share is flattered by survival (a seat eliminated early never buys), which is why the two-seat Forward figure, 58.6%, is the one to watch if the price moves down.
+
 ---
 
 ## 6. Phase 4 — Lane powers (**decided: per turn, PP-priced**)
@@ -238,5 +259,5 @@ The galaxy sim (`SIM_PLAYERS`, `SIM_EVENTS`, `SIM_SCATTERED`, the Schism and tea
 
 ## History
 
-- **2026-10-03:** Phase 1 shipped dark (#518): `BUILDING_DISPLAY_BY_ERA`, `GALAXY_AGE_TECH_TREE_V2`, `techNodeBuildingUnlocks`, behind `galaxy_buildings_v2_enabled`. Phase 2 shipped dark (#519): `state/orbitalBuildings.ts` behind `galaxy_orbital_buildings_enabled`, with `SIM_ORBITAL` and the PP-banked line in the galaxy sim. Its first measurement failed the §8 gate; the surviving-set split traced it to the inherited Jump Gate's lane, and the rule now cuts that lane on capture (`severJumpGateLinks`).
+- **2026-10-03:** Phase 1 shipped dark (#518): `BUILDING_DISPLAY_BY_ERA`, `GALAXY_AGE_TECH_TREE_V2`, `techNodeBuildingUnlocks`, behind `galaxy_buildings_v2_enabled`. Phase 2 shipped dark (#519): `state/orbitalBuildings.ts` behind `galaxy_orbital_buildings_enabled`, with `SIM_ORBITAL` and the PP-banked line in the galaxy sim. Its first measurement failed the §8 gate; the surviving-set split traced it to the inherited Jump Gate's lane, and the rule now cuts that lane on capture (`severJumpGateLinks`, #524). Phase 3 shipped dark: `state/garrisonDoctrines.ts` behind `galaxy_garrisons_enabled`, with `SIM_GARRISONS` / `SIM_DOCTRINE_COST` and the usage lines in the galaxy sim; it passes every §8 line at 2, 4 and 8 seats.
 - **2026-10-02:** written after the Galactic Age tutorial track shipped (#507 to #514), from a read of the tree, the catalog, the economy tick, the capture rule, the AI's build order and the balance notes. Decided in review: gateway buildings survive capture; garrison doctrines are defence-only and attack-only, separate and exclusive; powers are per turn with a PP price.

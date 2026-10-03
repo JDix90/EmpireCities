@@ -132,4 +132,12 @@ describe('Galactic Age buildings v2 is baked at create from its flag', () => {
     expect(created(WW2).galaxy_orbital_buildings).toBeUndefined();
     expect(created(SPACE, { economy_enabled: true, tech_trees_enabled: true }).galaxy_orbital_buildings).toBeUndefined();
   });
+
+  it('garrison doctrines (Phase 3) are baked the same way', () => {
+    expect(created(GALAXY, galaxyLobby).galaxy_garrisons).toBeUndefined();
+    setAdminConfigCacheForTests({ feature_flags: { galaxy_garrisons_enabled: true } });
+    expect(created(GALAXY, galaxyLobby).galaxy_garrisons).toBe(true);
+    expect(created(WW2).galaxy_garrisons).toBeUndefined();
+    expect(created(SPACE, { economy_enabled: true, tech_trees_enabled: true }).galaxy_garrisons).toBeUndefined();
+  });
 });

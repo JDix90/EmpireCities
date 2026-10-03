@@ -137,6 +137,12 @@ export interface TerritoryState {
    * (state/orbitalBuildings.ts); absent everywhere else.
    */
   gateway?: boolean;
+  /**
+   * The garrison doctrine this tile's stack holds (state/garrisonDoctrines.ts):
+   * Hardened defends with d8s, Forward attacks with d8s. Written only in a game
+   * with `galaxy_garrisons`; cleared when the tile is captured.
+   */
+  garrison_doctrine?: 'hardened' | 'forward';
   /** Legacy globe discriminator (Space Age). Prefer `world_id` on maps that define it. */
   globe_id?: 'earth' | 'moon';
   /** Canonical world id mirrored from map data for multi-world games. */
@@ -663,6 +669,14 @@ export interface GameSettings {
    * `galaxy_orbital_buildings_enabled` feature flag; no-op off galaxy rules.
    */
   galaxy_orbital_buildings?: boolean;
+  /**
+   * Galactic Age buildings, Phase 3 (docs/GALACTIC_AGE_BUILDINGS.md §5):
+   * garrison doctrines — Hardened (defence rolls d8) and Forward (attacks from
+   * the tile roll d8), one per tile, bought with PP
+   * (state/garrisonDoctrines.ts). Baked at create from the
+   * `galaxy_garrisons_enabled` feature flag; no-op off galaxy rules.
+   */
+  galaxy_garrisons?: boolean;
   /**
    * Galactic Age Schism (five to eight seats): how the two houses on a split
    * world start — under the Concord, a truce for the opening rounds, in Civil
@@ -1379,6 +1393,16 @@ export interface CombatResult {
    * instead of racing the game:state broadcast).
    */
   source_units_after?: number;
+  /**
+   * Faces on each side's dice when not the usual six (garrison doctrines,
+   * state/garrisonDoctrines.ts). Absent means d6, so every existing result is
+   * unchanged.
+   */
+  attacker_die_faces?: number;
+  defender_die_faces?: number;
+  /** The doctrine that set a side's faces, for the battle report. */
+  attacker_doctrine?: 'forward';
+  defender_doctrine?: 'hardened';
   /** Optional server-computed attribution for why extra attack dice were granted. */
   attacker_bonus_breakdown?: {
     tech?: number;

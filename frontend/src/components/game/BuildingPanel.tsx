@@ -6,7 +6,13 @@ import React from 'react';
 import clsx from 'clsx';
 import { Hammer, Shield, Zap, Star, Anchor, Rocket, Lock, History, Sparkles } from 'lucide-react';
 import type { BuildingModernization } from '../../utils/buildingHeritage';
-import { buildingDisplayName, buildingEffect } from '@borderfall/shared';
+import {
+  buildingDisplayName,
+  buildingEffect,
+  GARRISON_DOCTRINE_DISPLAY,
+  GARRISON_DOCTRINE_IDS,
+  type GarrisonDoctrine,
+} from '@borderfall/shared';
 import { ERA_WONDERS } from '../../constants/eraWonders';
 
 /** Wonder display name by building id — lets a built wonder from ANY era render
@@ -143,6 +149,18 @@ interface Props {
   unavailable?: Record<string, string>;
   /** A daily build or research day: what today's goal counts (utils/dailyBuildFocus). */
   focus?: { note: string; countsToward: string[] } | null;
+  /**
+   * Garrison doctrines (Galactic Age, `galaxy_garrisons`): present only in a
+   * game that plays them. `current` is what this system's garrison holds and
+   * shows to anyone who can see the tile; the toggle shows to its owner on
+   * their turn. `blockedReason` names what stops the owner training it now.
+   */
+  garrison?: {
+    current?: GarrisonDoctrine;
+    cost: number;
+    blockedReason?: string;
+    onSet?: (doctrine: GarrisonDoctrine) => void;
+  };
 }
 
 function BuildingPanel({
@@ -164,6 +182,7 @@ function BuildingPanel({
   orbital = false,
   unavailable = {},
   focus = null,
+  garrison,
 }: Props) {
   const heritageSet = new Set(heritageUnlocks);
   const canBuild = isMine && isMyTurn && (phase === 'draft' || phase === 'fortify');
@@ -421,6 +440,64 @@ function BuildingPanel({
 
       {canBuild && filteredOptions.length === 0 && buildings.length > 0 && (
         <p className="text-xs text-gray-500">All buildings fully upgraded.</p>
+      )}
+
+      {garrison && (garrison.current || (canBuild && garrison.onSet)) && (
+        <div className="mt-3" data-testid="garrison-doctrine">
+          <h4 className="text-xs uppercase tracking-widest text-gray-500 mb-1.5">Garrison</h4>
+          {garrison.current && (
+            <p className="mb-1.5 text-[11px] text-sky-200" data-testid="garrison-doctrine-current">
+              <Shield className="inline w-3 h-3 mr-1 align-[-2px]" aria-hidden="true" />
+              <span className="font-semibold">{GARRISON_DOCTRINE_DISPLAY[garrison.current].name}</span>
+              <span className="text-gray-400"> — {GARRISON_DOCTRINE_DISPLAY[garrison.current].effect}</span>
+            </p>
+          )}
+          {canBuild && garrison.onSet && (
+            <>
+              <div className="grid grid-cols-2 gap-1.5" role="group" aria-label="Garrison doctrine">
+                {GARRISON_DOCTRINE_IDS.map((d) => {
+                  const held = garrison.current === d;
+                  const affordable = playerResources >= garrison.cost;
+                  const enabled = !held && !garrison.blockedReason && affordable;
+                  return (
+                    <button
+                      key={d}
+                      type="button"
+                      aria-pressed={held}
+                      disabled={!enabled}
+                      onClick={() => enabled && garrison.onSet?.(d)}
+                      title={
+                        held
+                          ? 'This garrison already holds it'
+                          : garrison.blockedReason
+                            ?? (affordable
+                              ? `${GARRISON_DOCTRINE_DISPLAY[d].effect}${garrison.current ? ' Replaces the current doctrine, with no refund.' : ''}`
+                              : `Need ${garrison.cost - playerResources} more resources`)
+                      }
+                      className={clsx(
+                        'px-2 py-1 rounded text-xs border transition-colors text-left',
+                        held
+                          ? 'border-sky-500/70 bg-sky-900/40 text-sky-100 cursor-default'
+                          : enabled
+                            ? 'border-sky-700/60 bg-sky-950/40 text-sky-200 hover:bg-sky-900/40'
+                            : 'border-gray-700/40 bg-gray-800/30 text-gray-500 cursor-not-allowed opacity-60',
+                      )}
+                    >
+                      <span className="flex items-center justify-between gap-1">
+                        <span>{GARRISON_DOCTRINE_DISPLAY[d].short}</span>
+                        <span className="font-mono">{held ? 'held' : `${garrison.cost}💰`}</span>
+                      </span>
+                      <span className="block text-[10px] text-gray-400">{d === 'hardened' ? 'd8 defence' : 'd8 attacks'}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {garrison.blockedReason && (
+                <p className="mt-1 text-[11px] text-gray-400" data-testid="garrison-doctrine-blocked">{garrison.blockedReason}</p>
+              )}
+            </>
+          )}
+        </div>
       )}
     </div>
   );
