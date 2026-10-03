@@ -241,6 +241,32 @@ export const WW2_TECH_TREE: TechNode[] = [
   },
 ];
 
+/**
+ * WW2 Manhattan Project, Phase 2 (docs/WW2_MANHATTAN_PROJECT.md §4): the bomb
+ * on the science line. Manhattan Project follows Radar Network instead of
+ * Panzer Tactics, at the same price. The science line earns its own tech income
+ * on the way (Mass Munitions +2, Radar +3, and both research buildings), and in
+ * a climb it overlaps the gate out of WW2, so the bomb is a couple of turns past
+ * the gate rather than a detour from it. Selected per game by
+ * `settings.ww2_manhattan_science` (eras/index.ts eraTechTreeOptions).
+ */
+export const WW2_MANHATTAN_SCIENCE_PREREQUISITE = 'ww2_radar';
+
+let scienceTreeMemo: TechNode[] | null = null;
+
+/** The WW2 tree, with Manhattan Project on the science line when asked. */
+export function ww2TechTree(opts: { manhattanScience?: boolean } = {}): TechNode[] {
+  if (!opts.manhattanScience) return WW2_TECH_TREE;
+  scienceTreeMemo ??= WW2_TECH_TREE.map((node) => (node.tech_id === 'ww2_atom_bomb'
+    ? {
+      ...node,
+      prerequisite: WW2_MANHATTAN_SCIENCE_PREREQUISITE,
+      description: 'The scientists Radar gathered build the bomb — once per game, instantly eliminate all units in one territory (leaves it neutral with 1 unit).',
+    }
+    : node));
+  return scienceTreeMemo;
+}
+
 // ── Wonder ────────────────────────────────────────────────────────────────────
 export const WW2_WONDER: EraWonder = {
   wonder_id: 'wonder_manhattan',

@@ -392,6 +392,33 @@ export const GALAXY_WORLD_BUILDING_EFFECTS = {
   tollBeaconProductionIncome: 1,
 } as const;
 
+// ── WW2 Manhattan Project: the atomic arsenal (docs/WW2_MANHATTAN_PROJECT.md §5)
+// Under `settings.ww2_atomic_arsenal` the Atom Bomb is once per turn, priced in
+// PP with a price that climbs with each detonation, leaves fallout on its tile,
+// costs the bomber stability at home, and makes Manhattan Project cheaper for
+// everyone still without it. The server, the territory panel and the bots read
+// this one table.
+
+export const WW2_ATOMIC_ARSENAL = {
+  /** PP for a player's first detonation. */
+  firstPrice: 15,
+  /** PP added to the price for each detonation the player has already made. */
+  priceStep: 5,
+  /** Rounds a bombed tile carries fallout. */
+  falloutRounds: 3,
+  /** Units a held fallout tile loses at each round start, never below one. */
+  falloutAttrition: 1,
+  /** Stability every territory of the bomber loses, in a game with stability. */
+  homeStabilityLoss: 10,
+  /** Manhattan Project's price, as a share, for a player without it once anyone has detonated. */
+  proliferationCostShare: 0.5,
+} as const;
+
+/** PP for a player's next detonation, given how many they have made. */
+export function atomBombPrice(detonationsSoFar: number): number {
+  return WW2_ATOMIC_ARSENAL.firstPrice + WW2_ATOMIC_ARSENAL.priceStep * Math.max(0, detonationsSoFar);
+}
+
 // ── Galactic Age lane powers (docs/GALACTIC_AGE_BUILDINGS.md §6) ─────────────
 //
 // Opening PP prices, read by the server's ability defs (abilities/techAbilities)

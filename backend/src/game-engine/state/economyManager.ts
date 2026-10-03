@@ -33,6 +33,7 @@ import {
   worldBuildingDefaultCost,
 } from './worldBuildings';
 import { buildingDisplayName, GALAXY_WORLD_BUILDING_COSTS } from '@borderfall/shared';
+import { falloutRoundsLeft } from './atomicArsenal';
 
 // ── Building definitions ──────────────────────────────────────────────────────
 
@@ -202,6 +203,11 @@ export function validateBuild(
   const territory = state.territories[territoryId];
   if (!territory || territory.owner_id !== playerId) {
     return { valid: false, error: 'Territory not owned by you' };
+  }
+  // WW2's atomic arsenal: nothing is built on a bombed tile while fallout lasts.
+  const fallout = falloutRoundsLeft(territory);
+  if (fallout > 0) {
+    return { valid: false, error: `Fallout: nothing can be built here for ${fallout} more round${fallout === 1 ? '' : 's'}` };
   }
 
   if (!techUnlocked) {
@@ -426,6 +432,8 @@ export function collectProduction(
 
   for (const territory of Object.values(state.territories)) {
     if (territory.owner_id !== playerId) continue;
+    // WW2's atomic arsenal: a tile under fallout pays nothing while it lasts.
+    if (falloutRoundsLeft(territory) > 0) continue;
     ownedCount++;
     const worldMod = getWorldModifier(state, territory.world_id);
     worldProdAccum += worldMod.production_bonus ?? 0;

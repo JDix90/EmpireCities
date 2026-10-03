@@ -286,6 +286,7 @@ import {
   selectAiOrbitalDropTarget,
   shouldAiExportHelium3,
 } from '../game-engine/ai/aiMoonPowers';
+import { applyBombElimination, selectAiAtomBombStrike } from '../game-engine/ai/aiAtomBomb';
 import {
   buildStrikeAnimationPayload,
   emitAbilityStrikeVisuals,
@@ -3103,7 +3104,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (!isSocketUsersTurn(state, userId, username)) return socket.emit('error', { message: 'Not your turn' });
 
       // Check ability cooldown (once per turn) — skip for once-per-game abilities
-      const isGameScoped = isGameScopedAbility(abilityId);
+      // The game decides: WW2's atomic arsenal makes the bomb once per turn.
+      const isGameScoped = isGameScopedAbility(abilityId, state);
       const uses = currentPlayer.ability_uses ?? {};
       if (!isGameScoped && uses[abilityId]) {
         return socket.emit('error', { message: `Ability '${abilityId}' already used this turn` });
@@ -6604,6 +6606,63 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
         if (res.success) {
           currentPlayer.ability_uses = { ...(currentPlayer.ability_uses ?? {}), [strikeId]: 1 };
         }
+      }
+    }
+  }
+
+  // WW2 Manhattan Project, Phase 1 (ai/aiAtomBomb.ts): under `ww2_bomb_ai`, a
+  // bot holding a bomb fires it at the tile worth the most to destroy, through
+  // the executor a human's goes through, and walks in when it has a stack
+  // beside the tile. Without the setting nothing here runs.
+  {
+    const strike = selectAiAtomBombStrike(state, map, currentPlayer.player_id);
+    if (strike) {
+      const res = executeTechAbility({
+        state,
+        map,
+        playerId: currentPlayer.player_id,
+        abilityId: 'atom_bomb',
+        territoryId: strike.territoryId,
+      });
+      if (res.success) {
+        // Under the atomic arsenal the bomb is once per turn, recorded as the
+        // human handler records every turn-scoped ability.
+        if (!isGameScopedAbility('atom_bomb', state)) {
+          currentPlayer.ability_uses = { ...(currentPlayer.ability_uses ?? {}), atom_bomb: 1 };
+        }
+        // A carried charge is spent, as the human handler spends it.
+        if (currentPlayer.legacy_ability_charges?.atom_bomb) {
+          const remaining = { ...currentPlayer.legacy_ability_charges };
+          delete remaining.atom_bomb;
+          currentPlayer.legacy_ability_charges = remaining;
+        }
+        const victimId = res.previousOwner ?? null;
+        const victim = victimId ? state.players.find((p) => p.player_id === victimId) : undefined;
+        if (applyBombElimination(state, currentPlayer.player_id, victimId)) {
+          recordElimination(gameId, currentPlayer.player_id);
+          io.to(gameId).emit('game:player_eliminated', {
+            playerId: victimId,
+            eliminatorId: currentPlayer.player_id,
+            eliminatorName: currentPlayer.username,
+            eliminatedName: victim?.username,
+            secretMission: victim?.secret_mission ?? null,
+          });
+        }
+        emitAbilityStrikeVisuals(io, gameId, buildStrikeAnimationPayload({
+          abilityId: 'atom_bomb',
+          attackerId: currentPlayer.player_id,
+          attackerName: currentPlayer.username,
+          attackerColor: currentPlayer.color,
+          territoryId: strike.territoryId,
+          targetOwnerId: victimId,
+          targetOwnerName: victim?.username ?? null,
+        }), { state, map });
+        broadcastState(io, gameId, state);
+        if (await doVictoryCheck()) return;
+        if (strike.walkInFrom) {
+          actions.unshift({ type: 'attack', from: strike.walkInFrom, to: strike.territoryId });
+        }
+        await delay();
       }
     }
   }

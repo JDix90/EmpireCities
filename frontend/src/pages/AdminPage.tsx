@@ -200,6 +200,24 @@ const CLIENT_FEATURE_FLAGS = [
       'Lattice Logistics opens a building for each world rule and a toll on the lanes: Habitat Dome (Sol III; the Cradle musters its system to 3, not 2, 5 PP), Storm Shelter (Verdan Reach; the storms strike its system only above 18, not 12, 5 PP), Vault Conduit (a Gate Ring system, one per Vault; +1 tech a turn while its owner holds the whole Vault, 6 PP) and Toll Beacon (any gateway; +1 PP a turn while its owner holds both ends of the lane, 6 PP). Baked into each game at creation. OFF by default (dark launch) — Phase 5 of docs/GALACTIC_AGE_BUILDINGS.md; promote on its sim gate.',
   },
   {
+    key: 'ww2_bomb_ai_enabled',
+    label: 'WW2 bots and the Atom Bomb',
+    description:
+      'Hard and expert bots research toward Manhattan Project, fire the Atom Bomb at a target worth it (a big stack, its buildings, a tile they can walk into) and walk in. The bomb itself is unchanged: once per game, behind Panzer Tactics. Applies to WW2 games and to climbs that pass through WW2. Baked into each game at creation. OFF by default (dark launch) — Phase 1 of docs/WW2_MANHATTAN_PROJECT.md; promote on its sim gate.',
+  },
+  {
+    key: 'ww2_manhattan_science_enabled',
+    label: 'WW2 Manhattan Project on the science line',
+    description:
+      'Manhattan Project follows Radar Network instead of Panzer Tactics, at the same 20 TP. The science line pays for itself on the way (Mass Munitions +2 tech, Radar +3, both research buildings), and on a climb it overlaps the gate out of WW2, so the bomb arrives a couple of turns past the gate rather than off the tank line. Applies to WW2 games and to climbs that pass through WW2. Baked into each game at creation. OFF by default (dark launch) — Phase 2 of docs/WW2_MANHATTAN_PROJECT.md; promote on its sim gate.',
+  },
+  {
+    key: 'ww2_atomic_arsenal_enabled',
+    label: 'WW2 atomic arsenal',
+    description:
+      'The Atom Bomb becomes once per turn instead of once per game, priced in production: 15 PP for a player\'s first detonation and 5 more for each after. The bombed tile goes neutral at 1 unit with fallout for 3 rounds (whoever holds it loses a unit a round, it earns nothing, nothing can be built there), the bomber\'s territories lose 10 stability, and once anyone has detonated, Manhattan Project costs half for everyone without it. A bomb carried past WW2 on a climb fires without the price. Applies to WW2 games and to climbs that pass through WW2. Baked into each game at creation. OFF by default (dark launch) — Phase 3 of docs/WW2_MANHATTAN_PROJECT.md; promote on its sim gate.',
+  },
+  {
     key: 'galaxy_world_rules_enabled',
     label: 'Galactic Age worlds as characters',
     description:

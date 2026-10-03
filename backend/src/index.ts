@@ -478,7 +478,9 @@ async function bootstrap(): Promise<void> {
   // tree whose nodes open the lane powers (`settings.galaxy_powers`), and
   // `?world=1` the tree that opens the world buildings
   // (`settings.galaxy_world_buildings`); other eras ignore all three.
-  app.get<{ Params: { era: string }; Querystring: { buildings?: string; powers?: string; world?: string } }>('/api/eras/:era/tech-tree', async (req, reply) => {
+  // `?manhattan=science` serves WW2 with Manhattan Project behind Radar Network
+  // (`settings.ww2_manhattan_science`); other eras ignore it.
+  app.get<{ Params: { era: string }; Querystring: { buildings?: string; powers?: string; world?: string; manhattan?: string } }>('/api/eras/:era/tech-tree', async (req, reply) => {
     try {
       const techTree = getEraTechTree(
         req.params.era as Parameters<typeof getEraTechTree>[0],
@@ -486,6 +488,7 @@ async function bootstrap(): Promise<void> {
           galaxyBuildingsV2: req.query?.buildings === 'v2',
           galaxyPowers: req.query?.powers === '1',
           galaxyWorldBuildings: req.query?.world === '1',
+          ww2ManhattanScience: req.query?.manhattan === 'science',
         },
       );
       return reply.send({ techTree });

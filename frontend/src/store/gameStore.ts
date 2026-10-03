@@ -29,6 +29,8 @@ export interface TerritoryState {
   garrison_doctrine?: 'hardened' | 'forward';
   /** Far ends of the authored lanes this gateway anchors; present only under `galaxy_world_buildings`. */
   lane_partners?: string[];
+  /** WW2's atomic arsenal: rounds of fallout left on a bombed tile. */
+  fallout_rounds?: number;
   naval_units?: number;
   stability?: number;
   population?: number;
@@ -95,6 +97,8 @@ export interface PlayerState {
   used_game_abilities?: string[];
   /** Once-per-game abilities carried forward from a prior era as one-time charges (e.g. Atom Bomb). */
   legacy_ability_charges?: Record<string, number>;
+  /** WW2's atomic arsenal: detonations this player has made. */
+  atom_bomb_uses?: number;
   /** Building types this player may still raise from eras they have left behind. */
   legacy_building_unlocks?: string[];
   /** Pending retaliation bonuses: +dice_bonus attack dice on next land attack vs against_player_id. */
@@ -312,6 +316,10 @@ export interface GameState {
     galaxy_powers?: boolean;
     /** Galactic Age world buildings: Habitat Dome, Storm Shelter, Vault Conduit, Toll Beacon. Baked at create. */
     galaxy_world_buildings?: boolean;
+    /** WW2 Manhattan Project, Phase 2: Manhattan Project behind Radar Network, not Panzer Tactics. Baked at create. */
+    ww2_manhattan_science?: boolean;
+    /** WW2 Manhattan Project, Phase 3: the bomb once per turn, priced, with fallout. Baked at create. */
+    ww2_atomic_arsenal?: boolean;
     /** Galaxy per-world identity: world_id → modifiers, snapshotted from the map at init. */
     world_modifiers_enabled?: boolean;
     world_modifiers?: Record<string, WorldModifiers>;

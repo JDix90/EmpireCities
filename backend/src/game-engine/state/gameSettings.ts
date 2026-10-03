@@ -76,6 +76,12 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
   const galaxyPowers = typeof raw.galaxy_powers === 'boolean' ? raw.galaxy_powers : false;
   // Galactic Age world buildings. Off by default; baked at create from the flag.
   const galaxyWorldBuildings = typeof raw.galaxy_world_buildings === 'boolean' ? raw.galaxy_world_buildings : false;
+  // WW2 Manhattan Project, Phase 1: the bots and the bomb. Off by default; baked at create from the flag.
+  const ww2BombAi = typeof raw.ww2_bomb_ai === 'boolean' ? raw.ww2_bomb_ai : false;
+  // Phase 2: Manhattan Project on the science line. Off by default; baked at create from the flag.
+  const ww2ManhattanScience = typeof raw.ww2_manhattan_science === 'boolean' ? raw.ww2_manhattan_science : false;
+  // Phase 3: the atomic arsenal. Off by default; baked at create from the flag.
+  const ww2AtomicArsenal = typeof raw.ww2_atomic_arsenal === 'boolean' ? raw.ww2_atomic_arsenal : false;
   // Galactic Age Schism house relations. The Concord unless Civil War or Allied is chosen.
   const galaxyHouseRelations = raw.galaxy_house_relations === 'civil_war' || raw.galaxy_house_relations === 'allied'
     ? raw.galaxy_house_relations
@@ -345,6 +351,9 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     galaxy_garrisons: galaxyGarrisons || undefined,
     galaxy_powers: galaxyPowers || undefined,
     galaxy_world_buildings: galaxyWorldBuildings || undefined,
+    ww2_bomb_ai: ww2BombAi || undefined,
+    ww2_manhattan_science: ww2ManhattanScience || undefined,
+    ww2_atomic_arsenal: ww2AtomicArsenal || undefined,
     // Galactic Age Schism — persisted only when it is Civil War or Allied.
     galaxy_house_relations: galaxyHouseRelations,
     // Galactic Age 2v2 — persisted only when on.

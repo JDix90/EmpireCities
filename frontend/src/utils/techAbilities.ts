@@ -1,4 +1,5 @@
 import type { GameState, PlayerState } from '../store/gameStore';
+import { atomBombIsPerTurn } from './atomicArsenal';
 
 export interface TerritoryAbilityUiDef {
   label: string;
@@ -154,10 +155,12 @@ export function getUnlockedAbilityIds(
 export function isAbilityAvailable(
   player: PlayerState,
   abilityId: string,
+  settings?: GameState['settings'],
 ): boolean {
   const def = TERRITORY_ABILITY_UI[abilityId];
   if (!def) return false;
-  if (GAME_SCOPED.has(abilityId)) {
+  // WW2's atomic arsenal makes the bomb once per turn.
+  if (GAME_SCOPED.has(abilityId) && !atomBombIsPerTurn(abilityId, settings)) {
     return !(player.used_game_abilities ?? []).includes(abilityId);
   }
   return !(player.ability_uses ?? {})[abilityId];
@@ -223,7 +226,7 @@ export function getTerritoryPanelAbilities(
       if (def.phase !== phase && !(def.phase === 'draft' && phase === 'fortify')) return false;
       if (def.enemyTarget && !(context.isEnemy || (def.alsoUnowned && context.isUnowned))) return false;
       if (!def.enemyTarget && !context.isMine) return false;
-      return isAbilityAvailable(player, abilityId);
+      return isAbilityAvailable(player, abilityId, gameState.settings);
     })
     .map(([abilityId]) => abilityId);
 }
@@ -244,7 +247,7 @@ export function getGlobalPanelAbilities(
       if (!unlocked.has(abilityId)) return false;
       if (def.enemyTarget) return false;
       if (def.phase !== phase && !(def.phase === 'draft' && phase === 'fortify')) return false;
-      return isAbilityAvailable(player, abilityId);
+      return isAbilityAvailable(player, abilityId, gameState.settings);
     })
     .map(([abilityId]) => abilityId);
 }

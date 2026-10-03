@@ -12,6 +12,7 @@ import { buildingMetaForEra } from './BuildingPanel';
 import { TERRITORY_ABILITY_UI } from '../../utils/techAbilities';
 import { resolvePlayerTechEraId } from '../../utils/eraAdvancement';
 import { techNodeBuildingUnlocks } from '@borderfall/shared';
+import { shownTechCost } from '../../utils/atomicArsenal';
 
 /** Fallback for ids without a UI entry: "launch_pad" → "Launch Pad". */
 function humanizeId(id: string): string {
@@ -184,7 +185,9 @@ export default function TechTreeModal({ gameState, currentPlayerId, techTree, er
                   {tierNodes.map((node) => {
                     const isUnlocked = unlocked.has(node.tech_id);
                     const prereqsMet = !node.prerequisite || unlocked.has(node.prerequisite);
-                    const canResearch = !isUnlocked && prereqsMet && techPoints >= node.cost;
+                    // WW2's atomic arsenal: Manhattan at half price once anyone has detonated.
+                    const cost = shownTechCost(gameState.settings, gameState.players, unlocked, node);
+                    const canResearch = !isUnlocked && prereqsMet && techPoints >= cost;
                     const unlockedByThis = techTree.filter((t) => t.prerequisite === node.tech_id);
 
                     return (
@@ -206,7 +209,7 @@ export default function TechTreeModal({ gameState, currentPlayerId, techTree, er
                             <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
                           ) : prereqsMet ? (
                             <span className="text-xs font-mono text-blue-300 flex-shrink-0">
-                              {node.cost} TP
+                              {cost} TP
                             </span>
                           ) : (
                             <Lock className="w-4 h-4 text-gray-500 flex-shrink-0" />
@@ -257,7 +260,7 @@ export default function TechTreeModal({ gameState, currentPlayerId, techTree, er
                               'bg-blue-700 hover:bg-blue-600 text-white transition-colors'
                             )}
                           >
-                            Research ({node.cost} TP)
+                            Research ({cost} TP)
                           </button>
                         )}
 

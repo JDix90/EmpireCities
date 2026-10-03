@@ -20,7 +20,7 @@ import type { EraId } from '../../types';
 import { ANCIENT_FACTIONS, ANCIENT_TECH_TREE, ANCIENT_WONDER } from './ancient';
 import { MEDIEVAL_FACTIONS, MEDIEVAL_TECH_TREE, MEDIEVAL_WONDER } from './medieval';
 import { DISCOVERY_FACTIONS, DISCOVERY_TECH_TREE, DISCOVERY_WONDER } from './discovery';
-import { WW2_FACTIONS, WW2_TECH_TREE, WW2_WONDER } from './ww2';
+import { WW2_FACTIONS, WW2_TECH_TREE, WW2_WONDER, ww2TechTree } from './ww2';
 import { COLDWAR_FACTIONS, COLDWAR_TECH_TREE, COLDWAR_WONDER } from './coldwar';
 import { MODERN_FACTIONS, MODERN_TECH_TREE, MODERN_WONDER } from './modern';
 import { ACW_FACTIONS, ACW_TECH_TREE, ACW_WONDER } from './acw';
@@ -79,6 +79,8 @@ export interface EraTechTreeOptions {
   galaxyPowers?: boolean;
   /** Galactic Age world buildings (`settings.galaxy_world_buildings`): Lattice Logistics opens four buildings. */
   galaxyWorldBuildings?: boolean;
+  /** WW2 Manhattan Project on the science line (`settings.ww2_manhattan_science`): it follows Radar Network. */
+  ww2ManhattanScience?: boolean;
 }
 
 export function getEraTechTree(era: EraId, opts?: EraTechTreeOptions): TechNode[] {
@@ -89,17 +91,24 @@ export function getEraTechTree(era: EraId, opts?: EraTechTreeOptions): TechNode[
       worldBuildings: opts.galaxyWorldBuildings,
     });
   }
+  if (era === 'ww2' && opts?.ww2ManhattanScience) return ww2TechTree({ manhattanScience: true });
   return ERA_TECH_TREES[era] ?? [];
 }
 
 /** The tree options a game's settings select, for readers that hold a GameState. */
 export function eraTechTreeOptions(
-  settings: { galaxy_buildings_v2?: boolean; galaxy_powers?: boolean; galaxy_world_buildings?: boolean },
+  settings: {
+    galaxy_buildings_v2?: boolean;
+    galaxy_powers?: boolean;
+    galaxy_world_buildings?: boolean;
+    ww2_manhattan_science?: boolean;
+  },
 ): EraTechTreeOptions {
   return {
     galaxyBuildingsV2: settings.galaxy_buildings_v2 === true,
     galaxyPowers: settings.galaxy_powers === true,
     galaxyWorldBuildings: settings.galaxy_world_buildings === true,
+    ww2ManhattanScience: settings.ww2_manhattan_science === true,
   };
 }
 
