@@ -85,6 +85,8 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   galaxy_orbital_buildings_enabled: () => envOptIn('GALAXY_ORBITAL_BUILDINGS_ENABLED'),
   // Phase 3: Hardened and Forward garrison doctrines (d8 dice). Dark-launched OFF; baked at create.
   galaxy_garrisons_enabled: () => envOptIn('GALAXY_GARRISONS_ENABLED'),
+  // Phase 4: per-turn lane powers priced in PP. Dark-launched OFF; baked at create.
+  galaxy_powers_enabled: () => envOptIn('GALAXY_POWERS_ENABLED'),
   space_age_moon_race_enabled: () => envOptOut('SPACE_AGE_MOON_RACE_ENABLED'),
   space_age_moon_tribute_enabled: () => envOptIn('SPACE_AGE_MOON_TRIBUTE_ENABLED'),
   ranked_multi_size_enabled: () => envOptIn('RANKED_MULTI_SIZE_ENABLED'),
@@ -616,6 +618,19 @@ export const featureFlags = {
    */
   get galaxyGarrisonsEnabled(): boolean {
     return overrideBool('galaxy_garrisons_enabled');
+  },
+
+  /**
+   * Galactic Age buildings, Phase 4 (docs/GALACTIC_AGE_BUILDINGS.md §6): lane
+   * powers. Disruption Net, Battle Fabricators and Gravity Brake Doctrine each
+   * open a once-per-turn power — Lance Battery, Orbital Muster, Seal Breaker —
+   * fired from a tile carrying the building it needs and paid for in PP.
+   * Default OFF (dark launch); baked into game settings at create as
+   * `galaxy_powers`, so a flip never re-rules a match in progress. Kill switch:
+   * `GALAXY_POWERS_ENABLED` or the `galaxy_powers_enabled` admin override.
+   */
+  get galaxyPowersEnabled(): boolean {
+    return overrideBool('galaxy_powers_enabled');
   },
 
   /**

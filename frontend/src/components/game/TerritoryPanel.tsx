@@ -24,6 +24,7 @@ import { isMobileViewport } from '../../utils/device';
 import { useBottomSheetSnap, type SheetSnap } from '../../hooks/useBottomSheetSnap';
 import { getRegionCssColors } from '../../constants/accessibleColors';
 import { getPlayerTerritoryAbilities, isAttackSelfBuffAbility } from '../../utils/playerAbilities';
+import { lanePowerApplies, lanePowerCost } from '../../utils/lanePowers';
 import { getAbilityUiDef } from '../../utils/abilityActivationFeedback';
 import {
   getGalaxyTerritoryLoreDetail,
@@ -1414,7 +1415,15 @@ export default function TerritoryPanel({
               isEnemy: isEnemy && !ceasefire,
               isMine,
               isUnowned,
-            }, countOwnedLunarTerritories(mapTerritories, gameState, myPlayer.player_id));
+            }, countOwnedLunarTerritories(mapTerritories, gameState, myPlayer.player_id))
+              // Galactic Age lane powers fire only from the right building on
+              // the right tile (utils/lanePowers.ts) — offer them only there.
+              .filter((abilityId) => lanePowerApplies(abilityId, {
+                territoryId: selectedTerritory,
+                myPlayerId: myPlayer.player_id,
+                territories: gameState.territories,
+                connections: mapConnections,
+              }));
             if (allAbilities.length === 0) return null;
             return allAbilities.map((abilityId) => {
               const def = getAbilityUiDef(abilityId);
@@ -1458,6 +1467,11 @@ export default function TerritoryPanel({
                   </span>
                   {'hint' in def && def.hint && (
                     <span className="text-[10px] opacity-60">{def.hint}</span>
+                  )}
+                  {lanePowerCost(abilityId) != null && (
+                    <span className="text-[10px] font-mono opacity-80" data-testid={`ability-cost-${abilityId}`}>
+                      {lanePowerCost(abilityId)} PP
+                    </span>
                   )}
                 </button>
               );

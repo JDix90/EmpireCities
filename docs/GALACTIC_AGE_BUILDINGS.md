@@ -211,9 +211,9 @@ Each power is a `TERRITORY_ABILITY_DEFS` entry with two new descriptor fields, v
 | Power | Unlocked by | Standing on the source | PP | Effect |
 |---|---|---|---|---|
 | Lance Battery | Disruption Net | a defence building on a gateway | 5 | Removes 2 units from the enemy gateway across that lane, to a floor of 1, before you cross (`unitReduction`, lane-adjacent targets only) |
-| Orbital Muster | Battle Fabricators | an industry building | 6 | Places 3 units on that tile (`ownPlacement`), once a turn |
+| Orbital Muster | Battle Fabricators | an industry building on a gateway | 6 | Places 3 units on that tile (`ownPlacement`), once a turn. Gateways only since its first measurement — see below |
 | Surge Projector | Gate Engineering | Jump Gates on both worlds | 10 | Opens a one-crossing lane across a ring gap between those two gates, this attack phase only |
-| Seal Breaker | Gravity Brake Doctrine | a defence building on a gateway | 4 | Your next crossing from here ignores a Nebula Closure or an Emergency Seal (`selfBuff: 'ignore_lane_seal'`, the Mandate's kit at a price) |
+| Seal Breaker | Gravity Brake Doctrine | a defence building on a gateway | 4 | Your next crossing from here ignores a Nebula Closure or an Emergency Seal (the Mandate's Blockade Runner at a price, but held by the gateway: `pending_seal_breaker_from`) |
 | Harden / Forward | Lattice Logistics | any building | 6 | Phase 3, listed here because it is bought the same way |
 
 Rules all five share: once per turn each (`scope: 'turn'`); a captured source tile takes the power with it (Phase 2) and the captor may use it next turn; Lane Sovereignty, the Vault and lane weather are unchanged by any of them except where the table says. Orbital Muster is the one place PP becomes units; it is gated by a building on purpose so it is a position, and its price is the first thing the sim should move if the Forge's share climbs.
@@ -221,6 +221,42 @@ Rules all five share: once per turn each (`scope: 'turn'`); a captured source ti
 **Surge Projector is the power to distrust.** Attack-carrying gate lanes paid the leader by 13 points (§0.3). A single crossing at a price is a much smaller thing than a permanent lane, but it needs its own sim arm before anyone believes it, and it ships last within the phase.
 
 AI: an `aiLanePowers.ts` beside `aiMoonPowers.ts`, choosing targets and leaving validation to `executeTechAbility`. Fire Lance Battery before a planned crossing when the far gateway holds more units than the lane cap can reasonably beat; Orbital Muster on the gateway facing the most enemy units; Seal Breaker only when a seal is actually on the lane; Surge Projector only when the gap world holds a weakly held gateway. The tech budget rule (`aiTechBudget.ts`) already reserves TP; add a PP reserve for the power the bot means to fire.
+
+**Shipped (dark, three of four):** `abilities/lanePowers.ts` behind `galaxy_powers_enabled`, baked as `settings.galaxy_powers` for every galaxy-rules theater. The tree opens the three powers only under the setting (`galaxyAgeTechTree({ powers })`, picked per game by `eraTechTreeOptions`, served by `/api/eras/galaxy_age/tech-tree?powers=1`), so a game without it has no node that unlocks one, and the engine refuses them on every path besides. Prices live in the shared package (`GALAXY_LANE_POWER_COSTS`) so the panel and the server agree; `LANE_POWER_TUNING` is the sim's knob. `executeTechAbility` checks the lane requirement after the Moon's gate, before anything mutates, and charges the PP only once the effect has succeeded, as it charges He-3. Lance Battery is fired on the rival's gateway from yours across an open lane (a sealed lane blocks it), Orbital Muster and Seal Breaker on your own gateway. Seal Breaker arms that gateway (`pending_seal_breaker_from`), and the next crossing from it, by attack, blitz or bot, spends the charge past an Emergency Seal or a Nebula Closure; a crossing over an open lane keeps it. The bots fire them from `ai/aiLanePowers.ts` in the order the section gives, and the doctrine budget now holds back the price of the dearest power a bot holds. The territory panel lists a power only on a tile where the server would take it and shows its price. Surge Projector follows in its own change with its own sim arm, as above. The primer's cards wait for promotion, as Phases 2 and 3's do.
+
+The sim gains `SIM_POWERS`, `SIM_POWER_COSTS`, `SIM_MUSTER_UNITS` and `SIM_MUSTER_GATEWAY`, and `SIM_SEALS`: the bots' Emergency Seal, which the harness had never placed, so every earlier galaxy number was measured with no seal on any lane. Seal Breaker has nothing to break without it, so both arms below run with it on, and the control here is not Phase 3's.
+
+**Measured (1,000 games per cell on each of three seeds, `borderfall-galaxy-balance`, `galaxy-b` and `galaxy-c`, averaged; expert, seals on in both arms, the prices above):**
+
+| seats | | length | decisive | turn-10 leader | lane end-owner changes | PP banked | factions (Sol / Rust / Verdan / Nexus) |
+|---|---|---|---|---|---|---|---|
+| 4 | control | 32.2 | 98.8% | 59.1% | 74.0 | 240 | 22.9 / 25.3 / 26.0 / 25.8 |
+| 4 | **powers** | 32.0 | 98.6% | 58.0% | 75.8 | 184 | 22.2 / 24.7 / 27.1 / 26.0 |
+| 2 | control | 31.4 | 97.7% | 65.9% | 23.4 | 563 | 59.0 / 23.4 / 64.1 / 53.5 |
+| 2 | **powers** | 30.1 | 98.0% | 62.2% | 23.8 | 391 | 56.2 / 23.4 / 60.7 / 59.6 |
+| 8 | control | 43.2 | 97.1% | 34.5% | 172.1 | 132 | 12.9 / 11.3 / 9.0 / 16.8 |
+| 8 | **powers** | 43.5 | 96.7% | 33.5% | 175.4 | 113 | 13.0 / 10.7 / 9.5 / 16.8 |
+
+| seats | fired per seat per game (Lance / Muster / Breaker) | used where a seat could (L / M / B†) | win share of seats that fired it (L / M / B) |
+|---|---|---|---|
+| 4 | 3.1 / 6.3 / 0.2 | 87.8% / 90.7% / 95.1% | 30.3% / 33.1% / 63.2% |
+| 2 | 3.8 / 14.4 / 0.3 | 63.9% / 93.3% / 94.1% | 52.1% / 58.3% / 70.3% |
+| 8 | 1.8 / 1.8 / 0.1 | 95.2% / 78.5% / 95.1% | 24.8% / 31.9% / 56.4% |
+
+† Seal Breaker is eligible when it has something to break: an attack phase with the power unlocked and a seal or closure on a lane from a defended gateway the seat holds to a rival (the sim's "where a seal stood" line). Counted from unlocking, as the other two are, it reads 43.9% / 32.4% / 37.7%, because only about a fifth of the seats that unlock it ever meet a seal.
+
+**Why Orbital Muster fires from gateways only.** As first drafted it fired from any industry tile, and the bots fired it 9.8 times per seat per four-seat game, three free defenders almost every turn. On the first seed four-seat decisiveness fell from 99.0% to 97.9% and eight-seat from 97.3% to 95.3%. Pricing each power out of reach in turn put the fall on Muster (Muster off: 99.3% at four seats, 96.8% at eight). On that seed 9 PP, 12 PP, 2 units and gateways only each recovered most of the four-seat point (98.4 to 98.6%). Price is the wrong lever, though: at 12 PP the bots still banked 130 PP and fired it 8.5 times instead of 9.8. Gateways only cuts it to 6.2, keeps game length at the control's, and makes the muster a position on a lane, as the section always meant. Across three seeds it leaves four-seat decisiveness 0.1 points under the control. `SIM_MUSTER_GATEWAY=0` measures the old shape.
+
+Reading the gate line by line:
+
+- **Bands** hold at four seats (22 to 27%), and the eight-seat table is the control's.
+- **Decisiveness** is flat at four seats (−0.1), up at two (+0.3) and down half a point at eight, on every seed, which is about one standard error. The eight-seat dip is the same with Muster priced out, so it belongs to Lance Battery and Seal Breaker together or to noise. It is the line to re-measure before promotion.
+- **Length** moves −0.2, −1.3 and +0.3 turns, and the **turn-10 leader** falls at every seat count.
+- **Usage**: Lance Battery and Orbital Muster pass everywhere. Seal Breaker passes when its eligibility is a seat that met a seal, and fails if it is counted from unlocking.
+- **Win share**: Lance Battery and Orbital Muster stay under 60% everywhere. **Seal Breaker fails as written**: its users win 63.2% at four seats and 70.3% at two. Every seat that met a seal, fired or not, wins 59.7% and 67.9%, and the power fires 0.1 to 0.3 times per seat per game. The seats that met a seal and held win 13% and 31%, because the bot holds only when it cannot win the crossing. That is who reaches a late node with a defended gateway facing a rival's seal, not what the power does. Judging it against seats that met a seal, rather than a flat 60%, is a change to the gate and a call for promotion, not for this measurement.
+- **PP banked falls** by 23% at four seats, 30% at two and 14% at eight.
+
+One line outside the gates: at two seats Nexus rises from 53.5% to 59.6% on every seed, and Sol and Verdan fall about three points each, so the spread among the three leading factions narrows from about ten points to under five while the Syndicate stays where the control has it. Muster drives that move too (Muster priced out: Nexus 55.4%).
 
 ---
 
@@ -259,5 +295,5 @@ The galaxy sim (`SIM_PLAYERS`, `SIM_EVENTS`, `SIM_SCATTERED`, the Schism and tea
 
 ## History
 
-- **2026-10-03:** Phase 1 shipped dark (#518): `BUILDING_DISPLAY_BY_ERA`, `GALAXY_AGE_TECH_TREE_V2`, `techNodeBuildingUnlocks`, behind `galaxy_buildings_v2_enabled`. Phase 2 shipped dark (#519): `state/orbitalBuildings.ts` behind `galaxy_orbital_buildings_enabled`, with `SIM_ORBITAL` and the PP-banked line in the galaxy sim. Its first measurement failed the §8 gate; the surviving-set split traced it to the inherited Jump Gate's lane, and the rule now cuts that lane on capture (`severJumpGateLinks`, #524). Phase 3 shipped dark: `state/garrisonDoctrines.ts` behind `galaxy_garrisons_enabled`, with `SIM_GARRISONS` / `SIM_DOCTRINE_COST` and the usage lines in the galaxy sim; it passes every §8 line at 2, 4 and 8 seats.
+- **2026-10-03:** Phase 1 shipped dark (#518): `BUILDING_DISPLAY_BY_ERA`, `GALAXY_AGE_TECH_TREE_V2`, `techNodeBuildingUnlocks`, behind `galaxy_buildings_v2_enabled`. Phase 2 shipped dark (#519): `state/orbitalBuildings.ts` behind `galaxy_orbital_buildings_enabled`, with `SIM_ORBITAL` and the PP-banked line in the galaxy sim. Its first measurement failed the §8 gate; the surviving-set split traced it to the inherited Jump Gate's lane, and the rule now cuts that lane on capture (`severJumpGateLinks`, #524). Phase 3 shipped dark (#527): `state/garrisonDoctrines.ts` behind `galaxy_garrisons_enabled`, with `SIM_GARRISONS` / `SIM_DOCTRINE_COST` and the usage lines in the galaxy sim; it passes every §8 line at 2, 4 and 8 seats. Phase 4's first three powers shipped dark: `abilities/lanePowers.ts` behind `galaxy_powers_enabled`, with `SIM_POWERS`, `SIM_SEALS` and the usage lines in the galaxy sim. Orbital Muster moved to gateways only after its first measurement cost a point of decisiveness, and Seal Breaker fails the win-share line as written (§6).
 - **2026-10-02:** written after the Galactic Age tutorial track shipped (#507 to #514), from a read of the tree, the catalog, the economy tick, the capture rule, the AI's build order and the balance notes. Decided in review: gateway buildings survive capture; garrison doctrines are defence-only and attack-only, separate and exclusive; powers are per turn with a PP price.

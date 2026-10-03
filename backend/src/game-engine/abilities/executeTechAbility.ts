@@ -13,6 +13,7 @@ import {
   playerHasUnlockedAbility,
 } from './techAbilities';
 import { checkMoonPowerRequirement, spendMoonPowerCost } from './moonPowers';
+import { checkLanePowerRequirement, spendLanePowerCost } from './lanePowers';
 import { declareDropAssault } from './dropAssault';
 import { isShieldedFrom, shieldedTargetError } from '../state/teams';
 
@@ -27,6 +28,8 @@ export interface AbilityExecutionResult {
   amount?: number;
   /** He-3 charged by a Moon-gated power (Phase 2), set only when non-zero. */
   helium3Spent?: number;
+  /** PP charged by a Galactic Age lane power, set only when non-zero. */
+  productionSpent?: number;
 }
 
 function getCurrentPlayer(state: GameState, playerId: string): PlayerState | undefined {
@@ -90,11 +93,22 @@ export function executeTechAbility(params: TechAbilityParams): AbilityExecutionR
   const gateError = checkMoonPowerRequirement(state, playerId, abilityId);
   if (gateError) return { success: false, error: gateError };
 
+  // Galactic Age lane powers (lanePowers.ts): the same discipline as the Moon's
+  // gate — the source building and the purse are checked before anything
+  // mutates, and the PP is charged only once the effect has succeeded.
+  const laneError = checkLanePowerRequirement(state, params.map, playerId, abilityId, params.territoryId);
+  if (laneError) return { success: false, error: laneError };
+
   const result = executeAbilityEffect(params);
   if (!result.success) return result;
 
   const spent = spendMoonPowerCost(state, playerId, abilityId);
-  return spent > 0 ? { ...result, helium3Spent: spent } : result;
+  const ppSpent = spendLanePowerCost(state, playerId, abilityId);
+  return {
+    ...result,
+    ...(spent > 0 ? { helium3Spent: spent } : {}),
+    ...(ppSpent > 0 ? { productionSpent: ppSpent } : {}),
+  };
 }
 
 function executeAbilityEffect(params: TechAbilityParams): AbilityExecutionResult {
@@ -123,6 +137,14 @@ function executeAbilityEffect(params: TechAbilityParams): AbilityExecutionResult
   if (def?.selfBuff === 'ignore_lane_seal') {
     currentPlayer.pending_ignore_lane_seal = true;
     return { success: true, effect: 'ignore_lane_seal_ready' };
+  }
+
+  // ── Seal Breaker (lane power): arm the source gateway's next crossing ──────
+  // The gate (lanePowers.ts) already checked the source is a held gateway with
+  // a defence building; the charge is spent by the crossing that leaves it.
+  if (abilityId === 'seal_breaker' && territoryId) {
+    currentPlayer.pending_seal_breaker_from = territoryId;
+    return { success: true, effect: 'seal_breaker_ready', territoryId };
   }
 
   // ── Recon abilities (no territory target) ─────────────────────────────────

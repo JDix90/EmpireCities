@@ -4,7 +4,7 @@
 
 import type { EraId, GameState, PlayerState } from '../../types';
 import type { TechNode } from '../eras/types';
-import { getEraTechTree, getTechNodeById } from '../eras';
+import { eraTechTreeOptions, getEraTechTree, getTechNodeById } from '../eras';
 import { getPlayerFaction } from '../eras/factionLineage';
 import { resolvePlayerEraId } from '../eraAdvancement/constants';
 import { getTechEchoBonus } from '../eraAdvancement/techEcho';
@@ -20,7 +20,7 @@ function getPlayerTechEra(state: GameState, playerId: string): EraId {
 
 /** Era-specific tech tree for a player (respects per-player era when advancement is on). */
 export function getEraTechTreeForPlayer(state: GameState, playerId: string): TechNode[] {
-  return getEraTechTree(getPlayerTechEra(state, playerId));
+  return getEraTechTree(getPlayerTechEra(state, playerId), eraTechTreeOptions(state.settings));
 }
 
 // ── Research ──────────────────────────────────────────────────────────────────
@@ -129,7 +129,7 @@ export function getPlayerAttackBonus(state: GameState, playerId: string): number
   const player = state.players.find((p) => p.player_id === playerId);
   if (!player) return 0;
   const unlocked = player.unlocked_techs ?? [];
-  const tree = getEraTechTree(getPlayerTechEra(state, playerId));
+  const tree = getEraTechTree(getPlayerTechEra(state, playerId), eraTechTreeOptions(state.settings));
   const fromTech = unlocked.reduce((sum, tid) => {
     const node = tree.find((n) => n.tech_id === tid);
     return sum + (node?.attack_bonus ?? 0);
@@ -145,7 +145,7 @@ export function getPlayerDefenseBonus(state: GameState, playerId: string): numbe
   const player = state.players.find((p) => p.player_id === playerId);
   if (!player) return 0;
   const unlocked = player.unlocked_techs ?? [];
-  const tree = getEraTechTree(getPlayerTechEra(state, playerId));
+  const tree = getEraTechTree(getPlayerTechEra(state, playerId), eraTechTreeOptions(state.settings));
   const fromTech = unlocked.reduce((sum, tid) => {
     const node = tree.find((n) => n.tech_id === tid);
     return sum + (node?.defense_bonus ?? 0);
@@ -196,7 +196,7 @@ export function getPlayerReinforceBonus(state: GameState, playerId: string): num
   // Tech node reinforce bonuses
   if (state.settings.tech_trees_enabled) {
     const unlocked = player.unlocked_techs ?? [];
-    const tree = getEraTechTree(getPlayerTechEra(state, playerId));
+    const tree = getEraTechTree(getPlayerTechEra(state, playerId), eraTechTreeOptions(state.settings));
     bonus += unlocked.reduce((sum, tid) => {
       const node = tree.find((n) => n.tech_id === tid);
       return sum + (node?.reinforce_bonus ?? 0);
@@ -215,7 +215,7 @@ export function getPlayerTechPointIncome(state: GameState, playerId: string): nu
   const player = state.players.find((p) => p.player_id === playerId);
   if (!player) return 0;
   const unlocked = player.unlocked_techs ?? [];
-  const tree = getEraTechTree(getPlayerTechEra(state, playerId));
+  const tree = getEraTechTree(getPlayerTechEra(state, playerId), eraTechTreeOptions(state.settings));
   const fromTech = unlocked.reduce((sum, tid) => {
     const node = tree.find((n) => n.tech_id === tid);
     return sum + (node?.tech_point_income ?? 0);

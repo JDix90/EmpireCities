@@ -350,6 +350,16 @@ export function isGarrisonDoctrine(value: unknown): value is GarrisonDoctrine {
   return value === 'hardened' || value === 'forward';
 }
 
+// ── Galactic Age lane powers (docs/GALACTIC_AGE_BUILDINGS.md §6) ─────────────
+//
+// Opening PP prices, read by the server's ability defs (abilities/techAbilities)
+// and the client's ability buttons, so the two quote one price.
+export const GALAXY_LANE_POWER_COSTS = {
+  lance_battery: 5,
+  orbital_muster: 6,
+  seal_breaker: 4,
+} as const;
+
 /** One-line effect for a building id, or an empty string for an unknown id. */
 export function buildingEffect(buildingId: string): string {
   return BUILDING_DISPLAY[buildingId]?.effect ?? '';

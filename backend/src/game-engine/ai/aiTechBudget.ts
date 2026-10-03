@@ -3,7 +3,7 @@
 // ============================================================
 
 import type { AiDifficulty, GameState } from '../../types';
-import { getEraTechTree } from '../eras';
+import { eraTechTreeOptions, getEraTechTree } from '../eras';
 import { resolvePlayerEraId } from '../eraAdvancement/constants';
 import { getEffectiveTechCost } from '../state/techManager';
 
@@ -47,7 +47,7 @@ export function nextResearchReserve(
   const player = state.players.find((p) => p.player_id === playerId);
   if (!player) return null;
 
-  const tree = getEraTechTree(resolvePlayerEraId(state, player));
+  const tree = getEraTechTree(resolvePlayerEraId(state, player), eraTechTreeOptions(state.settings));
   const unlocked = player.unlocked_techs ?? [];
   let cheapest: number | null = null;
   for (const node of tree) {

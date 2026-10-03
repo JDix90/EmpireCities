@@ -188,6 +188,12 @@ const CLIENT_FEATURE_FLAGS = [
       'A system with any building can train its garrison Hardened (the stack defending it rolls d8s) or Forward (attacks launched from it roll d8s), one at a time, for 6 PP once Lattice Logistics is researched. Dice counts never change, so a lane crossing still rolls two. Captured systems lose their doctrine. Baked into each game at creation. OFF by default (dark launch) — Phase 3 of docs/GALACTIC_AGE_BUILDINGS.md; promote on its sim gate.',
   },
   {
+    key: 'galaxy_powers_enabled',
+    label: 'Galactic Age lane powers',
+    description:
+      'Disruption Net, Battle Fabricators and Gravity Brake Doctrine each open a once-per-turn power paid for in PP and fired from a system carrying the building it needs: Lance Battery (a defence building on a gateway; 2 units off the enemy gateway across the lane, 5 PP), Orbital Muster (an industry building; 3 units on that system, 6 PP), Seal Breaker (a defence building on a gateway; the next crossing from it ignores a Nebula Closure or an Emergency Seal, 4 PP). Baked into each game at creation. OFF by default (dark launch) — Phase 4 of docs/GALACTIC_AGE_BUILDINGS.md; promote on its sim gate.',
+  },
+  {
     key: 'galaxy_world_rules_enabled',
     label: 'Galactic Age worlds as characters',
     description:

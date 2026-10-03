@@ -48,6 +48,19 @@ export const TERRITORY_ABILITY_UI: Record<string, TerritoryAbilityUiDef> = {
     label: 'Dyson Beam', emoji: '☀️', scope: 'turn', phase: 'attack', enemyTarget: true, style: 'danger',
     hint: 'Remove 4 units from an enemy territory.',
   },
+  // ── Galactic Age lane powers (galaxy_powers): fired from a building, paid in PP ──
+  lance_battery: {
+    label: 'Lance Battery', emoji: '🔱', scope: 'turn', phase: 'attack', enemyTarget: true, style: 'danger',
+    hint: 'Fire from your gateway across the lane: 2 units off this gateway (floor 1) — needs a defence building there, 5 PP.',
+  },
+  orbital_muster: {
+    label: 'Orbital Muster', emoji: '🏭', scope: 'turn', phase: 'draft', enemyTarget: false, style: 'success',
+    hint: 'Place 3 units on this gateway — needs an industry building here, 6 PP.',
+  },
+  seal_breaker: {
+    label: 'Seal Breaker', emoji: '🗝️', scope: 'turn', phase: 'attack', enemyTarget: false, style: 'info',
+    hint: 'Your next crossing from this gateway ignores a Nebula Closure or an Emergency Seal — needs a defence building, 4 PP.',
+  },
   // ── Space Age Moon Race: powers held by lunar ground, not by a tech ────────
   lunar_export: {
     label: 'Lunar Export', emoji: '☾', scope: 'turn', phase: 'draft', enemyTarget: false, style: 'info',

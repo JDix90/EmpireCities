@@ -80,7 +80,13 @@ import {
   LANE_SOVEREIGNTY_ROUNDS_BY_SIDES,
 } from '../src/game-engine/victory/laneSovereignty';
 import { fortifyBecomesConvoy, launchConvoy } from '../src/game-engine/state/transit';
-import { computeAiTurn, selectAiBuildingPlacement, selectAiGarrisonDoctrines, selectAiTechResearch } from '../src/game-engine/ai/aiBot';
+import {
+  chooseEmergencySealLane,
+  computeAiTurn,
+  selectAiBuildingPlacement,
+  selectAiGarrisonDoctrines,
+  selectAiTechResearch,
+} from '../src/game-engine/ai/aiBot';
 import {
   applyGarrisonDoctrine,
   GARRISON_DOCTRINE_TUNING,
@@ -92,7 +98,33 @@ import {
   shouldPressDecidedGame,
 } from '../src/game-engine/ai/aiAttackGrind';
 import { executeLandAttack } from '../src/game-engine/combat/executeLandAttack';
-import { getOrbitAccessResult } from '../src/game-engine/state/moonAccess';
+import {
+  canSealLane,
+  EMERGENCY_SEAL_ABILITY_ID,
+  GALAXY_LANE_SEAL_DURATION,
+  getOrbitAccessResult,
+  isLaneSealedForPlayer,
+} from '../src/game-engine/state/moonAccess';
+import { playerHoldsVaultSeal } from '../src/game-engine/state/worldRules';
+import { getPlayerFaction } from '../src/game-engine/eras/factionLineage';
+import { executeTechAbility } from '../src/game-engine/abilities/executeTechAbility';
+import { playerHasUnlockedAbility, TERRITORY_ABILITY_DEFS } from '../src/game-engine/abilities/techAbilities';
+import {
+  consumeSealBreaker,
+  crossableLanes,
+  isLaneGateway,
+  LANE_POWER_IDS,
+  LANE_POWER_TUNING,
+  lanePowerSources,
+  type LanePowerId,
+} from '../src/game-engine/abilities/lanePowers';
+import {
+  aiFiresLanePowers,
+  canAiFireLanePower,
+  selectAiLanceBatteryTarget,
+  selectAiOrbitalMusterTarget,
+  selectAiSealBreaker,
+} from '../src/game-engine/ai/aiLanePowers';
 import { applyBuild } from '../src/game-engine/state/economyManager';
 import { applyResearch, validateResearch } from '../src/game-engine/state/techManager';
 import { createSeededRng, hashStringToSeed } from '../src/game-engine/victory/missions';
@@ -169,6 +201,45 @@ const ORBITAL = process.env.SIM_ORBITAL === '1';
  * under 60% of their games.
  */
 const GARRISONS = process.env.SIM_GARRISONS === '1';
+/**
+ * Lane powers (`galaxy_powers`, docs/GALACTIC_AGE_BUILDINGS.md §6): Lance
+ * Battery, Orbital Muster and Seal Breaker, fired by bots as the socket fires
+ * them. Ships OFF, so OFF here unless `SIM_POWERS=1`. Prices are patched with
+ * `SIM_POWER_COSTS='{"orbital_muster":8}'`. Its gate (§8) adds the usage test:
+ * each power fired in at least 60% of the games where a seat could, and the
+ * seats that fire it winning under 60% of their games.
+ */
+const POWERS = process.env.SIM_POWERS === '1';
+if (process.env.SIM_POWER_COSTS) {
+  const patch = JSON.parse(process.env.SIM_POWER_COSTS) as Record<string, number>;
+  for (const [id, cost] of Object.entries(patch)) {
+    if (!(LANE_POWER_IDS as readonly string[]).includes(id) || !(Number.isInteger(cost) && cost >= 0)) {
+      throw new Error(`SIM_POWER_COSTS: unknown power or bad price ${id}=${cost}`);
+    }
+    LANE_POWER_TUNING[id as LanePowerId] = cost;
+  }
+}
+/**
+ * Orbital Muster's shape, for measuring a candidate without editing the def:
+ * `SIM_MUSTER_UNITS=N` places N units instead of the def's, and
+ * `SIM_MUSTER_GATEWAY=0` lets it fire from any industry tile, as first drafted
+ * (it ships gateway-only; doc §6 has the measurement that moved it).
+ */
+if (process.env.SIM_MUSTER_UNITS) {
+  const units = Number(process.env.SIM_MUSTER_UNITS);
+  if (!Number.isInteger(units) || units < 1) throw new Error(`SIM_MUSTER_UNITS: bad unit count ${process.env.SIM_MUSTER_UNITS}`);
+  TERRITORY_ABILITY_DEFS.orbital_muster!.ownPlacement!.units = units;
+}
+if (process.env.SIM_MUSTER_GATEWAY === '0') TERRITORY_ABILITY_DEFS.orbital_muster!.requiresGateway = false;
+/**
+ * Emergency Seals, as the live AI places them (processAiTurn): the Void
+ * Custodians' kit, and the Vault holder's charge. The harness never mirrored
+ * them, so every published number here was measured with no seal ever on a
+ * lane. Opt-in (`SIM_SEALS=1`) so those baselines still reproduce; Phase 4
+ * measures both of its arms with it on, or Seal Breaker would have nothing to
+ * break.
+ */
+const SEALS = process.env.SIM_SEALS === '1';
 if (process.env.SIM_DOCTRINE_COST) {
   const cost = Number(process.env.SIM_DOCTRINE_COST);
   if (!(Number.isInteger(cost) && cost >= 0)) throw new Error('SIM_DOCTRINE_COST must be a whole number >= 0');
@@ -553,6 +624,7 @@ function simSettings(): GameSettings {
     galaxy_transit_enabled: TRANSIT,
     galaxy_orbital_buildings: ORBITAL || undefined,
     galaxy_garrisons: GARRISONS || undefined,
+    galaxy_powers: POWERS || undefined,
     world_rules_enabled: WORLD_RULES,
     world_rules_disabled: WORLD_RULES_OFF as WorldRuleId[],
     allowed_victory_conditions: [
@@ -630,6 +702,16 @@ interface SeatTelemetry {
   /** Garrison doctrines this seat bought, by kind (garrisons only). */
   hardenedBought: number;
   forwardBought: number;
+  /** Lane powers this seat fired, by power (powers only). */
+  powerUses: Record<string, number>;
+  /** Emergency Seals this seat placed (seals only). */
+  sealsPlaced: number;
+  /**
+   * Attack phases in which Seal Breaker was unlocked and unused and a seal or
+   * closure shut a lane from a defended gateway this seat held to a rival
+   * (powers only) — the power's real eligibility, since unlocking it is not.
+   */
+  sealBreakerChances: number;
   /** Exchanges this seat fought on d8s: attacking from a Forward tile, defending a Hardened one. */
   forwardExchanges: number;
   hardenedDefences: number;
@@ -659,6 +741,37 @@ interface SeatTelemetry {
 const seatLabel = new Map<string, string>();
 /** Schism: each seat's house name for the current game (empty otherwise). */
 const houseLabel = new Map<string, string>();
+
+/** Fire a lane power the way processAiTurn does: through executeTechAbility, then record the use. */
+function fireLanePower(state: GameState, map: GameMap, pid: string, abilityId: LanePowerId, territoryId: string): boolean {
+  const res = executeTechAbility({ state, map, playerId: pid, abilityId, territoryId });
+  if (!res.success) return false;
+  const me = state.players.find((p) => p.player_id === pid)!;
+  me.ability_uses = { ...(me.ability_uses ?? {}), [abilityId]: 1 };
+  return true;
+}
+
+/**
+ * Whether Seal Breaker had something to break this attack phase: unlocked,
+ * unused, and a seal or closure shutting a crossable lane from a gateway the
+ * seat holds, with a defence building, to a rival. Price and odds are left
+ * out on purpose — they are the bot's reasons to decline, not the absence of
+ * a chance.
+ */
+function sealBreakerChance(state: GameState, map: GameMap, pid: string): boolean {
+  const me = state.players.find((p) => p.player_id === pid);
+  if (!me || (me.ability_uses ?? {}).seal_breaker || !playerHasUnlockedAbility(state, pid, 'seal_breaker')) return false;
+  for (const c of crossableLanes(map)) {
+    for (const [near, far] of [[c.from, c.to], [c.to, c.from]] as const) {
+      const n = state.territories[near];
+      const f = state.territories[far];
+      if (!n || !f || n.owner_id !== pid || !f.owner_id || f.owner_id === pid) continue;
+      if (!isLaneSealedForPlayer(state, near, far, pid) || !isLaneGateway(map, near)) continue;
+      if (lanePowerSources(state, map, pid, 'seal_breaker', near).length > 0) return true;
+    }
+  }
+  return false;
+}
 
 function playAiTurn(
   state: GameState,
@@ -713,9 +826,59 @@ function playAiTurn(
     }
   }
 
+  // Orbital Muster: the draft-phase lane power, as the socket fires it.
+  if (POWERS && aiFiresLanePowers(difficulty) && canAiFireLanePower(state, pid, 'orbital_muster')) {
+    const musterAt = selectAiOrbitalMusterTarget(state, map, pid);
+    if (musterAt && fireLanePower(state, map, pid, 'orbital_muster', musterAt)) {
+      seat.powerUses.orbital_muster = (seat.powerUses.orbital_muster ?? 0) + 1;
+    }
+  }
+
   applyDraft(state, pid, plan);
 
   state.phase = 'attack';
+  // Emergency Seal, as processAiTurn places it (opt-in, SIM_SEALS).
+  if (SEALS) {
+    const me = state.players.find((p) => p.player_id === pid)!;
+    const sealFaction = state.settings.factions_enabled && me.faction_id ? getPlayerFaction(state, me) : undefined;
+    const vaultSeal = playerHoldsVaultSeal(state, pid);
+    if ((sealFaction?.ability_id === EMERGENCY_SEAL_ABILITY_ID || vaultSeal) && !(me.ability_uses ?? {})[EMERGENCY_SEAL_ABILITY_ID]) {
+      const best = chooseEmergencySealLane(state, map, pid);
+      const check = best
+        ? canSealLane(state, map, best.from, best.to, pid, sealFaction?.ability_id, { vaultHolder: vaultSeal })
+        : null;
+      if (check?.ok && check.laneId) {
+        state.lane_blockades = {
+          ...(state.lane_blockades ?? {}),
+          [check.laneId]: { owner_id: pid, turns_remaining: GALAXY_LANE_SEAL_DURATION, tick: 'owner_turn' },
+        };
+        me.ability_uses = { ...(me.ability_uses ?? {}), [EMERGENCY_SEAL_ABILITY_ID]: 1 };
+        seat.sealsPlaced++;
+      }
+    }
+  }
+  // The attack-phase lane powers, as the socket fires them: Seal Breaker opens
+  // a shut lane and that crossing is planned first; Lance Battery softens the
+  // far gateway of a planned crossing.
+  if (POWERS && aiFiresLanePowers(difficulty)) {
+    if (sealBreakerChance(state, map, pid)) seat.sealBreakerChances++;
+    if (canAiFireLanePower(state, pid, 'seal_breaker')) {
+      const breach = selectAiSealBreaker(state, map, pid);
+      if (breach && fireLanePower(state, map, pid, 'seal_breaker', breach.source)) {
+        seat.powerUses.seal_breaker = (seat.powerUses.seal_breaker ?? 0) + 1;
+        const firstAttack = plan.findIndex((a) => a.type === 'attack');
+        const crossing = { type: 'attack' as const, from: breach.source, to: breach.target, units: 3 };
+        if (firstAttack < 0) plan.push(crossing);
+        else plan.splice(firstAttack, 0, crossing);
+      }
+    }
+    if (canAiFireLanePower(state, pid, 'lance_battery')) {
+      const lanceAt = selectAiLanceBatteryTarget(state, map, pid, plan);
+      if (lanceAt && fireLanePower(state, map, pid, 'lance_battery', lanceAt)) {
+        seat.powerUses.lance_battery = (seat.powerUses.lance_battery ?? 0) + 1;
+      }
+    }
+  }
   const budget = {
     left: GRIND
       ? aiAttackExchangeBudget(difficulty, shouldPressDecidedGame(state, pid, difficulty))
@@ -731,6 +894,14 @@ function playAiTurn(
     if (a.type !== 'attack' || !a.from || !a.to || a.from === '__influence__') continue;
     if (budget.left <= 0) break;
     const crossesLane = orbitLanePairs.has(laneKey(a.from, a.to));
+    // A shut lane is planned only behind a Seal Breaker charge; the crossing
+    // spends it, as the socket's does.
+    if (
+      POWERS
+      && crossesLane
+      && isLaneSealedForPlayer(state, a.from, a.to, pid)
+      && !consumeSealBreaker(state.players.find((p) => p.player_id === pid)!, a.from)
+    ) continue;
     // The resolver only sees a lane if told about the edge: without the
     // connection the lane dice cap never fires and the sim silently measures
     // the kill-switch game.
@@ -835,6 +1006,8 @@ interface SeatStat extends SeatTelemetry {
   gatewayBuildings: number;
   /** Researched Lattice Logistics, so could train a garrison (garrisons only). */
   doctrineEligible: boolean;
+  /** Lane powers this seat had unlocked by game end (powers only). */
+  powersUnlocked: string[];
   /** Production points unspent at game end — the §8 gate's "PP banked". */
   ppBanked: number;
 }
@@ -1161,6 +1334,9 @@ function runGame(gameIndex: number, sourceMap: GameMap): GameStat {
       buildingsInherited: 0,
       hardenedBought: 0,
       forwardBought: 0,
+      powerUses: {},
+      sealsPlaced: 0,
+      sealBreakerChances: 0,
       forwardExchanges: 0,
       hardenedDefences: 0,
       convoysSent: 0,
@@ -1297,6 +1473,7 @@ function runGame(gameIndex: number, sourceMap: GameMap): GameStat {
     finalTerritories: ownedIds(state, p.player_id).length,
     territoriesAtTurn: snapshots[p.player_id],
     doctrineEligible: (p.unlocked_techs ?? []).includes('ga_lattice_logistics'),
+    powersUnlocked: POWERS ? LANE_POWER_IDS.filter((id) => playerHasUnlockedAbility(state, p.player_id, id)) : [],
     gatewayBuildings: Object.values(state.territories)
       .filter((t) => t.owner_id === p.player_id && gatewayTiles.has(t.territory_id))
       .reduce((n, t) => n + (t.buildings ?? []).length, 0),
@@ -1370,7 +1547,7 @@ function main(): void {
   console.log(`\nGalactic Age balance — ${GAMES} games · ${PLAYERS}p · ${DIFFICULTY} · maxTurns ${MAX_TURNS}${THRESHOLD != null ? ` · threshold ${THRESHOLD}%` : ''} · ${terr} territories`);
   console.log(`Seed "${MASTER_SEED}" · attack loop ${GRIND ? 'GRIND (mirrors live AI)' : 'single-exchange (SIM_GRIND=0, legacy)'} · corridors ${CORRIDORS ? 'ON' : 'OFF (SIM_CORRIDORS=0)'} · factions ${Object.keys(FACTION_PATCH).length ? `patched ${JSON.stringify(FACTION_PATCH)}` : 'as shipped'} · world rules ${WORLD_RULES ? (WORLD_RULES_OFF.length ? `ON except ${WORLD_RULES_OFF.join('+')}` : 'ON') : 'OFF (SIM_WORLD_RULES=0)'} · sovereignty ${SOVEREIGNTY ? `ON (${LANE_SOVEREIGNTY_CORRIDORS_NEEDED} lanes, ${(TEAMS ? LANE_SOVEREIGNTY_ROUNDS_BY_SIDES[SIDES] : LANE_SOVEREIGNTY_ROUNDS_BY_SEATS[PLAYERS]) ?? LANE_SOVEREIGNTY_ROUNDS} rounds${TEAMS ? ` for ${SIDES} sides` : ''})` : 'OFF (SIM_SOVEREIGNTY=0)'}${PLAYERS < 4 && !SCATTERED ? ` · colonies ${COLONY_GARRISONS.gateway}/${COLONY_GARRISONS.interior} (gateway/interior)` : ''}${TWO_V_TWO ? ` · 2v2 ${GALAXY_2V2_PAIRS.map((p) => p.join('+')).join(' vs ')}` : ''}${TEAMS ? ` · opening ceasefire ${TEAM_TUNING.openingCeasefire ? 'ON' : 'OFF (SIM_CEASEFIRE=0)'}` : ''}${SCHISM && !SCATTERED ? ` · schism ${HOUSE_RELATIONS === 'concord' ? `Concord ${SCHISM_TUNING.concordRounds} rounds` : HOUSE_RELATIONS === 'allied' ? `Allied ${JSON.stringify(ALLIED_TUNING)}` : 'Civil War'}, Lane Crown +${HOUSE_RELATIONS === 'allied' ? 0 : SCHISM_TUNING.laneCrownBonus}${process.env.SIM_SCHISM_HALVES ? ' · halves patched (SIM_SCHISM_HALVES)' : ''}${process.env.SIM_SCHISM_OPENING ? ` · opening ${process.env.SIM_SCHISM_OPENING}` : ''}${process.env.SIM_SCHISM_REINFORCE ? ` · house reinforce ${process.env.SIM_SCHISM_REINFORCE}` : ''}${PARTIAL ? (HOUSE_RELATIONS === 'allied'
     ? ` · partial Allied ${JSON.stringify(PARTIAL_ALLIED_TUNING[PLAYERS])}`
-    : ` · partial unclaimed ${PARTIAL_SCHISM_TUNING[PLAYERS]!.unclaimed.gateway}/${PARTIAL_SCHISM_TUNING[PLAYERS]!.unclaimed.interior}, halves ${JSON.stringify(PARTIAL_SCHISM_HALVES)}`) : ''}` : ''} · transit ${TRANSIT ? 'ON (SIM_TRANSIT=1)' : 'OFF'} · orbital ${ORBITAL ? 'ON (SIM_ORBITAL=1)' : 'OFF'} · garrisons ${GARRISONS ? `ON (SIM_GARRISONS=1, ${GARRISON_DOCTRINE_TUNING.cost} PP)` : 'OFF'}${SCATTERED ? ' · start SCATTERED (SIM_SCATTERED=1, no home worlds)' : ''}${FACTIONS_ON ? '' : ' · factions OFF (SIM_FACTIONS=0, labels are seats)'}${PLAIN_LANES ? ' · PLAIN LANES (SIM_PLAIN_LANES=1)' : ''}${CATCHUP_PER != null ? ` · catch-up: -1 reinforcement per ${CATCHUP_PER} tiles over a quarter (SIM_CATCHUP_PER)` : ''} · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
+    : ` · partial unclaimed ${PARTIAL_SCHISM_TUNING[PLAYERS]!.unclaimed.gateway}/${PARTIAL_SCHISM_TUNING[PLAYERS]!.unclaimed.interior}, halves ${JSON.stringify(PARTIAL_SCHISM_HALVES)}`) : ''}` : ''} · transit ${TRANSIT ? 'ON (SIM_TRANSIT=1)' : 'OFF'} · orbital ${ORBITAL ? 'ON (SIM_ORBITAL=1)' : 'OFF'} · garrisons ${GARRISONS ? `ON (SIM_GARRISONS=1, ${GARRISON_DOCTRINE_TUNING.cost} PP)` : 'OFF'} · powers ${POWERS ? 'ON (SIM_POWERS=1)' : 'OFF'} · seals ${SEALS ? 'ON (SIM_SEALS=1)' : 'OFF'}${SCATTERED ? ' · start SCATTERED (SIM_SCATTERED=1, no home worlds)' : ''}${FACTIONS_ON ? '' : ' · factions OFF (SIM_FACTIONS=0, labels are seats)'}${PLAIN_LANES ? ' · PLAIN LANES (SIM_PLAIN_LANES=1)' : ''}${CATCHUP_PER != null ? ` · catch-up: -1 reinforcement per ${CATCHUP_PER} tiles over a quarter (SIM_CATCHUP_PER)` : ''} · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
   if (GAMES % CYCLE !== 0) {
     console.log(`⚠ ${GAMES} games is not a multiple of the ${CYCLE}-game line-up cycle, so factions and seats are sampled unevenly\n`);
   }
@@ -1696,6 +1873,47 @@ function main(): void {
     );
   }
 
+  if (SEALS) {
+    console.log(`Emergency Seals (SIM_SEALS): ${fixed(avg(stats.map((g) => g.seats.reduce((n, s) => n + s.sealsPlaced, 0))))} placed per game`);
+  }
+
+  if (POWERS) {
+    // §8's usage gate, as for the doctrines: each power fired in at least 60%
+    // of the games where a seat could, and its users winning under 60%.
+    const seats = stats.flatMap((g) => g.seats);
+    const muster = TERRITORY_ABILITY_DEFS.orbital_muster!;
+    console.log(
+      `Lane powers (${LANE_POWER_IDS.map((id) => `${id} ${LANE_POWER_TUNING[id]} PP`).join(', ')};`
+      + ` muster places ${muster.ownPlacement?.units ?? 0}${muster.requiresGateway ? ', gateways only' : ''}):`,
+    );
+    for (const id of LANE_POWER_IDS) {
+      const eligibleGames = stats.filter((g) => g.seats.some((s) => s.powersUnlocked.includes(id)));
+      const usedIn = eligibleGames.filter((g) => g.seats.some((s) => (s.powerUses[id] ?? 0) > 0)).length;
+      const eligible = seats.filter((s) => s.powersUnlocked.includes(id));
+      const users = eligible.filter((s) => (s.powerUses[id] ?? 0) > 0);
+      const nonUsers = eligible.filter((s) => (s.powerUses[id] ?? 0) === 0);
+      console.log(
+        `  ${id.padEnd(15)} ${fixed(avg(seats.map((s) => s.powerUses[id] ?? 0)))} uses per seat per game`
+        + ` · used in ${pct(usedIn, Math.max(1, eligibleGames.length))} of games where a seat could (gate ≥ 60%)`
+        + ` · users win ${pct(users.filter((s) => s.won).length, Math.max(1, users.length))} of ${users.length}`
+        + ` vs non-users ${pct(nonUsers.filter((s) => s.won).length, Math.max(1, nonUsers.length))} of ${nonUsers.length} (gate: users < 60%)`,
+      );
+    }
+    // Seal Breaker only has a use when a seal stands on a lane the seat could
+    // cross from a defended gateway; "unlocked" overstates its eligibility.
+    const metSeal = seats.filter((s) => s.sealBreakerChances > 0);
+    const metGames = stats.filter((g) => g.seats.some((s) => s.sealBreakerChances > 0));
+    const breakers = metSeal.filter((s) => (s.powerUses.seal_breaker ?? 0) > 0);
+    const declined = metSeal.filter((s) => (s.powerUses.seal_breaker ?? 0) === 0);
+    console.log(
+      `  seal_breaker where a seal stood: ${pct(metSeal.length, Math.max(1, seats.filter((s) => s.powersUnlocked.includes('seal_breaker')).length))} of seats that unlocked it met one`
+      + ` (${fixed(avg(metSeal.map((s) => s.sealBreakerChances)))} attack phases each)`
+      + ` · used in ${pct(metGames.filter((g) => g.seats.some((s) => (s.powerUses.seal_breaker ?? 0) > 0)).length, Math.max(1, metGames.length))} of those games`
+      + ` · users win ${pct(breakers.filter((s) => s.won).length, Math.max(1, breakers.length))} of ${breakers.length}`
+      + ` vs seats that met one and held ${pct(declined.filter((s) => s.won).length, Math.max(1, declined.length))} of ${declined.length}`,
+    );
+  }
+
   if (TRANSIT) {
     const seats = stats.flatMap((g) => g.seats);
     const sent = seats.reduce((n, s) => n + s.convoysSent, 0);
@@ -1719,6 +1937,7 @@ function main(): void {
       'players', 'seat', 'layout', 'house', 'crown_turns', 'team', 'split',
       'pp_banked', 'gateway_buildings', 'buildings_inherited',
       'hardened_bought', 'forward_bought',
+      'lance_battery_uses', 'orbital_muster_uses', 'seal_breaker_uses', 'seals_placed', 'seal_breaker_chances',
     ].join(',');
     const rows = stats.flatMap((s) =>
       s.seats.map((seat, i) => [
@@ -1729,6 +1948,7 @@ function main(): void {
         PLAYERS, i, s.layout ?? '', s.houses?.[i] ?? '', s.crownTurns[i] ?? 0, s.teams?.[i] ?? '', s.split ?? '',
         seat.ppBanked, seat.gatewayBuildings, seat.buildingsInherited,
         seat.hardenedBought, seat.forwardBought,
+        seat.powerUses.lance_battery ?? 0, seat.powerUses.orbital_muster ?? 0, seat.powerUses.seal_breaker ?? 0, seat.sealsPlaced, seat.sealBreakerChances,
       ].join(',')),
     );
     writeFileSync(CSV_PATH, [header, ...rows].join('\n') + '\n');

@@ -641,4 +641,64 @@ describe.runIf(redisTestEnabled)('Galactic Age hyperspace — human socket path'
     expect(late.ok).toBe(false);
     if (!late.ok) expect(late.error).toMatch(/draft or fortify/);
   }, 45_000);
+
+  it('lane powers: Lance Battery over the wire, and a Seal Breaker crossing through an Emergency Seal', async () => {
+    const gameId = 'itest-ga-powers';
+    const map = freshMap();
+    const state = freshState(gameId, map, { galaxy_powers: true });
+    // P1 (the Mandate) holds a gateway with a shield; P2 holds the far end.
+    state.territories[L1.sol].owner_id = P[0];
+    state.territories[L1.sol].unit_count = 12;
+    state.territories[L1.sol].buildings = ['defense_1'];
+    state.territories[L1.verdan].owner_id = P[1];
+    state.territories[L1.verdan].unit_count = 5;
+    state.players[0].special_resource = 20;
+    state.players[0].unlocked_techs = ['ga_disruption_net', 'ga_gravity_brake'];
+    state.phase = 'attack';
+    // A rival's Emergency Seal on the lane.
+    state.lane_blockades = { [orbitLaneId(L1.sol, L1.verdan)]: { owner_id: P[1], turns_remaining: 1, tick: 'owner_turn' } };
+    state.puzzle_dice_queue = [6, 6, 6, ...Array(60).fill(1)];
+    await seed(gameId, state, map);
+    const c = await connect(P[0]); await joinRoom(P[0], gameId);
+
+    // The seal shuts the lane to the battery too; the crossing is refused.
+    const shut = await act(c, 'game:attack', { gameId, fromId: L1.sol, toId: L1.verdan }, 'game:combat_result');
+    expect(shut.ok).toBe(false);
+
+    const breaker = await act<{ success: boolean; effect: string }>(
+      c, 'game:use_ability', { gameId, abilityId: 'seal_breaker', params: { territoryId: L1.sol } }, 'game:ability_result',
+    );
+    expect(breaker.ok, breaker.ok ? '' : breaker.error).toBe(true);
+    const armed = await waitForRedisState(gameId, (st) => st.players[0].pending_seal_breaker_from === L1.sol);
+    expect(armed.players[0].special_resource).toBe(16);
+
+    const crossed = await act<{ result: { territory_captured: boolean } }>(
+      c, 'game:attack', { gameId, fromId: L1.sol, toId: L1.verdan }, 'game:combat_result',
+    );
+    expect(crossed.ok, crossed.ok ? '' : crossed.error).toBe(true);
+    const spent = await waitForRedisState(gameId, (st) => !st.players[0].pending_seal_breaker_from);
+    expect(spent.players[0].pending_seal_breaker_from).toBeUndefined();
+  }, 45_000);
+
+  it('lane powers: Lance Battery takes 2 off the far gateway and charges 5 PP', async () => {
+    const gameId = 'itest-ga-lance';
+    const map = freshMap();
+    const state = freshState(gameId, map, { galaxy_powers: true });
+    state.territories[L1.sol].owner_id = P[0];
+    state.territories[L1.sol].buildings = ['defense_1'];
+    state.territories[L1.verdan].owner_id = P[1];
+    state.territories[L1.verdan].unit_count = 5;
+    state.players[0].special_resource = 20;
+    state.players[0].unlocked_techs = ['ga_disruption_net'];
+    state.phase = 'attack';
+    await seed(gameId, state, map);
+    const c = await connect(P[0]); await joinRoom(P[0], gameId);
+    const fired = await act(c, 'game:use_ability', { gameId, abilityId: 'lance_battery', params: { territoryId: L1.verdan } }, 'game:ability_result');
+    expect(fired.ok, fired.ok ? '' : fired.error).toBe(true);
+    const after = await waitForRedisState(gameId, (st) => st.territories[L1.verdan].unit_count === 3);
+    expect(after.players[0].special_resource).toBe(15);
+    // Once per turn.
+    const again = await act(c, 'game:use_ability', { gameId, abilityId: 'lance_battery', params: { territoryId: L1.verdan } }, 'game:ability_result');
+    expect(again.ok).toBe(false);
+  }, 45_000);
 });

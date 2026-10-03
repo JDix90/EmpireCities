@@ -70,6 +70,7 @@ function galaxySettingsBase(lessonModule: GalaxyTutorialLessonModule, seats: num
     galaxy_buildings_v2: featureFlags.galaxyBuildingsV2Enabled,
     galaxy_orbital_buildings: featureFlags.galaxyOrbitalBuildingsEnabled,
     galaxy_garrisons: featureFlags.galaxyGarrisonsEnabled,
+    galaxy_powers: featureFlags.galaxyPowersEnabled,
   };
 }
 
