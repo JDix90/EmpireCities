@@ -717,6 +717,14 @@ function playAiTurn(
         seat.capturesFromHouse[vh] = (seat.capturesFromHouse[vh] ?? 0) + 1;
         const w = state.territories[a.to].world_id ?? '?';
         seat.capturesOn[w] = (seat.capturesOn[w] ?? 0) + 1;
+        // A capture can kill a gate lane (the gate razed, or its links cut under
+        // orbital infrastructure): project that onto the map copy at once, as the
+        // socket does, or the dead lane keeps feeding the bots' adjacency until
+        // the next build.
+        if (syncJumpGateLanes(map, state)) {
+          connectionsByKey.clear();
+          for (const c of map.connections) connectionsByKey.set(laneKey(c.from, c.to), c);
+        }
         // Orbital infrastructure: what still stands on a captured gateway is now the captor's.
         if (ORBITAL && state.territories[a.to].gateway) {
           seat.buildingsInherited += (state.territories[a.to].buildings ?? []).length;

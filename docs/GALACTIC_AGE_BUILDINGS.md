@@ -130,7 +130,38 @@ Why this is the first balance-bearing change: it makes the tiles the era fights 
 | PP banked at game end, per seat | 222.6 | 338.3 | 335.8 | 336.5 |
 | buildings inherited per seat per game | — | 17.6 | 15.6 | 10.0 |
 
-The bands hold and the snowball does not rise, but **the §8 gate is not met**: games run 3.7 turns longer, decisiveness falls six points (Lane Sovereignty locks less often), and PP banked rises instead of falling. The AI's build order is not the cause (third column), and razing defence works with the garrison does not help (fourth column: longer still, more churn). What the rule does is make gateways change hands more, not less — the lane ring churns rather than settles, which is what delays a sovereignty lock. Open before promotion: whether that churn is the AI fighting over developed tiles (its attack scoring, not the rule) or the rule itself, and whether PP banked can be judged at all before Phases 3 and 4 give the fuel something to buy. The flag stays OFF until that is decided.
+The bands hold and the snowball does not rise, but as first shipped **the §8 gate was not met**: games ran 3.7 turns longer, decisiveness fell six points (Lane Sovereignty locked less often), and PP banked rose instead of falling. The AI's build order was not the cause (third column), and razing defence works with the garrison did not help (fourth column: longer still, more churn).
+
+**Found (2026-10-03):** the driver is the inherited **Jump Gate's lane**, not the AI's attack scoring (which has no term for a developed tile; buildings reach it only as defence dice in the capture odds) and not the economic buildings. Varying which buildings survive a gateway capture, same seed and seat count:
+
+| surviving set | length | decisive | lane end-owner changes | PP banked |
+|---|---|---|---|---|
+| nothing (control) | 30.3 | 99.0% | 72.5 | 222 |
+| all | 33.9 | 92.8% | 78.9 | 337 |
+| all but tech buildings | 34.0 | 92.7% | 78.9 | 339 |
+| all but production | 33.9 | 92.6% | 78.6 | 316 |
+| all but defences | 35.5 | 91.1% | 88.2 | 337 |
+| defences only | 30.6 | 98.1% | 69.1 | 229 |
+| Jump Gate only | 35.4 | 91.3% | 88.5 | 319 |
+| all but the Jump Gate | 30.6 | 98.1% | 69.2 | 238 |
+| all, gate kept but its lane cut on capture | 29.2 | 99.7% | 65.8 | 220 |
+
+Production and tech buildings are neutral (techs researched per seat is 8.3 against 8.4 in every run). Surviving defences settle the ring. The Jump Gate alone reproduces the whole damage, and cutting its lane while leaving the building removes it: a lane between two owners is one nobody can cross (a fortify needs both ends, an attack is refused — 0.1 gate-lane fortifies per seat per game in every run) but it stays in the map's adjacency, so each bot reads the stack at the far end as a threat on the gateway for the rest of the game.
+
+**Decided:** every building on a captured gateway passes to the captor; a Jump Gate passes as a building and loses its lane (`severJumpGateLinks`), to be paired afresh with the captor's next gate. The socket and the sim re-project gate lanes after every capture, which also retires a stale razed-gate lane that used to linger in a live room until the next build (the control below is measured with that fix, which is why it differs slightly from the first table).
+
+**Measured, final rule (1,000 games per cell, seed `borderfall-galaxy-balance`, expert):**
+
+| seats | | length | decisive | turn-10 leader | lane end-owner changes | PP banked | factions |
+|---|---|---|---|---|---|---|---|
+| 4 | control | 29.6 | 99.2% | 60.6% | 70.9 | 212 | 25.4 / 24.5 / 27.2 / 22.9 |
+| 4 | **rule** | 29.2 | 99.7% | 59.8% | 65.8 | 219 | 23.1 / 26.7 / 28.2 / 22.0 |
+| 2 | control | 29.0 | 98.5% | 68.6% | 21.9 | 472 | 64.3 / 26.6 / 64.8 / 44.3 |
+| 2 | **rule** | 28.9 | 99.1% | 69.1% | 21.0 | 485 | 65.9 / 25.2 / 66.0 / 42.9 |
+| 8 | control | 42.9 | 96.9% | 38.3% | 172.0 | 132 | 13.0 / 12.1 / 10.7 / 14.2 |
+| 8 | **rule** | 41.2 | 98.5% | 39.9% | 159.9 | 132 | 13.2 / 12.9 / 10.1 / 13.8 |
+
+Factions are Sol / Rust / Verdan / Nexus. Every §8 line holds at every seat count — bands inside 18 to 32% at four seats, the Colonies and Schism bands where GALAXY-BALANCE §7 and §8 put them (the Syndicate's low two-seat number is the control's too), games shorter, more decisive, the snowball flat, the ring settling — except **PP banked**, which is flat to slightly up (+7 per seat at four), as it must be while the phase adds income and nothing to spend it on. That line is Phases 3 and 4's to move; promotion of this phase is not held on it.
 
 ---
 
@@ -207,5 +238,5 @@ The galaxy sim (`SIM_PLAYERS`, `SIM_EVENTS`, `SIM_SCATTERED`, the Schism and tea
 
 ## History
 
-- **2026-10-03:** Phase 1 shipped dark (#518): `BUILDING_DISPLAY_BY_ERA`, `GALAXY_AGE_TECH_TREE_V2`, `techNodeBuildingUnlocks`, behind `galaxy_buildings_v2_enabled`. Phase 2 shipped dark: `state/orbitalBuildings.ts` behind `galaxy_orbital_buildings_enabled`, with `SIM_ORBITAL` and the PP-banked line in the galaxy sim.
+- **2026-10-03:** Phase 1 shipped dark (#518): `BUILDING_DISPLAY_BY_ERA`, `GALAXY_AGE_TECH_TREE_V2`, `techNodeBuildingUnlocks`, behind `galaxy_buildings_v2_enabled`. Phase 2 shipped dark (#519): `state/orbitalBuildings.ts` behind `galaxy_orbital_buildings_enabled`, with `SIM_ORBITAL` and the PP-banked line in the galaxy sim. Its first measurement failed the §8 gate; the surviving-set split traced it to the inherited Jump Gate's lane, and the rule now cuts that lane on capture (`severJumpGateLinks`).
 - **2026-10-02:** written after the Galactic Age tutorial track shipped (#507 to #514), from a read of the tree, the catalog, the economy tick, the capture rule, the AI's build order and the balance notes. Decided in review: gateway buildings survive capture; garrison doctrines are defence-only and attack-only, separate and exclusive; powers are per turn with a PP price.

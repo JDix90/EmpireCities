@@ -14,6 +14,7 @@ import {
   JUMP_GATE_COST,
   playerHasGateOnWorld,
   recordJumpGateLinks,
+  severJumpGateLinks,
 } from './jumpGates';
 import { getPlayerFaction } from '../eras/factionLineage';
 import {
@@ -532,9 +533,11 @@ export function onTerritoryCapture(state: GameState, territoryId: string): void 
   if (state.settings.economy_enabled) {
     if (buildingsSurviveCapture(state, territory)) {
       // Orbital infrastructure (state/orbitalBuildings.ts): a gateway's
-      // buildings pass to the captor, era stamps included — a Jump Gate here
-      // keeps its lane for its new owner, as jumpGates.ts promised. (Phase 3
-      // clears the garrison doctrine at this point.)
+      // buildings pass to the captor, era stamps included. A Jump Gate passes
+      // as a building only — its lane is cut here (severJumpGateLinks says
+      // why); the captor pairs it afresh with their next gate. (Phase 3 clears
+      // the garrison doctrine at this point.)
+      if ((territory.buildings ?? []).includes(JUMP_GATE_BUILDING)) severJumpGateLinks(state, territoryId);
     } else {
       // Preserve wonders — raze everything else
       territory.buildings = (territory.buildings ?? []).filter((b) => isWonderId(b));

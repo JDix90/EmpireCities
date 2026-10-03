@@ -92,6 +92,28 @@ export function recordJumpGateLinks(state: GameState, playerId: string, territor
   if (links.length > 0) state.jump_gate_links = links;
 }
 
+/**
+ * Cut every link that touches `territoryId`, leaving the building where it
+ * stands. Used when a gate changes hands under orbital infrastructure
+ * (state/orbitalBuildings.ts): the captor keeps the gate and can pair it with
+ * their own next gate on another world (`recordJumpGateLinks` pairs a new gate
+ * with every gate its builder holds), but the lane to its old partner dies
+ * with the capture, as the gate's own header promised. Measured with the lane
+ * left standing between two owners, the galaxy ran four turns longer and
+ * locked Lane Sovereignty six points less often: a lane nobody can cross (a
+ * fortify needs both ends, an attack is refused) still sits in the map's
+ * adjacency, so each bot reads the stack at the far end as a threat on the
+ * gateway for the rest of the game. Returns true when a link was dropped; the
+ * map copy follows at the next `syncJumpGateLanes`.
+ */
+export function severJumpGateLinks(state: GameState, territoryId: string): boolean {
+  const links = state.jump_gate_links ?? [];
+  const kept = links.filter((l) => l.a !== territoryId && l.b !== territoryId);
+  if (kept.length === links.length) return false;
+  state.jump_gate_links = kept.length > 0 ? kept : undefined;
+  return true;
+}
+
 /** The lanes the current link list should produce. */
 export function jumpGateLaneConnections(state: GameState): MapConnection[] {
   return (state.jump_gate_links ?? [])

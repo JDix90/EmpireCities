@@ -9,7 +9,8 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import type { GameMap, GameSettings, GameState, TerritoryState } from '../../types';
 import { initializeGameState } from './gameStateManager';
-import { onTerritoryCapture } from './economyManager';
+import { applyBuild, onTerritoryCapture } from './economyManager';
+import { jumpGateLaneConnections, syncJumpGateLanes } from './jumpGates';
 import { normalizeGameSettings } from './gameSettings';
 import { unlockTerritoriesForFloor } from '../eraAdvancement/territoryUnlock';
 import { GALAXY_MODE_LANE_SOURCE } from './galaxyRing';
@@ -188,6 +189,77 @@ describe('on capture', () => {
     onTerritoryCapture(captureState(t, { economy_enabled: false }), 'g1');
     expect(t.buildings).toEqual(['production_2', 'defense_1', 'jump_gate']);
     expect(t.naval_units).toBe(0);
+  });
+});
+
+describe('a Jump Gate on a captured gateway', () => {
+  const SOL_INTERIOR = 'sol_columbia';
+  const VERDAN_GATEWAY = 'verdan_photic_crown';
+  const RUST_INTERIOR = 'rust_cinderworks';
+
+  function gateAcrossTheRing(): { state: GameState; map: GameMap } {
+    const map = JSON.parse(JSON.stringify(GALAXY)) as GameMap;
+    const players = FOUR.map((faction_id, i) => ({
+      player_id: `p_${faction_id}`, player_index: i, username: faction_id, color: '#fff',
+      is_ai: false, is_eliminated: false, mmr: 1000, faction_id,
+    }));
+    const state = initializeGameState('t_orbital_gate', 'galaxy_age', map, players as never, settings({ galaxy_orbital_buildings: true }), {
+      forceStartingPlayerIndex: 0,
+    });
+    for (const p of state.players) p.special_resource = 200;
+    // The Mandate holds a Sol tile and a Verdan gateway, and gates the pair.
+    state.territories[SOL_INTERIOR].owner_id = 'p_stellar_mandate';
+    state.territories[VERDAN_GATEWAY].owner_id = 'p_stellar_mandate';
+    applyBuild(state, 'p_stellar_mandate', SOL_INTERIOR, 'jump_gate');
+    applyBuild(state, 'p_stellar_mandate', VERDAN_GATEWAY, 'jump_gate');
+    syncJumpGateLanes(map, state);
+    return { state, map };
+  }
+
+  it('passes to the captor as a building and loses its lane', () => {
+    const { state, map } = gateAcrossTheRing();
+    expect(state.territories[VERDAN_GATEWAY].gateway).toBe(true);
+    expect(jumpGateLaneConnections(state)).toHaveLength(1);
+
+    state.territories[VERDAN_GATEWAY].owner_id = 'p_helion_navigators';
+    onTerritoryCapture(state, VERDAN_GATEWAY);
+    expect(state.territories[VERDAN_GATEWAY].buildings).toContain('jump_gate');
+    expect(state.jump_gate_links).toBeUndefined();
+    // The map copy drops the lane at the next sync — the socket and the sim run
+    // one after every capture.
+    expect(syncJumpGateLanes(map, state)).toBe(true);
+    expect(map.connections.some((c) => c.source === 'jump_gate')).toBe(false);
+    // The Mandate's own gate on Sol still stands, lane-less.
+    expect(state.territories[SOL_INTERIOR].buildings).toContain('jump_gate');
+  });
+
+  it('pairs afresh with the captor\'s next gate on another world', () => {
+    const { state, map } = gateAcrossTheRing();
+    state.territories[VERDAN_GATEWAY].owner_id = 'p_helion_navigators';
+    onTerritoryCapture(state, VERDAN_GATEWAY);
+    syncJumpGateLanes(map, state);
+
+    state.territories[RUST_INTERIOR].owner_id = 'p_helion_navigators';
+    applyBuild(state, 'p_helion_navigators', RUST_INTERIOR, 'jump_gate');
+    expect(syncJumpGateLanes(map, state)).toBe(true);
+    const lanes = jumpGateLaneConnections(state);
+    expect(lanes).toHaveLength(1);
+    expect([lanes[0].from, lanes[0].to].sort()).toEqual([RUST_INTERIOR, VERDAN_GATEWAY].sort());
+  });
+
+  it('is razed with its lane on an interior tile, and in a game without the setting', () => {
+    const { state, map } = gateAcrossTheRing();
+    state.territories[SOL_INTERIOR].owner_id = 'p_forge_syndicate';
+    onTerritoryCapture(state, SOL_INTERIOR);
+    expect(state.territories[SOL_INTERIOR].buildings).toEqual([]);
+    expect(syncJumpGateLanes(map, state)).toBe(true);
+    expect(jumpGateLaneConnections(state)).toHaveLength(0);
+
+    const off = gateAcrossTheRing();
+    off.state.settings.galaxy_orbital_buildings = undefined;
+    off.state.territories[VERDAN_GATEWAY].owner_id = 'p_helion_navigators';
+    onTerritoryCapture(off.state, VERDAN_GATEWAY);
+    expect(off.state.territories[VERDAN_GATEWAY].buildings).toEqual([]);
   });
 });
 

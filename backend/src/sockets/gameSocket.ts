@@ -2191,6 +2191,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         state,
       }));
       broadcastState(io, gameId, state);
+      if (result.territory_captured) await syncJumpGateLanesAfterCapture(io, gameId, state, map);
       void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
       });
     });
@@ -2452,6 +2453,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         state,
       }));
       broadcastState(io, gameId, state);
+      if (result.territory_captured) await syncJumpGateLanesAfterCapture(io, gameId, state, map);
       void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
       });
     });
@@ -4625,6 +4627,30 @@ async function announceJumpGateLanes(
 }
 
 /**
+ * A capture can take a Jump Gate lane with it: the gate razed, or, under orbital
+ * infrastructure, its links cut while the building passes to the captor
+ * (`severJumpGateLinks`). Project that onto the game's map copy, persist, and
+ * push the new map, so the chart stops drawing a lane nobody can use and the
+ * bots stop reading across it. Same discipline as `announceJumpGateLanes`,
+ * without the opening notices. No-op when the capture touched no gate.
+ */
+async function syncJumpGateLanesAfterCapture(
+  io: Server,
+  gameId: string,
+  state: GameState,
+  map: GameMap,
+): Promise<void> {
+  if (!syncJumpGateLanes(map, state)) return;
+  await saveGameMapAuthoritative(gameId, map).catch((err) =>
+    console.error('[Room] jump gate lane persist failed', gameId, err),
+  );
+  io.to(gameId).emit('game:map', {
+    mapId: state.map_id,
+    map: projectMapToEraFloor(map, state.map_era_floor ?? 0),
+  });
+}
+
+/**
  * Lane weather changed the graph (a surge opened, or one blew over): project it
  * onto the game's map copy, persist, and push the new map to the room. Called
  * after every turn advance, because weather ages with the round rather than with
@@ -4879,6 +4905,14 @@ function landPendingDropAssaults(
         secretMission: defender.secret_mission ?? null,
       });
     }
+  }
+
+  // A landed drop can take a gate end like any capture; the resolver is
+  // synchronous, so the map follows fire-and-forget, as the persist does.
+  if (resolutions.some((res) => res.captured)) {
+    void syncJumpGateLanesAfterCapture(io, gameId, state, map).catch((err) =>
+      console.error('[Room] jump gate lane sync after drop failed', gameId, err),
+    );
   }
 
   syncTerritoryCounts(state);
@@ -6724,6 +6758,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
           state,
         }));
         broadcastState(io, gameId, state);
+        if (result.territory_captured) await syncJumpGateLanesAfterCapture(io, gameId, state, map);
 
         if (await doVictoryCheck()) return 'abort_turn';
         if (result.territory_captured) {
