@@ -1,6 +1,6 @@
 import type { GameMap, GameState } from '../../types';
 import type { DailyPuzzleSpec } from './dailyPuzzleTypes';
-import { syncTerritoryCounts } from '../state/gameStateManager';
+import { openingResources, syncTerritoryCounts } from '../state/gameStateManager';
 import { buildDiceQueue } from './puzzleDice';
 import { applyAuthoredScenario } from '../scenarios/applyAuthoredScenario';
 
@@ -30,6 +30,7 @@ export function applyDailyPuzzleScenario(
   // route's settings, so an authored military/economy/tech day needs no new
   // machinery — only a board worth playing.
   if (spec.starting_board) {
+    if (spec.clear_board) resetOpeningResources(state);
     applyAuthoredScenario(
       state,
       map,
@@ -92,5 +93,22 @@ export function applyDailyPuzzleScenario(
     }
     state.phase = 'draft';
     return;
+  }
+}
+
+/**
+ * initializeGameState pays every seat an opening production and tech tick
+ * (economy + tech) for the board it dealt. A cleared day throws that board
+ * away, but the income stayed, and the day's grants are floors: on a research
+ * day the player opened with three points and ten gold earned from territories
+ * they never held, so a tier-one goal fell on turn one or two, before the bot
+ * next door could matter. Return each seat to the dealt values; the grants
+ * are then the whole opening budget, and the rest is earned by holding ground.
+ */
+function resetOpeningResources(state: GameState): void {
+  const opening = openingResources(state.settings);
+  for (const player of state.players) {
+    player.tech_points = opening.tech_points;
+    player.special_resource = opening.special_resource;
   }
 }

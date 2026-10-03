@@ -118,6 +118,59 @@ describe('applyDailyPuzzleScenario — authored days', () => {
     expect(human.tech_points).toBe(4);
   });
 
+  it('a cleared board clears the opening income the dealt board paid, so the grant is the whole budget', () => {
+    const state = fixtureState();
+    // Economy + tech: initializeGameState paid every seat a production and
+    // tech tick for the dealt board on top of the pinned bootstrap (0 / 4).
+    state.settings = {
+      economy_enabled: true,
+      tech_trees_enabled: true,
+      economy_tech_starting_tech_points: 0,
+      economy_tech_starting_gold: 4,
+    } as GameState['settings'];
+    for (const p of state.players) {
+      p.tech_points = 3;
+      p.special_resource = 10;
+    }
+    applyDailyPuzzleScenario(state, fixtureMap(), authoredSpec({ grants: { tech_points: 0 } }), HUMAN, AI);
+    const human = state.players.find((p) => p.player_id === HUMAN)!;
+    const ai = state.players.find((p) => p.player_id === AI)!;
+    expect(human.tech_points).toBe(0);
+    expect(human.special_resource).toBe(4);
+    expect(ai.tech_points).toBe(0);
+    expect(ai.special_resource).toBe(4);
+  });
+
+  it('a grant above the dealt values still lands on a cleared board', () => {
+    const state = fixtureState();
+    state.settings = {
+      economy_enabled: true,
+      tech_trees_enabled: true,
+      economy_tech_starting_tech_points: 0,
+      economy_tech_starting_gold: 4,
+    } as GameState['settings'];
+    state.players[0].tech_points = 3;
+    applyDailyPuzzleScenario(state, fixtureMap(), authoredSpec({ grants: { tech_points: 7 } }), HUMAN, AI);
+    expect(state.players[0].tech_points).toBe(7);
+    expect(state.players[0].special_resource).toBe(4);
+  });
+
+  it('an additive board (no clear_board) keeps what the dealt board paid', () => {
+    const state = fixtureState();
+    state.settings = { economy_enabled: true, tech_trees_enabled: true } as GameState['settings'];
+    state.players[0].tech_points = 3;
+    state.players[0].special_resource = 10;
+    applyDailyPuzzleScenario(
+      state,
+      fixtureMap(),
+      authoredSpec({ clear_board: undefined, starting_phase: undefined, grants: { tech_points: 0 } }),
+      HUMAN,
+      AI,
+    );
+    expect(state.players[0].tech_points).toBe(3);
+    expect(state.players[0].special_resource).toBe(10);
+  });
+
   it('a generated (no starting_board) military spec keeps the legacy 8v4 shaper', () => {
     const state = fixtureState();
     applyDailyPuzzleScenario(

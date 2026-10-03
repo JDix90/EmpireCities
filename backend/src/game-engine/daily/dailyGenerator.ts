@@ -683,7 +683,8 @@ export function buildTechDay(input: TechDayInput): DailyPuzzleSpec | null {
     starting_board: dealHoldings({ human: input.human, ai: input.ai, rng, aiUnits: input.siege_stack }),
     grants: { tech_points: sizing.grant },
     // The bootstrap is pinned off so the grant really is the opening budget;
-    // the rest comes from holding ground.
+    // the rest comes from holding ground. (applyDailyPuzzleScenario also
+    // clears the opening income tick the dealt, then discarded, board paid.)
     settings_overrides: { economy_tech_starting_tech_points: 0 },
   };
 }
