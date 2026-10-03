@@ -49,6 +49,7 @@ Status: **current** (maintained, carries source-of-truth pointers) · **point-in
 | [era-advancement/](era-advancement/README.md) | Era Advancement feature design (stages 0–3) | design-archive |
 | [WARFRONT_RTS_MODE.md](WARFRONT_RTS_MODE.md) | Warfront: real-time-strategy mode on the globe — design brief; admin-only solo prototype built through Slice A step 4, no fun verdict yet | experimental |
 | [DAILY_PUZZLE_V2.md](DAILY_PUZZLE_V2.md) | Daily Challenge v2: decision puzzles scored by win probability, not dice — agreed design, dark behind `daily_puzzle_v2_enabled` | in progress |
+| [GALACTIC_AGE_BUILDINGS.md](GALACTIC_AGE_BUILDINGS.md) | Galactic Age buildings, garrison doctrines and lane powers: phased, flag-gated design package that re-gates the catalog to the tree, keeps gateway buildings through capture, adds d8 garrisons and PP-priced powers — proposed, nothing implemented | design-archive |
 | [GALACTIC_AGE_MODES.md](GALACTIC_AGE_MODES.md) | Galactic Age modes by seat count: Colonies (2–3 players), 2v2 (4), the Partial Schism (5–7, a house alone on each unshared world facing an unclaimed half) and the Schism (8), with Concord / Civil War / Allied houses, on engine-wide team rules — the era is admin-only | current |
 
 Root-level: [README.md](../README.md) (canonical setup), [DEPLOYMENT.md](../DEPLOYMENT.md), [CONTRIBUTING.md](../CONTRIBUTING.md), [AGENTS.md](../AGENTS.md), [PRIVACY_POLICY.md](../PRIVACY_POLICY.md), [TERMS_AND_CONDITIONS.md](../TERMS_AND_CONDITIONS.md).
