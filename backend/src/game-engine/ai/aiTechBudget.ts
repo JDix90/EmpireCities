@@ -2,7 +2,8 @@
 // AI tech-point budgeting — can the bot afford this ability AND its research?
 // ============================================================
 
-import type { AiDifficulty, GameState } from '../../types';
+import type { GameState } from '../../types';
+import { aiProfile, type AiLevel } from './aiProfiles';
 import { eraTechTreeOptions, getEraTechTree } from '../eras';
 import { resolvePlayerEraId } from '../eraAdvancement/constants';
 import { getEffectiveTechCost } from '../state/techManager';
@@ -13,12 +14,13 @@ import { getEffectiveTechCost } from '../state/techManager';
  * budget rule below and the research it protects can never disagree about
  * whether research is even on the table.
  */
-export function aiResearchesTech(state: GameState, difficulty: AiDifficulty): boolean {
-  if (difficulty === 'tutorial') return false;
+export function aiResearchesTech(state: GameState, difficulty: AiLevel): boolean {
+  const research = aiProfile(difficulty).research;
+  if (research === 'none') return false;
   if (!state.settings.tech_trees_enabled) return false;
   // Easy stays passive in normal games but must research in era-advancement
   // games (milestone gate) and in the Galactic Age (hyperspace lanes).
-  if (difficulty === 'easy' && !state.settings.era_advancement_enabled && state.era !== 'galaxy_age') {
+  if (research === 'gate_only' && !state.settings.era_advancement_enabled && state.era !== 'galaxy_age') {
     return false;
   }
   return true;
@@ -41,7 +43,7 @@ export function aiResearchesTech(state: GameState, difficulty: AiDifficulty): bo
 export function nextResearchReserve(
   state: GameState,
   playerId: string,
-  difficulty: AiDifficulty,
+  difficulty: AiLevel,
 ): number | null {
   if (!aiResearchesTech(state, difficulty)) return null;
   const player = state.players.find((p) => p.player_id === playerId);
@@ -76,7 +78,7 @@ export function nextResearchReserve(
 export function shouldSpendTechPointsOnAbility(
   state: GameState,
   playerId: string,
-  difficulty: AiDifficulty,
+  difficulty: AiLevel,
   techCost: number,
 ): boolean {
   if (techCost <= 0) return true;

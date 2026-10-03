@@ -1,5 +1,6 @@
-import type { AiDifficulty, GameState } from '../../types';
+import type { GameState } from '../../types';
 import { computeWinProbabilities } from '../state/gameStateManager';
+import { aiProfile, type AiLevel } from './aiProfiles';
 
 /**
  * The AI's per-turn attack budget, counted in DICE EXCHANGES rather than in
@@ -14,19 +15,13 @@ import { computeWinProbabilities } from '../state/gameStateManager';
  * more units: not rarely, never, at every difficulty and on every map. That is
  * what "the AI never attacks me properly" actually was.
  *
- * The numbers below are the previous per-turn attack caps, unchanged. Only their
- * meaning changes: the AI may now spend several of them grinding one edge until
- * it falls, instead of poking several edges once each. Because the total number
- * of exchanges per turn is identical, turn pacing is unchanged too — the socket
- * still sleeps once per exchange.
+ * Each level's budget is its profile's `exchangeBudget` (ai/aiProfiles.ts):
+ * the previous per-turn attack caps, unchanged. Only their meaning changed: the
+ * AI may spend several of them grinding one edge until it falls, instead of
+ * poking several edges once each. Because the total number of exchanges per
+ * turn is identical, turn pacing is unchanged too — the socket still sleeps
+ * once per exchange.
  */
-export const AI_ATTACK_EXCHANGE_BUDGET: Record<AiDifficulty, number> = {
-  tutorial: 0,
-  easy: 2,
-  medium: 4,
-  hard: 8,
-  expert: 8,
-};
 
 /**
  * Decided-game escape (ai_decided_game_press_enabled).
@@ -49,22 +44,23 @@ export const DECIDED_GAME_BUDGET_MULT = 2;
 /**
  * Should this AI spend a decided game pressing to finish it?
  *
- * Easy and tutorial never press: easy's whole contract is being forgiving, and
- * the tutorial AI does not attack at all. The flag check stays with the caller
- * (featureFlags is process-level; this must stay pure for tests and sims).
+ * Easy and tutorial never press (profile.decidedPress): easy's whole contract is
+ * being forgiving, and the tutorial AI does not attack at all. The flag check
+ * stays with the caller (featureFlags is process-level; this must stay pure for
+ * tests and sims).
  */
 export function shouldPressDecidedGame(
   state: GameState,
   playerId: string,
-  difficulty: AiDifficulty,
+  difficulty: AiLevel,
 ): boolean {
-  if (difficulty === 'easy' || difficulty === 'tutorial') return false;
+  if (!aiProfile(difficulty).decidedPress) return false;
   return (computeWinProbabilities(state)[playerId] ?? 0) > DECIDED_GAME_WIN_PROB;
 }
 
 /** The per-turn exchange budget, with the decided-game press applied. */
-export function aiAttackExchangeBudget(difficulty: AiDifficulty, decidedPress: boolean): number {
-  const base = AI_ATTACK_EXCHANGE_BUDGET[difficulty] ?? 4;
+export function aiAttackExchangeBudget(difficulty: AiLevel, decidedPress: boolean): number {
+  const base = aiProfile(difficulty).exchangeBudget;
   return decidedPress ? base * DECIDED_GAME_BUDGET_MULT : base;
 }
 

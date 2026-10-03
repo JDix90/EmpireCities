@@ -3,10 +3,13 @@ import fs from 'fs';
 import path from 'path';
 import { computeAiTurn } from './aiBot';
 import { aiTurnLimiter } from './aiConcurrency';
-import type { GameState, GameMap, AiDifficulty } from '../../types';
+import type { GameState, GameMap } from '../../types';
 import type { AiAction, AiTurnOptions } from './aiBot';
+import { aiProfile, type AiLevel } from './aiProfiles';
 
-// Per-difficulty time budgets. There is no tree search: computeAiTurn is a
+// Per-difficulty time budgets (the profile's planBudgetMs, ai/aiProfiles.ts:
+// tutorial 750 ms, easy 1 s, medium 1.5 s, hard 3 s, expert 5 s). There is no
+// tree search: computeAiTurn is a
 // single-ply greedy planner (see aiBot), so these are generous ceilings, not
 // measured needs — planning itself costs microseconds. What they actually bound
 // is worker startup plus the structured-clone of state+map, which scales with
@@ -15,13 +18,6 @@ import type { AiAction, AiTurnOptions } from './aiBot';
 // fallback substitutes an 'easy' plan (2 attacks, no build/research), so any
 // future search must check its own deadline rather than rely on the timeout.
 // The hard-cap is a safety net the outer Promise.race uses if inner cleanup leaks.
-const TIME_BUDGET_BY_DIFFICULTY: Record<AiDifficulty, number> = {
-  tutorial: 750,
-  easy: 1_000,
-  medium: 1_500,
-  hard: 3_000,
-  expert: 5_000,
-};
 const HARD_CAP_PADDING_MS = 1_500;
 
 /**
@@ -39,7 +35,7 @@ const HARD_CAP_PADDING_MS = 1_500;
 export async function runAiWithTimeout(
   state: GameState,
   map: GameMap,
-  difficulty: AiDifficulty,
+  difficulty: AiLevel,
   options?: AiTurnOptions
 ): Promise<AiAction[]> {
   const workerPath = path.join(__dirname, 'aiWorker.js');
@@ -62,11 +58,11 @@ export async function runAiWithTimeout(
 async function runAiTurnInWorker(
   state: GameState,
   map: GameMap,
-  difficulty: AiDifficulty,
+  difficulty: AiLevel,
   workerPath: string,
   options?: AiTurnOptions,
 ): Promise<AiAction[]> {
-  const timeBudgetMs = TIME_BUDGET_BY_DIFFICULTY[difficulty] ?? 2_000;
+  const timeBudgetMs = aiProfile(difficulty).planBudgetMs;
   const hardCapMs = timeBudgetMs + HARD_CAP_PADDING_MS;
 
   // Hold onto the soft-fallback timer so the hard-cap branch can clear it on
@@ -93,7 +89,7 @@ async function runAiTurnInWorker(
 
     softFallbackTimer = setTimeout(() => {
       if (!resolved) {
-        console.warn(`[AI] Time budget exceeded for ${difficulty}, using easy fallback`);
+        console.warn(`[AI] Time budget exceeded for ${aiProfile(difficulty).difficulty}, using easy fallback`);
         settle(computeAiTurn(state, map, 'easy', options));
       }
     }, timeBudgetMs);

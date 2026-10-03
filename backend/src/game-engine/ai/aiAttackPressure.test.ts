@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { AiDifficulty, GameMap, GameState } from '../../types';
 import { computeAiTurn } from './aiBot';
 import { executeLandAttack } from '../combat/executeLandAttack';
-import { AI_ATTACK_EXCHANGE_BUDGET, runAiAttackExchanges, shouldContinueGrind } from './aiAttackGrind';
+import { aiAttackExchangeBudget, runAiAttackExchanges, shouldContinueGrind } from './aiAttackGrind';
 
 /**
  * The AI's per-turn attack budget counts DISTINCT EDGES, but a capture needs
@@ -74,7 +74,7 @@ async function runAiAttackTurn(
 ): Promise<{ captured: boolean; exchanges: number }> {
   const map = twoTerritoryMap();
   const state = stateWith(garrison);
-  const budget = { left: canGrind ? AI_ATTACK_EXCHANGE_BUDGET[difficulty] : Number.POSITIVE_INFINITY };
+  const budget = { left: canGrind ? aiAttackExchangeBudget(difficulty, false) : Number.POSITIVE_INFINITY };
   let exchanges = 0;
 
   for (const action of computeAiTurn(state, map, difficulty)) {
@@ -140,7 +140,7 @@ describe('AI attack pressure', () => {
     // A 40-unit garrison can't be taken by anyone here; the loop must still stop.
     for (const difficulty of ['easy', 'medium', 'hard'] as AiDifficulty[]) {
       const { exchanges } = await runAiAttackTurn(40, difficulty);
-      expect(exchanges).toBeLessThanOrEqual(AI_ATTACK_EXCHANGE_BUDGET[difficulty]);
+      expect(exchanges).toBeLessThanOrEqual(aiAttackExchangeBudget(difficulty, false));
     }
   });
 });

@@ -1,19 +1,11 @@
 import { randomInt } from 'crypto';
-import type { AiDifficulty, GameMap, GameState } from '../../types';
+import type { GameMap, GameState } from '../../types';
+import { aiProfile, type AiLevel } from './aiProfiles';
 import { canAdvanceEra } from '../eraAdvancement/advanceEra';
 import { getPlayerEraIndex } from '../eraAdvancement/constants';
 import { ERA_SIGNATURES } from '../eraAdvancement/signatures';
 import { getMaxEraIndex, getStateSpineSteps } from '../eraAdvancement/spines';
 import { getEmpireWeightedStability } from '../state/stabilityManager';
-
-/** Minimum advance_score to trigger era climb by difficulty. */
-const ADVANCE_THRESHOLDS: Record<AiDifficulty, number> = {
-  tutorial: Number.POSITIVE_INFINITY,
-  easy: 12,
-  medium: 6,
-  hard: 4,
-  expert: 3,
-};
 
 /**
  * Threat is measured RELATIVE to the player's own border defense, not as an
@@ -106,10 +98,12 @@ export function evaluateAiEraAdvancement(
   state: GameState,
   map: GameMap,
   playerId: string,
-  difficulty: AiDifficulty,
+  difficulty: AiLevel,
 ): AiEraAdvancementScore {
-  const threshold = ADVANCE_THRESHOLDS[difficulty];
-  if (!state.settings.era_advancement_enabled || difficulty === 'tutorial') {
+  // The minimum advance_score to climb is the profile's (ai/aiProfiles.ts).
+  const profile = aiProfile(difficulty);
+  const threshold = profile.advanceThreshold;
+  if (!state.settings.era_advancement_enabled || profile.passive) {
     return { shouldAdvance: false, score: 0, threshold, gatePassed: false };
   }
 
@@ -123,7 +117,7 @@ export function evaluateAiEraAdvancement(
     return { shouldAdvance: false, score: 0, threshold, gatePassed: false };
   }
 
-  if (state.turn_number < 4 && difficulty !== 'expert') {
+  if (state.turn_number < 4 && !profile.advancesEarly) {
     return { shouldAdvance: false, score: 0, threshold, gatePassed: true };
   }
 
@@ -198,7 +192,7 @@ export function evaluateAiEraAdvancement(
 
   // Easy dawdles (85% skip) only when it is NOT behind. A trailing easy bot must
   // catch up or it gets steamrolled, so the skip is suppressed when gap >= 1.
-  if (difficulty === 'easy' && gap <= 0) {
+  if (profile.dawdles && gap <= 0) {
     const roll = randomInt(0, 100);
     if (roll > 15) {
       return { shouldAdvance: false, score, threshold, gatePassed: true };
@@ -223,12 +217,10 @@ export function evaluateAiEraAdvancement(
 export function vulnerabilityAttackBonus(
   state: GameState,
   defenderId: string | null | undefined,
-  difficulty: AiDifficulty,
+  difficulty: AiLevel,
 ): number {
   if (!state.settings.era_advancement_enabled || !defenderId) return 0;
   const defender = state.players.find((p) => p.player_id === defenderId);
   if (!defender || (defender.era_transition_turns_remaining ?? 0) <= 0) return 0;
-  if (difficulty === 'easy') return 1;
-  if (difficulty === 'medium') return 2;
-  return 4;
+  return aiProfile(difficulty).vulnerabilityBonus;
 }
