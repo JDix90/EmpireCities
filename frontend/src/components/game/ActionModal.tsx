@@ -96,6 +96,15 @@ export interface GameOverModalData {
   xpEarned?: number;
   /** Territory share (percent of all territories) the `threshold` win required. */
   victory_threshold?: number;
+  /**
+   * The Territory Threshold this game could be won at (percent of the map), or
+   * null when it could not be won that way (utils/mapControl). Unlike
+   * `victory_threshold`, this is gated on the game's allowed victory
+   * conditions: a Domination game created without choosing an ending still
+   * carries a default `victory_threshold` it can never be won by. The
+   * position-share chart draws its finishing line here.
+   */
+  map_control_threshold?: number | null;
   /** Which victory condition ended the game. */
   victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory' | 'abandoned' | 'turn_limit' | 'resignation' | 'humans_eliminated' | 'lunar_hegemony' | 'lane_sovereignty' | 'transcendence';
   /** Human-readable era name for the share card (e.g., "World War II"). */
@@ -1092,14 +1101,35 @@ function TurnSummaryView({
   );
 }
 
-// ─── Win probability chart (endgame) ───────────────────────────────────────
+// ─── Position share chart (endgame) ────────────────────────────────────────
 
-function WinProbabilityChart({
+/**
+ * The gridlines the chart labels, in percent. A finishing line takes the
+ * place of any gridline it would sit on (Blitz's 50% is the 50% gridline) and
+ * of any label it would overprint: the labels are 9px tall on a 130px axis,
+ * so anything within 8 points reads as one smudge.
+ */
+const SHARE_AXIS_ROWS = [0, 50, 100] as const;
+const SHARE_AXIS_CLEARANCE_PCT = 8;
+
+/**
+ * Each player's share of the board over the game. The series is the server's
+ * `win_probability_history`, which is a position (territory share blended with
+ * army share, renormalized over the players still in) and not calibrated odds:
+ * with six players everyone starts near 17%, and nobody passes 50% until they
+ * hold more than half of everything, which in a Blitz or Conquest game IS the
+ * win. So the chart is labelled as the share it is, and its dashed line sits
+ * where this game's Territory Threshold ends it, not at "even odds".
+ */
+function PositionShareChart({
   history,
   players,
+  thresholdPct,
 }: {
   history: WinProbabilitySnapshot[];
   players: GameOverModalData['players'];
+  /** The Territory Threshold this game could be won at, or null when it could not be. */
+  thresholdPct: number | null;
 }) {
   const W = 420;
   const H = 168;
@@ -1120,6 +1150,10 @@ function WinProbabilityChart({
     return { pl, d: pts.join(' ') };
   });
 
+  const gridRows = SHARE_AXIS_ROWS.filter(
+    (pct) => thresholdPct == null || Math.abs(pct - thresholdPct) >= SHARE_AXIS_CLEARANCE_PCT,
+  );
+
   // Calculate tick positions and turn numbers for the x-axis
   const tickCount = Math.min(8, n); // Show up to 8 ticks for clarity
   const tickIndexes = Array.from({ length: tickCount }, (_, i) => Math.round(i * (n - 1) / (tickCount - 1)));
@@ -1127,8 +1161,8 @@ function WinProbabilityChart({
 
   return (
     <div className="w-full text-left">
-      <p className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-2 text-center">Win probability over time</p>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto max-h-[200px]" role="img" aria-label="Win probability by turn">
+      <p className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-2 text-center">Position share over time</p>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto max-h-[200px]" role="img" aria-label="Position share by turn">
         <defs>
           <linearGradient id="chart-grid" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="rgba(255,255,255,0.06)" />
@@ -1136,17 +1170,27 @@ function WinProbabilityChart({
           </linearGradient>
         </defs>
         <rect x={pad.l} y={pad.t} width={innerW} height={innerH} fill="url(#chart-grid)" rx={4} />
-        {[0, 0.5, 1].map((t) => (
+        {gridRows.map((pct) => (
           <line
-            key={t}
+            key={pct}
             x1={pad.l}
             x2={pad.l + innerW}
-            y1={yAt(t)}
-            y2={yAt(t)}
+            y1={yAt(pct / 100)}
+            y2={yAt(pct / 100)}
             stroke="rgba(255,255,255,0.08)"
-            strokeDasharray={t === 0.5 ? '4 4' : '0'}
           />
         ))}
+        {thresholdPct != null && (
+          <line
+            data-testid="position-share-finish"
+            x1={pad.l}
+            x2={pad.l + innerW}
+            y1={yAt(thresholdPct / 100)}
+            y2={yAt(thresholdPct / 100)}
+            stroke="rgba(255,255,255,0.35)"
+            strokeDasharray="4 4"
+          />
+        )}
         {/* X-axis ticks and turn numbers */}
         {history.map((snap, i) => tickSet.has(i) && (
           <g key={i}>
@@ -1169,9 +1213,23 @@ function WinProbabilityChart({
             </text>
           </g>
         ))}
-        <text x={pad.l - 4} y={yAt(1) + 4} textAnchor="end" fill="rgba(255,255,255,0.28)" fontSize={9}>100%</text>
-        <text x={pad.l - 4} y={yAt(0.5) + 3} textAnchor="end" fill="rgba(255,255,255,0.28)" fontSize={9}>50%</text>
-        <text x={pad.l - 4} y={yAt(0) + 4} textAnchor="end" fill="rgba(255,255,255,0.28)" fontSize={9}>0%</text>
+        {gridRows.map((pct) => (
+          <text
+            key={pct}
+            x={pad.l - 4}
+            y={yAt(pct / 100) + (pct === 50 ? 3 : 4)}
+            textAnchor="end"
+            fill="rgba(255,255,255,0.28)"
+            fontSize={9}
+          >
+            {pct}%
+          </text>
+        ))}
+        {thresholdPct != null && (
+          <text x={pad.l - 4} y={yAt(thresholdPct / 100) + 3} textAnchor="end" fill="rgba(255,255,255,0.55)" fontSize={9}>
+            {thresholdPct}%
+          </text>
+        )}
         {lines.map(({ pl, d }) => (
           <polyline
             key={pl.player_id}
@@ -1196,8 +1254,11 @@ function WinProbabilityChart({
         ))}
       </div>
       <p className="text-white/25 text-[10px] text-center mt-2 leading-snug">
-        Estimated odds of winning, not territory held: each turn blends territory share (55%) with army share (45%) across
-        surviving players. The dashed line is even odds, not the victory threshold.
+        Position, not odds of winning: each turn blends territory share (55%) with army share (45%) across surviving
+        players, so the lines always add up to 100%.{' '}
+        {thresholdPct != null
+          ? `The dashed line is the ${thresholdPct}% of the map this game's Territory Threshold win needed.`
+          : 'The top of the chart is the finish: the whole map, or the last player standing.'}
       </p>
     </div>
   );
@@ -1667,7 +1728,11 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
           'mb-6 transition-all duration-500 delay-500',
           showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
         )}>
-          <WinProbabilityChart history={probHistory} players={data.players} />
+          <PositionShareChart
+            history={probHistory}
+            players={data.players}
+            thresholdPct={data.map_control_threshold ?? null}
+          />
         </div>
       )}
 
