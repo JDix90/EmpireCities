@@ -44,6 +44,24 @@ function bordersByLand(map: MapDoc, a: string, b: string): boolean {
   );
 }
 
+/**
+ * Human territories the siege can never reach: not on the front (no land
+ * border with an AI garrison) and not joined to it through human-held land.
+ * A player who builds or researches behind one is never under siege at all.
+ */
+function sanctuaries(map: MapDoc, human: readonly string[], ai: readonly string[]): string[] {
+  const reached = new Set(human.filter((h) => ai.some((g) => bordersByLand(map, h, g))));
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const h of human) {
+      if (reached.has(h) || ![...reached].some((r) => bordersByLand(map, r, h))) continue;
+      reached.add(h);
+      grew = true;
+    }
+  }
+  return human.filter((h) => !reached.has(h));
+}
+
 describe('daily set-pieces — integrity', () => {
   it('ids are unique and stable-looking', () => {
     const ids = DAILY_SET_PIECES.map((sp) => sp.id);
@@ -173,6 +191,9 @@ describe('daily set-pieces — shape', () => {
         // island bot would be a rumour rather than a siege.
         expect(sp.human.some((h) => bordersByLand(map, h, g)), `${sp.id}: AI garrison ${g} borders no human territory by land`).toBe(true);
       }
+      // And no sanctuary: an island the bot cannot reach is where the player
+      // builds, and the siege never touches the site.
+      expect(sanctuaries(map, sp.human, sp.ai), `${sp.id}: human territories out of the siege's reach`).toEqual([]);
       expect(DEFAULT_BUILDING_COSTS[sp.building_type], `${sp.id}: ${sp.building_type} has no cost`).toBeGreaterThan(0);
     }
   });
@@ -189,6 +210,9 @@ describe('daily set-pieces — shape', () => {
         // island bot would be a rumour rather than a siege.
         expect(sp.human.some((h) => bordersByLand(map, h, g)), `${sp.id}: AI garrison ${g} borders no human territory by land`).toBe(true);
       }
+      // And no sanctuary: an island the bot cannot reach is where the player
+      // researches, and the siege never touches them.
+      expect(sanctuaries(map, sp.human, sp.ai), `${sp.id}: human territories out of the siege's reach`).toEqual([]);
       const node = getEraTechTree(sp.era_id).find((n) => n.tech_id === sp.tech_id);
       expect(node, `${sp.id}: ${sp.tech_id} not in the ${sp.era_id} tree`).toBeDefined();
     }

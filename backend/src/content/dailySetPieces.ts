@@ -24,8 +24,10 @@ import type { DailyPuzzleSpec } from '../game-engine/daily/dailyPuzzleTypes';
  * - economy/tech: human and AI holdings are non-empty and disjoint; every AI
  *   garrison borders a human territory BY LAND (the bot besieges the player
  *   on these days, and a sea crossing cannot be pressed within a turn, so an
- *   island bot is a rumour, not a siege); the building is in the cost table;
- *   the tech is in the era's tree;
+ *   island bot is a rumour, not a siege); every human territory is reachable
+ *   from that front through human land (an island the bot cannot reach is a
+ *   sanctuary, and a player who builds there is never under siege at all);
+ *   the building is in the cost table; the tech is in the era's tree;
  * - region: human + AI holdings are exactly the region; every AI garrison
  *   borders a human territory; support borders a human region territory;
  * - chain: the first target borders the anchor and each next borders the
@@ -267,7 +269,7 @@ export const DAILY_SET_PIECES: readonly DailySetPiece[] = [
     map_id: 'era_medieval',
     title: 'The Wool Trade',
     intro: 'Peace for a season. Turn the treasury into something that outlasts it before the Empire stirs.',
-    human: ['france', 'england', 'iberia'],
+    human: ['france', 'iberia', 'italy_states'],
     ai: ['holy_roman'],
     building_type: 'production_1',
   },
@@ -289,7 +291,7 @@ export const DAILY_SET_PIECES: readonly DailySetPiece[] = [
     map_id: 'era_coldwar',
     title: 'The Listening Post',
     intro: 'Not every building makes rifles. Raise a research station — the quiet kind of power.',
-    human: ['uk_ireland', 'france_benelux'],
+    human: ['france_benelux', 'iberia_cw'],
     // Bordering France: the other side has to be at the door, not one country over.
     ai: ['west_germany'],
     building_type: 'tech_gen_1',
@@ -303,7 +305,7 @@ export const DAILY_SET_PIECES: readonly DailySetPiece[] = [
     map_id: 'era_ww2',
     title: 'Arsenal of Ideas',
     intro: 'The war will be won in the factories. Your researchers wait on a signature.',
-    human: ['britain_ww2', 'france_ww2'],
+    human: ['france_ww2', 'iberia_ww2'],
     ai: ['germany'],
     tech_id: 'ww2_war_industry',
   },
@@ -582,7 +584,7 @@ export const DAILY_SET_PIECES: readonly DailySetPiece[] = [
     title: 'The Ruhr',
     intro: 'A factory is a promise. A second one on top of it is a war economy. Build the first to build the second.',
     hint: 'Tier two needs tier one beneath it — raise both in the same territory.',
-    human: ['britain_ww2', 'france_ww2', 'iberia_ww2'],
+    human: ['france_ww2', 'iberia_ww2', 'italy_ww2'],
     ai: ['germany'],
     building_type: 'production_2',
   },
@@ -656,7 +658,8 @@ export const DAILY_SET_PIECES: readonly DailySetPiece[] = [
     intro: 'The quota is a second factory on top of the first. The plan does not care how.',
     hint: 'Raise tier one, hold your ground for the gold, raise tier two on it.',
     human: ['russia_west_cw', 'russia_central_cw', 'ukraine_cw'],
-    ai: ['czechoslovakia'],
+    // Two fronts: the Czech border and the Siberian flank.
+    ai: ['czechoslovakia', 'russia_east_cw'],
     building_type: 'production_2',
   },
   {
@@ -712,8 +715,8 @@ export const DAILY_SET_PIECES: readonly DailySetPiece[] = [
     era_id: 'ww2',
     map_id: 'era_ww2',
     title: 'Bletchley',
-    intro: 'The war is being fought on the air as much as the ground. Get the radios talking.',
-    human: ['britain_ww2', 'scandinavia_ww2'],
+    intro: 'Bletchley is listening, but the sets at the front are silent. From the fjords to the Volga, get the radios talking.',
+    human: ['scandinavia_ww2', 'russia_west'],
     ai: ['germany'],
     tech_id: 'ww2_radio',
   },
@@ -723,10 +726,10 @@ export const DAILY_SET_PIECES: readonly DailySetPiece[] = [
     era_id: 'coldwar',
     map_id: 'era_coldwar',
     title: 'Sputnik',
-    intro: 'Heavy industry first, then the rocket it pays for. The other side is counting the days.',
+    intro: 'Heavy industry first, then the rocket it pays for. The other side is counting the days, and closing in from both flanks.',
     hint: 'Space Race needs Heavy Industry beneath it — research in order and hold the ground for the points.',
     human: ['russia_west_cw', 'russia_central_cw', 'russia_east_cw'],
-    ai: ['mongolia_cw'],
+    ai: ['mongolia_cw', 'ukraine_cw'],
     tech_id: 'cw_space_race',
   },
   {

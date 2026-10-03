@@ -114,6 +114,32 @@ export function handOffCrossesSeat(from: number, to: number, seat: number, total
   return lap(seat - from) <= lap(to - from);
 }
 
+/** Economy + tech together open with a resource bootstrap and an income tick; tutorials keep their authored start. */
+export function hasEconomyTechBootstrap(settings: GameSettings): boolean {
+  return !!settings.economy_enabled && !!settings.tech_trees_enabled && !settings.tutorial;
+}
+
+/**
+ * Every seat's resources as dealt, before the opening economy tick: the
+ * bootstrap values under economy + tech, nothing otherwise, and undefined for
+ * a resource the game does not track. initializeGameState starts seats here;
+ * applyDailyPuzzleScenario returns a cleared board's seats to it, because the
+ * tick paid them for a board they will never hold.
+ */
+export function openingResources(
+  settings: GameSettings,
+): { tech_points: number | undefined; special_resource: number | undefined } {
+  const bootstrap = hasEconomyTechBootstrap(settings);
+  return {
+    tech_points: settings.tech_trees_enabled
+      ? (bootstrap ? (settings.economy_tech_starting_tech_points ?? 3) : 0)
+      : undefined,
+    special_resource: (settings.tech_trees_enabled || settings.economy_enabled)
+      ? (bootstrap ? (settings.economy_tech_starting_gold ?? 4) : 0)
+      : undefined,
+  };
+}
+
 /**
  * One production + tech income tick for every player at game start
  * (economy+tech bootstrap). Both helpers credit the player internally
@@ -421,16 +447,8 @@ export function initializeGameState(
   // Schism under the Concord: each world's two houses open under a truce.
   if (schism) openConcord(diplomacy, players, schism);
 
-  const economyTechBootstrap =
-    settingsNorm.economy_enabled
-    && settingsNorm.tech_trees_enabled
-    && !settingsNorm.tutorial;
-  const startingTechPoints = economyTechBootstrap
-    ? (settingsNorm.economy_tech_starting_tech_points ?? 3)
-    : 0;
-  const startingGold = economyTechBootstrap
-    ? (settingsNorm.economy_tech_starting_gold ?? 4)
-    : 0;
+  const economyTechBootstrap = hasEconomyTechBootstrap(settingsNorm);
+  const opening = openingResources(settingsNorm);
 
   const playerStates: PlayerState[] = players.map((p) => ({
     ...p,
@@ -439,10 +457,8 @@ export function initializeGameState(
     capital_territory_id: null,
     secret_mission: null,
     // Economy / tech initial values
-    tech_points: settingsNorm.tech_trees_enabled ? startingTechPoints : undefined,
-    special_resource: (settingsNorm.tech_trees_enabled || settingsNorm.economy_enabled)
-      ? startingGold
-      : undefined,
+    tech_points: opening.tech_points,
+    special_resource: opening.special_resource,
     unlocked_techs: [],
     ability_uses: {},
     space_station_launched: p.faction_id === 'lunar_pioneers' ? true : undefined,
