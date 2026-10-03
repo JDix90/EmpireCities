@@ -27,6 +27,7 @@ import { invalidateMapCache } from '../maps/mapService';
 import { validateMapDocument } from '../maps/mapValidation';
 import { getAnalyticsReport } from '../../services/analyticsQueries';
 import { andNotTutorialSql } from '../../game-engine/tutorial/tutorialGames';
+import { countedGameSql, excludedUserSql } from '../../services/statsExclusion';
 import { featureFlags } from '../../config/featureFlags';
 import { endSessionsForBannedUser } from '../../services/bans';
 import { buildWarfrontStatus, loadWarfrontTerrain } from './warfrontStatus';
@@ -53,6 +54,10 @@ const ConfigPatchSchema = z.object({
 
 const UserActionSchema = z.object({
   user_id: z.string().uuid(),
+});
+
+const TestAccountSchema = UserActionSchema.extend({
+  test: z.boolean(),
 });
 
 const ResetUserStatsSchema = z
@@ -165,23 +170,23 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
     const dw = dateWhere(parsed.data);
 
     const [users, games, completed, queue, byStatus, inProgress, waiting] = await Promise.all([
-      queryOne<{ c: string }>('SELECT COUNT(*)::text AS c FROM users'),
-      queryOne<{ c: string }>(`SELECT COUNT(*)::text AS c FROM games g WHERE 1=1 ${dw.clause}`, dw.values),
+      queryOne<{ c: string }>(`SELECT COUNT(*)::text AS c FROM users u WHERE NOT ${excludedUserSql('u')}`),
+      queryOne<{ c: string }>(`SELECT COUNT(*)::text AS c FROM games g WHERE ${countedGameSql('g')} ${dw.clause}`, dw.values),
       queryOne<{ c: string }>(
-        `SELECT COUNT(*)::text AS c FROM games g WHERE g.status = 'completed' ${dw.clause}`,
+        `SELECT COUNT(*)::text AS c FROM games g WHERE g.status = 'completed' AND ${countedGameSql('g')} ${dw.clause}`,
         dw.values,
       ),
       queryOne<{ c: string }>('SELECT COUNT(*)::text AS c FROM ranked_queue'),
       query<{ status: string; n: string }>(
-        `SELECT g.status, COUNT(*)::text AS n FROM games g WHERE 1=1 ${dw.clause} GROUP BY g.status`,
+        `SELECT g.status, COUNT(*)::text AS n FROM games g WHERE ${countedGameSql('g')} ${dw.clause} GROUP BY g.status`,
         dw.values,
       ),
       queryOne<{ c: string }>(
-        `SELECT COUNT(*)::text AS c FROM games g WHERE g.status = 'in_progress' ${dw.clause}`,
+        `SELECT COUNT(*)::text AS c FROM games g WHERE g.status = 'in_progress' AND ${countedGameSql('g')} ${dw.clause}`,
         dw.values,
       ),
       queryOne<{ c: string }>(
-        `SELECT COUNT(*)::text AS c FROM games g WHERE g.status = 'waiting' ${dw.clause}`,
+        `SELECT COUNT(*)::text AS c FROM games g WHERE g.status = 'waiting' AND ${countedGameSql('g')} ${dw.clause}`,
         dw.values,
       ),
     ]);
@@ -197,6 +202,7 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
        WHERE g.status = 'completed'
          AND g.started_at IS NOT NULL
          AND g.ended_at IS NOT NULL
+         AND ${countedGameSql('g')}
          ${dw.clause}`,
       dw.values,
     );
@@ -226,6 +232,7 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
        WHERE g.status = 'completed'
          AND g.ended_at IS NOT NULL
          AND g.ended_at >= NOW() - make_interval(days => $1)
+         AND ${countedGameSql('g')}
        GROUP BY (g.ended_at AT TIME ZONE 'UTC')::date
        ORDER BY 1`,
       [days],
@@ -235,6 +242,7 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
       `SELECT (g.created_at AT TIME ZONE 'UTC')::date::text AS day, COUNT(*)::int AS n
        FROM games g
        WHERE g.created_at >= NOW() - make_interval(days => $1)
+         AND ${countedGameSql('g')}
        GROUP BY (g.created_at AT TIME ZONE 'UTC')::date
        ORDER BY 1`,
       [days],
@@ -245,6 +253,7 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
        FROM games g
        WHERE g.status = 'completed'
          AND g.ended_at >= NOW() - make_interval(days => $1)
+         AND ${countedGameSql('g')}
        GROUP BY g.game_type
        ORDER BY n DESC`,
       [days],
@@ -266,6 +275,7 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
        JOIN games g ON g.game_id = gp.game_id
        WHERE g.status = 'completed' AND gp.faction_id IS NOT NULL
          ${andNotTutorialSql()}
+         AND ${countedGameSql('g')}
        GROUP BY gp.faction_id
        ORDER BY win_rate DESC NULLS LAST, games_played DESC`,
     );
@@ -302,6 +312,7 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
               ROUND(AVG(EXTRACT(EPOCH FROM (g.ended_at - g.started_at))), 2) AS avg_duration_seconds
        FROM games g
        WHERE g.status = 'completed' AND g.started_at IS NOT NULL AND g.ended_at IS NOT NULL
+         AND ${countedGameSql('g')}
        GROUP BY g.era_id
        ORDER BY games_completed DESC`,
     );
@@ -315,6 +326,7 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
               ROUND(AVG(EXTRACT(EPOCH FROM (g.ended_at - g.started_at))), 2) AS avg_duration_seconds
        FROM games g
        WHERE g.status = 'completed' AND g.started_at IS NOT NULL AND g.ended_at IS NOT NULL
+         AND ${countedGameSql('g')}
        GROUP BY g.map_id
        ORDER BY games_completed DESC
        LIMIT 30`,
@@ -352,6 +364,7 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
               EXTRACT(EPOCH FROM (g.ended_at - g.started_at))::int AS duration_seconds
        FROM games g
        WHERE g.status = 'completed' AND g.started_at IS NOT NULL AND g.ended_at IS NOT NULL
+         AND ${countedGameSql('g')}
        ORDER BY g.ended_at DESC
        LIMIT 200`,
     );
@@ -361,7 +374,8 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get('/metrics/settings-toggles', { preHandler: [authenticate, requireAdmin] }, async (_request, reply) => {
     const totals = await queryOne<{ total_games: string }>(
       `SELECT COUNT(*)::text AS total_games
-       FROM games`,
+       FROM games g
+       WHERE ${countedGameSql('g')}`,
     );
     const totalGames = Number(totals?.total_games ?? 0);
 
@@ -382,7 +396,8 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
         const row = await queryOne<{ enabled_count: string }>(
           `SELECT COUNT(*)::text AS enabled_count
            FROM games g
-           WHERE COALESCE((g.settings_json ->> $1)::boolean, $2::boolean) = TRUE`,
+           WHERE COALESCE((g.settings_json ->> $1)::boolean, $2::boolean) = TRUE
+             AND ${countedGameSql('g')}`,
           [toggle.key, toggle.defaultValue],
         );
         const enabledCount = Number(row?.enabled_count ?? 0);
@@ -404,9 +419,10 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
 
   fastify.get('/metrics/ranked-distribution', { preHandler: [authenticate, requireAdmin] }, async (_request, reply) => {
     const rows = await query(
-      `SELECT WIDTH_BUCKET(mu, 800, 2400, 8) AS bucket, COUNT(*)::int AS count
-       FROM user_ratings
-       WHERE rating_type = 'ranked'
+      `SELECT WIDTH_BUCKET(r.mu, 800, 2400, 8) AS bucket, COUNT(*)::int AS count
+       FROM user_ratings r
+       JOIN users u ON u.user_id = r.user_id
+       WHERE r.rating_type = 'ranked' AND NOT ${excludedUserSql('u')}
        GROUP BY bucket
        ORDER BY bucket`,
     );
@@ -549,6 +565,23 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
     if (!parsed.success) return reply.status(400).send({ error: 'Invalid payload' });
     await query('UPDATE users SET is_banned = FALSE WHERE user_id = $1', [parsed.data.user_id]);
     await writeAuditLog(request.userId, 'user_unbanned', parsed.data);
+    return reply.send({ ok: true });
+  });
+
+  // A test account's play stays out of the admin stats, as an admin's does
+  // (services/statsExclusion.ts). The stats read the column live, so marking
+  // an account takes its past games out too, and unmarking puts them back.
+  fastify.post('/actions/set-test-account', { preHandler: [authenticate, requireAdmin] }, async (request, reply) => {
+    const parsed = TestAccountSchema.safeParse(request.body ?? {});
+    if (!parsed.success) return reply.status(400).send({ error: 'Invalid payload' });
+    const updated = await queryOne<{ user_id: string }>(
+      'UPDATE users SET exclude_from_stats = $2 WHERE user_id = $1 RETURNING user_id',
+      [parsed.data.user_id, parsed.data.test],
+    );
+    if (!updated) return reply.status(404).send({ error: 'User not found' });
+    await writeAuditLog(request.userId, parsed.data.test ? 'user_marked_test' : 'user_unmarked_test', {
+      user_id: parsed.data.user_id,
+    });
     return reply.send({ ok: true });
   });
 
@@ -750,6 +783,7 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
     const rows = await query(
       `SELECT u.user_id, u.username, u.email, u.level, u.xp, u.mmr, u.is_banned, u.is_admin,
               COALESCE(u.is_guest, false) AS is_guest, u.created_at, u.last_login_at,
+              COALESCE(u.exclude_from_stats, false) AS exclude_from_stats,
               COALESCE(gp.games_played, 0)::int AS games_played
        FROM users u
        LEFT JOIN (

@@ -166,6 +166,9 @@ export default function AdminAnalyticsPanel({ data }: { data: AnalyticsReport | 
         <p className="mt-2 text-xs text-bf-muted">
           Guest → account: {f.upgraded} ({pctText(f.upgraded, f.signups)})
         </p>
+        <p className="mt-1 text-xs text-bf-muted">
+          Admin and test accounts are left out of every cohort here; mark test accounts on the Users tab.
+        </p>
       </section>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

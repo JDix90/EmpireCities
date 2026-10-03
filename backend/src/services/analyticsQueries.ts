@@ -6,8 +6,14 @@
  * Cohorts are defined by each user's first `guest_created`/`user_registered`
  * event, so everything here only covers signups AFTER analytics was enabled —
  * there's no retroactive history, by design.
+ *
+ * Admin and test accounts are left out (services/statsExclusion.ts): their
+ * signups, starts and finishes never enter a cohort. Anonymous visitor events
+ * have no account to judge, so the visitor funnel and the all-time event total
+ * include everyone.
  */
 import { query, queryOne } from '../db/postgres';
+import { countedEventSql } from './statsExclusion';
 import {
   classifyAcquisitionSource,
   CHANNEL_ORDER,
@@ -156,6 +162,7 @@ export async function getFunnelMetrics(days: number): Promise<FunnelMetrics> {
        FROM analytics_events
        WHERE event IN ('guest_created', 'user_registered') AND user_id IS NOT NULL
          AND created_at >= NOW() - make_interval(days => $1::int)
+         AND ${countedEventSql('analytics_events')}
        GROUP BY user_id
      )
      SELECT
@@ -196,6 +203,7 @@ export async function getRetentionMetrics(): Promise<RetentionMetrics> {
        SELECT user_id, MIN(created_at)::date AS d0
        FROM analytics_events
        WHERE event IN ('guest_created', 'user_registered') AND user_id IS NOT NULL
+         AND ${countedEventSql('analytics_events')}
        GROUP BY user_id
      )
      SELECT
@@ -247,6 +255,7 @@ export async function getRetentionByCohort(): Promise<RetentionCohortRow[]> {
        SELECT user_id, MIN(created_at)::date AS d0
        FROM analytics_events
        WHERE event IN ('guest_created', 'user_registered') AND user_id IS NOT NULL
+         AND ${countedEventSql('analytics_events')}
        GROUP BY user_id
      ),
      classified AS (
@@ -307,6 +316,7 @@ export async function getTutorialFunnel(days: number): Promise<TutorialCohortRow
        FROM analytics_events
        WHERE event = 'tutorial_started' AND user_id IS NOT NULL
          AND created_at >= NOW() - make_interval(days => $1::int)
+         AND ${countedEventSql('analytics_events')}
        GROUP BY user_id
      ),
      classified AS (
@@ -356,7 +366,8 @@ export async function getCompletionStats(days: number): Promise<CompletionStats>
        ROUND(AVG((properties->>'duration_ms')::numeric) / 60000, 1) AS avg_minutes,
        ROUND(AVG((properties->>'turn_count')::numeric), 1) AS avg_turns
      FROM analytics_events
-     WHERE event = 'game_finished' AND created_at >= NOW() - make_interval(days => $1::int)`,
+     WHERE event = 'game_finished' AND created_at >= NOW() - make_interval(days => $1::int)
+       AND ${countedEventSql('analytics_events')}`,
     [days],
   );
   return {
@@ -377,12 +388,14 @@ export async function getFirstMatchStats(days: number): Promise<FirstMatchStats>
        WHERE event = 'game_finished'
          AND (properties->>'first_match')::boolean
          AND created_at >= NOW() - make_interval(days => $1::int)
+         AND ${countedEventSql('analytics_events')}
      )
      SELECT
        (SELECT COUNT(*) FROM analytics_events
          WHERE event = 'game_created'
            AND (properties->>'first_match')::boolean
-           AND created_at >= NOW() - make_interval(days => $1::int))::int AS started,
+           AND created_at >= NOW() - make_interval(days => $1::int)
+           AND ${countedEventSql('analytics_events')})::int AS started,
        COUNT(*)::int AS finished,
        COUNT(*) FILTER (WHERE won)::int AS won,
        COUNT(*) FILTER (WHERE d0 <= CURRENT_DATE - 1)::int AS next_day_cohort,
@@ -406,6 +419,7 @@ export async function getEventVolume(days: number): Promise<EventVolumeRow[]> {
     `SELECT event, COUNT(*)::int AS n
      FROM analytics_events
      WHERE created_at >= NOW() - make_interval(days => $1::int)
+       AND ${countedEventSql('analytics_events')}
      GROUP BY event ORDER BY n DESC`,
     [days],
   );
@@ -430,6 +444,7 @@ export async function getAcquisitionBySource(days: number): Promise<AcquisitionR
        FROM analytics_events
        WHERE event IN ('guest_created', 'user_registered') AND user_id IS NOT NULL
          AND created_at >= NOW() - make_interval(days => $1::int)
+         AND ${countedEventSql('analytics_events')}
        ORDER BY user_id, created_at ASC
      )
      SELECT
