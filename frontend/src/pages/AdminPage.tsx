@@ -197,7 +197,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'galaxy_world_buildings_enabled',
     label: 'Galactic Age world buildings',
     description:
-      'Lattice Logistics opens a building for each world rule and a toll on the lanes: Habitat Dome (Sol III; the Cradle musters its system to 3, not 2, 5 PP), Storm Shelter (Verdan Reach; the storms strike its system only above 18, not 12, 5 PP), Vault Conduit (a Gate Ring system; +1 tech a turn while its owner holds the whole Vault, 6 PP) and Toll Beacon (any gateway; +1 PP a turn while its owner holds both ends of the lane, 6 PP). Baked into each game at creation. OFF by default (dark launch) — Phase 5 of docs/GALACTIC_AGE_BUILDINGS.md; promote on its sim gate.',
+      'Lattice Logistics opens a building for each world rule and a toll on the lanes: Habitat Dome (Sol III; the Cradle musters its system to 3, not 2, 5 PP), Storm Shelter (Verdan Reach; the storms strike its system only above 18, not 12, 5 PP), Vault Conduit (a Gate Ring system, one per Vault; +1 tech a turn while its owner holds the whole Vault, 6 PP) and Toll Beacon (any gateway; +1 PP a turn while its owner holds both ends of the lane, 6 PP). Baked into each game at creation. OFF by default (dark launch) — Phase 5 of docs/GALACTIC_AGE_BUILDINGS.md; promote on its sim gate.',
   },
   {
     key: 'galaxy_world_rules_enabled',

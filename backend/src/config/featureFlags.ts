@@ -640,10 +640,11 @@ export const featureFlags = {
    * Galactic Age buildings, Phase 5 (docs/GALACTIC_AGE_BUILDINGS.md §7): world
    * buildings. Lattice Logistics opens a Habitat Dome (the Cradle musters its
    * tile one higher), a Storm Shelter (the storms strike its tile 6 higher), a
-   * Vault Conduit (+1 TP a turn while its owner holds the whole Vault) and a
-   * Toll Beacon (+1 PP a turn on a gateway while its lane is its owner's
-   * corridor). Default OFF (dark launch); baked into game settings at create as
-   * `galaxy_world_buildings`, so a flip never re-rules a match in progress.
+   * Vault Conduit (+1 TP a turn while its owner holds the whole Vault, one a
+   * Vault) and a Toll Beacon (+1 PP a turn on a gateway while its lane is its
+   * owner's corridor, one a lane). Default OFF (dark launch); baked into game
+   * settings at create as `galaxy_world_buildings`, so a flip never re-rules a
+   * match in progress.
    * Kill switch: `GALAXY_WORLD_BUILDINGS_ENABLED` or the
    * `galaxy_world_buildings_enabled` admin override.
    */

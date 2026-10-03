@@ -25,7 +25,7 @@ import { useBottomSheetSnap, type SheetSnap } from '../../hooks/useBottomSheetSn
 import { getRegionCssColors } from '../../constants/accessibleColors';
 import { getPlayerTerritoryAbilities, isAttackSelfBuffAbility } from '../../utils/playerAbilities';
 import { lanePowerApplies, lanePowerCost } from '../../utils/lanePowers';
-import { worldBuildingApplies } from '../../utils/worldBuildings';
+import { worldBuildingApplies, worldBuildingsTaken } from '../../utils/worldBuildings';
 import { getAbilityUiDef } from '../../utils/abilityActivationFeedback';
 import {
   getGalaxyTerritoryLoreDetail,
@@ -1988,10 +1988,14 @@ export default function TerritoryPanel({
         const focus = dailyBuildFocus(gameState.settings);
         const unavailable: Record<string, string> = {
           ...unavailableBuildings(gameState, mapConnections, myPlayerId),
-          // World buildings: a lane carries one Toll Beacon, at either end.
-          ...((tState.lane_partners ?? []).some((p) => gameState.territories[p]?.buildings?.includes('toll_beacon'))
-            ? { toll_beacon: 'This lane already carries a Toll Beacon at its other end.' }
-            : {}),
+          // World buildings: a lane carries one Toll Beacon, at either end, and
+          // a Vault one Vault Conduit, on any of its systems.
+          ...worldBuildingsTaken({
+            ...worldBuildingCtx,
+            territoryId: selectedTerritory,
+            mapTerritories,
+            territories: gameState.territories,
+          }),
         };
         // Orbital infrastructure: the server stamps `gateway` only in a game
         // that plays the rule, so the stamp alone is the condition.

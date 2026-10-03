@@ -261,7 +261,7 @@ export const BUILDING_DISPLAY: Record<string, BuildingDisplay> = {
   // its world's authored threshold rather than a number of its own.
   habitat_dome: { name: 'Habitat Dome', effect: 'The Cradle musters this system one unit higher' },
   storm_shelter: { name: 'Storm Shelter', effect: 'Storms strike this system only 6 units higher' },
-  vault_conduit: { name: 'Vault Conduit', effect: '+1 TP/turn while you hold the whole Vault' },
+  vault_conduit: { name: 'Vault Conduit', effect: '+1 TP/turn while you hold the whole Vault (one per Vault)' },
   toll_beacon: { name: 'Toll Beacon', effect: '+1 PP/turn while you hold both ends of its lane (one per lane)' },
 };
 
@@ -386,7 +386,7 @@ export const GALAXY_WORLD_BUILDING_EFFECTS = {
   habitatDomeMusterBonus: 1,
   /** Added to the storm threshold on a tile with a Storm Shelter (12 → 18). */
   stormShelterThresholdBonus: 6,
-  /** TP a turn per Vault Conduit, while its owner holds the whole Vault. */
+  /** TP a turn from a Vault's Conduit, while its owner holds the whole Vault. One Conduit a Vault. */
   vaultConduitTechIncome: 1,
   /** PP a turn per Toll Beacon, while its lane is its owner's corridor. One beacon a lane. */
   tollBeaconProductionIncome: 1,

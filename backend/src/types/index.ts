@@ -914,7 +914,7 @@ export type BuildingType =
   // galaxy_age world buildings (state/worldBuildings.ts), only under `galaxy_world_buildings`
   | 'habitat_dome'       // the Cradle musters this tile one unit higher
   | 'storm_shelter'      // the storms strike this tile only higher up
-  | 'vault_conduit'      // +1 TP/turn on a Vault tile while its owner holds the whole Vault
+  | 'vault_conduit'      // +1 TP/turn on a Vault tile while its owner holds the whole Vault; one a Vault
   | 'toll_beacon'        // +1 PP/turn on a gateway while its lane is its owner's corridor
   | 'wonder_space_elevator' // space_age
   | 'wonder_hyperlane_anchor'; // galaxy_age
