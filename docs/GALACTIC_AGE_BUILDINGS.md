@@ -282,7 +282,7 @@ Measured as its own arm: all four powers against the three of Phase 4A, 1,000 ga
 - **Usage** passes when a seat is eligible because a gap stood open to it: 80%, 63% and 77% at four, two and eight seats. Counted from unlocking, two seats fail at 41%, since half the seats that research Gate Engineering never hold both worlds of a gap.
 - **Win share fails as written**, as Seal Breaker's does: its users win 65% to 71%. The selection is visible again but weaker. Seats that met an open gap and held win 62% to 63%, so the power adds roughly 3 to 9 points over the seats it could have served. A bot opens a gap only into a weak gateway, and takes it 93% to 96% of the time. If a price moves before promotion it is this one.
 
-A caveat on every number in this section: two runs of the same configuration on the same seed are not byte-identical. The control drifts only in PP banked, by about half a PP per seat, but with PP-spending powers on, individual games diverge. That is why each cell averages three seeds rather than trusting one, and why the arms compare averages.
+A caveat on every number in this section: when it was measured, two runs of the same configuration on the same seed were not byte-identical. The control drifted only in PP banked, by about half a PP per seat, but with PP-spending powers on, individual games diverged. That is why each cell averages three seeds rather than trusting one, and why the arms compare averages. The harness has since been made deterministic (its engine draws are reseeded per game, `backend/scripts/seededEngineRandomness.ts`, and each run ends with a digest that proves it), so a re-measurement reproduces exactly; these numbers carry that run-to-run noise on top of seed noise.
 
 ---
 

@@ -59,7 +59,7 @@ Cradle muster (§4). Numbers published before the harness fix — including
 the far-world redesign PRs (#443–#447) — came from a harness whose games leaked
 into each other; §3 and §4 keep that history, with those rows marked.
 
-## 1. The harness, and the five bugs it had
+## 1. The harness, and the six bugs it had
 
 Each of these made the sim measure a game nobody plays. They are listed because
 every number in this document is only as good as the harness that produced it.
@@ -100,12 +100,26 @@ every number in this document is only as good as the harness that produced it.
   each room keeps its own. It surfaced while chasing an apparent three-point
   effect of Rust's Forge die on Sol, which on the fixed harness is 0.8 points.
 
-**The harness is deterministic up to a few unseeded engine rolls.** Dice and AI
-jitter are seeded; stability's population and rebellion rolls, the card-deck
-shuffle and the game id still draw from `crypto`. With games independent, those
-change a game or two per thousand (2 of 1,000 on seed B) and no longer spread:
-two runs of one seed give the same win rates. The noise that remains is sampling
-noise, about ±1.4 points per faction per 1,000-game seed.
+- **Unseeded engine rolls.** Dice and AI jitter were seeded, but the engine
+  draws from `crypto` wherever live play must be unpredictable: stability's
+  population and rebellion rolls on every turn advance, the card-deck shuffle
+  and its card ids, the mission salt, the event deck and a Schism deal. With
+  games independent those changed a game or two per thousand (2 of 1,000 on
+  seed B), and the win rates held. That stopped being true once the economy
+  spent its PP: population feeds production, so the control drifted about half
+  a PP per seat in PP banked between two identical runs, and with doctrines or
+  lane powers spending that PP whole games diverged (100 games with the powers
+  on: 30.9 turns on one run, 32.0 on the next). The harness now answers those
+  `crypto` draws itself, from a stream reseeded per game from `SIM_SEED`
+  (`seededEngineRandomness.ts`), and renames the deck's card ids from it,
+  since the engine picks a card set by sorting on them. Nothing in the live
+  engine changed.
+
+**The harness is deterministic.** Two runs of one configuration on one seed
+are the same run, every line of the report. Each run ends with a `Run digest`,
+a hash of every number every game recorded, so that is checked by comparing
+one line. The noise that remains is sampling noise, about ±1.4 points per
+faction per 1,000-game seed, which is what a second and third seed measure.
 
 ## 2. Where the era stands (after the Cradle muster, live defaults)
 
