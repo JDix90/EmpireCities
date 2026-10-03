@@ -132,6 +132,7 @@ import {
 import { applyBuild } from '../src/game-engine/state/economyManager';
 import { applyResearch, validateResearch } from '../src/game-engine/state/techManager';
 import { createSeededRng, hashStringToSeed } from '../src/game-engine/victory/missions';
+import { seedEngineRandomness, seededUuid } from './seededEngineRandomness';
 import { getFactionById } from '../src/game-engine/eras';
 import { calculateReinforcements } from '../src/game-engine/combat/combatResolver';
 import { getPlayerReinforceBonus } from '../src/game-engine/state/techManager';
@@ -139,6 +140,12 @@ import { getPlayerReinforceBonus } from '../src/game-engine/state/techManager';
 const GAMES = Number(process.env.SIM_GAMES ?? 200);
 const DIFFICULTY = (process.env.SIM_DIFFICULTY ?? 'expert') as AiDifficulty;
 const MAX_TURNS = Number(process.env.SIM_MAX_TURNS ?? 90);
+/**
+ * Every draw in a run hangs off this: the dice, the AI's jitter, and through
+ * `seedEngineRandomness` the engine's own CSPRNG draws (stability, the card
+ * deck, the event deck, a Schism deal), each reseeded per game. Two runs of one
+ * configuration on one seed are the same run; the "Run digest" line proves it.
+ */
 const MASTER_SEED = process.env.SIM_SEED ?? 'borderfall-galaxy-balance';
 const CSV_PATH = process.env.SIM_CSV ?? '';
 /** When set (1–99), adds threshold victory at that % — mirrors the live galaxy create default. */
@@ -1290,6 +1297,10 @@ function runGame(gameIndex: number, sourceMap: GameMap): GameStat {
   // (two identical 1,000-game runs of seed B diverged from game 266 on and
   // differed by up to 4 points per faction).
   const map = structuredClone(sourceMap);
+  // The engine's unseeded draws (stability, the card deck, the event deck, a
+  // Schism deal) come from a stream of their own, reseeded per game so one
+  // game's draws never shift another's. Before initializeGameState: it shuffles.
+  seedEngineRandomness(`${MASTER_SEED}:engine:${gameIndex}`);
   const seed = hashStringToSeed(`${MASTER_SEED}:${gameIndex}`);
   const dieRoll = seededDie(seed);
   // Separate stream from the dice so a jitter draw can never shift a roll.
@@ -1328,6 +1339,9 @@ function runGame(gameIndex: number, sourceMap: GameMap): GameStat {
     forceStartingPlayerIndex: 0,
     ...(SCHISM ? { forceSchismHalves: halfOf } : {}),
   });
+  // Card ids come from `uuid`, which holds its own crypto reference, and the
+  // engine picks a card set by sorting on them: rename them from the seed.
+  for (const card of state.card_deck) card.card_id = seededUuid();
   if (SCATTERED) scatterStart(state, map, gameIndex);
   else {
     assertHomeworldStart(map, state, factionOf);
@@ -2033,6 +2047,11 @@ function main(): void {
     writeFileSync(CSV_PATH, [header, ...rows].join('\n') + '\n');
     console.log(`\nWrote per-seat CSV → ${CSV_PATH} (${rows.length} rows)`);
   }
+
+  // A hash of every number every game recorded: two runs that print the same
+  // digest agreed on all of it, which is what makes an arm-to-arm difference a
+  // property of the arms rather than of the run.
+  console.log(`\nRun digest: ${hashStringToSeed(JSON.stringify(stats)).toString(16).padStart(8, '0')} (the same on every run of this configuration and seed)`);
 }
 
 main();
