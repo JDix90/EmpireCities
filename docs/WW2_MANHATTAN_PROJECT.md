@@ -1,0 +1,182 @@
+# World War II — The Manhattan Project: Design Package
+
+**Status: proposed. No phase has shipped.** This package makes the World War II era's showpiece weapon something players actually see: reachable before the game is decided, used by the bots, and repeatable at a price that bites the leader. It is written against the systems that exist today, with file references, so each phase is an engineering task rather than an idea. Decisions already taken are marked **decided**; the rest are proposals for the sim to settle.
+
+Companion reading: [GALACTIC_AGE_BUILDINGS.md](GALACTIC_AGE_BUILDINGS.md) (the per-turn, priced power pattern and its measurements, §6, and the note in §9 this package picks up), [space-age-moon/README.md](space-age-moon/README.md) (position-gated, fuel-priced powers), `backend/scripts/eraBalanceTuning.md` (the era-advancement sim), `backend/src/game-engine/eras/ww2.ts`, `backend/src/game-engine/abilities/techAbilities.ts`, `backend/src/game-engine/abilities/executeTechAbility.ts`.
+
+---
+
+## 0. Why
+
+### 0.1 What the bomb is today
+
+The Atom Bomb is the WW2 tree's tier-4 node, Manhattan Project (`ww2_atom_bomb`, 20 TP), behind Panzer Tactics. Once per game (`GAME_SCOPED_ABILITIES`), in the attack phase, it turns one enemy territory neutral with 1 unit, razes its buildings and naval units, and zeroes its stability (`executeTechAbility.ts`). The next attack can walk in.
+
+| Tier | Node | TP | Prerequisite | Gives |
+|---|---|---|---|---|
+| 1 | Motorization | 5 | — | +1 reinforcement |
+| 1 | Bunker Network | 4 | — | Palisade |
+| 1 | War Industry | 4 | — | Workshop |
+| 1 | Radio Communications | 3 | — | +1 reinforcement |
+| 2 | Tank Divisions | 9 | Motorization | +1 attack die |
+| 2 | Maginot-Line Fortifications | 8 | Bunker Network | Fortress |
+| 2 | Mass Munitions | 7 | War Industry | Laboratory, +2 TP/turn |
+| 2 | Tactical Air Support | 8 | Radio | Air Strike |
+| 3 | Panzer Tactics | 13 | Tank Divisions | +1 attack die, Double Blitz |
+| 3 | Fortress Europe | 13 | Fortifications | Citadel |
+| 3 | Radar Network | 11 | Mass Munitions | Research Center, +3 TP/turn |
+| 4 | **Manhattan Project** | 20 | **Panzer Tactics** | **Atom Bomb** |
+
+### 0.2 What is wrong
+
+1. **It arrives after the game is decided.** The path is 47 TP down the tank line, whose nodes add no tech income. Base income is 1 TP per 5 territories held (`collectProduction`); on the 42-territory WW2 map that is about 2 TP a turn at four seats and about 1 at six. Rough arithmetic for a player who heads straight there, before Phase 0 measures it:
+
+   | Turn the bomb arrives | Tank line, today |
+   |---|---|
+   | four seats, straight down the tank line | about 24 |
+   | four seats, detouring through Mass Munitions and a Laboratory first | about 14 |
+   | six seats, with the same detour | about 21 |
+
+2. **Full Game never asks for it, and leaving the era wipes it.** The classic spine's gate out of WW2 is two tier-2 techs, one tier-3 tech and two buildings (`eraAdvancement/spines.ts`). Manhattan is not on it, and `executeAdvanceEra` clears `unlocked_techs`, so the rational player advances instead of spending 20 TP on a weapon. An undetonated bomb does carry forward as one legacy charge (`getCarryableLegacyAbility`).
+3. **Bots never fire it.** No AI path selects `atom_bomb`; the comment above the Dyson Beam parity block in `gameSocket.ts` notes that tech-unlocked strikes "still sit idle in a bot's hands". The research scorer (`selectAiTechResearch`) values attack, defence, income and reinforcement numbers, so a node whose only payload is an ability scores below everything else and is bought last, if ever. In a game against bots the bomb never falls on anyone.
+4. **Once per game is one moment.** Even when it arrives it is a single event, so there is no decision about when to spend it again or how to answer it.
+5. **Its name is taken twice.** The WW2 wonder (`WW2_WONDER`, `wonder_manhattan`, +2 reinforcements a turn) is also called the Manhattan Project.
+
+### 0.3 What the repo has already learned
+
+- **The Moon** (space-age-moon §3.8): tech points injected as a reward moved nothing. What moved play was a power gated on something held, checked at use time, and paid in a resource players run short of.
+- **The galaxy lane powers** (GALACTIC_AGE_BUILDINGS §6): "per turn with a price, never once per game" worked, but Seal Breaker and Surge Projector failed the win-share line because bots fire them only when the crossing is already likely to succeed. Repeatable powers drift toward the leader unless the price bites the leader.
+- **The Jump Gate** (GALAXY-BALANCE §4): power bought with production paid the leader (turn-10 leader 55% → 68%) until it was cut.
+
+### 0.4 Design principles
+
+1. **Reach first, scope second.** A repeatable bomb changes nothing in a game that ends before tier 4.
+2. **The bomb is priced in production and costs the user something beyond the price**, so a runaway leader cannot convert surplus into a chain of detonations.
+3. **The bomb has a catch-up built in**: the first detonation makes it cheaper for everyone behind.
+4. **The AI must be able to play it.** Each phase ships with its AI rule and is measured on bot usage.
+5. **One knob per phase, dark-launched.** Every phase is a flag in `FLAG_CODE_DEFAULTS` (envOptIn, OFF), baked into `GameSettings` at create so a flip never re-rules a match in progress, with its toggle in Admin → Config.
+
+### 0.5 Decisions
+
+- **decided:** the package targets tech-on custom games **and** Full Game.
+- **decided:** the bomb is for both denying ground and taking it.
+- **decided:** the bomb becomes usable more than once per game, at a price.
+
+---
+
+## 1. Package overview
+
+| Phase | Name | Delivers | Flag | Setting |
+|---|---|---|---|---|
+| 0 | Measure first | A WW2 economy harness: custom WW2 games and the Full Game climb, with research, building, faction abilities and the bomb; the shipped rules recorded as the control | — | harness only |
+| 1 | The bots and the bomb | Hard and expert bots research toward Manhattan and fire the bomb as it stands today, then walk in | `ww2_bomb_ai_enabled` | `ww2_bomb_ai` |
+| 2 | The science line | Manhattan Project's prerequisite moves from Panzer Tactics to Radar Network | `ww2_manhattan_science_enabled` | `ww2_manhattan_science` |
+| 3 | The atomic arsenal | The bomb becomes per turn, priced in PP with an escalating price, leaves fallout, costs the bomber stability at home, and proliferates | `ww2_atomic_arsenal_enabled` | `ww2_atomic_arsenal` |
+
+Each setting is baked at create for every game, because the WW2 tree is played both in a WW2 game and on the classic climb; the setting is read only where the WW2 tree is. Phase 1 is the bots learning the weapon that ships, so its measurement separates "bots cannot use it" from "the rule is wrong" before either rule changes.
+
+---
+
+## 2. Phase 0 — Measure first
+
+There is no harness that plays a WW2 economy. `simFactionBalance.ts` neither researches nor builds, and `simEraBalance.ts` climbs from Ancient with factions off and reports nothing about the bomb. Phase 0 adds `backend/scripts/simWw2Balance.ts`, built from the two:
+
+- **`SIM_MODE=custom`** (default): a WW2 game on `era_ww2` with economy and tech on, factions on (the six WW2 factions, one each, rotated per game), expert bots, a 90-turn cap. `SIM_PLAYERS` lowers the seat count; `SIM_FACTIONS=0` plays it without kits.
+- **`SIM_MODE=full`**: the Full Game climb as the lobby creates it, minus naval, events and cards: Ancient start on `era_ancient`, the `standard` preset (classic spine), economy, tech and stability on, factions off, `era_advancement_max_lead: 2`, a 150-turn cap.
+- Every turn mirrors `processAiTurn`'s pure-engine order: build, research, advance (full mode), draft with the faction's draft ability, the attack phase with the faction's strike or buff, then fortify. Phase 1's bomb runs through the same AI module the socket calls.
+- Engine randomness is seeded per game (`seededEngineRandomness.ts`) and every run ends with a `Run digest`, so a re-run of one configuration on one seed is the same run, and two arms differ only by what changed.
+
+It reports, beside the usual length, decisiveness, turn-10 leader and per-faction lines:
+
+- **reach**: the share of games in which anyone researches Manhattan Project, the turn it first lands, and, in full mode, the share of seats that research it before leaving WW2;
+- **use**: detonations per game, the share of Manhattan holders who fire, the turn of the first detonation, the win share of seats that fire, and how many detonations were followed by a capture of the tile;
+- **Phase 3 lines**: PP spent on bombs, fallout attrition, proliferation discounts taken.
+
+---
+
+## 3. Phase 1 — The bots and the bomb
+
+**Rule:** none changes. The bomb stays once per game behind Panzer Tactics.
+
+**AI** (`backend/src/game-engine/ai/aiAtomBomb.ts`, called by `processAiTurn` and the harness):
+
+- **Research.** Hard and expert bots treat Manhattan as a goal once their tree reaches its tier-3 prerequisite's line, the way the Space Age bots walk the lunar ladder: research the deepest affordable node on the path, and save tech points for the next one rather than spending them elsewhere when it is within reach. Medium buys it when it is the cheapest node left, as today. Easy does not research.
+- **Firing.** In the attack phase, before its attacks, a bot holding an unused bomb fires it at the best target, scored as units destroyed plus the value of the buildings razed, with a bonus for a target it can walk into this turn and for an enemy capital. Because a once-per-game weapon should not be spent on a small stack, it fires only when the best target is worth at least a threshold the sim sets, or at any target when it is the last turn of a capped game.
+- **Taking.** If a bot holds a stack next to the tile it bombed, the walk-in is added to the head of its attack plan, so the neutral 1-unit tile is taken this turn.
+
+**Gate:** the §8 lines, plus the usage line: bots fire the bomb in most games in which they hold it.
+
+---
+
+## 4. Phase 2 — The science line
+
+**Rule:** Manhattan Project's prerequisite becomes Radar Network (`ww2_radar`) instead of Panzer Tactics. Its cost stays 20 TP.
+
+The science line pays for itself: Mass Munitions adds 2 TP a turn and opens the Laboratory, and Radar adds 3 TP a turn and opens the Research Center. The path costs 42 TP instead of 47, and the player walking it earns its tech income on the way. In Full Game it overlaps the gate out of WW2 (Mass Munitions is a tier-2 node, Radar a tier-3 one), so the bomb sits about two turns past the gate, and "advance now or finish the bomb first" becomes a real decision. Rough arithmetic, to be replaced by Phase 0's numbers:
+
+| Turn the bomb arrives | Tank line, today | Science line |
+|---|---|---|
+| path cost | 47 TP | 42 TP |
+| four seats | about 14 | about 10 |
+| six seats | about 21 | about 16 |
+
+**Engine:** the tree option rides `eraTechTreeOptions` and `getEraTechTree`, like the galaxy's options; `validateResearch` reads the node from the game's own tree so a prerequisite an option moved is the one enforced. The tree route takes the option, so the client draws the line the server enforces.
+
+Panzer Tactics keeps its attack die and Double Blitz; it simply stops leading anywhere.
+
+---
+
+## 5. Phase 3 — The atomic arsenal
+
+**Rule** (numbers are proposals for the sim):
+
+| | Today | Arsenal |
+|---|---|---|
+| Uses | once per game | once per turn, in the attack phase |
+| Price | none | **15 PP for a player's first detonation, +5 PP for each one after** (15, 20, 25, …) |
+| Target | an enemy territory, units → 1 neutral, buildings razed | the same |
+| Fallout | none | the tile carries **fallout for 3 rounds**: whoever holds it loses 1 unit at each round start (never below 1), and it pays no production or tech income |
+| Home cost | none | in a game with stability, **every territory the bomber holds loses 10 stability** |
+| Proliferation | none | after the first detonation by anyone, **Manhattan Project costs half** for every player who has not researched it |
+| Full Game carry | an undetonated bomb carries one legacy charge | a player who holds Manhattan when they advance carries one charge; it fires without the PP price, with fallout and the home cost |
+
+Why each piece:
+
+- **Deny and take (decided).** The detonation leaves the tile neutral with one unit, so the bomber, or anyone next to it, can walk in this turn; fallout makes holding it cost a unit a round and earn nothing for three rounds. Denying is leaving it; taking is paying the fallout. Verdan's storm attrition (`applyStormAttrition`, `worldRules.ts`) is the same round-start mechanic, and fallout ticks beside it.
+- **Escalating price.** The first bomb is affordable; a chain of them is not. Production is the economy's spending currency, and the leader's surplus is exactly what a flat price would let them convert.
+- **Home cost.** Stability already throttles production and deploy caps (`stabilityManager.ts`); a bomber's empire pays in the currency the era advancement gate also reads.
+- **Proliferation.** Historically grounded and mechanically a catch-up: whoever bombs first arms the players behind them.
+- **Economy off.** A tech-on game without the economy earns no tech points at all (§9), so it never reaches Manhattan; the PP price needs no fallback.
+
+**Engine:** `abilities/atomicArsenal.ts` owns the price, the escalation (`PlayerState.atom_bomb_uses`), the requirement check before anything mutates and the charge after success, as the Moon's and the lanes' costs do in `executeTechAbility`. Fallout is `TerritoryState.fallout_rounds`, ticked once per round in `advanceToNextPlayer` beside the storms, read by `collectProduction` and `validateBuild`. `isGameScopedAbility` asks the game, so the bomb is game-scoped without the setting and per turn with it. Proliferation is a term in `getEffectiveTechCost`.
+
+**AI:** the Phase 1 module prices each detonation against the target and the purse, and weighs fallout before walking in.
+
+**Client:** the ability button names the price and the fallout; a fallout tile is marked on the map with its rounds left; the research panel shows the proliferation discount.
+
+---
+
+## 6. Measurement and gates
+
+The harness runs every phase in custom mode at six and four seats, and in full mode at four seats, 1,000 games on each of three seeds, against the control. A phase promotes only if:
+
+- **custom mode:** the faction bands stay where the control puts them, decisiveness does not fall, average length does not rise by more than two turns, and the turn-10 leader's win share does not rise;
+- **full mode:** decisiveness does not fall, the first-advancer and turn-10 era-leader win shares do not rise, and the peak era spread does not widen;
+- **reach** (Phases 2 and 3): the share of games in which someone holds the bomb rises;
+- **use** (Phases 1 and 3): bots fire it in most games in which they hold it, and the win share of seats that fire stays **below 60%**, read with the galaxy's caveat that a seat that reaches tier 4 is usually already ahead.
+
+---
+
+## 7. Out of scope, and noted for later
+
+- **Tech trees without the economy earn no tech points.** Base tech income is paid inside `collectProduction`, which returns at once when the economy is off, and no WW2 tier-1 node pays tech income, so a tech-on, economy-off game can never research anything. That is true of every classic era, it is a lobby-level problem, and it deserves its own fix.
+- **The wonder's name.** One of the two Manhattan Projects needs another name before Phase 3 is promoted; the wonder is the easier one to rename.
+- **Cold War Nuclear Strike and the other tech strikes.** Bots never fire them either. Phase 1's module is the pattern for widening that.
+- **Signature mid-game abilities for the other eras.** The same reach-then-scope pattern, once WW2 shows what works.
+- **Counterplay buildings** (Radar interception, bunkers that blunt a strike): only if Phase 3 measures the bomb too strong.
+
+---
+
+## History
+
+- **2026-10-03:** written after a discussion of the once-per-game abilities: most games end before anyone reaches Manhattan Project. Decided in discussion: tech-on custom games and Full Game are both in scope; the bomb denies and takes ground; it becomes repeatable at a price.

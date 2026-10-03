@@ -51,6 +51,7 @@ Status: **current** (maintained, carries source-of-truth pointers) · **point-in
 | [DAILY_PUZZLE_V2.md](DAILY_PUZZLE_V2.md) | Daily Challenge v2: decision puzzles scored by win probability, not dice — agreed design, dark behind `daily_puzzle_v2_enabled` | in progress |
 | [GALACTIC_AGE_BUILDINGS.md](GALACTIC_AGE_BUILDINGS.md) | Galactic Age buildings, garrison doctrines and lane powers: phased, flag-gated design package that re-gates the catalog to the tree, keeps gateway buildings through capture, adds d8 garrisons and PP-priced powers — proposed, nothing implemented | design-archive |
 | [GALACTIC_AGE_MODES.md](GALACTIC_AGE_MODES.md) | Galactic Age modes by seat count: Colonies (2–3 players), 2v2 (4), the Partial Schism (5–7, a house alone on each unshared world facing an unclaimed half) and the Schism (8), with Concord / Civil War / Allied houses, on engine-wide team rules — the era is admin-only | current |
+| [WW2_MANHATTAN_PROJECT.md](WW2_MANHATTAN_PROJECT.md) | World War II's Manhattan Project: phased, flag-gated package that measures the WW2 economy, teaches the bots the Atom Bomb, moves Manhattan onto the science line and makes the bomb repeatable at an escalating price with fallout and proliferation | in progress |
 
 Root-level: [README.md](../README.md) (canonical setup), [DEPLOYMENT.md](../DEPLOYMENT.md), [CONTRIBUTING.md](../CONTRIBUTING.md), [AGENTS.md](../AGENTS.md), [PRIVACY_POLICY.md](../PRIVACY_POLICY.md), [TERMS_AND_CONDITIONS.md](../TERMS_AND_CONDITIONS.md).
 
