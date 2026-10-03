@@ -864,7 +864,8 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     type RotationResult =
       | { code: 'ok'; username: string; is_admin: boolean; is_guest: boolean }
       | { code: 'invalid' }
-      | { code: 'no_user' };
+      | { code: 'no_user' }
+      | { code: 'banned' };
 
     let rotation: RotationResult;
     try {
@@ -880,12 +881,23 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
           return { code: 'invalid' };
         }
 
-        const { rows: userRows } = await client.query<{ username: string; is_admin: boolean; is_guest: boolean }>(
-          'SELECT username, is_admin, COALESCE(is_guest, false) AS is_guest FROM users WHERE user_id = $1',
+        const { rows: userRows } = await client.query<{ username: string; is_admin: boolean; is_guest: boolean; is_banned: boolean }>(
+          `SELECT username, is_admin, COALESCE(is_guest, false) AS is_guest,
+                  COALESCE(is_banned, false) AS is_banned
+           FROM users WHERE user_id = $1`,
           [payload.sub],
         );
         if (userRows.length === 0) {
           return { code: 'no_user' };
+        }
+        // A ban ends the session, not just the next login: refuse the rotation
+        // and revoke every token the account holds (services/bans.ts).
+        if (userRows[0].is_banned) {
+          await client.query(
+            'UPDATE refresh_tokens SET revoked = TRUE WHERE user_id = $1 AND revoked = FALSE',
+            [payload.sub],
+          );
+          return { code: 'banned' };
         }
 
         await client.query(
@@ -914,6 +926,12 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     }
     if (rotation.code === 'no_user') {
       return reply.status(401).send({ error: 'User not found' });
+    }
+    if (rotation.code === 'banned') {
+      // Same answer as /login gives a banned account. The client treats a 403
+      // from refresh as signed out (classifyRefreshFailure, authStore.ts).
+      reply.clearCookie('refreshToken', clearRefreshCookieOpts(request));
+      return reply.status(403).send({ error: 'Account is banned' });
     }
 
     // Preserve the guest claim across rotation: without it, a guest's first
