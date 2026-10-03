@@ -130,7 +130,7 @@ describe('the tree', () => {
   });
 
   it('is selected per game from its settings', () => {
-    expect(eraTechTreeOptions({ galaxy_powers: true })).toEqual({ galaxyBuildingsV2: false, galaxyPowers: true, galaxyWorldBuildings: false });
+    expect(eraTechTreeOptions({ galaxy_powers: true })).toEqual({ galaxyBuildingsV2: false, galaxyPowers: true, galaxyWorldBuildings: false, ww2ManhattanScience: false });
     expect(getEraTechTree('galaxy_age', { galaxyPowers: true })).toBe(galaxyAgeTechTree({ powers: true }));
     expect(getEraTechTree('space_age', { galaxyPowers: true })).toBe(getEraTechTree('space_age'));
   });

@@ -206,6 +206,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Hard and expert bots research toward Manhattan Project, fire the Atom Bomb at a target worth it (a big stack, its buildings, a tile they can walk into) and walk in. The bomb itself is unchanged: once per game, behind Panzer Tactics. Applies to WW2 games and to climbs that pass through WW2. Baked into each game at creation. OFF by default (dark launch) — Phase 1 of docs/WW2_MANHATTAN_PROJECT.md; promote on its sim gate.',
   },
   {
+    key: 'ww2_manhattan_science_enabled',
+    label: 'WW2 Manhattan Project on the science line',
+    description:
+      'Manhattan Project follows Radar Network instead of Panzer Tactics, at the same 20 TP. The science line pays for itself on the way (Mass Munitions +2 tech, Radar +3, both research buildings), and on a climb it overlaps the gate out of WW2, so the bomb arrives a couple of turns past the gate rather than off the tank line. Applies to WW2 games and to climbs that pass through WW2. Baked into each game at creation. OFF by default (dark launch) — Phase 2 of docs/WW2_MANHATTAN_PROJECT.md; promote on its sim gate.',
+  },
+  {
     key: 'galaxy_world_rules_enabled',
     label: 'Galactic Age worlds as characters',
     description:

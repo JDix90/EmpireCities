@@ -731,11 +731,15 @@ export default function GamePage() {
   // the static route for that one so the client gates the same buildings.
   // Lane powers (`galaxy_powers`) likewise: the tree whose nodes open them, and
   // world buildings (`galaxy_world_buildings`): the tree whose root opens them.
+  // WW2's Manhattan Project on the science line (`ww2_manhattan_science`): the
+  // tree whose Manhattan follows Radar Network, so the panel draws the line the
+  // server enforces.
   const techTreeQuery = (() => {
     const params = [
       gameState?.settings.galaxy_buildings_v2 ? 'buildings=v2' : '',
       gameState?.settings.galaxy_powers ? 'powers=1' : '',
       gameState?.settings.galaxy_world_buildings ? 'world=1' : '',
+      gameState?.settings.ww2_manhattan_science ? 'manhattan=science' : '',
     ].filter(Boolean);
     return params.length > 0 ? `?${params.join('&')}` : '';
   })();

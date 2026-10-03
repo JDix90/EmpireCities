@@ -312,6 +312,8 @@ export interface GameState {
     galaxy_powers?: boolean;
     /** Galactic Age world buildings: Habitat Dome, Storm Shelter, Vault Conduit, Toll Beacon. Baked at create. */
     galaxy_world_buildings?: boolean;
+    /** WW2 Manhattan Project, Phase 2: Manhattan Project behind Radar Network, not Panzer Tactics. Baked at create. */
+    ww2_manhattan_science?: boolean;
     /** Galaxy per-world identity: world_id → modifiers, snapshotted from the map at init. */
     world_modifiers_enabled?: boolean;
     world_modifiers?: Record<string, WorldModifiers>;

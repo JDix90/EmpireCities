@@ -4,7 +4,7 @@
 
 import type { EraId, GameState, PlayerState } from '../../types';
 import type { TechNode } from '../eras/types';
-import { eraTechTreeOptions, getEraTechTree, getTechNodeById } from '../eras';
+import { eraTechTreeOptions, getEraTechTree } from '../eras';
 import { getPlayerFaction } from '../eras/factionLineage';
 import { resolvePlayerEraId } from '../eraAdvancement/constants';
 import { getTechEchoBonus } from '../eraAdvancement/techEcho';
@@ -54,7 +54,10 @@ export function validateResearch(
   if (!player) return { valid: false, error: 'Player not found' };
 
   const playerEra = getPlayerTechEra(state, playerId);
-  const node = getTechNodeById(playerEra, techId);
+  // The game's own tree: an option can move a node's prerequisite (WW2's
+  // Manhattan Project on the science line), and the rule enforced must be the
+  // one the game plays. Every other option keeps ids, costs and prerequisites.
+  const node = getEraTechTree(playerEra, eraTechTreeOptions(state.settings)).find((n) => n.tech_id === techId);
   if (!node) {
     return { valid: false, error: `Tech node '${techId}' does not exist for era '${playerEra}'` };
   }

@@ -88,6 +88,15 @@ describe('research', () => {
     expect(selectAiBombResearch(state, 'p0', 'expert')).toEqual({ techId: null, save: false });
   });
 
+  it('walks the science line when the game plays it', () => {
+    const { state } = ww2Game({ ww2_manhattan_science: true });
+    const me = state.players[0]!;
+    me.tech_points = 30;
+    expect(selectAiBombResearch(state, 'p0', 'expert')?.techId).toBe('ww2_war_industry');
+    me.unlocked_techs = ['ww2_war_industry', 'ww2_munitions'];
+    expect(selectAiBombResearch(state, 'p0', 'expert')?.techId).toBe('ww2_radar');
+  });
+
   it('has nothing to walk once the bomb is researched', () => {
     const { state } = ww2Game();
     state.players[0]!.unlocked_techs = ['ww2_motorization', 'ww2_tanks', 'ww2_panzer_tactics', 'ww2_atom_bomb'];

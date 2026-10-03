@@ -713,6 +713,12 @@ export interface GameSettings {
    */
   ww2_bomb_ai?: boolean;
   /**
+   * WW2 Manhattan Project, Phase 2 (docs/WW2_MANHATTAN_PROJECT.md §4): the tree
+   * whose Manhattan Project follows Radar Network (eras/ww2.ts ww2TechTree).
+   * Baked at create from the `ww2_manhattan_science_enabled` feature flag.
+   */
+  ww2_manhattan_science?: boolean;
+  /**
    * Galactic Age Schism (five to eight seats): how the two houses on a split
    * world start — under the Concord, a truce for the opening rounds, in Civil
    * War, or Allied, every world's seats one team. Absent means the Concord;

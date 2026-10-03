@@ -92,6 +92,8 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // WW2 Manhattan Project (docs/WW2_MANHATTAN_PROJECT.md), Phase 1: hard and
   // expert bots research toward the Atom Bomb and fire it. Dark-launched OFF; baked at create.
   ww2_bomb_ai_enabled: () => envOptIn('WW2_BOMB_AI_ENABLED'),
+  // Phase 2: Manhattan Project behind Radar Network. Dark-launched OFF; baked at create.
+  ww2_manhattan_science_enabled: () => envOptIn('WW2_MANHATTAN_SCIENCE_ENABLED'),
   space_age_moon_race_enabled: () => envOptOut('SPACE_AGE_MOON_RACE_ENABLED'),
   space_age_moon_tribute_enabled: () => envOptIn('SPACE_AGE_MOON_TRIBUTE_ENABLED'),
   ranked_multi_size_enabled: () => envOptIn('RANKED_MULTI_SIZE_ENABLED'),
@@ -665,6 +667,17 @@ export const featureFlags = {
    */
   get ww2BombAiEnabled(): boolean {
     return overrideBool('ww2_bomb_ai_enabled');
+  },
+
+  /**
+   * WW2 Manhattan Project, Phase 2 (docs/WW2_MANHATTAN_PROJECT.md §4): Manhattan
+   * Project's prerequisite moves from Panzer Tactics to Radar Network, at the
+   * same price. Default OFF (dark launch); baked into game settings at create as
+   * `ww2_manhattan_science`. Kill switch: `WW2_MANHATTAN_SCIENCE_ENABLED` or the
+   * `ww2_manhattan_science_enabled` admin override.
+   */
+  get ww2ManhattanScienceEnabled(): boolean {
+    return overrideBool('ww2_manhattan_science_enabled');
   },
 
   /**

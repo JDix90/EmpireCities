@@ -38,7 +38,8 @@
  * full mode always has it).
  *
  * Package phases, each the setting its flag bakes (all off by default, which is
- * the shipped game): SIM_BOMB_AI=1 (Phase 1, `ww2_bomb_ai`).
+ * the shipped game): SIM_BOMB_AI=1 (Phase 1, `ww2_bomb_ai`), SIM_SCIENCE=1
+ * (Phase 2, `ww2_manhattan_science`).
  *
  * Run (from backend/):
  *   pnpm exec tsx scripts/simWw2Balance.ts
@@ -93,6 +94,7 @@ const START_ERA: EraId = MODE === 'custom' ? 'ww2' : 'ancient';
 const MAP_ID = MODE === 'custom' ? 'era_ww2' : 'era_ancient';
 const MANHATTAN = 'ww2_atom_bomb';
 const BOMB_AI = process.env.SIM_BOMB_AI === '1';
+const SCIENCE = process.env.SIM_SCIENCE === '1';
 const COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e'];
 
 if (FACTIONS_ON && PLAYERS > WW2_FACTIONS.length) {
@@ -117,6 +119,7 @@ function simSettings(): GameSettings {
     stability_enabled: STABILITY,
     combat_dice_cap_enabled: true,
     ...(BOMB_AI ? { ww2_bomb_ai: true } : {}),
+    ...(SCIENCE ? { ww2_manhattan_science: true } : {}),
     ...(ENDING === 'conquest'
       ? { allowed_victory_conditions: ['domination', 'threshold'], victory_threshold: 65 }
       : { allowed_victory_conditions: ['domination'] }),
@@ -470,6 +473,7 @@ async function main(): Promise<void> {
   console.log(
     `Seed "${MASTER_SEED}" · factions ${FACTIONS_ON ? 'ON' : 'OFF'} · stability ${STABILITY ? 'ON' : 'OFF'}`
     + ` · bomb AI ${BOMB_AI ? 'ON (SIM_BOMB_AI=1)' : 'OFF'}`
+    + ` · Manhattan ${SCIENCE ? 'on the science line (SIM_SCIENCE=1)' : 'behind Panzer Tactics'}`
     + ` · ${elapsed.toFixed(1)}s (${((elapsed / GAMES) * 1000).toFixed(1)}ms/game)\n`,
   );
   console.log(`Avg game length (turns):          ${fixed(avg(stats.map((s) => s.turns)))}`);

@@ -179,6 +179,37 @@ The science line pays for itself: Mass Munitions adds 2 TP a turn and opens the 
 
 Panzer Tactics keeps its attack die and Double Blitz; it simply stops leading anywhere.
 
+**Shipped (dark):** `ww2TechTree({ manhattanScience })` in `eras/ww2.ts` behind `ww2_manhattan_science_enabled`, baked as `settings.ww2_manhattan_science` wherever the WW2 tree can be played. `eraTechTreeOptions` selects it, `validateResearch` now reads the node from the game's own tree (every other option keeps ids, costs and prerequisites, so no other game reads a different rule), the tree route takes `?manhattan=science`, and the client asks for it, so the tech panel draws the line the server enforces. The Phase 1 bots walk whichever line the game plays.
+
+**Measured, with Phase 1 (same seeds and cells):**
+
+| | Custom 6: control | Phase 1 | Phases 1 + 2 | Custom 4: control | Phase 1 | Phases 1 + 2 |
+|---|---|---|---|---|---|---|
+| length | 48.7 | 48.0 | 48.4 | 30.4 | 26.4 | 29.4 |
+| decisive | 89.8% | 91.8% | 92.4% | 96.4% | 98.7% | 97.6% |
+| turn-10 leader | 47.3% | 47.0% | **38.1%** | 61.4% | 64.1% | 62.6% |
+| PP banked | 219 | 122 | 173 | 155 | 64 | 142 |
+| games where anyone researches Manhattan | 80.2% | 75.2% | **99.7%** | 50.7% | 42.0% | **96.0%** |
+| ...first on turn | 30.0 | 31.3 | **15.5** | 25.0 | 25.2 | **11.6** |
+| bombs fired per game | 0 | 2.98 | 5.15 | 0 | 0.91 | 2.98 |
+| seats that fire win | — | 25.0% | 19.4% | — | 44.1% | 32.0% |
+
+| Faction win rate | Germany | Soviet Union | USA | UK | Japan | China |
+|---|---|---|---|---|---|---|
+| custom 6: control | 26.4% | 9.9% | 9.7% | 44.0% | 2.6% | 7.3% |
+| custom 6: Phases 1 + 2 | 15.0% | 9.8% | 15.1% | 37.6% | 8.0% | 14.6% |
+| custom 4: control | 48.4% | 8.3% | 31.5% | 28.4% | 15.4% | 17.9% |
+| custom 4: Phases 1 + 2 | 40.8% | 6.3% | 41.4% | 26.3% | 19.3% | 15.8% |
+
+The science line **alone** changes no bot game: its runs reproduce the control's digests on every seed in every mode, because a bot that is not pursuing the bomb buys Manhattan last on either line. What it changes is the path for a player who wants the bomb, human or a Phase 1 bot. Full Game with its default medium bots is therefore unchanged by Phases 1 and 2 together.
+
+Reading the gate:
+
+- **Reach passes, by a mile.** Someone holds the bomb in almost every custom game, first on turn 15.5 at six seats and 11.6 at four, against 30 and 25 behind Panzer Tactics.
+- **Six seats improve on every line.** The turn-10 leader falls nine points, on every seed (39.3, 38.1, 36.8 against 46.2, 48.5, 47.2); every faction but the UK moves toward its fair share, and Japan triples. A bomb in everyone's hands by mid-game is the catch-up the era did not have.
+- **Four seats are near flat.** The turn-10 leader is 1.2 points over the control (+1.0, +3.3, −0.7 by seed), within a standard error and half Phase 1's rise; decisiveness is up and games a turn shorter. The USA rises ten points and Germany falls eight.
+- **Seats that fire win 19% at six seats and 32% at four**, against fair shares of 17% and 25%.
+
 ---
 
 ## 5. Phase 3 — The atomic arsenal
@@ -201,7 +232,7 @@ Why each piece:
 - **Escalating price.** The first bomb is affordable; a chain of them is not. Production is the economy's spending currency, and the leader's surplus is exactly what a flat price would let them convert.
 - **Home cost.** Stability already throttles production and deploy caps (`stabilityManager.ts`); a bomber's empire pays in the currency the era advancement gate also reads.
 - **Proliferation.** Historically grounded and mechanically a catch-up: whoever bombs first arms the players behind them.
-- **Economy off.** A tech-on game without the economy earns no tech points at all (§9), so it never reaches Manhattan; the PP price needs no fallback.
+- **Economy off.** A tech-on game without the economy earns no tech points at all, and the lobby never makes one (§7), so the PP price needs no fallback.
 
 **Engine:** `abilities/atomicArsenal.ts` owns the price, the escalation (`PlayerState.atom_bomb_uses`), the requirement check before anything mutates and the charge after success, as the Moon's and the lanes' costs do in `executeTechAbility`. Fallout is `TerritoryState.fallout_rounds`, ticked once per round in `advanceToNextPlayer` beside the storms, read by `collectProduction` and `validateBuild`. `isGameScopedAbility` asks the game, so the bomb is game-scoped without the setting and per turn with it. Proliferation is a term in `getEffectiveTechCost`.
 
@@ -224,7 +255,7 @@ The harness runs every phase in custom mode at six and four seats, and in full m
 
 ## 7. Out of scope, and noted for later
 
-- **Tech trees without the economy earn no tech points.** Base tech income is paid inside `collectProduction`, which returns at once when the economy is off, and no WW2 tier-1 node pays tech income, so a tech-on, economy-off game can never research anything. That is true of every classic era, it is a lobby-level problem, and it deserves its own fix.
+- **Tech trees without the economy earn no tech points.** Base tech income is paid inside `collectProduction`, which returns at once when the economy is off, and no WW2 tier-1 node pays tech income. The lobby already knows: ticking Technology Trees ticks Economy and locks it on (`economyRequired`, `LobbyPage.tsx`). The create route does not refuse the pair, so only an API caller can make such a game; a server-side refusal would close it.
 - **The WW2 factions with the economy on.** The control's spread (UK 44% and Japan 2.6% at six seats, Germany 48% at four) is the era's own, not this package's. `simFactionBalance.ts`, which plays no economy, sees a much narrower one, so the economy and the tree are where to look first.
 - **The wonder's name.** One of the two Manhattan Projects needs another name before Phase 3 is promoted; the wonder is the easier one to rename.
 - **Cold War Nuclear Strike and the other tech strikes.** Bots never fire them either. Phase 1's module is the pattern for widening that.
