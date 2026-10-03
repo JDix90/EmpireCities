@@ -204,4 +204,24 @@ else
   fi
 fi
 
+# The same for the off-site copy, when one is configured. A failed upload only
+# shows in the backup log, and the next night's local prune hides it. Warns only.
+if [ -n "${BACKUP_S3_BUCKET:-}" ]; then
+  # shellcheck source=scripts/backup-s3-lib.sh
+  source "${SCRIPT_DIR}/backup-s3-lib.sh"
+  NEWEST_OFFSITE="$(s3_list_dumps "${BACKUP_DIR}" 2>/dev/null | tail -1 || true)"
+  OFFSITE_STAMP="$(sed -E 's/^postgres_([0-9]{8})_([0-9]{2})([0-9]{2})([0-9]{2})\.dump$/\1 \2:\3:\4/' <<<"${NEWEST_OFFSITE}")"
+  OFFSITE_EPOCH="$(date -d "${OFFSITE_STAMP}" +%s 2>/dev/null || true)"
+  if [ -z "${NEWEST_OFFSITE}" ] || [ -z "${OFFSITE_EPOCH}" ]; then
+    echo "[deploy] WARN: no off-site backup listed in ${BACKUP_S3_BUCKET} (none yet, or the listing failed); check /var/log/borderfall-backup.log" >&2
+  else
+    OFFSITE_AGE_HOURS=$(( ( $(date +%s) - OFFSITE_EPOCH ) / 3600 ))
+    if [ "${OFFSITE_AGE_HOURS}" -ge 48 ]; then
+      echo "[deploy] WARN: newest off-site backup is ${OFFSITE_AGE_HOURS}h old (${NEWEST_OFFSITE}); check /var/log/borderfall-backup.log" >&2
+    else
+      echo "[deploy] off-site backup: ${NEWEST_OFFSITE} (${OFFSITE_AGE_HOURS}h old)"
+    fi
+  fi
+fi
+
 echo "[deploy] Done. Stack is up."

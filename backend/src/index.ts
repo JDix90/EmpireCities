@@ -16,6 +16,7 @@ import { getEventLoopLagMs } from './services/eventLoopMonitor';
 import { aiTurnLimiter, AI_MAX_CONCURRENCY_VALUE } from './game-engine/ai/aiConcurrency';
 import { connectRedis, redis } from './db/redis';
 import { registerErrorHandler } from './errorHandler';
+import { fastifyLoggerOptions } from './loggerOptions';
 import { authenticate } from './middleware/authenticate';
 import { userOrIpKey } from './middleware/rateLimitKey';
 import { authRoutes } from './modules/auth/auth.routes';
@@ -133,7 +134,7 @@ async function bootstrap(): Promise<void> {
   ).catch((err) => console.error('[Boot] spectator_count reset failed:', err));
 
   const app = Fastify({
-    logger: config.nodeEnv === 'development',
+    logger: fastifyLoggerOptions(config.nodeEnv),
     // Bounded proxy trust (default: 1 hop = our nginx). `true` would trust the
     // client-controlled leftmost X-Forwarded-For entry, letting a client forge
     // request.ip and rotate the rate-limit key. Tunable via TRUST_PROXY; the

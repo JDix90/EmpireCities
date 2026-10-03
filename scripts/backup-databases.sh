@@ -123,4 +123,51 @@ while IFS= read -r old_dump; do
   PRUNED=$((PRUNED + 1))
 done < <(ls -1t "$BACKUP_DIR"/postgres_*.dump 2>/dev/null | tail -n +$((RETENTION_COUNT + 1)))
 echo "[backup] Pruned ${PRUNED} older dump(s); keeping the newest ${RETENTION_COUNT}"
+
+# ── Off-site copy ────────────────────────────────────────────────────────────
+# A dump on the droplet's own disk dies with the droplet. With BACKUP_S3_BUCKET
+# set (scripts/backup-s3-lib.sh lists the settings), each verified dump is also
+# uploaded, its size checked against the local file, and only then are older
+# off-site copies pruned to the newest BACKUP_S3_RETENTION_COUNT. The dump just
+# uploaded is the newest by name and is skipped by name as well, so pruning can
+# never remove it. Without the setting the script behaves exactly as before.
+#
+# A failed upload exits 1 and keeps the local dump, but the next night's local
+# prune still keeps only the newest one, so a run of failures is only visible
+# in the log. Every deploy prints the newest off-site copy's age for that reason.
+if [ -n "${BACKUP_S3_BUCKET:-}" ]; then
+  # shellcheck source=scripts/backup-s3-lib.sh
+  source "${SCRIPT_DIR}/backup-s3-lib.sh"
+  s3_require_settings
+  DUMP_NAME="$(basename "$TARGET")"
+  REMOTE="s3://${BACKUP_S3_BUCKET}/${S3_PREFIX}/${DUMP_NAME}"
+
+  if ! aws_cli "$BACKUP_DIR" s3 cp "/backups/${DUMP_NAME}" "$REMOTE" --only-show-errors; then
+    echo "[backup] FATAL: upload to ${REMOTE} failed. The local dump is kept." >&2
+    exit 1
+  fi
+  LOCAL_BYTES=$(stat -c %s "$TARGET")
+  REMOTE_BYTES=$(aws_cli "$BACKUP_DIR" s3api head-object \
+    --bucket "$BACKUP_S3_BUCKET" --key "${S3_PREFIX}/${DUMP_NAME}" \
+    --query ContentLength --output text 2>/dev/null || echo missing)
+  if [ "$REMOTE_BYTES" != "$LOCAL_BYTES" ]; then
+    echo "[backup] FATAL: off-site copy is ${REMOTE_BYTES} bytes, local dump is ${LOCAL_BYTES}. Not pruning." >&2
+    exit 1
+  fi
+  echo "[backup] Off-site copy verified: ${REMOTE} (${LOCAL_BYTES} bytes)"
+
+  mapfile -t REMOTE_DUMPS < <(s3_list_dumps "$BACKUP_DIR")
+  REMOTE_PRUNED=0
+  if [ "${#REMOTE_DUMPS[@]}" -gt "$S3_RETENTION" ]; then
+    for old in "${REMOTE_DUMPS[@]:0:$(( ${#REMOTE_DUMPS[@]} - S3_RETENTION ))}"; do
+      # Only matters if a later-named file sits in the bucket (a skewed clock).
+      [ "$old" = "$DUMP_NAME" ] && continue
+      aws_cli "$BACKUP_DIR" s3 rm "s3://${BACKUP_S3_BUCKET}/${S3_PREFIX}/${old}" --only-show-errors
+      REMOTE_PRUNED=$((REMOTE_PRUNED + 1))
+    done
+  fi
+  echo "[backup] Off-site: pruned ${REMOTE_PRUNED}; keeping the newest ${S3_RETENTION}"
+else
+  echo "[backup] Off-site copy skipped: BACKUP_S3_BUCKET is not set (see scripts/backup-s3-lib.sh)."
+fi
 echo "[backup] Done"

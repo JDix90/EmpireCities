@@ -1,5 +1,6 @@
 import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { config } from './config';
+import { captureException } from './services/sentry';
 
 /**
  * Stable, user-safe messages for HTTP status codes we surface verbatim.
@@ -44,6 +45,11 @@ export function registerErrorHandler(app: FastifyInstance): void {
       { err: error, reqId, url: request.url, method: request.method },
       error.message,
     );
+    // Server faults go to Sentry; 4xx are the client's mistakes (validation,
+    // auth, rate limits) and would only drown the real ones.
+    if (statusCode >= 500) {
+      captureException(error, { reqId, url: request.url, method: request.method });
+    }
 
     if (reply.sent) return;
 

@@ -59,7 +59,25 @@ Confirm the **daily job** is scheduled, e.g. `crontab -l | grep backup` — if m
 0 4 * * * cd /path/to/repo && ./scripts/backup-databases.sh >> /var/log/borderfall-backup.log 2>&1
 ```
 
-Backups land on the **same droplet** — if the droplet dies they die with it. For real durability, copy off-box (DO Spaces / `scp`) after each run.
+Backups land on the **same droplet** unless the off-site copy is configured: with the `BACKUP_S3_*` settings in `.env.production` (listed in `.env.production.example`), each verified dump is also uploaded to DigitalOcean Spaces, size-checked, and the newest 14 kept there. Every deploy prints the newest off-site copy's age and warns past 48 hours.
+
+Prove the newest copy restores, monthly and after any change to the backup setup:
+
+```bash
+./scripts/backup-restore-check.sh           # downloads the newest off-site dump
+./scripts/backup-restore-check.sh --local   # or the newest dump on this droplet
+```
+
+It restores into a throwaway Postgres container with no network, prints restored row counts beside live ones, and ends `PASS` or `FAIL`. Production is only read.
+
+**If the droplet is lost**, recovery is the same restore onto a fresh stack. Download the newest dump from the bucket in the Spaces web console, copy it to the new droplet, then:
+
+```bash
+docker compose -f docker/docker-compose.prod.yml --env-file .env.production up -d postgres
+docker exec -i borderfall_postgres_prod pg_restore -U chronouser -d borderfall \
+  --no-owner --no-privileges --exit-on-error < postgres_YYYYMMDD_HHMMSS.dump
+./scripts/deploy-production.sh
+```
 
 **2. Quick load test** (read-only, safe against prod — see [scripts/loadtest.js](../scripts/loadtest.js)):
 

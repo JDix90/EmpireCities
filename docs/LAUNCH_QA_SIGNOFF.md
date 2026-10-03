@@ -104,7 +104,7 @@ Walk [SECURITY_CHECKLIST.md](SECURITY_CHECKLIST.md):
 - [ ] JWT secrets not defaults; CORS limited to your domains
 - [ ] Auth rate limits; socket requires JWT
 - [ ] `/ready` fails when DB down
-- [ ] Backup via `./scripts/backup-databases.sh`; restore drill once
+- [ ] Backup via `./scripts/backup-databases.sh`; restore drill once with `./scripts/backup-restore-check.sh`
 - [ ] Deploy restart: graceful shutdown documented; live games survive (state reloads from Redis,
       turn timers survive in BullMQ, clients resync) — see docs/ARCHITECTURE.md §Game state authority model
 
