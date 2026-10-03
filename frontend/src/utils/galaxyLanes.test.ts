@@ -259,6 +259,8 @@ describe('galaxyLanes', () => {
 describe('the Colonies board', () => {
   it('reads a colony lane as charted all game, and outside Lane Sovereignty', () => {
     expect(laneKindOf('galaxy_mode')).toBe('colony');
+    expect(laneKindOf('surge_projector')).toBe('surge_projector');
+    expect(describeLaneKind('surge_projector')).toMatch(/one crossing, this attack phase only/);
     expect(describeLaneKind('colony')).toMatch(/Colony lane — open all game/);
     expect(describeLaneKind('colony')).toMatch(/Sovereignty counts only the eight charted lanes/);
     const withBridge = {

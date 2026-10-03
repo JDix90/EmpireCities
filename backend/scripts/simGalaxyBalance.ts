@@ -117,13 +117,17 @@ import {
   LANE_POWER_TUNING,
   lanePowerSources,
   type LanePowerId,
+  surgeProjectorSources,
 } from '../src/game-engine/abilities/lanePowers';
+import { SURGE_PROJECTOR_LANE_SOURCE, syncSurgeProjectorLanes } from '../src/game-engine/state/surgeProjector';
+import { ringGapLanes } from '../src/game-engine/state/galaxyRing';
 import {
   aiFiresLanePowers,
   canAiFireLanePower,
   selectAiLanceBatteryTarget,
   selectAiOrbitalMusterTarget,
   selectAiSealBreaker,
+  selectAiSurgeProjector,
 } from '../src/game-engine/ai/aiLanePowers';
 import { applyBuild } from '../src/game-engine/state/economyManager';
 import { applyResearch, validateResearch } from '../src/game-engine/state/techManager';
@@ -712,6 +716,15 @@ interface SeatTelemetry {
    * (powers only) — the power's real eligibility, since unlocking it is not.
    */
   sealBreakerChances: number;
+  /**
+   * Attack phases in which Surge Projector was unlocked and unused and a ring
+   * gap stood open to it: the seat's gateway at one end, a rival's at the
+   * other, its Jump Gates on both worlds (powers only).
+   */
+  projectorChances: number;
+  /** Exchanges fought across a projected lane, and the far gateways it took. */
+  projectorExchanges: number;
+  projectorCaptures: number;
   /** Exchanges this seat fought on d8s: attacking from a Forward tile, defending a Hardened one. */
   forwardExchanges: number;
   hardenedDefences: number;
@@ -768,6 +781,25 @@ function sealBreakerChance(state: GameState, map: GameMap, pid: string): boolean
       if (!n || !f || n.owner_id !== pid || !f.owner_id || f.owner_id === pid) continue;
       if (!isLaneSealedForPlayer(state, near, far, pid) || !isLaneGateway(map, near)) continue;
       if (lanePowerSources(state, map, pid, 'seal_breaker', near).length > 0) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Whether Surge Projector had a gap to open this attack phase: unlocked,
+ * unused, and a ring gap with the seat's gateway at one end, a rival's at the
+ * other and the seat's Jump Gates on both worlds. Price and odds are the bot's
+ * reasons to decline, as for Seal Breaker.
+ */
+function surgeProjectorChance(state: GameState, map: GameMap, pid: string): boolean {
+  const me = state.players.find((p) => p.player_id === pid);
+  if (!me || (me.ability_uses ?? {}).surge_projector || !playerHasUnlockedAbility(state, pid, 'surge_projector')) return false;
+  for (const gap of ringGapLanes(map)) {
+    for (const far of [gap.from, gap.to]) {
+      const owner = state.territories[far]?.owner_id;
+      if (!owner || owner === pid) continue;
+      if (surgeProjectorSources(state, map, pid, far).length > 0) return true;
     }
   }
   return false;
@@ -872,6 +904,21 @@ function playAiTurn(
         else plan.splice(firstAttack, 0, crossing);
       }
     }
+    // Surge Projector: the power puts its lane on the map copy, and the
+    // harness's lookup must follow, or the crossing fights without a lane.
+    if (surgeProjectorChance(state, map, pid)) seat.projectorChances++;
+    if (canAiFireLanePower(state, pid, 'surge_projector')) {
+      const surge = selectAiSurgeProjector(state, map, pid);
+      if (surge && fireLanePower(state, map, pid, 'surge_projector', surge.target)) {
+        seat.powerUses.surge_projector = (seat.powerUses.surge_projector ?? 0) + 1;
+        connectionsByKey.clear();
+        for (const c of map.connections) connectionsByKey.set(laneKey(c.from, c.to), c);
+        const firstAttack = plan.findIndex((a) => a.type === 'attack');
+        const crossing = { type: 'attack' as const, from: surge.source, to: surge.target, units: 3 };
+        if (firstAttack < 0) plan.push(crossing);
+        else plan.splice(firstAttack, 0, crossing);
+      }
+    }
     if (canAiFireLanePower(state, pid, 'lance_battery')) {
       const lanceAt = selectAiLanceBatteryTarget(state, map, pid, plan);
       if (lanceAt && fireLanePower(state, map, pid, 'lance_battery', lanceAt)) {
@@ -929,7 +976,11 @@ function playAiTurn(
         // orbital infrastructure): project that onto the map copy at once, as the
         // socket does, or the dead lane keeps feeding the bots' adjacency until
         // the next build.
-        if (syncJumpGateLanes(map, state)) {
+        // The same goes for a Surge Projector lane, which its one crossing closes.
+        if (connection?.source === SURGE_PROJECTOR_LANE_SOURCE) seat.projectorCaptures++;
+        const gatesChanged = syncJumpGateLanes(map, state);
+        const surgeChanged = POWERS && syncSurgeProjectorLanes(map, state);
+        if (gatesChanged || surgeChanged) {
           connectionsByKey.clear();
           for (const c of map.connections) connectionsByKey.set(laneKey(c.from, c.to), c);
         }
@@ -944,6 +995,7 @@ function playAiTurn(
         }
       }
       if (outcome && connection?.source === 'lane_surge') seat.surgeCrossings++;
+      if (outcome && connection?.source === SURGE_PROJECTOR_LANE_SOURCE) seat.projectorExchanges++;
       if (outcome) {
         if (crossesLane) {
           seat.crossExchanges++;
@@ -961,6 +1013,11 @@ function playAiTurn(
   }
 
   state.phase = 'fortify';
+  // A Surge Projector lane is an attack-phase lane: it closes now, as the socket's does.
+  if (POWERS && syncSurgeProjectorLanes(map, state)) {
+    connectionsByKey.clear();
+    for (const c of map.connections) connectionsByKey.set(laneKey(c.from, c.to), c);
+  }
   for (const a of plan) {
     if (a.type === 'fortify' && a.from && a.to) {
       const before = (state.transits ?? []).length;
@@ -1337,6 +1394,9 @@ function runGame(gameIndex: number, sourceMap: GameMap): GameStat {
       powerUses: {},
       sealsPlaced: 0,
       sealBreakerChances: 0,
+      projectorChances: 0,
+      projectorExchanges: 0,
+      projectorCaptures: 0,
       forwardExchanges: 0,
       hardenedDefences: 0,
       convoysSent: 0,
@@ -1912,6 +1972,23 @@ function main(): void {
       + ` · users win ${pct(breakers.filter((s) => s.won).length, Math.max(1, breakers.length))} of ${breakers.length}`
       + ` vs seats that met one and held ${pct(declined.filter((s) => s.won).length, Math.max(1, declined.length))} of ${declined.length}`,
     );
+    // Surge Projector likewise has a use only when a gap stands open to it.
+    const metGap = seats.filter((s) => s.projectorChances > 0);
+    const gapGames = stats.filter((g) => g.seats.some((s) => s.projectorChances > 0));
+    const projectors = metGap.filter((s) => (s.powerUses.surge_projector ?? 0) > 0);
+    const heldGap = metGap.filter((s) => (s.powerUses.surge_projector ?? 0) === 0);
+    const fired = seats.reduce((n, s) => n + (s.powerUses.surge_projector ?? 0), 0);
+    console.log(
+      `  surge_projector where a gap stood open: ${pct(metGap.length, Math.max(1, seats.filter((s) => s.powersUnlocked.includes('surge_projector')).length))} of seats that unlocked it met one`
+      + ` (${fixed(avg(metGap.map((s) => s.projectorChances)))} attack phases each)`
+      + ` · used in ${pct(gapGames.filter((g) => g.seats.some((s) => (s.powerUses.surge_projector ?? 0) > 0)).length, Math.max(1, gapGames.length))} of those games`
+      + ` · users win ${pct(projectors.filter((s) => s.won).length, Math.max(1, projectors.length))} of ${projectors.length}`
+      + ` vs seats that met one and held ${pct(heldGap.filter((s) => s.won).length, Math.max(1, heldGap.length))} of ${heldGap.length}`,
+    );
+    console.log(
+      `  surge_projector crossings: ${fired} fired · ${fixed(seats.reduce((n, s) => n + s.projectorExchanges, 0) / Math.max(1, fired))} exchanges each`
+      + ` · far gateway taken in ${pct(seats.reduce((n, s) => n + s.projectorCaptures, 0), Math.max(1, fired))}`,
+    );
   }
 
   if (TRANSIT) {
@@ -1938,6 +2015,7 @@ function main(): void {
       'pp_banked', 'gateway_buildings', 'buildings_inherited',
       'hardened_bought', 'forward_bought',
       'lance_battery_uses', 'orbital_muster_uses', 'seal_breaker_uses', 'seals_placed', 'seal_breaker_chances',
+      'surge_projector_uses', 'projector_chances', 'projector_captures',
     ].join(',');
     const rows = stats.flatMap((s) =>
       s.seats.map((seat, i) => [
@@ -1949,6 +2027,7 @@ function main(): void {
         seat.ppBanked, seat.gatewayBuildings, seat.buildingsInherited,
         seat.hardenedBought, seat.forwardBought,
         seat.powerUses.lance_battery ?? 0, seat.powerUses.orbital_muster ?? 0, seat.powerUses.seal_breaker ?? 0, seat.sealsPlaced, seat.sealBreakerChances,
+        seat.powerUses.surge_projector ?? 0, seat.projectorChances, seat.projectorCaptures,
       ].join(',')),
     );
     writeFileSync(CSV_PATH, [header, ...rows].join('\n') + '\n');

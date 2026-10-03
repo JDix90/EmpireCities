@@ -45,6 +45,7 @@ const ACTIVATION_BY_EFFECT: Record<string, string> = {
   unification_convert: '🇮🇹 Territory unified under your banner',
   space_station_launched: '🚀 Space Station launched',
   seal_breaker_ready: '🗝️ Seal Breaker armed — the next crossing from this gateway ignores a closure or a seal',
+  surge_projector_opened: '🌀 Surge Projector — the gap is open for one crossing, this attack phase',
 };
 
 export function getAbilityActivationMessage(

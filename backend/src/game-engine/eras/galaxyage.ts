@@ -298,6 +298,7 @@ export const GALAXY_POWER_UNLOCKS: Readonly<Record<string, string>> = {
   ga_disruption_net: 'lance_battery',
   ga_battle_fabricators: 'orbital_muster',
   ga_gravity_brake: 'seal_breaker',
+  ga_gate_engineering: 'surge_projector',
 };
 
 export interface GalaxyTreeOptions {

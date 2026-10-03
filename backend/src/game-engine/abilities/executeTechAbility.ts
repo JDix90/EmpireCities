@@ -13,7 +13,8 @@ import {
   playerHasUnlockedAbility,
 } from './techAbilities';
 import { checkMoonPowerRequirement, spendMoonPowerCost } from './moonPowers';
-import { checkLanePowerRequirement, spendLanePowerCost } from './lanePowers';
+import { checkLanePowerRequirement, spendLanePowerCost, surgeProjectorSources } from './lanePowers';
+import { syncSurgeProjectorLanes } from '../state/surgeProjector';
 import { declareDropAssault } from './dropAssault';
 import { isShieldedFrom, shieldedTargetError } from '../state/teams';
 
@@ -145,6 +146,17 @@ function executeAbilityEffect(params: TechAbilityParams): AbilityExecutionResult
   if (abilityId === 'seal_breaker' && territoryId) {
     currentPlayer.pending_seal_breaker_from = territoryId;
     return { success: true, effect: 'seal_breaker_ready', territoryId };
+  }
+
+  // ── Surge Projector (lane power): open the ring gap for one crossing ───────
+  // The gate already found the player's gateway at the near end; the lane goes
+  // onto the map copy now so the crossing that follows sees an ordinary lane.
+  if (abilityId === 'surge_projector' && territoryId) {
+    const from = surgeProjectorSources(state, params.map, playerId, territoryId)[0];
+    if (!from) return { success: false, error: 'Surge Projector has no gap to open' };
+    state.surge_projector_lane = { owner_id: playerId, from, to: territoryId };
+    syncSurgeProjectorLanes(params.map, state);
+    return { success: true, effect: 'surge_projector_opened', territoryId };
   }
 
   // ── Recon abilities (no territory target) ─────────────────────────────────

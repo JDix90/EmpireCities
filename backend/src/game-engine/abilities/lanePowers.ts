@@ -21,6 +21,10 @@
  *   Seal Breaker    (Gravity Brake Doctrine)  a defence building on a gateway;
  *                    your next crossing from it ignores a Nebula Closure or an
  *                    Emergency Seal — the Stellar Mandate's kit, at a price. 4 PP
+ *   Surge Projector (Gate Engineering)        Jump Gates on both worlds of a
+ *                    gap in the ring, and the gateway at your end of it; opens
+ *                    the gap to the rival gateway at the other end for one
+ *                    crossing, this attack phase (state/surgeProjector.ts). 10 PP
  *
  * All are once per turn (`scope: 'turn'`). Each is a `TERRITORY_ABILITY_DEFS`
  * entry using two descriptor fields, `productionCost` and `requiresBuilding`,
@@ -36,10 +40,13 @@
 import type { GameMap, GameState, MapConnection, PlayerState, TerritoryState } from '../../types';
 import { isLaneSealedForPlayer } from '../state/moonAccess';
 import { areAllies } from '../state/teams';
+import { ringGapLanes } from '../state/galaxyRing';
+import { playerHasGateOnWorld } from '../state/jumpGates';
+import { SURGE_PROJECTOR_LANE_SOURCE } from '../state/surgeProjector';
 import { TERRITORY_ABILITY_DEFS, type TerritoryAbilityDef } from './techAbilities';
 
 /** Every lane power, in the order the panels list them. */
-export const LANE_POWER_IDS = ['lance_battery', 'orbital_muster', 'seal_breaker'] as const;
+export const LANE_POWER_IDS = ['lance_battery', 'orbital_muster', 'seal_breaker', 'surge_projector'] as const;
 export type LanePowerId = (typeof LANE_POWER_IDS)[number];
 
 /**
@@ -50,6 +57,7 @@ export const LANE_POWER_TUNING: Record<LanePowerId, number> = {
   lance_battery: TERRITORY_ABILITY_DEFS.lance_battery.productionCost ?? 0,
   orbital_muster: TERRITORY_ABILITY_DEFS.orbital_muster.productionCost ?? 0,
   seal_breaker: TERRITORY_ABILITY_DEFS.seal_breaker.productionCost ?? 0,
+  surge_projector: TERRITORY_ABILITY_DEFS.surge_projector.productionCost ?? 0,
 };
 
 export function lanePowersEnabled(state: Pick<GameState, 'settings'>): boolean {
@@ -67,10 +75,34 @@ export function lanePowerCost(abilityId: string): number {
 
 /**
  * Lanes a power can reach across: every orbit edge except a Jump Gate's, which
- * carries no attack (state/jumpGates.ts).
+ * carries no attack (state/jumpGates.ts), and a Surge Projector's, which
+ * carries one crossing and nothing else.
  */
 export function crossableLanes(map: GameMap): MapConnection[] {
-  return (map.connections ?? []).filter((c) => c.type === 'orbit' && c.source !== 'jump_gate');
+  return (map.connections ?? []).filter(
+    (c) => c.type === 'orbit' && c.source !== 'jump_gate' && c.source !== SURGE_PROJECTOR_LANE_SOURCE,
+  );
+}
+
+/**
+ * Surge Projector: the player's gateways at the other end of a ring gap from
+ * `target`, where the player also holds a Jump Gate on each of the gap's two
+ * worlds. A gap something already bridges (a Lane Surge, a Colonies lane, a
+ * projector this turn) offers none.
+ */
+export function surgeProjectorSources(state: GameState, map: GameMap, playerId: string, target: string): string[] {
+  const out: string[] = [];
+  for (const gap of ringGapLanes(map)) {
+    const near = gap.from === target ? gap.to : gap.to === target ? gap.from : null;
+    if (!near || state.territories[near]?.owner_id !== playerId) continue;
+    if (!playerHasGateOnWorld(state, playerId, state.territories[near]?.world_id)) continue;
+    if (!playerHasGateOnWorld(state, playerId, state.territories[target]?.world_id)) continue;
+    const bridged = map.connections.some(
+      (c) => (c.from === near && c.to === target) || (c.from === target && c.to === near),
+    );
+    if (!bridged) out.push(near);
+  }
+  return out;
 }
 
 export function hasRequiredBuilding(
@@ -109,6 +141,7 @@ export function lanePowerSources(
 ): string[] {
   const def = TERRITORY_ABILITY_DEFS[abilityId];
   if (!def || !isLanePower(abilityId)) return [];
+  if (def.laneSource === 'ring_gap') return surgeProjectorSources(state, map, playerId, territoryId);
   const qualifies = (tid: string): boolean => {
     const t = state.territories[tid];
     if (!t || t.owner_id !== playerId) return false;
@@ -149,7 +182,25 @@ export function checkLanePowerRequirement(
   const target = state.territories[territoryId];
   const what = BUILDING_WORDS[def.requiresBuilding ?? 'any'];
 
-  if (def.laneSource === 'across_lane') {
+  if (def.laneSource === 'ring_gap') {
+    if (!target.owner_id || target.owner_id === playerId) {
+      return `${def.label} fires on a rival's gateway across a gap in the ring`;
+    }
+    if (areAllies(state, playerId, target.owner_id)) return `${def.label} cannot fire on an ally`;
+    const gaps = ringGapLanes(map).filter((g) => g.from === territoryId || g.to === territoryId);
+    if (gaps.length === 0) return `${def.label} opens a lane only across a gap in the ring`;
+    if (!gaps.some((g) => state.territories[g.from === territoryId ? g.to : g.from]?.owner_id === playerId)) {
+      return `${def.label} needs your gateway at the other end of the gap`;
+    }
+    if (surgeProjectorSources(state, map, playerId, territoryId).length === 0) {
+      const gated = gaps.some((g) => {
+        const near = g.from === territoryId ? g.to : g.from;
+        return playerHasGateOnWorld(state, playerId, state.territories[near]?.world_id)
+          && playerHasGateOnWorld(state, playerId, target.world_id);
+      });
+      return gated ? 'That gap is already open' : `${def.label} needs your Jump Gates on both worlds of the gap`;
+    }
+  } else if (def.laneSource === 'across_lane') {
     if (!target.owner_id || target.owner_id === playerId) {
       return `${def.label} fires on a rival's gateway`;
     }

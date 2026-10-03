@@ -12,7 +12,9 @@
  *   Lance Battery   before a planned crossing, when the far gateway holds more
  *                   than the lane's two dice can reasonably beat;
  *   Seal Breaker    only when a seal or closure actually shuts a lane the bot
- *                   could win across, and then the caller plans that crossing.
+ *                   could win across, and then the caller plans that crossing;
+ *   Surge Projector only into a weakly held rival gateway across a ring gap,
+ *                   and then the caller plans that crossing first.
  *
  * Easy and tutorial bots never fire them. `aiLanePowerReserve` is the PP the bot
  * keeps back for the dearest power it holds, so the garrison purchases made
@@ -29,7 +31,9 @@ import {
   lanePowerCost,
   lanePowerSources,
   lanePowersEnabled,
+  surgeProjectorSources,
 } from '../abilities/lanePowers';
+import { ringGapLanes } from '../state/galaxyRing';
 import { isLaneSealedForPlayer } from '../state/moonAccess';
 import { isFriendlyOwner } from '../state/teams';
 
@@ -39,6 +43,13 @@ import { isFriendlyOwner } from '../state/teams';
  * units off first is what makes the crossing a fight.
  */
 export const AI_LANCE_MIN_TARGET_UNITS = 3;
+
+/**
+ * A Surge Projector is 10 PP for one crossing, so the bot opens a gap only
+ * where its stack outnumbers the far gateway by at least this much after
+ * leaving one behind: "weakly held", in the doc's words.
+ */
+export const AI_SURGE_MIN_EDGE = 2;
 
 /** Easy and tutorial bots stay off the powers. */
 export function aiFiresLanePowers(difficulty: AiDifficulty): boolean {
@@ -155,6 +166,32 @@ export function selectAiSealBreaker(
       const edge = n.unit_count - 1 - f.unit_count;
       if (n.unit_count < 3 || edge < 1) continue;
       if (!best || edge > best.edge) best = { source: near, target: far, edge };
+    }
+  }
+  return best ? { source: best.source, target: best.target } : null;
+}
+
+/**
+ * Surge Projector: a gap in the ring whose near gateway the bot holds, with a
+ * Jump Gate on each of the gap's worlds, and whose far gateway a rival holds
+ * weakly. The caller fires the power on `target` and plans the crossing from
+ * `source` first.
+ */
+export function selectAiSurgeProjector(
+  state: GameState,
+  map: GameMap,
+  playerId: string,
+): { source: string; target: string } | null {
+  let best: { source: string; target: string; edge: number } | null = null;
+  for (const gap of ringGapLanes(map)) {
+    for (const [near, far] of [[gap.from, gap.to], [gap.to, gap.from]] as const) {
+      const n = state.territories[near];
+      const f = state.territories[far];
+      if (!n || !f || n.owner_id !== playerId || !isRival(state, playerId, f.owner_id)) continue;
+      if (!surgeProjectorSources(state, map, playerId, far).includes(near)) continue;
+      const edge = n.unit_count - 1 - f.unit_count;
+      if (n.unit_count < 3 || edge < AI_SURGE_MIN_EDGE) continue;
+      if (!best || edge > best.edge || (edge === best.edge && far < best.target)) best = { source: near, target: far, edge };
     }
   }
   return best ? { source: best.source, target: best.target } : null;

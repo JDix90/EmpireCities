@@ -264,6 +264,8 @@ export interface GameState {
   pending_truces?: Array<{ proposer_id: string; target_id: string }>;
   /** Active hyperspace-lane seals (Void Custodians' Emergency Seal), keyed by canonical lane id. */
   lane_blockades?: Record<string, { owner_id: string; turns_remaining: number }>;
+  /** Galactic Age Surge Projector (lane powers): the one-crossing lane open this attack phase. Mirrors backend. */
+  surge_projector_lane?: { owner_id: string; from: string; to: string };
   /**
    * Galactic Age board mode, when this game was not dealt the classic
    * one-world-per-player start. Colonies (two or three seats): `neutral_worlds`

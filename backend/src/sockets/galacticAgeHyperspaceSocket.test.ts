@@ -70,6 +70,7 @@ describe.runIf(redisTestEnabled)('Galactic Age hyperspace — human socket path'
   let setGameState: (id: string, s: GameState) => Promise<void>;
   let getGameState: (id: string) => Promise<GameState | null>;
   let setGameMap: (id: string, m: GameMap) => Promise<void>;
+  let getGameMap: (id: string) => Promise<GameMap | null>;
   let deleteGameKeys: (id: string) => Promise<void>;
   let shutdownGameSocket: (io: IOServer) => Promise<void>;
 
@@ -83,7 +84,7 @@ describe.runIf(redisTestEnabled)('Galactic Age hyperspace — human socket path'
     ({ signAccessToken } = await import('../utils/jwt'));
     const store = await import('./redisGameStore');
     setGameState = store.setGameState; getGameState = store.getGameState;
-    setGameMap = store.setGameMap; deleteGameKeys = store.deleteGameKeys;
+    setGameMap = store.setGameMap; getGameMap = store.getGameMap; deleteGameKeys = store.deleteGameKeys;
     const redisMod = await import('../db/redis');
     await redisMod.redis.connect().catch(() => { /* lazyConnect */ });
     httpServer = createServer();
@@ -700,5 +701,81 @@ describe.runIf(redisTestEnabled)('Galactic Age hyperspace — human socket path'
     // Once per turn.
     const again = await act(c, 'game:use_ability', { gameId, abilityId: 'lance_battery', params: { territoryId: L1.verdan } }, 'game:ability_result');
     expect(again.ok).toBe(false);
+  }, 45_000);
+
+  /**
+   * Surge Projector: the Mandate holds Sol's end of the Sol–Rust gap and a Jump
+   * Gate on each world (one on a Rust foothold); a rival holds the Rust end.
+   */
+  function surgeSetup(gameId: string, seat = 0): { state: GameState; map: GameMap } {
+    const map = freshMap();
+    const state = freshState(gameId, map, { galaxy_powers: true });
+    // The seat is a parameter only so a test can act as a player the suite's
+    // earlier tests have not already spent the gameplay rate limit on.
+    const rival = seat === 1 ? P[2] : P[1];
+    state.territories[GAP.sol].owner_id = P[seat];
+    state.territories[GAP.sol].buildings = ['jump_gate'];
+    state.territories[GAP.foothold].owner_id = P[seat];
+    state.territories[GAP.foothold].buildings = ['jump_gate'];
+    state.territories[GAP.rust].owner_id = rival;
+    armAssault(state, GAP.sol, GAP.rust);
+    state.players[seat].special_resource = 30;
+    state.players[seat].unlocked_techs = ['ga_gate_engineering'];
+    state.current_player_index = seat;
+    state.phase = 'attack';
+    return { state, map };
+  }
+  const GAP = { sol: 'sol_amazonia', rust: 'rust_anvil_basin', foothold: 'rust_furnace_marches' };
+  const nextMap = (c: ClientSocket): Promise<GameMap> => new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error('no game:map')), 10_000);
+    c.once('game:map', (payload: { map: GameMap }) => { clearTimeout(t); resolve(payload.map); });
+  });
+  const surgeEdge = (m: GameMap) => m.connections.some((conn) => conn.source === 'surge_projector');
+
+  it('lane powers: a Surge Projector opens the ring gap for one crossing, and the capture closes it', async () => {
+    const gameId = 'itest-ga-surge';
+    const { state, map } = surgeSetup(gameId);
+    await seed(gameId, state, map);
+    const c = await connect(P[0]); await joinRoom(P[0], gameId);
+
+    // The gap is a gap: no lane, no attack.
+    const before = await act(c, 'game:attack', { gameId, fromId: GAP.sol, toId: GAP.rust }, 'game:combat_result');
+    expect(before.ok).toBe(false);
+
+    const opened = nextMap(c);
+    const fired = await act(c, 'game:use_ability', { gameId, abilityId: 'surge_projector', params: { territoryId: GAP.rust } }, 'game:ability_result');
+    expect(fired.ok, fired.ok ? '' : fired.error).toBe(true);
+    expect(surgeEdge(await opened)).toBe(true);
+    const armed = await waitForRedisState(gameId, (st) => !!st.surge_projector_lane);
+    expect(armed.players[0].special_resource).toBe(20);
+
+    const closed = nextMap(c);
+    const crossed = await act<{ result: { territory_captured: boolean } }>(
+      c, 'game:attack', { gameId, fromId: GAP.sol, toId: GAP.rust }, 'game:combat_result',
+    );
+    expect(crossed.ok, crossed.ok ? '' : crossed.error).toBe(true);
+    if (crossed.ok) expect(crossed.data.result.territory_captured).toBe(true);
+    expect(surgeEdge(await closed)).toBe(false);
+    const after = await waitForRedisState(gameId, (st) => st.territories[GAP.rust].owner_id === P[0]);
+    expect(after.surge_projector_lane).toBeUndefined();
+    expect(surgeEdge((await getGameMap(gameId))!)).toBe(false);
+  }, 45_000);
+
+  it('lane powers: an unused Surge Projector lane closes as the attack phase ends', async () => {
+    const gameId = 'itest-ga-surge-unused';
+    const { state, map } = surgeSetup(gameId, 3);
+    await seed(gameId, state, map);
+    const c = await connect(P[3]); await joinRoom(P[3], gameId);
+    const opened = nextMap(c);
+    const fired = await act(c, 'game:use_ability', { gameId, abilityId: 'surge_projector', params: { territoryId: GAP.rust } }, 'game:ability_result');
+    expect(fired.ok, fired.ok ? '' : fired.error).toBe(true);
+    expect(surgeEdge(await opened)).toBe(true);
+
+    const closed = nextMap(c);
+    const advanced = await act(c, 'game:advance_phase', { gameId }, 'game:state');
+    expect(advanced.ok, advanced.ok ? '' : advanced.error).toBe(true);
+    expect(surgeEdge(await closed)).toBe(false);
+    const after = await waitForRedisState(gameId, (st) => st.phase === 'fortify');
+    expect(after.surge_projector_lane).toBeUndefined();
   }, 45_000);
 });

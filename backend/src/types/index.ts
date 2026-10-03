@@ -1119,6 +1119,13 @@ export interface GameState {
    */
   jump_gate_links?: Array<{ a: string; b: string }>;
   /**
+   * Galactic Age Surge Projector (lane powers): a one-crossing lane across a
+   * gap in the ring, open only during its owner's attack phase and only until
+   * the far gateway falls. Projected onto the game's map copy as a
+   * `source: 'surge_projector'` orbit connection. See state/surgeProjector.ts.
+   */
+  surge_projector_lane?: { owner_id: string; from: string; to: string };
+  /**
    * Galactic Age lane weather (event deck): lanes the weather has shut, and
    * temporary lanes it has opened. Both age once per ROUND in
    * `advanceToNextPlayer`; surges are projected onto the game's map copy as
@@ -1528,10 +1535,11 @@ export interface MapConnection {
    * nearest Moon landing zone (state/moonAccess.ts `syncLaunchPadLanes`), and a
    * pair of Jump Gates opens a private lane between two worlds
    * (state/jumpGates.ts `syncJumpGateLanes`). Lane weather and a Galactic Age
-   * board mode add lanes the same way (`lane_surge`, `galaxy_mode`). Authored
-   * maps never carry this field, and Lane Sovereignty counts only lanes without it.
+   * board mode add lanes the same way (`lane_surge`, `galaxy_mode`), and so
+   * does the Surge Projector lane power (`surge_projector`). Authored maps never
+   * carry this field, and Lane Sovereignty counts only lanes without it.
    */
-  source?: 'launch_pad' | 'jump_gate' | 'lane_surge' | 'galaxy_mode';
+  source?: 'launch_pad' | 'jump_gate' | 'lane_surge' | 'galaxy_mode' | 'surge_projector';
 }
 
 export interface MapRegion {

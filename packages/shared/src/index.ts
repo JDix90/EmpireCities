@@ -358,6 +358,7 @@ export const GALAXY_LANE_POWER_COSTS = {
   lance_battery: 5,
   orbital_muster: 6,
   seal_breaker: 4,
+  surge_projector: 10,
 } as const;
 
 /** One-line effect for a building id, or an empty string for an unknown id. */
