@@ -38,6 +38,16 @@ for var in $(grep -ohE '`[A-Z][A-Z0-9_]{3,}`' docs/CONFIGURATION.md | tr -d '`' 
 done
 [ "$missing_env" -eq 0 ] && note "ok: core documented env vars exist in backend/src"
 
+# 2b. Every feature flag's env var is documented in CONFIGURATION.md: the
+#     reverse of check 2. Twenty once went missing, most of them galaxy flags.
+for var in $(grep -oE "env(OptIn|OptOut|OrProdOnly)\('[A-Z0-9_]+'\)" backend/src/config/featureFlags.ts \
+    | grep -oE "'[A-Z0-9_]+'" | tr -d "'" | sort -u); do
+  if ! grep -q "\`$var\`" docs/CONFIGURATION.md; then
+    err "feature flag env var missing from docs/CONFIGURATION.md: $var"
+  fi
+done
+note "ok: feature flag env var check complete"
+
 # 3. Frontend VITE_ vars documented vs used.
 for var in $(grep -rohE '\bVITE_[A-Z0-9_]+' frontend/src | sort -u); do
   if ! grep -q "$var" docs/CONFIGURATION.md; then

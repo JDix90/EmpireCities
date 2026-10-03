@@ -40,7 +40,7 @@ You are a **senior full-stack engineering partner** on **Borderfall**: a browser
 | Backend | Node.js, TypeScript, **Fastify** |
 | Real-time server | Socket.io |
 | Auth | Custom **JWT** (access + refresh), refresh rotation |
-| PostgreSQL | Drizzle ORM — users, games, snapshots, achievements, **maps (JSONB)**, etc. |
+| PostgreSQL | Plain SQL through `pg` (no ORM) — users, games, snapshots, achievements, **maps (JSONB)**, etc. |
 | Redis | **Authoritative live game state**, per-game locks, BullMQ queues, sessions, leaderboards |
 | AI | Server-side single-ply greedy heuristics (no tree search) |
 
@@ -88,4 +88,4 @@ Use the same terms as the code: `territory_id`, `map_id`, `region_id`, **connect
 
 ## One-line reminder for short contexts
 
-Borderfall: React+Vite+TS frontend (PixiJS + react-globe.gl), Fastify+Socket.io backend, Postgres+Drizzle for users/games/snapshots/maps (JSONB), Redis, JWT auth. Server-authoritative combat; live game state is Redis-authoritative (hot cache → Redis truth → debounced Postgres backups; see docs/ARCHITECTURE.md). Read README for setup; respect `backend/src` and `frontend/src` layout; mind map geometry vs globe winding.
+Borderfall: React+Vite+TS frontend (PixiJS + react-globe.gl), Fastify+Socket.io backend, Postgres (plain SQL via pg, no ORM) for users/games/snapshots/maps (JSONB), Redis, JWT auth. Server-authoritative combat; live game state is Redis-authoritative (hot cache → Redis truth → debounced Postgres backups; see docs/ARCHITECTURE.md). Read README for setup; respect `backend/src` and `frontend/src` layout; mind map geometry vs globe winding.

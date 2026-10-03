@@ -5261,7 +5261,7 @@ export default function GamePage() {
                             autoSpin={false}
                             activeWorldId="moon"
                             validSourceOwnerId={validSourceOwnerId}
-                            globeImageUrl="https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/textures/planets/moon_1024.jpg"
+                            globeImageUrl="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r186/examples/textures/planets/moon_1024.jpg"
                             bumpImageUrl=""
                             showAtmosphere={false}
                             backgroundColor="rgb(20, 22, 32)"

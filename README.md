@@ -71,7 +71,7 @@ Two community maps (14 Nations and Strait of Hormuz) are also included. Addition
 | **Real-time** | Socket.io v4 (WebSockets) |
 | **Backend API** | Node.js 22 + TypeScript + Fastify |
 | **Authentication** | Custom JWT (access + refresh token rotation) |
-| **Relational DB** | PostgreSQL 16 (Drizzle ORM) — users, games, snapshots, **maps (JSONB)** |
+| **Relational DB** | PostgreSQL 16 (plain SQL through `pg`, no ORM) — users, games, snapshots, **maps (JSONB)** |
 | **Cache / Leaderboards** | Redis 7 |
 | **AI Bots** | Server-side single-ply greedy planner over an exact combat-odds table, timeout-guarded worker |
 | **Ratings** | Glicko-style μ (skill) + φ (uncertainty), per rating type; σ tracked at the schema level for forward compatibility |
