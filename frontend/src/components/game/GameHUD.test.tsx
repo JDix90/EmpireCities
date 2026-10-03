@@ -557,3 +557,44 @@ describe('GameHUD — fleet battle dice', () => {
     expect(naval.compareDocumentPosition(captured) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });
+
+describe('GameHUD — nothing to fight', () => {
+  // A cleared daily board: the player's ground borders only an empty
+  // neutral, and the enemy sits beyond it where no attack can reach.
+  const CONNS = [
+    { from: 'home', to: 'coast', type: 'land' as const },
+    { from: 'coast', to: 'far', type: 'land' as const },
+  ];
+  const mapData = { map_id: 'm1', territories: [], connections: CONNS };
+  const board = (enemyAtCoast: boolean) => ({
+    home: { territory_id: 'home', owner_id: 'me', unit_count: 5 },
+    coast: enemyAtCoast
+      ? { territory_id: 'coast', owner_id: 'rival', unit_count: 4 }
+      : { territory_id: 'coast', owner_id: null, unit_count: 0 },
+    far: { territory_id: 'far', owner_id: 'rival', unit_count: 7 },
+  });
+
+  beforeEach(() => {
+    useAuthStore.setState({ user: { user_id: 'me', username: 'me' } as never, isAuthenticated: true });
+  });
+
+  it('says so in the attack phase when no enemy borders any of my ground', () => {
+    useGameStore.setState({ gameState: makeState({ territories: board(false) as never }) } as never);
+    renderHud({ mapData, resolvedViewerPlayerId: 'me' });
+    expect(screen.getByTestId('nothing-to-fight')).toHaveTextContent(
+      'Nothing to fight: no enemy borders any of your territories, and empty land cannot be taken. Carry on to Fortify.',
+    );
+  });
+
+  it('stays quiet when an enemy borders me', () => {
+    useGameStore.setState({ gameState: makeState({ territories: board(true) as never }) } as never);
+    renderHud({ mapData, resolvedViewerPlayerId: 'me' });
+    expect(screen.queryByTestId('nothing-to-fight')).toBeNull();
+  });
+
+  it('stays quiet outside the attack phase', () => {
+    useGameStore.setState({ gameState: makeState({ phase: 'draft', territories: board(false) as never }) } as never);
+    renderHud({ mapData, resolvedViewerPlayerId: 'me' });
+    expect(screen.queryByTestId('nothing-to-fight')).toBeNull();
+  });
+});
