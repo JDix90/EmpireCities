@@ -8,7 +8,15 @@ import { ERA_WONDERS } from '../../constants/eraWonders';
 import type { TechNode } from './TechTreeModal';
 import { useEscapeClose } from '../../hooks/useEscapeClose';
 import { resolvePlayerTechEraId } from '../../utils/eraAdvancement';
-import { buildingDisplayName, buildingEffect, inferWorldId, techNodeBuildingUnlocks } from '@borderfall/shared';
+import {
+  buildingDisplayName,
+  buildingEffect,
+  GARRISON_DOCTRINE_DISPLAY,
+  GARRISON_DOCTRINE_IDS,
+  inferWorldId,
+  techNodeBuildingUnlocks,
+  type GarrisonDoctrine,
+} from '@borderfall/shared';
 import { getSpaceProgramProgress, type FrontendMapData } from '../../utils/orbitAccess';
 import {
   describeWorldModifiers,
@@ -316,6 +324,15 @@ export default function BonusesModal({ techTree, mapData, onClose }: BonusesModa
     });
   });
 
+  // ── Garrison doctrines (Galactic Age, `galaxy_garrisons`) ──────────────────
+  const doctrineCounts: Record<GarrisonDoctrine, number> = { hardened: 0, forward: 0 };
+  if (gameState.settings.galaxy_garrisons) {
+    Object.values(gameState.territories).forEach((t) => {
+      if (t.owner_id === user?.user_id && t.garrison_doctrine) doctrineCounts[t.garrison_doctrine] += 1;
+    });
+  }
+  const doctrineRows = GARRISON_DOCTRINE_IDS.filter((d) => doctrineCounts[d] > 0);
+
   const hasSomething =
     activeEraRules.length > 0 ||
     galaxyWorldRows.length > 0 ||
@@ -323,7 +340,8 @@ export default function BonusesModal({ techTree, mapData, onClose }: BonusesModa
     tempMods.length > 0 ||
     ownsWonder ||
     hasUnlocked ||
-    Object.keys(buildingCounts).length > 0;
+    Object.keys(buildingCounts).length > 0 ||
+    doctrineRows.length > 0;
 
   return (
     <div
@@ -658,6 +676,22 @@ export default function BonusesModal({ techTree, mapData, onClose }: BonusesModa
                       valueColor: meta?.color ?? 'text-bf-text',
                     };
                   })}
+              />
+            </section>
+          )}
+
+          {/* ── Garrison doctrines ──────────────────────────────────── */}
+          {doctrineRows.length > 0 && (
+            <section data-testid="bonuses-garrisons">
+              <SectionHeader icon={<Shield className="w-3.5 h-3.5 text-sky-300" />} title="Your Garrisons" />
+              <BonusTable
+                rows={doctrineRows.map((d) => ({
+                  icon: d === 'hardened' ? '🛡️' : '🎯',
+                  label: GARRISON_DOCTRINE_DISPLAY[d].name,
+                  value: `×${doctrineCounts[d]}`,
+                  description: GARRISON_DOCTRINE_DISPLAY[d].effect,
+                  valueColor: 'text-sky-300',
+                }))}
               />
             </section>
           )}

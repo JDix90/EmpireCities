@@ -7,7 +7,9 @@
  *   dice sorted descending; compare min(aDice, dDice) pairs; defender wins ties;
  *   losses capped at (attackers - 1) / defenders per exchange;
  *   legion_reroll (Ancient): the attacker's lowest die is rerolled once, keeping
- *   the better result.
+ *   the better result;
+ *   garrison doctrines (Galactic Age): either side may roll d8s instead of d6s,
+ *   with the counts unchanged.
  *
  * `captureProbability` then runs the full-assault DP: the attacker keeps rolling
  * exchanges until the garrison falls (capture) or it drops below 2 units (fail).
@@ -51,30 +53,36 @@ export interface CaptureOddsOptions {
   defenderDiceMult?: number;
   /** Ancient legion_reroll era modifier: reroll the attacker's lowest die once. */
   legionReroll?: boolean;
+  /** Faces on the attacker's dice (a Forward garrison rolls d8); default 6. */
+  attackerDieFaces?: number;
+  /** Faces on the defender's dice (a Hardened garrison rolls d8); default 6. */
+  defenderDieFaces?: number;
 }
 
 /**
- * All sorted-descending outcomes of rolling `n` d6, as [values, probability]
- * pairs. Enumerated as face-count multisets weighted by the multinomial
- * coefficient, so 8 dice cost C(13,5)=1287 entries instead of 6^8 sequences.
+ * All sorted-descending outcomes of rolling `n` dice of `faces` sides, as
+ * [values, probability] pairs. Enumerated as face-count multisets weighted by
+ * the multinomial coefficient, so 8 d6 cost C(13,5)=1287 entries instead of
+ * 6^8 sequences (8 d8: C(15,7)=6435).
  */
-function sortedRollDistribution(n: number): Array<[number[], number]> {
+function sortedRollDistribution(n: number, faces = 6): Array<[number[], number]> {
   const out: Array<[number[], number]> = [];
-  const counts = new Array<number>(6).fill(0);
+  const top = faces - 1;
+  const counts = new Array<number>(faces).fill(0);
   // factorials up to MAX_DICE
   const fact = [1, 1, 2, 6, 24, 120, 720, 5040, 40320];
-  const total = Math.pow(6, n);
+  const total = Math.pow(faces, n);
   const recurse = (face: number, remaining: number) => {
-    if (face === 5) {
-      counts[5] = remaining;
+    if (face === top) {
+      counts[top] = remaining;
       let weight = fact[n];
       const values: number[] = [];
-      for (let f = 5; f >= 0; f--) {
+      for (let f = top; f >= 0; f--) {
         weight /= fact[counts[f]];
         for (let i = 0; i < counts[f]; i++) values.push(f + 1);
       }
       out.push([values, weight / total]);
-      counts[5] = 0;
+      counts[top] = 0;
       return;
     }
     for (let c = 0; c <= remaining; c++) {
@@ -89,13 +97,13 @@ function sortedRollDistribution(n: number): Array<[number[], number]> {
 
 /**
  * Apply legion_reroll to a sorted-descending attacker roll: the lowest die is
- * rerolled once, keeping the better result. Returns the six resulting sorted
- * rolls (one per reroll face), each carrying 1/6 of the input probability.
+ * rerolled once (on the same faces), keeping the better result. Returns one
+ * sorted roll per reroll face, each carrying 1/faces of the input probability.
  */
-function withLegionReroll(dist: Array<[number[], number]>): Array<[number[], number]> {
+function withLegionReroll(dist: Array<[number[], number]>, faces = 6): Array<[number[], number]> {
   const merged = new Map<string, [number[], number]>();
   for (const [values, p] of dist) {
-    for (let r = 1; r <= 6; r++) {
+    for (let r = 1; r <= faces; r++) {
       const next = values.slice();
       const last = next.length - 1;
       if (r > next[last]) {
@@ -104,8 +112,8 @@ function withLegionReroll(dist: Array<[number[], number]>): Array<[number[], num
       }
       const key = next.join(',');
       const entry = merged.get(key);
-      if (entry) entry[1] += p / 6;
-      else merged.set(key, [next, p / 6]);
+      if (entry) entry[1] += p / faces;
+      else merged.set(key, [next, p / faces]);
     }
   }
   return [...merged.values()];
@@ -121,16 +129,20 @@ export function exchangeLossDistribution(
   aDice: number,
   dDice: number,
   legionReroll = false,
+  attackerFaces = 6,
+  defenderFaces = 6,
 ): number[] {
   const a = Math.max(1, Math.min(aDice, MAX_DICE));
   const d = Math.max(1, Math.min(dDice, MAX_DICE));
-  const key = `${a}x${d}${legionReroll ? 'L' : ''}`;
+  // Six-faced keys are the ones the memo always used.
+  const faceKey = attackerFaces === 6 && defenderFaces === 6 ? '' : `f${attackerFaces}v${defenderFaces}`;
+  const key = `${a}x${d}${legionReroll ? 'L' : ''}${faceKey}`;
   const cached = exchangeMemo.get(key);
   if (cached) return cached;
 
-  let attRolls = sortedRollDistribution(a);
-  if (legionReroll) attRolls = withLegionReroll(attRolls);
-  const defRolls = sortedRollDistribution(d);
+  let attRolls = sortedRollDistribution(a, attackerFaces);
+  if (legionReroll) attRolls = withLegionReroll(attRolls, attackerFaces);
+  const defRolls = sortedRollDistribution(d, defenderFaces);
 
   const cmp = Math.min(a, d);
   const dist = new Array<number>(cmp + 1).fill(0);
@@ -187,6 +199,8 @@ function optsKey(opts: CaptureOddsOptions): string {
     opts.maxDefenderDice ?? -1,
     opts.defenderDiceMult ?? 1,
     opts.legionReroll ? 1 : 0,
+    opts.attackerDieFaces ?? 6,
+    opts.defenderDieFaces ?? 6,
   ].join('|');
 }
 
@@ -225,7 +239,9 @@ export function captureProbability(
     if (hit !== undefined) return hit;
 
     const { aDice, dDice } = diceForState(a, d, opts);
-    const dist = exchangeLossDistribution(aDice, dDice, opts.legionReroll);
+    const dist = exchangeLossDistribution(
+      aDice, dDice, opts.legionReroll, opts.attackerDieFaces ?? 6, opts.defenderDieFaces ?? 6,
+    );
     const cmp = dist.length - 1;
     let p = 0;
     for (let dl = 0; dl <= cmp; dl++) {

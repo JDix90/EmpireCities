@@ -180,7 +180,7 @@ import {
 } from '../utils/connectionHints';
 import { computeMapDensityMetrics } from '../utils/mapInteractionDensity';
 import ConnectionHintsSetting from '../components/game/ConnectionHintsSetting';
-import { inferWorldId, aiPlayerName } from '@borderfall/shared';
+import { inferWorldId, aiPlayerName, GARRISON_DOCTRINE_DISPLAY } from '@borderfall/shared';
 import { viewerHoldsVaultSeal, worldDisplayName, worldsInPlay } from '../utils/galaxyLanes';
 import { mapControlProgress, mapControlThreshold } from '../utils/mapControl';
 import {
@@ -2168,6 +2168,10 @@ export default function GamePage() {
       }
     });
 
+    socket.on('game:garrison_doctrine_result', ({ doctrine }: { doctrine: 'hardened' | 'forward' }) => {
+      toast.success(`${GARRISON_DOCTRINE_DISPLAY[doctrine]?.name ?? 'Garrison'} trained`, { duration: 2000 });
+    });
+
     socket.on('game:tutorial_settings_applied', ({ applied }: { applied: string[] }) => {
       if (applied.length > 0) {
         setTutorialAppliedSettings(applied);
@@ -2810,6 +2814,7 @@ export default function GamePage() {
       socket.off('game:player_away');
       socket.off('game:player_returned');
       socket.off('game:build_result');
+      socket.off('game:garrison_doctrine_result');
       socket.off('game:tutorial_settings_applied');
       socket.off('game:research_result');
       socket.off('game:advance_era_result');
@@ -3469,6 +3474,11 @@ export default function GamePage() {
   const handleBuild = useCallback((buildingType: string) => {
     if (!selectedTerritory) return;
     getSocket().emit('game:build', { gameId, territoryId: selectedTerritory, buildingType });
+  }, [gameId, selectedTerritory]);
+
+  const handleSetGarrisonDoctrine = useCallback((doctrine: 'hardened' | 'forward') => {
+    if (!selectedTerritory) return;
+    getSocket().emit('game:set_garrison_doctrine', { gameId, territoryId: selectedTerritory, doctrine });
   }, [gameId, selectedTerritory]);
 
   const handleResearchTech = useCallback((techId: string) => {
@@ -5371,6 +5381,7 @@ export default function GamePage() {
               onDraftUndo={handleDraftUndo}
               canDraftUndo={canUndoDraftOnTerritory(gameState?.draft_deployments_this_turn, selectedTerritory)}
               onBuild={gameState?.settings.economy_enabled ? handleBuild : undefined}
+              onSetGarrisonDoctrine={gameState?.settings.galaxy_garrisons ? handleSetGarrisonDoctrine : undefined}
               onNavalMove={gameState?.settings.naval_enabled ? handleNavalMove : undefined}
               onNavalAttack={gameState?.settings.naval_enabled ? handleNavalAttack : undefined}
               onInfluence={

@@ -28,6 +28,7 @@ import {
   getPrecisionStrikeMinUnits,
   getUnderdefendedAttackDiceBonus,
 } from '../abilities/techAbilities';
+import { attackerDieFaces, defenderDieFaces } from '../state/garrisonDoctrines';
 
 /**
  * Campaign carry caps. The stats accumulate to 8 and 12 in the campaign UI,
@@ -62,6 +63,13 @@ export interface LandCombatModifiers {
   defenderDiceOverride?: number;
   attackerBonusBreakdown: Record<string, number>;
   defenderBonusBreakdown: Record<string, number>;
+  /**
+   * Faces each side rolls (garrison doctrines, state/garrisonDoctrines.ts).
+   * Six unless a doctrine applies. Beside the dice overrides so the resolver,
+   * the AI's capture odds and every caller read one answer.
+   */
+  attackerDieFaces: number;
+  defenderDieFaces: number;
 }
 
 function sumBonuses(bonuses?: Record<string, number>): number {
@@ -332,5 +340,7 @@ export function computeLandCombatModifiers(params: LandCombatModifierParams): La
     defenderDiceOverride,
     attackerBonusBreakdown,
     defenderBonusBreakdown,
+    attackerDieFaces: attackerDieFaces(state, params.fromId),
+    defenderDieFaces: defenderDieFaces(state, toId),
   };
 }

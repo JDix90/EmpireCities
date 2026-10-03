@@ -609,4 +609,36 @@ describe.runIf(redisTestEnabled)('Galactic Age hyperspace — human socket path'
     const drawn = await redrawn;
     expect(drawn.connections.some((conn) => conn.source === 'jump_gate')).toBe(false);
   }, 45_000);
+
+  it('garrison doctrines: a held, built, researched tile trains Hardened for PP; the wrong phase is refused', async () => {
+    const gameId = 'itest-ga-garrison';
+    const map = freshMap();
+    const state = freshState(gameId, map, { galaxy_garrisons: true });
+    const TILE = 'sol_columbia';
+    state.territories[TILE].owner_id = P[0];
+    state.territories[TILE].buildings = ['production_1'];
+    state.players[0].special_resource = 20;
+    state.players[0].unlocked_techs = ['ga_lattice_logistics'];
+    state.phase = 'draft'; state.draft_units_remaining = 0;
+    await seed(gameId, state, map);
+    const c = await connect(P[0]); await joinRoom(P[0], gameId);
+
+    const bought = await act<{ doctrine: string; success: boolean }>(
+      c, 'game:set_garrison_doctrine', { gameId, territoryId: TILE, doctrine: 'hardened' }, 'game:garrison_doctrine_result',
+    );
+    expect(bought.ok, bought.ok ? '' : bought.error).toBe(true);
+    const after = await waitForRedisState(gameId, (st) => st.territories[TILE].garrison_doctrine === 'hardened');
+    expect(after.players[0].special_resource).toBe(14);
+
+    // Buying the same one twice is refused; so is training in the attack phase.
+    const again = await act(c, 'game:set_garrison_doctrine', { gameId, territoryId: TILE, doctrine: 'hardened' }, 'game:garrison_doctrine_result');
+    expect(again.ok).toBe(false);
+    if (!again.ok) expect(again.error).toMatch(/already holds/);
+    const armed = await getGameState(gameId);
+    armed!.phase = 'attack';
+    await setGameState(gameId, armed!);
+    const late = await act(c, 'game:set_garrison_doctrine', { gameId, territoryId: TILE, doctrine: 'forward' }, 'game:garrison_doctrine_result');
+    expect(late.ok).toBe(false);
+    if (!late.ok) expect(late.error).toMatch(/draft or fortify/);
+  }, 45_000);
 });

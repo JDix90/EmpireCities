@@ -1,9 +1,40 @@
 import { randomInt } from 'crypto';
 import type { CombatResult, EraModifiers } from '../../types';
 
+/** Faces per side for one exchange; a side left out rolls d6. */
+export interface CombatDieFaces {
+  attacker?: number;
+  defender?: number;
+}
+
 /**
- * Roll N six-sided dice using `dieRoll` (defaults to crypto.randomInt).
- * Returns the results sorted in descending order.
+ * One die of `faces` sides drawn from a d6 stream: two d6 make 36 equally
+ * likely values, and the largest multiple of `faces` below 36 is kept (32 for a
+ * d8), so the result is uniform. Used whenever a caller hands the resolver a
+ * d6 roller — the seeded sim, a test, a puzzle queue — so non-d6 dice stay as
+ * reproducible as the d6 ones. Retries are bounded so a rigged stream that only
+ * ever rejects (all sixes) still returns.
+ */
+export function dieFromD6Stream(faces: number, d6: () => number): number {
+  const limit = 36 - (36 % faces);
+  let v = 0;
+  for (let attempt = 0; attempt < 16; attempt++) {
+    v = (d6() - 1) * 6 + (d6() - 1);
+    if (v < limit) return (v % faces) + 1;
+  }
+  return (v % faces) + 1;
+}
+
+/** A roller for one side. Six faces keep the exact d6 stream the resolver always used. */
+function rollerFor(faces: number, dieRoll?: () => number): () => number {
+  if (faces === 6) return dieRoll ?? (() => randomInt(1, 7));
+  if (dieRoll) return () => dieFromD6Stream(faces, dieRoll);
+  return () => randomInt(1, faces + 1);
+}
+
+/**
+ * Roll N dice using `dieRoll` (a side's roller: d6 by default, crypto.randomInt
+ * when none is given). Returns the results sorted in descending order.
  */
 function rollDice(count: number, dieRoll: () => number): number[] {
   const rolls: number[] = [];
@@ -34,7 +65,8 @@ export function resolveCombat(
   attackerDiceOverride?: number,
   defenderDiceOverride?: number,
   dieRoll?: () => number,
-  eraModifiers?: EraModifiers
+  eraModifiers?: EraModifiers,
+  dieFaces?: CombatDieFaces,
 ): CombatResult {
   if (attackingUnits < 2) {
     return {
@@ -65,14 +97,20 @@ export function resolveCombat(
   const attackerDice = attackerDiceOverride ?? Math.min(attackingUnits - 1, 3);
   const defenderDice = defenderDiceOverride ?? Math.min(defendingUnits, 2);
 
-  const rng = dieRoll ?? (() => randomInt(1, 7));
-  const attackerRolls = rollDice(attackerDice, rng);
-  const defenderRolls = rollDice(defenderDice, rng);
+  // Each side rolls its own faces (garrison doctrines turn a side to d8). With
+  // both at six this is the single d6 stream the resolver always used.
+  const attackerFaces = dieFaces?.attacker ?? 6;
+  const defenderFaces = dieFaces?.defender ?? 6;
+  const rollAttacker = rollerFor(attackerFaces, dieRoll);
+  const rollDefender = rollerFor(defenderFaces, dieRoll);
+  const attackerRolls = rollDice(attackerDice, rollAttacker);
+  const defenderRolls = rollDice(defenderDice, rollDefender);
 
   // Ancient era: re-roll attacker's lowest die once, keep the better result
+  // (on the attacker's own faces).
   if (eraModifiers?.legion_reroll && attackerRolls.length > 0) {
     const minIdx = attackerRolls.indexOf(Math.min(...attackerRolls));
-    const reroll = rng();
+    const reroll = rollAttacker();
     attackerRolls[minIdx] = Math.max(attackerRolls[minIdx], reroll);
     attackerRolls.sort((a, b) => b - a);
   }
@@ -101,8 +139,8 @@ export function resolveCombat(
     const rerolledAttackerRolls = [...attackerRolls];
     for (let i = 0; i < rerollComparisons; i++) {
       if (rerolledAttackerRolls[i] === defenderRolls[i]) {
-        // Tie: attacker re-rolls this die
-        const reroll = rng();
+        // Tie: attacker re-rolls this die, on its own faces
+        const reroll = rollAttacker();
         rerolledAttackerRolls[i] = Math.max(rerolledAttackerRolls[i], reroll);
       }
     }
@@ -137,6 +175,8 @@ export function resolveCombat(
     attacker_losses: cappedAttackerLosses,
     defender_losses: cappedDefenderLosses,
     territory_captured,
+    ...(attackerFaces !== 6 ? { attacker_die_faces: attackerFaces } : {}),
+    ...(defenderFaces !== 6 ? { defender_die_faces: defenderFaces } : {}),
   };
 }
 

@@ -39,7 +39,12 @@ import {
   type MapConnection,
 } from '../../utils/mapAdjacencyTargets';
 import { effectiveContinentBonus } from '../../utils/continentBonus';
-import { inferWorldId, techNodeBuildingUnlocks } from '@borderfall/shared';
+import {
+  GARRISON_DOCTRINE_COST,
+  GARRISON_DOCTRINE_TECH_ID,
+  inferWorldId,
+  techNodeBuildingUnlocks,
+} from '@borderfall/shared';
 import { dailyBuildFocus, unavailableBuildings } from '../../utils/dailyBuildFocus';
 import {
   EMERGENCY_SEAL_ABILITY_ID,
@@ -90,6 +95,8 @@ interface TerritoryPanelProps {
    */
   canDraftUndo?: boolean;
   onBuild?: (buildingType: string) => void;
+  /** Train this tile's garrison (Galactic Age garrison doctrines). */
+  onSetGarrisonDoctrine?: (doctrine: 'hardened' | 'forward') => void;
   onNavalMove?: (fromId: string, toId: string, count: number) => void;
   onNavalAttack?: (fromId: string, toId: string) => void;
   onInfluence?: (targetId: string) => void;
@@ -330,6 +337,7 @@ export default function TerritoryPanel({
   onDraftUndo,
   canDraftUndo,
   onBuild,
+  onSetGarrisonDoctrine,
   onNavalMove,
   onNavalAttack,
   onInfluence,
@@ -1955,6 +1963,21 @@ export default function TerritoryPanel({
         // Orbital infrastructure: the server stamps `gateway` only in a game
         // that plays the rule, so the stamp alone is the condition.
         const orbital = gameState.settings.galaxy_orbital_buildings === true && tState.gateway === true;
+        // Garrison doctrines: the server's own rule (state/garrisonDoctrines.ts),
+        // restated so the toggle names what blocks it instead of failing the click.
+        const garrison = gameState.settings.galaxy_garrisons === true && !fogHidden
+          ? {
+              current: tState.garrison_doctrine,
+              cost: GARRISON_DOCTRINE_COST,
+              blockedReason: (tState.buildings ?? []).length === 0
+                ? 'Needs a building on this system'
+                : gameState.settings.tech_trees_enabled
+                    && !(myPlayer?.unlocked_techs ?? []).includes(GARRISON_DOCTRINE_TECH_ID)
+                  ? 'Research Lattice Logistics to train garrisons'
+                  : undefined,
+              onSet: isMine ? onSetGarrisonDoctrine : undefined,
+            }
+          : undefined;
         let eraWonderProp: Parameters<typeof BuildingPanel>[0]['eraWonder'] = undefined;
         // Not on a build or research day: a wonder counts toward neither goal,
         // and its price is more than the day's whole budget.
@@ -2000,6 +2023,7 @@ export default function TerritoryPanel({
             onOpenTechTree={onOpenTechTree}
             nameEra={nameEra}
             orbital={orbital}
+            garrison={garrison}
             unavailable={unavailable}
             focus={focus}
           />

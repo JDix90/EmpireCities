@@ -61,6 +61,8 @@ export function maskHiddenTerritories(
         unit_count: -1,
         naval_units: undefined,
         buildings: [],
+        // Garrison doctrines (state/garrisonDoctrines.ts) are scouting intel too.
+        garrison_doctrine: undefined,
         stability: undefined,
         population: undefined,
       };

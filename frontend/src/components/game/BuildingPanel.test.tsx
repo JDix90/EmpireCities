@@ -307,3 +307,40 @@ describe("BuildingPanel — buildings that cannot matter, and today's goal", () 
     expect(screen.getByRole('button', { name: /Laboratory/ })).not.toHaveTextContent("Not today's goal");
   });
 });
+
+describe('BuildingPanel — garrison doctrines (Galactic Age buildings, Phase 3)', () => {
+  it('offers both doctrines to the owner on their turn, and trains the one clicked', () => {
+    const onSet = vi.fn();
+    render(<BuildingPanel {...baseProps} buildings={['production_1']} garrison={{ cost: 6, onSet }} />);
+    const hardened = screen.getByRole('button', { name: /Hardened/ });
+    fireEvent.click(hardened);
+    expect(onSet).toHaveBeenCalledWith('hardened');
+    expect(screen.getByRole('button', { name: /Forward/ })).not.toBeDisabled();
+  });
+
+  it('shows the held doctrine to anyone, and disables re-buying it', () => {
+    render(<BuildingPanel {...baseProps} buildings={['production_1']} garrison={{ current: 'forward', cost: 6, onSet: vi.fn() }} />);
+    expect(screen.getByTestId('garrison-doctrine-current')).toHaveTextContent(/Forward garrison/);
+    expect(screen.getByRole('button', { name: /Forward/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Hardened/ })).not.toBeDisabled();
+  });
+
+  it('names what blocks training, and leaves both disabled', () => {
+    render(<BuildingPanel {...baseProps} buildings={[]} garrison={{ cost: 6, blockedReason: 'Needs a building on this system', onSet: vi.fn() }} />);
+    expect(screen.getByTestId('garrison-doctrine-blocked')).toHaveTextContent(/Needs a building/);
+    expect(screen.getByRole('button', { name: /Hardened/ })).toBeDisabled();
+  });
+
+  it('is disabled when the purse is short, and absent on a rival\'s tile with no doctrine', () => {
+    const { unmount } = render(<BuildingPanel {...baseProps} playerResources={4} buildings={['production_1']} garrison={{ cost: 6, onSet: vi.fn() }} />);
+    expect(screen.getByRole('button', { name: /Forward/ })).toBeDisabled();
+    unmount();
+    render(<BuildingPanel {...baseProps} isMine={false} buildings={['production_1']} garrison={{ cost: 6 }} />);
+    expect(screen.queryByTestId('garrison-doctrine')).toBeNull();
+  });
+
+  it('says nothing about garrisons in a game without them', () => {
+    render(<BuildingPanel {...baseProps} buildings={['production_1']} />);
+    expect(screen.queryByTestId('garrison-doctrine')).toBeNull();
+  });
+});

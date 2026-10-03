@@ -43,6 +43,12 @@ import {
   getBuildingDefenseBonus,
   getSeaDefenseBonus,
 } from '../game-engine/state/economyManager';
+import {
+  applyGarrisonDoctrine,
+  garrisonsEnabled,
+  validateGarrisonDoctrine,
+} from '../game-engine/state/garrisonDoctrines';
+import { GARRISON_DOCTRINE_DISPLAY, type GarrisonDoctrine } from '@borderfall/shared';
 import { validateResearch, applyResearch, getPlayerAttackBonus, getPlayerDefenseBonus, getPlayerReinforceBonus, getEraTechTreeForPlayer } from '../game-engine/state/techManager';
 import { isBuildingTechUnlocked } from '../game-engine/eraAdvancement/buildingHeritage';
 import { markPlayerAway, applySeatReclaim, AWAY_AI_GRACE_MS } from '../game-engine/state/seatTakeover';
@@ -97,7 +103,7 @@ import type { BuildingType } from '../types';
 import { shouldSpendTechPointsOnAbility } from '../game-engine/ai/aiTechBudget';
 import { runAiWithTimeout } from '../game-engine/ai/runAiWithTimeout';
 import { evaluateAiEraAdvancement } from '../game-engine/ai/aiEraAdvancement';
-import { selectAiBuildingPlacement, selectAiTechResearch,
+import { selectAiBuildingPlacement, selectAiGarrisonDoctrines, selectAiTechResearch,
   chooseEmergencySealLane,
 } from '../game-engine/ai/aiBot';
 import { recordGameResults, computeRanks, redactGuestRatings } from '../game-engine/state/statsManager';
@@ -2783,6 +2789,37 @@ export function initGameSocket(httpServer: HttpServer): Server {
         return;
       }
       if (await finishIfWon(io, gameId, state, map)) return;
+      broadcastState(io, gameId, state);
+      void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
+      });
+    });
+
+    // ── Garrison doctrine (Galactic Age, state/garrisonDoctrines.ts) ──────────
+    // Train a held tile's garrison Hardened or Forward for PP, in the draft or
+    // fortify phase like a build. The validator is the one the AI and the sim
+    // use, so the three can never disagree about who may buy what.
+    socket.on('game:set_garrison_doctrine', async ({ gameId, territoryId, doctrine, action_id }: {
+      gameId: string; territoryId: string; doctrine: GarrisonDoctrine; action_id?: string;
+    }) => {
+      await mutateLockedRoom(gameId, socket, 5000, async (room) => {
+      if (!checkAndRecordActionId(gameId, userId, action_id)) return;
+      const { state, map } = room;
+      if (!isSocketUsersTurn(state, userId, username)) return socket.emit('error', { message: 'Not your turn' });
+      if (state.phase !== 'draft' && state.phase !== 'fortify') {
+        return socket.emit('error', { message: 'Garrisons can only be trained during draft or fortify phase' });
+      }
+      const validation = validateGarrisonDoctrine(state, userId, territoryId, doctrine);
+      if (!validation.valid) {
+        return socket.emit('error', { message: validation.error ?? 'Cannot train this garrison' });
+      }
+      const probBefore = captureProbBefore(state, userId);
+      applyGarrisonDoctrine(state, userId, territoryId, doctrine);
+      commitActionDecision(
+        gameId, state, userId, 'build',
+        `Trained a ${GARRISON_DOCTRINE_DISPLAY[doctrine].name} on ${territoryName(map, territoryId)}`,
+        probBefore,
+      );
+      socket.emit('game:garrison_doctrine_result', { territoryId, doctrine, success: true });
       broadcastState(io, gameId, state);
       void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
       });
@@ -6010,6 +6047,16 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
         const techValidation = validateResearch(state, currentPlayer.player_id, techId);
         if (techValidation.valid && techValidation.node) {
           applyResearch(state, currentPlayer.player_id, techValidation.node);
+        }
+      }
+    }
+    // Garrison doctrines (state/garrisonDoctrines.ts): bought after the plan is
+    // made and before its attacks, so a Forward garrison is in place for the
+    // crossing it was bought for. Same validator as the human handler.
+    if (state.settings.economy_enabled && garrisonsEnabled(state)) {
+      for (const pick of selectAiGarrisonDoctrines(state, map, currentPlayer.player_id, difficulty, actions)) {
+        if (validateGarrisonDoctrine(state, currentPlayer.player_id, pick.territoryId, pick.doctrine).valid) {
+          applyGarrisonDoctrine(state, currentPlayer.player_id, pick.territoryId, pick.doctrine);
         }
       }
     }

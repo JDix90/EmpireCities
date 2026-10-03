@@ -80,7 +80,12 @@ import {
   LANE_SOVEREIGNTY_ROUNDS_BY_SIDES,
 } from '../src/game-engine/victory/laneSovereignty';
 import { fortifyBecomesConvoy, launchConvoy } from '../src/game-engine/state/transit';
-import { computeAiTurn, selectAiBuildingPlacement, selectAiTechResearch } from '../src/game-engine/ai/aiBot';
+import { computeAiTurn, selectAiBuildingPlacement, selectAiGarrisonDoctrines, selectAiTechResearch } from '../src/game-engine/ai/aiBot';
+import {
+  applyGarrisonDoctrine,
+  GARRISON_DOCTRINE_TUNING,
+  validateGarrisonDoctrine,
+} from '../src/game-engine/state/garrisonDoctrines';
 import {
   aiAttackExchangeBudget,
   shouldContinueGrind,
@@ -155,6 +160,20 @@ const TRANSIT = process.env.SIM_TRANSIT === '1';
  * control run without it.
  */
 const ORBITAL = process.env.SIM_ORBITAL === '1';
+/**
+ * Garrison doctrines (`galaxy_garrisons`, docs/GALACTIC_AGE_BUILDINGS.md §5):
+ * Hardened and Forward d8 garrisons, bought with PP. Ships OFF, so OFF here
+ * unless `SIM_GARRISONS=1`. `SIM_DOCTRINE_COST=N` measures another price. Its
+ * gate (§8) adds the Moon package's usage test: each doctrine bought in at
+ * least 60% of games where a seat could, and the seats that buy it winning
+ * under 60% of their games.
+ */
+const GARRISONS = process.env.SIM_GARRISONS === '1';
+if (process.env.SIM_DOCTRINE_COST) {
+  const cost = Number(process.env.SIM_DOCTRINE_COST);
+  if (!(Number.isInteger(cost) && cost >= 0)) throw new Error('SIM_DOCTRINE_COST must be a whole number >= 0');
+  GARRISON_DOCTRINE_TUNING.cost = cost;
+}
 /**
  * Faction kit overrides for a tuning sweep, as JSON:
  *   SIM_FACTION_PATCH='{"forge_syndicate":{"reinforce_bonus":1}}'
@@ -533,6 +552,7 @@ function simSettings(): GameSettings {
     galaxy_plain_lanes: PLAIN_LANES || undefined,
     galaxy_transit_enabled: TRANSIT,
     galaxy_orbital_buildings: ORBITAL || undefined,
+    galaxy_garrisons: GARRISONS || undefined,
     world_rules_enabled: WORLD_RULES,
     world_rules_disabled: WORLD_RULES_OFF as WorldRuleId[],
     allowed_victory_conditions: [
@@ -607,6 +627,12 @@ interface SeatTelemetry {
   eliminatedByHouse: string | null;
   /** Buildings standing on gateways this seat captured and so inherited (orbital infrastructure only). */
   buildingsInherited: number;
+  /** Garrison doctrines this seat bought, by kind (garrisons only). */
+  hardenedBought: number;
+  forwardBought: number;
+  /** Exchanges this seat fought on d8s: attacking from a Forward tile, defending a Hardened one. */
+  forwardExchanges: number;
+  hardenedDefences: number;
   /** Convoys this seat sent, and how they ended (transit only). */
   convoysSent: number;
   convoysLanded: number;
@@ -677,6 +703,15 @@ function playAiTurn(
       if (techId === 'ga_hyperspace_chart' && seat.chartTurn == null) seat.chartTurn = state.turn_number;
     }
   }
+  // Garrison doctrines: after the plan and before the attacks, as the socket does.
+  if (GARRISONS) {
+    for (const pick of selectAiGarrisonDoctrines(state, map, pid, difficulty, plan)) {
+      if (!validateGarrisonDoctrine(state, pid, pick.territoryId, pick.doctrine).valid) continue;
+      applyGarrisonDoctrine(state, pid, pick.territoryId, pick.doctrine);
+      if (pick.doctrine === 'hardened') seat.hardenedBought++;
+      else seat.forwardBought++;
+    }
+  }
 
   applyDraft(state, pid, plan);
 
@@ -708,6 +743,8 @@ function playAiTurn(
       if (outcome) {
         const df = ownerBefore ? seatLabel.get(ownerBefore) ?? '?' : 'neutral';
         seat.exchangesVs[df] = (seat.exchangesVs[df] ?? 0) + 1;
+        if (outcome.result.attacker_die_faces === 8) seat.forwardExchanges++;
+        if (outcome.result.defender_die_faces === 8 && ownerBefore) telemetryFor(ownerBefore).hardenedDefences++;
       }
       if (outcome && state.territories[a.to].owner_id === pid && ownerBefore !== pid) {
         const victim: GameState["players"][number] | undefined = ownerBefore ? state.players.find((p) => p.player_id === ownerBefore) : undefined;
@@ -796,6 +833,8 @@ interface SeatStat extends SeatTelemetry {
   territoriesAtTurn: Record<number, number>;
   /** Buildings standing on this seat's gateway tiles at game end. */
   gatewayBuildings: number;
+  /** Researched Lattice Logistics, so could train a garrison (garrisons only). */
+  doctrineEligible: boolean;
   /** Production points unspent at game end — the §8 gate's "PP banked". */
   ppBanked: number;
 }
@@ -1120,6 +1159,10 @@ function runGame(gameIndex: number, sourceMap: GameMap): GameStat {
       capturesFromHouse: {},
       eliminatedByHouse: null,
       buildingsInherited: 0,
+      hardenedBought: 0,
+      forwardBought: 0,
+      forwardExchanges: 0,
+      hardenedDefences: 0,
       convoysSent: 0,
       convoysLanded: 0,
       convoysTurnedBack: 0,
@@ -1253,6 +1296,7 @@ function runGame(gameIndex: number, sourceMap: GameMap): GameStat {
     ).length,
     finalTerritories: ownedIds(state, p.player_id).length,
     territoriesAtTurn: snapshots[p.player_id],
+    doctrineEligible: (p.unlocked_techs ?? []).includes('ga_lattice_logistics'),
     gatewayBuildings: Object.values(state.territories)
       .filter((t) => t.owner_id === p.player_id && gatewayTiles.has(t.territory_id))
       .reduce((n, t) => n + (t.buildings ?? []).length, 0),
@@ -1326,7 +1370,7 @@ function main(): void {
   console.log(`\nGalactic Age balance — ${GAMES} games · ${PLAYERS}p · ${DIFFICULTY} · maxTurns ${MAX_TURNS}${THRESHOLD != null ? ` · threshold ${THRESHOLD}%` : ''} · ${terr} territories`);
   console.log(`Seed "${MASTER_SEED}" · attack loop ${GRIND ? 'GRIND (mirrors live AI)' : 'single-exchange (SIM_GRIND=0, legacy)'} · corridors ${CORRIDORS ? 'ON' : 'OFF (SIM_CORRIDORS=0)'} · factions ${Object.keys(FACTION_PATCH).length ? `patched ${JSON.stringify(FACTION_PATCH)}` : 'as shipped'} · world rules ${WORLD_RULES ? (WORLD_RULES_OFF.length ? `ON except ${WORLD_RULES_OFF.join('+')}` : 'ON') : 'OFF (SIM_WORLD_RULES=0)'} · sovereignty ${SOVEREIGNTY ? `ON (${LANE_SOVEREIGNTY_CORRIDORS_NEEDED} lanes, ${(TEAMS ? LANE_SOVEREIGNTY_ROUNDS_BY_SIDES[SIDES] : LANE_SOVEREIGNTY_ROUNDS_BY_SEATS[PLAYERS]) ?? LANE_SOVEREIGNTY_ROUNDS} rounds${TEAMS ? ` for ${SIDES} sides` : ''})` : 'OFF (SIM_SOVEREIGNTY=0)'}${PLAYERS < 4 && !SCATTERED ? ` · colonies ${COLONY_GARRISONS.gateway}/${COLONY_GARRISONS.interior} (gateway/interior)` : ''}${TWO_V_TWO ? ` · 2v2 ${GALAXY_2V2_PAIRS.map((p) => p.join('+')).join(' vs ')}` : ''}${TEAMS ? ` · opening ceasefire ${TEAM_TUNING.openingCeasefire ? 'ON' : 'OFF (SIM_CEASEFIRE=0)'}` : ''}${SCHISM && !SCATTERED ? ` · schism ${HOUSE_RELATIONS === 'concord' ? `Concord ${SCHISM_TUNING.concordRounds} rounds` : HOUSE_RELATIONS === 'allied' ? `Allied ${JSON.stringify(ALLIED_TUNING)}` : 'Civil War'}, Lane Crown +${HOUSE_RELATIONS === 'allied' ? 0 : SCHISM_TUNING.laneCrownBonus}${process.env.SIM_SCHISM_HALVES ? ' · halves patched (SIM_SCHISM_HALVES)' : ''}${process.env.SIM_SCHISM_OPENING ? ` · opening ${process.env.SIM_SCHISM_OPENING}` : ''}${process.env.SIM_SCHISM_REINFORCE ? ` · house reinforce ${process.env.SIM_SCHISM_REINFORCE}` : ''}${PARTIAL ? (HOUSE_RELATIONS === 'allied'
     ? ` · partial Allied ${JSON.stringify(PARTIAL_ALLIED_TUNING[PLAYERS])}`
-    : ` · partial unclaimed ${PARTIAL_SCHISM_TUNING[PLAYERS]!.unclaimed.gateway}/${PARTIAL_SCHISM_TUNING[PLAYERS]!.unclaimed.interior}, halves ${JSON.stringify(PARTIAL_SCHISM_HALVES)}`) : ''}` : ''} · transit ${TRANSIT ? 'ON (SIM_TRANSIT=1)' : 'OFF'} · orbital ${ORBITAL ? 'ON (SIM_ORBITAL=1)' : 'OFF'}${SCATTERED ? ' · start SCATTERED (SIM_SCATTERED=1, no home worlds)' : ''}${FACTIONS_ON ? '' : ' · factions OFF (SIM_FACTIONS=0, labels are seats)'}${PLAIN_LANES ? ' · PLAIN LANES (SIM_PLAIN_LANES=1)' : ''}${CATCHUP_PER != null ? ` · catch-up: -1 reinforcement per ${CATCHUP_PER} tiles over a quarter (SIM_CATCHUP_PER)` : ''} · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
+    : ` · partial unclaimed ${PARTIAL_SCHISM_TUNING[PLAYERS]!.unclaimed.gateway}/${PARTIAL_SCHISM_TUNING[PLAYERS]!.unclaimed.interior}, halves ${JSON.stringify(PARTIAL_SCHISM_HALVES)}`) : ''}` : ''} · transit ${TRANSIT ? 'ON (SIM_TRANSIT=1)' : 'OFF'} · orbital ${ORBITAL ? 'ON (SIM_ORBITAL=1)' : 'OFF'} · garrisons ${GARRISONS ? `ON (SIM_GARRISONS=1, ${GARRISON_DOCTRINE_TUNING.cost} PP)` : 'OFF'}${SCATTERED ? ' · start SCATTERED (SIM_SCATTERED=1, no home worlds)' : ''}${FACTIONS_ON ? '' : ' · factions OFF (SIM_FACTIONS=0, labels are seats)'}${PLAIN_LANES ? ' · PLAIN LANES (SIM_PLAIN_LANES=1)' : ''}${CATCHUP_PER != null ? ` · catch-up: -1 reinforcement per ${CATCHUP_PER} tiles over a quarter (SIM_CATCHUP_PER)` : ''} · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
   if (GAMES % CYCLE !== 0) {
     console.log(`⚠ ${GAMES} games is not a multiple of the ${CYCLE}-game line-up cycle, so factions and seats are sampled unevenly\n`);
   }
@@ -1620,6 +1664,38 @@ function main(): void {
     );
   }
 
+  if (GARRISONS) {
+    // §8's usage gate, borrowed from the Moon package: each doctrine bought in
+    // at least 60% of the games where a seat could, and the seats that buy it
+    // winning under 60% of their games.
+    const seats = stats.flatMap((g) => g.seats);
+    const eligibleGames = stats.filter((g) => g.seats.some((s) => s.doctrineEligible));
+    const usedIn = (k: 'hardenedBought' | 'forwardBought'): number =>
+      eligibleGames.filter((g) => g.seats.some((s) => s[k] > 0)).length;
+    const eligibleSeats = seats.filter((s) => s.doctrineEligible);
+    const winShare = (k: 'hardenedBought' | 'forwardBought', used: boolean): string => {
+      const group = eligibleSeats.filter((s) => (s[k] > 0) === used);
+      return `${pct(group.filter((s) => s.won).length, Math.max(1, group.length))} of ${group.length}`;
+    };
+    console.log(
+      `Garrison doctrines (${GARRISON_DOCTRINE_TUNING.cost} PP): `
+      + `${fixed(avg(seats.map((s) => s.hardenedBought)))} Hardened + ${fixed(avg(seats.map((s) => s.forwardBought)))} Forward bought per seat per game`,
+    );
+    console.log(
+      `  used in games where a seat could (gate ≥ 60%): Hardened ${pct(usedIn('hardenedBought'), Math.max(1, eligibleGames.length))}`
+      + ` · Forward ${pct(usedIn('forwardBought'), Math.max(1, eligibleGames.length))}`
+      + ` · eligible seats ${pct(eligibleSeats.length, Math.max(1, seats.length))}`,
+    );
+    console.log(
+      `  win share of eligible seats (gate: users < 60%): Hardened users ${winShare('hardenedBought', true)} vs non-users ${winShare('hardenedBought', false)}`
+      + ` · Forward users ${winShare('forwardBought', true)} vs non-users ${winShare('forwardBought', false)}`,
+    );
+    console.log(
+      `  d8 exchanges per seat per game: ${fixed(avg(seats.map((s) => s.forwardExchanges)))} attacking from Forward`
+      + ` · ${fixed(avg(seats.map((s) => s.hardenedDefences)))} defending Hardened`,
+    );
+  }
+
   if (TRANSIT) {
     const seats = stats.flatMap((g) => g.seats);
     const sent = seats.reduce((n, s) => n + s.convoysSent, 0);
@@ -1642,6 +1718,7 @@ function main(): void {
       ...TERRITORY_SNAPSHOT_TURNS.map((t) => `territories_at_${t}`),
       'players', 'seat', 'layout', 'house', 'crown_turns', 'team', 'split',
       'pp_banked', 'gateway_buildings', 'buildings_inherited',
+      'hardened_bought', 'forward_bought',
     ].join(',');
     const rows = stats.flatMap((s) =>
       s.seats.map((seat, i) => [
@@ -1651,6 +1728,7 @@ function main(): void {
         ...TERRITORY_SNAPSHOT_TURNS.map((t) => seat.territoriesAtTurn[t] ?? ''),
         PLAYERS, i, s.layout ?? '', s.houses?.[i] ?? '', s.crownTurns[i] ?? 0, s.teams?.[i] ?? '', s.split ?? '',
         seat.ppBanked, seat.gatewayBuildings, seat.buildingsInherited,
+        seat.hardenedBought, seat.forwardBought,
       ].join(',')),
     );
     writeFileSync(CSV_PATH, [header, ...rows].join('\n') + '\n');
