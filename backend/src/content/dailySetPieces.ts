@@ -21,8 +21,10 @@ import type { DailyPuzzleSpec } from '../game-engine/daily/dailyPuzzleTypes';
  * - ids unique; every territory exists on the entry's map;
  * - tactical: the anchor borders the target; support borders the anchor;
  *   relief borders the target; none of the four coincide;
- * - economy/tech: human and AI holdings are non-empty and disjoint; the
- *   building is in the cost table; the tech is in the era's tree;
+ * - economy/tech: human and AI holdings are non-empty and disjoint; every AI
+ *   garrison borders a human territory (a day nobody can fight is a
+ *   spreadsheet, not a puzzle); the building is in the cost table; the tech
+ *   is in the era's tree;
  * - region: human + AI holdings are exactly the region; every AI garrison
  *   borders a human territory; support borders a human region territory;
  * - chain: the first target borders the anchor and each next borders the
@@ -287,7 +289,8 @@ export const DAILY_SET_PIECES: readonly DailySetPiece[] = [
     title: 'The Listening Post',
     intro: 'Not every building makes rifles. Raise a research station — the quiet kind of power.',
     human: ['uk_ireland', 'france_benelux'],
-    ai: ['east_germany'],
+    // Bordering France: the other side has to be at the door, not one country over.
+    ai: ['west_germany'],
     building_type: 'tech_gen_1',
   },
 
@@ -622,10 +625,11 @@ export const DAILY_SET_PIECES: readonly DailySetPiece[] = [
     era_id: 'ww2',
     map_id: 'era_ww2',
     title: 'Arsenal of Democracy',
-    intro: 'One factory is a start. Two, one on top of the other, is a war economy. Build them in order.',
-    hint: 'Tier two needs tier one beneath it — the same territory, twice.',
+    intro: 'One factory is a start. Two, one on top of the other, is a war economy. Build them in order — the Pacific fleet is already at the islands off the West Coast.',
+    hint: 'Tier two needs tier one beneath it — the same territory, twice. Build where the fleet cannot reach.',
     human: ['usa_east', 'usa_west', 'caribbean'],
-    ai: ['japan_ww2'],
+    // Bordering Western USA: the fleet is a threat, not a rumour across an ocean.
+    ai: ['pacific_islands'],
     building_type: 'production_2',
   },
   {
