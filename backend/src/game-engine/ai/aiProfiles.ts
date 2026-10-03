@@ -65,6 +65,14 @@ export interface AiProfile {
   /** Time the planning worker gets before the fallback plan (runAiWithTimeout). */
   planBudgetMs: number;
   /**
+   * The level whose plan stands in when planning overruns or fails: its own,
+   * capped at medium. The fallback runs on the server's main thread, so it
+   * must stay cheap whatever the higher levels' planning becomes. It used to
+   * be easy for everyone: two attacks, long shots included, spent from the
+   * real level's exchange budget.
+   */
+  timeoutFallback: AiDifficulty;
+  /**
    * Score jitter: every draft candidate gains rng() × noise × 10 and every
    * attack candidate rng() × noise × 3. The only thing separating levels in
    * the scoring itself.
@@ -127,6 +135,7 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     difficulty: 'tutorial',
     passive: true,
     planBudgetMs: 750,
+    timeoutFallback: 'tutorial',
     // Unread: the passive turn scores nothing.
     noise: 0.9,
     attackCap: 8,
@@ -153,6 +162,7 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     difficulty: 'easy',
     passive: false,
     planBudgetMs: 1_000,
+    timeoutFallback: 'easy',
     noise: 0.35,
     attackCap: 2,
     exchangeBudget: 2,
@@ -178,6 +188,7 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     difficulty: 'medium',
     passive: false,
     planBudgetMs: 1_500,
+    timeoutFallback: 'medium',
     noise: 0.15,
     attackCap: 4,
     exchangeBudget: 4,
@@ -203,6 +214,7 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     difficulty: 'hard',
     passive: false,
     planBudgetMs: 3_000,
+    timeoutFallback: 'medium',
     noise: 0.05,
     attackCap: 8,
     exchangeBudget: 8,
@@ -228,6 +240,7 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     difficulty: 'expert',
     passive: false,
     planBudgetMs: 5_000,
+    timeoutFallback: 'medium',
     noise: 0,
     attackCap: 8,
     exchangeBudget: 8,
@@ -263,4 +276,31 @@ export function aiProfile(level: AiLevel | string): Readonly<AiProfile> {
   return Object.prototype.hasOwnProperty.call(AI_PROFILES, level)
     ? AI_PROFILES[level as AiDifficulty]
     : AI_PROFILES.medium;
+}
+
+const LEVEL_ORDER: readonly AiDifficulty[] = ['tutorial', 'easy', 'medium', 'hard', 'expert'];
+
+type Seat = { is_ai: boolean; ai_difficulty?: AiDifficulty | null };
+
+/**
+ * The game's bot level: the highest among its bots, which is also what the
+ * end-of-game summary reports. Null in a game with no bots.
+ */
+export function gameAiDifficulty(players: readonly Seat[]): AiDifficulty | null {
+  let best: AiDifficulty | null = null;
+  for (const p of players) {
+    if (!p.is_ai || !p.ai_difficulty) continue;
+    if (best === null || LEVEL_ORDER.indexOf(p.ai_difficulty) > LEVEL_ORDER.indexOf(best)) best = p.ai_difficulty;
+  }
+  return best;
+}
+
+/**
+ * The level a seat plays at. A bot plays its own. A human seat the AI covers
+ * while its player is away plays at the game's bot level, so leaving a game
+ * against easy bots no longer hands the table a medium one; medium in a game
+ * with no bots, as before.
+ */
+export function seatAiDifficulty(players: readonly Seat[], seat: Seat): AiDifficulty {
+  return seat.ai_difficulty ?? gameAiDifficulty(players) ?? 'medium';
 }

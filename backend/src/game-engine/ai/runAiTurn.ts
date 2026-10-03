@@ -20,13 +20,13 @@ import { appendWinProbabilitySnapshot, checkVictory, drawCard, findRedeemableCar
 import { applyBombElimination, selectAiAtomBombStrike } from './aiAtomBomb';
 import { applyBuild } from '../state/economyManager';
 import { applyGarrisonDoctrine, garrisonsEnabled, validateGarrisonDoctrine } from '../state/garrisonDoctrines';
-import { applyResearch, getEraTechTreeForPlayer, validateResearch } from '../state/techManager';
+import { applyResearch, validateResearch } from '../state/techManager';
 import { areMoonPowersEnabled } from '../abilities/moonPowers';
 import { attachCombatAbilityCallouts, buildCombatAbilityCallouts } from '../combat/combatAbilityCallouts';
 import { buildCombatMapVisual, buildEraAdvanceMapVisual, buildFortifyMapVisual, buildNavalMapVisual, buildReinforceMapVisual } from '../visuals/mapVisualEvents';
 import { buildStrikeAnimationPayload } from '../abilities/strikeAnimation';
 import { canAiUseDropAssault, canAiUseDysonBeam, canAiUseOrbitalDrop, selectAiDropAssaultTarget, selectAiDysonBeamTarget, selectAiLaneSeal, selectAiOrbitalDropTarget, shouldAiExportHelium3 } from './aiMoonPowers';
-import { chooseEmergencySealLane, selectAiBuildingPlacement, selectAiGarrisonDoctrines, selectAiTechResearch } from './aiBot';
+import { chooseEmergencySealLane, rankAiUnificationTargets, selectAiBuildingPlacement, selectAiGarrisonDoctrines, selectAiTechResearch } from './aiBot';
 import { consumeSealBreaker, lanePowersEnabled } from '../abilities/lanePowers';
 import { createPuzzleDieRoll } from '../daily/puzzleDice';
 import { dailySiegeTarget } from '../daily/dailySiege';
@@ -38,11 +38,9 @@ import { executeTechAbility, isGameScopedAbility } from '../abilities/executeTec
 import { fortifyBecomesConvoy, launchConvoy } from '../state/transit';
 import { getDeployCap, onInfluenceStabilityPenalty } from '../state/stabilityManager';
 import { getEraIdForAdvancementIndex } from '../eraAdvancement/constants';
-import { getInfluenceHopLimit, isTerritoryReachableWithinHops } from '../state/influenceManager';
 import { getMarchToSeaBonus, recordMarchToSeaResult } from '../combat/combatModifiers';
 import { getPlayerEraModifiers } from '../state/eraModifiers';
 import { getPlayerFaction } from '../eras/factionLineage';
-import { getWonderInfluenceRange } from '../state/wonderManager';
 import { isShieldedFrom } from '../state/teams';
 import { playerHoldsVaultSeal, worldDeployCapBonus } from '../state/worldRules';
 import { resolveSeaCrossing } from '../state/navalManager';
@@ -52,6 +50,7 @@ import { syncSurgeProjectorLanes } from '../state/surgeProjector';
 import { unlockTerritoriesForFloor } from '../eraAdvancement/territoryUnlock';
 import type { AiAction, AiTurnOptions } from './aiBot';
 import { aiProfile, type AiLevel } from './aiProfiles';
+import { influencePayers } from './aiInfluence';
 import type { EraId, GameMap, GameState, PlayerState } from '../../types';
 import type { MapVisualEventPayload } from '../visuals/mapVisualEvents';
 import type { StrikeAnimationPayload } from '../abilities/strikeAnimation';
@@ -781,13 +780,13 @@ export async function playAiTurn(
   }
 
   // AI parity: Unification Drive converts a reachable neutral territory for free.
-  // executeTechAbility enforces the influence-range reachability check, so the AI
-  // scans neutral territories and takes the first one it can legally unify.
+  // executeTechAbility enforces the influence-range reachability check; the AI
+  // tries the neutral territories it can reach, best first
+  // (rankAiUnificationTargets), and takes the first it can legally unify.
   if (state.settings.factions_enabled && currentPlayer.faction_id) {
     const aiFaction = getPlayerFaction(state, currentPlayer);
     if (aiFaction?.ability_id === 'unification_drive' && !(currentPlayer.ability_uses ?? {})['unification_drive']) {
-      for (const tid of Object.keys(state.territories)) {
-        if (state.territories[tid].owner_id != null) continue;
+      for (const tid of rankAiUnificationTargets(state, map, currentPlayer.player_id)) {
         const res = executeTechAbility({
           state,
           map,
@@ -831,52 +830,16 @@ export async function playAiTurn(
           continue;
         }
       }
-      if (target.unit_count > 3) continue;
-      const aiTechTree = state.settings.tech_trees_enabled
-        ? getEraTechTreeForPlayer(state, currentPlayer.player_id)
-        : [];
-      const aiHopLimit = getInfluenceHopLimit({
-        baseHopLimit: modifiers?.influence_range ?? 1,
-        unlockedTechs: currentPlayer.unlocked_techs ?? [],
-        techTree: aiTechTree,
-        wonderRangeBonus: state.settings.economy_enabled
-          ? getWonderInfluenceRange(state, currentPlayer.player_id)
-          : 0,
-      });
-      const aiOwnedIds = Object.entries(state.territories)
-        .filter(([, t]) => t.owner_id === currentPlayer.player_id)
-        .map(([id]) => id);
-      if (!isTerritoryReachableWithinHops({
-        map,
-        ownedTerritoryIds: aiOwnedIds,
-        targetId: action.to,
-        hopLimit: aiHopLimit,
-      })) continue;
-
-      // Cost: need 3 spare units; deduct from adjacent owned territories
-      const adjacency: Record<string, string[]> = {};
-      for (const conn of map.connections) {
-        if (!adjacency[conn.from]) adjacency[conn.from] = [];
-        if (!adjacency[conn.to]) adjacency[conn.to] = [];
-        adjacency[conn.from].push(conn.to);
-        adjacency[conn.to].push(conn.from);
-      }
-
+      // Range, the defender cap and who pays: the same rules the planner
+      // picked this target by (ai/aiInfluence.ts).
+      const payers = influencePayers(state, map, currentPlayer.player_id, action.to);
+      if (!payers) continue;
       // Use the same cost the human path pays so proxy_funding's discount (3 → 2)
       // applies to the AI too, instead of a hardcoded 3.
       const influenceCost = getInfluenceUnitCost(state, currentPlayer.player_id);
-      const totalUnits = Object.values(state.territories)
-        .filter((t) => t.owner_id === currentPlayer.player_id)
-        .reduce((sum, t) => sum + t.unit_count, 0);
-      if (totalUnits < influenceCost + 1) continue;
-
-      const adjacentOwned = (adjacency[action.to] ?? [])
-        .filter((nid) => state.territories[nid]?.owner_id === currentPlayer.player_id)
-        .sort((a, b) => (state.territories[b]?.unit_count ?? 0) - (state.territories[a]?.unit_count ?? 0));
-      if (adjacentOwned.length === 0) continue;
 
       let remaining = influenceCost;
-      for (const tid of adjacentOwned) {
+      for (const tid of payers) {
         const t = state.territories[tid];
         if (!t) continue;
         const canSpend = Math.max(0, Math.min(remaining, t.unit_count - 1));

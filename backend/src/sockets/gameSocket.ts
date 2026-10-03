@@ -104,7 +104,7 @@ const DRIFT_JUMP_ABILITY_ID = 'drift_jump';
 import type { BuildingType } from '../types';
 import { runAiWithTimeout } from '../game-engine/ai/runAiWithTimeout';
 import { planAiTurn, playAiTurn } from '../game-engine/ai/runAiTurn';
-import { aiProfile } from '../game-engine/ai/aiProfiles';
+import { aiProfile, gameAiDifficulty, seatAiDifficulty } from '../game-engine/ai/aiProfiles';
 import { recordGameResults, computeRanks, redactGuestRatings } from '../game-engine/state/statsManager';
 import { checkAndUnlockAchievements } from '../game-engine/achievements/achievementService';
 import { pgPool } from '../db/postgres';
@@ -5733,14 +5733,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
     : { total_decisions: 0 };
 
   // Highest AI difficulty in the game (most descriptive single chip).
-  const aiDifficulties = state.players
-    .filter((p) => p.is_ai && p.ai_difficulty)
-    .map((p) => p.ai_difficulty!);
-  const difficultyOrder = ['tutorial', 'easy', 'medium', 'hard', 'expert'] as const;
-  const highestAiDifficulty = aiDifficulties.length > 0
-    ? aiDifficulties.reduce((a, b) =>
-        difficultyOrder.indexOf(a) >= difficultyOrder.indexOf(b) ? a : b)
-    : null;
+  const highestAiDifficulty = gameAiDifficulty(state.players);
 
   const stats = {
     winner_id: winnerId,
@@ -5854,7 +5847,8 @@ async function processAiTerritorySelect(io: Server, gameId: string): Promise<voi
   const currentPlayer = state.players[state.current_player_index];
   if (!currentPlayer.is_ai && !currentPlayer.is_away) return;
 
-  const difficulty = currentPlayer.ai_difficulty ?? 'medium';
+  // An away seat picks at the game's bot level (seatAiDifficulty).
+  const difficulty = seatAiDifficulty(state.players, currentPlayer);
   const unclaimed = claimableTerritoryIds(state, map, currentPlayer.player_id);
 
   if (unclaimed.length === 0) return;
@@ -5983,7 +5977,9 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   // must. Left pending, it outlived the turn and reached the next player.
   resolveChoiceCardForAi(io, gameId, state);
 
-  const difficulty = currentPlayer.ai_difficulty ?? 'medium';
+  // A bot plays its own level; an away human seat the game's bot level
+  // (seatAiDifficulty), not medium whatever the table is.
+  const difficulty = seatAiDifficulty(state.players, currentPlayer);
   // Fog-fair AI planning: when fog_of_war is on, humans see only their own
   // and adjacent territories' unit counts. Passing the raw authoritative
   // state to the AI lets it peek at unit counts everywhere on the map —

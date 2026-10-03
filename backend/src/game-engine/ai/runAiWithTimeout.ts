@@ -15,14 +15,29 @@ import { aiProfile, type AiLevel } from './aiProfiles';
 // is worker startup plus the structured-clone of state+map, which scales with
 // map size (up to 500 territories). Hard/expert get more room because they also
 // run the build/research ladders. Blowing the budget is not graceful: the
-// fallback substitutes an 'easy' plan (2 attacks, no build/research), so any
-// future search must check its own deadline rather than rely on the timeout.
+// fallback substitutes a plan at the level's `timeoutFallback` (its own, capped
+// at medium), so any future search must check its own deadline rather than
+// rely on the timeout.
 // The hard-cap is a safety net the outer Promise.race uses if inner cleanup leaks.
 const HARD_CAP_PADDING_MS = 1_500;
 
 /**
+ * The plan that stands in when the worker overruns or fails: planned on this
+ * thread at the level's `timeoutFallback` (ai/aiProfiles.ts), its own level
+ * capped at medium.
+ */
+export function aiFallbackPlan(
+  state: GameState,
+  map: GameMap,
+  difficulty: AiLevel,
+  options?: AiTurnOptions,
+): AiAction[] {
+  return computeAiTurn(state, map, aiProfile(difficulty).timeoutFallback, options);
+}
+
+/**
  * Runs AI planning off the Socket.io thread with a time budget.
- * Falls back to easy heuristic on timeout, worker error, or silent crash.
+ * Falls back to aiFallbackPlan on timeout, worker error, or silent crash.
  * In dev (tsx) if aiWorker.js is missing, runs synchronously on this thread.
  *
  * Safety guarantees:
@@ -89,8 +104,8 @@ async function runAiTurnInWorker(
 
     softFallbackTimer = setTimeout(() => {
       if (!resolved) {
-        console.warn(`[AI] Time budget exceeded for ${aiProfile(difficulty).difficulty}, using easy fallback`);
-        settle(computeAiTurn(state, map, 'easy', options));
+        console.warn(`[AI] Time budget exceeded for ${aiProfile(difficulty).difficulty}, using the ${aiProfile(difficulty).timeoutFallback} fallback`);
+        settle(aiFallbackPlan(state, map, difficulty, options));
       }
     }, timeBudgetMs);
 
@@ -99,7 +114,7 @@ async function runAiTurnInWorker(
     worker.on('error', (err) => {
       if (!resolved) {
         console.error('[AI Worker] Error:', err);
-        settle(computeAiTurn(state, map, 'easy', options));
+        settle(aiFallbackPlan(state, map, difficulty, options));
       }
     });
 
@@ -109,7 +124,7 @@ async function runAiTurnInWorker(
     worker.on('exit', (code) => {
       if (!resolved) {
         console.error(`[AI Worker] Exited with code ${code} before producing a result; falling back.`);
-        settle(computeAiTurn(state, map, 'easy', options));
+        settle(aiFallbackPlan(state, map, difficulty, options));
       }
     });
   });
@@ -121,7 +136,7 @@ async function runAiTurnInWorker(
   let hardCapTimer: NodeJS.Timeout | null = null;
   const hardCap = new Promise<AiAction[]>((resolve) => {
     hardCapTimer = setTimeout(() => {
-      console.error('[AI] Hard-cap safety net engaged — inner cleanup leaked. Running easy fallback.');
+      console.error('[AI] Hard-cap safety net engaged — inner cleanup leaked. Running the fallback plan.');
       if (softFallbackTimer) {
         clearTimeout(softFallbackTimer);
         softFallbackTimer = null;
@@ -129,7 +144,7 @@ async function runAiTurnInWorker(
       if (workerRef) {
         void workerRef.terminate().catch(() => {});
       }
-      resolve(computeAiTurn(state, map, 'easy', options));
+      resolve(aiFallbackPlan(state, map, difficulty, options));
     }, hardCapMs);
   });
 
