@@ -288,6 +288,12 @@ export interface GameState {
     galaxy_corridors_enabled?: boolean;
     /** Galaxy transit: cross-world fortifies become convoys that land next turn. */
     galaxy_transit_enabled?: boolean;
+    /**
+     * Galactic Age buildings v2: era names for the standard buildings and a
+     * tree that gates every tier (docs/GALACTIC_AGE_BUILDINGS.md). Baked at
+     * create; the client fetches the matching tree with `?buildings=v2`.
+     */
+    galaxy_buildings_v2?: boolean;
     /** Galaxy per-world identity: world_id → modifiers, snapshotted from the map at init. */
     world_modifiers_enabled?: boolean;
     world_modifiers?: Record<string, WorldModifiers>;

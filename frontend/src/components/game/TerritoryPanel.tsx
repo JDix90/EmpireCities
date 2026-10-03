@@ -39,7 +39,7 @@ import {
   type MapConnection,
 } from '../../utils/mapAdjacencyTargets';
 import { effectiveContinentBonus } from '../../utils/continentBonus';
-import { inferWorldId } from '@borderfall/shared';
+import { inferWorldId, techNodeBuildingUnlocks } from '@borderfall/shared';
 import {
   EMERGENCY_SEAL_ABILITY_ID,
   describeLaneDice,
@@ -93,7 +93,13 @@ interface TerritoryPanelProps {
   onInfluence?: (targetId: string) => void;
   onProposeTruce?: (targetPlayerId: string) => void;
   onUseAbility?: (abilityId: string, targetId?: string) => void;
-  techTree?: Array<{ tech_id: string; name?: string; unlocks_ability?: string; unlocks_building?: string }>;
+  techTree?: Array<{
+    tech_id: string;
+    name?: string;
+    unlocks_ability?: string;
+    unlocks_building?: string;
+    unlocks_buildings?: string[];
+  }>;
   /** Open the tech tree — a building locked behind an unresearched tech links to it. */
   onOpenTechTree?: () => void;
   /**
@@ -1873,8 +1879,11 @@ export default function TerritoryPanel({
           'port', 'naval_base', 'coastal_battery',
         ]);
         const unlockedTechs = new Set(myPlayer?.unlocked_techs ?? []);
-        const buildingUnlocks = techTree.filter(
-          (n) => n.unlocks_building && !n.unlocks_building.startsWith('wonder_'),
+        /** Each (node, building) it opens, wonders aside; a v2 node may open several. */
+        const buildingUnlocks = techTree.flatMap((n) =>
+          techNodeBuildingUnlocks(n)
+            .filter((b) => !b.startsWith('wonder_'))
+            .map((building) => ({ node: n, building })),
         );
         /**
          * Buildings the server will refuse until their tech is researched, and
@@ -1890,9 +1899,8 @@ export default function TerritoryPanel({
         const heritageRights = heritageEnabled(gameState.settings)
           ? new Set(myPlayer?.legacy_building_unlocks ?? [])
           : new Set<string>();
-        for (const n of buildingUnlocks) {
+        for (const { node: n, building } of buildingUnlocks) {
           if (unlockedTechs.has(n.tech_id)) continue;
-          const building = n.unlocks_building as string;
           if (heritageRights.has(building)) continue;
           // Cheapest wording when two nodes unlock the same building: first wins.
           if (!(building in techLocks)) techLocks[building] = n.name ?? n.tech_id;
@@ -1919,9 +1927,11 @@ export default function TerritoryPanel({
         // until the research happens to land.
         const extraBuildOptions = Array.from(new Set(
           buildingUnlocks
-            .filter((n) => !STANDARD.has(n.unlocks_building as string))
-            .map((n) => n.unlocks_building as string),
+            .map(({ building }) => building)
+            .filter((b) => !STANDARD.has(b)),
         ));
+        // Galactic Age buildings v2 names the standard buildings for the era.
+        const nameEra = gameState.settings.galaxy_buildings_v2 ? viewerEra : undefined;
         let eraWonderProp: Parameters<typeof BuildingPanel>[0]['eraWonder'] = undefined;
         if (wonderMeta) {
           let alreadyBuilt = false;
@@ -1963,6 +1973,7 @@ export default function TerritoryPanel({
             buildingStates={buildingStates}
             modernizeTechFor={modernizeTechFor}
             onOpenTechTree={onOpenTechTree}
+            nameEra={nameEra}
           />
         );
       })()}

@@ -644,6 +644,13 @@ export interface GameSettings {
    */
   galaxy_transit_enabled?: boolean;
   /**
+   * Galactic Age buildings v2 (docs/GALACTIC_AGE_BUILDINGS.md, Phase 1): the
+   * catalog's galaxy names and a tech tree that gates every building tier
+   * (`GALAXY_AGE_TECH_TREE_V2`). Baked at create from the
+   * `galaxy_buildings_v2_enabled` feature flag; no-op off galaxy rules.
+   */
+  galaxy_buildings_v2?: boolean;
+  /**
    * Galactic Age Schism (five to eight seats): how the two houses on a split
    * world start — under the Concord, a truce for the opening rounds, in Civil
    * War, or Allied, every world's seats one team. Absent means the Concord;

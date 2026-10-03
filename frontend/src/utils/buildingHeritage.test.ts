@@ -6,6 +6,7 @@ import {
   effectiveYield,
   heritageEnabled,
   isHeritageOnlyUnlock,
+  lineageTechs,
   modernizingTech,
   type HeritageTechNode,
 } from './buildingHeritage';
@@ -104,5 +105,27 @@ describe('isHeritageOnlyUnlock', () => {
     expect(isHeritageOnlyUnlock(ON, researched, 'defense_1', TREE)).toBe(false);
     const p = { current_era_index: 1, unlocked_techs: [], legacy_building_unlocks: ['port'] };
     expect(isHeritageOnlyUnlock(ON, p, 'port', TREE)).toBe(false);
+  });
+});
+
+describe('nodes that open several buildings (Galactic Age buildings v2)', () => {
+  const V2: HeritageTechNode[] = [
+    { tech_id: 'ga_lattice_logistics', name: 'Lattice Logistics', cost: 3, unlocks_buildings: ['production_1', 'tech_gen_1'] },
+    { tech_id: 'ga_solar_foundries', name: 'Solar Foundries', cost: 9, unlocks_buildings: ['production_3', 'tech_gen_2'] },
+  ];
+
+  it('covers every building the node lists', () => {
+    expect(lineageTechs(V2, 'production_2').map((n) => n.tech_id))
+      .toEqual(['ga_lattice_logistics', 'ga_solar_foundries']);
+    expect(lineageTechs(V2, 'tech_gen_1').map((n) => n.tech_id))
+      .toEqual(['ga_lattice_logistics', 'ga_solar_foundries']);
+    expect(lineageTechs(V2, 'defense_1')).toEqual([]);
+  });
+
+  it('finds the gate for a building named in a plural node', () => {
+    const p = { current_era_index: 1, unlocked_techs: [], legacy_building_unlocks: ['tech_gen_1'] };
+    expect(isHeritageOnlyUnlock(ON, p, 'tech_gen_1', V2)).toBe(true);
+    const researched = { ...p, unlocked_techs: ['ga_lattice_logistics'] };
+    expect(isHeritageOnlyUnlock(ON, researched, 'tech_gen_1', V2)).toBe(false);
   });
 });

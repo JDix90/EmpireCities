@@ -26,7 +26,7 @@ import { MODERN_FACTIONS, MODERN_TECH_TREE, MODERN_WONDER } from './modern';
 import { ACW_FACTIONS, ACW_TECH_TREE, ACW_WONDER } from './acw';
 import { RISORGIMENTO_FACTIONS, RISORGIMENTO_TECH_TREE, RISORGIMENTO_WONDER } from './risorgimento';
 import { SPACE_AGE_FACTIONS, SPACE_AGE_TECH_TREE, SPACE_AGE_WONDER } from './spaceage';
-import { GALAXY_AGE_FACTIONS, GALAXY_AGE_TECH_TREE, GALAXY_AGE_WONDER } from './galaxyage';
+import { GALAXY_AGE_FACTIONS, GALAXY_AGE_TECH_TREE, GALAXY_AGE_TECH_TREE_V2, GALAXY_AGE_WONDER } from './galaxyage';
 
 const ERA_FACTIONS: Partial<Record<EraId, Faction[]>> = {
   ancient:      ANCIENT_FACTIONS,
@@ -71,8 +71,20 @@ export function getEraFactions(era: EraId): Faction[] {
   return ERA_FACTIONS[era] ?? [];
 }
 
-export function getEraTechTree(era: EraId): TechNode[] {
+/** Per-game choices that select a different tree for the same era. */
+export interface EraTechTreeOptions {
+  /** Galactic Age buildings v2 (`settings.galaxy_buildings_v2`): gate every tier. */
+  galaxyBuildingsV2?: boolean;
+}
+
+export function getEraTechTree(era: EraId, opts?: EraTechTreeOptions): TechNode[] {
+  if (era === 'galaxy_age' && opts?.galaxyBuildingsV2) return GALAXY_AGE_TECH_TREE_V2;
   return ERA_TECH_TREES[era] ?? [];
+}
+
+/** The tree options a game's settings select, for readers that hold a GameState. */
+export function eraTechTreeOptions(settings: { galaxy_buildings_v2?: boolean }): EraTechTreeOptions {
+  return { galaxyBuildingsV2: settings.galaxy_buildings_v2 === true };
 }
 
 export function getEraWonder(era: EraId): EraWonder | undefined {

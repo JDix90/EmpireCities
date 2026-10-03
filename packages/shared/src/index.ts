@@ -258,11 +258,57 @@ export const BUILDING_DISPLAY: Record<string, BuildingDisplay> = {
   },
 };
 
-/** Display name for a building id, with its tier suffix by default. */
-export function buildingDisplayName(buildingId: string, withTier = true): string {
+/**
+ * Per-era NAMES layered over `BUILDING_DISPLAY`. The ids are not era-scoped, so
+ * the base table has to serve Ancient through Galaxy Age — and a Palisade on a
+ * hyperspace gateway reads wrong. An era listed here renames what it lists and
+ * inherits the rest; tiers and effects never change, because those are the
+ * numbers the engine moves. Read by `buildingDisplayName` when the caller
+ * passes the era, which it does only for a game whose settings opt in
+ * (`galaxy_buildings_v2`), so a flag flip never renames a match in progress.
+ */
+export const BUILDING_DISPLAY_BY_ERA: Record<string, Record<string, string>> = {
+  galaxy_age: {
+    production_1: 'Fabricator',
+    production_2: 'Orbital Foundry',
+    production_3: 'Shipyard Ring',
+    production_4: 'Dyson Collector',
+    defense_1: 'Shield Array',
+    defense_2: 'Bastion',
+    defense_3: 'Gateway Citadel',
+    tech_gen_1: 'Observatory',
+    tech_gen_2: 'Lattice Array',
+  },
+};
+
+/**
+ * Display name for a building id, with its tier suffix by default. `eraId`
+ * selects an era's name layer; absent or unlisted, the shared name is used.
+ */
+export function buildingDisplayName(buildingId: string, withTier = true, eraId?: string): string {
   const entry = BUILDING_DISPLAY[buildingId];
   if (!entry) return buildingId;
-  return withTier && entry.tier ? `${entry.name} (${entry.tier})` : entry.name;
+  const name = (eraId && BUILDING_DISPLAY_BY_ERA[eraId]?.[buildingId]) || entry.name;
+  return withTier && entry.tier ? `${name} (${entry.tier})` : name;
+}
+
+/** The shape every tech-tree reader needs to know which buildings a node opens. */
+export interface TechNodeBuildingUnlocks {
+  unlocks_building?: string;
+  unlocks_buildings?: string[];
+}
+
+/**
+ * Every building a tech node unlocks. A node has carried one building in
+ * `unlocks_building` since the trees were written; the Galactic Age's v2
+ * gating needs a node to open two (its tier-1 economic root opens both the
+ * first industry and the first research building), so `unlocks_buildings`
+ * exists beside it. Readers go through here so the two fields can never
+ * disagree about what a node opens.
+ */
+export function techNodeBuildingUnlocks(node: TechNodeBuildingUnlocks): string[] {
+  if (node.unlocks_buildings && node.unlocks_buildings.length > 0) return node.unlocks_buildings;
+  return node.unlocks_building ? [node.unlocks_building] : [];
 }
 
 /** One-line effect for a building id, or an empty string for an unknown id. */

@@ -8,8 +8,10 @@ import {
 } from '../../utils/buildingHeritage';
 import type { GameState } from '../../store/gameStore';
 import TechTreeEraProgress from './TechTreeEraProgress';
-import { BUILDING_META } from './BuildingPanel';
+import { buildingMetaForEra } from './BuildingPanel';
 import { TERRITORY_ABILITY_UI } from '../../utils/techAbilities';
+import { resolvePlayerTechEraId } from '../../utils/eraAdvancement';
+import { techNodeBuildingUnlocks } from '@borderfall/shared';
 
 /** Fallback for ids without a UI entry: "launch_pad" → "Launch Pad". */
 function humanizeId(id: string): string {
@@ -29,6 +31,8 @@ export interface TechNode {
   reinforce_bonus?: number;
   tech_point_income?: number;
   unlocks_building?: string;
+  /** Several buildings from one node (Galactic Age buildings v2). */
+  unlocks_buildings?: string[];
   unlocks_ability?: string;
 }
 
@@ -45,14 +49,16 @@ interface Props {
   canAdvanceNow?: boolean;
 }
 
-function NodeBonusTags({ node }: { node: TechNode }) {
+function NodeBonusTags({ node, nameEra }: { node: TechNode; nameEra?: string }) {
   const tags: string[] = [];
   if (node.attack_bonus) tags.push(`+${node.attack_bonus} Atk`);
   if (node.defense_bonus) tags.push(`+${node.defense_bonus} Def`);
   if (node.reinforce_bonus) tags.push(`+${node.reinforce_bonus} Reinf`);
   if (node.tech_point_income) tags.push(`+${node.tech_point_income} TP/turn`);
-  if (node.unlocks_building) {
-    tags.push(`Unlocks: ${BUILDING_META[node.unlocks_building]?.label ?? humanizeId(node.unlocks_building)}`);
+  const opens = techNodeBuildingUnlocks(node);
+  if (opens.length > 0) {
+    const names = opens.map((b) => buildingMetaForEra(b, nameEra)?.label ?? humanizeId(b));
+    tags.push(`Unlocks: ${names.join(', ')}`);
   }
   if (node.unlocks_ability) {
     tags.push(`Ability: ${TERRITORY_ABILITY_UI[node.unlocks_ability]?.label ?? humanizeId(node.unlocks_ability)}`);
@@ -94,6 +100,10 @@ export default function TechTreeModal({ gameState, currentPlayerId, techTree, er
   const player = gameState.players.find((p) => p.player_id === currentPlayerId);
   const unlocked = useMemo(() => new Set(player?.unlocked_techs ?? []), [player]);
   const techPoints = player?.tech_points ?? 0;
+  // Galactic Age buildings v2 names the standard buildings for the era.
+  const nameEra = gameState.settings.galaxy_buildings_v2
+    ? resolvePlayerTechEraId(gameState, player)
+    : undefined;
 
   // Era-advancement heritage, for the per-node framing below.
   const heritageRights = useMemo(
@@ -207,17 +217,18 @@ export default function TechTreeModal({ gameState, currentPlayerId, techTree, er
                         <p className="text-xs text-gray-400 leading-snug">{node.description}</p>
 
                         {/* Bonus tags */}
-                        <NodeBonusTags node={node} />
+                        <NodeBonusTags node={node} nameEra={nameEra} />
 
                         {/* Era-advancement heritage: a node re-gating a building
                             the player already holds the right to raise is not a
                             second unlock — it is what modernizes the ones they
                             carried forward. Saying so is the difference between
                             the node reading as a tax and reading as an upgrade. */}
-                        {!isUnlocked && node.unlocks_building && (() => {
-                          const inherited = heritageRights.has(node.unlocks_building);
-                          const wouldModernize = agedLineages.has(
-                            buildingLineageKey(node.unlocks_building),
+                        {!isUnlocked && techNodeBuildingUnlocks(node).length > 0 && (() => {
+                          const opens = techNodeBuildingUnlocks(node);
+                          const inherited = opens.some((b) => heritageRights.has(b));
+                          const wouldModernize = opens.some((b) =>
+                            agedLineages.has(buildingLineageKey(b)),
                           );
                           if (!inherited && !wouldModernize) return null;
                           return (

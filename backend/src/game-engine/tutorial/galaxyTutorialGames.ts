@@ -67,6 +67,7 @@ function galaxySettingsBase(lessonModule: GalaxyTutorialLessonModule, seats: num
     world_rules_enabled: featureFlags.galaxyWorldRulesEnabled,
     world_rules_disabled: featureFlags.galaxyDisabledWorldRules,
     galaxy_transit_enabled: featureFlags.galaxyTransitEnabled,
+    galaxy_buildings_v2: featureFlags.galaxyBuildingsV2Enabled,
   };
 }
 

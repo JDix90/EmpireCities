@@ -22,6 +22,7 @@ import {
   effectiveBuildingYield,
   stampBuildingEra,
 } from '../eraAdvancement/buildingHeritage';
+import { resolvePlayerEraId } from '../eraAdvancement/constants';
 import { buildingDisplayName } from '@borderfall/shared';
 
 // ── Building definitions ──────────────────────────────────────────────────────
@@ -250,7 +251,7 @@ export function validateBuild(
     if (prereq) {
       // If the upgrade is already present, block
       if (existingBuildings.includes(buildingType)) {
-        return { valid: false, error: `Territory already has a ${BUILDING_LABEL(buildingType)}` };
+        return { valid: false, error: `Territory already has a ${BUILDING_LABEL(state, playerId, buildingType)}` };
       }
       // If the prerequisite is present, allow (upgrade path)
       if (existingBuildings.includes(prereq)) {
@@ -260,7 +261,7 @@ export function validateBuild(
         // production_2", naming two things the player cannot find in any panel.
         return {
           valid: false,
-          error: `Must build a ${BUILDING_LABEL(prereq)} before a ${BUILDING_LABEL(buildingType)}`,
+          error: `Must build a ${BUILDING_LABEL(state, playerId, prereq)} before a ${BUILDING_LABEL(state, playerId, buildingType)}`,
         };
       }
     } else {
@@ -301,8 +302,14 @@ export function validateBuild(
 // used to be a local switch that had drifted from both — this function said
 // "Arsenal" where the Bonuses modal said "War Factory", so a rejected build
 // named a building the player could not find in the UI.
-function BUILDING_LABEL(buildingType: string): string {
-  return buildingDisplayName(buildingType, false);
+// Under Galactic Age buildings v2 the era's own names are used, so the error
+// matches what the build panel shows in that game.
+function BUILDING_LABEL(state: GameState, playerId: string, buildingType: string): string {
+  const player = state.players.find((p) => p.player_id === playerId);
+  const nameEra = state.settings.galaxy_buildings_v2 && player
+    ? resolvePlayerEraId(state, player)
+    : undefined;
+  return buildingDisplayName(buildingType, false, nameEra);
 }
 
 

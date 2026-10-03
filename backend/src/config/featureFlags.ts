@@ -77,6 +77,10 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   galaxy_rule_forge_enabled: () => envOptOut('GALAXY_RULE_FORGE_ENABLED'),
   galaxy_rule_vault_enabled: () => envOptOut('GALAXY_RULE_VAULT_ENABLED'),
   galaxy_transit_enabled: () => envOptIn('GALAXY_TRANSIT_ENABLED'),
+  // Galactic Age buildings v2 (docs/GALACTIC_AGE_BUILDINGS.md, Phase 1): era
+  // names for the building catalog and a tech tree that gates every tier.
+  // Dark-launched OFF; baked into game settings at create.
+  galaxy_buildings_v2_enabled: () => envOptIn('GALAXY_BUILDINGS_V2_ENABLED'),
   space_age_moon_race_enabled: () => envOptOut('SPACE_AGE_MOON_RACE_ENABLED'),
   space_age_moon_tribute_enabled: () => envOptIn('SPACE_AGE_MOON_TRIBUTE_ENABLED'),
   ranked_multi_size_enabled: () => envOptIn('RANKED_MULTI_SIZE_ENABLED'),
@@ -569,6 +573,19 @@ export const featureFlags = {
    */
   get galaxyTransitEnabled(): boolean {
     return overrideBool('galaxy_transit_enabled');
+  },
+
+  /**
+   * Galactic Age buildings v2 (docs/GALACTIC_AGE_BUILDINGS.md, Phase 1): the
+   * catalog's galaxy names and the v2 tech gating, under which tier I of each
+   * building family opens at the tier-1 roots and every later tier behind its
+   * matching tier of the tree. Default OFF (dark launch); baked into game
+   * settings at create as `galaxy_buildings_v2`, so a flip never re-rules a
+   * match in progress. Kill switch: `GALAXY_BUILDINGS_V2_ENABLED` or the
+   * `galaxy_buildings_v2_enabled` admin override.
+   */
+  get galaxyBuildingsV2Enabled(): boolean {
+    return overrideBool('galaxy_buildings_v2_enabled');
   },
 
   /**

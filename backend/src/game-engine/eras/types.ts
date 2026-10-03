@@ -153,6 +153,12 @@ export interface TechNode {
   tech_point_income?: number;
   /** Building type that becomes available after researching this node. */
   unlocks_building?: BuildingType;
+  /**
+   * Several buildings opened by one node. Readers resolve a node's unlocks
+   * through `techNodeBuildingUnlocks` (@borderfall/shared), which prefers this
+   * list and falls back to `unlocks_building`; a node sets one or the other.
+   */
+  unlocks_buildings?: BuildingType[];
   /** Ability ID unlocked by this tech node. */
   unlocks_ability?: string;
 }

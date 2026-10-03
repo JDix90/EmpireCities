@@ -218,6 +218,7 @@ export function bakeCreateGameSettings(input: Theater & {
         world_rules_enabled: isGalaxyRules ? featureFlags.galaxyWorldRulesEnabled : undefined,
         world_rules_disabled: isGalaxyRules ? featureFlags.galaxyDisabledWorldRules : undefined,
         galaxy_transit_enabled: isGalaxyRules ? featureFlags.galaxyTransitEnabled : undefined,
+        galaxy_buildings_v2: isGalaxyRules ? featureFlags.galaxyBuildingsV2Enabled : undefined,
         // Every Moon Race phase this game runs, resolved above. Spread rather
         // than listed so a sixth phase needs no edit here.
         ...moonRace.phases,
@@ -260,6 +261,7 @@ const THEATER_BAKED_KEYS = [
   'world_rules_enabled',
   'world_rules_disabled',
   'galaxy_transit_enabled',
+  'galaxy_buildings_v2',
 ] as const;
 
 /**

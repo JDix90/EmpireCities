@@ -4,7 +4,8 @@
 
 import type { BuildingType, GameState, PlayerState, TerritoryState } from '../../types';
 import type { TechNode } from '../eras/types';
-import { getEraTechTree } from '../eras';
+import { techNodeBuildingUnlocks } from '@borderfall/shared';
+import { eraTechTreeOptions, getEraTechTree } from '../eras';
 import { isWonderId } from '../state/wonderManager';
 import { resolvePlayerEraId } from './constants';
 
@@ -60,9 +61,13 @@ export function heritageEnabled(state: GameState): boolean {
 }
 
 /** The tech node in `era`'s tree that unlocks exactly `buildingType`, if any. */
-function techUnlockingBuilding(era: string, buildingType: BuildingType): TechNode | undefined {
-  return getEraTechTree(era as Parameters<typeof getEraTechTree>[0])
-    .find((node) => node.unlocks_building === buildingType);
+function techUnlockingBuilding(
+  state: GameState,
+  era: string,
+  buildingType: BuildingType,
+): TechNode | undefined {
+  return getEraTechTree(era as Parameters<typeof getEraTechTree>[0], eraTechTreeOptions(state.settings))
+    .find((node) => techNodeBuildingUnlocks(node).includes(buildingType));
 }
 
 /**
@@ -98,8 +103,8 @@ export function lineageTechsForBuilding(
   buildingType: BuildingType,
 ): TechNode[] {
   const lineage = buildingLineageKey(buildingType);
-  return getEraTechTree(resolvePlayerEraId(state, player))
-    .filter((node) => node.unlocks_building && buildingLineageKey(node.unlocks_building) === lineage)
+  return getEraTechTree(resolvePlayerEraId(state, player), eraTechTreeOptions(state.settings))
+    .filter((node) => techNodeBuildingUnlocks(node).some((b) => buildingLineageKey(b as BuildingType) === lineage))
     .sort((a, b) => a.cost - b.cost);
 }
 
@@ -125,7 +130,7 @@ export function currentEraTechForBuilding(
   player: PlayerState,
   buildingType: BuildingType,
 ): TechNode | undefined {
-  return techUnlockingBuilding(resolvePlayerEraId(state, player), buildingType);
+  return techUnlockingBuilding(state, resolvePlayerEraId(state, player), buildingType);
 }
 
 /** Building types the player's researched techs opened in `eraId`. Wonders excluded. */
@@ -136,13 +141,18 @@ export function captureHeritageUnlocks(
 ): BuildingType[] {
   const unlocked = new Set(player.unlocked_techs ?? []);
   const opened: BuildingType[] = [];
-  for (const node of getEraTechTree(eraId as Parameters<typeof getEraTechTree>[0])) {
-    if (!node.unlocks_building) continue;
+  const tree = getEraTechTree(
+    eraId as Parameters<typeof getEraTechTree>[0],
+    eraTechTreeOptions(state.settings),
+  );
+  for (const node of tree) {
     if (!unlocked.has(node.tech_id)) continue;
-    // Era wonders are one-per-era-per-game by design; inheriting the right to
-    // raise a departed era's wonder would break that identity.
-    if (isWonderId(node.unlocks_building)) continue;
-    opened.push(node.unlocks_building);
+    for (const building of techNodeBuildingUnlocks(node)) {
+      // Era wonders are one-per-era-per-game by design; inheriting the right to
+      // raise a departed era's wonder would break that identity.
+      if (isWonderId(building)) continue;
+      opened.push(building as BuildingType);
+    }
   }
   return opened;
 }

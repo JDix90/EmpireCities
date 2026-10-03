@@ -170,6 +170,12 @@ const CLIENT_FEATURE_FLAGS = [
       "A fortify between two WORLDS stops being instant: the units leave their garrison at once and land at the mover's next turn start, or turn back if the destination changed hands in the meantime. A Drift Jump is exempt. Baked into each game at creation. OFF by default — the era plan wanted this one measured before it was believed; measured at 400 games it fires about 1.5 times per seat per game and one convoy in eight turns back.",
   },
   {
+    key: 'galaxy_buildings_v2_enabled',
+    label: 'Galactic Age buildings v2',
+    description:
+      'Era names for the building catalog (Fabricator, Shield Array, Observatory and up) and a tech tree that gates every building tier the way the other eras do: tier I at the tier-1 roots, each later tier behind its matching tier. Node costs are unchanged. Baked into each game at creation. OFF by default (dark launch) — Phase 1 of docs/GALACTIC_AGE_BUILDINGS.md, which changes no balance on its own.',
+  },
+  {
     key: 'galaxy_world_rules_enabled',
     label: 'Galactic Age worlds as characters',
     description:
