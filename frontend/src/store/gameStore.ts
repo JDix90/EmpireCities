@@ -23,6 +23,8 @@ export interface TerritoryState {
   buildings?: string[];
   /** Era index each building was raised in (era-advancement heritage). */
   building_eras?: Record<string, number>;
+  /** Anchors an authored orbit lane; present only under `galaxy_orbital_buildings`. */
+  gateway?: boolean;
   naval_units?: number;
   stability?: number;
   population?: number;
@@ -294,6 +296,8 @@ export interface GameState {
      * create; the client fetches the matching tree with `?buildings=v2`.
      */
     galaxy_buildings_v2?: boolean;
+    /** Galactic Age orbital infrastructure: a gateway's buildings survive capture. Baked at create. */
+    galaxy_orbital_buildings?: boolean;
     /** Galaxy per-world identity: world_id → modifiers, snapshotted from the map at init. */
     world_modifiers_enabled?: boolean;
     world_modifiers?: Record<string, WorldModifiers>;

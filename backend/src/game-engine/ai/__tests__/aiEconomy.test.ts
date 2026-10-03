@@ -159,6 +159,25 @@ describe('selectAiBuildingPlacement', () => {
     expect(result?.buildingType).toBe('production_1');
   });
 
+  it('hard: under orbital infrastructure, develops a gateway before a stronger interior tile', () => {
+    // Without the rule a gateway is the worst tile to build on (its buildings
+    // are razed when it falls); with it they pass back and forth with the tile.
+    const territories = () => ({
+      t1: makeTerritory('t1', 'p1', 3),
+      t2: makeTerritory('t2', 'p1', 2, { buildings: ['defense_1'], gateway: true }),
+      t3: makeTerritory('t3', 'p2', 5),
+    });
+    const players = [makePlayer('p1', 0, { special_resource: 20 }), makePlayer('p2', 1)];
+    const off = makeState({ players, territories: territories() });
+    expect(selectAiBuildingPlacement(off, makeMap(), 'p1', 'hard')).toEqual({ territoryId: 't1', buildingType: 'production_1' });
+    const on = makeState({
+      players,
+      territories: territories(),
+      settings: makeSettings({ galaxy_orbital_buildings: true }),
+    });
+    expect(selectAiBuildingPlacement(on, makeMap(), 'p1', 'hard')).toEqual({ territoryId: 't2', buildingType: 'production_1' });
+  });
+
   it('expert behaves identically to hard for strategic placement', () => {
     const state = makeState({
       players: [makePlayer('p1', 0, { special_resource: 20 }), makePlayer('p2', 1)],

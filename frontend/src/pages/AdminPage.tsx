@@ -176,6 +176,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Era names for the building catalog (Fabricator, Shield Array, Observatory and up) and a tech tree that gates every building tier the way the other eras do: tier I at the tier-1 roots, each later tier behind its matching tier. Node costs are unchanged. Baked into each game at creation. OFF by default (dark launch) — Phase 1 of docs/GALACTIC_AGE_BUILDINGS.md, which changes no balance on its own.',
   },
   {
+    key: 'galaxy_orbital_buildings_enabled',
+    label: 'Galactic Age orbital infrastructure',
+    description:
+      'Buildings on a gateway system (either end of a charted hyperspace lane) survive capture and pass to the captor, the way a captured Jump Gate end already keeps its lane; interior systems are razed as before and wonders keep their own rule. Baked into each game at creation. OFF by default (dark launch) — Phase 2 of docs/GALACTIC_AGE_BUILDINGS.md; promote on its sim gate.',
+  },
+  {
     key: 'galaxy_world_rules_enabled',
     label: 'Galactic Age worlds as characters',
     description:

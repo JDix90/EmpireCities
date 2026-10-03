@@ -23,6 +23,7 @@ import {
   stampBuildingEra,
 } from '../eraAdvancement/buildingHeritage';
 import { resolvePlayerEraId } from '../eraAdvancement/constants';
+import { buildingsSurviveCapture } from './orbitalBuildings';
 import { buildingDisplayName } from '@borderfall/shared';
 
 // ── Building definitions ──────────────────────────────────────────────────────
@@ -529,9 +530,16 @@ export function onTerritoryCapture(state: GameState, territoryId: string): void 
   const territory = state.territories[territoryId];
   if (!territory) return;
   if (state.settings.economy_enabled) {
-    // Preserve wonders — raze everything else
-    territory.buildings = (territory.buildings ?? []).filter((b) => isWonderId(b));
-    clearAllBuildingEras(territory);
+    if (buildingsSurviveCapture(state, territory)) {
+      // Orbital infrastructure (state/orbitalBuildings.ts): a gateway's
+      // buildings pass to the captor, era stamps included — a Jump Gate here
+      // keeps its lane for its new owner, as jumpGates.ts promised. (Phase 3
+      // clears the garrison doctrine at this point.)
+    } else {
+      // Preserve wonders — raze everything else
+      territory.buildings = (territory.buildings ?? []).filter((b) => isWonderId(b));
+      clearAllBuildingEras(territory);
+    }
   }
   // Raze fleet on capture regardless of economy toggle — port is destroyed
   if (territory.naval_units != null) {

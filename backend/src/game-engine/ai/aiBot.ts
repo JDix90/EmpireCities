@@ -9,6 +9,7 @@ import { getEraTechTree } from '../eras';
 import { getPlayerFaction } from '../eras/factionLineage';
 import { resolvePlayerEraId } from '../eraAdvancement/constants';
 import { isBuildingTechUnlocked } from '../eraAdvancement/buildingHeritage';
+import { orbitalBuildingsEnabled } from '../state/orbitalBuildings';
 import { getPlayerEraModifiers } from '../state/eraModifiers';
 import { getEffectiveMilestoneGate, getMaxEraIndex } from '../eraAdvancement/spines';
 import { computeAdvanceCost } from '../eraAdvancement/advanceEra';
@@ -1151,10 +1152,20 @@ export function selectAiBuildingPlacement(
       }
     }
 
-    // Then production / tech on highest-unit territories.
-    const byUnits = [...owned].sort(
-      (a, b) => state.territories[b].unit_count - state.territories[a].unit_count,
-    );
+    // Then production / tech on highest-unit territories. Under orbital
+    // infrastructure (state/orbitalBuildings.ts) a gateway's buildings are never
+    // razed — lost with the tile, back with it — so the tiles the era fights
+    // over become the ones worth developing, and the bot takes them first.
+    // Without it the unit sort already keeps the bot off its frontier.
+    const developGateways = orbitalBuildingsEnabled(state);
+    const byUnits = [...owned].sort((a, b) => {
+      if (developGateways) {
+        const ga = state.territories[a].gateway ? 1 : 0;
+        const gb = state.territories[b].gateway ? 1 : 0;
+        if (ga !== gb) return gb - ga;
+      }
+      return state.territories[b].unit_count - state.territories[a].unit_count;
+    });
     for (const bType of [
       'production_1', 'production_2', 'production_3', 'production_4',
       'tech_gen_1', 'tech_gen_2',

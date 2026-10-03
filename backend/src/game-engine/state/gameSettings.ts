@@ -68,6 +68,8 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
   const galaxyTransitEnabled = typeof raw.galaxy_transit_enabled === 'boolean' ? raw.galaxy_transit_enabled : false;
   // Galactic Age buildings v2. Off by default; baked at create from the flag.
   const galaxyBuildingsV2 = typeof raw.galaxy_buildings_v2 === 'boolean' ? raw.galaxy_buildings_v2 : false;
+  // Galactic Age orbital infrastructure. Off by default; baked at create from the flag.
+  const galaxyOrbitalBuildings = typeof raw.galaxy_orbital_buildings === 'boolean' ? raw.galaxy_orbital_buildings : false;
   // Galactic Age Schism house relations. The Concord unless Civil War or Allied is chosen.
   const galaxyHouseRelations = raw.galaxy_house_relations === 'civil_war' || raw.galaxy_house_relations === 'allied'
     ? raw.galaxy_house_relations
@@ -333,6 +335,7 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     galaxy_plain_lanes: galaxyPlainLanes || undefined,
     galaxy_transit_enabled: galaxyTransitEnabled || undefined,
     galaxy_buildings_v2: galaxyBuildingsV2 || undefined,
+    galaxy_orbital_buildings: galaxyOrbitalBuildings || undefined,
     // Galactic Age Schism — persisted only when it is Civil War or Allied.
     galaxy_house_relations: galaxyHouseRelations,
     // Galactic Age 2v2 — persisted only when on.

@@ -20,6 +20,7 @@
 import { inferWorldId } from '@borderfall/shared';
 import { getCoastalTerritoryIds } from '../state/navalManager';
 import { orbitGatewayTerritoryIds, territoryRequiresOrbitAccessForClaim } from '../state/moonAccess';
+import { authoredGatewayTerritoryIds, orbitalBuildingsEnabled } from '../state/orbitalBuildings';
 import { vaultRegionGarrisons } from '../state/worldRules';
 import type { EraId, GameMap, GameState, TerritoryState } from '../../types';
 
@@ -242,11 +243,15 @@ export function unlockTerritoriesForFloor(state: GameState, map: GameMap): strin
   const added: string[] = [];
   const coastal = getCoastalTerritoryIds(map);
   const garrisonFor = frontierGarrisonSizer(map);
+  // Orbital infrastructure: a gateway arriving with its world (Space to Stars)
+  // gets the same stamp init gives one that starts in play.
+  const orbitalGateways = orbitalBuildingsEnabled(state) ? authoredGatewayTerritoryIds(map) : null;
   for (const t of map.territories) {
     const unlockEra = territoryUnlockEra(t);
     if (unlockEra <= prevFloor || unlockEra > newFloor) continue; // outside the (prev, new] window
     if (state.territories[t.territory_id]) continue; // already in play — never duplicate
     const territory = buildNeutralFrontier(t, garrisonFor);
+    if (orbitalGateways?.has(t.territory_id)) territory.gateway = true;
     // Coastal marker: naval buildings + sea attacks read `naval_units != null`
     // as "coastal" (navalManager.initializeNavalUnits sets it at game start,
     // which runs before frontiers exist — without this, unlocked frontiers

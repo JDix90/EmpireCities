@@ -128,6 +128,12 @@ interface Props {
    * costs and effects are unchanged.
    */
   nameEra?: string;
+  /**
+   * Orbital infrastructure (Galactic Age): this system is a gateway in a game
+   * where a gateway's buildings survive capture and pass to the captor. Said
+   * on the panel, because it reverses the rule every other tile plays by.
+   */
+  orbital?: boolean;
 }
 
 function BuildingPanel({
@@ -146,6 +152,7 @@ function BuildingPanel({
   buildingStates = {},
   modernizeTechFor = {},
   nameEra,
+  orbital = false,
 }: Props) {
   const heritageSet = new Set(heritageUnlocks);
   const canBuild = isMine && isMyTurn && (phase === 'draft' || phase === 'fortify');
@@ -208,6 +215,11 @@ function BuildingPanel({
   return (
     <div className="mt-3 border-t border-gray-700 pt-3">
       <h4 className="text-xs uppercase tracking-widest text-gray-500 mb-2">Buildings</h4>
+      {orbital && (
+        <p className="mb-2 text-[11px] text-violet-300" data-testid="orbital-infrastructure-note">
+          Orbital infrastructure: buildings on this gateway survive capture and pass to whoever holds it.
+        </p>
+      )}
 
       {/* Existing buildings */}
       {buildings.length > 0 && (
