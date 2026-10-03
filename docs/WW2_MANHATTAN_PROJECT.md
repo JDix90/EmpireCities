@@ -1,6 +1,6 @@
 # World War II — The Manhattan Project: Design Package
 
-**Status: proposed. No phase has shipped.** This package makes the World War II era's showpiece weapon something players actually see: reachable before the game is decided, used by the bots, and repeatable at a price that bites the leader. It is written against the systems that exist today, with file references, so each phase is an engineering task rather than an idea. Decisions already taken are marked **decided**; the rest are proposals for the sim to settle.
+**Status: Phases 0 to 3 shipped dark; every flag is OFF.** Measured: custom WW2 games are ready to promote with all three phases together; Full Game is not, for hard and expert bots (§5). This package makes the World War II era's showpiece weapon something players actually see: reachable before the game is decided, used by the bots, and repeatable at a price that bites the leader. It is written against the systems that exist today, with file references, so each phase is an engineering task rather than an idea. Decisions already taken are marked **decided**; the rest are proposals for the sim to settle.
 
 Companion reading: [GALACTIC_AGE_BUILDINGS.md](GALACTIC_AGE_BUILDINGS.md) (the per-turn, priced power pattern and its measurements, §6, and the note in §9 this package picks up), [space-age-moon/README.md](space-age-moon/README.md) (position-gated, fuel-priced powers), `backend/scripts/eraBalanceTuning.md` (the era-advancement sim), `backend/src/game-engine/eras/ww2.ts`, `backend/src/game-engine/abilities/techAbilities.ts`, `backend/src/game-engine/abilities/executeTechAbility.ts`.
 
@@ -236,7 +236,7 @@ Why each piece:
 
 **Engine:** `abilities/atomicArsenal.ts` owns the price, the escalation (`PlayerState.atom_bomb_uses`), the requirement check before anything mutates and the charge after success, as the Moon's and the lanes' costs do in `executeTechAbility`. Fallout is `TerritoryState.fallout_rounds`, ticked once per round in `advanceToNextPlayer` beside the storms, read by `collectProduction` and `validateBuild`. `isGameScopedAbility` asks the game, so the bomb is game-scoped without the setting and per turn with it. Proliferation is a term in `getEffectiveTechCost`.
 
-**AI:** the Phase 1 module prices each detonation against the target and the purse, and weighs fallout before walking in.
+**AI:** the Phase 1 module fires when the purse covers the price, and asks more of each target as the price climbs.
 
 **Client:** the ability button names the price, says once per turn, and describes the fallout; the territory panel names a fallout tile's rounds left, the way it names a garrison doctrine (per-tile states are not drawn on the map today); the tech tree shows Manhattan's discounted price.
 
@@ -251,6 +251,102 @@ Why each piece:
 - The client offers the bomb once per turn with its price, names a tile's fallout in the territory panel, and prices Manhattan at half in the tech tree once anyone has detonated, so its Research button opens when the server would sell.
 
 With the setting off nothing changes: the harness's control reproduces its digest byte for byte with all of this in place.
+
+**Measured (same seeds and cells).** The arsenal is measured as the package would ship, on top of Phases 1 and 2, and on top of Phase 1 alone, to see what the science line does for it.
+
+| Custom, 6 seats | control | Phases 1 + 2 | Phases 1 + 3 | All three |
+|---|---|---|---|---|
+| length | 48.7 | 48.4 | 50.0 | **51.2** |
+| decisive | 89.8% | 92.4% | 91.4% | 93.5% |
+| turn-10 leader | 47.3% | 38.1% | 41.2% | **27.5%** |
+| PP banked at game end, per seat | 219 | 173 | 25 | 15 |
+| bombs per game | 0 | 5.15 | 11.27 | 17.89 |
+| holders who fire | — | 100% | 89.1% | 86.8% |
+| seats that fire win | — | 19.4% | 26.4% | 21.9% |
+| detonations walked into the same turn | — | 11.1% | 23.6% | 24.0% |
+| bombs per firing seat | — | 1 | 3.98 | 3.94 |
+| PP paid per firing seat | — | — | 103 | 102 |
+| Manhattan bought at half price | — | — | 75.8% | 78.7% |
+
+| Custom, 4 seats | control | Phases 1 + 2 | Phases 1 + 3 | All three |
+|---|---|---|---|---|
+| length | 30.4 | 29.4 | 26.0 | 29.0 |
+| decisive | 96.4% | 97.6% | 98.9% | 99.4% |
+| turn-10 leader | 61.4% | 62.6% | **65.9%** | 60.9% |
+| PP banked at game end, per seat | 155 | 142 | 28 | 21 |
+| bombs per game | 0 | 2.98 | 3.18 | 10.55 |
+| holders who fire | — | 100% | 94.3% | 92.2% |
+| seats that fire win | — | 32.0% | 44.6% | 34.2% |
+| detonations walked into the same turn | — | 21.8% | 34.0% | 33.0% |
+| bombs per firing seat | — | 1 | 3.43 | 3.76 |
+| PP paid per firing seat | — | — | 82 | 93 |
+| Manhattan bought at half price | — | — | 57.2% | 68.2% |
+
+| Faction win rate | Germany | Soviet Union | USA | UK | Japan | China |
+|---|---|---|---|---|---|---|
+| custom 6: control | 26.4% | 9.9% | 9.7% | 44.0% | 2.6% | 7.3% |
+| custom 6: all three | 10.5% | 7.5% | 21.4% | 22.5% | 19.1% | 19.1% |
+| custom 4: control | 48.4% | 8.3% | 31.5% | 28.4% | 15.4% | 17.9% |
+| custom 4: all three | 35.6% | 5.6% | 43.9% | 20.8% | 27.1% | 17.1% |
+
+**Full Game.** Its default bots are medium, and medium does not pursue the bomb, so the default cell barely sees it. Hard and expert are choices in the Full Game picker, so the climb was also run with expert bots, the setting in which this package actually plays out there.
+
+| Full Game, 4 seats, medium bots (the default) | control | Phases 1 + 2 | All three |
+|---|---|---|---|
+| length | 108.0 | 108.2 | 108.3 |
+| decisive | 61.0% | 60.9% | 61.2% |
+| turn-10 leader | 30.8% | 31.1% | 31.1% |
+| first advancer wins | 33.0% | 33.1% | 33.6% |
+| turn-10 era leader wins | 37.2% | 37.2% | 38.6% |
+| peak era spread | 1.81 | 1.81 | 1.81 |
+| bombs per game | 0 | 0.20 | 0.58 |
+| seats that fire win | — | 14.7% | 18.0% |
+
+| Full Game, 4 seats, expert bots | control | Phase 1 | Phases 1 + 2 | All three |
+|---|---|---|---|---|
+| length | 68.2 | 57.0 | 51.8 | 47.2 |
+| decisive | 71.3% | 81.4% | 85.3% | 89.4% |
+| turn-10 leader | 69.4% | 70.5% | 71.0% | 71.9% |
+| first advancer wins | 72.7% | 73.7% | 75.2% | **75.3%** |
+| turn-10 era leader wins | 88.1% | 89.5% | 90.5% | **91.1%** |
+| peak era spread | 1.88 | 1.88 | 1.88 | 1.88 |
+| games in which anyone reaches the final era | 47.1% | 39.6% | 35.5% | **26.2%** |
+| games where anyone researches Manhattan | 27.2% | 34.1% | 51.5% | 51.5% |
+| seats in WW2 that research it there | 21.0% | 26.2% | 43.5% | 44.3% |
+| bombs per game | 0 | 0.44 | 0.71 | 1.53 |
+| seats that fire win | — | 40.7% | 51.4% | **59.5%** |
+
+**Price.** Two dearer price lines were run on the custom cells with all three phases on, through the harness's `SIM_ARSENAL_PRICE` knob:
+
+| Price, first + step | 15 + 5 (shipped) | 20 + 10 | 25 + 15 |
+|---|---|---|---|
+| custom 6: length | 51.2 | 51.2 | 49.9 |
+| custom 6: turn-10 leader | 27.5% | 29.3% | 31.3% |
+| custom 6: bombs per game | 17.89 | 14.07 | 11.78 |
+| custom 4: length | 29.0 | 27.6 | 27.5 |
+| custom 4: turn-10 leader | 60.9% | 62.7% | **64.2%** |
+| custom 4: bombs per game | 10.55 | 7.89 | 6.56 |
+
+**Who fires.** A one-seed probe, logging each detonation's bomber and target without changing the run (its digests match the runs above), counts the share of detonations fired by the seat holding the most territory at that moment:
+
+| | Custom 6 | Custom 4 | Full Game, expert |
+|---|---|---|---|
+| detonations logged | 18,088 | 10,519 | 1,626 |
+| fired by the territory leader | 34.0% | 43.1% | 51.3% |
+| ...a uniform seat would be | 16.7% | 25% | 25% |
+| aimed at the territory leader | 35.8% | 44.3% | 44.5% |
+| fired by the era leader | — | — | 65.9% |
+
+Reading the gate:
+
+- **Usage passes in custom games.** 87% of the bots that research the bomb fire it at six seats and 92% at four, and the seats that fire win 22% and 34%.
+- **Six seats: the strongest catch-up this package measured, and half a turn over the length line.** The turn-10 leader falls from 47.3% to 27.5%, on every seed (27.5, 27.8, 27.3 against 46.2, 48.5, 47.2), and every faction but the Soviet Union moves toward its fair share: the UK halves, Japan goes from 2.6% to 19.1%, and the gap between the best and worst faction narrows from 41 points to 15. Decisiveness rises. Games run 2.5 turns longer (+2.4, +2.4, +2.8 by seed), which fails the two-turn line. The bombs themselves are the likely cause, about 18 a game: each leaves a neutral tile that pays nothing for three rounds, and Conquest counts the board.
+- **Four seats pass with the science line, and fail without it.** With all three phases the turn-10 leader is half a point under the control (−1.7, +1.8, −1.8 by seed), decisiveness is up and games are a turn shorter. Without Phase 2 the turn-10 leader rises 4.5 points: an arsenal reached late is a kill shot in the hands of whoever got there first. Phase 3 is promoted with Phase 2 or not at all.
+- **The price stays at 15 + 5.** Only the dearest line brings six-seat length inside the line (+1.2 turns), and at that price the four-seat leader rises 2.8 points, the failure Phase 1 had alone. A cheap bomb is an equaliser that every seat fires; an expensive one is a rich seat's tool. The half turn at six seats is the cheaper failure to accept.
+- **Full Game with its default bots is unchanged** within noise; the era-leader rise is one seed (32.0% to 36.0% on `ww2-a`, unchanged on the others).
+- **Full Game with expert bots fails the climb lines.** Each phase raises the first-advancer and turn-10 era-leader shares, by 2.6 and 3.0 points with all three: the first on every seed, the second on two of three; the seats that fire win 59.5%, at the line and over it on one seed (63.0%); and games end 21 turns sooner, so the share in which anyone reaches the final era falls from 47% to 26%. In a climb the bomb belongs to whoever reached WW2 first: a seat level with or ahead of every other in the era race fires two detonations in three. Proliferation, the catch-up that works in custom games, discounts only seats already in WW2, and a seat still in an earlier era cannot research Manhattan at all.
+
+**Recommendation.** Custom WW2 games: promote Phases 1, 2 and 3 together, accepting the half turn at six seats or treating it as the next tuning target. Full Game: do not promote any phase for hard or expert bots as it stands. The bomb there ends the climb early in the era leader's favour, which is the opposite of what the package is for. The fix belongs to the decision in §0.5 rather than to a price, and the options are in §7.
 
 ---
 
@@ -273,9 +369,15 @@ The harness runs every phase in custom mode at six and four seats, and in full m
 - **Cold War Nuclear Strike and the other tech strikes.** Bots never fire them either. Phase 1's module is the pattern for widening that.
 - **Signature mid-game abilities for the other eras.** The same reach-then-scope pattern, once WW2 shows what works.
 - **Counterplay buildings** (Radar interception, bunkers that blunt a strike): only if Phase 3 measures the bomb too strong.
+- **Full Game.** §5 measures the bomb as a finisher in a climb with hard or expert bots. Three ways forward, each a decision on §0.5's scope before it is code:
+  1. **Custom first** (recommended now): bake the three settings only where the game starts in WW2 (`era_id === 'ww2'`), so Full Game keeps today's bomb until a climb rule is measured. One line in `bakeCreateGameSettings`.
+  2. **Era peers only**: in a climb, the bomb may target only a seat in WW2 or a later era. The probe in §5 says this reaches part of the problem: 37.5% of Full Game detonations land on a seat in an earlier era, 30.9% on one in the same era and 31.5% on one further ahead.
+  3. **Restraint for bots in a climb**: a bot fires only at the seat leading on territory or era. It changes nothing a human does, so it is a bot-game fix, not a balance one.
+- **Six-seat length.** All three phases run six-seat games 2.5 turns longer. The next tuning target, if one is wanted, is the bomb's footprint on Conquest (a bombed tile is neutral until someone takes it, and the 65% is of the whole board), not its price (§5).
 
 ---
 
 ## History
 
 - **2026-10-03:** written after a discussion of the once-per-game abilities: most games end before anyone reaches Manhattan Project. Decided in discussion: tech-on custom games and Full Game are both in scope; the bomb denies and takes ground; it becomes repeatable at a price.
+- **2026-10-03:** Phases 0 to 3 shipped dark and measured on 1,000 games per cell on three seeds, with an expert Full Game arm and two dearer price lines. Custom WW2 games pass every line with all three phases except six-seat length (+2.5 turns); the price stays at 15 + 5. Full Game with expert bots fails the climb lines; options in §7.

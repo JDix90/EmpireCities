@@ -39,7 +39,9 @@
  *
  * Package phases, each the setting its flag bakes (all off by default, which is
  * the shipped game): SIM_BOMB_AI=1 (Phase 1, `ww2_bomb_ai`), SIM_SCIENCE=1
- * (Phase 2, `ww2_manhattan_science`), SIM_ARSENAL=1 (Phase 3, `ww2_atomic_arsenal`).
+ * (Phase 2, `ww2_manhattan_science`), SIM_ARSENAL=1 (Phase 3, `ww2_atomic_arsenal`),
+ * and SIM_ARSENAL_PRICE='first,step' to try other bomb prices (the shared
+ * table, patched in this process only).
  *
  * Run (from backend/):
  *   pnpm exec tsx scripts/simWw2Balance.ts
@@ -75,6 +77,7 @@ import { executeTechAbility, isGameScopedAbility } from '../src/game-engine/abil
 import { TARGETED_DRAFT_ABILITIES, TERRITORY_ABILITY_DEFS } from '../src/game-engine/abilities/techAbilities';
 import { applyBombElimination, selectAiAtomBombStrike } from '../src/game-engine/ai/aiAtomBomb';
 import { anyAtomBombDetonated } from '../src/game-engine/state/atomicArsenal';
+import { WW2_ATOMIC_ARSENAL } from '@borderfall/shared';
 import { seedEngineRandomness, seededUuid } from './seededEngineRandomness';
 
 const MODE = (process.env.SIM_MODE ?? 'custom') as 'custom' | 'full';
@@ -97,6 +100,14 @@ const MANHATTAN = 'ww2_atom_bomb';
 const BOMB_AI = process.env.SIM_BOMB_AI === '1';
 const SCIENCE = process.env.SIM_SCIENCE === '1';
 const ARSENAL = process.env.SIM_ARSENAL === '1';
+if (process.env.SIM_ARSENAL_PRICE) {
+  const [first, step] = process.env.SIM_ARSENAL_PRICE.split(',').map(Number);
+  if (!Number.isInteger(first) || !Number.isInteger(step) || first! < 0 || step! < 0) {
+    throw new Error(`SIM_ARSENAL_PRICE must be 'first,step' in whole PP, not ${process.env.SIM_ARSENAL_PRICE}`);
+  }
+  // The table is a plain object at runtime; every reader resolves it at call time.
+  Object.assign(WW2_ATOMIC_ARSENAL as unknown as Record<string, number>, { firstPrice: first, priceStep: step });
+}
 const COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e'];
 
 if (FACTIONS_ON && PLAYERS > WW2_FACTIONS.length) {
@@ -490,7 +501,7 @@ async function main(): Promise<void> {
     `Seed "${MASTER_SEED}" · factions ${FACTIONS_ON ? 'ON' : 'OFF'} · stability ${STABILITY ? 'ON' : 'OFF'}`
     + ` · bomb AI ${BOMB_AI ? 'ON (SIM_BOMB_AI=1)' : 'OFF'}`
     + ` · Manhattan ${SCIENCE ? 'on the science line (SIM_SCIENCE=1)' : 'behind Panzer Tactics'}`
-    + ` · bomb ${ARSENAL ? 'the atomic arsenal (SIM_ARSENAL=1)' : 'once per game'}`
+    + ` · bomb ${ARSENAL ? `the atomic arsenal (SIM_ARSENAL=1, ${WW2_ATOMIC_ARSENAL.firstPrice} PP +${WW2_ATOMIC_ARSENAL.priceStep})` : 'once per game'}`
     + ` · ${elapsed.toFixed(1)}s (${((elapsed / GAMES) * 1000).toFixed(1)}ms/game)\n`,
   );
   console.log(`Avg game length (turns):          ${fixed(avg(stats.map((s) => s.turns)))}`);
