@@ -102,6 +102,7 @@ import {
 import TutorialAccountPromptModal from '../components/game/TutorialAccountPromptModal';
 import GuestSignupNudgeModal from '../components/game/GuestSignupNudgeModal';
 import PostTutorialPromptModal from '../components/game/PostTutorialPromptModal';
+import DailyClock from '../components/game/DailyClock';
 import DailyChallengeIntroModal, { type DailyIntroSpec } from '../components/game/DailyChallengeIntroModal';
 import PuzzleVerdictCard from '../components/game/PuzzleVerdictCard';
 import {
@@ -4982,7 +4983,13 @@ export default function GamePage() {
 
       {gameState?.settings?.daily_challenge_spec?.title && (
         <div className="shrink-0 px-4 py-2 bg-amber-950/25 border-b border-amber-700/35 text-sm">
-          <span className="text-amber-400/90 font-display text-xs tracking-wide">Daily challenge</span>
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-amber-400/90 font-display text-xs tracking-wide">Daily challenge</span>
+            {/* The clock the intro modal showed once, kept in view: the server
+                fails the day after its last turn, and nothing else says which
+                turn that is. */}
+            <DailyClock spec={gameState.settings.daily_challenge_spec} turn={gameState.turn_number} />
+          </div>
           <p className="text-bf-text mt-0.5 font-medium">{gameState.settings.daily_challenge_spec.title}</p>
           {gameState.settings.daily_challenge_spec.archetype !== 'domination' &&
             gameState.settings.daily_challenge_spec.goal && (
