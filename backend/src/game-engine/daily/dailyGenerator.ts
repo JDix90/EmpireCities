@@ -587,6 +587,17 @@ export function sizeEarnable(cost: number, perTurn: number): EarnableSizing {
   return { grant, max_turns: Math.ceil(shortfall / perTurn) + CLOCK_SLACK };
 }
 
+/**
+ * The clock after the solvability gate has moved it `shift` turns (positive
+ * when the simulated line kept failing, negative when it never did). Never
+ * below the turns the arithmetic needs plus one: income lands each turn after
+ * the first, so that is the shortest clock the goal is still reachable on.
+ */
+export function shiftedClock(sizing: EarnableSizing, shift: number): number {
+  const floor = sizing.max_turns - CLOCK_SLACK + 1;
+  return Math.max(floor, sizing.max_turns + Math.trunc(shift));
+}
+
 export interface EconomyDayInput {
   era_id: EraId;
   map_id: string;
@@ -599,6 +610,8 @@ export interface EconomyDayInput {
   seed: number;
   dice_queue_seed: number;
   ai_difficulty?: DailyPuzzleSpec['ai_difficulty'];
+  /** Turns the solvability gate adds to (or takes from) the arithmetic clock. */
+  clock_shift?: number;
 }
 
 export function buildEconomyDay(input: EconomyDayInput): DailyPuzzleSpec {
@@ -613,7 +626,7 @@ export function buildEconomyDay(input: EconomyDayInput): DailyPuzzleSpec {
     map_id: input.map_id,
     seed: input.seed,
     player_count: GENERATED_PLAYER_COUNT,
-    max_turns: sizing.max_turns,
+    max_turns: shiftedClock(sizing, input.clock_shift ?? 0),
     dice_queue_seed: input.dice_queue_seed,
     building_type: input.building_type,
     ...(input.hint ? { hint: input.hint } : {}),
@@ -636,6 +649,8 @@ export interface TechDayInput {
   seed: number;
   dice_queue_seed: number;
   ai_difficulty?: DailyPuzzleSpec['ai_difficulty'];
+  /** Turns the solvability gate adds to (or takes from) the arithmetic clock. */
+  clock_shift?: number;
 }
 
 /** Returns null when the tech is not in the era's tree — a library error the review board catches first. */
@@ -654,7 +669,7 @@ export function buildTechDay(input: TechDayInput): DailyPuzzleSpec | null {
     map_id: input.map_id,
     seed: input.seed,
     player_count: GENERATED_PLAYER_COUNT,
-    max_turns: sizing.max_turns,
+    max_turns: shiftedClock(sizing, input.clock_shift ?? 0),
     dice_queue_seed: input.dice_queue_seed,
     tech_id: input.tech_id,
     ...(input.hint ? { hint: input.hint } : {}),

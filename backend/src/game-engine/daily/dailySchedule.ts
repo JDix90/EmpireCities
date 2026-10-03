@@ -27,6 +27,7 @@ import {
 } from '../../content/dailySetPieces';
 import type { DailyPuzzleSpec } from './dailyPuzzleTypes';
 import { SIMULATED_ARCHETYPES, simulatePuzzle, type PuzzleSimResult } from './puzzleSim';
+import type { DailyPuzzleArchetype } from './dailyPuzzleTypes';
 import {
   buildCalibratedMilitarySpec,
   buildDailyPuzzleBase,
@@ -161,7 +162,7 @@ export const GATE_GAMES = 40;
 export const GATE_ATTEMPTS = 8;
 /** How far each missed attempt moves the sizing band toward the miss. */
 const GATE_BAND_STEP = 0.07;
-export const GATE_BANDS: Record<'military_capture' | 'hold_territory' | 'control_region' | 'capture_chain', { min: number; max: number }> = {
+export const GATE_BANDS: Record<Exclude<DailyPuzzleArchetype, 'domination'>, { min: number; max: number }> = {
   // Calibrated: the authored calendar's captures score 92–100% on the obvious
   // line; the library's land at 85–98%. The ceiling is a freebie guard, the
   // floor the unwinnable-board guard.
@@ -171,6 +172,16 @@ export const GATE_BANDS: Record<'military_capture' | 'hold_territory' | 'control
   // Multi-objective captures: the same guards as a capture.
   control_region: { min: 0.5, max: 0.96 },
   capture_chain: { min: 0.5, max: 0.96 },
+  // Build and research days: the arithmetic already proves the budget reaches
+  // the goal; the simulator proves the bot next door lets it, and fails the
+  // day the bot can eliminate the player first. The gate moves the clock a
+  // turn at a time when the floor is missed. The ceiling is 1.0 on purpose:
+  // measured over the whole library, the obvious line solves every build and
+  // research day in two or three turns with the bot never disturbing the
+  // site, and a shorter clock cannot change that. Until the bot contests the
+  // site, the floor is the only guard this gate can honestly apply.
+  economy_build: { min: 0.6, max: 1 },
+  tech_research: { min: 0.6, max: 1 },
 };
 
 /**
@@ -188,6 +199,8 @@ function bandDistance(rate: number, band: { min: number; max: number }): number 
 export interface SizingBands {
   tactical: TacticalBand;
   hold: TacticalBand;
+  /** Build and research days: turns added to the arithmetic clock (negative tightens it). */
+  clockShift?: number;
 }
 
 export function shiftBand(band: TacticalBand, by: number): TacticalBand {
@@ -637,9 +650,9 @@ export async function materialize(
     case 'chain':
       return materializeChain(date, sp, bands.tactical, deps, attempt);
     case 'economy':
-      return buildEconomyDay({ ...sp, ...seeds });
+      return buildEconomyDay({ ...sp, ...seeds, clock_shift: bands.clockShift ?? 0 });
     case 'tech':
-      return buildTechDay({ ...sp, ...seeds });
+      return buildTechDay({ ...sp, ...seeds, clock_shift: bands.clockShift ?? 0 });
     case 'domination':
       // The dealt board is the content, so the seed stays; only the dice move.
       return { ...sp.spec, dice_queue_seed: seeds.dice_queue_seed };
@@ -720,6 +733,8 @@ async function gatedMaterialize(
     const bands: SizingBands = {
       tactical: shiftBand(band, shift),
       hold: shiftBand(HOLD_BAND, -shift),
+      // One attempt, one turn: a build day that keeps failing gets longer.
+      clockShift: Math.round(shift / GATE_BAND_STEP),
     };
     const spec = await materialize(date, sp, bands, deps, verb, attempt);
     if (!spec) continue;
@@ -744,7 +759,15 @@ async function gatedMaterialize(
 }
 
 function withPar(spec: DailyPuzzleSpec, sim: PuzzleSimResult): DailyPuzzleSpec {
-  if (spec.archetype === 'hold_territory' || sim.median_turns === null) return spec;
+  // Par scores a capture; a hold is solved at the clock, and a build or
+  // research day is solved the turn the money lands, which the clock already
+  // sizes.
+  if (
+    spec.archetype === 'hold_territory'
+    || spec.archetype === 'economy_build'
+    || spec.archetype === 'tech_research'
+    || sim.median_turns === null
+  ) return spec;
   return { ...spec, par_turns: sim.median_turns };
 }
 
