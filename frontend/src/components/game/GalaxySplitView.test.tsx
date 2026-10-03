@@ -10,7 +10,8 @@ const DRAWN_AT = { x: 100, y: 50 };
 vi.mock('./GameMap', async () => {
   const { useEffect } = await import('react');
   return {
-    default: (props: Record<string, unknown>) => {
+    // Named, so the hooks linter sees a component rather than a function called "default".
+    default: function MockGameMap(props: Record<string, unknown>) {
       const world = props.activeWorldId as string;
       maps.set(world, props);
       useEffect(() => {

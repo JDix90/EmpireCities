@@ -338,7 +338,39 @@ export function QuickPlace({
   );
 }
 
-export default function TerritoryPanel({
+type TerritoryPanelOuterProps = TerritoryPanelProps & { onClaimTerritory?: (territoryId: string) => void };
+
+/**
+ * Renders nothing until a territory is selected that exists on both the board
+ * and the map, then the panel itself. The checks live here rather than at the
+ * top of the panel because the panel's hooks must run on every render: when
+ * they sat below these early returns, a check flipping while the panel was
+ * mounted (no game state yet, or the selected tile missing from the board or
+ * the map) changed how many hooks ran, which React treats as an error.
+ */
+export default function TerritoryPanel(props: TerritoryPanelOuterProps) {
+  const gameState = useGameStore((s) => s.gameState);
+  const selectedTerritory = useUiStore((s) => s.selectedTerritory);
+  if (!selectedTerritory || !gameState) return null;
+  const tState = gameState.territories[selectedTerritory];
+  const mapTerritory = props.mapTerritories.find((t) => t.territory_id === selectedTerritory);
+  if (!tState || !mapTerritory) return null;
+  return (
+    <TerritoryPanelContent
+      {...props}
+      gameState={gameState}
+      selectedTerritory={selectedTerritory}
+      tState={tState}
+      mapTerritory={mapTerritory}
+    />
+  );
+}
+
+function TerritoryPanelContent({
+  gameState,
+  selectedTerritory,
+  tState,
+  mapTerritory,
   mapTerritories,
   mapRegions,
   onAttack,
@@ -369,11 +401,15 @@ export default function TerritoryPanel({
   onClaimTerritory,
   sheetSnap = 'half',
   onSheetSnapChange,
-}: TerritoryPanelProps & { onClaimTerritory?: (territoryId: string) => void }) {
-  const { gameState, draftUnitsRemaining } = useGameStore();
+}: TerritoryPanelOuterProps & {
+  gameState: NonNullable<ReturnType<typeof useGameStore.getState>['gameState']>;
+  selectedTerritory: string;
+  tState: NonNullable<ReturnType<typeof useGameStore.getState>['gameState']>['territories'][string];
+  mapTerritory: TerritoryPanelProps['mapTerritories'][number];
+}) {
+  const { draftUnitsRemaining } = useGameStore();
   const attackBlitzFlag = useAttackBlitzEnabled();
   const {
-    selectedTerritory,
     attackSource,
     setAttackSource,
     setSelectedTerritory,
@@ -388,16 +424,13 @@ export default function TerritoryPanel({
   const [truceConfirmFor, setTruceConfirmFor] = React.useState<string | null>(null);
   React.useEffect(() => { setTruceConfirmFor(null); }, [selectedTerritory]);
 
-  const draftPool = gameState
-    ? computeDraftPool(
-        gameState,
-        user?.user_id,
-        user?.username,
-        draftUnitsRemaining,
-        resolvedViewerPlayerId ?? null,
-      )
-    : 0;
-  if (!selectedTerritory || !gameState) return null;
+  const draftPool = computeDraftPool(
+    gameState,
+    user?.user_id,
+    user?.username,
+    draftUnitsRemaining,
+    resolvedViewerPlayerId ?? null,
+  );
 
   // Stability deploy cap for this tile, from the server's per-viewer payload
   // (absent when Stability is off, the tile sits at 50+ stability, or it is
@@ -408,10 +441,6 @@ export default function TerritoryPanel({
   const deployCapNote =
     deployCapLeft != null && deployCapLeft < draftPool ? ` · stability cap: ${deployCapLeft} more here` : '';
   const deployCapReached = draftPool > 0 && placeablePool <= 0;
-
-  const tState = gameState.territories[selectedTerritory];
-  const mapTerritory = mapTerritories.find((t) => t.territory_id === selectedTerritory);
-  if (!tState || !mapTerritory) return null;
 
   const owner = gameState.players.find((p) => p.player_id === tState.owner_id);
   const myPlayer = resolvedViewerPlayerId

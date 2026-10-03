@@ -185,6 +185,7 @@ import {
   type ActiveGameRoom,
 } from './gameRoomManager';
 import { runWithGameLock } from './gameLock';
+import { isUserBanned } from '../services/bans';
 import { resolveMap } from './mapResolver';
 import {
   isSameLobbyMap,
@@ -1272,11 +1273,19 @@ export function initGameSocket(httpServer: HttpServer): Server {
   // Processor registered above; worker started from index.ts after initGameSocket returns.
 
   // ── Authentication middleware ─────────────────────────────────────────────
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     const token = socket.handshake.auth?.token as string | undefined;
     if (!token) return next(new Error('Authentication required'));
     const payload = verifyAccessToken(token);
     if (!payload) return next(new Error('Invalid or expired token'));
+    // A banned account's access token is still within its hour, but it may not
+    // hold a game socket (services/bans.ts). A database hiccup lets the
+    // connection through rather than locking every player out.
+    try {
+      if (await isUserBanned(payload.sub)) return next(new Error('Account is banned'));
+    } catch (err) {
+      console.warn('[Socket] Ban check failed; allowing connection:', err);
+    }
     (socket as Socket & { userId: string; username: string }).userId = payload.sub;
     (socket as Socket & { userId: string; username: string }).username = payload.username;
     socket.data.userId = payload.sub;

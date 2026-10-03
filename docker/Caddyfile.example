@@ -1,6 +1,9 @@
 # Example Caddy reverse proxy for Borderfall production.
 # Terminates TLS (automatic Let's Encrypt) and forwards to the Docker web
-# container on localhost:80.
+# container on localhost:8080. Bind the container there and nowhere else
+# (HTTP_PORT=127.0.0.1:8080 in .env.production): nginx trusts the visitor
+# address Caddy sends in X-Forwarded-For, which is only safe while Caddy is
+# the only way in.
 #
 # 1. Install Caddy on the VPS (https://caddyserver.com/docs/install)
 # 2. Copy this file to /etc/caddy/Caddyfile and replace your-domain.com with your host.
@@ -17,7 +20,7 @@
 your-domain.com {
 	encode gzip
 
-	reverse_proxy localhost:80 {
+	reverse_proxy localhost:8080 {
 		header_up X-Real-IP {remote_host}
 		header_up X-Forwarded-For {remote_host}
 		header_up X-Forwarded-Proto {scheme}

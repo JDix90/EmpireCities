@@ -28,6 +28,7 @@ import { validateMapDocument } from '../maps/mapValidation';
 import { getAnalyticsReport } from '../../services/analyticsQueries';
 import { andNotTutorialSql } from '../../game-engine/tutorial/tutorialGames';
 import { featureFlags } from '../../config/featureFlags';
+import { endSessionsForBannedUser } from '../../services/bans';
 import { buildWarfrontStatus, loadWarfrontTerrain } from './warfrontStatus';
 import { loadGalaxyReport } from './galaxyReport';
 import { backfillGalaxyResults } from './galaxyBackfill';
@@ -534,6 +535,11 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
     const parsed = UserActionSchema.safeParse(request.body ?? {});
     if (!parsed.success) return reply.status(400).send({ error: 'Invalid payload' });
     await query('UPDATE users SET is_banned = TRUE WHERE user_id = $1', [parsed.data.user_id]);
+    // Sign the account out everywhere: revoke its refresh tokens and drop its
+    // live game sockets (services/bans.ts). The socket module loads lazily so
+    // these routes, and their tests, do not pull in the whole game server.
+    const { getGameIo } = await import('../../sockets/gameSocket');
+    await endSessionsForBannedUser(parsed.data.user_id, getGameIo());
     await writeAuditLog(request.userId, 'user_banned', parsed.data);
     return reply.send({ ok: true });
   });

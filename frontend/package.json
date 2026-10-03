@@ -11,7 +11,7 @@
     "preview": "vite preview",
     "test:e2e": "playwright test",
     "test:e2e:map-visual": "playwright test --project=chromium-map-visual",
-    "lint": "eslint src --ext .ts,.tsx",
+    "lint": "eslint src --ext .ts,.tsx --max-warnings 0",
     "compute-map-connections": "tsx scripts/computeMapConnections.ts",
     "compute-era-lineage": "tsx scripts/computeEraLineage.ts",
     "build:warfront-terrain": "tsx --tsconfig tsconfig.node.json scripts/buildWarfrontTerrain.ts",

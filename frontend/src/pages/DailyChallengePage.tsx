@@ -160,7 +160,10 @@ export default function DailyChallengePage() {
   const [searchParams] = useSearchParams();
   const isGuest = useAuthStore((s) => !!s.user?.is_guest);
   // Operator kill switch; when off, guests get the account offer where Play would be.
-  const guestPlayClosed = isGuest && !useDailyGuestPlayEnabled();
+  // Read unconditionally: a hook called only for guests ran a different number
+  // of hooks once a guest upgraded to an account on this page.
+  const dailyGuestPlayEnabled = useDailyGuestPlayEnabled();
+  const guestPlayClosed = isGuest && !dailyGuestPlayEnabled;
   const [data, setData] = useState<DailyResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);

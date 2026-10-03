@@ -71,7 +71,7 @@ Open two browsers, register, create/join a game, confirm WebSocket connects (Dev
 Terminating TLS **in front of** nginx (recommended):
 
 - **Caddy** — see [docker/Caddyfile.example](docker/Caddyfile.example) for a minimal reverse-proxy config.
-- **Traefik** or **Certbot** + nginx on the host — proxy to `127.0.0.1:80` (or the `HTTP_PORT` you set).
+- **Traefik** or **Certbot** + nginx on the host — proxy to the `HTTP_PORT` you set, `127.0.0.1:8080` in `.env.production.example`. Keep it bound to localhost: nginx trusts the visitor address the proxy sends in `X-Forwarded-For` (`docker/nginx.prod.conf`).
 
 Update **`FRONTEND_URL`** to `https://…` after HTTPS is live.
 
