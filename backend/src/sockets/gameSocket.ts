@@ -55,6 +55,7 @@ import {
   selectAiLanceBatteryTarget,
   selectAiOrbitalMusterTarget,
   selectAiSealBreaker,
+  selectAiSurgeProjector,
 } from '../game-engine/ai/aiLanePowers';
 import { GARRISON_DOCTRINE_DISPLAY, type GarrisonDoctrine } from '@borderfall/shared';
 import { validateResearch, applyResearch, getPlayerAttackBonus, getPlayerDefenseBonus, getPlayerReinforceBonus, getEraTechTreeForPlayer } from '../game-engine/state/techManager';
@@ -83,6 +84,11 @@ import { getAdjacentTerritoryIds, getInfluenceHopLimit, isTerritoryReachableWith
 import { playerHoldsVaultSeal, worldDeployCapBonus } from '../game-engine/state/worldRules';
 import { isJumpGateOnlyEdge, jumpGatePartners, syncJumpGateLanes } from '../game-engine/state/jumpGates';
 import { isLaneClosedByWeather, syncLaneWeatherLanes } from '../game-engine/state/laneWeather';
+import {
+  isSurgeProjectorOnlyEdge,
+  surgeProjectorCarries,
+  syncSurgeProjectorLanes,
+} from '../game-engine/state/surgeProjector';
 import { fortifyBecomesConvoy, launchConvoy } from '../game-engine/state/transit';
 import {
   connectionRequiresMoonAccess,
@@ -1877,6 +1883,17 @@ export function initGameSocket(httpServer: HttpServer): Server {
           'A Jump Gate lane moves your own units — it cannot carry an attack',
         );
       }
+      // A Surge Projector lane carries its owner's one crossing and nothing else.
+      if (
+        isSurgeProjectorOnlyEdge(map, fromId, toId)
+        && !surgeProjectorCarries(state, currentPlayer.player_id, fromId, toId)
+      ) {
+        return emitGameError(
+          socket,
+          GameErrorCode.INVALID_TERRITORY,
+          'A Surge Projector lane carries one crossing, from the gateway that opened it, this attack phase',
+        );
+      }
 
       if (connectionRequiresMoonAccess(map, fromId, toId)) {
         const access = getOrbitAccessResult(state, currentPlayer, map, state.era);
@@ -2266,6 +2283,17 @@ export function initGameSocket(httpServer: HttpServer): Server {
           'A Jump Gate lane moves your own units — it cannot carry an attack',
         );
       }
+      // A Surge Projector lane carries its owner's one crossing and nothing else.
+      if (
+        isSurgeProjectorOnlyEdge(map, fromId, toId)
+        && !surgeProjectorCarries(state, currentPlayer.player_id, fromId, toId)
+      ) {
+        return emitGameError(
+          socket,
+          GameErrorCode.INVALID_TERRITORY,
+          'A Surge Projector lane carries one crossing, from the gateway that opened it, this attack phase',
+        );
+      }
       if (connection.type === 'sea') {
         // The crossing pays fleet losses and bombardment per attack; an
         // auto-repeat would burn a navy on one click. Same exclusion the AI
@@ -2514,6 +2542,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
         // Daily v2: stopping is a move too.
         if (advancePuzzle) commitPuzzleEndAttack(advancePuzzle, state);
         state.phase = 'fortify';
+        // A Surge Projector lane is an attack-phase lane: it closes now.
+        await syncSurgeProjectorAndBroadcastMap(io, gameId, state, map);
       } else if (state.phase === 'fortify') {
         // Defensive reset: `advanceToNextPlayer` resets fortify_moves_used at
         // turn start, but we also clear it here so any code path that reads
@@ -3251,6 +3281,9 @@ export function initGameSocket(httpServer: HttpServer): Server {
           targetOwnerName: targetOwner?.username ?? null,
         }), { state, map });
       }
+
+      // Surge Projector opened its lane on the map copy: the room needs the map.
+      if (execResult.effect === 'surge_projector_opened') await persistAndBroadcastMap(io, gameId, state, map);
 
       socket.emit('game:ability_result', { ...execResult, abilityId, success: true });
       broadcastState(io, gameId, state);
@@ -4695,7 +4728,11 @@ async function syncJumpGateLanesAfterCapture(
   state: GameState,
   map: GameMap,
 ): Promise<void> {
-  if (!syncJumpGateLanes(map, state)) return;
+  // A capture can also close a Surge Projector lane: taking its far gateway is
+  // the one crossing it carries (state/surgeProjector.ts). No-op without one.
+  const gatesChanged = syncJumpGateLanes(map, state);
+  const surgeChanged = syncSurgeProjectorLanes(map, state);
+  if (!gatesChanged && !surgeChanged) return;
   await saveGameMapAuthoritative(gameId, map).catch((err) =>
     console.error('[Room] jump gate lane persist failed', gameId, err),
   );
@@ -4703,6 +4740,29 @@ async function syncJumpGateLanesAfterCapture(
     mapId: state.map_id,
     map: projectMapToEraFloor(map, state.map_era_floor ?? 0),
   });
+}
+
+/**
+ * Persist the game's map copy and push it to the room, for a change already
+ * projected onto it (the Surge Projector opens its lane inside the ability).
+ */
+async function persistAndBroadcastMap(io: Server, gameId: string, state: GameState, map: GameMap): Promise<void> {
+  await saveGameMapAuthoritative(gameId, map).catch((err) =>
+    console.error('[Room] map persist failed', gameId, err),
+  );
+  io.to(gameId).emit('game:map', {
+    mapId: state.map_id,
+    map: projectMapToEraFloor(map, state.map_era_floor ?? 0),
+  });
+}
+
+/**
+ * The attack phase ended: a Surge Projector lane closes with it, so it can
+ * carry no fortify. No-op (and no broadcast) when none was open.
+ */
+async function syncSurgeProjectorAndBroadcastMap(io: Server, gameId: string, state: GameState, map: GameMap): Promise<void> {
+  if (!syncSurgeProjectorLanes(map, state)) return;
+  await persistAndBroadcastMap(io, gameId, state, map);
 }
 
 /**
@@ -4717,7 +4777,11 @@ async function syncLaneWeatherAndBroadcastMap(
   room: ActiveGameRoom,
 ): Promise<void> {
   const { state, map } = room;
-  if (!syncLaneWeatherLanes(map, state)) return;
+  // The turn advance also clears a Surge Projector lane (advanceToNextPlayer);
+  // the map copy drops it here. No-op without one.
+  const weatherChanged = syncLaneWeatherLanes(map, state);
+  const surgeChanged = syncSurgeProjectorLanes(map, state);
+  if (!weatherChanged && !surgeChanged) return;
   await saveGameMapAuthoritative(gameId, map).catch((err) =>
     console.error('[Room] lane weather persist failed', gameId, err),
   );
@@ -6447,8 +6511,9 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
 
   // AI parity for the galaxy's attack-phase lane powers (abilities/lanePowers.ts).
   // Lance Battery softens the far gateway of a planned crossing; Seal Breaker
-  // opens a shut lane the bot can win across, and that crossing is planned
-  // first. Both go through executeTechAbility, as a human's do.
+  // opens a shut lane the bot can win across, and Surge Projector a ring gap
+  // into a weakly held gateway, each crossing planned first. All go through
+  // executeTechAbility, as a human's do.
   if (aiFiresLanePowers(difficulty) && lanePowersEnabled(state)) {
     if (canAiFireLanePower(state, currentPlayer.player_id, 'seal_breaker')) {
       const breach = selectAiSealBreaker(state, map, currentPlayer.player_id);
@@ -6462,6 +6527,25 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
           const crossing = { type: 'attack' as const, from: breach.source, to: breach.target, units: 3 };
           if (firstAttack < 0) actions.push(crossing);
           else actions.splice(firstAttack, 0, crossing);
+          broadcastState(io, gameId, state);
+        }
+      }
+    }
+    // Surge Projector: open a ring gap into a weakly held rival gateway and
+    // plan that crossing first. The ability puts the lane on the map copy.
+    if (canAiFireLanePower(state, currentPlayer.player_id, 'surge_projector')) {
+      const surge = selectAiSurgeProjector(state, map, currentPlayer.player_id);
+      if (surge) {
+        const res = executeTechAbility({
+          state, map, playerId: currentPlayer.player_id, abilityId: 'surge_projector', territoryId: surge.target,
+        });
+        if (res.success) {
+          currentPlayer.ability_uses = { ...(currentPlayer.ability_uses ?? {}), surge_projector: 1 };
+          const firstAttack = actions.findIndex((a) => a.type === 'attack');
+          const crossing = { type: 'attack' as const, from: surge.source, to: surge.target, units: 3 };
+          if (firstAttack < 0) actions.push(crossing);
+          else actions.splice(firstAttack, 0, crossing);
+          await persistAndBroadcastMap(io, gameId, state, map);
           broadcastState(io, gameId, state);
         }
       }
@@ -6924,6 +7008,8 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   // A resumed fortify keeps the moves its player already made.
   if (resumeAt !== 'fortify') state.fortify_moves_used = 0;
   state.phase = 'fortify';
+  // A Surge Projector lane is an attack-phase lane: it closes now.
+  await syncSurgeProjectorAndBroadcastMap(io, gameId, state, map);
 
   // AI parity: Armored Push grants +1 fortify move. Activate it only when the AI
   // has more fortify moves planned than its base limit allows, so the extra move

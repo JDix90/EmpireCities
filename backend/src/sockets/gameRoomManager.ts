@@ -14,6 +14,7 @@ import { syncLaunchPadLanes } from '../game-engine/state/moonAccess';
 import { syncJumpGateLanes } from '../game-engine/state/jumpGates';
 import { syncLaneWeatherLanes } from '../game-engine/state/laneWeather';
 import { syncGalaxyModeLanes } from '../game-engine/state/galaxyModes';
+import { syncSurgeProjectorLanes } from '../game-engine/state/surgeProjector';
 import { pruneStrandedConvoys } from '../game-engine/state/transit';
 import { resolveMap } from './mapResolver';
 import { runWithGameLock } from './gameLock';
@@ -174,6 +175,9 @@ function repairRoom(state: GameState, map: GameMap): void {
   syncLaneWeatherLanes(map, state);
   // So are the lanes a Galactic Age board mode keeps open all game (Colonies).
   syncGalaxyModeLanes(map, state);
+  // A Surge Projector lane is live only in its owner's attack phase; a room
+  // rebuilt mid-phase regains it, and one rebuilt later drops it.
+  syncSurgeProjectorLanes(map, state);
   pruneStrandedConvoys(map, state);
 }
 

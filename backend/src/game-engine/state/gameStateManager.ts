@@ -1126,6 +1126,10 @@ function passTurn(state: GameState, map?: GameMap): void {
     }
   }
   state.current_player_index = next;
+  // Galaxy lane powers: a Surge Projector lane lives for its owner's attack
+  // phase only (state/surgeProjector.ts). The socket syncs the map copy after
+  // the advance; clearing it here means no path carries it into this turn.
+  state.surge_projector_lane = undefined;
   // Galaxy: the incoming player's own lane seals age as their turn begins, and
   // their Lane Sovereignty streak extends or breaks on the corridors they hold
   // right now — both are "at the start of your turn" rules.

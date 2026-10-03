@@ -109,8 +109,10 @@ export interface TerritoryAbilityDef {
    * Lane powers: where the source is. `self` — the targeted tile is the
    * player's own source. `across_lane` — the target is an enemy tile, and the
    * source is one of the player's gateways at the other end of an open lane.
+   * `ring_gap` — the target is an enemy gateway at one end of a gap in the
+   * authored ring, and the source is the player's gateway at the other end.
    */
-  laneSource?: 'self' | 'across_lane';
+  laneSource?: 'self' | 'across_lane' | 'ring_gap';
 }
 
 export const TERRITORY_ABILITY_DEFS: Record<string, TerritoryAbilityDef> = {
@@ -239,6 +241,12 @@ export const TERRITORY_ABILITY_DEFS: Record<string, TerritoryAbilityDef> = {
   seal_breaker: {
     label: 'Seal Breaker', scope: 'turn', phase: 'attack',
     productionCost: GALAXY_LANE_POWER_COSTS.seal_breaker, requiresBuilding: 'defense', requiresGateway: true, laneSource: 'self',
+  },
+  // Its anchor is a pair of Jump Gates, one on each world of the gap, checked
+  // in lanePowers.ts; the lane itself is state/surgeProjector.ts.
+  surge_projector: {
+    label: 'Surge Projector', scope: 'turn', phase: 'attack',
+    productionCost: GALAXY_LANE_POWER_COSTS.surge_projector, laneSource: 'ring_gap',
   },
 
   // ── Faction abilities: unit-reduction strikes (Group E, attack) ─────────────

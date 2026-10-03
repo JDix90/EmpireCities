@@ -1423,6 +1423,9 @@ export default function TerritoryPanel({
                 myPlayerId: myPlayer.player_id,
                 territories: gameState.territories,
                 connections: mapConnections,
+                worldOf: Object.fromEntries(
+                  mapTerritories.flatMap((t) => (t.world_id ? [[t.territory_id, t.world_id]] : [])),
+                ),
               }));
             if (allAbilities.length === 0) return null;
             return allAbilities.map((abilityId) => {

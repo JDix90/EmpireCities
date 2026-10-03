@@ -61,6 +61,10 @@ export const TERRITORY_ABILITY_UI: Record<string, TerritoryAbilityUiDef> = {
     label: 'Seal Breaker', emoji: '🗝️', scope: 'turn', phase: 'attack', enemyTarget: false, style: 'info',
     hint: 'Your next crossing from this gateway ignores a Nebula Closure or an Emergency Seal — needs a defence building, 4 PP.',
   },
+  surge_projector: {
+    label: 'Surge Projector', emoji: '🌀', scope: 'turn', phase: 'attack', enemyTarget: true, style: 'warning',
+    hint: 'Open the ring gap to this gateway for one crossing, this attack phase — needs your gateway at the other end and your Jump Gates on both worlds, 10 PP.',
+  },
   // ── Space Age Moon Race: powers held by lunar ground, not by a tech ────────
   lunar_export: {
     label: 'Lunar Export', emoji: '☾', scope: 'turn', phase: 'draft', enemyTarget: false, style: 'info',

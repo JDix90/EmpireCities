@@ -70,6 +70,9 @@ export function laneStroke({ sealed, accessAllowed, state, kind, viewerColor }: 
   } else if (kind === 'lane_surge') {
     strokeWidth = Math.min(strokeWidth, 1.8);
     dash = '5 3';
+  } else if (kind === 'surge_projector') {
+    strokeWidth = Math.min(strokeWidth, 1.8);
+    dash = '3 2';
   }
   return { stroke, strokeWidth, dash, flow };
 }

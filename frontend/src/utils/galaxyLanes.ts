@@ -118,13 +118,15 @@ export function laneAttackDiceCap(
  * others are engine-added and behave differently — a Jump Gate lane carries no
  * attack, a surge lane blows over after two rounds, and a colony lane (three
  * seats on the Colonies board) stays all game but is not one of the eight lanes
- * Lane Sovereignty counts.
+ * Lane Sovereignty counts. A Surge Projector lane (a lane power) carries its
+ * opener's one crossing for one attack phase.
  */
-export type LaneKind = 'authored' | 'jump_gate' | 'lane_surge' | 'colony';
+export type LaneKind = 'authored' | 'jump_gate' | 'lane_surge' | 'colony' | 'surge_projector';
 
 export function laneKindOf(source: string | undefined): LaneKind {
   if (source === 'jump_gate') return 'jump_gate';
   if (source === 'lane_surge') return 'lane_surge';
+  if (source === 'surge_projector') return 'surge_projector';
   if (source === 'galaxy_mode') return 'colony';
   return 'authored';
 }
@@ -133,6 +135,7 @@ export function laneKindOf(source: string | undefined): LaneKind {
 export function describeLaneKind(kind: LaneKind): string | null {
   if (kind === 'jump_gate') return 'Jump Gate lane — your units only, no attacks';
   if (kind === 'lane_surge') return 'Lane Surge — a temporary lane, it blows over';
+  if (kind === 'surge_projector') return 'Surge Projector — one crossing, this attack phase only';
   if (kind === 'colony') return 'Colony lane — open all game; Lane Sovereignty counts only the eight charted lanes';
   return null;
 }
