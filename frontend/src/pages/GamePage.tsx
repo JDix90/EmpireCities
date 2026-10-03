@@ -4988,6 +4988,15 @@ export default function GamePage() {
             gameState.settings.daily_challenge_spec.goal && (
               <p className="text-bf-muted text-xs mt-1 leading-snug">{gameState.settings.daily_challenge_spec.goal}</p>
             )}
+          {/* The day's tip rides with the goal: the one line that explains a
+              tiered goal is no use in a modal the player closed on turn 1. */}
+          {gameState.settings.daily_challenge_spec.archetype !== 'domination' &&
+            gameState.settings.daily_challenge_spec.hint && (
+              <p className="text-bf-muted/80 text-xs mt-0.5 leading-snug" data-testid="daily-banner-hint">
+                <span className="text-amber-300/70">Hint: </span>
+                {gameState.settings.daily_challenge_spec.hint}
+              </p>
+            )}
           {(gameState.settings.daily_challenge_spec.v2?.plan_prose?.length ?? 0) > 0 && (
             <details className="mt-1 text-xs" data-testid="daily-plan-strip">
               <summary className="cursor-pointer text-amber-300/80 select-none">The opponent&apos;s plan</summary>

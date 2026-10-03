@@ -19,6 +19,7 @@ import type { DailyPuzzleArchetype, DailyPuzzleSpec } from './dailyPuzzleTypes';
 import { captureProbability } from '../combat/combatOdds';
 import { createSeededRng } from '../victory/missions';
 import { BUILDING_PREREQUISITES, DEFAULT_BUILDING_COSTS } from '../state/economyManager';
+import { buildingDisplayName as buildingPanelName } from '@borderfall/shared';
 
 /** Human-readable territory label for puzzle copy (prefers map data, else softens ids). */
 export function territoryDisplayName(map: GameMap | null, territoryId: string): string {
@@ -40,15 +41,24 @@ export function regionGoal(map: GameMap | null, regionId: string): string {
   return `Control all of ${name} and hold it through the enemy’s turn.`;
 }
 
-/** Building label for economy goals, matching the authored calendar's wording. */
-export function buildingDisplayName(building: BuildingType): string {
-  const tier = (n: string) => `(tier ${n})`;
-  const m = /^(production|defense|tech_gen)_(\d)$/.exec(building);
-  if (m) {
-    const family = m[1] === 'production' ? 'Production' : m[1] === 'defense' ? 'Defense' : 'Tech Generator';
-    return `${family} ${tier(m[2])}`;
+/**
+ * The goal sentence for a building, in the words the build panel uses. A tier
+ * above the first names every tier beneath it too, because that IS the plan:
+ * the panel offers a Workshop (I), and a Foundry (II) only once one stands.
+ * The old wording, "Production (tier 2)", named a thing no panel shows, so a
+ * player looking for it found a Workshop and a Laboratory and no way on.
+ */
+export function buildingGoalText(building: BuildingType): string {
+  const chain: BuildingType[] = [];
+  let cur: BuildingType | undefined = building;
+  for (let guard = 0; cur && guard < 8; guard++) {
+    chain.unshift(cur);
+    cur = BUILDING_PREREQUISITES[cur];
   }
-  return building.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  const name = (b: BuildingType) => buildingPanelName(b, true);
+  if (chain.length === 1) return `Build a ${name(building)} in any territory you control.`;
+  const [first, ...upgrades] = chain;
+  return `Build a ${name(first)}, then raise it to a ${upgrades.map(name).join(', then a ')} in the same territory.`;
 }
 
 export const ERA_MAP_IDS: Record<string, string> = {
@@ -598,7 +608,7 @@ export function buildEconomyDay(input: EconomyDayInput): DailyPuzzleSpec {
     archetype: 'economy_build',
     title: input.title,
     intro: input.intro,
-    goal: `Construct a ${buildingDisplayName(input.building_type)} building in any territory you control.`,
+    goal: buildingGoalText(input.building_type),
     era_id: input.era_id,
     map_id: input.map_id,
     seed: input.seed,
@@ -670,7 +680,7 @@ export function economySpecFromBase(b: ReturnType<typeof buildDailyPuzzleBase>):
     archetype: 'economy_build',
     title: 'Daily Economy — Foundations',
     intro: 'Industry wins wars. Accumulate production and raise a core facility.',
-    goal: 'Construct a Production (tier 1) building in any territory you control.',
+    goal: buildingGoalText('production_1'),
     era_id: b.era_id,
     map_id: b.map_id,
     seed: b.seed,

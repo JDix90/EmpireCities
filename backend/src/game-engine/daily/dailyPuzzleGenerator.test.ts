@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import type { GameMap } from '../../types';
-import { buildCalibratedMilitarySpec, buildDailyPuzzleBase } from './dailyGenerator';
+import { buildCalibratedMilitarySpec, buildDailyPuzzleBase, buildingGoalText } from './dailyGenerator';
 import { validateDailyPuzzleSpec } from './dailyPuzzleService';
 import { captureProbability } from '../combat/combatOdds';
 
@@ -141,5 +141,22 @@ describe('calibrated daily generator', () => {
     // garrison size (that is the calibration working), so the shape space is
     // deliberately narrow — but it must not be a point.
     expect(shapes.size).toBeGreaterThanOrEqual(4);
+  });
+});
+
+describe('economy goal wording', () => {
+  // The goal is read beside a build panel that offers a "Workshop (I)" and,
+  // only once one stands, a "Foundry (II)". It has to use those names, and a
+  // tiered goal has to say that the tier beneath comes first in the same
+  // territory — "Construct a Production (tier 2) building" said neither.
+  it('names the buildings as the build panel does, the tier beneath first', () => {
+    expect(buildingGoalText('production_1')).toBe('Build a Workshop (I) in any territory you control.');
+    expect(buildingGoalText('production_2')).toBe(
+      'Build a Workshop (I), then raise it to a Foundry (II) in the same territory.',
+    );
+    expect(buildingGoalText('production_3')).toBe(
+      'Build a Workshop (I), then raise it to a Foundry (II), then a Manufactory (III) in the same territory.',
+    );
+    expect(buildingGoalText('defense_1')).toBe('Build a Palisade (I) in any territory you control.');
   });
 });

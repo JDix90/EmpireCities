@@ -331,6 +331,8 @@ describe('daily schedule — the sweep', { timeout: 120_000 }, () => {
     for (const { date, spec } of days) {
       if (spec.archetype !== 'economy_build') continue;
       expect(spec.clear_board, date).toBe(true);
+      // The goal reads in the build panel's own words (buildingGoalText).
+      expect(spec.goal, date).toMatch(/^Build a .+\(I\)(, then raise it to a .+)? in (any territory you control|the same territory)\.$/);
       // A tier-two goal costs the tier beneath it too.
       const cost = buildingGoalCost(spec.building_type!);
       expect(cost).toBeGreaterThanOrEqual(DEFAULT_BUILDING_COSTS[spec.building_type!]);
