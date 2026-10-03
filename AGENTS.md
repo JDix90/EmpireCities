@@ -1,6 +1,6 @@
 # Agent instructions (Borderfall)
 
-This repo is **Borderfall**: a browser-based historical Risk-style game — React + Vite + TypeScript frontend (PixiJS 2D map, react-globe.gl globe, Zustand), **Fastify** + **Socket.io** backend, **PostgreSQL** (Drizzle) for users/games/state backups/**maps (JSONB)**, **Redis**, **JWT** access/refresh. Gameplay is **server-authoritative**; live game state is **Redis-authoritative** (per-process hot cache → Redis truth → debounced Postgres backups, per-game redlock) — see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) §Game state authority model.
+This repo is **Borderfall**: a browser-based historical Risk-style game — React + Vite + TypeScript frontend (PixiJS 2D map, react-globe.gl globe, Zustand), **Fastify** + **Socket.io** backend, **PostgreSQL** (plain SQL through `pg`, no ORM) for users/games/state backups/**maps (JSONB)**, **Redis**, **JWT** access/refresh. Gameplay is **server-authoritative**; live game state is **Redis-authoritative** (per-process hot cache → Redis truth → debounced Postgres backups, per-game redlock) — see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) §Game state authority model.
 
 ## Where to read first
 

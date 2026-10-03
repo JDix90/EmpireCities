@@ -8,8 +8,11 @@ import React, { useRef, useMemo, useState, useEffect, useCallback } from 'react'
 import Globe, { type GlobeMethods } from 'react-globe.gl';
 import { homelandGeometry } from '../../utils/countryHomeland';
 
+// Pinned to a commit, not `@master`: through jsDelivr a branch name serves
+// whatever upstream pushes, so a change there could break the editor without a
+// deploy. This commit is byte-identical to what `@master` served when pinned.
 const COUNTRIES_GEOJSON_URL =
-  'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_50m_admin_0_countries.geojson';
+  'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@ca96624a56bd078437bca8184e78163e5039ad19/geojson/ne_50m_admin_0_countries.geojson';
 
 const REGION_COLORS = [
   'rgba(201, 168, 76, 0.6)',
