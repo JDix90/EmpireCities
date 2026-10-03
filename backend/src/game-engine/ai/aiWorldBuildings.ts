@@ -8,7 +8,8 @@
  *
  *   Storm Shelter  on a held storm-world tile already at the storm line (a stack
  *                  the weather is about to bleed), biggest stack first;
- *   Vault Conduit  on every Vault tile, while the bot holds the whole Vault;
+ *   Vault Conduit  on the Vault's best-held tile, while the bot holds the whole
+ *                  Vault and it carries none (one a Vault);
  *   Toll Beacon    on a held gateway whose lane is already the bot's corridor;
  *   Habitat Dome   on a thin Cradle tile facing a rival, where the muster's
  *                  extra unit is a defender, at most AI_MAX_HABITAT_DOMES.
@@ -19,7 +20,7 @@
 
 import type { BuildingType, GameMap, GameState } from '../../types';
 import { getWorldRules, tileMusterThreshold, vaultStatuses } from '../state/worldRules';
-import { laneHasTollBeacon, tollBeaconPays, worldBuildingsEnabled } from '../state/worldBuildings';
+import { laneHasTollBeacon, tollBeaconPays, vaultHasConduit, worldBuildingsEnabled } from '../state/worldBuildings';
 import { isFriendlyOwner } from '../state/teams';
 
 /** Domes a bot keeps at most: the muster's extra unit is small, the build slot is not. */
@@ -61,15 +62,22 @@ export function aiWorldBuildingCandidates(
     .map(([id]) => id);
   if (sheltered.length > 0) out.push({ buildingType: 'storm_shelter', candidates: sheltered });
 
-  // Vault Conduit: only while the bot holds the whole Vault, on every tile of it.
-  const conduits: string[] = [];
+  // Vault Conduit: only while the bot holds the whole Vault and it carries none
+  // yet. No Vault tile is a gateway, so a captured Conduit is always razed: it
+  // goes on the best-held tile, the one least likely to fall.
+  const conduits: Array<[string, number]> = [];
   for (const v of vaultStatuses(state)) {
-    if (v.holder_id !== playerId) continue;
+    if (v.holder_id !== playerId || vaultHasConduit(state, v.world_id, v.region_id)) continue;
     for (const [id, t] of owned) {
-      if (t.world_id === v.world_id && t.region_id === v.region_id && !has(t.buildings, 'vault_conduit')) conduits.push(id);
+      if (t.world_id === v.world_id && t.region_id === v.region_id) conduits.push([id, t.unit_count]);
     }
   }
-  if (conduits.length > 0) out.push({ buildingType: 'vault_conduit', candidates: conduits.sort() });
+  if (conduits.length > 0) {
+    out.push({
+      buildingType: 'vault_conduit',
+      candidates: conduits.sort(([a, ua], [b, ub]) => ub - ua || a.localeCompare(b)).map(([id]) => id),
+    });
+  }
 
   // Toll Beacon: on a gateway whose lane already pays, best-held first.
   const tolls = owned

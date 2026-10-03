@@ -11,8 +11,8 @@
 //   Storm Shelter  the storm world (Verdan)     the storms strike this tile only
 //                                               above 18, not 12, so a defended
 //                                               gateway on Verdan can stand  5 PP
-//   Vault Conduit  a Vault tile (Gate Ring)     +1 TP/turn while its owner
-//                                               holds the whole Vault        6 PP
+//   Vault Conduit  a Vault tile (Gate Ring),    +1 TP/turn while its owner
+//                  one a Vault                  holds the whole Vault        6 PP
 //   Toll Beacon    any gateway, one a lane      +1 PP/turn while its lane is
 //                                               its owner's corridor         6 PP
 //
@@ -23,7 +23,11 @@
 // Lattice Logistics (the tree's tier-1 economic root) in a game that plays
 // them. The rules read the Dome and the Shelter through the per-tile threshold
 // in worldRules.ts; the Conduit and the Beacon pay in the production tick
-// (economyManager.collectProduction), flat like the Vault's own pay. On capture
+// (economyManager.collectProduction), flat like the Vault's own pay. Each pays
+// once for what it taxes: a Vault carries one Conduit and a lane one Beacon. As
+// first shipped a Conduit stood on every Vault tile and each paid, so a full
+// set tripled the Vault's 2 TP, and at eight seats that tech made the Nexus
+// houses the strongest at the table (docs/GALACTIC_AGE_BUILDINGS.md §7). On capture
 // they follow Phase 2: on a gateway under orbital infrastructure they pass to
 // the captor, and everywhere else they are razed.
 //
@@ -102,9 +106,13 @@ export function checkWorldBuildingPlacement(
     case 'storm_shelter':
       return rules.storm_threshold != null ? null : 'A Storm Shelter stands only on the storm world, Verdan Reach';
     case 'vault_conduit':
-      return rules.vault && territory.region_id === rules.vault.region_id
-        ? null
-        : 'A Vault Conduit stands only on a Vault tile, the Gate Ring';
+      if (!rules.vault || territory.region_id !== rules.vault.region_id) {
+        return 'A Vault Conduit stands only on a Vault tile, the Gate Ring';
+      }
+      // One Conduit a Vault: it pays for the Vault, not for the tile.
+      return vaultHasConduit(state, territory.world_id, rules.vault.region_id)
+        ? 'This Vault already carries a Vault Conduit'
+        : null;
     case 'toll_beacon':
       if ((territory.lane_partners?.length ?? 0) === 0) return 'A Toll Beacon stands only on a gateway';
       // One toll a lane: a corridor held at both ends is one corridor, not two.
@@ -137,16 +145,22 @@ export function tollBeaconProductionIncome(state: GameState, playerId: string): 
   return paying * GALAXY_WORLD_BUILDING_EFFECTS.tollBeaconProductionIncome;
 }
 
-/** TP a turn from Vault Conduits on every Vault this player holds whole. */
+/** Does a Vault Conduit stand on any tile of this Vault, whoever holds it? */
+export function vaultHasConduit(state: GameState, worldId: string | undefined | null, regionId: string): boolean {
+  return Object.values(state.territories).some((t) =>
+    t.world_id === worldId && t.region_id === regionId && (t.buildings ?? []).includes('vault_conduit'));
+}
+
+/**
+ * TP a turn from the Vaults this player holds whole that carry a Conduit: once
+ * a Vault, however many stand on it (a second cannot be built, but the rule
+ * pays for the Vault, not the count).
+ */
 export function vaultConduitTechIncome(state: GameState, playerId: string): number {
   if (!worldBuildingsEnabled(state)) return 0;
-  let conduits = 0;
+  let vaults = 0;
   for (const v of vaultStatuses(state)) {
-    if (v.holder_id !== playerId) continue;
-    for (const t of Object.values(state.territories)) {
-      if (t.world_id !== v.world_id || t.region_id !== v.region_id) continue;
-      if ((t.buildings ?? []).includes('vault_conduit')) conduits += 1;
-    }
+    if (v.holder_id === playerId && vaultHasConduit(state, v.world_id, v.region_id)) vaults += 1;
   }
-  return conduits * GALAXY_WORLD_BUILDING_EFFECTS.vaultConduitTechIncome;
+  return vaults * GALAXY_WORLD_BUILDING_EFFECTS.vaultConduitTechIncome;
 }

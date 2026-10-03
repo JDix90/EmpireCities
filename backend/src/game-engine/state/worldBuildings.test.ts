@@ -241,12 +241,25 @@ describe('income', () => {
     expect(collectProduction(state, SOL).productionEarned).toBe(withToll - 1);
   });
 
-  it('a Vault Conduit pays 1 TP a turn while its owner holds the whole Vault', () => {
+  it('carries one Vault Conduit a Vault, on any of its tiles', () => {
+    const { state } = galaxyGame();
+    for (const id of RING) state.territories[id].owner_id = SOL;
+    applyBuild(state, SOL, RING[0], 'vault_conduit');
+    expect(validateBuild(state, SOL, RING[2], 'vault_conduit').error).toMatch(/already carries a Vault Conduit/);
+    // Razed with its tile, the Vault takes a Conduit again.
+    state.territories[RING[0]].buildings = [];
+    expect(validateBuild(state, SOL, RING[2], 'vault_conduit').valid).toBe(true);
+  });
+
+  it('a Vault Conduit pays 1 TP a turn, once a Vault, while its owner holds the whole Vault', () => {
     const { state } = galaxyGame();
     for (const id of RING) state.territories[id].owner_id = SOL;
     state.territories[RING[0]].buildings = ['vault_conduit'];
+    expect(vaultConduitTechIncome(state, SOL)).toBe(1);
+    // Once a Vault, not once a tile: a second Conduit (one standing from before
+    // the rule, say) pays nothing more.
     state.territories[RING[1]].buildings = ['vault_conduit'];
-    expect(vaultConduitTechIncome(state, SOL)).toBe(2);
+    expect(vaultConduitTechIncome(state, SOL)).toBe(1);
     state.territories[RING[3]].owner_id = VERDAN;
     expect(vaultConduitTechIncome(state, SOL)).toBe(0);
     expect(vaultConduitTechIncome(state, VERDAN)).toBe(0);
@@ -300,11 +313,18 @@ describe('the bots', () => {
     expect(AI_MAX_HABITAT_DOMES).toBe(3);
   });
 
-  it('lay conduits only while holding the whole Vault, and build through the same selector', () => {
+  it('lay one conduit, only while holding the whole Vault, and build through the same selector', () => {
     const { state, map } = galaxyGame();
     for (const id of RING) state.territories[id].owner_id = SOL;
-    expect(aiWorldBuildingCandidates(state, map, SOL).find((p) => p.buildingType === 'vault_conduit')?.candidates)
-      .toEqual([...RING].sort());
+    // Best-held tile first: the Conduit is razed with whichever tile falls.
+    state.territories[RING[1]].unit_count = 9;
+    const conduits = aiWorldBuildingCandidates(state, map, SOL).find((p) => p.buildingType === 'vault_conduit');
+    expect(conduits?.candidates[0]).toBe(RING[1]);
+    expect([...conduits!.candidates].sort()).toEqual([...RING].sort());
+    // One a Vault: once it carries one, no more are offered.
+    state.territories[RING[0]].buildings = ['vault_conduit'];
+    expect(aiWorldBuildingCandidates(state, map, SOL).some((p) => p.buildingType === 'vault_conduit')).toBe(false);
+    state.territories[RING[0]].buildings = [];
     state.territories[RING[2]].owner_id = VERDAN;
     expect(aiWorldBuildingCandidates(state, map, SOL).some((p) => p.buildingType === 'vault_conduit')).toBe(false);
     // Through the real selector, which validates: an expert bot raises one.
