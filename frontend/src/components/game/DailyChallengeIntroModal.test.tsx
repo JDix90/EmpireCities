@@ -64,3 +64,25 @@ describe('DailyChallengeIntroModal — a v2 decision puzzle', () => {
     expect(screen.getByText(/Par:/)).toBeTruthy();
   });
 });
+
+describe("DailyChallengeIntroModal — the day's hint", () => {
+  // A set-piece's hint used to be stored with the day and shown nowhere: the
+  // one line that said "tier two needs tier one beneath it" never reached the
+  // player who was looking for a "Production (tier 2)" building.
+  it('shows the hint under the goal', () => {
+    render(
+      <DailyChallengeIntroModal
+        spec={{ ...base, hint: 'Tier two needs tier one beneath it — the same territory, twice.' }}
+        onBegin={() => {}}
+      />,
+    );
+    expect(screen.getByTestId('daily-intro-hint')).toHaveTextContent(
+      'Hint: Tier two needs tier one beneath it — the same territory, twice.',
+    );
+  });
+
+  it('shows no hint line on a day without one', () => {
+    render(<DailyChallengeIntroModal spec={base} onBegin={() => {}} />);
+    expect(screen.queryByTestId('daily-intro-hint')).toBeNull();
+  });
+});

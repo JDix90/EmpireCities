@@ -303,6 +303,12 @@ export default function DailyChallengePage() {
               {challenge.spec?.goal && (
                 <p className="text-bf-muted text-sm mt-2 leading-relaxed">{challenge.spec.goal}</p>
               )}
+              {challenge.spec?.hint && (
+                <p className="text-bf-muted/80 text-xs mt-1 leading-relaxed" data-testid="daily-page-hint">
+                  <span className="text-bf-gold/70">Hint: </span>
+                  {challenge.spec.hint}
+                </p>
+              )}
               {isV2Day ? (
                 <div className="mt-2 text-xs" data-testid="daily-v2-card">
                   <p className="text-bf-gold/90">{decisionsLine(challenge.spec.v2!)}</p>

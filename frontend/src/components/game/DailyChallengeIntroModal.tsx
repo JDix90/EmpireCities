@@ -8,6 +8,8 @@ export interface DailyIntroSpec {
   title?: string;
   intro?: string;
   goal?: string;
+  /** The day's one tip, authored with the set-piece (the generator carries it through). */
+  hint?: string;
   max_turns?: number;
   player_count?: number;
   /** Par: the turn the obvious line solves this day on. Beat it to score above 1000. */
@@ -114,6 +116,12 @@ export default function DailyChallengeIntroModal({
               <p className="text-bf-text">
                 <span className="text-bf-gold/85 font-medium">Goal: </span>
                 {spec.goal}
+              </p>
+            )}
+            {spec.hint && (
+              <p className="text-bf-muted text-xs" data-testid="daily-intro-hint">
+                <span className="text-bf-gold/70 font-medium">Hint: </span>
+                {spec.hint}
               </p>
             )}
           </div>
