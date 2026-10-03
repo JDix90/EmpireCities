@@ -39,12 +39,6 @@ export interface QuickMatchVictoryPlan {
    * the player picked — which is the confusion this whole picker exists to fix.
    */
   max_turns: number;
-  /**
-   * Whether winning requires holding the ENTIRE board. Quick Match rolls a
-   * random era and Space Age keeps a third of its tiles behind an orbit gate,
-   * so a full-board ending has to steer the roll away from it.
-   */
-  requiresFullBoard: boolean;
 }
 
 export const QUICK_MATCH_VICTORY_PLANS: Record<QuickMatchVictoryMode, QuickMatchVictoryPlan> = {
@@ -52,13 +46,11 @@ export const QUICK_MATCH_VICTORY_PLANS: Record<QuickMatchVictoryMode, QuickMatch
     allowed_victory_conditions: ['domination', 'threshold'],
     victory_threshold: 50,
     max_turns: 45,
-    requiresFullBoard: false,
   },
   majority: {
     allowed_victory_conditions: ['domination', 'threshold'],
     victory_threshold: 65,
     max_turns: 60,
-    requiresFullBoard: false,
   },
   capitals: {
     // Domination rides along as the decisive fallback: capitals move when a
@@ -66,12 +58,10 @@ export const QUICK_MATCH_VICTORY_PLANS: Record<QuickMatchVictoryMode, QuickMatch
     // plainly won either way.
     allowed_victory_conditions: ['capital', 'domination'],
     max_turns: 90,
-    requiresFullBoard: false,
   },
   conquest: {
     allowed_victory_conditions: ['domination'],
     max_turns: 120,
-    requiresFullBoard: true,
   },
 };
 
@@ -237,9 +227,4 @@ export function quickMatchVictorySettings(prefs: QuickMatchPrefs): {
     settings.victory_threshold = plan.victory_threshold;
   }
   return settings;
-}
-
-/** Whether the chosen ending needs the whole board (i.e. no orbit-gated era). */
-export function quickMatchRequiresFullBoard(prefs: QuickMatchPrefs): boolean {
-  return (QUICK_MATCH_VICTORY_PLANS[prefs.victory] ?? QUICK_MATCH_VICTORY_PLANS.majority).requiresFullBoard;
 }

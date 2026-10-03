@@ -85,7 +85,7 @@
         "title": "Bem-vindo, comandante!",
         "message": "Borderfall é um jogo de estratégia de controle territorial. Cada turno segue Reforço → Ataque → Fortificação. Você controla os três territórios da **Tyrrhenian Coast** (costa tirrena), o lado ocidental da Itália; um adversário controla a **Adriatic Coast** (costa adriática).",
         "detail": "O reforço dá 1 unidade a cada 3 territórios (mínimo 3), mais um bônus por controlar um reino inteiro — como você tem todo o lado tirreno, esse bônus já é seu.",
-        "hint": "Já jogou Risk? Vai se sentir em casa — e esta partida acrescenta a parte que o Risk não tem. Clique em «Avançar», ou em «Pular para o final» para entrar direto."
+        "hint": "Já jogou algum jogo de tabuleiro de conquista? Vai se sentir em casa — e esta partida acrescenta a parte que esses jogos não têm: subir de era em era. Clique em «Avançar», ou em «Pular para o final» para entrar direto."
       },
       "draft_do": {
         "title": "Posicione seus reforços",
@@ -129,7 +129,7 @@
         "title": "Você está pronto!",
         "message": "Você completou o ciclo inteiro do turno — reforço, ataque, fortificação — e subiu uma era. Esse é todo o ciclo. A forma padrão de vencer é a dominação: capturar todos os territórios. Os anfitriões também podem escolher Limiar (uma parte do mapa), Captura de capitais ou Missões secretas.",
         "skippedTitle": "Direto para a ação",
-        "skippedMessage": "O resumo é este: a cada turno você reforça unidades, ataca territórios vizinhos com dados e depois fortifica. No caminho, pesquise uma tecnologia e avance da Antiguidade para a Idade Média — essa é a parte que o Risk não tem. Vença por dominação: capture todos os territórios. (Os anfitriões também podem escolher Limiar, Captura de capitais ou Missões secretas.) Agora mesmo você tem reforços para posicionar — clique em qualquer território azul e depois em **{{draftButton}}**.",
+        "skippedMessage": "O resumo é este: a cada turno você reforça unidades, ataca territórios vizinhos com dados e depois fortifica. No caminho, pesquise uma tecnologia e avance da Antiguidade para a Idade Média — essa é a parte que os jogos de conquista clássicos não têm. Vença por dominação: capture todos os territórios. (Os anfitriões também podem escolher Limiar, Captura de capitais ou Missões secretas.) Agora mesmo você tem reforços para posicionar — clique em qualquer território azul e depois em **{{draftButton}}**.",
         "detail": "As partidas reais acrescentam o que este tabuleiro deixou de fora: cartas de território por unidades extras, facções com poderes únicos, construções e estabilidade, névoa de guerra, um portão de avanço mais exigente (mais pesquisa e construções) e a espinha completa da Antiguidade à Era Moderna em vez de um salto de duas eras."
       }
     },

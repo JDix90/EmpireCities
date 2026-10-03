@@ -5,7 +5,6 @@ import {
   describeQuickMatchPrefs,
   loadFullGamePrefs,
   loadQuickMatchPrefs,
-  quickMatchRequiresFullBoard,
   quickMatchVictorySettings,
   sanitizeQuickMatchPrefs,
   saveFullGamePrefs,
@@ -180,16 +179,6 @@ describe('quickMatchPrefs', () => {
       ]);
     });
   });
-
-  describe('quickMatchRequiresFullBoard', () => {
-    it('is true only for Conquest', () => {
-      for (const mode of QUICK_MATCH_VICTORY_MODES) {
-        expect(quickMatchRequiresFullBoard({ ...DEFAULT_QUICK_MATCH_PREFS, victory: mode })).toBe(
-          mode === 'conquest',
-        );
-      }
-    });
-  });
 });
 
 describe('win condition labels', () => {
@@ -198,7 +187,7 @@ describe('win condition labels', () => {
     // rule is "Domination" in the lobby, How to Play and on share cards.
     expect(QUICK_MATCH_VICTORY_PLANS.majority.victory_threshold).toBe(65);
     expect(QUICK_MATCH_VICTORY_LABELS.majority).toBe('Conquest');
-    expect(QUICK_MATCH_VICTORY_PLANS.conquest.requiresFullBoard).toBe(true);
+    expect(QUICK_MATCH_VICTORY_PLANS.conquest.allowed_victory_conditions).toEqual(['domination']);
     expect(QUICK_MATCH_VICTORY_LABELS.conquest).toBe('Domination');
     expect(Object.values(QUICK_MATCH_VICTORY_LABELS)).not.toContain('Majority');
     expect(new Set(Object.values(QUICK_MATCH_VICTORY_LABELS)).size).toBe(4);

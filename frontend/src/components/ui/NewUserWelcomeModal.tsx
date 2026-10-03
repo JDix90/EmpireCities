@@ -67,7 +67,7 @@ export default function NewUserWelcomeModal({
           </div>
           <h2 className="font-display text-2xl text-bf-gold mb-2">Welcome, Commander</h2>
           <p className="text-bf-muted text-sm leading-relaxed">
-            {APP_NAME} is a turn-based strategy game of territory conquest — think Risk, but across history.
+            {APP_NAME} is a turn-based strategy game of territory conquest, where the world climbs through the ages as you play.
             New here? We recommend starting with the interactive tutorial.
           </p>
         </div>
@@ -106,7 +106,7 @@ export default function NewUserWelcomeModal({
           <div className="min-w-0">
             <p className="font-display text-bf-gold text-base mb-0.5">Quick Match</p>
             <p className="text-bf-muted text-xs leading-relaxed">
-              3 AI opponents on a random era map — start now, no waiting. Best if you already know Risk.
+              3 AI opponents on a random era map — start now, no waiting. Best if you already know territory strategy games.
             </p>
           </div>
         </button>

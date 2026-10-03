@@ -174,3 +174,34 @@ describe('core tutorial', () => {
     expect(lastGate).toBeLessThan(COMBINED_CORE_TUTORIAL_STEPS.length - 1);
   });
 });
+
+describe('core tutorial wording', () => {
+  // The cards describe Borderfall in its own terms rather than by another
+  // game's name, in every language. German players know that game as Risiko.
+  const OTHER_GAME = /\bRisk\b|\bRisiko\b/;
+  const LOCALE_BUNDLES = import.meta.glob<{ default: { steps?: { core?: Record<string, unknown> } } }>(
+    '../i18n/locales/*/tutorial.json',
+    { eager: true },
+  );
+  const strings = (value: unknown): string[] =>
+    typeof value === 'string'
+      ? [value]
+      : value && typeof value === 'object'
+        ? Object.values(value).flatMap(strings)
+        : [];
+
+  it('never names another game in the English cards', () => {
+    for (const step of COMBINED_CORE_TUTORIAL_STEPS) {
+      for (const s of strings(step)) expect(s, step.id).not.toMatch(OTHER_GAME);
+    }
+  });
+
+  it('never names another game in any translation of the cards', () => {
+    const paths = Object.keys(LOCALE_BUNDLES);
+    expect(paths.length).toBeGreaterThan(0);
+    for (const path of paths) {
+      const core = LOCALE_BUNDLES[path].default.steps?.core ?? {};
+      for (const s of strings(core)) expect(s, path).not.toMatch(OTHER_GAME);
+    }
+  });
+});
