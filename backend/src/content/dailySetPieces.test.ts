@@ -152,20 +152,30 @@ describe('daily set-pieces — shape', () => {
     }
   });
 
-  it('economy: holdings are non-empty and disjoint, and the building is priced', () => {
+  it('economy: holdings are non-empty and disjoint, every AI garrison borders the player, and the building is priced', () => {
     for (const sp of setPiecesOfKind('economy')) {
+      const map = loadMap(sp.map_id);
       expect(sp.human.length, sp.id).toBeGreaterThan(0);
       expect(sp.ai.length, sp.id).toBeGreaterThan(0);
       expect(sp.human.some((t) => sp.ai.includes(t)), `${sp.id}: overlapping holdings`).toBe(false);
+      // A cleared board's empty neutrals can be taken by no one, so an AI that
+      // starts out of reach stays out of reach: the day has no fight in it.
+      for (const g of sp.ai) {
+        expect(sp.human.some((h) => borders(map, h, g)), `${sp.id}: AI garrison ${g} borders no human territory`).toBe(true);
+      }
       expect(DEFAULT_BUILDING_COSTS[sp.building_type], `${sp.id}: ${sp.building_type} has no cost`).toBeGreaterThan(0);
     }
   });
 
-  it('tech: holdings are non-empty and disjoint, and the tech is in the era’s tree', () => {
+  it('tech: holdings are non-empty and disjoint, every AI garrison borders the player, and the tech is in the era’s tree', () => {
     for (const sp of setPiecesOfKind('tech')) {
+      const map = loadMap(sp.map_id);
       expect(sp.human.length, sp.id).toBeGreaterThan(0);
       expect(sp.ai.length, sp.id).toBeGreaterThan(0);
       expect(sp.human.some((t) => sp.ai.includes(t)), `${sp.id}: overlapping holdings`).toBe(false);
+      for (const g of sp.ai) {
+        expect(sp.human.some((h) => borders(map, h, g)), `${sp.id}: AI garrison ${g} borders no human territory`).toBe(true);
+      }
       const node = getEraTechTree(sp.era_id).find((n) => n.tech_id === sp.tech_id);
       expect(node, `${sp.id}: ${sp.tech_id} not in the ${sp.era_id} tree`).toBeDefined();
     }
