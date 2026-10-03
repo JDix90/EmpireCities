@@ -61,6 +61,7 @@ import {
 import { countOwnedLunarTerritories } from '../../utils/orbitAccess';
 import { dropAssaultsTargeting } from '../../utils/dropAssaults';
 import { areAllies, inOpeningCeasefire, isFriendlyOwner, regionBonusHolder } from '../../utils/teams';
+import { nothingToFightMessage } from '../../utils/attackAvailability';
 
 interface TerritoryPanelProps {
   mapTerritories: Array<{
@@ -494,6 +495,17 @@ export default function TerritoryPanel({
     worldNameByTerritoryId,
     myPlayerId,
   ]);
+
+  // Nothing to fight anywhere: no enemy borders any of the viewer's ground
+  // (utils/attackAvailability). Said in place of "attack from a territory
+  // that does", which sent players hunting for one that did not exist.
+  const nothingToFight = React.useMemo(
+    () =>
+      isMyTurn && gameState.phase === 'attack' && !ceasefire
+        ? nothingToFightMessage(gameState, mapConnections, myPlayerId)
+        : null,
+    [isMyTurn, gameState, ceasefire, mapConnections, myPlayerId],
+  );
 
   /** Galaxy corridors: stamp each cross-world attack row with the dice it rolls. */
   const attackNeighborsWithLaneDice = React.useMemo(() => {
@@ -1198,9 +1210,11 @@ export default function TerritoryPanel({
                   {ceasefire
                     ? 'Opening ceasefire: no side attacks another until every player has had a turn.'
                     : isMine
-                    ? tState.unit_count >= MIN_ATTACK_UNITS
-                      ? 'No enemy borders this territory. Attack from one that does.'
-                      : `Needs at least ${MIN_ATTACK_UNITS} units to attack — one has to hold the territory.`
+                    ? nothingToFight
+                      ? nothingToFight
+                      : tState.unit_count >= MIN_ATTACK_UNITS
+                        ? 'No enemy borders this territory. Attack from one that does.'
+                        : `Needs at least ${MIN_ATTACK_UNITS} units to attack — one has to hold the territory.`
                     : /* Enemy ground: if anything of mine bordered it with enough
                          units, it would be listed above — so these two are the
                          only reasons left. */

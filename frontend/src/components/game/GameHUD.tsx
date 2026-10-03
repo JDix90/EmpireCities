@@ -44,7 +44,8 @@ import {
   subscribeUserPreferences,
 } from '../../utils/userPreferences';
 import { Link } from 'react-router-dom';
-import { allyIdsOf, playerGroups } from '../../utils/teams';
+import { allyIdsOf, inOpeningCeasefire, playerGroups } from '../../utils/teams';
+import { nothingToFightMessage } from '../../utils/attackAvailability';
 
 interface GameHUDProps {
   onAdvancePhase: () => void;
@@ -195,6 +196,14 @@ export default function GameHUD({
   const sovereignty = laneSovereigntyProgress(gameState, mapData?.connections, myPlayer?.player_id ?? null);
   // Territory Threshold: share of the map held against the share that wins.
   const mapControl = mapControlProgress(gameState, myPlayer?.player_id ?? null);
+  // Nothing to fight anywhere this turn: no enemy borders any of this player's
+  // ground (utils/attackAvailability). Said in the HUD, or the attack phase
+  // reads as a step the player failed to find. A team game's opening
+  // ceasefire is a different reason, told by the territory panel.
+  const nothingToFight =
+    isMyTurn && gameState?.phase === 'attack' && !inOpeningCeasefire(gameState)
+      ? nothingToFightMessage(gameState, mapData?.connections ?? [], myPlayer?.player_id)
+      : null;
   const turnClarityEnabled = useTurnClarityEnabled();
   const draftPool = computeDraftPool(
     gameState,
@@ -919,6 +928,17 @@ export default function GameHUD({
           <div className="w-full text-center text-xs rounded border border-blue-500/55 bg-blue-950/45 text-blue-200 py-1.5">
             🚜 +{myPlayer?.bonus_fortify_moves} bonus fortify move
             {(myPlayer?.bonus_fortify_moves ?? 0) === 1 ? '' : 's'} this turn
+          </div>
+        </div>
+      )}
+
+      {nothingToFight && (
+        <div className="shrink-0 px-4 pt-2">
+          <div
+            className="w-full text-center text-xs rounded border border-bf-border bg-bf-dark/60 text-bf-muted py-1.5"
+            data-testid="nothing-to-fight"
+          >
+            {nothingToFight}
           </div>
         </div>
       )}
