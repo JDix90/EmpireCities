@@ -37,6 +37,16 @@ export default tseslint.config(
     },
   },
   {
+    // A hook called conditionally (below an early return, or behind &&) runs a
+    // different number of hooks from one render to the next, which React
+    // treats as an error. exhaustive-deps stays off until its existing
+    // warnings are fixed file by file.
+    files: ['frontend/**/*.{ts,tsx}'],
+    rules: {
+      'react-hooks/rules-of-hooks': 'error',
+    },
+  },
+  {
     // packages/warfront-sim — determinism guard, part 1 (every file in the package,
     // tests included). The simulation must reproduce a match from a seed plus a
     // command log on the match host, in a replaying browser and in the headless lab.
