@@ -1,3 +1,4 @@
+import { GALAXY_LANE_POWER_COSTS } from '@borderfall/shared';
 import type { GameMap, GameState, PlayerState } from '../../types';
 import { getEraTechTreeForPlayer } from '../state/techManager';
 import { getPlayerEraModifiers } from '../state/eraModifiers';
@@ -91,6 +92,25 @@ export interface TerritoryAbilityDef {
   requiresMoonTiles?: number;
   /** Phase 2: Helium-3 the use consumes, charged only after the effect succeeds. */
   helium3Cost?: number;
+  /**
+   * Galactic Age lane powers (abilities/lanePowers.ts): production points the
+   * use consumes, charged only after the effect succeeds, as He-3 is. Enforced
+   * only while the game plays the powers.
+   */
+  productionCost?: number;
+  /**
+   * Lane powers: the building that must stand on the SOURCE tile at the moment
+   * of use — a defence building, an industry building, or any building.
+   */
+  requiresBuilding?: 'defense' | 'production' | 'any';
+  /** Lane powers: the source tile must anchor a hyperspace lane (a gateway). */
+  requiresGateway?: boolean;
+  /**
+   * Lane powers: where the source is. `self` — the targeted tile is the
+   * player's own source. `across_lane` — the target is an enemy tile, and the
+   * source is one of the player's gateways at the other end of an open lane.
+   */
+  laneSource?: 'self' | 'across_lane';
 }
 
 export const TERRITORY_ABILITY_DEFS: Record<string, TerritoryAbilityDef> = {
@@ -205,6 +225,21 @@ export const TERRITORY_ABILITY_DEFS: Record<string, TerritoryAbilityDef> = {
 
   // ── Galactic Age (corridors) ─────────────────────────────────────────────────
   blockade_runner: { label: 'Blockade Runner', scope: 'turn', phase: 'attack', selfBuff: 'ignore_lane_seal' },
+
+  // ── Galactic Age lane powers (abilities/lanePowers.ts, `galaxy_powers`) ──────
+  // Opened by galaxy techs only under the setting; prices are LANE_POWER_TUNING.
+  lance_battery: {
+    label: 'Lance Battery', scope: 'turn', phase: 'attack', unitReduction: 2, minTargetUnits: 1,
+    productionCost: GALAXY_LANE_POWER_COSTS.lance_battery, requiresBuilding: 'defense', requiresGateway: true, laneSource: 'across_lane',
+  },
+  orbital_muster: {
+    label: 'Orbital Muster', scope: 'turn', phase: 'draft', ownPlacement: { units: 3, requiresProductionBuilding: true },
+    productionCost: GALAXY_LANE_POWER_COSTS.orbital_muster, requiresBuilding: 'production', requiresGateway: true, laneSource: 'self',
+  },
+  seal_breaker: {
+    label: 'Seal Breaker', scope: 'turn', phase: 'attack',
+    productionCost: GALAXY_LANE_POWER_COSTS.seal_breaker, requiresBuilding: 'defense', requiresGateway: true, laneSource: 'self',
+  },
 
   // ── Faction abilities: unit-reduction strikes (Group E, attack) ─────────────
   precision_airstrike: { label: 'Precision Airstrike', scope: 'turn', phase: 'attack', unitReduction: 2, minTargetUnits: 1, requiresAdjacency: true },

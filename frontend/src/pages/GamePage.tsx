@@ -727,7 +727,14 @@ export default function GamePage() {
   );
   // A game created under Galactic Age buildings v2 plays on the v2 tree; ask
   // the static route for that one so the client gates the same buildings.
-  const techTreeQuery = gameState?.settings.galaxy_buildings_v2 ? '?buildings=v2' : '';
+  // Lane powers (`galaxy_powers`) likewise: the tree whose nodes open them.
+  const techTreeQuery = (() => {
+    const params = [
+      gameState?.settings.galaxy_buildings_v2 ? 'buildings=v2' : '',
+      gameState?.settings.galaxy_powers ? 'powers=1' : '',
+    ].filter(Boolean);
+    return params.length > 0 ? `?${params.join('&')}` : '';
+  })();
 
   // Turn-clarity valid-source hint: highlight which of the viewer's territories
   // can act this phase, but only on their own attack/fortify turn and only before

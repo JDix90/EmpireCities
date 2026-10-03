@@ -140,4 +140,12 @@ describe('Galactic Age buildings v2 is baked at create from its flag', () => {
     expect(created(WW2).galaxy_garrisons).toBeUndefined();
     expect(created(SPACE, { economy_enabled: true, tech_trees_enabled: true }).galaxy_garrisons).toBeUndefined();
   });
+
+  it('lane powers (Phase 4) are baked the same way', () => {
+    expect(created(GALAXY, galaxyLobby).galaxy_powers).toBeUndefined();
+    setAdminConfigCacheForTests({ feature_flags: { galaxy_powers_enabled: true } });
+    expect(created(GALAXY, galaxyLobby).galaxy_powers).toBe(true);
+    expect(created(WW2).galaxy_powers).toBeUndefined();
+    expect(created(SPACE, { economy_enabled: true, tech_trees_enabled: true }).galaxy_powers).toBeUndefined();
+  });
 });

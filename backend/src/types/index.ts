@@ -300,6 +300,11 @@ export interface PlayerState {
   pending_negate_attacker_losses?: boolean;
   /** Blockade Runner (Stellar Mandate): the next lane crossing this turn ignores an Emergency Seal. */
   pending_ignore_lane_seal?: boolean;
+  /**
+   * Seal Breaker (Galactic Age lane powers): the next crossing FROM this tile
+   * ignores a Nebula Closure or an Emergency Seal. Spent by that crossing.
+   */
+  pending_seal_breaker_from?: string;
   /** Extra fortify moves granted this turn (armored_push). Reset at turn start. */
   bonus_fortify_moves?: number;
   /**
@@ -677,6 +682,14 @@ export interface GameSettings {
    * `galaxy_garrisons_enabled` feature flag; no-op off galaxy rules.
    */
   galaxy_garrisons?: boolean;
+  /**
+   * Galactic Age buildings, Phase 4 (docs/GALACTIC_AGE_BUILDINGS.md §6): lane
+   * powers — per-turn abilities priced in PP, each opened by a galaxy tech and
+   * fired from a tile carrying the building it needs
+   * (abilities/lanePowers.ts). Baked at create from the
+   * `galaxy_powers_enabled` feature flag; no-op off galaxy rules.
+   */
+  galaxy_powers?: boolean;
   /**
    * Galactic Age Schism (five to eight seats): how the two houses on a split
    * world start — under the Concord, a truce for the opening rounds, in Civil

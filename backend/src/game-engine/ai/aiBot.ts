@@ -5,7 +5,7 @@ import { captureProbability } from '../combat/combatOdds';
 import { computeLandCombatModifiers } from '../combat/combatModifiers';
 import { calculateContinentBonuses } from '../state/gameStateManager';
 import { getAllowedVictoryConditions } from '../state/gameSettings';
-import { getEraTechTree } from '../eras';
+import { eraTechTreeOptions, getEraTechTree } from '../eras';
 import { getPlayerFaction } from '../eras/factionLineage';
 import { resolvePlayerEraId } from '../eraAdvancement/constants';
 import { isBuildingTechUnlocked } from '../eraAdvancement/buildingHeritage';
@@ -39,6 +39,7 @@ import {
   validateGarrisonDoctrine,
 } from '../state/garrisonDoctrines';
 import type { GarrisonDoctrine } from '@borderfall/shared';
+import { aiLanePowerReserve } from './aiLanePowers';
 
 export interface AiAction {
   type: 'draft' | 'attack' | 'fortify' | 'end_phase';
@@ -597,8 +598,13 @@ function selectAttacks(
       // or Hyperspace Chart / Hyperlane Anchor / Helion Navigator faction).
       if (!hasOrbitAccess && connectionRequiresMoonAccess(map, tid, nid)) continue;
 
-      // Galaxy: don't waste attacks on a hyperspace lane a rival has sealed.
-      if (isLaneSealedForPlayer(state, tid, nid, playerId)) continue;
+      // Galaxy: don't waste attacks on a hyperspace lane a rival has sealed —
+      // unless a Seal Breaker charge (abilities/lanePowers.ts) was fired from
+      // this very gateway, which opens its next crossing.
+      if (
+        isLaneSealedForPlayer(state, tid, nid, playerId)
+        && aiPlayer?.pending_seal_breaker_from !== tid
+      ) continue;
 
       // Naval gating: when naval warfare is enabled, sea-lane attacks require
       // the source territory to hold at least one fleet (one is consumed per
@@ -1236,7 +1242,9 @@ export function selectAiGarrisonDoctrines(
   if (!player) return [];
 
   const cost = GARRISON_DOCTRINE_TUNING.cost;
-  let budget = player.special_resource ?? 0;
+  // Keep back the fuel for the dearest lane power the bot holds (ai/aiLanePowers.ts):
+  // doctrines are bought earlier in the turn and must not spend it.
+  let budget = (player.special_resource ?? 0) - aiLanePowerReserve(state, playerId);
   const picks: Array<{ territoryId: string; doctrine: GarrisonDoctrine }> = [];
   const taken = new Set<string>();
   const tryPick = (territoryId: string, doctrine: GarrisonDoctrine): boolean => {
@@ -1338,7 +1346,7 @@ export function selectAiTechResearch(
   if (!player) return null;
 
   const playerEra = resolvePlayerEraId(state, player);
-  const tree = getEraTechTree(playerEra);
+  const tree = getEraTechTree(playerEra, eraTechTreeOptions(state.settings));
   const unlocked = player.unlocked_techs ?? [];
   const techPoints = player.tech_points ?? 0;
 

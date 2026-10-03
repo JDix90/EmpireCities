@@ -284,11 +284,59 @@ export const GALAXY_BUILDING_UNLOCKS_V2: Readonly<Record<string, readonly Buildi
 };
 
 /** The same nodes, with their building unlocks replaced by the v2 table. */
-export const GALAXY_AGE_TECH_TREE_V2: TechNode[] = GALAXY_AGE_TECH_TREE.map((node) => {
-  const { unlocks_building: _v1, ...rest } = node;
-  const opens = GALAXY_BUILDING_UNLOCKS_V2[node.tech_id];
-  return opens ? { ...rest, unlocks_buildings: [...opens] } : rest;
-});
+// ──────────────────────────────────────────────────────────────────────────
+// Lane powers (docs/GALACTIC_AGE_BUILDINGS.md §6, Phase 4)
+//
+// Every other era's tree unlocks abilities; the galaxy's unlocked none. Under
+// `settings.galaxy_powers` four existing nodes each open a lane power
+// (abilities/lanePowers.ts). The nodes, costs and prerequisites are unchanged;
+// only `unlocks_ability` is added, and only in a game that plays the powers.
+// ──────────────────────────────────────────────────────────────────────────
+
+/** Lane powers: which ability each node opens under `galaxy_powers`. */
+export const GALAXY_POWER_UNLOCKS: Readonly<Record<string, string>> = {
+  ga_disruption_net: 'lance_battery',
+  ga_battle_fabricators: 'orbital_muster',
+  ga_gravity_brake: 'seal_breaker',
+};
+
+export interface GalaxyTreeOptions {
+  /** Buildings v2 (`galaxy_buildings_v2`): the v2 building unlocks. */
+  buildingsV2?: boolean;
+  /** Lane powers (`galaxy_powers`): the four ability unlocks. */
+  powers?: boolean;
+}
+
+const galaxyTreeMemo = new Map<string, TechNode[]>();
+
+/**
+ * The galaxy tree a game plays on, for its per-game options. Each combination
+ * is built once and shared, so a reader can compare trees by identity.
+ */
+export function galaxyAgeTechTree(opts: GalaxyTreeOptions = {}): TechNode[] {
+  if (!opts.buildingsV2 && !opts.powers) return GALAXY_AGE_TECH_TREE;
+  const key = `${opts.buildingsV2 ? 'v2' : 'v1'}:${opts.powers ? 'powers' : ''}`;
+  const hit = galaxyTreeMemo.get(key);
+  if (hit) return hit;
+  const tree = GALAXY_AGE_TECH_TREE.map((node) => {
+    let next: TechNode = node;
+    if (opts.buildingsV2) {
+      const { unlocks_building: _v1, ...rest } = next;
+      const opens = GALAXY_BUILDING_UNLOCKS_V2[node.tech_id];
+      next = opens ? { ...rest, unlocks_buildings: [...opens] } : rest;
+    }
+    if (opts.powers) {
+      const ability = GALAXY_POWER_UNLOCKS[node.tech_id];
+      if (ability) next = { ...next, unlocks_ability: ability };
+    }
+    return next;
+  });
+  galaxyTreeMemo.set(key, tree);
+  return tree;
+}
+
+/** The same nodes, with their building unlocks replaced by the v2 table. */
+export const GALAXY_AGE_TECH_TREE_V2: TechNode[] = galaxyAgeTechTree({ buildingsV2: true });
 
 // Under corridors there is no access gate for the Anchor to skip, so it lifts
 // the lane dice cap for its owner instead (`galaxyLaneAttackDiceCap`); with the

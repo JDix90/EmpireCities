@@ -44,6 +44,7 @@ const ACTIVATION_BY_EFFECT: Record<string, string> = {
   mass_mobilization_units: '🪖 Mass Mobilization — +5 units placed',
   unification_convert: '🇮🇹 Territory unified under your banner',
   space_station_launched: '🚀 Space Station launched',
+  seal_breaker_ready: '🗝️ Seal Breaker armed — the next crossing from this gateway ignores a closure or a seal',
 };
 
 export function getAbilityActivationMessage(
@@ -106,6 +107,11 @@ export const ARMED_BUFF_LABELS: Array<{
     emoji: '✈️',
     label: 'Air strike ready — +1 pre-combat damage',
     isActive: (p) => (p.pending_pre_attack_damage ?? 0) > 0,
+  },
+  {
+    emoji: '🗝️',
+    label: 'Seal Breaker armed — next crossing from its gateway',
+    isActive: (p) => !!p.pending_seal_breaker_from,
   },
 ];
 

@@ -103,6 +103,8 @@ export interface PlayerState {
   pending_extra_attack_die?: boolean;
   pending_ignore_defense_building?: boolean;
   pending_negate_attacker_losses?: boolean;
+  /** Seal Breaker (Galactic Age lane powers): the gateway whose next crossing ignores a seal. */
+  pending_seal_breaker_from?: string;
   march_to_sea_active?: boolean;
   /** ACW Total War: chain captures that have received the +1 die bonus (0–3). */
   march_to_sea_hops_used?: number;
@@ -302,6 +304,8 @@ export interface GameState {
     galaxy_orbital_buildings?: boolean;
     /** Galactic Age garrison doctrines: Hardened / Forward d8 garrisons. Baked at create. */
     galaxy_garrisons?: boolean;
+    /** Galactic Age lane powers: per-turn PP-priced abilities. Baked at create. */
+    galaxy_powers?: boolean;
     /** Galaxy per-world identity: world_id → modifiers, snapshotted from the map at init. */
     world_modifiers_enabled?: boolean;
     world_modifiers?: Record<string, WorldModifiers>;

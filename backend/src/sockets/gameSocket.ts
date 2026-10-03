@@ -48,6 +48,14 @@ import {
   garrisonsEnabled,
   validateGarrisonDoctrine,
 } from '../game-engine/state/garrisonDoctrines';
+import { consumeSealBreaker, lanePowersEnabled } from '../game-engine/abilities/lanePowers';
+import {
+  aiFiresLanePowers,
+  canAiFireLanePower,
+  selectAiLanceBatteryTarget,
+  selectAiOrbitalMusterTarget,
+  selectAiSealBreaker,
+} from '../game-engine/ai/aiLanePowers';
 import { GARRISON_DOCTRINE_DISPLAY, type GarrisonDoctrine } from '@borderfall/shared';
 import { validateResearch, applyResearch, getPlayerAttackBonus, getPlayerDefenseBonus, getPlayerReinforceBonus, getEraTechTreeForPlayer } from '../game-engine/state/techManager';
 import { isBuildingTechUnlocked } from '../game-engine/eraAdvancement/buildingHeritage';
@@ -1874,7 +1882,12 @@ export function initGameSocket(httpServer: HttpServer): Server {
         if (!access.allowed) {
           return emitGameError(socket, GameErrorCode.ACCESS_DENIED, formatOrbitAccessError(access));
         }
-        if (isLaneClosedByWeather(state, fromId, toId)) {
+        // Seal Breaker (lane powers): a charge fired from this gateway opens
+        // its next crossing through a closure or a seal alike. Spent only when
+        // the lane is actually shut, so an open crossing keeps it.
+        const laneShut = isLaneSealedForPlayer(state, fromId, toId, currentPlayer.player_id);
+        const sealBroken = laneShut && consumeSealBreaker(currentPlayer, fromId);
+        if (!sealBroken && isLaneClosedByWeather(state, fromId, toId)) {
           return emitGameError(
             socket,
             GameErrorCode.LANE_SEALED,
@@ -1882,7 +1895,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
           );
         }
         if (
-          isLaneSealedForPlayer(state, fromId, toId, currentPlayer.player_id)
+          !sealBroken
+          && laneShut
           && !consumeBlockadeRunner(currentPlayer)
         ) {
           return emitGameError(
@@ -2266,7 +2280,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
         if (!access.allowed) {
           return emitGameError(socket, GameErrorCode.ACCESS_DENIED, formatOrbitAccessError(access));
         }
-        if (isLaneSealedForPlayer(state, fromId, toId, currentPlayer.player_id)) {
+        if (
+          isLaneSealedForPlayer(state, fromId, toId, currentPlayer.player_id)
+          && !consumeSealBreaker(currentPlayer, fromId)
+        ) {
           return emitGameError(socket, GameErrorCode.LANE_SEALED, 'That hyperspace lane is sealed');
         }
       }
@@ -6279,6 +6296,26 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     }
   }
 
+  // AI parity: Orbital Muster — the galaxy's draft-phase lane power
+  // (abilities/lanePowers.ts). Through executeTechAbility, which checks the
+  // gateway, its industry building and the purse and charges the PP, exactly
+  // as for a human.
+  if (
+    aiFiresLanePowers(difficulty)
+    && canAiFireLanePower(state, currentPlayer.player_id, 'orbital_muster')
+  ) {
+    const musterAt = selectAiOrbitalMusterTarget(state, map, currentPlayer.player_id);
+    if (musterAt) {
+      const res = executeTechAbility({
+        state, map, playerId: currentPlayer.player_id, abilityId: 'orbital_muster', territoryId: musterAt,
+      });
+      if (res.success) {
+        currentPlayer.ability_uses = { ...(currentPlayer.ability_uses ?? {}), orbital_muster: 1 };
+        broadcastState(io, gameId, state);
+      }
+    }
+  }
+
   // AI parity: Drop Assault — Phase 2b. Declared here and landing at the start
   // of the bot's next turn, through exactly the path a human declaration takes,
   // so the telegraph and the defender's round to answer it are identical.
@@ -6395,6 +6432,53 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
             tick: 'owner_turn',
           };
           currentPlayer.ability_uses = { ...(currentPlayer.ability_uses ?? {}), [EMERGENCY_SEAL_ABILITY_ID]: 1 };
+          broadcastState(io, gameId, state);
+        }
+      }
+    }
+  }
+
+  // AI parity for the galaxy's attack-phase lane powers (abilities/lanePowers.ts).
+  // Lance Battery softens the far gateway of a planned crossing; Seal Breaker
+  // opens a shut lane the bot can win across, and that crossing is planned
+  // first. Both go through executeTechAbility, as a human's do.
+  if (aiFiresLanePowers(difficulty) && lanePowersEnabled(state)) {
+    if (canAiFireLanePower(state, currentPlayer.player_id, 'seal_breaker')) {
+      const breach = selectAiSealBreaker(state, map, currentPlayer.player_id);
+      if (breach) {
+        const res = executeTechAbility({
+          state, map, playerId: currentPlayer.player_id, abilityId: 'seal_breaker', territoryId: breach.source,
+        });
+        if (res.success) {
+          currentPlayer.ability_uses = { ...(currentPlayer.ability_uses ?? {}), seal_breaker: 1 };
+          const firstAttack = actions.findIndex((a) => a.type === 'attack');
+          const crossing = { type: 'attack' as const, from: breach.source, to: breach.target, units: 3 };
+          if (firstAttack < 0) actions.push(crossing);
+          else actions.splice(firstAttack, 0, crossing);
+          broadcastState(io, gameId, state);
+        }
+      }
+    }
+    if (canAiFireLanePower(state, currentPlayer.player_id, 'lance_battery')) {
+      const lanceAt = selectAiLanceBatteryTarget(state, map, currentPlayer.player_id, actions);
+      if (lanceAt) {
+        const res = executeTechAbility({
+          state, map, playerId: currentPlayer.player_id, abilityId: 'lance_battery', territoryId: lanceAt,
+        });
+        if (res.success) {
+          currentPlayer.ability_uses = { ...(currentPlayer.ability_uses ?? {}), lance_battery: 1 };
+          const targetOwner = res.previousOwner
+            ? state.players.find((p) => p.player_id === res.previousOwner)
+            : undefined;
+          emitAbilityStrikeVisuals(io, gameId, buildStrikeAnimationPayload({
+            abilityId: 'lance_battery',
+            attackerId: currentPlayer.player_id,
+            attackerName: currentPlayer.username,
+            attackerColor: currentPlayer.color,
+            territoryId: lanceAt,
+            targetOwnerId: res.previousOwner ?? null,
+            targetOwnerName: targetOwner?.username ?? null,
+          }), { state, map });
           broadcastState(io, gameId, state);
         }
       }
@@ -6661,6 +6745,15 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     if (connectionRequiresMoonAccess(map, attackFromId, attackToId)) {
       if (!getOrbitAccessResult(state, currentPlayer, map, state.era).allowed) continue;
     }
+    // Lane powers: the planner only plans a shut lane when a Seal Breaker was
+    // fired from its source; the crossing spends that charge, as a human's does.
+    // Guarded on the setting so a game without powers runs exactly as before.
+    if (
+      lanePowersEnabled(state)
+      && aiConnection?.type === 'orbit'
+      && isLaneSealedForPlayer(state, attackFromId, attackToId, currentPlayer.player_id)
+      && !consumeSealBreaker(currentPlayer, attackFromId)
+    ) continue;
 
     // Naval sea-lane gating: AI must have a fleet to cross. Amphibious-assault
     // parity with the human handler — the AI lands as long as a ship survives
