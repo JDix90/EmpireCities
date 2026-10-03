@@ -236,6 +236,13 @@ describe('featureFlags', () => {
     expect(featureFlags.galaxyWorldBuildingsEnabled).toBe(true);
   });
 
+  it('ww2_bomb_ai_enabled defaults to off (dark launch) and is admin-overridable', () => {
+    expect(featureFlags.ww2BombAiEnabled).toBe(false);
+    expect(getFeatureFlagStates().ww2_bomb_ai_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { ww2_bomb_ai_enabled: true } });
+    expect(featureFlags.ww2BombAiEnabled).toBe(true);
+  });
+
   it('warfront_enabled defaults to off (experimental, admin-only) and is admin-overridable', () => {
     expect(featureFlags.warfrontEnabled).toBe(false);
     expect(getClientFeatureFlags().warfront_enabled).toBe(false);

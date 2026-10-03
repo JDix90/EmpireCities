@@ -149,6 +149,18 @@ describe('Galactic Age buildings v2 is baked at create from its flag', () => {
     expect(created(SPACE, { economy_enabled: true, tech_trees_enabled: true }).galaxy_powers).toBeUndefined();
   });
 
+  it('the WW2 bots and the bomb are baked wherever the WW2 tree can be played', () => {
+    expect(created(WW2).ww2_bomb_ai).toBeUndefined();
+    setAdminConfigCacheForTests({ feature_flags: { ww2_bomb_ai_enabled: true } });
+    expect(created(WW2).ww2_bomb_ai).toBe(true);
+    // A climb passes through WW2; a Galactic Age game never plays its tree.
+    expect(created({ era_id: 'ancient', map_id: 'era_ancient' }, { era_advancement_enabled: true }).ww2_bomb_ai).toBe(true);
+    expect(created(GALAXY, galaxyLobby).ww2_bomb_ai).toBeUndefined();
+    // A lobby cannot set it: the bake owns the key.
+    setAdminConfigCacheForTests({ feature_flags: { ww2_bomb_ai_enabled: false } });
+    expect(created(WW2, { ww2_bomb_ai: true }).ww2_bomb_ai).toBeUndefined();
+  });
+
   it('world buildings (Phase 5) are baked the same way', () => {
     expect(created(GALAXY, galaxyLobby).galaxy_world_buildings).toBeUndefined();
     setAdminConfigCacheForTests({ feature_flags: { galaxy_world_buildings_enabled: true } });

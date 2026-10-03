@@ -18,6 +18,7 @@ import { vulnerabilityAttackBonus } from './aiEraAdvancement';
 import { validateBuild, countPlayerBuildings } from '../state/economyManager';
 import { getEffectiveTechCost } from '../state/techManager';
 import { aiResearchesTech } from './aiTechBudget';
+import { selectAiBombResearch } from './aiAtomBomb';
 import { HEGEMONY_TURNS } from '../state/lunarHegemony';
 import { isLunarTerritory } from '../state/helium3';
 import {
@@ -1484,6 +1485,16 @@ export function selectAiTechResearch(
         cur = tree.find((n) => n.tech_id === cur)?.prerequisite;
       }
     }
+  }
+
+  // WW2 Manhattan Project, Phase 1 (ai/aiAtomBomb.ts): under `ww2_bomb_ai`,
+  // hard and expert bots walk the bomb's prerequisite chain — the score below
+  // never values a node whose only payload is an ability — and keep their
+  // points for the next node on it when that is a few turns of income away.
+  const bombStep = selectAiBombResearch(state, playerId, difficulty);
+  if (bombStep) {
+    if (bombStep.techId && available.some((n) => n.tech_id === bombStep.techId)) return bombStep.techId;
+    if (bombStep.save) return null;
   }
 
   if (difficulty === 'hard' || difficulty === 'expert') {

@@ -92,6 +92,32 @@ It reports, beside the usual length, decisiveness, turn-10 leader and per-factio
 - **use**: detonations per game, the share of Manhattan holders who fire, the turn of the first detonation, the win share of seats that fire, and how many detonations were followed by a capture of the tile;
 - **Phase 3 lines**: PP spent on bombs, fallout attrition, proliferation discounts taken.
 
+**Shipped:** `backend/scripts/simWw2Balance.ts`. Custom mode plays the Quick Match default ending, Conquest (domination or 65% of the board): the custom lobby's own default is domination with no turn cap, and six bots never resolve it inside 90 turns, so a harness on it would measure only the cap. Full mode plays Full Game's own defaults (`DEFAULT_FULL_GAME_PREFS`): four seats, medium bots, the full-board ending, a 150-turn cap. Naval, events and cards are off in both, as in the other harnesses.
+
+**The control (1,000 games per cell on each of three seeds, `ww2-a`, `ww2-b` and `ww2-c`, averaged):**
+
+| | Custom, 6 seats | Custom, 4 seats | Full Game, 4 seats |
+|---|---|---|---|
+| length | 48.7 | 30.4 | 108.0 |
+| decisive | 89.8% | 96.4% | 61.0% |
+| turn-10 leader | 47.3% | 61.4% | 30.8% |
+| PP banked at game end, per seat | 219 | 155 | 1,105 |
+| games where anyone researches Manhattan | 80.2% | 50.7% | 17.8% |
+| ...first on turn | 30.0 | 25.0 | 43.6 |
+| seats that research it | 60.9% | 34.5% | 5.4% |
+| bombs fired | 0 | 0 | 0 |
+
+| Faction win rate, custom | Germany | Soviet Union | USA | UK | Japan | China |
+|---|---|---|---|---|---|---|
+| 6 seats (fair share 16.7%) | 26.4% | 9.9% | 9.7% | 44.0% | 2.6% | 7.3% |
+| 4 seats (fair share 25%) | 48.4% | 8.3% | 31.5% | 28.4% | 15.4% | 17.9% |
+
+What the control says:
+
+- **Bots reach the bomb and never use it.** Expert bots research Manhattan in four custom games out of five at six seats, around turn 30 of a 49-turn game, and fire it in none.
+- **Full Game passes WW2 by.** 87.5% of seats reach WW2, on turn 29.5, and 93% of those leave it after 8.7 turns; 6.1% research Manhattan while they are there. The bomb is researched in 17.8% of Full Games, first on turn 43.6.
+- **The WW2 factions are far apart with the economy on.** The UK wins 44% at six seats and Japan 2.6%; Germany wins 48% at four. That is the control's own spread, outside this package's scope, and the bands below are read against it, as the galaxy's were. It is noted in §7.
+
 ---
 
 ## 3. Phase 1 — The bots and the bomb
@@ -104,7 +130,36 @@ It reports, beside the usual length, decisiveness, turn-10 leader and per-factio
 - **Firing.** In the attack phase, before its attacks, a bot holding an unused bomb fires it at the best target, scored as units destroyed plus the value of the buildings razed, with a bonus for a target it can walk into this turn and for an enemy capital. Because a once-per-game weapon should not be spent on a small stack, it fires only when the best target is worth at least a threshold the sim sets, or at any target when it is the last turn of a capped game.
 - **Taking.** If a bot holds a stack next to the tile it bombed, the walk-in is added to the head of its attack plan, so the neutral 1-unit tile is taken this turn.
 
-**Gate:** the §8 lines, plus the usage line: bots fire the bomb in most games in which they hold it.
+**Gate:** the §6 lines, plus the usage line: bots fire the bomb in most games in which they hold it.
+
+**Shipped (dark):** `ai/aiAtomBomb.ts` behind `ww2_bomb_ai_enabled`, baked as `settings.ww2_bomb_ai` in every game that can play the WW2 tree (a WW2 game, or any climb). `selectAiTechResearch` takes the bomb's path before its score, for hard and expert bots only; `processAiTurn` fires the bomb after the faction strike and before the attacks, through `executeTechAbility`, spends a carried charge as the human handler does, puts out a seat the bomb left with nothing (`applyBombElimination`), shows the strike to the table, and puts the walk-in at the head of the plan. A bot never bombs a truce partner or a shielded seat. `AI_BOMB_MIN_VALUE` (8: units, plus two per building, plus two for a walk-in and three for a capital) keeps a once-per-game bomb for a target worth it, except on a capped game's last turn.
+
+**Measured (same seeds and cells):**
+
+| | Custom 6: control | Phase 1 | Custom 4: control | Phase 1 | Full Game: control | Phase 1 |
+|---|---|---|---|---|---|---|
+| length | 48.7 | 48.0 | 30.4 | 26.4 | 108.0 | 108.2 |
+| decisive | 89.8% | 91.8% | 96.4% | 98.7% | 61.0% | 60.9% |
+| turn-10 leader | 47.3% | 47.0% | 61.4% | **64.1%** | 30.8% | 31.1% |
+| PP banked | 219 | 122 | 155 | 64 | 1,105 | 1,093 |
+| games where anyone researches Manhattan | 80.2% | 75.2% | 50.7% | 42.0% | 17.8% | 17.8% |
+| bombs fired per game | 0 | 2.98 | 0 | 0.91 | 0 | 0.20 |
+| holders who fire | — | 100% | — | 100% | — | 100% |
+| seats that fire win | — | 25.0% | — | 44.1% | — | 14.7% |
+| detonations walked into the same turn | — | 17.0% | — | 33.5% | — | 52.8% |
+
+| Faction win rate, custom 6 | Germany | Soviet Union | USA | UK | Japan | China |
+|---|---|---|---|---|---|---|
+| control | 26.4% | 9.9% | 9.7% | 44.0% | 2.6% | 7.3% |
+| Phase 1 | 23.8% | 10.5% | 10.3% | 42.6% | 4.1% | 8.6% |
+
+Reading the gate:
+
+- **Usage passes.** Every bot that holds the bomb fires it, and the seats that fire win 25% at six seats and 44% at four, under 60%.
+- **Six seats pass every line.** Games are as long, more decisive, the turn-10 leader is flat, and every faction moves toward its fair share.
+- **Four seats fail the snowball line.** The turn-10 leader wins 2.7 points more often, on every seed (+3.8, +2.9, +1.2). With three rivals a once-per-game wipe is a kill shot, and the seat that reaches tier 4 first is usually the one already ahead. Games end four turns sooner. That is the rule's doing more than the bots': Phase 3 changes the rule, and Phase 1 is promoted with it or after it, not alone.
+- **Full Game barely moves**, because its default bots are medium and medium does not pursue the bomb.
+- **PP banked falls by half** in custom games: bombs raze the industry that would have earned it.
 
 ---
 
@@ -152,7 +207,7 @@ Why each piece:
 
 **AI:** the Phase 1 module prices each detonation against the target and the purse, and weighs fallout before walking in.
 
-**Client:** the ability button names the price and the fallout; a fallout tile is marked on the map with its rounds left; the research panel shows the proliferation discount.
+**Client:** the ability button names the price, says once per turn, and describes the fallout; the territory panel names a fallout tile's rounds left, the way it names a garrison doctrine (per-tile states are not drawn on the map today); the tech tree shows Manhattan's discounted price.
 
 ---
 
@@ -170,6 +225,7 @@ The harness runs every phase in custom mode at six and four seats, and in full m
 ## 7. Out of scope, and noted for later
 
 - **Tech trees without the economy earn no tech points.** Base tech income is paid inside `collectProduction`, which returns at once when the economy is off, and no WW2 tier-1 node pays tech income, so a tech-on, economy-off game can never research anything. That is true of every classic era, it is a lobby-level problem, and it deserves its own fix.
+- **The WW2 factions with the economy on.** The control's spread (UK 44% and Japan 2.6% at six seats, Germany 48% at four) is the era's own, not this package's. `simFactionBalance.ts`, which plays no economy, sees a much narrower one, so the economy and the tree are where to look first.
 - **The wonder's name.** One of the two Manhattan Projects needs another name before Phase 3 is promoted; the wonder is the easier one to rename.
 - **Cold War Nuclear Strike and the other tech strikes.** Bots never fire them either. Phase 1's module is the pattern for widening that.
 - **Signature mid-game abilities for the other eras.** The same reach-then-scope pattern, once WW2 shows what works.

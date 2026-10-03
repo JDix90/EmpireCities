@@ -89,6 +89,9 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   galaxy_powers_enabled: () => envOptIn('GALAXY_POWERS_ENABLED'),
   // Phase 5: a building per world rule, and a toll on the lanes. Dark-launched OFF; baked at create.
   galaxy_world_buildings_enabled: () => envOptIn('GALAXY_WORLD_BUILDINGS_ENABLED'),
+  // WW2 Manhattan Project (docs/WW2_MANHATTAN_PROJECT.md), Phase 1: hard and
+  // expert bots research toward the Atom Bomb and fire it. Dark-launched OFF; baked at create.
+  ww2_bomb_ai_enabled: () => envOptIn('WW2_BOMB_AI_ENABLED'),
   space_age_moon_race_enabled: () => envOptOut('SPACE_AGE_MOON_RACE_ENABLED'),
   space_age_moon_tribute_enabled: () => envOptIn('SPACE_AGE_MOON_TRIBUTE_ENABLED'),
   ranked_multi_size_enabled: () => envOptIn('RANKED_MULTI_SIZE_ENABLED'),
@@ -650,6 +653,18 @@ export const featureFlags = {
    */
   get galaxyWorldBuildingsEnabled(): boolean {
     return overrideBool('galaxy_world_buildings_enabled');
+  },
+
+  /**
+   * WW2 Manhattan Project, Phase 1 (docs/WW2_MANHATTAN_PROJECT.md §3): hard and
+   * expert bots research toward Manhattan Project, fire the Atom Bomb at a
+   * target worth it, and walk into the tile. The bomb's own rule is unchanged.
+   * Default OFF (dark launch); baked into game settings at create as
+   * `ww2_bomb_ai`, so a flip never re-rules a match in progress.
+   * Kill switch: `WW2_BOMB_AI_ENABLED` or the `ww2_bomb_ai_enabled` admin override.
+   */
+  get ww2BombAiEnabled(): boolean {
+    return overrideBool('ww2_bomb_ai_enabled');
   },
 
   /**

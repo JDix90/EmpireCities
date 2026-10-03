@@ -706,6 +706,13 @@ export interface GameSettings {
    */
   galaxy_world_buildings?: boolean;
   /**
+   * WW2 Manhattan Project, Phase 1 (docs/WW2_MANHATTAN_PROJECT.md §3): hard and
+   * expert bots research toward the Atom Bomb and fire it (ai/aiAtomBomb.ts).
+   * Baked at create from the `ww2_bomb_ai_enabled` feature flag, in every game
+   * that can play the WW2 tree.
+   */
+  ww2_bomb_ai?: boolean;
+  /**
    * Galactic Age Schism (five to eight seats): how the two houses on a split
    * world start — under the Concord, a truce for the opening rounds, in Civil
    * War, or Allied, every world's seats one team. Absent means the Concord;

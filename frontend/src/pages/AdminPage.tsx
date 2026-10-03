@@ -200,6 +200,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Lattice Logistics opens a building for each world rule and a toll on the lanes: Habitat Dome (Sol III; the Cradle musters its system to 3, not 2, 5 PP), Storm Shelter (Verdan Reach; the storms strike its system only above 18, not 12, 5 PP), Vault Conduit (a Gate Ring system, one per Vault; +1 tech a turn while its owner holds the whole Vault, 6 PP) and Toll Beacon (any gateway; +1 PP a turn while its owner holds both ends of the lane, 6 PP). Baked into each game at creation. OFF by default (dark launch) — Phase 5 of docs/GALACTIC_AGE_BUILDINGS.md; promote on its sim gate.',
   },
   {
+    key: 'ww2_bomb_ai_enabled',
+    label: 'WW2 bots and the Atom Bomb',
+    description:
+      'Hard and expert bots research toward Manhattan Project, fire the Atom Bomb at a target worth it (a big stack, its buildings, a tile they can walk into) and walk in. The bomb itself is unchanged: once per game, behind Panzer Tactics. Applies to WW2 games and to climbs that pass through WW2. Baked into each game at creation. OFF by default (dark launch) — Phase 1 of docs/WW2_MANHATTAN_PROJECT.md; promote on its sim gate.',
+  },
+  {
     key: 'galaxy_world_rules_enabled',
     label: 'Galactic Age worlds as characters',
     description:

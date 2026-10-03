@@ -194,6 +194,7 @@ export function bakeCreateGameSettings(input: Theater & {
         ? [rawSettings.victory_type]
         : ['domination'];
   const isGalaxyRules = isGalaxyRulesTheater(input);
+  const playsWw2Tree = input.era_id === 'ww2' || rawSettings.era_advancement_enabled === true;
   const galaxyHomeWorldsOff = isGalacticAge && rawSettings.galaxy_home_worlds === false;
   return normalizeGameSettings(
     applyOrbitGatedVictoryDefaults(
@@ -223,6 +224,9 @@ export function bakeCreateGameSettings(input: Theater & {
         galaxy_garrisons: isGalaxyRules ? featureFlags.galaxyGarrisonsEnabled : undefined,
         galaxy_powers: isGalaxyRules ? featureFlags.galaxyPowersEnabled : undefined,
         galaxy_world_buildings: isGalaxyRules ? featureFlags.galaxyWorldBuildingsEnabled : undefined,
+        // WW2 Manhattan Project: wherever the WW2 tree can be played — a WW2
+        // game, or a climb that passes through it. Read only by that tree.
+        ww2_bomb_ai: playsWw2Tree ? featureFlags.ww2BombAiEnabled : undefined,
         // Every Moon Race phase this game runs, resolved above. Spread rather
         // than listed so a sixth phase needs no edit here.
         ...moonRace.phases,
@@ -270,6 +274,7 @@ const THEATER_BAKED_KEYS = [
   'galaxy_garrisons',
   'galaxy_powers',
   'galaxy_world_buildings',
+  'ww2_bomb_ai',
 ] as const;
 
 /**
