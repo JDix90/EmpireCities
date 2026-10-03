@@ -3,6 +3,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import type { GameMap } from '../../types';
 import { simulatePuzzle } from './puzzleSim';
+import { getEraTechTree } from '../eras';
 import type { DailyPuzzleSpec } from './dailyPuzzleTypes';
 
 /**
@@ -45,9 +46,9 @@ function hold(board: DailyPuzzleSpec['starting_board'], overrides: Partial<Daily
 }
 
 describe('puzzleSim', () => {
-  it('covers capture and hold days only', async () => {
-    const econ = { ...capture({}), archetype: 'economy_build' as const, building_type: 'production_1' as const };
-    expect(await simulatePuzzle(econ, map, { games: 4 })).toBeNull();
+  it('covers every verb but domination, which plays to conquest on its own rules', async () => {
+    const dom = { ...capture({}), archetype: 'domination' as const };
+    expect(await simulatePuzzle(dom, map, { games: 4 })).toBeNull();
   });
 
   it('is deterministic: the same spec simulates identically', async () => {
@@ -99,5 +100,69 @@ describe('puzzleSim', () => {
       { games: 20 },
     );
     expect(doomed!.solve_rate).toBeLessThanOrEqual(0.1);
+  });
+});
+
+/**
+ * A build day on the Ancient board: Gaul and Hispania are the player's, Italy
+ * the AI's, bordering Gaul. The arithmetic says the budget reaches a Workshop
+ * on turn two; the simulator says whether the stack in Italy lets it.
+ */
+function build(board: DailyPuzzleSpec['starting_board'], overrides: Partial<DailyPuzzleSpec> = {}): DailyPuzzleSpec {
+  return {
+    archetype: 'economy_build',
+    title: 'T', intro: 'i', goal: 'g',
+    era_id: 'ancient', map_id: 'era_ancient', seed: 555, player_count: 2, max_turns: 5, dice_queue_seed: 66,
+    building_type: 'production_1',
+    ai_difficulty: 'medium',
+    clear_board: true,
+    starting_board: board,
+    grants: { gold: 2 },
+    ...overrides,
+  };
+}
+
+describe('puzzleSim — build and research days', () => {
+  it('raises the goal where the enemy cannot reach, and calls a safe budget solved', async () => {
+    const r = await simulatePuzzle(
+      build({ gaul: { owner: 'human', unit_count: 8 }, hispania: { owner: 'human', unit_count: 5 }, italia: { owner: 'ai', unit_count: 6 } }),
+      map,
+      { games: 20 },
+    );
+    expect(r!.solve_rate).toBeGreaterThanOrEqual(0.9);
+    // Two PP granted, one earned on turn two: the Workshop goes up on turn two.
+    expect(r!.median_turns).toBe(2);
+  });
+
+  it('calls a lost cause a lost cause: a token stack beside an army, on a clock it cannot outlast', async () => {
+    const r = await simulatePuzzle(
+      build(
+        { gaul: { owner: 'human', unit_count: 1 }, italia: { owner: 'ai', unit_count: 40 } },
+        { grants: { gold: 0 }, max_turns: 2 },
+      ),
+      map,
+      { games: 20 },
+    );
+    expect(r!.solve_rate).toBeLessThanOrEqual(0.1);
+  });
+
+  it('researches the goal when the points land', async () => {
+    const root = getEraTechTree('ancient').find((n) => !n.prerequisite)!;
+    const r = await simulatePuzzle(
+      build(
+        { gaul: { owner: 'human', unit_count: 8 }, hispania: { owner: 'human', unit_count: 5 }, italia: { owner: 'ai', unit_count: 6 } },
+        {
+          archetype: 'tech_research',
+          tech_id: root.tech_id,
+          building_type: undefined,
+          grants: { tech_points: Math.max(0, root.cost - 1) },
+          settings_overrides: { economy_tech_starting_tech_points: 0 },
+          max_turns: 5,
+        },
+      ),
+      map,
+      { games: 20 },
+    );
+    expect(r!.solve_rate).toBeGreaterThanOrEqual(0.9);
   });
 });

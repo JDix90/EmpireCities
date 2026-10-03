@@ -265,6 +265,22 @@ describe('daily schedule — the sweep', { timeout: 120_000 }, () => {
     expect(outOfBand / simulated, `${outOfBand} of ${simulated} served above the band`).toBeLessThanOrEqual(0.05);
   });
 
+  it('every served build and research day is proven by the simulator: the obvious line solves it against the bot', async () => {
+    await ready;
+    let simulated = 0;
+    for (const { date, spec } of days) {
+      if (spec.archetype !== 'economy_build' && spec.archetype !== 'tech_research') continue;
+      simulated += 1;
+      const band = GATE_BANDS[spec.archetype];
+      const r = (await simulatePuzzle(spec, (await loadMap(spec.map_id))!, { games: GATE_GAMES }))!;
+      // The floor is absolute: a budget the bot never lets you spend is an unwinnable board.
+      expect(r.solve_rate, `${date} ${spec.title}: ${(r.solve_rate * 100).toFixed(0)}% solvable`).toBeGreaterThanOrEqual(band.min);
+      // The gate moves the clock; the arithmetic floor still holds.
+      expect(spec.par_turns, `${date}: a build day carries no par`).toBeUndefined();
+    }
+    expect(simulated).toBeGreaterThan(30);
+  });
+
   it('region days: the human holds most of the region, every AI garrison is reachable, and the goal names the region', async () => {
     await ready;
     let seen = 0;

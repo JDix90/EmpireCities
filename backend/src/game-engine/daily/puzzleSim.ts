@@ -25,11 +25,16 @@
  * exported for the v2 puzzle solver's parity test (puzzle/modelParity.test.ts),
  * which plays the same lines through the engine against a scripted opponent.
  *
- * Scope: the capture verbs (single, chain, region) and hold. Economy and
- * tech days keep the arithmetic check (dailyGenerator.sizeEarnable), which
- * is exact.
+ * Scope: the capture verbs (single, chain, region), hold, and the build and
+ * research days. The arithmetic check (dailyGenerator.sizeEarnable) says a
+ * build day's budget reaches the goal in time; only a played game says
+ * whether the bot next door lets it.
  */
-import type { AiDifficulty, GameMap, GameSettings, GameState, MapConnection } from '../../types';
+import type { AiDifficulty, BuildingType, EraId, GameMap, GameSettings, GameState, MapConnection } from '../../types';
+import type { TechNode } from '../eras/types';
+import { getEraTechTree } from '../eras';
+import { BUILDING_PREREQUISITES, applyBuild, validateBuild } from '../state/economyManager';
+import { applyResearch, validateResearch } from '../state/techManager';
 import type { DailyPuzzleSpec } from './dailyPuzzleTypes';
 import { buildGameSettingsFromChallenge } from './dailySettings';
 import { applyDailyPuzzleScenario } from './applyDailyPuzzleScenario';
@@ -42,6 +47,7 @@ import { createSeededRng, hashStringToSeed } from '../victory/missions';
 
 export const SIMULATED_ARCHETYPES = new Set<DailyPuzzleSpec['archetype']>([
   'military_capture', 'hold_territory', 'control_region', 'capture_chain',
+  'economy_build', 'tech_research',
 ]);
 
 export interface PuzzleSimOptions {
@@ -198,6 +204,89 @@ export function holdLine(state: GameState, map: GameMap, spec: DailyPuzzleSpec):
   if (reserve) fortifyAll(state, HUMAN, reserve, target);
 }
 
+// ── The human seat: the build line ───────────────────────────────────────────
+
+/** The tiers a building goal needs, the goal last: a Foundry needs a Workshop first. */
+function buildingChain(goal: BuildingType): BuildingType[] {
+  const chain: BuildingType[] = [];
+  let cur: BuildingType | undefined = goal;
+  for (let guard = 0; cur && guard < 8; guard++) {
+    chain.unshift(cur);
+    cur = BUILDING_PREREQUISITES[cur];
+  }
+  return chain;
+}
+
+/** The nodes a research goal needs, the goal last. */
+function techChain(era: EraId, techId: string): TechNode[] {
+  const tree = getEraTechTree(era);
+  const chain: TechNode[] = [];
+  let cur: string | undefined = techId;
+  for (let guard = 0; cur && guard < 8; guard++) {
+    const node = tree.find((n) => n.tech_id === cur);
+    if (!node) break;
+    chain.unshift(node);
+    cur = node.prerequisite;
+  }
+  return chain;
+}
+
+/**
+ * The obvious line for a build or research day: reinforce the thinnest
+ * territory the enemy borders, raise the goal where the enemy cannot reach
+ * (and keep raising it where the first tier went up), never attack, and
+ * bring an interior stack up behind the front. What the day asks of a
+ * player is to find the money AND keep the site: a line that ignored the
+ * bot would measure the arithmetic, which is already exact.
+ */
+export function buildLine(state: GameState, map: GameMap, spec: DailyPuzzleSpec): void {
+  const mine = ownedBy(state, HUMAN);
+  if (mine.length === 0) {
+    state.draft_units_remaining = 0;
+    return;
+  }
+  const units = (t: string) => state.territories[t].unit_count;
+  const exposed = (t: string) => neighbours(map, t).some((n) => state.territories[n]?.owner_id === AI);
+  const thinnest = (ts: string[]) => ts.reduce((a, b) => (units(b) < units(a) ? b : a));
+  const biggest = (ts: string[]) => ts.reduce((a, b) => (units(b) > units(a) ? b : a));
+  const front = mine.filter(exposed);
+
+  state.phase = 'draft';
+  placeDraft(state, front.length > 0 ? thinnest(front) : biggest(mine));
+
+  if (spec.archetype === 'economy_build' && spec.building_type) {
+    const chain = buildingChain(spec.building_type);
+    const started = mine.find((t) =>
+      (state.territories[t].buildings ?? []).some((b) => chain.includes(b as BuildingType)),
+    );
+    const interior = mine.filter((t) => !exposed(t));
+    const site = started ?? (interior.length > 0 ? biggest(interior) : biggest(mine));
+    for (const tier of chain) {
+      if ((state.territories[site].buildings ?? []).includes(tier)) continue;
+      if (!validateBuild(state, HUMAN, site, tier).valid) break;
+      applyBuild(state, HUMAN, site, tier);
+    }
+  } else if (spec.archetype === 'tech_research' && spec.tech_id) {
+    const human = state.players.find((p) => p.player_id === HUMAN);
+    for (const node of techChain(spec.era_id, spec.tech_id)) {
+      if (human?.unlocked_techs?.includes(node.tech_id)) continue;
+      if (!validateResearch(state, HUMAN, node.tech_id).valid) break;
+      applyResearch(state, HUMAN, node);
+    }
+  }
+
+  // Never attack. An interior stack moves up behind the thinnest front tile.
+  state.phase = 'fortify';
+  if (front.length > 0) {
+    const feeder = mine
+      .filter((t) => !exposed(t) && units(t) > 1)
+      .find((t) => neighbours(map, t).some((n) => front.includes(n)));
+    if (feeder) {
+      fortifyAll(state, HUMAN, feeder, thinnest(neighbours(map, feeder).filter((n) => front.includes(n))));
+    }
+  }
+}
+
 // ── The AI seat: the shipped bot ─────────────────────────────────────────────
 
 async function aiTurn(
@@ -297,6 +386,7 @@ async function playOne(spec: DailyPuzzleSpec, map: GameMap, seed: number): Promi
     if (!player.is_eliminated) {
       if (player.player_id === HUMAN) {
         if (spec.archetype === 'hold_territory') holdLine(state, map, spec);
+        else if (spec.archetype === 'economy_build' || spec.archetype === 'tech_research') buildLine(state, map, spec);
         else captureLine(state, map, spec, dieRoll);
       } else {
         await aiTurn(state, map, difficulty, dieRoll, rng);
