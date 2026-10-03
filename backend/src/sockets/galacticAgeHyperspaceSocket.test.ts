@@ -42,6 +42,7 @@ import type { AddressInfo } from 'net';
 import type { Server as IOServer } from 'socket.io';
 import { io as ClientIO, type Socket as ClientSocket } from 'socket.io-client';
 import { readFileSync } from 'fs';
+import { syncJumpGateLanes } from '../game-engine/state/jumpGates';
 import { join } from 'path';
 import type { GameState, GameMap, GameSettings } from '../types';
 import { initializeGameState } from '../game-engine/state/gameStateManager';
@@ -564,5 +565,48 @@ describe.runIf(redisTestEnabled)('Galactic Age hyperspace — human socket path'
     const attack = await act(c, 'game:attack', { gameId, fromId: SOL_GATE, toId: RUST_GATE }, 'game:combat_result');
     expect(attack.ok).toBe(false);
     if (!attack.ok) expect(attack.error).toMatch(/cannot carry an attack/);
+  }, 45_000);
+
+  it('orbital infrastructure: taking a gate on a gateway keeps the building, cuts its lane, and redraws the map', async () => {
+    const gameId = 'itest-ga-orbital-gate';
+    const map = freshMap();
+    const state = freshState(gameId, map, { galaxy_orbital_buildings: true });
+    // The Mandate gates a Sol tile to the Verdan gateway it holds.
+    const SOL_INTERIOR = 'sol_columbia';
+    const VERDAN_GATEWAY = 'verdan_photic_crown';
+    const VERDAN_NEIGHBOUR = 'verdan_spore_reach';
+    state.territories[SOL_INTERIOR].owner_id = P[0];
+    state.territories[SOL_INTERIOR].buildings = ['jump_gate'];
+    state.territories[VERDAN_GATEWAY].owner_id = P[0];
+    state.territories[VERDAN_GATEWAY].unit_count = 1;
+    state.territories[VERDAN_GATEWAY].buildings = ['jump_gate'];
+    state.jump_gate_links = [{ a: SOL_INTERIOR, b: VERDAN_GATEWAY }];
+    expect(syncJumpGateLanes(map, state)).toBe(true);
+    expect(state.territories[VERDAN_GATEWAY].gateway).toBe(true);
+    // The Navigators take it overland with rigged dice.
+    state.territories[VERDAN_NEIGHBOUR].owner_id = P[2];
+    state.territories[VERDAN_NEIGHBOUR].unit_count = 12;
+    state.current_player_index = 2;
+    state.phase = 'attack';
+    state.puzzle_dice_queue = [6, 6, 6, ...Array(40).fill(1)];
+    await seed(gameId, state, map);
+    const c = await connect(P[2]); await joinRoom(P[2], gameId);
+
+    const redrawn = new Promise<GameMap>((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error('no game:map after the capture')), 10_000);
+      c.once('game:map', (payload: { map: GameMap }) => { clearTimeout(t); resolve(payload.map); });
+    });
+    const r = await act<{ result: { territory_captured: boolean } }>(c, 'game:attack', { gameId, fromId: VERDAN_NEIGHBOUR, toId: VERDAN_GATEWAY }, 'game:combat_result');
+    expect(r.ok, r.ok ? '' : r.error).toBe(true);
+    if (r.ok) expect(r.data.result.territory_captured).toBe(true);
+
+    const after = await waitForRedisState(gameId, (st) => st.territories[VERDAN_GATEWAY].owner_id === P[2]);
+    // The gate passed as a building; its lane did not.
+    expect(after.territories[VERDAN_GATEWAY].buildings).toContain('jump_gate');
+    expect(after.territories[SOL_INTERIOR].buildings).toContain('jump_gate');
+    expect(after.jump_gate_links ?? []).toEqual([]);
+    // And the room was told, so the chart stops drawing a lane nobody can use.
+    const drawn = await redrawn;
+    expect(drawn.connections.some((conn) => conn.source === 'jump_gate')).toBe(false);
   }, 45_000);
 });

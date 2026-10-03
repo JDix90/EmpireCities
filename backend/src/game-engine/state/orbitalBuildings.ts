@@ -6,9 +6,11 @@
 // galaxy is fought over its gateway tiles — they change hands about 70 times
 // a game (GALAXY-BALANCE §2) — and `onTerritoryCapture` razes everything but
 // wonders, so the tiles the era is about were the worst tiles to build on.
-// Under this rule a gateway's buildings pass to whoever takes it, the way a
-// captured Jump Gate end already carries its lane (jumpGates.ts). Interior
-// tiles keep today's rule; wonders keep theirs.
+// Under this rule a gateway's buildings pass to whoever takes it. Interior
+// tiles keep today's rule; wonders keep theirs. A Jump Gate passes as a
+// building and loses its lane (`severJumpGateLinks`): measured with the lane
+// kept, the ring churned instead of settling, and with it cut the rule beats
+// the control on every gate the design doc sets (§4).
 //
 // Gateway membership is stamped onto state (`TerritoryState.gateway`) when a
 // territory enters play — at init and at a Space to Stars unlock — because

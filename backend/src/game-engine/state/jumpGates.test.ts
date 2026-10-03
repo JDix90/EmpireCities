@@ -26,6 +26,7 @@ import {
   playerGateTerritoryIds,
   playerHasGateOnWorld,
   recordJumpGateLinks,
+  severJumpGateLinks,
   syncJumpGateLanes,
 } from './jumpGates';
 
@@ -134,6 +135,27 @@ describe('the lane a pair opens', () => {
     state.territories[RUST].owner_id = 'p_rust'; // the Syndicate takes it back
     expect(syncJumpGateLanes(map, state)).toBe(false);
     expect(jumpGateLaneConnections(state)).toHaveLength(1);
+  });
+
+  it('can be severed at one end, leaving the building and every other link alone', () => {
+    const { state, map } = freshGalaxy();
+    grant(state, 'p_sol', SOL, RUST, VERDAN);
+    applyBuild(state, 'p_sol', SOL, 'jump_gate');
+    applyBuild(state, 'p_sol', RUST, 'jump_gate');
+    applyBuild(state, 'p_sol', VERDAN, 'jump_gate');
+    syncJumpGateLanes(map, state);
+    expect(state.jump_gate_links).toHaveLength(3);
+
+    expect(severJumpGateLinks(state, RUST)).toBe(true);
+    expect(state.jump_gate_links).toEqual([{ a: SOL, b: VERDAN }].map((l) => (l.a < l.b ? l : { a: l.b, b: l.a })));
+    expect(state.territories[RUST].buildings).toContain('jump_gate');
+    // The map copy follows at the next sync, and only the severed lanes go.
+    expect(syncJumpGateLanes(map, state)).toBe(true);
+    expect(jumpGateLaneConnections(state)).toHaveLength(1);
+    expect(map.connections.filter((c) => c.source === 'jump_gate')).toHaveLength(1);
+    // Nothing to sever is a no-op.
+    expect(severJumpGateLinks(state, RUST)).toBe(false);
+    expect(severJumpGateLinks(state, 'sol_sahara')).toBe(false);
   });
 
   it('dies with either building, and takes its link with it', () => {
