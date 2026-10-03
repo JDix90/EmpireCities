@@ -17,7 +17,7 @@ import { bucketForVerb, WEEKDAY_CADENCE } from '../game-engine/daily/dailySchedu
 
 interface MapDoc {
   territories: Array<{ territory_id: string }>;
-  connections: Array<{ from: string; to: string; type: string }>;
+  connections: Array<{ from: string; to: string; type?: string; type: string }>;
 }
 
 const mapCache = new Map<string, MapDoc>();
@@ -34,6 +34,13 @@ function loadMap(mapId: string): MapDoc {
 function borders(map: MapDoc, a: string, b: string): boolean {
   return map.connections.some(
     (c) => (c.from === a && c.to === b) || (c.from === b && c.to === a),
+  );
+}
+
+/** A land edge: the one kind of border a siege can press within a turn. */
+function bordersByLand(map: MapDoc, a: string, b: string): boolean {
+  return map.connections.some(
+    (c) => ((c.from === a && c.to === b) || (c.from === b && c.to === a)) && (c.type ?? 'land') === 'land',
   );
 }
 
@@ -161,7 +168,10 @@ describe('daily set-pieces — shape', () => {
       // A cleared board's empty neutrals can be taken by no one, so an AI that
       // starts out of reach stays out of reach: the day has no fight in it.
       for (const g of sp.ai) {
-        expect(sp.human.some((h) => borders(map, h, g)), `${sp.id}: AI garrison ${g} borders no human territory`).toBe(true);
+        // By land: the bot besieges the player on these days, and a sea
+        // crossing cannot be pressed within a turn (aiAttackGrind), so an
+        // island bot would be a rumour rather than a siege.
+        expect(sp.human.some((h) => bordersByLand(map, h, g)), `${sp.id}: AI garrison ${g} borders no human territory by land`).toBe(true);
       }
       expect(DEFAULT_BUILDING_COSTS[sp.building_type], `${sp.id}: ${sp.building_type} has no cost`).toBeGreaterThan(0);
     }
@@ -174,7 +184,10 @@ describe('daily set-pieces — shape', () => {
       expect(sp.ai.length, sp.id).toBeGreaterThan(0);
       expect(sp.human.some((t) => sp.ai.includes(t)), `${sp.id}: overlapping holdings`).toBe(false);
       for (const g of sp.ai) {
-        expect(sp.human.some((h) => borders(map, h, g)), `${sp.id}: AI garrison ${g} borders no human territory`).toBe(true);
+        // By land: the bot besieges the player on these days, and a sea
+        // crossing cannot be pressed within a turn (aiAttackGrind), so an
+        // island bot would be a rumour rather than a siege.
+        expect(sp.human.some((h) => bordersByLand(map, h, g)), `${sp.id}: AI garrison ${g} borders no human territory by land`).toBe(true);
       }
       const node = getEraTechTree(sp.era_id).find((n) => n.tech_id === sp.tech_id);
       expect(node, `${sp.id}: ${sp.tech_id} not in the ${sp.era_id} tree`).toBeDefined();

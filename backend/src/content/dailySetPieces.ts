@@ -22,9 +22,10 @@ import type { DailyPuzzleSpec } from '../game-engine/daily/dailyPuzzleTypes';
  * - tactical: the anchor borders the target; support borders the anchor;
  *   relief borders the target; none of the four coincide;
  * - economy/tech: human and AI holdings are non-empty and disjoint; every AI
- *   garrison borders a human territory (a day nobody can fight is a
- *   spreadsheet, not a puzzle); the building is in the cost table; the tech
- *   is in the era's tree;
+ *   garrison borders a human territory BY LAND (the bot besieges the player
+ *   on these days, and a sea crossing cannot be pressed within a turn, so an
+ *   island bot is a rumour, not a siege); the building is in the cost table;
+ *   the tech is in the era's tree;
  * - region: human + AI holdings are exactly the region; every AI garrison
  *   borders a human territory; support borders a human region territory;
  * - chain: the first target borders the anchor and each next borders the
@@ -312,9 +313,10 @@ export const DAILY_SET_PIECES: readonly DailySetPiece[] = [
     era_id: 'ancient',
     map_id: 'era_ancient',
     title: 'All Roads',
-    intro: 'An empire is only as large as the distance a legion can march in a season.',
+    intro: 'An empire is only as large as the distance a legion can march in a season — and the Gauls are marching the other way.',
     human: ['italia', 'greece'],
-    ai: ['anatolia'],
+    // A land border with Italy, which a siege can press; Anatolia was across the sea.
+    ai: ['gaul'],
     tech_id: 'ancient_roads',
   },
 
@@ -590,10 +592,11 @@ export const DAILY_SET_PIECES: readonly DailySetPiece[] = [
     era_id: 'ancient',
     map_id: 'era_ancient',
     title: 'Engines of Siege',
-    intro: 'Iron first, then the machines that use it. Two discoveries, one season.',
+    intro: 'Iron first, then the machines that use it. Two discoveries, one season — with the steppe riders at the border.',
     hint: 'Siege Engines needs Iron Weapons first — research in order and hold your ground for the points.',
     human: ['italia', 'greece'],
-    ai: ['anatolia'],
+    // A land border with Greece, which a siege can press; Anatolia was across the sea.
+    ai: ['pontic_steppe'],
     tech_id: 'ancient_siege_engines',
   },
 
@@ -625,11 +628,12 @@ export const DAILY_SET_PIECES: readonly DailySetPiece[] = [
     era_id: 'ww2',
     map_id: 'era_ww2',
     title: 'Arsenal of Democracy',
-    intro: 'One factory is a start. Two, one on top of the other, is a war economy. Build them in order — the Pacific fleet is already at the islands off the West Coast.',
-    hint: 'Tier two needs tier one beneath it — the same territory, twice. Build where the fleet cannot reach.',
-    human: ['usa_east', 'usa_west', 'caribbean'],
-    // Bordering Western USA: the fleet is a threat, not a rumour across an ocean.
-    ai: ['pacific_islands'],
+    intro: 'One factory is a start. Two, one on top of the other, is a war economy. Build them in order — the enemy has already landed on the West Coast.',
+    hint: 'Tier two needs tier one beneath it — the same territory, twice. Build behind the line, and hold the line.',
+    human: ['usa_east', 'caribbean'],
+    // The USA has no land neighbour but itself, so the bot holds the West
+    // Coast: a land border with the East, which a siege can actually press.
+    ai: ['usa_west'],
     building_type: 'production_2',
   },
   {

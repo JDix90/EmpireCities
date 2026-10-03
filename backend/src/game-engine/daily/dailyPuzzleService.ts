@@ -4,7 +4,7 @@ import { getEraTechTree } from '../eras';
 import type { DailyPuzzleSpec } from './dailyPuzzleTypes';
 import { buildDailyPuzzleBase, captureGoal, economySpecFromBase, regionGoal, territoryDisplayName } from './dailyGenerator';
 import { featureFlags } from '../../config/featureFlags';
-import { scheduleDay, type ScheduledDay } from './dailySchedule';
+import { scheduleDay, type ScheduledDay, type ScheduleDeps } from './dailySchedule';
 import { scheduleDayV2 } from './dailyScheduleV2';
 
 export { territoryDisplayName, captureGoal, regionGoal };
@@ -51,8 +51,8 @@ export async function enrichDailyPuzzleSpecForDisplay(spec: DailyPuzzleSpec): Pr
  * last-resort generator — and everything derives from the date, so every
  * process computes the identical day.
  */
-export async function buildCompleteDailyPuzzleSpec(today: string): Promise<DailyPuzzleSpec> {
-  return (await scheduleServedDay(today)).spec;
+export async function buildCompleteDailyPuzzleSpec(today: string, deps?: ScheduleDeps): Promise<DailyPuzzleSpec> {
+  return (await scheduleServedDay(today, deps)).spec;
 }
 
 /**
@@ -60,12 +60,14 @@ export async function buildCompleteDailyPuzzleSpec(today: string): Promise<Daily
  * date proved as one (docs/DAILY_PUZZLE_V2.md), else the v1 day. The flag is
  * read here, at the one seam, so both schedules stay pure in the date.
  */
-export async function scheduleServedDay(date: string): Promise<ScheduledDay> {
+export async function scheduleServedDay(date: string, deps?: ScheduleDeps): Promise<ScheduledDay> {
+  // `deps` is for tests that bring their own map store (or skip the gate);
+  // production leaves it unset so both schedules keep their per-date memo.
   if (featureFlags.dailyPuzzleV2Enabled) {
-    const v2 = await scheduleDayV2(date);
+    const v2 = deps ? await scheduleDayV2(date, deps) : await scheduleDayV2(date);
     if (v2) return v2;
   }
-  return scheduleDay(date);
+  return deps ? scheduleDay(date, deps) : scheduleDay(date);
 }
 
 export interface DailyChallengeRow {

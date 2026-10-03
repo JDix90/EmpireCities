@@ -130,8 +130,9 @@ describe('puzzleSim — build and research days', () => {
       { games: 20 },
     );
     expect(r!.solve_rate).toBeGreaterThanOrEqual(0.9);
-    // Two PP granted, one earned on turn two: the Workshop goes up on turn two.
-    expect(r!.median_turns).toBe(2);
+    // Two PP granted, one earned on turn two: the Workshop goes up on turn two,
+    // and counts once it has stood through the bot's reply, as turn three begins.
+    expect(r!.median_turns).toBe(3);
   });
 
   it('calls a lost cause a lost cause: a token stack beside an army, on a clock it cannot outlast', async () => {
@@ -164,5 +165,19 @@ describe('puzzleSim — build and research days', () => {
       { games: 20 },
     );
     expect(r!.solve_rate).toBeGreaterThanOrEqual(0.9);
+  });
+});
+
+describe('puzzleSim — the siege', () => {
+  it('a build day under siege is a fight: a heavy stack on the land border holds the line to a contest', async () => {
+    // Italy borders Gaul by land. The dealt 6-stack never disturbed a defended
+    // site; a stack of twenty does, and the day is no longer a certainty.
+    const spec = build({
+      gaul: { owner: 'human', unit_count: 5 }, hispania: { owner: 'human', unit_count: 5 },
+      italia: { owner: 'ai', unit_count: 20 },
+    }, { building_type: 'production_2', grants: { gold: 0 }, max_turns: 7 });
+    const r = (await simulatePuzzle(spec, map, { games: 30 }))!;
+    expect(r.solve_rate).toBeLessThan(0.9);
+    expect(r.solve_rate).toBeGreaterThan(0);
   });
 });

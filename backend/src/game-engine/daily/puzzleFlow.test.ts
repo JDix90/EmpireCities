@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { PUZZLE_OBJECTIVES } from './puzzleObjective';
 import type { GameMap, GameState } from '../../types';
 import { evaluatePuzzleObjective, isObjectiveMetAtConquest, isPuzzleTimedOut, puzzleTimeoutOutcome } from './puzzleObjective';
 import type { DailyPuzzleSpec } from './dailyPuzzleTypes';
@@ -232,5 +233,14 @@ describe('isObjectiveMetAtConquest — the human has just eliminated every rival
   it('has nothing to say about a domination day', () => {
     const spec: DailyPuzzleSpec = { ...base, archetype: 'domination' };
     expect(isObjectiveMetAtConquest(board({}), stubMap, spec, humanId)).toBe(false);
+  });
+});
+
+describe('economy_build is build AND hold', () => {
+  // A captured territory's buildings are razed, and the bot besieges the site
+  // on these days, so the goal has to stand through the reply like a capture.
+  it('waits for the reply, as a capture does; research cannot be taken back', () => {
+    expect(PUZZLE_OBJECTIVES.economy_build.holdThroughAiTurn).toBe(true);
+    expect(PUZZLE_OBJECTIVES.tech_research.holdThroughAiTurn).toBe(false);
   });
 });
