@@ -23,6 +23,16 @@ describe('BuildingPanel — era-aware buildings (#8)', () => {
     expect(onBuild).toHaveBeenCalledWith('launch_pad');
   });
 
+  it('offers a Galactic Age world building with its name, effect and price', () => {
+    const onBuild = vi.fn();
+    render(<BuildingPanel {...baseProps} onBuild={onBuild} extraBuildOptions={['toll_beacon']} />);
+    const btn = screen.getByRole('button', { name: /Toll Beacon/ });
+    expect(btn).toHaveTextContent('+1 PP/turn while you hold both ends of its lane (one per lane)');
+    expect(btn).toHaveTextContent('6💰');
+    fireEvent.click(btn);
+    expect(onBuild).toHaveBeenCalledWith('toll_beacon');
+  });
+
   it('does not offer an era-special building already built on the territory', () => {
     render(<BuildingPanel {...baseProps} buildings={['launch_pad']} extraBuildOptions={['launch_pad']} />);
     // It shows as an existing building, not as a build button.

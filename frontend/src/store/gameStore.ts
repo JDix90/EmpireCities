@@ -27,6 +27,8 @@ export interface TerritoryState {
   gateway?: boolean;
   /** Garrison doctrine this tile's stack holds (`galaxy_garrisons`); hidden under fog. */
   garrison_doctrine?: 'hardened' | 'forward';
+  /** Far ends of the authored lanes this gateway anchors; present only under `galaxy_world_buildings`. */
+  lane_partners?: string[];
   naval_units?: number;
   stability?: number;
   population?: number;
@@ -308,6 +310,8 @@ export interface GameState {
     galaxy_garrisons?: boolean;
     /** Galactic Age lane powers: per-turn PP-priced abilities. Baked at create. */
     galaxy_powers?: boolean;
+    /** Galactic Age world buildings: Habitat Dome, Storm Shelter, Vault Conduit, Toll Beacon. Baked at create. */
+    galaxy_world_buildings?: boolean;
     /** Galaxy per-world identity: world_id → modifiers, snapshotted from the map at init. */
     world_modifiers_enabled?: boolean;
     world_modifiers?: Record<string, WorldModifiers>;

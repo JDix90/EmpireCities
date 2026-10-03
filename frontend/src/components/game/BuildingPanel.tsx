@@ -4,11 +4,12 @@
  */
 import React from 'react';
 import clsx from 'clsx';
-import { Hammer, Shield, Zap, Star, Anchor, Rocket, Lock, History, Sparkles } from 'lucide-react';
+import { Hammer, Shield, Zap, Star, Anchor, Rocket, Lock, History, Sparkles, Home, Umbrella, Cable, Coins } from 'lucide-react';
 import type { BuildingModernization } from '../../utils/buildingHeritage';
 import {
   buildingDisplayName,
   buildingEffect,
+  GALAXY_WORLD_BUILDING_COSTS,
   GARRISON_DOCTRINE_DISPLAY,
   GARRISON_DOCTRINE_IDS,
   type GarrisonDoctrine,
@@ -43,6 +44,12 @@ const BUILD_CHROME: Record<string, { cost: number; icon: React.ReactNode; catego
   coastal_battery: { cost: 4, icon: <Shield className="w-3 h-3" />, category: 'coastal_defense' },
   launch_pad: { cost: 8, icon: <Rocket className="w-3 h-3" />, category: 'launch' },
   jump_gate: { cost: 12, icon: <Rocket className="w-3 h-3" />, category: 'jump_gate' },
+  // Galactic Age world buildings (`galaxy_world_buildings`): each its own slot.
+  // The panel offers one only where it can stand (utils/worldBuildings.ts).
+  habitat_dome: { cost: GALAXY_WORLD_BUILDING_COSTS.habitat_dome, icon: <Home className="w-3 h-3" />, category: 'habitat_dome' },
+  storm_shelter: { cost: GALAXY_WORLD_BUILDING_COSTS.storm_shelter, icon: <Umbrella className="w-3 h-3" />, category: 'storm_shelter' },
+  vault_conduit: { cost: GALAXY_WORLD_BUILDING_COSTS.vault_conduit, icon: <Cable className="w-3 h-3" />, category: 'vault_conduit' },
+  toll_beacon: { cost: GALAXY_WORLD_BUILDING_COSTS.toll_beacon, icon: <Coins className="w-3 h-3" />, category: 'toll_beacon' },
 };
 
 export const BUILDING_META: Record<

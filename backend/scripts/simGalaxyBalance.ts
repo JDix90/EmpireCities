@@ -133,6 +133,9 @@ import { applyBuild } from '../src/game-engine/state/economyManager';
 import { applyResearch, validateResearch } from '../src/game-engine/state/techManager';
 import { createSeededRng, hashStringToSeed } from '../src/game-engine/victory/missions';
 import { seedEngineRandomness, seededUuid } from './seededEngineRandomness';
+import { tollBeaconProductionIncome, vaultConduitTechIncome } from '../src/game-engine/state/worldBuildings';
+import { GALAXY_WORLD_BUILDING_IDS, isGalaxyWorldBuilding } from '@borderfall/shared';
+import { getEconomyConfig, setAdminConfigCacheForTests } from '../src/services/adminConfig';
 import { getFactionById } from '../src/game-engine/eras';
 import { calculateReinforcements } from '../src/game-engine/combat/combatResolver';
 import { getPlayerReinforceBonus } from '../src/game-engine/state/techManager';
@@ -251,6 +254,29 @@ if (process.env.SIM_MUSTER_GATEWAY === '0') TERRITORY_ABILITY_DEFS.orbital_muste
  * break.
  */
 const SEALS = process.env.SIM_SEALS === '1';
+/**
+ * World buildings (`galaxy_world_buildings`, docs/GALACTIC_AGE_BUILDINGS.md
+ * §7): the Habitat Dome, Storm Shelter, Vault Conduit and Toll Beacon, built by
+ * bots through the same selector the socket's AI uses. Ships OFF, so OFF here
+ * unless `SIM_WORLD_BUILDINGS=1`.
+ */
+const WORLD_BUILDINGS = process.env.SIM_WORLD_BUILDINGS === '1';
+/**
+ * World-building prices for a candidate, e.g.
+ * `SIM_WORLD_BUILDING_COSTS='{"toll_beacon":8}'`, patched into the economy
+ * config the engine prices builds from. A prohibitive price takes one building
+ * out of the bots' hands, which is how a single building's share is measured.
+ */
+if (process.env.SIM_WORLD_BUILDING_COSTS) {
+  const patch = JSON.parse(process.env.SIM_WORLD_BUILDING_COSTS) as Record<string, number>;
+  for (const [id, cost] of Object.entries(patch)) {
+    if (!isGalaxyWorldBuilding(id) || !(Number.isInteger(cost) && cost >= 0)) {
+      throw new Error(`SIM_WORLD_BUILDING_COSTS: unknown building or bad price ${id}=${cost}`);
+    }
+  }
+  const economy = getEconomyConfig();
+  setAdminConfigCacheForTests({ economy: { ...economy, building_costs: { ...economy.building_costs, ...patch } } });
+}
 if (process.env.SIM_DOCTRINE_COST) {
   const cost = Number(process.env.SIM_DOCTRINE_COST);
   if (!(Number.isInteger(cost) && cost >= 0)) throw new Error('SIM_DOCTRINE_COST must be a whole number >= 0');
@@ -636,6 +662,7 @@ function simSettings(): GameSettings {
     galaxy_orbital_buildings: ORBITAL || undefined,
     galaxy_garrisons: GARRISONS || undefined,
     galaxy_powers: POWERS || undefined,
+    galaxy_world_buildings: WORLD_BUILDINGS || undefined,
     world_rules_enabled: WORLD_RULES,
     world_rules_disabled: WORLD_RULES_OFF as WorldRuleId[],
     allowed_victory_conditions: [
@@ -717,6 +744,11 @@ interface SeatTelemetry {
   powerUses: Record<string, number>;
   /** Emergency Seals this seat placed (seals only). */
   sealsPlaced: number;
+  /** World buildings this seat raised, by id (world buildings only). */
+  worldBuilt: Record<string, number>;
+  /** PP its Toll Beacons and TP its Vault Conduits paid, summed over its turn starts. */
+  tollPP: number;
+  conduitTP: number;
   /**
    * Attack phases in which Seal Breaker was unlocked and unused and a seal or
    * closure shut a lane from a defended gateway this seat held to a rival
@@ -825,6 +857,12 @@ function playAiTurn(
   telemetryFor: (playerId: string) => SeatTelemetry,
 ): void {
   state.phase = 'draft';
+  // World buildings: what the Toll Beacons and Vault Conduits paid at this turn
+  // start, read the way collectProduction just read them.
+  if (WORLD_BUILDINGS) {
+    seat.tollPP += tollBeaconProductionIncome(state, pid);
+    seat.conduitTP += vaultConduitTechIncome(state, pid);
+  }
   // Seed the AI's heuristic jitter. Production leaves it on Math.random, which
   // is right for live play and wrong for a measurement harness: two runs of the
   // same config on the same seed differed by up to 4 points of faction win rate
@@ -836,6 +874,9 @@ function playAiTurn(
   const build = selectAiBuildingPlacement(state, map, pid, difficulty);
   if (build) {
     applyBuild(state, pid, build.territoryId, build.buildingType);
+    if (isGalaxyWorldBuilding(build.buildingType)) {
+      seat.worldBuilt[build.buildingType] = (seat.worldBuilt[build.buildingType] ?? 0) + 1;
+    }
     // A Jump Gate's lane only exists once it is projected onto the map copy —
     // the socket does this after every build, so the harness must too, or the
     // sim measures gates that cost 12 PP and connect nothing.
@@ -1072,6 +1113,8 @@ interface SeatStat extends SeatTelemetry {
   doctrineEligible: boolean;
   /** Lane powers this seat had unlocked by game end (powers only). */
   powersUnlocked: string[];
+  /** World buildings standing on this seat's tiles at game end, by id (world buildings only). */
+  worldStanding: Record<string, number>;
   /** Production points unspent at game end — the §8 gate's "PP banked". */
   ppBanked: number;
 }
@@ -1406,6 +1449,9 @@ function runGame(gameIndex: number, sourceMap: GameMap): GameStat {
       hardenedBought: 0,
       forwardBought: 0,
       powerUses: {},
+      worldBuilt: {},
+      tollPP: 0,
+      conduitTP: 0,
       sealsPlaced: 0,
       sealBreakerChances: 0,
       projectorChances: 0,
@@ -1548,6 +1594,10 @@ function runGame(gameIndex: number, sourceMap: GameMap): GameStat {
     territoriesAtTurn: snapshots[p.player_id],
     doctrineEligible: (p.unlocked_techs ?? []).includes('ga_lattice_logistics'),
     powersUnlocked: POWERS ? LANE_POWER_IDS.filter((id) => playerHasUnlockedAbility(state, p.player_id, id)) : [],
+    worldStanding: Object.fromEntries(GALAXY_WORLD_BUILDING_IDS.map((id) => [
+      id,
+      Object.values(state.territories).filter((t) => t.owner_id === p.player_id && (t.buildings ?? []).includes(id)).length,
+    ])),
     gatewayBuildings: Object.values(state.territories)
       .filter((t) => t.owner_id === p.player_id && gatewayTiles.has(t.territory_id))
       .reduce((n, t) => n + (t.buildings ?? []).length, 0),
@@ -1621,7 +1671,7 @@ function main(): void {
   console.log(`\nGalactic Age balance — ${GAMES} games · ${PLAYERS}p · ${DIFFICULTY} · maxTurns ${MAX_TURNS}${THRESHOLD != null ? ` · threshold ${THRESHOLD}%` : ''} · ${terr} territories`);
   console.log(`Seed "${MASTER_SEED}" · attack loop ${GRIND ? 'GRIND (mirrors live AI)' : 'single-exchange (SIM_GRIND=0, legacy)'} · corridors ${CORRIDORS ? 'ON' : 'OFF (SIM_CORRIDORS=0)'} · factions ${Object.keys(FACTION_PATCH).length ? `patched ${JSON.stringify(FACTION_PATCH)}` : 'as shipped'} · world rules ${WORLD_RULES ? (WORLD_RULES_OFF.length ? `ON except ${WORLD_RULES_OFF.join('+')}` : 'ON') : 'OFF (SIM_WORLD_RULES=0)'} · sovereignty ${SOVEREIGNTY ? `ON (${LANE_SOVEREIGNTY_CORRIDORS_NEEDED} lanes, ${(TEAMS ? LANE_SOVEREIGNTY_ROUNDS_BY_SIDES[SIDES] : LANE_SOVEREIGNTY_ROUNDS_BY_SEATS[PLAYERS]) ?? LANE_SOVEREIGNTY_ROUNDS} rounds${TEAMS ? ` for ${SIDES} sides` : ''})` : 'OFF (SIM_SOVEREIGNTY=0)'}${PLAYERS < 4 && !SCATTERED ? ` · colonies ${COLONY_GARRISONS.gateway}/${COLONY_GARRISONS.interior} (gateway/interior)` : ''}${TWO_V_TWO ? ` · 2v2 ${GALAXY_2V2_PAIRS.map((p) => p.join('+')).join(' vs ')}` : ''}${TEAMS ? ` · opening ceasefire ${TEAM_TUNING.openingCeasefire ? 'ON' : 'OFF (SIM_CEASEFIRE=0)'}` : ''}${SCHISM && !SCATTERED ? ` · schism ${HOUSE_RELATIONS === 'concord' ? `Concord ${SCHISM_TUNING.concordRounds} rounds` : HOUSE_RELATIONS === 'allied' ? `Allied ${JSON.stringify(ALLIED_TUNING)}` : 'Civil War'}, Lane Crown +${HOUSE_RELATIONS === 'allied' ? 0 : SCHISM_TUNING.laneCrownBonus}${process.env.SIM_SCHISM_HALVES ? ' · halves patched (SIM_SCHISM_HALVES)' : ''}${process.env.SIM_SCHISM_OPENING ? ` · opening ${process.env.SIM_SCHISM_OPENING}` : ''}${process.env.SIM_SCHISM_REINFORCE ? ` · house reinforce ${process.env.SIM_SCHISM_REINFORCE}` : ''}${PARTIAL ? (HOUSE_RELATIONS === 'allied'
     ? ` · partial Allied ${JSON.stringify(PARTIAL_ALLIED_TUNING[PLAYERS])}`
-    : ` · partial unclaimed ${PARTIAL_SCHISM_TUNING[PLAYERS]!.unclaimed.gateway}/${PARTIAL_SCHISM_TUNING[PLAYERS]!.unclaimed.interior}, halves ${JSON.stringify(PARTIAL_SCHISM_HALVES)}`) : ''}` : ''} · transit ${TRANSIT ? 'ON (SIM_TRANSIT=1)' : 'OFF'} · orbital ${ORBITAL ? 'ON (SIM_ORBITAL=1)' : 'OFF'} · garrisons ${GARRISONS ? `ON (SIM_GARRISONS=1, ${GARRISON_DOCTRINE_TUNING.cost} PP)` : 'OFF'} · powers ${POWERS ? 'ON (SIM_POWERS=1)' : 'OFF'} · seals ${SEALS ? 'ON (SIM_SEALS=1)' : 'OFF'}${SCATTERED ? ' · start SCATTERED (SIM_SCATTERED=1, no home worlds)' : ''}${FACTIONS_ON ? '' : ' · factions OFF (SIM_FACTIONS=0, labels are seats)'}${PLAIN_LANES ? ' · PLAIN LANES (SIM_PLAIN_LANES=1)' : ''}${CATCHUP_PER != null ? ` · catch-up: -1 reinforcement per ${CATCHUP_PER} tiles over a quarter (SIM_CATCHUP_PER)` : ''} · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
+    : ` · partial unclaimed ${PARTIAL_SCHISM_TUNING[PLAYERS]!.unclaimed.gateway}/${PARTIAL_SCHISM_TUNING[PLAYERS]!.unclaimed.interior}, halves ${JSON.stringify(PARTIAL_SCHISM_HALVES)}`) : ''}` : ''} · transit ${TRANSIT ? 'ON (SIM_TRANSIT=1)' : 'OFF'} · orbital ${ORBITAL ? 'ON (SIM_ORBITAL=1)' : 'OFF'} · garrisons ${GARRISONS ? `ON (SIM_GARRISONS=1, ${GARRISON_DOCTRINE_TUNING.cost} PP)` : 'OFF'} · powers ${POWERS ? 'ON (SIM_POWERS=1)' : 'OFF'} · seals ${SEALS ? 'ON (SIM_SEALS=1)' : 'OFF'} · world buildings ${WORLD_BUILDINGS ? `ON (SIM_WORLD_BUILDINGS=1${process.env.SIM_WORLD_BUILDING_COSTS ? `, prices ${process.env.SIM_WORLD_BUILDING_COSTS}` : ''})` : 'OFF'}${SCATTERED ? ' · start SCATTERED (SIM_SCATTERED=1, no home worlds)' : ''}${FACTIONS_ON ? '' : ' · factions OFF (SIM_FACTIONS=0, labels are seats)'}${PLAIN_LANES ? ' · PLAIN LANES (SIM_PLAIN_LANES=1)' : ''}${CATCHUP_PER != null ? ` · catch-up: -1 reinforcement per ${CATCHUP_PER} tiles over a quarter (SIM_CATCHUP_PER)` : ''} · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
   if (GAMES % CYCLE !== 0) {
     console.log(`⚠ ${GAMES} games is not a multiple of the ${CYCLE}-game line-up cycle, so factions and seats are sampled unevenly\n`);
   }
@@ -1951,6 +2001,24 @@ function main(): void {
     console.log(`Emergency Seals (SIM_SEALS): ${fixed(avg(stats.map((g) => g.seats.reduce((n, s) => n + s.sealsPlaced, 0))))} placed per game`);
   }
 
+  if (WORLD_BUILDINGS) {
+    const seats = stats.flatMap((g) => g.seats);
+    console.log('World buildings (SIM_WORLD_BUILDINGS):');
+    for (const id of GALAXY_WORLD_BUILDING_IDS) {
+      const builders = seats.filter((s) => (s.worldBuilt[id] ?? 0) > 0);
+      console.log(
+        `  ${id.padEnd(14)} ${fixed(avg(seats.map((s) => s.worldBuilt[id] ?? 0)))} built per seat per game`
+        + ` · by ${pct(builders.length, Math.max(1, seats.length))} of seats`
+        + ` · ${fixed(avg(seats.map((s) => s.worldStanding[id] ?? 0)))} standing per seat at the end`
+        + ` · builders win ${pct(builders.filter((s) => s.won).length, Math.max(1, builders.length))} of ${builders.length}`,
+      );
+    }
+    console.log(
+      `  paid: Toll Beacons ${fixed(avg(seats.map((s) => s.tollPP)))} PP per seat per game`
+      + ` · Vault Conduits ${fixed(avg(seats.map((s) => s.conduitTP)))} TP per seat per game`,
+    );
+  }
+
   if (POWERS) {
     // §8's usage gate, as for the doctrines: each power fired in at least 60%
     // of the games where a seat could, and its users winning under 60%.
@@ -2030,6 +2098,7 @@ function main(): void {
       'hardened_bought', 'forward_bought',
       'lance_battery_uses', 'orbital_muster_uses', 'seal_breaker_uses', 'seals_placed', 'seal_breaker_chances',
       'surge_projector_uses', 'projector_chances', 'projector_captures',
+      ...GALAXY_WORLD_BUILDING_IDS.map((id) => `${id}_built`), 'toll_pp', 'conduit_tp',
     ].join(',');
     const rows = stats.flatMap((s) =>
       s.seats.map((seat, i) => [
@@ -2042,6 +2111,7 @@ function main(): void {
         seat.hardenedBought, seat.forwardBought,
         seat.powerUses.lance_battery ?? 0, seat.powerUses.orbital_muster ?? 0, seat.powerUses.seal_breaker ?? 0, seat.sealsPlaced, seat.sealBreakerChances,
         seat.powerUses.surge_projector ?? 0, seat.projectorChances, seat.projectorCaptures,
+        ...GALAXY_WORLD_BUILDING_IDS.map((id) => seat.worldBuilt[id] ?? 0), seat.tollPP, seat.conduitTP,
       ].join(',')),
     );
     writeFileSync(CSV_PATH, [header, ...rows].join('\n') + '\n');

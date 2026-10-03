@@ -71,6 +71,8 @@ export const DEFAULTS: AdminConfigState = {
       wonder_hyperlane_anchor: 22,
       launch_pad: 8,
       jump_gate: 12,
+      // Galactic Age world buildings: only buildable under `galaxy_world_buildings`.
+      habitat_dome: 5, storm_shelter: 5, vault_conduit: 6, toll_beacon: 6,
     },
     production_income: {
       production_1: 1, production_2: 2, production_3: 4, production_4: 7,

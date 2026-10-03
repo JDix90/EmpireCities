@@ -99,8 +99,8 @@ describe('getEraTechTree', () => {
   });
 
   it('reads the option off a game\'s settings', () => {
-    expect(eraTechTreeOptions({})).toEqual({ galaxyBuildingsV2: false, galaxyPowers: false });
-    expect(eraTechTreeOptions({ galaxy_buildings_v2: true })).toEqual({ galaxyBuildingsV2: true, galaxyPowers: false });
+    expect(eraTechTreeOptions({})).toEqual({ galaxyBuildingsV2: false, galaxyPowers: false, galaxyWorldBuildings: false });
+    expect(eraTechTreeOptions({ galaxy_buildings_v2: true })).toEqual({ galaxyBuildingsV2: true, galaxyPowers: false, galaxyWorldBuildings: false });
   });
 });
 

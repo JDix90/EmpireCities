@@ -46,8 +46,9 @@ describe('galaxy tutorial game specs', () => {
     expect(live.galaxy_orbital_buildings).toBe(false);
     expect(live.galaxy_garrisons).toBe(false);
     expect(live.galaxy_powers).toBe(false);
+    expect(live.galaxy_world_buildings).toBe(false);
 
-    setAdminConfigCacheForTests({ feature_flags: { galaxy_rule_storms_enabled: false, galaxy_transit_enabled: true, galaxy_buildings_v2_enabled: true, galaxy_orbital_buildings_enabled: true, galaxy_garrisons_enabled: true, galaxy_powers_enabled: true } });
+    setAdminConfigCacheForTests({ feature_flags: { galaxy_rule_storms_enabled: false, galaxy_transit_enabled: true, galaxy_buildings_v2_enabled: true, galaxy_orbital_buildings_enabled: true, galaxy_garrisons_enabled: true, galaxy_powers_enabled: true, galaxy_world_buildings_enabled: true } });
     const patched = galaxyTutorialGameSpec('galaxy_lane_sovereignty').settings;
     expect(patched.world_rules_disabled).toEqual(['storms']);
     expect(patched.galaxy_transit_enabled).toBe(true);
@@ -55,5 +56,6 @@ describe('galaxy tutorial game specs', () => {
     expect(patched.galaxy_orbital_buildings).toBe(true);
     expect(patched.galaxy_garrisons).toBe(true);
     expect(patched.galaxy_powers).toBe(true);
+    expect(patched.galaxy_world_buildings).toBe(true);
   });
 });

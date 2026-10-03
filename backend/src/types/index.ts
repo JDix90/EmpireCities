@@ -138,6 +138,13 @@ export interface TerritoryState {
    */
   gateway?: boolean;
   /**
+   * The far ends of the authored orbit lanes this territory anchors, for a
+   * Toll Beacon's corridor check (state/worldBuildings.ts). Stamped when the
+   * territory enters play, only in a game with `galaxy_world_buildings`;
+   * absent everywhere else, and on every tile that is not a gateway.
+   */
+  lane_partners?: string[];
+  /**
    * The garrison doctrine this tile's stack holds (state/garrisonDoctrines.ts):
    * Hardened defends with d8s, Forward attacks with d8s. Written only in a game
    * with `galaxy_garrisons`; cleared when the tile is captured.
@@ -691,6 +698,14 @@ export interface GameSettings {
    */
   galaxy_powers?: boolean;
   /**
+   * Galactic Age buildings, Phase 5 (docs/GALACTIC_AGE_BUILDINGS.md §7): world
+   * buildings — a Habitat Dome on the Cradle, a Storm Shelter in the storms, a
+   * Vault Conduit on the Vault and a Toll Beacon on any gateway, opened by
+   * Lattice Logistics (state/worldBuildings.ts). Baked at create from the
+   * `galaxy_world_buildings_enabled` feature flag; no-op off galaxy rules.
+   */
+  galaxy_world_buildings?: boolean;
+  /**
    * Galactic Age Schism (five to eight seats): how the two houses on a split
    * world start — under the Concord, a truce for the opening rounds, in Civil
    * War, or Allied, every world's seats one team. Absent means the Concord;
@@ -896,6 +911,11 @@ export type BuildingType =
   | 'wonder_unification' // risorgimento
   | 'launch_pad'         // space_age: orbital launch infrastructure
   | 'jump_gate'          // galaxy_age: a private lane between two of your worlds
+  // galaxy_age world buildings (state/worldBuildings.ts), only under `galaxy_world_buildings`
+  | 'habitat_dome'       // the Cradle musters this tile one unit higher
+  | 'storm_shelter'      // the storms strike this tile only higher up
+  | 'vault_conduit'      // +1 TP/turn on a Vault tile while its owner holds the whole Vault
+  | 'toll_beacon'        // +1 PP/turn on a gateway while its lane is its owner's corridor
   | 'wonder_space_elevator' // space_age
   | 'wonder_hyperlane_anchor'; // galaxy_age
 

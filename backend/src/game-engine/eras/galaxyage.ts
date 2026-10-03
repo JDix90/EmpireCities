@@ -1,4 +1,5 @@
 import type { BuildingType } from '../../types';
+import { techNodeBuildingUnlocks } from '@borderfall/shared';
 import type { Faction, TechNode, EraWonder } from './types';
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -301,11 +302,26 @@ export const GALAXY_POWER_UNLOCKS: Readonly<Record<string, string>> = {
   ga_gate_engineering: 'surge_projector',
 };
 
+// ──────────────────────────────────────────────────────────────────────────
+// World buildings (docs/GALACTIC_AGE_BUILDINGS.md §7, Phase 5)
+//
+// Under `settings.galaxy_world_buildings` the tree's tier-1 economic root opens
+// the four world buildings (state/worldBuildings.ts), on top of whatever it
+// opens already (the Fabricator and the Observatory under buildings v2).
+// ──────────────────────────────────────────────────────────────────────────
+
+/** World buildings: which buildings each node opens under `galaxy_world_buildings`. */
+export const GALAXY_WORLD_BUILDING_UNLOCKS: Readonly<Record<string, readonly BuildingType[]>> = {
+  ga_lattice_logistics: ['habitat_dome', 'storm_shelter', 'vault_conduit', 'toll_beacon'],
+};
+
 export interface GalaxyTreeOptions {
   /** Buildings v2 (`galaxy_buildings_v2`): the v2 building unlocks. */
   buildingsV2?: boolean;
   /** Lane powers (`galaxy_powers`): the four ability unlocks. */
   powers?: boolean;
+  /** World buildings (`galaxy_world_buildings`): the four building unlocks on Lattice Logistics. */
+  worldBuildings?: boolean;
 }
 
 const galaxyTreeMemo = new Map<string, TechNode[]>();
@@ -315,8 +331,8 @@ const galaxyTreeMemo = new Map<string, TechNode[]>();
  * is built once and shared, so a reader can compare trees by identity.
  */
 export function galaxyAgeTechTree(opts: GalaxyTreeOptions = {}): TechNode[] {
-  if (!opts.buildingsV2 && !opts.powers) return GALAXY_AGE_TECH_TREE;
-  const key = `${opts.buildingsV2 ? 'v2' : 'v1'}:${opts.powers ? 'powers' : ''}`;
+  if (!opts.buildingsV2 && !opts.powers && !opts.worldBuildings) return GALAXY_AGE_TECH_TREE;
+  const key = `${opts.buildingsV2 ? 'v2' : 'v1'}:${opts.powers ? 'powers' : ''}:${opts.worldBuildings ? 'world' : ''}`;
   const hit = galaxyTreeMemo.get(key);
   if (hit) return hit;
   const tree = GALAXY_AGE_TECH_TREE.map((node) => {
@@ -329,6 +345,15 @@ export function galaxyAgeTechTree(opts: GalaxyTreeOptions = {}): TechNode[] {
     if (opts.powers) {
       const ability = GALAXY_POWER_UNLOCKS[node.tech_id];
       if (ability) next = { ...next, unlocks_ability: ability };
+    }
+    if (opts.worldBuildings) {
+      const world = GALAXY_WORLD_BUILDING_UNLOCKS[node.tech_id];
+      if (world) {
+        // Into the plural list, which wins over the singular one when both are
+        // set (techNodeBuildingUnlocks): what the node opened already stays opened.
+        const { unlocks_building: _single, ...rest } = next;
+        next = { ...rest, unlocks_buildings: [...techNodeBuildingUnlocks(next), ...world] as BuildingType[] };
+      }
     }
     return next;
   });

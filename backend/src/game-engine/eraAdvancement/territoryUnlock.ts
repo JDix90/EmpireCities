@@ -21,6 +21,7 @@ import { inferWorldId } from '@borderfall/shared';
 import { getCoastalTerritoryIds } from '../state/navalManager';
 import { orbitGatewayTerritoryIds, territoryRequiresOrbitAccessForClaim } from '../state/moonAccess';
 import { authoredGatewayTerritoryIds, orbitalBuildingsEnabled } from '../state/orbitalBuildings';
+import { stampLanePartners, worldBuildingsEnabled } from '../state/worldBuildings';
 import { vaultRegionGarrisons } from '../state/worldRules';
 import type { EraId, GameMap, GameState, TerritoryState } from '../../types';
 
@@ -259,6 +260,13 @@ export function unlockTerritoriesForFloor(state: GameState, map: GameMap): strin
     if (coastal.has(t.territory_id)) territory.naval_units = 0;
     state.territories[t.territory_id] = territory;
     added.push(t.territory_id);
+  }
+  // World buildings: an arriving gateway is stamped with its lanes, as init
+  // stamps one that starts in play. Tiles already in play were stamped then.
+  if (worldBuildingsEnabled(state) && added.length > 0) {
+    const arrived: Record<string, TerritoryState> = {};
+    for (const id of added) arrived[id] = state.territories[id]!;
+    stampLanePartners(arrived, map);
   }
 
   state.map_era_floor = newFloor;

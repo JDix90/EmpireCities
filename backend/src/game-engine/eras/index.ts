@@ -77,22 +77,29 @@ export interface EraTechTreeOptions {
   galaxyBuildingsV2?: boolean;
   /** Galactic Age lane powers (`settings.galaxy_powers`): four nodes unlock abilities. */
   galaxyPowers?: boolean;
+  /** Galactic Age world buildings (`settings.galaxy_world_buildings`): Lattice Logistics opens four buildings. */
+  galaxyWorldBuildings?: boolean;
 }
 
 export function getEraTechTree(era: EraId, opts?: EraTechTreeOptions): TechNode[] {
-  if (era === 'galaxy_age' && (opts?.galaxyBuildingsV2 || opts?.galaxyPowers)) {
-    return galaxyAgeTechTree({ buildingsV2: opts.galaxyBuildingsV2, powers: opts.galaxyPowers });
+  if (era === 'galaxy_age' && (opts?.galaxyBuildingsV2 || opts?.galaxyPowers || opts?.galaxyWorldBuildings)) {
+    return galaxyAgeTechTree({
+      buildingsV2: opts.galaxyBuildingsV2,
+      powers: opts.galaxyPowers,
+      worldBuildings: opts.galaxyWorldBuildings,
+    });
   }
   return ERA_TECH_TREES[era] ?? [];
 }
 
 /** The tree options a game's settings select, for readers that hold a GameState. */
 export function eraTechTreeOptions(
-  settings: { galaxy_buildings_v2?: boolean; galaxy_powers?: boolean },
+  settings: { galaxy_buildings_v2?: boolean; galaxy_powers?: boolean; galaxy_world_buildings?: boolean },
 ): EraTechTreeOptions {
   return {
     galaxyBuildingsV2: settings.galaxy_buildings_v2 === true,
     galaxyPowers: settings.galaxy_powers === true,
+    galaxyWorldBuildings: settings.galaxy_world_buildings === true,
   };
 }
 

@@ -727,11 +727,13 @@ export default function GamePage() {
   );
   // A game created under Galactic Age buildings v2 plays on the v2 tree; ask
   // the static route for that one so the client gates the same buildings.
-  // Lane powers (`galaxy_powers`) likewise: the tree whose nodes open them.
+  // Lane powers (`galaxy_powers`) likewise: the tree whose nodes open them, and
+  // world buildings (`galaxy_world_buildings`): the tree whose root opens them.
   const techTreeQuery = (() => {
     const params = [
       gameState?.settings.galaxy_buildings_v2 ? 'buildings=v2' : '',
       gameState?.settings.galaxy_powers ? 'powers=1' : '',
+      gameState?.settings.galaxy_world_buildings ? 'world=1' : '',
     ].filter(Boolean);
     return params.length > 0 ? `?${params.join('&')}` : '';
   })();

@@ -229,6 +229,13 @@ describe('featureFlags', () => {
     expect(featureFlags.galaxyPowersEnabled).toBe(true);
   });
 
+  it('galaxy_world_buildings_enabled defaults to off (dark launch) and is admin-overridable', () => {
+    expect(featureFlags.galaxyWorldBuildingsEnabled).toBe(false);
+    expect(getFeatureFlagStates().galaxy_world_buildings_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { galaxy_world_buildings_enabled: true } });
+    expect(featureFlags.galaxyWorldBuildingsEnabled).toBe(true);
+  });
+
   it('warfront_enabled defaults to off (experimental, admin-only) and is admin-overridable', () => {
     expect(featureFlags.warfrontEnabled).toBe(false);
     expect(getClientFeatureFlags().warfront_enabled).toBe(false);

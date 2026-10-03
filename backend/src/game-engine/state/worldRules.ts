@@ -12,8 +12,8 @@
 // create from the `galaxy_world_rules_enabled` flag). Maps without rules — and
 // standard maps — are untouched.
 
-import { inferWorldId, type WorldRules } from '@borderfall/shared';
-import type { GameMap, GameState } from '../../types';
+import { GALAXY_WORLD_BUILDING_EFFECTS, inferWorldId, type WorldRules } from '@borderfall/shared';
+import type { GameMap, GameState, TerritoryState } from '../../types';
 
 const EMPTY: WorldRules = {};
 
@@ -90,6 +90,32 @@ export function worldPopulationGrowthMult(state: GameState, worldId: string | un
   return m != null && m > 0 ? m : 1;
 }
 
+// ── Per-tile overrides: the world buildings ───────────────────────────────
+//
+// Galactic Age world buildings (state/worldBuildings.ts) move a rule's
+// threshold on the one tile they stand on: a Habitat Dome raises the Cradle's
+// muster, a Storm Shelter the storms'. They are read here, where each rule
+// already reads its threshold, and only in a game that plays them, so every
+// other game reads the world's own number exactly as before.
+
+function tileHasWorldBuilding(
+  state: GameState,
+  t: Pick<TerritoryState, 'buildings'>,
+  building: 'habitat_dome' | 'storm_shelter',
+): boolean {
+  return state.settings.galaxy_world_buildings === true && (t.buildings ?? []).includes(building);
+}
+
+/** The Cradle's muster threshold on this tile: the world's, raised by a Habitat Dome. */
+export function tileMusterThreshold(state: GameState, t: Pick<TerritoryState, 'buildings'>, base: number): number {
+  return base + (tileHasWorldBuilding(state, t, 'habitat_dome') ? GALAXY_WORLD_BUILDING_EFFECTS.habitatDomeMusterBonus : 0);
+}
+
+/** The storm threshold on this tile: the world's, raised by a Storm Shelter. */
+export function tileStormThreshold(state: GameState, t: Pick<TerritoryState, 'buildings'>, base: number): number {
+  return base + (tileHasWorldBuilding(state, t, 'storm_shelter') ? GALAXY_WORLD_BUILDING_EFFECTS.stormShelterThresholdBonus : 0);
+}
+
 export interface MusterGain {
   territory_id: string;
   gained: number;
@@ -110,8 +136,9 @@ export function applyCradleMuster(state: GameState): MusterGain[] {
     const r = t.world_id ? rules[t.world_id] : undefined;
     if (!r || r.muster_threshold == null) continue;
     if (r.muster_every && r.muster_every > 1 && state.turn_number % r.muster_every !== 0) continue;
-    if (t.unit_count >= r.muster_threshold) continue;
-    const gained = Math.min(r.muster_units ?? 1, r.muster_threshold - t.unit_count);
+    const threshold = tileMusterThreshold(state, t, r.muster_threshold);
+    if (t.unit_count >= threshold) continue;
+    const gained = Math.min(r.muster_units ?? 1, threshold - t.unit_count);
     if (gained <= 0) continue;
     t.unit_count += gained;
     gains.push({ territory_id: tid, gained });
@@ -139,8 +166,9 @@ export function applyStormAttrition(state: GameState): StormLoss[] {
   for (const [tid, t] of Object.entries(state.territories)) {
     const r = t.world_id ? rules[t.world_id] : undefined;
     if (!r || r.storm_threshold == null) continue;
-    if (t.unit_count <= r.storm_threshold) continue;
-    const lost = Math.min(r.storm_attrition ?? 1, t.unit_count - r.storm_threshold);
+    const threshold = tileStormThreshold(state, t, r.storm_threshold);
+    if (t.unit_count <= threshold) continue;
+    const lost = Math.min(r.storm_attrition ?? 1, t.unit_count - threshold);
     if (lost <= 0) continue;
     t.unit_count -= lost;
     losses.push({ territory_id: tid, lost });

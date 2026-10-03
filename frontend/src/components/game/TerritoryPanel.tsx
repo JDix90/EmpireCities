@@ -25,6 +25,7 @@ import { useBottomSheetSnap, type SheetSnap } from '../../hooks/useBottomSheetSn
 import { getRegionCssColors } from '../../constants/accessibleColors';
 import { getPlayerTerritoryAbilities, isAttackSelfBuffAbility } from '../../utils/playerAbilities';
 import { lanePowerApplies, lanePowerCost } from '../../utils/lanePowers';
+import { worldBuildingApplies } from '../../utils/worldBuildings';
 import { getAbilityUiDef } from '../../utils/abilityActivationFeedback';
 import {
   getGalaxyTerritoryLoreDetail,
@@ -1964,11 +1965,20 @@ export default function TerritoryPanel({
         }
         // Era-special buildings (e.g. the Space Age launch_pad). Locked ones are
         // listed too, so the panel shows what this era HAS rather than hiding it
-        // until the research happens to land.
+        // until the research happens to land. A Galactic Age world building is
+        // offered only on a system where it can stand (utils/worldBuildings.ts):
+        // a Storm Shelter on a Sol system is not an option, locked or not.
+        const worldBuildingCtx = {
+          worldId: mapTerritory?.world_id,
+          regionId: mapTerritory?.region_id,
+          lanePartners: tState.lane_partners,
+          worldRules: gameState.settings.world_rules,
+        };
         const extraBuildOptions = Array.from(new Set(
           buildingUnlocks
             .map(({ building }) => building)
-            .filter((b) => !STANDARD.has(b)),
+            .filter((b) => !STANDARD.has(b))
+            .filter((b) => worldBuildingApplies(b, worldBuildingCtx)),
         ));
         // Galactic Age buildings v2 names the standard buildings for the era.
         const nameEra = gameState.settings.galaxy_buildings_v2 ? viewerEra : undefined;
@@ -1976,7 +1986,13 @@ export default function TerritoryPanel({
         // what today's goal counts, and the buildings that cannot matter here,
         // each with its reason (utils/dailyBuildFocus).
         const focus = dailyBuildFocus(gameState.settings);
-        const unavailable = unavailableBuildings(gameState, mapConnections, myPlayerId);
+        const unavailable: Record<string, string> = {
+          ...unavailableBuildings(gameState, mapConnections, myPlayerId),
+          // World buildings: a lane carries one Toll Beacon, at either end.
+          ...((tState.lane_partners ?? []).some((p) => gameState.territories[p]?.buildings?.includes('toll_beacon'))
+            ? { toll_beacon: 'This lane already carries a Toll Beacon at its other end.' }
+            : {}),
+        };
         // Orbital infrastructure: the server stamps `gateway` only in a game
         // that plays the rule, so the stamp alone is the condition.
         const orbital = gameState.settings.galaxy_orbital_buildings === true && tState.gateway === true;

@@ -40,6 +40,7 @@ import {
 } from '../state/garrisonDoctrines';
 import type { GarrisonDoctrine } from '@borderfall/shared';
 import { aiLanePowerReserve } from './aiLanePowers';
+import { aiWorldBuildingCandidates } from './aiWorldBuildings';
 
 export interface AiAction {
   type: 'draft' | 'attack' | 'fortify' | 'end_phase';
@@ -1192,6 +1193,13 @@ export function selectAiBuildingPlacement(
       }
     }
 
+    // Galactic Age world buildings (ai/aiWorldBuildings.ts): each only where it
+    // pays, before the production chain. Nothing to try without the setting.
+    for (const { buildingType, candidates } of aiWorldBuildingCandidates(state, map, playerId)) {
+      const result = tryBuild(buildingType, candidates);
+      if (result) return result;
+    }
+
     // Then production / tech on highest-unit territories. Under orbital
     // infrastructure (state/orbitalBuildings.ts) a gateway's buildings are never
     // razed — lost with the tile, back with it — so the tiles the era fights
@@ -1223,6 +1231,12 @@ export function selectAiBuildingPlacement(
       (state.territories[a].buildings?.length ?? 0) -
       (state.territories[b].buildings?.length ?? 0),
   );
+  // Galactic Age world buildings, as hard and expert build them: before the
+  // production chain, and only where they pay. Nothing without the setting.
+  for (const { buildingType, candidates } of aiWorldBuildingCandidates(state, map, playerId)) {
+    const result = tryBuild(buildingType, candidates);
+    if (result) return result;
+  }
   for (const bType of [
     'production_1', 'tech_gen_1', 'defense_1',
     'production_2', 'tech_gen_2', 'defense_2',
