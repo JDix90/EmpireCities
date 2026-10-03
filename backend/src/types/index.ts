@@ -716,8 +716,8 @@ export interface GameSettings {
   /**
    * WW2 Manhattan Project, Phase 1 (docs/WW2_MANHATTAN_PROJECT.md §3): hard and
    * expert bots research toward the Atom Bomb and fire it (ai/aiAtomBomb.ts).
-   * Baked at create from the `ww2_bomb_ai_enabled` feature flag, in every game
-   * that can play the WW2 tree.
+   * Baked at create from the `ww2_bomb_ai_enabled` feature flag, only in a game
+   * that starts in WW2.
    */
   ww2_bomb_ai?: boolean;
   /**

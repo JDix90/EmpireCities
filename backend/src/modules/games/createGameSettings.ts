@@ -194,7 +194,7 @@ export function bakeCreateGameSettings(input: Theater & {
         ? [rawSettings.victory_type]
         : ['domination'];
   const isGalaxyRules = isGalaxyRulesTheater(input);
-  const playsWw2Tree = input.era_id === 'ww2' || rawSettings.era_advancement_enabled === true;
+  const startsInWw2 = input.era_id === 'ww2';
   const galaxyHomeWorldsOff = isGalacticAge && rawSettings.galaxy_home_worlds === false;
   return normalizeGameSettings(
     applyOrbitGatedVictoryDefaults(
@@ -224,11 +224,13 @@ export function bakeCreateGameSettings(input: Theater & {
         galaxy_garrisons: isGalaxyRules ? featureFlags.galaxyGarrisonsEnabled : undefined,
         galaxy_powers: isGalaxyRules ? featureFlags.galaxyPowersEnabled : undefined,
         galaxy_world_buildings: isGalaxyRules ? featureFlags.galaxyWorldBuildingsEnabled : undefined,
-        // WW2 Manhattan Project: wherever the WW2 tree can be played — a WW2
-        // game, or a climb that passes through it. Read only by that tree.
-        ww2_bomb_ai: playsWw2Tree ? featureFlags.ww2BombAiEnabled : undefined,
-        ww2_manhattan_science: playsWw2Tree ? featureFlags.ww2ManhattanScienceEnabled : undefined,
-        ww2_atomic_arsenal: playsWw2Tree ? featureFlags.ww2AtomicArsenalEnabled : undefined,
+        // WW2 Manhattan Project: only in a game that starts in WW2, where every
+        // seat can reach the bomb. A climb from an earlier era keeps today's
+        // bomb: there it ended games early in the era leader's favour
+        // (docs/WW2_MANHATTAN_PROJECT.md §5).
+        ww2_bomb_ai: startsInWw2 ? featureFlags.ww2BombAiEnabled : undefined,
+        ww2_manhattan_science: startsInWw2 ? featureFlags.ww2ManhattanScienceEnabled : undefined,
+        ww2_atomic_arsenal: startsInWw2 ? featureFlags.ww2AtomicArsenalEnabled : undefined,
         // Every Moon Race phase this game runs, resolved above. Spread rather
         // than listed so a sixth phase needs no edit here.
         ...moonRace.phases,

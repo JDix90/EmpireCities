@@ -41,7 +41,9 @@
  * the shipped game): SIM_BOMB_AI=1 (Phase 1, `ww2_bomb_ai`), SIM_SCIENCE=1
  * (Phase 2, `ww2_manhattan_science`), SIM_ARSENAL=1 (Phase 3, `ww2_atomic_arsenal`),
  * and SIM_ARSENAL_PRICE='first,step' to try other bomb prices (the shared
- * table, patched in this process only).
+ * table, patched in this process only). The create path bakes these only into
+ * games that start in WW2; full mode sets them directly, so a climb rule can be
+ * measured here before the bake widens again.
  *
  * Run (from backend/):
  *   pnpm exec tsx scripts/simWw2Balance.ts

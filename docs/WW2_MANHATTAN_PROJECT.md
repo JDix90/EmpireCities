@@ -1,6 +1,6 @@
 # World War II — The Manhattan Project: Design Package
 
-**Status: Phases 0 to 3 shipped dark; every flag is OFF.** Measured: custom WW2 games are ready to promote with all three phases together; Full Game is not, for hard and expert bots (§5). This package makes the World War II era's showpiece weapon something players actually see: reachable before the game is decided, used by the bots, and repeatable at a price that bites the leader. It is written against the systems that exist today, with file references, so each phase is an engineering task rather than an idea. Decisions already taken are marked **decided**; the rest are proposals for the sim to settle.
+**Status: Phases 0 to 3 shipped dark; every flag is OFF.** Measured: custom WW2 games are ready to promote with all three phases together; Full Game is not, for hard and expert bots (§5), so every setting now applies only to games that start in WW2 (§0.5). This package makes the World War II era's showpiece weapon something players actually see: reachable before the game is decided, used by the bots, and repeatable at a price that bites the leader. It is written against the systems that exist today, with file references, so each phase is an engineering task rather than an idea. Decisions already taken are marked **decided**; the rest are proposals for the sim to settle.
 
 Companion reading: [GALACTIC_AGE_BUILDINGS.md](GALACTIC_AGE_BUILDINGS.md) (the per-turn, priced power pattern and its measurements, §6, and the note in §9 this package picks up), [space-age-moon/README.md](space-age-moon/README.md) (position-gated, fuel-priced powers), `backend/scripts/eraBalanceTuning.md` (the era-advancement sim), `backend/src/game-engine/eras/ww2.ts`, `backend/src/game-engine/abilities/techAbilities.ts`, `backend/src/game-engine/abilities/executeTechAbility.ts`.
 
@@ -61,6 +61,7 @@ The Atom Bomb is the WW2 tree's tier-4 node, Manhattan Project (`ww2_atom_bomb`,
 - **decided:** the package targets tech-on custom games **and** Full Game.
 - **decided:** the bomb is for both denying ground and taking it.
 - **decided:** the bomb becomes usable more than once per game, at a price.
+- **decided (after §5's measurement):** the three settings apply only to games that start in WW2. A climb from an earlier era, Full Game included, keeps today's bomb until a climb rule is measured (§7).
 
 ---
 
@@ -73,7 +74,7 @@ The Atom Bomb is the WW2 tree's tier-4 node, Manhattan Project (`ww2_atom_bomb`,
 | 2 | The science line | Manhattan Project's prerequisite moves from Panzer Tactics to Radar Network | `ww2_manhattan_science_enabled` | `ww2_manhattan_science` |
 | 3 | The atomic arsenal | The bomb becomes per turn, priced in PP with an escalating price, leaves fallout, costs the bomber stability at home, and proliferates | `ww2_atomic_arsenal_enabled` | `ww2_atomic_arsenal` |
 
-Each setting is baked at create for every game, because the WW2 tree is played both in a WW2 game and on the classic climb; the setting is read only where the WW2 tree is. Phase 1 is the bots learning the weapon that ships, so its measurement separates "bots cannot use it" from "the rule is wrong" before either rule changes.
+Each setting is baked at create into games that start in WW2, including a WW2 start that climbs onward; the setting is read only where the WW2 tree is. They were first baked into every climb as well, and §5's measurement took them out of climbs from earlier eras. Phase 1 is the bots learning the weapon that ships, so its measurement separates "bots cannot use it" from "the rule is wrong" before either rule changes.
 
 ---
 
@@ -132,7 +133,7 @@ What the control says:
 
 **Gate:** the §6 lines, plus the usage line: bots fire the bomb in most games in which they hold it.
 
-**Shipped (dark):** `ai/aiAtomBomb.ts` behind `ww2_bomb_ai_enabled`, baked as `settings.ww2_bomb_ai` in every game that can play the WW2 tree (a WW2 game, or any climb). `selectAiTechResearch` takes the bomb's path before its score, for hard and expert bots only; `processAiTurn` fires the bomb after the faction strike and before the attacks, through `executeTechAbility`, spends a carried charge as the human handler does, puts out a seat the bomb left with nothing (`applyBombElimination`), shows the strike to the table, and puts the walk-in at the head of the plan. A bot never bombs a truce partner or a shielded seat. `AI_BOMB_MIN_VALUE` (8: units, plus two per building, plus two for a walk-in and three for a capital) keeps a once-per-game bomb for a target worth it, except on a capped game's last turn.
+**Shipped (dark):** `ai/aiAtomBomb.ts` behind `ww2_bomb_ai_enabled`, baked as `settings.ww2_bomb_ai` in every game that starts in WW2. `selectAiTechResearch` takes the bomb's path before its score, for hard and expert bots only; `processAiTurn` fires the bomb after the faction strike and before the attacks, through `executeTechAbility`, spends a carried charge as the human handler does, puts out a seat the bomb left with nothing (`applyBombElimination`), shows the strike to the table, and puts the walk-in at the head of the plan. A bot never bombs a truce partner or a shielded seat. `AI_BOMB_MIN_VALUE` (8: units, plus two per building, plus two for a walk-in and three for a capital) keeps a once-per-game bomb for a target worth it, except on a capped game's last turn.
 
 **Measured (same seeds and cells):**
 
@@ -179,7 +180,7 @@ The science line pays for itself: Mass Munitions adds 2 TP a turn and opens the 
 
 Panzer Tactics keeps its attack die and Double Blitz; it simply stops leading anywhere.
 
-**Shipped (dark):** `ww2TechTree({ manhattanScience })` in `eras/ww2.ts` behind `ww2_manhattan_science_enabled`, baked as `settings.ww2_manhattan_science` wherever the WW2 tree can be played. `eraTechTreeOptions` selects it, `validateResearch` now reads the node from the game's own tree (every other option keeps ids, costs and prerequisites, so no other game reads a different rule), the tree route takes `?manhattan=science`, and the client asks for it, so the tech panel draws the line the server enforces. The Phase 1 bots walk whichever line the game plays.
+**Shipped (dark):** `ww2TechTree({ manhattanScience })` in `eras/ww2.ts` behind `ww2_manhattan_science_enabled`, baked as `settings.ww2_manhattan_science` in every game that starts in WW2. `eraTechTreeOptions` selects it, `validateResearch` now reads the node from the game's own tree (every other option keeps ids, costs and prerequisites, so no other game reads a different rule), the tree route takes `?manhattan=science`, and the client asks for it, so the tech panel draws the line the server enforces. The Phase 1 bots walk whichever line the game plays.
 
 **Measured, with Phase 1 (same seeds and cells):**
 
@@ -240,7 +241,7 @@ Why each piece:
 
 **Client:** the ability button names the price, says once per turn, and describes the fallout; the territory panel names a fallout tile's rounds left, the way it names a garrison doctrine (per-tile states are not drawn on the map today); the tech tree shows Manhattan's discounted price.
 
-**Shipped (dark):** behind `ww2_atomic_arsenal_enabled`, baked as `settings.ww2_atomic_arsenal` wherever the WW2 tree can be played. The numbers live in one shared table (`WW2_ATOMIC_ARSENAL`, `atomBombPrice` in `packages/shared`) that the server, the territory panel and the bots read.
+**Shipped (dark):** behind `ww2_atomic_arsenal_enabled`, baked as `settings.ww2_atomic_arsenal` in every game that starts in WW2. The numbers live in one shared table (`WW2_ATOMIC_ARSENAL`, `atomBombPrice` in `packages/shared`) that the server, the territory panel and the bots read.
 
 - `state/atomicArsenal.ts`: the price, fallout (`markFallout`, `applyFalloutAttrition`, ticked once per round in `advanceToNextPlayer` beside the storms), and proliferation (`proliferatedTechCost`, read by `getEffectiveTechCost`).
 - `abilities/atomicArsenal.ts`: the purse checked before the detonation and charged after it, in `executeTechAbility` beside the Moon's and the lanes' costs. A charge carried past WW2 pays no price.
@@ -346,7 +347,7 @@ Reading the gate:
 - **Full Game with its default bots is unchanged** within noise; the era-leader rise is one seed (32.0% to 36.0% on `ww2-a`, unchanged on the others).
 - **Full Game with expert bots fails the climb lines.** Each phase raises the first-advancer and turn-10 era-leader shares, by 2.6 and 3.0 points with all three: the first on every seed, the second on two of three; the seats that fire win 59.5%, at the line and over it on one seed (63.0%); and games end 21 turns sooner, so the share in which anyone reaches the final era falls from 47% to 26%. In a climb the bomb belongs to whoever reached WW2 first: a seat level with or ahead of every other in the era race fires two detonations in three. Proliferation, the catch-up that works in custom games, discounts only seats already in WW2, and a seat still in an earlier era cannot research Manhattan at all.
 
-**Recommendation.** Custom WW2 games: promote Phases 1, 2 and 3 together, accepting the half turn at six seats or treating it as the next tuning target. Full Game: do not promote any phase for hard or expert bots as it stands. The bomb there ends the climb early in the era leader's favour, which is the opposite of what the package is for. The fix belongs to the decision in §0.5 rather than to a price, and the options are in §7.
+**Recommendation.** Custom WW2 games: promote Phases 1, 2 and 3 together, accepting the half turn at six seats or treating it as the next tuning target. Full Game: do not promote any phase for hard or expert bots as it stands. The bomb there ends the climb early in the era leader's favour, which is the opposite of what the package is for. The fix belongs to the decision in §0.5 rather than to a price, and the options are in §7. Option 1 is taken: the settings now apply only to games that start in WW2, so Full Game keeps today's bomb.
 
 ---
 
@@ -370,9 +371,11 @@ The harness runs every phase in custom mode at six and four seats, and in full m
 - **Signature mid-game abilities for the other eras.** The same reach-then-scope pattern, once WW2 shows what works.
 - **Counterplay buildings** (Radar interception, bunkers that blunt a strike): only if Phase 3 measures the bomb too strong.
 - **Full Game.** §5 measures the bomb as a finisher in a climb with hard or expert bots. Three ways forward, each a decision on §0.5's scope before it is code:
-  1. **Custom first** (recommended now): bake the three settings only where the game starts in WW2 (`era_id === 'ww2'`), so Full Game keeps today's bomb until a climb rule is measured. One line in `bakeCreateGameSettings`.
+  1. **Custom first** (done): `bakeCreateGameSettings` bakes the three settings only where the game starts in WW2 (`era_id === 'ww2'`), so Full Game keeps today's bomb until a climb rule is measured.
   2. **Era peers only**: in a climb, the bomb may target only a seat in WW2 or a later era. The probe in §5 says this reaches part of the problem: 37.5% of Full Game detonations land on a seat in an earlier era, 30.9% on one in the same era and 31.5% on one further ahead.
   3. **Restraint for bots in a climb**: a bot fires only at the seat leading on territory or era. It changes nothing a human does, so it is a bot-game fix, not a balance one.
+
+  Options 2 and 3 would bring the bomb back to climbs. The harness's full mode still sets the three settings directly, so either can be measured there before the bake widens again.
 - **Six-seat length.** All three phases run six-seat games 2.5 turns longer. The next tuning target, if one is wanted, is the bomb's footprint on Conquest (a bombed tile is neutral until someone takes it, and the 65% is of the whole board), not its price (§5).
 
 ---
@@ -381,3 +384,4 @@ The harness runs every phase in custom mode at six and four seats, and in full m
 
 - **2026-10-03:** written after a discussion of the once-per-game abilities: most games end before anyone reaches Manhattan Project. Decided in discussion: tech-on custom games and Full Game are both in scope; the bomb denies and takes ground; it becomes repeatable at a price.
 - **2026-10-03:** Phases 0 to 3 shipped dark and measured on 1,000 games per cell on three seeds, with an expert Full Game arm and two dearer price lines. Custom WW2 games pass every line with all three phases except six-seat length (+2.5 turns); the price stays at 15 + 5. Full Game with expert bots fails the climb lines; options in §7.
+- **2026-10-03:** decided after the measurement: the three settings apply only to games that start in WW2 (§7, option 1). A climb from an earlier era, Full Game included, keeps today's bomb.

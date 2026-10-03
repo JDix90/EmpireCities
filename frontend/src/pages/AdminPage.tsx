@@ -203,19 +203,19 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'ww2_bomb_ai_enabled',
     label: 'WW2 bots and the Atom Bomb',
     description:
-      'Hard and expert bots research toward Manhattan Project, fire the Atom Bomb at a target worth it (a big stack, its buildings, a tile they can walk into) and walk in. The bomb itself is unchanged: once per game, behind Panzer Tactics. Applies to WW2 games and to climbs that pass through WW2. Baked into each game at creation. OFF by default (dark launch) — Phase 1 of docs/WW2_MANHATTAN_PROJECT.md; promote on its sim gate.',
+      'Hard and expert bots research toward Manhattan Project, fire the Atom Bomb at a target worth it (a big stack, its buildings, a tile they can walk into) and walk in. The bomb itself is unchanged: once per game, behind Panzer Tactics. Applies only to games that start in WW2; a climb from an earlier era keeps today\'s bomb. Baked into each game at creation. OFF by default (dark launch) — Phase 1 of docs/WW2_MANHATTAN_PROJECT.md; promote on its sim gate.',
   },
   {
     key: 'ww2_manhattan_science_enabled',
     label: 'WW2 Manhattan Project on the science line',
     description:
-      'Manhattan Project follows Radar Network instead of Panzer Tactics, at the same 20 TP. The science line pays for itself on the way (Mass Munitions +2 tech, Radar +3, both research buildings), and on a climb it overlaps the gate out of WW2, so the bomb arrives a couple of turns past the gate rather than off the tank line. Applies to WW2 games and to climbs that pass through WW2. Baked into each game at creation. OFF by default (dark launch) — Phase 2 of docs/WW2_MANHATTAN_PROJECT.md; promote on its sim gate.',
+      'Manhattan Project follows Radar Network instead of Panzer Tactics, at the same 20 TP. The science line pays for itself on the way (Mass Munitions +2 tech, Radar +3, both research buildings), and on a climb it overlaps the gate out of WW2, so the bomb arrives a couple of turns past the gate rather than off the tank line. Applies only to games that start in WW2; a climb from an earlier era keeps today\'s bomb. Baked into each game at creation. OFF by default (dark launch) — Phase 2 of docs/WW2_MANHATTAN_PROJECT.md; promote on its sim gate.',
   },
   {
     key: 'ww2_atomic_arsenal_enabled',
     label: 'WW2 atomic arsenal',
     description:
-      'The Atom Bomb becomes once per turn instead of once per game, priced in production: 15 PP for a player\'s first detonation and 5 more for each after. The bombed tile goes neutral at 1 unit with fallout for 3 rounds (whoever holds it loses a unit a round, it earns nothing, nothing can be built there), the bomber\'s territories lose 10 stability, and once anyone has detonated, Manhattan Project costs half for everyone without it. A bomb carried past WW2 on a climb fires without the price. Applies to WW2 games and to climbs that pass through WW2. Baked into each game at creation. OFF by default (dark launch) — Phase 3 of docs/WW2_MANHATTAN_PROJECT.md; promote on its sim gate.',
+      'The Atom Bomb becomes once per turn instead of once per game, priced in production: 15 PP for a player\'s first detonation and 5 more for each after. The bombed tile goes neutral at 1 unit with fallout for 3 rounds (whoever holds it loses a unit a round, it earns nothing, nothing can be built there), the bomber\'s territories lose 10 stability, and once anyone has detonated, Manhattan Project costs half for everyone without it. A bomb carried past WW2 on a climb fires without the price. Applies only to games that start in WW2; a climb from an earlier era keeps today\'s bomb. Baked into each game at creation. OFF by default (dark launch) — Phase 3 of docs/WW2_MANHATTAN_PROJECT.md; promote on its sim gate.',
   },
   {
     key: 'galaxy_world_rules_enabled',
