@@ -12,7 +12,7 @@
  * The turn hand-off (advanceToNextPlayer and what follows it) stays with the
  * caller, which also decides where an away seat resumes.
  */
-import { EMERGENCY_SEAL_ABILITY_ID, GALAXY_LANE_SEAL_DURATION, canSealLane, connectionRequiresMoonAccess, fortifyEndpointsRequireOrbitAccess, getOrbitAccessResult, isLaneSealedForPlayer, laneSealDuration, laneSealHelium3Cost, laneSealTick } from '../state/moonAccess';
+import { EMERGENCY_SEAL_ABILITY_ID, GALAXY_LANE_SEAL_DURATION, canSealLane, connectionRequiresMoonAccess, fortifyEndpointsRequireOrbitAccess, getOrbitAccessResult, isLaneSealedForPlayer, laneSealDuration, laneSealHelium3Cost, laneSealTick, syncLaunchPadLanes } from '../state/moonAccess';
 import { TARGETED_DRAFT_ABILITIES, TERRITORY_ABILITY_DEFS, getFortifyMoveLimit, getInfluenceUnitCost, isOwnedTerritoryAdjacentToEnemy, playerHasUnlockedAbility } from '../abilities/techAbilities';
 import { aiAttackExchangeBudget, runAiAttackExchanges, shouldPressDecidedGame } from './aiAttackGrind';
 import { aiFiresLanePowers, canAiFireLanePower, selectAiLanceBatteryTarget, selectAiOrbitalMusterTarget, selectAiSealBreaker, selectAiSurgeProjector } from './aiLanePowers';
@@ -47,8 +47,12 @@ import { isShieldedFrom } from '../state/teams';
 import { playerHoldsVaultSeal, worldDeployCapBonus } from '../state/worldRules';
 import { resolveSeaCrossing } from '../state/navalManager';
 import { shouldSpendTechPointsOnAbility } from './aiTechBudget';
+import { syncJumpGateLanes } from '../state/jumpGates';
+import { syncSurgeProjectorLanes } from '../state/surgeProjector';
+import { unlockTerritoriesForFloor } from '../eraAdvancement/territoryUnlock';
 import type { AiAction, AiTurnOptions } from './aiBot';
-import type { AiDifficulty, EraId, GameMap, GameState, PlayerState } from '../../types';
+import { aiProfile, type AiLevel } from './aiProfiles';
+import type { EraId, GameMap, GameState, PlayerState } from '../../types';
 import type { MapVisualEventPayload } from '../visuals/mapVisualEvents';
 import type { StrikeAnimationPayload } from '../abilities/strikeAnimation';
 
@@ -63,7 +67,7 @@ export interface AiTurnFlags {
 export interface AiPlanHooks {
   /** The board as this seat sees it (the fog-filtered view when fog of war is on). */
   planningState(): GameState;
-  plan(state: GameState, map: GameMap, difficulty: AiDifficulty, options: AiTurnOptions): Promise<AiAction[]>;
+  plan(state: GameState, map: GameMap, difficulty: AiLevel, options: AiTurnOptions): Promise<AiAction[]>;
 }
 
 /** Everything a bot turn does besides the rules themselves. */
@@ -106,7 +110,7 @@ export async function planAiTurn(
   state: GameState,
   map: GameMap,
   currentPlayer: PlayerState,
-  difficulty: AiDifficulty,
+  difficulty: AiLevel,
   flags: AiTurnFlags,
   hooks: AiPlanHooks,
 ): Promise<AiTurnPlan> {
@@ -154,7 +158,7 @@ export async function playAiTurn(
   state: GameState,
   map: GameMap,
   currentPlayer: PlayerState,
-  difficulty: AiDifficulty,
+  difficulty: AiLevel,
   plan: AiTurnPlan,
   resumeAt: 'draft' | 'attack' | 'fortify',
   hooks: AiTurnHooks,
@@ -204,7 +208,7 @@ export async function playAiTurn(
 
   if (
     state.settings.era_advancement_enabled
-    && difficulty !== 'tutorial'
+    && !aiProfile(difficulty).passive
     && evaluateAiEraAdvancement(state, map, currentPlayer.player_id, difficulty).shouldAdvance
   ) {
     const advanceResult = executeAdvanceEra(state, currentPlayer.player_id, map);
@@ -228,7 +232,7 @@ export async function playAiTurn(
     }
   }
 
-  if (difficulty !== 'tutorial') {
+  if (!aiProfile(difficulty).passive) {
     for (;;) {
       const ids = findRedeemableCardIds(currentPlayer.cards);
       if (!ids) break;
@@ -1203,6 +1207,12 @@ function maybeActivateAiAttackSelfBuff(state: GameState, map: GameMap, player: P
  * Hooks for a turn with nobody watching: no pacing, broadcasts, saves or
  * visuals, and a victory check that marks the state game over as the live game
  * does (without finalizing anything). For harnesses and tests.
+ *
+ * The board changes the live hooks make still happen, from the same engine
+ * calls: territories an era unlocks, and the lanes a Launch Pad opens, a
+ * capture re-links (jump gates) or the attack phase closes (a Surge Projector).
+ * Not the era board transform, which loads the next era's map from the
+ * database; a harness leaves `era_advancement_board_transform` off.
  */
 export function headlessAiTurnHooks(state: GameState, map: GameMap): AiTurnHooks {
   const none = async (): Promise<void> => {};
@@ -1223,11 +1233,20 @@ export function headlessAiTurnHooks(state: GameState, map: GameMap): AiTurnHooks
     spectatorEvent: () => {},
     visual: () => {},
     strikeVisuals: () => {},
-    launchPadLane: none,
-    eraBoardChange: none,
+    launchPadLane: async (territoryId) => {
+      if (state.territories[territoryId]?.buildings?.includes('launch_pad')) syncLaunchPadLanes(map, state);
+    },
+    eraBoardChange: async () => {
+      unlockTerritoriesForFloor(state, map);
+    },
     mapChanged: none,
-    afterCapture: none,
-    surgeLanesClosed: none,
+    afterCapture: async () => {
+      syncJumpGateLanes(map, state);
+      syncSurgeProjectorLanes(map, state);
+    },
+    surgeLanesClosed: async () => {
+      syncSurgeProjectorLanes(map, state);
+    },
     recordCombat: () => {},
     recordElimination: () => {},
   };

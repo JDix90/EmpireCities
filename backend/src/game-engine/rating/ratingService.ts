@@ -1,4 +1,5 @@
 import { getGlickoConfig } from '../../services/adminConfig';
+import { aiProfile } from '../ai/aiProfiles';
 
 const Q = Math.log(10) / 400;
 const PI2 = Math.PI * Math.PI;
@@ -87,14 +88,9 @@ export function displayRating(mu: number, phi: number): { display: number; provi
 
 export function syntheticAiOpponent(difficulty: string): { mu: number; phi: number } {
   const initial = getInitialRatings();
-  const offsets: Record<string, number> = {
-    easy: -200,
-    medium: 0,
-    hard: 150,
-    expert: 300,
-    tutorial: -400,
-  };
-  return { mu: initial.mu + (offsets[difficulty] ?? 0), phi: 50 };
+  // Each level's offset is its profile's ratingOffset; an unknown value plays
+  // (and rates) as medium, at 0.
+  return { mu: initial.mu + aiProfile(difficulty).ratingOffset, phi: 50 };
 }
 
 // ── Ranked tier helpers ─────────────────────────────────────────────────

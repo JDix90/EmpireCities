@@ -1,5 +1,5 @@
 import { randomInt } from 'crypto';
-import type { GameState, GameMap, AiDifficulty, BuildingType } from '../../types';
+import type { GameState, GameMap, BuildingType } from '../../types';
 import { calculateReinforcements, scaleRegionBonus } from '../combat/combatResolver';
 import { captureProbability } from '../combat/combatOdds';
 import { computeLandCombatModifiers } from '../combat/combatModifiers';
@@ -42,6 +42,7 @@ import {
 import type { GarrisonDoctrine } from '@borderfall/shared';
 import { aiLanePowerReserve } from './aiLanePowers';
 import { aiWorldBuildingCandidates } from './aiWorldBuildings';
+import { aiProfile, type AiLevel, type AiProfile } from './aiProfiles';
 
 export interface AiAction {
   type: 'draft' | 'attack' | 'fortify' | 'end_phase';
@@ -51,23 +52,14 @@ export interface AiAction {
   cardIds?: string[];
 }
 
-// `randomFactor` is the jitter added to every candidate's score, so it is the
-// whole of what separates the difficulties here (the rest is per-difficulty
-// branching at the call sites). There is no tree search: this planner is
-// single-ply and evaluates each candidate once, backed by the exact
-// combat-odds table in combat/combatOdds.ts. A `depth` field used to sit here
-// implying otherwise and was never read anywhere.
-const DIFFICULTY_CONFIG: Record<AiDifficulty, { randomFactor: number }> = {
-  easy:     { randomFactor: 0.35 },
-  medium:   { randomFactor: 0.15 },
-  hard:     { randomFactor: 0.05 },
-  expert:   { randomFactor: 0.0  },
-  tutorial: { randomFactor: 0.9  },
-};
+// Each level's settings come from its row in AI_PROFILES (ai/aiProfiles.ts).
+// There is no tree search: this planner is single-ply and evaluates each
+// candidate once, backed by the exact combat-odds table in
+// combat/combatOdds.ts.
 
 export interface AiTurnOptions {
   /**
-   * Source of the heuristic jitter (randomFactor). Production leaves it on
+   * Source of the heuristic jitter (the profile's `noise`). Production leaves it on
    * Math.random — determinism is intentionally absent from live AI play. The
    * daily simulator passes a seeded stream so a day's solve rate and par are
    * the same on every process.
@@ -114,11 +106,12 @@ export const SIEGE_BUILDING_BONUS = 2;
 export function computeAiTurn(
   state: GameState,
   map: GameMap,
-  difficulty: AiDifficulty,
+  difficulty: AiLevel,
   options?: AiTurnOptions
 ): AiAction[] {
+  const profile = aiProfile(difficulty);
   // Tutorial AI: draft to random territory, never attack, skip fortify
-  if (difficulty === 'tutorial') {
+  if (profile.passive) {
     const pid = state.players[state.current_player_index].player_id;
     const owned = Object.entries(state.territories)
       .filter(([, t]) => t.owner_id === pid)
@@ -144,7 +137,6 @@ export function computeAiTurn(
     ];
   }
 
-  const cfg = DIFFICULTY_CONFIG[difficulty];
   const jitter = options?.rng ?? Math.random;
   const actions: AiAction[] = [];
   const playerId = state.players[state.current_player_index].player_id;
@@ -158,7 +150,7 @@ export function computeAiTurn(
     state.players.length,
   );
 
-  const draftTarget = selectDraftTarget(state, map, playerId, cfg.randomFactor, jitter);
+  const draftTarget = selectDraftTarget(state, map, playerId, profile.noise, jitter);
   if (draftTarget) {
     actions.push({ type: 'draft', to: draftTarget, units: reinforcements });
   }
@@ -169,8 +161,7 @@ export function computeAiTurn(
     state,
     map,
     playerId,
-    cfg.randomFactor,
-    difficulty,
+    profile,
     options?.captureOddsScoring ?? true,
     options?.decidedGamePress ?? false,
     jitter,
@@ -180,7 +171,7 @@ export function computeAiTurn(
 
   // Use influence ability if era supports it (medium+ difficulty)
   if (
-    difficulty !== 'easy' &&
+    profile.influence &&
     (() => { const m = getPlayerEraModifiers(state, playerId); return !!(m.influence_spread || m.carbonari_network); })() &&
     !(state.influence_cooldown_remaining ?? 0)
   ) {
@@ -446,14 +437,14 @@ function selectDraftTarget(
 /**
  * Endgame finisher: weight attacks that can knock a crippled opponent out of
  * the game so 1–2 territory players don't linger for hundreds of turns.
- * Easy (and tutorial) AI stays forgiving and gets no bonus.
+ * Easy (and tutorial) AI stays forgiving and gets no bonus (profile.finisher).
  */
 export function eliminationAttackBonus(
   state: GameState,
   defenderOwnerId: string | null,
-  difficulty: AiDifficulty,
+  difficulty: AiLevel,
 ): number {
-  if (!defenderOwnerId || difficulty === 'easy' || difficulty === 'tutorial') return 0;
+  if (!defenderOwnerId || !aiProfile(difficulty).finisher) return 0;
   const owner = state.players.find((p) => p.player_id === defenderOwnerId);
   if (!owner || owner.is_eliminated) return 0;
   const remaining = owner.territory_count ?? 0;
@@ -517,29 +508,11 @@ const SOVEREIGNTY_OBJECTIVE_BONUS = 1;
 /** …and on the one that would put the bot AT the corridor bar, one round from winning. */
 const SOVEREIGNTY_CLOSING_BONUS = 4;
 
-/**
- * Score nudge for attacking a neutral Era-Advancement frontier territory. Claiming
- * free frontier land is strategically valuable (more territories → more
- * reinforcements + region bonuses), so the AI should reliably grab adjacent weak
- * frontiers rather than only ever fighting other players. Scales with difficulty so
- * stronger bots expand more decisively; still below a kill-shot so finishing an
- * opponent wins. The old flat +1 was too weak to overcome the sea-lane drag, so
- * newly-unlocked island frontiers (Hawaii, the archipelagos) sat uncaptured.
- */
-const NEUTRAL_EXPANSION_BONUS_BY_DIFFICULTY: Record<AiDifficulty, number> = {
-  tutorial: 1,
-  easy: 1.5,
-  medium: 2,
-  hard: 2.5,
-  expert: 3,
-};
-
 function selectAttacks(
   state: GameState,
   map: GameMap,
   playerId: string,
-  randomFactor: number,
-  difficulty: AiDifficulty,
+  profile: Readonly<AiProfile>,
   useCaptureOdds: boolean,
   decidedGamePress = false,
   jitter: () => number = Math.random,
@@ -547,11 +520,12 @@ function selectAttacks(
 ): AiAction[] {
   const adjacency = buildAdjacencyMap(map);
   const actions: AiAction[] = [];
-  const baseMaxAttacks = difficulty === 'easy' ? 2 : difficulty === 'medium' ? 4 : 8;
+  const randomFactor = profile.noise;
+  const baseMaxAttacks = profile.attackCap;
   // Decided-game press: the plan needs enough candidates to spend the doubled
-  // exchange budget; the same easy/tutorial exclusion as the finisher overcap.
+  // exchange budget; easy and tutorial never press.
   const maxAttacks =
-    decidedGamePress && difficulty !== 'easy' && difficulty !== 'tutorial'
+    decidedGamePress && profile.decidedPress
       ? baseMaxAttacks + FINISHER_OVERCAP
       : baseMaxAttacks;
 
@@ -710,11 +684,19 @@ function selectAttacks(
       // crossing costs fleets/bombardment and can't be pressed within a turn.
       const seaPenalty = isSeaLane ? -0.5 : 0;
       const objectiveBonus = attackObjectiveBonus(state, map, playerId, nid);
-      const vulnBonus = vulnerabilityAttackBonus(state, nOwner, difficulty);
-      const finisherBonus = eliminationAttackBonus(state, nOwner, difficulty);
+      const vulnBonus = vulnerabilityAttackBonus(state, nOwner, profile);
+      const finisherBonus = eliminationAttackBonus(state, nOwner, profile);
       let expansionBonus = 0;
       if (targetIsNeutral) {
-        expansionBonus = NEUTRAL_EXPANSION_BONUS_BY_DIFFICULTY[difficulty] ?? 2;
+        // Claiming free frontier land is strategically valuable (more
+        // territories → more reinforcements + region bonuses), so the AI should
+        // reliably grab adjacent weak frontiers rather than only ever fighting
+        // other players. It scales with difficulty so stronger bots expand more
+        // decisively, and stays below a kill-shot so finishing an opponent wins.
+        // A flat +1 was too weak to overcome the sea-lane drag, so
+        // newly-unlocked island frontiers (Hawaii, the archipelagos) sat
+        // uncaptured.
+        expansionBonus = profile.neutralExpansionBonus;
         // Many newly-unlocked frontiers (Hawaii, the island archipelagos) are
         // reachable only across sea lanes, which pay the reduced-dice + seaPenalty
         // drag below. Offset it for neutral grabs so the AI actually claims them
@@ -727,7 +709,7 @@ function selectAttacks(
         ? SIEGE_GROUND_BONUS + ((nState.buildings?.length ?? 0) > 0 ? SIEGE_BUILDING_BONUS : 0)
         : 0;
       const score = favorability + seaPenalty + objectiveBonus + vulnBonus + finisherBonus + expansionBonus + siegeBonus + jitter() * randomFactor * 3;
-      if (score > 0 || difficulty === 'easy') {
+      if (score > 0 || profile.takesLongShots) {
         candidates.push({ from: tid, to: nid, score, isFinisher: finisherBonus > 0 });
         if (state.settings.naval_enabled && isSeaConn) {
           plannedSeaAttacksFrom.set(tid, (plannedSeaAttacksFrom.get(tid) ?? 0) + 1);
@@ -741,7 +723,7 @@ function selectAttacks(
   // Kill-shots may exceed the per-turn attack budget (except easy/tutorial):
   // leaving a 1-territory opponent alive because the cap ran out is the main
   // way solo games dragged into hundreds of turns.
-  const allowFinisherOvercap = difficulty !== 'easy' && difficulty !== 'tutorial';
+  const allowFinisherOvercap = profile.finisher;
   let picked = 0;
   for (const candidate of candidates) {
     const overCap = picked >= maxAttacks;
@@ -985,7 +967,8 @@ function rankPortCandidates(
 }
 
 /**
- * Choose a building to construct this AI turn, or null to skip.
+ * Choose a building to construct this AI turn, or null to skip, by the
+ * profile's `build` mode (ai/aiProfiles.ts).
  * Easy/tutorial difficulty never builds.
  * Hard/expert prioritises defense on the most-threatened border territory;
  * medium uses a simple greedy production-first order.
@@ -994,13 +977,14 @@ export function selectAiBuildingPlacement(
   state: GameState,
   map: GameMap,
   playerId: string,
-  difficulty: AiDifficulty,
+  difficulty: AiLevel,
 ): { territoryId: string; buildingType: BuildingType } | null {
-  if (difficulty === 'tutorial') return null;
+  const build = aiProfile(difficulty).build;
+  if (build === 'none') return null;
   if (!state.settings.economy_enabled) return null;
   // Easy stays passive in normal games, but must build in era-advancement games
   // or it can never satisfy the gate's building requirement (steamroll bug).
-  if (difficulty === 'easy' && !state.settings.era_advancement_enabled) return null;
+  if (build === 'gate_only' && !state.settings.era_advancement_enabled) return null;
 
   const player = state.players.find((p) => p.player_id === playerId);
   if (!player) return null;
@@ -1035,7 +1019,7 @@ export function selectAiBuildingPlacement(
 
   // Easy bots (only reachable here in era-advancement games): build the cheapest
   // available building until the milestone gate's requirement is met, then stop.
-  if (difficulty === 'easy') {
+  if (build === 'gate_only') {
     const gate = getEffectiveMilestoneGate(state, playerId);
     if (countPlayerBuildings(state, playerId) >= gate.min_buildings) return null;
     for (const bType of ['production_1', 'tech_gen_1', 'defense_1'] as BuildingType[]) {
@@ -1147,7 +1131,7 @@ export function selectAiBuildingPlacement(
     // Step 2 (hard/expert): once the AI has at least one port, upgrade the
     // best-positioned existing port to a naval_base for double fleet income,
     // then start adding coastal_battery defense at fleet-producing tiles.
-    if (difficulty === 'hard' || difficulty === 'expert') {
+    if (build === 'threat') {
       const upgradeAt = portCandidates.find(
         (c) => c.existing.includes('port') && !c.existing.includes('naval_base'),
       );
@@ -1166,7 +1150,7 @@ export function selectAiBuildingPlacement(
     }
   }
 
-  if (difficulty === 'hard' || difficulty === 'expert') {
+  if (build === 'threat') {
     const adjacency = buildAdjacencyMap(map);
 
     // Find most-threatened border territories (ordered by total enemy units adjacent).
@@ -1249,9 +1233,6 @@ export function selectAiBuildingPlacement(
   return null;
 }
 
-/** Doctrines a bot buys in one turn: medium trains one garrison, hard and expert two. */
-const AI_DOCTRINES_PER_TURN: Partial<Record<AiDifficulty, number>> = { medium: 1, hard: 2, expert: 2 };
-
 /**
  * Garrison doctrines this bot buys this turn (state/garrisonDoctrines.ts), in
  * the order to apply them. Called after the turn's plan is made and before its
@@ -1272,10 +1253,12 @@ export function selectAiGarrisonDoctrines(
   state: GameState,
   map: GameMap,
   playerId: string,
-  difficulty: AiDifficulty,
+  difficulty: AiLevel,
   plannedActions: AiAction[],
 ): Array<{ territoryId: string; doctrine: GarrisonDoctrine }> {
-  const cap = AI_DOCTRINES_PER_TURN[difficulty] ?? 0;
+  // Medium trains one garrison a turn, hard and expert two (ai/aiProfiles.ts).
+  const profile = aiProfile(difficulty);
+  const cap = profile.doctrinesPerTurn;
   if (cap === 0 || !garrisonsEnabled(state) || !state.settings.economy_enabled) return [];
   const player = state.players.find((p) => p.player_id === playerId);
   if (!player) return [];
@@ -1303,7 +1286,7 @@ export function selectAiGarrisonDoctrines(
   const laneKey = (a: string, b: string): string => (a < b ? `${a}::${b}` : `${b}::${a}`);
   const laneSet = new Set(lanes.map((c) => laneKey(c.from, c.to)));
 
-  if (difficulty === 'hard' || difficulty === 'expert') {
+  if (profile.forwardDoctrine) {
     const crossing = plannedActions.find(
       (a) => a.type === 'attack' && a.from && a.to && laneSet.has(laneKey(a.from, a.to)),
     );
@@ -1371,8 +1354,9 @@ function selectGateDirectedTech(
 export function selectAiTechResearch(
   state: GameState,
   playerId: string,
-  difficulty: AiDifficulty,
+  difficulty: AiLevel,
 ): string | null {
+  const research = aiProfile(difficulty).research;
   // Easy stays passive in normal games, but must research in era-advancement
   // games or it can never pass the gate (steamroll bug). Galactic Age is the
   // other exception: it has no era advancement, so a non-Helion easy bot that
@@ -1405,7 +1389,7 @@ export function selectAiTechResearch(
     const gateTech = selectGateDirectedTech(state, playerId, available);
     if (gateTech) return gateTech;
     // Easy bots only research toward the gate — stay simple once it's satisfied.
-    if (difficulty === 'easy') return null;
+    if (research === 'gate_only') return null;
   }
 
   // Galactic Age priority hook: Hyperspace Chart has no raw combat numbers, so
@@ -1458,7 +1442,7 @@ export function selectAiTechResearch(
     }
     // Easy bots in the Galactic Age research the chart and nothing else —
     // they only reach this function for the world-lock exception above.
-    if (difficulty === 'easy' && !state.settings.era_advancement_enabled) return null;
+    if (research === 'gate_only' && !state.settings.era_advancement_enabled) return null;
   }
 
   // Space Age priority hook (mirror of the galaxy hook above): the lunar
@@ -1497,7 +1481,7 @@ export function selectAiTechResearch(
     if (bombStep.save) return null;
   }
 
-  if (difficulty === 'hard' || difficulty === 'expert') {
+  if (research === 'strategic') {
     const isAggressive = AGGRESSIVE_ERAS.has(state.era);
     const scored = available.map((node) => {
       let score = 0;

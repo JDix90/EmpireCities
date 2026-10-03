@@ -21,7 +21,8 @@
  * earlier in the draft cannot spend the fuel the powers need.
  */
 
-import type { AiDifficulty, GameMap, GameState } from '../../types';
+import type { GameMap, GameState } from '../../types';
+import { aiProfile, type AiLevel } from './aiProfiles';
 import type { AiAction } from './aiBot';
 import { playerHasUnlockedAbility } from '../abilities/techAbilities';
 import {
@@ -51,9 +52,9 @@ export const AI_LANCE_MIN_TARGET_UNITS = 3;
  */
 export const AI_SURGE_MIN_EDGE = 2;
 
-/** Easy and tutorial bots stay off the powers. */
-export function aiFiresLanePowers(difficulty: AiDifficulty): boolean {
-  return difficulty !== 'easy' && difficulty !== 'tutorial';
+/** Easy and tutorial bots stay off the powers (profile.lanePowers). */
+export function aiFiresLanePowers(difficulty: AiLevel): boolean {
+  return aiProfile(difficulty).lanePowers;
 }
 
 /** Unlocked, unused this turn, and affordable right now. */

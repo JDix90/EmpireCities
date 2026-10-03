@@ -1,12 +1,13 @@
 import { parentPort, workerData } from 'worker_threads';
 import { computeAiTurn } from './aiBot';
 import type { AiTurnOptions } from './aiBot';
-import type { GameState, GameMap, AiDifficulty } from '../../types';
+import type { GameState, GameMap } from '../../types';
+import type { AiLevel } from './aiProfiles';
 
 const { state, map, difficulty, options } = workerData as {
   state: GameState;
   map: GameMap;
-  difficulty: AiDifficulty;
+  difficulty: AiLevel;
   options?: AiTurnOptions;
 };
 

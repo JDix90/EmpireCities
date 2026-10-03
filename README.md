@@ -761,9 +761,10 @@ Snapshot and restart behavior for ops: [docs/OPERATIONS.md](docs/OPERATIONS.md).
 
 ### Adding a New AI Difficulty Level
 
-Edit `backend/src/game-engine/ai/aiBot.ts`:
-1. Add the new level to `DIFFICULTY_CONFIG`
-2. Adjust `depth` (search depth) and `randomFactor` (0.0 = deterministic, 1.0 = random)
+1. Add the level to `AiDifficulty` in `backend/src/types/index.ts`
+2. Give it a row in `AI_PROFILES` (`backend/src/game-engine/ai/aiProfiles.ts`), which holds every setting a level has: score noise, attack cap and exchange budget, building and research modes, era advancement, worker time budget, rating offset
+3. Offer it in the lobby (`frontend/src/pages/LobbyPage.tsx`)
+4. Measure it against the levels either side with `backend/scripts/simAiArena.ts`, e.g. `ARENA_CANDIDATE=<new> ARENA_BASELINE=medium pnpm exec tsx scripts/simAiArena.ts` from `backend/`
 
 ### Extending the Game Engine
 

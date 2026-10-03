@@ -17,7 +17,7 @@ This repo is **Borderfall**: a browser-based historical Risk-style game — Reac
 
 ## Balance harnesses (from `backend/`)
 
-Headless, pure-engine simulators. No sockets, no database. Both seed the AI
+Headless, pure-engine simulators. No sockets, no database. Each seeds the AI
 planner's jitter, which production leaves on `Math.random` — without that a
 config's measured win rate moves ten points between runs and an A/B means
 nothing.
@@ -33,9 +33,16 @@ nothing.
   applies each stage's starting-unit modifier as the route does; `SIM_STAGES`
   narrows the sweep; the `SIM_DIFFICULTY` / `SIM_AI_COUNT` / `SIM_CLOCK` family
   asks "what if" without editing `campaignPaths.ts`.
+- `pnpm exec tsx scripts/simAiArena.ts` — bots against bots: one candidate
+  seat against baseline seats, each side its own difficulty, AI flags
+  (`ARENA_*_FLAGS`) and settings over its level's row in `AI_PROFILES`
+  (`ARENA_*_PROFILE`), on the Quick Match maps or Full Game rules. It plays
+  the live bot turn (`ai/runAiTurn.ts`), cards included, seeds every draw, and
+  prints a digest per configuration: a change meant to leave the bots alone
+  must leave it alone.
 
-Both rank configurations against each other. The stand-in is a medium bot, so
-the numbers do not predict what a person scores.
+The first two rank configurations against each other. Their stand-in is a
+medium bot, so the numbers do not predict what a person scores.
 
 ## Quick pointers
 

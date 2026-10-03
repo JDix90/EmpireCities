@@ -23,7 +23,8 @@
  * re-checks it, as it does for a human.
  */
 
-import type { AiDifficulty, GameMap, GameState, PlayerState } from '../../types';
+import type { GameMap, GameState, PlayerState } from '../../types';
+import { aiProfile, type AiLevel } from './aiProfiles';
 import type { TechNode } from '../eras/types';
 import { getEffectiveTechCost, getEraTechTreeForPlayer, getPlayerTechPointIncome } from '../state/techManager';
 import { BUILDING_TECH_INCOME } from '../state/economyManager';
@@ -54,11 +55,14 @@ export function aiBombEnabled(state: Pick<GameState, 'settings'>): boolean {
   return state.settings?.ww2_bomb_ai === true;
 }
 
-/** Hard and expert bots pursue the bomb; medium buys it when it is the cheapest node left, as before. */
-export function aiPursuesBomb(state: GameState, difficulty: AiDifficulty): boolean {
+/**
+ * Hard and expert bots pursue the bomb (profile.pursuesBomb); medium buys it
+ * when it is the cheapest node left, as before.
+ */
+export function aiPursuesBomb(state: GameState, difficulty: AiLevel): boolean {
   return aiBombEnabled(state)
     && state.settings.tech_trees_enabled === true
-    && (difficulty === 'hard' || difficulty === 'expert');
+    && aiProfile(difficulty).pursuesBomb;
 }
 
 /**
@@ -93,7 +97,7 @@ export interface BombResearchPick {
 export function selectAiBombResearch(
   state: GameState,
   playerId: string,
-  difficulty: AiDifficulty,
+  difficulty: AiLevel,
 ): BombResearchPick | null {
   if (!aiPursuesBomb(state, difficulty)) return null;
   const player = state.players.find((p) => p.player_id === playerId);

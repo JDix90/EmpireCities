@@ -104,6 +104,7 @@ const DRIFT_JUMP_ABILITY_ID = 'drift_jump';
 import type { BuildingType } from '../types';
 import { runAiWithTimeout } from '../game-engine/ai/runAiWithTimeout';
 import { planAiTurn, playAiTurn } from '../game-engine/ai/runAiTurn';
+import { aiProfile } from '../game-engine/ai/aiProfiles';
 import { recordGameResults, computeRanks, redactGuestRatings } from '../game-engine/state/statsManager';
 import { checkAndUnlockAchievements } from '../game-engine/achievements/achievementService';
 import { pgPool } from '../db/postgres';
@@ -5868,8 +5869,10 @@ async function processAiTerritorySelect(io: Server, gameId: string): Promise<voi
   }
 
   let chosenId: string;
+  // How this level claims ground: random, or clustered (ai/aiProfiles.ts).
+  const pick = aiProfile(difficulty).territoryPick;
 
-  if (difficulty === 'hard' || difficulty === 'expert') {
+  if (pick !== 'random') {
     // Prefer unclaimed territories adjacent to already-owned territories (clustering)
     const owned = new Set(
       Object.entries(state.territories)
@@ -5883,7 +5886,7 @@ async function processAiTerritorySelect(io: Server, gameId: string): Promise<voi
 
     if (adjacentUnclaimed.length > 0) {
       // Expert: score by region bonus potential
-      if (difficulty === 'expert') {
+      if (pick === 'cluster_by_region') {
         const regionBonus: Record<string, number> = {};
         for (const r of map.regions) regionBonus[r.region_id] = r.bonus;
         const scored = adjacentUnclaimed.map((id) => {
