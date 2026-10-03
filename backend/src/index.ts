@@ -474,14 +474,19 @@ async function bootstrap(): Promise<void> {
 
   // Static era tech tree — public, no auth needed
   // `?buildings=v2` serves the Galactic Age buildings-v2 tree (the one a game
-  // created with `settings.galaxy_buildings_v2` plays on), and `?powers=1` the
-  // tree whose nodes open the lane powers (`settings.galaxy_powers`); other
-  // eras ignore both.
-  app.get<{ Params: { era: string }; Querystring: { buildings?: string; powers?: string } }>('/api/eras/:era/tech-tree', async (req, reply) => {
+  // created with `settings.galaxy_buildings_v2` plays on), `?powers=1` the
+  // tree whose nodes open the lane powers (`settings.galaxy_powers`), and
+  // `?world=1` the tree that opens the world buildings
+  // (`settings.galaxy_world_buildings`); other eras ignore all three.
+  app.get<{ Params: { era: string }; Querystring: { buildings?: string; powers?: string; world?: string } }>('/api/eras/:era/tech-tree', async (req, reply) => {
     try {
       const techTree = getEraTechTree(
         req.params.era as Parameters<typeof getEraTechTree>[0],
-        { galaxyBuildingsV2: req.query?.buildings === 'v2', galaxyPowers: req.query?.powers === '1' },
+        {
+          galaxyBuildingsV2: req.query?.buildings === 'v2',
+          galaxyPowers: req.query?.powers === '1',
+          galaxyWorldBuildings: req.query?.world === '1',
+        },
       );
       return reply.send({ techTree });
     } catch {

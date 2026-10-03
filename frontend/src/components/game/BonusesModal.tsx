@@ -73,6 +73,11 @@ const BUILDING_COLOR: Record<string, string> = {
   port: 'text-cyan-300',
   naval_base: 'text-cyan-300',
   coastal_battery: 'text-cyan-300',
+  // Galactic Age world buildings (`galaxy_world_buildings`).
+  habitat_dome: 'text-emerald-300',
+  storm_shelter: 'text-emerald-300',
+  vault_conduit: 'text-purple-300',
+  toll_beacon: 'text-amber-300',
 };
 
 const BUILDING_META: Record<string, { label: string; effect: string; color: string }> =

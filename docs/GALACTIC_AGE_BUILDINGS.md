@@ -1,6 +1,6 @@
 # Galactic Age — Buildings, Garrisons and Lane Powers: Design Package
 
-**Status: proposed. Nothing in it is implemented.** It specifies a phased, flag-gated package that makes the Galactic Age's buildings read as the era's own, ties them to its tech tree, and gives production points somewhere to go. It is written against the systems that exist today, with file references, so each phase is an engineering task rather than an idea. Decisions already taken are marked **decided**; the rest are proposals for the sim to settle.
+**Status: Phases 1 to 5 have shipped dark, each behind its own flag, and none is promoted; each phase's section records what shipped and how it measured.** It specifies a phased, flag-gated package that makes the Galactic Age's buildings read as the era's own, ties them to its tech tree, and gives production points somewhere to go. It is written against the systems that exist today, with file references, so each phase is an engineering task rather than an idea. Decisions already taken are marked **decided**; the rest are proposals for the sim to settle.
 
 Companion reading: [GALACTIC_AGE_MODES.md](GALACTIC_AGE_MODES.md) (the boards), [space-age-moon/README.md](space-age-moon/README.md) (the precedent for position-gated, fuel-priced powers), `backend/scripts/GALAXY-BALANCE.md` (every number the era has been tuned on), `backend/src/game-engine/eras/galaxyage.ts`, `backend/src/game-engine/state/economyManager.ts`, `backend/src/game-engine/abilities/techAbilities.ts`.
 
@@ -295,9 +295,41 @@ One building per world rule, so each world's rule has a decision attached, and o
 | Habitat Dome | Sol III | 5 | This tile musters to 3 instead of 2 (`muster_threshold` +1 on the tile) |
 | Storm Shelter | Verdan Reach | 5 | This tile's storm threshold is 18 instead of 12 (`storm_threshold` +6 on the tile), so a defended gateway on Verdan is possible |
 | Vault Conduit | a Gate Ring tile on Nexus Station | 6 | +1 TP/turn while its owner holds the whole Vault |
-| Toll Beacon | any gateway | 6 | +1 PP/turn while the lane it anchors is its owner's corridor |
+| Toll Beacon | any gateway, one per lane | 6 | +1 PP/turn while the lane it anchors is its owner's corridor. One per lane since its first measurement — see below |
 
 Each is its own `BuildingType`, its own category (one per tile), unlocked by the tree's tier-1 economic root. All four are gateway or world-bound, so Phase 2 governs them on capture. The world rules read them through `getWorldRules` with a per-tile override, the one place each rule already reads its threshold.
+
+**Shipped (dark):** `state/worldBuildings.ts` behind `galaxy_world_buildings_enabled`, baked as `settings.galaxy_world_buildings` for every galaxy-rules theater. Each is its own building id and one-per-tile slot; the shared package holds the four ids, prices and effects (`GALAXY_WORLD_BUILDING_*`), so the server, the build panel and the bots read one table. Lattice Logistics opens all four only under the setting (`galaxyAgeTechTree({ worldBuildings })`, `?world=1` on the tree route), appended to what it opens already. `validateBuild` refuses every one of them in a game without the setting, because adding a building id makes it known everywhere and an id no node names counts as free; with the setting it checks the placement before the price. The rules read the Dome and the Shelter in `applyCradleMuster` and `applyStormAttrition` through `tileMusterThreshold` and `tileStormThreshold`, which add nothing in any other game. The Conduit and the Beacon pay in `collectProduction`, flat like the Vault, and the Beacon's corridor is Lane Sovereignty's: both ends of an authored lane held by the owner or an ally. Because the build check and the production tick hold state and no map, each gateway is stamped with its lanes' far ends (`lane_partners`) when it enters play, at init and at a Space to Stars arrival, only in a game with the setting. A world building missing from an older economy snapshot, or from an admin cost override written before it existed, falls back to its own price; every other building's cost resolves as before. Capture follows Phase 2, as the section says.
+
+The bots build them from `ai/aiWorldBuildings.ts`, after border defence and before the production chain, and only where each plainly pays: a Storm Shelter under a stack at the storm line, Vault Conduits while holding the whole Vault, a Toll Beacon on a gateway whose lane is already their corridor and carries no toll yet, and a Habitat Dome on a thin Cradle tile facing a rival, at most three. The build panel offers each only on a system where it can stand (`frontend/src/utils/worldBuildings.ts`), the Bonuses modal lists them, and Admin → Config has the toggle. The primer's cards wait for promotion, as every earlier phase's do. The sim takes `SIM_WORLD_BUILDINGS=1` and reports, per building, how many each seat builds, how many stand at the end, and what the Beacons and Conduits paid.
+
+**Measured (1,000 games per cell on each of three seeds, `borderfall-galaxy-balance`, `galaxy-b` and `galaxy-c`, averaged; expert, seals on in both arms, on the deterministic harness):**
+
+| seats | | length | decisive | turn-10 leader | lane end-owner changes | PP banked | factions (Sol / Rust / Verdan / Nexus) |
+|---|---|---|---|---|---|---|---|
+| 4 | control | 32.2 | 98.8% | 59.1% | 74.0 | 240 | 22.9 / 25.3 / 26.0 / 25.8 |
+| 4 | **world buildings** | 32.3 | 98.4% | 58.1% | 74.4 | 232 | 22.9 / 23.4 / 25.4 / 28.4 |
+| 2 | control | 31.4 | 97.7% | 65.9% | 23.4 | 563 | 59.0 / 23.4 / 64.1 / 53.5 |
+| 2 | **world buildings** | 31.3 | 97.2% | 65.4% | 23.6 | 555 | 57.3 / 24.9 / 62.9 / 54.9 |
+| 8 | control | 43.2 | 97.1% | 34.6% | 172.0 | 132 | 12.8 / 11.4 / 9.0 / 16.8 |
+| 8 | **world buildings** | 42.2 | 97.8% | 33.2% | 167.3 | 108 | 12.0 / 10.2 / 9.2 / 18.7 |
+
+| seats | built per seat per game (Dome / Shelter / Conduit / Beacon) | seats that built one | standing per seat at the end | paid per seat per game |
+|---|---|---|---|---|
+| 4 | 1.4 / 1.1 / 0.5 / 2.1 | 39% / 42% / 17% / 92% | 0.2 / 0.4 / 0.3 / 0.6 | Beacons 21.9 PP, Conduits 8.2 TP |
+| 2 | 0.5 / 1.7 / 0.9 / 3.3 | 21% / 64% / 25% / 100% | 0.2 / 1.4 / 0.8 / 2.6 | Beacons 64.8 PP, Conduits 18.3 TP |
+| 8 | 2.5 / 1.3 / 0.3 / 2.1 | 53% / 40% / 12% / 84% | 0.2 / 0.3 / 0.1 / 0.2 | Beacons 10.1 PP, Conduits 3.3 TP |
+
+**Why one Toll Beacon a lane.** As first drafted a beacon could stand at each end of a corridor and both paid, and the bots built one at each end. Beacons then paid 105 PP per seat per game at two seats, and PP banked rose there, from 563 to 571, against the gate. Pricing each building out of reach in turn (`SIM_WORLD_BUILDING_COSTS`) put that on the Beacon: without it, PP banked was 516. A corridor is one corridor, so a lane now carries one toll, at whichever end. That cuts the two-seat pay to 65 PP, and PP banked falls at every seat count.
+
+Reading the gate line by line:
+
+- **Bands** hold at four seats (22.9 to 28.4%). Nexus rises 2.6 points there, on every seed; with the Vault Conduit priced out it does not (25.5%), so it is the Conduit's tech landing with the Custodians, who hold the Vault in about four games in ten. It stays inside the band, and it is the line to watch if the Conduit's pay moves.
+- **Decisiveness** moves −0.4 points at two seats, −0.3 at four and +0.7 at eight; the two dips are about one standard error each.
+- **Length** stays within a turn, and the **turn-10 leader** falls at every seat count.
+- **PP banked falls**, by 1.4% at two seats, 3.4% at four and 17.9% at eight.
+
+Most of what the bots build does not stand at the end: without orbital infrastructure a captured tile is razed, and these buildings want the contested tiles (a thin frontier, a gateway, a stack in the storms). Phase 2 is the rule that would keep them, and the two were measured apart, as every phase has been.
 
 ---
 
@@ -321,5 +353,5 @@ The galaxy sim (`SIM_PLAYERS`, `SIM_EVENTS`, `SIM_SCATTERED`, the Schism and tea
 
 ## History
 
-- **2026-10-03:** Phase 1 shipped dark (#518): `BUILDING_DISPLAY_BY_ERA`, `GALAXY_AGE_TECH_TREE_V2`, `techNodeBuildingUnlocks`, behind `galaxy_buildings_v2_enabled`. Phase 2 shipped dark (#519): `state/orbitalBuildings.ts` behind `galaxy_orbital_buildings_enabled`, with `SIM_ORBITAL` and the PP-banked line in the galaxy sim. Its first measurement failed the §8 gate; the surviving-set split traced it to the inherited Jump Gate's lane, and the rule now cuts that lane on capture (`severJumpGateLinks`, #524). Phase 3 shipped dark (#527): `state/garrisonDoctrines.ts` behind `galaxy_garrisons_enabled`, with `SIM_GARRISONS` / `SIM_DOCTRINE_COST` and the usage lines in the galaxy sim; it passes every §8 line at 2, 4 and 8 seats. Phase 4's first three powers shipped dark: `abilities/lanePowers.ts` behind `galaxy_powers_enabled`, with `SIM_POWERS`, `SIM_SEALS` and the usage lines in the galaxy sim. Orbital Muster moved to gateways only after its first measurement cost a point of decisiveness, and Seal Breaker fails the win-share line as written (§6), #530. Surge Projector followed with its own arm: `state/surgeProjector.ts`, a ring-gap lane for one crossing in its owner's attack phase. It moves no snowball line and lifts the two-seat Syndicate from 23% to 34%, and it fails the win-share line as written.
+- **2026-10-03:** Phase 1 shipped dark (#518): `BUILDING_DISPLAY_BY_ERA`, `GALAXY_AGE_TECH_TREE_V2`, `techNodeBuildingUnlocks`, behind `galaxy_buildings_v2_enabled`. Phase 2 shipped dark (#519): `state/orbitalBuildings.ts` behind `galaxy_orbital_buildings_enabled`, with `SIM_ORBITAL` and the PP-banked line in the galaxy sim. Its first measurement failed the §8 gate; the surviving-set split traced it to the inherited Jump Gate's lane, and the rule now cuts that lane on capture (`severJumpGateLinks`, #524). Phase 3 shipped dark (#527): `state/garrisonDoctrines.ts` behind `galaxy_garrisons_enabled`, with `SIM_GARRISONS` / `SIM_DOCTRINE_COST` and the usage lines in the galaxy sim; it passes every §8 line at 2, 4 and 8 seats. Phase 4's first three powers shipped dark: `abilities/lanePowers.ts` behind `galaxy_powers_enabled`, with `SIM_POWERS`, `SIM_SEALS` and the usage lines in the galaxy sim. Orbital Muster moved to gateways only after its first measurement cost a point of decisiveness, and Seal Breaker fails the win-share line as written (§6), #530. Surge Projector followed with its own arm: `state/surgeProjector.ts`, a ring-gap lane for one crossing in its owner's attack phase. It moves no snowball line and lifts the two-seat Syndicate from 23% to 34%, and it fails the win-share line as written. Phase 5 shipped dark: `state/worldBuildings.ts` behind `galaxy_world_buildings_enabled`, with `SIM_WORLD_BUILDINGS` and `SIM_WORLD_BUILDING_COSTS` in the galaxy sim; the Toll Beacon became one a lane after its first measurement raised PP banked at two seats, and the phase then passes every §8 line at 2, 4 and 8 seats.
 - **2026-10-02:** written after the Galactic Age tutorial track shipped (#507 to #514), from a read of the tree, the catalog, the economy tick, the capture rule, the AI's build order and the balance notes. Decided in review: gateway buildings survive capture; garrison doctrines are defence-only and attack-only, separate and exclusive; powers are per turn with a PP price.

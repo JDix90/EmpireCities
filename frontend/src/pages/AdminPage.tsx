@@ -191,7 +191,13 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'galaxy_powers_enabled',
     label: 'Galactic Age lane powers',
     description:
-      'Disruption Net, Battle Fabricators and Gravity Brake Doctrine each open a once-per-turn power paid for in PP and fired from a system carrying the building it needs: Lance Battery (a defence building on a gateway; 2 units off the enemy gateway across the lane, 5 PP), Orbital Muster (an industry building; 3 units on that system, 6 PP), Seal Breaker (a defence building on a gateway; the next crossing from it ignores a Nebula Closure or an Emergency Seal, 4 PP). Baked into each game at creation. OFF by default (dark launch) — Phase 4 of docs/GALACTIC_AGE_BUILDINGS.md; promote on its sim gate.',
+      'Disruption Net, Battle Fabricators, Gravity Brake Doctrine and Gate Engineering each open a once-per-turn power paid for in PP and fired from a gateway carrying what it needs: Lance Battery (a defence building; 2 units off the enemy gateway across the lane, 5 PP), Orbital Muster (an industry building; 3 units on that gateway, 6 PP), Seal Breaker (a defence building; the next crossing from it ignores a Nebula Closure or an Emergency Seal, 4 PP), Surge Projector (Jump Gates on both worlds of a ring gap; opens the gap for one crossing this attack phase, 10 PP). Baked into each game at creation. OFF by default (dark launch) — Phase 4 of docs/GALACTIC_AGE_BUILDINGS.md; promote on its sim gate.',
+  },
+  {
+    key: 'galaxy_world_buildings_enabled',
+    label: 'Galactic Age world buildings',
+    description:
+      'Lattice Logistics opens a building for each world rule and a toll on the lanes: Habitat Dome (Sol III; the Cradle musters its system to 3, not 2, 5 PP), Storm Shelter (Verdan Reach; the storms strike its system only above 18, not 12, 5 PP), Vault Conduit (a Gate Ring system; +1 tech a turn while its owner holds the whole Vault, 6 PP) and Toll Beacon (any gateway; +1 PP a turn while its owner holds both ends of the lane, 6 PP). Baked into each game at creation. OFF by default (dark launch) — Phase 5 of docs/GALACTIC_AGE_BUILDINGS.md; promote on its sim gate.',
   },
   {
     key: 'galaxy_world_rules_enabled',

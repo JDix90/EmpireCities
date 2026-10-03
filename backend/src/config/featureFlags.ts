@@ -87,6 +87,8 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   galaxy_garrisons_enabled: () => envOptIn('GALAXY_GARRISONS_ENABLED'),
   // Phase 4: per-turn lane powers priced in PP. Dark-launched OFF; baked at create.
   galaxy_powers_enabled: () => envOptIn('GALAXY_POWERS_ENABLED'),
+  // Phase 5: a building per world rule, and a toll on the lanes. Dark-launched OFF; baked at create.
+  galaxy_world_buildings_enabled: () => envOptIn('GALAXY_WORLD_BUILDINGS_ENABLED'),
   space_age_moon_race_enabled: () => envOptOut('SPACE_AGE_MOON_RACE_ENABLED'),
   space_age_moon_tribute_enabled: () => envOptIn('SPACE_AGE_MOON_TRIBUTE_ENABLED'),
   ranked_multi_size_enabled: () => envOptIn('RANKED_MULTI_SIZE_ENABLED'),
@@ -622,15 +624,31 @@ export const featureFlags = {
 
   /**
    * Galactic Age buildings, Phase 4 (docs/GALACTIC_AGE_BUILDINGS.md §6): lane
-   * powers. Disruption Net, Battle Fabricators and Gravity Brake Doctrine each
-   * open a once-per-turn power — Lance Battery, Orbital Muster, Seal Breaker —
-   * fired from a tile carrying the building it needs and paid for in PP.
-   * Default OFF (dark launch); baked into game settings at create as
-   * `galaxy_powers`, so a flip never re-rules a match in progress. Kill switch:
-   * `GALAXY_POWERS_ENABLED` or the `galaxy_powers_enabled` admin override.
+   * powers. Disruption Net, Battle Fabricators, Gravity Brake Doctrine and Gate
+   * Engineering each open a once-per-turn power — Lance Battery, Orbital
+   * Muster, Seal Breaker, Surge Projector — fired from a gateway carrying what
+   * it needs and paid for in PP. Default OFF (dark launch); baked into game
+   * settings at create as `galaxy_powers`, so a flip never re-rules a match in
+   * progress. Kill switch: `GALAXY_POWERS_ENABLED` or the
+   * `galaxy_powers_enabled` admin override.
    */
   get galaxyPowersEnabled(): boolean {
     return overrideBool('galaxy_powers_enabled');
+  },
+
+  /**
+   * Galactic Age buildings, Phase 5 (docs/GALACTIC_AGE_BUILDINGS.md §7): world
+   * buildings. Lattice Logistics opens a Habitat Dome (the Cradle musters its
+   * tile one higher), a Storm Shelter (the storms strike its tile 6 higher), a
+   * Vault Conduit (+1 TP a turn while its owner holds the whole Vault) and a
+   * Toll Beacon (+1 PP a turn on a gateway while its lane is its owner's
+   * corridor). Default OFF (dark launch); baked into game settings at create as
+   * `galaxy_world_buildings`, so a flip never re-rules a match in progress.
+   * Kill switch: `GALAXY_WORLD_BUILDINGS_ENABLED` or the
+   * `galaxy_world_buildings_enabled` admin override.
+   */
+  get galaxyWorldBuildingsEnabled(): boolean {
+    return overrideBool('galaxy_world_buildings_enabled');
   },
 
   /**

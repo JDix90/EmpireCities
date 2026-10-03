@@ -256,6 +256,13 @@ export const BUILDING_DISPLAY: Record<string, BuildingDisplay> = {
     name: 'Jump Gate',
     effect: 'Moves your units to your gates on other worlds — logistics only, no attacks (one gate per world)',
   },
+  // Galactic Age world buildings (GALAXY_WORLD_BUILDING_IDS below): one per
+  // world rule, and a toll on the lanes. Relative wording, because each reads
+  // its world's authored threshold rather than a number of its own.
+  habitat_dome: { name: 'Habitat Dome', effect: 'The Cradle musters this system one unit higher' },
+  storm_shelter: { name: 'Storm Shelter', effect: 'Storms strike this system only 6 units higher' },
+  vault_conduit: { name: 'Vault Conduit', effect: '+1 TP/turn while you hold the whole Vault' },
+  toll_beacon: { name: 'Toll Beacon', effect: '+1 PP/turn while you hold both ends of its lane (one per lane)' },
 };
 
 /**
@@ -349,6 +356,41 @@ export const GARRISON_DOCTRINE_DISPLAY: Record<GarrisonDoctrine, { name: string;
 export function isGarrisonDoctrine(value: unknown): value is GarrisonDoctrine {
   return value === 'hardened' || value === 'forward';
 }
+
+// ── Galactic Age world buildings (docs/GALACTIC_AGE_BUILDINGS.md §7) ─────────
+//
+// One building per world rule, so each world's rule carries a decision, and a
+// toll that pays for holding corridors. Each is its own building id and its
+// own one-per-tile category, opened by Lattice Logistics, and exists only in a
+// game created with `galaxy_world_buildings`. Prices and effects live here so
+// the server, the build panel and the bots read one table.
+
+export const GALAXY_WORLD_BUILDING_IDS = ['habitat_dome', 'storm_shelter', 'vault_conduit', 'toll_beacon'] as const;
+export type GalaxyWorldBuildingId = (typeof GALAXY_WORLD_BUILDING_IDS)[number];
+
+export function isGalaxyWorldBuilding(id: string): id is GalaxyWorldBuildingId {
+  return (GALAXY_WORLD_BUILDING_IDS as readonly string[]).includes(id);
+}
+
+/** PP to raise each, before the world's build-cost multiplier (Rust builds at half). */
+export const GALAXY_WORLD_BUILDING_COSTS: Record<GalaxyWorldBuildingId, number> = {
+  habitat_dome: 5,
+  storm_shelter: 5,
+  vault_conduit: 6,
+  toll_beacon: 6,
+};
+
+/** What each one moves, on the tile it stands on. */
+export const GALAXY_WORLD_BUILDING_EFFECTS = {
+  /** Added to the Cradle's muster threshold on a tile with a Habitat Dome (2 → 3). */
+  habitatDomeMusterBonus: 1,
+  /** Added to the storm threshold on a tile with a Storm Shelter (12 → 18). */
+  stormShelterThresholdBonus: 6,
+  /** TP a turn per Vault Conduit, while its owner holds the whole Vault. */
+  vaultConduitTechIncome: 1,
+  /** PP a turn per Toll Beacon, while its lane is its owner's corridor. One beacon a lane. */
+  tollBeaconProductionIncome: 1,
+} as const;
 
 // ── Galactic Age lane powers (docs/GALACTIC_AGE_BUILDINGS.md §6) ─────────────
 //

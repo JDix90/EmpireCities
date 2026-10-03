@@ -761,6 +761,53 @@ describe.runIf(redisTestEnabled)('Galactic Age hyperspace — human socket path'
     expect(surgeEdge((await getGameMap(gameId))!)).toBe(false);
   }, 45_000);
 
+  it('world buildings: a Toll Beacon on a gateway for 6 PP; refused inland, off its world, and without the setting', async () => {
+    // Seat 2 builds, so the suite's earlier tests have not spent its rate limit.
+    const gameId = 'itest-ga-world';
+    const map = freshMap();
+    const state = freshState(gameId, map, { galaxy_world_buildings: true, world_rules_enabled: true });
+    state.current_player_index = 1;
+    state.phase = 'draft'; state.draft_units_remaining = 0;
+    for (const id of [L1.sol, 'sol_columbia']) {
+      state.territories[id].owner_id = P[1];
+      state.territories[id].buildings = [];
+    }
+    state.players[1].special_resource = 30;
+    state.players[1].unlocked_techs = ['ga_lattice_logistics'];
+    await seed(gameId, state, map);
+    const c = await connect(P[1]); await joinRoom(P[1], gameId);
+
+    const toll = await act(c, 'game:build', { gameId, territoryId: L1.sol, buildingType: 'toll_beacon' }, 'game:build_result');
+    expect(toll.ok, toll.ok ? '' : toll.error).toBe(true);
+    const after = await waitForRedisState(gameId, (st) => (st.territories[L1.sol].buildings ?? []).includes('toll_beacon'));
+    expect(after.players[1].special_resource).toBe(24);
+    expect(after.territories[L1.sol].lane_partners).toEqual([L1.verdan]);
+
+    const inland = await act(c, 'game:build', { gameId, territoryId: 'sol_columbia', buildingType: 'toll_beacon' }, 'game:build_result');
+    expect(inland.ok).toBe(false);
+    if (!inland.ok) expect(inland.error).toMatch(/only on a gateway/);
+    const shelter = await act(c, 'game:build', { gameId, territoryId: 'sol_columbia', buildingType: 'storm_shelter' }, 'game:build_result');
+    expect(shelter.ok).toBe(false);
+    if (!shelter.ok) expect(shelter.error).toMatch(/only on the storm world/);
+    const dome = await act(c, 'game:build', { gameId, territoryId: 'sol_columbia', buildingType: 'habitat_dome' }, 'game:build_result');
+    expect(dome.ok, dome.ok ? '' : dome.error).toBe(true);
+
+    // A game created without the setting refuses every one of them.
+    const plainId = 'itest-ga-world-off';
+    const plainMap = freshMap();
+    const plain = freshState(plainId, plainMap, { world_rules_enabled: true });
+    plain.current_player_index = 1;
+    plain.phase = 'draft'; plain.draft_units_remaining = 0;
+    plain.territories[L1.sol].owner_id = P[1];
+    plain.players[1].special_resource = 30;
+    plain.players[1].unlocked_techs = ['ga_lattice_logistics'];
+    await seed(plainId, plain, plainMap);
+    await joinRoom(P[1], plainId);
+    const refused = await act(c, 'game:build', { gameId: plainId, territoryId: L1.sol, buildingType: 'toll_beacon' }, 'game:build_result');
+    expect(refused.ok).toBe(false);
+    if (!refused.ok) expect(refused.error).toMatch(/not part of this game/);
+  }, 45_000);
+
   it('lane powers: an unused Surge Projector lane closes as the attack phase ends', async () => {
     const gameId = 'itest-ga-surge-unused';
     const { state, map } = surgeSetup(gameId, 3);

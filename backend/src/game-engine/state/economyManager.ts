@@ -26,7 +26,13 @@ import {
 import { resolvePlayerEraId } from '../eraAdvancement/constants';
 import { buildingsSurviveCapture } from './orbitalBuildings';
 import { clearGarrisonDoctrine } from './garrisonDoctrines';
-import { buildingDisplayName } from '@borderfall/shared';
+import {
+  checkWorldBuildingPlacement,
+  tollBeaconProductionIncome,
+  vaultConduitTechIncome,
+  worldBuildingDefaultCost,
+} from './worldBuildings';
+import { buildingDisplayName, GALAXY_WORLD_BUILDING_COSTS } from '@borderfall/shared';
 
 // ── Building definitions ──────────────────────────────────────────────────────
 
@@ -59,6 +65,11 @@ export const DEFAULT_BUILDING_COSTS: Record<BuildingType, number> = {
   launch_pad: 8,
   // Galactic Age buildings
   jump_gate: JUMP_GATE_COST,
+  // Galactic Age world buildings (state/worldBuildings.ts), only under `galaxy_world_buildings`
+  habitat_dome: GALAXY_WORLD_BUILDING_COSTS.habitat_dome,
+  storm_shelter: GALAXY_WORLD_BUILDING_COSTS.storm_shelter,
+  vault_conduit: GALAXY_WORLD_BUILDING_COSTS.vault_conduit,
+  toll_beacon: GALAXY_WORLD_BUILDING_COSTS.toll_beacon,
 };
 
 /** The building a tier must upgrade from (null = no prerequisite). */
@@ -118,6 +129,16 @@ function resolveBuildingCosts(state: GameState): Record<BuildingType, number> {
   return state.settings.economy_snapshot?.building_costs as Record<BuildingType, number>
     ?? getEconomyConfig().building_costs
     ?? DEFAULT_BUILDING_COSTS;
+}
+
+/**
+ * The declared cost of a building in this game. A world building missing from
+ * an economy snapshot, or from an operator's cost override written before it
+ * existed, falls back to its own price (state/worldBuildings.ts); every other
+ * id resolves exactly as before.
+ */
+function declaredBuildingCost(state: GameState, buildingType: BuildingType): number | undefined {
+  return resolveBuildingCosts(state)[buildingType] ?? worldBuildingDefaultCost(buildingType);
 }
 
 function resolveProductionIncome(state: GameState): Partial<Record<BuildingType, number>> {
@@ -196,10 +217,16 @@ export function validateBuild(
   // undefined` is false so the affordability check passes, and applyBuild
   // subtracts undefined, leaving special_resource as NaN and pushing an
   // arbitrary string into territory.buildings.
-  const declaredCost = resolveBuildingCosts(state)[buildingType];
+  const declaredCost = declaredBuildingCost(state, buildingType);
   if (typeof declaredCost !== 'number' || !Number.isFinite(declaredCost)) {
     return { valid: false, error: 'Unknown building type' };
   }
+
+  // Galactic Age world buildings (state/worldBuildings.ts): only in a game that
+  // plays them, and only where their world's rule is. Before the price, so a
+  // misplaced one is refused for where it is, not for what it costs.
+  const placementError = checkWorldBuildingPlacement(state, territory, buildingType);
+  if (placementError) return { valid: false, error: placementError };
 
   const cost = resolveBuildCostFor(state, playerId, territory.world_id, buildingType, declaredCost);
   const playerProduction = player.special_resource ?? 0;
@@ -331,7 +358,7 @@ export function applyBuild(
   if (!territory || !player) return;
 
   const cost = resolveBuildCostFor(
-    state, playerId, territory.world_id, buildingType, resolveBuildingCosts(state)[buildingType],
+    state, playerId, territory.world_id, buildingType, declaredBuildingCost(state, buildingType) as number,
   );
   player.special_resource = (player.special_resource ?? 0) - cost;
 
@@ -431,11 +458,17 @@ export function collectProduction(
 
   // Base income: 1 resource per 3 territories (min 1), so players can bootstrap
   productionEarned += Math.max(1, Math.floor(ownedCount / 3));
+  // Galactic Age world buildings (state/worldBuildings.ts): a Toll Beacon pays
+  // while its lane is the owner's corridor. Flat, like the Vault's pay below;
+  // zero in any game that does not play them.
+  productionEarned += tollBeaconProductionIncome(state, playerId);
   // Base tech income: 1 TP per 5 territories when tech trees are enabled
   if (state.settings.tech_trees_enabled) {
     techPointsEarned += Math.max(1, Math.floor(ownedCount / 5));
     // Galaxy worlds as characters (Nexus): the Vault pays its holder.
     techPointsEarned += vaultTechIncome(state, playerId);
+    // ...and each Vault Conduit on a Vault held whole pays a little more.
+    techPointsEarned += vaultConduitTechIncome(state, playerId);
   }
 
   // Galaxy per-world identity: production/tech bonus per owned territory on a world
