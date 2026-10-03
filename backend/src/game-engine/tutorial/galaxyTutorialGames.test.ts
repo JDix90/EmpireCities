@@ -43,11 +43,13 @@ describe('galaxy tutorial game specs', () => {
     expect(live.world_rules_disabled).toEqual([]);
     expect(live.galaxy_transit_enabled).toBe(false);
     expect(live.galaxy_buildings_v2).toBe(false);
+    expect(live.galaxy_orbital_buildings).toBe(false);
 
-    setAdminConfigCacheForTests({ feature_flags: { galaxy_rule_storms_enabled: false, galaxy_transit_enabled: true, galaxy_buildings_v2_enabled: true } });
+    setAdminConfigCacheForTests({ feature_flags: { galaxy_rule_storms_enabled: false, galaxy_transit_enabled: true, galaxy_buildings_v2_enabled: true, galaxy_orbital_buildings_enabled: true } });
     const patched = galaxyTutorialGameSpec('galaxy_lane_sovereignty').settings;
     expect(patched.world_rules_disabled).toEqual(['storms']);
     expect(patched.galaxy_transit_enabled).toBe(true);
     expect(patched.galaxy_buildings_v2).toBe(true);
+    expect(patched.galaxy_orbital_buildings).toBe(true);
   });
 });

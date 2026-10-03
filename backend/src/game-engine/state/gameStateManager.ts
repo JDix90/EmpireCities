@@ -40,6 +40,7 @@ import { alternativeVictoriesLive } from '../victory/openingRound';
 import { dropSecretMissions, galaxyTeamsFor, seatTeamsApart } from './galaxyTeams';
 import { applyLaneClosure, applyLaneSurge, laneSurgeHasGap, tickLaneWeather } from './laneWeather';
 import { colonyGarrison, colonyLayout, resolveGalaxyHomeWorlds, syncGalaxyModeLanes } from './galaxyModes';
+import { stampGatewayTerritories } from './orbitalBuildings';
 import {
   dealSchismFactions,
   floorSchismDraft,
@@ -190,6 +191,9 @@ export function initializeGameState(
       region_id: t.region_id,
     };
   }
+  // Orbital infrastructure (state/orbitalBuildings.ts): the capture hook has
+  // no map, so a gateway carries the fact on its own state entry.
+  if (settingsNorm.galaxy_orbital_buildings) stampGatewayTerritories(territories, map);
 
   // Schism (five to eight Galactic Age seats): a split world's faction goes to
   // two seats instead, every world's at eight (state/galaxySchism.ts).

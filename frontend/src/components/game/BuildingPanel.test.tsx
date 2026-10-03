@@ -225,3 +225,15 @@ describe('BuildingPanel — era building names (Galactic Age buildings v2)', () 
     expect(buildingMetaForEra('wonder_colosseum', 'galaxy_age')).toBeUndefined();
   });
 });
+
+describe('BuildingPanel — orbital infrastructure (Galactic Age buildings, Phase 2)', () => {
+  it('says that a gateway\'s buildings survive capture, only when told so', () => {
+    render(<BuildingPanel {...baseProps} buildings={['production_1']} orbital />);
+    expect(screen.getByTestId('orbital-infrastructure-note')).toHaveTextContent(/survive capture/);
+  });
+
+  it('says nothing on an ordinary tile', () => {
+    render(<BuildingPanel {...baseProps} buildings={['production_1']} />);
+    expect(screen.queryByTestId('orbital-infrastructure-note')).toBeNull();
+  });
+});

@@ -43,6 +43,7 @@ import {
 } from '../src/game-engine/state/gameStateManager';
 import { isWorldRuleId, vaultStatuses, WORLD_RULE_IDS, type WorldRuleId } from '../src/game-engine/state/worldRules';
 import { syncJumpGateLanes } from '../src/game-engine/state/jumpGates';
+import { authoredGatewayTerritoryIds } from '../src/game-engine/state/orbitalBuildings';
 import { syncLaneWeatherLanes } from '../src/game-engine/state/laneWeather';
 import {
   COLONY_GARRISONS,
@@ -146,6 +147,14 @@ const EVENTS = process.env.SIM_EVENTS === '1';
  * the mechanic was believed.
  */
 const TRANSIT = process.env.SIM_TRANSIT === '1';
+/**
+ * Orbital infrastructure (`galaxy_orbital_buildings`, docs/GALACTIC_AGE_BUILDINGS.md
+ * §4): a gateway's buildings survive capture and pass to the captor. Ships OFF,
+ * so OFF here unless `SIM_ORBITAL=1`. Its promotion gate (§8) reads the faction
+ * bands, decisiveness, the turn-10 leader and PP banked at game end against a
+ * control run without it.
+ */
+const ORBITAL = process.env.SIM_ORBITAL === '1';
 /**
  * Faction kit overrides for a tuning sweep, as JSON:
  *   SIM_FACTION_PATCH='{"forge_syndicate":{"reinforce_bonus":1}}'
@@ -523,6 +532,7 @@ function simSettings(): GameSettings {
     galaxy_corridors_enabled: CORRIDORS,
     galaxy_plain_lanes: PLAIN_LANES || undefined,
     galaxy_transit_enabled: TRANSIT,
+    galaxy_orbital_buildings: ORBITAL || undefined,
     world_rules_enabled: WORLD_RULES,
     world_rules_disabled: WORLD_RULES_OFF as WorldRuleId[],
     allowed_victory_conditions: [
@@ -595,6 +605,8 @@ interface SeatTelemetry {
   capturesFromHouse: Record<string, number>;
   /** Schism: the house whose capture eliminated this seat, if one did. */
   eliminatedByHouse: string | null;
+  /** Buildings standing on gateways this seat captured and so inherited (orbital infrastructure only). */
+  buildingsInherited: number;
   /** Convoys this seat sent, and how they ended (transit only). */
   convoysSent: number;
   convoysLanded: number;
@@ -705,6 +717,10 @@ function playAiTurn(
         seat.capturesFromHouse[vh] = (seat.capturesFromHouse[vh] ?? 0) + 1;
         const w = state.territories[a.to].world_id ?? '?';
         seat.capturesOn[w] = (seat.capturesOn[w] ?? 0) + 1;
+        // Orbital infrastructure: what still stands on a captured gateway is now the captor's.
+        if (ORBITAL && state.territories[a.to].gateway) {
+          seat.buildingsInherited += (state.territories[a.to].buildings ?? []).length;
+        }
         if (victim && victimAliveBefore && ownedIds(state, victim.player_id).length === 0) {
           const me = state.players.find((p) => p.player_id === pid)!;
           telemetryFor(victim.player_id).eliminatedBy = seatLabel.get(me.player_id) ?? null;
@@ -770,6 +786,10 @@ interface SeatStat extends SeatTelemetry {
   vaultTiles: number;
   finalTerritories: number;
   territoriesAtTurn: Record<number, number>;
+  /** Buildings standing on this seat's gateway tiles at game end. */
+  gatewayBuildings: number;
+  /** Production points unspent at game end — the §8 gate's "PP banked". */
+  ppBanked: number;
 }
 
 interface GameStat {
@@ -1091,6 +1111,7 @@ function runGame(gameIndex: number, sourceMap: GameMap): GameStat {
       eliminatedBy: null,
       capturesFromHouse: {},
       eliminatedByHouse: null,
+      buildingsInherited: 0,
       convoysSent: 0,
       convoysLanded: 0,
       convoysTurnedBack: 0,
@@ -1212,6 +1233,7 @@ function runGame(gameIndex: number, sourceMap: GameMap): GameStat {
   }
 
   const vaultRegionSet = new Set(vaultStatuses(state).map((v) => v.region_id));
+  const gatewayTiles = authoredGatewayTerritoryIds(map);
   const seats: SeatStat[] = state.players.map((p) => ({
     ...telemetry[p.player_id],
     faction: factionOf[p.player_id] ?? `seat${p.player_index}`,
@@ -1223,6 +1245,10 @@ function runGame(gameIndex: number, sourceMap: GameMap): GameStat {
     ).length,
     finalTerritories: ownedIds(state, p.player_id).length,
     territoriesAtTurn: snapshots[p.player_id],
+    gatewayBuildings: Object.values(state.territories)
+      .filter((t) => t.owner_id === p.player_id && gatewayTiles.has(t.territory_id))
+      .reduce((n, t) => n + (t.buildings ?? []).length, 0),
+    ppBanked: p.special_resource ?? 0,
   }));
 
   return {
@@ -1292,7 +1318,7 @@ function main(): void {
   console.log(`\nGalactic Age balance — ${GAMES} games · ${PLAYERS}p · ${DIFFICULTY} · maxTurns ${MAX_TURNS}${THRESHOLD != null ? ` · threshold ${THRESHOLD}%` : ''} · ${terr} territories`);
   console.log(`Seed "${MASTER_SEED}" · attack loop ${GRIND ? 'GRIND (mirrors live AI)' : 'single-exchange (SIM_GRIND=0, legacy)'} · corridors ${CORRIDORS ? 'ON' : 'OFF (SIM_CORRIDORS=0)'} · factions ${Object.keys(FACTION_PATCH).length ? `patched ${JSON.stringify(FACTION_PATCH)}` : 'as shipped'} · world rules ${WORLD_RULES ? (WORLD_RULES_OFF.length ? `ON except ${WORLD_RULES_OFF.join('+')}` : 'ON') : 'OFF (SIM_WORLD_RULES=0)'} · sovereignty ${SOVEREIGNTY ? `ON (${LANE_SOVEREIGNTY_CORRIDORS_NEEDED} lanes, ${(TEAMS ? LANE_SOVEREIGNTY_ROUNDS_BY_SIDES[SIDES] : LANE_SOVEREIGNTY_ROUNDS_BY_SEATS[PLAYERS]) ?? LANE_SOVEREIGNTY_ROUNDS} rounds${TEAMS ? ` for ${SIDES} sides` : ''})` : 'OFF (SIM_SOVEREIGNTY=0)'}${PLAYERS < 4 && !SCATTERED ? ` · colonies ${COLONY_GARRISONS.gateway}/${COLONY_GARRISONS.interior} (gateway/interior)` : ''}${TWO_V_TWO ? ` · 2v2 ${GALAXY_2V2_PAIRS.map((p) => p.join('+')).join(' vs ')}` : ''}${TEAMS ? ` · opening ceasefire ${TEAM_TUNING.openingCeasefire ? 'ON' : 'OFF (SIM_CEASEFIRE=0)'}` : ''}${SCHISM && !SCATTERED ? ` · schism ${HOUSE_RELATIONS === 'concord' ? `Concord ${SCHISM_TUNING.concordRounds} rounds` : HOUSE_RELATIONS === 'allied' ? `Allied ${JSON.stringify(ALLIED_TUNING)}` : 'Civil War'}, Lane Crown +${HOUSE_RELATIONS === 'allied' ? 0 : SCHISM_TUNING.laneCrownBonus}${process.env.SIM_SCHISM_HALVES ? ' · halves patched (SIM_SCHISM_HALVES)' : ''}${process.env.SIM_SCHISM_OPENING ? ` · opening ${process.env.SIM_SCHISM_OPENING}` : ''}${process.env.SIM_SCHISM_REINFORCE ? ` · house reinforce ${process.env.SIM_SCHISM_REINFORCE}` : ''}${PARTIAL ? (HOUSE_RELATIONS === 'allied'
     ? ` · partial Allied ${JSON.stringify(PARTIAL_ALLIED_TUNING[PLAYERS])}`
-    : ` · partial unclaimed ${PARTIAL_SCHISM_TUNING[PLAYERS]!.unclaimed.gateway}/${PARTIAL_SCHISM_TUNING[PLAYERS]!.unclaimed.interior}, halves ${JSON.stringify(PARTIAL_SCHISM_HALVES)}`) : ''}` : ''} · transit ${TRANSIT ? 'ON (SIM_TRANSIT=1)' : 'OFF'}${SCATTERED ? ' · start SCATTERED (SIM_SCATTERED=1, no home worlds)' : ''}${FACTIONS_ON ? '' : ' · factions OFF (SIM_FACTIONS=0, labels are seats)'}${PLAIN_LANES ? ' · PLAIN LANES (SIM_PLAIN_LANES=1)' : ''}${CATCHUP_PER != null ? ` · catch-up: -1 reinforcement per ${CATCHUP_PER} tiles over a quarter (SIM_CATCHUP_PER)` : ''} · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
+    : ` · partial unclaimed ${PARTIAL_SCHISM_TUNING[PLAYERS]!.unclaimed.gateway}/${PARTIAL_SCHISM_TUNING[PLAYERS]!.unclaimed.interior}, halves ${JSON.stringify(PARTIAL_SCHISM_HALVES)}`) : ''}` : ''} · transit ${TRANSIT ? 'ON (SIM_TRANSIT=1)' : 'OFF'} · orbital ${ORBITAL ? 'ON (SIM_ORBITAL=1)' : 'OFF'}${SCATTERED ? ' · start SCATTERED (SIM_SCATTERED=1, no home worlds)' : ''}${FACTIONS_ON ? '' : ' · factions OFF (SIM_FACTIONS=0, labels are seats)'}${PLAIN_LANES ? ' · PLAIN LANES (SIM_PLAIN_LANES=1)' : ''}${CATCHUP_PER != null ? ` · catch-up: -1 reinforcement per ${CATCHUP_PER} tiles over a quarter (SIM_CATCHUP_PER)` : ''} · ${elapsedS.toFixed(1)}s (${((elapsedS / GAMES) * 1000).toFixed(1)}ms/game)\n`);
   if (GAMES % CYCLE !== 0) {
     console.log(`⚠ ${GAMES} games is not a multiple of the ${CYCLE}-game line-up cycle, so factions and seats are sampled unevenly\n`);
   }
@@ -1567,6 +1593,25 @@ function main(): void {
     );
   }
 
+  {
+    // The §8 gate for every buildings phase: PP left unspent is the thing the
+    // package exists to lower, so it is printed for the control run too.
+    const seats = stats.flatMap((g) => g.seats);
+    console.log(
+      `PP banked at game end: ${fixed(avg(seats.map((s) => s.ppBanked)))} per seat`
+      + ` · buildings on own gateways at end: ${fixed(avg(seats.map((s) => s.gatewayBuildings)))} per seat`,
+    );
+  }
+
+  if (ORBITAL) {
+    const seats = stats.flatMap((g) => g.seats);
+    const inherited = seats.reduce((n, s) => n + s.buildingsInherited, 0);
+    console.log(
+      `Orbital infrastructure: ${fixed(avg(seats.map((s) => s.buildingsInherited)))} buildings inherited per seat per game`
+      + ` (${inherited} in all · ${pct(stats.filter((g) => g.seats.some((s) => s.buildingsInherited > 0)).length, GAMES)} of games saw one change hands)`,
+    );
+  }
+
   if (TRANSIT) {
     const seats = stats.flatMap((g) => g.seats);
     const sent = seats.reduce((n, s) => n + s.convoysSent, 0);
@@ -1588,6 +1633,7 @@ function main(): void {
       'cross_exchanges', 'cross_captures', 'home_exchanges', 'final_territories',
       ...TERRITORY_SNAPSHOT_TURNS.map((t) => `territories_at_${t}`),
       'players', 'seat', 'layout', 'house', 'crown_turns', 'team', 'split',
+      'pp_banked', 'gateway_buildings', 'buildings_inherited',
     ].join(',');
     const rows = stats.flatMap((s) =>
       s.seats.map((seat, i) => [
@@ -1596,6 +1642,7 @@ function main(): void {
         seat.crossExchanges, seat.crossCaptures, seat.homeExchanges, seat.finalTerritories,
         ...TERRITORY_SNAPSHOT_TURNS.map((t) => seat.territoriesAtTurn[t] ?? ''),
         PLAYERS, i, s.layout ?? '', s.houses?.[i] ?? '', s.crownTurns[i] ?? 0, s.teams?.[i] ?? '', s.split ?? '',
+        seat.ppBanked, seat.gatewayBuildings, seat.buildingsInherited,
       ].join(',')),
     );
     writeFileSync(CSV_PATH, [header, ...rows].join('\n') + '\n');

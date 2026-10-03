@@ -131,6 +131,12 @@ export interface TerritoryState {
   stability?: number;
   /** Population level 1-10 (population/stability feature). Grows when stable, multiplies production. */
   population?: number;
+  /**
+   * Anchors an authored orbit lane (a galaxy gateway). Stamped when the
+   * territory enters play, only in a game with `galaxy_orbital_buildings`
+   * (state/orbitalBuildings.ts); absent everywhere else.
+   */
+  gateway?: boolean;
   /** Legacy globe discriminator (Space Age). Prefer `world_id` on maps that define it. */
   globe_id?: 'earth' | 'moon';
   /** Canonical world id mirrored from map data for multi-world games. */
@@ -650,6 +656,13 @@ export interface GameSettings {
    * `galaxy_buildings_v2_enabled` feature flag; no-op off galaxy rules.
    */
   galaxy_buildings_v2?: boolean;
+  /**
+   * Galactic Age buildings, Phase 2 (docs/GALACTIC_AGE_BUILDINGS.md §4):
+   * buildings on a gateway survive capture and pass to the captor
+   * (state/orbitalBuildings.ts). Baked at create from the
+   * `galaxy_orbital_buildings_enabled` feature flag; no-op off galaxy rules.
+   */
+  galaxy_orbital_buildings?: boolean;
   /**
    * Galactic Age Schism (five to eight seats): how the two houses on a split
    * world start — under the Concord, a truce for the opening rounds, in Civil

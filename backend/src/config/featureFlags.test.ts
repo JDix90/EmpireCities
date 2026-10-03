@@ -208,6 +208,13 @@ describe('featureFlags', () => {
     expect(featureFlags.galaxyBuildingsV2Enabled).toBe(true);
   });
 
+  it('galaxy_orbital_buildings_enabled defaults to off (dark launch) and is admin-overridable', () => {
+    expect(featureFlags.galaxyOrbitalBuildingsEnabled).toBe(false);
+    expect(getFeatureFlagStates().galaxy_orbital_buildings_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { galaxy_orbital_buildings_enabled: true } });
+    expect(featureFlags.galaxyOrbitalBuildingsEnabled).toBe(true);
+  });
+
   it('warfront_enabled defaults to off (experimental, admin-only) and is admin-overridable', () => {
     expect(featureFlags.warfrontEnabled).toBe(false);
     expect(getClientFeatureFlags().warfront_enabled).toBe(false);

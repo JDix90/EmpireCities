@@ -1932,6 +1932,9 @@ export default function TerritoryPanel({
         ));
         // Galactic Age buildings v2 names the standard buildings for the era.
         const nameEra = gameState.settings.galaxy_buildings_v2 ? viewerEra : undefined;
+        // Orbital infrastructure: the server stamps `gateway` only in a game
+        // that plays the rule, so the stamp alone is the condition.
+        const orbital = gameState.settings.galaxy_orbital_buildings === true && tState.gateway === true;
         let eraWonderProp: Parameters<typeof BuildingPanel>[0]['eraWonder'] = undefined;
         if (wonderMeta) {
           let alreadyBuilt = false;
@@ -1974,6 +1977,7 @@ export default function TerritoryPanel({
             modernizeTechFor={modernizeTechFor}
             onOpenTechTree={onOpenTechTree}
             nameEra={nameEra}
+            orbital={orbital}
           />
         );
       })()}

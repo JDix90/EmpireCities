@@ -122,4 +122,14 @@ describe('Galactic Age buildings v2 is baked at create from its flag', () => {
     expect(created(WW2).galaxy_buildings_v2).toBeUndefined();
     expect(created(SPACE, { economy_enabled: true, tech_trees_enabled: true }).galaxy_buildings_v2).toBeUndefined();
   });
+
+  it('orbital infrastructure (Phase 2) is baked the same way, Space to Stars included', () => {
+    expect(created(GALAXY, galaxyLobby).galaxy_orbital_buildings).toBeUndefined();
+    setAdminConfigCacheForTests({ feature_flags: { galaxy_orbital_buildings_enabled: true } });
+    expect(created(GALAXY, galaxyLobby).galaxy_orbital_buildings).toBe(true);
+    const ascension = { era_id: 'space_age', map_id: 'era_ascension_galaxy' };
+    expect(created(ascension, { ...galaxyLobby, era_advancement_enabled: true }).galaxy_orbital_buildings).toBe(true);
+    expect(created(WW2).galaxy_orbital_buildings).toBeUndefined();
+    expect(created(SPACE, { economy_enabled: true, tech_trees_enabled: true }).galaxy_orbital_buildings).toBeUndefined();
+  });
 });

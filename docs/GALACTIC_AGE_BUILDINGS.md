@@ -116,6 +116,22 @@ Implementation: mirror gateway membership onto state at init, `TerritoryState.ga
 
 Why this is the first balance-bearing change: it makes the tiles the era fights over worth developing, and it is what lets Phase 4 anchor powers to buildings without making them a credential you keep once earned.
 
+**Shipped (dark):** `state/orbitalBuildings.ts` behind `galaxy_orbital_buildings_enabled`, baked as `settings.galaxy_orbital_buildings` for every galaxy-rules theater, Space to Stars included (its gateways are stamped when their world arrives). The stamp is written only in a game that plays the rule, so every other game's state is byte-for-byte what it was. The hard and expert AI develop their gateways first under the rule and are unchanged without it. The sim takes `SIM_ORBITAL=1` and reports PP banked at game end and buildings inherited; the build panel names the rule on a gateway. The primer's gateway card and the player guide's capture lines are updated at promotion, with the flag, because a tutorial game bakes the live flags and a card must not describe a rule its game is not playing.
+
+**Measured (4 seats, 1,000 games, seed `borderfall-galaxy-balance`, expert), against the control run without it:**
+
+| | control | as decided | AI gateway-first off | economic buildings only |
+|---|---|---|---|---|
+| avg length (turns) | 30.3 | 34.0 | 33.9 | 35.5 |
+| decisive | 98.9% | 92.7% | 92.6% | 91.1% |
+| turn-10 leader win share | 59.5% | 58.8% | 59.3% | 60.6% |
+| factions (Sol / Rust / Verdan / Nexus) | 24.8 / 25.6 / 26.6 / 23.0 | 23.3 / 25.7 / 29.8 / 21.2 | 23.1 / 25.9 / 29.6 / 21.4 | 22.7 / 25.7 / 30.2 / 21.4 |
+| lane end-owner changes per game | 72.6 | 79.0 | 78.9 | 88.3 |
+| PP banked at game end, per seat | 222.6 | 338.3 | 335.8 | 336.5 |
+| buildings inherited per seat per game | — | 17.6 | 15.6 | 10.0 |
+
+The bands hold and the snowball does not rise, but **the §8 gate is not met**: games run 3.7 turns longer, decisiveness falls six points (Lane Sovereignty locks less often), and PP banked rises instead of falling. The AI's build order is not the cause (third column), and razing defence works with the garrison does not help (fourth column: longer still, more churn). What the rule does is make gateways change hands more, not less — the lane ring churns rather than settles, which is what delays a sovereignty lock. Open before promotion: whether that churn is the AI fighting over developed tiles (its attack scoring, not the rule) or the rule itself, and whether PP banked can be judged at all before Phases 3 and 4 give the fuel something to buy. The flag stays OFF until that is decided.
+
 ---
 
 ## 5. Phase 3 — Garrison doctrines (**decided: two, exclusive**)
@@ -191,4 +207,5 @@ The galaxy sim (`SIM_PLAYERS`, `SIM_EVENTS`, `SIM_SCATTERED`, the Schism and tea
 
 ## History
 
+- **2026-10-03:** Phase 1 shipped dark (#518): `BUILDING_DISPLAY_BY_ERA`, `GALAXY_AGE_TECH_TREE_V2`, `techNodeBuildingUnlocks`, behind `galaxy_buildings_v2_enabled`. Phase 2 shipped dark: `state/orbitalBuildings.ts` behind `galaxy_orbital_buildings_enabled`, with `SIM_ORBITAL` and the PP-banked line in the galaxy sim.
 - **2026-10-02:** written after the Galactic Age tutorial track shipped (#507 to #514), from a read of the tree, the catalog, the economy tick, the capture rule, the AI's build order and the balance notes. Decided in review: gateway buildings survive capture; garrison doctrines are defence-only and attack-only, separate and exclusive; powers are per turn with a PP price.
