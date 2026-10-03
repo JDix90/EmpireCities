@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import type { GameMap } from '../../types';
 import { buildCompleteDailyPuzzleSpec, validateDailyPuzzleSpec } from './dailyPuzzleService';
 import { buildDailyPuzzleBase } from './dailyGenerator';
 import { DAILY_CALENDAR } from '../../content/dailyCalendar';
@@ -99,9 +102,12 @@ describe('buildCompleteDailyPuzzleSpec — calendar precedence', () => {
   });
 
   it('falls through to the schedule on an unauthored date', async () => {
-    // 2030-01-01 is a Tuesday: an economy set-piece, which is sized from its
-    // own territory list and needs no database.
-    const spec = await buildCompleteDailyPuzzleSpec('2030-01-01');
+    // 2030-01-01 is a Tuesday: an economy set-piece. The map comes from disk
+    // and the solvability gate is skipped: this test is about precedence, and
+    // a build day is now simulated like any other, which needs a map store.
+    const loadMap = async (mapId: string): Promise<GameMap | null> =>
+      JSON.parse(readFileSync(join(__dirname, `../../../../database/maps/${mapId}.json`), 'utf-8')) as GameMap;
+    const spec = await buildCompleteDailyPuzzleSpec('2030-01-01', { loadMap, simulate: null });
     expect(spec.archetype).toBe('economy_build');
     expect(spec.starting_board).toBeDefined();
     expect(validateDailyPuzzleSpec(spec)).not.toBeNull();

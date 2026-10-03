@@ -44,6 +44,7 @@ import { computeAiTurn, type AiAction } from '../ai/aiBot';
 import { executeLandAttack } from '../combat/executeLandAttack';
 import { aiAttackExchangeBudget, runAiAttackExchanges, shouldPressDecidedGame } from '../ai/aiAttackGrind';
 import { createSeededRng, hashStringToSeed } from '../victory/missions';
+import { dailySiegeTarget } from './dailySiege';
 
 export const SIMULATED_ARCHETYPES = new Set<DailyPuzzleSpec['archetype']>([
   'military_capture', 'hold_territory', 'control_region', 'capture_chain',
@@ -297,11 +298,14 @@ async function aiTurn(
   rng: () => number,
 ): Promise<void> {
   // Same order as the socket: decidedness before planning, on the full state.
-  const decidedPress = shouldPressDecidedGame(state, AI, difficulty);
+  // A build or research day besieges the human seat (daily/dailySiege.ts).
+  const siege = dailySiegeTarget(state);
+  const decidedPress = !!siege || shouldPressDecidedGame(state, AI, difficulty);
   state.phase = 'draft';
   const plan: AiAction[] = computeAiTurn(state, map, difficulty, {
     captureOddsScoring: true,
     decidedGamePress: decidedPress,
+    siege,
     // The planner's heuristic jitter, seeded: the whole game is a function of the seed.
     rng,
   });

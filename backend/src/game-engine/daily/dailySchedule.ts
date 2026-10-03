@@ -172,17 +172,28 @@ export const GATE_BANDS: Record<Exclude<DailyPuzzleArchetype, 'domination'>, { m
   // Multi-objective captures: the same guards as a capture.
   control_region: { min: 0.5, max: 0.96 },
   capture_chain: { min: 0.5, max: 0.96 },
-  // Build and research days: the arithmetic already proves the budget reaches
-  // the goal; the simulator proves the bot next door lets it, and fails the
-  // day the bot can eliminate the player first. The gate moves the clock a
-  // turn at a time when the floor is missed. The ceiling is 1.0 on purpose:
-  // measured over the whole library, the obvious line solves every build and
-  // research day in two or three turns with the bot never disturbing the
-  // site, and a shorter clock cannot change that. Until the bot contests the
-  // site, the floor is the only guard this gate can honestly apply.
-  economy_build: { min: 0.6, max: 1 },
-  tech_research: { min: 0.6, max: 1 },
+  // Build and research days: the bot besieges the player (daily/dailySiege.ts)
+  // and the gate sizes its stack, two units a step, until the obvious line
+  // (raise the goal behind the front, hold the front) lands in the band. The
+  // arithmetic already proves the budget reaches the goal in time; this
+  // proves the player has to keep the site to spend it. Calibrated on the
+  // library: a dealt 6–8 stack never disturbs a defended site (every day sat
+  // at 100%), 14 against a 4–6 front holds it to roughly two games in three,
+  // 20 to two in five. The band is a hold day's: a real threat, not a coin flip.
+  economy_build: { min: 0.5, max: 0.85 },
+  tech_research: { min: 0.5, max: 0.85 },
 };
+
+/** The siege stack the gate starts from, and how far one missed attempt moves it. */
+export const SIEGE_BASE_STACK = 12;
+export const SIEGE_STACK_STEP = 2;
+const SIEGE_STACK_MIN = 6;
+const SIEGE_STACK_MAX = 30;
+
+/** Every AI garrison's size after the gate has moved it `shift` steps. */
+export function siegeStackFor(shift: number): number {
+  return Math.max(SIEGE_STACK_MIN, Math.min(SIEGE_STACK_MAX, SIEGE_BASE_STACK + SIEGE_STACK_STEP * Math.trunc(shift)));
+}
 
 /**
  * Distance from the band, with a below-floor miss always counting worse than
@@ -199,8 +210,8 @@ function bandDistance(rate: number, band: { min: number; max: number }): number 
 export interface SizingBands {
   tactical: TacticalBand;
   hold: TacticalBand;
-  /** Build and research days: turns added to the arithmetic clock (negative tightens it). */
-  clockShift?: number;
+  /** Build and research days: steps the siege stack has moved from its base (negative lightens it). */
+  siegeShift?: number;
 }
 
 export function shiftBand(band: TacticalBand, by: number): TacticalBand {
@@ -650,9 +661,9 @@ export async function materialize(
     case 'chain':
       return materializeChain(date, sp, bands.tactical, deps, attempt);
     case 'economy':
-      return buildEconomyDay({ ...sp, ...seeds, clock_shift: bands.clockShift ?? 0 });
+      return buildEconomyDay({ ...sp, ...seeds, siege_stack: siegeStackFor(bands.siegeShift ?? 0) });
     case 'tech':
-      return buildTechDay({ ...sp, ...seeds, clock_shift: bands.clockShift ?? 0 });
+      return buildTechDay({ ...sp, ...seeds, siege_stack: siegeStackFor(bands.siegeShift ?? 0) });
     case 'domination':
       // The dealt board is the content, so the seed stays; only the dice move.
       return { ...sp.spec, dice_queue_seed: seeds.dice_queue_seed };
@@ -733,13 +744,23 @@ async function gatedMaterialize(
     const bands: SizingBands = {
       tactical: shiftBand(band, shift),
       hold: shiftBand(HOLD_BAND, -shift),
-      // One attempt, one turn: a build day that keeps failing gets longer.
-      clockShift: Math.round(shift / GATE_BAND_STEP),
+      // Too hard for the player: a lighter siege next time; too easy: a heavier one.
+      siegeShift: -Math.round(shift / GATE_BAND_STEP),
     };
     const spec = await materialize(date, sp, bands, deps, verb, attempt);
     if (!spec) continue;
     if (!simulate || !SIMULATED_ARCHETYPES.has(spec.archetype)) return spec;
-    const map = await deps.loadMap(spec.map_id);
+    let map: GameMap | null;
+    try {
+      map = await deps.loadMap(spec.map_id);
+    } catch (err) {
+      // The gate is a proof, not a dependency: a map store that cannot be
+      // reached (a unit test without Postgres, a database hiccup at the day's
+      // rollover) serves the arithmetic sizing, which is what every day was
+      // served before the gate existed, and says so.
+      console.warn(`[daily] ${date}: map ${spec.map_id} could not be loaded for the solvability gate — serving the unsimulated sizing. ${String(err)}`);
+      return spec;
+    }
     if (!map) return spec;
     const sim = await simulate(spec, map);
     if (!sim) return spec;

@@ -85,7 +85,24 @@ export interface AiTurnOptions {
    * fog-masked unit counts would distort the army share it depends on.
    */
   decidedGamePress?: boolean;
+  /**
+   * A daily build or research day (daily/dailySiege.ts): the bot's job is to
+   * break this player before the goal lands, so every attack on their ground
+   * scores higher, and one that would raze a building higher still. Targeting
+   * only; the pacing comes from `decidedGamePress`, which those days switch on
+   * for the same reason. Threaded by the socket and the daily simulator alike.
+   */
+  siege?: { targetPlayerId: string };
 }
+
+/**
+ * Siege weights, on the planner's favorability scale (3·P(capture) − 1, so
+ * an unaided attack needs P > 1/3). The ground bonus makes any attack on the
+ * besieged player worth planning; the building bonus puts a site with
+ * something to raze ahead of a thinner tile beside it. ⚠ balance
+ */
+export const SIEGE_GROUND_BONUS = 1;
+export const SIEGE_BUILDING_BONUS = 2;
 
 /**
  * Compute the AI's complete turn actions for the current player.
@@ -154,6 +171,7 @@ export function computeAiTurn(
     options?.captureOddsScoring ?? true,
     options?.decidedGamePress ?? false,
     jitter,
+    options?.siege,
   );
   actions.push(...attackActions);
 
@@ -521,7 +539,8 @@ function selectAttacks(
   difficulty: AiDifficulty,
   useCaptureOdds: boolean,
   decidedGamePress = false,
-  jitter: () => number = Math.random
+  jitter: () => number = Math.random,
+  siege?: AiTurnOptions['siege'],
 ): AiAction[] {
   const adjacency = buildAdjacencyMap(map);
   const actions: AiAction[] = [];
@@ -694,7 +713,12 @@ function selectAttacks(
         // instead of always preferring a land-adjacent fight.
         if (isSeaLane) expansionBonus += 1.5;
       }
-      const score = favorability + seaPenalty + objectiveBonus + vulnBonus + finisherBonus + expansionBonus + jitter() * randomFactor * 3;
+      // A besieged player's ground is the objective of the day; a tile with a
+      // building on it is the one whose fall sets their goal back.
+      const siegeBonus = siege && nOwner === siege.targetPlayerId
+        ? SIEGE_GROUND_BONUS + ((nState.buildings?.length ?? 0) > 0 ? SIEGE_BUILDING_BONUS : 0)
+        : 0;
+      const score = favorability + seaPenalty + objectiveBonus + vulnBonus + finisherBonus + expansionBonus + siegeBonus + jitter() * randomFactor * 3;
       if (score > 0 || difficulty === 'easy') {
         candidates.push({ from: tid, to: nid, score, isFinisher: finisherBonus > 0 });
         if (state.settings.naval_enabled && isSeaConn) {

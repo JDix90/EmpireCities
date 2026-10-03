@@ -80,7 +80,11 @@ export const PUZZLE_OBJECTIVES: Record<Exclude<DailyPuzzleArchetype, 'domination
       }
       return false;
     },
-    holdThroughAiTurn: false,
+    // Achieve and hold, like a capture: a captured territory's buildings are
+    // razed (economyManager.onTerritoryCapture), so the bot besieging the
+    // site (dailySiege.ts) can take the goal back on its reply. A building
+    // that counted the instant it went up never had to survive that.
+    holdThroughAiTurn: true,
     lapseIsFailure: false,
     onTimeout: 'fail',
   },

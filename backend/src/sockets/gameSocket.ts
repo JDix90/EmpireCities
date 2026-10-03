@@ -237,6 +237,7 @@ import {
   warmPuzzle,
   type WarmedPuzzle,
 } from '../game-engine/daily/puzzlePlay';
+import { dailySiegeTarget } from '../game-engine/daily/dailySiege';
 import { runScriptedAiTurn } from '../game-engine/daily/puzzle/engineOpponent';
 import {
   attackerIgnoresDefenseBuilding,
@@ -5956,15 +5957,21 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   // while the loser lingers. Computed from the AUTHORITATIVE state, not the
   // fog-filtered planning view: it gates pacing, never targeting, and masked
   // unit counts would distort the army share and trigger the press spuriously.
+  // A daily build or research day: the bot besieges the human seat and
+  // presses as if the game were decided (daily/dailySiege.ts). Mirrored in
+  // puzzleSim.aiTurn — the AI-parity rule.
+  const siege = dailySiegeTarget(state);
   const decidedPress =
-    featureFlags.aiDecidedGamePressEnabled &&
-    shouldPressDecidedGame(state, currentPlayer.player_id, difficulty);
+    !!siege ||
+    (featureFlags.aiDecidedGamePressEnabled &&
+      shouldPressDecidedGame(state, currentPlayer.player_id, difficulty));
 
   // The flags are threaded explicitly because planning may run in a worker
   // thread, where the admin-config override cache is not loaded.
   const actions = await runAiWithTimeout(planningState, map, difficulty, {
     captureOddsScoring: featureFlags.aiCaptureOddsEnabled,
     decidedGamePress: decidedPress,
+    siege,
   });
 
   // Attack budget for the whole turn, spent in dice exchanges. The planner's

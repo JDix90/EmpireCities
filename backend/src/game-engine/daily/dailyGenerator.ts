@@ -523,8 +523,14 @@ export function buildCalibratedMilitarySpec(
 // Income keys off owned territories (economyManager: 1 gold per 3 owned,
 // 1 tech point per 5, both floored at 1) and lands on each turn after the first.
 
-/** Turns of income the player has to hold ground for before the goal is affordable. */
-const EARN_TURNS = 2;
+/**
+ * Turns of income the player has to hold ground for before the goal is
+ * affordable. Two let the goal land on turn two or three, before the bot
+ * besieging the site (dailySiege.ts) could matter at any stack size: measured
+ * on the library, 23 of 41 days stayed at 100% solvable with the stack at its
+ * cap. Four puts the goal around turn five, inside the siege.
+ */
+const EARN_TURNS = 4;
 /** Slack on top of the turns needed to earn the shortfall. */
 const CLOCK_SLACK = 3;
 
@@ -564,6 +570,8 @@ export interface HoldingsInput {
   human: readonly string[];
   ai: readonly string[];
   rng: () => number;
+  /** Every AI garrison's size, when the gate is sizing the siege; dealt 6–8 otherwise. */
+  aiUnits?: number;
 }
 
 /** Deal the set-piece's territories: modest human stacks, a heavier AI presence. */
@@ -571,7 +579,7 @@ export function dealHoldings(input: HoldingsInput): NonNullable<DailyPuzzleSpec[
   const int = (lo: number, hi: number): number => lo + Math.floor(input.rng() * (hi - lo + 1));
   const board: NonNullable<DailyPuzzleSpec['starting_board']> = {};
   for (const tid of input.human) board[tid] = { owner: 'human', unit_count: int(4, 6) };
-  for (const tid of input.ai) if (!board[tid]) board[tid] = { owner: 'ai', unit_count: int(6, 8) };
+  for (const tid of input.ai) if (!board[tid]) board[tid] = { owner: 'ai', unit_count: input.aiUnits ?? int(6, 8) };
   return board;
 }
 
@@ -587,17 +595,6 @@ export function sizeEarnable(cost: number, perTurn: number): EarnableSizing {
   return { grant, max_turns: Math.ceil(shortfall / perTurn) + CLOCK_SLACK };
 }
 
-/**
- * The clock after the solvability gate has moved it `shift` turns (positive
- * when the simulated line kept failing, negative when it never did). Never
- * below the turns the arithmetic needs plus one: income lands each turn after
- * the first, so that is the shortest clock the goal is still reachable on.
- */
-export function shiftedClock(sizing: EarnableSizing, shift: number): number {
-  const floor = sizing.max_turns - CLOCK_SLACK + 1;
-  return Math.max(floor, sizing.max_turns + Math.trunc(shift));
-}
-
 export interface EconomyDayInput {
   era_id: EraId;
   map_id: string;
@@ -610,8 +607,12 @@ export interface EconomyDayInput {
   seed: number;
   dice_queue_seed: number;
   ai_difficulty?: DailyPuzzleSpec['ai_difficulty'];
-  /** Turns the solvability gate adds to (or takes from) the arithmetic clock. */
-  clock_shift?: number;
+  /**
+   * The siege stack: every AI garrison's size, set by the solvability gate
+   * (dailySchedule) so the bot next door is a real threat to the site and
+   * not a certain one. Dealt 6–8 when absent.
+   */
+  siege_stack?: number;
 }
 
 export function buildEconomyDay(input: EconomyDayInput): DailyPuzzleSpec {
@@ -626,13 +627,13 @@ export function buildEconomyDay(input: EconomyDayInput): DailyPuzzleSpec {
     map_id: input.map_id,
     seed: input.seed,
     player_count: GENERATED_PLAYER_COUNT,
-    max_turns: shiftedClock(sizing, input.clock_shift ?? 0),
+    max_turns: sizing.max_turns,
     dice_queue_seed: input.dice_queue_seed,
     building_type: input.building_type,
     ...(input.hint ? { hint: input.hint } : {}),
     ai_difficulty: input.ai_difficulty ?? GENERATED_AI_DIFFICULTY,
     clear_board: true,
-    starting_board: dealHoldings({ human: input.human, ai: input.ai, rng }),
+    starting_board: dealHoldings({ human: input.human, ai: input.ai, rng, aiUnits: input.siege_stack }),
     grants: { gold: sizing.grant },
   };
 }
@@ -649,8 +650,12 @@ export interface TechDayInput {
   seed: number;
   dice_queue_seed: number;
   ai_difficulty?: DailyPuzzleSpec['ai_difficulty'];
-  /** Turns the solvability gate adds to (or takes from) the arithmetic clock. */
-  clock_shift?: number;
+  /**
+   * The siege stack: every AI garrison's size, set by the solvability gate
+   * (dailySchedule) so the bot next door is a real threat to the site and
+   * not a certain one. Dealt 6–8 when absent.
+   */
+  siege_stack?: number;
 }
 
 /** Returns null when the tech is not in the era's tree — a library error the review board catches first. */
@@ -669,13 +674,13 @@ export function buildTechDay(input: TechDayInput): DailyPuzzleSpec | null {
     map_id: input.map_id,
     seed: input.seed,
     player_count: GENERATED_PLAYER_COUNT,
-    max_turns: shiftedClock(sizing, input.clock_shift ?? 0),
+    max_turns: sizing.max_turns,
     dice_queue_seed: input.dice_queue_seed,
     tech_id: input.tech_id,
     ...(input.hint ? { hint: input.hint } : {}),
     ai_difficulty: input.ai_difficulty ?? GENERATED_AI_DIFFICULTY,
     clear_board: true,
-    starting_board: dealHoldings({ human: input.human, ai: input.ai, rng }),
+    starting_board: dealHoldings({ human: input.human, ai: input.ai, rng, aiUnits: input.siege_stack }),
     grants: { tech_points: sizing.grant },
     // The bootstrap is pinned off so the grant really is the opening budget;
     // the rest comes from holding ground.
