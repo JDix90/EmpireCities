@@ -386,6 +386,12 @@ export interface GameState {
       intro?: string;
       goal?: string;
       hint?: string;
+      /** economy_build: the building the day asks for. */
+      building_type?: string;
+      /** tech_research: the node the day asks for. */
+      tech_id?: string;
+      /** The board was wiped to empty neutrals before the day's holdings were dealt. */
+      clear_board?: boolean;
       max_turns?: number;
       player_count?: number;
       par_turns?: number;

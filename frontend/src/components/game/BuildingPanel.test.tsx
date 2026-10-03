@@ -237,3 +237,73 @@ describe('BuildingPanel — orbital infrastructure (Galactic Age buildings, Phas
     expect(screen.queryByTestId('orbital-infrastructure-note')).toBeNull();
   });
 });
+
+describe("BuildingPanel — buildings that cannot matter, and today's goal", () => {
+  // The economy day that produced this offered a Laboratory (tech trees off),
+  // a Palisade (nothing could reach it) and a wonder beside the one Workshop
+  // the goal needed, on a budget that could afford exactly one mistake.
+  const blocked = { tech_gen_1: 'No tech trees in this game, so tech points would go unused.' };
+
+  it('lists a building that cannot matter here, disabled, with the reason and no price', () => {
+    const onBuild = vi.fn();
+    render(<BuildingPanel {...baseProps} onBuild={onBuild} unavailable={blocked} />);
+    const row = screen.getByRole('button', { name: /Laboratory/ });
+    expect(row).toBeDisabled();
+    expect(row).toHaveTextContent('No tech trees in this game');
+    expect(row).not.toHaveTextContent('💰');
+    fireEvent.click(row);
+    expect(onBuild).not.toHaveBeenCalled();
+    // The others are untouched.
+    expect(screen.getByRole('button', { name: /Workshop/ })).not.toBeDisabled();
+  });
+
+  it('lets the reason outrank a tech lock', () => {
+    const onOpenTechTree = vi.fn();
+    render(
+      <BuildingPanel
+        {...baseProps}
+        techLocks={{ tech_gen_1: 'Scholarship' }}
+        onOpenTechTree={onOpenTechTree}
+        unavailable={blocked}
+      />,
+    );
+    const row = screen.getByRole('button', { name: /Laboratory/ });
+    expect(row).toBeDisabled();
+    expect(row).not.toHaveTextContent('Scholarship');
+    fireEvent.click(row);
+    expect(onOpenTechTree).not.toHaveBeenCalled();
+  });
+
+  it('says what today counts, and tags the live rows that do not', () => {
+    const onBuild = vi.fn();
+    render(
+      <BuildingPanel
+        {...baseProps}
+        onBuild={onBuild}
+        focus={{
+          note: "Today's goal: Workshop (I), then Foundry (II) on top of it. Nothing else counts toward it.",
+          countsToward: ['production_1', 'production_2'],
+        }}
+      />,
+    );
+    expect(screen.getByTestId('build-focus-note')).toHaveTextContent('Workshop (I), then Foundry (II)');
+    expect(screen.getByRole('button', { name: /Workshop/ })).not.toHaveTextContent("Not today's goal");
+    const palisade = screen.getByRole('button', { name: /Palisade/ });
+    expect(palisade).toHaveTextContent("Not today's goal");
+    // Tagged, not blocked: it still builds.
+    expect(palisade).not.toBeDisabled();
+    fireEvent.click(palisade);
+    expect(onBuild).toHaveBeenCalledWith('defense_1');
+  });
+
+  it('does not tag a row it has already marked as unable to matter', () => {
+    render(
+      <BuildingPanel
+        {...baseProps}
+        unavailable={blocked}
+        focus={{ note: 'x', countsToward: ['production_1'] }}
+      />,
+    );
+    expect(screen.getByRole('button', { name: /Laboratory/ })).not.toHaveTextContent("Not today's goal");
+  });
+});
