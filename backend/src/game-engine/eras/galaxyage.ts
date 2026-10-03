@@ -1,3 +1,4 @@
+import type { BuildingType } from '../../types';
 import type { Faction, TechNode, EraWonder } from './types';
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -256,6 +257,38 @@ export const GALAXY_AGE_TECH_TREE: TechNode[] = [
     reinforce_bonus: 2,
   },
 ];
+
+// ──────────────────────────────────────────────────────────────────────────
+// Buildings v2 gating (docs/GALACTIC_AGE_BUILDINGS.md, Phase 1)
+//
+// The tree above names only the tier-I buildings, and names them at tier 2 or
+// deeper; `isBuildingTechUnlocked` treats a building no node names as free, so
+// the first tier of a family cost a mid-tree tech and every tier above it cost
+// nothing. The v2 table gates every tier like the other eras do: tier I at the
+// tier-1 roots, each later tier behind the matching tier of the tree. Node
+// costs do not change. Selected per game by `settings.galaxy_buildings_v2`
+// (baked at create from the `galaxy_buildings_v2_enabled` flag), through
+// `getEraTechTree(era, { galaxyBuildingsV2 })`.
+// ──────────────────────────────────────────────────────────────────────────
+
+/** v2: which buildings each node opens. Nodes absent here open none. */
+export const GALAXY_BUILDING_UNLOCKS_V2: Readonly<Record<string, readonly BuildingType[]>> = {
+  ga_lattice_logistics: ['production_1', 'tech_gen_1'],
+  ga_hyperspace_chart: ['defense_1'],
+  ga_disruption_net: ['defense_2'],
+  ga_battle_fabricators: ['production_2'],
+  ga_gate_engineering: ['jump_gate'],
+  ga_solar_foundries: ['production_3', 'tech_gen_2'],
+  ga_gravity_brake: ['defense_3'],
+  ga_dyson_slice: ['production_4'],
+};
+
+/** The same nodes, with their building unlocks replaced by the v2 table. */
+export const GALAXY_AGE_TECH_TREE_V2: TechNode[] = GALAXY_AGE_TECH_TREE.map((node) => {
+  const { unlocks_building: _v1, ...rest } = node;
+  const opens = GALAXY_BUILDING_UNLOCKS_V2[node.tech_id];
+  return opens ? { ...rest, unlocks_buildings: [...opens] } : rest;
+});
 
 // Under corridors there is no access gate for the Anchor to skip, so it lifts
 // the lane dice cap for its owner instead (`galaxyLaneAttackDiceCap`); with the

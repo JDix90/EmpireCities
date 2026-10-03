@@ -724,6 +724,9 @@ export default function GamePage() {
     () => (gameState ? resolvePlayerTechEraId(gameState, viewerPlayer) : null),
     [gameState, viewerPlayer],
   );
+  // A game created under Galactic Age buildings v2 plays on the v2 tree; ask
+  // the static route for that one so the client gates the same buildings.
+  const techTreeQuery = gameState?.settings.galaxy_buildings_v2 ? '?buildings=v2' : '';
 
   // Turn-clarity valid-source hint: highlight which of the viewer's territories
   // can act this phase, but only on their own attack/fortify turn and only before
@@ -3489,7 +3492,7 @@ export default function GamePage() {
     if (!playerTechEra) return;
     if (techTree.length === 0) {
       try {
-        const res = await api.get(`/eras/${playerTechEra}/tech-tree`);
+        const res = await api.get(`/eras/${playerTechEra}/tech-tree${techTreeQuery}`);
         setTechTree(res.data.techTree ?? []);
       } catch {
         toast.error('Could not load tech tree');
@@ -3534,7 +3537,7 @@ export default function GamePage() {
       return;
     }
     let cancelled = false;
-    api.get(`/eras/${playerTechEra}/tech-tree`)
+    api.get(`/eras/${playerTechEra}/tech-tree${techTreeQuery}`)
       .then((res) => {
         if (!cancelled) setTechTree(res.data.techTree ?? []);
       })
@@ -3542,7 +3545,7 @@ export default function GamePage() {
         if (!cancelled) setTechTree([]);
       });
     return () => { cancelled = true; };
-  }, [playerTechEra, gameState?.settings.tech_trees_enabled]);
+  }, [playerTechEra, gameState?.settings.tech_trees_enabled, techTreeQuery]);
 
   const handleNavalMove = useCallback((fromId: string, toId: string, count: number) => {
     getSocket().emit('game:naval_move', { gameId, fromId, toId, count });

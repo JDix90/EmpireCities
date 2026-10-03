@@ -53,6 +53,21 @@ export const BUILDING_META: Record<
   ]),
 );
 
+/**
+ * `BUILDING_META[id]` with the name the given era uses for it (Galactic Age
+ * buildings v2 calls production_1 a Fabricator, not a Workshop). Undefined
+ * `nameEra` keeps the shared era-agnostic name, so games without the setting
+ * read exactly as before.
+ */
+export function buildingMetaForEra(
+  id: string,
+  nameEra?: string,
+): (typeof BUILDING_META)[string] | undefined {
+  const meta = BUILDING_META[id];
+  if (!meta || !nameEra) return meta;
+  return { ...meta, label: buildingDisplayName(id, true, nameEra) };
+}
+
 const UPGRADES: Record<string, string> = {
   production_1: 'production_2',
   production_2: 'production_3',
@@ -107,6 +122,12 @@ interface Props {
   heritageUnlocks?: string[];
   buildingStates?: Record<string, BuildingModernization>;
   modernizeTechFor?: Record<string, string>;
+  /**
+   * Era whose building names to show (`BUILDING_DISPLAY_BY_ERA`); set only
+   * when the game plays under Galactic Age buildings v2. Names only — ids,
+   * costs and effects are unchanged.
+   */
+  nameEra?: string;
 }
 
 function BuildingPanel({
@@ -124,6 +145,7 @@ function BuildingPanel({
   heritageUnlocks = [],
   buildingStates = {},
   modernizeTechFor = {},
+  nameEra,
 }: Props) {
   const heritageSet = new Set(heritageUnlocks);
   const canBuild = isMine && isMyTurn && (phase === 'draft' || phase === 'fortify');
@@ -191,7 +213,7 @@ function BuildingPanel({
       {buildings.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-2">
           {buildings.map((b) => {
-            const meta = BUILDING_META[b];
+            const meta = buildingMetaForEra(b, nameEra);
             // Wonder buildings aren't in BUILDING_META — render any era's wonder
             // by name (a wonder built in a prior era still shows after advancing).
             if (!meta) {
@@ -247,7 +269,7 @@ function BuildingPanel({
       {canBuild && filteredOptions.length > 0 && (
         <div className="space-y-1">
           {filteredOptions.map((b) => {
-            const meta = BUILDING_META[b];
+            const meta = buildingMetaForEra(b, nameEra);
             if (!meta) return null;
             const lockedBy = techLocks[b];
             const affordable = playerResources >= meta.cost;

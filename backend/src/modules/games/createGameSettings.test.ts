@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { featureFlags } from '../../config/featureFlags';
+import { resetAdminConfigCacheForTests, setAdminConfigCacheForTests } from '../../services/adminConfig';
 import { GALAXY_FACTIONS_REQUIRED_ERROR } from '../../game-engine/lobby/lobbyEraMapCompatibility';
 import {
   ASYNC_TURN_TIMER_ERROR,
@@ -106,5 +107,19 @@ describe('a settings vote is held to the create-time rules', () => {
     expect(lobbyVoteBringsAlong(created(WW2, { economy_enabled: true }), 'naval_enabled', true)).toBeNull();
     expect(lobbyVoteBringsAlong(created(WW2), 'map_change', SPACE)).toBe('turns on Economy & Buildings and Technology Trees');
     expect(lobbyVoteBringsAlong(created(WW2), 'fog_of_war', true)).toBeNull();
+  });
+});
+
+describe('Galactic Age buildings v2 is baked at create from its flag', () => {
+  afterEach(() => resetAdminConfigCacheForTests());
+  const GALAXY = { era_id: 'galaxy_age', map_id: 'era_galaxy' };
+  const galaxyLobby = { factions_enabled: true, economy_enabled: true, tech_trees_enabled: true };
+
+  it('is absent while the flag is off, and never baked outside the Galactic Age', () => {
+    expect(created(GALAXY, galaxyLobby).galaxy_buildings_v2).toBeUndefined();
+    setAdminConfigCacheForTests({ feature_flags: { galaxy_buildings_v2_enabled: true } });
+    expect(created(GALAXY, galaxyLobby).galaxy_buildings_v2).toBe(true);
+    expect(created(WW2).galaxy_buildings_v2).toBeUndefined();
+    expect(created(SPACE, { economy_enabled: true, tech_trees_enabled: true }).galaxy_buildings_v2).toBeUndefined();
   });
 });

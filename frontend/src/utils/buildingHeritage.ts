@@ -8,6 +8,8 @@
  * the server then refuses, or showing a yield the player does not actually get.
  */
 
+import { techNodeBuildingUnlocks } from '@borderfall/shared';
+
 export type BuildingModernization = 'current' | 'aged' | 'modernized';
 
 /** Mirrors AGED_BUILDING_YIELD_MULT / MODERNIZED_BUILDING_YIELD_BONUS. */
@@ -40,6 +42,8 @@ export interface HeritageTechNode {
   name?: string;
   cost?: number;
   unlocks_building?: string;
+  /** Several buildings from one node (Galactic Age buildings v2). */
+  unlocks_buildings?: string[];
 }
 
 export function heritageEnabled(settings: HeritageSettings | undefined): boolean {
@@ -66,7 +70,7 @@ export function lineageTechs(
 ): HeritageTechNode[] {
   const lineage = buildingLineageKey(buildingType);
   return techTree
-    .filter((n) => n.unlocks_building && buildingLineageKey(n.unlocks_building) === lineage)
+    .filter((n) => techNodeBuildingUnlocks(n).some((b) => buildingLineageKey(b) === lineage))
     .sort((a, b) => (a.cost ?? 0) - (b.cost ?? 0));
 }
 
@@ -127,7 +131,7 @@ export function isHeritageOnlyUnlock(
 ): boolean {
   if (!heritageEnabled(settings) || !player) return false;
   if (!(player.legacy_building_unlocks ?? []).includes(buildingType)) return false;
-  const gate = techTree.find((n) => n.unlocks_building === buildingType);
+  const gate = techTree.find((n) => techNodeBuildingUnlocks(n).includes(buildingType));
   if (!gate) return false;
   return !(player.unlocked_techs ?? []).includes(gate.tech_id);
 }

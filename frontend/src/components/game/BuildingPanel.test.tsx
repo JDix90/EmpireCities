@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import BuildingPanel, { BUILDING_META } from './BuildingPanel';
+import BuildingPanel, { BUILDING_META, buildingMetaForEra } from './BuildingPanel';
 import { BUILDING_DISPLAY, buildingDisplayName, buildingEffect } from '@borderfall/shared';
 
 const baseProps = {
@@ -200,5 +200,28 @@ describe('BuildingPanel — era heritage & modernize', () => {
     expect(screen.queryByText('aged')).toBeNull();
     expect(screen.queryByText('modernized')).toBeNull();
     expect(screen.queryByText(/Heritage/)).toBeNull();
+  });
+});
+
+describe('BuildingPanel — era building names (Galactic Age buildings v2)', () => {
+  it('names a standing building and a build option for the era when nameEra is set', () => {
+    render(<BuildingPanel {...baseProps} buildings={['production_1']} nameEra="galaxy_age" />);
+    expect(screen.getByText('Fabricator (I)')).toBeInTheDocument();
+    expect(screen.queryByText('Workshop (I)')).toBeNull();
+    // The upgrade of the standing building, offered under its era name.
+    expect(screen.getByRole('button', { name: /Orbital Foundry \(II\)/ })).toBeInTheDocument();
+  });
+
+  it('keeps the shared names without nameEra, and for an era without its own', () => {
+    render(<BuildingPanel {...baseProps} buildings={['production_1']} />);
+    expect(screen.getByText('Workshop (I)')).toBeInTheDocument();
+    expect(buildingMetaForEra('production_1')?.label).toBe(BUILDING_META.production_1.label);
+    expect(buildingMetaForEra('production_1', 'space_age')?.label).toBe('Workshop (I)');
+    expect(buildingMetaForEra('production_1', 'galaxy_age')).toMatchObject({
+      label: 'Fabricator (I)',
+      cost: BUILDING_META.production_1.cost,
+      description: BUILDING_META.production_1.description,
+    });
+    expect(buildingMetaForEra('wonder_colosseum', 'galaxy_age')).toBeUndefined();
   });
 });

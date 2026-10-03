@@ -473,9 +473,14 @@ async function bootstrap(): Promise<void> {
   });
 
   // Static era tech tree — public, no auth needed
-  app.get<{ Params: { era: string } }>('/api/eras/:era/tech-tree', async (req, reply) => {
+  // `?buildings=v2` serves the Galactic Age buildings-v2 tree (the one a game
+  // created with `settings.galaxy_buildings_v2` plays on); other eras ignore it.
+  app.get<{ Params: { era: string }; Querystring: { buildings?: string } }>('/api/eras/:era/tech-tree', async (req, reply) => {
     try {
-      const techTree = getEraTechTree(req.params.era as Parameters<typeof getEraTechTree>[0]);
+      const techTree = getEraTechTree(
+        req.params.era as Parameters<typeof getEraTechTree>[0],
+        { galaxyBuildingsV2: req.query?.buildings === 'v2' },
+      );
       return reply.send({ techTree });
     } catch {
       return reply.code(404).send({ error: 'Unknown era' });

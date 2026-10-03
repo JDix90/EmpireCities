@@ -8,7 +8,7 @@ import { ERA_WONDERS } from '../../constants/eraWonders';
 import type { TechNode } from './TechTreeModal';
 import { useEscapeClose } from '../../hooks/useEscapeClose';
 import { resolvePlayerTechEraId } from '../../utils/eraAdvancement';
-import { buildingDisplayName, buildingEffect, inferWorldId } from '@borderfall/shared';
+import { buildingDisplayName, buildingEffect, inferWorldId, techNodeBuildingUnlocks } from '@borderfall/shared';
 import { getSpaceProgramProgress, type FrontendMapData } from '../../utils/orbitAccess';
 import {
   describeWorldModifiers,
@@ -74,6 +74,13 @@ const BUILDING_META: Record<string, { label: string; effect: string; color: stri
       { label: buildingDisplayName(id, false), effect: buildingEffect(id), color },
     ]),
   );
+
+/** `BUILDING_META[id]` named as `nameEra` names it (Galactic Age buildings v2). */
+function buildingMetaForEra(id: string, nameEra?: string) {
+  const meta = BUILDING_META[id];
+  if (!meta || !nameEra) return meta;
+  return { ...meta, label: buildingDisplayName(id, false, nameEra) };
+}
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -163,6 +170,7 @@ export default function BonusesModal({ techTree, mapData, onClose }: BonusesModa
   // CURRENT era so a faction that has evolved along its lineage (era advancement)
   // is fetched from the right roster rather than the static game era.
   const factionEraId = gameState && myPlayer ? resolvePlayerTechEraId(gameState, myPlayer) : undefined;
+  const nameEra = gameState?.settings.galaxy_buildings_v2 ? factionEraId : undefined;
   useEffect(() => {
     if (!gameState || !myPlayer?.faction_id || !gameState.settings.factions_enabled || !factionEraId) return;
     setFactionLoading(true);
@@ -605,7 +613,10 @@ export default function BonusesModal({ techTree, mapData, onClose }: BonusesModa
                     if (n.defense_bonus) parts.push(`+${n.defense_bonus} Def`);
                     if (n.reinforce_bonus) parts.push(`+${n.reinforce_bonus} Reinf`);
                     if (n.tech_point_income) parts.push(`+${n.tech_point_income} TP/turn`);
-                    if (n.unlocks_building) parts.push(`Unlocks ${n.unlocks_building}`);
+                    const opens = techNodeBuildingUnlocks(n);
+                    if (opens.length > 0) {
+                      parts.push(`Unlocks ${opens.map((b) => buildingMetaForEra(b, nameEra)?.label ?? b).join(', ')}`);
+                    }
                     if (n.unlocks_ability) parts.push(`Ability: ${n.unlocks_ability}`);
                     return {
                       icon: '🔬',
@@ -636,7 +647,7 @@ export default function BonusesModal({ techTree, mapData, onClose }: BonusesModa
                 rows={Object.entries(buildingCounts)
                   .sort(([a], [b]) => a.localeCompare(b))
                   .map(([type, count]) => {
-                    const meta = BUILDING_META[type];
+                    const meta = buildingMetaForEra(type, nameEra);
                     return {
                       icon: '🏗️',
                       label: meta?.label ?? type,
