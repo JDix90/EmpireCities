@@ -15,7 +15,8 @@ import { computeAiTurn, selectAiBuildingPlacement, selectAiTechResearch } from '
 import { aiAttackExchangeBudget, shouldPressDecidedGame } from './aiAttackGrind';
 import { aiFiresLanePowers } from './aiLanePowers';
 import { aiResearchesTech } from './aiTechBudget';
-import { AI_PROFILES, aiProfile, type AiProfile } from './aiProfiles';
+import { AI_PROFILES, aiProfile, gameAiDifficulty, seatAiDifficulty, type AiProfile } from './aiProfiles';
+import { aiFallbackPlan } from './runAiWithTimeout';
 import { syntheticAiOpponent } from '../rating/ratingService';
 
 const LEVELS: AiDifficulty[] = ['tutorial', 'easy', 'medium', 'hard', 'expert'];
@@ -25,6 +26,7 @@ describe('AI_PROFILES holds the values the constants and branches held', () => {
   const TODAY: { [K in keyof AiProfile]?: AiProfile[K][] } = {
     passive: [true, false, false, false, false],
     planBudgetMs: [750, 1_000, 1_500, 3_000, 5_000],
+    timeoutFallback: ['tutorial', 'easy', 'medium', 'medium', 'medium'],
     noise: [0.9, 0.35, 0.15, 0.05, 0],
     attackCap: [8, 2, 4, 8, 8],
     exchangeBudget: [0, 2, 4, 8, 8],
@@ -163,5 +165,44 @@ describe('a changed profile changes the bot', () => {
 
     expect(selectAiBuildingPlacement(state, MAP, 'bot_0', { ...AI_PROFILES.expert, build: 'none' })).toBeNull();
     expect(selectAiTechResearch(state, 'bot_0', { ...AI_PROFILES.expert, research: 'none' })).toBeNull();
+  });
+});
+
+describe('the level an away seat plays', () => {
+  const bot = (ai_difficulty: AiDifficulty) => ({ is_ai: true, ai_difficulty });
+  const human = { is_ai: false, ai_difficulty: null };
+
+  it("is the game's bot level, the highest of its bots", () => {
+    expect(seatAiDifficulty([human, bot('easy'), bot('easy')], human)).toBe('easy');
+    expect(seatAiDifficulty([human, bot('easy'), bot('hard')], human)).toBe('hard');
+    expect(seatAiDifficulty([human, bot('expert')], human)).toBe('expert');
+  });
+
+  it('is medium in a game with no bots, as before', () => {
+    expect(seatAiDifficulty([human, { ...human }], human)).toBe('medium');
+  });
+
+  it("leaves a bot's own level alone", () => {
+    expect(seatAiDifficulty([bot('easy'), bot('expert')], bot('easy'))).toBe('easy');
+  });
+
+  it('agrees with the end-of-game summary', () => {
+    expect(gameAiDifficulty([human, bot('medium'), bot('tutorial')])).toBe('medium');
+    expect(gameAiDifficulty([human])).toBeNull();
+  });
+});
+
+describe('the plan that stands in when planning overruns', () => {
+  it("is the level's own, capped at medium", () => {
+    const s = fullGame();
+    const plan = (d: AiDifficulty | AiProfile) => aiFallbackPlan(structuredClone(s), MAP, d, { rng: createSeededRng(5) });
+    const at = (d: AiDifficulty) => computeAiTurn(structuredClone(s), MAP, d, { rng: createSeededRng(5) });
+    expect(plan('easy')).toEqual(at('easy'));
+    expect(plan('medium')).toEqual(at('medium'));
+    expect(plan('hard')).toEqual(at('medium'));
+    expect(plan('expert')).toEqual(at('medium'));
+    // Never easy's two-attack plan with long shots, which every level used to get.
+    const attacks = plan('expert').filter((a) => a.type === 'attack' && a.from !== '__influence__');
+    expect(attacks.length).toBeLessThanOrEqual(AI_PROFILES.medium.attackCap);
   });
 });

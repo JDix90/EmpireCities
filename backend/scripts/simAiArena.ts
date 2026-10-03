@@ -249,9 +249,10 @@ interface GameRecord {
   eras: number[];
   /** The seat holding the most territories when round 10 began, or null on a tie. */
   leaderAtRound10: number | null;
-  /** Dice exchanges, card sets traded and paced steps, by seat. */
+  /** Dice exchanges, card sets traded, paid influences and paced steps, by seat. */
   exchanges: number[];
   cardSets: number[];
+  influences: number[];
   steps: number[];
   /** Bot turns played by each seat. */
   turns: number[];
@@ -336,6 +337,7 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
     leaderAtRound10: null,
     exchanges: zeros(),
     cardSets: zeros(),
+    influences: zeros(),
     steps: zeros(),
     turns: zeros(),
   };
@@ -353,6 +355,7 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
     const player = state.players[state.current_player_index]!;
     const seat = seats[player.player_index]!;
     const stepsBefore = record.steps[player.player_index]!;
+    const cooldownBefore = state.influence_cooldown_remaining ?? 0;
     const started = performance.now();
 
     resolveChoiceCard(state);
@@ -362,6 +365,8 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
     });
     const outcome = await playAiTurn(state, map, player, seat.level, plan, 'draft', hooks);
     record.turns[player.player_index]! += 1;
+    // A paid influence is the only thing that starts the cooldown.
+    if (cooldownBefore === 0 && (state.influence_cooldown_remaining ?? 0) > 0) record.influences[player.player_index]! += 1;
 
     const ms = performance.now() - started;
     timing.turnMs.push(ms);
@@ -429,6 +434,9 @@ function report(seatCount: number, records: GameRecord[], timing: Timing): void 
   console.log(`mean rounds (all)         ${mean(records.map((r) => r.rounds)).toFixed(1)}`);
   console.log(`round-10 leader wins      ${pct(leaderWins, leaderKnown.length)} of ${leaderKnown.length} games with one leader`);
   console.log(`exchanges per turn        candidate ${seatMean((r) => r.exchanges, true).toFixed(2)}, baseline ${seatMean((r) => r.exchanges, false).toFixed(2)}`);
+  if (records.some((r) => r.influences.some((n) => n > 0))) {
+    console.log(`influences per game       candidate ${mean(records.map((r) => r.influences[r.candidateSeat]!)).toFixed(2)}, baseline seat ${mean(records.flatMap((r) => r.influences.filter((_, i) => i !== r.candidateSeat))).toFixed(2)}`);
+  }
   console.log(`card sets per turn        candidate ${seatMean((r) => r.cardSets, true).toFixed(3)}, baseline ${seatMean((r) => r.cardSets, false).toFixed(3)}`);
   if (records.some((r) => r.eras.some((e) => e > 0))) {
     console.log(`final era index           candidate ${mean(records.map((r) => r.eras[r.candidateSeat]!)).toFixed(2)}, baseline ${mean(records.flatMap((r) => r.eras.filter((_, i) => i !== r.candidateSeat))).toFixed(2)}`);

@@ -43,6 +43,8 @@ import type { GarrisonDoctrine } from '@borderfall/shared';
 import { aiLanePowerReserve } from './aiLanePowers';
 import { aiWorldBuildingCandidates } from './aiWorldBuildings';
 import { aiProfile, type AiLevel, type AiProfile } from './aiProfiles';
+import { influenceHopLimit, influencePayers } from './aiInfluence';
+import { isTerritoryReachableWithinHops } from '../state/influenceManager';
 
 export interface AiAction {
   type: 'draft' | 'attack' | 'fortify' | 'end_phase';
@@ -742,72 +744,83 @@ function selectAttacks(
 }
 
 /**
- * Select best influence target for Cold War / Risorgimento era.
- * Tries to pick a low-unit adjacent or near-adjacent enemy territory.
+ * Unification Drive (Kingdom of Sardinia) turns one neutral territory in
+ * influence range into the bot's, holding one unit. Its targets, best first:
+ * a territory that completes a region, then one in a region the bot holds
+ * more of, less the rival units next to it that would take it straight back,
+ * plus whatever the attack planner counts as an objective there. The turn
+ * tries them in this order and executeTechAbility enforces the range, as it
+ * does for a human. The bot used to take the first neutral territory in the
+ * board's key order, wherever it was.
+ */
+export function rankAiUnificationTargets(state: GameState, map: GameMap, playerId: string): string[] {
+  const owned = Object.entries(state.territories)
+    .filter(([, t]) => t.owner_id === playerId)
+    .map(([id]) => id);
+  const hopLimit = influenceHopLimit(state, playerId);
+  const adjacency = buildAdjacencyMap(map);
+  const regionOf = new Map(map.territories.map((t) => [t.territory_id, t.region_id]));
+  const regionBonus = new Map(map.regions.map((r) => [r.region_id, r.bonus]));
+  const regionSize = new Map<string, number>();
+  const regionHeld = new Map<string, number>();
+  for (const [id, t] of Object.entries(state.territories)) {
+    const region = regionOf.get(id);
+    if (!region) continue;
+    regionSize.set(region, (regionSize.get(region) ?? 0) + 1);
+    if (t.owner_id === playerId) regionHeld.set(region, (regionHeld.get(region) ?? 0) + 1);
+  }
+
+  const scored: Array<{ id: string; score: number }> = [];
+  for (const [id, t] of Object.entries(state.territories)) {
+    if (t.owner_id != null) continue;
+    if (!isTerritoryReachableWithinHops({ map, ownedTerritoryIds: owned, targetId: id, hopLimit })) continue;
+    const region = regionOf.get(id);
+    const size = region ? regionSize.get(region) ?? 0 : 0;
+    const heldAfter = region ? (regionHeld.get(region) ?? 0) + 1 : 0;
+    const completes = size > 0 && heldAfter === size;
+    const rivalUnits = (adjacency[id] ?? []).reduce((sum, nid) => {
+      const n = state.territories[nid];
+      return n?.owner_id && !isFriendlyOwner(state, playerId, n.owner_id) ? sum + n.unit_count : sum;
+    }, 0);
+    const score =
+      (completes ? 5 + (regionBonus.get(region!) ?? 0) : 0)
+      + (size > 0 ? (3 * heldAfter) / size : 0)
+      - 0.5 * rivalUnits
+      + attackObjectiveBonus(state, map, playerId, id);
+    scored.push({ id, score });
+  }
+  scored.sort((a, b) => b.score - a.score || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  return scored.map((c) => c.id);
+}
+
+/**
+ * Select best influence target for Cold War / Risorgimento era: a neutral
+ * territory, else the thinnest rival one, among those the turn can take.
  */
 function selectInfluenceTarget(
   state: GameState,
   map: GameMap,
   playerId: string
 ): string | null {
-  const hopLimit = getPlayerEraModifiers(state, playerId).influence_range ?? 1;
-  const adjacency: Record<string, string[]> = {};
-  for (const conn of map.connections) {
-    if (!adjacency[conn.from]) adjacency[conn.from] = [];
-    if (!adjacency[conn.to]) adjacency[conn.to] = [];
-    adjacency[conn.from].push(conn.to);
-    adjacency[conn.to].push(conn.from);
-  }
-
-  const ownedSet = new Set(
-    Object.entries(state.territories)
-      .filter(([, t]) => t.owner_id === playerId)
-      .map(([id]) => id)
-  );
-
-  // BFS to collect reachable territories within hopLimit
-  const reachable = new Set<string>();
-  const visited = new Set<string>(ownedSet);
-  let frontier = [...ownedSet];
-  for (let hop = 0; hop < hopLimit; hop++) {
-    const next: string[] = [];
-    for (const tid of frontier) {
-      for (const nid of (adjacency[tid] ?? [])) {
-        if (!visited.has(nid)) {
-          visited.add(nid);
-          next.push(nid);
-          if (state.territories[nid]?.owner_id !== playerId) {
-            reachable.add(nid);
-          }
-        }
-      }
-    }
-    frontier = next;
-  }
-
-  // Prefer neutral territories, then low-garrison enemy territories
+  // Only targets the turn can actually take (ai/aiInfluence.ts): in range,
+  // three defenders or fewer, and neighbours able to pay. Neutral ground
+  // first, then the thinnest garrison.
   let best: string | null = null;
   let bestScore = Infinity;
-  for (const tid of reachable) {
-    const t = state.territories[tid];
-    if (!t) continue;
+  for (const [tid, t] of Object.entries(state.territories)) {
+    if (t.owner_id === playerId) continue;
     // Seizing a truce partner's ground breaks the truce. The bot honours its
     // truces here as its attack planner does.
     if (t.owner_id && isTruceActive(state, playerId, t.owner_id)) continue;
     if (isShieldedFrom(state, playerId, t.owner_id)) continue;
+    if (!influencePayers(state, map, playerId, tid)) continue;
     const score = (t.owner_id === null ? -10 : 0) + t.unit_count;
     if (score < bestScore) {
       bestScore = score;
       best = tid;
     }
   }
-
-  // Verify we have enough spare units (≥4 total — need 3 to spend + 1 in reserve)
-  const totalUnits = Object.values(state.territories)
-    .filter((t) => t.owner_id === playerId)
-    .reduce((sum, t) => sum + t.unit_count, 0);
-
-  return totalUnits >= 4 ? best : null;
+  return best;
 }
 
 function selectFortify(
