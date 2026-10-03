@@ -16,6 +16,9 @@
  *   taking    when the bot has a stack next to the bombed tile, the walk-in is
  *             put at the head of its attack plan.
  *
+ * Under WW2's atomic arsenal (Phase 3) the bomb is once per turn at a price:
+ * a bot fires when it can pay, and asks more of each target as the price climbs.
+ *
  * These functions CHOOSE. `executeTechAbility` resolves the detonation and
  * re-checks it, as it does for a human.
  */
@@ -28,6 +31,8 @@ import { eliminatePlayer } from '../state/elimination';
 import { isShieldedFrom } from '../state/teams';
 import { activeTruceBetween } from '../state/truces';
 import { playerHasUnlockedAbility } from '../abilities/techAbilities';
+import { atomBombPriceFor } from '../abilities/atomicArsenal';
+import { atomicArsenalEnabled } from '../state/atomicArsenal';
 
 export const ATOM_BOMB = 'atom_bomb';
 
@@ -115,12 +120,29 @@ export function selectAiBombResearch(
   return { techId: null, save: cost - points <= estimateTechIncome(state, playerId) * AI_BOMB_SAVE_TURNS };
 }
 
-/** Does this player hold a bomb it can fire: the unlocking tech or a carried charge, not yet spent? */
+/**
+ * Does this player hold a bomb it can fire now: the unlocking tech or a carried
+ * charge, and not yet spent — once per game, or under the atomic arsenal once
+ * this turn and within its purse?
+ */
 export function aiHoldsBomb(state: GameState, player: PlayerState): boolean {
   if (!state.settings.tech_trees_enabled) return false;
   const carried = (player.legacy_ability_charges?.[ATOM_BOMB] ?? 0) > 0;
   if (!carried && !playerHasUnlockedAbility(state, player.player_id, ATOM_BOMB)) return false;
+  if (atomicArsenalEnabled(state)) {
+    return !(player.ability_uses ?? {})[ATOM_BOMB]
+      && (player.special_resource ?? 0) >= atomBombPriceFor(state, player);
+  }
   return !(player.used_game_abilities ?? []).includes(ATOM_BOMB);
+}
+
+/**
+ * What a detonation must be worth: AI_BOMB_MIN_VALUE, and under the atomic
+ * arsenal two more for each bomb the player has already dropped, as its price
+ * climbs.
+ */
+export function aiBombMinValue(state: GameState, player: PlayerState): number {
+  return AI_BOMB_MIN_VALUE + (atomicArsenalEnabled(state) ? 2 * (player.atom_bomb_uses ?? 0) : 0);
 }
 
 export interface BombStrike {
@@ -181,7 +203,7 @@ export function selectAiAtomBombStrike(state: GameState, map: GameMap, playerId:
   }
   if (!best) return null;
   const lastTurn = state.settings.max_turns != null && state.turn_number >= state.settings.max_turns;
-  return best.value >= AI_BOMB_MIN_VALUE || lastTurn ? best : null;
+  return best.value >= aiBombMinValue(state, player) || lastTurn ? best : null;
 }
 
 /**

@@ -3104,7 +3104,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (!isSocketUsersTurn(state, userId, username)) return socket.emit('error', { message: 'Not your turn' });
 
       // Check ability cooldown (once per turn) — skip for once-per-game abilities
-      const isGameScoped = isGameScopedAbility(abilityId);
+      // The game decides: WW2's atomic arsenal makes the bomb once per turn.
+      const isGameScoped = isGameScopedAbility(abilityId, state);
       const uses = currentPlayer.ability_uses ?? {};
       if (!isGameScoped && uses[abilityId]) {
         return socket.emit('error', { message: `Ability '${abilityId}' already used this turn` });
@@ -6624,6 +6625,11 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
         territoryId: strike.territoryId,
       });
       if (res.success) {
+        // Under the atomic arsenal the bomb is once per turn, recorded as the
+        // human handler records every turn-scoped ability.
+        if (!isGameScopedAbility('atom_bomb', state)) {
+          currentPlayer.ability_uses = { ...(currentPlayer.ability_uses ?? {}), atom_bomb: 1 };
+        }
         // A carried charge is spent, as the human handler spends it.
         if (currentPlayer.legacy_ability_charges?.atom_bomb) {
           const remaining = { ...currentPlayer.legacy_ability_charges };

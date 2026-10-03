@@ -228,6 +228,7 @@ export function bakeCreateGameSettings(input: Theater & {
         // game, or a climb that passes through it. Read only by that tree.
         ww2_bomb_ai: playsWw2Tree ? featureFlags.ww2BombAiEnabled : undefined,
         ww2_manhattan_science: playsWw2Tree ? featureFlags.ww2ManhattanScienceEnabled : undefined,
+        ww2_atomic_arsenal: playsWw2Tree ? featureFlags.ww2AtomicArsenalEnabled : undefined,
         // Every Moon Race phase this game runs, resolved above. Spread rather
         // than listed so a sixth phase needs no edit here.
         ...moonRace.phases,
@@ -277,6 +278,7 @@ const THEATER_BAKED_KEYS = [
   'galaxy_world_buildings',
   'ww2_bomb_ai',
   'ww2_manhattan_science',
+  'ww2_atomic_arsenal',
 ] as const;
 
 /**

@@ -60,6 +60,7 @@ import {
   vaultRegionGarrisons,
   worldDeployCapBonus,
 } from './worldRules';
+import { applyFalloutAttrition } from './atomicArsenal';
 import { buildAscensionSpineFromEra, getMaxEraIndex, getSpineById } from '../eraAdvancement/spines';
 import { territoryUnlockEra, seedsFullBoardAtStart, seedStandaloneFrontierTerritories } from '../eraAdvancement/territoryUnlock';
 import { ensureEraKeyedEcho } from '../eraAdvancement/techEcho';
@@ -1079,6 +1080,8 @@ function passTurn(state: GameState, map?: GameMap): void {
     applyStormAttrition(state);
     // ...and the cradle refills its thin tiles for whoever holds them.
     applyCradleMuster(state);
+    // WW2's atomic arsenal: fallout bleeds whoever holds a bombed tile, and runs down.
+    applyFalloutAttrition(state);
 
     // Galaxy lane weather ages with the round, not with a player's turn: a
     // closure nobody owns cannot wait on whose charge it was.

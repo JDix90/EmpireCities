@@ -11,6 +11,7 @@ import { getTechEchoBonus } from '../eraAdvancement/techEcho';
 import { getWonderTechCostMultiplier } from './wonderManager';
 import { factionReinforceBonus } from './galaxyModes';
 import { houseReinforceBonus, laneCrownBonus } from './galaxySchism';
+import { proliferatedTechCost } from './atomicArsenal';
 
 function getPlayerTechEra(state: GameState, playerId: string): EraId {
   const player = state.players.find((p) => p.player_id === playerId);
@@ -94,7 +95,11 @@ export function getEffectiveTechCost(state: GameState, player: PlayerState, node
   if (state.settings.factions_enabled && player.faction_id) {
     factionDiscount = getPlayerFaction(state, player)?.tech_cost_discount ?? 0;
   }
-  return Math.max(1, Math.ceil(node.cost * costMultiplier) - (player.pending_tech_discount ?? 0) - factionDiscount);
+  // WW2's atomic arsenal: once anyone has detonated, Manhattan Project costs half
+  // for a player still without it (state/atomicArsenal.ts). Its base price
+  // otherwise, so every other node and game resolves as before.
+  const base = proliferatedTechCost(state, player, node);
+  return Math.max(1, Math.ceil(base * costMultiplier) - (player.pending_tech_discount ?? 0) - factionDiscount);
 }
 
 /**

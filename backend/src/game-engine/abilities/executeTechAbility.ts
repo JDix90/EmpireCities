@@ -16,6 +16,8 @@ import { checkMoonPowerRequirement, spendMoonPowerCost } from './moonPowers';
 import { checkLanePowerRequirement, spendLanePowerCost, surgeProjectorSources } from './lanePowers';
 import { syncSurgeProjectorLanes } from '../state/surgeProjector';
 import { declareDropAssault } from './dropAssault';
+import { checkAtomicArsenalRequirement, spendAtomicArsenalCost } from './atomicArsenal';
+import { atomicArsenalEnabled, markFallout } from '../state/atomicArsenal';
 import { isShieldedFrom, shieldedTargetError } from '../state/teams';
 
 export interface AbilityExecutionResult {
@@ -100,11 +102,16 @@ export function executeTechAbility(params: TechAbilityParams): AbilityExecutionR
   const laneError = checkLanePowerRequirement(state, params.map, playerId, abilityId, params.territoryId);
   if (laneError) return { success: false, error: laneError };
 
+  // WW2's atomic arsenal (abilities/atomicArsenal.ts): the bomb's price, checked
+  // before the detonation and charged after it, the same discipline again.
+  const arsenalError = checkAtomicArsenalRequirement(state, playerId, abilityId);
+  if (arsenalError) return { success: false, error: arsenalError };
+
   const result = executeAbilityEffect(params);
   if (!result.success) return result;
 
   const spent = spendMoonPowerCost(state, playerId, abilityId);
-  const ppSpent = spendLanePowerCost(state, playerId, abilityId);
+  const ppSpent = spendLanePowerCost(state, playerId, abilityId) + spendAtomicArsenalCost(state, playerId, abilityId);
   return {
     ...result,
     ...(spent > 0 ? { helium3Spent: spent } : {}),
@@ -380,7 +387,11 @@ function executeAbilityEffect(params: TechAbilityParams): AbilityExecutionResult
     if (target.owner_id === playerId) return { success: false, error: 'Cannot bomb your own territory' };
     if (isShieldedFrom(state, playerId, target.owner_id)) return { success: false, error: shieldedTargetError(state, playerId, target.owner_id) };
 
-    currentPlayer.used_game_abilities = [...(currentPlayer.used_game_abilities ?? []), abilityId];
+    // Once per game — except under WW2's atomic arsenal, where it is once per
+    // turn (recorded by the caller, like every turn-scoped ability) and leaves
+    // fallout (state/atomicArsenal.ts).
+    const arsenal = atomicArsenalEnabled(state);
+    if (!arsenal) currentPlayer.used_game_abilities = [...(currentPlayer.used_game_abilities ?? []), abilityId];
 
     const previousOwner = target.owner_id;
     const previousUnits = target.unit_count;
@@ -389,6 +400,7 @@ function executeAbilityEffect(params: TechAbilityParams): AbilityExecutionResult
     target.buildings = [];
     target.naval_units = 0;
     if (target.stability != null) target.stability = 0;
+    if (arsenal) markFallout(target);
     syncTerritoryCounts(state);
 
     return {
@@ -448,7 +460,12 @@ function executeAbilityEffect(params: TechAbilityParams): AbilityExecutionResult
   return { success: false, error: `Ability '${abilityId}' is not implemented` };
 }
 
-export function isGameScopedAbility(abilityId: string): boolean {
+/**
+ * Once per game rather than once per turn. Pass the game where it is known: the
+ * Atom Bomb is once per turn under WW2's atomic arsenal.
+ */
+export function isGameScopedAbility(abilityId: string, state?: Pick<GameState, 'settings'>): boolean {
+  if (abilityId === 'atom_bomb' && state && atomicArsenalEnabled(state)) return false;
   return GAME_SCOPED_ABILITIES.has(abilityId);
 }
 
@@ -493,7 +510,7 @@ export function playerCanUseAbility(
   if (!hasLegacy && !playerHasUnlockedAbility(state, player.player_id, abilityId)) return false;
   const def = TERRITORY_ABILITY_DEFS[abilityId];
   if (!def) return false;
-  if (isGameScopedAbility(abilityId)) {
+  if (isGameScopedAbility(abilityId, state)) {
     return !(player.used_game_abilities ?? []).includes(abilityId);
   }
   return !(player.ability_uses ?? {})[abilityId];

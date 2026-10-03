@@ -298,7 +298,10 @@ export function getCarryableLegacyAbility(state: GameState, player: PlayerState)
   for (const node of tree) {
     const abilityId = node.unlocks_ability;
     if (!abilityId || !unlocked.has(node.tech_id)) continue;
-    if (!GAME_SCOPED_ABILITIES.has(abilityId) || used.has(abilityId)) continue;
+    // Under WW2's atomic arsenal the bomb is repeatable, so having used it is no
+    // reason to leave the program behind: its holder carries a charge onward.
+    const repeatable = abilityId === 'atom_bomb' && state.settings.ww2_atomic_arsenal === true;
+    if (!GAME_SCOPED_ABILITIES.has(abilityId) || (used.has(abilityId) && !repeatable)) continue;
     if (!best || node.tier > best.tier || (node.tier === best.tier && node.cost > best.cost)) {
       best = { abilityId, tier: node.tier, cost: node.cost };
     }

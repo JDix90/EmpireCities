@@ -39,7 +39,7 @@
  *
  * Package phases, each the setting its flag bakes (all off by default, which is
  * the shipped game): SIM_BOMB_AI=1 (Phase 1, `ww2_bomb_ai`), SIM_SCIENCE=1
- * (Phase 2, `ww2_manhattan_science`).
+ * (Phase 2, `ww2_manhattan_science`), SIM_ARSENAL=1 (Phase 3, `ww2_atomic_arsenal`).
  *
  * Run (from backend/):
  *   pnpm exec tsx scripts/simWw2Balance.ts
@@ -74,6 +74,7 @@ import { getPlayerFaction } from '../src/game-engine/eras/factionLineage';
 import { executeTechAbility, isGameScopedAbility } from '../src/game-engine/abilities/executeTechAbility';
 import { TARGETED_DRAFT_ABILITIES, TERRITORY_ABILITY_DEFS } from '../src/game-engine/abilities/techAbilities';
 import { applyBombElimination, selectAiAtomBombStrike } from '../src/game-engine/ai/aiAtomBomb';
+import { anyAtomBombDetonated } from '../src/game-engine/state/atomicArsenal';
 import { seedEngineRandomness, seededUuid } from './seededEngineRandomness';
 
 const MODE = (process.env.SIM_MODE ?? 'custom') as 'custom' | 'full';
@@ -95,6 +96,7 @@ const MAP_ID = MODE === 'custom' ? 'era_ww2' : 'era_ancient';
 const MANHATTAN = 'ww2_atom_bomb';
 const BOMB_AI = process.env.SIM_BOMB_AI === '1';
 const SCIENCE = process.env.SIM_SCIENCE === '1';
+const ARSENAL = process.env.SIM_ARSENAL === '1';
 const COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e'];
 
 if (FACTIONS_ON && PLAYERS > WW2_FACTIONS.length) {
@@ -120,6 +122,7 @@ function simSettings(): GameSettings {
     combat_dice_cap_enabled: true,
     ...(BOMB_AI ? { ww2_bomb_ai: true } : {}),
     ...(SCIENCE ? { ww2_manhattan_science: true } : {}),
+    ...(ARSENAL ? { ww2_atomic_arsenal: true } : {}),
     ...(ENDING === 'conquest'
       ? { allowed_victory_conditions: ['domination', 'threshold'], victory_threshold: 65 }
       : { allowed_victory_conditions: ['domination'] }),
@@ -230,10 +233,16 @@ interface SeatRecord {
   firstBombTurn: number | null;
   /** Detonations whose tile this seat took the same turn. */
   walkIns: number;
+  /** Atomic arsenal: PP this seat paid for bombs, and whether it bought Manhattan at the proliferation discount. */
+  bombPP: number;
+  proliferated: boolean;
 }
 
 function emptySeat(label: string): SeatRecord {
-  return { label, manhattanTurn: null, ww2EnterTurn: null, ww2LeaveTurn: null, bombs: 0, firstBombTurn: null, walkIns: 0 };
+  return {
+    label, manhattanTurn: null, ww2EnterTurn: null, ww2LeaveTurn: null, bombs: 0, firstBombTurn: null, walkIns: 0,
+    bombPP: 0, proliferated: false,
+  };
 }
 
 /** One player's turn, in processAiTurn's order. */
@@ -255,8 +264,12 @@ async function playAiTurn(
   if (techId) {
     const v = validateResearch(state, pid, techId);
     if (v.valid && v.node) {
+      const discounted = techId === MANHATTAN && ARSENAL && anyAtomBombDetonated(state);
       applyResearch(state, pid, v.node);
-      if (techId === MANHATTAN && seat.manhattanTurn == null) seat.manhattanTurn = state.turn_number;
+      if (techId === MANHATTAN && seat.manhattanTurn == null) {
+        seat.manhattanTurn = state.turn_number;
+        seat.proliferated = discounted;
+      }
     }
   }
 
@@ -283,6 +296,9 @@ async function playAiTurn(
     const res = executeTechAbility({ state, map, playerId: pid, abilityId: 'atom_bomb', territoryId: strike.territoryId });
     if (res.success) {
       const bomber = state.players.find((p) => p.player_id === pid)!;
+      // Under the arsenal the bomb is once per turn, recorded as the socket records it.
+      if (!isGameScopedAbility('atom_bomb', state)) bomber.ability_uses = { ...(bomber.ability_uses ?? {}), atom_bomb: 1 };
+      seat.bombPP += res.productionSpent ?? 0;
       if (bomber.legacy_ability_charges?.atom_bomb) {
         const remaining = { ...bomber.legacy_ability_charges };
         delete remaining.atom_bomb;
@@ -474,6 +490,7 @@ async function main(): Promise<void> {
     `Seed "${MASTER_SEED}" · factions ${FACTIONS_ON ? 'ON' : 'OFF'} · stability ${STABILITY ? 'ON' : 'OFF'}`
     + ` · bomb AI ${BOMB_AI ? 'ON (SIM_BOMB_AI=1)' : 'OFF'}`
     + ` · Manhattan ${SCIENCE ? 'on the science line (SIM_SCIENCE=1)' : 'behind Panzer Tactics'}`
+    + ` · bomb ${ARSENAL ? 'the atomic arsenal (SIM_ARSENAL=1)' : 'once per game'}`
     + ` · ${elapsed.toFixed(1)}s (${((elapsed / GAMES) * 1000).toFixed(1)}ms/game)\n`,
   );
   console.log(`Avg game length (turns):          ${fixed(avg(stats.map((s) => s.turns)))}`);
@@ -513,10 +530,25 @@ async function main(): Promise<void> {
   console.log(`Holders who fired:                ${pct(holders.filter((x) => x.seat.bombs > 0).length, holders.length)} · first on turn ${fixed(avg(firers.map((x) => x.seat.firstBombTurn!)))}`);
   console.log(`Seats that fired win:             ${pct(firers.filter((x) => x.s.winner === x.pid).length, firers.length)} of their games`);
   console.log(`Detonations walked into:          ${pct(firers.reduce((a, x) => a + x.seat.walkIns, 0), firers.reduce((a, x) => a + x.seat.bombs, 0))}`);
+  if (ARSENAL) {
+    console.log(`Bombs per firing seat:            ${fixed(avg(firers.map((x) => x.seat.bombs)), 2)} · PP paid per firing seat ${fixed(avg(firers.map((x) => x.seat.bombPP)))}`);
+    console.log(`Manhattan bought at half price:   ${pct(holders.filter((x) => x.seat.proliferated).length, holders.length)} of the seats that researched it`);
+  }
 
   // The digest covers every per-game record the tables are built from: two runs
-  // of one configuration on one seed print the same eight characters.
-  console.log(`\nRun digest: ${hashStringToSeed(JSON.stringify(stats)).toString(16).padStart(8, '0')} (the same on every run of this configuration and seed)`);
+  // of one configuration on one seed print the same eight characters. The
+  // arsenal's own fields join it only when the arsenal plays, so a run without
+  // it prints the digest it printed before those fields existed.
+  const digested = ARSENAL ? stats : stats.map((g) => ({
+    ...g,
+    seats: g.seats.map((seat) => {
+      const plain: Partial<SeatRecord> = { ...seat };
+      delete plain.bombPP;
+      delete plain.proliferated;
+      return plain;
+    }),
+  }));
+  console.log(`\nRun digest: ${hashStringToSeed(JSON.stringify(digested)).toString(16).padStart(8, '0')} (the same on every run of this configuration and seed)`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

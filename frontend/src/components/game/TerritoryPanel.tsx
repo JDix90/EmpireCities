@@ -28,6 +28,14 @@ import { lanePowerApplies, lanePowerCost } from '../../utils/lanePowers';
 import { worldBuildingApplies, worldBuildingsTaken } from '../../utils/worldBuildings';
 import { getAbilityUiDef } from '../../utils/abilityActivationFeedback';
 import {
+  ATOM_BOMB_ARSENAL_HINT,
+  atomBombIsPerTurn,
+  atomBombPriceLabel,
+  atomicArsenalOn,
+  falloutLine,
+} from '../../utils/atomicArsenal';
+import { getUnlockedAbilityIds } from '../../utils/techAbilities';
+import {
   getGalaxyTerritoryLoreDetail,
   getGalaxyWorldLore,
 } from '../../constants/galaxyLore';
@@ -1040,6 +1048,17 @@ export default function TerritoryPanel({
             <span className="text-bf-muted text-sm">{tState.unit_count === 1 ? 'unit' : 'units'}</span>
           </div>
 
+          {/* WW2's atomic arsenal: a bombed tile's fallout. The blast was public, so fog does not hide it. */}
+          {falloutLine(tState) && (
+            <div
+              className="flex items-start gap-2 mb-4 p-3 rounded-lg border border-lime-700/50 bg-lime-950/30 text-xs text-lime-200"
+              data-testid="territory-fallout"
+            >
+              <span aria-hidden>☢️</span>
+              <span>{falloutLine(tState)}</span>
+            </div>
+          )}
+
           {/* Fleet Count (naval warfare) — hidden under fog of war */}
           {!fogHidden && tState.naval_units != null && (
             <div className="flex items-center gap-2 mb-4 p-3 bg-bf-dark rounded-lg">
@@ -1466,10 +1485,12 @@ export default function TerritoryPanel({
                   <span className="flex items-center gap-1.5">
                     {def.emoji} {def.label}
                     <span className="text-xs opacity-70">
-                      {def.scope === 'game' ? '(once per game)' : '(once per turn)'}
+                      {def.scope === 'game' && !atomBombIsPerTurn(abilityId, gameState.settings) ? '(once per game)' : '(once per turn)'}
                     </span>
                   </span>
-                  {'hint' in def && def.hint && (
+                  {abilityId === 'atom_bomb' && atomicArsenalOn(gameState.settings) ? (
+                    <span className="text-[10px] opacity-60">{ATOM_BOMB_ARSENAL_HINT}</span>
+                  ) : 'hint' in def && def.hint && (
                     <span className="text-[10px] opacity-60">{def.hint}</span>
                   )}
                   {lanePowerCost(abilityId) != null && (
@@ -1477,6 +1498,18 @@ export default function TerritoryPanel({
                       {lanePowerCost(abilityId)} PP
                     </span>
                   )}
+                  {abilityId === 'atom_bomb' && (() => {
+                    const price = atomBombPriceLabel(
+                      gameState.settings,
+                      myPlayer,
+                      getUnlockedAbilityIds(gameState, myPlayer, techTree).has('atom_bomb'),
+                    );
+                    return price == null ? null : (
+                      <span className="text-[10px] font-mono opacity-80" data-testid="ability-cost-atom_bomb">
+                        {price === 0 ? 'Carried from WW2: no price' : `${price} PP`}
+                      </span>
+                    );
+                  })()}
                 </button>
               );
             });

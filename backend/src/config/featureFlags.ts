@@ -94,6 +94,8 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   ww2_bomb_ai_enabled: () => envOptIn('WW2_BOMB_AI_ENABLED'),
   // Phase 2: Manhattan Project behind Radar Network. Dark-launched OFF; baked at create.
   ww2_manhattan_science_enabled: () => envOptIn('WW2_MANHATTAN_SCIENCE_ENABLED'),
+  // Phase 3: the atomic arsenal (a repeatable, priced bomb with fallout). Dark-launched OFF; baked at create.
+  ww2_atomic_arsenal_enabled: () => envOptIn('WW2_ATOMIC_ARSENAL_ENABLED'),
   space_age_moon_race_enabled: () => envOptOut('SPACE_AGE_MOON_RACE_ENABLED'),
   space_age_moon_tribute_enabled: () => envOptIn('SPACE_AGE_MOON_TRIBUTE_ENABLED'),
   ranked_multi_size_enabled: () => envOptIn('RANKED_MULTI_SIZE_ENABLED'),
@@ -678,6 +680,19 @@ export const featureFlags = {
    */
   get ww2ManhattanScienceEnabled(): boolean {
     return overrideBool('ww2_manhattan_science_enabled');
+  },
+
+  /**
+   * WW2 Manhattan Project, Phase 3 (docs/WW2_MANHATTAN_PROJECT.md §5): the atomic
+   * arsenal. The Atom Bomb becomes once per turn, at 15 PP and 5 more for each
+   * detonation after; the bombed tile carries fallout for 3 rounds; the bomber's
+   * territories lose 10 stability; and once anyone has detonated, Manhattan
+   * Project costs half for everyone without it. Default OFF (dark launch); baked
+   * into game settings at create as `ww2_atomic_arsenal`. Kill switch:
+   * `WW2_ATOMIC_ARSENAL_ENABLED` or the `ww2_atomic_arsenal_enabled` admin override.
+   */
+  get ww2AtomicArsenalEnabled(): boolean {
+    return overrideBool('ww2_atomic_arsenal_enabled');
   },
 
   /**

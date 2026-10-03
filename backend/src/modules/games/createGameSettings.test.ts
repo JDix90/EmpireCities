@@ -169,6 +169,14 @@ describe('Galactic Age buildings v2 is baked at create from its flag', () => {
     expect(created(GALAXY, galaxyLobby).ww2_manhattan_science).toBeUndefined();
   });
 
+  it('the WW2 atomic arsenal is baked the same way', () => {
+    expect(created(WW2).ww2_atomic_arsenal).toBeUndefined();
+    setAdminConfigCacheForTests({ feature_flags: { ww2_atomic_arsenal_enabled: true } });
+    expect(created(WW2).ww2_atomic_arsenal).toBe(true);
+    expect(created({ era_id: 'ancient', map_id: 'era_ancient' }, { era_advancement_enabled: true }).ww2_atomic_arsenal).toBe(true);
+    expect(created(GALAXY, galaxyLobby).ww2_atomic_arsenal).toBeUndefined();
+  });
+
   it('world buildings (Phase 5) are baked the same way', () => {
     expect(created(GALAXY, galaxyLobby).galaxy_world_buildings).toBeUndefined();
     setAdminConfigCacheForTests({ feature_flags: { galaxy_world_buildings_enabled: true } });

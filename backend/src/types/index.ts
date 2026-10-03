@@ -145,6 +145,12 @@ export interface TerritoryState {
    */
   lane_partners?: string[];
   /**
+   * WW2's atomic arsenal (state/atomicArsenal.ts): rounds of fallout left on a
+   * bombed tile. Whoever holds it loses a unit each round, it pays no income and
+   * takes no building. Present only under `ww2_atomic_arsenal`.
+   */
+  fallout_rounds?: number;
+  /**
    * The garrison doctrine this tile's stack holds (state/garrisonDoctrines.ts):
    * Hardened defends with d8s, Forward attacks with d8s. Written only in a game
    * with `galaxy_garrisons`; cleared when the tile is captured.
@@ -250,6 +256,8 @@ export interface PlayerState {
    * though the unlocking tech is gone; consumed on use. Capped at one.
    */
   legacy_ability_charges?: Record<string, number>;
+  /** WW2's atomic arsenal: detonations this player has made (each costs more than the last). */
+  atom_bomb_uses?: number;
   /**
    * Building types this player earned the right to construct in earlier eras
    * (era-advancement heritage). Advancing wipes `unlocked_techs`, which used to
@@ -718,6 +726,13 @@ export interface GameSettings {
    * Baked at create from the `ww2_manhattan_science_enabled` feature flag.
    */
   ww2_manhattan_science?: boolean;
+  /**
+   * WW2 Manhattan Project, Phase 3 (docs/WW2_MANHATTAN_PROJECT.md §5): the atomic
+   * arsenal — the Atom Bomb once per turn at an escalating PP price, with
+   * fallout, a stability cost at home and proliferation (state/atomicArsenal.ts).
+   * Baked at create from the `ww2_atomic_arsenal_enabled` feature flag.
+   */
+  ww2_atomic_arsenal?: boolean;
   /**
    * Galactic Age Schism (five to eight seats): how the two houses on a split
    * world start — under the Concord, a truce for the opening rounds, in Civil

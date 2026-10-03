@@ -240,6 +240,18 @@ Why each piece:
 
 **Client:** the ability button names the price, says once per turn, and describes the fallout; the territory panel names a fallout tile's rounds left, the way it names a garrison doctrine (per-tile states are not drawn on the map today); the tech tree shows Manhattan's discounted price.
 
+**Shipped (dark):** behind `ww2_atomic_arsenal_enabled`, baked as `settings.ww2_atomic_arsenal` wherever the WW2 tree can be played. The numbers live in one shared table (`WW2_ATOMIC_ARSENAL`, `atomBombPrice` in `packages/shared`) that the server, the territory panel and the bots read.
+
+- `state/atomicArsenal.ts`: the price, fallout (`markFallout`, `applyFalloutAttrition`, ticked once per round in `advanceToNextPlayer` beside the storms), and proliferation (`proliferatedTechCost`, read by `getEffectiveTechCost`).
+- `abilities/atomicArsenal.ts`: the purse checked before the detonation and charged after it, in `executeTechAbility` beside the Moon's and the lanes' costs. A charge carried past WW2 pays no price.
+- `executeTechAbility`: the bomb records no game-scoped use under the arsenal and stamps fallout. `isGameScopedAbility(abilityId, state)` asks the game, so the socket's once-per-turn bookkeeping applies to it.
+- `collectProduction` skips a fallout tile; `validateBuild` refuses to build on one.
+- `getCarryableLegacyAbility` carries a charge for a holder who has already detonated.
+- The bots fire when they can pay and ask two more points of value of each target for every bomb they have dropped (`aiBombMinValue`).
+- The client offers the bomb once per turn with its price, names a tile's fallout in the territory panel, and prices Manhattan at half in the tech tree once anyone has detonated, so its Research button opens when the server would sell.
+
+With the setting off nothing changes: the harness's control reproduces its digest byte for byte with all of this in place.
+
 ---
 
 ## 6. Measurement and gates

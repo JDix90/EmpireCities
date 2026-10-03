@@ -809,6 +809,41 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
     expect(truceOf(await getGameState(gameId))).toEqual({ status: 'neutral', turns: 0 });
   });
 
+  it('fires the atomic arsenal\'s bomb once per turn at its price, with fallout (WW2 Phase 3)', async () => {
+    const gameId = 'itest-arsenal-bomb';
+    const base = buildState(gameId, []);
+    await seed(gameId, buildState(gameId, [], {
+      era: 'ww2',
+      players: [
+        player('p1', 0, {
+          territory_count: 1,
+          unlocked_techs: ['ww2_motorization', 'ww2_tanks', 'ww2_panzer_tactics', 'ww2_atom_bomb'],
+          special_resource: 30,
+        }),
+        ...base.players.slice(1),
+      ],
+      settings: { ...base.settings, tech_trees_enabled: true, economy_enabled: true, ww2_atomic_arsenal: true },
+    }), buildMap(gameId));
+    const client = await connect('p1');
+    await joinRoom('p1', gameId);
+
+    const result = waitFor<{ success: boolean; productionSpent?: number }>(client, 'game:ability_result');
+    client.emit('game:use_ability', { gameId, abilityId: 'atom_bomb', params: { territoryId: 'c' } });
+    expect(await result).toMatchObject({ success: true, productionSpent: 15 });
+    await waitForRedisState(gameId, (s) => s.territories.c.owner_id === null);
+    const after = await getGameState(gameId);
+    expect(after?.territories.c.fallout_rounds).toBe(3);
+    expect(after?.players[0]!.special_resource).toBe(15);
+    expect(after?.players[0]!.atom_bomb_uses).toBe(1);
+    expect(after?.players[0]!.used_game_abilities ?? []).not.toContain('atom_bomb');
+
+    // Once per turn: the next one waits for the next turn, and spends nothing.
+    const again = waitFor<{ message: string }>(client, 'error');
+    client.emit('game:use_ability', { gameId, abilityId: 'atom_bomb', params: { territoryId: 'b' } });
+    expect((await again).message).toMatch(/already used this turn/);
+    expect((await getGameState(gameId))?.players[0]!.special_resource).toBe(15);
+  });
+
   it('lets Influence seize a truce partner\'s territory once confirmed, breaking the truce', async () => {
     const gameId = 'itest-truce-influence';
     const base = truceState(gameId, []);
