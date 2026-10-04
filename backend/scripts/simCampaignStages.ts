@@ -7,8 +7,9 @@
  * changes, so a win rate is comparable ACROSS stages: it says which stage is
  * harder, not what a person would score against it.
  *
- * Everything the run samples hangs off SIM_SEED: combat dice, the planner's
- * jitter, and — through the game id — secret-mission assignment. Two runs of
+ * Everything the run samples hangs off SIM_SEED: combat dice and every other
+ * draw the engine makes (seededEngineRandomness.ts), the planner's jitter,
+ * and — through the game id — secret-mission assignment. Two runs of
  * the same config at the same seed are identical, which is what makes an A/B
  * between configs mean anything; production leaves `randomFactor` on
  * Math.random, and without seeding it a stage's win rate moved ten points
@@ -23,28 +24,45 @@
  * the deal; `AI:humans_eliminated` means the player is being wiped out rather
  * than out-raced; `AI:turn_limit` means the clock ran out with an AI ahead.
  *
+ * Every seat plays through planAiTurn and playAiTurn
+ * (src/game-engine/ai/runAiTurn.ts), the turn the live game runs: card
+ * trade-ins, faction abilities, builds and research come with it, and so does
+ * every AI feature flag. The stage's AI and the stand-in each take the live
+ * flags, with their own overrides (SIM_AI_FLAGS, SIM_STANDIN_FLAGS), so the
+ * stage's opposition can be measured with a flag on against a stand-in that
+ * stays exactly as it was. Each stage ends with a digest of every game's
+ * record, the same on every run of that configuration and seed.
+ *
  * Run (from backend/):
  *   pnpm exec tsx scripts/simCampaignStages.ts
  *   SIM_HANDICAP=1 SIM_GAMES=300 pnpm exec tsx scripts/simCampaignStages.ts
  *   SIM_STAGES=last_defenders:5 SIM_MISSIONS=1 pnpm exec tsx scripts/simCampaignStages.ts
  *   SIM_STAGES=last_defenders:1 SIM_AI_COUNT=2 SIM_CLOCK=25 pnpm exec tsx scripts/simCampaignStages.ts
  *   SIM_PATCH='parthia.reinforce_bonus=0' pnpm exec tsx scripts/simCampaignStages.ts
+ *   SIM_AI_FLAGS=oddsPress=1,plannedDraft=1,endingPlay=1 pnpm exec tsx scripts/simCampaignStages.ts
+ *
+ * The bots' settings (environment):
+ *   SIM_AI_FLAGS        name=0|1 overrides of the live AI flags for the stage's
+ *   SIM_STANDIN_FLAGS     AI, and for the stand-in: captureOddsScoring,
+ *                         attackGrind, decidedGamePress, oddsPress,
+ *                         plannedDraft, endingPlay. Unset flags take the live
+ *                         code default.
+ *   SIM_AI_PROFILE      JSON object of AiProfile fields that replace the
+ *                         stage's difficulty row for its AI, on every stage.
  */
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import type { AiAction } from '../src/game-engine/ai/aiBot';
-import type { AiDifficulty, EraId, GameMap, GameSettings, GameState, VictoryType } from '../src/types';
-import {
-  advanceToNextPlayer,
-  checkVictory,
-  initializeGameState,
-} from '../src/game-engine/state/gameStateManager';
+import type { AiDifficulty, EraId, GameMap, GameSettings, VictoryType } from '../src/types';
+import { initializeGameState } from '../src/game-engine/state/gameStateManager';
 import { computeAiTurn } from '../src/game-engine/ai/aiBot';
-import { executeLandAttack } from '../src/game-engine/combat/executeLandAttack';
-import { aiAttackExchangeBudget, runAiAttackExchanges } from '../src/game-engine/ai/aiAttackGrind';
+import type { AiLevel } from '../src/game-engine/ai/aiProfiles';
+import { DEFAULT_CARD_SET_BONUS_CAP } from '../src/game-engine/combat/combatResolver';
+import { headlessAiTurnHooks, planAiTurn, playAiTurn } from '../src/game-engine/ai/runAiTurn';
 import { assignSecretMissions, createSeededRng, hashStringToSeed } from '../src/game-engine/victory/missions';
 import { CAMPAIGN_PATHS, type PathEraConfig } from '../src/modules/campaign/campaignPaths';
 import { getEraFactions } from '../src/game-engine/eras';
+import { describeAiTurnFlags, handOff, parseAiLevel, parseAiTurnFlags, resolveChoiceCard } from './aiHarness';
+import { seedEngineRandomness, seededUuid } from './seededEngineRandomness';
 
 /**
  * The era a stage actually runs under. `createEraGame` takes it from this list
@@ -84,6 +102,12 @@ const EXTRA_CARRY = (process.env.SIM_CARRY ?? '').split(',').map((c) => c.trim()
   }, {});
 /** Ignore the path's opening carry, to reproduce a config as it shipped. */
 const NO_CARRY = process.env.SIM_NO_CARRY === '1';
+
+/** The live AI flags, with each side's overrides. */
+const AI_FLAGS = parseAiTurnFlags('SIM_AI_FLAGS', process.env.SIM_AI_FLAGS);
+const STANDIN_FLAGS = parseAiTurnFlags('SIM_STANDIN_FLAGS', process.env.SIM_STANDIN_FLAGS);
+/** The stage AI's level: the stage's difficulty, or a profile over its row. */
+const aiLevel = (d: AiDifficulty): AiLevel => parseAiLevel('SIM_AI_PROFILE', d, process.env.SIM_AI_PROFILE);
 
 /**
  * In-memory kit patch, same syntax as simFactionBalance.ts:
@@ -141,69 +165,6 @@ function resolveStage(stage: PathEraConfig): PathEraConfig {
   };
 }
 
-function ownedIds(state: GameState, pid: string): string[] {
-  return Object.keys(state.territories).filter((t) => state.territories[t].owner_id === pid).sort();
-}
-
-/** One seat's full turn, mirroring processAiTurn's pure-engine sequence. */
-async function playTurn(
-  state: GameState,
-  map: GameMap,
-  pid: string,
-  difficulty: AiDifficulty,
-  dieRoll: () => number,
-  rng: () => number,
-): Promise<void> {
-  state.phase = 'draft';
-  const plan: AiAction[] = computeAiTurn(state, map, difficulty, { captureOddsScoring: true, rng });
-
-  const remaining = state.draft_units_remaining ?? 0;
-  if (remaining > 0) {
-    const owned = ownedIds(state, pid);
-    if (owned.length > 0) {
-      const planned = plan.find(
-        (a) => a.type === 'draft' && a.to && state.territories[a.to]?.owner_id === pid,
-      )?.to;
-      state.territories[planned ?? owned[0]].unit_count += remaining;
-    }
-    state.draft_units_remaining = 0;
-  }
-
-  state.phase = 'attack';
-  const budget = { left: aiAttackExchangeBudget(difficulty, false) };
-  for (const action of plan) {
-    if (action.type !== 'attack' || !action.from || !action.to || action.from === '__influence__') continue;
-    const fromId = action.from;
-    const toId = action.to;
-    const connection = map.connections.find(
-      (c) => (c.from === fromId && c.to === toId) || (c.from === toId && c.to === fromId),
-    );
-    await runAiAttackExchanges({
-      state,
-      attackerId: pid,
-      fromId,
-      toId,
-      budget,
-      canGrind: connection?.type !== 'sea',
-      exchange: () => (executeLandAttack(state, pid, fromId, toId, { dieRoll, connection }) ? 'ok' : 'stop'),
-    });
-    if (budget.left <= 0) break;
-  }
-
-  state.phase = 'fortify';
-  for (const action of plan) {
-    if (action.type !== 'fortify' || !action.from || !action.to) continue;
-    const from = state.territories[action.from];
-    const to = state.territories[action.to];
-    if (!from || !to || from.owner_id !== pid || to.owner_id !== pid) continue;
-    const move = Math.min(action.units ?? from.unit_count - 1, from.unit_count - 1);
-    if (move > 0) {
-      from.unit_count -= move;
-      to.unit_count += move;
-    }
-  }
-}
-
 interface StageResult {
   wins: number;
   losses: number;
@@ -211,6 +172,8 @@ interface StageResult {
   turns: number[];
   byCondition: Map<string, number>;
   byMission: Map<string, { drawn: number; won: number }>;
+  /** Each game's ending, for the digest: winner, condition, last turn, territories by seat. */
+  records: Array<[string | null, string | null, number, number[]]>;
 }
 
 async function runStage(
@@ -224,8 +187,9 @@ async function runStage(
   const clock = stage.max_turns ?? DEFAULT_MAX_TURNS;
   const seats = stage.ai_count + 1;
   const res: StageResult = {
-    wins: 0, losses: 0, draws: 0, turns: [], byCondition: new Map(), byMission: new Map(),
+    wins: 0, losses: 0, draws: 0, turns: [], byCondition: new Map(), byMission: new Map(), records: [],
   };
+  const stageLevel = aiLevel(stage.ai_difficulty);
 
   for (let g = 0; g < GAMES; g++) {
     // One knob for the whole sample. The game id is not decoration: the engine
@@ -233,14 +197,18 @@ async function runStage(
     // does not follow SIM_SEED would hand every seat different objectives while
     // claiming to be the same run.
     const gameId = `${SEED}:${pathId}:${index}:${g}`;
-    const rng = createSeededRng(hashStringToSeed(gameId));
-    const dieRoll = (): number => Math.floor(rng() * 6) + 1;
+    // The dice and every other draw the engine makes, then the planner's jitter.
+    seedEngineRandomness(`${gameId}:engine`);
+    const jitter = createSeededRng(hashStringToSeed(gameId));
+    // Seat 0 stays a human seat, as in the route: the campaign carries and
+    // the handicap apply to it, and it plays as the stand-in.
     const players = Array.from({ length: seats }, (_, i) => ({
       player_id: `p_${i}`,
       player_index: i,
       username: i === 0 ? 'Player' : `AI-${i}`,
       color: COLORS[i % COLORS.length],
       is_ai: i > 0,
+      ...(i > 0 ? { ai_difficulty: stage.ai_difficulty } : {}),
       is_eliminated: false,
       mmr: 1000,
       faction_id: i === 0 ? stage.locked_faction : stage.ai_factions[i - 1],
@@ -255,6 +223,8 @@ async function runStage(
       max_turns: clock,
       turn_timer_seconds: 0,
       combat_dice_cap_enabled: true,
+      // As the route sets it. The old loop never traded a card, so it never needed it.
+      card_set_bonus_cap: DEFAULT_CARD_SET_BONUS_CAP,
       campaign_carry: NO_CARRY ? {} : { ...initialCarry, ...EXTRA_CARRY },
       ...(HANDICAP && stage.starting_unit_modifier
         ? { campaign_starting_units_delta: stage.starting_unit_modifier }
@@ -265,6 +235,9 @@ async function runStage(
       gameId, era, map, players, settings,
       { forceStartingPlayerIndex: g % seats },
     );
+    // The engine picks a card set by sorting on card id, and uuid drew these
+    // before the seeded stream could (seededEngineRandomness.ts).
+    for (const card of state.card_deck ?? []) card.card_id = seededUuid();
 
     // Re-assign secret missions from the seed. The engine salts mission
     // assignment with `randomBytes` per game on purpose — the salt is what
@@ -283,29 +256,35 @@ async function runStage(
     const missionKind = (state.players[0] as { secret_mission?: { kind?: string } })
       .secret_mission?.kind ?? 'none';
 
+    const hooks = headlessAiTurnHooks(state, map);
     let guard = 0;
     while (state.phase !== 'game_over' && guard < (clock + 2) * seats + 5) {
       guard += 1;
       const current = state.players[state.current_player_index];
-      if (!current.is_eliminated) {
-        await playTurn(
-          state, map, current.player_id,
-          current.player_index === 0 ? STANDIN : stage.ai_difficulty,
-          dieRoll, rng,
-        );
-      }
-      advanceToNextPlayer(state, map);
-      const victory = checkVictory(state, map);
-      if (victory) {
-        state.phase = 'game_over';
-        state.winner_id = victory.winnerIds[0] ?? null;
-        const key = `${victory.winnerIds[0] === 'p_0' ? 'P' : 'AI'}:${victory.condition}`;
-        res.byCondition.set(key, (res.byCondition.get(key) ?? 0) + 1);
-        break;
-      }
+      const standin = current.player_index === 0;
+      const level = standin ? STANDIN : stageLevel;
+      resolveChoiceCard(state);
+      const plan = await planAiTurn(state, map, current, level, standin ? STANDIN_FLAGS : AI_FLAGS, {
+        planningState: () => state,
+        plan: async (s, m, d, o) => computeAiTurn(s, m, d, { ...o, rng: jitter }),
+        rng: jitter,
+      });
+      if (await playAiTurn(state, map, current, level, plan, 'draft', hooks) === 'over') break;
+      handOff(state, map);
+      if (await hooks.victoryCheck()) break;
+    }
+    if (state.winner_id && state.victory_condition) {
+      const key = `${state.winner_id === 'p_0' ? 'P' : 'AI'}:${state.victory_condition}`;
+      res.byCondition.set(key, (res.byCondition.get(key) ?? 0) + 1);
     }
 
     res.turns.push(state.turn_number);
+    res.records.push([
+      state.winner_id ?? null,
+      state.victory_condition ?? null,
+      state.turn_number,
+      state.players.map((p) => p.territory_count ?? 0),
+    ]);
     const won = state.winner_id === 'p_0';
     const tally = res.byMission.get(missionKind) ?? { drawn: 0, won: 0 };
     tally.drawn += 1;
@@ -320,10 +299,13 @@ async function runStage(
 
 async function main(): Promise<void> {
   const pct = (n: number): string => `${Math.round((n / GAMES) * 100)}%`;
+  const profile = process.env.SIM_AI_PROFILE?.trim();
   console.log(
     `stand-in=${STANDIN} games/stage=${GAMES} seed=${SEED}`
     + ` default clock=${DEFAULT_MAX_TURNS}`
-    + ` handicap=${HANDICAP ? 'APPLIED' : 'off'}\n`,
+    + ` handicap=${HANDICAP ? 'APPLIED' : 'off'}`
+    + `\nstage AI: [${describeAiTurnFlags(AI_FLAGS)}]${profile ? ` with ${profile}` : ''}`
+    + `\nstand-in: [${describeAiTurnFlags(STANDIN_FLAGS)}]\n`,
   );
 
   for (const [pathId, path] of Object.entries(CAMPAIGN_PATHS)) {
@@ -348,7 +330,8 @@ async function main(): Promise<void> {
         + `${String(stage.ai_count).padEnd(3)}${String(stage.starting_unit_modifier).padEnd(5)}`
         + `${String(stage.victory_threshold ?? '-').padEnd(5)}${String(stage.max_turns ?? '-').padEnd(7)}`
         + `${pct(r.wins).padEnd(6)}${pct(r.losses).padEnd(6)}${pct(r.draws).padEnd(6)}${avg.padEnd(6)}`
-        + [...r.byCondition.entries()].sort().map(([k, n]) => `${k}=${n}`).join(' '),
+        + [...r.byCondition.entries()].sort().map(([k, n]) => `${k}=${n}`).join(' ')
+        + `  digest ${hashStringToSeed(JSON.stringify(r.records)).toString(16).padStart(8, '0')}`,
       );
       if (MISSIONS) {
         for (const [kind, v] of [...r.byMission.entries()].sort()) {
