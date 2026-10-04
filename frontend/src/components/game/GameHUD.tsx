@@ -15,6 +15,7 @@ import { PhaseProgressBar } from './PhaseProgressBar';
 import { useTurnClarityEnabled } from '../../store/featureFlagsStore';
 import { getEraIdForAdvancementIndex } from '../../utils/eraAdvancement';
 import { AiBadge } from '../ui/AiBadge';
+import { AiStyleBadge } from '../ui/AiStyleBadge';
 import { diceLook } from '@borderfall/shared';
 import SkinnedMiniDie from '../cosmetics/SkinnedMiniDie';
 import { FramedDot, PlayerBannerTag } from '../cosmetics/PlayerFlair';
@@ -759,6 +760,9 @@ export default function GameHUD({
                         {player.is_away
                           ? <AiBadge away size="xs" showLabel={false} />
                           : player.is_ai && <AiBadge difficulty={player.ai_difficulty} size="xs" showLabel={false} />}
+                        {!player.is_away && player.is_ai && player.ai_style && (
+                          <AiStyleBadge style={player.ai_style} size="xs" showLabel={false} />
+                        )}
                         <PlayerBannerTag playerId={player.player_id} />
                       </span>
                       <span className="text-bf-muted text-xs">{player.territory_count}T</span>

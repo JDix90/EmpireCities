@@ -146,6 +146,8 @@ import { isHostileAbility, trucePartnerOwning } from '../utils/truces';
 import { teamOf } from '../utils/teams';
 import BrandWordmark from '../components/ui/BrandWordmark';
 import { AiBadge } from '../components/ui/AiBadge';
+import { AiStyleBadge } from '../components/ui/AiStyleBadge';
+import { lobbyBotName, lobbyCommanders, type SeatCommander } from '../utils/aiCommanders';
 import type { GameLobbySnapshot, GameLobbyPlayerRow, GameLobbySettingsJson } from '../types/gameLobbyApi';
 import { useRef as useReactRef } from 'react';
 import toast from 'react-hot-toast';
@@ -183,7 +185,7 @@ import {
 } from '../utils/connectionHints';
 import { computeMapDensityMetrics } from '../utils/mapInteractionDensity';
 import ConnectionHintsSetting from '../components/game/ConnectionHintsSetting';
-import { inferWorldId, aiPlayerName, GARRISON_DOCTRINE_DISPLAY } from '@borderfall/shared';
+import { inferWorldId, AI_STYLE_LABELS, GARRISON_DOCTRINE_DISPLAY } from '@borderfall/shared';
 import { viewerHoldsVaultSeal, worldDisplayName, worldsInPlay } from '../utils/galaxyLanes';
 import { mapControlProgress, mapControlThreshold } from '../utils/mapControl';
 import {
@@ -350,8 +352,8 @@ function normalizeLobbySnapshot(data: unknown): GameLobbySnapshot | null {
   };
 }
 
-function playerLobbyDisplayName(p: GameLobbyPlayerRow): string {
-  if (p.is_ai) return aiPlayerName(p.player_index);
+function playerLobbyDisplayName(p: GameLobbyPlayerRow, commanders: Record<number, SeatCommander> | null = null): string {
+  if (p.is_ai) return lobbyBotName(p.player_index, commanders);
   if (p.username) return p.username;
   return 'Player';
 }
@@ -4353,7 +4355,7 @@ export default function GamePage() {
             dailyWon: lobbySnapshot.daily_won ?? null,
             players: lobbySnapshot.players,
             viewerId: user?.user_id ?? null,
-            displayName: playerLobbyDisplayName,
+            displayName: (p) => playerLobbyDisplayName(p, lobbyCommanders(lobbySnapshot)),
           })}
           onWatchReplay={() => navigate(`/replay/${gameId}?source=match`)}
           onBackToLobby={() => navigate('/lobby')}
@@ -4604,6 +4606,8 @@ export default function GamePage() {
 
                   <ul className="space-y-2 text-left">
                     {roster.map((p) => {
+                      // Who the bot seats will be (ai_personalities_enabled): the draw the game makes when it starts.
+                      const commander = p.is_ai ? lobbyCommanders(lobby)?.[p.player_index] ?? null : null;
                       const isYou = p.user_id && user?.user_id && p.user_id === user.user_id;
                       // Show assigned faction if present
                       const assignedFaction = (p as any).faction_id || null;
@@ -4619,7 +4623,7 @@ export default function GamePage() {
                           />
                           <div className="flex-1 min-w-0">
                             <p className="text-bf-text text-sm font-medium truncate">
-                              {playerLobbyDisplayName(p)}
+                              {playerLobbyDisplayName(p, lobbyCommanders(lobby))}
                               {isYou && <span className="text-bf-muted text-xs ml-1">(you)</span>}
                               {assignedFaction && (
                                 <span className="ml-2 text-xs px-2 py-0.5 rounded bg-bf-gold/10 text-bf-gold border border-bf-gold/20">
@@ -4629,7 +4633,9 @@ export default function GamePage() {
                             </p>
                             <p className="text-xs text-bf-muted mt-0.5">
                               {p.is_ai
-                                ? 'Ready to play — no waiting'
+                                ? commander?.style
+                                  ? `${AI_STYLE_LABELS[commander.style].name} · ${AI_STYLE_LABELS[commander.style].blurb}`
+                                  : 'Ready to play — no waiting'
                                 : p.player_index === 0
                                   ? 'Lobby host'
                                   : 'Player slot'}
@@ -4640,6 +4646,7 @@ export default function GamePage() {
                               Host
                             </span>
                           )}
+                          {commander?.style && <AiStyleBadge style={commander.style} />}
                           {p.is_ai && <AiBadge difficulty={p.ai_difficulty} />}
                         </li>
                       );

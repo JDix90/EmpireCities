@@ -31,6 +31,8 @@ export interface GameLobbySettingsJson {
   stability_enabled?: boolean;
   territory_selection?: boolean;
   async_mode?: boolean;
+  /** Bot commanders and styles, baked at create (ai_personalities_enabled). */
+  ai_personalities?: boolean;
   // Daily challenge metadata (populated by /api/daily/start)
   daily_challenge_date?: string;
   daily_challenge_spec?: {

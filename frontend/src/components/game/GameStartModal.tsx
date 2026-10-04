@@ -17,6 +17,7 @@ import {
 import { describeTeams } from '../../utils/teams';
 import { SpaceAgeGuideSections } from './SpaceAgeGuide';
 import type { GameState, PlayerState } from '../../store/gameStore';
+import { AiStyleBadge } from '../ui/AiStyleBadge';
 
 /**
  * Seats in the order they will act, starting from the randomized first
@@ -272,6 +273,7 @@ export default function GameStartModal({
                 {p.username}
                 {isViewer && <span className="text-bf-gold"> (you)</span>}
               </span>
+              {p.is_ai && p.ai_style && <AiStyleBadge style={p.ai_style} size="xs" className="shrink-0" />}
               {p.is_ai && (
                 <span className="text-[10px] uppercase tracking-wide text-bf-muted border border-bf-border rounded px-1.5 py-0.5 shrink-0">
                   {difficultyLabel(p.ai_difficulty)}

@@ -267,6 +267,21 @@ describe('GameHUD — tabbed redesign (#9)', () => {
     expect(screen.queryByText('Resources')).toBeNull();
   });
 
+  it('shows a bot commander\'s style on its seat, as an icon that says what it is', () => {
+    useGameStore.setState({
+      gameState: makeState({
+        players: [
+          player('me', 0),
+          player('ai_1', 1, { username: 'Khan Ulan (AI)', is_ai: true, ai_difficulty: 'hard', ai_style: 'raider' }),
+        ],
+      }),
+    } as never);
+    renderHud();
+    fireEvent.click(screen.getByRole('tab', { name: /Players/ }));
+    expect(screen.getByText('Khan Ulan (AI)')).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Raider: Breaks rivals/)).toBeInTheDocument();
+  });
+
   it('shows the combat log only on the Log tab', () => {
     renderHud();
     fireEvent.click(screen.getByRole('tab', { name: /Log/ }));
