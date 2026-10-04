@@ -432,6 +432,12 @@ export interface GameState {
    * Tiles with no cap (stability 50+) are absent.
    */
   draft_deploy_caps?: Record<string, number>;
+  /**
+   * Viewer-scoped: the bots offer the viewer their surrender this turn. Sent
+   * only on the viewer's own turn while they are clearly winning a game against
+   * bots; accepting it (`game:accept_surrender`) ends the game as a win.
+   */
+  surrender_offer?: boolean;
   /** Fortify moves the current player has spent this turn (vs the per-turn limit). */
   fortify_moves_used?: number;
   era_modifiers?: {

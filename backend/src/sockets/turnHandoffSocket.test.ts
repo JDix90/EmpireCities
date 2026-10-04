@@ -774,6 +774,88 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
     }, 20_000);
   });
 
+  // ── Accepting the bots' surrender ─────────────────────────────────────────────
+
+  describe("accepting the bots' surrender", () => {
+    const TILES = ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 's10'];
+
+    /** One player on eight of ten territories with ten times the bots' armies; two easy bots on one each. */
+    function wonGame(gameId: string, turn: number): GameState {
+      const owners = ['sur-h', 'sur-h', 'sur-h', 'sur-h', 'sur-h', 'sur-h', 'sur-h', 'sur-h', 'sur-b1', 'sur-b2'];
+      return buildState(gameId, {
+        phase: 'draft',
+        turn_number: turn,
+        players: [
+          player('sur-h', 0, { territory_count: 8 }),
+          player('sur-b1', 1, { is_ai: true, ai_difficulty: 'easy' }),
+          player('sur-b2', 2, { is_ai: true, ai_difficulty: 'easy' }),
+        ],
+        territories: Object.fromEntries(TILES.map((id, i) => [id, terr(id, owners[i]!, owners[i] === 'sur-h' ? 10 : 3)])),
+      });
+    }
+
+    afterEach(() => { vi.unstubAllEnvs(); });
+
+    const finalized = () => pg.poolCalls.some((sql) => sql.includes("SET status = 'completed'"));
+
+    it("offers it on the player's turn, and accepting ends the game as their win by surrender", async () => {
+      vi.stubEnv('SURRENDER_OFFERS_ENABLED', 'true');
+      const gameId = 'surrender-accept';
+      await seed(gameId, wonGame(gameId, 12), isolatedMap(gameId, TILES));
+      const h = await connect('sur-h');
+      await joinRoom('sur-h', gameId);
+
+      const offered = new Promise<GameState>((resolve) => h.once('game:state', resolve));
+      h.emit('game:advance_phase', { gameId });
+      expect((await offered).surrender_offer).toBe(true);
+
+      const ended = new Promise<GameState>((resolve) => {
+        h.on('game:state', (st: GameState) => { if (st.phase === 'game_over') resolve(st); });
+      });
+      h.emit('game:accept_surrender', { gameId });
+      const s = await ended;
+      expect({
+        winner: s.winner_id,
+        condition: s.victory_condition,
+        offer: s.surrender_offer,
+        finalized: finalized(),
+      }).toEqual({ winner: 'sur-h', condition: 'surrender', offer: undefined, finalized: true });
+      // The offer rides on the broadcast only; the saved state never holds it.
+      expect('surrender_offer' in ((await getGameState(gameId)) ?? {})).toBe(false);
+    }, 20_000);
+
+    it('refuses an offer that does not stand, and the game goes on', async () => {
+      vi.stubEnv('SURRENDER_OFFERS_ENABLED', 'true');
+      const gameId = 'surrender-early';
+      await seed(gameId, wonGame(gameId, 5), isolatedMap(gameId, TILES));
+      const h = await connect('sur-h');
+      await joinRoom('sur-h', gameId);
+
+      const refused = new Promise<{ message: string }>((resolve) => h.once('error', resolve));
+      h.emit('game:accept_surrender', { gameId });
+      expect((await refused).message).toBe('No surrender is on offer');
+      await sleep(300);
+      const s = (await getGameState(gameId))!;
+      expect({ phase: s.phase, finalized: finalized() }).toEqual({ phase: 'draft', finalized: false });
+    }, 20_000);
+
+    it('makes no offer and refuses one with the flag off', async () => {
+      const gameId = 'surrender-off';
+      await seed(gameId, wonGame(gameId, 12), isolatedMap(gameId, TILES));
+      const h = await connect('sur-h');
+      await joinRoom('sur-h', gameId);
+
+      const state = new Promise<GameState>((resolve) => h.once('game:state', resolve));
+      h.emit('game:advance_phase', { gameId });
+      expect((await state).surrender_offer).toBeUndefined();
+
+      const refused = new Promise<{ message: string }>((resolve) => h.once('error', resolve));
+      h.emit('game:accept_surrender', { gameId });
+      expect((await refused).message).toBe('No surrender is on offer');
+      expect(finalized()).toBe(false);
+    }, 20_000);
+  });
+
   // ── Resigning ───────────────────────────────────────────────────────────────────
 
   describe('resigning', () => {

@@ -106,7 +106,7 @@ export interface GameOverModalData {
    */
   map_control_threshold?: number | null;
   /** Which victory condition ended the game. */
-  victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory' | 'abandoned' | 'turn_limit' | 'resignation' | 'humans_eliminated' | 'lunar_hegemony' | 'lane_sovereignty' | 'transcendence';
+  victory_condition?: 'domination' | 'last_standing' | 'threshold' | 'capital' | 'secret_mission' | 'alliance_victory' | 'abandoned' | 'turn_limit' | 'resignation' | 'humans_eliminated' | 'lunar_hegemony' | 'lane_sovereignty' | 'transcendence' | 'surrender';
   /** Human-readable era name for the share card (e.g., "World War II"). */
   eraName?: string;
   /** All winner player_ids — two entries for alliance_victory, a whole side in a team game. */
@@ -1438,6 +1438,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
       case 'lunar_hegemony':  return 'Lunar Hegemony — the whole Moon held, turn after turn';
       case 'turn_limit':      return 'Turn Limit Reached — strongest position wins';
       case 'resignation':     return 'Resignation — a commander conceded the field';
+      case 'surrender':       return 'Surrender — the last rivals laid down their arms';
       case 'transcendence':   return 'Transcendence — the final era reached with a wonder in hand';
       case 'humans_eliminated': return 'No Commanders Remain — every human player was eliminated';
       default:                return null;
@@ -1452,6 +1453,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
   const soloWinLine = ((): string => {
     switch (data.victory_condition) {
       case 'resignation':     return 'Your last rival conceded the field.';
+      case 'surrender':       return 'Your rivals surrendered to you.';
       case 'capital':         return 'Every rival capital is yours.';
       case 'threshold':       return 'You hold the share of the map the game asked for.';
       case 'secret_mission':  return 'Your secret mission is complete.';

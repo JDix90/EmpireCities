@@ -88,7 +88,7 @@ describe.runIf(enabled)('solo games by bot level (Postgres)', () => {
     friend = await seedUser('solo_friend');
     admin = await seedUser('solo_admin', true);
 
-    // Quick Match against easy bots: a win on the round cap, a loss, a win.
+    // Quick Match against easy bots: a win on the round cap, a loss, a win by surrender.
     const capped = await seedGame({
       humans: [player], bots: ['easy', 'easy'], status: 'completed', winner: player,
       finish: { victory_type: 'turn_limit', turn_count: 60 },
@@ -102,9 +102,10 @@ describe.runIf(enabled)('solo games by bot level (Postgres)', () => {
       humans: [player], bots: ['easy'], status: 'completed', winner: null,
       finish: { victory_type: 'domination', turn_count: 40 },
     });
+    // A win by accepting the bots' surrender.
     await seedGame({
       humans: [player], bots: ['easy'], status: 'completed', winner: player,
-      finish: { victory_type: 'domination', turn_count: 50 },
+      finish: { victory_type: 'surrender', turn_count: 50 },
     });
     // An easy and a hard bot: a hard game. Left before the end.
     await seedGame({ humans: [player], bots: ['easy', 'hard'], status: 'abandoned' });
@@ -135,14 +136,14 @@ describe.runIf(enabled)('solo games by bot level (Postgres)', () => {
     if (userIds.length) await query('DELETE FROM users WHERE user_id = ANY($1)', [userIds]).catch(() => {});
   });
 
-  it('reads each mode and level, and the cap endings and rounds of the finished games', async () => {
+  it('reads each mode and level, and the cap endings, surrender wins and rounds of the finished games', async () => {
     expect(await getSoloGamesByLevel(30, gameIds)).toEqual([
-      { mode: 'tutorial', level: 'tutorial', started: 1, finished: 1, won: 1, abandoned: 0, running: 0, capped: 0, median_rounds: 12 },
-      { mode: 'first_match', level: 'easy', started: 1, finished: 1, won: 1, abandoned: 0, running: 0, capped: 0, median_rounds: 20 },
-      { mode: 'campaign', level: 'medium', started: 1, finished: 0, won: 0, abandoned: 0, running: 1, capped: 0, median_rounds: null },
-      { mode: 'daily', level: 'medium', started: 1, finished: 0, won: 0, abandoned: 0, running: 1, capped: 0, median_rounds: null },
-      { mode: 'other', level: 'easy', started: 3, finished: 3, won: 2, abandoned: 0, running: 0, capped: 1, median_rounds: 50 },
-      { mode: 'other', level: 'hard', started: 1, finished: 0, won: 0, abandoned: 1, running: 0, capped: 0, median_rounds: null },
+      { mode: 'tutorial', level: 'tutorial', started: 1, finished: 1, won: 1, abandoned: 0, running: 0, capped: 0, surrendered: 0, median_rounds: 12 },
+      { mode: 'first_match', level: 'easy', started: 1, finished: 1, won: 1, abandoned: 0, running: 0, capped: 0, surrendered: 0, median_rounds: 20 },
+      { mode: 'campaign', level: 'medium', started: 1, finished: 0, won: 0, abandoned: 0, running: 1, capped: 0, surrendered: 0, median_rounds: null },
+      { mode: 'daily', level: 'medium', started: 1, finished: 0, won: 0, abandoned: 0, running: 1, capped: 0, surrendered: 0, median_rounds: null },
+      { mode: 'other', level: 'easy', started: 3, finished: 3, won: 2, abandoned: 0, running: 0, capped: 1, surrendered: 1, median_rounds: 50 },
+      { mode: 'other', level: 'hard', started: 1, finished: 0, won: 0, abandoned: 1, running: 0, capped: 0, surrendered: 0, median_rounds: null },
     ]);
   });
 

@@ -390,6 +390,13 @@ describe('ActionModal — the winner\'s line matches how the game ended', () => 
     expect(screen.getByText(/Victory by Resignation/)).toBeTruthy();
   });
 
+  it('says the rivals surrendered after an accepted surrender', async () => {
+    render(<ActionModal data={gameOver({ victory_condition: 'surrender' })} onDismiss={() => {}} />);
+    await waitFor(() => expect(screen.getByText('Your rivals surrendered to you.')).toBeTruthy());
+    expect(screen.queryByText('You have conquered the world!')).toBeNull();
+    expect(screen.getByText(/Victory by Surrender/)).toBeTruthy();
+  });
+
   it('names the capitals on a capital win, and keeps the conquest line for domination', async () => {
     const { unmount } = render(<ActionModal data={gameOver({ victory_condition: 'capital' })} onDismiss={() => {}} />);
     await waitFor(() => expect(screen.getByText('Every rival capital is yours.')).toBeTruthy());

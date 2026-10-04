@@ -67,6 +67,7 @@ import GameEndedNotice from '../components/game/GameEndedNotice';
 import { describeEndedOutcome } from '../utils/gameEndedOutcome';
 import DefenderBattleTheater from '../components/game/DefenderBattleTheater';
 import EraAdvancementBanner from '../components/game/EraAdvancementBanner';
+import SurrenderOfferBanner from '../components/game/SurrenderOfferBanner';
 import EraAdvanceVignette from '../components/game/EraAdvanceVignette';
 import AdvanceEraPanel from '../components/game/AdvanceEraPanel';
 import GameChat from '../components/game/GameChat';
@@ -3620,6 +3621,11 @@ export default function GamePage() {
     getSocket().emit('game:resign', { gameId });
   };
 
+  // The server checks the offer again before it ends the game.
+  const handleAcceptSurrender = () => {
+    getSocket().emit('game:accept_surrender', { gameId });
+  };
+
   /**
    * "Leave" on the elimination modal. It used to be wired to the same dismiss
    * as "Spectate", so the player stayed in the game — and with the turn-actions
@@ -5065,6 +5071,14 @@ export default function GamePage() {
                       (p) => p.player_id === user?.user_id || (!!user?.username && p.username === user.username),
                     )
               }
+            />
+          )}
+          {gameState && !tutorialCardIsCentered && (
+            <SurrenderOfferBanner
+              offered={!!gameState.surrender_offer}
+              turnNumber={gameState.turn_number}
+              belowEraBanner={!!gameState.settings.era_advancement_enabled}
+              onAccept={handleAcceptSurrender}
             />
           )}
           {/* Daily-challenge puzzle feedback. Floats over the map rather than

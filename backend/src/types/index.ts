@@ -47,7 +47,9 @@ export type VictoryConditionKey =
   /** The last human conceded past the grace window; the leading AI is credited. */
   | 'resignation'
   /** Every human was eliminated; the leading AI is credited and the bots stop. */
-  | 'humans_eliminated';
+  | 'humans_eliminated'
+  /** The player accepted the bots' surrender while clearly winning (victory/surrender.ts). */
+  | 'surrender';
 
 /** Per-player hidden objective when secret_mission victory is enabled. */
 export type SecretMission =
@@ -1288,6 +1290,13 @@ export interface GameState {
    * left out). Transport-only: never set on the authoritative state.
    */
   draft_deploy_caps?: Record<string, number>;
+  /**
+   * Viewer-scoped: the bots offer this viewer their surrender this turn
+   * (victory/surrender.ts), attached per-player at broadcast by
+   * `buildClientState` with surrender_offers_enabled on. Transport-only:
+   * never set on the authoritative state.
+   */
+  surrender_offer?: boolean;
   era_modifiers?: EraModifiers;
   /** Number of fortify moves used this turn (limit enforced by wartime_logistics). */
   fortify_moves_used?: number;
