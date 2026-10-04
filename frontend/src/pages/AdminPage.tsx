@@ -118,7 +118,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'ai_resignation_enabled',
     label: 'Beaten bots resign',
     description:
-      'A bot that is beaten resigns as its turn opens, the same way a player resigns: its territories turn neutral at half strength, and when the last rival resigns you win by resignation. Beaten is judged from the board alone. Never in daily challenges, campaign games, tutorials, team games or secret-mission games, and never for a player who is away. Off by default while it is tried.',
+      'A bot that is beaten resigns as its turn opens, the same way a player resigns: its territories turn neutral at half strength, and when the last rival resigns you win by resignation. A bot holding cards plays on instead, so its cards still go to whoever takes its last territory. Beaten is judged from the board and the bot’s own hand. Never in daily challenges, campaign games, tutorials, team games or secret-mission games, and never for a player who is away. Off by default while it is tried.',
   },
   {
     key: 'ai_intents_enabled',
