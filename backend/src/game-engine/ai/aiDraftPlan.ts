@@ -34,6 +34,7 @@ import { vulnerabilityAttackBonus } from './aiEraAdvancement';
 import { attackObjectiveBonus, buildAdjacencyMap, eliminationAttackBonus, isTruceActive } from './aiBot';
 import { edgeOddsOptions } from './aiEdgeOdds';
 import { endingAttackBonus, type EndingPlan } from './aiEnding';
+import { intentAttackBonus, intentStages, type AiIntent } from './aiIntent';
 import { aiProfile, type AiLevel } from './aiProfiles';
 
 export interface DraftPlacement {
@@ -71,6 +72,7 @@ export function allocateDraft(
   units: number,
   difficulty: AiLevel,
   ending?: EndingPlan,
+  intent?: AiIntent,
 ): DraftPlacement[] {
   if (units <= 0) return [];
   const profile = aiProfile(difficulty);
@@ -118,6 +120,8 @@ export function allocateDraft(
           strategic += e.value + e.rank;
         }
         if (!owner) strategic += profile.neutralExpansionBonus + (seaLane ? 1.5 : 0);
+        // A goal to take or hunt stages the draft beside it (ai/aiIntent.ts).
+        if (intentStages(intent)) strategic += intentAttackBonus(state, map, intent, nid, profile);
         attacks.push({
           defenders: n.unit_count,
           worth: 1 + Math.max(0, strategic) / 3,

@@ -25,6 +25,7 @@ export function liveAiTurnFlags(): AiTurnFlags {
     plannedDraft: featureFlags.aiPlannedReinforcementsEnabled,
     endingPlay: featureFlags.aiEndingPlayEnabled,
     resignation: featureFlags.aiResignationEnabled,
+    intents: featureFlags.aiIntentsEnabled,
   };
 }
 

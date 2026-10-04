@@ -121,6 +121,12 @@ const CLIENT_FEATURE_FLAGS = [
       'A bot that is beaten resigns as its turn opens, the same way a player resigns: its territories turn neutral at half strength, and when the last rival resigns you win by resignation. Beaten is judged from the board alone. Never in daily challenges, campaign games, tutorials, team games or secret-mission games, and never for a player who is away. Off by default while it is tried.',
   },
   {
+    key: 'ai_intents_enabled',
+    label: 'AI plays toward a goal',
+    description:
+      'Medium, Hard and Expert bots pick a goal as each turn opens and play toward it across turns: a region they already have a foothold in, a rival\u2019s whole region to break, or a rival down to its last three territories to knock out. Captures that advance the goal count for more, and to take a region or finish a rival they also place reinforcements and move troops beside it. The goal is chosen again every turn from what the bot can see, so it drops one that has turned bad. Each bot turn gets one line in the turn recap: the regions it took or broke, who it knocked out, and, below Expert, the goal it is playing toward. Easy and the tutorial bot are unchanged, and so are daily challenges, campaign games and team games. Off by default while it is tried.',
+  },
+  {
     key: 'surrender_offers_enabled',
     label: 'Accept the bots\u2019 surrender',
     description:

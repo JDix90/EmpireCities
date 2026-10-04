@@ -155,6 +155,22 @@ export interface AiProfile {
   /** Resigns as its turn opens once it is beaten. */
   resignsWhenBeaten: boolean;
 
+  // ── Intents (ai_intents_enabled) ──────────────────────────────────────────
+  // Read only with that flag on (ai/aiIntent.ts): a goal that spans turns,
+  // chosen again every turn.
+  /**
+   * What a capture that advances its goal is worth on top of the fight, on
+   * the planner's 3·P − 1 scale; 0 holds no goal.
+   */
+  intentBonus: number;
+  /** How much the goal it holds is lifted when goals are scored again: a tie-breaker. */
+  intentStickiness: number;
+  /**
+   * Names its goal in the digest of its turn (ai/aiTurnDigest.ts). A bot
+   * tells less as its level rises: Expert only reports what it did.
+   */
+  announcesIntent: boolean;
+
   // ── Economy ───────────────────────────────────────────────────────────────
   build: AiBuildMode;
   research: AiResearchMode;
@@ -207,6 +223,9 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     leaderPressure: 0,
     racesEnding: false,
     resignsWhenBeaten: false,
+    intentBonus: 0,
+    intentStickiness: 0,
+    announcesIntent: false,
     build: 'none',
     research: 'none',
     doctrinesPerTurn: 0,
@@ -242,6 +261,9 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     leaderPressure: 0,
     racesEnding: false,
     resignsWhenBeaten: true,
+    intentBonus: 0,
+    intentStickiness: 0,
+    announcesIntent: true,
     build: 'gate_only',
     research: 'gate_only',
     doctrinesPerTurn: 0,
@@ -277,6 +299,9 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     leaderPressure: 1,
     racesEnding: true,
     resignsWhenBeaten: true,
+    intentBonus: 1,
+    intentStickiness: 0.25,
+    announcesIntent: true,
     build: 'greedy',
     research: 'cheapest',
     doctrinesPerTurn: 1,
@@ -312,6 +337,9 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     leaderPressure: 2,
     racesEnding: true,
     resignsWhenBeaten: true,
+    intentBonus: 1,
+    intentStickiness: 0.25,
+    announcesIntent: true,
     build: 'threat',
     research: 'strategic',
     doctrinesPerTurn: 2,
@@ -351,6 +379,9 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     leaderPressure: 0,
     racesEnding: true,
     resignsWhenBeaten: true,
+    intentBonus: 1,
+    intentStickiness: 0.25,
+    announcesIntent: false,
     build: 'threat',
     research: 'strategic',
     doctrinesPerTurn: 2,
@@ -409,7 +440,7 @@ export function seatAiDifficulty(players: readonly Seat[], seat: Seat): AiDiffic
 /**
  * Whether a game's bots stay today's bots whatever the newer AI flags say
  * (ai_odds_press_enabled, ai_planned_reinforcements_enabled,
- * ai_ending_play_enabled, ai_resignation_enabled):
+ * ai_ending_play_enabled, ai_resignation_enabled, ai_intents_enabled):
  *   - a daily challenge: every player of a day meets the same opponent, so
  *     switching a flag mid-day must not change it, and its siege is tuned to
  *     today's budget;

@@ -8,6 +8,11 @@ export interface TurnRecapEntry {
   playerColor: string;
   turnNumber: number;
   combats: CombatResult[];
+  /**
+   * A bot's turn in one line (utils/aiTurnDigest.ts): the regions it took or
+   * broke, who it knocked out, and the goal it is playing toward.
+   */
+  digestLine?: string;
 }
 
 /** Oldest entries roll off so the panel can't grow unbounded for players whose turn never comes back (eliminated, spectating). */
@@ -15,10 +20,11 @@ const MAX_RECAP_ENTRIES = 12;
 
 /**
  * Coalesce another player's finished turn into the recap list.
- * Quiet turns (no battles) are skipped — the panel only reports action.
+ * Quiet turns (no battles, nothing in the digest) are skipped — the panel
+ * only reports action.
  */
 export function appendRecap(list: TurnRecapEntry[], entry: TurnRecapEntry): TurnRecapEntry[] {
-  if (entry.combats.length === 0) return list;
+  if (entry.combats.length === 0 && !entry.digestLine) return list;
   const next = [...list, entry];
   return next.length > MAX_RECAP_ENTRIES ? next.slice(next.length - MAX_RECAP_ENTRIES) : next;
 }
@@ -85,6 +91,11 @@ export function RecapEntryList({
                 <span className="flex items-center gap-0.5"><Skull className="w-3 h-3" aria-hidden />{stats.destroyed}</span>
               </span>
             </button>
+            {recap.digestLine && (
+              <p className="mt-0.5 pl-[18px] text-xs text-bf-muted truncate" title={recap.digestLine}>
+                {recap.digestLine}
+              </p>
+            )}
             {open && (
               <div className="mt-1.5 space-y-1 pl-4">
                 {recap.combats.map((c, j) => {

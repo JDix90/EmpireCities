@@ -29,6 +29,7 @@ import { canAiUseDropAssault, canAiUseDysonBeam, canAiUseOrbitalDrop, selectAiDr
 import { FINISHER_OVERCAP, chooseEmergencySealLane, planAttackActions, rankAiUnificationTargets, selectAiBuildingPlacement, selectAiGarrisonDoctrines, selectAiTechResearch } from './aiBot';
 import { allocateDraft } from './aiDraftPlan';
 import { endingPlan } from './aiEnding';
+import { chooseIntent } from './aiIntent';
 import { consumeSealBreaker, lanePowersEnabled } from '../abilities/lanePowers';
 import { createPuzzleDieRoll } from '../daily/puzzleDice';
 import { dailySiegeTarget } from '../daily/dailySiege';
@@ -82,6 +83,11 @@ export interface AiTurnFlags {
    * Off when absent.
    */
   resignation?: boolean;
+  /**
+   * ai_intents_enabled: a bot plays toward a goal that spans turns, chosen
+   * again as each of its turns opens (ai/aiIntent.ts). Off when absent.
+   */
+  intents?: boolean;
 }
 
 /** How planning reaches the board: the view the bot may see, and the planner to run on it. */
@@ -177,6 +183,20 @@ export async function planAiTurn(
   // today's draft (keepsTodaysBots).
   const oddsPress = !!flags.oddsPress && flags.attackGrind && !keepsTodaysBots(state.settings);
 
+  // A goal across turns (ai/aiIntent.ts), chosen again now from the board
+  // this seat may see, and kept on the seat for its next turn. Bots only:
+  // a human seat the AI covers while its player is away holds none. Daily
+  // challenges and campaign stages keep today's bots. Written only with the
+  // flag on, so the saved state is unchanged with it off.
+  if (flags.intents) {
+    const chosen = currentPlayer.is_ai && !keepsTodaysBots(state.settings)
+      ? chooseIntent(planningState, map, currentPlayer.player_id, difficulty, currentPlayer.ai_intent)
+      : null;
+    if (chosen) currentPlayer.ai_intent = chosen;
+    else delete currentPlayer.ai_intent;
+  }
+  const intent = flags.intents ? currentPlayer.ai_intent : undefined;
+
   // The flags are threaded explicitly because planning may run in a worker
   // thread, where the admin-config override cache is not loaded.
   const actions = await hooks.plan(planningState, map, difficulty, {
@@ -185,6 +205,7 @@ export async function planAiTurn(
     siege,
     ...(oddsPress ? { oddsPress: true } : {}),
     ...(endingPlay ? { endingPlay: true } : {}),
+    ...(intent ? { intent } : {}),
   });
 
   // Attack budget for the whole turn, spent in dice exchanges. The planner's
@@ -208,6 +229,7 @@ export async function planAiTurn(
         siege,
         oddsPress: true,
         ...(endingPlay ? { endingPlay: true } : {}),
+        ...(intent ? { intent } : {}),
         ...(hooks.rng ? { rng: hooks.rng } : {}),
       },
     }
@@ -414,6 +436,7 @@ export async function playAiTurn(
     const placements = allocateDraft(
       view, map, currentPlayer.player_id, state.draft_units_remaining, difficulty,
       plan.replan.options.endingPlay ? endingPlan(view, currentPlayer.player_id, difficulty) : undefined,
+      plan.replan.options.intent,
     ).map((p) => ({ type: 'draft' as const, to: p.to, units: p.units }));
     const at = firstDraftIdx >= 0 ? firstDraftIdx : 0;
     for (let i = actions.length - 1; i >= 0; i -= 1) {
