@@ -41,7 +41,7 @@ describe('AI_PROFILES holds the values the constants and branches held', () => {
     pressContinueOdds: [0.6, 0.6, 0.5, 0.35, 0.35],
     pressExchangeCeiling: [3, 3, 12, 40, 40],
     // New with ai_planned_reinforcements_enabled, read only with it on.
-    draftTiles: [0, 0, 0, 0, Number.POSITIVE_INFINITY],
+    draftTiles: [0, 0, 0, 0, 3],
     replansAfterDraft: [false, false, true, true, true],
     replansAfterCapture: [false, false, false, true, true],
     // New with ai_ending_play_enabled, read only with it on.
