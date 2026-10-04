@@ -62,6 +62,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   ai_decided_game_press_enabled: () => envOptOut('AI_DECIDED_GAME_PRESS_ENABLED'),
   ai_odds_press_enabled: () => envOptIn('AI_ODDS_PRESS_ENABLED'),
   ai_planned_reinforcements_enabled: () => envOptIn('AI_PLANNED_REINFORCEMENTS_ENABLED'),
+  ai_ending_play_enabled: () => envOptIn('AI_ENDING_PLAY_ENABLED'),
   attack_blitz_enabled: () => envOptOut('ATTACK_BLITZ_ENABLED'),
   // Outbound email/push — production-only unless explicitly set.
   retention_notifications_enabled: () => envOrProdOnly('RETENTION_NOTIFICATIONS_ENABLED'),
@@ -454,6 +455,19 @@ export const featureFlags = {
    */
   get aiPlannedReinforcementsEnabled(): boolean {
     return overrideBool('ai_planned_reinforcements_enabled');
+  },
+
+  /**
+   * When true, bots play to the game's ending (ai/aiEnding.ts): one within a
+   * few territories of its own win, or anyone in the last rounds before the
+   * cap, values every capture and presses as in a decided game; and Medium
+   * and Hard press a rival clearly ahead and close to winning, mildly at
+   * Medium (ai/aiProfiles.ts `leaderPressure`). Seat-blind:
+   * closeness reads only the public endings, never whether a seat is human.
+   * Daily challenges are unchanged. Default OFF until measured live.
+   */
+  get aiEndingPlayEnabled(): boolean {
+    return overrideBool('ai_ending_play_enabled');
   },
 
   /**

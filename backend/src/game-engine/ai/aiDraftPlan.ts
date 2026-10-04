@@ -33,6 +33,7 @@ import { getWorldRules, worldDeployCapBonus } from '../state/worldRules';
 import { vulnerabilityAttackBonus } from './aiEraAdvancement';
 import { attackObjectiveBonus, buildAdjacencyMap, eliminationAttackBonus, isTruceActive } from './aiBot';
 import { edgeOddsOptions } from './aiEdgeOdds';
+import { endingAttackBonus, type EndingPlan } from './aiEnding';
 import { aiProfile, type AiLevel } from './aiProfiles';
 
 export interface DraftPlacement {
@@ -69,6 +70,7 @@ export function allocateDraft(
   playerId: string,
   units: number,
   difficulty: AiLevel,
+  ending?: EndingPlan,
 ): DraftPlacement[] {
   if (units <= 0) return [];
   const profile = aiProfile(difficulty);
@@ -111,6 +113,10 @@ export function allocateDraft(
           + attackObjectiveBonus(state, map, playerId, nid)
           + vulnerabilityAttackBonus(state, owner, profile)
           + eliminationAttackBonus(state, owner, profile);
+        if (ending) {
+          const e = endingAttackBonus(state, ending, nid);
+          strategic += e.value + e.rank;
+        }
         if (!owner) strategic += profile.neutralExpansionBonus + (seaLane ? 1.5 : 0);
         attacks.push({
           defenders: n.unit_count,

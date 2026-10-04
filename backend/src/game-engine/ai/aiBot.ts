@@ -43,6 +43,7 @@ import { aiWorldBuildingCandidates } from './aiWorldBuildings';
 import { aiProfile, type AiLevel, type AiProfile } from './aiProfiles';
 import { influenceHopLimit, influencePayers } from './aiInfluence';
 import { edgeCaptureOdds } from './aiEdgeOdds';
+import { endingAttackBonus, endingPlan } from './aiEnding';
 import { isTerritoryReachableWithinHops } from '../state/influenceManager';
 
 export interface AiAction {
@@ -102,6 +103,11 @@ export interface AiTurnOptions {
    * plan only attacks at the level's start odds, and no long shots.
    */
   oddsPress?: boolean;
+  /**
+   * Play to the ending (ai_ending_play_enabled, ai/aiEnding.ts): race the
+   * bot's own line, and press a rival close to winning.
+   */
+  endingPlay?: boolean;
 }
 
 /**
@@ -181,6 +187,8 @@ export function computeAiTurn(
     jitter,
     options?.siege,
     options?.oddsPress ?? false,
+    profile.attackCap,
+    options?.endingPlay ?? false,
   );
   actions.push(...attackActions);
 
@@ -534,8 +542,10 @@ function selectAttacks(
   siege?: AiTurnOptions['siege'],
   oddsPress = false,
   attackCap = profile.attackCap,
+  endingPlay = false,
 ): AiAction[] {
   const adjacency = buildAdjacencyMap(map);
+  const ending = endingPlay ? endingPlan(state, playerId, profile) : null;
   const actions: AiAction[] = [];
   const randomFactor = profile.noise;
   const baseMaxAttacks = attackCap;
@@ -690,7 +700,8 @@ function selectAttacks(
       const siegeBonus = siege && nOwner === siege.targetPlayerId
         ? SIEGE_GROUND_BONUS + ((nState.buildings?.length ?? 0) > 0 ? SIEGE_BUILDING_BONUS : 0)
         : 0;
-      const strategic = seaPenalty + objectiveBonus + vulnBonus + finisherBonus + expansionBonus + siegeBonus;
+      const endingBonus = ending ? endingAttackBonus(state, ending, nid) : { value: 0, rank: 0 };
+      const strategic = seaPenalty + objectiveBonus + vulnBonus + finisherBonus + expansionBonus + siegeBonus + endingBonus.value;
       const score = favorability + strategic + jitter() * randomFactor * 3;
       // Pressing on the odds, the level's start odds take the place of the
       // planner's fixed P(capture) > 1/3: an attack is listed when its score
@@ -700,7 +711,8 @@ function selectAttacks(
         ? score > 3 * profile.pressStartOdds - 1
         : score > 0 || (profile.takesLongShots && !oddsPress);
       if (listed) {
-        candidates.push({ from: tid, to: nid, score, strategic, isFinisher: finisherBonus > 0 });
+        // The press on a leader re-ranks attacks worth listing; it never lists one.
+        candidates.push({ from: tid, to: nid, score: score + endingBonus.rank, strategic, isFinisher: finisherBonus > 0 });
         if (state.settings.naval_enabled && isSeaConn) {
           plannedSeaAttacksFrom.set(tid, (plannedSeaAttacksFrom.get(tid) ?? 0) + 1);
         }
@@ -760,6 +772,7 @@ export function planAttackActions(
     options.siege,
     options.oddsPress ?? false,
     attackCap ?? profile.attackCap,
+    options.endingPlay ?? false,
   );
 }
 

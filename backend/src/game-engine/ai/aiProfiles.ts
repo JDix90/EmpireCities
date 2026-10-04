@@ -138,6 +138,17 @@ export interface AiProfile {
   /** Also chooses them again after every capture, from the board it made. */
   replansAfterCapture: boolean;
 
+  // ── Playing to the ending (ai_ending_play_enabled) ────────────────────────
+  // Read only with that flag on (ai/aiEnding.ts). Seat-blind: a player is
+  // pressed because it is close to winning, never because it is human.
+  /**
+   * How hard it presses a rival close to winning, as an attack bonus on the
+   * planner's 3·P − 1 scale at full urgency; 0 never presses.
+   */
+  leaderPressure: number;
+  /** Races its own ending: near its line, or in the last rounds before the cap. */
+  racesEnding: boolean;
+
   // ── Economy ───────────────────────────────────────────────────────────────
   build: AiBuildMode;
   research: AiResearchMode;
@@ -187,6 +198,8 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     draftTiles: 0,
     replansAfterDraft: false,
     replansAfterCapture: false,
+    leaderPressure: 0,
+    racesEnding: false,
     build: 'none',
     research: 'none',
     doctrinesPerTurn: 0,
@@ -219,6 +232,8 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     draftTiles: 0,
     replansAfterDraft: false,
     replansAfterCapture: false,
+    leaderPressure: 0,
+    racesEnding: false,
     build: 'gate_only',
     research: 'gate_only',
     doctrinesPerTurn: 0,
@@ -251,6 +266,8 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     draftTiles: 0,
     replansAfterDraft: true,
     replansAfterCapture: false,
+    leaderPressure: 1,
+    racesEnding: true,
     build: 'greedy',
     research: 'cheapest',
     doctrinesPerTurn: 1,
@@ -283,6 +300,8 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     draftTiles: 0,
     replansAfterDraft: true,
     replansAfterCapture: true,
+    leaderPressure: 2,
+    racesEnding: true,
     build: 'threat',
     research: 'strategic',
     doctrinesPerTurn: 2,
@@ -315,6 +334,10 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     draftTiles: Number.POSITIVE_INFINITY,
     replansAfterDraft: true,
     replansAfterCapture: true,
+    // Measured: pressing the leader only stalled Expert tables (decided games
+    // fell from 92% to 78%) without curbing the early leader, so it races alone.
+    leaderPressure: 0,
+    racesEnding: true,
     build: 'threat',
     research: 'strategic',
     doctrinesPerTurn: 2,
