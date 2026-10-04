@@ -44,6 +44,7 @@ import { aiProfile, type AiLevel, type AiProfile } from './aiProfiles';
 import { influenceHopLimit, influencePayers } from './aiInfluence';
 import { edgeCaptureOdds } from './aiEdgeOdds';
 import { endingAttackBonus, endingPlan } from './aiEnding';
+import { advancesIntent, INTENT_DRAFT_PREMIUM, intentAttackBonus, intentStages, type AiIntent } from './aiIntent';
 import { isTerritoryReachableWithinHops } from '../state/influenceManager';
 
 export interface AiAction {
@@ -108,6 +109,14 @@ export interface AiTurnOptions {
    * bot's own line, and press a rival close to winning.
    */
   endingPlay?: boolean;
+  /**
+   * The goal the bot plays toward this turn (ai_intents_enabled,
+   * ai/aiIntent.ts): captures that advance it are worth more, and for a
+   * goal to take or hunt, the draft stages beside it and the fortify move
+   * heads for it. Chosen by the turn (runAiTurn.ts planAiTurn), which keeps
+   * it on the seat between turns.
+   */
+  intent?: AiIntent;
 }
 
 /**
@@ -170,7 +179,7 @@ export function computeAiTurn(
     state.players.length,
   );
 
-  const draftTarget = selectDraftTarget(state, map, playerId, profile.noise, jitter);
+  const draftTarget = selectDraftTarget(state, map, playerId, profile.noise, jitter, options?.intent);
   if (draftTarget) {
     actions.push({ type: 'draft', to: draftTarget, units: reinforcements });
   }
@@ -189,6 +198,7 @@ export function computeAiTurn(
     options?.oddsPress ?? false,
     profile.attackCap,
     options?.endingPlay ?? false,
+    options?.intent,
   );
   actions.push(...attackActions);
 
@@ -210,7 +220,7 @@ export function computeAiTurn(
   actions.push({ type: 'end_phase' }); // attack → fortify
 
   // ── Fortify Phase ────────────────────────────────────────────────────────
-  const fortifyAction = selectFortify(state, map, playerId);
+  const fortifyAction = selectFortify(state, map, playerId, options?.intent);
   if (fortifyAction) actions.push(fortifyAction);
   actions.push({ type: 'end_phase' }); // fortify → next player
 
@@ -396,7 +406,8 @@ function selectDraftTarget(
   map: GameMap,
   playerId: string,
   randomFactor: number,
-  jitter: () => number = Math.random
+  jitter: () => number = Math.random,
+  intent?: AiIntent,
 ): string | null {
   const adjacency = buildAdjacencyMap(map);
   let bestTid: string | null = null;
@@ -448,7 +459,13 @@ function selectDraftTarget(
     const mapTerritory = map.territories.find((t) => t.territory_id === tid);
     const homeBonus = mapTerritory && factionHomeRegions.includes(mapTerritory.region_id) ? 3 : 0;
 
-    const score = threatScore - tState.unit_count + homeBonus + jitter() * randomFactor * 10;
+    // A goal to take or hunt (ai/aiIntent.ts): stage beside it, so next
+    // turn's attack on it starts from a stack.
+    const stage = intentStages(intent) && enemyNeighbors.some((nid) => advancesIntent(state, map, intent, nid))
+      ? INTENT_DRAFT_PREMIUM
+      : 0;
+
+    const score = threatScore - tState.unit_count + homeBonus + stage + jitter() * randomFactor * 10;
     if (score > bestScore) {
       bestScore = score;
       bestTid = tid;
@@ -543,6 +560,7 @@ function selectAttacks(
   oddsPress = false,
   attackCap = profile.attackCap,
   endingPlay = false,
+  intent?: AiIntent,
 ): AiAction[] {
   const adjacency = buildAdjacencyMap(map);
   const ending = endingPlay ? endingPlan(state, playerId, profile) : null;
@@ -701,7 +719,9 @@ function selectAttacks(
         ? SIEGE_GROUND_BONUS + ((nState.buildings?.length ?? 0) > 0 ? SIEGE_BUILDING_BONUS : 0)
         : 0;
       const endingBonus = ending ? endingAttackBonus(state, ending, nid) : { value: 0, rank: 0 };
-      const strategic = seaPenalty + objectiveBonus + vulnBonus + finisherBonus + expansionBonus + siegeBonus + endingBonus.value;
+      const intentBonus = intentAttackBonus(state, map, intent, nid, profile);
+      const strategic = seaPenalty + objectiveBonus + vulnBonus + finisherBonus + expansionBonus + siegeBonus
+        + endingBonus.value + intentBonus;
       const score = favorability + strategic + jitter() * randomFactor * 3;
       // Pressing on the odds, the level's start odds take the place of the
       // planner's fixed P(capture) > 1/3: an attack is listed when its score
@@ -773,6 +793,7 @@ export function planAttackActions(
     options.oddsPress ?? false,
     attackCap ?? profile.attackCap,
     options.endingPlay ?? false,
+    options.intent,
   );
 }
 
@@ -859,7 +880,8 @@ function selectInfluenceTarget(
 function selectFortify(
   state: GameState,
   map: GameMap,
-  playerId: string
+  playerId: string,
+  intent?: AiIntent,
 ): AiAction | null {
   const adjacency = buildAdjacencyMap(map);
 
@@ -877,8 +899,10 @@ function selectFortify(
     );
     if (!isInterior) continue;
 
-    // Find adjacent border territory via BFS
-    const borderTarget = findNearestBorder(tid, state, map, playerId);
+    // Find adjacent border territory via BFS: with a goal to take or hunt,
+    // the nearest tile beside it if one can be reached (ai/aiIntent.ts).
+    const borderTarget = (intentStages(intent) && findNearestBorder(tid, state, map, playerId, intent))
+      || findNearestBorder(tid, state, map, playerId);
     if (borderTarget && tState.unit_count - 1 > bestUnits) {
       bestFrom = tid;
       bestTo = borderTarget;
@@ -896,7 +920,9 @@ function findNearestBorder(
   startId: string,
   state: GameState,
   map: GameMap,
-  playerId: string
+  playerId: string,
+  /** Only a border tile beside this goal will do. */
+  intent?: AiIntent,
 ): string | null {
   const adjacency = buildAdjacencyMap(map);
   const visited = new Set<string>();
@@ -911,7 +937,8 @@ function findNearestBorder(
       const owner = state.territories[nid]?.owner_id;
       if (!isFriendlyOwner(state, playerId, owner)) {
         // current is a border territory
-        return current;
+        if (!intent || advancesIntent(state, map, intent, nid)) return current;
+        continue;
       }
       visited.add(nid);
       // The walk crosses only the player's own ground: fortify cannot move

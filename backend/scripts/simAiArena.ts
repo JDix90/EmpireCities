@@ -53,7 +53,7 @@
  */
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import type { AiDifficulty, EraId, GameMap, GameSettings, GameState } from '../src/types';
+import type { AiDifficulty, AiIntent, EraId, GameMap, GameSettings, GameState } from '../src/types';
 import { initializeGameState } from '../src/game-engine/state/gameStateManager';
 import { computeAiTurn } from '../src/game-engine/ai/aiBot';
 import type { AiLevel } from '../src/game-engine/ai/aiProfiles';
@@ -191,6 +191,11 @@ interface GameRecord {
   turns: number[];
   /** The round each seat resigned in, 0 for none; only on a game where one did, so other digests stand. */
   resigned?: number[];
+  /**
+   * The candidate's turns holding each goal, and those whose goal it met that
+   * turn (ai/aiIntent.ts); only on a game where it held one, so other digests stand.
+   */
+  intents?: Record<'take_region' | 'break_region' | 'hunt', { held: number; met: number }>;
 }
 
 interface Timing {
@@ -312,8 +317,16 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
         plan: async (s, m, d, o) => computeAiTurn(s, m, d, { ...o, rng: jitter }),
         rng: jitter,
       });
+      const goal = player.player_index === candidateSeat ? player.ai_intent : undefined;
       const outcome = await playAiTurn(state, map, player, seat.level, plan, 'draft', hooks);
       record.turns[player.player_index]! += 1;
+      if (goal) {
+        const tally = (record.intents ??= {
+          take_region: { held: 0, met: 0 }, break_region: { held: 0, met: 0 }, hunt: { held: 0, met: 0 },
+        })[goal.kind];
+        tally.held += 1;
+        if (intentMet(state, map, player.player_id, goal)) tally.met += 1;
+      }
       // A paid influence is the only thing that starts the cooldown.
       if (cooldownBefore === 0 && (state.influence_cooldown_remaining ?? 0) > 0) record.influences[player.player_index]! += 1;
 
@@ -333,6 +346,24 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
   record.territories = state.players.map((p) => p.territory_count ?? 0);
   record.eras = state.players.map((p) => p.current_era_index ?? 0);
   return record;
+}
+
+/** Whether `goal` was met: its region held whole, its rival's region broken, its quarry out. */
+function intentMet(state: GameState, map: GameMap, playerId: string, goal: AiIntent): boolean {
+  if (goal.kind === 'hunt') return !!state.players.find((p) => p.player_id === goal.target)?.is_eliminated;
+  const owners = map.territories
+    .filter((t) => t.region_id === goal.target && state.territories[t.territory_id])
+    .map((t) => state.territories[t.territory_id]!.owner_id);
+  return goal.kind === 'take_region'
+    ? owners.every((o) => o === playerId)
+    : new Set(owners).size > 1;
+}
+
+function median(xs: number[]): number {
+  if (xs.length === 0) return 0;
+  const sorted = [...xs].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
 }
 
 function pct(n: number, d: number): string {
@@ -378,12 +409,23 @@ function report(seatCount: number, records: GameRecord[], timing: Timing): void 
   console.log(`decided before the cap    ${decided.length}  (${pct(decided.length, records.length)})`);
   console.log(`mean rounds (decided)     ${mean(decided.map((r) => r.rounds)).toFixed(1)}`);
   console.log(`mean rounds (all)         ${mean(records.map((r) => r.rounds)).toFixed(1)}`);
+  console.log(`median rounds (all)       ${median(records.map((r) => r.rounds)).toFixed(1)}`);
   console.log(`round-10 leader wins      ${pct(leaderWins, leaderKnown.length)} of ${leaderKnown.length} games with one leader`);
   const resigning = records.filter((r) => r.resigned);
   if (resigning.length > 0) {
     const resignations = resigning.flatMap((r) => r.resigned!.filter((n) => n > 0));
     const endedBy = records.filter((r) => r.condition === 'resignation').length;
     console.log(`resignations              ${resignations.length} in ${resigning.length} games; ${endedBy} games (${pct(endedBy, records.length)}) ended by one; mean round ${mean(resignations).toFixed(1)}`);
+  }
+  const goals = records.filter((r) => r.intents);
+  if (goals.length > 0) {
+    const turns = records.reduce((s, r) => s + r.turns[r.candidateSeat]!, 0);
+    const kinds = (['take_region', 'break_region', 'hunt'] as const).map((k) => {
+      const held = goals.reduce((s, r) => s + r.intents![k].held, 0);
+      const met = goals.reduce((s, r) => s + r.intents![k].met, 0);
+      return `${k} ${pct(held, turns)} (met ${pct(met, held)})`;
+    });
+    console.log(`candidate goals           ${kinds.join(', ')} of its turns`);
   }
   console.log(`exchanges per turn        candidate ${seatMean((r) => r.exchanges, true).toFixed(2)}, baseline ${seatMean((r) => r.exchanges, false).toFixed(2)}`);
   if (records.some((r) => r.influences.some((n) => n > 0))) {

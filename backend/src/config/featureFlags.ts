@@ -64,6 +64,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   ai_planned_reinforcements_enabled: () => envOptIn('AI_PLANNED_REINFORCEMENTS_ENABLED'),
   ai_ending_play_enabled: () => envOptIn('AI_ENDING_PLAY_ENABLED'),
   ai_resignation_enabled: () => envOptIn('AI_RESIGNATION_ENABLED'),
+  ai_intents_enabled: () => envOptIn('AI_INTENTS_ENABLED'),
   surrender_offers_enabled: () => envOptIn('SURRENDER_OFFERS_ENABLED'),
   attack_blitz_enabled: () => envOptOut('ATTACK_BLITZ_ENABLED'),
   // Outbound email/push — production-only unless explicitly set.
@@ -484,6 +485,19 @@ export const featureFlags = {
    */
   get aiResignationEnabled(): boolean {
     return overrideBool('ai_resignation_enabled');
+  },
+
+  /**
+   * When true, Medium and up play toward a goal that spans turns
+   * (ai/aiIntent.ts): a region to take, a rival's whole region to break, or
+   * a rival down to its last tiles to hunt. Captures that advance it are
+   * worth more, the draft stages beside it and the fortify move heads for
+   * it. Chosen again every turn from what the seat may see; the goal it holds
+   * only wins a near tie. Never in daily challenges, campaign stages or team
+   * games, and never for an away human seat. Default OFF until measured live.
+   */
+  get aiIntentsEnabled(): boolean {
+    return overrideBool('ai_intents_enabled');
   },
 
   /**

@@ -173,6 +173,18 @@ export interface TerritoryState {
   region_id?: string;
 }
 
+/**
+ * A bot's goal across turns (ai/aiIntent.ts): a region to take, a rival's
+ * region to break, or a rival to hunt down.
+ */
+export interface AiIntent {
+  kind: 'take_region' | 'break_region' | 'hunt';
+  /** The region to take or break, or the player to hunt. */
+  target: string;
+  /** The round this goal was first chosen; kept while the goal is. */
+  since: number;
+}
+
 export interface PlayerState {
   player_id: string;        // user_id or 'ai_<index>'
   player_index: number;
@@ -210,6 +222,11 @@ export interface PlayerState {
    * ai_resignation_enabled off.
    */
   beaten_turns?: number;
+  /**
+   * A bot's goal across turns (ai/aiIntent.ts), chosen again as each of its
+   * turns opens. Absent without one, and always with ai_intents_enabled off.
+   */
+  ai_intent?: AiIntent;
   territory_count: number;
   cards: TerritoryCard[];
   mmr: number;

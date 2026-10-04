@@ -19,6 +19,8 @@ const SECRET_SETTINGS_KEYS = ['seed'] as const;
  *  - `secret_mission` is revealed only to its owner, to eliminated players, or
  *    at game_over; otherwise nulled. (`mission_seed_salt` is stripped by the
  *    caller.) This matches the prior behaviour exactly for player views.
+ *  - `ai_intent`, a bot's goal (ai/aiIntent.ts), is never sent: the bot plays
+ *    it, and nothing on the board should give it away.
  *
  * Returns a new array; players that need redaction are shallow-cloned, so the
  * authoritative server state is never mutated.
@@ -30,7 +32,8 @@ export function redactPlayersForViewer(
 ): PlayerState[] {
   return players.map((p) => {
     // Spectators (no viewing player) never see any hand.
-    const base: PlayerState = viewerId === null ? { ...p, cards: [] } : p;
+    let base: PlayerState = viewerId === null ? { ...p, cards: [] } : p;
+    if (base.ai_intent) base = { ...base, ai_intent: undefined };
     const revealMission =
       (viewerId !== null && p.player_id === viewerId) || p.is_eliminated || phase === 'game_over';
     return revealMission ? base : { ...base, secret_mission: null };
@@ -147,7 +150,7 @@ export function redactReplaySnapshot(state: GameState): GameState {
   return {
     ...rest,
     players: Array.isArray(rest.players)
-      ? rest.players.map((p) => ({ ...p, secret_mission: null }))
+      ? rest.players.map((p) => ({ ...p, secret_mission: null, ai_intent: undefined }))
       : rest.players,
   } as GameState;
 }
