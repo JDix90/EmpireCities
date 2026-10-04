@@ -15,7 +15,7 @@ import { computeAiTurn, selectAiBuildingPlacement, selectAiTechResearch } from '
 import { aiAttackExchangeBudget, shouldPressDecidedGame } from './aiAttackGrind';
 import { aiFiresLanePowers } from './aiLanePowers';
 import { aiResearchesTech } from './aiTechBudget';
-import { AI_PROFILES, aiProfile, gameAiDifficulty, seatAiDifficulty, type AiProfile } from './aiProfiles';
+import { AI_PROFILES, aiProfile, gameAiDifficulty, keepsTodaysBots, seatAiDifficulty, type AiProfile } from './aiProfiles';
 import { aiFallbackPlan } from './runAiWithTimeout';
 import { syntheticAiOpponent } from '../rating/ratingService';
 
@@ -47,6 +47,8 @@ describe('AI_PROFILES holds the values the constants and branches held', () => {
     // New with ai_ending_play_enabled, read only with it on.
     leaderPressure: [0, 0, 1, 2, 0],
     racesEnding: [false, false, true, true, true],
+    // New with ai_resignation_enabled, read only with it on.
+    resignsWhenBeaten: [false, true, true, true, true],
     build: ['none', 'gate_only', 'greedy', 'threat', 'threat'],
     research: ['none', 'gate_only', 'cheapest', 'strategic', 'strategic'],
     doctrinesPerTurn: [0, 0, 1, 2, 2],
@@ -215,5 +217,14 @@ describe('the plan that stands in when planning overruns', () => {
     // Never easy's two-attack plan with long shots, which every level used to get.
     const attacks = plan('expert').filter((a) => a.type === 'attack' && a.from !== '__influence__');
     expect(attacks.length).toBeLessThanOrEqual(AI_PROFILES.medium.attackCap);
+  });
+});
+
+describe('keepsTodaysBots', () => {
+  it('holds daily challenges and campaign stages to today\'s bots, and nothing else', () => {
+    expect(keepsTodaysBots({ daily_challenge_date: '2026-10-04' })).toBe(true);
+    expect(keepsTodaysBots({ is_campaign: true })).toBe(true);
+    expect(keepsTodaysBots({})).toBe(false);
+    expect(keepsTodaysBots({ is_campaign: false })).toBe(false);
   });
 });

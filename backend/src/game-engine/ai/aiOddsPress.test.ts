@@ -239,12 +239,16 @@ describe('the plan', () => {
     expect(plan.attackBudget.left).toBe(40);
   });
 
-  it('keeps the fixed budget in a daily challenge', async () => {
-    const s = board({ a: 20, b: 3 });
-    s.settings.daily_challenge_date = '2026-10-04';
-    const plan = await planAiTurn(s, map(), s.players[0]!, 'hard', FLAGS, planHooks(s));
-    expect(plan.oddsPress).toBeUndefined();
-    expect(plan.attackBudget.left).toBe(aiAttackExchangeBudget('hard', false));
+  it('keeps the fixed budget in a daily challenge and a campaign stage', async () => {
+    const daily = board({ a: 20, b: 3 });
+    daily.settings.daily_challenge_date = '2026-10-04';
+    const campaign = board({ a: 20, b: 3 });
+    campaign.settings.is_campaign = true;
+    for (const s of [daily, campaign]) {
+      const plan = await planAiTurn(s, map(), s.players[0]!, 'hard', FLAGS, planHooks(s));
+      expect(plan.oddsPress).toBeUndefined();
+      expect(plan.attackBudget.left).toBe(aiAttackExchangeBudget('hard', false));
+    }
   });
 
   it('is unchanged with the flag off', async () => {

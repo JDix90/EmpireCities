@@ -45,7 +45,7 @@
  *   ARENA_BASELINE         baseline difficulty (default medium)
  *   ARENA_CANDIDATE_FLAGS  name=0|1 overrides of the live AI flags, comma-separated:
  *   ARENA_BASELINE_FLAGS     captureOddsScoring, attackGrind, decidedGamePress, oddsPress,
- *                            plannedDraft, endingPlay.
+ *                            plannedDraft, endingPlay, resignation.
  *                            Unset flags take the live code default.
  *   ARENA_CANDIDATE_PROFILE  JSON object of AiProfile fields that replace the
  *   ARENA_BASELINE_PROFILE     difficulty's row for that side.
@@ -66,6 +66,7 @@ import {
 } from '../src/game-engine/ai/runAiTurn';
 import { bakeCreateGameSettings, type CreateGameSettingsInput } from '../src/modules/games/createGameSettings';
 import { createSeededRng, hashStringToSeed } from '../src/game-engine/victory/missions';
+import { resignIfBeaten, victoryAfterResignation } from '../src/game-engine/ai/aiResign';
 import { aiLevelChanges, describeAiTurnFlags, handOff, parseAiLevel, parseAiTurnFlags, resolveChoiceCard } from './aiHarness';
 import { seedEngineRandomness, seededUuid } from './seededEngineRandomness';
 
@@ -188,6 +189,8 @@ interface GameRecord {
   steps: number[];
   /** Bot turns played by each seat. */
   turns: number[];
+  /** The round each seat resigned in, 0 for none; only on a game where one did, so other digests stand. */
+  resigned?: number[];
 }
 
 interface Timing {
@@ -292,20 +295,33 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
     const started = performance.now();
 
     resolveChoiceCard(state);
-    const plan = await planAiTurn(state, map, player, seat.level, seat.flags, {
-      planningState: () => state,
-      plan: async (s, m, d, o) => computeAiTurn(s, m, d, { ...o, rng: jitter }),
-      rng: jitter,
-    });
-    const outcome = await playAiTurn(state, map, player, seat.level, plan, 'draft', hooks);
-    record.turns[player.player_index]! += 1;
-    // A paid influence is the only thing that starts the cooldown.
-    if (cooldownBefore === 0 && (state.influence_cooldown_remaining ?? 0) > 0) record.influences[player.player_index]! += 1;
+    // processAiTurn's opening: a beaten bot resigns before it plans.
+    if (resignIfBeaten(state, player, seat.level, seat.flags.resignation)) {
+      (record.resigned ??= zeros())[player.player_index] = state.turn_number;
+      const victory = victoryAfterResignation(state, map);
+      if (victory) {
+        state.phase = 'game_over';
+        state.winner_id = victory.winnerIds[0]!;
+        state.winner_ids = victory.winnerIds;
+        state.victory_condition = victory.condition;
+        break;
+      }
+    } else {
+      const plan = await planAiTurn(state, map, player, seat.level, seat.flags, {
+        planningState: () => state,
+        plan: async (s, m, d, o) => computeAiTurn(s, m, d, { ...o, rng: jitter }),
+        rng: jitter,
+      });
+      const outcome = await playAiTurn(state, map, player, seat.level, plan, 'draft', hooks);
+      record.turns[player.player_index]! += 1;
+      // A paid influence is the only thing that starts the cooldown.
+      if (cooldownBefore === 0 && (state.influence_cooldown_remaining ?? 0) > 0) record.influences[player.player_index]! += 1;
 
-    const ms = performance.now() - started;
-    timing.turnMs.push(ms);
-    timing.liveSeconds.push((record.steps[player.player_index]! - stepsBefore) * 0.6 + ms / 1000);
-    if (outcome === 'over') break;
+      const ms = performance.now() - started;
+      timing.turnMs.push(ms);
+      timing.liveSeconds.push((record.steps[player.player_index]! - stepsBefore) * 0.6 + ms / 1000);
+      if (outcome === 'over') break;
+    }
 
     handOff(state, map);
     if (await hooks.victoryCheck()) break;
@@ -363,6 +379,12 @@ function report(seatCount: number, records: GameRecord[], timing: Timing): void 
   console.log(`mean rounds (decided)     ${mean(decided.map((r) => r.rounds)).toFixed(1)}`);
   console.log(`mean rounds (all)         ${mean(records.map((r) => r.rounds)).toFixed(1)}`);
   console.log(`round-10 leader wins      ${pct(leaderWins, leaderKnown.length)} of ${leaderKnown.length} games with one leader`);
+  const resigning = records.filter((r) => r.resigned);
+  if (resigning.length > 0) {
+    const resignations = resigning.flatMap((r) => r.resigned!.filter((n) => n > 0));
+    const endedBy = records.filter((r) => r.condition === 'resignation').length;
+    console.log(`resignations              ${resignations.length} in ${resigning.length} games; ${endedBy} games (${pct(endedBy, records.length)}) ended by one; mean round ${mean(resignations).toFixed(1)}`);
+  }
   console.log(`exchanges per turn        candidate ${seatMean((r) => r.exchanges, true).toFixed(2)}, baseline ${seatMean((r) => r.exchanges, false).toFixed(2)}`);
   if (records.some((r) => r.influences.some((n) => n > 0))) {
     console.log(`influences per game       candidate ${mean(records.map((r) => r.influences[r.candidateSeat]!)).toFixed(2)}, baseline seat ${mean(records.flatMap((r) => r.influences.filter((_, i) => i !== r.candidateSeat))).toFixed(2)}`);

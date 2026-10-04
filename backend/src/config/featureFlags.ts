@@ -63,6 +63,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   ai_odds_press_enabled: () => envOptIn('AI_ODDS_PRESS_ENABLED'),
   ai_planned_reinforcements_enabled: () => envOptIn('AI_PLANNED_REINFORCEMENTS_ENABLED'),
   ai_ending_play_enabled: () => envOptIn('AI_ENDING_PLAY_ENABLED'),
+  ai_resignation_enabled: () => envOptIn('AI_RESIGNATION_ENABLED'),
   attack_blitz_enabled: () => envOptOut('ATTACK_BLITZ_ENABLED'),
   // Outbound email/push — production-only unless explicitly set.
   retention_notifications_enabled: () => envOrProdOnly('RETENTION_NOTIFICATIONS_ENABLED'),
@@ -439,7 +440,8 @@ export const featureFlags = {
    * odds hold, keeps back part of a source facing a rival stack, and stops at
    * a per-turn exchange ceiling (ai/aiAttackGrind.ts, ai/aiProfiles.ts). Each
    * run of exchanges is shown as one combined result, as a player's Blitz is.
-   * Daily challenges keep the fixed budget. Default OFF until measured live.
+   * Daily challenges and campaign stages keep the fixed budget
+   * (ai/aiProfiles.ts keepsTodaysBots). Default OFF until measured live.
    */
   get aiOddsPressEnabled(): boolean {
     return overrideBool('ai_odds_press_enabled');
@@ -450,8 +452,8 @@ export const featureFlags = {
    * choose their attacks again once their reinforcements land, Hard and Expert
    * also after every capture, and Expert places its reinforcements by marginal
    * value once the turn's true count is known (ai/aiDraftPlan.ts,
-   * ai/runAiTurn.ts, the levels in ai/aiProfiles.ts). Default OFF until
-   * measured live.
+   * ai/runAiTurn.ts, the levels in ai/aiProfiles.ts). Daily challenges and
+   * campaign stages are unchanged. Default OFF until measured live.
    */
   get aiPlannedReinforcementsEnabled(): boolean {
     return overrideBool('ai_planned_reinforcements_enabled');
@@ -464,10 +466,23 @@ export const featureFlags = {
    * and Hard press a rival clearly ahead and close to winning, mildly at
    * Medium (ai/aiProfiles.ts `leaderPressure`). Seat-blind:
    * closeness reads only the public endings, never whether a seat is human.
-   * Daily challenges are unchanged. Default OFF until measured live.
+   * Daily challenges and campaign stages are unchanged. Default OFF until
+   * measured live.
    */
   get aiEndingPlayEnabled(): boolean {
     return overrideBool('ai_ending_play_enabled');
+  },
+
+  /**
+   * When true, a beaten bot resigns as its turn opens (ai/aiResign.ts),
+   * through the same step as a player's resignation: its land turns neutral
+   * at half strength, and when the last rival resigns the game ends as a
+   * resignation. Beaten reads only the public board. Never in daily
+   * challenges, campaign stages, tutorials, team games or secret-mission
+   * games, and never for an away human seat. Default OFF until measured live.
+   */
+  get aiResignationEnabled(): boolean {
+    return overrideBool('ai_resignation_enabled');
   },
 
   /**

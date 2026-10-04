@@ -45,10 +45,16 @@
  *   SIM_AI_FLAGS        name=0|1 overrides of the live AI flags for the stage's
  *   SIM_STANDIN_FLAGS     AI, and for the stand-in: captureOddsScoring,
  *                         attackGrind, decidedGamePress, oddsPress,
- *                         plannedDraft, endingPlay. Unset flags take the live
- *                         code default.
+ *                         plannedDraft, endingPlay, resignation. Unset flags
+ *                         take the live code default. The stand-in is a human
+ *                         seat, so it never resigns.
  *   SIM_AI_PROFILE      JSON object of AiProfile fields that replace the
  *                         stage's difficulty row for its AI, on every stage.
+ *
+ * Campaign games keep today's bots (ai/aiProfiles.ts keepsTodaysBots), so
+ * the newer AI flags (oddsPress, plannedDraft, endingPlay, resignation) do
+ * nothing here, as in the live game. What they would do to each stage is
+ * measured in PR #548; lifting that rule is the step before measuring again.
  */
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -58,6 +64,7 @@ import { computeAiTurn } from '../src/game-engine/ai/aiBot';
 import type { AiLevel } from '../src/game-engine/ai/aiProfiles';
 import { DEFAULT_CARD_SET_BONUS_CAP } from '../src/game-engine/combat/combatResolver';
 import { headlessAiTurnHooks, planAiTurn, playAiTurn } from '../src/game-engine/ai/runAiTurn';
+import { resignIfBeaten, victoryAfterResignation } from '../src/game-engine/ai/aiResign';
 import { assignSecretMissions, createSeededRng, hashStringToSeed } from '../src/game-engine/victory/missions';
 import { CAMPAIGN_PATHS, type PathEraConfig } from '../src/modules/campaign/campaignPaths';
 import { getEraFactions } from '../src/game-engine/eras';
@@ -263,13 +270,26 @@ async function runStage(
       const current = state.players[state.current_player_index];
       const standin = current.player_index === 0;
       const level = standin ? STANDIN : stageLevel;
+      const flags = standin ? STANDIN_FLAGS : AI_FLAGS;
       resolveChoiceCard(state);
-      const plan = await planAiTurn(state, map, current, level, standin ? STANDIN_FLAGS : AI_FLAGS, {
-        planningState: () => state,
-        plan: async (s, m, d, o) => computeAiTurn(s, m, d, { ...o, rng: jitter }),
-        rng: jitter,
-      });
-      if (await playAiTurn(state, map, current, level, plan, 'draft', hooks) === 'over') break;
+      // processAiTurn's opening: a beaten bot resigns before it plans.
+      if (resignIfBeaten(state, current, level, flags.resignation)) {
+        const victory = victoryAfterResignation(state, map);
+        if (victory) {
+          state.phase = 'game_over';
+          state.winner_id = victory.winnerIds[0]!;
+          state.winner_ids = victory.winnerIds;
+          state.victory_condition = victory.condition;
+          break;
+        }
+      } else {
+        const plan = await planAiTurn(state, map, current, level, flags, {
+          planningState: () => state,
+          plan: async (s, m, d, o) => computeAiTurn(s, m, d, { ...o, rng: jitter }),
+          rng: jitter,
+        });
+        if (await playAiTurn(state, map, current, level, plan, 'draft', hooks) === 'over') break;
+      }
       handOff(state, map);
       if (await hooks.victoryCheck()) break;
     }

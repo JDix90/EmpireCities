@@ -202,6 +202,12 @@ export interface PlayerState {
   eliminated_by?: string | null;
   /** True when the player voluntarily resigned (ranks below other eliminated players). */
   has_resigned?: boolean;
+  /**
+   * A bot's own turns in a row that opened with it beaten (ai/aiResign.ts);
+   * it resigns at the third. Absent while it is not beaten, and always with
+   * ai_resignation_enabled off.
+   */
+  beaten_turns?: number;
   territory_count: number;
   cards: TerritoryCard[];
   mmr: number;
