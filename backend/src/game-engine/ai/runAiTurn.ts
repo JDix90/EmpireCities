@@ -28,6 +28,7 @@ import { buildStrikeAnimationPayload } from '../abilities/strikeAnimation';
 import { canAiUseDropAssault, canAiUseDysonBeam, canAiUseOrbitalDrop, selectAiDropAssaultTarget, selectAiDysonBeamTarget, selectAiLaneSeal, selectAiOrbitalDropTarget, shouldAiExportHelium3 } from './aiMoonPowers';
 import { FINISHER_OVERCAP, chooseEmergencySealLane, planAttackActions, rankAiUnificationTargets, selectAiBuildingPlacement, selectAiGarrisonDoctrines, selectAiTechResearch } from './aiBot';
 import { allocateDraft } from './aiDraftPlan';
+import { endingPlan } from './aiEnding';
 import { consumeSealBreaker, lanePowersEnabled } from '../abilities/lanePowers';
 import { createPuzzleDieRoll } from '../daily/puzzleDice';
 import { dailySiegeTarget } from '../daily/dailySiege';
@@ -70,6 +71,11 @@ export interface AiTurnFlags {
    * and does nothing without it. Off when absent.
    */
   plannedDraft?: boolean;
+  /**
+   * ai_ending_play_enabled: race the bot's own ending and press a rival close
+   * to winning, seat-blind (ai/aiEnding.ts). Off when absent.
+   */
+  endingPlay?: boolean;
 }
 
 /** How planning reaches the board: the view the bot may see, and the planner to run on it. */
@@ -149,8 +155,14 @@ export async function planAiTurn(
   // presses as if the game were decided (daily/dailySiege.ts). Mirrored in
   // puzzleSim.aiTurn — the AI-parity rule.
   const siege = dailySiegeTarget(state);
+  // Racing its own ending, a bot presses as it would a decided game: the
+  // tiles it needs are worth the doubled budget and the lifted attack cap.
+  // Read from the authoritative state, as the decided-game press is.
+  const endingPlay = !!flags.endingPlay && !state.settings.daily_challenge_date;
+  const racing = endingPlay && endingPlan(state, currentPlayer.player_id, difficulty).racing;
   const decidedPress =
     !!siege ||
+    racing ||
     (flags.decidedGamePress &&
       shouldPressDecidedGame(state, currentPlayer.player_id, difficulty));
   // Pressing on the odds builds on the grind. A daily challenge keeps the
@@ -165,6 +177,7 @@ export async function planAiTurn(
     decidedGamePress: decidedPress,
     siege,
     ...(oddsPress ? { oddsPress: true } : {}),
+    ...(endingPlay ? { endingPlay: true } : {}),
   });
 
   // Attack budget for the whole turn, spent in dice exchanges. The planner's
@@ -187,6 +200,7 @@ export async function planAiTurn(
         decidedGamePress: decidedPress,
         siege,
         oddsPress: true,
+        ...(endingPlay ? { endingPlay: true } : {}),
         ...(hooks.rng ? { rng: hooks.rng } : {}),
       },
     }
@@ -389,8 +403,10 @@ export async function playAiTurn(
     // The setup steps are done, so the count is the turn's true one: split it
     // where it adds the most (ai/aiDraftPlan.ts), in place of the plan's
     // single draft, which was chosen before any of them.
+    const view = plan.replan.view();
     const placements = allocateDraft(
-      plan.replan.view(), map, currentPlayer.player_id, state.draft_units_remaining, difficulty,
+      view, map, currentPlayer.player_id, state.draft_units_remaining, difficulty,
+      plan.replan.options.endingPlay ? endingPlan(view, currentPlayer.player_id, difficulty) : undefined,
     ).map((p) => ({ type: 'draft' as const, to: p.to, units: p.units }));
     const at = firstDraftIdx >= 0 ? firstDraftIdx : 0;
     for (let i = actions.length - 1; i >= 0; i -= 1) {

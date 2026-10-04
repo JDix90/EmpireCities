@@ -109,6 +109,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Bots choose their attacks again once their reinforcements land (Medium and up), and again after every capture (Hard and Expert). Expert also places its reinforcements with a purpose, splitting them between the tiles that stage its attacks and the ones most at risk, which makes it a clear step above Hard. Easy is unchanged. Needs "AI presses on the odds" on, and does nothing without it. Off by default while it is tried.',
   },
   {
+    key: 'ai_ending_play_enabled',
+    label: 'AI plays to the ending',
+    description:
+      'Bots read how the game is won. One a few territories from its own win, or anyone in the last rounds before the turn limit, grabs every territory it can. Medium and Hard also gang up on whoever is clearly ahead and close to winning (Medium only mildly), judged by the board alone, whether that is you or another bot. Expert only races: ganging up stalled Expert games without stopping the leader. Easy and the tutorial bot are unchanged, and so are daily challenges. Off by default while it is tried.',
+  },
+  {
     key: 'attack_blitz_enabled',
     label: 'Blitz attacks',
     description:

@@ -45,7 +45,7 @@
  *   ARENA_BASELINE         baseline difficulty (default medium)
  *   ARENA_CANDIDATE_FLAGS  name=0|1 overrides of the live AI flags, comma-separated:
  *   ARENA_BASELINE_FLAGS     captureOddsScoring, attackGrind, decidedGamePress, oddsPress,
- *                            plannedDraft.
+ *                            plannedDraft, endingPlay.
  *                            Unset flags take the live code default.
  *   ARENA_CANDIDATE_PROFILE  JSON object of AiProfile fields that replace the
  *   ARENA_BASELINE_PROFILE     difficulty's row for that side.
@@ -90,6 +90,7 @@ function liveFlags(): AiTurnFlags {
     decidedGamePress: featureFlags.aiDecidedGamePressEnabled,
     oddsPress: featureFlags.aiOddsPressEnabled,
     plannedDraft: featureFlags.aiPlannedReinforcementsEnabled,
+    endingPlay: featureFlags.aiEndingPlayEnabled,
   };
 }
 

@@ -6001,6 +6001,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     decidedGamePress: featureFlags.aiDecidedGamePressEnabled,
     oddsPress: featureFlags.aiOddsPressEnabled,
     plannedDraft: featureFlags.aiPlannedReinforcementsEnabled,
+    endingPlay: featureFlags.aiEndingPlayEnabled,
   }, {
     planningState: () => (state.settings.fog_of_war
       ? buildClientState(state, currentPlayer.player_id, true)
