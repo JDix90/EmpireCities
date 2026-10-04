@@ -60,6 +60,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   ai_attack_grind_enabled: () => envOptOut('AI_ATTACK_GRIND_ENABLED'),
   ai_capture_odds_enabled: () => envOptOut('AI_CAPTURE_ODDS_ENABLED'),
   ai_decided_game_press_enabled: () => envOptOut('AI_DECIDED_GAME_PRESS_ENABLED'),
+  ai_odds_press_enabled: () => envOptIn('AI_ODDS_PRESS_ENABLED'),
   attack_blitz_enabled: () => envOptOut('ATTACK_BLITZ_ENABLED'),
   // Outbound email/push — production-only unless explicitly set.
   retention_notifications_enabled: () => envOrProdOnly('RETENTION_NOTIFICATIONS_ENABLED'),
@@ -428,6 +429,18 @@ export const featureFlags = {
    */
   get aiDecidedGamePressEnabled(): boolean {
     return overrideBool('ai_decided_game_press_enabled');
+  },
+
+  /**
+   * When true, bots press on the odds instead of a fixed dice count: each
+   * level starts an attack at its start odds, keeps rolling while its continue
+   * odds hold, keeps back part of a source facing a rival stack, and stops at
+   * a per-turn exchange ceiling (ai/aiAttackGrind.ts, ai/aiProfiles.ts). Each
+   * run of exchanges is shown as one combined result, as a player's Blitz is.
+   * Daily challenges keep the fixed budget. Default OFF until measured live.
+   */
+  get aiOddsPressEnabled(): boolean {
+    return overrideBool('ai_odds_press_enabled');
   },
 
   /**

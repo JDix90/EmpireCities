@@ -44,7 +44,7 @@
  *   ARENA_CANDIDATE        candidate difficulty (default medium)
  *   ARENA_BASELINE         baseline difficulty (default medium)
  *   ARENA_CANDIDATE_FLAGS  name=0|1 overrides of the live AI flags, comma-separated:
- *   ARENA_BASELINE_FLAGS     captureOddsScoring, attackGrind, decidedGamePress.
+ *   ARENA_BASELINE_FLAGS     captureOddsScoring, attackGrind, decidedGamePress, oddsPress.
  *                            Unset flags take the live code default.
  *   ARENA_CANDIDATE_PROFILE  JSON object of AiProfile fields that replace the
  *   ARENA_BASELINE_PROFILE     difficulty's row for that side.
@@ -87,6 +87,7 @@ function liveFlags(): AiTurnFlags {
     captureOddsScoring: featureFlags.aiCaptureOddsEnabled,
     attackGrind: featureFlags.aiAttackGrindEnabled,
     decidedGamePress: featureFlags.aiDecidedGamePressEnabled,
+    oddsPress: featureFlags.aiOddsPressEnabled,
   };
 }
 
@@ -290,7 +291,8 @@ function countingHooks(state: GameState, map: GameMap, record: GameRecord): AiTu
       base.emit(event, payload);
     },
     recordCombat: (defenderId, result, options) => {
-      record.exchanges[seat()]! += 1;
+      // Pressing on the odds, one call carries a whole run of exchanges.
+      record.exchanges[seat()]! += result.blitz_exchanges ?? 1;
       base.recordCombat(defenderId, result, options);
     },
   };
@@ -441,7 +443,7 @@ function report(seatCount: number, records: GameRecord[], timing: Timing): void 
   if (records.some((r) => r.eras.some((e) => e > 0))) {
     console.log(`final era index           candidate ${mean(records.map((r) => r.eras[r.candidateSeat]!)).toFixed(2)}, baseline ${mean(records.flatMap((r) => r.eras.filter((_, i) => i !== r.candidateSeat))).toFixed(2)}`);
   }
-  console.log(`bot turn, p95             ${percentile(timing.turnMs, 95).toFixed(1)} ms compute; ~${percentile(timing.liveSeconds, 95).toFixed(1)} s live with pacing`);
+  console.log(`bot turn, p95             ${percentile(timing.turnMs, 95).toFixed(1)} ms compute; ~${percentile(timing.liveSeconds, 95).toFixed(1)} s live with pacing (longest ~${timing.liveSeconds.reduce((a, b) => Math.max(a, b), 0).toFixed(1)} s)`);
   for (const mapId of MAP_IDS) {
     const rows = records.filter((r) => r.map === mapId);
     const wins = rows.filter((r) => r.winnerSeat === r.candidateSeat).length;

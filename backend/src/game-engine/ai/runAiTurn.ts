@@ -14,7 +14,7 @@
  */
 import { EMERGENCY_SEAL_ABILITY_ID, GALAXY_LANE_SEAL_DURATION, canSealLane, connectionRequiresMoonAccess, fortifyEndpointsRequireOrbitAccess, getOrbitAccessResult, isLaneSealedForPlayer, laneSealDuration, laneSealHelium3Cost, laneSealTick, syncLaunchPadLanes } from '../state/moonAccess';
 import { TARGETED_DRAFT_ABILITIES, TERRITORY_ABILITY_DEFS, getFortifyMoveLimit, getInfluenceUnitCost, isOwnedTerritoryAdjacentToEnemy, playerHasUnlockedAbility } from '../abilities/techAbilities';
-import { aiAttackExchangeBudget, runAiAttackExchanges, shouldPressDecidedGame } from './aiAttackGrind';
+import { aiAttackExchangeBudget, aiPressExchangeCeiling, runAiAttackExchanges, shouldContinuePress, shouldPressDecidedGame, shouldStartPress } from './aiAttackGrind';
 import { aiFiresLanePowers, canAiFireLanePower, selectAiLanceBatteryTarget, selectAiOrbitalMusterTarget, selectAiSealBreaker, selectAiSurgeProjector } from './aiLanePowers';
 import { appendWinProbabilitySnapshot, checkVictory, drawCard, findRedeemableCardIds, redeemCardSet, syncTerritoryCounts } from '../state/gameStateManager';
 import { applyBombElimination, selectAiAtomBombStrike } from './aiAtomBomb';
@@ -33,7 +33,8 @@ import { dailySiegeTarget } from '../daily/dailySiege';
 import { eliminatePlayer } from '../state/elimination';
 import { evaluateAiEraAdvancement } from './aiEraAdvancement';
 import { executeAdvanceEra } from '../eraAdvancement/advanceEra';
-import { executeLandAttack } from '../combat/executeLandAttack';
+import { combineExchanges } from '../combat/executeBlitzAttack';
+import { executeLandAttack, type LandAttackOutcome } from '../combat/executeLandAttack';
 import { executeTechAbility, isGameScopedAbility } from '../abilities/executeTechAbility';
 import { fortifyBecomesConvoy, launchConvoy } from '../state/transit';
 import { getDeployCap, onInfluenceStabilityPenalty } from '../state/stabilityManager';
@@ -60,6 +61,8 @@ export interface AiTurnFlags {
   captureOddsScoring: boolean;
   attackGrind: boolean;
   decidedGamePress: boolean;
+  /** ai_odds_press_enabled: press on the odds, and show each run as one result. Off when absent. */
+  oddsPress?: boolean;
 }
 
 /** How planning reaches the board: the view the bot may see, and the planner to run on it. */
@@ -91,7 +94,8 @@ export interface AiTurnHooks {
   surgeLanesClosed(): Promise<void>;
   recordCombat(
     defenderId: string | null,
-    result: { attacker_losses: number; defender_losses: number; territory_captured: boolean },
+    /** One exchange, or a run of them combined (`blitz_exchanges`) when pressing on the odds. */
+    result: { attacker_losses: number; defender_losses: number; territory_captured: boolean; blitz_exchanges?: number },
     options: { isSea?: boolean },
   ): void;
   recordElimination(): void;
@@ -102,6 +106,12 @@ export interface AiTurnPlan {
   /** Dice exchanges left this turn; spent across every attack. */
   attackBudget: { left: number };
   attackGrind: boolean;
+  /**
+   * Press on the odds (ai/aiAttackGrind.ts): start and continue each attack
+   * by the level's odds, within the budget as a ceiling, and show each run of
+   * exchanges as one combined result, as a player's Blitz is shown.
+   */
+  oddsPress?: boolean;
 }
 
 /** Plan the turn: the planner's ranked actions and the turn's attack budget. */
@@ -127,6 +137,10 @@ export async function planAiTurn(
     !!siege ||
     (flags.decidedGamePress &&
       shouldPressDecidedGame(state, currentPlayer.player_id, difficulty));
+  // Pressing on the odds builds on the grind. A daily challenge keeps the
+  // fixed budget: every player of a day meets the same opponent, so switching
+  // the flag mid-day must not change it, and its siege is tuned to that budget.
+  const oddsPress = !!flags.oddsPress && flags.attackGrind && !state.settings.daily_challenge_date;
 
   // The flags are threaded explicitly because planning may run in a worker
   // thread, where the admin-config override cache is not loaded.
@@ -134,18 +148,22 @@ export async function planAiTurn(
     captureOddsScoring: flags.captureOddsScoring,
     decidedGamePress: decidedPress,
     siege,
+    ...(oddsPress ? { oddsPress: true } : {}),
   });
 
   // Attack budget for the whole turn, spent in dice exchanges. The planner's
   // ranked candidate list is a priority order; this is what actually limits how
   // much fighting happens, so a turn that grinds one hard target does fewer
-  // separate attacks rather than more total exchanges.
+  // separate attacks rather than more total exchanges. Pressing on the odds,
+  // the odds decide and this is only the ceiling.
   const attackBudget = {
-    left: flags.attackGrind
-      ? aiAttackExchangeBudget(difficulty, decidedPress)
-      : Number.POSITIVE_INFINITY,
+    left: !flags.attackGrind
+      ? Number.POSITIVE_INFINITY
+      : oddsPress
+        ? aiPressExchangeCeiling(difficulty, decidedPress)
+        : aiAttackExchangeBudget(difficulty, decidedPress),
   };
-  return { actions, attackBudget, attackGrind: flags.attackGrind };
+  return { actions, attackBudget, attackGrind: flags.attackGrind, ...(oddsPress ? { oddsPress: true } : {}) };
 }
 
 /**
@@ -163,6 +181,7 @@ export async function playAiTurn(
   hooks: AiTurnHooks,
 ): Promise<'done' | 'over'> {
   const { actions, attackBudget: aiAttackBudget, attackGrind: aiAttackGrindEnabled } = plan;
+  const oddsPress = !!plan.oddsPress;
 
   // ── Draft Phase ────────────────────────────────────────────────────────
   if (resumeAt === 'draft') {
@@ -884,7 +903,9 @@ export async function playAiTurn(
       continue;
     }
 
-    await hooks.delay();
+    // Pressing on the odds, the pause comes after the odds check below, so an
+    // attack the bot no longer takes costs the table no wait.
+    if (!oddsPress) await hooks.delay();
     // Hoisted so the grind callback below closes over plain strings: TypeScript
     // cannot carry the narrowing from the `action.type` guard into an async
     // closure.
@@ -898,6 +919,12 @@ export async function playAiTurn(
     // executeLandAttack refuses them too, but a sea crossing below would already
     // have fought the defender's fleet.
     if (isShieldedFrom(state, currentPlayer.player_id, to.owner_id)) continue;
+    // Pressing on the odds: the live board decides, after earlier attacks have
+    // spent or moved units, and before a Seal Breaker charge or a fleet is spent.
+    if (oddsPress) {
+      if (!shouldStartPress(state, map, currentPlayer.player_id, attackFromId, attackToId, difficulty, action.pressValue)) continue;
+      await hooks.delay();
+    }
 
     const aiConnection = map.connections.find(
       (c) => (c.from === attackFromId && c.to === attackToId) || (c.from === attackToId && c.to === attackFromId),
@@ -974,6 +1001,11 @@ export async function playAiTurn(
     // Sea lanes are deliberately excluded: the crossing, its fleet losses and
     // its bombardment penalty are once-per-action, and repeating an exchange
     // would silently reuse them.
+    //
+    // Pressing on the odds, the run continues while the odds hold
+    // (shouldContinuePress) and is shown as one result once it ends, as a
+    // player's Blitz is: no pause between its exchanges, one after it.
+    const runExchanges: LandAttackOutcome[] = [];
     const grindOutcome = await runAiAttackExchanges({
       state,
       attackerId: currentPlayer.player_id,
@@ -981,7 +1013,13 @@ export async function playAiTurn(
       toId: attackToId,
       budget: aiAttackBudget,
       canGrind: aiAttackGrindEnabled && aiConnection?.type !== 'sea',
-      betweenExchanges: hooks.delay,
+      ...(oddsPress
+        ? {
+          continueCheck: (exchangesLeft: number) => shouldContinuePress(
+            state, map, currentPlayer.player_id, attackFromId, attackToId, exchangesLeft, difficulty,
+          ),
+        }
+        : { betweenExchanges: hooks.delay }),
       exchange: async (exchangeIndex) => {
         // A fresh scripted die per exchange — the queue is consumed, not reused.
         const aiPuzzleDieRoll = state.puzzle_dice_queue?.length ? createPuzzleDieRoll(state) : undefined;
@@ -1013,6 +1051,20 @@ export async function playAiTurn(
         });
         if (!aiOutcome) return 'stop';
         const result = aiOutcome.result;
+
+        if (oddsPress) {
+          // Announced with the rest of the run below. A capture ends the run
+          // (shouldContinuePress), and only a capture can end the game, so the
+          // victory check after the run comes right after the deciding exchange.
+          if (result.error) {
+            console.warn?.('AI attempted invalid combat:', result.error, { from: from.unit_count, to: to.unit_count });
+            return 'stop';
+          }
+          recordMarchToSeaResult(currentPlayer, aiMarchToSeaBonus > 0, attackToId, result.territory_captured);
+          syncTerritoryCounts(state);
+          runExchanges.push(aiOutcome);
+          return 'ok';
+        }
 
         attachCombatAbilityCallouts(
           result,
@@ -1073,6 +1125,60 @@ export async function playAiTurn(
       },
     });
     if (grindOutcome.aborted) return 'over';
+    if (runExchanges.length > 0) {
+      // The run as one result: its totals, its rolls exchange by exchange, and
+      // the callouts of the buffs its first exchange spent.
+      const first = runExchanges[0]!;
+      const last = runExchanges[runExchanges.length - 1]!;
+      const result = runExchanges.length === 1
+        ? last.result
+        : combineExchanges(state, currentPlayer.player_id, attackToId, runExchanges);
+      attachCombatAbilityCallouts(
+        result,
+        buildCombatAbilityCallouts({
+          state,
+          attackerId: currentPlayer.player_id,
+          toId: attackToId,
+          attackBuffs: first.attackBuffs,
+          abilityUses: currentPlayer.ability_uses,
+          rawAttackerLosses: first.rawAttackerLosses,
+        }),
+      );
+      hooks.recordCombat(aiDefenderId ?? null, result, {
+        isSea: aiConnection?.type === 'sea',
+      });
+      if (last.defenderEliminated) {
+        const defenderPlayer = state.players.find((p) => p.player_id === aiDefenderId);
+        if (defenderPlayer) {
+          hooks.recordElimination();
+          hooks.emit('game:player_eliminated', {
+            playerId: aiDefenderId,
+            eliminatorId: currentPlayer.player_id,
+            eliminatorName: currentPlayer.username,
+            eliminatedName: defenderPlayer.username,
+            secretMission: defenderPlayer.secret_mission ?? null,
+          });
+        }
+      }
+      hooks.emit('game:combat_result', { fromId: attackFromId, toId: attackToId, result });
+      hooks.visual(buildCombatMapVisual({
+        fromId: attackFromId,
+        toId: attackToId,
+        attackerId: currentPlayer.player_id,
+        defenderId: aiDefenderId,
+        attackerLosses: result.attacker_losses,
+        defenderLosses: result.defender_losses,
+        territoryCaptured: result.territory_captured,
+        state,
+      }));
+      hooks.broadcast();
+      if (result.territory_captured) await hooks.afterCapture();
+      if (await hooks.victoryCheck()) return 'over';
+      if (result.territory_captured) {
+        const defP = state.players.find((p) => p.player_id === aiDefenderId);
+        if (defP?.is_eliminated) appendWinProbabilitySnapshot(state);
+      }
+    }
     if (aiAttackGrindEnabled && aiAttackBudget.left <= 0) break;
   }
   } // resumeAt !== 'fortify'
