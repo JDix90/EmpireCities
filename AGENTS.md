@@ -32,7 +32,10 @@ nothing.
   for a fixed stand-in, plus a breakdown of how each side won. `SIM_HANDICAP=1`
   applies each stage's starting-unit modifier as the route does; `SIM_STAGES`
   narrows the sweep; the `SIM_DIFFICULTY` / `SIM_AI_COUNT` / `SIM_CLOCK` family
-  asks "what if" without editing `campaignPaths.ts`.
+  asks "what if" without editing `campaignPaths.ts`. Every seat plays the live
+  bot turn (`ai/runAiTurn.ts`); `SIM_AI_FLAGS` sets the stage AI's flags and
+  `SIM_STANDIN_FLAGS` the stand-in's, so an AI flag is measured against a
+  stand-in that does not move. Each stage prints a digest, as the arena does.
 - `pnpm exec tsx scripts/simAiArena.ts` — bots against bots: one candidate
   seat against baseline seats, each side its own difficulty, AI flags
   (`ARENA_*_FLAGS`) and settings over its level's row in `AI_PROFILES`
