@@ -13,7 +13,7 @@
  * include everyone.
  */
 import { query, queryOne } from '../db/postgres';
-import { countedEventSql } from './statsExclusion';
+import { countedEventSql, countedGameSql } from './statsExclusion';
 import {
   classifyAcquisitionSource,
   CHANNEL_ORDER,
@@ -85,6 +85,35 @@ export interface FirstMatchStats {
   next_day: number;
 }
 
+/**
+ * Where a solo game came from, read from its settings. `other` is a Quick
+ * Match or a custom lobby.
+ */
+export type SoloGameMode = 'tutorial' | 'first_match' | 'campaign' | 'daily' | 'other';
+
+/** Bot levels, lowest first: the order the solo table sorts and ranks them by. */
+export const SOLO_LEVELS = ['tutorial', 'easy', 'medium', 'hard', 'expert'] as const;
+
+/**
+ * Games with one human and at least one bot, started in the window, by where
+ * they came from and the game's bot level (its highest bot; a bot with no
+ * level plays medium). Finished games are `completed`; `capped` is the part of
+ * them the round cap decided, and `median_rounds` is over the finished games.
+ */
+export interface SoloLevelRow {
+  mode: SoloGameMode;
+  level: (typeof SOLO_LEVELS)[number];
+  started: number;
+  finished: number;
+  /** Finished with the human as the winner. */
+  won: number;
+  abandoned: number;
+  /** Still in progress. */
+  running: number;
+  capped: number;
+  median_rounds: number | null;
+}
+
 export interface EventVolumeRow {
   event: string;
   n: number;
@@ -138,6 +167,8 @@ export interface AnalyticsReport {
   tutorial: TutorialCohortRow[];
   completion: CompletionStats;
   first_match: FirstMatchStats;
+  /** Solo games by mode and bot level: how often each level is finished, won and capped. */
+  solo_by_level: SoloLevelRow[];
   acquisition: AcquisitionRow[];
   acquisition_channels: AcquisitionChannelRow[];
   volume: EventVolumeRow[];
@@ -413,6 +444,82 @@ export async function getFirstMatchStats(days: number): Promise<FirstMatchStats>
   };
 }
 
+const SOLO_MODE_ORDER: readonly SoloGameMode[] = ['tutorial', 'first_match', 'campaign', 'daily', 'other'];
+
+/**
+ * Solo games started in the window by mode and bot level. The games table
+ * gives the seats, status and winner for every game, history included; the
+ * round count and the ending come from the game's `game_finished` event.
+ * `onlyGameIds` limits it to those games, for a test on a shared database.
+ */
+export async function getSoloGamesByLevel(
+  days: number,
+  onlyGameIds?: readonly string[],
+): Promise<SoloLevelRow[]> {
+  const rank = SOLO_LEVELS.map((level, i) => `WHEN '${level}' THEN ${i}`).join(' ');
+  const rows = await query<Record<string, unknown>>(
+    `WITH solo AS (
+       SELECT g.game_id, g.status, g.winner_id, seats.human_id, seats.level_rank,
+         CASE
+           WHEN COALESCE((g.settings_json->>'tutorial')::boolean, false) THEN 'tutorial'
+           WHEN COALESCE((g.settings_json->>'first_match')::boolean, false) THEN 'first_match'
+           WHEN COALESCE((g.settings_json->>'is_campaign')::boolean, false) THEN 'campaign'
+           WHEN COALESCE(g.settings_json->>'daily_challenge_date', '') <> '' THEN 'daily'
+           ELSE 'other'
+         END AS mode
+       FROM games g
+       JOIN LATERAL (
+         SELECT
+           MAX(gp.user_id::text) FILTER (WHERE NOT gp.is_ai) AS human_id,
+           MAX(CASE gp.ai_difficulty ${rank} ELSE ${SOLO_LEVELS.indexOf('medium')} END) FILTER (WHERE gp.is_ai) AS level_rank,
+           COUNT(*) FILTER (WHERE NOT gp.is_ai) AS humans,
+           COUNT(*) FILTER (WHERE gp.is_ai) AS bots
+         FROM game_players gp
+         WHERE gp.game_id = g.game_id
+       ) seats ON seats.humans = 1 AND seats.bots > 0
+       WHERE g.started_at >= NOW() - make_interval(days => $1::int)
+         AND ${countedGameSql('g')}
+         ${onlyGameIds ? 'AND g.game_id = ANY($2::uuid[])' : ''}
+     ),
+     finished AS (
+       SELECT DISTINCT ON (properties->>'game_id')
+         properties->>'game_id' AS game_id,
+         properties->>'victory_type' AS victory_type,
+         (properties->>'turn_count')::int AS rounds
+       FROM analytics_events
+       WHERE event = 'game_finished' AND created_at >= NOW() - make_interval(days => $1::int)
+       ORDER BY properties->>'game_id', created_at
+     )
+     SELECT s.mode, s.level_rank,
+       COUNT(*)::int AS started,
+       COUNT(*) FILTER (WHERE s.status = 'completed')::int AS finished,
+       COUNT(*) FILTER (WHERE s.status = 'completed' AND s.winner_id::text = s.human_id)::int AS won,
+       COUNT(*) FILTER (WHERE s.status = 'abandoned')::int AS abandoned,
+       COUNT(*) FILTER (WHERE s.status = 'in_progress')::int AS running,
+       COUNT(*) FILTER (WHERE s.status = 'completed' AND f.victory_type = 'turn_limit')::int AS capped,
+       percentile_disc(0.5) WITHIN GROUP (ORDER BY f.rounds) FILTER (WHERE s.status = 'completed') AS median_rounds
+     FROM solo s
+     LEFT JOIN finished f ON f.game_id = s.game_id::text
+     GROUP BY s.mode, s.level_rank`,
+    onlyGameIds ? [days, onlyGameIds] : [days],
+  );
+  return rows
+    .map((r) => ({
+      mode: (SOLO_MODE_ORDER as readonly string[]).includes(String(r.mode)) ? (r.mode as SoloGameMode) : 'other',
+      level: SOLO_LEVELS[num(r.level_rank)] ?? 'medium',
+      started: num(r.started),
+      finished: num(r.finished),
+      won: num(r.won),
+      abandoned: num(r.abandoned),
+      running: num(r.running),
+      capped: num(r.capped),
+      median_rounds: numOrNull(r.median_rounds),
+    }))
+    .sort((a, b) =>
+      SOLO_MODE_ORDER.indexOf(a.mode) - SOLO_MODE_ORDER.indexOf(b.mode)
+      || SOLO_LEVELS.indexOf(a.level) - SOLO_LEVELS.indexOf(b.level));
+}
+
 /** Raw event histogram in the trailing window. */
 export async function getEventVolume(days: number): Promise<EventVolumeRow[]> {
   const rows = await query<Record<string, unknown>>(
@@ -543,7 +650,7 @@ export async function getAnalyticsReport(days: number): Promise<AnalyticsReport>
   // NOTE: the section queries share one mocked `query` in the unit test, which
   // matches them positionally — a new section goes on the END of this list so
   // it cannot shift the mocks of the ones above it.
-  const [visitors, funnel, retention, retentionByCohort, completion, acquisition, volume, tutorial, totalRow, firstMatch] = await Promise.all([
+  const [visitors, funnel, retention, retentionByCohort, completion, acquisition, volume, tutorial, totalRow, firstMatch, soloByLevel] = await Promise.all([
     getVisitorFunnel(days),
     getFunnelMetrics(days),
     getRetentionMetrics(),
@@ -554,6 +661,7 @@ export async function getAnalyticsReport(days: number): Promise<AnalyticsReport>
     getTutorialFunnel(days),
     queryOne<{ total: number }>(`SELECT COUNT(*)::int AS total FROM analytics_events`),
     getFirstMatchStats(days),
+    getSoloGamesByLevel(days),
   ]);
   return {
     window_days: days,
@@ -565,6 +673,7 @@ export async function getAnalyticsReport(days: number): Promise<AnalyticsReport>
     tutorial,
     completion,
     first_match: firstMatch,
+    solo_by_level: soloByLevel,
     acquisition,
     acquisition_channels: foldAcquisitionByChannel(acquisition),
     volume,

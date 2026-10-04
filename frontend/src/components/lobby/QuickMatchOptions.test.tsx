@@ -53,7 +53,7 @@ describe('QuickMatchOptions', () => {
     render(
       <QuickMatchOptions prefs={{ aiCount: 3, aiDifficulty: 'expert', victory: 'majority' }} onChange={vi.fn()} onStart={vi.fn()} starting={false} />,
     );
-    expect(screen.getByText(/Ruthless/)).toBeInTheDocument();
+    expect(screen.getByText(/Plays like Hard/)).toBeInTheDocument();
   });
 
   it('renders every win condition with the current one pressed', () => {

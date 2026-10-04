@@ -4511,6 +4511,9 @@ async function startWaitingGameLocked(io: Server, gameId: string): Promise<Start
     map_id: state.map_id,
     human_count: humanCount,
     ai_count: aiPlayerCount,
+    // The game's bot level, the highest among its bots (null with none), so a
+    // start can be read against its finish, or its absence, by level.
+    ai_difficulty: gameAiDifficulty(state.players),
     game_type: gameType,
     is_ranked: !!game.is_ranked,
     is_tutorial: !!state.settings.tutorial,
@@ -5476,6 +5479,11 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
         // targets) and measure guest finish → upgrade conversion.
         is_guest: resultCtx.guestPlayerIds.has(human.player_id),
         first_match: state.settings.first_match === true,
+        // Which bots the game was against: 'turn_limit' in victory_type is a
+        // game the round cap decided.
+        ai_difficulty: gameAiDifficulty(state.players),
+        ai_count: state.players.filter((p) => p.is_ai).length,
+        max_turns: state.settings.max_turns ?? null,
       },
       human.player_id,
     );
