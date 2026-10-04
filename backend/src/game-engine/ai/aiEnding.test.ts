@@ -191,13 +191,17 @@ describe('racing the ending', () => {
     expect(off.attackBudget.left).toBe(aiPressExchangeCeiling('hard', false));
   });
 
-  it('never in a daily challenge', async () => {
-    const s = board({ ai: 11, leader: 5, other: 4 });
-    s.settings.daily_challenge_date = '2026-10-04';
+  it('never in a daily challenge or a campaign stage', async () => {
+    const daily = board({ ai: 11, leader: 5, other: 4 });
+    daily.settings.daily_challenge_date = '2026-10-04';
+    const campaign = board({ ai: 11, leader: 5, other: 4 });
+    campaign.settings.is_campaign = true;
     const flags = { captureOddsScoring: true, attackGrind: true, decidedGamePress: false, endingPlay: true };
-    const hooks = { planningState: () => s, plan: async (st: GameState, m: GameMap, d: AiDifficulty) => computeAiTurn(st, m, d) };
-    const plan = await planAiTurn(s, map(), s.players[0]!, 'hard', flags, hooks);
-    expect(plan.attackBudget.left).toBe(8);
+    for (const s of [daily, campaign]) {
+      const hooks = { planningState: () => s, plan: async (st: GameState, m: GameMap, d: AiDifficulty) => computeAiTurn(st, m, d) };
+      const plan = await planAiTurn(s, map(), s.players[0]!, 'hard', flags, hooks);
+      expect(plan.attackBudget.left).toBe(8);
+    }
   });
 });
 

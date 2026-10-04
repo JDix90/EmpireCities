@@ -52,7 +52,7 @@ import { syncJumpGateLanes } from '../state/jumpGates';
 import { syncSurgeProjectorLanes } from '../state/surgeProjector';
 import { unlockTerritoriesForFloor } from '../eraAdvancement/territoryUnlock';
 import type { AiAction, AiTurnOptions } from './aiBot';
-import { aiProfile, type AiLevel } from './aiProfiles';
+import { aiProfile, keepsTodaysBots, type AiLevel } from './aiProfiles';
 import { influencePayers } from './aiInfluence';
 import type { EraId, GameMap, GameState, PlayerState } from '../../types';
 import type { MapVisualEventPayload } from '../visuals/mapVisualEvents';
@@ -163,18 +163,19 @@ export async function planAiTurn(
   const siege = dailySiegeTarget(state);
   // Racing its own ending, a bot presses as it would a decided game: the
   // tiles it needs are worth the doubled budget and the lifted attack cap.
-  // Read from the authoritative state, as the decided-game press is.
-  const endingPlay = !!flags.endingPlay && !state.settings.daily_challenge_date;
+  // Read from the authoritative state, as the decided-game press is. Daily
+  // challenges and campaign stages keep today's bots (keepsTodaysBots).
+  const endingPlay = !!flags.endingPlay && !keepsTodaysBots(state.settings);
   const racing = endingPlay && endingPlan(state, currentPlayer.player_id, difficulty).racing;
   const decidedPress =
     !!siege ||
     racing ||
     (flags.decidedGamePress &&
       shouldPressDecidedGame(state, currentPlayer.player_id, difficulty));
-  // Pressing on the odds builds on the grind. A daily challenge keeps the
-  // fixed budget: every player of a day meets the same opponent, so switching
-  // the flag mid-day must not change it, and its siege is tuned to that budget.
-  const oddsPress = !!flags.oddsPress && flags.attackGrind && !state.settings.daily_challenge_date;
+  // Pressing on the odds builds on the grind, and planned reinforcements on
+  // it. Daily challenges and campaign stages keep the fixed budget and
+  // today's draft (keepsTodaysBots).
+  const oddsPress = !!flags.oddsPress && flags.attackGrind && !keepsTodaysBots(state.settings);
 
   // The flags are threaded explicitly because planning may run in a worker
   // thread, where the admin-config override cache is not loaded.

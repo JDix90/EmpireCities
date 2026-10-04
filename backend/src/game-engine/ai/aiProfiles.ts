@@ -15,7 +15,7 @@
  * Feature flags decide which capabilities exist; the profile decides how each
  * level uses them.
  */
-import type { AiDifficulty } from '../../types';
+import type { AiDifficulty, GameSettings } from '../../types';
 
 /**
  * What a bot builds (economy games):
@@ -401,4 +401,19 @@ export function gameAiDifficulty(players: readonly Seat[]): AiDifficulty | null 
  */
 export function seatAiDifficulty(players: readonly Seat[], seat: Seat): AiDifficulty {
   return seat.ai_difficulty ?? gameAiDifficulty(players) ?? 'medium';
+}
+
+/**
+ * Whether a game's bots stay today's bots whatever the newer AI flags say
+ * (ai_odds_press_enabled, ai_planned_reinforcements_enabled,
+ * ai_ending_play_enabled, ai_resignation_enabled):
+ *   - a daily challenge: every player of a day meets the same opponent, so
+ *     switching a flag mid-day must not change it, and its siege is tuned to
+ *     today's budget;
+ *   - a campaign stage: each stage is tuned against today's bots, and the
+ *     newer flags made most of them far harder (scripts/simCampaignStages.ts:
+ *     the stand-in's mean win rate over the 18 stages fell from 24% to 9%).
+ */
+export function keepsTodaysBots(settings: Pick<GameSettings, 'daily_challenge_date' | 'is_campaign'>): boolean {
+  return !!settings.daily_challenge_date || !!settings.is_campaign;
 }

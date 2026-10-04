@@ -186,14 +186,16 @@ describe('never', () => {
     expect(resignsWithin(s, 5)).toBe(false);
   });
 
-  it('in a daily challenge, a tutorial, or a secret-mission game', () => {
+  it('in a daily challenge, a campaign stage, a tutorial, or a secret-mission game', () => {
     const daily = beaten();
     daily.settings.daily_challenge_date = '2026-10-04';
+    const campaign = beaten();
+    campaign.settings.is_campaign = true;
     const tutorial = beaten();
     tutorial.settings.tutorial = true;
     const missions = beaten();
     missions.settings.allowed_victory_conditions = ['secret_mission'];
-    for (const s of [daily, tutorial, missions]) {
+    for (const s of [daily, campaign, tutorial, missions]) {
       expect(resignationAllowed(s)).toBe(false);
       expect(resignsWithin(s, 5)).toBe(false);
     }

@@ -50,6 +50,11 @@
  *                         seat, so it never resigns.
  *   SIM_AI_PROFILE      JSON object of AiProfile fields that replace the
  *                         stage's difficulty row for its AI, on every stage.
+ *
+ * Campaign games keep today's bots (ai/aiProfiles.ts keepsTodaysBots), so
+ * the newer AI flags (oddsPress, plannedDraft, endingPlay, resignation) do
+ * nothing here, as in the live game. What they would do to each stage is
+ * measured in PR #548; lifting that rule is the step before measuring again.
  */
 import { readFileSync } from 'fs';
 import { join } from 'path';

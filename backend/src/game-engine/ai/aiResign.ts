@@ -26,7 +26,8 @@
  * reading land and armies alone resigned a future winner one time in nine.
  *
  * Never where a resignation would change what a player is playing for:
- *   - a daily challenge: every player of a day meets the same opponent;
+ *   - a daily challenge or a campaign stage, whose bots stay today's
+ *     (aiProfiles.ts keepsTodaysBots);
  *   - a tutorial, whose bot is part of the lesson;
  *   - a team game, where it would abandon a teammate;
  *   - a game with secret missions: a mission to eliminate a seat fails for
@@ -40,7 +41,7 @@ import { getAllowedVictoryConditions } from '../state/gameSettings';
 import { resignSeat } from '../state/resignation';
 import { isTeamGame } from '../state/teams';
 import { winStandings } from './aiEnding';
-import { aiProfile, type AiLevel } from './aiProfiles';
+import { aiProfile, keepsTodaysBots, type AiLevel } from './aiProfiles';
 
 /** No bot is beaten before this round: the opening's swings are too large to call. */
 export const BEATEN_FROM_ROUND = 10;
@@ -87,7 +88,7 @@ export function isBeaten(state: GameState, playerId: string): boolean {
 /** Whether this game lets a bot resign at all. */
 export function resignationAllowed(state: GameState): boolean {
   const settings = state.settings;
-  if (settings.daily_challenge_date || settings.tutorial) return false;
+  if (keepsTodaysBots(settings) || settings.tutorial) return false;
   if (isTeamGame(state)) return false;
   return !getAllowedVictoryConditions(settings).includes('secret_mission');
 }

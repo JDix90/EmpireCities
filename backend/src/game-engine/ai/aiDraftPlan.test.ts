@@ -133,7 +133,7 @@ function plan(difficulty: AiDifficulty, s: GameState, m: GameMap): Promise<AiTur
 }
 
 describe('the turn', () => {
-  it('chooses again only with both flags on, and never in a daily', async () => {
+  it('chooses again only with both flags on, and never in a daily or a campaign stage', async () => {
     const s = board({});
     const m = map();
     const flags = { captureOddsScoring: true, attackGrind: true, decidedGamePress: false };
@@ -141,6 +141,9 @@ describe('the turn', () => {
     expect((await planAiTurn(s, m, s.players[0]!, 'hard', { ...flags, oddsPress: true, plannedDraft: true }, hooks)).replan).toBeDefined();
     expect((await planAiTurn(s, m, s.players[0]!, 'hard', { ...flags, oddsPress: false, plannedDraft: true }, hooks)).replan).toBeUndefined();
     expect((await planAiTurn(s, m, s.players[0]!, 'hard', { ...flags, oddsPress: true, plannedDraft: false }, hooks)).replan).toBeUndefined();
+    s.settings.is_campaign = true;
+    expect((await planAiTurn(s, m, s.players[0]!, 'hard', { ...flags, oddsPress: true, plannedDraft: true }, hooks)).replan).toBeUndefined();
+    s.settings.is_campaign = false;
     s.settings.daily_challenge_date = '2026-10-04';
     expect((await planAiTurn(s, m, s.players[0]!, 'hard', { ...flags, oddsPress: true, plannedDraft: true }, hooks)).replan).toBeUndefined();
   });
