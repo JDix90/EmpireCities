@@ -493,8 +493,10 @@ export const featureFlags = {
    * a rival down to its last tiles to hunt. Captures that advance it are
    * worth more, the draft stages beside it and the fortify move heads for
    * it. Chosen again every turn from what the seat may see; the goal it holds
-   * only wins a near tie. Never in daily challenges, campaign stages or team
-   * games, and never for an away human seat. Default OFF until measured live.
+   * only wins a near tie. After each bot turn the room gets its digest
+   * (ai/aiTurnDigest.ts, `game:ai_turn_digest`), with the goal below Expert.
+   * Never in daily challenges, campaign stages or team games, and never for
+   * an away human seat. Default OFF until measured live.
    */
   get aiIntentsEnabled(): boolean {
     return overrideBool('ai_intents_enabled');

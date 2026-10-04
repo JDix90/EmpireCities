@@ -105,9 +105,10 @@ import type { BuildingType } from '../types';
 import { runAiWithTimeout } from '../game-engine/ai/runAiWithTimeout';
 import { planAiTurn, playAiTurn, type AiTurnFlags } from '../game-engine/ai/runAiTurn';
 import { resignIfBeaten, victoryAfterResignation } from '../game-engine/ai/aiResign';
+import { buildAiTurnDigest, snapshotForDigest } from '../game-engine/ai/aiTurnDigest';
 import { resignSeat } from '../game-engine/state/resignation';
 import { acceptSurrender, surrenderOffered } from '../game-engine/victory/surrender';
-import { aiProfile, gameAiDifficulty, seatAiDifficulty } from '../game-engine/ai/aiProfiles';
+import { aiProfile, gameAiDifficulty, keepsTodaysBots, seatAiDifficulty } from '../game-engine/ai/aiProfiles';
 import { recordGameResults, computeRanks, redactGuestRatings } from '../game-engine/state/statsManager';
 import { checkAndUnlockAchievements } from '../game-engine/achievements/achievementService';
 import { pgPool } from '../db/postgres';
@@ -6099,6 +6100,13 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     ? state.phase
     : 'draft';
 
+  // The digest of a bot's turn (ai/aiTurnDigest.ts) compares the board after
+  // it with the board now. Bots only, with ai_intents_enabled, and never where
+  // the game keeps today's bots.
+  const digestFrom = aiPlan && aiFlags.intents && currentPlayer.is_ai && !keepsTodaysBots(state.settings)
+    ? snapshotForDigest(state)
+    : null;
+
   // The turn itself (game-engine/ai/runAiTurn.ts), shared with the harnesses.
   // Everything the live game does around the rules arrives as a hook.
   const outcome = aiPlan && await playAiTurn(state, map, currentPlayer, difficulty, aiPlan, resumeAt, {
@@ -6126,6 +6134,10 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     recordElimination: () => recordElimination(gameId, currentPlayer.player_id),
   });
   if (outcome === 'over') return;
+  // Before the hand-off's broadcast, so a client words the turn as it closes.
+  if (digestFrom) {
+    io.to(gameId).emit('game:ai_turn_digest', buildAiTurnDigest(digestFrom, state, map, currentPlayer, difficulty));
+  }
 
   // ── End Turn ───────────────────────────────────────────────────────────
   advanceToNextPlayer(state, map);

@@ -52,6 +52,7 @@ describe('AI_PROFILES holds the values the constants and branches held', () => {
     // New with ai_intents_enabled, read only with it on.
     intentBonus: [0, 0, 1, 1, 1],
     intentStickiness: [0, 0, 0.25, 0.25, 0.25],
+    announcesIntent: [false, true, true, true, false],
     build: ['none', 'gate_only', 'greedy', 'threat', 'threat'],
     research: ['none', 'gate_only', 'cheapest', 'strategic', 'strategic'],
     doctrinesPerTurn: [0, 0, 1, 2, 2],

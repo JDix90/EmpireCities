@@ -27,6 +27,24 @@ describe('appendRecap', () => {
   it('skips quiet turns with no battles', () => {
     expect(appendRecap([], entry('AI 1', []))).toEqual([]);
   });
+
+  it('keeps a turn with no battles that its digest reports, such as a region taken by influence', () => {
+    const list = appendRecap([], { ...entry('AI 1', []), digestLine: 'Took The West' });
+    expect(list.map((r) => r.digestLine)).toEqual(['Took The West']);
+  });
+});
+
+describe('the digest line', () => {
+  it('shows under the bot\'s row once the panel is open', () => {
+    render(
+      <AiTurnRecapPanel
+        recaps={[{ ...entry('Rome', [combat({ territory_captured: true })]), digestLine: 'Took The West \u00b7 Pushing into Gaul' }]}
+        onDismiss={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /while you were away/i }));
+    expect(screen.getByText('Took The West \u00b7 Pushing into Gaul')).toBeTruthy();
+  });
 });
 
 describe('summarizeRecap', () => {

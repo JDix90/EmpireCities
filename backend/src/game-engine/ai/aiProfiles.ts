@@ -165,6 +165,11 @@ export interface AiProfile {
   intentBonus: number;
   /** How much the goal it holds is lifted when goals are scored again: a tie-breaker. */
   intentStickiness: number;
+  /**
+   * Names its goal in the digest of its turn (ai/aiTurnDigest.ts). A bot
+   * tells less as its level rises: Expert only reports what it did.
+   */
+  announcesIntent: boolean;
 
   // ── Economy ───────────────────────────────────────────────────────────────
   build: AiBuildMode;
@@ -220,6 +225,7 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     resignsWhenBeaten: false,
     intentBonus: 0,
     intentStickiness: 0,
+    announcesIntent: false,
     build: 'none',
     research: 'none',
     doctrinesPerTurn: 0,
@@ -257,6 +263,7 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     resignsWhenBeaten: true,
     intentBonus: 0,
     intentStickiness: 0,
+    announcesIntent: true,
     build: 'gate_only',
     research: 'gate_only',
     doctrinesPerTurn: 0,
@@ -294,6 +301,7 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     resignsWhenBeaten: true,
     intentBonus: 1,
     intentStickiness: 0.25,
+    announcesIntent: true,
     build: 'greedy',
     research: 'cheapest',
     doctrinesPerTurn: 1,
@@ -331,6 +339,7 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     resignsWhenBeaten: true,
     intentBonus: 1,
     intentStickiness: 0.25,
+    announcesIntent: true,
     build: 'threat',
     research: 'strategic',
     doctrinesPerTurn: 2,
@@ -372,6 +381,7 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     resignsWhenBeaten: true,
     intentBonus: 1,
     intentStickiness: 0.25,
+    announcesIntent: false,
     build: 'threat',
     research: 'strategic',
     doctrinesPerTurn: 2,

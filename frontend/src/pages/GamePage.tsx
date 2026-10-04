@@ -21,7 +21,8 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { useGameStore, CombatResult, type GameState as ClientGameState } from '../store/gameStore';
+import { useGameStore, CombatResult, type AiTurnDigest, type GameState as ClientGameState } from '../store/gameStore';
+import { describeAiTurnDigest, digestReportsAction } from '../utils/aiTurnDigest';
 import { useUiStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
 import { useFeatureFlagsStore, useFirstTurnCoachEnabled, useSignupNudgeEnabled, useAsyncOnboardingEnabled, useTurnClarityEnabled, useBackgroundMusicEnabled, useGalaxyTutorialEnabled } from '../store/featureFlagsStore';
@@ -1062,6 +1063,8 @@ export default function GamePage() {
   }, [gameId]);
   const pendingDraftSummaryRef = useRef<ClientGameState | null>(null);
   const otherTurnCombatsRef = useRef<CombatResult[]>([]);
+  /** The digest of the bot turn in progress (`game:ai_turn_digest`), for its recap row. */
+  const otherTurnDigestRef = useRef<AiTurnDigest | null>(null);
   const ownTurnCombatsRef = useRef<CombatResult[]>([]);
   const ownTurnReinforcementsRef = useRef<ReinforcementEntry[]>([]);
   const ownTurnFortificationsRef = useRef<FortifyEntry[]>([]);
@@ -1596,14 +1599,21 @@ export default function GamePage() {
           // "While you were away" panel instead of queued modals that
           // intercept input while the local player's clock runs.
           const combats = [...otherTurnCombatsRef.current];
+          // A bot's turn in one line, when it did something (ai_intents_enabled).
+          const digest = otherTurnDigestRef.current?.playerId === prevPlayer.player_id ? otherTurnDigestRef.current : null;
+          const digestLine = digest && (combats.length > 0 || digestReportsAction(digest))
+            ? describeAiTurnDigest(digest, myId, (id) => state.players.find((p) => p.player_id === id)?.username ?? 'a rival')
+            : null;
           setAiRecaps(prev => appendRecap(prev, {
             playerName: prevPlayer.username,
             playerColor: prevPlayer.color,
             turnNumber: state.turn_number,
             combats,
+            ...(digestLine ? { digestLine } : {}),
           }));
         }
         otherTurnCombatsRef.current = [];
+        otherTurnDigestRef.current = null;
       }
 
       // ── Phase change notification (own turn only, mid-turn) ──────────
@@ -2145,6 +2155,12 @@ export default function GamePage() {
       // with no dice). Two in a row: release the earlier one first.
       flushPendingElimination();
       pendingEliminationRef.current = { data: elData, timer: setTimeout(flushPendingElimination, 1500) };
+    });
+
+    // Sent once a bot's turn is played, before the state that hands it on, so
+    // the turn-change detection above finds it for that turn's recap row.
+    socket.on('game:ai_turn_digest', (digest: AiTurnDigest) => {
+      otherTurnDigestRef.current = digest;
     });
 
     socket.on('game:player_resigned', ({ playerName }: { playerId: string; playerName: string }) => {
@@ -2827,6 +2843,7 @@ export default function GamePage() {
         pendingEliminationRef.current = null;
       }
       socket.off('game:player_resigned');
+      socket.off('game:ai_turn_digest');
       socket.off('game:player_away');
       socket.off('game:player_returned');
       socket.off('game:build_result');

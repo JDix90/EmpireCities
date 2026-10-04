@@ -478,6 +478,26 @@ export interface GameState {
   blitzkrieg_bonus_source_id?: string | null;
 }
 
+/**
+ * The digest of a bot's turn (backend ai/aiTurnDigest.ts), sent to the room
+ * as `game:ai_turn_digest` once the turn is played and before it is handed on.
+ * Only who holds what, never a garrison's size.
+ */
+export interface AiTurnDigest {
+  playerId: string;
+  turnNumber: number;
+  /** Territories it took this turn, and from whom (null: neutral ground). */
+  taken: Array<{ territoryId: string; fromPlayerId: string | null }>;
+  /** Regions it completed this turn. */
+  regionsTaken: Array<{ regionId: string; name: string }>;
+  /** Rivals' whole regions it broke into this turn. */
+  regionsBroken: Array<{ regionId: string; name: string; fromPlayerId: string }>;
+  /** Players it knocked out this turn. */
+  eliminated: string[];
+  /** The goal it played this turn; Expert never tells it. */
+  goal?: { kind: 'take_region' | 'break_region' | 'hunt'; target: string; name: string };
+}
+
 export interface CombatResult {
   attacker_rolls: number[];
   defender_rolls: number[];

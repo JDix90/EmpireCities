@@ -27,7 +27,8 @@
  *
  * Never for a human seat the AI covers while its player is away, in team
  * games, or where the game keeps today's bots (ai/aiProfiles.ts
- * keepsTodaysBots).
+ * keepsTodaysBots). The goal is never sent to a client; the digest of the
+ * bot's turn (ai/aiTurnDigest.ts) names it, at levels that tell it.
  */
 import type { AiIntent, GameMap, GameState } from '../../types';
 import { scaleRegionBonus } from '../combat/combatResolver';
