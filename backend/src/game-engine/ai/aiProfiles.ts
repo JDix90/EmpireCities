@@ -129,8 +129,9 @@ export interface AiProfile {
   // Expert places by value, which makes it the clear top step; Medium and Hard
   // keep the plan's single tile and choose their attacks again once it lands.
   /**
-   * Territories a draft may be spread over; 0 keeps the plan's single tile,
-   * chosen before the turn's setup steps as today.
+   * Territories a draft may be spread over, more only once they are at their
+   * stability caps; 0 keeps the plan's single tile, chosen before the turn's
+   * setup steps as today.
    */
   draftTiles: number;
   /** Chooses its attacks again once its reinforcements have landed. */
@@ -340,7 +341,9 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     pressStartOdds: 0.35,
     pressContinueOdds: 0.35,
     pressExchangeCeiling: 40,
-    draftTiles: Number.POSITIVE_INFINITY,
+    // Measured in Quick Match duels against Hard, both on the newer flags:
+    // three tiles won 65% of 840, four 64%, six 59%, no limit 59%.
+    draftTiles: 3,
     replansAfterDraft: true,
     replansAfterCapture: true,
     // Measured: pressing the leader only stalled Expert tables (decided games

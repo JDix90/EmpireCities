@@ -15,9 +15,9 @@
  *   defence  the fall in the chance that the strongest rival stack beside the
  *            tile takes it next round.
  *
- * A level spreads its draft over at most `draftTiles` tiles (ai/aiProfiles.ts);
- * a level with none keeps the plan's single tile, and the turn never calls
- * this for it. Today only Expert has any: placing by value is strong enough
+ * A level spreads its draft over at most `draftTiles` tiles (ai/aiProfiles.ts),
+ * more only once those are at their stability caps; a level with none keeps
+ * the plan's single tile, and the turn never calls this for it. Today only Expert has any: placing by value is strong enough
  * to make Expert the clear top level on its own. Attacks are then chosen
  * again on the board as it stands after placement, at levels that do
  * (runAiTurn.ts).
@@ -178,11 +178,7 @@ export function allocateDraft(
     return [{ to: biggest, units }];
   }
 
-  const chunk = Math.max(1, Math.ceil(units / MAX_CHUNKS));
-  let left = units;
-  while (left > 0) {
-    const size = Math.min(chunk, left);
-    const open = placed.size >= Math.max(1, profile.draftTiles) ? [...placed.keys()] : candidates;
+  const best = (open: Iterable<string>, size: number): string | null => {
     let bestTid: string | null = null;
     let bestGain = -1;
     for (const tid of open) {
@@ -198,6 +194,18 @@ export function allocateDraft(
         bestTid = tid;
       }
     }
+    return bestTid;
+  };
+
+  const chunk = Math.max(1, Math.ceil(units / MAX_CHUNKS));
+  let left = units;
+  while (left > 0) {
+    const size = Math.min(chunk, left);
+    const full = placed.size >= Math.max(1, profile.draftTiles);
+    // Once the level's tiles are at their stability caps, open the next best
+    // one rather than leave the rest to the turn's fallback, which spreads
+    // them a unit at a time over every tile it holds.
+    const bestTid = best(full ? placed.keys() : candidates, size) ?? (full ? best(candidates, size) : null);
     if (!bestTid) break;
     const fits = Math.min(size, room(bestTid, placed.get(bestTid) ?? 0));
     placed.set(bestTid, (placed.get(bestTid) ?? 0) + fits);
