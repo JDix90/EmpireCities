@@ -45,10 +45,14 @@
  *   ARENA_BASELINE         baseline difficulty (default medium)
  *   ARENA_CANDIDATE_FLAGS  name=0|1 overrides of the live AI flags, comma-separated:
  *   ARENA_BASELINE_FLAGS     captureOddsScoring, attackGrind, decidedGamePress, oddsPress,
- *                            plannedDraft, endingPlay, resignation.
+ *                            plannedDraft, endingPlay, resignation, intents.
  *                            Unset flags take the live code default.
  *   ARENA_CANDIDATE_PROFILE  JSON object of AiProfile fields that replace the
  *   ARENA_BASELINE_PROFILE     difficulty's row for that side.
+ *   ARENA_CANDIDATE_STYLE    a commander's style for that side's seats
+ *   ARENA_BASELINE_STYLE       (ai/aiStyles.ts): conqueror, raider, expansionist,
+ *                            opportunist or defender; random to draw each game's
+ *                            commanders as a live game does; unset for none.
  *   ARENA_SEED             master seed (default borderfall-ai-arena)
  */
 import { readFileSync } from 'fs';
@@ -67,6 +71,8 @@ import {
 import { bakeCreateGameSettings, type CreateGameSettingsInput } from '../src/modules/games/createGameSettings';
 import { createSeededRng, hashStringToSeed } from '../src/game-engine/victory/missions';
 import { resignIfBeaten, victoryAfterResignation } from '../src/game-engine/ai/aiResign';
+import { styledLevel, type AiStyle } from '../src/game-engine/ai/aiStyles';
+import { AI_STYLES, drawAiCommanders } from '@borderfall/shared';
 import { aiLevelChanges, describeAiTurnFlags, handOff, parseAiLevel, parseAiTurnFlags, resolveChoiceCard } from './aiHarness';
 import { seedEngineRandomness, seededUuid } from './seededEngineRandomness';
 
@@ -89,14 +95,21 @@ interface Seat {
   /** What the turn is played at: the difficulty, or a profile over its row. */
   level: AiLevel;
   flags: AiTurnFlags;
+  /** A commander's style for the side's seats, `random` to draw them, or none. */
+  style?: AiStyle | 'random';
 }
 
 function seat(side: 'CANDIDATE' | 'BASELINE'): Seat {
   const d = difficulty(`ARENA_${side}`, process.env[`ARENA_${side}`], 'medium');
+  const style = process.env[`ARENA_${side}_STYLE`]?.trim();
+  if (style && style !== 'random' && !(AI_STYLES as readonly string[]).includes(style)) {
+    throw new Error(`ARENA_${side}_STYLE=${style}: expected random or one of ${AI_STYLES.join(', ')}`);
+  }
   return {
     difficulty: d,
     level: parseAiLevel(`ARENA_${side}_PROFILE`, d, process.env[`ARENA_${side}_PROFILE`]),
     flags: parseAiTurnFlags(`ARENA_${side}_FLAGS`, process.env[`ARENA_${side}_FLAGS`]),
+    ...(style ? { style: style as AiStyle | 'random' } : {}),
   };
 }
 const CANDIDATE = seat('CANDIDATE');
@@ -247,6 +260,9 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
   const candidateSeat = gameIndex % seatCount;
   const startSeat = Math.floor(gameIndex / seatCount) % seatCount;
   const seats: Seat[] = Array.from({ length: seatCount }, (_, i) => (i === candidateSeat ? CANDIDATE : BASELINE));
+  // Each seat's style this game: its side's, or drawn as a live game draws them.
+  const drawn = drawAiCommanders(tag, seats.map((_, i) => i));
+  const levels = seats.map((s, i) => styledLevel(s.level, s.style === 'random' ? drawn[i]!.style : s.style));
   const players = seats.map((seat, i) => ({
     player_id: `bot_${i}`,
     player_index: i,
@@ -301,7 +317,8 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
 
     resolveChoiceCard(state);
     // processAiTurn's opening: a beaten bot resigns before it plans.
-    if (resignIfBeaten(state, player, seat.level, seat.flags.resignation)) {
+    const level = levels[player.player_index]!;
+    if (resignIfBeaten(state, player, level, seat.flags.resignation)) {
       (record.resigned ??= zeros())[player.player_index] = state.turn_number;
       const victory = victoryAfterResignation(state, map);
       if (victory) {
@@ -312,13 +329,13 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
         break;
       }
     } else {
-      const plan = await planAiTurn(state, map, player, seat.level, seat.flags, {
+      const plan = await planAiTurn(state, map, player, level, seat.flags, {
         planningState: () => state,
         plan: async (s, m, d, o) => computeAiTurn(s, m, d, { ...o, rng: jitter }),
         rng: jitter,
       });
       const goal = player.player_index === candidateSeat ? player.ai_intent : undefined;
-      const outcome = await playAiTurn(state, map, player, seat.level, plan, 'draft', hooks);
+      const outcome = await playAiTurn(state, map, player, level, plan, 'draft', hooks);
       record.turns[player.player_index]! += 1;
       if (goal) {
         const tally = (record.intents ??= {
@@ -385,7 +402,7 @@ function digest(records: GameRecord[]): string {
 }
 
 function describe(seat: Seat): string {
-  const changed = aiLevelChanges(seat.difficulty, seat.level);
+  const changed = [...aiLevelChanges(seat.difficulty, seat.level), ...(seat.style ? [`style=${seat.style}`] : [])];
   return `${seat.difficulty}${changed.length ? ` with ${changed.join(', ')}` : ''} [${describeAiTurnFlags(seat.flags)}]`;
 }
 

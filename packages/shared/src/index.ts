@@ -47,6 +47,19 @@ export {
   markerLook,
 } from './cosmetics';
 
+export {
+  type AiCommander,
+  type AiStyle,
+  type DrawnCommander,
+  AI_COMMANDERS,
+  AI_STYLES,
+  AI_STYLE_LABELS,
+  USUAL_STYLE_CHANCE,
+  aiCommanderName,
+  aiDifficultyPlaysStyle,
+  drawAiCommanders,
+} from './commanders';
+
 /**
  * AI opponent display names. A hand-picked, multicultural roster of commander
  * personas instead of auto-numbered "AI Bot 3", so AI players read as

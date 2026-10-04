@@ -127,6 +127,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Medium, Hard and Expert bots pick a goal as each turn opens and play toward it across turns: a region they already have a foothold in, a rival\u2019s whole region to break, or a rival down to its last three territories to knock out. Captures that advance the goal count for more, and to take a region or finish a rival they also place reinforcements and move troops beside it. The goal is chosen again every turn from what the bot can see, so it drops one that has turned bad. Each bot turn gets one line in the turn recap: the regions it took or broke, who it knocked out, and, below Expert, the goal it is playing toward. Easy and the tutorial bot are unchanged, and so are daily challenges, campaign games and team games. Off by default while it is tried.',
   },
   {
+    key: 'ai_personalities_enabled',
+    label: 'Bot commanders and styles',
+    description:
+      'Each bot in a new game is a named commander, drawn from thirty, who plays one of five styles: Conqueror, Raider, Expansionist, Opportunist or Defender. A commander usually plays the same style, and sometimes another. The lobby and the seats show who you face. Styles change how a bot plays, not how strong it is: each was tuned to stay within five points of its level. Medium and up play a style; Easy bots only take a name. Needs "AI plays toward a goal" on, and does nothing without it, since a style plays out mostly through the bots\u2019 goals. Never in daily challenges or campaign games. Off by default while it is tried.',
+  },
+  {
     key: 'surrender_offers_enabled',
     label: 'Accept the bots\u2019 surrender',
     description:

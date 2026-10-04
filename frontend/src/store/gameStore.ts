@@ -1,7 +1,7 @@
 import type { TutorialLessonModule } from '../tutorial/types';
 import { create } from 'zustand';
 import type { PublicDailyPuzzleV2 } from '../utils/dailyPuzzleV2';
-import type { GamePhase, PlayerCosmetics, WorldModifiers, WorldRules } from '@borderfall/shared';
+import type { AiStyle, GamePhase, PlayerCosmetics, WorldModifiers, WorldRules } from '@borderfall/shared';
 import { useUiStore } from './uiStore';
 
 /**
@@ -67,6 +67,8 @@ export interface PlayerState {
   color: string;
   is_ai: boolean;
   ai_difficulty?: string | null;
+  /** A bot commander's style this game (ai_personalities_enabled); absent otherwise. */
+  ai_style?: AiStyle;
   /** Disconnected human whose turns the AI is temporarily covering (reclaimable on return). */
   is_away?: boolean;
   is_eliminated: boolean;
