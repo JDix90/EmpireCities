@@ -5,7 +5,8 @@
  * branches across the planner, the attack budget, era advancement, research,
  * building, the lane powers, the worker budget, territory picks and ratings.
  * Each of those now reads its level's row here, and the values are the ones
- * those constants and branches held, unchanged.
+ * those constants and branches held, unchanged. The press settings are new,
+ * and read only with ai_odds_press_enabled on.
  *
  * Every function that takes a difficulty also takes a profile (AiLevel), so a
  * harness can seat a bot whose settings differ from its level's row
@@ -104,6 +105,39 @@ export interface AiProfile {
   /** Spreads influence where its era grants it. */
   influence: boolean;
 
+  // ── Pressing on the odds (ai_odds_press_enabled) ──────────────────────────
+  // Read only with the flag on, in place of the exchange budget above: the
+  // bot starts an attack at `pressStartOdds` or better (counting what the
+  // capture is worth), keeps rolling while the odds alone stay at
+  // `pressContinueOdds` or better, and stops at the turn's ceiling. Odds are
+  // the chance of taking the territory pressing to the end (combat/combatOdds.ts).
+  // Tuned in the arena (scripts/simAiArena.ts) so each level beats today's
+  // and the steps between levels hold: today's levels differ mostly by their
+  // exchange budget, and pressing freely would close the gaps.
+  /** The capture chance an attack needs before its first exchange. */
+  pressStartOdds: number;
+  /** The capture chance it needs to roll again. */
+  pressContinueOdds: number;
+  /** Dice exchanges per turn, at most; doubled by the decided-game press. */
+  pressExchangeCeiling: number;
+
+  // ── Reinforcements and re-planning (ai_planned_reinforcements_enabled) ────
+  // Read only with that flag on, which builds on the odds press. Placing the
+  // draft where it adds the most (ai/aiDraftPlan.ts) is by far the bigger
+  // lever: in the arena a Medium with it beat three of today's Hard bots in
+  // four games of five, and even Easy with it stalled today's Medium. So only
+  // Expert places by value, which makes it the clear top step; Medium and Hard
+  // keep the plan's single tile and choose their attacks again once it lands.
+  /**
+   * Territories a draft may be spread over; 0 keeps the plan's single tile,
+   * chosen before the turn's setup steps as today.
+   */
+  draftTiles: number;
+  /** Chooses its attacks again once its reinforcements have landed. */
+  replansAfterDraft: boolean;
+  /** Also chooses them again after every capture, from the board it made. */
+  replansAfterCapture: boolean;
+
   // ── Economy ───────────────────────────────────────────────────────────────
   build: AiBuildMode;
   research: AiResearchMode;
@@ -146,6 +180,13 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     neutralExpansionBonus: 1,
     vulnerabilityBonus: 4,
     influence: false,
+    // Unread: the tutorial bot never attacks.
+    pressStartOdds: 0.75,
+    pressContinueOdds: 0.6,
+    pressExchangeCeiling: 3,
+    draftTiles: 0,
+    replansAfterDraft: false,
+    replansAfterCapture: false,
     build: 'none',
     research: 'none',
     doctrinesPerTurn: 0,
@@ -172,6 +213,12 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     neutralExpansionBonus: 1.5,
     vulnerabilityBonus: 1,
     influence: false,
+    pressStartOdds: 0.75,
+    pressContinueOdds: 0.6,
+    pressExchangeCeiling: 3,
+    draftTiles: 0,
+    replansAfterDraft: false,
+    replansAfterCapture: false,
     build: 'gate_only',
     research: 'gate_only',
     doctrinesPerTurn: 0,
@@ -198,6 +245,12 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     neutralExpansionBonus: 2,
     vulnerabilityBonus: 2,
     influence: true,
+    pressStartOdds: 0.65,
+    pressContinueOdds: 0.5,
+    pressExchangeCeiling: 12,
+    draftTiles: 0,
+    replansAfterDraft: true,
+    replansAfterCapture: false,
     build: 'greedy',
     research: 'cheapest',
     doctrinesPerTurn: 1,
@@ -224,6 +277,12 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     neutralExpansionBonus: 2.5,
     vulnerabilityBonus: 4,
     influence: true,
+    pressStartOdds: 0.4,
+    pressContinueOdds: 0.35,
+    pressExchangeCeiling: 40,
+    draftTiles: 0,
+    replansAfterDraft: true,
+    replansAfterCapture: true,
     build: 'threat',
     research: 'strategic',
     doctrinesPerTurn: 2,
@@ -250,6 +309,12 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     neutralExpansionBonus: 3,
     vulnerabilityBonus: 4,
     influence: true,
+    pressStartOdds: 0.35,
+    pressContinueOdds: 0.35,
+    pressExchangeCeiling: 40,
+    draftTiles: Number.POSITIVE_INFINITY,
+    replansAfterDraft: true,
+    replansAfterCapture: true,
     build: 'threat',
     research: 'strategic',
     doctrinesPerTurn: 2,

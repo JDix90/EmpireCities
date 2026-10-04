@@ -103,17 +103,29 @@ export function executeBlitzAttack(
   }
 
   if (exchanges.length === 0) return null;
-  const last = exchanges[exchanges.length - 1];
-  const captured = state.territories[toId]?.owner_id === attackerId;
+  const result = combineExchanges(state, attackerId, toId, exchanges);
+  return { result, exchanges, captured: result.territory_captured, stop };
+}
 
-  // Aggregate on top of the LAST exchange's result so the modal's existing
-  // fields (dice bonus breakdowns, callouts attached later by the socket)
-  // stay coherent, while the headline numbers cover the whole blitz.
-  const result: CombatResult = {
+/**
+ * A run of exchanges on one edge as one result: the Blitz's, and a bot's run
+ * when it presses on the odds (ai/runAiTurn.ts). Built on top of the LAST
+ * exchange's result so the modal's existing fields (dice bonus breakdowns,
+ * callouts attached later by the socket) stay coherent, while the headline
+ * numbers cover the whole run. Capture is read from live ownership.
+ */
+export function combineExchanges(
+  state: GameState,
+  attackerId: string,
+  toId: string,
+  exchanges: readonly LandAttackOutcome[],
+): CombatResult {
+  const last = exchanges[exchanges.length - 1]!;
+  return {
     ...last.result,
     attacker_losses: exchanges.reduce((s, e) => s + e.result.attacker_losses, 0),
     defender_losses: exchanges.reduce((s, e) => s + e.result.defender_losses, 0),
-    territory_captured: captured,
+    territory_captured: state.territories[toId]?.owner_id === attackerId,
     source_units_after: last.sourceUnitsAfter,
     blitz_exchanges: exchanges.length,
     blitz_rolls: exchanges.map((e) => ({
@@ -123,6 +135,4 @@ export function executeBlitzAttack(
       defender_losses: e.result.defender_losses,
     })),
   };
-
-  return { result, exchanges, captured, stop };
 }

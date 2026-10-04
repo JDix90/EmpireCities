@@ -1,8 +1,6 @@
 import { randomInt } from 'crypto';
 import type { GameState, GameMap, BuildingType } from '../../types';
 import { calculateReinforcements, scaleRegionBonus } from '../combat/combatResolver';
-import { captureProbability } from '../combat/combatOdds';
-import { computeLandCombatModifiers } from '../combat/combatModifiers';
 import { calculateContinentBonuses } from '../state/gameStateManager';
 import { getAllowedVictoryConditions } from '../state/gameSettings';
 import { eraTechTreeOptions, getEraTechTree } from '../eras';
@@ -44,6 +42,7 @@ import { aiLanePowerReserve } from './aiLanePowers';
 import { aiWorldBuildingCandidates } from './aiWorldBuildings';
 import { aiProfile, type AiLevel, type AiProfile } from './aiProfiles';
 import { influenceHopLimit, influencePayers } from './aiInfluence';
+import { edgeCaptureOdds } from './aiEdgeOdds';
 import { isTerritoryReachableWithinHops } from '../state/influenceManager';
 
 export interface AiAction {
@@ -52,6 +51,14 @@ export interface AiAction {
   to?: string;
   units?: number;
   cardIds?: string[];
+  /**
+   * Pressing on the odds: what taking the target is worth beyond the fight
+   * itself (an objective, a kill shot, free land, a besieged player's ground,
+   * less a sea crossing's drag), on the planner's favorability scale. The
+   * turn adds a third of it to the live capture chance before it starts the
+   * attack, so it weighs the fight as the planner did.
+   */
+  pressValue?: number;
 }
 
 // Each level's settings come from its row in AI_PROFILES (ai/aiProfiles.ts).
@@ -90,6 +97,11 @@ export interface AiTurnOptions {
    * for the same reason. Threaded by the socket and the daily simulator alike.
    */
   siege?: { targetPlayerId: string };
+  /**
+   * The turn presses on the odds (ai_odds_press_enabled, ai/aiAttackGrind.ts):
+   * plan only attacks at the level's start odds, and no long shots.
+   */
+  oddsPress?: boolean;
 }
 
 /**
@@ -168,6 +180,7 @@ export function computeAiTurn(
     options?.decidedGamePress ?? false,
     jitter,
     options?.siege,
+    options?.oddsPress ?? false,
   );
   actions.push(...attackActions);
 
@@ -279,7 +292,7 @@ export function evaluateBoard(
 export const HEGEMONY_BREAK_URGENCY_TURNS = 3;
 
 /** Extra attack score toward enemy capitals, secret-mission targets, and gateways. */
-function attackObjectiveBonus(
+export function attackObjectiveBonus(
   state: GameState,
   map: GameMap,
   attackerId: string,
@@ -456,7 +469,7 @@ export function eliminationAttackBonus(
 }
 
 /** Extra attacks allowed past the per-difficulty cap when a kill is on the board. */
-const FINISHER_OVERCAP = 4;
+export const FINISHER_OVERCAP = 4;
 
 /**
  * Emergency Seal (Void Custodians): the Nexus lane worth closing this turn —
@@ -519,11 +532,13 @@ function selectAttacks(
   decidedGamePress = false,
   jitter: () => number = Math.random,
   siege?: AiTurnOptions['siege'],
+  oddsPress = false,
+  attackCap = profile.attackCap,
 ): AiAction[] {
   const adjacency = buildAdjacencyMap(map);
   const actions: AiAction[] = [];
   const randomFactor = profile.noise;
-  const baseMaxAttacks = profile.attackCap;
+  const baseMaxAttacks = attackCap;
   // Decided-game press: the plan needs enough candidates to spend the doubled
   // exchange budget; easy and tutorial never press.
   const maxAttacks =
@@ -545,7 +560,7 @@ function selectAttacks(
     : true;
 
   // Build list of viable attacks sorted by favorability
-  const candidates: { from: string; to: string; score: number; isFinisher: boolean }[] = [];
+  const candidates: { from: string; to: string; score: number; strategic: number; isFinisher: boolean }[] = [];
 
   // Track planned sea-attack count per source so we don't over-commit fleets.
   // (Each sea attack consumes 1 fleet; the runtime aborts attacks beyond the
@@ -639,44 +654,9 @@ function selectAttacks(
       // Legacy path (kill switch): the saturating dice differential, blind to
       // garrison size beyond the dice caps and to every modifier.
       let favorability: number;
+      let pCapture: number | null = null;
       if (useCaptureOdds) {
-        const mods = computeLandCombatModifiers({
-          state,
-          fromId: tid,
-          toId: nid,
-          attackerId: playerId,
-          defenderId: nOwner,
-          attackingUnits: tState.unit_count,
-          defendingUnits: nState.unit_count,
-          connection: conn,
-        });
-        const defenderPlayer = nOwner
-          ? state.players.find((p) => p.player_id === nOwner)
-          : undefined;
-        const vulnActive =
-          state.settings.era_advancement_enabled &&
-          (defenderPlayer?.era_transition_turns_remaining ?? 0) > 0;
-        const pCapture = captureProbability(tState.unit_count, nState.unit_count, {
-          attackBonus: mods.attackerBonusBreakdown.total,
-          defenseBonus: mods.defenderBonusBreakdown.total,
-          // Plan-time approximation: the rare Lighthouse/Naval Charts raise of
-          // the sea cap is ignored (slightly conservative on sea assaults).
-          attackerBaseCap: isSeaLane ? 2 : laneCap ?? 3,
-          maxAttackerDice: state.settings.combat_dice_cap_enabled
-            ? state.settings.combat_max_attacker_dice ?? 5
-            : undefined,
-          maxDefenderDice: state.settings.combat_dice_cap_enabled
-            ? state.settings.combat_max_defender_dice ?? 4
-            : undefined,
-          defenderDiceMult: vulnActive
-            ? state.settings.era_advancement_vuln_defense_mult ?? 0.75
-            : undefined,
-          legionReroll: !!eraModifiers.legion_reroll,
-          // Garrison doctrines: a Hardened target defends on d8s, a Forward
-          // source attacks on them — the planner prices the dice it will roll.
-          attackerDieFaces: mods.attackerDieFaces,
-          defenderDieFaces: mods.defenderDieFaces,
-        });
+        pCapture = edgeCaptureOdds(state, map, playerId, tid, nid, tState.unit_count);
         favorability = 3 * pCapture - 1;
       } else {
         favorability = attackDice - defDice;
@@ -710,9 +690,17 @@ function selectAttacks(
       const siegeBonus = siege && nOwner === siege.targetPlayerId
         ? SIEGE_GROUND_BONUS + ((nState.buildings?.length ?? 0) > 0 ? SIEGE_BUILDING_BONUS : 0)
         : 0;
-      const score = favorability + seaPenalty + objectiveBonus + vulnBonus + finisherBonus + expansionBonus + siegeBonus + jitter() * randomFactor * 3;
-      if (score > 0 || profile.takesLongShots) {
-        candidates.push({ from: tid, to: nid, score, isFinisher: finisherBonus > 0 });
+      const strategic = seaPenalty + objectiveBonus + vulnBonus + finisherBonus + expansionBonus + siegeBonus;
+      const score = favorability + strategic + jitter() * randomFactor * 3;
+      // Pressing on the odds, the level's start odds take the place of the
+      // planner's fixed P(capture) > 1/3: an attack is listed when its score
+      // clears 3·startOdds − 1, the same scale, so what a capture is worth
+      // still counts. Easy's long shots go.
+      const listed = oddsPress && pCapture !== null
+        ? score > 3 * profile.pressStartOdds - 1
+        : score > 0 || (profile.takesLongShots && !oddsPress);
+      if (listed) {
+        candidates.push({ from: tid, to: nid, score, strategic, isFinisher: finisherBonus > 0 });
         if (state.settings.naval_enabled && isSeaConn) {
           plannedSeaAttacksFrom.set(tid, (plannedSeaAttacksFrom.get(tid) ?? 0) + 1);
         }
@@ -736,11 +724,43 @@ function selectAttacks(
     const fromState = state.territories[from];
     if (!fromState || fromState.unit_count < 2) continue;
     const attackUnits = Math.min(fromState.unit_count - 1, 3);
-    actions.push({ type: 'attack', from, to, units: attackUnits });
+    actions.push({
+      type: 'attack', from, to, units: attackUnits,
+      ...(oddsPress ? { pressValue: candidate.strategic } : {}),
+    });
     picked++;
   }
 
   return actions;
+}
+
+/**
+ * The planner's attacks on their own, for a turn that chooses again on the
+ * board it has made: after its reinforcements land, and for some levels after
+ * each capture (ai_planned_reinforcements_enabled, ai/runAiTurn.ts).
+ * `attackCap` is the attacks the turn has left, in place of the level's cap.
+ */
+export function planAttackActions(
+  state: GameState,
+  map: GameMap,
+  playerId: string,
+  difficulty: AiLevel,
+  options: AiTurnOptions = {},
+  attackCap?: number,
+): AiAction[] {
+  const profile = aiProfile(difficulty);
+  return selectAttacks(
+    state,
+    map,
+    playerId,
+    profile,
+    options.captureOddsScoring ?? true,
+    options.decidedGamePress ?? false,
+    options.rng ?? Math.random,
+    options.siege,
+    options.oddsPress ?? false,
+    attackCap ?? profile.attackCap,
+  );
 }
 
 /**
@@ -889,7 +909,7 @@ function findNearestBorder(
   return null;
 }
 
-function isTruceActive(state: GameState, playerIdA: string, playerIdB: string): boolean {
+export function isTruceActive(state: GameState, playerIdA: string, playerIdB: string): boolean {
   const playerA = state.players.find((p) => p.player_id === playerIdA);
   const playerB = state.players.find((p) => p.player_id === playerIdB);
   if (!playerA || !playerB) return false;
@@ -914,7 +934,7 @@ function isTruceActive(state: GameState, playerIdA: string, playerIdB: string): 
  */
 const adjacencyCache = new WeakMap<GameMap['connections'], Record<string, string[]>>();
 
-function buildAdjacencyMap(map: GameMap): Record<string, string[]> {
+export function buildAdjacencyMap(map: GameMap): Record<string, string[]> {
   const cached = adjacencyCache.get(map.connections);
   if (cached) return cached;
   const adj: Record<string, string[]> = {};
