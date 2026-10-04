@@ -25,6 +25,16 @@
  * territory still wins on an escalating card set while a leader stalls, and
  * reading land and armies alone resigned a future winner one time in nine.
  *
+ * And only with an empty hand. Its cards go to whoever takes its last
+ * territory, and a rival behind the leader may be hunting it for them to
+ * catch up; a resignation would take them out of the game. Nearly every bot
+ * that resigned without this rule held cards, so it leaves resignation rare:
+ * with the odds press, planned reinforcements, the ending play and goals on,
+ * 1 resignation in 1,500 arena games over Easy, Medium, Hard and Expert
+ * tables and a Hard bot among Easy ones, against 23 without the rule.
+ * A player who has the game won can be offered the bots' surrender instead
+ * (surrender_offers_enabled, victory/surrender.ts).
+ *
  * Never where a resignation would change what a player is playing for:
  *   - a daily challenge or a campaign stage, whose bots stay today's
  *     (aiProfiles.ts keepsTodaysBots);
@@ -95,9 +105,10 @@ export function resignationAllowed(state: GameState): boolean {
 
 /**
  * Read `player` as its turn opens, and resign it if it is a bot, its level
- * resigns, this game allows it, and it has been beaten for BEATEN_TURNS of
- * its turns running. True when it resigned; the caller announces it, checks
- * the game's end (victoryAfterResignation) and hands the turn on.
+ * resigns, this game allows it, it has been beaten for BEATEN_TURNS of its
+ * turns running, and its hand is empty. True when it resigned; the caller
+ * announces it, checks the game's end (victoryAfterResignation) and hands
+ * the turn on.
  */
 export function resignIfBeaten(
   state: GameState,
@@ -112,7 +123,9 @@ export function resignIfBeaten(
     return false;
   }
   player.beaten_turns = (player.beaten_turns ?? 0) + 1;
-  if (player.beaten_turns < BEATEN_TURNS) return false;
+  // Its cards go to whoever takes its last territory, and a resignation would
+  // take them out of the game: a bot with a hand plays on, to be taken out.
+  if (player.beaten_turns < BEATEN_TURNS || (player.cards?.length ?? 0) > 0) return false;
   resignSeat(state, player.player_id);
   return true;
 }

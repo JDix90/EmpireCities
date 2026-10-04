@@ -480,9 +480,12 @@ export const featureFlags = {
    * When true, a beaten bot resigns as its turn opens (ai/aiResign.ts),
    * through the same step as a player's resignation: its land turns neutral
    * at half strength, and when the last rival resigns the game ends as a
-   * resignation. Beaten reads only the public board. Never in daily
-   * challenges, campaign stages, tutorials, team games or secret-mission
-   * games, and never for an away human seat. Default OFF until measured live.
+   * resignation. Only with an empty hand: a bot holding cards plays on, so
+   * its cards still go to whoever takes its last territory. Beaten reads the
+   * board and the bot's own hand, never whether a seat is human. Never in
+   * daily challenges, campaign stages, tutorials, team games or
+   * secret-mission games, and never for an away human seat. Default OFF until
+   * measured live.
    */
   get aiResignationEnabled(): boolean {
     return overrideBool('ai_resignation_enabled');

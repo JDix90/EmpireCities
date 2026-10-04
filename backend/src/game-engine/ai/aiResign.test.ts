@@ -155,6 +155,17 @@ describe('resigning', () => {
     expect({ ...player.players[0], beaten_turns: 3 }).toEqual(bot);
   });
 
+  it('plays on while it holds cards, so whoever takes its last territory takes them', () => {
+    const s = beaten();
+    s.players[0]!.cards = [{ card_id: 'a', territory_id: 't0', symbol: 'infantry' }] as never;
+    expect(resignsWithin(s, 5)).toBe(false);
+    expect(s.players[0]!.is_eliminated).toBe(false);
+    expect(s.players[0]!.beaten_turns).toBe(5);
+    // Once its hand is spent, the next turn that opens with it beaten resigns it.
+    s.players[0]!.cards = [];
+    expect(resignsWithin(s, 1)).toBe(true);
+  });
+
   it('ends the game as a resignation when the last rival resigns', () => {
     const s = beaten();
     resignsWithin(s, 3);
