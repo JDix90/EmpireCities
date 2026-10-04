@@ -7,6 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import type { AiDifficulty, GameMap, GameState } from '../../types';
 import { eraModifiersFor } from '../state/eraModifiers';
+import { getDeployCap } from '../state/stabilityManager';
 import { computeAiTurn } from './aiBot';
 import { allocateDraft } from './aiDraftPlan';
 import { AI_PROFILES } from './aiProfiles';
@@ -115,6 +116,18 @@ describe('where the draft goes', () => {
     const placements = allocateDraft(s, map(), AI, 12, 'expert');
     for (const p of placements) expect(p.units).toBeLessThanOrEqual(12);
     expect(placements.length).toBeGreaterThan(1);
+  });
+
+  it('opens another tile once the level\'s tiles are at their caps', () => {
+    const s = board({ y: 9, b: 2 });
+    s.settings.stability_enabled = true;
+    for (const id of ['home', 'a', 'b']) s.territories[id]!.stability = 10;
+    const cap = getDeployCap(10, { era: 'ww2', turnNumber: 5 });
+    // One tile allowed, but it takes only `cap`: the rest goes to the other
+    // border tile, not to the turn's fallback.
+    const placements = allocateDraft(s, map(), AI, 2 * cap, { ...AI_PROFILES.expert, draftTiles: 1 });
+    expect(placements.map((p) => p.to).sort()).toEqual(['a', 'b']);
+    expect(total(placements)).toBe(2 * cap);
   });
 
   it('places nothing for no units', () => {
