@@ -2542,7 +2542,7 @@ export default function LobbyPage() {
                           { id: 'easy', label: 'Easy', desc: 'Forgiving — learn the ropes' },
                           { id: 'medium', label: 'Medium', desc: 'A balanced challenge' },
                           { id: 'hard', label: 'Hard', desc: 'Sharp, calculated play' },
-                          { id: 'expert', label: 'Expert', desc: 'Ruthless optimizer' },
+                          { id: 'expert', label: 'Expert', desc: 'Like Hard, with no random slips' },
                         ] as const).map((d) => {
                           const active = aiDifficulty === d.id;
                           return (

@@ -43,6 +43,19 @@ export interface FirstMatchStats {
   next_day_cohort: number;
   next_day: number;
 }
+/** Solo games (one human, bots) by where they came from and the game's highest bot. */
+export interface SoloLevelRow {
+  mode: 'tutorial' | 'first_match' | 'campaign' | 'daily' | 'other';
+  level: 'tutorial' | 'easy' | 'medium' | 'hard' | 'expert';
+  started: number;
+  finished: number;
+  won: number;
+  abandoned: number;
+  running: number;
+  /** Finished games the round cap decided. */
+  capped: number;
+  median_rounds: number | null;
+}
 export interface EventVolumeRow {
   event: string;
   n: number;
@@ -66,8 +79,18 @@ export interface AnalyticsReport {
   completion: CompletionStats;
   /** Optional for rollout: older backends won't send it. */
   first_match?: FirstMatchStats;
+  /** Optional for rollout: older backends won't send it. */
+  solo_by_level?: SoloLevelRow[];
   volume: EventVolumeRow[];
 }
+
+const SOLO_MODE_LABELS: Record<SoloLevelRow['mode'], string> = {
+  tutorial: 'Tutorial',
+  first_match: 'First match',
+  campaign: 'Campaign',
+  daily: 'Daily challenge',
+  other: 'Quick Match & custom',
+};
 
 function pctText(n: number, d: number): string {
   return d ? `${((n / d) * 100).toFixed(0)}%` : '—';
@@ -294,6 +317,55 @@ export default function AdminAnalyticsPanel({ data }: { data: AnalyticsReport | 
             A first match is a player&apos;s first Quick Match while &quot;Easy first match&quot; is on: one
             Easy bot on Great Britain 925. &quot;Back next day&quot; uses the D1 rule (any event the day
             after finishing) and counts only finishes from before today.
+          </p>
+        </section>
+      )}
+
+      {/* How each bot level plays out for a lone player: finished, won, and
+          how often the round cap rather than a conquest ended it. */}
+      {data.solo_by_level && data.solo_by_level.length > 0 && (
+        <section className="rounded-xl border border-bf-border bg-cc-panel/50 p-4">
+          <p className="text-sm font-semibold text-bf-text">
+            Solo games by bot level{' '}
+            <span className="text-xs font-normal text-bf-muted">· started in the last {data.window_days}d</span>
+          </p>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[34rem] text-sm">
+              <thead>
+                <tr className="text-xs uppercase tracking-wider text-bf-muted">
+                  <th className="pb-1 text-left font-normal">Mode</th>
+                  <th className="pb-1 text-left font-normal">Bots</th>
+                  <th className="pb-1 text-right font-normal">Started</th>
+                  <th className="pb-1 text-right font-normal">Finished</th>
+                  <th className="pb-1 text-right font-normal">Won</th>
+                  <th className="pb-1 text-right font-normal">Round cap</th>
+                  <th className="pb-1 text-right font-normal">Left</th>
+                  <th className="pb-1 text-right font-normal">Rounds</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.solo_by_level.map((row) => (
+                  <tr key={`${row.mode}:${row.level}`} className="border-t border-bf-border/50">
+                    <td className="py-1.5 text-bf-text">{SOLO_MODE_LABELS[row.mode] ?? row.mode}</td>
+                    <td className="py-1.5 capitalize text-bf-text">{row.level}</td>
+                    <td className="py-1.5 text-right tabular-nums text-bf-text">
+                      {row.started.toLocaleString()}
+                      {row.running > 0 && <span className="text-bf-muted"> ({row.running} on)</span>}
+                    </td>
+                    <td className="py-1.5 text-right tabular-nums text-bf-text">{pctText(row.finished, row.started)}</td>
+                    <td className="py-1.5 text-right tabular-nums text-bf-text">{pctText(row.won, row.finished)}</td>
+                    <td className="py-1.5 text-right tabular-nums text-bf-text">{pctText(row.capped, row.finished)}</td>
+                    <td className="py-1.5 text-right tabular-nums text-bf-text">{pctText(row.abandoned, row.started)}</td>
+                    <td className="py-1.5 text-right tabular-nums text-bf-text">{row.median_rounds ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-2 text-xs text-bf-muted">
+            One human against bots, by the game&apos;s highest bot. Finished and Left are shares of
+            the games started; Won and Round cap are shares of those finished, and Round cap is a
+            game the turn limit decided. Rounds is the median length of a finished game.
           </p>
         </section>
       )}

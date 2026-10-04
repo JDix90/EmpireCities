@@ -14,6 +14,7 @@ import {
   getVisitorFunnel,
   getCompletionStats,
   getFirstMatchStats,
+  getSoloGamesByLevel,
   getEventVolume,
   getAcquisitionBySource,
   getAnalyticsReport,
@@ -211,10 +212,41 @@ describe('analyticsQueries', () => {
     expect(await getFirstMatchStats(30)).toEqual({ started: 0, finished: 0, won: 0, next_day_cohort: 0, next_day: 0 });
   });
 
+  it('getSoloGamesByLevel reads one-human games with bots, by mode and level, in a fixed order', async () => {
+    queryMock.mockResolvedValueOnce([
+      { mode: 'other', level_rank: 4, started: 3, finished: 2, won: 0, abandoned: 1, running: 0, capped: 0, median_rounds: 31 },
+      { mode: 'other', level_rank: 1, started: '9', finished: '7', won: '6', abandoned: '1', running: '1', capped: '4', median_rounds: '60' },
+      { mode: 'campaign', level_rank: 2, started: 2, finished: 0, won: 0, abandoned: 0, running: 2, capped: 0, median_rounds: null },
+      { mode: 'tutorial', level_rank: 0, started: 5, finished: 4, won: 4, abandoned: 1, running: 0, capped: 0, median_rounds: 12 },
+    ]);
+    const rows = await getSoloGamesByLevel(30);
+    const [sql, params] = queryMock.mock.calls[0] as [string, unknown[]];
+    expect(params).toEqual([30]);
+    // Exactly one human and at least one bot, admin and test games left out.
+    expect(sql).toContain('seats.humans = 1 AND seats.bots > 0');
+    expect(sql).toContain('sx_gp.game_id = g.game_id');
+    // A round-cap ending is the turn_limit victory on the game's finish event.
+    expect(sql).toContain("f.victory_type = 'turn_limit'");
+    expect(sql).toContain("event = 'game_finished'");
+    // The level is the highest bot's, ranked lowest to highest.
+    expect(sql).toContain("WHEN 'tutorial' THEN 0 WHEN 'easy' THEN 1 WHEN 'medium' THEN 2 WHEN 'hard' THEN 3 WHEN 'expert' THEN 4");
+    expect(rows).toEqual([
+      { mode: 'tutorial', level: 'tutorial', started: 5, finished: 4, won: 4, abandoned: 1, running: 0, capped: 0, median_rounds: 12 },
+      { mode: 'campaign', level: 'medium', started: 2, finished: 0, won: 0, abandoned: 0, running: 2, capped: 0, median_rounds: null },
+      { mode: 'other', level: 'easy', started: 9, finished: 7, won: 6, abandoned: 1, running: 1, capped: 4, median_rounds: 60 },
+      { mode: 'other', level: 'expert', started: 3, finished: 2, won: 0, abandoned: 1, running: 0, capped: 0, median_rounds: 31 },
+    ]);
+  });
+
+  it('getSoloGamesByLevel returns no rows for an empty window', async () => {
+    queryMock.mockResolvedValueOnce([]);
+    expect(await getSoloGamesByLevel(7)).toEqual([]);
+  });
+
   it('getAnalyticsReport assembles every section plus the lifetime total', async () => {
     // Promise.all invokes the section queries in array order: visitors, funnel,
     // retention, retention-by-cohort, completion, acquisition, volume,
-    // tutorial, first matches — and queryOne(total), mocked separately. The order is positional, so inserting a
+    // tutorial, first matches, solo games by level — and queryOne(total), mocked separately. The order is positional, so inserting a
     // section anywhere but the end
     // without adding its row shifts every later mock onto the wrong query.
     queryMock
@@ -232,7 +264,10 @@ describe('analyticsQueries', () => {
         { is_account: true, started: 2, completed: 2 },
         { is_account: false, started: 5, completed: 1 },
       ])
-      .mockResolvedValueOnce([{ started: 4, finished: 3, won: 2, next_day_cohort: 2, next_day: 1 }]);
+      .mockResolvedValueOnce([{ started: 4, finished: 3, won: 2, next_day_cohort: 2, next_day: 1 }])
+      .mockResolvedValueOnce([
+        { mode: 'other', level_rank: 3, started: 2, finished: 1, won: 1, abandoned: 1, running: 0, capped: 1, median_rounds: 60 },
+      ]);
     queryOneMock.mockResolvedValueOnce({ total: 42 });
 
     const r = await getAnalyticsReport(30);
@@ -253,6 +288,9 @@ describe('analyticsQueries', () => {
     ]);
     expect(r.completion.avg_minutes).toBe(15);
     expect(r.first_match).toEqual({ started: 4, finished: 3, won: 2, next_day_cohort: 2, next_day: 1 });
+    expect(r.solo_by_level).toEqual([
+      { mode: 'other', level: 'hard', started: 2, finished: 1, won: 1, abandoned: 1, running: 0, capped: 1, median_rounds: 60 },
+    ]);
     expect(r.acquisition).toEqual([
       { source: 'reddit', channel: 'social', signups: 3, accounts: 1, activated: 1 },
     ]);

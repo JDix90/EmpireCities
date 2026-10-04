@@ -126,7 +126,9 @@ export const QUICK_MATCH_DIFFICULTY_HINTS: Record<QuickMatchAiDifficulty, string
   easy: 'Forgiving pace — good while learning.',
   medium: 'The balanced default.',
   hard: 'Sharper expansion and defense.',
-  expert: 'Ruthless — deepest planning, no slack.',
+  // Expert plays Hard's turn without its scoring jitter; measured, it wins about
+  // as often as Hard, so the hint promises no more than that.
+  expert: 'Plays like Hard, with no random slips.',
 };
 
 // Quick Match and Full Game Start remember their setups independently — a
