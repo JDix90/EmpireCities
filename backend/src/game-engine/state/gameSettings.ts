@@ -403,6 +403,7 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     campaign_starting_units_delta: ext.campaign_starting_units_delta,
     daily_challenge_date: typeof ext.daily_challenge_date === 'string' ? ext.daily_challenge_date : undefined,
     first_match: ext.first_match === true ? true : undefined,
+    ai_personalities: ext.ai_personalities === true ? true : undefined,
     daily_challenge_spec: ext.daily_challenge_spec && typeof ext.daily_challenge_spec === 'object'
       ? ext.daily_challenge_spec
       : undefined,

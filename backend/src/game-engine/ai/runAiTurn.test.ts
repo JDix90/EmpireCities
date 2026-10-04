@@ -141,7 +141,9 @@ describe('a bot turn with no socket', () => {
 
   it('is what the live game runs: processAiTurn plans and plays through these two', () => {
     const socket = readFileSync(join(__dirname, '../../sockets/gameSocket.ts'), 'utf-8');
-    expect(socket).toMatch(/await planAiTurn\(state, map, currentPlayer, difficulty,/);
-    expect(socket).toMatch(/await playAiTurn\(state, map, currentPlayer, difficulty, aiPlan, resumeAt,/);
+    // At the seat's level, shifted by its commander's style if it has one (ai/aiStyles.ts).
+    expect(socket).toMatch(/const level = styledLevel\(difficulty, /);
+    expect(socket).toMatch(/await planAiTurn\(state, map, currentPlayer, level,/);
+    expect(socket).toMatch(/await playAiTurn\(state, map, currentPlayer, level, aiPlan, resumeAt,/);
   });
 });

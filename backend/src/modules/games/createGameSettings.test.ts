@@ -174,6 +174,18 @@ describe('Galactic Age buildings v2 is baked at create from its flag', () => {
     expect(created(BRITAIN, { first_match: false }).first_match).toBeUndefined();
   });
 
+  it('bakes bot commanders in while the feature and goals are on, never into a tutorial, a daily or a campaign stage', () => {
+    expect(created(WW2).ai_personalities).toBeUndefined();
+    // Without goals a style would barely change how a bot plays.
+    setAdminConfigCacheForTests({ feature_flags: { ai_personalities_enabled: true } });
+    expect(created(WW2).ai_personalities).toBeUndefined();
+    setAdminConfigCacheForTests({ feature_flags: { ai_personalities_enabled: true, ai_intents_enabled: true } });
+    expect(created(WW2).ai_personalities).toBe(true);
+    for (const setting of [{ tutorial: true }, { daily_challenge_date: '2026-10-04' }, { is_campaign: true }]) {
+      expect(created(WW2, setting).ai_personalities, JSON.stringify(setting)).toBeUndefined();
+    }
+  });
+
   it('the WW2 science line is baked the same way', () => {
     expect(created(WW2).ww2_manhattan_science).toBeUndefined();
     setAdminConfigCacheForTests({ feature_flags: { ww2_manhattan_science_enabled: true } });

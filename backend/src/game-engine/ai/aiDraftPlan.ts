@@ -31,7 +31,7 @@ import { connectionRequiresMoonAccess, getOrbitAccessResult, isLaneSealedForPlay
 import { isShieldedFrom } from '../state/teams';
 import { getWorldRules, worldDeployCapBonus } from '../state/worldRules';
 import { vulnerabilityAttackBonus } from './aiEraAdvancement';
-import { attackObjectiveBonus, buildAdjacencyMap, eliminationAttackBonus, isTruceActive } from './aiBot';
+import { attackObjectiveBonus, buildAdjacencyMap, eliminationAttackBonus, isTruceActive, preyAttackBonus } from './aiBot';
 import { edgeOddsOptions } from './aiEdgeOdds';
 import { endingAttackBonus, type EndingPlan } from './aiEnding';
 import { intentAttackBonus, intentStages, type AiIntent } from './aiIntent';
@@ -114,14 +114,15 @@ export function allocateDraft(
         let strategic = (seaLane ? -0.5 : 0)
           + attackObjectiveBonus(state, map, playerId, nid)
           + vulnerabilityAttackBonus(state, owner, profile)
-          + eliminationAttackBonus(state, owner, profile);
+          + eliminationAttackBonus(state, owner, profile)
+          + preyAttackBonus(state, playerId, owner, profile);
         if (ending) {
           const e = endingAttackBonus(state, ending, nid);
           strategic += e.value + e.rank;
         }
         if (!owner) strategic += profile.neutralExpansionBonus + (seaLane ? 1.5 : 0);
         // A goal to take or hunt stages the draft beside it (ai/aiIntent.ts).
-        if (intentStages(intent)) strategic += intentAttackBonus(state, map, intent, nid, profile);
+        if (intentStages(intent)) strategic += profile.goalStaging * intentAttackBonus(state, map, intent, nid, profile);
         attacks.push({
           defenders: n.unit_count,
           worth: 1 + Math.max(0, strategic) / 3,

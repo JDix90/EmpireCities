@@ -179,7 +179,7 @@ export function computeAiTurn(
     state.players.length,
   );
 
-  const draftTarget = selectDraftTarget(state, map, playerId, profile.noise, jitter, options?.intent);
+  const draftTarget = selectDraftTarget(state, map, playerId, profile.noise, jitter, options?.intent, profile.goalStaging);
   if (draftTarget) {
     actions.push({ type: 'draft', to: draftTarget, units: reinforcements });
   }
@@ -220,7 +220,7 @@ export function computeAiTurn(
   actions.push({ type: 'end_phase' }); // attack → fortify
 
   // ── Fortify Phase ────────────────────────────────────────────────────────
-  const fortifyAction = selectFortify(state, map, playerId, options?.intent);
+  const fortifyAction = selectFortify(state, map, playerId, profile.goalStaging > 0 ? options?.intent : undefined);
   if (fortifyAction) actions.push(fortifyAction);
   actions.push({ type: 'end_phase' }); // fortify → next player
 
@@ -408,6 +408,8 @@ function selectDraftTarget(
   randomFactor: number,
   jitter: () => number = Math.random,
   intent?: AiIntent,
+  /** The level's `goalStaging`: how hard the goal pulls the draft. */
+  staging = 1,
 ): string | null {
   const adjacency = buildAdjacencyMap(map);
   let bestTid: string | null = null;
@@ -462,7 +464,7 @@ function selectDraftTarget(
     // A goal to take or hunt (ai/aiIntent.ts): stage beside it, so next
     // turn's attack on it starts from a stack.
     const stage = intentStages(intent) && enemyNeighbors.some((nid) => advancesIntent(state, map, intent, nid))
-      ? INTENT_DRAFT_PREMIUM
+      ? INTENT_DRAFT_PREMIUM * staging
       : 0;
 
     const score = threatScore - tState.unit_count + homeBonus + stage + jitter() * randomFactor * 10;
@@ -491,6 +493,26 @@ export function eliminationAttackBonus(
   if (remaining === 1) return 5;
   if (remaining === 2) return 2.5;
   return 0;
+}
+
+/**
+ * A style's appetite for the weak (`preysOnWeak`, ai/aiStyles.ts): what taking
+ * a tile from `ownerId` is worth, by how far that rival's territory count
+ * falls short of the attacker's. Never for neutral ground, or a rival as
+ * strong or stronger. Territory counts are public, so it reads no more than
+ * a player sees.
+ */
+export function preyAttackBonus(
+  state: GameState,
+  attackerId: string,
+  ownerId: string | null | undefined,
+  profile: Readonly<AiProfile>,
+): number {
+  if (!ownerId || profile.preysOnWeak <= 0) return 0;
+  const mine = state.players.find((p) => p.player_id === attackerId)?.territory_count ?? 0;
+  const theirs = state.players.find((p) => p.player_id === ownerId)?.territory_count ?? 0;
+  if (mine <= 0 || theirs >= mine) return 0;
+  return profile.preysOnWeak * (1 - theirs / mine);
 }
 
 /** Extra attacks allowed past the per-difficulty cap when a kill is on the board. */
@@ -720,8 +742,9 @@ function selectAttacks(
         : 0;
       const endingBonus = ending ? endingAttackBonus(state, ending, nid) : { value: 0, rank: 0 };
       const intentBonus = intentAttackBonus(state, map, intent, nid, profile);
+      const preyBonus = preyAttackBonus(state, playerId, nOwner, profile);
       const strategic = seaPenalty + objectiveBonus + vulnBonus + finisherBonus + expansionBonus + siegeBonus
-        + endingBonus.value + intentBonus;
+        + endingBonus.value + intentBonus + preyBonus;
       const score = favorability + strategic + jitter() * randomFactor * 3;
       // Pressing on the odds, the level's start odds take the place of the
       // planner's fixed P(capture) > 1/3: an attack is listed when its score

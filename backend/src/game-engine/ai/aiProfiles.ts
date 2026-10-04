@@ -170,6 +170,24 @@ export interface AiProfile {
    * tells less as its level rises: Expert only reports what it did.
    */
   announcesIntent: boolean;
+  /**
+   * How much it wants each goal when goals are scored, as a factor on the
+   * goal's score. 1 at every level; a commander's style shifts them
+   * (ai/aiStyles.ts).
+   */
+  goalWeights: Readonly<Record<'take_region' | 'break_region' | 'hunt', number>>;
+  /**
+   * How hard a goal to take or hunt pulls the draft and the fortify move, as
+   * a factor on the staging premium; 0 never stages. 1 at every level.
+   */
+  goalStaging: number;
+  /**
+   * What taking a tile from a rival weaker than itself is worth on top of the
+   * fight, on the planner's 3·P − 1 scale at full weakness: the weight times
+   * how far the rival's territory count falls short of its own. 0 at every
+   * level; the Opportunist's style raises it (ai/aiStyles.ts).
+   */
+  preysOnWeak: number;
 
   // ── Economy ───────────────────────────────────────────────────────────────
   build: AiBuildMode;
@@ -196,6 +214,9 @@ export interface AiProfile {
   /** Rating of a synthetic opponent at this level, relative to a new player's. */
   ratingOffset: number;
 }
+
+/** Every goal wanted alike: each level's own row. */
+const EVEN_GOALS = { take_region: 1, break_region: 1, hunt: 1 } as const;
 
 export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = {
   tutorial: {
@@ -226,6 +247,9 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     intentBonus: 0,
     intentStickiness: 0,
     announcesIntent: false,
+    goalWeights: EVEN_GOALS,
+    goalStaging: 1,
+    preysOnWeak: 0,
     build: 'none',
     research: 'none',
     doctrinesPerTurn: 0,
@@ -264,6 +288,9 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     intentBonus: 0,
     intentStickiness: 0,
     announcesIntent: true,
+    goalWeights: EVEN_GOALS,
+    goalStaging: 1,
+    preysOnWeak: 0,
     build: 'gate_only',
     research: 'gate_only',
     doctrinesPerTurn: 0,
@@ -302,6 +329,9 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     intentBonus: 1,
     intentStickiness: 0.25,
     announcesIntent: true,
+    goalWeights: EVEN_GOALS,
+    goalStaging: 1,
+    preysOnWeak: 0,
     build: 'greedy',
     research: 'cheapest',
     doctrinesPerTurn: 1,
@@ -340,6 +370,9 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     intentBonus: 1,
     intentStickiness: 0.25,
     announcesIntent: true,
+    goalWeights: EVEN_GOALS,
+    goalStaging: 1,
+    preysOnWeak: 0,
     build: 'threat',
     research: 'strategic',
     doctrinesPerTurn: 2,
@@ -382,6 +415,9 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     intentBonus: 1,
     intentStickiness: 0.25,
     announcesIntent: false,
+    goalWeights: EVEN_GOALS,
+    goalStaging: 1,
+    preysOnWeak: 0,
     build: 'threat',
     research: 'strategic',
     doctrinesPerTurn: 2,

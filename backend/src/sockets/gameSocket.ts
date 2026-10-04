@@ -106,6 +106,7 @@ import { runAiWithTimeout } from '../game-engine/ai/runAiWithTimeout';
 import { planAiTurn, playAiTurn, type AiTurnFlags } from '../game-engine/ai/runAiTurn';
 import { resignIfBeaten, victoryAfterResignation } from '../game-engine/ai/aiResign';
 import { buildAiTurnDigest, snapshotForDigest } from '../game-engine/ai/aiTurnDigest';
+import { seatCommanders, styledLevel } from '../game-engine/ai/aiStyles';
 import { resignSeat } from '../game-engine/state/resignation';
 import { acceptSurrender, surrenderOffered } from '../game-engine/victory/surrender';
 import { aiProfile, gameAiDifficulty, keepsTodaysBots, seatAiDifficulty } from '../game-engine/ai/aiProfiles';
@@ -4425,10 +4426,16 @@ async function startWaitingGameLocked(io: Server, gameId: string): Promise<Start
     players.flatMap((p) => (p.user_id && !p.is_ai ? [p.user_id] : [])),
   );
 
+  // Bot commanders (ai_personalities_enabled, baked at create): a name for
+  // every bot seat, and a style for those at Medium and up, as the lobby
+  // showed them (ai/aiStyles.ts seatCommanders).
+  const commanders = seatCommanders(game.game_id, game.settings_json as GameState['settings'] | null, players);
+
   const playerStates = players.map((p) => ({
     player_id: p.user_id ?? `ai_${p.player_index}`,
     player_index: p.player_index,
-    username: p.username ?? aiPlayerName(p.player_index),
+    username: p.username ?? commanders[p.player_index]?.username ?? aiPlayerName(p.player_index),
+    ...(p.is_ai && commanders[p.player_index]?.ai_style ? { ai_style: commanders[p.player_index]!.ai_style } : {}),
     color: p.player_color,
     is_ai: p.is_ai,
     ai_difficulty: (p.ai_difficulty as AiDifficulty) ?? undefined,
@@ -6008,6 +6015,9 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   // A bot plays its own level; an away human seat the game's bot level
   // (seatAiDifficulty), not medium whatever the table is.
   const difficulty = seatAiDifficulty(state.players, currentPlayer);
+  // The style the bot's commander plays this game (ai/aiStyles.ts), stamped
+  // when the game started; a human seat the AI covers plays none.
+  const level = styledLevel(difficulty, currentPlayer.is_ai ? currentPlayer.ai_style : undefined);
   const aiFlags: AiTurnFlags = {
     captureOddsScoring: featureFlags.aiCaptureOddsEnabled,
     attackGrind: featureFlags.aiAttackGrindEnabled,
@@ -6047,7 +6057,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   // build the same filtered view buildClientState produces for humans, so
   // the AI plans against the same information a human in its seat would.
   // When fog is off, the filter is a no-op (full state passed through).
-  const aiPlan = resigned ? null : await planAiTurn(state, map, currentPlayer, difficulty, aiFlags, {
+  const aiPlan = resigned ? null : await planAiTurn(state, map, currentPlayer, level, aiFlags, {
     planningState: () => (state.settings.fog_of_war
       ? buildClientState(state, currentPlayer.player_id, true)
       : state),
@@ -6109,7 +6119,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
 
   // The turn itself (game-engine/ai/runAiTurn.ts), shared with the harnesses.
   // Everything the live game does around the rules arrives as a hook.
-  const outcome = aiPlan && await playAiTurn(state, map, currentPlayer, difficulty, aiPlan, resumeAt, {
+  const outcome = aiPlan && await playAiTurn(state, map, currentPlayer, level, aiPlan, resumeAt, {
     delay,
     victoryCheck: doVictoryCheck,
     broadcast: () => broadcastState(io, gameId, state),

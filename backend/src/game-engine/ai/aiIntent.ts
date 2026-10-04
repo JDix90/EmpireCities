@@ -145,7 +145,7 @@ export function chooseIntent(
   let bestScore = 0;
   for (const c of candidates) {
     const held = previous && previous.kind === c.kind && previous.target === c.target;
-    const score = c.score * (held ? 1 + profile.intentStickiness : 1);
+    const score = c.score * profile.goalWeights[c.kind] * (held ? 1 + profile.intentStickiness : 1);
     // Ties go to the first in a fixed order (regions in map order, then
     // seats), so a seeded game picks the same goal on every machine.
     if (score > bestScore) {

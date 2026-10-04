@@ -6,6 +6,7 @@ import type { PuzzleDecisionRecord } from '../game-engine/daily/dailyPuzzleTypes
 import type { WorldRuleId } from '../game-engine/state/worldRules';
 import type { TutorialLessonModule } from '../game-engine/tutorial/tutorialModules';
 import type {
+  AiStyle,
   GamePhase,
   ConnectionType,
   MapConnectionEdge,
@@ -227,6 +228,13 @@ export interface PlayerState {
    * turns opens. Absent without one, and always with ai_intents_enabled off.
    */
   ai_intent?: AiIntent;
+  /**
+   * A bot's style this game (ai/aiStyles.ts), drawn with its commander's name
+   * when the game starts (@borderfall/shared drawAiCommanders). Absent for
+   * human seats, at Easy and below, and always with ai_personalities_enabled
+   * off when the game started.
+   */
+  ai_style?: AiStyle;
   territory_count: number;
   cards: TerritoryCard[];
   mmr: number;
@@ -908,6 +916,12 @@ export interface GameSettings {
    * come from its other settings.
    */
   first_match?: boolean;
+  /**
+   * Bot commanders and styles (ai_personalities_enabled), baked at create for
+   * a custom or Quick Match game with the flag on: the game draws a commander
+   * for each bot seat when it starts (@borderfall/shared drawAiCommanders).
+   */
+  ai_personalities?: boolean;
   /** Serialized daily puzzle spec from `daily_challenges.spec_json`. */
   daily_challenge_spec?: Record<string, unknown>;
   /**

@@ -6,7 +6,7 @@ import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest } from '../../middleware/rejectGuest';
 import { shedIfPoolSaturated } from '../../middleware/poolAdmission';
 import { query, queryOne, withTransaction } from '../../db/postgres';
-import { aiPlayerName } from '@borderfall/shared';
+import { nameLiveGameSeats } from './liveGameNames';
 import { redis } from '../../db/redis';
 import { generateJoinCode, normalizeJoinInput } from '../../utils/joinCode';
 import { getGameIo, startWaitingGame } from '../../sockets/gameSocket';
@@ -726,8 +726,10 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       spectator_count: number; created_at: string; player_count: string;
       human_count: string; max_ranked_mu: number | null; featured: boolean;
       players: Array<{ username: string | null; player_index: number; player_color: string; is_ai: boolean }>;
+      ai_personalities?: boolean | null;
     }>(
       `SELECT g.game_id, g.era_id, g.map_id, g.spectator_count, g.created_at,
+              (g.settings_json->>'ai_personalities')::boolean AS ai_personalities,
               (SELECT COUNT(*) FROM game_players gp2 WHERE gp2.game_id = g.game_id)::text AS player_count,
               (SELECT COUNT(*) FROM game_players gp3 WHERE gp3.game_id = g.game_id AND gp3.is_ai = false)::text AS human_count,
               (SELECT MAX(ur.mu)
@@ -779,12 +781,10 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     );
 
     // AI players get persona display names (same source as the in-game roster)
-    // instead of a bare "AI Bot". Done here so it shares @borderfall/shared.
+    // instead of a bare "AI Bot", or the commanders their game drew.
     for (const g of games) {
-      for (const pl of g.players) {
-        if (pl.is_ai) pl.username = aiPlayerName(pl.player_index);
-        else if (!pl.username) pl.username = 'Player';
-      }
+      nameLiveGameSeats(g.game_id, g.ai_personalities, g.players);
+      delete g.ai_personalities;
     }
 
     try {

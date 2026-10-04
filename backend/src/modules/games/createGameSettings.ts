@@ -251,6 +251,13 @@ export function bakeCreateGameSettings(input: Theater & {
         // The first-match tag counts toward the Analytics tab's first-match
         // rows, so it is kept only while the feature is on.
         first_match: (rawSettings.first_match === true && featureFlags.firstMatchEasyEnabled) || undefined,
+        // Bot commanders and styles: drawn when the game starts, shown in the
+        // lobby before. A style plays out mostly through the bots' goals, so it
+        // needs ai_intents_enabled too, or a Raider would play as any bot.
+        // Never in a tutorial, a daily or a campaign stage, which keep
+        // today's bots (none of them is made here today).
+        ai_personalities: (featureFlags.aiPersonalitiesEnabled && featureFlags.aiIntentsEnabled
+          && !rawSettings.tutorial && !rawSettings.daily_challenge_date && !rawSettings.is_campaign) || undefined,
       },
       {
         isOrbitGated: isGalacticAge || isSpaceAge,

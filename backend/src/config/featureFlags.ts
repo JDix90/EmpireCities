@@ -65,6 +65,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   ai_ending_play_enabled: () => envOptIn('AI_ENDING_PLAY_ENABLED'),
   ai_resignation_enabled: () => envOptIn('AI_RESIGNATION_ENABLED'),
   ai_intents_enabled: () => envOptIn('AI_INTENTS_ENABLED'),
+  ai_personalities_enabled: () => envOptIn('AI_PERSONALITIES_ENABLED'),
   surrender_offers_enabled: () => envOptIn('SURRENDER_OFFERS_ENABLED'),
   attack_blitz_enabled: () => envOptOut('ATTACK_BLITZ_ENABLED'),
   // Outbound email/push — production-only unless explicitly set.
@@ -500,6 +501,21 @@ export const featureFlags = {
    */
   get aiIntentsEnabled(): boolean {
     return overrideBool('ai_intents_enabled');
+  },
+
+  /**
+   * When true, a game started with bots draws a commander for each bot seat
+   * (@borderfall/shared drawAiCommanders): a name from thirty, and a style
+   * it plays this game (ai/aiStyles.ts): Conqueror, Raider, Expansionist,
+   * Opportunist or Defender, each a small shift of its level's settings and
+   * tuned to stay as strong as its level. Shown in the lobby and on the seat.
+   * Baked into the game at create, and only with ai_intents_enabled on too: a
+   * style plays out mostly through the bots' goals. Medium and up play a
+   * style; Easy and the tutorial bot only take a name. Never in daily
+   * challenges or campaign stages. Default OFF until measured live.
+   */
+  get aiPersonalitiesEnabled(): boolean {
+    return overrideBool('ai_personalities_enabled');
   },
 
   /**
