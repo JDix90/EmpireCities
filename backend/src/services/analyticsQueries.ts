@@ -98,7 +98,8 @@ export const SOLO_LEVELS = ['tutorial', 'easy', 'medium', 'hard', 'expert'] as c
  * Games with one human and at least one bot, started in the window, by where
  * they came from and the game's bot level (its highest bot; a bot with no
  * level plays medium). Finished games are `completed`; `capped` is the part of
- * them the round cap decided, and `median_rounds` is over the finished games.
+ * them the round cap decided, `surrendered` the part the human won by
+ * accepting the bots' surrender, and `median_rounds` is over the finished games.
  */
 export interface SoloLevelRow {
   mode: SoloGameMode;
@@ -111,6 +112,7 @@ export interface SoloLevelRow {
   /** Still in progress. */
   running: number;
   capped: number;
+  surrendered: number;
   median_rounds: number | null;
 }
 
@@ -497,6 +499,7 @@ export async function getSoloGamesByLevel(
        COUNT(*) FILTER (WHERE s.status = 'abandoned')::int AS abandoned,
        COUNT(*) FILTER (WHERE s.status = 'in_progress')::int AS running,
        COUNT(*) FILTER (WHERE s.status = 'completed' AND f.victory_type = 'turn_limit')::int AS capped,
+       COUNT(*) FILTER (WHERE s.status = 'completed' AND f.victory_type = 'surrender')::int AS surrendered,
        percentile_disc(0.5) WITHIN GROUP (ORDER BY f.rounds) FILTER (WHERE s.status = 'completed') AS median_rounds
      FROM solo s
      LEFT JOIN finished f ON f.game_id = s.game_id::text
@@ -513,6 +516,7 @@ export async function getSoloGamesByLevel(
       abandoned: num(r.abandoned),
       running: num(r.running),
       capped: num(r.capped),
+      surrendered: num(r.surrendered),
       median_rounds: numOrNull(r.median_rounds),
     }))
     .sort((a, b) =>

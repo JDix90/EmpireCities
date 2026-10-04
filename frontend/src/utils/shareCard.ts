@@ -29,6 +29,7 @@ const VICTORY_LABELS: Record<string, string> = {
   lunar_hegemony: 'Lunar Hegemony',
   turn_limit: 'Turn Limit Victory',
   resignation: 'Victory by Resignation',
+  surrender: 'Victory by Surrender',
 };
 
 export async function generateShareCard(opts: ShareCardOptions): Promise<Blob> {

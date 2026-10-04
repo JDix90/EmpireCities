@@ -121,6 +121,12 @@ const CLIENT_FEATURE_FLAGS = [
       'A bot that is beaten resigns as its turn opens, the same way a player resigns: its territories turn neutral at half strength, and when the last rival resigns you win by resignation. Beaten is judged from the board alone. Never in daily challenges, campaign games, tutorials, team games or secret-mission games, and never for a player who is away. Off by default while it is tried.',
   },
   {
+    key: 'surrender_offers_enabled',
+    label: 'Accept the bots\u2019 surrender',
+    description:
+      'A player clearly winning against bots is offered their surrender on their own turn: from round 10, 70% of the way to winning, holding two thirds of every army on the board, with no bot halfway to winning. Accepting ends the game at once as a win, counted like any other. Only one player against bots; never in daily challenges, campaign games, tutorials, team games or secret-mission games. Off by default while it is tried.',
+  },
+  {
     key: 'attack_blitz_enabled',
     label: 'Blitz attacks',
     description:

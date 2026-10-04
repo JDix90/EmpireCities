@@ -155,6 +155,7 @@ const ENDING_NAMES: Record<string, string> = {
   alliance_victory: 'Alliance victory',
   turn_limit: 'Turn limit',
   resignation: 'Resignation',
+  surrender: 'Surrender',
   humans_eliminated: 'Every human out',
   abandoned: 'Abandoned',
   unknown: 'Unknown',

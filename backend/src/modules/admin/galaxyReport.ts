@@ -119,7 +119,7 @@ export const GALAXY_ANALYTICS_CAP = 5000;
 export const GALAXY_LIST_LIMIT = 100;
 
 /** Endings that are not a win on the board. */
-const NOT_DECISIVE = new Set(['turn_limit', 'resignation', 'humans_eliminated', 'abandoned']);
+const NOT_DECISIVE = new Set(['turn_limit', 'resignation', 'humans_eliminated', 'abandoned', 'surrender']);
 
 const FACTION_ORDER = ['stellar_mandate', 'helion_navigators', 'forge_syndicate', 'void_custodians'];
 const ROLE_ORDER: GalaxySeatRole[] = ['home', 'rival', 'alone', 'ally', 'whole', 'scattered'];

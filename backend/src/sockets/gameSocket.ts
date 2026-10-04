@@ -106,6 +106,7 @@ import { runAiWithTimeout } from '../game-engine/ai/runAiWithTimeout';
 import { planAiTurn, playAiTurn, type AiTurnFlags } from '../game-engine/ai/runAiTurn';
 import { resignIfBeaten, victoryAfterResignation } from '../game-engine/ai/aiResign';
 import { resignSeat } from '../game-engine/state/resignation';
+import { acceptSurrender, surrenderOffered } from '../game-engine/victory/surrender';
 import { aiProfile, gameAiDifficulty, seatAiDifficulty } from '../game-engine/ai/aiProfiles';
 import { recordGameResults, computeRanks, redactGuestRatings } from '../game-engine/state/statsManager';
 import { checkAndUnlockAchievements } from '../game-engine/achievements/achievementService';
@@ -3983,6 +3984,22 @@ export function initGameSocket(httpServer: HttpServer): Server {
       });
     });
 
+    // ── Accept the bots' surrender ────────────────────────────────────────
+    // Offered on the player's own turn while they are clearly winning a game
+    // against bots (victory/surrender.ts). The offer is checked again here on
+    // the authoritative state; the client's banner is only a prompt.
+    socket.on('game:accept_surrender', async ({ gameId, action_id }: { gameId: string; action_id?: string }) => {
+      await mutateLockedRoom(gameId, socket, 5000, async (room) => {
+        if (!checkAndRecordActionId(gameId, userId, action_id)) return;
+        const { state } = room;
+        if (!featureFlags.surrenderOffersEnabled || !acceptSurrender(state, userId)) {
+          return socket.emit('error', { message: 'No surrender is on offer' });
+        }
+        await finalizeGame(io, gameId, state, [userId]);
+        broadcastState(io, gameId, state);
+      });
+    });
+
     // ── Resign ────────────────────────────────────────────────────────────
     socket.on('game:resign', async ({ gameId, action_id }: { gameId: string; action_id?: string }) => {
       await mutateLockedRoom(gameId, socket, 5000, async (room) => {
@@ -5148,6 +5165,15 @@ function buildClientState(state: GameState, playerId: string | null, fogOfWar: b
     return { ...s, draft_deploy_caps: caps };
   };
 
+  // Viewer-scoped surrender offer (transport-only): the bots offer this
+  // viewer their surrender on the viewer's own turn (victory/surrender.ts).
+  // Read from the authoritative state, as the server will check it again
+  // when the viewer accepts.
+  const attachSurrenderOffer = (s: GameState): GameState =>
+    playerId && featureFlags.surrenderOffersEnabled && surrenderOffered(state, playerId)
+      ? { ...s, surrender_offer: true }
+      : s;
+
   const actingPlayerId = state.players[state.current_player_index]?.player_id;
   const stripSecretMissions = (s: GameState): GameState => ({
     // What no viewer may hold: the mission salt, the daily seeds, a v2 day's
@@ -5170,7 +5196,7 @@ function buildClientState(state: GameState, playerId: string | null, fogOfWar: b
 
   // No fog → everyone (players and spectators) sees full territory intel.
   // (Spectator card hands are still emptied by redactPlayersForViewer.)
-  if (!fogOfWar) return attachDraftCaps(attachEraPreview(stripSecretMissions(state)));
+  if (!fogOfWar) return attachSurrenderOffer(attachDraftCaps(attachEraPreview(stripSecretMissions(state))));
 
   // Fog is on. Compute which territories' exact intel the viewer may see.
   const visibleIds = playerId !== null ? fogVisibleTerritoryIds(state, playerId) : new Set<string>();
@@ -5193,7 +5219,7 @@ function buildClientState(state: GameState, playerId: string | null, fogOfWar: b
     );
   }
 
-  return attachDraftCaps(attachEraPreview(stripSecretMissions(filtered)));
+  return attachSurrenderOffer(attachDraftCaps(attachEraPreview(stripSecretMissions(filtered))));
 }
 
 async function saveGameState(gameId: string, state: GameState): Promise<void> {

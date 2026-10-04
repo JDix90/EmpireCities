@@ -331,6 +331,7 @@ function conclusionDetail(last: GameState): string | undefined {
     case 'turn_limit': return 'Time ran out with them holding the strongest position.';
     case 'lunar_hegemony': return 'They held the Moon long enough that Earth stopped mattering.';
     case 'resignation': return 'A commander conceded the field.';
+    case 'surrender': return 'The last rivals laid down their arms.';
     default: return undefined;
   }
 }

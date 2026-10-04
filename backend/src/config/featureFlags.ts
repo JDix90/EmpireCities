@@ -64,6 +64,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   ai_planned_reinforcements_enabled: () => envOptIn('AI_PLANNED_REINFORCEMENTS_ENABLED'),
   ai_ending_play_enabled: () => envOptIn('AI_ENDING_PLAY_ENABLED'),
   ai_resignation_enabled: () => envOptIn('AI_RESIGNATION_ENABLED'),
+  surrender_offers_enabled: () => envOptIn('SURRENDER_OFFERS_ENABLED'),
   attack_blitz_enabled: () => envOptOut('ATTACK_BLITZ_ENABLED'),
   // Outbound email/push — production-only unless explicitly set.
   retention_notifications_enabled: () => envOrProdOnly('RETENTION_NOTIFICATIONS_ENABLED'),
@@ -483,6 +484,17 @@ export const featureFlags = {
    */
   get aiResignationEnabled(): boolean {
     return overrideBool('ai_resignation_enabled');
+  },
+
+  /**
+   * When true, a player clearly winning a game against bots is offered their
+   * surrender on their own turn, and may accept it to end the game at once as
+   * a win (victory/surrender.ts, `game:accept_surrender`). Only one player
+   * against bots; never in daily challenges, campaign stages, tutorials, team
+   * games or secret-mission games. Default OFF until tried live.
+   */
+  get surrenderOffersEnabled(): boolean {
+    return overrideBool('surrender_offers_enabled');
   },
 
   /**

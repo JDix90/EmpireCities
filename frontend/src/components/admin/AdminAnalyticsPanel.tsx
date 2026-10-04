@@ -54,6 +54,8 @@ export interface SoloLevelRow {
   running: number;
   /** Finished games the round cap decided. */
   capped: number;
+  /** Finished games the human won by accepting the bots' surrender. */
+  surrendered: number;
   median_rounds: number | null;
 }
 export interface EventVolumeRow {
@@ -339,6 +341,7 @@ export default function AdminAnalyticsPanel({ data }: { data: AnalyticsReport | 
                   <th className="pb-1 text-right font-normal">Finished</th>
                   <th className="pb-1 text-right font-normal">Won</th>
                   <th className="pb-1 text-right font-normal">Round cap</th>
+                  <th className="pb-1 text-right font-normal">Surrendered</th>
                   <th className="pb-1 text-right font-normal">Left</th>
                   <th className="pb-1 text-right font-normal">Rounds</th>
                 </tr>
@@ -355,6 +358,7 @@ export default function AdminAnalyticsPanel({ data }: { data: AnalyticsReport | 
                     <td className="py-1.5 text-right tabular-nums text-bf-text">{pctText(row.finished, row.started)}</td>
                     <td className="py-1.5 text-right tabular-nums text-bf-text">{pctText(row.won, row.finished)}</td>
                     <td className="py-1.5 text-right tabular-nums text-bf-text">{pctText(row.capped, row.finished)}</td>
+                    <td className="py-1.5 text-right tabular-nums text-bf-text">{pctText(row.surrendered, row.finished)}</td>
                     <td className="py-1.5 text-right tabular-nums text-bf-text">{pctText(row.abandoned, row.started)}</td>
                     <td className="py-1.5 text-right tabular-nums text-bf-text">{row.median_rounds ?? '—'}</td>
                   </tr>
