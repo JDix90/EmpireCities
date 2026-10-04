@@ -121,6 +121,23 @@ export interface AiProfile {
   /** Dice exchanges per turn, at most; doubled by the decided-game press. */
   pressExchangeCeiling: number;
 
+  // ── Reinforcements and re-planning (ai_planned_reinforcements_enabled) ────
+  // Read only with that flag on, which builds on the odds press. Placing the
+  // draft where it adds the most (ai/aiDraftPlan.ts) is by far the bigger
+  // lever: in the arena a Medium with it beat three of today's Hard bots in
+  // four games of five, and even Easy with it stalled today's Medium. So only
+  // Expert places by value, which makes it the clear top step; Medium and Hard
+  // keep the plan's single tile and choose their attacks again once it lands.
+  /**
+   * Territories a draft may be spread over; 0 keeps the plan's single tile,
+   * chosen before the turn's setup steps as today.
+   */
+  draftTiles: number;
+  /** Chooses its attacks again once its reinforcements have landed. */
+  replansAfterDraft: boolean;
+  /** Also chooses them again after every capture, from the board it made. */
+  replansAfterCapture: boolean;
+
   // ── Economy ───────────────────────────────────────────────────────────────
   build: AiBuildMode;
   research: AiResearchMode;
@@ -167,6 +184,9 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     pressStartOdds: 0.75,
     pressContinueOdds: 0.6,
     pressExchangeCeiling: 3,
+    draftTiles: 0,
+    replansAfterDraft: false,
+    replansAfterCapture: false,
     build: 'none',
     research: 'none',
     doctrinesPerTurn: 0,
@@ -196,6 +216,9 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     pressStartOdds: 0.75,
     pressContinueOdds: 0.6,
     pressExchangeCeiling: 3,
+    draftTiles: 0,
+    replansAfterDraft: false,
+    replansAfterCapture: false,
     build: 'gate_only',
     research: 'gate_only',
     doctrinesPerTurn: 0,
@@ -225,6 +248,9 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     pressStartOdds: 0.65,
     pressContinueOdds: 0.5,
     pressExchangeCeiling: 12,
+    draftTiles: 0,
+    replansAfterDraft: true,
+    replansAfterCapture: false,
     build: 'greedy',
     research: 'cheapest',
     doctrinesPerTurn: 1,
@@ -254,6 +280,9 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     pressStartOdds: 0.4,
     pressContinueOdds: 0.35,
     pressExchangeCeiling: 40,
+    draftTiles: 0,
+    replansAfterDraft: true,
+    replansAfterCapture: true,
     build: 'threat',
     research: 'strategic',
     doctrinesPerTurn: 2,
@@ -283,6 +312,9 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     pressStartOdds: 0.35,
     pressContinueOdds: 0.35,
     pressExchangeCeiling: 40,
+    draftTiles: Number.POSITIVE_INFINITY,
+    replansAfterDraft: true,
+    replansAfterCapture: true,
     build: 'threat',
     research: 'strategic',
     doctrinesPerTurn: 2,

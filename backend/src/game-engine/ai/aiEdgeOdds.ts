@@ -7,7 +7,7 @@
  * the live board before and between exchanges, so both price a fight alike.
  */
 import type { GameMap, GameState } from '../../types';
-import { captureProbability } from '../combat/combatOdds';
+import { captureProbability, type CaptureOddsOptions } from '../combat/combatOdds';
 import { computeLandCombatModifiers } from '../combat/combatModifiers';
 import { getPlayerEraModifiers } from '../state/eraModifiers';
 import { galaxyLaneAttackDiceCap } from '../state/moonAccess';
@@ -29,6 +29,25 @@ export function edgeCaptureOdds(
   const to = state.territories[toId];
   if (!from || !to) return 0;
   const units = attackingUnits ?? from.unit_count;
+  return captureProbability(units, to.unit_count, edgeOddsOptions(state, map, attackerId, fromId, toId, units, to.unit_count));
+}
+
+/**
+ * The dice this edge's fight is rolled with, for captureProbability: the
+ * modifiers the resolver applies at these unit counts. A caller pricing the
+ * same edge at other counts (where reinforcements go, ai/aiDraftPlan.ts)
+ * reuses them rather than recomputing the modifiers for every count.
+ */
+export function edgeOddsOptions(
+  state: GameState,
+  map: GameMap,
+  attackerId: string,
+  fromId: string,
+  toId: string,
+  attackingUnits: number,
+  defendingUnits: number,
+): CaptureOddsOptions {
+  const to = state.territories[toId];
   const conn = map.connections.find(
     (c) => (c.from === fromId && c.to === toId) || (c.from === toId && c.to === fromId),
   );
@@ -42,18 +61,18 @@ export function edgeCaptureOdds(
     fromId,
     toId,
     attackerId,
-    defenderId: to.owner_id,
-    attackingUnits: units,
-    defendingUnits: to.unit_count,
+    defenderId: to?.owner_id ?? null,
+    attackingUnits,
+    defendingUnits,
     connection: conn,
   });
-  const defenderPlayer = to.owner_id
+  const defenderPlayer = to?.owner_id
     ? state.players.find((p) => p.player_id === to.owner_id)
     : undefined;
   const vulnActive =
     state.settings.era_advancement_enabled &&
     (defenderPlayer?.era_transition_turns_remaining ?? 0) > 0;
-  return captureProbability(units, to.unit_count, {
+  return {
     attackBonus: mods.attackerBonusBreakdown.total,
     defenseBonus: mods.defenderBonusBreakdown.total,
     // Plan-time approximation: the rare Lighthouse/Naval Charts raise of the
@@ -73,5 +92,5 @@ export function edgeCaptureOdds(
     // attacks on them.
     attackerDieFaces: mods.attackerDieFaces,
     defenderDieFaces: mods.defenderDieFaces,
-  });
+  };
 }

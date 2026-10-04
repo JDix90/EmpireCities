@@ -26,7 +26,8 @@ import { attachCombatAbilityCallouts, buildCombatAbilityCallouts } from '../comb
 import { buildCombatMapVisual, buildEraAdvanceMapVisual, buildFortifyMapVisual, buildNavalMapVisual, buildReinforceMapVisual } from '../visuals/mapVisualEvents';
 import { buildStrikeAnimationPayload } from '../abilities/strikeAnimation';
 import { canAiUseDropAssault, canAiUseDysonBeam, canAiUseOrbitalDrop, selectAiDropAssaultTarget, selectAiDysonBeamTarget, selectAiLaneSeal, selectAiOrbitalDropTarget, shouldAiExportHelium3 } from './aiMoonPowers';
-import { chooseEmergencySealLane, rankAiUnificationTargets, selectAiBuildingPlacement, selectAiGarrisonDoctrines, selectAiTechResearch } from './aiBot';
+import { FINISHER_OVERCAP, chooseEmergencySealLane, planAttackActions, rankAiUnificationTargets, selectAiBuildingPlacement, selectAiGarrisonDoctrines, selectAiTechResearch } from './aiBot';
+import { allocateDraft } from './aiDraftPlan';
 import { consumeSealBreaker, lanePowersEnabled } from '../abilities/lanePowers';
 import { createPuzzleDieRoll } from '../daily/puzzleDice';
 import { dailySiegeTarget } from '../daily/dailySiege';
@@ -63,6 +64,12 @@ export interface AiTurnFlags {
   decidedGamePress: boolean;
   /** ai_odds_press_enabled: press on the odds, and show each run as one result. Off when absent. */
   oddsPress?: boolean;
+  /**
+   * ai_planned_reinforcements_enabled: split the draft once its true count is
+   * known, and choose attacks again after it lands. Builds on `oddsPress`,
+   * and does nothing without it. Off when absent.
+   */
+  plannedDraft?: boolean;
 }
 
 /** How planning reaches the board: the view the bot may see, and the planner to run on it. */
@@ -70,6 +77,8 @@ export interface AiPlanHooks {
   /** The board as this seat sees it (the fog-filtered view when fog of war is on). */
   planningState(): GameState;
   plan(state: GameState, map: GameMap, difficulty: AiLevel, options: AiTurnOptions): Promise<AiAction[]>;
+  /** The planner's jitter for choices the turn makes again (a harness seeds it); Math.random when absent. */
+  rng?: () => number;
 }
 
 /** Everything a bot turn does besides the rules themselves. */
@@ -112,6 +121,13 @@ export interface AiTurnPlan {
    * exchanges as one combined result, as a player's Blitz is shown.
    */
   oddsPress?: boolean;
+  /**
+   * Choosing again once the board is known (ai_planned_reinforcements_enabled):
+   * the board this seat may see, and the planner's options. The draft is split
+   * with the turn's true count (ai/aiDraftPlan.ts), attacks are chosen again
+   * after it lands, and at levels that do, after every capture.
+   */
+  replan?: { view: () => GameState; options: AiTurnOptions };
 }
 
 /** Plan the turn: the planner's ranked actions and the turn's attack budget. */
@@ -163,7 +179,43 @@ export async function planAiTurn(
         ? aiPressExchangeCeiling(difficulty, decidedPress)
         : aiAttackExchangeBudget(difficulty, decidedPress),
   };
-  return { actions, attackBudget, attackGrind: flags.attackGrind, ...(oddsPress ? { oddsPress: true } : {}) };
+  const replan = oddsPress && flags.plannedDraft && !aiProfile(difficulty).passive
+    ? {
+      view: () => hooks.planningState(),
+      options: {
+        captureOddsScoring: flags.captureOddsScoring,
+        decidedGamePress: decidedPress,
+        siege,
+        oddsPress: true,
+        ...(hooks.rng ? { rng: hooks.rng } : {}),
+      },
+    }
+    : undefined;
+  return {
+    actions,
+    attackBudget,
+    attackGrind: flags.attackGrind,
+    ...(oddsPress ? { oddsPress: true } : {}),
+    ...(replan ? { replan } : {}),
+  };
+}
+
+/**
+ * Put `fresh` in place of the plan's attacks (not the influence sentinel)
+ * from index `from` on: where the first of them stood, or else after the
+ * draft's end-of-phase marker.
+ */
+function replaceAttacks(actions: AiAction[], fresh: AiAction[], from = 0): void {
+  const isAttack = (a: AiAction) => a.type === 'attack' && a.from !== '__influence__';
+  let at = actions.findIndex((a, i) => i >= from && isAttack(a));
+  for (let i = actions.length - 1; i >= from; i -= 1) {
+    if (isAttack(actions[i]!)) actions.splice(i, 1);
+  }
+  if (at < 0) {
+    const marker = actions.findIndex((a, i) => i >= from && a.type === 'end_phase');
+    at = from > 0 ? from : marker >= 0 ? marker + 1 : actions.length;
+  }
+  actions.splice(at, 0, ...fresh);
 }
 
 /**
@@ -333,7 +385,19 @@ export async function playAiTurn(
   const firstDraftIdx = actions.findIndex(
     (a) => a.type === 'draft' && a.to && a.units != null,
   );
-  if (firstDraftIdx >= 0) {
+  if (plan.replan && aiProfile(difficulty).draftTiles > 0) {
+    // The setup steps are done, so the count is the turn's true one: split it
+    // where it adds the most (ai/aiDraftPlan.ts), in place of the plan's
+    // single draft, which was chosen before any of them.
+    const placements = allocateDraft(
+      plan.replan.view(), map, currentPlayer.player_id, state.draft_units_remaining, difficulty,
+    ).map((p) => ({ type: 'draft' as const, to: p.to, units: p.units }));
+    const at = firstDraftIdx >= 0 ? firstDraftIdx : 0;
+    for (let i = actions.length - 1; i >= 0; i -= 1) {
+      if (actions[i]!.type === 'draft') actions.splice(i, 1);
+    }
+    actions.splice(at, 0, ...placements);
+  } else if (firstDraftIdx >= 0) {
     actions[firstDraftIdx].units = state.draft_units_remaining;
   } else if (state.draft_units_remaining > 0) {
     const owned = Object.keys(state.territories).find(
@@ -823,7 +887,20 @@ export async function playAiTurn(
 
   hooks.broadcast();
 
-  for (const action of actions) {
+  // Choosing attacks again on the board the draft made: the plan's were
+  // chosen before the reinforcements existed.
+  const replan = plan.replan;
+  const profile = aiProfile(difficulty);
+  // Edges a turn may open when it chooses again, so pacing stays bounded
+  // however many captures it re-plans after.
+  const edgeCap = profile.attackCap + (replan?.options.decidedGamePress && profile.finisher ? FINISHER_OVERCAP : 0);
+  const triedEdges = new Set<string>();
+  if (replan && profile.replansAfterDraft) {
+    replaceAttacks(actions, planAttackActions(replan.view(), map, currentPlayer.player_id, difficulty, replan.options));
+  }
+
+  for (let actionIndex = 0; actionIndex < actions.length; actionIndex += 1) {
+    const action = actions[actionIndex]!;
     if (action.type !== 'attack' || !action.from || !action.to) continue;
 
     // ── AI influence action (sentinel from === '__influence__') ──
@@ -922,7 +999,9 @@ export async function playAiTurn(
     // Pressing on the odds: the live board decides, after earlier attacks have
     // spent or moved units, and before a Seal Breaker charge or a fleet is spent.
     if (oddsPress) {
+      if (replan && triedEdges.size >= edgeCap) continue;
       if (!shouldStartPress(state, map, currentPlayer.player_id, attackFromId, attackToId, difficulty, action.pressValue)) continue;
+      triedEdges.add(`${attackFromId}>${attackToId}`);
       await hooks.delay();
     }
 
@@ -1177,6 +1256,15 @@ export async function playAiTurn(
       if (result.territory_captured) {
         const defP = state.players.find((p) => p.player_id === aiDefenderId);
         if (defP?.is_eliminated) appendWinProbabilitySnapshot(state);
+      }
+      // A capture changes the board: the new tile holds the units that moved
+      // in, and its neighbours are reachable. Levels that chain choose their
+      // remaining attacks again from here, skipping edges already fought.
+      if (result.territory_captured && replan && profile.replansAfterCapture && triedEdges.size < edgeCap) {
+        const fresh = planAttackActions(
+          replan.view(), map, currentPlayer.player_id, difficulty, replan.options, edgeCap - triedEdges.size,
+        ).filter((a) => !triedEdges.has(`${a.from}>${a.to}`));
+        replaceAttacks(actions, fresh, actionIndex + 1);
       }
     }
     if (aiAttackGrindEnabled && aiAttackBudget.left <= 0) break;

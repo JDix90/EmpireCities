@@ -40,6 +40,10 @@ describe('AI_PROFILES holds the values the constants and branches held', () => {
     pressStartOdds: [0.75, 0.75, 0.65, 0.4, 0.35],
     pressContinueOdds: [0.6, 0.6, 0.5, 0.35, 0.35],
     pressExchangeCeiling: [3, 3, 12, 40, 40],
+    // New with ai_planned_reinforcements_enabled, read only with it on.
+    draftTiles: [0, 0, 0, 0, Number.POSITIVE_INFINITY],
+    replansAfterDraft: [false, false, true, true, true],
+    replansAfterCapture: [false, false, false, true, true],
     build: ['none', 'gate_only', 'greedy', 'threat', 'threat'],
     research: ['none', 'gate_only', 'cheapest', 'strategic', 'strategic'],
     doctrinesPerTurn: [0, 0, 1, 2, 2],

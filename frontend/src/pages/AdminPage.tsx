@@ -103,6 +103,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Bots keep attacking while the odds favour them instead of stopping when a fixed dice count runs out: each level starts an attack and rolls again at its own odds, up to a per-turn ceiling, and Easy stops making losing attacks. Each run of attacks is shown as one combined result, like a player\u2019s Blitz, so turns do not take longer to watch. Daily challenges are unchanged. Off by default while it is tried.',
   },
   {
+    key: 'ai_planned_reinforcements_enabled',
+    label: 'AI places reinforcements with a purpose',
+    description:
+      'Bots choose their attacks again once their reinforcements land (Medium and up), and again after every capture (Hard and Expert). Expert also places its reinforcements with a purpose, splitting them between the tiles that stage its attacks and the ones most at risk, which makes it a clear step above Hard. Easy is unchanged. Needs "AI presses on the odds" on, and does nothing without it. Off by default while it is tried.',
+  },
+  {
     key: 'attack_blitz_enabled',
     label: 'Blitz attacks',
     description:

@@ -44,7 +44,8 @@
  *   ARENA_CANDIDATE        candidate difficulty (default medium)
  *   ARENA_BASELINE         baseline difficulty (default medium)
  *   ARENA_CANDIDATE_FLAGS  name=0|1 overrides of the live AI flags, comma-separated:
- *   ARENA_BASELINE_FLAGS     captureOddsScoring, attackGrind, decidedGamePress, oddsPress.
+ *   ARENA_BASELINE_FLAGS     captureOddsScoring, attackGrind, decidedGamePress, oddsPress,
+ *                            plannedDraft.
  *                            Unset flags take the live code default.
  *   ARENA_CANDIDATE_PROFILE  JSON object of AiProfile fields that replace the
  *   ARENA_BASELINE_PROFILE     difficulty's row for that side.
@@ -88,6 +89,7 @@ function liveFlags(): AiTurnFlags {
     attackGrind: featureFlags.aiAttackGrindEnabled,
     decidedGamePress: featureFlags.aiDecidedGamePressEnabled,
     oddsPress: featureFlags.aiOddsPressEnabled,
+    plannedDraft: featureFlags.aiPlannedReinforcementsEnabled,
   };
 }
 
@@ -364,6 +366,7 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
     const plan = await planAiTurn(state, map, player, seat.level, seat.flags, {
       planningState: () => state,
       plan: async (s, m, d, o) => computeAiTurn(s, m, d, { ...o, rng: jitter }),
+      rng: jitter,
     });
     const outcome = await playAiTurn(state, map, player, seat.level, plan, 'draft', hooks);
     record.turns[player.player_index]! += 1;

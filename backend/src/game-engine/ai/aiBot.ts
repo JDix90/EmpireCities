@@ -292,7 +292,7 @@ export function evaluateBoard(
 export const HEGEMONY_BREAK_URGENCY_TURNS = 3;
 
 /** Extra attack score toward enemy capitals, secret-mission targets, and gateways. */
-function attackObjectiveBonus(
+export function attackObjectiveBonus(
   state: GameState,
   map: GameMap,
   attackerId: string,
@@ -469,7 +469,7 @@ export function eliminationAttackBonus(
 }
 
 /** Extra attacks allowed past the per-difficulty cap when a kill is on the board. */
-const FINISHER_OVERCAP = 4;
+export const FINISHER_OVERCAP = 4;
 
 /**
  * Emergency Seal (Void Custodians): the Nexus lane worth closing this turn —
@@ -533,11 +533,12 @@ function selectAttacks(
   jitter: () => number = Math.random,
   siege?: AiTurnOptions['siege'],
   oddsPress = false,
+  attackCap = profile.attackCap,
 ): AiAction[] {
   const adjacency = buildAdjacencyMap(map);
   const actions: AiAction[] = [];
   const randomFactor = profile.noise;
-  const baseMaxAttacks = profile.attackCap;
+  const baseMaxAttacks = attackCap;
   // Decided-game press: the plan needs enough candidates to spend the doubled
   // exchange budget; easy and tutorial never press.
   const maxAttacks =
@@ -734,6 +735,35 @@ function selectAttacks(
 }
 
 /**
+ * The planner's attacks on their own, for a turn that chooses again on the
+ * board it has made: after its reinforcements land, and for some levels after
+ * each capture (ai_planned_reinforcements_enabled, ai/runAiTurn.ts).
+ * `attackCap` is the attacks the turn has left, in place of the level's cap.
+ */
+export function planAttackActions(
+  state: GameState,
+  map: GameMap,
+  playerId: string,
+  difficulty: AiLevel,
+  options: AiTurnOptions = {},
+  attackCap?: number,
+): AiAction[] {
+  const profile = aiProfile(difficulty);
+  return selectAttacks(
+    state,
+    map,
+    playerId,
+    profile,
+    options.captureOddsScoring ?? true,
+    options.decidedGamePress ?? false,
+    options.rng ?? Math.random,
+    options.siege,
+    options.oddsPress ?? false,
+    attackCap ?? profile.attackCap,
+  );
+}
+
+/**
  * Unification Drive (Kingdom of Sardinia) turns one neutral territory in
  * influence range into the bot's, holding one unit. Its targets, best first:
  * a territory that completes a region, then one in a region the bot holds
@@ -879,7 +909,7 @@ function findNearestBorder(
   return null;
 }
 
-function isTruceActive(state: GameState, playerIdA: string, playerIdB: string): boolean {
+export function isTruceActive(state: GameState, playerIdA: string, playerIdB: string): boolean {
   const playerA = state.players.find((p) => p.player_id === playerIdA);
   const playerB = state.players.find((p) => p.player_id === playerIdB);
   if (!playerA || !playerB) return false;
@@ -904,7 +934,7 @@ function isTruceActive(state: GameState, playerIdA: string, playerIdB: string): 
  */
 const adjacencyCache = new WeakMap<GameMap['connections'], Record<string, string[]>>();
 
-function buildAdjacencyMap(map: GameMap): Record<string, string[]> {
+export function buildAdjacencyMap(map: GameMap): Record<string, string[]> {
   const cached = adjacencyCache.get(map.connections);
   if (cached) return cached;
   const adj: Record<string, string[]> = {};

@@ -61,6 +61,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   ai_capture_odds_enabled: () => envOptOut('AI_CAPTURE_ODDS_ENABLED'),
   ai_decided_game_press_enabled: () => envOptOut('AI_DECIDED_GAME_PRESS_ENABLED'),
   ai_odds_press_enabled: () => envOptIn('AI_ODDS_PRESS_ENABLED'),
+  ai_planned_reinforcements_enabled: () => envOptIn('AI_PLANNED_REINFORCEMENTS_ENABLED'),
   attack_blitz_enabled: () => envOptOut('ATTACK_BLITZ_ENABLED'),
   // Outbound email/push — production-only unless explicitly set.
   retention_notifications_enabled: () => envOrProdOnly('RETENTION_NOTIFICATIONS_ENABLED'),
@@ -441,6 +442,18 @@ export const featureFlags = {
    */
   get aiOddsPressEnabled(): boolean {
     return overrideBool('ai_odds_press_enabled');
+  },
+
+  /**
+   * When true (and ai_odds_press_enabled is on, which it builds on), bots
+   * choose their attacks again once their reinforcements land, Hard and Expert
+   * also after every capture, and Expert places its reinforcements by marginal
+   * value once the turn's true count is known (ai/aiDraftPlan.ts,
+   * ai/runAiTurn.ts, the levels in ai/aiProfiles.ts). Default OFF until
+   * measured live.
+   */
+  get aiPlannedReinforcementsEnabled(): boolean {
+    return overrideBool('ai_planned_reinforcements_enabled');
   },
 
   /**
