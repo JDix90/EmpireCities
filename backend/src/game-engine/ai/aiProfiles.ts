@@ -149,6 +149,11 @@ export interface AiProfile {
   /** Races its own ending: near its line, or in the last rounds before the cap. */
   racesEnding: boolean;
 
+  // ── Resigning (ai_resignation_enabled) ────────────────────────────────────
+  // Read only with that flag on (ai/aiResign.ts).
+  /** Resigns as its turn opens once it is beaten. */
+  resignsWhenBeaten: boolean;
+
   // ── Economy ───────────────────────────────────────────────────────────────
   build: AiBuildMode;
   research: AiResearchMode;
@@ -200,6 +205,7 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     replansAfterCapture: false,
     leaderPressure: 0,
     racesEnding: false,
+    resignsWhenBeaten: false,
     build: 'none',
     research: 'none',
     doctrinesPerTurn: 0,
@@ -234,6 +240,7 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     replansAfterCapture: false,
     leaderPressure: 0,
     racesEnding: false,
+    resignsWhenBeaten: true,
     build: 'gate_only',
     research: 'gate_only',
     doctrinesPerTurn: 0,
@@ -268,6 +275,7 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     replansAfterCapture: false,
     leaderPressure: 1,
     racesEnding: true,
+    resignsWhenBeaten: true,
     build: 'greedy',
     research: 'cheapest',
     doctrinesPerTurn: 1,
@@ -302,6 +310,7 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     replansAfterCapture: true,
     leaderPressure: 2,
     racesEnding: true,
+    resignsWhenBeaten: true,
     build: 'threat',
     research: 'strategic',
     doctrinesPerTurn: 2,
@@ -338,6 +347,7 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     // fell from 92% to 78%) without curbing the early leader, so it races alone.
     leaderPressure: 0,
     racesEnding: true,
+    resignsWhenBeaten: true,
     build: 'threat',
     research: 'strategic',
     doctrinesPerTurn: 2,

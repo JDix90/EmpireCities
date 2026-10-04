@@ -24,6 +24,7 @@ export function liveAiTurnFlags(): AiTurnFlags {
     oddsPress: featureFlags.aiOddsPressEnabled,
     plannedDraft: featureFlags.aiPlannedReinforcementsEnabled,
     endingPlay: featureFlags.aiEndingPlayEnabled,
+    resignation: featureFlags.aiResignationEnabled,
   };
 }
 

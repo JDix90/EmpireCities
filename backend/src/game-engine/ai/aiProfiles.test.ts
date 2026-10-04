@@ -47,6 +47,8 @@ describe('AI_PROFILES holds the values the constants and branches held', () => {
     // New with ai_ending_play_enabled, read only with it on.
     leaderPressure: [0, 0, 1, 2, 0],
     racesEnding: [false, false, true, true, true],
+    // New with ai_resignation_enabled, read only with it on.
+    resignsWhenBeaten: [false, true, true, true, true],
     build: ['none', 'gate_only', 'greedy', 'threat', 'threat'],
     research: ['none', 'gate_only', 'cheapest', 'strategic', 'strategic'],
     doctrinesPerTurn: [0, 0, 1, 2, 2],

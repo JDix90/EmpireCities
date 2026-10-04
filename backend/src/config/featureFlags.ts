@@ -63,6 +63,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   ai_odds_press_enabled: () => envOptIn('AI_ODDS_PRESS_ENABLED'),
   ai_planned_reinforcements_enabled: () => envOptIn('AI_PLANNED_REINFORCEMENTS_ENABLED'),
   ai_ending_play_enabled: () => envOptIn('AI_ENDING_PLAY_ENABLED'),
+  ai_resignation_enabled: () => envOptIn('AI_RESIGNATION_ENABLED'),
   attack_blitz_enabled: () => envOptOut('ATTACK_BLITZ_ENABLED'),
   // Outbound email/push — production-only unless explicitly set.
   retention_notifications_enabled: () => envOrProdOnly('RETENTION_NOTIFICATIONS_ENABLED'),
@@ -468,6 +469,18 @@ export const featureFlags = {
    */
   get aiEndingPlayEnabled(): boolean {
     return overrideBool('ai_ending_play_enabled');
+  },
+
+  /**
+   * When true, a beaten bot resigns as its turn opens (ai/aiResign.ts),
+   * through the same step as a player's resignation: its land turns neutral
+   * at half strength, and when the last rival resigns the game ends as a
+   * resignation. Beaten reads only the public board. Never in daily
+   * challenges, tutorials, team games or secret-mission games, and never for
+   * an away human seat. Default OFF until measured live.
+   */
+  get aiResignationEnabled(): boolean {
+    return overrideBool('ai_resignation_enabled');
   },
 
   /**

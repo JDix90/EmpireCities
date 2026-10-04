@@ -76,6 +76,12 @@ export interface AiTurnFlags {
    * to winning, seat-blind (ai/aiEnding.ts). Off when absent.
    */
   endingPlay?: boolean;
+  /**
+   * ai_resignation_enabled: a beaten bot resigns as its turn opens
+   * (ai/aiResign.ts resignIfBeaten, which the caller runs before planning).
+   * Off when absent.
+   */
+  resignation?: boolean;
 }
 
 /** How planning reaches the board: the view the bot may see, and the planner to run on it. */

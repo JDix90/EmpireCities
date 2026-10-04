@@ -115,6 +115,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Bots read how the game is won. One a few territories from its own win, or anyone in the last rounds before the turn limit, grabs every territory it can. Medium and Hard also gang up on whoever is clearly ahead and close to winning (Medium only mildly), judged by the board alone, whether that is you or another bot. Expert only races: ganging up stalled Expert games without stopping the leader. Easy and the tutorial bot are unchanged, and so are daily challenges. Off by default while it is tried.',
   },
   {
+    key: 'ai_resignation_enabled',
+    label: 'Beaten bots resign',
+    description:
+      'A bot that is beaten resigns as its turn opens, the same way a player resigns: its territories turn neutral at half strength, and when the last rival resigns you win by resignation. Beaten is judged from the board alone. Never in daily challenges, tutorials, team games or secret-mission games, and never for a player who is away. Off by default while it is tried.',
+  },
+  {
     key: 'attack_blitz_enabled',
     label: 'Blitz attacks',
     description:

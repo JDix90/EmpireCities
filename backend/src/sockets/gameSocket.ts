@@ -103,7 +103,9 @@ import {
 const DRIFT_JUMP_ABILITY_ID = 'drift_jump';
 import type { BuildingType } from '../types';
 import { runAiWithTimeout } from '../game-engine/ai/runAiWithTimeout';
-import { planAiTurn, playAiTurn } from '../game-engine/ai/runAiTurn';
+import { planAiTurn, playAiTurn, type AiTurnFlags } from '../game-engine/ai/runAiTurn';
+import { resignIfBeaten, victoryAfterResignation } from '../game-engine/ai/aiResign';
+import { resignSeat } from '../game-engine/state/resignation';
 import { aiProfile, gameAiDifficulty, seatAiDifficulty } from '../game-engine/ai/aiProfiles';
 import { recordGameResults, computeRanks, redactGuestRatings } from '../game-engine/state/statsManager';
 import { checkAndUnlockAchievements } from '../game-engine/achievements/achievementService';
@@ -3990,17 +3992,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const player = state.players.find((p) => p.player_id === userId);
       if (!player || player.is_eliminated) return socket.emit('error', { message: 'Cannot resign' });
 
-      eliminatePlayer(player, null);
-      player.has_resigned = true;
-
-      // Make all their territories neutral (unowned)
-      for (const t of Object.values(state.territories)) {
-        if (t.owner_id === userId) {
-          t.owner_id = null;
-          t.unit_count = Math.max(1, Math.floor(t.unit_count / 2));
-        }
-      }
-      syncTerritoryCounts(state);
+      // Eliminated by nobody; their territories turn neutral at half strength.
+      resignSeat(state, userId);
 
       io.to(gameId).emit('game:player_resigned', {
         playerId: userId,
@@ -5988,6 +5981,37 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   // A bot plays its own level; an away human seat the game's bot level
   // (seatAiDifficulty), not medium whatever the table is.
   const difficulty = seatAiDifficulty(state.players, currentPlayer);
+  const aiFlags: AiTurnFlags = {
+    captureOddsScoring: featureFlags.aiCaptureOddsEnabled,
+    attackGrind: featureFlags.aiAttackGrindEnabled,
+    decidedGamePress: featureFlags.aiDecidedGamePressEnabled,
+    oddsPress: featureFlags.aiOddsPressEnabled,
+    plannedDraft: featureFlags.aiPlannedReinforcementsEnabled,
+    endingPlay: featureFlags.aiEndingPlayEnabled,
+    resignation: featureFlags.aiResignationEnabled,
+  };
+
+  // A beaten bot resigns as its turn opens (ai/aiResign.ts), through the
+  // same step as a player's resignation, and the turn passes on as at the
+  // end of any turn. Never a human seat the AI covers.
+  const resigned = resignIfBeaten(state, currentPlayer, difficulty, aiFlags.resignation);
+  if (resigned) {
+    io.to(gameId).emit('game:player_resigned', {
+      playerId: currentPlayer.player_id,
+      playerName: currentPlayer.username,
+    });
+    const victory = victoryAfterResignation(state, map);
+    if (victory) {
+      state.phase = 'game_over';
+      state.winner_id = victory.winnerIds[0]!;
+      state.winner_ids = victory.winnerIds;
+      state.victory_condition = victory.condition;
+      await finalizeGame(io, gameId, state, victory.winnerIds);
+      broadcastState(io, gameId, state);
+      return;
+    }
+  }
+
   // Fog-fair AI planning: when fog_of_war is on, humans see only their own
   // and adjacent territories' unit counts. Passing the raw authoritative
   // state to the AI lets it peek at unit counts everywhere on the map —
@@ -5995,14 +6019,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
   // build the same filtered view buildClientState produces for humans, so
   // the AI plans against the same information a human in its seat would.
   // When fog is off, the filter is a no-op (full state passed through).
-  const aiPlan = await planAiTurn(state, map, currentPlayer, difficulty, {
-    captureOddsScoring: featureFlags.aiCaptureOddsEnabled,
-    attackGrind: featureFlags.aiAttackGrindEnabled,
-    decidedGamePress: featureFlags.aiDecidedGamePressEnabled,
-    oddsPress: featureFlags.aiOddsPressEnabled,
-    plannedDraft: featureFlags.aiPlannedReinforcementsEnabled,
-    endingPlay: featureFlags.aiEndingPlayEnabled,
-  }, {
+  const aiPlan = resigned ? null : await planAiTurn(state, map, currentPlayer, difficulty, aiFlags, {
     planningState: () => (state.settings.fog_of_war
       ? buildClientState(state, currentPlayer.player_id, true)
       : state),
@@ -6057,7 +6074,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
 
   // The turn itself (game-engine/ai/runAiTurn.ts), shared with the harnesses.
   // Everything the live game does around the rules arrives as a hook.
-  const outcome = await playAiTurn(state, map, currentPlayer, difficulty, aiPlan, resumeAt, {
+  const outcome = aiPlan && await playAiTurn(state, map, currentPlayer, difficulty, aiPlan, resumeAt, {
     delay,
     victoryCheck: doVictoryCheck,
     broadcast: () => broadcastState(io, gameId, state),
