@@ -2,7 +2,12 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   DEFAULT_FULL_GAME_PREFS,
   DEFAULT_QUICK_MATCH_PREFS,
+  EVENING_FULL_GAME_PREFS,
+  FULL_GAME_EVENING_MAX_TURNS,
+  FULL_GAME_MAX_TURNS,
   describeQuickMatchPrefs,
+  fullGameMaxTurns,
+  hasSavedFullGamePrefs,
   hasSavedQuickMatchPrefs,
   loadFullGamePrefs,
   loadQuickMatchPrefs,
@@ -108,6 +113,37 @@ describe('quickMatchPrefs', () => {
     it('keeps a Full Game ending the player chose', () => {
       saveFullGamePrefs({ aiCount: 4, aiDifficulty: 'expert', victory: 'blitz' });
       expect(loadFullGamePrefs().victory).toBe('blitz');
+    });
+  });
+
+  describe('a Full Game that fits an evening (full_game_evening_enabled)', () => {
+    it('defaults to the 65% ending, with the same table, for a player with no setup of their own', () => {
+      expect(EVENING_FULL_GAME_PREFS).toEqual({ ...DEFAULT_FULL_GAME_PREFS, victory: 'majority' });
+      expect(loadFullGamePrefs(true)).toEqual(EVENING_FULL_GAME_PREFS);
+      expect(loadFullGamePrefs(false)).toEqual(DEFAULT_FULL_GAME_PREFS);
+    });
+
+    it('keeps the ending a player saved, the full-board one included', () => {
+      saveFullGamePrefs({ aiCount: 2, aiDifficulty: 'hard', victory: 'conquest' });
+      expect(loadFullGamePrefs(true)).toEqual({ aiCount: 2, aiDifficulty: 'hard', victory: 'conquest' });
+    });
+
+    it('caps every Full Game at 80 rounds instead of 150, inside the create schema bounds', () => {
+      expect(fullGameMaxTurns(false)).toBe(FULL_GAME_MAX_TURNS);
+      expect(fullGameMaxTurns(true)).toBe(FULL_GAME_EVENING_MAX_TURNS);
+      expect(FULL_GAME_MAX_TURNS).toBe(150);
+      expect(FULL_GAME_EVENING_MAX_TURNS).toBe(80);
+      for (const cap of [FULL_GAME_MAX_TURNS, FULL_GAME_EVENING_MAX_TURNS]) {
+        expect(cap).toBeGreaterThanOrEqual(10);
+        expect(cap).toBeLessThanOrEqual(1000);
+      }
+    });
+
+    it('knows whether the player has saved a Full Game setup of their own', () => {
+      saveQuickMatchPrefs({ ...DEFAULT_QUICK_MATCH_PREFS, aiCount: 2 });
+      expect(hasSavedFullGamePrefs()).toBe(false);
+      saveFullGamePrefs({ ...DEFAULT_FULL_GAME_PREFS, aiCount: 2 });
+      expect(hasSavedFullGamePrefs()).toBe(true);
     });
   });
 

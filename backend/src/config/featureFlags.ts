@@ -136,6 +136,11 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // their saved setup on a random era, so a newcomer's first game is short and
   // winnable (scripts/simFirstMatch.ts measured the choice). Dark-launched OFF.
   first_match_easy_enabled: () => envOptIn('FIRST_MATCH_EASY_ENABLED'),
+  // A Full Game fits an evening: the lobby defaults it to the 65% ending and
+  // caps every ending at 80 rounds instead of 150, where the full-board
+  // default ran to the cap in 99% of arena games (scripts/simAiArena.ts,
+  // ARENA_RULES=full-default and full-evening). Dark-launched OFF.
+  full_game_evening_enabled: () => envOptIn('FULL_GAME_EVENING_ENABLED'),
 };
 
 /** The code default for one flag (no admin override consulted). */
@@ -390,6 +395,16 @@ export const featureFlags = {
    */
   get firstMatchEasyEnabled(): boolean {
     return overrideBool('first_match_easy_enabled');
+  },
+
+  /**
+   * A Full Game fits an evening: the lobby's Full Game defaults to the 65%
+   * ending for a player with no setup of their own, and caps every ending at
+   * 80 rounds instead of 150. The client builds the game; nothing else changes.
+   * Default OFF; `FULL_GAME_EVENING_ENABLED=true` or the admin override turns it on.
+   */
+  get fullGameEveningEnabled(): boolean {
+    return overrideBool('full_game_evening_enabled');
   },
 
   /**
@@ -1006,6 +1021,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     daily_puzzle_v2_enabled: featureFlags.dailyPuzzleV2Enabled,
     store_v2_enabled: featureFlags.storeV2Enabled,
     first_match_easy_enabled: featureFlags.firstMatchEasyEnabled,
+    full_game_evening_enabled: featureFlags.fullGameEveningEnabled,
     // Read by the Custom Game form to say whether a Space Age game can also be
     // won on the Moon (the Lunar Hegemony rides with the Moon Race).
     space_age_moon_race_enabled: featureFlags.spaceAgeMoonRaceEnabled,

@@ -372,6 +372,12 @@ const CLIENT_FEATURE_FLAGS = [
       'A player\u2019s first Quick Match (no finished game yet, and no Quick Match setup of their own) is one Easy bot on Great Britain 925 instead of their setup on a random era: a short, winnable first game. The Analytics tab counts these under First matches. Off by default (dark launch) \u2014 off is Quick Match exactly as before.',
   },
   {
+    key: 'full_game_evening_enabled',
+    label: 'Full Game fits an evening',
+    description:
+      'Full Game defaults to the 65% ending (Conquest) for a player who has not saved a setup of their own, and every Full Game ending is capped at 80 rounds instead of 150. Today\u2019s default, taking the whole board, ran to the 150-round cap in nearly every simulated game: about 2 h 40 at a minute a turn. Off by default (dark launch) \u2014 off is Full Game exactly as before.',
+  },
+  {
     key: 'store_v2_enabled',
     label: 'Store overhaul',
     description:

@@ -31,6 +31,7 @@ export interface ClientFeatureFlags {
   store_v2_enabled: boolean;
   space_age_moon_race_enabled: boolean;
   first_match_easy_enabled: boolean;
+  full_game_evening_enabled: boolean;
 }
 
 /**
@@ -95,6 +96,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   store_v2_enabled: true,
   // A player's first Quick Match is one Easy bot on a small map. Dark-launched OFF.
   first_match_easy_enabled: false,
+  // A Full Game fits an evening: the 65% ending by default, an 80-round cap. Dark-launched OFF.
+  full_game_evening_enabled: false,
   // The Space Age Moon Race, Lunar Hegemony included. On by default; admin kill switch.
   space_age_moon_race_enabled: true,
 };
@@ -254,4 +257,9 @@ export function useSpaceAgeMoonRaceEnabled(): boolean {
 /** A player's first Quick Match is one Easy bot on a small map (utils/firstMatch.ts). */
 export function useFirstMatchEasyEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.first_match_easy_enabled);
+}
+
+/** A Full Game fits an evening: the 65% ending by default, an 80-round cap (utils/quickMatchPrefs.ts). */
+export function useFullGameEveningEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.full_game_evening_enabled);
 }
