@@ -1,5 +1,6 @@
 import { query } from '../../db/postgres';
 import { runExclusive, SWEEP_LOCK_TTL_MS } from '../../utils/singletonTask';
+import { scheduleBootSweep } from '../../utils/bootSweep';
 
 const ORPHANED_GAME_GRACE_PERIOD_MS = 4 * 60 * 60 * 1000;
 const ORPHANED_GAME_SWEEP_INTERVAL_MS = 15 * 60 * 1000;
@@ -57,6 +58,7 @@ const LAST_ACTIVITY_SQL = `COALESCE(
          )`;
 
 let orphanedGameSweepInterval: ReturnType<typeof setInterval> | null = null;
+let cancelOrphanedGameBootRun: (() => void) | null = null;
 
 export async function deleteInactiveHumanlessGames(): Promise<string[]> {
   const result = await query<{ game_id: string }>(
@@ -187,10 +189,15 @@ export function startOrphanedGameSweep(): void {
 
   orphanedGameSweepInterval.unref();
 
-  tick().catch((err) => console.error('[Games] Initial orphaned game sweep error:', err));
+  // The heaviest of the boot sweeps, so it goes last (utils/bootSweep.ts).
+  cancelOrphanedGameBootRun = scheduleBootSweep('orphaned-games', () => {
+    tick().catch((err) => console.error('[Games] Initial orphaned game sweep error:', err));
+  });
 }
 
 export function stopOrphanedGameSweep(): void {
+  cancelOrphanedGameBootRun?.();
+  cancelOrphanedGameBootRun = null;
   if (!orphanedGameSweepInterval) return;
   clearInterval(orphanedGameSweepInterval);
   orphanedGameSweepInterval = null;
