@@ -115,6 +115,34 @@ export const DEFAULT_FULL_GAME_PREFS: QuickMatchPrefs = {
   victory: 'conquest',
 };
 
+/**
+ * With `full_game_evening_enabled`, a Full Game fits an evening: the 65%
+ * ending by default, and every ending capped at FULL_GAME_EVENING_MAX_TURNS.
+ * Against three Medium bots, the full-board ending ran to the 150-round cap in
+ * 99% of arena games (scripts/simAiArena.ts, ARENA_RULES=full-default), about
+ * 2 h 40 at a minute a turn; the 65% ending with an 80-round cap ends by
+ * conquest in 63% of them, and one in five runs past 87 minutes at a minute a
+ * turn (ARENA_RULES=full-evening). A player who has saved a setup of their own
+ * keeps their ending; only the default moves.
+ */
+export const EVENING_FULL_GAME_PREFS: QuickMatchPrefs = {
+  ...DEFAULT_QUICK_MATCH_PREFS,
+  victory: 'majority',
+};
+
+/** Full Game's own round cap, whatever the ending: an era-advancement game is longer than any Quick Match. */
+export const FULL_GAME_MAX_TURNS = 150;
+/** The cap with `full_game_evening_enabled`. */
+export const FULL_GAME_EVENING_MAX_TURNS = 80;
+
+export function fullGameMaxTurns(evening: boolean): number {
+  return evening ? FULL_GAME_EVENING_MAX_TURNS : FULL_GAME_MAX_TURNS;
+}
+
+function fullGameDefaults(evening: boolean): QuickMatchPrefs {
+  return evening ? EVENING_FULL_GAME_PREFS : DEFAULT_FULL_GAME_PREFS;
+}
+
 export const QUICK_MATCH_DIFFICULTY_LABELS: Record<QuickMatchAiDifficulty, string> = {
   easy: 'Easy',
   medium: 'Medium',
@@ -164,14 +192,23 @@ export function sanitizeQuickMatchPrefs(
   return prefs;
 }
 
-/** Whether the player has saved a Quick Match setup of their own (the picker saves on every change). */
-export function hasSavedQuickMatchPrefs(): boolean {
+function hasSaved(storageKey: string): boolean {
   if (typeof window === 'undefined') return false;
   try {
-    return localStorage.getItem(QUICK_MATCH_STORAGE_KEY) !== null;
+    return localStorage.getItem(storageKey) !== null;
   } catch {
     return false;
   }
+}
+
+/** Whether the player has saved a Quick Match setup of their own (the picker saves on every change). */
+export function hasSavedQuickMatchPrefs(): boolean {
+  return hasSaved(QUICK_MATCH_STORAGE_KEY);
+}
+
+/** Whether the player has saved a Full Game setup of their own (the pickers save on every change). */
+export function hasSavedFullGamePrefs(): boolean {
+  return hasSaved(FULL_GAME_STORAGE_KEY);
 }
 
 function loadPrefs(storageKey: string, defaults: QuickMatchPrefs): QuickMatchPrefs {
@@ -201,12 +238,13 @@ export function saveQuickMatchPrefs(prefs: QuickMatchPrefs): void {
   savePrefs(QUICK_MATCH_STORAGE_KEY, prefs, DEFAULT_QUICK_MATCH_PREFS);
 }
 
-export function loadFullGamePrefs(): QuickMatchPrefs {
-  return loadPrefs(FULL_GAME_STORAGE_KEY, DEFAULT_FULL_GAME_PREFS);
+/** A player's Full Game setup; `evening` picks the default for one who has not saved their own. */
+export function loadFullGamePrefs(evening = false): QuickMatchPrefs {
+  return loadPrefs(FULL_GAME_STORAGE_KEY, fullGameDefaults(evening));
 }
 
-export function saveFullGamePrefs(prefs: QuickMatchPrefs): void {
-  savePrefs(FULL_GAME_STORAGE_KEY, prefs, DEFAULT_FULL_GAME_PREFS);
+export function saveFullGamePrefs(prefs: QuickMatchPrefs, evening = false): void {
+  savePrefs(FULL_GAME_STORAGE_KEY, prefs, fullGameDefaults(evening));
 }
 
 /** Short human description, e.g. "3 Medium AI" — used on the lobby buttons. */

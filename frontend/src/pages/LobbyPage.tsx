@@ -14,7 +14,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { useEraAdvancementLobbyEnabled, useFirstMatchEasyEnabled, useMapEditorEnabled, useMatchAlertsEnabled, useRankedMultiSizeEnabled, useSpaceAgeMoonRaceEnabled, useSpectateEnabled, useTodayPanelEnabled } from '../store/featureFlagsStore';
+import { useEraAdvancementLobbyEnabled, useFirstMatchEasyEnabled, useFullGameEveningEnabled, useMapEditorEnabled, useMatchAlertsEnabled, useRankedMultiSizeEnabled, useSpaceAgeMoonRaceEnabled, useSpectateEnabled, useTodayPanelEnabled } from '../store/featureFlagsStore';
 import { HEGEMONY_TURNS } from '../utils/lunarHegemony';
 import { RANKED_MIN_OPPONENTS, describeRankedGameSize, getRankedOpponents, rankedEraSize, saveRankedOpponents } from '../utils/rankedPrefs';
 import { clearRankedSearchMarker, setRankedSearchMarker } from '../utils/rankedSearchMarker';
@@ -47,6 +47,9 @@ import {
   saveFullGamePrefs,
   saveQuickMatchPrefs,
   hasSavedQuickMatchPrefs,
+  hasSavedFullGamePrefs,
+  fullGameMaxTurns,
+  FULL_GAME_EVENING_MAX_TURNS,
   type QuickMatchPrefs,
 } from '../utils/quickMatchPrefs';
 import {
@@ -291,10 +294,11 @@ const ERA_MAP_IDS: Record<string, string> = {
 
 // Shown in the Full Game confirm modal so players see exactly what the complete
 // experience turns on before committing. Mirrors the startFullGame() payload.
-const fullGameSummaryChips = (prefs: QuickMatchPrefs): string[] => [
+const fullGameSummaryChips = (prefs: QuickMatchPrefs, evening: boolean): string[] => [
   'Ancient World',
   `${prefs.aiCount} AI · ${QUICK_MATCH_DIFFICULTY_LABELS[prefs.aiDifficulty]}`,
   QUICK_MATCH_VICTORY_LABELS[prefs.victory],
+  ...(evening ? [`Up to ${FULL_GAME_EVENING_MAX_TURNS} rounds`] : []),
   '5-min turns',
 ];
 const FULL_GAME_FEATURES: Array<{ label: string; desc: string }> = [
@@ -419,10 +423,16 @@ export default function LobbyPage() {
   const [fullGameLoading, setFullGameLoading] = useState(false);
   // Full Game setup — separate prefs from Quick Match (a long campaign table
   // and a quick-stomp table are different choices).
-  const [fullGamePrefs, setFullGamePrefs] = useState<QuickMatchPrefs>(() => loadFullGamePrefs());
+  const fullGameEvening = useFullGameEveningEnabled();
+  const [fullGamePrefs, setFullGamePrefs] = useState<QuickMatchPrefs>(() => loadFullGamePrefs(fullGameEvening));
+  // The flags land after the first paint: a player with no setup of their own
+  // takes the default the flag picks once it does.
+  useEffect(() => {
+    if (!hasSavedFullGamePrefs()) setFullGamePrefs(loadFullGamePrefs(fullGameEvening));
+  }, [fullGameEvening]);
   const updateFullGamePrefs = (prefs: QuickMatchPrefs) => {
     setFullGamePrefs(prefs);
-    saveFullGamePrefs(prefs);
+    saveFullGamePrefs(prefs, fullGameEvening);
   };
   const [confirmAbandon, setConfirmAbandon] = useState<string | null>(null);
 
@@ -1567,9 +1577,10 @@ export default function LobbyPage() {
         settings: {
           turn_timer_seconds: 300,
           // The chosen ending — conditions and threshold. Its per-condition
-          // turn cap is overridden by the `max_turns: 150` below: Full Game is
-          // an era-advancement marathon with its own cap, and Blitz's 45 turns
-          // would end most Full Games on the cap instead of on the criterion.
+          // turn cap is overridden by `max_turns` below: Full Game is an
+          // era-advancement game with its own cap, and Blitz's 45 turns would
+          // end most Full Games on the cap instead of on the criterion. The cap
+          // is 150, or 80 with full_game_evening_enabled (utils/quickMatchPrefs.ts).
           ...quickMatchVictorySettings(fullGamePrefs),
           initial_unit_count: 3,
           card_set_escalating: true,
@@ -1598,7 +1609,7 @@ export default function LobbyPage() {
            * AHEAD of an optimizing human (4.75 vs 4.48 eras), not behind.
            */
           era_advancement_max_lead: 2,
-          max_turns: 150,
+          max_turns: fullGameMaxTurns(fullGameEvening),
         },
       });
       navigate(`/game/${res.data.game_id}`);
@@ -1641,7 +1652,7 @@ export default function LobbyPage() {
           against {fullGamePrefs.aiCount} AI commander{fullGamePrefs.aiCount === 1 ? '' : 's'}.
         </p>
         <div className="flex flex-wrap gap-2 mb-4">
-          {fullGameSummaryChips(fullGamePrefs).map((c) => (
+          {fullGameSummaryChips(fullGamePrefs, fullGameEvening).map((c) => (
             <span key={c} className="px-2 py-1 rounded-full border border-bf-border bg-bf-dark text-bf-text text-xs">
               {c}
             </span>

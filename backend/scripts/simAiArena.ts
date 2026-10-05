@@ -24,10 +24,16 @@
  *   quick  Quick Match: classic rules, cards escalating, the default Conquest
  *          ending (domination, or 65% of the board; 60-round cap). Played on
  *          the six Quick Match maps.
- *   full   Full Game: Ancient start, era advancement, economy, tech, stability,
- *          naval and events, 150-round cap, on era_ancient.
- * Fog of war is off in both, as in those payloads, so every seat plans on the
- * full board.
+ *   full-default  Full Game as the lobby makes it: Ancient start, era
+ *          advancement, economy, tech, stability, naval and events, on
+ *          era_ancient; the full-board ending, 150-round cap.
+ *   full-evening  Full Game with full_game_evening_enabled: the 65% ending,
+ *          80-round cap.
+ *   full   Full Game's systems with the 65% ending and the 150-round cap. Not
+ *          the lobby's default, whose ending is the whole board; kept so the
+ *          runs and digests measured on it still compare.
+ * Fog of war is off in all of them, as in those payloads, so every seat plans
+ * on the full board.
  *
  * Run (from backend/):
  *   pnpm exec tsx scripts/simAiArena.ts
@@ -39,7 +45,9 @@
  * Settings (environment):
  *   ARENA_GAMES            games per map and seat count (default 50)
  *   ARENA_SEATS            seat counts, comma-separated (default 4)
- *   ARENA_RULES            quick | full (default quick)
+ *   ARENA_RULES            quick | full-default | full-evening | full (default quick)
+ *   ARENA_SETTINGS         JSON object of create settings laid over the rules' own,
+ *                            to measure a variant (another ending or cap)
  *   ARENA_MAPS             map ids (default: the rules' maps above)
  *   ARENA_CANDIDATE        candidate difficulty (default medium)
  *   ARENA_BASELINE         baseline difficulty (default medium)
@@ -157,6 +165,45 @@ const RULESETS: Record<string, { maps: Record<string, EraId>; settings: CreateGa
       era_advancement_preset: 'standard',
       era_advancement_max_lead: 2,
       max_turns: 150,
+    },
+  },
+  'full-default': {
+    maps: { era_ancient: 'ancient' },
+    settings: {
+      turn_timer_seconds: 300,
+      allowed_victory_conditions: ['domination'],
+      initial_unit_count: 3,
+      card_set_escalating: true,
+      diplomacy_enabled: false,
+      economy_enabled: true,
+      tech_trees_enabled: true,
+      stability_enabled: true,
+      naval_enabled: true,
+      events_enabled: true,
+      era_advancement_enabled: true,
+      era_advancement_preset: 'standard',
+      era_advancement_max_lead: 2,
+      max_turns: 150,
+    },
+  },
+  'full-evening': {
+    maps: { era_ancient: 'ancient' },
+    settings: {
+      turn_timer_seconds: 300,
+      allowed_victory_conditions: ['domination', 'threshold'],
+      victory_threshold: 65,
+      initial_unit_count: 3,
+      card_set_escalating: true,
+      diplomacy_enabled: false,
+      economy_enabled: true,
+      tech_trees_enabled: true,
+      stability_enabled: true,
+      naval_enabled: true,
+      events_enabled: true,
+      era_advancement_enabled: true,
+      era_advancement_preset: 'standard',
+      era_advancement_max_lead: 2,
+      max_turns: 80,
     },
   },
 };

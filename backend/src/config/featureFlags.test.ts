@@ -293,6 +293,15 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().first_match_easy_enabled).toBe(true);
   });
 
+  it('full_game_evening_enabled defaults to off (dark-launch) and is admin-overridable', () => {
+    expect(featureFlags.fullGameEveningEnabled).toBe(false);
+    expect(getClientFeatureFlags().full_game_evening_enabled).toBe(false);
+    expect(getFeatureFlagStates().full_game_evening_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { full_game_evening_enabled: true } });
+    expect(featureFlags.fullGameEveningEnabled).toBe(true);
+    expect(getClientFeatureFlags().full_game_evening_enabled).toBe(true);
+  });
+
   it('store_v2_enabled defaults to on, and the admin override is its kill switch', () => {
     expect(featureFlags.storeV2Enabled).toBe(true);
     expect(getClientFeatureFlags().store_v2_enabled).toBe(true);
