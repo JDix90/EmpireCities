@@ -272,13 +272,13 @@ describe('GameHUD — tabbed redesign (#9)', () => {
       gameState: makeState({
         players: [
           player('me', 0),
-          player('ai_1', 1, { username: 'Khan Ulan (AI)', is_ai: true, ai_difficulty: 'hard', ai_style: 'raider' }),
+          player('ai_1', 1, { username: 'Jarl Sigrún (AI)', is_ai: true, ai_difficulty: 'hard', ai_style: 'raider' }),
         ],
       }),
     } as never);
     renderHud();
     fireEvent.click(screen.getByRole('tab', { name: /Players/ }));
-    expect(screen.getByText('Khan Ulan (AI)')).toBeInTheDocument();
+    expect(screen.getByText('Jarl Sigrún (AI)')).toBeInTheDocument();
     expect(screen.getByLabelText(/^Raider: Breaks rivals/)).toBeInTheDocument();
   });
 
