@@ -163,6 +163,14 @@ const RULESETS: Record<string, { maps: Record<string, EraId>; settings: CreateGa
 
 const ruleset = RULESETS[RULES];
 if (!ruleset) throw new Error(`ARENA_RULES=${RULES}: expected ${Object.keys(RULESETS).join(' or ')}`);
+/** ARENA_SETTINGS: a JSON object of create settings laid over the ruleset's, to measure a variant. */
+const SETTINGS_OVERRIDE = ((): CreateGameSettingsInput => {
+  const raw = process.env.ARENA_SETTINGS?.trim();
+  if (!raw) return {};
+  const parsed: unknown = JSON.parse(raw);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('ARENA_SETTINGS: expected a JSON object');
+  return parsed as CreateGameSettingsInput;
+})();
 const MAP_IDS = process.env.ARENA_MAPS
   ? process.env.ARENA_MAPS.split(',').map((s) => s.trim())
   : Object.keys(ruleset.maps);
@@ -178,7 +186,7 @@ function eraFor(mapId: string): EraId {
 }
 
 function settingsFor(mapId: string, era: EraId): GameSettings {
-  return bakeCreateGameSettings({ era_id: era, map_id: mapId, hasMoon: false, settings: { ...ruleset!.settings } });
+  return bakeCreateGameSettings({ era_id: era, map_id: mapId, hasMoon: false, settings: { ...ruleset!.settings, ...SETTINGS_OVERRIDE } });
 }
 
 interface GameRecord {
@@ -209,6 +217,11 @@ interface GameRecord {
    * turn (ai/aiIntent.ts); only on a game where it held one, so other digests stand.
    */
   intents?: Record<'take_region' | 'break_region' | 'hunt', { held: number; met: number }>;
+  /**
+   * With era advancement: the round any seat first reached each era past the
+   * first, by era index (index 0 unused), 0 for an era nobody reached.
+   */
+  eraRounds?: number[];
 }
 
 interface Timing {
@@ -216,6 +229,11 @@ interface Timing {
   turnMs: number[];
   /** Estimated live seconds of each bot turn: its paced steps at 0.6 s, plus its compute. */
   liveSeconds: number[];
+  /**
+   * Per game, in record order: the other seats' live seconds while the
+   * candidate, who stands in for a player, was still in the game.
+   */
+  othersSecondsWhileIn: number[];
 }
 
 function leaderSeat(state: GameState): number | null {
@@ -300,6 +318,17 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
   };
   const hooks = countingHooks(state, map, record);
   let sawRound10 = false;
+  const candidate = state.players.find((p) => p.player_index === candidateSeat)!;
+  let othersSecondsWhileIn = 0;
+  const eraRounds = state.settings.era_advancement_enabled ? [0] : undefined;
+  const noteEras = (): void => {
+    if (!eraRounds) return;
+    for (const p of state.players) {
+      for (let k = 1; k <= (p.current_era_index ?? 0); k++) {
+        if (!eraRounds[k]) eraRounds[k] = state.turn_number;
+      }
+    }
+  };
 
   const maxTurns = state.settings.max_turns ?? 60;
   let guard = 0;
@@ -312,6 +341,7 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
     const player = state.players[state.current_player_index]!;
     const seat = seats[player.player_index]!;
     const stepsBefore = record.steps[player.player_index]!;
+    const candidateWasIn = !candidate.is_eliminated;
     const cooldownBefore = state.influence_cooldown_remaining ?? 0;
     const started = performance.now();
 
@@ -348,8 +378,11 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
       if (cooldownBefore === 0 && (state.influence_cooldown_remaining ?? 0) > 0) record.influences[player.player_index]! += 1;
 
       const ms = performance.now() - started;
+      const live = (record.steps[player.player_index]! - stepsBefore) * 0.6 + ms / 1000;
       timing.turnMs.push(ms);
-      timing.liveSeconds.push((record.steps[player.player_index]! - stepsBefore) * 0.6 + ms / 1000);
+      timing.liveSeconds.push(live);
+      if (candidateWasIn && player.player_index !== candidateSeat) othersSecondsWhileIn += live;
+      noteEras();
       if (outcome === 'over') break;
     }
 
@@ -362,6 +395,8 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
   record.rounds = state.turn_number;
   record.territories = state.players.map((p) => p.territory_count ?? 0);
   record.eras = state.players.map((p) => p.current_era_index ?? 0);
+  if (eraRounds) record.eraRounds = Array.from({ length: Math.max(...record.eras, 0) + 1 }, (_, k) => eraRounds[k] ?? 0);
+  timing.othersSecondsWhileIn.push(othersSecondsWhileIn);
   return record;
 }
 
@@ -398,7 +433,9 @@ function percentile(xs: number[], p: number): number {
 }
 
 function digest(records: GameRecord[]): string {
-  return hashStringToSeed(JSON.stringify(records)).toString(16).padStart(8, '0');
+  // The era timeline is read off the same games, so it stays out and every
+  // digest from before it was recorded still stands.
+  return hashStringToSeed(JSON.stringify(records, (k, v) => (k === 'eraRounds' ? undefined : v))).toString(16).padStart(8, '0');
 }
 
 function describe(seat: Seat): string {
@@ -452,6 +489,29 @@ function report(seatCount: number, records: GameRecord[], timing: Timing): void 
   if (records.some((r) => r.eras.some((e) => e > 0))) {
     console.log(`final era index           candidate ${mean(records.map((r) => r.eras[r.candidateSeat]!)).toFixed(2)}, baseline ${mean(records.flatMap((r) => r.eras.filter((_, i) => i !== r.candidateSeat))).toFixed(2)}`);
   }
+  const endings = new Map<string, number>();
+  for (const r of records) endings.set(r.condition ?? 'none', (endings.get(r.condition ?? 'none') ?? 0) + 1);
+  console.log(`ended by                  ${[...endings].sort((a, b) => b[1] - a[1]).map(([c, n]) => `${c} ${pct(n, records.length)}`).join(', ')}`);
+  const timelines = records.filter((r) => r.eraRounds);
+  if (timelines.length > 0) {
+    const top = Math.max(...timelines.map((r) => r.eraRounds!.length - 1));
+    const steps: string[] = [];
+    for (let k = 1; k <= top; k++) {
+      const reached = timelines.map((r) => r.eraRounds![k] ?? 0).filter((n) => n > 0);
+      steps.push(`${k}: ${pct(reached.length, records.length)} by round ${median(reached).toFixed(0)}`);
+    }
+    console.log(`era first reached         ${steps.join('; ')} (median round, among games that reached it)`);
+  }
+  // Minutes for the candidate, standing in for a player, until the game ends
+  // or it is out: its own turns at a fixed length, plus the other seats' paced turns.
+  const candidateTurns = records.map((r) => r.turns[r.candidateSeat]!);
+  const others = timing.othersSecondsWhileIn;
+  const out = records.filter((r) => r.winnerSeat !== r.candidateSeat && r.territories[r.candidateSeat] === 0).length;
+  console.log(`player's game             ${median(candidateTurns).toFixed(0)} own turns (median); out before the end ${pct(out, records.length)}; other seats ~${(mean(others) / Math.max(1, mean(candidateTurns))).toFixed(1)} s a round`);
+  for (const turnSeconds of [45, 60, 90]) {
+    const minutes = records.map((_, i) => (candidateTurns[i]! * turnSeconds + others[i]!) / 60);
+    console.log(`  minutes at ${String(turnSeconds).padStart(2)} s a turn  median ${median(minutes).toFixed(0)}, 80th pct ${percentile(minutes, 80).toFixed(0)}, over 120 ${pct(minutes.filter((m) => m > 120).length, minutes.length)}`);
+  }
   console.log(`bot turn, p95             ${percentile(timing.turnMs, 95).toFixed(1)} ms compute; ~${percentile(timing.liveSeconds, 95).toFixed(1)} s live with pacing (longest ~${timing.liveSeconds.reduce((a, b) => Math.max(a, b), 0).toFixed(1)} s)`);
   for (const mapId of MAP_IDS) {
     const rows = records.filter((r) => r.map === mapId);
@@ -471,7 +531,7 @@ function report(seatCount: number, records: GameRecord[], timing: Timing): void 
   for (const seatCount of SEAT_COUNTS) {
     if (!Number.isInteger(seatCount) || seatCount < 2 || seatCount > 6) throw new Error(`ARENA_SEATS: ${seatCount} is not 2 to 6`);
     const records: GameRecord[] = [];
-    const timing: Timing = { turnMs: [], liveSeconds: [] };
+    const timing: Timing = { turnMs: [], liveSeconds: [], othersSecondsWhileIn: [] };
     for (const mapId of MAP_IDS) {
       for (let i = 0; i < GAMES; i += 1) {
         records.push(await runGame(mapId, maps.get(mapId)!, seatCount, i, timing));
