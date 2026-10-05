@@ -3,11 +3,12 @@
  * the style it plays this game.
  *
  * Each commander has a usual style and another it sometimes plays, so a name
- * means something (Khan Ulan raids) without being a script (now and then he
- * conquers). Which commanders sit down, and which of their styles each plays,
- * is drawn once per game from the game's key: the lobby, the board and a
- * replay all agree, and a rematch draws again. The backend reads the style
- * (game-engine/ai/aiStyles.ts); every client shows the name and style.
+ * means something (Jarl Sigrún raids) without being a script (now and then
+ * Sigrún plays the opportunist). Which commanders sit down, and which of their
+ * styles each plays, is drawn once per game from the game's key: the lobby,
+ * the board and a replay all agree, and a rematch draws again. The backend
+ * reads the style (game-engine/ai/aiStyles.ts); every client shows the name
+ * and style.
  */
 
 export type AiStyle = 'conqueror' | 'raider' | 'expansionist' | 'opportunist' | 'defender';
@@ -31,37 +32,43 @@ export interface AiCommander {
   alt: AiStyle;
 }
 
-/** Thirty commanders, six of each usual style. The first twelve are the bots' names from before. */
+/**
+ * Thirty commanders: each style is the usual style of six and the other style
+ * of six. The first twelve are the bots' names from before. Each style's six
+ * are spread across the world, so that no style stands for a people: one
+ * Roman, Byzantine or Venetian, one from the Middle East or Central Asia, and
+ * at most one each from Africa, Asia, Eastern Europe and the Americas.
+ */
 export const AI_COMMANDERS: readonly AiCommander[] = [
-  { name: 'General Varro', style: 'conqueror', alt: 'defender' },
-  { name: 'Marshal Okonkwo', style: 'defender', alt: 'opportunist' },
-  { name: 'Admiral Chen', style: 'expansionist', alt: 'raider' },
-  { name: 'Strategos Doukas', style: 'defender', alt: 'conqueror' },
-  { name: 'Warlord Tamsin', style: 'raider', alt: 'conqueror' },
-  { name: 'Commander Reyes', style: 'opportunist', alt: 'expansionist' },
-  { name: 'Hetman Volkov', style: 'raider', alt: 'opportunist' },
-  { name: 'Rani Aditi', style: 'expansionist', alt: 'defender' },
-  { name: 'Jarl Sigrún', style: 'raider', alt: 'expansionist' },
-  { name: 'Sultana Yasmin', style: 'opportunist', alt: 'defender' },
-  { name: 'Praetor Galba', style: 'conqueror', alt: 'expansionist' },
-  { name: 'Khan Ulan', style: 'raider', alt: 'conqueror' },
-  { name: 'Consul Aurelia', style: 'conqueror', alt: 'opportunist' },
-  { name: 'Shogun Haruto', style: 'defender', alt: 'conqueror' },
-  { name: 'Queen Amara', style: 'expansionist', alt: 'opportunist' },
+  { name: 'General Varro', style: 'defender', alt: 'conqueror' },
+  { name: 'Marshal Okonkwo', style: 'opportunist', alt: 'expansionist' },
+  { name: 'Admiral Chen', style: 'raider', alt: 'defender' },
+  { name: 'Strategos Doukas', style: 'opportunist', alt: 'defender' },
+  { name: 'Warlord Tamsin', style: 'opportunist', alt: 'raider' },
+  { name: 'Commander Reyes', style: 'raider', alt: 'expansionist' },
+  { name: 'Hetman Volkov', style: 'raider', alt: 'expansionist' },
+  { name: 'Rani Aditi', style: 'conqueror', alt: 'expansionist' },
+  { name: 'Jarl Sigrún', style: 'raider', alt: 'opportunist' },
+  { name: 'Sultana Yasmin', style: 'opportunist', alt: 'conqueror' },
+  { name: 'Praetor Galba', style: 'conqueror', alt: 'raider' },
+  { name: 'Khan Ulan', style: 'conqueror', alt: 'expansionist' },
+  { name: 'Consul Aurelia', style: 'expansionist', alt: 'opportunist' },
+  { name: 'Shogun Haruto', style: 'opportunist', alt: 'defender' },
+  { name: 'Queen Amara', style: 'conqueror', alt: 'defender' },
   { name: 'Voivode Dragan', style: 'defender', alt: 'raider' },
-  { name: 'Emir Rashid', style: 'opportunist', alt: 'raider' },
-  { name: 'Duchess Margarethe', style: 'expansionist', alt: 'defender' },
-  { name: 'Tlatoani Itzel', style: 'conqueror', alt: 'raider' },
-  { name: 'Inkosi Themba', style: 'conqueror', alt: 'defender' },
-  { name: 'Doge Lorenzo', style: 'opportunist', alt: 'expansionist' },
-  { name: 'Chieftain Brannoc', style: 'raider', alt: 'defender' },
-  { name: 'Satrap Daryush', style: 'expansionist', alt: 'conqueror' },
-  { name: 'Captain Inês', style: 'expansionist', alt: 'raider' },
+  { name: 'Emir Rashid', style: 'defender', alt: 'conqueror' },
+  { name: 'Duchess Margarethe', style: 'expansionist', alt: 'raider' },
+  { name: 'Tlatoani Itzel', style: 'expansionist', alt: 'opportunist' },
+  { name: 'Inkosi Themba', style: 'expansionist', alt: 'defender' },
+  { name: 'Doge Lorenzo', style: 'raider', alt: 'opportunist' },
+  { name: 'Chieftain Brannoc', style: 'defender', alt: 'raider' },
+  { name: 'Satrap Daryush', style: 'raider', alt: 'conqueror' },
+  { name: 'Captain Inês', style: 'conqueror', alt: 'raider' },
   { name: 'Marshal Lefèvre', style: 'defender', alt: 'opportunist' },
-  { name: 'Tsarina Olena', style: 'conqueror', alt: 'defender' },
-  { name: 'Regent Kwame', style: 'opportunist', alt: 'defender' },
-  { name: 'Atabeg Kerim', style: 'raider', alt: 'opportunist' },
-  { name: 'Lady Hoshiko', style: 'defender', alt: 'expansionist' },
+  { name: 'Tsarina Olena', style: 'conqueror', alt: 'opportunist' },
+  { name: 'Regent Kwame', style: 'defender', alt: 'expansionist' },
+  { name: 'Atabeg Kerim', style: 'expansionist', alt: 'defender' },
+  { name: 'Lady Hoshiko', style: 'expansionist', alt: 'conqueror' },
   { name: 'Baron Aldric', style: 'opportunist', alt: 'conqueror' },
 ];
 

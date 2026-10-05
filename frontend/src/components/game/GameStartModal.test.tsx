@@ -545,11 +545,11 @@ describe('the bots\' commanders', () => {
   it('shows each bot\'s style beside its level, and none for a bot without one', () => {
     const withStyles = [
       player({ player_id: 'me', player_index: 0, username: 'Me' }),
-      player({ player_id: 'a1', player_index: 1, username: 'Khan Ulan (AI)', is_ai: true, ai_difficulty: 'hard', ai_style: 'raider' }),
+      player({ player_id: 'a1', player_index: 1, username: 'Jarl Sigrún (AI)', is_ai: true, ai_difficulty: 'hard', ai_style: 'raider' }),
       player({ player_id: 'a2', player_index: 2, username: 'Rani Aditi (AI)', is_ai: true, ai_difficulty: 'easy' }),
     ];
     render(<GameStartModal open onClose={() => {}} gameState={makeState({ players: withStyles })} viewerPlayerId="me" />);
-    expect(screen.getByText('Khan Ulan (AI)')).toBeTruthy();
+    expect(screen.getByText('Jarl Sigrún (AI)')).toBeTruthy();
     expect(screen.getByLabelText(/^Raider: Breaks rivals/)).toHaveTextContent('Raider');
     expect(screen.queryAllByLabelText(/^(Conqueror|Raider|Expansionist|Opportunist|Defender):/)).toHaveLength(1);
   });

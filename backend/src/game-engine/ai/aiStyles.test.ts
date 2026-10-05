@@ -17,6 +17,12 @@ describe('the roster', () => {
     }
     for (const c of AI_COMMANDERS) expect(c.alt, c.name).not.toBe(c.style);
   });
+
+  it('makes each style the other style of six commanders, so every style sits at as many seats', () => {
+    for (const style of AI_STYLES) {
+      expect(AI_COMMANDERS.filter((c) => c.alt === style), style).toHaveLength(6);
+    }
+  });
 });
 
 describe('the draw', () => {
