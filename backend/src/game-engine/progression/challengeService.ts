@@ -2,6 +2,7 @@ import { query, queryOne } from '../../db/postgres';
 import { andNotTutorialSql } from '../tutorial/tutorialGames';
 import { pgPool } from '../../db/postgres';
 import { runExclusive, SWEEP_LOCK_TTL_MS } from '../../utils/singletonTask';
+import { scheduleBootSweep } from '../../utils/bootSweep';
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -498,6 +499,7 @@ export async function ensureMonthlyChallenges(): Promise<void> {
 // ── Challenge sweep (same pattern as seasonService) ────────────────────
 
 let challengeInterval: ReturnType<typeof setInterval> | null = null;
+let cancelChallengeBootRun: (() => void) | null = null;
 
 export function startChallengeSweep(): void {
   if (challengeInterval) return;
@@ -509,11 +511,15 @@ export function startChallengeSweep(): void {
   }, 60 * 60 * 1000);
   challengeInterval.unref();
 
-  // Run immediately on startup
-  tick().catch((err) => console.error('[Challenges] Initial check error:', err));
+  // And once shortly after boot (utils/bootSweep.ts).
+  cancelChallengeBootRun = scheduleBootSweep('monthly-challenges', () => {
+    tick().catch((err) => console.error('[Challenges] Initial check error:', err));
+  });
 }
 
 export function stopChallengeSweep(): void {
+  cancelChallengeBootRun?.();
+  cancelChallengeBootRun = null;
   if (challengeInterval) {
     clearInterval(challengeInterval);
     challengeInterval = null;

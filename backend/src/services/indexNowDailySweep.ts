@@ -17,11 +17,13 @@
 import { featureFlags } from '../config/featureFlags';
 import { dailyChallengeDate } from '../game-engine/daily/dailyPuzzleService';
 import { dailyArchiveUrl, getIndexNowConfig, submitUrls } from './indexNow';
+import { scheduleBootSweep } from '../utils/bootSweep';
 
 /** Hourly is ample: the target moves once a day and a few hours' lag is fine. */
 const SWEEP_INTERVAL_MS = 60 * 60 * 1000;
 
 let sweepInterval: ReturnType<typeof setInterval> | null = null;
+let cancelBootRun: (() => void) | null = null;
 let lastSubmittedDate: string | null = null;
 
 /** The most recently settled day — yesterday, in the daily calendar's UTC terms. */
@@ -57,9 +59,12 @@ export async function submitSettledDay(now: Date = new Date()): Promise<string |
 
 export function startIndexNowDailySweep(): void {
   if (sweepInterval) return;
-  // Once at boot as well as on the interval: a restart shortly after midnight
-  // would otherwise wait an hour to announce the day that just settled.
-  void submitSettledDay().catch((err) => console.error('[indexnow] sweep failed:', err));
+  // Once shortly after boot as well as on the interval: a restart shortly after
+  // midnight would otherwise wait an hour to announce the day that just
+  // settled. Not the instant it boots (utils/bootSweep.ts).
+  cancelBootRun = scheduleBootSweep('indexnow', () => {
+    void submitSettledDay().catch((err) => console.error('[indexnow] sweep failed:', err));
+  });
   sweepInterval = setInterval(() => {
     submitSettledDay().catch((err) => console.error('[indexnow] sweep failed:', err));
   }, SWEEP_INTERVAL_MS);
@@ -67,6 +72,8 @@ export function startIndexNowDailySweep(): void {
 }
 
 export function stopIndexNowDailySweep(): void {
+  cancelBootRun?.();
+  cancelBootRun = null;
   if (!sweepInterval) return;
   clearInterval(sweepInterval);
   sweepInterval = null;

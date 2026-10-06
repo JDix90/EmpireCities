@@ -2,6 +2,7 @@ import { query, queryOne } from '../../db/postgres';
 import { pgPool } from '../../db/postgres';
 import { getSeasonTierCosmetic, type RankedTier } from '../rating/ratingService';
 import { runExclusive, SWEEP_LOCK_TTL_MS } from '../../utils/singletonTask';
+import { scheduleBootSweep } from '../../utils/bootSweep';
 
 // ── Season auto-creation + end-of-season reward distribution ───────────
 
@@ -192,6 +193,7 @@ async function createNextSeason(): Promise<void> {
 // ── Cron sweep ─────────────────────────────────────────────────────────
 
 let seasonInterval: ReturnType<typeof setInterval> | null = null;
+let cancelSeasonBootRun: (() => void) | null = null;
 
 export function startSeasonSweep(): void {
   if (seasonInterval) return;
@@ -203,11 +205,15 @@ export function startSeasonSweep(): void {
   }, 60 * 60 * 1000);
   seasonInterval.unref();
 
-  // Also run immediately on startup
-  tick().catch((err) => console.error('[Season] Initial check error:', err));
+  // And once shortly after boot (utils/bootSweep.ts).
+  cancelSeasonBootRun = scheduleBootSweep('season', () => {
+    tick().catch((err) => console.error('[Season] Initial check error:', err));
+  });
 }
 
 export function stopSeasonSweep(): void {
+  cancelSeasonBootRun?.();
+  cancelSeasonBootRun = null;
   if (seasonInterval) {
     clearInterval(seasonInterval);
     seasonInterval = null;
