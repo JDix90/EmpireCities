@@ -43,26 +43,38 @@ function parseBooleanEnv(v: string | undefined): boolean | null {
 }
 
 /**
- * Fastify `trustProxy`. `true` trusts EVERY hop, so Fastify takes the leftmost
- * (client-controlled) `X-Forwarded-For` entry as `request.ip` — and the HTTP
- * rate limiter keys off that (`middleware/rateLimitKey.ts`), so a spoofed header
- * hands an attacker a fresh limiter bucket per request. Default to trusting a
- * SINGLE hop (our nginx), which makes `request.ip` the real client IP as long
- * as the edge sets X-Forwarded-For to `$remote_addr` (see docker/nginx.prod.conf).
+ * The private address ranges. A proxy here is trusted to report the visitor's
+ * address: in production that is our nginx on the Docker network, the only
+ * thing that can reach the backend, which publishes no port of its own.
+ */
+export const PRIVATE_NETWORK_PROXIES: readonly string[] = ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', 'fc00::/7'];
+
+/**
+ * Fastify `trustProxy`: which proxies' `X-Forwarded-For` decides `request.ip`,
+ * which the HTTP rate limiter keys anonymous traffic by
+ * (`middleware/rateLimitKey.ts`). `true` trusts EVERY hop, so Fastify takes the
+ * leftmost (client-controlled) entry and a spoofed header hands an attacker a
+ * fresh limiter bucket per request. The default trusts proxies on private
+ * networks, which makes `request.ip` the real visitor as long as the edge sets
+ * X-Forwarded-For to `$remote_addr` (see docker/nginx.prod.conf).
  *
- * `TRUST_PROXY` overrides for other topologies:
- *   - an integer  → trust that many proxy hops
+ * A proxy is trusted by its address, never by a hop count. Fastify 5 reads a
+ * number as "trust no proxy", since a count cannot check who sent the header;
+ * every visitor would then look like nginx and share one limiter bucket.
+ *
+ * `TRUST_PROXY` overrides it for other topologies. Production's compose file
+ * does not pass it, so production runs on the default.
  *   - a CSV of IPs/CIDRs → trust exactly those proxy addresses
  *   - "true"/"false" → trust all / none (avoid "true" in production)
+ *   - a number, the old hop count → the default, with a warning (validateEnv.ts)
  */
-function parseTrustProxy(): boolean | number | string {
-  const raw = (process.env.TRUST_PROXY ?? '').trim();
-  if (raw === '') return 1;
-  const lower = raw.toLowerCase();
+export function parseTrustProxy(raw: string = process.env.TRUST_PROXY ?? ''): boolean | string | string[] {
+  const value = raw.trim();
+  if (value === '' || /^\d+$/.test(value)) return [...PRIVATE_NETWORK_PROXIES];
+  const lower = value.toLowerCase();
   if (lower === 'true') return true;
   if (lower === 'false') return false;
-  if (/^\d+$/.test(raw)) return parseInt(raw, 10);
-  return raw; // comma-separated IPs/CIDRs, passed through to proxy-addr
+  return value; // comma-separated IPs/CIDRs, passed through to proxy-addr
 }
 
 function parseRefreshCookieSecure(): boolean {

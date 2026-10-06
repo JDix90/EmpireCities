@@ -248,7 +248,7 @@ ${items}
     // A live or bogus date gets the archive index rather than a thin 404 page:
     // the crawler followed a /daily/* URL and there is a real page to give it.
     if (!isArchivableDate(date)) {
-      return reply.redirect(302, '/daily/archive');
+      return reply.redirect('/daily/archive', 302);
     }
 
     let entry: DailyArchiveEntry | null = null;
@@ -257,7 +257,7 @@ ${items}
     } catch (err) {
       request.log.error({ err, date }, 'daily archive entry load failed');
     }
-    if (!entry) return reply.redirect(302, '/daily/archive');
+    if (!entry) return reply.redirect('/daily/archive', 302);
 
     const { spec, results } = entry;
     const solved = results.attempts > 0

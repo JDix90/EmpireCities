@@ -16,9 +16,11 @@ Use before major releases or public launches. Track completion in your issue tra
       `trustProxy` derive the client IP from it; a spoofable header lets a client
       forge its key). `docker/nginx.prod.conf` sets `X-Forwarded-For $remote_addr`
       (overwrite, not `$proxy_add_x_forwarded_for` append), and Fastify
-      `trustProxy` is bounded (default 1 hop, `TRUST_PROXY` env) instead of `true`,
-      so the client-supplied header cannot become `request.ip`. Raise `TRUST_PROXY`
-      if you add another trusted proxy in front of nginx. Limiters are Redis-backed
+      `trustProxy` is bounded (default: proxies on private networks, by address,
+      `TRUST_PROXY` env) instead of `true`, so the client-supplied header cannot
+      become `request.ip`. Never a hop count: Fastify 5 reads a number as "trust
+      no proxy". Set `TRUST_PROXY` to the proxy addresses if you add a trusted
+      proxy outside the private ranges. Limiters are Redis-backed
       and key authenticated traffic by user id, IP otherwise (`middleware/rateLimitKey.ts`).
 
 ## Real-time
