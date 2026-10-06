@@ -990,15 +990,21 @@ function scheduleAwayRetry(io: Server, gameId: string, playerId: string): void {
   });
 }
 
-// Adjacency cache: map_id → territory_id → neighbour_ids[]
-// Built once per unique map when the first room using it loads; reused for fog
-// visibility in buildClientState across all subsequent calls for that map.
+// Adjacency cache for fog visibility: territory_id → neighbour_ids[].
+// Keyed on the map's connections array, as the planner's is (ai/aiBot.ts
+// buildAdjacencyMap): a Launch Pad, a Jump Gate, a Surge Projector or lane
+// weather opens a lane by replacing `map.connections`, and a cache keyed on
+// map_id kept the graph it was first built from, so the tile across a new
+// lane stayed hidden from the player and the bot beside it. The map_id entry
+// is the latest graph built for that map, for a state whose room is not loaded.
+const adjacencyByConnections = new WeakMap<GameMap['connections'], Map<string, string[]>>();
 const adjacencyByMapId = new Map<string, Map<string, string[]>>();
 
 function getOrBuildAdjacency(map: GameMap): Map<string, string[]> {
-  const cached = adjacencyByMapId.get(map.map_id);
+  const cached = adjacencyByConnections.get(map.connections);
   if (cached) return cached;
   const adj = fogAdjacency(map);
+  adjacencyByConnections.set(map.connections, adj);
   adjacencyByMapId.set(map.map_id, adj);
   return adj;
 }
