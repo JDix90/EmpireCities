@@ -22,7 +22,7 @@ export const AI_STYLES: readonly AiStyle[] = ['conqueror', 'raider', 'opportunis
 
 /** A style's name on a seat, and the one line that says how it plays. */
 export const AI_STYLE_LABELS: Readonly<Record<AiStyle, { name: string; blurb: string }>> = {
-  conqueror: { name: 'Conqueror', blurb: 'Takes whole regions and presses every lead.' },
+  conqueror: { name: 'Conqueror', blurb: 'Goes after whole regions, one at a time.' },
   raider: { name: 'Raider', blurb: 'Breaks rivals’ regions and hunts the weak.' },
   expansionist: { name: 'Expansionist', blurb: 'Grabs free land and new regions early.' },
   opportunist: { name: 'Opportunist', blurb: 'Strikes whoever is weakest.' },

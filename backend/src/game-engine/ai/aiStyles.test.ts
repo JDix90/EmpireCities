@@ -104,7 +104,7 @@ describe('styles', () => {
 
   it('shift only what each says, on top of the level\'s row', () => {
     const expected: Record<AiStyle, string[]> = {
-      conqueror: ['pressStartOdds', 'pressContinueOdds', 'goalWeights'],
+      conqueror: ['goalWeights', 'goalStaging'],
       raider: ['goalWeights'],
       // A game that seated one before still plays it.
       expansionist: ['neutralExpansionBonus', 'goalWeights'],
@@ -117,6 +117,15 @@ describe('styles', () => {
         expect(changed(AI_PROFILES[level], styled).sort(), `${level} ${style}`).toEqual([...expected[style]].sort());
         expect(styled.difficulty).toBe(level);
       }
+    }
+  });
+
+  it('make the Conqueror want regions, with its goals pulling its draft half as hard', () => {
+    for (const level of ['medium', 'hard', 'expert'] as const) {
+      const p = aiProfile(styledLevel(level, 'conqueror'));
+      expect(p.goalWeights).toEqual({ take_region: 2, break_region: 0.6, hunt: 1 });
+      expect(p.goalStaging).toBe(0.5);
+      expect([p.pressStartOdds, p.pressContinueOdds]).toEqual([AI_PROFILES[level].pressStartOdds, AI_PROFILES[level].pressContinueOdds]);
     }
   });
 
