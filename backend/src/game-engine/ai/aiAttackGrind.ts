@@ -136,8 +136,9 @@ export function aiPressExchangeCeiling(difficulty: AiLevel, decidedPress: boolea
  * Does the bot open an attack on this edge at all? Its capture chance from
  * the live board, plus a third of what the plan said the capture is worth
  * (`pressValue`, on the planner's 3·P − 1 scale), must reach the level's
- * start odds. Rolling again reads the odds alone (shouldContinuePress), so a
- * valuable target is never pressed into a hopeless fight.
+ * start odds; for a level that `startsOnOddsAlone`, the chance alone must.
+ * Rolling again reads the odds alone (shouldContinuePress), so a valuable
+ * target is never pressed into a hopeless fight.
  */
 export function shouldStartPress(
   state: GameState,
@@ -151,7 +152,10 @@ export function shouldStartPress(
   const from = state.territories[fromId];
   if (!from || from.unit_count < 2) return false;
   const odds = edgeCaptureOdds(state, map, attackerId, fromId, toId);
-  return odds + pressValue / 3 >= aiProfile(difficulty).pressStartOdds;
+  const profile = aiProfile(difficulty);
+  // A style that picks its fights starts on its odds alone (`startsOnOddsAlone`).
+  const worth = profile.startsOnOddsAlone ? 0 : pressValue / 3;
+  return odds + worth >= profile.pressStartOdds;
 }
 
 /**

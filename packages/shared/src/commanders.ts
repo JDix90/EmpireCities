@@ -11,9 +11,14 @@
  * and style.
  */
 
+/**
+ * Every style a seat may carry. 'expansionist' is drawn no more, but a game
+ * that seated one before keeps it, so its seat still names and plays it.
+ */
 export type AiStyle = 'conqueror' | 'raider' | 'expansionist' | 'opportunist' | 'defender';
 
-export const AI_STYLES: readonly AiStyle[] = ['conqueror', 'raider', 'expansionist', 'opportunist', 'defender'];
+/** The styles a new game draws. */
+export const AI_STYLES: readonly AiStyle[] = ['conqueror', 'raider', 'opportunist', 'defender'];
 
 /** A style's name on a seat, and the one line that says how it plays. */
 export const AI_STYLE_LABELS: Readonly<Record<AiStyle, { name: string; blurb: string }>> = {
@@ -21,7 +26,7 @@ export const AI_STYLE_LABELS: Readonly<Record<AiStyle, { name: string; blurb: st
   raider: { name: 'Raider', blurb: 'Breaks rivals’ regions and hunts the weak.' },
   expansionist: { name: 'Expansionist', blurb: 'Grabs free land and new regions early.' },
   opportunist: { name: 'Opportunist', blurb: 'Strikes whoever is weakest.' },
-  defender: { name: 'Defender', blurb: 'Holds its borders and attacks only at good odds.' },
+  defender: { name: 'Defender', blurb: 'Picks its fights, attacking only at good odds.' },
 };
 
 export interface AiCommander {
@@ -33,42 +38,46 @@ export interface AiCommander {
 }
 
 /**
- * Thirty commanders: each style is the usual style of six and the other style
- * of six. The first twelve are the bots' names from before. Each style's six
- * are spread across the world, so that no style stands for a people: one
- * Roman, Byzantine or Venetian, one from the Middle East or Central Asia, and
- * at most one each from Africa, Asia, Eastern Europe and the Americas.
+ * Thirty commanders over four styles. The Conqueror and the Raider are the
+ * usual style of eight and the other style of six; the Opportunist and the
+ * Defender the usual style of seven and the other style of nine. With the
+ * usual style drawn three games in four, each style sits at a quarter of the
+ * seats. The first twelve are the bots' names from before. Each style's
+ * commanders are spread across the world, so that no style stands for a
+ * people: one or two Roman, Byzantine or Venetian, one or two from the Middle
+ * East or Central Asia, and at most one each from Africa, Asia, Eastern
+ * Europe and the Americas.
  */
 export const AI_COMMANDERS: readonly AiCommander[] = [
   { name: 'General Varro', style: 'defender', alt: 'conqueror' },
-  { name: 'Marshal Okonkwo', style: 'opportunist', alt: 'expansionist' },
+  { name: 'Marshal Okonkwo', style: 'opportunist', alt: 'raider' },
   { name: 'Admiral Chen', style: 'raider', alt: 'defender' },
   { name: 'Strategos Doukas', style: 'opportunist', alt: 'defender' },
   { name: 'Warlord Tamsin', style: 'opportunist', alt: 'raider' },
-  { name: 'Commander Reyes', style: 'raider', alt: 'expansionist' },
-  { name: 'Hetman Volkov', style: 'raider', alt: 'expansionist' },
-  { name: 'Rani Aditi', style: 'conqueror', alt: 'expansionist' },
+  { name: 'Commander Reyes', style: 'raider', alt: 'conqueror' },
+  { name: 'Hetman Volkov', style: 'raider', alt: 'defender' },
+  { name: 'Rani Aditi', style: 'conqueror', alt: 'defender' },
   { name: 'Jarl Sigrún', style: 'raider', alt: 'opportunist' },
   { name: 'Sultana Yasmin', style: 'opportunist', alt: 'conqueror' },
   { name: 'Praetor Galba', style: 'conqueror', alt: 'raider' },
-  { name: 'Khan Ulan', style: 'conqueror', alt: 'expansionist' },
-  { name: 'Consul Aurelia', style: 'expansionist', alt: 'opportunist' },
+  { name: 'Khan Ulan', style: 'conqueror', alt: 'opportunist' },
+  { name: 'Consul Aurelia', style: 'raider', alt: 'opportunist' },
   { name: 'Shogun Haruto', style: 'opportunist', alt: 'defender' },
   { name: 'Queen Amara', style: 'conqueror', alt: 'defender' },
   { name: 'Voivode Dragan', style: 'defender', alt: 'raider' },
   { name: 'Emir Rashid', style: 'defender', alt: 'conqueror' },
-  { name: 'Duchess Margarethe', style: 'expansionist', alt: 'raider' },
-  { name: 'Tlatoani Itzel', style: 'expansionist', alt: 'opportunist' },
-  { name: 'Inkosi Themba', style: 'expansionist', alt: 'defender' },
+  { name: 'Duchess Margarethe', style: 'conqueror', alt: 'opportunist' },
+  { name: 'Tlatoani Itzel', style: 'opportunist', alt: 'defender' },
+  { name: 'Inkosi Themba', style: 'raider', alt: 'defender' },
   { name: 'Doge Lorenzo', style: 'raider', alt: 'opportunist' },
   { name: 'Chieftain Brannoc', style: 'defender', alt: 'raider' },
   { name: 'Satrap Daryush', style: 'raider', alt: 'conqueror' },
   { name: 'Captain Inês', style: 'conqueror', alt: 'raider' },
   { name: 'Marshal Lefèvre', style: 'defender', alt: 'opportunist' },
   { name: 'Tsarina Olena', style: 'conqueror', alt: 'opportunist' },
-  { name: 'Regent Kwame', style: 'defender', alt: 'expansionist' },
-  { name: 'Atabeg Kerim', style: 'expansionist', alt: 'defender' },
-  { name: 'Lady Hoshiko', style: 'expansionist', alt: 'conqueror' },
+  { name: 'Regent Kwame', style: 'defender', alt: 'opportunist' },
+  { name: 'Atabeg Kerim', style: 'conqueror', alt: 'defender' },
+  { name: 'Lady Hoshiko', style: 'defender', alt: 'opportunist' },
   { name: 'Baron Aldric', style: 'opportunist', alt: 'conqueror' },
 ];
 
@@ -105,7 +114,7 @@ function stream(seed: number): () => number {
 /**
  * The commanders at a game's bot seats, by seat index. `gameKey` is the
  * game's id; `aiSeats` its bot seats. Every name differs, and so does every
- * style while the five last. Seats are drawn in seat order, so adding a bot
+ * style while the four last. Seats are drawn in seat order, so adding a bot
  * after the others leaves theirs as they were.
  */
 export function drawAiCommanders(gameKey: string, aiSeats: readonly number[]): Record<number, DrawnCommander> {
@@ -122,7 +131,7 @@ export function drawAiCommanders(gameKey: string, aiSeats: readonly number[]): R
   for (const seat of [...aiSeats].sort((a, b) => a - b)) {
     let pick: DrawnCommander | null = null;
     // The next commander whose drawn style is not yet at the table, or
-    // failing that its other style; once all five are seated, anyone.
+    // failing that its other style; once all four are seated, anyone.
     for (let tries = 0; tries < order.length && next < order.length; tries++) {
       const c = AI_COMMANDERS[order[next++]!]!;
       const usual = rng() < USUAL_STYLE_CHANCE;

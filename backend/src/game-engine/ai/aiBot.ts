@@ -496,11 +496,23 @@ export function eliminationAttackBonus(
 }
 
 /**
+ * The rivals of `playerId` holding the fewest territories: every living
+ * player outside its side (state/teams.ts), ties included. Territory counts
+ * are public, so it reads no more than a player sees.
+ */
+export function weakestRivals(state: GameState, playerId: string): Set<string> {
+  const rivals = state.players.filter(
+    (p) => !p.is_eliminated && p.player_id !== playerId && !isFriendlyOwner(state, playerId, p.player_id),
+  );
+  if (rivals.length === 0) return new Set();
+  const fewest = Math.min(...rivals.map((p) => p.territory_count ?? 0));
+  return new Set(rivals.filter((p) => (p.territory_count ?? 0) === fewest).map((p) => p.player_id));
+}
+
+/**
  * A style's appetite for the weak (`preysOnWeak`, ai/aiStyles.ts): what taking
- * a tile from `ownerId` is worth, by how far that rival's territory count
- * falls short of the attacker's. Never for neutral ground, or a rival as
- * strong or stronger. Territory counts are public, so it reads no more than
- * a player sees.
+ * a tile from `ownerId` is worth when it is the weakest rival, the one
+ * holding the fewest territories. Never for neutral ground or anyone else.
  */
 export function preyAttackBonus(
   state: GameState,
@@ -509,10 +521,7 @@ export function preyAttackBonus(
   profile: Readonly<AiProfile>,
 ): number {
   if (!ownerId || profile.preysOnWeak <= 0) return 0;
-  const mine = state.players.find((p) => p.player_id === attackerId)?.territory_count ?? 0;
-  const theirs = state.players.find((p) => p.player_id === ownerId)?.territory_count ?? 0;
-  if (mine <= 0 || theirs >= mine) return 0;
-  return profile.preysOnWeak * (1 - theirs / mine);
+  return weakestRivals(state, attackerId).has(ownerId) ? profile.preysOnWeak : 0;
 }
 
 /** Extra attacks allowed past the per-difficulty cap when a kill is on the board. */
