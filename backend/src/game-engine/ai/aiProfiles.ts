@@ -182,12 +182,25 @@ export interface AiProfile {
    */
   goalStaging: number;
   /**
-   * What taking a tile from a rival weaker than itself is worth on top of the
-   * fight, on the planner's 3·P − 1 scale at full weakness: the weight times
-   * how far the rival's territory count falls short of its own. 0 at every
-   * level; the Opportunist's style raises it (ai/aiStyles.ts).
+   * What taking a tile from the weakest rival is worth on top of the fight,
+   * on the planner's 3·P − 1 scale: the rival holding the fewest territories
+   * (aiBot weakestRivals). 0 at every level; the Opportunist's style raises
+   * it (ai/aiStyles.ts).
    */
   preysOnWeak: number;
+  /**
+   * Hunts the weakest rival whatever its size: as well as a rival down to its
+   * last few territories, the rival holding the fewest is a goal to hunt
+   * (ai/aiIntent.ts). Off at every level; the Opportunist's style turns it on.
+   */
+  huntsWeakest: boolean;
+  /**
+   * Starts an attack on its odds alone, pressing on the odds: what the
+   * capture is worth (a goal, a kill shot, the ending) never lowers the odds
+   * it needs (aiAttackGrind shouldStartPress). Off at every level; the
+   * Defender's style turns it on.
+   */
+  startsOnOddsAlone: boolean;
 
   // ── Economy ───────────────────────────────────────────────────────────────
   build: AiBuildMode;
@@ -250,6 +263,8 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     goalWeights: EVEN_GOALS,
     goalStaging: 1,
     preysOnWeak: 0,
+    huntsWeakest: false,
+    startsOnOddsAlone: false,
     build: 'none',
     research: 'none',
     doctrinesPerTurn: 0,
@@ -291,6 +306,8 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     goalWeights: EVEN_GOALS,
     goalStaging: 1,
     preysOnWeak: 0,
+    huntsWeakest: false,
+    startsOnOddsAlone: false,
     build: 'gate_only',
     research: 'gate_only',
     doctrinesPerTurn: 0,
@@ -332,6 +349,8 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     goalWeights: EVEN_GOALS,
     goalStaging: 1,
     preysOnWeak: 0,
+    huntsWeakest: false,
+    startsOnOddsAlone: false,
     build: 'greedy',
     research: 'cheapest',
     doctrinesPerTurn: 1,
@@ -373,6 +392,8 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     goalWeights: EVEN_GOALS,
     goalStaging: 1,
     preysOnWeak: 0,
+    huntsWeakest: false,
+    startsOnOddsAlone: false,
     build: 'threat',
     research: 'strategic',
     doctrinesPerTurn: 2,
@@ -418,6 +439,8 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     goalWeights: EVEN_GOALS,
     goalStaging: 1,
     preysOnWeak: 0,
+    huntsWeakest: false,
+    startsOnOddsAlone: false,
     build: 'threat',
     research: 'strategic',
     doctrinesPerTurn: 2,

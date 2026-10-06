@@ -130,7 +130,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'ai_personalities_enabled',
     label: 'Bot commanders and styles',
     description:
-      'Each bot in a new game is a named commander, drawn from thirty, who plays one of five styles: Conqueror, Raider, Expansionist, Opportunist or Defender. A commander usually plays the same style, and sometimes another. The lobby and the seats show who you face. Styles change how a bot plays, not how strong it is: each was tuned to stay within five points of its level. Medium and up play a style; Easy bots only take a name. Needs "AI plays toward a goal" on, and does nothing without it, since a style plays out mostly through the bots\u2019 goals. Never in daily challenges or campaign games. Off by default while it is tried.',
+      'Each bot in a new game is a named commander, drawn from thirty, who plays one of four styles: Conqueror, Raider, Opportunist or Defender. A commander usually plays the same style, and sometimes another. The lobby and the seats show who you face. Styles change how a bot plays, not how strong it is: each was tuned to stay within five points of its level. Medium and up play a style; Easy bots only take a name. Needs "AI plays toward a goal" on, and does nothing without it, since a style plays out mostly through the bots\u2019 goals. Never in daily challenges or campaign games. Off by default while it is tried.',
   },
   {
     key: 'surrender_offers_enabled',

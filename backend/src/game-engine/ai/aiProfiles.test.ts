@@ -56,6 +56,9 @@ describe('AI_PROFILES holds the values the constants and branches held', () => {
     goalWeights: Array(5).fill({ take_region: 1, break_region: 1, hunt: 1 }),
     goalStaging: [1, 1, 1, 1, 1],
     preysOnWeak: [0, 0, 0, 0, 0],
+    // A commander's style moves these (ai/aiStyles.ts); no level does.
+    huntsWeakest: [false, false, false, false, false],
+    startsOnOddsAlone: [false, false, false, false, false],
     build: ['none', 'gate_only', 'greedy', 'threat', 'threat'],
     research: ['none', 'gate_only', 'cheapest', 'strategic', 'strategic'],
     doctrinesPerTurn: [0, 0, 1, 2, 2],

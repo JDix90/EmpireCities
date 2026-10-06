@@ -35,6 +35,12 @@
  * Fog of war is off in all of them, as in those payloads, so every seat plans
  * on the full board.
  *
+ * Besides who wins and how long games run, the report measures how the
+ * candidate plays, against what each commander's style promises: its attack
+ * runs a turn and how many take their tile, its captures taken from the
+ * weakest rival, the tiles rivals take from it, and its share of the board at
+ * round 10. Compare a styled candidate with one of the same level and none.
+ *
  * Run (from backend/):
  *   pnpm exec tsx scripts/simAiArena.ts
  *   ARENA_SEATS=2,4,6 ARENA_GAMES=100 ARENA_CANDIDATE=hard ARENA_BASELINE=medium \
@@ -58,9 +64,9 @@
  *   ARENA_CANDIDATE_PROFILE  JSON object of AiProfile fields that replace the
  *   ARENA_BASELINE_PROFILE     difficulty's row for that side.
  *   ARENA_CANDIDATE_STYLE    a commander's style for that side's seats
- *   ARENA_BASELINE_STYLE       (ai/aiStyles.ts): conqueror, raider, expansionist,
- *                            opportunist or defender; random to draw each game's
- *                            commanders as a live game does; unset for none.
+ *   ARENA_BASELINE_STYLE       (ai/aiStyles.ts): conqueror, raider, opportunist
+ *                            or defender; random to draw each game's commanders
+ *                            as a live game does; unset for none.
  *   ARENA_SEED             master seed (default borderfall-ai-arena)
  */
 import { readFileSync } from 'fs';
@@ -269,6 +275,42 @@ interface GameRecord {
    * first, by era index (index 0 unused), 0 for an era nobody reached.
    */
   eraRounds?: number[];
+  /** How the candidate played: what a commander's style promises (ai/aiStyles.ts). */
+  behaviour?: Behaviour;
+}
+
+/**
+ * The candidate's play, measured against what each style promises. Read off
+ * the same games, so it stays out of the digest.
+ */
+interface Behaviour {
+  /** Its attack runs (one per attack pressing on the odds), and those that took their tile. */
+  runs: number;
+  captures: number;
+  /** Units it lost attacking. */
+  attackLosses: number;
+  /** Its captures from rivals, and those from a rival holding the fewest territories as its turn began. */
+  rivalCaptures: number;
+  weakestCaptures: number;
+  /** Tiles rivals took from it, and the territories it held as each rival turn began. */
+  tilesLost: number;
+  tilesExposed: number;
+  /** Its share of the board as round 10 began, or null if the game ended first. */
+  shareAtRound10: number | null;
+  /** Its captures and turns in rounds 1 to 10. */
+  earlyCaptures: number;
+  earlyTurns: number;
+  /** The regions it held whole as round 10 began. */
+  regionsAtRound10: number;
+}
+
+/** What the counting hooks need to see of the candidate. */
+interface Watch {
+  seat: number;
+  playerId: string;
+  /** Rivals holding the fewest territories as the candidate's turn began. */
+  weakest: Set<string>;
+  behaviour: Behaviour;
 }
 
 interface Timing {
@@ -295,7 +337,7 @@ function leaderSeat(state: GameState): number | null {
 }
 
 /** Headless hooks that count, per seat, what the live game would have paced or announced. */
-function countingHooks(state: GameState, map: GameMap, record: GameRecord): AiTurnHooks {
+function countingHooks(state: GameState, map: GameMap, record: GameRecord, watch: Watch): AiTurnHooks {
   const base = headlessAiTurnHooks(state, map);
   const seat = (): number => state.players[state.current_player_index]!.player_index;
   return {
@@ -310,6 +352,21 @@ function countingHooks(state: GameState, map: GameMap, record: GameRecord): AiTu
     recordCombat: (defenderId, result, options) => {
       // Pressing on the odds, one call carries a whole run of exchanges.
       record.exchanges[seat()]! += result.blitz_exchanges ?? 1;
+      const b = watch.behaviour;
+      if (seat() === watch.seat) {
+        b.runs += 1;
+        b.attackLosses += result.attacker_losses;
+        if (result.territory_captured) {
+          b.captures += 1;
+          if (state.turn_number <= 10) b.earlyCaptures += 1;
+          if (defenderId) {
+            b.rivalCaptures += 1;
+            if (watch.weakest.has(defenderId)) b.weakestCaptures += 1;
+          }
+        }
+      } else if (defenderId === watch.playerId && result.territory_captured) {
+        b.tilesLost += 1;
+      }
       base.recordCombat(defenderId, result, options);
     },
   };
@@ -363,9 +420,14 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
     steps: zeros(),
     turns: zeros(),
   };
-  const hooks = countingHooks(state, map, record);
-  let sawRound10 = false;
   const candidate = state.players.find((p) => p.player_index === candidateSeat)!;
+  const behaviour: Behaviour = {
+    runs: 0, captures: 0, attackLosses: 0, rivalCaptures: 0, weakestCaptures: 0, tilesLost: 0, tilesExposed: 0,
+    shareAtRound10: null, earlyCaptures: 0, earlyTurns: 0, regionsAtRound10: 0,
+  };
+  const watch: Watch = { seat: candidateSeat, playerId: candidate.player_id, weakest: new Set(), behaviour };
+  const hooks = countingHooks(state, map, record, watch);
+  let sawRound10 = false;
   let othersSecondsWhileIn = 0;
   const eraRounds = state.settings.era_advancement_enabled ? [0] : undefined;
   const noteEras = (): void => {
@@ -384,6 +446,8 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
     if (!sawRound10 && state.turn_number >= 10) {
       sawRound10 = true;
       record.leaderAtRound10 = leaderSeat(state);
+      behaviour.shareAtRound10 = (candidate.territory_count ?? 0) / Object.keys(state.territories).length;
+      behaviour.regionsAtRound10 = wholeRegions(state, map, candidate.player_id);
     }
     const player = state.players[state.current_player_index]!;
     const seat = seats[player.player_index]!;
@@ -391,6 +455,12 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
     const candidateWasIn = !candidate.is_eliminated;
     const cooldownBefore = state.influence_cooldown_remaining ?? 0;
     const started = performance.now();
+    if (player.player_index === candidateSeat) {
+      watch.weakest = weakestRivals(state, candidate.player_id);
+      if (state.turn_number <= 10) behaviour.earlyTurns += 1;
+    } else if (candidateWasIn) {
+      behaviour.tilesExposed += candidate.territory_count ?? 0;
+    }
 
     resolveChoiceCard(state);
     // processAiTurn's opening: a beaten bot resigns before it plans.
@@ -443,8 +513,27 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
   record.territories = state.players.map((p) => p.territory_count ?? 0);
   record.eras = state.players.map((p) => p.current_era_index ?? 0);
   if (eraRounds) record.eraRounds = Array.from({ length: Math.max(...record.eras, 0) + 1 }, (_, k) => eraRounds[k] ?? 0);
+  record.behaviour = behaviour;
   timing.othersSecondsWhileIn.push(othersSecondsWhileIn);
   return record;
+}
+
+/** The living rivals of `playerId` holding the fewest territories. */
+function weakestRivals(state: GameState, playerId: string): Set<string> {
+  const rivals = state.players.filter((p) => !p.is_eliminated && p.player_id !== playerId);
+  const fewest = Math.min(...rivals.map((p) => p.territory_count ?? 0));
+  return new Set(rivals.filter((p) => (p.territory_count ?? 0) === fewest).map((p) => p.player_id));
+}
+
+/** The regions whose every territory in play `playerId` holds. */
+function wholeRegions(state: GameState, map: GameMap, playerId: string): number {
+  const regions = new Map<string, boolean>();
+  for (const t of map.territories) {
+    const tile = state.territories[t.territory_id];
+    if (!tile) continue;
+    regions.set(t.region_id, (regions.get(t.region_id) ?? true) && tile.owner_id === playerId);
+  }
+  return [...regions.values()].filter(Boolean).length;
 }
 
 /** Whether `goal` was met: its region held whole, its rival's region broken, its quarry out. */
@@ -480,9 +569,9 @@ function percentile(xs: number[], p: number): number {
 }
 
 function digest(records: GameRecord[]): string {
-  // The era timeline is read off the same games, so it stays out and every
-  // digest from before it was recorded still stands.
-  return hashStringToSeed(JSON.stringify(records, (k, v) => (k === 'eraRounds' ? undefined : v))).toString(16).padStart(8, '0');
+  // The era timeline and the candidate's behaviour are read off the same
+  // games, so they stay out and every digest from before them still stands.
+  return hashStringToSeed(JSON.stringify(records, (k, v) => (k === 'eraRounds' || k === 'behaviour' ? undefined : v))).toString(16).padStart(8, '0');
 }
 
 function describe(seat: Seat): string {
@@ -529,6 +618,15 @@ function report(seatCount: number, records: GameRecord[], timing: Timing): void 
     console.log(`candidate goals           ${kinds.join(', ')} of its turns`);
   }
   console.log(`exchanges per turn        candidate ${seatMean((r) => r.exchanges, true).toFixed(2)}, baseline ${seatMean((r) => r.exchanges, false).toFixed(2)}`);
+  // What each style promises (ai/aiStyles.ts), for the candidate.
+  const b = records.map((r) => r.behaviour!).filter(Boolean);
+  const sum = (pick: (x: Behaviour) => number): number => b.reduce((s, x) => s + pick(x), 0);
+  const candidateTurnsAll = records.reduce((s, r) => s + r.turns[r.candidateSeat]!, 0);
+  const shares = b.map((x) => x.shareAtRound10).filter((x): x is number => x !== null);
+  console.log(`candidate attacks         ${(sum((x) => x.runs) / Math.max(1, candidateTurnsAll)).toFixed(2)} runs a turn, ${pct(sum((x) => x.captures), sum((x) => x.runs))} taken, ${(sum((x) => x.attackLosses) / Math.max(1, sum((x) => x.captures))).toFixed(2)} units lost a capture`);
+  console.log(`candidate targets         ${pct(sum((x) => x.weakestCaptures), sum((x) => x.rivalCaptures))} of captures from rivals taken from the weakest`);
+  console.log(`candidate holds           ${(100 * sum((x) => x.tilesLost) / Math.max(1, sum((x) => x.tilesExposed))).toFixed(2)} tiles lost per 100 held through a rival's turn`);
+  console.log(`candidate early           ${(100 * mean(shares)).toFixed(1)}% of the board at round 10; ${(sum((x) => x.earlyCaptures) / Math.max(1, sum((x) => x.earlyTurns))).toFixed(2)} captures a turn in rounds 1-10; ${mean(b.filter((x) => x.shareAtRound10 !== null).map((x) => x.regionsAtRound10)).toFixed(2)} whole regions at round 10`);
   if (records.some((r) => r.influences.some((n) => n > 0))) {
     console.log(`influences per game       candidate ${mean(records.map((r) => r.influences[r.candidateSeat]!)).toFixed(2)}, baseline seat ${mean(records.flatMap((r) => r.influences.filter((_, i) => i !== r.candidateSeat))).toFixed(2)}`);
   }

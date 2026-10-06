@@ -4,16 +4,24 @@
  *
  * The level (ai/aiProfiles.ts) says how strong a bot is; a style says what
  * it wants. Each is a small shift of the settings the level already has: how
- * much it wants each goal (ai/aiIntent.ts), the odds it attacks at, what free
- * land is worth to it. No style has code of its own, and each was tuned to
- * stay within five points of its level's win rate and game length in the
- * arena (scripts/simAiArena.ts), so "Raider · Hard" is as hard as Hard.
+ * much it wants each goal (ai/aiIntent.ts), the odds it attacks at, which
+ * rival it goes after. No style has code of its own, and each was tuned to
+ * stay within five points of its level's win rate in the arena
+ * (scripts/simAiArena.ts), so "Raider · Hard" is as hard as Hard.
  *
  *   conqueror     takes whole regions and presses every lead;
  *   raider        breaks rivals' regions and hunts the weak;
- *   expansionist  grabs free land and new regions early;
- *   opportunist   strikes whoever is weakest;
- *   defender      holds its borders and attacks only at good odds.
+ *   opportunist   strikes whoever is weakest: hunts the rival holding the
+ *                 fewest territories, whatever its size;
+ *   defender      picks its fights: starts an attack on its odds alone, and
+ *                 needs better ones.
+ *
+ * Each style was measured on what it promises, against a bot of its level
+ * with none: the Opportunist on its captures from the weakest rival, the
+ * Defender on how often it attacks and how often an attack takes its tile.
+ * The Expansionist is drawn no more: Quick Match has no free land, and
+ * nothing that made it spread wider early left it as strong as its level.
+ * Its shift stays for games that already seated one.
  *
  * Which commander sits at a seat, and the style it plays this game, is drawn
  * when the game is made (@borderfall/shared drawAiCommanders).
@@ -43,18 +51,19 @@ export const STYLE_SHIFTS: Readonly<Record<AiStyle, Shift>> = {
   raider: (p) => ({
     ...goals(p, 1, 1.4, 2.5),
   }),
+  // Drawn no more; kept for a game that seated one before.
   expansionist: (p) => ({
     ...goals(p, 1.3, 1, 1),
     neutralExpansionBonus: p.neutralExpansionBonus + 1.5,
   }),
-  opportunist: (p) => ({
-    ...goals(p, 1, 1, 2),
-    preysOnWeak: 1,
-  }),
+  // Expert plays its own goals well enough that the Medium and Hard pull cost
+  // it seven points in the arena; it hunts more gently.
+  opportunist: (p) => (p.difficulty === 'expert'
+    ? { ...goals(p, 1, 1, 4), preysOnWeak: 0.25, huntsWeakest: true }
+    : { ...goals(p, 1, 1, 6), preysOnWeak: 1, huntsWeakest: true }),
   defender: (p) => ({
-    goalStaging: 0.5,
     pressStartOdds: p.pressStartOdds + 0.05,
-    pressContinueOdds: p.pressContinueOdds + 0.05,
+    startsOnOddsAlone: true,
   }),
 };
 

@@ -524,8 +524,8 @@ export const featureFlags = {
   /**
    * When true, a game started with bots draws a commander for each bot seat
    * (@borderfall/shared drawAiCommanders): a name from thirty, and a style
-   * it plays this game (ai/aiStyles.ts): Conqueror, Raider, Expansionist,
-   * Opportunist or Defender, each a small shift of its level's settings and
+   * it plays this game (ai/aiStyles.ts): Conqueror, Raider, Opportunist or
+   * Defender, each a small shift of its level's settings and
    * tuned to stay as strong as its level. Shown in the lobby and on the seat.
    * Baked into the game at create, and only with ai_intents_enabled on too: a
    * style plays out mostly through the bots' goals. Medium and up play a

@@ -13,7 +13,9 @@
  *   hunt          a rival down to its last few territories, by what knocking
  *                 it out is worth (its cards go to whoever takes its last
  *                 tile) against everything it has left. Never by its hand,
- *                 which no player can see.
+ *                 which no player can see. A level that `huntsWeakest`
+ *                 (a style, ai/aiStyles.ts) may hunt the weakest rival
+ *                 whatever its size, priced the same way.
  *
  * The goal then weighs the turn: captures that advance it are worth more,
  * and for a region to take or a rival to hunt, its draft stages beside it
@@ -33,7 +35,7 @@
 import type { AiIntent, GameMap, GameState } from '../../types';
 import { scaleRegionBonus } from '../combat/combatResolver';
 import { isFriendlyOwner, isShieldedFrom, isTeamGame } from '../state/teams';
-import { buildAdjacencyMap, isTruceActive } from './aiBot';
+import { buildAdjacencyMap, isTruceActive, weakestRivals } from './aiBot';
 import { aiProfile, type AiLevel } from './aiProfiles';
 
 export type { AiIntent };
@@ -129,12 +131,14 @@ export function chooseIntent(
     }
   }
 
-  // Hunt: a rival nearly out, with a tile in reach.
+  // Hunt: a rival nearly out, with a tile in reach; with the level's
+  // `huntsWeakest`, also the weakest rival whatever its size.
   if (profile.finisher) {
+    const weakest = profile.huntsWeakest ? weakestRivals(state, playerId) : null;
     for (const rival of state.players) {
       if (rival.is_eliminated || !hostile(rival.player_id)) continue;
       const tiles = Object.entries(state.territories).filter(([, t]) => t.owner_id === rival.player_id);
-      if (tiles.length === 0 || tiles.length > HUNT_TILES) continue;
+      if (tiles.length === 0 || (tiles.length > HUNT_TILES && !weakest?.has(rival.player_id))) continue;
       if (!tiles.some(([tid]) => inReach(tid))) continue;
       const effort = tiles.reduce((s, [, t]) => s + garrison(t.unit_count) + 1, 0);
       candidates.push({ kind: 'hunt', target: rival.player_id, score: HUNT_VALUE / effort });
