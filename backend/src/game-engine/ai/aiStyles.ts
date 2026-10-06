@@ -9,7 +9,7 @@
  * stay within five points of its level's win rate in the arena
  * (scripts/simAiArena.ts), so "Raider · Hard" is as hard as Hard.
  *
- *   conqueror     takes whole regions and presses every lead;
+ *   conqueror     goes after whole regions, one at a time;
  *   raider        breaks rivals' regions and hunts the weak;
  *   opportunist   strikes whoever is weakest: hunts the rival holding the
  *                 fewest territories, whatever its size;
@@ -43,10 +43,12 @@ const goals = (p: Readonly<AiProfile>, take: number, brk: number, hunt: number) 
 
 /** What each style shifts on its level's row. ⚠ balance: each is measured against its level. */
 export const STYLE_SHIFTS: Readonly<Record<AiStyle, Shift>> = {
+  // Its region goals pull its draft and fortify half as hard: at full pull,
+  // and with odds 5 points lower as it first had, it won 5.5 points over
+  // Medium and 7 over Hard across four seeds in the arena.
   conqueror: (p) => ({
     ...goals(p, 2, 0.6, 1),
-    pressStartOdds: p.pressStartOdds - 0.05,
-    pressContinueOdds: p.pressContinueOdds - 0.05,
+    goalStaging: 0.5,
   }),
   raider: (p) => ({
     ...goals(p, 1, 1.4, 2.5),
