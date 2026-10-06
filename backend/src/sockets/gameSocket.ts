@@ -67,7 +67,8 @@ import { moveFleets, resolveNavalCombat, resolveSeaCrossing } from '../game-engi
 import { onInfluenceStabilityPenalty, getDeployCap } from '../game-engine/state/stabilityManager';
 import { eliminatePlayer } from '../game-engine/state/elimination';
 import { activeTruceBetween, agreeTruce, breakTruceBetween } from '../game-engine/state/truces';
-import { areAllies, isShieldedFrom, isTeamGame, shieldedTargetError, sideOf } from '../game-engine/state/teams';
+import { areAllies, isShieldedFrom, isTeamGame, shieldedTargetError } from '../game-engine/state/teams';
+import { fogAdjacency, fogVisibleTerritoryIds as visibleTerritoryIds } from '../game-engine/state/fogOfWar';
 import { concededTeamWinners } from '../game-engine/victory/teamVictory';
 import { getAdjacentTerritoryIds, getInfluenceHopLimit, isTerritoryReachableWithinHops } from '../game-engine/state/influenceManager';
 import { playerHoldsVaultSeal, worldDeployCapBonus } from '../game-engine/state/worldRules';
@@ -245,8 +246,6 @@ import {
 import { runScriptedAiTurn } from '../game-engine/daily/puzzle/engineOpponent';
 import {
   attackerIgnoresDefenseBuilding,
-  expandFogVisibilityFromRecon,
-  expandFogVisibilityFromFactionPassive,
   consumeBlockadeRunner,
   getFortifyMoveLimit,
   getInfluenceUnitCost,
@@ -999,13 +998,7 @@ const adjacencyByMapId = new Map<string, Map<string, string[]>>();
 function getOrBuildAdjacency(map: GameMap): Map<string, string[]> {
   const cached = adjacencyByMapId.get(map.map_id);
   if (cached) return cached;
-  const adj = new Map<string, string[]>();
-  for (const conn of map.connections) {
-    if (!adj.has(conn.from)) adj.set(conn.from, []);
-    if (!adj.has(conn.to)) adj.set(conn.to, []);
-    adj.get(conn.from)!.push(conn.to);
-    adj.get(conn.to)!.push(conn.from);
-  }
+  const adj = fogAdjacency(map);
   adjacencyByMapId.set(map.map_id, adj);
   return adj;
 }
@@ -5080,32 +5073,17 @@ async function broadcastSpectatorCount(io: Server, gameId: string): Promise<void
 /**
  * Territories whose exact intel a player may see in a fog game: their own,
  * everything bordering them (border scouting), and whatever recon or a faction
- * passive reveals. The one rule for both `game:state` and map visuals.
+ * passive reveals (state/fogOfWar.ts). The one rule for both `game:state` and
+ * map visuals.
  */
 function fogVisibleTerritoryIds(state: GameState, playerId: string, map?: GameMap): Set<string> {
-  // Shared vision in a team game (state/teams.ts): a player sees whatever any
-  // ally sees. Alone in a free-for-all game, the side is just the player.
-  const side = sideOf(state, playerId);
-  const visibleIds = new Set<string>();
-  for (const [tid, tState] of Object.entries(state.territories)) {
-    if (tState.owner_id && side.includes(tState.owner_id)) visibleIds.add(tid);
-  }
   // The adjacency cache only fills once some handler has built it, and on a
   // fresh process the first actions (a draft, a phase change) never do: every
   // border then read as hidden, in game:state and the AI's fogged view alike.
   // Build it from the room's map instead of trusting a cold cache.
   const roomMap = map ?? getCachedRoom(state.game_id)?.map;
   const adj = roomMap ? getOrBuildAdjacency(roomMap) : adjacencyByMapId.get(state.map_id);
-  if (adj) {
-    for (const tid of Array.from(visibleIds)) {
-      for (const neighbour of adj.get(tid) ?? []) visibleIds.add(neighbour);
-    }
-    for (const id of side) {
-      expandFogVisibilityFromRecon(state, id, visibleIds, adj);
-      expandFogVisibilityFromFactionPassive(state, id, visibleIds, adj);
-    }
-  }
-  return visibleIds;
+  return visibleTerritoryIds(state, playerId, adj);
 }
 
 /**
