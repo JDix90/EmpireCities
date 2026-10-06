@@ -37,6 +37,7 @@ import {
 import { ringGapLanes } from '../state/galaxyRing';
 import { isLaneSealedForPlayer } from '../state/moonAccess';
 import { isFriendlyOwner } from '../state/teams';
+import { seenUnits } from '../state/fogOfWar';
 
 /**
  * A far gateway holding at least this many units is worth the battery: two
@@ -164,7 +165,7 @@ export function selectAiSealBreaker(
       if (!isLaneGateway(map, near)) continue;
       if (lanePowerSources(state, map, playerId, 'seal_breaker', near).length === 0) continue;
       // Worth breaking only into a crossing the stack should win.
-      const edge = n.unit_count - 1 - f.unit_count;
+      const edge = n.unit_count - 1 - seenUnits(f);
       if (n.unit_count < 3 || edge < 1) continue;
       if (!best || edge > best.edge) best = { source: near, target: far, edge };
     }
@@ -190,7 +191,8 @@ export function selectAiSurgeProjector(
       const f = state.territories[far];
       if (!n || !f || n.owner_id !== playerId || !isRival(state, playerId, f.owner_id)) continue;
       if (!surgeProjectorSources(state, map, playerId, far).includes(near)) continue;
-      const edge = n.unit_count - 1 - f.unit_count;
+      // A ring gap is no lane yet, so under fog the far gateway may be hidden.
+      const edge = n.unit_count - 1 - seenUnits(f);
       if (n.unit_count < 3 || edge < AI_SURGE_MIN_EDGE) continue;
       if (!best || edge > best.edge || (edge === best.edge && far < best.target)) best = { source: near, target: far, edge };
     }

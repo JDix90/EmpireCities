@@ -112,6 +112,17 @@ describe('a bot turn with no socket', () => {
     expect(state.phase).toBe('fortify');
   });
 
+  it('hands the turn the board its seat sees, to choose its targets on', async () => {
+    const state = newGame(2);
+    const player = state.players[state.current_player_index]!;
+    const view = { ...state };
+    const plan = await planAiTurn(state, MAP, player, 'medium', FLAGS, {
+      planningState: () => view,
+      plan: async () => [],
+    });
+    expect(plan.view?.()).toBe(view);
+  });
+
   it('stops at the first exchange when that exchange wins the game', async () => {
     // A victory check that always says the game is over: the turn must stop
     // after the exchange that triggered it, report 'over', and never fortify.

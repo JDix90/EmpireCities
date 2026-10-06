@@ -9,6 +9,7 @@ import { join } from 'path';
 import type { GameMap, GameSettings, GameState } from '../../types';
 import { initializeGameState } from '../state/gameStateManager';
 import { executeTechAbility } from '../abilities/executeTechAbility';
+import { fogAdjacency, fogVisibleTerritoryIds, seatView } from '../state/fogOfWar';
 import { selectAiTechResearch } from './aiBot';
 import {
   AI_BOMB_MIN_VALUE,
@@ -127,6 +128,18 @@ describe('firing', () => {
     state.territories[other]!.unit_count = 6;
     state.territories[other]!.buildings = ['tech_gen_1', 'defense_2', 'production_1'];
     expect(selectAiAtomBombStrike(state, map, 'p0')?.territoryId).toBe(other);
+  });
+
+  it('under fog of war, aims at what its seat can see, not at what fog hides', () => {
+    const { state, map, target } = armed();
+    state.settings.fog_of_war = true;
+    // A bigger stack on a tile no border of the bot's touches.
+    const visible = fogVisibleTerritoryIds(state, 'p0', fogAdjacency(map));
+    const hidden = Object.keys(state.territories).sort().find((id) => !visible.has(id))!;
+    state.territories[hidden]!.unit_count = 30;
+    // The full board would hand it the hidden stack; its seat sees the 9 beside it.
+    expect(selectAiAtomBombStrike(state, map, 'p0')?.territoryId).toBe(hidden);
+    expect(selectAiAtomBombStrike(seatView(state, map, 'p0'), map, 'p0')?.territoryId).toBe(target);
   });
 
   it('waits for a target worth a once-per-game weapon, except on the last turn', () => {

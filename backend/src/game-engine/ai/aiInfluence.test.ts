@@ -8,6 +8,7 @@ import { computeAiTurn, rankAiUnificationTargets } from './aiBot';
 import { INFLUENCE_MAX_TARGET_UNITS, influencePayers } from './aiInfluence';
 import { headlessAiTurnHooks, playAiTurn } from './runAiTurn';
 import { eraModifiersFor } from '../state/eraModifiers';
+import { seatView } from '../state/fogOfWar';
 
 const AI = 'ai_0';
 const RIVAL = 'rival';
@@ -137,5 +138,46 @@ describe('Unification Drive: the bot aims it', () => {
     expect(s.territories.n1!.owner_id).toBe(AI);
     expect(s.territories.n0!.owner_id).toBeNull();
     expect(s.players[0]!.ability_uses).toMatchObject({ unification_drive: 1 });
+  });
+});
+
+describe('Unification Drive under fog of war', () => {
+  // Two lone neutral tiles beside the bot. n0's rival neighbour x sits a hop
+  // past the bot's border, where fog hides it; n2's, y, borders the bot's own
+  // tile and is seen.
+  const m = map(
+    [['a', 'home'], ['n0', 'west'], ['x', 'west'], ['n2', 'east'], ['y', 'east']],
+    [['a', 'n0'], ['a', 'n2'], ['a', 'y'], ['n0', 'x'], ['n2', 'y']],
+    [['home', 1], ['west', 2], ['east', 2]],
+  );
+  const board = (hidden: number) => state('risorgimento', {
+    a: [AI, 5], n0: [null, 1], x: [RIVAL, hidden], n2: [null, 1], y: [RIVAL, 2],
+  }, { settings: { factions_enabled: true, fog_of_war: true }, faction: 'sardinia_piedmont' });
+
+  it('weighs a rival stack it cannot see as a few units, whatever it holds', () => {
+    // Seen, x counts as 3 against y's 2, so n2 ranks first however small x
+    // is. Read as the view's -1, x would have made n0 the safer tile.
+    for (const hidden of [1, 20]) {
+      const s = board(hidden);
+      expect(rankAiUnificationTargets(seatView(s, m, AI), m, AI)[0]).toBe('n2');
+    }
+    // The full board would read x's true 1 and turn to n0.
+    expect(rankAiUnificationTargets(board(1), m, AI)[0]).toBe('n0');
+  });
+
+  it('and the turn aims it on the board its seat sees', async () => {
+    const play = async (view: boolean) => {
+      const s = board(1);
+      await playAiTurn(s, m, s.players[0]!, 'hard', {
+        actions: [],
+        ...(view ? { view: () => seatView(s, m, AI) } : {}),
+        attackBudget: { left: 0 },
+        attackGrind: true,
+      }, 'attack', headlessAiTurnHooks(s, m));
+      return ['n0', 'n2'].filter((id) => s.territories[id]!.owner_id === AI);
+    };
+    expect(await play(true)).toEqual(['n2']);
+    // A plan without a view plays on the full board.
+    expect(await play(false)).toEqual(['n0']);
   });
 });

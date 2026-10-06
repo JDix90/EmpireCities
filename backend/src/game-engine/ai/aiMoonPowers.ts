@@ -25,6 +25,7 @@ import { TERRITORY_ABILITY_DEFS, playerHasUnlockedAbility } from '../abilities/t
 import { areMoonPowersEnabled } from '../abilities/moonPowers';
 import { activeTruceBetween } from '../state/truces';
 import { isShieldedFrom } from '../state/teams';
+import { seenUnits } from '../state/fogOfWar';
 import { SPACE_AGE_LANE_SEAL_HELIUM3_COST, canSealLane } from '../state/moonAccess';
 import {
   DROP_ASSAULT_HELIUM3_COST,
@@ -170,9 +171,11 @@ export function selectAiDropAssaultTarget(
     // Declaring on a truce partner breaks the truce; the bot honours its truces.
     if (activeTruceBetween(state, playerId, t.owner_id)) continue;
     if (isShieldedFrom(state, playerId, t.owner_id)) continue;
-    if (!best || t.unit_count < best.units
-      || (t.unit_count === best.units && t.territory_id < best.id)) {
-      best = { id: t.territory_id, units: t.unit_count };
+    // Any tile on Earth, so under fog it may be one the bot cannot see.
+    const units = seenUnits(t);
+    if (!best || units < best.units
+      || (units === best.units && t.territory_id < best.id)) {
+      best = { id: t.territory_id, units };
     }
   }
   return best?.id ?? null;

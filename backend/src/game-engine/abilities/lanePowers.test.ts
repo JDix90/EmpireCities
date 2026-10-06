@@ -42,6 +42,7 @@ import {
 import { crossableLanes } from './lanePowers';
 import { selectAiGarrisonDoctrines } from '../ai/aiBot';
 import { orbitLaneId } from '../state/moonAccess';
+import { fogAdjacency, fogVisibleTerritoryIds, seatView } from '../state/fogOfWar';
 
 const GALAXY = JSON.parse(
   readFileSync(join(__dirname, '../../../../database/maps/era_galaxy.json'), 'utf-8'),
@@ -453,6 +454,29 @@ describe('Surge Projector', () => {
     expect(selectAiSurgeProjector(state, map, SOL)).toBeNull();
     state.territories[GAP_RUST].unit_count = 2;
     state.territories[RUST_FOOTHOLD].buildings = [];
+    expect(selectAiSurgeProjector(state, map, SOL)).toBeNull();
+  });
+
+  it('bots under fog of war count a hidden far gateway as a few units, whatever it holds', () => {
+    const { state, map } = surgeGame({ fog_of_war: true });
+    // Sol's Rust Belt Jump Gate moves off the far gateway's border, and the
+    // Forge holds that border: the gap is no lane yet, so nothing Sol holds
+    // touches the far gateway.
+    state.territories[RUST_FOOTHOLD].owner_id = FORGE;
+    state.territories[RUST_FOOTHOLD].buildings = [];
+    state.territories.rust_caldera_foundry.owner_id = SOL;
+    state.territories.rust_caldera_foundry.buildings = ['jump_gate'];
+    for (const c of map.connections) {
+      const n = c.from === GAP_RUST ? c.to : c.to === GAP_RUST ? c.from : null;
+      if (n && state.territories[n].owner_id === SOL) state.territories[n].owner_id = FORGE;
+    }
+    expect(fogVisibleTerritoryIds(state, SOL, fogAdjacency(map)).has(GAP_RUST)).toBe(false);
+    for (const units of [2, 5]) {
+      state.territories[GAP_RUST].unit_count = units;
+      // Seen as 3 units: an edge of 7 - 1 - 3 = 3, enough to open the gap.
+      expect(selectAiSurgeProjector(seatView(state, map, SOL), map, SOL)).toEqual({ source: GAP_SOL, target: GAP_RUST });
+    }
+    // On the full board the hidden 5 puts it off.
     expect(selectAiSurgeProjector(state, map, SOL)).toBeNull();
   });
 });
