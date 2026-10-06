@@ -14,6 +14,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import GlobalMatchNotifier from './components/notifications/GlobalMatchNotifier';
 import GlobalTurnNotifier from './components/notifications/GlobalTurnNotifier';
 import { lazyWithChunkRetry } from './utils/lazyWithChunkRetry';
+import { isSafeInternalPath } from './utils/navRedirect';
 import { APP_NAME_NAV } from './constants/brand';
 import { applyAccessibilityDomPrefs, subscribeUserPreferences } from './utils/userPreferences';
 
@@ -146,14 +147,14 @@ function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
   // Honor the `?redirect=` query param that `PrivateRoute` writes when a
   // logged-out user follows a deep link (e.g. /game/<id>). Without this the
   // user lands on /lobby and loses the URL they clicked. Same-origin check:
-  // we only accept paths that start with `/` so a hostile redirect=
-  // (https://attacker.com/) cannot be used as an open redirect.
+  // we only accept a path on this site (isSafeInternalPath) so a hostile
+  // redirect= (https://attacker.com/) cannot be used as an open redirect.
   const params = new URLSearchParams(location.search);
   const raw = params.get('redirect');
   if (raw) {
     try {
       const decoded = decodeURIComponent(raw);
-      if (decoded.startsWith('/') && !decoded.startsWith('//')) {
+      if (isSafeInternalPath(decoded)) {
         return <Navigate to={decoded} replace />;
       }
     } catch {
