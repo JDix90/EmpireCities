@@ -91,15 +91,22 @@ export function validateProductionEnv(): void {
   // Proxy-trust hygiene: request.ip (and the HTTP rate-limit key) is derived
   // from X-Forwarded-For. `TRUST_PROXY=true` trusts the client-controlled
   // leftmost entry, so it is spoofable unless the edge overwrites the header.
-  // Unset is fine — it defaults to trusting one hop (our nginx) — but flag the
-  // dangerous explicit setting.
+  // Unset is fine — it defaults to trusting proxies on private networks (our
+  // nginx) — but flag the dangerous explicit setting, and the hop count that
+  // Fastify 5 no longer honours.
   const trustProxyRaw = (process.env.TRUST_PROXY || '').trim().toLowerCase();
   if (trustProxyRaw === 'true') {
     console.warn(
       '[config] Warning: TRUST_PROXY=true trusts every proxy hop, so X-Forwarded-For ' +
-        'is client-spoofable and the rate limiter can be bypassed. Set it to the number ' +
-        'of trusted proxies (e.g. 1 for a single nginx) and ensure the edge overwrites ' +
-        'X-Forwarded-For with the real client IP.',
+        'is client-spoofable and the rate limiter can be bypassed. Leave it unset to ' +
+        'trust proxies on private networks, or set the proxy addresses, and ensure the ' +
+        'edge overwrites X-Forwarded-For with the real client IP.',
+    );
+  } else if (/^\d+$/.test(trustProxyRaw)) {
+    console.warn(
+      `[config] Warning: TRUST_PROXY=${trustProxyRaw} is a hop count, which Fastify 5 ` +
+        'reads as "trust no proxy". Using the default instead: proxies on private ' +
+        'networks. Set the proxy addresses (IPs or CIDRs) to trust others.',
     );
   }
 
