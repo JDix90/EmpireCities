@@ -12,7 +12,7 @@
  * The turn hand-off (advanceToNextPlayer and what follows it) stays with the
  * caller, which also decides where an away seat resumes.
  */
-import { EMERGENCY_SEAL_ABILITY_ID, GALAXY_LANE_SEAL_DURATION, canSealLane, connectionRequiresMoonAccess, fortifyEndpointsRequireOrbitAccess, getOrbitAccessResult, isLaneSealedForPlayer, laneSealDuration, laneSealHelium3Cost, laneSealTick, syncLaunchPadLanes } from '../state/moonAccess';
+import { EMERGENCY_SEAL_ABILITY_ID, GALAXY_LANE_SEAL_DURATION, canSealLane, connectionRequiresMoonAccess, getOrbitAccessResult, isLaneSealedForPlayer, laneSealDuration, laneSealHelium3Cost, laneSealTick, syncLaunchPadLanes } from '../state/moonAccess';
 import { TARGETED_DRAFT_ABILITIES, TERRITORY_ABILITY_DEFS, getFortifyMoveLimit, getInfluenceUnitCost, isOwnedTerritoryAdjacentToEnemy, playerHasUnlockedAbility } from '../abilities/techAbilities';
 import { aiAttackExchangeBudget, aiPressExchangeCeiling, runAiAttackExchanges, shouldContinuePress, shouldPressDecidedGame, shouldStartPress } from './aiAttackGrind';
 import { aiFiresLanePowers, canAiFireLanePower, selectAiLanceBatteryTarget, selectAiOrbitalMusterTarget, selectAiSealBreaker, selectAiSurgeProjector } from './aiLanePowers';
@@ -40,6 +40,7 @@ import { combineExchanges } from '../combat/executeBlitzAttack';
 import { executeLandAttack, type LandAttackOutcome } from '../combat/executeLandAttack';
 import { executeTechAbility, isGameScopedAbility } from '../abilities/executeTechAbility';
 import { fortifyBecomesConvoy, launchConvoy } from '../state/transit';
+import { fortifyRouteAllowed } from '../state/fortifyRoute';
 import { getDeployCap, onInfluenceStabilityPenalty } from '../state/stabilityManager';
 import { getEraIdForAdvancementIndex } from '../eraAdvancement/constants';
 import { getMarchToSeaBonus, recordMarchToSeaResult } from '../combat/combatModifiers';
@@ -1367,14 +1368,10 @@ export async function playAiTurn(
     await hooks.delay();
     const from = state.territories[action.from];
     const to = state.territories[action.to];
-    // Orbit/Moon parity: don't let the AI fortify across worlds without access.
-    // AI fortify moves are not path-validated, so an arbitrary owned pair lands
-    // here — the endpoint test is the only gate on this path, which is why it
-    // compares worlds and not just the direct edge.
-    if (fortifyEndpointsRequireOrbitAccess(map, state.era, action.from, action.to)
-      && !getOrbitAccessResult(state, currentPlayer, map, state.era).allowed) {
-      continue;
-    }
+    // The route a player's move needs (game:fortify): a path over the bot's
+    // own ground, no orbit lane it cannot cross, and the orbit gate open
+    // between two worlds (state/fortifyRoute.ts).
+    if (!fortifyRouteAllowed(state, map, currentPlayer, action.from, action.to)) continue;
     if (from && to && from.owner_id === currentPlayer.player_id && to.owner_id === currentPlayer.player_id && from.unit_count > action.units) {
       // Same rule as the human path: a cross-world move is a convoy.
       if (fortifyBecomesConvoy(state, action.from, action.to)) {

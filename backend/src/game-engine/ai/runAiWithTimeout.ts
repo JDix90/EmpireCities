@@ -6,6 +6,7 @@ import { aiTurnLimiter } from './aiConcurrency';
 import type { GameState, GameMap } from '../../types';
 import type { AiAction, AiTurnOptions } from './aiBot';
 import { aiProfile, type AiLevel } from './aiProfiles';
+import { styledLevel } from './aiStyles';
 
 // Per-difficulty time budgets (the profile's planBudgetMs, ai/aiProfiles.ts:
 // tutorial 750 ms, easy 1 s, medium 1.5 s, hard 3 s, expert 5 s). There is no
@@ -22,17 +23,25 @@ import { aiProfile, type AiLevel } from './aiProfiles';
 const HARD_CAP_PADDING_MS = 1_500;
 
 /**
- * The plan that stands in when the worker overruns or fails: planned on this
- * thread at the level's `timeoutFallback` (ai/aiProfiles.ts), its own level
- * capped at medium.
+ * The level the stand-in plan plays: the level's `timeoutFallback`
+ * (ai/aiProfiles.ts), its own level capped at medium, with the bot's commander
+ * style laid over it as the live turn lays it over the bot's own level
+ * (sockets/gameSocket.ts, ai/aiStyles.ts styledLevel). Without the style a
+ * styled bot that ran out of time played that turn as no commander.
  */
+export function aiFallbackLevel(state: GameState, difficulty: AiLevel): AiLevel {
+  const seat = state.players[state.current_player_index];
+  return styledLevel(aiProfile(difficulty).timeoutFallback, seat?.is_ai ? seat.ai_style : undefined);
+}
+
+/** The plan that stands in when the worker overruns or fails, planned on this thread at aiFallbackLevel. */
 export function aiFallbackPlan(
   state: GameState,
   map: GameMap,
   difficulty: AiLevel,
   options?: AiTurnOptions,
 ): AiAction[] {
-  return computeAiTurn(state, map, aiProfile(difficulty).timeoutFallback, options);
+  return computeAiTurn(state, map, aiFallbackLevel(state, difficulty), options);
 }
 
 /**

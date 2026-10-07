@@ -16,7 +16,8 @@ import { aiAttackExchangeBudget, shouldPressDecidedGame } from './aiAttackGrind'
 import { aiFiresLanePowers } from './aiLanePowers';
 import { aiResearchesTech } from './aiTechBudget';
 import { AI_PROFILES, aiProfile, gameAiDifficulty, keepsTodaysBots, seatAiDifficulty, type AiProfile } from './aiProfiles';
-import { aiFallbackPlan } from './runAiWithTimeout';
+import { aiFallbackLevel, aiFallbackPlan } from './runAiWithTimeout';
+import { styledLevel } from './aiStyles';
 import { syntheticAiOpponent } from '../rating/ratingService';
 
 const LEVELS: AiDifficulty[] = ['tutorial', 'easy', 'medium', 'hard', 'expert'];
@@ -227,6 +228,23 @@ describe('the plan that stands in when planning overruns', () => {
     // Never easy's two-attack plan with long shots, which every level used to get.
     const attacks = plan('expert').filter((a) => a.type === 'attack' && a.from !== '__influence__');
     expect(attacks.length).toBeLessThanOrEqual(AI_PROFILES.medium.attackCap);
+  });
+
+  it("keeps a bot's commander style, at the fallback level", () => {
+    const s = fullGame();
+    const seat = s.players[s.current_player_index]!;
+    seat.ai_style = 'raider';
+    // The live turn plans a styled Hard bot at its styled level; the stand-in is styled Medium.
+    expect(styledLevel('medium', 'raider')).not.toBe('medium');
+    expect(aiFallbackLevel(s, styledLevel('hard', 'raider'))).toEqual(styledLevel('medium', 'raider'));
+    expect(aiFallbackLevel(s, 'expert')).toEqual(styledLevel('medium', 'raider'));
+    expect(aiFallbackLevel(s, 'easy')).toBe('easy');
+    // A seat with no commander, or a human's seat a bot is playing, falls back unstyled.
+    seat.ai_style = undefined;
+    expect(aiFallbackLevel(s, 'hard')).toBe('medium');
+    seat.is_ai = false;
+    seat.ai_style = 'raider';
+    expect(aiFallbackLevel(s, 'hard')).toBe('medium');
   });
 });
 

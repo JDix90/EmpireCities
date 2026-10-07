@@ -114,6 +114,32 @@ describe('a bot turn with no socket', () => {
     expect(state.phase).toBe('fortify');
   });
 
+  it('moves troops only along a route a player could take', async () => {
+    const state = newGame(2);
+    const player = state.players[state.current_player_index]!;
+    const rival = state.players.find((p) => p.player_id !== player.player_id)!;
+    const neighbours = (id: string) => new Set(MAP.connections.flatMap((c) => (c.from === id ? [c.to] : c.to === id ? [c.from] : [])));
+    const ids = Object.keys(state.territories);
+    const from = ids[0]!;
+    const to = ids.find((id) => id !== from && !neighbours(from).has(id))!;
+    const fortifyTo = async () => {
+      const plan = await planAiTurn(state, MAP, player, 'medium', FLAGS, {
+        planningState: () => state,
+        plan: async () => [{ type: 'fortify' as const, from, to, units: 5 }],
+      });
+      await playAiTurn(state, MAP, player, 'medium', plan, 'fortify', headlessAiTurnHooks(state, MAP));
+      return { from: state.territories[from]!.unit_count, to: state.territories[to]!.unit_count, moves: state.fortify_moves_used };
+    };
+    // The two tiles are the bot's, with the rival's ground between: no route.
+    for (const id of ids) Object.assign(state.territories[id]!, { owner_id: rival.player_id, unit_count: 1 });
+    Object.assign(state.territories[from]!, { owner_id: player.player_id, unit_count: 6 });
+    Object.assign(state.territories[to]!, { owner_id: player.player_id, unit_count: 1 });
+    expect(await fortifyTo()).toEqual({ from: 6, to: 1, moves: 0 });
+    // Holding the ground between, the same move lands.
+    for (const id of ids) if (id !== ids[ids.length - 1]) state.territories[id]!.owner_id = player.player_id;
+    expect(await fortifyTo()).toEqual({ from: 1, to: 6, moves: 1 });
+  });
+
   it('hands the turn the board its seat sees, to choose its targets on', async () => {
     const state = newGame(2);
     const player = state.players[state.current_player_index]!;
