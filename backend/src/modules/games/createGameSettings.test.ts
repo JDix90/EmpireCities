@@ -175,12 +175,14 @@ describe('Galactic Age buildings v2 is baked at create from its flag', () => {
   });
 
   it('bakes bot commanders in while the feature and goals are on, never into a tutorial, a daily or a campaign stage', () => {
+    // Both are on by default.
+    expect(created(WW2).ai_personalities).toBe(true);
+    setAdminConfigCacheForTests({ feature_flags: { ai_personalities_enabled: false } });
     expect(created(WW2).ai_personalities).toBeUndefined();
     // Without goals a style would barely change how a bot plays.
-    setAdminConfigCacheForTests({ feature_flags: { ai_personalities_enabled: true } });
+    setAdminConfigCacheForTests({ feature_flags: { ai_intents_enabled: false } });
     expect(created(WW2).ai_personalities).toBeUndefined();
-    setAdminConfigCacheForTests({ feature_flags: { ai_personalities_enabled: true, ai_intents_enabled: true } });
-    expect(created(WW2).ai_personalities).toBe(true);
+    resetAdminConfigCacheForTests();
     for (const setting of [{ tutorial: true }, { daily_challenge_date: '2026-10-04' }, { is_campaign: true }]) {
       expect(created(WW2, setting).ai_personalities, JSON.stringify(setting)).toBeUndefined();
     }
