@@ -60,13 +60,13 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   ai_attack_grind_enabled: () => envOptOut('AI_ATTACK_GRIND_ENABLED'),
   ai_capture_odds_enabled: () => envOptOut('AI_CAPTURE_ODDS_ENABLED'),
   ai_decided_game_press_enabled: () => envOptOut('AI_DECIDED_GAME_PRESS_ENABLED'),
-  ai_odds_press_enabled: () => envOptIn('AI_ODDS_PRESS_ENABLED'),
-  ai_planned_reinforcements_enabled: () => envOptIn('AI_PLANNED_REINFORCEMENTS_ENABLED'),
-  ai_ending_play_enabled: () => envOptIn('AI_ENDING_PLAY_ENABLED'),
-  ai_resignation_enabled: () => envOptIn('AI_RESIGNATION_ENABLED'),
-  ai_intents_enabled: () => envOptIn('AI_INTENTS_ENABLED'),
-  ai_personalities_enabled: () => envOptIn('AI_PERSONALITIES_ENABLED'),
-  surrender_offers_enabled: () => envOptIn('SURRENDER_OFFERS_ENABLED'),
+  ai_odds_press_enabled: () => envOptOut('AI_ODDS_PRESS_ENABLED'),
+  ai_planned_reinforcements_enabled: () => envOptOut('AI_PLANNED_REINFORCEMENTS_ENABLED'),
+  ai_ending_play_enabled: () => envOptOut('AI_ENDING_PLAY_ENABLED'),
+  ai_resignation_enabled: () => envOptOut('AI_RESIGNATION_ENABLED'),
+  ai_intents_enabled: () => envOptOut('AI_INTENTS_ENABLED'),
+  ai_personalities_enabled: () => envOptOut('AI_PERSONALITIES_ENABLED'),
+  surrender_offers_enabled: () => envOptOut('SURRENDER_OFFERS_ENABLED'),
   attack_blitz_enabled: () => envOptOut('ATTACK_BLITZ_ENABLED'),
   // Outbound email/push — production-only unless explicitly set.
   retention_notifications_enabled: () => envOrProdOnly('RETENTION_NOTIFICATIONS_ENABLED'),
@@ -468,11 +468,11 @@ export const featureFlags = {
   /**
    * When true, bots press on the odds instead of a fixed dice count: each
    * level starts an attack at its start odds, keeps rolling while its continue
-   * odds hold, keeps back part of a source facing a rival stack, and stops at
-   * a per-turn exchange ceiling (ai/aiAttackGrind.ts, ai/aiProfiles.ts). Each
-   * run of exchanges is shown as one combined result, as a player's Blitz is.
-   * Daily challenges and campaign stages keep the fixed budget
-   * (ai/aiProfiles.ts keepsTodaysBots). Default OFF until measured live.
+   * odds hold, and stops at a per-turn exchange ceiling (ai/aiAttackGrind.ts,
+   * ai/aiProfiles.ts). Each run of exchanges is shown as one combined result,
+   * as a player's Blitz is. Daily challenges and campaign stages keep the
+   * fixed budget (ai/aiProfiles.ts keepsTodaysBots). Default ON; this is the
+   * kill switch.
    */
   get aiOddsPressEnabled(): boolean {
     return overrideBool('ai_odds_press_enabled');
@@ -484,7 +484,7 @@ export const featureFlags = {
    * also after every capture, and Expert places its reinforcements by marginal
    * value once the turn's true count is known (ai/aiDraftPlan.ts,
    * ai/runAiTurn.ts, the levels in ai/aiProfiles.ts). Daily challenges and
-   * campaign stages are unchanged. Default OFF until measured live.
+   * campaign stages are unchanged. Default ON; this is the kill switch.
    */
   get aiPlannedReinforcementsEnabled(): boolean {
     return overrideBool('ai_planned_reinforcements_enabled');
@@ -497,8 +497,8 @@ export const featureFlags = {
    * and Hard press a rival clearly ahead and close to winning, mildly at
    * Medium (ai/aiProfiles.ts `leaderPressure`). Seat-blind:
    * closeness reads only the public endings, never whether a seat is human.
-   * Daily challenges and campaign stages are unchanged. Default OFF until
-   * measured live.
+   * Daily challenges and campaign stages are unchanged. Default ON; this is
+   * the kill switch.
    */
   get aiEndingPlayEnabled(): boolean {
     return overrideBool('ai_ending_play_enabled');
@@ -512,8 +512,8 @@ export const featureFlags = {
    * its cards still go to whoever takes its last territory. Beaten reads the
    * board and the bot's own hand, never whether a seat is human. Never in
    * daily challenges, campaign stages, tutorials, team games or
-   * secret-mission games, and never for an away human seat. Default OFF until
-   * measured live.
+   * secret-mission games, and never for an away human seat. Default ON; this
+   * is the kill switch.
    */
   get aiResignationEnabled(): boolean {
     return overrideBool('ai_resignation_enabled');
@@ -528,7 +528,7 @@ export const featureFlags = {
    * only wins a near tie. After each bot turn the room gets its digest
    * (ai/aiTurnDigest.ts, `game:ai_turn_digest`), with the goal below Expert.
    * Never in daily challenges, campaign stages or team games, and never for
-   * an away human seat. Default OFF until measured live.
+   * an away human seat. Default ON; this is the kill switch.
    */
   get aiIntentsEnabled(): boolean {
     return overrideBool('ai_intents_enabled');
@@ -543,7 +543,8 @@ export const featureFlags = {
    * Baked into the game at create, and only with ai_intents_enabled on too: a
    * style plays out mostly through the bots' goals. Medium and up play a
    * style; Easy and the tutorial bot only take a name. Never in daily
-   * challenges or campaign stages. Default OFF until measured live.
+   * challenges or campaign stages. Default ON; this is the kill switch. Games
+   * already created keep what they were created with.
    */
   get aiPersonalitiesEnabled(): boolean {
     return overrideBool('ai_personalities_enabled');
@@ -554,7 +555,7 @@ export const featureFlags = {
    * surrender on their own turn, and may accept it to end the game at once as
    * a win (victory/surrender.ts, `game:accept_surrender`). Only one player
    * against bots; never in daily challenges, campaign stages, tutorials, team
-   * games or secret-mission games. Default OFF until tried live.
+   * games or secret-mission games. Default ON; this is the kill switch.
    */
   get surrenderOffersEnabled(): boolean {
     return overrideBool('surrender_offers_enabled');

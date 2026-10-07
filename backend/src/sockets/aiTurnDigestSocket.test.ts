@@ -254,6 +254,7 @@ describe.runIf(redisTestEnabled)('game:ai_turn_digest (socket integration)', () 
   }, 45_000);
 
   it('sends nothing with the flag off', async () => {
+    vi.stubEnv('AI_INTENTS_ENABLED', 'false');
     const gameId = freshGameId('off');
     await seed(gameId, buildState(gameId));
 

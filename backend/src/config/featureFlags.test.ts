@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import {
   featureFlags,
   getClientFeatureFlags,
@@ -227,6 +227,35 @@ describe('featureFlags', () => {
     expect(getFeatureFlagStates().galaxy_powers_enabled).toEqual({ code_default: false, overridden: false, effective: false });
     setAdminConfigCacheForTests({ feature_flags: { galaxy_powers_enabled: true } });
     expect(featureFlags.galaxyPowersEnabled).toBe(true);
+  });
+
+  it('the bot flags default on, and each is switched off by its env value or an admin override', () => {
+    const botFlags = [
+      ['ai_odds_press_enabled', 'AI_ODDS_PRESS_ENABLED'],
+      ['ai_planned_reinforcements_enabled', 'AI_PLANNED_REINFORCEMENTS_ENABLED'],
+      ['ai_ending_play_enabled', 'AI_ENDING_PLAY_ENABLED'],
+      ['ai_resignation_enabled', 'AI_RESIGNATION_ENABLED'],
+      ['ai_intents_enabled', 'AI_INTENTS_ENABLED'],
+      ['ai_personalities_enabled', 'AI_PERSONALITIES_ENABLED'],
+      ['surrender_offers_enabled', 'SURRENDER_OFFERS_ENABLED'],
+    ] as const;
+    try {
+      for (const [key, env] of botFlags) {
+        expect({ key, state: getFeatureFlagStates()[key] })
+          .toEqual({ key, state: { code_default: true, overridden: false, effective: true } });
+        vi.stubEnv(env, 'false');
+        expect({ key, codeDefault: getFeatureFlagCodeDefault(key) }).toEqual({ key, codeDefault: false });
+        vi.unstubAllEnvs();
+        setAdminConfigCacheForTests({ feature_flags: { [key]: false } });
+        expect({ key, effective: getFeatureFlagStates()[key]!.effective }).toEqual({ key, effective: false });
+        resetAdminConfigCacheForTests();
+      }
+    } finally {
+      vi.unstubAllEnvs();
+    }
+    expect(featureFlags.aiOddsPressEnabled && featureFlags.aiPlannedReinforcementsEnabled
+      && featureFlags.aiEndingPlayEnabled && featureFlags.aiResignationEnabled && featureFlags.aiIntentsEnabled
+      && featureFlags.aiPersonalitiesEnabled && featureFlags.surrenderOffersEnabled).toBe(true);
   });
 
   it('galaxy_world_buildings_enabled defaults to off (dark launch) and is admin-overridable', () => {

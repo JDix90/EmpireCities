@@ -840,6 +840,7 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
     }, 20_000);
 
     it('makes no offer and refuses one with the flag off', async () => {
+      vi.stubEnv('SURRENDER_OFFERS_ENABLED', 'false');
       const gameId = 'surrender-off';
       await seed(gameId, wonGame(gameId, 12), isolatedMap(gameId, TILES));
       const h = await connect('sur-h');

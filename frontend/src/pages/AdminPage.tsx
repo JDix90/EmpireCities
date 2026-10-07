@@ -100,43 +100,43 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'ai_odds_press_enabled',
     label: 'AI presses on the odds',
     description:
-      'Bots keep attacking while the odds favour them instead of stopping when a fixed dice count runs out: each level starts an attack and rolls again at its own odds, up to a per-turn ceiling, and Easy stops making losing attacks. Each run of attacks is shown as one combined result, like a player\u2019s Blitz, so turns do not take longer to watch. Daily challenges and campaign games are unchanged. Off by default while it is tried.',
+      'Bots keep attacking while the odds favour them instead of stopping when a fixed dice count runs out: each level starts an attack and rolls again at its own odds, up to a per-turn ceiling, and Easy stops making losing attacks. Each run of attacks is shown as one combined result, like a player\u2019s Blitz, so turns do not take longer to watch. Daily challenges and campaign games are unchanged. On by default.',
   },
   {
     key: 'ai_planned_reinforcements_enabled',
     label: 'AI places reinforcements with a purpose',
     description:
-      'Bots choose their attacks again once their reinforcements land (Medium and up), and again after every capture (Hard and Expert). Expert also places its reinforcements with a purpose, splitting them between the tiles that stage its attacks and the ones most at risk, which makes it a clear step above Hard. Easy is unchanged. Needs "AI presses on the odds" on, and does nothing without it. Daily challenges and campaign games are unchanged. Off by default while it is tried.',
+      'Bots choose their attacks again once their reinforcements land (Medium and up), and again after every capture (Hard and Expert). Expert also places its reinforcements with a purpose, splitting them between the tiles that stage its attacks and the ones most at risk, which makes it a clear step above Hard. Easy is unchanged. Needs "AI presses on the odds" on, and does nothing without it. Daily challenges and campaign games are unchanged. On by default.',
   },
   {
     key: 'ai_ending_play_enabled',
     label: 'AI plays to the ending',
     description:
-      'Bots read how the game is won. One a few territories from its own win, or anyone in the last rounds before the turn limit, grabs every territory it can. Medium and Hard also gang up on whoever is clearly ahead and close to winning (Medium only mildly), judged by the board alone, whether that is you or another bot. Expert only races: ganging up stalled Expert games without stopping the leader. Easy and the tutorial bot are unchanged, and so are daily challenges and campaign games. Off by default while it is tried.',
+      'Bots read how the game is won. One a few territories from its own win, or anyone in the last rounds before the turn limit, grabs every territory it can. Medium and Hard also gang up on whoever is clearly ahead and close to winning (Medium only mildly), judged by the board alone, whether that is you or another bot. Expert only races: ganging up stalled Expert games without stopping the leader. Easy and the tutorial bot are unchanged, and so are daily challenges and campaign games. On by default.',
   },
   {
     key: 'ai_resignation_enabled',
     label: 'Beaten bots resign',
     description:
-      'A bot that is beaten resigns as its turn opens, the same way a player resigns: its territories turn neutral at half strength, and when the last rival resigns you win by resignation. A bot holding cards plays on instead, so its cards still go to whoever takes its last territory. Beaten is judged from the board and the bot’s own hand. Never in daily challenges, campaign games, tutorials, team games or secret-mission games, and never for a player who is away. Off by default while it is tried.',
+      'A bot that is beaten resigns as its turn opens, the same way a player resigns: its territories turn neutral at half strength, and when the last rival resigns you win by resignation. A bot holding cards plays on instead, so its cards still go to whoever takes its last territory. Beaten is judged from the board and the bot’s own hand. Never in daily challenges, campaign games, tutorials, team games or secret-mission games, and never for a player who is away. On by default.',
   },
   {
     key: 'ai_intents_enabled',
     label: 'AI plays toward a goal',
     description:
-      'Medium, Hard and Expert bots pick a goal as each turn opens and play toward it across turns: a region they already have a foothold in, a rival\u2019s whole region to break, or a rival down to its last three territories to knock out. Captures that advance the goal count for more, and to take a region or finish a rival they also place reinforcements and move troops beside it. The goal is chosen again every turn from what the bot can see, so it drops one that has turned bad. Each bot turn gets one line in the turn recap: the regions it took or broke, who it knocked out, and, below Expert, the goal it is playing toward. Easy and the tutorial bot are unchanged, and so are daily challenges, campaign games and team games. Off by default while it is tried.',
+      'Medium, Hard and Expert bots pick a goal as each turn opens and play toward it across turns: a region they already have a foothold in, a rival\u2019s whole region to break, or a rival down to its last three territories to knock out. Captures that advance the goal count for more, and to take a region or finish a rival they also place reinforcements and move troops beside it. The goal is chosen again every turn from what the bot can see, so it drops one that has turned bad. Each bot turn gets one line in the turn recap: the regions it took or broke, who it knocked out, and, below Expert, the goal it is playing toward. Easy and the tutorial bot are unchanged, and so are daily challenges, campaign games and team games. On by default.',
   },
   {
     key: 'ai_personalities_enabled',
     label: 'Bot commanders and styles',
     description:
-      'Each bot in a new game is a named commander, drawn from thirty, who plays one of four styles: Conqueror, Raider, Opportunist or Defender. A commander usually plays the same style, and sometimes another. The lobby and the seats show who you face. Styles change how a bot plays, not how strong it is: each was tuned to stay within five points of its level. Medium and up play a style; Easy bots only take a name. Needs "AI plays toward a goal" on, and does nothing without it, since a style plays out mostly through the bots\u2019 goals. Never in daily challenges or campaign games. Off by default while it is tried.',
+      'Each bot in a new game is a named commander, drawn from thirty, who plays one of four styles: Conqueror, Raider, Opportunist or Defender. A commander usually plays the same style, and sometimes another. The lobby and the seats show who you face. Styles change how a bot plays, not how strong it is: each was tuned to stay within five points of its level. Medium and up play a style; Easy bots only take a name. Needs "AI plays toward a goal" on, and does nothing without it, since a style plays out mostly through the bots\u2019 goals. Never in daily challenges or campaign games. On by default.',
   },
   {
     key: 'surrender_offers_enabled',
     label: 'Accept the bots\u2019 surrender',
     description:
-      'A player clearly winning against bots is offered their surrender on their own turn: from round 10, 70% of the way to winning, holding two thirds of every army on the board, with no bot halfway to winning. Accepting ends the game at once as a win, counted like any other. Only one player against bots; never in daily challenges, campaign games, tutorials, team games or secret-mission games. Off by default while it is tried.',
+      'A player clearly winning against bots is offered their surrender on their own turn: from round 10, 70% of the way to winning, holding two thirds of every army on the board, with no bot halfway to winning. Accepting ends the game at once as a win, counted like any other. Only one player against bots; never in daily challenges, campaign games, tutorials, team games or secret-mission games. On by default.',
   },
   {
     key: 'attack_blitz_enabled',
