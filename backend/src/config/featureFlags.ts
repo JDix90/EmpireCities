@@ -584,8 +584,8 @@ export const featureFlags = {
    * board their attacks left: every move the era and their techs allow,
    * Armored Push's too, each sending troops where they cut the chance of a
    * tile being lost before the bot's next turn the most (ai/aiThreat.ts,
-   * ai/aiFortify.ts). Hard and Expert also stage next turn's attacks, and
-   * Expert counts each rival's reinforcements. Easy and the tutorial bot keep
+   * ai/aiFortify.ts). Hard and Expert also count each rival's reinforcements,
+   * and Hard stages next turn's attacks. Easy and the tutorial bot keep
    * today's single move. Daily challenges and campaign stages are unchanged.
    * Default OFF until measured live.
    */
