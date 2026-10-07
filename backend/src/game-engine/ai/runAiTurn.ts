@@ -29,7 +29,7 @@ import { canAiUseDropAssault, canAiUseDysonBeam, canAiUseOrbitalDrop, selectAiDr
 import { FINISHER_OVERCAP, chooseEmergencySealLane, planAttackActions, rankAiUnificationTargets, selectAiBuildingPlacement, selectAiGarrisonDoctrines, selectAiTechResearch } from './aiBot';
 import { allocateDraft } from './aiDraftPlan';
 import { endingPlan } from './aiEnding';
-import { chooseIntent } from './aiIntent';
+import { chooseIntent, type AiIntent } from './aiIntent';
 import { consumeSealBreaker, lanePowersEnabled } from '../abilities/lanePowers';
 import { createPuzzleDieRoll } from '../daily/puzzleDice';
 import { dailySiegeTarget } from '../daily/dailySiege';
@@ -41,6 +41,7 @@ import { executeLandAttack, type LandAttackOutcome } from '../combat/executeLand
 import { executeTechAbility, isGameScopedAbility } from '../abilities/executeTechAbility';
 import { fortifyBecomesConvoy, launchConvoy } from '../state/transit';
 import { fortifyRouteAllowed } from '../state/fortifyRoute';
+import { planFortify } from './aiFortify';
 import { getDeployCap, onInfluenceStabilityPenalty } from '../state/stabilityManager';
 import { getEraIdForAdvancementIndex } from '../eraAdvancement/constants';
 import { getMarchToSeaBonus, recordMarchToSeaResult } from '../combat/combatModifiers';
@@ -89,6 +90,12 @@ export interface AiTurnFlags {
    * again as each of its turns opens (ai/aiIntent.ts). Off when absent.
    */
   intents?: boolean;
+  /**
+   * ai_defense_enabled: at levels that plan their fortify (ai/aiProfiles.ts
+   * `fortifyPlan`), every fortify move is chosen at the fortify step by what
+   * each tile risks (ai/aiFortify.ts). Off when absent.
+   */
+  defense?: boolean;
 }
 
 /** How planning reaches the board: the view the bot may see, and the planner to run on it. */
@@ -154,6 +161,12 @@ export interface AiTurnPlan {
    * after it lands, and at levels that do, after every capture.
    */
   replan?: { view: () => GameState; options: AiTurnOptions };
+  /**
+   * Planned fortify (ai_defense_enabled): the fortify moves are chosen at the
+   * fortify step, on the board the attacks left (ai/aiFortify.ts), with the
+   * turn's goal and, playing to the ending, its race.
+   */
+  defense?: { intent?: AiIntent; endingPlay?: boolean };
 }
 
 /** Plan the turn: the planner's ranked actions and the turn's attack budget. */
@@ -229,6 +242,10 @@ export async function planAiTurn(
         : aiAttackExchangeBudget(difficulty, decidedPress),
   };
   const view = (): GameState => hooks.planningState();
+  // Planned fortify at levels that plan theirs. Daily challenges and campaign
+  // stages keep today's bots.
+  const defense = !!flags.defense && !keepsTodaysBots(state.settings)
+    && !aiProfile(difficulty).passive && aiProfile(difficulty).fortifyPlan === 'threat';
   const replan = oddsPress && flags.plannedDraft && !aiProfile(difficulty).passive
     ? {
       view,
@@ -250,6 +267,7 @@ export async function planAiTurn(
     attackGrind: flags.attackGrind,
     ...(oddsPress ? { oddsPress: true } : {}),
     ...(replan ? { replan } : {}),
+    ...(defense ? { defense: { ...(intent ? { intent } : {}), ...(endingPlay ? { endingPlay: true } : {}) } } : {}),
   };
 }
 
@@ -1338,6 +1356,27 @@ export async function playAiTurn(
   state.phase = 'fortify';
   // A Surge Projector lane is an attack-phase lane: it closes now.
   await hooks.surgeLanesClosed();
+
+  // Planned fortify (ai_defense_enabled, ai/aiFortify.ts): every move the bot
+  // has, Armored Push's included, chosen now on the board the attacks left,
+  // in place of the one move planned before the draft.
+  if (plan.defense) {
+    const view = seen();
+    const armoredPushReady = !!state.settings.factions_enabled && !!currentPlayer.faction_id
+      && getPlayerFaction(state, currentPlayer)?.ability_id === 'armored_push'
+      && !(currentPlayer.ability_uses ?? {})['armored_push'];
+    const moves = getFortifyMoveLimit(state, currentPlayer.player_id) + (armoredPushReady ? 1 : 0)
+      - (state.fortify_moves_used ?? 0);
+    const planned = planFortify(view, map, currentPlayer.player_id, difficulty, {
+      moves,
+      ...(plan.defense.endingPlay ? { ending: endingPlan(view, currentPlayer.player_id, difficulty) } : {}),
+      ...(plan.defense.intent ? { intent: plan.defense.intent } : {}),
+    });
+    for (let i = actions.length - 1; i >= 0; i -= 1) {
+      if (actions[i]!.type === 'fortify') actions.splice(i, 1);
+    }
+    for (const m of planned) actions.push({ type: 'fortify', from: m.from, to: m.to, units: m.units });
+  }
 
   // AI parity: Armored Push grants +1 fortify move. Activate it only when the AI
   // has more fortify moves planned than its base limit allows, so the extra move

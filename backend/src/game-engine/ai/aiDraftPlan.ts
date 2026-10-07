@@ -45,7 +45,7 @@ export interface DraftPlacement {
 /** The draft is placed in at most this many chunks, so a big draft costs no more to plan than a small one. */
 const MAX_CHUNKS = 12;
 
-interface AttackOption {
+export interface AttackOption {
   /** The target's defenders. */
   defenders: number;
   /** What taking it is worth: 1, plus a third of the planner's strategic bonus. */
@@ -59,35 +59,43 @@ interface Threat {
   odds: CaptureOddsOptions;
 }
 
+/** What each of a player's tiles could attack next, and what could attack it, priced once. */
+export interface Fronts {
+  attackOptions: Map<string, AttackOption[]>;
+  threats: Map<string, Threat[]>;
+}
+
+/** The best capture a stack of `stack` units on a tile could make, times what it is worth. */
+export function bestAttackValue(options: readonly AttackOption[] | undefined, stack: number): number {
+  let best = 0;
+  for (const a of options ?? []) {
+    best = Math.max(best, a.worth * captureProbability(stack, a.defenders, a.odds));
+  }
+  return best;
+}
+
 /**
- * Split `units` reinforcements across the player's territories. Placements
- * are in the order the units were chosen, largest first; their sum is
- * `units` unless the player holds nothing, or every territory is at its
- * stability cap.
+ * What each of `playerId`'s tiles could attack, gated as the planner gates
+ * its attacks (aiBot selectAttacks) and worth what the planner's strategic
+ * bonus says, and the rival stacks that could attack it next round.
  */
-export function allocateDraft(
+export function priceFronts(
   state: GameState,
   map: GameMap,
   playerId: string,
-  units: number,
   difficulty: AiLevel,
   ending?: EndingPlan,
   intent?: AiIntent,
-): DraftPlacement[] {
-  if (units <= 0) return [];
+): Fronts {
   const profile = aiProfile(difficulty);
   const player = state.players.find((p) => p.player_id === playerId);
-  if (!player) return [];
-  const adjacency = buildAdjacencyMap(map);
-  const owned = Object.entries(state.territories).filter(([, t]) => t.owner_id === playerId);
-  if (owned.length === 0) return [];
-
-  const hasOrbitAccess = getOrbitAccessResult(state, player, map, state.era).allowed;
-  const eraModifiers = getPlayerEraModifiers(state, playerId);
-
-  // What each tile could attack, and what could attack it, priced once.
   const attackOptions = new Map<string, AttackOption[]>();
   const threats = new Map<string, Threat[]>();
+  if (!player) return { attackOptions, threats };
+  const adjacency = buildAdjacencyMap(map);
+  const owned = Object.entries(state.territories).filter(([, t]) => t.owner_id === playerId);
+  const hasOrbitAccess = getOrbitAccessResult(state, player, map, state.era).allowed;
+  const eraModifiers = getPlayerEraModifiers(state, playerId);
   for (const [tid, t] of owned) {
     const attacks: AttackOption[] = [];
     const against: Threat[] = [];
@@ -140,6 +148,33 @@ export function allocateDraft(
     if (attacks.length > 0) attackOptions.set(tid, attacks);
     if (against.length > 0) threats.set(tid, against);
   }
+  return { attackOptions, threats };
+}
+
+/**
+ * Split `units` reinforcements across the player's territories. Placements
+ * are in the order the units were chosen, largest first; their sum is
+ * `units` unless the player holds nothing, or every territory is at its
+ * stability cap.
+ */
+export function allocateDraft(
+  state: GameState,
+  map: GameMap,
+  playerId: string,
+  units: number,
+  difficulty: AiLevel,
+  ending?: EndingPlan,
+  intent?: AiIntent,
+): DraftPlacement[] {
+  if (units <= 0) return [];
+  const profile = aiProfile(difficulty);
+  const player = state.players.find((p) => p.player_id === playerId);
+  if (!player) return [];
+  const owned = Object.entries(state.territories).filter(([, t]) => t.owner_id === playerId);
+  if (owned.length === 0) return [];
+
+  // What each tile could attack, and what could attack it, priced once.
+  const { attackOptions, threats } = priceFronts(state, map, playerId, difficulty, ending, intent);
 
   // Galaxy storms (Verdan): a stack past the world's threshold only feeds the
   // weather, so a tile there takes no more (as the planner's draft target).
@@ -158,13 +193,7 @@ export function allocateDraft(
     return Math.max(0, cap - (state.draft_placements_this_turn?.[tid] ?? 0) - placed);
   };
 
-  const attackValue = (tid: string, stack: number): number => {
-    let best = 0;
-    for (const a of attackOptions.get(tid) ?? []) {
-      best = Math.max(best, a.worth * captureProbability(stack, a.defenders, a.odds));
-    }
-    return best;
-  };
+  const attackValue = (tid: string, stack: number): number => bestAttackValue(attackOptions.get(tid), stack);
   const lossChance = (tid: string, defenders: number): number => {
     let worst = 0;
     for (const r of threats.get(tid) ?? []) {

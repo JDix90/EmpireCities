@@ -61,7 +61,7 @@
  *   ARENA_BASELINE         baseline difficulty (default medium)
  *   ARENA_CANDIDATE_FLAGS  name=0|1 overrides of the live AI flags, comma-separated:
  *   ARENA_BASELINE_FLAGS     captureOddsScoring, attackGrind, decidedGamePress, oddsPress,
- *                            plannedDraft, endingPlay, resignation, intents.
+ *                            plannedDraft, endingPlay, resignation, intents, defense.
  *                            Unset flags take the live code default.
  *   ARENA_CANDIDATE_PROFILE  JSON object of AiProfile fields that replace the
  *   ARENA_BASELINE_PROFILE     difficulty's row for that side.
@@ -79,7 +79,7 @@ import { join } from 'path';
 import type { AiDifficulty, AiIntent, EraId, GameMap, GameSettings, GameState } from '../src/types';
 import { initializeGameState } from '../src/game-engine/state/gameStateManager';
 import { computeAiTurn } from '../src/game-engine/ai/aiBot';
-import type { AiLevel } from '../src/game-engine/ai/aiProfiles';
+import { aiProfile, type AiLevel } from '../src/game-engine/ai/aiProfiles';
 import {
   headlessAiTurnHooks,
   planAiTurn,
@@ -91,6 +91,7 @@ import { bakeCreateGameSettings, type CreateGameSettingsInput } from '../src/mod
 import { createSeededRng, hashStringToSeed } from '../src/game-engine/victory/missions';
 import { resignIfBeaten, victoryAfterResignation } from '../src/game-engine/ai/aiResign';
 import { seatView } from '../src/game-engine/state/fogOfWar';
+import { buildThreatMap, lossChance } from '../src/game-engine/ai/aiThreat';
 import { styledLevel, type AiStyle } from '../src/game-engine/ai/aiStyles';
 import { AI_STYLES, drawAiCommanders } from '@borderfall/shared';
 import { aiLevelChanges, describeAiTurnFlags, handOff, parseAiLevel, parseAiTurnFlags, resolveChoiceCard } from './aiHarness';
@@ -308,6 +309,16 @@ interface Behaviour {
   earlyTurns: number;
   /** The regions it held whole as round 10 began. */
   regionsAtRound10: number;
+  /** Its fortify moves, and the units they moved. */
+  fortifyMoves: number;
+  unitsMoved: number;
+  /**
+   * The threat model's call on each tile it held as its turn ended
+   * (ai/aiThreat.ts, at its level's model, `full` for a level without one),
+   * against whether the tile was lost before its next turn: in four bands of
+   * predicted chance, the tiles, the predicted sum and the tiles lost.
+   */
+  calibration: { tiles: number[]; predicted: number[]; lost: number[] };
 }
 
 /** What the counting hooks need to see of the candidate. */
@@ -317,7 +328,12 @@ interface Watch {
   /** Rivals holding the fewest territories as the candidate's turn began. */
   weakest: Set<string>;
   behaviour: Behaviour;
+  /** The threat model's chance of losing each tile the candidate held as its last turn ended. */
+  predicted?: Map<string, number>;
 }
+
+/** The calibration bands' upper edges: under 10%, 10 to 30%, 30 to 60%, 60% and over. */
+const CALIBRATION_BANDS = [0.1, 0.3, 0.6, Number.POSITIVE_INFINITY];
 
 interface Timing {
   /** Wall time of each bot turn with no pacing, in ms (not digested: it varies by machine). */
@@ -354,6 +370,13 @@ function countingHooks(state: GameState, map: GameMap, record: GameRecord, watch
     emit: (event, payload) => {
       if (event === 'game:cards_redeemed') record.cardSets[seat()]! += 1;
       base.emit(event, payload);
+    },
+    visual: (event) => {
+      if (event.kind === 'fortify' && seat() === watch.seat) {
+        watch.behaviour.fortifyMoves += 1;
+        watch.behaviour.unitsMoved += event.units ?? 0;
+      }
+      base.visual(event);
     },
     recordCombat: (defenderId, result, options) => {
       // Pressing on the odds, one call carries a whole run of exchanges.
@@ -430,6 +453,8 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
   const behaviour: Behaviour = {
     runs: 0, captures: 0, attackLosses: 0, rivalCaptures: 0, weakestCaptures: 0, tilesLost: 0, tilesExposed: 0,
     shareAtRound10: null, earlyCaptures: 0, earlyTurns: 0, regionsAtRound10: 0,
+    fortifyMoves: 0, unitsMoved: 0,
+    calibration: { tiles: [0, 0, 0, 0], predicted: [0, 0, 0, 0], lost: [0, 0, 0, 0] },
   };
   const watch: Watch = { seat: candidateSeat, playerId: candidate.player_id, weakest: new Set(), behaviour };
   const hooks = countingHooks(state, map, record, watch);
@@ -464,6 +489,14 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
     if (player.player_index === candidateSeat) {
       watch.weakest = weakestRivals(state, candidate.player_id);
       if (state.turn_number <= 10) behaviour.earlyTurns += 1;
+      // What the threat model called as the candidate's last turn ended, against what happened.
+      for (const [tid, p] of watch.predicted ?? []) {
+        const band = CALIBRATION_BANDS.findIndex((edge) => p < edge);
+        behaviour.calibration.tiles[band]! += 1;
+        behaviour.calibration.predicted[band]! += p;
+        if (state.territories[tid]?.owner_id !== candidate.player_id) behaviour.calibration.lost[band]! += 1;
+      }
+      watch.predicted = undefined;
     } else if (candidateWasIn) {
       behaviour.tilesExposed += candidate.territory_count ?? 0;
     }
@@ -490,6 +523,15 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
       const goal = player.player_index === candidateSeat ? player.ai_intent : undefined;
       const outcome = await playAiTurn(state, map, player, level, plan, 'draft', hooks);
       record.turns[player.player_index]! += 1;
+      if (player.player_index === candidateSeat && outcome !== 'over') {
+        const model = aiProfile(level).fortifyPlan === 'threat' ? aiProfile(level).threatModel : 'full';
+        const threats = buildThreatMap(seatView(state, map, player.player_id), map, player.player_id, model);
+        watch.predicted = new Map(
+          Object.entries(state.territories)
+            .filter(([, t]) => t.owner_id === player.player_id)
+            .map(([tid, t]) => [tid, lossChance(threats, tid, t.unit_count)]),
+        );
+      }
       if (goal) {
         const tally = (record.intents ??= {
           take_region: { held: 0, met: 0 }, break_region: { held: 0, met: 0 }, hunt: { held: 0, met: 0 },
@@ -632,6 +674,12 @@ function report(seatCount: number, records: GameRecord[], timing: Timing): void 
   console.log(`candidate attacks         ${(sum((x) => x.runs) / Math.max(1, candidateTurnsAll)).toFixed(2)} runs a turn, ${pct(sum((x) => x.captures), sum((x) => x.runs))} taken, ${(sum((x) => x.attackLosses) / Math.max(1, sum((x) => x.captures))).toFixed(2)} units lost a capture`);
   console.log(`candidate targets         ${pct(sum((x) => x.weakestCaptures), sum((x) => x.rivalCaptures))} of captures from rivals taken from the weakest`);
   console.log(`candidate holds           ${(100 * sum((x) => x.tilesLost) / Math.max(1, sum((x) => x.tilesExposed))).toFixed(2)} tiles lost per 100 held through a rival's turn`);
+  console.log(`candidate fortifies       ${(sum((x) => x.fortifyMoves) / Math.max(1, candidateTurnsAll)).toFixed(2)} moves a turn, ${(sum((x) => x.unitsMoved) / Math.max(1, sum((x) => x.fortifyMoves))).toFixed(1)} units a move`);
+  const band = (k: number) => {
+    const tiles = sum((x) => x.calibration.tiles[k]!);
+    return `${['<10%', '10-30%', '30-60%', '60%+'][k]} ${tiles ? `${pct(sum((x) => x.calibration.predicted[k]!), tiles)} called, ${pct(sum((x) => x.calibration.lost[k]!), tiles)} lost` : 'none'} (${tiles})`;
+  };
+  console.log(`threat calibration        ${[0, 1, 2, 3].map(band).join('; ')}`);
   console.log(`candidate early           ${(100 * mean(shares)).toFixed(1)}% of the board at round 10; ${(sum((x) => x.earlyCaptures) / Math.max(1, sum((x) => x.earlyTurns))).toFixed(2)} captures a turn in rounds 1-10; ${mean(b.filter((x) => x.shareAtRound10 !== null).map((x) => x.regionsAtRound10)).toFixed(2)} whole regions at round 10`);
   if (records.some((r) => r.influences.some((n) => n > 0))) {
     console.log(`influences per game       candidate ${mean(records.map((r) => r.influences[r.candidateSeat]!)).toFixed(2)}, baseline seat ${mean(records.flatMap((r) => r.influences.filter((_, i) => i !== r.candidateSeat))).toFixed(2)}`);

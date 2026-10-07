@@ -67,6 +67,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   ai_intents_enabled: () => envOptOut('AI_INTENTS_ENABLED'),
   ai_personalities_enabled: () => envOptOut('AI_PERSONALITIES_ENABLED'),
   surrender_offers_enabled: () => envOptOut('SURRENDER_OFFERS_ENABLED'),
+  ai_defense_enabled: () => envOptIn('AI_DEFENSE_ENABLED'),
   attack_blitz_enabled: () => envOptOut('ATTACK_BLITZ_ENABLED'),
   // Outbound email/push — production-only unless explicitly set.
   retention_notifications_enabled: () => envOrProdOnly('RETENTION_NOTIFICATIONS_ENABLED'),
@@ -576,6 +577,20 @@ export const featureFlags = {
    */
   get surrenderOffersEnabled(): boolean {
     return overrideBool('surrender_offers_enabled');
+  },
+
+  /**
+   * When true, Medium and up plan their fortify at the fortify step, on the
+   * board their attacks left: every move the era and their techs allow,
+   * Armored Push's too, each sending troops where they cut the chance of a
+   * tile being lost before the bot's next turn the most (ai/aiThreat.ts,
+   * ai/aiFortify.ts). Hard and Expert also stage next turn's attacks, and
+   * Expert counts each rival's reinforcements. Easy and the tutorial bot keep
+   * today's single move. Daily challenges and campaign stages are unchanged.
+   * Default OFF until measured live.
+   */
+  get aiDefenseEnabled(): boolean {
+    return overrideBool('ai_defense_enabled');
   },
 
   /**

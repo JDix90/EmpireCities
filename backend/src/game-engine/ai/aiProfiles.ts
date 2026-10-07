@@ -16,6 +16,7 @@
  * level uses them.
  */
 import type { AiDifficulty, GameSettings } from '../../types';
+import type { AiThreatModel } from './aiThreat';
 
 /**
  * What a bot builds (economy games):
@@ -202,6 +203,25 @@ export interface AiProfile {
    */
   startsOnOddsAlone: boolean;
 
+  // ── Defence (ai_defense_enabled) ──────────────────────────────────────────
+  // Read only with that flag on (ai/aiFortify.ts, ai/aiThreat.ts).
+  /**
+   * How it fortifies: `interior` makes today's one move from an interior tile
+   * to the nearest border, planned before the draft; `threat` plans every
+   * move it has at the fortify step, by what each tile risks.
+   */
+  fortifyPlan: 'interior' | 'threat';
+  /** How it prices the chance a tile is lost before its next turn (ai/aiThreat.ts). */
+  threatModel: AiThreatModel;
+  /**
+   * What staging next turn's attacks is worth to a fortify move, against
+   * keeping its tiles: a factor on the best capture a tile could make. 0
+   * moves troops by threat alone.
+   */
+  fortifyAttackWeight: number;
+  /** The chance of losing a tile it accepts; a move sized to bring a tile under it is always priced. */
+  lossTolerance: number;
+
   // ── Economy ───────────────────────────────────────────────────────────────
   build: AiBuildMode;
   research: AiResearchMode;
@@ -265,6 +285,10 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     preysOnWeak: 0,
     huntsWeakest: false,
     startsOnOddsAlone: false,
+    fortifyPlan: 'interior',
+    threatModel: 'adjacent',
+    fortifyAttackWeight: 0,
+    lossTolerance: 0.5,
     build: 'none',
     research: 'none',
     doctrinesPerTurn: 0,
@@ -308,6 +332,10 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     preysOnWeak: 0,
     huntsWeakest: false,
     startsOnOddsAlone: false,
+    fortifyPlan: 'interior',
+    threatModel: 'adjacent',
+    fortifyAttackWeight: 0,
+    lossTolerance: 0.5,
     build: 'gate_only',
     research: 'gate_only',
     doctrinesPerTurn: 0,
@@ -351,6 +379,10 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     preysOnWeak: 0,
     huntsWeakest: false,
     startsOnOddsAlone: false,
+    fortifyPlan: 'threat',
+    threatModel: 'adjacent',
+    fortifyAttackWeight: 0,
+    lossTolerance: 0.5,
     build: 'greedy',
     research: 'cheapest',
     doctrinesPerTurn: 1,
@@ -394,6 +426,10 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     preysOnWeak: 0,
     huntsWeakest: false,
     startsOnOddsAlone: false,
+    fortifyPlan: 'threat',
+    threatModel: 'full_drafts',
+    fortifyAttackWeight: 0.5,
+    lossTolerance: 0.4,
     build: 'threat',
     research: 'strategic',
     doctrinesPerTurn: 2,
@@ -441,6 +477,10 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     preysOnWeak: 0,
     huntsWeakest: false,
     startsOnOddsAlone: false,
+    fortifyPlan: 'threat',
+    threatModel: 'full_drafts',
+    fortifyAttackWeight: 0,
+    lossTolerance: 0.3,
     build: 'threat',
     research: 'strategic',
     doctrinesPerTurn: 2,

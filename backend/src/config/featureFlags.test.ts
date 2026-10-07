@@ -258,6 +258,13 @@ describe('featureFlags', () => {
       && featureFlags.aiPersonalitiesEnabled && featureFlags.surrenderOffersEnabled).toBe(true);
   });
 
+  it('ai_defense_enabled defaults to off (dark launch) and is admin-overridable', () => {
+    expect(featureFlags.aiDefenseEnabled).toBe(false);
+    expect(getFeatureFlagStates().ai_defense_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { ai_defense_enabled: true } });
+    expect(featureFlags.aiDefenseEnabled).toBe(true);
+  });
+
   it('galaxy_world_buildings_enabled defaults to off (dark launch) and is admin-overridable', () => {
     expect(featureFlags.galaxyWorldBuildingsEnabled).toBe(false);
     expect(getFeatureFlagStates().galaxy_world_buildings_enabled).toEqual({ code_default: false, overridden: false, effective: false });
