@@ -141,6 +141,9 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // default ran to the cap in 99% of arena games (scripts/simAiArena.ts,
   // ARENA_RULES=full-default and full-evening). Dark-launched OFF.
   full_game_evening_enabled: () => envOptIn('FULL_GAME_EVENING_ENABLED'),
+  // The Custom Game form shows its main choices and folds the rest under
+  // Advanced. Layout only: every choice sends what it did. Dark-launched OFF.
+  custom_lobby_fold_enabled: () => envOptIn('CUSTOM_LOBBY_FOLD_ENABLED'),
 };
 
 /** The code default for one flag (no admin override consulted). */
@@ -405,6 +408,16 @@ export const featureFlags = {
    */
   get fullGameEveningEnabled(): boolean {
     return overrideBool('full_game_evening_enabled');
+  },
+
+  /**
+   * The Custom Game form shows the main choices (era, bots, timer, victory)
+   * and folds the rest under Advanced, which opens by itself when anything
+   * inside it is set. Layout only: the game created is the same.
+   * Default OFF; `CUSTOM_LOBBY_FOLD_ENABLED=true` or the admin override turns it on.
+   */
+  get customLobbyFoldEnabled(): boolean {
+    return overrideBool('custom_lobby_fold_enabled');
   },
 
   /**
@@ -1022,6 +1035,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     store_v2_enabled: featureFlags.storeV2Enabled,
     first_match_easy_enabled: featureFlags.firstMatchEasyEnabled,
     full_game_evening_enabled: featureFlags.fullGameEveningEnabled,
+    custom_lobby_fold_enabled: featureFlags.customLobbyFoldEnabled,
     // Read by the Custom Game form to say whether a Space Age game can also be
     // won on the Moon (the Lunar Hegemony rides with the Moon Race).
     space_age_moon_race_enabled: featureFlags.spaceAgeMoonRaceEnabled,

@@ -378,6 +378,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Full Game defaults to the 65% ending (Conquest) for a player who has not saved a setup of their own, and every Full Game ending is capped at 80 rounds instead of 150. Today\u2019s default, taking the whole board, ran to the 150-round cap in nearly every simulated game: about 2 h 40 at a minute a turn. Off by default (dark launch) \u2014 off is Full Game exactly as before.',
   },
   {
+    key: 'custom_lobby_fold_enabled',
+    label: 'Custom Game: fold advanced options',
+    description:
+      'The Custom Game form shows the main choices (era, AI opponents and difficulty, turn timer, victory conditions) and folds the rest under Advanced: map pairing, Territory Draft, Factions, Economy, Technology, Events, Naval, Stability, Fog of War, Diplomacy, Coaching, Era Advancement, card sets and the dice cap. Advanced opens by itself when anything inside it is already set, and when closed lists what is on. Layout only: every choice creates the same game. Off by default (dark launch) \u2014 off is the form exactly as before.',
+  },
+  {
     key: 'store_v2_enabled',
     label: 'Store overhaul',
     description:

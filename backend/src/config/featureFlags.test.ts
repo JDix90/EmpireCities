@@ -293,6 +293,15 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().first_match_easy_enabled).toBe(true);
   });
 
+  it('custom_lobby_fold_enabled defaults to off (dark-launch) and is admin-overridable', () => {
+    expect(featureFlags.customLobbyFoldEnabled).toBe(false);
+    expect(getClientFeatureFlags().custom_lobby_fold_enabled).toBe(false);
+    expect(getFeatureFlagStates().custom_lobby_fold_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { custom_lobby_fold_enabled: true } });
+    expect(featureFlags.customLobbyFoldEnabled).toBe(true);
+    expect(getClientFeatureFlags().custom_lobby_fold_enabled).toBe(true);
+  });
+
   it('full_game_evening_enabled defaults to off (dark-launch) and is admin-overridable', () => {
     expect(featureFlags.fullGameEveningEnabled).toBe(false);
     expect(getClientFeatureFlags().full_game_evening_enabled).toBe(false);
