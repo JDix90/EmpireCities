@@ -33,6 +33,7 @@ export interface ClientFeatureFlags {
   first_match_easy_enabled: boolean;
   full_game_evening_enabled: boolean;
   custom_lobby_fold_enabled: boolean;
+  custom_round_cap_enabled: boolean;
 }
 
 /**
@@ -101,6 +102,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   full_game_evening_enabled: false,
   // The Custom Game form folds its less-used options under Advanced. Dark-launched OFF.
   custom_lobby_fold_enabled: false,
+  // The Custom Game form sets a round limit. Dark-launched OFF.
+  custom_round_cap_enabled: false,
   // The Space Age Moon Race, Lunar Hegemony included. On by default; admin kill switch.
   space_age_moon_race_enabled: true,
 };
@@ -270,4 +273,9 @@ export function useFullGameEveningEnabled(): boolean {
 /** The Custom Game form folds its less-used options under Advanced (pages/LobbyPage.tsx). */
 export function useCustomLobbyFoldEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.custom_lobby_fold_enabled);
+}
+
+/** The Custom Game form sets a round limit (pages/LobbyPage.tsx, utils/customRoundLimit.ts). */
+export function useCustomRoundCapEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.custom_round_cap_enabled);
 }

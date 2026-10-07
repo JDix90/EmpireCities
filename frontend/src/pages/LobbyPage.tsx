@@ -14,7 +14,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { useCustomLobbyFoldEnabled, useEraAdvancementLobbyEnabled, useFirstMatchEasyEnabled, useFullGameEveningEnabled, useMapEditorEnabled, useMatchAlertsEnabled, useRankedMultiSizeEnabled, useSpaceAgeMoonRaceEnabled, useSpectateEnabled, useTodayPanelEnabled } from '../store/featureFlagsStore';
+import { useCustomLobbyFoldEnabled, useCustomRoundCapEnabled, useEraAdvancementLobbyEnabled, useFirstMatchEasyEnabled, useFullGameEveningEnabled, useMapEditorEnabled, useMatchAlertsEnabled, useRankedMultiSizeEnabled, useSpaceAgeMoonRaceEnabled, useSpectateEnabled, useTodayPanelEnabled } from '../store/featureFlagsStore';
 import { HEGEMONY_TURNS } from '../utils/lunarHegemony';
 import { RANKED_MIN_OPPONENTS, describeRankedGameSize, getRankedOpponents, rankedEraSize, saveRankedOpponents } from '../utils/rankedPrefs';
 import { clearRankedSearchMarker, setRankedSearchMarker } from '../utils/rankedSearchMarker';
@@ -53,6 +53,7 @@ import {
   type QuickMatchPrefs,
 } from '../utils/quickMatchPrefs';
 import { advancedSummary, loadAdvancedOpen, saveAdvancedOpen } from '../utils/customLobbyFold';
+import { CUSTOM_ROUND_LIMIT_CHOICES, autoRoundLimit, customRoundLimitTurns, type CustomRoundLimit } from '../utils/customRoundLimit';
 import {
   FIRST_MATCH_BUTTON_LINE,
   FIRST_MATCH_CARD_LINE,
@@ -560,6 +561,8 @@ export default function LobbyPage() {
     () => new Set<VictoryMode>(['domination']),
   );
   const [victoryThresholdPct, setVictoryThresholdPct] = useState(65);
+  // The round limit (custom_round_cap_enabled): the ending's own unless the host picks one.
+  const [roundLimit, setRoundLimit] = useState<CustomRoundLimit>('auto');
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const [joiningByCode, setJoiningByCode] = useState(false);
   const [factionsEnabled, setFactionsEnabled] = useState(false);
@@ -719,6 +722,7 @@ export default function LobbyPage() {
   // remembers whether the host left it open. Closed, it lists what inside it
   // is on, as the game will be created.
   const customLobbyFold = useCustomLobbyFoldEnabled();
+  const customRoundCap = useCustomRoundCapEnabled();
   const [advancedOpen, setAdvancedOpen] = useState(loadAdvancedOpen);
   const advancedOn = advancedSummary({
     customPairing: customPairingEnabled,
@@ -1292,6 +1296,11 @@ export default function LobbyPage() {
       if (economyRequired) settings.economy_enabled = true;
       if (allowed.includes('threshold')) {
         settings.victory_threshold = victoryThresholdPct;
+      }
+      // Space Age and Galactic Age already end at the server's own round limit.
+      if (customRoundCap && !theaterIsOrbitGated) {
+        const maxTurns = customRoundLimitTurns(roundLimit, allowed, victoryThresholdPct);
+        if (maxTurns !== undefined) settings.max_turns = maxTurns;
       }
       const res = await api.post('/games', {
         era_id: eraId,
@@ -3087,6 +3096,38 @@ export default function LobbyPage() {
                         />
                       </div>
                     )}
+                    {customRoundCap && !theaterIsOrbitGated && (() => {
+                      const ticked = Array.from(victoryModes);
+                      const auto = autoRoundLimit(ticked.length > 0 ? ticked : ['domination'], victoryThresholdPct);
+                      const limit = roundLimit === 'auto' ? auto : roundLimit;
+                      return (
+                        <div className="mt-3">
+                          <div className="flex items-center gap-3">
+                            <label htmlFor="create-game-round-limit" className="text-sm text-bf-muted whitespace-nowrap">Round limit</label>
+                            <select
+                              id="create-game-round-limit"
+                              className="input w-auto py-1.5"
+                              value={String(roundLimit)}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setRoundLimit(v === 'auto' || v === 'none' ? v : Number(v));
+                              }}
+                            >
+                              <option value="auto">{auto} rounds, as in Quick Match</option>
+                              {CUSTOM_ROUND_LIMIT_CHOICES.map((n) => (
+                                <option key={n} value={n}>{n} rounds</option>
+                              ))}
+                              <option value="none">No limit</option>
+                            </select>
+                          </div>
+                          <p className="text-xs text-bf-muted mt-1" data-testid="create-game-round-limit-note">
+                            {limit === 'none'
+                              ? 'The game ends only when someone meets a checked condition. Against bots, a Domination game seldom does.'
+                              : `If nobody has won by the end of turn ${limit}, the player holding the most territories wins.`}
+                          </p>
+                        </div>
+                      );
+                    })()}
                   </div>
                   {customLobbyFold && createAdvancedFold}
                   <div className="sticky bottom-0 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 border-t border-bf-border bg-bf-surface/95 backdrop-blur md:col-span-2">
