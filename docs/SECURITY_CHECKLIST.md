@@ -21,7 +21,8 @@ Use before major releases or public launches. Track completion in your issue tra
       become `request.ip`. Never a hop count: Fastify 5 reads a number as "trust
       no proxy". Set `TRUST_PROXY` to the proxy addresses if you add a trusted
       proxy outside the private ranges. Limiters are Redis-backed
-      and key authenticated traffic by user id, IP otherwise (`middleware/rateLimitKey.ts`).
+      and key authenticated traffic by user id, IP otherwise, with an IPv6
+      address counted by its /64 (`middleware/rateLimitKey.ts`).
 
 ## Real-time
 

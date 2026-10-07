@@ -1,4 +1,5 @@
 import type { FastifyRequest } from 'fastify';
+import { normalizeIP } from '@fastify/rate-limit';
 import { verifyAccessToken } from '../utils/jwt';
 
 /**
@@ -12,7 +13,9 @@ import { verifyAccessToken } from '../utils/jwt';
  *
  * Unauthenticated requests (login, register, public reads) fall back to the
  * client IP, which Fastify derives from `X-Forwarded-For` when `trustProxy`
- * is enabled.
+ * is enabled. An IPv6 visitor is counted by its /64, the block one home or one
+ * phone is given, as the plugin's own default key does (`normalizeIP`); an
+ * IPv4-mapped address counts as its IPv4 one.
  */
 export function userOrIpKey(request: FastifyRequest): string {
   const authHeader = request.headers.authorization;
@@ -20,5 +23,5 @@ export function userOrIpKey(request: FastifyRequest): string {
     const payload = verifyAccessToken(authHeader.slice(7));
     if (payload) return `u:${payload.sub}`;
   }
-  return `ip:${request.ip}`;
+  return `ip:${request.ip ? normalizeIP(request.ip) : request.ip}`;
 }
