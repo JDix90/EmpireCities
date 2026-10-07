@@ -15,11 +15,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Every job carries a time limit a few times its usual run, so a hung step
+  # fails in minutes instead of holding a required check for GitHub's six-hour
+  # default. Raise a limit if a job legitimately grows past it.
   # Cheap and dependency-free, so it reports in seconds rather than waiting on
   # the install/build jobs. A live Resend key once shipped in
   # .env.production.example and was harvested for phishing — this is the guard.
   secrets:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5
       - name: Scan tracked files for committed credentials
@@ -33,19 +37,25 @@ jobs:
   # fails on the PR that introduces it.
   docs:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
       - name: Check documentation claims against the code
         run: bash scripts/check-docs.sh
       # A config nginx refuses to parse takes the whole site down, not one
       # route — and compose still reports the container as "Started".
+      # The time limit is for a stalled package mirror: this step once hung for
+      # three hours on main, and without a limit it holds the check for GitHub's
+      # six-hour default instead of failing in minutes so it can be re-run.
       - name: Install nginx (config syntax check)
+        timeout-minutes: 10
         run: sudo apt-get update -qq && sudo apt-get install -y -qq nginx-light
       - name: Check the production nginx config actually starts nginx
         run: bash scripts/check-nginx-conf.sh
 
   backend:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     # NOTE: `services` is a JOB-level key. It was previously nested under the
     # "Backend tests" step, which made the whole workflow file invalid — every
     # run "failed" in 0s without executing anything, on every push since the
@@ -147,6 +157,7 @@ jobs:
   # backend one. Lint here is what enforces the package's determinism rules.
   warfront-sim:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
@@ -172,6 +183,7 @@ jobs:
 
   frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
@@ -204,7 +216,11 @@ jobs:
           VITE_LAB_ROUTES: '1'
         run: pnpm -C frontend run build
 
+      # `--with-deps` installs system packages too, so a stalled mirror hangs
+      # it the same way as the nginx install in `docs`. It takes about two
+      # minutes; the limit fails it long before GitHub's six-hour default.
       - name: Install Playwright (Chromium)
+        timeout-minutes: 10
         run: pnpm -C frontend exec playwright install chromium --with-deps
 
       # Playwright self-hosts the built app via `vite preview` (see webServer
