@@ -1,7 +1,9 @@
 /**
  * The bot's turn runs with no socket: planAiTurn + playAiTurn with headless
  * hooks play whole games on a real map, which is what lets a harness measure
- * the same code live games run (gameSocket.ts processAiTurn calls these two).
+ * the same code live games run. That the live game runs these two, at the
+ * seat's styled level, is checked against a real bot turn in
+ * sockets/aiTurnRunnerSocket.test.ts.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
@@ -148,13 +150,5 @@ describe('a bot turn with no socket', () => {
       checked = true;
     }
     expect(checked).toBe(true);
-  });
-
-  it('is what the live game runs: processAiTurn plans and plays through these two', () => {
-    const socket = readFileSync(join(__dirname, '../../sockets/gameSocket.ts'), 'utf-8');
-    // At the seat's level, shifted by its commander's style if it has one (ai/aiStyles.ts).
-    expect(socket).toMatch(/const level = styledLevel\(difficulty, /);
-    expect(socket).toMatch(/await planAiTurn\(state, map, currentPlayer, level,/);
-    expect(socket).toMatch(/await playAiTurn\(state, map, currentPlayer, level, aiPlan, resumeAt,/);
   });
 });
