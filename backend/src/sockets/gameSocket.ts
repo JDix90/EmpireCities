@@ -6012,6 +6012,7 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     endingPlay: featureFlags.aiEndingPlayEnabled,
     resignation: featureFlags.aiResignationEnabled,
     intents: featureFlags.aiIntentsEnabled,
+    defense: featureFlags.aiDefenseEnabled,
   };
 
   // A beaten bot resigns as its turn opens (ai/aiResign.ts), through the

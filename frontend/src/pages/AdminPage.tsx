@@ -139,6 +139,12 @@ const CLIENT_FEATURE_FLAGS = [
       'A player clearly winning against bots is offered their surrender on their own turn: from round 10, 70% of the way to winning, holding two thirds of every army on the board, with no bot halfway to winning. Accepting ends the game at once as a win, counted like any other. Only one player against bots; never in daily challenges, campaign games, tutorials, team games or secret-mission games. On by default.',
   },
   {
+    key: 'ai_defense_enabled',
+    label: 'AI defends its ground',
+    description:
+      'Medium, Hard and Expert bots plan their fortify after their attacks, on the board as it then stands: every move the era and their techs allow, each sending troops from where they are least needed to where a tile is most at risk of being lost before the bot\u2019s next turn. Hard and Expert also move troops up for next turn\u2019s attacks, and Expert counts what each rival will reinforce with. Moves follow the same routes a player\u2019s must. Easy and the tutorial bot keep today\u2019s single move. Daily challenges and campaign games are unchanged. Off by default while it is tried.',
+  },
+  {
     key: 'attack_blitz_enabled',
     label: 'Blitz attacks',
     description:

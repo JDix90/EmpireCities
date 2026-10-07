@@ -26,6 +26,7 @@ export function liveAiTurnFlags(): AiTurnFlags {
     endingPlay: featureFlags.aiEndingPlayEnabled,
     resignation: featureFlags.aiResignationEnabled,
     intents: featureFlags.aiIntentsEnabled,
+    defense: featureFlags.aiDefenseEnabled,
   };
 }
 

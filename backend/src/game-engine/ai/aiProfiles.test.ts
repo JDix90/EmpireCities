@@ -60,6 +60,11 @@ describe('AI_PROFILES holds the values the constants and branches held', () => {
     // A commander's style moves these (ai/aiStyles.ts); no level does.
     huntsWeakest: [false, false, false, false, false],
     startsOnOddsAlone: [false, false, false, false, false],
+    // New with ai_defense_enabled, read only with it on (tuned in the arena).
+    fortifyPlan: ['interior', 'interior', 'threat', 'threat', 'threat'],
+    threatModel: ['adjacent', 'adjacent', 'adjacent', 'full_drafts', 'full_drafts'],
+    fortifyAttackWeight: [0, 0, 0, 0.5, 0],
+    lossTolerance: [0.5, 0.5, 0.5, 0.4, 0.3],
     build: ['none', 'gate_only', 'greedy', 'threat', 'threat'],
     research: ['none', 'gate_only', 'cheapest', 'strategic', 'strategic'],
     doctrinesPerTurn: [0, 0, 1, 2, 2],
