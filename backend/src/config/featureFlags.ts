@@ -144,6 +144,9 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // The Custom Game form shows its main choices and folds the rest under
   // Advanced. Layout only: every choice sends what it did. Dark-launched OFF.
   custom_lobby_fold_enabled: () => envOptIn('CUSTOM_LOBBY_FOLD_ENABLED'),
+  // The Custom Game form sets a round limit, by default the one Quick Match
+  // gives the chosen ending. Dark-launched OFF.
+  custom_round_cap_enabled: () => envOptIn('CUSTOM_ROUND_CAP_ENABLED'),
 };
 
 /** The code default for one flag (no admin override consulted). */
@@ -418,6 +421,20 @@ export const featureFlags = {
    */
   get customLobbyFoldEnabled(): boolean {
     return overrideBool('custom_lobby_fold_enabled');
+  },
+
+  /**
+   * The Custom Game form has a round limit beside the victory conditions: by
+   * default the one Quick Match gives the ending chosen (Domination 120,
+   * Capitals 90, 65% of the board 60, half the board 45), or one the host
+   * picks, or none. Without a limit a Domination game against bots seldom
+   * ends. Space Age and Galactic Age keep the 90-round limit the server
+   * already gives them. Client-only: the server has always taken
+   * `max_turns`. Default OFF; `CUSTOM_ROUND_CAP_ENABLED=true` or the admin
+   * override turns it on.
+   */
+  get customRoundCapEnabled(): boolean {
+    return overrideBool('custom_round_cap_enabled');
   },
 
   /**
@@ -1037,6 +1054,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     first_match_easy_enabled: featureFlags.firstMatchEasyEnabled,
     full_game_evening_enabled: featureFlags.fullGameEveningEnabled,
     custom_lobby_fold_enabled: featureFlags.customLobbyFoldEnabled,
+    custom_round_cap_enabled: featureFlags.customRoundCapEnabled,
     // Read by the Custom Game form to say whether a Space Age game can also be
     // won on the Moon (the Lunar Hegemony rides with the Moon Race).
     space_age_moon_race_enabled: featureFlags.spaceAgeMoonRaceEnabled,

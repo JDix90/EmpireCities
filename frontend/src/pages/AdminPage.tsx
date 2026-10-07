@@ -384,6 +384,12 @@ const CLIENT_FEATURE_FLAGS = [
       'The Custom Game form shows the main choices (era, AI opponents and difficulty, turn timer, victory conditions) and folds the rest under Advanced: map pairing, Territory Draft, Factions, Economy, Technology, Events, Naval, Stability, Fog of War, Diplomacy, Coaching, Era Advancement, card sets and the dice cap. Advanced opens by itself when anything inside it is already set, and when closed lists what is on. Layout only: every choice creates the same game. Off by default (dark launch) \u2014 off is the form exactly as before.',
   },
   {
+    key: 'custom_round_cap_enabled',
+    label: 'Custom Game: round limit',
+    description:
+      'The Custom Game form gets a round limit beside the victory conditions. By default it is the one Quick Match gives the chosen ending: 120 rounds for Domination, 90 for Capitals or a secret mission, 60 for 65% of the board, 45 for half the board. The host can pick 45, 60, 90, 120 or 150 rounds, or no limit. When the last round ends, whoever holds the most territory wins. Without a limit a Domination game against bots seldom ends. Space Age and Galactic Age keep the 90-round limit they already have. Off by default (dark launch): off is the form exactly as before, with no limit.',
+  },
+  {
     key: 'store_v2_enabled',
     label: 'Store overhaul',
     description:
