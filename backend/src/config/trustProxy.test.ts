@@ -83,6 +83,15 @@ describe('the rate limiter behind nginx', () => {
     expect([first.statusCode, other.statusCode, again.statusCode]).toEqual([200, 200, 429]);
     await app.close();
   });
+
+  it('gives an IPv6 visitor one allowance across its /64, and another /64 its own', async () => {
+    const app = await limitedApp();
+    const first = await app.inject({ method: 'GET', url: '/ping', ...via(NGINX, '2001:db8:aa:1::10') });
+    const sameHome = await app.inject({ method: 'GET', url: '/ping', ...via(NGINX, '2001:db8:aa:1:ffff::20') });
+    const otherHome = await app.inject({ method: 'GET', url: '/ping', ...via(NGINX, '2001:db8:aa:2::10') });
+    expect([first.statusCode, sameHome.statusCode, otherHome.statusCode]).toEqual([200, 429, 200]);
+    await app.close();
+  });
 });
 
 describe('validateProductionEnv on TRUST_PROXY', () => {
