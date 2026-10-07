@@ -100,6 +100,10 @@ export const SOLO_LEVELS = ['tutorial', 'easy', 'medium', 'hard', 'expert'] as c
  * level plays medium). Finished games are `completed`; `capped` is the part of
  * them the round cap decided, `surrendered` the part the human won by
  * accepting the bots' surrender, and `median_rounds` is over the finished games.
+ * `bot_captures` are the territories the bots took from other players in the
+ * finished games whose `game_finished` event counts them, and the three after
+ * it are how many of those were the human's, the leading rival's and the
+ * weakest rival's as the bot's turn began (services/botAimTelemetry.ts).
  */
 export interface SoloLevelRow {
   mode: SoloGameMode;
@@ -114,6 +118,10 @@ export interface SoloLevelRow {
   capped: number;
   surrendered: number;
   median_rounds: number | null;
+  bot_captures: number;
+  bot_captures_from_human: number;
+  bot_captures_from_leader: number;
+  bot_captures_from_weakest: number;
 }
 
 export interface EventVolumeRow {
@@ -487,7 +495,11 @@ export async function getSoloGamesByLevel(
        SELECT DISTINCT ON (properties->>'game_id')
          properties->>'game_id' AS game_id,
          properties->>'victory_type' AS victory_type,
-         (properties->>'turn_count')::int AS rounds
+         (properties->>'turn_count')::int AS rounds,
+         (properties->>'ai_captures_from_players')::int AS bot_captures,
+         (properties->>'ai_captures_from_humans')::int AS bot_captures_from_human,
+         (properties->>'ai_captures_from_leader')::int AS bot_captures_from_leader,
+         (properties->>'ai_captures_from_weakest')::int AS bot_captures_from_weakest
        FROM analytics_events
        WHERE event = 'game_finished' AND created_at >= NOW() - make_interval(days => $1::int)
        ORDER BY properties->>'game_id', created_at
@@ -500,7 +512,11 @@ export async function getSoloGamesByLevel(
        COUNT(*) FILTER (WHERE s.status = 'in_progress')::int AS running,
        COUNT(*) FILTER (WHERE s.status = 'completed' AND f.victory_type = 'turn_limit')::int AS capped,
        COUNT(*) FILTER (WHERE s.status = 'completed' AND f.victory_type = 'surrender')::int AS surrendered,
-       percentile_disc(0.5) WITHIN GROUP (ORDER BY f.rounds) FILTER (WHERE s.status = 'completed') AS median_rounds
+       percentile_disc(0.5) WITHIN GROUP (ORDER BY f.rounds) FILTER (WHERE s.status = 'completed') AS median_rounds,
+       COALESCE(SUM(f.bot_captures) FILTER (WHERE s.status = 'completed'), 0)::int AS bot_captures,
+       COALESCE(SUM(f.bot_captures_from_human) FILTER (WHERE s.status = 'completed'), 0)::int AS bot_captures_from_human,
+       COALESCE(SUM(f.bot_captures_from_leader) FILTER (WHERE s.status = 'completed'), 0)::int AS bot_captures_from_leader,
+       COALESCE(SUM(f.bot_captures_from_weakest) FILTER (WHERE s.status = 'completed'), 0)::int AS bot_captures_from_weakest
      FROM solo s
      LEFT JOIN finished f ON f.game_id = s.game_id::text
      GROUP BY s.mode, s.level_rank`,
@@ -518,6 +534,10 @@ export async function getSoloGamesByLevel(
       capped: num(r.capped),
       surrendered: num(r.surrendered),
       median_rounds: numOrNull(r.median_rounds),
+      bot_captures: num(r.bot_captures),
+      bot_captures_from_human: num(r.bot_captures_from_human),
+      bot_captures_from_leader: num(r.bot_captures_from_leader),
+      bot_captures_from_weakest: num(r.bot_captures_from_weakest),
     }))
     .sort((a, b) =>
       SOLO_MODE_ORDER.indexOf(a.mode) - SOLO_MODE_ORDER.indexOf(b.mode)

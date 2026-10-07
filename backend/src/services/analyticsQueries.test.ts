@@ -214,7 +214,7 @@ describe('analyticsQueries', () => {
 
   it('getSoloGamesByLevel reads one-human games with bots, by mode and level, in a fixed order', async () => {
     queryMock.mockResolvedValueOnce([
-      { mode: 'other', level_rank: 4, started: 3, finished: 2, won: 0, abandoned: 1, running: 0, capped: 0, surrendered: 0, median_rounds: 31 },
+      { mode: 'other', level_rank: 4, started: 3, finished: 2, won: 0, abandoned: 1, running: 0, capped: 0, surrendered: 0, median_rounds: 31, bot_captures: '20', bot_captures_from_human: 9, bot_captures_from_leader: 7, bot_captures_from_weakest: 5 },
       { mode: 'other', level_rank: 1, started: '9', finished: '7', won: '6', abandoned: '1', running: '1', capped: '4', surrendered: '2', median_rounds: '60' },
       { mode: 'campaign', level_rank: 2, started: 2, finished: 0, won: 0, abandoned: 0, running: 2, capped: 0, surrendered: 0, median_rounds: null },
       { mode: 'tutorial', level_rank: 0, started: 5, finished: 4, won: 4, abandoned: 1, running: 0, capped: 0, surrendered: 0, median_rounds: 12 },
@@ -230,13 +230,15 @@ describe('analyticsQueries', () => {
     // A surrender win is the surrender ending on the same event.
     expect(sql).toContain("f.victory_type = 'surrender'");
     expect(sql).toContain("event = 'game_finished'");
+    // Where the bots' captures came from rides on the same event.
+    expect(sql).toContain("properties->>'ai_captures_from_players'");
     // The level is the highest bot's, ranked lowest to highest.
     expect(sql).toContain("WHEN 'tutorial' THEN 0 WHEN 'easy' THEN 1 WHEN 'medium' THEN 2 WHEN 'hard' THEN 3 WHEN 'expert' THEN 4");
     expect(rows).toEqual([
-      { mode: 'tutorial', level: 'tutorial', started: 5, finished: 4, won: 4, abandoned: 1, running: 0, capped: 0, surrendered: 0, median_rounds: 12 },
-      { mode: 'campaign', level: 'medium', started: 2, finished: 0, won: 0, abandoned: 0, running: 2, capped: 0, surrendered: 0, median_rounds: null },
-      { mode: 'other', level: 'easy', started: 9, finished: 7, won: 6, abandoned: 1, running: 1, capped: 4, surrendered: 2, median_rounds: 60 },
-      { mode: 'other', level: 'expert', started: 3, finished: 2, won: 0, abandoned: 1, running: 0, capped: 0, surrendered: 0, median_rounds: 31 },
+      { mode: 'tutorial', level: 'tutorial', started: 5, finished: 4, won: 4, abandoned: 1, running: 0, capped: 0, surrendered: 0, median_rounds: 12, bot_captures: 0, bot_captures_from_human: 0, bot_captures_from_leader: 0, bot_captures_from_weakest: 0 },
+      { mode: 'campaign', level: 'medium', started: 2, finished: 0, won: 0, abandoned: 0, running: 2, capped: 0, surrendered: 0, median_rounds: null, bot_captures: 0, bot_captures_from_human: 0, bot_captures_from_leader: 0, bot_captures_from_weakest: 0 },
+      { mode: 'other', level: 'easy', started: 9, finished: 7, won: 6, abandoned: 1, running: 1, capped: 4, surrendered: 2, median_rounds: 60, bot_captures: 0, bot_captures_from_human: 0, bot_captures_from_leader: 0, bot_captures_from_weakest: 0 },
+      { mode: 'other', level: 'expert', started: 3, finished: 2, won: 0, abandoned: 1, running: 0, capped: 0, surrendered: 0, median_rounds: 31, bot_captures: 20, bot_captures_from_human: 9, bot_captures_from_leader: 7, bot_captures_from_weakest: 5 },
     ]);
   });
 
@@ -291,7 +293,7 @@ describe('analyticsQueries', () => {
     expect(r.completion.avg_minutes).toBe(15);
     expect(r.first_match).toEqual({ started: 4, finished: 3, won: 2, next_day_cohort: 2, next_day: 1 });
     expect(r.solo_by_level).toEqual([
-      { mode: 'other', level: 'hard', started: 2, finished: 1, won: 1, abandoned: 1, running: 0, capped: 1, surrendered: 0, median_rounds: 60 },
+      { mode: 'other', level: 'hard', started: 2, finished: 1, won: 1, abandoned: 1, running: 0, capped: 1, surrendered: 0, median_rounds: 60, bot_captures: 0, bot_captures_from_human: 0, bot_captures_from_leader: 0, bot_captures_from_weakest: 0 },
     ]);
     expect(r.acquisition).toEqual([
       { source: 'reddit', channel: 'social', signups: 3, accounts: 1, activated: 1 },

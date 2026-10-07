@@ -57,6 +57,15 @@ export interface SoloLevelRow {
   /** Finished games the human won by accepting the bots' surrender. */
   surrendered: number;
   median_rounds: number | null;
+  /**
+   * Territories the bots took from other players in finished games that count
+   * them, and how many were the human's, the leading rival's and the weakest
+   * rival's as the bot's turn began.
+   */
+  bot_captures: number;
+  bot_captures_from_human: number;
+  bot_captures_from_leader: number;
+  bot_captures_from_weakest: number;
 }
 export interface EventVolumeRow {
   event: string;
@@ -323,8 +332,9 @@ export default function AdminAnalyticsPanel({ data }: { data: AnalyticsReport | 
         </section>
       )}
 
-      {/* How each bot level plays out for a lone player: finished, won, and
-          how often the round cap rather than a conquest ended it. */}
+      {/* How each bot level plays out for a lone player: finished, won, how
+          often the round cap rather than a conquest ended it, and whose
+          territory the bots took. */}
       {data.solo_by_level && data.solo_by_level.length > 0 && (
         <section className="rounded-xl border border-bf-border bg-cc-panel/50 p-4">
           <p className="text-sm font-semibold text-bf-text">
@@ -332,7 +342,7 @@ export default function AdminAnalyticsPanel({ data }: { data: AnalyticsReport | 
             <span className="text-xs font-normal text-bf-muted">· started in the last {data.window_days}d</span>
           </p>
           <div className="mt-3 overflow-x-auto">
-            <table className="w-full min-w-[34rem] text-sm">
+            <table className="w-full min-w-[46rem] text-sm">
               <thead>
                 <tr className="text-xs uppercase tracking-wider text-bf-muted">
                   <th className="pb-1 text-left font-normal">Mode</th>
@@ -344,6 +354,9 @@ export default function AdminAnalyticsPanel({ data }: { data: AnalyticsReport | 
                   <th className="pb-1 text-right font-normal">Surrendered</th>
                   <th className="pb-1 text-right font-normal">Left</th>
                   <th className="pb-1 text-right font-normal">Rounds</th>
+                  <th className="pb-1 text-right font-normal">From you</th>
+                  <th className="pb-1 text-right font-normal">From leader</th>
+                  <th className="pb-1 text-right font-normal">From weakest</th>
                 </tr>
               </thead>
               <tbody>
@@ -361,6 +374,9 @@ export default function AdminAnalyticsPanel({ data }: { data: AnalyticsReport | 
                     <td className="py-1.5 text-right tabular-nums text-bf-text">{pctText(row.surrendered, row.finished)}</td>
                     <td className="py-1.5 text-right tabular-nums text-bf-text">{pctText(row.abandoned, row.started)}</td>
                     <td className="py-1.5 text-right tabular-nums text-bf-text">{row.median_rounds ?? '—'}</td>
+                    <td className="py-1.5 text-right tabular-nums text-bf-text">{pctText(row.bot_captures_from_human, row.bot_captures)}</td>
+                    <td className="py-1.5 text-right tabular-nums text-bf-text">{pctText(row.bot_captures_from_leader, row.bot_captures)}</td>
+                    <td className="py-1.5 text-right tabular-nums text-bf-text">{pctText(row.bot_captures_from_weakest, row.bot_captures)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -370,6 +386,13 @@ export default function AdminAnalyticsPanel({ data }: { data: AnalyticsReport | 
             One human against bots, by the game&apos;s highest bot. Finished and Left are shares of
             the games started; Won and Round cap are shares of those finished, and Round cap is a
             game the turn limit decided. Rounds is the median length of a finished game.
+          </p>
+          <p className="mt-1 text-xs text-bf-muted">
+            From you, From leader and From weakest are shares of the territories the bots took from
+            players in finished games, counted since this column was added: the human&apos;s, and
+            those of the rival holding the most and the fewest territories as each bot&apos;s turn
+            began. Ties count for every tied rival, so a capture can count in both, and with one
+            rival left it always does.
           </p>
         </section>
       )}

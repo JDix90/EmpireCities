@@ -17,6 +17,17 @@ import type { getSoloGamesByLevel as GetSoloGamesByLevel } from './analyticsQuer
 
 const enabled = process.env.PG_TEST === '1';
 
+type AimCount = 'ai_captures_from_players' | 'ai_captures_from_humans' | 'ai_captures_from_leader' | 'ai_captures_from_weakest';
+/** Where the bots' captures came from, as game_finished counts them. */
+function aim(players: number, humans: number, leader: number, weakest: number): Record<AimCount, number> {
+  return {
+    ai_captures_from_players: players,
+    ai_captures_from_humans: humans,
+    ai_captures_from_leader: leader,
+    ai_captures_from_weakest: weakest,
+  };
+}
+
 describe.runIf(enabled)('solo games by bot level (Postgres)', () => {
   let query: (sql: string, params?: unknown[]) => Promise<Record<string, unknown>[]>;
   let getSoloGamesByLevel: typeof GetSoloGamesByLevel;
@@ -48,7 +59,7 @@ describe.runIf(enabled)('solo games by bot level (Postgres)', () => {
     settings?: object;
     winner?: string | null;
     startedDaysAgo?: number;
-    finish?: { victory_type: string; turn_count: number };
+    finish?: { victory_type: string; turn_count: number } & Partial<Record<AimCount, number>>;
   }): Promise<string> {
     const id = uuidv4();
     gameIds.push(id);
@@ -91,13 +102,14 @@ describe.runIf(enabled)('solo games by bot level (Postgres)', () => {
     // Quick Match against easy bots: a win on the round cap, a loss, a win by surrender.
     const capped = await seedGame({
       humans: [player], bots: ['easy', 'easy'], status: 'completed', winner: player,
-      finish: { victory_type: 'turn_limit', turn_count: 60 },
+      finish: { victory_type: 'turn_limit', turn_count: 60, ...aim(10, 6, 4, 3) },
     });
-    // The same finish recorded twice still counts the game once.
+    // The same finish recorded twice still counts the game, and its captures, once.
     await query(
       `INSERT INTO analytics_events (event, user_id, properties) VALUES ('game_finished', $1, $2::jsonb)`,
-      [player, JSON.stringify({ game_id: capped, won: true, victory_type: 'turn_limit', turn_count: 60 })],
+      [player, JSON.stringify({ game_id: capped, won: true, victory_type: 'turn_limit', turn_count: 60, ...aim(10, 6, 4, 3) })],
     );
+    // Finished before the bots' captures were counted: it adds none.
     await seedGame({
       humans: [player], bots: ['easy'], status: 'completed', winner: null,
       finish: { victory_type: 'domination', turn_count: 40 },
@@ -105,7 +117,7 @@ describe.runIf(enabled)('solo games by bot level (Postgres)', () => {
     // A win by accepting the bots' surrender.
     await seedGame({
       humans: [player], bots: ['easy'], status: 'completed', winner: player,
-      finish: { victory_type: 'surrender', turn_count: 50 },
+      finish: { victory_type: 'surrender', turn_count: 50, ...aim(2, 2, 2, 0) },
     });
     // An easy and a hard bot: a hard game. Left before the end.
     await seedGame({ humans: [player], bots: ['easy', 'hard'], status: 'abandoned' });
@@ -113,9 +125,10 @@ describe.runIf(enabled)('solo games by bot level (Postgres)', () => {
       humans: [player], bots: ['tutorial'], status: 'completed', winner: player, settings: { tutorial: true },
       finish: { victory_type: 'domination', turn_count: 12 },
     });
+    // One rival, the human: every capture is the human's, the leader's and the weakest's.
     await seedGame({
       humans: [player], bots: ['easy'], status: 'completed', winner: player, settings: { first_match: true },
-      finish: { victory_type: 'domination', turn_count: 20 },
+      finish: { victory_type: 'domination', turn_count: 20, ...aim(4, 4, 4, 4) },
     });
     await seedGame({ humans: [player], bots: ['medium'], status: 'in_progress', settings: { daily_challenge_date: '2026-10-01' } });
     // A bot with no level plays medium.
@@ -136,14 +149,14 @@ describe.runIf(enabled)('solo games by bot level (Postgres)', () => {
     if (userIds.length) await query('DELETE FROM users WHERE user_id = ANY($1)', [userIds]).catch(() => {});
   });
 
-  it('reads each mode and level, and the cap endings, surrender wins and rounds of the finished games', async () => {
+  it('reads each mode and level, and the cap endings, surrender wins, rounds and bot captures of the finished games', async () => {
     expect(await getSoloGamesByLevel(30, gameIds)).toEqual([
-      { mode: 'tutorial', level: 'tutorial', started: 1, finished: 1, won: 1, abandoned: 0, running: 0, capped: 0, surrendered: 0, median_rounds: 12 },
-      { mode: 'first_match', level: 'easy', started: 1, finished: 1, won: 1, abandoned: 0, running: 0, capped: 0, surrendered: 0, median_rounds: 20 },
-      { mode: 'campaign', level: 'medium', started: 1, finished: 0, won: 0, abandoned: 0, running: 1, capped: 0, surrendered: 0, median_rounds: null },
-      { mode: 'daily', level: 'medium', started: 1, finished: 0, won: 0, abandoned: 0, running: 1, capped: 0, surrendered: 0, median_rounds: null },
-      { mode: 'other', level: 'easy', started: 3, finished: 3, won: 2, abandoned: 0, running: 0, capped: 1, surrendered: 1, median_rounds: 50 },
-      { mode: 'other', level: 'hard', started: 1, finished: 0, won: 0, abandoned: 1, running: 0, capped: 0, surrendered: 0, median_rounds: null },
+      { mode: 'tutorial', level: 'tutorial', started: 1, finished: 1, won: 1, abandoned: 0, running: 0, capped: 0, surrendered: 0, median_rounds: 12, bot_captures: 0, bot_captures_from_human: 0, bot_captures_from_leader: 0, bot_captures_from_weakest: 0 },
+      { mode: 'first_match', level: 'easy', started: 1, finished: 1, won: 1, abandoned: 0, running: 0, capped: 0, surrendered: 0, median_rounds: 20, bot_captures: 4, bot_captures_from_human: 4, bot_captures_from_leader: 4, bot_captures_from_weakest: 4 },
+      { mode: 'campaign', level: 'medium', started: 1, finished: 0, won: 0, abandoned: 0, running: 1, capped: 0, surrendered: 0, median_rounds: null, bot_captures: 0, bot_captures_from_human: 0, bot_captures_from_leader: 0, bot_captures_from_weakest: 0 },
+      { mode: 'daily', level: 'medium', started: 1, finished: 0, won: 0, abandoned: 0, running: 1, capped: 0, surrendered: 0, median_rounds: null, bot_captures: 0, bot_captures_from_human: 0, bot_captures_from_leader: 0, bot_captures_from_weakest: 0 },
+      { mode: 'other', level: 'easy', started: 3, finished: 3, won: 2, abandoned: 0, running: 0, capped: 1, surrendered: 1, median_rounds: 50, bot_captures: 12, bot_captures_from_human: 8, bot_captures_from_leader: 6, bot_captures_from_weakest: 3 },
+      { mode: 'other', level: 'hard', started: 1, finished: 0, won: 0, abandoned: 1, running: 0, capped: 0, surrendered: 0, median_rounds: null, bot_captures: 0, bot_captures_from_human: 0, bot_captures_from_leader: 0, bot_captures_from_weakest: 0 },
     ]);
   });
 
