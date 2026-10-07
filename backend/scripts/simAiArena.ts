@@ -70,8 +70,11 @@
  *                            or defender; random to draw each game's commanders
  *                            as a live game does; unset for none.
  *   ARENA_SEED             master seed (default borderfall-ai-arena)
+ *   ARENA_RECORDS          a file to write every game's record to, one JSON line
+ *                            each with its seat count, for measures the report
+ *                            does not print (game lengths by ending, say)
  */
-import { readFileSync } from 'fs';
+import { appendFileSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import type { AiDifficulty, AiIntent, EraId, GameMap, GameSettings, GameState } from '../src/types';
 import { initializeGameState } from '../src/game-engine/state/gameStateManager';
@@ -676,6 +679,8 @@ function report(seatCount: number, records: GameRecord[], timing: Timing): void 
   );
   const maps = new Map(MAP_IDS.map((id) => [id, loadMap(id)]));
   const all: GameRecord[] = [];
+  const recordsFile = process.env.ARENA_RECORDS?.trim();
+  if (recordsFile) writeFileSync(recordsFile, '');
   for (const seatCount of SEAT_COUNTS) {
     if (!Number.isInteger(seatCount) || seatCount < 2 || seatCount > 6) throw new Error(`ARENA_SEATS: ${seatCount} is not 2 to 6`);
     const records: GameRecord[] = [];
@@ -687,6 +692,7 @@ function report(seatCount: number, records: GameRecord[], timing: Timing): void 
       }
     }
     report(seatCount, records, timing);
+    if (recordsFile) appendFileSync(recordsFile, records.map((r) => `${JSON.stringify({ seats: seatCount, ...r })}\n`).join(''));
     all.push(...records);
   }
   if (SEAT_COUNTS.length > 1) console.log(`\nrun digest ${digest(all)}`);
