@@ -130,7 +130,8 @@ import { recordServerEvent } from '../services/analyticsEvents';
 import { generateAndStorePostMatchAnalysis, updateSkillProfilesFromGameState } from '../services/playerValueEnhancements';
 import { incrementPlayCount } from '../modules/maps/mapService';
 import { loadMatchCosmetics } from '../modules/users/matchCosmetics';
-import type { GameState, GameMap, AiDifficulty, PlayerState, EraId, MapConnection } from '../types';
+import type { GameState, GameMap, AiDifficulty, PlayerState, EraId } from '../types';
+import { pathExists } from '../game-engine/state/fortifyRoute';
 import { normalizeGameSettings } from '../game-engine/state/gameSettings';
 import { config } from '../config';
 import { registerChatHandlers } from './handlers/chatHandler';
@@ -6377,42 +6378,3 @@ function clearTurnTimer(gameId: string, state: GameState): void {
   state.phase_deadline_at = null;
 }
 
-/**
- * BFS over territories the player owns. `canTraverse` optionally rejects
- * individual connections: fortify passes a filter that refuses orbit lanes the
- * player cannot currently cross, so a multi-hop route cannot smuggle troops
- * across a lane whose two endpoints are not the fortify's own endpoints.
- */
-function pathExists(
-  fromId: string,
-  toId: string,
-  state: GameState,
-  map: GameMap,
-  ownerId: string,
-  canTraverse?: (conn: MapConnection) => boolean
-): boolean {
-  const adj: Record<string, string[]> = {};
-  for (const conn of map.connections) {
-    if (!adj[conn.from]) adj[conn.from] = [];
-    if (!adj[conn.to]) adj[conn.to] = [];
-    if (canTraverse && !canTraverse(conn)) continue;
-    adj[conn.from].push(conn.to);
-    adj[conn.to].push(conn.from);
-  }
-
-  const visited = new Set<string>();
-  const queue = [fromId];
-  visited.add(fromId);
-
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-    if (current === toId) return true;
-    for (const neighbor of (adj[current] ?? [])) {
-      if (!visited.has(neighbor) && state.territories[neighbor]?.owner_id === ownerId) {
-        visited.add(neighbor);
-        queue.push(neighbor);
-      }
-    }
-  }
-  return false;
-}
