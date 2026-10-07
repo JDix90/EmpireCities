@@ -14,7 +14,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { useEraAdvancementLobbyEnabled, useFirstMatchEasyEnabled, useFullGameEveningEnabled, useMapEditorEnabled, useMatchAlertsEnabled, useRankedMultiSizeEnabled, useSpaceAgeMoonRaceEnabled, useSpectateEnabled, useTodayPanelEnabled } from '../store/featureFlagsStore';
+import { useCustomLobbyFoldEnabled, useEraAdvancementLobbyEnabled, useFirstMatchEasyEnabled, useFullGameEveningEnabled, useMapEditorEnabled, useMatchAlertsEnabled, useRankedMultiSizeEnabled, useSpaceAgeMoonRaceEnabled, useSpectateEnabled, useTodayPanelEnabled } from '../store/featureFlagsStore';
 import { HEGEMONY_TURNS } from '../utils/lunarHegemony';
 import { RANKED_MIN_OPPONENTS, describeRankedGameSize, getRankedOpponents, rankedEraSize, saveRankedOpponents } from '../utils/rankedPrefs';
 import { clearRankedSearchMarker, setRankedSearchMarker } from '../utils/rankedSearchMarker';
@@ -52,6 +52,7 @@ import {
   FULL_GAME_EVENING_MAX_TURNS,
   type QuickMatchPrefs,
 } from '../utils/quickMatchPrefs';
+import { advancedSummary, loadAdvancedOpen, saveAdvancedOpen } from '../utils/customLobbyFold';
 import {
   FIRST_MATCH_BUTTON_LINE,
   FIRST_MATCH_CARD_LINE,
@@ -712,6 +713,41 @@ export default function LobbyPage() {
   useEffect(() => {
     setCombatDiceCapEnabled(combatDiceCapApplicable);
   }, [combatDiceCapApplicable]);
+
+  // The Advanced fold (custom_lobby_fold_enabled, utils/customLobbyFold.ts):
+  // the main choices stay in view and the rest fold under Advanced, which
+  // remembers whether the host left it open. Closed, it lists what inside it
+  // is on, as the game will be created.
+  const customLobbyFold = useCustomLobbyFoldEnabled();
+  const [advancedOpen, setAdvancedOpen] = useState(loadAdvancedOpen);
+  const advancedOn = advancedSummary({
+    customPairing: customPairingEnabled,
+    territoryDraft: territorySelection,
+    factions: factionsEnabled,
+    economy: economyEnabled || economyRequired,
+    techTrees: techTreesEnabled,
+    events: eventsEnabled,
+    naval: navalEnabled,
+    stability: stabilityEnabled,
+    fogOfWar,
+    diplomacy: diplomacyEnabled,
+    coaching: coachingEnabled && aiCount > 0,
+    eraAdvancement: eraAdvancementLobbyEnabled && eraAdvancementEnabled && selectedEra === 'ancient',
+    uncappedCardSets,
+    diceCapApplies: combatDiceCapApplicable,
+    diceCap: combatDiceCapEnabled,
+    maxAttackerDice: combatMaxAttackerDice,
+    maxDefenderDice: combatMaxDefenderDice,
+  });
+  // It opens by itself, without remembering it, when the form opens with
+  // something inside already set (a map link, a choice from an earlier
+  // opening), and when the era chosen locks a system on.
+  useEffect(() => {
+    if (showCreate && advancedOn.length > 0) setAdvancedOpen(true);
+  }, [showCreate]);
+  useEffect(() => {
+    if (lockedSystems.size > 0) setAdvancedOpen(true);
+  }, [selectedEra, galaxyHomeWorlds]);
 
   const [activeSeasonal, setActiveSeasonal] = useState<Array<{ era_id: string; name: string }>>([]);
   // Factions selection state
@@ -1630,6 +1666,341 @@ export default function LobbyPage() {
   // New players (or anyone yet to score XP) get a solo-first layout: play now, no empty lobby.
   const isNewUser = !!user && ((user.xp ?? 0) === 0 || user.onboarding_stage != null);
 
+  // ── The Custom Game form's pieces that fold under Advanced ──────────────
+  // With custom_lobby_fold_enabled they render inside the fold, after the
+  // victory conditions; without it, where they always were. Either way they
+  // write the same state, so the game created is the same.
+  const createPairingControl = (
+    <div className="md:col-span-2 flex items-center justify-between gap-3 rounded-lg border border-bf-border bg-bf-dark/40 px-3 py-2.5">
+      <div>
+        <p className="text-xs font-medium text-bf-text">Custom rules + theater pairing</p>
+        <p className="text-[11px] text-bf-muted mt-0.5">
+          Mix any rules era with any theater map (e.g. WW2 rules on the Ancient world map).
+          {customLobbyFold && ' Then choose the map beside Rules Era, above.'}
+        </p>
+      </div>
+      <label className="flex items-center gap-2 text-sm text-bf-text shrink-0 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={customPairingEnabled}
+          onChange={(e) => {
+            const on = e.target.checked;
+            setCustomPairingEnabled(on);
+            if (!on) {
+              setSelectedTheaterMapId(ERA_MAP_IDS[selectedEra] ?? ERA_MAP_IDS.ww2);
+            }
+          }}
+          className="accent-bf-gold"
+        />
+        Enable
+      </label>
+    </div>
+  );
+  const createDraftAndFactions = (
+    <>
+      {/* Info tooltip is a <button>; keep it outside the checkbox <label> so htmlFor targets the input. */}
+      <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
+        <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'territory_draft')} />
+        <label htmlFor="territory-draft-top" className="contents cursor-pointer">
+          <input
+            type="checkbox"
+            id="territory-draft-top"
+            checked={territorySelection}
+            onChange={(e) => { setTerritorySelection(e.target.checked); if (e.target.checked) setFactionsEnabled(false); }}
+            disabled={factionsEnabled || isGalacticEra}
+            className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
+          />
+          <span className="leading-snug min-w-0 select-none">Territory Draft</span>
+        </label>
+      </div>
+      <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
+        <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'asymmetric_factions')} />
+        <label htmlFor="asymmetric-factions-top" className="contents cursor-pointer">
+          <input
+            type="checkbox"
+            id="asymmetric-factions-top"
+            checked={factionsEnabled}
+            onChange={(e) => {
+              setFactionsEnabled(e.target.checked);
+              if (e.target.checked) setTerritorySelection(false);
+            }}
+            disabled={territorySelection || lockedSystems.has('factions') || galaxyHomeWorldsOff}
+            aria-describedby={lockedSystems.has('factions') || galaxyHomeWorldsOff ? 'era-locked-systems-notice' : undefined}
+            className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
+          />
+          <span className="leading-snug min-w-0 select-none">
+            Asymmetric Factions
+            {lockedSystems.has('factions') && <span className="text-xs text-bf-muted"> (required)</span>}
+            {galaxyHomeWorldsOff && <span className="text-xs text-bf-muted"> (off without Home Worlds)</span>}
+          </span>
+        </label>
+      </div>
+    </>
+  );
+  const createAdvancedFeatures = (
+    <div className="md:col-span-2 border-t border-bf-border pt-4 mt-2">
+      <label className="label mb-2">{customLobbyFold ? 'Game systems' : 'Advanced Features'}</label>
+      {lockedSystemsNotice && (
+        <p id="era-locked-systems-notice" className="text-[11px] text-bf-muted mb-3 leading-relaxed">
+          {lockedSystemsNotice}
+        </p>
+      )}
+      {mapImmersion && (
+        <p className="text-[11px] text-bf-muted mb-3 leading-relaxed">
+          Hover each (i) for this theater’s lore alongside the standard rules.
+        </p>
+      )}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
+          <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'economy_buildings')} />
+          <label htmlFor="create-game-economy" className="contents cursor-pointer">
+            <input id="create-game-economy" type="checkbox" checked={economyEnabled || economyRequired} onChange={(e) => { autoEnabledSystemsRef.current.delete('economy'); eraAdvancementAutoTickedRef.current.delete('economy'); setEconomyEnabled(e.target.checked); }} disabled={lockedSystems.has('economy') || economyRequired} aria-describedby={lockedSystems.has('economy') ? 'era-locked-systems-notice' : undefined} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
+            <span className="leading-snug min-w-0 select-none">
+              Economy &amp; Buildings
+              {(lockedSystems.has('economy') || economyRequired) && <span className="text-xs text-bf-muted"> (required)</span>}
+            </span>
+          </label>
+        </div>
+        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
+          <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'tech_trees')} />
+          <label htmlFor="create-game-tech-trees" className="contents cursor-pointer">
+            <input id="create-game-tech-trees" type="checkbox" checked={techTreesEnabled} onChange={(e) => { autoEnabledSystemsRef.current.delete('tech_trees'); eraAdvancementAutoTickedRef.current.delete('tech_trees'); setTechTreesEnabled(e.target.checked); }} disabled={lockedSystems.has('tech_trees')} aria-describedby={lockedSystems.has('tech_trees') ? 'era-locked-systems-notice' : undefined} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
+            <span className="leading-snug min-w-0 select-none">
+              Technology Trees
+              {lockedSystems.has('tech_trees') && <span className="text-xs text-bf-muted"> (required)</span>}
+            </span>
+          </label>
+        </div>
+        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
+          <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'historical_events')} />
+          <label htmlFor="create-game-events" className="contents cursor-pointer">
+            <input id="create-game-events" type="checkbox" checked={eventsEnabled} onChange={(e) => { eraAdvancementAutoTickedRef.current.delete('events'); setEventsEnabled(e.target.checked); }} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
+            <span className="leading-snug min-w-0 select-none">Historical Events</span>
+          </label>
+        </div>
+        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
+          <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'naval_warfare')} />
+          <label htmlFor="create-game-naval" className="contents cursor-pointer">
+            <input id="create-game-naval" type="checkbox" checked={navalEnabled} onChange={(e) => { eraAdvancementAutoTickedRef.current.delete('naval'); setNavalEnabled(e.target.checked); }} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
+            <span className="leading-snug min-w-0 select-none">Naval Warfare <span className="text-xs text-bf-muted">(needs Economy &amp; Buildings — fleets come from Ports)</span></span>
+          </label>
+        </div>
+        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
+          <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'population_stability')} />
+          <label htmlFor="create-game-stability" className="contents cursor-pointer">
+            <input id="create-game-stability" type="checkbox" checked={stabilityEnabled} onChange={(e) => { eraAdvancementAutoTickedRef.current.delete('stability'); setStabilityEnabled(e.target.checked); }} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
+            <span className="leading-snug min-w-0 select-none">Population &amp; Stability</span>
+          </label>
+        </div>
+        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
+          <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'fog_of_war')} />
+          <label htmlFor="create-game-fog" className="contents cursor-pointer">
+            <input id="create-game-fog" type="checkbox" checked={fogOfWar} onChange={(e) => setFogOfWar(e.target.checked)} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
+            <span className="leading-snug min-w-0 select-none">Fog of War</span>
+          </label>
+        </div>
+        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
+          <FeatureTooltip text="Lets human players offer each other truces during the attack phase. An accepted truce lasts 3 rounds. Either side can still attack the other, by any means, but that breaks the truce: the attacker confirms first, and the other side gets an extra die against them. AI players always decline, so this only matters with other people at the table. Historical Events can impose truces either way." />
+          <label htmlFor="create-game-diplomacy" className="contents cursor-pointer">
+            <input id="create-game-diplomacy" type="checkbox" checked={diplomacyEnabled} onChange={(e) => setDiplomacyEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
+            <span className="leading-snug min-w-0 select-none">Diplomacy</span>
+          </label>
+        </div>
+        {aiCount > 0 && (
+          <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
+            <FeatureTooltip text="At the start of each of your reinforcement phases after the game’s opening turn, shows at most one tip: a sharp drop in your win chances, a region under threat or within reach, or a thinly held border. Once a game, after 10 rounds with under a 5% chance to win, it suggests resigning. Only for a lone human against AI — if other people join, it switches off when the game starts." />
+            <label htmlFor="create-game-coaching" className="contents cursor-pointer">
+              <input id="create-game-coaching" type="checkbox" checked={coachingEnabled} onChange={(e) => setCoachingEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
+              <span className="leading-snug min-w-0 select-none">In-Turn Coaching <span className="text-xs text-bf-muted">(solo vs AI only)</span></span>
+            </label>
+          </div>
+        )}
+        {eraAdvancementLobbyEnabled && selectedEra === 'ancient' && (
+          <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
+            <FeatureTooltip text="Each player can advance their civilization to the next era mid-match, at their own pace. The gate is a building, plus early research and a stable empire when those systems are on; the price is a few turns of production. Advancing brings the next era’s rules and tech tree, a one-time arrival bonus and an extra die against players in earlier eras — but your army shrinks by about 30% (every territory keeps at least 1 unit, so big stacks lose more), your research starts over, and you defend weaker until your next turn. Turns on Economy & Buildings, which it needs." />
+            <label htmlFor="create-game-era-advancement" className="contents cursor-pointer">
+              <input
+                id="create-game-era-advancement"
+                type="checkbox"
+                checked={eraAdvancementEnabled}
+                onChange={(e) => {
+                  const on = e.target.checked;
+                  setEraAdvancementEnabled(on);
+                  const auto = eraAdvancementAutoTickedRef.current;
+                  if (on) {
+                    // Default to the full-game experience. Economy
+                    // stays locked on while this is ticked
+                    // (economyRequired); the rest remain optional,
+                    // and the ones this tick flipped are remembered
+                    // so unticking puts them back.
+                    auto.clear();
+                    if (!economyEnabled) { auto.add('economy'); }
+                    setEconomyEnabled(true);
+                    if (!techTreesEnabled) { auto.add('tech_trees'); setTechTreesEnabled(true); }
+                    if (!stabilityEnabled) { auto.add('stability'); setStabilityEnabled(true); }
+                    if (!navalEnabled) { auto.add('naval'); setNavalEnabled(true); }
+                    if (!eventsEnabled) { auto.add('events'); setEventsEnabled(true); }
+                  } else {
+                    if (auto.has('economy')) setEconomyEnabled(false);
+                    if (auto.has('tech_trees')) setTechTreesEnabled(false);
+                    if (auto.has('stability')) setStabilityEnabled(false);
+                    if (auto.has('naval')) setNavalEnabled(false);
+                    if (auto.has('events')) setEventsEnabled(false);
+                    auto.clear();
+                  }
+                }}
+                className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
+              />
+              <span className="leading-snug min-w-0 select-none">Era Advancement <span className="text-xs text-bf-muted">(advance through the ages mid-match)</span></span>
+            </label>
+            <p className="col-start-2 col-span-2 text-xs text-bf-muted mt-1">
+              Requires Economy &amp; Buildings. Ticking it also switches on Technology, Population &amp; Stability, Naval Warfare and Historical Events — untick any you don't want; unticking Era Advancement puts them back.
+            </p>
+            {eraAdvancementEnabled && (
+              <div className="col-start-2 col-span-2 mt-2">
+                <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Era advancement preset">
+                  {([
+                    ['skirmish', 'Skirmish', 'Ancient → Medieval, faster & forgiving'],
+                    ['standard', 'Standard', 'Ancient → Modern, balanced'],
+                    ['epic', 'Epic', 'Ancient → Space Age, steeper & longer'],
+                  ] as const).map(([id, label, desc]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      role="radio"
+                      aria-checked={eraAdvancementPreset === id}
+                      data-testid={`era-preset-${id}`}
+                      title={desc}
+                      onClick={() => setEraAdvancementPreset(id)}
+                      className={clsx(
+                        'px-2.5 py-1 text-xs rounded-md border transition-colors',
+                        eraAdvancementPreset === id
+                          ? 'border-bf-gold/60 bg-bf-gold/15 text-bf-gold'
+                          : 'border-bf-border bg-bf-dark/60 text-bf-muted hover:text-bf-text',
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-bf-muted mt-1">
+                  {eraAdvancementPreset === 'skirmish' && 'Two-era climb with cheaper, lighter gates — quick games.'}
+                  {eraAdvancementPreset === 'standard' && 'Six-era timeline, Ancient to Modern, with balanced costs and gates.'}
+                  {eraAdvancementPreset === 'epic' && 'The full Ancient → Space Age climb with steeper costs and a stricter stability gate — long or async play.'}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+        {/* Card sets pay out in every game, so this lives here rather than
+            under Conditional Settings, which only shows once a dice-granting
+            system is on: there it was out of reach in a plain game, and a
+            box ticked before that section hid stayed ticked, unseen. */}
+        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
+          <FeatureTooltip text="Territory card sets pay an escalating bonus on a schedule shared by every player (4, 6, 8, 10, 12, 15, then +5 per set). New games cap that bonus at 30 units; turn this on for the classic unbounded schedule, where late redemptions can be worth more than a player's whole board." />
+          <label htmlFor="create-game-uncapped-card-sets" className="contents cursor-pointer">
+            <input
+              id="create-game-uncapped-card-sets"
+              type="checkbox"
+              checked={uncappedCardSets}
+              onChange={(e) => setUncappedCardSets(e.target.checked)}
+              className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
+            />
+            <span className="leading-snug min-w-0 select-none">Uncapped card sets <span className="text-xs text-bf-muted">(classic escalation)</span></span>
+          </label>
+        </div>
+      </div>
+    </div>
+  );
+  const createConditionalSettings = (
+    combatDiceCapApplicable && (
+                        <div className="md:col-span-2 border-t border-bf-border pt-4 mt-2">
+                          <label className="label mb-2">Conditional Settings</label>
+                          <p className="text-[11px] text-bf-muted mb-3 leading-relaxed">
+                            These appear because of choices you made above — they don&apos;t apply to every game.
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                            {combatDiceCapApplicable && (
+                              <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
+                                <FeatureTooltip text="Caps the dice each side can roll once every bonus is added, so stacked defenses (buildings, a Wonder, faction, tech, naval bombardment) can’t make a territory impregnable to a much larger army. On by default. Turning it off doesn’t bring back classic dice — it lets the bonuses stack without limit." />
+                                <label htmlFor="create-game-combat-dice-cap" className="contents cursor-pointer">
+                                  <input
+                                    id="create-game-combat-dice-cap"
+                                    type="checkbox"
+                                    checked={combatDiceCapEnabled}
+                                    onChange={(e) => setCombatDiceCapEnabled(e.target.checked)}
+                                    className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
+                                  />
+                                  <span className="leading-snug min-w-0 select-none">Combat Dice Cap <span className="text-xs text-bf-muted">(anti-fortress)</span></span>
+                                </label>
+                                {combatDiceCapEnabled && (
+                                  <div className="col-start-2 col-span-2 mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+                                    <label className="flex items-center gap-2 text-xs text-bf-muted">
+                                      Max attacker dice
+                                      <input
+                                        type="number"
+                                        min={3}
+                                        max={7}
+                                        value={combatMaxAttackerDice}
+                                        onChange={(e) => setCombatMaxAttackerDice(Math.max(3, Math.min(7, Number(e.target.value) || 5)))}
+                                        className="input w-16 py-1"
+                                        data-testid="combat-max-attacker-dice"
+                                      />
+                                    </label>
+                                    <label className="flex items-center gap-2 text-xs text-bf-muted">
+                                      Max defender dice
+                                      <input
+                                        type="number"
+                                        min={2}
+                                        max={6}
+                                        value={combatMaxDefenderDice}
+                                        onChange={(e) => setCombatMaxDefenderDice(Math.max(2, Math.min(6, Number(e.target.value) || 4)))}
+                                        className="input w-16 py-1"
+                                        data-testid="combat-max-defender-dice"
+                                      />
+                                    </label>
+                                    <p className="basis-full text-[11px] text-bf-muted/80 mt-0.5">
+                                      Defaults 5 / 4. Lower the defender cap for more attackable fortresses.
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        )
+  );
+  const createAdvancedFold = (
+    <div className="md:col-span-2 border-t border-bf-border pt-4 mt-2">
+      <button
+        type="button"
+        onClick={() => { const next = !advancedOpen; setAdvancedOpen(next); saveAdvancedOpen(next); }}
+        aria-expanded={advancedOpen}
+        aria-controls={advancedOpen ? 'create-game-advanced' : undefined}
+        data-testid="create-game-advanced-toggle"
+        className="flex w-full items-start justify-between gap-3 text-left"
+      >
+        <span className="min-w-0">
+          <span className="block text-sm font-medium text-bf-text">Advanced</span>
+          {!advancedOpen && (
+            <span className="block text-[11px] text-bf-muted mt-0.5" data-testid="create-game-advanced-summary">
+              {advancedOn.length > 0 ? advancedOn.join(', ') : 'All off'}
+            </span>
+          )}
+        </span>
+        <ChevronDown className={clsx('w-4 h-4 mt-0.5 shrink-0 text-bf-muted transition-transform', advancedOpen && 'rotate-180')} aria-hidden />
+      </button>
+      {advancedOpen && (
+        <div id="create-game-advanced" className="mt-4 grid grid-cols-1 gap-5">
+          {createPairingControl}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{createDraftAndFactions}</div>
+          {createAdvancedFeatures}
+          {createConditionalSettings}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-bf-dark" {...pullHandlers}>
       {showWelcomeModal && (
@@ -2429,29 +2800,7 @@ export default function LobbyPage() {
               showCloseButton
             >
               <form onSubmit={handleCreateGame} className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
-                  <div className="md:col-span-2 flex items-center justify-between gap-3 rounded-lg border border-bf-border bg-bf-dark/40 px-3 py-2.5">
-                    <div>
-                      <p className="text-xs font-medium text-bf-text">Custom rules + theater pairing</p>
-                      <p className="text-[11px] text-bf-muted mt-0.5">
-                        Mix any rules era with any theater map (e.g. WW2 rules on the Ancient world map).
-                      </p>
-                    </div>
-                    <label className="flex items-center gap-2 text-sm text-bf-text shrink-0 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={customPairingEnabled}
-                        onChange={(e) => {
-                          const on = e.target.checked;
-                          setCustomPairingEnabled(on);
-                          if (!on) {
-                            setSelectedTheaterMapId(ERA_MAP_IDS[selectedEra] ?? ERA_MAP_IDS.ww2);
-                          }
-                        }}
-                        className="accent-bf-gold"
-                      />
-                      Enable
-                    </label>
-                  </div>
+                  {!customLobbyFold && createPairingControl}
                   {mapImmersion && (
                     <div className="md:col-span-2 rounded-lg border border-bf-gold/25 bg-gradient-to-br from-bf-gold/[0.08] to-transparent px-3 py-3">
                       <p className="text-bf-gold text-sm font-display tracking-wide">{mapImmersion.tagline}</p>
@@ -2594,44 +2943,9 @@ export default function LobbyPage() {
                       <p className="text-xs text-bf-gold mt-1">Players will be notified when it's their turn.</p>
                     )}
                   </div>
+                  {(!customLobbyFold || isGalacticEra) && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:col-span-2">
-                    {/* Info tooltip is a <button>; keep it outside the checkbox <label> so htmlFor targets the input. */}
-                    <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                      <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'territory_draft')} />
-                      <label htmlFor="territory-draft-top" className="contents cursor-pointer">
-                        <input
-                          type="checkbox"
-                          id="territory-draft-top"
-                          checked={territorySelection}
-                          onChange={(e) => { setTerritorySelection(e.target.checked); if (e.target.checked) setFactionsEnabled(false); }}
-                          disabled={factionsEnabled || isGalacticEra}
-                          className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
-                        />
-                        <span className="leading-snug min-w-0 select-none">Territory Draft</span>
-                      </label>
-                    </div>
-                    <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                      <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'asymmetric_factions')} />
-                      <label htmlFor="asymmetric-factions-top" className="contents cursor-pointer">
-                        <input
-                          type="checkbox"
-                          id="asymmetric-factions-top"
-                          checked={factionsEnabled}
-                          onChange={(e) => {
-                            setFactionsEnabled(e.target.checked);
-                            if (e.target.checked) setTerritorySelection(false);
-                          }}
-                          disabled={territorySelection || lockedSystems.has('factions') || galaxyHomeWorldsOff}
-                          aria-describedby={lockedSystems.has('factions') || galaxyHomeWorldsOff ? 'era-locked-systems-notice' : undefined}
-                          className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
-                        />
-                        <span className="leading-snug min-w-0 select-none">
-                          Asymmetric Factions
-                          {lockedSystems.has('factions') && <span className="text-xs text-bf-muted"> (required)</span>}
-                          {galaxyHomeWorldsOff && <span className="text-xs text-bf-muted"> (off without Home Worlds)</span>}
-                        </span>
-                      </label>
-                    </div>
+                    {!customLobbyFold && createDraftAndFactions}
                     {isGalacticEra && (
                       <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
                         <FeatureTooltip text="On: each player starts on their faction's home world and fights outward across the hyperspace lanes. With two or three players, the worlds nobody calls home start neutral and garrisoned, as colonies to take — and with three, two extra lanes link every world to every other. Off: territories are dealt out across all four worlds, lanes are ordinary borders, and there are no faction kits or Lane Sovereignty — a faster game (about 23 turns against 27 in testing) that the early leader wins more often." />
@@ -2710,238 +3024,12 @@ export default function LobbyPage() {
                       </div>
                     )}
                   </div>
+                  )}
                     {isGalacticEra && (
                       <GalaxyLessonsOffer completedModules={completedModules} className="md:col-span-2" />
                     )}
-                    <div className="md:col-span-2 border-t border-bf-border pt-4 mt-2">
-                      <label className="label mb-2">Advanced Features</label>
-                      {lockedSystemsNotice && (
-                        <p id="era-locked-systems-notice" className="text-[11px] text-bf-muted mb-3 leading-relaxed">
-                          {lockedSystemsNotice}
-                        </p>
-                      )}
-                      {mapImmersion && (
-                        <p className="text-[11px] text-bf-muted mb-3 leading-relaxed">
-                          Hover each (i) for this theater’s lore alongside the standard rules.
-                        </p>
-                      )}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                          <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'economy_buildings')} />
-                          <label htmlFor="create-game-economy" className="contents cursor-pointer">
-                            <input id="create-game-economy" type="checkbox" checked={economyEnabled || economyRequired} onChange={(e) => { autoEnabledSystemsRef.current.delete('economy'); eraAdvancementAutoTickedRef.current.delete('economy'); setEconomyEnabled(e.target.checked); }} disabled={lockedSystems.has('economy') || economyRequired} aria-describedby={lockedSystems.has('economy') ? 'era-locked-systems-notice' : undefined} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
-                            <span className="leading-snug min-w-0 select-none">
-                              Economy &amp; Buildings
-                              {(lockedSystems.has('economy') || economyRequired) && <span className="text-xs text-bf-muted"> (required)</span>}
-                            </span>
-                          </label>
-                        </div>
-                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                          <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'tech_trees')} />
-                          <label htmlFor="create-game-tech-trees" className="contents cursor-pointer">
-                            <input id="create-game-tech-trees" type="checkbox" checked={techTreesEnabled} onChange={(e) => { autoEnabledSystemsRef.current.delete('tech_trees'); eraAdvancementAutoTickedRef.current.delete('tech_trees'); setTechTreesEnabled(e.target.checked); }} disabled={lockedSystems.has('tech_trees')} aria-describedby={lockedSystems.has('tech_trees') ? 'era-locked-systems-notice' : undefined} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
-                            <span className="leading-snug min-w-0 select-none">
-                              Technology Trees
-                              {lockedSystems.has('tech_trees') && <span className="text-xs text-bf-muted"> (required)</span>}
-                            </span>
-                          </label>
-                        </div>
-                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                          <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'historical_events')} />
-                          <label htmlFor="create-game-events" className="contents cursor-pointer">
-                            <input id="create-game-events" type="checkbox" checked={eventsEnabled} onChange={(e) => { eraAdvancementAutoTickedRef.current.delete('events'); setEventsEnabled(e.target.checked); }} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
-                            <span className="leading-snug min-w-0 select-none">Historical Events</span>
-                          </label>
-                        </div>
-                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                          <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'naval_warfare')} />
-                          <label htmlFor="create-game-naval" className="contents cursor-pointer">
-                            <input id="create-game-naval" type="checkbox" checked={navalEnabled} onChange={(e) => { eraAdvancementAutoTickedRef.current.delete('naval'); setNavalEnabled(e.target.checked); }} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
-                            <span className="leading-snug min-w-0 select-none">Naval Warfare <span className="text-xs text-bf-muted">(needs Economy &amp; Buildings — fleets come from Ports)</span></span>
-                          </label>
-                        </div>
-                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                          <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'population_stability')} />
-                          <label htmlFor="create-game-stability" className="contents cursor-pointer">
-                            <input id="create-game-stability" type="checkbox" checked={stabilityEnabled} onChange={(e) => { eraAdvancementAutoTickedRef.current.delete('stability'); setStabilityEnabled(e.target.checked); }} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
-                            <span className="leading-snug min-w-0 select-none">Population &amp; Stability</span>
-                          </label>
-                        </div>
-                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                          <FeatureTooltip text={advancedFeatureTooltip(isCommunityTheaterMap(selectedTheaterMapId) ? selectedTheaterMapId : null, 'fog_of_war')} />
-                          <label htmlFor="create-game-fog" className="contents cursor-pointer">
-                            <input id="create-game-fog" type="checkbox" checked={fogOfWar} onChange={(e) => setFogOfWar(e.target.checked)} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
-                            <span className="leading-snug min-w-0 select-none">Fog of War</span>
-                          </label>
-                        </div>
-                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                          <FeatureTooltip text="Lets human players offer each other truces during the attack phase. An accepted truce lasts 3 rounds. Either side can still attack the other, by any means, but that breaks the truce: the attacker confirms first, and the other side gets an extra die against them. AI players always decline, so this only matters with other people at the table. Historical Events can impose truces either way." />
-                          <label htmlFor="create-game-diplomacy" className="contents cursor-pointer">
-                            <input id="create-game-diplomacy" type="checkbox" checked={diplomacyEnabled} onChange={(e) => setDiplomacyEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
-                            <span className="leading-snug min-w-0 select-none">Diplomacy</span>
-                          </label>
-                        </div>
-                        {aiCount > 0 && (
-                          <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                            <FeatureTooltip text="At the start of each of your reinforcement phases after the game’s opening turn, shows at most one tip: a sharp drop in your win chances, a region under threat or within reach, or a thinly held border. Once a game, after 10 rounds with under a 5% chance to win, it suggests resigning. Only for a lone human against AI — if other people join, it switches off when the game starts." />
-                            <label htmlFor="create-game-coaching" className="contents cursor-pointer">
-                              <input id="create-game-coaching" type="checkbox" checked={coachingEnabled} onChange={(e) => setCoachingEnabled(e.target.checked)} className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0" />
-                              <span className="leading-snug min-w-0 select-none">In-Turn Coaching <span className="text-xs text-bf-muted">(solo vs AI only)</span></span>
-                            </label>
-                          </div>
-                        )}
-                        {eraAdvancementLobbyEnabled && selectedEra === 'ancient' && (
-                          <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                            <FeatureTooltip text="Each player can advance their civilization to the next era mid-match, at their own pace. The gate is a building, plus early research and a stable empire when those systems are on; the price is a few turns of production. Advancing brings the next era’s rules and tech tree, a one-time arrival bonus and an extra die against players in earlier eras — but your army shrinks by about 30% (every territory keeps at least 1 unit, so big stacks lose more), your research starts over, and you defend weaker until your next turn. Turns on Economy & Buildings, which it needs." />
-                            <label htmlFor="create-game-era-advancement" className="contents cursor-pointer">
-                              <input
-                                id="create-game-era-advancement"
-                                type="checkbox"
-                                checked={eraAdvancementEnabled}
-                                onChange={(e) => {
-                                  const on = e.target.checked;
-                                  setEraAdvancementEnabled(on);
-                                  const auto = eraAdvancementAutoTickedRef.current;
-                                  if (on) {
-                                    // Default to the full-game experience. Economy
-                                    // stays locked on while this is ticked
-                                    // (economyRequired); the rest remain optional,
-                                    // and the ones this tick flipped are remembered
-                                    // so unticking puts them back.
-                                    auto.clear();
-                                    if (!economyEnabled) { auto.add('economy'); }
-                                    setEconomyEnabled(true);
-                                    if (!techTreesEnabled) { auto.add('tech_trees'); setTechTreesEnabled(true); }
-                                    if (!stabilityEnabled) { auto.add('stability'); setStabilityEnabled(true); }
-                                    if (!navalEnabled) { auto.add('naval'); setNavalEnabled(true); }
-                                    if (!eventsEnabled) { auto.add('events'); setEventsEnabled(true); }
-                                  } else {
-                                    if (auto.has('economy')) setEconomyEnabled(false);
-                                    if (auto.has('tech_trees')) setTechTreesEnabled(false);
-                                    if (auto.has('stability')) setStabilityEnabled(false);
-                                    if (auto.has('naval')) setNavalEnabled(false);
-                                    if (auto.has('events')) setEventsEnabled(false);
-                                    auto.clear();
-                                  }
-                                }}
-                                className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
-                              />
-                              <span className="leading-snug min-w-0 select-none">Era Advancement <span className="text-xs text-bf-muted">(advance through the ages mid-match)</span></span>
-                            </label>
-                            <p className="col-start-2 col-span-2 text-xs text-bf-muted mt-1">
-                              Requires Economy &amp; Buildings. Ticking it also switches on Technology, Population &amp; Stability, Naval Warfare and Historical Events — untick any you don't want; unticking Era Advancement puts them back.
-                            </p>
-                            {eraAdvancementEnabled && (
-                              <div className="col-start-2 col-span-2 mt-2">
-                                <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Era advancement preset">
-                                  {([
-                                    ['skirmish', 'Skirmish', 'Ancient → Medieval, faster & forgiving'],
-                                    ['standard', 'Standard', 'Ancient → Modern, balanced'],
-                                    ['epic', 'Epic', 'Ancient → Space Age, steeper & longer'],
-                                  ] as const).map(([id, label, desc]) => (
-                                    <button
-                                      key={id}
-                                      type="button"
-                                      role="radio"
-                                      aria-checked={eraAdvancementPreset === id}
-                                      data-testid={`era-preset-${id}`}
-                                      title={desc}
-                                      onClick={() => setEraAdvancementPreset(id)}
-                                      className={clsx(
-                                        'px-2.5 py-1 text-xs rounded-md border transition-colors',
-                                        eraAdvancementPreset === id
-                                          ? 'border-bf-gold/60 bg-bf-gold/15 text-bf-gold'
-                                          : 'border-bf-border bg-bf-dark/60 text-bf-muted hover:text-bf-text',
-                                      )}
-                                    >
-                                      {label}
-                                    </button>
-                                  ))}
-                                </div>
-                                <p className="text-[11px] text-bf-muted mt-1">
-                                  {eraAdvancementPreset === 'skirmish' && 'Two-era climb with cheaper, lighter gates — quick games.'}
-                                  {eraAdvancementPreset === 'standard' && 'Six-era timeline, Ancient to Modern, with balanced costs and gates.'}
-                                  {eraAdvancementPreset === 'epic' && 'The full Ancient → Space Age climb with steeper costs and a stricter stability gate — long or async play.'}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        {/* Card sets pay out in every game, so this lives here rather than
-                            under Conditional Settings, which only shows once a dice-granting
-                            system is on: there it was out of reach in a plain game, and a
-                            box ticked before that section hid stayed ticked, unseen. */}
-                        <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                          <FeatureTooltip text="Territory card sets pay an escalating bonus on a schedule shared by every player (4, 6, 8, 10, 12, 15, then +5 per set). New games cap that bonus at 30 units; turn this on for the classic unbounded schedule, where late redemptions can be worth more than a player's whole board." />
-                          <label htmlFor="create-game-uncapped-card-sets" className="contents cursor-pointer">
-                            <input
-                              id="create-game-uncapped-card-sets"
-                              type="checkbox"
-                              checked={uncappedCardSets}
-                              onChange={(e) => setUncappedCardSets(e.target.checked)}
-                              className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
-                            />
-                            <span className="leading-snug min-w-0 select-none">Uncapped card sets <span className="text-xs text-bf-muted">(classic escalation)</span></span>
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-                    {combatDiceCapApplicable && (
-                    <div className="md:col-span-2 border-t border-bf-border pt-4 mt-2">
-                      <label className="label mb-2">Conditional Settings</label>
-                      <p className="text-[11px] text-bf-muted mb-3 leading-relaxed">
-                        These appear because of choices you made above — they don&apos;t apply to every game.
-                      </p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                        {combatDiceCapApplicable && (
-                          <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-x-2 text-sm text-bf-text w-full">
-                            <FeatureTooltip text="Caps the dice each side can roll once every bonus is added, so stacked defenses (buildings, a Wonder, faction, tech, naval bombardment) can’t make a territory impregnable to a much larger army. On by default. Turning it off doesn’t bring back classic dice — it lets the bonuses stack without limit." />
-                            <label htmlFor="create-game-combat-dice-cap" className="contents cursor-pointer">
-                              <input
-                                id="create-game-combat-dice-cap"
-                                type="checkbox"
-                                checked={combatDiceCapEnabled}
-                                onChange={(e) => setCombatDiceCapEnabled(e.target.checked)}
-                                className="w-4 h-4 mt-0.5 accent-bf-gold shrink-0"
-                              />
-                              <span className="leading-snug min-w-0 select-none">Combat Dice Cap <span className="text-xs text-bf-muted">(anti-fortress)</span></span>
-                            </label>
-                            {combatDiceCapEnabled && (
-                              <div className="col-start-2 col-span-2 mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
-                                <label className="flex items-center gap-2 text-xs text-bf-muted">
-                                  Max attacker dice
-                                  <input
-                                    type="number"
-                                    min={3}
-                                    max={7}
-                                    value={combatMaxAttackerDice}
-                                    onChange={(e) => setCombatMaxAttackerDice(Math.max(3, Math.min(7, Number(e.target.value) || 5)))}
-                                    className="input w-16 py-1"
-                                    data-testid="combat-max-attacker-dice"
-                                  />
-                                </label>
-                                <label className="flex items-center gap-2 text-xs text-bf-muted">
-                                  Max defender dice
-                                  <input
-                                    type="number"
-                                    min={2}
-                                    max={6}
-                                    value={combatMaxDefenderDice}
-                                    onChange={(e) => setCombatMaxDefenderDice(Math.max(2, Math.min(6, Number(e.target.value) || 4)))}
-                                    className="input w-16 py-1"
-                                    data-testid="combat-max-defender-dice"
-                                  />
-                                </label>
-                                <p className="basis-full text-[11px] text-bf-muted/80 mt-0.5">
-                                  Defaults 5 / 4. Lower the defender cap for more attackable fortresses.
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    )}
+                    {!customLobbyFold && createAdvancedFeatures}
+                    {!customLobbyFold && createConditionalSettings}
                   <div className="md:col-span-2">
                     <label className="label">Victory conditions</label>
                     <p className="text-xs text-bf-muted mb-2">
@@ -3000,6 +3088,7 @@ export default function LobbyPage() {
                       </div>
                     )}
                   </div>
+                  {customLobbyFold && createAdvancedFold}
                   <div className="sticky bottom-0 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 border-t border-bf-border bg-bf-surface/95 backdrop-blur md:col-span-2">
                     {!user?.is_guest && (
                       <button
