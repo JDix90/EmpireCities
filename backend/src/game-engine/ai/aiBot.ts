@@ -32,6 +32,7 @@ import { getWorldRules, vaultRegionIds } from '../state/worldRules';
 import { isJumpGateOnlyEdge } from '../state/jumpGates';
 import { corridorCompletionTargets, laneSovereigntyProgress } from '../victory/laneSovereignty';
 import { isFriendlyOwner, isShieldedFrom } from '../state/teams';
+import { seenUnits } from '../state/fogOfWar';
 import {
   GARRISON_DOCTRINE_TUNING,
   garrisonsEnabled,
@@ -866,7 +867,8 @@ export function rankAiUnificationTargets(state: GameState, map: GameMap, playerI
     const completes = size > 0 && heldAfter === size;
     const rivalUnits = (adjacency[id] ?? []).reduce((sum, nid) => {
       const n = state.territories[nid];
-      return n?.owner_id && !isFriendlyOwner(state, playerId, n.owner_id) ? sum + n.unit_count : sum;
+      // Up to a hop past the bot's border, so under fog it may be hidden.
+      return n?.owner_id && !isFriendlyOwner(state, playerId, n.owner_id) ? sum + seenUnits(n) : sum;
     }, 0);
     const score =
       (completes ? 5 + (regionBonus.get(region!) ?? 0) : 0)

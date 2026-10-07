@@ -30,6 +30,7 @@ import { getEffectiveTechCost, getEraTechTreeForPlayer, getPlayerTechPointIncome
 import { BUILDING_TECH_INCOME } from '../state/economyManager';
 import { eliminatePlayer } from '../state/elimination';
 import { isShieldedFrom } from '../state/teams';
+import { seenUnits } from '../state/fogOfWar';
 import { activeTruceBetween } from '../state/truces';
 import { playerHasUnlockedAbility } from '../abilities/techAbilities';
 import { atomBombPriceFor } from '../abilities/atomicArsenal';
@@ -182,7 +183,8 @@ function scoreTarget(state: GameState, map: GameMap, playerId: string, territory
   }
   const owner = state.players.find((p) => p.player_id === t.owner_id);
   const buildings = (t.buildings ?? []).length;
-  const value = t.unit_count
+  // The bomb reaches any tile, so under fog its garrison may be hidden.
+  const value = seenUnits(t)
     + 2 * buildings
     + (walkInFrom ? 2 : 0)
     + (owner?.capital_territory_id === territoryId ? 3 : 0);

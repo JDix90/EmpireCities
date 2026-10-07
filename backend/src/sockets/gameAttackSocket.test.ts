@@ -1006,6 +1006,31 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
     expect(view.territories.c.unit_count).toBe(-1);
   });
 
+  it('shows the tile across a lane one game has opened that another on its map has not', async () => {
+    // Two games on one map id. A Launch Pad, a Jump Gate or a Surge Projector
+    // opens a lane by replacing `map.connections`, so the second game's a–c
+    // lane is on its own map only. p1 at a must see c across it there, and
+    // not in the first game, whichever game's graph was built first.
+    const mapId = 'itest-fog-lane-map';
+    const plain = { ...buildMap('x'), map_id: mapId };
+    const laned = { ...plain, connections: [...plain.connections, { from: 'a', to: 'c', type: 'orbit' }] } as GameMap;
+    const c1 = await connect('p1');
+    const sees = async (gameId: string, map: GameMap): Promise<number> => {
+      await seed(gameId, buildState(gameId, [], {
+        map_id: mapId,
+        phase: 'draft', current_player_index: 0, draft_units_remaining: 0,
+        territories: { a: terr('a', 'p1', 2), b: terr('b', 'p2', 1), c: terr('c', 'p3', 5) },
+        settings: { ...buildState(gameId, []).settings, fog_of_war: true },
+      }), map);
+      await joinRoom('p1', gameId);
+      const next = waitForState(c1, gameId);
+      c1.emit('game:advance_phase', { gameId, action_id: `lane-${gameId}` });
+      return (await next).territories.c.unit_count;
+    };
+    expect(await sees('itest-fog-lane-1', plain)).toBe(-1);
+    expect(await sees('itest-fog-lane-2', laned)).toBe(5);
+  });
+
   it('still shows everyone the totals when fog is off', async () => {
     const gameId = 'itest-nofog-visual';
     await seed(gameId, buildState(gameId, [], {

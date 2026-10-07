@@ -33,7 +33,9 @@
  *          the lobby's default, whose ending is the whole board; kept so the
  *          runs and digests measured on it still compare.
  * Fog of war is off in all of them, as in those payloads, so every seat plans
- * on the full board.
+ * on the full board. ARENA_SETTINGS='{"fog_of_war":true}' plays them under
+ * fog, where each seat sees the board as a human in it would
+ * (state/fogOfWar.ts seatView), as in a live game.
  *
  * Besides who wins and how long games run, the report measures how the
  * candidate plays, against what each commander's style promises: its attack
@@ -85,6 +87,7 @@ import {
 import { bakeCreateGameSettings, type CreateGameSettingsInput } from '../src/modules/games/createGameSettings';
 import { createSeededRng, hashStringToSeed } from '../src/game-engine/victory/missions';
 import { resignIfBeaten, victoryAfterResignation } from '../src/game-engine/ai/aiResign';
+import { seatView } from '../src/game-engine/state/fogOfWar';
 import { styledLevel, type AiStyle } from '../src/game-engine/ai/aiStyles';
 import { AI_STYLES, drawAiCommanders } from '@borderfall/shared';
 import { aiLevelChanges, describeAiTurnFlags, handOff, parseAiLevel, parseAiTurnFlags, resolveChoiceCard } from './aiHarness';
@@ -477,7 +480,7 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
       }
     } else {
       const plan = await planAiTurn(state, map, player, level, seat.flags, {
-        planningState: () => state,
+        planningState: () => seatView(state, map, player.player_id),
         plan: async (s, m, d, o) => computeAiTurn(s, m, d, { ...o, rng: jitter }),
         rng: jitter,
       });

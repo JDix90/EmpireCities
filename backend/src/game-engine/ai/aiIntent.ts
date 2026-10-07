@@ -35,14 +35,15 @@
 import type { AiIntent, GameMap, GameState } from '../../types';
 import { scaleRegionBonus } from '../combat/combatResolver';
 import { isFriendlyOwner, isShieldedFrom, isTeamGame } from '../state/teams';
+import { HIDDEN_UNITS } from '../state/fogOfWar';
 import { buildAdjacencyMap, isTruceActive, weakestRivals } from './aiBot';
 import { aiProfile, type AiLevel } from './aiProfiles';
 
 export type { AiIntent };
 export type AiIntentKind = AiIntent['kind'];
 
-/** A garrison the seat cannot see, under fog of war, counts as this many units. */
-export const HIDDEN_UNITS = 3;
+/** A garrison the seat cannot see, under fog of war, counts as this many units (state/fogOfWar.ts). */
+export { HIDDEN_UNITS };
 /** Turns of a region's income that taking or breaking it is worth. ⚠ balance */
 export const REGION_HORIZON = 3;
 /** Breaking a rival's region is worth this share of taking one: it gains the bot nothing itself. ⚠ balance */

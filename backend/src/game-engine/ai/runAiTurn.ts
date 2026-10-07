@@ -130,6 +130,13 @@ export interface AiTurnHooks {
 
 export interface AiTurnPlan {
   actions: AiAction[];
+  /**
+   * The board as this seat sees it, built afresh on each call: the planning
+   * view, fog-filtered under fog of war. The turn's choices of target read
+   * it, and its rules apply to the authoritative state. planAiTurn always
+   * sets it; a plan built by hand without it plays on the full board.
+   */
+  view?: () => GameState;
   /** Dice exchanges left this turn; spent across every attack. */
   attackBudget: { left: number };
   attackGrind: boolean;
@@ -220,9 +227,10 @@ export async function planAiTurn(
         ? aiPressExchangeCeiling(difficulty, decidedPress)
         : aiAttackExchangeBudget(difficulty, decidedPress),
   };
+  const view = (): GameState => hooks.planningState();
   const replan = oddsPress && flags.plannedDraft && !aiProfile(difficulty).passive
     ? {
-      view: () => hooks.planningState(),
+      view,
       options: {
         captureOddsScoring: flags.captureOddsScoring,
         decidedGamePress: decidedPress,
@@ -236,6 +244,7 @@ export async function planAiTurn(
     : undefined;
   return {
     actions,
+    view,
     attackBudget,
     attackGrind: flags.attackGrind,
     ...(oddsPress ? { oddsPress: true } : {}),
@@ -277,6 +286,11 @@ export async function playAiTurn(
 ): Promise<'done' | 'over'> {
   const { actions, attackBudget: aiAttackBudget, attackGrind: aiAttackGrindEnabled } = plan;
   const oddsPress = !!plan.oddsPress;
+  // Fog-fair choices: every target below is chosen on the board as this seat
+  // sees it, built afresh for each choice, since a capture or an unlock moves
+  // what it can see. Choices only: each is then checked and applied by the
+  // rules on the authoritative state. With fog off the view is the state.
+  const seen = plan.view ?? (() => state);
 
   // ── Draft Phase ────────────────────────────────────────────────────────
   if (resumeAt === 'draft') {
@@ -287,7 +301,7 @@ export async function playAiTurn(
   // the advance check ran before that turn's research, costing a turn each climb).
   if (state.settings.economy_enabled || state.settings.tech_trees_enabled) {
     if (state.settings.economy_enabled) {
-      const buildDecision = selectAiBuildingPlacement(state, map, currentPlayer.player_id, difficulty);
+      const buildDecision = selectAiBuildingPlacement(seen(), map, currentPlayer.player_id, difficulty);
       if (buildDecision) {
         applyBuild(state, currentPlayer.player_id, buildDecision.territoryId, buildDecision.buildingType);
         if (buildDecision.buildingType === 'launch_pad') {
@@ -296,7 +310,7 @@ export async function playAiTurn(
       }
     }
     if (state.settings.tech_trees_enabled) {
-      const techId = selectAiTechResearch(state, currentPlayer.player_id, difficulty);
+      const techId = selectAiTechResearch(seen(), currentPlayer.player_id, difficulty);
       if (techId) {
         const techValidation = validateResearch(state, currentPlayer.player_id, techId);
         if (techValidation.valid && techValidation.node) {
@@ -308,7 +322,7 @@ export async function playAiTurn(
     // made and before its attacks, so a Forward garrison is in place for the
     // crossing it was bought for. Same validator as the human handler.
     if (state.settings.economy_enabled && garrisonsEnabled(state)) {
-      for (const pick of selectAiGarrisonDoctrines(state, map, currentPlayer.player_id, difficulty, actions)) {
+      for (const pick of selectAiGarrisonDoctrines(seen(), map, currentPlayer.player_id, difficulty, actions)) {
         if (validateGarrisonDoctrine(state, currentPlayer.player_id, pick.territoryId, pick.doctrine).valid) {
           applyGarrisonDoctrine(state, currentPlayer.player_id, pick.territoryId, pick.doctrine);
         }
@@ -322,7 +336,7 @@ export async function playAiTurn(
   if (
     state.settings.era_advancement_enabled
     && !aiProfile(difficulty).passive
-    && evaluateAiEraAdvancement(state, map, currentPlayer.player_id, difficulty).shouldAdvance
+    && evaluateAiEraAdvancement(seen(), map, currentPlayer.player_id, difficulty).shouldAdvance
   ) {
     const advanceResult = executeAdvanceEra(state, currentPlayer.player_id, map);
     if (advanceResult.success) {
@@ -532,7 +546,7 @@ export async function playAiTurn(
   // export below, which only converts what the powers do not need: a bot that
   // exported first would never hold the 8 He-3 this costs.
   if (areMoonPowersEnabled(state) && canAiUseOrbitalDrop(state, currentPlayer.player_id)) {
-    const dropTarget = selectAiOrbitalDropTarget(state, map, currentPlayer.player_id);
+    const dropTarget = selectAiOrbitalDropTarget(seen(), map, currentPlayer.player_id);
     if (dropTarget) {
       const res = executeTechAbility({
         state,
@@ -556,7 +570,7 @@ export async function playAiTurn(
     aiFiresLanePowers(difficulty)
     && canAiFireLanePower(state, currentPlayer.player_id, 'orbital_muster')
   ) {
-    const musterAt = selectAiOrbitalMusterTarget(state, map, currentPlayer.player_id);
+    const musterAt = selectAiOrbitalMusterTarget(seen(), map, currentPlayer.player_id);
     if (musterAt) {
       const res = executeTechAbility({
         state, map, playerId: currentPlayer.player_id, abilityId: 'orbital_muster', territoryId: musterAt,
@@ -572,7 +586,7 @@ export async function playAiTurn(
   // of the bot's next turn, through exactly the path a human declaration takes,
   // so the telegraph and the defender's round to answer it are identical.
   if (areMoonPowersEnabled(state) && canAiUseDropAssault(state, currentPlayer.player_id)) {
-    const assaultTarget = selectAiDropAssaultTarget(state, currentPlayer.player_id);
+    const assaultTarget = selectAiDropAssaultTarget(seen(), currentPlayer.player_id);
     if (assaultTarget) {
       const res = executeTechAbility({
         state,
@@ -593,7 +607,7 @@ export async function playAiTurn(
   // point; the stockpile cap means hoarding past 30 is wasted anyway. Under
   // Phase 2 it converts only the surplus over what the bot is saving for its
   // powers (aiMoonPowers.ts); with Phase 2 off the rule is Phase 1's exactly.
-  if (shouldAiExportHelium3(state, map, currentPlayer.player_id)) {
+  if (shouldAiExportHelium3(seen(), map, currentPlayer.player_id)) {
     executeTechAbility({
       state,
       map,
@@ -671,7 +685,7 @@ export async function playAiTurn(
       (sealFaction?.ability_id === EMERGENCY_SEAL_ABILITY_ID || vaultSeal)
       && !(currentPlayer.ability_uses ?? {})[EMERGENCY_SEAL_ABILITY_ID]
     ) {
-      const best = chooseEmergencySealLane(state, map, currentPlayer.player_id);
+      const best = chooseEmergencySealLane(seen(), map, currentPlayer.player_id);
       if (best) {
         const check = canSealLane(state, map, best.from, best.to, currentPlayer.player_id, sealFaction?.ability_id, {
           vaultHolder: vaultSeal,
@@ -697,7 +711,7 @@ export async function playAiTurn(
   // executeTechAbility, as a human's do.
   if (aiFiresLanePowers(difficulty) && lanePowersEnabled(state)) {
     if (canAiFireLanePower(state, currentPlayer.player_id, 'seal_breaker')) {
-      const breach = selectAiSealBreaker(state, map, currentPlayer.player_id);
+      const breach = selectAiSealBreaker(seen(), map, currentPlayer.player_id);
       if (breach) {
         const res = executeTechAbility({
           state, map, playerId: currentPlayer.player_id, abilityId: 'seal_breaker', territoryId: breach.source,
@@ -715,7 +729,7 @@ export async function playAiTurn(
     // Surge Projector: open a ring gap into a weakly held rival gateway and
     // plan that crossing first. The ability puts the lane on the map copy.
     if (canAiFireLanePower(state, currentPlayer.player_id, 'surge_projector')) {
-      const surge = selectAiSurgeProjector(state, map, currentPlayer.player_id);
+      const surge = selectAiSurgeProjector(seen(), map, currentPlayer.player_id);
       if (surge) {
         const res = executeTechAbility({
           state, map, playerId: currentPlayer.player_id, abilityId: 'surge_projector', territoryId: surge.target,
@@ -732,7 +746,7 @@ export async function playAiTurn(
       }
     }
     if (canAiFireLanePower(state, currentPlayer.player_id, 'lance_battery')) {
-      const lanceAt = selectAiLanceBatteryTarget(state, map, currentPlayer.player_id, actions);
+      const lanceAt = selectAiLanceBatteryTarget(seen(), map, currentPlayer.player_id, actions);
       if (lanceAt) {
         const res = executeTechAbility({
           state, map, playerId: currentPlayer.player_id, abilityId: 'lance_battery', territoryId: lanceAt,
@@ -794,7 +808,7 @@ export async function playAiTurn(
   // the executor a human's goes through, and walks in when it has a stack
   // beside the tile. Without the setting nothing here runs.
   {
-    const strike = selectAiAtomBombStrike(state, map, currentPlayer.player_id);
+    const strike = selectAiAtomBombStrike(seen(), map, currentPlayer.player_id);
     if (strike) {
       const res = executeTechAbility({
         state,
@@ -857,7 +871,7 @@ export async function playAiTurn(
   // that is its own change; here it is scoped to the Moon tier so the Phase 2
   // control run stays today's game exactly.
   if (areMoonPowersEnabled(state) && canAiUseDysonBeam(state, currentPlayer.player_id)) {
-    const beamTarget = selectAiDysonBeamTarget(state, map, currentPlayer.player_id);
+    const beamTarget = selectAiDysonBeamTarget(seen(), map, currentPlayer.player_id);
     if (beamTarget) {
       const res = executeTechAbility({
         state,
@@ -892,7 +906,7 @@ export async function playAiTurn(
   // canSealLane the human path uses, so the Launch Pad exclusion and the
   // endpoint rule apply identically.
   {
-    const seal = selectAiLaneSeal(state, map, currentPlayer.player_id);
+    const seal = selectAiLaneSeal(seen(), map, currentPlayer.player_id);
     if (seal) {
       const check = canSealLane(state, map, seal[0], seal[1], currentPlayer.player_id);
       if (check.ok && check.laneId) {
@@ -915,7 +929,7 @@ export async function playAiTurn(
   if (state.settings.factions_enabled && currentPlayer.faction_id) {
     const aiFaction = getPlayerFaction(state, currentPlayer);
     if (aiFaction?.ability_id === 'unification_drive' && !(currentPlayer.ability_uses ?? {})['unification_drive']) {
-      for (const tid of rankAiUnificationTargets(state, map, currentPlayer.player_id)) {
+      for (const tid of rankAiUnificationTargets(seen(), map, currentPlayer.player_id)) {
         const res = executeTechAbility({
           state,
           map,

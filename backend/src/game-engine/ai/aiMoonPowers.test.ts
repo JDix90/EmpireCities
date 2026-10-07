@@ -12,6 +12,7 @@ import {
   selectAiOrbitalDropTarget,
   shouldAiExportHelium3,
 } from './aiMoonPowers';
+import { seatView } from '../state/fogOfWar';
 
 /**
  * The bot's side of the gated tier. The rule that matters most here is the
@@ -272,6 +273,24 @@ describe('choosing a Drop Assault target', () => {
       region('asia_a', 'bot', 3, 'asia_2100'), region('asia_b', 'rival', 2, 'asia_2100'),
     ]);
     expect(selectAiDropAssaultTarget(state, 'bot')).toBe('asia_b');
+  });
+
+  it('under fog of war, counts a garrison it cannot see as a few units, whatever it holds', () => {
+    // asia_b borders the bot's asia_a, so its 2 is seen. euro_north borders
+    // nothing the bot holds: a drop reaches it, but fog hides its garrison.
+    const state = regionState([
+      region('euro_west', 'bot'), region('euro_north', 'rival', 1),
+      region('asia_a', 'bot', 3, 'asia_2100'), region('asia_b', 'rival', 2, 'asia_2100'),
+    ]);
+    state.settings.fog_of_war = true;
+    const map = mkMap([['asia_a', 'asia_b']]);
+    for (const hidden of [1, 30]) {
+      state.territories.euro_north!.unit_count = hidden;
+      expect(selectAiDropAssaultTarget(seatView(state, map, 'bot'), 'bot')).toBe('asia_b');
+    }
+    // On the full board the hidden garrison's size decides it.
+    state.territories.euro_north!.unit_count = 1;
+    expect(selectAiDropAssaultTarget(state, 'bot')).toBe('euro_north');
   });
 
   it('declines when no region is one tile from complete', () => {
