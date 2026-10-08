@@ -127,6 +127,13 @@ import { updateChallengeProgress, type GameChallengeEvent } from '../game-engine
 import { checkReferralCompletion } from '../game-engine/progression/referralService';
 import { recordActivity } from '../services/activityService';
 import { recordServerEvent } from '../services/analyticsEvents';
+import {
+  botAimProperties,
+  botAimStandings,
+  countBotCapture,
+  emptyBotAimCounts,
+  type BotAimCounts,
+} from '../services/botAimTelemetry';
 import { generateAndStorePostMatchAnalysis, updateSkillProfilesFromGameState } from '../services/playerValueEnhancements';
 import { incrementPlayCount } from '../modules/maps/mapService';
 import { loadMatchCosmetics } from '../modules/users/matchCosmetics';
@@ -305,6 +312,8 @@ interface PlayerCombatStats {
   eliminations_dealt: number;
 }
 const gameCombatStats = new Map<string, Map<string, PlayerCombatStats>>();
+// Where each game's bots aim (services/botAimTelemetry.ts), for game_finished.
+const gameBotAim = new Map<string, BotAimCounts>();
 
 function ensureCombatStats(gameId: string, playerId: string): PlayerCombatStats {
   if (!gameCombatStats.has(gameId)) gameCombatStats.set(gameId, new Map());
@@ -5496,6 +5505,10 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
         ai_difficulty: gameAiDifficulty(state.players),
         ai_count: state.players.filter((p) => p.is_ai).length,
         max_turns: state.settings.max_turns ?? null,
+        // Where the bots' captures came from: territories they took from
+        // other players, and how many were a human's, the leading rival's
+        // and the weakest rival's (services/botAimTelemetry.ts).
+        ...(state.players.some((p) => p.is_ai) ? botAimProperties(gameBotAim.get(gameId)) : {}),
       },
       human.player_id,
     );
@@ -5816,6 +5829,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
     turn_count: stats.turn_count,
   });
   gameCombatStats.delete(gameId);
+  gameBotAim.delete(gameId);
   turnReadyAcked.delete(gameId);
 
   clearDecisionLog(gameId);
@@ -6105,6 +6119,10 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
 
   // The turn itself (game-engine/ai/runAiTurn.ts), shared with the harnesses.
   // Everything the live game does around the rules arrives as a hook.
+  // Who led and who was weakest as this bot's turn began, for game_finished
+  // (services/botAimTelemetry.ts). Bots only: a player away keeps their seat.
+  const aimStandings = currentPlayer.is_ai ? botAimStandings(state, currentPlayer.player_id) : null;
+
   const outcome = aiPlan && await playAiTurn(state, map, currentPlayer, level, aiPlan, resumeAt, {
     delay,
     victoryCheck: doVictoryCheck,
@@ -6125,8 +6143,14 @@ async function processAiTurn(io: Server, gameId: string): Promise<void> {
     mapChanged: () => persistAndBroadcastMap(io, gameId, state, map),
     afterCapture: () => syncJumpGateLanesAfterCapture(io, gameId, state, map),
     surgeLanesClosed: () => syncSurgeProjectorAndBroadcastMap(io, gameId, state, map),
-    recordCombat: (defenderId, result, options) =>
-      recordCombatResult(gameId, currentPlayer.player_id, defenderId, result, options),
+    recordCombat: (defenderId, result, options) => {
+      recordCombatResult(gameId, currentPlayer.player_id, defenderId, result, options);
+      const defender = defenderId ? state.players.find((p) => p.player_id === defenderId) : undefined;
+      if (aimStandings && defender && result.territory_captured) {
+        if (!gameBotAim.has(gameId)) gameBotAim.set(gameId, emptyBotAimCounts());
+        countBotCapture(gameBotAim.get(gameId)!, aimStandings, defender);
+      }
+    },
     recordElimination: () => recordElimination(gameId, currentPlayer.player_id),
   });
   if (outcome === 'over') return;

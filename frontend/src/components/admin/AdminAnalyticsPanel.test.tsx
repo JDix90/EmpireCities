@@ -79,6 +79,7 @@ describe('AdminAnalyticsPanel', () => {
   });
 
   it('shows solo games by bot level when the backend sends any, and nothing otherwise', () => {
+    const noCaptures = { bot_captures: 0, bot_captures_from_human: 0, bot_captures_from_leader: 0, bot_captures_from_weakest: 0 };
     const { unmount } = render(<AdminAnalyticsPanel data={{ ...report, solo_by_level: [] }} />);
     expect(screen.queryByText('Solo games by bot level')).toBeNull();
     unmount();
@@ -87,9 +88,12 @@ describe('AdminAnalyticsPanel', () => {
         data={{
           ...report,
           solo_by_level: [
-            { mode: 'tutorial', level: 'tutorial', started: 4, finished: 4, won: 4, abandoned: 0, running: 0, capped: 0, surrendered: 0, median_rounds: 12 },
-            { mode: 'other', level: 'easy', started: 10, finished: 7, won: 6, abandoned: 2, running: 1, capped: 4, surrendered: 1, median_rounds: 60 },
-            { mode: 'daily', level: 'medium', started: 2, finished: 0, won: 0, abandoned: 0, running: 2, capped: 0, surrendered: 0, median_rounds: null },
+            { mode: 'tutorial', level: 'tutorial', started: 4, finished: 4, won: 4, abandoned: 0, running: 0, capped: 0, surrendered: 0, median_rounds: 12, ...noCaptures },
+            {
+              mode: 'other', level: 'easy', started: 10, finished: 7, won: 6, abandoned: 2, running: 1, capped: 4, surrendered: 1, median_rounds: 60,
+              bot_captures: 40, bot_captures_from_human: 14, bot_captures_from_leader: 10, bot_captures_from_weakest: 22,
+            },
+            { mode: 'daily', level: 'medium', started: 2, finished: 0, won: 0, abandoned: 0, running: 2, capped: 0, surrendered: 0, median_rounds: null, ...noCaptures },
           ],
         }}
       />,
@@ -97,11 +101,13 @@ describe('AdminAnalyticsPanel', () => {
     expect(screen.getByText('Solo games by bot level')).toBeTruthy();
     const cells = (mode: string) =>
       within(screen.getByText(mode).closest('tr')!).getAllByRole('cell').map((c) => c.textContent);
-    // Finished and Left of those started; Won, Round cap and Surrendered of those finished.
-    expect(cells('Quick Match & custom')).toEqual(['Quick Match & custom', 'easy', '10 (1 on)', '70%', '86%', '57%', '14%', '20%', '60']);
-    expect(cells('Tutorial')).toEqual(['Tutorial', 'tutorial', '4', '100%', '100%', '0%', '0%', '0%', '12']);
+    // Finished and Left of those started; Won, Round cap and Surrendered of those finished;
+    // the bots' captures from you, the leader and the weakest of those they took from players.
+    expect(cells('Quick Match & custom')).toEqual(['Quick Match & custom', 'easy', '10 (1 on)', '70%', '86%', '57%', '14%', '20%', '60', '35%', '25%', '55%']);
+    // No captures counted: no share to show.
+    expect(cells('Tutorial')).toEqual(['Tutorial', 'tutorial', '4', '100%', '100%', '0%', '0%', '0%', '12', '—', '—', '—']);
     // Nothing finished yet: no rate to show.
-    expect(cells('Daily challenge')).toEqual(['Daily challenge', 'medium', '2 (2 on)', '0%', '—', '—', '—', '0%', '—']);
+    expect(cells('Daily challenge')).toEqual(['Daily challenge', 'medium', '2 (2 on)', '0%', '—', '—', '—', '0%', '—', '—', '—', '—']);
   });
 
   it('shows an enable hint when nothing has been recorded yet', () => {
