@@ -65,6 +65,7 @@ describe('AI_PROFILES holds the values the constants and branches held', () => {
     threatModel: ['adjacent', 'adjacent', 'adjacent', 'full_drafts', 'full_drafts'],
     fortifyAttackWeight: [0, 0, 0, 0.5, 0],
     lossTolerance: [0.5, 0.5, 0.5, 0.4, 0.3],
+    sourceReserve: [0, 0, 0, 0, 1],
     build: ['none', 'gate_only', 'greedy', 'threat', 'threat'],
     research: ['none', 'gate_only', 'cheapest', 'strategic', 'strategic'],
     doctrinesPerTurn: [0, 0, 1, 2, 2],

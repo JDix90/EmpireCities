@@ -9,6 +9,9 @@ import type { AiDifficulty, GameMap, GameState } from '../../types';
 import { eraModifiersFor } from '../state/eraModifiers';
 import { computeAiTurn } from './aiBot';
 import { planFortify } from './aiFortify';
+import { shouldContinuePress, shouldStartPress } from './aiAttackGrind';
+import { AI_PROFILES } from './aiProfiles';
+import { attackingUnits, reserveReached, sourceReserve } from './aiReserve';
 import { ATTACK_LIKELIHOOD, buildThreatMap, lossChance } from './aiThreat';
 import { headlessAiTurnHooks, planAiTurn, playAiTurn } from './runAiTurn';
 
@@ -212,13 +215,88 @@ describe('the bot turn with planned fortify', () => {
     expect(state.territories.t2!.unit_count).toBeGreaterThan(1);
   });
 
+  it('keeps Expert\'s reserve: no attack that would leave its source open to the stack beside it', async () => {
+    const { state, map } = setup(
+      { src: [AI, 7], target: [RIVAL, 1], other: [THIRD, 3] },
+      [['src', 'target'], ['src', 'other']],
+      { phase: 'attack' } as Partial<GameState>,
+    );
+    const player = state.players[0]!;
+    const reserve = sourceReserve(state, map, AI, 'expert', 'src', 'target');
+    expect(reserveReached(7, reserve)).toBe(true);
+    const attack = [{ type: 'attack' as const, from: 'src', to: 'target' }];
+    const plan = await planAiTurn(state, map, player, 'expert', FLAGS, { planningState: () => state, plan: async () => attack });
+    await playAiTurn(state, map, player, 'expert', plan, 'attack', headlessAiTurnHooks(state, map));
+    expect(state.territories.target!.owner_id).toBe(RIVAL);
+    expect(state.territories.src!.unit_count).toBe(7);
+  });
+
   it('leaves daily challenges and campaign stages to today\'s bots', async () => {
     expect((await fortifyStep('medium', FLAGS, { settings: { is_campaign: true } } as Partial<GameState>)).defense).toBe(false);
     expect((await fortifyStep('medium', FLAGS, { settings: { daily_challenge_date: '2026-10-07' } } as Partial<GameState>)).defense).toBe(false);
   });
 
+  it('keeps no reserve in daily challenges and campaign stages', async () => {
+    // The same board as Expert's reserve above, where it holds back: here it attacks as today's Expert does.
+    for (const settings of [{ is_campaign: true }, { daily_challenge_date: '2026-10-07' }]) {
+      const { state, map } = setup(
+        { src: [AI, 7], target: [RIVAL, 1], other: [THIRD, 3] },
+        [['src', 'target'], ['src', 'other']],
+        { phase: 'attack', settings } as Partial<GameState>,
+      );
+      const player = state.players[0]!;
+      const attack = [{ type: 'attack' as const, from: 'src', to: 'target' }];
+      const plan = await planAiTurn(state, map, player, 'expert', FLAGS, { planningState: () => state, plan: async () => attack });
+      expect(plan.defense).toBeUndefined();
+      await playAiTurn(state, map, player, 'expert', plan, 'attack', headlessAiTurnHooks(state, map));
+      expect(state.territories.src!.unit_count).toBeLessThan(7);
+    }
+  });
+
   it('plans nothing it does not need: the planner itself is unchanged', () => {
     const { state, map } = setup({ quiet: [AI, 9], threatened: [AI, 1], big: [RIVAL, 8] }, [['quiet', 'threatened'], ['threatened', 'big']]);
     expect(() => computeAiTurn(state, map, 'medium')).not.toThrow();
+  });
+});
+
+describe('a reserve on attack sources', () => {
+  it('keeps back what the source needs against the other stacks beside it, where the level keeps one', () => {
+    const { state, map } = setup(
+      { src: [AI, 12], target: [RIVAL, 2], other: [THIRD, 6] },
+      [['src', 'target'], ['src', 'other']],
+    );
+    const full = sourceReserve(state, map, AI, 'expert', 'src', 'target');
+    expect(full).toBeGreaterThan(1);
+    expect(full).toBeLessThan(12);
+    expect(sourceReserve(state, map, AI, 'medium', 'src', 'target')).toBe(0);
+    // Half the share keeps half as much, rounded up.
+    const half = Math.ceil(full / 2);
+    expect(sourceReserve(state, map, AI, { ...AI_PROFILES.expert, sourceReserve: 0.5 }, 'src', 'target')).toBe(half > 1 ? half : 0);
+  });
+
+  it('keeps nothing back against the rival it attacks, as in a duel, or when nothing could hold it', () => {
+    const alone = setup({ src: [AI, 12], target: [RIVAL, 6] }, [['src', 'target']]);
+    expect(sourceReserve(alone.state, alone.map, AI, 'expert', 'src', 'target')).toBe(0);
+    // The attacked rival's other stack beside the source: still no reserve.
+    const duel = setup({ src: [AI, 12], target: [RIVAL, 2], more: [RIVAL, 6] }, [['src', 'target'], ['src', 'more']]);
+    expect(sourceReserve(duel.state, duel.map, AI, 'expert', 'src', 'target')).toBe(0);
+    const hopeless = setup(
+      { src: [AI, 5], target: [RIVAL, 2], other: [THIRD, 60] },
+      [['src', 'target'], ['src', 'other']],
+    );
+    expect(sourceReserve(hopeless.state, hopeless.map, AI, 'expert', 'src', 'target')).toBe(0);
+  });
+
+  it('prices an attack with the units above the reserve, and stops before an exchange could cut into it', () => {
+    expect(attackingUnits(10, 4)).toBe(7);
+    expect(attackingUnits(10, 1)).toBe(10);
+    expect(reserveReached(6, 4)).toBe(false);
+    expect(reserveReached(5, 4)).toBe(true);
+    expect(reserveReached(3, 1)).toBe(false);
+    const { state, map } = setup({ src: [AI, 5], target: [RIVAL, 1] }, [['src', 'target']], { phase: 'attack' } as Partial<GameState>);
+    expect(shouldStartPress(state, map, AI, 'src', 'target', 'expert')).toBe(true);
+    expect(shouldStartPress(state, map, AI, 'src', 'target', 'expert', 0, 4)).toBe(false);
+    expect(shouldContinuePress(state, map, AI, 'src', 'target', 10, 'expert', 4)).toBe('reserve_kept');
+    expect(shouldContinuePress(state, map, AI, 'src', 'target', 10, 'expert')).toBe('ok');
   });
 });

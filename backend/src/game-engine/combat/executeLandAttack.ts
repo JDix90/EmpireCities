@@ -34,6 +34,12 @@ export interface ExecuteLandAttackOptions {
   neutralOffworldCaptureAllowed?: boolean;
   /** Called once after a successful capture (e.g. to draw a card). */
   onCapture?: (state: GameState, attackerId: string, toId: string) => void;
+  /**
+   * Units the source keeps after a capture, where the move-in allows: a bot's
+   * reserve (ai/aiReserve.ts). The captured tile still gets at least one.
+   * Players' attacks omit it and move in as before.
+   */
+  keepOnSource?: number;
 }
 
 export interface LandAttackOutcome {
@@ -221,7 +227,7 @@ export function executeLandAttack(
     // balance simulator carried such tiles for the rest of the game, and a Space
     // Age Drop Assault aimed at one was refused outright — `to.unit_count < 1`
     // is one of this function's own structural rejections.
-    to.unit_count = Math.max(1, Math.min(from.unit_count - 1, 3));
+    to.unit_count = Math.max(1, Math.min(from.unit_count - 1, 3, from.unit_count - (opts.keepOnSource ?? 0)));
     from.unit_count = Math.max(1, from.unit_count - to.unit_count);
     onTerritoryCapture(state, toId);
     if (state.settings.stability_enabled) onCaptureStabilityPenalty(state, toId);
