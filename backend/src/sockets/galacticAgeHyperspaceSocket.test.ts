@@ -160,7 +160,12 @@ describe.runIf(redisTestEnabled)('Galactic Age hyperspace — human socket path'
   function act<T = unknown>(client: ClientSocket, event: string, payload: object, okEvent: string): Promise<ActResult<T>> {
     return new Promise((resolve, reject) => {
       const t = setTimeout(() => reject(new Error(`timeout on ${event}`)), 10_000);
-      const onOk = (data: T) => { cleanup(); resolve({ ok: true, data }); };
+      const gameId = (payload as { gameId?: unknown }).gameId;
+      const onOk = (data: T) => {
+        // Another game's state is no reply to this action.
+        if (okEvent === 'game:state' && typeof gameId === 'string' && (data as GameState).game_id !== gameId) return;
+        cleanup(); resolve({ ok: true, data });
+      };
       const onErr = (e: { message: string; code?: string }) => { cleanup(); resolve({ ok: false, error: e.message, code: e.code }); };
       const cleanup = () => { clearTimeout(t); client.off(okEvent, onOk); client.off('error', onErr); };
       client.on(okEvent, onOk); client.on('error', onErr);

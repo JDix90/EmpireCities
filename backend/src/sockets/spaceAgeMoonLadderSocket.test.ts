@@ -184,7 +184,12 @@ describe.runIf(redisTestEnabled)('Space Age Moon ladder — human socket path', 
   ): Promise<ActResult<T>> {
     return new Promise((resolve, reject) => {
       const t = setTimeout(() => reject(new Error(`timeout on ${event}`)), 10_000);
-      const onOk = (data: T) => { cleanup(); resolve({ ok: true, data }); };
+      const gameId = (payload as { gameId?: unknown }).gameId;
+      const onOk = (data: T) => {
+        // Another game's state is no reply to this action.
+        if (okEvent === 'game:state' && typeof gameId === 'string' && (data as GameState).game_id !== gameId) return;
+        cleanup(); resolve({ ok: true, data });
+      };
       const onErr = (e: { message: string; code?: string }) => {
         cleanup(); resolve({ ok: false, error: e.message, code: e.code });
       };

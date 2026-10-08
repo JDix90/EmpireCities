@@ -112,7 +112,9 @@ describe.runIf(redisTestEnabled)('where bots aim reaches game_finished (socket i
     spies.events.length = 0;
   });
 
-  const HUMAN = 'p1';
+  // This file's own: a human's game:state goes to their user room, which the
+  // Redis adapter shares with every socket test file on the same Redis.
+  const HUMAN = 'aim_p1';
   const AI = 'ai_1';
 
   function player(id: string, idx: number, extras: Partial<PlayerState> = {}): PlayerState {

@@ -89,7 +89,9 @@ describe.runIf(redisTestEnabled)('game:cards_redeemed names the redeeming seat (
 
   // ── Fixtures ────────────────────────────────────────────────────────────────
 
-  const HUMAN = 'p1';
+  // This file's own: a human's game:state goes to their user room, which the
+  // Redis adapter shares with every socket test file on the same Redis.
+  const HUMAN = 'cards_p1';
   const AI = 'ai_1';
 
   /** Three of a kind: always a valid set. */

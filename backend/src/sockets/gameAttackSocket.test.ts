@@ -287,9 +287,10 @@ describe.runIf(redisTestEnabled)('game:attack socket integration', () => {
    * broadcastState sends each human their state through their user room
    * (`user:p1`), and the Redis adapter carries that to every socket server on
    * the same Redis. In CI that includes the socket test files running beside
-   * this one, several of which seat a human `p1` too. So the next `game:state`
-   * this client receives can be from another file's game. GamePage skips other
-   * games' states the same way.
+   * this one. Each of those seats ids of its own, so `p1` to `p3` are this
+   * file's alone, but this file's own tests share them: the next `game:state`
+   * can still be an earlier test's game. GamePage skips other games' states
+   * the same way.
    */
   function waitForState(client: ClientSocket, gameId: string): Promise<GameState> {
     return waitFor<GameState>(client, 'game:state', 5_000, (s) => s.game_id === gameId);

@@ -357,7 +357,7 @@ describe.runIf(redisTestEnabled)('away seat socket integration', () => {
       const b = await join('half-b', gameId);
       const phasesForA: string[] = [];
       let combats = 0;
-      b.on('game:state', (st: GameState) => { if (st.current_player_index === 0) phasesForA.push(st.phase); });
+      b.on('game:state', (st: GameState) => { if (st.game_id === gameId && st.current_player_index === 0) phasesForA.push(st.phase); });
       b.on('game:combat_result', () => { combats += 1; });
 
       // b's join re-arms the away-AI, which ends a's turn: no second draft or

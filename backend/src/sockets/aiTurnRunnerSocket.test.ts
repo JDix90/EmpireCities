@@ -95,7 +95,9 @@ describe.runIf(redisTestEnabled)('a live bot turn (socket integration)', () => {
 
   // ── Fixtures ────────────────────────────────────────────────────────────────
 
-  const HUMAN = 'p1';
+  // This file's own: a human's game:state goes to their user room, which the
+  // Redis adapter shares with every socket test file on the same Redis.
+  const HUMAN = 'runner_p1';
   const AI = 'ai_1';
 
   function player(id: string, idx: number, extras: Partial<PlayerState> = {}): PlayerState {
@@ -205,7 +207,7 @@ describe.runIf(redisTestEnabled)('a live bot turn (socket integration)', () => {
     const back = new Promise<void>((resolve, reject) => {
       const t = setTimeout(() => reject(new Error('timeout waiting for the turn to come back')), 30_000);
       client.on('game:state', (s: GameState) => {
-        if (s.turn_number > 3 && s.players[s.current_player_index]?.player_id === HUMAN) {
+        if (s.game_id === gameId && s.turn_number > 3 && s.players[s.current_player_index]?.player_id === HUMAN) {
           clearTimeout(t);
           resolve();
         }

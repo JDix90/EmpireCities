@@ -84,7 +84,9 @@ describe.runIf(redisTestEnabled)('game:ai_turn_digest (socket integration)', () 
 
   // ── Fixtures ────────────────────────────────────────────────────────────────
 
-  const HUMAN = 'p1';
+  // This file's own: a human's game:state goes to their user room, which the
+  // Redis adapter shares with every socket test file on the same Redis.
+  const HUMAN = 'digest_p1';
   const AI = 'ai_1';
 
   function player(id: string, idx: number, extras: Partial<PlayerState> = {}): PlayerState {
@@ -214,7 +216,7 @@ describe.runIf(redisTestEnabled)('game:ai_turn_digest (socket integration)', () 
       const t = setTimeout(() => reject(new Error('timeout waiting for the turn to come back')), 30_000);
       client.on('game:ai_turn_digest', (payload: unknown) => seen.push({ event: 'digest', payload }));
       client.on('game:state', (s: GameState) => {
-        if (s.turn_number > 3 && s.players[s.current_player_index]?.player_id === HUMAN) {
+        if (s.game_id === gameId && s.turn_number > 3 && s.players[s.current_player_index]?.player_id === HUMAN) {
           seen.push({ event: 'back', payload: null });
           clearTimeout(t);
           resolve();

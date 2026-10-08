@@ -98,8 +98,10 @@ describe.runIf(enabled)('spectator state redaction integration', () => {
     return {
       game_id: gameId, era: 'medieval', map_id: gameId, phase: 'attack',
       current_player_index: 0, turn_number: 3,
-      players: [player('p1', 0, 3), player('p2', 1, 2)],
-      territories: { a: terr('a', 'p1', 5), b: terr('b', 'p2', 3), c: terr('c', null, 1) },
+      // This file's own ids: a seat's game:state goes to its user room, which
+      // the Redis adapter shares with every socket test file on the same Redis.
+      players: [player('spec_p1', 0, 3), player('spec_p2', 1, 2)],
+      territories: { a: terr('a', 'spec_p1', 5), b: terr('b', 'spec_p2', 3), c: terr('c', null, 1) },
       card_deck: [], card_set_redemption_count: 0, diplomacy: [],
       settings: {
         fog_of_war: fog, allowed_victory_conditions: ['domination'], turn_timer_seconds: 0,
@@ -135,16 +137,31 @@ describe.runIf(enabled)('spectator state redaction integration', () => {
     return client;
   }
 
-  function waitFor<T = unknown>(client: ClientSocket, event: string, timeoutMs = 6_000): Promise<T> {
+  /** The next `event` that `accept` takes, skipping others: another game's state, say. */
+  function waitFor<T = unknown>(
+    client: ClientSocket,
+    event: string,
+    accept: (payload: T) => boolean = () => true,
+    timeoutMs = 6_000,
+  ): Promise<T> {
     return new Promise((resolve, reject) => {
-      const t = setTimeout(() => reject(new Error(`timeout waiting for ${event}`)), timeoutMs);
-      client.once(event, (payload: T) => { clearTimeout(t); resolve(payload); });
+      const onEvent = (payload: T) => {
+        if (!accept(payload)) return;
+        clearTimeout(t);
+        client.off(event, onEvent);
+        resolve(payload);
+      };
+      const t = setTimeout(() => {
+        client.off(event, onEvent);
+        reject(new Error(`timeout waiting for ${event}`));
+      }, timeoutMs);
+      client.on(event, onEvent);
     });
   }
 
   it('hides all card hands AND masks territory intel for a spectator of a FOG game', async () => {
     const spec = await connect('spectator-1');
-    const state = waitFor<GameState>(spec, 'game:state');
+    const state = waitFor<GameState>(spec, 'game:state', (s) => s.game_id === FOG_GID);
     spec.emit('game:spectate_join', { gameId: FOG_GID });
     const snap = await state;
 
@@ -155,13 +172,13 @@ describe.runIf(enabled)('spectator state redaction integration', () => {
       expect(t.unit_count).toBe(-1);
     }
     // …but board control (ownership) stays visible.
-    expect(snap.territories.a.owner_id).toBe('p1');
-    expect(snap.territories.b.owner_id).toBe('p2');
+    expect(snap.territories.a.owner_id).toBe('spec_p1');
+    expect(snap.territories.b.owner_id).toBe('spec_p2');
   }, 20_000);
 
   it('hides card hands but keeps real territory counts for a spectator of a NON-fog game', async () => {
     const spec = await connect('spectator-2');
-    const state = waitFor<GameState>(spec, 'game:state');
+    const state = waitFor<GameState>(spec, 'game:state', (s) => s.game_id === NOFOG_GID);
     spec.emit('game:spectate_join', { gameId: NOFOG_GID });
     const snap = await state;
 
