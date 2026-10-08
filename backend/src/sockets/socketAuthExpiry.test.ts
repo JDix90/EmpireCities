@@ -82,8 +82,10 @@ describe.runIf(redisTestEnabled)('socket auth expiry + refresh integration', () 
     return {
       game_id: gameId, era: 'medieval', map_id: gameId, phase: 'attack',
       current_player_index: 0, turn_number: 3,
-      players: [player('p1', 0), player('p2', 1)],
-      territories: { a: terr('a', 'p1', 4), b: terr('b', 'p2', 1) },
+      // This file's own ids: a seat's game:state goes to its user room, which
+      // the Redis adapter shares with every socket test file on the same Redis.
+      players: [player('auth_p1', 0), player('auth_p2', 1)],
+      territories: { a: terr('a', 'auth_p1', 4), b: terr('b', 'auth_p2', 1) },
       card_deck: [], card_set_redemption_count: 0, diplomacy: [],
       settings: {
         fog_of_war: false, allowed_victory_conditions: ['domination'], turn_timer_seconds: 0,

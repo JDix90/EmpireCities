@@ -162,8 +162,10 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
       phase: 'draft',
       current_player_index: 0,
       turn_number: 3,
-      players: [player('p1', 0), player('p2', 1)],
-      territories: { a: terr('a', 'p1', 3), b: terr('b', 'p2', 3) },
+      // This file's own ids: a seat's game:state goes to its user room, which
+      // the Redis adapter shares with every socket test file on the same Redis.
+      players: [player('handoff_p1', 0), player('handoff_p2', 1)],
+      territories: { a: terr('a', 'handoff_p1', 3), b: terr('b', 'handoff_p2', 3) },
       card_deck: [],
       card_set_redemption_count: 0,
       diplomacy: [],
@@ -241,6 +243,22 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
     }
   }
 
+  /**
+   * The next game:state for `gameId` that `accept` takes. States for other
+   * games are skipped: one the Redis adapter carries from another file's test,
+   * or one a bot turn an earlier test left queued still broadcasts.
+   */
+  function nextState(client: ClientSocket, gameId: string, accept: (s: GameState) => boolean = () => true): Promise<GameState> {
+    return new Promise((resolve) => {
+      const onState = (s: GameState) => {
+        if (s.game_id !== gameId || !accept(s)) return;
+        client.off('game:state', onState);
+        resolve(s);
+      };
+      client.on('game:state', onState);
+    });
+  }
+
   /** Poll until `check` holds, or give up after `timeoutMs`. */
   async function until(check: () => Promise<boolean>, timeoutMs = 5_000): Promise<void> {
     const deadline = Date.now() + timeoutMs;
@@ -271,8 +289,8 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
         settings: { ...buildState(gameId, {}).settings, turn_timer_seconds: 60 },
       }), isolatedMap(gameId, ['a', 'b']));
       await timer.scheduleTurnTimeout(gameId, p1Deadline);
-      const p1 = await connect('p1');
-      await joinRoom('p1', gameId);
+      const p1 = await connect('handoff_p1');
+      await joinRoom('handoff_p1', gameId);
       const timedOut = new Promise((resolve) => p1.once('game:turn_timeout', resolve));
 
       // Ending the draft does not restart the clock: it covers the whole turn.
@@ -298,15 +316,15 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
         phase_deadline_at: p1Deadline,
         settings: { ...buildState(gameId, {}).settings, turn_timer_seconds: 60 },
       }), isolatedMap(gameId, ['a', 'b']));
-      const p1 = await connect('p1');
-      await joinRoom('p1', gameId);
+      const p1 = await connect('handoff_p1');
+      await joinRoom('handoff_p1', gameId);
       const timedOut = new Promise((resolve) => p1.once('game:turn_timeout', resolve));
       const placedFor = new Promise<{ kind: string; playerId: string }>((resolve) => p1.once('game:map_visual', resolve));
       await timer.scheduleTurnTimeout(gameId, p1Deadline);
 
       expect(await timedOut).toEqual({ phaseAdvanced: 'next_turn', appliedDraft: true, unitsPlaced: 3 });
       // The placement is shown as p1's, though the turn has passed to p2.
-      expect(await placedFor).toMatchObject({ kind: 'reinforce', playerId: 'p1' });
+      expect(await placedFor).toMatchObject({ kind: 'reinforce', playerId: 'handoff_p1' });
       const s = await waitForRedisState(gameId, (st) => st.current_player_index === 1);
       expect({ a: s.territories.a.unit_count, seat: s.current_player_index, phase: s.phase })
         .toEqual({ a: 3 + 3, seat: 1, phase: 'draft' });
@@ -324,8 +342,8 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
           async_turn_deadline_seconds: 86400,
         },
       }), isolatedMap(gameId, ['a', 'b']));
-      const p1 = await connect('p1');
-      await joinRoom('p1', gameId);
+      const p1 = await connect('handoff_p1');
+      await joinRoom('handoff_p1', gameId);
 
       p1.emit('game:advance_phase', { gameId }); // draft → attack
       await waitForRedisState(gameId, (st) => st.phase === 'attack');
@@ -388,7 +406,7 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
         // p2 declared a drop on p1's tile last round: it resolves as p2's turn
         // begins, the way every other hand-off resolves it (landed, or called
         // off here, since p2 holds no lunar foothold).
-        drop_assaults: [{ owner_id: 'p2', target_id: 'a', declared_turn: 3, units: 3 }],
+        drop_assaults: [{ owner_id: 'handoff_p2', target_id: 'a', declared_turn: 3, units: 3 }],
       }), isolatedMap(gameId, ['a', 'b']));
       await timer.scheduleTurnTimeout(gameId, p1Deadline); // p1's fortify clock runs out
 
@@ -755,7 +773,7 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
 
       const statesAfter: string[] = [];
       const oversAfter: string[] = [];
-      h.on('game:state', (s: GameState) => statesAfter.push(s.phase));
+      h.on('game:state', (s: GameState) => { if (s.game_id === gameId) statesAfter.push(s.phase); });
       h.on('game:over', (o: { victory_condition: string }) => oversAfter.push(o.victory_condition));
       await sleep(3_500); // past the queued turn and any turn it would have played
 
@@ -805,13 +823,11 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
       const h = await connect('sur-h');
       await joinRoom('sur-h', gameId);
 
-      const offered = new Promise<GameState>((resolve) => h.once('game:state', resolve));
+      const offered = nextState(h, gameId);
       h.emit('game:advance_phase', { gameId });
       expect((await offered).surrender_offer).toBe(true);
 
-      const ended = new Promise<GameState>((resolve) => {
-        h.on('game:state', (st: GameState) => { if (st.phase === 'game_over') resolve(st); });
-      });
+      const ended = nextState(h, gameId, (st) => st.phase === 'game_over');
       h.emit('game:accept_surrender', { gameId });
       const s = await ended;
       expect({
@@ -846,7 +862,7 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
       const h = await connect('sur-h');
       await joinRoom('sur-h', gameId);
 
-      const state = new Promise<GameState>((resolve) => h.once('game:state', resolve));
+      const state = nextState(h, gameId);
       h.emit('game:advance_phase', { gameId });
       expect((await state).surrender_offer).toBeUndefined();
 
@@ -965,9 +981,7 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
 
       // The room is told through its state: this file's Postgres stub never
       // confirms the completion write that game:over waits on.
-      const over = new Promise<GameState>((resolve) => {
-        h.on('game:state', (s: GameState) => { if (s.phase === 'game_over') resolve(s); });
-      });
+      const over = nextState(h, gameId, (s) => s.phase === 'game_over');
       h.emit('game:resign', { gameId });
       const s = await over;
       expect({ winners: s.winner_ids, condition: s.victory_condition })
@@ -1047,14 +1061,12 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
       economy_enabled: true,
     } as GameState['settings'];
 
-    /** The first game:state the room is told is over, or null after `ms`. */
-    function gameOverState(client: ClientSocket, ms = 3_000): Promise<GameState | null> {
-      return new Promise((resolve) => {
-        const t = setTimeout(() => resolve(null), ms);
-        client.on('game:state', (s: GameState) => {
-          if (s.phase === 'game_over') { clearTimeout(t); resolve(s); }
-        });
-      });
+    /** The first game:state the room of `gameId` is told is over, or null after `ms`. */
+    function gameOverState(client: ClientSocket, gameId: string, ms = 3_000): Promise<GameState | null> {
+      return Promise.race([
+        nextState(client, gameId, (s) => s.phase === 'game_over'),
+        sleep(ms).then(() => null),
+      ]);
     }
 
     it('a wonder that completes Transcendence wins on the spot', async () => {
@@ -1070,7 +1082,7 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
       const a = await connect('wonder-a');
       await joinRoom('wonder-a', gameId);
 
-      const over = gameOverState(a);
+      const over = gameOverState(a, gameId);
       a.emit('game:build', { gameId, territoryId: 'a1', buildingType: 'wonder_cathedral' });
       const s = await over;
       expect(s && { winner: s.winner_id, condition: s.victory_condition })
@@ -1094,7 +1106,7 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
       const a = await connect('era-a');
       await joinRoom('era-a', gameId);
 
-      const over = gameOverState(a);
+      const over = gameOverState(a, gameId);
       a.emit('game:advance_era', { gameId });
       const s = await over;
       expect(s && { winner: s.winner_id, condition: s.victory_condition })
@@ -1113,7 +1125,7 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
       const a = await connect('bomb-a');
       await joinRoom('bomb-a', gameId);
 
-      const firstState = new Promise<GameState>((resolve) => a.once('game:state', resolve));
+      const firstState = nextState(a, gameId);
       a.emit('game:use_ability', { gameId, abilityId: 'atom_bomb', params: { territoryId: 'b1' } });
       const s = await firstState;
       expect({ phase: s.phase, winner: s.winner_id, condition: s.victory_condition })
@@ -1140,6 +1152,7 @@ describe.runIf(redisTestEnabled)('turn hand-off socket integration', () => {
       const botPhases: string[] = [];
       let backToHuman = false;
       h.on('game:state', (st: GameState) => {
+        if (st.game_id !== gameId) return;
         if (st.current_player_index === 1) botPhases.push(st.phase);
         else if (botPhases.length > 0) backToHuman = true;
       });

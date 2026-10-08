@@ -108,7 +108,9 @@ describe.runIf(redisTestEnabled)('the Galactic Age report records a game finaliz
     spies.tx.length = 0;
   });
 
-  const HUMAN = 'p1';
+  // This file's own: a human's game:state goes to their user room, which the
+  // Redis adapter shares with every socket test file on the same Redis.
+  const HUMAN = 'report_p1';
   const AI = 'ai_1';
 
   function player(id: string, idx: number, extras: Partial<PlayerState> = {}): PlayerState {
