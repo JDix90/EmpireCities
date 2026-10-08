@@ -204,7 +204,7 @@ export interface AiProfile {
   startsOnOddsAlone: boolean;
 
   // ── Defence (ai_defense_enabled) ──────────────────────────────────────────
-  // Read only with that flag on (ai/aiFortify.ts, ai/aiThreat.ts).
+  // Read only with that flag on (ai/aiFortify.ts, ai/aiThreat.ts, ai/aiReserve.ts).
   /**
    * How it fortifies: `interior` makes today's one move from an interior tile
    * to the nearest border, planned before the draft; `threat` plans every
@@ -221,6 +221,13 @@ export interface AiProfile {
   fortifyAttackWeight: number;
   /** The chance of losing a tile it accepts; a move sized to bring a tile under it is always priced. */
   lossTolerance: number;
+  /**
+   * What a tile it attacks from keeps back, as a share of the units that
+   * bring the tile's own loss chance under `lossTolerance` against the
+   * stacks beside it of every rival but the one attacked (ai/aiReserve.ts).
+   * 0 keeps nothing back.
+   */
+  sourceReserve: number;
 
   // ── Economy ───────────────────────────────────────────────────────────────
   build: AiBuildMode;
@@ -289,6 +296,7 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     threatModel: 'adjacent',
     fortifyAttackWeight: 0,
     lossTolerance: 0.5,
+    sourceReserve: 0,
     build: 'none',
     research: 'none',
     doctrinesPerTurn: 0,
@@ -336,6 +344,7 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     threatModel: 'adjacent',
     fortifyAttackWeight: 0,
     lossTolerance: 0.5,
+    sourceReserve: 0,
     build: 'gate_only',
     research: 'gate_only',
     doctrinesPerTurn: 0,
@@ -383,6 +392,7 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     threatModel: 'adjacent',
     fortifyAttackWeight: 0,
     lossTolerance: 0.5,
+    sourceReserve: 0,
     build: 'greedy',
     research: 'cheapest',
     doctrinesPerTurn: 1,
@@ -430,6 +440,7 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     threatModel: 'full_drafts',
     fortifyAttackWeight: 0.5,
     lossTolerance: 0.4,
+    sourceReserve: 0,
     build: 'threat',
     research: 'strategic',
     doctrinesPerTurn: 2,
@@ -481,6 +492,7 @@ export const AI_PROFILES: Readonly<Record<AiDifficulty, Readonly<AiProfile>>> = 
     threatModel: 'full_drafts',
     fortifyAttackWeight: 0,
     lossTolerance: 0.3,
+    sourceReserve: 1,
     build: 'threat',
     research: 'strategic',
     doctrinesPerTurn: 2,

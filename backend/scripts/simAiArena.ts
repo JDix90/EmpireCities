@@ -302,6 +302,9 @@ interface Behaviour {
   /** Tiles rivals took from it, and the territories it held as each rival turn began. */
   tilesLost: number;
   tilesExposed: number;
+  /** The same for every seat, so the candidate is compared with the others in the same games. */
+  seatTilesLost: number[];
+  seatTilesExposed: number[];
   /** Its share of the board as round 10 began, or null if the game ended first. */
   shareAtRound10: number | null;
   /** Its captures and turns in rounds 1 to 10. */
@@ -396,6 +399,8 @@ function countingHooks(state: GameState, map: GameMap, record: GameRecord, watch
       } else if (defenderId === watch.playerId && result.territory_captured) {
         b.tilesLost += 1;
       }
+      const defenderSeat = defenderId ? state.players.find((p) => p.player_id === defenderId)?.player_index : undefined;
+      if (defenderSeat !== undefined && result.territory_captured) b.seatTilesLost[defenderSeat]! += 1;
       base.recordCombat(defenderId, result, options);
     },
   };
@@ -452,6 +457,7 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
   const candidate = state.players.find((p) => p.player_index === candidateSeat)!;
   const behaviour: Behaviour = {
     runs: 0, captures: 0, attackLosses: 0, rivalCaptures: 0, weakestCaptures: 0, tilesLost: 0, tilesExposed: 0,
+    seatTilesLost: zeros(), seatTilesExposed: zeros(),
     shareAtRound10: null, earlyCaptures: 0, earlyTurns: 0, regionsAtRound10: 0,
     fortifyMoves: 0, unitsMoved: 0,
     calibration: { tiles: [0, 0, 0, 0], predicted: [0, 0, 0, 0], lost: [0, 0, 0, 0] },
@@ -499,6 +505,11 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
       watch.predicted = undefined;
     } else if (candidateWasIn) {
       behaviour.tilesExposed += candidate.territory_count ?? 0;
+    }
+    for (const p of state.players) {
+      if (p.player_index !== player.player_index && !p.is_eliminated) {
+        behaviour.seatTilesExposed[p.player_index]! += p.territory_count ?? 0;
+      }
     }
 
     resolveChoiceCard(state);
@@ -674,6 +685,12 @@ function report(seatCount: number, records: GameRecord[], timing: Timing): void 
   console.log(`candidate attacks         ${(sum((x) => x.runs) / Math.max(1, candidateTurnsAll)).toFixed(2)} runs a turn, ${pct(sum((x) => x.captures), sum((x) => x.runs))} taken, ${(sum((x) => x.attackLosses) / Math.max(1, sum((x) => x.captures))).toFixed(2)} units lost a capture`);
   console.log(`candidate targets         ${pct(sum((x) => x.weakestCaptures), sum((x) => x.rivalCaptures))} of captures from rivals taken from the weakest`);
   console.log(`candidate holds           ${(100 * sum((x) => x.tilesLost) / Math.max(1, sum((x) => x.tilesExposed))).toFixed(2)} tiles lost per 100 held through a rival's turn`);
+  // The other seats in the same games, for the candidate's to be read against.
+  const otherSeats = (pick: (x: Behaviour) => number[]): number => records.reduce(
+    (s, r) => s + (r.behaviour ? pick(r.behaviour).reduce((t, v, i) => t + (i === r.candidateSeat ? 0 : v), 0) : 0),
+    0,
+  );
+  console.log(`other seats hold          ${(100 * otherSeats((x) => x.seatTilesLost) / Math.max(1, otherSeats((x) => x.seatTilesExposed))).toFixed(2)} tiles lost per 100 held, in the same games`);
   console.log(`candidate fortifies       ${(sum((x) => x.fortifyMoves) / Math.max(1, candidateTurnsAll)).toFixed(2)} moves a turn, ${(sum((x) => x.unitsMoved) / Math.max(1, sum((x) => x.fortifyMoves))).toFixed(1)} units a move`);
   const band = (k: number) => {
     const tiles = sum((x) => x.calibration.tiles[k]!);

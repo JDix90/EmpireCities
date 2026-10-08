@@ -38,6 +38,25 @@ describe('executeLandAttack', () => {
     expect(out?.defenderEliminated).toBe(true); // p2 had only that territory
   });
 
+  it('leaves what the source keeps back when asked, and still garrisons the capture', () => {
+    // A bot's reserve (ai/aiReserve.ts): the move-in leaves it behind.
+    const s = state(
+      { a: terr('a', 'p1', 5), b: terr('b', 'p2', 1) },
+      [player('p1', { territory_count: 1 }), player('p2', { territory_count: 2 })],
+    );
+    expect(executeLandAttack(s, 'p1', 'a', 'b', { dieRoll: diceFrom([6, 6, 6, 1]), keepOnSource: 4 })?.captured).toBe(true);
+    expect(s.territories.b.unit_count).toBe(1);
+    expect(s.territories.a.unit_count).toBe(4);
+    // More than the source can keep: the capture still gets one.
+    const t = state(
+      { a: terr('a', 'p1', 3), b: terr('b', 'p2', 1) },
+      [player('p1', { territory_count: 1 }), player('p2', { territory_count: 2 })],
+    );
+    executeLandAttack(t, 'p1', 'a', 'b', { dieRoll: diceFrom([6, 6, 1]), keepOnSource: 5 });
+    expect(t.territories.b.unit_count).toBe(1);
+    expect(t.territories.a.unit_count).toBe(2);
+  });
+
   it('never leaves a captured territory with no units', () => {
     // Bonus dice let both sides lose a unit in one exchange, so a 2-unit
     // attacker can take the tile and be left holding exactly one. The move-in

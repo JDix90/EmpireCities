@@ -2,6 +2,7 @@ import type { GameMap, GameState } from '../../types';
 import { computeWinProbabilities } from '../state/gameStateManager';
 import { aiProfile, type AiLevel } from './aiProfiles';
 import { edgeCaptureOdds } from './aiEdgeOdds';
+import { attackingUnits, reserveReached } from './aiReserve';
 
 /**
  * The AI's per-turn attack budget, counted in DICE EXCHANGES rather than in
@@ -73,6 +74,8 @@ export type GrindStop =
   | 'no_material_edge'
   /** Pressing on the odds: the capture chance fell below the level's continue odds. */
   | 'odds_turned'
+  /** Another exchange could cut into what the source keeps back (ai/aiReserve.ts). */
+  | 'reserve_kept'
   | 'missing';
 
 /**
@@ -88,6 +91,8 @@ export function shouldContinueGrind(
   fromId: string,
   toId: string,
   exchangesLeft: number,
+  /** Units the source keeps back (ai/aiReserve.ts). */
+  reserve = 0,
 ): GrindStop {
   if (exchangesLeft <= 0) return 'budget_spent';
 
@@ -98,6 +103,7 @@ export function shouldContinueGrind(
   if (to.owner_id === attackerId) return 'captured';
   if (from.owner_id !== attackerId) return 'missing';
   if (from.unit_count < 2) return 'source_drained';
+  if (reserveReached(from.unit_count, reserve)) return 'reserve_kept';
 
   // Never grind a fight we are losing. Without this floor, medium inherits
   // easy's suicide behaviour: it would feed a shrinking stack into a garrison
@@ -120,10 +126,12 @@ export function shouldContinueGrind(
  * board before every exchange, so a run that goes badly stops, and one that
  * goes well finishes the job.
  *
- * There is no reserve yet. Keeping back a share of the largest rival stack
- * beside a source cost every level games in the arena: without a model of
- * which rival will attack where, it mostly held units nobody threatened. The
- * threat model planned for Phase 3 is where a reserve belongs.
+ * A reserve (ai_defense_enabled, ai/aiReserve.ts) keeps back what the source
+ * needs against the other rival stacks beside it: the attack is priced for
+ * the units above it, and stops before an exchange could cut into it. An
+ * earlier blanket reserve, a share of the largest rival stack beside a
+ * source, cost every level games: without a threat model it mostly held
+ * units nobody threatened.
  */
 
 /** The turn's exchange ceiling when pressing on the odds; the decided-game press doubles it. */
@@ -148,10 +156,12 @@ export function shouldStartPress(
   toId: string,
   difficulty: AiLevel,
   pressValue = 0,
+  /** Units the source keeps back (ai/aiReserve.ts). */
+  reserve = 0,
 ): boolean {
   const from = state.territories[fromId];
-  if (!from || from.unit_count < 2) return false;
-  const odds = edgeCaptureOdds(state, map, attackerId, fromId, toId);
+  if (!from || from.unit_count < 2 || reserveReached(from.unit_count, reserve)) return false;
+  const odds = edgeCaptureOdds(state, map, attackerId, fromId, toId, attackingUnits(from.unit_count, reserve));
   const profile = aiProfile(difficulty);
   // A style that picks its fights starts on its odds alone (`startsOnOddsAlone`).
   const worth = profile.startsOnOddsAlone ? 0 : pressValue / 3;
@@ -171,6 +181,8 @@ export function shouldContinuePress(
   toId: string,
   exchangesLeft: number,
   difficulty: AiLevel,
+  /** Units the source keeps back (ai/aiReserve.ts). */
+  reserve = 0,
 ): GrindStop {
   if (exchangesLeft <= 0) return 'budget_spent';
   const from = state.territories[fromId];
@@ -179,9 +191,9 @@ export function shouldContinuePress(
   if (to.owner_id === attackerId) return 'captured';
   if (from.owner_id !== attackerId) return 'missing';
   if (from.unit_count < 2) return 'source_drained';
-  if (edgeCaptureOdds(state, map, attackerId, fromId, toId) < aiProfile(difficulty).pressContinueOdds) {
-    return 'odds_turned';
-  }
+  if (reserveReached(from.unit_count, reserve)) return 'reserve_kept';
+  const odds = edgeCaptureOdds(state, map, attackerId, fromId, toId, attackingUnits(from.unit_count, reserve));
+  if (odds < aiProfile(difficulty).pressContinueOdds) return 'odds_turned';
   return 'ok';
 }
 

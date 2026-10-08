@@ -14,7 +14,8 @@
  */
 import { EMERGENCY_SEAL_ABILITY_ID, GALAXY_LANE_SEAL_DURATION, canSealLane, connectionRequiresMoonAccess, getOrbitAccessResult, isLaneSealedForPlayer, laneSealDuration, laneSealHelium3Cost, laneSealTick, syncLaunchPadLanes } from '../state/moonAccess';
 import { TARGETED_DRAFT_ABILITIES, TERRITORY_ABILITY_DEFS, getFortifyMoveLimit, getInfluenceUnitCost, isOwnedTerritoryAdjacentToEnemy, playerHasUnlockedAbility } from '../abilities/techAbilities';
-import { aiAttackExchangeBudget, aiPressExchangeCeiling, runAiAttackExchanges, shouldContinuePress, shouldPressDecidedGame, shouldStartPress } from './aiAttackGrind';
+import { aiAttackExchangeBudget, aiPressExchangeCeiling, runAiAttackExchanges, shouldContinueGrind, shouldContinuePress, shouldPressDecidedGame, shouldStartPress } from './aiAttackGrind';
+import { reserveReached, sourceReserve } from './aiReserve';
 import { aiFiresLanePowers, canAiFireLanePower, selectAiLanceBatteryTarget, selectAiOrbitalMusterTarget, selectAiSealBreaker, selectAiSurgeProjector } from './aiLanePowers';
 import { appendWinProbabilitySnapshot, checkVictory, drawCard, findRedeemableCardIds, redeemCardSet, syncTerritoryCounts } from '../state/gameStateManager';
 import { applyBombElimination, selectAiAtomBombStrike } from './aiAtomBomb';
@@ -93,7 +94,8 @@ export interface AiTurnFlags {
   /**
    * ai_defense_enabled: at levels that plan their fortify (ai/aiProfiles.ts
    * `fortifyPlan`), every fortify move is chosen at the fortify step by what
-   * each tile risks (ai/aiFortify.ts). Off when absent.
+   * each tile risks (ai/aiFortify.ts), and at levels with a `sourceReserve`,
+   * a tile attacked from keeps a reserve (ai/aiReserve.ts). Off when absent.
    */
   defense?: boolean;
 }
@@ -162,9 +164,11 @@ export interface AiTurnPlan {
    */
   replan?: { view: () => GameState; options: AiTurnOptions };
   /**
-   * Planned fortify (ai_defense_enabled): the fortify moves are chosen at the
-   * fortify step, on the board the attacks left (ai/aiFortify.ts), with the
-   * turn's goal and, playing to the ending, its race.
+   * Defence (ai_defense_enabled): a reserve on attack sources at levels with
+   * a `sourceReserve` (ai/aiReserve.ts), and at levels that plan their
+   * fortify, the fortify moves chosen at the fortify step, on the board the
+   * attacks left (ai/aiFortify.ts), with the turn's goal and, playing to the
+   * ending, its race.
    */
   defense?: { intent?: AiIntent; endingPlay?: boolean };
 }
@@ -242,10 +246,11 @@ export async function planAiTurn(
         : aiAttackExchangeBudget(difficulty, decidedPress),
   };
   const view = (): GameState => hooks.planningState();
-  // Planned fortify at levels that plan theirs. Daily challenges and campaign
-  // stages keep today's bots.
-  const defense = !!flags.defense && !keepsTodaysBots(state.settings)
-    && !aiProfile(difficulty).passive && aiProfile(difficulty).fortifyPlan === 'threat';
+  // Defence at levels that have some: a fortify chosen at the fortify step, a
+  // reserve on attack sources, or both. Daily challenges and campaign stages
+  // keep today's bots.
+  const defense = !!flags.defense && !keepsTodaysBots(state.settings) && !aiProfile(difficulty).passive
+    && (aiProfile(difficulty).fortifyPlan !== 'interior' || aiProfile(difficulty).sourceReserve > 0);
   const replan = oddsPress && flags.plannedDraft && !aiProfile(difficulty).passive
     ? {
       view,
@@ -1075,11 +1080,18 @@ export async function playAiTurn(
     // executeLandAttack refuses them too, but a sea crossing below would already
     // have fought the defender's fleet.
     if (isShieldedFrom(state, currentPlayer.player_id, to.owner_id)) continue;
+    // What the source keeps back against the other rival stacks beside it
+    // (ai_defense_enabled, ai/aiReserve.ts): the attack is priced and fought
+    // with the units above it, and the move-in leaves it behind.
+    const reserve = plan.defense && aiProfile(difficulty).sourceReserve > 0
+      ? sourceReserve(seen(), map, currentPlayer.player_id, difficulty, attackFromId, attackToId)
+      : 0;
+    if (reserveReached(from.unit_count, reserve)) continue;
     // Pressing on the odds: the live board decides, after earlier attacks have
     // spent or moved units, and before a Seal Breaker charge or a fleet is spent.
     if (oddsPress) {
       if (replan && triedEdges.size >= edgeCap) continue;
-      if (!shouldStartPress(state, map, currentPlayer.player_id, attackFromId, attackToId, difficulty, action.pressValue)) continue;
+      if (!shouldStartPress(state, map, currentPlayer.player_id, attackFromId, attackToId, difficulty, action.pressValue, reserve)) continue;
       triedEdges.add(`${attackFromId}>${attackToId}`);
       await hooks.delay();
     }
@@ -1174,10 +1186,19 @@ export async function playAiTurn(
       ...(oddsPress
         ? {
           continueCheck: (exchangesLeft: number) => shouldContinuePress(
-            state, map, currentPlayer.player_id, attackFromId, attackToId, exchangesLeft, difficulty,
+            state, map, currentPlayer.player_id, attackFromId, attackToId, exchangesLeft, difficulty, reserve,
           ),
         }
-        : { betweenExchanges: hooks.delay }),
+        : {
+          betweenExchanges: hooks.delay,
+          ...(reserve > 1
+            ? {
+              continueCheck: (exchangesLeft: number) => shouldContinueGrind(
+                state, currentPlayer.player_id, attackFromId, attackToId, exchangesLeft, reserve,
+              ),
+            }
+            : {}),
+        }),
       exchange: async (exchangeIndex) => {
         // A fresh scripted die per exchange — the queue is consumed, not reused.
         const aiPuzzleDieRoll = state.puzzle_dice_queue?.length ? createPuzzleDieRoll(state) : undefined;
@@ -1206,6 +1227,7 @@ export async function playAiTurn(
               currentPlayer.card_earned_this_turn = true;
             }
           },
+          ...(reserve > 1 ? { keepOnSource: reserve } : {}),
         });
         if (!aiOutcome) return 'stop';
         const result = aiOutcome.result;
@@ -1360,7 +1382,7 @@ export async function playAiTurn(
   // Planned fortify (ai_defense_enabled, ai/aiFortify.ts): every move the bot
   // has, Armored Push's included, chosen now on the board the attacks left,
   // in place of the one move planned before the draft.
-  if (plan.defense) {
+  if (plan.defense && aiProfile(difficulty).fortifyPlan === 'threat') {
     const view = seen();
     const armoredPushReady = !!state.settings.factions_enabled && !!currentPlayer.faction_id
       && getPlayerFaction(state, currentPlayer)?.ability_id === 'armored_push'
