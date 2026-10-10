@@ -3,7 +3,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import type { GameMap, GameState } from '../../types';
 import type { DailyPuzzleSpec, PuzzleDecisionRecord } from './dailyPuzzleTypes';
-import { pickSetPieceForDateV2, proveV2Day } from './dailyScheduleV2';
+import { pickSetPieceForDateV2, scheduleDayV2 } from './dailyScheduleV2';
 import { toPublicDailyPuzzleV2 } from './dailyPuzzlePublic';
 import {
   beginPuzzleHumanTurn,
@@ -85,22 +85,27 @@ let holdDay: Day | null = null;
 
 beforeAll(async () => {
   resetWarmedPuzzlesForTests();
-  for (const date of datesFrom('2026-09-21', 21)) {
+  // Every plan added to the library moves the Tuesday rotation, so the search
+  // runs well past where today's first match lies. The schedule serves each
+  // date through the calendar: a refused date costs no solve, an accepted one
+  // a single solve of its landing.
+  for (const date of datesFrom('2026-09-21', 70)) {
     if (captureDay && holdDay) break;
     const pick = pickSetPieceForDateV2(date);
     if (!pick) continue;
     if (pick.verb === 'hold' ? holdDay : captureDay) continue;
-    const { proven } = await proveV2Day(date, pick, deps);
-    if (!proven) continue;
-    const map = (await loadMap(proven.spec.map_id))!;
-    const puzzle = getWarmedPuzzle(proven.spec, map)!;
-    const day: Day = { date, spec: proven.spec, map, puzzle };
+    // The capture day must answer proposals, and Friday is silent.
+    if (pick.verb !== 'hold' && pick.tier.verdicts !== 'before_dice') continue;
+    const served = await scheduleDayV2(date, deps);
+    if (!served) continue;
+    const map = (await loadMap(served.spec.map_id))!;
+    const puzzle = getWarmedPuzzle(served.spec, map)!;
+    const day: Day = { date, spec: served.spec, map, puzzle };
     if (pick.verb === 'hold') {
       holdDay = day;
-    } else if (proven.spec.starting_phase === 'attack' && pick.tier.verdicts === 'before_dice') {
-      // The opening must itself be a decision for the takeback tests, and the
-      // day must answer proposals (Friday is silent).
-      const s0 = stateFromSpec(puzzle.ctx, proven.spec);
+    } else if (served.spec.starting_phase === 'attack') {
+      // The opening must itself be a decision for the takeback tests.
+      const s0 = stateFromSpec(puzzle.ctx, served.spec);
       if (classifyPosition(puzzle.solver, s0, obviousLine)?.decision) captureDay = day;
     }
   }
@@ -195,7 +200,7 @@ describe('puzzlePlay — pure pieces', () => {
 
 describe('puzzlePlay — a capture day whose opening is a decision', { timeout: 120_000 }, () => {
   it('found one in the horizon', () => {
-    expect(captureDay, 'no accepted capture day with a decision at the opening in the first three weeks').not.toBeNull();
+    expect(captureDay, 'no accepted capture day with a decision at the opening in the first ten weeks').not.toBeNull();
   });
 
   it('warms one solver per day and reuses it', () => {
@@ -378,7 +383,7 @@ describe('puzzlePlay — a capture day whose opening is a decision', { timeout: 
 
 describe('puzzlePlay — a hold day opens with a draft', { timeout: 120_000 }, () => {
   it('found one in the horizon', () => {
-    expect(holdDay, 'no accepted hold day in the first three weeks').not.toBeNull();
+    expect(holdDay, 'no accepted hold day in the first ten weeks').not.toBeNull();
   });
 
   it('grades the draft as one decision from the pre-draft position when the phase advances', () => {
