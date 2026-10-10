@@ -103,10 +103,19 @@ export const V2_GATE = {
 /** How far each missed attempt moves the sizing band. Same step as the v1 gate. */
 const BAND_STEP = 0.07;
 
+/**
+ * What a missed attempt missed, one per reason, for tooling that counts them
+ * (scripts/benchDailyV2.ts). A solve that runs out of budget has no verdict;
+ * its attempt carries `nodes` instead.
+ */
+export type GateCause = 'too_hard' | 'obvious_close' | 'no_key_move' | 'decision_count';
+
 export interface GateVerdict {
   ok: boolean;
   /** Why the attempt missed, for the log and the sweep. Empty when ok. */
   reasons: string[];
+  /** The same misses as codes, in the same order as `reasons`. */
+  causes: GateCause[];
   /** Which way to move the sizing band for the next attempt (+ easier for the player). */
   shift: number;
 }
@@ -124,22 +133,27 @@ export function nearBestMoves(analysis: PuzzleAnalysis, window: number = V2_GATE
 
 export function judgeAnalysis(analysis: PuzzleAnalysis, tier: V2Tier): GateVerdict {
   const reasons: string[] = [];
+  const causes: GateCause[] = [];
+  const miss = (cause: GateCause, reason: string) => {
+    causes.push(cause);
+    reasons.push(reason);
+  };
   const obvious = analysis.obviousEquity ?? analysis.equity;
   const gap = analysis.equity - obvious;
   const near = nearBestMoves(analysis);
   const decisions = analysis.decisions.length;
-  if (analysis.equity < V2_GATE.minEquity) reasons.push(`equity ${pct(analysis.equity)} < ${pct(V2_GATE.minEquity)}`);
-  if (gap < V2_GATE.minGap) reasons.push(`obvious line only ${pts(gap)} behind (needs ${pts(V2_GATE.minGap)})`);
-  if (near > V2_GATE.maxNearBest) reasons.push(`${near} opening moves within ${pts(V2_GATE.nearBestWindow)} of the best`);
-  if (decisions < tier.decisions || decisions > tier.decisions + 1) reasons.push(`${decisions} decision(s) on the best line (wants ${tier.decisions})`);
-  if (reasons.length === 0) return { ok: true, reasons, shift: 0 };
+  if (analysis.equity < V2_GATE.minEquity) miss('too_hard', `equity ${pct(analysis.equity)} < ${pct(V2_GATE.minEquity)}`);
+  if (gap < V2_GATE.minGap) miss('obvious_close', `obvious line only ${pts(gap)} behind (needs ${pts(V2_GATE.minGap)})`);
+  if (near > V2_GATE.maxNearBest) miss('no_key_move', `${near} opening moves within ${pts(V2_GATE.nearBestWindow)} of the best`);
+  if (decisions < tier.decisions || decisions > tier.decisions + 1) miss('decision_count', `${decisions} decision(s) on the best line (wants ${tier.decisions})`);
+  if (reasons.length === 0) return { ok: true, reasons, causes, shift: 0 };
   // Direction of the next re-roll. Unwinnable is the one miss that must move
   // the player's odds up; every other miss reads as a board that is too easy
   // for the natural line, or too loose to force a choice, so the odds go down.
   let shift = -BAND_STEP;
   if (analysis.equity < V2_GATE.minEquity) shift = BAND_STEP;
   else if (decisions > tier.decisions + 1) shift = BAND_STEP;
-  return { ok: false, reasons, shift };
+  return { ok: false, reasons, causes, shift };
 }
 
 function pct(x: number): string {
@@ -239,12 +253,17 @@ export interface V2Pick {
   tier: V2Tier;
 }
 
+/** A date's set-piece and reading as v2 would serve them, whether or not a plan is authored yet. */
+export type V2Candidate = Omit<V2Pick, 'plan'>;
+
 /**
- * What a date would be served as v2, before sizing: the set-piece, its
- * reading, its authored plan and the tier. Null when the day stays v1 — a
- * dated calendar entry, a weekday without a tier, a set-piece without a plan.
+ * The set-piece and reading a date would be served as v2 if the reading had
+ * a plan. Null when the day stays v1 whatever is authored: a dated calendar
+ * entry, a weekday without a tier, a reading that is not a fight (economy,
+ * tech, domination). Tuesday walks planned set-pieces only, so a Tuesday
+ * candidate always has its plan.
  */
-export function pickSetPieceForDateV2(date: string): V2Pick | null {
+export function candidateForDateV2(date: string): V2Candidate | null {
   if (getAuthoredDailySpec(date)) return null;
   const tier = tierForDate(date);
   if (!tier) return null;
@@ -262,9 +281,20 @@ export function pickSetPieceForDateV2(date: string): V2Pick | null {
     verb = slotVerb === 'any' ? (sp.kind as DailyVerb) : slotVerb;
   }
   if (verb !== 'tactical' && verb !== 'hold' && verb !== 'region' && verb !== 'chain') return null;
-  const plan = planFor(sp, verb === 'hold');
+  return { set_piece: sp, verb, tier };
+}
+
+/**
+ * What a date would be served as v2, before sizing: the set-piece, its
+ * reading, its authored plan and the tier. Null when the day stays v1 — a
+ * dated calendar entry, a weekday without a tier, a set-piece without a plan.
+ */
+export function pickSetPieceForDateV2(date: string): V2Pick | null {
+  const candidate = candidateForDateV2(date);
+  if (!candidate) return null;
+  const plan = planFor(candidate.set_piece, candidate.verb === 'hold');
   if (!plan) return null;
-  return { set_piece: sp, verb, plan, tier };
+  return { set_piece: candidate.set_piece, verb: candidate.verb, plan, tier: candidate.tier };
 }
 
 // ── Sizing and proving a day ─────────────────────────────────────────────────
@@ -328,6 +358,27 @@ export interface V2Attempt {
   verdict: GateVerdict | null;
   /** Set when the solve ran out of budget. */
   nodes?: number;
+  /** What the solve measured, when it finished: the numbers the verdict judged. */
+  measured?: V2Measure;
+}
+
+/** A finished solve's numbers, as the gate reads them. */
+export interface V2Measure {
+  equity: number;
+  obvious: number;
+  near_best: number;
+  decisions: number;
+  nodes: number;
+}
+
+function measure(a: PuzzleAnalysis): V2Measure {
+  return {
+    equity: round4(a.equity),
+    obvious: round4(a.obviousEquity ?? a.equity),
+    near_best: nearBestMoves(a),
+    decisions: a.decisions.length,
+    nodes: a.nodes,
+  };
 }
 
 export interface V2Result {
@@ -375,7 +426,7 @@ export async function proveV2Day(date: string, pick: V2Pick, deps: ScheduleDeps 
       break;
     }
     const verdict = judgeAnalysis(analysis, tier);
-    attempts.push({ attempt, verdict });
+    attempts.push({ attempt, verdict, measured: measure(analysis) });
     if (verdict.ok) {
       const name = (id: string) => territoryDisplayName(map, id);
       const solution = storeSolution(ctx, analysis);

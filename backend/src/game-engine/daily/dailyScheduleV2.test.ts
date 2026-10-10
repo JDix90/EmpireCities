@@ -3,9 +3,10 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import type { GameMap } from '../../types';
 import { DAILY_CALENDAR } from '../../content/dailyCalendar';
-import { plannedSetPieces } from '../../content/dailySetPiecePlans';
+import { planFor, plannedSetPieces } from '../../content/dailySetPiecePlans';
 import { pickSetPieceForDate, scheduleDay, verbForDate, weekdayOf } from './dailySchedule';
 import {
+  candidateForDateV2,
   describeAttempts,
   HOLD_RESERVE_BONUS,
   judgeAnalysis,
@@ -21,7 +22,7 @@ import { contextFromSpec, stateFromSpec } from './puzzle/bridge';
 import { parseAction } from './puzzle/actions';
 import { compilePlan } from './puzzle/opponent';
 import { obviousLine } from './puzzle/obvious';
-import { Solver } from './puzzle/solver';
+import { Solver, type PuzzleAnalysis } from './puzzle/solver';
 
 /**
  * The review board for the v2 days. The v2 schedule is a pure function of the
@@ -76,12 +77,14 @@ describe('daily schedule v2 — tiers', () => {
 describe('daily schedule v2 — which set-piece a date gets', () => {
   it('a dated calendar entry is never read as v2', () => {
     for (const date of Object.keys(DAILY_CALENDAR)) expect(pickSetPieceForDateV2(date), date).toBeNull();
+    for (const date of Object.keys(DAILY_CALENDAR)) expect(candidateForDateV2(date), date).toBeNull();
   });
 
   it('Thursday and Sunday are never read as v2', () => {
     for (const date of datesFrom('2026-09-14', 56)) {
       const wd = weekdayOf(date);
       if (wd === 4 || wd === 0) expect(pickSetPieceForDateV2(date), date).toBeNull();
+      if (wd === 4 || wd === 0) expect(candidateForDateV2(date), date).toBeNull();
     }
   });
 
@@ -139,6 +142,75 @@ describe('daily schedule v2 — which set-piece a date gets', () => {
       expect(pickSetPieceForDateV2(date)).toEqual(pickSetPieceForDateV2(date));
     }
   });
+
+  it('the candidate is the pick without its plan, and names the fights that have no plan yet', () => {
+    for (const date of datesFrom('2026-09-14', 120)) {
+      const candidate = candidateForDateV2(date);
+      const pick = pickSetPieceForDateV2(date);
+      if (pick) {
+        expect(candidate, date).toEqual({ set_piece: pick.set_piece, verb: pick.verb, tier: pick.tier });
+        continue;
+      }
+      if (!candidate) continue;
+      // No pick but a candidate: a fight whose reading is still unplanned.
+      expect(['tactical', 'hold', 'region', 'chain'], date).toContain(candidate.verb);
+      expect(planFor(candidate.set_piece, candidate.verb === 'hold'), date).toBeNull();
+      expect(weekdayOf(date), `${date}: Tuesday walks planned set-pieces only`).not.toBe(2);
+    }
+  });
+});
+
+describe('daily schedule v2 — what a missed attempt missed', () => {
+  const tier = V2_TIERS[1]!;
+  const decision = {
+    turn: 1,
+    phase: 0,
+    best: { kind: 'end_turn' },
+    bestEquity: 0.7,
+    alternative: { kind: 'end_attack' },
+    alternativeEquity: 0.4,
+    gap: 0.3,
+  } as PuzzleAnalysis['decisions'][number];
+  const analysis = (over: Partial<PuzzleAnalysis>): PuzzleAnalysis => ({
+    equity: 0.7,
+    obviousEquity: 0.4,
+    rootActions: [
+      { action: { kind: 'draft', to: 0 }, equity: 0.7 },
+      { action: { kind: 'draft', to: 1 }, equity: 0.5 },
+    ],
+    nearBest: 1,
+    decisions: [decision, decision],
+    line: [],
+    nodes: 1_000,
+    ...over,
+  });
+
+  it('accepts a day with no causes', () => {
+    expect(judgeAnalysis(analysis({}), tier)).toEqual({ ok: true, reasons: [], causes: [], shift: 0 });
+  });
+
+  it('names each miss as a cause, in the order of its reason', () => {
+    const verdict = judgeAnalysis(analysis({
+      equity: 0.5,
+      obviousEquity: 0.45,
+      rootActions: [
+        { action: { kind: 'draft', to: 0 }, equity: 0.5 },
+        { action: { kind: 'draft', to: 1 }, equity: 0.49 },
+        { action: { kind: 'draft', to: 2 }, equity: 0.48 },
+      ],
+      decisions: [],
+    }), tier);
+    expect(verdict.ok).toBe(false);
+    expect(verdict.causes).toEqual(['too_hard', 'obvious_close', 'no_key_move', 'decision_count']);
+    expect(verdict.reasons).toHaveLength(4);
+    expect(verdict.reasons[0]).toMatch(/^equity 50% < 60%/);
+    expect(verdict.reasons[3]).toMatch(/0 decision\(s\)/);
+  });
+
+  it('counts too many decisions as a miss as well as too few', () => {
+    expect(judgeAnalysis(analysis({ decisions: [decision, decision, decision, decision] }), tier).causes).toEqual(['decision_count']);
+    expect(judgeAnalysis(analysis({ decisions: [decision, decision, decision] }), tier).ok).toBe(true);
+  });
 });
 
 // Every v2-eligible day in the horizon is proven here. Days that fail the
@@ -194,6 +266,30 @@ describe('daily schedule v2 — the sweep', { timeout: 900_000 }, () => {
       expect(spec.v2!.solution.decisions.length).toBeGreaterThanOrEqual(pick.tier.decisions);
       expect(spec.v2!.solution.decisions.length).toBeLessThanOrEqual(pick.tier.decisions + 1);
       expect(spec.v2!.solution.nodes).toBeLessThanOrEqual(V2_GATE.nodeBudget);
+    }
+  });
+
+  it('records what each finished attempt measured, and a cause for each reason', async () => {
+    await ready;
+    for (const { date, result } of days) {
+      for (const a of result.attempts) {
+        if (!a.verdict) {
+          expect(a.nodes, date).toBeGreaterThan(V2_GATE.nodeBudget);
+          expect(a.measured, date).toBeUndefined();
+          continue;
+        }
+        expect(a.measured, date).toBeDefined();
+        expect(a.verdict.causes, date).toHaveLength(a.verdict.reasons.length);
+      }
+      if (!result.proven) continue;
+      const solution = result.proven.spec.v2!.solution;
+      expect(result.attempts[result.attempts.length - 1].measured, date).toEqual({
+        equity: solution.equity,
+        obvious: solution.obvious_equity,
+        near_best: solution.near_best,
+        decisions: solution.decisions.length,
+        nodes: solution.nodes,
+      });
     }
   });
 
