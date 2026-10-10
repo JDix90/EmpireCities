@@ -4,7 +4,7 @@
  * opponent.ts expands a plan exactly for the solver; this runs the same plan
  * on a live GameState — the AI's turn in a v2 daily, and the parity test's way
  * of proving the model and the engine agree. Every decision reads the same
- * rule as the model: conditions from the primary objective, assault odds from
+ * rule as the model: conditions from the plan's objective, assault odds from
  * the model's own dice (so ACW rifle doctrine and Discovery sea caps match),
  * the press floor `keep`, marches up to the era's fortify limit.
  */
@@ -23,9 +23,16 @@ function ownerSide(state: GameState, tid: string, humanId: string, aiId: string)
   return o === humanId ? HUMAN : o === aiId ? AI : 0;
 }
 
-function holds(state: GameState, ctx: PuzzleContext, humanId: string, aiId: string, when: PlanCondition | undefined): boolean {
+function holds(
+  state: GameState,
+  ctx: PuzzleContext,
+  plan: OpponentPlan,
+  humanId: string,
+  aiId: string,
+  when: PlanCondition | undefined,
+): boolean {
   const w = when ?? 'always';
-  const primary = ctx.ids[ctx.objective.targets[0]];
+  const primary = plan.objective ?? ctx.ids[ctx.objective.targets[0]];
   if (w === 'always') return true;
   if (w === 'objective_human') return ownerSide(state, primary, humanId, aiId) === HUMAN;
   if (w === 'objective_ai') return ownerSide(state, primary, humanId, aiId) === AI;
@@ -73,7 +80,7 @@ export async function runScriptedAiTurn(
   const n = state.draft_units_remaining ?? 0;
   let draftTo: string | null = null;
   for (const step of plan.steps) {
-    if (step.kind !== 'draft' || !holds(state, ctx, humanId, aiId, step.when)) continue;
+    if (step.kind !== 'draft' || !holds(state, ctx, plan, humanId, aiId, step.when)) continue;
     if (state.territories[step.to]?.owner_id !== aiId) continue;
     draftTo = step.to;
     break;
@@ -110,7 +117,7 @@ export async function runScriptedAiTurn(
   let left = ctx.fortifyMoves;
   for (const step of plan.steps) {
     if (left <= 0) break;
-    if (step.kind !== 'march' || !holds(state, ctx, humanId, aiId, step.when)) continue;
+    if (step.kind !== 'march' || !holds(state, ctx, plan, humanId, aiId, step.when)) continue;
     const from = state.territories[step.from];
     const to = state.territories[step.to];
     if (!from || !to || from.owner_id !== aiId || to.owner_id !== aiId || from.unit_count < 2) continue;
@@ -128,12 +135,12 @@ export async function runScriptedAiTurn(
 function assaultApplies(
   state: GameState,
   ctx: PuzzleContext,
-  _plan: OpponentPlan,
+  plan: OpponentPlan,
   step: Extract<PlanStep, { kind: 'assault' }>,
   humanId: string,
   aiId: string,
 ): boolean {
-  if (!holds(state, ctx, humanId, aiId, step.when)) return false;
+  if (!holds(state, ctx, plan, humanId, aiId, step.when)) return false;
   const from = state.territories[step.from];
   const to = state.territories[step.to];
   if (!from || !to || from.owner_id !== aiId || to.owner_id !== humanId || from.unit_count < 2) return false;

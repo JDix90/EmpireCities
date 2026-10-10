@@ -179,6 +179,13 @@ Rules are evaluated in order each opponent turn: draft, then assaults, then one 
 to teach, and the intro shows it (arrows or prose from the same rules). Determinism makes
 the solver exact and the intent stable.
 
+As built (`puzzle/opponent.ts`), the conditions read one territory: `objective_ai` and
+`objective_human` ask who holds it. It is the day's primary objective (the capture or
+hold target, a chain's first hop) unless the plan names another with `objective`. A
+region plan always names its garrison, because a region's objective is the whole region
+in the map's order and its first territory is usually one the human already holds; read
+from there, a region plan's "while it holds" steps never ran.
+
 ### 5.3 Generation and the gate
 
 The generator keeps sizing numbers from the date. The gate's criterion inverts:
@@ -266,6 +273,13 @@ schedule would, and prints each attempt's numbers with the gate's causes for a m
 coverage report for the whole horizon: how many days are graded, refused by the gate,
 unplanned or not gradeable, and which readings fail most. Adding or removing a plan
 moves the Tuesday rotation, which walks planned set-pieces only.
+
+A plan may set its reading's own `clock`, in human turns, in place of the tier's. On
+the tier's three or four turns a front with a deep human stack has time to recover from
+any opening, so every first move scores alike and the gate finds nothing decided, and a
+wide board outgrows the node budget besides. Measured on the bench over the year from
+10 October 2026, two turns on nine readings put 38 more days through the gate (86 to
+124) and cut the year's solving time from 19 minutes to 11.
 
 ## 7. Verification
 

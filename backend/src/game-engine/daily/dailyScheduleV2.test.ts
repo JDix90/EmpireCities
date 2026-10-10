@@ -7,6 +7,7 @@ import { planFor, plannedSetPieces } from '../../content/dailySetPiecePlans';
 import { pickSetPieceForDate, scheduleDay, verbForDate, weekdayOf } from './dailySchedule';
 import {
   candidateForDateV2,
+  clockFor,
   describeAttempts,
   HOLD_RESERVE_BONUS,
   judgeAnalysis,
@@ -63,6 +64,12 @@ describe('daily schedule v2 — tiers', () => {
 
   it('Friday is the three-decision day: prose only, verdicts held until the end', () => {
     expect(V2_TIERS[5]).toEqual({ decisions: 3, clock: 4, verdicts: 'silent', intent: 'prose' });
+  });
+
+  it("a plan's own clock replaces the tier's; without one the tier's stands", () => {
+    const tier = V2_TIERS[5]!;
+    expect(clockFor({ tier, plan: { theme: 't', plan: { steps: [] }, clock: 2 } })).toBe(2);
+    expect(clockFor({ tier, plan: { theme: 't', plan: { steps: [] } } })).toBe(tier.clock);
   });
 
   it('Thursday and Sunday keep their v1 form', () => {
@@ -308,13 +315,13 @@ describe('daily schedule v2 — the sweep', { timeout: 900_000 }, () => {
       expect(spec.v2!.decisions_target).toBe(pick.tier.decisions);
       expect(spec.v2!.verdicts).toBe(pick.tier.verdicts);
       expect(spec.v2!.intent).toBe(pick.tier.intent);
-      expect(spec.max_turns).toBe(pick.tier.clock);
+      expect(spec.max_turns).toBe(clockFor(pick));
       if (spec.archetype === 'hold_territory') {
-        expect(spec.goal).toContain(`for ${pick.tier.clock} turns`);
+        expect(spec.goal).toContain(`for ${clockFor(pick)} turns`);
         expect(spec.par_turns).toBeUndefined();
       } else {
         expect(spec.par_turns).toBeGreaterThanOrEqual(1);
-        expect(spec.par_turns).toBeLessThanOrEqual(pick.tier.clock);
+        expect(spec.par_turns).toBeLessThanOrEqual(clockFor(pick));
       }
     }
   });

@@ -59,6 +59,15 @@ describe('dailySetPiecePlans — the library', () => {
     }
   });
 
+  it("a plan's own clock is a whole number of turns", () => {
+    for (const [id, entry] of Object.entries(SET_PIECE_PLANS)) {
+      for (const [reading, plan] of Object.entries(entry)) {
+        if (plan.clock === undefined) continue;
+        expect(Number.isInteger(plan.clock) && plan.clock >= 1, `${id} ${reading}: clock ${plan.clock}`).toBe(true);
+      }
+    }
+  });
+
   it('planFor reads the capture plan on a capture day and the hold plan on a hold day', () => {
     const sp = byId('crossing_the_rubicon');
     expect(planFor(sp, false)?.theme).toBe('cut the supply line');
@@ -94,6 +103,18 @@ describe('dailySetPiecePlans — against the boards the schedule deals', () => {
 
       const owner = (id: string) => root.owner[ctx.index.get(id)!];
       const adjacent = (a: string, b: string) => ctx.adj[ctx.index.get(a)!].includes(ctx.index.get(b)!);
+
+      // A region's objective is the whole region in the map's order, whose
+      // first territory may be the human's: a plan whose conditions read the
+      // objective names the garrison they mean.
+      const readsObjective = plan.plan.steps.some((s) => s.when === 'objective_ai' || s.when === 'objective_human');
+      if (sp.kind === 'region' && readsObjective) {
+        expect(plan.plan.objective, `${sp.id}: a region plan with conditions names its garrison`).toBeDefined();
+        expect(sp.ai, `${sp.id}: the named objective is one of the region's AI garrisons`).toContain(plan.plan.objective);
+      }
+      if (plan.plan.objective) {
+        expect(owner(plan.plan.objective), `${sp.id}: the named objective is the AI's at the start`).toBe(AI);
+      }
       for (const step of plan.plan.steps) {
         if (step.kind === 'draft') {
           expect(owner(step.to), `${sp.id}: draft onto ${step.to}, which the AI does not hold at the start`).toBe(AI);
