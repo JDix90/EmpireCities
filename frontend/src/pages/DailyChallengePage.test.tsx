@@ -194,6 +194,22 @@ describe('DailyChallengePage — a v2 decision-puzzle day', () => {
       expect(screen.getByTestId('daily-page-classic').textContent).toBe('Classic challenge: moves aren\u2019t graded today.');
     });
 
+    it('says when the next graded challenge is, when the server knows', async () => {
+      setGrading(true);
+      mockToday({ challenge, my_entry: null, active_game_id: null, attempts_today: 0, my_rank: null, leaderboard: [], next_graded_date: '2026-09-08' });
+      renderPage();
+      await waitFor(() => expect(screen.getByTestId('daily-page-classic')).toBeInTheDocument());
+      expect(screen.getByTestId('daily-page-classic').textContent).toBe('Classic challenge: moves aren\u2019t graded today. The next graded challenge is tomorrow.');
+    });
+
+    it('names a later graded day by its date', async () => {
+      setGrading(true);
+      mockToday({ challenge, my_entry: null, active_game_id: null, attempts_today: 0, my_rank: null, leaderboard: [], next_graded_date: '2026-09-11' });
+      renderPage();
+      await waitFor(() => expect(screen.getByTestId('daily-page-classic')).toBeInTheDocument());
+      expect(screen.getByTestId('daily-page-classic').textContent).toMatch(/^Classic challenge: moves aren\u2019t graded today\. The next graded challenge is on .*11.*\.$/);
+    });
+
     it('says nothing on a graded day', async () => {
       setGrading(true);
       mockToday({ challenge: v2Challenge, my_entry: null, active_game_id: null, attempts_today: 0, my_rank: null, leaderboard: [] });

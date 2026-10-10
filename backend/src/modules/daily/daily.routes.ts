@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { v4 as uuidv4 } from 'uuid';
 import { authenticate } from '../../middleware/authenticate';
 import { query, queryOne, withTransaction } from '../../db/postgres';
-import { ensureDailyChallengeForToday } from '../../game-engine/daily/dailyPuzzleService';
+import { dailyChallengeDate, ensureDailyChallengeForToday, nextGradedDateFor } from '../../game-engine/daily/dailyPuzzleService';
 import type { DailyPuzzleSpec } from '../../game-engine/daily/dailyPuzzleTypes';
 import { buildGameSettingsFromChallenge } from '../../game-engine/daily/dailySettings';
 import { applyAdminSnapshotsToSettings } from '../../services/adminConfig';
@@ -201,6 +201,7 @@ export async function dailyRoutes(fastify: FastifyInstance): Promise<void> {
       attempts_today: attemptsRow?.attempts ? Number(attemptsRow.attempts) : 0,
       my_rank: rankRow?.rank ?? null,
       leaderboard,
+      next_graded_date: nextGradedDateFor(row.spec, dailyChallengeDate()),
     });
   });
 
