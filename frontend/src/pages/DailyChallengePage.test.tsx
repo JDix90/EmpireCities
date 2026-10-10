@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import DailyChallengePage, { ordinal } from './DailyChallengePage';
@@ -177,5 +177,36 @@ describe('DailyChallengePage — a v2 decision-puzzle day', () => {
     await waitFor(() => expect(screen.getByText(/beat it to score above 1000/)).toBeInTheDocument());
     expect(screen.queryByTestId('daily-v2-card')).toBeNull();
     expect(screen.queryByTestId('daily-v2-result')).toBeNull();
+  });
+
+  describe('with grading on', () => {
+    const setGrading = (on: boolean) => {
+      const st = useFeatureFlagsStore.getState();
+      useFeatureFlagsStore.setState({ ...st, flags: { ...st.flags, daily_puzzle_v2_enabled: on } });
+    };
+    afterEach(() => setGrading(false));
+
+    it('says a classic day is not graded', async () => {
+      setGrading(true);
+      mockToday({ challenge, my_entry: null, active_game_id: null, attempts_today: 0, my_rank: null, leaderboard: [] });
+      renderPage();
+      await waitFor(() => expect(screen.getByTestId('daily-page-classic')).toBeInTheDocument());
+      expect(screen.getByTestId('daily-page-classic').textContent).toBe('Classic challenge: moves aren\u2019t graded today.');
+    });
+
+    it('says nothing on a graded day', async () => {
+      setGrading(true);
+      mockToday({ challenge: v2Challenge, my_entry: null, active_game_id: null, attempts_today: 0, my_rank: null, leaderboard: [] });
+      renderPage();
+      await waitFor(() => expect(screen.getByTestId('daily-v2-card')).toBeInTheDocument());
+      expect(screen.queryByTestId('daily-page-classic')).toBeNull();
+    });
+  });
+
+  it('says nothing about grading on a classic day while grading is off', async () => {
+    mockToday({ challenge, my_entry: null, active_game_id: null, attempts_today: 0, my_rank: null, leaderboard: [] });
+    renderPage();
+    await waitFor(() => expect(screen.getByText(/beat it to score above 1000/)).toBeInTheDocument());
+    expect(screen.queryByTestId('daily-page-classic')).toBeNull();
   });
 });

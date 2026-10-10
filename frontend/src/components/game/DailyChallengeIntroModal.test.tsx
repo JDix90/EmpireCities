@@ -3,9 +3,10 @@
  * every day, which was wrong for hold days (medium on purpose) and for any
  * set-piece that names its own difficulty.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import DailyChallengeIntroModal from './DailyChallengeIntroModal';
+import { useFeatureFlagsStore } from '../../store/featureFlagsStore';
 
 const base = { archetype: 'hold_territory', title: 'Persepolis', intro: 'Hold.', goal: 'Hold Persia for 7 turns.' };
 
@@ -62,6 +63,37 @@ describe('DailyChallengeIntroModal — a v2 decision puzzle', () => {
     render(<DailyChallengeIntroModal spec={{ ...base, max_turns: 8, par_turns: 4 }} onBegin={() => {}} />);
     expect(screen.queryByTestId('daily-intro-plan')).toBeNull();
     expect(screen.getByText(/Par:/)).toBeTruthy();
+  });
+});
+
+describe('DailyChallengeIntroModal — a classic day while grading is on', () => {
+  // Thursday, Sunday, and any day whose set-piece has no opponent's plan yet
+  // are served as v1 with grading on: no verdicts and no review. The card says
+  // so up front, or the missing grades read as broken.
+  const setGrading = (on: boolean) => {
+    const st = useFeatureFlagsStore.getState();
+    useFeatureFlagsStore.setState({ ...st, flags: { ...st.flags, daily_puzzle_v2_enabled: on } });
+  };
+  afterEach(() => setGrading(false));
+
+  it('says moves are not graded today', () => {
+    setGrading(true);
+    render(<DailyChallengeIntroModal spec={{ ...base, max_turns: 8, par_turns: 4 }} onBegin={() => {}} />);
+    expect(screen.getByTestId('daily-intro-classic').textContent).toBe('Classic challenge: moves aren\u2019t graded today.');
+  });
+
+  it('says nothing on a graded day, or with grading off', () => {
+    setGrading(true);
+    const v2 = {
+      version: 2 as const, theme: 'the feint', plan_prose: ['It reinforces Persia.'], decisions_target: 2,
+      verdicts: 'before_dice' as const, intent: 'arrows' as const, decisions: 2,
+    };
+    const { unmount } = render(<DailyChallengeIntroModal spec={{ ...base, v2 }} onBegin={() => {}} />);
+    expect(screen.queryByTestId('daily-intro-classic')).toBeNull();
+    unmount();
+    setGrading(false);
+    render(<DailyChallengeIntroModal spec={base} onBegin={() => {}} />);
+    expect(screen.queryByTestId('daily-intro-classic')).toBeNull();
   });
 });
 

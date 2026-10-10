@@ -238,6 +238,8 @@ Migration 042 adds to `daily_challenge_entries`: `puzzle_version SMALLINT DEFAUL
 Reuse the game page with a puzzle overlay: the intro modal gains the opponent's plan and
 the decision count; a verdict card (§3); an end-of-run review panel; the share line;
 intent arrows on the 2D map on arrow days; archive pages render the solution and theme.
+With the flag on, a day served as v1 says so on the daily card, the intro and the result
+screen (`CLASSIC_DAY_NOTE`), so a day with no verdicts and no review does not read as broken.
 A cropped viewport that fits the in-play territories is desirable and is done only if
 the map renderer already exposes a fit-to-bounds; otherwise it is a follow-up.
 
