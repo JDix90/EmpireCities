@@ -5,7 +5,8 @@ import type { GameMap } from '../../types';
 import { DAILY_SET_PIECES, type DailySetPiece } from '../../content/dailySetPieces';
 import { DAILY_V2_CALENDAR } from '../../content/dailyV2Calendar';
 import { calendarFingerprint } from './dailyBench';
-import { calendarVerdict, pickSetPieceForDateV2, scheduleDayV2, type V2Calendar } from './dailyScheduleV2';
+import { nextGradedDateFor } from './dailyPuzzleService';
+import { calendarVerdict, nextGradedDateV2, pickSetPieceForDateV2, scheduleDayV2, type V2Calendar, type V2CalendarEntry } from './dailyScheduleV2';
 
 /**
  * The v2 calendar (src/content/dailyV2Calendar.ts) is a cache of a pure
@@ -123,5 +124,52 @@ describe('daily v2 calendar — what the schedule takes from it', () => {
     };
     expect(await scheduleDayV2(refused![0], deps)).toBeNull();
     expect(loads).toBe(0);
+  });
+});
+
+describe('daily v2 calendar — the next graded date', () => {
+  // Three planned dates in a row, with their real picks so the schedule
+  // trusts the entries; the verdicts are set by hand.
+  const [[d1, e1], [d2, e2], [d3, e3]] = Object.entries(DAILY_V2_CALENDAR.days).sort(([a], [b]) => a.localeCompare(b)).slice(0, 3);
+  const pickOf = (e: V2CalendarEntry) => ({ set_piece_id: e.set_piece_id, verb: e.verb });
+  const calendar = (third: V2CalendarEntry): V2Calendar => ({
+    from: d1,
+    to: d3,
+    fingerprint: 'test',
+    days: {
+      [d1]: { ...pickOf(e1), attempt: 0, shift: 0 },
+      [d2]: { ...pickOf(e2), refused: true },
+      [d3]: third,
+    },
+  });
+  const graded = calendar({ ...pickOf(e3), attempt: 1, shift: -0.07 });
+
+  it('is the first accepted date after the given one, skipping refused dates', () => {
+    expect(nextGradedDateV2('2000-01-01', graded)).toBe(d1);
+    expect(nextGradedDateV2(d1, graded)).toBe(d3);
+    expect(nextGradedDateV2(d2, graded)).toBe(d3);
+  });
+
+  it('is null once the range holds no later graded date', () => {
+    expect(nextGradedDateV2(d3, graded)).toBeNull();
+    expect(nextGradedDateV2(d1, calendar({ ...pickOf(e3), refused: true }))).toBeNull();
+  });
+
+  it('skips an entry the schedule no longer agrees with', () => {
+    expect(nextGradedDateV2(d1, calendar({ set_piece_id: 'not_this_one', verb: e3.verb, attempt: 0, shift: 0 }))).toBeNull();
+  });
+
+  it('on the checked-in calendar, is a graded date whose pick the schedule makes', () => {
+    const next = nextGradedDateV2(DAILY_V2_CALENDAR.from);
+    expect(next).not.toBeNull();
+    const verdict = calendarVerdict(next!, pickSetPieceForDateV2(next!)!);
+    expect(verdict && verdict !== 'refused').toBe(true);
+  });
+
+  it('is offered only for a classic day while grading is on', () => {
+    const today = DAILY_V2_CALENDAR.from;
+    expect(nextGradedDateFor({}, today, true)).toBe(nextGradedDateV2(today));
+    expect(nextGradedDateFor({}, today, false)).toBeNull();
+    expect(nextGradedDateFor({ v2: {} as never }, today, true)).toBeNull();
   });
 });

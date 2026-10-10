@@ -5,7 +5,7 @@ import type { DailyPuzzleSpec } from './dailyPuzzleTypes';
 import { buildDailyPuzzleBase, captureGoal, economySpecFromBase, regionGoal, territoryDisplayName } from './dailyGenerator';
 import { featureFlags } from '../../config/featureFlags';
 import { scheduleDay, type ScheduledDay, type ScheduleDeps } from './dailySchedule';
-import { scheduleDayV2 } from './dailyScheduleV2';
+import { nextGradedDateV2, scheduleDayV2 } from './dailyScheduleV2';
 
 export { territoryDisplayName, captureGoal, regionGoal };
 
@@ -68,6 +68,19 @@ export async function scheduleServedDay(date: string, deps?: ScheduleDeps): Prom
     if (v2) return v2;
   }
   return deps ? scheduleDay(date, deps) : scheduleDay(date);
+}
+
+/**
+ * When the next graded challenge is, for a day served as classic while
+ * grading is on: the classic-day note says how long the wait is. Null on a
+ * graded day, with grading off, or past the v2 calendar's range.
+ */
+export function nextGradedDateFor(
+  spec: Pick<DailyPuzzleSpec, 'v2'>,
+  today: string,
+  gradingOn: boolean = featureFlags.dailyPuzzleV2Enabled,
+): string | null {
+  return gradingOn && !spec.v2 ? nextGradedDateV2(today) : null;
 }
 
 export interface DailyChallengeRow {

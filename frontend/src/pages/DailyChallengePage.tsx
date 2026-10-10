@@ -10,7 +10,7 @@ import { useAuthStore } from '../store/authStore';
 import { useDailyGuestPlayEnabled, useDailyPuzzleV2Enabled } from '../store/featureFlagsStore';
 import { useRnParamTracker } from '../hooks/useRnParamTracker';
 import { ownAuthUiAllowed } from '../utils/embedContext';
-import { buildShareLine, CLASSIC_DAY_NOTE, decisionsLine, type PublicDailyPuzzleV2 } from '../utils/dailyPuzzleV2';
+import { buildShareLine, classicDayNote, decisionsLine, type PublicDailyPuzzleV2 } from '../utils/dailyPuzzleV2';
 
 interface DailyPuzzleSpecPublic {
   archetype: string;
@@ -87,6 +87,8 @@ interface DailyResponse {
    */
   my_rank?: number | null;
   leaderboard: LeaderboardRow[];
+  /** On a classic day with grading on: the next graded challenge's date (YYYY-MM-DD), from the v2 calendar. */
+  next_graded_date?: string | null;
 }
 
 interface WeeklyChallengeSummary {
@@ -260,7 +262,7 @@ export default function DailyChallengePage() {
     );
   }
 
-  const { challenge, my_entry, active_game_id, completed_game_id, leaderboard, attempts_today, my_rank } = data;
+  const { challenge, my_entry, active_game_id, completed_game_id, leaderboard, attempts_today, my_rank, next_graded_date } = data;
   const alreadyPlayed = my_entry !== null;
   const canWatchReplay = !!my_entry?.won && !!completed_game_id;
   const isV2Day = !!challenge.spec?.v2;
@@ -333,7 +335,9 @@ export default function DailyChallengePage() {
               {/* With grading on, a day without a v2 reading is a classic one:
                   say so, or the missing verdicts and review read as broken. */}
               {!isV2Day && gradingOn && (
-                <p className="text-bf-muted text-xs mt-1" data-testid="daily-page-classic">{CLASSIC_DAY_NOTE}</p>
+                <p className="text-bf-muted text-xs mt-1" data-testid="daily-page-classic">
+                  {classicDayNote(String(challenge.challenge_date ?? ''), next_graded_date, formatDate)}
+                </p>
               )}
             </div>
             {alreadyPlayed && (

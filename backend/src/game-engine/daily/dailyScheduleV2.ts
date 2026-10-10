@@ -567,6 +567,22 @@ export function calendarVerdict(
   return 'refused' in entry ? 'refused' : { attempt: entry.attempt, shift: entry.shift };
 }
 
+/**
+ * The first date after `after` that the calendar has passing the gate, or
+ * null when none is left in its range. For the classic-day note: when the
+ * next graded challenge is. An entry whose pick no longer matches the
+ * schedule is skipped, as the schedule itself would not trust it.
+ */
+export function nextGradedDateV2(after: string, calendar: V2Calendar = DAILY_V2_CALENDAR): string | null {
+  const dates = Object.keys(calendar.days).filter((d) => d > after).sort();
+  for (const date of dates) {
+    const pick = pickSetPieceForDateV2(date);
+    const verdict = pick ? calendarVerdict(date, pick, calendar) : null;
+    if (verdict && verdict !== 'refused') return date;
+  }
+  return null;
+}
+
 /** One line per attempt, for the CLI and the sweep's log. */
 export function describeAttempts(attempts: V2Attempt[]): string[] {
   return attempts.map((a) => {

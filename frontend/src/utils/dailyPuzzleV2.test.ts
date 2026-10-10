@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildShareLine,
+  CLASSIC_DAY_NOTE,
+  classicDayNote,
   commitLabel,
   pct,
   percentArticle,
@@ -83,5 +85,24 @@ describe('dailyPuzzleV2 — words', () => {
     expect(percentArticle(0.55)).toBe('a');
     expect(percentArticle(0.9)).toBe('a');
     expect(pct(0.844)).toBe('84%');
+  });
+});
+
+describe('dailyPuzzleV2 — the classic-day note', () => {
+  const formatDate = (ymd: string) => `<${ymd}>`;
+
+  it('is the bare note when the server names no graded day', () => {
+    expect(classicDayNote('2026-10-10', null, formatDate)).toBe(CLASSIC_DAY_NOTE);
+    expect(classicDayNote('2026-10-10', undefined, formatDate)).toBe(CLASSIC_DAY_NOTE);
+  });
+
+  it('says tomorrow for the next day, across a month end too', () => {
+    expect(classicDayNote('2026-10-10', '2026-10-11', formatDate)).toBe(`${CLASSIC_DAY_NOTE} The next graded challenge is tomorrow.`);
+    expect(classicDayNote('2026-10-31T00:00:00.000Z', '2026-11-01', formatDate)).toBe(`${CLASSIC_DAY_NOTE} The next graded challenge is tomorrow.`);
+  });
+
+  it('names a later day in the page\'s own words, and falls back when it cannot', () => {
+    expect(classicDayNote('2026-10-10', '2026-10-13', formatDate)).toBe(`${CLASSIC_DAY_NOTE} The next graded challenge is on <2026-10-13>.`);
+    expect(classicDayNote('2026-10-10', '2026-10-13', () => '')).toBe(CLASSIC_DAY_NOTE);
   });
 });

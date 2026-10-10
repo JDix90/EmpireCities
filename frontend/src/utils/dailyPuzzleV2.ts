@@ -211,6 +211,25 @@ export const CLASSIC_DAY_NOTE = 'Classic challenge: moves aren’t graded today.
 /** The same, on the result screen, where the decision review would be. */
 export const CLASSIC_DAY_REVIEW_NOTE = 'Classic challenge: moves aren’t graded today, so there’s no decision review.';
 
+/**
+ * The classic-day note with when grading comes back, when the server knows:
+ * "tomorrow" for the next day, else the date in the page's own words.
+ * `today` and `nextGraded` are the server's YYYY-MM-DD dates (UTC days).
+ */
+export function classicDayNote(
+  today: string,
+  nextGraded: string | null | undefined,
+  formatDate: (ymd: string) => string,
+): string {
+  if (!nextGraded) return CLASSIC_DAY_NOTE;
+  const tomorrow = new Date(Date.parse(`${today.slice(0, 10)}T00:00:00Z`) + 86_400_000);
+  if (!Number.isNaN(tomorrow.getTime()) && tomorrow.toISOString().slice(0, 10) === nextGraded) {
+    return `${CLASSIC_DAY_NOTE} The next graded challenge is tomorrow.`;
+  }
+  const label = formatDate(nextGraded);
+  return label ? `${CLASSIC_DAY_NOTE} The next graded challenge is on ${label}.` : CLASSIC_DAY_NOTE;
+}
+
 /** What the day asks of the player, for the intro and the daily card. */
 export function decisionsLine(v2: PublicDailyPuzzleV2): string {
   const n = v2.decisions || v2.decisions_target;
