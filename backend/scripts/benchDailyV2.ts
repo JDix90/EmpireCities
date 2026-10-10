@@ -21,12 +21,18 @@
  * --jobs N (default one per CPU; each job is a forked process), --reading
  * tactical|hold|region|chain (set-piece mode only).
  *
+ * --all --write-calendar also writes what the run found to
+ * src/content/dailyV2Calendar.ts, the calendar the schedule serves from
+ * (docs/DAILY_PUZZLE_V2.md §5.3). Regenerate it over its own range:
+ *
+ *   pnpm -C backend exec tsx scripts/benchDailyV2.ts --all --from 2026-09-21 --days 467 --write-calendar
+ *
  * The Tuesday rotation walks planned set-pieces only, so adding or removing a
  * plan moves which set-piece later Tuesdays serve. The bench always reads the
  * schedule as the code stands.
  */
 import { fork, type ChildProcess } from 'child_process';
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
 import { availableParallelism } from 'os';
 import { join } from 'path';
 import type { GameMap } from '../src/types';
@@ -35,7 +41,10 @@ import { territoryDisplayName } from '../src/game-engine/daily/dailyGenerator';
 import {
   attemptCauses,
   BENCH_CAUSES,
+  calendarFingerprint,
+  calendarFromProofs,
   classifyDate,
+  renderCalendarModule,
   summarizeCoverage,
   tallyCauses,
   tallyReadings,
@@ -77,6 +86,7 @@ async function proveDate(date: string): Promise<DateProof | null> {
     ms: Date.now() - t0,
   };
   if (proven) {
+    proof.landing = { attempt: proven.attempt, shift: proven.shift };
     const map = (await loadMap(proven.spec.map_id))!;
     const ctx = contextFromSpec(proven.spec, map);
     const name = (id: string) => territoryDisplayName(map, id);
@@ -244,12 +254,13 @@ interface Args {
   jobs: number;
   reading: DailyVerb | null;
   verbose: boolean;
+  writeCalendar: boolean;
 }
 
 const READINGS: readonly DailyVerb[] = ['tactical', 'hold', 'region', 'chain'];
 
 function usage(message: string): never {
-  console.error(`${message}\n\nusage: benchDailyV2.ts <set-piece-id>... | --all  [--from YYYY-MM-DD] [--days N] [--jobs N] [--reading ${READINGS.join('|')}] [--verbose]`);
+  console.error(`${message}\n\nusage: benchDailyV2.ts <set-piece-id>... | --all [--write-calendar]  [--from YYYY-MM-DD] [--days N] [--jobs N] [--reading ${READINGS.join('|')}] [--verbose]`);
   process.exit(2);
 }
 
@@ -262,12 +273,14 @@ function parseArgs(argv: string[]): Args {
     jobs: availableParallelism(),
     reading: null,
     verbose: false,
+    writeCalendar: false,
   };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     const value = (): string => argv[++i] ?? usage(`${arg} needs a value`);
     if (arg === '--all') args.all = true;
     else if (arg === '--verbose') args.verbose = true;
+    else if (arg === '--write-calendar') args.writeCalendar = true;
     else if (arg === '--from') args.from = value();
     else if (arg === '--days') args.days = Number(value());
     else if (arg === '--jobs') args.jobs = Number(value());
@@ -280,6 +293,7 @@ function parseArgs(argv: string[]): Args {
   if (!Number.isInteger(args.jobs) || args.jobs < 1) usage('--jobs wants a positive whole number');
   if (args.reading && !READINGS.includes(args.reading)) usage(`--reading wants one of ${READINGS.join(', ')}`);
   if (args.all === (args.ids.length > 0)) usage('name one or more set-pieces, or pass --all');
+  if (args.writeCalendar && !args.all) usage('--write-calendar goes with --all');
   const known = new Set(DAILY_SET_PIECES.map((sp) => sp.id));
   for (const id of args.ids) {
     if (known.has(id)) continue;
@@ -292,6 +306,19 @@ function parseArgs(argv: string[]): Args {
 function horizon(from: string, days: number): string[] {
   const start = Date.parse(`${from}T00:00:00Z`);
   return Array.from({ length: days }, (_, i) => new Date(start + i * 86_400_000).toISOString().slice(0, 10));
+}
+
+// ── The calendar ────────────────────────────────────────────────────────────
+
+const CALENDAR_PATH = join(__dirname, '../src/content/dailyV2Calendar.ts');
+
+function writeCalendar(dates: ClassifiedDate[], proofs: DateProof[], args: Args): void {
+  const fingerprint = calendarFingerprint((mapId) => readFileSync(join(__dirname, `../../database/maps/${mapId}.json`), 'utf-8'));
+  const calendar = calendarFromProofs(dates, proofs, fingerprint);
+  const command = `pnpm -C backend exec tsx scripts/benchDailyV2.ts --all --from ${args.from} --days ${args.days} --write-calendar`;
+  writeFileSync(CALENDAR_PATH, renderCalendarModule(calendar, command));
+  const accepted = Object.values(calendar.days).filter((e) => !('refused' in e)).length;
+  console.log(`\nWrote the calendar, ${calendar.from} to ${calendar.to}: ${accepted} dates graded, ${Object.keys(calendar.days).length - accepted} refused (src/content/dailyV2Calendar.ts).`);
 }
 
 // ── Main ────────────────────────────────────────────────────────────────────
@@ -318,6 +345,7 @@ async function main(): Promise<void> {
     }
     console.log(`Daily v2 coverage over ${span}:`);
     printCoverage(dates, proofs);
+    if (args.writeCalendar) writeCalendar(dates, proofs, args);
   } else {
     console.log(`Proving ${args.ids.join(', ')}${args.reading ? ` (${args.reading})` : ''} on every date served over ${span}\n`);
     for (const proof of proofs) printProof(proof);

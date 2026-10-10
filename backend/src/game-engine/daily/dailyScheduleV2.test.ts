@@ -3,6 +3,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import type { GameMap } from '../../types';
 import { DAILY_CALENDAR } from '../../content/dailyCalendar';
+import { DAILY_V2_CALENDAR } from '../../content/dailyV2Calendar';
 import { planFor, plannedSetPieces } from '../../content/dailySetPiecePlans';
 import { pickSetPieceForDate, scheduleDay, verbForDate, weekdayOf } from './dailySchedule';
 import {
@@ -259,6 +260,26 @@ describe('daily schedule v2 — the sweep', { timeout: 900_000 }, () => {
     }
     expect(days.length).toBeGreaterThan(0);
     expect(accepted().length, 'accepted days').toBeGreaterThanOrEqual(Math.ceil(days.length / 2));
+  });
+
+  it('the calendar records what the full proof found on every day of the horizon', async () => {
+    await ready;
+    for (const { date, result } of days) {
+      const entry = DAILY_V2_CALENDAR.days[date];
+      expect(entry, `${date} is missing from the calendar`).toBeDefined();
+      if (result.proven) expect(entry, date).toMatchObject({ attempt: result.proven.attempt, shift: result.proven.shift });
+      else expect(entry, date).toMatchObject({ refused: true });
+    }
+  });
+
+  it("proving only the calendar's attempt gives the full proof's day", async () => {
+    await ready;
+    for (const { date, pick, result } of accepted()) {
+      const { attempt, shift } = result.proven!;
+      const one = await proveV2Day(date, pick, deps, { attempt, shift });
+      expect(one.attempts, date).toHaveLength(1);
+      expect(one.proven?.spec, date).toEqual(result.proven!.spec);
+    }
   });
 
   it('every accepted day satisfies the gate it was proven by', async () => {

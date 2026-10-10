@@ -4,10 +4,25 @@
  * script proves the days, this file reads the dates and adds up what came
  * back, so the tallies are testable without a solve.
  */
-import { getAuthoredDailySpec } from '../../content/dailyCalendar';
-import { planFor } from '../../content/dailySetPiecePlans';
-import { pickSetPieceForDate, verbForDate, weekdayOf, type DailyVerb } from './dailySchedule';
-import { candidateForDateV2, tierForDate, type GateCause, type V2Attempt } from './dailyScheduleV2';
+import { createHash } from 'crypto';
+import { DAILY_CALENDAR, getAuthoredDailySpec } from '../../content/dailyCalendar';
+import { DAILY_SET_PIECES } from '../../content/dailySetPieces';
+import { planFor, SET_PIECE_PLANS } from '../../content/dailySetPiecePlans';
+import { HOLD_BAND, TACTICAL_BAND_HARD, TACTICAL_BAND_STANDARD } from './dailyGenerator';
+import { GATE_ATTEMPTS, pickSetPieceForDate, verbForDate, weekdayOf, WEEKDAY_CADENCE, type DailyVerb } from './dailySchedule';
+import {
+  BAND_STEP,
+  candidateForDateV2,
+  HOLD_RESERVE_BONUS,
+  tierForDate,
+  V2_GATE,
+  V2_TIERS,
+  type GateCause,
+  type V2Attempt,
+  type V2Calendar,
+  type V2CalendarEntry,
+  type V2Landing,
+} from './dailyScheduleV2';
 
 /**
  * What a date is served as, before any solve:
@@ -51,6 +66,8 @@ export interface DateProof {
   ok: boolean;
   attempts: V2Attempt[];
   ms: number;
+  /** On an accepted day: the attempt and band shift it landed on, for the calendar. */
+  landing?: V2Landing;
   /** The best line's decisions in words, on an accepted day. */
   detail?: string[];
 }
@@ -182,4 +199,77 @@ export function unplannedReadings(dates: readonly ClassifiedDate[]): Array<{ set
     counts.set(key, row);
   }
   return [...counts.values()].sort((a, b) => b.days - a.days || a.set_piece_id.localeCompare(b.set_piece_id) || a.verb.localeCompare(b.verb));
+}
+
+// ── The calendar ─────────────────────────────────────────────────────────────
+
+/** Strings that are read to the player and never change what a proof finds. */
+const WORDING = new Set(['title', 'intro', 'hint', 'theme']);
+
+/**
+ * A hash of everything a v2 proof reads that lives in data rather than code:
+ * the set-pieces and plans (less their wording), the dated calendar's dates,
+ * the gate, tiers, bands and cadence, and the maps the planned set-pieces are
+ * fought on. When it differs from the calendar's, the calendar is stale.
+ * `readMap` returns a map file's raw JSON, so the hash ignores formatting.
+ */
+export function calendarFingerprint(readMap: (mapId: string) => string): string {
+  const mapIds = [...new Set(DAILY_SET_PIECES.flatMap((sp) => (SET_PIECE_PLANS[sp.id] && sp.kind !== 'domination' ? [sp.map_id] : [])))].sort();
+  const inputs = {
+    set_pieces: DAILY_SET_PIECES,
+    plans: SET_PIECE_PLANS,
+    dated: Object.keys(DAILY_CALENDAR).sort(),
+    gate: { V2_GATE, V2_TIERS, GATE_ATTEMPTS, BAND_STEP, HOLD_RESERVE_BONUS },
+    bands: { TACTICAL_BAND_STANDARD, TACTICAL_BAND_HARD, HOLD_BAND },
+    cadence: WEEKDAY_CADENCE,
+    maps: Object.fromEntries(mapIds.map((id) => [id, JSON.parse(readMap(id)) as unknown])),
+  };
+  const json = JSON.stringify(inputs, (key, value: unknown) => (WORDING.has(key) && typeof value === 'string' ? undefined : value));
+  return createHash('sha256').update(json).digest('hex').slice(0, 16);
+}
+
+/** The calendar a full run of the bench proves: one entry per planned date of the horizon. */
+export function calendarFromProofs(dates: readonly ClassifiedDate[], proofs: readonly DateProof[], fingerprint: string): V2Calendar {
+  if (dates.length === 0) throw new Error('a calendar needs at least one date');
+  const byDate = new Map(proofs.map((p) => [p.date, p]));
+  const days: Record<string, V2CalendarEntry> = {};
+  for (const d of dates) {
+    if (d.class !== 'planned') continue;
+    const proof = byDate.get(d.date);
+    if (!proof) throw new Error(`${d.date} is planned but was not proven`);
+    days[d.date] = proof.landing
+      ? { set_piece_id: proof.set_piece_id, verb: proof.verb, attempt: proof.landing.attempt, shift: proof.landing.shift }
+      : { set_piece_id: proof.set_piece_id, verb: proof.verb, refused: true };
+  }
+  return { from: dates[0].date, to: dates[dates.length - 1].date, fingerprint, days };
+}
+
+/** The calendar as the checked-in module, written by `benchDailyV2.ts --all --write-calendar`. */
+export function renderCalendarModule(calendar: V2Calendar, command: string): string {
+  const entries = Object.entries(calendar.days).sort(([a], [b]) => a.localeCompare(b)).map(([date, e]) => {
+    const tail = 'refused' in e ? 'refused: true' : `attempt: ${e.attempt}, shift: ${e.shift}`;
+    return `    '${date}': { set_piece_id: '${e.set_piece_id}', verb: '${e.verb}', ${tail} },`;
+  });
+  return [
+    '/**',
+    ` * The v2 calendar: what the full proof found for every planned date from`,
+    ` * ${calendar.from} to ${calendar.to} (docs/DAILY_PUZZLE_V2.md §5.3).`,
+    ' *',
+    ' * GENERATED. Do not edit by hand. Regenerate after changing a plan, a',
+    ' * set-piece, the gate or a map (dailyV2Calendar.test.ts checks the',
+    ' * fingerprint) with:',
+    ` *   ${command}`,
+    ' */',
+    "import type { V2Calendar } from '../game-engine/daily/dailyScheduleV2';",
+    '',
+    'export const DAILY_V2_CALENDAR: V2Calendar = {',
+    `  from: '${calendar.from}',`,
+    `  to: '${calendar.to}',`,
+    `  fingerprint: '${calendar.fingerprint}',`,
+    '  days: {',
+    ...entries,
+    '  },',
+    '};',
+    '',
+  ].join('\n');
 }

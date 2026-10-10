@@ -208,9 +208,21 @@ state. It never leaves the server while the day is live: every path that hands a
 game's settings or state (the socket, `/api/daily/today`, `GET /api/games/:id` and both
 replay routes) reads the spec through `redactSettingsForClient`, which keeps only
 `toPublicDailyPuzzleV2`'s reading, and the archive shows it once the day is over. The sweep
-test recomputes the horizon. If the
-sweep outgrows CI's budget, the horizon is precomputed into a checked-in artifact that
-CI verifies.
+test recomputes the horizon.
+
+Proving a day is the costly part of serving it: up to eight solves of up to several
+seconds each, on the main thread, the first time a process serves the date and at the
+23:30 UTC prewarm. So what the full proof finds is written down in advance, in the v2
+calendar (`src/content/dailyV2Calendar.ts`). For every planned date in its range it
+records the attempt the gate accepted and the band shift that attempt was sized at, or
+that every attempt was refused. The schedule serves a refused date as v1 without a
+solve, and sizes and solves only the recorded attempt of an accepted one, which is the
+same day the full loop lands on. It records no solutions: only which attempt passed.
+It falls back to the full proof when a date is outside the calendar, when the entry names
+a different set-piece or reading than the schedule picks, or when the recorded attempt no
+longer passes. Tests check that the calendar's fingerprint matches today's set-pieces,
+plans, gate and maps, that it names exactly the planned dates, and that the sweep's
+fortnight matches the full proof.
 
 Two readings differ from v1 on purpose (`dailyScheduleV2.ts`):
 
@@ -273,6 +285,17 @@ schedule would, and prints each attempt's numbers with the gate's causes for a m
 coverage report for the whole horizon: how many days are graded, refused by the gate,
 unplanned or not gradeable, and which readings fail most. Adding or removing a plan
 moves the Tuesday rotation, which walks planned set-pieces only.
+
+After a change to a plan, a set-piece, the gate or a map, regenerate the v2 calendar
+(§5.3), about four minutes:
+
+```
+pnpm -C backend exec tsx scripts/benchDailyV2.ts --all --from 2026-09-21 --days 467 --write-calendar
+```
+
+`dailyV2Calendar.test.ts` fails until it is regenerated. The calendar runs to 31 December
+2027. Past that date every day is proven in full again, so extend it with `--days`
+before then.
 
 A plan may set its reading's own `clock`, in human turns, in place of the tier's. On
 the tier's three or four turns a front with a deep human stack has time to recover from
