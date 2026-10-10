@@ -22,6 +22,14 @@ import type { OpponentPlan } from '../game-engine/daily/puzzle/opponent';
 export interface SetPiecePlan {
   theme: string;
   plan: OpponentPlan;
+  /**
+   * The reading's clock in human turns, when it is not the tier's. On the
+   * tier's clock a front with a deep human stack has time to recover from
+   * any opening, so every first move scores alike and nothing is decided,
+   * and a wide board runs out of search budget besides; on a shorter clock
+   * the first move matters. Measured per reading with scripts/benchDailyV2.ts.
+   */
+  clock?: number;
 }
 
 export interface SetPiecePlans {
@@ -79,12 +87,13 @@ function siegePlan(sp: TacticalSetPiece, opts: { keep?: number; minOdds?: number
 export const SET_PIECE_PLANS: Readonly<Record<string, SetPiecePlans>> = {
   // ── Tactical captures, and their defended readings ────────────────────────
   crossing_the_rubicon: {
-    capture: { theme: 'cut the supply line', plan: reliefPlan(tactical('crossing_the_rubicon')) },
+    capture: { theme: 'cut the supply line', plan: reliefPlan(tactical('crossing_the_rubicon')), clock: 2 },
     hold: { theme: 'the reserve', plan: siegePlan(tactical('crossing_the_rubicon')) },
   },
   the_border_states: {
-    // Tennessee retakes a thin Kentucky at bad odds; Appalachia joins in.
-    capture: { theme: 'the counterstroke', plan: reliefPlan(tactical('the_border_states'), { minOdds: 0.3, counterFromExtra: true }) },
+    // Tennessee retakes a thin Kentucky at bad odds; Appalachia joins in. On
+    // three turns the search outgrew its budget on every date served.
+    capture: { theme: 'the counterstroke', plan: reliefPlan(tactical('the_border_states'), { minOdds: 0.3, counterFromExtra: true }), clock: 2 },
     hold: { theme: 'win on numbers', plan: siegePlan(tactical('the_border_states')) },
   },
   checkpoint: {
@@ -101,7 +110,7 @@ export const SET_PIECE_PLANS: Readonly<Record<string, SetPiecePlans>> = {
   },
   alexanders_prize: {
     // Bactria feeds Persia while it stands and comes back for it once it falls.
-    capture: { theme: 'tempo', plan: reliefPlan(tactical('alexanders_prize'), { minOdds: 0.35 }) },
+    capture: { theme: 'tempo', plan: reliefPlan(tactical('alexanders_prize'), { minOdds: 0.35 }), clock: 2 },
     hold: { theme: 'the reserve', plan: siegePlan(tactical('alexanders_prize')) },
   },
   the_bulge: {
@@ -113,11 +122,13 @@ export const SET_PIECE_PLANS: Readonly<Record<string, SetPiecePlans>> = {
     hold: { theme: 'the reserve', plan: siegePlan(tactical('the_38th_parallel')) },
   },
   vicksburg: {
-    capture: { theme: 'the counterstroke', plan: reliefPlan(tactical('vicksburg')) },
+    capture: { theme: 'the counterstroke', plan: reliefPlan(tactical('vicksburg')), clock: 2 },
     hold: { theme: 'win on numbers', plan: siegePlan(tactical('vicksburg')) },
   },
   the_dacian_wars: {
-    capture: { theme: 'cut the supply line', plan: reliefPlan(tactical('the_dacian_wars'), { minOdds: 0.35 }) },
+    // On three turns waiting, striking Dacia and striking Pannonia all scored
+    // alike: the legions had a turn to spare whatever they did first.
+    capture: { theme: 'cut the supply line', plan: reliefPlan(tactical('the_dacian_wars'), { minOdds: 0.35 }), clock: 2 },
     hold: { theme: 'the reserve', plan: siegePlan(tactical('the_dacian_wars')) },
   },
   solferino: {
@@ -138,12 +149,18 @@ export const SET_PIECE_PLANS: Readonly<Record<string, SetPiecePlans>> = {
   },
 
   // ── Regions ───────────────────────────────────────────────────────────────
+  // A region's objective is the whole region in the map's order, whose first
+  // territory is one the human holds, so each plan names the garrison its
+  // conditions mean.
   the_parthian_shot: {
     // Bactria and Arabia garrison Parthia; each strikes back at the human
-    // holding next to it once the human moves on the other.
+    // holding next to it once the human moves on the other. Two garrisons on
+    // three or four turns outgrew the search budget.
     capture: {
       theme: 'the bridge',
+      clock: 2,
       plan: {
+        objective: 'bactria',
         steps: [
           { kind: 'draft', to: 'bactria', when: 'objective_ai' },
           { kind: 'draft', to: 'arabia', when: 'objective_human' },
@@ -154,9 +171,13 @@ export const SET_PIECE_PLANS: Readonly<Record<string, SetPiecePlans>> = {
     },
   },
   mare_nostrum: {
+    // Still outgrows the search budget on every date served, on two turns as
+    // on three: five territories and a support, every one of them a sea
+    // crossing from the next. Served as v1 until the board is narrower.
     capture: {
       theme: 'sea crossing',
       plan: {
+        objective: 'sicilia',
         steps: [
           { kind: 'draft', to: 'sicilia', when: 'objective_ai' },
           { kind: 'draft', to: 'sardinia_corsica', when: 'objective_human' },
@@ -166,8 +187,13 @@ export const SET_PIECE_PLANS: Readonly<Record<string, SetPiecePlans>> = {
     },
   },
   bleeding_missouri: {
+    // Missouri is the only AI stack, so once it falls nothing can strike
+    // back and most dates are a walkover the gate refuses. It needs a second
+    // AI stack outside the region (Arkansas borders Missouri and the Plains)
+    // before it is a v2 day on most dates.
     capture: {
       theme: 'the counterstroke',
+      clock: 2,
       plan: {
         steps: [
           { kind: 'draft', to: 'acw_missouri' },
@@ -195,6 +221,7 @@ export const SET_PIECE_PLANS: Readonly<Record<string, SetPiecePlans>> = {
   to_the_oxus: {
     capture: {
       theme: 'the forced march',
+      clock: 2,
       plan: {
         steps: [
           { kind: 'draft', to: 'persia', when: 'objective_ai' },
@@ -206,8 +233,10 @@ export const SET_PIECE_PLANS: Readonly<Record<string, SetPiecePlans>> = {
     },
   },
   down_the_river: {
+    // Two hops on three or four turns outgrew the search budget on every date served.
     capture: {
       theme: 'the forced march',
+      clock: 2,
       plan: {
         steps: [
           { kind: 'draft', to: 'acw_kentucky', when: 'objective_ai' },

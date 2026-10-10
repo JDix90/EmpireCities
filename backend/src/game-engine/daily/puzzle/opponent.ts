@@ -8,12 +8,14 @@
  * stable, and the plan IS the lesson — what the opponent will do is what the
  * puzzle exists to teach.
  *
- * Conditions are read from the AI's side of the primary objective territory:
+ * Conditions are read from the AI's side of the plan's objective territory:
  *   always              — every turn
  *   objective_human     — the human holds the objective right now
  *   objective_ai        — the AI holds it
  *   objective_attacked  — the human attacked an objective this round
  *   { turn: n }         — on the AI's n-th turn only
+ * The objective territory is the day's primary objective (the capture or hold
+ * target, a chain's first hop) unless the plan names another.
  *
  * Steps run in order: drafts first (the first applicable one takes every
  * reinforcement; with none, the AI's biggest stack does), then assaults, then
@@ -44,6 +46,13 @@ export type PlanStep =
   | { kind: 'march'; from: string; to: string; units?: 'all_but_1' | 'half' | number; when?: PlanCondition };
 
 export interface OpponentPlan {
+  /**
+   * The territory the conditions read; unset, the day's primary objective. A
+   * region day's objective is the whole region in the map's order, and its
+   * first territory is usually one the human already holds, so a region plan
+   * names the garrison it means.
+   */
+  objective?: string;
   steps: PlanStep[];
 }
 
@@ -53,6 +62,8 @@ type Compiled =
   | { kind: 'march'; from: number; to: number; units: 'all_but_1' | 'half' | number; when: PlanCondition };
 
 export interface CompiledPlan {
+  /** The territory the conditions read. */
+  objective: number;
   steps: Compiled[];
 }
 
@@ -63,6 +74,7 @@ export function compilePlan(ctx: PuzzleContext, plan: OpponentPlan): CompiledPla
     return i;
   };
   return {
+    objective: plan.objective !== undefined ? idx(plan.objective) : ctx.objective.targets[0],
     steps: plan.steps.map((s): Compiled => {
       const when = s.when ?? 'always';
       if (s.kind === 'draft') return { kind: 'draft', to: idx(s.to), when };
@@ -74,8 +86,8 @@ export function compilePlan(ctx: PuzzleContext, plan: OpponentPlan): CompiledPla
   };
 }
 
-function holds(ctx: PuzzleContext, s: PuzzleState, when: PlanCondition): boolean {
-  const primary = ctx.objective.targets[0];
+function holds(plan: CompiledPlan, s: PuzzleState, when: PlanCondition): boolean {
+  const primary = plan.objective;
   if (when === 'always') return true;
   if (when === 'objective_human') return primary !== undefined && s.owner[primary] === HUMAN;
   if (when === 'objective_ai') return primary !== undefined && s.owner[primary] === AI;
@@ -106,7 +118,7 @@ export function runAiTurn(ctx: PuzzleContext, plan: CompiledPlan, start: PuzzleS
   const n = reinforcements(ctx, s, AI);
   let draftTo = -1;
   for (const step of plan.steps) {
-    if (step.kind !== 'draft' || !holds(ctx, s, step.when) || s.owner[step.to] !== AI) continue;
+    if (step.kind !== 'draft' || !holds(plan, s, step.when) || s.owner[step.to] !== AI) continue;
     draftTo = step.to;
     break;
   }
@@ -125,7 +137,7 @@ export function runAiTurn(ctx: PuzzleContext, plan: CompiledPlan, start: PuzzleS
       const st = b.state;
       const launch =
         st.outcome === PENDING
-        && holds(ctx, st, step.when)
+        && holds(plan, st, step.when)
         && st.owner[step.from] === AI
         && st.owner[step.to] === HUMAN
         && st.units[step.from] >= 2
@@ -157,7 +169,7 @@ export function runAiTurn(ctx: PuzzleContext, plan: CompiledPlan, start: PuzzleS
     let left = ctx.fortifyMoves;
     for (const step of plan.steps) {
       if (left <= 0) break;
-      if (step.kind !== 'march' || !holds(ctx, st, step.when)) continue;
+      if (step.kind !== 'march' || !holds(plan, st, step.when)) continue;
       if (st.owner[step.from] !== AI || st.owner[step.to] !== AI || st.units[step.from] < 2) continue;
       const avail = st.units[step.from] - 1;
       const move = step.units === 'all_but_1' ? avail : step.units === 'half' ? Math.floor(avail / 2) : Math.min(avail, step.units);
@@ -190,7 +202,9 @@ export function mergeBranches(branches: Branch[]): Branch[] {
  * four lines read like a form letter rather than a briefing.
  */
 export function describePlan(ctx: PuzzleContext, plan: OpponentPlan, name: (id: string) => string): string[] {
-  const objective = ctx.objective.targets.map((t) => name(ctx.ids[t])).join(' and ') || 'the objective';
+  const objective = plan.objective !== undefined
+    ? name(plan.objective)
+    : ctx.objective.targets.map((t) => name(ctx.ids[t])).join(' and ') || 'the objective';
   const lead = (w?: PlanCondition): string => {
     if (!w || w === 'always') return '';
     if (w === 'objective_human') return `Once you take ${objective}`;

@@ -53,7 +53,7 @@ import { analyzePuzzle, BudgetExceeded, DECISION_GAP, type PuzzleAnalysis } from
 export interface V2Tier {
   /** Real decisions along the best line the day must carry. */
   decisions: number;
-  /** The clock in human turns. Short on purpose: the search is exact. */
+  /** The clock in human turns. Short on purpose: the search is exact. A plan may set its own (clockFor). */
   clock: number;
   verdicts: DailyPuzzleV2['verdicts'];
   intent: DailyPuzzleV2['intent'];
@@ -253,6 +253,11 @@ export interface V2Pick {
   tier: V2Tier;
 }
 
+/** The clock a pick is played on: its plan's, when the plan sets one, else its tier's. */
+export function clockFor(pick: Pick<V2Pick, 'plan' | 'tier'>): number {
+  return pick.plan.clock ?? pick.tier.clock;
+}
+
 /** A date's set-piece and reading as v2 would serve them, whether or not a plan is authored yet. */
 export type V2Candidate = Omit<V2Pick, 'plan'>;
 
@@ -406,7 +411,7 @@ export async function proveV2Day(date: string, pick: V2Pick, deps: ScheduleDeps 
     const bands: SizingBands = { tactical: shiftBand(band, shift), hold: shiftBand(HOLD_BAND, -shift) };
     const sized = await materialize(date, sp, bands, deps, verb, attempt);
     if (!sized) continue;
-    const spec = onClock(sized, tier.clock, map, sp);
+    const spec = onClock(sized, clockFor(pick), map, sp);
     const ctx = contextFromSpec(spec, map);
     const root = stateFromSpec(ctx, spec);
     let analysis: PuzzleAnalysis;
