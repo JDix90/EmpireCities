@@ -16,14 +16,17 @@
  * a budget puzzle has no dice and so no decision to grade.
  *
  * Everything is a pure function of the date plus the code, as in v1, so the
- * sweep test can prove every day of the horizon in advance. The only mutable
- * thing here is the memo: a v2 day costs seconds to solve and the read path
- * reconciles the stored row against the schedule on every request.
+ * sweep test can prove every day of the horizon in advance, and the bench
+ * does: the v2 calendar (src/content/dailyV2Calendar.ts) records what the
+ * full proof found per date, so serving a date costs one solve at most. The
+ * only mutable thing here is the memo: the read path reconciles the stored
+ * row against the schedule on every request.
  */
 import { getMapById } from '../../modules/maps/mapService';
 import type { GameMap } from '../../types';
 import { getAuthoredDailySpec } from '../../content/dailyCalendar';
 import { planFor, plannedSetPieces, type SetPiecePlan } from '../../content/dailySetPiecePlans';
+import { DAILY_V2_CALENDAR } from '../../content/dailyV2Calendar';
 import type { DailySetPiece } from '../../content/dailySetPieces';
 import type { DailyPuzzleSpec, DailyPuzzleV2, StoredPuzzleDecision } from './dailyPuzzleTypes';
 import {
@@ -101,7 +104,7 @@ export const V2_GATE = {
 } as const;
 
 /** How far each missed attempt moves the sizing band. Same step as the v1 gate. */
-const BAND_STEP = 0.07;
+export const BAND_STEP = 0.07;
 
 /**
  * What a missed attempt missed, one per reason, for tooling that counts them
@@ -386,17 +389,30 @@ function measure(a: PuzzleAnalysis): V2Measure {
   };
 }
 
+/** Which attempt a proof landed on, and the band shift that attempt was sized at: what the calendar records. */
+export interface V2Landing {
+  attempt: number;
+  shift: number;
+}
+
 export interface V2Result {
   /** The accepted day, or null when no sizing landed and the day is served as v1. */
-  proven: { spec: DailyPuzzleSpec; analysis: PuzzleAnalysis } | null;
+  proven: ({ spec: DailyPuzzleSpec; analysis: PuzzleAnalysis } & V2Landing) | null;
   attempts: V2Attempt[];
 }
 
 /**
- * Size the pick's set-piece for the date on the tier's clock and prove it,
- * re-rolling toward the gate up to GATE_ATTEMPTS times.
+ * Size the pick's set-piece for the date on its clock and prove it,
+ * re-rolling toward the gate up to GATE_ATTEMPTS times. With `only`, size and
+ * solve that one attempt at that shift, as the calendar recorded it: the same
+ * day the full loop lands on, for one solve instead of up to eight.
  */
-export async function proveV2Day(date: string, pick: V2Pick, deps: ScheduleDeps = defaultDeps): Promise<V2Result> {
+export async function proveV2Day(
+  date: string,
+  pick: V2Pick,
+  deps: ScheduleDeps = defaultDeps,
+  only?: V2Landing,
+): Promise<V2Result> {
   const { set_piece: sp, verb, plan, tier } = pick;
   const slot = WEEKDAY_CADENCE[weekdayOf(date)];
   const band = slot.band === 'hard' ? TACTICAL_BAND_HARD : TACTICAL_BAND_STANDARD;
@@ -404,10 +420,12 @@ export async function proveV2Day(date: string, pick: V2Pick, deps: ScheduleDeps 
   const map = await deps.loadMap(sp.kind === 'domination' ? sp.spec.map_id : sp.map_id);
   if (!map) return { proven: null, attempts };
 
-  let shift = 0;
-  for (let attempt = 0; attempt < GATE_ATTEMPTS; attempt++) {
+  let shift = only?.shift ?? 0;
+  const first = only?.attempt ?? 0;
+  const last = only ? only.attempt : GATE_ATTEMPTS - 1;
+  for (let attempt = first; attempt <= last; attempt++) {
     // A solve is CPU-bound for seconds; let the event loop breathe between attempts.
-    if (attempt > 0) await new Promise<void>((resolve) => setImmediate(resolve));
+    if (attempt > first) await new Promise<void>((resolve) => setImmediate(resolve));
     const bands: SizingBands = { tactical: shiftBand(band, shift), hold: shiftBand(HOLD_BAND, -shift) };
     const sized = await materialize(date, sp, bands, deps, verb, attempt);
     if (!sized) continue;
@@ -453,7 +471,7 @@ export async function proveV2Day(date: string, pick: V2Pick, deps: ScheduleDeps 
         ...(spec.archetype === 'hold_territory' ? {} : { par_turns: Math.max(1, lastTurn) }),
         v2,
       };
-      return { proven: { spec: proven, analysis }, attempts };
+      return { proven: { spec: proven, analysis, attempt, shift }, attempts };
     }
     shift += verdict.shift;
   }
@@ -488,6 +506,16 @@ export async function scheduleDayV2(date: string, deps: ScheduleDeps = defaultDe
 async function computeDayV2(date: string, deps: ScheduleDeps): Promise<ScheduledDay | null> {
   const pick = pickSetPieceForDateV2(date);
   if (!pick) return null;
+  const known = calendarVerdict(date, pick);
+  if (known === 'refused') return null;
+  if (known) {
+    const { proven } = await proveV2Day(date, pick, deps, known);
+    if (proven) return { date, source: 'library', set_piece_id: pick.set_piece.id, spec: proven.spec };
+    console.warn(
+      `[daily v2] ${date}: the calendar's attempt ${known.attempt} of "${pick.set_piece.id}" no longer passes the gate; `
+        + 'proving the day in full. Regenerate src/content/dailyV2Calendar.ts (docs/DAILY_PUZZLE_V2.md §6).',
+    );
+  }
   const { proven, attempts } = await proveV2Day(date, pick, deps);
   if (!proven) {
     console.warn(
@@ -498,6 +526,45 @@ async function computeDayV2(date: string, deps: ScheduleDeps): Promise<Scheduled
     return null;
   }
   return { date, source: 'library', set_piece_id: pick.set_piece.id, spec: proven.spec };
+}
+
+// ── The calendar ─────────────────────────────────────────────────────────────
+
+/**
+ * What the full proof found for one planned date: the attempt the gate
+ * accepted and the band shift it was sized at, or that every attempt was
+ * refused (src/content/dailyV2Calendar.ts).
+ */
+export type V2CalendarEntry =
+  | ({ set_piece_id: string; verb: DailyVerb } & V2Landing)
+  | { set_piece_id: string; verb: DailyVerb; refused: true };
+
+export interface V2Calendar {
+  /** First and last date covered, inclusive. */
+  from: string;
+  to: string;
+  /** The inputs it was proven from (dailyBench.calendarFingerprint); a test fails when they change. */
+  fingerprint: string;
+  /** One entry per date in range whose set-piece has a plan for its reading. */
+  days: Readonly<Record<string, V2CalendarEntry>>;
+}
+
+/**
+ * What the calendar says about a date's pick: the landing to solve, 'refused'
+ * (serve v1 without a solve), or null to prove the day in full. Null when the
+ * date is outside the calendar, or its entry is missing or names another
+ * set-piece or reading: the schedule moved since the calendar was written,
+ * and only the full proof knows the day.
+ */
+export function calendarVerdict(
+  date: string,
+  pick: Pick<V2Pick, 'set_piece' | 'verb'>,
+  calendar: V2Calendar = DAILY_V2_CALENDAR,
+): V2Landing | 'refused' | null {
+  if (date < calendar.from || date > calendar.to) return null;
+  const entry = calendar.days[date];
+  if (!entry || entry.set_piece_id !== pick.set_piece.id || entry.verb !== pick.verb) return null;
+  return 'refused' in entry ? 'refused' : { attempt: entry.attempt, shift: entry.shift };
 }
 
 /** One line per attempt, for the CLI and the sweep's log. */
