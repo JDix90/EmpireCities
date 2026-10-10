@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
 import { Calendar, Clock, Swords, Target, Trophy } from 'lucide-react';
 import { estimatedTime } from '../../utils/dailyEstimate';
-import { decisionsLine, type PublicDailyPuzzleV2 } from '../../utils/dailyPuzzleV2';
+import { CLASSIC_DAY_NOTE, decisionsLine, type PublicDailyPuzzleV2 } from '../../utils/dailyPuzzleV2';
+import { useDailyPuzzleV2Enabled } from '../../store/featureFlagsStore';
 
 export interface DailyIntroSpec {
   archetype?: 'domination' | 'military_capture' | 'hold_territory' | 'control_region' | 'capture_chain' | 'economy_build' | 'tech_research' | string;
@@ -66,6 +67,9 @@ export default function DailyChallengeIntroModal({
   // Hold days run on medium on purpose (a hard AI made them 4–17% solvable),
   // so the card has to read the day's setting rather than assume the hardest.
   const difficulty = difficultyLabel ?? spec.ai_difficulty ?? 'medium';
+  // With grading on, a day without a v2 reading is a classic one: say so, or
+  // the missing verdicts and review read as broken.
+  const gradingOn = useDailyPuzzleV2Enabled();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Enter') onBegin();
@@ -143,6 +147,9 @@ export default function DailyChallengeIntroModal({
             </ul>
             <p className="text-bf-gold/90 text-xs mt-2">{decisionsLine(spec.v2)}</p>
           </div>
+        )}
+        {!spec.v2 && gradingOn && (
+          <p className="text-bf-muted text-xs text-center mb-5" data-testid="daily-intro-classic">{CLASSIC_DAY_NOTE}</p>
         )}
 
         <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-6">

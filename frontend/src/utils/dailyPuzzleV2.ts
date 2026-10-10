@@ -201,6 +201,16 @@ export function countBest(decisions: PuzzleDecisionRecord[]): number {
   return decisions.filter((d) => d.grade === 'best').length;
 }
 
+/**
+ * A day served as v1 while grading is on: Thursday and Sunday always, and any
+ * day whose set-piece has no opponent's plan yet or whose plan failed the
+ * gate (docs/DAILY_PUZZLE_V2.md §5.6). Said up front, so a missing review
+ * does not read as a broken one.
+ */
+export const CLASSIC_DAY_NOTE = 'Classic challenge: moves aren’t graded today.';
+/** The same, on the result screen, where the decision review would be. */
+export const CLASSIC_DAY_REVIEW_NOTE = 'Classic challenge: moves aren’t graded today, so there’s no decision review.';
+
 /** What the day asks of the player, for the intro and the daily card. */
 export function decisionsLine(v2: PublicDailyPuzzleV2): string {
   const n = v2.decisions || v2.decisions_target;

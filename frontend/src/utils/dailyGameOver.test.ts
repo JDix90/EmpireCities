@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveGameOverResult } from './dailyGameOver';
+import { isClassicDaily, resolveGameOverResult } from './dailyGameOver';
 
 const ME = 'user-1';
 const AI = 'ai_1';
@@ -43,5 +43,20 @@ describe('resolveGameOverResult', () => {
       .toEqual({ outcome: 'unmet', goal: undefined });
     expect(resolveGameOverResult({ won: false, outcome: 'unmet' }, ME, [ME], 42).daily_challenge)
       .toEqual({ outcome: 'unmet', goal: undefined });
+  });
+});
+
+describe('isClassicDaily', () => {
+  const v2 = { version: 2 };
+
+  it('is a daily without a v2 reading while grading is on', () => {
+    expect(isClassicDaily({ daily_challenge_date: '2026-10-09', daily_challenge_spec: {} }, true)).toBe(true);
+  });
+
+  it('is not a graded day, an ordinary game, or any day with grading off', () => {
+    expect(isClassicDaily({ daily_challenge_date: '2026-10-07', daily_challenge_spec: { v2 } }, true)).toBe(false);
+    expect(isClassicDaily({}, true)).toBe(false);
+    expect(isClassicDaily(undefined, true)).toBe(false);
+    expect(isClassicDaily({ daily_challenge_date: '2026-10-09', daily_challenge_spec: {} }, false)).toBe(false);
   });
 });

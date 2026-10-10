@@ -267,6 +267,21 @@ describe('ActionModal — Daily v2 decision review', () => {
   it('is absent on an ordinary game', async () => {
     render(<ActionModal data={gameOver()} onDismiss={() => {}} />);
     await waitFor(() => expect(screen.queryByTestId('puzzle-review')).toBeNull());
+    expect(screen.queryByTestId('daily-classic-note')).toBeNull();
+  });
+
+  it('says why there is none on a classic day', async () => {
+    render(<ActionModal data={{ ...gameOver(), daily_classic: true }} onDismiss={() => {}} />);
+    await waitFor(() => expect(screen.getByTestId('daily-classic-note')).toBeTruthy());
+    expect(screen.getByTestId('daily-classic-note').textContent)
+      .toBe('Classic challenge: moves aren\u2019t graded today, so there\u2019s no decision review.');
+    expect(screen.queryByTestId('puzzle-review')).toBeNull();
+  });
+
+  it('shows the review, not the note, once one arrives', async () => {
+    render(<ActionModal data={{ ...gameOver(), daily_classic: true, puzzle_review: review }} onDismiss={() => {}} />);
+    await waitFor(() => expect(screen.getByTestId('puzzle-review')).toBeTruthy());
+    expect(screen.queryByTestId('daily-classic-note')).toBeNull();
   });
 });
 

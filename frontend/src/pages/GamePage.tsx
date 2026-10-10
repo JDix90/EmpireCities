@@ -114,7 +114,7 @@ import {
   type PuzzleReview,
   type PuzzleVerdict,
 } from '../utils/dailyPuzzleV2';
-import { resolveGameOverResult, type DailyRunResult } from '../utils/dailyGameOver';
+import { isClassicDaily, resolveGameOverResult, type DailyRunResult } from '../utils/dailyGameOver';
 import CampaignIntroModal, { type CampaignIntroData } from '../components/game/CampaignIntroModal';
 import InviteFriendsModal from '../components/game/InviteFriendsModal';
 import GameShortcutsModal from '../components/game/GameShortcutsModal';
@@ -2122,6 +2122,7 @@ export default function GamePage() {
         ai_difficulty: stats.ai_difficulty ?? null,
         decision_summary: stats.decision_summary,
         puzzle_review: puzzleReviewRef.current ? puzzleReviewView(puzzleReviewRef.current) : undefined,
+        daily_classic: isClassicDaily(endState?.settings, useFeatureFlagsStore.getState().flags.daily_puzzle_v2_enabled),
         daily_challenge,
         allowReplayDespiteAbandon,
       };

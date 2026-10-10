@@ -28,3 +28,15 @@ export function resolveGameOverResult(
     daily_challenge: { outcome, goal: typeof goal === 'string' && goal ? goal : undefined },
   };
 }
+
+/**
+ * A daily served as v1 while grading is on (docs/DAILY_PUZZLE_V2.md §5.6):
+ * Thursday, Sunday, or a set-piece without an opponent's plan. No decision
+ * review is coming, and the result screen says why.
+ */
+export function isClassicDaily(
+  settings: { daily_challenge_date?: unknown; daily_challenge_spec?: { v2?: unknown } | null } | null | undefined,
+  gradingOn: boolean,
+): boolean {
+  return gradingOn && !!settings?.daily_challenge_date && !settings.daily_challenge_spec?.v2;
+}

@@ -10,7 +10,7 @@ import ComeBackTomorrowPanel from './ComeBackTomorrowPanel';
 import ReferralSurvey from './ReferralSurvey';
 import { useReferralSurveyEnabled } from '../../store/featureFlagsStore';
 import { shouldShowReferralSurvey, hasAnsweredReferralSurvey } from '../../utils/referralSurvey';
-import { GRADE_LABELS, type PuzzleReviewView } from '../../utils/dailyPuzzleV2';
+import { CLASSIC_DAY_REVIEW_NOTE, GRADE_LABELS, type PuzzleReviewView } from '../../utils/dailyPuzzleV2';
 import { bankedGoldNote } from '../../utils/signupNudge';
 import { GUEST_NO_PERSIST, GUEST_KEEP_STATS_CTA_SENTENCE } from '../../utils/guestGate';
 import { ChronicleList, useChronicle } from './ChroniclePanel';
@@ -127,6 +127,8 @@ export interface GameOverModalData {
   };
   /** Daily v2 (docs/DAILY_PUZZLE_V2.md §3): the run's decisions, graded, and the share line. */
   puzzle_review?: PuzzleReviewView;
+  /** A daily served as v1 while grading is on: no review is coming, and the screen says why. */
+  daily_classic?: boolean;
   /**
    * An objective day's result. The challenge, not the game, decides the
    * screen: `unmet` is a game the player won by conquest before meeting the
@@ -1763,6 +1765,18 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
             thresholdPct={data.map_control_threshold ?? null}
           />
         </div>
+      )}
+
+      {data.daily_classic && !data.puzzle_review && (
+        <p
+          className={clsx(
+            'mb-6 text-sm text-white/55 transition-all duration-500 delay-500',
+            showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
+          )}
+          data-testid="daily-classic-note"
+        >
+          {CLASSIC_DAY_REVIEW_NOTE}
+        </p>
       )}
 
       {data.puzzle_review && (

@@ -7,10 +7,10 @@ import { Calendar, Trophy, Play, Crown, Clock, Sword, Film } from 'lucide-react'
 import SubpageShell from '../components/ui/SubpageShell';
 import GuestGate from '../components/GuestGate';
 import { useAuthStore } from '../store/authStore';
-import { useDailyGuestPlayEnabled } from '../store/featureFlagsStore';
+import { useDailyGuestPlayEnabled, useDailyPuzzleV2Enabled } from '../store/featureFlagsStore';
 import { useRnParamTracker } from '../hooks/useRnParamTracker';
 import { ownAuthUiAllowed } from '../utils/embedContext';
-import { buildShareLine, decisionsLine, type PublicDailyPuzzleV2 } from '../utils/dailyPuzzleV2';
+import { buildShareLine, CLASSIC_DAY_NOTE, decisionsLine, type PublicDailyPuzzleV2 } from '../utils/dailyPuzzleV2';
 
 interface DailyPuzzleSpecPublic {
   archetype: string;
@@ -163,6 +163,7 @@ export default function DailyChallengePage() {
   // Read unconditionally: a hook called only for guests ran a different number
   // of hooks once a guest upgraded to an account on this page.
   const dailyGuestPlayEnabled = useDailyGuestPlayEnabled();
+  const gradingOn = useDailyPuzzleV2Enabled();
   const guestPlayClosed = isGuest && !dailyGuestPlayEnabled;
   const [data, setData] = useState<DailyResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -328,6 +329,11 @@ export default function DailyChallengePage() {
                   Par <span className="text-bf-text font-medium">{challenge.spec.par_turns}</span>
                   {' '}{challenge.spec.par_turns === 1 ? 'turn' : 'turns'} · beat it to score above 1000
                 </p>
+              )}
+              {/* With grading on, a day without a v2 reading is a classic one:
+                  say so, or the missing verdicts and review read as broken. */}
+              {!isV2Day && gradingOn && (
+                <p className="text-bf-muted text-xs mt-1" data-testid="daily-page-classic">{CLASSIC_DAY_NOTE}</p>
               )}
             </div>
             {alreadyPlayed && (
