@@ -259,6 +259,14 @@ play; marches and assaults are between adjacent territories; a theme is present;
 plan is non-empty. The first batch: the tactical captures and holds already in the
 library, then region and chain.
 
+A plan is measured on the bench: `pnpm -C backend exec tsx scripts/benchDailyV2.ts
+<set-piece-id>` proves the set-piece on every date it is served in the next year, as the
+schedule would, and prints each attempt's numbers with the gate's causes for a miss
+(`decision_count`, `no_key_move`, `budget`, `too_hard`, `obvious_close`). `--all` is the
+coverage report for the whole horizon: how many days are graded, refused by the gate,
+unplanned or not gradeable, and which readings fail most. Adding or removing a plan
+moves the Tuesday rotation, which walks planned set-pieces only.
+
 ## 7. Verification
 
 Beyond the repo's standard commands (`pnpm run test:backend`, frontend vitest,
