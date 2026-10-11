@@ -12,7 +12,7 @@ import {
   calculateContinentBonuses,
   initializeGameState,
 } from './gameStateManager';
-import { calculateReinforcements } from '../combat/combatResolver';
+import { calculateReinforcements, scaleRegionBonus } from '../combat/combatResolver';
 import { projectMapToEraFloor } from '../eraAdvancement/territoryUnlock';
 import type { GameState, PlayerState, TerritoryState, GameSettings, TerritoryCard, GameMap } from '../../types';
 
@@ -432,10 +432,29 @@ describe('advanceToNextPlayer', () => {
       advanceToNextPlayer(state, map);
       return state.draft_units_remaining;
     };
-    // p3's turn (after p2): the side holds R1 and p3 holds most of it.
-    expect(draftAtTurnOf(1, sides) - draftAtTurnOf(1)).toBe(calculateReinforcements(2, 2, 3) - calculateReinforcements(2, 0, 3));
+    // p3's turn (after p2): the side holds R1 and p3 holds most of it, at three seats' scale.
+    expect(draftAtTurnOf(1, sides) - draftAtTurnOf(1)).toBe(scaleRegionBonus(2, 3));
     // p1's turn (after p3): p1 holds less of R1 than its ally, so nothing more.
     expect(draftAtTurnOf(2, sides)).toBe(draftAtTurnOf(2));
+  });
+
+  it('pays a held region at the table size, as the opening draft and the territory panel do', () => {
+    // A +5 region (its value at six seats), held whole by p2 when p2's turn starts.
+    const fivePoint: GameMap = { ...map, regions: [{ region_id: 'r1', name: 'R1', bonus: 5 }] };
+    const regionDraftAt = (seats: number) => {
+      const state = makeState({
+        current_player_index: 0,
+        phase: 'fortify',
+        players: Array.from({ length: seats }, (_, i) => makePlayer(`p${i + 1}`, i, { territory_count: i === 1 ? 3 : 0 })),
+        territories: { t1: makeTerritory('t1', 'p2', 3), t2: makeTerritory('t2', 'p2', 3), t3: makeTerritory('t3', 'p2', 3) },
+      });
+      advanceToNextPlayer(state, fivePoint);
+      expect(state.current_player_index).toBe(1);
+      // What the bots forecast and the panel shows.
+      expect(calculateContinentBonuses(state, fivePoint, 'p2')).toBe(scaleRegionBonus(5, seats));
+      return state.draft_units_remaining - calculateReinforcements(3, 0, seats);
+    };
+    expect([2, 4, 5, 6, 8].map(regionDraftAt)).toEqual([1, 3, 4, 5, 6]);
   });
 
   it('wraps around and increments turn number', () => {

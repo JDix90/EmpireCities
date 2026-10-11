@@ -808,9 +808,10 @@ function calculateContinentBonusesForPlayer(
   map: GameMap,
   playerId: string,
   // A team game's sides (state/teams.ts): a region allies hold whole pays too.
-  sides: Pick<GameState, 'teams'> = {},
-  // Table size for the per-region scaling (scaleRegionBonus).
-  playerCount: number = 6,
+  sides: Pick<GameState, 'teams'>,
+  // Table size for the per-region scaling (scaleRegionBonus). No default: one
+  // made a missed argument pay every table the six-player bonus.
+  playerCount: number,
 ): number {
   let bonus = 0;
   for (const region of map.regions) {
@@ -1179,7 +1180,7 @@ function passTurn(state: GameState, map?: GameMap): void {
     nextPlayer.era_transition_turns_remaining = Math.max(0, (nextPlayer.era_transition_turns_remaining ?? 0) - 1);
   }
   if (map) {
-    const bonus = calculateContinentBonusesForPlayer(state.territories, map, nextPlayer.player_id, state);
+    const bonus = calculateContinentBonusesForPlayer(state.territories, map, nextPlayer.player_id, state, state.players.length);
     const passiveReinforceBonus = getPlayerReinforceBonus(state, nextPlayer.player_id);
     const wonderReinforceBonus = state.settings.economy_enabled
       ? getWonderReinforceBonus(state, nextPlayer.player_id)
