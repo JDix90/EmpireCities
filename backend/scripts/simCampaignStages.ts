@@ -38,6 +38,7 @@
  *   SIM_HANDICAP=1 SIM_GAMES=300 pnpm exec tsx scripts/simCampaignStages.ts
  *   SIM_STAGES=last_defenders:5 SIM_MISSIONS=1 pnpm exec tsx scripts/simCampaignStages.ts
  *   SIM_STAGES=last_defenders:1 SIM_AI_COUNT=2 SIM_CLOCK=25 pnpm exec tsx scripts/simCampaignStages.ts
+ *   SIM_STAGES=last_defenders:0 SIM_AI_FACTIONS=rome,carthage,maurya SIM_BY_SEAT=1 pnpm exec tsx scripts/simCampaignStages.ts
  *   SIM_PATCH='parthia.reinforce_bonus=0' pnpm exec tsx scripts/simCampaignStages.ts
  *   SIM_AI_FLAGS=oddsPress=1,plannedDraft=1,endingPlay=1 pnpm exec tsx scripts/simCampaignStages.ts
  *
@@ -95,6 +96,14 @@ const ONLY = (process.env.SIM_STAGES ?? '').split(',').map((s) => s.trim()).filt
 /** Config overrides, for asking "what if" without editing campaignPaths.ts. */
 const OVERRIDE_DIFFICULTY = process.env.SIM_DIFFICULTY as AiDifficulty | undefined;
 const OVERRIDE_AI_COUNT = process.env.SIM_AI_COUNT == null ? null : Number(process.env.SIM_AI_COUNT);
+/**
+ * The stage's AI seats by faction, e.g. `rome,carthage,maurya`: one seat per
+ * faction, in that order, in place of the stage's own list and count
+ * (SIM_AI_COUNT is ignored with it). Which factions sit decides the opening
+ * deal, so a line-up is a stage change of its own, not just a seat count.
+ */
+const OVERRIDE_AI_FACTIONS = (process.env.SIM_AI_FACTIONS ?? '')
+  .split(',').map((f) => f.trim()).filter(Boolean);
 const OVERRIDE_UNIT_MOD = process.env.SIM_UNIT_MOD == null ? null : Number(process.env.SIM_UNIT_MOD);
 const OVERRIDE_THRESHOLD = process.env.SIM_THRESHOLD == null ? null : Number(process.env.SIM_THRESHOLD);
 const OVERRIDE_CLOCK = process.env.SIM_CLOCK == null ? null : Number(process.env.SIM_CLOCK);
@@ -109,6 +118,12 @@ const EXTRA_CARRY = (process.env.SIM_CARRY ?? '').split(',').map((c) => c.trim()
   }, {});
 /** Ignore the path's opening carry, to reproduce a config as it shipped. */
 const NO_CARRY = process.env.SIM_NO_CARRY === '1';
+/**
+ * Name the AI seat that won each game by its faction (`AI.rome:threshold`)
+ * rather than pooling them as `AI:`. A stage that gets harder can do so
+ * because one seat got stronger, and the pooled count cannot say which.
+ */
+const BY_SEAT = process.env.SIM_BY_SEAT === '1';
 
 /** The live AI flags, with each side's overrides. */
 const AI_FLAGS = parseAiTurnFlags('SIM_AI_FLAGS', process.env.SIM_AI_FLAGS);
@@ -157,12 +172,16 @@ function loadMap(mapId: string): GameMap {
 
 /** The stage as this run will play it, after any SIM_* overrides. */
 function resolveStage(stage: PathEraConfig): PathEraConfig {
-  const aiCount = OVERRIDE_AI_COUNT ?? stage.ai_count;
+  const aiCount = OVERRIDE_AI_FACTIONS.length > 0
+    ? OVERRIDE_AI_FACTIONS.length
+    : OVERRIDE_AI_COUNT ?? stage.ai_count;
   return {
     ...stage,
     ai_difficulty: OVERRIDE_DIFFICULTY ?? stage.ai_difficulty,
     ai_count: aiCount,
-    ai_factions: OVERRIDE_AI_COUNT != null ? stage.ai_factions.slice(0, aiCount) : stage.ai_factions,
+    ai_factions: OVERRIDE_AI_FACTIONS.length > 0
+      ? OVERRIDE_AI_FACTIONS
+      : OVERRIDE_AI_COUNT != null ? stage.ai_factions.slice(0, aiCount) : stage.ai_factions,
     allowed_victory_conditions: OVERRIDE_VICTORY.length > 0
       ? OVERRIDE_VICTORY
       : stage.allowed_victory_conditions,
@@ -190,6 +209,9 @@ async function runStage(
   initialCarry: Record<string, number>,
 ): Promise<StageResult> {
   const era = CAMPAIGN_ERAS[index] ?? 'ancient';
+  // A misspelt faction would seat a factionless AI and still print a win rate.
+  const unknown = OVERRIDE_AI_FACTIONS.filter((id) => !getEraFactions(era).some((f) => f.faction_id === id));
+  if (unknown.length > 0) throw new Error(`SIM_AI_FACTIONS: no ${unknown.join(', ')} in ${era}`);
   const map = loadMap(stage.map_id);
   const clock = stage.max_turns ?? DEFAULT_MAX_TURNS;
   const seats = stage.ai_count + 1;
@@ -294,7 +316,9 @@ async function runStage(
       if (await hooks.victoryCheck()) break;
     }
     if (state.winner_id && state.victory_condition) {
-      const key = `${state.winner_id === 'p_0' ? 'P' : 'AI'}:${state.victory_condition}`;
+      const winner = state.players.find((p) => p.player_id === state.winner_id);
+      const side = state.winner_id === 'p_0' ? 'P' : BY_SEAT ? `AI.${winner?.faction_id ?? '?'}` : 'AI';
+      const key = `${side}:${state.victory_condition}`;
       res.byCondition.set(key, (res.byCondition.get(key) ?? 0) + 1);
     }
 
