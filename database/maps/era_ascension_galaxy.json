@@ -195,14 +195,9 @@
       "bonus": 2
     },
     {
-      "region_id": "atlantic_frontier_2100",
-      "name": "Atlantic Platforms",
-      "bonus": 2
-    },
-    {
       "region_id": "orbital_gateway_2100",
       "name": "Orbital Gateway",
-      "bonus": 2
+      "bonus": 0
     },
     {
       "region_id": "verdan_sporefields",
@@ -2903,7 +2898,7 @@
         540,
         527
       ],
-      "region_id": "atlantic_frontier_2100",
+      "region_id": "latin_america_2100",
       "geo_polygon": [
         [
           -30,

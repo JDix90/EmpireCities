@@ -188,7 +188,7 @@ describe('assignSecretMissions — orbit-gated targets excluded', () => {
 });
 
 describe('assignSecretMissions — era-locked frontier targets (real era_space_age map)', () => {
-  // era_space_age.json authors 8 tiles with `unlock_era_index` 1..5, and five
+  // era_space_age.json authors 8 tiles with `unlock_era_index` 1..5, and four
   // regions consist ONLY of them. With `space_age_frontiers_enabled` off those
   // tiles are never placed in `state.territories`, and mission completion reads
   // `state.territories[id]?.owner_id` — so a mission naming one of them (or one
@@ -204,7 +204,6 @@ describe('assignSecretMissions — era-locked frontier targets (real era_space_a
     'pacific_frontier_2100',
     'polar_frontier_2100',
     'antarctic_2100',
-    'atlantic_frontier_2100',
     'orbital_gateway_2100',
   ];
 

@@ -649,18 +649,13 @@ export const MAP_CATALOG = [
       },
       {
         "name": "Welsh Kingdoms",
-        "bonus": 2,
-        "territory_count": 3
+        "bonus": 3,
+        "territory_count": 4
       },
       {
         "name": "Anglo-Saxon England",
         "bonus": 4,
         "territory_count": 6
-      },
-      {
-        "name": "Celtic Fringe",
-        "bonus": 1,
-        "territory_count": 1
       }
     ]
   }
@@ -678,7 +673,7 @@ export const ERA_MAPS = {
     "description": "The world at the height of the Roman Empire. Legion Tactics applies here: an attack with three dice re-rolls its lowest, so a half-committed push fares worse than it would in any other era.",
     "territory_count": 33,
     "expansion_territory_count": 24,
-    "expansion_region_count": 10,
+    "expansion_region_count": 7,
     "connection_count": 53,
     "sea_route_count": 9,
     "era_theme": "ancient",
@@ -699,14 +694,14 @@ export const ERA_MAPS = {
         "territory_count": 4
       },
       {
-        "name": "Han China",
+        "name": "East Asia",
         "bonus": 3,
-        "territory_count": 4
+        "territory_count": 6
       },
       {
         "name": "Indian Subcontinent",
-        "bonus": 4,
-        "territory_count": 3
+        "bonus": 5,
+        "territory_count": 4
       },
       {
         "name": "Africa",
@@ -727,21 +722,6 @@ export const ERA_MAPS = {
         "name": "Northern Frontier",
         "bonus": 3,
         "territory_count": 2
-      },
-      {
-        "name": "The Far East",
-        "bonus": 2,
-        "territory_count": 1
-      },
-      {
-        "name": "Southeast Asia",
-        "bonus": 2,
-        "territory_count": 1
-      },
-      {
-        "name": "The Himalayas",
-        "bonus": 2,
-        "territory_count": 1
       }
     ]
   },
@@ -764,8 +744,8 @@ export const ERA_MAPS = {
       },
       {
         "name": "Eastern Europe",
-        "bonus": 4,
-        "territory_count": 4
+        "bonus": 5,
+        "territory_count": 5
       },
       {
         "name": "Middle East",
@@ -774,8 +754,8 @@ export const ERA_MAPS = {
       },
       {
         "name": "Mongol Heartland",
-        "bonus": 3,
-        "territory_count": 3
+        "bonus": 4,
+        "territory_count": 4
       },
       {
         "name": "China & Korea",
@@ -793,11 +773,6 @@ export const ERA_MAPS = {
         "territory_count": 3
       },
       {
-        "name": "Scandinavia",
-        "bonus": 2,
-        "territory_count": 1
-      },
-      {
         "name": "New World",
         "bonus": 2,
         "territory_count": 2
@@ -811,11 +786,6 @@ export const ERA_MAPS = {
         "name": "Oceania",
         "bonus": 2,
         "territory_count": 2
-      },
-      {
-        "name": "Pacific Rim",
-        "bonus": 2,
-        "territory_count": 1
       }
     ]
   },
@@ -826,7 +796,7 @@ export const ERA_MAPS = {
     "description": "The world in the age of colonial empires and global sea trade. Attacks across water roll two dice instead of three, so a crossing is never as safe as the same odds on land.",
     "territory_count": 34,
     "expansion_territory_count": 7,
-    "expansion_region_count": 4,
+    "expansion_region_count": 2,
     "connection_count": 53,
     "sea_route_count": 19,
     "era_theme": "discovery",
@@ -939,7 +909,7 @@ export const ERA_MAPS = {
     "description": "The world divided between two superpowers. Influence takes a weak neighbour outright for three units and no dice, then sits on a three-turn cooldown.",
     "territory_count": 44,
     "expansion_territory_count": 7,
-    "expansion_region_count": 5,
+    "expansion_region_count": 2,
     "connection_count": 64,
     "sea_route_count": 16,
     "era_theme": "coldwar",
@@ -1178,7 +1148,7 @@ export const ERA_MAPS = {
       {
         "name": "South American Bloc",
         "bonus": 7,
-        "territory_count": 5
+        "territory_count": 6
       },
       {
         "name": "Pacific Rim Alliance",
@@ -1211,13 +1181,8 @@ export const ERA_MAPS = {
         "territory_count": 2
       },
       {
-        "name": "Atlantic Platforms",
-        "bonus": 2,
-        "territory_count": 1
-      },
-      {
         "name": "Orbital Gateway",
-        "bonus": 2,
+        "bonus": 0,
         "territory_count": 1
       }
     ]

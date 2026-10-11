@@ -81,6 +81,8 @@ import { nothingToFightMessage } from '../../utils/attackAvailability';
 
 /** Why a region with one territory on the board shows +0 (utils/continentBonus). */
 const REGION_TOO_FEW_TO_PAY = 'A region pays only with two or more of its territories on the board.';
+/** A region the map gives no bonus: a faction's home or a landmark, not income. */
+const REGION_NO_BONUS = 'This region pays no bonus.';
 
 interface TerritoryPanelProps {
   mapTerritories: Array<{
@@ -1002,8 +1004,9 @@ function TerritoryPanelContent({
         const totalInRegion = regionTerritories.length;
         const playerCount = gameState.players.length;
         const effBonus = regionBonusOnBoard(regionDef.bonus, totalInRegion, playerCount);
-        const tooFewToPay = effBonus === 0 && effectiveContinentBonus(regionDef.bonus, playerCount) > 0;
-        const bonusScaled = !tooFewToPay && effBonus !== regionDef.bonus;
+        const paysNothing = effBonus === 0;
+        const tooFewToPay = paysNothing && effectiveContinentBonus(regionDef.bonus, playerCount) > 0;
+        const bonusScaled = !paysNothing && effBonus !== regionDef.bonus;
         // In a team game the side's tiles count toward a region, and the one who
         // holds most of it collects (utils/teams regionBonusHolder).
         const ownedInRegion = myPlayerId
@@ -1013,7 +1016,7 @@ function TerritoryPanelContent({
           gameState,
           regionTerritories.map((t) => gameState.territories[t.territory_id]?.owner_id),
         );
-        const controlsRegion = !!myPlayerId && !tooFewToPay && totalInRegion > 0 && ownedInRegion === totalInRegion;
+        const controlsRegion = !!myPlayerId && !paysNothing && totalInRegion > 0 && ownedInRegion === totalInRegion;
         const allyCollects = controlsRegion && !!regionHolder && regionHolder !== myPlayerId
           ? gameState.players.find((p) => p.player_id === regionHolder)?.username ?? 'your ally'
           : null;
@@ -1025,7 +1028,7 @@ function TerritoryPanelContent({
                 <span className="font-semibold text-bf-text truncate">{regionDef.name}</span>
               </div>
               <span
-                className={clsx('font-mono font-semibold shrink-0 ml-2', tooFewToPay ? 'text-bf-muted' : 'text-bf-gold')}
+                className={clsx('font-mono font-semibold shrink-0 ml-2', paysNothing ? 'text-bf-muted' : 'text-bf-gold')}
                 title={bonusScaled ? `Continent bonuses scale with player count: +${effBonus} at ${playerCount} players (+${regionDef.bonus} at 6).` : undefined}
               >
                 +{effBonus}
@@ -1041,7 +1044,12 @@ function TerritoryPanelContent({
                 {REGION_TOO_FEW_TO_PAY}
               </p>
             )}
-            {myPlayerId && !tooFewToPay && (
+            {paysNothing && !tooFewToPay && (
+              <p className="text-[10px] text-bf-muted/80 mt-1" data-testid="region-no-bonus">
+                {REGION_NO_BONUS}
+              </p>
+            )}
+            {myPlayerId && !paysNothing && (
               <div className="flex items-center gap-2 mt-1.5">
                 <div className="flex-1 h-1 bg-gray-700 rounded-full overflow-hidden">
                   <div
@@ -1950,8 +1958,9 @@ function TerritoryPanelContent({
                 : 0;
               const playerCount = gameState.players.length;
               const effBonus = regionBonusOnBoard(regionDef.bonus, regionTerritories.length, playerCount);
-              const tooFewToPay = effBonus === 0 && effectiveContinentBonus(regionDef.bonus, playerCount) > 0;
-              const bonusScaled = !tooFewToPay && effBonus !== regionDef.bonus;
+              const paysNothing = effBonus === 0;
+              const tooFewToPay = paysNothing && effectiveContinentBonus(regionDef.bonus, playerCount) > 0;
+              const bonusScaled = !paysNothing && effBonus !== regionDef.bonus;
               return (
                 <div className="px-2 py-2 rounded-lg bg-bf-dark border border-bf-border text-xs">
                   <div className="flex items-center justify-between">
@@ -1960,14 +1969,16 @@ function TerritoryPanelContent({
                       {regionDef.name}
                     </span>
                     <span
-                      className={clsx('font-mono', tooFewToPay ? 'text-bf-muted' : 'text-bf-gold')}
+                      className={clsx('font-mono', paysNothing ? 'text-bf-muted' : 'text-bf-gold')}
                       title={bonusScaled ? `Continent bonuses scale with player count: +${effBonus} at ${playerCount} players (+${regionDef.bonus} at 6).` : undefined}
                     >
                       +{effBonus}
                     </span>
                   </div>
-                  {tooFewToPay && <p className="text-bf-muted mt-1">{REGION_TOO_FEW_TO_PAY}</p>}
-                  {myPlayerId && !tooFewToPay && (
+                  {paysNothing && (
+                    <p className="text-bf-muted mt-1">{tooFewToPay ? REGION_TOO_FEW_TO_PAY : REGION_NO_BONUS}</p>
+                  )}
+                  {myPlayerId && !paysNothing && (
                     <p className="text-bf-muted mt-1 tabular-nums">
                       {ownedInRegion}/{regionTerritories.length} owned
                       {bonusScaled && <span className="text-bf-muted/70"> · +{effBonus} at {playerCount} players</span>}

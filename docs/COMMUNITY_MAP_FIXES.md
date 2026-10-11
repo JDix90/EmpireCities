@@ -136,6 +136,7 @@ Cornwall's connections list:
 1. Add a **sea connection** from `cornwall` to `deheubarth` (Bristol Channel crossing)
 2. This gives Cornwall degree 2 and creates a second attack vector
 3. The `celtic` region bonus (1) remains — it's now harder to hold with 2 borders
+   - Since superseded: a region now pays only with two or more territories, so Cornwall joined the Welsh Kingdoms (`welsh`, +3) and the `celtic` region is gone.
 4. Apply the same edit to the frontend copy
 
 ### Geographic Justification

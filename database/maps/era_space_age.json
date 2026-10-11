@@ -2118,7 +2118,7 @@
       "name": "South Atlantic Platforms",
       "polygon": [[480, 480], [600, 480], [600, 575], [480, 575]],
       "center_point": [540, 527],
-      "region_id": "atlantic_frontier_2100",
+      "region_id": "latin_america_2100",
       "unlock_era_index": 3,
       "geo_polygon": [[-30,-40],[-30,-26],[-10,-26],[-10,-40],[-30,-40]]
     },
@@ -2777,8 +2777,7 @@
     { "region_id": "pacific_frontier_2100", "name": "Pacific Frontier", "bonus": 2 },
     { "region_id": "polar_frontier_2100", "name": "Polar Frontier", "bonus": 2 },
     { "region_id": "antarctic_2100", "name": "Antarctic Claims", "bonus": 2 },
-    { "region_id": "atlantic_frontier_2100", "name": "Atlantic Platforms", "bonus": 2 },
-    { "region_id": "orbital_gateway_2100", "name": "Orbital Gateway", "bonus": 2 }
+    { "region_id": "orbital_gateway_2100", "name": "Orbital Gateway", "bonus": 0 }
   ],
   "is_public": true,
   "is_moderated": true,

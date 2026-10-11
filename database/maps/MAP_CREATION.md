@@ -140,6 +140,20 @@ TERRITORY_GEO_CONFIG['my_territory'] = [
 
 ---
 
+## Region bonuses
+
+A region with a bonus needs **at least two territories**. The game pays a region
+only when two or more of its territories are on the board
+(`backend/src/game-engine/state/regionsOnBoard.ts`), so a bonus on a lone
+territory is a promise it never keeps, and `pnpm run validate:maps` rejects one.
+Fold a lone territory into a neighbouring region instead. A region with a bonus
+of 0 may hold a single territory, for a landmark. So may a faction's home, bonus
+and all: it pays nothing in play, but the faction deal weighs that bonus when it
+shares out the board, and changing it re-deals the era's campaign stages
+(`backend/src/game-engine/validation/mapRegions.ts`).
+
+---
+
 ## Reference
 
 - **Source:** Natural Earth `ne_50m_admin_0_countries` (`frontend/public/geo`, ISO_A2 / ISO_A2_EH)

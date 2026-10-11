@@ -102,8 +102,9 @@ Unchanged and still distinct:
   play: a frontier region's first unlocked territory pays nothing until a second one arrives.
   Region-bonus calibration: the game uses **generous**
   bonuses (≈ `territories + 1..2`), NOT classic `terr/3` — so the frontier regions were re-tuned to
-  a house-aligned-but-discounted scale (1-terr → 2, 2-terr → 3, 3+-terr → 4); a one-territory
-  region now pays nothing under the two-territory rule. A broader game-wide
+  a house-aligned-but-discounted scale (1-terr → 2, 2-terr → 3, 3+-terr → 4). The one-territory
+  frontier regions have since been folded into their neighbours, and `validate:maps` rejects a
+  bonus region of one territory unless it is a faction's home. A broader game-wide
   rebalance is a separate design call, left to the product owner.
 - **Render polish — entrance animation done.** `game:territories_unlocked` pulses the newly-opened
   frontier regions (`region_highlight`). The map grows in place: the Pixi app is created once and

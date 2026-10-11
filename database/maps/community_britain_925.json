@@ -1688,7 +1688,7 @@
         358,
         637.368
       ],
-      "region_id": "celtic",
+      "region_id": "welsh",
       "geo_polygon": [
         [
           -4.5,
@@ -1884,11 +1884,12 @@
     {
       "region_id": "welsh",
       "name": "Welsh Kingdoms",
-      "bonus": 2,
+      "bonus": 3,
       "territory_ids": [
         "gwynedd",
         "deheubarth",
-        "brycheiniog"
+        "brycheiniog",
+        "cornwall"
       ]
     },
     {
@@ -1902,14 +1903,6 @@
         "kent",
         "sussex",
         "wessex"
-      ]
-    },
-    {
-      "region_id": "celtic",
-      "name": "Celtic Fringe",
-      "bonus": 1,
-      "territory_ids": [
-        "cornwall"
       ]
     }
   ],
