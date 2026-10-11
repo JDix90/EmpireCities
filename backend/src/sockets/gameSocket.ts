@@ -68,6 +68,7 @@ import { onInfluenceStabilityPenalty, getDeployCap } from '../game-engine/state/
 import { eliminatePlayer } from '../game-engine/state/elimination';
 import { activeTruceBetween, agreeTruce, breakTruceBetween } from '../game-engine/state/truces';
 import { areAllies, isShieldedFrom, isTeamGame, shieldedTargetError } from '../game-engine/state/teams';
+import { payableRegionBonuses } from '../game-engine/state/regionsOnBoard';
 import { fogAdjacency, fogVisibleTerritoryIds as visibleTerritoryIds } from '../game-engine/state/fogOfWar';
 import { concededTeamWinners } from '../game-engine/victory/teamVictory';
 import { getAdjacentTerritoryIds, getInfluenceHopLimit, isTerritoryReachableWithinHops } from '../game-engine/state/influenceManager';
@@ -5911,8 +5912,7 @@ async function processAiTerritorySelect(io: Server, gameId: string): Promise<voi
     if (adjacentUnclaimed.length > 0) {
       // Expert: score by region bonus potential
       if (pick === 'cluster_by_region') {
-        const regionBonus: Record<string, number> = {};
-        for (const r of map.regions) regionBonus[r.region_id] = r.bonus;
+        const regionBonus = payableRegionBonuses(map, state.territories);
         const scored = adjacentUnclaimed.map((id) => {
           const mt = map.territories.find((t) => t.territory_id === id);
           return { id, score: mt ? (regionBonus[mt.region_id] ?? 0) : 0 };
@@ -5924,8 +5924,7 @@ async function processAiTerritorySelect(io: Server, gameId: string): Promise<voi
       }
     } else if (owned.size === 0) {
       // First pick: choose a territory in a high-bonus region
-      const regionBonus: Record<string, number> = {};
-      for (const r of map.regions) regionBonus[r.region_id] = r.bonus;
+      const regionBonus = payableRegionBonuses(map, state.territories);
       const scored = unclaimed.map((id) => {
         const mt = map.territories.find((t) => t.territory_id === id);
         return { id, score: mt ? (regionBonus[mt.region_id] ?? 0) : 0 };

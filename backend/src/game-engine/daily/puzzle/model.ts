@@ -46,7 +46,10 @@ export interface PuzzleContext {
   adj: number[][];
   /** Sea lanes as "lo-hi" index pairs. */
   seaEdges: Set<string>;
-  /** Regions that lie entirely inside the in-play set (only these can ever pay a bonus). */
+  /**
+   * Regions that lie entirely inside the in-play set, with two territories or
+   * more (only these can ever pay a bonus; state/regionsOnBoard.ts).
+   */
   regions: PuzzleRegion[];
   doctrine: DiceDoctrine;
   /** Attacker dice cap across a sea lane: 2 in the Discovery era (sea_lanes), 3 elsewhere. */

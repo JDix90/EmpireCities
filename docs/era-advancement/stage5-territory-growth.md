@@ -95,10 +95,15 @@ Unchanged and still distinct:
   *plays* on them — the board just doesn't grow. (If ever revisited, the only natural fit is the
   historical **empire** maps — Roman Empire 117, Mongol Empire 1279 — authored with real geometry.)
 - **Balance — done (first pass).** Garrisons scale with the unlock era (`unlockGarrisonForEra`),
-  and `calculateContinentBonuses` counts only in-play territories so a growing board can't break
-  (or vacuously award) region bonuses. Region-bonus calibration: the game uses **generous**
+  and region bonuses count only in-play territories so a growing board can't break (or vacuously
+  award) them. One rule (`state/regionsOnBoard.ts`, mirrored by the client's
+  `utils/continentBonus.ts`) serves the turn-start draft, the bots, the coaching tips, the daily
+  model and the territory panel, and a region pays only with **two or more** of its territories in
+  play: a frontier region's first unlocked territory pays nothing until a second one arrives.
+  Region-bonus calibration: the game uses **generous**
   bonuses (≈ `territories + 1..2`), NOT classic `terr/3` — so the frontier regions were re-tuned to
-  a house-aligned-but-discounted scale (1-terr → 2, 2-terr → 3, 3+-terr → 4). A broader game-wide
+  a house-aligned-but-discounted scale (1-terr → 2, 2-terr → 3, 3+-terr → 4); a one-territory
+  region now pays nothing under the two-territory rule. A broader game-wide
   rebalance is a separate design call, left to the product owner.
 - **Render polish — entrance animation done.** `game:territories_unlocked` pulses the newly-opened
   frontier regions (`region_highlight`). The map grows in place: the Pixi app is created once and

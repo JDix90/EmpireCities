@@ -35,6 +35,7 @@
 import type { AiIntent, GameMap, GameState } from '../../types';
 import { scaleRegionBonus } from '../combat/combatResolver';
 import { isFriendlyOwner, isShieldedFrom, isTeamGame } from '../state/teams';
+import { regionsOnBoard } from '../state/regionsOnBoard';
 import { HIDDEN_UNITS } from '../state/fogOfWar';
 import { buildAdjacencyMap, isTruceActive, weakestRivals } from './aiBot';
 import { aiProfile, type AiLevel } from './aiProfiles';
@@ -91,19 +92,13 @@ export function chooseIntent(
 
   const candidates: Candidate[] = [];
 
-  // Regions, counting only the territories in play (a growing board's
-  // locked frontier counts for nobody, as in calculateContinentBonuses).
-  const regionTiles = new Map<string, string[]>();
-  for (const t of map.territories) {
-    if (!state.territories[t.territory_id]) continue;
-    const list = regionTiles.get(t.region_id) ?? [];
-    list.push(t.territory_id);
-    regionTiles.set(t.region_id, list);
-  }
+  // Regions as the game pays them: their territories on the board, and only
+  // with two or more there (state/regionsOnBoard.ts).
+  const regionTiles = regionsOnBoard(map, state.territories);
   for (const region of map.regions) {
     const tiles = regionTiles.get(region.region_id);
     const income = scaleRegionBonus(region.bonus, state.players.length);
-    if (!tiles || tiles.length === 0 || income <= 0) continue;
+    if (!tiles || income <= 0) continue;
     const owners = tiles.map((tid) => state.territories[tid]!.owner_id);
     const value = income * REGION_HORIZON;
 

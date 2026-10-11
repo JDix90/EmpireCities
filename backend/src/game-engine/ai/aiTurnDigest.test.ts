@@ -79,6 +79,19 @@ describe('the digest of a bot\'s turn', () => {
     expect(digest.regionsBroken).toEqual([]);
   });
 
+  it('names no region with one territory on the board', () => {
+    // The South is one territory, and the East's e2 is still locked on a
+    // growing board: neither is a region, so taking s1 and e1 completes none.
+    const s = board({ w1: AI, w2: YOU, e1: YOU, s1: R });
+    const before = snapshotForDigest(s);
+    s.territories.e1!.owner_id = AI;
+    s.territories.s1!.owner_id = AI;
+    const digest = buildAiTurnDigest(before, s, map(), s.players[0]!, 'medium');
+    expect(digest.taken.map((t) => t.territoryId)).toEqual(['e1', 's1']);
+    expect(digest.regionsTaken).toEqual([]);
+    expect(digest.regionsBroken).toEqual([]);
+  });
+
   it('names who it knocked out', () => {
     const { s, digest: unused } = digestOf({ w1: AI, w2: AI, e1: YOU, e2: YOU, s1: R }, {});
     expect(unused.eliminated).toEqual([]);

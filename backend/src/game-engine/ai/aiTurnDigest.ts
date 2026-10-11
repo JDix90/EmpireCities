@@ -16,6 +16,7 @@
  */
 import type { AiIntent, GameMap, GameState, PlayerState } from '../../types';
 import { aiProfile, type AiLevel } from './aiProfiles';
+import { regionsOnBoard } from '../state/regionsOnBoard';
 
 /** Who held what, and who was still in, as the turn began. */
 export interface AiTurnSnapshot {
@@ -62,12 +63,12 @@ export function buildAiTurnDigest(
 
   const regionsTaken: AiTurnDigest['regionsTaken'] = [];
   const regionsBroken: AiTurnDigest['regionsBroken'] = [];
+  // Regions as the bonus counts them: their territories on the board, and
+  // only with two or more there (state/regionsOnBoard.ts).
+  const onBoard = regionsOnBoard(map, state.territories);
   for (const region of map.regions) {
-    // Only the territories in play, as the region bonus counts them.
-    const tiles = map.territories
-      .filter((t) => t.region_id === region.region_id && state.territories[t.territory_id])
-      .map((t) => t.territory_id);
-    if (tiles.length === 0) continue;
+    const tiles = onBoard.get(region.region_id);
+    if (!tiles) continue;
     const wasHeld = tiles.map((id) => before.owners[id] ?? null);
     const holder = wasHeld[0];
     if (tiles.every((id) => state.territories[id]!.owner_id === me) && !wasHeld.every((o) => o === me)) {

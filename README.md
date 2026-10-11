@@ -491,7 +491,7 @@ Each player's turn consists of three sequential phases:
 
 1. **Reinforcement (Draft)** — Place new units on owned territories.
    - Base units = `max(3, floor(territories_owned / 3))`
-   - Continent bonus added if player controls all territories in a region
+   - Continent bonus added for each region where the player holds every territory on the board (two or more of them; scaled by player count)
    - Card set bonus added if player redeems a valid set of 3 cards
 
 2. **Attack** — Attack adjacent enemy territories any number of times.
