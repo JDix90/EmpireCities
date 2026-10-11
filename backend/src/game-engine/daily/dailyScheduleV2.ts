@@ -18,9 +18,10 @@
  * Everything is a pure function of the date plus the code, as in v1, so the
  * sweep test can prove every day of the horizon in advance, and the bench
  * does: the v2 calendar (src/content/dailyV2Calendar.ts) records what the
- * full proof found per date, so serving a date costs one solve at most. The
- * only mutable thing here is the memo: the read path reconciles the stored
- * row against the schedule on every request.
+ * full proof found per date, so serving a date costs one solve at most, and
+ * the server runs that solve in a worker thread (dailyProofThread.ts). The
+ * only mutable things here are the memo and the proofs in flight: the read
+ * path reconciles the stored row against the schedule on every request.
  */
 import { getMapById } from '../../modules/maps/mapService';
 import type { GameMap } from '../../types';
@@ -50,6 +51,7 @@ import { PHASE_ATTACK, PHASE_DRAFT, type PuzzleContext } from './puzzle/model';
 import { obviousLine } from './puzzle/obvious';
 import { compilePlan, describePlan } from './puzzle/opponent';
 import { analyzePuzzle, BudgetExceeded, DECISION_GAP, type PuzzleAnalysis } from './puzzle/solver';
+import { proveOffThread } from './dailyProofThread';
 
 // ── Tiers ────────────────────────────────────────────────────────────────────
 
@@ -417,7 +419,7 @@ export async function proveV2Day(
   const slot = WEEKDAY_CADENCE[weekdayOf(date)];
   const band = slot.band === 'hard' ? TACTICAL_BAND_HARD : TACTICAL_BAND_STANDARD;
   const attempts: V2Attempt[] = [];
-  const map = await deps.loadMap(sp.kind === 'domination' ? sp.spec.map_id : sp.map_id);
+  const map = await deps.loadMap(setPieceMapId(sp));
   if (!map) return { proven: null, attempts };
 
   let shift = only?.shift ?? 0;
@@ -482,6 +484,8 @@ export async function proveV2Day(
 
 const memo = new Map<string, ScheduledDay | null>();
 const MEMO_LIMIT = 8;
+/** One proof per date at a time: requests that arrive while it runs wait for it rather than start their own. */
+const inFlight = new Map<string, Promise<ScheduledDay | null>>();
 
 function remember(date: string, day: ScheduledDay | null): ScheduledDay | null {
   memo.set(date, day);
@@ -494,13 +498,43 @@ function remember(date: string, day: ScheduledDay | null): ScheduledDay | null {
 
 /**
  * The v2 day for a date, or null when the date is served as v1. Pure in the
- * date apart from map loading; memoized per process (nulls too) because the
- * read path asks on every request and a solve costs seconds.
+ * date apart from map loading. As the server serves it (the default deps) the
+ * solve runs off this thread, and the day is memoized per process, nulls too,
+ * because the read path asks on every request and a solve costs seconds.
+ * With deps of its own, as the tests and the bench pass, the day is proven
+ * here, on this thread.
  */
 export async function scheduleDayV2(date: string, deps: ScheduleDeps = defaultDeps): Promise<ScheduledDay | null> {
-  if (deps === defaultDeps && memo.has(date)) return memo.get(date) ?? null;
-  const day = await computeDayV2(date, deps);
-  return deps === defaultDeps ? remember(date, day) : day;
+  if (deps !== defaultDeps) return computeDayV2(date, deps);
+  if (memo.has(date)) return memo.get(date) ?? null;
+  let pending = inFlight.get(date);
+  if (!pending) {
+    pending = serveDayV2(date)
+      .then((day) => remember(date, day))
+      .finally(() => inFlight.delete(date));
+    inFlight.set(date, pending);
+  }
+  return pending;
+}
+
+/** computeDayV2 as the server serves it: what the calendar answers alone costs no solve, and a solve runs off this thread. */
+async function serveDayV2(date: string): Promise<ScheduledDay | null> {
+  const pick = pickSetPieceForDateV2(date);
+  if (!pick || calendarVerdict(date, pick) === 'refused') return null;
+  const map = await defaultDeps.loadMap(setPieceMapId(pick.set_piece));
+  return proveOffThread(date, map, () => proveDayV2(date, map));
+}
+
+/**
+ * computeDayV2 on a map already loaded: what the proof worker runs
+ * (dailyProofWorker.ts), and what runs on this thread when it cannot.
+ */
+export function proveDayV2(date: string, map: GameMap | null): Promise<ScheduledDay | null> {
+  return computeDayV2(date, { loadMap: async (mapId) => (map?.map_id === mapId ? map : null), simulate: null });
+}
+
+function setPieceMapId(sp: DailySetPiece): string {
+  return sp.kind === 'domination' ? sp.spec.map_id : sp.map_id;
 }
 
 async function computeDayV2(date: string, deps: ScheduleDeps): Promise<ScheduledDay | null> {

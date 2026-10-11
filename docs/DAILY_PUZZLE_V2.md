@@ -211,8 +211,7 @@ replay routes) reads the spec through `redactSettingsForClient`, which keeps onl
 test recomputes the horizon.
 
 Proving a day is the costly part of serving it: up to eight solves of up to several
-seconds each, on the main thread, the first time a process serves the date and at the
-23:30 UTC prewarm. So what the full proof finds is written down in advance, in the v2
+seconds each, the first time a process serves the date and at the 23:30 UTC prewarm. So what the full proof finds is written down in advance, in the v2
 calendar (`src/content/dailyV2Calendar.ts`). For every planned date in its range it
 records the attempt the gate accepted and the band shift that attempt was sized at, or
 that every attempt was refused. The schedule serves a refused date as v1 without a
@@ -223,6 +222,17 @@ a different set-piece or reading than the schedule picks, or when the recorded a
 longer passes. Tests check that the calendar's fingerprint matches today's set-pieces,
 plans, gate and maps, that it names exactly the planned dates, and that the sweep's
 fortnight matches the full proof.
+
+The one solve left runs off the server's thread. The server runs every live game on one
+thread, so a solve there paused every game for as long as it took: up to 10 s on the
+hardest graded day of the eight weeks from 12 October. `dailyProofThread.ts` runs it in a
+worker thread (`dailyProofWorker.ts`) on the map the server already loaded. Requests for
+the date wait on the one proof in flight, and the day is memoized as before. A worker that
+cannot start, or dies before it answers, hands the proof back to the server thread; an
+error the proof throws is passed on; a proof still running after five minutes is stopped
+and the date served as v1. On the built server against Postgres and Redis, the longest
+pause while 20 October is served falls from 9.3 s to 17 ms. The play-time solver (§5.4)
+still warms on the server thread when the first player starts the day.
 
 Two readings differ from v1 on purpose (`dailyScheduleV2.ts`):
 
