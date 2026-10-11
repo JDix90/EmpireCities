@@ -228,6 +228,13 @@ export function calendarFingerprint(readMap: (mapId: string) => string): string 
   return createHash('sha256').update(json).digest('hex').slice(0, 16);
 }
 
+/** What the calendar records for a proven date: where it landed, or refused. */
+function entryFromProof(proof: DateProof): V2CalendarEntry {
+  return proof.landing
+    ? { set_piece_id: proof.set_piece_id, verb: proof.verb, attempt: proof.landing.attempt, shift: proof.landing.shift }
+    : { set_piece_id: proof.set_piece_id, verb: proof.verb, refused: true };
+}
+
 /** The calendar a full run of the bench proves: one entry per planned date of the horizon. */
 export function calendarFromProofs(dates: readonly ClassifiedDate[], proofs: readonly DateProof[], fingerprint: string): V2Calendar {
   if (dates.length === 0) throw new Error('a calendar needs at least one date');
@@ -237,11 +244,76 @@ export function calendarFromProofs(dates: readonly ClassifiedDate[], proofs: rea
     if (d.class !== 'planned') continue;
     const proof = byDate.get(d.date);
     if (!proof) throw new Error(`${d.date} is planned but was not proven`);
-    days[d.date] = proof.landing
-      ? { set_piece_id: proof.set_piece_id, verb: proof.verb, attempt: proof.landing.attempt, shift: proof.landing.shift }
-      : { set_piece_id: proof.set_piece_id, verb: proof.verb, refused: true };
+    days[d.date] = entryFromProof(proof);
   }
   return { from: dates[0].date, to: dates[dates.length - 1].date, fingerprint, days };
+}
+
+// ── Checking the calendar ────────────────────────────────────────────────────
+
+/**
+ * How far past the first day of a check the calendar must reach. Past its
+ * last date every day is proven in full when served, the stall the calendar
+ * exists to end, and extending it is one bench run and a PR.
+ */
+export const CALENDAR_RUNWAY_DAYS = 90;
+
+/** A date whose calendar entry is not what the schedule and a fresh proof make of it now. */
+export interface CalendarDrift {
+  date: string;
+  calendar: string;
+  now: string;
+}
+
+export interface CalendarCheck {
+  drift: CalendarDrift[];
+  /** Days of the horizon outside the calendar's range, each proven in full when served. */
+  outside: number;
+  /** Days from the horizon's first date to the calendar's last; negative once it has run out. */
+  runway: number;
+  ok: boolean;
+}
+
+function describeEntry(entry: V2CalendarEntry | null): string {
+  if (!entry) return 'no entry';
+  const landing = 'refused' in entry ? 'refused' : `attempt ${entry.attempt} at shift ${entry.shift}`;
+  return `${entry.set_piece_id} ${entry.verb}, ${landing}`;
+}
+
+/**
+ * The checked-in calendar against a full run of the bench: every date of the
+ * horizon inside its range must hold exactly the entry the run would write,
+ * and the calendar must reach `minRunway` days past the horizon's first date.
+ * The fingerprint test catches a change to the data a proof reads; this
+ * catches one in the code that proves it, which no hash covers.
+ */
+export function checkCalendar(
+  dates: readonly ClassifiedDate[],
+  proofs: readonly DateProof[],
+  calendar: V2Calendar,
+  minRunway: number = CALENDAR_RUNWAY_DAYS,
+): CalendarCheck {
+  if (dates.length === 0) throw new Error('a check needs at least one date');
+  const byDate = new Map(proofs.map((p) => [p.date, p]));
+  const drift: CalendarDrift[] = [];
+  let outside = 0;
+  for (const d of dates) {
+    if (d.date < calendar.from || d.date > calendar.to) {
+      outside += 1;
+      continue;
+    }
+    let fresh: V2CalendarEntry | null = null;
+    if (d.class === 'planned') {
+      const proof = byDate.get(d.date);
+      if (!proof) throw new Error(`${d.date} is planned but was not proven`);
+      fresh = entryFromProof(proof);
+    }
+    const held = describeEntry(calendar.days[d.date] ?? null);
+    const now = describeEntry(fresh);
+    if (held !== now) drift.push({ date: d.date, calendar: held, now });
+  }
+  const runway = Math.round((Date.parse(`${calendar.to}T00:00:00Z`) - Date.parse(`${dates[0].date}T00:00:00Z`)) / 86_400_000);
+  return { drift, outside, runway, ok: drift.length === 0 && runway >= minRunway };
 }
 
 /** The calendar as the checked-in module, written by `benchDailyV2.ts --all --write-calendar`. */

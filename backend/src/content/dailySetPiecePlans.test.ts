@@ -3,7 +3,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import type { GameMap } from '../types';
 import { DAILY_SET_PIECES, holdCapableSetPieces, type DailySetPiece } from './dailySetPieces';
-import { planFor, plannedSetPieces, SET_PIECE_PLANS } from './dailySetPiecePlans';
+import { planFor, plannedSetPieces, SET_PIECE_PLANS, V1_READINGS, v1ReasonFor } from './dailySetPiecePlans';
 import { materialize, type DailyVerb } from '../game-engine/daily/dailySchedule';
 import { HOLD_BAND, TACTICAL_BAND_STANDARD } from '../game-engine/daily/dailyGenerator';
 import { contextFromSpec, stateFromSpec } from '../game-engine/daily/puzzle/bridge';
@@ -64,6 +64,31 @@ describe('dailySetPiecePlans — the library', () => {
       for (const [reading, plan] of Object.entries(entry)) {
         if (plan.clock === undefined) continue;
         expect(Number.isInteger(plan.clock) && plan.clock >= 1, `${id} ${reading}: clock ${plan.clock}`).toBe(true);
+      }
+    }
+  });
+
+  it('every reading the schedule can serve as a fight has a plan or a written reason it stays v1', () => {
+    const readings = DAILY_SET_PIECES.flatMap((sp) => {
+      if (sp.kind !== 'tactical' && sp.kind !== 'region' && sp.kind !== 'chain') return [];
+      return sp.kind === 'tactical' && sp.hold ? [{ sp, hold: false }, { sp, hold: true }] : [{ sp, hold: false }];
+    });
+    const neither = readings
+      .filter(({ sp, hold }) => !planFor(sp, hold) && !v1ReasonFor(sp.id, hold))
+      .map(({ sp, hold }) => `${sp.id} ${hold ? 'hold' : 'capture'}`);
+    expect(neither, 'write a plan in SET_PIECE_PLANS, or the reason it stays v1 in V1_READINGS').toEqual([]);
+  });
+
+  it('a reason to stay v1 is written for a reading that exists and has no plan', () => {
+    for (const [id, reasons] of Object.entries(V1_READINGS)) {
+      const sp = byId(id);
+      for (const [reading, reason] of Object.entries(reasons)) {
+        const hold = reading === 'hold';
+        expect(['capture', 'hold'], `${id}: ${reading} is not a reading`).toContain(reading);
+        expect((reason ?? '').trim().length, `${id} ${reading}: the reason is empty`).toBeGreaterThan(0);
+        expect(planFor(sp, hold), `${id} ${reading} has a plan, so it does not stay v1`).toBeNull();
+        if (hold) expect(sp.kind === 'tactical' && !!sp.hold, `${id} has no hold reading`).toBe(true);
+        else expect(['tactical', 'region', 'chain'], `${id} is not a fight`).toContain(sp.kind);
       }
     }
   });
