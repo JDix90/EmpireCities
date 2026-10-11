@@ -1,0 +1,66 @@
+name: Daily coverage
+
+# The v2 daily's coverage run (docs/DAILY_PUZZLE_V2.md §6). It proves every
+# planned date of the next year in full, as the server would with no
+# calendar, reports what each day is served as, and checks the checked-in
+# calendar (backend/src/content/dailyV2Calendar.ts) against those proofs:
+# every date inside its range must hold what a fresh proof finds, and it must
+# reach 90 days ahead. The report goes to the run's summary either way; the
+# job fails when the check does, and the failing step prints the command
+# that regenerates the calendar. It reads only the repository: no secrets,
+# no database, nothing in production.
+on:
+  schedule:
+    # Mondays, off the hour: scheduled runs queue longest on the hour.
+    - cron: '23 5 * * 1'
+  workflow_dispatch:
+  # A change to the code that proves a day can leave the calendar stale while
+  # every hash of the data it reads stays the same, so such a PR gets the
+  # check before it merges rather than on the next Monday.
+  pull_request:
+    paths:
+      - 'backend/src/game-engine/daily/**'
+      - 'backend/scripts/benchDailyV2.ts'
+      - '.github/workflows/daily-coverage.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-coverage-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    # A full year of proofs takes a few minutes on the runner's four cores.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.9.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build shared package
+        run: pnpm -C packages/shared run build
+
+      # The summary is written before the step exits, so a failed check still
+      # shows the whole report.
+      - name: Prove the next year and check the calendar
+        run: |
+          set -o pipefail
+          status=0
+          pnpm -C backend exec tsx scripts/benchDailyV2.ts --all --check-calendar | tee coverage.txt || status=$?
+          {
+            echo '### Daily v2 coverage'
+            echo
+            echo '```'
+            cat coverage.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"

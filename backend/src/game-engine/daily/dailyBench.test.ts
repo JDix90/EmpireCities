@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { DAILY_CALENDAR } from '../../content/dailyCalendar';
 import {
+  checkCalendar,
   classifyDate,
   dayCauses,
   summarizeCoverage,
@@ -12,7 +13,7 @@ import {
   type DateProof,
 } from './dailyBench';
 import { weekdayOf } from './dailySchedule';
-import { candidateForDateV2, pickSetPieceForDateV2, type GateCause, type V2Attempt } from './dailyScheduleV2';
+import { candidateForDateV2, pickSetPieceForDateV2, type GateCause, type V2Attempt, type V2Calendar } from './dailyScheduleV2';
 
 function* datesFrom(start: string, days: number): Generator<string> {
   const d = new Date(`${start}T00:00:00Z`);
@@ -150,5 +151,63 @@ describe('daily bench — tallies', () => {
       { set_piece_id: 'b', verb: 'hold', days: 1 },
       { set_piece_id: 'b', verb: 'tactical', days: 1 },
     ]);
+  });
+});
+
+describe('daily bench — checking the calendar against a fresh run', () => {
+  const dates: ClassifiedDate[] = [
+    { date: '2026-10-12', class: 'planned', set_piece_id: 'a', verb: 'tactical' },
+    { date: '2026-10-13', class: 'planned', set_piece_id: 'b', verb: 'hold' },
+    { date: '2026-10-15', class: 'v1_weekday', set_piece_id: 'y', verb: 'tech' },
+    { date: '2026-10-16', class: 'planned', set_piece_id: 'c', verb: 'region' },
+  ];
+  const proofs: DateProof[] = [
+    { ...proof('2026-10-12', 'a', true, [missed(0, 'too_hard'), accepted(1)]), landing: { attempt: 1, shift: -0.07 } },
+    proof('2026-10-13', 'b', false, [missed(0, 'no_key_move')], 'hold'),
+    proof('2026-10-16', 'c', true, [accepted(0)], 'region'),
+  ];
+  // Its range ends before 16 October: that date is served past it.
+  const calendar = (days: V2Calendar['days']): V2Calendar => ({ from: '2026-10-12', to: '2026-10-15', fingerprint: 'test', days });
+  const agreeing: V2Calendar['days'] = {
+    '2026-10-12': { set_piece_id: 'a', verb: 'tactical', attempt: 1, shift: -0.07 },
+    '2026-10-13': { set_piece_id: 'b', verb: 'hold', refused: true },
+  };
+
+  it('passes when every date inside its range holds what the run would write, and counts the dates past it', () => {
+    expect(checkCalendar(dates, proofs, calendar(agreeing), 3)).toEqual({ drift: [], outside: 1, runway: 3, ok: true });
+  });
+
+  it('names each date whose entry is not what the run finds', () => {
+    const { drift, ok } = checkCalendar(dates, proofs, calendar({
+      '2026-10-12': { set_piece_id: 'a', verb: 'tactical', attempt: 0, shift: 0 },
+      '2026-10-13': { set_piece_id: 'b', verb: 'hold', attempt: 2, shift: -0.14 },
+      '2026-10-15': { set_piece_id: 'y', verb: 'tactical', refused: true },
+    }), 3);
+    expect(ok).toBe(false);
+    expect(drift).toEqual([
+      { date: '2026-10-12', calendar: 'a tactical, attempt 0 at shift 0', now: 'a tactical, attempt 1 at shift -0.07' },
+      { date: '2026-10-13', calendar: 'b hold, attempt 2 at shift -0.14', now: 'b hold, refused' },
+      { date: '2026-10-15', calendar: 'y tactical, refused', now: 'no entry' },
+    ]);
+  });
+
+  it('reads a missing entry, or one naming another set-piece, as drift', () => {
+    const { drift } = checkCalendar(dates, proofs, calendar({
+      '2026-10-13': { set_piece_id: 'other', verb: 'hold', refused: true },
+    }), 3);
+    expect(drift.map((d) => [d.date, d.calendar])).toEqual([
+      ['2026-10-12', 'no entry'],
+      ['2026-10-13', 'other hold, refused'],
+    ]);
+  });
+
+  it('fails a calendar that ends too soon after the first date, or has ended', () => {
+    expect(checkCalendar(dates, proofs, calendar(agreeing), 4)).toMatchObject({ drift: [], runway: 3, ok: false });
+    const late = dates.filter((d) => d.date === '2026-10-16');
+    expect(checkCalendar(late, proofs, calendar(agreeing), 0)).toEqual({ drift: [], outside: 1, runway: -1, ok: false });
+  });
+
+  it('wants a proof for every planned date inside the range', () => {
+    expect(() => checkCalendar(dates, proofs.slice(1), calendar(agreeing), 3)).toThrow(/2026-10-12 is planned but was not proven/);
   });
 });

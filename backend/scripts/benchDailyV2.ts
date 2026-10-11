@@ -27,6 +27,12 @@
  *
  *   pnpm -C backend exec tsx scripts/benchDailyV2.ts --all --from 2026-09-21 --days 467 --write-calendar
  *
+ * --all --check-calendar instead checks the checked-in calendar against the
+ * run: every date of the horizon inside its range must hold what a fresh
+ * proof finds, and it must reach CALENDAR_RUNWAY_DAYS past --from. It exits
+ * 1 when either fails and prints the command that fixes it. The weekly
+ * workflow (.github/workflows/daily-coverage.yml) runs it over the next year.
+ *
  * The Tuesday rotation walks planned set-pieces only, so adding or removing a
  * plan moves which set-piece later Tuesdays serve. The bench always reads the
  * schedule as the code stands.
@@ -37,12 +43,16 @@ import { availableParallelism } from 'os';
 import { join } from 'path';
 import type { GameMap } from '../src/types';
 import { DAILY_SET_PIECES } from '../src/content/dailySetPieces';
+import { v1ReasonFor } from '../src/content/dailySetPiecePlans';
+import { DAILY_V2_CALENDAR } from '../src/content/dailyV2Calendar';
 import { territoryDisplayName } from '../src/game-engine/daily/dailyGenerator';
 import {
   attemptCauses,
   BENCH_CAUSES,
+  CALENDAR_RUNWAY_DAYS,
   calendarFingerprint,
   calendarFromProofs,
+  checkCalendar,
   classifyDate,
   renderCalendarModule,
   summarizeCoverage,
@@ -239,8 +249,11 @@ function printCoverage(dates: ClassifiedDate[], proofs: DateProof[]): void {
   printCauses(proofs);
   const unplanned = unplannedReadings(dates);
   if (unplanned.length) {
-    console.log('\nReadings served with no plan, by days served:');
-    for (const u of unplanned) console.log(`  ${String(u.days).padStart(3)}  ${u.set_piece_id} ${u.verb}`);
+    console.log('\nReadings served with no plan, by days served, and why they stay v1:');
+    for (const u of unplanned) {
+      console.log(`  ${String(u.days).padStart(3)}  ${u.set_piece_id} ${u.verb}`);
+      console.log(`       ${v1ReasonFor(u.set_piece_id, u.verb === 'hold') ?? 'No reason is written in V1_READINGS.'}`);
+    }
   }
 }
 
@@ -255,12 +268,13 @@ interface Args {
   reading: DailyVerb | null;
   verbose: boolean;
   writeCalendar: boolean;
+  checkCalendar: boolean;
 }
 
 const READINGS: readonly DailyVerb[] = ['tactical', 'hold', 'region', 'chain'];
 
 function usage(message: string): never {
-  console.error(`${message}\n\nusage: benchDailyV2.ts <set-piece-id>... | --all [--write-calendar]  [--from YYYY-MM-DD] [--days N] [--jobs N] [--reading ${READINGS.join('|')}] [--verbose]`);
+  console.error(`${message}\n\nusage: benchDailyV2.ts <set-piece-id>... | --all [--write-calendar | --check-calendar]  [--from YYYY-MM-DD] [--days N] [--jobs N] [--reading ${READINGS.join('|')}] [--verbose]`);
   process.exit(2);
 }
 
@@ -274,6 +288,7 @@ function parseArgs(argv: string[]): Args {
     reading: null,
     verbose: false,
     writeCalendar: false,
+    checkCalendar: false,
   };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -281,6 +296,7 @@ function parseArgs(argv: string[]): Args {
     if (arg === '--all') args.all = true;
     else if (arg === '--verbose') args.verbose = true;
     else if (arg === '--write-calendar') args.writeCalendar = true;
+    else if (arg === '--check-calendar') args.checkCalendar = true;
     else if (arg === '--from') args.from = value();
     else if (arg === '--days') args.days = Number(value());
     else if (arg === '--jobs') args.jobs = Number(value());
@@ -294,6 +310,8 @@ function parseArgs(argv: string[]): Args {
   if (args.reading && !READINGS.includes(args.reading)) usage(`--reading wants one of ${READINGS.join(', ')}`);
   if (args.all === (args.ids.length > 0)) usage('name one or more set-pieces, or pass --all');
   if (args.writeCalendar && !args.all) usage('--write-calendar goes with --all');
+  if (args.checkCalendar && !args.all) usage('--check-calendar goes with --all');
+  if (args.writeCalendar && args.checkCalendar) usage('--write-calendar replaces the calendar and --check-calendar checks it: pass one');
   const known = new Set(DAILY_SET_PIECES.map((sp) => sp.id));
   for (const id of args.ids) {
     if (known.has(id)) continue;
@@ -321,6 +339,31 @@ function writeCalendar(dates: ClassifiedDate[], proofs: DateProof[], args: Args)
   console.log(`\nWrote the calendar, ${calendar.from} to ${calendar.to}: ${accepted} dates graded, ${Object.keys(calendar.days).length - accepted} refused (src/content/dailyV2Calendar.ts).`);
 }
 
+const DAY_MS = 86_400_000;
+const addDays = (date: string, n: number): string => new Date(Date.parse(`${date}T00:00:00Z`) + n * DAY_MS).toISOString().slice(0, 10);
+const daysBetween = (a: string, b: string): number => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / DAY_MS);
+
+/** Prints the check of the checked-in calendar against this run; false when it fails. */
+function printCalendarCheck(dates: ClassifiedDate[], proofs: DateProof[], args: Args): boolean {
+  const calendar = DAILY_V2_CALENDAR;
+  const check = checkCalendar(dates, proofs, calendar);
+  console.log(`\nThe calendar runs from ${calendar.from} to ${calendar.to}, ${check.runway} days past ${args.from}; the check wants at least ${CALENDAR_RUNWAY_DAYS}.`);
+  if (check.outside) console.log(`${check.outside} ${check.outside === 1 ? 'day' : 'days'} of the horizon fall outside it and are proven in full when served.`);
+  if (check.drift.length === 0) {
+    console.log('Every date of the horizon inside it agrees with a fresh proof.');
+  } else {
+    console.log(`${check.drift.length} ${check.drift.length === 1 ? 'date disagrees' : 'dates disagree'} with a fresh proof:`);
+    for (const d of check.drift) console.log(`  ${d.date} ${weekdayName(d.date)}  calendar: ${d.calendar}  now: ${d.now}`);
+  }
+  if (check.ok) return true;
+  // Regenerate over the same start, reaching at least a year past --from.
+  const ahead = addDays(args.from, 365);
+  const through = calendar.to > ahead ? calendar.to : ahead;
+  const command = `pnpm -C backend exec tsx scripts/benchDailyV2.ts --all --from ${calendar.from} --days ${daysBetween(calendar.from, through) + 1} --write-calendar`;
+  console.log(`\nThe calendar check failed. Regenerate the calendar and open a PR with it:\n  ${command}`);
+  return false;
+}
+
 // ── Main ────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
@@ -346,6 +389,7 @@ async function main(): Promise<void> {
     console.log(`Daily v2 coverage over ${span}:`);
     printCoverage(dates, proofs);
     if (args.writeCalendar) writeCalendar(dates, proofs, args);
+    if (args.checkCalendar && !printCalendarCheck(dates, proofs, args)) process.exitCode = 1;
   } else {
     console.log(`Proving ${args.ids.join(', ')}${args.reading ? ` (${args.reading})` : ''} on every date served over ${span}\n`);
     for (const proof of proofs) printProof(proof);
@@ -355,7 +399,10 @@ async function main(): Promise<void> {
       printCauses(proofs);
     }
     const unplanned = unplannedReadings(dates.filter(inScope));
-    for (const u of unplanned) console.log(`\n${u.set_piece_id} ${u.verb}: served ${u.days} ${u.days === 1 ? 'day' : 'days'} with no plan for the reading, so nothing to prove.`);
+    for (const u of unplanned) {
+      const reason = v1ReasonFor(u.set_piece_id, u.verb === 'hold');
+      console.log(`\n${u.set_piece_id} ${u.verb}: served ${u.days} ${u.days === 1 ? 'day' : 'days'} with no plan for the reading, so nothing to prove.${reason ? ` It stays v1: ${reason}` : ''}`);
+    }
     if (!proofs.length && !unplanned.length) console.log('Not served as a v2 fight on any date in the horizon.');
   }
   console.log(`\n${proofs.length} ${proofs.length === 1 ? 'day' : 'days'} proved in ${seconds(wall)} (${seconds(solving)} solving) on ${jobs} ${jobs === 1 ? 'job' : 'jobs'}`);

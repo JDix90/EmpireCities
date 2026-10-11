@@ -122,6 +122,8 @@ From [backend/src/index.ts](../backend/src/index.ts): `validateProductionEnv` (f
 
 Branch protection requires the backend and frontend jobs. Adding a job to the workflow never adds it to that required list — `secrets` and `docs` report on every PR, and making either one blocking is a repo-settings change.
 
+[.github/workflows/daily-coverage.yml](../.github/workflows/daily-coverage.yml) proves the v2 daily's next year every Monday, and on PRs that touch the daily engine or its bench, and checks the checked-in v2 calendar against those proofs ([DAILY_PUZZLE_V2.md §6](DAILY_PUZZLE_V2.md#6-content-authoring)). It is not a required check.
+
 Other test surfaces: Playwright projects `mobile-safari-size` (iPhone 13 / WebKit) and `chromium-mobile-touch` (Pixel 5 tap regression) run locally via `npx playwright test`. **Load testing**: `pnpm -C backend exec tsx scripts/loadTestSoloBurst.ts [games] [turns]` spins up N concurrent guest quick-matches over real sockets and reports latency percentiles + lock/persistence failure deltas from `/metrics/json` — run it against a local stack before capacity-sensitive changes.
 
 ## Key code paths quick reference

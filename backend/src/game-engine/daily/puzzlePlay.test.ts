@@ -83,6 +83,15 @@ interface Day { date: string; spec: DailyPuzzleSpec; map: GameMap; puzzle: Warme
 let captureDay: Day | null = null;
 let holdDay: Day | null = null;
 
+/**
+ * A solve holds the thread for seconds, and nothing on this path waits on I/O,
+ * so the search below would otherwise run as one unbroken stretch: 35 s
+ * locally, and past the 60 s vitest gives a worker to answer its runner on a
+ * slower machine. Letting the event loop turn before each solve keeps every
+ * stretch to one solve.
+ */
+const breathe = () => new Promise<void>((resolve) => setImmediate(resolve));
+
 beforeAll(async () => {
   resetWarmedPuzzlesForTests();
   // Every plan added to the library moves the Tuesday rotation, so the search
@@ -96,8 +105,10 @@ beforeAll(async () => {
     if (pick.verb === 'hold' ? holdDay : captureDay) continue;
     // The capture day must answer proposals, and Friday is silent.
     if (pick.verb !== 'hold' && pick.tier.verdicts !== 'before_dice') continue;
+    await breathe();
     const served = await scheduleDayV2(date, deps);
     if (!served) continue;
+    await breathe();
     const map = (await loadMap(served.spec.map_id))!;
     const puzzle = getWarmedPuzzle(served.spec, map)!;
     const day: Day = { date, spec: served.spec, map, puzzle };

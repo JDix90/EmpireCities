@@ -275,10 +275,15 @@ render in the archive.
 ## 6. Content authoring
 
 A set-piece gains `plan` (§5.2) and `theme` (a short motif name: cut the supply line ·
-the feint · the reserve · tempo · the bridge · sea crossing). Authoring rules, enforced
-by `dailySetPieces.test.ts`: every territory in the plan exists on the map and is in
+the feint · the reserve · tempo · the bridge · sea crossing) in
+`src/content/dailySetPiecePlans.ts`. Authoring rules, enforced by
+`dailySetPiecePlans.test.ts`: every territory in the plan exists on the map and is in
 play; marches and assaults are between adjacent territories; a theme is present; the
-plan is non-empty. The first batch: the tactical captures and holds already in the
+plan is non-empty. Every reading the schedule can serve as a fight, which is every
+tactical, region and chain capture and every tactical hold, has a plan or a written
+reason in `V1_READINGS` why it stays v1. A new set-piece therefore cannot join the
+library as a v1 day by omission. The bench prints those reasons with the days each
+reading is served. The first batch: the tactical captures and holds already in the
 library, then region and chain.
 
 A plan is measured on the bench: `pnpm -C backend exec tsx scripts/benchDailyV2.ts
@@ -299,6 +304,14 @@ pnpm -C backend exec tsx scripts/benchDailyV2.ts --all --from 2026-09-21 --days 
 `dailyV2Calendar.test.ts` fails until it is regenerated. The calendar runs to 31 December
 2027. Past that date every day is proven in full again, so extend it with `--days`
 before then.
+
+The weekly coverage run, `.github/workflows/daily-coverage.yml`, proves the next year in
+full every Monday with `benchDailyV2.ts --all --check-calendar` and writes the coverage
+report to the run's summary. It also runs on PRs that touch the daily engine or the
+bench. It fails when a date inside the calendar's range holds something other than what
+a fresh proof finds, which a change to the solving code can cause while every hash of
+the data stays the same, or when the calendar reaches fewer than 90 days ahead. The
+failure prints the command that regenerates the calendar.
 
 A plan may set its reading's own `clock`, in human turns, in place of the tier's. On
 the tier's three or four turns a front with a deep human stack has time to recover from

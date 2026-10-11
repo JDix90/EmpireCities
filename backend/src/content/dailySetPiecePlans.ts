@@ -100,10 +100,6 @@ export const SET_PIECE_PLANS: Readonly<Record<string, SetPiecePlans>> = {
     capture: { theme: 'the counterstroke', plan: reliefPlan(tactical('checkpoint'), { minOdds: 0.35 }) },
     hold: { theme: 'the reserve', plan: siegePlan(tactical('checkpoint')) },
   },
-  // the_crowns_reach has no plan yet: with no relief and no counterstroke the
-  // Channel is the whole opponent, and the solver finds nothing to decide
-  // (the obvious line IS the best line). It needs a second AI stack before it
-  // can be a v2 day; until then it is served as v1.
   andean_campaign: {
     capture: { theme: 'cut the supply line', plan: reliefPlan(tactical('andean_campaign')) },
     hold: { theme: 'the reserve', plan: siegePlan(tactical('andean_campaign')) },
@@ -165,8 +161,6 @@ export const SET_PIECE_PLANS: Readonly<Record<string, SetPiecePlans>> = {
     capture: { theme: 'cut the supply line', plan: reliefPlan(tactical('the_road_to_jerusalem')) },
     hold: { theme: 'the reserve', plan: siegePlan(tactical('the_road_to_jerusalem')) },
   },
-  // The Armada's hold reading refused every date it is served under the
-  // siege plan, at either keep and on either clock: it stays v1.
   the_armada: {
     capture: { theme: 'sea crossing', plan: reliefPlan(tactical('the_armada')), clock: 2 },
   },
@@ -238,10 +232,6 @@ export const SET_PIECE_PLANS: Readonly<Record<string, SetPiecePlans>> = {
       },
     },
   },
-  // Fortress Europe (operation_sea_lion) and the Kantō have no plan: on two
-  // turns or on the tier's, every date they are served outgrew the search
-  // budget (five region territories, a support and, for Fortress Europe,
-  // Britain). They stay v1 until their boards are narrower.
   bleeding_missouri: {
     // Missouri is the only AI stack, so once it falls nothing can strike
     // back and most dates are a walkover the gate refuses. It needs a second
@@ -329,8 +319,6 @@ export const SET_PIECE_PLANS: Readonly<Record<string, SetPiecePlans>> = {
       },
     },
   },
-  // atlanta_to_the_sea has no plan: every date it is served outgrew the
-  // search budget, on two turns as on the tier's.
   down_the_river: {
     // Two hops on three or four turns outgrew the search budget on every date served.
     capture: {
@@ -349,11 +337,47 @@ export const SET_PIECE_PLANS: Readonly<Record<string, SetPiecePlans>> = {
   },
 };
 
+/**
+ * The readings that stay v1 on purpose, each with the reason. Every reading
+ * the schedule can serve as a fight (a tactical, region or chain capture, and
+ * a tactical hold) has a plan above or a reason here, which
+ * dailySetPiecePlans.test.ts enforces: a new set-piece cannot join the
+ * library as a v1 day by omission. The bench prints the reasons with the
+ * days each reading is served.
+ */
+export const V1_READINGS: Readonly<Record<string, { capture?: string; hold?: string }>> = {
+  the_crowns_reach: {
+    capture: 'With no relief and no counterstroke the Channel is the whole opponent, and the solver finds '
+      + 'nothing to decide: the obvious line is the best line. Every plan tried was refused on every date '
+      + 'served. It needs a second AI stack first.',
+  },
+  the_armada: {
+    hold: 'Refused on every date it is served under the siege plan, at either keep and on either clock.',
+  },
+  operation_sea_lion: {
+    capture: 'Every date it is served outgrew the search budget, on two turns as on the tier’s: five region '
+      + 'territories, a support and Britain. It needs a narrower board.',
+  },
+  the_kanto: {
+    capture: 'Every date it is served outgrew the search budget, on two turns as on the tier’s: five region '
+      + 'territories and a support. It needs a narrower board.',
+  },
+  atlanta_to_the_sea: {
+    capture: 'Every date it is served outgrew the search budget, on two turns as on the tier’s.',
+  },
+};
+
 /** The plan for a set-piece as read on a given day, or null when the day stays v1. */
 export function planFor(sp: DailySetPiece, hold: boolean): SetPiecePlan | null {
   const entry = SET_PIECE_PLANS[sp.id];
   if (!entry) return null;
   return (hold ? entry.hold : entry.capture) ?? null;
+}
+
+/** Why a set-piece's reading stays v1 (V1_READINGS), or null when none is written. */
+export function v1ReasonFor(setPieceId: string, hold: boolean): string | null {
+  const reasons = V1_READINGS[setPieceId];
+  return (hold ? reasons?.hold : reasons?.capture) ?? null;
 }
 
 /** Set-pieces that can be served as v2 for a verb, in id order. */
