@@ -232,7 +232,7 @@ cannot start, or dies before it answers, hands the proof back to the server thre
 error the proof throws is passed on; a proof still running after five minutes is stopped
 and the date served as v1. On the built server against Postgres and Redis, the longest
 pause while 20 October is served falls from 9.3 s to 17 ms. The play-time solver (§5.4)
-still warms on the server thread when the first player starts the day.
+runs off the server's thread too.
 
 Two readings differ from v1 on purpose (`dailyScheduleV2.ts`):
 
@@ -255,9 +255,25 @@ Two readings differ from v1 on purpose (`dailyScheduleV2.ts`):
 - The server grades every **committed** action too, as the source of truth (a client
   that skips proposals is still graded), and keeps `puzzle_decisions[]` on the state:
   first proposal, takebacks, chosen, best, loss.
-- Graded positions are cached in Redis by canonical state + day, shared across every
-  player of the day (seeded dice → the same choices reach the same positions).
+- Graded positions are memoized by canonical state in the day's solver, one per day per
+  server process, shared across every player of the day (seeded dice → the same choices
+  reach the same positions).
 - Game over → `recordDailyEntry` writes accuracy, attempts, first_try, decisions.
+
+The solver lives in a worker thread (`puzzleGrader.ts`, `puzzleGraderWorker.ts`) for as
+long as the day is cached, four days per process, so neither its warm-up nor a grade off
+the proven tree stops the live games. A game's start warms it, solving the opening, and
+so does the 23:30 sweep for tomorrow's graded day, so the first verdict after midnight
+is a memo hit. The socket handlers wait on a grade while they hold the game's lock, so a
+grade still running after 3 s is given up and the move goes ungraded, as a move past
+the node budget always has: under the 4 s the client holds a move for its verdict, and
+the 5 s the lock lasts. The worker finishes the search all the same, into its memo. A
+worker that dies takes its pending grades with it, ungraded, and the next grade starts
+a new one, cold; when no worker can start, the day is graded on the server thread as
+before. On the built server against Postgres and Redis, warming 20 October paused every
+game for 8.4 s on the server thread and pauses none for more than 16 ms in the worker,
+row and proof included; a grade off the proven tree, about a second of search, paused
+them for 1.0 s and now for 6 ms. A verdict at the warmed opening takes 2 ms.
 
 Migration 042 adds to `daily_challenge_entries`: `puzzle_version SMALLINT DEFAULT 1`,
 `accuracy NUMERIC(5,2)`, `attempts INT`, `first_try BOOLEAN`, `decisions_json JSONB`.

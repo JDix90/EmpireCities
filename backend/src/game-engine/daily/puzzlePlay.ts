@@ -24,41 +24,39 @@
  * the best of its keep variants (the target is the decision; how far to
  * press is the next one), a draft is graded as a whole when the phase
  * advances, a fortify by the position it leaves, ending a phase by the
- * model's own action.
+ * model's own action. The search is the grader's (puzzleGrader.ts), in a
+ * worker thread on the server, so proposing and committing wait on it; the
+ * records are kept here, on the game.
  */
 import type { GameMap, GameState } from '../../types';
 import type { DailyPuzzleSpec, PuzzleDecisionRecord, PuzzleGrade, StoredPuzzleAction } from './dailyPuzzleTypes';
-import { PUZZLE_ARCHETYPES, contextFromSpec, stateFromGame, stateFromSpec } from './puzzle/bridge';
-import { coarseActionKey, serializeAction, type HumanAction } from './puzzle/actions';
+import { PUZZLE_ARCHETYPES, contextFromSpec, stateFromGame } from './puzzle/bridge';
 import {
   HUMAN,
   PENDING,
   PHASE_ATTACK,
   PHASE_DRAFT,
-  PHASE_FORTIFY,
   canonicalKey,
   cloneState,
   type PuzzleContext,
   type PuzzleState,
 } from './puzzle/model';
-import { obviousLine } from './puzzle/obvious';
-import { compilePlan } from './puzzle/opponent';
-import { BudgetExceeded, Solver, classifyPosition, DECISION_GAP, type PositionVerdict } from './puzzle/solver';
+import { LocalGrader, ThreadGrader, type Assessment, type PuzzleGrader, type PuzzleProposal } from './puzzleGrader';
 
 // ── The warmed solver ────────────────────────────────────────────────────────
 
-/** Play may wander off the proven tree; give it room before giving up on a grade. */
-export const PLAY_NODE_BUDGET = 3_000_000;
 const WARM_LIMIT = 4;
 
 export interface WarmedPuzzle {
   key: string;
   spec: DailyPuzzleSpec;
   ctx: PuzzleContext;
-  solver: Solver;
+  /** The day's solver: in a worker thread on the server, on this thread in the tests that read it. */
+  grader: PuzzleGrader;
 }
 
 const warmed = new Map<string, WarmedPuzzle>();
+let gradeOnThisThread = false;
 
 /** One solver per day per process; the seed pair is unique to a date's day. */
 export function puzzleCacheKey(spec: DailyPuzzleSpec): string {
@@ -72,12 +70,15 @@ export function getWarmedPuzzle(spec: DailyPuzzleSpec, map: GameMap): WarmedPuzz
   const hit = warmed.get(key);
   if (hit) return hit;
   const ctx = contextFromSpec(spec, map);
-  const solver = new Solver({ ctx, plan: compilePlan(ctx, spec.v2.plan) }, PLAY_NODE_BUDGET);
-  const entry: WarmedPuzzle = { key, spec, ctx, solver };
+  const grader = gradeOnThisThread ? new LocalGrader(spec, ctx) : new ThreadGrader({ spec, map });
+  const entry: WarmedPuzzle = { key, spec, ctx, grader };
   warmed.set(key, entry);
   if (warmed.size > WARM_LIMIT) {
     const oldest = warmed.keys().next().value;
-    if (oldest !== undefined) warmed.delete(oldest);
+    if (oldest !== undefined) {
+      warmed.get(oldest)?.grader.close();
+      warmed.delete(oldest);
+    }
   }
   return entry;
 }
@@ -85,34 +86,26 @@ export function getWarmedPuzzle(spec: DailyPuzzleSpec, map: GameMap): WarmedPuzz
 /**
  * Solve the opening position now, so the first verdict is a memo hit. The
  * schedule proved the day within its budget, so this is bounded by the
- * stored node count. Returns the nodes visited, or null when there was
+ * stored node count. Resolves to the nodes visited, or null when there was
  * nothing to warm.
  */
-export function warmPuzzle(spec: DailyPuzzleSpec, map: GameMap): number | null {
+export async function warmPuzzle(spec: DailyPuzzleSpec, map: GameMap): Promise<number | null> {
   const w = getWarmedPuzzle(spec, map);
-  if (!w) return null;
-  try {
-    w.solver.value(stateFromSpec(w.ctx, spec));
-    return w.solver.nodes;
-  } catch (err) {
-    if (err instanceof BudgetExceeded) return null;
-    throw err;
-  }
+  return w ? w.grader.warm() : null;
 }
 
+/** Stop and forget every day's grader. */
 export function resetWarmedPuzzlesForTests(): void {
+  for (const w of warmed.values()) w.grader.close();
   warmed.clear();
 }
 
-// ── Vocabulary ───────────────────────────────────────────────────────────────
+/** Build the days from here on with their solver on this thread, where a test can read it (LocalGrader.solver). */
+export function gradeOnThisThreadForTests(on = true): void {
+  gradeOnThisThread = on;
+}
 
-/** A move as the client names it, by territory id. */
-export type PuzzleProposal =
-  | { kind: 'attack'; from: string; to: string }
-  | { kind: 'draft'; to: string; split?: string }
-  | { kind: 'fortify'; from: string; to: string; units: number }
-  | { kind: 'end_attack' }
-  | { kind: 'end_turn' };
+// ── Vocabulary ───────────────────────────────────────────────────────────────
 
 export interface PuzzleVerdict {
   /** True when the position is a decision and the proposal was graded. */
@@ -209,77 +202,6 @@ function livePosition(w: WarmedPuzzle, state: GameState): PuzzleState | null {
   return s;
 }
 
-function safeClassify(w: WarmedPuzzle, s: PuzzleState): PositionVerdict | null {
-  try {
-    return classifyPosition(w.solver, s, obviousLine, DECISION_GAP);
-  } catch (err) {
-    if (err instanceof BudgetExceeded) return null;
-    throw err;
-  }
-}
-
-function safeValue(w: WarmedPuzzle, s: PuzzleState): number | null {
-  try {
-    return w.solver.value(s);
-  } catch (err) {
-    if (err instanceof BudgetExceeded) return null;
-    throw err;
-  }
-}
-
-/** Win probability of a proposal from `s` under best play afterwards; null when it is not a legal move here. */
-function proposalEquity(w: WarmedPuzzle, s: PuzzleState, values: PositionVerdict['values'], p: PuzzleProposal): number | null {
-  const idx = (id: string): number | undefined => w.ctx.index.get(id);
-  try {
-    switch (p.kind) {
-      case 'attack': {
-        const from = idx(p.from);
-        const to = idx(p.to);
-        if (from === undefined || to === undefined || s.phase !== PHASE_ATTACK) return null;
-        if (s.owner[from] !== HUMAN || s.owner[to] === HUMAN || s.units[from] < 2 || !w.ctx.adj[from].includes(to)) return null;
-        const key = `assault:${from}>${to}`;
-        let best: number | null = null;
-        for (const v of values) {
-          if (coarseActionKey(v.action) === key && (best === null || v.equity > best)) best = v.equity;
-        }
-        if (best !== null) return best;
-        // Pruned by the search (not near the objective): graded all the same.
-        return w.solver.grade(s, { kind: 'assault', from, to, keep: 1 }).equity;
-      }
-      case 'draft': {
-        const to = idx(p.to);
-        const split = p.split !== undefined ? idx(p.split) : undefined;
-        if (to === undefined || (p.split !== undefined && split === undefined)) return null;
-        if (s.phase !== PHASE_DRAFT || s.draftLeft <= 0 || s.owner[to] !== HUMAN) return null;
-        if (split !== undefined && (s.owner[split] !== HUMAN || split === to)) return null;
-        const action: HumanAction = split !== undefined ? { kind: 'draft', to, split } : { kind: 'draft', to };
-        return w.solver.grade(s, action).equity;
-      }
-      case 'fortify': {
-        const from = idx(p.from);
-        const to = idx(p.to);
-        if (from === undefined || to === undefined || s.phase !== PHASE_FORTIFY || s.fortifyLeft <= 0) return null;
-        if (s.owner[from] !== HUMAN || s.owner[to] !== HUMAN || from === to || s.units[from] < 2) return null;
-        const ns = cloneState(s);
-        const move = Math.max(1, Math.min(p.units, ns.units[from] - 1));
-        ns.units[from] -= move;
-        ns.units[to] += move;
-        ns.fortifyLeft -= 1;
-        return w.solver.value(ns);
-      }
-      case 'end_attack':
-        if (s.phase !== PHASE_ATTACK && !(s.phase === PHASE_DRAFT && s.draftLeft <= 0)) return null;
-        return w.solver.grade(s, { kind: 'end_attack' }).equity;
-      case 'end_turn':
-        if (s.phase !== PHASE_FORTIFY) return null;
-        return w.solver.grade(s, { kind: 'end_turn' }).equity;
-    }
-  } catch (err) {
-    if (err instanceof BudgetExceeded) return null;
-    throw err;
-  }
-}
-
 // ── Records ──────────────────────────────────────────────────────────────────
 
 function findRecord(state: GameState, key: string): PuzzleDecisionRecord | undefined {
@@ -291,23 +213,21 @@ function phaseName(s: PuzzleState): PuzzleDecisionRecord['phase'] {
 }
 
 function openRecord(
-  w: WarmedPuzzle,
   state: GameState,
   s: PuzzleState,
   key: string,
-  verdict: PositionVerdict,
+  graded: Assessment,
   first: StoredPuzzleAction | null,
-  firstEquity: number,
 ): PuzzleDecisionRecord {
-  const loss = points(verdict.best.equity - firstEquity);
+  const loss = points(graded.bestEquity - graded.equity);
   const record: PuzzleDecisionRecord = {
     key,
     turn: s.turn,
     phase: phaseName(s),
-    best: serializeAction(w.ctx, verdict.best.action),
-    best_equity: round4(verdict.best.equity),
+    best: graded.best,
+    best_equity: round4(graded.bestEquity),
     first,
-    first_equity: round4(firstEquity),
+    first_equity: round4(graded.equity),
     loss,
     grade: gradeLoss(loss),
     takebacks: 0,
@@ -369,7 +289,7 @@ function openPosition(w: WarmedPuzzle, state: GameState): PuzzleState | null {
  * What a move is worth before it is made. Records the decision on the first
  * proposal; a later, different proposal at the same position is a takeback.
  */
-export function proposePuzzleAction(w: WarmedPuzzle, state: GameState, proposal: PuzzleProposal): PuzzleVerdict {
+export async function proposePuzzleAction(w: WarmedPuzzle, state: GameState, proposal: PuzzleProposal): Promise<PuzzleVerdict> {
   if (w.spec.v2?.verdicts === 'silent') return { decision: false, silent: true };
   let s: PuzzleState | null;
   if (proposal.kind === 'draft') {
@@ -379,21 +299,19 @@ export function proposePuzzleAction(w: WarmedPuzzle, state: GameState, proposal:
     s = livePosition(w, state);
   }
   if (!s) return NOT_A_DECISION;
-  const verdict = safeClassify(w, s);
-  if (!verdict || !verdict.decision) return NOT_A_DECISION;
-  const equity = proposalEquity(w, s, verdict.values, proposal);
-  if (equity === null) return NOT_A_DECISION;
+  const graded = await w.grader.assess(s, proposal);
+  if (!graded) return NOT_A_DECISION;
   const stored = storedFromProposal(w, s, proposal);
   const key = canonicalKey(s);
   let record = findRecord(state, key);
-  if (!record) record = openRecord(w, state, s, key, verdict, stored, equity);
+  if (!record) record = openRecord(state, s, key, graded, stored);
   else noteTakeback(state, record, stored);
-  const loss = points(verdict.best.equity - equity);
+  const loss = points(graded.bestEquity - graded.equity);
   return {
     decision: true,
     silent: false,
-    equity: round4(equity),
-    best_equity: round4(verdict.best.equity),
+    equity: round4(graded.equity),
+    best_equity: round4(graded.bestEquity),
     loss,
     grade: gradeLoss(loss),
     takebacks: record.takebacks,
@@ -402,18 +320,16 @@ export function proposePuzzleAction(w: WarmedPuzzle, state: GameState, proposal:
 }
 
 /** Grade a committed move at a position; the record's `chosen`. Null when the position is not a decision. */
-function commitAt(w: WarmedPuzzle, state: GameState, s: PuzzleState, key: string, proposal: PuzzleProposal): PuzzleDecisionRecord | null {
-  const verdict = safeClassify(w, s);
-  if (!verdict || !verdict.decision) return null;
-  const equity = proposalEquity(w, s, verdict.values, proposal);
-  if (equity === null) return null;
+async function commitAt(w: WarmedPuzzle, state: GameState, s: PuzzleState, key: string, proposal: PuzzleProposal): Promise<PuzzleDecisionRecord | null> {
+  const graded = await w.grader.assess(s, proposal);
+  if (!graded) return null;
   const stored = storedFromProposal(w, s, proposal);
   let record = findRecord(state, key);
-  if (!record) record = openRecord(w, state, s, key, verdict, stored, equity);
+  if (!record) record = openRecord(state, s, key, graded, stored);
   else noteTakeback(state, record, stored);
   record.chosen = stored;
-  record.chosen_equity = round4(equity);
-  record.chosen_loss = points(verdict.best.equity - equity);
+  record.chosen_equity = round4(graded.equity);
+  record.chosen_loss = points(graded.bestEquity - graded.equity);
   return record;
 }
 
@@ -423,7 +339,7 @@ function commitAt(w: WarmedPuzzle, state: GameState, s: PuzzleState, key: string
  * pressed. Also raises the plan condition "the human attacked the objective".
  * Call before the exchange resolves.
  */
-export function commitPuzzleAttack(w: WarmedPuzzle, state: GameState, from: string, to: string): PuzzleDecisionRecord | null {
+export async function commitPuzzleAttack(w: WarmedPuzzle, state: GameState, from: string, to: string): Promise<PuzzleDecisionRecord | null> {
   const edge = `${state.turn_number}:${from}>${to}`;
   const continuing = state.puzzle_assault_edge === edge;
   state.puzzle_assault_edge = edge;
@@ -436,14 +352,14 @@ export function commitPuzzleAttack(w: WarmedPuzzle, state: GameState, from: stri
 }
 
 /** The player moves units: graded by the position it leaves. Call before the move is applied. */
-export function commitPuzzleFortify(w: WarmedPuzzle, state: GameState, from: string, to: string, units: number): PuzzleDecisionRecord | null {
+export async function commitPuzzleFortify(w: WarmedPuzzle, state: GameState, from: string, to: string, units: number): Promise<PuzzleDecisionRecord | null> {
   const s = livePosition(w, state);
   if (!s) return null;
   return commitAt(w, state, s, canonicalKey(s), { kind: 'fortify', from, to, units });
 }
 
 /** The player stops attacking. Call before the phase flips. */
-export function commitPuzzleEndAttack(w: WarmedPuzzle, state: GameState): PuzzleDecisionRecord | null {
+export async function commitPuzzleEndAttack(w: WarmedPuzzle, state: GameState): Promise<PuzzleDecisionRecord | null> {
   state.puzzle_assault_edge = undefined;
   const s = livePosition(w, state);
   if (!s) return null;
@@ -451,7 +367,7 @@ export function commitPuzzleEndAttack(w: WarmedPuzzle, state: GameState): Puzzle
 }
 
 /** The player ends the turn. Call before the turn advances. */
-export function commitPuzzleEndTurn(w: WarmedPuzzle, state: GameState): PuzzleDecisionRecord | null {
+export async function commitPuzzleEndTurn(w: WarmedPuzzle, state: GameState): Promise<PuzzleDecisionRecord | null> {
   const s = livePosition(w, state);
   if (!s) return null;
   return commitAt(w, state, s, canonicalKey(s), { kind: 'end_turn' });
@@ -464,16 +380,14 @@ export function commitPuzzleEndTurn(w: WarmedPuzzle, state: GameState): PuzzleDe
  * placement pattern read back as the model's draft: all onto one territory,
  * or split between two.
  */
-export function commitPuzzleDraft(w: WarmedPuzzle, state: GameState): PuzzleDecisionRecord | null {
+export async function commitPuzzleDraft(w: WarmedPuzzle, state: GameState): Promise<PuzzleDecisionRecord | null> {
   const open = state.puzzle_turn_open;
   if (!open || open.turn !== state.turn_number) return null;
   const pre = openPosition(w, state);
   const post = livePosition(w, state);
   if (!pre || !post || post.phase !== PHASE_ATTACK) return null;
-  const verdict = safeClassify(w, pre);
-  if (!verdict || !verdict.decision) return null;
-  const equity = safeValue(w, post);
-  if (equity === null) return null;
+  const graded = await w.grader.assessDraft(pre, post);
+  if (!graded) return null;
 
   const placed = w.ctx.ids
     .map((id, i) => ({ id, n: post.units[i] - open.units[i] }))
@@ -484,11 +398,11 @@ export function commitPuzzleDraft(w: WarmedPuzzle, state: GameState): PuzzleDeci
     : placed.length === 1 ? { kind: 'draft', to: placed[0].id } : { kind: 'draft', to: placed[0].id, split: placed[1].id };
 
   let record = findRecord(state, open.key);
-  if (!record) record = openRecord(w, state, pre, open.key, verdict, chosen, equity);
+  if (!record) record = openRecord(state, pre, open.key, graded, chosen);
   else noteTakeback(state, record, chosen);
   record.chosen = chosen;
-  record.chosen_equity = round4(equity);
-  record.chosen_loss = points(verdict.best.equity - equity);
+  record.chosen_equity = round4(graded.equity);
+  record.chosen_loss = points(graded.bestEquity - graded.equity);
   return record;
 }
 

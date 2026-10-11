@@ -1,4 +1,6 @@
+import { resolveMap } from '../../sockets/mapResolver';
 import { dailyChallengeDate, ensureDailyChallengeForDate } from './dailyPuzzleService';
+import { warmPuzzle } from './puzzlePlay';
 
 /**
  * Build tomorrow's daily row before midnight.
@@ -8,7 +10,11 @@ import { dailyChallengeDate, ensureDailyChallengeForDate } from './dailyPuzzleSe
  * it would land on the first player to open the daily after UTC midnight.
  * From 23:30 UTC the sweep asks for tomorrow's row; the read path creates it
  * if it is missing and reconciles it if it exists, so repeated calls are a
- * lookup. Follows the setInterval pattern of gameCleanupService.ts.
+ * lookup. On a graded (v2) day the sweep also warms the day's play-time
+ * solver in its worker thread (puzzleGrader.ts), seconds of search on the
+ * hardest days, so the first verdict after midnight is a memo hit; a later
+ * sweep finds it warm. Follows the setInterval pattern of
+ * gameCleanupService.ts.
  */
 const PREWARM_INTERVAL_MS = 10 * 60 * 1000;
 const PREWARM_FROM_UTC_MINUTES = 23 * 60 + 30;
@@ -28,6 +34,12 @@ export async function prewarmTomorrowsDaily(now: Date = new Date()): Promise<voi
   const tomorrow = tomorrowsDailyDate(now);
   const row = await ensureDailyChallengeForDate(tomorrow);
   console.log(`[daily] pre-warmed ${tomorrow}: "${row.spec.title}"`);
+  if (!row.spec.v2) return;
+  // The map as a game loads it, so this is the solver the day's games use.
+  const map = await resolveMap(row.spec.map_id);
+  if (!map) return;
+  const nodes = await warmPuzzle(row.spec, map);
+  if (nodes !== null) console.log(`[daily] pre-warmed ${tomorrow}'s grader: ${nodes} positions`);
 }
 
 export function startDailyPrewarm(): void {

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import type { GameMap, GameState } from '../../types';
@@ -14,6 +14,7 @@ import {
   commitPuzzleFortify,
   getWarmedPuzzle,
   gradeLoss,
+  gradeOnThisThreadForTests,
   notePuzzleDraftOpen,
   proposePuzzleAction,
   resetWarmedPuzzlesForTests,
@@ -22,6 +23,7 @@ import {
   warmPuzzle,
   type WarmedPuzzle,
 } from './puzzlePlay';
+import { LocalGrader, ThreadGrader, type PuzzleProposal } from './puzzleGrader';
 import { stateFromGame, stateFromSpec } from './puzzle/bridge';
 import { classifyPosition } from './puzzle/solver';
 import { obviousLine } from './puzzle/obvious';
@@ -32,7 +34,9 @@ import { HUMAN, PENDING } from './puzzle/model';
  * Play-time grading against real proven days. The days come from the v2
  * schedule itself (the first accepted capture day whose opening is a
  * decision, and the first accepted hold day), so these tests hold for
- * whatever the library serves rather than for one pinned board.
+ * whatever the library serves rather than for one pinned board. The solver
+ * runs on this thread here, where the tests read it; puzzleGrader.test.ts
+ * holds the server's worker thread to the same answers.
  */
 
 const mapCache = new Map<string, GameMap>();
@@ -44,6 +48,9 @@ async function loadMap(mapId: string): Promise<GameMap | null> {
   return doc;
 }
 const deps = { loadMap, simulate: null };
+
+/** The day's solver, as these tests build it (gradeOnThisThreadForTests). */
+const solverOf = (puzzle: WarmedPuzzle) => (puzzle.grader as LocalGrader).solver;
 
 const H = 'human-1';
 const A = 'ai-1';
@@ -93,6 +100,7 @@ let holdDay: Day | null = null;
 const breathe = () => new Promise<void>((resolve) => setImmediate(resolve));
 
 beforeAll(async () => {
+  gradeOnThisThreadForTests();
   resetWarmedPuzzlesForTests();
   // Every plan added to the library moves the Tuesday rotation, so the search
   // runs well past where today's first match lies. The schedule serves each
@@ -117,7 +125,7 @@ beforeAll(async () => {
     } else if (served.spec.starting_phase === 'attack') {
       // The opening must itself be a decision for the takeback tests.
       const s0 = stateFromSpec(puzzle.ctx, served.spec);
-      if (classifyPosition(puzzle.solver, s0, obviousLine)?.decision) captureDay = day;
+      if (classifyPosition(solverOf(puzzle), s0, obviousLine)?.decision) captureDay = day;
     }
   }
 }, 600_000);
@@ -214,21 +222,21 @@ describe('puzzlePlay — a capture day whose opening is a decision', { timeout: 
     expect(captureDay, 'no accepted capture day with a decision at the opening in the first ten weeks').not.toBeNull();
   });
 
-  it('warms one solver per day and reuses it', () => {
+  it('warms one solver per day and reuses it', async () => {
     const { spec, map, puzzle } = captureDay!;
-    const nodes = warmPuzzle(spec, map);
+    const nodes = await warmPuzzle(spec, map);
     expect(nodes).toBeGreaterThan(0);
     expect(getWarmedPuzzle(spec, map)).toBe(puzzle);
     expect(getWarmedPuzzle({ ...spec, v2: undefined }, map)).toBeNull();
   });
 
-  it('answers a proposal with the solver\'s own numbers: best is a zero-loss best, the rival loses its gap', () => {
+  it('answers a proposal with the solver\'s own numbers: best is a zero-loss best, the rival loses its gap', async () => {
     const { spec, puzzle } = captureDay!;
     const game = gameFromSpec(spec, 0);
     const s0 = stateFromGame(puzzle.ctx, game, H, A);
     expect(s0.side).toBe(HUMAN);
     expect(s0.outcome).toBe(PENDING);
-    const expected = classifyPosition(puzzle.solver, s0, obviousLine)!;
+    const expected = classifyPosition(solverOf(puzzle), s0, obviousLine)!;
     expect(expected.decision).toBe(true);
 
     const toProposal = (a: ReturnType<typeof serializeAction>) => {
@@ -237,7 +245,7 @@ describe('puzzlePlay — a capture day whose opening is a decision', { timeout: 
       throw new Error(`unexpected opening action ${a.kind}`);
     };
     const bestProposal = toProposal(serializeAction(puzzle.ctx, expected.best.action));
-    const v = proposePuzzleAction(puzzle, game, bestProposal);
+    const v = await proposePuzzleAction(puzzle, game, bestProposal);
     expect(v.decision).toBe(true);
     expect(v.silent).toBe(false);
     expect(v.best_equity).toBeCloseTo(expected.best.equity, 3);
@@ -252,7 +260,7 @@ describe('puzzlePlay — a capture day whose opening is a decision', { timeout: 
     const alt = expected.alternative ? serializeAction(puzzle.ctx, expected.alternative) : null;
     if (alt && (alt.kind === 'assault' || alt.kind === 'end_attack')) {
       const fresh = gameFromSpec(spec, 0);
-      const rival = proposePuzzleAction(puzzle, fresh, toProposal(alt));
+      const rival = await proposePuzzleAction(puzzle, fresh, toProposal(alt));
       expect(rival.decision).toBe(true);
       expect(rival.loss).toBeGreaterThanOrEqual(5);
       expect(['inaccuracy', 'blunder']).toContain(rival.grade);
@@ -266,11 +274,11 @@ describe('puzzlePlay — a capture day whose opening is a decision', { timeout: 
     }
   });
 
-  it('first attempt counts: a takeback keeps the first loss, costs the star; a second reveals the best move at full loss', () => {
+  it('first attempt counts: a takeback keeps the first loss, costs the star; a second reveals the best move at full loss', async () => {
     const { spec, puzzle } = captureDay!;
     const game = gameFromSpec(spec, 0);
     const s0 = stateFromGame(puzzle.ctx, game, H, A);
-    const expected = classifyPosition(puzzle.solver, s0, obviousLine)!;
+    const expected = classifyPosition(solverOf(puzzle), s0, obviousLine)!;
     const openings = expected.values.map((v) => v.action);
     const assaults = openings.filter((a) => a.kind === 'assault');
     // Three distinct moves to propose in turn: two different assault targets or an assault and stopping.
@@ -285,18 +293,18 @@ describe('puzzlePlay — a capture day whose opening is a decision', { timeout: 
     moves.push({ kind: 'end_attack' });
     expect(moves.length, `openings: ${openings.map((a) => describeAction(puzzle.ctx, a)).join(', ')}`).toBeGreaterThanOrEqual(2);
 
-    const first = proposePuzzleAction(puzzle, game, moves[0]);
+    const first = await proposePuzzleAction(puzzle, game, moves[0]);
     expect(first.decision).toBe(true);
     const record = game.puzzle_decisions![0];
     const firstLoss = record.loss;
 
     // Proposing the same move again is not a takeback.
-    const again = proposePuzzleAction(puzzle, game, moves[0]);
+    const again = await proposePuzzleAction(puzzle, game, moves[0]);
     expect(again.takebacks).toBe(0);
     expect(game.puzzle_takebacks ?? 0).toBe(0);
 
     // A different move at the same position: one takeback, the record keeps the first loss.
-    const second = proposePuzzleAction(puzzle, game, moves[1]);
+    const second = await proposePuzzleAction(puzzle, game, moves[1]);
     expect(second.decision).toBe(true);
     expect(second.takebacks).toBe(1);
     expect(second.best).toBeUndefined();
@@ -306,7 +314,7 @@ describe('puzzlePlay — a capture day whose opening is a decision', { timeout: 
     expect(summarizePuzzleRun(game, true).star).toBe(false);
 
     // A second takeback: the best move is revealed and the decision is recorded at full loss.
-    const third = proposePuzzleAction(puzzle, game, moves.length > 2 ? moves[2] : moves[0]);
+    const third = await proposePuzzleAction(puzzle, game, moves.length > 2 ? moves[2] : moves[0]);
     expect(third.takebacks).toBe(2);
     expect(third.best).toEqual(record.best);
     expect(record.revealed).toBe(true);
@@ -316,18 +324,18 @@ describe('puzzlePlay — a capture day whose opening is a decision', { timeout: 
     expect(summarizePuzzleRun(game, true).attempts).toBe(3);
   });
 
-  it('a committed move is graded whether or not it was proposed, and pressing the same edge is not a second decision', () => {
+  it('a committed move is graded whether or not it was proposed, and pressing the same edge is not a second decision', async () => {
     const { spec, puzzle } = captureDay!;
     const game = gameFromSpec(spec, 0);
     const s0 = stateFromGame(puzzle.ctx, game, H, A);
-    const expected = classifyPosition(puzzle.solver, s0, obviousLine)!;
+    const expected = classifyPosition(solverOf(puzzle), s0, obviousLine)!;
     const anAssault = expected.values.map((v) => v.action).find((a) => a.kind === 'assault');
     expect(anAssault).toBeDefined();
     if (!anAssault || anAssault.kind !== 'assault') return;
     const from = puzzle.ctx.ids[anAssault.from];
     const to = puzzle.ctx.ids[anAssault.to];
 
-    const record = commitPuzzleAttack(puzzle, game, from, to);
+    const record = await commitPuzzleAttack(puzzle, game, from, to);
     expect(record).not.toBeNull();
     expect(record!.first).toEqual({ kind: 'assault', from, to, keep: 1 });
     expect(record!.chosen).toEqual({ kind: 'assault', from, to, keep: 1 });
@@ -339,7 +347,7 @@ describe('puzzlePlay — a capture day whose opening is a decision', { timeout: 
 
     // The next exchange on the same edge (units changed by the dice) is the same assault.
     game.territories[from].unit_count -= 1;
-    expect(commitPuzzleAttack(puzzle, game, from, to)).toBeNull();
+    expect(await commitPuzzleAttack(puzzle, game, from, to)).toBeNull();
     expect(game.puzzle_decisions).toHaveLength(1);
 
     // A proposal that matches the committed move is not a takeback.
@@ -350,32 +358,32 @@ describe('puzzlePlay — a capture day whose opening is a decision', { timeout: 
     expect(game.puzzle_assault_edge).toBeUndefined();
   });
 
-  it('stopping and ending the turn are graded like any other move, and both are silent on a silent day', () => {
+  it('stopping and ending the turn are graded like any other move, and both are silent on a silent day', async () => {
     const { spec, puzzle, map } = captureDay!;
     const game = gameFromSpec(spec, 0);
-    const endAttack = commitPuzzleEndAttack(puzzle, game);
+    const endAttack = await commitPuzzleEndAttack(puzzle, game);
     const s0 = stateFromGame(puzzle.ctx, game, H, A);
-    const expected = classifyPosition(puzzle.solver, s0, obviousLine)!;
+    const expected = classifyPosition(solverOf(puzzle), s0, obviousLine)!;
     expect(endAttack !== null).toBe(expected.decision);
     if (endAttack) {
       expect(endAttack.chosen).toEqual({ kind: 'end_attack' });
-      expect(endAttack.chosen_loss).toBeCloseTo(Math.max(0, expected.best.equity - puzzle.solver.grade(s0, { kind: 'end_attack' }).equity) * 100, 1);
+      expect(endAttack.chosen_loss).toBeCloseTo(Math.max(0, expected.best.equity - solverOf(puzzle).grade(s0, { kind: 'end_attack' }).equity) * 100, 1);
     }
 
     // Fortify and end-turn from the fortify phase.
     game.phase = 'fortify';
     game.puzzle_decisions = [];
     const sF = stateFromGame(puzzle.ctx, game, H, A);
-    const fortifyVerdict = classifyPosition(puzzle.solver, sF, obviousLine);
+    const fortifyVerdict = classifyPosition(solverOf(puzzle), sF, obviousLine);
     const move = fortifyVerdict?.values.map((v) => v.action).find((a) => a.kind === 'fortify');
     if (move && move.kind === 'fortify') {
       const from = puzzle.ctx.ids[move.from];
       const to = puzzle.ctx.ids[move.to];
-      const rec = commitPuzzleFortify(puzzle, game, from, to, game.territories[from].unit_count - 1);
+      const rec = await commitPuzzleFortify(puzzle, game, from, to, game.territories[from].unit_count - 1);
       expect(rec !== null).toBe(!!fortifyVerdict?.decision);
       if (rec) expect(rec.chosen).toEqual({ kind: 'fortify', from, to, units: 'all_but_1' });
     }
-    const endTurn = commitPuzzleEndTurn(puzzle, game);
+    const endTurn = await commitPuzzleEndTurn(puzzle, game);
     expect(endTurn !== null).toBe(!!fortifyVerdict?.decision);
 
     // A silent day: nothing is answered before the dice, and nothing is recorded by a proposal.
@@ -383,10 +391,10 @@ describe('puzzlePlay — a capture day whose opening is a decision', { timeout: 
     const silentSpec: DailyPuzzleSpec = { ...spec, v2: { ...spec.v2!, verdicts: 'silent', intent: 'prose' } };
     const silent = getWarmedPuzzle(silentSpec, map)!;
     const silentGame = gameFromSpec(silentSpec, 0);
-    expect(proposePuzzleAction(silent, silentGame, { kind: 'end_attack' })).toEqual({ decision: false, silent: true });
+    expect(await proposePuzzleAction(silent, silentGame, { kind: 'end_attack' })).toEqual({ decision: false, silent: true });
     expect(silentGame.puzzle_decisions).toBeUndefined();
     // Commits are still graded.
-    const committed = commitPuzzleEndAttack(silent, silentGame);
+    const committed = await commitPuzzleEndAttack(silent, silentGame);
     expect(committed !== null).toBe(expected.decision);
     resetWarmedPuzzlesForTests();
   });
@@ -397,7 +405,7 @@ describe('puzzlePlay — a hold day opens with a draft', { timeout: 120_000 }, (
     expect(holdDay, 'no accepted hold day in the first ten weeks').not.toBeNull();
   });
 
-  it('grades the draft as one decision from the pre-draft position when the phase advances', () => {
+  it('grades the draft as one decision from the pre-draft position when the phase advances', async () => {
     const { spec, map } = holdDay!;
     resetWarmedPuzzlesForTests();
     const puzzle = getWarmedPuzzle(spec, map)!;
@@ -411,15 +419,15 @@ describe('puzzlePlay — a hold day opens with a draft', { timeout: 120_000 }, (
     expect(game.puzzle_turn_open?.turn).toBe(1);
     expect(game.puzzle_turn_open?.draft_left).toBe(draftUnits);
     const pre = stateFromGame(puzzle.ctx, game, H, A);
-    const expected = classifyPosition(puzzle.solver, pre, obviousLine)!;
+    const expected = classifyPosition(solverOf(puzzle), pre, obviousLine)!;
 
     // Propose "everything onto the target": graded from the same position.
     const target = spec.target_territory_id!;
-    const verdict = proposePuzzleAction(puzzle, game, { kind: 'draft', to: target });
+    const verdict = await proposePuzzleAction(puzzle, game, { kind: 'draft', to: target });
     expect(verdict.decision).toBe(expected.decision);
     if (expected.decision) {
       expect(verdict.best_equity).toBeCloseTo(expected.best.equity, 3);
-      expect(verdict.equity).toBeCloseTo(puzzle.solver.grade(pre, { kind: 'draft', to: puzzle.ctx.index.get(target)! }).equity, 3);
+      expect(verdict.equity).toBeCloseTo(solverOf(puzzle).grade(pre, { kind: 'draft', to: puzzle.ctx.index.get(target)! }).equity, 3);
     }
 
     // The player places the units on the target, unit by unit, then advances.
@@ -429,7 +437,7 @@ describe('puzzlePlay — a hold day opens with a draft', { timeout: 120_000 }, (
       game.draft_units_remaining -= 1;
     }
     game.phase = 'attack';
-    const record = commitPuzzleDraft(puzzle, game);
+    const record = await commitPuzzleDraft(puzzle, game);
     expect(record !== null).toBe(expected.decision);
     if (record) {
       expect(record.phase).toBe('draft');
@@ -439,8 +447,53 @@ describe('puzzlePlay — a hold day opens with a draft', { timeout: 120_000 }, (
       expect(game.puzzle_decisions).toHaveLength(1);
       expect(game.puzzle_takebacks ?? 0).toBe(0);
       const post = stateFromGame(puzzle.ctx, game, H, A);
-      expect(record.chosen_equity).toBeCloseTo(puzzle.solver.value(post), 3);
+      expect(record.chosen_equity).toBeCloseTo(solverOf(puzzle).value(post), 3);
     }
     resetWarmedPuzzlesForTests();
+  });
+});
+
+describe('puzzlePlay — the grader behind it', { timeout: 120_000 }, () => {
+  it('grades a game on the worker thread exactly as on this thread', async () => {
+    const { spec, map, puzzle } = captureDay!;
+    const onThread: WarmedPuzzle = { ...puzzle, grader: new ThreadGrader({ spec, map }) };
+    try {
+      // Warmed first, as a game's start warms it: cold, on a wide day, the
+      // first grades would run past GRADE_TIMEOUT_MS and go ungraded.
+      expect(await onThread.grader.warm()).toBeGreaterThan(0);
+      const [there, here] = [gameFromSpec(spec, 0), gameFromSpec(spec, 0)];
+      const s0 = stateFromGame(puzzle.ctx, here, H, A);
+      const openings = classifyPosition(solverOf(puzzle), s0, obviousLine)!.values.map((v) => serializeAction(puzzle.ctx, v.action));
+      // Every opening move proposed in turn, takebacks and the reveal included.
+      for (const a of openings) {
+        const proposal: PuzzleProposal = a.kind === 'assault' ? { kind: 'attack', from: a.from, to: a.to } : { kind: 'end_attack' };
+        expect(await proposePuzzleAction(onThread, there, proposal)).toEqual(await proposePuzzleAction(puzzle, here, proposal));
+      }
+      const attack = openings.find((a) => a.kind === 'assault');
+      if (attack?.kind === 'assault') {
+        expect(await commitPuzzleAttack(onThread, there, attack.from, attack.to)).toEqual(await commitPuzzleAttack(puzzle, here, attack.from, attack.to));
+      }
+      expect(there.puzzle_decisions?.length).toBeGreaterThan(0);
+      expect(there.puzzle_decisions).toEqual(here.puzzle_decisions);
+      expect(there.puzzle_takebacks).toEqual(here.puzzle_takebacks);
+    } finally {
+      onThread.grader.close();
+    }
+  });
+
+  it('keeps four days, and stops the grader of the day it lets go', () => {
+    const { spec, map } = captureDay!;
+    resetWarmedPuzzlesForTests();
+    const close = vi.spyOn(LocalGrader.prototype, 'close');
+    try {
+      const days = [1, 2, 3, 4, 5].map((n) => getWarmedPuzzle({ ...spec, seed: spec.seed + n }, map)!);
+      expect(close).toHaveBeenCalledTimes(1);
+      expect(close.mock.contexts[0]).toBe(days[0].grader);
+      expect(getWarmedPuzzle({ ...spec, seed: spec.seed + 2 }, map)).toBe(days[1]);
+      resetWarmedPuzzlesForTests();
+      expect(close).toHaveBeenCalledTimes(5);
+    } finally {
+      close.mockRestore();
+    }
   });
 });
