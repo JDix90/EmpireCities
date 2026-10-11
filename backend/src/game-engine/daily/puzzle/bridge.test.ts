@@ -81,6 +81,25 @@ describe('contextFromSpec', () => {
     expect(plan.steps.some((st) => st.kind === 'assault' && st.from === 'gaul' && st.to === 'italia')).toBe(true);
   });
 
+  it('counts a region only with two territories or more, as the engine pays them', () => {
+    const map = loadMap('era_ancient');
+    const s = spec({
+      era_id: 'ancient', map_id: 'era_ancient', archetype: 'hold_territory', target_territory_id: 'nippon', anchor_territory_id: 'germania',
+      starting_board: {
+        // Nippon, Indochina and Tibet & Nepal are one-territory regions.
+        nippon: { owner: 'human', unit_count: 6 }, indochina: { owner: 'human', unit_count: 3 }, tibet_nepal: { owner: 'human', unit_count: 3 },
+        // Germania and Sarmatia are the whole of the Germanic region.
+        germania: { owner: 'ai', unit_count: 10 }, sarmatia: { owner: 'ai', unit_count: 4 },
+      },
+    });
+    const ctx = contextFromSpec(s, map);
+    expect(ctx.regions.map((r) => r.id)).toEqual(['germanic']);
+    const root = stateFromSpec(ctx, s);
+    // Three territories and no region: 3. The AI's two and the Germanic +3 at two seats: 3 + 1.
+    expect(reinforcements(ctx, root, HUMAN)).toBe(3);
+    expect(reinforcements(ctx, root, AI)).toBe(4);
+  });
+
   it('refuses an objective that is not on the board', () => {
     const map = loadMap('era_ancient');
     expect(() => contextFromSpec(spec({

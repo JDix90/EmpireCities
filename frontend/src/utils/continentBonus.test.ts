@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { effectiveContinentBonus, isContinentBonusScaled } from './continentBonus';
+import {
+  effectiveContinentBonus,
+  isContinentBonusScaled,
+  MIN_REGION_TERRITORIES,
+  regionBonusOnBoard,
+} from './continentBonus';
 
 describe('effectiveContinentBonus', () => {
   it('is unscaled at the 6-player reference', () => {
@@ -44,5 +49,23 @@ describe('effectiveContinentBonus', () => {
     expect(isContinentBonusScaled(4, 4)).toBe(true);
     expect(isContinentBonusScaled(4, 6)).toBe(false);
     expect(isContinentBonusScaled(0, 2)).toBe(false);
+  });
+});
+
+describe('regionBonusOnBoard', () => {
+  it('pays nothing with fewer than two of the region on the board', () => {
+    expect(MIN_REGION_TERRITORIES).toBe(2);
+    expect(regionBonusOnBoard(4, 0, 6)).toBe(0);
+    expect(regionBonusOnBoard(4, 1, 6)).toBe(0);
+  });
+
+  it('pays the table-scaled bonus from two territories up', () => {
+    expect(regionBonusOnBoard(4, 2, 6)).toBe(4);
+    expect(regionBonusOnBoard(4, 2, 4)).toBe(effectiveContinentBonus(4, 4));
+    expect(regionBonusOnBoard(5, 9, 5)).toBe(effectiveContinentBonus(5, 5));
+  });
+
+  it('still pays nothing for a zero bonus', () => {
+    expect(regionBonusOnBoard(0, 5, 6)).toBe(0);
   });
 });

@@ -163,18 +163,51 @@ describe('evaluateCoachingTip', () => {
     expect(tip).not.toBeNull();
     expect(tip!.category).toBe('opponent_region_threat');
     expect(tip!.title).toContain('Asia');
-    expect(tip!.body).toContain('+6');
+    // What Asia pays at this two-seat table: +6 scales to +2 (scaleRegionBonus).
+    expect(tip!.body).toContain('(+2 units/turn)');
   });
 
-  it('detects region opportunity for the human (>=70% owned)', () => {
-    // Human owns 3/4 Asia, AI doesn't dominate any region.
+  it("names a region's bonus at the table's size", () => {
+    // Human owns 3/4 Asia at a six-seat table: the full +6.
     const state = makeState({
       ownership: { a1: 'hum', a2: 'hum', a3: 'hum', a4: 'ai', s1: 'ai', s2: 'hum', s3: 'ai' },
     });
+    state.players.push(...['p3', 'p4', 'p5', 'p6'].map((id, i) => makePlayer(id, i + 2, true)));
     const tip = evaluateCoachingTip(state, makeMap());
-    expect(tip).not.toBeNull();
     expect(tip!.category).toBe('region_opportunity');
-    expect(tip!.title).toContain('Asia');
+    expect(tip!.title).toBe('Complete Asia for +6');
+  });
+
+  it('counts only the territories on the board', () => {
+    // Asia with a fifth territory still locked on a growing board, so not on
+    // the board: the AI's 3 of the 4 there is a threat one territory away
+    // (3 of 5, counting the locked one, would be under the threshold).
+    const map = makeMap();
+    map.territories.push({ territory_id: 'a5', name: 'Asia 5', polygon: [], center_point: [0, 0], region_id: 'asia' });
+    const threat = makeState({
+      ownership: { a1: 'ai', a2: 'ai', a3: 'ai', a4: 'hum', s1: 'hum', s2: 'ai', s3: 'hum' },
+    });
+    const tip = evaluateCoachingTip(threat, map);
+    expect(tip!.category).toBe('opponent_region_threat');
+    expect(tip!.body).toContain('1 territory from completing Asia');
+    // Asia held whole on the board is no opportunity: the locked territory is
+    // not one to go.
+    const held = makeState({
+      ownership: { a1: 'hum', a2: 'hum', a3: 'hum', a4: 'hum', s1: 'ai', s2: 'hum', s3: 'ai' },
+    });
+    expect(evaluateCoachingTip(held, map)).toBeNull();
+  });
+
+  it('never names a region with one territory as one to block', () => {
+    // A one-territory island the AI holds: no region, so nothing to block.
+    // Asia is an even split and South America the human's own.
+    const map = makeMap();
+    map.territories.push({ territory_id: 'i1', name: 'Isle', polygon: [], center_point: [0, 0], region_id: 'isle' });
+    map.regions.push({ region_id: 'isle', name: 'The Isle', bonus: 4 });
+    const state = makeState({
+      ownership: { a1: 'hum', a2: 'ai', a3: 'hum', a4: 'ai', s1: 'hum', s2: 'hum', s3: 'hum', i1: 'ai' },
+    });
+    expect(evaluateCoachingTip(state, map)).toBeNull();
   });
 
   it('opponent threat takes priority over region opportunity', () => {

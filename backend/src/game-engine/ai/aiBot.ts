@@ -2,6 +2,7 @@ import { randomInt } from 'crypto';
 import type { GameState, GameMap, BuildingType } from '../../types';
 import { calculateReinforcements, scaleRegionBonus } from '../combat/combatResolver';
 import { calculateContinentBonuses } from '../state/gameStateManager';
+import { MIN_REGION_TERRITORIES, regionsOnBoard } from '../state/regionsOnBoard';
 import { getAllowedVictoryConditions } from '../state/gameSettings';
 import { eraTechTreeOptions, getEraTechTree } from '../eras';
 import { getPlayerFaction } from '../eras/factionLineage';
@@ -293,8 +294,12 @@ export function evaluateBoard(
 
   // C: Continent bonus ratio
   const continentBonus = calculateContinentBonuses(state, map, playerId);
-  // Same scaling as the held bonus, so the ratio compares like with like.
-  const maxPossibleBonus = map.regions.reduce((s, r) => s + scaleRegionBonus(r.bonus, state.players.length), 0);
+  // Same rule and scaling as the held bonus, so the ratio compares like with
+  // like: only the regions that can pay on this board (state/regionsOnBoard.ts).
+  const payable = regionsOnBoard(map, state.territories);
+  const maxPossibleBonus = map.regions.reduce(
+    (s, r) => s + (payable.has(r.region_id) ? scaleRegionBonus(r.bonus, state.players.length) : 0), 0,
+  );
   const C = maxPossibleBonus > 0 ? continentBonus / maxPossibleBonus : 0;
 
   // Weighted sum (weights tuned for balanced play)
@@ -864,7 +869,8 @@ export function rankAiUnificationTargets(state: GameState, map: GameMap, playerI
     const region = regionOf.get(id);
     const size = region ? regionSize.get(region) ?? 0 : 0;
     const heldAfter = region ? (regionHeld.get(region) ?? 0) + 1 : 0;
-    const completes = size > 0 && heldAfter === size;
+    // A region pays only with two territories or more on the board.
+    const completes = size >= MIN_REGION_TERRITORIES && heldAfter === size;
     const rivalUnits = (adjacency[id] ?? []).reduce((sum, nid) => {
       const n = state.territories[nid];
       // Up to a hop past the bot's border, so under fog it may be hidden.

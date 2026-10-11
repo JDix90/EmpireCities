@@ -21,3 +21,24 @@ export function effectiveContinentBonus(rawBonus: number, playerCount: number): 
 export function isContinentBonusScaled(rawBonus: number, playerCount: number): boolean {
   return effectiveContinentBonus(rawBonus, playerCount) !== rawBonus;
 }
+
+/**
+ * A region pays only with at least this many of its territories on the board:
+ * one territory alone is never a region, on a growing board before its second
+ * territory unlocks or on a map that authored one.
+ *
+ * Keep in sync with
+ * backend/src/game-engine/state/regionsOnBoard.ts → MIN_REGION_TERRITORIES.
+ */
+export const MIN_REGION_TERRITORIES = 2;
+
+/**
+ * What a region pays its holder on this board: nothing with fewer than
+ * MIN_REGION_TERRITORIES of its territories on the board, else the
+ * table-scaled bonus. `territoriesOnBoard` counts only the territories in
+ * play (a growing board's locked frontier is not on it).
+ */
+export function regionBonusOnBoard(rawBonus: number, territoriesOnBoard: number, playerCount: number): number {
+  if (territoriesOnBoard < MIN_REGION_TERRITORIES) return 0;
+  return effectiveContinentBonus(rawBonus, playerCount);
+}

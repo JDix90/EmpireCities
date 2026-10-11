@@ -36,6 +36,7 @@ import { buildWorldModifierSnapshot } from './worldModifiers';
 import { hasLaneSovereignty, tickLaneSovereignty } from '../victory/laneSovereignty';
 import { checkTeamVictory } from '../victory/teamVictory';
 import { isTeamGame, regionBonusHolder } from './teams';
+import { regionsOnBoard } from './regionsOnBoard';
 import { alternativeVictoriesLive } from '../victory/openingRound';
 import { dropSecretMissions, galaxyTeamsFor, seatTeamsApart } from './galaxyTeams';
 import { applyLaneClosure, applyLaneSurge, laneSurgeHasGap, tickLaneWeather } from './laneWeather';
@@ -803,6 +804,11 @@ export function appendWinProbabilitySnapshot(state: GameState): void {
   state.win_probability_history.push(snapshot);
 }
 
+/**
+ * The regions `playerId` holds on this board, each at its table-scaled value:
+ * a region counts its territories on the board and pays only with two or
+ * more of them there (state/regionsOnBoard.ts).
+ */
 function calculateContinentBonusesForPlayer(
   territories: Record<string, TerritoryState>,
   map: GameMap,
@@ -813,10 +819,12 @@ function calculateContinentBonusesForPlayer(
   // made a missed argument pay every table the six-player bonus.
   playerCount: number,
 ): number {
+  const onBoard = regionsOnBoard(map, territories);
   let bonus = 0;
   for (const region of map.regions) {
-    const regionTerritories = map.territories.filter((t) => t.region_id === region.region_id);
-    const owners = regionTerritories.map((t) => territories[t.territory_id]?.owner_id);
+    const ids = onBoard.get(region.region_id);
+    if (!ids) continue;
+    const owners = ids.map((id) => territories[id]?.owner_id);
     // The player holding it all; in a team game, one side (state/teams.ts).
     const holds = isTeamGame(sides)
       ? regionBonusHolder(sides, owners) === playerId
@@ -994,34 +1002,18 @@ export function eventTargetForRound(state: GameState): string {
 }
 
 /**
- * Calculate continent bonuses for a given player: the sum over regions held in
- * full of `scaleRegionBonus(region.bonus, players)` — the effective
- * reinforcement value at this table size, not the map's raw numbers.
+ * Calculate continent bonuses for a given player: the sum over the regions
+ * they hold on this board of `scaleRegionBonus(region.bonus, players)`, the
+ * effective reinforcement value at this table size, not the map's raw
+ * numbers. The same sum the turn start drafts, so the bots' forecasts read
+ * the rule the game pays by (state/regionsOnBoard.ts).
  */
 export function calculateContinentBonuses(
   state: GameState,
   map: GameMap,
   playerId: string
 ): number {
-  let bonus = 0;
-  for (const region of map.regions) {
-    // Only count territories that are currently in play. On a growing board (Era
-    // Advancement territory growth) a region may include frontier territories not
-    // yet unlocked: those must not block the bonus for the in-play part, and an
-    // all-locked region must not award a vacuous bonus (`[].every()` is true).
-    // No-op for maps without growth — every territory is always in play there.
-    const regionTerritories = map.territories.filter(
-      (t) => t.region_id === region.region_id && state.territories[t.territory_id] !== undefined
-    );
-    if (regionTerritories.length === 0) continue;
-    const owners = regionTerritories.map((t) => state.territories[t.territory_id]?.owner_id);
-    // The player holding it all; in a team game, one side (state/teams.ts).
-    const holds = isTeamGame(state)
-      ? regionBonusHolder(state, owners) === playerId
-      : owners.every((owner) => owner === playerId);
-    if (holds) bonus += scaleRegionBonus(region.bonus, state.players.length);
-  }
-  return bonus;
+  return calculateContinentBonusesForPlayer(state.territories, map, playerId, state, state.players.length);
 }
 
 /**

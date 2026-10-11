@@ -141,6 +141,23 @@ describe('Unification Drive: the bot aims it', () => {
   });
 });
 
+describe('Unification Drive: a region pays only with two territories', () => {
+  // n0 is a one-territory island (+4); n1 completes the bot's two-territory
+  // wide region (+2). The island completes nothing, so n1 comes first.
+  const m = map(
+    [['a', 'home'], ['b', 'home'], ['n0', 'isle'], ['n1', 'wide'], ['w1', 'wide'], ['x', 'far']],
+    [['a', 'b'], ['a', 'n0'], ['a', 'n1'], ['n1', 'w1'], ['b', 'x']],
+    [['home', 1], ['isle', 4], ['wide', 2], ['far', 1]],
+  );
+  const board = () => state('risorgimento', {
+    a: [AI, 5], b: [AI, 3], w1: [AI, 3], n0: [null, 1], n1: [null, 1], x: [RIVAL, 2],
+  }, { settings: { factions_enabled: true }, faction: 'sardinia_piedmont' });
+
+  it('ranks the tile that completes a real region over a one-territory one', () => {
+    expect(rankAiUnificationTargets(board(), m, AI)).toEqual(['n1', 'n0']);
+  });
+});
+
 describe('Unification Drive under fog of war', () => {
   // Two lone neutral tiles beside the bot. n0's rival neighbour x sits a hop
   // past the bot's border, where fog hides it; n2's, y, borders the bot's own

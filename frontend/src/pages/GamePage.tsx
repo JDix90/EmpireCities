@@ -29,6 +29,7 @@ import { useFeatureFlagsStore, useFirstTurnCoachEnabled, useSignupNudgeEnabled, 
 import { useBackgroundMusic } from '../hooks/useBackgroundMusic';
 import { backgroundMusic, musicBedFor, musicTensionFor, type MusicCadence } from '../audio/backgroundMusic';
 import { canOfferBlitz } from '../utils/blitzEligibility';
+import { MIN_REGION_TERRITORIES } from '../utils/continentBonus';
 import { shouldShowSignupNudge, SIGNUP_NUDGE_SHOWN_KEY } from '../utils/signupNudge';
 import { hapticImpact, hapticNotification, ImpactStyle, NotificationType } from '../utils/haptics';
 import { turnTimeoutToastMessage, type TurnTimeoutPayload } from '../utils/turnTimeout';
@@ -407,6 +408,8 @@ function buildDraftSummaryModal(state: ClientGameState, map: MapData): DraftSumm
     }
     for (const [rid, ownedCount] of regionOwnedCounts.entries()) {
       const regionSize = regionSizes.get(rid) ?? 1;
+      // A region pays only with two or more of its territories on the board.
+      if (regionSize < MIN_REGION_TERRITORIES) continue;
       const bonus = regionById.get(rid)?.bonus ?? 0;
       const controlPct = ownedCount / regionSize;
       regionLeverage += controlPct * controlPct * bonus;

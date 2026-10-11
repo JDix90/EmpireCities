@@ -28,6 +28,8 @@ import type {
   TerritoryState,
 } from '../../types';
 import { isFriendlyOwner } from '../state/teams';
+import { regionsOnBoard } from '../state/regionsOnBoard';
+import { scaleRegionBonus } from '../combat/combatResolver';
 
 const PROBABILITY_DROP_THRESHOLD = 0.05;
 const REGION_PROGRESS_THRESHOLD = 0.7;
@@ -41,6 +43,11 @@ interface DetectorContext {
   map: GameMap;
   human: PlayerState;
   ownedByPlayer: Map<string, Set<string>>;
+  /**
+   * The regions that can pay on this board, each with its territories there
+   * (state/regionsOnBoard.ts): what the region tips talk about.
+   */
+  regions: Map<string, string[]>;
 }
 
 type Detector = (ctx: DetectorContext) => CoachingTip | null;
@@ -110,7 +117,7 @@ const probabilityDropDetector: Detector = ({ state, human }) => {
 };
 
 /** Detector 2 — An opponent is one or two captures from completing a region. */
-const opponentRegionThreatDetector: Detector = ({ state, map, human }) => {
+const opponentRegionThreatDetector: Detector = ({ state, map, human, regions }) => {
   let bestThreat: {
     opponentName: string;
     regionName: string;
@@ -119,13 +126,14 @@ const opponentRegionThreatDetector: Detector = ({ state, map, human }) => {
   } | null = null;
 
   for (const region of map.regions) {
-    if (region.bonus <= 0) continue;
-    const territoriesInRegion = map.territories.filter((t) => t.region_id === region.region_id);
-    if (territoriesInRegion.length === 0) continue;
+    // What the region pays at this table, as the draft pays it.
+    const bonus = scaleRegionBonus(region.bonus, state.players.length);
+    const territoriesInRegion = regions.get(region.region_id);
+    if (!territoriesInRegion || bonus <= 0) continue;
 
     const threatByOwner = new Map<string, number>();
-    for (const t of territoriesInRegion) {
-      const ownerId = state.territories[t.territory_id]?.owner_id;
+    for (const id of territoriesInRegion) {
+      const ownerId = state.territories[id]?.owner_id;
       // An ally closing on a region is no threat (state/teams.ts).
       if (!ownerId || isFriendlyOwner(state, human.player_id, ownerId)) continue;
       threatByOwner.set(ownerId, (threatByOwner.get(ownerId) ?? 0) + 1);
@@ -138,14 +146,14 @@ const opponentRegionThreatDetector: Detector = ({ state, map, human }) => {
       // Prefer the largest pending threat (highest bonus, then fewest needed).
       const better =
         !bestThreat ||
-        region.bonus > bestThreat.bonus ||
-        (region.bonus === bestThreat.bonus && needed < bestThreat.needed);
+        bonus > bestThreat.bonus ||
+        (bonus === bestThreat.bonus && needed < bestThreat.needed);
       if (better) {
         const opponent = state.players.find((p) => p.player_id === ownerId);
         bestThreat = {
           opponentName: opponent?.username ?? 'an opponent',
           regionName: region.name,
-          bonus: region.bonus,
+          bonus,
           needed,
         };
       }
@@ -164,7 +172,7 @@ const opponentRegionThreatDetector: Detector = ({ state, map, human }) => {
 };
 
 /** Detector 3 — Player is one or two captures from completing a region. */
-const regionOpportunityDetector: Detector = ({ state, map, human, ownedByPlayer }) => {
+const regionOpportunityDetector: Detector = ({ state, map, human, ownedByPlayer, regions }) => {
   let best: {
     regionName: string;
     bonus: number;
@@ -174,11 +182,11 @@ const regionOpportunityDetector: Detector = ({ state, map, human, ownedByPlayer 
   const humanOwned = ownedByPlayer.get(human.player_id) ?? new Set<string>();
 
   for (const region of map.regions) {
-    if (region.bonus <= 0) continue;
-    const territoriesInRegion = map.territories.filter((t) => t.region_id === region.region_id);
-    if (territoriesInRegion.length === 0) continue;
+    const bonus = scaleRegionBonus(region.bonus, state.players.length);
+    const territoriesInRegion = regions.get(region.region_id);
+    if (!territoriesInRegion || bonus <= 0) continue;
 
-    const owned = territoriesInRegion.filter((t) => humanOwned.has(t.territory_id)).length;
+    const owned = territoriesInRegion.filter((id) => humanOwned.has(id)).length;
     if (owned === territoriesInRegion.length) continue; // already complete
 
     const progress = owned / territoriesInRegion.length;
@@ -186,12 +194,12 @@ const regionOpportunityDetector: Detector = ({ state, map, human, ownedByPlayer 
     const needed = territoriesInRegion.length - owned;
     const better =
       !best ||
-      region.bonus > best.bonus ||
-      (region.bonus === best.bonus && needed < best.needed);
+      bonus > best.bonus ||
+      (bonus === best.bonus && needed < best.needed);
     if (better) {
       best = {
         regionName: region.name,
-        bonus: region.bonus,
+        bonus,
         needed,
       };
     }
@@ -283,6 +291,7 @@ export function evaluateCoachingTip(state: GameState, map: GameMap): CoachingTip
     map,
     human,
     ownedByPlayer: buildOwnedByPlayer(state),
+    regions: regionsOnBoard(map, state.territories),
   };
 
   for (const detector of DETECTORS) {

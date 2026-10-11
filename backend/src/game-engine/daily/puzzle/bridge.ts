@@ -11,6 +11,7 @@
  */
 import type { GameMap, GameState } from '../../../types';
 import { ERA_DEFAULTS } from '../../state/eraModifiers';
+import { MIN_REGION_TERRITORIES } from '../../state/regionsOnBoard';
 import type { DailyPuzzleSpec } from '../dailyPuzzleTypes';
 import { regionTerritoryIds } from '../puzzleObjective';
 import {
@@ -77,7 +78,8 @@ export function contextFromSpec(spec: DailyPuzzleSpec, map: GameMap, opts: Bridg
         .map((t) => t.territory_id);
       return { id: r.region_id, members, bonus: r.bonus ?? 0 };
     })
-    .filter((r) => r.members.length > 0 && r.members.every((m) => index.has(m)))
+    // A region pays only with two territories or more (state/regionsOnBoard.ts).
+    .filter((r) => r.members.length >= MIN_REGION_TERRITORIES && r.members.every((m) => index.has(m)))
     .map((r) => ({ id: r.id, members: r.members.map((m) => index.get(m)!).sort((x, y) => x - y), bonus: r.bonus }));
 
   const objective = objectiveOf(spec, map);

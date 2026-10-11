@@ -297,15 +297,17 @@ describe('calculateContinentBonuses', () => {
       name: 'Growth',
       territories: [
         { territory_id: 'base', name: 'base', polygon: [[0, 0]], center_point: [0, 0], region_id: 'reg' },
+        { territory_id: 'base2', name: 'base2', polygon: [[0, 1]], center_point: [0, 1], region_id: 'reg' },
         { territory_id: 'frontier', name: 'frontier', polygon: [[1, 0]], center_point: [1, 0], region_id: 'reg', unlock_era_index: 2 },
       ],
       connections: [],
       regions: [{ region_id: 'reg', name: 'Reg', bonus: 3 }],
     } as GameMap;
   }
+  const inPlay = () => ({ base: makeTerritory('base', 'p1', 1), base2: makeTerritory('base2', 'p1', 1) });
 
   it('awards the bonus for the in-play part while a frontier member is still locked', () => {
-    const state = makeState({ territories: { base: makeTerritory('base', 'p1', 1) } });
+    const state = makeState({ territories: inPlay() });
     // The helper returns the table-scaled value: a raw 3 at two players is
     // max(1, floor(3 × 2 / 6)) = 1 (scaleRegionBonus).
     expect(calculateContinentBonuses(state, growthMap(), 'p1')).toBe(1);
@@ -313,10 +315,7 @@ describe('calculateContinentBonuses', () => {
 
   it('withholds the bonus once the frontier is in play but not yet owned', () => {
     const state = makeState({
-      territories: {
-        base: makeTerritory('base', 'p1', 1),
-        frontier: makeTerritory('frontier', null, 4), // unlocked, neutral
-      },
+      territories: { ...inPlay(), frontier: makeTerritory('frontier', null, 4) }, // unlocked, neutral
     });
     expect(calculateContinentBonuses(state, growthMap(), 'p1')).toBe(0);
     // ...and restores it once the frontier is conquered.
@@ -326,9 +325,33 @@ describe('calculateContinentBonuses', () => {
 
   it('does not award a vacuous bonus for an all-locked region (none in play)', () => {
     const map = growthMap();
-    map.territories[0].unlock_era_index = 2; // make EVERY member locked
+    for (const t of map.territories) t.unlock_era_index = 2; // make EVERY member locked
     const state = makeState({ territories: {} });
     expect(calculateContinentBonuses(state, map, 'p1')).toBe(0);
+  });
+
+  it('pays nothing for a region with one territory on the board, until a second one unlocks', () => {
+    const map = growthMap();
+    map.territories[1].unlock_era_index = 1; // base2 arrives a step before the frontier
+    const state = makeState({ territories: { base: makeTerritory('base', 'p1', 1) } });
+    expect(calculateContinentBonuses(state, map, 'p1')).toBe(0);
+    // base2 unlocks and p1 takes it: two on the board, both held.
+    state.territories.base2 = makeTerritory('base2', 'p1', 1);
+    expect(calculateContinentBonuses(state, map, 'p1')).toBe(1);
+  });
+
+  it('pays nothing for a region authored with one territory', () => {
+    const map: GameMap = {
+      ...growthMap(),
+      territories: [
+        ...growthMap().territories,
+        { territory_id: 'isle', name: 'isle', polygon: [[2, 0]], center_point: [2, 0], region_id: 'solo' },
+      ],
+      regions: [...growthMap().regions, { region_id: 'solo', name: 'Solo', bonus: 4 }],
+    } as GameMap;
+    const state = makeState({ territories: { ...inPlay(), isle: makeTerritory('isle', 'p1', 1) } });
+    // Reg's +1 alone; the island never adds its +4.
+    expect(calculateContinentBonuses(state, map, 'p1')).toBe(1);
   });
 });
 
@@ -455,6 +478,46 @@ describe('advanceToNextPlayer', () => {
       return state.draft_units_remaining - calculateReinforcements(3, 0, seats);
     };
     expect([2, 4, 5, 6, 8].map(regionDraftAt)).toEqual([1, 3, 4, 5, 6]);
+  });
+
+  it('pays the same region bonus at the turn start that the rule names, on a growing board', () => {
+    // R1 has a third territory still locked: the turn start counts only the
+    // two on the board, as calculateContinentBonuses does.
+    const growing: GameMap = {
+      ...map,
+      territories: map.territories.map((t) => (t.territory_id === 't3' ? { ...t, unlock_era_index: 2 } : t)),
+    };
+    const state = makeState({
+      current_player_index: 0,
+      phase: 'fortify',
+      players: [makePlayer('p1', 0), makePlayer('p2', 1, { territory_count: 2 })],
+      territories: { t1: makeTerritory('t1', 'p2', 3), t2: makeTerritory('t2', 'p2', 3) },
+    });
+    advanceToNextPlayer(state, growing);
+    expect(state.current_player_index).toBe(1);
+    expect(calculateContinentBonuses(state, growing, 'p2')).toBe(scaleRegionBonus(2, 2));
+    expect(state.draft_units_remaining).toBe(calculateReinforcements(2, scaleRegionBonus(2, 2), 2));
+  });
+
+  it('pays nothing at the turn start for a region with one territory on the board', () => {
+    // A one-territory region beside R1: holding it adds nothing to the draft.
+    const withIsle: GameMap = {
+      ...map,
+      territories: [...map.territories, { territory_id: 't4', name: 'T4', polygon: [], center_point: [0, 0], region_id: 'solo' }],
+      regions: [...map.regions, { region_id: 'solo', name: 'Solo', bonus: 4 }],
+    };
+    const state = makeState({
+      current_player_index: 0,
+      phase: 'fortify',
+      players: [makePlayer('p1', 0), makePlayer('p2', 1, { territory_count: 1 })],
+      territories: {
+        t1: makeTerritory('t1', 'p1', 3), t2: makeTerritory('t2', 'p1', 3), t3: makeTerritory('t3', 'p1', 3),
+        t4: makeTerritory('t4', 'p2', 3),
+      },
+    });
+    advanceToNextPlayer(state, withIsle);
+    expect(state.current_player_index).toBe(1);
+    expect(state.draft_units_remaining).toBe(calculateReinforcements(1, 0, 2));
   });
 
   it('wraps around and increments turn number', () => {

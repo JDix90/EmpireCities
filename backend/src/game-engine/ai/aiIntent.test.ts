@@ -136,6 +136,24 @@ describe('choosing a goal', () => {
     expect(pick(s)).toMatchObject({ kind: 'break_region', target: 'south' });
   });
 
+  it('takes or breaks no region with one territory on the board', () => {
+    // As in the test above the east is wholly the first rival's, one thin
+    // tile in reach. Split it in two, a territory each, and neither is a
+    // region: nothing there to break.
+    const s = board({ w3: [AI, 4], e1: [R1, 2] });
+    expect(chooseIntent(s, map(), AI, 'hard')).toMatchObject({ kind: 'break_region', target: 'east' });
+    const split = map();
+    split.territories.find((t) => t.territory_id === 'e2')!.region_id = 'far_east';
+    split.regions.push({ region_id: 'far_east', name: 'Far East', bonus: 4 });
+    const goal = chooseIntent(s, split, AI, 'hard');
+    expect(goal?.target).not.toBe('east');
+    expect(goal?.target).not.toBe('far_east');
+    // A growing board with e2 still locked: e1 alone is no region yet either.
+    const growing = board({ w3: [AI, 4], e1: [R1, 2] });
+    delete growing.territories.e2;
+    expect(chooseIntent(growing, map(), AI, 'hard')?.target).not.toBe('east');
+  });
+
   it('has none at easy or in the tutorial, in a team game, or with nothing in reach', () => {
     expect(pick(board(), 'easy')).toBeNull();
     expect(pick(board(), 'tutorial')).toBeNull();
