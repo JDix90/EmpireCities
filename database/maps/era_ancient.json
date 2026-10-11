@@ -789,7 +789,7 @@
       "name": "Sahara",
       "polygon": [[150, 470], [360, 470], [360, 560], [150, 560]],
       "center_point": [255, 515],
-      "region_id": "saharan",
+      "region_id": "africa",
       "unlock_era_index": 1,
       "geo_polygon": [[-26,18],[-26,27],[-18,27],[-18,18],[-26,18]]
     },
@@ -870,7 +870,7 @@
       "name": "Nippon",
       "polygon": [[1100, 120], [1180, 120], [1180, 260], [1100, 260]],
       "center_point": [1140, 190],
-      "region_id": "far_east",
+      "region_id": "han_china",
       "geo_polygon": [[135,31],[135,42],[146,42],[146,31],[135,31]]
     },
     {
@@ -905,7 +905,7 @@
       "name": "Southeast Asia",
       "polygon": [[985, 330], [1085, 330], [1085, 445], [985, 445]],
       "center_point": [1035, 387],
-      "region_id": "southeast_asia"
+      "region_id": "han_china"
     },
     {
       "territory_id": "siberia",
@@ -995,7 +995,7 @@
       "geo_config": [{ "iso": "NP" }, { "iso": "BT" }],
       "polygon": [[758, 220], [803, 220], [803, 295], [758, 295]],
       "center_point": [780, 257],
-      "region_id": "himalaya",
+      "region_id": "india",
       "geo_polygon": [[80, 27], [80, 36], [98, 36], [98, 27], [80, 27]]
     },
     {
@@ -1012,7 +1012,7 @@
       "name": "Cuba",
       "polygon": [[10, 305], [70, 305], [70, 335], [10, 335]],
       "center_point": [40, 320],
-      "region_id": "caribbean",
+      "region_id": "north_america",
       "unlock_era_index": 4,
       "geo_polygon": [[-85, 19], [-85, 24], [-74, 24], [-74, 19], [-85, 19]]
     },
@@ -1021,7 +1021,7 @@
       "name": "Horn of Africa",
       "polygon": [[490, 390], [565, 390], [565, 455], [490, 455]],
       "center_point": [527, 422],
-      "region_id": "horn_of_africa",
+      "region_id": "southern_reaches",
       "unlock_era_index": 3,
       "geo_polygon": [[41, -2], [41, 12], [52, 12], [52, -2], [41, -2]]
     }
@@ -1312,13 +1312,13 @@
     },
     {
       "region_id": "han_china",
-      "name": "Han China",
+      "name": "East Asia",
       "bonus": 3
     },
     {
       "region_id": "india",
       "name": "Indian Subcontinent",
-      "bonus": 4
+      "bonus": 5
     },
     {
       "region_id": "africa",
@@ -1336,19 +1336,13 @@
       "bonus": 3
     },
     { "region_id": "northern_frontier", "name": "Northern Frontier", "bonus": 3 },
-    { "region_id": "saharan", "name": "Sahara", "bonus": 2 },
-    { "region_id": "far_east", "name": "The Far East", "bonus": 2 },
-    { "region_id": "southeast_asia", "name": "Southeast Asia", "bonus": 2 },
     { "region_id": "northern_reaches", "name": "The Northern Reaches", "bonus": 2 },
-    { "region_id": "southern_reaches", "name": "The Southern Reaches", "bonus": 2 },
+    { "region_id": "southern_reaches", "name": "East & Southern Africa", "bonus": 2 },
     { "region_id": "oceania", "name": "Oceania", "bonus": 2 },
     { "region_id": "north_america", "name": "North America", "bonus": 4 },
     { "region_id": "south_america", "name": "South America", "bonus": 4 },
     { "region_id": "insulindia", "name": "Insulindia", "bonus": 3 },
-    { "region_id": "caribbean", "name": "The Caribbean", "bonus": 2 },
-    { "region_id": "horn_of_africa", "name": "Horn of Africa", "bonus": 2 },
-    { "region_id": "antarctica", "name": "Antarctica", "bonus": 3 },
-    { "region_id": "himalaya", "name": "The Himalayas", "bonus": 2 }
+    { "region_id": "antarctica", "name": "Antarctica", "bonus": 3 }
   ],
   "is_public": true,
   "is_moderated": true,

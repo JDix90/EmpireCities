@@ -16,16 +16,20 @@ const MAP_TERRITORIES = [
   { territory_id: 'h2', name: 'Hill Country', region_id: 'heart' },
   { territory_id: 'h3', name: 'High Plains', region_id: 'heart' },
   { territory_id: 'isle', name: 'Lone Isle', region_id: 'isles' },
+  { territory_id: 'keep', name: 'Old Keep', region_id: 'keep' },
 ];
 const MAP_REGIONS = [
   { region_id: 'heart', name: 'The Heart', bonus: 6 },
   // Two more isles are still locked: the one on the board is no region yet.
   { region_id: 'isles', name: 'The Isles', bonus: 4 },
+  // A faction's home the map gives no bonus.
+  { region_id: 'keep', name: 'The Keep', bonus: 0 },
 ];
 const CONNECTIONS = [
   { from: 'h1', to: 'h2', type: 'land' as const },
   { from: 'h2', to: 'h3', type: 'land' as const },
   { from: 'h3', to: 'isle', type: 'sea' as const },
+  { from: 'h1', to: 'keep', type: 'land' as const },
 ];
 
 function game(players = 6): GameState {
@@ -48,6 +52,7 @@ function game(players = 6): GameState {
       h2: { territory_id: 'h2', owner_id: 'me', unit_count: 3 },
       h3: { territory_id: 'h3', owner_id: 'me', unit_count: 3 },
       isle: { territory_id: 'isle', owner_id: 'me', unit_count: 2 },
+      keep: { territory_id: 'keep', owner_id: 'me', unit_count: 2 },
     },
     card_set_redemption_count: 0,
     settings: { fog_of_war: false },
@@ -97,6 +102,15 @@ describe('TerritoryPanel region badge', () => {
     // Nothing to progress toward, and no claim that holding it pays.
     expect(screen.queryByText(/1\/1/)).toBeNull();
     expect(screen.queryByText(/Scales with players/)).toBeNull();
+  });
+
+  it('shows a region with no bonus as paying nothing, without a tick', () => {
+    show(game(), 'keep');
+    expect(screen.getByText('The Keep')).toBeInTheDocument();
+    expect(screen.getByText('+0')).toBeInTheDocument();
+    expect(screen.getByTestId('region-no-bonus')).toHaveTextContent('This region pays no bonus.');
+    expect(screen.queryByTestId('region-too-few')).toBeNull();
+    expect(screen.queryByText(/1\/1/)).toBeNull();
   });
 
   it('counts only the territories on the board', () => {

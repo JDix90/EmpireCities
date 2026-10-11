@@ -166,7 +166,7 @@
         253,
         55
       ],
-      "region_id": "scandinavia"
+      "region_id": "eastern_europe"
     },
     {
       "territory_id": "poland_bohemia",
@@ -802,7 +802,7 @@
       "geo_polygon": [[115,-34],[115,-16],[148,-16],[148,-34],[115,-34]] },
     { "territory_id": "polynesia", "name": "Polynesia", "polygon": [[1080,610],[1195,610],[1195,690],[1080,690]], "center_point": [1137,650], "region_id": "oceania",
       "geo_polygon": [[-160,-22],[-160,-6],[-138,-6],[-138,-22],[-160,-22]] },
-    { "territory_id": "kamchatka", "name": "Kamchatka", "polygon": [[1075,200],[1195,200],[1195,330],[1075,330]], "center_point": [1135,265], "region_id": "pacific_rim",
+    { "territory_id": "kamchatka", "name": "Kamchatka", "polygon": [[1075,200],[1195,200],[1195,330],[1075,330]], "center_point": [1135,265], "region_id": "mongol_empire",
       "geo_config": [{ "iso": "RU", "clip_bbox": [150, 48, 180, 82] }],
       "geo_polygon": [[-179,52],[-179,62],[-168,62],[-168,52],[-179,52]] }
   ],
@@ -1042,7 +1042,7 @@
     {
       "region_id": "eastern_europe",
       "name": "Eastern Europe",
-      "bonus": 4
+      "bonus": 5
     },
     {
       "region_id": "middle_east",
@@ -1052,7 +1052,7 @@
     {
       "region_id": "mongol_empire",
       "name": "Mongol Heartland",
-      "bonus": 3
+      "bonus": 4
     },
     {
       "region_id": "china_korea",
@@ -1069,15 +1069,9 @@
       "name": "Africa",
       "bonus": 4
     },
-    {
-      "region_id": "scandinavia",
-      "name": "Scandinavia",
-      "bonus": 2
-    },
     { "region_id": "new_world", "name": "New World", "bonus": 2 },
     { "region_id": "sub_sahara", "name": "Sub-Saharan Frontier", "bonus": 2 },
-    { "region_id": "oceania", "name": "Oceania", "bonus": 2 },
-    { "region_id": "pacific_rim", "name": "Pacific Rim", "bonus": 2 }
+    { "region_id": "oceania", "name": "Oceania", "bonus": 2 }
   ],
   "is_public": true,
   "is_moderated": true,
