@@ -2020,7 +2020,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       // Daily v2: grade the target choice (the first exchange on an edge) and
       // raise the plan condition "the human attacked the objective".
       const attackPuzzle = dailyV2Puzzle(room);
-      if (attackPuzzle) commitPuzzleAttack(attackPuzzle, state, fromId, toId);
+      if (attackPuzzle) await commitPuzzleAttack(attackPuzzle, state, fromId, toId);
 
       const puzzleSpecPre = getDailyPuzzleSpec(state);
       const stateBeforePuzzle =
@@ -2529,11 +2529,11 @@ export function initGameSocket(httpServer: HttpServer): Server {
         state.draft_units_remaining = 0;
         state.phase = 'attack';
         // Daily v2: the draft as a whole is one decision, graded now.
-        if (advancePuzzle) commitPuzzleDraft(advancePuzzle, state);
+        if (advancePuzzle) await commitPuzzleDraft(advancePuzzle, state);
         // The turn's clock runs on: it covers draft, attack and fortify together.
       } else if (state.phase === 'attack') {
         // Daily v2: stopping is a move too.
-        if (advancePuzzle) commitPuzzleEndAttack(advancePuzzle, state);
+        if (advancePuzzle) await commitPuzzleEndAttack(advancePuzzle, state);
         state.phase = 'fortify';
         // A Surge Projector lane is an attack-phase lane: it closes now.
         await syncSurgeProjectorAndBroadcastMap(io, gameId, state, map);
@@ -2543,7 +2543,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
         // the state between this advance and the next turn sees a clean
         // counter (matters for AI debugging and replay reconstruction).
         // Daily v2: ending the turn without a move is graded like any other.
-        if (advancePuzzle) commitPuzzleEndTurn(advancePuzzle, state);
+        if (advancePuzzle) await commitPuzzleEndTurn(advancePuzzle, state);
         state.fortify_moves_used = 0;
         advanceToNextPlayer(state, map);
         landPendingDropAssaults(io, gameId, state, map);
@@ -2702,7 +2702,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const fortifyProbBefore = captureProbBefore(state, userId);
       // Daily v2: graded by the position the move leaves.
       const fortifyPuzzle = dailyV2Puzzle(room);
-      if (fortifyPuzzle) commitPuzzleFortify(fortifyPuzzle, state, fromId, toId, units);
+      if (fortifyPuzzle) await commitPuzzleFortify(fortifyPuzzle, state, fromId, toId, units);
       // Galaxy transit: a move between two WORLDS is a convoy — the units leave
       // now and land at this player's next turn start (state/transit.ts).
       const asConvoy = fortifyBecomesConvoy(state, fromId, toId, { driftJump });
@@ -3575,7 +3575,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
           socket.emit('game:puzzle_verdict', { gameId, decision: false, silent: !puzzle });
           return;
         }
-        const verdict = proposePuzzleAction(puzzle, state, parsed);
+        const verdict = await proposePuzzleAction(puzzle, state, parsed);
         socket.emit('game:puzzle_verdict', { gameId, ...verdict });
         void persistGameStateAfterMutation(gameId, state).catch((err) => console.error('[Redis] persist after mutation failed', gameId, err));
       });
@@ -4465,14 +4465,10 @@ async function startWaitingGameLocked(io: Server, gameId: string): Promise<Start
   if (puzzleSpec && humanSeatId) {
     applyDailyPuzzleScenario(state, gameMap, puzzleSpec, humanSeatId, aiSeatId ?? `ai_1`);
     if (puzzleSpec.v2) {
-      // Daily v2: solve the opening now, off this tick, so the first verdict
-      // is a memo hit rather than a stall on the player's first click.
+      // Daily v2: solve the opening now, in the grader's worker thread, so the
+      // first verdict is a memo hit rather than a wait on the player's first click.
       setImmediate(() => {
-        try {
-          warmPuzzle(puzzleSpec, gameMap);
-        } catch (err) {
-          console.error('[daily v2] warm-up failed', err);
-        }
+        warmPuzzle(puzzleSpec, gameMap).catch((err) => console.error('[daily v2] warm-up failed', err));
       });
     }
   }
