@@ -307,6 +307,12 @@ wide board outgrows the node budget besides. Measured on the bench over the year
 10 October 2026, two turns on nine readings put 38 more days through the gate (86 to
 124) and cut the year's solving time from 19 minutes to 11.
 
+The second batch covered the rest of the capture, hold, region and chain readings:
+twelve more set-pieces, which over the same year put 56 more days through the gate (124
+to 180). Five readings stay v1. On every date they are served, `the_crowns_reach` and the
+Armada's hold were refused under every plan tried, and `operation_sea_lion`, `the_kanto`
+and `atlanta_to_the_sea` outgrew the node budget even on two turns.
+
 ## 7. Verification
 
 Beyond the repo's standard commands (`pnpm run test:backend`, frontend vitest,

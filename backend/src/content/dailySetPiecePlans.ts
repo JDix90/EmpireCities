@@ -147,6 +147,41 @@ export const SET_PIECE_PLANS: Readonly<Record<string, SetPiecePlans>> = {
     capture: { theme: 'the counterstroke', plan: reliefPlan(tactical('barbarossa'), { minOdds: 0.35 }) },
     hold: { theme: 'win on numbers', plan: siegePlan(tactical('barbarossa')) },
   },
+  the_ottoman_gates: {
+    capture: { theme: 'cut the supply line', plan: reliefPlan(tactical('the_ottoman_gates')) },
+    hold: { theme: 'the reserve', plan: siegePlan(tactical('the_ottoman_gates')) },
+  },
+  the_gates_of_vienna: {
+    capture: { theme: 'tempo', plan: reliefPlan(tactical('the_gates_of_vienna')) },
+    hold: { theme: 'the reserve', plan: siegePlan(tactical('the_gates_of_vienna')) },
+  },
+  crecy: {
+    // The Empire marches to the coast; on three turns the longbowmen could
+    // wait it out.
+    capture: { theme: 'the counterstroke', plan: reliefPlan(tactical('crecy')), clock: 2 },
+    hold: { theme: 'the reserve', plan: siegePlan(tactical('crecy')) },
+  },
+  the_road_to_jerusalem: {
+    capture: { theme: 'cut the supply line', plan: reliefPlan(tactical('the_road_to_jerusalem')) },
+    hold: { theme: 'the reserve', plan: siegePlan(tactical('the_road_to_jerusalem')) },
+  },
+  // The Armada's hold reading refused every date it is served under the
+  // siege plan, at either keep and on either clock: it stays v1.
+  the_armada: {
+    capture: { theme: 'sea crossing', plan: reliefPlan(tactical('the_armada')), clock: 2 },
+  },
+  the_desert_fox: {
+    capture: { theme: 'tempo', plan: reliefPlan(tactical('the_desert_fox')) },
+    hold: { theme: 'the reserve', plan: siegePlan(tactical('the_desert_fox')) },
+  },
+  savannah: {
+    capture: { theme: 'the counterstroke', plan: reliefPlan(tactical('savannah')), clock: 2 },
+    hold: { theme: 'win on numbers', plan: siegePlan(tactical('savannah')) },
+  },
+  the_thousand: {
+    capture: { theme: 'tempo', plan: reliefPlan(tactical('the_thousand')), clock: 2 },
+    hold: { theme: 'the reserve', plan: siegePlan(tactical('the_thousand')) },
+  },
 
   // ── Regions ───────────────────────────────────────────────────────────────
   // A region's objective is the whole region in the map's order, whose first
@@ -186,6 +221,27 @@ export const SET_PIECE_PLANS: Readonly<Record<string, SetPiecePlans>> = {
       },
     },
   },
+  the_eastern_marches: {
+    // Kiev feeds itself while it stands and strikes Poland; once it falls,
+    // Byzantium masses and strikes Hungary.
+    capture: {
+      theme: 'tempo',
+      clock: 2,
+      plan: {
+        objective: 'kievan_rus',
+        steps: [
+          { kind: 'draft', to: 'kievan_rus', when: 'objective_ai' },
+          { kind: 'draft', to: 'byzantine', when: 'objective_human' },
+          { kind: 'assault', from: 'kievan_rus', to: 'poland_bohemia', min_odds: 0.45, keep: 2, when: 'objective_ai' },
+          { kind: 'assault', from: 'byzantine', to: 'hungary', min_odds: 0.45, keep: 2 },
+        ],
+      },
+    },
+  },
+  // Fortress Europe (operation_sea_lion) and the Kantō have no plan: on two
+  // turns or on the tier's, every date they are served outgrew the search
+  // budget (five region territories, a support and, for Fortress Europe,
+  // Britain). They stay v1 until their boards are narrower.
   bleeding_missouri: {
     // Missouri is the only AI stack, so once it falls nothing can strike
     // back and most dates are a walkover the gate refuses. It needs a second
@@ -232,6 +288,49 @@ export const SET_PIECE_PLANS: Readonly<Record<string, SetPiecePlans>> = {
       },
     },
   },
+  case_yellow: {
+    // Morocco feeds Iberia while France stands, and retakes Iberia if it falls thin.
+    capture: {
+      theme: 'the forced march',
+      plan: {
+        steps: [
+          { kind: 'draft', to: 'france_ww2', when: 'objective_ai' },
+          { kind: 'draft', to: 'morocco_ww2', when: 'objective_human' },
+          { kind: 'march', from: 'morocco_ww2', to: 'iberia_ww2', when: 'objective_ai' },
+          { kind: 'assault', from: 'morocco_ww2', to: 'iberia_ww2', min_odds: 0.4, keep: 1, when: 'objective_human' },
+        ],
+      },
+    },
+  },
+  the_northern_expedition: {
+    capture: {
+      theme: 'the forced march',
+      plan: {
+        steps: [
+          { kind: 'draft', to: 'hunan', when: 'objective_ai' },
+          { kind: 'draft', to: 'henan', when: 'objective_human' },
+          { kind: 'march', from: 'henan', to: 'hubei', when: 'objective_ai' },
+          { kind: 'assault', from: 'henan', to: 'hubei', min_odds: 0.4, keep: 1, when: 'objective_human' },
+        ],
+      },
+    },
+  },
+  the_reconquista: {
+    capture: {
+      theme: 'the forced march',
+      clock: 2,
+      plan: {
+        steps: [
+          { kind: 'draft', to: 'toledo', when: 'objective_ai' },
+          { kind: 'draft', to: 'galicia_asturias', when: 'objective_human' },
+          { kind: 'march', from: 'galicia_asturias', to: 'cordoba', when: 'objective_ai' },
+          { kind: 'assault', from: 'galicia_asturias', to: 'cordoba', min_odds: 0.4, keep: 1, when: 'objective_human' },
+        ],
+      },
+    },
+  },
+  // atlanta_to_the_sea has no plan: every date it is served outgrew the
+  // search budget, on two turns as on the tier's.
   down_the_river: {
     // Two hops on three or four turns outgrew the search budget on every date served.
     capture: {
