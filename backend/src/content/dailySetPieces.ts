@@ -746,16 +746,21 @@ export const DAILY_SET_PIECES: readonly DailySetPiece[] = [
 
   // ── Region ────────────────────────────────────────────────────────────────
   {
+    // Scandinavia borders only Kiev and the Holy Roman Empire. Held beside
+    // Poland and Hungary it made a third front, and every solve found three
+    // openings within five points of the best; garrisoned, it needed the
+    // Empire on the board and outgrew the search budget. Behind Kiev it is
+    // the reserve.
     id: 'the_eastern_marches',
     kind: 'region',
     era_id: 'medieval',
     map_id: 'era_medieval',
     title: 'The Eastern Marches',
-    intro: 'Poland, Hungary and Scandinavia are yours. Kiev and Constantinople are not. The whole march, or none of it.',
-    hint: 'Two garrisons, one clock: take the nearer one with enough left to hold it, then the other.',
+    intro: 'Scandinavia, Kiev and Poland are yours. Constantinople and Hungary are not. The whole march, or none of it.',
+    hint: 'The north is your reserve: at the end of turn one, march Scandinavia’s army south to the front.',
     region_id: 'eastern_europe',
-    human: ['poland_bohemia', 'hungary', 'scandinavia'],
-    ai: ['kievan_rus', 'byzantine'],
+    human: ['kievan_rus', 'poland_bohemia', 'scandinavia'],
+    ai: ['byzantine', 'hungary'],
   },
   {
     id: 'the_parthian_shot',
