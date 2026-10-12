@@ -267,3 +267,47 @@ describe('TechTreeEraProgress — the count must match what is shown', () => {
     expect(screen.queryByTestId('techtree-advance-era')).toBeNull();
   });
 });
+
+describe('TechTreeEraProgress — the tutorial points at Advance', () => {
+  // The button appears at the top of the tree when the last research clears the
+  // gate, while the player is looking at the node they researched further down.
+  const ready = preview({
+    can_advance: true,
+    readiness: {
+      met: true,
+      mode: 'milestone',
+      tier1: { met: true, current: 2, required: 2, label: 't1' },
+      tier2: { met: true, current: 0, required: 0, label: 't2' },
+      buildings: { met: true, current: 0, required: 0, label: 'b' },
+    },
+  });
+
+  it('rings and pulses the button while the tutorial waits on it', () => {
+    render(
+      <TechTreeEraProgress gameState={gameState(ready)} player={player()} onAdvanceEra={() => {}} canAdvanceNow highlightAdvance />,
+    );
+    const btn = screen.getByTestId('techtree-advance-era');
+    expect(btn.className).toContain('animate-pulse');
+    expect(btn.className).toContain('ring-2');
+  });
+
+  it('leaves it plain outside the tutorial', () => {
+    render(<TechTreeEraProgress gameState={gameState(ready)} player={player()} onAdvanceEra={() => {}} canAdvanceNow />);
+    expect(screen.getByTestId('techtree-advance-era').className).not.toContain('animate-pulse');
+  });
+
+  it('does not pulse a button that cannot be pressed yet', () => {
+    render(
+      <TechTreeEraProgress
+        gameState={gameState(ready)}
+        player={player()}
+        onAdvanceEra={() => {}}
+        canAdvanceNow={false}
+        highlightAdvance
+      />,
+    );
+    const btn = screen.getByTestId('techtree-advance-era');
+    expect(btn).toBeDisabled();
+    expect(btn.className).not.toContain('animate-pulse');
+  });
+});

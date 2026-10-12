@@ -7,6 +7,7 @@ import {
   TUTORIAL_MODULES,
   TUTORIAL_V2_ENABLED,
   type TutorialLessonModule,
+  type TutorialRequireAction,
   type TutorialStep,
 } from '../../tutorial';
 import { getCompletedTutorialModules } from '../../tutorial/progression';
@@ -33,6 +34,15 @@ const OPTIONAL_MODULES: TutorialLessonModule[] = [
   'faction_ability',
   'tech_tree',
 ];
+
+/** The line a waiting card ends on: what the player does next. Anything else gets `overlay.waitDefault`. */
+const WAIT_LINE_KEYS: Partial<Record<TutorialRequireAction, string>> = {
+  tech_researched: 'overlay.waitTechResearched',
+  ability_used: 'overlay.waitAbilityUsed',
+  bonuses_opened: 'overlay.waitBonusesOpened',
+  tech_tree_opened: 'overlay.waitTechTreeOpened',
+  era_advanced: 'overlay.waitEraAdvanced',
+};
 
 interface TutorialOverlayProps {
   steps: TutorialStep[];
@@ -117,6 +127,21 @@ export default function TutorialOverlay({
   const [foldOverride, setFoldOverride] = useState<boolean | null>(null);
   const stepId = step?.id;
   useEffect(() => { setFoldOverride(null); }, [stepId]);
+  /**
+   * The card that was up when a full-screen panel opened. The player read it
+   * on the board and opened the panel because of it, so on a phone it folds
+   * out of the panel's way; a card that arrives while the panel is open has
+   * not been read yet, so it opens. Updated during render (React's "state
+   * from the previous render" pattern), not in an effect, so the frame the
+   * panel opens on is already folded.
+   */
+  const [panelEntry, setPanelEntry] = useState(() => ({
+    open: panelOpen,
+    stepId: panelOpen ? stepId : undefined,
+  }));
+  if (panelEntry.open !== panelOpen) {
+    setPanelEntry({ open: panelOpen, stepId: panelOpen ? stepId : undefined });
+  }
   if (!step) return null;
 
   const title = skipped && step.skippedTitle ? step.skippedTitle : step.title;
@@ -133,13 +158,24 @@ export default function TutorialOverlay({
    * at, and there is no fold control because that is docked-only.
    */
   const isShort = isShortViewport();
-  const anchorTop = isMobile && !centered && !!step.requireAction;
+  /**
+   * A phone with a full-screen panel open (tech tree, bonuses, settings lab).
+   * The panel fills the screen and keeps its own controls at the top, the tech
+   * tree's gate rail and the Advance button in it among them, so the card docks
+   * at the BOTTOM. Pinned to the top it covered the very rail its copy points
+   * at: on a 390×844 phone it ran from y 52 to 373 over a rail at 112 to 274,
+   * and a tap on the centre of "Advance to Medieval Era" landed on the card.
+   */
+  const anchorBottom = isMobile && panelOpen && !centered;
+  const anchorTop = isMobile && !centered && !!step.requireAction && !panelOpen;
+  /** Either phone dock: a compact card whose prose scrolls while its actions stay pinned. */
+  const compact = anchorTop || anchorBottom;
   /**
    * Dock left of a centered full-screen panel. The coaching card sits
    * bottom-center by default, which is exactly where the tech tree's Research
    * buttons are — it covered the very controls its own copy was telling the
-   * player to press. Desktop only; on mobile the panel fills the screen and
-   * `anchorTop` already moves the card clear.
+   * player to press. Desktop only; on a phone the panel fills the screen and
+   * `anchorBottom` docks the card under it instead.
    *
    * A short viewport docks for the same reason even with no panel open: the
    * gutter is the one place a wide-but-short frame has room to spare, and
@@ -161,9 +197,15 @@ export default function TutorialOverlay({
    * phone the card already covers the northern half of the board. Either way
    * the player has read the card and is now acting on it; the strip keeps it
    * one tap away.
+   *
+   * Over a panel on a phone the same reasoning applies to the card the player
+   * opened the panel from (`panelEntry`): it folds to a strip along the bottom
+   * that still names the next action, and the panel's own controls stay clear.
    */
-  const foldable = dockAsideTop || anchorTop;
-  const folded = foldable && (foldOverride ?? territorySelected);
+  const foldable = dockAsideTop || compact;
+  const folded = foldable
+    && (foldOverride ?? (anchorBottom ? panelEntry.stepId === step.id : territorySelected));
+  const waitLine = t((step.requireAction && WAIT_LINE_KEYS[step.requireAction]) || 'overlay.waitDefault');
 
   const handleModuleComplete = () => {
     onMarkModuleComplete?.();
@@ -182,7 +224,30 @@ export default function TutorialOverlay({
       {!step.requireAction && !folded && (
         <div className="absolute inset-0 bg-black/30 pointer-events-none" aria-hidden />
       )}
-      {folded ? (
+      {folded && anchorBottom ? (
+        // Along the bottom of a panel the strip keeps the card's last line, the
+        // action it waits on, so a folded card still says what to do next. It
+        // is opaque: over the tech tree's text a translucent strip read as two
+        // layers of words.
+        <button
+          type="button"
+          data-testid="tutorial-card-unfold"
+          onClick={() => setFoldOverride(false)}
+          aria-expanded={false}
+          className="pointer-events-auto absolute left-4 right-4 mx-auto max-w-md bottom-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] flex items-center gap-2 rounded-xl border border-bf-gold/30 bg-bf-surface shadow-2xl px-3 py-2 text-left"
+        >
+          <GraduationCap className="w-4 h-4 text-bf-gold shrink-0" />
+          <span className="min-w-0 flex-1">
+            <span className="block font-display text-sm text-bf-gold truncate">{title}</span>
+            <span className="block text-[11px] text-bf-muted truncate">
+              {step.requireAction
+                ? waitLine
+                : t('overlay.step', { current: stepIndex + 1, total: steps.length })}
+            </span>
+          </span>
+          <ChevronUp className="w-4 h-4 text-bf-muted shrink-0" />
+        </button>
+      ) : folded ? (
         <button
           type="button"
           data-testid="tutorial-card-unfold"
@@ -219,21 +284,26 @@ export default function TutorialOverlay({
             ? 'absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-w-lg max-h-[82vh] flex'
             : anchorTop
               ? 'absolute left-1/2 -translate-x-1/2 max-w-md top-[calc(env(safe-area-inset-top,0px)+3.25rem)]'
-              : dockAsideTop
-                // Capped so a long card can never reach the bottom of the
-                // gutter; `asideFolded` handles the territory panel, which
-                // needs the gutter outright.
-                ? 'absolute top-24 left-0 max-w-[19rem] max-h-[calc(100vh-8rem)] overflow-y-auto'
-                : dockAside
-                  ? 'absolute bottom-20 left-0 max-w-[19rem]'
-                  : 'absolute bottom-20 left-1/2 -translate-x-1/2 max-w-md mx-4',
+              : anchorBottom
+                ? 'absolute left-1/2 -translate-x-1/2 max-w-md bottom-[calc(env(safe-area-inset-bottom,0px)+0.75rem)]'
+                : dockAsideTop
+                  // Capped so a long card can never reach the bottom of the
+                  // gutter; `asideFolded` handles the territory panel, which
+                  // needs the gutter outright.
+                  ? 'absolute top-24 left-0 max-w-[19rem] max-h-[calc(100vh-8rem)] overflow-y-auto'
+                  : dockAside
+                    ? 'absolute bottom-20 left-0 max-w-[19rem]'
+                    : 'absolute bottom-20 left-1/2 -translate-x-1/2 max-w-md mx-4',
         )}
       >
         <div
           className={clsx(
             centered
               ? 'rounded-2xl border-2 border-bf-gold/40 bg-bf-surface/95 backdrop-blur-lg shadow-2xl text-center flex flex-col min-h-0 w-full'
-              : 'rounded-xl border border-bf-gold/30 bg-bf-surface/95 backdrop-blur-sm shadow-2xl',
+              : anchorBottom
+                // Opaque over a panel: at 95% the tech tree's text showed through.
+                ? 'rounded-xl border border-bf-gold/30 bg-bf-surface shadow-2xl'
+                : 'rounded-xl border border-bf-gold/30 bg-bf-surface/95 backdrop-blur-sm shadow-2xl',
             // Same flex-column trick as `centered`: the prose scrolls, the
             // actions below stay pinned. When the whole card scrolled, a phone
             // clipped the hint and the Exit control with no affordance.
@@ -243,7 +313,7 @@ export default function TutorialOverlay({
             // element and letting Tailwind's stylesheet order pick the winner.
             // A centered card can't spare `p-8` on a short viewport — that is
             // 4rem of chrome out of a 700px frame.
-            anchorTop
+            compact
               ? 'p-3 max-h-[38vh] flex flex-col min-h-0'
               : centered
                 ? (isShort ? 'p-5' : 'p-8')
@@ -251,7 +321,7 @@ export default function TutorialOverlay({
           )}
         >
           {/* Prose scrolls; the actions below stay pinned to the card. */}
-          <div className={centered || anchorTop ? 'min-h-0 overflow-y-auto' : undefined}>
+          <div className={centered || compact ? 'min-h-0 overflow-y-auto' : undefined}>
           <div className={`flex items-center justify-between mb-1 ${centered ? 'px-1' : ''}`}>
             <span className="text-[10px] text-bf-muted/60 uppercase tracking-widest">
               {t('overlay.step', { current: stepIndex + 1, total: steps.length })}
@@ -266,7 +336,7 @@ export default function TutorialOverlay({
                 title={t('overlay.collapseTitle')}
                 className="-mr-1 -mt-1 p-1 text-bf-muted hover:text-bf-gold transition-colors"
               >
-                <ChevronUp className="w-4 h-4" />
+                {anchorBottom ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
               </button>
             )}
           </div>
@@ -281,7 +351,7 @@ export default function TutorialOverlay({
           <p
             className={clsx(
               'text-bf-muted leading-relaxed mb-2',
-              centered ? 'text-lg' : anchorTop ? 'text-xs' : 'text-sm',
+              centered ? 'text-lg' : compact ? 'text-xs' : 'text-sm',
             )}
           >
             {renderTutorialText(message, playerColorName)}
@@ -290,7 +360,7 @@ export default function TutorialOverlay({
             <p
               className={clsx(
                 'text-bf-muted/60 leading-relaxed',
-                centered ? 'text-sm mb-4' : anchorTop ? 'text-[11px] mb-2' : 'text-xs mb-3',
+                centered ? 'text-sm mb-4' : compact ? 'text-[11px] mb-2' : 'text-xs mb-3',
               )}
             >
               {renderTutorialText(step.detail, playerColorName)}
@@ -315,7 +385,7 @@ export default function TutorialOverlay({
             <p
               className={clsx(
                 'text-bf-muted/60 italic',
-                centered ? 'text-base mb-4' : anchorTop ? 'text-[11px] mb-2' : 'text-xs mb-3',
+                centered ? 'text-base mb-4' : compact ? 'text-[11px] mb-2' : 'text-xs mb-3',
               )}
             >
               {renderTutorialText(step.hint, playerColorName)}
@@ -323,17 +393,19 @@ export default function TutorialOverlay({
           )}
           </div>
 
-          {step.actionOpenTechTree && onOpenTechTree && (
+          {/* A panel is already open: the button would offer the panel the
+              player is looking at (or one hidden behind it). */}
+          {step.actionOpenTechTree && onOpenTechTree && !panelOpen && (
             <button type="button" onClick={onOpenTechTree} className="btn-secondary text-sm w-full mb-2">
               {t('overlay.openTechTree')}
             </button>
           )}
-          {step.actionOpenBonuses && onOpenBonuses && (
+          {step.actionOpenBonuses && onOpenBonuses && !panelOpen && (
             <button type="button" onClick={onOpenBonuses} className="btn-secondary text-sm w-full mb-2">
               {t('overlay.openBonuses')}
             </button>
           )}
-          {step.actionOpenSettingsLab && onOpenSettingsLab && (
+          {step.actionOpenSettingsLab && onOpenSettingsLab && !panelOpen && (
             <button
               type="button"
               data-testid="tutorial-open-settings-lab"
@@ -438,24 +510,16 @@ export default function TutorialOverlay({
             <p
               className={clsx(
                 'text-bf-gold/80 text-center animate-pulse',
-                anchorTop ? 'text-xs mt-1' : 'text-base',
+                compact ? 'text-xs mt-1' : 'text-base',
               )}
             >
-              {step.requireAction === 'tech_researched'
-                ? t('overlay.waitTechResearched')
-                : step.requireAction === 'ability_used'
-                  ? t('overlay.waitAbilityUsed')
-                  : step.requireAction === 'bonuses_opened'
-                    ? t('overlay.waitBonusesOpened')
-                    : step.requireAction === 'tech_tree_opened'
-                      ? t('overlay.waitTechTreeOpened')
-                      : t('overlay.waitDefault')}
+              {waitLine}
             </p>
           )}
 
           {/* Exit Tutorial — clearly separated from primary action by divider */}
           {onExitTutorial && step.variant !== 'wrapup' && step.variant !== 'module_complete' && (
-            <div className={clsx('border-t border-bf-border/50', anchorTop ? 'mt-3 pt-2' : 'mt-5 pt-3')}>
+            <div className={clsx('border-t border-bf-border/50', compact ? 'mt-3 pt-2' : 'mt-5 pt-3')}>
               <button
                 type="button"
                 data-testid="tutorial-exit-btn"
@@ -463,7 +527,7 @@ export default function TutorialOverlay({
                 className={clsx(
                   'w-full flex items-center justify-center gap-1.5 rounded-lg border transition-colors',
                   'border-red-500/20 text-red-400/70 hover:text-red-400 hover:bg-red-500/10 hover:border-red-500/40',
-                  anchorTop ? 'py-1 text-[11px]' : 'py-2 text-xs',
+                  compact ? 'py-1 text-[11px]' : 'py-2 text-xs',
                 )}
               >
                 <X className="w-3.5 h-3.5 shrink-0" />

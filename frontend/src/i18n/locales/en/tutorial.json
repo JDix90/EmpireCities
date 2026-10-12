@@ -40,6 +40,7 @@
     "waitAbilityUsed": "Use your faction ability to continue…",
     "waitBonusesOpened": "Open the Bonuses panel to continue…",
     "waitTechTreeOpened": "Open the Tech Tree to continue…",
+    "waitEraAdvanced": "Advance your era to continue…",
     "waitDefault": "Complete the action to continue…",
     "exitTutorial": "Exit Tutorial",
     "openLinkedLesson": "Read first: {{title}}"

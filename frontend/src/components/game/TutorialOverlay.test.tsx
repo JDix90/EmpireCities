@@ -291,4 +291,105 @@ describe('TutorialOverlay', () => {
       expect(card?.className).not.toContain('p-5');
     });
   });
+
+  describe('a phone with a full-screen panel open', () => {
+    // The tech tree opens full screen with its gate rail, and the Advance
+    // button in it, at the top. A waiting card pinned to the top of a phone
+    // covered that rail: on a 390x844 screen a tap on the centre of
+    // "Advance to Medieval Era" landed on the card.
+    const research = {
+      id: 'ea_research',
+      title: 'Research Toward the Gate',
+      message: 'Open the Tech Tree and research a tier-1 technology.',
+      actionOpenTechTree: true,
+      requireAction: 'tech_researched',
+    } as TutorialStep;
+    const advance = {
+      id: 'ea_advance',
+      title: 'Advance to Medieval',
+      message: 'When every gate chip is green, hit Advance to Medieval.',
+      requireAction: 'era_advanced',
+    } as TutorialStep;
+    const steps = [research, advance];
+
+    function at(stepIndex: number, panelOpen: boolean) {
+      return (
+        <TutorialOverlay
+          steps={steps}
+          stepIndex={stepIndex}
+          lessonModule="core"
+          onAdvance={noop}
+          onContinuePlaying={noop}
+          onReturnToLobby={noop}
+          onOpenTechTree={noop}
+          panelOpen={panelOpen}
+        />
+      );
+    }
+    const wrapperOf = (container: HTMLElement) => container.querySelector('.pointer-events-auto');
+
+    it('folds the card the player opened the panel from to a strip along the bottom that names the next action', () => {
+      mockViewport({ mobile: true });
+      const { container, rerender } = render(at(0, false));
+      expect(wrapperOf(container)?.className).toContain('top-[');
+      rerender(at(0, true));
+      const strip = screen.getByTestId('tutorial-card-unfold');
+      expect(strip.className).toContain('bottom-[');
+      expect(strip.className).not.toContain('top-');
+      expect(strip).toHaveTextContent('Research Toward the Gate');
+      expect(strip).toHaveTextContent('Research a technology to continue…');
+      expect(screen.queryByText(/research a tier-1 technology/)).toBeNull();
+    });
+
+    it('unfolds at the bottom when the strip is tapped', () => {
+      mockViewport({ mobile: true });
+      const { container, rerender } = render(at(0, false));
+      rerender(at(0, true));
+      fireEvent.click(screen.getByTestId('tutorial-card-unfold'));
+      expect(screen.getByText(/research a tier-1 technology/)).toBeInTheDocument();
+      expect(wrapperOf(container)?.className).toContain('bottom-[');
+    });
+
+    it('opens a card that arrives while the panel is open, at the bottom, and it folds by hand', () => {
+      mockViewport({ mobile: true });
+      const { container, rerender } = render(at(0, false));
+      rerender(at(0, true));
+      rerender(at(1, true));
+      expect(screen.getByText(/hit Advance to Medieval/)).toBeInTheDocument();
+      const cls = wrapperOf(container)?.className ?? '';
+      expect(cls).toContain('bottom-[');
+      expect(cls).not.toContain('top-[');
+      expect(screen.getByText('Advance your era to continue…')).toBeInTheDocument();
+      fireEvent.click(screen.getByTestId('tutorial-card-fold'));
+      expect(screen.getByTestId('tutorial-card-unfold')).toHaveTextContent('Advance your era to continue…');
+    });
+
+    it('returns to the top of the board when the panel closes', () => {
+      mockViewport({ mobile: true });
+      const { container, rerender } = render(at(0, false));
+      rerender(at(0, true));
+      rerender(at(0, false));
+      expect(screen.queryByTestId('tutorial-card-unfold')).toBeNull();
+      expect(wrapperOf(container)?.className).toContain('top-[');
+    });
+
+    it('stops offering to open the panel that is already open', () => {
+      mockViewport({ mobile: true });
+      const { rerender } = render(at(0, false));
+      expect(screen.getByRole('button', { name: 'Open Tech Tree' })).toBeInTheDocument();
+      rerender(at(0, true));
+      fireEvent.click(screen.getByTestId('tutorial-card-unfold'));
+      expect(screen.queryByRole('button', { name: 'Open Tech Tree' })).toBeNull();
+    });
+
+    it('leaves the desktop dock beside the panel as it was, minus the redundant button', () => {
+      mockViewport();
+      const { container } = render(at(0, true));
+      const cls = wrapperOf(container)?.className ?? '';
+      expect(cls).toContain('bottom-20');
+      expect(cls).toContain('left-0');
+      expect(screen.queryByTestId('tutorial-card-unfold')).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Open Tech Tree' })).toBeNull();
+    });
+  });
 });

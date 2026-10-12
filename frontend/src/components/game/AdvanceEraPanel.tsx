@@ -12,6 +12,12 @@ interface AdvanceEraPanelProps {
   onAdvanceEra: () => void;
   /** Compact strip for map toolbar / mobile bar */
   variant?: 'sidebar' | 'compact';
+  /**
+   * The tutorial is waiting on the advance. Below 480px the compact pill is
+   * only a sparkle and a price, so on a phone it rings and pulses to show it
+   * is the button to press.
+   */
+  highlight?: boolean;
 }
 
 function GateRow({ ok, label }: { ok: boolean; label: string }) {
@@ -29,6 +35,7 @@ export default function AdvanceEraPanel({
   isMyTurn,
   onAdvanceEra,
   variant = 'sidebar',
+  highlight = false,
 }: AdvanceEraPanelProps) {
   // Collapsed by default: the full requirements checklist is reference
   // material consulted occasionally, but it lives in the FIXED part of the
@@ -71,6 +78,7 @@ export default function AdvanceEraPanel({
           buttonEnabled
             ? 'border-bf-gold/50 bg-bf-gold/15 text-bf-gold hover:bg-bf-gold/25'
             : 'border-bf-border bg-bf-dark/80 text-bf-muted opacity-80',
+          highlight && buttonEnabled && 'ring-2 ring-bf-gold animate-pulse',
         )}
       >
         <Sparkles className="w-3.5 h-3.5 shrink-0" />
