@@ -216,18 +216,19 @@ export const SET_PIECE_PLANS: Readonly<Record<string, SetPiecePlans>> = {
     },
   },
   the_eastern_marches: {
-    // Kiev feeds itself while it stands and strikes Poland; once it falls,
-    // Byzantium masses and strikes Hungary.
+    // Constantinople feeds itself while it stands and strikes Kiev; once it
+    // falls, Hungary masses. Hungary strikes Poland throughout. Scandinavia
+    // borders only Kiev, so its army is the reserve that decides the day.
     capture: {
-      theme: 'tempo',
+      theme: 'the reserve',
       clock: 2,
       plan: {
-        objective: 'kievan_rus',
+        objective: 'byzantine',
         steps: [
-          { kind: 'draft', to: 'kievan_rus', when: 'objective_ai' },
-          { kind: 'draft', to: 'byzantine', when: 'objective_human' },
-          { kind: 'assault', from: 'kievan_rus', to: 'poland_bohemia', min_odds: 0.45, keep: 2, when: 'objective_ai' },
-          { kind: 'assault', from: 'byzantine', to: 'hungary', min_odds: 0.45, keep: 2 },
+          { kind: 'draft', to: 'byzantine', when: 'objective_ai' },
+          { kind: 'draft', to: 'hungary', when: 'objective_human' },
+          { kind: 'assault', from: 'byzantine', to: 'kievan_rus', min_odds: 0.45, keep: 2, when: 'objective_ai' },
+          { kind: 'assault', from: 'hungary', to: 'poland_bohemia', min_odds: 0.45, keep: 2 },
         ],
       },
     },
