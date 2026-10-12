@@ -41,8 +41,9 @@ export const GALAXY_LANE_SOVEREIGNTY_STEPS: TutorialStep[] = [
     id: 'gls_chart',
     title: 'Read the Galaxy Chart',
     message: 'The board opens on the **Galaxy chart**. Click the **Galaxy chart** button above the board — it is how you come back from any world tab — and read the lanes: a lane in **your colour** is a corridor, a **blue** lane is open (you hold one end), a dim lane is closed to you. The Objectives panel in the sidebar keeps score: **corridors 4 of 5 · held 0 of 3 rounds**.',
+    messagePhone: 'The board opens on the **Galaxy chart**. Tap the **Galaxy chart** chip in the Worlds row above the board — it is how you come back from any world tab — and read the lanes: a lane in **your colour** is a corridor, a **blue** lane is open (you hold one end), a dim lane is closed to you. The Objectives panel under **☰ Menu** keeps score: **corridors 4 of 5 · held 0 of 3 rounds**.',
     detail: 'With three seats the ring\'s two gaps are bridged by colony lanes. They carry attacks like any lane, but Lane Sovereignty counts only the eight charted ones.',
-    hint: 'On a phone the Galaxy chart chip sits in the Worlds row above the board. A world tab opens that world on its own.',
+    hint: 'A world tab opens that world on its own.',
     requireAction: 'galaxy_chart_opened',
   },
   {

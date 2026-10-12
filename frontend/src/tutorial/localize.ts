@@ -35,7 +35,10 @@ export type TranslateFn = (
   options: { ns?: string; defaultValue: string } & Record<string, unknown>,
 ) => string;
 
-/** The copy fields a step can carry, in the order the card renders them. */
+/**
+ * The copy fields a step can carry, in the order the card renders them, then
+ * the phone layout's versions of three of them (see `messagePhone`).
+ */
 export const TUTORIAL_STEP_COPY_FIELDS = [
   'title',
   'message',
@@ -44,6 +47,9 @@ export const TUTORIAL_STEP_COPY_FIELDS = [
   'whyItMatters',
   'skippedTitle',
   'skippedMessage',
+  'messagePhone',
+  'detailPhone',
+  'hintPhone',
 ] as const;
 export type TutorialStepCopyField = (typeof TUTORIAL_STEP_COPY_FIELDS)[number];
 

@@ -6258,6 +6258,7 @@ export default function GamePage() {
           behindModal={tutorialCardBehindModal}
           panelOpen={showTechTree || showBonuses || showSettingsLab}
           territorySelected={!!selectedTerritory}
+          phoneLayout={isMobileLayout}
         />
       )}
 

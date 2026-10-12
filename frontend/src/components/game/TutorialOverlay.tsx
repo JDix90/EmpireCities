@@ -6,6 +6,7 @@ import { isMobileViewport, isShortViewport } from '../../utils/device';
 import {
   TUTORIAL_MODULES,
   TUTORIAL_V2_ENABLED,
+  cardCopy,
   type TutorialLessonModule,
   type TutorialRequireAction,
   type TutorialStep,
@@ -91,6 +92,13 @@ interface TutorialOverlayProps {
    * the panel, and unfolds again the moment they close it (or tap the strip).
    */
   territorySelected?: boolean;
+  /**
+   * The game is in its phone layout (GamePage's `isMobileLayout`: a narrow
+   * screen, or a phone held in landscape), with a bottom bar and ☰ Menu where
+   * the desktop has a sidebar. A card then reads its phone copy where it has
+   * some (`messagePhone`).
+   */
+  phoneLayout?: boolean;
 }
 
 export default function TutorialOverlay({
@@ -113,6 +121,7 @@ export default function TutorialOverlay({
   behindModal = false,
   panelOpen = false,
   territorySelected = false,
+  phoneLayout = false,
 }: TutorialOverlayProps) {
   const { t } = useTranslation('tutorial');
   const rawStep = steps[stepIndex] as TutorialStep | undefined;
@@ -144,8 +153,7 @@ export default function TutorialOverlay({
   }
   if (!step) return null;
 
-  const title = skipped && step.skippedTitle ? step.skippedTitle : step.title;
-  const message = skipped && step.skippedMessage ? step.skippedMessage : step.message;
+  const { title, message, detail, hint } = cardCopy(step, { phone: phoneLayout, skipped });
 
   const completedModules = getCompletedTutorialModules();
   const isMobile = isMobileViewport();
@@ -356,14 +364,14 @@ export default function TutorialOverlay({
           >
             {renderTutorialText(message, playerColorName)}
           </p>
-          {step.detail && (
+          {detail && (
             <p
               className={clsx(
                 'text-bf-muted/60 leading-relaxed',
                 centered ? 'text-sm mb-4' : compact ? 'text-[11px] mb-2' : 'text-xs mb-3',
               )}
             >
-              {renderTutorialText(step.detail, playerColorName)}
+              {renderTutorialText(detail, playerColorName)}
             </p>
           )}
           {step.whyItMatters && (
@@ -381,14 +389,14 @@ export default function TutorialOverlay({
               )}
             </div>
           )}
-          {step.hint && (
+          {hint && (
             <p
               className={clsx(
                 'text-bf-muted/60 italic',
                 centered ? 'text-base mb-4' : compact ? 'text-[11px] mb-2' : 'text-xs mb-3',
               )}
             >
-              {renderTutorialText(step.hint, playerColorName)}
+              {renderTutorialText(hint, playerColorName)}
             </p>
           )}
           </div>

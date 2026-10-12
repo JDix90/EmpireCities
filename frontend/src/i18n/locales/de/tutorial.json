@@ -91,7 +91,8 @@
       "draft_do": {
         "title": "Platziere deine Verstärkungen",
         "message": "Klicke auf eines deiner Gebiete – in **{playerColor}** –, stelle mit **−/+** (oder **All**) die Anzahl ein und drücke **Place**. Wenn alle Einheiten stehen, klicke auf den goldenen Button **{{draftButton}}**.",
-        "hint": "Wo du sie stapelst, entscheidet, welche Front du als Nächstes eröffnen kannst. Der goldene Button sitzt am Desktop in der Seitenleiste, am Handy in der unteren Leiste."
+        "hint": "Wo du sie stapelst, entscheidet, welche Front du als Nächstes eröffnen kannst. Der goldene Button sitzt in der Seitenleiste.",
+        "hintPhone": "Wo du sie stapelst, entscheidet, welche Front du als Nächstes eröffnen kannst. Der goldene Button sitzt in der Leiste am unteren Bildschirmrand."
       },
       "choose_front": {
         "title": "Wähle deine Front",
@@ -107,12 +108,14 @@
       "turn_ends": {
         "title": "Jetzt beobachte den Gegner",
         "message": "Seine Runde durchläuft dieselben drei Phasen. Du siehst seine Würfel, seine Eroberungen und den aktiven Spieler in Echtzeit in der Seitenleiste hervorgehoben.",
+        "messagePhone": "Seine Runde durchläuft dieselben drei Phasen. Die Leiste am unteren Rand nennt, wer gerade am Zug ist, und die Zeile direkt darüber zeigt seine Kämpfe samt Würfeln – eine schnelle KI ist vielleicht schon fertig, wenn du das liest.",
         "detail": "Hier gibt es nichts zu tun – die nächste Karte erscheint, sobald du wieder am Zug bist."
       },
       "economy_intro": {
         "title": "Dein Reich ist auch eine Wirtschaft",
         "message": "Du bist wieder dran – und diesmal, bevor du angreifst. Gebiete sind nur die halbe Miete: Dein Reich hat eine **Schatzkammer** und ein **Forschungsprogramm**, und beide sind gewachsen, während du Boden gehalten hast.",
         "detail": "Das Era-Panel in deiner Seitenleiste zeigt die Zeitleiste der Zeitalter, deine Position darauf und das Tor, das du zum Aufstieg erfüllen musst. Dein Gegner steigt in seinem eigenen Tempo auf.",
+        "detailPhone": "Das Era-Panel unter **☰ Menu** zeigt die Zeitleiste der Zeitalter, deine Position darauf und das Tor, das du zum Aufstieg erfüllen musst. Dein Gegner steigt in seinem eigenen Tempo auf.",
         "whyItMatters": "Eroberung gewinnt eine Karte. Ein Zeitalteraufstieg lässt dich über den Gegner hinauswachsen, der sie hält – stärkere Einheiten, ein frischer Technologiebaum und eine einmalige Signatur-Belohnung."
       },
       "ea_research": {
@@ -163,7 +166,9 @@
       "as_try_toggle": {
         "title": "Probiere eine Einstellung",
         "message": "Öffne unten das Einstellungslabor und schalte mindestens zwei Optionen um. Deine Wahl gilt für diese Übungspartie – achte nach dem Schließen des Labors auf neue Elemente in der Seitenleiste.",
+        "messagePhone": "Öffne unten das Einstellungslabor und schalte mindestens zwei Optionen um. Deine Wahl gilt für diese Übungspartie – achte nach dem Schließen des Labors auf neue Elemente unter **☰ Menu**.",
         "hint": "Tippe auf „Einstellungslabor öffnen“, lege zwei Schalter um, schließe das Labor und sieh in der Seitenleiste nach.",
+        "hintPhone": "Tippe auf „Einstellungslabor öffnen“, lege zwei Schalter um, schließe das Labor und sieh unter **☰ Menu** nach.",
         "whyItMatters": "Wer vor der ersten eigenen Lobby experimentiert, weiß schon, welche Schalter für die eigene Gruppe zählen."
       },
       "as_complete": {
@@ -180,6 +185,7 @@
       "ea_progress": {
         "title": "Dein Zeitalter und die Zeitleiste",
         "message": "Das Era-Panel in deiner Seitenleiste zeigt die Zeitleiste der Zeitalter, deine Position darauf und das Tor, das du zum Aufstieg erfüllen musst. Gegner steigen in ihrem eigenen Tempo auf.",
+        "messagePhone": "Das Era-Panel unter **☰ Menu** zeigt die Zeitleiste der Zeitalter, deine Position darauf und das Tor, das du zum Aufstieg erfüllen musst. Gegner steigen in ihrem eigenen Tempo auf.",
         "whyItMatters": "Wer zuerst aufsteigt, verschafft sich einen Vorteil – schwächt seine Armee aber kurz, das Timing zählt also."
       },
       "ea_open_tree": {
@@ -201,7 +207,7 @@
       "ea_advance": {
         "title": "Aufstieg ins Mittelalter",
         "message": "Sobald jeder Tor-Chip grün ist, drücke **Advance to Medieval Era** oben im Baum oder im Era-Panel. Etwa 70 % deiner Einheiten gehen mit – der Rest ist für immer verloren –, deine Technologie startet im neuen Zeitalter neu und du erhältst eine Signatur-Belohnung.",
-        "hint": "Fehlt noch etwas? Erforsche zuerst die fehlenden Knoten – das Zeitalteraufstieg-Panel in deiner Seitenleiste zeigt, was übrig ist, und der Advance-Button leuchtet, sobald nichts mehr fehlt."
+        "hint": "Fehlt noch etwas? Erforsche zuerst die fehlenden Knoten – die Torleiste oben im Baum zeigt, was übrig ist, und der Advance-Button leuchtet, sobald nichts mehr fehlt."
       },
       "ea_signature": {
         "title": "Verwundbar, aber stärker",
@@ -221,7 +227,7 @@
       },
       "fa_identity": {
         "title": "Kenne deine Fraktion",
-        "message": "Öffne das Bonuses-Panel in der Seitenleiste, um Chinas passive Boni (+1 Verteidigung in jedem deiner Gebiete) und die Beschreibung von Guerrilla Warfare zu lesen.",
+        "message": "Öffne das Bonuses-Panel, um Chinas passive Boni (+1 Verteidigung in jedem deiner Gebiete) und die Beschreibung von Guerrilla Warfare zu lesen.",
         "hint": "Tippe unten auf „Boni öffnen“ – das Panel zeigt Chinas passives +1 auf Verteidigung und die Guerrilla-Warfare-Ladungen.",
         "whyItMatters": "Wer seine Passiva kennt, verteidigt anders. Chinas +1 Verteidigung macht Angriffe auf Gebiete im Inneren sehr teuer."
       },
@@ -235,7 +241,7 @@
         "title": "Setze Guerrilla Warfare ein",
         "message": "Klicke in der Verstärkungsphase auf ein beliebiges eigenes Gebiet. Ein grüner Button „🌿 Guerrilla Warfare“ erscheint. Tippe darauf, um 1 Gratis-Einheit zu platzieren – keine Karten, keine Gebiete nötig.",
         "hint": "Tippe auf ein eigenes Gebiet und suche im Gebiets-Panel nach dem grünen Button „Guerrilla Warfare“.",
-        "detail": "Siehst du den Button nicht, prüfe, ob die Phase in der Seitenleiste „Reinforcement“ (Verstärkung) anzeigt. Während Angriff oder Befestigung erscheint er nicht."
+        "detail": "Siehst du den Button nicht, prüfe, ob gerade die Phase „Reinforcement“ (Verstärkung) läuft. Während Angriff oder Befestigung erscheint er nicht."
       },
       "fa_result": {
         "title": "Fähigkeit eingesetzt!",
@@ -284,8 +290,9 @@
       "gls_chart": {
         "title": "Lies die Galaxiekarte",
         "message": "Das Spielfeld öffnet sich auf der **Galaxy chart**. Klicke über dem Spielfeld auf den Button **Galaxy chart** – so kommst du aus jedem Welt-Tab zurück – und lies die Routen: Eine Route in **deiner Farbe** ist ein Korridor, eine **blaue** Route ist offen (du hältst ein Ende), eine gedimmte Route ist für dich geschlossen. Das Ziele-Feld in der Seitenleiste zählt mit: **corridors 4 of 5 · held 0 of 3 rounds**.",
+        "messagePhone": "Das Spielfeld öffnet sich auf der **Galaxy chart**. Tippe über dem Spielfeld in der Zeile Worlds auf den Chip **Galaxy chart** – so kommst du aus jedem Welt-Tab zurück – und lies die Routen: Eine Route in **deiner Farbe** ist ein Korridor, eine **blaue** Route ist offen (du hältst ein Ende), eine gedimmte Route ist für dich geschlossen. Das Ziele-Feld unter **☰ Menu** zählt mit: **corridors 4 of 5 · held 0 of 3 rounds**.",
         "detail": "Bei drei Sitzen überbrücken Kolonierouten die beiden Lücken des Rings. Sie tragen Angriffe wie jede Route, aber Lane Sovereignty zählt nur die acht kartierten.",
-        "hint": "Auf dem Handy sitzt der Chip Galaxy chart in der Reihe „Worlds“ über dem Spielfeld. Ein Welt-Tab öffnet diese Welt allein."
+        "hint": "Ein Welt-Tab öffnet diese Welt allein."
       },
       "gls_charts": {
         "title": "Erforsche Lane Charts",
@@ -348,6 +355,7 @@
       "gtr_gate": {
         "title": "Erfülle das Tor und steige auf",
         "message": "Beende die Forschung und die zweite Workshop, bis jeder Chip in der Leiste grün ist, und drücke dann direkt in der Leiste auf **Advance to Galactic Age** (das Feld **Era Advancement** in der Seitenleiste hat denselben Button). Der Aufstieg kostet ebenfalls PP.",
+        "messagePhone": "Beende die Forschung und die zweite Workshop, bis jeder Chip in der Leiste grün ist, und drücke dann direkt in der Leiste auf **Advance to Galactic Age** (das Feld **Era Advancement** unter **☰ Menu** hat denselben Button). Der Aufstieg kostet ebenfalls PP.",
         "detail": "Der Aufstieg konsolidiert deine Armeen: Etwa 30 % deiner Einheiten gehen endgültig verloren, und für einen Zug verteidigen deine Truppen schwächer. Deine Forschung des Weltraumzeitalters wird gelöscht – das neue Zeitalter sperrt seine Routen über Position, nicht über Technologie – und du erhältst das **Pathfinder Gate**: Die Routen zu Welten, die du noch nicht erreicht hast, gehören zwei Runden lang dir allein.",
         "hint": "Steige in deiner Verstärkungs- oder Befestigungsphase auf. Fehlt ein Chip? Die Leiste nennt, was fehlt."
       },
@@ -383,6 +391,7 @@
       "gsm_objectives": {
         "title": "Lies deine Mission",
         "message": "Das Feld **Objectives** im Status-Tab der Seitenleiste zeigt sie: **Mission: Own Guinea Coast and Pacific Rim**. Niemand sonst kann sie sehen – eine Mission wird nur ihrem Halter, ausgeschiedenen Spielern und auf dem Ergebnisbildschirm enthüllt. Die Mission der Mandate ist genauso privat.",
+        "messagePhone": "Das Feld **Objectives** im Tab **Status** unter **☰ Menu** zeigt sie: **Mission: Own Guinea Coast and Pacific Rim**. Niemand sonst kann sie sehen – eine Mission wird nur ihrem Halter, ausgeschiedenen Spielern und auf dem Ergebnisbildschirm enthüllt. Die Mission der Mandate ist genauso privat.",
         "detail": "Drei Missionsarten gibt es auf diesem Spielfeld: zwei genannte Systeme besitzen, eine oder zwei genannte Regionen kontrollieren oder einen genannten Spieler selbst eliminieren (tut es jemand anders, scheitert die Mission). Der Zeitalteraufstieg fügt „ein Zeitalter erreichen“ hinzu, das Weltraumzeitalter Mondziele.",
         "whyItMatters": "Ein Rivale, der deine Mission errät, kann das eine Gateway halten, das du brauchst. Zwei Sitze können sogar dasselbe Ziel ziehen: Missionen werden getrennt verteilt."
       },
@@ -428,6 +437,7 @@
       "gcp_rules": {
         "title": "Lies die Hauptstädte",
         "message": "Jede Hauptstadt ist auf der Karte markiert, und das Feld **Objectives** in der Seitenleiste zeigt **Your capital: Amazon Basin** mit der Regel darunter: Halte sie und nimm jede gegnerische Hauptstadt, gewertet ab Runde 2. Verlierst du Amazon Basin, wird das Feld rot – du kannst nicht über Hauptstädte gewinnen, bis du sie zurückeroberst.",
+        "messagePhone": "Jede Hauptstadt ist auf der Karte markiert, und das Feld **Objectives** unter **☰ Menu** zeigt **Your capital: Amazon Basin** mit der Regel darunter: Halte sie und nimm jede gegnerische Hauptstadt, gewertet ab Runde 2. Verlierst du Amazon Basin, wird das Feld rot – du kannst nicht über Hauptstädte gewinnen, bis du sie zurückeroberst.",
         "detail": "Nur lebende Rivalen zählen: Die Hauptstadt eines ausgeschiedenen Sitzes muss nicht mehr gehalten werden. In einem 2v2 oder mit verbündeten Häusern gewinnt die Seite, wenn jede lebende Hauptstadt in den Händen ihrer Mitglieder ist.",
         "whyItMatters": "Eine Hauptstadt auf einem Gateway ist Preis und Tür zugleich. Wer Chlorophage Span hält, hält das ferne Ende der Route Sol–Verdan – und damit einen Sovereignty-Korridor."
       },
@@ -463,6 +473,7 @@
       "gth_meter": {
         "title": "Lies die Kartenkontroll-Anzeige",
         "message": "Die obere Leiste zeigt **59%/60%**, und das Feld **Objectives** im Tab Status der Seitenleiste schreibt es aus: **Map control: 59% of 60% · 38 of 39 territories**, darunter **Hold 60% of the map — 39 of its 64 territories — to win. 1 more to go.** Der Anteil wird abgerundet, die Anzeige behauptet also nie einen Sieg, den der Server nicht gegeben hat.",
+        "messagePhone": "Die obere Leiste zeigt **59%/60%**, und das Feld **Objectives** im Tab **Status** unter **☰ Menu** schreibt es aus: **Map control: 59% of 60% · 38 of 39 territories**, darunter **Hold 60% of the map — 39 of its 64 territories — to win. 1 more to go.** Der Anteil wird abgerundet, die Anzeige behauptet also nie einen Sieg, den der Server nicht gegeben hat.",
         "detail": "Die nötige Zahl ist die ganze Zahl bei oder über 60 % des Spielfelds; Anzeige und Server verwenden denselben Ausdruck und sind sich über das letzte System nie uneins. In einem 2v2 oder mit verbündeten Häusern zählen die Systeme deiner Seite zusammen, und die Lobby setzt den Standard auf **75 %**, sobald 2v2 eingeschaltet wird. Gewertet ab Runde 2, wie jeder Sieg außer Dominanz.",
         "whyItMatters": "Niemand verstärkt eine Kolonie. Die sechzehn neutralen Rust-Systeme sitzen in den 64, wer sie auch hält – in einer echten Partie sind die Kolonien also der günstigste Weg zur Zahl."
       },
@@ -498,6 +509,7 @@
       "gdm_rules": {
         "title": "Last Commander Standing",
         "message": "Der Tab **Status** der Seitenleiste führt für Dominanz kein Ziel auf – es gibt nichts zu zählen außer dem Spielfeld selbst. Was die Partie beendet, ist ein Ausscheiden: Verliert ein Sitz sein letztes System, nennt der Bildschirm **Player Eliminated**, wer es genommen hat, und ist niemand sonst mehr übrig, zeigt der Ergebnisbildschirm **Last Commander Standing — all opponents eliminated**.",
+        "messagePhone": "Der Tab **Status** unter **☰ Menu** führt für Dominanz kein Ziel auf – es gibt nichts zu zählen außer dem Spielfeld selbst. Was die Partie beendet, ist ein Ausscheiden: Verliert ein Sitz sein letztes System, nennt der Bildschirm **Player Eliminated**, wer es genommen hat, und ist niemand sonst mehr übrig, zeigt der Ergebnisbildschirm **Last Commander Standing — all opponents eliminated**.",
         "detail": "Ausscheiden wird auch in Runde 1 gewertet, weshalb eine Hauptstadt mit zwei Einheiten oder ein einzelnes Gateway im ersten Zug ein echtes Risiko ist. Neutrale Kolonien gehören niemandem, sie zu nehmen oder zu ignorieren ändert hier also nichts; in einer Schwellen-Partie zählen sie. Eine Aufgabe ist ebenfalls ein Ausscheiden, niemandem gutgeschrieben.",
         "whyItMatters": "Ein Rivale mit nur noch einem System ist einen Angriff vom Ende der Partie entfernt – und ein Rivale, der das weiß, zieht mindestens drei Einheiten pro Zug darauf nach."
       },
@@ -532,7 +544,8 @@
       },
       "gpr_chart": {
         "title": "Lies das Spielfeld",
-        "message": "Klicke auf den Button **Galaxy chart** über dem Spielfeld (auf dem Handy auf den Chip **Galaxy chart** in der Zeile Worlds). Seine Legende **Lanes** lautet **Corridor · both gateways yours**, **Open · you hold one end**, **Closed · take a gateway first** und **Sealed · Emergency Seal, 1 round**. Ein Welt-Tab öffnet diese Welt allein; **Split** zeigt die Karte jeder Welt auf einmal.",
+        "message": "Klicke auf den Button **Galaxy chart** über dem Spielfeld. Seine Legende **Lanes** lautet **Corridor · both gateways yours**, **Open · you hold one end**, **Closed · take a gateway first** und **Sealed · Emergency Seal, 1 round**. Ein Welt-Tab öffnet diese Welt allein; **Split** zeigt die Karte jeder Welt auf einmal.",
+        "messagePhone": "Tippe auf den Chip **Galaxy chart** in der Zeile Worlds über dem Spielfeld. Seine Legende **Lanes** lautet **Corridor · both gateways yours**, **Open · you hold one end**, **Closed · take a gateway first** und **Sealed · Emergency Seal, 1 round**. Ein Welt-Tab öffnet diese Welt allein; **Split** zeigt die Karte jeder Welt auf einmal.",
         "detail": "Klicke auf einer Welt auf ein Gateway-System: Seine Karte **Gateway** führt jede Route mit der fernen Welt, ihrem Zustand und den Würfeln einer Überquerung auf – **Lane attacks roll 2 dice (3 with Lane Charts)**.",
         "hint": "Doppelklicke auf eine Welt im Chart oder auf ihren Button **Enter world →**, um hineinzugehen."
       },
@@ -554,7 +567,8 @@
       "gpr_wins": {
         "title": "Sieben Wege zum Sieg, sechs Lektionen",
         "message": "**Lane Sovereignty** ist der eigene Sieg der Galaxis: Halte 5 der 8 kartierten Routen als Korridore zu Beginn deines Zuges, 3 Züge in Folge – 5 in einem Duell oder einem 2v2. **Threshold** zählt jedes System, Kolonien eingeschlossen: 60 % von 64 sind 39, und eine Galaxis-Lobby öffnet damit bei 60 % – 75 % im 2v2 – mit einem 90-Runden-Limit dahinter. **Capital**: Die Hauptstadt jedes Sitzes ist das erste seiner zugeteilten Systeme in Listenreihenfolge, und auf dieser Karte ist das auf jeder Welt ein Gateway. **Secret Missions** nennen nie Boden hinter einem Hyperraumtor, jede Eroberungs- oder Kontrollmission nennt hier also Sol III, und ein Sitz, der ganz Sol hält, kann nur eine Eliminierungsmission ziehen. **Domination** endet, wenn der letzte Rivale fällt – Last Commander Standing, sofort gewertet. **Transcendence** braucht das Spielfeld Space to Stars: Steig vom Space Age ins Galaktische Zeitalter auf und errichte ein Wunder.",
-        "detail": "Jeder Sieg außer Dominanz wird ab Runde 2 gewertet, sobald jeder Sitz einen Zug hatte. Das Feld **Objectives** im Tab Status der Seitenleiste führt Buch über die, um die dieses Spielfeld spielt: **Map control** und **Lane Sovereignty**. Jede der sechs Lektionen des Galaktischen Zeitalters spielt einen dieser Siege auf einem gestalteten Spielfeld bis zum Ende."
+        "detail": "Jeder Sieg außer Dominanz wird ab Runde 2 gewertet, sobald jeder Sitz einen Zug hatte. Das Feld **Objectives** im Tab Status der Seitenleiste führt Buch über die, um die dieses Spielfeld spielt: **Map control** und **Lane Sovereignty**. Jede der sechs Lektionen des Galaktischen Zeitalters spielt einen dieser Siege auf einem gestalteten Spielfeld bis zum Ende.",
+        "detailPhone": "Jeder Sieg außer Dominanz wird ab Runde 2 gewertet, sobald jeder Sitz einen Zug hatte. Das Feld **Objectives** im Tab **Status** unter **☰ Menu** führt Buch über die, um die dieses Spielfeld spielt: **Map control** und **Lane Sovereignty**. Jede der sechs Lektionen des Galaktischen Zeitalters spielt einen dieser Siege auf einem gestalteten Spielfeld bis zum Ende."
       },
       "gpr_complete": {
         "title": "Primer abgeschlossen",

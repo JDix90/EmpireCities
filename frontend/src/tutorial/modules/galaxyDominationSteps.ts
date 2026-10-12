@@ -33,6 +33,7 @@ export const GALAXY_DOMINATION_STEPS: TutorialStep[] = [
     id: 'gdm_rules',
     title: 'Last Commander Standing',
     message: 'The sidebar\'s **Status** tab lists no objective for Domination — there is nothing to count toward but the board itself. What ends the game is an elimination: when a seat loses its last system the **Player Eliminated** screen names who took it, and if nobody else is left the result screen reads **Last Commander Standing — all opponents eliminated**.',
+    messagePhone: 'The **Status** tab under **☰ Menu** lists no objective for Domination — there is nothing to count toward but the board itself. What ends the game is an elimination: when a seat loses its last system the **Player Eliminated** screen names who took it, and if nobody else is left the result screen reads **Last Commander Standing — all opponents eliminated**.',
     detail: 'Eliminations are judged in round 1 too, which is why a two-unit capital or a lone gateway is a real risk on the first turn. Neutral colonies belong to nobody, so taking or ignoring them changes nothing here; in a Threshold game they count. A resignation is an elimination as well, credited to no one.',
     whyItMatters: 'A rival with one system left is one attack from ending the game — and a rival who knows that drafts at least three units a turn onto it.',
   },

@@ -88,6 +88,18 @@ export interface TutorialStep {
   message: string;
   detail?: string;
   hint?: string;
+  /**
+   * The same card for a phone. The game's phone layout has no sidebar: its
+   * panels (Status, Players, Log, the Era panel, Objectives) sit in the drawer
+   * behind the bottom bar's ☰ Menu button, and the gold phase button sits in
+   * that bar. A card whose copy names one of those places says so for both
+   * layouts, here and above; the overlay picks one by the layout the game is
+   * in (`cardCopy`). Set only where the place matters to the sentence; where
+   * it does not, one wording that names no place serves both.
+   */
+  messagePhone?: string;
+  detailPhone?: string;
+  hintPhone?: string;
   requireAction?: TutorialRequireAction;
   variant?: TutorialStepVariant;
   /**

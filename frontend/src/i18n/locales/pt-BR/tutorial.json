@@ -91,7 +91,8 @@
       "draft_do": {
         "title": "Posicione seus reforços",
         "message": "Clique em um dos seus territórios — em **{playerColor}** —, ajuste a quantidade com **−/+** (ou **All**) e pressione **Place**. Quando todas as unidades estiverem posicionadas, clique no botão dourado **{{draftButton}}**.",
-        "hint": "Onde você as empilha decide qual frente poderá abrir em seguida. O botão dourado fica na barra lateral no computador e na barra inferior no celular."
+        "hint": "Onde você as empilha decide qual frente poderá abrir em seguida. O botão dourado fica na barra lateral.",
+        "hintPhone": "Onde você as empilha decide qual frente poderá abrir em seguida. O botão dourado fica na barra da parte de baixo da tela."
       },
       "choose_front": {
         "title": "Escolha sua frente",
@@ -107,12 +108,14 @@
       "turn_ends": {
         "title": "Agora observe o adversário",
         "message": "O turno dele segue as mesmas três fases. Você verá os dados, as capturas e o jogador ativo destacado na barra lateral em tempo real.",
+        "messagePhone": "O turno dele segue as mesmas três fases. A barra de baixo mostra quem está jogando, e a linha logo acima mostra os combates dele, com dados e tudo — uma IA rápida pode já ter terminado quando você ler isto.",
         "detail": "Nada a fazer aqui — o próximo cartão chega quando o turno voltar para você."
       },
       "economy_intro": {
         "title": "Seu império também é uma economia",
         "message": "Sua vez de novo — e desta vez, antes de atacar. Território é só metade do jogo: seu império tem um **tesouro** e um **programa de pesquisa**, e os dois cresceram enquanto você mantinha terreno.",
         "detail": "O painel Era na sua barra lateral mostra a linha do tempo das eras, sua posição nela e o portão que você precisa superar para avançar. Seu adversário sobe no próprio ritmo.",
+        "detailPhone": "O painel Era, em **☰ Menu**, mostra a linha do tempo das eras, sua posição nela e o portão que você precisa superar para avançar. Seu adversário sobe no próprio ritmo.",
         "whyItMatters": "Conquista é como você vence um mapa. Avançar de era é como você supera o adversário que o ocupa — unidades mais fortes, uma árvore tecnológica nova e uma recompensa exclusiva única."
       },
       "ea_research": {
@@ -163,7 +166,9 @@
       "as_try_toggle": {
         "title": "Experimente uma configuração",
         "message": "Abra o laboratório de configurações abaixo e ative pelo menos duas opções. Suas escolhas valem para esta partida de prática — procure a nova interface na barra lateral depois de fechar o laboratório.",
+        "messagePhone": "Abra o laboratório de configurações abaixo e ative pelo menos duas opções. Suas escolhas valem para esta partida de prática — procure a nova interface em **☰ Menu** depois de fechar o laboratório.",
         "hint": "Toque em «Abrir o laboratório de configurações», ative duas opções, feche o laboratório e confira a barra lateral.",
+        "hintPhone": "Toque em «Abrir o laboratório de configurações», ative duas opções, feche o laboratório e confira **☰ Menu**.",
         "whyItMatters": "Experimentar antes do seu primeiro lobby personalizado significa que você já saberá quais opções importam para o seu grupo."
       },
       "as_complete": {
@@ -180,6 +185,7 @@
       "ea_progress": {
         "title": "Sua era e a linha do tempo",
         "message": "O painel Era na sua barra lateral mostra a linha do tempo das eras, sua posição nela e o portão que você precisa superar para avançar. Os adversários sobem no próprio ritmo.",
+        "messagePhone": "O painel Era, em **☰ Menu**, mostra a linha do tempo das eras, sua posição nela e o portão que você precisa superar para avançar. Os adversários sobem no próprio ritmo.",
         "whyItMatters": "Avançar primeiro dá vantagem — mas enfraquece seu exército por um breve período, então o momento importa."
       },
       "ea_open_tree": {
@@ -201,7 +207,7 @@
       "ea_advance": {
         "title": "Avance para a Idade Média",
         "message": "Quando todos os indicadores do portão estiverem verdes, pressione **Advance to Medieval Era** no alto da árvore ou no painel Era. Cerca de 70% das suas unidades seguem em frente — o resto se perde para sempre —, sua tecnologia recomeça na nova era e você ganha uma recompensa exclusiva.",
-        "hint": "Ainda falta algo? Pesquise primeiro os nós que faltam — o painel de avanço de era na sua barra lateral mostra o que resta, e o botão Advance acende quando não resta nada."
+        "hint": "Ainda falta algo? Pesquise primeiro os nós que faltam — a barra do portão, no alto da árvore, mostra o que resta, e o botão Advance acende quando não resta nada."
       },
       "ea_signature": {
         "title": "Vulnerável, mas mais forte",
@@ -221,7 +227,7 @@
       },
       "fa_identity": {
         "title": "Conheça sua facção",
-        "message": "Abra o painel Bonuses na barra lateral para ler os bônus passivos da China (+1 de defesa em todos os seus territórios) e a descrição de Guerrilla Warfare.",
+        "message": "Abra o painel Bonuses para ler os bônus passivos da China (+1 de defesa em todos os seus territórios) e a descrição de Guerrilla Warfare.",
         "hint": "Toque em «Abrir bônus» abaixo — o painel mostra o +1 de defesa passivo da China e as cargas de Guerrilla Warfare.",
         "whyItMatters": "Entender seus passivos muda onde você defende. O +1 de defesa da China torna os territórios interiores muito caros de atacar."
       },
@@ -235,7 +241,7 @@
         "title": "Use Guerrilla Warfare",
         "message": "Durante a fase de reforço, clique em qualquer território seu. Um botão verde «🌿 Guerrilla Warfare» vai aparecer. Toque nele para posicionar 1 unidade grátis — sem cartas nem territórios necessários.",
         "hint": "Toque em qualquer território seu e procure o botão verde «Guerrilla Warfare» no painel do território.",
-        "detail": "Se não vir o botão, confira se a fase mostrada na barra lateral é «Reinforcement» (reforço). Ele não aparece durante Ataque nem Fortificação."
+        "detail": "Se não vir o botão, confira se é a fase «Reinforcement» (reforço). Ele não aparece durante Ataque nem Fortificação."
       },
       "fa_result": {
         "title": "Habilidade usada!",
@@ -284,8 +290,9 @@
       "gls_chart": {
         "title": "Leia o mapa galáctico",
         "message": "O tabuleiro abre no **Galaxy chart**. Clique no botão **Galaxy chart** acima do tabuleiro — é assim que você volta de qualquer aba de mundo — e leia as rotas: uma rota na **sua cor** é um corredor, uma rota **azul** está aberta (você controla uma ponta) e uma rota apagada está fechada para você. O painel de objetivos na barra lateral faz a contagem: **corridors 4 of 5 · held 0 of 3 rounds**.",
+        "messagePhone": "O tabuleiro abre no **Galaxy chart**. Toque no chip **Galaxy chart** da fileira Worlds, acima do tabuleiro — é assim que você volta de qualquer aba de mundo — e leia as rotas: uma rota na **sua cor** é um corredor, uma rota **azul** está aberta (você controla uma ponta) e uma rota apagada está fechada para você. O painel de objetivos, em **☰ Menu**, faz a contagem: **corridors 4 of 5 · held 0 of 3 rounds**.",
         "detail": "Com três assentos, rotas coloniais fecham as duas lacunas do anel. Elas permitem ataques como qualquer rota, mas Lane Sovereignty só conta as oito mapeadas.",
-        "hint": "No celular, o chip Galaxy chart fica na linha \"Worlds\" acima do tabuleiro. Uma aba de mundo abre aquele mundo sozinho."
+        "hint": "Uma aba de mundo abre aquele mundo sozinho."
       },
       "gls_charts": {
         "title": "Pesquise Lane Charts",
@@ -348,6 +355,7 @@
       "gtr_gate": {
         "title": "Cumpra o portão e avance",
         "message": "Termine a pesquisa e a segunda Workshop até todos os chips do trilho ficarem verdes, então pressione **Advance to Galactic Age** ali mesmo no trilho (o painel **Era Advancement** na barra lateral tem o mesmo botão). O avanço também custa PP.",
+        "messagePhone": "Termine a pesquisa e a segunda Workshop até todos os chips do trilho ficarem verdes, então pressione **Advance to Galactic Age** ali mesmo no trilho (o painel **Era Advancement**, em **☰ Menu**, tem o mesmo botão). O avanço também custa PP.",
         "detail": "Avançar consolida seus exércitos: cerca de 30% das suas unidades são perdidas para sempre, e por um turno seus defensores lutam mais fracos. Sua pesquisa da Era Espacial é apagada — a era que chega tranca suas rotas por posição, não por tecnologia — e você ganha o **Pathfinder Gate**: as rotas para mundos que você ainda não alcançou são só suas por duas rodadas.",
         "hint": "Avance na sua fase de Reforço ou de Fortificação. Faltou um chip? O trilho diz o que falta."
       },
@@ -383,6 +391,7 @@
       "gsm_objectives": {
         "title": "Leia a sua missão",
         "message": "O painel **Objectives** na aba Status da barra lateral a mostra: **Mission: Own Guinea Coast and Pacific Rim**. Ninguém mais pode vê-la — uma missão é revelada só a quem a tem, a jogadores eliminados e na tela de resultado. A missão da Mandate é igualmente privada.",
+        "messagePhone": "O painel **Objectives** na aba **Status**, em **☰ Menu**, a mostra: **Mission: Own Guinea Coast and Pacific Rim**. Ninguém mais pode vê-la — uma missão é revelada só a quem a tem, a jogadores eliminados e na tela de resultado. A missão da Mandate é igualmente privada.",
         "detail": "Há três tipos de missão neste tabuleiro: possuir dois sistemas nomeados, controlar uma ou duas regiões nomeadas, ou eliminar você mesmo um jogador nomeado (se outro fizer isso, a missão falha). O avanço de era acrescenta \"alcançar uma era\"; a Era Espacial, objetivos lunares.",
         "whyItMatters": "Um rival que adivinhe a sua missão pode segurar o único gateway de que você precisa. Dois assentos podem até tirar o mesmo objetivo: as missões são distribuídas separadamente."
       },
@@ -428,6 +437,7 @@
       "gcp_rules": {
         "title": "Leia as capitais",
         "message": "Toda capital está marcada no mapa, e o painel **Objectives** na barra lateral mostra **Your capital: Amazon Basin** com a regra embaixo: mantenha-a e tome toda capital rival, julgado a partir da rodada 2. Perca Amazon Basin e o painel fica vermelho — você não pode vencer por capitais até retomá-la.",
+        "messagePhone": "Toda capital está marcada no mapa, e o painel **Objectives**, em **☰ Menu**, mostra **Your capital: Amazon Basin** com a regra embaixo: mantenha-a e tome toda capital rival, julgado a partir da rodada 2. Perca Amazon Basin e o painel fica vermelho — você não pode vencer por capitais até retomá-la.",
         "detail": "Só rivais vivos contam: a capital de um assento eliminado não precisa mais ser mantida. Num 2v2 ou com casas aliadas, o lado vence quando toda capital viva está nas mãos dos seus membros, somadas.",
         "whyItMatters": "Uma capital num gateway é o prêmio e a porta ao mesmo tempo. Quem controla Chlorophage Span controla a ponta distante da rota Sol–Verdan, e com ela um corredor de Sovereignty."
       },
@@ -463,6 +473,7 @@
       "gth_meter": {
         "title": "Leia o medidor de controle do mapa",
         "message": "A barra superior mostra **59%/60%**, e o painel **Objectives** na aba Status da barra lateral detalha: **Map control: 59% of 60% · 38 of 39 territories**, com **Hold 60% of the map — 39 of its 64 territories — to win. 1 more to go.** embaixo. A fração é arredondada para baixo, então o medidor nunca anuncia uma vitória que o servidor não deu.",
+        "messagePhone": "A barra superior mostra **59%/60%**, e o painel **Objectives** na aba **Status**, em **☰ Menu**, detalha: **Map control: 59% of 60% · 38 of 39 territories**, com **Hold 60% of the map — 39 of its 64 territories — to win. 1 more to go.** embaixo. A fração é arredondada para baixo, então o medidor nunca anuncia uma vitória que o servidor não deu.",
         "detail": "A quantidade necessária é o número inteiro igual ou acima de 60% do tabuleiro; o medidor e o servidor usam a mesma expressão, então nunca discordam sobre o último sistema. Num 2v2 ou com casas aliadas, os sistemas do seu lado contam juntos, e a sala move o padrão para **75%** quando o 2v2 é ligado. Julgado a partir da rodada 2, como toda vitória exceto a dominação.",
         "whyItMatters": "Ninguém reforça uma colônia. Os dezesseis sistemas neutros de Rust estão dentro dos 64 seja quem for que os controle, então numa partida real as colônias são o caminho mais barato até o número."
       },
@@ -498,6 +509,7 @@
       "gdm_rules": {
         "title": "Last Commander Standing",
         "message": "A aba **Status** da barra lateral não lista objetivo nenhum para a dominação — não há nada a contar além do próprio tabuleiro. O que encerra a partida é uma eliminação: quando um assento perde seu último sistema, a tela **Player Eliminated** diz quem o tomou, e se não sobra mais ninguém, a tela de resultado mostra **Last Commander Standing — all opponents eliminated**.",
+        "messagePhone": "A aba **Status**, em **☰ Menu**, não lista objetivo nenhum para a dominação — não há nada a contar além do próprio tabuleiro. O que encerra a partida é uma eliminação: quando um assento perde seu último sistema, a tela **Player Eliminated** diz quem o tomou, e se não sobra mais ninguém, a tela de resultado mostra **Last Commander Standing — all opponents eliminated**.",
         "detail": "Eliminações são julgadas na rodada 1 também, e por isso uma capital com duas unidades ou um gateway isolado é um risco real no primeiro turno. Colônias neutras não pertencem a ninguém, então tomá-las ou ignorá-las não muda nada aqui; numa partida de Limiar elas contam. Uma desistência também é uma eliminação, creditada a ninguém.",
         "whyItMatters": "Um rival com um único sistema está a um ataque de encerrar a partida — e um rival que sabe disso recruta pelo menos três unidades por turno nele."
       },
@@ -532,7 +544,8 @@
       },
       "gpr_chart": {
         "title": "Leia o tabuleiro",
-        "message": "Clique no botão **Galaxy chart** acima do tabuleiro (num celular, o chip **Galaxy chart** na fileira Worlds). A legenda **Lanes** diz **Corridor · both gateways yours**, **Open · you hold one end**, **Closed · take a gateway first** e **Sealed · Emergency Seal, 1 round**. Uma aba de mundo abre aquele mundo sozinho; **Split** mostra o mapa de todos os mundos de uma vez.",
+        "message": "Clique no botão **Galaxy chart** acima do tabuleiro. A legenda **Lanes** diz **Corridor · both gateways yours**, **Open · you hold one end**, **Closed · take a gateway first** e **Sealed · Emergency Seal, 1 round**. Uma aba de mundo abre aquele mundo sozinho; **Split** mostra o mapa de todos os mundos de uma vez.",
+        "messagePhone": "Toque no chip **Galaxy chart** da fileira Worlds, acima do tabuleiro. A legenda **Lanes** diz **Corridor · both gateways yours**, **Open · you hold one end**, **Closed · take a gateway first** e **Sealed · Emergency Seal, 1 round**. Uma aba de mundo abre aquele mundo sozinho; **Split** mostra o mapa de todos os mundos de uma vez.",
         "detail": "Num mundo, clique num sistema gateway: o cartão **Gateway** dele lista cada rota com o mundo distante, o estado dela e os dados que uma travessia rola — **Lane attacks roll 2 dice (3 with Lane Charts)**.",
         "hint": "Dê um clique duplo num mundo no mapa, ou no botão **Enter world →** dele, para entrar."
       },
@@ -554,7 +567,8 @@
       "gpr_wins": {
         "title": "Sete jeitos de vencer, seis lições",
         "message": "**Lane Sovereignty** é a própria da galáxia: controle 5 das 8 rotas cartografadas como corredores no início do seu turno, 3 turnos seguidos — 5 num duelo ou num 2v2. **Threshold** conta todos os sistemas, colônias incluídas: 60% de 64 é 39, e uma sala galáctica abre com ele ligado em 60% — 75% no 2v2 — com um limite de 90 rodadas atrás. **Capital**: a capital de cada assento é o primeiro dos seus sistemas distribuídos em ordem de lista, e neste mapa isso é um gateway em cada mundo. **Secret Missions** nunca nomeiam terreno atrás de um portal hiperespacial, então toda missão de captura ou controle aqui nomeia Sol III, e um assento que controla toda Sol só pode receber uma missão de eliminação. **Domination** termina quando o último rival cai — Last Commander Standing, julgada na hora. **Transcendence** precisa do tabuleiro Space to Stars: suba da Era Espacial para a Era Galáctica e erga uma maravilha.",
-        "detail": "Toda vitória exceto a dominação é julgada a partir da rodada 2, depois que cada assento teve um turno. O painel **Objectives** na aba Status da barra lateral acompanha as que este tabuleiro joga: **Map control** e **Lane Sovereignty**. Cada uma das seis lições da Era Galáctica joga uma dessas vitórias até o fim num tabuleiro desenhado para ela."
+        "detail": "Toda vitória exceto a dominação é julgada a partir da rodada 2, depois que cada assento teve um turno. O painel **Objectives** na aba Status da barra lateral acompanha as que este tabuleiro joga: **Map control** e **Lane Sovereignty**. Cada uma das seis lições da Era Galáctica joga uma dessas vitórias até o fim num tabuleiro desenhado para ela.",
+        "detailPhone": "Toda vitória exceto a dominação é julgada a partir da rodada 2, depois que cada assento teve um turno. O painel **Objectives** na aba **Status**, em **☰ Menu**, acompanha as que este tabuleiro joga: **Map control** e **Lane Sovereignty**. Cada uma das seis lições da Era Galáctica joga uma dessas vitórias até o fim num tabuleiro desenhado para ela."
       },
       "gpr_complete": {
         "title": "Primer concluído",
