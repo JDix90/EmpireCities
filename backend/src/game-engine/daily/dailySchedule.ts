@@ -40,6 +40,7 @@ import {
   captureGoal,
   regionGoal,
   HOLD_BAND,
+  seaCrossingCapped,
   economySpecFromBase,
   findConnection,
   GENERATED_AI_DIFFICULTY,
@@ -468,7 +469,7 @@ async function materializeTactical(
     support: sp.support ?? null,
     relief: sp.relief ?? null,
     extraAi: sp.extra_ai,
-    assaultIsSea: edge.type === 'sea',
+    seaCapped: seaCrossingCapped(sp.era_id, edge.type),
     rng: createSeededRng((seeds.dice_queue_seed ^ 0x7ac71ca1) >>> 0),
     band,
     maxTurnsBase: GENERATED_MAX_TURNS,
@@ -520,7 +521,7 @@ async function materializeHold(
     target: sp.target,
     reserve: sp.relief ?? null,
     extraAi: [sp.support, ...(sp.extra_ai ?? [])].filter((x): x is string => typeof x === 'string'),
-    assaultIsSea: edge.type === 'sea',
+    seaCapped: seaCrossingCapped(sp.era_id, edge.type),
     rng: createSeededRng((seeds.dice_queue_seed ^ 0x7ac71ca1) >>> 0),
     band,
   });
@@ -572,7 +573,7 @@ async function materializeRegion(
     support: sp.support ?? null,
     extraAi: sp.extra_ai,
     anchorFor: (aiTid) => humanSide.find((h) => !!findConnection(map, h, aiTid)) ?? null,
-    assaultIsSea: (from, to) => findConnection(map, from, to)?.type === 'sea',
+    seaCapped: (from, to) => seaCrossingCapped(sp.era_id, findConnection(map, from, to)?.type),
     rng: createSeededRng((seeds.dice_queue_seed ^ 0x7ac71ca1) >>> 0),
     band,
   });
@@ -616,7 +617,7 @@ async function materializeChain(
     support: sp.support ?? null,
     relief: sp.relief ?? null,
     extraAi: sp.extra_ai,
-    assaultIsSea: (from, to) => findConnection(map, from, to)?.type === 'sea',
+    seaCapped: (from, to) => seaCrossingCapped(sp.era_id, findConnection(map, from, to)?.type),
     rng: createSeededRng((seeds.dice_queue_seed ^ 0x7ac71ca1) >>> 0),
     band,
   });
