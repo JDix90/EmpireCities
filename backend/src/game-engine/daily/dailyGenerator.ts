@@ -19,6 +19,7 @@ import type { DailyPuzzleArchetype, DailyPuzzleSpec } from './dailyPuzzleTypes';
 import { captureProbability } from '../combat/combatOdds';
 import { createSeededRng } from '../victory/missions';
 import { BUILDING_PREREQUISITES, DEFAULT_BUILDING_COSTS } from '../state/economyManager';
+import { ERA_DEFAULTS } from '../state/eraModifiers';
 import { buildingDisplayName as buildingPanelName } from '@borderfall/shared';
 
 /** Human-readable territory label for puzzle copy (prefers map data, else softens ids). */
@@ -197,11 +198,25 @@ export interface TacticalCalibrationInput {
   relief?: string | null;
   /** Other AI holdings that neither reinforce nor border the fight. */
   extraAi?: readonly string[];
-  /** A sea crossing rolls capped dice, so the stack is sized up on its own. */
-  assaultIsSea: boolean;
+  /**
+   * The assault crosses a sea its era caps at two attack dice
+   * (seaCrossingCapped), so the stack is sized up on its own.
+   */
+  seaCapped: boolean;
   rng: () => number;
   band: TacticalBand;
   maxTurnsBase: number;
+}
+
+/**
+ * Whether an assault across a connection of `edgeType` rolls capped attack
+ * dice in `era`: a sea crossing, under an era whose doctrine caps it
+ * (Discovery's sea lanes, state/eraModifiers.ts). Everywhere else a sea
+ * crossing rolls the full three dice, as the live game and the v2 model
+ * (puzzle/bridge.ts `seaCap`) play it.
+ */
+export function seaCrossingCapped(era: EraId, edgeType: string | undefined): boolean {
+  return edgeType === 'sea' && !!ERA_DEFAULTS[era]?.sea_lanes;
 }
 
 export interface TacticalCalibration {
@@ -222,7 +237,7 @@ export function calibrateTactical(input: TacticalCalibrationInput): TacticalCali
 
   const garrison = int(5, 8);
   const targetP = band.min + rng() * (band.max - band.min);
-  const attackerBaseCap = input.assaultIsSea ? 2 : 3;
+  const attackerBaseCap = input.seaCapped ? 2 : 3;
   let attackers = garrison + 1;
   let p = 0;
   for (; attackers <= garrison + 14; attackers++) {
@@ -252,9 +267,9 @@ export function calibrateTactical(input: TacticalCalibrationInput): TacticalCali
 
   return {
     board,
-    // Tight, honest clock in the authored range; a sea crossing gets slack
-    // for its capped dice. maxTurnsBase is kept as a ceiling.
-    max_turns: Math.min(input.maxTurnsBase, (input.assaultIsSea ? 10 : 8) + int(0, 1)),
+    // Tight, honest clock in the authored range; a capped sea crossing gets
+    // slack for its dice. maxTurnsBase is kept as a ceiling.
+    max_turns: Math.min(input.maxTurnsBase, (input.seaCapped ? 10 : 8) + int(0, 1)),
     p,
   };
 }
@@ -282,7 +297,8 @@ export interface HoldCalibrationInput {
   reserve?: string | null;
   /** Other AI holdings. */
   extraAi?: readonly string[];
-  assaultIsSea: boolean;
+  /** The AI's assault crosses a sea its era caps (seaCrossingCapped). */
+  seaCapped: boolean;
   rng: () => number;
   band: TacticalBand;
 }
@@ -294,7 +310,7 @@ export function calibrateHold(input: HoldCalibrationInput): TacticalCalibration 
   const garrison = int(4, 7);
   const defended = garrison + HOLD_OPENING_DRAFT;
   const targetP = band.min + rng() * (band.max - band.min);
-  const attackerBaseCap = input.assaultIsSea ? 2 : 3;
+  const attackerBaseCap = input.seaCapped ? 2 : 3;
   let stack = defended + 1;
   let p = 0;
   for (; stack <= defended + 16; stack++) {
@@ -356,7 +372,8 @@ export interface RegionCalibrationInput {
   extraAi?: readonly string[];
   /** For each AI territory, the human territory its assault comes from. */
   anchorFor: (aiTerritory: string) => string | null;
-  assaultIsSea: (from: string, to: string) => boolean;
+  /** Whether the assault from one territory to another crosses a capped sea (seaCrossingCapped). */
+  seaCapped: (from: string, to: string) => boolean;
   rng: () => number;
   band: TacticalBand;
 }
@@ -374,7 +391,7 @@ export function calibrateRegion(input: RegionCalibrationInput): TacticalCalibrat
   if (!anchor) return null;
   const garrison = int(4, 7);
   const targetP = band.min + rng() * (band.max - band.min);
-  const found = searchAttackers(garrison, targetP, input.assaultIsSea(anchor, primary) ? 2 : 3, band);
+  const found = searchAttackers(garrison, targetP, input.seaCapped(anchor, primary) ? 2 : 3, band);
   if (!found) return null;
   board[primary] = { owner: 'ai', unit_count: garrison };
   board[anchor] = { owner: 'human', unit_count: found.attackers };
@@ -394,7 +411,8 @@ export interface ChainCalibrationInput {
   support?: string | null;
   relief?: string | null;
   extraAi?: readonly string[];
-  assaultIsSea: (from: string, to: string) => boolean;
+  /** Whether the assault from one territory to another crosses a capped sea (seaCrossingCapped). */
+  seaCapped: (from: string, to: string) => boolean;
   rng: () => number;
   band: TacticalBand;
 }
@@ -407,7 +425,7 @@ export function calibrateChain(input: ChainCalibrationInput): TacticalCalibratio
   const [first, ...rest] = input.targets;
   const garrison = int(4, 6);
   const targetP = band.min + rng() * (band.max - band.min);
-  const found = searchAttackers(garrison, targetP, input.assaultIsSea(input.anchor, first) ? 2 : 3, band);
+  const found = searchAttackers(garrison, targetP, input.seaCapped(input.anchor, first) ? 2 : 3, band);
   if (!found) return null;
 
   const board: NonNullable<DailyPuzzleSpec['starting_board']> = {
@@ -485,7 +503,7 @@ export function buildCalibratedMilitarySpec(
     target: targetId,
     support,
     relief,
-    assaultIsSea: edge.type === 'sea',
+    seaCapped: seaCrossingCapped(b.era_id, edge.type),
     rng,
     band: TACTICAL_BAND_STANDARD,
     maxTurnsBase,

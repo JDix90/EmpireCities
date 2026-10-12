@@ -5,6 +5,7 @@ import { DAILY_SET_PIECES, setPiecesOfKind } from './dailySetPieces';
 import { validateDailyPuzzleSpec } from '../game-engine/daily/dailyPuzzleService';
 import { getEraTechTree } from '../game-engine/eras';
 import { DEFAULT_BUILDING_COSTS } from '../game-engine/state/economyManager';
+import { ERA_DEFAULTS } from '../game-engine/state/eraModifiers';
 import { bucketForVerb, WEEKDAY_CADENCE } from '../game-engine/daily/dailySchedule';
 
 /**
@@ -223,6 +224,22 @@ describe('daily set-pieces — shape', () => {
       expect(sp.spec.archetype).toBe('domination');
       expect(sp.spec.player_count, sp.id).toBe(2);
       expect(validateDailyPuzzleSpec({ ...sp.spec, dice_queue_seed: 1 }), sp.id).not.toBeNull();
+    }
+  });
+});
+
+describe('daily set-pieces — copy', () => {
+  it('promises capped dice on a sea crossing only in an era that caps it', () => {
+    // A sea crossing rolls two attack dice only under the Discovery era's sea
+    // lanes (state/eraModifiers.ts). The Crown's Reach told players the
+    // Channel capped them in the Medieval era, where the game rolled three.
+    const CAP_TALK = /fewer dice|two (attack )?dice|2 (attack )?dice|dice on the water|caps? you at|capped/i;
+    for (const sp of DAILY_SET_PIECES) {
+      if (ERA_DEFAULTS[sp.era_id]?.sea_lanes) continue;
+      const copy = [sp.intro, sp.hint, ...(sp.kind === 'tactical' && sp.hold ? [sp.hold.intro, sp.hold.hint] : [])];
+      for (const text of copy) {
+        expect({ id: sp.id, text: text && CAP_TALK.test(text) ? text : null }).toEqual({ id: sp.id, text: null });
+      }
     }
   });
 });

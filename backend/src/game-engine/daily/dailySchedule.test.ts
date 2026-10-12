@@ -6,6 +6,7 @@ import {
   bucketForVerb,
   GATE_BANDS,
   GATE_GAMES,
+  materialize,
   mondayOf,
   pickSetPieceForDate,
   rotationOrdinal,
@@ -21,7 +22,7 @@ import { validateDailyPuzzleSpec } from './dailyPuzzleService';
 import { captureProbability } from '../combat/combatOdds';
 import { getEraTechTree } from '../eras';
 import { DEFAULT_BUILDING_COSTS } from '../state/economyManager';
-import { buildingGoalCost, goldPerTurn, techGoalCost, techPerTurn } from './dailyGenerator';
+import { buildingGoalCost, goldPerTurn, HOLD_BAND, seaCrossingCapped, TACTICAL_BAND_STANDARD, techGoalCost, techPerTurn } from './dailyGenerator';
 import type { DailyPuzzleSpec } from './dailyPuzzleTypes';
 import { simulatePuzzle } from './puzzleSim';
 
@@ -89,7 +90,7 @@ function primaryAssaultOdds(map: GameMap, spec: DailyPuzzleSpec): number {
   }
   expect(bestStack, `${spec.title}: no human border force`).toBeGreaterThan(0);
   return captureProbability(bestStack, board[target].unit_count, {
-    attackerBaseCap: bestConnType === 'sea' ? 2 : 3,
+    attackerBaseCap: seaCrossingCapped(spec.era_id, bestConnType) ? 2 : 3,
   });
 }
 
@@ -227,11 +228,11 @@ describe('daily schedule — the sweep', { timeout: 120_000 }, () => {
       // A sanity range: the simulated solve rate is the criterion, and the
       // gate moves the stack on purpose — down when the obvious defence cannot
       // hold, up when it holds too easily. The ceiling has to leave room for
-      // the latter: on a sea crossing (two attacker dice) with a fat reserve
+      // the latter: on a capped sea crossing (two attacker dice) with a fat reserve
       // the stack that makes the day a real threat reads as overwhelming
       // against the garrison alone.
-      const sea = map.connections.some((c) => ((c.from === anchor && c.to === target) || (c.from === target && c.to === anchor)) && c.type === 'sea');
-      const p = captureProbability(board[anchor].unit_count, board[target].unit_count + 3, { attackerBaseCap: sea ? 2 : 3 });
+      const edgeType = map.connections.find((c) => (c.from === anchor && c.to === target) || (c.from === target && c.to === anchor))?.type;
+      const p = captureProbability(board[anchor].unit_count, board[target].unit_count + 3, { attackerBaseCap: seaCrossingCapped(spec.era_id, edgeType) ? 2 : 3 });
       expect(p, `${date}: P(AI captures)=${p.toFixed(3)}`).toBeGreaterThanOrEqual(0.4);
       expect(p, `${date}: P(AI captures)=${p.toFixed(3)}`).toBeLessThanOrEqual(0.95);
     }
@@ -483,5 +484,28 @@ describe('daily schedule — precedence', () => {
     const day = await scheduleDay(date, deps);
     expect(day.source).toBe('calendar');
     expect(day.spec).toEqual(DAILY_CALENDAR[date]);
+  });
+});
+
+describe('daily schedule — sea crossings', () => {
+  it('sizes a Medieval Channel crossing for the three dice the game rolls there', async () => {
+    // Only the Discovery era caps a sea crossing at two attack dice. The
+    // Crown's Reach and Crécy cross the Channel in the Medieval era, and were
+    // sized as if capped: a stack built to land in the band on two dice is a
+    // stack too big for three. Sized right, it is the smallest that reaches a
+    // target in the band, so one unit fewer falls short of the band's top.
+    const bands = { tactical: TACTICAL_BAND_STANDARD, hold: HOLD_BAND };
+    for (const id of ['the_crowns_reach', 'crecy']) {
+      const sp = DAILY_SET_PIECES.find((s) => s.id === id)!;
+      if (sp.kind !== 'tactical') throw new Error(`${id} is not tactical`);
+      for (const date of datesFrom('2026-10-01', 30)) {
+        const spec = (await materialize(date, sp, bands, { loadMap, simulate: null }, 'tactical'))!;
+        const stack = spec.starting_board![sp.anchor].unit_count;
+        const garrison = spec.starting_board![sp.target].unit_count;
+        const odds = (attackers: number) => captureProbability(attackers, garrison, { attackerBaseCap: 3 });
+        expect(odds(stack), `${id} ${date}`).toBeGreaterThanOrEqual(TACTICAL_BAND_STANDARD.min);
+        expect(odds(stack - 1), `${id} ${date}`).toBeLessThan(TACTICAL_BAND_STANDARD.max);
+      }
+    }
   });
 });

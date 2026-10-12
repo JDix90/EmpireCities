@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import type { GameMap } from '../../types';
-import { buildCalibratedMilitarySpec, buildDailyPuzzleBase, buildingGoalText } from './dailyGenerator';
+import { buildCalibratedMilitarySpec, buildDailyPuzzleBase, buildingGoalText, seaCrossingCapped } from './dailyGenerator';
 import { validateDailyPuzzleSpec } from './dailyPuzzleService';
 import { captureProbability } from '../combat/combatOdds';
 
@@ -121,7 +121,7 @@ describe('calibrated daily generator', () => {
       }
       expect(bestStack, `${date}: no human border force`).toBeGreaterThan(0);
       const p = captureProbability(bestStack, board[target].unit_count, {
-        attackerBaseCap: bestConnType === 'sea' ? 2 : 3,
+        attackerBaseCap: seaCrossingCapped(s.era_id, bestConnType) ? 2 : 3,
       });
       expect(p, `${date}: P=${p.toFixed(3)}`).toBeGreaterThanOrEqual(0.7);
       expect(p, `${date}: P=${p.toFixed(3)}`).toBeLessThanOrEqual(0.97);
@@ -158,5 +158,19 @@ describe('economy goal wording', () => {
       'Build a Workshop (I), then raise it to a Foundry (II), then a Manufactory (III) in the same territory.',
     );
     expect(buildingGoalText('defense_1')).toBe('Build a Palisade (I) in any territory you control.');
+  });
+});
+
+describe('sea crossings', () => {
+  it('cap the attack dice only under an era that caps them', () => {
+    // The live game rolls two attack dice across a sea only under the
+    // Discovery era's sea lanes (state/eraModifiers.ts). The generator once
+    // sized every sea crossing for two, so a Medieval Channel day handed the
+    // player a stack built for two dice that then rolled three.
+    expect(seaCrossingCapped('discovery', 'sea')).toBe(true);
+    expect(seaCrossingCapped('medieval', 'sea')).toBe(false);
+    expect(seaCrossingCapped('ancient', 'sea')).toBe(false);
+    expect(seaCrossingCapped('discovery', 'land')).toBe(false);
+    expect(seaCrossingCapped('discovery', undefined)).toBe(false);
   });
 });
