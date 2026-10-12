@@ -325,11 +325,17 @@ const LAST_DEFENDERS: CampaignPath = {
       victory_threshold: 55,
       max_turns: 30,
       ai_factions: ['rome', 'carthage', 'parthia'],
-      // Every other path opens on medium. This one opened on hard AND the
-      // largest unit deficit in the game, with no carry yet banked to answer
-      // it: the stand-in won 4% of 24 games, and 21% once the difficulty
-      // matched the other openings.
-      ai_difficulty: 'medium',
+      // Easy: the one setting that moves this stage, because the deal decides
+      // it. When the map merge in #586 re-dealt Asia, the tribes lost Central
+      // Steppe, their road into the Steppe region, to Parthia and drew Southern
+      // India in its place. The stand-in's wins at the 55% line fell from 29%
+      // of games to 8%, and the stage from 43% to 27%, level with this path's
+      // ww2 stage, so the opener had stopped being the way in. No deficit
+      // (-4 to 0), threshold (50 to 65) or clock (25 to 40 turns) lifted it by
+      // as much as two points, and every other choice of seats made it harder.
+      // Easy puts it at 36%: the easiest stage of this path, and still the
+      // hardest of the three openers.
+      ai_difficulty: 'easy',
       ai_count: 3,
       starting_unit_modifier: -4,
       intro_text: 'Rome does not ask permission. Three legions have crossed the Rhine and the Senate has already declared the forests a province. You have no roads, no siege engines, and no allies — only trees, ambushes, and the knowledge that every mile the legions march is a mile they must defend. Hold 55% of the map, or simply hold more of it than Rome does when the thirtieth turn ends.',

@@ -32,7 +32,9 @@ nothing.
   for a fixed stand-in, plus a breakdown of how each side won. `SIM_HANDICAP=1`
   applies each stage's starting-unit modifier as the route does; `SIM_STAGES`
   narrows the sweep; the `SIM_DIFFICULTY` / `SIM_AI_COUNT` / `SIM_CLOCK` family
-  asks "what if" without editing `campaignPaths.ts`. Every seat plays the live
+  asks "what if" without editing `campaignPaths.ts`, and `SIM_AI_FACTIONS`
+  seats another line-up, which re-deals the board. `SIM_BY_SEAT=1` names the
+  AI faction that won each game instead of pooling them. Every seat plays the live
   bot turn (`ai/runAiTurn.ts`); `SIM_AI_FLAGS` sets the stage AI's flags and
   `SIM_STANDIN_FLAGS` the stand-in's, so an AI flag is measured against a
   stand-in that does not move. Each stage prints a digest, as the arena does.
