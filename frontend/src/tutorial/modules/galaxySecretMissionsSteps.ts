@@ -29,7 +29,7 @@ export const GALAXY_SECRET_MISSIONS_STEPS: TutorialStep[] = [
     title: 'Secret Missions in the Galaxy',
     message: 'This match is played for **Secret Missions**: every seat is dealt a private objective as the game opens, and completing yours wins. You play the Helion Navigators of **Verdan Reach**; the Stellar Mandate holds **Sol III** across two hyperspace lanes. Yours reads **Own Guinea Coast and Pacific Rim** — the two Sol gateways facing your world.',
     detail: 'The galaxy changes the deal. A mission never names a world behind a hyperspace gate, and here every world but Sol III is one: every capture or control mission on this map names Sol ground, so it is always a lane crossing away. A seat that already holds all of Sol can only ever draw an eliminate mission. Missions are judged from round 2.',
-    hint: 'Click Next, or Skip to the end to jump straight in.',
+    hint: 'Press Next, or Skip to the end to jump straight in.',
     skippable: true,
     linkModule: 'galaxy_primer',
   },
@@ -50,7 +50,7 @@ export const GALAXY_SECRET_MISSIONS_STEPS: TutorialStep[] = [
   {
     id: 'gsm_draft',
     title: 'Stack a Gateway',
-    message: `Click **Chlorophage Span** — your gateway facing Guinea Coast, highlighted — dial **All** and press **Place**. Then click the gold **${phaseAdvanceLabel('draft')}** button.`,
+    message: `Pick **Chlorophage Span** — your gateway facing Guinea Coast, highlighted — dial **All** and press **Place**. Then press the gold **${phaseAdvanceLabel('draft')}** button.`,
     detail: 'Its Gateway card lists the lane to Sol III as **Open**: you hold this end, the Mandate holds Guinea Coast at the other. Greenfire Vault, your other gateway, faces Pacific Rim the same way.',
     hint: 'Navigators draft +2 a turn. Keep Verdan Reach\'s stacks under 12: its storms shed a unit a round from anything taller.',
     cardPosition: 'aside',
@@ -60,7 +60,7 @@ export const GALAXY_SECRET_MISSIONS_STEPS: TutorialStep[] = [
   {
     id: 'gsm_first',
     title: 'Take the First Gateway',
-    message: 'Click **Chlorophage Span**, then **Guinea Coast** across the lane, and attack until it falls — a lane attack rolls at most 2 dice, so **Attack until captured** saves the clicking. Either gateway first; the mission reads both.',
+    message: 'Pick **Chlorophage Span**, then **Guinea Coast** across the lane, and attack until it falls — a lane attack rolls at most 2 dice, so **Attack until captured** saves attacking roll by roll. Either gateway first; the mission reads both.',
     detail: 'Up to 3 attackers move in on their own. Leave the rest: Guinea Coast borders five Sol systems, but holding the gateway is all the mission wants.',
     cardPosition: 'aside',
     targetTerritoryId: 'sol_guinea',
@@ -86,7 +86,7 @@ export const GALAXY_SECRET_MISSIONS_STEPS: TutorialStep[] = [
     title: 'Secret Missions Complete',
     message: 'You read a mission, took both systems it named across their lanes, and won on it. In a real galaxy match a Sol holder can only draw an eliminate mission, and everyone else\'s capture missions point at Sol — so expect company on its gateways.',
     skippedTitle: 'Jumping Straight In',
-    skippedMessage: `Here is the shape of it: your mission is in the Objectives panel — **Own Guinea Coast and Pacific Rim**, the two Sol gateways across your lanes. Take **Guinea Coast** from **Chlorophage Span** and **Pacific Rim** from **Greenfire Vault**; the win is judged from round 2. Right now you have reinforcements to place — click **Chlorophage Span**, then ${phaseAdvanceLabel('draft')}.`,
+    skippedMessage: `Here is the shape of it: your mission is in the Objectives panel — **Own Guinea Coast and Pacific Rim**, the two Sol gateways across your lanes. Take **Guinea Coast** from **Chlorophage Span** and **Pacific Rim** from **Greenfire Vault**; the win is judged from round 2. Right now you have reinforcements to place — pick **Chlorophage Span**, then press ${phaseAdvanceLabel('draft')}.`,
     variant: 'module_complete',
   },
 ];

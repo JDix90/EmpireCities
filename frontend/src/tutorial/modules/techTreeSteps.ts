@@ -19,7 +19,7 @@ export const TECH_TREE_STEPS: TutorialStep[] = [
     message: 'Open the tree to browse tiers, costs, and prerequisites. Locked nodes show what you must research first.',
     actionOpenTechTree: true,
     requireAction: 'tech_tree_opened',
-    hint: 'Tap "Open Tech Tree" below. Your 8 bonus TP are already available.',
+    hint: 'Press "Open Tech Tree" below. Your 8 bonus TP are already available.',
   },
   {
     id: 'tt_research',

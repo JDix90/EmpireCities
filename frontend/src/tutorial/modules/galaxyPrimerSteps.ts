@@ -24,8 +24,8 @@ export const GALAXY_PRIMER_STEPS: TutorialStep[] = [
     id: 'gpr_welcome',
     title: 'The Galactic Age, in Brief',
     message: '**Four worlds, one war.** The Galactic Age is played across **Sol III**, **Verdan Reach**, the **Rust Belt** and **Nexus Station**, joined in a ring by **8 hyperspace lanes**. Every lane runs between two **gateway** systems: hold a gateway and you can attack straight across its lane, no research needed. A crossing rolls only **2 dice** (3 with **Lane Charts**), so a defended gateway holds like a coast; the **Hyperlane Anchor** wonder lifts the cap for its owner.',
-    detail: 'This primer is six cards of reading on a real four-seat board — you are the Stellar Mandate of Sol III, with a tutorial opponent on each other world — and one thing to click. Each card ends where one of the six Galactic Age lessons begins.',
-    hint: 'Click Next, or Skip to the end to jump straight in.',
+    detail: 'This primer is six cards of reading on a real four-seat board — you are the Stellar Mandate of Sol III, with a tutorial opponent on each other world — and one thing to open. Each card ends where one of the six Galactic Age lessons begins.',
+    hint: 'Press Next, or Skip to the end to jump straight in.',
     skippable: true,
   },
   {
@@ -33,8 +33,9 @@ export const GALAXY_PRIMER_STEPS: TutorialStep[] = [
     title: 'Read the Board',
     message: 'Click the **Galaxy chart** button above the board. Its **Lanes** legend reads **Corridor · both gateways yours**, **Open · you hold one end**, **Closed · take a gateway first** and **Sealed · Emergency Seal, 1 round**. A world tab opens that world on its own; **Split** shows every world\'s map at once.',
     messagePhone: 'Tap the **Galaxy chart** chip in the Worlds row above the board. Its **Lanes** legend reads **Corridor · both gateways yours**, **Open · you hold one end**, **Closed · take a gateway first** and **Sealed · Emergency Seal, 1 round**. A world tab opens that world on its own; **Split** shows every world\'s map at once.',
-    detail: 'On a world, click a gateway system: its **Gateway** card lists each lane with the far world, its state, and the dice a crossing rolls — **Lane attacks roll 2 dice (3 with Lane Charts)**.',
+    detail: 'On a world, pick a gateway system: its **Gateway** card lists each lane with the far world, its state, and the dice a crossing rolls — **Lane attacks roll 2 dice (3 with Lane Charts)**.',
     hint: 'Double-click a world on the chart, or its **Enter world →** button, to drill in.',
+    hintPhone: 'Pick a world on the chart, then press **Enter world →** on its card to drill in.',
     requireAction: 'galaxy_chart_opened',
   },
   {

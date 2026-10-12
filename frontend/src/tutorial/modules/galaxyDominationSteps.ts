@@ -25,7 +25,7 @@ export const GALAXY_DOMINATION_STEPS: TutorialStep[] = [
     title: 'Domination in the Galaxy',
     message: 'This match is played for **Domination** alone: the briefing reads **Control every territory**, and on this board that is all **64** systems. You are the Stellar Mandate of **Sol III**. The Helion Navigators are down to one system on **Verdan Reach** — **Greenfire Vault**, the gateway facing your Pacific Rim — and you hold the other fifteen around it. **Nexus Station** and the **Rust Belt** are neutral colonies.',
     detail: 'Here is what the galaxy does to Domination: the game never gets there. The moment the last rival falls the server ends the match as **Last Commander Standing**, the one win judged at once rather than from round 2 — so the **32** colony garrisons never need taking, and a galaxy result never reads Total Domination while a rival is in the game. That is why a real galaxy lobby pairs Domination with the Threshold.',
-    hint: 'Click Next, or Skip to the end to jump straight in.',
+    hint: 'Press Next, or Skip to the end to jump straight in.',
     skippable: true,
     linkModule: 'galaxy_primer',
   },
@@ -40,7 +40,7 @@ export const GALAXY_DOMINATION_STEPS: TutorialStep[] = [
   {
     id: 'gdm_draft',
     title: 'Stack Glowmire Shelf',
-    message: `Click **Glowmire Shelf** — your system beside Greenfire Vault, highlighted — dial **All** and press **Place**. Then click the gold **${phaseAdvanceLabel('draft')}** button.`,
+    message: `Pick **Glowmire Shelf** — your system beside Greenfire Vault, highlighted — dial **All** and press **Place**. Then press the gold **${phaseAdvanceLabel('draft')}** button.`,
     detail: 'In a real match a seat down to one system still drafts at least three units a turn onto it, so the longer it stands the harder it gets. The tutorial opponent never attacks, but it would reinforce — take it now.',
     cardPosition: 'aside',
     targetTerritoryId: 'verdan_glowmire_shelf',
@@ -49,7 +49,7 @@ export const GALAXY_DOMINATION_STEPS: TutorialStep[] = [
   {
     id: 'gdm_take',
     title: 'Take Their Last System',
-    message: 'Click **Glowmire Shelf**, then **Greenfire Vault** beside it. A ground attack rolls the full 3 dice; **Attack until captured** presses until it falls. The capture eliminates the Navigators, and with no rival left the game ends on the spot.',
+    message: 'Pick **Glowmire Shelf**, then **Greenfire Vault** beside it. A ground attack rolls the full 3 dice; **Attack until captured** presses until it falls. The capture eliminates the Navigators, and with no rival left the game ends on the spot.',
     detail: 'No waiting for round 2: Last Commander Standing is judged the moment it happens. You will see the Player Eliminated screen, then the result.',
     cardPosition: 'aside',
     targetTerritoryId: 'verdan_greenfire_vault',
@@ -67,7 +67,7 @@ export const GALAXY_DOMINATION_STEPS: TutorialStep[] = [
     title: 'Domination Complete',
     message: 'You eliminated the last rival and the galaxy ended the match at once. Domination here is a race to the last seat, not to the last system; the colonies are the Threshold\'s business.',
     skippedTitle: 'Jumping Straight In',
-    skippedMessage: `Here is the shape of it: the Navigators hold one system, **Greenfire Vault**, and you hold **Glowmire Shelf** beside it. Take it and the game ends at once as Last Commander Standing — no round-2 wait. Right now you have reinforcements to place — click **Glowmire Shelf**, then ${phaseAdvanceLabel('draft')}.`,
+    skippedMessage: `Here is the shape of it: the Navigators hold one system, **Greenfire Vault**, and you hold **Glowmire Shelf** beside it. Take it and the game ends at once as Last Commander Standing — no round-2 wait. Right now you have reinforcements to place — pick **Glowmire Shelf**, then press ${phaseAdvanceLabel('draft')}.`,
     variant: 'module_complete',
   },
 ];

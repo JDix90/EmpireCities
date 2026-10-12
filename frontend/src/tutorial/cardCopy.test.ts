@@ -75,6 +75,20 @@ describe('tutorial copy fits the layout it is read in', () => {
     }
   });
 
+  // A card both layouts read uses verbs both can do: press a button, pick a
+  // territory. A card only one layout reads may use that layout's verb.
+  it('never asks a phone player to click', () => {
+    for (const { lesson, id, copy } of everyCard(asIs, true)) {
+      expect(textOf(copy), `${lesson}.${id}`).not.toMatch(/\bclick/i);
+    }
+  });
+
+  it('never asks a desktop player to tap', () => {
+    for (const { lesson, id, copy } of everyCard(asIs, false)) {
+      expect(textOf(copy), `${lesson}.${id}`).not.toMatch(/\btap(s|ped|ping)?\b/i);
+    }
+  });
+
   it('keeps every bold term and number of the desktop card in its phone version', () => {
     let pairs = 0;
     for (const lesson of LESSONS) {
@@ -94,12 +108,16 @@ describe('tutorial copy fits the layout it is read in', () => {
   });
 });
 
+// Each language's word for the sidebar, its "click", and its "tap" as an
+// instruction. The tap patterns name the imperative only: Spanish "te toca" is
+// "your turn", "que toque" in Spanish and Portuguese is "that borders", and
+// French "sans toucher à" is "without changing".
 describe.each([
-  ['de', 'Seitenleiste'],
-  ['es', 'barra lateral'],
-  ['fr', 'barre latérale'],
-  ['pt-BR', 'barra lateral'],
-] as const)('%s', (locale, sidebar) => {
+  ['de', 'Seitenleiste', /klick/i, /\b(an)?tipp(e|en|st)\b/i],
+  ['es', 'barra lateral', /\bclic\b|cliquea|clica/i, /(?<!te )\btoca\b|\btócal[oa]\b/i],
+  ['fr', 'barre latérale', /cliqu|\bclic\b/i, /\btouchez\b/i],
+  ['pt-BR', 'barra lateral', /cliqu|\bclique\b|\bclicar\b/i, /(?<!que )\btoque\b/i],
+] as const)('%s', (locale, sidebar, click, tap) => {
   async function translator(): Promise<TranslateFn> {
     await loadLocale(locale);
     return (key, opts) => String(i18n.t(key, { ...opts, lng: locale }));
@@ -110,6 +128,22 @@ describe.each([
     const read = (step: TutorialStep, lesson: TutorialLessonModule) => localizeTutorialStep(step, t, lesson);
     for (const { lesson, id, copy } of everyCard(read, true)) {
       expect(textOf(copy).toLowerCase(), `${lesson}.${id}`).not.toContain(sidebar.toLowerCase());
+    }
+  });
+
+  it('never asks a phone player to click either', async () => {
+    const t = await translator();
+    const read = (step: TutorialStep, lesson: TutorialLessonModule) => localizeTutorialStep(step, t, lesson);
+    for (const { lesson, id, copy } of everyCard(read, true)) {
+      expect(textOf(copy), `${lesson}.${id}`).not.toMatch(click);
+    }
+  });
+
+  it('never asks a desktop player to tap either', async () => {
+    const t = await translator();
+    const read = (step: TutorialStep, lesson: TutorialLessonModule) => localizeTutorialStep(step, t, lesson);
+    for (const { lesson, id, copy } of everyCard(read, false)) {
+      expect(textOf(copy), `${lesson}.${id}`).not.toMatch(tap);
     }
   });
 

@@ -25,7 +25,7 @@ export const GALAXY_THRESHOLD_STEPS: TutorialStep[] = [
     title: 'Territory Threshold in the Galaxy',
     message: 'This match is played for **Threshold** victory: hold **60%** of the map. You are the Stellar Mandate of **Sol III**, and you have already settled the whole of **Nexus Station** and landed six systems deep on **Verdan Reach**, across the two Sol–Verdan lanes. The Helion Navigators hold the rest of Verdan. The **Rust Belt** is a neutral colony nobody has claimed.',
     detail: 'The galaxy counts **every** system on the board, the neutral colonies included: 60% of 64 is 38.4, so the win needs **39**. Domination would need all 64 — every colony garrison as well as every rival — which is why a galaxy lobby opens with Threshold on at 60% beside it, and a 90-turn limit behind both.',
-    hint: 'Click Next, or Skip to the end to jump straight in.',
+    hint: 'Press Next, or Skip to the end to jump straight in.',
     skippable: true,
     linkModule: 'galaxy_primer',
   },
@@ -40,7 +40,7 @@ export const GALAXY_THRESHOLD_STEPS: TutorialStep[] = [
   {
     id: 'gth_draft',
     title: 'Stack Saffron Mire',
-    message: `Click **Saffron Mire** — your beachhead system beside Spore Reach, highlighted — dial **All** and press **Place**. Then click the gold **${phaseAdvanceLabel('draft')}** button.`,
+    message: `Pick **Saffron Mire** — your beachhead system beside Spore Reach, highlighted — dial **All** and press **Place**. Then press the gold **${phaseAdvanceLabel('draft')}** button.`,
     detail: 'A 38-system empire drafts big: a third of its systems, plus a bonus for every region it holds whole — each scaled by the number of seats, a third of its listed value at two, and never below one. One thing to know about Verdan in a real match: its storms thin any stack above 12 by one unit each round.',
     cardPosition: 'aside',
     targetTerritoryId: 'verdan_saffron_mire',
@@ -49,7 +49,7 @@ export const GALAXY_THRESHOLD_STEPS: TutorialStep[] = [
   {
     id: 'gth_take',
     title: 'Take the 39th System',
-    message: 'Click **Saffron Mire**, then **Spore Reach** beside it. This is a ground attack on the same world, so it rolls the full 3 dice — no lane cap. **Attack until captured** presses until it falls, and up to 3 of your attackers move in on their own.',
+    message: 'Pick **Saffron Mire**, then **Spore Reach** beside it. This is a ground attack on the same world, so it rolls the full 3 dice — no lane cap. **Attack until captured** presses until it falls, and up to 3 of your attackers move in on their own.',
     detail: 'Any system would do: the 39th could as well have been a neutral Rust Belt garrison across a lane. The Navigators hold Spore Reach with two units and no defence bonus.',
     cardPosition: 'aside',
     targetTerritoryId: 'verdan_spore_reach',
@@ -67,7 +67,7 @@ export const GALAXY_THRESHOLD_STEPS: TutorialStep[] = [
     title: 'Territory Threshold Complete',
     message: 'You took the 39th system and crossed 60% of the galaxy. In a real match the count is the same whoever holds the rest: colonies, rivals and empty garrisons all sit in the 64, and the meter in the top bar tells you how many more you need.',
     skippedTitle: 'Jumping Straight In',
-    skippedMessage: `Here is the shape of it: you hold **38 of the 39** systems that 60% of this board needs. Take one more — **Spore Reach**, beside your **Saffron Mire** — and the win is judged from round 2. Right now you have reinforcements to place — click **Saffron Mire**, then ${phaseAdvanceLabel('draft')}.`,
+    skippedMessage: `Here is the shape of it: you hold **38 of the 39** systems that 60% of this board needs. Take one more — **Spore Reach**, beside your **Saffron Mire** — and the win is judged from round 2. Right now you have reinforcements to place — pick **Saffron Mire**, then press ${phaseAdvanceLabel('draft')}.`,
     variant: 'module_complete',
   },
 ];
