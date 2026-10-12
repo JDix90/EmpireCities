@@ -691,6 +691,9 @@ export default function GamePage() {
     isTutorial
     && tutorialStep < tutorialSteps.length
     && isTutorialStepCentered(tutorialSteps[tutorialStep]);
+  /** The tutorial waits on an era advance: the tech tree's Advance button and the phone bar's Advance pill ring and pulse. */
+  const tutorialAwaitsAdvance =
+    isTutorial && tutorialSteps[tutorialStep]?.requireAction === 'era_advanced';
 
   // Keep a ref to the current user so socket handlers never close over a stale value
   const userRef = useRef(user);
@@ -5604,6 +5607,7 @@ export default function GamePage() {
                 myPlayer={me}
                 isMyTurn={myTurn}
                 onAdvanceEra={handleAdvanceEra}
+                highlight={tutorialAwaitsAdvance}
               />
             )}
             {/* End-phase button */}
@@ -5861,6 +5865,7 @@ export default function GamePage() {
             && (gameState.phase === 'draft' || gameState.phase === 'fortify')
             && gameState.players[gameState.current_player_index]?.player_id === user.user_id
           }
+          highlightAdvance={tutorialAwaitsAdvance}
         />
       )}
 

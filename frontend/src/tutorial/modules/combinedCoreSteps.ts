@@ -107,7 +107,7 @@ export const COMBINED_CORE_TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'ea_advance',
     title: 'Advance to Medieval',
-    message: 'When every gate chip is green, hit **Advance Era** — the button appears right there in the tech tree\'s gate rail. One more technology is all this board\'s gate still wants.',
+    message: 'When every gate chip is green, hit **Advance to Medieval Era** — the button appears right there in the tech tree\'s gate rail. One more technology is all this board\'s gate still wants.',
     detail: 'Advancing consolidates your armies: about 30% of your units are removed for good, spread across your territories, and for one turn afterwards your defenders fight weaker — the vulnerability window. Your research resets to a fresh, stronger Medieval tree; you keep an echo of your old bonuses and gain the era\'s signature reward.',
     hint: 'Climbing in your reinforcement phase means the new era\'s strength applies to the attacks you make this turn. Short on a chip? The rail names what\'s missing, and the Advance button lights up the moment nothing is.',
     requireAction: 'era_advanced',

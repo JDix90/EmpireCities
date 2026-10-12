@@ -40,6 +40,7 @@
     "waitAbilityUsed": "Utilisez la capacité de votre faction pour continuer…",
     "waitBonusesOpened": "Ouvrez le panneau des bonus pour continuer…",
     "waitTechTreeOpened": "Ouvrez l'arbre technologique pour continuer…",
+    "waitEraAdvanced": "Passez à l'ère suivante pour continuer…",
     "waitDefault": "Effectuez l'action pour continuer…",
     "exitTutorial": "Quitter le tutoriel",
     "openLinkedLesson": "À lire d'abord : {{title}}"
@@ -121,7 +122,7 @@
       },
       "ea_advance": {
         "title": "Passez au Moyen Âge",
-        "message": "Une technologie de plus et chaque jeton du seuil passe au vert. Appuyez alors sur **Advance Era** — le bouton apparaît juste là, dans le rail du seuil de l'arbre technologique.",
+        "message": "Une technologie de plus et chaque jeton du seuil passe au vert. Appuyez alors sur **Advance to Medieval Era** — le bouton apparaît juste là, dans le rail du seuil de l'arbre technologique.",
         "detail": "Vos unités passent dans la nouvelle ère avec une force réduite pendant un tour — la fenêtre de vulnérabilité — et votre recherche repart sur un arbre médiéval neuf et plus fort. Vous gardez un écho de vos anciens bonus et gagnez la récompense signature de l'ère.",
         "hint": "Grimper pendant votre phase de renfort signifie que la force de la nouvelle ère s'applique aux attaques de ce même tour. Il manque un jeton ? Le rail dit lequel, et le bouton Advance s'allume dès qu'il ne manque plus rien."
       },
@@ -193,13 +194,13 @@
       },
       "ea_gate": {
         "title": "Franchissez le seuil",
-        "message": "Continuez à rechercher jusqu'à ce que chaque jeton du seuil passe au vert — le seuil demande quelques technologies et assez d'or (vous en avez déjà largement). Le bouton Advance Era s'allume quand vous êtes prêt.",
+        "message": "Continuez à rechercher jusqu'à ce que chaque jeton du seuil passe au vert — le seuil demande quelques technologies et assez d'or (vous en avez déjà largement). Le bouton **Advance to Medieval Era** s'allume quand vous êtes prêt.",
         "detail": "Les nœuds de niveau 2 exigent d'abord leur prérequis de niveau 1 : recherchez le parent, puis le niveau 2.",
         "whyItMatters": "Le même seuil existe dans les vraies parties — mais là, vous devez aussi équilibrer bâtiments et stabilité."
       },
       "ea_advance": {
         "title": "Passez au Moyen Âge",
-        "message": "Une fois chaque jeton du seuil au vert, ouvrez le panneau Era et utilisez **Advance Era**. Vos unités passent avec vous, votre technologie repart dans la nouvelle ère et vous gagnez une récompense signature.",
+        "message": "Une fois chaque jeton du seuil au vert, appuyez sur **Advance to Medieval Era** en haut de l'arbre ou dans le panneau Era. Environ 70 % de vos unités passent avec vous — les autres sont perdues pour de bon —, votre technologie repart dans la nouvelle ère et vous gagnez une récompense signature.",
         "hint": "Il manque encore quelque chose ? Recherchez d'abord les nœuds manquants — le panneau de passage d'ère de votre barre latérale montre ce qui reste, et le bouton Advance s'allume quand il ne reste rien."
       },
       "ea_signature": {

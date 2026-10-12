@@ -40,6 +40,7 @@
     "waitAbilityUsed": "Use a habilidade da sua facção para continuar…",
     "waitBonusesOpened": "Abra o painel de bônus para continuar…",
     "waitTechTreeOpened": "Abra a árvore tecnológica para continuar…",
+    "waitEraAdvanced": "Avance de era para continuar…",
     "waitDefault": "Conclua a ação para continuar…",
     "exitTutorial": "Sair do tutorial",
     "openLinkedLesson": "Leia primeiro: {{title}}"
@@ -121,7 +122,7 @@
       },
       "ea_advance": {
         "title": "Avance para a Idade Média",
-        "message": "Mais uma tecnologia e todos os indicadores do portão ficam verdes. Então pressione **Advance Era** — o botão aparece bem ali, na barra do portão da árvore tecnológica.",
+        "message": "Mais uma tecnologia e todos os indicadores do portão ficam verdes. Então pressione **Advance to Medieval Era** — o botão aparece bem ali, na barra do portão da árvore tecnológica.",
         "detail": "Suas unidades seguem para a nova era com força reduzida por um turno — a janela de vulnerabilidade — e sua pesquisa recomeça em uma árvore medieval nova e mais forte. Você mantém um eco dos bônus antigos e ganha a recompensa exclusiva da era.",
         "hint": "Subir na fase de reforço significa que a força da nova era vale para os ataques deste mesmo turno. Falta um indicador? A barra diz o que está faltando, e o botão Advance acende assim que não faltar nada."
       },
@@ -193,13 +194,13 @@
       },
       "ea_gate": {
         "title": "Supere o portão",
-        "message": "Continue pesquisando até todos os indicadores do portão ficarem verdes — o portão exige algumas tecnologias e ouro suficiente (você já tem de sobra). O botão Advance Era acende quando você estiver pronto.",
+        "message": "Continue pesquisando até todos os indicadores do portão ficarem verdes — o portão exige algumas tecnologias e ouro suficiente (você já tem de sobra). O botão **Advance to Medieval Era** acende quando você estiver pronto.",
         "detail": "Nós de nível 2 precisam primeiro do pré-requisito de nível 1, então pesquise o pai e depois o de nível 2.",
         "whyItMatters": "O mesmo portão existe nas partidas reais — mas lá você também equilibra construções e estabilidade."
       },
       "ea_advance": {
         "title": "Avance para a Idade Média",
-        "message": "Quando todos os indicadores do portão estiverem verdes, abra o painel Era e use **Advance Era**. Suas unidades seguem em frente, sua tecnologia recomeça na nova era e você ganha uma recompensa exclusiva.",
+        "message": "Quando todos os indicadores do portão estiverem verdes, pressione **Advance to Medieval Era** no alto da árvore ou no painel Era. Cerca de 70% das suas unidades seguem em frente — o resto se perde para sempre —, sua tecnologia recomeça na nova era e você ganha uma recompensa exclusiva.",
         "hint": "Ainda falta algo? Pesquise primeiro os nós que faltam — o painel de avanço de era na sua barra lateral mostra o que resta, e o botão Advance acende quando não resta nada."
       },
       "ea_signature": {

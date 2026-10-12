@@ -18,6 +18,12 @@ interface Props {
   onAdvanceEra?: () => void;
   /** Advancing is a reinforcement- or fortify-phase action on your own turn. */
   canAdvanceNow?: boolean;
+  /**
+   * The tutorial is waiting on this button. It appears at the top of the tree
+   * the moment the last research clears the gate, while the player's eye is
+   * on the node they just researched further down, so it rings and pulses.
+   */
+  highlightAdvance?: boolean;
 }
 
 const ECHO_LABELS: Array<[string, string]> = [
@@ -68,7 +74,7 @@ function GateChip({ ok, label }: { ok: boolean; label: string }) {
  * advancement gate progress (so research choices map to the gate while you
  * browse) and the bonuses echoed forward from past eras.
  */
-export default function TechTreeEraProgress({ gameState, player, onAdvanceEra, canAdvanceNow }: Props) {
+export default function TechTreeEraProgress({ gameState, player, onAdvanceEra, canAdvanceNow, highlightAdvance = false }: Props) {
   if (!gameState.settings.era_advancement_enabled || !player) return null;
   const status = getAdvanceEraClientStatus(gameState, player);
   if (!status) return null;
@@ -122,7 +128,10 @@ export default function TechTreeEraProgress({ gameState, player, onAdvanceEra, c
                 onClick={onAdvanceEra}
                 disabled={!canAdvanceNow}
                 data-testid="techtree-advance-era"
-                className="btn-primary w-full text-sm py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className={clsx(
+                  'btn-primary w-full text-sm py-2 disabled:opacity-50 disabled:cursor-not-allowed',
+                  highlightAdvance && canAdvanceNow && 'ring-2 ring-bf-gold ring-offset-2 ring-offset-gray-900 animate-pulse',
+                )}
               >
                 {canAdvanceNow
                   ? `Advance to ${ERA_LABELS[status.nextEraId] ?? status.nextEraId}`

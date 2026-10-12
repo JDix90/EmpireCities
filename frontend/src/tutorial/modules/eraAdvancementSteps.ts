@@ -36,7 +36,7 @@ export const ERA_ADVANCEMENT_STEPS: TutorialStep[] = [
   {
     id: 'ea_gate',
     title: 'Clear the Gate',
-    message: 'Keep researching until every gate chip turns green — the gate needs a few technologies and enough gold (you already have plenty). The Advance Era button lights up when you are ready.',
+    message: 'Keep researching until every gate chip turns green — the gate needs a few technologies and enough gold (you already have plenty). The **Advance to Medieval Era** button lights up when you are ready.',
     detail: 'Tier-2 nodes need their tier-1 prerequisite first, so research the parent, then the tier-2.',
     whyItMatters: 'The same gate exists in real games — but there you also balance buildings and stability.',
   },
@@ -45,7 +45,7 @@ export const ERA_ADVANCEMENT_STEPS: TutorialStep[] = [
     title: 'Advance to Medieval',
     // Do not assert the gate is already clear: this step is reached after the
     // first research, and the gate needs a tier-2 tech on top of the tier-1s.
-    message: 'Once every gate chip is green, open the Era panel and use **Advance Era**. About 70% of your units carry forward — the rest are lost for good — your tech resets to the new era, and you gain a signature payoff.',
+    message: 'Once every gate chip is green, press **Advance to Medieval Era** at the top of the tree or in the Era panel. About 70% of your units carry forward — the rest are lost for good — your tech resets to the new era, and you gain a signature payoff.',
     requireAction: 'era_advanced',
     hint: 'Still short? Research the missing nodes first — the Era Advancement panel in your sidebar shows what is left, and the Advance button lights up when nothing is.',
   },

@@ -40,6 +40,7 @@
     "waitAbilityUsed": "Setze deine Fraktionsfähigkeit ein, um fortzufahren…",
     "waitBonusesOpened": "Öffne das Boni-Panel, um fortzufahren…",
     "waitTechTreeOpened": "Öffne den Technologiebaum, um fortzufahren…",
+    "waitEraAdvanced": "Steige ein Zeitalter auf, um fortzufahren…",
     "waitDefault": "Führe die Aktion aus, um fortzufahren…",
     "exitTutorial": "Tutorial verlassen",
     "openLinkedLesson": "Zuerst lesen: {{title}}"
@@ -121,7 +122,7 @@
       },
       "ea_advance": {
         "title": "Aufstieg ins Mittelalter",
-        "message": "Noch eine Technologie, und jeder Tor-Chip wird grün. Dann drücke **Advance Era** – der Button erscheint direkt dort, in der Torleiste des Technologiebaums.",
+        "message": "Noch eine Technologie, und jeder Tor-Chip wird grün. Dann drücke **Advance to Medieval Era** – der Button erscheint direkt dort, in der Torleiste des Technologiebaums.",
         "detail": "Deine Einheiten gehen eine Runde lang mit verringerter Stärke ins neue Zeitalter über – das Verwundbarkeitsfenster – und deine Forschung startet in einem frischen, stärkeren Mittelalterbaum neu. Du behältst ein Echo deiner alten Boni und erhältst die Signatur-Belohnung des Zeitalters.",
         "hint": "Wer in der Verstärkungsphase aufsteigt, nutzt die Stärke des neuen Zeitalters schon für die Angriffe dieser Runde. Fehlt ein Chip? Die Leiste sagt, was fehlt, und der Advance-Button leuchtet, sobald nichts mehr fehlt."
       },
@@ -193,13 +194,13 @@
       },
       "ea_gate": {
         "title": "Erfülle das Tor",
-        "message": "Forsche weiter, bis jeder Tor-Chip grün ist – das Tor braucht einige Technologien und genug Gold (davon hast du schon reichlich). Der Advance-Era-Button leuchtet auf, sobald du bereit bist.",
+        "message": "Forsche weiter, bis jeder Tor-Chip grün ist – das Tor braucht einige Technologien und genug Gold (davon hast du schon reichlich). Der Button **Advance to Medieval Era** leuchtet auf, sobald du bereit bist.",
         "detail": "Stufe-2-Knoten brauchen zuerst ihre Stufe-1-Voraussetzung, also erforsche erst den Vorgänger, dann die Stufe 2.",
         "whyItMatters": "Dasselbe Tor gibt es in echten Partien – dort balancierst du zusätzlich Gebäude und Stabilität."
       },
       "ea_advance": {
         "title": "Aufstieg ins Mittelalter",
-        "message": "Sobald jeder Tor-Chip grün ist, öffne das Era-Panel und nutze **Advance Era**. Deine Einheiten gehen mit, deine Technologie startet im neuen Zeitalter neu und du erhältst eine Signatur-Belohnung.",
+        "message": "Sobald jeder Tor-Chip grün ist, drücke **Advance to Medieval Era** oben im Baum oder im Era-Panel. Etwa 70 % deiner Einheiten gehen mit – der Rest ist für immer verloren –, deine Technologie startet im neuen Zeitalter neu und du erhältst eine Signatur-Belohnung.",
         "hint": "Fehlt noch etwas? Erforsche zuerst die fehlenden Knoten – das Zeitalteraufstieg-Panel in deiner Seitenleiste zeigt, was übrig ist, und der Advance-Button leuchtet, sobald nichts mehr fehlt."
       },
       "ea_signature": {

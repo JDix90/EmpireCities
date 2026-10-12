@@ -118,28 +118,28 @@ describe('AdvanceEraPanel (sidebar)', () => {
   });
 });
 
-describe('AdvanceEraPanel — the summary counts only what it lists', () => {
-  /** All gate requirements satisfied, so only the phase can stand in the way. */
-  function readyState(phase: string): GameState {
-    const s = state();
-    return {
-      ...s,
-      phase,
-      era_advancement_preview: {
-        ...s.era_advancement_preview!,
-        cost: 13,
-        can_advance: true,
-        readiness: {
-          met: true,
-          mode: 'milestone',
-          tier1: { met: true, current: 2, required: 2, label: 'tier-1 technologies' },
-          tier2: { met: true, current: 0, required: 0, label: 'tier-2 technologies' },
-          buildings: { met: true, current: 0, required: 0, label: 'buildings' },
-        },
+/** All gate requirements satisfied, so only the phase can stand in the way. */
+function readyState(phase: string): GameState {
+  const s = state();
+  return {
+    ...s,
+    phase,
+    era_advancement_preview: {
+      ...s.era_advancement_preview!,
+      cost: 13,
+      can_advance: true,
+      readiness: {
+        met: true,
+        mode: 'milestone',
+        tier1: { met: true, current: 2, required: 2, label: 'tier-1 technologies' },
+        tier2: { met: true, current: 0, required: 0, label: 'tier-2 technologies' },
+        buildings: { met: true, current: 0, required: 0, label: 'buildings' },
       },
-    } as unknown as GameState;
-  }
+    },
+  } as unknown as GameState;
+}
 
+describe('AdvanceEraPanel — the summary counts only what it lists', () => {
   it('does not count the phase gate, which comes and goes within a turn, but still lists it', () => {
     render(
       <AdvanceEraPanel
@@ -217,5 +217,42 @@ describe('AdvanceEraPanel — compact pill in the phone action bar', () => {
   it('keeps the whole pill from shrinking under its own icon', () => {
     compact();
     expect(screen.getByRole('button').className).toContain('shrink-0');
+  });
+});
+
+describe('AdvanceEraPanel — the tutorial points at the compact pill', () => {
+  // Below 480px the pill is a sparkle and a price; nothing on it says
+  // "Advance". When the tutorial waits on the advance, it rings and pulses.
+  function pill(highlight: boolean, phase = 'draft', isMyTurn = true) {
+    return render(
+      <AdvanceEraPanel
+        variant="compact"
+        gameState={readyState(phase)}
+        myPlayer={player({ special_resource: 16 })}
+        isMyTurn={isMyTurn}
+        onAdvanceEra={() => {}}
+        highlight={highlight}
+      />,
+    );
+  }
+
+  it('rings and pulses while the tutorial waits on it', () => {
+    pill(true);
+    const btn = screen.getByRole('button');
+    expect(btn).toBeEnabled();
+    expect(btn.className).toContain('animate-pulse');
+    expect(btn.className).toContain('ring-2');
+  });
+
+  it('stays quiet outside the tutorial', () => {
+    pill(false);
+    expect(screen.getByRole('button').className).not.toContain('animate-pulse');
+  });
+
+  it('never pulses a pill the player cannot press', () => {
+    pill(true, 'draft', false);
+    const btn = screen.getByRole('button');
+    expect(btn).toBeDisabled();
+    expect(btn.className).not.toContain('animate-pulse');
   });
 });
