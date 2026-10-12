@@ -392,4 +392,33 @@ describe('TutorialOverlay', () => {
       expect(screen.queryByRole('button', { name: 'Open Tech Tree' })).toBeNull();
     });
   });
+
+  describe('the phone layout', () => {
+    // A phone has no sidebar: the same panels sit behind the bottom bar's
+    // ☰ Menu, so a card that names a place carries a phone version of it.
+    const step = {
+      id: 'economy_intro',
+      title: 'Your Empire Is Also an Economy',
+      message: 'Your turn again.',
+      detail: 'The Era panel in your sidebar shows the timeline.',
+      detailPhone: 'The Era panel under ☰ Menu shows the timeline.',
+    } as TutorialStep;
+
+    it('reads the phone version of a card', () => {
+      overlay([step], { phoneLayout: true });
+      expect(screen.getByText(/under ☰ Menu/)).toBeInTheDocument();
+      expect(screen.queryByText(/sidebar/)).toBeNull();
+    });
+
+    it('reads the desktop version everywhere else', () => {
+      overlay([step]);
+      expect(screen.getByText(/in your sidebar/)).toBeInTheDocument();
+      expect(screen.queryByText(/☰ Menu/)).toBeNull();
+    });
+
+    it('falls back to the desktop copy where a card has no phone version', () => {
+      overlay([{ ...step, detailPhone: undefined }], { phoneLayout: true });
+      expect(screen.getByText(/in your sidebar/)).toBeInTheDocument();
+    });
+  });
 });

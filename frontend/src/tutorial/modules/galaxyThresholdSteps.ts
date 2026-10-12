@@ -33,6 +33,7 @@ export const GALAXY_THRESHOLD_STEPS: TutorialStep[] = [
     id: 'gth_meter',
     title: 'Read the Map Control Meter',
     message: 'The top bar shows **59%/60%**, and the **Objectives** panel in the sidebar\'s Status tab spells it out: **Map control: 59% of 60% · 38 of 39 territories**, with **Hold 60% of the map — 39 of its 64 territories — to win. 1 more to go.** under it. The share is rounded down, so the meter never claims a win the server has not given.',
+    messagePhone: 'The top bar shows **59%/60%**, and the **Objectives** panel on the **Status** tab under **☰ Menu** spells it out: **Map control: 59% of 60% · 38 of 39 territories**, with **Hold 60% of the map — 39 of its 64 territories — to win. 1 more to go.** under it. The share is rounded down, so the meter never claims a win the server has not given.',
     detail: 'The count needed is the whole number at or above 60% of the board; the meter and the server use the same expression, so they never disagree about the last system. In a 2v2 or with Allied houses your side\'s systems count together, and the lobby moves the default to **75%** when 2v2 is switched on. Judged from round 2, like every win but Domination.',
     whyItMatters: 'Nobody reinforces a colony. The sixteen neutral Rust systems sit in the 64 whoever holds them, so in a real match the colonies are the cheapest way to the number.',
   },

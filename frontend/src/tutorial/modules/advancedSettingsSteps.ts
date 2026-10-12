@@ -35,9 +35,11 @@ export const ADVANCED_SETTINGS_STEPS: TutorialStep[] = [
     id: 'as_try_toggle',
     title: 'Try a Setting',
     message: 'Open the Settings Lab below and toggle at least two options. Your choices apply to this practice match — look for new UI in the sidebar after you close the lab.',
+    messagePhone: 'Open the Settings Lab below and toggle at least two options. Your choices apply to this practice match — look for new UI under **☰ Menu** after you close the lab.',
     requireAction: 'settings_explored',
     actionOpenSettingsLab: true,
     hint: 'Tap "Open Settings Lab", flip two toggles, then close the lab and check the sidebar.',
+    hintPhone: 'Tap "Open Settings Lab", flip two toggles, then close the lab and check **☰ Menu**.',
     whyItMatters:
       'Experimenting before your first custom lobby means you already know which toggles matter for your group.',
   },

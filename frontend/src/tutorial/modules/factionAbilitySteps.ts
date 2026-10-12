@@ -13,7 +13,7 @@ export const FACTION_ABILITY_STEPS: TutorialStep[] = [
     id: 'fa_identity',
     title: 'Know Your Faction',
     message:
-      'Open the Bonuses panel in the sidebar to read China\'s passive bonuses (+1 defense on every territory you own) and the Guerrilla Warfare description.',
+      'Open the Bonuses panel to read China\'s passive bonuses (+1 defense on every territory you own) and the Guerrilla Warfare description.',
     actionOpenBonuses: true,
     requireAction: 'bonuses_opened',
     hint: 'Tap "Open Bonuses" below — the panel shows China\'s +1 defence passive and Guerrilla Warfare charges.',
@@ -38,7 +38,7 @@ export const FACTION_ABILITY_STEPS: TutorialStep[] = [
     requireAction: 'ability_used',
     hint: 'Tap any territory you own, then look for the green "Guerrilla Warfare" button in the Territory Panel.',
     detail:
-      'If you do not see the button, check that the phase shown in the sidebar is "Reinforcement" (Draft). It will not appear during Attack or Fortify.',
+      'If you do not see the button, check that it is the "Reinforcement" (Draft) phase. It will not appear during Attack or Fortify.',
   },
   {
     id: 'fa_result',

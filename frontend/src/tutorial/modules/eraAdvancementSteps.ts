@@ -16,6 +16,7 @@ export const ERA_ADVANCEMENT_STEPS: TutorialStep[] = [
     id: 'ea_progress',
     title: 'Your Era & the Timeline',
     message: 'The Era panel in your sidebar shows the timeline of eras, your position on it, and the gate you must clear to advance. Opponents climb at their own pace.',
+    messagePhone: 'The Era panel under **☰ Menu** shows the timeline of eras, your position on it, and the gate you must clear to advance. Opponents climb at their own pace.',
     whyItMatters: 'Advancing first earns an edge — but it briefly weakens your army, so timing matters.',
   },
   {
@@ -47,7 +48,7 @@ export const ERA_ADVANCEMENT_STEPS: TutorialStep[] = [
     // first research, and the gate needs a tier-2 tech on top of the tier-1s.
     message: 'Once every gate chip is green, press **Advance to Medieval Era** at the top of the tree or in the Era panel. About 70% of your units carry forward — the rest are lost for good — your tech resets to the new era, and you gain a signature payoff.',
     requireAction: 'era_advanced',
-    hint: 'Still short? Research the missing nodes first — the Era Advancement panel in your sidebar shows what is left, and the Advance button lights up when nothing is.',
+    hint: 'Still short? Research the missing nodes first — the gate rail at the top of the tree shows what is left, and the Advance button lights up when nothing is.',
   },
   {
     id: 'ea_signature',

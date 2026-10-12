@@ -37,6 +37,7 @@ export const GALAXY_SECRET_MISSIONS_STEPS: TutorialStep[] = [
     id: 'gsm_objectives',
     title: 'Read Your Mission',
     message: 'The **Objectives** panel in the sidebar\'s Status tab shows it: **Mission: Own Guinea Coast and Pacific Rim**. Nobody else can see it — a mission is revealed only to its holder, to eliminated players and on the result screen. The Mandate\'s mission is just as private.',
+    messagePhone: 'The **Objectives** panel on the **Status** tab under **☰ Menu** shows it: **Mission: Own Guinea Coast and Pacific Rim**. Nobody else can see it — a mission is revealed only to its holder, to eliminated players and on the result screen. The Mandate\'s mission is just as private.',
     detail: 'Three mission kinds exist on this board: own two named systems, control one or two named regions, or eliminate a named player yourself (if anyone else does it, the mission fails). Era Advancement adds "reach an era"; the Space Age adds Moon objectives.',
     whyItMatters: 'A rival who guesses your mission can hold the one gateway you need. Two seats can even draw the same objective: missions are dealt separately.',
   },

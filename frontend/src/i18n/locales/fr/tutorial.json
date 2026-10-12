@@ -91,7 +91,8 @@
       "draft_do": {
         "title": "Placez vos renforts",
         "message": "Cliquez sur l'un de vos territoires — en **{playerColor}** —, réglez le nombre avec **−/+** (ou **All**) et appuyez sur **Place**. Quand toutes les unités sont posées, cliquez sur le bouton doré **{{draftButton}}**.",
-        "hint": "L'endroit où vous les empilez décide du front que vous pourrez ouvrir ensuite. Le bouton doré est dans la barre latérale sur ordinateur, dans la barre du bas sur téléphone."
+        "hint": "L'endroit où vous les empilez décide du front que vous pourrez ouvrir ensuite. Le bouton doré est dans la barre latérale.",
+        "hintPhone": "L'endroit où vous les empilez décide du front que vous pourrez ouvrir ensuite. Le bouton doré est dans la barre en bas de l'écran."
       },
       "choose_front": {
         "title": "Choisissez votre front",
@@ -107,12 +108,14 @@
       "turn_ends": {
         "title": "Observez maintenant l'adversaire",
         "message": "Son tour suit les trois mêmes phases. Vous verrez ses dés, ses captures et le joueur actif surligné dans la barre latérale, en temps réel.",
+        "messagePhone": "Son tour suit les trois mêmes phases. La barre du bas indique qui joue, et la ligne juste au-dessus montre ses combats, dés compris — une IA rapide aura peut-être déjà fini quand vous lirez ceci.",
         "detail": "Rien à faire ici — la carte suivante arrive quand le tour vous revient."
       },
       "economy_intro": {
         "title": "Votre empire est aussi une économie",
         "message": "À vous de nouveau — et cette fois, avant d'attaquer. Le territoire n'est que la moitié du jeu : votre empire a un **trésor** et un **programme de recherche**, et les deux ont grandi pendant que vous teniez le terrain.",
         "detail": "Le panneau Era de votre barre latérale montre la frise des ères, votre position dessus et le seuil à franchir pour avancer. Votre adversaire grimpe à son propre rythme.",
+        "detailPhone": "Le panneau Era, sous **☰ Menu**, montre la frise des ères, votre position dessus et le seuil à franchir pour avancer. Votre adversaire grimpe à son propre rythme.",
         "whyItMatters": "La conquête, c'est ainsi qu'on gagne une carte. Passer une ère, c'est ainsi qu'on dépasse l'adversaire qui la tient — unités plus fortes, arbre technologique tout neuf et récompense signature unique."
       },
       "ea_research": {
@@ -163,7 +166,9 @@
       "as_try_toggle": {
         "title": "Essayez un réglage",
         "message": "Ouvrez le labo des réglages ci-dessous et activez au moins deux options. Vos choix s'appliquent à cette partie d'entraînement — cherchez la nouvelle interface dans la barre latérale après avoir fermé le labo.",
+        "messagePhone": "Ouvrez le labo des réglages ci-dessous et activez au moins deux options. Vos choix s'appliquent à cette partie d'entraînement — cherchez la nouvelle interface sous **☰ Menu** après avoir fermé le labo.",
         "hint": "Touchez « Ouvrir le labo des réglages », basculez deux options, puis fermez le labo et regardez la barre latérale.",
+        "hintPhone": "Touchez « Ouvrir le labo des réglages », basculez deux options, puis fermez le labo et regardez sous **☰ Menu**.",
         "whyItMatters": "Expérimenter avant votre premier salon personnalisé, c'est déjà savoir quelles options comptent pour votre groupe."
       },
       "as_complete": {
@@ -180,6 +185,7 @@
       "ea_progress": {
         "title": "Votre ère et la frise",
         "message": "Le panneau Era de votre barre latérale montre la frise des ères, votre position dessus et le seuil à franchir pour avancer. Les adversaires grimpent à leur propre rythme.",
+        "messagePhone": "Le panneau Era, sous **☰ Menu**, montre la frise des ères, votre position dessus et le seuil à franchir pour avancer. Les adversaires grimpent à leur propre rythme.",
         "whyItMatters": "Avancer en premier donne un avantage — mais affaiblit brièvement votre armée, le moment compte donc."
       },
       "ea_open_tree": {
@@ -201,7 +207,7 @@
       "ea_advance": {
         "title": "Passez au Moyen Âge",
         "message": "Une fois chaque jeton du seuil au vert, appuyez sur **Advance to Medieval Era** en haut de l'arbre ou dans le panneau Era. Environ 70 % de vos unités passent avec vous — les autres sont perdues pour de bon —, votre technologie repart dans la nouvelle ère et vous gagnez une récompense signature.",
-        "hint": "Il manque encore quelque chose ? Recherchez d'abord les nœuds manquants — le panneau de passage d'ère de votre barre latérale montre ce qui reste, et le bouton Advance s'allume quand il ne reste rien."
+        "hint": "Il manque encore quelque chose ? Recherchez d'abord les nœuds manquants — le rail du seuil, en haut de l'arbre, montre ce qui reste, et le bouton Advance s'allume quand il ne reste rien."
       },
       "ea_signature": {
         "title": "Vulnérable, mais plus fort",
@@ -221,7 +227,7 @@
       },
       "fa_identity": {
         "title": "Connaissez votre faction",
-        "message": "Ouvrez le panneau Bonuses dans la barre latérale pour lire les bonus passifs de la Chine (+1 en défense sur chaque territoire que vous tenez) et la description de Guerrilla Warfare.",
+        "message": "Ouvrez le panneau Bonuses pour lire les bonus passifs de la Chine (+1 en défense sur chaque territoire que vous tenez) et la description de Guerrilla Warfare.",
         "hint": "Touchez « Ouvrir les bonus » ci-dessous — le panneau montre le +1 de défense passif de la Chine et les charges de Guerrilla Warfare.",
         "whyItMatters": "Comprendre vos passifs change où vous défendez. Le +1 de défense de la Chine rend les territoires intérieurs très coûteux à attaquer."
       },
@@ -235,7 +241,7 @@
         "title": "Utilisez Guerrilla Warfare",
         "message": "Pendant la phase de renfort, cliquez sur n'importe quel territoire à vous. Un bouton vert « 🌿 Guerrilla Warfare » apparaît. Touchez-le pour placer 1 unité gratuite — sans carte ni territoire requis.",
         "hint": "Touchez un territoire à vous, puis cherchez le bouton vert « Guerrilla Warfare » dans le panneau de territoire.",
-        "detail": "Si vous ne voyez pas le bouton, vérifiez que la phase affichée dans la barre latérale est « Reinforcement » (renfort). Il n'apparaît pas pendant l'Attaque ni la Fortification."
+        "detail": "Si vous ne voyez pas le bouton, vérifiez que vous êtes bien en phase « Reinforcement » (renfort). Il n'apparaît pas pendant l'Attaque ni la Fortification."
       },
       "fa_result": {
         "title": "Capacité utilisée !",
@@ -284,8 +290,9 @@
       "gls_chart": {
         "title": "Lisez la carte galactique",
         "message": "Le plateau s'ouvre sur la **Galaxy chart**. Cliquez sur le bouton **Galaxy chart** au-dessus du plateau — c'est ainsi que l'on revient de n'importe quel onglet de monde — et lisez les routes : une route de **votre couleur** est un corridor, une route **bleue** est ouverte (vous tenez un bout), une route estompée vous est fermée. Le panneau des objectifs, dans la barre latérale, tient le compte : **corridors 4 of 5 · held 0 of 3 rounds**.",
+        "messagePhone": "Le plateau s'ouvre sur la **Galaxy chart**. Touchez la puce **Galaxy chart** de la rangée Worlds, au-dessus du plateau — c'est ainsi que l'on revient de n'importe quel onglet de monde — et lisez les routes : une route de **votre couleur** est un corridor, une route **bleue** est ouverte (vous tenez un bout), une route estompée vous est fermée. Le panneau des objectifs, sous **☰ Menu**, tient le compte : **corridors 4 of 5 · held 0 of 3 rounds**.",
         "detail": "À trois sièges, des routes coloniales comblent les deux trous de l'anneau. Elles portent les attaques comme n'importe quelle route, mais Lane Sovereignty ne compte que les huit routes cartographiées.",
-        "hint": "Sur téléphone, la puce Galaxy chart est dans la rangée « Worlds » au-dessus du plateau. Un onglet de monde ouvre ce monde seul."
+        "hint": "Un onglet de monde ouvre ce monde seul."
       },
       "gls_charts": {
         "title": "Recherchez Lane Charts",
@@ -348,6 +355,7 @@
       "gtr_gate": {
         "title": "Franchissez le seuil et avancez",
         "message": "Terminez la recherche et la deuxième Workshop jusqu'à ce que chaque jeton du rail soit vert, puis appuyez sur **Advance to Galactic Age** directement dans le rail (le panneau **Era Advancement** de la barre latérale a le même bouton). L'avancée coûte aussi des PP.",
+        "messagePhone": "Terminez la recherche et la deuxième Workshop jusqu'à ce que chaque jeton du rail soit vert, puis appuyez sur **Advance to Galactic Age** directement dans le rail (le panneau **Era Advancement**, sous **☰ Menu**, a le même bouton). L'avancée coûte aussi des PP.",
         "detail": "Avancer consolide vos armées : environ 30 % de vos unités sont perdues pour de bon, et pendant un tour vos défenseurs se battent affaiblis. Votre recherche de l'Ère spatiale est effacée — l'ère qui arrive verrouille ses routes par la position, pas par la technologie — et vous recevez le **Pathfinder Gate** : les routes vers les mondes que vous n'avez pas encore atteints sont à vous seul pendant deux manches.",
         "hint": "Avancez pendant votre phase de Renfort ou de Fortification. Un jeton manque ? Le rail nomme ce qui manque."
       },
@@ -383,6 +391,7 @@
       "gsm_objectives": {
         "title": "Lisez votre mission",
         "message": "Le panneau **Objectives** de l'onglet Status de la barre latérale l'affiche : **Mission: Own Guinea Coast and Pacific Rim**. Personne d'autre ne la voit : une mission n'est révélée qu'à son détenteur, aux joueurs éliminés et sur l'écran de résultat. Celle de la Mandate est tout aussi privée.",
+        "messagePhone": "Le panneau **Objectives** de l'onglet **Status**, sous **☰ Menu**, l'affiche : **Mission: Own Guinea Coast and Pacific Rim**. Personne d'autre ne la voit : une mission n'est révélée qu'à son détenteur, aux joueurs éliminés et sur l'écran de résultat. Celle de la Mandate est tout aussi privée.",
         "detail": "Trois sortes de missions existent sur ce plateau : posséder deux systèmes nommés, contrôler une ou deux régions nommées, ou éliminer vous-même un joueur nommé (si quelqu'un d'autre le fait, la mission échoue). Le passage d'ère ajoute « atteindre une ère » ; l'Ère spatiale, des objectifs lunaires.",
         "whyItMatters": "Un rival qui devine votre mission peut tenir le seul gateway dont vous avez besoin. Deux sièges peuvent même tirer le même objectif : les missions sont distribuées séparément."
       },
@@ -428,6 +437,7 @@
       "gcp_rules": {
         "title": "Lisez les capitales",
         "message": "Chaque capitale est marquée sur la carte, et le panneau **Objectives** de la barre latérale affiche **Your capital: Amazon Basin** avec la règle en dessous : tenez-la et prenez chaque capitale rivale, jugé à partir de la manche 2. Perdez Amazon Basin et le panneau vire au rouge — vous ne pouvez pas gagner par les capitales tant que vous ne l'avez pas reprise.",
+        "messagePhone": "Chaque capitale est marquée sur la carte, et le panneau **Objectives**, sous **☰ Menu**, affiche **Your capital: Amazon Basin** avec la règle en dessous : tenez-la et prenez chaque capitale rivale, jugé à partir de la manche 2. Perdez Amazon Basin et le panneau vire au rouge — vous ne pouvez pas gagner par les capitales tant que vous ne l'avez pas reprise.",
         "detail": "Seuls les rivaux vivants comptent : la capitale d'un siège éliminé n'a plus à être tenue. En 2v2 ou avec des maisons alliées, le camp gagne quand chaque capitale vivante est entre les mains de ses membres.",
         "whyItMatters": "Une capitale sur un gateway est à la fois le prix et la porte. Qui tient Chlorophage Span tient le bout lointain de la route Sol–Verdan, et avec lui un corridor de Sovereignty."
       },
@@ -463,6 +473,7 @@
       "gth_meter": {
         "title": "Lisez la jauge de contrôle de la carte",
         "message": "La barre du haut affiche **59%/60%**, et le panneau **Objectives** de l'onglet Status de la barre latérale l'écrit en toutes lettres : **Map control: 59% of 60% · 38 of 39 territories**, avec **Hold 60% of the map — 39 of its 64 territories — to win. 1 more to go.** en dessous. La part est arrondie vers le bas, la jauge n'annonce donc jamais une victoire que le serveur n'a pas donnée.",
+        "messagePhone": "La barre du haut affiche **59%/60%**, et le panneau **Objectives** de l'onglet **Status**, sous **☰ Menu**, l'écrit en toutes lettres : **Map control: 59% of 60% · 38 of 39 territories**, avec **Hold 60% of the map — 39 of its 64 territories — to win. 1 more to go.** en dessous. La part est arrondie vers le bas, la jauge n'annonce donc jamais une victoire que le serveur n'a pas donnée.",
         "detail": "Le nombre requis est l'entier égal ou supérieur à 60 % du plateau ; la jauge et le serveur utilisent la même expression, ils ne divergent donc jamais sur le dernier système. En 2v2 ou avec des maisons alliées, les systèmes de votre camp comptent ensemble, et le salon passe la valeur par défaut à **75 %** quand le 2v2 est activé. Jugé à partir de la manche 2, comme toute victoire sauf la domination.",
         "whyItMatters": "Personne ne renforce une colonie. Les seize systèmes neutres de Rust sont dans les 64 quel que soit leur détenteur : dans une vraie partie, les colonies sont donc le chemin le moins cher vers le nombre."
       },
@@ -498,6 +509,7 @@
       "gdm_rules": {
         "title": "Last Commander Standing",
         "message": "L'onglet **Status** de la barre latérale n'affiche aucun objectif pour la domination : il n'y a rien à compter sinon le plateau lui-même. Ce qui termine la partie, c'est une élimination : quand un siège perd son dernier système, l'écran **Player Eliminated** nomme qui l'a pris, et s'il ne reste personne d'autre, l'écran de résultat affiche **Last Commander Standing — all opponents eliminated**.",
+        "messagePhone": "L'onglet **Status**, sous **☰ Menu**, n'affiche aucun objectif pour la domination : il n'y a rien à compter sinon le plateau lui-même. Ce qui termine la partie, c'est une élimination : quand un siège perd son dernier système, l'écran **Player Eliminated** nomme qui l'a pris, et s'il ne reste personne d'autre, l'écran de résultat affiche **Last Commander Standing — all opponents eliminated**.",
         "detail": "Les éliminations sont jugées dès la manche 1 aussi, et c'est pourquoi une capitale à deux unités ou un gateway isolé est un vrai risque au premier tour. Les colonies neutres n'appartiennent à personne : les prendre ou les ignorer ne change rien ici ; dans une partie au seuil, elles comptent. Un abandon est aussi une élimination, créditée à personne.",
         "whyItMatters": "Un rival à qui il ne reste qu'un système est à une attaque de la fin de partie — et un rival qui le sait y recrute au moins trois unités par tour."
       },
@@ -532,7 +544,8 @@
       },
       "gpr_chart": {
         "title": "Lisez le plateau",
-        "message": "Cliquez sur le bouton **Galaxy chart** au-dessus du plateau (sur téléphone, la puce **Galaxy chart** de la rangée Worlds). Sa légende **Lanes** indique **Corridor · both gateways yours**, **Open · you hold one end**, **Closed · take a gateway first** et **Sealed · Emergency Seal, 1 round**. Un onglet de monde ouvre ce monde seul ; **Split** affiche la carte de chaque monde en même temps.",
+        "message": "Cliquez sur le bouton **Galaxy chart** au-dessus du plateau. Sa légende **Lanes** indique **Corridor · both gateways yours**, **Open · you hold one end**, **Closed · take a gateway first** et **Sealed · Emergency Seal, 1 round**. Un onglet de monde ouvre ce monde seul ; **Split** affiche la carte de chaque monde en même temps.",
+        "messagePhone": "Touchez la puce **Galaxy chart** de la rangée Worlds, au-dessus du plateau. Sa légende **Lanes** indique **Corridor · both gateways yours**, **Open · you hold one end**, **Closed · take a gateway first** et **Sealed · Emergency Seal, 1 round**. Un onglet de monde ouvre ce monde seul ; **Split** affiche la carte de chaque monde en même temps.",
         "detail": "Sur un monde, cliquez sur un système gateway : sa carte **Gateway** liste chaque route avec le monde lointain, son état et les dés qu'une traversée lance — **Lane attacks roll 2 dice (3 with Lane Charts)**.",
         "hint": "Double-cliquez sur un monde de la carte, ou sur son bouton **Enter world →**, pour y entrer."
       },
@@ -554,7 +567,8 @@
       "gpr_wins": {
         "title": "Sept façons de gagner, six leçons",
         "message": "**Lane Sovereignty** est celle de la galaxie : tenez 5 des 8 routes cartographiées comme corridors au début de votre tour, 3 tours de suite — 5 dans un duel ou un 2v2. **Threshold** compte chaque système, colonies comprises : 60 % de 64 font 39, et un salon galactique s'ouvre avec ce seuil activé à 60 % — 75 % en 2v2 — avec une limite de 90 manches derrière. **Capital** : la capitale de chaque siège est le premier de ses systèmes distribués dans l'ordre de la liste, et sur cette carte c'est un gateway sur chaque monde. **Secret Missions** ne nomment jamais de terrain derrière une porte hyperspatiale, si bien que toute mission de capture ou de contrôle nomme ici Sol III, et un siège tenant tout Sol ne peut tirer qu'une mission d'élimination. **Domination** s'achève quand le dernier rival tombe — Last Commander Standing, jugée aussitôt. **Transcendence** demande le plateau Space to Stars : montez de l'Ère spatiale à l'Ère galactique et érigez une merveille.",
-        "detail": "Toute victoire sauf la domination est jugée à partir de la manche 2, une fois que chaque siège a joué un tour. Le panneau **Objectives** de l'onglet Status de la barre latérale tient le compte de celles que ce plateau joue : **Map control** et **Lane Sovereignty**. Chacune des six leçons de l'Ère galactique joue l'une de ces victoires jusqu'au bout sur un plateau conçu pour elle."
+        "detail": "Toute victoire sauf la domination est jugée à partir de la manche 2, une fois que chaque siège a joué un tour. Le panneau **Objectives** de l'onglet Status de la barre latérale tient le compte de celles que ce plateau joue : **Map control** et **Lane Sovereignty**. Chacune des six leçons de l'Ère galactique joue l'une de ces victoires jusqu'au bout sur un plateau conçu pour elle.",
+        "detailPhone": "Toute victoire sauf la domination est jugée à partir de la manche 2, une fois que chaque siège a joué un tour. Le panneau **Objectives** de l'onglet **Status**, sous **☰ Menu**, tient le compte de celles que ce plateau joue : **Map control** et **Lane Sovereignty**. Chacune des six leçons de l'Ère galactique joue l'une de ces victoires jusqu'au bout sur un plateau conçu pour elle."
       },
       "gpr_complete": {
         "title": "Primer terminé",

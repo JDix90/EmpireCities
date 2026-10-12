@@ -55,7 +55,8 @@ export const COMBINED_CORE_TUTORIAL_STEPS: TutorialStep[] = [
     // territory to place reinforcements" read as one click, so players clicked
     // repeatedly and nothing moved.
     message: `Click one of your territories — shown in **{playerColor}** — then dial how many with **−/+** (or **All**) and press **Place**. When every unit is down, click the gold **${phaseAdvanceLabel('draft')}** button.`,
-    hint: 'Where you stack them decides which front you can open next. The gold button is in the sidebar on desktop, in the bottom bar on phones.',
+    hint: 'Where you stack them decides which front you can open next. The gold button is in the sidebar.',
+    hintPhone: 'Where you stack them decides which front you can open next. The gold button is in the bar along the bottom of the screen.',
     requireAction: 'end_phase',
   },
   {
@@ -86,6 +87,7 @@ export const COMBINED_CORE_TUTORIAL_STEPS: TutorialStep[] = [
     id: 'turn_ends',
     title: 'The Opponent Moves',
     message: 'Their turn runs the same three phases. The sidebar highlights whoever is active, and their dice and captures land in the turn log — a fast AI may already be done by the time you read this.',
+    messagePhone: 'Their turn runs the same three phases. The bar along the bottom names whoever is active, and the line just above it shows their battles, dice and all — a fast AI may already be done by the time you read this.',
     detail: 'Nothing to do here — the next card arrives as soon as the turn is back with you.',
     requireAction: 'my_turn',
   },
@@ -94,6 +96,7 @@ export const COMBINED_CORE_TUTORIAL_STEPS: TutorialStep[] = [
     title: 'Your Empire Is Also an Economy',
     message: 'Your turn again — and this time, before you attack. Territory is only half the game: your empire holds a **treasury** and a **research programme**, and both grew while you held ground.',
     detail: 'The Era panel in your sidebar shows the timeline of eras, where you sit on it, and the gate you must clear to advance. Your opponent climbs at their own pace.',
+    detailPhone: 'The Era panel under **☰ Menu** shows the timeline of eras, where you sit on it, and the gate you must clear to advance. Your opponent climbs at their own pace.',
     whyItMatters: 'Conquest is how you win a map. Advancing an era is how you outgrow the opponent holding it — stronger units, a fresh tech tree, and a one-time signature reward.',
   },
   {

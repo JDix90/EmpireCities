@@ -31,7 +31,8 @@ export const GALAXY_PRIMER_STEPS: TutorialStep[] = [
   {
     id: 'gpr_chart',
     title: 'Read the Board',
-    message: 'Click the **Galaxy chart** button above the board (on a phone, the **Galaxy chart** chip in the Worlds row). Its **Lanes** legend reads **Corridor · both gateways yours**, **Open · you hold one end**, **Closed · take a gateway first** and **Sealed · Emergency Seal, 1 round**. A world tab opens that world on its own; **Split** shows every world\'s map at once.',
+    message: 'Click the **Galaxy chart** button above the board. Its **Lanes** legend reads **Corridor · both gateways yours**, **Open · you hold one end**, **Closed · take a gateway first** and **Sealed · Emergency Seal, 1 round**. A world tab opens that world on its own; **Split** shows every world\'s map at once.',
+    messagePhone: 'Tap the **Galaxy chart** chip in the Worlds row above the board. Its **Lanes** legend reads **Corridor · both gateways yours**, **Open · you hold one end**, **Closed · take a gateway first** and **Sealed · Emergency Seal, 1 round**. A world tab opens that world on its own; **Split** shows every world\'s map at once.',
     detail: 'On a world, click a gateway system: its **Gateway** card lists each lane with the far world, its state, and the dice a crossing rolls — **Lane attacks roll 2 dice (3 with Lane Charts)**.',
     hint: 'Double-click a world on the chart, or its **Enter world →** button, to drill in.',
     requireAction: 'galaxy_chart_opened',
@@ -59,6 +60,7 @@ export const GALAXY_PRIMER_STEPS: TutorialStep[] = [
     title: 'Seven Ways to Win, Six Lessons',
     message: '**Lane Sovereignty** is the galaxy\'s own: hold 5 of the 8 charted lanes as corridors at the start of your turn, 3 turns running — 5 in a duel or a 2v2. **Threshold** counts every system, colonies included: 60% of 64 is 39, and a galaxy lobby opens with it on at 60% — 75% in 2v2 — with a 90-turn limit behind it. **Capital**: each seat\'s capital is the first of its dealt systems in list order, and on this map that is a gateway on every world. **Secret Missions** never name ground behind a hyperspace gate, so every capture or control mission here names Sol III, and a seat holding all of Sol can only draw an eliminate mission. **Domination** ends when the last rival falls — Last Commander Standing, judged at once. **Transcendence** needs the Space to Stars board: climb from the Space Age into the Galactic Age and raise a wonder.',
     detail: 'Every win but Domination is judged from round 2, once every seat has had a turn. The **Objectives** panel in the sidebar\'s Status tab keeps score of the ones this board plays for: **Map control** and **Lane Sovereignty**. Each of the six Galactic Age lessons plays one of these wins to the end on an authored board.',
+    detailPhone: 'Every win but Domination is judged from round 2, once every seat has had a turn. The **Objectives** panel on the **Status** tab under **☰ Menu** keeps score of the ones this board plays for: **Map control** and **Lane Sovereignty**. Each of the six Galactic Age lessons plays one of these wins to the end on an authored board.',
   },
   {
     id: 'gpr_complete',

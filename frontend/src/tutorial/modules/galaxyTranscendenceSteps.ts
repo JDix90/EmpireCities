@@ -57,6 +57,7 @@ export const GALAXY_TRANSCENDENCE_STEPS: TutorialStep[] = [
     id: 'gtr_gate',
     title: 'Clear the Gate and Advance',
     message: 'Finish the research and the second Workshop until every chip in the rail is green, then press **Advance to Galactic Age** right there in the rail (the **Era Advancement** panel in the sidebar has the same button). The advance costs PP as well.',
+    messagePhone: 'Finish the research and the second Workshop until every chip in the rail is green, then press **Advance to Galactic Age** right there in the rail (the **Era Advancement** panel under **☰ Menu** has the same button). The advance costs PP as well.',
     detail: 'Advancing consolidates your armies: about 30% of your units are lost for good, and for one turn your defenders fight weaker. Your Space Age research is wiped — the arriving era gates its lanes by position, not by tech — and you gain the **Pathfinder Gate**: the lanes to worlds you have not reached are yours alone for two rounds.',
     hint: 'Advance in your Reinforcement or Fortify phase. Short on a chip? The rail names what is missing.',
     requireAction: 'era_advanced',
