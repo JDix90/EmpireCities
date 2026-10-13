@@ -18,6 +18,7 @@ import {
   getEventVolume,
   getAcquisitionBySource,
   getAnalyticsReport,
+  parseFunnelDevice,
 } from './analyticsQueries';
 
 describe('analyticsQueries', () => {
@@ -38,8 +39,30 @@ describe('analyticsQueries', () => {
     expect(sql).toContain("e.event = 'map_rendered'");
     expect(sql).toContain("e.event = 'first_attack'");
     expect(sql).toContain("e.event = 'first_territory_captured'");
-    expect(params).toEqual([14]);
+    expect(params).toEqual([14, null]);
     expect(f).toEqual({ signups: 10, created_game: 7, started_game: 6, map_rendered: 6, first_attack: 5, first_capture: 4, finished_game: 4, upgraded: 2 });
+  });
+
+  it('getFunnelMetrics counts real games only after signup, and narrows to a signup device', async () => {
+    queryMock.mockResolvedValueOnce([]);
+    await getFunnelMetrics(7, 'phone');
+    const [sql, params] = queryMock.mock.calls[0] as [string, unknown[]];
+    // The tutorial fires these events too; the funnel's steps must not count it.
+    for (const ev of ['game_started', 'map_rendered', 'first_attack', 'first_territory_captured', 'game_finished']) {
+      expect(sql).toContain(`e.event = '${ev}' AND COALESCE(e.properties->>'is_tutorial', 'false') <> 'true'`);
+    }
+    // The device is the one recorded on the signup event; null keeps everyone.
+    expect(sql).toContain("($2::text IS NULL OR properties->>'device' = $2::text)");
+    expect(params).toEqual([7, 'phone']);
+  });
+
+  it('parseFunnelDevice accepts the three device classes and nothing else', () => {
+    expect(parseFunnelDevice('phone')).toBe('phone');
+    expect(parseFunnelDevice('tablet')).toBe('tablet');
+    expect(parseFunnelDevice('desktop')).toBe('desktop');
+    expect(parseFunnelDevice('all')).toBeNull();
+    expect(parseFunnelDevice(undefined)).toBeNull();
+    expect(parseFunnelDevice("phone' OR 1=1")).toBeNull();
   });
 
   it('getFunnelMetrics defaults a missing row to zeros', async () => {
@@ -170,7 +193,10 @@ describe('analyticsQueries', () => {
     expect(sql).toContain("e.event = 'tutorial_completed'");
     // The same guest/account test the retention split uses.
     expect(sql).toContain("e.event IN ('user_registered', 'guest_upgraded')");
-    expect(params).toEqual([30]);
+    // Leaving from the wrap-up card after playing the lesson counts as completed:
+    // that path abandons the tutorial game, so the server event never fires.
+    expect(sql).toContain("e.event = 'tutorial_exited' AND e.properties->>'via' IN ('wrapup', 'wrapup_to_match')");
+    expect(params).toEqual([30, null]);
     expect(rows).toEqual([
       { cohort: 'account', started: 8, completed: 6 },
       { cohort: 'guest', started: 30, completed: 9 },
@@ -276,6 +302,7 @@ describe('analyticsQueries', () => {
 
     const r = await getAnalyticsReport(30);
     expect(r.window_days).toBe(30);
+    expect(r.device).toBeNull();
     expect(r.total_events).toBe(42);
     expect(r.visitors).toEqual({ landed: 10, clicked_play: 4, signed_up: 3 });
     expect(r.funnel.finished_game).toBe(1);

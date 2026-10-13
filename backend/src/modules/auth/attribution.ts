@@ -40,6 +40,16 @@ export type Attribution = z.infer<typeof AttributionSchema>;
 const AnonSessionIdSchema = z.string().uuid();
 
 /**
+ * The device class the signup happened on (frontend/src/utils/device.ts
+ * `deviceClass`), so the activation and tutorial funnels can be read for phones
+ * and desktops separately. A closed set, validated on its own for the same
+ * reason as the session id: a bad value must not cost the campaign fields.
+ */
+export const SIGNUP_DEVICE_CLASSES = ['phone', 'tablet', 'desktop'] as const;
+export type SignupDeviceClass = (typeof SIGNUP_DEVICE_CLASSES)[number];
+const DeviceClassSchema = z.enum(SIGNUP_DEVICE_CLASSES);
+
+/**
  * Pull the optional `attribution` object off an auth request body and flatten it
  * into an analytics payload. Never throws: a missing / malformed / oversized
  * body just yields `{}` (an un-attributed event), so wiring this into an auth
@@ -58,6 +68,8 @@ export function parseAttribution(body: unknown): Record<string, string> {
   if (raw && typeof raw === 'object') {
     const anon = AnonSessionIdSchema.safeParse((raw as Record<string, unknown>).anon_session_id);
     if (anon.success) out.anon_session_id = anon.data;
+    const device = DeviceClassSchema.safeParse((raw as Record<string, unknown>).device);
+    if (device.success) out.device = device.data;
   }
   return out;
 }

@@ -3992,7 +3992,7 @@ export default function GamePage() {
    * leaving the tutorial, so the promise is swallowed and the caller does not
    * await it.
    */
-  const reportTutorialExit = useCallback((via: 'exit_button' | 'skipped_wrapup') => {
+  const reportTutorialExit = useCallback((via: 'exit_button' | 'skipped_wrapup' | 'wrapup' | 'wrapup_to_match') => {
     const index = tutorialStepRef.current;
     const step = tutorialStepsRef.current[index];
     void api
@@ -4018,6 +4018,10 @@ export default function GamePage() {
       void abandonTutorialToLobby();
       return;
     }
+    // A played lesson left from its last card: the admin tutorial funnel counts
+    // this as completed, because abandoning the game means the server's
+    // `tutorial_completed` never fires.
+    reportTutorialExit('wrapup');
     maybePromptTutorialAccount(() => {
       void abandonTutorialToLobby();
     });

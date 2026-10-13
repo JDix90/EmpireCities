@@ -4530,7 +4530,11 @@ async function startWaitingGameLocked(io: Server, gameId: string): Promise<Start
     }
   }
 
-  recordServerEvent('game_started', {
+  // One event per human seat, carrying that player's user id, the same shape
+  // as `game_finished`. The activation funnel joins every step on user_id, so
+  // a single anonymous event per game could never count toward "Started a
+  // game" (services/analyticsQueries.ts getFunnelMetrics).
+  const gameStartedProps = {
     game_id: gameId,
     map_id: state.map_id,
     human_count: humanCount,
@@ -4541,7 +4545,10 @@ async function startWaitingGameLocked(io: Server, gameId: string): Promise<Start
     game_type: gameType,
     is_ranked: !!game.is_ranked,
     is_tutorial: !!state.settings.tutorial,
-  });
+  };
+  for (const human of state.players.filter((p) => !p.is_ai)) {
+    recordServerEvent('game_started', gameStartedProps, human.player_id);
+  }
   // Send the resolved map to every player in the room so client code
   // never has to re-fetch via REST during play (private/pending custom
   // maps would otherwise be invisible to non-creator participants).

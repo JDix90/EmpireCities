@@ -93,6 +93,8 @@ describe('authStore', () => {
       attribution: {
         utm_source: 'reddit',
         anon_session_id: expect.stringMatching(/^[0-9a-f-]{36}$/i),
+        // The test DOM has no matchMedia, which reads as a desktop.
+        device: 'desktop',
       },
     });
     // Same user_id (in-place conversion), progression intact, flag flipped.

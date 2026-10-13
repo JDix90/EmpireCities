@@ -49,6 +49,23 @@ export function isPhoneLayout(): boolean {
   return isCoarsePointer() && Math.min(window.innerWidth, window.innerHeight) <= 540;
 }
 
+/**
+ * The device class a signup is recorded with, so the admin funnels can be read
+ * for phones and desktops separately (backend modules/auth/attribution.ts keeps
+ * the same three values). A phone is the game's phone layout; a coarse pointer
+ * that is not phone-sized is a tablet; everything else is a desktop.
+ */
+export type DeviceClass = 'phone' | 'tablet' | 'desktop';
+
+export function deviceClass(): DeviceClass {
+  // Never let a missing matchMedia (an old embedded browser, a test DOM) cost a
+  // signup its attribution: an unknown device reads as a desktop.
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return 'desktop';
+  if (isPhoneLayout()) return 'phone';
+  if (isCoarsePointer()) return 'tablet';
+  return 'desktop';
+}
+
 export function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined') return false;
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;

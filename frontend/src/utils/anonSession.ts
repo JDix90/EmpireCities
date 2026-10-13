@@ -9,7 +9,6 @@
  * and lands in the guest_created / user_registered event properties. It is
  * NEVER used for authentication or personalization.
  */
-import { generateActionId } from './actionId';
 import { safeLocalStorage } from './safeStorage';
 
 const ANON_SESSION_KEY = 'cc-anon-session';
@@ -38,8 +37,10 @@ export function getAnonSessionId(): string | null {
     const storage = safeLocalStorage();
     const existing = storage.getItem(ANON_SESSION_KEY);
     if (existing && UUID_RE.test(existing)) return existing;
-    const minted = generateActionId();
-    if (!UUID_RE.test(minted)) return null;
+    // crypto.randomUUID only: generateActionId's Math.random fallback is not a
+    // UUID, so the server would reject it anyway.
+    if (typeof crypto === 'undefined' || typeof crypto.randomUUID !== 'function') return null;
+    const minted = crypto.randomUUID();
     storage.setItem(ANON_SESSION_KEY, minted);
     return minted;
   } catch {

@@ -21,7 +21,7 @@ import {
 } from 'recharts';
 import { api } from '../services/api';
 import Modal from '../components/ui/Modal';
-import AdminAnalyticsPanel, { type AnalyticsReport } from '../components/admin/AdminAnalyticsPanel';
+import AdminAnalyticsPanel, { type AnalyticsReport, type FunnelDeviceFilter } from '../components/admin/AdminAnalyticsPanel';
 import AdminGalaxyReportPanel from '../components/admin/AdminGalaxyReportPanel';
 import { useFeatureFlagsStore } from '../store/featureFlagsStore';
 
@@ -699,6 +699,8 @@ export default function AdminPage() {
   const [overview, setOverview] = useState<OverviewPayload | null>(null);
   const [timeseries, setTimeseries] = useState<TimeseriesPayload | null>(null);
   const [funnel, setFunnel] = useState<AnalyticsReport | null>(null);
+  // Analytics tab: narrow the activation and tutorial funnels to one signup device.
+  const [funnelDevice, setFunnelDevice] = useState<FunnelDeviceFilter>('all');
   const [trendDays, setTrendDays] = useState(30);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
@@ -813,7 +815,9 @@ export default function AdminPage() {
           setOverview(ovRes.data);
           setTimeseries(tsRes.data);
         } else if (tab === 'analytics') {
-          const res = await api.get<AnalyticsReport>('/admin/metrics/funnel', { params: { days: trendDays } });
+          const res = await api.get<AnalyticsReport>('/admin/metrics/funnel', {
+            params: funnelDevice === 'all' ? { days: trendDays } : { days: trendDays, device: funnelDevice },
+          });
           setFunnel(res.data ?? null);
         } else if (tab === 'balance') {
           const [factionRes, eraRes, mapRes, durationRes, settingsTogglesRes] = await Promise.all([
@@ -868,7 +872,7 @@ export default function AdminPage() {
         setLoading(false);
       }
     },
-    [overviewParams, search, trendDays, mapsStatusFilter, userSort, userOrder],
+    [overviewParams, search, trendDays, funnelDevice, mapsStatusFilter, userSort, userOrder],
   );
 
   useEffect(() => {
@@ -1366,7 +1370,7 @@ export default function AdminPage() {
 
         {!loading && activeTab === 'analytics' && (
           <div className="mt-6">
-            <AdminAnalyticsPanel data={funnel} />
+            <AdminAnalyticsPanel data={funnel} device={funnelDevice} onDeviceChange={setFunnelDevice} />
           </div>
         )}
 
