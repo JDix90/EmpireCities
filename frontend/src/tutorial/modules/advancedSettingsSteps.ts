@@ -5,7 +5,7 @@ export const ADVANCED_SETTINGS_STEPS: TutorialStep[] = [
     id: 'as_welcome',
     title: 'Advanced Settings',
     message: 'Hosts tune each match in the lobby. You can mix eras, player counts, timers, and optional systems without changing the core Draft → Attack → Fortify loop.',
-    hint: 'This lesson is informational — tap Next through each card, then try these options in your next custom game.',
+    hint: 'This lesson is informational — press Next through each card, then try these options in your next custom game.',
   },
   {
     id: 'as_timers',
@@ -38,7 +38,7 @@ export const ADVANCED_SETTINGS_STEPS: TutorialStep[] = [
     messagePhone: 'Open the Settings Lab below and toggle at least two options. Your choices apply to this practice match — look for new UI under **☰ Menu** after you close the lab.',
     requireAction: 'settings_explored',
     actionOpenSettingsLab: true,
-    hint: 'Tap "Open Settings Lab", flip two toggles, then close the lab and check the sidebar.',
+    hint: 'Press "Open Settings Lab", flip two toggles, then close the lab and check the sidebar.',
     hintPhone: 'Tap "Open Settings Lab", flip two toggles, then close the lab and check **☰ Menu**.',
     whyItMatters:
       'Experimenting before your first custom lobby means you already know which toggles matter for your group.',

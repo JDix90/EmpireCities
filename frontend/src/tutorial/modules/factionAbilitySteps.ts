@@ -16,7 +16,7 @@ export const FACTION_ABILITY_STEPS: TutorialStep[] = [
       'Open the Bonuses panel to read China\'s passive bonuses (+1 defense on every territory you own) and the Guerrilla Warfare description.',
     actionOpenBonuses: true,
     requireAction: 'bonuses_opened',
-    hint: 'Tap "Open Bonuses" below — the panel shows China\'s +1 defence passive and Guerrilla Warfare charges.',
+    hint: 'Press "Open Bonuses" below — the panel shows China\'s +1 defence passive and Guerrilla Warfare charges.',
     whyItMatters:
       'Understanding your passives changes where you defend. China\'s +1 defense makes interior territories very costly to attack.',
   },
@@ -34,9 +34,9 @@ export const FACTION_ABILITY_STEPS: TutorialStep[] = [
     id: 'fa_use',
     title: 'Use Guerrilla Warfare',
     message:
-      'During the Draft phase, click any territory you own. A green "🌿 Guerrilla Warfare" button will appear. Tap it to place 1 free unit — no cards, no territories required.',
+      'During the Draft phase, pick any territory you own. A green "🌿 Guerrilla Warfare" button will appear. Press it to place 1 free unit — no cards, no territories required.',
     requireAction: 'ability_used',
-    hint: 'Tap any territory you own, then look for the green "Guerrilla Warfare" button in the Territory Panel.',
+    hint: 'Pick any territory you own, then look for the green "Guerrilla Warfare" button in the Territory Panel.',
     detail:
       'If you do not see the button, check that it is the "Reinforcement" (Draft) phase. It will not appear during Attack or Fortify.',
   },

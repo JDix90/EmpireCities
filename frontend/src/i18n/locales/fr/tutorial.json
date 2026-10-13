@@ -86,19 +86,19 @@
         "title": "Bienvenue, commandant !",
         "message": "Borderfall est un jeu de stratégie de contrôle territorial. Chaque tour enchaîne Renfort → Attaque → Fortification. Vous tenez les trois territoires de la **Tyrrhenian Coast** (côte tyrrhénienne), le versant ouest de l'Italie ; un adversaire tient la **Adriatic Coast** (côte adriatique).",
         "detail": "Le renfort vous donne 1 unité pour 3 territoires (minimum 3), plus un bonus pour tout royaume entièrement tenu — vous tenez tout le versant tyrrhénien, ce bonus est donc déjà à vous.",
-        "hint": "Vous avez déjà joué à un jeu de plateau de conquête ? Vous serez en terrain connu — et cette partie ajoute ce que ces jeux n'ont pas : le passage d'une ère à l'autre. Cliquez sur « Suivant », ou sur « Aller à la fin » pour vous lancer directement."
+        "hint": "Vous avez déjà joué à un jeu de plateau de conquête ? Vous serez en terrain connu — et cette partie ajoute ce que ces jeux n'ont pas : le passage d'une ère à l'autre. Appuyez sur « Suivant », ou sur « Aller à la fin » pour vous lancer directement."
       },
       "draft_do": {
         "title": "Placez vos renforts",
-        "message": "Cliquez sur l'un de vos territoires — en **{playerColor}** —, réglez le nombre avec **−/+** (ou **All**) et appuyez sur **Place**. Quand toutes les unités sont posées, cliquez sur le bouton doré **{{draftButton}}**.",
+        "message": "Sélectionnez l'un de vos territoires — en **{playerColor}** —, réglez le nombre avec **−/+** (ou **All**) et appuyez sur **Place**. Quand toutes les unités sont posées, appuyez sur le bouton doré **{{draftButton}}**.",
         "hint": "L'endroit où vous les empilez décide du front que vous pourrez ouvrir ensuite. Le bouton doré est dans la barre latérale.",
         "hintPhone": "L'endroit où vous les empilez décide du front que vous pourrez ouvrir ensuite. Le bouton doré est dans la barre en bas de l'écran."
       },
       "choose_front": {
         "title": "Choisissez votre front",
-        "message": "Cliquez sur l'un de vos territoires (2 unités ou plus), puis sur un territoire ennemi adjacent. **Tuscany & Latium → Umbria & Abruzzo** est l'ouverture facile : il n'a que 2 unités et touche les deux autres terres adriatiques, la prendre vous met au contact de tout. **Lombardy & Piedmont → Veneto & Emilia** est le flanc lent : 3 défenseurs sur un large front au nord.",
+        "message": "Sélectionnez l'un de vos territoires (2 unités ou plus), puis un territoire ennemi adjacent. **Tuscany & Latium → Umbria & Abruzzo** est l'ouverture facile : il n'a que 2 unités et touche les deux autres terres adriatiques, la prendre vous met au contact de tout. **Lombardy & Piedmont → Veneto & Emilia** est le flanc lent : 3 défenseurs sur un large front au nord.",
         "detail": "L'attaquant lance jusqu'à 3 dés, le défenseur jusqu'à 2. Les plus hauts sont comparés deux à deux ; le perdant de chaque paire perd une unité et l'égalité profite au défenseur. Vous capturez un territoire quand son dernier défenseur tombe.",
-        "hint": "Attaquez autant que vous voulez — ou pas du tout. Quand vous avez fini, cliquez sur le bouton doré **{{attackButton}}**."
+        "hint": "Attaquez autant que vous voulez — ou pas du tout. Quand vous avez fini, appuyez sur le bouton doré **{{attackButton}}**."
       },
       "fortify_do": {
         "title": "Fortifiez, puis terminez votre tour",
@@ -133,7 +133,7 @@
         "title": "Vous êtes prêt !",
         "message": "Vous avez bouclé le cycle complet d'un tour — renfort, attaque, fortification — et passé une ère. C'est toute la boucle. La victoire par défaut est la domination : capturer tous les territoires. Les hôtes peuvent aussi choisir le Seuil (une part de la carte), la Prise des capitales ou les Missions secrètes.",
         "skippedTitle": "Directement dans le jeu",
-        "skippedMessage": "En résumé : à chaque tour, vous renforcez des unités, attaquez les territoires voisins aux dés, puis fortifiez. En chemin, recherchez une technologie et passez de l'Antiquité au Moyen Âge — c'est ce que les jeux de conquête classiques n'ont pas. Gagnez par domination : capturez tous les territoires. (Les hôtes peuvent aussi choisir le Seuil, la Prise des capitales ou les Missions secrètes.) Là, tout de suite, vous avez des renforts à placer — cliquez sur n'importe quel territoire bleu, puis sur **{{draftButton}}**.",
+        "skippedMessage": "En résumé : à chaque tour, vous renforcez des unités, attaquez les territoires voisins aux dés, puis fortifiez. En chemin, recherchez une technologie et passez de l'Antiquité au Moyen Âge — c'est ce que les jeux de conquête classiques n'ont pas. Gagnez par domination : capturez tous les territoires. (Les hôtes peuvent aussi choisir le Seuil, la Prise des capitales ou les Missions secrètes.) Là, tout de suite, vous avez des renforts à placer — sélectionnez n'importe quel territoire bleu, puis appuyez sur **{{draftButton}}**.",
         "detail": "Les vraies parties ajoutent ce que ce plateau a laissé de côté : des cartes de territoire pour des unités bonus, des factions aux pouvoirs uniques, des bâtiments et de la stabilité, le brouillard de guerre, un seuil de passage plus exigeant (plus de recherche et des bâtiments) et toute la colonne de l'Antiquité à l'ère moderne au lieu d'un saut de deux ères."
       }
     },
@@ -167,7 +167,7 @@
         "title": "Essayez un réglage",
         "message": "Ouvrez le labo des réglages ci-dessous et activez au moins deux options. Vos choix s'appliquent à cette partie d'entraînement — cherchez la nouvelle interface dans la barre latérale après avoir fermé le labo.",
         "messagePhone": "Ouvrez le labo des réglages ci-dessous et activez au moins deux options. Vos choix s'appliquent à cette partie d'entraînement — cherchez la nouvelle interface sous **☰ Menu** après avoir fermé le labo.",
-        "hint": "Touchez « Ouvrir le labo des réglages », basculez deux options, puis fermez le labo et regardez la barre latérale.",
+        "hint": "Appuyez sur « Ouvrir le labo des réglages », basculez deux options, puis fermez le labo et regardez la barre latérale.",
         "hintPhone": "Touchez « Ouvrir le labo des réglages », basculez deux options, puis fermez le labo et regardez sous **☰ Menu**.",
         "whyItMatters": "Expérimenter avant votre premier salon personnalisé, c'est déjà savoir quelles options comptent pour votre groupe."
       },
@@ -191,7 +191,7 @@
       "ea_open_tree": {
         "title": "Ouvrez l'arbre technologique",
         "message": "Ouvrez l'arbre technologique. Un rail de progression en haut montre exactement quelles technologies le seuil de passage exige.",
-        "hint": "Touchez « Ouvrir l'arbre technologique » ci-dessous. Vos points de recherche bonus sont prêts."
+        "hint": "Appuyez sur « Ouvrir l'arbre technologique » ci-dessous. Vos points de recherche bonus sont prêts."
       },
       "ea_research": {
         "title": "Recherchez vers le seuil",
@@ -228,7 +228,7 @@
       "fa_identity": {
         "title": "Connaissez votre faction",
         "message": "Ouvrez le panneau Bonuses pour lire les bonus passifs de la Chine (+1 en défense sur chaque territoire que vous tenez) et la description de Guerrilla Warfare.",
-        "hint": "Touchez « Ouvrir les bonus » ci-dessous — le panneau montre le +1 de défense passif de la Chine et les charges de Guerrilla Warfare.",
+        "hint": "Appuyez sur « Ouvrir les bonus » ci-dessous — le panneau montre le +1 de défense passif de la Chine et les charges de Guerrilla Warfare.",
         "whyItMatters": "Comprendre vos passifs change où vous défendez. Le +1 de défense de la Chine rend les territoires intérieurs très coûteux à attaquer."
       },
       "fa_when": {
@@ -239,8 +239,8 @@
       },
       "fa_use": {
         "title": "Utilisez Guerrilla Warfare",
-        "message": "Pendant la phase de renfort, cliquez sur n'importe quel territoire à vous. Un bouton vert « 🌿 Guerrilla Warfare » apparaît. Touchez-le pour placer 1 unité gratuite — sans carte ni territoire requis.",
-        "hint": "Touchez un territoire à vous, puis cherchez le bouton vert « Guerrilla Warfare » dans le panneau de territoire.",
+        "message": "Pendant la phase de renfort, sélectionnez n'importe quel territoire à vous. Un bouton vert « 🌿 Guerrilla Warfare » apparaît. Appuyez dessus pour placer 1 unité gratuite — sans carte ni territoire requis.",
+        "hint": "Sélectionnez un territoire à vous, puis cherchez le bouton vert « Guerrilla Warfare » dans le panneau de territoire.",
         "detail": "Si vous ne voyez pas le bouton, vérifiez que vous êtes bien en phase « Reinforcement » (renfort). Il n'apparaît pas pendant l'Attaque ni la Fortification."
       },
       "fa_result": {
@@ -268,7 +268,7 @@
       "tt_open": {
         "title": "Ouvrez l'arbre technologique",
         "message": "Ouvrez l'arbre pour parcourir les niveaux, les coûts et les prérequis. Les nœuds verrouillés indiquent ce qu'il faut rechercher d'abord.",
-        "hint": "Touchez « Ouvrir l'arbre technologique » ci-dessous. Vos 8 TP bonus sont déjà disponibles."
+        "hint": "Appuyez sur « Ouvrir l'arbre technologique » ci-dessous. Vos 8 TP bonus sont déjà disponibles."
       },
       "tt_research": {
         "title": "Recherchez une technologie",
@@ -285,7 +285,7 @@
         "title": "Lane Sovereignty",
         "message": "L'Ère galactique, ce sont quatre mondes en anneau — **Sol III – Verdan Reach – Rust Belt – Nexus Station** — reliés par huit routes hyperspatiales, chacune aboutissant à un système **gateway** à chaque bout. Vous jouez les Helion Navigators de Verdan Reach, et cette partie ajoute la victoire propre à la galaxie : **Lane Sovereignty**.",
         "detail": "Une route est votre **corridor** quand vous tenez ses deux gateways. Tenez 5 des 8 routes au début de votre tour, 3 tours de suite, et le réseau est à vous. Un duel ou un 2v2 demande 5 tours, et seules les huit routes cartographiées comptent.",
-        "hint": "Vous tenez déjà quatre corridors. Cette leçon prend le cinquième et le garde. Cliquez sur Suivant, ou passez à la fin pour entrer directement en jeu."
+        "hint": "Vous tenez déjà quatre corridors. Cette leçon prend le cinquième et le garde. Appuyez sur Suivant, ou passez à la fin pour entrer directement en jeu."
       },
       "gls_chart": {
         "title": "Lisez la carte galactique",
@@ -298,23 +298,23 @@
         "title": "Recherchez Lane Charts",
         "message": "Une attaque à travers une route lance au plus **2 dés**, pas 3 — un gateway défendu tient comme une côte. **Lane Charts** rachète le troisième dé. Ouvrez l'arbre technologique et recherchez-le ; vous avez reçu exactement son coût.",
         "detail": "Lane Charts est la racine de niveau 1 des routes dans la galaxie. La merveille Hyperlane Anchor lève entièrement le plafond, et les Void Custodians lancent un dé de plus quand ils défendent une route.",
-        "hint": "La recherche est permise à toute phase de votre tour. Touchez « Ouvrir l'arbre technologique » ci-dessous."
+        "hint": "La recherche est permise à toute phase de votre tour. Appuyez sur « Ouvrir l'arbre technologique » ci-dessous."
       },
       "gls_draft": {
         "title": "Empilez sur votre gateway",
-        "message": "Cliquez sur **Hematite Span** — votre gateway sur Rust Belt, en surbrillance —, réglez sur **All** et appuyez sur **Place**. Puis cliquez sur le bouton doré **{{draftButton}}**.",
+        "message": "Sélectionnez **Hematite Span** — votre gateway sur Rust Belt, en surbrillance —, réglez sur **All** et appuyez sur **Place**. Puis appuyez sur le bouton doré **{{draftButton}}**.",
         "detail": "Ouvrez l'onglet **Rust Belt** pour le trouver. Sa carte Gateway indique la route vers Nexus Station comme **Open** : vous tenez ce bout, et les Void Custodians tiennent **Antenna Spire** à l'autre.",
         "hint": "Les Navigators reçoivent +2 renforts par tour. Gardez les piles de Verdan Reach sous 12 : ses tempêtes retirent une unité par manche à tout ce qui dépasse."
       },
       "gls_cross": {
         "title": "Traversez la route",
-        "message": "Cliquez sur **Hematite Span**, puis sur **Antenna Spire** de l'autre côté de la route. La ligne d'attaque indique les dés qu'une traversée lance. Attaquez encore, ou **Attack until captured**, jusqu'à la chute du gateway.",
+        "message": "Sélectionnez **Hematite Span**, puis **Antenna Spire** de l'autre côté de la route. La ligne d'attaque indique les dés qu'une traversée lance. Attaquez encore, ou **Attack until captured**, jusqu'à la chute du gateway.",
         "detail": "Le prendre fait de la route Rust–Nexus votre cinquième corridor. La carte de combat montre le dé de défense supplémentaire des Custodians sur une traversée — douze contre deux l'emporte en quelques jets.",
         "hint": "Seule une attaque lancée depuis un gateway peut traverser une route : la route est la frontière."
       },
       "gls_hold_1": {
         "title": "Cinq corridors — tenez-les",
-        "message": "Le panneau des objectifs affiche **corridors 5 of 5**. La série n'avance qu'au début de **votre** tour : cliquez sur **{{attackButton}}** puis sur **{{fortifyButton}}**, et regardez passer les deux tours adverses.",
+        "message": "Le panneau des objectifs affiche **corridors 5 of 5**. La série n'avance qu'au début de **votre** tour : appuyez sur **{{attackButton}}** puis sur **{{fortifyButton}}**, et regardez passer les deux tours adverses.",
         "detail": "Un rival brise un corridor en prenant l'un de ses gateways pendant son tour, avant que votre série n'avance. Les adversaires du tutoriel n'attaquent jamais ; les vrais, si."
       },
       "gls_hold_2": {
@@ -331,7 +331,7 @@
         "title": "Lane Sovereignty terminée",
         "message": "Vous avez traversé une route, achevé un cinquième corridor et tenu le réseau pendant trois débuts de tour. Dans une vraie partie, les rivaux vous disputent chaque gateway, et un corridor qui tombe pendant leur tour remet votre série à zéro.",
         "skippedTitle": "Directement en jeu",
-        "skippedMessage": "En résumé : tenez les deux gateways de 5 des 8 routes cartographiées au début de votre tour, 3 tours de suite (5 en duel ou en 2v2). Vous tenez quatre corridors maintenant. Prenez **Antenna Spire** depuis **Hematite Span** à travers la route pour le cinquième, puis gardez-le. Vous avez des renforts à placer : cliquez sur **Hematite Span**, puis sur {{draftButton}}."
+        "skippedMessage": "En résumé : tenez les deux gateways de 5 des 8 routes cartographiées au début de votre tour, 3 tours de suite (5 en duel ou en 2v2). Vous tenez quatre corridors maintenant. Prenez **Antenna Spire** depuis **Hematite Span** à travers la route pour le cinquième, puis gardez-le. Vous avez des renforts à placer : sélectionnez **Hematite Span**, puis appuyez sur {{draftButton}}."
       }
     },
     "galaxy_transcendence": {
@@ -339,17 +339,17 @@
         "title": "Transcendance",
         "message": "Cette partie joue l'ascension **Space to Stars** : elle s'ouvre dans l'**Ère spatiale**, sur la Terre et la Lune, et les trois mondes lointains de l'Ère galactique ne sont pas sur le plateau tant que personne ne l'atteint. Vous jouez les **Lunar Pioneers**. La **Transcendance** est la victoire du joueur qui atteint la dernière ère de la colonne — ici l'Ère galactique — en tenant une merveille.",
         "detail": "Quitter l'Ère spatiale demande le seuil d'étapes (2 technologies de niveau 1, 2 de niveau 2 et 1 de niveau 3, et 3 bâtiments) et un **programme spatial** en état de marche. Les Pioneers ont accès à la Lune dès le premier tour : pour vous, le seuil se résume à la recherche et aux bâtiments. Comme toute victoire sauf la Domination, la Transcendance est jugée à partir de la manche 2.",
-        "hint": "Vous avez reçu la recherche et les points de production que l'ascension demande, avec peu de marge. Cliquez sur Suivant, ou passez à la fin pour entrer directement en jeu."
+        "hint": "Vous avez reçu la recherche et les points de production que l'ascension demande, avec peu de marge. Appuyez sur Suivant, ou passez à la fin pour entrer directement en jeu."
       },
       "gtr_research": {
         "title": "Recherchez vers le seuil",
         "message": "Ouvrez l'arbre technologique. Le rail **Advancement gate → Galactic Age** en haut liste les jetons à remplir. Recherchez d'abord **Megacity Logistics** : elle débloque la Workshop, et le seuil demande trois bâtiments — votre Launch Pad sur **Southern African Union** en est déjà un.",
         "detail": "Le chemin le moins cher à travers le seuil : Megacity Logistics et Digital Warfare (les deux racines de niveau 1), Fusion Power Grid et AI-Directed Command par-dessus, puis Hypersonic Swarm ou Quantum Computing Grid pour le niveau 3.",
-        "hint": "La recherche est permise à toute phase de votre tour. Touchez « Ouvrir l'arbre technologique » ci-dessous."
+        "hint": "La recherche est permise à toute phase de votre tour. Appuyez sur « Ouvrir l'arbre technologique » ci-dessous."
       },
       "gtr_build": {
         "title": "Érigez une Workshop",
-        "message": "Cliquez sur **Australian Meridian** — en surbrillance — et, dans sa section **Build**, érigez une **Workshop** (3 PP). On construit pendant les phases de Renfort et de Fortification.",
+        "message": "Sélectionnez **Australian Meridian** — en surbrillance — et, dans sa section **Build**, érigez une **Workshop** (3 PP). On construit pendant les phases de Renfort et de Fortification.",
         "detail": "Puis érigez-en une deuxième sur un autre de vos systèmes : avec le Launch Pad, cela fait les trois bâtiments du seuil. Une Workshop rapporte +1 PP par tour, et c'est le nombre que le seuil lit."
       },
       "gtr_gate": {
@@ -361,12 +361,12 @@
       },
       "gtr_arrive": {
         "title": "Les mondes lointains s'ouvrent",
-        "message": "Vous êtes dans l'Ère galactique. Trois nouveaux onglets de monde — **Verdan Reach**, **Rust Belt**, **Nexus Station** — se sont ouverts pour tous en frontières neutres, gateways les moins défendus, et votre faction a suivi sa lignée jusqu'aux **Helion Navigators**. Cliquez sur **Galaxy chart** au-dessus du plateau pour voir l'anneau.",
+        "message": "Vous êtes dans l'Ère galactique. Trois nouveaux onglets de monde — **Verdan Reach**, **Rust Belt**, **Nexus Station** — se sont ouverts pour tous en frontières neutres, gateways les moins défendus, et votre faction a suivi sa lignée jusqu'aux **Helion Navigators**. Ouvrez la **Galaxy chart** au-dessus du plateau pour voir l'anneau.",
         "detail": "Votre rival est encore dans l'Ère spatiale, sur l'échelle lunaire. L'Ère galactique verrouille ses routes selon qui tient un gateway, donc l'effacement de la recherche ne vous a rien coûté dont vous ayez encore besoin."
       },
       "gtr_wonder": {
         "title": "Érigez le Hyperlane Anchor",
-        "message": "La merveille de votre ère est maintenant le **Hyperlane Anchor** (22 PP). Cliquez sur l'un de vos systèmes et érigez-le depuis la ligne de merveille au bas de la section **Build**.",
+        "message": "La merveille de votre ère est maintenant le **Hyperlane Anchor** (22 PP). Sélectionnez l'un de vos systèmes et érigez-le depuis la ligne de merveille au bas de la section **Build**.",
         "detail": "La Transcendance demande la dernière ère et une merveille en main ; le Anchor fait aussi lancer tous les dés à vos attaques à travers les routes hyperspatiales. Une merveille par partie : qui l'érige en premier la garde."
       },
       "gtr_win": {
@@ -378,7 +378,7 @@
         "title": "Transcendance terminée",
         "message": "Vous avez franchi le seuil de l'Ère spatiale, êtes arrivé dans l'Ère galactique avec le Pathfinder Gate en main et avez érigé le Hyperlane Anchor. Dans une vraie partie Space to Stars, chaque autre siège a besoin du programme spatial complet pour vous suivre, et les mondes lointains sont à vous pour y débarquer en premier.",
         "skippedTitle": "Directement en jeu",
-        "skippedMessage": "En résumé : recherchez au-delà du seuil (2 technologies de niveau 1, 2 de niveau 2, 1 de niveau 3, 3 bâtiments), appuyez sur **Advance to Galactic Age** dans le rail du seuil de l'arbre technologique, puis érigez le **Hyperlane Anchor** sur n'importe quel système que vous tenez. La victoire est jugée à partir de la manche 2. Vous avez des renforts à placer : cliquez sur l'un de vos systèmes, puis sur {{draftButton}}."
+        "skippedMessage": "En résumé : recherchez au-delà du seuil (2 technologies de niveau 1, 2 de niveau 2, 1 de niveau 3, 3 bâtiments), appuyez sur **Advance to Galactic Age** dans le rail du seuil de l'arbre technologique, puis érigez le **Hyperlane Anchor** sur n'importe quel système que vous tenez. La victoire est jugée à partir de la manche 2. Vous avez des renforts à placer : sélectionnez l'un de vos systèmes, puis appuyez sur {{draftButton}}."
       }
     },
     "galaxy_secret_missions": {
@@ -386,7 +386,7 @@
         "title": "Missions secrètes dans la galaxie",
         "message": "Cette partie se joue aux **missions secrètes** : chaque siège reçoit un objectif privé à l'ouverture, et accomplir le vôtre fait gagner. Vous jouez les Helion Navigators de **Verdan Reach** ; la Stellar Mandate tient **Sol III** de l'autre côté de deux routes hyperspatiales. La vôtre dit **Own Guinea Coast and Pacific Rim** — les deux gateways de Sol qui font face à votre monde.",
         "detail": "La galaxie change la donne. Une mission ne nomme jamais un monde derrière une porte hyperspatiale, et ici tout monde sauf Sol III en est un : toute mission de capture ou de contrôle sur cette carte nomme du terrain de Sol, donc toujours à une traversée de route. Un siège qui tient déjà tout Sol ne peut tirer qu'une mission d'élimination. Les missions sont jugées à partir de la manche 2.",
-        "hint": "Cliquez sur Suivant, ou passez à la fin pour entrer directement en jeu."
+        "hint": "Appuyez sur Suivant, ou passez à la fin pour entrer directement en jeu."
       },
       "gsm_objectives": {
         "title": "Lisez votre mission",
@@ -402,13 +402,13 @@
       },
       "gsm_draft": {
         "title": "Empilez sur un gateway",
-        "message": "Cliquez sur **Chlorophage Span** — votre gateway face à Guinea Coast, en surbrillance —, réglez sur **All** et appuyez sur **Place**. Puis cliquez sur le bouton doré **{{draftButton}}**.",
+        "message": "Sélectionnez **Chlorophage Span** — votre gateway face à Guinea Coast, en surbrillance —, réglez sur **All** et appuyez sur **Place**. Puis appuyez sur le bouton doré **{{draftButton}}**.",
         "detail": "Sa carte Gateway indique la route vers Sol III comme **Open** : vous tenez ce bout, la Mandate tient Guinea Coast à l'autre. Greenfire Vault, votre autre gateway, fait face à Pacific Rim de la même façon.",
         "hint": "Les Navigators reçoivent +2 renforts par tour. Gardez les piles de Verdan Reach sous 12 : ses tempêtes retirent une unité par manche à tout ce qui dépasse."
       },
       "gsm_first": {
         "title": "Prenez le premier gateway",
-        "message": "Cliquez sur **Chlorophage Span**, puis sur **Guinea Coast** de l'autre côté de la route, et attaquez jusqu'à sa chute — une attaque de route lance au plus 2 dés, alors **Attack until captured** vous épargne les clics. N'importe quel gateway en premier : la mission lit les deux.",
+        "message": "Sélectionnez **Chlorophage Span**, puis **Guinea Coast** de l'autre côté de la route, et attaquez jusqu'à sa chute — une attaque de route lance au plus 2 dés, alors **Attack until captured** vous épargne d'attaquer jet par jet. N'importe quel gateway en premier : la mission lit les deux.",
         "detail": "Jusqu'à 3 attaquants entrent d'eux-mêmes. Laissez le reste : Guinea Coast borde cinq systèmes de Sol, mais la mission ne veut que le gateway."
       },
       "gsm_second": {
@@ -424,7 +424,7 @@
         "title": "Missions secrètes terminées",
         "message": "Vous avez lu une mission, pris les deux systèmes qu'elle nommait à travers leurs routes, et gagné grâce à elle. Dans une vraie partie galactique, qui tient Sol ne peut tirer qu'une mission d'élimination, et les missions de capture de tous les autres visent Sol — attendez-vous à de la compagnie sur ses gateways.",
         "skippedTitle": "Directement en jeu",
-        "skippedMessage": "En résumé : votre mission est dans le panneau Objectives — **Own Guinea Coast and Pacific Rim**, les deux gateways de Sol de l'autre côté de vos routes. Prenez **Guinea Coast** depuis **Chlorophage Span** et **Pacific Rim** depuis **Greenfire Vault** ; la victoire est jugée à partir de la manche 2. Vous avez des renforts à placer : cliquez sur **Chlorophage Span**, puis sur {{draftButton}}."
+        "skippedMessage": "En résumé : votre mission est dans le panneau Objectives — **Own Guinea Coast and Pacific Rim**, les deux gateways de Sol de l'autre côté de vos routes. Prenez **Guinea Coast** depuis **Chlorophage Span** et **Pacific Rim** depuis **Greenfire Vault** ; la victoire est jugée à partir de la manche 2. Vous avez des renforts à placer : sélectionnez **Chlorophage Span**, puis appuyez sur {{draftButton}}."
       }
     },
     "galaxy_capital": {
@@ -432,7 +432,7 @@
         "title": "Prise de capitale dans la galaxie",
         "message": "Cette partie se joue à la victoire par **capitale** : tenez la vôtre et prenez celle de chaque rival. Vous êtes la Stellar Mandate de **Sol III**, et votre capitale est **Amazon Basin**. Les Helion Navigators tiennent **Verdan Reach**, et la leur est **Chlorophage Span**.",
         "detail": "La distribution fixe la capitale de chaque siège à l'ouverture, et sur ce plateau les deux sont tombées sur des **gateways** : Amazon Basin est la porte de Sol vers Nexus Station, Chlorophage Span la porte de Verdan face à votre Guinea Coast. L'attaque gagnante est donc ici une traversée de route, au plafond de 2 dés des routes.",
-        "hint": "Cliquez sur Suivant, ou passez à la fin pour entrer directement en jeu."
+        "hint": "Appuyez sur Suivant, ou passez à la fin pour entrer directement en jeu."
       },
       "gcp_rules": {
         "title": "Lisez les capitales",
@@ -443,12 +443,12 @@
       },
       "gcp_draft": {
         "title": "Empilez sur Guinea Coast",
-        "message": "Cliquez sur **Guinea Coast** — votre gateway face à Chlorophage Span, en surbrillance —, réglez sur **All** et appuyez sur **Place**. Puis cliquez sur le bouton doré **{{draftButton}}**.",
+        "message": "Sélectionnez **Guinea Coast** — votre gateway face à Chlorophage Span, en surbrillance —, réglez sur **All** et appuyez sur **Place**. Puis appuyez sur le bouton doré **{{draftButton}}**.",
         "detail": "Sa carte Gateway indique la route vers Verdan Reach comme **Open** : vous tenez ce bout, les Navigators tiennent leur capitale à l'autre. Amazon Basin n'a besoin de rien : l'adversaire du tutoriel n'attaque jamais, mais dans une vraie partie votre capitale est le système à garnir."
       },
       "gcp_cross": {
         "title": "Prenez la capitale rivale",
-        "message": "Cliquez sur **Guinea Coast**, puis sur **Chlorophage Span** de l'autre côté de la route. Une attaque de route lance au plus 2 dés ; **Attack until captured** insiste jusqu'à la chute de la capitale, et jusqu'à 3 de vos attaquants entrent d'eux-mêmes.",
+        "message": "Sélectionnez **Guinea Coast**, puis **Chlorophage Span** de l'autre côté de la route. Une attaque de route lance au plus 2 dés ; **Attack until captured** insiste jusqu'à la chute de la capitale, et jusqu'à 3 de vos attaquants entrent d'eux-mêmes.",
         "detail": "Les Navigators défendent une route sans dé supplémentaire. Huit contre deux l'emporte sur le plafond en quelques jets."
       },
       "gcp_win": {
@@ -460,7 +460,7 @@
         "title": "Prise de capitale terminée",
         "message": "Vous avez tenu Amazon Basin et pris Chlorophage Span à travers sa route. Dans une vraie partie galactique, les capitales sur gateways sont les systèmes que tout le monde dispute deux fois — comme capitales, et comme bouts de routes.",
         "skippedTitle": "Directement en jeu",
-        "skippedMessage": "En résumé : tenez votre capitale, **Amazon Basin**, et prenez la capitale des Navigators, **Chlorophage Span**, depuis **Guinea Coast** à travers la route ; la victoire est jugée à partir de la manche 2. Vous avez des renforts à placer : cliquez sur **Guinea Coast**, puis sur {{draftButton}}."
+        "skippedMessage": "En résumé : tenez votre capitale, **Amazon Basin**, et prenez la capitale des Navigators, **Chlorophage Span**, depuis **Guinea Coast** à travers la route ; la victoire est jugée à partir de la manche 2. Vous avez des renforts à placer : sélectionnez **Guinea Coast**, puis appuyez sur {{draftButton}}."
       }
     },
     "galaxy_threshold": {
@@ -468,7 +468,7 @@
         "title": "Seuil territorial dans la galaxie",
         "message": "Cette partie se joue à la victoire par **seuil** : tenez **60 %** de la carte. Vous êtes la Stellar Mandate de **Sol III**, vous avez déjà colonisé toute **Nexus Station** et débarqué six systèmes en profondeur sur **Verdan Reach**, par les deux routes Sol–Verdan. Les Helion Navigators tiennent le reste de Verdan. Le **Rust Belt** est une colonie neutre que personne n'a revendiquée.",
         "detail": "La galaxie compte **chaque** système du plateau, colonies neutres comprises : 60 % de 64 font 38,4, la victoire exige donc **39**. La domination exigerait les 64 — chaque garnison coloniale autant que chaque rival —, c'est pourquoi un salon galactique s'ouvre avec le seuil activé à 60 % à côté d'elle, et une limite de 90 manches derrière les deux.",
-        "hint": "Cliquez sur Suivant, ou passez à la fin pour entrer directement en jeu."
+        "hint": "Appuyez sur Suivant, ou passez à la fin pour entrer directement en jeu."
       },
       "gth_meter": {
         "title": "Lisez la jauge de contrôle de la carte",
@@ -479,12 +479,12 @@
       },
       "gth_draft": {
         "title": "Empilez sur Saffron Mire",
-        "message": "Cliquez sur **Saffron Mire** — votre système de tête de pont à côté de Spore Reach, en surbrillance —, réglez sur **All** et appuyez sur **Place**. Puis cliquez sur le bouton doré **{{draftButton}}**.",
+        "message": "Sélectionnez **Saffron Mire** — votre système de tête de pont à côté de Spore Reach, en surbrillance —, réglez sur **All** et appuyez sur **Place**. Puis appuyez sur le bouton doré **{{draftButton}}**.",
         "detail": "Un empire de 38 systèmes recrute large : un tiers de ses systèmes, plus un bonus pour chaque région tenue en entier — chacun mis à l'échelle du nombre de sièges, un tiers de sa valeur affichée à deux, et jamais moins de un. Une chose à savoir sur Verdan dans une vraie partie : ses tempêtes retirent une unité par manche à toute pile au-dessus de 12."
       },
       "gth_take": {
         "title": "Prenez le 39e système",
-        "message": "Cliquez sur **Saffron Mire**, puis sur **Spore Reach** à côté. C'est une attaque au sol sur le même monde, elle lance donc les 3 dés complets — pas de plafond de route. **Attack until captured** insiste jusqu'à sa chute, et jusqu'à 3 de vos attaquants entrent d'eux-mêmes.",
+        "message": "Sélectionnez **Saffron Mire**, puis **Spore Reach** à côté. C'est une attaque au sol sur le même monde, elle lance donc les 3 dés complets — pas de plafond de route. **Attack until captured** insiste jusqu'à sa chute, et jusqu'à 3 de vos attaquants entrent d'eux-mêmes.",
         "detail": "N'importe quel système ferait l'affaire : le 39e aurait tout aussi bien pu être une garnison neutre du Rust Belt de l'autre côté d'une route. Les Navigators tiennent Spore Reach avec deux unités et sans bonus de défense."
       },
       "gth_win": {
@@ -496,7 +496,7 @@
         "title": "Seuil territorial terminé",
         "message": "Vous avez pris le 39e système et franchi 60 % de la galaxie. Dans une vraie partie, le décompte est le même quel que soit le détenteur du reste : colonies, rivaux et garnisons vides sont tous dans les 64, et la jauge de la barre du haut vous dit combien il vous en manque.",
         "skippedTitle": "Directement en jeu",
-        "skippedMessage": "En résumé : vous tenez **38 des 39** systèmes qu'exigent 60 % de ce plateau. Prenez-en un de plus — **Spore Reach**, à côté de votre **Saffron Mire** — et la victoire est jugée à partir de la manche 2. Vous avez des renforts à placer : cliquez sur **Saffron Mire**, puis sur {{draftButton}}."
+        "skippedMessage": "En résumé : vous tenez **38 des 39** systèmes qu'exigent 60 % de ce plateau. Prenez-en un de plus — **Spore Reach**, à côté de votre **Saffron Mire** — et la victoire est jugée à partir de la manche 2. Vous avez des renforts à placer : sélectionnez **Saffron Mire**, puis appuyez sur {{draftButton}}."
       }
     },
     "galaxy_domination": {
@@ -504,7 +504,7 @@
         "title": "Domination dans la galaxie",
         "message": "Cette partie se joue à la **domination** seule : le briefing indique **Control every territory**, et sur ce plateau ce sont les **64** systèmes. Vous êtes la Stellar Mandate de **Sol III**. Les Helion Navigators n'ont plus qu'un système sur **Verdan Reach** — **Greenfire Vault**, le gateway face à votre Pacific Rim —, et vous tenez les quinze autres autour. **Nexus Station** et le **Rust Belt** sont des colonies neutres.",
         "detail": "Voici ce que la galaxie fait de la domination : la partie n'y arrive jamais. À l'instant où le dernier rival tombe, le serveur termine la partie en **Last Commander Standing**, la seule victoire jugée aussitôt plutôt qu'à partir de la manche 2 — les **32** garnisons coloniales n'ont donc jamais besoin d'être prises, et un résultat galactique n'affiche jamais Total Domination tant qu'un rival est en jeu. C'est pour cela qu'un vrai salon galactique associe la domination au seuil.",
-        "hint": "Cliquez sur Suivant, ou passez à la fin pour entrer directement en jeu."
+        "hint": "Appuyez sur Suivant, ou passez à la fin pour entrer directement en jeu."
       },
       "gdm_rules": {
         "title": "Last Commander Standing",
@@ -515,12 +515,12 @@
       },
       "gdm_draft": {
         "title": "Empilez sur Glowmire Shelf",
-        "message": "Cliquez sur **Glowmire Shelf** — votre système à côté de Greenfire Vault, en surbrillance —, réglez sur **All** et appuyez sur **Place**. Puis cliquez sur le bouton doré **{{draftButton}}**.",
+        "message": "Sélectionnez **Glowmire Shelf** — votre système à côté de Greenfire Vault, en surbrillance —, réglez sur **All** et appuyez sur **Place**. Puis appuyez sur le bouton doré **{{draftButton}}**.",
         "detail": "Dans une vraie partie, un siège réduit à un système y recrute encore au moins trois unités par tour : plus il tient, plus c'est dur. L'adversaire du tutoriel n'attaque jamais, mais il renforcerait — prenez-le maintenant."
       },
       "gdm_take": {
         "title": "Prenez leur dernier système",
-        "message": "Cliquez sur **Glowmire Shelf**, puis sur **Greenfire Vault** à côté. Une attaque au sol lance les 3 dés complets ; **Attack until captured** insiste jusqu'à sa chute. La capture élimine les Navigators, et sans rival restant, la partie s'arrête sur-le-champ.",
+        "message": "Sélectionnez **Glowmire Shelf**, puis **Greenfire Vault** à côté. Une attaque au sol lance les 3 dés complets ; **Attack until captured** insiste jusqu'à sa chute. La capture élimine les Navigators, et sans rival restant, la partie s'arrête sur-le-champ.",
         "detail": "Pas d'attente de la manche 2 : Last Commander Standing est jugé à l'instant où cela arrive. Vous verrez l'écran Player Eliminated, puis le résultat."
       },
       "gdm_win": {
@@ -532,22 +532,23 @@
         "title": "Domination terminée",
         "message": "Vous avez éliminé le dernier rival et la galaxie a terminé la partie aussitôt. Ici la domination est une course au dernier siège, pas au dernier système ; les colonies sont l'affaire du seuil.",
         "skippedTitle": "Directement en jeu",
-        "skippedMessage": "En résumé : les Navigators tiennent un système, **Greenfire Vault**, et vous tenez **Glowmire Shelf** à côté. Prenez-le et la partie s'arrête aussitôt en Last Commander Standing — sans attendre la manche 2. Vous avez des renforts à placer : cliquez sur **Glowmire Shelf**, puis sur {{draftButton}}."
+        "skippedMessage": "En résumé : les Navigators tiennent un système, **Greenfire Vault**, et vous tenez **Glowmire Shelf** à côté. Prenez-le et la partie s'arrête aussitôt en Last Commander Standing — sans attendre la manche 2. Vous avez des renforts à placer : sélectionnez **Glowmire Shelf**, puis appuyez sur {{draftButton}}."
       }
     },
     "galaxy_primer": {
       "gpr_welcome": {
         "title": "L'Ère galactique, en bref",
         "message": "**Quatre mondes, une guerre.** L'Ère galactique se joue sur **Sol III**, **Verdan Reach**, le **Rust Belt** et **Nexus Station**, reliés en anneau par **8 routes hyperspatiales**. Chaque route court entre deux systèmes **gateway** : tenez un gateway et vous pouvez attaquer droit à travers sa route, sans recherche. Une traversée ne lance que **2 dés** (3 avec **Lane Charts**), un gateway défendu tient donc comme une côte ; la merveille **Hyperlane Anchor** lève le plafond pour son propriétaire.",
-        "detail": "Ce primer, ce sont six cartes à lire sur un vrai plateau à quatre sièges — vous êtes la Stellar Mandate de Sol III, avec un adversaire du tutoriel sur chaque autre monde — et une chose à cliquer. Chaque carte s'arrête là où commence l'une des six leçons de l'Ère galactique.",
-        "hint": "Cliquez sur Suivant, ou passez à la fin pour entrer directement en jeu."
+        "detail": "Ce primer, ce sont six cartes à lire sur un vrai plateau à quatre sièges — vous êtes la Stellar Mandate de Sol III, avec un adversaire du tutoriel sur chaque autre monde — et une chose à ouvrir. Chaque carte s'arrête là où commence l'une des six leçons de l'Ère galactique.",
+        "hint": "Appuyez sur Suivant, ou passez à la fin pour entrer directement en jeu."
       },
       "gpr_chart": {
         "title": "Lisez le plateau",
         "message": "Cliquez sur le bouton **Galaxy chart** au-dessus du plateau. Sa légende **Lanes** indique **Corridor · both gateways yours**, **Open · you hold one end**, **Closed · take a gateway first** et **Sealed · Emergency Seal, 1 round**. Un onglet de monde ouvre ce monde seul ; **Split** affiche la carte de chaque monde en même temps.",
         "messagePhone": "Touchez la puce **Galaxy chart** de la rangée Worlds, au-dessus du plateau. Sa légende **Lanes** indique **Corridor · both gateways yours**, **Open · you hold one end**, **Closed · take a gateway first** et **Sealed · Emergency Seal, 1 round**. Un onglet de monde ouvre ce monde seul ; **Split** affiche la carte de chaque monde en même temps.",
-        "detail": "Sur un monde, cliquez sur un système gateway : sa carte **Gateway** liste chaque route avec le monde lointain, son état et les dés qu'une traversée lance — **Lane attacks roll 2 dice (3 with Lane Charts)**.",
-        "hint": "Double-cliquez sur un monde de la carte, ou sur son bouton **Enter world →**, pour y entrer."
+        "detail": "Sur un monde, sélectionnez un système gateway : sa carte **Gateway** liste chaque route avec le monde lointain, son état et les dés qu'une traversée lance — **Lane attacks roll 2 dice (3 with Lane Charts)**.",
+        "hint": "Double-cliquez sur un monde de la carte, ou sur son bouton **Enter world →**, pour y entrer.",
+        "hintPhone": "Sélectionnez un monde sur la carte, puis appuyez sur **Enter world →** sur sa fiche pour y entrer."
       },
       "gpr_worlds": {
         "title": "Règles de monde et kits",

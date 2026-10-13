@@ -45,7 +45,7 @@ export const COMBINED_CORE_TUTORIAL_STEPS: TutorialStep[] = [
     title: 'Welcome, Commander!',
     message: `${APP_NAME} is a strategy game of territory control. Each turn runs Draft → Attack → Fortify. You hold the three territories of the **Tyrrhenian Coast** — the western side of Italy; an opponent holds the **Adriatic Coast**.`,
     detail: 'Draft gives you 1 unit per 3 territories (minimum 3), plus a bonus for holding an entire realm — you hold all of the Tyrrhenian side, so that bonus is already yours.',
-    hint: 'Played a territory-conquest board game before? You\'ll feel right at home — and this match adds the part those games don\'t have: climbing through the eras. Click "Next", or "Skip to the end" to jump straight in.',
+    hint: 'Played a territory-conquest board game before? You\'ll feel right at home — and this match adds the part those games don\'t have: climbing through the eras. Press "Next", or "Skip to the end" to jump straight in.',
   },
   {
     id: 'draft_do',
@@ -54,7 +54,7 @@ export const COMBINED_CORE_TUTORIAL_STEPS: TutorialStep[] = [
     // sets how many, and the units only land when Place is pressed. "Click a
     // territory to place reinforcements" read as one click, so players clicked
     // repeatedly and nothing moved.
-    message: `Click one of your territories — shown in **{playerColor}** — then dial how many with **−/+** (or **All**) and press **Place**. When every unit is down, click the gold **${phaseAdvanceLabel('draft')}** button.`,
+    message: `Pick one of your territories — shown in **{playerColor}** — then dial how many with **−/+** (or **All**) and press **Place**. When every unit is down, press the gold **${phaseAdvanceLabel('draft')}** button.`,
     hint: 'Where you stack them decides which front you can open next. The gold button is in the sidebar.',
     hintPhone: 'Where you stack them decides which front you can open next. The gold button is in the bar along the bottom of the screen.',
     requireAction: 'end_phase',
@@ -67,9 +67,9 @@ export const COMBINED_CORE_TUTORIAL_STEPS: TutorialStep[] = [
     // (combinedTutorialScenario.ts) prices them so more than one is live: the
     // centre is cheap and opens the board, the north is a fair fight, and the
     // south is the one that should look wrong.
-    message: 'Click one of your territories (2+ units), then an adjacent enemy one. **Tuscany & Latium → Umbria & Abruzzo** is the cheap opening: it holds 2 and borders both of the other Adriatic lands, so taking it puts you next to everything. **Lombardy & Piedmont → Veneto & Emilia** is the slower flank: 3 defenders across a broad northern front.',
+    message: 'Pick one of your territories (2+ units), then an adjacent enemy one. **Tuscany & Latium → Umbria & Abruzzo** is the cheap opening: it holds 2 and borders both of the other Adriatic lands, so taking it puts you next to everything. **Lombardy & Piedmont → Veneto & Emilia** is the slower flank: 3 defenders across a broad northern front.',
     detail: 'Attacker rolls up to 3 dice, defender up to 2 — those are the base counts; faction abilities, technologies, events and era rules can add dice on top. Highest are compared pair by pair; the loser of each pair loses a unit and ties go to the defender. You capture a territory when its last defender falls, and up to 3 of your surviving attackers move in on their own — no prompt, and one always stays behind.',
-    hint: `Attack as often as you like — or not at all. When you're done, click the gold **${phaseAdvanceLabel('attack')}** button.`,
+    hint: `Attack as often as you like — or not at all. When you're done, press the gold **${phaseAdvanceLabel('attack')}** button.`,
     // Bottom-centre runs 630px tall here and sits squarely on the eastern half
     // of the board this card is telling the player to click. See `cardPosition`
     // in ../types.
@@ -123,7 +123,7 @@ export const COMBINED_CORE_TUTORIAL_STEPS: TutorialStep[] = [
     // unplaced, so give them the shape of the loop and their next click —
     // never a recap of play they didn't do.
     skippedTitle: 'Jumping Straight In',
-    skippedMessage: 'Here is the shape of it: each turn you draft units, attack neighbouring territories with dice, then fortify. Research a tech and advance Ancient → Medieval along the way — that is the part classic conquest games don\'t have. Win by domination: capture every territory. (Hosts can also pick Threshold, Capital Capture, or Secret Missions.) Right now you have reinforcements to place — click any blue territory, then Begin Attack.',
+    skippedMessage: 'Here is the shape of it: each turn you draft units, attack neighbouring territories with dice, then fortify. Research a tech and advance Ancient → Medieval along the way — that is the part classic conquest games don\'t have. Win by domination: capture every territory. (Hosts can also pick Threshold, Capital Capture, or Secret Missions.) Right now you have reinforcements to place — pick any blue territory, then press Begin Attack.',
     detail: 'Real matches add what this board left out: territory cards for bonus units, factions with unique powers, buildings and stability, fog of war, a stiffer advancement gate (more research plus buildings), and the full Ancient → Modern spine instead of a two-era hop.',
     variant: 'wrapup',
   },

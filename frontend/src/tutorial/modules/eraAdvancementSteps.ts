@@ -25,7 +25,7 @@ export const ERA_ADVANCEMENT_STEPS: TutorialStep[] = [
     message: 'Open the Tech Tree. A progress rail at the top shows exactly which technologies the advancement gate needs.',
     actionOpenTechTree: true,
     requireAction: 'tech_tree_opened',
-    hint: 'Tap "Open Tech Tree" below. Your bonus research points are ready.',
+    hint: 'Press "Open Tech Tree" below. Your bonus research points are ready.',
   },
   {
     id: 'ea_research',
