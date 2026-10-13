@@ -148,6 +148,10 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // The Custom Game form sets a round limit, by default the one Quick Match
   // gives the chosen ending. Dark-launched OFF.
   custom_round_cap_enabled: () => envOptIn('CUSTOM_ROUND_CAP_ENABLED'),
+  // Phone tutorial: the era-advance card arrives folded to a strip over an open
+  // tech tree instead of covering the research it asks for, and the economy
+  // and era cards show only their first message on a phone. Dark-launched OFF.
+  tutorial_phone_gate_visible_enabled: () => envOptIn('TUTORIAL_PHONE_GATE_VISIBLE_ENABLED'),
   // Desktop: during your own draft, with a valid card set in hand, the HUD
   // shows "Trade 3 cards for +N units" under the units to place. Phones
   // already badge and open their cards tray. Dark-launched OFF.
@@ -416,6 +420,17 @@ export const featureFlags = {
    */
   get firstMatchEasyEnabled(): boolean {
     return overrideBool('first_match_easy_enabled');
+  },
+
+  /**
+   * Phone tutorial over a full-screen panel: a card marked `arrivesFoldedOverPanel`
+   * arrives as the one-line strip that names its action, so the tech tree's
+   * research buttons stay in view; cards marked `phoneBrief` drop their detail,
+   * hint and "why this matters" on a phone.
+   * Default OFF; `TUTORIAL_PHONE_GATE_VISIBLE_ENABLED=true` or the admin override turns it on.
+   */
+  get tutorialPhoneGateVisibleEnabled(): boolean {
+    return overrideBool('tutorial_phone_gate_visible_enabled');
   },
 
   /**
@@ -1113,6 +1128,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     daily_puzzle_v2_enabled: featureFlags.dailyPuzzleV2Enabled,
     store_v2_enabled: featureFlags.storeV2Enabled,
     first_match_easy_enabled: featureFlags.firstMatchEasyEnabled,
+    tutorial_phone_gate_visible_enabled: featureFlags.tutorialPhoneGateVisibleEnabled,
     desktop_card_cue_enabled: featureFlags.desktopCardCueEnabled,
     tutorial_wrapup_to_match_enabled: featureFlags.tutorialWrapupToMatchEnabled,
     first_match_primary_cta_enabled: featureFlags.firstMatchPrimaryCtaEnabled,

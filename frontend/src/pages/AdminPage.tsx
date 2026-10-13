@@ -378,6 +378,12 @@ const CLIENT_FEATURE_FLAGS = [
       'A player\u2019s first Quick Match (no finished game yet, and no Quick Match setup of their own) is one Easy bot on Great Britain 925 instead of their setup on a random era: a short, winnable first game. The Analytics tab counts these under First matches. Off by default (dark launch) \u2014 off is Quick Match exactly as before.',
   },
   {
+    key: 'tutorial_phone_gate_visible_enabled',
+    label: 'Phone tutorial: keep the era gate in view',
+    description:
+      'On a phone, the core tutorial\u2019s \u201cAdvance to Medieval\u201d card arrives folded to a one-line strip over the open tech tree, instead of opening over the research buttons it asks the player to press; a tap unfolds it. The economy and era cards also show only their main message on a phone, without the extra detail. Desktop is unchanged. Off by default (dark launch) \u2014 off is the tutorial exactly as before.',
+  },
+  {
     key: 'desktop_card_cue_enabled',
     label: 'Desktop card trade prompt',
     description:

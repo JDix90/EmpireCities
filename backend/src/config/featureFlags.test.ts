@@ -347,6 +347,15 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().desktop_card_cue_enabled).toBe(true);
   });
 
+  it('tutorial_phone_gate_visible_enabled defaults to off (dark-launch) and is admin-overridable', () => {
+    expect(featureFlags.tutorialPhoneGateVisibleEnabled).toBe(false);
+    expect(getClientFeatureFlags().tutorial_phone_gate_visible_enabled).toBe(false);
+    expect(getFeatureFlagStates().tutorial_phone_gate_visible_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { tutorial_phone_gate_visible_enabled: true } });
+    expect(featureFlags.tutorialPhoneGateVisibleEnabled).toBe(true);
+    expect(getClientFeatureFlags().tutorial_phone_gate_visible_enabled).toBe(true);
+  });
+
   it('first_match_easy_enabled defaults to off (dark-launch) and is admin-overridable', () => {
     expect(featureFlags.firstMatchEasyEnabled).toBe(false);
     expect(getClientFeatureFlags().first_match_easy_enabled).toBe(false);

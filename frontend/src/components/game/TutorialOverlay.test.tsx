@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
 /**
@@ -22,6 +22,7 @@ beforeEach(() => {
   mockViewport();
 });
 import TutorialOverlay, { renderTutorialText } from './TutorialOverlay';
+import { useFeatureFlagsStore } from '../../store/featureFlagsStore';
 import type { TutorialStep } from '../../tutorial';
 
 const noop = () => {};
@@ -397,6 +398,72 @@ describe('TutorialOverlay', () => {
       expect(screen.getByText('Advance your era to continue…')).toBeInTheDocument();
       fireEvent.click(screen.getByTestId('tutorial-card-fold'));
       expect(screen.getByTestId('tutorial-card-unfold')).toHaveTextContent('Advance your era to continue…');
+    });
+
+    describe('with tutorial_phone_gate_visible_enabled', () => {
+      afterEach(() => {
+        useFeatureFlagsStore.setState((st) => ({ flags: { ...st.flags, tutorial_phone_gate_visible_enabled: false } }));
+      });
+      const marked = [research, { ...advance, arrivesFoldedOverPanel: true }];
+      function markedAt(stepIndex: number, panelOpen: boolean) {
+        return (
+          <TutorialOverlay
+            steps={marked}
+            stepIndex={stepIndex}
+            lessonModule="core"
+            onAdvance={noop}
+            onContinuePlaying={noop}
+            onReturnToLobby={noop}
+            onOpenTechTree={noop}
+            panelOpen={panelOpen}
+          />
+        );
+      }
+
+      it('keeps a marked card folded when it arrives over the open panel, naming its action', () => {
+        mockViewport({ mobile: true });
+        useFeatureFlagsStore.setState((st) => ({ flags: { ...st.flags, tutorial_phone_gate_visible_enabled: true } }));
+        const { rerender } = render(markedAt(0, false));
+        rerender(markedAt(0, true));
+        rerender(markedAt(1, true));
+        const strip = screen.getByTestId('tutorial-card-unfold');
+        expect(strip).toHaveTextContent('Advance to Medieval');
+        expect(strip).toHaveTextContent('Advance your era to continue…');
+        expect(screen.queryByText(/hit Advance to Medieval/)).toBeNull();
+        fireEvent.click(strip);
+        expect(screen.getByText(/hit Advance to Medieval/)).toBeInTheDocument();
+      });
+
+      it('opens the same card as before while the flag is off', () => {
+        mockViewport({ mobile: true });
+        const { rerender } = render(markedAt(0, false));
+        rerender(markedAt(0, true));
+        rerender(markedAt(1, true));
+        expect(screen.getByText(/hit Advance to Medieval/)).toBeInTheDocument();
+      });
+
+      it('shows a brief card without its detail, hint or why on a phone only', () => {
+        const briefStep = {
+          id: 'economy_intro',
+          title: 'Economy',
+          message: 'The main message.',
+          detail: 'The long detail.',
+          hint: 'The hint.',
+          whyItMatters: 'The reason.',
+          phoneBrief: true,
+        } as TutorialStep;
+        mockViewport({ mobile: true });
+        useFeatureFlagsStore.setState((st) => ({ flags: { ...st.flags, tutorial_phone_gate_visible_enabled: true } }));
+        const { unmount } = overlay([briefStep], { phoneLayout: true });
+        expect(screen.getByText('The main message.')).toBeInTheDocument();
+        expect(screen.queryByText('The long detail.')).toBeNull();
+        expect(screen.queryByText('The hint.')).toBeNull();
+        expect(screen.queryByText('Why this matters')).toBeNull();
+        unmount();
+        mockViewport();
+        overlay([briefStep], { phoneLayout: false });
+        expect(screen.getByText('The long detail.')).toBeInTheDocument();
+      });
     });
 
     it('returns to the top of the board when the panel closes', () => {

@@ -98,6 +98,7 @@ export const COMBINED_CORE_TUTORIAL_STEPS: TutorialStep[] = [
     detail: 'The Era panel in your sidebar shows the timeline of eras, where you sit on it, and the gate you must clear to advance. Your opponent climbs at their own pace.',
     detailPhone: 'The Era panel under **☰ Menu** shows the timeline of eras, where you sit on it, and the gate you must clear to advance. Your opponent climbs at their own pace.',
     whyItMatters: 'Conquest is how you win a map. Advancing an era is how you outgrow the opponent holding it — stronger units, a fresh tech tree, and a one-time signature reward.',
+    phoneBrief: true,
   },
   {
     id: 'ea_research',
@@ -114,6 +115,8 @@ export const COMBINED_CORE_TUTORIAL_STEPS: TutorialStep[] = [
     detail: 'Advancing consolidates your armies: about 30% of your units are removed for good, spread across your territories, and for one turn afterwards your defenders fight weaker — the vulnerability window. Your research resets to a fresh, stronger Medieval tree; you keep an echo of your old bonuses and gain the era\'s signature reward.',
     hint: 'Climbing in your reinforcement phase means the new era\'s strength applies to the attacks you make this turn. Short on a chip? The rail names what\'s missing, and the Advance button lights up the moment nothing is.',
     requireAction: 'era_advanced',
+    phoneBrief: true,
+    arrivesFoldedOverPanel: true,
   },
   {
     id: 'wrapup',
