@@ -135,8 +135,9 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   store_v2_enabled: () => envOptOut('STORE_V2_ENABLED'),
   // A player's first Quick Match: one Easy bot on Great Britain 925 instead of
   // their saved setup on a random era, so a newcomer's first game is short and
-  // winnable (scripts/simFirstMatch.ts measured the choice). Dark-launched OFF.
-  first_match_easy_enabled: () => envOptIn('FIRST_MATCH_EASY_ENABLED'),
+  // winnable (scripts/simFirstMatch.ts measured the choice).
+  // On by default; the admin override is the kill switch.
+  first_match_easy_enabled: () => envOptOut('FIRST_MATCH_EASY_ENABLED'),
   // A Full Game fits an evening: the lobby defaults it to the 65% ending and
   // caps every ending at 80 rounds instead of 150, where the full-board
   // default ran to the cap in 99% of arena games (scripts/simAiArena.ts,
@@ -150,22 +151,26 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   custom_round_cap_enabled: () => envOptIn('CUSTOM_ROUND_CAP_ENABLED'),
   // Phone tutorial: the era-advance card arrives folded to a strip over an open
   // tech tree instead of covering the research it asks for, and the economy
-  // and era cards show only their first message on a phone. Dark-launched OFF.
-  tutorial_phone_gate_visible_enabled: () => envOptIn('TUTORIAL_PHONE_GATE_VISIBLE_ENABLED'),
+  // and era cards show only their first message on a phone.
+  // On by default; the admin override is the kill switch.
+  tutorial_phone_gate_visible_enabled: () => envOptOut('TUTORIAL_PHONE_GATE_VISIBLE_ENABLED'),
   // Desktop: during your own draft, with a valid card set in hand, the HUD
   // shows "Trade 3 cards for +N units" under the units to place. Phones
-  // already badge and open their cards tray. Dark-launched OFF.
-  desktop_card_cue_enabled: () => envOptIn('DESKTOP_CARD_CUE_ENABLED'),
+  // already badge and open their cards tray.
+  // On by default; the admin override is the kill switch.
+  desktop_card_cue_enabled: () => envOptOut('DESKTOP_CARD_CUE_ENABLED'),
   // The tutorial's wrap-up card leads into the player's first real match:
   // its main button starts a Quick Match (the Easy first match when that is
   // on) instead of keeping them on the tutorial board, and saving progress
-  // with an account is a secondary button, not a modal. Dark-launched OFF.
-  tutorial_wrapup_to_match_enabled: () => envOptIn('TUTORIAL_WRAPUP_TO_MATCH_ENABLED'),
+  // with an account is a secondary button, not a modal.
+  // On by default; the admin override is the kill switch.
+  tutorial_wrapup_to_match_enabled: () => envOptOut('TUTORIAL_WRAPUP_TO_MATCH_ENABLED'),
   // While a player's next Quick Match is their first (first_match_easy_enabled),
   // the lobby's gold button is Quick Match instead of Full Game, so a newcomer's
   // first real game is the short one. Separate from first_match_easy_enabled so
-  // the button can be rolled back on its own. Dark-launched OFF.
-  first_match_primary_cta_enabled: () => envOptIn('FIRST_MATCH_PRIMARY_CTA_ENABLED'),
+  // the button can be rolled back on its own.
+  // On by default; the admin override is the kill switch.
+  first_match_primary_cta_enabled: () => envOptOut('FIRST_MATCH_PRIMARY_CTA_ENABLED'),
 };
 
 /** The code default for one flag (no admin override consulted). */
@@ -415,8 +420,8 @@ export const featureFlags = {
   /**
    * A player's first Quick Match — no finished game yet — is one Easy bot on
    * Great Britain 925. The client builds that game; the server only keeps the
-   * game's `first_match` tag, and only while this is on. Default OFF;
-   * `FIRST_MATCH_EASY_ENABLED=true` or the admin override turns it on.
+   * game's `first_match` tag, and only while this is on. Default ON;
+   * `FIRST_MATCH_EASY_ENABLED=false` or the admin override turns it off.
    */
   get firstMatchEasyEnabled(): boolean {
     return overrideBool('first_match_easy_enabled');
@@ -427,7 +432,7 @@ export const featureFlags = {
    * arrives as the one-line strip that names its action, so the tech tree's
    * research buttons stay in view; cards marked `phoneBrief` drop their detail,
    * hint and "why this matters" on a phone.
-   * Default OFF; `TUTORIAL_PHONE_GATE_VISIBLE_ENABLED=true` or the admin override turns it on.
+   * Default ON; `TUTORIAL_PHONE_GATE_VISIBLE_ENABLED=false` or the admin override turns it off.
    */
   get tutorialPhoneGateVisibleEnabled(): boolean {
     return overrideBool('tutorial_phone_gate_visible_enabled');
@@ -437,7 +442,7 @@ export const featureFlags = {
    * Desktop HUD: during the player's own draft, with a valid territory-card set
    * in hand, a one-click "Trade 3 cards for +N units" button sits under the
    * units to place. The redemption and its rules are unchanged.
-   * Default OFF; `DESKTOP_CARD_CUE_ENABLED=true` or the admin override turns it on.
+   * Default ON; `DESKTOP_CARD_CUE_ENABLED=false` or the admin override turns it off.
    */
   get desktopCardCueEnabled(): boolean {
     return overrideBool('desktop_card_cue_enabled');
@@ -447,7 +452,7 @@ export const featureFlags = {
    * The tutorial's wrap-up card's main button is "Play your first match": it
    * leaves the tutorial game and starts a Quick Match, with no account modal
    * first; a guest gets a secondary "Save your progress" button instead.
-   * Default OFF; `TUTORIAL_WRAPUP_TO_MATCH_ENABLED=true` or the admin override turns it on.
+   * Default ON; `TUTORIAL_WRAPUP_TO_MATCH_ENABLED=false` or the admin override turns it off.
    */
   get tutorialWrapupToMatchEnabled(): boolean {
     return overrideBool('tutorial_wrapup_to_match_enabled');
@@ -457,7 +462,7 @@ export const featureFlags = {
    * While the next Quick Match is the player's first (`first_match_easy_enabled`
    * and no finished game yet), Quick Match is the lobby's gold button and comes
    * first, and Full Game is secondary. Layout only: both create what they did.
-   * Default OFF; `FIRST_MATCH_PRIMARY_CTA_ENABLED=true` or the admin override turns it on.
+   * Default ON; `FIRST_MATCH_PRIMARY_CTA_ENABLED=false` or the admin override turns it off.
    */
   get firstMatchPrimaryCtaEnabled(): boolean {
     return overrideBool('first_match_primary_cta_enabled');
