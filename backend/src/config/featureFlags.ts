@@ -148,6 +148,11 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // The Custom Game form sets a round limit, by default the one Quick Match
   // gives the chosen ending. Dark-launched OFF.
   custom_round_cap_enabled: () => envOptIn('CUSTOM_ROUND_CAP_ENABLED'),
+  // While a player's next Quick Match is their first (first_match_easy_enabled),
+  // the lobby's gold button is Quick Match instead of Full Game, so a newcomer's
+  // first real game is the short one. Separate from first_match_easy_enabled so
+  // the button can be rolled back on its own. Dark-launched OFF.
+  first_match_primary_cta_enabled: () => envOptIn('FIRST_MATCH_PRIMARY_CTA_ENABLED'),
 };
 
 /** The code default for one flag (no admin override consulted). */
@@ -402,6 +407,16 @@ export const featureFlags = {
    */
   get firstMatchEasyEnabled(): boolean {
     return overrideBool('first_match_easy_enabled');
+  },
+
+  /**
+   * While the next Quick Match is the player's first (`first_match_easy_enabled`
+   * and no finished game yet), Quick Match is the lobby's gold button and comes
+   * first, and Full Game is secondary. Layout only: both create what they did.
+   * Default OFF; `FIRST_MATCH_PRIMARY_CTA_ENABLED=true` or the admin override turns it on.
+   */
+  get firstMatchPrimaryCtaEnabled(): boolean {
+    return overrideBool('first_match_primary_cta_enabled');
   },
 
   /**
@@ -1069,6 +1084,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     daily_puzzle_v2_enabled: featureFlags.dailyPuzzleV2Enabled,
     store_v2_enabled: featureFlags.storeV2Enabled,
     first_match_easy_enabled: featureFlags.firstMatchEasyEnabled,
+    first_match_primary_cta_enabled: featureFlags.firstMatchPrimaryCtaEnabled,
     full_game_evening_enabled: featureFlags.fullGameEveningEnabled,
     custom_lobby_fold_enabled: featureFlags.customLobbyFoldEnabled,
     custom_round_cap_enabled: featureFlags.customRoundCapEnabled,

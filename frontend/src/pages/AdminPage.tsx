@@ -378,6 +378,12 @@ const CLIENT_FEATURE_FLAGS = [
       'A player\u2019s first Quick Match (no finished game yet, and no Quick Match setup of their own) is one Easy bot on Great Britain 925 instead of their setup on a random era: a short, winnable first game. The Analytics tab counts these under First matches. Off by default (dark launch) \u2014 off is Quick Match exactly as before.',
   },
   {
+    key: 'first_match_primary_cta_enabled',
+    label: 'First match is the gold button',
+    description:
+      'While a player\u2019s next Quick Match is their first (Easy first match on, no finished game yet), Quick Match becomes the lobby\u2019s gold button and comes first; Full Game is shown beside it as the secondary choice. Without it a newcomer\u2019s most prominent option is Full Game, which runs to its round cap in nearly every simulated game. Needs Easy first match on to have any effect. Off by default (dark launch) \u2014 off is the lobby exactly as before.',
+  },
+  {
     key: 'full_game_evening_enabled',
     label: 'Full Game fits an evening',
     description:

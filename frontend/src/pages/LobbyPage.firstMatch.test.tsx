@@ -38,8 +38,10 @@ function stubMatchMedia() {
   }) as unknown as typeof window.matchMedia;
 }
 
-function setFlag(on: boolean) {
-  useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, first_match_easy_enabled: on } }));
+function setFlag(on: boolean, primaryCta = false) {
+  useFeatureFlagsStore.setState((s) => ({
+    flags: { ...s.flags, first_match_easy_enabled: on, first_match_primary_cta_enabled: primaryCta },
+  }));
 }
 
 /** Answers the stats check with `played` finished games; everything else is offline. */
@@ -125,6 +127,36 @@ describe('LobbyPage first match', () => {
     expect(body.settings.first_match).toBeUndefined();
     expect(body.ai_count).toBe(3);
     expect(getMock).not.toHaveBeenCalledWith('/users/me/stats');
+  });
+
+  it('makes the first match the gold button, ahead of Full Game, with its own flag on', async () => {
+    setFlag(true, true);
+    finishedGames(0);
+    renderLobby();
+    await screen.findByText(FIRST_MATCH_BUTTON_LINE);
+    const quick = screen.getByTestId('quick-match-start');
+    const full = screen.getByTestId('full-game-start');
+    expect(quick.className).toContain('btn-primary');
+    expect(full.className).toContain('btn-secondary');
+    expect(full.className).not.toContain('btn-primary');
+    expect(quick.parentElement!.className).toContain('order-first');
+  });
+
+  it('keeps Full Game gold when the button flag is off or the first match is done', async () => {
+    setFlag(true, false);
+    finishedGames(0);
+    const { unmount } = renderLobby();
+    await screen.findByText(FIRST_MATCH_BUTTON_LINE);
+    expect(screen.getByTestId('full-game-start').className).toContain('btn-primary');
+    expect(screen.getByTestId('quick-match-start').className).toContain('btn-secondary');
+    unmount();
+
+    setFlag(true, true);
+    finishedGames(1);
+    renderLobby();
+    await screen.findByText(/vs 3 AI · random era/);
+    expect(screen.getByTestId('full-game-start').className).toContain('btn-primary');
+    expect(screen.getByTestId('quick-match-start').className).toContain('btn-secondary');
   });
 
   it("keeps a player's own Quick Match setup", async () => {
