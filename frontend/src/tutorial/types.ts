@@ -114,6 +114,18 @@ export interface TutorialStep {
    * unit badge returns the card, not the canvas.
    */
   cardPosition?: 'auto' | 'aside';
+  /**
+   * On a phone with a full-screen panel open, arrive folded to the strip that
+   * names the step's action rather than opened over the panel. For a card the
+   * player meets inside the panel and acts on there: opened, it covers the
+   * controls it asks for. Behind `tutorial_phone_gate_visible_enabled`.
+   */
+  arrivesFoldedOverPanel?: boolean;
+  /**
+   * On a phone, show only the main message: no detail, hint or "why this
+   * matters". Behind `tutorial_phone_gate_visible_enabled`.
+   */
+  phoneBrief?: boolean;
   /** Opens tech tree modal when player taps secondary action */
   actionOpenTechTree?: boolean;
   /** Opens bonuses modal */

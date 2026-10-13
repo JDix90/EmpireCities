@@ -3,6 +3,7 @@ import { GraduationCap, ChevronDown, ChevronRight, ChevronUp, X } from 'lucide-r
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { isMobileViewport, isShortViewport } from '../../utils/device';
+import { useTutorialPhoneGateVisibleEnabled } from '../../store/featureFlagsStore';
 import {
   TUTORIAL_MODULES,
   TUTORIAL_V2_ENABLED,
@@ -133,6 +134,7 @@ export default function TutorialOverlay({
   phoneLayout = false,
 }: TutorialOverlayProps) {
   const { t } = useTranslation('tutorial');
+  const phoneGateVisible = useTutorialPhoneGateVisibleEnabled();
   const rawStep = steps[stepIndex] as TutorialStep | undefined;
   // Copy in the active language; gates, actions and layout hints are untouched.
   const step = rawStep ? localizeTutorialStep(rawStep, t, lessonModule) : undefined;
@@ -162,7 +164,17 @@ export default function TutorialOverlay({
   }
   if (!step) return null;
 
-  const { title, message, detail, hint } = cardCopy(step, { phone: phoneLayout, skipped });
+  const copy = cardCopy(step, { phone: phoneLayout, skipped });
+  /**
+   * A `phoneBrief` card keeps only its main message on a phone: these are the
+   * economy and era cards, read between the first attack and the era gate,
+   * where a phone shows a third of the board at best.
+   */
+  const brief = phoneGateVisible && phoneLayout && !!step.phoneBrief;
+  const { title, message } = copy;
+  const detail = brief ? undefined : copy.detail;
+  const hint = brief ? undefined : copy.hint;
+  const whyItMatters = brief ? undefined : step.whyItMatters;
 
   const completedModules = getCompletedTutorialModules();
   const isMobile = isMobileViewport();
@@ -221,7 +233,13 @@ export default function TutorialOverlay({
    */
   const foldable = dockAsideTop || compact;
   const folded = foldable
-    && (foldOverride ?? (anchorBottom ? panelEntry.stepId === step.id : territorySelected));
+    && (foldOverride ?? (anchorBottom
+      // A card that arrives while the panel is open has not been read, so it
+      // opens, except one marked `arrivesFoldedOverPanel`: the era-advance card
+      // asks for one more research in the tech tree, and opened it covered the
+      // research buttons it asks for. Its strip names the action instead.
+      ? panelEntry.stepId === step.id || (phoneGateVisible && !!step.arrivesFoldedOverPanel)
+      : territorySelected));
   const waitLine = t((step.requireAction && WAIT_LINE_KEYS[step.requireAction]) || 'overlay.waitDefault');
 
   const handleModuleComplete = () => {
@@ -383,7 +401,7 @@ export default function TutorialOverlay({
               {renderTutorialText(detail, playerColorName)}
             </p>
           )}
-          {step.whyItMatters && (
+          {whyItMatters && (
             <div className={clsx('mb-3', centered ? 'text-left' : '')}>
               <button
                 type="button"
@@ -394,7 +412,7 @@ export default function TutorialOverlay({
                 {t('overlay.whyThisMatters')}
               </button>
               {whyOpen && (
-                <p className="text-bf-muted/70 text-xs mt-1 leading-relaxed">{step.whyItMatters}</p>
+                <p className="text-bf-muted/70 text-xs mt-1 leading-relaxed">{whyItMatters}</p>
               )}
             </div>
           )}

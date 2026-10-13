@@ -31,6 +31,7 @@ export interface ClientFeatureFlags {
   store_v2_enabled: boolean;
   space_age_moon_race_enabled: boolean;
   first_match_easy_enabled: boolean;
+  tutorial_phone_gate_visible_enabled: boolean;
   desktop_card_cue_enabled: boolean;
   tutorial_wrapup_to_match_enabled: boolean;
   first_match_primary_cta_enabled: boolean;
@@ -101,6 +102,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   store_v2_enabled: true,
   // A player's first Quick Match is one Easy bot on a small map. Dark-launched OFF.
   first_match_easy_enabled: false,
+  // Phone tutorial keeps the tech tree's controls in view at the era gate. Dark-launched OFF.
+  tutorial_phone_gate_visible_enabled: false,
   // Desktop HUD offers a one-click card trade when a set is ready. Dark-launched OFF.
   desktop_card_cue_enabled: false,
   // The tutorial wrap-up leads into the first real match. Dark-launched OFF.
@@ -272,6 +275,11 @@ export function useSpaceAgeMoonRaceEnabled(): boolean {
 /** A player's first Quick Match is one Easy bot on a small map (utils/firstMatch.ts). */
 export function useFirstMatchEasyEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.first_match_easy_enabled);
+}
+
+/** Phone tutorial keeps the tech tree's controls in view at the era gate (components/game/TutorialOverlay.tsx). */
+export function useTutorialPhoneGateVisibleEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.tutorial_phone_gate_visible_enabled);
 }
 
 /** Desktop HUD offers a one-click card trade during the draft when a set is ready (components/game/GameHUD.tsx). */
