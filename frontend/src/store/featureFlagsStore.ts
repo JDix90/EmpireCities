@@ -100,16 +100,16 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   // Store overhaul: cosmetics drawn on profiles and in matches (the store page
   // is the same either way). On by default; admin kill switch.
   store_v2_enabled: true,
-  // A player's first Quick Match is one Easy bot on a small map. Dark-launched OFF.
-  first_match_easy_enabled: false,
-  // Phone tutorial keeps the tech tree's controls in view at the era gate. Dark-launched OFF.
-  tutorial_phone_gate_visible_enabled: false,
-  // Desktop HUD offers a one-click card trade when a set is ready. Dark-launched OFF.
-  desktop_card_cue_enabled: false,
-  // The tutorial wrap-up leads into the first real match. Dark-launched OFF.
-  tutorial_wrapup_to_match_enabled: false,
-  // While the next Quick Match is the first, it is the lobby's gold button. Dark-launched OFF.
-  first_match_primary_cta_enabled: false,
+  // A player's first Quick Match is one Easy bot on a small map. On by default; admin kill switch.
+  first_match_easy_enabled: true,
+  // Phone tutorial keeps the tech tree's controls in view at the era gate. On by default; admin kill switch.
+  tutorial_phone_gate_visible_enabled: true,
+  // Desktop HUD offers a one-click card trade when a set is ready. On by default; admin kill switch.
+  desktop_card_cue_enabled: true,
+  // The tutorial wrap-up leads into the first real match. On by default; admin kill switch.
+  tutorial_wrapup_to_match_enabled: true,
+  // While the next Quick Match is the first, it is the lobby's gold button. On by default; admin kill switch.
+  first_match_primary_cta_enabled: true,
   // A Full Game fits an evening: the 65% ending by default, an 80-round cap. Dark-launched OFF.
   full_game_evening_enabled: false,
   // The Custom Game form folds its less-used options under Advanced. Dark-launched OFF.

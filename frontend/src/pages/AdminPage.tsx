@@ -375,31 +375,31 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'first_match_easy_enabled',
     label: 'Easy first match',
     description:
-      'A player\u2019s first Quick Match (no finished game yet, and no Quick Match setup of their own) is one Easy bot on Great Britain 925 instead of their setup on a random era: a short, winnable first game. The Analytics tab counts these under First matches. Off by default (dark launch) \u2014 off is Quick Match exactly as before.',
+      'A player\u2019s first Quick Match (no finished game yet, and no Quick Match setup of their own) is one Easy bot on Great Britain 925 instead of their setup on a random era: a short, winnable first game. The Analytics tab counts these under First matches. On by default; switching it off gives Quick Match exactly as before.',
   },
   {
     key: 'tutorial_phone_gate_visible_enabled',
     label: 'Phone tutorial: keep the era gate in view',
     description:
-      'On a phone, the core tutorial\u2019s \u201cAdvance to Medieval\u201d card arrives folded to a one-line strip over the open tech tree, instead of opening over the research buttons it asks the player to press; a tap unfolds it. The economy and era cards also show only their main message on a phone, without the extra detail. Desktop is unchanged. Off by default (dark launch) \u2014 off is the tutorial exactly as before.',
+      'On a phone, the core tutorial\u2019s \u201cAdvance to Medieval\u201d card arrives folded to a one-line strip over the open tech tree, instead of opening over the research buttons it asks the player to press; a tap unfolds it. The economy and era cards also show only their main message on a phone, without the extra detail. Desktop is unchanged. On by default; switching it off gives the tutorial exactly as before.',
   },
   {
     key: 'desktop_card_cue_enabled',
     label: 'Desktop card trade prompt',
     description:
-      'On desktop, during the player\u2019s own draft, when their hand holds a valid set of territory cards, the sidebar shows \u201cTrade 3 cards for +N units\u201d under the units to place, one click to redeem. Today desktop cards sit in a collapsed row in the Status tab with no prompt, while every bot trades each set the moment it has one. Phones already badge and open their cards tray. Off by default (dark launch) \u2014 off is the sidebar exactly as before.',
+      'On desktop, during the player\u2019s own draft, when their hand holds a valid set of territory cards, the sidebar shows \u201cTrade 3 cards for +N units\u201d under the units to place, one click to redeem. Today desktop cards sit in a collapsed row in the Status tab with no prompt, while every bot trades each set the moment it has one. Phones already badge and open their cards tray. On by default; switching it off gives the sidebar exactly as before.',
   },
   {
     key: 'tutorial_wrapup_to_match_enabled',
     label: 'Tutorial wrap-up starts the first match',
     description:
-      'The tutorial\u2019s last card leads into a real game: its main button, \u201cPlay your first match\u201d, ends the tutorial and starts a Quick Match (one Easy bot on Great Britain while Easy first match is on), with no account prompt in the way. A guest gets a secondary \u201cSave your progress\u201d button instead. Off, the main button is \u201cContinue playing\u201d: the account prompt, then the rest of the tutorial board. Off by default (dark launch) \u2014 off is the tutorial exactly as before.',
+      'The tutorial\u2019s last card leads into a real game: its main button, \u201cPlay your first match\u201d, ends the tutorial and starts a Quick Match (one Easy bot on Great Britain while Easy first match is on), with no account prompt in the way. A guest gets a secondary \u201cSave your progress\u201d button instead. Off, the main button is \u201cContinue playing\u201d: the account prompt, then the rest of the tutorial board. On by default; switching it off gives the tutorial exactly as before.',
   },
   {
     key: 'first_match_primary_cta_enabled',
     label: 'First match is the gold button',
     description:
-      'While a player\u2019s next Quick Match is their first (Easy first match on, no finished game yet), Quick Match becomes the lobby\u2019s gold button and comes first; Full Game is shown beside it as the secondary choice. Without it a newcomer\u2019s most prominent option is Full Game, which runs to its round cap in nearly every simulated game. Needs Easy first match on to have any effect. Off by default (dark launch) \u2014 off is the lobby exactly as before.',
+      'While a player\u2019s next Quick Match is their first (Easy first match on, no finished game yet), Quick Match becomes the lobby\u2019s gold button and comes first; Full Game is shown beside it as the secondary choice. Without it a newcomer\u2019s most prominent option is Full Game, which runs to its round cap in nearly every simulated game. Needs Easy first match on to have any effect. On by default; switching it off gives the lobby exactly as before.',
   },
   {
     key: 'full_game_evening_enabled',

@@ -320,49 +320,49 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().daily_puzzle_v2_enabled).toBe(true);
   });
 
-  it('first_match_primary_cta_enabled defaults to off (dark-launch) and is admin-overridable', () => {
-    expect(featureFlags.firstMatchPrimaryCtaEnabled).toBe(false);
-    expect(getClientFeatureFlags().first_match_primary_cta_enabled).toBe(false);
-    expect(getFeatureFlagStates().first_match_primary_cta_enabled).toEqual({ code_default: false, overridden: false, effective: false });
-    setAdminConfigCacheForTests({ feature_flags: { first_match_primary_cta_enabled: true } });
+  it('first_match_primary_cta_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.firstMatchPrimaryCtaEnabled).toBe(true);
     expect(getClientFeatureFlags().first_match_primary_cta_enabled).toBe(true);
+    expect(getFeatureFlagStates().first_match_primary_cta_enabled).toEqual({ code_default: true, overridden: false, effective: true });
+    setAdminConfigCacheForTests({ feature_flags: { first_match_primary_cta_enabled: false } });
+    expect(featureFlags.firstMatchPrimaryCtaEnabled).toBe(false);
+    expect(getClientFeatureFlags().first_match_primary_cta_enabled).toBe(false);
   });
 
-  it('tutorial_wrapup_to_match_enabled defaults to off (dark-launch) and is admin-overridable', () => {
-    expect(featureFlags.tutorialWrapupToMatchEnabled).toBe(false);
-    expect(getClientFeatureFlags().tutorial_wrapup_to_match_enabled).toBe(false);
-    expect(getFeatureFlagStates().tutorial_wrapup_to_match_enabled).toEqual({ code_default: false, overridden: false, effective: false });
-    setAdminConfigCacheForTests({ feature_flags: { tutorial_wrapup_to_match_enabled: true } });
+  it('tutorial_wrapup_to_match_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.tutorialWrapupToMatchEnabled).toBe(true);
     expect(getClientFeatureFlags().tutorial_wrapup_to_match_enabled).toBe(true);
+    expect(getFeatureFlagStates().tutorial_wrapup_to_match_enabled).toEqual({ code_default: true, overridden: false, effective: true });
+    setAdminConfigCacheForTests({ feature_flags: { tutorial_wrapup_to_match_enabled: false } });
+    expect(featureFlags.tutorialWrapupToMatchEnabled).toBe(false);
+    expect(getClientFeatureFlags().tutorial_wrapup_to_match_enabled).toBe(false);
   });
 
-  it('desktop_card_cue_enabled defaults to off (dark-launch) and is admin-overridable', () => {
-    expect(featureFlags.desktopCardCueEnabled).toBe(false);
-    expect(getClientFeatureFlags().desktop_card_cue_enabled).toBe(false);
-    expect(getFeatureFlagStates().desktop_card_cue_enabled).toEqual({ code_default: false, overridden: false, effective: false });
-    setAdminConfigCacheForTests({ feature_flags: { desktop_card_cue_enabled: true } });
+  it('desktop_card_cue_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.desktopCardCueEnabled).toBe(true);
     expect(getClientFeatureFlags().desktop_card_cue_enabled).toBe(true);
+    expect(getFeatureFlagStates().desktop_card_cue_enabled).toEqual({ code_default: true, overridden: false, effective: true });
+    setAdminConfigCacheForTests({ feature_flags: { desktop_card_cue_enabled: false } });
+    expect(featureFlags.desktopCardCueEnabled).toBe(false);
+    expect(getClientFeatureFlags().desktop_card_cue_enabled).toBe(false);
   });
 
-  it('tutorial_phone_gate_visible_enabled defaults to off (dark-launch) and is admin-overridable', () => {
-    expect(featureFlags.tutorialPhoneGateVisibleEnabled).toBe(false);
-    expect(getClientFeatureFlags().tutorial_phone_gate_visible_enabled).toBe(false);
-    expect(getFeatureFlagStates().tutorial_phone_gate_visible_enabled).toEqual({ code_default: false, overridden: false, effective: false });
-    setAdminConfigCacheForTests({ feature_flags: { tutorial_phone_gate_visible_enabled: true } });
+  it('tutorial_phone_gate_visible_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.tutorialPhoneGateVisibleEnabled).toBe(true);
     expect(getClientFeatureFlags().tutorial_phone_gate_visible_enabled).toBe(true);
+    expect(getFeatureFlagStates().tutorial_phone_gate_visible_enabled).toEqual({ code_default: true, overridden: false, effective: true });
+    setAdminConfigCacheForTests({ feature_flags: { tutorial_phone_gate_visible_enabled: false } });
+    expect(featureFlags.tutorialPhoneGateVisibleEnabled).toBe(false);
+    expect(getClientFeatureFlags().tutorial_phone_gate_visible_enabled).toBe(false);
   });
 
-  it('first_match_easy_enabled defaults to off (dark-launch) and is admin-overridable', () => {
-    expect(featureFlags.firstMatchEasyEnabled).toBe(false);
-    expect(getClientFeatureFlags().first_match_easy_enabled).toBe(false);
-    expect(getFeatureFlagStates().first_match_easy_enabled).toEqual({ code_default: false, overridden: false, effective: false });
-    setAdminConfigCacheForTests({ feature_flags: { first_match_easy_enabled: true } });
+  it('first_match_easy_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.firstMatchEasyEnabled).toBe(true);
     expect(getClientFeatureFlags().first_match_easy_enabled).toBe(true);
+    expect(getFeatureFlagStates().first_match_easy_enabled).toEqual({ code_default: true, overridden: false, effective: true });
+    setAdminConfigCacheForTests({ feature_flags: { first_match_easy_enabled: false } });
+    expect(featureFlags.firstMatchEasyEnabled).toBe(false);
+    expect(getClientFeatureFlags().first_match_easy_enabled).toBe(false);
   });
 
   it('custom_round_cap_enabled defaults to off (dark-launch) and is admin-overridable', () => {

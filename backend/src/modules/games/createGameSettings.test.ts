@@ -165,13 +165,14 @@ describe('Galactic Age buildings v2 is baked at create from its flag', () => {
 
   it('keeps the first-match tag only while the feature is on', () => {
     const BRITAIN = { era_id: 'medieval', map_id: 'community_britain_925' };
-    // Off: a client's tag is dropped, so the Analytics tab counts nothing.
-    expect(created(BRITAIN, { first_match: true }).first_match).toBeUndefined();
-    setAdminConfigCacheForTests({ feature_flags: { first_match_easy_enabled: true } });
+    // On by default: a client's tag is kept for the Analytics tab.
     expect(created(BRITAIN, { first_match: true }).first_match).toBe(true);
     // An ordinary Quick Match is never tagged.
     expect(created(BRITAIN).first_match).toBeUndefined();
     expect(created(BRITAIN, { first_match: false }).first_match).toBeUndefined();
+    // Off: a client's tag is dropped, so the Analytics tab counts nothing.
+    setAdminConfigCacheForTests({ feature_flags: { first_match_easy_enabled: false } });
+    expect(created(BRITAIN, { first_match: true }).first_match).toBeUndefined();
   });
 
   it('bakes bot commanders in while the feature and goals are on, never into a tutorial, a daily or a campaign stage', () => {
