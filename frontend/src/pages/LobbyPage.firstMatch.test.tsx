@@ -53,13 +53,13 @@ function finishedGames(played: number) {
   );
 }
 
-function renderLobby() {
+function renderLobby(entry = '/lobby') {
   useAuthStore.setState({
     user: { user_id: 'u1', username: 'commander', is_guest: true, xp: 50 } as never,
     isAuthenticated: true,
   });
   return render(
-    <MemoryRouter initialEntries={['/lobby']}>
+    <MemoryRouter initialEntries={[entry]}>
       <LobbyPage />
     </MemoryRouter>,
   );
@@ -157,6 +157,26 @@ describe('LobbyPage first match', () => {
     await screen.findByText(/vs 3 AI · random era/);
     expect(screen.getByTestId('full-game-start').className).toContain('btn-primary');
     expect(screen.getByTestId('quick-match-start').className).toContain('btn-secondary');
+  });
+
+  it('starts the first match on arrival from the tutorial wrap-up, once', async () => {
+    setFlag(true);
+    finishedGames(0);
+    renderLobby('/lobby?play=quick');
+    await waitFor(() => expect(postMock).toHaveBeenCalledWith('/games', expect.anything()));
+    const body = postMock.mock.calls.find(([url]) => url === '/games')![1] as { map_id: string; settings: Record<string, unknown> };
+    expect(body.map_id).toBe('community_britain_925');
+    expect(body.settings.first_match).toBe(true);
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/game/g1'));
+    expect(postMock.mock.calls.filter(([url]) => url === '/games')).toHaveLength(1);
+  });
+
+  it('starts nothing on a plain lobby visit', async () => {
+    setFlag(true);
+    finishedGames(0);
+    renderLobby();
+    await screen.findByText(FIRST_MATCH_BUTTON_LINE);
+    expect(postMock).not.toHaveBeenCalledWith('/games', expect.anything());
   });
 
   it("keeps a player's own Quick Match setup", async () => {
