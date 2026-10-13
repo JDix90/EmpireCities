@@ -12,7 +12,8 @@ import EraTimelineStrip from './EraTimelineStrip';
 import { ERA_LABELS } from '../../constants/gameLobbyLabels';
 import { phaseAdvanceLabel, PHASE_LABELS } from '../../constants/phaseLabels';
 import { PhaseProgressBar } from './PhaseProgressBar';
-import { useTurnClarityEnabled } from '../../store/featureFlagsStore';
+import { useDesktopCardCueEnabled, useTurnClarityEnabled } from '../../store/featureFlagsStore';
+import { cardSetBonus, findRedeemableCardIds } from '../../utils/cardSets';
 import { getEraIdForAdvancementIndex } from '../../utils/eraAdvancement';
 import { AiBadge } from '../ui/AiBadge';
 import { AiStyleBadge } from '../ui/AiStyleBadge';
@@ -206,6 +207,7 @@ export default function GameHUD({
       ? nothingToFightMessage(gameState, mapData?.connections ?? [], myPlayer?.player_id)
       : null;
   const turnClarityEnabled = useTurnClarityEnabled();
+  const desktopCardCueEnabled = useDesktopCardCueEnabled();
   const draftPool = computeDraftPool(
     gameState,
     user?.user_id,
@@ -379,6 +381,30 @@ export default function GameHUD({
             {draftPool} units to place
           </p>
         )}
+        {/* Desktop cards sit in a collapsed row in the Status tab, and nothing
+            says a set is ready, while every bot trades each set the moment it
+            has one. One click here redeems the first valid set, as the bots'
+            own turn does (utils/cardSets.ts mirrors the server's rules). */}
+        {(() => {
+          if (!desktopCardCueEnabled || mobile || !isMyTurn || gameState.phase !== 'draft' || !myPlayer) return null;
+          const setIds = findRedeemableCardIds(myPlayer.cards);
+          if (!setIds) return null;
+          const bonus = cardSetBonus(gameState.card_set_redemption_count ?? 0, gameState.settings.card_set_bonus_cap);
+          return (
+            <button
+              type="button"
+              data-testid="hud-card-trade-cue"
+              onClick={() => {
+                onRedeemCards(setIds);
+                setSelectedCards([]);
+              }}
+              className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-bf-gold/50 bg-bf-gold/10 px-2.5 py-1.5 text-sm font-medium text-bf-gold hover:bg-bf-gold/20 transition-colors"
+            >
+              <CreditCard className="w-4 h-4" aria-hidden="true" />
+              Trade 3 cards for +{bonus} units
+            </button>
+          );
+        })()}
         {turnClarityEnabled && onDraftUndo && gameState.phase === 'draft' && isMyTurn &&
           (gameState.draft_deployments_this_turn?.length ?? 0) > 0 && (
           <button

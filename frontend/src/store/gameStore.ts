@@ -296,6 +296,8 @@ export interface GameState {
   settings: {
     fog_of_war: boolean;
     turn_timer_seconds: number;
+    /** Most a card set can pay (0 or absent: uncapped). New games default to 30. */
+    card_set_bonus_cap?: number;
     diplomacy_enabled: boolean;
     /**
      * Galactic Age corridors: lanes need no tech to cross and cap cross-lane

@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import GameHUD from './GameHUD';
 import { useGameStore, type GameState } from '../../store/gameStore';
 import { useAuthStore } from '../../store/authStore';
+import { useFeatureFlagsStore } from '../../store/featureFlagsStore';
 
 vi.mock('../../services/socket', () => ({
   getSocket: () => ({ on: vi.fn(), off: vi.fn(), emit: vi.fn() }),
@@ -611,5 +612,63 @@ describe('GameHUD — nothing to fight', () => {
     useGameStore.setState({ gameState: makeState({ phase: 'draft', territories: board(false) as never }) } as never);
     renderHud({ mapData, resolvedViewerPlayerId: 'me' });
     expect(screen.queryByTestId('nothing-to-fight')).toBeNull();
+  });
+});
+
+describe('GameHUD — desktop card trade cue', () => {
+  const hand = [
+    { card_id: 'c3', territory_id: 't3', symbol: 'artillery' },
+    { card_id: 'c1', territory_id: 't1', symbol: 'infantry' },
+    { card_id: 'c2', territory_id: 't2', symbol: 'cavalry' },
+  ];
+
+  function setup({ flag = true, cards = hand, phase = 'draft', count = 6, cap = 30 } = {}) {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+      addListener: vi.fn(), removeListener: vi.fn(),
+    }) as unknown as typeof window.matchMedia;
+    useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, desktop_card_cue_enabled: flag } }));
+    useAuthStore.setState({ user: { user_id: 'me', username: 'me', level: 1, xp: 0, mmr: 1000 } } as never);
+    useGameStore.setState({
+      gameState: makeState({
+        phase: phase as GameState['phase'],
+        card_set_redemption_count: count,
+        players: [player('me', 0, { cards }), player('rival', 1, { username: 'Rival' })],
+        settings: { economy_enabled: true, tech_trees_enabled: true, card_set_bonus_cap: cap } as GameState['settings'],
+      }),
+      draftUnitsRemaining: 3, lastCombatResult: null,
+    } as never);
+  }
+
+  it('offers the next set in one click during your draft, with what it pays', () => {
+    setup();
+    const onRedeemCards = vi.fn();
+    renderHud({ onRedeemCards });
+    // Seventh set on the shared schedule: 20 units, under the cap.
+    const cue = screen.getByTestId('hud-card-trade-cue');
+    expect(cue).toHaveTextContent('Trade 3 cards for +20 units');
+    fireEvent.click(cue);
+    expect(onRedeemCards).toHaveBeenCalledWith(['c1', 'c2', 'c3']);
+  });
+
+  it('stays hidden with the flag off, outside the draft, or without a valid set', () => {
+    setup({ flag: false });
+    const { unmount } = renderHud();
+    expect(screen.queryByTestId('hud-card-trade-cue')).toBeNull();
+    unmount();
+
+    setup({ phase: 'attack' });
+    const second = renderHud();
+    expect(screen.queryByTestId('hud-card-trade-cue')).toBeNull();
+    second.unmount();
+
+    setup({ cards: hand.slice(0, 2) });
+    const third = renderHud();
+    expect(screen.queryByTestId('hud-card-trade-cue')).toBeNull();
+    third.unmount();
+
+    setup();
+    renderHud({ mobile: true });
+    expect(screen.queryByTestId('hud-card-trade-cue')).toBeNull();
   });
 });

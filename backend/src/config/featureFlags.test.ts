@@ -338,6 +338,15 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().tutorial_wrapup_to_match_enabled).toBe(true);
   });
 
+  it('desktop_card_cue_enabled defaults to off (dark-launch) and is admin-overridable', () => {
+    expect(featureFlags.desktopCardCueEnabled).toBe(false);
+    expect(getClientFeatureFlags().desktop_card_cue_enabled).toBe(false);
+    expect(getFeatureFlagStates().desktop_card_cue_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { desktop_card_cue_enabled: true } });
+    expect(featureFlags.desktopCardCueEnabled).toBe(true);
+    expect(getClientFeatureFlags().desktop_card_cue_enabled).toBe(true);
+  });
+
   it('first_match_easy_enabled defaults to off (dark-launch) and is admin-overridable', () => {
     expect(featureFlags.firstMatchEasyEnabled).toBe(false);
     expect(getClientFeatureFlags().first_match_easy_enabled).toBe(false);
