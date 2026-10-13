@@ -14,7 +14,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { useCustomLobbyFoldEnabled, useCustomRoundCapEnabled, useEraAdvancementLobbyEnabled, useFirstMatchEasyEnabled, useFullGameEveningEnabled, useMapEditorEnabled, useMatchAlertsEnabled, useRankedMultiSizeEnabled, useSpaceAgeMoonRaceEnabled, useSpectateEnabled, useTodayPanelEnabled } from '../store/featureFlagsStore';
+import { useCustomLobbyFoldEnabled, useCustomRoundCapEnabled, useEraAdvancementLobbyEnabled, useFirstMatchEasyEnabled, useFirstMatchPrimaryCtaEnabled, useFullGameEveningEnabled, useMapEditorEnabled, useMatchAlertsEnabled, useRankedMultiSizeEnabled, useSpaceAgeMoonRaceEnabled, useSpectateEnabled, useTodayPanelEnabled } from '../store/featureFlagsStore';
 import { HEGEMONY_TURNS } from '../utils/lunarHegemony';
 import { RANKED_MIN_OPPONENTS, describeRankedGameSize, getRankedOpponents, rankedEraSize, saveRankedOpponents } from '../utils/rankedPrefs';
 import { clearRankedSearchMarker, setRankedSearchMarker } from '../utils/rankedSearchMarker';
@@ -422,6 +422,12 @@ export default function LobbyPage() {
       cancelled = true;
     };
   }, [firstMatchEasyEnabled, userId]);
+  // While the next Quick Match is the first, it is the gold button and comes
+  // first, and Full Game steps back: a newcomer's most prominent choice is
+  // then the short, winnable match rather than the one that runs to its cap.
+  const firstMatchPrimaryCtaEnabled = useFirstMatchPrimaryCtaEnabled();
+  const quickMatchLeads = firstMatchPrimaryCtaEnabled && firstMatchPending === true;
+  const quickMatchButtonClass = !eraAdvancementLobbyEnabled || quickMatchLeads ? 'btn-primary' : 'btn-secondary';
   const [fullGameLoading, setFullGameLoading] = useState(false);
   // Full Game setup — separate prefs from Quick Match (a long campaign table
   // and a quick-stomp table are different choices).
@@ -2128,7 +2134,10 @@ export default function LobbyPage() {
                 onClick={() => setShowFullGameModal(true)}
                 data-testid="full-game-start"
                 title="Ancient era + Era Advancement, economy, tech, naval & events — the complete game. Choose your opponents in the next step."
-                className="btn-primary flex flex-col items-center justify-center gap-0.5 leading-tight sm:flex-none"
+                className={clsx(
+                  quickMatchLeads ? 'btn-secondary' : 'btn-primary',
+                  'flex flex-col items-center justify-center gap-0.5 leading-tight sm:flex-none',
+                )}
               >
                 <span className="flex items-center gap-2 font-semibold">
                   <Trophy className="w-4 h-4" aria-hidden />
@@ -2139,11 +2148,12 @@ export default function LobbyPage() {
                 </span>
               </button>
             )}
-            <div ref={quickOptionsRef} className="sm:relative flex sm:flex-none">
+            <div ref={quickOptionsRef} className={clsx('sm:relative flex sm:flex-none', quickMatchLeads && 'order-first')}>
               <button
                 onClick={() => void startQuickMatch()}
                 disabled={quickSoloLoading}
-                className={`${eraAdvancementLobbyEnabled ? 'btn-secondary' : 'btn-primary'} flex-1 flex flex-col items-center justify-center gap-0.5 leading-tight rounded-r-none disabled:opacity-60 disabled:cursor-not-allowed`}
+                data-testid="quick-match-start"
+                className={`${quickMatchButtonClass} flex-1 flex flex-col items-center justify-center gap-0.5 leading-tight rounded-r-none disabled:opacity-60 disabled:cursor-not-allowed`}
               >
                 <span className="flex items-center gap-2 font-semibold">
                   <Bot className="w-4 h-4" aria-hidden />
@@ -2163,7 +2173,7 @@ export default function LobbyPage() {
                 aria-expanded={quickOptionsOpen}
                 aria-controls="quick-match-options"
                 title="Choose opponents, AI difficulty & win condition"
-                className={`${eraAdvancementLobbyEnabled ? 'btn-secondary' : 'btn-primary'} rounded-l-none border-l border-l-black/20 px-2 sm:px-2.5 disabled:opacity-60 disabled:cursor-not-allowed`}
+                className={`${quickMatchButtonClass} rounded-l-none border-l border-l-black/20 px-2 sm:px-2.5 disabled:opacity-60 disabled:cursor-not-allowed`}
               >
                 <ChevronDown className={`w-4 h-4 transition-transform ${quickOptionsOpen ? 'rotate-180' : ''}`} aria-hidden />
               </button>

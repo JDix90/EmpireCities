@@ -31,6 +31,7 @@ export interface ClientFeatureFlags {
   store_v2_enabled: boolean;
   space_age_moon_race_enabled: boolean;
   first_match_easy_enabled: boolean;
+  first_match_primary_cta_enabled: boolean;
   full_game_evening_enabled: boolean;
   custom_lobby_fold_enabled: boolean;
   custom_round_cap_enabled: boolean;
@@ -98,6 +99,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   store_v2_enabled: true,
   // A player's first Quick Match is one Easy bot on a small map. Dark-launched OFF.
   first_match_easy_enabled: false,
+  // While the next Quick Match is the first, it is the lobby's gold button. Dark-launched OFF.
+  first_match_primary_cta_enabled: false,
   // A Full Game fits an evening: the 65% ending by default, an 80-round cap. Dark-launched OFF.
   full_game_evening_enabled: false,
   // The Custom Game form folds its less-used options under Advanced. Dark-launched OFF.
@@ -263,6 +266,11 @@ export function useSpaceAgeMoonRaceEnabled(): boolean {
 /** A player's first Quick Match is one Easy bot on a small map (utils/firstMatch.ts). */
 export function useFirstMatchEasyEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.first_match_easy_enabled);
+}
+
+/** While the next Quick Match is the player's first, it is the lobby's gold button (pages/LobbyPage.tsx). */
+export function useFirstMatchPrimaryCtaEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.first_match_primary_cta_enabled);
 }
 
 /** A Full Game fits an evening: the 65% ending by default, an 80-round cap (utils/quickMatchPrefs.ts). */
