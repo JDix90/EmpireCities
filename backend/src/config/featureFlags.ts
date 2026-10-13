@@ -148,6 +148,10 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // The Custom Game form sets a round limit, by default the one Quick Match
   // gives the chosen ending. Dark-launched OFF.
   custom_round_cap_enabled: () => envOptIn('CUSTOM_ROUND_CAP_ENABLED'),
+  // Desktop: during your own draft, with a valid card set in hand, the HUD
+  // shows "Trade 3 cards for +N units" under the units to place. Phones
+  // already badge and open their cards tray. Dark-launched OFF.
+  desktop_card_cue_enabled: () => envOptIn('DESKTOP_CARD_CUE_ENABLED'),
   // The tutorial's wrap-up card leads into the player's first real match:
   // its main button starts a Quick Match (the Easy first match when that is
   // on) instead of keeping them on the tutorial board, and saving progress
@@ -412,6 +416,16 @@ export const featureFlags = {
    */
   get firstMatchEasyEnabled(): boolean {
     return overrideBool('first_match_easy_enabled');
+  },
+
+  /**
+   * Desktop HUD: during the player's own draft, with a valid territory-card set
+   * in hand, a one-click "Trade 3 cards for +N units" button sits under the
+   * units to place. The redemption and its rules are unchanged.
+   * Default OFF; `DESKTOP_CARD_CUE_ENABLED=true` or the admin override turns it on.
+   */
+  get desktopCardCueEnabled(): boolean {
+    return overrideBool('desktop_card_cue_enabled');
   },
 
   /**
@@ -1099,6 +1113,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     daily_puzzle_v2_enabled: featureFlags.dailyPuzzleV2Enabled,
     store_v2_enabled: featureFlags.storeV2Enabled,
     first_match_easy_enabled: featureFlags.firstMatchEasyEnabled,
+    desktop_card_cue_enabled: featureFlags.desktopCardCueEnabled,
     tutorial_wrapup_to_match_enabled: featureFlags.tutorialWrapupToMatchEnabled,
     first_match_primary_cta_enabled: featureFlags.firstMatchPrimaryCtaEnabled,
     full_game_evening_enabled: featureFlags.fullGameEveningEnabled,

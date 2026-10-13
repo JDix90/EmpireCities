@@ -378,6 +378,12 @@ const CLIENT_FEATURE_FLAGS = [
       'A player\u2019s first Quick Match (no finished game yet, and no Quick Match setup of their own) is one Easy bot on Great Britain 925 instead of their setup on a random era: a short, winnable first game. The Analytics tab counts these under First matches. Off by default (dark launch) \u2014 off is Quick Match exactly as before.',
   },
   {
+    key: 'desktop_card_cue_enabled',
+    label: 'Desktop card trade prompt',
+    description:
+      'On desktop, during the player\u2019s own draft, when their hand holds a valid set of territory cards, the sidebar shows \u201cTrade 3 cards for +N units\u201d under the units to place, one click to redeem. Today desktop cards sit in a collapsed row in the Status tab with no prompt, while every bot trades each set the moment it has one. Phones already badge and open their cards tray. Off by default (dark launch) \u2014 off is the sidebar exactly as before.',
+  },
+  {
     key: 'tutorial_wrapup_to_match_enabled',
     label: 'Tutorial wrap-up starts the first match',
     description:
