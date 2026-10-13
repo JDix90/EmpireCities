@@ -11,6 +11,7 @@
  * credited to the ad.
  */
 import { getAnonSessionId } from './anonSession';
+import { deviceClass, type DeviceClass } from './device';
 
 const STORAGE_KEY = 'bf_attribution';
 const MAX_LEN = 200;
@@ -85,12 +86,14 @@ export function getAttribution(): Attribution | undefined {
  * Attribution payload for the account-creating auth calls (guest / register /
  * upgrade): first-touch UTMs/referrer PLUS the anonymous visitor session id,
  * which is what stitches pre-signup landing_viewed / hero_play_clicked beacons
- * to the signup event in the visitor funnel. Unlike getAttribution(), this is
- * defined for organic/direct visits too — the anon id alone is worth sending.
+ * to the signup event in the visitor funnel, and the device class. Unlike
+ * getAttribution(), this is defined for organic/direct visits too.
  */
-export function getSignupAttribution(): (Attribution & { anon_session_id?: string }) | undefined {
+export function getSignupAttribution(): Attribution & { anon_session_id?: string; device: DeviceClass } {
   const attribution = getAttribution() ?? {};
   const anonId = getAnonSessionId();
-  const merged = anonId ? { ...attribution, anon_session_id: anonId } : attribution;
-  return Object.keys(merged).length > 0 ? merged : undefined;
+  const withAnon = anonId ? { ...attribution, anon_session_id: anonId } : attribution;
+  // The device class rides every signup so the admin funnels can be split by
+  // phone and desktop (backend services/analyticsQueries.ts getFunnelMetrics).
+  return { ...withAnon, device: deviceClass() };
 }

@@ -76,8 +76,19 @@ export interface VisitorFunnelMetrics {
   clicked_play: number;
   signed_up: number;
 }
+/** The signup device the activation and tutorial funnels can be narrowed to. */
+export type FunnelDeviceFilter = 'all' | 'phone' | 'tablet' | 'desktop';
+const FUNNEL_DEVICE_OPTIONS: Array<{ value: FunnelDeviceFilter; label: string }> = [
+  { value: 'all', label: 'All devices' },
+  { value: 'phone', label: 'Phone' },
+  { value: 'tablet', label: 'Tablet' },
+  { value: 'desktop', label: 'Desktop' },
+];
+
 export interface AnalyticsReport {
   window_days: number;
+  /** The signup device the funnels were narrowed to; null or absent for all. */
+  device?: 'phone' | 'tablet' | 'desktop' | null;
   total_events: number;
   /** Optional for rollout: older backends won't send it. */
   visitors?: VisitorFunnelMetrics;
@@ -145,7 +156,15 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
   );
 }
 
-export default function AdminAnalyticsPanel({ data }: { data: AnalyticsReport | null }) {
+export default function AdminAnalyticsPanel({
+  data,
+  device = 'all',
+  onDeviceChange,
+}: {
+  data: AnalyticsReport | null;
+  device?: FunnelDeviceFilter;
+  onDeviceChange?: (device: FunnelDeviceFilter) => void;
+}) {
   if (!data) {
     return <div className="text-sm text-bf-muted">Loading…</div>;
   }
@@ -185,13 +204,31 @@ export default function AdminAnalyticsPanel({ data }: { data: AnalyticsReport | 
       )}
 
       <section className="rounded-xl border border-bf-border bg-cc-panel/50 p-4">
-        <div className="flex items-baseline justify-between">
+        <div className="flex items-baseline justify-between gap-3">
           <p className="text-sm font-semibold text-bf-text">Activation funnel</p>
-          <p className="text-xs text-bf-muted">new users · last {data.window_days}d</p>
+          <div className="flex items-center gap-3">
+            {onDeviceChange && (
+              <label className="flex items-center gap-1.5 text-xs text-bf-muted">
+                Signed up on
+                <select
+                  aria-label="Signup device"
+                  value={device}
+                  onChange={(e) => onDeviceChange(e.target.value as FunnelDeviceFilter)}
+                  className="rounded-md border border-bf-border bg-bf-dark px-2 py-1 text-xs text-bf-text"
+                >
+                  {FUNNEL_DEVICE_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <p className="text-xs text-bf-muted">new users · last {data.window_days}d</p>
+          </div>
         </div>
         <div className="mt-3 space-y-2">
           <FunnelStep label="Signed up" n={f.signups} total={f.signups} />
           <FunnelStep label="Created a game" n={f.created_game} total={f.signups} />
+          <FunnelStep label="Started a game" n={f.started_game} total={f.signups} />
           <FunnelStep label="Reached the map" n={f.map_rendered} total={f.signups} />
           <FunnelStep label="Made first attack" n={f.first_attack} total={f.signups} />
           <FunnelStep label="Captured a territory" n={f.first_capture} total={f.signups} />
@@ -199,6 +236,11 @@ export default function AdminAnalyticsPanel({ data }: { data: AnalyticsReport | 
         </div>
         <p className="mt-2 text-xs text-bf-muted">
           Guest → account: {f.upgraded} ({pctText(f.upgraded, f.signups)})
+        </p>
+        <p className="mt-1 text-xs text-bf-muted">
+          Every step after signup counts real games only; the tutorial has its own table.
+          A device narrows the cohort to signups recorded on it, so signups from before the
+          device was recorded appear only under All devices.
         </p>
         <p className="mt-1 text-xs text-bf-muted">
           Admin and test accounts are left out of every cohort here; mark test accounts on the Users tab.
@@ -288,11 +330,12 @@ export default function AdminAnalyticsPanel({ data }: { data: AnalyticsReport | 
             </tbody>
           </table>
           <p className="mt-2 text-xs text-bf-muted">
-            Both ends are server-side events (<span className="font-mono">tutorial_started</span> /
-            {' '}<span className="font-mono">tutorial_completed</span>), so neither can be inflated by a
-            client. &quot;Account&quot; is the same test the retention split uses — registered directly or
-            upgraded from guest at any point — so a guest who finishes and then signs up counts
-            as an account here too.
+            Started is the server-side <span className="font-mono">tutorial_started</span>. Completed is the
+            server-side <span className="font-mono">tutorial_completed</span>, or leaving from the wrap-up card
+            after playing the lesson (<span className="font-mono">tutorial_exited</span> via wrap-up), which
+            abandons the tutorial game before the server event can fire. &quot;Account&quot; is the same test the
+            retention split uses — registered directly or upgraded from guest at any point — so a guest who
+            finishes and then signs up counts as an account here too.
           </p>
         </section>
       )}

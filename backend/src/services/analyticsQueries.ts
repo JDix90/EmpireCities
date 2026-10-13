@@ -20,6 +20,35 @@ import {
   CHANNEL_LABELS,
   type AcquisitionChannel,
 } from './acquisitionChannel';
+import { SIGNUP_DEVICE_CLASSES, type SignupDeviceClass } from '../modules/auth/attribution';
+
+/** The device classes a funnel can be narrowed to: the one recorded on the signup event. */
+export const FUNNEL_DEVICES = SIGNUP_DEVICE_CLASSES;
+export type FunnelDevice = SignupDeviceClass;
+
+/** A query-string value narrowed to a funnel device, or null for every device. */
+export function parseFunnelDevice(raw: unknown): FunnelDevice | null {
+  return typeof raw === 'string' && (FUNNEL_DEVICES as readonly string[]).includes(raw)
+    ? (raw as FunnelDevice)
+    : null;
+}
+
+/**
+ * Real-game filter for an activation step. `map_rendered`, `first_attack`,
+ * `first_territory_captured`, `game_started` and `game_finished` all fire in the
+ * guided tutorial too, so without it a player who only played the tutorial reads
+ * as fully activated. The tutorial has its own table (getTutorialFunnel). Server
+ * events carry a boolean and UI events the string, and `->>` reads both as text.
+ */
+const REAL_GAME_SQL = "COALESCE(e.properties->>'is_tutorial', 'false') <> 'true'";
+
+/**
+ * How a player leaves the tutorial from its wrap-up card having played the
+ * lesson (`tutorial_exited` from GamePage). Returning to the lobby or starting a
+ * first match abandons the tutorial game, so the server's `tutorial_completed`,
+ * which fires only when that game ends, never arrives for them.
+ */
+const WRAPUP_EXIT_VIAS_SQL = "('wrapup', 'wrapup_to_match')";
 
 export interface FunnelMetrics {
   signups: number;
@@ -167,6 +196,8 @@ export interface VisitorFunnelMetrics {
 
 export interface AnalyticsReport {
   window_days: number;
+  /** The device class the activation and tutorial funnels were narrowed to; null for every device. */
+  device: FunnelDevice | null;
   total_events: number;
   visitors: VisitorFunnelMetrics;
   funnel: FunnelMetrics;
@@ -195,8 +226,13 @@ function numOrNull(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Acquisition → activation funnel for signups in the trailing window. */
-export async function getFunnelMetrics(days: number): Promise<FunnelMetrics> {
+/**
+ * Acquisition → activation funnel for signups in the trailing window. The steps
+ * after signup count real games only (REAL_GAME_SQL); `device` narrows the
+ * cohort to signups recorded on that device class, and null keeps every signup,
+ * including those from before the device was recorded.
+ */
+export async function getFunnelMetrics(days: number, device: FunnelDevice | null = null): Promise<FunnelMetrics> {
   const [row] = await query<Record<string, unknown>>(
     `WITH signups AS (
        SELECT user_id, MIN(created_at) AS signed_up_at
@@ -204,6 +240,7 @@ export async function getFunnelMetrics(days: number): Promise<FunnelMetrics> {
        WHERE event IN ('guest_created', 'user_registered') AND user_id IS NOT NULL
          AND created_at >= NOW() - make_interval(days => $1::int)
          AND ${countedEventSql('analytics_events')}
+         AND ($2::text IS NULL OR properties->>'device' = $2::text)
        GROUP BY user_id
      )
      SELECT
@@ -211,19 +248,19 @@ export async function getFunnelMetrics(days: number): Promise<FunnelMetrics> {
        COUNT(*) FILTER (WHERE EXISTS (
          SELECT 1 FROM analytics_events e WHERE e.user_id = s.user_id AND e.event = 'game_created'))::int AS created_game,
        COUNT(*) FILTER (WHERE EXISTS (
-         SELECT 1 FROM analytics_events e WHERE e.user_id = s.user_id AND e.event = 'game_started'))::int AS started_game,
+         SELECT 1 FROM analytics_events e WHERE e.user_id = s.user_id AND e.event = 'game_started' AND ${REAL_GAME_SQL}))::int AS started_game,
        COUNT(*) FILTER (WHERE EXISTS (
-         SELECT 1 FROM analytics_events e WHERE e.user_id = s.user_id AND e.event = 'map_rendered'))::int AS map_rendered,
+         SELECT 1 FROM analytics_events e WHERE e.user_id = s.user_id AND e.event = 'map_rendered' AND ${REAL_GAME_SQL}))::int AS map_rendered,
        COUNT(*) FILTER (WHERE EXISTS (
-         SELECT 1 FROM analytics_events e WHERE e.user_id = s.user_id AND e.event = 'first_attack'))::int AS first_attack,
+         SELECT 1 FROM analytics_events e WHERE e.user_id = s.user_id AND e.event = 'first_attack' AND ${REAL_GAME_SQL}))::int AS first_attack,
        COUNT(*) FILTER (WHERE EXISTS (
-         SELECT 1 FROM analytics_events e WHERE e.user_id = s.user_id AND e.event = 'first_territory_captured'))::int AS first_capture,
+         SELECT 1 FROM analytics_events e WHERE e.user_id = s.user_id AND e.event = 'first_territory_captured' AND ${REAL_GAME_SQL}))::int AS first_capture,
        COUNT(*) FILTER (WHERE EXISTS (
-         SELECT 1 FROM analytics_events e WHERE e.user_id = s.user_id AND e.event = 'game_finished'))::int AS finished_game,
+         SELECT 1 FROM analytics_events e WHERE e.user_id = s.user_id AND e.event = 'game_finished' AND ${REAL_GAME_SQL}))::int AS finished_game,
        COUNT(*) FILTER (WHERE EXISTS (
          SELECT 1 FROM analytics_events e WHERE e.user_id = s.user_id AND e.event = 'guest_upgraded'))::int AS upgraded
      FROM signups s`,
-    [days],
+    [days, device],
   );
   return {
     signups: num(row?.signups),
@@ -349,8 +386,12 @@ export async function getRetentionByCohort(): Promise<RetentionCohortRow[]> {
  * the same thing on every panel: never became an account, not merely
  * "was a guest at the time". Both rows are always returned, zeroed when a
  * cohort has nobody in it, so the panel never renders a gap.
+ *
+ * Completed means the game's own `tutorial_completed`, or leaving from the
+ * wrap-up card after playing the lesson (WRAPUP_EXIT_VIAS_SQL). `device` narrows
+ * the starters to signups recorded on that device class.
  */
-export async function getTutorialFunnel(days: number): Promise<TutorialCohortRow[]> {
+export async function getTutorialFunnel(days: number, device: FunnelDevice | null = null): Promise<TutorialCohortRow[]> {
   const rows = await query<Record<string, unknown>>(
     `WITH starters AS (
        SELECT user_id
@@ -358,6 +399,11 @@ export async function getTutorialFunnel(days: number): Promise<TutorialCohortRow
        WHERE event = 'tutorial_started' AND user_id IS NOT NULL
          AND created_at >= NOW() - make_interval(days => $1::int)
          AND ${countedEventSql('analytics_events')}
+         AND ($2::text IS NULL OR EXISTS (
+           SELECT 1 FROM analytics_events g
+           WHERE g.user_id = analytics_events.user_id
+             AND g.event IN ('guest_created', 'user_registered')
+             AND g.properties->>'device' = $2::text))
        GROUP BY user_id
      ),
      classified AS (
@@ -374,10 +420,12 @@ export async function getTutorialFunnel(days: number): Promise<TutorialCohortRow
        COUNT(*)::int AS started,
        COUNT(*) FILTER (WHERE EXISTS (
          SELECT 1 FROM analytics_events e
-         WHERE e.user_id = c.user_id AND e.event = 'tutorial_completed'))::int AS completed
+         WHERE e.user_id = c.user_id
+           AND (e.event = 'tutorial_completed'
+             OR (e.event = 'tutorial_exited' AND e.properties->>'via' IN ${WRAPUP_EXIT_VIAS_SQL}))))::int AS completed
      FROM classified c
      GROUP BY c.is_account`,
-    [days],
+    [days, device],
   );
 
   const byCohort = new Map<RetentionCohort, TutorialCohortRow>();
@@ -670,25 +718,26 @@ export async function getVisitorFunnel(days: number): Promise<VisitorFunnelMetri
 }
 
 /** Everything the funnel report / admin view needs, in one shot. */
-export async function getAnalyticsReport(days: number): Promise<AnalyticsReport> {
+export async function getAnalyticsReport(days: number, device: FunnelDevice | null = null): Promise<AnalyticsReport> {
   // NOTE: the section queries share one mocked `query` in the unit test, which
   // matches them positionally — a new section goes on the END of this list so
   // it cannot shift the mocks of the ones above it.
   const [visitors, funnel, retention, retentionByCohort, completion, acquisition, volume, tutorial, totalRow, firstMatch, soloByLevel] = await Promise.all([
     getVisitorFunnel(days),
-    getFunnelMetrics(days),
+    getFunnelMetrics(days, device),
     getRetentionMetrics(),
     getRetentionByCohort(),
     getCompletionStats(days),
     getAcquisitionBySource(days),
     getEventVolume(days),
-    getTutorialFunnel(days),
+    getTutorialFunnel(days, device),
     queryOne<{ total: number }>(`SELECT COUNT(*)::int AS total FROM analytics_events`),
     getFirstMatchStats(days),
     getSoloGamesByLevel(days),
   ]);
   return {
     window_days: days,
+    device,
     total_events: num(totalRow?.total),
     visitors,
     funnel,

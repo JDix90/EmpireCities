@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, within, fireEvent } from '@testing-library/react';
 import AdminAnalyticsPanel, { type AnalyticsReport } from './AdminAnalyticsPanel';
 
 const report: AnalyticsReport = {
@@ -148,6 +148,7 @@ describe('AdminAnalyticsPanel', () => {
     expect(screen.getByText('Activation funnel')).toBeTruthy();
     expect(screen.getByText('Signed up')).toBeTruthy();
     expect(screen.getByText('Created a game')).toBeTruthy();
+    expect(screen.getByText('Started a game')).toBeTruthy();
     // First-session activation steps
     expect(screen.getByText('Reached the map')).toBeTruthy();
     expect(screen.getByText('Made first attack')).toBeTruthy();
@@ -164,5 +165,17 @@ describe('AdminAnalyticsPanel', () => {
     // event volume
     expect(screen.getByText('game_started')).toBeTruthy();
     expect(screen.getByText('guest_created')).toBeTruthy();
+  });
+
+  it('offers a signup-device filter only when the page can act on it', () => {
+    const { unmount } = render(<AdminAnalyticsPanel data={report} />);
+    expect(screen.queryByLabelText('Signup device')).toBeNull();
+    unmount();
+    const onDeviceChange = vi.fn();
+    render(<AdminAnalyticsPanel data={report} device="all" onDeviceChange={onDeviceChange} />);
+    const select = screen.getByLabelText('Signup device') as HTMLSelectElement;
+    expect(select.value).toBe('all');
+    fireEvent.change(select, { target: { value: 'phone' } });
+    expect(onDeviceChange).toHaveBeenCalledWith('phone');
   });
 });

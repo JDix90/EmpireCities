@@ -25,7 +25,7 @@ import {
 } from '../../db/postgres/mapsRepository';
 import { invalidateMapCache } from '../maps/mapService';
 import { validateMapDocument } from '../maps/mapValidation';
-import { getAnalyticsReport } from '../../services/analyticsQueries';
+import { getAnalyticsReport, parseFunnelDevice } from '../../services/analyticsQueries';
 import { andNotTutorialSql } from '../../game-engine/tutorial/tutorialGames';
 import { countedGameSql, excludedUserSql } from '../../services/statsExclusion';
 import { featureFlags } from '../../config/featureFlags';
@@ -283,11 +283,14 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // Product funnel + retention over analytics_events (first-party). Returns the
-  // same shape as scripts/funnelReport.ts. `days` is the trailing window (1–365).
+  // same shape as scripts/funnelReport.ts. `days` is the trailing window (1–365);
+  // `device` (phone | tablet | desktop) narrows the activation and tutorial
+  // funnels to signups recorded on that device class, anything else means all.
   fastify.get('/metrics/funnel', { preHandler: [authenticate, requireAdmin] }, async (request, reply) => {
-    const raw = Number((request.query as { days?: string } | undefined)?.days);
+    const q = request.query as { days?: string; device?: string } | undefined;
+    const raw = Number(q?.days);
     const days = Math.max(1, Math.min(365, Number.isFinite(raw) ? Math.floor(raw) : 30));
-    const report = await getAnalyticsReport(days);
+    const report = await getAnalyticsReport(days, parseFunnelDevice(q?.device));
     return reply.send(report);
   });
 

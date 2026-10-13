@@ -64,4 +64,18 @@ describe('parseAttribution', () => {
       parseAttribution({ attribution: { utm_source: 'reddit', anon_session_id: 42 } }),
     ).toEqual({ utm_source: 'reddit' });
   });
+
+  it('carries the signup device class, a closed set, without risking the UTM data', () => {
+    expect(parseAttribution({ attribution: { device: 'phone' } })).toEqual({ device: 'phone' });
+    expect(parseAttribution({ attribution: { utm_source: 'reddit', device: 'desktop' } })).toEqual({
+      utm_source: 'reddit',
+      device: 'desktop',
+    });
+    expect(parseAttribution({ attribution: { utm_source: 'reddit', device: 'fridge' } })).toEqual({
+      utm_source: 'reddit',
+    });
+    expect(parseAttribution({ attribution: { utm_source: 'reddit', device: 7 } })).toEqual({
+      utm_source: 'reddit',
+    });
+  });
 });
