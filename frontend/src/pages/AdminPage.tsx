@@ -378,6 +378,12 @@ const CLIENT_FEATURE_FLAGS = [
       'A player\u2019s first Quick Match (no finished game yet, and no Quick Match setup of their own) is one Easy bot on Great Britain 925 instead of their setup on a random era: a short, winnable first game. The Analytics tab counts these under First matches. Off by default (dark launch) \u2014 off is Quick Match exactly as before.',
   },
   {
+    key: 'tutorial_wrapup_to_match_enabled',
+    label: 'Tutorial wrap-up starts the first match',
+    description:
+      'The tutorial\u2019s last card leads into a real game: its main button, \u201cPlay your first match\u201d, ends the tutorial and starts a Quick Match (one Easy bot on Great Britain while Easy first match is on), with no account prompt in the way. A guest gets a secondary \u201cSave your progress\u201d button instead. Off, the main button is \u201cContinue playing\u201d: the account prompt, then the rest of the tutorial board. Off by default (dark launch) \u2014 off is the tutorial exactly as before.',
+  },
+  {
     key: 'first_match_primary_cta_enabled',
     label: 'First match is the gold button',
     description:

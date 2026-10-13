@@ -25,7 +25,7 @@ import { useGameStore, CombatResult, type AiTurnDigest, type GameState as Client
 import { describeAiTurnDigest, digestReportsAction } from '../utils/aiTurnDigest';
 import { useUiStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
-import { useFeatureFlagsStore, useFirstTurnCoachEnabled, useSignupNudgeEnabled, useAsyncOnboardingEnabled, useTurnClarityEnabled, useBackgroundMusicEnabled, useGalaxyTutorialEnabled } from '../store/featureFlagsStore';
+import { useFeatureFlagsStore, useFirstTurnCoachEnabled, useSignupNudgeEnabled, useAsyncOnboardingEnabled, useTurnClarityEnabled, useBackgroundMusicEnabled, useGalaxyTutorialEnabled, useTutorialWrapupToMatchEnabled } from '../store/featureFlagsStore';
 import { useBackgroundMusic } from '../hooks/useBackgroundMusic';
 import { backgroundMusic, musicBedFor, musicTensionFor, type MusicCadence } from '../audio/backgroundMusic';
 import { canOfferBlitz } from '../utils/blitzEligibility';
@@ -497,6 +497,7 @@ export default function GamePage() {
   const { gameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const tutorialWrapupToMatch = useTutorialWrapupToMatchEnabled();
   const {
     gameState, setGameState, lastCombatResult, setLastCombatResult,
     draftUnitsRemaining, setDraftUnitsRemaining, clearGame,
@@ -4027,6 +4028,55 @@ export default function GamePage() {
     });
   }, [gameId, tutorialSkipped, maybePromptTutorialAccount, abandonTutorialToLobby, reportTutorialExit]);
 
+  /**
+   * Leave the tutorial game for good, without the lobby toast: the next screen
+   * is the player's first match or the account form, not the lobby.
+   */
+  const leaveTutorialGame = useCallback(async () => {
+    if (!gameId) return;
+    clearTutorialProgress();
+    try {
+      await api.delete(`/games/${gameId}/abandon`);
+    } catch {
+      /* best effort; the lobby lists a stray game and lets the player remove it */
+    }
+    getSocket().emit('game:leave', { gameId });
+    clearGame();
+  }, [gameId, clearGame]);
+
+  /**
+   * Wrap-up with `tutorial_wrapup_to_match_enabled`: the main button goes
+   * straight to a real game. The lobby starts the Quick Match on arrival
+   * (`/lobby?play=quick`), which is the Easy first match while that is on, so
+   * the player leaves the 2-player tutorial board for a game that can be won
+   * in one sitting, with no account modal in between.
+   */
+  const handleTutorialPlayFirstMatch = useCallback(async () => {
+    if (!gameId) return;
+    if (tutorialSkipped) {
+      reportTutorialExit('skipped_wrapup');
+    } else {
+      markLessonComplete();
+      reportTutorialExit('wrapup_to_match');
+    }
+    await leaveTutorialGame();
+    navigate('/lobby?play=quick');
+  }, [gameId, tutorialSkipped, markLessonComplete, reportTutorialExit, leaveTutorialGame, navigate]);
+
+  /** Wrap-up's secondary button for a guest: save progress with an account, as a choice, not a modal. */
+  const handleTutorialSaveProgress = useCallback(async () => {
+    if (!gameId) return;
+    if (tutorialSkipped) {
+      reportTutorialExit('skipped_wrapup');
+    } else {
+      markLessonComplete();
+      reportTutorialExit('wrapup');
+    }
+    await leaveTutorialGame();
+    // /upgrade converts the guest row in place, keeping the tutorial's XP.
+    navigate('/upgrade');
+  }, [gameId, tutorialSkipped, markLessonComplete, reportTutorialExit, leaveTutorialGame, navigate]);
+
   /** Exit path (mid-lesson "Exit Tutorial"): leave immediately, no completion prompt. */
   const handleTutorialExit = useCallback(() => {
     reportTutorialExit('exit_button');
@@ -6243,6 +6293,8 @@ export default function GamePage() {
           stepIndex={tutorialStep}
           onAdvance={() => setTutorialStep((s) => Math.min(s + 1, tutorialSteps.length))}
           onContinuePlaying={handleTutorialContinuePlaying}
+          onPlayFirstMatch={tutorialWrapupToMatch ? () => void handleTutorialPlayFirstMatch() : undefined}
+          onSaveProgress={tutorialWrapupToMatch && user?.is_guest ? () => void handleTutorialSaveProgress() : undefined}
           onReturnToLobby={handleTutorialReturnToLobby}
           onExitTutorial={handleTutorialExit}
           onLaunchModule={handleLaunchTutorialModule}

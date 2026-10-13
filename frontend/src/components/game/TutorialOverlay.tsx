@@ -51,6 +51,13 @@ interface TutorialOverlayProps {
   lessonModule: TutorialLessonModule;
   onAdvance: () => void;
   onContinuePlaying: () => void;
+  /**
+   * With `tutorial_wrapup_to_match_enabled`, the wrap-up's main button starts
+   * the player's first real match instead of continuing on the tutorial board.
+   */
+  onPlayFirstMatch?: () => void;
+  /** A guest's secondary wrap-up button: save progress with an account (same flag). */
+  onSaveProgress?: () => void;
   onReturnToLobby: () => void;
   onExitTutorial?: () => void;
   onLaunchModule?: (module: TutorialLessonModule) => void;
@@ -107,6 +114,8 @@ export default function TutorialOverlay({
   lessonModule,
   onAdvance,
   onContinuePlaying,
+  onPlayFirstMatch,
+  onSaveProgress,
   onReturnToLobby,
   onExitTutorial,
   onLaunchModule,
@@ -445,14 +454,35 @@ export default function TutorialOverlay({
 
           {step.variant === 'wrapup' ? (
             <div className="flex flex-col gap-2 mt-2">
-              <button
-                type="button"
-                data-testid="tutorial-continue-btn"
-                onClick={onContinuePlaying}
-                className="btn-primary text-base w-full"
-              >
-                {t('overlay.continuePlaying')}
-              </button>
+              {onPlayFirstMatch ? (
+                <button
+                  type="button"
+                  data-testid="tutorial-first-match-btn"
+                  onClick={onPlayFirstMatch}
+                  className="btn-primary text-base w-full"
+                >
+                  {t('overlay.playFirstMatch')}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  data-testid="tutorial-continue-btn"
+                  onClick={onContinuePlaying}
+                  className="btn-primary text-base w-full"
+                >
+                  {t('overlay.continuePlaying')}
+                </button>
+              )}
+              {onSaveProgress && (
+                <button
+                  type="button"
+                  data-testid="tutorial-save-progress-btn"
+                  onClick={onSaveProgress}
+                  className="btn-secondary text-sm w-full"
+                >
+                  {t('overlay.saveProgress')}
+                </button>
+              )}
               {lessonModule === 'core' && onLaunchModule && TUTORIAL_V2_ENABLED && (
                 <div className="pt-2 border-t border-bf-border/60 space-y-2">
                   <p className="text-[10px] uppercase tracking-widest text-bf-muted">{t('overlay.optionalDeepDives')}</p>

@@ -28,6 +28,8 @@
     "openBonuses": "Open Bonuses",
     "openSettingsLab": "Open Settings Lab",
     "continuePlaying": "Continue playing",
+    "playFirstMatch": "Play your first match",
+    "saveProgress": "Save your progress with a free account",
     "optionalDeepDives": "Optional deep dives",
     "done": "Done",
     "minutesShort": "~{{minutes}}m",

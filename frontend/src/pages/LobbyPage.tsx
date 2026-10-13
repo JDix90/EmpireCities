@@ -1605,6 +1605,19 @@ export default function LobbyPage() {
     }
   };
 
+  // The tutorial's wrap-up sends a player here to begin their first real match
+  // (`tutorial_wrapup_to_match_enabled`, GamePage handleTutorialPlayFirstMatch).
+  // Start it once, and drop the param so going back cannot start another.
+  const playOnArrivalStarted = useRef(false);
+  useEffect(() => {
+    if (searchParams.get('play') !== 'quick' || playOnArrivalStarted.current || !userId) return;
+    playOnArrivalStarted.current = true;
+    const next = new URLSearchParams(searchParams);
+    next.delete('play');
+    setSearchParams(next, { replace: true });
+    void startQuickMatch();
+  }, [searchParams, setSearchParams, userId, startQuickMatch]);
+
   // One-click "the complete game": Ancient + Era Advancement (standard) + the full
   // mode bundle, auto-started vs the chosen AI table. Mirrors startQuickMatch's pattern. The server
   // expands the 'standard' preset (gameSettings.applyEraAdvancementPreset) — no

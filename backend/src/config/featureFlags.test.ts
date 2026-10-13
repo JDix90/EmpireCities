@@ -329,6 +329,15 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().first_match_primary_cta_enabled).toBe(true);
   });
 
+  it('tutorial_wrapup_to_match_enabled defaults to off (dark-launch) and is admin-overridable', () => {
+    expect(featureFlags.tutorialWrapupToMatchEnabled).toBe(false);
+    expect(getClientFeatureFlags().tutorial_wrapup_to_match_enabled).toBe(false);
+    expect(getFeatureFlagStates().tutorial_wrapup_to_match_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { tutorial_wrapup_to_match_enabled: true } });
+    expect(featureFlags.tutorialWrapupToMatchEnabled).toBe(true);
+    expect(getClientFeatureFlags().tutorial_wrapup_to_match_enabled).toBe(true);
+  });
+
   it('first_match_easy_enabled defaults to off (dark-launch) and is admin-overridable', () => {
     expect(featureFlags.firstMatchEasyEnabled).toBe(false);
     expect(getClientFeatureFlags().first_match_easy_enabled).toBe(false);

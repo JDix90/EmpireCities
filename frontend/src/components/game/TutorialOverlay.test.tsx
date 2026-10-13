@@ -167,6 +167,41 @@ describe('TutorialOverlay', () => {
     });
   });
 
+  describe('wrap-up that leads into the first match', () => {
+    const wrapup = { id: 'wrapup', title: "You're Ready!", message: 'm', variant: 'wrapup' } as TutorialStep;
+
+    it('keeps "Continue playing" as the main button when no first-match handler is given', () => {
+      overlay([wrapup]);
+      expect(screen.getByTestId('tutorial-continue-btn')).toHaveTextContent('Continue playing');
+      expect(screen.queryByTestId('tutorial-first-match-btn')).toBeNull();
+      expect(screen.queryByTestId('tutorial-save-progress-btn')).toBeNull();
+    });
+
+    it('makes "Play your first match" the main button, with saving as a choice beside it', () => {
+      const onPlayFirstMatch = vi.fn();
+      const onSaveProgress = vi.fn();
+      const onContinuePlaying = vi.fn();
+      overlay([wrapup], { onPlayFirstMatch, onSaveProgress, onContinuePlaying });
+      expect(screen.queryByTestId('tutorial-continue-btn')).toBeNull();
+      const play = screen.getByTestId('tutorial-first-match-btn');
+      expect(play).toHaveTextContent('Play your first match');
+      expect(play.className).toContain('btn-primary');
+      const save = screen.getByTestId('tutorial-save-progress-btn');
+      expect(save.className).toContain('btn-secondary');
+      fireEvent.click(play);
+      expect(onPlayFirstMatch).toHaveBeenCalledTimes(1);
+      fireEvent.click(save);
+      expect(onSaveProgress).toHaveBeenCalledTimes(1);
+      expect(onContinuePlaying).not.toHaveBeenCalled();
+    });
+
+    it('offers no save button when the player is not a guest', () => {
+      overlay([wrapup], { onPlayFirstMatch: vi.fn() });
+      expect(screen.getByTestId('tutorial-first-match-btn')).toBeInTheDocument();
+      expect(screen.queryByTestId('tutorial-save-progress-btn')).toBeNull();
+    });
+  });
+
   it('uses neutral copy for action steps instead of "panel below"', () => {
     overlay([
       { id: 'draft_do', title: 'D', message: 'm', requireAction: 'draft' } as TutorialStep,

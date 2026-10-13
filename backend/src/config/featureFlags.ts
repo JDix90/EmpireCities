@@ -148,6 +148,11 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // The Custom Game form sets a round limit, by default the one Quick Match
   // gives the chosen ending. Dark-launched OFF.
   custom_round_cap_enabled: () => envOptIn('CUSTOM_ROUND_CAP_ENABLED'),
+  // The tutorial's wrap-up card leads into the player's first real match:
+  // its main button starts a Quick Match (the Easy first match when that is
+  // on) instead of keeping them on the tutorial board, and saving progress
+  // with an account is a secondary button, not a modal. Dark-launched OFF.
+  tutorial_wrapup_to_match_enabled: () => envOptIn('TUTORIAL_WRAPUP_TO_MATCH_ENABLED'),
   // While a player's next Quick Match is their first (first_match_easy_enabled),
   // the lobby's gold button is Quick Match instead of Full Game, so a newcomer's
   // first real game is the short one. Separate from first_match_easy_enabled so
@@ -407,6 +412,16 @@ export const featureFlags = {
    */
   get firstMatchEasyEnabled(): boolean {
     return overrideBool('first_match_easy_enabled');
+  },
+
+  /**
+   * The tutorial's wrap-up card's main button is "Play your first match": it
+   * leaves the tutorial game and starts a Quick Match, with no account modal
+   * first; a guest gets a secondary "Save your progress" button instead.
+   * Default OFF; `TUTORIAL_WRAPUP_TO_MATCH_ENABLED=true` or the admin override turns it on.
+   */
+  get tutorialWrapupToMatchEnabled(): boolean {
+    return overrideBool('tutorial_wrapup_to_match_enabled');
   },
 
   /**
@@ -1084,6 +1099,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     daily_puzzle_v2_enabled: featureFlags.dailyPuzzleV2Enabled,
     store_v2_enabled: featureFlags.storeV2Enabled,
     first_match_easy_enabled: featureFlags.firstMatchEasyEnabled,
+    tutorial_wrapup_to_match_enabled: featureFlags.tutorialWrapupToMatchEnabled,
     first_match_primary_cta_enabled: featureFlags.firstMatchPrimaryCtaEnabled,
     full_game_evening_enabled: featureFlags.fullGameEveningEnabled,
     custom_lobby_fold_enabled: featureFlags.customLobbyFoldEnabled,
