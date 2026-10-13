@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { getAnonSessionId } from './anonSession';
 import { resetSafeStorageForTests } from './safeStorage';
 
@@ -32,6 +32,16 @@ describe('getAnonSessionId', () => {
     const id = getAnonSessionId();
     expect(id).toMatch(UUID_RE);
     expect(localStorage.getItem('cc-anon-session')).toBe(id);
+  });
+
+  it('returns null without crypto.randomUUID rather than minting a non-UUID', () => {
+    vi.stubGlobal('crypto', {});
+    try {
+      expect(getAnonSessionId()).toBeNull();
+      expect(localStorage.getItem('cc-anon-session')).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('still mints an id when the document has no Web Storage', () => {
