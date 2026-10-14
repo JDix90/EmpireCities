@@ -329,6 +329,15 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().daily_puzzle_v2_enabled).toBe(true);
   });
 
+  it('phone_fortify_fit_enabled defaults to off (dark-launch) and is admin-overridable', () => {
+    expect(featureFlags.phoneFortifyFitEnabled).toBe(false);
+    expect(getClientFeatureFlags().phone_fortify_fit_enabled).toBe(false);
+    expect(getFeatureFlagStates().phone_fortify_fit_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { phone_fortify_fit_enabled: true } });
+    expect(featureFlags.phoneFortifyFitEnabled).toBe(true);
+    expect(getClientFeatureFlags().phone_fortify_fit_enabled).toBe(true);
+  });
+
   it('first_match_primary_cta_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.firstMatchPrimaryCtaEnabled).toBe(true);
     expect(getClientFeatureFlags().first_match_primary_cta_enabled).toBe(true);

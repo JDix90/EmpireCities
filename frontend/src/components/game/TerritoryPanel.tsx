@@ -7,7 +7,7 @@ import clsx from 'clsx';
 import { computeDraftPool } from '../../utils/draftPool';
 import { canOfferBlitz } from '../../utils/blitzEligibility';
 import { plural } from '../../utils/plural';
-import { useAttackBlitzEnabled } from '../../store/featureFlagsStore';
+import { useAttackBlitzEnabled, usePhoneFortifyFitEnabled } from '../../store/featureFlagsStore';
 import { getFastCombatPreference } from '../../utils/userPreferences';
 import { isFogHidden } from '../../utils/fogVisibility';
 import BuildingPanel from './BuildingPanel';
@@ -701,6 +701,42 @@ function TerritoryPanelContent({
     });
   }, [isMyTurn, gameState, fortifyNeighborSourceId, mapConnections, territoryNameById, worldNameByTerritoryId, myPlayerId]);
 
+  // Phone fortify (`phone_fortify_fit_enabled`): at the fixed peek height the
+  // header, owner and amount dial filled the sheet and the destinations sat
+  // below the fold. While a fortify source is picked, the peek snap grows to
+  // the measured bottom of the first destination (index.css caps it at the
+  // full snap), and if the header still pushes that row out of view the sheet
+  // scrolls to the dial. A drag to another snap hands control back.
+  const phoneFortifyFit = usePhoneFortifyFitEnabled();
+  const fortifySectionRef = React.useRef<HTMLDivElement>(null);
+  const fortifyFitActive =
+    phoneFortifyFit &&
+    isMobileActionMode &&
+    gameState.phase === 'fortify' &&
+    fortifyNeighbors.length > 0 &&
+    !!fortifyNeighborSourceId &&
+    sheetSnap === 'peek';
+  React.useLayoutEffect(() => {
+    const sheet = sheetRef.current;
+    if (!sheet) return;
+    if (!fortifyFitActive) {
+      sheet.style.removeProperty('--fortify-fit-height');
+      return;
+    }
+    const section = fortifySectionRef.current;
+    const firstTarget = section?.querySelector<HTMLElement>('[data-neighbor-target]');
+    if (!section || !firstTarget) return;
+    const sheetTop = sheet.getBoundingClientRect().top;
+    const rowBottom = firstTarget.getBoundingClientRect().bottom - sheetTop + sheet.scrollTop;
+    sheet.style.setProperty('--fortify-fit-height', `${Math.ceil(rowBottom + 12)}px`);
+    // Reading clientHeight applies the new height before deciding to scroll.
+    if (rowBottom > sheet.scrollTop + sheet.clientHeight) {
+      const handle = sheet.firstElementChild as HTMLElement | null;
+      const sectionTop = section.getBoundingClientRect().top - sheetTop + sheet.scrollTop;
+      sheet.scrollTop = Math.max(0, sectionTop - (handle?.offsetHeight ?? 0) - 4);
+    }
+  }, [fortifyFitActive, fortifyNeighborSourceId, fortifyNeighbors.length, sheetRef]);
+
   return (
     <div
       ref={isMobile ? sheetRef : undefined}
@@ -709,7 +745,7 @@ function TerritoryPanelContent({
       isMobile
         ? clsx(
             'fixed mobile-sheet-above-nav inset-x-0 overflow-y-auto rounded-t-2xl border-t border-bf-border z-40 animate-slide-up',
-            snapClassName,
+            fortifyFitActive ? 'mobile-sheet-fortify-fit' : snapClassName,
           )
         // Capped to the map pane (it is positioned inside it) and scrolls
         // internally: a territory with buildings, abilities, a neighbor picker
@@ -1721,7 +1757,7 @@ function TerritoryPanelContent({
 
           {/* Fortify Section */}
           {gameState.phase === 'fortify' && fortifyNeighbors.length > 0 && fortifyNeighborSourceId && (
-            <div className="space-y-2">
+            <div ref={fortifySectionRef} className="space-y-2">
               {/* How many, before where. The picker commits the move the instant
                   a destination is tapped, so without a dial here every fortify
                   sent exactly one unit: the amount stepper below is hidden in

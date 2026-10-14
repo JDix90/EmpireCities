@@ -177,6 +177,11 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // the button can be rolled back on its own.
   // On by default; the admin override is the kill switch.
   first_match_primary_cta_enabled: () => envOptOut('FIRST_MATCH_PRIMARY_CTA_ENABLED'),
+  // Phone fortify: the territory sheet's peek snap grows to show the amount
+  // dial and the first destination row together, measured on the device, up to
+  // the full snap. At the fixed 36vh peek the destinations sat below the fold
+  // and a player had to know to swipe the sheet up. Dark-launched OFF.
+  phone_fortify_fit_enabled: () => envOptIn('PHONE_FORTIFY_FIT_ENABLED'),
 };
 
 /** The code default for one flag (no admin override consulted). */
@@ -482,6 +487,15 @@ export const featureFlags = {
    */
   get firstMatchPrimaryCtaEnabled(): boolean {
     return overrideBool('first_match_primary_cta_enabled');
+  },
+
+  /**
+   * Phone fortify: the territory sheet grows to fit the amount dial and the
+   * first destination row together (TerritoryPanel), capped at the full snap.
+   * Default OFF; `PHONE_FORTIFY_FIT_ENABLED=true` or the admin override turns it on.
+   */
+  get phoneFortifyFitEnabled(): boolean {
+    return overrideBool('phone_fortify_fit_enabled');
   },
 
   /**
@@ -1154,6 +1168,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     desktop_card_cue_enabled: featureFlags.desktopCardCueEnabled,
     tutorial_wrapup_to_match_enabled: featureFlags.tutorialWrapupToMatchEnabled,
     first_match_primary_cta_enabled: featureFlags.firstMatchPrimaryCtaEnabled,
+    phone_fortify_fit_enabled: featureFlags.phoneFortifyFitEnabled,
     full_game_evening_enabled: featureFlags.fullGameEveningEnabled,
     custom_lobby_fold_enabled: featureFlags.customLobbyFoldEnabled,
     custom_round_cap_enabled: featureFlags.customRoundCapEnabled,
