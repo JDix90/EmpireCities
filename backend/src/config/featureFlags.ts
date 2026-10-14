@@ -45,6 +45,12 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   map_editor_enabled: () => envOptOut('MAP_EDITOR_ENABLED'),
   first_turn_coach_enabled: () => envOptOut('FIRST_TURN_COACH_ENABLED'),
   turn_clarity_enabled: () => envOptOut('TURN_CLARITY_ENABLED'),
+  // Flat map gestures: pinch zooms around the point between the fingers (and
+  // the wheel around the cursor) instead of the map's corner, panning keeps
+  // some land on screen, and a pinch never counts towards a double-tap. A pinch
+  // used to slide the board off-screen on a phone, leaving a blank map that
+  // only Reset brought back. Dark-launched OFF.
+  map_gestures_v2_enabled: () => envOptIn('MAP_GESTURES_V2_ENABLED'),
   onboarding_tutorial_first_enabled: () => envOptOut('ONBOARDING_TUTORIAL_FIRST_ENABLED'),
   hero_single_cta_enabled: () => envOptOut('HERO_SINGLE_CTA_ENABLED'),
   era_advance_payoff_enabled: () => envOptOut('ERA_ADVANCE_PAYOFF_ENABLED'),
@@ -299,6 +305,16 @@ export const featureFlags = {
    */
   get turnClarityEnabled(): boolean {
     return overrideBool('turn_clarity_enabled');
+  },
+
+  /**
+   * Flat map gestures v2 (GameMap): zoom around the two-finger midpoint or the
+   * cursor, bounded panning, and double-tap measured on taps only, in canvas
+   * coordinates.
+   * Default OFF; `MAP_GESTURES_V2_ENABLED=true` or the admin override turns it on.
+   */
+  get mapGesturesV2Enabled(): boolean {
+    return overrideBool('map_gestures_v2_enabled');
   },
 
   /**
@@ -1139,6 +1155,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     era_advancement_lobby_enabled: featureFlags.eraAdvancementLobbyEnabled,
     first_turn_coach_enabled: featureFlags.firstTurnCoachEnabled,
     turn_clarity_enabled: featureFlags.turnClarityEnabled,
+    map_gestures_v2_enabled: featureFlags.mapGesturesV2Enabled,
     onboarding_tutorial_first_enabled: featureFlags.onboardingTutorialFirstEnabled,
     hero_single_cta_enabled: featureFlags.heroSingleCtaEnabled,
     era_advance_payoff_enabled: featureFlags.eraAdvancePayoffEnabled,

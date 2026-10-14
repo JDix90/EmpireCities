@@ -6,6 +6,7 @@ export interface ClientFeatureFlags {
   era_advancement_lobby_enabled: boolean;
   first_turn_coach_enabled: boolean;
   turn_clarity_enabled: boolean;
+  map_gestures_v2_enabled: boolean;
   onboarding_tutorial_first_enabled: boolean;
   hero_single_cta_enabled: boolean;
   era_advance_payoff_enabled: boolean;
@@ -55,6 +56,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   era_advancement_lobby_enabled: true,
   first_turn_coach_enabled: true,
   turn_clarity_enabled: true,
+  // Flat map: pinch zooms around the fingers, panning keeps land on screen. Dark-launched OFF.
+  map_gestures_v2_enabled: false,
   onboarding_tutorial_first_enabled: true,
   hero_single_cta_enabled: true,
   era_advance_payoff_enabled: true,
@@ -162,6 +165,11 @@ export function useFirstTurnCoachEnabled(): boolean {
 
 export function useTurnClarityEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.turn_clarity_enabled);
+}
+
+/** Flat map gestures: pinch and wheel zoom around the fingers or cursor, bounded panning, no double-tap from a pinch (components/game/GameMap.tsx). */
+export function useMapGesturesV2Enabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.map_gestures_v2_enabled);
 }
 
 export function useOnboardingTutorialFirstEnabled(): boolean {

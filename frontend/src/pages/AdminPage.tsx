@@ -198,6 +198,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Show the in-game phase-progression bar, valid source/target highlighting, and reinforcement undo. Presentational only — the server stays authoritative. On by default.',
   },
   {
+    key: 'map_gestures_v2_enabled',
+    label: 'Map gestures: zoom around the fingers',
+    description:
+      'On the flat map, a pinch zooms around the point between the fingers and the mouse wheel around the cursor, instead of around the map\u2019s top-left corner; panning stops while some land is still on screen; and a pinch never counts as half of a double-tap. A pinch on a phone used to slide the board off-screen, leaving a blank map that only Reset brought back. The globe is unchanged. Off by default (dark launch) \u2014 off is the map\u2019s gestures exactly as before.',
+  },
+  {
     key: 'onboarding_tutorial_first_enabled',
     label: 'Guest → tutorial first',
     description:

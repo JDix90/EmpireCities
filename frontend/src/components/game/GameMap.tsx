@@ -43,6 +43,19 @@ import { createRenderWake, type RenderWake } from '../../utils/renderWake';
 import { subscribeUserPreferences } from '../../utils/userPreferences';
 import { fortifyTraversalFilter, type FrontendMapData } from '../../utils/orbitAccess';
 import MoonInsetFrame from './MoonInsetFrame';
+import { useMapGesturesV2Enabled } from '../../store/featureFlagsStore';
+import {
+  clampPan,
+  clampScale,
+  isDoubleTap,
+  panMargin,
+  pinchView,
+  TAP_MS,
+  TAP_SLOP,
+  zoomAbout,
+  type PinchStart,
+  type TapRecord,
+} from '../../utils/mapGestures';
 import { usePlayerCosmetics } from '../cosmetics/useCosmetics';
 import { markerSvgDataUrl } from '../cosmetics/markerSvg';
 import {
@@ -345,6 +358,9 @@ export default function GameMap({
   // animates. The same wake rules as the globe (utils/renderWake.ts).
   const frameBudgetRef = useRef(frameBudget);
   frameBudgetRef.current = frameBudget;
+  // Read by the pointer handlers, which are bound once per canvas.
+  const gesturesV2Ref = useRef(false);
+  gesturesV2Ref.current = useMapGesturesV2Enabled();
   const pointerActiveRef = useRef(false);
   /** Ticks of the app ticker: the frames the map has drawn (the stage renders on each). */
   const framesDrawnRef = useRef(0);
@@ -673,6 +689,9 @@ export default function GameMap({
     // labels overlap into an unreadable smear.
     const territoryLabels: Array<{ label: PIXI.Text; area: number }> = [];
 
+    // Where the land is drawn, for the gestures' pan bounds (map_gestures_v2_enabled).
+    const landBox = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
+
     // Draw territories with scaled coordinates
     for (const territory of mapData.territories) {
       const g = new PIXI.Graphics();
@@ -680,6 +699,14 @@ export default function GameMap({
       g.cursor = 'pointer';
 
       const scaledRings = ringsFor(territory.territory_id);
+      for (const ring of scaledRings) {
+        for (const [px, py] of ring) {
+          if (px < landBox.x0) landBox.x0 = px;
+          if (px > landBox.x1) landBox.x1 = px;
+          if (py < landBox.y0) landBox.y0 = py;
+          if (py > landBox.y1) landBox.y1 = py;
+        }
+      }
       const [cx, cy] = scalePolygon([territoryCenter(territory)], canvasW, canvasH, width, height)[0];
 
       drawTerritory(g, scaledRings, 0x2d3448, 0x4a5568, 1.5, isSeaFrontier(territory.territory_id));
@@ -780,6 +807,37 @@ export default function GameMap({
     let lastTapTime = 0;
     const initialScale = mapContainer.scale.x;
 
+    // `map_gestures_v2_enabled`: pinch and wheel zoom around the fingers or
+    // the cursor in canvas coordinates, every move keeps land on screen, and a
+    // double-tap is two taps (a press that lifts quickly without moving), so a
+    // pinch can never be half of one. Off, the handlers below run as before.
+    let pinchStart: PinchStart | null = null;
+    let pressStart: TapRecord | null = null;
+    let pressMoved = false;
+    let gestureHadPinch = false;
+    let lastTap: TapRecord | null = null;
+    const toCanvas = (clientX: number, clientY: number) => {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: (clientX - rect.left) * (width / (rect.width || width)),
+        y: (clientY - rect.top) * (height / (rect.height || height)),
+      };
+    };
+    const pinchMidpoint = () => {
+      const [a, b] = [...activePointers.values()];
+      return {
+        mid: toCanvas((a.x + b.x) / 2, (a.y + b.y) / 2),
+        dist: Math.hypot(b.x - a.x, b.y - a.y),
+      };
+    };
+    const applyView = (pos: { x: number; y: number }, scale: number) => {
+      const view = { w: width, h: height };
+      const land = Number.isFinite(landBox.x0) ? landBox : { x0: 0, y0: 0, x1: width, y1: height };
+      const bounded = clampPan(pos, scale, view, land, panMargin(view));
+      scaleAllLayers(scale);
+      syncLayers(bounded.x, bounded.y);
+    };
+
     const syncLayers = (x: number, y: number) => {
       mapContainer.x = x;   mapContainer.y = y;
       labelContainer.x = x; labelContainer.y = y;
@@ -807,6 +865,22 @@ export default function GameMap({
       wakeForGesture();
       // A locked view only takes taps, which the territory shapes handle.
       if (lockCamera) return;
+      if (gesturesV2Ref.current) {
+        if (activePointers.size === 1) {
+          pressStart = { at: Date.now(), point: { x: e.clientX, y: e.clientY } };
+          pressMoved = false;
+          isDragging = true;
+          dragStart = { x: e.clientX, y: e.clientY };
+          stageStart = { x: mapContainer.x, y: mapContainer.y };
+        }
+        if (activePointers.size === 2) {
+          isDragging = false;
+          gestureHadPinch = true;
+          const { mid, dist } = pinchMidpoint();
+          pinchStart = { mid, dist, pos: { x: mapContainer.x, y: mapContainer.y }, scale: mapContainer.scale.x };
+        }
+        return;
+      }
       if (activePointers.size === 1) {
         // Double-tap: zoom in 2× centered on tap, or reset if near max zoom
         const now = Date.now();
@@ -842,6 +916,24 @@ export default function GameMap({
       if (activePointers.has(e.pointerId)) activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       wakeForGesture();
       if (lockCamera) return;
+      if (gesturesV2Ref.current) {
+        if (activePointers.size === 2 && pinchStart) {
+          const { mid, dist } = pinchMidpoint();
+          const next = pinchView(pinchStart, mid, dist);
+          applyView(next.pos, next.scale);
+          return;
+        }
+        if (isDragging && activePointers.size === 1) {
+          if (pressStart && Math.hypot(e.clientX - pressStart.point.x, e.clientY - pressStart.point.y) >= TAP_SLOP) {
+            pressMoved = true;
+          }
+          applyView(
+            { x: stageStart.x + (e.clientX - dragStart.x), y: stageStart.y + (e.clientY - dragStart.y) },
+            mapContainer.scale.x,
+          );
+        }
+        return;
+      }
       if (activePointers.size === 2) {
         // Pinch-to-zoom
         const pts = [...activePointers.values()];
@@ -860,6 +952,34 @@ export default function GameMap({
     const onPointerUp = (e: PointerEvent) => {
       activePointers.delete(e.pointerId);
       wakeForGesture();
+      if (gesturesV2Ref.current && !lockCamera && activePointers.size === 0) {
+        const now = Date.now();
+        const wasTap = !gestureHadPinch && !pressMoved && !!pressStart && now - pressStart.at < TAP_MS;
+        if (wasTap) {
+          const tap = { at: now, point: { x: e.clientX, y: e.clientY } };
+          if (isDoubleTap(lastTap, tap)) {
+            // Double-tap: zoom in 2× around the tap, or reset near max zoom.
+            const currentScale = mapContainer.scale.x;
+            if (currentScale >= 3.8) {
+              syncLayers(0, 0);
+              scaleAllLayers(initialScale);
+            } else {
+              const nextScale = clampScale(currentScale * 2);
+              const focus = toCanvas(e.clientX, e.clientY);
+              applyView(zoomAbout({ x: mapContainer.x, y: mapContainer.y }, currentScale, nextScale, focus), nextScale);
+            }
+            lastTap = null;
+          } else {
+            lastTap = tap;
+          }
+        } else {
+          lastTap = null;
+        }
+        pressStart = null;
+        pinchStart = null;
+        gestureHadPinch = false;
+      }
+      if (gesturesV2Ref.current && activePointers.size < 2) pinchStart = null;
       isDragging = false;
       if (activePointers.size === 1) {
         // Resume single-finger pan from current positions
@@ -875,6 +995,14 @@ export default function GameMap({
       if (lockCamera) return;
       e.preventDefault();
       const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+      if (gesturesV2Ref.current) {
+        const currentScale = mapContainer.scale.x;
+        const nextScale = clampScale(currentScale * zoomFactor);
+        const focus = toCanvas(e.clientX, e.clientY);
+        applyView(zoomAbout({ x: mapContainer.x, y: mapContainer.y }, currentScale, nextScale, focus), nextScale);
+        wakeForGesture();
+        return;
+      }
       scaleAllLayers(Math.max(0.3, Math.min(4, mapContainer.scale.x * zoomFactor)));
       wakeForGesture();
     };
