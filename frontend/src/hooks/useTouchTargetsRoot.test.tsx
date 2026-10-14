@@ -18,7 +18,7 @@ function Probe() {
 const mark = () => document.documentElement.dataset.touchTargets;
 
 describe('useTouchTargetsRoot', () => {
-  afterEach(() => setFlag(false));
+  afterEach(() => setFlag(true));
 
   it('marks the document while the flag is on, and unmarks it when it goes off', () => {
     setFlag(true);

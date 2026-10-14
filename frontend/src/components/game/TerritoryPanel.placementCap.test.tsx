@@ -76,7 +76,7 @@ describe('placement cap note', () => {
     useUiStore.setState({ selectedTerritory: 'won', attackSource: null, navalSource: null } as never);
   });
 
-  afterEach(() => setFlag(false));
+  afterEach(() => setFlag(true));
 
   it('says how many more units a newly conquered territory takes, and why', () => {
     setFlag(true);
