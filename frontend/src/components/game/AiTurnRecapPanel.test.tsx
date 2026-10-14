@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import AiTurnRecapPanel, { appendRecap, summarizeRecap, type TurnRecapEntry } from './AiTurnRecapPanel';
+import AiTurnRecapPanel, { appendRecap, ownTurnDigest, summarizeRecap, type TurnRecapEntry } from './AiTurnRecapPanel';
 import type { CombatResult } from '../../store/gameStore';
 
 function combat(overrides: Partial<CombatResult> = {}): CombatResult {
@@ -108,5 +108,30 @@ describe('AiTurnRecapPanel', () => {
     const recaps = [entry('AI Bot 1', [combat({ defenderId: 'me', territory_captured: false })])];
     render(<AiTurnRecapPanel recaps={recaps} onDismiss={() => {}} viewerPlayerId="me" />);
     expect(screen.queryByText('AI Bot 1')).toBeNull(); // detail list not rendered
+  });
+});
+
+describe('the own-turn row (turn_recap_panel_enabled)', () => {
+  it('sums what was placed and moved into one line', () => {
+    expect(ownTurnDigest([{ units: 3 }, { units: 2 }], [{ units: 4 }])).toBe('Placed 5 units, moved 4');
+    expect(ownTurnDigest([{ units: 1 }], [])).toBe('Placed 1 unit');
+    expect(ownTurnDigest([], [{ units: 2 }])).toBe('Moved 2');
+    expect(ownTurnDigest([], [])).toBeUndefined();
+  });
+
+  it('lists the viewer\'s turn as "Your turn" and heads the panel "Since your last turn"', () => {
+    const own: TurnRecapEntry = { ...entry('Guest_ab12', [combat({ territory_captured: true })]), ownTurn: true, digestLine: 'Placed 4 units' };
+    render(<AiTurnRecapPanel recaps={[own, entry('AI 1', [combat()])]} onDismiss={() => {}} viewerPlayerId="me" />);
+    expect(screen.getByText(/Since your last turn \(2 turns, 1 capture\)/)).toBeTruthy();
+    fireEvent.click(screen.getByText(/Since your last turn/));
+    expect(screen.getByText('Your turn')).toBeTruthy();
+    expect(screen.queryByText('Guest_ab12')).toBeNull();
+    expect(screen.getByText('AI 1')).toBeTruthy();
+    expect(screen.getByText('Placed 4 units')).toBeTruthy();
+  });
+
+  it('keeps "While you were away" when only other players\' turns are listed', () => {
+    render(<AiTurnRecapPanel recaps={[entry('AI 1', [combat()])]} onDismiss={() => {}} viewerPlayerId="me" />);
+    expect(screen.getByText(/While you were away/)).toBeTruthy();
   });
 });

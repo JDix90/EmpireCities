@@ -76,6 +76,7 @@ Env vars: a flag defaulting **on** is disabled with `X=false`; one defaulting **
 | `metricsEndpointEnabled` | `METRICS_ENDPOINT_ENABLED` | **on in dev, off in prod** | `GET /metrics/json` (room count, lock/persistence failure counters, memory) |
 | `mapEditorEnabled` | `MAP_EDITOR_ENABLED` | **on** | Map Editor UI + custom-map publishing (draft → review → approve pipeline; kill switch in Admin → Config) |
 | `firstTurnCoachEnabled` | `FIRST_TURN_COACH_ENABLED` | **on** | Coached first turn for 0-XP players (globe, turn 1 only) |
+| `turnRecapPanelEnabled` | `TURN_RECAP_PANEL_ENABLED` | off | Desktop own-turn recap: the end of the player's own turn adds a "Your turn" row to the non-blocking recap panel instead of the modal "Your Turn Complete" summary, as phones already do. Off is the modal as before |
 | `turnClarityEnabled` | `TURN_CLARITY_ENABLED` | **on** | Phase-progression bar, valid source/target highlighting, reinforcement undo |
 | `mapGesturesV2Enabled` | `MAP_GESTURES_V2_ENABLED` | on | Flat map gestures v2: pinch zooms around the two-finger midpoint and the wheel around the cursor, panning keeps at least a strip of land on screen, and double-tap counts taps only (a pinch never starts one), in canvas coordinates. The globe is unchanged |
 | `onboardingTutorialFirstEnabled` | `ONBOARDING_TUTORIAL_FIRST_ENABLED` | **on** | Landing "Play as Guest" goes straight into the tutorial match |

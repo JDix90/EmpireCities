@@ -62,7 +62,8 @@ import {
 } from '../utils/mapAmbientEffects';
 import GameHUD from '../components/game/GameHUD';
 import { MapControlChip } from '../components/game/MapControlTracker';
-import AiTurnRecapPanel, { appendRecap, type TurnRecapEntry } from '../components/game/AiTurnRecapPanel';
+import AiTurnRecapPanel, { appendRecap, ownTurnDigest, type TurnRecapEntry } from '../components/game/AiTurnRecapPanel';
+import { useTurnRecapPanelEnabled } from '../store/featureFlagsStore';
 import GameStartModal, { isOpeningState } from '../components/game/GameStartModal';
 import SpaceAgeGuideModal from '../components/game/SpaceAgeGuide';
 import GameEndedNotice from '../components/game/GameEndedNotice';
@@ -570,6 +571,9 @@ export default function GamePage() {
   // Socket handlers are bound once; they read the layout through this ref.
   const isMobileLayoutRef = useRef(isMobileLayout);
   isMobileLayoutRef.current = isMobileLayout;
+  // Desktop own-turn recap as a panel row, not a modal (`turn_recap_panel_enabled`).
+  const turnRecapPanelRef = useRef(false);
+  turnRecapPanelRef.current = useTurnRecapPanelEnabled();
   // Split is a desktop view: in a phone layout the chart stands in for it.
   const galaxySplitMode = galaxyView === 'split' && !isMobileLayout;
   const galaxyOverviewMode = galaxyView === 'chart' || (galaxyView === 'split' && isMobileLayout);
@@ -1557,6 +1561,10 @@ export default function GamePage() {
           const combats = [...ownTurnCombatsRef.current];
           const reinforcements = [...ownTurnReinforcementsRef.current];
           const fortifications = [...ownTurnFortificationsRef.current];
+          // Desktop folds the recap into the panel, as a phone does
+          // (`turn_recap_panel_enabled`): a "Your turn" row, no modal.
+          const foldOwnRecap = turnRecapPanelRef.current && !isMobileLayoutRef.current;
+          let ownRecap: TurnRecapEntry | null = null;
           // The tutorial narrates its own turns; its summary carousel popped
           // over the lesson card at the start of turn 2 and intercepted Next
           // (PT-007). The recap strip below still records the round.
@@ -1578,9 +1586,20 @@ export default function GamePage() {
             // rather than appending behind them where it surfaces a turn late.
             // A phone folds them away and shows no summary at all (M-12): the
             // recap of the player's own moves is not worth a modal there.
-            setModalQueue(q => (isMobileLayoutRef.current
+            setModalQueue(q => (isMobileLayoutRef.current || foldOwnRecap
               ? dropOwnCombats(q, combats)
               : replaceOwnCombatsWithSummary(q, combats, summary)));
+            if (foldOwnRecap) {
+              const digestLine = ownTurnDigest(reinforcements, fortifications);
+              ownRecap = {
+                playerName: summary.playerName,
+                playerColor: summary.playerColor,
+                turnNumber: summary.turnNumber,
+                combats,
+                ownTurn: true,
+                ...(digestLine ? { digestLine } : {}),
+              };
+            }
           }
           // The round closes: what the others did while the viewer waited,
           // then what the viewer did, kept for the strip's history (M-12
@@ -1600,8 +1619,10 @@ export default function GamePage() {
           ownTurnCombatsRef.current = [];
           ownTurnReinforcementsRef.current = [];
           ownTurnFortificationsRef.current = [];
-          // My turn just ended — recaps gathered for it are stale now.
-          setAiRecaps([]);
+          // My turn just ended — recaps gathered for it are stale now. On
+          // desktop under `turn_recap_panel_enabled` the panel starts again
+          // from the turn just played, and the others' turns append to it.
+          setAiRecaps(ownRecap ? [ownRecap] : []);
           // Async: the wait for the opponent starts now, which is the moment a
           // ping for the next turn is worth something to the player. Once per
           // page load; see offerPushAfterAsyncTurn for the other guards.

@@ -13,6 +13,30 @@ export interface TurnRecapEntry {
    * broke, who it knocked out, and the goal it is playing toward.
    */
   digestLine?: string;
+  /**
+   * The viewer's own turn, folded in on desktop (`turn_recap_panel_enabled`)
+   * instead of the modal turn summary. Listed as "Your turn".
+   */
+  ownTurn?: boolean;
+}
+
+/**
+ * The viewer's own turn in one line, for its recap row: what was placed and
+ * moved, which the battle counts beside it do not show.
+ */
+export function ownTurnDigest(
+  reinforcements: readonly { units: number }[],
+  fortifications: readonly { units: number }[],
+): string | undefined {
+  const placed = reinforcements.reduce((s, r) => s + r.units, 0);
+  const moved = fortifications.reduce((s, f) => s + f.units, 0);
+  const parts = [
+    placed > 0 ? `Placed ${placed} ${placed === 1 ? 'unit' : 'units'}` : null,
+    moved > 0 ? `moved ${moved}` : null,
+  ].filter(Boolean) as string[];
+  if (parts.length === 0) return undefined;
+  const line = parts.join(', ');
+  return line.charAt(0).toUpperCase() + line.slice(1);
 }
 
 /** Oldest entries roll off so the panel can't grow unbounded for players whose turn never comes back (eliminated, spectating). */
@@ -82,7 +106,7 @@ export function RecapEntryList({
                 style={{ backgroundColor: recap.playerColor }}
                 aria-hidden
               />
-              <span className="text-bf-text truncate flex-1">{recap.playerName}</span>
+              <span className="text-bf-text truncate flex-1">{recap.ownTurn ? 'Your turn' : recap.playerName}</span>
               <span className="flex items-center gap-2 text-xs text-bf-muted tabular-nums shrink-0">
                 <span className="flex items-center gap-0.5"><Sword className="w-3 h-3" aria-hidden />{stats.battles}</span>
                 <span className={clsx('flex items-center gap-0.5', stats.captures > 0 && 'text-yellow-400')}>
@@ -194,7 +218,7 @@ export default function AiTurnRecapPanel({
           aria-expanded={expanded}
         >
           <span className="truncate">
-            {beforeFirstTurn ? 'Before your first turn' : 'While you were away'} ({recaps.length} {recaps.length === 1 ? 'turn' : 'turns'}
+            {recaps.some((r) => r.ownTurn) ? 'Since your last turn' : beforeFirstTurn ? 'Before your first turn' : 'While you were away'} ({recaps.length} {recaps.length === 1 ? 'turn' : 'turns'}
             {totalCaptures > 0 ? `, ${totalCaptures} ${totalCaptures === 1 ? 'capture' : 'captures'}` : ''})
           </span>
           {attacksOnViewer > 0 && (
