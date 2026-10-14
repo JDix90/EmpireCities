@@ -152,8 +152,19 @@
   max-height: 55vh;
 }
 
+/* Phone fortify (phone_fortify_fit_enabled): the peek snap grows to the
+   measured height of the amount dial plus the first destination row, which
+   TerritoryPanel writes to --fortify-fit-height. Never shorter than peek,
+   never taller than full, so the map stays the larger half. */
+.mobile-sheet-fortify-fit {
+  max-height: max(36vh, min(var(--fortify-fit-height, 36vh), 55vh));
+}
+
 /* Landscape mobile: cap full snap only */
 @media (max-width: 768px) and (orientation: landscape) {
+  .mobile-sheet-fortify-fit {
+    max-height: max(26vh, min(var(--fortify-fit-height, 26vh), 35vh));
+  }
   .mobile-sheet-full {
     max-height: 35vh;
   }

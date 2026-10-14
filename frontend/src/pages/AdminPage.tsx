@@ -402,6 +402,12 @@ const CLIENT_FEATURE_FLAGS = [
       'While a player\u2019s next Quick Match is their first (Easy first match on, no finished game yet), Quick Match becomes the lobby\u2019s gold button and comes first; Full Game is shown beside it as the secondary choice. Without it a newcomer\u2019s most prominent option is Full Game, which runs to its round cap in nearly every simulated game. Needs Easy first match on to have any effect. On by default; switching it off gives the lobby exactly as before.',
   },
   {
+    key: 'phone_fortify_fit_enabled',
+    label: 'Phone fortify: show the destinations',
+    description:
+      'On a phone, when a player picks a territory to fortify from, the bottom sheet grows just enough to show the amount and the first row of destinations together, up to the sheet\u2019s full height, so the map stays the larger half. At the fixed default height the destinations sat below the fold and a player had to know to swipe the sheet up. Desktop is unchanged. Off by default (dark launch) \u2014 off is the sheet exactly as before.',
+  },
+  {
     key: 'full_game_evening_enabled',
     label: 'Full Game fits an evening',
     description:

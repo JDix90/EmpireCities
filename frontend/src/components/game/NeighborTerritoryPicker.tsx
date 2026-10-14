@@ -100,6 +100,7 @@ export default function NeighborTerritoryPicker({
               */}
               <button
                 type="button"
+                data-neighbor-target=""
                 disabled={blocked}
                 title={locked ? orbitLockReason : fleetless ? NEEDS_FLEET_HINT : undefined}
                 className={clsx(

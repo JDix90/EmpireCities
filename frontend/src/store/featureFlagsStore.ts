@@ -35,6 +35,7 @@ export interface ClientFeatureFlags {
   desktop_card_cue_enabled: boolean;
   tutorial_wrapup_to_match_enabled: boolean;
   first_match_primary_cta_enabled: boolean;
+  phone_fortify_fit_enabled: boolean;
   full_game_evening_enabled: boolean;
   custom_lobby_fold_enabled: boolean;
   custom_round_cap_enabled: boolean;
@@ -110,6 +111,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   tutorial_wrapup_to_match_enabled: true,
   // While the next Quick Match is the first, it is the lobby's gold button. On by default; admin kill switch.
   first_match_primary_cta_enabled: true,
+  // Phone fortify: the sheet grows to show the amount and the first destination. Dark-launched OFF.
+  phone_fortify_fit_enabled: false,
   // A Full Game fits an evening: the 65% ending by default, an 80-round cap. Dark-launched OFF.
   full_game_evening_enabled: false,
   // The Custom Game form folds its less-used options under Advanced. Dark-launched OFF.
@@ -295,6 +298,11 @@ export function useTutorialWrapupToMatchEnabled(): boolean {
 /** While the next Quick Match is the player's first, it is the lobby's gold button (pages/LobbyPage.tsx). */
 export function useFirstMatchPrimaryCtaEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.first_match_primary_cta_enabled);
+}
+
+/** Phone fortify: the territory sheet grows to show the amount dial and the first destination row together (components/game/TerritoryPanel.tsx). */
+export function usePhoneFortifyFitEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.phone_fortify_fit_enabled);
 }
 
 /** A Full Game fits an evening: the 65% ending by default, an 80-round cap (utils/quickMatchPrefs.ts). */
