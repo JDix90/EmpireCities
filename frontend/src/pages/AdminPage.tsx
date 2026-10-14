@@ -222,6 +222,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Route the landing page’s "Play as Guest" CTA straight into the guided tutorial match instead of the lobby. On by default; switch off to send guests to the lobby instead.',
   },
   {
+    key: 'tutorial_card_fade_enabled',
+    label: 'Tutorial card: fade when there is more',
+    description:
+      'When a tutorial card\u2019s text runs past the bottom of the card, a fade sits above the buttons until the player scrolls to the end, so a clipped card reads as one with more to read. The welcome card was cut mid-sentence on a 768px laptop, an iPhone 13 and an SE, behind a scrollbar that is nearly invisible. Off by default (dark launch) \u2014 off is the tutorial card exactly as before.',
+  },
+  {
     key: 'era_advance_payoff_enabled',
     label: 'Era-advance payoff',
     description:

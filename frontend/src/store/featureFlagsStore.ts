@@ -9,6 +9,7 @@ export interface ClientFeatureFlags {
   turn_clarity_enabled: boolean;
   map_gestures_v2_enabled: boolean;
   onboarding_tutorial_first_enabled: boolean;
+  tutorial_card_fade_enabled: boolean;
   hero_single_cta_enabled: boolean;
   era_advance_payoff_enabled: boolean;
   signup_nudge_enabled: boolean;
@@ -65,6 +66,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   // Flat map: pinch zooms around the fingers, panning keeps land on screen. On by default; admin kill switch.
   map_gestures_v2_enabled: true,
   onboarding_tutorial_first_enabled: true,
+  // Tutorial card: a fade above the buttons while there is more to read. Dark-launched OFF.
+  tutorial_card_fade_enabled: false,
   hero_single_cta_enabled: true,
   era_advance_payoff_enabled: true,
   signup_nudge_enabled: true,
@@ -191,6 +194,11 @@ export function useMapGesturesV2Enabled(): boolean {
 
 export function useOnboardingTutorialFirstEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.onboarding_tutorial_first_enabled);
+}
+
+/** Tutorial card: a fade above the buttons while the prose has more below the fold (components/game/TutorialOverlay.tsx). */
+export function useTutorialCardFadeEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.tutorial_card_fade_enabled);
 }
 
 export function useHeroSingleCtaEnabled(): boolean {

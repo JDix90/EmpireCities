@@ -58,6 +58,11 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // On by default; the admin override is the kill switch.
   map_gestures_v2_enabled: () => envOptOut('MAP_GESTURES_V2_ENABLED'),
   onboarding_tutorial_first_enabled: () => envOptOut('ONBOARDING_TUTORIAL_FIRST_ENABLED'),
+  // Tutorial card: while its prose has more below the fold, a fade sits above
+  // the buttons. The welcome card was clipped mid-sentence on a 768px laptop,
+  // an iPhone 13 and an SE, and its scrollbar is nearly invisible, so nothing
+  // said there was more to read. Dark-launched OFF.
+  tutorial_card_fade_enabled: () => envOptIn('TUTORIAL_CARD_FADE_ENABLED'),
   hero_single_cta_enabled: () => envOptOut('HERO_SINGLE_CTA_ENABLED'),
   era_advance_payoff_enabled: () => envOptOut('ERA_ADVANCE_PAYOFF_ENABLED'),
   era_advancement_lobby_enabled: () => envOptOut('ERA_ADVANCEMENT_LOBBY_ENABLED'),
@@ -360,6 +365,15 @@ export const featureFlags = {
    */
   get onboardingTutorialFirstEnabled(): boolean {
     return overrideBool('onboarding_tutorial_first_enabled');
+  },
+
+  /**
+   * Tutorial card fade (TutorialOverlay): a fade above the buttons while the
+   * card's scrolling prose has more below the fold.
+   * Default OFF; `TUTORIAL_CARD_FADE_ENABLED=true` or the admin override turns it on.
+   */
+  get tutorialCardFadeEnabled(): boolean {
+    return overrideBool('tutorial_card_fade_enabled');
   },
 
   /**
@@ -1220,6 +1234,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     turn_clarity_enabled: featureFlags.turnClarityEnabled,
     map_gestures_v2_enabled: featureFlags.mapGesturesV2Enabled,
     onboarding_tutorial_first_enabled: featureFlags.onboardingTutorialFirstEnabled,
+    tutorial_card_fade_enabled: featureFlags.tutorialCardFadeEnabled,
     hero_single_cta_enabled: featureFlags.heroSingleCtaEnabled,
     era_advance_payoff_enabled: featureFlags.eraAdvancePayoffEnabled,
     signup_nudge_enabled: featureFlags.signupNudgeEnabled,

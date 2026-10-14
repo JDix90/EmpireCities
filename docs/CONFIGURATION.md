@@ -80,6 +80,7 @@ Env vars: a flag defaulting **on** is disabled with `X=false`; one defaulting **
 | `turnClarityEnabled` | `TURN_CLARITY_ENABLED` | **on** | Phase-progression bar, valid source/target highlighting, reinforcement undo |
 | `mapGesturesV2Enabled` | `MAP_GESTURES_V2_ENABLED` | on | Flat map gestures v2: pinch zooms around the two-finger midpoint and the wheel around the cursor, panning keeps at least a strip of land on screen, and double-tap counts taps only (a pinch never starts one), in canvas coordinates. The globe is unchanged |
 | `onboardingTutorialFirstEnabled` | `ONBOARDING_TUTORIAL_FIRST_ENABLED` | **on** | Landing "Play as Guest" goes straight into the tutorial match |
+| `tutorialCardFadeEnabled` | `TUTORIAL_CARD_FADE_ENABLED` | off | Tutorial card fade: while a centered or compact tutorial card's scrolling prose has more below the fold, a fade sits above its buttons, gone once scrolled to the end. Off is the card as before |
 | `heroSingleCtaEnabled` | `HERO_SINGLE_CTA_ENABLED` | **on** | Landing hero collapses to one dominant Play CTA |
 | `eraAdvancePayoffEnabled` | `ERA_ADVANCE_PAYOFF_ENABLED` | **on** | Celebratory modal on era advancement instead of a toast |
 | `eraAdvancementLobbyEnabled` | `ERA_ADVANCEMENT_LOBBY_ENABLED` | **on** | Era Advancement setting + Full Game Start CTA in the lobby |

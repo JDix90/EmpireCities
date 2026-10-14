@@ -524,3 +524,51 @@ describe('TutorialOverlay', () => {
     });
   });
 });
+
+describe('tutorial card fade (tutorial_card_fade_enabled)', () => {
+  const setFade = (on: boolean) =>
+    useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, tutorial_card_fade_enabled: on } }));
+  const welcome = [{ id: 'welcome', title: 'Welcome', message: 'A long welcome.' } as TutorialStep];
+  let spies: Array<{ mockRestore: () => void }> = [];
+
+  /** jsdom has no layout: give every element the prose's scroll metrics. */
+  function proseOf(scrollHeight: number, clientHeight: number) {
+    spies = [
+      vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(scrollHeight),
+      vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(clientHeight),
+    ];
+  }
+
+  afterEach(() => {
+    spies.forEach((s) => s.mockRestore());
+    spies = [];
+    setFade(false);
+  });
+
+  it('fades the last lines while the prose runs past the card, until scrolled to the end', () => {
+    setFade(true);
+    proseOf(600, 300);
+    overlay(welcome, { centered: true });
+    const fade = screen.getByTestId('tutorial-prose-fade');
+    expect(fade).toBeTruthy();
+    // Scroll the prose to its end: the fade goes.
+    const prose = fade.previousElementSibling as HTMLElement;
+    prose.scrollTop = 300;
+    fireEvent.scroll(prose);
+    expect(screen.queryByTestId('tutorial-prose-fade')).toBeNull();
+  });
+
+  it('shows no fade when the prose fits', () => {
+    setFade(true);
+    proseOf(200, 300);
+    overlay(welcome, { centered: true });
+    expect(screen.queryByTestId('tutorial-prose-fade')).toBeNull();
+  });
+
+  it('is the card as before with the flag off', () => {
+    setFade(false);
+    proseOf(600, 300);
+    overlay(welcome, { centered: true });
+    expect(screen.queryByTestId('tutorial-prose-fade')).toBeNull();
+  });
+});
