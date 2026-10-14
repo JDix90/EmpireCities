@@ -160,8 +160,9 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // Touch targets: on a touch screen, small game controls (the tutorial card's
   // collapse, the sheet's expand, the map reset, territory list and neighbour
   // rows, the Research button, modal closes) get a 44px touch area. Several
-  // were 20 to 36 px. Dark-launched OFF.
-  touch_targets_enabled: () => envOptIn('TOUCH_TARGETS_ENABLED'),
+  // were 20 to 36 px.
+  // On by default; the admin override is the kill switch.
+  touch_targets_enabled: () => envOptOut('TOUCH_TARGETS_ENABLED'),
   // Daily Challenge v2 (docs/DAILY_PUZZLE_V2.md): the daily as a decision
   // puzzle graded by an exact solver. Dark-launched OFF; with it on, a day is
   // v2 only when its set-piece carries a plan and the gate accepted it.
@@ -190,8 +191,9 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // Placement cap note: where the player places units on an unsettled
   // territory (stability under 50), say in words how many more it takes this
   // turn and why, instead of "stability cap: 3 more here". A just-conquered
-  // territory (stability 30) showed no reason at all. Dark-launched OFF.
-  placement_cap_note_enabled: () => envOptIn('PLACEMENT_CAP_NOTE_ENABLED'),
+  // territory (stability 30) showed no reason at all.
+  // On by default; the admin override is the kill switch.
+  placement_cap_note_enabled: () => envOptOut('PLACEMENT_CAP_NOTE_ENABLED'),
   // The Custom Game form shows its main choices and folds the rest under
   // Advanced. Layout only: every choice sends what it did. Dark-launched OFF.
   custom_lobby_fold_enabled: () => envOptIn('CUSTOM_LOBBY_FOLD_ENABLED'),
@@ -631,7 +633,7 @@ export const featureFlags = {
   /**
    * Placement cap note: explains the stability deploy cap where units are placed
    * (components/game/PlacementCapNote.tsx in the territory panel).
-   * Default OFF; `PLACEMENT_CAP_NOTE_ENABLED=true` or the admin override turns it on.
+   * Default ON; `PLACEMENT_CAP_NOTE_ENABLED=false` or the admin override turns it off.
    */
   get placementCapNoteEnabled(): boolean {
     return overrideBool('placement_cap_note_enabled');
@@ -1255,7 +1257,7 @@ export const featureFlags = {
   /**
    * Touch targets: a 44px minimum touch area for small game controls on touch
    * screens (`.tap-target` and `.tap-min` in index.css, under `data-touch-targets`).
-   * Default OFF; `TOUCH_TARGETS_ENABLED=true` or the admin override turns it on.
+   * Default ON; `TOUCH_TARGETS_ENABLED=false` or the admin override turns it off.
    */
   get touchTargetsEnabled(): boolean {
     return overrideBool('touch_targets_enabled');

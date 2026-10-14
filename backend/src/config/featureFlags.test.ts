@@ -347,13 +347,13 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().warfront_enabled).toBe(true);
   });
 
-  it('touch_targets_enabled defaults to off (dark-launch) and is admin-overridable', () => {
-    expect(featureFlags.touchTargetsEnabled).toBe(false);
-    expect(getClientFeatureFlags().touch_targets_enabled).toBe(false);
-    expect(getFeatureFlagStates().touch_targets_enabled).toEqual({ code_default: false, overridden: false, effective: false });
-    setAdminConfigCacheForTests({ feature_flags: { touch_targets_enabled: true } });
+  it('touch_targets_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.touchTargetsEnabled).toBe(true);
     expect(getClientFeatureFlags().touch_targets_enabled).toBe(true);
+    expect(getFeatureFlagStates().touch_targets_enabled).toEqual({ code_default: true, overridden: false, effective: true });
+    setAdminConfigCacheForTests({ feature_flags: { touch_targets_enabled: false } });
+    expect(featureFlags.touchTargetsEnabled).toBe(false);
+    expect(getClientFeatureFlags().touch_targets_enabled).toBe(false);
   });
 
   it('localization_enabled defaults to off (dark-launch) and is admin-overridable', () => {
@@ -473,13 +473,13 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().custom_lobby_fold_enabled).toBe(true);
   });
 
-  it('placement_cap_note_enabled defaults to off (dark-launch) and is admin-overridable', () => {
-    expect(featureFlags.placementCapNoteEnabled).toBe(false);
-    expect(getClientFeatureFlags().placement_cap_note_enabled).toBe(false);
-    expect(getFeatureFlagStates().placement_cap_note_enabled).toEqual({ code_default: false, overridden: false, effective: false });
-    setAdminConfigCacheForTests({ feature_flags: { placement_cap_note_enabled: true } });
+  it('placement_cap_note_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.placementCapNoteEnabled).toBe(true);
     expect(getClientFeatureFlags().placement_cap_note_enabled).toBe(true);
+    expect(getFeatureFlagStates().placement_cap_note_enabled).toEqual({ code_default: true, overridden: false, effective: true });
+    setAdminConfigCacheForTests({ feature_flags: { placement_cap_note_enabled: false } });
+    expect(featureFlags.placementCapNoteEnabled).toBe(false);
+    expect(getClientFeatureFlags().placement_cap_note_enabled).toBe(false);
   });
 
   it('full_game_evening_enabled defaults to off (dark-launch) and is admin-overridable', () => {

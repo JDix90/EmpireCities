@@ -465,7 +465,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'placement_cap_note_enabled',
     label: 'Explain the placement cap',
     description:
-      'When the player places units on an unsettled territory (stability under 50, as every newly conquered one is), the territory panel says how many more it takes this turn and why: its stability, that the limit lifts at 50, and that conquered land starts at 30 and settles a little each turn. Replaces the terse \u201cstability cap: N more here\u201d. Off by default (dark launch) \u2014 off is the panel exactly as before.',
+      'When the player places units on an unsettled territory (stability under 50, as every newly conquered one is), the territory panel says how many more it takes this turn and why: its stability, that the limit lifts at 50, and that conquered land starts at 30 and settles a little each turn. Replaces the terse \u201cstability cap: N more here\u201d. On by default; switching it off gives the panel exactly as before.',
   },
   {
     key: 'custom_lobby_fold_enabled',
@@ -495,7 +495,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'touch_targets_enabled',
     label: 'Phone touch targets',
     description:
-      'On touch screens, gives small game controls a touch area of at least 44 px: the tutorial card\u2019s collapse, the territory sheet\u2019s expand, the map reset, the BF link, territory list and attack-neighbour rows, the Research button, and small close and dismiss buttons. Icons keep their size; only what a finger can hit grows, and the territory sheet\u2019s drag handle is 44 px tall. Several measured 20 to 36 px on a phone. Off by default (dark launch) \u2014 off is the controls exactly as before.',
+      'On touch screens, gives small game controls a touch area of at least 44 px: the tutorial card\u2019s collapse, the territory sheet\u2019s expand, the map reset, the BF link, territory list and attack-neighbour rows, the Research button, and small close and dismiss buttons. Icons keep their size; only what a finger can hit grows, and the territory sheet\u2019s drag handle is 44 px tall. Several measured 20 to 36 px on a phone. On by default; switching it off gives the controls exactly as before.',
   },
 ] as const;
 

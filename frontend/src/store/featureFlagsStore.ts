@@ -115,8 +115,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   // Localized landing + tutorial (src/i18n). Dark-launched OFF: the bundles
   // ship but everyone sees English until an operator turns this on.
   localization_enabled: false,
-  // Touch targets: 44px touch areas for small controls on touch screens. Dark-launched OFF.
-  touch_targets_enabled: false,
+  // Touch targets: 44px touch areas for small controls on touch screens. On by default; admin kill switch.
+  touch_targets_enabled: true,
   // Daily Challenge v2 (decision puzzles graded by an exact solver). Dark-launched
   // OFF; the server decides which days are v2, the client renders what it is sent.
   daily_puzzle_v2_enabled: false,
@@ -143,8 +143,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   in_game_mute_enabled: true,
   // A Full Game fits an evening: the 65% ending by default, an 80-round cap. Dark-launched OFF.
   full_game_evening_enabled: false,
-  // Placement cap note: explain the stability cap where units are placed. Dark-launched OFF.
-  placement_cap_note_enabled: false,
+  // Placement cap note: explain the stability cap where units are placed. On by default; admin kill switch.
+  placement_cap_note_enabled: true,
   // The Custom Game form folds its less-used options under Advanced. Dark-launched OFF.
   custom_lobby_fold_enabled: false,
   // The Custom Game form sets a round limit. Dark-launched OFF.
