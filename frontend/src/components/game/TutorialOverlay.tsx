@@ -391,7 +391,7 @@ export default function TutorialOverlay({
                 aria-expanded
                 aria-label={t('overlay.collapse')}
                 title={t('overlay.collapseTitle')}
-                className="-mr-1 -mt-1 p-1 text-bf-muted hover:text-bf-gold transition-colors"
+                className="tap-target tap-corner -mr-1 -mt-1 p-1 text-bf-muted hover:text-bf-gold transition-colors"
               >
                 {anchorBottom ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
               </button>

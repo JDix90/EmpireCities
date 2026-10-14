@@ -347,6 +347,15 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().warfront_enabled).toBe(true);
   });
 
+  it('touch_targets_enabled defaults to off (dark-launch) and is admin-overridable', () => {
+    expect(featureFlags.touchTargetsEnabled).toBe(false);
+    expect(getClientFeatureFlags().touch_targets_enabled).toBe(false);
+    expect(getFeatureFlagStates().touch_targets_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { touch_targets_enabled: true } });
+    expect(featureFlags.touchTargetsEnabled).toBe(true);
+    expect(getClientFeatureFlags().touch_targets_enabled).toBe(true);
+  });
+
   it('localization_enabled defaults to off (dark-launch) and is admin-overridable', () => {
     expect(featureFlags.localizationEnabled).toBe(false);
     expect(getClientFeatureFlags().localization_enabled).toBe(false);

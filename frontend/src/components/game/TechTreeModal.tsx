@@ -258,7 +258,7 @@ export default function TechTreeModal({ gameState, currentPlayerId, techTree, er
                           <button
                             onClick={() => onResearch(node.tech_id)}
                             className={clsx(
-                              'mt-2 w-full py-1 rounded text-xs font-semibold',
+                              'tap-min mt-2 w-full py-1 rounded text-xs font-semibold',
                               'bg-blue-700 hover:bg-blue-600 text-white transition-colors'
                             )}
                           >

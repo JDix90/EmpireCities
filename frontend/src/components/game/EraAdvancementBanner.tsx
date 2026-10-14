@@ -41,7 +41,7 @@ export default function EraAdvancementBanner({ gameState, myPlayer }: EraAdvance
           type="button"
           onClick={() => setDismissedEra(status.currentEraId)}
           aria-label="Dismiss"
-          className="shrink-0 p-1 rounded text-bf-muted hover:text-bf-text hover:bg-white/10 transition-colors"
+          className="tap-target shrink-0 p-1 rounded text-bf-muted hover:text-bf-text hover:bg-white/10 transition-colors"
         >
           <X className="w-3.5 h-3.5" />
         </button>

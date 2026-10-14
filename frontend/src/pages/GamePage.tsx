@@ -5446,7 +5446,7 @@ export default function GamePage() {
               <button
                 type="button"
                 onClick={() => resetViewRef.current?.()}
-                className="dlayout:hidden absolute bottom-20 right-3 z-20 w-9 h-9 flex items-center justify-center rounded-lg bg-bf-surface/95 border border-bf-border text-bf-muted hover:text-bf-text backdrop-blur-sm"
+                className="tap-target dlayout:hidden absolute bottom-20 right-3 z-20 w-9 h-9 flex items-center justify-center rounded-lg bg-bf-surface/95 border border-bf-border text-bf-muted hover:text-bf-text backdrop-blur-sm"
                 aria-label="Reset map view"
               >
                 <Maximize2 className="w-4 h-4" />
@@ -5816,7 +5816,7 @@ export default function GamePage() {
               <button
                 type="button"
                 onClick={() => setMobileHudOpen(false)}
-                className="w-9 h-9 flex items-center justify-center rounded-lg bg-bf-dark text-bf-muted hover:text-bf-text"
+                className="tap-target w-9 h-9 flex items-center justify-center rounded-lg bg-bf-dark text-bf-muted hover:text-bf-text"
                 aria-label="Close menu"
               >
                 <X className="w-4 h-4" />

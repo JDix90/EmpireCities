@@ -755,12 +755,12 @@ function TerritoryPanelContent({
     )}>
       {/* Drag handle — mobile only (swipe / snap) */}
       {isMobile && (
-        <div {...handleProps} className="sticky top-0 flex items-center justify-center gap-2 py-2.5 bg-bf-surface z-10 cursor-grab">
+        <div {...handleProps} className="tap-min sticky top-0 flex items-center justify-center gap-2 py-2.5 bg-bf-surface z-10 cursor-grab">
           <div className="w-8 h-1 rounded-full bg-bf-border" />
           {sheetSnap !== 'full' && (
             <button
               type="button"
-              className="absolute right-3 min-h-[32px] min-w-[32px] flex items-center justify-center text-bf-muted hover:text-bf-text"
+              className="tap-target absolute right-3 min-h-[32px] min-w-[32px] flex items-center justify-center text-bf-muted hover:text-bf-text"
               aria-label="Expand panel"
               onClick={(e) => {
                 e.stopPropagation();

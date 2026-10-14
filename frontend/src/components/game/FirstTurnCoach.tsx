@@ -83,7 +83,7 @@ export default function FirstTurnCoach({
               onClick={onDismiss}
               data-testid="first-turn-coach-dismiss"
               aria-label="Dismiss"
-              className="-mt-1 -mr-1 p-1 text-bf-muted/70 hover:text-bf-text transition-colors"
+              className="tap-target -mt-1 -mr-1 p-1 text-bf-muted/70 hover:text-bf-text transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
