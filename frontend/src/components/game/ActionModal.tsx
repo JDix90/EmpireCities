@@ -25,6 +25,8 @@ import { api } from '../../services/api';
 import { APP_NAME } from '../../constants/brand';
 import { formatSecretMissionReveal, type MapNameLookup } from '../../utils/mapDisplayNames';
 import { getFastCombatPreference } from '../../utils/userPreferences';
+import { useGameStore } from '../../store/gameStore';
+import { useBattleArmiesEnabled } from '../../store/featureFlagsStore';
 import { eraBoardTheme } from '../../constants/eraBoardTheme';
 import { eraMeta } from '../../constants/eraMeta';
 import { ERA_LABELS } from '../../constants/gameLobbyLabels';
@@ -509,6 +511,24 @@ export function CombatResultView({
   const defenderSkin = diceLook(cosmeticsOf(result.defenderId)?.dice);
 
   const isDefending = perspective === 'defender';
+  // `battle_armies_enabled`: the armies left on both territories, read from the
+  // viewer's own board (fog-filtered, so a hidden count stays hidden), once the
+  // dice settle. Only on the viewer's own attack, the result the board is
+  // current for: a replayed incoming attack may be behind it.
+  const battleArmies = useBattleArmiesEnabled() && perspective === 'attacker';
+  const fromUnits = useGameStore((s) => (result.fromId ? s.gameState?.territories[result.fromId]?.unit_count : undefined));
+  const toUnits = useGameStore((s) => (result.toId ? s.gameState?.territories[result.toId]?.unit_count : undefined));
+  const armiesLeft = (units: number | undefined, testId: string) =>
+    battleArmies && showResult && typeof units === 'number' && units >= 0 ? (
+      <span
+        data-testid={testId}
+        className="ml-1.5 inline-block align-middle rounded-full bg-white/10 px-2 py-0.5 text-xs font-medium text-white/70 tabular-nums"
+      >
+        {units} left
+      </span>
+    ) : null;
+  const blitzExchanges = result.blitz_exchanges ?? 0;
+  const blitzTotals = battleArmies && blitzExchanges > 1;
   const headerLabel = isDefending ? 'Incoming Attack!' : perspective === 'attacker' ? 'Your Attack' : 'Battle';
   const headerBg = isDefending ? 'bg-orange-500/15 border-orange-500/25' : 'bg-red-500/15 border-red-500/25';
   const headerText = isDefending ? 'text-orange-300' : 'text-red-300';
@@ -525,13 +545,22 @@ export function CombatResultView({
         {result.fromName && result.toName && (
           <p className={clsx('text-white/80 font-medium', compact ? 'text-sm' : 'text-lg')}>
             {result.fromName}
+            {armiesLeft(fromUnits, 'combat-from-units')}
             <span className="text-white/30 mx-3">
               <ArrowRight className="w-4 h-4 inline" />
             </span>
             {result.toName}
+            {armiesLeft(toUnits, 'combat-to-units')}
           </p>
         )}
       </div>
+
+      {/* A blitz shows its last exchange's dice over every exchange's losses. */}
+      {blitzTotals && (
+        <p data-testid="combat-last-roll" className="-mt-1 mb-2 text-center text-xs text-white/50">
+          Last roll of {blitzExchanges}
+        </p>
+      )}
 
       {/* Dice Area — dice scale + wrap so stacked-bonus rolls stay inside the modal */}
       <div className={clsx('flex', compact ? 'gap-3 mb-3' : 'gap-4 mb-8')}>
@@ -650,7 +679,7 @@ export function CombatResultView({
             <div className={clsx('flex-1 rounded-xl bg-red-500/10 border border-red-500/20 text-center', compact ? 'py-1.5 px-2 flex items-center justify-center gap-1.5' : 'p-3')}>
               <Skull className={clsx('text-red-400/70', compact ? 'w-3.5 h-3.5' : 'w-4 h-4 mx-auto mb-1')} />
               <p className="text-red-300 text-sm font-semibold">
-                &minus;{result.attacker_losses} troop{result.attacker_losses > 1 ? 's' : ''}
+                &minus;{result.attacker_losses} troop{result.attacker_losses > 1 ? 's' : ''}{blitzTotals ? ' in all' : ''}
               </p>
             </div>
           )}
@@ -658,7 +687,7 @@ export function CombatResultView({
             <div className={clsx('flex-1 rounded-xl bg-blue-500/10 border border-blue-500/20 text-center', compact ? 'py-1.5 px-2 flex items-center justify-center gap-1.5' : 'p-3')}>
               <Skull className={clsx('text-blue-400/70', compact ? 'w-3.5 h-3.5' : 'w-4 h-4 mx-auto mb-1')} />
               <p className="text-blue-300 text-sm font-semibold">
-                &minus;{result.defender_losses} defender{result.defender_losses > 1 ? 's' : ''}
+                &minus;{result.defender_losses} defender{result.defender_losses > 1 ? 's' : ''}{blitzTotals ? ' in all' : ''}
               </p>
             </div>
           )}

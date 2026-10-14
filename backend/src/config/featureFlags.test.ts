@@ -383,6 +383,15 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().tutorial_wrapup_to_match_enabled).toBe(false);
   });
 
+  it('battle_armies_enabled defaults to off (dark-launch) and is admin-overridable', () => {
+    expect(featureFlags.battleArmiesEnabled).toBe(false);
+    expect(getClientFeatureFlags().battle_armies_enabled).toBe(false);
+    expect(getFeatureFlagStates().battle_armies_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { battle_armies_enabled: true } });
+    expect(featureFlags.battleArmiesEnabled).toBe(true);
+    expect(getClientFeatureFlags().battle_armies_enabled).toBe(true);
+  });
+
   it('desktop_card_cue_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.desktopCardCueEnabled).toBe(true);
     expect(getClientFeatureFlags().desktop_card_cue_enabled).toBe(true);
