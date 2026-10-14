@@ -55,7 +55,7 @@ describe('TutorialPage first-visit triage', () => {
     expect(hasSeenWelcome()).toBe(false);
     renderAutoStart();
 
-    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/game/g1', { replace: true }));
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/game/g1', { replace: true, state: { practiceMatch: true } }));
     // Without this the player who exits at step 2 lands in the lobby with 0 XP,
     // nothing marked complete and no welcome flag — and gets re-offered the
     // tutorial they just left.

@@ -130,6 +130,17 @@
   to   { transform: translateY(0); }
 }
 
+/* The game loading bar (game_loading_label_enabled): a third of the track
+   sweeping across, since the page's download reports no progress. */
+@keyframes loading-slide {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(300%); }
+}
+
+.animate-loading-slide {
+  animation: loading-slide 1.4s ease-in-out infinite;
+}
+
 /* Bottom sheets (territory panel, cards tray): sit above the mobile nav bar
    (min-h ~3.5rem) + home indicator — `bottom-16` was too short and overlapped taps. */
 .mobile-sheet-above-nav {

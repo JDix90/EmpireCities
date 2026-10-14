@@ -390,6 +390,12 @@ const CLIENT_FEATURE_FLAGS = [
       'A player\u2019s first Quick Match (no finished game yet, and no Quick Match setup of their own) is one Easy bot on Great Britain 925 instead of their setup on a random era: a short, winnable first game. The Analytics tab counts these under First matches. On by default; switching it off gives Quick Match exactly as before.',
   },
   {
+    key: 'game_loading_label_enabled',
+    label: 'Game loading: label the wait',
+    description:
+      'While a game\u2019s page downloads after Play Free Now or a match start, the loading screen says \u201cSetting up your practice match\u201d (or \u201cyour match\u201d) with a moving bar, and after a few seconds that a slow connection can take a little longer, instead of grey boxes and the wordmark, which a phone showed for about 8 seconds. Off by default (dark launch) \u2014 off is the loading screen exactly as before.',
+  },
+  {
     key: 'tutorial_phone_gate_visible_enabled',
     label: 'Phone tutorial: keep the era gate in view',
     description:

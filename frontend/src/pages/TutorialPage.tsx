@@ -112,7 +112,8 @@ export default function TutorialPage() {
        * only says the player has been offered the choice once.
        */
       markWelcomeSeen();
-      navigate(`/game/${res.data.game_id}`, { replace: true });
+      // The game page's loading screen names this a practice match (GameLoadingFallback).
+      navigate(`/game/${res.data.game_id}`, { replace: true, state: { practiceMatch: true } });
     } catch {
       toast.error(t('page.startError'));
       setStarting(null);

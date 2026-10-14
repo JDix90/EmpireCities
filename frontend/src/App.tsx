@@ -17,6 +17,7 @@ import { lazyWithChunkRetry } from './utils/lazyWithChunkRetry';
 import { isSafeInternalPath } from './utils/navRedirect';
 import { APP_NAME_NAV } from './constants/brand';
 import { applyAccessibilityDomPrefs, subscribeUserPreferences } from './utils/userPreferences';
+import GameLoadingFallback, { useGameLoadingKind } from './components/ui/GameLoadingFallback';
 
 // Pages — every route uses `lazyWithChunkRetry` so a stale tab that requests
 // a hashed chunk filename that no longer exists (post-deploy) retries once
@@ -71,6 +72,9 @@ const CodexPage = lazyWithChunkRetry(() => import('./pages/CodexPage'));
 const WarRoomPage = lazyWithChunkRetry(() => import('./pages/WarRoomPage'));
 
 function RouteLoadingFallback() {
+  // A game on its way says so (`game_loading_label_enabled`).
+  const gameLoading = useGameLoadingKind();
+  if (gameLoading) return <GameLoadingFallback practice={gameLoading === 'practice'} />;
   return (
     <div className="min-h-screen bg-bf-dark px-4 pt-safe-6 pb-safe-6">
       {/* Nav skeleton */}
