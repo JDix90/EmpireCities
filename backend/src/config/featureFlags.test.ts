@@ -124,6 +124,15 @@ describe('featureFlags', () => {
     expect(featureFlags.retentionNotificationsEnabled).toBe(true);
   });
 
+  it('results_footer_enabled defaults to off (dark-launch) and is admin-overridable', () => {
+    expect(featureFlags.resultsFooterEnabled).toBe(false);
+    expect(getClientFeatureFlags().results_footer_enabled).toBe(false);
+    expect(getFeatureFlagStates().results_footer_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { results_footer_enabled: true } });
+    expect(featureFlags.resultsFooterEnabled).toBe(true);
+    expect(getClientFeatureFlags().results_footer_enabled).toBe(true);
+  });
+
   it('guest_prompt_v2_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.guestPromptV2Enabled).toBe(true);
     expect(getClientFeatureFlags().guest_prompt_v2_enabled).toBe(true);

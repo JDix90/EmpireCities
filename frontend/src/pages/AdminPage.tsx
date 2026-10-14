@@ -55,6 +55,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Every guest surface says \u201cYour progress is saved in this browser\u201d and \u201can account keeps it everywhere\u201d instead of \u201cGuest accounts do not persist across sessions\u201d, which a reload or a return visit disproves: a guest is kept by this browser\u2019s cookie. And a guest sees at most one blocking account modal per tab session: the tutorial-end prompt and the post-game nudge share one budget instead of each firing once. On by default; switching it off gives the prompts exactly as before.',
   },
   {
+    key: 'results_footer_enabled',
+    label: 'Results: pinned way out',
+    description:
+      'At the end of a game, Rematch and Return to Lobby sit in a footer pinned to the bottom of the results, instead of below the chart, coaching and guest box, which took a scroll on a laptop and five swipes on a phone. A guest\u2019s Return to Lobby then goes straight to the lobby: the results already offered saving, so the post-game signup nudge would be the same ask twice. Off by default (dark launch) \u2014 off is the results exactly as before.',
+  },
+  {
     key: 'ranked_leaderboard_enabled',
     label: 'Ranked ladder surfaces',
     description:

@@ -8,7 +8,7 @@ import clsx from 'clsx';
 import CombatAbilityCallouts from './CombatAbilityCallouts';
 import ComeBackTomorrowPanel from './ComeBackTomorrowPanel';
 import ReferralSurvey from './ReferralSurvey';
-import { useGuestPromptV2Enabled, useReferralSurveyEnabled } from '../../store/featureFlagsStore';
+import { useGuestPromptV2Enabled, useReferralSurveyEnabled, useResultsFooterEnabled } from '../../store/featureFlagsStore';
 import { shouldShowReferralSurvey, hasAnsweredReferralSurvey } from '../../utils/referralSurvey';
 import { CLASSIC_DAY_REVIEW_NOTE, GRADE_LABELS, type PuzzleReviewView } from '../../utils/dailyPuzzleV2';
 import { bankedGoldNote } from '../../utils/signupNudge';
@@ -1327,6 +1327,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
   // could yank the prompt out from under a player who just answered.
   const referralSurveyFlag = useReferralSurveyEnabled();
   const guestPromptV2 = useGuestPromptV2Enabled();
+  const resultsFooter = useResultsFooterEnabled();
   const [showReferralSurvey] = useState(() =>
     shouldShowReferralSurvey({
       flagEnabled: referralSurveyFlag,
@@ -1504,6 +1505,39 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
   // a persisted replay to deep-link into.
   const showShareClip = showWatchReplay && !!onShareClip;
   const tertiaryCount = 1 + (showWatchReplay ? 1 : 0) + (showShareClip ? 1 : 0) + (showChallenge ? 1 : 0);
+
+  // The way out of the results. `results_footer_enabled` pins it in a footer
+  // at the bottom of the scroll; off, it sits after the chart and coaching.
+  const primaryActions = (
+    <>
+      {showRematch && (
+        <button
+          type="button"
+          onClick={() => onRematch!(data.rematchConfig!)}
+          className="w-full py-3 px-4 rounded-xl bg-bf-gold/20 hover:bg-bf-gold/30
+                     border border-bf-gold/40 text-bf-gold font-semibold transition-all
+                     flex items-center justify-center gap-2"
+        >
+          <RotateCcw className="w-4 h-4 shrink-0" />
+          Rematch
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={onDismiss}
+        className={clsx(
+          'w-full py-3 px-4 rounded-xl border font-medium transition-all',
+          'flex items-center justify-center gap-2 whitespace-nowrap',
+          showRematch
+            ? 'bg-white/5 hover:bg-white/10 border-white/10 text-white/80'
+            : 'bg-white/10 hover:bg-white/15 border-white/10 text-white',
+        )}
+      >
+        Return to Lobby
+        <ChevronRight className="w-4 h-4 shrink-0" />
+      </button>
+    </>
+  );
 
   return (
     <div className="w-full min-w-0 text-center">
@@ -2002,32 +2036,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
         'flex flex-col gap-3 w-full min-w-0 transition-all duration-500 delay-600',
         showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
       )}>
-        {showRematch && (
-          <button
-            type="button"
-            onClick={() => onRematch!(data.rematchConfig!)}
-            className="w-full py-3 px-4 rounded-xl bg-bf-gold/20 hover:bg-bf-gold/30
-                       border border-bf-gold/40 text-bf-gold font-semibold transition-all
-                       flex items-center justify-center gap-2"
-          >
-            <RotateCcw className="w-4 h-4 shrink-0" />
-            Rematch
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={onDismiss}
-          className={clsx(
-            'w-full py-3 px-4 rounded-xl border font-medium transition-all',
-            'flex items-center justify-center gap-2 whitespace-nowrap',
-            showRematch
-              ? 'bg-white/5 hover:bg-white/10 border-white/10 text-white/80'
-              : 'bg-white/10 hover:bg-white/15 border-white/10 text-white',
-          )}
-        >
-          Return to Lobby
-          <ChevronRight className="w-4 h-4 shrink-0" />
-        </button>
+        {!resultsFooter && primaryActions}
 
         <div
           className={clsx(
@@ -2090,6 +2099,26 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
           )}
         </div>
       </div>
+
+      {resultsFooter && (
+        <div
+          data-testid="gameover-footer"
+          className={clsx(
+            // Pinned to the bottom of the results' scroll, bleeding to the
+            // card's edges, so Rematch and Return to Lobby are always in view.
+            // -bottom-8 cancels the card's py-8: sticky stops at the padding
+            // edge, which left 2rem of scrolling results showing below it.
+            // Opaque, in the colour the card's gradient ends on, so the results
+            // scrolling under it do not show through the buttons.
+            'sticky -bottom-8 z-10 -mx-6 sm:-mx-8 -mb-8 mt-4 px-6 sm:px-8 pt-3 pb-5',
+            'flex flex-col gap-2 border-t border-white/10 bg-[rgb(15,17,23)]',
+            'transition-opacity duration-500 delay-600',
+            showContent ? 'opacity-100' : 'opacity-0',
+          )}
+        >
+          {primaryActions}
+        </div>
+      )}
 
       {/* Share preview overlay */}
       {shareOpen && shareImageUrl && (
