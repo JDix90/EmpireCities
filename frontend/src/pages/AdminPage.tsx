@@ -462,6 +462,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Full Game defaults to the 65% ending (Conquest) for a player who has not saved a setup of their own, and every Full Game ending is capped at 80 rounds instead of 150. Today\u2019s default, taking the whole board, ran to the 150-round cap in nearly every simulated game: about 2 h 40 at a minute a turn. Off by default (dark launch) \u2014 off is Full Game exactly as before.',
   },
   {
+    key: 'placement_cap_note_enabled',
+    label: 'Explain the placement cap',
+    description:
+      'When the player places units on an unsettled territory (stability under 50, as every newly conquered one is), the territory panel says how many more it takes this turn and why: its stability, that the limit lifts at 50, and that conquered land starts at 30 and settles a little each turn. Replaces the terse \u201cstability cap: N more here\u201d. Off by default (dark launch) \u2014 off is the panel exactly as before.',
+  },
+  {
     key: 'custom_lobby_fold_enabled',
     label: 'Custom Game: fold advanced options',
     description:

@@ -473,6 +473,15 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().custom_lobby_fold_enabled).toBe(true);
   });
 
+  it('placement_cap_note_enabled defaults to off (dark-launch) and is admin-overridable', () => {
+    expect(featureFlags.placementCapNoteEnabled).toBe(false);
+    expect(getClientFeatureFlags().placement_cap_note_enabled).toBe(false);
+    expect(getFeatureFlagStates().placement_cap_note_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { placement_cap_note_enabled: true } });
+    expect(featureFlags.placementCapNoteEnabled).toBe(true);
+    expect(getClientFeatureFlags().placement_cap_note_enabled).toBe(true);
+  });
+
   it('full_game_evening_enabled defaults to off (dark-launch) and is admin-overridable', () => {
     expect(featureFlags.fullGameEveningEnabled).toBe(false);
     expect(getClientFeatureFlags().full_game_evening_enabled).toBe(false);
