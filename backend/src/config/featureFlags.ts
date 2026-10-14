@@ -54,6 +54,12 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   era_heritage_buildings_enabled: () => envOptOut('ERA_HERITAGE_BUILDINGS_ENABLED'),
   era_wonder_per_era_enabled: () => envOptIn('ERA_WONDER_PER_ERA_ENABLED'),
   signup_nudge_enabled: () => envOptOut('SIGNUP_NUDGE_ENABLED'),
+  // Guest account prompts say what is true: "Your progress is saved in this
+  // browser" and "an account keeps it everywhere", instead of "Guest accounts
+  // do not persist across sessions", which a reload or a return visit disproves.
+  // And at most one blocking account modal per tab session: the tutorial-end
+  // prompt and the post-game nudge share one budget. Dark-launched OFF.
+  guest_prompt_v2_enabled: () => envOptIn('GUEST_PROMPT_V2_ENABLED'),
   ranked_leaderboard_enabled: () => envOptIn('RANKED_LEADERBOARD_ENABLED'),
   referral_survey_enabled: () => envOptIn('REFERRAL_SURVEY_ENABLED'),
   daily_guest_play_enabled: () => envOptOut('DAILY_GUEST_PLAY_ENABLED'),
@@ -348,6 +354,16 @@ export const featureFlags = {
    */
   get signupNudgeEnabled(): boolean {
     return overrideBool('signup_nudge_enabled');
+  },
+
+  /**
+   * Guest account prompts v2: one accurate line about where a guest's progress
+   * lives (this browser; an account keeps it everywhere), and one blocking
+   * account modal per tab session across the tutorial prompt and the nudge.
+   * Default OFF; `GUEST_PROMPT_V2_ENABLED=true` or the admin override turns it on.
+   */
+  get guestPromptV2Enabled(): boolean {
+    return overrideBool('guest_prompt_v2_enabled');
   },
 
   /**
@@ -1113,6 +1129,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     hero_single_cta_enabled: featureFlags.heroSingleCtaEnabled,
     era_advance_payoff_enabled: featureFlags.eraAdvancePayoffEnabled,
     signup_nudge_enabled: featureFlags.signupNudgeEnabled,
+    guest_prompt_v2_enabled: featureFlags.guestPromptV2Enabled,
     ranked_leaderboard_enabled: featureFlags.rankedLeaderboardEnabled,
     referral_survey_enabled: featureFlags.referralSurveyEnabled,
     daily_guest_play_enabled: featureFlags.dailyGuestPlayEnabled,

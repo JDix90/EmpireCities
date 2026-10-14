@@ -8,11 +8,16 @@ import clsx from 'clsx';
 import CombatAbilityCallouts from './CombatAbilityCallouts';
 import ComeBackTomorrowPanel from './ComeBackTomorrowPanel';
 import ReferralSurvey from './ReferralSurvey';
-import { useReferralSurveyEnabled } from '../../store/featureFlagsStore';
+import { useGuestPromptV2Enabled, useReferralSurveyEnabled } from '../../store/featureFlagsStore';
 import { shouldShowReferralSurvey, hasAnsweredReferralSurvey } from '../../utils/referralSurvey';
 import { CLASSIC_DAY_REVIEW_NOTE, GRADE_LABELS, type PuzzleReviewView } from '../../utils/dailyPuzzleV2';
 import { bankedGoldNote } from '../../utils/signupNudge';
-import { GUEST_NO_PERSIST, GUEST_KEEP_STATS_CTA_SENTENCE } from '../../utils/guestGate';
+import {
+  GUEST_NO_PERSIST,
+  GUEST_KEEP_STATS_CTA_SENTENCE,
+  GUEST_SAVED_HERE,
+  GUEST_KEEP_EVERYWHERE_CTA_SENTENCE,
+} from '../../utils/guestGate';
 import { ChronicleList, useChronicle } from './ChroniclePanel';
 import { hapticImpact, ImpactStyle } from '../../utils/haptics';
 import { generateShareCard, buildShareText } from '../../utils/shareCard';
@@ -1321,6 +1326,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
   // mount: reading localStorage during render would re-evaluate mid-session and
   // could yank the prompt out from under a player who just answered.
   const referralSurveyFlag = useReferralSurveyEnabled();
+  const guestPromptV2 = useGuestPromptV2Enabled();
   const [showReferralSurvey] = useState(() =>
     shouldShowReferralSurvey({
       flagEnabled: referralSurveyFlag,
@@ -1723,8 +1729,18 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
           showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
         )}>
           <p className="text-sm text-bf-text mb-3">
-            Your XP, level and streaks are on a guest account with no email or password. {GUEST_NO_PERSIST}.{' '}
-            <span className="text-bf-gold font-medium">{GUEST_KEEP_STATS_CTA_SENTENCE}, on any device.</span>
+            Your XP, level and streaks are on a guest account with no email or password.{' '}
+            {guestPromptV2 ? (
+              <>
+                {GUEST_SAVED_HERE}.{' '}
+                <span className="text-bf-gold font-medium">{GUEST_KEEP_EVERYWHERE_CTA_SENTENCE}.</span>
+              </>
+            ) : (
+              <>
+                {GUEST_NO_PERSIST}.{' '}
+                <span className="text-bf-gold font-medium">{GUEST_KEEP_STATS_CTA_SENTENCE}, on any device.</span>
+              </>
+            )}
           </p>
           {bankedGoldNote(user?.gold) && (
             <p className="text-sm text-bf-gold/90 mb-3" data-testid="gameover-banked-gold">

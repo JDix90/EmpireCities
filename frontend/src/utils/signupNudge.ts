@@ -6,10 +6,34 @@
  * be filtered out by the caller before this is consulted.
  */
 
-import { GUEST_NO_PERSIST, GUEST_KEEP_STATS_CTA_SENTENCE } from './guestGate';
+import {
+  GUEST_NO_PERSIST,
+  GUEST_KEEP_STATS_CTA_SENTENCE,
+  GUEST_SAVED_HERE,
+  GUEST_KEEP_EVERYWHERE_CTA_SENTENCE,
+} from './guestGate';
 
 /** sessionStorage key — once per tab session, mirroring the tutorial prompt. */
 export const SIGNUP_NUDGE_SHOWN_KEY = 'cc-signup-nudge-shown';
+
+/** sessionStorage key for the tutorial-end account prompt (GamePage). */
+export const TUTORIAL_PROMPT_SHOWN_KEY = 'cc-tutorial-prompt-shown';
+
+/**
+ * Whether a blocking account modal already fired this tab session. Each modal
+ * guards itself with its own key, so off the v2 flag a guest who finished the
+ * tutorial and then a game saw both. Under `guest_prompt_v2_enabled` the
+ * tutorial-end prompt and the post-game nudge share one budget: either key
+ * counts for both.
+ */
+export function accountModalShownThisSession(
+  ownKey: string,
+  v2: boolean,
+  read: (key: string) => string | null,
+): boolean {
+  const keys = v2 ? [ownKey, SIGNUP_NUDGE_SHOWN_KEY, TUTORIAL_PROMPT_SHOWN_KEY] : [ownKey];
+  return keys.some((key) => read(key) === '1');
+}
 
 export interface SignupNudgeGate {
   /** Only guests are nudged to create an account. */
@@ -66,8 +90,24 @@ export function bankedGoldNote(gold: number | undefined): string | undefined {
  * lobby banner, the game-over prompt and the campaign gate; each body then adds
  * the detail this moment has room for, which the one-liners do not.
  */
-export function signupNudgeCopy(isWinner: boolean, gold?: number): SignupNudgeCopy {
+export function signupNudgeCopy(isWinner: boolean, gold?: number, v2 = false): SignupNudgeCopy {
   const banked = bankedGoldNote(gold);
+  // `guest_prompt_v2_enabled`: the same stake without the overstatement. The
+  // progress IS saved in this browser; another browser or cleared site data is
+  // what loses it.
+  if (v2) {
+    return isWinner
+      ? {
+          bankedGold: banked,
+          title: 'Victory!',
+          body: `You won. ${GUEST_SAVED_HERE}, on a guest account with no email or password, so another browser or cleared site data cannot reach it. ${GUEST_KEEP_EVERYWHERE_CTA_SENTENCE}: level, gold and streak, on every device.`,
+        }
+      : {
+          bankedGold: banked,
+          title: 'Saved in this browser',
+          body: `Your level, gold and streak are on a guest account with no email or password to sign back in with. Switch browsers, or clear your site data, and there is no way back to it. ${GUEST_KEEP_EVERYWHERE_CTA_SENTENCE}, anywhere you play.`,
+        };
+  }
   return isWinner
     ? {
         bankedGold: banked,

@@ -1,6 +1,21 @@
 import { describe, it, expect } from 'vitest';
-import { bankedGoldNote, shouldShowSignupNudge, signupNudgeCopy } from './signupNudge';
-import { GUEST_NO_PERSIST } from './guestGate';
+import {
+  accountModalShownThisSession,
+  bankedGoldNote,
+  shouldShowSignupNudge,
+  signupNudgeCopy,
+  SIGNUP_NUDGE_SHOWN_KEY,
+  TUTORIAL_PROMPT_SHOWN_KEY,
+} from './signupNudge';
+import {
+  CAMPAIGN_START_GATE,
+  CAMPAIGN_START_GATE_V2,
+  GUEST_NO_PERSIST,
+  GUEST_SAVED_HERE,
+  guestLine,
+  LEADERBOARD_GUEST_NOTICE,
+  LEADERBOARD_GUEST_NOTICE_V2,
+} from './guestGate';
 
 describe('shouldShowSignupNudge', () => {
   const base = { isGuest: true, flagEnabled: true, alreadyShownThisSession: false };
@@ -70,5 +85,71 @@ describe('bankedGoldNote', () => {
     expect(bankedGoldNote(undefined)).toBeUndefined();
     expect(bankedGoldNote(0)).toBeUndefined();
     expect(bankedGoldNote(-5)).toBeUndefined();
+  });
+});
+
+describe('guest prompts v2 (guest_prompt_v2_enabled)', () => {
+  it('says the progress is saved in this browser, never that it does not persist', () => {
+    const v2 = [
+      guestLine(true).statement,
+      guestLine(true).cta,
+      CAMPAIGN_START_GATE_V2.body,
+      LEADERBOARD_GUEST_NOTICE_V2.body,
+      signupNudgeCopy(true, undefined, true).body,
+      signupNudgeCopy(false, undefined, true).title,
+      signupNudgeCopy(false, undefined, true).body,
+    ];
+    for (const text of v2) {
+      expect(text).not.toContain(GUEST_NO_PERSIST);
+      expect(text.toLowerCase()).not.toContain('persist');
+    }
+    expect(guestLine(true).statement).toBe(GUEST_SAVED_HERE);
+    expect(CAMPAIGN_START_GATE_V2.body).toContain(GUEST_SAVED_HERE);
+    expect(LEADERBOARD_GUEST_NOTICE_V2.body).toContain(GUEST_SAVED_HERE);
+    expect(signupNudgeCopy(true, undefined, true).body).toContain(GUEST_SAVED_HERE);
+  });
+
+  it('still names the real stake: another browser or cleared site data', () => {
+    for (const body of [
+      CAMPAIGN_START_GATE_V2.body,
+      signupNudgeCopy(true, undefined, true).body,
+      signupNudgeCopy(false, undefined, true).body,
+    ]) {
+      expect(body.toLowerCase()).toContain('no email or password');
+      expect(body.toLowerCase()).toContain('site data');
+    }
+  });
+
+  it('leaves the v1 copy exactly as it was', () => {
+    expect(guestLine(false).statement).toBe(GUEST_NO_PERSIST);
+    expect(signupNudgeCopy(false).title).toBe(GUEST_NO_PERSIST);
+    expect(signupNudgeCopy(false, 340, false)).toEqual(signupNudgeCopy(false, 340));
+    expect(CAMPAIGN_START_GATE_V2.title).toBe(CAMPAIGN_START_GATE.title);
+    expect(LEADERBOARD_GUEST_NOTICE_V2.title).toBe(LEADERBOARD_GUEST_NOTICE.title);
+  });
+
+  it('keeps the winner\'s headline and the banked gold', () => {
+    expect(signupNudgeCopy(true, 120, true).title).toBe('Victory!');
+    expect(signupNudgeCopy(false, 120, true).bankedGold).toContain('120 gold');
+  });
+});
+
+describe('accountModalShownThisSession', () => {
+  const store = (keys: string[]) => (key: string) => (keys.includes(key) ? '1' : null);
+
+  it('off v2, each modal only counts itself, so a guest saw both', () => {
+    const read = store([TUTORIAL_PROMPT_SHOWN_KEY]);
+    expect(accountModalShownThisSession(TUTORIAL_PROMPT_SHOWN_KEY, false, read)).toBe(true);
+    expect(accountModalShownThisSession(SIGNUP_NUDGE_SHOWN_KEY, false, read)).toBe(false);
+  });
+
+  it('under v2 either modal uses up the session for both', () => {
+    expect(accountModalShownThisSession(SIGNUP_NUDGE_SHOWN_KEY, true, store([TUTORIAL_PROMPT_SHOWN_KEY]))).toBe(true);
+    expect(accountModalShownThisSession(TUTORIAL_PROMPT_SHOWN_KEY, true, store([SIGNUP_NUDGE_SHOWN_KEY]))).toBe(true);
+    expect(accountModalShownThisSession(SIGNUP_NUDGE_SHOWN_KEY, true, store([]))).toBe(false);
+  });
+
+  it('keeps the tutorial prompt key it always used', () => {
+    expect(TUTORIAL_PROMPT_SHOWN_KEY).toBe('cc-tutorial-prompt-shown');
   });
 });

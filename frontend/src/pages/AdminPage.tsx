@@ -49,6 +49,12 @@ const CLIENT_FEATURE_FLAGS = [
       'After a guest finishes a non-tutorial game, offer a one-time "save your progress" prompt (once per tab session). On by default.',
   },
   {
+    key: 'guest_prompt_v2_enabled',
+    label: 'Guest prompts: accurate line, one modal',
+    description:
+      'Every guest surface says \u201cYour progress is saved in this browser\u201d and \u201can account keeps it everywhere\u201d instead of \u201cGuest accounts do not persist across sessions\u201d, which a reload or a return visit disproves: a guest is kept by this browser\u2019s cookie. And a guest sees at most one blocking account modal per tab session: the tutorial-end prompt and the post-game nudge share one budget instead of each firing once. Off by default (dark launch) \u2014 off is the prompts exactly as before.',
+  },
+  {
     key: 'ranked_leaderboard_enabled',
     label: 'Ranked ladder surfaces',
     description:

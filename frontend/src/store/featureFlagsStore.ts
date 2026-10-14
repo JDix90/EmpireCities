@@ -10,6 +10,7 @@ export interface ClientFeatureFlags {
   hero_single_cta_enabled: boolean;
   era_advance_payoff_enabled: boolean;
   signup_nudge_enabled: boolean;
+  guest_prompt_v2_enabled: boolean;
   ranked_leaderboard_enabled: boolean;
   referral_survey_enabled: boolean;
   daily_guest_play_enabled: boolean;
@@ -57,6 +58,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   hero_single_cta_enabled: true,
   era_advance_payoff_enabled: true,
   signup_nudge_enabled: true,
+  // Guest prompts: an accurate saved-in-this-browser line, one account modal per session. Dark-launched OFF.
+  guest_prompt_v2_enabled: false,
   // OFF until the ranked ladder has enough players not to render empty.
   ranked_leaderboard_enabled: false,
   // Dark-launched OFF: it adds a prompt at the end of a first session.
@@ -172,6 +175,11 @@ export function useReferralSurveyEnabled(): boolean {
 
 export function useSignupNudgeEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.signup_nudge_enabled);
+}
+
+/** Guest prompts: an accurate saved-in-this-browser line, and one blocking account modal per tab session (utils/guestGate.ts, pages/GamePage.tsx). */
+export function useGuestPromptV2Enabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.guest_prompt_v2_enabled);
 }
 
 /** Ranked ladder surfaces: the Ranked leaderboard tab + lobby Top Commanders. */

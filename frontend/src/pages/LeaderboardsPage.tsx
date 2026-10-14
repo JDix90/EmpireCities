@@ -5,8 +5,8 @@ import SubpageShell from '../components/ui/SubpageShell';
 import clsx from 'clsx';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
-import { useRankedLeaderboardEnabled } from '../store/featureFlagsStore';
-import { LEADERBOARD_GUEST_NOTICE } from '../utils/guestGate';
+import { useGuestPromptV2Enabled, useRankedLeaderboardEnabled } from '../store/featureFlagsStore';
+import { LEADERBOARD_GUEST_NOTICE, LEADERBOARD_GUEST_NOTICE_V2 } from '../utils/guestGate';
 import type { TierInfo } from '@borderfall/shared';
 import { ownAuthUiAllowed } from '../utils/embedContext';
 
@@ -102,6 +102,7 @@ export default function LeaderboardsPage() {
   const [myRank, setMyRank] = useState<MyRankResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const { user } = useAuthStore();
+  const guestNotice = useGuestPromptV2Enabled() ? LEADERBOARD_GUEST_NOTICE_V2 : LEADERBOARD_GUEST_NOTICE;
 
   const setTab = (tab: LeaderboardTab) => {
     setData([]);
@@ -187,10 +188,10 @@ export default function LeaderboardsPage() {
           <div className="mb-4 rounded-xl border border-bf-gold/20 bg-bf-gold/5 px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-[10px] uppercase tracking-wider text-bf-muted">
-                {LEADERBOARD_GUEST_NOTICE.title}
+                {guestNotice.title}
               </p>
               <p className="text-sm text-bf-muted mt-1 leading-relaxed">
-                {LEADERBOARD_GUEST_NOTICE.body}
+                {guestNotice.body}
               </p>
             </div>
             {ownAuthUiAllowed() && (
