@@ -5,6 +5,7 @@ export interface ClientFeatureFlags {
   map_editor_enabled: boolean;
   era_advancement_lobby_enabled: boolean;
   first_turn_coach_enabled: boolean;
+  turn_recap_panel_enabled: boolean;
   turn_clarity_enabled: boolean;
   map_gestures_v2_enabled: boolean;
   onboarding_tutorial_first_enabled: boolean;
@@ -56,6 +57,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   map_editor_enabled: true,
   era_advancement_lobby_enabled: true,
   first_turn_coach_enabled: true,
+  // Desktop: the own-turn recap is a panel row, not a modal. Dark-launched OFF.
+  turn_recap_panel_enabled: false,
   turn_clarity_enabled: true,
   // Flat map: pinch zooms around the fingers, panning keeps land on screen. On by default; admin kill switch.
   map_gestures_v2_enabled: true,
@@ -164,6 +167,11 @@ export function useEraAdvancementLobbyEnabled(): boolean {
 
 export function useFirstTurnCoachEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.first_turn_coach_enabled);
+}
+
+/** Desktop: the end of your own turn adds a row to the non-blocking recap panel instead of a modal summary (pages/GamePage.tsx, components/game/AiTurnRecapPanel.tsx). */
+export function useTurnRecapPanelEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.turn_recap_panel_enabled);
 }
 
 export function useTurnClarityEnabled(): boolean {

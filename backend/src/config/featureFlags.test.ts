@@ -74,6 +74,15 @@ describe('featureFlags', () => {
     expect(featureFlags.rankedEraAdvancementEnabled).toBe(true);
   });
 
+  it('turn_recap_panel_enabled defaults to off (dark-launch) and is admin-overridable', () => {
+    expect(featureFlags.turnRecapPanelEnabled).toBe(false);
+    expect(getClientFeatureFlags().turn_recap_panel_enabled).toBe(false);
+    expect(getFeatureFlagStates().turn_recap_panel_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { turn_recap_panel_enabled: true } });
+    expect(featureFlags.turnRecapPanelEnabled).toBe(true);
+    expect(getClientFeatureFlags().turn_recap_panel_enabled).toBe(true);
+  });
+
   it('first_turn_coach_enabled defaults to on and is admin-overridable', () => {
     expect(featureFlags.firstTurnCoachEnabled).toBe(true);
     expect(getClientFeatureFlags().first_turn_coach_enabled).toBe(true);

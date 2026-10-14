@@ -91,6 +91,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Give brand-new players (0 XP, first game, globe view) place/attack/fortify prompts and an owned-territory pulse. On by default.',
   },
   {
+    key: 'turn_recap_panel_enabled',
+    label: 'Desktop: own-turn recap in the panel',
+    description:
+      'On desktop, the end of the player\u2019s own turn adds a \u201cYour turn\u201d row (battles, captures, units placed and moved) to the non-blocking recap panel in the corner, instead of opening the \u201cYour Turn Complete\u201d modal that stood between every turn and the next. Phones already skip that modal. Off by default (dark launch) \u2014 off is the turn summary exactly as before.',
+  },
+  {
     key: 'ai_attack_grind_enabled',
     label: 'AI presses attacks',
     description:

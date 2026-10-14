@@ -44,6 +44,11 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   },
   map_editor_enabled: () => envOptOut('MAP_EDITOR_ENABLED'),
   first_turn_coach_enabled: () => envOptOut('FIRST_TURN_COACH_ENABLED'),
+  // Desktop: the end of the player's own turn adds a "Your turn" row to the
+  // non-blocking recap panel instead of opening the modal "Your Turn
+  // Complete" summary, as phones already do. Every turn on a laptop opened
+  // that modal before the next one could start. Dark-launched OFF.
+  turn_recap_panel_enabled: () => envOptIn('TURN_RECAP_PANEL_ENABLED'),
   turn_clarity_enabled: () => envOptOut('TURN_CLARITY_ENABLED'),
   // Flat map gestures: pinch zooms around the point between the fingers (and
   // the wheel around the cursor) instead of the map's corner, panning keeps
@@ -304,6 +309,15 @@ export const featureFlags = {
    */
   get firstTurnCoachEnabled(): boolean {
     return overrideBool('first_turn_coach_enabled');
+  },
+
+  /**
+   * Desktop own-turn recap: a "Your turn" row in the non-blocking recap panel
+   * (AiTurnRecapPanel) instead of the modal turn summary.
+   * Default OFF; `TURN_RECAP_PANEL_ENABLED=true` or the admin override turns it on.
+   */
+  get turnRecapPanelEnabled(): boolean {
+    return overrideBool('turn_recap_panel_enabled');
   },
 
   /**
@@ -1172,6 +1186,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     map_editor_enabled: featureFlags.mapEditorEnabled,
     era_advancement_lobby_enabled: featureFlags.eraAdvancementLobbyEnabled,
     first_turn_coach_enabled: featureFlags.firstTurnCoachEnabled,
+    turn_recap_panel_enabled: featureFlags.turnRecapPanelEnabled,
     turn_clarity_enabled: featureFlags.turnClarityEnabled,
     map_gestures_v2_enabled: featureFlags.mapGesturesV2Enabled,
     onboarding_tutorial_first_enabled: featureFlags.onboardingTutorialFirstEnabled,
