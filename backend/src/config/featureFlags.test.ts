@@ -90,6 +90,15 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().daily_guest_play_enabled).toBe(false);
   });
 
+  it('map_gestures_v2_enabled defaults to off (dark-launch) and is admin-overridable', () => {
+    expect(featureFlags.mapGesturesV2Enabled).toBe(false);
+    expect(getClientFeatureFlags().map_gestures_v2_enabled).toBe(false);
+    expect(getFeatureFlagStates().map_gestures_v2_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { map_gestures_v2_enabled: true } });
+    expect(featureFlags.mapGesturesV2Enabled).toBe(true);
+    expect(getClientFeatureFlags().map_gestures_v2_enabled).toBe(true);
+  });
+
   it('turn_clarity_enabled defaults to on and is admin-overridable', () => {
     expect(featureFlags.turnClarityEnabled).toBe(true);
     setAdminConfigCacheForTests({ feature_flags: { turn_clarity_enabled: false } });

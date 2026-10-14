@@ -77,6 +77,7 @@ Env vars: a flag defaulting **on** is disabled with `X=false`; one defaulting **
 | `mapEditorEnabled` | `MAP_EDITOR_ENABLED` | **on** | Map Editor UI + custom-map publishing (draft → review → approve pipeline; kill switch in Admin → Config) |
 | `firstTurnCoachEnabled` | `FIRST_TURN_COACH_ENABLED` | **on** | Coached first turn for 0-XP players (globe, turn 1 only) |
 | `turnClarityEnabled` | `TURN_CLARITY_ENABLED` | **on** | Phase-progression bar, valid source/target highlighting, reinforcement undo |
+| `mapGesturesV2Enabled` | `MAP_GESTURES_V2_ENABLED` | off | Flat map gestures v2: pinch zooms around the two-finger midpoint and the wheel around the cursor, panning keeps at least a strip of land on screen, and double-tap counts taps only (a pinch never starts one), in canvas coordinates. The globe is unchanged |
 | `onboardingTutorialFirstEnabled` | `ONBOARDING_TUTORIAL_FIRST_ENABLED` | **on** | Landing "Play as Guest" goes straight into the tutorial match |
 | `heroSingleCtaEnabled` | `HERO_SINGLE_CTA_ENABLED` | **on** | Landing hero collapses to one dominant Play CTA |
 | `eraAdvancePayoffEnabled` | `ERA_ADVANCE_PAYOFF_ENABLED` | **on** | Celebratory modal on era advancement instead of a toast |
