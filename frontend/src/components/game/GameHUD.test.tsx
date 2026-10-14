@@ -358,6 +358,39 @@ describe('GameHUD — the eliminated player\'s way out', () => {
   });
 });
 
+describe('GameHUD — the phone menu\'s layout', () => {
+  // jsdom has no layout, so this pins the structure that keeps the phone menu
+  // from overlapping: the mobile HUD is one scrolling flex column, and a child
+  // that may shrink gets squeezed below its content as soon as Tools & options
+  // opens, painting the objectives over the action button and the tools.
+  beforeEach(() => {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+      addListener: vi.fn(), removeListener: vi.fn(),
+    }) as unknown as typeof window.matchMedia;
+    useAuthStore.setState({ user: { user_id: 'me', username: 'me', level: 1, xp: 0, mmr: 1000 } } as never);
+    useGameStore.setState({ gameState: makeState(), draftUnitsRemaining: 0, lastCombatResult: null } as never);
+  });
+
+  const column = () => screen.getByRole('tablist', { name: 'Game information' }).parentElement as HTMLElement;
+
+  it('lets nothing in the mobile HUD shrink, so the column scrolls instead', () => {
+    renderHud({ mobile: true });
+    fireEvent.click(screen.getByRole('button', { name: /Tools & options/ }));
+    expect(column().className).toContain('overflow-y-auto');
+    for (const child of Array.from(column().children)) {
+      expect(child.className).toContain('shrink-0');
+    }
+  });
+
+  it('keeps the desktop tab content as the sidebar\'s own scroller', () => {
+    renderHud();
+    const tabs = screen.getByRole('tablist', { name: 'Game information' }).nextElementSibling as HTMLElement;
+    expect(tabs.className).toContain('overflow-y-auto');
+    expect(tabs.className).toContain('min-h-0');
+  });
+});
+
 describe('GameHUD — Lane Sovereignty tracker', () => {
   const galaxyMap = {
     map_kind: 'galaxy' as const,

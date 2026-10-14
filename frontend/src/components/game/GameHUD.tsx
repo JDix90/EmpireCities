@@ -523,7 +523,11 @@ export default function GameHUD({
       </div>
 
       {/* ── Scrollable tab content ── */}
-      <div className={clsx('min-h-0', mobile ? '' : 'flex-1 overflow-y-auto')}>
+      {/* On mobile it must not shrink: it was the one child of the HUD's
+          scrolling column that could, so opening Tools & options squeezed it
+          to zero height and its content painted over the action button and
+          the tools below. Full height there, and the column scrolls. */}
+      <div className={clsx(mobile ? 'shrink-0' : 'min-h-0 flex-1 overflow-y-auto')}>
 
       {activeTab === 'status' && (
         <>
