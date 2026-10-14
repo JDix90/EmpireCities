@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { GraduationCap, ChevronDown, ChevronRight, ChevronUp, X } from 'lucide-react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { isMobileViewport, isShortViewport } from '../../utils/device';
-import { useTutorialPhoneGateVisibleEnabled } from '../../store/featureFlagsStore';
+import { useTutorialCardFadeEnabled, useTutorialPhoneGateVisibleEnabled } from '../../store/featureFlagsStore';
 import {
   TUTORIAL_MODULES,
   TUTORIAL_V2_ENABLED,
@@ -147,6 +147,24 @@ export default function TutorialOverlay({
   const [foldOverride, setFoldOverride] = useState<boolean | null>(null);
   const stepId = step?.id;
   useEffect(() => { setFoldOverride(null); }, [stepId]);
+  /**
+   * `tutorial_card_fade_enabled`: whether the card's scrolling prose has more
+   * below the fold. The welcome card was clipped mid-sentence at common
+   * heights, behind a nearly invisible scrollbar; the fade says "more".
+   */
+  const cardFade = useTutorialCardFadeEnabled();
+  const proseRef = useRef<HTMLDivElement>(null);
+  const [proseMore, setProseMore] = useState(false);
+  const measureProse = useCallback(() => {
+    const el = proseRef.current;
+    setProseMore(!!el && el.scrollHeight - el.scrollTop - el.clientHeight > 4);
+  }, []);
+  useLayoutEffect(() => {
+    if (!cardFade) return;
+    measureProse();
+    window.addEventListener('resize', measureProse);
+    return () => window.removeEventListener('resize', measureProse);
+  }, [cardFade, measureProse, stepId, whyOpen]);
   /**
    * The card that was up when a full-screen panel opened. The player read it
    * on the board and opened the panel because of it, so on a phone it folds
@@ -356,7 +374,11 @@ export default function TutorialOverlay({
           )}
         >
           {/* Prose scrolls; the actions below stay pinned to the card. */}
-          <div className={centered || compact ? 'min-h-0 overflow-y-auto' : undefined}>
+          <div
+            ref={proseRef}
+            onScroll={cardFade ? measureProse : undefined}
+            className={centered || compact ? 'min-h-0 overflow-y-auto' : undefined}
+          >
           <div className={`flex items-center justify-between mb-1 ${centered ? 'px-1' : ''}`}>
             <span className="text-[10px] text-bf-muted/60 uppercase tracking-widest">
               {t('overlay.step', { current: stepIndex + 1, total: steps.length })}
@@ -427,6 +449,14 @@ export default function TutorialOverlay({
             </p>
           )}
           </div>
+          {/* More prose below the fold: a fade over its last lines, above the buttons. */}
+          {cardFade && proseMore && (centered || compact) && (
+            <div
+              aria-hidden
+              data-testid="tutorial-prose-fade"
+              className="pointer-events-none relative -mt-10 h-10 shrink-0 bg-gradient-to-t from-bf-surface to-transparent"
+            />
+          )}
 
           {/* A panel is already open: the button would offer the panel the
               player is looking at (or one hidden behind it). */}

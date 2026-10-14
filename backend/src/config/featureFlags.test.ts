@@ -105,6 +105,15 @@ describe('featureFlags', () => {
     expect(featureFlags.turnClarityEnabled).toBe(false);
   });
 
+  it('tutorial_card_fade_enabled defaults to off (dark-launch) and is admin-overridable', () => {
+    expect(featureFlags.tutorialCardFadeEnabled).toBe(false);
+    expect(getClientFeatureFlags().tutorial_card_fade_enabled).toBe(false);
+    expect(getFeatureFlagStates().tutorial_card_fade_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { tutorial_card_fade_enabled: true } });
+    expect(featureFlags.tutorialCardFadeEnabled).toBe(true);
+    expect(getClientFeatureFlags().tutorial_card_fade_enabled).toBe(true);
+  });
+
   it('onboarding_tutorial_first_enabled and hero_single_cta_enabled default to on', () => {
     expect(featureFlags.onboardingTutorialFirstEnabled).toBe(true);
     expect(featureFlags.heroSingleCtaEnabled).toBe(true);
