@@ -45,6 +45,7 @@ export interface ClientFeatureFlags {
   phone_fortify_fit_enabled: boolean;
   in_game_mute_enabled: boolean;
   full_game_evening_enabled: boolean;
+  placement_cap_note_enabled: boolean;
   custom_lobby_fold_enabled: boolean;
   custom_round_cap_enabled: boolean;
 }
@@ -139,6 +140,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   in_game_mute_enabled: true,
   // A Full Game fits an evening: the 65% ending by default, an 80-round cap. Dark-launched OFF.
   full_game_evening_enabled: false,
+  // Placement cap note: explain the stability cap where units are placed. Dark-launched OFF.
+  placement_cap_note_enabled: false,
   // The Custom Game form folds its less-used options under Advanced. Dark-launched OFF.
   custom_lobby_fold_enabled: false,
   // The Custom Game form sets a round limit. Dark-launched OFF.
@@ -372,6 +375,11 @@ export function useInGameMuteEnabled(): boolean {
 /** A Full Game fits an evening: the 65% ending by default, an 80-round cap (utils/quickMatchPrefs.ts). */
 export function useFullGameEveningEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.full_game_evening_enabled);
+}
+
+/** Placement cap note: explain the stability deploy cap where units are placed (components/game/PlacementCapNote.tsx). */
+export function usePlacementCapNoteEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.placement_cap_note_enabled);
 }
 
 /** The Custom Game form folds its less-used options under Advanced (pages/LobbyPage.tsx). */

@@ -182,6 +182,11 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // default ran to the cap in 99% of arena games (scripts/simAiArena.ts,
   // ARENA_RULES=full-default and full-evening). Dark-launched OFF.
   full_game_evening_enabled: () => envOptIn('FULL_GAME_EVENING_ENABLED'),
+  // Placement cap note: where the player places units on an unsettled
+  // territory (stability under 50), say in words how many more it takes this
+  // turn and why, instead of "stability cap: 3 more here". A just-conquered
+  // territory (stability 30) showed no reason at all. Dark-launched OFF.
+  placement_cap_note_enabled: () => envOptIn('PLACEMENT_CAP_NOTE_ENABLED'),
   // The Custom Game form shows its main choices and folds the rest under
   // Advanced. Layout only: every choice sends what it did. Dark-launched OFF.
   custom_lobby_fold_enabled: () => envOptIn('CUSTOM_LOBBY_FOLD_ENABLED'),
@@ -616,6 +621,15 @@ export const featureFlags = {
    */
   get fullGameEveningEnabled(): boolean {
     return overrideBool('full_game_evening_enabled');
+  },
+
+  /**
+   * Placement cap note: explains the stability deploy cap where units are placed
+   * (components/game/PlacementCapNote.tsx in the territory panel).
+   * Default OFF; `PLACEMENT_CAP_NOTE_ENABLED=true` or the admin override turns it on.
+   */
+  get placementCapNoteEnabled(): boolean {
+    return overrideBool('placement_cap_note_enabled');
   },
 
   /**
@@ -1287,6 +1301,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     phone_fortify_fit_enabled: featureFlags.phoneFortifyFitEnabled,
     in_game_mute_enabled: featureFlags.inGameMuteEnabled,
     full_game_evening_enabled: featureFlags.fullGameEveningEnabled,
+    placement_cap_note_enabled: featureFlags.placementCapNoteEnabled,
     custom_lobby_fold_enabled: featureFlags.customLobbyFoldEnabled,
     custom_round_cap_enabled: featureFlags.customRoundCapEnabled,
     // Read by the Custom Game form to say whether a Space Age game can also be
