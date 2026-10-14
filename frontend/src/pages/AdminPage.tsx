@@ -402,6 +402,12 @@ const CLIENT_FEATURE_FLAGS = [
       'On desktop, during the player\u2019s own draft, when their hand holds a valid set of territory cards, the sidebar shows \u201cTrade 3 cards for +N units\u201d under the units to place, one click to redeem. Today desktop cards sit in a collapsed row in the Status tab with no prompt, while every bot trades each set the moment it has one. Phones already badge and open their cards tray. On by default; switching it off gives the sidebar exactly as before.',
   },
   {
+    key: 'battle_armies_enabled',
+    label: 'Battle result: armies left',
+    description:
+      'When the dice settle on the player\u2019s own attack, each territory name in the battle result shows the armies left on it, so a player no longer has to remember them; it follows each Attack again. A blitz labels its dice \u201cLast roll of N\u201d and its losses as the total, where it showed the last exchange\u2019s dice under every exchange\u2019s losses. Counts come from the player\u2019s own board, so fog of war is respected. Off by default (dark launch) \u2014 off is the battle result exactly as before.',
+  },
+  {
     key: 'tutorial_wrapup_to_match_enabled',
     label: 'Tutorial wrap-up starts the first match',
     description:

@@ -35,6 +35,7 @@ export interface ClientFeatureFlags {
   first_match_easy_enabled: boolean;
   tutorial_phone_gate_visible_enabled: boolean;
   desktop_card_cue_enabled: boolean;
+  battle_armies_enabled: boolean;
   tutorial_wrapup_to_match_enabled: boolean;
   first_match_primary_cta_enabled: boolean;
   phone_fortify_fit_enabled: boolean;
@@ -113,6 +114,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   tutorial_phone_gate_visible_enabled: true,
   // Desktop HUD offers a one-click card trade when a set is ready. On by default; admin kill switch.
   desktop_card_cue_enabled: true,
+  // Battle result: armies left beside both names, blitz dice marked as the last roll. Dark-launched OFF.
+  battle_armies_enabled: false,
   // The tutorial wrap-up leads into the first real match. On by default; admin kill switch.
   tutorial_wrapup_to_match_enabled: true,
   // While the next Quick Match is the first, it is the lobby's gold button. On by default; admin kill switch.
@@ -304,6 +307,11 @@ export function useTutorialPhoneGateVisibleEnabled(): boolean {
 /** Desktop HUD offers a one-click card trade during the draft when a set is ready (components/game/GameHUD.tsx). */
 export function useDesktopCardCueEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.desktop_card_cue_enabled);
+}
+
+/** Battle result: armies left beside both territory names on your own attack, and a blitz's dice labelled as its last roll (components/game/ActionModal.tsx). */
+export function useBattleArmiesEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.battle_armies_enabled);
 }
 
 /** The tutorial wrap-up's main button starts the first real match (components/game/TutorialOverlay.tsx). */

@@ -173,6 +173,12 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // already badge and open their cards tray.
   // On by default; the admin override is the kill switch.
   desktop_card_cue_enabled: () => envOptOut('DESKTOP_CARD_CUE_ENABLED'),
+  // Battle result: once the dice settle on the player's own attack, each
+  // territory name shows the armies left on it, and a blitz labels its dice
+  // "Last roll" with its losses as the total. The result showed dice and
+  // losses only, and a blitz showed its last exchange's dice under every
+  // exchange's losses. Dark-launched OFF.
+  battle_armies_enabled: () => envOptIn('BATTLE_ARMIES_ENABLED'),
   // The tutorial's wrap-up card leads into the player's first real match:
   // its main button starts a Quick Match (the Easy first match when that is
   // on) instead of keeping them on the tutorial board, and saving progress
@@ -486,6 +492,15 @@ export const featureFlags = {
    */
   get desktopCardCueEnabled(): boolean {
     return overrideBool('desktop_card_cue_enabled');
+  },
+
+  /**
+   * Battle result (CombatResultView): armies left beside both territory names on
+   * the player's own attack, and a blitz's dice labelled as its last roll.
+   * Default OFF; `BATTLE_ARMIES_ENABLED=true` or the admin override turns it on.
+   */
+  get battleArmiesEnabled(): boolean {
+    return overrideBool('battle_armies_enabled');
   },
 
   /**
@@ -1186,6 +1201,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     first_match_easy_enabled: featureFlags.firstMatchEasyEnabled,
     tutorial_phone_gate_visible_enabled: featureFlags.tutorialPhoneGateVisibleEnabled,
     desktop_card_cue_enabled: featureFlags.desktopCardCueEnabled,
+    battle_armies_enabled: featureFlags.battleArmiesEnabled,
     tutorial_wrapup_to_match_enabled: featureFlags.tutorialWrapupToMatchEnabled,
     first_match_primary_cta_enabled: featureFlags.firstMatchPrimaryCtaEnabled,
     phone_fortify_fit_enabled: featureFlags.phoneFortifyFitEnabled,
