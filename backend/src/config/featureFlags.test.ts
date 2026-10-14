@@ -338,6 +338,15 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().daily_puzzle_v2_enabled).toBe(true);
   });
 
+  it('in_game_mute_enabled defaults to off (dark-launch) and is admin-overridable', () => {
+    expect(featureFlags.inGameMuteEnabled).toBe(false);
+    expect(getClientFeatureFlags().in_game_mute_enabled).toBe(false);
+    expect(getFeatureFlagStates().in_game_mute_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { in_game_mute_enabled: true } });
+    expect(featureFlags.inGameMuteEnabled).toBe(true);
+    expect(getClientFeatureFlags().in_game_mute_enabled).toBe(true);
+  });
+
   it('phone_fortify_fit_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.phoneFortifyFitEnabled).toBe(true);
     expect(getClientFeatureFlags().phone_fortify_fit_enabled).toBe(true);

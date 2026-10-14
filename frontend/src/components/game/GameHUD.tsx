@@ -12,7 +12,7 @@ import EraTimelineStrip from './EraTimelineStrip';
 import { ERA_LABELS } from '../../constants/gameLobbyLabels';
 import { phaseAdvanceLabel, PHASE_LABELS } from '../../constants/phaseLabels';
 import { PhaseProgressBar } from './PhaseProgressBar';
-import { useDesktopCardCueEnabled, useTurnClarityEnabled } from '../../store/featureFlagsStore';
+import { useDesktopCardCueEnabled, useInGameMuteEnabled, useTurnClarityEnabled } from '../../store/featureFlagsStore';
 import { cardSetBonus, findRedeemableCardIds } from '../../utils/cardSets';
 import { getEraIdForAdvancementIndex } from '../../utils/eraAdvancement';
 import { AiBadge } from '../ui/AiBadge';
@@ -44,6 +44,10 @@ import {
   getCameraFollowPreference,
   setCameraFollowPreference,
   subscribeUserPreferences,
+  isSfxMuted,
+  setSfxMuted,
+  isMusicMuted,
+  setMusicMuted,
 } from '../../utils/userPreferences';
 import { Link } from 'react-router-dom';
 import { allyIdsOf, inOpeningCeasefire, playerGroups } from '../../utils/teams';
@@ -112,6 +116,15 @@ function readStoredHudTab(): HudTab {
   return 'status';
 }
 
+/**
+ * `in_game_mute_enabled`: the HUD's "Sound and music" switch, over the Settings
+ * page's two mutes. On while either still plays, so switching off silences
+ * both, and switching on brings both back.
+ */
+function isSoundOn(): boolean {
+  return !(isSfxMuted() && isMusicMuted());
+}
+
 export default function GameHUD({
   onAdvancePhase,
   onDraftUndo,
@@ -150,6 +163,8 @@ export default function GameHUD({
   const [activeTab, setActiveTab] = useState<HudTab>(readStoredHudTab);
   const [logUnread, setLogUnread] = useState(false);
   const [showTools, setShowTools] = useState(false);
+  const inGameMute = useInGameMuteEnabled();
+  const [soundOn, setSoundOn] = useState(isSoundOn);
   // Seed with the mount-time result so re-joining a game mid-combat doesn't
   // flash a phantom "new result" dot before the player has done anything.
   const lastResultRef = useRef(lastCombatResult);
@@ -158,6 +173,7 @@ export default function GameHUD({
   useEffect(() => subscribeUserPreferences(() => {
     setFastCombat(getFastCombatPreference());
     setCameraFollow(getCameraFollowPreference());
+    setSoundOn(isSoundOn());
   }), []);
 
   const selectTab = (tab: HudTab) => {
@@ -1168,6 +1184,25 @@ export default function GameHUD({
                 />
                 Follow the action
               </label>
+              {inGameMute && (
+                <label
+                  className="flex items-center gap-2 px-1 py-1 text-xs text-bf-muted cursor-pointer select-none"
+                  title="Sound effects and music together. Volumes, and muting just one, are in Settings."
+                >
+                  <input
+                    type="checkbox"
+                    checked={soundOn}
+                    onChange={(e) => {
+                      setSoundOn(e.target.checked);
+                      setSfxMuted(!e.target.checked);
+                      setMusicMuted(!e.target.checked);
+                    }}
+                    className="accent-bf-gold w-3 h-3"
+                    data-testid="hud-sound-toggle"
+                  />
+                  Sound and music
+                </label>
+              )}
               <Link
                 to="/settings"
                 className="block px-1 py-1 text-[11px] text-bf-muted hover:text-bf-gold transition-colors"

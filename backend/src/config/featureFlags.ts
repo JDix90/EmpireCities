@@ -191,6 +191,10 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // and a player had to know to swipe the sheet up.
   // On by default; the admin override is the kill switch.
   phone_fortify_fit_enabled: () => envOptOut('PHONE_FORTIFY_FIT_ENABLED'),
+  // In-game mute: a "Sound and music" switch in the HUD's Tools & options,
+  // which the phone menu shares, muting both at once. Music starts on the
+  // first tap and the only mutes were on the Settings page. Dark-launched OFF.
+  in_game_mute_enabled: () => envOptIn('IN_GAME_MUTE_ENABLED'),
 };
 
 /** The code default for one flag (no admin override consulted). */
@@ -515,6 +519,15 @@ export const featureFlags = {
    */
   get phoneFortifyFitEnabled(): boolean {
     return overrideBool('phone_fortify_fit_enabled');
+  },
+
+  /**
+   * In-game mute: one "Sound and music" switch in the HUD's Tools & options
+   * (desktop and the phone menu), over the Settings page's two mutes.
+   * Default OFF; `IN_GAME_MUTE_ENABLED=true` or the admin override turns it on.
+   */
+  get inGameMuteEnabled(): boolean {
+    return overrideBool('in_game_mute_enabled');
   },
 
   /**
@@ -1189,6 +1202,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     tutorial_wrapup_to_match_enabled: featureFlags.tutorialWrapupToMatchEnabled,
     first_match_primary_cta_enabled: featureFlags.firstMatchPrimaryCtaEnabled,
     phone_fortify_fit_enabled: featureFlags.phoneFortifyFitEnabled,
+    in_game_mute_enabled: featureFlags.inGameMuteEnabled,
     full_game_evening_enabled: featureFlags.fullGameEveningEnabled,
     custom_lobby_fold_enabled: featureFlags.customLobbyFoldEnabled,
     custom_round_cap_enabled: featureFlags.customRoundCapEnabled,

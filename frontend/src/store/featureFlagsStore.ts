@@ -38,6 +38,7 @@ export interface ClientFeatureFlags {
   tutorial_wrapup_to_match_enabled: boolean;
   first_match_primary_cta_enabled: boolean;
   phone_fortify_fit_enabled: boolean;
+  in_game_mute_enabled: boolean;
   full_game_evening_enabled: boolean;
   custom_lobby_fold_enabled: boolean;
   custom_round_cap_enabled: boolean;
@@ -119,6 +120,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   first_match_primary_cta_enabled: true,
   // Phone fortify: the sheet grows to show the amount and the first destination. On by default; admin kill switch.
   phone_fortify_fit_enabled: true,
+  // In-game mute: one sound and music switch in Tools & options. Dark-launched OFF.
+  in_game_mute_enabled: false,
   // A Full Game fits an evening: the 65% ending by default, an 80-round cap. Dark-launched OFF.
   full_game_evening_enabled: false,
   // The Custom Game form folds its less-used options under Advanced. Dark-launched OFF.
@@ -319,6 +322,11 @@ export function useFirstMatchPrimaryCtaEnabled(): boolean {
 /** Phone fortify: the territory sheet grows to show the amount dial and the first destination row together (components/game/TerritoryPanel.tsx). */
 export function usePhoneFortifyFitEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.phone_fortify_fit_enabled);
+}
+
+/** In-game mute: one sound and music switch in the HUD's Tools & options, on desktop and in the phone menu (components/game/GameHUD.tsx). */
+export function useInGameMuteEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.in_game_mute_enabled);
 }
 
 /** A Full Game fits an evening: the 65% ending by default, an 80-round cap (utils/quickMatchPrefs.ts). */
