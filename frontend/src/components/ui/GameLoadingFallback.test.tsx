@@ -24,7 +24,7 @@ const kindAt = (entry: string | { pathname: string; state?: unknown }) => {
 
 describe('game loading label', () => {
   afterEach(() => {
-    setFlag(false);
+    setFlag(true);
     vi.useRealTimers();
   });
 

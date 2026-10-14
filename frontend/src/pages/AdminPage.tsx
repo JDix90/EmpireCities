@@ -58,7 +58,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'results_footer_enabled',
     label: 'Results: pinned way out',
     description:
-      'At the end of a game, Rematch and Return to Lobby sit in a footer pinned to the bottom of the results, instead of below the chart, coaching and guest box, which took a scroll on a laptop and five swipes on a phone. A guest\u2019s Return to Lobby then goes straight to the lobby: the results already offered saving, so the post-game signup nudge would be the same ask twice. Off by default (dark launch) \u2014 off is the results exactly as before.',
+      'At the end of a game, Rematch and Return to Lobby sit in a footer pinned to the bottom of the results, instead of below the chart, coaching and guest box, which took a scroll on a laptop and five swipes on a phone. A guest\u2019s Return to Lobby then goes straight to the lobby: the results already offered saving, so the post-game signup nudge would be the same ask twice. On by default; switching it off gives the results exactly as before.',
   },
   {
     key: 'ranked_leaderboard_enabled',
@@ -94,7 +94,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'turn_recap_panel_enabled',
     label: 'Desktop: own-turn recap in the panel',
     description:
-      'On desktop, the end of the player\u2019s own turn adds a \u201cYour turn\u201d row (battles, captures, units placed and moved) to the non-blocking recap panel in the corner, instead of opening the \u201cYour Turn Complete\u201d modal that stood between every turn and the next. Phones already skip that modal. Off by default (dark launch) \u2014 off is the turn summary exactly as before.',
+      'On desktop, the end of the player\u2019s own turn adds a \u201cYour turn\u201d row (battles, captures, units placed and moved) to the non-blocking recap panel in the corner, instead of opening the \u201cYour Turn Complete\u201d modal that stood between every turn and the next. Phones already skip that modal. On by default; switching it off gives the turn summary exactly as before.',
   },
   {
     key: 'ai_attack_grind_enabled',
@@ -225,7 +225,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'tutorial_card_fade_enabled',
     label: 'Tutorial card: fade when there is more',
     description:
-      'When a tutorial card\u2019s text runs past the bottom of the card, a fade sits above the buttons until the player scrolls to the end, so a clipped card reads as one with more to read. The welcome card was cut mid-sentence on a 768px laptop, an iPhone 13 and an SE, behind a scrollbar that is nearly invisible. Off by default (dark launch) \u2014 off is the tutorial card exactly as before.',
+      'When a tutorial card\u2019s text runs past the bottom of the card, a fade sits above the buttons until the player scrolls to the end, so a clipped card reads as one with more to read. The welcome card was cut mid-sentence on a 768px laptop, an iPhone 13 and an SE, behind a scrollbar that is nearly invisible. On by default; switching it off gives the tutorial card exactly as before.',
   },
   {
     key: 'era_advance_payoff_enabled',
@@ -411,7 +411,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'game_loading_label_enabled',
     label: 'Game loading: label the wait',
     description:
-      'While a game\u2019s page downloads after Play Free Now or a match start, the loading screen says \u201cSetting up your practice match\u201d (or \u201cyour match\u201d) with a moving bar, and after a few seconds that a slow connection can take a little longer, instead of grey boxes and the wordmark, which a phone showed for about 8 seconds. Off by default (dark launch) \u2014 off is the loading screen exactly as before.',
+      'While a game\u2019s page downloads after Play Free Now or a match start, the loading screen says \u201cSetting up your practice match\u201d (or \u201cyour match\u201d) with a moving bar, and after a few seconds that a slow connection can take a little longer, instead of grey boxes and the wordmark, which a phone showed for about 8 seconds. On by default; switching it off gives the loading screen exactly as before.',
   },
   {
     key: 'tutorial_phone_gate_visible_enabled',
@@ -429,7 +429,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'battle_armies_enabled',
     label: 'Battle result: armies left',
     description:
-      'When the dice settle on the player\u2019s own attack, each territory name in the battle result shows the armies left on it, so a player no longer has to remember them; it follows each Attack again. A blitz labels its dice \u201cLast roll of N\u201d and its losses as the total, where it showed the last exchange\u2019s dice under every exchange\u2019s losses. Counts come from the player\u2019s own board, so fog of war is respected. Off by default (dark launch) \u2014 off is the battle result exactly as before.',
+      'When the dice settle on the player\u2019s own attack, each territory name in the battle result shows the armies left on it, so a player no longer has to remember them; it follows each Attack again. A blitz labels its dice \u201cLast roll of N\u201d and its losses as the total, where it showed the last exchange\u2019s dice under every exchange\u2019s losses. Counts come from the player\u2019s own board, so fog of war is respected. On by default; switching it off gives the battle result exactly as before.',
   },
   {
     key: 'tutorial_wrapup_to_match_enabled',
@@ -453,7 +453,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'in_game_mute_enabled',
     label: 'In-game mute switch',
     description:
-      'Adds a \u201cSound and music\u201d switch to the in-game Tools & options, on desktop and in the phone menu: off mutes both sound effects and music, on brings both back, using the same settings as the Settings page. Music starts on the first tap of a game, and the only way to silence it was to leave for Settings. Off by default (dark launch) \u2014 off is the tools exactly as before.',
+      'Adds a \u201cSound and music\u201d switch to the in-game Tools & options, on desktop and in the phone menu: off mutes both sound effects and music, on brings both back, using the same settings as the Settings page. Music starts on the first tap of a game, and the only way to silence it was to leave for Settings. On by default; switching it off gives the tools exactly as before.',
   },
   {
     key: 'full_game_evening_enabled',

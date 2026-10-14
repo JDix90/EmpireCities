@@ -47,8 +47,9 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // Desktop: the end of the player's own turn adds a "Your turn" row to the
   // non-blocking recap panel instead of opening the modal "Your Turn
   // Complete" summary, as phones already do. Every turn on a laptop opened
-  // that modal before the next one could start. Dark-launched OFF.
-  turn_recap_panel_enabled: () => envOptIn('TURN_RECAP_PANEL_ENABLED'),
+  // that modal before the next one could start.
+  // On by default; the admin override is the kill switch.
+  turn_recap_panel_enabled: () => envOptOut('TURN_RECAP_PANEL_ENABLED'),
   turn_clarity_enabled: () => envOptOut('TURN_CLARITY_ENABLED'),
   // Flat map gestures: pinch zooms around the point between the fingers (and
   // the wheel around the cursor) instead of the map's corner, panning keeps
@@ -61,8 +62,9 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // Tutorial card: while its prose has more below the fold, a fade sits above
   // the buttons. The welcome card was clipped mid-sentence on a 768px laptop,
   // an iPhone 13 and an SE, and its scrollbar is nearly invisible, so nothing
-  // said there was more to read. Dark-launched OFF.
-  tutorial_card_fade_enabled: () => envOptIn('TUTORIAL_CARD_FADE_ENABLED'),
+  // said there was more to read.
+  // On by default; the admin override is the kill switch.
+  tutorial_card_fade_enabled: () => envOptOut('TUTORIAL_CARD_FADE_ENABLED'),
   hero_single_cta_enabled: () => envOptOut('HERO_SINGLE_CTA_ENABLED'),
   era_advance_payoff_enabled: () => envOptOut('ERA_ADVANCE_PAYOFF_ENABLED'),
   era_advancement_lobby_enabled: () => envOptOut('ERA_ADVANCEMENT_LOBBY_ENABLED'),
@@ -82,8 +84,9 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // bottom of the results, instead of below the chart, coaching and guest box
   // (a scroll on a laptop, five swipes on a phone). And a guest's Return to
   // Lobby goes straight there: the results already offered saving, so the
-  // signup nudge would be the same ask twice. Dark-launched OFF.
-  results_footer_enabled: () => envOptIn('RESULTS_FOOTER_ENABLED'),
+  // signup nudge would be the same ask twice.
+  // On by default; the admin override is the kill switch.
+  results_footer_enabled: () => envOptOut('RESULTS_FOOTER_ENABLED'),
   ranked_leaderboard_enabled: () => envOptIn('RANKED_LEADERBOARD_ENABLED'),
   referral_survey_enabled: () => envOptIn('REFERRAL_SURVEY_ENABLED'),
   daily_guest_play_enabled: () => envOptOut('DAILY_GUEST_PLAY_ENABLED'),
@@ -172,8 +175,8 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // ("Setting up your practice match") with a moving bar, and owns up to a
   // slow connection after a few seconds, instead of grey boxes and the
   // wordmark: 8 seconds of that on a phone line after Play Free Now.
-  // Dark-launched OFF.
-  game_loading_label_enabled: () => envOptIn('GAME_LOADING_LABEL_ENABLED'),
+  // On by default; the admin override is the kill switch.
+  game_loading_label_enabled: () => envOptOut('GAME_LOADING_LABEL_ENABLED'),
   // A Full Game fits an evening: the lobby defaults it to the 65% ending and
   // caps every ending at 80 rounds instead of 150, where the full-board
   // default ran to the cap in 99% of arena games (scripts/simAiArena.ts,
@@ -199,8 +202,9 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // territory name shows the armies left on it, and a blitz labels its dice
   // "Last roll" with its losses as the total. The result showed dice and
   // losses only, and a blitz showed its last exchange's dice under every
-  // exchange's losses. Dark-launched OFF.
-  battle_armies_enabled: () => envOptIn('BATTLE_ARMIES_ENABLED'),
+  // exchange's losses.
+  // On by default; the admin override is the kill switch.
+  battle_armies_enabled: () => envOptOut('BATTLE_ARMIES_ENABLED'),
   // The tutorial's wrap-up card leads into the player's first real match:
   // its main button starts a Quick Match (the Easy first match when that is
   // on) instead of keeping them on the tutorial board, and saving progress
@@ -221,8 +225,9 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   phone_fortify_fit_enabled: () => envOptOut('PHONE_FORTIFY_FIT_ENABLED'),
   // In-game mute: a "Sound and music" switch in the HUD's Tools & options,
   // which the phone menu shares, muting both at once. Music starts on the
-  // first tap and the only mutes were on the Settings page. Dark-launched OFF.
-  in_game_mute_enabled: () => envOptIn('IN_GAME_MUTE_ENABLED'),
+  // first tap and the only mutes were on the Settings page.
+  // On by default; the admin override is the kill switch.
+  in_game_mute_enabled: () => envOptOut('IN_GAME_MUTE_ENABLED'),
 };
 
 /** The code default for one flag (no admin override consulted). */
@@ -335,7 +340,7 @@ export const featureFlags = {
   /**
    * Desktop own-turn recap: a "Your turn" row in the non-blocking recap panel
    * (AiTurnRecapPanel) instead of the modal turn summary.
-   * Default OFF; `TURN_RECAP_PANEL_ENABLED=true` or the admin override turns it on.
+   * Default ON; `TURN_RECAP_PANEL_ENABLED=false` or the admin override turns it off.
    */
   get turnRecapPanelEnabled(): boolean {
     return overrideBool('turn_recap_panel_enabled');
@@ -374,7 +379,7 @@ export const featureFlags = {
   /**
    * Tutorial card fade (TutorialOverlay): a fade above the buttons while the
    * card's scrolling prose has more below the fold.
-   * Default OFF; `TUTORIAL_CARD_FADE_ENABLED=true` or the admin override turns it on.
+   * Default ON; `TUTORIAL_CARD_FADE_ENABLED=false` or the admin override turns it off.
    */
   get tutorialCardFadeEnabled(): boolean {
     return overrideBool('tutorial_card_fade_enabled');
@@ -443,7 +448,7 @@ export const featureFlags = {
   /**
    * Game results: Rematch and Return to Lobby pinned in a footer, and no
    * signup nudge on a guest's Return to Lobby after the results offered saving.
-   * Default OFF; `RESULTS_FOOTER_ENABLED=true` or the admin override turns it on.
+   * Default ON; `RESULTS_FOOTER_ENABLED=false` or the admin override turns it off.
    */
   get resultsFooterEnabled(): boolean {
     return overrideBool('results_footer_enabled');
@@ -529,7 +534,7 @@ export const featureFlags = {
   /**
    * Game loading label: the route skeleton on /tutorial and /game/ names the
    * match being set up and shows a moving bar (components/ui/GameLoadingFallback).
-   * Default OFF; `GAME_LOADING_LABEL_ENABLED=true` or the admin override turns it on.
+   * Default ON; `GAME_LOADING_LABEL_ENABLED=false` or the admin override turns it off.
    */
   get gameLoadingLabelEnabled(): boolean {
     return overrideBool('game_loading_label_enabled');
@@ -559,7 +564,7 @@ export const featureFlags = {
   /**
    * Battle result (CombatResultView): armies left beside both territory names on
    * the player's own attack, and a blitz's dice labelled as its last roll.
-   * Default OFF; `BATTLE_ARMIES_ENABLED=true` or the admin override turns it on.
+   * Default ON; `BATTLE_ARMIES_ENABLED=false` or the admin override turns it off.
    */
   get battleArmiesEnabled(): boolean {
     return overrideBool('battle_armies_enabled');
@@ -597,7 +602,7 @@ export const featureFlags = {
   /**
    * In-game mute: one "Sound and music" switch in the HUD's Tools & options
    * (desktop and the phone menu), over the Settings page's two mutes.
-   * Default OFF; `IN_GAME_MUTE_ENABLED=true` or the admin override turns it on.
+   * Default ON; `IN_GAME_MUTE_ENABLED=false` or the admin override turns it off.
    */
   get inGameMuteEnabled(): boolean {
     return overrideBool('in_game_mute_enabled');

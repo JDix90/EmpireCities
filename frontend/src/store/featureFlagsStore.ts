@@ -61,21 +61,21 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   map_editor_enabled: true,
   era_advancement_lobby_enabled: true,
   first_turn_coach_enabled: true,
-  // Desktop: the own-turn recap is a panel row, not a modal. Dark-launched OFF.
-  turn_recap_panel_enabled: false,
+  // Desktop: the own-turn recap is a panel row, not a modal. On by default; admin kill switch.
+  turn_recap_panel_enabled: true,
   turn_clarity_enabled: true,
   // Flat map: pinch zooms around the fingers, panning keeps land on screen. On by default; admin kill switch.
   map_gestures_v2_enabled: true,
   onboarding_tutorial_first_enabled: true,
-  // Tutorial card: a fade above the buttons while there is more to read. Dark-launched OFF.
-  tutorial_card_fade_enabled: false,
+  // Tutorial card: a fade above the buttons while there is more to read. On by default; admin kill switch.
+  tutorial_card_fade_enabled: true,
   hero_single_cta_enabled: true,
   era_advance_payoff_enabled: true,
   signup_nudge_enabled: true,
   // Guest prompts: an accurate saved-in-this-browser line, one account modal per session. On by default; admin kill switch.
   guest_prompt_v2_enabled: true,
-  // Results: Rematch and Return to Lobby pinned, no second account ask. Dark-launched OFF.
-  results_footer_enabled: false,
+  // Results: Rematch and Return to Lobby pinned, no second account ask. On by default; admin kill switch.
+  results_footer_enabled: true,
   // OFF until the ranked ladder has enough players not to render empty.
   ranked_leaderboard_enabled: false,
   // Dark-launched OFF: it adds a prompt at the end of a first session.
@@ -121,22 +121,22 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   store_v2_enabled: true,
   // A player's first Quick Match is one Easy bot on a small map. On by default; admin kill switch.
   first_match_easy_enabled: true,
-  // Game loading: the skeleton names the match being set up. Dark-launched OFF.
-  game_loading_label_enabled: false,
+  // Game loading: the skeleton names the match being set up. On by default; admin kill switch.
+  game_loading_label_enabled: true,
   // Phone tutorial keeps the tech tree's controls in view at the era gate. On by default; admin kill switch.
   tutorial_phone_gate_visible_enabled: true,
   // Desktop HUD offers a one-click card trade when a set is ready. On by default; admin kill switch.
   desktop_card_cue_enabled: true,
-  // Battle result: armies left beside both names, blitz dice marked as the last roll. Dark-launched OFF.
-  battle_armies_enabled: false,
+  // Battle result: armies left beside both names, blitz dice marked as the last roll. On by default; admin kill switch.
+  battle_armies_enabled: true,
   // The tutorial wrap-up leads into the first real match. On by default; admin kill switch.
   tutorial_wrapup_to_match_enabled: true,
   // While the next Quick Match is the first, it is the lobby's gold button. On by default; admin kill switch.
   first_match_primary_cta_enabled: true,
   // Phone fortify: the sheet grows to show the amount and the first destination. On by default; admin kill switch.
   phone_fortify_fit_enabled: true,
-  // In-game mute: one sound and music switch in Tools & options. Dark-launched OFF.
-  in_game_mute_enabled: false,
+  // In-game mute: one sound and music switch in Tools & options. On by default; admin kill switch.
+  in_game_mute_enabled: true,
   // A Full Game fits an evening: the 65% ending by default, an 80-round cap. Dark-launched OFF.
   full_game_evening_enabled: false,
   // The Custom Game form folds its less-used options under Advanced. Dark-launched OFF.
