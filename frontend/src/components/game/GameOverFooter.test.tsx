@@ -42,7 +42,7 @@ describe('game results footer', () => {
       isAuthenticated: true,
     });
   });
-  afterEach(() => setFlag(false));
+  afterEach(() => setFlag(true));
 
   it('pins Rematch and Return to Lobby in the footer with the flag on', () => {
     setFlag(true);

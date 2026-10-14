@@ -55,7 +55,7 @@ describe('battle result armies', () => {
   });
   afterEach(() => {
     vi.useRealTimers();
-    setFlag(false);
+    setFlag(true);
     useGameStore.setState({ gameState: null });
   });
 

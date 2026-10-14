@@ -542,7 +542,7 @@ describe('tutorial card fade (tutorial_card_fade_enabled)', () => {
   afterEach(() => {
     spies.forEach((s) => s.mockRestore());
     spies = [];
-    setFade(false);
+    setFade(true);
   });
 
   it('fades the last lines while the prose runs past the card, until scrolled to the end', () => {
