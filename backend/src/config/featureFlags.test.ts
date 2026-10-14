@@ -90,13 +90,13 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().daily_guest_play_enabled).toBe(false);
   });
 
-  it('map_gestures_v2_enabled defaults to off (dark-launch) and is admin-overridable', () => {
-    expect(featureFlags.mapGesturesV2Enabled).toBe(false);
-    expect(getClientFeatureFlags().map_gestures_v2_enabled).toBe(false);
-    expect(getFeatureFlagStates().map_gestures_v2_enabled).toEqual({ code_default: false, overridden: false, effective: false });
-    setAdminConfigCacheForTests({ feature_flags: { map_gestures_v2_enabled: true } });
+  it('map_gestures_v2_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.mapGesturesV2Enabled).toBe(true);
     expect(getClientFeatureFlags().map_gestures_v2_enabled).toBe(true);
+    expect(getFeatureFlagStates().map_gestures_v2_enabled).toEqual({ code_default: true, overridden: false, effective: true });
+    setAdminConfigCacheForTests({ feature_flags: { map_gestures_v2_enabled: false } });
+    expect(featureFlags.mapGesturesV2Enabled).toBe(false);
+    expect(getClientFeatureFlags().map_gestures_v2_enabled).toBe(false);
   });
 
   it('turn_clarity_enabled defaults to on and is admin-overridable', () => {
@@ -124,13 +124,13 @@ describe('featureFlags', () => {
     expect(featureFlags.retentionNotificationsEnabled).toBe(true);
   });
 
-  it('guest_prompt_v2_enabled defaults to off (dark-launch) and is admin-overridable', () => {
-    expect(featureFlags.guestPromptV2Enabled).toBe(false);
-    expect(getClientFeatureFlags().guest_prompt_v2_enabled).toBe(false);
-    expect(getFeatureFlagStates().guest_prompt_v2_enabled).toEqual({ code_default: false, overridden: false, effective: false });
-    setAdminConfigCacheForTests({ feature_flags: { guest_prompt_v2_enabled: true } });
+  it('guest_prompt_v2_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.guestPromptV2Enabled).toBe(true);
     expect(getClientFeatureFlags().guest_prompt_v2_enabled).toBe(true);
+    expect(getFeatureFlagStates().guest_prompt_v2_enabled).toEqual({ code_default: true, overridden: false, effective: true });
+    setAdminConfigCacheForTests({ feature_flags: { guest_prompt_v2_enabled: false } });
+    expect(featureFlags.guestPromptV2Enabled).toBe(false);
+    expect(getClientFeatureFlags().guest_prompt_v2_enabled).toBe(false);
   });
 
   it('signup_nudge_enabled defaults to on and is admin-overridable', () => {
@@ -338,13 +338,13 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().daily_puzzle_v2_enabled).toBe(true);
   });
 
-  it('phone_fortify_fit_enabled defaults to off (dark-launch) and is admin-overridable', () => {
-    expect(featureFlags.phoneFortifyFitEnabled).toBe(false);
-    expect(getClientFeatureFlags().phone_fortify_fit_enabled).toBe(false);
-    expect(getFeatureFlagStates().phone_fortify_fit_enabled).toEqual({ code_default: false, overridden: false, effective: false });
-    setAdminConfigCacheForTests({ feature_flags: { phone_fortify_fit_enabled: true } });
+  it('phone_fortify_fit_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.phoneFortifyFitEnabled).toBe(true);
     expect(getClientFeatureFlags().phone_fortify_fit_enabled).toBe(true);
+    expect(getFeatureFlagStates().phone_fortify_fit_enabled).toEqual({ code_default: true, overridden: false, effective: true });
+    setAdminConfigCacheForTests({ feature_flags: { phone_fortify_fit_enabled: false } });
+    expect(featureFlags.phoneFortifyFitEnabled).toBe(false);
+    expect(getClientFeatureFlags().phone_fortify_fit_enabled).toBe(false);
   });
 
   it('first_match_primary_cta_enabled defaults to on and the admin override is its kill switch', () => {

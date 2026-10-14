@@ -52,7 +52,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'guest_prompt_v2_enabled',
     label: 'Guest prompts: accurate line, one modal',
     description:
-      'Every guest surface says \u201cYour progress is saved in this browser\u201d and \u201can account keeps it everywhere\u201d instead of \u201cGuest accounts do not persist across sessions\u201d, which a reload or a return visit disproves: a guest is kept by this browser\u2019s cookie. And a guest sees at most one blocking account modal per tab session: the tutorial-end prompt and the post-game nudge share one budget instead of each firing once. Off by default (dark launch) \u2014 off is the prompts exactly as before.',
+      'Every guest surface says \u201cYour progress is saved in this browser\u201d and \u201can account keeps it everywhere\u201d instead of \u201cGuest accounts do not persist across sessions\u201d, which a reload or a return visit disproves: a guest is kept by this browser\u2019s cookie. And a guest sees at most one blocking account modal per tab session: the tutorial-end prompt and the post-game nudge share one budget instead of each firing once. On by default; switching it off gives the prompts exactly as before.',
   },
   {
     key: 'ranked_leaderboard_enabled',
@@ -201,7 +201,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'map_gestures_v2_enabled',
     label: 'Map gestures: zoom around the fingers',
     description:
-      'On the flat map, a pinch zooms around the point between the fingers and the mouse wheel around the cursor, instead of around the map\u2019s top-left corner; panning stops while some land is still on screen; and a pinch never counts as half of a double-tap. A pinch on a phone used to slide the board off-screen, leaving a blank map that only Reset brought back. The globe is unchanged. Off by default (dark launch) \u2014 off is the map\u2019s gestures exactly as before.',
+      'On the flat map, a pinch zooms around the point between the fingers and the mouse wheel around the cursor, instead of around the map\u2019s top-left corner; panning stops while some land is still on screen; and a pinch never counts as half of a double-tap. A pinch on a phone used to slide the board off-screen, leaving a blank map that only Reset brought back. The globe is unchanged. On by default; switching it off gives the map\u2019s gestures exactly as before.',
   },
   {
     key: 'onboarding_tutorial_first_enabled',
@@ -417,7 +417,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'phone_fortify_fit_enabled',
     label: 'Phone fortify: show the destinations',
     description:
-      'On a phone, when a player picks a territory to fortify from, the bottom sheet grows just enough to show the amount and the first row of destinations together, up to the sheet\u2019s full height, so the map stays the larger half. At the fixed default height the destinations sat below the fold and a player had to know to swipe the sheet up. Desktop is unchanged. Off by default (dark launch) \u2014 off is the sheet exactly as before.',
+      'On a phone, when a player picks a territory to fortify from, the bottom sheet grows just enough to show the amount and the first row of destinations together, up to the sheet\u2019s full height, so the map stays the larger half. At the fixed default height the destinations sat below the fold and a player had to know to swipe the sheet up. Desktop is unchanged. On by default; switching it off gives the sheet exactly as before.',
   },
   {
     key: 'full_game_evening_enabled',

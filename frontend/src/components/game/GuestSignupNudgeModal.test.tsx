@@ -25,9 +25,11 @@ describe('GuestSignupNudgeModal', () => {
     expect(screen.getByText('Victory!')).toBeInTheDocument();
   });
 
-  it('shows neutral copy on a loss/finish', () => {
+  it('shows neutral copy on a loss/finish (the v1 copy, guest_prompt_v2_enabled switched off)', () => {
+    useFeatureFlagsStore.setState((st) => ({ flags: { ...st.flags, guest_prompt_v2_enabled: false } }));
     renderModal(false);
     expect(screen.getByText(GUEST_NO_PERSIST)).toBeInTheDocument();
+    useFeatureFlagsStore.setState((st) => ({ flags: { ...st.flags, guest_prompt_v2_enabled: true } }));
   });
 
   it('names why an account matters instead of promising vague permanence', () => {
@@ -68,7 +70,8 @@ describe('GuestSignupNudgeModal', () => {
 describe('guest prompts v2 (guest_prompt_v2_enabled)', () => {
   const setV2 = (on: boolean) =>
     useFeatureFlagsStore.setState((st) => ({ flags: { ...st.flags, guest_prompt_v2_enabled: on } }));
-  afterEach(() => setV2(false));
+  // On by default: put it back after each case.
+  afterEach(() => setV2(true));
 
   it('titles the nudge "Saved in this browser" instead of "do not persist"', () => {
     setV2(true);

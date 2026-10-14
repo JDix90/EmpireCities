@@ -49,8 +49,9 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // the wheel around the cursor) instead of the map's corner, panning keeps
   // some land on screen, and a pinch never counts towards a double-tap. A pinch
   // used to slide the board off-screen on a phone, leaving a blank map that
-  // only Reset brought back. Dark-launched OFF.
-  map_gestures_v2_enabled: () => envOptIn('MAP_GESTURES_V2_ENABLED'),
+  // only Reset brought back.
+  // On by default; the admin override is the kill switch.
+  map_gestures_v2_enabled: () => envOptOut('MAP_GESTURES_V2_ENABLED'),
   onboarding_tutorial_first_enabled: () => envOptOut('ONBOARDING_TUTORIAL_FIRST_ENABLED'),
   hero_single_cta_enabled: () => envOptOut('HERO_SINGLE_CTA_ENABLED'),
   era_advance_payoff_enabled: () => envOptOut('ERA_ADVANCE_PAYOFF_ENABLED'),
@@ -64,8 +65,9 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // browser" and "an account keeps it everywhere", instead of "Guest accounts
   // do not persist across sessions", which a reload or a return visit disproves.
   // And at most one blocking account modal per tab session: the tutorial-end
-  // prompt and the post-game nudge share one budget. Dark-launched OFF.
-  guest_prompt_v2_enabled: () => envOptIn('GUEST_PROMPT_V2_ENABLED'),
+  // prompt and the post-game nudge share one budget.
+  // On by default; the admin override is the kill switch.
+  guest_prompt_v2_enabled: () => envOptOut('GUEST_PROMPT_V2_ENABLED'),
   ranked_leaderboard_enabled: () => envOptIn('RANKED_LEADERBOARD_ENABLED'),
   referral_survey_enabled: () => envOptIn('REFERRAL_SURVEY_ENABLED'),
   daily_guest_play_enabled: () => envOptOut('DAILY_GUEST_PLAY_ENABLED'),
@@ -186,8 +188,9 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // Phone fortify: the territory sheet's peek snap grows to show the amount
   // dial and the first destination row together, measured on the device, up to
   // the full snap. At the fixed 36vh peek the destinations sat below the fold
-  // and a player had to know to swipe the sheet up. Dark-launched OFF.
-  phone_fortify_fit_enabled: () => envOptIn('PHONE_FORTIFY_FIT_ENABLED'),
+  // and a player had to know to swipe the sheet up.
+  // On by default; the admin override is the kill switch.
+  phone_fortify_fit_enabled: () => envOptOut('PHONE_FORTIFY_FIT_ENABLED'),
 };
 
 /** The code default for one flag (no admin override consulted). */
@@ -311,7 +314,7 @@ export const featureFlags = {
    * Flat map gestures v2 (GameMap): zoom around the two-finger midpoint or the
    * cursor, bounded panning, and double-tap measured on taps only, in canvas
    * coordinates.
-   * Default OFF; `MAP_GESTURES_V2_ENABLED=true` or the admin override turns it on.
+   * Default ON; `MAP_GESTURES_V2_ENABLED=false` or the admin override turns it off.
    */
   get mapGesturesV2Enabled(): boolean {
     return overrideBool('map_gestures_v2_enabled');
@@ -381,7 +384,7 @@ export const featureFlags = {
    * Guest account prompts v2: one accurate line about where a guest's progress
    * lives (this browser; an account keeps it everywhere), and one blocking
    * account modal per tab session across the tutorial prompt and the nudge.
-   * Default OFF; `GUEST_PROMPT_V2_ENABLED=true` or the admin override turns it on.
+   * Default ON; `GUEST_PROMPT_V2_ENABLED=false` or the admin override turns it off.
    */
   get guestPromptV2Enabled(): boolean {
     return overrideBool('guest_prompt_v2_enabled');
@@ -508,7 +511,7 @@ export const featureFlags = {
   /**
    * Phone fortify: the territory sheet grows to fit the amount dial and the
    * first destination row together (TerritoryPanel), capped at the full snap.
-   * Default OFF; `PHONE_FORTIFY_FIT_ENABLED=true` or the admin override turns it on.
+   * Default ON; `PHONE_FORTIFY_FIT_ENABLED=false` or the admin override turns it off.
    */
   get phoneFortifyFitEnabled(): boolean {
     return overrideBool('phone_fortify_fit_enabled');
