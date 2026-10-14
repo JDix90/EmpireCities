@@ -410,6 +410,15 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().tutorial_phone_gate_visible_enabled).toBe(false);
   });
 
+  it('game_loading_label_enabled defaults to off (dark-launch) and is admin-overridable', () => {
+    expect(featureFlags.gameLoadingLabelEnabled).toBe(false);
+    expect(getClientFeatureFlags().game_loading_label_enabled).toBe(false);
+    expect(getFeatureFlagStates().game_loading_label_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { game_loading_label_enabled: true } });
+    expect(featureFlags.gameLoadingLabelEnabled).toBe(true);
+    expect(getClientFeatureFlags().game_loading_label_enabled).toBe(true);
+  });
+
   it('first_match_easy_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.firstMatchEasyEnabled).toBe(true);
     expect(getClientFeatureFlags().first_match_easy_enabled).toBe(true);

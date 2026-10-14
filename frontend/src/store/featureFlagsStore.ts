@@ -35,6 +35,7 @@ export interface ClientFeatureFlags {
   store_v2_enabled: boolean;
   space_age_moon_race_enabled: boolean;
   first_match_easy_enabled: boolean;
+  game_loading_label_enabled: boolean;
   tutorial_phone_gate_visible_enabled: boolean;
   desktop_card_cue_enabled: boolean;
   battle_armies_enabled: boolean;
@@ -116,6 +117,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   store_v2_enabled: true,
   // A player's first Quick Match is one Easy bot on a small map. On by default; admin kill switch.
   first_match_easy_enabled: true,
+  // Game loading: the skeleton names the match being set up. Dark-launched OFF.
+  game_loading_label_enabled: false,
   // Phone tutorial keeps the tech tree's controls in view at the era gate. On by default; admin kill switch.
   tutorial_phone_gate_visible_enabled: true,
   // Desktop HUD offers a one-click card trade when a set is ready. On by default; admin kill switch.
@@ -313,6 +316,11 @@ export function useSpaceAgeMoonRaceEnabled(): boolean {
 /** A player's first Quick Match is one Easy bot on a small map (utils/firstMatch.ts). */
 export function useFirstMatchEasyEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.first_match_easy_enabled);
+}
+
+/** Game loading: the route skeleton on /tutorial and /game/ names the match being set up (components/ui/GameLoadingFallback.tsx). */
+export function useGameLoadingLabelEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.game_loading_label_enabled);
 }
 
 /** Phone tutorial keeps the tech tree's controls in view at the era gate (components/game/TutorialOverlay.tsx). */

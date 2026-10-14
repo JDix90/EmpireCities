@@ -163,6 +163,12 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // winnable (scripts/simFirstMatch.ts measured the choice).
   // On by default; the admin override is the kill switch.
   first_match_easy_enabled: () => envOptOut('FIRST_MATCH_EASY_ENABLED'),
+  // While a game's page downloads, the route skeleton says what is happening
+  // ("Setting up your practice match") with a moving bar, and owns up to a
+  // slow connection after a few seconds, instead of grey boxes and the
+  // wordmark: 8 seconds of that on a phone line after Play Free Now.
+  // Dark-launched OFF.
+  game_loading_label_enabled: () => envOptIn('GAME_LOADING_LABEL_ENABLED'),
   // A Full Game fits an evening: the lobby defaults it to the 65% ending and
   // caps every ending at 80 rounds instead of 150, where the full-board
   // default ran to the cap in 99% of arena games (scripts/simAiArena.ts,
@@ -500,6 +506,15 @@ export const featureFlags = {
    */
   get firstMatchEasyEnabled(): boolean {
     return overrideBool('first_match_easy_enabled');
+  },
+
+  /**
+   * Game loading label: the route skeleton on /tutorial and /game/ names the
+   * match being set up and shows a moving bar (components/ui/GameLoadingFallback).
+   * Default OFF; `GAME_LOADING_LABEL_ENABLED=true` or the admin override turns it on.
+   */
+  get gameLoadingLabelEnabled(): boolean {
+    return overrideBool('game_loading_label_enabled');
   },
 
   /**
@@ -1230,6 +1245,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     daily_puzzle_v2_enabled: featureFlags.dailyPuzzleV2Enabled,
     store_v2_enabled: featureFlags.storeV2Enabled,
     first_match_easy_enabled: featureFlags.firstMatchEasyEnabled,
+    game_loading_label_enabled: featureFlags.gameLoadingLabelEnabled,
     tutorial_phone_gate_visible_enabled: featureFlags.tutorialPhoneGateVisibleEnabled,
     desktop_card_cue_enabled: featureFlags.desktopCardCueEnabled,
     battle_armies_enabled: featureFlags.battleArmiesEnabled,
