@@ -209,7 +209,7 @@ export default function TerritoryListDialog({
                           onClose();
                         }}
                         aria-current={selected ? 'true' : undefined}
-                        className={`w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left text-sm transition-colors ${
+                        className={`tap-min w-full flex items-center gap-2 rounded-lg px-2 py-2 text-left text-sm transition-colors ${
                           selected ? 'bg-bf-gold/20 text-bf-gold' : 'text-bf-text hover:bg-bf-dark/70'
                         }`}
                       >

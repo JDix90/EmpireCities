@@ -32,6 +32,7 @@ export interface ClientFeatureFlags {
   warfront_enabled: boolean;
   galaxy_tutorial_enabled: boolean;
   localization_enabled: boolean;
+  touch_targets_enabled: boolean;
   daily_puzzle_v2_enabled: boolean;
   store_v2_enabled: boolean;
   space_age_moon_race_enabled: boolean;
@@ -113,6 +114,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   // Localized landing + tutorial (src/i18n). Dark-launched OFF: the bundles
   // ship but everyone sees English until an operator turns this on.
   localization_enabled: false,
+  // Touch targets: 44px touch areas for small controls on touch screens. Dark-launched OFF.
+  touch_targets_enabled: false,
   // Daily Challenge v2 (decision puzzles graded by an exact solver). Dark-launched
   // OFF; the server decides which days are v2, the client renders what it is sent.
   daily_puzzle_v2_enabled: false,
@@ -296,6 +299,11 @@ export function useBackgroundMusicEnabled(): boolean {
  */
 export function useLocalizationEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.localization_enabled);
+}
+
+/** Touch targets: 44px touch areas for small game controls on touch screens (hooks/useTouchTargetsRoot.ts marks the document; index.css does the rest). */
+export function useTouchTargetsEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.touch_targets_enabled);
 }
 
 /**

@@ -17,6 +17,7 @@ import { lazyWithChunkRetry } from './utils/lazyWithChunkRetry';
 import { isSafeInternalPath } from './utils/navRedirect';
 import { APP_NAME_NAV } from './constants/brand';
 import { applyAccessibilityDomPrefs, subscribeUserPreferences } from './utils/userPreferences';
+import { useTouchTargetsRoot } from './hooks/useTouchTargetsRoot';
 import GameLoadingFallback, { useGameLoadingKind } from './components/ui/GameLoadingFallback';
 
 // Pages — every route uses `lazyWithChunkRetry` so a stale tab that requests
@@ -243,6 +244,8 @@ export default function App() {
     applyAccessibilityDomPrefs();
     return subscribeUserPreferences(applyAccessibilityDomPrefs);
   }, []);
+  // Phone touch targets (`touch_targets_enabled`): marks the document for index.css.
+  useTouchTargetsRoot();
 
   // Bootstrap auth on app load. Because access tokens are no longer persisted
   // to localStorage (they live in memory only — see authStore.ts), every page

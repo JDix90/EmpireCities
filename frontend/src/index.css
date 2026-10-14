@@ -88,6 +88,51 @@
   .badge {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
   }
+
+  /* Touch targets (`touch_targets_enabled`, which sets data-touch-targets on
+     the root): on a touch screen, small controls get a 44px touch area.
+     .tap-target keeps a compact icon's painted size and widens only what a
+     finger can hit, with an invisible box centred on it; its `relative` is
+     zero-specificity, so a control's own absolute/fixed/sticky still wins.
+     .tap-min grows rows and text buttons to 44px, over their min-h utilities.
+     Without the root mark, or with a mouse, both do nothing. */
+  @media (pointer: coarse) {
+    :where(:root[data-touch-targets]) .tap-target {
+      position: relative;
+    }
+
+    :where(:root[data-touch-targets]) .tap-target::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: max(100%, 44px);
+      height: max(100%, 44px);
+      transform: translate(-50%, -50%);
+    }
+
+    :root[data-touch-targets] .tap-min {
+      min-height: 44px;
+      min-width: 44px;
+    }
+
+    /* A control in the top-right corner of a scrolling box, which clips
+       anything outside it: sit flush in the corner (an absolute one pinned to
+       its box's top edge) and grow the touch area left and down instead of
+       round the middle. */
+    :where(:root[data-touch-targets]) .tap-target.tap-corner {
+      margin-top: 0;
+      margin-right: 0;
+      top: 0;
+    }
+
+    :where(:root[data-touch-targets]) .tap-target.tap-corner::after {
+      left: auto;
+      right: 0;
+      top: 0;
+      transform: none;
+    }
+  }
 }
 
 @layer utilities {

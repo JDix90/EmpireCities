@@ -104,7 +104,7 @@ export default function NeighborTerritoryPicker({
                 disabled={blocked}
                 title={locked ? orbitLockReason : fleetless ? NEEDS_FLEET_HINT : undefined}
                 className={clsx(
-                  'flex-1 rounded-md border text-left text-xs transition-colors touch-manipulation',
+                  'tap-min flex-1 rounded-md border text-left text-xs transition-colors touch-manipulation',
                   compact ? 'min-h-[32px] px-2 py-1' : 'min-h-[36px] px-2.5 py-1.5',
                   accent,
                   blocked && 'opacity-50 cursor-not-allowed',
@@ -144,7 +144,7 @@ export default function NeighborTerritoryPicker({
                 <button
                   type="button"
                   className={clsx(
-                    'rounded-md border touch-manipulation border-bf-border/70 bg-bf-dark/60',
+                    'tap-min rounded-md border touch-manipulation border-bf-border/70 bg-bf-dark/60',
                     'text-bf-muted hover:text-bf-text hover:border-bf-border',
                     compact ? 'min-w-[32px] min-h-[32px] px-1' : 'min-w-[36px] min-h-[36px] px-1.5',
                   )}

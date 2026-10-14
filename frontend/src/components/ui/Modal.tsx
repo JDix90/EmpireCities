@@ -44,7 +44,7 @@ export default function Modal({
           {showCloseButton && (
             <button
               onClick={onClose}
-              className="absolute top-3 right-3 text-bf-muted hover:text-bf-text transition-colors"
+              className="tap-target absolute top-3 right-3 text-bf-muted hover:text-bf-text transition-colors"
               aria-label="Close"
             >
               <X size={20} />

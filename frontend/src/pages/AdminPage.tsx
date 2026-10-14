@@ -485,6 +485,12 @@ const CLIENT_FEATURE_FLAGS = [
     description:
       'Show the landing page and the tutorial in the player\u2019s language (Spanish, Brazilian Portuguese, German, French) and add a language switcher to both; a stored choice wins, then the browser language. Off by default while the translations await native review \u2014 off means English for everyone, exactly as before. Client-only: the in-game HUD stays English either way.',
   },
+  {
+    key: 'touch_targets_enabled',
+    label: 'Phone touch targets',
+    description:
+      'On touch screens, gives small game controls a touch area of at least 44 px: the tutorial card\u2019s collapse, the territory sheet\u2019s expand, the map reset, the BF link, territory list and attack-neighbour rows, the Research button, and small close and dismiss buttons. Icons keep their size; only what a finger can hit grows, and the territory sheet\u2019s drag handle is 44 px tall. Several measured 20 to 36 px on a phone. Off by default (dark launch) \u2014 off is the controls exactly as before.',
+  },
 ] as const;
 
 /** Per-flag resolution from GET /admin/config — mirrors the backend's FeatureFlagState. */

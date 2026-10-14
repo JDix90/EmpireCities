@@ -157,6 +157,11 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // the translated bundles ship in the client but nobody is routed to them
   // until this is on. Client-only effect.
   localization_enabled: () => envOptIn('LOCALIZATION_ENABLED'),
+  // Touch targets: on a touch screen, small game controls (the tutorial card's
+  // collapse, the sheet's expand, the map reset, territory list and neighbour
+  // rows, the Research button, modal closes) get a 44px touch area. Several
+  // were 20 to 36 px. Dark-launched OFF.
+  touch_targets_enabled: () => envOptIn('TOUCH_TARGETS_ENABLED'),
   // Daily Challenge v2 (docs/DAILY_PUZZLE_V2.md): the daily as a decision
   // puzzle graded by an exact solver. Dark-launched OFF; with it on, a day is
   // v2 only when its set-piece carries a plan and the gate accepted it.
@@ -1232,6 +1237,15 @@ export const featureFlags = {
   get localizationEnabled(): boolean {
     return overrideBool('localization_enabled');
   },
+
+  /**
+   * Touch targets: a 44px minimum touch area for small game controls on touch
+   * screens (`.tap-target` and `.tap-min` in index.css, under `data-touch-targets`).
+   * Default OFF; `TOUCH_TARGETS_ENABLED=true` or the admin override turns it on.
+   */
+  get touchTargetsEnabled(): boolean {
+    return overrideBool('touch_targets_enabled');
+  },
 };
 
 /** Client-safe flags exposed on GET /api/feature-flags (no secrets). */
@@ -1275,6 +1289,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     warfront_enabled: featureFlags.warfrontEnabled,
     galaxy_tutorial_enabled: featureFlags.galaxyTutorialEnabled,
     localization_enabled: featureFlags.localizationEnabled,
+    touch_targets_enabled: featureFlags.touchTargetsEnabled,
     daily_puzzle_v2_enabled: featureFlags.dailyPuzzleV2Enabled,
     store_v2_enabled: featureFlags.storeV2Enabled,
     first_match_easy_enabled: featureFlags.firstMatchEasyEnabled,
