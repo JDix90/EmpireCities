@@ -34,6 +34,37 @@ export const GUEST_KEEP_STATS_CTA = 'create an account to keep your stats';
 /** Sentence-initial form of the same call to action. */
 export const GUEST_KEEP_STATS_CTA_SENTENCE = 'Create an account to keep your stats';
 
+/**
+ * The same statement made accurately, under `guest_prompt_v2_enabled`. A guest
+ * is kept by this browser's refresh cookie across reloads and return visits,
+ * and the cleanup only removes guests who never played, so "do not persist
+ * across sessions" overstates it. What a guest lacks is a way back from
+ * anywhere else, which the paired call to action says.
+ */
+export const GUEST_SAVED_HERE = 'Your progress is saved in this browser';
+
+/** The v2 call to action — lowercase, for link text and mid-sentence use. */
+export const GUEST_KEEP_EVERYWHERE_CTA = 'an account keeps it everywhere';
+
+/** Sentence-initial form of the v2 call to action. */
+export const GUEST_KEEP_EVERYWHERE_CTA_SENTENCE = 'An account keeps it everywhere';
+
+export interface GuestLineCopy {
+  /** The statement of where a guest's progress lives. */
+  statement: string;
+  /** The paired call to action, lowercase. */
+  cta: string;
+  /** The paired call to action, sentence-initial. */
+  ctaSentence: string;
+}
+
+/** The guest line for one-line surfaces: v2 is `guest_prompt_v2_enabled`. */
+export function guestLine(v2: boolean): GuestLineCopy {
+  return v2
+    ? { statement: GUEST_SAVED_HERE, cta: GUEST_KEEP_EVERYWHERE_CTA, ctaSentence: GUEST_KEEP_EVERYWHERE_CTA_SENTENCE }
+    : { statement: GUEST_NO_PERSIST, cta: GUEST_KEEP_STATS_CTA, ctaSentence: GUEST_KEEP_STATS_CTA_SENTENCE };
+}
+
 export interface GuestGateCopy {
   title: string;
   body: string;
@@ -59,6 +90,17 @@ export const CAMPAIGN_START_GATE: GuestGateCopy = {
   ],
 };
 
+/** CAMPAIGN_START_GATE under `guest_prompt_v2_enabled`: the same stake, stated accurately. */
+export const CAMPAIGN_START_GATE_V2: GuestGateCopy = {
+  title: CAMPAIGN_START_GATE.title,
+  body:
+    `A campaign runs across many games, so it needs an account. ${GUEST_SAVED_HERE}, `
+    + 'on a guest account with no email or password to sign back in with, so another browser or '
+    + `cleared site data cannot reach it. ${GUEST_KEEP_EVERYWHERE_CTA_SENTENCE}: the campaign, and everything `
+    + 'you have already earned, come with you.',
+  bullets: CAMPAIGN_START_GATE.bullets,
+};
+
 /**
  * Shown inline on /leaderboards to a guest, where their rank card would be.
  * Every leaderboard query filters `u.is_guest = false`, so a guest browsing the
@@ -69,5 +111,14 @@ export const LEADERBOARD_GUEST_NOTICE: GuestGateCopy = {
   body:
     `You can play everything here, but a guest account is never ranked. ${GUEST_NO_PERSIST}, so `
     + `${GUEST_KEEP_STATS_CTA} and claim your place.`,
+  bullets: [],
+};
+
+/** LEADERBOARD_GUEST_NOTICE under `guest_prompt_v2_enabled`. */
+export const LEADERBOARD_GUEST_NOTICE_V2: GuestGateCopy = {
+  title: LEADERBOARD_GUEST_NOTICE.title,
+  body:
+    `You can play everything here, but a guest account is never ranked. ${GUEST_SAVED_HERE}; `
+    + `${GUEST_KEEP_EVERYWHERE_CTA} and puts you on the board.`,
   bullets: [],
 };

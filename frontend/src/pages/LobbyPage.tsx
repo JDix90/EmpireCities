@@ -14,11 +14,11 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { useCustomLobbyFoldEnabled, useCustomRoundCapEnabled, useEraAdvancementLobbyEnabled, useFirstMatchEasyEnabled, useFirstMatchPrimaryCtaEnabled, useFullGameEveningEnabled, useMapEditorEnabled, useMatchAlertsEnabled, useRankedMultiSizeEnabled, useSpaceAgeMoonRaceEnabled, useSpectateEnabled, useTodayPanelEnabled } from '../store/featureFlagsStore';
+import { useCustomLobbyFoldEnabled, useCustomRoundCapEnabled, useEraAdvancementLobbyEnabled, useFirstMatchEasyEnabled, useFirstMatchPrimaryCtaEnabled, useFullGameEveningEnabled, useGuestPromptV2Enabled, useMapEditorEnabled, useMatchAlertsEnabled, useRankedMultiSizeEnabled, useSpaceAgeMoonRaceEnabled, useSpectateEnabled, useTodayPanelEnabled } from '../store/featureFlagsStore';
 import { HEGEMONY_TURNS } from '../utils/lunarHegemony';
 import { RANKED_MIN_OPPONENTS, describeRankedGameSize, getRankedOpponents, rankedEraSize, saveRankedOpponents } from '../utils/rankedPrefs';
 import { clearRankedSearchMarker, setRankedSearchMarker } from '../utils/rankedSearchMarker';
-import { GUEST_NO_PERSIST, GUEST_KEEP_STATS_CTA } from '../utils/guestGate';
+import { guestLine } from '../utils/guestGate';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
@@ -428,6 +428,8 @@ export default function LobbyPage() {
   const firstMatchPrimaryCtaEnabled = useFirstMatchPrimaryCtaEnabled();
   const quickMatchLeads = firstMatchPrimaryCtaEnabled && firstMatchPending === true;
   const quickMatchButtonClass = !eraAdvancementLobbyEnabled || quickMatchLeads ? 'btn-primary' : 'btn-secondary';
+  // The welcome banner's guest line (utils/guestGate.ts).
+  const guestCopy = guestLine(useGuestPromptV2Enabled());
   const [fullGameLoading, setFullGameLoading] = useState(false);
   // Full Game setup — separate prefs from Quick Match (a long campaign table
   // and a quick-stomp table are different choices).
@@ -2126,11 +2128,11 @@ export default function LobbyPage() {
             <div className="flex items-center gap-2 mt-1">
               {user?.is_guest ? (
                 <p className="text-bf-muted text-sm">
-                  Level {user?.level} · {user?.xp} XP · {GUEST_NO_PERSIST}
+                  Level {user?.level} · {user?.xp} XP · {guestCopy.statement}
                   {ownAuthUiAllowed() && (
                     <>
                       {' '}
-                      <Link to="/upgrade" className="text-bf-gold hover:underline">— {GUEST_KEEP_STATS_CTA}</Link>
+                      <Link to="/upgrade" className="text-bf-gold hover:underline">— {guestCopy.cta}</Link>
                     </>
                   )}
                 </p>

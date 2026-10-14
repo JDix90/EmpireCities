@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Crown, Trophy, Save } from 'lucide-react';
 import { signupNudgeCopy } from '../../utils/signupNudge';
+import { useGuestPromptV2Enabled } from '../../store/featureFlagsStore';
 
 interface GuestSignupNudgeModalProps {
   /** Whether the guest just won — drives outcome-aware copy + icon. */
@@ -42,7 +43,7 @@ export default function GuestSignupNudgeModal({
     };
   }, [onSkip]);
 
-  const copy = signupNudgeCopy(isWinner, gold);
+  const copy = signupNudgeCopy(isWinner, gold, useGuestPromptV2Enabled());
   const Icon = isWinner ? Crown : Save;
 
   return (

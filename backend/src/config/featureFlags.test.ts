@@ -115,6 +115,15 @@ describe('featureFlags', () => {
     expect(featureFlags.retentionNotificationsEnabled).toBe(true);
   });
 
+  it('guest_prompt_v2_enabled defaults to off (dark-launch) and is admin-overridable', () => {
+    expect(featureFlags.guestPromptV2Enabled).toBe(false);
+    expect(getClientFeatureFlags().guest_prompt_v2_enabled).toBe(false);
+    expect(getFeatureFlagStates().guest_prompt_v2_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { guest_prompt_v2_enabled: true } });
+    expect(featureFlags.guestPromptV2Enabled).toBe(true);
+    expect(getClientFeatureFlags().guest_prompt_v2_enabled).toBe(true);
+  });
+
   it('signup_nudge_enabled defaults to on and is admin-overridable', () => {
     expect(featureFlags.signupNudgeEnabled).toBe(true);
     expect(getClientFeatureFlags().signup_nudge_enabled).toBe(true);

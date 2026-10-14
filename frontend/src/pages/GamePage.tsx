@@ -25,12 +25,12 @@ import { useGameStore, CombatResult, type AiTurnDigest, type GameState as Client
 import { describeAiTurnDigest, digestReportsAction } from '../utils/aiTurnDigest';
 import { useUiStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
-import { useFeatureFlagsStore, useFirstTurnCoachEnabled, useSignupNudgeEnabled, useAsyncOnboardingEnabled, useTurnClarityEnabled, useBackgroundMusicEnabled, useGalaxyTutorialEnabled, useTutorialWrapupToMatchEnabled } from '../store/featureFlagsStore';
+import { useFeatureFlagsStore, useFirstTurnCoachEnabled, useSignupNudgeEnabled, useAsyncOnboardingEnabled, useTurnClarityEnabled, useBackgroundMusicEnabled, useGalaxyTutorialEnabled, useTutorialWrapupToMatchEnabled, useGuestPromptV2Enabled } from '../store/featureFlagsStore';
 import { useBackgroundMusic } from '../hooks/useBackgroundMusic';
 import { backgroundMusic, musicBedFor, musicTensionFor, type MusicCadence } from '../audio/backgroundMusic';
 import { canOfferBlitz } from '../utils/blitzEligibility';
 import { MIN_REGION_TERRITORIES } from '../utils/continentBonus';
-import { shouldShowSignupNudge, SIGNUP_NUDGE_SHOWN_KEY } from '../utils/signupNudge';
+import { accountModalShownThisSession, shouldShowSignupNudge, SIGNUP_NUDGE_SHOWN_KEY, TUTORIAL_PROMPT_SHOWN_KEY } from '../utils/signupNudge';
 import { hapticImpact, hapticNotification, ImpactStyle, NotificationType } from '../utils/haptics';
 import { turnTimeoutToastMessage, type TurnTimeoutPayload } from '../utils/turnTimeout';
 import { GameNotFoundTracker } from '../utils/gameNotFoundTracker';
@@ -660,6 +660,9 @@ export default function GamePage() {
   // socket handler read the live value without re-subscribing.
   const firstTurnCoachFlag = useFirstTurnCoachEnabled();
   const signupNudgeFlag = useSignupNudgeEnabled();
+  // One blocking account modal per tab session, across the tutorial-end
+  // prompt and the post-game nudge (utils/signupNudge.ts).
+  const guestPromptV2 = useGuestPromptV2Enabled();
   const asyncOnboardingFlag = useAsyncOnboardingEnabled();
   const turnClarityFlag = useTurnClarityEnabled();
   const galaxyTutorialFlag = useGalaxyTutorialEnabled();
@@ -3832,7 +3835,8 @@ export default function GamePage() {
   /**
    * Trigger the tutorial-end account prompt for guests. We only nag once per
    * tab via sessionStorage so a guest who chose "Maybe later" can finish or
-   * replay the tutorial without seeing the modal a second time.
+   * replay the tutorial without seeing the modal a second time. Under
+   * `guest_prompt_v2_enabled` a post-game nudge already shown counts too.
    */
   const maybePromptTutorialAccount = useCallback(
     (onContinue: () => void, outcomeLabel?: string) => {
@@ -3841,17 +3845,17 @@ export default function GamePage() {
         return;
       }
       try {
-        if (sessionStorage.getItem('cc-tutorial-prompt-shown') === '1') {
+        if (accountModalShownThisSession(TUTORIAL_PROMPT_SHOWN_KEY, guestPromptV2, (k) => sessionStorage.getItem(k))) {
           onContinue();
           return;
         }
-        sessionStorage.setItem('cc-tutorial-prompt-shown', '1');
+        sessionStorage.setItem(TUTORIAL_PROMPT_SHOWN_KEY, '1');
       } catch {
         /* sessionStorage unavailable — still show the prompt once */
       }
       setTutorialAccountPrompt({ onContinue, outcomeLabel });
     },
-    [user?.is_guest],
+    [user?.is_guest, guestPromptV2],
   );
 
   /**
@@ -3864,7 +3868,7 @@ export default function GamePage() {
     (onContinue: () => void, isWinner: boolean) => {
       let alreadyShown = false;
       try {
-        alreadyShown = sessionStorage.getItem(SIGNUP_NUDGE_SHOWN_KEY) === '1';
+        alreadyShown = accountModalShownThisSession(SIGNUP_NUDGE_SHOWN_KEY, guestPromptV2, (k) => sessionStorage.getItem(k));
       } catch {
         /* sessionStorage unavailable — treat as not-yet-shown */
       }
@@ -3889,7 +3893,7 @@ export default function GamePage() {
       }).catch(() => {});
       setSignupNudge({ onContinue, isWinner });
     },
-    [user?.is_guest, signupNudgeFlag],
+    [user?.is_guest, signupNudgeFlag, guestPromptV2],
   );
 
   /**

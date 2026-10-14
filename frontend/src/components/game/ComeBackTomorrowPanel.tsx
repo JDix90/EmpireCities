@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Flame, Coins, Swords, Snowflake } from 'lucide-react';
 import { api } from '../../services/api';
-import { GUEST_NO_PERSIST, GUEST_KEEP_STATS_CTA } from '../../utils/guestGate';
+import { guestLine } from '../../utils/guestGate';
+import { useGuestPromptV2Enabled } from '../../store/featureFlagsStore';
 
 interface ComebackData {
   is_guest: boolean;
@@ -24,6 +25,7 @@ interface ComebackData {
  */
 export default function ComeBackTomorrowPanel({ className }: { className?: string }) {
   const [data, setData] = useState<ComebackData | null>(null);
+  const guestCopy = guestLine(useGuestPromptV2Enabled());
 
   useEffect(() => {
     let cancelled = false;
@@ -58,7 +60,7 @@ export default function ComeBackTomorrowPanel({ className }: { className?: strin
               </>
             )}
             {data.is_guest && (
-              <span className="text-bf-muted"> {GUEST_NO_PERSIST} — {GUEST_KEEP_STATS_CTA}.</span>
+              <span className="text-bf-muted"> {guestCopy.statement} — {guestCopy.cta}.</span>
             )}
           </span>
         </p>

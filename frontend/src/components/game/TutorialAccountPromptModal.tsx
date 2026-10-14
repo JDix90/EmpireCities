@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { GraduationCap, Trophy } from 'lucide-react';
+import { useGuestPromptV2Enabled } from '../../store/featureFlagsStore';
 
 interface TutorialAccountPromptModalProps {
   /** Called when the user dismisses without creating an account. */
@@ -23,6 +24,9 @@ export default function TutorialAccountPromptModal({
   onSignIn,
   outcomeLabel,
 }: TutorialAccountPromptModalProps) {
+  // A guest's progress already survives a reload in this browser; what an
+  // account adds is every other device (`guest_prompt_v2_enabled`).
+  const guestPromptV2 = useGuestPromptV2Enabled();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onSkip();
@@ -63,7 +67,7 @@ export default function TutorialAccountPromptModal({
         <ul className="text-sm text-bf-muted space-y-2 mb-6 px-1">
           <li className="flex items-start gap-2">
             <Trophy className="w-4 h-4 text-bf-gold/80 mt-0.5 shrink-0" />
-            <span>Save XP, gold, ratings, and unlocks across sessions.</span>
+            <span>{guestPromptV2 ? 'Keep XP, gold, ratings and unlocks on every device.' : 'Save XP, gold, ratings, and unlocks across sessions.'}</span>
           </li>
           <li className="flex items-start gap-2">
             <Trophy className="w-4 h-4 text-bf-gold/80 mt-0.5 shrink-0" />
