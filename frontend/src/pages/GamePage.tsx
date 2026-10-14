@@ -25,7 +25,7 @@ import { useGameStore, CombatResult, type AiTurnDigest, type GameState as Client
 import { describeAiTurnDigest, digestReportsAction } from '../utils/aiTurnDigest';
 import { useUiStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
-import { useFeatureFlagsStore, useFirstTurnCoachEnabled, useSignupNudgeEnabled, useAsyncOnboardingEnabled, useTurnClarityEnabled, useBackgroundMusicEnabled, useGalaxyTutorialEnabled, useTutorialWrapupToMatchEnabled, useGuestPromptV2Enabled } from '../store/featureFlagsStore';
+import { useFeatureFlagsStore, useFirstTurnCoachEnabled, useSignupNudgeEnabled, useAsyncOnboardingEnabled, useTurnClarityEnabled, useBackgroundMusicEnabled, useGalaxyTutorialEnabled, useTutorialWrapupToMatchEnabled, useGuestPromptV2Enabled, useResultsFooterEnabled } from '../store/featureFlagsStore';
 import { useBackgroundMusic } from '../hooks/useBackgroundMusic';
 import { backgroundMusic, musicBedFor, musicTensionFor, type MusicCadence } from '../audio/backgroundMusic';
 import { canOfferBlitz } from '../utils/blitzEligibility';
@@ -3683,6 +3683,9 @@ export default function GamePage() {
     navigate('/lobby');
   };
 
+  // `results_footer_enabled`: the results' account box is the ask; Return to
+  // Lobby does not repeat it as a blocking nudge.
+  const resultsFooterFlag = useResultsFooterEnabled();
   const handleGameOverDismiss = () => {
     // Capture the outcome before the modal is sliced off the queue, so the
     // signup nudge can lead with the win when the guest just won.
@@ -3716,6 +3719,13 @@ export default function GamePage() {
       } else {
         setPostTutorialPrompt(true);
       }
+      return;
+    }
+    // A guest's results showed the account box (GameOverView, whenever the
+    // upgrade action is offered), so under `results_footer_enabled` Return to
+    // Lobby goes straight there instead of asking a second time.
+    if (resultsFooterFlag && user?.is_guest && ownAuthUiAllowed()) {
+      navigate('/lobby');
       return;
     }
     // Regular game over → guests get a one-time "save your progress" nudge

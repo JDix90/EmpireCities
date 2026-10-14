@@ -68,6 +68,12 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // prompt and the post-game nudge share one budget.
   // On by default; the admin override is the kill switch.
   guest_prompt_v2_enabled: () => envOptOut('GUEST_PROMPT_V2_ENABLED'),
+  // Game results: Rematch and Return to Lobby sit in a footer pinned to the
+  // bottom of the results, instead of below the chart, coaching and guest box
+  // (a scroll on a laptop, five swipes on a phone). And a guest's Return to
+  // Lobby goes straight there: the results already offered saving, so the
+  // signup nudge would be the same ask twice. Dark-launched OFF.
+  results_footer_enabled: () => envOptIn('RESULTS_FOOTER_ENABLED'),
   ranked_leaderboard_enabled: () => envOptIn('RANKED_LEADERBOARD_ENABLED'),
   referral_survey_enabled: () => envOptIn('REFERRAL_SURVEY_ENABLED'),
   daily_guest_play_enabled: () => envOptOut('DAILY_GUEST_PLAY_ENABLED'),
@@ -388,6 +394,15 @@ export const featureFlags = {
    */
   get guestPromptV2Enabled(): boolean {
     return overrideBool('guest_prompt_v2_enabled');
+  },
+
+  /**
+   * Game results: Rematch and Return to Lobby pinned in a footer, and no
+   * signup nudge on a guest's Return to Lobby after the results offered saving.
+   * Default OFF; `RESULTS_FOOTER_ENABLED=true` or the admin override turns it on.
+   */
+  get resultsFooterEnabled(): boolean {
+    return overrideBool('results_footer_enabled');
   },
 
   /**
@@ -1164,6 +1179,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     era_advance_payoff_enabled: featureFlags.eraAdvancePayoffEnabled,
     signup_nudge_enabled: featureFlags.signupNudgeEnabled,
     guest_prompt_v2_enabled: featureFlags.guestPromptV2Enabled,
+    results_footer_enabled: featureFlags.resultsFooterEnabled,
     ranked_leaderboard_enabled: featureFlags.rankedLeaderboardEnabled,
     referral_survey_enabled: featureFlags.referralSurveyEnabled,
     daily_guest_play_enabled: featureFlags.dailyGuestPlayEnabled,
