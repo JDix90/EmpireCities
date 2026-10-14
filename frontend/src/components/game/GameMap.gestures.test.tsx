@@ -85,7 +85,7 @@ describe('GameMap gestures', () => {
   });
   afterEach(() => {
     act(() => { useGameStore.setState({ gameState: null }); });
-    useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, map_gestures_v2_enabled: false } }));
+    useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, map_gestures_v2_enabled: true } }));
   });
 
   it('pinch zooms around the point between the fingers', () => {

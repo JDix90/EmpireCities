@@ -56,14 +56,14 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   era_advancement_lobby_enabled: true,
   first_turn_coach_enabled: true,
   turn_clarity_enabled: true,
-  // Flat map: pinch zooms around the fingers, panning keeps land on screen. Dark-launched OFF.
-  map_gestures_v2_enabled: false,
+  // Flat map: pinch zooms around the fingers, panning keeps land on screen. On by default; admin kill switch.
+  map_gestures_v2_enabled: true,
   onboarding_tutorial_first_enabled: true,
   hero_single_cta_enabled: true,
   era_advance_payoff_enabled: true,
   signup_nudge_enabled: true,
-  // Guest prompts: an accurate saved-in-this-browser line, one account modal per session. Dark-launched OFF.
-  guest_prompt_v2_enabled: false,
+  // Guest prompts: an accurate saved-in-this-browser line, one account modal per session. On by default; admin kill switch.
+  guest_prompt_v2_enabled: true,
   // OFF until the ranked ladder has enough players not to render empty.
   ranked_leaderboard_enabled: false,
   // Dark-launched OFF: it adds a prompt at the end of a first session.
@@ -117,8 +117,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   tutorial_wrapup_to_match_enabled: true,
   // While the next Quick Match is the first, it is the lobby's gold button. On by default; admin kill switch.
   first_match_primary_cta_enabled: true,
-  // Phone fortify: the sheet grows to show the amount and the first destination. Dark-launched OFF.
-  phone_fortify_fit_enabled: false,
+  // Phone fortify: the sheet grows to show the amount and the first destination. On by default; admin kill switch.
+  phone_fortify_fit_enabled: true,
   // A Full Game fits an evening: the 65% ending by default, an 80-round cap. Dark-launched OFF.
   full_game_evening_enabled: false,
   // The Custom Game form folds its less-used options under Advanced. Dark-launched OFF.

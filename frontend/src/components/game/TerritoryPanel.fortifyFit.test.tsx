@@ -89,7 +89,7 @@ describe('TerritoryPanel phone fortify fit', () => {
 
   afterEach(() => {
     rects.mockRestore();
-    setFlag(false);
+    setFlag(true);
   });
 
   it('grows the peek snap to the first destination row with the flag on', () => {
