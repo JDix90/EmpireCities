@@ -1,11 +1,12 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { act, render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import GameHUD from './GameHUD';
 import { useGameStore, type GameState } from '../../store/gameStore';
 import { useAuthStore } from '../../store/authStore';
 import { useFeatureFlagsStore } from '../../store/featureFlagsStore';
+import { isMusicMuted, isSfxMuted, setMusicMuted, setSfxMuted } from '../../utils/userPreferences';
 
 vi.mock('../../services/socket', () => ({
   getSocket: () => ({ on: vi.fn(), off: vi.fn(), emit: vi.fn() }),
@@ -670,5 +671,73 @@ describe('GameHUD — desktop card trade cue', () => {
     setup();
     renderHud({ mobile: true });
     expect(screen.queryByTestId('hud-card-trade-cue')).toBeNull();
+  });
+});
+
+describe('GameHUD — sound and music switch', () => {
+  function setup(flag: boolean) {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+      addListener: vi.fn(), removeListener: vi.fn(),
+    }) as unknown as typeof window.matchMedia;
+    useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, in_game_mute_enabled: flag } }));
+    useAuthStore.setState({ user: { user_id: 'me', username: 'me', level: 1, xp: 0, mmr: 1000 } } as never);
+    useGameStore.setState({ gameState: makeState(), lastCombatResult: null } as never);
+  }
+
+  const openTools = () => fireEvent.click(screen.getByRole('button', { name: /Tools & options/ }));
+  const toggle = () => screen.getByRole('checkbox', { name: 'Sound and music' }) as HTMLInputElement;
+
+  beforeEach(() => {
+    localStorage.removeItem('cc-sfx-muted');
+    localStorage.removeItem('cc-music-muted');
+  });
+
+  it('mutes sound effects and music together, and brings both back', () => {
+    setup(true);
+    renderHud();
+    openTools();
+    expect(toggle().checked).toBe(true);
+    fireEvent.click(toggle());
+    expect(toggle().checked).toBe(false);
+    expect(isSfxMuted()).toBe(true);
+    expect(isMusicMuted()).toBe(true);
+    fireEvent.click(toggle());
+    expect(toggle().checked).toBe(true);
+    expect(isSfxMuted()).toBe(false);
+    expect(isMusicMuted()).toBe(false);
+  });
+
+  it('reads as on while either still plays, so switching off silences both', () => {
+    setMusicMuted(true);
+    setup(true);
+    renderHud();
+    openTools();
+    expect(toggle().checked).toBe(true);
+    fireEvent.click(toggle());
+    expect(isSfxMuted()).toBe(true);
+    expect(isMusicMuted()).toBe(true);
+  });
+
+  it('follows a change made elsewhere, as on the Settings page', () => {
+    setup(true);
+    renderHud();
+    openTools();
+    act(() => { setSfxMuted(true); setMusicMuted(true); });
+    expect(toggle().checked).toBe(false);
+  });
+
+  it('is in the phone menu\'s HUD too', () => {
+    setup(true);
+    renderHud({ mobile: true });
+    openTools();
+    expect(toggle()).toBeTruthy();
+  });
+
+  it('is the tools as before with the flag off', () => {
+    setup(false);
+    renderHud();
+    openTools();
+    expect(screen.queryByRole('checkbox', { name: 'Sound and music' })).toBeNull();
   });
 });

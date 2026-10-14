@@ -450,6 +450,12 @@ const CLIENT_FEATURE_FLAGS = [
       'On a phone, when a player picks a territory to fortify from, the bottom sheet grows just enough to show the amount and the first row of destinations together, up to the sheet\u2019s full height, so the map stays the larger half. At the fixed default height the destinations sat below the fold and a player had to know to swipe the sheet up. Desktop is unchanged. On by default; switching it off gives the sheet exactly as before.',
   },
   {
+    key: 'in_game_mute_enabled',
+    label: 'In-game mute switch',
+    description:
+      'Adds a \u201cSound and music\u201d switch to the in-game Tools & options, on desktop and in the phone menu: off mutes both sound effects and music, on brings both back, using the same settings as the Settings page. Music starts on the first tap of a game, and the only way to silence it was to leave for Settings. Off by default (dark launch) \u2014 off is the tools exactly as before.',
+  },
+  {
     key: 'full_game_evening_enabled',
     label: 'Full Game fits an evening',
     description:
