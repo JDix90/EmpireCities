@@ -72,7 +72,7 @@ describe('the first turn clock', () => {
 
   afterEach(() => {
     cleanup();
-    setFlag(false);
+    setFlag(true);
     vi.useRealTimers();
   });
 

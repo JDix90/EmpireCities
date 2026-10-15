@@ -365,13 +365,13 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().localization_enabled).toBe(true);
   });
 
-  it('first_turn_clock_wait_enabled defaults to off (dark-launch) and is admin-overridable', () => {
-    expect(featureFlags.firstTurnClockWaitEnabled).toBe(false);
-    expect(getClientFeatureFlags().first_turn_clock_wait_enabled).toBe(false);
-    expect(getFeatureFlagStates().first_turn_clock_wait_enabled).toEqual({ code_default: false, overridden: false, effective: false });
-    setAdminConfigCacheForTests({ feature_flags: { first_turn_clock_wait_enabled: true } });
+  it('first_turn_clock_wait_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.firstTurnClockWaitEnabled).toBe(true);
     expect(getClientFeatureFlags().first_turn_clock_wait_enabled).toBe(true);
+    expect(getFeatureFlagStates().first_turn_clock_wait_enabled).toEqual({ code_default: true, overridden: false, effective: true });
+    setAdminConfigCacheForTests({ feature_flags: { first_turn_clock_wait_enabled: false } });
+    expect(featureFlags.firstTurnClockWaitEnabled).toBe(false);
+    expect(getClientFeatureFlags().first_turn_clock_wait_enabled).toBe(false);
   });
 
   it('daily_puzzle_v2_enabled defaults to off (dark-launch) and is admin-overridable', () => {
@@ -464,13 +464,13 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().first_match_easy_enabled).toBe(false);
   });
 
-  it('loss_reason_enabled defaults to off (dark-launch) and is admin-overridable', () => {
-    expect(featureFlags.lossReasonEnabled).toBe(false);
-    expect(getClientFeatureFlags().loss_reason_enabled).toBe(false);
-    expect(getFeatureFlagStates().loss_reason_enabled).toEqual({ code_default: false, overridden: false, effective: false });
-    setAdminConfigCacheForTests({ feature_flags: { loss_reason_enabled: true } });
+  it('loss_reason_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.lossReasonEnabled).toBe(true);
     expect(getClientFeatureFlags().loss_reason_enabled).toBe(true);
+    expect(getFeatureFlagStates().loss_reason_enabled).toEqual({ code_default: true, overridden: false, effective: true });
+    setAdminConfigCacheForTests({ feature_flags: { loss_reason_enabled: false } });
+    expect(featureFlags.lossReasonEnabled).toBe(false);
+    expect(getClientFeatureFlags().loss_reason_enabled).toBe(false);
   });
 
   it('custom_round_cap_enabled defaults to off (dark-launch) and is admin-overridable', () => {

@@ -122,8 +122,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   // Daily Challenge v2 (decision puzzles graded by an exact solver). Dark-launched
   // OFF; the server decides which days are v2, the client renders what it is sent.
   daily_puzzle_v2_enabled: false,
-  // First turn clock: the first turn's clock waits for the game-start briefing. Dark-launched OFF.
-  first_turn_clock_wait_enabled: false,
+  // First turn clock: the first turn's clock waits for the game-start briefing. On by default; admin kill switch.
+  first_turn_clock_wait_enabled: true,
   // Store overhaul: cosmetics drawn on profiles and in matches (the store page
   // is the same either way). On by default; admin kill switch.
   store_v2_enabled: true,
@@ -153,8 +153,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   custom_lobby_fold_enabled: false,
   // The Custom Game form sets a round limit. Dark-launched OFF.
   custom_round_cap_enabled: false,
-  // Loss reason: the defeat screen says why the player lost. Dark-launched OFF.
-  loss_reason_enabled: false,
+  // Loss reason: the defeat screen says why the player lost. On by default; admin kill switch.
+  loss_reason_enabled: true,
   // The Space Age Moon Race, Lunar Hegemony included. On by default; admin kill switch.
   space_age_moon_race_enabled: true,
 };
