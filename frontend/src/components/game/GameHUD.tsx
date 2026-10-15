@@ -12,7 +12,12 @@ import EraTimelineStrip from './EraTimelineStrip';
 import { ERA_LABELS } from '../../constants/gameLobbyLabels';
 import { phaseAdvanceLabel, PHASE_LABELS } from '../../constants/phaseLabels';
 import { PhaseProgressBar } from './PhaseProgressBar';
-import { useDesktopCardCueEnabled, useInGameMuteEnabled, useTurnClarityEnabled } from '../../store/featureFlagsStore';
+import {
+  useDesktopCardCueEnabled,
+  useFirstTurnClockWaitEnabled,
+  useInGameMuteEnabled,
+  useTurnClarityEnabled,
+} from '../../store/featureFlagsStore';
 import { cardSetBonus, findRedeemableCardIds } from '../../utils/cardSets';
 import { getEraIdForAdvancementIndex } from '../../utils/eraAdvancement';
 import { AiBadge } from '../ui/AiBadge';
@@ -92,6 +97,12 @@ interface GameHUDProps {
   connectionHintPreference?: ConnectionHintPreference;
   onConnectionHintPreferenceChange?: (value: ConnectionHintPreference) => void;
   denseMap?: boolean;
+  /**
+   * The game-start briefing (GameStartModal) is open. With
+   * first_turn_clock_wait_enabled, the player's first turn starts its clock
+   * when it closes, so the countdown holds at the full turn until then.
+   */
+  startBriefingOpen?: boolean;
 }
 
 const PHASE_ICONS: Record<string, React.ReactNode> = {
@@ -151,6 +162,7 @@ export default function GameHUD({
   connectionHintPreference,
   onConnectionHintPreferenceChange,
   denseMap = false,
+  startBriefingOpen = false,
 }: GameHUDProps) {
   const { gameState, draftUnitsRemaining, lastCombatResult, lastNavalCombat } = useGameStore();
   const { user } = useAuthStore();
@@ -164,6 +176,7 @@ export default function GameHUD({
   const [logUnread, setLogUnread] = useState(false);
   const [showTools, setShowTools] = useState(false);
   const inGameMute = useInGameMuteEnabled();
+  const firstTurnClockWait = useFirstTurnClockWaitEnabled();
   const [soundOn, setSoundOn] = useState(isSoundOn);
   // Seed with the mount-time result so re-joining a game mid-combat doesn't
   // flash a phantom "new result" dot before the player has done anything.
@@ -202,6 +215,7 @@ export default function GameHUD({
         (p) => p.player_id === user?.user_id || (!!user?.username && p.username === user.username),
       );
   const isMyTurn = !!currentPlayer && !!myPlayer && currentPlayer.player_id === myPlayer.player_id;
+  const holdFirstTurnClock = firstTurnClockWait && startBriefingOpen && isMyTurn && gameState?.turn_number === 1;
   // Space Age Phase 2b: a Drop Assault marked against ground this player holds.
   // Standing alert rather than a one-shot toast — the counterplay is to
   // reinforce the tile, which takes until the drop actually lands.
@@ -267,6 +281,13 @@ export default function GameHUD({
       setTimeLeft(null);
       return;
     }
+    // The first turn's clock starts when the game-start briefing closes (the
+    // server honours that ready signal however late on turn 1), so it holds
+    // at the full turn while the briefing is open.
+    if (holdFirstTurnClock) {
+      setTimeLeft(gameState.settings.turn_timer_seconds);
+      return;
+    }
     const deadline =
       gameState.phase_deadline_at ??
       gameState.turn_started_at + gameState.settings.turn_timer_seconds * 1000;
@@ -277,7 +298,7 @@ export default function GameHUD({
       setTimeLeft(compute());
     }, 1000);
     return () => clearInterval(interval);
-  }, [gameState?.turn_started_at, gameState?.phase_deadline_at, gameState?.settings.turn_timer_seconds, gameState?.phase, gameState?.current_player_index, gameState?.players]);
+  }, [gameState?.turn_started_at, gameState?.phase_deadline_at, gameState?.settings.turn_timer_seconds, gameState?.phase, gameState?.current_player_index, gameState?.players, holdFirstTurnClock]);
 
   useEffect(() => {
     if (!gameId) return;

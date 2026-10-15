@@ -1042,7 +1042,7 @@ export async function emitWaitingLobbySnapshotPublic(io: Server, gameId: string)
 const turnReadyAcked = new Map<string, string>();
 // A turn-ready ack is only honored shortly after the turn began. A late ack
 // (e.g. from a reconnect deep into the turn) must not hand the player a fresh
-// full clock.
+// full clock. (Turn 1 can be exempt; see game:turn_ready.)
 const TURN_READY_MAX_WINDOW_MS = 20_000;
 
 export function initGameSocket(httpServer: HttpServer): Server {
@@ -2608,8 +2608,13 @@ export function initGameSocket(httpServer: HttpServer): Server {
         const key = `${state.turn_number}:${state.current_player_index}`;
         if (turnReadyAcked.get(gameId) === key) return;
         turnReadyAcked.set(gameId, key);
-        // Late acks are recorded (to dedupe) but do not reset the clock.
-        if (Date.now() - state.turn_started_at > TURN_READY_MAX_WINDOW_MS) return;
+        // Late acks are recorded (to dedupe) but do not reset the clock, except
+        // on a seat's first turn (every seat's first turn is turn 1) with
+        // first_turn_clock_wait_enabled: the client holds this ack until the
+        // game-start briefing closes, and a new player reading it should not
+        // lose the time. Still once per seat, and only while the turn is live.
+        const firstTurnWaits = featureFlags.firstTurnClockWaitEnabled && state.turn_number === 1;
+        if (!firstTurnWaits && Date.now() - state.turn_started_at > TURN_READY_MAX_WINDOW_MS) return;
 
         state.turn_started_at = Date.now();
         startTurnTimer(io, gameId, state, map);

@@ -34,6 +34,7 @@ export interface ClientFeatureFlags {
   localization_enabled: boolean;
   touch_targets_enabled: boolean;
   daily_puzzle_v2_enabled: boolean;
+  first_turn_clock_wait_enabled: boolean;
   store_v2_enabled: boolean;
   space_age_moon_race_enabled: boolean;
   first_match_easy_enabled: boolean;
@@ -120,6 +121,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   // Daily Challenge v2 (decision puzzles graded by an exact solver). Dark-launched
   // OFF; the server decides which days are v2, the client renders what it is sent.
   daily_puzzle_v2_enabled: false,
+  // First turn clock: the first turn's clock waits for the game-start briefing. Dark-launched OFF.
+  first_turn_clock_wait_enabled: false,
   // Store overhaul: cosmetics drawn on profiles and in matches (the store page
   // is the same either way). On by default; admin kill switch.
   store_v2_enabled: true,
@@ -316,6 +319,11 @@ export function useTouchTargetsEnabled(): boolean {
  */
 export function useDailyPuzzleV2Enabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.daily_puzzle_v2_enabled);
+}
+
+/** First turn clock: hold the countdown while the game-start briefing is open on the player's first turn (GameHUD, gameSocket game:turn_ready). */
+export function useFirstTurnClockWaitEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.first_turn_clock_wait_enabled);
 }
 
 /**

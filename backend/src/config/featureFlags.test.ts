@@ -365,6 +365,15 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().localization_enabled).toBe(true);
   });
 
+  it('first_turn_clock_wait_enabled defaults to off (dark-launch) and is admin-overridable', () => {
+    expect(featureFlags.firstTurnClockWaitEnabled).toBe(false);
+    expect(getClientFeatureFlags().first_turn_clock_wait_enabled).toBe(false);
+    expect(getFeatureFlagStates().first_turn_clock_wait_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { first_turn_clock_wait_enabled: true } });
+    expect(featureFlags.firstTurnClockWaitEnabled).toBe(true);
+    expect(getClientFeatureFlags().first_turn_clock_wait_enabled).toBe(true);
+  });
+
   it('daily_puzzle_v2_enabled defaults to off (dark-launch) and is admin-overridable', () => {
     expect(featureFlags.dailyPuzzleV2Enabled).toBe(false);
     expect(getClientFeatureFlags().daily_puzzle_v2_enabled).toBe(false);

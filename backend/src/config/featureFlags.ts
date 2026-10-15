@@ -167,6 +167,11 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // puzzle graded by an exact solver. Dark-launched OFF; with it on, a day is
   // v2 only when its set-piece carries a plan and the gate accepted it.
   daily_puzzle_v2_enabled: () => envOptIn('DAILY_PUZZLE_V2_ENABLED'),
+  // First turn clock: a player's first turn starts its clock when they close
+  // the game-start briefing, however long they read it. The ready signal used
+  // to count only in the first 20 seconds, so a slow first read cost turn
+  // time. Dark-launched OFF.
+  first_turn_clock_wait_enabled: () => envOptIn('FIRST_TURN_CLOCK_WAIT_ENABLED'),
   // Store overhaul: every equipped cosmetic shown where players see each
   // other (profiles, matches), and the era sets on sale. The store page, the
   // banner slot and unequipping are the same either way. On by default; the
@@ -531,6 +536,16 @@ export const featureFlags = {
    */
   get dailyPuzzleV2Enabled(): boolean {
     return overrideBool('daily_puzzle_v2_enabled');
+  },
+
+  /**
+   * First turn clock: on turn 1, the server honours a seat's `game:turn_ready`
+   * whenever it arrives, and the HUD holds the countdown while the game-start
+   * briefing is open (GameStartModal).
+   * Default OFF; `FIRST_TURN_CLOCK_WAIT_ENABLED=true` or the admin override turns it on.
+   */
+  get firstTurnClockWaitEnabled(): boolean {
+    return overrideBool('first_turn_clock_wait_enabled');
   },
 
   /**
@@ -1307,6 +1322,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     localization_enabled: featureFlags.localizationEnabled,
     touch_targets_enabled: featureFlags.touchTargetsEnabled,
     daily_puzzle_v2_enabled: featureFlags.dailyPuzzleV2Enabled,
+    first_turn_clock_wait_enabled: featureFlags.firstTurnClockWaitEnabled,
     store_v2_enabled: featureFlags.storeV2Enabled,
     first_match_easy_enabled: featureFlags.firstMatchEasyEnabled,
     game_loading_label_enabled: featureFlags.gameLoadingLabelEnabled,
