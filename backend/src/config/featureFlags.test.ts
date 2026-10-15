@@ -464,6 +464,15 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().first_match_easy_enabled).toBe(false);
   });
 
+  it('loss_reason_enabled defaults to off (dark-launch) and is admin-overridable', () => {
+    expect(featureFlags.lossReasonEnabled).toBe(false);
+    expect(getClientFeatureFlags().loss_reason_enabled).toBe(false);
+    expect(getFeatureFlagStates().loss_reason_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { loss_reason_enabled: true } });
+    expect(featureFlags.lossReasonEnabled).toBe(true);
+    expect(getClientFeatureFlags().loss_reason_enabled).toBe(true);
+  });
+
   it('custom_round_cap_enabled defaults to off (dark-launch) and is admin-overridable', () => {
     expect(featureFlags.customRoundCapEnabled).toBe(false);
     expect(getClientFeatureFlags().custom_round_cap_enabled).toBe(false);

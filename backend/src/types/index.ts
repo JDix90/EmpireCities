@@ -186,6 +186,14 @@ export interface AiIntent {
   since: number;
 }
 
+/** A round's fall in one player's territory count (state/lossTally.ts). */
+export interface RoundLoss {
+  /** The round (turn_number) the territories were lost in. */
+  turn: number;
+  from: number;
+  to: number;
+}
+
 export interface PlayerState {
   player_id: string;        // user_id or 'ai_<index>'
   player_index: number;
@@ -319,6 +327,19 @@ export interface PlayerState {
   card_earned_this_turn?: boolean;
   /** Max territories captured in any single turn this game (blitzkrieg achievement). */
   territories_captured_turn_max?: number;
+  /**
+   * Post-match loss reason (state/lossTally.ts): units this player lost to
+   * event cards this game.
+   */
+  units_lost_to_events?: number;
+  /** Post-match loss reason: turns this player began holding a tradeable card set and ended without trading. */
+  turns_ended_with_set?: number;
+  /** lossTally: `cards_redeemed_count` as this turn began holding a tradeable set; unset when it began without one. */
+  set_in_hand_at_turn_start?: number;
+  /** lossTally: territories held as the current round began (unset before the first round ends). */
+  round_start_territory_count?: number;
+  /** Post-match loss reason: the round this player's territory count fell furthest in. */
+  worst_round_loss?: RoundLoss;
   /** Player IDs with whom this player has established at least one truce (diplomat achievement). */
   truces_established?: string[];
   /** ID of the last opponent this player attacked (used for event card truce targeting). */

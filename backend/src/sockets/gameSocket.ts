@@ -5,6 +5,7 @@ import { verifyAccessToken } from '../utils/jwt';
 import { query, queryOne } from '../db/postgres';
 import { emitGameError, GameErrorCode } from './socketErrors';
 import { featureFlags } from '../config/featureFlags';
+import { worstRoundLoss } from '../game-engine/state/lossTally';
 import {
   trackSpectator,
   untrackSpectator,
@@ -5799,6 +5800,10 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
       ),
       is_eliminated: p.is_eliminated,
       is_ai: p.is_ai,
+      // Why a player lost (state/lossTally.ts), read by the defeat screen.
+      units_lost_to_events: p.units_lost_to_events ?? 0,
+      turns_ended_with_set: p.turns_ended_with_set ?? 0,
+      worst_round_loss: worstRoundLoss(state, p),
     })),
     win_probability_history: state.win_probability_history ?? [],
     // Guests are redacted from both rating maps: competitive numbers are a

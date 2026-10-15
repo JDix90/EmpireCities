@@ -50,6 +50,7 @@ export interface ClientFeatureFlags {
   placement_cap_note_enabled: boolean;
   custom_lobby_fold_enabled: boolean;
   custom_round_cap_enabled: boolean;
+  loss_reason_enabled: boolean;
 }
 
 /**
@@ -152,6 +153,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   custom_lobby_fold_enabled: false,
   // The Custom Game form sets a round limit. Dark-launched OFF.
   custom_round_cap_enabled: false,
+  // Loss reason: the defeat screen says why the player lost. Dark-launched OFF.
+  loss_reason_enabled: false,
   // The Space Age Moon Race, Lunar Hegemony included. On by default; admin kill switch.
   space_age_moon_race_enabled: true,
 };
@@ -406,4 +409,9 @@ export function useCustomLobbyFoldEnabled(): boolean {
 /** The Custom Game form sets a round limit (pages/LobbyPage.tsx, utils/customRoundLimit.ts). */
 export function useCustomRoundCapEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.custom_round_cap_enabled);
+}
+
+/** Loss reason: a "Why you lost" line on the defeat screen (utils/lossReason.ts). */
+export function useLossReasonEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.loss_reason_enabled);
 }
