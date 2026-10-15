@@ -2062,6 +2062,9 @@ export default function GamePage() {
         unlocked_techs_count?: number;
         buildings_built_count?: number;
         is_eliminated: boolean; is_ai: boolean;
+        units_lost_to_events?: number;
+        turns_ended_with_set?: number;
+        worst_round_loss?: { turn: number; from: number; to: number } | null;
       }>;
       win_probability_history?: Array<{ step: number; turn: number; probabilities: Record<string, number> }>;
       rating_deltas?: Record<string, number>;

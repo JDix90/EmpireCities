@@ -7,6 +7,18 @@ const SECRET_SETTINGS_KEYS = ['seed'] as const;
 
 
 /**
+ * The loss tallies read from a player's hand (state/lossTally.ts): whether it
+ * held a tradeable set as this turn began, and how many turns it ended holding
+ * one. A hand is private (no spectator sees one, and in fog no rival does), so
+ * these stay on the server for every viewer, live and in replays; the defeat
+ * screen gets the count in the game-over stats, when hands no longer matter.
+ */
+function stripHandTallies(p: PlayerState): PlayerState {
+  if (p.set_in_hand_at_turn_start === undefined && p.turns_ended_with_set === undefined) return p;
+  return { ...p, set_in_hand_at_turn_start: undefined, turns_ended_with_set: undefined };
+}
+
+/**
  * Redact per-player private fields from a state snapshot for a given viewer.
  *
  * Used by `buildClientState` for both player and spectator/public views:
@@ -21,6 +33,7 @@ const SECRET_SETTINGS_KEYS = ['seed'] as const;
  *    caller.) This matches the prior behaviour exactly for player views.
  *  - `ai_intent`, a bot's goal (ai/aiIntent.ts), is never sent: the bot plays
  *    it, and nothing on the board should give it away.
+ *  - The hand-derived loss tallies are never sent ({@link stripHandTallies}).
  *
  * Returns a new array; players that need redaction are shallow-cloned, so the
  * authoritative server state is never mutated.
@@ -34,6 +47,7 @@ export function redactPlayersForViewer(
     // Spectators (no viewing player) never see any hand.
     let base: PlayerState = viewerId === null ? { ...p, cards: [] } : p;
     if (base.ai_intent) base = { ...base, ai_intent: undefined };
+    base = stripHandTallies(base);
     const revealMission =
       (viewerId !== null && p.player_id === viewerId) || p.is_eliminated || phase === 'game_over';
     return revealMission ? base : { ...base, secret_mission: null };
@@ -150,7 +164,7 @@ export function redactReplaySnapshot(state: GameState): GameState {
   return {
     ...rest,
     players: Array.isArray(rest.players)
-      ? rest.players.map((p) => ({ ...p, secret_mission: null, ai_intent: undefined }))
+      ? rest.players.map((p) => ({ ...stripHandTallies(p), secret_mission: null, ai_intent: undefined }))
       : rest.players,
   } as GameState;
 }

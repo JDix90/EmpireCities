@@ -18,6 +18,7 @@ import { getEraDeck, drawRandomCard, applyEventEffect, tickTemporaryModifiers, c
 import { getActiveSeasonalDeck } from '../events/seasonalDecks';
 import { initializeNavalUnits, collectFleetIncome } from './navalManager';
 import { initializeStability, applyStabilityTick, getDeployCap } from './stabilityManager';
+import { noteRoundEnd, noteTurnEnd, noteTurnStart } from './lossTally';
 import { getWonderReinforceBonus, applyWonderProductionIncome } from './wonderManager';
 import {
   assignCapitals,
@@ -1044,6 +1045,8 @@ function passTurn(state: GameState, map?: GameMap): void {
   // after this returns.
   const outgoing = state.players[state.current_player_index]?.player_id ?? null;
   tickLunarHegemony(state, outgoing);
+  const outgoingPlayer = state.players[state.current_player_index];
+  if (outgoingPlayer) noteTurnEnd(outgoingPlayer);
 
   const total = state.players.length;
   let next = (state.current_player_index + 1) % total;
@@ -1060,6 +1063,7 @@ function passTurn(state: GameState, map?: GameMap): void {
   // keyed to the turn number — turn caps, speed achievements, the daily par,
   // the resign grace window — by one seat.)
   if (handOffCrossesSeat(state.current_player_index, next, getStartingPlayerIndex(state), total)) {
+    noteRoundEnd(state);
     state.turn_number++;
 
     // Round-end sweep for the Hegemony clock. The end-of-turn tick above only
@@ -1165,6 +1169,7 @@ function passTurn(state: GameState, map?: GameMap): void {
   }
 
   const nextPlayer = state.players[next];
+  noteTurnStart(nextPlayer);
   // Tick down the post-advance vulnerability window at the start of the
   // advancer's turn. Decrement (not zero) so era_advancement_vuln_turns > 1
   // genuinely lasts multiple turns.

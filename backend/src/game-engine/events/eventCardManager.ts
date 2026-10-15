@@ -26,6 +26,7 @@ import { spaceageEvents } from './decks/spaceage';
 import { galaxyageEvents } from './decks/galaxyage';
 import { applyStabilityChange, applyGlobalStabilityChange } from '../state/stabilityManager';
 import { areAllies } from '../state/teams';
+import { noteEventLosses } from '../state/lossTally';
 
 const ERA_DECKS: Record<string, EventCard[]> = {
   ancient: ancientEvents,
@@ -196,6 +197,7 @@ export function applyEventEffect(
   const effect = scaledEffect(rawEffect, scale);
   const result = applyEventEffectInner(state, effect, affectsAllPlayers);
   if (effect !== rawEffect) result.magnitude_scale = scale;
+  noteEventLosses(state, result);
   return result;
 }
 

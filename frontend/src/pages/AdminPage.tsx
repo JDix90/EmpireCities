@@ -480,6 +480,12 @@ const CLIENT_FEATURE_FLAGS = [
       'The Custom Game form gets a round limit beside the victory conditions. By default it is the one Quick Match gives the chosen ending: 120 rounds for Domination, 90 for Capitals or a secret mission, 60 for 65% of the board, 45 for half the board. The host can pick 45, 60, 90, 120 or 150 rounds, or no limit. When the last round ends, whoever holds the most territory wins. Without a limit a Domination game against bots seldom ends. Space Age and Galactic Age keep the 90-round limit they already have. Off by default (dark launch): off is the form exactly as before, with no limit.',
   },
   {
+    key: 'loss_reason_enabled',
+    label: 'Say why the player lost',
+    description:
+      'The defeat screen opens its coaching with one line on why the player lost, from what the game counted: the turn their territories fell furthest (\u201cyour territories fell from 9 to 4\u201d), turns they ended holding a card set they never traded, or armies lost to event cards. Before, its coaching listed only their best moves. Off by default (dark launch) \u2014 off is the defeat screen exactly as before.',
+  },
+  {
     key: 'store_v2_enabled',
     label: 'Store overhaul',
     description:

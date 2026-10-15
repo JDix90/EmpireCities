@@ -200,6 +200,11 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // The Custom Game form sets a round limit, by default the one Quick Match
   // gives the chosen ending. Dark-launched OFF.
   custom_round_cap_enabled: () => envOptIn('CUSTOM_ROUND_CAP_ENABLED'),
+  // Loss reason: the defeat screen says in one line why the player lost,
+  // from what the game counted (the round their territories fell furthest,
+  // turns ended holding a card set they never traded, units lost to event
+  // cards). Its coaching only ever praised their best moves. Dark-launched OFF.
+  loss_reason_enabled: () => envOptIn('LOSS_REASON_ENABLED'),
   // Phone tutorial: the era-advance card arrives folded to a strip over an open
   // tech tree instead of covering the research it asks for, and the economy
   // and era cards show only their first message on a phone.
@@ -661,6 +666,15 @@ export const featureFlags = {
    */
   get customRoundCapEnabled(): boolean {
     return overrideBool('custom_round_cap_enabled');
+  },
+
+  /**
+   * Loss reason: one "Why you lost" line on the defeat screen, from the per-player
+   * tallies in game-engine/state/lossTally.ts (frontend utils/lossReason.ts).
+   * Default OFF; `LOSS_REASON_ENABLED=true` or the admin override turns it on.
+   */
+  get lossReasonEnabled(): boolean {
+    return overrideBool('loss_reason_enabled');
   },
 
   /**
@@ -1321,6 +1335,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     placement_cap_note_enabled: featureFlags.placementCapNoteEnabled,
     custom_lobby_fold_enabled: featureFlags.customLobbyFoldEnabled,
     custom_round_cap_enabled: featureFlags.customRoundCapEnabled,
+    loss_reason_enabled: featureFlags.lossReasonEnabled,
     // Read by the Custom Game form to say whether a Space Age game can also be
     // won on the Moon (the Lunar Hegemony rides with the Moon Race).
     space_age_moon_race_enabled: featureFlags.spaceAgeMoonRaceEnabled,

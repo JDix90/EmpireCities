@@ -27,6 +27,8 @@ import { formatSecretMissionReveal, type MapNameLookup } from '../../utils/mapDi
 import { getFastCombatPreference } from '../../utils/userPreferences';
 import { useGameStore } from '../../store/gameStore';
 import { useBattleArmiesEnabled } from '../../store/featureFlagsStore';
+import { useLossReasonEnabled } from '../../store/featureFlagsStore';
+import { lossReason } from '../../utils/lossReason';
 import { eraBoardTheme } from '../../constants/eraBoardTheme';
 import { eraMeta } from '../../constants/eraMeta';
 import { ERA_LABELS } from '../../constants/gameLobbyLabels';
@@ -92,6 +94,10 @@ export interface GameOverModalData {
     is_eliminated: boolean;
     is_ai: boolean;
     ai_difficulty?: string | null;
+    /** Why a player lost (utils/lossReason.ts): the server's tallies for them. */
+    units_lost_to_events?: number;
+    turns_ended_with_set?: number;
+    worst_round_loss?: { turn: number; from: number; to: number } | null;
   }>;
   win_probability_history?: WinProbabilitySnapshot[];
   rating_change?: number;
@@ -1357,6 +1363,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
   const referralSurveyFlag = useReferralSurveyEnabled();
   const guestPromptV2 = useGuestPromptV2Enabled();
   const resultsFooter = useResultsFooterEnabled();
+  const lossReasonOn = useLossReasonEnabled();
   const [showReferralSurvey] = useState(() =>
     shouldShowReferralSurvey({
       flagEnabled: referralSurveyFlag,
@@ -1515,6 +1522,14 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
     .filter((p) => winnerIds.includes(p.player_id) && p.player_id !== selfId)
     .map((p) => p.username);
   const allyName = isAlliance ? coWinnerNames[0] : undefined;
+  // Why the viewer lost, in one line (loss_reason_enabled), from the tallies
+  // the game kept for them. Not for an objective day, whose result is the
+  // challenge, a scored puzzle, or a game nobody finished.
+  const viewerSeat = data.viewerId ? data.players.find((p) => p.player_id === data.viewerId) : undefined;
+  const whyLost = lossReasonOn && !data.isWinner && viewerSeat && !viewerSeat.is_ai
+    && !isAbandoned && !daily && !data.puzzle_review
+    ? lossReason(viewerSeat)
+    : null;
 
   const reasonLabel = victoryReasonLabel(data.victory_condition, data.victory_threshold);
 
@@ -1697,6 +1712,19 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
             : 'bg-white/5 border-white/10 text-white/45'
         )}>
           {data.isWinner ? '🏆 ' : ''}{data.victory_condition === 'abandoned' ? reasonLabel : `Victory by ${reasonLabel}`}
+        </div>
+      )}
+
+      {whyLost && (
+        <div
+          data-testid="gameover-loss-reason"
+          className={clsx(
+            'mb-5 px-3 py-2.5 rounded-lg border border-white/10 bg-white/[0.03] text-left transition-all duration-500 delay-350',
+            showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2',
+          )}
+        >
+          <p className="text-white/40 text-[11px] font-semibold uppercase tracking-wider">Why you lost</p>
+          <p className="text-sm text-white/80 mt-1">{whyLost.text}</p>
         </div>
       )}
 

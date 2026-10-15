@@ -51,6 +51,17 @@ describe('redactPlayersForViewer', () => {
     expect(out.every((p) => p.cards.length === 0)).toBe(true);
   });
 
+  it('sends no viewer the loss tallies read from a hand, and leaves the rest', () => {
+    const tallied = (id: string) => player({
+      player_id: id, set_in_hand_at_turn_start: 2, turns_ended_with_set: 3, units_lost_to_events: 5,
+    });
+    for (const viewer of ['alice', null]) {
+      const out = redactPlayersForViewer([tallied('alice'), tallied('bob')], viewer, 'attack');
+      expect(out.every((p) => p.set_in_hand_at_turn_start === undefined && p.turns_ended_with_set === undefined)).toBe(true);
+      expect(out.every((p) => p.units_lost_to_events === 5)).toBe(true);
+    }
+  });
+
   it('does not mutate the input players', () => {
     const players = [alice(), bob()];
     redactPlayersForViewer(players, null, 'attack');
@@ -233,6 +244,15 @@ describe('redactReplaySnapshot', () => {
     expect('card_deck' in out).toBe(false);
     expect(JSON.stringify(out)).not.toContain('mission_seed_salt');
     expect(out.players.every((p) => p.secret_mission === null)).toBe(true);
+  });
+
+  it('withholds the loss tallies read from a hand', () => {
+    const input = snapshot();
+    input.players[0].set_in_hand_at_turn_start = 1;
+    input.players[0].turns_ended_with_set = 4;
+    const json = JSON.stringify(redactReplaySnapshot(input));
+    expect(json).not.toContain('set_in_hand_at_turn_start');
+    expect(json).not.toContain('turns_ended_with_set');
   });
 
   it('never mutates the stored snapshot', () => {
