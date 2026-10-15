@@ -899,7 +899,9 @@ export default function GamePage() {
   // globe is ready (or the 2D fallback mounts) and it is the local human's
   // turn, we send a one-shot `game:turn_ready` so the server realigns
   // turn_started_at. The server guards this to once per turn within a short
-  // window, so it cannot be abused to stall the clock.
+  // window, so it cannot be abused to stall the clock. (On turn 1, with
+  // first_turn_clock_wait_enabled, the window is lifted: the ack waits for the
+  // game-start briefing.)
   const globeReadyRef = useRef(false);
   const turnReadyAckRef = useRef<string | null>(null);
 
@@ -5606,6 +5608,7 @@ export default function GamePage() {
               gameId={gameStarted && gameId ? gameId : undefined}
               activeInteractionLabel={activeInteractionLabel}
               resolvedViewerPlayerId={resolvedViewerPlayerId}
+              startBriefingOpen={showStartModal}
               tutorialActiveSettings={
                 tutorialLessonModule === 'advanced_settings' ? tutorialAppliedSettings : undefined
               }
@@ -5846,6 +5849,7 @@ export default function GamePage() {
               gameId={gameStarted && gameId ? gameId : undefined}
               activeInteractionLabel={activeInteractionLabel}
               resolvedViewerPlayerId={resolvedViewerPlayerId}
+              startBriefingOpen={showStartModal}
               tutorialActiveSettings={
                 tutorialLessonModule === 'advanced_settings' ? tutorialAppliedSettings : undefined
               }
