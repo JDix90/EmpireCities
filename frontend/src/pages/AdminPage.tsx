@@ -405,7 +405,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'first_turn_clock_wait_enabled',
     label: 'First turn clock waits for the briefing',
     description:
-      'A player\'s first turn starts its clock when they close the game-start briefing (turn order, how to win, starting resources), however long they spend reading it, and the countdown holds while it is open. Before, the clock reset only if they closed it within 20 seconds. Later turns are unchanged. Off by default (dark launch) \u2014 off is the clock exactly as before.',
+      'A player\'s first turn starts its clock when they close the game-start briefing (turn order, how to win, starting resources), however long they spend reading it, and the countdown holds while it is open. Before, the clock reset only if they closed it within 20 seconds. Later turns are unchanged. On by default; switching it off gives the clock exactly as before.',
   },
   {
     key: 'first_match_easy_enabled',
@@ -489,7 +489,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'loss_reason_enabled',
     label: 'Say why the player lost',
     description:
-      'The defeat screen opens its coaching with one line on why the player lost, from what the game counted: the turn their territories fell furthest (\u201cyour territories fell from 9 to 4\u201d), turns they ended holding a card set they never traded, or armies lost to event cards. Before, its coaching listed only their best moves. Off by default (dark launch) \u2014 off is the defeat screen exactly as before.',
+      'The defeat screen shows one line on why the player lost, under how the game ended, from what the game counted: the turn their territories fell furthest (\u201cyour territories fell from 9 to 4\u201d), turns they ended holding a card set they never traded, or armies lost to event cards. Before, its coaching listed only their best moves. On by default; switching it off gives the defeat screen exactly as before.',
   },
   {
     key: 'store_v2_enabled',

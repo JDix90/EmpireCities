@@ -50,7 +50,7 @@ describe('why you lost', () => {
       isAuthenticated: true,
     });
   });
-  afterEach(() => setFlag(false));
+  afterEach(() => setFlag(true));
 
   it('names the viewer\'s own strongest reason under how the game ended', () => {
     setFlag(true);

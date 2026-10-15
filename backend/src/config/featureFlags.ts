@@ -170,8 +170,9 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // First turn clock: a player's first turn starts its clock when they close
   // the game-start briefing, however long they read it. The ready signal used
   // to count only in the first 20 seconds, so a slow first read cost turn
-  // time. Dark-launched OFF.
-  first_turn_clock_wait_enabled: () => envOptIn('FIRST_TURN_CLOCK_WAIT_ENABLED'),
+  // time.
+  // On by default; the admin override is the kill switch.
+  first_turn_clock_wait_enabled: () => envOptOut('FIRST_TURN_CLOCK_WAIT_ENABLED'),
   // Store overhaul: every equipped cosmetic shown where players see each
   // other (profiles, matches), and the era sets on sale. The store page, the
   // banner slot and unequipping are the same either way. On by default; the
@@ -208,8 +209,9 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // Loss reason: the defeat screen says in one line why the player lost,
   // from what the game counted (the round their territories fell furthest,
   // turns ended holding a card set they never traded, units lost to event
-  // cards). Its coaching only ever praised their best moves. Dark-launched OFF.
-  loss_reason_enabled: () => envOptIn('LOSS_REASON_ENABLED'),
+  // cards). Its coaching only ever praised their best moves.
+  // On by default; the admin override is the kill switch.
+  loss_reason_enabled: () => envOptOut('LOSS_REASON_ENABLED'),
   // Phone tutorial: the era-advance card arrives folded to a strip over an open
   // tech tree instead of covering the research it asks for, and the economy
   // and era cards show only their first message on a phone.
@@ -547,7 +549,7 @@ export const featureFlags = {
    * First turn clock: on turn 1, the server honours a seat's `game:turn_ready`
    * whenever it arrives, and the HUD holds the countdown while the game-start
    * briefing is open (GameStartModal).
-   * Default OFF; `FIRST_TURN_CLOCK_WAIT_ENABLED=true` or the admin override turns it on.
+   * Default ON; `FIRST_TURN_CLOCK_WAIT_ENABLED=false` or the admin override turns it off.
    */
   get firstTurnClockWaitEnabled(): boolean {
     return overrideBool('first_turn_clock_wait_enabled');
@@ -686,7 +688,7 @@ export const featureFlags = {
   /**
    * Loss reason: one "Why you lost" line on the defeat screen, from the per-player
    * tallies in game-engine/state/lossTally.ts (frontend utils/lossReason.ts).
-   * Default OFF; `LOSS_REASON_ENABLED=true` or the admin override turns it on.
+   * Default ON; `LOSS_REASON_ENABLED=false` or the admin override turns it off.
    */
   get lossReasonEnabled(): boolean {
     return overrideBool('loss_reason_enabled');
