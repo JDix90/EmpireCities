@@ -61,6 +61,7 @@ import {
   phaseTintClass,
 } from '../utils/mapAmbientEffects';
 import GameHUD from '../components/game/GameHUD';
+import GamePanelBoundary from '../components/game/GamePanelBoundary';
 import { MapControlChip } from '../components/game/MapControlTracker';
 import AiTurnRecapPanel, { appendRecap, ownTurnDigest, type TurnRecapEntry } from '../components/game/AiTurnRecapPanel';
 import { useTurnRecapPanelEnabled } from '../store/featureFlagsStore';
@@ -5257,199 +5258,201 @@ export default function GamePage() {
               onComplete={() => setEraAdvanceVignette(null)}
             />
           )}
-          {mapData && sizeReady ? (
-            mapData.map_kind === 'galaxy' && galaxySplitMode ? (
-              <Suspense fallback={<div className="flex items-center justify-center h-full"><p className="text-bf-muted animate-pulse">Loading worlds…</p></div>}>
-                <GalaxySplitViewLazy
+          <GamePanelBoundary name="map" resetKey={mapView}>
+            {mapData && sizeReady ? (
+              mapData.map_kind === 'galaxy' && galaxySplitMode ? (
+                <Suspense fallback={<div className="flex items-center justify-center h-full"><p className="text-bf-muted animate-pulse">Loading worlds…</p></div>}>
+                  <GalaxySplitViewLazy
+                    mapData={mapData}
+                    gameState={gameState}
+                    width={mapCanvasSize.w}
+                    height={mapCanvasSize.h}
+                    viewerPlayerId={resolvedViewerPlayerId}
+                    mapProps={{
+                      onTerritoryClick: handleTerritoryClick,
+                      highlightTerritoryId: tutorialHighlightId,
+                      lossPulseTerritoryIds: lossPulseIds,
+                      strikeFlash: mapStrikeFlash,
+                      mapVisualEvents: phoneMapVisualEvents,
+                      onMapVisualDone,
+                      reducedEffects: reducedGlobe,
+                      frameBudget: frameBudget.active,
+                      turnHolderPlayerId: turnHolderPlayer?.player_id ?? null,
+                      validSourceOwnerId,
+                      turnHolderColor: turnHolderPlayer?.color,
+                      contestedBorders,
+                      connectionHintMode,
+                    }}
+                    globeProps={mapView === 'globe' ? {
+                      onTerritoryClick: handleTerritoryClick,
+                      events: phoneGlobeEvents,
+                      onEventDone: onMapVisualDone,
+                      reducedEffects: reducedGlobe,
+                      frameBudget: frameBudget.active,
+                      frameBudgetFps: frameBudget.fps,
+                      autoSpin: globeSpinEnabled,
+                      cameraFollow: cameraFollowEnabled,
+                      skipAnimationsRef: skipGlobeAnimationsRef,
+                      onSkipAll: skipAllBacklogByTap,
+                      onGlobeReady: handleGlobeReady,
+                      highlightTerritoryId: tutorialHighlightId,
+                      lossPulseTerritoryIds: lossPulseIds,
+                      turnHolderPlayerId: turnHolderPlayer?.player_id ?? null,
+                      selfPlayerId: resolvedViewerPlayerId,
+                      coachHighlightOwnerId: coachPhase === 'reinforcement' ? resolvedViewerPlayerId : null,
+                      validSourceOwnerId,
+                      contestedBorders,
+                      connectionHintMode,
+                    } : undefined}
+                    onOpenWorld={openGalaxyWorld}
+                    laneAccessAllowed={orbitAccess.allowed}
+                  />
+                </Suspense>
+              ) : mapView === 'globe' ? (
+                <Suspense fallback={<div className="flex items-center justify-center h-full"><p className="text-bf-muted animate-pulse">Loading globe…</p></div>}>
+                  <div className="relative w-full h-full">
+                    {mapData.map_kind === 'galaxy' && galaxyOverviewMode ? (
+                      renderGalaxyChart(mapData)
+                    ) : (
+                      <>
+                        {galaxyWorldBanner && (
+                          <div
+                            className="absolute top-4 left-1/2 z-20 -translate-x-1/2 pointer-events-none max-w-md px-4 py-2 rounded-lg border border-bf-border bg-black/60 text-center shadow-lg"
+                            role="status"
+                            aria-live="polite"
+                          >
+                            <div className="font-display text-bf-gold text-sm sm:text-base">
+                              {galaxyWorldBanner.display_name}
+                            </div>
+                            <div className="text-[11px] sm:text-xs text-bf-muted mt-0.5">
+                              {galaxyWorldBanner.tagline}
+                            </div>
+                          </div>
+                        )}
+                        <GlobeMapLazy
+                          mapData={mapData}
+                          onTerritoryClick={handleTerritoryClick}
+                          width={mapCanvasSize.w}
+                          height={mapCanvasSize.h}
+                          events={phoneGlobeEvents}
+                          onEventDone={onMapVisualDone}
+                          reducedEffects={reducedGlobe}
+                          frameBudget={frameBudget.active}
+                          frameBudgetFps={frameBudget.fps}
+                          autoSpin={globeSpinEnabled}
+                          cameraFollow={cameraFollowEnabled}
+                          skipAnimationsRef={skipGlobeAnimationsRef}
+                          onSkipAll={skipAllBacklogByTap}
+                          onGlobeReady={handleGlobeReady}
+                          highlightTerritoryId={tutorialHighlightId}
+                          lossPulseTerritoryIds={lossPulseIds}
+                          ambientEnabled={mapAmbientEnabled && !reducedGlobe}
+                          turnHolderPlayerId={turnHolderPlayer?.player_id ?? null}
+                          selfPlayerId={resolvedViewerPlayerId}
+                          coachHighlightOwnerId={coachPhase === 'reinforcement' ? resolvedViewerPlayerId : null}
+                          validSourceOwnerId={validSourceOwnerId}
+                          contestedBorders={contestedBorders}
+                          connectionHintMode={connectionHintMode}
+                          activeWorldId={mapData.map_kind === 'galaxy' ? focusedWorldId : 'earth'}
+                          globeImageUrl={
+                            mapData.map_kind === 'galaxy'
+                              ? (galaxyWorldTexture ??
+                                  galaxyDrillGlobeSkin?.globeImageUrl ??
+                                  focusedWorldSkin?.globe_image_url ??
+                                  customGlobeSkin?.globeImageUrl)
+                              : (customGlobeSkin?.globeImageUrl ?? eraGlobeTexture)
+                          }
+                          bumpImageUrl={
+                            mapData.map_kind === 'galaxy'
+                              ? '' /* procedural worlds are albedo-only; '' = no bump (undefined would apply the Earth default) */
+                              : customGlobeSkin?.bumpImageUrl
+                          }
+                          showAtmosphere={
+                            mapData.map_kind === 'galaxy'
+                              ? (galaxyDrillGlobeSkin?.showAtmosphere ??
+                                  focusedWorldSkin?.show_atmosphere ??
+                                  true)
+                              : (customGlobeSkin?.showAtmosphere ?? true)
+                          }
+                          {...(mapData.map_kind === 'galaxy'
+                            ? {
+                                atmosphereColor:
+                                  galaxyDrillGlobeSkin?.atmosphereColor ??
+                                  focusedWorldSkin?.atmosphere_color ??
+                                  'lightskyblue',
+                                atmosphereAltitude:
+                                  galaxyDrillGlobeSkin?.atmosphereAltitude ??
+                                  focusedWorldSkin?.atmosphere_altitude ??
+                                  0.15,
+                              }
+                            : {})}
+                          backgroundColor={
+                            mapData.map_kind === 'galaxy'
+                              ? (galaxyDrillGlobeSkin?.backgroundColor ??
+                                  focusedWorldSkin?.background_color ??
+                                  customGlobeSkin?.backgroundColor)
+                              : (customGlobeSkin?.backgroundColor ?? eraAtmosphereBg)
+                          }
+                        />
+                        {/* Without WebGL the globe's message stands for the whole map, not a second one in the inset. */}
+                        {hasMoonTerritories && webglAvailable() && (
+                          <MoonInsetFrame className="w-[34%] h-[34%] min-w-[240px] min-h-[200px] max-w-[400px] max-h-[320px]">
+                            <GlobeMapLazy
+                              mapData={mapData}
+                              onTerritoryClick={handleTerritoryClick}
+                              width={Math.max(240, Math.floor(mapCanvasSize.w * 0.34))}
+                              height={Math.max(200, Math.floor(mapCanvasSize.h * 0.34))}
+                              reducedEffects={true}
+                              frameBudget={frameBudget.active}
+                              frameBudgetFps={frameBudget.fps}
+                              autoSpin={false}
+                              activeWorldId="moon"
+                              validSourceOwnerId={validSourceOwnerId}
+                              globeImageUrl="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r186/examples/textures/planets/moon_1024.jpg"
+                              bumpImageUrl=""
+                              showAtmosphere={false}
+                              backgroundColor="rgb(20, 22, 32)"
+                            />
+                          </MoonInsetFrame>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </Suspense>
+              ) : mapData.map_kind === 'galaxy' && galaxyOverviewMode ? (
+                <Suspense fallback={<div className="flex items-center justify-center h-full"><p className="text-bf-muted animate-pulse">Loading galaxy chart…</p></div>}>
+                  {renderGalaxyChart(mapData)}
+                </Suspense>
+              ) : (
+                <GameMap
                   mapData={mapData}
-                  gameState={gameState}
+                  activeWorldId={mapData.map_kind === 'galaxy' ? focusedWorldId : undefined}
+                  moonInset
+                  onTerritoryClick={handleTerritoryClick}
                   width={mapCanvasSize.w}
                   height={mapCanvasSize.h}
-                  viewerPlayerId={resolvedViewerPlayerId}
-                  mapProps={{
-                    onTerritoryClick: handleTerritoryClick,
-                    highlightTerritoryId: tutorialHighlightId,
-                    lossPulseTerritoryIds: lossPulseIds,
-                    strikeFlash: mapStrikeFlash,
-                    mapVisualEvents: phoneMapVisualEvents,
-                    onMapVisualDone,
-                    reducedEffects: reducedGlobe,
-                    frameBudget: frameBudget.active,
-                    turnHolderPlayerId: turnHolderPlayer?.player_id ?? null,
-                    validSourceOwnerId,
-                    turnHolderColor: turnHolderPlayer?.color,
-                    contestedBorders,
-                    connectionHintMode,
-                  }}
-                  globeProps={mapView === 'globe' ? {
-                    onTerritoryClick: handleTerritoryClick,
-                    events: phoneGlobeEvents,
-                    onEventDone: onMapVisualDone,
-                    reducedEffects: reducedGlobe,
-                    frameBudget: frameBudget.active,
-                    frameBudgetFps: frameBudget.fps,
-                    autoSpin: globeSpinEnabled,
-                    cameraFollow: cameraFollowEnabled,
-                    skipAnimationsRef: skipGlobeAnimationsRef,
-                    onSkipAll: skipAllBacklogByTap,
-                    onGlobeReady: handleGlobeReady,
-                    highlightTerritoryId: tutorialHighlightId,
-                    lossPulseTerritoryIds: lossPulseIds,
-                    turnHolderPlayerId: turnHolderPlayer?.player_id ?? null,
-                    selfPlayerId: resolvedViewerPlayerId,
-                    coachHighlightOwnerId: coachPhase === 'reinforcement' ? resolvedViewerPlayerId : null,
-                    validSourceOwnerId,
-                    contestedBorders,
-                    connectionHintMode,
-                  } : undefined}
-                  onOpenWorld={openGalaxyWorld}
-                  laneAccessAllowed={orbitAccess.allowed}
+                  highlightTerritoryId={tutorialHighlightId}
+                  lossPulseTerritoryIds={lossPulseIds}
+                  strikeFlash={mapStrikeFlash}
+                  mapVisualEvents={phoneMapVisualEvents}
+                  onMapVisualDone={onMapVisualDone}
+                  reducedEffects={reducedGlobe}
+                  frameBudget={frameBudget.active}
+                  ambientEnabled={mapAmbientEnabled && !reducedGlobe}
+                  turnHolderPlayerId={turnHolderPlayer?.player_id ?? null}
+                  validSourceOwnerId={validSourceOwnerId}
+                  turnHolderColor={turnHolderPlayer?.color}
+                  contestedBorders={contestedBorders}
+                  connectionHintMode={connectionHintMode}
+                  resetViewRef={resetViewRef}
                 />
-              </Suspense>
-            ) : mapView === 'globe' ? (
-              <Suspense fallback={<div className="flex items-center justify-center h-full"><p className="text-bf-muted animate-pulse">Loading globe…</p></div>}>
-                <div className="relative w-full h-full">
-                  {mapData.map_kind === 'galaxy' && galaxyOverviewMode ? (
-                    renderGalaxyChart(mapData)
-                  ) : (
-                    <>
-                      {galaxyWorldBanner && (
-                        <div
-                          className="absolute top-4 left-1/2 z-20 -translate-x-1/2 pointer-events-none max-w-md px-4 py-2 rounded-lg border border-bf-border bg-black/60 text-center shadow-lg"
-                          role="status"
-                          aria-live="polite"
-                        >
-                          <div className="font-display text-bf-gold text-sm sm:text-base">
-                            {galaxyWorldBanner.display_name}
-                          </div>
-                          <div className="text-[11px] sm:text-xs text-bf-muted mt-0.5">
-                            {galaxyWorldBanner.tagline}
-                          </div>
-                        </div>
-                      )}
-                      <GlobeMapLazy
-                        mapData={mapData}
-                        onTerritoryClick={handleTerritoryClick}
-                        width={mapCanvasSize.w}
-                        height={mapCanvasSize.h}
-                        events={phoneGlobeEvents}
-                        onEventDone={onMapVisualDone}
-                        reducedEffects={reducedGlobe}
-                        frameBudget={frameBudget.active}
-                        frameBudgetFps={frameBudget.fps}
-                        autoSpin={globeSpinEnabled}
-                        cameraFollow={cameraFollowEnabled}
-                        skipAnimationsRef={skipGlobeAnimationsRef}
-                        onSkipAll={skipAllBacklogByTap}
-                        onGlobeReady={handleGlobeReady}
-                        highlightTerritoryId={tutorialHighlightId}
-                        lossPulseTerritoryIds={lossPulseIds}
-                        ambientEnabled={mapAmbientEnabled && !reducedGlobe}
-                        turnHolderPlayerId={turnHolderPlayer?.player_id ?? null}
-                        selfPlayerId={resolvedViewerPlayerId}
-                        coachHighlightOwnerId={coachPhase === 'reinforcement' ? resolvedViewerPlayerId : null}
-                        validSourceOwnerId={validSourceOwnerId}
-                        contestedBorders={contestedBorders}
-                        connectionHintMode={connectionHintMode}
-                        activeWorldId={mapData.map_kind === 'galaxy' ? focusedWorldId : 'earth'}
-                        globeImageUrl={
-                          mapData.map_kind === 'galaxy'
-                            ? (galaxyWorldTexture ??
-                                galaxyDrillGlobeSkin?.globeImageUrl ??
-                                focusedWorldSkin?.globe_image_url ??
-                                customGlobeSkin?.globeImageUrl)
-                            : (customGlobeSkin?.globeImageUrl ?? eraGlobeTexture)
-                        }
-                        bumpImageUrl={
-                          mapData.map_kind === 'galaxy'
-                            ? '' /* procedural worlds are albedo-only; '' = no bump (undefined would apply the Earth default) */
-                            : customGlobeSkin?.bumpImageUrl
-                        }
-                        showAtmosphere={
-                          mapData.map_kind === 'galaxy'
-                            ? (galaxyDrillGlobeSkin?.showAtmosphere ??
-                                focusedWorldSkin?.show_atmosphere ??
-                                true)
-                            : (customGlobeSkin?.showAtmosphere ?? true)
-                        }
-                        {...(mapData.map_kind === 'galaxy'
-                          ? {
-                              atmosphereColor:
-                                galaxyDrillGlobeSkin?.atmosphereColor ??
-                                focusedWorldSkin?.atmosphere_color ??
-                                'lightskyblue',
-                              atmosphereAltitude:
-                                galaxyDrillGlobeSkin?.atmosphereAltitude ??
-                                focusedWorldSkin?.atmosphere_altitude ??
-                                0.15,
-                            }
-                          : {})}
-                        backgroundColor={
-                          mapData.map_kind === 'galaxy'
-                            ? (galaxyDrillGlobeSkin?.backgroundColor ??
-                                focusedWorldSkin?.background_color ??
-                                customGlobeSkin?.backgroundColor)
-                            : (customGlobeSkin?.backgroundColor ?? eraAtmosphereBg)
-                        }
-                      />
-                      {/* Without WebGL the globe's message stands for the whole map, not a second one in the inset. */}
-                      {hasMoonTerritories && webglAvailable() && (
-                        <MoonInsetFrame className="w-[34%] h-[34%] min-w-[240px] min-h-[200px] max-w-[400px] max-h-[320px]">
-                          <GlobeMapLazy
-                            mapData={mapData}
-                            onTerritoryClick={handleTerritoryClick}
-                            width={Math.max(240, Math.floor(mapCanvasSize.w * 0.34))}
-                            height={Math.max(200, Math.floor(mapCanvasSize.h * 0.34))}
-                            reducedEffects={true}
-                            frameBudget={frameBudget.active}
-                            frameBudgetFps={frameBudget.fps}
-                            autoSpin={false}
-                            activeWorldId="moon"
-                            validSourceOwnerId={validSourceOwnerId}
-                            globeImageUrl="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r186/examples/textures/planets/moon_1024.jpg"
-                            bumpImageUrl=""
-                            showAtmosphere={false}
-                            backgroundColor="rgb(20, 22, 32)"
-                          />
-                        </MoonInsetFrame>
-                      )}
-                    </>
-                  )}
-                </div>
-              </Suspense>
-            ) : mapData.map_kind === 'galaxy' && galaxyOverviewMode ? (
-              <Suspense fallback={<div className="flex items-center justify-center h-full"><p className="text-bf-muted animate-pulse">Loading galaxy chart…</p></div>}>
-                {renderGalaxyChart(mapData)}
-              </Suspense>
+              )
             ) : (
-              <GameMap
-                mapData={mapData}
-                activeWorldId={mapData.map_kind === 'galaxy' ? focusedWorldId : undefined}
-                moonInset
-                onTerritoryClick={handleTerritoryClick}
-                width={mapCanvasSize.w}
-                height={mapCanvasSize.h}
-                highlightTerritoryId={tutorialHighlightId}
-                lossPulseTerritoryIds={lossPulseIds}
-                strikeFlash={mapStrikeFlash}
-                mapVisualEvents={phoneMapVisualEvents}
-                onMapVisualDone={onMapVisualDone}
-                reducedEffects={reducedGlobe}
-                frameBudget={frameBudget.active}
-                ambientEnabled={mapAmbientEnabled && !reducedGlobe}
-                turnHolderPlayerId={turnHolderPlayer?.player_id ?? null}
-                validSourceOwnerId={validSourceOwnerId}
-                turnHolderColor={turnHolderPlayer?.color}
-                contestedBorders={contestedBorders}
-                connectionHintMode={connectionHintMode}
-                resetViewRef={resetViewRef}
-              />
-            )
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-bf-muted">Loading map...</p>
-            </div>
-          )}
+              <div className="flex items-center justify-center h-full">
+                <p className="text-bf-muted">Loading map...</p>
+              </div>
+            )}
+          </GamePanelBoundary>
 
           {/* Reset View button (mobile) + Shortcuts button (desktop) */}
           {mapView === '2d' && (
@@ -5477,25 +5480,29 @@ export default function GamePage() {
           {/* Non-blocking recap of other players' turns (replaces queued modals).
               A phone gets the one-line strip instead of the panel (M-12). */}
           {isMobileLayout ? (
-            <MobileTurnStrip
-              recaps={aiRecaps}
-              viewerPlayerId={resolvedViewerPlayerIdRef.current ?? user?.user_id ?? null}
-              liveCombat={lastCombatResult}
-              isMyTurn={mobileIsMyTurn}
-              acted={stripActed}
-              notice={notifState}
-              history={recapHistory}
-              onScrub={setScrubLossIds}
-              beforeFirstTurn={beforeFirstTurn}
-              onOpenFullLog={() => setMobileHudOpen(true)}
-            />
+            <GamePanelBoundary name="turn-strip" variant="silent" resetKey={aiRecaps}>
+              <MobileTurnStrip
+                recaps={aiRecaps}
+                viewerPlayerId={resolvedViewerPlayerIdRef.current ?? user?.user_id ?? null}
+                liveCombat={lastCombatResult}
+                isMyTurn={mobileIsMyTurn}
+                acted={stripActed}
+                notice={notifState}
+                history={recapHistory}
+                onScrub={setScrubLossIds}
+                beforeFirstTurn={beforeFirstTurn}
+                onOpenFullLog={() => setMobileHudOpen(true)}
+              />
+            </GamePanelBoundary>
           ) : (
-            <AiTurnRecapPanel
-              recaps={aiRecaps}
-              onDismiss={() => setAiRecaps([])}
-              viewerPlayerId={resolvedViewerPlayerIdRef.current ?? user?.user_id ?? null}
-              beforeFirstTurn={beforeFirstTurn}
-            />
+            <GamePanelBoundary name="ai-recap" variant="silent" resetKey={aiRecaps}>
+              <AiTurnRecapPanel
+                recaps={aiRecaps}
+                onDismiss={() => setAiRecaps([])}
+                viewerPlayerId={resolvedViewerPlayerIdRef.current ?? user?.user_id ?? null}
+                beforeFirstTurn={beforeFirstTurn}
+              />
+            </GamePanelBoundary>
           )}
 
           {/* Live dice theater for attacks against the local player (desktop; the strip carries it on phones) */}
@@ -5538,52 +5545,54 @@ export default function GamePage() {
 
           {/* Territory Info Panel */}
           {selectedTerritory && mapData && (
-            <TerritoryPanel
-              mapTerritories={mapData.territories}
-              mapRegions={mapData.regions}
-              onAttack={handleAttack}
-              onBlitzAttack={handleBlitzAttack}
-              onDraft={handleDraft}
-              onDraftUndo={handleDraftUndo}
-              canDraftUndo={canUndoDraftOnTerritory(gameState?.draft_deployments_this_turn, selectedTerritory)}
-              onBuild={gameState?.settings.economy_enabled ? handleBuild : undefined}
-              onSetGarrisonDoctrine={gameState?.settings.galaxy_garrisons ? handleSetGarrisonDoctrine : undefined}
-              onNavalMove={gameState?.settings.naval_enabled ? handleNavalMove : undefined}
-              onNavalAttack={gameState?.settings.naval_enabled ? handleNavalAttack : undefined}
-              onInfluence={
-                (gameState?.era_modifiers?.influence_spread || gameState?.era_modifiers?.carbonari_network)
-                  ? handleInfluence
-                  : undefined
-              }
-              onProposeTruce={gameState?.settings.diplomacy_enabled ? handleProposeTruce : undefined}
-              onSealLane={viewerCanSealFromPanel ? handleSealLane : undefined}
-              onUseAbility={
-                (gameState?.settings.tech_trees_enabled || gameState?.settings.factions_enabled)
-                  ? handleUseAbility
-                  : undefined
-              }
-              techTree={techTree}
-              onOpenTechTree={() => setShowTechTree(true)}
-              orbitAccessHint={orbitAccessHint}
-              orbitAccessAllowed={orbitAccess.allowed}
-              orbitAccessReason={orbitTravelBlockedReason}
-              resolvedViewerPlayerId={resolvedViewerPlayerId}
-              mapConnections={mapData.connections}
-              mapWorlds={mapData.worlds}
-              sealAnyLane={viewerSealsAnyLane}
-              denseMap={mapDensityMetrics?.isDense ?? false}
-              onFortifyTo={handleFortifyTo}
-              onClaimTerritory={gameState?.phase === 'territory_select' ? handleClaimTerritory : undefined}
-              sheetSnap={territorySheetSnap}
-              onSheetSnapChange={setTerritorySheetSnap}
-              onClose={() => {
-                setSelectedTerritory(null);
-                setAttackSource(null);
-                setNavalSource(null);
-                setFortifyUnits(1);
-                setTerritorySheetSnap('half');
-              }}
-            />
+            <GamePanelBoundary name="territory-panel" variant="overlay" onClose={() => setSelectedTerritory(null)} resetKey={selectedTerritory}>
+              <TerritoryPanel
+                mapTerritories={mapData.territories}
+                mapRegions={mapData.regions}
+                onAttack={handleAttack}
+                onBlitzAttack={handleBlitzAttack}
+                onDraft={handleDraft}
+                onDraftUndo={handleDraftUndo}
+                canDraftUndo={canUndoDraftOnTerritory(gameState?.draft_deployments_this_turn, selectedTerritory)}
+                onBuild={gameState?.settings.economy_enabled ? handleBuild : undefined}
+                onSetGarrisonDoctrine={gameState?.settings.galaxy_garrisons ? handleSetGarrisonDoctrine : undefined}
+                onNavalMove={gameState?.settings.naval_enabled ? handleNavalMove : undefined}
+                onNavalAttack={gameState?.settings.naval_enabled ? handleNavalAttack : undefined}
+                onInfluence={
+                  (gameState?.era_modifiers?.influence_spread || gameState?.era_modifiers?.carbonari_network)
+                    ? handleInfluence
+                    : undefined
+                }
+                onProposeTruce={gameState?.settings.diplomacy_enabled ? handleProposeTruce : undefined}
+                onSealLane={viewerCanSealFromPanel ? handleSealLane : undefined}
+                onUseAbility={
+                  (gameState?.settings.tech_trees_enabled || gameState?.settings.factions_enabled)
+                    ? handleUseAbility
+                    : undefined
+                }
+                techTree={techTree}
+                onOpenTechTree={() => setShowTechTree(true)}
+                orbitAccessHint={orbitAccessHint}
+                orbitAccessAllowed={orbitAccess.allowed}
+                orbitAccessReason={orbitTravelBlockedReason}
+                resolvedViewerPlayerId={resolvedViewerPlayerId}
+                mapConnections={mapData.connections}
+                mapWorlds={mapData.worlds}
+                sealAnyLane={viewerSealsAnyLane}
+                denseMap={mapDensityMetrics?.isDense ?? false}
+                onFortifyTo={handleFortifyTo}
+                onClaimTerritory={gameState?.phase === 'territory_select' ? handleClaimTerritory : undefined}
+                sheetSnap={territorySheetSnap}
+                onSheetSnapChange={setTerritorySheetSnap}
+                onClose={() => {
+                  setSelectedTerritory(null);
+                  setAttackSource(null);
+                  setNavalSource(null);
+                  setFortifyUnits(1);
+                  setTerritorySheetSnap('half');
+                }}
+              />
+            </GamePanelBoundary>
           )}
 
           {/* (Game over handled via modal) */}
@@ -5594,44 +5603,48 @@ export default function GamePage() {
           // overflow-hidden is the containment backstop: without it any residual
           // overflow paints over the chat instead of being clipped.
           <aside className="flex flex-col w-72 shrink-0 h-full min-h-0 overflow-hidden border-l border-bf-border">
-            <GameHUD
-              onAdvancePhase={handleAdvancePhase}
-              onDraftUndo={handleDraftUndo}
-              onRedeemCards={handleRedeemCards}
-              onResign={isTutorial ? undefined : handleResignRequest}
-              onSaveAndLeave={isTutorial ? undefined : handleSaveAndLeave}
-              onLeaveGame={isTutorial ? undefined : handleEliminatedLeave}
-              isTutorial={isTutorial}
-              onExitTutorial={isTutorial ? handleTutorialExit : undefined}
-              onOpenTechTree={gameState?.settings.tech_trees_enabled ? handleOpenTechTree : undefined}
-              onOpenBonuses={handleOpenBonuses}
-              onOpenSpaceAgeGuide={spaceAgeGuideAvailable ? handleOpenSpaceAgeGuide : undefined}
-              onAdvanceEra={gameState?.settings.era_advancement_enabled ? handleAdvanceEra : undefined}
-              onUseAbility={
-                (gameState?.settings.tech_trees_enabled || gameState?.settings.factions_enabled)
-                  ? handleUseAbility
-                  : undefined
-              }
-              techTree={techTree}
-              lastCombatLog={combatLog}
-              gameId={gameStarted && gameId ? gameId : undefined}
-              activeInteractionLabel={activeInteractionLabel}
-              resolvedViewerPlayerId={resolvedViewerPlayerId}
-              startBriefingOpen={showStartModal}
-              tutorialActiveSettings={
-                tutorialLessonModule === 'advanced_settings' ? tutorialAppliedSettings : undefined
-              }
-              mapNameLookup={mapData}
-              mapData={mapData}
-              connectionHintPreference={connectionHintPreference}
-              onConnectionHintPreferenceChange={(next) => {
-                setConnectionHintPreference(next);
-                persistConnectionHintPreference(next);
-              }}
-              denseMap={mapDensityMetrics?.isDense ?? false}
-            />
+            <GamePanelBoundary name="hud" resetKey={gameState?.turn_number}>
+              <GameHUD
+                onAdvancePhase={handleAdvancePhase}
+                onDraftUndo={handleDraftUndo}
+                onRedeemCards={handleRedeemCards}
+                onResign={isTutorial ? undefined : handleResignRequest}
+                onSaveAndLeave={isTutorial ? undefined : handleSaveAndLeave}
+                onLeaveGame={isTutorial ? undefined : handleEliminatedLeave}
+                isTutorial={isTutorial}
+                onExitTutorial={isTutorial ? handleTutorialExit : undefined}
+                onOpenTechTree={gameState?.settings.tech_trees_enabled ? handleOpenTechTree : undefined}
+                onOpenBonuses={handleOpenBonuses}
+                onOpenSpaceAgeGuide={spaceAgeGuideAvailable ? handleOpenSpaceAgeGuide : undefined}
+                onAdvanceEra={gameState?.settings.era_advancement_enabled ? handleAdvanceEra : undefined}
+                onUseAbility={
+                  (gameState?.settings.tech_trees_enabled || gameState?.settings.factions_enabled)
+                    ? handleUseAbility
+                    : undefined
+                }
+                techTree={techTree}
+                lastCombatLog={combatLog}
+                gameId={gameStarted && gameId ? gameId : undefined}
+                activeInteractionLabel={activeInteractionLabel}
+                resolvedViewerPlayerId={resolvedViewerPlayerId}
+                startBriefingOpen={showStartModal}
+                tutorialActiveSettings={
+                  tutorialLessonModule === 'advanced_settings' ? tutorialAppliedSettings : undefined
+                }
+                mapNameLookup={mapData}
+                mapData={mapData}
+                connectionHintPreference={connectionHintPreference}
+                onConnectionHintPreferenceChange={(next) => {
+                  setConnectionHintPreference(next);
+                  persistConnectionHintPreference(next);
+                }}
+                denseMap={mapDensityMetrics?.isDense ?? false}
+              />
+            </GamePanelBoundary>
             {gameStarted && gameId && (
-              <GameChat gameId={gameId} embedded defaultOpen />
+              <GamePanelBoundary name="chat">
+                <GameChat gameId={gameId} embedded defaultOpen />
+              </GamePanelBoundary>
             )}
           </aside>
         )}
@@ -5795,7 +5808,9 @@ export default function GamePage() {
               <X className="w-4 h-4" />
             </button>
           </div>
-          <GameChat gameId={gameId} embedded defaultOpen />
+          <GamePanelBoundary name="chat-mobile">
+            <GameChat gameId={gameId} embedded defaultOpen />
+          </GamePanelBoundary>
         </div>
       )}
 
@@ -5834,43 +5849,45 @@ export default function GamePage() {
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <GameHUD
-              mobile
-              onAdvancePhase={() => { handleAdvancePhase(); setMobileHudOpen(false); }}
-              onDraftUndo={handleDraftUndo}
-              onRedeemCards={(ids) => { handleRedeemCards(ids); setMobileHudOpen(false); }}
-              onResign={isTutorial ? undefined : handleResignRequest}
-              onSaveAndLeave={isTutorial ? undefined : handleSaveAndLeave}
-              onLeaveGame={isTutorial ? undefined : handleEliminatedLeave}
-              isTutorial={isTutorial}
-              onExitTutorial={isTutorial ? handleTutorialExit : undefined}
-              onOpenTechTree={gameState?.settings.tech_trees_enabled ? () => { handleOpenTechTree(); setMobileHudOpen(false); } : undefined}
-              onOpenBonuses={() => { handleOpenBonuses(); setMobileHudOpen(false); }}
-              onOpenSpaceAgeGuide={spaceAgeGuideAvailable ? () => { handleOpenSpaceAgeGuide(); setMobileHudOpen(false); } : undefined}
-              onAdvanceEra={gameState?.settings.era_advancement_enabled ? () => { handleAdvanceEra(); setMobileHudOpen(false); } : undefined}
-              onUseAbility={
-                (gameState?.settings.tech_trees_enabled || gameState?.settings.factions_enabled)
-                  ? (abilityId, targetId) => { handleUseAbility(abilityId, targetId); setMobileHudOpen(false); }
-                  : undefined
-              }
-              techTree={techTree}
-              lastCombatLog={combatLog}
-              gameId={gameStarted && gameId ? gameId : undefined}
-              activeInteractionLabel={activeInteractionLabel}
-              resolvedViewerPlayerId={resolvedViewerPlayerId}
-              startBriefingOpen={showStartModal}
-              tutorialActiveSettings={
-                tutorialLessonModule === 'advanced_settings' ? tutorialAppliedSettings : undefined
-              }
-              mapNameLookup={mapData}
-              mapData={mapData}
-              connectionHintPreference={connectionHintPreference}
-              onConnectionHintPreferenceChange={(next) => {
-                setConnectionHintPreference(next);
-                persistConnectionHintPreference(next);
-              }}
-              denseMap={mapDensityMetrics?.isDense ?? false}
-            />
+            <GamePanelBoundary name="hud-mobile" resetKey={gameState?.turn_number}>
+              <GameHUD
+                mobile
+                onAdvancePhase={() => { handleAdvancePhase(); setMobileHudOpen(false); }}
+                onDraftUndo={handleDraftUndo}
+                onRedeemCards={(ids) => { handleRedeemCards(ids); setMobileHudOpen(false); }}
+                onResign={isTutorial ? undefined : handleResignRequest}
+                onSaveAndLeave={isTutorial ? undefined : handleSaveAndLeave}
+                onLeaveGame={isTutorial ? undefined : handleEliminatedLeave}
+                isTutorial={isTutorial}
+                onExitTutorial={isTutorial ? handleTutorialExit : undefined}
+                onOpenTechTree={gameState?.settings.tech_trees_enabled ? () => { handleOpenTechTree(); setMobileHudOpen(false); } : undefined}
+                onOpenBonuses={() => { handleOpenBonuses(); setMobileHudOpen(false); }}
+                onOpenSpaceAgeGuide={spaceAgeGuideAvailable ? () => { handleOpenSpaceAgeGuide(); setMobileHudOpen(false); } : undefined}
+                onAdvanceEra={gameState?.settings.era_advancement_enabled ? () => { handleAdvanceEra(); setMobileHudOpen(false); } : undefined}
+                onUseAbility={
+                  (gameState?.settings.tech_trees_enabled || gameState?.settings.factions_enabled)
+                    ? (abilityId, targetId) => { handleUseAbility(abilityId, targetId); setMobileHudOpen(false); }
+                    : undefined
+                }
+                techTree={techTree}
+                lastCombatLog={combatLog}
+                gameId={gameStarted && gameId ? gameId : undefined}
+                activeInteractionLabel={activeInteractionLabel}
+                resolvedViewerPlayerId={resolvedViewerPlayerId}
+                startBriefingOpen={showStartModal}
+                tutorialActiveSettings={
+                  tutorialLessonModule === 'advanced_settings' ? tutorialAppliedSettings : undefined
+                }
+                mapNameLookup={mapData}
+                mapData={mapData}
+                connectionHintPreference={connectionHintPreference}
+                onConnectionHintPreferenceChange={(next) => {
+                  setConnectionHintPreference(next);
+                  persistConnectionHintPreference(next);
+                }}
+                denseMap={mapDensityMetrics?.isDense ?? false}
+              />
+            </GamePanelBoundary>
             {/* Display settings, collapsed. These are duplicated in Settings and
                 are not turn actions, but as two always-open blocks they took
                 227px of a 664px screen — enough that GameHUD's scroll region
@@ -5950,43 +5967,49 @@ export default function GamePage() {
 
       {/* Action Modal (blocking — combat results, turn summaries, game over, resign) */}
       {showTechTree && user && gameState && (
-        <TechTreeModal
-          gameState={gameState}
-          currentPlayerId={user.user_id}
-          techTree={techTree}
-          eraLabel={playerTechEra ? (ERA_LABELS[playerTechEra] ?? playerTechEra) : undefined}
-          onResearch={(techId) => { handleResearchTech(techId); }}
-          onClose={() => setShowTechTree(false)}
-          onAdvanceEra={
-            gameState?.settings.era_advancement_enabled
-              ? () => { handleAdvanceEra(); setShowTechTree(false); }
-              : undefined
-          }
-          canAdvanceNow={
-            !!gameState
-            && (gameState.phase === 'draft' || gameState.phase === 'fortify')
-            && gameState.players[gameState.current_player_index]?.player_id === user.user_id
-          }
-          highlightAdvance={tutorialAwaitsAdvance}
-        />
+        <GamePanelBoundary name="tech-tree" variant="overlay" onClose={() => setShowTechTree(false)}>
+          <TechTreeModal
+            gameState={gameState}
+            currentPlayerId={user.user_id}
+            techTree={techTree}
+            eraLabel={playerTechEra ? (ERA_LABELS[playerTechEra] ?? playerTechEra) : undefined}
+            onResearch={(techId) => { handleResearchTech(techId); }}
+            onClose={() => setShowTechTree(false)}
+            onAdvanceEra={
+              gameState?.settings.era_advancement_enabled
+                ? () => { handleAdvanceEra(); setShowTechTree(false); }
+                : undefined
+            }
+            canAdvanceNow={
+              !!gameState
+              && (gameState.phase === 'draft' || gameState.phase === 'fortify')
+              && gameState.players[gameState.current_player_index]?.player_id === user.user_id
+            }
+            highlightAdvance={tutorialAwaitsAdvance}
+          />
+        </GamePanelBoundary>
       )}
 
       {showBonuses && (
-        <BonusesModal
-          techTree={techTree}
-          mapData={mapData}
-          onClose={() => setShowBonuses(false)}
-        />
+        <GamePanelBoundary name="bonuses" variant="overlay" onClose={() => setShowBonuses(false)}>
+          <BonusesModal
+            techTree={techTree}
+            mapData={mapData}
+            onClose={() => setShowBonuses(false)}
+          />
+        </GamePanelBoundary>
       )}
 
       {gameState && (
-        <SpaceAgeGuideModal
-          open={showSpaceAgeGuide}
-          onClose={() => setShowSpaceAgeGuide(false)}
-          gameState={gameState}
-          viewerPlayerId={resolvedViewerPlayerIdRef.current ?? user?.user_id ?? null}
-          moonTiles={moonTiles}
-        />
+        <GamePanelBoundary name="space-age-guide" variant="overlay" onClose={() => setShowSpaceAgeGuide(false)} resetKey={showSpaceAgeGuide}>
+          <SpaceAgeGuideModal
+            open={showSpaceAgeGuide}
+            onClose={() => setShowSpaceAgeGuide(false)}
+            gameState={gameState}
+            viewerPlayerId={resolvedViewerPlayerIdRef.current ?? user?.user_id ?? null}
+            moonTiles={moonTiles}
+          />
+        </GamePanelBoundary>
       )}
 
       {strikeAnim && (
@@ -6004,14 +6027,16 @@ export default function GamePage() {
           render at once at the same z-index, so a global event sat unread under
           the turn summary and Escape closed neither (PT-014). */}
       {activeEventCard && gameState && user && modalQueue.length === 0 && (
-        <EventCardModal
-          card={activeEventCard}
-          isMyTurn={gameState.players[gameState.current_player_index]?.player_id === user.user_id}
-          onChoice={(choiceId) => {
-            getSocket().emit('game:event_choice', { gameId, choiceId });
-          }}
-          onDismiss={() => { countDismissTap(3); setActiveEventCard(null); }}
-        />
+        <GamePanelBoundary name="event-card" variant="overlay" onClose={() => setActiveEventCard(null)} resetKey={activeEventCard}>
+          <EventCardModal
+            card={activeEventCard}
+            isMyTurn={gameState.players[gameState.current_player_index]?.player_id === user.user_id}
+            onChoice={(choiceId) => {
+              getSocket().emit('game:event_choice', { gameId, choiceId });
+            }}
+            onDismiss={() => { countDismissTap(3); setActiveEventCard(null); }}
+          />
+        </GamePanelBoundary>
       )}
 
       {/* Truce Proposal Modal */}
@@ -6152,23 +6177,25 @@ export default function GamePage() {
       )}
 
       {/* Action Modal (blocking — combat results, turn summaries, game over, resign) */}
-      <ActionModal
-        data={modalQueue[0] ?? null}
-        onDismiss={handleModalDismiss}
-        onResignConfirm={handleResignConfirm}
-        onLeaveGame={handleEliminatedLeave}
-        onRepeatCombat={handleAttack}
-        onBlitzCombat={handleBlitzAttack}
-        onRematch={handleRematch}
-        onWatchReplay={handleWatchReplay}
-        onShareClip={handleShareClip}
-        onChallengeFriend={user?.is_guest ? undefined : () => navigate('/lobby?challenge=1')}
-        onUpgradeAccount={user?.is_guest && ownAuthUiAllowed() ? handleGameOverUpgrade : undefined}
-        onSkipAll={skipAllBacklogByTap}
-        backlogCount={modalQueue.length + defenderTheaterQueue.length}
-        mapNameLookup={mapData}
-        players={gameState?.players}
-      />
+      <GamePanelBoundary name="action-modal" variant="overlay" onClose={() => handleModalDismiss('action')} resetKey={modalQueue[0]}>
+        <ActionModal
+          data={modalQueue[0] ?? null}
+          onDismiss={handleModalDismiss}
+          onResignConfirm={handleResignConfirm}
+          onLeaveGame={handleEliminatedLeave}
+          onRepeatCombat={handleAttack}
+          onBlitzCombat={handleBlitzAttack}
+          onRematch={handleRematch}
+          onWatchReplay={handleWatchReplay}
+          onShareClip={handleShareClip}
+          onChallengeFriend={user?.is_guest ? undefined : () => navigate('/lobby?challenge=1')}
+          onUpgradeAccount={user?.is_guest && ownAuthUiAllowed() ? handleGameOverUpgrade : undefined}
+          onSkipAll={skipAllBacklogByTap}
+          backlogCount={modalQueue.length + defenderTheaterQueue.length}
+          mapNameLookup={mapData}
+          players={gameState?.players}
+        />
+      </GamePanelBoundary>
 
       {/* The viewer's own attack result on a phone: a sheet above the bar, the map live behind it (M-12 phase 3) */}
       {isMobileLayout && (
@@ -6335,35 +6362,37 @@ export default function GamePage() {
         until they reloaded.
       */}
       {isTutorial && tutorialStep < tutorialSteps.length && (
-        <TutorialOverlay
-          steps={tutorialSteps}
-          lessonModule={tutorialLessonModule}
-          stepIndex={tutorialStep}
-          onAdvance={() => setTutorialStep((s) => Math.min(s + 1, tutorialSteps.length))}
-          onContinuePlaying={handleTutorialContinuePlaying}
-          onPlayFirstMatch={tutorialWrapupToMatch ? () => void handleTutorialPlayFirstMatch() : undefined}
-          onSaveProgress={tutorialWrapupToMatch && user?.is_guest ? () => void handleTutorialSaveProgress() : undefined}
-          onReturnToLobby={handleTutorialReturnToLobby}
-          onExitTutorial={handleTutorialExit}
-          onLaunchModule={handleLaunchTutorialModule}
-          onOpenTechTree={handleOpenTechTree}
-          onOpenBonuses={handleOpenBonuses}
-          onOpenSettingsLab={() => setShowSettingsLab(true)}
-          onMarkModuleComplete={handleTutorialMarkModuleComplete}
-          onSkipToEnd={() => {
-            setTutorialSkipped(true);
-            setTutorialStep(Math.max(0, tutorialSteps.length - 1));
-          }}
-          skipped={tutorialSkipped}
-          playerColorName={colorDisplayName(
-            gameState?.players.find((p) => p.player_id === user?.user_id)?.color,
-          )}
-          centered={tutorialCardIsCentered}
-          behindModal={tutorialCardBehindModal}
-          panelOpen={showTechTree || showBonuses || showSettingsLab}
-          territorySelected={!!selectedTerritory}
-          phoneLayout={isMobileLayout}
-        />
+        <GamePanelBoundary name="tutorial" variant="overlay" resetKey={tutorialStep}>
+          <TutorialOverlay
+            steps={tutorialSteps}
+            lessonModule={tutorialLessonModule}
+            stepIndex={tutorialStep}
+            onAdvance={() => setTutorialStep((s) => Math.min(s + 1, tutorialSteps.length))}
+            onContinuePlaying={handleTutorialContinuePlaying}
+            onPlayFirstMatch={tutorialWrapupToMatch ? () => void handleTutorialPlayFirstMatch() : undefined}
+            onSaveProgress={tutorialWrapupToMatch && user?.is_guest ? () => void handleTutorialSaveProgress() : undefined}
+            onReturnToLobby={handleTutorialReturnToLobby}
+            onExitTutorial={handleTutorialExit}
+            onLaunchModule={handleLaunchTutorialModule}
+            onOpenTechTree={handleOpenTechTree}
+            onOpenBonuses={handleOpenBonuses}
+            onOpenSettingsLab={() => setShowSettingsLab(true)}
+            onMarkModuleComplete={handleTutorialMarkModuleComplete}
+            onSkipToEnd={() => {
+              setTutorialSkipped(true);
+              setTutorialStep(Math.max(0, tutorialSteps.length - 1));
+            }}
+            skipped={tutorialSkipped}
+            playerColorName={colorDisplayName(
+              gameState?.players.find((p) => p.player_id === user?.user_id)?.color,
+            )}
+            centered={tutorialCardIsCentered}
+            behindModal={tutorialCardBehindModal}
+            panelOpen={showTechTree || showBonuses || showSettingsLab}
+            territorySelected={!!selectedTerritory}
+            phoneLayout={isMobileLayout}
+          />
+        </GamePanelBoundary>
       )}
 
       {/* Tutorial Settings Lab — advanced settings lesson interactive beat */}
