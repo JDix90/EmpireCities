@@ -71,6 +71,11 @@ export interface AuthUser {
   is_guest?: boolean;
   /** True when the user can access /admin routes. */
   is_admin?: boolean;
+  /**
+   * False for an account saved with just an email, which signs in by an emailed
+   * link until it sets a password (email_account_save_enabled). Absent otherwise.
+   */
+  has_password?: boolean;
   /** True once the basic tutorial has been completed. */
   has_completed_tutorial?: boolean;
   /** Module IDs completed server-side (populated from /api/users/me). */
@@ -108,8 +113,14 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   register: (username: string, email: string, password: string, emailOptIn?: boolean) => Promise<void>;
   loginAsGuest: () => Promise<void>;
-  /** Convert the current guest session into a full account in place (keeps user_id and all progression). */
-  upgradeAccount: (username: string, email: string, password: string, emailOptIn?: boolean) => Promise<void>;
+  /**
+   * Convert the current guest session into a full account in place (keeps user_id and all progression).
+   * With email_account_save_enabled the name and password may be left out: the guest keeps
+   * their name, and without a password the account signs in by an emailed link.
+   */
+  upgradeAccount: (username: string | undefined, email: string, password: string | undefined, emailOptIn?: boolean) => Promise<void>;
+  /** Sign in with the token from an emailed sign-in link (email_account_save_enabled). */
+  signInWithLink: (token: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshToken: (options?: { silent?: boolean }) => Promise<RefreshOutcome>;
   setUser: (user: AuthUser) => void;
@@ -187,7 +198,9 @@ export const useAuthStore = create<AuthState>()(
           // Converts the guest's users row IN PLACE — same user_id, so XP,
           // level, streaks, and (now-visible) ratings all carry over.
           const res = await api.post('/auth/upgrade', {
-            username, email, password,
+            ...(username ? { username } : {}),
+            email,
+            ...(password ? { password } : {}),
             email_opt_in: Boolean(emailOptIn),
             attribution: getSignupAttribution(),
           });
@@ -195,6 +208,24 @@ export const useAuthStore = create<AuthState>()(
           set({ user, accessToken, isAuthenticated: true, isLoading: false, bootstrapped: true });
           // The singleton socket still authenticates with the guest JWT;
           // reconnect so the server sees the full-account identity.
+          resyncSocketAuth();
+        } catch (err) {
+          set({ isLoading: false });
+          throw err;
+        }
+      },
+
+      signInWithLink: async (token) => {
+        set({ isLoading: true });
+        try {
+          const res = await api.post('/auth/sign-in-link/verify', { token });
+          const { accessToken, user } = res.data;
+          try {
+            sessionStorage.removeItem('cc-auth-notice');
+          } catch { /* ignore */ }
+          set({ user, accessToken, isAuthenticated: true, isLoading: false, bootstrapped: true });
+          // Same as login: a socket opened by an earlier (often guest) session
+          // must reconnect as this account.
           resyncSocketAuth();
         } catch (err) {
           set({ isLoading: false });

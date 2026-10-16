@@ -17,6 +17,9 @@ import {
   GUEST_KEEP_STATS_CTA_SENTENCE,
   GUEST_SAVED_HERE,
   GUEST_KEEP_EVERYWHERE_CTA_SENTENCE,
+  JUST_AN_EMAIL,
+  SAVE_ACCOUNT_CTA_SENTENCE,
+  SAVE_ACCOUNT_LABEL,
 } from '../../utils/guestGate';
 import { ChronicleList, useChronicle } from './ChroniclePanel';
 import { hapticImpact, ImpactStyle } from '../../utils/haptics';
@@ -29,6 +32,7 @@ import { useGameStore } from '../../store/gameStore';
 import { useBattleArmiesEnabled } from '../../store/featureFlagsStore';
 import { useLossReasonEnabled } from '../../store/featureFlagsStore';
 import { useBattlePlayerColorsEnabled } from '../../store/featureFlagsStore';
+import { useEmailAccountSaveEnabled, useSaveAccountCopyEnabled } from '../../store/featureFlagsStore';
 import { lossReason } from '../../utils/lossReason';
 import { eraBoardTheme } from '../../constants/eraBoardTheme';
 import { eraMeta } from '../../constants/eraMeta';
@@ -1399,6 +1403,9 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
   // could yank the prompt out from under a player who just answered.
   const referralSurveyFlag = useReferralSurveyEnabled();
   const guestPromptV2 = useGuestPromptV2Enabled();
+  // save_account_copy_enabled: the account box says it the way every guest surface does.
+  const saveAccountCopy = useSaveAccountCopyEnabled();
+  const emailSave = useEmailAccountSaveEnabled();
   const resultsFooter = useResultsFooterEnabled();
   const lossReasonOn = useLossReasonEnabled();
   const [showReferralSurvey] = useState(() =>
@@ -1856,6 +1863,13 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
           'mb-6 p-4 rounded-xl bg-bf-gold/10 border border-bf-gold/30 transition-all duration-500 delay-450',
           showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
         )}>
+          {saveAccountCopy ? (
+            <p className="text-sm text-bf-text mb-3" data-testid="gameover-save-account">
+              {GUEST_SAVED_HERE}.{' '}
+              <span className="text-bf-gold font-medium">{SAVE_ACCOUNT_CTA_SENTENCE}.</span>
+              {emailSave && <> {JUST_AN_EMAIL}</>}
+            </p>
+          ) : (
           <p className="text-sm text-bf-text mb-3">
             Your XP, level and streaks are on a guest account with no email or password.{' '}
             {guestPromptV2 ? (
@@ -1870,6 +1884,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
               </>
             )}
           </p>
+          )}
           {bankedGoldNote(user?.gold) && (
             <p className="text-sm text-bf-gold/90 mb-3" data-testid="gameover-banked-gold">
               {bankedGoldNote(user?.gold)}
@@ -1880,7 +1895,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
             onClick={onUpgradeAccount}
             className="w-full py-2.5 rounded-lg bg-bf-gold text-bf-dark font-display hover:bg-bf-gold/90 transition-colors"
           >
-            Create Free Account
+            {saveAccountCopy ? SAVE_ACCOUNT_LABEL : 'Create Free Account'}
           </button>
         </div>
       )}

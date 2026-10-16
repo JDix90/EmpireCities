@@ -8,6 +8,7 @@ import SubpageShell from '../components/ui/SubpageShell';
 import GuestGate from '../components/GuestGate';
 import { useAuthStore } from '../store/authStore';
 import { useDailyGuestPlayEnabled, useDailyPuzzleV2Enabled } from '../store/featureFlagsStore';
+import { useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
 import { useRnParamTracker } from '../hooks/useRnParamTracker';
 import { ownAuthUiAllowed } from '../utils/embedContext';
 import { buildShareLine, classicDayNote, decisionsLine, type PublicDailyPuzzleV2 } from '../utils/dailyPuzzleV2';
@@ -167,6 +168,7 @@ export default function DailyChallengePage() {
   const dailyGuestPlayEnabled = useDailyGuestPlayEnabled();
   const gradingOn = useDailyPuzzleV2Enabled();
   const guestPlayClosed = isGuest && !dailyGuestPlayEnabled;
+  const saveAccountCopy = useSaveAccountCopyEnabled();
   const [data, setData] = useState<DailyResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
@@ -365,7 +367,11 @@ export default function DailyChallengePage() {
                 <p className="text-sm text-bf-text">
                   That run would place you{' '}
                   <span className="text-bf-gold font-semibold">{ordinal(my_rank)}</span> on today&apos;s board.
-                  <span className="text-bf-muted"> Guest runs aren&apos;t ranked — create a free account and this one is.</span>
+                  <span className="text-bf-muted">
+                    {saveAccountCopy
+                      ? " Guest runs aren't ranked — save your account and this one is."
+                      : " Guest runs aren't ranked — create a free account and this one is."}
+                  </span>
                 </p>
                 {ownAuthUiAllowed() && (
                   <Link
@@ -461,8 +467,10 @@ export default function DailyChallengePage() {
           ) : guestPlayClosed ? (
             <GuestGate
               title="Play today's challenge"
-              description="The Daily Challenge needs a free account right now — one puzzle a day, the same map for everyone. Your guest progress carries over."
-              ctaLabel="Create free account"
+              description={saveAccountCopy
+                ? 'The Daily Challenge needs a saved account right now — one puzzle a day, the same map for everyone. Everything you have earned comes with you.'
+                : 'The Daily Challenge needs a free account right now — one puzzle a day, the same map for everyone. Your guest progress carries over.'}
+              ctaLabel={saveAccountCopy ? undefined : 'Create free account'}
             />
           ) : active_game_id ? (
             <button
@@ -565,7 +573,7 @@ export default function DailyChallengePage() {
                   onClick={() => navigate(isGuest ? '/upgrade' : '/lobby?weekly=1')}
                   className="btn-primary flex-1"
                 >
-                  {isGuest ? 'Create account to enter' : 'Enter Weekly Queue'}
+                  {isGuest ? (saveAccountCopy ? 'Save your account to enter' : 'Create account to enter') : 'Enter Weekly Queue'}
                 </button>
               </div>
               {weeklyLeaderboard.length > 0 && (

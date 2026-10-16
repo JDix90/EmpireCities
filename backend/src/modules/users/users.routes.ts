@@ -2,7 +2,8 @@ import type { FastifyInstance, FastifyReply } from 'fastify';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { authenticate } from '../../middleware/authenticate';
-import { rejectGuest } from '../../middleware/rejectGuest';
+import { rejectGuest, rejectGuestUnless } from '../../middleware/rejectGuest';
+import { featureFlags } from '../../config/featureFlags';
 import { query, queryOne, withTransaction } from '../../db/postgres';
 import { checkOnboardingQuests } from '../../game-engine/progression/progressionService';
 import { effectiveLoadout, loadoutColumns, type Loadout, type LoadoutRow } from './loadout';
@@ -23,6 +24,11 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 const DeleteAccountSchema = z.object({
   password: z.string().min(1, 'Password is required to delete your account').max(128),
+});
+
+/** An account saved with just an email has no password to confirm with, so it types its name. */
+const PasswordlessDeleteSchema = z.object({
+  confirm_username: z.string().trim().min(1).max(32),
 });
 
 type RatingRow = { rating_type: string; mu: number; phi: number };
@@ -143,6 +149,11 @@ async function fetchUserRatingsSafe(userId: string): Promise<Record<string, { mu
 }
 
 export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
+  // A guest's own things (guest_personal_features_enabled): their achievements,
+  // their unlocked cosmetics and their tutorial progress. Social, competitive and
+  // spending routes keep plain rejectGuest.
+  const rejectGuestUnlessPersonal = rejectGuestUnless(() => featureFlags.guestPersonalFeaturesEnabled);
+
   // ── GET /api/users/me ────────────────────────────────────────────────────
   fastify.get('/me', { preHandler: authenticate }, async (request, reply) => {
     type UserRow = {
@@ -228,11 +239,24 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     const has_completed_tutorial =
       parseInt(tutorialRow?.cnt ?? '0', 10) > 0 || tutorial_modules_completed.includes('core');
 
-    return reply.send({ ...wornSlots(user), ratings, has_completed_tutorial, tutorial_modules_completed });
+    // email_account_save_enabled: an account saved with just an email has no
+    // password yet, so Settings offers to set one rather than change it.
+    let has_password: boolean | undefined;
+    if (featureFlags.emailAccountSaveEnabled && !user.is_guest) {
+      const row = await queryOne<{ has_password: boolean }>(
+        'SELECT has_password FROM users WHERE user_id = $1',
+        [request.userId],
+      ).catch(() => null);
+      has_password = row?.has_password ?? true;
+    }
+    return reply.send({
+      ...wornSlots(user), ratings, has_completed_tutorial, tutorial_modules_completed,
+      ...(has_password === undefined ? {} : { has_password }),
+    });
   });
 
   // ── POST /api/users/me/tutorial-modules/:moduleId ────────────────────────
-  fastify.post('/me/tutorial-modules/:moduleId', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+  fastify.post('/me/tutorial-modules/:moduleId', { preHandler: [authenticate, rejectGuestUnlessPersonal] }, async (request, reply) => {
     const { moduleId } = request.params as { moduleId: string };
     if (!isTutorialLessonModule(moduleId)) {
       return reply.status(400).send({ error: `Unknown tutorial module: ${moduleId}` });
@@ -254,7 +278,25 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.delete('/me', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
     const parsed = DeleteAccountSchema.safeParse(request.body ?? {});
     if (!parsed.success) {
-      return reply.status(400).send(formatZodError(parsed.error));
+      const byName = PasswordlessDeleteSchema.safeParse(request.body ?? {});
+      if (!byName.success) {
+        return reply.status(400).send(formatZodError(parsed.error));
+      }
+      // Only an account with no password confirms by name (email_account_save_enabled).
+      const account = await queryOne<{ username: string; has_password: boolean }>(
+        'SELECT username, has_password FROM users WHERE user_id = $1',
+        [request.userId],
+      );
+      if (!account) return reply.status(404).send({ error: 'User not found' });
+      if (account.has_password !== false) {
+        return reply.status(400).send({ error: 'Password is required to delete your account' });
+      }
+      if (byName.data.confirm_username.toLowerCase() !== account.username.trim().toLowerCase()) {
+        return reply.status(401).send({ error: 'Type your username exactly to confirm' });
+      }
+      await query('DELETE FROM users WHERE user_id = $1', [request.userId]);
+      reply.clearCookie('refreshToken', { path: '/api/auth' });
+      return reply.send({ message: 'Account deleted' });
     }
     const row = await queryOne<{ password_hash: string }>(
       'SELECT password_hash FROM users WHERE user_id = $1',
@@ -390,7 +432,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // ── GET /api/users/me/achievements ──────────────────────────────────────
-  fastify.get('/me/achievements', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+  fastify.get('/me/achievements', { preHandler: [authenticate, rejectGuestUnlessPersonal] }, async (request, reply) => {
     const achievements = await query(
       `SELECT a.achievement_id, a.name, a.description, a.xp_reward, a.icon_url, ua.unlocked_at
        FROM user_achievements ua
@@ -403,7 +445,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // ── GET /api/users/me/achievements/progress ────────────────────────────
-  fastify.get('/me/achievements/progress', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+  fastify.get('/me/achievements/progress', { preHandler: [authenticate, rejectGuestUnlessPersonal] }, async (request, reply) => {
     const userId = request.userId as string;
     const [gamesRow, userRow] = await Promise.all([
       // Count completed games only, matching the "Games Played" stat and the
@@ -470,7 +512,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // ── GET /api/users/me/cosmetics ──────────────────────────────────────────
-  fastify.get('/me/cosmetics', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+  fastify.get('/me/cosmetics', { preHandler: [authenticate, rejectGuestUnlessPersonal] }, async (request, reply) => {
     try {
       const owned = await query(
         `SELECT c.cosmetic_id, c.type, c.name, c.description, c.asset_url,
@@ -497,7 +539,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // ── PUT /api/users/me/cosmetics/equip ────────────────────────────────────
-  fastify.put('/me/cosmetics/equip', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+  fastify.put('/me/cosmetics/equip', { preHandler: [authenticate, rejectGuestUnlessPersonal] }, async (request, reply) => {
     return equipBySlot(request.userId, request.body, reply);
   });
 

@@ -91,6 +91,15 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().first_turn_coach_enabled).toBe(false);
   });
 
+  it('guest_personal_features_enabled defaults to on and the admin override is its kill switch', () => {
+    expect(featureFlags.guestPersonalFeaturesEnabled).toBe(true);
+    expect(getClientFeatureFlags().guest_personal_features_enabled).toBe(true);
+    expect(getFeatureFlagStates().guest_personal_features_enabled).toEqual({ code_default: true, overridden: false, effective: true });
+    setAdminConfigCacheForTests({ feature_flags: { guest_personal_features_enabled: false } });
+    expect(featureFlags.guestPersonalFeaturesEnabled).toBe(false);
+    expect(getClientFeatureFlags().guest_personal_features_enabled).toBe(false);
+  });
+
   it('daily_guest_play_enabled defaults to on and is the kill switch for guest dailies', () => {
     expect(featureFlags.dailyGuestPlayEnabled).toBe(true);
     expect(getClientFeatureFlags().daily_guest_play_enabled).toBe(true);
@@ -151,6 +160,15 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().results_footer_enabled).toBe(false);
   });
 
+  it('save_account_copy_enabled defaults to on and the admin override is its kill switch', () => {
+    expect(featureFlags.saveAccountCopyEnabled).toBe(true);
+    expect(getClientFeatureFlags().save_account_copy_enabled).toBe(true);
+    expect(getFeatureFlagStates().save_account_copy_enabled).toEqual({ code_default: true, overridden: false, effective: true });
+    setAdminConfigCacheForTests({ feature_flags: { save_account_copy_enabled: false } });
+    expect(featureFlags.saveAccountCopyEnabled).toBe(false);
+    expect(getClientFeatureFlags().save_account_copy_enabled).toBe(false);
+  });
+
   it('guest_prompt_v2_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.guestPromptV2Enabled).toBe(true);
     expect(getClientFeatureFlags().guest_prompt_v2_enabled).toBe(true);
@@ -158,6 +176,15 @@ describe('featureFlags', () => {
     setAdminConfigCacheForTests({ feature_flags: { guest_prompt_v2_enabled: false } });
     expect(featureFlags.guestPromptV2Enabled).toBe(false);
     expect(getClientFeatureFlags().guest_prompt_v2_enabled).toBe(false);
+  });
+
+  it('email_account_save_enabled defaults to on and the admin override is its kill switch', () => {
+    expect(featureFlags.emailAccountSaveEnabled).toBe(true);
+    expect(getClientFeatureFlags().email_account_save_enabled).toBe(true);
+    expect(getFeatureFlagStates().email_account_save_enabled).toEqual({ code_default: true, overridden: false, effective: true });
+    setAdminConfigCacheForTests({ feature_flags: { email_account_save_enabled: false } });
+    expect(featureFlags.emailAccountSaveEnabled).toBe(false);
+    expect(getClientFeatureFlags().email_account_save_enabled).toBe(false);
   });
 
   it('signup_nudge_enabled defaults to on and is admin-overridable', () => {
@@ -315,6 +342,13 @@ describe('featureFlags', () => {
     expect(getFeatureFlagStates().galaxy_world_buildings_enabled).toEqual({ code_default: false, overridden: false, effective: false });
     setAdminConfigCacheForTests({ feature_flags: { galaxy_world_buildings_enabled: true } });
     expect(featureFlags.galaxyWorldBuildingsEnabled).toBe(true);
+  });
+
+  it('session_30d_enabled defaults to on and the admin override is its kill switch', () => {
+    expect(featureFlags.session30dEnabled).toBe(true);
+    expect(getFeatureFlagStates().session_30d_enabled).toEqual({ code_default: true, overridden: false, effective: true });
+    setAdminConfigCacheForTests({ feature_flags: { session_30d_enabled: false } });
+    expect(featureFlags.session30dEnabled).toBe(false);
   });
 
   it('friendly_guest_names_enabled defaults to on and the admin override is its kill switch', () => {

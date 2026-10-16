@@ -4,6 +4,7 @@ import { Flame, Coins, Swords, Snowflake } from 'lucide-react';
 import { api } from '../../services/api';
 import { guestLine } from '../../utils/guestGate';
 import { useGuestPromptV2Enabled } from '../../store/featureFlagsStore';
+import { useSaveAccountCopyEnabled } from '../../store/featureFlagsStore';
 
 interface ComebackData {
   is_guest: boolean;
@@ -25,7 +26,7 @@ interface ComebackData {
  */
 export default function ComeBackTomorrowPanel({ className }: { className?: string }) {
   const [data, setData] = useState<ComebackData | null>(null);
-  const guestCopy = guestLine(useGuestPromptV2Enabled());
+  const guestCopy = guestLine(useGuestPromptV2Enabled(), useSaveAccountCopyEnabled());
 
   useEffect(() => {
     let cancelled = false;

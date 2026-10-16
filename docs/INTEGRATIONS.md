@@ -9,7 +9,7 @@
 | jsDelivr CDN | Globe textures + Natural Earth geojson | none | `GlobeMap.tsx`, `useTerritoryGeoSources.ts` | 3D globe loses earth texture; geo-shaped territories fall back to seed rectangles (2D) / fail to render shapes |
 | Tenor API | In-chat GIF search | `VITE_TENOR_API_KEY` | `frontend/src/utils/gifSearch.ts` | GIF search hidden; chat otherwise unaffected |
 | Sentry | Error reporting (both ends) | `SENTRY_DSN`, `VITE_SENTRY_DSN` | `backend/src/services/sentry.ts`, frontend `@sentry/react` init | Errors only in logs/console |
-| Email (SMTP **or** Resend) | Password resets, transactional mail | `SMTP_*` or `EMAIL_PROVIDER=resend_api` + `RESEND_API_KEY` | `backend/src/services/notificationService.ts` | Password reset emails silently skipped (dev can log URLs via `PASSWORD_RESET_DEV_LOG`) |
+| Email (SMTP **or** Resend) | Password resets, sign-in links, transactional mail | `SMTP_*` or `EMAIL_PROVIDER=resend_api` + `RESEND_API_KEY` | `backend/src/services/notificationService.ts` | Password reset emails silently skipped (dev can log URLs via `PASSWORD_RESET_DEV_LOG`) |
 | Firebase FCM | Push notifications (async-turn alerts, match found) | server: `FCM_SERVICE_ACCOUNT_PATH`; web: `VITE_FIREBASE_*` + `firebase-messaging-sw.js` | `notificationService.ts`, `frontend/src/services/pushNotifications.ts`, `modules/users/pushTest.ts` | No push, and no push UI on the web (status `unconfigured`); the in-app socket alerts and turn emails still work |
 | Capacitor (APNs/FCM native) | Native iOS/Android push + device APIs | none beyond store builds | `@capacitor/*` plugins | Web-only behavior |
 | Google Fonts (gstatic) | Cinzel / Inter webfonts | none | `index.html` / CSS | System-font fallback |

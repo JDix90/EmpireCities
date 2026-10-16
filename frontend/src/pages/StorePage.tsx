@@ -4,6 +4,8 @@ import toast from 'react-hot-toast';
 import { Coins, ShoppingBag, X } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
+import { useGuestPersonalFeaturesEnabled } from '../store/featureFlagsStore';
+import { useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
 import SubpageShell from '../components/ui/SubpageShell';
 import GuestGate from '../components/GuestGate';
 import { useCosmeticMotion } from '../components/cosmetics/useCosmetics';
@@ -35,6 +37,9 @@ import {
 
 const GUEST_BUY = 'Spending gold needs a free account — your balance carries over.';
 const GUEST_EQUIP = 'Wearing items needs a free account — your unlocks carry over.';
+/** The same two notes under save_account_copy_enabled. */
+const GUEST_BUY_SAVE = 'Spending gold needs a saved account — your balance comes with you.';
+const GUEST_EQUIP_SAVE = 'Wearing items needs a saved account — your unlocks come with you.';
 
 /** Whether `ref`'s element is on screen. False where IntersectionObserver is missing. */
 function useOnScreen(ref: React.RefObject<Element>): boolean {
@@ -53,11 +58,17 @@ function useOnScreen(ref: React.RefObject<Element>): boolean {
  * The store: every item shown large and lit by its rarity, the era sets on
  * their own backdrops with how much of each the player has, and Your look,
  * where anything can be tried on before it is bought or worn. Guests browse
- * everything; buying and wearing stay server-side `rejectGuest`.
+ * everything; buying stays server-side `rejectGuest`, and wearing does too
+ * unless guest_personal_features_enabled lets a guest wear what they unlocked.
  */
 export default function StorePage() {
   const { user } = useAuthStore();
   const isGuest = Boolean(user?.is_guest);
+  // With guest_personal_features_enabled a guest wears what they have unlocked;
+  // buying still needs an account.
+  const guestPersonal = useGuestPersonalFeaturesEnabled();
+  const cannotWear = isGuest && !guestPersonal;
+  const saveAccountCopy = useSaveAccountCopyEnabled();
   const initial = user?.username ?? '?';
   const motion = useCosmeticMotion();
 
@@ -126,8 +137,8 @@ export default function StorePage() {
 
   /** Put `item` in its slot, or empty `slot` (Default) when `item` is null. */
   const setSlot = async (slot: Slot, item: CatalogItem | null) => {
-    if (isGuest) {
-      toast(GUEST_EQUIP, { icon: '🪙' });
+    if (cannotWear) {
+      toast(saveAccountCopy ? GUEST_EQUIP_SAVE : GUEST_EQUIP, { icon: '🪙' });
       return;
     }
     setPendingSlot(slot);
@@ -156,7 +167,7 @@ export default function StorePage() {
   /** Try `item` on in Your look, or put it back when it already is. */
   const tryOn = (item: CatalogItem) => {
     const slot = SLOT_BY_TYPE[item.type];
-    if (isGuest || !slot) return;
+    if (cannotWear || !slot) return;
     // Already worn: there is nothing to try.
     if (worn[slot] === item.cosmetic_id) {
       setTrying(null);
@@ -169,7 +180,7 @@ export default function StorePage() {
     if (busyId) return;
     // Answer before the dialog, so a guest isn't walked into a refusal.
     if (isGuest) {
-      toast(GUEST_BUY, { icon: '🪙' });
+      toast(saveAccountCopy ? GUEST_BUY_SAVE : GUEST_BUY, { icon: '🪙' });
       return;
     }
     setDialog({ item, bought: false });
@@ -236,7 +247,7 @@ export default function StorePage() {
     [catalog, trying],
   );
   const tryAction = tryingItem ? itemAction(tryingItem, { gold, worn, guest: isGuest }) : null;
-  const showTryOnBar = Boolean(!isGuest && tryingItem && tryAction && !lookOnScreen && !dialog);
+  const showTryOnBar = Boolean(!cannotWear && tryingItem && tryAction && !lookOnScreen && !dialog);
 
   const renderCard = (item: CatalogItem, variant: 'full' | 'compact', className?: string) => (
     <StoreItemCard
@@ -246,7 +257,7 @@ export default function StorePage() {
       initial={initial}
       busy={busyId === item.cosmetic_id}
       trying={trying === item.cosmetic_id}
-      onTryOn={isGuest ? undefined : () => tryOn(item)}
+      onTryOn={cannotWear ? undefined : () => tryOn(item)}
       onBuy={() => requestBuy(item)}
       onEquip={() => equipItem(item)}
       variant={variant}
@@ -273,7 +284,13 @@ export default function StorePage() {
           className="mb-6"
           icon={Coins}
           title={gold > 0 ? `You have ${gold.toLocaleString()} gold banked` : 'Gold you earn is being saved'}
-          description="Guest accounts earn gold but can't spend or equip it. Create a free account and the balance — and everything else you've earned — comes with you."
+          description={saveAccountCopy
+            ? (guestPersonal
+              ? 'Guests can wear what they unlock. Save your account to spend your gold — the balance and everything you have earned come with you.'
+              : 'Guests earn gold but cannot spend or wear it. Save your account to spend your gold — the balance and everything you have earned come with you.')
+            : guestPersonal
+            ? "Guest accounts can wear what they unlock but can't spend gold. Create a free account and the balance — and everything else you've earned — comes with you."
+            : "Guest accounts earn gold but can't spend or equip it. Create a free account and the balance — and everything else you've earned — comes with you."}
         />
       )}
 
@@ -295,7 +312,7 @@ export default function StorePage() {
         </div>
       )}
 
-      {!isGuest && (
+      {!cannotWear && (
         <YourLook
           sectionRef={lookRef}
           worn={worn}
@@ -341,7 +358,7 @@ export default function StorePage() {
         <div className="flex flex-col gap-6 sm:gap-8">
           {sections.map((section) =>
             section.kind === 'earned' ? (
-              <EarnedWall key={section.id} section={section} canTryOn={!isGuest}>
+              <EarnedWall key={section.id} section={section} canTryOn={!cannotWear}>
                 {section.items.map((item) => renderCard(item, 'compact'))}
               </EarnedWall>
             ) : (

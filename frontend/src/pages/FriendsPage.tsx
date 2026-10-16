@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
+import { useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import { UserPlus, Users, UserMinus, Check, X } from 'lucide-react';
@@ -38,6 +39,7 @@ interface PendingRow {
 
 export default function FriendsPage() {
   const { user } = useAuthStore();
+  const saveAccountCopy = useSaveAccountCopyEnabled();
   const [friends, setFriends] = useState<Friend[]>([]);
   const [pending, setPending] = useState<PendingRow[]>([]);
   const [username, setUsername] = useState('');
@@ -126,8 +128,10 @@ export default function FriendsPage() {
         <GuestGate
           variant="page"
           title="Friends"
-          description="Create a free account to add friends and challenge them — your progress carries over."
-          ctaLabel="Create Account"
+          description={saveAccountCopy
+            ? 'Save your account to add friends and challenge them. Everything you have earned comes with you.'
+            : 'Create a free account to add friends and challenge them — your progress carries over.'}
+          ctaLabel={saveAccountCopy ? undefined : 'Create Account'}
         />
       </SubpageShell>
     );

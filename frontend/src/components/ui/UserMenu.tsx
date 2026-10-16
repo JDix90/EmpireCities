@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { User, Settings, HelpCircle, FileText, LogOut, ChevronDown } from 'lucide-react';
 import { useEscapeClose } from '../../hooks/useEscapeClose';
+import { useGuestPersonalFeaturesEnabled } from '../../store/featureFlagsStore';
 
 interface UserMenuProps {
   username: string;
@@ -20,6 +21,8 @@ export default function UserMenu({ username, isGuest, onLogout, triggerClassName
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
+  // A guest's settings (sound, map, accessibility) are theirs too.
+  const guestPersonal = useGuestPersonalFeaturesEnabled();
 
   useEscapeClose(() => setOpen(false), open);
 
@@ -38,7 +41,7 @@ export default function UserMenu({ username, isGuest, onLogout, triggerClassName
 
   const items = [
     { to: '/profile', label: 'Profile', icon: User },
-    ...(isGuest ? [] : [{ to: '/settings', label: 'Settings', icon: Settings }]),
+    ...(isGuest && !guestPersonal ? [] : [{ to: '/settings', label: 'Settings', icon: Settings }]),
     { to: '/how-to-play', label: 'How to Play', icon: HelpCircle },
     { to: '/privacy', label: 'Privacy', icon: FileText },
   ];

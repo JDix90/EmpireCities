@@ -153,3 +153,36 @@ describe('accountModalShownThisSession', () => {
     expect(TUTORIAL_PROMPT_SHOWN_KEY).toBe('cc-tutorial-prompt-shown');
   });
 });
+
+describe('signupNudgeCopy under save_account_copy_enabled', () => {
+  it('says the progress is saved here and what saving the account adds', () => {
+    const win = signupNudgeCopy(true, 0, true, true);
+    expect(win.title).toBe('Victory!');
+    expect(win.body).toBe(
+      'You won. Your progress is saved in this browser. Save your account to keep it safe, play on any device, compete in ranked and play with friends.',
+    );
+    const loss = signupNudgeCopy(false, 0, true, true);
+    expect(loss.title).toBe('Keep your progress safe');
+    expect(loss.body).not.toMatch(/no way back|do not persist/);
+  });
+
+  it('adds that it takes just an email when saving does', () => {
+    expect(signupNudgeCopy(false, 0, false, true, true).body).toMatch(/All it takes is your email\.$/);
+    expect(signupNudgeCopy(false, 0, false, true, false).body).not.toMatch(/your email/);
+  });
+
+  it('keeps the banked gold note', () => {
+    expect(signupNudgeCopy(false, 120, false, true).bankedGold).toMatch(/120 gold/);
+  });
+});
+
+describe('guestLine under save_account_copy_enabled', () => {
+  it('takes precedence over v2 and v1', () => {
+    expect(guestLine(true, true)).toEqual({
+      statement: 'Your progress is saved in this browser',
+      cta: 'save your account to keep it safe and play on any device',
+      ctaSentence: 'Save your account to keep it safe and play on any device',
+    });
+    expect(guestLine(true).cta).toBe('an account keeps it everywhere');
+  });
+});

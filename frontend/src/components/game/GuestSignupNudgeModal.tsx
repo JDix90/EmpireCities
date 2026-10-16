@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react';
 import { Crown, Trophy, Save } from 'lucide-react';
 import { signupNudgeCopy } from '../../utils/signupNudge';
 import { useGuestPromptV2Enabled } from '../../store/featureFlagsStore';
+import { useEmailAccountSaveEnabled, useSaveAccountCopyEnabled } from '../../store/featureFlagsStore';
+import { SAVE_ACCOUNT_LABEL } from '../../utils/guestGate';
 
 interface GuestSignupNudgeModalProps {
   /** Whether the guest just won — drives outcome-aware copy + icon. */
@@ -43,7 +45,8 @@ export default function GuestSignupNudgeModal({
     };
   }, [onSkip]);
 
-  const copy = signupNudgeCopy(isWinner, gold, useGuestPromptV2Enabled());
+  const saveAccountCopy = useSaveAccountCopyEnabled();
+  const copy = signupNudgeCopy(isWinner, gold, useGuestPromptV2Enabled(), saveAccountCopy, useEmailAccountSaveEnabled());
   const Icon = isWinner ? Crown : Save;
 
   return (
@@ -95,7 +98,7 @@ export default function GuestSignupNudgeModal({
             onClick={onCreateAccount}
             className="btn-primary py-3 text-base"
           >
-            Create Free Account
+            {saveAccountCopy ? SAVE_ACCOUNT_LABEL : 'Create Free Account'}
           </button>
           <button
             type="button"

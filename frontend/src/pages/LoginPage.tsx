@@ -7,6 +7,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { sanitizePostAuthRedirect } from '../utils/navRedirect';
 import { normalizeEmail, normalizeIdentifier } from '../utils/emailNormalize';
 import BrandWordmark from '../components/ui/BrandWordmark';
+import { useEmailAccountSaveEnabled } from '../store/featureFlagsStore';
 
 export default function LoginPage() {
   const [emailOrUsername, setEmailOrUsername] = useState('');
@@ -20,6 +21,9 @@ export default function LoginPage() {
    */
   const [accountChoices, setAccountChoices] = useState<string[] | null>(null);
   const { login, isLoading } = useAuthStore();
+  // email_account_save_enabled: an account saved with just an email has no
+  // password, so the way in is a link emailed to it.
+  const signInLinks = useEmailAccountSaveEnabled();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirectTo = sanitizePostAuthRedirect(searchParams.get('redirect'));
@@ -202,6 +206,14 @@ export default function LoginPage() {
               <button type="submit" className="btn-primary w-full" disabled={isLoading}>
                 {isLoading ? 'Signing in...' : 'Sign In'}
               </button>
+              {signInLinks && (
+                <Link
+                  to="/sign-in-link"
+                  className="btn-secondary w-full inline-flex items-center justify-center min-h-[44px]"
+                >
+                  Email me a sign-in link
+                </Link>
+              )}
             </form>
           )}
 

@@ -1,9 +1,10 @@
 import React from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import StorePage from './StorePage';
 import { useAuthStore } from '../store/authStore';
+import { useFeatureFlagsStore } from '../store/featureFlagsStore';
 import { storeRefundsSeenKey } from '../utils/storeRefundNotice';
 
 const getMock = vi.fn();
@@ -308,16 +309,45 @@ describe('StorePage', () => {
     expect(within(imperium).getByText('2 of 2 collected')).toBeInTheDocument();
   });
 
-  it('lets guests browse, but not try on, buy or wear', async () => {
-    serve({ gold: 0 });
-    renderStore({ guest: true });
-    const bone = await screen.findByRole('article', { name: 'Ancient Bone Dice' });
-    expect(screen.queryByRole('heading', { name: 'Your look' })).toBeNull();
-    expect(screen.getByText(/Guest accounts earn gold/)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^Try on/ })).toBeNull();
+  describe('with guest_personal_features_enabled off', () => {
+    const setGuestFlags = (on: boolean) => useFeatureFlagsStore.setState((st) => ({
+      flags: { ...st.flags, guest_personal_features_enabled: on, save_account_copy_enabled: on },
+    }));
+    beforeEach(() => setGuestFlags(false));
+    afterEach(() => setGuestFlags(true));
 
-    fireEvent.click(await within(bone).findByRole('button', { name: /^Buy/ }));
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(postMock).not.toHaveBeenCalled();
+    it('lets guests browse, but not try on, buy or wear', async () => {
+      serve({ gold: 0 });
+      renderStore({ guest: true });
+      const bone = await screen.findByRole('article', { name: 'Ancient Bone Dice' });
+      expect(screen.queryByRole('heading', { name: 'Your look' })).toBeNull();
+      expect(screen.getByText(/Guest accounts earn gold/)).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^Try on/ })).toBeNull();
+
+      fireEvent.click(await within(bone).findByRole('button', { name: /^Buy/ }));
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(postMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('with guest_personal_features_enabled (on by default)', () => {
+    it('lets a guest try on and wear what they unlocked, but still not buy', async () => {
+      serve({ gold: 0 });
+      putMock.mockResolvedValueOnce({
+        data: { ok: true, equipped: { frame: 'frame_gold', banner: 'general_banner', marker: null, dice: null } },
+      });
+      renderStore({ guest: true });
+      const look = await screen.findByRole('region', { name: 'Your look' });
+      expect(screen.getByText(/Guests can wear what they unlock\. Save your account to spend your gold/)).toBeInTheDocument();
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Try on Gold Conqueror' }));
+      fireEvent.click(within(within(look).getByTestId('try-on-banner')).getByRole('button', { name: 'Wear it' }));
+      expect(putMock).toHaveBeenCalledWith('/users/me/cosmetics/equip', { frame_id: 'frame_gold' });
+      await waitFor(() => expect(within(card('Gold Conqueror')).getByText('Wearing')).toBeInTheDocument());
+
+      fireEvent.click(within(card('Ancient Bone Dice')).getByRole('button', { name: /^Buy/ }));
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(postMock).not.toHaveBeenCalled();
+    });
   });
 });

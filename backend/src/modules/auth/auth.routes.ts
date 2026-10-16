@@ -56,7 +56,28 @@ function gmailDotlessLocal(loginIdentifier: string): string | null {
   return local.replace(/\./g, '');
 }
 
+/**
+ * How long a session lasts. Under session_30d_enabled every session, a guest's
+ * and an account's, lasts 30 days instead of 7, and each refresh renews it, so a
+ * player who comes back within a month is still signed in. The refresh token,
+ * its refresh_tokens row and the cookie all take this length. With the flag off
+ * the token keeps JWT_REFRESH_EXPIRES_IN, as before.
+ */
+const LONG_SESSION_DAYS = 30;
+function sessionLength(): { days: number; tokenExpiresIn: string | undefined } {
+  return featureFlags.session30dEnabled
+    ? { days: LONG_SESSION_DAYS, tokenExpiresIn: `${LONG_SESSION_DAYS}d` }
+    : { days: 7, tokenExpiresIn: undefined };
+}
+
 const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
+
+/** A sign-in link (email_account_save_enabled) works once, within 30 minutes. */
+const SIGN_IN_LINK_TTL_MS = 30 * 60 * 1000;
+const SIGN_IN_LINK_RESPONSE = {
+  message: 'If an account exists for that email, we sent a sign-in link.',
+} as const;
+const SIGN_IN_LINK_INVALID = 'This sign-in link has expired or was already used. Request a new one.';
 const FORGOT_PASSWORD_RESPONSE = {
   message: 'If an account exists for that email, we sent password reset instructions.',
 } as const;
@@ -217,6 +238,34 @@ export const UpgradeSchema = RegisterSchema.refine(
   { message: 'Please use a real email address', path: ['email'] },
 );
 
+/**
+ * The upgrade body under email_account_save_enabled: an email is all a guest
+ * has to give. The name defaults to the guest's own, and the password is
+ * optional; an account saved without one signs in by an emailed link.
+ * Exported for tests.
+ */
+export const EmailSaveSchema = z.object({
+  username: RegisterSchema.shape.username.optional(),
+  email: RegisterSchema.shape.email,
+  password: RegisterSchema.shape.password.optional(),
+  email_opt_in: z.boolean().optional(),
+}).refine(
+  (data) => !data.email.toLowerCase().endsWith('@guest.local'),
+  { message: 'Please use a real email address', path: ['email'] },
+);
+
+const SignInLinkSchema = z.object({
+  email: z.string().trim().email().max(254),
+});
+
+const SignInLinkVerifySchema = z.object({
+  token: z.string().trim().min(1).max(512),
+});
+
+const SetPasswordSchema = z.object({
+  new_password: z.string().min(8).max(128),
+});
+
 /** Login body field remains `email` for API compatibility; value may be email or username. */
 const LoginSchema = z.object({
   email: z.string().trim().min(1).max(254),
@@ -300,6 +349,27 @@ function grantEmailOptIn(userId: string): void {
   ).catch(() => {});
 }
 
+/** Sign-in link tokens are stored like reset tokens: only their SHA-256. */
+function hashSignInLinkToken(rawToken: string): string {
+  return createHash('sha256').update(rawToken).digest('hex');
+}
+
+/**
+ * The email a guest gets on saving their account (email_account_save_enabled):
+ * which account now lives at this address, and how to reach it from another
+ * device. It carries no token: the sign-in page sends a fresh link on request.
+ */
+async function sendAccountSavedEmail(email: string, username: string, withPassword: boolean): Promise<void> {
+  const signInUrl = `${config.frontendUrl.replace(/\/+$/, '')}/sign-in-link`;
+  const html = `
+      <p>Your <strong>Borderfall</strong> account <strong>${escapeHtml(username)}</strong> is saved to this address.</p>
+      <p>To play on another device, open <a href="${signInUrl}">${signInUrl}</a> and enter this email.
+         We will send you a one-time link to sign in${withPassword ? ', or you can use your password' : ', no password needed'}.</p>
+      <p>If you did not save a Borderfall account, you can ignore this email.</p>
+    `.trim();
+  await sendTransactionalEmailToAddress(email, 'Your Borderfall account is saved', html);
+}
+
 export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   // ── POST /api/auth/guest ─────────────────────────────────────────────────
   /**
@@ -357,17 +427,19 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     // The rotation handler preserves the `guest` claim, so refreshed tokens
     // never escalate a guest past rejectGuest-protected routes. Stale no-game
     // guests are deleted by guestCleanupService; their refresh then 401s
-    // (`no_user`) and the client logs out cleanly.
+    // (`no_user`) and the client logs out cleanly. With session_30d_enabled
+    // the session lasts 30 days, not 7.
     const tokenId = uuidv4();
-    const refreshToken = signRefreshToken({ sub: userId, tokenId });
+    const session = sessionLength();
+    const refreshToken = signRefreshToken({ sub: userId, tokenId }, session.tokenExpiresIn);
     const refreshHash = hashRefreshToken(refreshToken);
     const refreshExpiresAt = new Date();
-    refreshExpiresAt.setDate(refreshExpiresAt.getDate() + 7);
+    refreshExpiresAt.setDate(refreshExpiresAt.getDate() + session.days);
     await query(
       'INSERT INTO refresh_tokens (token_id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
       [tokenId, userId, refreshHash, refreshExpiresAt],
     );
-    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7, request));
+    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * session.days, request));
 
     stampLastLogin(userId);
     // First server touch for most acquisition paths (the landing jumps straight
@@ -443,17 +515,18 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
     const accessToken = signAccessToken({ sub: user.user_id, username: user.username, admin: user.is_admin });
     const tokenId = uuidv4();
-    const refreshToken = signRefreshToken({ sub: user.user_id, tokenId });
+    const session = sessionLength();
+    const refreshToken = signRefreshToken({ sub: user.user_id, tokenId }, session.tokenExpiresIn);
     const refreshHash = hashRefreshToken(refreshToken);
 
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
+    expiresAt.setDate(expiresAt.getDate() + session.days);
     await query(
       'INSERT INTO refresh_tokens (token_id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
       [tokenId, user.user_id, refreshHash, expiresAt]
     );
 
-    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7, request));
+    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * session.days, request));
 
     stampLastLogin(user.user_id);
     if (email_opt_in) grantEmailOptIn(user.user_id);
@@ -477,15 +550,26 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     preHandler: [authenticate, requireGuest],
     config: { rateLimit: { max: 5, timeWindow: '15 minutes' } },
   }, async (request, reply) => {
-    const body = UpgradeSchema.safeParse(request.body);
+    // email_account_save_enabled: an email is all a guest has to give.
+    const emailSave = featureFlags.emailAccountSaveEnabled;
+    const body = emailSave ? EmailSaveSchema.safeParse(request.body) : UpgradeSchema.safeParse(request.body);
     if (!body.success) {
       return reply.status(400).send(formatZodError(body.error));
     }
-    const { username, email, password, email_opt_in } = body.data;
+    const { email, password, email_opt_in } = body.data;
+    // Saved with just an email, the guest keeps the name they already have.
+    let username = body.data.username;
+    if (!username) {
+      const own = await queryOne<{ username: string }>('SELECT username FROM users WHERE user_id = $1', [request.userId]);
+      if (!own) return reply.status(404).send({ error: 'User not found' });
+      username = own.username;
+    }
 
-    const weak = passwordStrengthError(password, [username, email]);
-    if (weak) {
-      return reply.status(400).send({ error: weak });
+    if (password) {
+      const weak = passwordStrengthError(password, [username, email]);
+      if (weak) {
+        return reply.status(400).send({ error: weak });
+      }
     }
 
     // Pre-check excluding the guest's own row (their auto-generated
@@ -513,7 +597,9 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(409).send({ error: EMAIL_CAP_ERROR });
     }
 
-    const password_hash = await bcrypt.hash(password, config.bcryptRounds);
+    // Without a password the row gets an unusable random one, as a guest's has,
+    // and has_password = false says so.
+    const password_hash = await bcrypt.hash(password ?? randomUUID(), config.bcryptRounds);
 
     type UpgradedRow = {
       user_id: string; username: string; level: number; xp: number; mmr: number;
@@ -524,15 +610,17 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     const client = await pgPool.connect();
     let upgraded: UpgradedRow | null = null;
     const tokenId = uuidv4();
+    const session = sessionLength();
     let refreshToken: string;
     try {
       await client.query('BEGIN');
 
       // The is_guest predicate makes concurrent or replayed upgrades fail
       // closed: only one caller ever sees a row come back.
+      const setHasPassword = emailSave ? ', has_password = $5' : '';
       const { rows } = await client.query<UpgradedRow>(
         `UPDATE users
-         SET username = $1, email = $2, password_hash = $3, is_guest = false
+         SET username = $1, email = $2, password_hash = $3, is_guest = false${setHasPassword}
          WHERE user_id = $4 AND COALESCE(is_guest, false) = true
          RETURNING user_id, username, level, xp, mmr,
                    COALESCE(gold, 0) AS gold,
@@ -540,7 +628,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
                    COALESCE(daily_streak, 0) AS daily_streak,
                    COALESCE(onboarding_stage, 0) AS onboarding_stage,
                    COALESCE(is_admin, false) AS is_admin`,
-        [username, email, password_hash, request.userId],
+        [username, email, password_hash, request.userId, ...(emailSave ? [Boolean(password)] : [])],
       );
       upgraded = rows[0] ?? null;
       if (!upgraded) {
@@ -554,10 +642,10 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         [request.userId],
       );
 
-      refreshToken = signRefreshToken({ sub: upgraded.user_id, tokenId });
+      refreshToken = signRefreshToken({ sub: upgraded.user_id, tokenId }, session.tokenExpiresIn);
       const refreshHash = hashRefreshToken(refreshToken);
       const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7);
+      expiresAt.setDate(expiresAt.getDate() + session.days);
       await client.query(
         'INSERT INTO refresh_tokens (token_id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
         [tokenId, upgraded.user_id, refreshHash, expiresAt],
@@ -582,7 +670,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       username: upgraded.username,
       admin: upgraded.is_admin,
     });
-    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7, request));
+    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * session.days, request));
 
     stampLastLogin(upgraded.user_id);
     // Written by the trusted upgrade path itself (the /me/preferences routes
@@ -590,12 +678,27 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     if (email_opt_in) grantEmailOptIn(upgraded.user_id);
     recordServerEvent(
       'guest_upgraded',
-      { email_opt_in: Boolean(email_opt_in), ...parseAttribution(request.body) },
+      {
+        email_opt_in: Boolean(email_opt_in),
+        ...(emailSave ? { with_password: Boolean(password) } : {}),
+        ...parseAttribution(request.body),
+      },
       upgraded.user_id,
     );
+    if (emailSave) {
+      // Tells the player where their account now lives and how to reach it from
+      // another device. Never holds up the save.
+      void sendAccountSavedEmail(email, upgraded.username, Boolean(password)).catch((err) => {
+        request.log.warn({ err, userId: upgraded?.user_id }, 'account saved email failed');
+      });
+    }
     return reply.send({
       accessToken,
-      user: { ...upgraded, is_guest: false },
+      user: {
+        ...upgraded,
+        is_guest: false,
+        ...(emailSave ? { has_password: Boolean(password) } : {}),
+      },
     });
   });
 
@@ -691,17 +794,18 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
     const accessToken = signAccessToken({ sub: user.user_id, username: user.username, admin: user.is_admin });
     const tokenId = uuidv4();
-    const refreshToken = signRefreshToken({ sub: user.user_id, tokenId });
+    const session = sessionLength();
+    const refreshToken = signRefreshToken({ sub: user.user_id, tokenId }, session.tokenExpiresIn);
     const refreshHash = hashRefreshToken(refreshToken);
 
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
+    expiresAt.setDate(expiresAt.getDate() + session.days);
     await query(
       'INSERT INTO refresh_tokens (token_id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
       [tokenId, user.user_id, refreshHash, expiresAt]
     );
 
-    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7, request));
+    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * session.days, request));
 
     const { password_hash: _ph, is_banned: _ib, ...safeUser } = user;
     stampLastLogin(user.user_id);
@@ -819,7 +923,8 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
           throw new Error('TOKEN_GONE');
         }
 
-        await client.query('UPDATE users SET password_hash = $1 WHERE user_id = $2', [
+        // A reset also gives an account saved with just an email its first password.
+        await client.query('UPDATE users SET password_hash = $1, has_password = TRUE WHERE user_id = $2', [
           newHash,
           row.user_id,
         ]);
@@ -838,6 +943,171 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     return reply.send({ message: 'Password updated; you can sign in now.' });
+  });
+
+  // ── POST /api/auth/sign-in-link ──────────────────────────────────────────
+  /**
+   * Emails a one-time sign-in link (email_account_save_enabled): the way back
+   * for an account saved with just an email, and a shortcut for any other. An
+   * address may hold several accounts, so, as with a reset, the email carries one
+   * link per account, and the answer never says whether an account exists.
+   */
+  fastify.post('/sign-in-link', { config: { rateLimit: { max: 5, timeWindow: '15 minutes' } } }, async (request, reply) => {
+    if (!featureFlags.emailAccountSaveEnabled) {
+      return reply.status(404).send({ error: 'Not found' });
+    }
+    const body = SignInLinkSchema.safeParse(request.body);
+    if (!body.success) {
+      return reply.send(SIGN_IN_LINK_RESPONSE);
+    }
+    // The same accounts a reset reaches: registered, not banned, real address.
+    const accounts = await resolveUsersForPasswordReset(body.data.email.normalize('NFC').trim());
+    if (accounts.length === 0) {
+      return reply.send(SIGN_IN_LINK_RESPONSE);
+    }
+
+    const baseUrl = config.frontendUrl.replace(/\/+$/, '');
+    const expiresAt = new Date(Date.now() + SIGN_IN_LINK_TTL_MS);
+    const links: Array<{ username: string; url: string }> = [];
+    for (const account of accounts) {
+      await query('DELETE FROM sign_in_link_tokens WHERE user_id = $1 AND used_at IS NULL', [account.user_id]);
+      const rawToken = randomBytes(32).toString('base64url');
+      await query(
+        'INSERT INTO sign_in_link_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
+        [account.user_id, hashSignInLinkToken(rawToken), expiresAt],
+      );
+      links.push({ username: account.username, url: `${baseUrl}/sign-in-link?token=${encodeURIComponent(rawToken)}` });
+    }
+
+    const htmlBody = links.length === 1
+      ? `
+      <p><a href="${links[0].url}">Sign in to Borderfall as ${escapeHtml(links[0].username)}</a></p>
+      <p>This link works once and expires in 30 minutes. If you did not ask for it, you can ignore this email.</p>
+    `.trim()
+      : `
+      <p>This address has ${links.length} Borderfall accounts. Choose the one to sign in to:</p>
+      <ul>
+        ${links.map((l) => `<li><a href="${l.url}">Sign in as ${escapeHtml(l.username)}</a></li>`).join('\n        ')}
+      </ul>
+      <p>Each link works once and expires in 30 minutes. If you did not ask for this, you can ignore this email.</p>
+    `.trim();
+
+    const sent = await sendTransactionalEmailToAddress(accounts[0].email, 'Your Borderfall sign-in link', htmlBody);
+    if (!sent && config.nodeEnv !== 'production' && process.env.PASSWORD_RESET_DEV_LOG === 'true') {
+      request.log.warn({ signInUrl: links[0].url }, '[auth] PASSWORD_RESET_DEV_LOG: sign-in link (SMTP not configured or send failed)');
+    }
+    return reply.send(SIGN_IN_LINK_RESPONSE);
+  });
+
+  // ── POST /api/auth/sign-in-link/verify ───────────────────────────────────
+  /**
+   * Redeems a sign-in link: the token is used up in the same transaction that
+   * finds it, so a link signs in once. The page POSTs it, so a mail scanner that
+   * opens the link does not spend it.
+   */
+  fastify.post('/sign-in-link/verify', { config: { rateLimit: { max: 10, timeWindow: '15 minutes' } } }, async (request, reply) => {
+    if (!featureFlags.emailAccountSaveEnabled) {
+      return reply.status(404).send({ error: 'Not found' });
+    }
+    const body = SignInLinkVerifySchema.safeParse(request.body);
+    if (!body.success) {
+      return reply.status(400).send({ error: SIGN_IN_LINK_INVALID });
+    }
+
+    type LinkUserRow = {
+      user_id: string; username: string; level: number; xp: number; mmr: number;
+      is_banned: boolean; is_admin: boolean; is_guest: boolean;
+    };
+    let user: LinkUserRow | null;
+    try {
+      user = await withTransaction(async (client) => {
+        const { rows } = await client.query<{ id: string; user_id: string }>(
+          `SELECT id, user_id FROM sign_in_link_tokens
+           WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW()
+           FOR UPDATE`,
+          [hashSignInLinkToken(body.data.token)],
+        );
+        const link = rows[0];
+        if (!link) return null;
+        await client.query('UPDATE sign_in_link_tokens SET used_at = NOW() WHERE id = $1', [link.id]);
+        const { rows: users } = await client.query<LinkUserRow>(
+          `SELECT user_id, username, level, xp, mmr,
+                  COALESCE(is_banned, false) AS is_banned,
+                  COALESCE(is_admin, false) AS is_admin,
+                  COALESCE(is_guest, false) AS is_guest
+           FROM users WHERE user_id = $1`,
+          [link.user_id],
+        );
+        return users[0] ?? null;
+      });
+    } catch (err) {
+      request.log.error({ err }, 'sign-in link redeem failed');
+      return reply.status(500).send({ error: 'Sign-in failed' });
+    }
+    if (!user || user.is_guest) {
+      return reply.status(400).send({ error: SIGN_IN_LINK_INVALID });
+    }
+    if (user.is_banned) {
+      return reply.status(403).send({ error: 'Account is banned' });
+    }
+
+    const accessToken = signAccessToken({ sub: user.user_id, username: user.username, admin: user.is_admin });
+    const tokenId = uuidv4();
+    // As long as any other sign-in's session (session_30d_enabled).
+    const session = sessionLength();
+    const refreshToken = signRefreshToken({ sub: user.user_id, tokenId }, session.tokenExpiresIn);
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + session.days);
+    await query(
+      'INSERT INTO refresh_tokens (token_id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
+      [tokenId, user.user_id, hashRefreshToken(refreshToken), expiresAt],
+    );
+    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * session.days, request));
+
+    const { is_banned: _ib, is_guest: _ig, ...safeUser } = user;
+    stampLastLogin(user.user_id);
+    recordServerEvent('user_login', { method: 'email_link' }, user.user_id);
+    return reply.send({ accessToken, user: safeUser });
+  });
+
+  // ── POST /api/auth/set-password ──────────────────────────────────────────
+  /**
+   * Gives an account saved with just an email its first password
+   * (email_account_save_enabled). An account that has one changes it with
+   * /change-password, which asks for the current one.
+   */
+  fastify.post('/set-password', {
+    preHandler: [authenticate, rejectGuest],
+    config: { rateLimit: { max: 5, timeWindow: '15 minutes' } },
+  }, async (request, reply) => {
+    if (!featureFlags.emailAccountSaveEnabled) {
+      return reply.status(404).send({ error: 'Not found' });
+    }
+    const parsed = SetPasswordSchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      return reply.status(400).send(formatZodError(parsed.error));
+    }
+    const account = await queryOne<{ username: string; email: string; has_password: boolean }>(
+      'SELECT username, email, has_password FROM users WHERE user_id = $1',
+      [request.userId],
+    );
+    if (!account) return reply.status(404).send({ error: 'User not found' });
+    const alreadySet = { error: 'This account already has a password. Change it in Settings.' };
+    if (account.has_password) return reply.status(409).send(alreadySet);
+
+    const strength = passwordStrengthError(parsed.data.new_password, [account.username, account.email]);
+    if (strength) return reply.status(400).send({ error: strength });
+
+    const hash = await bcrypt.hash(parsed.data.new_password, config.bcryptRounds);
+    // The has_password predicate keeps a second, racing request from replacing it.
+    const updated = await query<{ user_id: string }>(
+      `UPDATE users SET password_hash = $1, has_password = TRUE
+       WHERE user_id = $2 AND has_password = FALSE
+       RETURNING user_id`,
+      [hash, request.userId],
+    );
+    if (updated.length === 0) return reply.status(409).send(alreadySet);
+    return reply.send({ message: 'Password set. Sign in with it, or with an emailed link.' });
   });
 
   // ── POST /api/auth/refresh ───────────────────────────────────────────────
@@ -863,10 +1133,11 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     // The token comparison runs inside the txn so the row lock covers the
     // whole compare→update window, preventing TOCTOU on concurrent refreshes.
     const newTokenId = uuidv4();
-    const newRefreshToken = signRefreshToken({ sub: payload.sub, tokenId: newTokenId });
+    const session = sessionLength();
+    const newRefreshToken = signRefreshToken({ sub: payload.sub, tokenId: newTokenId }, session.tokenExpiresIn);
     const newRefreshHash = hashRefreshToken(newRefreshToken);
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
+    expiresAt.setDate(expiresAt.getDate() + session.days);
 
     type RotationResult =
       | { code: 'ok'; username: string; is_admin: boolean; is_guest: boolean }
@@ -949,7 +1220,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       admin: rotation.is_admin,
       ...(rotation.is_guest ? { guest: true } : {}),
     });
-    reply.setCookie('refreshToken', newRefreshToken, refreshCookieOpts(60 * 60 * 24 * 7, request));
+    reply.setCookie('refreshToken', newRefreshToken, refreshCookieOpts(60 * 60 * 24 * session.days, request));
 
     stampLastLogin(payload.sub);
     return reply.send({ accessToken: newAccessToken });

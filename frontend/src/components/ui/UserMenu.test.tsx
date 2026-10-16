@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import UserMenu from './UserMenu';
+import { useFeatureFlagsStore } from '../../store/featureFlagsStore';
 
 function renderMenu(isGuest = false, onLogout = vi.fn()) {
   render(
@@ -28,10 +29,21 @@ describe('UserMenu', () => {
     expect(screen.getByRole('menuitem', { name: /Privacy/ })).toBeTruthy();
   });
 
-  it('hides Settings for guests', () => {
+  it('hides Settings for guests with guest_personal_features_enabled off', () => {
+    useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, guest_personal_features_enabled: false } }));
+    try {
+      renderMenu(true);
+      fireEvent.click(screen.getByRole('button', { name: /commander/i }));
+      expect(screen.queryByRole('menuitem', { name: /Settings/ })).toBeNull();
+    } finally {
+      useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, guest_personal_features_enabled: true } }));
+    }
+  });
+
+  it('shows Settings to guests (guest_personal_features_enabled, on by default)', () => {
     renderMenu(true);
     fireEvent.click(screen.getByRole('button', { name: /commander/i }));
-    expect(screen.queryByRole('menuitem', { name: /Settings/ })).toBeNull();
+    expect(screen.getByRole('menuitem', { name: /Settings/ })).toBeTruthy();
   });
 
   it('fires logout and closes', () => {

@@ -51,7 +51,7 @@ describe('CampaignPage guest gate', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Iron Road/ }));
 
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByText(/Campaigns need an account/)).toBeInTheDocument();
+    expect(screen.getByText(/Campaigns need a saved account/)).toBeInTheDocument();
     // The whole point of intercepting client-side: the guest never eats a 403.
     expect(postMock).not.toHaveBeenCalled();
   });
@@ -59,7 +59,7 @@ describe('CampaignPage guest gate', () => {
   it('sends the guest to /upgrade, which converts the row in place', async () => {
     renderPage(true);
     fireEvent.click(await screen.findByRole('button', { name: /Iron Road/ }));
-    fireEvent.click(await screen.findByRole('button', { name: /Create Free Account/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Save your account/ }));
     expect(navigateMock).toHaveBeenCalledWith('/upgrade');
   });
 

@@ -156,9 +156,29 @@ describe.runIf(enabled)('PUT /api/users/me/cosmetics/equip (Postgres)', () => {
     expect(await stored(user)).toMatchObject({ equipped_frame: null, equipped_banner: BANNER2 });
   });
 
-  it('still refuses guests', async () => {
-    const guest = await seedUser({ guest: true });
-    expect((await equip(guest, { frame_id: FRAME })).statusCode).toBe(403);
+  it('still refuses guests with guest_personal_features_enabled off', async () => {
+    const { setAdminConfigCacheForTests, resetAdminConfigCacheForTests } = await import('../../services/adminConfig');
+    setAdminConfigCacheForTests({ feature_flags: { guest_personal_features_enabled: false } });
+    try {
+      const guest = await seedUser({ guest: true });
+      expect((await equip(guest, { frame_id: FRAME })).statusCode).toBe(403);
+    } finally {
+      resetAdminConfigCacheForTests();
+    }
+  });
+
+  it('lets a guest wear what they own with guest_personal_features_enabled', async () => {
+    const { setAdminConfigCacheForTests, resetAdminConfigCacheForTests } = await import('../../services/adminConfig');
+    setAdminConfigCacheForTests({ feature_flags: { guest_personal_features_enabled: true } });
+    try {
+      const guest = await seedUser({ guest: true });
+      const res = await equip(guest, { frame_id: FRAME });
+      expect(res.json()).toEqual({ ok: true, equipped: { frame: FRAME, banner: null, marker: null, dice: null } });
+      // Owning it is still the rule.
+      expect((await equip(guest, { dice_id: `test_${tag}_missing` })).statusCode).toBe(403);
+    } finally {
+      resetAdminConfigCacheForTests();
+    }
   });
 
   it('works the same with store_v2_enabled off: the kill switch leaves the store alone', async () => {

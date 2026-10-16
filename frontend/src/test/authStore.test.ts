@@ -107,6 +107,48 @@ describe('authStore', () => {
     expect(resyncSocketAuth).toHaveBeenCalled();
   });
 
+  it('upgradeAccount leaves out the name and password a guest did not give (email_account_save_enabled)', async () => {
+    useAuthStore.setState({
+      user: { user_id: 'u1', username: 'SwiftFalcon_48213', level: 2, xp: 300, mmr: 1000, is_guest: true },
+      accessToken: 'guest-token',
+      isAuthenticated: true,
+      bootstrapped: true,
+    });
+    vi.mocked(api.post).mockResolvedValueOnce({
+      data: {
+        accessToken: 'full-token',
+        user: { user_id: 'u1', username: 'SwiftFalcon_48213', level: 2, xp: 300, mmr: 1000, is_guest: false, has_password: false },
+      },
+    });
+
+    await useAuthStore.getState().upgradeAccount(undefined, 'ada@example.com', undefined, true);
+
+    const body = vi.mocked(api.post).mock.calls.at(-1)![1] as Record<string, unknown>;
+    expect(body).toMatchObject({ email: 'ada@example.com', email_opt_in: true });
+    expect(body).not.toHaveProperty('username');
+    expect(body).not.toHaveProperty('password');
+    expect(useAuthStore.getState().user).toMatchObject({ is_guest: false, has_password: false });
+  });
+
+  it('signInWithLink signs in as the account the link names', async () => {
+    useAuthStore.setState({
+      user: { user_id: 'g9', username: 'KeenPuma_12075', level: 1, xp: 0, mmr: 1000, is_guest: true },
+      accessToken: 'guest-token',
+      isAuthenticated: true,
+      bootstrapped: true,
+    });
+    vi.mocked(api.post).mockResolvedValueOnce({
+      data: { accessToken: 'link-token', user: { user_id: 'u1', username: 'SwiftFalcon_48213', level: 2, xp: 300, mmr: 1000 } },
+    });
+
+    await useAuthStore.getState().signInWithLink('abc123');
+
+    expect(api.post).toHaveBeenCalledWith('/auth/sign-in-link/verify', { token: 'abc123' });
+    expect(useAuthStore.getState().user?.user_id).toBe('u1');
+    expect(useAuthStore.getState().accessToken).toBe('link-token');
+    expect(resyncSocketAuth).toHaveBeenCalled();
+  });
+
   it('upgradeAccount leaves state untouched on failure', async () => {
     useAuthStore.setState({
       user: { user_id: 'u1', username: 'Guest_abcd1234', level: 1, xp: 0, mmr: 1000, is_guest: true },

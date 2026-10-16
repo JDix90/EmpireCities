@@ -11,6 +11,8 @@ import {
   GUEST_KEEP_STATS_CTA_SENTENCE,
   GUEST_SAVED_HERE,
   GUEST_KEEP_EVERYWHERE_CTA_SENTENCE,
+  JUST_AN_EMAIL,
+  SAVED_ACCOUNT_PERKS,
 } from './guestGate';
 
 /** sessionStorage key — once per tab session, mirroring the tutorial prompt. */
@@ -90,8 +92,30 @@ export function bankedGoldNote(gold: number | undefined): string | undefined {
  * lobby banner, the game-over prompt and the campaign gate; each body then adds
  * the detail this moment has room for, which the one-liners do not.
  */
-export function signupNudgeCopy(isWinner: boolean, gold?: number, v2 = false): SignupNudgeCopy {
+export function signupNudgeCopy(
+  isWinner: boolean,
+  gold?: number,
+  v2 = false,
+  /** `save_account_copy_enabled`, which takes precedence over v2. */
+  saveCopy = false,
+  /** `email_account_save_enabled`: saving takes just an email, so say so. */
+  justAnEmail = false,
+): SignupNudgeCopy {
   const banked = bankedGoldNote(gold);
+  if (saveCopy) {
+    const email = justAnEmail ? ` ${JUST_AN_EMAIL}` : '';
+    return isWinner
+      ? {
+          bankedGold: banked,
+          title: 'Victory!',
+          body: `You won. ${GUEST_SAVED_HERE}. Save your account to ${SAVED_ACCOUNT_PERKS}.${email}`,
+        }
+      : {
+          bankedGold: banked,
+          title: 'Keep your progress safe',
+          body: `Your level, gold and streak are saved in this browser. Save your account to ${SAVED_ACCOUNT_PERKS}.${email}`,
+        };
+  }
   // `guest_prompt_v2_enabled`: the same stake without the overstatement. The
   // progress IS saved in this browser; another browser or cleared site data is
   // what loses it.

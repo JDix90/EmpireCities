@@ -11,7 +11,8 @@ import XpBar from '../components/ui/XpBar';
 import TierBadge from '../components/ui/TierBadge';
 import ReferralPanel from '../components/ui/ReferralPanel';
 import { ownAuthUiAllowed } from '../utils/embedContext';
-import { useStoreV2Enabled } from '../store/featureFlagsStore';
+import { useStoreV2Enabled, useGuestPersonalFeaturesEnabled } from '../store/featureFlagsStore';
+import { useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
 import FrameRing from '../components/cosmetics/FrameRing';
 import BannerTag from '../components/cosmetics/BannerTag';
 
@@ -28,6 +29,8 @@ function formatDate(iso: string): string {
 interface RatingInfo { mu: number; phi: number; display: number; provisional: boolean }
 
 interface UserProfile {
+  /** False for an account saved with just an email (email_account_save_enabled). */
+  has_password?: boolean;
   user_id: string;
   username: string;
   level: number;
@@ -129,6 +132,9 @@ export default function ProfilePage() {
 
   const targetId = userId ?? currentUser?.user_id;
   const isOwnProfile = !userId || userId === currentUser?.user_id;
+  // A guest's gold is shown to them like their level (guest_personal_features_enabled).
+  const guestPersonal = useGuestPersonalFeaturesEnabled();
+  const saveAccountCopy = useSaveAccountCopyEnabled();
 
   useEffect(() => {
     if (!targetId) return;
@@ -201,6 +207,9 @@ export default function ProfilePage() {
     );
   }
 
+  // An account saved with just an email (email_account_save_enabled) has no password yet.
+  const passwordless = isOwnProfile && profile.has_password === false;
+
   const avatar = (
     <div className="w-20 h-20 rounded-full bg-bf-border flex items-center justify-center text-3xl">
       {profile.avatar_url ? (
@@ -246,7 +255,17 @@ export default function ProfilePage() {
             <p className="text-bf-muted text-sm mt-1">
               Level {profile.level} · Member since {new Date(profile.created_at).getFullYear()}
             </p>
-            {isOwnProfile && currentUser?.is_guest ? (
+            {isOwnProfile && currentUser?.is_guest && saveAccountCopy ? (
+              <p className="text-bf-muted text-xs mt-1" data-testid="profile-guest-line">
+                Guest account, saved in this browser{ownAuthUiAllowed() ? (
+                  <>
+                    {' '}—{' '}
+                    <Link to="/upgrade" className="text-bf-gold hover:underline">save your account</Link>
+                    {' '}to keep it safe, play on any device and track competitive ratings.
+                  </>
+                ) : '. Competitive ratings are not tracked.'}
+              </p>
+            ) : isOwnProfile && currentUser?.is_guest ? (
               <p className="text-bf-muted text-xs mt-1">
                 Guest account{ownAuthUiAllowed() ? (
                   <>
@@ -286,7 +305,7 @@ export default function ProfilePage() {
             )}
             <div className="mt-3">
               <XpBar xp={profile.xp ?? 0} />
-              {isOwnProfile && !currentUser?.is_guest && profile.gold != null && (
+              {isOwnProfile && (!currentUser?.is_guest || guestPersonal) && profile.gold != null && (
                 <p className="flex items-center gap-1 text-bf-gold text-xs mt-2">
                   <Coins className="w-3.5 h-3.5" />
                   {profile.gold.toLocaleString()} Gold
@@ -522,14 +541,15 @@ export default function ProfilePage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
               <div className="flex-1">
-                <label className="label">Confirm with password</label>
+                {/* An account saved with just an email has no password to confirm with: it types its name. */}
+                <label className="label">{passwordless ? 'Confirm with your username' : 'Confirm with password'}</label>
                 <input
-                  type="password"
+                  type={passwordless ? 'text' : 'password'}
                   className="input"
                   value={deletePassword}
                   onChange={(e) => setDeletePassword(e.target.value)}
-                  autoComplete="current-password"
-                  placeholder="Your password"
+                  autoComplete={passwordless ? 'off' : 'current-password'}
+                  placeholder={passwordless ? profile.username : 'Your password'}
                 />
               </div>
               <button
@@ -539,7 +559,9 @@ export default function ProfilePage() {
                 onClick={async () => {
                   setDeleteBusy(true);
                   try {
-                    await api.delete('/users/me', { data: { password: deletePassword } });
+                    await api.delete('/users/me', {
+                      data: passwordless ? { confirm_username: deletePassword } : { password: deletePassword },
+                    });
                     toast.success('Account deleted');
                     setDeletePassword('');
                     await logout();

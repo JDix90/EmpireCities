@@ -60,7 +60,7 @@ describe('DailyChallengePage — guests play, registered rank', () => {
     useFeatureFlagsStore.setState({ ...st, flags: { ...st.flags, daily_guest_play_enabled: false } });
     mockToday({ challenge, my_entry: null, active_game_id: null, attempts_today: 3, my_rank: null, leaderboard: [] });
     renderPage();
-    await waitFor(() => expect(screen.getByRole('link', { name: /Create free account/ })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('link', { name: /Save your account/ })).toBeInTheDocument());
     expect(screen.queryByRole('button', { name: /Play Today's Challenge/ })).toBeNull();
   });
 

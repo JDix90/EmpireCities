@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useBackgroundMusicEnabled, useLocalizationEnabled } from '../store/featureFlagsStore';
+import { useBackgroundMusicEnabled, useLocalizationEnabled, useEmailAccountSaveEnabled } from '../store/featureFlagsStore';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Settings,
@@ -76,6 +76,11 @@ export default function SettingsPage() {
   const user = useAuthStore((s) => s.user);
   const gold = useAuthStore((s) => s.user?.gold ?? 0);
   const logout = useAuthStore((s) => s.logout);
+  const refreshUser = useAuthStore((s) => s.refreshUser);
+  // email_account_save_enabled: an account saved with just an email has no
+  // password yet, so this offers to set one instead of asking for the current one.
+  const emailSave = useEmailAccountSaveEnabled();
+  const passwordless = user?.has_password === false;
   const isGuest = Boolean(user?.is_guest);
 
   // Language lives behind `localization_enabled` like every other localized
@@ -148,6 +153,11 @@ export default function SettingsPage() {
     });
   };
 
+  // Whether this account has a password is on /users/me, so read it fresh here.
+  useEffect(() => {
+    if (emailSave && !isGuest) void refreshUser();
+  }, [emailSave, isGuest, refreshUser]);
+
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (pwSubmitting) return;
@@ -160,6 +170,23 @@ export default function SettingsPage() {
       return;
     }
     setPwSubmitting(true);
+    if (passwordless) {
+      try {
+        await api.post('/auth/set-password', { new_password: newPw });
+        toast.success('Password set. Sign in with it, or with an emailed link.');
+        setNewPw('');
+        setConfirmPw('');
+        setShowPwForm(false);
+        await refreshUser();
+      } catch (err: unknown) {
+        const message = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+          ?? 'Could not set a password';
+        toast.error(message);
+      } finally {
+        setPwSubmitting(false);
+      }
+      return;
+    }
     try {
       await api.post('/auth/change-password', { current_password: currentPw, new_password: newPw });
       toast.success('Password updated — please log in again');
@@ -214,7 +241,9 @@ export default function SettingsPage() {
                 >
                   <div className="flex items-center gap-2">
                     <KeyRound className="w-4 h-4 text-bf-muted" />
-                    <span className="text-sm text-bf-text group-hover:text-bf-gold transition-colors">Change password</span>
+                    <span className="text-sm text-bf-text group-hover:text-bf-gold transition-colors">
+                      {passwordless ? 'Set a password' : 'Change password'}
+                    </span>
                   </div>
                   <ChevronRight
                     className={`w-4 h-4 text-bf-muted group-hover:text-bf-gold transition-transform ${showPwForm ? 'rotate-90' : ''}`}
@@ -222,6 +251,7 @@ export default function SettingsPage() {
                 </button>
                 {showPwForm && (
                   <form onSubmit={handleChangePassword} className="space-y-3 pt-2 pb-1">
+                    {!passwordless && (
                     <input
                       type="password"
                       autoComplete="current-password"
@@ -231,6 +261,7 @@ export default function SettingsPage() {
                       required
                       className="input w-full"
                     />
+                    )}
                     <input
                       type="password"
                       autoComplete="new-password"
@@ -249,13 +280,17 @@ export default function SettingsPage() {
                       required
                       className="input w-full"
                     />
-                    <p className="text-xs text-bf-muted">Changing your password signs out all devices.</p>
+                    <p className="text-xs text-bf-muted">
+                      {passwordless
+                        ? 'You can still sign in with an emailed link.'
+                        : 'Changing your password signs out all devices.'}
+                    </p>
                     <button
                       type="submit"
                       disabled={pwSubmitting}
                       className="btn-primary text-sm px-4 py-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      {pwSubmitting ? 'Updating…' : 'Update password'}
+                      {pwSubmitting ? 'Updating…' : passwordless ? 'Set password' : 'Update password'}
                     </button>
                   </form>
                 )}

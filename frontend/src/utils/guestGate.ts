@@ -49,6 +49,26 @@ export const GUEST_KEEP_EVERYWHERE_CTA = 'an account keeps it everywhere';
 /** Sentence-initial form of the v2 call to action. */
 export const GUEST_KEEP_EVERYWHERE_CTA_SENTENCE = 'An account keeps it everywhere';
 
+/**
+ * Under `save_account_copy_enabled` every surface describes the two kinds of
+ * account one way. A guest's progress is saved in this browser (GUEST_SAVED_HERE);
+ * saving the account keeps it safe and opens what needs an identity: any device,
+ * ranked and the leaderboards, friends. One button says so everywhere.
+ */
+export const SAVE_ACCOUNT_LABEL = 'Save your account';
+
+/** The call to action, lowercase, for link text and mid-sentence use. */
+export const SAVE_ACCOUNT_CTA = 'save your account to keep it safe and play on any device';
+
+/** Sentence-initial form of the same call to action. */
+export const SAVE_ACCOUNT_CTA_SENTENCE = 'Save your account to keep it safe and play on any device';
+
+/** Everything a saved account adds, for a surface with room for the whole pitch. */
+export const SAVED_ACCOUNT_PERKS = 'keep it safe, play on any device, compete in ranked and play with friends';
+
+/** Added to the main prompts when saving takes just an email (email_account_save_enabled). */
+export const JUST_AN_EMAIL = 'All it takes is your email.';
+
 export interface GuestLineCopy {
   /** The statement of where a guest's progress lives. */
   statement: string;
@@ -58,8 +78,14 @@ export interface GuestLineCopy {
   ctaSentence: string;
 }
 
-/** The guest line for one-line surfaces: v2 is `guest_prompt_v2_enabled`. */
-export function guestLine(v2: boolean): GuestLineCopy {
+/**
+ * The guest line for one-line surfaces: v2 is `guest_prompt_v2_enabled`, and
+ * `saveCopy` (`save_account_copy_enabled`) takes precedence over both.
+ */
+export function guestLine(v2: boolean, saveCopy = false): GuestLineCopy {
+  if (saveCopy) {
+    return { statement: GUEST_SAVED_HERE, cta: SAVE_ACCOUNT_CTA, ctaSentence: SAVE_ACCOUNT_CTA_SENTENCE };
+  }
   return v2
     ? { statement: GUEST_SAVED_HERE, cta: GUEST_KEEP_EVERYWHERE_CTA, ctaSentence: GUEST_KEEP_EVERYWHERE_CTA_SENTENCE }
     : { statement: GUEST_NO_PERSIST, cta: GUEST_KEEP_STATS_CTA, ctaSentence: GUEST_KEEP_STATS_CTA_SENTENCE };
@@ -120,5 +146,27 @@ export const LEADERBOARD_GUEST_NOTICE_V2: GuestGateCopy = {
   body:
     `You can play everything here, but a guest account is never ranked. ${GUEST_SAVED_HERE}; `
     + `${GUEST_KEEP_EVERYWHERE_CTA} and puts you on the board.`,
+  bullets: [],
+};
+
+/** CAMPAIGN_START_GATE under `save_account_copy_enabled`. */
+export const CAMPAIGN_START_GATE_SAVE: GuestGateCopy = {
+  title: 'Campaigns need a saved account',
+  body:
+    `A campaign runs across many games, so it needs an account that cannot be lost. ${GUEST_SAVED_HERE}; `
+    + 'save your account to keep it safe and pick the campaign up on any device.',
+  bullets: [
+    'Everything you have earned stays yours: it is the same account, saved.',
+    'Play on any device and carry on where you left off.',
+    'Compete in ranked and on the leaderboards, and play with friends.',
+  ],
+};
+
+/** LEADERBOARD_GUEST_NOTICE under `save_account_copy_enabled`. */
+export const LEADERBOARD_GUEST_NOTICE_SAVE: GuestGateCopy = {
+  title: 'Guests do not appear on the leaderboards',
+  body:
+    `${GUEST_SAVED_HERE}. Save your account to compete in ranked and take your place on the boards; `
+    + 'everything you have earned comes with you.',
   bullets: [],
 };

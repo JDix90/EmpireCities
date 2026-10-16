@@ -29,6 +29,7 @@ const LoginPage = lazyWithChunkRetry(() => import('./pages/LoginPage'));
 const RegisterPage = lazyWithChunkRetry(() => import('./pages/RegisterPage'));
 const ForgotPasswordPage = lazyWithChunkRetry(() => import('./pages/ForgotPasswordPage'));
 const ResetPasswordPage = lazyWithChunkRetry(() => import('./pages/ResetPasswordPage'));
+const SignInLinkPage = lazyWithChunkRetry(() => import('./pages/SignInLinkPage'));
 const UnsubscribePage = lazyWithChunkRetry(() => import('./pages/UnsubscribePage'));
 const LobbyPage = lazyWithChunkRetry(() => import('./pages/LobbyPage'));
 const JoinGamePage = lazyWithChunkRetry(() => import('./pages/JoinGamePage'));
@@ -457,6 +458,7 @@ export default function App() {
         <Route path="/upgrade" element={<AuthUiRoute><GuestOnlyRoute><UpgradePage /></GuestOnlyRoute></AuthUiRoute>} />
         <Route path="/forgot-password" element={<AuthUiRoute><PublicOnlyRoute><ForgotPasswordPage /></PublicOnlyRoute></AuthUiRoute>} />
         <Route path="/reset-password" element={<AuthUiRoute><ResetPasswordPage /></AuthUiRoute>} />
+        <Route path="/sign-in-link" element={<AuthUiRoute><SignInLinkPage /></AuthUiRoute>} />
         <Route path="/unsubscribe" element={<UnsubscribePage />} />
 
         {/* Protected routes */}

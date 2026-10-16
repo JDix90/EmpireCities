@@ -13,11 +13,14 @@ export interface ClientFeatureFlags {
   hero_single_cta_enabled: boolean;
   era_advance_payoff_enabled: boolean;
   signup_nudge_enabled: boolean;
+  email_account_save_enabled: boolean;
   guest_prompt_v2_enabled: boolean;
+  save_account_copy_enabled: boolean;
   results_footer_enabled: boolean;
   ranked_leaderboard_enabled: boolean;
   referral_survey_enabled: boolean;
   daily_guest_play_enabled: boolean;
+  guest_personal_features_enabled: boolean;
   streak_freezes_enabled: boolean;
   today_panel_enabled: boolean;
   async_onboarding_enabled: boolean;
@@ -77,8 +80,12 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   hero_single_cta_enabled: true,
   era_advance_payoff_enabled: true,
   signup_nudge_enabled: true,
+  // Save your account with just an email; sign in by emailed link. On by default; admin kill switch.
+  email_account_save_enabled: true,
   // Guest prompts: an accurate saved-in-this-browser line, one account modal per session. On by default; admin kill switch.
   guest_prompt_v2_enabled: true,
+  // "Save your account" wording on every guest surface. On by default; admin kill switch.
+  save_account_copy_enabled: true,
   // Results: Rematch and Return to Lobby pinned, no second account ask. On by default; admin kill switch.
   results_footer_enabled: true,
   // OFF until the ranked ladder has enough players not to render empty.
@@ -87,6 +94,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   referral_survey_enabled: false,
   // Guests may play the Daily (registered players are the only ones ranked).
   daily_guest_play_enabled: true,
+  // Guests see and use their own achievements, cosmetics, gold and settings. On by default; admin kill switch.
+  guest_personal_features_enabled: true,
   // Wave 2 retention flags — all default off (dark-launch).
   streak_freezes_enabled: false,
   today_panel_enabled: false,
@@ -231,9 +240,19 @@ export function useSignupNudgeEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.signup_nudge_enabled);
 }
 
+/** Save your account with just an email, password optional; sign in by an emailed link (email_account_save_enabled). */
+export function useEmailAccountSaveEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.email_account_save_enabled);
+}
+
 /** Guest prompts: an accurate saved-in-this-browser line, and one blocking account modal per tab session (utils/guestGate.ts, pages/GamePage.tsx). */
 export function useGuestPromptV2Enabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.guest_prompt_v2_enabled);
+}
+
+/** "Save your account" wording on every guest surface (save_account_copy_enabled). */
+export function useSaveAccountCopyEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.save_account_copy_enabled);
 }
 
 /** Results: Rematch and Return to Lobby pinned in a footer, and no signup nudge after the results offered saving (components/game/ActionModal.tsx, pages/GamePage.tsx). */
@@ -248,6 +267,11 @@ export function useRankedLeaderboardEnabled(): boolean {
 
 export function useDailyGuestPlayEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.daily_guest_play_enabled);
+}
+
+/** Guests see and use their own achievements, unlocked cosmetics, gold and settings (guest_personal_features_enabled). */
+export function useGuestPersonalFeaturesEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.guest_personal_features_enabled);
 }
 
 export function useStreakFreezesEnabled(): boolean {
