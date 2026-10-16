@@ -493,7 +493,7 @@ export default function DailyChallengePage() {
               ) : (
                 <Play className="w-4 h-4" />
               )}
-              {starting ? 'Starting…' : 'Play Today\'s Challenge'}
+              <span>{starting ? 'Starting…' : 'Play Today\'s Challenge'}</span>
             </button>
           )}
         </div>

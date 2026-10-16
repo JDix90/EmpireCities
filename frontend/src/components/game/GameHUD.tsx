@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { useAuthStore } from '../../store/authStore';
-import { ArrowRight, ChevronDown, ChevronUp, Clock, CreditCard, Flag, LogOut, Save, ScrollText, Shield, Sword, Undo2, Users, Zap } from 'lucide-react';
+import { ArrowRight, ChevronUp, Clock, CreditCard, Flag, LogOut, Save, ScrollText, Shield, Sword, Undo2, Users, Zap } from 'lucide-react';
 import clsx from 'clsx';
 import { computeDraftPool } from '../../utils/draftPool';
 import EraModifierBadge from './EraModifierBadge';
@@ -1132,7 +1132,10 @@ export default function GameHUD({
             className="w-full mt-0.5 py-1.5 text-xs text-bf-muted hover:text-bf-text transition-colors
                        flex items-center justify-center gap-1.5 rounded border border-bf-border/60 hover:border-bf-border"
           >
-            {showTools ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
+            {/* One chevron, turned when open. Swapping two icons in front of the
+                label made React insert before its text node, which a browser
+                translating the page has replaced: the app fell to its error screen. */}
+            <ChevronUp className={clsx('w-3 h-3', showTools && 'rotate-180')} aria-hidden="true" />
             Tools &amp; options
           </button>
 

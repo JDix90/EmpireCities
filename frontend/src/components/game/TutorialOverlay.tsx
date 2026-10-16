@@ -431,7 +431,7 @@ export default function TutorialOverlay({
                 className="flex items-center gap-1 text-xs text-bf-gold/90 hover:text-bf-gold transition-colors"
               >
                 {whyOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                {t('overlay.whyThisMatters')}
+                <span>{t('overlay.whyThisMatters')}</span>
               </button>
               {whyOpen && (
                 <p className="text-bf-muted/70 text-xs mt-1 leading-relaxed">{whyItMatters}</p>

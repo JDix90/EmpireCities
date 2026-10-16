@@ -324,7 +324,7 @@ export default function ReplayClipExporter({
             {/* Held until the globe geometry lands: generating now would quietly
                 produce the flat fallback board instead. */}
             {busy || globePending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Clapperboard className="w-4 h-4" />}
-            {globePending ? 'Preparing globe…' : busy ? 'Generating…' : 'Generate Clip'}
+            <span>{globePending ? 'Preparing globe…' : busy ? 'Generating…' : 'Generate Clip'}</span>
           </button>
         )}
       </div>

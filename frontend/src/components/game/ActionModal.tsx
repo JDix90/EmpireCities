@@ -2002,7 +2002,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
                 aria-label="Copy share line"
               >
                 {reviewCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                {reviewCopied ? 'Copied' : 'Share'}
+                <span>{reviewCopied ? 'Copied' : 'Share'}</span>
               </button>
             </div>
           </div>

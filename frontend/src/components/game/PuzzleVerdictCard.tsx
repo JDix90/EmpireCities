@@ -71,7 +71,7 @@ export default function PuzzleVerdictCard({ proposal, verdict, nameOf, onRoll, o
             autoFocus
           >
             {proposal.kind === 'attack' ? <Dices className="w-4 h-4" /> : <Check className="w-4 h-4" />}
-            {commitLabel(proposal, grade)}
+            <span>{commitLabel(proposal, grade)}</span>
           </button>
           <button
             type="button"
