@@ -844,7 +844,7 @@ export default function ReplayPage() {
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-bf-border text-bf-muted hover:text-bf-text hover:bg-white/10 text-xs font-medium transition-all"
         >
           {mapView === 'globe' ? <MapIcon className="w-3.5 h-3.5" /> : <GlobeIcon className="w-3.5 h-3.5" />}
-          {mapView === 'globe' ? '2D' : 'Globe'}
+          <span>{mapView === 'globe' ? '2D' : 'Globe'}</span>
         </button>
         {mapView === 'globe' && mapData.map_kind === 'galaxy' && (
           <button
@@ -898,7 +898,7 @@ export default function ReplayPage() {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bf-gold/10 border border-bf-gold/20 text-bf-gold hover:bg-bf-gold/20 text-xs font-medium transition-all"
           >
             {copied ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
-            Copy Link
+            <span>Copy Link</span>
           </button>
         ) : (
           <>
@@ -908,7 +908,7 @@ export default function ReplayPage() {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bf-gold/10 border border-bf-gold/20 text-bf-gold hover:bg-bf-gold/20 text-xs font-medium transition-all disabled:opacity-50"
             >
               {copied ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
-              {isPublic ? 'Copy Link' : 'Share Replay'}
+              <span>{isPublic ? 'Copy Link' : 'Share Replay'}</span>
             </button>
             {isPublic && (
               <button

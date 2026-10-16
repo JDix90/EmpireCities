@@ -481,7 +481,7 @@ export default function SpectatorPage() {
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-bf-border text-bf-muted hover:text-bf-text text-xs transition-colors"
           >
             {mapView === 'globe' ? <MapIcon className="w-3.5 h-3.5" /> : <GlobeIcon className="w-3.5 h-3.5" />}
-            {mapView === 'globe' ? '2D' : 'Globe'}
+            <span>{mapView === 'globe' ? '2D' : 'Globe'}</span>
           </button>
           {mapView === 'globe' && mapData.map_kind === 'galaxy' && (
             <button

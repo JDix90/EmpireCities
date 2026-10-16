@@ -24,6 +24,7 @@ beforeEach(() => {
 import TutorialOverlay, { renderTutorialText } from './TutorialOverlay';
 import { useFeatureFlagsStore } from '../../store/featureFlagsStore';
 import type { TutorialStep } from '../../tutorial';
+import { translatePage } from '../../test/translatePage';
 
 const noop = () => {};
 
@@ -570,5 +571,23 @@ describe('tutorial card fade (tutorial_card_fade_enabled)', () => {
     proseOf(600, 300);
     overlay(welcome, { centered: true });
     expect(screen.queryByTestId('tutorial-prose-fade')).toBeNull();
+  });
+});
+
+describe('TutorialOverlay on a page the browser has translated', () => {
+  // The chevron in front of "Why this matters" swaps when it opens. With the
+  // label a bare text node, a translated page's swapped-out text node made that
+  // insert throw, and a new player fell to the error screen mid-tutorial.
+  it('opens and closes "Why this matters" without crashing', () => {
+    const { container } = overlay([
+      { id: 'welcome', title: 'W', message: 'm', whyItMatters: 'The reason.' } as TutorialStep,
+    ]);
+    translatePage(container);
+    const toggle = screen.getByRole('button', { name: 'Why this matters' });
+    fireEvent.click(toggle);
+    expect(screen.getByText('The reason.')).toBeInTheDocument();
+    translatePage(container);
+    fireEvent.click(toggle);
+    expect(screen.queryByText('The reason.')).toBeNull();
   });
 });

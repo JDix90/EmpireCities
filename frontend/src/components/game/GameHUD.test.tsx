@@ -7,6 +7,7 @@ import { useGameStore, type GameState } from '../../store/gameStore';
 import { useAuthStore } from '../../store/authStore';
 import { useFeatureFlagsStore } from '../../store/featureFlagsStore';
 import { isMusicMuted, isSfxMuted, setMusicMuted, setSfxMuted } from '../../utils/userPreferences';
+import { translatePage } from '../../test/translatePage';
 
 vi.mock('../../services/socket', () => ({
   getSocket: () => ({ on: vi.fn(), off: vi.fn(), emit: vi.fn() }),
@@ -772,5 +773,46 @@ describe('GameHUD — sound and music switch', () => {
     renderHud();
     openTools();
     expect(screen.queryByRole('checkbox', { name: 'Sound and music' })).toBeNull();
+  });
+});
+
+describe('GameHUD — a page the browser has translated', () => {
+  // Sentry: "NotFoundError: Failed to execute 'insertBefore' on 'Node'" in
+  // GameHUD, on Edge. Opening Tools & options swapped one chevron for another in
+  // front of the label's text node, which the translator had replaced, and the
+  // whole game fell to the error screen.
+  beforeEach(() => {
+    try { localStorage.clear(); } catch { /* ignore */ }
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+      addListener: vi.fn(), removeListener: vi.fn(),
+    }) as unknown as typeof window.matchMedia;
+    useAuthStore.setState({ user: { user_id: 'me', username: 'me', level: 1, xp: 0, mmr: 1000 } } as never);
+    useGameStore.setState({ gameState: makeState(), draftUnitsRemaining: 0, lastCombatResult: null } as never);
+  });
+
+  it('opens and closes Tools & options without crashing', () => {
+    const { container } = renderHud();
+    translatePage(container);
+    const toggle = screen.getByRole('button', { name: /Tools & options/ });
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: /Resign/ })).toBeInTheDocument();
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('switches tabs and follows the turn through every phase', () => {
+    const { container } = renderHud();
+    const step = (fn: () => void) => { translatePage(container); fn(); };
+    step(() => fireEvent.click(screen.getByRole('tab', { name: /Players/ })));
+    step(() => fireEvent.click(screen.getByRole('tab', { name: /Log/ })));
+    step(() => fireEvent.click(screen.getByRole('tab', { name: /Status/ })));
+    for (const phase of ['fortify', 'draft', 'attack'] as const) {
+      step(() => act(() => { useGameStore.setState({ gameState: makeState({ phase }) } as never); }));
+    }
+    step(() => act(() => { useGameStore.setState({ gameState: makeState({ current_player_index: 1 }) } as never); }));
+    step(() => act(() => { useGameStore.setState({ gameState: makeState({ turn_number: 8 }) } as never); }));
+    expect(screen.getByText(/Turn 8/)).toBeInTheDocument();
   });
 });

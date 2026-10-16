@@ -227,7 +227,7 @@ export default function ChallengeFriendModal({ open, onClose }: ChallengeFriendM
               className="btn-secondary flex items-center gap-1.5 shrink-0"
             >
               {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-              {copied ? 'Copied' : 'Copy'}
+              <span>{copied ? 'Copied' : 'Copy'}</span>
             </button>
           </div>
 
