@@ -288,6 +288,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Hard and expert bots research toward Manhattan Project, fire the Atom Bomb at a target worth it (a big stack, its buildings, a tile they can walk into) and walk in. The bomb itself is unchanged: once per game, behind Panzer Tactics. Applies only to games that start in WW2; a climb from an earlier era keeps today\'s bomb. Baked into each game at creation. OFF by default (dark launch) — Phase 1 of docs/WW2_MANHATTAN_PROJECT.md; promote on its sim gate.',
   },
   {
+    key: 'friendly_guest_names_enabled',
+    label: 'Friendly guest names',
+    description:
+      'A new guest is named like \u201cSwiftFalcon_48213\u201d (an adjective, an animal and five digits) instead of \u201cGuest_\u201d and 8 hex characters, the name other players see in turn order, battles and results. Only guests created from then on; existing guests keep their names, and a guest still picks their own name on signing up. Off by default (dark launch) \u2014 off is the Guest_ names exactly as before.',
+  },
+  {
     key: 'ww2_manhattan_science_enabled',
     label: 'WW2 Manhattan Project on the science line',
     description:
