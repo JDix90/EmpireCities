@@ -47,8 +47,8 @@ function renderLanding() {
 }
 
 const clickPlay = async () => {
-  // The page carries several "Play Free Now" buttons; only the hero one runs
-  // handleGuest — the rest open the Get Started modal.
+  // The page carries two "Play Free Now" buttons that both run handleGuest
+  // (LandingPage.bottomCta.test.tsx covers the bottom one); this is the hero's.
   const cta = await screen.findByTestId('hero-guest-cta');
   // handleGuest is async, so its state updates land after the click returns —
   // flush them inside act() or React warns.

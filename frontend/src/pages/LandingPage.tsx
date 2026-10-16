@@ -467,12 +467,20 @@ export default function LandingPage() {
         <h3 className="font-display text-4xl text-bf-gold mb-4">{t('cta.heading')}</h3>
         <p className="text-bf-muted italic mb-4">{t('cta.tagline')}</p>
         <p className="text-bf-muted mb-8">{t('cta.noDownload')}</p>
+        {/* Same label as the hero's, so the same action: with the single-CTA
+            hero that is straight into play, not the Get Started modal. */}
         <button
           type="button"
-          className="btn-primary text-lg px-12 py-3"
-          onClick={() => { trackPlayClick('bottom'); setShowGetStarted(true); }}
+          data-testid="bottom-guest-cta"
+          className="btn-primary text-lg px-12 py-3 disabled:opacity-60"
+          disabled={singleCta && guestLoading}
+          onClick={() => {
+            trackPlayClick('bottom');
+            if (singleCta) void handleGuest();
+            else setShowGetStarted(true);
+          }}
         >
-          {t('actions.playFreeNow')}
+          {singleCta && guestLoading ? startingLabel : t('actions.playFreeNow')}
         </button>
       </section>
 
