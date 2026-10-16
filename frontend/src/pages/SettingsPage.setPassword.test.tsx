@@ -36,7 +36,7 @@ describe('SettingsPage — set a password', () => {
     }) as unknown as typeof window.matchMedia;
     setFlag(true);
   });
-  afterEach(() => setFlag(false));
+  afterEach(() => setFlag(true));
 
   it('sets a first password without asking for a current one', async () => {
     renderAs(false);

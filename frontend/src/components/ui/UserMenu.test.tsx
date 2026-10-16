@@ -29,21 +29,21 @@ describe('UserMenu', () => {
     expect(screen.getByRole('menuitem', { name: /Privacy/ })).toBeTruthy();
   });
 
-  it('hides Settings for guests', () => {
-    renderMenu(true);
-    fireEvent.click(screen.getByRole('button', { name: /commander/i }));
-    expect(screen.queryByRole('menuitem', { name: /Settings/ })).toBeNull();
-  });
-
-  it('shows Settings to guests with guest_personal_features_enabled', () => {
-    useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, guest_personal_features_enabled: true } }));
+  it('hides Settings for guests with guest_personal_features_enabled off', () => {
+    useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, guest_personal_features_enabled: false } }));
     try {
       renderMenu(true);
       fireEvent.click(screen.getByRole('button', { name: /commander/i }));
-      expect(screen.getByRole('menuitem', { name: /Settings/ })).toBeTruthy();
+      expect(screen.queryByRole('menuitem', { name: /Settings/ })).toBeNull();
     } finally {
-      useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, guest_personal_features_enabled: false } }));
+      useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, guest_personal_features_enabled: true } }));
     }
+  });
+
+  it('shows Settings to guests (guest_personal_features_enabled, on by default)', () => {
+    renderMenu(true);
+    fireEvent.click(screen.getByRole('button', { name: /commander/i }));
+    expect(screen.getByRole('menuitem', { name: /Settings/ })).toBeTruthy();
   });
 
   it('fires logout and closes', () => {

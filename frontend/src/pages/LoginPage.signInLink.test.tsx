@@ -18,7 +18,7 @@ const setFlag = (on: boolean) =>
 const renderPage = () => render(<MemoryRouter><LoginPage /></MemoryRouter>);
 
 describe('LoginPage sign-in link', () => {
-  afterEach(() => setFlag(false));
+  afterEach(() => setFlag(true));
 
   it('offers an emailed sign-in link with the flag on', () => {
     setFlag(true);

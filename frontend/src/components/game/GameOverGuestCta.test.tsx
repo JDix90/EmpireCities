@@ -41,7 +41,7 @@ describe('game-over guest upgrade CTA', () => {
     render(
       <ActionModal data={gameOver()} onDismiss={() => {}} onUpgradeAccount={onUpgrade} />,
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Create Free Account' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save your account' }));
     expect(onUpgrade).toHaveBeenCalledTimes(1);
   });
 
@@ -63,7 +63,7 @@ describe('game-over guest upgrade CTA', () => {
       expect(onUpgrade).toHaveBeenCalledTimes(1);
       expect(screen.queryByRole('button', { name: 'Create Free Account' })).toBeNull();
     } finally {
-      setFlags({ save_account_copy_enabled: false, email_account_save_enabled: false });
+      setFlags({ save_account_copy_enabled: true, email_account_save_enabled: true });
     }
   });
 
@@ -75,7 +75,7 @@ describe('game-over guest upgrade CTA', () => {
     render(
       <ActionModal data={gameOver()} onDismiss={() => {}} onUpgradeAccount={() => {}} />,
     );
-    expect(screen.queryByRole('button', { name: 'Create Free Account' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Save your account|Create Free Account/ })).toBeNull();
   });
 
   it('skips the CTA in tutorial games (tutorial has its own prompt)', () => {
@@ -92,6 +92,6 @@ describe('game-over guest upgrade CTA', () => {
         onUpgradeAccount={() => {}}
       />,
     );
-    expect(screen.queryByRole('button', { name: 'Create Free Account' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Save your account|Create Free Account/ })).toBeNull();
   });
 });

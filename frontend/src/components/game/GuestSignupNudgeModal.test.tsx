@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import GuestSignupNudgeModal from './GuestSignupNudgeModal';
 import { GUEST_NO_PERSIST, GUEST_SAVED_HERE } from '../../utils/guestGate';
@@ -19,7 +19,24 @@ function renderModal(isWinner: boolean, gold?: number) {
   return { onCreateAccount, onSkip };
 }
 
+const setSaveCopy = (on: boolean) =>
+  useFeatureFlagsStore.setState((st) => ({ flags: { ...st.flags, save_account_copy_enabled: on } }));
+
+describe('GuestSignupNudgeModal with the "Save your account" wording (the default)', () => {
+  it('says the progress is saved here and offers to save the account', () => {
+    const { onCreateAccount } = renderModal(false);
+    expect(screen.getByText('Keep your progress safe')).toBeInTheDocument();
+    expect(screen.getByText(/All it takes is your email\./)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Save your account' }));
+    expect(onCreateAccount).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('GuestSignupNudgeModal', () => {
+  // These cases pin the earlier wording, kept for save_account_copy_enabled off.
+  beforeEach(() => setSaveCopy(false));
+  afterEach(() => setSaveCopy(true));
+
   it('shows victory copy when the guest won', () => {
     renderModal(true);
     expect(screen.getByText('Victory!')).toBeInTheDocument();
@@ -70,8 +87,10 @@ describe('GuestSignupNudgeModal', () => {
 describe('guest prompts v2 (guest_prompt_v2_enabled)', () => {
   const setV2 = (on: boolean) =>
     useFeatureFlagsStore.setState((st) => ({ flags: { ...st.flags, guest_prompt_v2_enabled: on } }));
-  // On by default: put it back after each case.
-  afterEach(() => setV2(true));
+  // On by default: put it back after each case. The v2 wording shows with
+  // save_account_copy_enabled off, which takes precedence over it.
+  beforeEach(() => setSaveCopy(false));
+  afterEach(() => { setV2(true); setSaveCopy(true); });
 
   it('titles the nudge "Saved in this browser" instead of "do not persist"', () => {
     setV2(true);

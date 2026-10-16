@@ -94,7 +94,7 @@ describe('LeaderboardsPage', () => {
     setRanked(false);
     renderPage({ isGuest: true });
     expect(await screen.findByText(/Guests do not appear on the leaderboards/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Create Free Account/ })).toHaveAttribute('href', '/upgrade');
+    expect(screen.getByRole('link', { name: /Save your account/ })).toHaveAttribute('href', '/upgrade');
   });
 
   it('never shows the guest notice to a registered player', async () => {

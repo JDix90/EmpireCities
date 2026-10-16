@@ -80,12 +80,12 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   hero_single_cta_enabled: true,
   era_advance_payoff_enabled: true,
   signup_nudge_enabled: true,
-  // Save your account with just an email; sign in by emailed link. Dark-launched OFF.
-  email_account_save_enabled: false,
+  // Save your account with just an email; sign in by emailed link. On by default; admin kill switch.
+  email_account_save_enabled: true,
   // Guest prompts: an accurate saved-in-this-browser line, one account modal per session. On by default; admin kill switch.
   guest_prompt_v2_enabled: true,
-  // "Save your account" wording on every guest surface. Dark-launched OFF.
-  save_account_copy_enabled: false,
+  // "Save your account" wording on every guest surface. On by default; admin kill switch.
+  save_account_copy_enabled: true,
   // Results: Rematch and Return to Lobby pinned, no second account ask. On by default; admin kill switch.
   results_footer_enabled: true,
   // OFF until the ranked ladder has enough players not to render empty.
@@ -94,8 +94,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   referral_survey_enabled: false,
   // Guests may play the Daily (registered players are the only ones ranked).
   daily_guest_play_enabled: true,
-  // Guests see and use their own achievements, cosmetics, gold and settings. Dark-launched OFF.
-  guest_personal_features_enabled: false,
+  // Guests see and use their own achievements, cosmetics, gold and settings. On by default; admin kill switch.
+  guest_personal_features_enabled: true,
   // Wave 2 retention flags — all default off (dark-launch).
   streak_freezes_enabled: false,
   today_panel_enabled: false,

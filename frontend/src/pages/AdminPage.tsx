@@ -52,7 +52,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'email_account_save_enabled',
     label: 'Save your account with just an email',
     description:
-      'A guest saves their account with only an email address (and their name); a password is optional. An account without a password signs in with a one-time link emailed to it, from \u201cEmail me a sign-in link\u201d on the login page, and can set a password later in Settings. Any account can use the sign-in link. Off by default (dark launch) \u2014 off is the save form with a required password, and no sign-in links, exactly as before.',
+      'A guest saves their account with only an email address (and their name); a password is optional. An account without a password signs in with a one-time link emailed to it, from \u201cEmail me a sign-in link\u201d on the login page, and can set a password later in Settings. Any account can use the sign-in link. On by default; switching it off gives the save form with a required password, and no sign-in links, exactly as before.',
   },
   {
     key: 'guest_prompt_v2_enabled',
@@ -64,7 +64,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'save_account_copy_enabled',
     label: '\u201cSave your account\u201d wording',
     description:
-      'Every guest surface describes a guest account and a full one the same way: \u201cYour progress is saved in this browser\u201d, and saving the account keeps it safe and lets you play on any device, in ranked and with friends. One \u201cSave your account\u201d button replaces \u201cCreate free account\u201d, \u201cCreate account\u201d and the like; where saving takes just an email (email_account_save_enabled) the main prompts say so. Wording only. Off by default (dark launch) \u2014 off is the wording exactly as before.',
+      'Every guest surface describes a guest account and a full one the same way: \u201cYour progress is saved in this browser\u201d, and saving the account keeps it safe and lets you play on any device, in ranked and with friends. One \u201cSave your account\u201d button replaces \u201cCreate free account\u201d, \u201cCreate account\u201d and the like; where saving takes just an email (email_account_save_enabled) the main prompts say so. Wording only. On by default; switching it off gives the wording exactly as before.',
   },
   {
     key: 'results_footer_enabled',
@@ -100,7 +100,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'guest_personal_features_enabled',
     label: 'Guests use their own achievements and cosmetics',
     description:
-      'Opens a guest\u2019s own things to them: their achievements, the cosmetics they have unlocked (seen and worn, in the store and in matches), their gold balance, the Settings link and their saved tutorial progress. Buying in the store still needs an account, as do ranked, leaderboards, friends, invites, campaigns, referrals and publishing maps. Off by default (dark launch) \u2014 off is the guest experience exactly as before.',
+      'Opens a guest\u2019s own things to them: their achievements, the cosmetics they have unlocked (seen and worn, in the store and in matches), their gold balance, the Settings link and their saved tutorial progress. Buying in the store still needs an account, as do ranked, leaderboards, friends, invites, campaigns, referrals and publishing maps. On by default; switching it off gives the guest experience exactly as before.',
   },
   {
     key: 'first_turn_coach_enabled',
@@ -315,7 +315,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'session_30d_enabled',
     label: 'Sessions last 30 days',
     description:
-      'Every player, guest or account, stays signed in for 30 days between visits instead of 7, renewed every time they play. A guest who comes back within a month keeps their account and everything on it, and a saved account is not asked to sign in again. Applies to sessions started or renewed from then on. Off by default (dark launch) \u2014 off is the 7-day session exactly as before.',
+      'Every player, guest or account, stays signed in for 30 days between visits instead of 7, renewed every time they play. A guest who comes back within a month keeps their account and everything on it, and a saved account is not asked to sign in again. Applies to sessions started or renewed from then on. On by default; switching it off gives the 7-day session exactly as before.',
   },
   {
     key: 'ww2_manhattan_science_enabled',

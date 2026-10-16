@@ -156,9 +156,15 @@ describe.runIf(enabled)('PUT /api/users/me/cosmetics/equip (Postgres)', () => {
     expect(await stored(user)).toMatchObject({ equipped_frame: null, equipped_banner: BANNER2 });
   });
 
-  it('still refuses guests', async () => {
-    const guest = await seedUser({ guest: true });
-    expect((await equip(guest, { frame_id: FRAME })).statusCode).toBe(403);
+  it('still refuses guests with guest_personal_features_enabled off', async () => {
+    const { setAdminConfigCacheForTests, resetAdminConfigCacheForTests } = await import('../../services/adminConfig');
+    setAdminConfigCacheForTests({ feature_flags: { guest_personal_features_enabled: false } });
+    try {
+      const guest = await seedUser({ guest: true });
+      expect((await equip(guest, { frame_id: FRAME })).statusCode).toBe(403);
+    } finally {
+      resetAdminConfigCacheForTests();
+    }
   });
 
   it('lets a guest wear what they own with guest_personal_features_enabled', async () => {

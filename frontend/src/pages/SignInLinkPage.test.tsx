@@ -43,7 +43,7 @@ describe('SignInLinkPage', () => {
     useAuthStore.setState({ signInWithLink } as never);
     setFlag(true);
   });
-  afterEach(() => setFlag(false));
+  afterEach(() => setFlag(true));
 
   it('emails a sign-in link for the address given', async () => {
     renderAt('/sign-in-link');

@@ -75,8 +75,9 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   signup_nudge_enabled: () => envOptOut('SIGNUP_NUDGE_ENABLED'),
   // Save your account with just an email: a guest saves their account with an
   // email address, a password optional, and an account without one signs in
-  // with a one-time link emailed to it (migration 050). Dark-launched OFF.
-  email_account_save_enabled: () => envOptIn('EMAIL_ACCOUNT_SAVE_ENABLED'),
+  // with a one-time link emailed to it (migration 050).
+  // On by default; the admin override is the kill switch.
+  email_account_save_enabled: () => envOptOut('EMAIL_ACCOUNT_SAVE_ENABLED'),
   // Guest account prompts say what is true: "Your progress is saved in this
   // browser" and "an account keeps it everywhere", instead of "Guest accounts
   // do not persist across sessions", which a reload or a return visit disproves.
@@ -87,8 +88,9 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // "Save your account" wording: every guest surface says the guest's progress
   // is saved in this browser and that saving the account keeps it safe, on any
   // device, in ranked and with friends, with one "Save your account" button,
-  // instead of "Create free account". Dark-launched OFF.
-  save_account_copy_enabled: () => envOptIn('SAVE_ACCOUNT_COPY_ENABLED'),
+  // instead of "Create free account".
+  // On by default; the admin override is the kill switch.
+  save_account_copy_enabled: () => envOptOut('SAVE_ACCOUNT_COPY_ENABLED'),
   // Game results: Rematch and Return to Lobby sit in a footer pinned to the
   // bottom of the results, instead of below the chart, coaching and guest box
   // (a scroll on a laptop, five swipes on a phone). And a guest's Return to
@@ -102,8 +104,9 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // Guests' own things open to guests: their achievements, their unlocked
   // cosmetics (seen and worn), their gold balance, the Settings link and their
   // saved tutorial progress. Ranked, leaderboards, friends, invites, buying in the
-  // store, campaigns, referrals and map publishing still need an account. Dark-launched OFF.
-  guest_personal_features_enabled: () => envOptIn('GUEST_PERSONAL_FEATURES_ENABLED'),
+  // store, campaigns, referrals and map publishing still need an account.
+  // On by default; the admin override is the kill switch.
+  guest_personal_features_enabled: () => envOptOut('GUEST_PERSONAL_FEATURES_ENABLED'),
   ai_attack_grind_enabled: () => envOptOut('AI_ATTACK_GRIND_ENABLED'),
   ai_capture_odds_enabled: () => envOptOut('AI_CAPTURE_ODDS_ENABLED'),
   ai_decided_game_press_enabled: () => envOptOut('AI_DECIDED_GAME_PRESS_ENABLED'),
@@ -155,8 +158,9 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   friendly_guest_names_enabled: () => envOptOut('FRIENDLY_GUEST_NAMES_ENABLED'),
   // Sessions last 30 days: every session, a guest's and an account's, runs 30
   // days instead of 7, renewed on every visit, so a player who comes back
-  // within a month is still signed in. Dark-launched OFF.
-  session_30d_enabled: () => envOptIn('SESSION_30D_ENABLED'),
+  // within a month is still signed in.
+  // On by default; the admin override is the kill switch.
+  session_30d_enabled: () => envOptOut('SESSION_30D_ENABLED'),
   // Phase 2: Manhattan Project behind Radar Network. Dark-launched OFF; baked at create.
   ww2_manhattan_science_enabled: () => envOptIn('WW2_MANHATTAN_SCIENCE_ENABLED'),
   // Phase 3: the atomic arsenal (a repeatable, priced bomb with fallout). Dark-launched OFF; baked at create.
@@ -494,7 +498,7 @@ export const featureFlags = {
    * password (and the name) as optional, POST /api/auth/sign-in-link emails a
    * one-time sign-in link and /sign-in-link/verify redeems it, and
    * POST /api/auth/set-password gives a passwordless account a password.
-   * Default OFF; `EMAIL_ACCOUNT_SAVE_ENABLED=true` or the admin override turns it on.
+   * Default ON; `EMAIL_ACCOUNT_SAVE_ENABLED=false` or the admin override turns it off.
    */
   get emailAccountSaveEnabled(): boolean {
     return overrideBool('email_account_save_enabled');
@@ -513,7 +517,7 @@ export const featureFlags = {
   /**
    * "Save your account" wording on every guest surface (utils/guestGate.ts,
    * utils/signupNudge.ts and the account gates). Wording only.
-   * Default OFF; `SAVE_ACCOUNT_COPY_ENABLED=true` or the admin override turns it on.
+   * Default ON; `SAVE_ACCOUNT_COPY_ENABLED=false` or the admin override turns it off.
    */
   get saveAccountCopyEnabled(): boolean {
     return overrideBool('save_account_copy_enabled');
@@ -588,7 +592,7 @@ export const featureFlags = {
    * GET /me/cosmetics, PUT /me/cosmetics/equip and POST /me/tutorial-modules
    * accept a guest, and the client shows them the store (to wear, not buy),
    * their gold and the Settings link.
-   * Default OFF; `GUEST_PERSONAL_FEATURES_ENABLED=true` or the admin override turns it on.
+   * Default ON; `GUEST_PERSONAL_FEATURES_ENABLED=false` or the admin override turns it off.
    */
   get guestPersonalFeaturesEnabled(): boolean {
     return overrideBool('guest_personal_features_enabled');
@@ -1189,7 +1193,7 @@ export const featureFlags = {
    * Sessions last 30 days: the refresh token, its refresh_tokens row and the
    * cookie last 30 days instead of 7 for every session the auth routes issue
    * (guest, register, upgrade, login, sign-in link) and every refresh renews them.
-   * Default OFF; `SESSION_30D_ENABLED=true` or the admin override turns it on.
+   * Default ON; `SESSION_30D_ENABLED=false` or the admin override turns it off.
    */
   get session30dEnabled(): boolean {
     return overrideBool('session_30d_enabled');
