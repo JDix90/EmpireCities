@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import ActionModal, { type GameOverModalData } from './ActionModal';
 import { useAuthStore } from '../../store/authStore';
+import { useFeatureFlagsStore } from '../../store/featureFlagsStore';
 
 function gameOver(overrides: Partial<GameOverModalData> = {}): GameOverModalData {
   return {
@@ -42,6 +43,28 @@ describe('game-over guest upgrade CTA', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Create Free Account' }));
     expect(onUpgrade).toHaveBeenCalledTimes(1);
+  });
+
+  it('says "Save your account" with save_account_copy_enabled, and that it takes just an email when it does', () => {
+    const setFlags = (flags: Record<string, boolean>) =>
+      useFeatureFlagsStore.setState((st) => ({ flags: { ...st.flags, ...flags } }));
+    useAuthStore.setState({
+      user: { user_id: 'me', username: 'SwiftFalcon_48213', level: 2, xp: 250, mmr: 1000, is_guest: true },
+      isAuthenticated: true,
+    });
+    setFlags({ save_account_copy_enabled: true, email_account_save_enabled: true });
+    try {
+      const onUpgrade = vi.fn();
+      render(<ActionModal data={gameOver()} onDismiss={() => {}} onUpgradeAccount={onUpgrade} />);
+      expect(screen.getByTestId('gameover-save-account')).toHaveTextContent(
+        'Your progress is saved in this browser. Save your account to keep it safe and play on any device. All it takes is your email.',
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Save your account' }));
+      expect(onUpgrade).toHaveBeenCalledTimes(1);
+      expect(screen.queryByRole('button', { name: 'Create Free Account' })).toBeNull();
+    } finally {
+      setFlags({ save_account_copy_enabled: false, email_account_save_enabled: false });
+    }
   });
 
   it('renders no CTA for registered players', () => {

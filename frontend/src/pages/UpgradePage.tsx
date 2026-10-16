@@ -8,6 +8,7 @@ import { normalizeEmail, normalizeIdentifier } from '../utils/emailNormalize';
 import BrandWordmark from '../components/ui/BrandWordmark';
 import SaveWithEmailForm from '../components/account/SaveWithEmailForm';
 import { useEmailAccountSaveEnabled } from '../store/featureFlagsStore';
+import { useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
 
 const AGE_GATE_KEY = 'cc-age-verified';
 const MIN_AGE = 13;
@@ -53,6 +54,8 @@ export default function UpgradePage() {
   const navigate = useNavigate();
   // email_account_save_enabled: save with just an email, password optional.
   const emailSave = useEmailAccountSaveEnabled();
+  // save_account_copy_enabled: the password form says it the way every guest surface does.
+  const saveAccountCopy = useSaveAccountCopyEnabled();
 
   // The carry-over banner is the sales pitch — make sure it shows the
   // just-earned XP/level rather than a stale cached profile (players often
@@ -98,7 +101,7 @@ export default function UpgradePage() {
     const cleanedEmail = normalizeEmail(email);
     try {
       await upgradeAccount(cleanedUsername, cleanedEmail, password, emailOptIn);
-      toast.success('Account created — your progress is now permanent!');
+      toast.success(saveAccountCopy ? 'Account saved — your progress is safe!' : 'Account created — your progress is now permanent!');
       navigate('/lobby');
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
@@ -155,6 +158,10 @@ export default function UpgradePage() {
           {emailSave ? (
             <p className="text-bf-muted mt-2">
               Your progress is saved in this browser. Save your account with your email to keep it safe and play on any device.
+            </p>
+          ) : saveAccountCopy ? (
+            <p className="text-bf-muted mt-2">
+              Your progress is saved in this browser. Save your account to keep it safe, play on any device, compete in ranked and play with friends.
             </p>
           ) : (
           <p className="text-bf-muted mt-2">
@@ -289,7 +296,7 @@ export default function UpgradePage() {
               </span>
             </label>
             <button type="submit" className="btn-primary w-full" disabled={isLoading}>
-              {isLoading ? 'Saving your progress...' : 'Create Free Account'}
+              {isLoading ? 'Saving your progress...' : saveAccountCopy ? 'Save my account' : 'Create Free Account'}
             </button>
             <p className="text-xs text-bf-muted text-center mt-3 leading-relaxed">
               By creating an account, you agree to our{' '}

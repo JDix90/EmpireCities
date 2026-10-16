@@ -64,6 +64,7 @@ import GameHUD from '../components/game/GameHUD';
 import { MapControlChip } from '../components/game/MapControlTracker';
 import AiTurnRecapPanel, { appendRecap, ownTurnDigest, type TurnRecapEntry } from '../components/game/AiTurnRecapPanel';
 import { useTurnRecapPanelEnabled } from '../store/featureFlagsStore';
+import { useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
 import GameStartModal, { isOpeningState } from '../components/game/GameStartModal';
 import SpaceAgeGuideModal from '../components/game/SpaceAgeGuide';
 import GameEndedNotice from '../components/game/GameEndedNotice';
@@ -667,6 +668,7 @@ export default function GamePage() {
   // One blocking account modal per tab session, across the tutorial-end
   // prompt and the post-game nudge (utils/signupNudge.ts).
   const guestPromptV2 = useGuestPromptV2Enabled();
+  const saveAccountCopy = useSaveAccountCopyEnabled();
   const asyncOnboardingFlag = useAsyncOnboardingEnabled();
   const turnClarityFlag = useTurnClarityEnabled();
   const galaxyTutorialFlag = useGalaxyTutorialEnabled();
@@ -3740,7 +3742,9 @@ export default function GamePage() {
       if (user?.is_guest) {
         maybePromptTutorialAccount(
           () => navigate('/lobby'),
-          'Great work, Commander. That XP is on a guest account tied to this browser — a free account keeps it wherever you play.',
+          saveAccountCopy
+            ? 'Great work, Commander. Your XP is saved in this browser. Save your account to keep it safe and play on any device.'
+            : 'Great work, Commander. That XP is on a guest account tied to this browser — a free account keeps it wherever you play.',
         );
       } else {
         setPostTutorialPrompt(true);
@@ -3997,9 +4001,11 @@ export default function GamePage() {
     };
     maybePromptTutorialAccount(
       continueInTutorial,
-      'Your progress lives in this browser alone — create a free account so it follows you, and the next match counts.',
+      saveAccountCopy
+        ? 'Your progress is saved in this browser. Save your account to keep it safe, on any device, and the next match counts.'
+        : 'Your progress lives in this browser alone — create a free account so it follows you, and the next match counts.',
     );
-  }, [tutorialSkipped, maybePromptTutorialAccount, markLessonComplete, tutorialSteps.length]);
+  }, [tutorialSkipped, maybePromptTutorialAccount, markLessonComplete, tutorialSteps.length, saveAccountCopy]);
 
   /**
    * Abandon the current tutorial game and return to the lobby.

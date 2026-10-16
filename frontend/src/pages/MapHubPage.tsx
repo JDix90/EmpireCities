@@ -11,6 +11,7 @@ import { ERA_LABELS } from '../constants/gameLobbyLabels';
 import BrandWordmark from '../components/ui/BrandWordmark';
 import SubpageShell from '../components/ui/SubpageShell';
 import { useMapEditorEnabled } from '../store/featureFlagsStore';
+import { useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
 import { useAuthStore } from '../store/authStore';
 import GuestGate from '../components/GuestGate';
 
@@ -70,6 +71,7 @@ function matches(query: string, ...fields: (string | undefined)[]): boolean {
 export default function MapHubPage() {
   const navigate = useNavigate();
   const mapEditorEnabled = useMapEditorEnabled();
+  const saveAccountCopy = useSaveAccountCopyEnabled();
   const { user, isAuthenticated } = useAuthStore();
 
   // Hub navigation
@@ -536,7 +538,9 @@ export default function MapHubPage() {
           {user?.is_guest ? (
             <GuestGate
               title="My Maps"
-              description="Create an account to build maps in the editor, submit them for review, and see them published in the community hub. Your guest progress carries over."
+              description={saveAccountCopy
+                ? 'Save your account to build maps in the editor, submit them for review and see them published in the community hub. Everything you have earned comes with you.'
+                : 'Create an account to build maps in the editor, submit them for review, and see them published in the community hub. Your guest progress carries over.'}
             />
           ) : myMapsLoading ? (
             <p className="text-bf-muted text-sm">Loading your maps…</p>

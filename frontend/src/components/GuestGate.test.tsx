@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { Sword } from 'lucide-react';
 import GuestGate from './GuestGate';
+import { useFeatureFlagsStore } from '../store/featureFlagsStore';
 
 function renderGate(ui: React.ReactElement) {
   return render(<MemoryRouter>{ui}</MemoryRouter>);
@@ -25,6 +26,16 @@ describe('GuestGate', () => {
     expect(screen.getByText("Play today's challenge")).toBeInTheDocument();
     expect(screen.getByText('The Daily Challenge is a free-account feature.')).toBeInTheDocument();
     expect(screen.queryByText(/cannot access this resource/i)).not.toBeInTheDocument();
+  });
+
+  it('says "Save your account" with save_account_copy_enabled', () => {
+    useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, save_account_copy_enabled: true } }));
+    try {
+      renderGate(<GuestGate title="Friends" description="Add friends." />);
+      expect(screen.getByRole('link', { name: 'Save your account' })).toHaveAttribute('href', '/upgrade');
+    } finally {
+      useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, save_account_copy_enabled: false } }));
+    }
   });
 
   it('supports a custom CTA label', () => {

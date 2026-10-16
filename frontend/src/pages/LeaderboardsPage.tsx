@@ -6,7 +6,8 @@ import clsx from 'clsx';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import { useGuestPromptV2Enabled, useRankedLeaderboardEnabled } from '../store/featureFlagsStore';
-import { LEADERBOARD_GUEST_NOTICE, LEADERBOARD_GUEST_NOTICE_V2 } from '../utils/guestGate';
+import { useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
+import { LEADERBOARD_GUEST_NOTICE, LEADERBOARD_GUEST_NOTICE_V2, LEADERBOARD_GUEST_NOTICE_SAVE, SAVE_ACCOUNT_LABEL } from '../utils/guestGate';
 import type { TierInfo } from '@borderfall/shared';
 import { ownAuthUiAllowed } from '../utils/embedContext';
 
@@ -102,7 +103,11 @@ export default function LeaderboardsPage() {
   const [myRank, setMyRank] = useState<MyRankResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const { user } = useAuthStore();
-  const guestNotice = useGuestPromptV2Enabled() ? LEADERBOARD_GUEST_NOTICE_V2 : LEADERBOARD_GUEST_NOTICE;
+  const saveAccountCopy = useSaveAccountCopyEnabled();
+  const guestPromptV2 = useGuestPromptV2Enabled();
+  const guestNotice = saveAccountCopy
+    ? LEADERBOARD_GUEST_NOTICE_SAVE
+    : guestPromptV2 ? LEADERBOARD_GUEST_NOTICE_V2 : LEADERBOARD_GUEST_NOTICE;
 
   const setTab = (tab: LeaderboardTab) => {
     setData([]);
@@ -199,7 +204,7 @@ export default function LeaderboardsPage() {
                 to="/upgrade"
                 className="btn-primary text-sm py-2 px-4 self-start whitespace-nowrap shrink-0 sm:self-auto"
               >
-                Create Free Account
+                {saveAccountCopy ? SAVE_ACCOUNT_LABEL : 'Create Free Account'}
               </Link>
             )}
           </div>

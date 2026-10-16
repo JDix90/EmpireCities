@@ -61,6 +61,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Every guest surface says \u201cYour progress is saved in this browser\u201d and \u201can account keeps it everywhere\u201d instead of \u201cGuest accounts do not persist across sessions\u201d, which a reload or a return visit disproves: a guest is kept by this browser\u2019s cookie. And a guest sees at most one blocking account modal per tab session: the tutorial-end prompt and the post-game nudge share one budget instead of each firing once. On by default; switching it off gives the prompts exactly as before.',
   },
   {
+    key: 'save_account_copy_enabled',
+    label: '\u201cSave your account\u201d wording',
+    description:
+      'Every guest surface describes a guest account and a full one the same way: \u201cYour progress is saved in this browser\u201d, and saving the account keeps it safe and lets you play on any device, in ranked and with friends. One \u201cSave your account\u201d button replaces \u201cCreate free account\u201d, \u201cCreate account\u201d and the like; where saving takes just an email (email_account_save_enabled) the main prompts say so. Wording only. Off by default (dark launch) \u2014 off is the wording exactly as before.',
+  },
+  {
     key: 'results_footer_enabled',
     label: 'Results: pinned way out',
     description:

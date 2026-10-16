@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Lock, Check } from 'lucide-react';
-import type { GuestGateCopy } from '../../utils/guestGate';
+import { SAVE_ACCOUNT_LABEL, type GuestGateCopy } from '../../utils/guestGate';
+import { useSaveAccountCopyEnabled } from '../../store/featureFlagsStore';
 
 interface GuestGateModalProps {
   /** Title / body / bullets — see utils/guestGate.ts. */
@@ -24,6 +25,7 @@ interface GuestGateModalProps {
  */
 export default function GuestGateModal({ copy, onCreateAccount, onDismiss }: GuestGateModalProps) {
   const primaryRef = useRef<HTMLButtonElement>(null);
+  const saveAccountCopy = useSaveAccountCopyEnabled();
 
   useEffect(() => {
     primaryRef.current?.focus();
@@ -78,7 +80,7 @@ export default function GuestGateModal({ copy, onCreateAccount, onDismiss }: Gue
             onClick={onCreateAccount}
             className="btn-primary py-3 text-base"
           >
-            Create Free Account
+            {saveAccountCopy ? SAVE_ACCOUNT_LABEL : 'Create Free Account'}
           </button>
           <button
             type="button"

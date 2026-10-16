@@ -12,6 +12,7 @@ import TierBadge from '../components/ui/TierBadge';
 import ReferralPanel from '../components/ui/ReferralPanel';
 import { ownAuthUiAllowed } from '../utils/embedContext';
 import { useStoreV2Enabled, useGuestPersonalFeaturesEnabled } from '../store/featureFlagsStore';
+import { useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
 import FrameRing from '../components/cosmetics/FrameRing';
 import BannerTag from '../components/cosmetics/BannerTag';
 
@@ -133,6 +134,7 @@ export default function ProfilePage() {
   const isOwnProfile = !userId || userId === currentUser?.user_id;
   // A guest's gold is shown to them like their level (guest_personal_features_enabled).
   const guestPersonal = useGuestPersonalFeaturesEnabled();
+  const saveAccountCopy = useSaveAccountCopyEnabled();
 
   useEffect(() => {
     if (!targetId) return;
@@ -253,7 +255,17 @@ export default function ProfilePage() {
             <p className="text-bf-muted text-sm mt-1">
               Level {profile.level} · Member since {new Date(profile.created_at).getFullYear()}
             </p>
-            {isOwnProfile && currentUser?.is_guest ? (
+            {isOwnProfile && currentUser?.is_guest && saveAccountCopy ? (
+              <p className="text-bf-muted text-xs mt-1" data-testid="profile-guest-line">
+                Guest account, saved in this browser{ownAuthUiAllowed() ? (
+                  <>
+                    {' '}—{' '}
+                    <Link to="/upgrade" className="text-bf-gold hover:underline">save your account</Link>
+                    {' '}to keep it safe, play on any device and track competitive ratings.
+                  </>
+                ) : '. Competitive ratings are not tracked.'}
+              </p>
+            ) : isOwnProfile && currentUser?.is_guest ? (
               <p className="text-bf-muted text-xs mt-1">
                 Guest account{ownAuthUiAllowed() ? (
                   <>

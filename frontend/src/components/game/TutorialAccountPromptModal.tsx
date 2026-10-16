@@ -1,6 +1,8 @@
 import React, { useEffect } from 'react';
 import { GraduationCap, Trophy } from 'lucide-react';
 import { useGuestPromptV2Enabled } from '../../store/featureFlagsStore';
+import { useSaveAccountCopyEnabled } from '../../store/featureFlagsStore';
+import { SAVE_ACCOUNT_LABEL } from '../../utils/guestGate';
 
 interface TutorialAccountPromptModalProps {
   /** Called when the user dismisses without creating an account. */
@@ -27,6 +29,7 @@ export default function TutorialAccountPromptModal({
   // A guest's progress already survives a reload in this browser; what an
   // account adds is every other device (`guest_prompt_v2_enabled`).
   const guestPromptV2 = useGuestPromptV2Enabled();
+  const saveAccountCopy = useSaveAccountCopyEnabled();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onSkip();
@@ -60,14 +63,20 @@ export default function TutorialAccountPromptModal({
           </p>
           <p className="text-bf-muted text-sm leading-relaxed">
             {outcomeLabel
-              ?? 'You know the basics. A free account keeps what you earn from here on.'}
+              ?? (saveAccountCopy
+                ? 'You know the basics. Save your account to keep what you earn from here on, on any device.'
+                : 'You know the basics. A free account keeps what you earn from here on.')}
           </p>
         </div>
 
         <ul className="text-sm text-bf-muted space-y-2 mb-6 px-1">
           <li className="flex items-start gap-2">
             <Trophy className="w-4 h-4 text-bf-gold/80 mt-0.5 shrink-0" />
-            <span>{guestPromptV2 ? 'Keep XP, gold, ratings and unlocks on every device.' : 'Save XP, gold, ratings, and unlocks across sessions.'}</span>
+            <span>
+              {saveAccountCopy
+                ? 'Keep XP, gold, ratings and unlocks safe, on every device.'
+                : guestPromptV2 ? 'Keep XP, gold, ratings and unlocks on every device.' : 'Save XP, gold, ratings, and unlocks across sessions.'}
+            </span>
           </li>
           <li className="flex items-start gap-2">
             <Trophy className="w-4 h-4 text-bf-gold/80 mt-0.5 shrink-0" />
@@ -85,7 +94,7 @@ export default function TutorialAccountPromptModal({
             onClick={onCreateAccount}
             className="btn-primary py-3 text-base"
           >
-            Create Free Account
+            {saveAccountCopy ? SAVE_ACCOUNT_LABEL : 'Create Free Account'}
           </button>
           <button
             type="button"

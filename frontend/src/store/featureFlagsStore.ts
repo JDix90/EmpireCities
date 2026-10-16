@@ -15,6 +15,7 @@ export interface ClientFeatureFlags {
   signup_nudge_enabled: boolean;
   email_account_save_enabled: boolean;
   guest_prompt_v2_enabled: boolean;
+  save_account_copy_enabled: boolean;
   results_footer_enabled: boolean;
   ranked_leaderboard_enabled: boolean;
   referral_survey_enabled: boolean;
@@ -83,6 +84,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   email_account_save_enabled: false,
   // Guest prompts: an accurate saved-in-this-browser line, one account modal per session. On by default; admin kill switch.
   guest_prompt_v2_enabled: true,
+  // "Save your account" wording on every guest surface. Dark-launched OFF.
+  save_account_copy_enabled: false,
   // Results: Rematch and Return to Lobby pinned, no second account ask. On by default; admin kill switch.
   results_footer_enabled: true,
   // OFF until the ranked ladder has enough players not to render empty.
@@ -245,6 +248,11 @@ export function useEmailAccountSaveEnabled(): boolean {
 /** Guest prompts: an accurate saved-in-this-browser line, and one blocking account modal per tab session (utils/guestGate.ts, pages/GamePage.tsx). */
 export function useGuestPromptV2Enabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.guest_prompt_v2_enabled);
+}
+
+/** "Save your account" wording on every guest surface (save_account_copy_enabled). */
+export function useSaveAccountCopyEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.save_account_copy_enabled);
 }
 
 /** Results: Rematch and Return to Lobby pinned in a footer, and no signup nudge after the results offered saving (components/game/ActionModal.tsx, pages/GamePage.tsx). */

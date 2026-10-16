@@ -5,6 +5,7 @@ import { Coins, ShoppingBag, X } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import { useGuestPersonalFeaturesEnabled } from '../store/featureFlagsStore';
+import { useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
 import SubpageShell from '../components/ui/SubpageShell';
 import GuestGate from '../components/GuestGate';
 import { useCosmeticMotion } from '../components/cosmetics/useCosmetics';
@@ -36,6 +37,9 @@ import {
 
 const GUEST_BUY = 'Spending gold needs a free account — your balance carries over.';
 const GUEST_EQUIP = 'Wearing items needs a free account — your unlocks carry over.';
+/** The same two notes under save_account_copy_enabled. */
+const GUEST_BUY_SAVE = 'Spending gold needs a saved account — your balance comes with you.';
+const GUEST_EQUIP_SAVE = 'Wearing items needs a saved account — your unlocks come with you.';
 
 /** Whether `ref`'s element is on screen. False where IntersectionObserver is missing. */
 function useOnScreen(ref: React.RefObject<Element>): boolean {
@@ -64,6 +68,7 @@ export default function StorePage() {
   // buying still needs an account.
   const guestPersonal = useGuestPersonalFeaturesEnabled();
   const cannotWear = isGuest && !guestPersonal;
+  const saveAccountCopy = useSaveAccountCopyEnabled();
   const initial = user?.username ?? '?';
   const motion = useCosmeticMotion();
 
@@ -133,7 +138,7 @@ export default function StorePage() {
   /** Put `item` in its slot, or empty `slot` (Default) when `item` is null. */
   const setSlot = async (slot: Slot, item: CatalogItem | null) => {
     if (cannotWear) {
-      toast(GUEST_EQUIP, { icon: '🪙' });
+      toast(saveAccountCopy ? GUEST_EQUIP_SAVE : GUEST_EQUIP, { icon: '🪙' });
       return;
     }
     setPendingSlot(slot);
@@ -175,7 +180,7 @@ export default function StorePage() {
     if (busyId) return;
     // Answer before the dialog, so a guest isn't walked into a refusal.
     if (isGuest) {
-      toast(GUEST_BUY, { icon: '🪙' });
+      toast(saveAccountCopy ? GUEST_BUY_SAVE : GUEST_BUY, { icon: '🪙' });
       return;
     }
     setDialog({ item, bought: false });
@@ -279,7 +284,11 @@ export default function StorePage() {
           className="mb-6"
           icon={Coins}
           title={gold > 0 ? `You have ${gold.toLocaleString()} gold banked` : 'Gold you earn is being saved'}
-          description={guestPersonal
+          description={saveAccountCopy
+            ? (guestPersonal
+              ? 'Guests can wear what they unlock. Save your account to spend your gold — the balance and everything you have earned come with you.'
+              : 'Guests earn gold but cannot spend or wear it. Save your account to spend your gold — the balance and everything you have earned come with you.')
+            : guestPersonal
             ? "Guest accounts can wear what they unlock but can't spend gold. Create a free account and the balance — and everything else you've earned — comes with you."
             : "Guest accounts earn gold but can't spend or equip it. Create a free account and the balance — and everything else you've earned — comes with you."}
         />

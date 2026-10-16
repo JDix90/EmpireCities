@@ -1,6 +1,8 @@
 import type { LucideIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ownAuthUiAllowed } from '../utils/embedContext';
+import { useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
+import { SAVE_ACCOUNT_LABEL } from '../utils/guestGate';
 
 interface GuestGateProps {
   /** What the guest can't do yet, e.g. "Daily Challenge". */
@@ -37,9 +39,12 @@ export default function GuestGate({
   description,
   variant = 'card',
   icon: Icon,
-  ctaLabel = 'Create free account',
+  ctaLabel: ctaLabelProp,
   className = '',
 }: GuestGateProps) {
+  // save_account_copy_enabled: one "Save your account" button wherever a caller does not name its own.
+  const saveAccountCopy = useSaveAccountCopyEnabled();
+  const ctaLabel = ctaLabelProp ?? (saveAccountCopy ? SAVE_ACCOUNT_LABEL : 'Create free account');
   if (variant === 'page') {
     return (
       <div className={`text-center py-12 space-y-4 ${className}`}>

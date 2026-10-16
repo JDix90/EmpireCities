@@ -19,6 +19,7 @@ import { HEGEMONY_TURNS } from '../utils/lunarHegemony';
 import { RANKED_MIN_OPPONENTS, describeRankedGameSize, getRankedOpponents, rankedEraSize, saveRankedOpponents } from '../utils/rankedPrefs';
 import { clearRankedSearchMarker, setRankedSearchMarker } from '../utils/rankedSearchMarker';
 import { guestLine } from '../utils/guestGate';
+import { useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
@@ -429,7 +430,8 @@ export default function LobbyPage() {
   const quickMatchLeads = firstMatchPrimaryCtaEnabled && firstMatchPending === true;
   const quickMatchButtonClass = !eraAdvancementLobbyEnabled || quickMatchLeads ? 'btn-primary' : 'btn-secondary';
   // The welcome banner's guest line (utils/guestGate.ts).
-  const guestCopy = guestLine(useGuestPromptV2Enabled());
+  const saveAccountCopy = useSaveAccountCopyEnabled();
+  const guestCopy = guestLine(useGuestPromptV2Enabled(), saveAccountCopy);
   const [fullGameLoading, setFullGameLoading] = useState(false);
   // Full Game setup — separate prefs from Quick Match (a long campaign table
   // and a quick-stomp table are different choices).
@@ -2261,8 +2263,10 @@ export default function LobbyPage() {
             className="mb-6"
             icon={Sword}
             title="Solo campaign"
-            description="Play the six-era narrative — create a free account to save progress and unlock paths."
-            ctaLabel="Create account"
+            description={saveAccountCopy
+              ? 'Play the six-era narrative — save your account to keep your progress and unlock paths.'
+              : 'Play the six-era narrative — create a free account to save progress and unlock paths.'}
+            ctaLabel={saveAccountCopy ? undefined : 'Create account'}
           />
         ) : !campaignMeReady ? (
           <div
@@ -2607,7 +2611,9 @@ export default function LobbyPage() {
                 className="mb-8 animate-fade-in"
                 icon={Trophy}
                 title="Ranked matchmaking"
-                description="Ranked games and the weekly seeded challenge need a free account — that's what a rating and a leaderboard place attach to. Everything you've played so far carries over."
+                description={saveAccountCopy
+                  ? "Ranked games and the weekly seeded challenge need a saved account — that's what a rating and a leaderboard place attach to. Everything you've played so far comes with you."
+                  : "Ranked games and the weekly seeded challenge need a free account — that's what a rating and a leaderboard place attach to. Everything you've played so far carries over."}
               />
             )}
 

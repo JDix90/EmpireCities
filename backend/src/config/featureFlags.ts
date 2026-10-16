@@ -84,6 +84,11 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // prompt and the post-game nudge share one budget.
   // On by default; the admin override is the kill switch.
   guest_prompt_v2_enabled: () => envOptOut('GUEST_PROMPT_V2_ENABLED'),
+  // "Save your account" wording: every guest surface says the guest's progress
+  // is saved in this browser and that saving the account keeps it safe, on any
+  // device, in ranked and with friends, with one "Save your account" button,
+  // instead of "Create free account". Dark-launched OFF.
+  save_account_copy_enabled: () => envOptIn('SAVE_ACCOUNT_COPY_ENABLED'),
   // Game results: Rematch and Return to Lobby sit in a footer pinned to the
   // bottom of the results, instead of below the chart, coaching and guest box
   // (a scroll on a laptop, five swipes on a phone). And a guest's Return to
@@ -503,6 +508,15 @@ export const featureFlags = {
    */
   get guestPromptV2Enabled(): boolean {
     return overrideBool('guest_prompt_v2_enabled');
+  },
+
+  /**
+   * "Save your account" wording on every guest surface (utils/guestGate.ts,
+   * utils/signupNudge.ts and the account gates). Wording only.
+   * Default OFF; `SAVE_ACCOUNT_COPY_ENABLED=true` or the admin override turns it on.
+   */
+  get saveAccountCopyEnabled(): boolean {
+    return overrideBool('save_account_copy_enabled');
   },
 
   /**
@@ -1394,6 +1408,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     signup_nudge_enabled: featureFlags.signupNudgeEnabled,
     email_account_save_enabled: featureFlags.emailAccountSaveEnabled,
     guest_prompt_v2_enabled: featureFlags.guestPromptV2Enabled,
+    save_account_copy_enabled: featureFlags.saveAccountCopyEnabled,
     results_footer_enabled: featureFlags.resultsFooterEnabled,
     ranked_leaderboard_enabled: featureFlags.rankedLeaderboardEnabled,
     referral_survey_enabled: featureFlags.referralSurveyEnabled,
