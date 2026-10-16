@@ -91,6 +91,15 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().first_turn_coach_enabled).toBe(false);
   });
 
+  it('guest_personal_features_enabled defaults to off (dark-launch) and is admin-overridable', () => {
+    expect(featureFlags.guestPersonalFeaturesEnabled).toBe(false);
+    expect(getClientFeatureFlags().guest_personal_features_enabled).toBe(false);
+    expect(getFeatureFlagStates().guest_personal_features_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { guest_personal_features_enabled: true } });
+    expect(featureFlags.guestPersonalFeaturesEnabled).toBe(true);
+    expect(getClientFeatureFlags().guest_personal_features_enabled).toBe(true);
+  });
+
   it('daily_guest_play_enabled defaults to on and is the kill switch for guest dailies', () => {
     expect(featureFlags.dailyGuestPlayEnabled).toBe(true);
     expect(getClientFeatureFlags().daily_guest_play_enabled).toBe(true);

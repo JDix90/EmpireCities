@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useIsLandscape } from '../../hooks/useIsLandscape';
-import { useMapEditorEnabled, useSpectateEnabled } from '../../store/featureFlagsStore';
+import { useMapEditorEnabled, useSpectateEnabled, useGuestPersonalFeaturesEnabled } from '../../store/featureFlagsStore';
 
 interface MobileTabBarProps {
   isGuest?: boolean;
@@ -33,6 +33,8 @@ export default function MobileTabBar({ isGuest, onCreateGame, onLogout }: Mobile
   const isLandscape = useIsLandscape();
   const mapEditorEnabled = useMapEditorEnabled();
   const spectateEnabled = useSpectateEnabled();
+  // A guest can wear what they unlocked, so the store is open to them (buying is not).
+  const guestPersonal = useGuestPersonalFeaturesEnabled();
 
   // Hide tab bar in landscape to maximize screen real estate
   if (isLandscape) return null;
@@ -66,7 +68,7 @@ export default function MobileTabBar({ isGuest, onCreateGame, onLogout }: Mobile
               {spectateEnabled && (
                 <MoreLink to="/live-games" icon={Eye} label="Live" onClick={() => setMoreOpen(false)} />
               )}
-              {!isGuest && <MoreLink to="/store" icon={ShoppingBag} label="Store" onClick={() => setMoreOpen(false)} />}
+              {(!isGuest || guestPersonal) && <MoreLink to="/store" icon={ShoppingBag} label="Store" onClick={() => setMoreOpen(false)} />}
               {/* Settings is guest-aware (it hides the account-only rows), and it
                   holds map view, lite mode and audio. Hiding it left a guest on a
                   phone with no way to reach any display preference at all. */}

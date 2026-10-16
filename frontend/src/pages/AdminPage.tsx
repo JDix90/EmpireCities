@@ -85,6 +85,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Let guest accounts start the Daily Challenge. Only registered players are ranked on its board either way. Off closes the door with a "create a free account" prompt — use it if guest game creation becomes a load or abuse problem. On by default.',
   },
   {
+    key: 'guest_personal_features_enabled',
+    label: 'Guests use their own achievements and cosmetics',
+    description:
+      'Opens a guest\u2019s own things to them: their achievements, the cosmetics they have unlocked (seen and worn, in the store and in matches), their gold balance, the Settings link and their saved tutorial progress. Buying in the store still needs an account, as do ranked, leaderboards, friends, invites, campaigns, referrals and publishing maps. Off by default (dark launch) \u2014 off is the guest experience exactly as before.',
+  },
+  {
     key: 'first_turn_coach_enabled',
     label: 'First-turn coaching',
     description:

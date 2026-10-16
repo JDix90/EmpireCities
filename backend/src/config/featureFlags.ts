@@ -90,6 +90,11 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   ranked_leaderboard_enabled: () => envOptIn('RANKED_LEADERBOARD_ENABLED'),
   referral_survey_enabled: () => envOptIn('REFERRAL_SURVEY_ENABLED'),
   daily_guest_play_enabled: () => envOptOut('DAILY_GUEST_PLAY_ENABLED'),
+  // Guests' own things open to guests: their achievements, their unlocked
+  // cosmetics (seen and worn), their gold balance, the Settings link and their
+  // saved tutorial progress. Ranked, leaderboards, friends, invites, buying in the
+  // store, campaigns, referrals and map publishing still need an account. Dark-launched OFF.
+  guest_personal_features_enabled: () => envOptIn('GUEST_PERSONAL_FEATURES_ENABLED'),
   ai_attack_grind_enabled: () => envOptOut('AI_ATTACK_GRIND_ENABLED'),
   ai_capture_odds_enabled: () => envOptOut('AI_CAPTURE_ODDS_ENABLED'),
   ai_decided_game_press_enabled: () => envOptOut('AI_DECIDED_GAME_PRESS_ENABLED'),
@@ -547,6 +552,17 @@ export const featureFlags = {
    */
   get dailyGuestPlayEnabled(): boolean {
     return overrideBool('daily_guest_play_enabled');
+  },
+
+  /**
+   * Guests' own things open to guests: GET /me/achievements(/progress),
+   * GET /me/cosmetics, PUT /me/cosmetics/equip and POST /me/tutorial-modules
+   * accept a guest, and the client shows them the store (to wear, not buy),
+   * their gold and the Settings link.
+   * Default OFF; `GUEST_PERSONAL_FEATURES_ENABLED=true` or the admin override turns it on.
+   */
+  get guestPersonalFeaturesEnabled(): boolean {
+    return overrideBool('guest_personal_features_enabled');
   },
 
   /**
@@ -1366,6 +1382,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     ranked_leaderboard_enabled: featureFlags.rankedLeaderboardEnabled,
     referral_survey_enabled: featureFlags.referralSurveyEnabled,
     daily_guest_play_enabled: featureFlags.dailyGuestPlayEnabled,
+    guest_personal_features_enabled: featureFlags.guestPersonalFeaturesEnabled,
     streak_freezes_enabled: featureFlags.streakFreezesEnabled,
     today_panel_enabled: featureFlags.todayPanelEnabled,
     async_onboarding_enabled: featureFlags.asyncOnboardingEnabled,

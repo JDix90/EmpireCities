@@ -1,9 +1,10 @@
 import React from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import StorePage from './StorePage';
 import { useAuthStore } from '../store/authStore';
+import { useFeatureFlagsStore } from '../store/featureFlagsStore';
 import { storeRefundsSeenKey } from '../utils/storeRefundNotice';
 
 const getMock = vi.fn();
@@ -319,5 +320,31 @@ describe('StorePage', () => {
     fireEvent.click(await within(bone).findByRole('button', { name: /^Buy/ }));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(postMock).not.toHaveBeenCalled();
+  });
+
+  describe('with guest_personal_features_enabled', () => {
+    const setGuestPersonal = (on: boolean) =>
+      useFeatureFlagsStore.setState((st) => ({ flags: { ...st.flags, guest_personal_features_enabled: on } }));
+    beforeEach(() => setGuestPersonal(true));
+    afterEach(() => setGuestPersonal(false));
+
+    it('lets a guest try on and wear what they unlocked, but still not buy', async () => {
+      serve({ gold: 0 });
+      putMock.mockResolvedValueOnce({
+        data: { ok: true, equipped: { frame: 'frame_gold', banner: 'general_banner', marker: null, dice: null } },
+      });
+      renderStore({ guest: true });
+      const look = await screen.findByRole('region', { name: 'Your look' });
+      expect(screen.getByText(/Guest accounts can wear what they unlock but can't spend gold/)).toBeInTheDocument();
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Try on Gold Conqueror' }));
+      fireEvent.click(within(within(look).getByTestId('try-on-banner')).getByRole('button', { name: 'Wear it' }));
+      expect(putMock).toHaveBeenCalledWith('/users/me/cosmetics/equip', { frame_id: 'frame_gold' });
+      await waitFor(() => expect(within(card('Gold Conqueror')).getByText('Wearing')).toBeInTheDocument());
+
+      fireEvent.click(within(card('Ancient Bone Dice')).getByRole('button', { name: /^Buy/ }));
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(postMock).not.toHaveBeenCalled();
+    });
   });
 });

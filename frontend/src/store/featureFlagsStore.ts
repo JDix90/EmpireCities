@@ -18,6 +18,7 @@ export interface ClientFeatureFlags {
   ranked_leaderboard_enabled: boolean;
   referral_survey_enabled: boolean;
   daily_guest_play_enabled: boolean;
+  guest_personal_features_enabled: boolean;
   streak_freezes_enabled: boolean;
   today_panel_enabled: boolean;
   async_onboarding_enabled: boolean;
@@ -87,6 +88,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   referral_survey_enabled: false,
   // Guests may play the Daily (registered players are the only ones ranked).
   daily_guest_play_enabled: true,
+  // Guests see and use their own achievements, cosmetics, gold and settings. Dark-launched OFF.
+  guest_personal_features_enabled: false,
   // Wave 2 retention flags — all default off (dark-launch).
   streak_freezes_enabled: false,
   today_panel_enabled: false,
@@ -248,6 +251,11 @@ export function useRankedLeaderboardEnabled(): boolean {
 
 export function useDailyGuestPlayEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.daily_guest_play_enabled);
+}
+
+/** Guests see and use their own achievements, unlocked cosmetics, gold and settings (guest_personal_features_enabled). */
+export function useGuestPersonalFeaturesEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.guest_personal_features_enabled);
 }
 
 export function useStreakFreezesEnabled(): boolean {

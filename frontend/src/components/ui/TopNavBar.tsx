@@ -6,7 +6,7 @@ import {
 import styles from './TopNavBar.module.css';
 import UserMenu from './UserMenu';
 import { useAuthStore, selectIsAdminFromToken } from '../../store/authStore';
-import { useMapEditorEnabled, useSpectateEnabled } from '../../store/featureFlagsStore';
+import { useMapEditorEnabled, useSpectateEnabled, useGuestPersonalFeaturesEnabled } from '../../store/featureFlagsStore';
 import { APP_NAME_NAV } from '../../constants/brand';
 
 type NavItem = {
@@ -62,6 +62,8 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
   const isAdmin = selectIsAdminFromToken(accessToken);
   const mapEditorEnabled = useMapEditorEnabled();
   const spectateEnabled = useSpectateEnabled();
+  // A guest's gold is theirs to see, and the store is where they wear what they unlocked.
+  const guestPersonal = useGuestPersonalFeaturesEnabled();
   // Read gold from the store (not the prop) so it stays reactive after daily
   // claims, purchases, and game rewards update the balance elsewhere.
   const gold = useAuthStore((s) => s.user?.gold ?? 0);
@@ -111,7 +113,7 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
       </div>
       {/* Account & Help */}
       <div className={styles.accountNav}>
-        {!user?.is_guest && (
+        {(!user?.is_guest || guestPersonal) && (
           // Gold balance doubles as the Store entry point (standard game UX:
           // click your currency to open the shop). This is the single store
           // redirect now that the separate "Store" nav link is removed.

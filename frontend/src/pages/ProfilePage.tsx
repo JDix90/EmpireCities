@@ -11,7 +11,7 @@ import XpBar from '../components/ui/XpBar';
 import TierBadge from '../components/ui/TierBadge';
 import ReferralPanel from '../components/ui/ReferralPanel';
 import { ownAuthUiAllowed } from '../utils/embedContext';
-import { useStoreV2Enabled } from '../store/featureFlagsStore';
+import { useStoreV2Enabled, useGuestPersonalFeaturesEnabled } from '../store/featureFlagsStore';
 import FrameRing from '../components/cosmetics/FrameRing';
 import BannerTag from '../components/cosmetics/BannerTag';
 
@@ -129,6 +129,8 @@ export default function ProfilePage() {
 
   const targetId = userId ?? currentUser?.user_id;
   const isOwnProfile = !userId || userId === currentUser?.user_id;
+  // A guest's gold is shown to them like their level (guest_personal_features_enabled).
+  const guestPersonal = useGuestPersonalFeaturesEnabled();
 
   useEffect(() => {
     if (!targetId) return;
@@ -286,7 +288,7 @@ export default function ProfilePage() {
             )}
             <div className="mt-3">
               <XpBar xp={profile.xp ?? 0} />
-              {isOwnProfile && !currentUser?.is_guest && profile.gold != null && (
+              {isOwnProfile && (!currentUser?.is_guest || guestPersonal) && profile.gold != null && (
                 <p className="flex items-center gap-1 text-bf-gold text-xs mt-2">
                   <Coins className="w-3.5 h-3.5" />
                   {profile.gold.toLocaleString()} Gold
