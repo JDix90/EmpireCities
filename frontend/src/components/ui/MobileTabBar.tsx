@@ -87,8 +87,10 @@ export default function MobileTabBar({ isGuest, onCreateGame, onLogout }: Mobile
         </div>
       )}
 
-      {/* Tab bar */}
-      <nav className="fixed bottom-0 inset-x-0 z-50 flex md:hidden items-center justify-around bg-bf-surface border-t border-bf-border pb-safe min-h-[56px] gap-0.5 px-1">
+      {/* Tab bar. Below the shared Modal (z-50): it renders last on the lobby
+          page, so at the same layer it painted over every lobby modal's
+          lower edge, the Full Game modal's Start button on an SE. */}
+      <nav className="fixed bottom-0 inset-x-0 z-40 flex md:hidden items-center justify-around bg-bf-surface border-t border-bf-border pb-safe min-h-[56px] gap-0.5 px-1">
         {PRIMARY_TABS.map((tab) => {
           if (tab.guestHidden && isGuest) return null;
           const active = location.pathname === tab.path;
