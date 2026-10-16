@@ -18,7 +18,7 @@ export const BOOT_SWEEP_STAGGER_MS = 30 * 1000;
  * The first runs, in order: the cheap checks first, and last the orphaned-game
  * sweep, which scans game history and drains expired replay snapshots.
  */
-export const BOOT_SWEEPS = ['season', 'monthly-challenges', 'indexnow', 'guest-cleanup', 'orphaned-games'] as const;
+export const BOOT_SWEEPS = ['season', 'monthly-challenges', 'indexnow', 'guest-cleanup', 'token-cleanup', 'orphaned-games'] as const;
 export type BootSweep = (typeof BOOT_SWEEPS)[number];
 
 /** How long after boot `sweep` first runs. */
