@@ -28,6 +28,7 @@ import { getFastCombatPreference } from '../../utils/userPreferences';
 import { useGameStore } from '../../store/gameStore';
 import { useBattleArmiesEnabled } from '../../store/featureFlagsStore';
 import { useLossReasonEnabled } from '../../store/featureFlagsStore';
+import { useBattlePlayerColorsEnabled } from '../../store/featureFlagsStore';
 import { lossReason } from '../../utils/lossReason';
 import { eraBoardTheme } from '../../constants/eraBoardTheme';
 import { eraMeta } from '../../constants/eraMeta';
@@ -367,7 +368,19 @@ function diceSizing(maxDice: number, compact = false): { box: string; text: stri
   return { box: 'w-9 h-9', text: 'text-base', gap: 'gap-1.5' };
 }
 
-function AnimatedDie({ value, index, variant, fast, boxClass = 'w-14 h-14', textClass = 'text-2xl', skin, faces = 6 }: { value: number; index: number; variant: 'attacker' | 'defender'; fast?: boolean; boxClass?: string; textClass?: string; skin?: DiceLook | null; faces?: number }) {
+/**
+ * `#rrggbb` (or `#rgb`) at the given opacity, or null for anything else. A die
+ * tinted in its roller's map colour (battle_player_colors_enabled) needs one.
+ */
+function tint(color: string, alpha: number): string | null {
+  const m = color.trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (!m) return null;
+  const hex = m[1].length === 3 ? m[1].split('').map((c) => c + c).join('') : m[1];
+  const n = parseInt(hex, 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
+function AnimatedDie({ value, index, variant, fast, boxClass = 'w-14 h-14', textClass = 'text-2xl', skin, faces = 6, color }: { value: number; index: number; variant: 'attacker' | 'defender'; fast?: boolean; boxClass?: string; textClass?: string; skin?: DiceLook | null; faces?: number; color?: string | null }) {
   const [display, setDisplay] = useState(fast ? value : Math.ceil(Math.random() * faces));
   const [settled, setSettled] = useState(!!fast);
 
@@ -390,6 +403,10 @@ function AnimatedDie({ value, index, variant, fast, boxClass = 'w-14 h-14', text
 
   const motion = useCosmeticMotion();
   const isAttacker = variant === 'attacker';
+  // The roller's map colour, when the battle is drawn in player colours: the
+  // ring says whose roll it is, and an unskinned die takes the colour too.
+  const ring = color ? tint(color, 0.6) : null;
+  const fill = color ? tint(color, 0.25) : null;
   // A garrison doctrine's d8: an amber outline and a corner label on top of
   // whichever look the side has, so it reads as different dice, not a skin.
   const d8 = faces === 8;
@@ -406,12 +423,12 @@ function AnimatedDie({ value, index, variant, fast, boxClass = 'w-14 h-14', text
         className={clsx(
           boxClass, textClass,
           'rounded-xl flex items-center justify-center font-bold font-mono shrink-0 ring-2',
-          DICE_SIDE_RING[variant],
+          !ring && DICE_SIDE_RING[variant],
           settled ? 'animate-dice-settle' : 'opacity-60',
           motion && diceEffectClass(skin, !settled),
           d8Class,
         )}
-        style={diceFaceStyle(skin)}
+        style={ring ? ({ ...diceFaceStyle(skin), '--tw-ring-color': ring } as React.CSSProperties) : diceFaceStyle(skin)}
       >
         {display}
         {d8Badge}
@@ -426,12 +443,15 @@ function AnimatedDie({ value, index, variant, fast, boxClass = 'w-14 h-14', text
         'rounded-xl flex items-center justify-center font-bold font-mono shrink-0',
         'transition-colors duration-200',
         settled
-          ? isAttacker
-            ? 'bg-red-500/25 text-red-300 ring-2 ring-red-500/40 animate-dice-settle'
-            : 'bg-blue-500/25 text-blue-300 ring-2 ring-blue-500/40 animate-dice-settle'
+          ? ring && fill
+            ? 'text-white/90 ring-2 animate-dice-settle'
+            : isAttacker
+              ? 'bg-red-500/25 text-red-300 ring-2 ring-red-500/40 animate-dice-settle'
+              : 'bg-blue-500/25 text-blue-300 ring-2 ring-blue-500/40 animate-dice-settle'
           : 'bg-white/5 text-white/30',
         d8Class,
       )}
+      style={settled && ring && fill ? ({ backgroundColor: fill, '--tw-ring-color': ring } as React.CSSProperties) : undefined}
     >
       {display}
       {d8Badge}
@@ -441,8 +461,8 @@ function AnimatedDie({ value, index, variant, fast, boxClass = 'w-14 h-14', text
 
 // ─── Pip display for die faces (visual embellishment) ──────────────────────
 
-function DieFace({ value, index, variant, fast, boxClass, textClass, skin, faces }: { value: number; index: number; variant: 'attacker' | 'defender'; fast?: boolean; boxClass?: string; textClass?: string; skin?: DiceLook | null; faces?: number }) {
-  return <AnimatedDie value={value} index={index} variant={variant} fast={fast} boxClass={boxClass} textClass={textClass} skin={skin} faces={faces} />;
+function DieFace({ value, index, variant, fast, boxClass, textClass, skin, faces, color }: { value: number; index: number; variant: 'attacker' | 'defender'; fast?: boolean; boxClass?: string; textClass?: string; skin?: DiceLook | null; faces?: number; color?: string | null }) {
+  return <AnimatedDie value={value} index={index} variant={variant} fast={fast} boxClass={boxClass} textClass={textClass} skin={skin} faces={faces} color={color} />;
 }
 
 // ─── Combat Result View ────────────────────────────────────────────────────
@@ -533,6 +553,15 @@ export function CombatResultView({
         {units} left
       </span>
     ) : null;
+  // `battle_player_colors_enabled`: each side in its player's map colour, not
+  // red for the attacker and blue for the defender (which read backwards for
+  // a blue attacker and a red defender). A neutral side keeps the old colour.
+  const playerColors = useBattlePlayerColorsEnabled();
+  const players = useGameStore((s) => s.gameState?.players);
+  const colorOf = (id: string | null | undefined): string | null =>
+    (playerColors && id ? players?.find((p) => p.player_id === id)?.color ?? null : null);
+  const attackerColor = colorOf(result.attackerId);
+  const defenderColor = colorOf(result.defenderId);
   const blitzExchanges = result.blitz_exchanges ?? 0;
   const blitzTotals = battleArmies && blitzExchanges > 1;
   const headerLabel = isDefending ? 'Incoming Attack!' : perspective === 'attacker' ? 'Your Attack' : 'Battle';
@@ -572,13 +601,17 @@ export function CombatResultView({
       <div className={clsx('flex', compact ? 'gap-3 mb-3' : 'gap-4 mb-8')}>
         {/* Attacker Column */}
         <div className="flex-1 min-w-0">
-          <p className={clsx('text-red-400 text-xs font-semibold uppercase tracking-widest text-center', compact ? 'mb-1.5' : 'mb-3')}>
+          <p
+            data-testid="combat-attacker-name"
+            className={clsx(!attackerColor && 'text-red-400', 'text-xs font-semibold uppercase tracking-widest text-center', compact ? 'mb-1.5' : 'mb-3')}
+            style={attackerColor ? { color: attackerColor } : undefined}
+          >
             {result.attackerName ?? 'Attacker'}
             <PlayerBannerTag playerId={result.attackerId} className="ml-1.5 align-middle" />
           </p>
           <div className={clsx('flex flex-wrap justify-center', diceSize.gap)}>
             {result.attacker_rolls.map((roll, i) => (
-              <DieFace key={i} value={roll} index={i} variant="attacker" fast={fast} boxClass={diceSize.box} textClass={diceSize.text} skin={attackerSkin} faces={result.attacker_die_faces} />
+              <DieFace key={i} value={roll} index={i} variant="attacker" fast={fast} boxClass={diceSize.box} textClass={diceSize.text} skin={attackerSkin} faces={result.attacker_die_faces} color={attackerColor} />
             ))}
           </div>
         </div>
@@ -590,13 +623,17 @@ export function CombatResultView({
 
         {/* Defender Column */}
         <div className="flex-1 min-w-0">
-          <p className={clsx('text-blue-400 text-xs font-semibold uppercase tracking-widest text-center', compact ? 'mb-1.5' : 'mb-3')}>
+          <p
+            data-testid="combat-defender-name"
+            className={clsx(!defenderColor && 'text-blue-400', 'text-xs font-semibold uppercase tracking-widest text-center', compact ? 'mb-1.5' : 'mb-3')}
+            style={defenderColor ? { color: defenderColor } : undefined}
+          >
             {result.defenderName ?? 'Defender'}
             <PlayerBannerTag playerId={result.defenderId} className="ml-1.5 align-middle" />
           </p>
           <div className={clsx('flex flex-wrap justify-center', diceSize.gap)}>
             {result.defender_rolls.map((roll, i) => (
-              <DieFace key={i} value={roll} index={i} variant="defender" fast={fast} boxClass={diceSize.box} textClass={diceSize.text} skin={defenderSkin} faces={result.defender_die_faces} />
+              <DieFace key={i} value={roll} index={i} variant="defender" fast={fast} boxClass={diceSize.box} textClass={diceSize.text} skin={defenderSkin} faces={result.defender_die_faces} color={defenderColor} />
             ))}
           </div>
         </div>

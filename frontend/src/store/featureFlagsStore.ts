@@ -42,6 +42,7 @@ export interface ClientFeatureFlags {
   tutorial_phone_gate_visible_enabled: boolean;
   desktop_card_cue_enabled: boolean;
   battle_armies_enabled: boolean;
+  battle_player_colors_enabled: boolean;
   tutorial_wrapup_to_match_enabled: boolean;
   first_match_primary_cta_enabled: boolean;
   phone_fortify_fit_enabled: boolean;
@@ -137,6 +138,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   desktop_card_cue_enabled: true,
   // Battle result: armies left beside both names, blitz dice marked as the last roll. On by default; admin kill switch.
   battle_armies_enabled: true,
+  // Battle colours by player: battle dice and names in each player's map colour. Dark-launched OFF.
+  battle_player_colors_enabled: false,
   // The tutorial wrap-up leads into the first real match. On by default; admin kill switch.
   tutorial_wrapup_to_match_enabled: true,
   // While the next Quick Match is the first, it is the lobby's gold button. On by default; admin kill switch.
@@ -369,6 +372,11 @@ export function useDesktopCardCueEnabled(): boolean {
 /** Battle result: armies left beside both territory names on your own attack, and a blitz's dice labelled as its last roll (components/game/ActionModal.tsx). */
 export function useBattleArmiesEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.battle_armies_enabled);
+}
+
+/** Battle colours by player: battle dice and names in each player's map colour (ActionModal CombatResultView). */
+export function useBattlePlayerColorsEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.battle_player_colors_enabled);
 }
 
 /** The tutorial wrap-up's main button starts the first real match (components/game/TutorialOverlay.tsx). */

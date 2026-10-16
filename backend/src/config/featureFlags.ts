@@ -229,6 +229,11 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // exchange's losses.
   // On by default; the admin override is the kill switch.
   battle_armies_enabled: () => envOptOut('BATTLE_ARMIES_ENABLED'),
+  // Battle colours by player: a battle result's dice and names take each
+  // player's map colour instead of red for the attacker and blue for the
+  // defender, which read backwards whenever the attacker was blue on the map
+  // and the defender red. Dark-launched OFF.
+  battle_player_colors_enabled: () => envOptIn('BATTLE_PLAYER_COLORS_ENABLED'),
   // The tutorial's wrap-up card leads into the player's first real match:
   // its main button starts a Quick Match (the Easy first match when that is
   // on) instead of keeping them on the tutorial board, and saving progress
@@ -602,6 +607,15 @@ export const featureFlags = {
    */
   get battleArmiesEnabled(): boolean {
     return overrideBool('battle_armies_enabled');
+  },
+
+  /**
+   * Battle colours by player: dice and names in a battle result
+   * (ActionModal CombatResultView) use each player's map colour.
+   * Default OFF; `BATTLE_PLAYER_COLORS_ENABLED=true` or the admin override turns it on.
+   */
+  get battlePlayerColorsEnabled(): boolean {
+    return overrideBool('battle_player_colors_enabled');
   },
 
   /**
@@ -1345,6 +1359,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     tutorial_phone_gate_visible_enabled: featureFlags.tutorialPhoneGateVisibleEnabled,
     desktop_card_cue_enabled: featureFlags.desktopCardCueEnabled,
     battle_armies_enabled: featureFlags.battleArmiesEnabled,
+    battle_player_colors_enabled: featureFlags.battlePlayerColorsEnabled,
     tutorial_wrapup_to_match_enabled: featureFlags.tutorialWrapupToMatchEnabled,
     first_match_primary_cta_enabled: featureFlags.firstMatchPrimaryCtaEnabled,
     phone_fortify_fit_enabled: featureFlags.phoneFortifyFitEnabled,

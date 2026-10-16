@@ -438,6 +438,12 @@ const CLIENT_FEATURE_FLAGS = [
       'When the dice settle on the player\u2019s own attack, each territory name in the battle result shows the armies left on it, so a player no longer has to remember them; it follows each Attack again. A blitz labels its dice \u201cLast roll of N\u201d and its losses as the total, where it showed the last exchange\u2019s dice under every exchange\u2019s losses. Counts come from the player\u2019s own board, so fog of war is respected. On by default; switching it off gives the battle result exactly as before.',
   },
   {
+    key: 'battle_player_colors_enabled',
+    label: 'Battle dice in player colours',
+    description:
+      'In a battle result, each side\'s dice and name take that player\'s map colour, instead of red for the attacker and blue for the defender, which read backwards whenever the attacker was blue on the map and the defender red. A dice skin keeps its look; only its ring takes the colour. A neutral defender keeps blue. Off by default (dark launch) \u2014 off is the battle result exactly as before.',
+  },
+  {
     key: 'tutorial_wrapup_to_match_enabled',
     label: 'Tutorial wrap-up starts the first match',
     description:
