@@ -1188,7 +1188,7 @@ export const featureFlags = {
   /**
    * Sessions last 30 days: the refresh token, its refresh_tokens row and the
    * cookie last 30 days instead of 7 for every session the auth routes issue
-   * (guest, register, upgrade, login) and every refresh renews them.
+   * (guest, register, upgrade, login, sign-in link) and every refresh renews them.
    * Default OFF; `SESSION_30D_ENABLED=true` or the admin override turns it on.
    */
   get session30dEnabled(): boolean {

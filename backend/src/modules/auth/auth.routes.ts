@@ -1053,14 +1053,16 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
     const accessToken = signAccessToken({ sub: user.user_id, username: user.username, admin: user.is_admin });
     const tokenId = uuidv4();
-    const refreshToken = signRefreshToken({ sub: user.user_id, tokenId });
+    // As long as any other sign-in's session (session_30d_enabled).
+    const session = sessionLength();
+    const refreshToken = signRefreshToken({ sub: user.user_id, tokenId }, session.tokenExpiresIn);
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
+    expiresAt.setDate(expiresAt.getDate() + session.days);
     await query(
       'INSERT INTO refresh_tokens (token_id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
       [tokenId, user.user_id, hashRefreshToken(refreshToken), expiresAt],
     );
-    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7, request));
+    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * session.days, request));
 
     const { is_banned: _ib, is_guest: _ig, ...safeUser } = user;
     stampLastLogin(user.user_id);
