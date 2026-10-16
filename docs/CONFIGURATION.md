@@ -68,6 +68,8 @@ pnpm -C backend exec tsx scripts/pruneFeatureFlagOverrides.ts          # preview
 pnpm -C backend exec tsx scripts/pruneFeatureFlagOverrides.ts --apply  # write + invalidate caches
 ```
 
+Those run against the database your shell's env points at. On the production host, run the script inside the backend container instead ([RUNBOOK.md](RUNBOOK.md), deploy step 6).
+
 Env vars: a flag defaulting **on** is disabled with `X=false`; one defaulting **off** is enabled with `X=true`.
 
 | Flag | Env var | Default | Effect |

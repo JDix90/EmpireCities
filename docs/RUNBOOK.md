@@ -7,12 +7,14 @@
 3. **Configure** `.env.production` (see [DEPLOYMENT.md](../DEPLOYMENT.md) and `.env.production.example`).
 4. **Deploy:** `./scripts/deploy-production.sh` (first time add `--seed` for achievements/cosmetics; era and community maps are re-seeded from `database/maps/` on every deploy).
 5. **Smoke:** `./scripts/smoke-production.sh https://your-domain` — checks `/health` and `/ready`.
-6. **Feature flags** — after a release that changes a committed default in `FLAG_CODE_DEFAULTS`, clear overrides that merely restate it, or the old pins keep winning:
+6. **Feature flags** — after a release that changes a committed default in `FLAG_CODE_DEFAULTS`, clear overrides that merely restate it, or the old pins keep winning. Run it inside the backend container: Postgres is only reachable on the Compose network, so the same command run on the host fails with `ECONNREFUSED` on `localhost:5432`.
    ```bash
-   pnpm -C backend exec tsx scripts/pruneFeatureFlagOverrides.ts          # preview
-   pnpm -C backend exec tsx scripts/pruneFeatureFlagOverrides.ts --apply
+   docker compose -f docker/docker-compose.prod.yml --env-file .env.production exec -T backend \
+     sh -c "cd /app/backend && pnpm exec tsx scripts/pruneFeatureFlagOverrides.ts"           # preview
+   docker compose -f docker/docker-compose.prod.yml --env-file .env.production exec -T backend \
+     sh -c "cd /app/backend && pnpm exec tsx scripts/pruneFeatureFlagOverrides.ts --apply"
    ```
-   Then confirm in Admin → Config that each flag reads *Default* or an intended *Forced on/off*, and spot-check `GET /api/feature-flags`.
+   The preview's "Genuine overrides kept" line lists every flag this environment forces; a flag you just promoted to on that shows there as `=false` stays off until you switch it in Admin → Config. Then confirm in Admin → Config that each flag reads *Default* or an intended *Forced on/off*, and spot-check `GET /api/feature-flags`.
 7. **Rollback (app):** redeploy previous image; **do not** roll back migrations unless you have a tested down migration.
 
 ### Pulling the code on the host
