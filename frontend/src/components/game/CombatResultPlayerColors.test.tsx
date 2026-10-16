@@ -59,7 +59,7 @@ describe('battle colours by player', () => {
   });
   afterEach(() => {
     vi.useRealTimers();
-    setFlag(false);
+    setFlag(true);
     useGameStore.setState({ gameState: null });
   });
 

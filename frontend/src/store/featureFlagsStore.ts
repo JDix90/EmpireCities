@@ -138,8 +138,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   desktop_card_cue_enabled: true,
   // Battle result: armies left beside both names, blitz dice marked as the last roll. On by default; admin kill switch.
   battle_armies_enabled: true,
-  // Battle colours by player: battle dice and names in each player's map colour. Dark-launched OFF.
-  battle_player_colors_enabled: false,
+  // Battle colours by player: battle dice and names in each player's map colour. On by default; admin kill switch.
+  battle_player_colors_enabled: true,
   // The tutorial wrap-up leads into the first real match. On by default; admin kill switch.
   tutorial_wrapup_to_match_enabled: true,
   // While the next Quick Match is the first, it is the lobby's gold button. On by default; admin kill switch.
