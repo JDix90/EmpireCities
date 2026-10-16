@@ -133,6 +133,11 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // WW2 Manhattan Project (docs/WW2_MANHATTAN_PROJECT.md), Phase 1: hard and
   // expert bots research toward the Atom Bomb and fire it. Dark-launched OFF; baked at create.
   ww2_bomb_ai_enabled: () => envOptIn('WW2_BOMB_AI_ENABLED'),
+  // Friendly guest names: a new guest is named like "SwiftFalcon_48213"
+  // (modules/auth/guestNames.ts) instead of "Guest_" and 8 hex characters,
+  // the name other players see in turn order, battles and results. Applies to
+  // guests created from then on. Dark-launched OFF.
+  friendly_guest_names_enabled: () => envOptIn('FRIENDLY_GUEST_NAMES_ENABLED'),
   // Phase 2: Manhattan Project behind Radar Network. Dark-launched OFF; baked at create.
   ww2_manhattan_science_enabled: () => envOptIn('WW2_MANHATTAN_SCIENCE_ENABLED'),
   // Phase 3: the atomic arsenal (a repeatable, priced bomb with fallout). Dark-launched OFF; baked at create.
@@ -1104,6 +1109,15 @@ export const featureFlags = {
    */
   get ww2BombAiEnabled(): boolean {
     return overrideBool('ww2_bomb_ai_enabled');
+  },
+
+  /**
+   * Friendly guest names: POST /api/auth/guest names a new guest with an
+   * adjective, an animal and five digits (modules/auth/guestNames.ts).
+   * Default OFF; `FRIENDLY_GUEST_NAMES_ENABLED=true` or the admin override turns it on.
+   */
+  get friendlyGuestNamesEnabled(): boolean {
+    return overrideBool('friendly_guest_names_enabled');
   },
 
   /**

@@ -19,6 +19,8 @@ import { sendTransactionalEmailToAddress } from '../../services/notificationServ
 import { isDisallowedUsername } from '../../utils/profanity';
 import { recordServerEvent } from '../../services/analyticsEvents';
 import { parseAttribution } from './attribution';
+import { friendlyGuestName } from './guestNames';
+import { featureFlags } from '../../config/featureFlags';
 import { escapeHtml } from '../../utils/htmlSafe';
 
 // Registration is pre-login, so its rate limiter keys by IP (see rateLimitKey).
@@ -307,6 +309,9 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
    * small (16⁸ ≈ 4.3B values vs the ~9k of the previous Math.random scheme,
    * which collided in production and broke registration).
    *
+   * With friendly_guest_names_enabled the name is "SwiftFalcon_48213" instead
+   * (guestNames.ts: 90M names, so the same retry covers a collision).
+   *
    * In the unlikely case of a collision, we retry with a fresh user id; the
    * `users.username` column has a UNIQUE constraint that turns the race into
    * a clean ON CONFLICT bail rather than a corrupted partial insert.
@@ -322,7 +327,9 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     let username: string | null = null;
     for (let attempt = 0; attempt < 5; attempt++) {
       const candidateId = uuidv4();
-      const candidateUsername = `Guest_${candidateId.slice(0, 8)}`;
+      const candidateUsername = featureFlags.friendlyGuestNamesEnabled
+        ? friendlyGuestName()
+        : `Guest_${candidateId.slice(0, 8)}`;
       const email = `${candidateId}@guest.local`;
       const inserted = await queryOne<{ user_id: string }>(
         `INSERT INTO users (user_id, username, email, password_hash, is_guest)

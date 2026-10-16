@@ -317,6 +317,13 @@ describe('featureFlags', () => {
     expect(featureFlags.galaxyWorldBuildingsEnabled).toBe(true);
   });
 
+  it('friendly_guest_names_enabled defaults to off (dark launch) and is admin-overridable', () => {
+    expect(featureFlags.friendlyGuestNamesEnabled).toBe(false);
+    expect(getFeatureFlagStates().friendly_guest_names_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { friendly_guest_names_enabled: true } });
+    expect(featureFlags.friendlyGuestNamesEnabled).toBe(true);
+  });
+
   it('ww2_bomb_ai_enabled defaults to off (dark launch) and is admin-overridable', () => {
     expect(featureFlags.ww2BombAiEnabled).toBe(false);
     expect(getFeatureFlagStates().ww2_bomb_ai_enabled).toEqual({ code_default: false, overridden: false, effective: false });
