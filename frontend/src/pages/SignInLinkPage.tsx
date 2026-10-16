@@ -114,7 +114,7 @@ export default function SignInLinkPage() {
           )}
 
           <p className="text-center text-bf-muted text-sm mt-6">
-            <Link to="/login" className="text-bf-gold hover:underline">Sign in with a password instead</Link>
+            <Link to="/login" className="tap-min inline-flex items-center text-bf-gold hover:underline">Sign in with a password instead</Link>
           </p>
         </div>
       </div>

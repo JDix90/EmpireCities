@@ -42,7 +42,7 @@ describe('SettingsPage — set a password', () => {
     renderAs(false);
     fireEvent.click(screen.getByRole('button', { name: /Set a password/ }));
     expect(screen.queryByPlaceholderText('Current password')).toBeNull();
-    fireEvent.change(screen.getByPlaceholderText('New password (min 8 characters)'), { target: { value: 'Fortress!Wall72' } });
+    fireEvent.change(screen.getByPlaceholderText('New password'), { target: { value: 'Fortress!Wall72' } });
     fireEvent.change(screen.getByPlaceholderText('Confirm new password'), { target: { value: 'Fortress!Wall72' } });
     fireEvent.click(screen.getByRole('button', { name: 'Set password' }));
     await waitFor(() => expect(postMock).toHaveBeenCalledWith('/auth/set-password', { new_password: 'Fortress!Wall72' }));

@@ -67,7 +67,9 @@ export default function SaveWithEmailForm({ onDone }: { onDone: () => void }) {
       // guard leaves this page at once, and onDone takes the player on.
       toast.success(
         `Account saved to ${cleanedEmail}. To play on another device, choose “Email me a sign-in link” when you sign in${wantsPassword ? ', or use your password' : ''}.`,
-        { duration: 8000 },
+        // A long address has no place to break, so without overflow-wrap it
+        // stretched the toast past a phone's edges and cut the message off.
+        { duration: 8000, style: { overflowWrap: 'anywhere' } },
       );
       onDone();
     } catch (err: unknown) {
@@ -130,7 +132,7 @@ export default function SaveWithEmailForm({ onDone }: { onDone: () => void }) {
       <div>
         <button
           type="button"
-          className="flex items-center gap-1.5 text-sm text-bf-gold hover:underline"
+          className="tap-min flex items-center gap-1.5 text-sm text-bf-gold hover:underline"
           aria-expanded={showPasswordFields}
           onClick={() => setShowPasswordFields((v) => !v)}
         >
