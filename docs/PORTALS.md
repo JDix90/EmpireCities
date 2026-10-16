@@ -170,7 +170,7 @@ This also creates an account **and a game record**, so it is a deliberate end-to
 
 - The client stores the framing origin once at boot (`EMBEDDER_ORIGIN` in `utils/embedContext.ts`) and sends it as `x-bf-embedder` on `/auth/guest` and `/auth/refresh`.
 - `localStorage` may be entirely unavailable in a third-party frame (Safari's default, Chrome's "Block third-party cookies"). All persisted state goes through `utils/safeStorage.ts`, which probes once and falls back to memory, so the game still renders and a guest can still play; only the *reload* continuity depends on the partitioned cookie.
-- `ownAuthUiAllowed()` gates every login/register/upgrade entry point (routes `/login`, `/register`, `/upgrade`, `/forgot-password`, `/reset-password` redirect to `/`; CTAs are hidden). Everything else is unchanged inside a frame.
+- `ownAuthUiAllowed()` gates every login/register/upgrade entry point (routes `/login`, `/register`, `/upgrade`, `/forgot-password`, `/reset-password`, `/sign-in-link` redirect to `/`; CTAs are hidden). Everything else is unchanged inside a frame.
 - Attribution: the itch launcher shell adds `?utm_source=itch.io&utm_medium=embed`, so signups group under the portal in Admin → Analytics. Give every new portal a `utm_source` the same way. The shell itself lives in [`scripts/itch-launcher/`](../scripts/itch-launcher/README.md).
 
 ## Before adding a portal that is an aggregator network

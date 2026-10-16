@@ -28,6 +28,8 @@ function formatDate(iso: string): string {
 interface RatingInfo { mu: number; phi: number; display: number; provisional: boolean }
 
 interface UserProfile {
+  /** False for an account saved with just an email (email_account_save_enabled). */
+  has_password?: boolean;
   user_id: string;
   username: string;
   level: number;
@@ -202,6 +204,9 @@ export default function ProfilePage() {
       </SubpageShell>
     );
   }
+
+  // An account saved with just an email (email_account_save_enabled) has no password yet.
+  const passwordless = isOwnProfile && profile.has_password === false;
 
   const avatar = (
     <div className="w-20 h-20 rounded-full bg-bf-border flex items-center justify-center text-3xl">
@@ -524,14 +529,15 @@ export default function ProfilePage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
               <div className="flex-1">
-                <label className="label">Confirm with password</label>
+                {/* An account saved with just an email has no password to confirm with: it types its name. */}
+                <label className="label">{passwordless ? 'Confirm with your username' : 'Confirm with password'}</label>
                 <input
-                  type="password"
+                  type={passwordless ? 'text' : 'password'}
                   className="input"
                   value={deletePassword}
                   onChange={(e) => setDeletePassword(e.target.value)}
-                  autoComplete="current-password"
-                  placeholder="Your password"
+                  autoComplete={passwordless ? 'off' : 'current-password'}
+                  placeholder={passwordless ? profile.username : 'Your password'}
                 />
               </div>
               <button
@@ -541,7 +547,9 @@ export default function ProfilePage() {
                 onClick={async () => {
                   setDeleteBusy(true);
                   try {
-                    await api.delete('/users/me', { data: { password: deletePassword } });
+                    await api.delete('/users/me', {
+                      data: passwordless ? { confirm_username: deletePassword } : { password: deletePassword },
+                    });
                     toast.success('Account deleted');
                     setDeletePassword('');
                     await logout();

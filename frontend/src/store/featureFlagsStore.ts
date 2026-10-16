@@ -13,6 +13,7 @@ export interface ClientFeatureFlags {
   hero_single_cta_enabled: boolean;
   era_advance_payoff_enabled: boolean;
   signup_nudge_enabled: boolean;
+  email_account_save_enabled: boolean;
   guest_prompt_v2_enabled: boolean;
   results_footer_enabled: boolean;
   ranked_leaderboard_enabled: boolean;
@@ -78,6 +79,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   hero_single_cta_enabled: true,
   era_advance_payoff_enabled: true,
   signup_nudge_enabled: true,
+  // Save your account with just an email; sign in by emailed link. Dark-launched OFF.
+  email_account_save_enabled: false,
   // Guest prompts: an accurate saved-in-this-browser line, one account modal per session. On by default; admin kill switch.
   guest_prompt_v2_enabled: true,
   // Results: Rematch and Return to Lobby pinned, no second account ask. On by default; admin kill switch.
@@ -232,6 +235,11 @@ export function useReferralSurveyEnabled(): boolean {
 
 export function useSignupNudgeEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.signup_nudge_enabled);
+}
+
+/** Save your account with just an email, password optional; sign in by an emailed link (email_account_save_enabled). */
+export function useEmailAccountSaveEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.email_account_save_enabled);
 }
 
 /** Guest prompts: an accurate saved-in-this-browser line, and one blocking account modal per tab session (utils/guestGate.ts, pages/GamePage.tsx). */

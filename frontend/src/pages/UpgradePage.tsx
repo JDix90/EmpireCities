@@ -6,6 +6,8 @@ import axios from 'axios';
 import { Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { normalizeEmail, normalizeIdentifier } from '../utils/emailNormalize';
 import BrandWordmark from '../components/ui/BrandWordmark';
+import SaveWithEmailForm from '../components/account/SaveWithEmailForm';
+import { useEmailAccountSaveEnabled } from '../store/featureFlagsStore';
 
 const AGE_GATE_KEY = 'cc-age-verified';
 const MIN_AGE = 13;
@@ -49,6 +51,8 @@ export default function UpgradePage() {
   const [ageDenied, setAgeDenied] = useState(false);
   const { user, upgradeAccount, refreshUser, isLoading } = useAuthStore();
   const navigate = useNavigate();
+  // email_account_save_enabled: save with just an email, password optional.
+  const emailSave = useEmailAccountSaveEnabled();
 
   // The carry-over banner is the sales pitch — make sure it shows the
   // just-earned XP/level rather than a stale cached profile (players often
@@ -148,9 +152,15 @@ export default function UpgradePage() {
       <div className="w-full max-w-md py-10">
         <div className="text-center mb-8">
           <BrandWordmark className="text-3xl block text-center" />
+          {emailSave ? (
+            <p className="text-bf-muted mt-2">
+              Your progress is saved in this browser. Save your account with your email to keep it safe and play on any device.
+            </p>
+          ) : (
           <p className="text-bf-muted mt-2">
             Your guest account has no email or password — it lives in this browser alone. This keeps it, on any device.
           </p>
+          )}
         </div>
 
         <div className="card">
@@ -169,6 +179,9 @@ export default function UpgradePage() {
             </span>
           </div>
 
+          {emailSave ? (
+            <SaveWithEmailForm onDone={() => navigate('/lobby')} />
+          ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="label">Username</label>
@@ -285,6 +298,7 @@ export default function UpgradePage() {
               <Link to="/privacy" className="text-bf-gold hover:underline">Privacy Policy</Link>.
             </p>
           </form>
+          )}
 
           <p className="text-center text-bf-muted text-sm mt-6">
             <Link to="/lobby" className="text-bf-gold hover:underline">Maybe later — back to the lobby</Link>

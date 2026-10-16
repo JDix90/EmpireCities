@@ -73,6 +73,10 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   era_heritage_buildings_enabled: () => envOptOut('ERA_HERITAGE_BUILDINGS_ENABLED'),
   era_wonder_per_era_enabled: () => envOptIn('ERA_WONDER_PER_ERA_ENABLED'),
   signup_nudge_enabled: () => envOptOut('SIGNUP_NUDGE_ENABLED'),
+  // Save your account with just an email: a guest saves their account with an
+  // email address, a password optional, and an account without one signs in
+  // with a one-time link emailed to it (migration 050). Dark-launched OFF.
+  email_account_save_enabled: () => envOptIn('EMAIL_ACCOUNT_SAVE_ENABLED'),
   // Guest account prompts say what is true: "Your progress is saved in this
   // browser" and "an account keeps it everywhere", instead of "Guest accounts
   // do not persist across sessions", which a reload or a return visit disproves.
@@ -478,6 +482,17 @@ export const featureFlags = {
    */
   get signupNudgeEnabled(): boolean {
     return overrideBool('signup_nudge_enabled');
+  },
+
+  /**
+   * Save your account with just an email: POST /api/auth/upgrade takes the
+   * password (and the name) as optional, POST /api/auth/sign-in-link emails a
+   * one-time sign-in link and /sign-in-link/verify redeems it, and
+   * POST /api/auth/set-password gives a passwordless account a password.
+   * Default OFF; `EMAIL_ACCOUNT_SAVE_ENABLED=true` or the admin override turns it on.
+   */
+  get emailAccountSaveEnabled(): boolean {
+    return overrideBool('email_account_save_enabled');
   },
 
   /**
@@ -1377,6 +1392,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     hero_single_cta_enabled: featureFlags.heroSingleCtaEnabled,
     era_advance_payoff_enabled: featureFlags.eraAdvancePayoffEnabled,
     signup_nudge_enabled: featureFlags.signupNudgeEnabled,
+    email_account_save_enabled: featureFlags.emailAccountSaveEnabled,
     guest_prompt_v2_enabled: featureFlags.guestPromptV2Enabled,
     results_footer_enabled: featureFlags.resultsFooterEnabled,
     ranked_leaderboard_enabled: featureFlags.rankedLeaderboardEnabled,

@@ -26,6 +26,11 @@ const DeleteAccountSchema = z.object({
   password: z.string().min(1, 'Password is required to delete your account').max(128),
 });
 
+/** An account saved with just an email has no password to confirm with, so it types its name. */
+const PasswordlessDeleteSchema = z.object({
+  confirm_username: z.string().trim().min(1).max(32),
+});
+
 type RatingRow = { rating_type: string; mu: number; phi: number };
 
 /** Canonical ordering for `friendships.user_id_a` / `user_id_b` (UUID string compare). */
@@ -234,7 +239,20 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     const has_completed_tutorial =
       parseInt(tutorialRow?.cnt ?? '0', 10) > 0 || tutorial_modules_completed.includes('core');
 
-    return reply.send({ ...wornSlots(user), ratings, has_completed_tutorial, tutorial_modules_completed });
+    // email_account_save_enabled: an account saved with just an email has no
+    // password yet, so Settings offers to set one rather than change it.
+    let has_password: boolean | undefined;
+    if (featureFlags.emailAccountSaveEnabled && !user.is_guest) {
+      const row = await queryOne<{ has_password: boolean }>(
+        'SELECT has_password FROM users WHERE user_id = $1',
+        [request.userId],
+      ).catch(() => null);
+      has_password = row?.has_password ?? true;
+    }
+    return reply.send({
+      ...wornSlots(user), ratings, has_completed_tutorial, tutorial_modules_completed,
+      ...(has_password === undefined ? {} : { has_password }),
+    });
   });
 
   // ── POST /api/users/me/tutorial-modules/:moduleId ────────────────────────
@@ -260,7 +278,25 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.delete('/me', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
     const parsed = DeleteAccountSchema.safeParse(request.body ?? {});
     if (!parsed.success) {
-      return reply.status(400).send(formatZodError(parsed.error));
+      const byName = PasswordlessDeleteSchema.safeParse(request.body ?? {});
+      if (!byName.success) {
+        return reply.status(400).send(formatZodError(parsed.error));
+      }
+      // Only an account with no password confirms by name (email_account_save_enabled).
+      const account = await queryOne<{ username: string; has_password: boolean }>(
+        'SELECT username, has_password FROM users WHERE user_id = $1',
+        [request.userId],
+      );
+      if (!account) return reply.status(404).send({ error: 'User not found' });
+      if (account.has_password !== false) {
+        return reply.status(400).send({ error: 'Password is required to delete your account' });
+      }
+      if (byName.data.confirm_username.toLowerCase() !== account.username.trim().toLowerCase()) {
+        return reply.status(401).send({ error: 'Type your username exactly to confirm' });
+      }
+      await query('DELETE FROM users WHERE user_id = $1', [request.userId]);
+      reply.clearCookie('refreshToken', { path: '/api/auth' });
+      return reply.send({ message: 'Account deleted' });
     }
     const row = await queryOne<{ password_hash: string }>(
       'SELECT password_hash FROM users WHERE user_id = $1',

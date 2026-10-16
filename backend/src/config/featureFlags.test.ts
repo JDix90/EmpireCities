@@ -169,6 +169,15 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().guest_prompt_v2_enabled).toBe(false);
   });
 
+  it('email_account_save_enabled defaults to off (dark-launch) and is admin-overridable', () => {
+    expect(featureFlags.emailAccountSaveEnabled).toBe(false);
+    expect(getClientFeatureFlags().email_account_save_enabled).toBe(false);
+    expect(getFeatureFlagStates().email_account_save_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { email_account_save_enabled: true } });
+    expect(featureFlags.emailAccountSaveEnabled).toBe(true);
+    expect(getClientFeatureFlags().email_account_save_enabled).toBe(true);
+  });
+
   it('signup_nudge_enabled defaults to on and is admin-overridable', () => {
     expect(featureFlags.signupNudgeEnabled).toBe(true);
     expect(getClientFeatureFlags().signup_nudge_enabled).toBe(true);

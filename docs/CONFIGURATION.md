@@ -52,7 +52,7 @@
 | `SENTRY_DSN` | — | Backend error reporting (also whitelists the ingest host in CSP) |
 | `SENTRY_RELEASE` | — | The release Sentry files reports under, normally the deployed commit; read by the Sentry SDK itself. `scripts/deploy-production.sh` sets it, and `docker-compose.prod.yml` bakes it into the backend image and the frontend build (`VITE_SENTRY_RELEASE`). Without it Sentry keeps no crash-free session data |
 | `CSP_EXTRA_CONNECT_ORIGINS` | — | Comma-separated https/wss origins added to CSP `connect-src` |
-| `PASSWORD_RESET_DEV_LOG` | — | Non-prod: log reset URLs to stdout when SMTP is unconfigured |
+| `PASSWORD_RESET_DEV_LOG` | — | Non-prod: log reset URLs (and sign-in links, `emailAccountSaveEnabled`) to stdout when SMTP is unconfigured |
 | `UNSUBSCRIBE_TOKEN_SECRET` | falls back to `JWT_ACCESS_SECRET` | HMAC secret for one-click email-unsubscribe links (set it so JWT secret rotation doesn't invalidate links already in inboxes) |
 
 ## Feature flags
@@ -86,6 +86,7 @@ Env vars: a flag defaulting **on** is disabled with `X=false`; one defaulting **
 | `eraAdvancementLobbyEnabled` | `ERA_ADVANCEMENT_LOBBY_ENABLED` | **on** | Era Advancement setting + Full Game Start CTA in the lobby |
 | `rankedEraAdvancementEnabled` | `RANKED_ERA_ADVANCEMENT_ENABLED` | off | Ranked matchmaking creates Era Advancement games (pending balance review) |
 | `signupNudgeEnabled` | `SIGNUP_NUDGE_ENABLED` | **on** | One-time guest → create-account nudge after a finished game |
+| `emailAccountSaveEnabled` | `EMAIL_ACCOUNT_SAVE_ENABLED` | off | Save your account with just an email: the guest save form (`/upgrade`) asks for an email and the name, with the password optional; `POST /api/auth/upgrade` then takes `password` and `username` as optional, and an account saved without a password has `users.has_password = false` (migration 050). `POST /api/auth/sign-in-link` emails a one-time sign-in link for each account on an address (30 minutes, single use, `sign_in_link_tokens`), `POST /api/auth/sign-in-link/verify` redeems it, and `POST /api/auth/set-password` gives a passwordless account a password. Off is the save form with a required password and no sign-in links, as before |
 | `guestPromptV2Enabled` | `GUEST_PROMPT_V2_ENABLED` | on | Guest prompts v2: the lobby banner, game-over box, streak note, post-game nudge, tutorial prompt, campaign gate and leaderboard notice say "Your progress is saved in this browser" and "an account keeps it everywhere" instead of "Guest accounts do not persist across sessions", and the tutorial-end prompt and post-game nudge share one blocking modal per tab session. Off is the prompts as before |
 | `resultsFooterEnabled` | `RESULTS_FOOTER_ENABLED` | on | Game results: Rematch and Return to Lobby in a footer pinned to the bottom of the results, and a guest's Return to Lobby skips the post-game signup nudge, since the results' account box already offered saving. Off is the results as before |
 | `referralSurveyEnabled` | `REFERRAL_SURVEY_ENABLED` | off | One-time "how did you hear about us?" prompt after a finished game. The only attribution signal that sees assistants which send no referrer — those otherwise count as Direct |

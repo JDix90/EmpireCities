@@ -49,6 +49,12 @@ const CLIENT_FEATURE_FLAGS = [
       'After a guest finishes a non-tutorial game, offer a one-time "save your progress" prompt (once per tab session). On by default.',
   },
   {
+    key: 'email_account_save_enabled',
+    label: 'Save your account with just an email',
+    description:
+      'A guest saves their account with only an email address (and their name); a password is optional. An account without a password signs in with a one-time link emailed to it, from \u201cEmail me a sign-in link\u201d on the login page, and can set a password later in Settings. Any account can use the sign-in link. Off by default (dark launch) \u2014 off is the save form with a required password, and no sign-in links, exactly as before.',
+  },
+  {
     key: 'guest_prompt_v2_enabled',
     label: 'Guest prompts: accurate line, one modal',
     description:
