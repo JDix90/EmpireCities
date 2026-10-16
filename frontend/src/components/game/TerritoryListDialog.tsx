@@ -11,6 +11,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import type { GameState } from '../../store/gameStore';
+import { isCoarsePointer } from '../../utils/device';
 
 export interface TerritoryListTerritory {
   territory_id: string;
@@ -52,9 +53,13 @@ export default function TerritoryListDialog({
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Focus the filter on open; hand focus back to whatever opened us on close.
+  // On a touch screen, focusing the filter raises the keyboard over the list
+  // the player opened this to browse, so the dialog takes focus instead and
+  // the filter waits for a tap.
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
-    inputRef.current?.focus();
+    const touch = typeof window.matchMedia === 'function' && isCoarsePointer();
+    (touch ? dialogRef.current : inputRef.current)?.focus();
     return () => {
       opener?.focus?.();
     };
@@ -129,9 +134,10 @@ export default function TerritoryListDialog({
         aria-modal="true"
         aria-labelledby="territory-list-title"
         data-testid="territory-list-dialog"
+        tabIndex={-1}
         onKeyDown={onKeyDown}
         onClick={(e) => e.stopPropagation()}
-        className="bg-bf-surface border border-bf-border rounded-xl w-full max-w-md max-h-[min(92vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] flex flex-col"
+        className="bg-bf-surface border border-bf-border rounded-xl w-full max-w-md outline-none max-h-[min(92vh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-1.5rem))] flex flex-col"
       >
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
           <p id="territory-list-title" className="font-display text-lg text-bf-gold tracking-wide">Territories</p>

@@ -81,4 +81,24 @@ describe('TerritoryListDialog', () => {
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('on a touch screen, focuses the dialog rather than the filter, so the keyboard stays down', () => {
+    const original = window.matchMedia;
+    window.matchMedia = vi.fn().mockImplementation((q: string) => ({
+      matches: q === '(pointer: coarse)', addEventListener: vi.fn(), removeEventListener: vi.fn(),
+      addListener: vi.fn(), removeListener: vi.fn(),
+    })) as unknown as typeof window.matchMedia;
+    try {
+      const { onClose } = mount();
+      expect(document.activeElement).toBe(screen.getByRole('dialog'));
+      // The filter is a tap away, and Escape still closes.
+      const filter = screen.getByLabelText('Filter territories by name');
+      filter.focus();
+      expect(document.activeElement).toBe(filter);
+      fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+      expect(onClose).toHaveBeenCalledTimes(1);
+    } finally {
+      window.matchMedia = original;
+    }
+  });
 });
