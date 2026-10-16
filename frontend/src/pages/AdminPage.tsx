@@ -291,7 +291,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'friendly_guest_names_enabled',
     label: 'Friendly guest names',
     description:
-      'A new guest is named like \u201cSwiftFalcon_48213\u201d (an adjective, an animal and five digits) instead of \u201cGuest_\u201d and 8 hex characters, the name other players see in turn order, battles and results. Only guests created from then on; existing guests keep their names, and a guest still picks their own name on signing up. Off by default (dark launch) \u2014 off is the Guest_ names exactly as before.',
+      'A new guest is named like \u201cSwiftFalcon_48213\u201d (an adjective, an animal and five digits) instead of \u201cGuest_\u201d and 8 hex characters, the name other players see in turn order, battles and results. Only guests created from then on; existing guests keep their names, and a guest still picks their own name on signing up. On by default; switching it off gives the Guest_ names exactly as before.',
   },
   {
     key: 'ww2_manhattan_science_enabled',
@@ -447,7 +447,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'battle_player_colors_enabled',
     label: 'Battle dice in player colours',
     description:
-      'In a battle result, each side\'s dice and name take that player\'s map colour, instead of red for the attacker and blue for the defender, which read backwards whenever the attacker was blue on the map and the defender red. A dice skin keeps its look; only its ring takes the colour. A neutral defender keeps blue. Off by default (dark launch) \u2014 off is the battle result exactly as before.',
+      'In a battle result, each side\'s dice and name take that player\'s map colour, instead of red for the attacker and blue for the defender, which read backwards whenever the attacker was blue on the map and the defender red. A dice skin keeps its look; only its ring takes the colour. A neutral defender keeps blue. On by default; switching it off gives the battle result exactly as before.',
   },
   {
     key: 'tutorial_wrapup_to_match_enabled',

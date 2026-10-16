@@ -317,11 +317,11 @@ describe('featureFlags', () => {
     expect(featureFlags.galaxyWorldBuildingsEnabled).toBe(true);
   });
 
-  it('friendly_guest_names_enabled defaults to off (dark launch) and is admin-overridable', () => {
-    expect(featureFlags.friendlyGuestNamesEnabled).toBe(false);
-    expect(getFeatureFlagStates().friendly_guest_names_enabled).toEqual({ code_default: false, overridden: false, effective: false });
-    setAdminConfigCacheForTests({ feature_flags: { friendly_guest_names_enabled: true } });
+  it('friendly_guest_names_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.friendlyGuestNamesEnabled).toBe(true);
+    expect(getFeatureFlagStates().friendly_guest_names_enabled).toEqual({ code_default: true, overridden: false, effective: true });
+    setAdminConfigCacheForTests({ feature_flags: { friendly_guest_names_enabled: false } });
+    expect(featureFlags.friendlyGuestNamesEnabled).toBe(false);
   });
 
   it('ww2_bomb_ai_enabled defaults to off (dark launch) and is admin-overridable', () => {
@@ -426,13 +426,13 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().tutorial_wrapup_to_match_enabled).toBe(false);
   });
 
-  it('battle_player_colors_enabled defaults to off (dark-launch) and is admin-overridable', () => {
-    expect(featureFlags.battlePlayerColorsEnabled).toBe(false);
-    expect(getClientFeatureFlags().battle_player_colors_enabled).toBe(false);
-    expect(getFeatureFlagStates().battle_player_colors_enabled).toEqual({ code_default: false, overridden: false, effective: false });
-    setAdminConfigCacheForTests({ feature_flags: { battle_player_colors_enabled: true } });
+  it('battle_player_colors_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.battlePlayerColorsEnabled).toBe(true);
     expect(getClientFeatureFlags().battle_player_colors_enabled).toBe(true);
+    expect(getFeatureFlagStates().battle_player_colors_enabled).toEqual({ code_default: true, overridden: false, effective: true });
+    setAdminConfigCacheForTests({ feature_flags: { battle_player_colors_enabled: false } });
+    expect(featureFlags.battlePlayerColorsEnabled).toBe(false);
+    expect(getClientFeatureFlags().battle_player_colors_enabled).toBe(false);
   });
 
   it('battle_armies_enabled defaults to on and the admin override is its kill switch', () => {

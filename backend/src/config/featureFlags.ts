@@ -136,8 +136,9 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // Friendly guest names: a new guest is named like "SwiftFalcon_48213"
   // (modules/auth/guestNames.ts) instead of "Guest_" and 8 hex characters,
   // the name other players see in turn order, battles and results. Applies to
-  // guests created from then on. Dark-launched OFF.
-  friendly_guest_names_enabled: () => envOptIn('FRIENDLY_GUEST_NAMES_ENABLED'),
+  // guests created from then on.
+  // On by default; the admin override is the kill switch.
+  friendly_guest_names_enabled: () => envOptOut('FRIENDLY_GUEST_NAMES_ENABLED'),
   // Phase 2: Manhattan Project behind Radar Network. Dark-launched OFF; baked at create.
   ww2_manhattan_science_enabled: () => envOptIn('WW2_MANHATTAN_SCIENCE_ENABLED'),
   // Phase 3: the atomic arsenal (a repeatable, priced bomb with fallout). Dark-launched OFF; baked at create.
@@ -237,8 +238,9 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // Battle colours by player: a battle result's dice and names take each
   // player's map colour instead of red for the attacker and blue for the
   // defender, which read backwards whenever the attacker was blue on the map
-  // and the defender red. Dark-launched OFF.
-  battle_player_colors_enabled: () => envOptIn('BATTLE_PLAYER_COLORS_ENABLED'),
+  // and the defender red.
+  // On by default; the admin override is the kill switch.
+  battle_player_colors_enabled: () => envOptOut('BATTLE_PLAYER_COLORS_ENABLED'),
   // The tutorial's wrap-up card leads into the player's first real match:
   // its main button starts a Quick Match (the Easy first match when that is
   // on) instead of keeping them on the tutorial board, and saving progress
@@ -617,7 +619,7 @@ export const featureFlags = {
   /**
    * Battle colours by player: dice and names in a battle result
    * (ActionModal CombatResultView) use each player's map colour.
-   * Default OFF; `BATTLE_PLAYER_COLORS_ENABLED=true` or the admin override turns it on.
+   * Default ON; `BATTLE_PLAYER_COLORS_ENABLED=false` or the admin override turns it off.
    */
   get battlePlayerColorsEnabled(): boolean {
     return overrideBool('battle_player_colors_enabled');
@@ -1128,7 +1130,7 @@ export const featureFlags = {
   /**
    * Friendly guest names: POST /api/auth/guest names a new guest with an
    * adjective, an animal and five digits (modules/auth/guestNames.ts).
-   * Default OFF; `FRIENDLY_GUEST_NAMES_ENABLED=true` or the admin override turns it on.
+   * Default ON; `FRIENDLY_GUEST_NAMES_ENABLED=false` or the admin override turns it off.
    */
   get friendlyGuestNamesEnabled(): boolean {
     return overrideBool('friendly_guest_names_enabled');

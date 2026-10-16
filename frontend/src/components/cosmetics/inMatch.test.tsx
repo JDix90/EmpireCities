@@ -59,6 +59,8 @@ const battle: CombatResult = {
 
 const setStoreV2 = (on: boolean) =>
   useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, store_v2_enabled: on } }));
+const setBattleColors = (on: boolean) =>
+  useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, battle_player_colors_enabled: on } }));
 
 function renderHud() {
   return render(
@@ -86,7 +88,7 @@ beforeEach(() => {
   useGameStore.setState({ gameState: makeState(), draftUnitsRemaining: 0, lastCombatResult: battle } as never);
 });
 // In act: mounted components re-render on the flag.
-afterEach(() => act(() => setStoreV2(false)));
+afterEach(() => act(() => { setStoreV2(false); setBattleColors(true); }));
 
 describe('cosmetics in a match, with store_v2_enabled on', () => {
   beforeEach(() => setStoreV2(true));
@@ -113,14 +115,33 @@ describe('cosmetics in a match, with store_v2_enabled on', () => {
     expect(dice[3]).toHaveClass('cosmetic-shimmer'); // holographic
   });
 
-  it('rolls the combat card’s dice in each side’s skin, banner beside the name', () => {
+  it('rolls the combat card’s dice in each side’s skin, ringed in its map colour, banner beside the name', () => {
+    // battle_player_colors_enabled (on by default): a skin keeps its look and
+    // its ring takes the roller's map colour.
+    const state = makeState();
+    state.players[0].color = '#3498db';
+    state.players[1].color = '#e74c3c';
+    useGameStore.setState({ gameState: state });
+    render(<CombatResultView result={battle} onDismiss={() => {}} />);
+
+    const dice = screen.getAllByTestId('skinned-die');
+    expect(dice).toHaveLength(5);
+    const rings = dice.map((d) => d.style.getPropertyValue('--tw-ring-color'));
+    expect(rings).toEqual([...Array(3).fill('rgba(52, 152, 219, 0.6)'), ...Array(2).fill('rgba(231, 76, 60, 0.6)')]);
+    expect(dice.some((d) => d.classList.contains('ring-red-500/80') || d.classList.contains('ring-blue-500/80'))).toBe(false);
+    expect(dice[0].style.color).toBe('rgb(74, 53, 32)'); // bone ink
+    expect(dice[3]).toHaveClass('cosmetic-shimmer'); // holographic
+    expect(within(screen.getByText('me', { selector: 'p' })).getByRole('img', { name: 'Emperor' })).toBeInTheDocument();
+  });
+
+  it('rings the combat card’s skinned dice red and blue with battle colours by player off', () => {
+    setBattleColors(false);
     render(<CombatResultView result={battle} onDismiss={() => {}} />);
 
     const dice = screen.getAllByTestId('skinned-die');
     expect(dice).toHaveLength(5);
     expect(dice.filter((d) => d.classList.contains('ring-red-500/80'))).toHaveLength(3);
     expect(dice.filter((d) => d.classList.contains('ring-blue-500/80'))).toHaveLength(2);
-    expect(within(screen.getByText('me', { selector: 'p' })).getByRole('img', { name: 'Emperor' })).toBeInTheDocument();
   });
 
   it('keeps the plain dice for a side wearing none', () => {
