@@ -56,7 +56,8 @@ describe('SaveWithEmailForm', () => {
     await waitFor(() => expect(onDone).toHaveBeenCalled());
     expect(toastSuccess).toHaveBeenCalledWith(
       'Account saved to ada@example.com. To play on another device, choose “Email me a sign-in link” when you sign in.',
-      { duration: 8000 },
+      // overflowWrap: a long address must wrap inside a phone-width toast.
+      { duration: 8000, style: { overflowWrap: 'anywhere' } },
     );
   });
 

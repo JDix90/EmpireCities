@@ -308,7 +308,7 @@ export default function UpgradePage() {
           )}
 
           <p className="text-center text-bf-muted text-sm mt-6">
-            <Link to="/lobby" className="text-bf-gold hover:underline">Maybe later — back to the lobby</Link>
+            <Link to="/lobby" className="tap-min inline-flex items-center text-bf-gold hover:underline">Maybe later — back to the lobby</Link>
           </p>
         </div>
       </div>

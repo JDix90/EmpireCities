@@ -265,7 +265,7 @@ export default function SettingsPage() {
                     <input
                       type="password"
                       autoComplete="new-password"
-                      placeholder="New password (min 8 characters)"
+                      placeholder="New password"
                       value={newPw}
                       onChange={(e) => setNewPw(e.target.value)}
                       required
@@ -281,6 +281,9 @@ export default function SettingsPage() {
                       className="input w-full"
                     />
                     <p className="text-xs text-bf-muted">
+                      {/* The length rule lives here, not in the placeholder:
+                          a phone cuts the placeholder off, and typing hides it. */}
+                      At least 8 characters.{' '}
                       {passwordless
                         ? 'You can still sign in with an emailed link.'
                         : 'Changing your password signs out all devices.'}
