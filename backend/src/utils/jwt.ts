@@ -25,11 +25,15 @@ export function signAccessToken(
 
 /**
  * Generate a long-lived refresh token.
- * Expiry uses `config.jwt.refreshExpiresIn` (default `7d` when `JWT_REFRESH_EXPIRES_IN` is unset).
+ * Expiry uses `config.jwt.refreshExpiresIn` (default `7d` when `JWT_REFRESH_EXPIRES_IN` is unset)
+ * unless `expiresIn` is given (a 30-day session, session_30d_enabled).
  */
-export function signRefreshToken(payload: Omit<JwtRefreshPayload, 'iat' | 'exp'>): string {
+export function signRefreshToken(
+  payload: Omit<JwtRefreshPayload, 'iat' | 'exp'>,
+  expiresIn?: string,
+): string {
   return jwt.sign(payload, config.jwt.refreshSecret, {
-    expiresIn: config.jwt.refreshExpiresIn,
+    expiresIn: expiresIn ?? config.jwt.refreshExpiresIn,
     algorithm: JWT_ALGORITHM,
   } as jwt.SignOptions);
 }

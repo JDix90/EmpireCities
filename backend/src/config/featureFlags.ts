@@ -139,6 +139,10 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // guests created from then on.
   // On by default; the admin override is the kill switch.
   friendly_guest_names_enabled: () => envOptOut('FRIENDLY_GUEST_NAMES_ENABLED'),
+  // Sessions last 30 days: every session, a guest's and an account's, runs 30
+  // days instead of 7, renewed on every visit, so a player who comes back
+  // within a month is still signed in. Dark-launched OFF.
+  session_30d_enabled: () => envOptIn('SESSION_30D_ENABLED'),
   // Phase 2: Manhattan Project behind Radar Network. Dark-launched OFF; baked at create.
   ww2_manhattan_science_enabled: () => envOptIn('WW2_MANHATTAN_SCIENCE_ENABLED'),
   // Phase 3: the atomic arsenal (a repeatable, priced bomb with fallout). Dark-launched OFF; baked at create.
@@ -1134,6 +1138,16 @@ export const featureFlags = {
    */
   get friendlyGuestNamesEnabled(): boolean {
     return overrideBool('friendly_guest_names_enabled');
+  },
+
+  /**
+   * Sessions last 30 days: the refresh token, its refresh_tokens row and the
+   * cookie last 30 days instead of 7 for every session the auth routes issue
+   * (guest, register, upgrade, login) and every refresh renews them.
+   * Default OFF; `SESSION_30D_ENABLED=true` or the admin override turns it on.
+   */
+  get session30dEnabled(): boolean {
+    return overrideBool('session_30d_enabled');
   },
 
   /**

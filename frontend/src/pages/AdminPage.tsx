@@ -294,6 +294,12 @@ const CLIENT_FEATURE_FLAGS = [
       'A new guest is named like \u201cSwiftFalcon_48213\u201d (an adjective, an animal and five digits) instead of \u201cGuest_\u201d and 8 hex characters, the name other players see in turn order, battles and results. Only guests created from then on; existing guests keep their names, and a guest still picks their own name on signing up. On by default; switching it off gives the Guest_ names exactly as before.',
   },
   {
+    key: 'session_30d_enabled',
+    label: 'Sessions last 30 days',
+    description:
+      'Every player, guest or account, stays signed in for 30 days between visits instead of 7, renewed every time they play. A guest who comes back within a month keeps their account and everything on it, and a saved account is not asked to sign in again. Applies to sessions started or renewed from then on. Off by default (dark launch) \u2014 off is the 7-day session exactly as before.',
+  },
+  {
     key: 'ww2_manhattan_science_enabled',
     label: 'WW2 Manhattan Project on the science line',
     description:

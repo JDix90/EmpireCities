@@ -317,6 +317,13 @@ describe('featureFlags', () => {
     expect(featureFlags.galaxyWorldBuildingsEnabled).toBe(true);
   });
 
+  it('session_30d_enabled defaults to off (dark launch) and is admin-overridable', () => {
+    expect(featureFlags.session30dEnabled).toBe(false);
+    expect(getFeatureFlagStates().session_30d_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { session_30d_enabled: true } });
+    expect(featureFlags.session30dEnabled).toBe(true);
+  });
+
   it('friendly_guest_names_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.friendlyGuestNamesEnabled).toBe(true);
     expect(getFeatureFlagStates().friendly_guest_names_enabled).toEqual({ code_default: true, overridden: false, effective: true });

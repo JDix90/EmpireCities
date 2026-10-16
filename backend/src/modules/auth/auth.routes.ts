@@ -56,6 +56,20 @@ function gmailDotlessLocal(loginIdentifier: string): string | null {
   return local.replace(/\./g, '');
 }
 
+/**
+ * How long a session lasts. Under session_30d_enabled every session, a guest's
+ * and an account's, lasts 30 days instead of 7, and each refresh renews it, so a
+ * player who comes back within a month is still signed in. The refresh token,
+ * its refresh_tokens row and the cookie all take this length. With the flag off
+ * the token keeps JWT_REFRESH_EXPIRES_IN, as before.
+ */
+const LONG_SESSION_DAYS = 30;
+function sessionLength(): { days: number; tokenExpiresIn: string | undefined } {
+  return featureFlags.session30dEnabled
+    ? { days: LONG_SESSION_DAYS, tokenExpiresIn: `${LONG_SESSION_DAYS}d` }
+    : { days: 7, tokenExpiresIn: undefined };
+}
+
 const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
 const FORGOT_PASSWORD_RESPONSE = {
   message: 'If an account exists for that email, we sent password reset instructions.',
@@ -357,17 +371,19 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     // The rotation handler preserves the `guest` claim, so refreshed tokens
     // never escalate a guest past rejectGuest-protected routes. Stale no-game
     // guests are deleted by guestCleanupService; their refresh then 401s
-    // (`no_user`) and the client logs out cleanly.
+    // (`no_user`) and the client logs out cleanly. With session_30d_enabled
+    // the session lasts 30 days, not 7.
     const tokenId = uuidv4();
-    const refreshToken = signRefreshToken({ sub: userId, tokenId });
+    const session = sessionLength();
+    const refreshToken = signRefreshToken({ sub: userId, tokenId }, session.tokenExpiresIn);
     const refreshHash = hashRefreshToken(refreshToken);
     const refreshExpiresAt = new Date();
-    refreshExpiresAt.setDate(refreshExpiresAt.getDate() + 7);
+    refreshExpiresAt.setDate(refreshExpiresAt.getDate() + session.days);
     await query(
       'INSERT INTO refresh_tokens (token_id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
       [tokenId, userId, refreshHash, refreshExpiresAt],
     );
-    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7, request));
+    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * session.days, request));
 
     stampLastLogin(userId);
     // First server touch for most acquisition paths (the landing jumps straight
@@ -443,17 +459,18 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
     const accessToken = signAccessToken({ sub: user.user_id, username: user.username, admin: user.is_admin });
     const tokenId = uuidv4();
-    const refreshToken = signRefreshToken({ sub: user.user_id, tokenId });
+    const session = sessionLength();
+    const refreshToken = signRefreshToken({ sub: user.user_id, tokenId }, session.tokenExpiresIn);
     const refreshHash = hashRefreshToken(refreshToken);
 
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
+    expiresAt.setDate(expiresAt.getDate() + session.days);
     await query(
       'INSERT INTO refresh_tokens (token_id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
       [tokenId, user.user_id, refreshHash, expiresAt]
     );
 
-    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7, request));
+    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * session.days, request));
 
     stampLastLogin(user.user_id);
     if (email_opt_in) grantEmailOptIn(user.user_id);
@@ -524,6 +541,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     const client = await pgPool.connect();
     let upgraded: UpgradedRow | null = null;
     const tokenId = uuidv4();
+    const session = sessionLength();
     let refreshToken: string;
     try {
       await client.query('BEGIN');
@@ -554,10 +572,10 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         [request.userId],
       );
 
-      refreshToken = signRefreshToken({ sub: upgraded.user_id, tokenId });
+      refreshToken = signRefreshToken({ sub: upgraded.user_id, tokenId }, session.tokenExpiresIn);
       const refreshHash = hashRefreshToken(refreshToken);
       const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7);
+      expiresAt.setDate(expiresAt.getDate() + session.days);
       await client.query(
         'INSERT INTO refresh_tokens (token_id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
         [tokenId, upgraded.user_id, refreshHash, expiresAt],
@@ -582,7 +600,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       username: upgraded.username,
       admin: upgraded.is_admin,
     });
-    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7, request));
+    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * session.days, request));
 
     stampLastLogin(upgraded.user_id);
     // Written by the trusted upgrade path itself (the /me/preferences routes
@@ -691,17 +709,18 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
     const accessToken = signAccessToken({ sub: user.user_id, username: user.username, admin: user.is_admin });
     const tokenId = uuidv4();
-    const refreshToken = signRefreshToken({ sub: user.user_id, tokenId });
+    const session = sessionLength();
+    const refreshToken = signRefreshToken({ sub: user.user_id, tokenId }, session.tokenExpiresIn);
     const refreshHash = hashRefreshToken(refreshToken);
 
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
+    expiresAt.setDate(expiresAt.getDate() + session.days);
     await query(
       'INSERT INTO refresh_tokens (token_id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
       [tokenId, user.user_id, refreshHash, expiresAt]
     );
 
-    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * 7, request));
+    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * session.days, request));
 
     const { password_hash: _ph, is_banned: _ib, ...safeUser } = user;
     stampLastLogin(user.user_id);
@@ -863,10 +882,11 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     // The token comparison runs inside the txn so the row lock covers the
     // whole compare→update window, preventing TOCTOU on concurrent refreshes.
     const newTokenId = uuidv4();
-    const newRefreshToken = signRefreshToken({ sub: payload.sub, tokenId: newTokenId });
+    const session = sessionLength();
+    const newRefreshToken = signRefreshToken({ sub: payload.sub, tokenId: newTokenId }, session.tokenExpiresIn);
     const newRefreshHash = hashRefreshToken(newRefreshToken);
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
+    expiresAt.setDate(expiresAt.getDate() + session.days);
 
     type RotationResult =
       | { code: 'ok'; username: string; is_admin: boolean; is_guest: boolean }
@@ -949,7 +969,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       admin: rotation.is_admin,
       ...(rotation.is_guest ? { guest: true } : {}),
     });
-    reply.setCookie('refreshToken', newRefreshToken, refreshCookieOpts(60 * 60 * 24 * 7, request));
+    reply.setCookie('refreshToken', newRefreshToken, refreshCookieOpts(60 * 60 * 24 * session.days, request));
 
     stampLastLogin(payload.sub);
     return reply.send({ accessToken: newAccessToken });
