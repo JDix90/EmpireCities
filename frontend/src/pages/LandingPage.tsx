@@ -43,6 +43,8 @@ const COMMUNITY_REGIONAL_ERAS: EraDefinition[] = REGIONAL_MAPS.map((rm) => ({
   scope: 'regional',
   territoryCount: rm.territory_count,
   playersRange: '2–4',
+  // Each community map carries its own glyph, the one the Map Hub shows.
+  icon: rm.icon,
   fallback: { label: rm.name, years: rm.year, summary: rm.description },
 }));
 
@@ -60,9 +62,6 @@ const ERA_ICONS: Record<string, string> = {
   galaxy_age: '🌌',
 };
 
-/** Community maps are data-driven (no fixed ids) — vary their glyphs by position. */
-const COMMUNITY_ICON_POOL = ['🧭', '🌊', '🏔️', '🏝️', '🗿', '🏯', '🐎', '⚓'];
-
 const withIcon = (e: EraDefinition, fallback: string): EraDefinition => ({
   ...e,
   icon: ERA_ICONS[e.id] ?? fallback,
@@ -71,7 +70,7 @@ const withIcon = (e: EraDefinition, fallback: string): EraDefinition => ({
 const GLOBAL_ERAS = LANDING_ERAS.filter((e) => e.scope === 'global').map((e) => withIcon(e, '🗺️'));
 const REGIONAL_ERAS = [
   ...LANDING_ERAS.filter((e) => e.scope === 'regional').map((e) => withIcon(e, '🗺️')),
-  ...COMMUNITY_REGIONAL_ERAS.map((e, i) => withIcon(e, COMMUNITY_ICON_POOL[i % COMMUNITY_ICON_POOL.length])),
+  ...COMMUNITY_REGIONAL_ERAS,
 ];
 
 function EraDetailModal({
