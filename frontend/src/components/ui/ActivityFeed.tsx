@@ -31,7 +31,9 @@ const EVENT_CONFIG: Record<string, {
   game_won: {
     icon: Trophy,
     color: 'text-bf-gold',
-    label: (d) => `Won a game${d.era ? ` (${formatEraLabel(String(d.era))})` : ''}`,
+    // The game end records the rules era as `era_id`; reading `era` left
+    // every win without one.
+    label: (d) => `Won a game${d.era_id ? ` (${formatEraLabel(String(d.era_id))})` : ''}`,
   },
   level_up: {
     icon: ArrowUpCircle,
