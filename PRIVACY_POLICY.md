@@ -27,14 +27,14 @@ If you deploy Borderfall yourself, the entity operating that deployment is respo
 
 ### 2.1 You provide to us
 
-- **Account information:** email address, username, and password (we store passwords using one-way hashing; we do not store your password in plain text).
+- **Account information:** email address, username, and, if you set one, a password (we store passwords using one-way hashing; we do not store your password in plain text). Playing as a guest creates an account with no email address or password until you save it.
 - **Communications:** messages you send to support, if applicable.
 
 ### 2.2 Generated through use of the Services
 
 - **Gameplay and progression:** game state, match history, statistics, rankings, achievements, and similar data tied to your account.
 - **Technical data:** IP address, device or browser type, general location derived from IP (if used), timestamps, and diagnostic logs needed to operate and secure the Services.
-- **Identifiers:** session tokens, refresh mechanisms (e.g., HTTP-only cookies), and similar data used to keep you signed in.
+- **Identifiers:** session tokens, refresh mechanisms (e.g., HTTP-only cookies), and similar data used to keep you signed in, for up to 30 days after your last visit.
 
 ### 2.3 We do not intentionally collect
 
@@ -46,7 +46,7 @@ We do not require you to provide sensitive categories of data (such as health in
 
 We use the information above to:
 
-- Create and manage accounts and authenticate users.
+- Create and manage accounts and authenticate users, including by a one-time sign-in link emailed on request.
 - Provide, operate, and improve the game and multiplayer features.
 - Maintain security, prevent fraud and abuse, and enforce our Terms.
 - Analyze aggregate or de-identified usage to improve performance and stability.

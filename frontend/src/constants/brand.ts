@@ -14,4 +14,8 @@ export const STORE_DESCRIPTION =
 export const SUPPORT_EMAIL =
   (import.meta.env.VITE_SUPPORT_EMAIL as string | undefined)?.trim() || 'support@borderfall.gg';
 
+/** The Terms of Service's date. The Privacy Policy keeps its own, so changing one does not re-date the other. */
 export const LEGAL_LAST_UPDATED = 'June 12, 2026';
+
+/** The Privacy Policy's date: guest accounts, accounts saved with just an email, sign-in links. */
+export const PRIVACY_LAST_UPDATED = 'October 17, 2026';
