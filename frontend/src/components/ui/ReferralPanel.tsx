@@ -132,7 +132,7 @@ export default function ReferralPanel({ className }: ReferralPanelProps) {
                   r.status === 'completed' ? 'text-green-400' : 'text-bf-muted',
                 )}>
                   {r.status === 'completed' && <CheckCircle size={10} />}
-                  {r.status === 'completed' ? 'Completed' : 'Pending'}
+                  <span>{r.status === 'completed' ? 'Completed' : 'Pending'}</span>
                 </span>
               </div>
             ))}

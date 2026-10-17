@@ -250,7 +250,7 @@ export default function TodayPanel({ isNewUser, dailySummary, hasActiveAsyncGame
         aria-expanded={calendarOpen}
       >
         {calendarOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-        {calendarOpen ? 'Hide login calendar' : 'Login calendar & milestones'}
+        <span>{calendarOpen ? 'Hide login calendar' : 'Login calendar & milestones'}</span>
       </button>
       {calendarOpen && <DailyLoginCalendar className="mt-2 border-0 bg-transparent p-0" />}
     </div>

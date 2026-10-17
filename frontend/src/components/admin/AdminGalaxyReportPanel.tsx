@@ -329,7 +329,7 @@ function RateRow({ label, rate }: { label: string; rate: GalaxyRate }) {
         <span className="block tabular-nums text-bf-muted">
           {above && <ArrowUp className="mr-0.5 inline h-3 w-3" aria-hidden="true" />}
           {below && <ArrowDown className="mr-0.5 inline h-3 w-3" aria-hidden="true" />}
-          {above ? 'above share · ' : below ? 'below share · ' : ''}share {pct(share)}
+          <span>{above ? 'above share · ' : below ? 'below share · ' : ''}share {pct(share)}</span>
         </span>
       </div>
       <div

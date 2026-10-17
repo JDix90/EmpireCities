@@ -1451,7 +1451,7 @@ export default function LobbyPage() {
                 {data.join_code ? (
                   <span className="text-bf-muted"> (code {data.join_code})</span>
                 ) : null}
-                .
+                <span>.</span>
               </p>
               <button
                 type="button"
@@ -2328,8 +2328,10 @@ export default function LobbyPage() {
                           · {ERA_LABELS[campaignMe.current_era] ?? campaignMe.current_era}
                         </>
                       )}
-                      {' · '}
-                      Prestige {campaignMe.prestige_points}
+                      <span>
+                        {' · '}
+                        Prestige {campaignMe.prestige_points}
+                      </span>
                     </p>
                   </div>
                   {campaignMe.path_config &&

@@ -182,7 +182,7 @@ export default function UpgradePage() {
               {(user?.win_streak ?? 0) > 0 && (
                 <> and your <span className="text-bf-gold font-medium">{user?.win_streak}-win streak</span></>
               )}
-              . This just makes them permanent.
+              <span>. This just makes them permanent.</span>
             </span>
           </div>
 
