@@ -171,8 +171,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   loss_reason_enabled: true,
   // A page the browser translated doesn't crash (utils/translationDomGuard.ts). On by default; admin kill switch.
   translation_dom_guard_enabled: true,
-  // The game screen is as tall as what the browser shows (100dvh). Dark-launched OFF.
-  game_visible_height_enabled: false,
+  // The game screen is as tall as what the browser shows (100dvh). On by default; admin kill switch.
+  game_visible_height_enabled: true,
   // The Space Age Moon Race, Lunar Hegemony included. On by default; admin kill switch.
   space_age_moon_race_enabled: true,
 };
