@@ -23,7 +23,7 @@ import {
   listMapsByModerationStatus,
   setMapModeration,
 } from '../../db/postgres/mapsRepository';
-import { invalidateMapCache } from '../maps/mapService';
+import { grantMapMaker, invalidateMapCache } from '../maps/mapService';
 import { validateMapDocument } from '../maps/mapValidation';
 import { getAnalyticsReport, parseFunnelDevice } from '../../services/analyticsQueries';
 import { andNotTutorialSql } from '../../game-engine/tutorial/tutorialGames';
@@ -528,6 +528,7 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
       if (!changed) return reply.status(404).send({ error: 'Map not found' });
       await invalidateMapCache(request.params.mapId);
       await writeAuditLog(request.userId, 'map_approved', { map_id: request.params.mapId });
+      await grantMapMaker(request.params.mapId);
       return reply.send({ ok: true });
     },
   );

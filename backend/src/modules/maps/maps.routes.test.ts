@@ -155,6 +155,11 @@ describe.runIf(enabled)('map moderation state machine (Postgres)', () => {
     expect(approved.statusCode).toBe(200);
     expect(await status()).toMatchObject({ moderation_status: 'approved', is_public: true });
 
+    // Map Maker: the author's map is approved for the hub.
+    const medals = (await query('SELECT achievement_id FROM user_achievements WHERE user_id = $1', [author])) as
+      Array<{ achievement_id: string }>;
+    expect(medals.map((m) => m.achievement_id)).toEqual(['map_maker']);
+
     // Publishing an approved map is a conflict.
     const overPublish = await app.inject({
       method: 'POST', url: `/api/maps/${map_id}/publish`, headers: auth(author, authorName),

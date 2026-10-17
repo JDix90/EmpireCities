@@ -114,7 +114,7 @@ import { resignSeat } from '../game-engine/state/resignation';
 import { acceptSurrender, surrenderOffered } from '../game-engine/victory/surrender';
 import { aiProfile, gameAiDifficulty, keepsTodaysBots, seatAiDifficulty } from '../game-engine/ai/aiProfiles';
 import { recordGameResults, computeRanks, redactGuestRatings } from '../game-engine/state/statsManager';
-import { checkAndUnlockAchievements } from '../game-engine/achievements/achievementService';
+import { checkAndUnlockAchievements, grantAchievementsOutsideGame } from '../game-engine/achievements/achievementService';
 import { pgPool } from '../db/postgres';
 import { getInitialRatings } from '../game-engine/rating/ratingService';
 import {
@@ -5248,16 +5248,18 @@ function scheduleDebouncedSave(gameId: string): void {
 
 const CAMPAIGN_ERAS = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern'] as const;
 
-async function handleCampaignCompletion(io: Server, gameId: string, state: GameState, winnerId: string): Promise<void> {
+/** Returns the achievements the result unlocked (Perfect Campaign). */
+async function handleCampaignCompletion(io: Server, gameId: string, state: GameState, winnerId: string): Promise<string[]> {
   const campaignRow = await queryOne<{
     campaign_id: string;
+    user_id: string;
     current_era_index: number;
     prestige_points: number;
     path_id: string | null;
     path_carry: Record<string, number>;
     path_narrative: Record<string, string>;
   }>(
-    `SELECT uc.campaign_id, uc.current_era_index, uc.prestige_points,
+    `SELECT uc.campaign_id, uc.user_id, uc.current_era_index, uc.prestige_points,
             uc.path_id, uc.path_carry, uc.path_narrative
      FROM user_campaigns uc
      JOIN campaign_entries ce ON ce.campaign_id = uc.campaign_id
@@ -5265,7 +5267,7 @@ async function handleCampaignCompletion(io: Server, gameId: string, state: GameS
      LIMIT 1`,
     [gameId],
   );
-  if (!campaignRow) return;
+  if (!campaignRow) return [];
 
   const won = !!winnerId && !state.players.find((p) => p.player_id === winnerId)?.is_ai;
   const eraIndex = campaignRow.current_era_index;
@@ -5307,13 +5309,19 @@ async function handleCampaignCompletion(io: Server, gameId: string, state: GameS
   if (won) {
     const newIdx = eraIndex + 1;
     if (newIdx >= CAMPAIGN_ERAS.length) {
-      await query(
+      const completed = await queryOne<{ failed_era_attempts: number | null }>(
         `UPDATE user_campaigns
          SET status = 'completed', completed_at = NOW(),
              prestige_points = $1, path_carry = $2::jsonb, path_narrative = $3::jsonb
-         WHERE campaign_id = $4`,
+         WHERE campaign_id = $4
+         RETURNING failed_era_attempts`,
         [newPrestige, JSON.stringify(updatedCarry), JSON.stringify(updatedNarrative), campaignRow.campaign_id],
       );
+      // Perfect Campaign: every era won at the first attempt. NULL is a
+      // campaign begun before attempts were counted, which cannot show that.
+      if (completed?.failed_era_attempts === 0) {
+        return grantAchievementsOutsideGame(campaignRow.user_id, ['perfect_campaign']);
+      }
     } else {
       await query(
         `UPDATE user_campaigns
@@ -5336,6 +5344,7 @@ async function handleCampaignCompletion(io: Server, gameId: string, state: GameS
       [JSON.stringify(updatedCarry), JSON.stringify(updatedNarrative), campaignRow.campaign_id],
     );
   }
+  return [];
 }
 
 async function finalizeGame(io: Server, gameId: string, state: GameState, winnerIds: string[]): Promise<void> {
@@ -5463,9 +5472,10 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
   }
 
   // Campaign hook (non-critical)
+  let campaignUnlocks: string[] = [];
   if (state.settings?.is_campaign) {
     try {
-      await handleCampaignCompletion(io, gameId, state, winnerId);
+      campaignUnlocks = await handleCampaignCompletion(io, gameId, state, winnerId);
     } catch (campErr) {
       console.error('[Socket] Campaign hook failed:', campErr);
     }
@@ -5490,6 +5500,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
   }
 
   const unlockedByPlayer: Record<string, string[]> = {};
+  if (campaignUnlocks.length > 0) unlockedByPlayer[winnerId] = campaignUnlocks;
   const humanPlayers = state.players.filter((p) => !p.is_ai);
   const ranks = computeRanks(state.players, creditedIds);
 
@@ -5577,19 +5588,30 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
 
       for (const p of humanPlayers) {
         const myRating = ratingMap.get(p.player_id) ?? { mu: initialRatings.mu, phi: initialRatings.phi };
-        const unlocked = await checkAndUnlockAchievements(client, {
-          userId: p.player_id,
-          gameId,
-          gameState: state,
-          winnerId,
-          rank: ranks.get(p.player_id) ?? state.players.length,
-          totalPlayers: state.players.length,
-          gameType,
-          isRanked: resultCtx.isRanked,
-          playerMu: myRating.mu,
-          opponentAvgMu: avgMu,
-        });
-        if (unlocked.length > 0) unlockedByPlayer[p.player_id] = unlocked;
+        // Each player's unlocks stand alone: a failure rolls back that
+        // player's, not those of everyone else in the game.
+        await client.query('SAVEPOINT player_achievements');
+        try {
+          const unlocked = await checkAndUnlockAchievements(client, {
+            userId: p.player_id,
+            gameId,
+            gameState: state,
+            winnerId,
+            rank: ranks.get(p.player_id) ?? state.players.length,
+            totalPlayers: state.players.length,
+            gameType,
+            isRanked: resultCtx.isRanked,
+            playerMu: myRating.mu,
+            opponentAvgMu: avgMu,
+          });
+          await client.query('RELEASE SAVEPOINT player_achievements');
+          if (unlocked.length > 0) {
+            unlockedByPlayer[p.player_id] = [...(unlockedByPlayer[p.player_id] ?? []), ...unlocked];
+          }
+        } catch (playerErr) {
+          await client.query('ROLLBACK TO SAVEPOINT player_achievements');
+          console.error(`[Socket] Achievement check failed for ${p.player_id}:`, playerErr);
+        }
       }
       await client.query('COMMIT');
     } catch (achErr) {
