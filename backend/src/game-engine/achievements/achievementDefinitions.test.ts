@@ -88,14 +88,15 @@ describe('achievement definitions', () => {
     }
   });
 
-  it('include the medals the unlocks hand out, as seed 002 has them', () => {
+  it('include the medals the unlocks hand out, the first six as seed 002 has them', () => {
     // user_cosmetics references cosmetics too: a medal missing from a database
-    // failed First Blood's unlock as surely as a missing achievement.
-    const medals = cosmetics(migrationSql);
+    // failed First Blood's unlock as surely as a missing achievement. Migration
+    // 053 brought back the Warlord Frame and Emperor Marker; no seed has them.
+    const medals = [...cosmetics(migrationSql), ...cosmetics(read('database/migrations/053_earned_rewards_return.sql'))];
     const handedOut = [...Object.values(ACHIEVEMENT_COSMETIC_MAP), 'frame_silver'].sort();
     expect(medals.map((m) => m[0]).sort()).toEqual(handedOut);
     const seeded = cosmetics(read('database/seeds/002_seed_medals.sql'));
-    for (const medal of medals) {
+    for (const medal of cosmetics(migrationSql)) {
       expect(seeded, medal[0]).toContainEqual(medal);
     }
   });
