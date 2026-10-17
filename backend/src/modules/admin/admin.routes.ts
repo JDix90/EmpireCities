@@ -103,6 +103,8 @@ const USER_SORT_COLUMNS = {
 const UserSearchSchema = z.object({
   search: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
+  /** Rows to skip: the admin table pages through every account, not only the newest. */
+  offset: z.coerce.number().int().min(0).optional(),
   sort: z.enum(['created_at', 'last_login_at']).optional(),
   order: z.enum(['asc', 'desc']).optional(),
 });
@@ -781,26 +783,33 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
     const parsed = UserSearchSchema.safeParse(request.query ?? {});
     if (!parsed.success) return reply.status(400).send({ error: 'Invalid query params' });
     const limit = parsed.data.limit ?? 25;
+    const offset = parsed.data.offset ?? 0;
     const search = `%${(parsed.data.search ?? '').trim()}%`;
     const sortColumn = USER_SORT_COLUMNS[parsed.data.sort ?? 'created_at'];
     const direction = parsed.data.order === 'asc' ? 'ASC' : 'DESC';
-    const rows = await query(
-      `SELECT u.user_id, u.username, u.email, u.level, u.xp, u.mmr, u.is_banned, u.is_admin,
-              COALESCE(u.is_guest, false) AS is_guest, u.created_at, u.last_login_at,
-              COALESCE(u.exclude_from_stats, false) AS exclude_from_stats,
-              COALESCE(gp.games_played, 0)::int AS games_played
-       FROM users u
-       LEFT JOIN (
-         SELECT user_id, COUNT(*) AS games_played
-         FROM game_players
-         GROUP BY user_id
-       ) gp ON gp.user_id = u.user_id
-       WHERE ($1 = '%%' OR u.username ILIKE $1 OR u.email ILIKE $1)
-       ORDER BY ${sortColumn} ${direction} NULLS LAST, u.user_id ASC
-       LIMIT $2`,
-      [search, limit],
-    );
-    return reply.send(rows);
+    const matches = `($1 = '%%' OR u.username ILIKE $1 OR u.email ILIKE $1)`;
+    // A page of the matching accounts, and how many match in all, so the table
+    // can page through every one. The user_id tiebreak keeps the pages stable.
+    const [rows, count] = await Promise.all([
+      query(
+        `SELECT u.user_id, u.username, u.email, u.level, u.xp, u.mmr, u.is_banned, u.is_admin,
+                COALESCE(u.is_guest, false) AS is_guest, u.created_at, u.last_login_at,
+                COALESCE(u.exclude_from_stats, false) AS exclude_from_stats,
+                COALESCE(gp.games_played, 0)::int AS games_played
+         FROM users u
+         LEFT JOIN (
+           SELECT user_id, COUNT(*) AS games_played
+           FROM game_players
+           GROUP BY user_id
+         ) gp ON gp.user_id = u.user_id
+         WHERE ${matches}
+         ORDER BY ${sortColumn} ${direction} NULLS LAST, u.user_id ASC
+         LIMIT $2 OFFSET $3`,
+        [search, limit, offset],
+      ),
+      queryOne<{ total: number }>(`SELECT COUNT(*)::int AS total FROM users u WHERE ${matches}`, [search]),
+    ]);
+    return reply.send({ users: rows, total: count?.total ?? 0 });
   });
 
   /**

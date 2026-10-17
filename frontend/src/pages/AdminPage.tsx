@@ -796,6 +796,51 @@ function Kpi({
 
 type UserSortColumn = 'created_at' | 'last_login_at';
 
+/** Accounts per page of the admin user table. */
+const USERS_PAGE_SIZE = 50;
+
+/** "Showing 51–100 of 1,234 accounts", and the buttons that move between pages. */
+function UserPager({
+  page,
+  total,
+  onPage,
+}: {
+  /** From 0. */
+  page: number;
+  total: number;
+  onPage: (page: number) => void;
+}) {
+  const pages = Math.max(1, Math.ceil(total / USERS_PAGE_SIZE));
+  const first = page * USERS_PAGE_SIZE + 1;
+  const last = Math.min(total, (page + 1) * USERS_PAGE_SIZE);
+  const button =
+    'rounded-lg border border-bf-border px-2.5 py-1 text-xs text-bf-text hover:bg-bf-surface disabled:cursor-not-allowed disabled:opacity-40';
+  return (
+    <nav aria-label="User pages" className="flex flex-wrap items-center justify-between gap-2 text-xs text-bf-muted">
+      <p>
+        Showing {first.toLocaleString()}–{last.toLocaleString()} of {total.toLocaleString()} {total === 1 ? 'account' : 'accounts'}
+      </p>
+      <div className="flex items-center gap-1.5">
+        <button type="button" className={button} disabled={page === 0} onClick={() => onPage(0)}>
+          First
+        </button>
+        <button type="button" className={button} disabled={page === 0} onClick={() => onPage(page - 1)}>
+          Previous
+        </button>
+        <span className="px-1 tabular-nums">
+          Page {page + 1} of {pages}
+        </span>
+        <button type="button" className={button} disabled={page >= pages - 1} onClick={() => onPage(page + 1)}>
+          Next
+        </button>
+        <button type="button" className={button} disabled={page >= pages - 1} onClick={() => onPage(pages - 1)}>
+          Last
+        </button>
+      </div>
+    </nav>
+  );
+}
+
 /**
  * A sortable column header for the user table. The server does the ordering
  * (the list is capped by LIMIT, so sorting only the rows already fetched would
@@ -899,7 +944,14 @@ export default function AdminPage() {
       admin_username: string;
     }>
   >([]);
+  // `search` is what the user table shows; `searchInput` is what is typed,
+  // applied by Search or Enter. Searching on every keystroke reloaded the tab,
+  // which hid the box while it loaded and took the cursor out of it.
   const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  /** The user table's page (from 0), and how many accounts match in all. */
+  const [userPage, setUserPage] = useState(0);
+  const [userTotal, setUserTotal] = useState(0);
   // Admin user list ordering. Newest accounts first is the existing default;
   // "Last login" answers the other question the table is opened to answer —
   // who is actually still playing.
@@ -909,6 +961,7 @@ export default function AdminPage() {
   const sortUsersBy = useCallback((column: UserSortColumn) => {
     if (column === userSort) setUserOrder((o) => (o === 'desc' ? 'asc' : 'desc'));
     else { setUserSort(column); setUserOrder('desc'); }
+    setUserPage(0);
   }, [userSort]);
   const [patchKey, setPatchKey] = useState('xp');
   const [patchValue, setPatchValue] = useState('{}');
@@ -990,10 +1043,26 @@ export default function AdminPage() {
           setConfig(res.data ?? null);
         } else if (tab === 'users') {
           const [usersRes, optionsRes] = await Promise.all([
-            api.get('/admin/users', { params: { search, sort: userSort, order: userOrder } }),
+            api.get<{ users: typeof users; total: number }>('/admin/users', {
+              params: {
+                search,
+                sort: userSort,
+                order: userOrder,
+                limit: USERS_PAGE_SIZE,
+                offset: userPage * USERS_PAGE_SIZE,
+              },
+            }),
             api.get<{ era_ids: string[]; map_ids: string[] }>('/admin/metrics/stat-options'),
           ]);
-          setUsers(usersRes.data ?? []);
+          const total = usersRes.data?.total ?? 0;
+          // A delete or a narrower search can leave the page past the end: show the last one.
+          const lastPage = Math.max(0, Math.ceil(total / USERS_PAGE_SIZE) - 1);
+          if (userPage > lastPage) {
+            setUserPage(lastPage);
+            return;
+          }
+          setUsers(usersRes.data?.users ?? []);
+          setUserTotal(total);
           setStatOptions({
             era_ids: optionsRes.data?.era_ids ?? [],
             map_ids: optionsRes.data?.map_ids ?? [],
@@ -1022,7 +1091,7 @@ export default function AdminPage() {
         setLoading(false);
       }
     },
-    [overviewParams, search, trendDays, funnelDevice, mapsStatusFilter, userSort, userOrder],
+    [overviewParams, search, trendDays, funnelDevice, mapsStatusFilter, userSort, userOrder, userPage],
   );
 
   useEffect(() => {
@@ -1825,20 +1894,35 @@ export default function AdminPage() {
 
         {!loading && activeTab === 'users' && (
           <div className="mt-6 space-y-4">
-            <div className="flex flex-wrap gap-2">
+            <form
+              className="flex flex-wrap gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const next = searchInput.trim();
+                // The same search on the first page: Search reloads it, as it always has.
+                if (next === search && userPage === 0) void loadTab('users');
+                else {
+                  setSearch(next);
+                  setUserPage(0);
+                }
+              }}
+            >
               <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Search username or email"
+                aria-label="Search username or email"
                 className="min-w-[200px] flex-1 rounded-lg border border-bf-border bg-cc-panel px-3 py-2 text-sm"
               />
-              <button type="button" onClick={() => loadTab('users')} className="rounded-lg bg-bf-gold px-4 py-2 text-sm font-semibold text-black">
+              <button type="submit" className="rounded-lg bg-bf-gold px-4 py-2 text-sm font-semibold text-black">
                 Search
               </button>
-            </div>
-            <div className="overflow-x-auto rounded-xl border border-bf-border">
+            </form>
+            {userTotal > 0 && <UserPager page={userPage} total={userTotal} onPage={setUserPage} />}
+            {/* The table scrolls inside the page, under a header that stays in view. */}
+            <div className="max-h-[70vh] overflow-auto rounded-xl border border-bf-border">
               <table className="min-w-full divide-y divide-bf-border text-sm">
-                <thead className="bg-bf-surface/80 text-left text-xs uppercase tracking-wide text-bf-muted">
+                <thead className="sticky top-0 z-10 bg-bf-surface text-left text-xs uppercase tracking-wide text-bf-muted">
                   <tr>
                     <th className="px-3 py-2">User</th>
                     <th className="px-3 py-2">Email</th>
