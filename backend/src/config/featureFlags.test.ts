@@ -160,6 +160,15 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().results_footer_enabled).toBe(false);
   });
 
+  it('translation_dom_guard_enabled defaults to on and the admin override is its kill switch', () => {
+    expect(featureFlags.translationDomGuardEnabled).toBe(true);
+    expect(getClientFeatureFlags().translation_dom_guard_enabled).toBe(true);
+    expect(getFeatureFlagStates().translation_dom_guard_enabled).toEqual({ code_default: true, overridden: false, effective: true });
+    setAdminConfigCacheForTests({ feature_flags: { translation_dom_guard_enabled: false } });
+    expect(featureFlags.translationDomGuardEnabled).toBe(false);
+    expect(getClientFeatureFlags().translation_dom_guard_enabled).toBe(false);
+  });
+
   it('save_account_copy_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.saveAccountCopyEnabled).toBe(true);
     expect(getClientFeatureFlags().save_account_copy_enabled).toBe(true);

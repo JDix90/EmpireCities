@@ -528,6 +528,12 @@ const CLIENT_FEATURE_FLAGS = [
       'The defeat screen shows one line on why the player lost, under how the game ended, from what the game counted: the turn their territories fell furthest (\u201cyour territories fell from 9 to 4\u201d), turns they ended holding a card set they never traded, or armies lost to event cards. Before, its coaching listed only their best moves. On by default; switching it off gives the defeat screen exactly as before.',
   },
   {
+    key: 'translation_dom_guard_enabled',
+    label: 'Translated pages don\u2019t crash',
+    description:
+      'When a player has their browser translate the page (Edge, Chrome, the Google Translate extension), the translator swaps the page\u2019s words for its own, and React, which still expects the old ones, crashed whenever a label appeared or disappeared or an icon was swapped in front of one: the page fell to its error screen. With this on, the page carries on instead. A label the translator already replaced may stay on screen until that part of the page is drawn again. The first time in a page load it happens is reported to Sentry. On by default; this is its kill switch, and off the page crashes as before.',
+  },
+  {
     key: 'store_v2_enabled',
     label: 'Store overhaul',
     description:

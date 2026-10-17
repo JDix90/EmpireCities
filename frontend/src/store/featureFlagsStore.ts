@@ -55,6 +55,7 @@ export interface ClientFeatureFlags {
   custom_lobby_fold_enabled: boolean;
   custom_round_cap_enabled: boolean;
   loss_reason_enabled: boolean;
+  translation_dom_guard_enabled: boolean;
 }
 
 /**
@@ -167,6 +168,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   custom_round_cap_enabled: false,
   // Loss reason: the defeat screen says why the player lost. On by default; admin kill switch.
   loss_reason_enabled: true,
+  // A page the browser translated doesn't crash (utils/translationDomGuard.ts). On by default; admin kill switch.
+  translation_dom_guard_enabled: true,
   // The Space Age Moon Race, Lunar Hegemony included. On by default; admin kill switch.
   space_age_moon_race_enabled: true,
 };

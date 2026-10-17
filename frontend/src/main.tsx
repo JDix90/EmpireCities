@@ -10,6 +10,7 @@ import { captureAttribution } from './utils/attribution';
 import { applyLocalizationPolicy } from './i18n';
 import { notifyEmbedderReady } from './utils/embedContext';
 import { useFeatureFlagsStore } from './store/featureFlagsStore';
+import { installTranslationDomGuard } from './utils/translationDomGuard';
 
 // Snapshot first-touch acquisition attribution (utm_* / referrer) before render,
 // so it's available for the first guest/register call. See utils/attribution.ts.
@@ -28,6 +29,10 @@ if (SENTRY_DSN) {
     tracesSampleRate: import.meta.env.PROD ? 0.2 : 1.0,
   });
 }
+
+// Before anything renders: a page the browser translates must not crash when a
+// label appears or disappears. See utils/translationDomGuard.ts.
+installTranslationDomGuard();
 
 if (Capacitor.isNativePlatform()) {
   void StatusBar.setStyle({ style: Style.Dark }).catch(() => {});

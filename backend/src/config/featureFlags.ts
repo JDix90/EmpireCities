@@ -240,6 +240,10 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // cards). Its coaching only ever praised their best moves.
   // On by default; the admin override is the kill switch.
   loss_reason_enabled: () => envOptOut('LOSS_REASON_ENABLED'),
+  // Translated pages: a page the browser translated no longer crashes when a
+  // label appears or disappears (frontend utils/translationDomGuard.ts).
+  // On by default; the admin override is the kill switch.
+  translation_dom_guard_enabled: () => envOptOut('TRANSLATION_DOM_GUARD_ENABLED'),
   // Phone tutorial: the era-advance card arrives folded to a strip over an open
   // tech tree instead of covering the research it asks for, and the economy
   // and era cards show only their first message on a phone.
@@ -766,6 +770,17 @@ export const featureFlags = {
    */
   get lossReasonEnabled(): boolean {
     return overrideBool('loss_reason_enabled');
+  },
+
+  /**
+   * Translated pages: the client absorbs the DOM calls React makes on text a
+   * browser's translator replaced, instead of falling to its error screen
+   * (frontend utils/translationDomGuard.ts). Default ON;
+   * `TRANSLATION_DOM_GUARD_ENABLED=false` or the admin override turns it off,
+   * and those calls throw as they always did.
+   */
+  get translationDomGuardEnabled(): boolean {
+    return overrideBool('translation_dom_guard_enabled');
   },
 
   /**
@@ -1451,6 +1466,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     custom_lobby_fold_enabled: featureFlags.customLobbyFoldEnabled,
     custom_round_cap_enabled: featureFlags.customRoundCapEnabled,
     loss_reason_enabled: featureFlags.lossReasonEnabled,
+    translation_dom_guard_enabled: featureFlags.translationDomGuardEnabled,
     // Read by the Custom Game form to say whether a Space Age game can also be
     // won on the Moon (the Lunar Hegemony rides with the Moon Race).
     space_age_moon_race_enabled: featureFlags.spaceAgeMoonRaceEnabled,
