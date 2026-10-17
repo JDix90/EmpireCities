@@ -25,7 +25,7 @@ import { useGameStore, CombatResult, type AiTurnDigest, type GameState as Client
 import { describeAiTurnDigest, digestReportsAction } from '../utils/aiTurnDigest';
 import { useUiStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
-import { useFeatureFlagsStore, useFirstTurnCoachEnabled, useSignupNudgeEnabled, useAsyncOnboardingEnabled, useTurnClarityEnabled, useBackgroundMusicEnabled, useGalaxyTutorialEnabled, useTutorialWrapupToMatchEnabled, useGuestPromptV2Enabled, useResultsFooterEnabled } from '../store/featureFlagsStore';
+import { useFeatureFlagsStore, useFirstTurnCoachEnabled, useSignupNudgeEnabled, useAsyncOnboardingEnabled, useTurnClarityEnabled, useBackgroundMusicEnabled, useGalaxyTutorialEnabled, useTutorialWrapupToMatchEnabled, useGuestPromptV2Enabled, useResultsFooterEnabled, useGameVisibleHeightEnabled } from '../store/featureFlagsStore';
 import { useBackgroundMusic } from '../hooks/useBackgroundMusic';
 import { backgroundMusic, musicBedFor, musicTensionFor, type MusicCadence } from '../audio/backgroundMusic';
 import { canOfferBlitz } from '../utils/blitzEligibility';
@@ -3715,6 +3715,8 @@ export default function GamePage() {
   // `results_footer_enabled`: the results' account box is the ask; Return to
   // Lobby does not repeat it as a blocking nudge.
   const resultsFooterFlag = useResultsFooterEnabled();
+  // The game screen as tall as what the browser shows (game_visible_height_enabled).
+  const visibleHeight = useGameVisibleHeightEnabled();
   const handleGameOverDismiss = () => {
     // Capture the outcome before the modal is sliced off the queue, so the
     // signup nudge can lead with the win when the guest just won.
@@ -4906,7 +4908,7 @@ export default function GamePage() {
 
   return (
     <div
-      className="h-screen bg-bf-dark flex flex-col overflow-hidden"
+      className={clsx(visibleHeight ? 'h-visible' : 'h-screen', 'bg-bf-dark flex flex-col overflow-hidden')}
       data-mobile-layout={isMobileLayout ? 'true' : 'false'}
     >
       {/* Top Bar */}

@@ -244,6 +244,10 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // label appears or disappears (frontend utils/translationDomGuard.ts).
   // On by default; the admin override is the kill switch.
   translation_dom_guard_enabled: () => envOptOut('TRANSLATION_DOM_GUARD_ENABLED'),
+  // Game screen height: the game screen is as tall as what the browser shows
+  // (100dvh) rather than 100vh, which Safari's toolbar can cover the bottom of,
+  // the phone's action bar with it. Dark-launched OFF until checked on an iPhone.
+  game_visible_height_enabled: () => envOptIn('GAME_VISIBLE_HEIGHT_ENABLED'),
   // Phone tutorial: the era-advance card arrives folded to a strip over an open
   // tech tree instead of covering the research it asks for, and the economy
   // and era cards show only their first message on a phone.
@@ -781,6 +785,16 @@ export const featureFlags = {
    */
   get translationDomGuardEnabled(): boolean {
     return overrideBool('translation_dom_guard_enabled');
+  },
+
+  /**
+   * Game screen height: the game page is sized to the visible screen (100dvh)
+   * instead of 100vh, the height with Safari's toolbar hidden, which put the
+   * phone's action bar under the toolbar when it showed. Client-only. Default
+   * OFF; `GAME_VISIBLE_HEIGHT_ENABLED=true` or the admin override turns it on.
+   */
+  get gameVisibleHeightEnabled(): boolean {
+    return overrideBool('game_visible_height_enabled');
   },
 
   /**
@@ -1467,6 +1481,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     custom_round_cap_enabled: featureFlags.customRoundCapEnabled,
     loss_reason_enabled: featureFlags.lossReasonEnabled,
     translation_dom_guard_enabled: featureFlags.translationDomGuardEnabled,
+    game_visible_height_enabled: featureFlags.gameVisibleHeightEnabled,
     // Read by the Custom Game form to say whether a Space Age game can also be
     // won on the Moon (the Lunar Hegemony rides with the Moon Race).
     space_age_moon_race_enabled: featureFlags.spaceAgeMoonRaceEnabled,
