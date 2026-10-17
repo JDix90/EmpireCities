@@ -4,17 +4,10 @@ Tracked enhancements; not all are scheduled. Implement based on product priority
 
 ## AI (`backend/src/game-engine/ai/aiBot.ts`)
 
-- Formalize a single `AIConfig` interface (difficulty, jitter, evaluation weights). The planner is
-  single-ply by design — do not reintroduce a `depth` field unless a tree search actually lands.
-- Unit tests for pure evaluation helpers where feasible.
-
-## Leaderboards
-
-- Leaderboards: Redis sorted sets — confirm keys and write paths match README expectations.
+- `attackObjectiveBonus` has no unit test of its own; every other exported evaluation helper does.
 
 ## Map editor
 
-- Run the same connection validation as `validate:maps` before publish.
 - Optional “test play” mode to detect isolated territories or broken `region_id` coverage.
 
 ## Rate limiting
