@@ -18,6 +18,7 @@ import {
   getEventVolume,
   getAcquisitionBySource,
   getAnalyticsReport,
+  getGuestAccountMetrics,
   parseFunnelDevice,
 } from './analyticsQueries';
 
@@ -297,7 +298,9 @@ describe('analyticsQueries', () => {
       .mockResolvedValueOnce([{ started: 4, finished: 3, won: 2, next_day_cohort: 2, next_day: 1 }])
       .mockResolvedValueOnce([
         { mode: 'other', level_rank: 3, started: 2, finished: 1, won: 1, abandoned: 1, running: 0, capped: 1, surrendered: 0, median_rounds: 60 },
-      ]);
+      ])
+      .mockResolvedValueOnce([{ saved: 2, saved_with_password: 1, saved_email_only: 1, links_sent: 1, link_signins: 1 }])
+      .mockResolvedValueOnce([{ used_personal_cohort: 2, used_personal_saved: 1, other_guest_cohort: 3, other_guest_saved: 1 }]);
     queryOneMock.mockResolvedValueOnce({ total: 42 });
 
     const r = await getAnalyticsReport(30);
@@ -338,5 +341,45 @@ describe('analyticsQueries', () => {
       },
     ]);
     expect(r.volume).toEqual([{ event: 'game_finished', n: 1 }]);
+    expect(r.guest_accounts).toMatchObject({
+      saved: 2, saved_with_password: 1, saved_email_only: 1, links_sent: 1, link_signins: 1, links_not_sent: 0,
+      used_personal_cohort: 2, used_personal_saved: 1, other_guest_cohort: 3, other_guest_saved: 1,
+    });
+  });
+
+  it('getGuestAccountMetrics counts saves, sign-in links and guests using their things in the window', async () => {
+    queryMock
+      .mockResolvedValueOnce([{
+        saved: '5', saved_with_password: 2, saved_email_only: 3, links_sent: 4, links_not_sent: 1,
+        link_requests_no_account: 2, link_signins: 3, link_failures: 1, guests_viewed_achievements: 6, guests_equipped: 2,
+      }])
+      .mockResolvedValueOnce([{ used_personal_cohort: 6, used_personal_saved: 3, other_guest_cohort: 10, other_guest_saved: 1 }]);
+
+    const m = await getGuestAccountMetrics(7);
+
+    expect(m).toEqual({
+      saved: 5, saved_with_password: 2, saved_email_only: 3, links_sent: 4, links_not_sent: 1,
+      link_requests_no_account: 2, link_signins: 3, link_failures: 1, guests_viewed_achievements: 6, guests_equipped: 2,
+      used_personal_cohort: 6, used_personal_saved: 3, other_guest_cohort: 10, other_guest_saved: 1,
+    });
+    const [counts, countParams] = queryMock.mock.calls[0] as [string, unknown[]];
+    const [split, splitParams] = queryMock.mock.calls[1] as [string, unknown[]];
+    expect(countParams).toEqual([7]);
+    expect(splitParams).toEqual([7]);
+    // The events the guest-account changes record, read the way they are written.
+    expect(counts).toContain("event = 'guest_upgraded' AND properties->>'with_password' = 'true'");
+    expect(counts).toContain("event = 'sign_in_link_requested' AND properties->>'matched' = 'false'");
+    expect(counts).toContain("event = 'user_login' AND properties->>'method' = 'email_link'");
+    expect(counts).toContain("event = 'cosmetic_equipped' AND properties->>'is_guest' = 'true'");
+    // Left-out accounts (admins, testers) count nowhere, as in every other section.
+    expect(counts).toContain('NOT EXISTS (SELECT 1 FROM users sx_eu');
+    expect(split).toContain("e.event IN ('achievements_viewed', 'cosmetic_equipped')");
+    expect(split).toContain("e.event = 'guest_upgraded'");
+  });
+
+  it('getGuestAccountMetrics reads an empty window as zeros', async () => {
+    queryMock.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    const m = await getGuestAccountMetrics(30);
+    expect(Object.values(m).every((n) => n === 0)).toBe(true);
   });
 });

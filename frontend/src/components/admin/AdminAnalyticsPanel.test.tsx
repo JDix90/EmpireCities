@@ -78,6 +78,39 @@ describe('AdminAnalyticsPanel', () => {
     expect(screen.getByText('75%')).toBeTruthy();
   });
 
+  it('shows guest accounts once anything has happened, and nothing for an older backend', () => {
+    const quiet = {
+      saved: 0, saved_with_password: 0, saved_email_only: 0, links_sent: 0, links_not_sent: 0,
+      link_requests_no_account: 0, link_signins: 0, link_failures: 0, guests_viewed_achievements: 0, guests_equipped: 0,
+      used_personal_cohort: 0, used_personal_saved: 0, other_guest_cohort: 0, other_guest_saved: 0,
+    };
+    const { unmount } = render(<AdminAnalyticsPanel data={report} />);
+    expect(screen.queryByText('Guest accounts')).toBeNull();
+    unmount();
+    const { unmount: unmountQuiet } = render(<AdminAnalyticsPanel data={{ ...report, guest_accounts: quiet }} />);
+    expect(screen.queryByText('Guest accounts')).toBeNull();
+    unmountQuiet();
+    render(
+      <AdminAnalyticsPanel
+        data={{
+          ...report,
+          guest_accounts: {
+            ...quiet,
+            saved: 9, saved_with_password: 3, saved_email_only: 6,
+            links_sent: 8, links_not_sent: 1, link_signins: 6, link_failures: 2,
+            guests_viewed_achievements: 20, guests_equipped: 5,
+            used_personal_cohort: 20, used_personal_saved: 5, other_guest_cohort: 80, other_guest_saved: 4,
+          },
+        }}
+      />,
+    );
+    expect(screen.getByText('Guest accounts')).toBeTruthy();
+    expect(screen.getByText('3 with a password · 6 just an email')).toBeTruthy();
+    expect(screen.getByText('6/8 sent · 1 not sent · 2 refused')).toBeTruthy();
+    expect(screen.getByText('looked at achievements · 5 wore a cosmetic')).toBeTruthy();
+    expect(screen.getByText('5/20 · 5% of the rest')).toBeTruthy();
+  });
+
   it('shows solo games by bot level when the backend sends any, and nothing otherwise', () => {
     const noCaptures = { bot_captures: 0, bot_captures_from_human: 0, bot_captures_from_leader: 0, bot_captures_from_weakest: 0 };
     const { unmount } = render(<AdminAnalyticsPanel data={{ ...report, solo_by_level: [] }} />);

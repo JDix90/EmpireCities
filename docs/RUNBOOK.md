@@ -126,6 +126,15 @@ On by default (`analytics_events_enabled`): events such as `daily_challenge_sett
 
 Cohorts only accrue while this is on, so turning it off blinds every later funnel/retention readout for that window — prefer leaving it on. Read the funnel with `pnpm -C backend exec tsx scripts/funnelReport.ts 30` or Admin → Analytics. To disable for one deployment, set `ANALYTICS_EVENTS_ENABLED=false`; to kill it live, force the flag off in Admin → Config.
 
+Both show a **Guest accounts** section, read from these events:
+- `guest_upgraded`, with `with_password`.
+- `sign_in_link_requested`, with `matched` and `emailed`. The event carries no address; a request that found no account carries no user either.
+- `sign_in_link_failed`, with `reason`.
+- `user_login`, with `method: 'email_link'`.
+- `achievements_viewed` and `cosmetic_equipped`, each with `is_guest`.
+
+Links sent against links used is the first sign that sign-in emails are not arriving.
+
 ## Incident checklist
 
 1. Check Sentry / logs for `game_id` or `reqId`.
