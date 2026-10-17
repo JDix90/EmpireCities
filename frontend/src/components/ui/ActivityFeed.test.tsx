@@ -1,7 +1,8 @@
 /**
- * Friend activity names the achievements a friend unlocked. The game end
- * records their ids, and the feed read a `name` field nobody wrote, so every
- * unlock read `Unlocked "achievement"`.
+ * Friend activity names the achievements a friend unlocked and the era of a
+ * win. The game end records ids (`achievements`, `era_id`), and the feed read
+ * `name` and `era`, fields nobody wrote: every unlock read `Unlocked
+ * "achievement"` and every win a bare "Won a game".
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -13,8 +14,8 @@ vi.mock('../../services/api', () => ({ api: { get } }));
 import ActivityFeed from './ActivityFeed';
 import { resetAchievementNamesForTests } from '../../utils/achievementNames';
 
-const event = (id: string, event_data: Record<string, unknown>) => ({
-  id, user_id: 'u1', username: 'Ada', event_type: 'achievement_unlocked', event_data, created_at: new Date().toISOString(),
+const event = (id: string, event_data: Record<string, unknown>, event_type = 'achievement_unlocked') => ({
+  id, user_id: 'u1', username: 'Ada', event_type, event_data, created_at: new Date().toISOString(),
 });
 
 describe('ActivityFeed', () => {
@@ -43,5 +44,21 @@ describe('ActivityFeed', () => {
     render(<MemoryRouter><ActivityFeed /></MemoryRouter>);
     expect(await screen.findByText('Unlocked "First Steps", "Unstoppable" and "First Blood"')).toBeTruthy();
     expect(screen.getByText('Unlocked "Unstoppable"')).toBeTruthy();
+  });
+
+  it('names the era of a win, as the game end records it', async () => {
+    get.mockImplementation(async (url: string) => (url === '/feed'
+      ? {
+          data: {
+            activities: [
+              event('w1', { game_id: 'g1', era_id: 'medieval', username: 'Ada', turn_count: 12 }, 'game_won'),
+              event('w2', { game_id: 'g2', era_id: '', username: 'Ada', turn_count: 9 }, 'game_won'),
+            ],
+          },
+        }
+      : { data: [] }));
+    render(<MemoryRouter><ActivityFeed /></MemoryRouter>);
+    expect(await screen.findByText('Won a game (Medieval Era)')).toBeTruthy();
+    expect(screen.getByText('Won a game')).toBeTruthy();
   });
 });
