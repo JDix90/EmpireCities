@@ -1,6 +1,7 @@
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import reactHooks from 'eslint-plugin-react-hooks';
+import noConditionalElementBeforeText from './frontend/eslint-rules/no-conditional-element-before-text.mjs';
 
 /**
  * Incremental adoption: legacy hotspots are ignored until refactored (see 90-day roadmap).
@@ -44,6 +45,20 @@ export default tseslint.config(
     files: ['frontend/**/*.{ts,tsx}'],
     rules: {
       'react-hooks/rules-of-hooks': 'error',
+    },
+  },
+  {
+    // A page the browser has translated has had its text nodes swapped out, so
+    // React mounting an element in front of one crashes the app (NotFoundError
+    // on insertBefore). Wrap the text in a <span>. See the rule's header.
+    files: ['frontend/src/**/*.tsx'],
+    // Tests reproduce the crash on purpose (GamePanelBoundary.test.tsx).
+    ignores: ['frontend/src/**/*.test.tsx'],
+    plugins: {
+      borderfall: { rules: { 'no-conditional-element-before-text': noConditionalElementBeforeText } },
+    },
+    rules: {
+      'borderfall/no-conditional-element-before-text': 'error',
     },
   },
   {

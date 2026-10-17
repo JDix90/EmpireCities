@@ -347,7 +347,7 @@ export default function DailyChallengePage() {
                 my_entry!.won ? 'bg-green-900/40 text-green-400 border border-green-500/30' : 'bg-red-900/40 text-red-400 border border-red-500/30'
               }`}>
                 {my_entry!.won ? <Trophy className="w-4 h-4" /> : <Sword className="w-4 h-4" />}
-                {my_entry!.won ? 'Victory' : 'Defeated'}
+                <span>{my_entry!.won ? 'Victory' : 'Defeated'}</span>
               </div>
             )}
           </div>
