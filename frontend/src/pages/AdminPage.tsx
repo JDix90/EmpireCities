@@ -534,6 +534,12 @@ const CLIENT_FEATURE_FLAGS = [
       'When a player has their browser translate the page (Edge, Chrome, the Google Translate extension), the translator swaps the page\u2019s words for its own, and React, which still expects the old ones, crashed whenever a label appeared or disappeared or an icon was swapped in front of one: the page fell to its error screen. With this on, the page carries on instead. A label the translator already replaced may stay on screen until that part of the page is drawn again. The first time in a page load it happens is reported to Sentry. On by default; this is its kill switch, and off the page crashes as before.',
   },
   {
+    key: 'game_visible_height_enabled',
+    label: 'Game screen fits the visible screen',
+    description:
+      'The game screen is as tall as what the browser actually shows. It was sized to the screen with Safari\u2019s toolbar hidden, so on an iPhone with the toolbar showing, the bottom of the game, the phone\u2019s bar with the phase, the button that ends it and the game menu, could sit under the toolbar. Browsers that can\u2019t measure the visible height keep the old size. Off by default (dark launch) until it has been checked on an iPhone; off is the game screen exactly as before.',
+  },
+  {
     key: 'store_v2_enabled',
     label: 'Store overhaul',
     description:

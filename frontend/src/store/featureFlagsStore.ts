@@ -56,6 +56,7 @@ export interface ClientFeatureFlags {
   custom_round_cap_enabled: boolean;
   loss_reason_enabled: boolean;
   translation_dom_guard_enabled: boolean;
+  game_visible_height_enabled: boolean;
 }
 
 /**
@@ -170,6 +171,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   loss_reason_enabled: true,
   // A page the browser translated doesn't crash (utils/translationDomGuard.ts). On by default; admin kill switch.
   translation_dom_guard_enabled: true,
+  // The game screen is as tall as what the browser shows (100dvh). Dark-launched OFF.
+  game_visible_height_enabled: false,
   // The Space Age Moon Race, Lunar Hegemony included. On by default; admin kill switch.
   space_age_moon_race_enabled: true,
 };
@@ -261,6 +264,11 @@ export function useSaveAccountCopyEnabled(): boolean {
 /** Results: Rematch and Return to Lobby pinned in a footer, and no signup nudge after the results offered saving (components/game/ActionModal.tsx, pages/GamePage.tsx). */
 export function useResultsFooterEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.results_footer_enabled);
+}
+
+/** The game screen sized to the visible screen, not 100vh (pages/GamePage.tsx, `.h-visible` in index.css). */
+export function useGameVisibleHeightEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.game_visible_height_enabled);
 }
 
 /** Ranked ladder surfaces: the Ranked leaderboard tab + lobby Top Commanders. */
