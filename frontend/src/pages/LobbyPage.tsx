@@ -2145,6 +2145,12 @@ export default function LobbyPage() {
               {(user?.daily_streak ?? 0) > 0 && <StreakBadge type="daily" count={user!.daily_streak!} />}
             </div>
           </div>
+          {/* On a phone, Quick Match (with its options chevron) and Full Game Start
+              each take a row, and Custom Game and Watch share one (Custom Game has
+              it to itself while Watch is off). In two columns
+              Full Game Start wrapped to three lines, and at 320px the chevron
+              overflowed its cell under Full Game Start, so a tap on it started a
+              Full Game. From sm up the buttons sit in one wrapping row as before. */}
           <div className="relative grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3">
             {eraAdvancementLobbyEnabled && (
               <button
@@ -2153,7 +2159,7 @@ export default function LobbyPage() {
                 title="Ancient era + Era Advancement, economy, tech, naval & events — the complete game. Choose your opponents in the next step."
                 className={clsx(
                   quickMatchLeads ? 'btn-secondary' : 'btn-primary',
-                  'flex flex-col items-center justify-center gap-0.5 leading-tight sm:flex-none',
+                  'col-span-2 flex flex-col items-center justify-center gap-0.5 leading-tight sm:flex-none',
                 )}
               >
                 <span className="flex items-center gap-2 font-semibold">
@@ -2165,7 +2171,7 @@ export default function LobbyPage() {
                 </span>
               </button>
             )}
-            <div ref={quickOptionsRef} className={clsx('sm:relative flex sm:flex-none', quickMatchLeads && 'order-first')}>
+            <div ref={quickOptionsRef} className={clsx('col-span-2 sm:relative flex sm:flex-none', quickMatchLeads && 'order-first')}>
               <button
                 onClick={() => void startQuickMatch()}
                 disabled={quickSoloLoading}
@@ -2210,7 +2216,10 @@ export default function LobbyPage() {
             </div>
             <button
               onClick={() => setShowCreate(true)}
-              className="btn-secondary flex flex-col items-center justify-center gap-0.5 leading-tight sm:flex-none"
+              className={clsx(
+                'btn-secondary flex flex-col items-center justify-center gap-0.5 leading-tight sm:flex-none',
+                !spectateEnabled && 'col-span-2',
+              )}
               aria-haspopup="dialog"
               aria-controls="create-game-modal"
             >
