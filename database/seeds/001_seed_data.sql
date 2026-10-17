@@ -5,20 +5,20 @@
 -- ACHIEVEMENTS
 -- ============================================================
 INSERT INTO achievements (achievement_id, name, description, xp_reward) VALUES
-  ('first_blood',       'First Blood',          'Win your very first game.',                                   200),
+  ('first_blood',       'First Blood',          'Win a game for the first time.',                              200),
   ('conqueror',         'Conqueror',             'Control all territories on the map.',                         500),
-  ('diplomat',          'Diplomat',              'Establish a truce with every other player in a single game.', 150),
+  ('diplomat',          'Diplomat',              'Establish a truce with every other human player in a single game.', 150),
   ('card_shark',        'Card Shark',            'Redeem 5 card sets in a single game.',                        250),
   ('blitzkrieg',        'Blitzkrieg',            'Capture 10 or more territories in a single turn.',            300),
-  ('ancient_master',    'Ancient Master',        'Win a game on the Ancient World map.',                        400),
-  ('medieval_lord',     'Medieval Lord',         'Win a game on the Medieval Era map.',                         400),
-  ('age_of_sail',       'Age of Sail',           'Win a game on the Age of Discovery map.',                     400),
-  ('iron_cross',        'Iron Cross',            'Win a game on the World War II map.',                         400),
-  ('cold_warrior',      'Cold Warrior',          'Win a game on the Cold War map.',                             400),
+  ('ancient_master',    'Ancient Master',        'Win a game with Ancient World rules.',                        400),
+  ('medieval_lord',     'Medieval Lord',         'Win a game with Medieval Era rules.',                         400),
+  ('age_of_sail',       'Age of Sail',           'Win a game with Age of Discovery rules.',                     400),
+  ('iron_cross',        'Iron Cross',            'Win a game with World War II rules.',                         400),
+  ('cold_warrior',      'Cold Warrior',          'Win a game with Cold War rules.',                             400),
   ('map_maker',         'Map Maker',             'Publish your first custom map.',                              300),
   ('popular_creator',   'Popular Creator',       'Have your custom map played 100 times.',                      500),
   ('veteran',           'Veteran',               'Complete 50 games.',                                          600),
-  ('strategist',        'Grand Strategist',      'Reach MMR 1500 in any era.',                                  750),
+  ('strategist',        'Grand Strategist',      'Reach a ranked rating of 1700.',                              750),
   ('fog_master',        'Ghost in the Fog',      'Win a game with Fog of War enabled.',                         350),
   ('tutorial_complete', 'First Steps',           'Complete the interactive tutorial.',                            100)
 ON CONFLICT (achievement_id) DO NOTHING;

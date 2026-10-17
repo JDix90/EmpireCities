@@ -9,6 +9,7 @@ import { resolveCombat } from './combatResolver';
 import { applyDefenderPostCombatReactions, consumeDefenderPreCombatCharges } from './defenderReactions';
 import { eliminatePlayer } from '../state/elimination';
 import { isShieldedFrom } from '../state/teams';
+import { noteTerritoryLost } from '../achievements/achievementTally';
 
 type ConsumedAttackBuffs = ReturnType<typeof consumeAttackBuffs>;
 type ConsumedDefenderCharges = ReturnType<typeof consumeDefenderPreCombatCharges>;
@@ -214,6 +215,7 @@ export function executeLandAttack(
 
   let defenderEliminated = false;
   if (result.territory_captured) {
+    noteTerritoryLost(state, defenderId);
     to.owner_id = attackerId;
     // At least one unit always garrisons what it took.
     //

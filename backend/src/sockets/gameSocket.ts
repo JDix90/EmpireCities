@@ -113,8 +113,9 @@ import { seatCommanders, styledLevel } from '../game-engine/ai/aiStyles';
 import { resignSeat } from '../game-engine/state/resignation';
 import { acceptSurrender, surrenderOffered } from '../game-engine/victory/surrender';
 import { aiProfile, gameAiDifficulty, keepsTodaysBots, seatAiDifficulty } from '../game-engine/ai/aiProfiles';
-import { recordGameResults, computeRanks, redactGuestRatings } from '../game-engine/state/statsManager';
+import { recordGameResults, computeRanks, redactGuestRatings, resolveRatingType } from '../game-engine/state/statsManager';
 import { checkAndUnlockAchievements, grantAchievementsOutsideGame } from '../game-engine/achievements/achievementService';
+import { noteCapture, noteTerritoryLost } from '../game-engine/achievements/achievementTally';
 import { pgPool } from '../db/postgres';
 import { getInitialRatings } from '../game-engine/rating/ratingService';
 import {
@@ -2111,12 +2112,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       if (result.territory_captured) {
         // Track for blitzkrieg achievement
         const capturingPlayer = state.players.find((p) => p.player_id === userId);
-        if (capturingPlayer) {
-          capturingPlayer.territories_captured_this_turn = (capturingPlayer.territories_captured_this_turn ?? 0) + 1;
-          if ((capturingPlayer.territories_captured_this_turn) > (capturingPlayer.territories_captured_turn_max ?? 0)) {
-            capturingPlayer.territories_captured_turn_max = capturingPlayer.territories_captured_this_turn;
-          }
-        }
+        if (capturingPlayer) noteCapture(capturingPlayer);
 
         // Blitzkrieg: a capture arms one bonus attack from the same source territory.
         if (state.blitzkrieg_active && (state.blitzkrieg_bonus_attacks_remaining ?? 0) > 0) {
@@ -2439,12 +2435,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
       let defenderEliminated = false;
       if (blitz.captured) {
         const capturingPlayer = state.players.find((p) => p.player_id === userId);
-        if (capturingPlayer) {
-          capturingPlayer.territories_captured_this_turn = (capturingPlayer.territories_captured_this_turn ?? 0) + 1;
-          if ((capturingPlayer.territories_captured_this_turn) > (capturingPlayer.territories_captured_turn_max ?? 0)) {
-            capturingPlayer.territories_captured_turn_max = capturingPlayer.territories_captured_this_turn;
-          }
-        }
+        if (capturingPlayer) noteCapture(capturingPlayer);
         if (lastExchange.defenderEliminated) {
           defenderEliminated = true;
           const eliminatedPlayer = state.players.find((p) => p.player_id === defenderId);
@@ -3430,6 +3421,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
       const previousOwner = target.owner_id;
       const influenceProbBefore = captureProbBefore(state, userId);
       breakTruceAndAlert(io, state, currentPlayer, previousOwner);
+      noteTerritoryLost(state, previousOwner);
+      noteCapture(currentPlayer);
       target.owner_id = userId;
       target.unit_count = 1;
       if (isGaribaldiUse) {
@@ -4992,6 +4985,7 @@ function landPendingDropAssaults(
 
   const resolutions = resolveDropAssaultsFor(state, map, player.player_id, {
     onCapture: (s, pid) => {
+      noteCapture(player);
       // One card per turn, same rule the ordinary attack path applies.
       if (!player.card_earned_this_turn) {
         drawCard(s, pid);
@@ -5569,16 +5563,21 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
     const client = await pgPool.connect();
     try {
       await client.query('BEGIN');
+      // The row recordGameResults just wrote: ratings after this game (a
+      // ranked Era Advancement game rates its own ladder).
       const ratingRows = (await client.query<{ user_id: string; mu: number; phi: number }>(
         `SELECT user_id, mu, phi FROM user_ratings
          WHERE user_id = ANY($1) AND rating_type = $2`,
-        [humanPlayers.map((p) => p.player_id), resultCtx.isRanked ? 'ranked' : 'solo'],
+        [
+          humanPlayers.map((p) => p.player_id),
+          resolveRatingType(resultCtx.isRanked, !!state.settings.era_advancement_enabled),
+        ],
       )).rows;
       const ratingMap = new Map(ratingRows.map((r) => [r.user_id, { mu: r.mu, phi: r.phi }]));
       const initialRatings = getInitialRatings();
-      const avgMu = ratingRows.length > 0
-        ? ratingRows.reduce((s, r) => s + r.mu, 0) / ratingRows.length
-        : initialRatings.mu;
+      const muAfter = (id: string) => ratingMap.get(id)?.mu ?? initialRatings.mu;
+      // As the game began: the rating after it, less what it changed.
+      const muBefore = (id: string) => muAfter(id) - (resultCtx.ratingDeltas.get(id) ?? 0);
 
       const gameRow = await client.query<{ game_type: string; is_ranked: boolean }>(
         'SELECT game_type, COALESCE(is_ranked, false) AS is_ranked FROM games WHERE game_id = $1',
@@ -5587,7 +5586,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
       const gameType = (gameRow.rows[0]?.game_type ?? 'solo') as 'solo' | 'multiplayer' | 'hybrid';
 
       for (const p of humanPlayers) {
-        const myRating = ratingMap.get(p.player_id) ?? { mu: initialRatings.mu, phi: initialRatings.phi };
+        const opponentsBefore = humanPlayers.filter((o) => o.player_id !== p.player_id).map((o) => muBefore(o.player_id));
         // Each player's unlocks stand alone: a failure rolls back that
         // player's, not those of everyone else in the game.
         await client.query('SAVEPOINT player_achievements');
@@ -5601,8 +5600,9 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
             totalPlayers: state.players.length,
             gameType,
             isRanked: resultCtx.isRanked,
-            playerMu: myRating.mu,
-            opponentAvgMu: avgMu,
+            playerMu: muAfter(p.player_id),
+            playerMuBefore: muBefore(p.player_id),
+            strongestOpponentMuBefore: opponentsBefore.length > 0 ? Math.max(...opponentsBefore) : -Infinity,
           });
           await client.query('RELEASE SAVEPOINT player_achievements');
           if (unlocked.length > 0) {

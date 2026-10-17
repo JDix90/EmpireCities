@@ -9,8 +9,10 @@
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import type { PoolClient } from 'pg';
-import type { GameState } from '../../types';
-import { checkAndUnlockAchievements, grantAchievements, grantAchievementsOutsideGame } from './achievementService';
+import type { GameState, PlayerState } from '../../types';
+import {
+  checkAndUnlockAchievements, grantAchievements, grantAchievementsOutsideGame, type AchievementContext,
+} from './achievementService';
 
 const transaction = vi.hoisted(() => vi.fn());
 vi.mock('../../db/postgres', () => ({ withTransaction: transaction, pgPool: {} }));
@@ -59,10 +61,19 @@ function wonGame(tutorial: boolean): GameState {
   } as unknown as GameState;
 }
 
-const ctx = (gameState: GameState, over: Partial<{ rank: number; isRanked: boolean; playerMu: number }> = {}) => ({
+const ctx = (gameState: GameState, over: Partial<AchievementContext> = {}): AchievementContext => ({
   userId: 'me', gameId: 'g1', gameState, winnerId: 'me', rank: 1, totalPlayers: 2,
-  gameType: 'solo' as const, isRanked: false, playerMu: 1500, opponentAvgMu: 1100, ...over,
+  gameType: 'solo', isRanked: false, playerMu: 1500, playerMuBefore: 1500, strongestOpponentMuBefore: -Infinity,
+  ...over,
 });
+
+/** `wonGame(false)` with the player's tallies and the turn set. */
+function realWin(me: Partial<PlayerState>, turn = 4): GameState {
+  const state = wonGame(false);
+  state.turn_number = turn;
+  Object.assign(state.players[0], me);
+  return state;
+}
 
 describe('checkAndUnlockAchievements', () => {
   it('grants the win achievements for a real first win', async () => {
@@ -115,6 +126,49 @@ describe('checkAndUnlockAchievements', () => {
     expect(await at(49, 1800)).toContain('ranked_warlord');
     expect(await at(49, 1799)).not.toContain('ranked_warlord');
     expect(await at(48, 1900)).not.toContain('ranked_warlord');
+  });
+
+  it('grants Comeback King to a winner who held the fewest territories at some point', async () => {
+    const at = async (held: boolean | undefined, rank = 1) =>
+      checkAndUnlockAchievements(fakeClient().client, ctx(realWin({ held_fewest_territories: held }), { rank }));
+    expect(await at(true)).toContain('comeback_king');
+    expect(await at(true, 2)).not.toContain('comeback_king');
+    // Never behind on land: no comeback, however the armies stood.
+    expect(await at(undefined)).not.toContain('comeback_king');
+  });
+
+  it('grants Perfect Defense for a win that lost no territory after turn 3', async () => {
+    const at = async (lost: number | undefined, turn = 4) =>
+      checkAndUnlockAchievements(fakeClient().client, ctx(realWin({ territories_lost_after_turn_3: lost }, turn)));
+    expect(await at(0)).toContain('perfect_defense');
+    expect(await at(1)).not.toContain('perfect_defense');
+    // A game over by turn 3 has no "after turn 3" to defend.
+    expect(await at(0, 3)).not.toContain('perfect_defense');
+    // A game that began before losses were counted.
+    expect(await at(undefined)).not.toContain('perfect_defense');
+  });
+
+  it('grants Underdog Victory for a ranked win over an opponent rated 200+ above you as the game began', async () => {
+    const at = async (over: Partial<AchievementContext>) =>
+      checkAndUnlockAchievements(fakeClient().client, ctx(wonGame(false), {
+        isRanked: true, playerMuBefore: 1500, playerMu: 1560, strongestOpponentMuBefore: 1700, ...over,
+      }));
+    // The win closes the gap to 140 here; it is the gap before the game that counts.
+    expect(await at({})).toContain('underdog');
+    expect(await at({ strongestOpponentMuBefore: 1699 })).not.toContain('underdog');
+    expect(await at({ isRanked: false })).not.toContain('underdog');
+    expect(await at({ rank: 2 })).not.toContain('underdog');
+  });
+
+  it('grants Grand Strategist at a ranked rating of 1700, not at the 1500 every player starts on', async () => {
+    const at = async (over: Partial<AchievementContext>) =>
+      checkAndUnlockAchievements(fakeClient().client, ctx(wonGame(false), { isRanked: true, ...over }));
+    expect(await at({ playerMu: 1500 })).not.toContain('strategist');
+    expect(await at({ playerMu: 1699 })).not.toContain('strategist');
+    expect(await at({ playerMu: 1700 })).toContain('strategist');
+    // The rating is reached whether this game was won or lost; a casual game has none.
+    expect(await at({ playerMu: 1750, rank: 2 })).toContain('strategist');
+    expect(await at({ playerMu: 1800, isRanked: false })).not.toContain('strategist');
   });
 });
 

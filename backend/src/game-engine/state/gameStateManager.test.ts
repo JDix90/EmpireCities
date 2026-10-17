@@ -184,6 +184,43 @@ describe('advancePhaseOnTimeout', () => {
   });
 });
 
+// ── achievement tallies (achievements/achievementTally.ts) ───────────────────
+
+describe('the achievement tallies', () => {
+  it('start counting Perfect Defense losses when a game begins', () => {
+    const map: GameMap = {
+      map_id: 'tally_map',
+      name: 'Tally Map',
+      territories: ['t1', 't2', 't3', 't4'].map((id) => ({
+        territory_id: id, name: id, polygon: [], center_point: [0, 0], region_id: 'r',
+      })),
+      connections: [{ from: 't1', to: 't2', type: 'land' }, { from: 't2', to: 't3', type: 'land' }, { from: 't3', to: 't4', type: 'land' }],
+      regions: [{ region_id: 'r', name: 'R', bonus: 2 }],
+    };
+    const state = initializeGameState(
+      'tally-start',
+      'ancient',
+      map,
+      [
+        { player_id: 'p1', player_index: 0, username: 'A', color: '#f00', is_ai: false, is_eliminated: false, mmr: 1000 },
+        { player_id: 'p2', player_index: 1, username: 'B', color: '#00f', is_ai: true, is_eliminated: false, mmr: 1000 },
+      ],
+      makeSettings(),
+    );
+    expect(state.players.map((p) => p.territories_lost_after_turn_3)).toEqual([0, 0]);
+  });
+
+  it('mark who holds the fewest territories at a hand-off from turn 2 on (Comeback King)', () => {
+    // p1 holds two territories, p2 one.
+    const first = makeState({ phase: 'fortify', turn_number: 1 });
+    advanceToNextPlayer(first);
+    expect(first.players[1].held_fewest_territories).toBeUndefined();
+    const second = makeState({ phase: 'fortify', turn_number: 2 });
+    advanceToNextPlayer(second);
+    expect(second.players.map((p) => p.held_fewest_territories)).toEqual([undefined, true]);
+  });
+});
+
 // ── redeemCardSet phase guard ────────────────────────────────────────────────
 
 describe('redeemCardSet', () => {

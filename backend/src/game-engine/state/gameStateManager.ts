@@ -68,6 +68,7 @@ import { territoryUnlockEra, seedsFullBoardAtStart, seedStandaloneFrontierTerrit
 import { ensureEraKeyedEcho } from '../eraAdvancement/techEcho';
 import { migrateAdvancedFactions } from '../eras/factionLineage';
 import { eraModifiersFor } from './eraModifiers';
+import { noteFewestTerritories } from '../achievements/achievementTally';
 
 /** True when first-player seat should be randomized (normal multiplayer/solo/ranked). */
 export function shouldRandomizeStartingPlayer(settings: GameSettings): boolean {
@@ -474,6 +475,8 @@ export function initializeGameState(
     last_turn_production_income: settingsNorm.era_advancement_enabled ? 0 : undefined,
     era_advancement_tech_echo: settingsNorm.era_advancement_enabled ? {} : undefined,
     era_signature_charges: settingsNorm.era_advancement_enabled ? {} : undefined,
+    // Perfect Defense counts losses from turn 4 (achievements/achievementTally.ts).
+    territories_lost_after_turn_3: 0,
   }));
 
   // Initialize buildings array on territories when economy is enabled
@@ -1197,6 +1200,7 @@ function passTurn(state: GameState, map?: GameMap): void {
   floorSchismDraft(state);
 
   appendWinProbabilitySnapshot(state);
+  noteFewestTerritories(state);
 
   // Collect production income and tech point income for the next player
   if (state.settings.economy_enabled) {

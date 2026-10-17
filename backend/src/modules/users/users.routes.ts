@@ -4,12 +4,12 @@ import { z } from 'zod';
 import { authenticate } from '../../middleware/authenticate';
 import { rejectGuest, rejectGuestUnless } from '../../middleware/rejectGuest';
 import { featureFlags } from '../../config/featureFlags';
-import { query, queryOne, withTransaction } from '../../db/postgres';
+import { pgPool, query, queryOne, withTransaction } from '../../db/postgres';
 import { checkOnboardingQuests } from '../../game-engine/progression/progressionService';
 import { effectiveLoadout, loadoutColumns, type Loadout, type LoadoutRow } from './loadout';
 import { andNotTutorialSql } from '../../game-engine/tutorial/tutorialGames';
 import { isTutorialLessonModule } from '../../game-engine/tutorial/tutorialModules';
-import { grantAchievementsOutsideGame } from '../../game-engine/achievements/achievementService';
+import { currentWinStreak, grantAchievementsOutsideGame } from '../../game-engine/achievements/achievementService';
 import { formatZodError } from '../../utils/formatZodError';
 import { verifyUnsubscribeToken } from '../../utils/unsubscribeToken';
 import { recordServerEvent } from '../../services/analyticsEvents';
@@ -463,7 +463,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   // ── GET /api/users/me/achievements/progress ────────────────────────────
   fastify.get('/me/achievements/progress', { preHandler: [authenticate, rejectGuestUnlessPersonal] }, async (request, reply) => {
     const userId = request.userId as string;
-    const [gamesRow, userRow] = await Promise.all([
+    const [gamesRow, winStreak] = await Promise.all([
       // Count completed games only, matching the "Games Played" stat and the
       // Veteran achievement unlock logic so progress never disagrees with them.
       // Tutorials are excluded for the same reason they are there.
@@ -475,12 +475,10 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
            ${andNotTutorialSql()}`,
         [userId],
       ),
-      queryOne<{ win_streak: number }>(
-        `SELECT COALESCE(win_streak, 0) AS win_streak FROM users WHERE user_id = $1`, [userId],
-      ),
+      // The streak the unlock checks (achievementService), so a full bar is an unlock.
+      currentWinStreak(pgPool, userId),
     ]);
     const gamesPlayed = Number(gamesRow[0]?.count ?? 0);
-    const winStreak = userRow?.win_streak ?? 0;
     return reply.send({
       veteran:         { current: gamesPlayed, target: 50 },
       ten_streak:      { current: winStreak,   target: 10 },
