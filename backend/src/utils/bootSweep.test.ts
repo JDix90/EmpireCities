@@ -23,7 +23,7 @@ describe('the boot sweeps', () => {
   it('wait two minutes, then go one at a time, thirty seconds apart, the orphaned-game sweep last', () => {
     expect(BOOT_SWEEP_DELAY_MS).toBe(120_000);
     expect(BOOT_SWEEP_STAGGER_MS).toBe(30_000);
-    expect(BOOT_SWEEPS.map(bootSweepDelayMs)).toEqual([120_000, 150_000, 180_000, 210_000, 240_000]);
+    expect(BOOT_SWEEPS.map(bootSweepDelayMs)).toEqual([120_000, 150_000, 180_000, 210_000, 240_000, 270_000]);
     expect(BOOT_SWEEPS[BOOT_SWEEPS.length - 1]).toBe('orphaned-games');
   });
 });

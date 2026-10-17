@@ -53,6 +53,7 @@ import { startIndexNowDailySweep, stopIndexNowDailySweep } from './services/inde
 import { startOrphanedGameSweep, stopOrphanedGameSweep } from './modules/games/gameCleanupService';
 import { seatsPerFaction } from './modules/games/lobbyCapacity';
 import { startGuestCleanupSweep, stopGuestCleanupSweep } from './modules/users/guestCleanupService';
+import { startTokenCleanupSweep, stopTokenCleanupSweep } from './modules/auth/tokenCleanupService';
 import { initSentry, captureException } from './services/sentry';
 import { refreshAdminConfigCache, startAdminConfigSubscriber, stopAdminConfigSubscriber } from './services/adminConfig';
 
@@ -522,6 +523,7 @@ async function bootstrap(): Promise<void> {
   startDailyPrewarm();
   startIndexNowDailySweep();
   startGuestCleanupSweep();
+  startTokenCleanupSweep();
   // Hourly re-engagement sweep (streak reminders, win-back). Sends are gated
   // by the retention_notifications_enabled flag, so starting the worker with
   // the flag off is a safe no-op dark launch.
@@ -573,6 +575,7 @@ function setupGracefulShutdown(app: FastifyInstance, io: Server): void {
       stopDailyPrewarm();
       stopIndexNowDailySweep();
       stopGuestCleanupSweep();
+      stopTokenCleanupSweep();
       await import('./workers/retentionNotificationWorker')
         .then((m) => m.stopRetentionNotificationWorker())
         .catch(() => {});

@@ -72,6 +72,7 @@ Layered so no single failure ejects a player or kills other games:
 | Monthly challenges | `backend/src/game-engine/progression/challengeService.ts` | hourly | Ensure current month's challenges exist |
 | Orphaned games | `backend/src/modules/games/gameCleanupService.ts` | every 15m | Delete human-less games idle >4h |
 | Guest cleanup | `backend/src/modules/users/guestCleanupService.ts` | every 6h | Delete >48h-old guests with no games |
+| Token cleanup | `backend/src/modules/auth/tokenCleanupService.ts` | every 6h | Delete refresh tokens expired or revoked, and password-reset and sign-in-link tokens used or expired, a day after they stop working (in batches) |
 | Daily pre-warm | `backend/src/game-engine/daily/dailyPrewarmService.ts` | every 10m, active from 23:30 UTC | Ensure tomorrow's daily-challenge row exists before midnight, so the first player of the day never waits on the simulation gate |
 
 All are started near the end of `bootstrap()` and stopped on SIGTERM/SIGINT.
