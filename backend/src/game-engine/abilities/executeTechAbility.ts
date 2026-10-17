@@ -19,6 +19,7 @@ import { declareDropAssault } from './dropAssault';
 import { checkAtomicArsenalRequirement, spendAtomicArsenalCost } from './atomicArsenal';
 import { atomicArsenalEnabled, markFallout } from '../state/atomicArsenal';
 import { isShieldedFrom, shieldedTargetError } from '../state/teams';
+import { noteTerritoryLost } from '../achievements/achievementTally';
 
 export interface AbilityExecutionResult {
   success: boolean;
@@ -395,6 +396,7 @@ function executeAbilityEffect(params: TechAbilityParams): AbilityExecutionResult
 
     const previousOwner = target.owner_id;
     const previousUnits = target.unit_count;
+    noteTerritoryLost(state, previousOwner);
     target.owner_id = null;
     target.unit_count = 1;
     target.buildings = [];

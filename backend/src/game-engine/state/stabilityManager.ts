@@ -8,6 +8,7 @@ import { getPlayerFaction } from '../eras/factionLineage';
 import { getWorldModifier } from './worldModifiers';
 import { worldPopulationGrowthMult } from './worldRules';
 import { eliminatePlayer } from './elimination';
+import { noteTerritoryLost } from '../achievements/achievementTally';
 
 /**
  * CSPRNG-backed [0, 1) replacement for Math.random(). Stability/population
@@ -93,6 +94,7 @@ export function applyStabilityTick(
           // empty it could never be attacked, so it was lost to everyone for
           // the rest of the game, and Domination with it.
           lostTerritory = true;
+          noteTerritoryLost(state, playerId);
           t.owner_id = null;
           t.unit_count = 1;
           t.stability = undefined;

@@ -3,7 +3,7 @@
  * the code that awarded them, and most were defined only by seed files a
  * deploy runs with --seed alone, so a database could lack a row a game then
  * failed to insert. These hold the definitions, the seeds and the code to
- * ACHIEVEMENT_IDS.
+ * ACHIEVEMENT_IDS. What each one asks for is tested in achievementService.test.ts.
  */
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
@@ -41,14 +41,18 @@ function cosmetics(sql: string): string[][] {
   return out;
 }
 
+// 051 adds any row a database lacks; 052, the latest to touch them, writes
+// every row over with the words in use now.
 const migrationSql = read('database/migrations/051_achievement_definitions.sql');
 const migration = definitions(migrationSql);
-const elsewhere = [
+const current = definitions(read('database/migrations/052_achievement_rules.sql'));
+const seeded = [
   'database/seeds/001_seed_data.sql',
   'database/seeds/002_seed_medals.sql',
   'database/seeds/003_acw_achievement.sql',
-  'database/migrations/014_progression_phase1.sql',
 ].flatMap((file) => definitions(read(file)).map((d) => ({ ...d, file })));
+/** Defined by migration 014 and never by a seed. */
+const onlyInMigration014 = definitions(read('database/migrations/014_progression_phase1.sql')).map((d) => d.id);
 
 /** Non-test backend source, where achievements are granted. */
 function sourceFiles(dir: string): string[] {
@@ -68,12 +72,18 @@ describe('achievement definitions', () => {
     expect(migration.map((d) => d.id).sort()).toEqual([...ACHIEVEMENT_IDS].sort());
   });
 
-  it('match the seeds and migration 014 that inserted them first', () => {
-    // The migration adds a row only where one is missing, so it must say what
-    // the existing rows say, or databases would disagree about an achievement.
-    expect(elsewhere.length).toBe(ACHIEVEMENT_IDS.length);
-    for (const d of elsewhere) {
-      const m = migration.find((x) => x.id === d.id);
+  it('are all written by the latest migration, so no database keeps an old wording', () => {
+    expect(current.map((d) => d.id).sort()).toEqual([...ACHIEVEMENT_IDS].sort());
+  });
+
+  it('match the seeds', () => {
+    // A fresh database runs the seeds after the migrations, and they add a row
+    // only where one is missing, so they change nothing; they still say what
+    // the database does, for whoever reads them.
+    expect(seeded.map((d) => d.id).sort())
+      .toEqual(ACHIEVEMENT_IDS.filter((id) => !onlyInMigration014.includes(id)).sort());
+    for (const d of seeded) {
+      const m = current.find((x) => x.id === d.id);
       expect(m, `${d.id} in ${d.file}`).toEqual({ id: d.id, name: d.name, description: d.description, xp: d.xp });
     }
   });

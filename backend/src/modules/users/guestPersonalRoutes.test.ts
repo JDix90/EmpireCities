@@ -13,6 +13,7 @@ vi.mock('../../db/postgres', () => ({
   queryOne: async (...a: unknown[]) => ((await queryMock(...(a as []))) as unknown[])[0] ?? null,
   withTransaction: async (fn: (client: { query: () => Promise<{ rows: unknown[] }> }) => Promise<unknown>) =>
     fn({ query: async () => ({ rows: [] }) }),
+  pgPool: { query: async () => ({ rows: [] }) },
 }));
 
 const GUEST_ID = '11111111-2222-4333-8444-555555555555';

@@ -61,6 +61,7 @@ import { influencePayers } from './aiInfluence';
 import type { EraId, GameMap, GameState, PlayerState } from '../../types';
 import type { MapVisualEventPayload } from '../visuals/mapVisualEvents';
 import type { StrikeAnimationPayload } from '../abilities/strikeAnimation';
+import { noteTerritoryLost } from '../achievements/achievementTally';
 
 /** The live feature flags a bot turn reads, threaded in so a harness can set them per seat. */
 export interface AiTurnFlags {
@@ -1031,6 +1032,7 @@ export async function playAiTurn(
       if (remaining > 0) continue;
 
       const previousOwner = target.owner_id;
+      noteTerritoryLost(state, previousOwner);
       target.owner_id = currentPlayer.player_id;
       target.unit_count = 1;
       state.influence_cooldown_remaining = 3;

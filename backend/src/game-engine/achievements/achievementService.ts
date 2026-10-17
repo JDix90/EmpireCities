@@ -18,8 +18,11 @@ export interface AchievementContext {
   totalPlayers: number;
   gameType: GameType;
   isRanked: boolean;
+  /** The player's rating after this game (ranked games: their ranked rating). */
   playerMu: number;
-  opponentAvgMu: number;
+  /** The player's rating before this game, and the highest an opponent had (Underdog Victory). */
+  playerMuBefore: number;
+  strongestOpponentMuBefore: number;
 }
 
 /** SQL predicate on `games g`: the row is not a tutorial game (same test the profile stats use). */
@@ -39,7 +42,7 @@ export async function checkAndUnlockAchievements(
   ctx: AchievementContext,
 ): Promise<string[]> {
   const unlocked: AchievementId[] = [];
-  const { userId, gameId, gameState, winnerId: _winnerId, rank, totalPlayers: _totalPlayers, isRanked, playerMu, opponentAvgMu } = ctx;
+  const { userId, gameId, gameState, rank, isRanked, playerMu, playerMuBefore, strongestOpponentMuBefore } = ctx;
   // The tutorial is a lesson: it unlocks tutorial_complete and nothing else.
   // Its guaranteed win used to grant First Blood, Conqueror, Speed Demon and
   // the era mastery badge while the profile's stats and the First Victory
@@ -74,31 +77,18 @@ export async function checkAndUnlockAchievements(
     unlocked.push('speed_demon');
   }
 
-  // comeback_king: win after having lowest probability at some point
-  if (isWinner && gameState.win_probability_history && gameState.win_probability_history.length > 2) {
-    const wasLowest = gameState.win_probability_history.some((snap) => {
-      const probs = Object.entries(snap.probabilities);
-      if (probs.length < 2) return false;
-      const myProb = snap.probabilities[userId] ?? 0;
-      return probs.every(([pid, p]) => pid === userId || p >= myProb) && myProb < 0.5;
-    });
-    if (wasLowest) unlocked.push('comeback_king');
+  // comeback_king and perfect_defense, from the tallies kept during play
+  // (achievementTally.ts). A game that never got past turn 3 shows no defence.
+  const me = gameState.players.find((p) => p.player_id === userId);
+  if (isWinner && me?.held_fewest_territories) {
+    unlocked.push('comeback_king');
+  }
+  if (isWinner && gameState.turn_number > 3 && me?.territories_lost_after_turn_3 === 0) {
+    unlocked.push('perfect_defense');
   }
 
-  // perfect_defense: win and probability never decreased after step 3
-  if (isWinner && gameState.win_probability_history && gameState.win_probability_history.length > 3) {
-    let perfect = true;
-    let prevProb = 0;
-    for (let i = 3; i < gameState.win_probability_history.length; i++) {
-      const p = gameState.win_probability_history[i].probabilities[userId] ?? 0;
-      if (i > 3 && p < prevProb - 0.01) { perfect = false; break; }
-      prevProb = p;
-    }
-    if (perfect) unlocked.push('perfect_defense');
-  }
-
-  // underdog: win ranked against higher-rated opponent
-  if (isWinner && isRanked && opponentAvgMu - playerMu >= 200) {
+  // underdog: a ranked win over an opponent rated 200+ above you, both as the game began
+  if (isWinner && isRanked && strongestOpponentMuBefore - playerMuBefore >= 200) {
     unlocked.push('underdog');
   }
 
@@ -173,17 +163,7 @@ export async function checkAndUnlockAchievements(
   }
 
   // ten_streak and immortal_streak: the latest 10 (25) games all won
-  const recentGames = isTutorial ? { rows: [] as { won: boolean }[] } : await client.query<{ won: boolean }>(
-    `SELECT (gp.final_rank = 1) AS won
-     FROM game_players gp
-     JOIN games g ON g.game_id = gp.game_id
-     WHERE gp.user_id = $1 AND g.status = 'completed' AND ${NOT_TUTORIAL_GAME}
-     ORDER BY g.ended_at DESC
-     LIMIT 25`,
-    [userId],
-  );
-  const firstLoss = recentGames.rows.findIndex((r) => !r.won);
-  const streak = firstLoss === -1 ? recentGames.rows.length : firstLoss;
+  const streak = isTutorial ? 0 : await currentWinStreak(client, userId);
   if (streak >= 10) unlocked.push('ten_streak');
   if (streak >= 25) unlocked.push('immortal_streak');
 
@@ -198,8 +178,9 @@ export async function checkAndUnlockAchievements(
     unlocked.push('veteran');
   }
 
-  // strategist: ranked mu >= 1500 (check in context)
-  if (!isTutorial && isRanked && playerMu >= 1500) {
+  // strategist: a ranked rating of 1700 or more. At 1500, where every player
+  // starts, a first ranked win earned it.
+  if (!isTutorial && isRanked && playerMu >= 1700) {
     unlocked.push('strategist');
   }
 
@@ -211,6 +192,30 @@ export async function checkAndUnlockAchievements(
   }
 
   return newlyUnlocked;
+}
+
+/** The longest streak an achievement asks for (Immortal Streak). */
+const LONGEST_STREAK = 25;
+
+/**
+ * The player's win streak as the streak achievements count it: their latest
+ * finished games, tutorials aside, that they won, up to 25. The profile's
+ * progress bars read the same number, so a full bar means the achievement is
+ * unlocked. (`users.win_streak`, which they used to read, counts credited
+ * team wins and is kept by the gold multiplier, so the two could disagree.)
+ */
+export async function currentWinStreak(db: Queryable, userId: string): Promise<number> {
+  const recent = await db.query<{ won: boolean }>(
+    `SELECT (gp.final_rank = 1) AS won
+     FROM game_players gp
+     JOIN games g ON g.game_id = gp.game_id
+     WHERE gp.user_id = $1 AND g.status = 'completed' AND ${NOT_TUTORIAL_GAME}
+     ORDER BY g.ended_at DESC
+     LIMIT ${LONGEST_STREAK}`,
+    [userId],
+  );
+  const firstLoss = recent.rows.findIndex((r) => !r.won);
+  return firstLoss === -1 ? recent.rows.length : firstLoss;
 }
 
 /**

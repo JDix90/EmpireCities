@@ -144,6 +144,21 @@ describe.runIf(enabled)('the tutorial does not count as a game played (Postgres)
     expect(body.veteran.current).toBe(1);
   });
 
+  it('the win streak achievements show the streak their unlock counts, tutorial aside', async () => {
+    const u = await seedUser('tut_ten');
+    await seedCompletedGame({ userId: u.id, tutorial: false, won: false });
+    await seedCompletedGame({ userId: u.id, tutorial: false, won: true });
+    await seedCompletedGame({ userId: u.id, tutorial: false, won: true });
+    await seedCompletedGame({ userId: u.id, tutorial: true, won: true });
+
+    const body = (await get('/api/users/me/achievements/progress', u.id, u.name)).json() as {
+      ten_streak: { current: number };
+      immortal_streak: { current: number };
+    };
+    expect(body.ten_streak.current).toBe(2);
+    expect(body.immortal_streak.current).toBe(2);
+  });
+
   it('a real game still counts — the filter is not a blanket zero', async () => {
     const u = await seedUser('tut_real');
     await seedCompletedGame({ userId: u.id, tutorial: false, won: true });

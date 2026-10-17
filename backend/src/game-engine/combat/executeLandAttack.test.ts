@@ -248,6 +248,20 @@ describe('executeLandAttack', () => {
     expect(s.territories.a.unit_count).toBe(8);
   });
 
+  it('counts the capture against its defender from turn 4 on (Perfect Defense)', () => {
+    const lostAt = (turn: number) => {
+      const s = state(
+        { a: terr('a', 'p1', 10), b: terr('b', 'p2', 1), c: terr('c', 'p2', 1) },
+        [player('p1'), player('p2', { territory_count: 2, territories_lost_after_turn_3: 0 })],
+      );
+      s.turn_number = turn;
+      expect(executeLandAttack(s, 'p1', 'a', 'b', { dieRoll: diceFrom([6, 6, 6, 1]) })?.captured).toBe(true);
+      return s.players[1].territories_lost_after_turn_3;
+    };
+    expect(lostAt(3)).toBe(0);
+    expect(lostAt(4)).toBe(1);
+  });
+
   it('fires the onCapture hook exactly once on a capture', () => {
     const s = state(
       { a: terr('a', 'p1', 10), b: terr('b', 'p2', 1) },

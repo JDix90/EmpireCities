@@ -342,6 +342,14 @@ export interface PlayerState {
   worst_round_loss?: RoundLoss;
   /** Player IDs with whom this player has established at least one truce (diplomat achievement). */
   truces_established?: string[];
+  /**
+   * Perfect Defense (achievements/achievementTally.ts): territories this player
+   * lost from turn 4 on. Set to 0 when a game begins; absent on a game started
+   * before it was counted.
+   */
+  territories_lost_after_turn_3?: number;
+  /** Comeback King (achievementTally): held strictly the fewest territories at a hand-off from turn 2 on. */
+  held_fewest_territories?: boolean;
   /** ID of the last opponent this player attacked (used for event card truce targeting). */
   last_attacked_player_id?: string;
   /**
