@@ -238,6 +238,15 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
       }
     }
 
+    // An earlier attempt at this era that did not win it: the campaign is no
+    // longer one without a loss (Perfect Campaign).
+    if (shouldCreateFresh && existingGame) {
+      await query(
+        `UPDATE user_campaigns SET failed_era_attempts = failed_era_attempts + 1 WHERE campaign_id = $1`,
+        [campaign.campaign_id],
+      );
+    }
+
     // Clear any stale per-era narrative outcome (e.g. 'lost' from a previous
     // attempt) so the retro outro text does not linger into the retry.
     if (shouldCreateFresh) {

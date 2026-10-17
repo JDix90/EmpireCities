@@ -10,7 +10,7 @@ Tracked enhancements; not all are scheduled. Implement based on product priority
 
 ## Achievements and leaderboards
 
-- Achievements: `backend/src/game-engine/achievements/achievementService.ts` — verify each achievement id in DB seeds matches unlock logic.
+- Achievements: every one is defined by migration 051 and granted somewhere in the code, and `achievementDefinitions.test.ts` holds the definitions, the seeds and the code to `ACHIEVEMENT_IDS`. Still open: whether a few unlock rules match their descriptions (Grand Strategist's MMR 1500 is the starting rating; Comeback King, Underdog Victory and Perfect Defense each measure something other than what they say).
 - Leaderboards: Redis sorted sets — confirm keys and write paths match README expectations.
 
 ## Map editor

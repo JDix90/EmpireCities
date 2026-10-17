@@ -320,11 +320,34 @@ export async function setMapModeration(
   return result.length > 0;
 }
 
-export async function incrementMapPlayCount(mapId: string): Promise<void> {
-  await query(
-    `UPDATE maps SET play_count = play_count + 1, updated_at = NOW() WHERE map_id = $1`,
+/**
+ * Count a game started on the map. Returns the new count and, for a map a
+ * player made, that player's id (null for an era map or a deleted creator).
+ */
+export async function incrementMapPlayCount(
+  mapId: string,
+): Promise<{ play_count: number; creator_user_id: string | null } | null> {
+  const rows = await query<{ play_count: number; creator_user_id: string | null }>(
+    `WITH bumped AS (
+       UPDATE maps SET play_count = play_count + 1, updated_at = NOW() WHERE map_id = $1
+       RETURNING play_count, creator_id
+     )
+     SELECT b.play_count, u.user_id AS creator_user_id
+     FROM bumped b
+     LEFT JOIN users u ON u.user_id::text = b.creator_id`,
     [mapId],
   );
+  return rows[0] ?? null;
+}
+
+/** The player who made the map, if they still have an account (never 'system'). */
+export async function findMapCreatorUserId(mapId: string): Promise<string | null> {
+  const rows = await query<{ user_id: string }>(
+    `SELECT u.user_id FROM maps m JOIN users u ON u.user_id::text = m.creator_id
+     WHERE m.map_id = $1`,
+    [mapId],
+  );
+  return rows[0]?.user_id ?? null;
 }
 
 export async function upsertMapRating(

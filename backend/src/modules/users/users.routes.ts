@@ -9,6 +9,7 @@ import { checkOnboardingQuests } from '../../game-engine/progression/progression
 import { effectiveLoadout, loadoutColumns, type Loadout, type LoadoutRow } from './loadout';
 import { andNotTutorialSql } from '../../game-engine/tutorial/tutorialGames';
 import { isTutorialLessonModule } from '../../game-engine/tutorial/tutorialModules';
+import { grantAchievementsOutsideGame } from '../../game-engine/achievements/achievementService';
 import { formatZodError } from '../../utils/formatZodError';
 import { verifyUnsubscribeToken } from '../../utils/unsubscribeToken';
 import { recordServerEvent } from '../../services/analyticsEvents';
@@ -270,6 +271,12 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
       );
     } catch {
       /* degrade gracefully if migration not yet run */
+    }
+    // First Steps. The tutorial's game is abandoned when the player leaves its
+    // last card, so the game-end check never sees a finished lesson; this is
+    // where the client records one.
+    if (moduleId === 'core') {
+      await grantAchievementsOutsideGame(request.userId!, ['tutorial_complete']);
     }
     return reply.status(204).send();
   });
