@@ -92,7 +92,7 @@ export default function NewUserWelcomeModal({
               </span>
             </div>
             <p className="text-bf-muted text-xs leading-relaxed">
-              ~{tutorialModuleMinutes('core')} minutes. Interactive match against a practice AI — learn draft, attack and fortify, then advance an era, at your own pace.
+              ~{tutorialModuleMinutes('core')} minutes. Interactive match against a practice AI — learn to reinforce, attack and fortify, then advance an era, at your own pace.
             </p>
           </div>
         </button>

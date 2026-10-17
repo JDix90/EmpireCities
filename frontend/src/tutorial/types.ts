@@ -180,7 +180,7 @@ export const TUTORIAL_MODULES: TutorialModuleMeta[] = [
   {
     id: 'core',
     title: 'Core Tutorial',
-    description: 'Draft, attack, fortify, and your first era advance.',
+    description: 'Reinforce, attack, fortify, and your first era advance.',
     // ~2 min of reading across 8 cards plus 5 interactive beats: two turns of
     // the loop, an opponent turn, two techs and the advance. Provisional until
     // real `game_finished.duration_ms` medians exist.
@@ -195,7 +195,7 @@ export const TUTORIAL_MODULES: TutorialModuleMeta[] = [
   {
     id: 'faction_ability',
     title: 'Faction Abilities',
-    description: 'Passive bonuses and once-per-turn or once-per-game powers.',
+    description: 'Once-per-turn and once-per-game powers, and the passives some factions add.',
     estimatedMinutes: 5,
   },
   {
@@ -207,7 +207,7 @@ export const TUTORIAL_MODULES: TutorialModuleMeta[] = [
   {
     id: 'era_advancement',
     title: 'Era Advancement',
-    description: 'Climb from Ancient to Medieval: clear the gate, advance, and ride out the vulnerability window.',
+    description: 'Climb from Ancient to Medieval: clear the gate, advance, and learn what the vulnerability window costs.',
     estimatedMinutes: 5,
   },
   {

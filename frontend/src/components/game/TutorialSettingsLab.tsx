@@ -1,9 +1,11 @@
 /**
  * TutorialSettingsLab — an interactive sandbox overlay for the Advanced Settings lesson.
  *
- * Presents the key toggles in explore-mode (changes are local-only, not sent to server).
- * When the player flips at least two distinct toggles the `onSettingsExplored` callback fires,
- * advancing the tutorial step that requireAction === 'settings_explored'.
+ * Presents the key toggles, starting from what the practice match has on. Once the
+ * player has flipped at least two distinct toggles, closing the lab hands every value
+ * to `onSettingsExplored`, which applies them to the match (the server takes the
+ * first submission only) and advances the step that requireAction === 'settings_explored'.
+ * Before that, closing changes nothing.
  */
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
@@ -12,7 +14,6 @@ interface LabSetting {
   key: string;
   label: string;
   description: string;
-  defaultOn: boolean;
   effectOn: string;
   effectOff: string;
 }
@@ -23,24 +24,21 @@ const LAB_SETTINGS: LabSetting[] = [
   {
     key: 'fog_of_war',
     label: 'Fog of War',
-    description: 'Hides enemy unit counts on territories you have not scouted.',
-    defaultOn: false,
-    effectOn: 'enemy unit counts stay hidden until you scout or attack.',
+    description: 'Hides enemy unit counts beyond your own borders.',
+    effectOn: 'you see exact counts only on your territories and the ones bordering them.',
     effectOff: 'you always see exact enemy troop counts on the map.',
   },
   {
     key: 'factions_enabled',
     label: 'Factions',
-    description: 'Each player picks a faction with a unique passive bonus and active ability.',
-    defaultOn: false,
-    effectOn: 'each player gets a faction passive and an active power.',
+    description: 'Each player plays a faction with its own active ability, and some add a passive bonus.',
+    effectOn: 'each player gets a faction and its active power.',
     effectOff: 'all players use the same baseline rules with no faction powers.',
   },
   {
     key: 'tech_trees_enabled',
     label: 'Technology Tree',
     description: 'Players earn Tech Points and research upgrades each turn.',
-    defaultOn: false,
     effectOn: 'players earn Tech Points and unlock combat or economy upgrades.',
     effectOff: 'there is no research — only cards, dice, and territory control.',
   },
@@ -48,15 +46,13 @@ const LAB_SETTINGS: LabSetting[] = [
     key: 'economy_enabled',
     label: 'Economy & Buildings',
     description: 'Territories generate gold; spend it to construct defense or production buildings.',
-    defaultOn: false,
     effectOn: 'territories generate gold you can spend on buildings.',
-    effectOff: 'there is no gold income — reinforcements come from cards and continents only.',
+    effectOff: 'there is no gold and no buildings — reinforcements come from territories, regions and cards.',
   },
   {
     key: 'events_enabled',
     label: 'Era Events',
     description: 'Random historical events fire each round — boons, disasters, or diplomatic crises.',
-    defaultOn: false,
     effectOn: 'random era events can shift income, combat, or diplomacy each round.',
     effectOff: 'matches play out without surprise event cards.',
   },
@@ -64,41 +60,40 @@ const LAB_SETTINGS: LabSetting[] = [
     key: 'diplomacy_enabled',
     label: 'Diplomacy',
     description: 'Propose truces and ceasefire pacts with other players.',
-    defaultOn: true,
     effectOn: 'players can propose truces and temporary ceasefires.',
     effectOff: 'every border stays hostile — no truce proposals.',
   },
 ];
 
 interface TutorialSettingsLabProps {
+  /**
+   * What the practice match has on now, keyed like LAB_SETTINGS. The lab starts
+   * there, so an option the player never touches is submitted as it already is.
+   */
+  initialValues: Partial<Record<string, boolean>>;
   onSettingsExplored: (values: Record<string, boolean>) => void;
   onClose: () => void;
 }
 
 export default function TutorialSettingsLab({
+  initialValues,
   onSettingsExplored,
   onClose,
 }: TutorialSettingsLabProps) {
   const [values, setValues] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(LAB_SETTINGS.map((s) => [s.key, s.defaultOn])),
+    Object.fromEntries(LAB_SETTINGS.map((s) => [s.key, initialValues[s.key] === true])),
   );
   const [toggledKeys, setToggledKeys] = useState<Set<string>>(() => new Set());
-  const [exploredComplete, setExploredComplete] = useState(false);
+  const exploredComplete = toggledKeys.size >= EXPLORER_THRESHOLD;
 
   function toggle(key: string) {
-    const nextValues = { ...values, [key]: !values[key] };
-    setValues(nextValues);
+    setValues((prev) => ({ ...prev, [key]: !prev[key] }));
+    setToggledKeys((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
+  }
 
-    setToggledKeys((prev) => {
-      if (prev.has(key)) return prev;
-      const next = new Set(prev);
-      next.add(key);
-      if (next.size >= EXPLORER_THRESHOLD && !exploredComplete) {
-        setExploredComplete(true);
-        onSettingsExplored(nextValues);
-      }
-      return next;
-    });
+  function close() {
+    if (exploredComplete) onSettingsExplored(values);
+    onClose();
   }
 
   return (
@@ -111,7 +106,7 @@ export default function TutorialSettingsLab({
           <span className="font-display text-lg text-bf-gold">Settings Lab</span>
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
             className="text-bf-muted hover:text-bf-text transition-colors"
             aria-label="Close Settings Lab"
           >

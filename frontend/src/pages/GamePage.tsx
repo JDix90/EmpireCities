@@ -100,6 +100,7 @@ import {
   TUTORIAL_MODULES,
   getTutorialSteps,
   isOwnMissionVisiblyComplete,
+  isTutorialGateAlreadyMet,
   isTutorialStepCentered,
   markTutorialModuleComplete,
   shouldAdvanceTutorialOnState,
@@ -1129,6 +1130,24 @@ export default function GamePage() {
     }, remaining);
     return () => clearTimeout(timer);
   }, [isTutorial, isViewerTurnNow, tutorialStep]);
+
+  /**
+   * Advance a research or advance card that is already done: the player
+   * researched or advanced from the sidebar before it came up
+   * (`isTutorialGateAlreadyMet`). Runs when the card arrives and whenever the
+   * viewer's research or era changes.
+   */
+  const viewerTechCount = isTutorial
+    ? (gameState?.players.find((p) => p.player_id === user?.user_id)?.unlocked_techs?.length ?? 0)
+    : 0;
+  const eraPreview = gameState?.era_advancement_preview;
+  const viewerAtFinalEra = !!eraPreview && eraPreview.current_era_index >= eraPreview.max_era_index;
+  useEffect(() => {
+    if (!isTutorial) return;
+    const step = tutorialStepsRef.current[tutorialStep];
+    if (!isTutorialGateAlreadyMet({ step, ownTechCount: viewerTechCount, ownAtFinalEra: viewerAtFinalEra })) return;
+    setTutorialStep((cur) => (cur === tutorialStep ? cur + 1 : cur));
+  }, [isTutorial, tutorialStep, viewerTechCount, viewerAtFinalEra]);
   const [socketConnection, setSocketConnection] = useState<'connected' | 'disconnected' | 'reconnecting'>('connected');
   // Track the last disconnect reason so we can show different banner copy for
   // "your network dropped" (transient) vs "the server forced us off" (likely
@@ -2259,10 +2278,10 @@ export default function GamePage() {
         toast.success(`Researched: ${node?.name ?? 'technology'}`, { icon: '🔬', duration: 3000 });
         const gs = useGameStore.getState().gameState;
         if (gs?.settings?.tutorial) {
-          const step = tutorialStepsRef.current[tutorialStepRef.current];
-          if (step?.requireAction === 'tech_researched') {
-            setTutorialStep((s) => s + 1);
-          }
+          // Read the card inside the update: the game:state for this research
+          // can advance it first (the isTutorialGateAlreadyMet effect), before
+          // the step ref catches up, and the card after it must not be skipped.
+          setTutorialStep((s) => (tutorialStepsRef.current[s]?.requireAction === 'tech_researched' ? s + 1 : s));
         }
       }
     });
@@ -2295,10 +2314,8 @@ export default function GamePage() {
       }
       const gs = useGameStore.getState().gameState;
       if (gs?.settings?.tutorial) {
-        const step = tutorialStepsRef.current[tutorialStepRef.current];
-        if (step?.requireAction === 'era_advanced') {
-          setTutorialStep((s) => s + 1);
-        }
+        // Inside the update, as for research above.
+        setTutorialStep((s) => (tutorialStepsRef.current[s]?.requireAction === 'era_advanced' ? s + 1 : s));
       }
     });
 
@@ -6400,6 +6417,14 @@ export default function GamePage() {
       {/* Tutorial Settings Lab — advanced settings lesson interactive beat */}
       {showSettingsLab && (
         <TutorialSettingsLab
+          initialValues={{
+            fog_of_war: gameState?.settings.fog_of_war,
+            factions_enabled: gameState?.settings.factions_enabled,
+            tech_trees_enabled: gameState?.settings.tech_trees_enabled,
+            economy_enabled: gameState?.settings.economy_enabled,
+            events_enabled: gameState?.settings.events_enabled,
+            diplomacy_enabled: gameState?.settings.diplomacy_enabled,
+          }}
           onSettingsExplored={(values) => {
             const currentStep = tutorialStepsRef.current[tutorialStepRef.current];
             if (gameId) {

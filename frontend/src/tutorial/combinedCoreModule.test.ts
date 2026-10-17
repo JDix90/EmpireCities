@@ -118,9 +118,12 @@ describe('core tutorial', () => {
   it('names what the island left out rather than previewing it card by card', () => {
     const last = COMBINED_CORE_TUTORIAL_STEPS[COMBINED_CORE_TUTORIAL_STEPS.length - 1];
     const detail = (last.detail ?? '').toLowerCase();
-    for (const omitted of ['cards', 'factions', 'fog of war']) {
+    for (const omitted of ['factions', 'fog of war']) {
       expect(detail).toContain(omitted);
     }
+    // Territory cards are not among them: every game deals one for a turn
+    // with a capture, this board included.
+    expect(detail).toContain('territory cards are already on');
     // The tutorial gate is softer than a real game's; say so instead of letting
     // the player infer that two tier-1 techs is the whole system.
     expect(detail).toContain('buildings');
@@ -135,7 +138,9 @@ describe('core tutorial', () => {
     const skipped = last.skippedMessage!.toLowerCase();
     expect(skipped).not.toMatch(/you ran|you climbed|climbed an era/);
     expect(skipped).toContain('domination'); // still explains how to win
-    expect(skipped).toMatch(/reinforcements|blue territory/); // and what to do right now
+    // and what to do right now: the wrap-up's own button, which starts a real
+    // match (or, with the wrap-up-to-match flag off, plays on here).
+    expect(skipped).toContain('gold button below');
   });
 
   it('lays out its read-heavy cards centered', () => {

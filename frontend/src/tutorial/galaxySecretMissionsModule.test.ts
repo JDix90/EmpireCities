@@ -54,9 +54,9 @@ describe('Galactic Age · Secret Missions lesson', () => {
     expect(GALAXY_SECRET_MISSIONS_STEPS.map((s) => s.requireAction).filter(Boolean)).toEqual([
       'end_phase', 'territory_captured', 'mission_complete', 'game_won',
     ]);
-    // The first capture card names a system to highlight but accepts either
-    // gateway, and the second waits on the mission itself, so a player who
-    // takes Pacific Rim first is never asked for a system they already hold.
+    // The first capture card advances on the system it names (and its copy
+    // says to take that one first); the second waits on the mission itself,
+    // so a player who takes Pacific Rim first is never asked for it again.
     expect(byId('gsm_first')?.targetTerritoryId).toBe('sol_guinea');
     expect(byId('gsm_second')?.requireAction).toBe('mission_complete');
   });
@@ -100,7 +100,7 @@ describe('Galactic Age · Secret Missions lesson', () => {
     expect(text('gsm_draft')).toContain(phaseAdvanceLabel('draft'));
     expect(text('gsm_win')).toContain(phaseAdvanceLabel('attack'));
     expect(text('gsm_win')).toContain(phaseAdvanceLabel('fortify'));
-    expect(text('gsm_first')).toContain('Attack until captured');
+    expect(text('gsm_first')).toContain('⚡ Blitz until captured');
   });
 
   it('offers Skip on its first card and carries honest skip copy on its last', () => {

@@ -243,6 +243,30 @@ export function shouldAdvanceTutorialOnState(args: {
 }
 
 /**
+ * Whether a research or advance card is already done when it comes up.
+ *
+ * Their own events (`game:research_result`, `game:advance_era_result`) count
+ * only while the card is current, and the Tech Tree opens from the sidebar on
+ * every card. The lessons grant about what their research costs, so a player
+ * who spent it early had nothing left to research with, and one who advanced
+ * early could never advance again: the card waited for good. No lesson starts
+ * with a technology researched, and advancing clears the tree, so either one
+ * held is proof the beat already happened.
+ */
+export function isTutorialGateAlreadyMet(args: {
+  step: TutorialStep | undefined;
+  /** Technologies the viewer has researched in their current era's tree. */
+  ownTechCount: number;
+  /** The viewer is already in the last era this game's spine allows. */
+  ownAtFinalEra: boolean;
+}): boolean {
+  const action = args.step?.requireAction;
+  if (action === 'era_advanced') return args.ownAtFinalEra;
+  if (action === 'tech_researched') return args.ownTechCount > 0 || args.ownAtFinalEra;
+  return false;
+}
+
+/**
  * Whether the viewer's own secret mission reads complete from the board they
  * can see: a capture mission with every named system held. The server judges
  * the win (from round 2); this only tells a card the player has done their

@@ -2505,7 +2505,7 @@ export default function LobbyPage() {
                       </span>
                     </div>
                     <p className="text-bf-muted text-xs leading-relaxed">
-                      ~{tutorialModuleMinutes('core')} min. Learn draft, attack and fortify in a practice match, then climb from Ancient to Medieval. No experience needed.
+                      ~{tutorialModuleMinutes('core')} min. Learn to reinforce, attack and fortify in a practice match, then climb from Ancient to Medieval. No experience needed.
                     </p>
                   </div>
                 </button>

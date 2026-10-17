@@ -124,7 +124,7 @@ describe('Galactic Age · Territory Threshold lesson', () => {
     expect(text('gth_draft')).toContain(phaseAdvanceLabel('draft'));
     expect(text('gth_win')).toContain(phaseAdvanceLabel('attack'));
     expect(text('gth_win')).toContain(phaseAdvanceLabel('fortify'));
-    expect(text('gth_take')).toContain('Attack until captured');
+    expect(text('gth_take')).toContain('⚡ Blitz until captured');
     expect(byId('gth_draft')?.cardPosition).toBe('aside');
     expect(byId('gth_take')?.cardPosition).toBe('aside');
   });
