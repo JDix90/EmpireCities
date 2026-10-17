@@ -13,6 +13,7 @@ export interface ShareCardOptions {
   username: string;
   shareUrl: string;
   isWinner: boolean;
+  /** Names of the achievements unlocked, as players know them. */
   achievements?: string[];
   friendStreakBonus?: number;
 }
@@ -148,7 +149,7 @@ export async function generateShareCard(opts: ShareCardOptions): Promise<Blob> {
     ctx.strokeRect(x, badgeY, 210, 30);
     ctx.font = '12px system-ui, sans-serif';
     ctx.fillStyle = '#f4d35e';
-    ctx.fillText(badge.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()), x + 12, badgeY + 20);
+    ctx.fillText(badge, x + 12, badgeY + 20);
   });
 
   ctx.font = '14px system-ui, sans-serif';
