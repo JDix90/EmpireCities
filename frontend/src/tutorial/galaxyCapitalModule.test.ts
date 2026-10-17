@@ -87,7 +87,7 @@ describe('Galactic Age · Capital lesson', () => {
     expect(text('gcp_draft')).toContain(phaseAdvanceLabel('draft'));
     expect(text('gcp_win')).toContain(phaseAdvanceLabel('attack'));
     expect(text('gcp_win')).toContain(phaseAdvanceLabel('fortify'));
-    expect(text('gcp_cross')).toContain('Attack until captured');
+    expect(text('gcp_cross')).toContain('⚡ Blitz until captured');
     expect(byId('gcp_draft')?.cardPosition).toBe('aside');
     expect(byId('gcp_cross')?.cardPosition).toBe('aside');
   });

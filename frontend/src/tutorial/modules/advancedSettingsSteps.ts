@@ -4,20 +4,20 @@ export const ADVANCED_SETTINGS_STEPS: TutorialStep[] = [
   {
     id: 'as_welcome',
     title: 'Advanced Settings',
-    message: 'Hosts tune each match in the lobby. You can mix eras, player counts, timers, and optional systems without changing the core Draft → Attack → Fortify loop.',
-    hint: 'This lesson is informational — press Next through each card, then try these options in your next custom game.',
+    message: 'Hosts tune each match in the lobby. You can mix eras, player counts, timers, and optional systems without changing the core Reinforce → Attack → Fortify loop.',
+    hint: 'Mostly reading — press Next through each card. One card asks you to flip two options in the Settings Lab before you go on; try the rest in your next custom game.',
   },
   {
     id: 'as_timers',
     title: 'Turn Timers & Async',
-    message: 'Live games use turn timers (e.g. 60–300 seconds) so matches keep moving. Async games replace the timer with a deadline — great for play-by-mail across time zones.',
+    message: 'Live games use a turn timer (3, 5 or 10 minutes in a custom game, or none at all) so matches keep moving. Async games give each turn 12 hours, a day or three days instead — great for play-by-mail across time zones.',
     whyItMatters: 'Pick timers that match your group\'s attention span; async avoids abandons when someone is busy.',
   },
   {
     id: 'as_fog',
     title: 'Fog of War',
-    message: 'Fog hides enemy unit counts on territories you have not recently scouted. Attacking reveals partial information; holding a territory gives clearer intel.',
-    whyItMatters: 'Encourages probing attacks and bluffing weak borders.',
+    message: 'Fog hides enemy unit counts everywhere except your own territories and the ones bordering them. You always see who owns each territory, and some technologies see further.',
+    whyItMatters: 'Rewards keeping reserves back from the front, where enemies cannot count them.',
   },
   {
     id: 'as_economy',
@@ -29,7 +29,7 @@ export const ADVANCED_SETTINGS_STEPS: TutorialStep[] = [
     id: 'as_stacking',
     title: 'Stacking Features',
     message: 'Factions, tech trees, naval rules, events, and population stability can combine. Start with one optional system, then add another once your group knows the basics.',
-    detail: 'Example progression: core only → +factions → +tech → +events.',
+    detail: 'Example progression: core only → +factions → +tech (which brings Economy & Buildings with it) → +events.',
   },
   {
     id: 'as_try_toggle',
@@ -46,7 +46,7 @@ export const ADVANCED_SETTINGS_STEPS: TutorialStep[] = [
   {
     id: 'as_complete',
     title: 'Settings Lesson Complete',
-    message: 'You now know what each toggle changes. Create a custom lobby game and experiment with one new option at a time.',
+    message: 'You have seen what the main options change. Create a custom game and add one new option at a time — there, Factions and Era Events are called Asymmetric Factions and Historical Events.',
     variant: 'module_complete',
   },
 ];

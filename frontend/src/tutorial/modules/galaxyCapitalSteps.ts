@@ -30,10 +30,10 @@ export const GALAXY_CAPITAL_STEPS: TutorialStep[] = [
   {
     id: 'gcp_rules',
     title: 'Read the Capitals',
-    message: 'Every capital is marked on the map, and the **Objectives** panel in the sidebar reads **Your capital: Amazon Basin** with the rule under it: hold it and take every rival capital, judged from round 2. Lose Amazon Basin and the panel turns red — you cannot win by capitals until you retake it.',
-    messagePhone: 'Every capital is marked on the map, and the **Objectives** panel under **☰ Menu** reads **Your capital: Amazon Basin** with the rule under it: hold it and take every rival capital, judged from round 2. Lose Amazon Basin and the panel turns red — you cannot win by capitals until you retake it.',
+    message: 'Every capital is marked on its world\'s map, and the **Objectives** panel in the sidebar reads **Your capital: Amazon Basin** with the rule under it: hold it and take every rival capital, judged from round 2. Lose Amazon Basin and that line turns red — you cannot win by capitals until you retake it.',
+    messagePhone: 'Every capital is marked on its world\'s map, and the **Objectives** panel under **☰ Menu** reads **Your capital: Amazon Basin** with the rule under it: hold it and take every rival capital, judged from round 2. Lose Amazon Basin and that line turns red — you cannot win by capitals until you retake it.',
     detail: 'Only living rivals count: an eliminated seat\'s capital no longer needs holding. In a 2v2 or with Allied houses the side wins when every living capital is in its members\' hands between them.',
-    whyItMatters: 'A capital on a gateway is both the prize and the door. Whoever holds Chlorophage Span holds the Sol–Verdan lane\'s far end, and a Sovereignty corridor with it.',
+    whyItMatters: 'A capital on a gateway is both the prize and the door. Whoever holds Chlorophage Span holds one end of the Guinea Coast lane — and with Guinea Coast as well, a Sovereignty corridor.',
   },
   {
     id: 'gcp_draft',
@@ -47,8 +47,8 @@ export const GALAXY_CAPITAL_STEPS: TutorialStep[] = [
   {
     id: 'gcp_cross',
     title: 'Take the Rival Capital',
-    message: 'Pick **Guinea Coast**, then **Chlorophage Span** across the lane. A lane attack rolls at most 2 dice; **Attack until captured** presses until the capital falls, and up to 3 of your attackers move in on their own.',
-    detail: 'The Navigators defend a lane with no extra die. Eight against two wins through the cap over a few rolls.',
+    message: 'Pick **Guinea Coast**, then **Chlorophage Span** across the lane. A lane attack rolls at most 2 dice; **⚡ Blitz until captured** presses until the capital falls, and up to 3 of your attackers move in on their own.',
+    detail: 'The Navigators defend a lane with no extra die, so your stack against their two wins through the cap over a few rolls.',
     cardPosition: 'aside',
     targetTerritoryId: 'verdan_chlorophage_span',
     requireAction: 'territory_captured',
@@ -56,7 +56,7 @@ export const GALAXY_CAPITAL_STEPS: TutorialStep[] = [
   {
     id: 'gcp_win',
     title: 'Judged From Round 2',
-    message: `Both capitals are yours. If this is still round 1, finish your turn with **${phaseAdvanceLabel('attack')}** and **${phaseAdvanceLabel('fortify')}**: the win lands as round 2 opens, before you place a unit. Taken in round 2 or later, the game ended on the capture.`,
+    message: `Both capitals are yours. If the top bar still reads Turn 1, finish your turn with **${phaseAdvanceLabel('attack')}** and **${phaseAdvanceLabel('fortify')}**: the win lands as round 2 opens, before you place a unit. Taken in round 2 or later, the game ended on the capture.`,
     detail: 'The round-2 rule exists for capitals above all: with three starting units, a capital could otherwise fall to the first seat\'s dice before the last seat had placed one.',
     requireAction: 'game_won',
   },

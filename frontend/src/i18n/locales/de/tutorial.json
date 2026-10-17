@@ -50,9 +50,9 @@
   "modules": {
     "core": { "title": "Grundtutorial", "description": "Verstärkung, Angriff, Befestigung und dein erster Zeitalteraufstieg." },
     "advanced_settings": { "title": "Erweiterte Einstellungen", "description": "Wie optionale Regeln Tempo und Strategie verändern." },
-    "faction_ability": { "title": "Fraktionsfähigkeiten", "description": "Passive Boni und Kräfte, die einmal pro Runde oder pro Partie einsetzbar sind." },
+    "faction_ability": { "title": "Fraktionsfähigkeiten", "description": "Kräfte, die einmal pro Runde oder einmal pro Partie einsetzbar sind, und die passiven Boni, die manche Fraktionen ergänzen." },
     "tech_tree": { "title": "Technologiebaum", "description": "Forschungskosten, Voraussetzungen und Kampfverbesserungen." },
-    "era_advancement": { "title": "Zeitalteraufstieg", "description": "Steige von der Antike ins Mittelalter auf: Erfülle das Tor, steige auf und überstehe das Verwundbarkeitsfenster." },
+    "era_advancement": { "title": "Zeitalteraufstieg", "description": "Steige von der Antike ins Mittelalter auf: Erfülle das Tor, steige auf und erfahre, was das Verwundbarkeitsfenster kostet." },
     "galaxy_lane_sovereignty": {
       "title": "Galaktisches Zeitalter: Lane Sovereignty",
       "description": "Hyperraumrouten, Gateways und Korridore: Nimm einen fünften Korridor über eine Route ein und halte das Netz, um zu gewinnen."
@@ -87,7 +87,7 @@
       "welcome": {
         "title": "Willkommen, Kommandant!",
         "message": "Borderfall ist ein Strategiespiel um die Kontrolle von Gebieten. Jede Runde läuft Verstärkung → Angriff → Befestigung. Du hältst die drei Gebiete der **Tyrrhenian Coast** (Tyrrhenische Küste), der Westseite Italiens; ein Gegner hält die **Adriatic Coast** (Adriaküste).",
-        "detail": "Die Verstärkung gibt dir 1 Einheit pro 3 Gebiete (mindestens 3), plus einen Bonus für ein komplett gehaltenes Reich – du hältst die ganze tyrrhenische Seite, dieser Bonus gehört also schon dir.",
+        "detail": "Die Verstärkung gibt dir 1 Einheit pro 3 Gebiete (mindestens 3), plus einen Bonus für eine komplett gehaltene Region – du hältst die ganze Tyrrhenian Coast, diese +1 gehört also schon dir.",
         "hint": "Schon mal ein Eroberungs-Brettspiel gespielt? Dann fühlst du dich sofort zu Hause – und diese Partie ergänzt den Teil, den solche Spiele nicht haben: den Aufstieg durch die Zeitalter. Drücke „Weiter“ oder „Zum Ende springen“, um direkt loszulegen."
       },
       "draft_do": {
@@ -99,7 +99,7 @@
       "choose_front": {
         "title": "Wähle deine Front",
         "message": "Wähle eines deiner Gebiete (2+ Einheiten), dann ein angrenzendes gegnerisches. **Tuscany & Latium → Umbria & Abruzzo** ist die günstige Eröffnung: Es hat 2 Einheiten und grenzt an beide anderen adriatischen Gebiete – wer es nimmt, grenzt an alles. **Lombardy & Piedmont → Veneto & Emilia** ist die langsamere Flanke: 3 Verteidiger an einer breiten Front im Norden.",
-        "detail": "Der Angreifer würfelt mit bis zu 3 Würfeln, der Verteidiger mit bis zu 2. Die höchsten werden paarweise verglichen; der Verlierer jedes Paars verliert eine Einheit, bei Gleichstand gewinnt der Verteidiger. Du eroberst ein Gebiet, wenn sein letzter Verteidiger fällt.",
+        "detail": "Der Angreifer würfelt mit bis zu 3 Würfeln, der Verteidiger mit bis zu 2 – das sind die Grundwerte; Fraktionsfähigkeiten, Technologien und Ereignisse können Würfel hinzufügen, und auf diesem Spielfeld der Antike würfelt der Angreifer seinen niedrigsten Würfel einmal neu. Die höchsten werden paarweise verglichen; der Verlierer jedes Paars verliert eine Einheit, bei Gleichstand gewinnt der Verteidiger. Du eroberst ein Gebiet, wenn sein letzter Verteidiger fällt, und bis zu 3 deiner überlebenden Angreifer rücken von selbst nach – ohne Nachfrage, und einer bleibt immer zurück.",
         "hint": "Greife so oft an, wie du willst – oder gar nicht. Wenn du fertig bist, drücke den goldenen Button **{{attackButton}}**."
       },
       "fortify_do": {
@@ -109,51 +109,51 @@
       },
       "turn_ends": {
         "title": "Jetzt beobachte den Gegner",
-        "message": "Seine Runde durchläuft dieselben drei Phasen. Du siehst seine Würfel, seine Eroberungen und den aktiven Spieler in Echtzeit in der Seitenleiste hervorgehoben.",
-        "messagePhone": "Seine Runde durchläuft dieselben drei Phasen. Die Leiste am unteren Rand nennt, wer gerade am Zug ist, und die Zeile direkt darüber zeigt seine Kämpfe samt Würfeln – eine schnelle KI ist vielleicht schon fertig, wenn du das liest.",
+        "message": "Seine Runde durchläuft dieselben drei Phasen, aber dieser Übungsgegner platziert nur seine Verstärkungen – er greift nie an. Die Seitenleiste nennt, wer gerade am Zug ist; eine schnelle KI ist vielleicht schon fertig, wenn du das liest.",
+        "messagePhone": "Seine Runde durchläuft dieselben drei Phasen, aber dieser Übungsgegner platziert nur seine Verstärkungen – er greift nie an. Die Leiste am unteren Rand nennt, wer gerade am Zug ist; eine schnelle KI ist vielleicht schon fertig, wenn du das liest.",
         "detail": "Hier gibt es nichts zu tun – die nächste Karte erscheint, sobald du wieder am Zug bist."
       },
       "economy_intro": {
         "title": "Dein Reich ist auch eine Wirtschaft",
-        "message": "Du bist wieder dran – und diesmal, bevor du angreifst. Gebiete sind nur die halbe Miete: Dein Reich hat eine **Schatzkammer** und ein **Forschungsprogramm**, und beide sind gewachsen, während du Boden gehalten hast.",
-        "detail": "Das Era-Panel in deiner Seitenleiste zeigt die Zeitleiste der Zeitalter, deine Position darauf und das Tor, das du zum Aufstieg erfüllen musst. Dein Gegner steigt in seinem eigenen Tempo auf.",
-        "detailPhone": "Das Era-Panel unter **☰ Menu** zeigt die Zeitleiste der Zeitalter, deine Position darauf und das Tor, das du zum Aufstieg erfüllen musst. Dein Gegner steigt in seinem eigenen Tempo auf.",
+        "message": "Du bist wieder dran – und diesmal, bevor du angreifst. Gebiete sind nur die halbe Miete: Dein Reich hat eine **Schatzkammer** mit Gold und ein **Forschungsprogramm** mit Technologiepunkten, und beide sind gewachsen, während du Boden gehalten hast.",
+        "detail": "Das Era-Advancement-Panel in deiner Seitenleiste zeigt die Zeitleiste der Zeitalter und deine Position darauf; klappe es auf, um das Tor zu sehen, das du zum Aufstieg erfüllen musst. Dieser Übungsgegner bleibt in der Antike – echte Rivalen steigen in ihrem eigenen Tempo auf.",
+        "detailPhone": "Das Era-Advancement-Panel unter **☰ Menu** zeigt die Zeitleiste der Zeitalter und deine Position darauf; klappe es auf, um das Tor zu sehen, das du zum Aufstieg erfüllen musst. Dieser Übungsgegner bleibt in der Antike – echte Rivalen steigen in ihrem eigenen Tempo auf.",
         "whyItMatters": "Eroberung gewinnt eine Karte. Ein Zeitalteraufstieg lässt dich über den Gegner hinauswachsen, der sie hält – stärkere Einheiten, ein frischer Technologiebaum und eine einmalige Signatur-Belohnung."
       },
       "ea_research": {
         "title": "Forsche in Richtung Tor",
         "message": "Öffne den Technologiebaum. Die Leiste oben zeigt das Aufstiegstor; erforsche eine Stufe-1-Technologie und sieh zu, wie sich ihre Chips aktualisieren.",
-        "hint": "Du hast genug Forschung für zwei Technologien erhalten – genau das, was das Tor dieses Spielfelds verlangt. Wähle das Paar, das dir gefällt."
+        "hint": "Du hast genug Forschung für zwei Technologien der Stufe 1 erhalten – genau das, was das Tor dieses Spielfelds verlangt. Wähle zwei beliebige aus Stufe 1; eine Technologie der Stufe 2 zählt dafür nicht."
       },
       "ea_advance": {
         "title": "Aufstieg ins Mittelalter",
-        "message": "Noch eine Technologie, und jeder Tor-Chip wird grün. Dann drücke **Advance to Medieval Era** – der Button erscheint direkt dort, in der Torleiste des Technologiebaums.",
-        "detail": "Deine Einheiten gehen eine Runde lang mit verringerter Stärke ins neue Zeitalter über – das Verwundbarkeitsfenster – und deine Forschung startet in einem frischen, stärkeren Mittelalterbaum neu. Du behältst ein Echo deiner alten Boni und erhältst die Signatur-Belohnung des Zeitalters.",
-        "hint": "Wer in der Verstärkungsphase aufsteigt, nutzt die Stärke des neuen Zeitalters schon für die Angriffe dieser Runde. Fehlt ein Chip? Die Leiste sagt, was fehlt, und der Advance-Button leuchtet, sobald nichts mehr fehlt."
+        "message": "Sobald jeder Tor-Chip grün ist, drücke **Advance to Medieval Era** – der Button erscheint direkt dort, in der Torleiste des Technologiebaums. Das Tor dieses Spielfelds verlangt nur noch eine weitere Stufe-1-Technologie.",
+        "detail": "Der Aufstieg konsolidiert deine Armeen: Etwa 30 % deiner Einheiten werden endgültig entfernt, verteilt über deine Gebiete, und eine Runde lang kämpfen deine Verteidiger danach schwächer – das Verwundbarkeitsfenster. Deine Forschung startet in einem frischen, stärkeren Mittelalterbaum neu; du behältst ein Echo deiner alten Boni und erhältst die Signatur-Belohnung des Zeitalters.",
+        "hint": "Wer in der Verstärkungsphase aufsteigt, nutzt die Stärke des neuen Zeitalters schon für die Angriffe dieser Runde. Fehlt ein Chip? Die Leiste sagt, was fehlt, und der Advance-Button erscheint, sobald nichts mehr fehlt."
       },
       "wrapup": {
         "title": "Du bist bereit!",
-        "message": "Du hast den vollen Rundenzyklus durchlaufen – Verstärkung, Angriff, Befestigung – und bist ein Zeitalter aufgestiegen. Das ist der ganze Kreislauf. Die Standard-Siegbedingung ist Dominanz: Erobere jedes Gebiet. Gastgeber können auch Schwelle (einen Anteil der Karte), Hauptstadteinnahme oder Geheimmissionen wählen.",
+        "message": "Du hast den vollen Rundenzyklus durchlaufen – Verstärkung, Angriff, Befestigung – und bist ein Zeitalter aufgestiegen. Das ist der ganze Kreislauf. Dieses Spielfeld gewinnst du durch Dominanz: Erobere jedes Gebiet. Ein Quick Match ist schneller gewonnen, wenn du 65 % der Karte hältst, und Gastgeber können auch Hauptstadteinnahme oder Geheimmissionen wählen.",
         "skippedTitle": "Direkt ins Spiel",
-        "skippedMessage": "Kurz gefasst: Jede Runde verstärkst du Einheiten, greifst Nachbargebiete mit Würfeln an und befestigst dann. Unterwegs erforschst du eine Technologie und steigst von der Antike ins Mittelalter auf – das ist der Teil, den klassische Eroberungsspiele nicht haben. Gewinne durch Dominanz: Erobere jedes Gebiet. (Gastgeber können auch Schwelle, Hauptstadteinnahme oder Geheimmissionen wählen.) Gerade jetzt hast du Verstärkungen zu platzieren – wähle ein beliebiges blaues Gebiet und drücke dann **{{draftButton}}**.",
-        "detail": "Echte Partien ergänzen, was dieses Spielfeld weglässt: Gebietskarten für Bonus-Einheiten, Fraktionen mit einzigartigen Kräften, Gebäude und Stabilität, Nebel des Krieges, ein strengeres Aufstiegstor (mehr Forschung plus Gebäude) und die volle Linie von der Antike bis zur Moderne statt eines Sprungs über zwei Zeitalter."
+        "skippedMessage": "Kurz gefasst: Jede Runde platzierst du Verstärkungen, greifst Nachbargebiete mit Würfeln an und befestigst dann. Unterwegs erforschst du eine Technologie und steigst von der Antike ins Mittelalter auf – das ist der Teil, den klassische Eroberungsspiele nicht haben. Dieses Spielfeld gewinnst du durch Dominanz: Erobere jedes Gebiet; ein Quick Match ist schneller gewonnen, wenn du 65 % der Karte hältst. Drücke den goldenen Button unten, um loszuspielen – du kannst diese Lektion jederzeit in der Ausbildungsakademie wiederholen.",
+        "detail": "Echte Partien können ergänzen, was dieses Spielfeld weglässt: Fraktionen mit einzigartigen Kräften, Stabilität, Nebel des Krieges, ein strengeres Aufstiegstor (mehr Forschung plus Gebäude) und die volle Linie von der Antike bis zur Moderne statt eines Sprungs über zwei Zeitalter. Gebietskarten sind schon aktiv: Eine Runde mit einer Eroberung bringt dir eine, und ein Satz aus drei lässt sich gegen Bonus-Einheiten eintauschen."
       }
     },
     "advanced_settings": {
       "as_welcome": {
         "title": "Erweiterte Einstellungen",
         "message": "Gastgeber stimmen jede Partie in der Lobby ab. Du kannst Zeitalter, Spielerzahlen, Timer und optionale Systeme kombinieren, ohne den Kernkreislauf Verstärkung → Angriff → Befestigung zu verändern.",
-        "hint": "Diese Lektion ist rein informativ – geh mit „Weiter“ durch die Karten und probiere die Optionen dann in deiner nächsten eigenen Partie aus."
+        "hint": "Überwiegend Lesestoff – geh mit „Weiter“ durch die Karten. Eine Karte bittet dich, im Einstellungslabor zwei Optionen umzuschalten, bevor es weitergeht; den Rest probierst du in deiner nächsten eigenen Partie aus."
       },
       "as_timers": {
         "title": "Rundentimer und Asynchron",
-        "message": "Live-Partien nutzen Rundentimer (z. B. 60–300 Sekunden), damit es vorangeht. Asynchrone Partien ersetzen den Timer durch eine Frist – ideal für Spiel per Fernzug über Zeitzonen hinweg.",
+        "message": "Live-Partien nutzen einen Rundentimer (3, 5 oder 10 Minuten in einer eigenen Partie, oder gar keinen), damit es vorangeht. Asynchrone Partien geben jeder Runde stattdessen 12 Stunden, einen Tag oder drei Tage – ideal für Spiel per Fernzug über Zeitzonen hinweg.",
         "whyItMatters": "Wähle Timer, die zur Aufmerksamkeitsspanne deiner Gruppe passen; asynchron vermeidet Abbrüche, wenn jemand keine Zeit hat."
       },
       "as_fog": {
         "title": "Nebel des Krieges",
-        "message": "Der Nebel verbirgt gegnerische Einheitenzahlen in Gebieten, die du nicht kürzlich erkundet hast. Angreifen enthüllt Teilinformationen; ein gehaltenes Gebiet liefert klarere Aufklärung.",
-        "whyItMatters": "Fördert Erkundungsangriffe und Bluffs an schwachen Grenzen."
+        "message": "Der Nebel verbirgt gegnerische Einheitenzahlen überall außer in deinen eigenen Gebieten und den angrenzenden. Wem welches Gebiet gehört, siehst du immer, und manche Technologien sehen weiter.",
+        "whyItMatters": "Belohnt es, Reserven hinter der Front zu halten, wo Gegner sie nicht zählen können."
       },
       "as_economy": {
         "title": "Wirtschaft und Gebäude",
@@ -163,7 +163,7 @@
       "as_stacking": {
         "title": "Kombinierbare Systeme",
         "message": "Fraktionen, Technologiebäume, Seeregeln, Ereignisse und Bevölkerungsstabilität lassen sich kombinieren. Beginne mit einem optionalen System und füge ein weiteres hinzu, sobald deine Gruppe die Grundlagen kennt.",
-        "detail": "Beispielreihenfolge: nur Kern → +Fraktionen → +Technologie → +Ereignisse."
+        "detail": "Beispielreihenfolge: nur Kern → +Fraktionen → +Technologie (bringt Wirtschaft und Gebäude mit) → +Ereignisse."
       },
       "as_try_toggle": {
         "title": "Probiere eine Einstellung",
@@ -175,30 +175,30 @@
       },
       "as_complete": {
         "title": "Einstellungslektion abgeschlossen",
-        "message": "Du weißt jetzt, was jeder Schalter verändert. Erstelle eine eigene Partie in der Lobby und probiere jeweils eine neue Option aus."
+        "message": "Du hast gesehen, was die wichtigsten Optionen verändern. Erstelle eine eigene Partie und füge jeweils eine neue Option hinzu – dort heißen „Factions“ und „Era Events“ „Asymmetric Factions“ und „Historical Events“."
       }
     },
     "era_advancement": {
       "ea_welcome": {
         "title": "Zeitalteraufstieg",
-        "message": "In dieser Partie steigt deine Zivilisation durch die Zeitalter auf. Du beginnst in der **Antike** – forsche und baue, dann steige ins **Mittelalter** auf, für stärkere Einheiten und eine einmalige Belohnung.",
+        "message": "In dieser Partie steigt deine Zivilisation durch die Zeitalter auf. Du beginnst in der **Antike** – forsche auf das Tor hin, dann steige ins **Mittelalter** auf, für stärkere Einheiten und eine einmalige Belohnung.",
         "detail": "Du startest mit Bonus-Forschungspunkten und Gold, damit du den Aufstieg schnell erreichst."
       },
       "ea_progress": {
         "title": "Dein Zeitalter und die Zeitleiste",
-        "message": "Das Era-Panel in deiner Seitenleiste zeigt die Zeitleiste der Zeitalter, deine Position darauf und das Tor, das du zum Aufstieg erfüllen musst. Gegner steigen in ihrem eigenen Tempo auf.",
-        "messagePhone": "Das Era-Panel unter **☰ Menu** zeigt die Zeitleiste der Zeitalter, deine Position darauf und das Tor, das du zum Aufstieg erfüllen musst. Gegner steigen in ihrem eigenen Tempo auf.",
+        "message": "Das Era-Advancement-Panel in deiner Seitenleiste zeigt die Zeitleiste der Zeitalter und deine Position darauf; klappe es auf, um das Tor zu sehen, das du zum Aufstieg erfüllen musst. Dieser Übungsgegner bleibt in der Antike – echte Rivalen steigen in ihrem eigenen Tempo auf.",
+        "messagePhone": "Das Era-Advancement-Panel unter **☰ Menu** zeigt die Zeitleiste der Zeitalter und deine Position darauf; klappe es auf, um das Tor zu sehen, das du zum Aufstieg erfüllen musst. Dieser Übungsgegner bleibt in der Antike – echte Rivalen steigen in ihrem eigenen Tempo auf.",
         "whyItMatters": "Wer zuerst aufsteigt, verschafft sich einen Vorteil – schwächt seine Armee aber kurz, das Timing zählt also."
       },
       "ea_open_tree": {
         "title": "Öffne den Technologiebaum",
-        "message": "Öffne den Technologiebaum. Eine Fortschrittsleiste oben zeigt genau, welche Technologien das Aufstiegstor verlangt.",
+        "message": "Öffne den Technologiebaum. Eine Fortschrittsleiste oben zählt, was das Aufstiegstor verlangt: Technologien der Stufen 1 und 2 sowie Gold.",
         "hint": "Drücke unten „Technologiebaum öffnen“. Deine Bonus-Forschungspunkte liegen bereit."
       },
       "ea_research": {
         "title": "Forsche in Richtung Tor",
         "message": "Erforsche eine erschwingliche Stufe-1-Technologie. Beobachte, wie sich die Tor-Chips oben im Baum dabei aktualisieren.",
-        "hint": "Wähle einen beliebigen Stufe-1-Knoten. Das Tor verlangt ein paar davon plus einen Stufe-2-Knoten, der auf einem von ihnen aufbaut."
+        "hint": "Forsche während deiner Verstärkungs- oder Befestigungsphase. Wähle einen beliebigen Stufe-1-Knoten – das Tor verlangt ein paar davon plus einen Stufe-2-Knoten, der auf einem von ihnen aufbaut."
       },
       "ea_gate": {
         "title": "Erfülle das Tor",
@@ -208,42 +208,42 @@
       },
       "ea_advance": {
         "title": "Aufstieg ins Mittelalter",
-        "message": "Sobald jeder Tor-Chip grün ist, drücke **Advance to Medieval Era** oben im Baum oder im Era-Panel. Etwa 70 % deiner Einheiten gehen mit – der Rest ist für immer verloren –, deine Technologie startet im neuen Zeitalter neu und du erhältst eine Signatur-Belohnung.",
+        "message": "Sobald jeder Tor-Chip grün ist, drücke **Advance to Medieval Era** oben im Baum oder im Era-Advancement-Panel. Etwa 70 % deiner Einheiten gehen mit – der Rest ist für immer verloren –, deine Technologie startet im neuen Zeitalter neu und du erhältst eine Signatur-Belohnung.",
         "hint": "Fehlt noch etwas? Erforsche zuerst die fehlenden Knoten – die Torleiste oben im Baum zeigt, was übrig ist, und der Advance-Button leuchtet, sobald nichts mehr fehlt."
       },
       "ea_signature": {
         "title": "Verwundbar, aber stärker",
-        "message": "Du bist jetzt im Mittelalter. Eine Runde lang ist deine Verteidigung schwächer – das Verwundbarkeitsfenster –, dafür hast du die Signatur-Belohnung des Zeitalters und einen frischen, stärkeren Technologiebaum gewonnen.",
-        "whyItMatters": "Plane Aufstiege für Momente, in denen du vor Angriffen sicher bist, und nutze deine Signatur, bevor sie verfällt."
+        "message": "Du bist jetzt im Mittelalter. Deine Armee ist kleiner – die beim Aufstieg verlorenen Einheiten kommen nicht zurück –, und eine Runde lang ist deine Verteidigung schwächer, das Verwundbarkeitsfenster. Dafür hast du die Signatur-Belohnung des Zeitalters und einen frischen, stärkeren Technologiebaum gewonnen.",
+        "whyItMatters": "Plane Aufstiege für Momente, in denen du vor Angriffen sicher bist. Der Extrawürfel deiner Signatur wartet auf deinen nächsten Angriff – er verfällt nie."
       },
       "ea_complete": {
         "title": "Zeitalteraufstieg abgeschlossen",
-        "message": "Du bist ein Zeitalter aufgestiegen: Tor erfüllt, aufgestiegen und das Verwundbarkeitsfenster überstanden. In vollen Partien reicht die Linie bis zur Moderne."
+        "message": "Du bist ein Zeitalter aufgestiegen: Tor erfüllt und aufgestiegen. Das Verwundbarkeitsfenster schließt sich, wenn deine nächste Runde beginnt. In einer Partie mit „Standard“ reicht der Aufstieg bis zur Moderne, und „Epic“ geht weiter bis ins Weltraumzeitalter."
       }
     },
     "faction_ability": {
       "fa_welcome": {
         "title": "Fraktionskräfte",
-        "message": "In dieser Übungspartie sind Fraktionen auf der Zweiter-Weltkrieg-Karte aktiv. Du spielst China – eine Fraktion mit passivem Verteidigungsbonus und einer aktiven Fähigkeit namens Guerrilla Warfare.",
-        "detail": "Fraktionsfähigkeiten sind einzigartig. Anders als Technologiebaum-Upgrades (die Technologiepunkte kosten) laden sich Fraktionsfähigkeiten jede Runde automatisch auf."
+        "message": "In dieser Übungspartie sind Fraktionen auf der Zweiter-Weltkrieg-Karte aktiv. Du spielst China (die Chinese Nationalists) – eine Fraktion, deren ganzes Rüstzeug eine einzige aktive Fähigkeit ist: Guerrilla Warfare.",
+        "detail": "Fraktionsfähigkeiten sind einzigartig und kostenlos. Anders als Technologiebaum-Upgrades (die Technologiepunkte kosten) laden sich die meisten jede Runde wieder auf; einige wenige lassen sich nur einmal pro Partie einsetzen."
       },
       "fa_identity": {
         "title": "Kenne deine Fraktion",
-        "message": "Öffne das Bonuses-Panel, um Chinas passive Boni (+1 Verteidigung in jedem deiner Gebiete) und die Beschreibung von Guerrilla Warfare zu lesen.",
-        "hint": "Drücke unten „Boni öffnen“ – das Panel zeigt Chinas passives +1 auf Verteidigung und die Guerrilla-Warfare-Ladungen.",
-        "whyItMatters": "Wer seine Passiva kennt, verteidigt anders. Chinas +1 Verteidigung macht Angriffe auf Gebiete im Inneren sehr teuer."
+        "message": "Öffne das Bonuses-Panel, um Chinas Fraktionseintrag und die Beschreibung von Guerrilla Warfare zu lesen. China hat keinen passiven Bonus; manche anderen Fraktionen haben einen, etwa zusätzliche Verstärkungen.",
+        "hint": "Drücke unten „Boni öffnen“ – unter „Your Faction“ stehen die Chinese Nationalists und ihre Fähigkeit Guerrilla Warfare.",
+        "whyItMatters": "Wer sein Rüstzeug kennt, spielt anders. Chinas Vorteil ist die Gratis-Einheit, die Guerrilla Warfare jede Runde platziert – setze sie dorthin, wo eine Grenze dünn ist."
       },
       "fa_when": {
         "title": "Wann Fähigkeiten erscheinen",
-        "message": "Aktive Fähigkeiten erscheinen als Buttons im Gebiets-Panel während der passenden Spielphase. Guerrilla Warfare ist eine Fähigkeit der Verstärkungsphase – achte auf den grünen Button, wenn du ein Gebiet hältst und die Verstärkungsphase läuft.",
-        "detail": "Buttons sind ausgegraut oder ausgeblendet, wenn du in der falschen Phase bist, keine Ladungen hast oder eine Einmal-pro-Partie-Kraft schon verbraucht hast.",
+        "message": "Aktive Fähigkeiten erscheinen als Buttons im Gebiets-Panel während der passenden Phase. Guerrilla Warfare ist eine Fähigkeit der Verstärkungsphase – wähle ein eigenes Gebiet, während die Phasenanzeige „Reinforcement“ lautet, und achte auf den grünen Button.",
+        "detail": "Der Button ist in der falschen Phase ausgeblendet, ebenso, sobald du ihn in dieser Runde benutzt hast, und endgültig, wenn eine Einmal-pro-Partie-Kraft verbraucht ist.",
         "whyItMatters": "Die Kunst ist, den Zeitpunkt der Fähigkeit auf deine Strategie abzustimmen. Guerrilla Warfare gibt eine Gratis-Einheit – ideal, um eine schwache Grenze zu stopfen, bevor der Gegner angreift."
       },
       "fa_use": {
         "title": "Setze Guerrilla Warfare ein",
-        "message": "Wähle in der Verstärkungsphase ein beliebiges eigenes Gebiet. Ein grüner Button „🌿 Guerrilla Warfare“ erscheint. Drücke ihn, um 1 Gratis-Einheit zu platzieren – keine Karten, keine Gebiete nötig.",
+        "message": "Wähle in der Verstärkungsphase ein beliebiges eigenes Gebiet. Ein grüner Button „🌿 Guerrilla Warfare“ erscheint. Drücke ihn, um 1 Gratis-Einheit zu platzieren – dafür werden weder Karten noch Verstärkungen verbraucht.",
         "hint": "Wähle ein eigenes Gebiet und suche im Gebiets-Panel nach dem grünen Button „Guerrilla Warfare“.",
-        "detail": "Siehst du den Button nicht, prüfe, ob gerade die Phase „Reinforcement“ (Verstärkung) läuft. Während Angriff oder Befestigung erscheint er nicht."
+        "detail": "Siehst du den Button nicht, prüfe, ob die Phasenanzeige „Reinforcement“ (Verstärkung) lautet. Während Angriff oder Befestigung erscheint er nicht."
       },
       "fa_result": {
         "title": "Fähigkeit eingesetzt!",
@@ -253,19 +253,20 @@
       },
       "fa_complete": {
         "title": "Fraktionslektion abgeschlossen",
-        "message": "Du hast mit der aktiven Fähigkeit deiner Fraktion eine Gratis-Einheit platziert – genau so funktioniert es in Ranglistenpartien. Jede Fraktion hat ein anderes Timing, Ziel und Ausmaß. Vergleiche vor deiner nächsten Partie alle Fraktionen im Kodex."
+        "message": "Du hast mit der aktiven Fähigkeit deiner Fraktion eine Gratis-Einheit platziert – genau so funktioniert es in jeder Partie, in der „Asymmetric Factions“ eingeschaltet ist. Jede Fraktion hat ein anderes Timing, Ziel und Ausmaß. Vergleiche vor deiner nächsten Partie alle Fraktionen im Kodex."
       }
     },
     "tech_tree": {
       "tt_welcome": {
         "title": "Technologiebaum",
-        "message": "In dieser Übungspartie sind Technologiebäume aktiv. Du verdienst mit der Zeit Technologiepunkte (TP) und gibst sie aus, um Knoten mit passiven Boni oder neuen Fähigkeiten freizuschalten.",
+        "message": "In dieser Übungspartie sind Technologiebäume aktiv. Du gibst Technologiepunkte (TP) aus, um Knoten mit passiven Boni, Gebäuden oder neuen Fähigkeiten freizuschalten; in einer vollen Partie verdienst du jede Runde neue dazu.",
         "detail": "In dieser Lektion startest du mit Bonus-TP, damit du sofort forschen kannst."
       },
       "tt_points": {
         "title": "Technologiepunkte",
-        "message": "Dein TP-Guthaben siehst du im Technologiebaum und auf deiner Spielerkarte. Einkommen kommt aus Zeitalterregeln, bestimmten Gebäuden und manchen Fraktionspassiva.",
-        "whyItMatters": "Auf einen Stufe-2-Knoten zu sparen ist oft besser, als jeden billigen Stufe-1-Knoten zu kaufen."
+        "message": "Dein TP-Guthaben steht oben im Technologiebaum und in der Zeile „Resources“ der Seitenleiste. In einer vollen Partie kommt Einkommen aus deinen gehaltenen Gebieten (1 TP pro 5), aus Laboratories und aus manchen Technologien; diese Übungspartie zahlt nichts, deine 8 Bonus-TP sind also das Budget.",
+        "messagePhone": "Dein TP-Guthaben steht oben im Technologiebaum und unter **☰ Menu** bei „Resources“. In einer vollen Partie kommt Einkommen aus deinen gehaltenen Gebieten (1 TP pro 5), aus Laboratories und aus manchen Technologien; diese Übungspartie zahlt nichts, deine 8 Bonus-TP sind also das Budget.",
+        "whyItMatters": "In einer vollen Partie ist es oft besser, auf einen Stufe-2-Knoten zu sparen, als jeden billigen Stufe-1-Knoten zu kaufen."
       },
       "tt_open": {
         "title": "Öffne den Technologiebaum",
@@ -274,12 +275,12 @@
       },
       "tt_research": {
         "title": "Erforsche eine Technologie",
-        "message": "Wähle einen erschwinglichen Stufe-1-Knoten und bestätige die Forschung. Passiva wirken sofort; Fähigkeiten erscheinen nach dem Freischalten im Gebiets-Panel.",
-        "hint": "Wähle einen Stufe-1-Knoten – Motorization, Bunker Network oder Radio Communications sind auf der WW2-Karte starke erste Wahlen."
+        "message": "Wähle einen erschwinglichen Stufe-1-Knoten und drücke seinen Research-Button. Würfelboni wirken sofort, zusätzliche Verstärkungen ab deiner nächsten Runde; Fähigkeiten erscheinen im Gebiets-Panel.",
+        "hint": "Forsche während deiner Verstärkungs- oder Befestigungsphase. Radio Communications (3 TP) und Motorization (5 TP) geben je +1 Verstärkung – mit 8 TP bekommst du beide."
       },
       "tt_complete": {
         "title": "Technologielektion abgeschlossen",
-        "message": "Du hast einen Knoten erforscht und gesehen, wie sich Boni stapeln. Plane in vollen Partien einen Pfad zu den Fähigkeiten, die deine Strategie braucht."
+        "message": "Du hast einen Knoten erforscht und gesehen, was er freischaltet. Plane in vollen Partien einen Pfad zu den Fähigkeiten, die deine Strategie braucht."
       }
     },
     "galaxy_lane_sovereignty": {
@@ -291,8 +292,8 @@
       },
       "gls_chart": {
         "title": "Lies die Galaxiekarte",
-        "message": "Das Spielfeld öffnet sich auf der **Galaxy chart**. Klicke über dem Spielfeld auf den Button **Galaxy chart** – so kommst du aus jedem Welt-Tab zurück – und lies die Routen: Eine Route in **deiner Farbe** ist ein Korridor, eine **blaue** Route ist offen (du hältst ein Ende), eine gedimmte Route ist für dich geschlossen. Das Ziele-Feld in der Seitenleiste zählt mit: **corridors 4 of 5 · held 0 of 3 rounds**.",
-        "messagePhone": "Das Spielfeld öffnet sich auf der **Galaxy chart**. Tippe über dem Spielfeld in der Zeile Worlds auf den Chip **Galaxy chart** – so kommst du aus jedem Welt-Tab zurück – und lies die Routen: Eine Route in **deiner Farbe** ist ein Korridor, eine **blaue** Route ist offen (du hältst ein Ende), eine gedimmte Route ist für dich geschlossen. Das Ziele-Feld unter **☰ Menu** zählt mit: **corridors 4 of 5 · held 0 of 3 rounds**.",
+        "message": "Klicke über dem Spielfeld auf den Button **Galaxy chart** – so kommst du aus jedem Welt-Tab oder aus Split zurück – und lies die Routen: Eine Route in **deiner Farbe** ist ein Korridor, eine **blaue** Route ist offen (du hältst ein Ende), eine gedimmte Route ist für dich geschlossen. Das Ziele-Feld in der Seitenleiste zählt mit: **corridors 4 of 5 · held 0 of 3 rounds**.",
+        "messagePhone": "Tippe über dem Spielfeld in der Zeile Worlds auf den Chip **Galaxy chart** – so kommst du aus jedem Welt-Tab zurück – und lies die Routen: Eine Route in **deiner Farbe** ist ein Korridor, eine **blaue** Route ist offen (du hältst ein Ende), eine gedimmte Route ist für dich geschlossen. Das Ziele-Feld unter **☰ Menu** zählt mit: **corridors 4 of 5 · held 0 of 3 rounds**.",
         "detail": "Bei drei Sitzen überbrücken Kolonierouten die beiden Lücken des Rings. Sie tragen Angriffe wie jede Route, aber Lane Sovereignty zählt nur die acht kartierten.",
         "hint": "Ein Welt-Tab öffnet diese Welt allein."
       },
@@ -300,18 +301,19 @@
         "title": "Erforsche Lane Charts",
         "message": "Ein Angriff über eine Route würfelt höchstens mit **2 Würfeln**, nicht 3 – ein verteidigtes Gateway hält wie eine Küste. **Lane Charts** kauft den dritten Würfel zurück. Öffne den Technologiebaum und erforsche es; du hast genau seine Kosten erhalten.",
         "detail": "Lane Charts ist die Routen-Wurzel der Stufe 1 in der Galaxis. Das Wunder Hyperlane Anchor hebt die Grenze ganz auf, und die Void Custodians würfeln einen zusätzlichen Würfel, wenn sie eine Route verteidigen.",
-        "hint": "Forschen ist in jeder Phase deines Zuges erlaubt. Drücke unten „Technologiebaum öffnen“."
+        "hint": "Forsche in deiner Verstärkungs- oder Befestigungsphase, nicht mitten im Angriff. Drücke unten „Technologiebaum öffnen“."
       },
       "gls_draft": {
         "title": "Stapel auf dein Gateway",
         "message": "Wähle **Hematite Span** – dein hervorgehobenes Gateway im Rust Belt –, stelle **All** ein und drücke **Place**. Drücke dann den goldenen Button **{{draftButton}}**.",
         "detail": "Öffne den Tab **Rust Belt**, um es zu finden. Seine Gateway-Karte führt die Route nach Nexus Station als **Open**: Du hältst dieses Ende, und die Void Custodians halten **Antenna Spire** am anderen.",
-        "hint": "Navigators erhalten +2 Verstärkung pro Zug. Halte die Stapel auf Verdan Reach unter 12: Seine Stürme nehmen allem, was höher ist, jede Runde eine Einheit."
+        "detailPhone": "Öffne den Chip **Rust Belt**, um es zu finden. Sobald deine Einheiten platziert sind, führt seine Gateway-Karte die Route nach Nexus Station als **Open**: Du hältst dieses Ende, und die Void Custodians halten **Antenna Spire** am anderen.",
+        "hint": "Navigators erhalten +2 Verstärkung pro Zug. Halte die Stapel auf Verdan Reach bei höchstens 12: Seine Stürme nehmen allem, was höher ist, jede Runde eine Einheit."
       },
       "gls_cross": {
         "title": "Überquere die Route",
-        "message": "Wähle **Hematite Span** und dann über die Route **Antenna Spire**. Die Angriffszeile zeigt die Würfel, die eine Überquerung rollt. Greif erneut an – oder **Attack until captured** –, bis das Gateway fällt.",
-        "detail": "Es einzunehmen macht die Route Rust–Nexus zu deinem fünften Korridor. Die Kampfkarte zeigt den zusätzlichen Verteidigungswürfel der Custodians bei einer Routenüberquerung – zwölf gegen zwei setzt sich über ein paar Würfe durch.",
+        "message": "Wähle **Hematite Span** und dann über die Route **Antenna Spire**. Die Angriffszeile zeigt die Würfel, die eine Überquerung rollt. Greif erneut an – oder **⚡ Blitz until captured** –, bis das Gateway fällt.",
+        "detail": "Es einzunehmen macht die Route Rust–Nexus zu deinem fünften Korridor. Die Kampfkarte zeigt den zusätzlichen Verteidigungswürfel der Custodians bei einer Routenüberquerung – dein Stapel gegen zwei setzt sich über ein paar Würfe durch.",
         "hint": "Nur ein Angriff von einem Gateway aus kann eine Route überqueren: Die Route ist die Grenze."
       },
       "gls_hold_1": {
@@ -331,7 +333,7 @@
       },
       "gls_complete": {
         "title": "Lane Sovereignty abgeschlossen",
-        "message": "Du hast eine Route überquert, einen fünften Korridor vollendet und das Netz drei Zugbeginne lang gehalten. In einer echten Partie kämpfen die Rivalen um jedes Gateway, und ein Korridor, der in ihrem Zug fällt, setzt deine Serie auf null zurück.",
+        "message": "Du hast eine Route überquert, einen fünften Korridor vollendet und das Netz drei Zugbeginne lang gehalten. In einer echten Partie kämpfen die Rivalen um jedes Gateway, und verlierst du in ihrem Zug einen Korridor, fällst du unter fünf – das setzt deine Serie auf null zurück.",
         "skippedTitle": "Direkt ins Spiel",
         "skippedMessage": "Kurz gefasst: Halte beide Gateways von 5 der 8 kartierten Routen zu Beginn deines Zuges, 3 Züge in Folge (5 im Duell oder 2v2). Vier Korridore hältst du jetzt. Nimm **Antenna Spire** von **Hematite Span** aus über die Route für den fünften und halte ihn. Gerade jetzt hast du Verstärkungen zu platzieren – wähle **Hematite Span** und drücke dann {{draftButton}}."
       }
@@ -346,19 +348,20 @@
       "gtr_research": {
         "title": "Forsche auf das Tor zu",
         "message": "Öffne den Technologiebaum. Die Leiste **Advancement gate → Galactic Age** oben listet die Chips, die du erfüllen musst. Erforsche zuerst **Megacity Logistics**: Es schaltet die Workshop frei, und das Tor verlangt drei Gebäude – dein Launch Pad auf **Southern African Union** ist bereits eines.",
-        "detail": "Der günstigste Weg durch das Tor: Megacity Logistics und Digital Warfare (die beiden Wurzeln der Stufe 1), darauf Fusion Power Grid und AI-Directed Command, dann Hypersonic Swarm oder Quantum Computing Grid für die Stufe 3.",
-        "hint": "Forschen ist in jeder Phase deines Zuges erlaubt. Drücke unten „Technologiebaum öffnen“."
+        "detail": "Der günstigste Weg durch das Tor: Megacity Logistics und Digital Warfare (die Wurzeln der Stufe 1 unter den beiden Stufe-2-Knoten, die du brauchst), darauf Fusion Power Grid und AI-Directed Command, dann Hypersonic Swarm oder Quantum Computing Grid für die Stufe 3.",
+        "hint": "Forsche in deiner Verstärkungs- oder Befestigungsphase, nicht mitten im Angriff. Drücke unten „Technologiebaum öffnen“."
       },
       "gtr_build": {
         "title": "Errichte eine Workshop",
-        "message": "Wähle **Australian Meridian** – hervorgehoben – und errichte im Abschnitt **Build** eine **Workshop** (3 PP). Bauen ist in der Verstärkungs- und der Befestigungsphase erlaubt.",
+        "message": "Öffne den Tab **Earth, 2100**, wähle **Australian Meridian** – hervorgehoben – und errichte im Abschnitt **Buildings** eine **Workshop** (3 PP). Bauen ist in der Verstärkungs- und der Befestigungsphase erlaubt.",
+        "messagePhone": "Tippe auf den Chip **Earth, 2100** und platziere jede Verstärkung, wähle dann **Australian Meridian** – hervorgehoben – und errichte im Abschnitt **Buildings** eine **Workshop** (3 PP). Der Abschnitt erscheint in deiner Verstärkungsphase, sobald jede Einheit steht.",
         "detail": "Errichte danach eine zweite auf einem anderen deiner Systeme: Mit dem Launch Pad sind das die drei Gebäude des Tors. Eine Workshop bringt +1 PP pro Zug, und die Anzahl ist es, die das Tor liest."
       },
       "gtr_gate": {
         "title": "Erfülle das Tor und steige auf",
-        "message": "Beende die Forschung und die zweite Workshop, bis jeder Chip in der Leiste grün ist, und drücke dann direkt in der Leiste auf **Advance to Galactic Age** (das Feld **Era Advancement** in der Seitenleiste hat denselben Button). Der Aufstieg kostet ebenfalls PP.",
-        "messagePhone": "Beende die Forschung und die zweite Workshop, bis jeder Chip in der Leiste grün ist, und drücke dann direkt in der Leiste auf **Advance to Galactic Age** (das Feld **Era Advancement** unter **☰ Menu** hat denselben Button). Der Aufstieg kostet ebenfalls PP.",
-        "detail": "Der Aufstieg konsolidiert deine Armeen: Etwa 30 % deiner Einheiten gehen endgültig verloren, und für einen Zug verteidigen deine Truppen schwächer. Deine Forschung des Weltraumzeitalters wird gelöscht – das neue Zeitalter sperrt seine Routen über Position, nicht über Technologie – und du erhältst das **Pathfinder Gate**: Die Routen zu Welten, die du noch nicht erreicht hast, gehören zwei Runden lang dir allein.",
+        "message": "Beende die Forschung und die zweite Workshop, bis jeder Chip in der Leiste grün ist, und drücke dann direkt in der Leiste auf **Advance to Galactic Age** (das Feld **Era Advancement** in der Seitenleiste hat denselben Button). Der Aufstieg kostet ebenfalls PP – der Chip **Gold** in der Leiste zeigt, wie viel.",
+        "messagePhone": "Beende die Forschung und die zweite Workshop, bis jeder Chip in der Leiste grün ist, und drücke dann direkt in der Leiste auf **Advance to Galactic Age** (das Feld **Era Advancement** unter **☰ Menu** hat denselben Button). Der Aufstieg kostet ebenfalls PP – der Chip **Gold** in der Leiste zeigt, wie viel.",
+        "detail": "Der Aufstieg konsolidiert deine Armeen: Etwa 30 % deiner Einheiten gehen endgültig verloren, und für einen Zug verteidigen deine Truppen schwächer. Deine Forschung des Weltraumzeitalters wird gelöscht – das neue Zeitalter sperrt seine Routen über Position, nicht über Technologie – und du erhältst das **Pathfinder Gate**: Die Routen von deinen Systemen zu Welten, die du noch nicht erreicht hast – auf diesem Spielfeld die Route von Southern African Union nach Luna –, gehören zwei Runden lang dir allein.",
         "hint": "Steige in deiner Verstärkungs- oder Befestigungsphase auf. Fehlt ein Chip? Die Leiste nennt, was fehlt."
       },
       "gtr_arrive": {
@@ -368,58 +371,59 @@
       },
       "gtr_wonder": {
         "title": "Errichte den Hyperlane Anchor",
-        "message": "Das Wunder deines Zeitalters ist jetzt der **Hyperlane Anchor** (22 PP). Wähle eines deiner Systeme und errichte ihn aus der Wunderzeile am Ende des Abschnitts **Build**.",
+        "message": "Das Wunder deines Zeitalters ist jetzt der **Hyperlane Anchor** (22 PP). Öffne den Tab **Earth, 2100**, wähle eines deiner Systeme und errichte ihn aus der Wunderzeile am Ende seines Abschnitts **Buildings**.",
+        "messagePhone": "Das Wunder deines Zeitalters ist jetzt der **Hyperlane Anchor** (22 PP). Tippe auf den Chip **Earth, 2100**, wähle eines deiner Systeme und errichte ihn aus der Wunderzeile am Ende seines Abschnitts **Buildings**, der in deiner Verstärkungsphase erscheint.",
         "detail": "Transzendenz braucht das letzte Zeitalter und ein Wunder in der Hand; der Anchor lässt deine Angriffe über Hyperraumrouten außerdem mit vollen Würfeln rollen. Ein Wunder pro Partie – wer es zuerst errichtet, behält es."
       },
       "gtr_win": {
         "title": "Gewertet ab Runde 2",
-        "message": "Ist noch Runde 1, beende deinen Zug mit **{{fortifyButton}}**: Der Sieg kommt, sobald Runde 2 beginnt, bevor du eine Einheit setzt. In Runde 2 oder später errichtet, endete die Partie in dem Moment, in dem der Anchor stand.",
+        "message": "Ist noch Runde 1, spiele deinen Zug bis **{{fortifyButton}}** durch: Der Sieg kommt, sobald Runde 2 beginnt, bevor du eine Einheit setzt. In Runde 2 oder später errichtet, endete die Partie in dem Moment, in dem der Anchor stand.",
         "detail": "Die Runde-2-Regel schützt jeden alternativen Sieg: Eine Hauptstadt mit ihren drei Starteinheiten könnte sonst den Würfeln des ersten Sitzes zum Opfer fallen, bevor der letzte Sitz eine gesetzt hat."
       },
       "gtr_complete": {
         "title": "Transzendenz abgeschlossen",
         "message": "Du hast das Tor des Weltraumzeitalters erfüllt, bist mit dem Pathfinder Gate im Galaktischen Zeitalter angekommen und hast den Hyperlane Anchor errichtet. In einer echten Space-to-Stars-Partie braucht jeder andere Sitz das volle Raumfahrtprogramm, um dir zu folgen, und die fernen Welten gehören dir, um als Erster zu landen.",
         "skippedTitle": "Direkt ins Spiel",
-        "skippedMessage": "Kurz gefasst: Forsche über das Tor hinaus (2 Technologien der Stufe 1, 2 der Stufe 2, 1 der Stufe 3, 3 Gebäude), drücke in der Tor-Leiste des Technologiebaums auf **Advance to Galactic Age** und errichte dann auf einem beliebigen deiner Systeme den **Hyperlane Anchor**. Der Sieg wird ab Runde 2 gewertet. Gerade jetzt hast du Verstärkungen zu platzieren – wähle eines deiner Systeme und drücke dann {{draftButton}}."
+        "skippedMessage": "Kurz gefasst: Forsche über das Tor hinaus (2 Technologien der Stufe 1, 2 der Stufe 2, 1 der Stufe 3, 3 Gebäude), drücke in der Tor-Leiste des Technologiebaums auf **Advance to Galactic Age** und errichte dann auf einem beliebigen deiner Systeme den **Hyperlane Anchor**. Der Sieg wird ab Runde 2 gewertet. Gerade jetzt hast du Verstärkungen zu platzieren – wähle eines deiner Systeme, dann forsche, baue und steige auf, bevor du {{draftButton}} drückst."
       }
     },
     "galaxy_secret_missions": {
       "gsm_welcome": {
         "title": "Geheimmissionen in der Galaxis",
         "message": "Diese Partie wird um **Geheimmissionen** gespielt: Jeder Sitz erhält zu Beginn ein privates Ziel, und wer seines erfüllt, gewinnt. Du spielst die Helion Navigators von **Verdan Reach**; die Stellar Mandate hält **Sol III** jenseits zweier Hyperraumrouten. Deine lautet **Own Guinea Coast and Pacific Rim** – die beiden Sol-Gateways, die deiner Welt zugewandt sind.",
-        "detail": "Die Galaxis verändert die Verteilung. Eine Mission nennt nie eine Welt hinter einem Hyperraum-Gate, und hier ist jede Welt außer Sol III eine: Jede Erober- oder Kontrollmission auf dieser Karte nennt Sol-Boden, liegt also immer eine Routenüberquerung entfernt. Ein Sitz, der bereits ganz Sol hält, kann nur eine Eliminierungsmission ziehen. Missionen werden ab Runde 2 gewertet.",
+        "detail": "Die Galaxis verändert die Verteilung. Eine Mission nennt nie eine Welt hinter einem Hyperraum-Gate, und hier ist jede Welt außer Sol III eine: Jede Erober- oder Kontrollmission auf dieser Karte nennt Sol-Boden, der für jeden, der nicht auf Sol beheimatet ist, eine Routenüberquerung entfernt liegt. Ein Sitz, der bereits ganz Sol hält, kann nur eine Eliminierungsmission ziehen. Missionen werden ab Runde 2 gewertet.",
         "hint": "Drücke Weiter oder überspringe zum Ende und steig direkt ein."
       },
       "gsm_objectives": {
         "title": "Lies deine Mission",
-        "message": "Das Feld **Objectives** im Status-Tab der Seitenleiste zeigt sie: **Mission: Own Guinea Coast and Pacific Rim**. Niemand sonst kann sie sehen – eine Mission wird nur ihrem Halter, ausgeschiedenen Spielern und auf dem Ergebnisbildschirm enthüllt. Die Mission der Mandate ist genauso privat.",
-        "messagePhone": "Das Feld **Objectives** im Tab **Status** unter **☰ Menu** zeigt sie: **Mission: Own Guinea Coast and Pacific Rim**. Niemand sonst kann sie sehen – eine Mission wird nur ihrem Halter, ausgeschiedenen Spielern und auf dem Ergebnisbildschirm enthüllt. Die Mission der Mandate ist genauso privat.",
+        "message": "Das Feld **Objectives** im Status-Tab der Seitenleiste zeigt sie: **Mission: Own Guinea Coast and Pacific Rim**. Niemand sonst kann sie sehen – eine Mission wird nur ihrem Halter enthüllt, dann allen, sobald ihr Halter ausscheidet oder die Partie endet. Die Mission der Mandate ist genauso privat.",
+        "messagePhone": "Das Feld **Objectives** im Tab **Status** unter **☰ Menu** zeigt sie: **Mission: Own Guinea Coast and Pacific Rim**. Niemand sonst kann sie sehen – eine Mission wird nur ihrem Halter enthüllt, dann allen, sobald ihr Halter ausscheidet oder die Partie endet. Die Mission der Mandate ist genauso privat.",
         "detail": "Drei Missionsarten gibt es auf diesem Spielfeld: zwei genannte Systeme besitzen, eine oder zwei genannte Regionen kontrollieren oder einen genannten Spieler selbst eliminieren (tut es jemand anders, scheitert die Mission). Der Zeitalteraufstieg fügt „ein Zeitalter erreichen“ hinzu, das Weltraumzeitalter Mondziele.",
         "whyItMatters": "Ein Rivale, der deine Mission errät, kann das eine Gateway halten, das du brauchst. Zwei Sitze können sogar dasselbe Ziel ziehen: Missionen werden getrennt verteilt."
       },
       "gsm_alliance": {
         "title": "Allianzen – und warum nicht hier",
-        "message": "In einer Partie mit **vier oder mehr Sitzen und mindestens zwei Menschen** erhalten etwa bei jeder fünften Verteilung zwei von ihnen statt Missionen eine **Allianz**: Jeder muss einen gleichen Anteil der verteilten Systeme plus 7 % halten – 21 each auf dem Galaxie-Spielfeld mit vier Sitzen –, beide müssen noch im Spiel sein, und sie gewinnen gemeinsam durch einen Allianzsieg.",
+        "message": "In einer Partie mit **vier oder mehr Sitzen und mindestens zwei Menschen** erhalten etwa bei jeder fünften Verteilung zwei von ihnen statt Missionen eine **Allianz**: Jeder muss einen gleichen Anteil der verteilten Systeme plus 7 % halten – je 21 auf dem Galaxie-Spielfeld mit vier Sitzen –, beide müssen noch im Spiel sein, und sie gewinnen gemeinsam durch einen Allianzsieg.",
         "detail": "Teamspiele lassen Missionen ganz weg: In einem 2v2 oder mit verbündeten Häusern könnte eine Mission einen Verbündeten zur Eliminierung nennen, deshalb graut die Lobby die Bedingung aus. Ein Mensch gegen die KI kann nie eine Allianz erhalten – darum führt diese Lektion eine Erobermission durch."
       },
       "gsm_draft": {
         "title": "Stapel auf ein Gateway",
         "message": "Wähle **Chlorophage Span** – dein Gateway gegenüber Guinea Coast, hervorgehoben –, stelle **All** ein und drücke **Place**. Drücke dann den goldenen Button **{{draftButton}}**.",
         "detail": "Seine Gateway-Karte führt die Route nach Sol III als **Open**: Du hältst dieses Ende, die Mandate hält Guinea Coast am anderen. Greenfire Vault, dein anderes Gateway, liegt Pacific Rim auf dieselbe Weise gegenüber.",
-        "hint": "Navigators erhalten +2 Verstärkung pro Zug. Halte die Stapel auf Verdan Reach unter 12: Seine Stürme nehmen allem, was höher ist, jede Runde eine Einheit."
+        "hint": "Navigators erhalten in einer Partie mit zwei Sitzen wie dieser +1 Verstärkung pro Zug (+2 mit mehr Sitzen). Die Stürme auf Verdan Reach nehmen jedem Stapel über 12 jede Runde eine Einheit."
       },
       "gsm_first": {
         "title": "Nimm das erste Gateway",
-        "message": "Wähle **Chlorophage Span**, dann über die Route **Guinea Coast**, und greife an, bis es fällt – ein Routenangriff würfelt höchstens mit 2 Würfeln, **Attack until captured** erspart dir den Angriff Wurf für Wurf. Welches Gateway zuerst, ist egal: Die Mission liest beide.",
+        "message": "Wähle **Chlorophage Span**, dann über die Route **Guinea Coast**, und greife an, bis es fällt – ein Routenangriff würfelt höchstens mit 2 Würfeln, **⚡ Blitz until captured** erspart dir den Angriff Wurf für Wurf. Nimm zuerst Guinea Coast; Pacific Rim kommt als Nächstes.",
         "detail": "Bis zu 3 Angreifer rücken von selbst nach. Lass den Rest stehen: Guinea Coast grenzt an fünf Sol-Systeme, aber die Mission will nur das Gateway."
       },
       "gsm_second": {
         "title": "Nimm das zweite",
-        "message": "Jetzt die andere Route: **Greenfire Vault → Pacific Rim**. Sind beide genannten Systeme deins, ist die Missionszeile im Feld Objectives erfüllt – und die Partie auch, ab Runde 2."
+        "message": "Jetzt die andere Route: **Greenfire Vault → Pacific Rim**. Sind beide genannten Systeme deins, ist die Mission erfüllt – und die Partie auch, ab Runde 2."
       },
       "gsm_win": {
         "title": "Gewertet ab Runde 2",
-        "message": "Beide Gateways gehören dir. Ist noch Runde 1, beende deinen Zug mit **{{attackButton}}** und **{{fortifyButton}}**: Der Sieg kommt, sobald Runde 2 beginnt, bevor du eine Einheit setzt. In Runde 2 oder später erfüllt, endete die Partie mit der Eroberung.",
+        "message": "Beide Gateways gehören dir. Zeigt die obere Leiste noch „Turn 1“, beende deinen Zug mit **{{attackButton}}** und **{{fortifyButton}}**: Der Sieg kommt, sobald Runde 2 beginnt, bevor du eine Einheit setzt. In Runde 2 oder später erfüllt, endete die Partie mit der Eroberung.",
         "detail": "Halte sie durch den Zug der Mandate. Eine Mission wird nach dem gewertet, was du bei der Prüfung hältst, nicht nach dem, was du einmal genommen hast."
       },
       "gsm_complete": {
@@ -438,10 +442,10 @@
       },
       "gcp_rules": {
         "title": "Lies die Hauptstädte",
-        "message": "Jede Hauptstadt ist auf der Karte markiert, und das Feld **Objectives** in der Seitenleiste zeigt **Your capital: Amazon Basin** mit der Regel darunter: Halte sie und nimm jede gegnerische Hauptstadt, gewertet ab Runde 2. Verlierst du Amazon Basin, wird das Feld rot – du kannst nicht über Hauptstädte gewinnen, bis du sie zurückeroberst.",
-        "messagePhone": "Jede Hauptstadt ist auf der Karte markiert, und das Feld **Objectives** unter **☰ Menu** zeigt **Your capital: Amazon Basin** mit der Regel darunter: Halte sie und nimm jede gegnerische Hauptstadt, gewertet ab Runde 2. Verlierst du Amazon Basin, wird das Feld rot – du kannst nicht über Hauptstädte gewinnen, bis du sie zurückeroberst.",
+        "message": "Jede Hauptstadt ist auf der Karte ihrer Welt markiert, und das Feld **Objectives** in der Seitenleiste zeigt **Your capital: Amazon Basin** mit der Regel darunter: Halte sie und nimm jede gegnerische Hauptstadt, gewertet ab Runde 2. Verlierst du Amazon Basin, wird diese Zeile rot – du kannst nicht über Hauptstädte gewinnen, bis du sie zurückeroberst.",
+        "messagePhone": "Jede Hauptstadt ist auf der Karte ihrer Welt markiert, und das Feld **Objectives** unter **☰ Menu** zeigt **Your capital: Amazon Basin** mit der Regel darunter: Halte sie und nimm jede gegnerische Hauptstadt, gewertet ab Runde 2. Verlierst du Amazon Basin, wird diese Zeile rot – du kannst nicht über Hauptstädte gewinnen, bis du sie zurückeroberst.",
         "detail": "Nur lebende Rivalen zählen: Die Hauptstadt eines ausgeschiedenen Sitzes muss nicht mehr gehalten werden. In einem 2v2 oder mit verbündeten Häusern gewinnt die Seite, wenn jede lebende Hauptstadt in den Händen ihrer Mitglieder ist.",
-        "whyItMatters": "Eine Hauptstadt auf einem Gateway ist Preis und Tür zugleich. Wer Chlorophage Span hält, hält das ferne Ende der Route Sol–Verdan – und damit einen Sovereignty-Korridor."
+        "whyItMatters": "Eine Hauptstadt auf einem Gateway ist Preis und Tür zugleich. Wer Chlorophage Span hält, hält ein Ende der Route zu Guinea Coast – und wer dazu Guinea Coast hält, einen Sovereignty-Korridor."
       },
       "gcp_draft": {
         "title": "Stapel auf Guinea Coast",
@@ -450,12 +454,12 @@
       },
       "gcp_cross": {
         "title": "Nimm die gegnerische Hauptstadt",
-        "message": "Wähle **Guinea Coast** und dann über die Route **Chlorophage Span**. Ein Routenangriff würfelt höchstens mit 2 Würfeln; **Attack until captured** drückt nach, bis die Hauptstadt fällt, und bis zu 3 deiner Angreifer rücken von selbst nach.",
-        "detail": "Die Navigators verteidigen eine Route ohne zusätzlichen Würfel. Acht gegen zwei setzt sich über ein paar Würfe durch die Grenze durch."
+        "message": "Wähle **Guinea Coast** und dann über die Route **Chlorophage Span**. Ein Routenangriff würfelt höchstens mit 2 Würfeln; **⚡ Blitz until captured** drückt nach, bis die Hauptstadt fällt, und bis zu 3 deiner Angreifer rücken von selbst nach.",
+        "detail": "Die Navigators verteidigen eine Route ohne zusätzlichen Würfel, also setzt sich dein Stapel gegen ihre zwei über ein paar Würfe durch die Grenze durch."
       },
       "gcp_win": {
         "title": "Gewertet ab Runde 2",
-        "message": "Beide Hauptstädte gehören dir. Ist noch Runde 1, beende deinen Zug mit **{{attackButton}}** und **{{fortifyButton}}**: Der Sieg kommt, sobald Runde 2 beginnt, bevor du eine Einheit setzt. In Runde 2 oder später eingenommen, endete die Partie mit der Eroberung.",
+        "message": "Beide Hauptstädte gehören dir. Zeigt die obere Leiste noch „Turn 1“, beende deinen Zug mit **{{attackButton}}** und **{{fortifyButton}}**: Der Sieg kommt, sobald Runde 2 beginnt, bevor du eine Einheit setzt. In Runde 2 oder später eingenommen, endete die Partie mit der Eroberung.",
         "detail": "Die Runde-2-Regel gibt es vor allem für Hauptstädte: Mit drei Starteinheiten könnte eine Hauptstadt sonst den Würfeln des ersten Sitzes zum Opfer fallen, bevor der letzte Sitz eine gesetzt hat."
       },
       "gcp_complete": {
@@ -469,14 +473,14 @@
       "gth_welcome": {
         "title": "Gebietsschwelle in der Galaxis",
         "message": "Diese Partie wird um den **Schwellensieg** gespielt: Halte **60 %** der Karte. Du bist die Stellar Mandate von **Sol III**, hast bereits ganz **Nexus Station** besiedelt und bist über die beiden Routen Sol–Verdan sechs Systeme tief auf **Verdan Reach** gelandet. Die Helion Navigators halten den Rest von Verdan. Der **Rust Belt** ist eine neutrale Kolonie, die niemand beansprucht hat.",
-        "detail": "Die Galaxis zählt **jedes** System auf dem Spielfeld, die neutralen Kolonien eingeschlossen: 60 % von 64 sind 38,4, der Sieg braucht also **39**. Dominanz bräuchte alle 64 – jede Koloniegarnison ebenso wie jeden Rivalen –, weshalb eine Galaxis-Lobby mit der Schwelle bei 60 % daneben öffnet, mit einem 90-Runden-Limit hinter beiden.",
+        "detail": "Die Galaxis zählt **jedes** System auf dem Spielfeld, die neutralen Kolonien eingeschlossen: 60 % von 64 sind 38,4, der Sieg braucht also **39**. Dominanz bräuchte alle 64 – jede Koloniegarnison ebenso wie jeden Rivalen –, weshalb eine Galaxis-Lobby mit der Schwelle bei 60 % daneben öffnet (und mit Lane Sovereignty, wenn Home Worlds an ist), mit einem 90-Runden-Limit hinter allen.",
         "hint": "Drücke Weiter oder überspringe zum Ende und steig direkt ein."
       },
       "gth_meter": {
         "title": "Lies die Kartenkontroll-Anzeige",
         "message": "Die obere Leiste zeigt **59%/60%**, und das Feld **Objectives** im Tab Status der Seitenleiste schreibt es aus: **Map control: 59% of 60% · 38 of 39 territories**, darunter **Hold 60% of the map — 39 of its 64 territories — to win. 1 more to go.** Der Anteil wird abgerundet, die Anzeige behauptet also nie einen Sieg, den der Server nicht gegeben hat.",
         "messagePhone": "Die obere Leiste zeigt **59%/60%**, und das Feld **Objectives** im Tab **Status** unter **☰ Menu** schreibt es aus: **Map control: 59% of 60% · 38 of 39 territories**, darunter **Hold 60% of the map — 39 of its 64 territories — to win. 1 more to go.** Der Anteil wird abgerundet, die Anzeige behauptet also nie einen Sieg, den der Server nicht gegeben hat.",
-        "detail": "Die nötige Zahl ist die ganze Zahl bei oder über 60 % des Spielfelds; Anzeige und Server verwenden denselben Ausdruck und sind sich über das letzte System nie uneins. In einem 2v2 oder mit verbündeten Häusern zählen die Systeme deiner Seite zusammen, und die Lobby setzt den Standard auf **75 %**, sobald 2v2 eingeschaltet wird. Gewertet ab Runde 2, wie jeder Sieg außer Dominanz.",
+        "detail": "Die nötige Zahl ist die ganze Zahl bei oder über 60 % des Spielfelds; Anzeige und Server verwenden denselben Ausdruck und sind sich über das letzte System nie uneins. In einem 2v2 oder mit verbündeten Häusern zählen die Systeme deiner Seite zusammen, und die Lobby setzt den Standard auf **75 %**, sobald 2v2 eingeschaltet wird. Gewertet ab Runde 2, wie jeder Sieg außer Dominanz und Last Commander Standing.",
         "whyItMatters": "Niemand verstärkt eine Kolonie. Die sechzehn neutralen Rust-Systeme sitzen in den 64, wer sie auch hält – in einer echten Partie sind die Kolonien also der günstigste Weg zur Zahl."
       },
       "gth_draft": {
@@ -486,17 +490,17 @@
       },
       "gth_take": {
         "title": "Nimm das 39. System",
-        "message": "Wähle **Saffron Mire** und dann **Spore Reach** daneben. Das ist ein Bodenangriff auf derselben Welt, er würfelt also mit allen 3 Würfeln – keine Routengrenze. **Attack until captured** drückt nach, bis es fällt, und bis zu 3 deiner Angreifer rücken von selbst nach.",
+        "message": "Wähle **Saffron Mire** und dann **Spore Reach** daneben. Das ist ein Bodenangriff auf derselben Welt, er würfelt also mit allen 3 Würfeln – keine Routengrenze. **⚡ Blitz until captured** drückt nach, bis es fällt, und bis zu 3 deiner Angreifer rücken von selbst nach.",
         "detail": "Jedes System täte es: Das 39. hätte genauso gut eine neutrale Garnison im Rust Belt jenseits einer Route sein können. Die Navigators halten Spore Reach mit zwei Einheiten und ohne Verteidigungsbonus."
       },
       "gth_win": {
         "title": "Gewertet ab Runde 2",
-        "message": "Die Anzeige zeigt **60% of 60% · 39 of 39 territories** in Gold. Ist noch Runde 1, beende deinen Zug mit **{{attackButton}}** und **{{fortifyButton}}**: Der Sieg kommt, sobald Runde 2 beginnt, bevor du eine Einheit setzt. In Runde 2 oder später eingenommen, endete die Partie mit der Eroberung.",
-        "detail": "Jeder Sitz bekommt einen ersten Zug, bevor eine Schwelle gelesen wird: Ein Sitz, dem eine ganze Welt zugeteilt wurde, könnte die Linie sonst überschreiten, bevor der letzte Sitz eine Einheit gesetzt hat. In einer echten Partie ist das 90-Runden-Limit das andere Ende derselben Zählung – danach, wenn niemand über der Linie ist, gewinnen die meisten Systeme."
+        "message": "Die Anzeige zeigt **60% of 60% · 39 of 39 territories**, den Anteil in Gold. Zeigt die obere Leiste noch „Turn 1“, beende deinen Zug mit **{{attackButton}}** und **{{fortifyButton}}**: Der Sieg kommt, sobald Runde 2 beginnt, bevor du eine Einheit setzt. In Runde 2 oder später eingenommen, endete die Partie mit der Eroberung.",
+        "detail": "Jeder Sitz bekommt einen ersten Zug, bevor eine Schwelle gelesen wird, sodass niemand gewinnen kann, bevor der letzte Sitz gespielt hat. In einer echten Partie ist das 90-Runden-Limit das andere Ende derselben Zählung – danach, wenn niemand über der Linie ist, gewinnen die meisten Systeme."
       },
       "gth_complete": {
         "title": "Gebietsschwelle abgeschlossen",
-        "message": "Du hast das 39. System eingenommen und 60 % der Galaxis überschritten. In einer echten Partie ist die Zählung dieselbe, wer auch den Rest hält: Kolonien, Rivalen und leere Garnisonen sitzen alle in den 64, und die Anzeige in der oberen Leiste sagt dir, wie viele du noch brauchst.",
+        "message": "Du hast das 39. System eingenommen und 60 % der Galaxis überschritten. In einer echten Partie ist die Zählung dieselbe, wer auch den Rest hält: Kolonien, Rivalen und leere Garnisonen sitzen alle in den 64, und das Feld Objectives sagt dir, wie viele du noch brauchst.",
         "skippedTitle": "Direkt ins Spiel",
         "skippedMessage": "Kurz gefasst: Du hältst **38 der 39** Systeme, die 60 % dieses Spielfelds brauchen. Nimm eines mehr – **Spore Reach**, neben deinem **Saffron Mire** –, und der Sieg wird ab Runde 2 gewertet. Gerade jetzt hast du Verstärkungen zu platzieren – wähle **Saffron Mire** und drücke dann {{draftButton}}."
       }
@@ -504,15 +508,15 @@
     "galaxy_domination": {
       "gdm_welcome": {
         "title": "Dominanz in der Galaxis",
-        "message": "Diese Partie wird allein um **Dominanz** gespielt: Das Briefing sagt **Control every territory**, und auf diesem Spielfeld sind das alle **64** Systeme. Du bist die Stellar Mandate von **Sol III**. Die Helion Navigators sind auf ein System auf **Verdan Reach** geschrumpft – **Greenfire Vault**, das Gateway gegenüber deinem Pacific Rim –, und du hältst die anderen fünfzehn darum herum. **Nexus Station** und der **Rust Belt** sind neutrale Kolonien.",
-        "detail": "Das macht die Galaxis aus der Dominanz: Die Partie kommt nie dort an. Sobald der letzte Rivale fällt, beendet der Server das Spiel als **Last Commander Standing**, dem einen Sieg, der sofort statt ab Runde 2 gewertet wird – die **32** Koloniegarnisonen müssen also nie eingenommen werden, und ein Galaxis-Ergebnis lautet nie Total Domination, solange ein Rivale im Spiel ist. Deshalb kombiniert eine echte Galaxis-Lobby Dominanz mit der Schwelle.",
+        "message": "Diese Partie wird allein um **Dominanz** gespielt – **Control every territory**, was auf diesem Spielfeld alle **64** Systeme sind. Du bist die Stellar Mandate von **Sol III**. Die Helion Navigators sind auf ein System auf **Verdan Reach** geschrumpft – **Greenfire Vault**, das Gateway gegenüber deinem Pacific Rim –, und du hältst die anderen fünfzehn darum herum. **Nexus Station** und der **Rust Belt** sind neutrale Kolonien.",
+        "detail": "Das macht die Galaxis aus der Dominanz: Die Partie kommt nie dort an. Sobald der letzte Rivale fällt, beendet der Server das Spiel als **Last Commander Standing** – sofort gewertet, nicht ab Runde 2 wie die Dominanz selbst –, die **32** Koloniegarnisonen müssen also nie eingenommen werden, und ein Galaxis-Ergebnis lautet nie Total Domination, solange ein Rivale im Spiel ist. Deshalb kombiniert eine echte Galaxis-Lobby Dominanz mit der Schwelle.",
         "hint": "Drücke Weiter oder überspringe zum Ende und steig direkt ein."
       },
       "gdm_rules": {
         "title": "Last Commander Standing",
         "message": "Der Tab **Status** der Seitenleiste führt für Dominanz kein Ziel auf – es gibt nichts zu zählen außer dem Spielfeld selbst. Was die Partie beendet, ist ein Ausscheiden: Verliert ein Sitz sein letztes System, nennt der Bildschirm **Player Eliminated**, wer es genommen hat, und ist niemand sonst mehr übrig, zeigt der Ergebnisbildschirm **Last Commander Standing — all opponents eliminated**.",
         "messagePhone": "Der Tab **Status** unter **☰ Menu** führt für Dominanz kein Ziel auf – es gibt nichts zu zählen außer dem Spielfeld selbst. Was die Partie beendet, ist ein Ausscheiden: Verliert ein Sitz sein letztes System, nennt der Bildschirm **Player Eliminated**, wer es genommen hat, und ist niemand sonst mehr übrig, zeigt der Ergebnisbildschirm **Last Commander Standing — all opponents eliminated**.",
-        "detail": "Ausscheiden wird auch in Runde 1 gewertet, weshalb eine Hauptstadt mit zwei Einheiten oder ein einzelnes Gateway im ersten Zug ein echtes Risiko ist. Neutrale Kolonien gehören niemandem, sie zu nehmen oder zu ignorieren ändert hier also nichts; in einer Schwellen-Partie zählen sie. Eine Aufgabe ist ebenfalls ein Ausscheiden, niemandem gutgeschrieben.",
+        "detail": "Ausscheiden wird auch in Runde 1 gewertet, weshalb ein Sitz, dem nur ein schwaches System bleibt, vom ersten Zug an gefährdet ist. Neutrale Kolonien gehören niemandem, sie zu nehmen oder zu ignorieren ändert hier also nichts; in einer Schwellen-Partie zählen sie. Eine Aufgabe ist ebenfalls ein Ausscheiden, niemandem gutgeschrieben.",
         "whyItMatters": "Ein Rivale mit nur noch einem System ist einen Angriff vom Ende der Partie entfernt – und ein Rivale, der das weiß, zieht mindestens drei Einheiten pro Zug darauf nach."
       },
       "gdm_draft": {
@@ -522,7 +526,7 @@
       },
       "gdm_take": {
         "title": "Nimm ihr letztes System",
-        "message": "Wähle **Glowmire Shelf** und dann **Greenfire Vault** daneben. Ein Bodenangriff würfelt mit allen 3 Würfeln; **Attack until captured** drückt nach, bis es fällt. Die Eroberung scheidet die Navigators aus, und ohne verbliebenen Rivalen endet die Partie auf der Stelle.",
+        "message": "Wähle **Glowmire Shelf** und dann **Greenfire Vault** daneben. Ein Bodenangriff würfelt mit allen 3 Würfeln; **⚡ Blitz until captured** drückt nach, bis es fällt. Die Eroberung scheidet die Navigators aus, und ohne verbliebenen Rivalen endet die Partie auf der Stelle.",
         "detail": "Kein Warten auf Runde 2: Last Commander Standing wird in dem Moment gewertet, in dem es passiert. Du siehst den Bildschirm Player Eliminated und dann das Ergebnis."
       },
       "gdm_win": {
@@ -547,29 +551,29 @@
       "gpr_chart": {
         "title": "Lies das Spielfeld",
         "message": "Klicke auf den Button **Galaxy chart** über dem Spielfeld. Seine Legende **Lanes** lautet **Corridor · both gateways yours**, **Open · you hold one end**, **Closed · take a gateway first** und **Sealed · Emergency Seal, 1 round**. Ein Welt-Tab öffnet diese Welt allein; **Split** zeigt die Karte jeder Welt auf einmal.",
-        "messagePhone": "Tippe auf den Chip **Galaxy chart** in der Zeile Worlds über dem Spielfeld. Seine Legende **Lanes** lautet **Corridor · both gateways yours**, **Open · you hold one end**, **Closed · take a gateway first** und **Sealed · Emergency Seal, 1 round**. Ein Welt-Tab öffnet diese Welt allein; **Split** zeigt die Karte jeder Welt auf einmal.",
-        "detail": "Wähle auf einer Welt ein Gateway-System: Seine Karte **Gateway** führt jede Route mit der fernen Welt, ihrem Zustand und den Würfeln einer Überquerung auf – **Lane attacks roll 2 dice (3 with Lane Charts)**.",
+        "messagePhone": "Tippe auf den Chip **Galaxy chart** in der Zeile Worlds über dem Spielfeld, dann auf **Key**: Die Legende **Lanes** lautet **Corridor · both gateways yours**, **Open · you hold one end**, **Closed · take a gateway first** und **Sealed · Emergency Seal, 1 round**. Ein Welt-Chip öffnet diese Welt allein; **Split** zeigt auf einem breiteren Bildschirm die Karte jeder Welt auf einmal.",
+        "detail": "Wähle auf einer Welt das Gateway-System eines Rivalen: Seine Karte **Gateway** führt jede Route mit der fernen Welt, ihrem Zustand und den Würfeln einer Überquerung auf – **Lane attacks roll 2 dice (3 with Lane Charts)**.",
         "hint": "Doppelklicke auf eine Welt im Chart oder auf ihren Button **Enter world →**, um hineinzugehen.",
         "hintPhone": "Wähle eine Welt im Chart und drücke dann auf ihrer Karte **Enter world →**, um hineinzugehen."
       },
       "gpr_worlds": {
         "title": "Weltregeln und Ausrüstungen",
-        "message": "Jede Welt spielt nach einer eigenen Regel, aufgeführt im Start-Briefing und im Feld **Bonuses**. **Sol III** – Cradle: every 5th round, any system held here with fewer than 2 units musters 1 more. **Verdan Reach** – Storms: at round start any system above 12 units loses 1 to the weather. **Rust Belt** – Forge: a system with a defence building rolls +1 extra defence die. **Nexus Station** – The Vault: Nexus Gate Ring starts neutral (garrison 6); hold all of it for +2 tech per turn and one Emergency Seal per turn on any lane. Its home faction starts with +1 unit per system, paying for the ring it begins without.",
-        "detail": "Die Ausrüstungen. **Stellar Mandate**: die Cradle oben und **Blockade Runner** – einmal pro Zug ignoriert dein nächster Angriff über eine Hyperraumroute ein Emergency Seal. **Forge Syndicate**: +2 Verstärkungen pro Zug, Jump Gates zum halben Preis und **Supply Insert** – einmal pro Zug 1 freie Einheit auf ein eigenes Gebiet setzen. **Helion Navigators**: +2 Verstärkungen pro Zug (+1 in einem Duell mit zwei Sitzen), jedes Gateway der Galaxis sichtbar und **Drift Jump** – einmal pro Zug zwischen zwei eigenen Gateways auf verschiedenen Welten ohne verbindende Route befestigen. **Void Custodians**: +1 Verteidigungswürfel gegen jeden Angriff über eine Route, schnellere Stabilitätserholung und das **Emergency Seal** – einmal pro Zug jede Hyperraumroute an Nexus Station für alle anderen eine Runde lang schließen."
+        "message": "Jede Welt spielt nach einer eigenen Regel, angezeigt im Panel jedes ihrer Systeme und, für die Welten, die du hältst, im Feld **Bonuses**. **Sol III** – Cradle: every 5th round, any system held here with fewer than 2 units musters 1 more. **Verdan Reach** – Storms: at round start any system above 12 units loses 1 to the weather. **Rust Belt** – Forge: a system with a defence building rolls +1 extra defence die. **Nexus Station** – The Vault: Nexus Gate Ring starts neutral (garrison 6); hold all of it for +2 tech per turn and one Emergency Seal per turn on any lane. Its home faction starts with +1 unit per system, paying for the ring it begins without.",
+        "detail": "Die Ausrüstungen. **Stellar Mandate**: eine Heimat auf der Cradle oben (sie bringt Einheiten für jeden hervor, der Sol hält) und **Blockade Runner** – einmal pro Zug ignoriert dein nächster Angriff über eine Hyperraumroute ein Emergency Seal. **Forge Syndicate**: +2 Verstärkungen pro Zug, Jump Gates zum halben Preis und **Supply Insert** – einmal pro Zug 1 freie Einheit auf ein eigenes Gebiet setzen. **Helion Navigators**: +2 Verstärkungen pro Zug (+1 in einem Duell mit zwei Sitzen), jedes Gateway der Galaxis sichtbar und **Drift Jump** – einmal pro Zug zwischen zwei eigenen Gateways auf verschiedenen Welten ohne verbindende Route befestigen. **Void Custodians**: +1 Verteidigungswürfel gegen jeden Angriff über eine Route, schnellere Stabilitätserholung und das **Emergency Seal** – einmal pro Zug jede Hyperraumroute an Nexus Station für alle anderen eine Runde lang schließen."
       },
       "gpr_boards": {
         "title": "Spielfelder und Seiten",
-        "message": "**Home Worlds** in der Lobby teilt jeder Fraktion ihre eigene Welt zu, und das Spielfeld folgt der Sitzzahl. **Colonies** bei zwei oder drei Sitzen: Die Welten, die niemand sein Zuhause nennt, beginnen neutral und besetzt – 5 Einheiten auf jedem Gateway und 7 im Inneren –, und bei drei Sitzen überbrücken zwei zusätzliche Routen die Lücken des Rings. Der klassische Start bei vier. Das **Schism** bei fünf bis acht: zwei Häuser auf einer geteilten Welt, jedes auf einer Hälfte mit der Ausrüstung der Fraktion, unter der **Concord** (ein Waffenstillstand für die ersten 3 Runden), im **Civil War** oder **Allied** als eine Seite. Ein Haus, das alle vier Gateways seiner Welt hält, trägt die **Lane Crown**: +2 Einheiten pro Zug.",
+        "message": "**Home Worlds** in der Lobby teilt jeder Fraktion ihre eigene Welt zu, und das Spielfeld folgt der Sitzzahl. **Colonies** bei zwei oder drei Sitzen: Die Welten, die niemand sein Zuhause nennt, beginnen neutral und besetzt – 5 Einheiten auf jedem Gateway und 7 im Inneren –, und bei drei Sitzen überbrücken zwei zusätzliche Routen die Lücken des Rings. Der klassische Start bei vier. Das **Schism** bei fünf bis acht: Häuser teilen sich Welten – bei acht Sitzen ist jede Welt zweigeteilt, bei weniger Sitzen eine Welt pro Sitz über vier –, jedes Haus auf der Hälfte seiner Welt mit der Ausrüstung der Fraktion, unter der **Concord** (ein Waffenstillstand für die ersten 3 Runden), im **Civil War** oder **Allied** als eine Seite. Ein Haus, das alle vier Gateways seiner Welt hält, trägt die **Lane Crown**: +2 Einheiten pro Zug, außer die Häuser sind Allied.",
         "detail": "**2v2** paart die vier Heimatwelten über den Ring hinweg – Sol III und der Rust Belt gegen Verdan Reach und Nexus Station –, sodass jede Route eine Front ist. Verbündete greifen einander nie an, sehen, was der andere sieht, und gewinnen gemeinsam: Schwelle und Dominanz zählen die Systeme der Seite zusammen, und die Lobby setzt den Schwellen-Standard auf 75 %. Eine Team-Partie spielt ohne Geheimmissionen."
       },
       "gpr_lanes": {
         "title": "Routenwetter, Siegel und Tore",
-        "message": "Die Karte selbst kann sich ändern. Zwei Ereigniskarten bearbeiten sie für **zwei Runden**: **Nebula Closure** schließt die umkämpfteste Route für alle, und **Lane Surge** öffnet eine vorübergehende Route zwischen zwei Welten, die der Ring nicht verbindet. Ein **Emergency Seal** – das der Void Custodians oder des Vault-Halters – schließt eine Route an Nexus Station für alle anderen eine Runde lang; der Blockade Runner der Mandate ignoriert es.",
-        "detail": "**Jump Gates** sind Routen, die du selbst baust: ein Tor auf einer Welt und ein weiteres auf einer zweiten – je 12 Produktion, die Hälfte für die Forge, eines pro Welt – öffnen eine private Route, die nur deine eigenen Einheiten bewegt und nie einen Angriff trägt, und mit jedem der beiden Tore stirbt. Lane Sovereignty zählt nur die acht kartierten Routen: nie einen Surge, eine Kolonieroute oder ein Jump Gate."
+        "message": "Die Karte selbst kann sich ändern. Zwei Ereigniskarten bearbeiten sie für **zwei Runden**: **Nebula Closure** schließt die umkämpfteste Route für alle, und **Lane Surge** öffnet eine vorübergehende Route zwischen zwei Welten, die der Ring nicht verbindet. Ein **Emergency Seal** schließt eine Route für alle anderen eine Runde lang: das der Void Custodians jede Route an Nexus Station, das des Vault-Halters jede beliebige Route. Der Blockade Runner der Mandate ignoriert es.",
+        "detail": "**Jump Gates** sind Routen, die du selbst baust: ein Tor auf einer Welt und ein weiteres auf einer zweiten – je 12 Produktion, die Hälfte für die Forge und die Hälfte auf dem Rust Belt, eines pro Welt – öffnen eine private Route, die nur deine eigenen Einheiten bewegt und nie einen Angriff trägt, und mit jedem der beiden Tore stirbt. Lane Sovereignty zählt nur die acht kartierten Routen: nie einen Surge, eine Kolonieroute oder ein Jump Gate."
       },
       "gpr_wins": {
         "title": "Sieben Wege zum Sieg, sechs Lektionen",
-        "message": "**Lane Sovereignty** ist der eigene Sieg der Galaxis: Halte 5 der 8 kartierten Routen als Korridore zu Beginn deines Zuges, 3 Züge in Folge – 5 in einem Duell oder einem 2v2. **Threshold** zählt jedes System, Kolonien eingeschlossen: 60 % von 64 sind 39, und eine Galaxis-Lobby öffnet damit bei 60 % – 75 % im 2v2 – mit einem 90-Runden-Limit dahinter. **Capital**: Die Hauptstadt jedes Sitzes ist das erste seiner zugeteilten Systeme in Listenreihenfolge, und auf dieser Karte ist das auf jeder Welt ein Gateway. **Secret Missions** nennen nie Boden hinter einem Hyperraumtor, jede Eroberungs- oder Kontrollmission nennt hier also Sol III, und ein Sitz, der ganz Sol hält, kann nur eine Eliminierungsmission ziehen. **Domination** endet, wenn der letzte Rivale fällt – Last Commander Standing, sofort gewertet. **Transcendence** braucht das Spielfeld Space to Stars: Steig vom Space Age ins Galaktische Zeitalter auf und errichte ein Wunder.",
+        "message": "**Lane Sovereignty** ist der eigene Sieg der Galaxis: Halte 5 der 8 kartierten Routen als Korridore zu Beginn deines Zuges, 3 Züge in Folge – 5 in einem Duell oder einem 2v2. **Threshold** zählt jedes System, Kolonien eingeschlossen: 60 % von 64 sind 39, und eine Galaxis-Lobby öffnet damit bei 60 % – 75 % im 2v2 – mit einem 90-Runden-Limit dahinter. **Capital**: Die Hauptstadt jedes Sitzes ist das erste seiner zugeteilten Systeme in alphabetischer Reihenfolge, und auf dieser Karte ist das auf jeder Welt ein Gateway. **Secret Missions** nennen nie Boden hinter einem Hyperraumtor, jede Eroberungs- oder Kontrollmission nennt hier also Sol III, und ein Sitz, der ganz Sol hält, kann nur eine Eliminierungsmission ziehen. **Domination** endet, wenn der letzte Rivale fällt – Last Commander Standing, sofort gewertet. **Transcendence** braucht das Spielfeld Space to Stars: Steig vom Space Age ins Galaktische Zeitalter auf und errichte ein Wunder.",
         "detail": "Jeder Sieg außer Dominanz wird ab Runde 2 gewertet, sobald jeder Sitz einen Zug hatte. Das Feld **Objectives** im Tab Status der Seitenleiste führt Buch über die, um die dieses Spielfeld spielt: **Map control** und **Lane Sovereignty**. Jede der sechs Lektionen des Galaktischen Zeitalters spielt einen dieser Siege auf einem gestalteten Spielfeld bis zum Ende.",
         "detailPhone": "Jeder Sieg außer Dominanz wird ab Runde 2 gewertet, sobald jeder Sitz einen Zug hatte. Das Feld **Objectives** im Tab **Status** unter **☰ Menu** führt Buch über die, um die dieses Spielfeld spielt: **Map control** und **Lane Sovereignty**. Jede der sechs Lektionen des Galaktischen Zeitalters spielt einen dieser Siege auf einem gestalteten Spielfeld bis zum Ende."
       },
@@ -577,7 +581,7 @@
         "title": "Primer abgeschlossen",
         "message": "Das ist die Gestalt des Galaktischen Zeitalters: vier Welten, acht Routen, Gateways, die entscheiden, wer wen angreifen kann, eine Regel je Welt, Spielfelder nach Sitzzahl und jeder Sieg außer Dominanz ab Runde 2 gewertet. Die sechs Lektionen spielen je einen Sieg bis zum Ende – beginne mit Lane Sovereignty, dem eigenen Sieg der Galaxis.",
         "skippedTitle": "Direkt ins Spiel",
-        "skippedMessage": "Du hast das Lesen übersprungen. Kurz gefasst: vier Welten im Ring, acht Routen zwischen Gateway-Systemen, Überquerungen mit 2 Würfeln (3 mit Lane Charts), eine Regel je Welt und jeder Sieg außer Dominanz ab Runde 2 gewertet. Back to lobby bringt dich zu den sechs Lektionen, die je einen Sieg bis zum Ende spielen."
+        "skippedMessage": "Du hast das Lesen übersprungen. Kurz gefasst: vier Welten im Ring, acht Routen zwischen Gateway-Systemen, Überquerungen mit 2 Würfeln (3 mit Lane Charts), eine Regel je Welt und jeder Sieg außer Dominanz ab Runde 2 gewertet. „Zurück zur Lobby“ bringt dich zu den sechs Lektionen, die je einen Sieg bis zum Ende spielen."
       }
     }
   }

@@ -9,20 +9,20 @@ export const ERA_ADVANCEMENT_STEPS: TutorialStep[] = [
   {
     id: 'ea_welcome',
     title: 'Era Advancement',
-    message: 'This match lets your civilization climb through the ages. You start in the **Ancient** era — research and build, then advance to **Medieval** for stronger units and a one-time payoff.',
+    message: 'This match lets your civilization climb through the ages. You start in the **Ancient** era — research toward the gate, then advance to **Medieval** for stronger units and a one-time payoff.',
     detail: 'You begin with bonus research points and gold so you can reach the advancement quickly.',
   },
   {
     id: 'ea_progress',
     title: 'Your Era & the Timeline',
-    message: 'The Era panel in your sidebar shows the timeline of eras, your position on it, and the gate you must clear to advance. Opponents climb at their own pace.',
-    messagePhone: 'The Era panel under **☰ Menu** shows the timeline of eras, your position on it, and the gate you must clear to advance. Opponents climb at their own pace.',
+    message: 'The Era Advancement panel in your sidebar shows the timeline of eras and your position on it; expand it to see the gate you must clear to advance. This practice opponent stays in the Ancient era — real rivals climb at their own pace.',
+    messagePhone: 'The Era Advancement panel under **☰ Menu** shows the timeline of eras and your position on it; expand it to see the gate you must clear to advance. This practice opponent stays in the Ancient era — real rivals climb at their own pace.',
     whyItMatters: 'Advancing first earns an edge — but it briefly weakens your army, so timing matters.',
   },
   {
     id: 'ea_open_tree',
     title: 'Open the Tech Tree',
-    message: 'Open the Tech Tree. A progress rail at the top shows exactly which technologies the advancement gate needs.',
+    message: 'Open the Tech Tree. A progress rail at the top counts what the advancement gate needs: tier-1 and tier-2 technologies, and gold.',
     actionOpenTechTree: true,
     requireAction: 'tech_tree_opened',
     hint: 'Press "Open Tech Tree" below. Your bonus research points are ready.',
@@ -32,7 +32,7 @@ export const ERA_ADVANCEMENT_STEPS: TutorialStep[] = [
     title: 'Research Toward the Gate',
     message: 'Research an affordable tier-1 technology. Watch the gate chips at the top of the tree update as you go.',
     requireAction: 'tech_researched',
-    hint: 'Pick any tier-1 node. The gate wants a couple of those plus one tier-2 built on top of one of them.',
+    hint: 'Research during your Reinforcement or Fortify phase. Pick any tier-1 node — the gate wants a couple of those plus one tier-2 built on top of one of them.',
   },
   {
     id: 'ea_gate',
@@ -46,7 +46,7 @@ export const ERA_ADVANCEMENT_STEPS: TutorialStep[] = [
     title: 'Advance to Medieval',
     // Do not assert the gate is already clear: this step is reached after the
     // first research, and the gate needs a tier-2 tech on top of the tier-1s.
-    message: 'Once every gate chip is green, press **Advance to Medieval Era** at the top of the tree or in the Era panel. About 70% of your units carry forward — the rest are lost for good — your tech resets to the new era, and you gain a signature payoff.',
+    message: 'Once every gate chip is green, press **Advance to Medieval Era** at the top of the tree or in the Era Advancement panel. About 70% of your units carry forward — the rest are lost for good — your tech resets to the new era, and you gain a signature payoff.',
     requireAction: 'era_advanced',
     hint: 'Still short? Research the missing nodes first — the gate rail at the top of the tree shows what is left, and the Advance button lights up when nothing is.',
   },
@@ -54,12 +54,12 @@ export const ERA_ADVANCEMENT_STEPS: TutorialStep[] = [
     id: 'ea_signature',
     title: 'Vulnerable, but Stronger',
     message: 'You are now Medieval. Your army is smaller — the units lost in the climb do not come back — and for one turn your defense is weaker, the vulnerability window. In return you gained the era\'s signature reward and a fresh, stronger tech tree.',
-    whyItMatters: 'Plan advances when you are safe from attack, and spend your signature before it lapses.',
+    whyItMatters: 'Plan advances when you are safe from attack. Your signature\'s extra die waits for your next attack — it never lapses.',
   },
   {
     id: 'ea_complete',
     title: 'Era Advancement Complete',
-    message: 'You climbed an era: cleared a gate, advanced, and weathered the vulnerability window. In full games the spine runs all the way to the Modern era.',
+    message: 'You climbed an era: cleared a gate and advanced. The vulnerability window closes when your next turn starts. In a Standard game the climb runs to the Modern era, and Epic goes on to the Space Age.',
     variant: 'module_complete',
   },
 ];

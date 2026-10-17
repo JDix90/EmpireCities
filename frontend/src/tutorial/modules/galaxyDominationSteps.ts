@@ -17,14 +17,18 @@ import type { TutorialStep } from '../types';
  *
  * Gates: `gdm_draft` on the phase change, `gdm_take` on the capture (the
  * combat result lands before the game-over event it causes), `gdm_win` on
- * the game being won.
+ * the game being won. The win follows the capture within a second or so,
+ * behind the combat result and Player Eliminated screens, and the result
+ * screen then covers `gdm_complete` (the lesson is recorded as done on the
+ * win). So the cards a player reads are the ones before the attack:
+ * `gdm_welcome` and `gdm_take` carry what the ending teaches.
  */
 export const GALAXY_DOMINATION_STEPS: TutorialStep[] = [
   {
     id: 'gdm_welcome',
     title: 'Domination in the Galaxy',
-    message: 'This match is played for **Domination** alone: the briefing reads **Control every territory**, and on this board that is all **64** systems. You are the Stellar Mandate of **Sol III**. The Helion Navigators are down to one system on **Verdan Reach** — **Greenfire Vault**, the gateway facing your Pacific Rim — and you hold the other fifteen around it. **Nexus Station** and the **Rust Belt** are neutral colonies.',
-    detail: 'Here is what the galaxy does to Domination: the game never gets there. The moment the last rival falls the server ends the match as **Last Commander Standing**, the one win judged at once rather than from round 2 — so the **32** colony garrisons never need taking, and a galaxy result never reads Total Domination while a rival is in the game. That is why a real galaxy lobby pairs Domination with the Threshold.',
+    message: 'This match is played for **Domination** alone — **Control every territory**, which on this board is all **64** systems. You are the Stellar Mandate of **Sol III**. The Helion Navigators are down to one system on **Verdan Reach** — **Greenfire Vault**, the gateway facing your Pacific Rim — and you hold the other fifteen around it. **Nexus Station** and the **Rust Belt** are neutral colonies.',
+    detail: 'Here is what the galaxy does to Domination: the game never gets there. The moment the last rival falls the server ends the match as **Last Commander Standing** — judged at once rather than from round 2, as Domination itself would be — so the **32** colony garrisons never need taking, and a galaxy result never reads Total Domination while a rival is in the game. That is why a real galaxy lobby pairs Domination with the Threshold.',
     hint: 'Press Next, or Skip to the end to jump straight in.',
     skippable: true,
     linkModule: 'galaxy_primer',
@@ -34,7 +38,7 @@ export const GALAXY_DOMINATION_STEPS: TutorialStep[] = [
     title: 'Last Commander Standing',
     message: 'The sidebar\'s **Status** tab lists no objective for Domination — there is nothing to count toward but the board itself. What ends the game is an elimination: when a seat loses its last system the **Player Eliminated** screen names who took it, and if nobody else is left the result screen reads **Last Commander Standing — all opponents eliminated**.',
     messagePhone: 'The **Status** tab under **☰ Menu** lists no objective for Domination — there is nothing to count toward but the board itself. What ends the game is an elimination: when a seat loses its last system the **Player Eliminated** screen names who took it, and if nobody else is left the result screen reads **Last Commander Standing — all opponents eliminated**.',
-    detail: 'Eliminations are judged in round 1 too, which is why a two-unit capital or a lone gateway is a real risk on the first turn. Neutral colonies belong to nobody, so taking or ignoring them changes nothing here; in a Threshold game they count. A resignation is an elimination as well, credited to no one.',
+    detail: 'Eliminations are judged in round 1 too, which is why a seat left with one thin system is at risk from the first turn. Neutral colonies belong to nobody, so taking or ignoring them changes nothing here; in a Threshold game they count. A resignation is an elimination as well, credited to no one.',
     whyItMatters: 'A rival with one system left is one attack from ending the game — and a rival who knows that drafts at least three units a turn onto it.',
   },
   {
@@ -49,7 +53,7 @@ export const GALAXY_DOMINATION_STEPS: TutorialStep[] = [
   {
     id: 'gdm_take',
     title: 'Take Their Last System',
-    message: 'Pick **Glowmire Shelf**, then **Greenfire Vault** beside it. A ground attack rolls the full 3 dice; **Attack until captured** presses until it falls. The capture eliminates the Navigators, and with no rival left the game ends on the spot.',
+    message: 'Pick **Glowmire Shelf**, then **Greenfire Vault** beside it. A ground attack rolls the full 3 dice; **⚡ Blitz until captured** presses until it falls. The capture eliminates the Navigators, and with no rival left the game ends on the spot.',
     detail: 'No waiting for round 2: Last Commander Standing is judged the moment it happens. You will see the Player Eliminated screen, then the result.',
     cardPosition: 'aside',
     targetTerritoryId: 'verdan_greenfire_vault',

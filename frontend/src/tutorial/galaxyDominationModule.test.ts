@@ -110,7 +110,7 @@ describe('Galactic Age · Domination lesson', () => {
     expect(text('gdm_rules')).toContain('Player Eliminated');
     expect(text('gdm_win')).toContain('Victory!');
     expect(text('gdm_draft')).toContain(phaseAdvanceLabel('draft'));
-    expect(text('gdm_take')).toContain('Attack until captured');
+    expect(text('gdm_take')).toContain('⚡ Blitz until captured');
     expect(byId('gdm_draft')?.cardPosition).toBe('aside');
     expect(byId('gdm_take')?.cardPosition).toBe('aside');
     // The game ends on the capture, so no card asks for the later phase buttons.
