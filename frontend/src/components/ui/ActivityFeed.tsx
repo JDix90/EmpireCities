@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Trophy, ArrowUpCircle, Medal, Share2, Swords, Star, Zap } from 'lucide-react';
 import { api } from '../../services/api';
 import { formatEraLabel, humanizeMapId } from '../../utils/mapDisplayNames';
+import { achievementName, useAchievementNames, type AchievementNames } from '../../utils/achievementNames';
 
 interface ActivityEvent {
   id: string;
@@ -17,7 +18,16 @@ interface ActivityFeedResponse {
   activities?: ActivityEvent[];
 }
 
-const EVENT_CONFIG: Record<string, { icon: typeof Trophy; color: string; label: (d: Record<string, unknown>) => string }> = {
+/** "A", "A and B", "A, B and C". */
+function listOf(items: string[]): string {
+  return items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+}
+
+const EVENT_CONFIG: Record<string, {
+  icon: typeof Trophy;
+  color: string;
+  label: (d: Record<string, unknown>, achievementNames: AchievementNames) => string;
+}> = {
   game_won: {
     icon: Trophy,
     color: 'text-bf-gold',
@@ -31,7 +41,12 @@ const EVENT_CONFIG: Record<string, { icon: typeof Trophy; color: string; label: 
   achievement_unlocked: {
     icon: Medal,
     color: 'text-purple-400',
-    label: (d) => `Unlocked "${d.name ?? 'achievement'}"`,
+    // The game end records the ids it unlocked (`achievements`), not a name.
+    label: (d, names) => {
+      const ids = Array.isArray(d.achievements) ? d.achievements.map(String) : [];
+      if (ids.length === 0) return `Unlocked "${d.name ?? 'an achievement'}"`;
+      return `Unlocked ${listOf(ids.map((id) => `"${achievementName(id, names)}"`))}`;
+    },
   },
   tier_promoted: {
     icon: Star,
@@ -89,6 +104,7 @@ export default function ActivityFeed({ className = '' }: { className?: string })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+  const achievementNames = useAchievementNames(events.some((ev) => ev.event_type === 'achievement_unlocked'));
 
   if (loading) {
     return (
@@ -116,7 +132,7 @@ export default function ActivityFeed({ className = '' }: { className?: string })
           const cfg = EVENT_CONFIG[ev.event_type] ?? {
             icon: Swords,
             color: 'text-bf-muted',
-            label: (_d: Record<string, unknown>, _lookup: (d: Record<string, unknown>) => string) => ev.event_type.replace(/_/g, ' '),
+            label: () => ev.event_type.replace(/_/g, ' '),
           };
           const Icon = cfg.icon;
           // Use displayLocationName for territory/region if present
@@ -130,7 +146,7 @@ export default function ActivityFeed({ className = '' }: { className?: string })
                     {ev.username}
                   </Link>{' '}
                   <span className="text-bf-muted">
-                    {cfg.label(ev.event_data)}
+                    {cfg.label(ev.event_data, achievementNames)}
                     {location && ` (${location})`}
                   </span>
                 </span>

@@ -24,6 +24,7 @@ import {
 import { ChronicleList, useChronicle } from './ChroniclePanel';
 import { hapticImpact, ImpactStyle } from '../../utils/haptics';
 import { generateShareCard, buildShareText } from '../../utils/shareCard';
+import { achievementName, useAchievementNames } from '../../utils/achievementNames';
 import { api } from '../../services/api';
 import { APP_NAME } from '../../constants/brand';
 import { formatSecretMissionReveal, type MapNameLookup } from '../../utils/mapDisplayNames';
@@ -1395,6 +1396,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
   // to show — a game too short to have beats, or one this viewer didn't play.
   const { entries: chronicle } = useChronicle(data.gameId ?? undefined);
   const hasChronicle = (chronicle?.length ?? 0) > 0;
+  const achievementNames = useAchievementNames((data.achievements_unlocked?.length ?? 0) > 0);
 
   const { user } = useAuthStore();
 
@@ -1454,7 +1456,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
         username: user?.username ?? data.winnerName,
         shareUrl: replayShareUrl,
         isWinner: data.isWinner,
-        achievements: data.achievements_unlocked,
+        achievements: data.achievements_unlocked?.map((id) => achievementName(id, achievementNames)),
         friendStreakBonus: data.progression?.friend_streak_bonus,
       });
       const url = URL.createObjectURL(blob);
@@ -2131,7 +2133,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
                   <div key={id} className="px-3 py-1.5 rounded-lg bg-yellow-500/10
                               border border-yellow-500/20 text-yellow-300 text-xs
                               font-medium animate-fade-in">
-                    {id.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                    {achievementName(id, achievementNames)}
                   </div>
                 ))}
               </div>
