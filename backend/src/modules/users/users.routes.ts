@@ -93,7 +93,7 @@ const EquipSchema = z.object({
  * frame's place) and `null` takes an item off. Answers with what the player is
  * wearing afterwards.
  */
-async function equipBySlot(userId: string, body: unknown, reply: FastifyReply) {
+async function equipBySlot(userId: string, isGuest: boolean, body: unknown, reply: FastifyReply) {
   const parsed = EquipSchema.safeParse(body ?? {});
   if (!parsed.success) return reply.status(400).send(formatZodError(parsed.error));
   const changes = parsed.data;
@@ -132,6 +132,12 @@ async function equipBySlot(userId: string, body: unknown, reply: FastifyReply) {
     return loadout;
   });
   if (!worn) return reply.status(404).send({ error: 'User not found' });
+  // Whether players, and guests since guest_personal_features_enabled, wear what
+  // they unlock: the slots something was put on in (taking one off is not wearing it).
+  const slots = EQUIP_SLOTS.filter(({ key }) => typeof changes[key] === 'string').map(({ slot }) => slot);
+  if (slots.length > 0) {
+    recordServerEvent('cosmetic_equipped', { slots: slots.join(','), is_guest: isGuest }, userId);
+  }
   return reply.send({ ok: true, equipped: worn });
 }
 
@@ -441,6 +447,9 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
        ORDER BY ua.unlocked_at DESC`,
       [request.userId],
     );
+    // Only the player's own profile asks for this list, so it stands for
+    // "looked at their achievements" (guests can since guest_personal_features_enabled).
+    recordServerEvent('achievements_viewed', { is_guest: request.isGuest }, request.userId);
     return reply.send(achievements);
   });
 
@@ -540,7 +549,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── PUT /api/users/me/cosmetics/equip ────────────────────────────────────
   fastify.put('/me/cosmetics/equip', { preHandler: [authenticate, rejectGuestUnlessPersonal] }, async (request, reply) => {
-    return equipBySlot(request.userId, request.body, reply);
+    return equipBySlot(request.userId, request.isGuest, request.body, reply);
   });
 
   const FriendUsernameSchema = z.object({

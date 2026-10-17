@@ -164,6 +164,33 @@ async function main(): Promise<void> {
   }
   console.log('');
 
+  // Saving an account with just an email, the links that bring it back, and
+  // whether guests use the achievements and cosmetics opened to them.
+  const ga = r.guest_accounts;
+  console.log('GUEST ACCOUNTS (in window)');
+  console.log(
+    `  saved ${ga.saved} · with a password ${ga.saved_with_password} · just an email ${ga.saved_email_only}`,
+  );
+  console.log(
+    `  sign-in links sent ${ga.links_sent} · not sent ${ga.links_not_sent}`
+    + ` · used ${ga.link_signins} (${pct(ga.link_signins, ga.links_sent)})`
+    + ` · refused ${ga.link_failures} · asked for an address with no account ${ga.link_requests_no_account}`,
+  );
+  console.log(
+    `  guests who looked at their achievements ${ga.guests_viewed_achievements} · wore a cosmetic ${ga.guests_equipped}`,
+  );
+  console.log(
+    `  saved, of new guests who did either: ${ga.used_personal_saved}/${ga.used_personal_cohort}`
+    + ` ${pct(ga.used_personal_saved, ga.used_personal_cohort)}`
+    + ` · who did neither: ${ga.other_guest_saved}/${ga.other_guest_cohort}`
+    + ` ${pct(ga.other_guest_saved, ga.other_guest_cohort)}`,
+  );
+  console.log(
+    '  NOTE: links sent against links used is the early warning that sign-in emails'
+    + '\n  are not arriving ("not sent" means the email provider refused the send).'
+    + '\n  The saved split shows who saves, not why: players who explore more do both.\n',
+  );
+
   console.log('EVENT VOLUME');
   for (const row of r.volume) console.log(`  ${row.event.padEnd(20)} ${String(row.n).padStart(6)}`);
   console.log('');

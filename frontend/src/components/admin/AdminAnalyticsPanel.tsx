@@ -85,6 +85,24 @@ const FUNNEL_DEVICE_OPTIONS: Array<{ value: FunnelDeviceFilter; label: string }>
   { value: 'desktop', label: 'Desktop' },
 ];
 
+/** Mirrors GuestAccountMetrics in backend/src/services/analyticsQueries.ts. */
+export interface GuestAccountMetrics {
+  saved: number;
+  saved_with_password: number;
+  saved_email_only: number;
+  links_sent: number;
+  links_not_sent: number;
+  link_requests_no_account: number;
+  link_signins: number;
+  link_failures: number;
+  guests_viewed_achievements: number;
+  guests_equipped: number;
+  used_personal_cohort: number;
+  used_personal_saved: number;
+  other_guest_cohort: number;
+  other_guest_saved: number;
+}
+
 export interface AnalyticsReport {
   window_days: number;
   /** The signup device the funnels were narrowed to; null or absent for all. */
@@ -104,6 +122,8 @@ export interface AnalyticsReport {
   /** Optional for rollout: older backends won't send it. */
   solo_by_level?: SoloLevelRow[];
   volume: EventVolumeRow[];
+  /** Optional for rollout: older backends won't send it. */
+  guest_accounts?: GuestAccountMetrics;
 }
 
 const SOLO_MODE_LABELS: Record<SoloLevelRow['mode'], string> = {
@@ -371,6 +391,49 @@ export default function AdminAnalyticsPanel({
             A first match is a player&apos;s first Quick Match while &quot;Easy first match&quot; is on: one
             Easy bot on Great Britain 925. &quot;Back next day&quot; uses the D1 rule (any event the day
             after finishing) and counts only finishes from before today.
+          </p>
+        </section>
+      )}
+
+      {/* Saving a guest account (and whether with a password), the sign-in
+          links that bring it back, and whether guests use the achievements
+          and cosmetics opened to them. Shown once any of it has happened. */}
+      {data.guest_accounts
+        && (data.guest_accounts.saved > 0
+          || data.guest_accounts.links_sent + data.guest_accounts.links_not_sent > 0
+          || data.guest_accounts.used_personal_cohort + data.guest_accounts.other_guest_cohort > 0) && (
+        <section className="rounded-xl border border-bf-border bg-cc-panel/50 p-4">
+          <p className="text-sm font-semibold text-bf-text">
+            Guest accounts{' '}
+            <span className="text-xs font-normal text-bf-muted">· last {data.window_days}d</span>
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Stat
+              label="Saved"
+              value={data.guest_accounts.saved.toLocaleString()}
+              sub={`${data.guest_accounts.saved_with_password} with a password · ${data.guest_accounts.saved_email_only} just an email`}
+            />
+            <Stat
+              label="Sign-in links used"
+              value={pctText(data.guest_accounts.link_signins, data.guest_accounts.links_sent)}
+              sub={`${data.guest_accounts.link_signins}/${data.guest_accounts.links_sent} sent · ${data.guest_accounts.links_not_sent} not sent · ${data.guest_accounts.link_failures} refused`}
+            />
+            <Stat
+              label="Guests using their things"
+              value={data.guest_accounts.guests_viewed_achievements.toLocaleString()}
+              sub={`looked at achievements · ${data.guest_accounts.guests_equipped} wore a cosmetic`}
+            />
+            <Stat
+              label="Saved, after using them"
+              value={pctText(data.guest_accounts.used_personal_saved, data.guest_accounts.used_personal_cohort)}
+              sub={`${data.guest_accounts.used_personal_saved}/${data.guest_accounts.used_personal_cohort} · ${pctText(data.guest_accounts.other_guest_saved, data.guest_accounts.other_guest_cohort)} of the rest`}
+            />
+          </div>
+          <p className="mt-2 text-xs text-bf-muted">
+            Links sent against links used is the early warning that sign-in emails are not arriving
+            (&quot;not sent&quot; means the email provider refused the send). The last card compares new guests who
+            looked at their achievements or wore a cosmetic with those who did neither: it shows who saves,
+            not why, since players who explore more do both.
           </p>
         </section>
       )}

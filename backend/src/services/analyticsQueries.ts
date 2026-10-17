@@ -194,6 +194,36 @@ export interface VisitorFunnelMetrics {
   signed_up: number;
 }
 
+/**
+ * Guest accounts in the window: saving one (and whether with a password), the
+ * sign-in links that bring a saved account back, and whether guests use the
+ * things opened to them by guest_personal_features_enabled.
+ */
+export interface GuestAccountMetrics {
+  /** Guests who saved their account (guest_upgraded). */
+  saved: number;
+  /** …with a password, and with just an email. Saves from before email-only saving carry neither. */
+  saved_with_password: number;
+  saved_email_only: number;
+  /** Sign-in links emailed (one per account), and those the email provider did not take. */
+  links_sent: number;
+  links_not_sent: number;
+  /** Link requests for an address with no account. */
+  link_requests_no_account: number;
+  /** Sign-ins by link, and links refused (used, expired, cut short, banned). */
+  link_signins: number;
+  link_failures: number;
+  /** Distinct guests who looked at their achievements, and who wore a cosmetic. */
+  guests_viewed_achievements: number;
+  guests_equipped: number;
+  /** Guests who signed up in the window and did either of those, and how many of them saved… */
+  used_personal_cohort: number;
+  used_personal_saved: number;
+  /** …against the guests who did neither. */
+  other_guest_cohort: number;
+  other_guest_saved: number;
+}
+
 export interface AnalyticsReport {
   window_days: number;
   /** The device class the activation and tutorial funnels were narrowed to; null for every device. */
@@ -213,6 +243,7 @@ export interface AnalyticsReport {
   acquisition: AcquisitionRow[];
   acquisition_channels: AcquisitionChannelRow[];
   volume: EventVolumeRow[];
+  guest_accounts: GuestAccountMetrics;
 }
 
 function num(v: unknown): number {
@@ -717,12 +748,82 @@ export async function getVisitorFunnel(days: number): Promise<VisitorFunnelMetri
   };
 }
 
+/** Guest accounts in the trailing window: see GuestAccountMetrics. */
+export async function getGuestAccountMetrics(days: number): Promise<GuestAccountMetrics> {
+  const [counts, split] = await Promise.all([
+    query<Record<string, unknown>>(
+      `SELECT
+         COUNT(*) FILTER (WHERE event = 'guest_upgraded')::int AS saved,
+         COUNT(*) FILTER (WHERE event = 'guest_upgraded' AND properties->>'with_password' = 'true')::int AS saved_with_password,
+         COUNT(*) FILTER (WHERE event = 'guest_upgraded' AND properties->>'with_password' = 'false')::int AS saved_email_only,
+         COUNT(*) FILTER (WHERE event = 'sign_in_link_requested' AND properties->>'matched' = 'true'
+                            AND properties->>'emailed' = 'true')::int AS links_sent,
+         COUNT(*) FILTER (WHERE event = 'sign_in_link_requested' AND properties->>'matched' = 'true'
+                            AND properties->>'emailed' = 'false')::int AS links_not_sent,
+         COUNT(*) FILTER (WHERE event = 'sign_in_link_requested' AND properties->>'matched' = 'false')::int AS link_requests_no_account,
+         COUNT(*) FILTER (WHERE event = 'user_login' AND properties->>'method' = 'email_link')::int AS link_signins,
+         COUNT(*) FILTER (WHERE event = 'sign_in_link_failed')::int AS link_failures,
+         COUNT(DISTINCT user_id) FILTER (WHERE event = 'achievements_viewed' AND properties->>'is_guest' = 'true')::int AS guests_viewed_achievements,
+         COUNT(DISTINCT user_id) FILTER (WHERE event = 'cosmetic_equipped' AND properties->>'is_guest' = 'true')::int AS guests_equipped
+       FROM analytics_events
+       WHERE created_at >= NOW() - make_interval(days => $1::int)
+         AND ${countedEventSql('analytics_events')}`,
+      [days],
+    ),
+    // The guests who signed up in the window, split by whether they used a
+    // personal feature while still a guest, and whether they went on to save.
+    query<Record<string, unknown>>(
+      `WITH cohort AS (
+         SELECT DISTINCT user_id
+         FROM analytics_events
+         WHERE event = 'guest_created' AND user_id IS NOT NULL
+           AND created_at >= NOW() - make_interval(days => $1::int)
+           AND ${countedEventSql('analytics_events')}
+       ), tagged AS (
+         SELECT
+           EXISTS (SELECT 1 FROM analytics_events e
+                   WHERE e.user_id = c.user_id
+                     AND e.event IN ('achievements_viewed', 'cosmetic_equipped')
+                     AND e.properties->>'is_guest' = 'true') AS used,
+           EXISTS (SELECT 1 FROM analytics_events e
+                   WHERE e.user_id = c.user_id AND e.event = 'guest_upgraded') AS saved
+         FROM cohort c
+       )
+       SELECT
+         COUNT(*) FILTER (WHERE used)::int AS used_personal_cohort,
+         COUNT(*) FILTER (WHERE used AND saved)::int AS used_personal_saved,
+         COUNT(*) FILTER (WHERE NOT used)::int AS other_guest_cohort,
+         COUNT(*) FILTER (WHERE NOT used AND saved)::int AS other_guest_saved
+       FROM tagged`,
+      [days],
+    ),
+  ]);
+  const c = counts?.[0];
+  const t = split?.[0];
+  return {
+    saved: num(c?.saved),
+    saved_with_password: num(c?.saved_with_password),
+    saved_email_only: num(c?.saved_email_only),
+    links_sent: num(c?.links_sent),
+    links_not_sent: num(c?.links_not_sent),
+    link_requests_no_account: num(c?.link_requests_no_account),
+    link_signins: num(c?.link_signins),
+    link_failures: num(c?.link_failures),
+    guests_viewed_achievements: num(c?.guests_viewed_achievements),
+    guests_equipped: num(c?.guests_equipped),
+    used_personal_cohort: num(t?.used_personal_cohort),
+    used_personal_saved: num(t?.used_personal_saved),
+    other_guest_cohort: num(t?.other_guest_cohort),
+    other_guest_saved: num(t?.other_guest_saved),
+  };
+}
+
 /** Everything the funnel report / admin view needs, in one shot. */
 export async function getAnalyticsReport(days: number, device: FunnelDevice | null = null): Promise<AnalyticsReport> {
   // NOTE: the section queries share one mocked `query` in the unit test, which
   // matches them positionally — a new section goes on the END of this list so
   // it cannot shift the mocks of the ones above it.
-  const [visitors, funnel, retention, retentionByCohort, completion, acquisition, volume, tutorial, totalRow, firstMatch, soloByLevel] = await Promise.all([
+  const [visitors, funnel, retention, retentionByCohort, completion, acquisition, volume, tutorial, totalRow, firstMatch, soloByLevel, guestAccounts] = await Promise.all([
     getVisitorFunnel(days),
     getFunnelMetrics(days, device),
     getRetentionMetrics(),
@@ -734,6 +835,7 @@ export async function getAnalyticsReport(days: number, device: FunnelDevice | nu
     queryOne<{ total: number }>(`SELECT COUNT(*)::int AS total FROM analytics_events`),
     getFirstMatchStats(days),
     getSoloGamesByLevel(days),
+    getGuestAccountMetrics(days),
   ]);
   return {
     window_days: days,
@@ -750,5 +852,6 @@ export async function getAnalyticsReport(days: number, device: FunnelDevice | nu
     acquisition,
     acquisition_channels: foldAcquisitionByChannel(acquisition),
     volume,
+    guest_accounts: guestAccounts,
   };
 }

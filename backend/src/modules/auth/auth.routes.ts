@@ -963,6 +963,8 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     // The same accounts a reset reaches: registered, not banned, real address.
     const accounts = await resolveUsersForPasswordReset(body.data.email.normalize('NFC').trim());
     if (accounts.length === 0) {
+      // No address, no user: only that a request found no account.
+      recordServerEvent('sign_in_link_requested', { matched: false });
       return reply.send(SIGN_IN_LINK_RESPONSE);
     }
 
@@ -996,6 +998,12 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     if (!sent && config.nodeEnv !== 'production' && process.env.PASSWORD_RESET_DEV_LOG === 'true') {
       request.log.warn({ signInUrl: links[0].url }, '[auth] PASSWORD_RESET_DEV_LOG: sign-in link (SMTP not configured or send failed)');
     }
+    // One per account sent a link. Read against the links used (user_login,
+    // method email_link) it is the first sign that emails are not arriving;
+    // `emailed` is whether the email provider took the send at all.
+    for (const account of accounts) {
+      recordServerEvent('sign_in_link_requested', { matched: true, emailed: sent }, account.user_id);
+    }
     return reply.send(SIGN_IN_LINK_RESPONSE);
   });
 
@@ -1011,6 +1019,8 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     }
     const body = SignInLinkVerifySchema.safeParse(request.body);
     if (!body.success) {
+      // No token at all: the link lost its query string on the way.
+      recordServerEvent('sign_in_link_failed', { reason: 'malformed' });
       return reply.status(400).send({ error: SIGN_IN_LINK_INVALID });
     }
 
@@ -1045,9 +1055,12 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(500).send({ error: 'Sign-in failed' });
     }
     if (!user || user.is_guest) {
+      // 'invalid': used already, expired, cut short, or never issued.
+      recordServerEvent('sign_in_link_failed', { reason: user ? 'guest' : 'invalid' }, user?.user_id);
       return reply.status(400).send({ error: SIGN_IN_LINK_INVALID });
     }
     if (user.is_banned) {
+      recordServerEvent('sign_in_link_failed', { reason: 'banned' }, user.user_id);
       return reply.status(403).send({ error: 'Account is banned' });
     }
 

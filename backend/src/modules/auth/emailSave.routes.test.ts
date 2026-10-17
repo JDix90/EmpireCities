@@ -19,7 +19,8 @@ const sendMock = vi.hoisted(() => vi.fn(async (..._a: unknown[]) => true));
 vi.mock('../../services/notificationService', () => ({
   sendTransactionalEmailToAddress: (...a: unknown[]) => sendMock(...a),
 }));
-vi.mock('../../services/analyticsEvents', () => ({ recordServerEvent: vi.fn() }));
+const eventMock = vi.hoisted(() => vi.fn());
+vi.mock('../../services/analyticsEvents', () => ({ recordServerEvent: (...a: unknown[]) => eventMock(...a) }));
 
 const enabled = process.env.PG_TEST === '1';
 type Query = (sql: string, params?: unknown[]) => Promise<Record<string, unknown>[]>;
@@ -78,6 +79,7 @@ describe.runIf(enabled)('save your account with just an email (Postgres)', { tim
   afterEach(() => {
     adminConfig.resetAdminConfigCacheForTests();
     sendMock.mockClear();
+    eventMock.mockClear();
   });
 
   afterAll(async () => {
@@ -115,6 +117,8 @@ describe.runIf(enabled)('save your account with just an email (Postgres)', { tim
     const asked = await requestLink(email);
     expect(asked.json()).toEqual({ message: 'If an account exists for that email, we sent a sign-in link.' });
     expect(sendMock).toHaveBeenCalledWith(email, 'Your Borderfall sign-in link', expect.stringContaining(`as ${guest.username}`));
+    // Links asked for, against links used: the early warning that emails are not arriving.
+    expect(eventMock).toHaveBeenCalledWith('sign_in_link_requested', { matched: true, emailed: true }, guest.id);
     const token = lastEmailedToken();
     expect(token.length).toBeGreaterThan(20);
 
@@ -123,8 +127,12 @@ describe.runIf(enabled)('save your account with just an email (Postgres)', { tim
     expect(signedIn.json().user).toMatchObject({ user_id: guest.id, username: guest.username });
     expect(signedIn.json().accessToken).toEqual(expect.any(String));
     expect(String(signedIn.headers['set-cookie'])).toMatch(/refreshToken=/);
+    expect(eventMock).toHaveBeenCalledWith('user_login', { method: 'email_link' }, guest.id);
 
     expect((await redeem(token)).statusCode).toBe(400);
+    expect(eventMock).toHaveBeenCalledWith('sign_in_link_failed', { reason: 'invalid' }, undefined);
+    expect((await redeem('   ')).statusCode).toBe(400);
+    expect(eventMock).toHaveBeenCalledWith('sign_in_link_failed', { reason: 'malformed' });
   });
 
   it('refuses an expired link, and answers the same for an address with no account', async () => {
@@ -143,6 +151,8 @@ describe.runIf(enabled)('save your account with just an email (Postgres)', { tim
     const nobody = await requestLink(`nobody_${stamp()}@test.local`);
     expect(nobody.json()).toEqual({ message: 'If an account exists for that email, we sent a sign-in link.' });
     expect(sendMock).not.toHaveBeenCalled();
+    // Recorded without the address or anyone's id: only that it found no account.
+    expect(eventMock).toHaveBeenCalledWith('sign_in_link_requested', { matched: false });
   });
 
   it('takes a password when the guest gives one, and a new name', async () => {
