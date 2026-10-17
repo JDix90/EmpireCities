@@ -342,9 +342,10 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Overall Stats Row */}
+        {/* Overall Stats Row — two by two on a phone, where four across left each
+            card 10px inside its padding and a win rate like 100% ran out of it. */}
         {stats && (
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
             {[
               { label: 'Games Played', value: stats.overall.played, icon: Target },
               { label: 'Win Rate', value: stats.overall.played > 0 ? `${Math.round(stats.overall.win_rate * 100)}%` : '—', icon: Trophy },
@@ -363,18 +364,21 @@ export default function ProfilePage() {
         {/* Category Tabs */}
         {stats && (
           <div className="card">
-            <div className="flex gap-1 mb-6 p-1 bg-bf-dark rounded-lg w-fit">
+            {/* On a phone the three tabs with their icons are wider than the card
+                (333px against 238 at 320), so the page scrolled sideways: there the
+                strip fills the card and the icons drop. */}
+            <div className="flex gap-1 mb-6 p-1 bg-bf-dark rounded-lg w-full sm:w-fit">
               {CATEGORY_TABS.map(({ key, label, icon: Icon }) => (
                 <button
                   key={key}
                   onClick={() => setActiveTab(key)}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-medium transition-all
+                  className={`flex flex-auto sm:flex-none justify-center items-center gap-1.5 px-2.5 sm:px-4 py-2 rounded-md text-sm font-medium transition-all
                     ${activeTab === key
                       ? 'bg-bf-gold/15 text-bf-gold border border-bf-gold/30'
                       : 'text-bf-muted hover:text-bf-text border border-transparent'
                     }`}
                 >
-                  <Icon className="w-4 h-4" /> {label}
+                  <Icon className="hidden sm:block w-4 h-4" /> {label}
                 </button>
               ))}
             </div>
