@@ -186,11 +186,12 @@
   animation: loading-slide 1.4s ease-in-out infinite;
 }
 
-/* The game screen's height with game_visible_height_enabled on: what the
-   browser shows. 100vh is the viewport with Safari's toolbar hidden, so with
-   the toolbar showing, the bottom of a 100vh page (the phone's bar with the
-   phase, the button that ends it and the menu) sat under it; 100dvh follows
-   the toolbar. A browser without dvh ignores the second line and keeps 100vh. */
+/* The game screen's height with game_visible_height_enabled on (the
+   default): what the browser shows. 100vh is the viewport with Safari's
+   toolbar hidden, so with the toolbar showing, the bottom of a 100vh page (the
+   phone's bar with the phase, the button that ends it and the menu) sat under
+   it; 100dvh follows the toolbar. A browser without dvh ignores the second
+   line and keeps 100vh. */
 .h-visible {
   height: 100vh;
   height: 100dvh;

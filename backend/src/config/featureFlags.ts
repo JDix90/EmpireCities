@@ -246,8 +246,9 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   translation_dom_guard_enabled: () => envOptOut('TRANSLATION_DOM_GUARD_ENABLED'),
   // Game screen height: the game screen is as tall as what the browser shows
   // (100dvh) rather than 100vh, which Safari's toolbar can cover the bottom of,
-  // the phone's action bar with it. Dark-launched OFF until checked on an iPhone.
-  game_visible_height_enabled: () => envOptIn('GAME_VISIBLE_HEIGHT_ENABLED'),
+  // the phone's action bar with it.
+  // On by default; the admin override is the kill switch.
+  game_visible_height_enabled: () => envOptOut('GAME_VISIBLE_HEIGHT_ENABLED'),
   // Phone tutorial: the era-advance card arrives folded to a strip over an open
   // tech tree instead of covering the research it asks for, and the economy
   // and era cards show only their first message on a phone.
@@ -791,7 +792,8 @@ export const featureFlags = {
    * Game screen height: the game page is sized to the visible screen (100dvh)
    * instead of 100vh, the height with Safari's toolbar hidden, which put the
    * phone's action bar under the toolbar when it showed. Client-only. Default
-   * OFF; `GAME_VISIBLE_HEIGHT_ENABLED=true` or the admin override turns it on.
+   * ON; `GAME_VISIBLE_HEIGHT_ENABLED=false` or the admin override turns it off,
+   * and the page is 100vh as before.
    */
   get gameVisibleHeightEnabled(): boolean {
     return overrideBool('game_visible_height_enabled');

@@ -169,13 +169,13 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().translation_dom_guard_enabled).toBe(false);
   });
 
-  it('game_visible_height_enabled defaults to off (dark-launch) and is admin-overridable', () => {
-    expect(featureFlags.gameVisibleHeightEnabled).toBe(false);
-    expect(getClientFeatureFlags().game_visible_height_enabled).toBe(false);
-    expect(getFeatureFlagStates().game_visible_height_enabled).toEqual({ code_default: false, overridden: false, effective: false });
-    setAdminConfigCacheForTests({ feature_flags: { game_visible_height_enabled: true } });
+  it('game_visible_height_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.gameVisibleHeightEnabled).toBe(true);
     expect(getClientFeatureFlags().game_visible_height_enabled).toBe(true);
+    expect(getFeatureFlagStates().game_visible_height_enabled).toEqual({ code_default: true, overridden: false, effective: true });
+    setAdminConfigCacheForTests({ feature_flags: { game_visible_height_enabled: false } });
+    expect(featureFlags.gameVisibleHeightEnabled).toBe(false);
+    expect(getClientFeatureFlags().game_visible_height_enabled).toBe(false);
   });
 
   it('save_account_copy_enabled defaults to on and the admin override is its kill switch', () => {
