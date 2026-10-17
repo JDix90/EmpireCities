@@ -19,20 +19,23 @@ describe.runIf(enabled)('grantAchievements (Postgres)', () => {
   let db: typeof import('../../db/postgres');
   let grantAchievements: typeof import('./achievementService').grantAchievements;
   const winner = uuidv4();
+  const veteran = uuidv4();
   const missing = uuidv4(); // no users row: their inserts fail the user foreign key
 
   beforeAll(async () => {
     db = await import('../../db/postgres');
     ({ grantAchievements } = await import('./achievementService'));
-    const name = `unlocker_${winner.slice(0, 8)}`;
-    await db.query(
-      `INSERT INTO users (user_id, username, email, password_hash, xp, level) VALUES ($1, $2, $3, 'x', 0, 1)`,
-      [winner, name, `${name}@test.local`],
-    );
+    for (const id of [winner, veteran]) {
+      const name = `unlocker_${id.slice(0, 8)}`;
+      await db.query(
+        `INSERT INTO users (user_id, username, email, password_hash, xp, level) VALUES ($1, $2, $3, 'x', 0, 1)`,
+        [id, name, `${name}@test.local`],
+      );
+    }
   });
 
   afterAll(async () => {
-    await db.query('DELETE FROM users WHERE user_id = $1', [winner]).catch(() => {});
+    await db.query('DELETE FROM users WHERE user_id = ANY($1)', [[winner, veteran]]).catch(() => {});
   });
 
   it('keeps one player\'s unlocks when another\'s fail, and skips an undefined achievement', async () => {
@@ -70,6 +73,17 @@ describe.runIf(enabled)('grantAchievements (Postgres)', () => {
       [winner],
     );
     expect(cosmetics.map((c) => c.cosmetic_id)).toEqual(['frame_bronze', 'marker_skull']);
+  });
+
+  it('brings the Warlord Frame with Warlord and the Emperor Marker with Perfect Campaign', async () => {
+    // Migration 053 put both back in the catalog; without the row the grant
+    // finds nothing to give and skips it.
+    await db.withTransaction((client) => grantAchievements(client, veteran, ['ranked_warlord', 'perfect_campaign']));
+    const cosmetics = await db.query<{ cosmetic_id: string }>(
+      'SELECT cosmetic_id FROM user_cosmetics WHERE user_id = $1 ORDER BY cosmetic_id',
+      [veteran],
+    );
+    expect(cosmetics.map((c) => c.cosmetic_id)).toEqual(['frame_warlord', 'marker_emperor']);
   });
 
   it('grants an achievement once', async () => {

@@ -28,13 +28,15 @@ export interface AchievementContext {
 /** SQL predicate on `games g`: the row is not a tutorial game (same test the profile stats use). */
 const NOT_TUTORIAL_GAME = "COALESCE(g.settings_json::jsonb->>'tutorial', 'false') <> 'true'";
 
-/** The medal each achievement brings (the cosmetics are defined in migration 051). */
+/** The medal each achievement brings (the cosmetics are defined in migrations 051 and 053). */
 export const ACHIEVEMENT_COSMETIC_MAP: Partial<Record<AchievementId, string>> = {
   first_blood: 'frame_bronze',
   conqueror: 'frame_gold',
   comeback_king: 'marker_crown',
   speed_demon: 'marker_skull',
   ten_streak: 'frame_champion',
+  ranked_warlord: 'frame_warlord',
+  perfect_campaign: 'marker_emperor',
 };
 
 export async function checkAndUnlockAchievements(

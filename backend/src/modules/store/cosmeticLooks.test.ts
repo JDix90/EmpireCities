@@ -26,15 +26,14 @@ const SEEDS_DIR = join(__dirname, '../../../../database/seeds');
 
 /**
  * Removed from the catalog by migration 044 except where someone owned one
- * (nothing grants them any more), so a database can still hold them.
+ * (nothing grants them any more), so a database can still hold them. The
+ * Warlord Frame and Emperor Marker were too, until 053 brought them back.
  */
 const KEPT_WHERE_OWNED: Array<[id: string, type: string]> = [
-  ['frame_warlord', 'profile_frame'],
   ['frame_prestige_1', 'profile_frame'],
   ['frame_prestige_2', 'profile_frame'],
   ['badge_rival', 'profile_banner'],
   ['badge_nemesis', 'profile_banner'],
-  ['marker_emperor', 'map_marker'],
 ];
 
 /** Why `id` can't be drawn in the slot its type goes in, or null when it can. */
@@ -80,7 +79,9 @@ describe.runIf(enabled)('cosmetic looks cover the catalog (Postgres)', () => {
 
     const ids = rows.map((r) => r.cosmetic_id);
     // From the seeds, and from the migrations.
-    expect(ids).toEqual(expect.arrayContaining(['bone_dice', 'general_banner', 'frame_bronze', 'frame_level_50']));
+    expect(ids).toEqual(expect.arrayContaining([
+      'bone_dice', 'general_banner', 'frame_bronze', 'frame_level_50', 'frame_warlord', 'marker_emperor',
+    ]));
     expect(rows.map((r) => lookProblem(r.cosmetic_id, r.type)).filter(Boolean)).toEqual([]);
   });
 

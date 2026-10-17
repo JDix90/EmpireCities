@@ -136,6 +136,7 @@ export const COSMETIC_LOOKS: Readonly<Record<string, CosmeticLook>> = {
   frame_silver: { kind: 'frame', ring: ['#9ca3af', '#ffffff', '#9ca3af'] },
   frame_gold: { kind: 'frame', ring: ['#eab308', '#fde047', '#eab308'] },
   frame_champion: { kind: 'frame', ring: ['#a855f7', '#f472b6', '#a855f7'] },
+  frame_warlord: { kind: 'frame', ring: ['#1c1917', '#b91c1c', '#1c1917'], glow: '#b91c1c' },
   frame_recruit: { kind: 'frame', ring: ['#3f6212', '#bef264', '#3f6212'] },
   frame_immortal: {
     kind: 'frame', ring: ['#991b1b', '#f97316', '#fde047', '#f97316', '#991b1b'], glow: '#f97316', motion: 'spin',
@@ -179,6 +180,7 @@ export const COSMETIC_LOOKS: Readonly<Record<string, CosmeticLook>> = {
   // ── Markers.
   marker_crown: { kind: 'marker', glyph: 'crown', color: '#fbbf24' },
   marker_skull: { kind: 'marker', glyph: 'skull', color: '#f5f5f4' },
+  marker_emperor: { kind: 'marker', glyph: 'crown', color: '#c084fc' },
 
   // ── Dice.
   bone_dice: { kind: 'dice', face: ['#f8f1de', '#e4d4ad'], ink: '#4a3520', edge: '#a8906a', effect: 'wobble' },
@@ -215,7 +217,6 @@ export const COSMETIC_LOOKS: Readonly<Record<string, CosmeticLook>> = {
 
   // ── Kept for anyone who still owns one. Nothing grants these any more, and
   // migration 044 removed them from the catalog except where someone owned one.
-  frame_warlord: { kind: 'frame', ring: ['#1c1917', '#b91c1c', '#1c1917'], glow: '#b91c1c' },
   frame_prestige_1: { kind: 'frame', ring: ['#78350f', '#fcd34d', '#78350f'] },
   frame_prestige_2: { kind: 'frame', ring: ['#581c87', '#fcd34d', '#e9d5ff', '#fcd34d', '#581c87'], glow: '#c084fc' },
   badge_rival: {
@@ -224,7 +225,6 @@ export const COSMETIC_LOOKS: Readonly<Record<string, CosmeticLook>> = {
   badge_nemesis: {
     kind: 'banner', glyph: 'skull', label: 'Nemesis', color: '#fca5a5', background: '#450a0a', trim: '#dc2626',
   },
-  marker_emperor: { kind: 'marker', glyph: 'crown', color: '#c084fc' },
 };
 
 /** An era set's name as the store shows it. Its items carry the set's id in `cosmetics.cosmetic_set`. */
