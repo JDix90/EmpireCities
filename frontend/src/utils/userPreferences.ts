@@ -277,8 +277,26 @@ export function setSfxVolume(volume: number): void {
   }
 }
 
+/**
+ * Touch-first devices (phones and tablets) start with sound effects and music
+ * off: players there rarely expect a web game to make sound, and a playing
+ * audio context keeps the device's audio hardware awake. The in-game "Sound
+ * and music" switch or Settings turns them on, and the choice is saved, so
+ * whatever the player has chosen wins over this.
+ */
+function readSoundMuted(key: string): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const value = localStorage.getItem(key);
+    if (value !== null) return value === 'true';
+  } catch {
+    /* ignore */
+  }
+  return isCoarsePointer();
+}
+
 export function isSfxMuted(): boolean {
-  return readBool(SFX_MUTED_KEY, false);
+  return readSoundMuted(SFX_MUTED_KEY);
 }
 
 export function setSfxMuted(muted: boolean): void {
@@ -321,7 +339,7 @@ export function setMusicVolume(volume: number): void {
 }
 
 export function isMusicMuted(): boolean {
-  return readBool(MUSIC_MUTED_KEY, false);
+  return readSoundMuted(MUSIC_MUTED_KEY);
 }
 
 export function setMusicMuted(muted: boolean): void {

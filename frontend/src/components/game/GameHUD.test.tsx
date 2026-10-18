@@ -761,6 +761,21 @@ describe('GameHUD — sound and music switch', () => {
     expect(toggle().checked).toBe(false);
   });
 
+  it('starts off on a phone or tablet with nothing saved, and switching it on keeps both on', () => {
+    setup(true);
+    window.matchMedia = vi.fn((query: string) => ({
+      matches: query.includes('pointer: coarse'), addEventListener: vi.fn(), removeEventListener: vi.fn(),
+      addListener: vi.fn(), removeListener: vi.fn(),
+    })) as unknown as typeof window.matchMedia;
+    renderHud({ mobile: true });
+    openTools();
+    expect(toggle().checked).toBe(false);
+    fireEvent.click(toggle());
+    expect(toggle().checked).toBe(true);
+    expect(isSfxMuted()).toBe(false);
+    expect(isMusicMuted()).toBe(false);
+  });
+
   it('is in the phone menu\'s HUD too', () => {
     setup(true);
     renderHud({ mobile: true });
