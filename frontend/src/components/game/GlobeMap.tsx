@@ -35,6 +35,7 @@ import { subscribeUserPreferences } from '../../utils/userPreferences';
 import { isCoarsePointer } from '../../utils/device';
 import { PHONE_FRAME_CAP_FPS, dampingFactorForFrameRate } from '../../utils/frameBudget';
 import { createRenderWake, type RenderWake } from '../../utils/renderWake';
+import { pruneGlobeHoverRaycasts } from '../../utils/globeRaycast';
 import { usePageVisibilityEffect } from '../../utils/usePageVisible';
 import {
   SPACE_AGE_WASTELANDS,
@@ -1588,6 +1589,12 @@ function GlobeMap({
   useEffect(() => {
     const renderer = globeRef.current?.renderer?.();
     if (renderer) rendererRef.current = renderer;
+  }, [globeReadyTick]);
+  // The hit-test the globe runs every 50 ms while it draws (hover, and the
+  // target of a tap) skips hidden objects and meets the sphere exactly; see
+  // the module.
+  useEffect(() => {
+    pruneGlobeHoverRaycasts(globeRef.current?.scene?.());
   }, [globeReadyTick]);
   useEffect(() => {
     mountedRef.current = true;
