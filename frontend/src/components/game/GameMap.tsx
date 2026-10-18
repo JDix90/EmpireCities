@@ -25,6 +25,7 @@ import { resolvePlayerTechEraId } from '../../utils/eraAdvancement';
 import { eraBoardTheme } from '../../constants/eraBoardTheme';
 import { hapticImpact } from '../../utils/haptics';
 import { isTapGesture } from '../../utils/tapGesture';
+import { mapPixelRatio } from '../../utils/frameBudget';
 import { getRegionPixiColors, getPlayerPixiColor } from '../../constants/accessibleColors';
 import { HIGHLIGHT_PIXI } from '../../constants/highlightColors';
 
@@ -509,9 +510,10 @@ export default function GameMap({
       // little; the saving is on every frame the map draws.
       antialias: !phoneBudget,
       ...(phoneBudget ? { powerPreference: 'low-power' as const } : {}),
-      // Cap DPR at 1.5: phones report 2–3, rendering 4–9× the pixels each frame
-      // for negligible sharpness gain on flat map fills — a major heat source.
-      resolution: Math.min(window.devicePixelRatio || 1, 1.5),
+      // Cap DPR at 1.5, and 1.25 under the phone budget: phones report 2–3,
+      // rendering 4–9× the pixels each frame for negligible sharpness gain on
+      // flat map fills — a major heat source.
+      resolution: mapPixelRatio(phoneBudget, window.devicePixelRatio),
       autoDensity: true,
       // If the app is (re)created while the tab is hidden, don't start the render
       // loop; the visibility effect starts it when the page becomes visible.

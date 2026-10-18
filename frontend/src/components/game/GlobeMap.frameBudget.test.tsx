@@ -15,6 +15,8 @@ const globe = vi.hoisted(() => {
   return {
     running: false,
     resumes: 0,
+    // Every pixel ratio the component set on the renderer, in order.
+    pixelRatios: [] as number[],
     listeners,
     controls: {
       autoRotate: false, autoRotateSpeed: 0, dampingFactor: 0.1, enabled: true,
@@ -37,7 +39,7 @@ vi.mock('react-globe.gl', async () => {
       resumeAnimation: () => { if (!globe.running) globe.resumes += 1; globe.running = true; },
       controls: () => globe.controls,
       pointOfView: (pov?: Partial<typeof globe.pov>) => { if (pov) Object.assign(globe.pov, pov); return { ...globe.pov }; },
-      renderer: () => ({ setPixelRatio: () => {}, setSize: () => {}, domElement: document.createElement('canvas'), ...(globe.info ? { info: globe.info } : {}) }),
+      renderer: () => ({ setPixelRatio: (r: number) => { globe.pixelRatios.push(r); }, setSize: () => {}, domElement: document.createElement('canvas'), ...(globe.info ? { info: globe.info } : {}) }),
       toGlobeCoords: () => null,
     }));
     React.useEffect(() => { (props.onGlobeReady as (() => void) | undefined)?.(); }, []);
@@ -97,6 +99,7 @@ describe('GlobeMap under the phone frame budget', () => {
     vi.useFakeTimers();
     globe.running = false;
     globe.resumes = 0;
+    globe.pixelRatios.length = 0;
     globe.controls.dampingFactor = 0.1;
     globe.props = null;
     globe.info = null;
@@ -307,6 +310,34 @@ describe('GlobeMap under the phone frame budget', () => {
     unmount();
     mount({ frameBudget: false, reducedEffects: false });
     expect(globe.controls.dampingFactor).toBeCloseTo(0.1, 5);
+  });
+
+  it('draws an idle globe again when its pane resizes, which clears the canvas', () => {
+    const props = { mapData: spaceAge, onTerritoryClick: () => {}, width: 390, selfPlayerId: 'me', autoSpin: false, frameBudget: true, reducedEffects: true };
+    const { rerender } = render(<GlobeMapCore {...props} height={600} />);
+    act(() => { vi.advanceTimersByTime(1000); });
+    expect(globe.running).toBe(false);
+    // The browser's toolbar slides away: the pane grows.
+    rerender(<GlobeMapCore {...props} height={660} />);
+    expect(globe.running).toBe(true);
+    act(() => { vi.advanceTimersByTime(400); });
+    expect(globe.running).toBe(false);
+  });
+
+  it('draws a phone at 1.25 device pixels per CSS pixel, and the desktop at 1.5', () => {
+    const dpr = Object.getOwnPropertyDescriptor(window, 'devicePixelRatio');
+    Object.defineProperty(window, 'devicePixelRatio', { value: 3, configurable: true });
+    try {
+      const props = { mapData: spaceAge, onTerritoryClick: () => {}, width: 390, height: 600, selfPlayerId: 'me', autoSpin: false, reducedEffects: true };
+      const { rerender } = render(<GlobeMapCore {...props} frameBudget />);
+      expect(globe.pixelRatios.at(-1)).toBe(1.25);
+      // Battery saver turned off on a laptop: the budget lifts mid-game.
+      rerender(<GlobeMapCore {...props} frameBudget={false} />);
+      expect(globe.pixelRatios.at(-1)).toBe(1.5);
+    } finally {
+      if (dpr) Object.defineProperty(window, 'devicePixelRatio', dpr);
+      else delete (window as { devicePixelRatio?: number }).devicePixelRatio;
+    }
   });
 
   it('asks for the low-power GPU on a phone, and leaves the desktop context alone', () => {

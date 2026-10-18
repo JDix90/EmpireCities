@@ -101,6 +101,22 @@ describe('GameMap under the phone frame budget', () => {
     expect(mainApp().options.autoStart).toBe(true);
   });
 
+  it('draws a phone at 1.25 device pixels per CSS pixel, and the desktop at 1.5', () => {
+    const dpr = Object.getOwnPropertyDescriptor(window, 'devicePixelRatio');
+    Object.defineProperty(window, 'devicePixelRatio', { value: 3, configurable: true });
+    try {
+      const phone = render(el());
+      expect(mainApp().options.resolution).toBe(1.25);
+      phone.unmount();
+      pixi.created.apps.length = 0;
+      render(el({ frameBudget: false }));
+      expect(mainApp().options.resolution).toBe(1.5);
+    } finally {
+      if (dpr) Object.defineProperty(window, 'devicePixelRatio', dpr);
+      else delete (window as { devicePixelRatio?: number }).devicePixelRatio;
+    }
+  });
+
   it('renders the first frames, then stops the ticker instead of drawing an unchanged map', () => {
     render(el());
     expect(mainApp().ticker.started).toBe(true);

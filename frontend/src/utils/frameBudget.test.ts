@@ -8,6 +8,7 @@ import {
   createFrameCap,
   dampingFactorForFrameRate,
   installFrameCap,
+  mapPixelRatio,
   type FrameCapNatives,
 } from './frameBudget';
 
@@ -246,5 +247,21 @@ describe('dampingFactorForFrameRate', () => {
     expect(f).toBeCloseTo(0.19, 5);
     expect(Math.pow(1 - f, PHONE_FRAME_CAP_FPS)).toBeCloseTo(Math.pow(1 - base, 60), 10);
     expect(dampingFactorForFrameRate(base, 60)).toBeCloseTo(base, 10);
+  });
+});
+
+describe('mapPixelRatio', () => {
+  it('draws a phone at 1.25 device pixels per CSS pixel, and anything else at up to 1.5', () => {
+    expect(mapPixelRatio(true, 3)).toBe(1.25);
+    expect(mapPixelRatio(true, 2)).toBe(1.25);
+    expect(mapPixelRatio(false, 3)).toBe(1.5);
+    expect(mapPixelRatio(false, 2)).toBe(1.5);
+  });
+
+  it('never draws more pixels than the device has', () => {
+    expect(mapPixelRatio(true, 1)).toBe(1);
+    expect(mapPixelRatio(false, 1)).toBe(1);
+    expect(mapPixelRatio(false, 1.25)).toBe(1.25);
+    expect(mapPixelRatio(true, 0)).toBe(1);
   });
 });

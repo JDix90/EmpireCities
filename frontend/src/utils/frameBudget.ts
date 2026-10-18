@@ -219,6 +219,23 @@ export function dampingFactorForFrameRate(baseFactor: number, fps: number, tuned
 }
 
 /**
+ * The most device pixels per CSS pixel the maps draw at. Phones report a
+ * device pixel ratio of 2–3: 4–9 times the pixels of a plain display on every
+ * frame, for little sharpness on flat fills and a textured globe.
+ */
+export const MAP_PIXEL_RATIO_CAP = 1.5;
+/**
+ * The cap under the frame budget (a phone, or battery saver): about 70% of
+ * the pixels of 1.5 in every frame, with edges still finer than a CSS pixel.
+ */
+export const BUDGET_MAP_PIXEL_RATIO_CAP = 1.25;
+
+/** The pixel ratio a map draws at: the device's own, up to the cap. */
+export function mapPixelRatio(frameBudget: boolean, devicePixelRatio: number): number {
+  return Math.min(devicePixelRatio || 1, frameBudget ? BUDGET_MAP_PIXEL_RATIO_CAP : MAP_PIXEL_RATIO_CAP);
+}
+
+/**
  * The attribute on `<html>` that the frame-budget CSS keys off (index.css).
  * Its value is the tier, so the page shows which one is in force.
  */
