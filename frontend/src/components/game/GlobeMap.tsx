@@ -845,6 +845,13 @@ const BUDGET_TOUCH_RENDER_MS = 600;
  * the view last moved.
  */
 const BUDGET_CAMERA_MOVE_RENDER_MS = 250;
+/**
+ * And the frames each camera wake is owed, however long they take: one slow
+ * frame (a long task, a GC pause) must not outlast the wake and freeze a
+ * coast short of where the camera ends up. A camera still moving in those
+ * frames wakes the loop again.
+ */
+const BUDGET_CAMERA_MOVE_FRAMES = 3;
 /** The fewest milliseconds between two camera-move wakes; the wake itself sets a timer. */
 const BUDGET_CAMERA_WAKE_THROTTLE_MS = 100;
 /**
@@ -1266,11 +1273,11 @@ function GlobeMap({
   }, []);
 
   /**
-   * Keeps the render loop awake for `ms`. Filled in once applyRenderActivity
-   * exists below; camera moves call it so a tween never freezes half-way
-   * because the loop idled under it.
+   * Keeps the render loop awake for `ms`, and until `frames` more are drawn.
+   * Filled in once applyRenderActivity exists below; camera moves call it so a
+   * tween never freezes half-way because the loop idled under it.
    */
-  const keepRenderingRef = useRef<(ms: number) => void>(() => {});
+  const keepRenderingRef = useRef<(ms: number, frames?: number) => void>(() => {});
 
   const panCamera = useCallback((lat: number, lng: number, altitude: number, ms = 800) => {
     noteAutomatedCameraMove();
@@ -1378,7 +1385,7 @@ function GlobeMap({
       const t = Date.now();
       if (t - lastCameraWakeAt < BUDGET_CAMERA_WAKE_THROTTLE_MS) return;
       lastCameraWakeAt = t;
-      keepRenderingRef.current(BUDGET_CAMERA_MOVE_RENDER_MS);
+      keepRenderingRef.current(BUDGET_CAMERA_MOVE_RENDER_MS, BUDGET_CAMERA_MOVE_FRAMES);
     };
     ctrl.addEventListener('start', onStart);
     ctrl.addEventListener('end', onEnd);
@@ -1649,7 +1656,7 @@ function GlobeMap({
     if (interacted) wake.wake(awakeMs, frames);
     else wake.check();
   }, []);
-  keepRenderingRef.current = (ms: number) => applyRenderActivity(true, ms);
+  keepRenderingRef.current = (ms: number, frames?: number) => applyRenderActivity(true, ms, frames);
 
   /**
    * Drive wheel zoom ourselves. OrbitControls scales its own `zoomSpeed` by the
@@ -1727,6 +1734,18 @@ function GlobeMap({
       BUDGET_BOARD_CHANGE_FRAMES,
     );
   }, [polygonsData, applyRenderActivity]);
+
+  // A selection or an attack source restyles borders, target arcs and route
+  // markers through the layers' accessors: paint it. Under the budget a tap's
+  // own wake is short, and a selection made from the panels never touches the
+  // globe at all. Owed frames see it through the slow frame a restyle can cost.
+  useEffect(() => {
+    applyRenderActivity(
+      true,
+      frameBudgetRef.current ? BUDGET_BOARD_CHANGE_RENDER_MS : BOARD_CHANGE_RENDER_MS,
+      BUDGET_BOARD_CHANGE_FRAMES,
+    );
+  }, [selectedTerritory, attackSource, applyRenderActivity]);
 
   // OrbitControls damps per update. Under the frame cap it updates half as
   // often, so the factor is rescaled to keep a fling coasting as it does at 60.

@@ -49,6 +49,7 @@ vi.mock('../../hooks/useTerritoryGeoSources', () => ({ useTerritoryGeoSources: (
 
 import { GlobeMapCore } from './GlobeMap';
 import { useGameStore } from '../../store/gameStore';
+import { useUiStore } from '../../store/uiStore';
 
 const spaceAge = JSON.parse(readFileSync(resolve(process.cwd(), '../database/maps/era_space_age.json'), 'utf8'));
 
@@ -108,7 +109,7 @@ describe('GlobeMap under the phone frame budget', () => {
   });
   afterEach(() => {
     vi.useRealTimers();
-    act(() => { useGameStore.setState({ gameState: null }); });
+    act(() => { useGameStore.setState({ gameState: null }); useUiStore.getState().reset(); });
   });
 
   it('idles within a few frames of mounting instead of four seconds', () => {
@@ -222,6 +223,26 @@ describe('GlobeMap under the phone frame budget', () => {
     expect(globe.running).toBe(false);
   });
 
+  it('paints a selection made after the touch wake has ended, frames and all', () => {
+    // Reinforcing: a selection lights no moving target arcs, which wake for longer.
+    act(() => { useGameStore.setState({ gameState: { ...gameState(), phase: 'reinforce' } as never }); });
+    globe.info = { render: { frame: 0 } };
+    mount();
+    act(() => { vi.advanceTimersByTime(2000); });
+    expect(globe.running).toBe(false);
+    // A territory picked from a panel, or a tap whose click lands late.
+    act(() => { useUiStore.getState().setSelectedTerritory(spaceAge.territories[0].territory_id); });
+    expect(globe.running).toBe(true);
+    // One slow frame outlasts the wake; the restyle is owed the frames after it.
+    act(() => { vi.advanceTimersByTime(150); globe.info!.render.frame += 1; });
+    expect(globe.running).toBe(true);
+    act(() => { vi.advanceTimersByTime(50); globe.info!.render.frame += 2; });
+    act(() => { vi.advanceTimersByTime(60); });
+    expect(globe.running).toBe(false);
+    act(() => { useUiStore.getState().setAttackSource(spaceAge.territories[0].territory_id); });
+    expect(globe.running).toBe(true);
+  });
+
   it('keeps a desktop globe drawing for four seconds after a touch', () => {
     mount({ frameBudget: false, reducedEffects: false });
     act(() => { vi.advanceTimersByTime(5000); });
@@ -243,6 +264,26 @@ describe('GlobeMap under the phone frame budget', () => {
     }
     expect(globe.running).toBe(true);
     act(() => { vi.advanceTimersByTime(300); });
+    expect(globe.running).toBe(false);
+  });
+
+  it('keeps a coast running through slow frames until the camera stops', () => {
+    globe.info = { render: { frame: 0 } };
+    mount();
+    act(() => { vi.advanceTimersByTime(2000); });
+    expect(globe.running).toBe(false);
+    // A fling coasting on a busy phone: every frame takes 300 ms, longer than
+    // a camera wake, and the camera still moves in each one.
+    for (let i = 0; i < 5; i++) {
+      act(() => { globe.listeners.change?.(); vi.advanceTimersByTime(300); globe.info!.render.frame += 1; });
+      expect(globe.running).toBe(true);
+    }
+    // The camera has stopped: the frames owed to its last move, then idle.
+    act(() => { vi.advanceTimersByTime(300); globe.info!.render.frame += 1; });
+    act(() => { vi.advanceTimersByTime(300); globe.info!.render.frame += 1; });
+    expect(globe.running).toBe(true);
+    act(() => { vi.advanceTimersByTime(300); globe.info!.render.frame += 1; });
+    act(() => { vi.advanceTimersByTime(60); });
     expect(globe.running).toBe(false);
   });
 
