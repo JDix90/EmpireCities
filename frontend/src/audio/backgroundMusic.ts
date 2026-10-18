@@ -360,7 +360,14 @@ export class BackgroundMusicEngine {
     const live = this.live;
     const at = ctx.currentTime + fadeSec + 0.2;
     for (const v of live) { try { v.stop(at); } catch { /* already stopped */ } }
-    window.setTimeout(() => master.disconnect(), fadeSec * 1000 + 300);
+    window.setTimeout(() => {
+      master.disconnect();
+      // Nothing left to play: give the audio device back. A running context
+      // renders silence for as long as it runs, which keeps the device's audio
+      // path awake (on iOS, the whole audio session), muted or not. start()
+      // resumes it.
+      if (!this.running && this.ctx?.state === 'running') void this.ctx.suspend().catch(() => {});
+    }, fadeSec * 1000 + 300);
     this.live = [];
     this.master = null;
     this.bed = null;

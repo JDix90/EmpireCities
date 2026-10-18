@@ -4,6 +4,24 @@ import { isMapStrikeAbility, type MapStrikeAbilityId } from './mapStrikeEffects'
 
 let audioCtx: AudioContext | null = null;
 
+/**
+ * How long the effects' AudioContext keeps running after the last sound. A
+ * running context renders silence for as long as it runs, which keeps the
+ * device's audio path awake (on iOS, the whole audio session), so between
+ * sounds it is suspended and the next sound resumes it. Longer than any effect
+ * here, staggered notes included.
+ */
+export const SFX_IDLE_SUSPEND_MS = 5000;
+let idleSuspendTimer: ReturnType<typeof setTimeout> | null = null;
+
+function suspendWhenIdle(ctx: AudioContext): void {
+  if (idleSuspendTimer !== null) clearTimeout(idleSuspendTimer);
+  idleSuspendTimer = setTimeout(() => {
+    idleSuspendTimer = null;
+    if (ctx.state === 'running') void ctx.suspend().catch(() => {});
+  }, SFX_IDLE_SUSPEND_MS);
+}
+
 function canPlaySounds(): boolean {
   if (typeof window === 'undefined') return false;
   if (getSfxMasterGain() <= 0) return false;
@@ -25,6 +43,7 @@ function getAudioContext(): AudioContext | null {
   if (audioCtx.state === 'suspended') {
     void audioCtx.resume();
   }
+  suspendWhenIdle(audioCtx);
   return audioCtx;
 }
 
