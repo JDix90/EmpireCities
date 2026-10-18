@@ -6,6 +6,8 @@
 
 import React, { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 import Globe, { type GlobeMethods } from 'react-globe.gl';
+// The globe libraries leave unheard frame tickers looping from import; see the module.
+import '../../utils/idleFrameTickers';
 import { FastForward } from 'lucide-react';
 import MapUnavailable from './MapUnavailable';
 import { webglAvailable } from '../../utils/webglSupport';
