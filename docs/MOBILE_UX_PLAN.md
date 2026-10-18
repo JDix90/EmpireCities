@@ -1324,6 +1324,32 @@ The saving is small next to the globe's drawing. Muted sound effects never open 
 | `frontend/src/utils/userPreferences.ts`, `userPreferences.test.ts` | Sound effects and music start muted on a touch-first device; a saved choice wins |
 | `frontend/src/components/game/GameHUD.test.tsx` | The switch starts off on a phone, and switching it on keeps both on |
 
+### Follow-up: opaque territory tops under the budget
+
+**What changed.** On the era world maps, the ones without authored projection bounds, every territory's top was drawn at 92–96% opacity. Under the frame budget the tops are now opaque, with the same colours. Maps with projection bounds (the community maps, the space age and the galaxies) and the regional globes already drew them opaque, and are unchanged.
+
+**Why.** three.js draws a transparent two-sided mesh twice, back faces and then front, and blends it over whatever lies behind it. A world map clips its territories against the coastlines into many pieces: the Medieval board's 36 territories are 762 pieces, so each frame drew 762 tops one more time. An opaque top is drawn once, and a phone's GPU can skip what an opaque surface hides.
+
+**What it looks like.** The tops at 92–96% opacity showed almost nothing through them, so the board looks the same. Rendering one Medieval board both ways, at most 0.23% of pixels differed in each of three views (Europe from orbit, a close view of central Europe, and the edge of the globe). The walls (the territories' sides) and the borders keep their translucent look.
+
+**Measured in development.** Production builds of `main` and of this change, served against a throwaway backend, on an emulated iPhone 13 in headless Chromium, in a Medieval game on the world map, looking at Europe:
+
+| Measure (phone) | `main` | This change |
+|---|---|---|
+| Territory pieces with translucent tops | 762 of 762 | 0 of 762 |
+| Pieces with translucent walls | 762 | 762 |
+| Draw calls a frame | 3,430 | 2,668 |
+| Triangles a frame | 306,000 | 259,000 |
+| three.js JavaScript a frame, the same page with its tops switched between both looks, three rounds each | 40–58 ms | 30–37 ms |
+
+Headless Chromium draws WebGL in software, so the absolute times say little about a phone. What carries over is the work removed from every frame the globe draws: 762 fewer draw calls and 47,000 fewer triangles, a quarter to a third of three.js's time here. On a map whose tops were already opaque, such as quick match's Britain, nothing changes.
+
+**Checking it on a device.** In Safari Web Inspector (iOS) → Timelines → Rendering Frames, or Chrome remote debugging (Android) → Performance, a drag across Europe on a Medieval world map should show shorter frames than before, and the board should look the same.
+
+| File | Change |
+|------|--------|
+| `frontend/src/components/game/GlobeMap.tsx`, `GlobeMap.frameBudget.test.tsx` | Opaque territory tops under the budget; the walls and borders unchanged |
+
 ---
 
 ## Implementation Order

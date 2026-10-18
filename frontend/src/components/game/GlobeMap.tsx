@@ -1201,6 +1201,15 @@ function GlobeMap({
    */
   const useSolidPlayerCaps =
     regionalGlobe.lockRotation === true || mapData.projection_bounds != null;
+  /**
+   * Territory tops drawn opaque: on the solid maps above, and on every map
+   * under the phone budget. A top at 92–96% opacity looks the same as an
+   * opaque one, but three.js draws a transparent two-sided mesh twice (back
+   * faces, then front) and blends it over whatever lies behind: on a world
+   * map, hundreds of clipped territory pieces, each drawn one more time.
+   * Walls and borders keep their translucent look; only the tops change.
+   */
+  const solidCaps = useSolidPlayerCaps || frameBudget;
   const regionalGlobeRef = useRef(regionalGlobe);
   regionalGlobeRef.current = regionalGlobe;
 
@@ -3658,13 +3667,13 @@ function GlobeMap({
       // neutral world reads as that planet rather than a slate ball.
       const neutralTerritory = mapData.map_kind === 'galaxy' ? territoryById.get(p.territory_id) : undefined;
       const galaxyNeutral = neutralTerritory
-        ? neutralLandColorFor(inferWorldId(neutralTerritory), useSolidPlayerCaps)
+        ? neutralLandColorFor(inferWorldId(neutralTerritory), solidCaps)
         : undefined;
       const empty = galaxyNeutral ?? (isFloodedNorthAmerica
-        ? useSolidPlayerCaps
+        ? solidCaps
           ? 'rgb(245, 242, 230)'
           : 'rgba(245, 242, 230, 0.98)'
-        : useSolidPlayerCaps
+        : solidCaps
           ? 'rgb(45, 52, 72)'
           : 'rgba(45, 52, 72, 0.92)');
       if (!gameState) {
@@ -3683,8 +3692,8 @@ function GlobeMap({
         if (player) {
           const raw = (player.color || '').trim();
           const lookupKey = raw.startsWith('#') ? raw.toLowerCase() : raw;
-          base = getPlayerGlobeColor(lookupKey, useSolidPlayerCaps)
-            ?? (useSolidPlayerCaps ? 'rgb(136, 136, 136)' : 'rgba(136, 136, 136, 0.92)');
+          base = getPlayerGlobeColor(lookupKey, solidCaps)
+            ?? (solidCaps ? 'rgb(136, 136, 136)' : 'rgba(136, 136, 136, 0.92)');
         }
       }
 
@@ -3719,7 +3728,7 @@ function GlobeMap({
 
       return base;
     },
-    [gameState, previewMode, territoryRegionMap, regionColorMap, useSolidPlayerCaps, isFloodedNorthAmerica, polygonStrikeFlash, polygonCaptureFlash, polygonEraAdvanceFlash, mapData.map_kind, territoryById],
+    [gameState, previewMode, territoryRegionMap, regionColorMap, solidCaps, isFloodedNorthAmerica, polygonStrikeFlash, polygonCaptureFlash, polygonEraAdvanceFlash, mapData.map_kind, territoryById],
   );
 
   const getPolygonStroke = useCallback(
