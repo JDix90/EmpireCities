@@ -1211,7 +1211,7 @@ On this change, the music's context reads `suspended` after mute and `running` a
 
 Headless Chromium draws WebGL in software. Here every frame during camera motion held the main thread for about 300 ms, even though the three.js render itself took 1–3 ms. That is what showed a coast stopping short when the camera's wake was time only, and it is why camera wakes owe frames.
 
-**Not in this change.** During a drag, about 70% of the globe's per-frame JavaScript was three-render-objects' hover hit-test. It tests the finger's position against every territory triangle every 50 ms. Under a finger, hover only shows the territory's name after a tap (`polygonLabel`), so the hit-test is a candidate for a later change.
+**Not in this change.** During a drag, about 70% of the globe's per-frame JavaScript was three-render-objects' hover hit-test. [The next follow-up](#follow-up-the-hover-hit-test) takes about two thirds off each check.
 
 **Checking it on a device.**
 - **Idle board.** In Safari Web Inspector (iOS) → Timelines, or Chrome remote debugging (Android) → Performance, an idle board between moves should show no animation frames at all.
@@ -1226,6 +1226,46 @@ Headless Chromium draws WebGL in software. Here every frame during camera motion
 | `frontend/src/components/editor/GlobeMapEditor.tsx` | Loads the ticker patch with its globe |
 | `frontend/src/audio/backgroundMusic.ts`, `backgroundMusic.test.ts` | Suspends the music's context once a stop has faded out |
 | `frontend/src/utils/gameSounds.ts`, `gameSounds.test.ts` | Suspends the sound effects' context after 5 s without a sound |
+
+### Follow-up: the hover hit-test
+
+**What it was.** While the globe draws, three-render-objects hit-tests the pointer against the whole globe every 50 ms. That check drives the name tooltip, and it also decides taps: a click goes to whatever the last check found. Timing each object the check tested showed where its time went. The figures are on the test machine, on the Britain map, at about 6 ms a check:
+
+| Tested | Share of a check | Used by globe.gl |
+|---|---|---|
+| Two spheres: the drawn globe (7,920 triangles) and the tile engine's (32,040), which is hidden whenever no tile server is set | 48% | The drawn globe only. It stops a tap on the sea from reaching a territory on the far side, and `toGlobeCoords` reads its point. |
+| The territories, 56 on this map | 31% | Yes |
+| The atmosphere shell | 10% | No: globe.gl's hover filter always drops it |
+| The graticules, hidden | 9% | No |
+
+three.js tests hidden objects as readily as visible ones, and globe.gl filters the hits only afterwards.
+
+**The fix.** `utils/globeRaycast.ts` takes over the hit-test of the globe's root, the one object three-render-objects asks three.js to test:
+- It walks the same tree, skipping hidden objects and the atmosphere.
+- It meets the drawn sphere with the exact ray-sphere solution instead of testing its triangles.
+- Everything else, the territories included, is tested by three.js as before.
+
+A check finds the same objects in the same order. A hit on the globe now lands on the true sphere instead of its drawn facets: the same spot on screen, within about a pixel's width of surface of where it landed before. Its outline is a fraction of a pixel wider at the rim.
+
+**Measured in development.** Production builds of `main` and of this change, served against a throwaway backend, on an emulated iPhone 13 in headless Chromium, in a quick match on the Britain map:
+
+| Measure | `main` | This change |
+|---|---|---|
+| One hit-test, at four points on land, sea and the edge of the view (`toGlobeCoords`, the hover check's own path) | 3.6–5.0 ms | 1.2–2.1 ms |
+| Script time per frame, through a drag and its coast | 9.9 ms | 6.6 ms |
+
+The check found exactly the same thing on both builds for six taps:
+- Five land taps selected the same territories (Essex, England, Brycheiniog, Jórvík and the Kingdom of Alba), all through the click path rather than the fallback hit-test, and with the same tooltip names.
+- The sea tap selected nothing.
+
+**Checking it on a device.**
+- **During a drag.** In Safari Web Inspector (iOS) → Timelines → JavaScript, or Chrome remote debugging (Android) → Performance, the time under `intersectObjects` should be about a third of what it was.
+- **Taps.** Taps should select exactly as before, and the tooltip after a tap should name the same territory.
+
+| File | Change |
+|------|--------|
+| `frontend/src/utils/globeRaycast.ts`, `globeRaycast.test.ts` | The globe's hit-test without hidden objects, the atmosphere or the sphere's triangles |
+| `frontend/src/components/game/GlobeMap.tsx`, `GlobeMap.frameBudget.test.tsx` | Applies it once the globe is ready |
 
 ---
 
