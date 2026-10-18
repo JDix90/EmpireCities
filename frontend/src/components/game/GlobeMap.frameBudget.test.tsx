@@ -351,6 +351,30 @@ describe('GlobeMap under the phone frame budget', () => {
     }
   });
 
+  it('draws territory tops opaque on a phone, and leaves the walls as they are', () => {
+    // A world map: translucent tops on the desktop (Space Age is solid already).
+    const medieval = JSON.parse(readFileSync(resolve(process.cwd(), '../database/maps/era_medieval.json'), 'utf8'));
+    const territories = Object.fromEntries(
+      medieval.territories.map((t: { territory_id: string }) => [t.territory_id, { owner_id: 'ai_1', unit_count: 3 }]),
+    );
+    act(() => { useGameStore.setState({ gameState: { ...gameState(), era: 'medieval', map_id: 'era_medieval', territories } as never }); });
+    const props = { mapData: medieval, onTerritoryClick: () => {}, width: 390, height: 600, selfPlayerId: 'me', autoSpin: false, reducedEffects: true };
+    const territory = { territory_id: medieval.territories[0].territory_id };
+    const colours = () => ({
+      top: (globe.props?.polygonCapColor as (p: object) => string)(territory),
+      wall: (globe.props?.polygonSideColor as (p: object) => string)(territory),
+    });
+    const { unmount } = render(<GlobeMapCore {...props} frameBudget />);
+    const phone = colours();
+    unmount();
+    render(<GlobeMapCore {...props} frameBudget={false} />);
+    const desktop = colours();
+    expect(phone.top).toBe('rgb(52, 152, 219)');
+    expect(desktop.top).toBe('rgba(52, 152, 219, 0.96)');
+    expect(phone.wall).toBe(desktop.wall);
+    expect(phone.wall).toMatch(/^rgba\(.*, 0\.45\)$/);
+  });
+
   it('asks for the low-power GPU on a phone, and leaves the desktop context alone', () => {
     const { unmount } = mount();
     expect(globe.props?.rendererConfig).toEqual({ powerPreference: 'low-power' });
