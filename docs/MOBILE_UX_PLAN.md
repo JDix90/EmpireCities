@@ -1300,6 +1300,30 @@ The check found exactly the same thing on both builds for six taps:
 | `frontend/src/utils/globeRaycast.ts`, `globeRaycast.test.ts` | The globe's hit-test without hidden objects, the atmosphere or the sphere's triangles |
 | `frontend/src/components/game/GlobeMap.tsx`, `GlobeMap.frameBudget.test.tsx` | Applies it once the globe is ready |
 
+### Follow-up: sound starts off on phones and tablets
+
+**What changed.** Players on a phone or tablet rarely expect a web game to make sound, so on a touch-first device (`(pointer: coarse)`) sound effects and music now start muted.
+- **Turning sound on.** The in-game "Sound and music" switch turns both on, and Settings turns each on separately. The choice is saved (`cc-sfx-muted`, `cc-music-muted`), and a saved choice, either way, wins over the default.
+- **Who is unaffected.** A desktop, and a touch laptop whose primary pointer is fine, keep sound on by default.
+- **Why the device, not the layout.** The default follows the device rather than the phone layout, so rotating a phone or narrowing a desktop window never changes it.
+
+**Measured in development.** Measured on an emulated iPhone 13, on an idle board, over 30 seconds each, on `main`:
+
+| | Music playing | Muted |
+|---|---|---|
+| Audio service CPU | 0.01 cores | none measurable |
+| Renderer process CPU | 0.02 cores | 0.01 cores |
+| Timer wake-ups | 10 a second (the music scheduler) | 1 a second |
+| Audio nodes created | 2.6 a second | none |
+| Audio context | running | suspended |
+
+The saving is small next to the globe's drawing. Muted sound effects never open an audio context, and muted music suspends its own, so a phone that keeps the default spends nothing on audio. The audio hardware also stays asleep.
+
+| File | Change |
+|------|--------|
+| `frontend/src/utils/userPreferences.ts`, `userPreferences.test.ts` | Sound effects and music start muted on a touch-first device; a saved choice wins |
+| `frontend/src/components/game/GameHUD.test.tsx` | The switch starts off on a phone, and switching it on keeps both on |
+
 ---
 
 ## Implementation Order
