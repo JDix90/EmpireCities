@@ -854,7 +854,7 @@ A turn-based board changes a few times a turn, but a phone was drawing it as if 
 | Endless CSS pulses | The low-time turn-timer chip, the menu's first-visit pulse, the HUD's buff badges | Same as the space age pulse: frames at full rate for as long as they are on screen. |
 | A stale board | The idle globe | With M-12 dropping other players' animations on phones, nothing woke the paused globe when the board changed under another player; it repainted at the next turn change or touch. |
 
-Already in place: both renderers cap the device pixel ratio at 1.5, and both stop while the page is hidden.
+Already in place: both renderers cap the device pixel ratio at 1.5 (1.25 under the budget since [a later follow-up](#follow-up-a-lower-pixel-ratio-under-the-budget)), and both stop while the page is hidden.
 
 ### Requirements
 
@@ -1029,6 +1029,39 @@ The native plugins could not be built here: there is no Xcode and no Android SDK
 | `frontend/ios/App/App/ThermalPlugin.swift`, `MainViewController.swift`, `Base.lproj/Main.storyboard`, `App.xcodeproj/project.pbxproj` | New (phase 3): the iOS plugin, the view controller that registers it, and the project entries |
 | `frontend/android/app/src/main/java/com/borderfall/app/ThermalPlugin.java`, `MainActivity.java` | New (phase 3): the Android plugin, registered before the bridge starts |
 | `frontend/src/utils/deviceHeat.test.ts`, `hooks/useFrameBudget.test.ts`, `utils/frameBudget.test.ts`, `pages/SettingsPage.test.tsx`, `android/app/src/test/java/com/borderfall/app/ThermalPluginTest.java` | Phase 3: the sources, the governor, the tiers, the setting, and the Android level mapping |
+
+### Follow-up: a lower pixel ratio under the budget
+
+**What changed.** Both renderers drew at up to 1.5 device pixels per CSS pixel on every device. Under the frame budget (a phone layout, or battery saver on any device) they now draw at up to 1.25, about 70% of the pixels in every frame. The cap is `mapPixelRatio` in `utils/frameBudget.ts`.
+- **An iPhone 13.** The globe's backing store goes from 585×1108 to 487×923, which is 648,180 pixels down to 449,501.
+- **A plain desktop display** (a device pixel ratio of 1) is unaffected.
+- **A high-density laptop with battery saver on** draws at 1.25 too.
+
+**What it looks like.** Edges drawn on the canvas are a little softer: borders, coastlines, the globe's texture, and the 2D map's own territory names and unit counts. The globe's labels are HTML and do not change.
+
+**An idle globe stays drawn when it resizes.** Sizing the globe's backing store clears it, and with the render loop idle nothing drew it again. Any change to the map pane's size while the globe was idle left it blank until the next touch or board change. On a phone the pane resizes whenever the browser's toolbar comes or goes. The resize now wakes the loop for the board-change wake and its owed frames. A budget change, such as battery saver toggled mid-game, now resizes the backing store as well, and would otherwise blank the globe the same way.
+
+**Measured in development.** Production builds of `main` and of this change, served against a throwaway backend, on an emulated iPhone 13 (device pixel ratio 3) in headless Chromium, in a quick match on the Britain map:
+
+| Measure | `main` | This change |
+|---|---|---|
+| Globe's backing store for a 390×739 pane | 585×1108 | 487×923 |
+| 2D map's backing store for the same pane | 585×1109 | 488×924 |
+| Pixels in every frame | 648,180 | 449,501 (−31%) |
+| GPU process CPU a frame through the same drag (software WebGL) | 523 ms | 438 ms |
+| The globe after its pane shrank by 44 px while idle | blank | drawn |
+
+Software WebGL scales only part of a frame's cost with its pixels, so the GPU figure understates what a phone's GPU saves on fill.
+
+**Checking it on a device.**
+- **The ratio.** In Safari Web Inspector (iOS) or Chrome remote debugging (Android), the map canvas's `width` divided by its CSS width reads 1.25 on a phone.
+- **A resize.** Rotate the phone with the globe idle: the globe should stay drawn.
+
+| File | Change |
+|------|--------|
+| `frontend/src/utils/frameBudget.ts`, `frameBudget.test.ts` | `mapPixelRatio`: up to 1.5, and up to 1.25 under the budget |
+| `frontend/src/components/game/GlobeMap.tsx`, `GlobeMap.frameBudget.test.tsx` | The globe's pixel ratio follows the budget, and a resize draws the globe again |
+| `frontend/src/components/game/GameMap.tsx`, `GameMap.frameBudget.test.tsx` | The 2D map's resolution follows the budget |
 
 ## M-14 Frame Budget While Watching
 

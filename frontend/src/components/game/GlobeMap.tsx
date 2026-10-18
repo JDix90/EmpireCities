@@ -33,7 +33,7 @@ import { useTerritoryGeoSources } from '../../hooks/useTerritoryGeoSources';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import { subscribeUserPreferences } from '../../utils/userPreferences';
 import { isCoarsePointer } from '../../utils/device';
-import { PHONE_FRAME_CAP_FPS, dampingFactorForFrameRate } from '../../utils/frameBudget';
+import { PHONE_FRAME_CAP_FPS, dampingFactorForFrameRate, mapPixelRatio } from '../../utils/frameBudget';
 import { createRenderWake, type RenderWake } from '../../utils/renderWake';
 import { pruneGlobeHoverRaycasts } from '../../utils/globeRaycast';
 import { usePageVisibilityEffect } from '../../utils/usePageVisible';
@@ -1573,10 +1573,18 @@ function GlobeMap({
     const renderer = globe.renderer();
     // Cap the device pixel ratio. Phones report DPR 2–3, which renders 4–9× the
     // pixels every frame — a dominant heat/battery cost for marginal sharpness on
-    // a globe. 1.5 keeps edges crisp while roughly halving fragment work.
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+    // a globe. 1.5 keeps edges crisp while roughly halving fragment work, and
+    // the phone budget's 1.25 draws about 70% of that (utils/frameBudget.ts).
+    renderer.setPixelRatio(mapPixelRatio(frameBudget, window.devicePixelRatio));
     renderer.setSize(width, height);
-  }, [width, height, globeReadyTick]);
+    // Sizing the backing store clears it, and an idle loop would leave the
+    // globe blank until the next touch: a phone's map pane resizes whenever
+    // the browser's toolbar comes or goes. Draw it again.
+    keepRenderingRef.current(
+      frameBudget ? BUDGET_BOARD_CHANGE_RENDER_MS : BOARD_CHANGE_RENDER_MS,
+      BUDGET_BOARD_CHANGE_FRAMES,
+    );
+  }, [width, height, globeReadyTick, frameBudget]);
 
   // react-globe.gl builds its globe while this component renders, so the globe
   // can load and report ready before a slow render commits (Split renders four
