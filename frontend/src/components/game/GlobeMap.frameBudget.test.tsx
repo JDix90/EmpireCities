@@ -9,15 +9,24 @@ import { render, act, fireEvent, screen } from '@testing-library/react';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
-const globe = vi.hoisted(() => ({
-  running: false,
-  resumes: 0,
-  controls: { autoRotate: false, autoRotateSpeed: 0, dampingFactor: 0.1, enabled: true, addEventListener: () => {}, removeEventListener: () => {} },
-  props: null as null | Record<string, unknown>,
-  pov: { lat: 0, lng: 0, altitude: 1.8 },
-  // three.js's frame counter, when a test wants the renderer to count frames.
-  info: null as null | { render: { frame: number } },
-}));
+const globe = vi.hoisted(() => {
+  // OrbitControls' listeners, so a test can move the camera.
+  const listeners: Record<string, () => void> = {};
+  return {
+    running: false,
+    resumes: 0,
+    listeners,
+    controls: {
+      autoRotate: false, autoRotateSpeed: 0, dampingFactor: 0.1, enabled: true,
+      addEventListener: (type: string, fn: () => void) => { listeners[type] = fn; },
+      removeEventListener: (type: string) => { delete listeners[type]; },
+    },
+    props: null as null | Record<string, unknown>,
+    pov: { lat: 0, lng: 0, altitude: 1.8 },
+    // three.js's frame counter, when a test wants the renderer to count frames.
+    info: null as null | { render: { frame: number } },
+  };
+});
 
 vi.mock('react-globe.gl', async () => {
   const React = await import('react');
@@ -40,6 +49,7 @@ vi.mock('../../hooks/useTerritoryGeoSources', () => ({ useTerritoryGeoSources: (
 
 import { GlobeMapCore } from './GlobeMap';
 import { useGameStore } from '../../store/gameStore';
+import { useUiStore } from '../../store/uiStore';
 
 const spaceAge = JSON.parse(readFileSync(resolve(process.cwd(), '../database/maps/era_space_age.json'), 'utf8'));
 
@@ -90,6 +100,7 @@ describe('GlobeMap under the phone frame budget', () => {
     globe.controls.dampingFactor = 0.1;
     globe.props = null;
     globe.info = null;
+    for (const k of Object.keys(globe.listeners)) delete globe.listeners[k];
     window.matchMedia = vi.fn().mockReturnValue({
       matches: false, media: '', onchange: null,
       addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn(),
@@ -98,7 +109,7 @@ describe('GlobeMap under the phone frame budget', () => {
   });
   afterEach(() => {
     vi.useRealTimers();
-    act(() => { useGameStore.setState({ gameState: null }); });
+    act(() => { useGameStore.setState({ gameState: null }); useUiStore.getState().reset(); });
   });
 
   it('idles within a few frames of mounting instead of four seconds', () => {
@@ -192,6 +203,102 @@ describe('GlobeMap under the phone frame budget', () => {
     expect(globe.running).toBe(true);
     act(() => { vi.advanceTimersByTime(300); });
     expect(globe.running).toBe(true);
+  });
+
+  // A touch kept a phone's globe drawing for four seconds, and a player touches
+  // more often than that, so it drew at the full budget for the whole turn.
+  it('wakes a phone globe for a moment on a touch, not four seconds', () => {
+    mount();
+    act(() => { vi.advanceTimersByTime(1000); });
+    expect(globe.running).toBe(false);
+    const stub = screen.getByTestId('globe-stub');
+    fireEvent.pointerDown(stub, { clientX: 100, clientY: 100 });
+    expect(globe.running).toBe(true);
+    act(() => { vi.advanceTimersByTime(200); });
+    fireEvent.pointerUp(stub, { clientX: 100, clientY: 100 });
+    // The finger lifting wakes it again, for the selection the tap makes.
+    act(() => { vi.advanceTimersByTime(550); });
+    expect(globe.running).toBe(true);
+    act(() => { vi.advanceTimersByTime(100); });
+    expect(globe.running).toBe(false);
+  });
+
+  it('paints a selection made after the touch wake has ended, frames and all', () => {
+    // Reinforcing: a selection lights no moving target arcs, which wake for longer.
+    act(() => { useGameStore.setState({ gameState: { ...gameState(), phase: 'reinforce' } as never }); });
+    globe.info = { render: { frame: 0 } };
+    mount();
+    act(() => { vi.advanceTimersByTime(2000); });
+    expect(globe.running).toBe(false);
+    // A territory picked from a panel, or a tap whose click lands late.
+    act(() => { useUiStore.getState().setSelectedTerritory(spaceAge.territories[0].territory_id); });
+    expect(globe.running).toBe(true);
+    // One slow frame outlasts the wake; the restyle is owed the frames after it.
+    act(() => { vi.advanceTimersByTime(150); globe.info!.render.frame += 1; });
+    expect(globe.running).toBe(true);
+    act(() => { vi.advanceTimersByTime(50); globe.info!.render.frame += 2; });
+    act(() => { vi.advanceTimersByTime(60); });
+    expect(globe.running).toBe(false);
+    act(() => { useUiStore.getState().setAttackSource(spaceAge.territories[0].territory_id); });
+    expect(globe.running).toBe(true);
+  });
+
+  it('keeps a desktop globe drawing for four seconds after a touch', () => {
+    mount({ frameBudget: false, reducedEffects: false });
+    act(() => { vi.advanceTimersByTime(5000); });
+    expect(globe.running).toBe(false);
+    fireEvent.pointerDown(screen.getByTestId('globe-stub'), { clientX: 100, clientY: 100 });
+    act(() => { vi.advanceTimersByTime(3900); });
+    expect(globe.running).toBe(true);
+    act(() => { vi.advanceTimersByTime(200); });
+    expect(globe.running).toBe(false);
+  });
+
+  it('keeps a phone globe drawing while the camera moves, and idles once it stops', () => {
+    mount();
+    act(() => { vi.advanceTimersByTime(1000); });
+    fireEvent.pointerDown(screen.getByTestId('globe-stub'), { clientX: 100, clientY: 100 });
+    // A drag and its coast: the controls report a change every frame for two seconds.
+    for (let i = 0; i < 60; i++) {
+      act(() => { globe.listeners.change?.(); vi.advanceTimersByTime(33); });
+    }
+    expect(globe.running).toBe(true);
+    act(() => { vi.advanceTimersByTime(300); });
+    expect(globe.running).toBe(false);
+  });
+
+  it('keeps a coast running through slow frames until the camera stops', () => {
+    globe.info = { render: { frame: 0 } };
+    mount();
+    act(() => { vi.advanceTimersByTime(2000); });
+    expect(globe.running).toBe(false);
+    // A fling coasting on a busy phone: every frame takes 300 ms, longer than
+    // a camera wake, and the camera still moves in each one.
+    for (let i = 0; i < 5; i++) {
+      act(() => { globe.listeners.change?.(); vi.advanceTimersByTime(300); globe.info!.render.frame += 1; });
+      expect(globe.running).toBe(true);
+    }
+    // The camera has stopped: the frames owed to its last move, then idle.
+    act(() => { vi.advanceTimersByTime(300); globe.info!.render.frame += 1; });
+    act(() => { vi.advanceTimersByTime(300); globe.info!.render.frame += 1; });
+    expect(globe.running).toBe(true);
+    act(() => { vi.advanceTimersByTime(300); globe.info!.render.frame += 1; });
+    act(() => { vi.advanceTimersByTime(60); });
+    expect(globe.running).toBe(false);
+  });
+
+  it('gives a new pulse on a phone a moment of motion before it holds still', () => {
+    const props = { mapData: spaceAge, onTerritoryClick: () => {}, width: 390, height: 600, selfPlayerId: 'me', autoSpin: false, frameBudget: true, reducedEffects: true };
+    const { rerender } = render(<GlobeMapCore {...props} />);
+    act(() => { vi.advanceTimersByTime(1000); });
+    expect(globe.running).toBe(false);
+    // What the viewer lost while away (M-12): a ring that pulses while the loop runs.
+    rerender(<GlobeMapCore {...props} lossPulseTerritoryIds={[spaceAge.territories[0].territory_id]} />);
+    expect(globe.running).toBe(true);
+    act(() => { vi.advanceTimersByTime(1400); });
+    expect(globe.running).toBe(true);
+    act(() => { vi.advanceTimersByTime(200); });
+    expect(globe.running).toBe(false);
   });
 
   it('rescales the controls damping for 30 frames a second, and leaves the desktop at 0.1', () => {

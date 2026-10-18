@@ -108,6 +108,8 @@ function stubNode(extra: Record<string, unknown> = {}) {
   return { connect: vi.fn(), disconnect: vi.fn(), ...extra };
 }
 class StubAudioContext {
+  static last: StubAudioContext | null = null;
+  constructor() { StubAudioContext.last = this; }
   // Follows the fake timers (vitest fakes Date), so the look-ahead scheduler
   // keeps finding new steps to queue as the test advances time.
   private t0 = Date.now();
@@ -211,6 +213,36 @@ describe('BackgroundMusicEngine', () => {
     expect(engine.isRunning).toBe(true);
     vi.advanceTimersByTime(2700);
     expect(engine.isRunning).toBe(false);
+  });
+
+  // A running context renders silence for as long as it runs, which keeps the
+  // device's audio path awake: muted music used to hold it for the whole game.
+  it('gives the audio device back once it has faded out, and takes it again to play', async () => {
+    const engine = new BackgroundMusicEngine();
+    engine.start('medieval');
+    const ctx = StubAudioContext.last!;
+    engine.stop(0.5);
+    // The fade, then the teardown 300 ms after it.
+    vi.advanceTimersByTime(700);
+    expect(ctx.suspend).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(200);
+    expect(ctx.suspend).toHaveBeenCalledTimes(1);
+    await Promise.resolve();
+    expect(ctx.state).toBe('suspended');
+    expect(engine.start('medieval')).toBe(true);
+    expect(ctx.resume).toHaveBeenCalled();
+    engine.stop();
+  });
+
+  it('keeps the audio device when it starts again before the fade ends', () => {
+    const engine = new BackgroundMusicEngine();
+    engine.start('medieval');
+    const ctx = StubAudioContext.last!;
+    engine.stop(0.5);
+    engine.start('medieval');
+    vi.advanceTimersByTime(1000);
+    expect(ctx.suspend).not.toHaveBeenCalled();
+    engine.stop();
   });
 
   it('suspends the clock while the tab is hidden and resumes on return', () => {

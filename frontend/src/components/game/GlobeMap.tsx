@@ -6,6 +6,8 @@
 
 import React, { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 import Globe, { type GlobeMethods } from 'react-globe.gl';
+// The globe libraries leave unheard frame tickers looping from import; see the module.
+import '../../utils/idleFrameTickers';
 import { FastForward } from 'lucide-react';
 import MapUnavailable from './MapUnavailable';
 import { webglAvailable } from '../../utils/webglSupport';
@@ -828,6 +830,43 @@ const BUDGET_BOARD_CHANGE_RENDER_MS = 100;
 const BUDGET_BOARD_CHANGE_FRAMES = 3;
 /** Extra time after a camera tween's own duration, so its last frame lands. */
 const CAMERA_TWEEN_SETTLE_MS = 150;
+/**
+ * Under the frame budget, how long a finger on the globe keeps it rendering,
+ * in place of RENDER_IDLE_MS. A tap needs only the frames that draw what it
+ * changed (a selection's outline, its arcs), and a drag keeps the loop running
+ * for as long as the camera moves (BUDGET_CAMERA_MOVE_RENDER_MS). Four seconds
+ * a touch kept a phone drawing at the full budget for its whole turn, since a
+ * player touches more often than that.
+ */
+const BUDGET_TOUCH_RENDER_MS = 600;
+/**
+ * Under the budget, how long each camera update keeps the loop running: a
+ * drag, a fling coasting to a stop, a pinch. The loop stops this long after
+ * the view last moved.
+ */
+const BUDGET_CAMERA_MOVE_RENDER_MS = 250;
+/**
+ * And the frames each camera wake is owed, however long they take: one slow
+ * frame (a long task, a GC pause) must not outlast the wake and freeze a
+ * coast short of where the camera ends up. A camera still moving in those
+ * frames wakes the loop again.
+ */
+const BUDGET_CAMERA_MOVE_FRAMES = 3;
+/** The fewest milliseconds between two camera-move wakes; the wake itself sets a timer. */
+const BUDGET_CAMERA_WAKE_THROTTLE_MS = 100;
+/**
+ * Under the budget, how long a new animation keeps the loop running beyond
+ * its own play (which keeps it running anyway). Off the budget it is
+ * RENDER_IDLE_MS.
+ */
+const BUDGET_EVENT_RENDER_MS = 600;
+/**
+ * Under the budget, how long a change to the pulsing rings or moving dashes
+ * keeps the loop running (a phase's valid sources, a selection's attack arcs,
+ * a coach pulse), so each is seen moving before it holds still. The loop
+ * draws them only while it runs, on the budget or off it.
+ */
+const BUDGET_DECOR_RENDER_MS = 1500;
 /** Under the phone budget, how often a running loop re-checks whether it can idle. */
 const BUDGET_ACTIVITY_POLL_MS = 500;
 /** globe.gl's own OrbitControls damping, tuned for one update per 60 Hz frame. */
@@ -1234,11 +1273,11 @@ function GlobeMap({
   }, []);
 
   /**
-   * Keeps the render loop awake for `ms`. Filled in once applyRenderActivity
-   * exists below; camera moves call it so a tween never freezes half-way
-   * because the loop idled under it.
+   * Keeps the render loop awake for `ms`, and until `frames` more are drawn.
+   * Filled in once applyRenderActivity exists below; camera moves call it so a
+   * tween never freezes half-way because the loop idled under it.
    */
-  const keepRenderingRef = useRef<(ms: number) => void>(() => {});
+  const keepRenderingRef = useRef<(ms: number, frames?: number) => void>(() => {});
 
   const panCamera = useCallback((lat: number, lng: number, altitude: number, ms = 800) => {
     noteAutomatedCameraMove();
@@ -1337,11 +1376,24 @@ function GlobeMap({
       cameraAutomatedMoveRef.current = false;
       scheduleAutoRotateResume();
     };
+    // Under the frame budget a touch wakes the loop only briefly, so the
+    // camera keeps it running for as long as it moves: a drag, a fling's
+    // coast, a pinch. Off the budget a touch's four seconds already cover it.
+    let lastCameraWakeAt = -Infinity;
+    const onChange = () => {
+      if (!frameBudgetRef.current) return;
+      const t = Date.now();
+      if (t - lastCameraWakeAt < BUDGET_CAMERA_WAKE_THROTTLE_MS) return;
+      lastCameraWakeAt = t;
+      keepRenderingRef.current(BUDGET_CAMERA_MOVE_RENDER_MS, BUDGET_CAMERA_MOVE_FRAMES);
+    };
     ctrl.addEventListener('start', onStart);
     ctrl.addEventListener('end', onEnd);
+    ctrl.addEventListener('change', onChange);
     return () => {
       ctrl.removeEventListener('start', onStart);
       ctrl.removeEventListener('end', onEnd);
+      ctrl.removeEventListener('change', onChange);
     };
   }, [globeReadyTick, pauseAutoRotate, scheduleAutoRotateResume]);
 
@@ -1604,7 +1656,7 @@ function GlobeMap({
     if (interacted) wake.wake(awakeMs, frames);
     else wake.check();
   }, []);
-  keepRenderingRef.current = (ms: number) => applyRenderActivity(true, ms);
+  keepRenderingRef.current = (ms: number, frames?: number) => applyRenderActivity(true, ms, frames);
 
   /**
    * Drive wheel zoom ourselves. OrbitControls scales its own `zoomSpeed` by the
@@ -1634,7 +1686,8 @@ function GlobeMap({
       // The render loop idles after a few seconds of inactivity, and stopping
       // the wheel from reaching OrbitControls also stops the 'change' event that
       // would normally wake it — so the camera tween ran with nothing painting.
-      applyRenderActivity(true);
+      if (frameBudgetRef.current) applyRenderActivity(true, BUDGET_TOUCH_RENDER_MS);
+      else applyRenderActivity(true);
     };
     el.addEventListener('wheel', onWheel, { capture: true, passive: false });
     return () => el.removeEventListener('wheel', onWheel, { capture: true } as EventListenerOptions);
@@ -1681,6 +1734,18 @@ function GlobeMap({
       BUDGET_BOARD_CHANGE_FRAMES,
     );
   }, [polygonsData, applyRenderActivity]);
+
+  // A selection or an attack source restyles borders, target arcs and route
+  // markers through the layers' accessors: paint it. Under the budget a tap's
+  // own wake is short, and a selection made from the panels never touches the
+  // globe at all. Owed frames see it through the slow frame a restyle can cost.
+  useEffect(() => {
+    applyRenderActivity(
+      true,
+      frameBudgetRef.current ? BUDGET_BOARD_CHANGE_RENDER_MS : BOARD_CHANGE_RENDER_MS,
+      BUDGET_BOARD_CHANGE_FRAMES,
+    );
+  }, [selectedTerritory, attackSource, applyRenderActivity]);
 
   // OrbitControls damps per update. Under the frame cap it updates half as
   // often, so the factor is rescaled to keep a fling coasting as it does at 60.
@@ -2856,6 +2921,10 @@ function GlobeMap({
       currentEventIdRef.current = null;
       scheduleAutoRotateResume();
       flushAnimationUi();
+      // The last animation's cleanup (its arcs, rings and overlays cleared) is
+      // a prop change like any other: draw it. Off the budget the event's own
+      // four seconds still cover it.
+      if (frameBudgetRef.current) applyRenderActivity(true, BUDGET_BOARD_CHANGE_RENDER_MS, BUDGET_BOARD_CHANGE_FRAMES);
       return;
     }
     isAnimatingRef.current = true;
@@ -2899,7 +2968,8 @@ function GlobeMap({
     for (const id of ids) onEventDone?.(id);
     scheduleAutoRotateResume();
     flushAnimationUi();
-  }, [onEventDone, scheduleAutoRotateResume, flushAnimationUi]);
+    if (frameBudgetRef.current) applyRenderActivity(true, BUDGET_BOARD_CHANGE_RENDER_MS, BUDGET_BOARD_CHANGE_FRAMES);
+  }, [onEventDone, scheduleAutoRotateResume, flushAnimationUi, applyRenderActivity]);
 
   // Expose the globe flush to the parent (resetViewRef pattern) so a unified
   // "skip everything" handler can drain the globe queue alongside the modal /
@@ -2952,7 +3022,10 @@ function GlobeMap({
     if (hasNew) {
       // Wake the render loop so the queued animation actually paints if the globe
       // had idled; this is the authoritative "a new event truly arrived" signal.
-      applyRenderActivity(true);
+      // Under the budget the animation keeps the loop busy while it plays, so the
+      // wake itself is short.
+      if (frameBudgetRef.current) applyRenderActivity(true, BUDGET_EVENT_RENDER_MS, BUDGET_BOARD_CHANGE_FRAMES);
+      else applyRenderActivity(true);
       if (!isAnimatingRef.current) playNextRef.current();
     }
   }, [events, onEventDone, flushAnimationUi, applyRenderActivity, ownWorldEffectsOnly, playsOnThisWorld]);
@@ -3835,6 +3908,24 @@ function GlobeMap({
     return out;
   }, [rings, tutorialRing, wastelandRings, coachOwnedRings, validSourceRings, lossRings]);
 
+  // Under the frame budget the loop idles soon after a touch, and the pulsing
+  // rings and moving dashes only move while it runs. A new set of them (the
+  // attack phase's valid sources, a selection's arcs, a coach or loss pulse)
+  // gets a moment of motion so it is seen moving before it holds still. An
+  // animation's own rings and arcs are left out: a playing animation keeps the
+  // loop running anyway.
+  const decorKey = useMemo(() => {
+    const animationArcs = new Set(arcs.map((a) => a.id));
+    const moving = combinedArcs.filter((a) => a.animateTime > 0 && !animationArcs.has(a.id)).map((a) => a.id);
+    const pulsing = [...wastelandRings, ...coachOwnedRings, ...validSourceRings, ...lossRings];
+    if (tutorialRing) pulsing.push(tutorialRing);
+    return `${pulsing.map((r) => r.id).join(',')}|${moving.join(',')}`;
+  }, [arcs, combinedArcs, wastelandRings, coachOwnedRings, validSourceRings, lossRings, tutorialRing]);
+  useEffect(() => {
+    if (!frameBudgetRef.current || decorKey === '|') return;
+    applyRenderActivity(true, BUDGET_DECOR_RENDER_MS);
+  }, [decorKey, applyRenderActivity]);
+
   const ringAccessors = useMemo(() => ({
     lat: (d: object) => (d as RingDatum).lat,
     lng: (d: object) => (d as RingDatum).lng,
@@ -3855,7 +3946,10 @@ function GlobeMap({
     pointerDownPosRef.current = { x: e.clientX, y: e.clientY };
     isDragRef.current = false;
     // Wake the render loop if it had idled, and re-arm the idle countdown.
-    applyRenderActivity(true);
+    // Under the budget only for a moment: a drag keeps it running through the
+    // camera's own change events, and the finger lifting wakes it again.
+    if (frameBudgetRef.current) applyRenderActivity(true, BUDGET_TOUCH_RENDER_MS, BUDGET_BOARD_CHANGE_FRAMES);
+    else applyRenderActivity(true);
     // New gesture: any pending fallback from the previous tap is stale.
     if (fallbackTimerRef.current !== null) {
       window.clearTimeout(fallbackTimerRef.current);
@@ -3898,6 +3992,9 @@ function GlobeMap({
   onTerritoryClickRef.current = onTerritoryClick;
 
   const handlePointerEnd = useCallback((e: React.PointerEvent) => {
+    // Under the budget, the frames a tap's result needs: the selection it makes
+    // lands after the finger lifts, by a click or the fallback hit-test below.
+    if (frameBudgetRef.current) applyRenderActivity(true, BUDGET_TOUCH_RENDER_MS, BUDGET_BOARD_CHANGE_FRAMES);
     const wasTap = pointerDownPosRef.current !== null && !isDragRef.current;
     // Stop tracking once the gesture ends; without this, later pointer moves
     // (hover, momentum) kept measuring against a stale down-position.
@@ -3934,7 +4031,7 @@ function GlobeMap({
         onTerritoryClickRef.current(hit.territory_id);
       }
     }, 200);
-  }, []);
+  }, [applyRenderActivity]);
 
   // ── Render ─────────────────────────────────────────────────────────────
 

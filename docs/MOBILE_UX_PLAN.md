@@ -1176,6 +1176,57 @@ The 2D map was never affected: it caches its geometry per map, and a forced reco
 | `frontend/src/utils/globeTerritoryGeometry.ts`, `globeTerritoryGeometry.shared.test.ts` | `buildTerritoryGlobeGeometriesShared`: one build per distinct board and set of geo sources |
 | `frontend/src/components/game/GlobeMap.tsx` | Builds its territory shapes through the shared build |
 
+### Follow-up: heat during the player's own turn
+
+**What it was.** A phone still ran warm through the player's own turns, with the board idle between moves. Measuring that turned up three causes:
+
+- **Frame tickers nobody listens to.** three-globe's arcs and paths layers start a `frame-ticker` in their constructor. three-globe and globe.gl also build a throwaway instance of their components when their modules load, only to read the props those components expose (`linkKapsule`, `fromKapsule`). The throwaway instances are never mounted, so their tickers never get a listener and never hear the globe's `pauseAnimation`. From the moment the globe code loaded, several tickers asked for an animation frame every frame for as long as the tab stayed open. Under the budget that kept a 30-a-second frame and timer loop running on an idle board; on a desktop it ran at the display's rate. three-globe 2.45.6 still does this.
+- **A touch woke the globe for four seconds.** Under the budget, a finger on the globe kept it drawing for `RENDER_IDLE_MS`. A player touches more often than that, so the globe drew at the full budget for most of their turn.
+- **Audio contexts left running.** A running Web Audio context keeps the audio hardware awake even when it plays nothing. The music engine's context kept running after the music stopped or was muted, and the sound effects' context ran from the first sound on.
+
+**The fix.**
+- **Unheard tickers pause.** `utils/idleFrameTickers.ts` patches the shared `FrameTicker` prototype: a ticker that reaches a frame with no listener pauses there instead of asking for the next. A mounted layer attaches its listener in the same task it is built and runs as before, and the globe's `pauseAnimation` and `resumeAnimation` still drive it. The frontend depends on `frame-ticker` directly, at the version three-globe uses, so the patch reaches the one copy installed.
+- **Short wakes under the budget.**
+  - A touch on the globe wakes it for 600 ms and three frames: enough to draw the selection a tap makes.
+  - The camera keeps the globe running for as long as it moves (a drag, a fling's coast, a pinch). Each change wakes it for 250 ms and three owed frames, so one slow frame cannot stop a coast short of where the camera ends up.
+  - A selection or attack source wakes it for 100 ms and three frames, however it is made, including from the panels.
+  - A new pulsing ring or moving dash draws for 1.5 s, then holds still until the next wake.
+  - A new animation wakes it for 600 ms beyond its own play.
+  - The end of the animation queue gets the board-change wake.
+  - The desktop keeps four seconds for a touch.
+- **Idle audio suspends.** The music engine suspends its context once a stop has faded out. The sound effects suspend theirs after 5 s without a sound. Both resume on their next use.
+
+**Measured in development.** Production builds of `main` and of this change, served against a throwaway backend, on an emulated iPhone 13 in headless Chromium, in a quick match on the Britain map:
+
+| Measure (phone) | `main` | This change |
+|---|---|---|
+| Idle board: native animation frames a second | 59.9 | 0 |
+| Idle board: frame-ticker frame requests a second | 120 | 0 |
+| Idle board: main thread busy | 2.5% | 0.7% |
+| Idle board: renderer process CPU | 0.08 cores | 0.04 cores |
+| Own turn, a tap on the globe every 2 s: share of time the globe is drawing | 98.6% | 24.3% |
+| The same: globe frames drawn | 227 in 38 s | 50 in 33 s |
+
+On this change, the music's context reads `suspended` after mute and `running` again after unmute. After a tap on a territory, a tap off the board, a drag and a fling, the frame left on screen once the globe idled matched a fresh render of the scene: at most 14 of 2.6 million pixels differed.
+
+Headless Chromium draws WebGL in software. Here every frame during camera motion held the main thread for about 300 ms, even though the three.js render itself took 1–3 ms. That is what showed a coast stopping short when the camera's wake was time only, and it is why camera wakes owe frames.
+
+**Not in this change.** During a drag, about 70% of the globe's per-frame JavaScript was three-render-objects' hover hit-test. It tests the finger's position against every territory triangle every 50 ms. Under a finger, hover only shows the territory's name after a tap (`polygonLabel`), so the hit-test is a candidate for a later change.
+
+**Checking it on a device.**
+- **Idle board.** In Safari Web Inspector (iOS) → Timelines, or Chrome remote debugging (Android) → Performance, an idle board between moves should show no animation frames at all.
+- **A tap.** A tap should draw a burst of under a second, with its selection outline drawn.
+- **A drag or fling.** Frames should continue until the globe comes to rest, never stopping part-way.
+
+| File | Change |
+|------|--------|
+| `frontend/src/utils/idleFrameTickers.ts`, `idleFrameTickers.test.ts` | A frame ticker with no listener pauses on its next frame |
+| `frontend/package.json`, `pnpm-lock.yaml` | `frame-ticker` as a direct dependency, the copy three-globe uses |
+| `frontend/src/components/game/GlobeMap.tsx`, `GlobeMap.frameBudget.test.tsx` | Under the budget: short touch wakes, camera wakes that owe frames, a selection wake, a decoration wake; loads the ticker patch |
+| `frontend/src/components/editor/GlobeMapEditor.tsx` | Loads the ticker patch with its globe |
+| `frontend/src/audio/backgroundMusic.ts`, `backgroundMusic.test.ts` | Suspends the music's context once a stop has faded out |
+| `frontend/src/utils/gameSounds.ts`, `gameSounds.test.ts` | Suspends the sound effects' context after 5 s without a sound |
+
 ---
 
 ## Implementation Order

@@ -6,6 +6,8 @@
 
 import React, { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 import Globe, { type GlobeMethods } from 'react-globe.gl';
+// The globe libraries leave unheard frame tickers looping from import; see the module.
+import '../../utils/idleFrameTickers';
 import { homelandGeometry } from '../../utils/countryHomeland';
 
 // Pinned to a commit, not `@master`: through jsDelivr a branch name serves
