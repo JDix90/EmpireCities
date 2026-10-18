@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   getInitialMapView,
   setMapViewPreference,
@@ -17,6 +17,8 @@ import {
   setMusicVolume,
   setMusicMuted,
   getMusicMasterGain,
+  isSfxMuted,
+  isMusicMuted,
   getCameraFollowPreference,
   setCameraFollowPreference,
   readTutorialProgress,
@@ -26,9 +28,23 @@ import {
   markSpaceAgeGuideSeen,
 } from './userPreferences';
 
+/** The device's primary pointer, as `(pointer: coarse)` reports it: a phone or tablet when coarse. */
+function setPointer(kind: 'coarse' | 'fine') {
+  window.matchMedia = ((query: string) => ({
+    matches: kind === 'coarse' && query.includes('pointer: coarse'),
+    media: query, onchange: null,
+    addListener: () => {}, removeListener: () => {}, addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia;
+}
+const jsdomMatchMedia = window.matchMedia;
+
 describe('userPreferences', () => {
   beforeEach(() => {
     localStorage.clear();
+    setPointer('fine');
+  });
+  afterEach(() => {
+    window.matchMedia = jsdomMatchMedia;
   });
 
   it('persists fast combat preference', () => {
@@ -167,6 +183,31 @@ describe('userPreferences', () => {
       localStorage.setItem('cc-galaxy-overview', 'grid');
       expect(getGalaxyOverviewPreference()).toBe('chart');
     });
+  });
+
+  it('starts sound effects and music off on a phone or tablet, and on elsewhere', () => {
+    setPointer('coarse');
+    expect(isSfxMuted()).toBe(true);
+    expect(isMusicMuted()).toBe(true);
+    expect(getSfxMasterGain()).toBe(0);
+    expect(getMusicMasterGain()).toBe(0);
+    setPointer('fine');
+    expect(isSfxMuted()).toBe(false);
+    expect(isMusicMuted()).toBe(false);
+  });
+
+  it('keeps the choice a player saved over the device default', () => {
+    setPointer('coarse');
+    // The in-game "Sound and music" switch turned on.
+    setSfxMuted(false);
+    setMusicMuted(false);
+    expect(isSfxMuted()).toBe(false);
+    expect(isMusicMuted()).toBe(false);
+    expect(getMusicMasterGain()).toBeGreaterThan(0);
+    setPointer('fine');
+    setMusicMuted(true);
+    expect(isMusicMuted()).toBe(true);
+    expect(isSfxMuted()).toBe(false);
   });
 
   it('keeps music volume and mute separate from sound effects', () => {
