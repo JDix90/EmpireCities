@@ -25,6 +25,7 @@ const globe = vi.hoisted(() => {
     pov: { lat: 0, lng: 0, altitude: 1.8 },
     // three.js's frame counter, when a test wants the renderer to count frames.
     info: null as null | { render: { frame: number } },
+    scene: null as null | { children: unknown[] },
   };
 });
 
@@ -39,6 +40,7 @@ vi.mock('react-globe.gl', async () => {
       pointOfView: (pov?: Partial<typeof globe.pov>) => { if (pov) Object.assign(globe.pov, pov); return { ...globe.pov }; },
       renderer: () => ({ setPixelRatio: () => {}, setSize: () => {}, domElement: document.createElement('canvas'), ...(globe.info ? { info: globe.info } : {}) }),
       toGlobeCoords: () => null,
+      scene: () => globe.scene,
     }));
     React.useEffect(() => { (props.onGlobeReady as (() => void) | undefined)?.(); }, []);
     return React.createElement('div', { 'data-testid': 'globe-stub' });
@@ -100,6 +102,7 @@ describe('GlobeMap under the phone frame budget', () => {
     globe.controls.dampingFactor = 0.1;
     globe.props = null;
     globe.info = null;
+    globe.scene = null;
     for (const k of Object.keys(globe.listeners)) delete globe.listeners[k];
     window.matchMedia = vi.fn().mockReturnValue({
       matches: false, media: '', onchange: null,
@@ -299,6 +302,14 @@ describe('GlobeMap under the phone frame budget', () => {
     expect(globe.running).toBe(true);
     act(() => { vi.advanceTimersByTime(200); });
     expect(globe.running).toBe(false);
+  });
+
+  it('takes over the globe\'s hover hit-test once the globe is ready', () => {
+    const plain = () => {};
+    const root = { toGeoCoords: () => ({}), getCoords: () => ({}), children: [], raycast: plain };
+    globe.scene = { children: [root] };
+    mount();
+    expect(root.raycast).not.toBe(plain);
   });
 
   it('rescales the controls damping for 30 frames a second, and leaves the desktop at 0.1', () => {
