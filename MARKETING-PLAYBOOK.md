@@ -13,21 +13,25 @@ Conversion is fine; the job is **more qualified top-of-funnel** + **measuring wh
 
 Two parts, both shipped in this change set:
 
-1. **Enable analytics** (currently default OFF). No redeploy needed if you use the admin override:
-   - Env: set `ANALYTICS_EVENTS_ENABLED=true` on the backend host, **or**
-   - Admin config: set the `analytics_events_enabled` feature-flag override to `true`
-     (`backend/src/config/featureFlags.ts`, live via admin pub/sub).
+1. **Analytics is on by default** (`analytics_events_enabled`, see
+   [docs/CONFIGURATION.md](docs/CONFIGURATION.md)). Leave it on: cohorts only accrue while it
+   is live, and `ANALYTICS_EVENTS_ENABLED=false` or an admin override turns it off.
 2. **Attribution is now captured automatically.** The client snapshots first-touch
    `utm_*` + external referrer on landing (`frontend/src/utils/attribution.ts`) and the
    backend folds it into the `guest_created` / `user_registered` / `guest_upgraded`
    analytics events (`backend/src/modules/auth/attribution.ts`). Nothing else to wire — just
-   use the tagged links below.
+   use the tagged links below. The links players hand each other carry no tags, so the
+   client names them itself: a shared replay (`?source=share`) is `share`, a Challenge a
+   Friend invite (`/join/…`) is `invite` and a referral link (`?ref=…`) is
+   `player_referral`, all in the **Shared by players** channel.
 
 **Read results:**
+- Admin → Analytics → **Where signups came from**: signups by channel, with the share of
+  each that became an account and finished a game.
 - CLI: `cd backend && pnpm exec tsx scripts/funnelReport.ts 30` → includes an
-  **ACQUISITION BY CHANNEL** table (AI assistants / search / social / referral /
-  direct) above the per-source one, plus the self-reported **REFERRAL SURVEY**
-  answers.
+  **ACQUISITION BY CHANNEL** table (AI assistants / search / social / shared by
+  players / referral / direct) above the per-source one, plus the self-reported
+  **REFERRAL SURVEY** answers.
 
   > **Read the AI-assistant row as a floor, not a measurement.** ChatGPT stamps
   > `utm_source=chatgpt.com` on links it serves, so it is counted. Assistant
@@ -125,8 +129,9 @@ Priority order:
 5. **Native vertical social** — post the 9:16 cuts organically to TikTok / Reels / Shorts
    ("painting the map" content performs).
 6. **Activate the built-in loops** — surface the **referral bonus** (50/25 gold) and the
-   **post-game share card** in-product; make sure the share card link carries
-   `?utm_source=share&utm_medium=viral&utm_campaign=launch_2026_06`. Each signup then seeds more.
+   **post-game share card** in-product. Share-card, invite and referral links are counted
+   under **Shared by players** without any tags; add `utm_campaign` to a link only to tell
+   one campaign's shares apart. Each signup then seeds more.
    (`referralService.ts`, `frontend/src/utils/shareCard.ts`, `ChallengeFriendModal.tsx`.)
 
 ---
