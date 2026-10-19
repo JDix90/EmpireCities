@@ -19,6 +19,7 @@ export interface ClientFeatureFlags {
   results_footer_enabled: boolean;
   ranked_leaderboard_enabled: boolean;
   referral_survey_enabled: boolean;
+  player_links_play_enabled: boolean;
   daily_guest_play_enabled: boolean;
   guest_personal_features_enabled: boolean;
   streak_freezes_enabled: boolean;
@@ -94,6 +95,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   ranked_leaderboard_enabled: false,
   // Dark-launched OFF: it adds a prompt at the end of a first session.
   referral_survey_enabled: false,
+  // Dark-launched OFF: invite, referral and shared-replay links lead into play.
+  player_links_play_enabled: false,
   // Guests may play the Daily (registered players are the only ones ranked).
   daily_guest_play_enabled: true,
   // Guests see and use their own achievements, cosmetics, gold and settings. On by default; admin kill switch.
@@ -240,6 +243,11 @@ export function useHeroSingleCtaEnabled(): boolean {
 
 export function useReferralSurveyEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.referral_survey_enabled);
+}
+
+/** Invite, referral and shared-replay links lead into play (pages/JoinGamePage.tsx, utils/pendingReferral.ts, pages/ReplayPage.tsx). */
+export function usePlayerLinksPlayEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.player_links_play_enabled);
 }
 
 export function useSignupNudgeEnabled(): boolean {

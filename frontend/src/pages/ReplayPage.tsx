@@ -34,6 +34,7 @@ import { buildCondensedTimeline, condenseReasonLabel } from '../utils/replayCond
 import ReplayClipExporter from '../components/game/ReplayClipExporter';
 import ReplayInsightsPanel, { type ReplayInsight } from '../components/game/ReplayInsightsPanel';
 import ReplayTipToast from '../components/game/ReplayTipToast';
+import ReplayPlayBanner from '../components/game/ReplayPlayBanner';
 import Modal from '../components/ui/Modal';
 import {
   buildTimeLapseIndices,
@@ -924,6 +925,8 @@ export default function ReplayPage() {
           </>
         )}
       </div>
+
+      <ReplayPlayBanner />
 
       {/* Map area — flex-1 between the top bar and the controls. The canvas
           dimensions come from a ResizeObserver on this container so the
