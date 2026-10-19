@@ -97,6 +97,13 @@ day". New means the account was made that day.
 - Guests stay excluded from push/email by decision — the account *is* the notification
   channel, which is why the nudge and the panel push guests toward upgrade.
 - Emails are opt-in only; expect the win-back audience to grow slowly from new signups.
+- **A reminder takes a player's one slot for the day only if it can reach them**: a
+  registered push device on a server with push configured (`FCM_SERVICE_ACCOUNT_PATH`),
+  or, for the streak reminder, an email opt-in. Players neither can reach are left out of
+  the candidate queries too, so they never fill a sweep's cap. Until this was fixed, the
+  push-only daily-challenge reminder at 17:00 UTC claimed the slot for every player with
+  no device, and the streak reminder due later that day skipped them, opted-in email
+  included. `delivery_status = 'failed'` now means a send was tried and refused.
 
 ## Wave 2 (shipped in this change set)
 
