@@ -26,9 +26,23 @@ function clamp(value: string): string {
 }
 
 /**
+ * The links players hand each other carry no utm tags, so the source is named
+ * here (backend services/acquisitionChannel.ts PLAYER_SOURCES): a shared replay
+ * (`?source=share`), a Challenge a Friend invite (`/join/<code>`) and a
+ * referral link (`?ref=<code>`). Null for any other visit.
+ */
+function playerLinkSource(params: URLSearchParams, pathname: string): string | null {
+  if (params.get('source') === 'share') return 'share';
+  if (pathname.startsWith('/join/')) return 'invite';
+  if (params.get('ref')) return 'player_referral';
+  return null;
+}
+
+/**
  * Run once at app boot (see main.tsx). Idempotent and best-effort: only the
- * first visit that carries a real signal (a utm_* param or an external referrer)
- * is persisted; storage failures (private mode) are swallowed.
+ * first visit that carries a real signal (a utm_* param, a link from another
+ * player or an external referrer) is persisted; storage failures (private mode)
+ * are swallowed.
  */
 export function captureAttribution(): void {
   if (typeof window === 'undefined') return;
@@ -40,6 +54,9 @@ export function captureAttribution(): void {
       const value = params.get(key);
       if (value) attribution[key] = clamp(value);
     }
+    // A link's own utm tags win; the referrer below is still kept beside it.
+    const fromPlayer = playerLinkSource(params, window.location.pathname);
+    if (fromPlayer && !attribution.utm_source) attribution.utm_source = fromPlayer;
 
     // Store only the referrer host (avoid full URLs / query strings / PII), and
     // only when it's an EXTERNAL site — internal navigations aren't a signal.

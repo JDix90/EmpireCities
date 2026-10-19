@@ -200,6 +200,78 @@ describe('AdminAnalyticsPanel', () => {
     expect(screen.getByText('guest_created')).toBeTruthy();
   });
 
+  it('shows active players with each day new and returning, and nothing for an older backend', () => {
+    const { unmount } = render(<AdminAnalyticsPanel data={report} />);
+    expect(screen.queryByText('Active players')).toBeNull();
+    unmount();
+    render(
+      <AdminAnalyticsPanel
+        data={{
+          ...report,
+          active_players: {
+            yesterday: 14,
+            last_7_days: 41,
+            last_30_days: 97,
+            daily: [
+              { day: '2026-10-17', active: 12, new_players: 5, returning_players: 7 },
+              { day: '2026-10-18', active: 14, new_players: 3, returning_players: 11 },
+            ],
+          },
+        }}
+      />,
+    );
+    const section = screen.getByText('Active players').closest('section')!;
+    expect(within(section).getByText('Yesterday')).toBeTruthy();
+    expect(within(section).getByText('41')).toBeTruthy();
+    expect(within(section).getByText('97')).toBeTruthy();
+    // The table view lists the days newest first.
+    const rows = within(section).getAllByRole('row').slice(1);
+    expect(rows.map((r) => within(r).getAllByRole('cell').map((c) => c.textContent))).toEqual([
+      ['2026-10-18', '14', '3', '11'],
+      ['2026-10-17', '12', '5', '7'],
+    ]);
+    expect(within(section).getByText(/Reminders and emails sent to them do not count/)).toBeTruthy();
+  });
+
+  it('shows where signups came from by channel, with the sources in each', () => {
+    render(
+      <AdminAnalyticsPanel
+        data={{
+          ...report,
+          acquisition_channels: [
+            { channel: 'players', label: 'Shared by players', signups: 6, accounts: 3, activated: 2, sources: ['share', 'invite'] },
+            { channel: 'direct', label: 'Direct / unattributed', signups: 14, accounts: 2, activated: 5, sources: ['direct'] },
+          ],
+        }}
+      />,
+    );
+    const section = screen.getByText('Where signups came from').closest('section')!;
+    const row = within(section).getByText('Shared by players').closest('tr')!;
+    expect(within(row).getByText('share, invite')).toBeTruthy();
+    expect(within(row).getByText('(30%)')).toBeTruthy();
+    expect(within(row).getByText('50%')).toBeTruthy();
+    expect(within(section).getByText(/AI assistants is a floor/)).toBeTruthy();
+  });
+
+  it('adds a D30 tile and column once the backend sends them', () => {
+    render(
+      <AdminAnalyticsPanel
+        data={{
+          ...report,
+          retention: { ...report.retention, d30_cohort: 40, d30: 2 },
+          retention_by_cohort: [
+            { cohort: 'account', d1_cohort: 3, d1: 2, d7_cohort: 1, d7: 1, d30_cohort: 1, d30: 1 },
+            { cohort: 'guest', d1_cohort: 22, d1: 0, d7_cohort: 16, d7: 0, d30_cohort: 9, d30: 0 },
+          ],
+        }}
+      />,
+    );
+    expect(screen.getByText('D30 retention')).toBeTruthy();
+    expect(screen.getByText('2/40 returned')).toBeTruthy();
+    expect(screen.getByText('(0/9)')).toBeTruthy();
+    expect(screen.getByText(/A return is something the player did/)).toBeTruthy();
+  });
+
   it('offers a signup-device filter only when the page can act on it', () => {
     const { unmount } = render(<AdminAnalyticsPanel data={report} />);
     expect(screen.queryByLabelText('Signup device')).toBeNull();

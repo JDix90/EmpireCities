@@ -32,6 +32,15 @@ describe('classifyAcquisitionSource', () => {
     }
   });
 
+  it('buckets the links players hand each other as players', () => {
+    for (const s of ['share', 'invite', 'player_referral', 'Share']) {
+      expect(classifyAcquisitionSource(s), s).toBe('players');
+    }
+    // Exact tokens: a site that merely starts with one is not a player's link.
+    expect(classifyAcquisitionSource('share.example.com')).toBe('referral');
+    expect(classifyAcquisitionSource('invites.io')).toBe('referral');
+  });
+
   it('treats missing attribution as direct', () => {
     for (const s of ['direct', '', '   ', 'none', '(direct)']) {
       expect(classifyAcquisitionSource(s), JSON.stringify(s)).toBe('direct');

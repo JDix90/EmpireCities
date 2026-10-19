@@ -4,6 +4,7 @@
  * Pure presentational — the page owns fetching + the window selector.
  */
 import React from 'react';
+import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 export interface FunnelMetrics {
   signups: number;
@@ -20,6 +21,9 @@ export interface RetentionMetrics {
   d1: number;
   d7_cohort: number;
   d7: number;
+  /** Optional for rollout: older backends won't send it. */
+  d30_cohort?: number;
+  d30?: number;
 }
 export interface RetentionCohortRow extends RetentionMetrics {
   cohort: 'account' | 'guest';
@@ -76,6 +80,30 @@ export interface VisitorFunnelMetrics {
   clicked_play: number;
   signed_up: number;
 }
+/** One day of the window: who was active, split by whether their account is that day's. */
+export interface ActiveDay {
+  day: string;
+  active: number;
+  new_players: number;
+  returning_players: number;
+}
+/** Mirrors ActivePlayers in backend/src/services/analyticsQueries.ts. */
+export interface ActivePlayers {
+  yesterday: number;
+  last_7_days: number;
+  last_30_days: number;
+  daily: ActiveDay[];
+}
+/** Signups in the window by first-touch channel (backend services/acquisitionChannel.ts). */
+export interface AcquisitionChannelRow {
+  channel: string;
+  label: string;
+  signups: number;
+  accounts: number;
+  activated: number;
+  /** The sources folded into the channel, biggest first. */
+  sources: string[];
+}
 /** The signup device the activation and tutorial funnels can be narrowed to. */
 export type FunnelDeviceFilter = 'all' | 'phone' | 'tablet' | 'desktop';
 const FUNNEL_DEVICE_OPTIONS: Array<{ value: FunnelDeviceFilter; label: string }> = [
@@ -124,6 +152,9 @@ export interface AnalyticsReport {
   volume: EventVolumeRow[];
   /** Optional for rollout: older backends won't send it. */
   guest_accounts?: GuestAccountMetrics;
+  /** Optional for rollout: older backends won't send it. */
+  active_players?: ActivePlayers;
+  acquisition_channels?: AcquisitionChannelRow[];
 }
 
 const SOLO_MODE_LABELS: Record<SoloLevelRow['mode'], string> = {
@@ -133,6 +164,18 @@ const SOLO_MODE_LABELS: Record<SoloLevelRow['mode'], string> = {
   daily: 'Daily challenge',
   other: 'Quick Match & custom',
 };
+
+/**
+ * The active-player chart's two series, stepped for the admin's dark surface
+ * and checked there for colour-blind separation and 3:1 contrast. Text keeps
+ * the text colours; the bars carry the identity.
+ */
+const RETURNING_COLOR = '#c98500';
+const NEW_COLOR = '#3987e5';
+const CHART_SURFACE = '#1a1f2e';
+const CHART_GRID = '#2d3448';
+const CHART_TEXT = '#e8e8e8';
+const CHART_MUTED = '#8892a4';
 
 function pctText(n: number, d: number): string {
   return d ? `${((n / d) * 100).toFixed(0)}%` : '—';
@@ -176,6 +219,38 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
   );
 }
 
+/** Players active each day of the window, returning below and new on top. */
+function ActivePlayersChart({ daily }: { daily: ActiveDay[] }) {
+  const data = daily.map((d) => ({ ...d, label: d.day.slice(5) }));
+  return (
+    <div className="h-52 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap="15%">
+          <CartesianGrid vertical={false} stroke={CHART_GRID} strokeDasharray="3 3" />
+          <XAxis
+            dataKey="label"
+            tick={{ fill: CHART_MUTED, fontSize: 11 }}
+            tickLine={false}
+            axisLine={{ stroke: CHART_GRID }}
+            minTickGap={12}
+          />
+          <YAxis allowDecimals={false} tick={{ fill: CHART_MUTED, fontSize: 11 }} tickLine={false} axisLine={false} width={32} />
+          <Tooltip
+            cursor={{ fill: 'rgba(255, 255, 255, 0.04)' }}
+            contentStyle={{ background: CHART_SURFACE, border: `1px solid ${CHART_GRID}`, borderRadius: 8 }}
+            labelStyle={{ color: CHART_TEXT }}
+            itemStyle={{ color: CHART_TEXT }}
+            labelFormatter={(_, p) => (p?.[0]?.payload as ActiveDay | undefined)?.day ?? ''}
+          />
+          <Legend formatter={(value) => <span style={{ color: CHART_MUTED, fontSize: 12 }}>{value}</span>} />
+          <Bar dataKey="returning_players" name="Returning" stackId="active" fill={RETURNING_COLOR} stroke={CHART_SURFACE} strokeWidth={2} />
+          <Bar dataKey="new_players" name="New" stackId="active" fill={NEW_COLOR} stroke={CHART_SURFACE} strokeWidth={2} radius={[4, 4, 0, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 export default function AdminAnalyticsPanel({
   data,
   device = 'all',
@@ -205,6 +280,59 @@ export default function AdminAnalyticsPanel({
 
   return (
     <div className="space-y-6">
+      {/* Who is around at all: where an uptick shows first, and whether the
+          players behind it are new or coming back. */}
+      {data.active_players && (
+        <section className="rounded-xl border border-bf-border bg-cc-panel/50 p-4">
+          <div className="flex items-baseline justify-between">
+            <p className="text-sm font-semibold text-bf-text">Active players</p>
+            <p className="text-xs text-bf-muted">guests included · by day, last {data.window_days}d</p>
+          </div>
+          <div className="mt-3 grid grid-cols-3 gap-3">
+            <Stat label="Yesterday" value={data.active_players.yesterday.toLocaleString()} />
+            <Stat label="Last 7 days" value={data.active_players.last_7_days.toLocaleString()} />
+            <Stat label="Last 30 days" value={data.active_players.last_30_days.toLocaleString()} />
+          </div>
+          {data.active_players.daily.length > 0 && (
+            <>
+              <div className="mt-4">
+                <ActivePlayersChart daily={data.active_players.daily} />
+              </div>
+              <details className="mt-2">
+                <summary className="cursor-pointer text-xs text-bf-muted">Each day as a table</summary>
+                <table className="mt-2 w-full text-sm">
+                  <thead>
+                    <tr className="text-xs uppercase tracking-wider text-bf-muted">
+                      <th className="pb-1 text-left font-normal">Day</th>
+                      <th className="pb-1 text-right font-normal">Active</th>
+                      <th className="pb-1 text-right font-normal">New</th>
+                      <th className="pb-1 text-right font-normal">Returning</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...data.active_players.daily].reverse().map((d) => (
+                      <tr key={d.day} className="border-t border-bf-border/50">
+                        <td className="py-1 tabular-nums text-bf-text">{d.day}</td>
+                        <td className="py-1 text-right tabular-nums text-bf-text">{d.active}</td>
+                        <td className="py-1 text-right tabular-nums text-bf-text">{d.new_players}</td>
+                        <td className="py-1 text-right tabular-nums text-bf-text">{d.returning_players}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </details>
+            </>
+          )}
+          <p className="mt-2 text-xs text-bf-muted">
+            Distinct players who did something that day: opened the game, played, or anything else the game
+            records. Reminders and emails sent to them do not count. New means the account was made that day.
+            Opening the game without playing counts from the release that added it; before that, only players
+            who played or did something else recorded show here. The last day is today so far. Admin and test
+            accounts are left out.
+          </p>
+        </section>
+      )}
+
       {data.visitors && data.visitors.landed > 0 && (
         <section className="rounded-xl border border-bf-border bg-cc-panel/50 p-4">
           <div className="flex items-baseline justify-between">
@@ -267,9 +395,59 @@ export default function AdminAnalyticsPanel({
         </p>
       </section>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {/* Where the signups in the window came from, by first touch. */}
+      {data.acquisition_channels && data.acquisition_channels.length > 0 && (
+        <section className="rounded-xl border border-bf-border bg-cc-panel/50 p-4">
+          <div className="flex items-baseline justify-between">
+            <p className="text-sm font-semibold text-bf-text">Where signups came from</p>
+            <p className="text-xs text-bf-muted">first touch · last {data.window_days}d</p>
+          </div>
+          <table className="mt-3 w-full text-sm">
+            <thead>
+              <tr className="text-xs uppercase tracking-wider text-bf-muted">
+                <th className="pb-1 text-left font-normal">Channel</th>
+                <th className="pb-1 text-right font-normal">Signups</th>
+                <th className="pb-1 text-right font-normal">Accounts</th>
+                <th className="pb-1 text-right font-normal">Finished a game</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+                const total = data.acquisition_channels.reduce((n, c) => n + c.signups, 0);
+                return data.acquisition_channels.map((c) => (
+                  <tr key={c.channel} className="border-t border-bf-border/50 align-top">
+                    <td className="py-1.5 text-bf-text">
+                      {c.label}
+                      <div className="text-xs text-bf-muted">
+                        {c.sources.slice(0, 5).join(', ')}
+                        {c.sources.length > 5 && ` and ${c.sources.length - 5} more`}
+                      </div>
+                    </td>
+                    <td className="py-1.5 text-right tabular-nums text-bf-text">
+                      {c.signups.toLocaleString()} <span className="text-bf-muted">({pctText(c.signups, total)})</span>
+                    </td>
+                    <td className="py-1.5 text-right tabular-nums text-bf-text">{pctText(c.accounts, c.signups)}</td>
+                    <td className="py-1.5 text-right tabular-nums text-bf-text">{pctText(c.activated, c.signups)}</td>
+                  </tr>
+                ));
+              })()}
+            </tbody>
+          </table>
+          <p className="mt-2 text-xs text-bf-muted">
+            A signup&apos;s source is the utm_source of the first visit that carried one, else the site that linked
+            to it, else Direct. Shared by players is a shared replay, a Challenge a Friend invite or a referral link.
+            Accounts and Finished a game are shares of each channel&apos;s signups. Assistants that send no referrer
+            land in Direct, so AI assistants is a floor; Google&apos;s AI answers count as Search.
+          </p>
+        </section>
+      )}
+
+      <div className={`grid grid-cols-2 gap-3 ${r.d30_cohort !== undefined ? 'sm:grid-cols-3 lg:grid-cols-5' : 'sm:grid-cols-4'}`}>
         <Stat label="D1 retention" value={pctText(r.d1, r.d1_cohort)} sub={`${r.d1}/${r.d1_cohort} returned`} />
         <Stat label="D7 retention" value={pctText(r.d7, r.d7_cohort)} sub={`${r.d7}/${r.d7_cohort} returned`} />
+        {r.d30_cohort !== undefined && (
+          <Stat label="D30 retention" value={pctText(r.d30 ?? 0, r.d30_cohort)} sub={`${r.d30 ?? 0}/${r.d30_cohort} returned`} />
+        )}
         <Stat
           label="Avg game length"
           value={c.avg_minutes != null ? `${c.avg_minutes}m` : '—'}
@@ -290,6 +468,7 @@ export default function AdminAnalyticsPanel({
                 <th className="pb-1 text-left font-normal">Cohort</th>
                 <th className="pb-1 text-right font-normal">D1</th>
                 <th className="pb-1 text-right font-normal">D7</th>
+                {r.d30_cohort !== undefined && <th className="pb-1 text-right font-normal">D30</th>}
               </tr>
             </thead>
             <tbody>
@@ -304,11 +483,21 @@ export default function AdminAnalyticsPanel({
                     {pctText(row.d7, row.d7_cohort)}{' '}
                     <span className="text-bf-muted">({row.d7}/{row.d7_cohort})</span>
                   </td>
+                  {r.d30_cohort !== undefined && (
+                    <td className="py-1.5 text-right tabular-nums text-bf-text">
+                      {pctText(row.d30 ?? 0, row.d30_cohort ?? 0)}{' '}
+                      <span className="text-bf-muted">({row.d30 ?? 0}/{row.d30_cohort ?? 0})</span>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
           <p className="mt-2 text-xs text-bf-muted">
+            A return is something the player did on that day after signing up, opening the game included. A
+            reminder or win-back email sent to them is not one.
+          </p>
+          <p className="mt-1 text-xs text-bf-muted">
             Guests cannot sign back in, so one returning on another device counts as a new
             signup and never as a return. Guests who never joined a game are deleted after
             48h and leave both columns, so the guest row omits the fastest bouncers and

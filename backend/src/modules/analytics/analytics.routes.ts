@@ -58,6 +58,12 @@ const UiEventSchema = z.object({
     // from phone layouts only, zeros included so the quiet rounds count.
     // Properties: layout, turn, tier1, tier2, tier3, era, is_tutorial.
     'turn_dismiss_taps',
+    // A signed-in player (guest or account) opening the game, posted at most
+    // once a UTC day per player (frontend hooks/useDailyVisit.ts). Without it
+    // a player who comes back without starting a game recorded nothing, so
+    // the D1/D7 returns and the active-player counts missed them. Property:
+    // device.
+    'app_opened',
   ]),
   properties: z.record(z.string().max(64), z.string().max(200)).optional(),
 }).superRefine((value, ctx) => {

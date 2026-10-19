@@ -2,8 +2,8 @@
 
 Companion to [MARKETING-PLAYBOOK.md](../MARKETING-PLAYBOOK.md). That doc's north star is
 **account signups**; this one's is **day-1 return rate** (a visitor who plays today comes
-back tomorrow). Measured via `getRetentionMetrics` over `analytics_events`
-(`backend/scripts/funnelReport.ts`).
+back tomorrow). Measured via `getRetentionMetrics` over `analytics_events`, in Admin →
+Analytics and `backend/scripts/funnelReport.ts`; see [What counts as a return](#what-counts-as-a-return).
 
 ## The diagnosis
 
@@ -48,6 +48,32 @@ referrals, and async games all pre-date this doc). Three structural holes explai
 (via `?rn=` deep-link param, stripped on landing) · `email_unsubscribed` ·
 `signup_nudge_shown/clicked` · `email_opt_in` on `user_registered`/`guest_upgraded` ·
 `pwa_installed`. Client events flow through `POST /api/analytics/ui-event` (allowlisted).
+
+## What counts as a return
+
+D1, D7 and D30 count a signup as returned when the player did something on exactly day 1, 7
+or 30 after signing up: any `analytics_events` row except the ones the server records about
+a player who may be nowhere near the game (`NOT_PLAYER_ACTIVITY_EVENTS` in
+`backend/src/services/analyticsQueries.ts`):
+
+- `retention_notification_sent`. Until this was excluded, every reminder counted its
+  recipient as returned. The daily-challenge reminder goes to recent players who have not
+  entered today's challenge, and the D7 win-back to players whose last game was a week ago,
+  so players who had not come back were counted as returns. Read D1/D7 from before the change as
+  overstated for accounts that can receive reminders; guests never get them.
+- `seat_player_away`: the server marking a disconnected player away. It also fires during
+  an ordinary page reload.
+- `email_unsubscribed`: an unsubscribe link followed from an email.
+
+**Opening the game counts.** `app_opened {device}` is posted at most once a UTC day per
+signed-in player, guests included, when the page loads or comes back into view
+(`frontend/src/hooks/useDailyVisit.ts`). It is posted from the page, not from the server's
+token refresh, because an open tab refreshes its token with nobody looking at it. Before it,
+a player who came back without starting a game recorded nothing.
+
+The same rule drives Admin → Analytics → **Active players** (yesterday, the last 7 and 30
+days, and each day split into new and returning players) and the first matches' "back next
+day". New means the account was made that day.
 
 ## Launch sequence (ops)
 

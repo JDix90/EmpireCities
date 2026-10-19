@@ -25,7 +25,7 @@
  * not have.
  */
 
-export type AcquisitionChannel = 'llm' | 'search' | 'social' | 'referral' | 'direct';
+export type AcquisitionChannel = 'llm' | 'search' | 'social' | 'players' | 'referral' | 'direct';
 
 /**
  * Hosts (and the `utm_source` tokens assistants stamp on their links) that mean
@@ -102,6 +102,14 @@ export const SOCIAL_SOURCES = [
   'pinterest.com',
 ] as const;
 
+/**
+ * Links players hand each other, tagged on arrival by the web client
+ * (frontend/src/utils/attribution.ts) since none of them carries a utm tag:
+ * a shared replay (`?source=share`), a Challenge a Friend invite (`/join/…`)
+ * and a referral link (`?ref=…`). Exact tokens only: they are not hosts.
+ */
+export const PLAYER_SOURCES = ['share', 'invite', 'player_referral'] as const;
+
 /** Exact host, or a dot-boundary subdomain of it. Never a bare substring. */
 function matches(source: string, candidates: readonly string[]): boolean {
   return candidates.some((c) => source === c || source.endsWith(`.${c}`));
@@ -115,6 +123,7 @@ function matches(source: string, candidates: readonly string[]): boolean {
 export function classifyAcquisitionSource(source: string): AcquisitionChannel {
   const s = String(source ?? '').trim().toLowerCase().replace(/^www\./, '');
   if (!s || s === 'direct' || s === '(direct)' || s === 'none') return 'direct';
+  if ((PLAYER_SOURCES as readonly string[]).includes(s)) return 'players';
   if (matches(s, LLM_SOURCES)) return 'llm';
   if (matches(s, SEARCH_SOURCES)) return 'search';
   if (matches(s, SOCIAL_SOURCES)) return 'social';
@@ -122,12 +131,13 @@ export function classifyAcquisitionSource(source: string): AcquisitionChannel {
 }
 
 /** Display order: the two we are actively trying to move come first. */
-export const CHANNEL_ORDER: AcquisitionChannel[] = ['llm', 'search', 'social', 'referral', 'direct'];
+export const CHANNEL_ORDER: AcquisitionChannel[] = ['llm', 'search', 'social', 'players', 'referral', 'direct'];
 
 export const CHANNEL_LABELS: Record<AcquisitionChannel, string> = {
   llm: 'AI assistants',
   search: 'Search engines',
   social: 'Social / community',
+  players: 'Shared by players',
   referral: 'Other referrers',
   direct: 'Direct / unattributed',
 };
