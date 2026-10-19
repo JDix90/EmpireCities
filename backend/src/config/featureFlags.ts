@@ -100,6 +100,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   results_footer_enabled: () => envOptOut('RESULTS_FOOTER_ENABLED'),
   ranked_leaderboard_enabled: () => envOptIn('RANKED_LEADERBOARD_ENABLED'),
   referral_survey_enabled: () => envOptIn('REFERRAL_SURVEY_ENABLED'),
+  player_links_play_enabled: () => envOptIn('PLAYER_LINKS_PLAY_ENABLED'),
   daily_guest_play_enabled: () => envOptOut('DAILY_GUEST_PLAY_ENABLED'),
   // Guests' own things open to guests: their achievements, their unlocked
   // cosmetics (seen and worn), their gold balance, the Settings link and their
@@ -568,6 +569,18 @@ export const featureFlags = {
    */
   get referralSurveyEnabled(): boolean {
     return overrideBool('referral_survey_enabled');
+  },
+
+  /**
+   * When true, the links players hand each other lead straight into play:
+   * a signed-out invitee on a Challenge a Friend link (`/join/:code`) can join
+   * as a guest instead of being sent to registration, a referral link
+   * (`?ref=CODE`) applies its code once the visitor makes or saves an account,
+   * and a shared replay offers signed-out viewers a Play button. Client-side
+   * only; the endpoints involved are unchanged. Dark-launched OFF.
+   */
+  get playerLinksPlayEnabled(): boolean {
+    return overrideBool('player_links_play_enabled');
   },
 
   /**
@@ -1447,6 +1460,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     results_footer_enabled: featureFlags.resultsFooterEnabled,
     ranked_leaderboard_enabled: featureFlags.rankedLeaderboardEnabled,
     referral_survey_enabled: featureFlags.referralSurveyEnabled,
+    player_links_play_enabled: featureFlags.playerLinksPlayEnabled,
     daily_guest_play_enabled: featureFlags.dailyGuestPlayEnabled,
     guest_personal_features_enabled: featureFlags.guestPersonalFeaturesEnabled,
     streak_freezes_enabled: featureFlags.streakFreezesEnabled,
