@@ -105,6 +105,15 @@ export function webPushTag(data?: Record<string, string>): string {
 }
 
 /**
+ * Whether this server can send push at all (Firebase Admin is configured and
+ * initialised). Without it every push returns 0, so a caller can tell an
+ * unreachable player from a failed send before trying.
+ */
+export async function isPushConfigured(): Promise<boolean> {
+  return (await getFirebaseAdmin()) !== null;
+}
+
+/**
  * @param link click-through URL for web push (defaults to the lobby).
  * @returns number of device tokens the message was accepted for — 0 means the
  *          user is unreachable by push (no tokens, FCM down, or send failed),

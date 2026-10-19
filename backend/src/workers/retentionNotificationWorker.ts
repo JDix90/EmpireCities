@@ -19,7 +19,7 @@ import { Queue, Worker } from 'bullmq';
 import { config } from '../config';
 import { featureFlags } from '../config/featureFlags';
 import { query, queryOne } from '../db/postgres';
-import { sendPushNotification, sendEngagementEmail } from '../services/notificationService';
+import { isPushConfigured, sendPushNotification, sendEngagementEmail } from '../services/notificationService';
 import { recordServerEvent } from '../services/analyticsEvents';
 import { APP_NAME } from '../constants/brand';
 
@@ -55,7 +55,23 @@ type Candidate = {
   daily_streak: number;
   push_enabled: boolean;
   email_enabled: boolean;
+  /** The player has at least one device registered for push. */
+  has_push_token: boolean;
 };
+
+/** The candidate columns every phase selects. */
+const CANDIDATE_COLUMNS = `u.user_id, COALESCE(u.daily_streak, 0) AS daily_streak,
+            COALESCE(p.push_enabled, true) AS push_enabled,
+            COALESCE(p.email_notifications, false) AS email_enabled,
+            EXISTS (SELECT 1 FROM push_tokens t WHERE t.user_id = u.user_id) AS has_push_token`;
+
+/**
+ * SQL: the player can be reached by push. `$1` is whether this server can send
+ * push at all (isPushConfigured), so without Firebase no one counts.
+ */
+const PUSH_REACHABLE_SQL = `($1::boolean
+         AND COALESCE(p.push_enabled, true)
+         AND EXISTS (SELECT 1 FROM push_tokens t WHERE t.user_id = u.user_id))`;
 
 /**
  * Claim the user's one-per-day notification slot. Returns false when someone
@@ -91,10 +107,18 @@ async function dispatchPushFirst(
   trigger: RetentionTrigger,
   push: { title: string; body: string; url: string },
   email: { subject: string; innerHtml: string } | null,
+  pushReady: boolean,
 ): Promise<boolean> {
+  const canPush = pushReady && c.push_enabled && c.has_push_token;
+  const canEmail = email !== null && c.email_enabled;
+  // A reminder the player cannot receive must not take their one slot for the
+  // day. The push-only daily-challenge reminder at 17:00 UTC used to claim it
+  // for every player with no device, and the streak reminder due later that
+  // day then skipped them: an opted-in player's streak email never went out.
+  if (!canPush && !canEmail) return false;
   if (!(await claimSlot(c.user_id, trigger, 'push'))) return false;
 
-  if (c.push_enabled) {
+  if (canPush) {
     const sent = await sendPushNotification(c.user_id, push.title, push.body, { url: push.url }, push.url);
     if (sent > 0) {
       recordServerEvent('retention_notification_sent', { trigger, channel: 'push' }, c.user_id);
@@ -102,7 +126,7 @@ async function dispatchPushFirst(
     }
   }
   // Unreachable by push (disabled, no tokens, or FCM failure) → email fallback.
-  if (email && c.email_enabled) {
+  if (email && canEmail) {
     const delivered = await sendEngagementEmail(c.user_id, email.subject, email.innerHtml);
     await markResult(c.user_id, 'email', delivered);
     if (delivered) {
@@ -143,11 +167,11 @@ function trackedUrl(path: string, trigger: RetentionTrigger): string {
 // never pings someone who was on the site within the last 20 hours. All date
 // math is UTC on purpose — updateDailyStreak keys streaks on UTC dates, so the
 // reminder and the streak logic always agree on what "today" means.
-async function sweepStreakAtRisk(): Promise<number> {
+async function sweepStreakAtRisk(pushReady: boolean): Promise<number> {
+  // Only players a push or an email can reach: the rest are never claimed, so
+  // left in they would come back every hour and could fill SWEEP_LIMIT.
   const candidates = await query<Candidate>(
-    `SELECT u.user_id, COALESCE(u.daily_streak, 0) AS daily_streak,
-            COALESCE(p.push_enabled, true) AS push_enabled,
-            COALESCE(p.email_notifications, false) AS email_enabled
+    `SELECT ${CANDIDATE_COLUMNS}
      FROM users u
      LEFT JOIN user_preferences p ON p.user_id = u.user_id
      WHERE COALESCE(u.is_guest, false) = false
@@ -155,11 +179,13 @@ async function sweepStreakAtRisk(): Promise<number> {
        AND COALESCE(u.daily_streak, 0) >= 1
        AND u.last_played_date = CURRENT_DATE - 1
        AND u.last_login_at <= NOW() - INTERVAL '20 hours'
+       AND (${PUSH_REACHABLE_SQL} OR COALESCE(p.email_notifications, false))
        AND NOT EXISTS (
          SELECT 1 FROM retention_notifications rn
          WHERE rn.user_id = u.user_id AND rn.sent_on = CURRENT_DATE
        )
      LIMIT ${SWEEP_LIMIT}`,
+    [pushReady],
   );
 
   let sent = 0;
@@ -182,6 +208,7 @@ async function sweepStreakAtRisk(): Promise<number> {
           ${ctaButton(url, 'Keep My Streak')}
         `,
       },
+      pushReady,
     );
     if (ok) sent++;
   }
@@ -189,16 +216,16 @@ async function sweepStreakAtRisk(): Promise<number> {
 }
 
 // ── Phase b: daily-challenge reminder (one UTC hour, push-first) ─────────────
-async function sweepDailyChallenge(): Promise<number> {
+async function sweepDailyChallenge(pushReady: boolean): Promise<number> {
+  // Push only, so only players a push can reach.
   const candidates = await query<Candidate>(
-    `SELECT u.user_id, COALESCE(u.daily_streak, 0) AS daily_streak,
-            COALESCE(p.push_enabled, true) AS push_enabled,
-            COALESCE(p.email_notifications, false) AS email_enabled
+    `SELECT ${CANDIDATE_COLUMNS}
      FROM users u
      LEFT JOIN user_preferences p ON p.user_id = u.user_id
      WHERE COALESCE(u.is_guest, false) = false
        AND COALESCE(u.is_banned, false) = false
        AND u.last_played_date BETWEEN CURRENT_DATE - 3 AND CURRENT_DATE - 1
+       AND ${PUSH_REACHABLE_SQL}
        AND NOT EXISTS (
          SELECT 1 FROM daily_challenge_entries dce
          WHERE dce.user_id = u.user_id AND dce.challenge_date = CURRENT_DATE
@@ -208,6 +235,7 @@ async function sweepDailyChallenge(): Promise<number> {
          WHERE rn.user_id = u.user_id AND rn.sent_on = CURRENT_DATE
        )
      LIMIT ${SWEEP_LIMIT}`,
+    [pushReady],
   );
 
   let sent = 0;
@@ -222,6 +250,7 @@ async function sweepDailyChallenge(): Promise<number> {
         url,
       },
       null, // push-only: a missed daily puzzle isn't worth an email
+      pushReady,
     );
     if (ok) sent++;
   }
@@ -232,9 +261,7 @@ async function sweepDailyChallenge(): Promise<number> {
 async function sweepWinback(daysAgo: 2 | 7): Promise<number> {
   const trigger: RetentionTrigger = daysAgo === 2 ? 'winback_d2' : 'winback_d7';
   const candidates = await query<Candidate>(
-    `SELECT u.user_id, COALESCE(u.daily_streak, 0) AS daily_streak,
-            COALESCE(p.push_enabled, true) AS push_enabled,
-            COALESCE(p.email_notifications, false) AS email_enabled
+    `SELECT ${CANDIDATE_COLUMNS}
      FROM users u
      LEFT JOIN user_preferences p ON p.user_id = u.user_id
      WHERE COALESCE(u.is_guest, false) = false
@@ -278,9 +305,10 @@ export async function runRetentionSweep(nowUtcHour?: number): Promise<{ streak: 
     return { streak: 0, daily: 0, winback: 0 };
   }
   const hour = nowUtcHour ?? new Date().getUTCHours();
+  const pushReady = await isPushConfigured();
 
-  const streak = await sweepStreakAtRisk();
-  const daily = hour === DAILY_CHALLENGE_UTC_HOUR ? await sweepDailyChallenge() : 0;
+  const streak = await sweepStreakAtRisk(pushReady);
+  const daily = hour === DAILY_CHALLENGE_UTC_HOUR ? await sweepDailyChallenge(pushReady) : 0;
   let winback = 0;
   if (hour === WINBACK_UTC_HOUR) {
     winback = (await sweepWinback(2)) + (await sweepWinback(7));

@@ -29,7 +29,9 @@ vi.mock('../config/featureFlags', () => ({
 
 const pushMock = vi.fn();
 const emailMock = vi.fn();
+let pushConfigured = true;
 vi.mock('../services/notificationService', () => ({
+  isPushConfigured: async () => pushConfigured,
   sendPushNotification: (...a: unknown[]) => pushMock(...a),
   sendEngagementEmail: (...a: unknown[]) => emailMock(...a),
 }));
@@ -46,7 +48,10 @@ const CANDIDATE = {
   daily_streak: 3,
   push_enabled: true,
   email_enabled: true,
+  has_push_token: true,
 };
+
+const claims = () => queryOneMock.mock.calls.filter(([sql]) => String(sql).includes('INSERT INTO retention_notifications'));
 
 describe('runRetentionSweep', () => {
   beforeEach(() => {
@@ -56,6 +61,7 @@ describe('runRetentionSweep', () => {
     emailMock.mockReset();
     eventMock.mockReset();
     flagOn = true;
+    pushConfigured = true;
     queryMock.mockResolvedValue([]);
     queryOneMock.mockResolvedValue({ id: 'claim-1' }); // claim succeeds
     pushMock.mockResolvedValue(1);
@@ -122,6 +128,53 @@ describe('runRetentionSweep', () => {
     await runRetentionSweep(17);
     // streak + daily challenge candidate queries
     expect(queryMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('leaves the slot alone for a daily-challenge push the player cannot receive', async () => {
+    // At 17:00 UTC the streak query (first) finds no one, the daily one finds a
+    // player with no device. They must keep their slot for the streak
+    // reminder due later in the day.
+    queryMock.mockResolvedValueOnce([]).mockResolvedValueOnce([{ ...CANDIDATE, has_push_token: false }]);
+    const res = await runRetentionSweep(17);
+    expect(res.daily).toBe(0);
+    expect(claims()).toHaveLength(0);
+    expect(pushMock).not.toHaveBeenCalled();
+    expect(queryMock.mock.calls.some(([sql]) => String(sql).includes('UPDATE retention_notifications'))).toBe(false);
+  });
+
+  it('sends the streak reminder by email to a player with no device, without trying push', async () => {
+    queryMock.mockResolvedValueOnce([{ ...CANDIDATE, has_push_token: false }]);
+    const res = await runRetentionSweep(12);
+    expect(res.streak).toBe(1);
+    expect(claims()).toHaveLength(1);
+    expect(pushMock).not.toHaveBeenCalled();
+    expect(emailMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('claims nothing for a player neither channel can reach', async () => {
+    queryMock.mockResolvedValueOnce([{ ...CANDIDATE, has_push_token: false, email_enabled: false }]);
+    const res = await runRetentionSweep(12);
+    expect(res.streak).toBe(0);
+    expect(claims()).toHaveLength(0);
+  });
+
+  it('without push configured, counts no one as reachable by push', async () => {
+    pushConfigured = false;
+    queryMock
+      .mockResolvedValueOnce([{ ...CANDIDATE, email_enabled: false }]) // streak: push only, so unreachable
+      .mockResolvedValueOnce([CANDIDATE]); // daily
+    const res = await runRetentionSweep(17);
+    expect(res).toEqual({ streak: 0, daily: 0, winback: 0 });
+    expect(claims()).toHaveLength(0);
+    expect(pushMock).not.toHaveBeenCalled();
+    // Both queries were told, so the database leaves those players out too.
+    const [[streakSql, streakParams], [dailySql, dailyParams]] = queryMock.mock.calls as Array<[string, unknown[]]>;
+    expect(streakParams).toEqual([false]);
+    expect(dailyParams).toEqual([false]);
+    for (const sql of [streakSql, dailySql]) {
+      expect(sql).toContain('EXISTS (SELECT 1 FROM push_tokens t WHERE t.user_id = u.user_id)');
+    }
+    expect(streakSql).toContain('OR COALESCE(p.email_notifications, false)');
   });
 
   it('keeps the claim (marks failed) when every channel fails', async () => {
