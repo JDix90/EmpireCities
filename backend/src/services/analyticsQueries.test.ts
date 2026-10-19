@@ -8,6 +8,8 @@ vi.mock('../db/postgres', () => ({
 }));
 
 import {
+  getActivePlayers,
+  getRetentionMetrics,
   getRetentionByCohort,
   getTutorialFunnel,
   getFunnelMetrics,
@@ -82,7 +84,7 @@ describe('analyticsQueries', () => {
 
   it('getRetentionByCohort splits on the same account test the acquisition table uses', async () => {
     queryMock.mockResolvedValueOnce([
-      { is_account: true, d1_cohort: 4, d1: 3, d7_cohort: 2, d7: 1 },
+      { is_account: true, d1_cohort: 4, d1: 3, d7_cohort: 2, d7: 1, d30_cohort: 1, d30: 1 },
       { is_account: false, d1_cohort: 21, d1: 0, d7_cohort: 16, d7: 0 },
     ]);
     const rows = await getRetentionByCohort();
@@ -92,9 +94,23 @@ describe('analyticsQueries', () => {
     expect(sql).toContain("e.event IN ('user_registered', 'guest_upgraded')");
     expect(sql).toContain("event IN ('guest_created', 'user_registered')");
     expect(rows).toEqual([
-      { cohort: 'account', d1_cohort: 4, d1: 3, d7_cohort: 2, d7: 1 },
-      { cohort: 'guest', d1_cohort: 21, d1: 0, d7_cohort: 16, d7: 0 },
+      { cohort: 'account', d1_cohort: 4, d1: 3, d7_cohort: 2, d7: 1, d30_cohort: 1, d30: 1 },
+      { cohort: 'guest', d1_cohort: 21, d1: 0, d7_cohort: 16, d7: 0, d30_cohort: 0, d30: 0 },
     ]);
+  });
+
+  it('counts as a return only what the player did, on day 1, 7 and 30', async () => {
+    queryMock.mockResolvedValue([]);
+    await getRetentionMetrics();
+    await getRetentionByCohort();
+    for (const [sql] of queryMock.mock.calls as Array<[string]>) {
+      for (const n of [1, 7, 30]) {
+        expect(sql).toContain(`d0 <= CURRENT_DATE - ${n})::int AS d${n}_cohort`);
+        expect(sql).toMatch(new RegExp(`d0 \\+ ${n}\\s+AND e\\.event NOT IN \\('retention_notification_sent', 'seat_player_away', 'email_unsubscribed'\\)`));
+      }
+    }
+    // The split takes a list of signups to limit itself to; null is everyone.
+    expect(queryMock.mock.calls[1]![1]).toEqual([null]);
   });
 
   it('getRetentionByCohort always returns both cohorts, account first', async () => {
@@ -104,16 +120,16 @@ describe('analyticsQueries', () => {
       { is_account: false, d1_cohort: 9, d1: 0, d7_cohort: 5, d7: 0 },
     ]);
     expect(await getRetentionByCohort()).toEqual([
-      { cohort: 'account', d1_cohort: 0, d1: 0, d7_cohort: 0, d7: 0 },
-      { cohort: 'guest', d1_cohort: 9, d1: 0, d7_cohort: 5, d7: 0 },
+      { cohort: 'account', d1_cohort: 0, d1: 0, d7_cohort: 0, d7: 0, d30_cohort: 0, d30: 0 },
+      { cohort: 'guest', d1_cohort: 9, d1: 0, d7_cohort: 5, d7: 0, d30_cohort: 0, d30: 0 },
     ]);
   });
 
   it('getRetentionByCohort zero-fills an empty table', async () => {
     queryMock.mockResolvedValueOnce([]);
     expect(await getRetentionByCohort()).toEqual([
-      { cohort: 'account', d1_cohort: 0, d1: 0, d7_cohort: 0, d7: 0 },
-      { cohort: 'guest', d1_cohort: 0, d1: 0, d7_cohort: 0, d7: 0 },
+      { cohort: 'account', d1_cohort: 0, d1: 0, d7_cohort: 0, d7: 0, d30_cohort: 0, d30: 0 },
+      { cohort: 'guest', d1_cohort: 0, d1: 0, d7_cohort: 0, d7: 0, d30_cohort: 0, d30: 0 },
     ]);
   });
 
@@ -122,7 +138,7 @@ describe('analyticsQueries', () => {
       { is_account: true, d1_cohort: '4', d1: '3', d7_cohort: '2', d7: '1' },
     ]);
     const [account] = await getRetentionByCohort();
-    expect(account).toEqual({ cohort: 'account', d1_cohort: 4, d1: 3, d7_cohort: 2, d7: 1 });
+    expect(account).toEqual({ cohort: 'account', d1_cohort: 4, d1: 3, d7_cohort: 2, d7: 1, d30_cohort: 0, d30: 0 });
   });
 
   it('getCompletionStats coerces numeric strings and preserves null averages', async () => {
@@ -231,7 +247,7 @@ describe('analyticsQueries', () => {
     expect(String(sql).match(/properties->>'first_match'/g)).toHaveLength(2);
     // A finish only joins the next-day cohort once its next day can have happened.
     expect(sql).toMatch(/d0 <= CURRENT_DATE - 1/);
-    expect(sql).toMatch(/e\.created_at::date = f\.d0 \+ 1/);
+    expect(sql).toMatch(/e\.created_at::date = f\.d0 \+ 1\s+AND e\.event NOT IN \('retention_notification_sent'/);
   });
 
   it('getFirstMatchStats reads zeros on an empty window', async () => {
@@ -300,7 +316,9 @@ describe('analyticsQueries', () => {
         { mode: 'other', level_rank: 3, started: 2, finished: 1, won: 1, abandoned: 1, running: 0, capped: 1, surrendered: 0, median_rounds: 60 },
       ])
       .mockResolvedValueOnce([{ saved: 2, saved_with_password: 1, saved_email_only: 1, links_sent: 1, link_signins: 1 }])
-      .mockResolvedValueOnce([{ used_personal_cohort: 2, used_personal_saved: 1, other_guest_cohort: 3, other_guest_saved: 1 }]);
+      .mockResolvedValueOnce([{ used_personal_cohort: 2, used_personal_saved: 1, other_guest_cohort: 3, other_guest_saved: 1 }])
+      .mockResolvedValueOnce([{ yesterday: 4, last_7_days: 9, last_30_days: 20 }])
+      .mockResolvedValueOnce([{ day: '2026-10-18', active: 5, new_players: 2 }]);
     queryOneMock.mockResolvedValueOnce({ total: 42 });
 
     const r = await getAnalyticsReport(30);
@@ -313,8 +331,8 @@ describe('analyticsQueries', () => {
     // The pooled row and the split must describe the same cohort: 1 of 3 back
     // on day one, and all of that one is the account side.
     expect(r.retention_by_cohort).toEqual([
-      { cohort: 'account', d1_cohort: 1, d1: 1, d7_cohort: 0, d7: 0 },
-      { cohort: 'guest', d1_cohort: 2, d1: 0, d7_cohort: 0, d7: 0 },
+      { cohort: 'account', d1_cohort: 1, d1: 1, d7_cohort: 0, d7: 0, d30_cohort: 0, d30: 0 },
+      { cohort: 'guest', d1_cohort: 2, d1: 0, d7_cohort: 0, d7: 0, d30_cohort: 0, d30: 0 },
     ]);
     expect(r.tutorial).toEqual([
       { cohort: 'account', started: 2, completed: 2 },
@@ -345,6 +363,55 @@ describe('analyticsQueries', () => {
       saved: 2, saved_with_password: 1, saved_email_only: 1, links_sent: 1, link_signins: 1, links_not_sent: 0,
       used_personal_cohort: 2, used_personal_saved: 1, other_guest_cohort: 3, other_guest_saved: 1,
     });
+    expect(r.active_players).toEqual({
+      yesterday: 4,
+      last_7_days: 9,
+      last_30_days: 20,
+      daily: [{ day: '2026-10-18', active: 5, new_players: 2, returning_players: 3 }],
+    });
+  });
+
+  it('getActivePlayers counts distinct players who did something, and splits each day into new and returning', async () => {
+    queryMock
+      .mockResolvedValueOnce([{ yesterday: '3', last_7_days: '7', last_30_days: '12' }])
+      .mockResolvedValueOnce([
+        { day: '2026-10-17', active: 0, new_players: 0 },
+        { day: '2026-10-18', active: '6', new_players: '1' },
+      ]);
+    const r = await getActivePlayers(2);
+    expect(r).toEqual({
+      yesterday: 3,
+      last_7_days: 7,
+      last_30_days: 12,
+      daily: [
+        { day: '2026-10-17', active: 0, new_players: 0, returning_players: 0 },
+        { day: '2026-10-18', active: 6, new_players: 1, returning_players: 5 },
+      ],
+    });
+    const [[totalsSql, totalsParams], [dailySql, dailyParams]] = queryMock.mock.calls as Array<[string, unknown[]]>;
+    for (const sql of [totalsSql, dailySql]) {
+      expect(sql).toContain('COUNT');
+      expect(sql).toContain("e.event NOT IN ('retention_notification_sent', 'seat_player_away', 'email_unsubscribed')");
+      expect(sql).toContain('e.user_id IS NOT NULL');
+      // Admin and test accounts are left out, as everywhere else.
+      expect(sql).toContain('NOT EXISTS (SELECT 1 FROM users sx_eu WHERE sx_eu.user_id = e.user_id');
+    }
+    expect(totalsSql).toContain('CURRENT_DATE - 29');
+    expect(totalsSql).toContain('day = CURRENT_DATE - 1');
+    expect(totalsSql).toContain('day >= CURRENT_DATE - 6');
+    expect(totalsParams).toEqual([null]);
+    // Every day of the window gets a row, empty days included.
+    expect(dailySql).toContain("generate_series(CURRENT_DATE - ($1::int - 1), CURRENT_DATE, interval '1 day')");
+    expect(dailySql).toContain('u.created_at::date = d.day');
+    expect(dailyParams).toEqual([2, null]);
+  });
+
+  it('getActivePlayers reads zeros and an empty series from empty results', async () => {
+    queryMock.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    expect(await getActivePlayers(30, ['00000000-0000-0000-0000-000000000001'])).toEqual({
+      yesterday: 0, last_7_days: 0, last_30_days: 0, daily: [],
+    });
+    expect(queryMock.mock.calls[1]![1]).toEqual([30, ['00000000-0000-0000-0000-000000000001']]);
   });
 
   it('getGuestAccountMetrics counts saves, sign-in links and guests using their things in the window', async () => {

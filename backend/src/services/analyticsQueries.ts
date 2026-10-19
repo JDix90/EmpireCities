@@ -50,6 +50,29 @@ const REAL_GAME_SQL = "COALESCE(e.properties->>'is_tutorial', 'false') <> 'true'
  */
 const WRAPUP_EXIT_VIAS_SQL = "('wrapup', 'wrapup_to_match')";
 
+/**
+ * Events the server records about a player who may be nowhere near the game.
+ * They never count as a return or as being active:
+ *
+ * - `retention_notification_sent`: a reminder or win-back message sent to the
+ *   player. The D7 win-back goes to players whose last game was a week ago, so
+ *   counted as activity it turned each lapsed recipient into a D7 return, and
+ *   the daily-challenge reminder did the same for D1.
+ * - `seat_player_away`: the server noticing that a disconnected player did not
+ *   come back within the reconnect window.
+ * - `email_unsubscribed`: an unsubscribe link followed from an email.
+ */
+export const NOT_PLAYER_ACTIVITY_EVENTS = [
+  'retention_notification_sent',
+  'seat_player_away',
+  'email_unsubscribed',
+] as const;
+
+/** The event at `alias` is something the player did. */
+function playerActivitySql(alias: string): string {
+  return `${alias}.event NOT IN (${NOT_PLAYER_ACTIVITY_EVENTS.map((e) => `'${e}'`).join(', ')})`;
+}
+
 export interface FunnelMetrics {
   signups: number;
   created_game: number;
@@ -67,6 +90,8 @@ export interface RetentionMetrics {
   d1: number;
   d7_cohort: number;
   d7: number;
+  d30_cohort: number;
+  d30: number;
 }
 
 /** Which side of the guest/account line a signup cohort sits on. */
@@ -185,6 +210,33 @@ export interface AcquisitionChannelRow {
   sources: string[];
 }
 
+/** One day of the window: the players active on it, split by whether their account is that day's. */
+export interface ActiveDay {
+  /** YYYY-MM-DD, the database's calendar day. */
+  day: string;
+  active: number;
+  /** Players whose account was created that day. */
+  new_players: number;
+  /** Everyone else active that day. */
+  returning_players: number;
+}
+
+/**
+ * Distinct players who did something (any event but NOT_PLAYER_ACTIVITY_EVENTS),
+ * guests included, admin and test accounts left out. A player who only opened
+ * the game counts from the day `app_opened` shipped.
+ */
+export interface ActivePlayers {
+  /** The last whole day. */
+  yesterday: number;
+  /** Today and the 6 days before it. */
+  last_7_days: number;
+  /** Today and the 29 days before it. */
+  last_30_days: number;
+  /** One row per day of the window, oldest first; the last is today so far. */
+  daily: ActiveDay[];
+}
+
 export interface VisitorFunnelMetrics {
   /** Distinct anonymous sessions that viewed the landing page. */
   landed: number;
@@ -244,6 +296,7 @@ export interface AnalyticsReport {
   acquisition_channels: AcquisitionChannelRow[];
   volume: EventVolumeRow[];
   guest_accounts: GuestAccountMetrics;
+  active_players: ActivePlayers;
 }
 
 function num(v: unknown): number {
@@ -305,7 +358,20 @@ export async function getFunnelMetrics(days: number, device: FunnelDevice | null
   };
 }
 
-/** D1 / D7 return: did a signup cohort show any activity a day / week later. */
+/**
+ * The cohort and return columns for day `n` after signup, over a `signups`-like
+ * relation aliased `alias` with `user_id` and `d0`. A return is something the
+ * player did on exactly that day (playerActivitySql).
+ */
+function dayNReturnSql(n: number, alias: string): string {
+  return `COUNT(*) FILTER (WHERE ${alias}.d0 <= CURRENT_DATE - ${n})::int AS d${n}_cohort,
+       COUNT(*) FILTER (WHERE ${alias}.d0 <= CURRENT_DATE - ${n} AND EXISTS (
+         SELECT 1 FROM analytics_events e
+         WHERE e.user_id = ${alias}.user_id AND e.created_at::date = ${alias}.d0 + ${n}
+           AND ${playerActivitySql('e')}))::int AS d${n}`;
+}
+
+/** D1 / D7 / D30 return: did a signup cohort do anything a day / week / month later. */
 export async function getRetentionMetrics(): Promise<RetentionMetrics> {
   const [row] = await query<Record<string, unknown>>(
     `WITH signups AS (
@@ -316,12 +382,9 @@ export async function getRetentionMetrics(): Promise<RetentionMetrics> {
        GROUP BY user_id
      )
      SELECT
-       COUNT(*) FILTER (WHERE d0 <= CURRENT_DATE - 1)::int AS d1_cohort,
-       COUNT(*) FILTER (WHERE d0 <= CURRENT_DATE - 1 AND EXISTS (
-         SELECT 1 FROM analytics_events e WHERE e.user_id = s.user_id AND e.created_at::date = s.d0 + 1))::int AS d1,
-       COUNT(*) FILTER (WHERE d0 <= CURRENT_DATE - 7)::int AS d7_cohort,
-       COUNT(*) FILTER (WHERE d0 <= CURRENT_DATE - 7 AND EXISTS (
-         SELECT 1 FROM analytics_events e WHERE e.user_id = s.user_id AND e.created_at::date = s.d0 + 7))::int AS d7
+       ${dayNReturnSql(1, 's')},
+       ${dayNReturnSql(7, 's')},
+       ${dayNReturnSql(30, 's')}
      FROM signups s`,
   );
   return {
@@ -329,6 +392,8 @@ export async function getRetentionMetrics(): Promise<RetentionMetrics> {
     d1: num(row?.d1),
     d7_cohort: num(row?.d7_cohort),
     d7: num(row?.d7),
+    d30_cohort: num(row?.d30_cohort),
+    d30: num(row?.d30),
   };
 }
 
@@ -356,15 +421,17 @@ export async function getRetentionMetrics(): Promise<RetentionMetrics> {
  *    indefinitely and stay counted.
  *
  * Always returns both cohorts, account first, zero-filled when a cohort has no
- * rows yet, so callers can render a stable two-row table.
+ * rows yet, so callers can render a stable two-row table. `onlyUserIds` limits
+ * it to those signups, for a test on a shared database.
  */
-export async function getRetentionByCohort(): Promise<RetentionCohortRow[]> {
+export async function getRetentionByCohort(onlyUserIds?: readonly string[]): Promise<RetentionCohortRow[]> {
   const rows = await query<Record<string, unknown>>(
     `WITH signups AS (
        SELECT user_id, MIN(created_at)::date AS d0
        FROM analytics_events
        WHERE event IN ('guest_created', 'user_registered') AND user_id IS NOT NULL
          AND ${countedEventSql('analytics_events')}
+         AND ($1::uuid[] IS NULL OR user_id = ANY($1::uuid[]))
        GROUP BY user_id
      ),
      classified AS (
@@ -378,16 +445,12 @@ export async function getRetentionByCohort(): Promise<RetentionCohortRow[]> {
      )
      SELECT
        c.is_account,
-       COUNT(*) FILTER (WHERE c.d0 <= CURRENT_DATE - 1)::int AS d1_cohort,
-       COUNT(*) FILTER (WHERE c.d0 <= CURRENT_DATE - 1 AND EXISTS (
-         SELECT 1 FROM analytics_events e
-         WHERE e.user_id = c.user_id AND e.created_at::date = c.d0 + 1))::int AS d1,
-       COUNT(*) FILTER (WHERE c.d0 <= CURRENT_DATE - 7)::int AS d7_cohort,
-       COUNT(*) FILTER (WHERE c.d0 <= CURRENT_DATE - 7 AND EXISTS (
-         SELECT 1 FROM analytics_events e
-         WHERE e.user_id = c.user_id AND e.created_at::date = c.d0 + 7))::int AS d7
+       ${dayNReturnSql(1, 'c')},
+       ${dayNReturnSql(7, 'c')},
+       ${dayNReturnSql(30, 'c')}
      FROM classified c
      GROUP BY c.is_account`,
+    [onlyUserIds ?? null],
   );
 
   const byCohort = new Map<RetentionCohort, RetentionCohortRow>();
@@ -399,10 +462,12 @@ export async function getRetentionByCohort(): Promise<RetentionCohortRow[]> {
       d1: num(r.d1),
       d7_cohort: num(r.d7_cohort),
       d7: num(r.d7),
+      d30_cohort: num(r.d30_cohort),
+      d30: num(r.d30),
     });
   }
   const empty = (cohort: RetentionCohort): RetentionCohortRow =>
-    ({ cohort, d1_cohort: 0, d1: 0, d7_cohort: 0, d7: 0 });
+    ({ cohort, d1_cohort: 0, d1: 0, d7_cohort: 0, d7: 0, d30_cohort: 0, d30: 0 });
   return [
     byCohort.get('account') ?? empty('account'),
     byCohort.get('guest') ?? empty('guest'),
@@ -520,7 +585,8 @@ export async function getFirstMatchStats(days: number): Promise<FirstMatchStats>
        COUNT(*) FILTER (WHERE won)::int AS won,
        COUNT(*) FILTER (WHERE d0 <= CURRENT_DATE - 1)::int AS next_day_cohort,
        COUNT(*) FILTER (WHERE d0 <= CURRENT_DATE - 1 AND EXISTS (
-         SELECT 1 FROM analytics_events e WHERE e.user_id = f.user_id AND e.created_at::date = f.d0 + 1))::int AS next_day
+         SELECT 1 FROM analytics_events e WHERE e.user_id = f.user_id AND e.created_at::date = f.d0 + 1
+           AND ${playerActivitySql('e')}))::int AS next_day
      FROM finished f`,
     [days],
   );
@@ -818,12 +884,70 @@ export async function getGuestAccountMetrics(days: number): Promise<GuestAccount
   };
 }
 
+/**
+ * Players active yesterday, in the last 7 and 30 days, and on each day of the
+ * trailing window: see ActivePlayers. New on a day means the account was
+ * created that day (`users.created_at`, so accounts from before analytics was
+ * on read as returning, as they are). `onlyUserIds` limits it to those
+ * players, for a test on a shared database.
+ */
+export async function getActivePlayers(days: number, onlyUserIds?: readonly string[]): Promise<ActivePlayers> {
+  // Each player once a day, from `since` on; `users` is the parameter holding
+  // the onlyUserIds filter.
+  const activeSql = (since: string, users: string) => `
+       SELECT DISTINCT e.user_id, e.created_at::date AS day
+       FROM analytics_events e
+       WHERE e.user_id IS NOT NULL
+         AND e.created_at >= ${since}
+         AND ${playerActivitySql('e')}
+         AND ${countedEventSql('e')}
+         AND (${users}::uuid[] IS NULL OR e.user_id = ANY(${users}::uuid[]))`;
+  const [totals, daily] = await Promise.all([
+    query<Record<string, unknown>>(
+      `WITH active AS (${activeSql('CURRENT_DATE - 29', '$1')})
+       SELECT
+         COUNT(DISTINCT user_id) FILTER (WHERE day = CURRENT_DATE - 1)::int AS yesterday,
+         COUNT(DISTINCT user_id) FILTER (WHERE day >= CURRENT_DATE - 6)::int AS last_7_days,
+         COUNT(DISTINCT user_id)::int AS last_30_days
+       FROM active`,
+      [onlyUserIds ?? null],
+    ),
+    query<Record<string, unknown>>(
+      `WITH days AS (
+         SELECT d::date AS day
+         FROM generate_series(CURRENT_DATE - ($1::int - 1), CURRENT_DATE, interval '1 day') AS d
+       ),
+       active AS (${activeSql('CURRENT_DATE - ($1::int - 1)', '$2')})
+       SELECT to_char(d.day, 'YYYY-MM-DD') AS day,
+         COUNT(a.user_id)::int AS active,
+         COUNT(a.user_id) FILTER (WHERE u.created_at::date = d.day)::int AS new_players
+       FROM days d
+       LEFT JOIN active a ON a.day = d.day
+       LEFT JOIN users u ON u.user_id = a.user_id
+       GROUP BY d.day
+       ORDER BY d.day`,
+      [days, onlyUserIds ?? null],
+    ),
+  ]);
+  const t = totals?.[0];
+  return {
+    yesterday: num(t?.yesterday),
+    last_7_days: num(t?.last_7_days),
+    last_30_days: num(t?.last_30_days),
+    daily: daily.map((r) => {
+      const active = num(r.active);
+      const newPlayers = num(r.new_players);
+      return { day: String(r.day), active, new_players: newPlayers, returning_players: active - newPlayers };
+    }),
+  };
+}
+
 /** Everything the funnel report / admin view needs, in one shot. */
 export async function getAnalyticsReport(days: number, device: FunnelDevice | null = null): Promise<AnalyticsReport> {
   // NOTE: the section queries share one mocked `query` in the unit test, which
   // matches them positionally — a new section goes on the END of this list so
   // it cannot shift the mocks of the ones above it.
-  const [visitors, funnel, retention, retentionByCohort, completion, acquisition, volume, tutorial, totalRow, firstMatch, soloByLevel, guestAccounts] = await Promise.all([
+  const [visitors, funnel, retention, retentionByCohort, completion, acquisition, volume, tutorial, totalRow, firstMatch, soloByLevel, guestAccounts, activePlayers] = await Promise.all([
     getVisitorFunnel(days),
     getFunnelMetrics(days, device),
     getRetentionMetrics(),
@@ -836,6 +960,7 @@ export async function getAnalyticsReport(days: number, device: FunnelDevice | nu
     getFirstMatchStats(days),
     getSoloGamesByLevel(days),
     getGuestAccountMetrics(days),
+    getActivePlayers(days),
   ]);
   return {
     window_days: days,
@@ -853,5 +978,6 @@ export async function getAnalyticsReport(days: number, device: FunnelDevice | nu
     acquisition_channels: foldAcquisitionByChannel(acquisition),
     volume,
     guest_accounts: guestAccounts,
+    active_players: activePlayers,
   };
 }

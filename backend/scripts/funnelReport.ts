@@ -42,6 +42,23 @@ async function main(): Promise<void> {
     return;
   }
 
+  // Who is around at all: the number an uptick shows up in first.
+  const ap = r.active_players;
+  console.log('ACTIVE PLAYERS (did anything; guests included, reminders sent to them not)');
+  console.log(`  yesterday ${ap.yesterday} · last 7 days ${ap.last_7_days} · last 30 days ${ap.last_30_days}`);
+  console.log(`  ${'day'.padEnd(12)} ${'active'.padStart(7)} ${'new'.padStart(5)} ${'returning'.padStart(10)}`);
+  for (const d of ap.daily.slice(-14)) {
+    console.log(
+      `  ${d.day.padEnd(12)} ${String(d.active).padStart(7)} ${String(d.new_players).padStart(5)}`
+      + ` ${String(d.returning_players).padStart(10)}`,
+    );
+  }
+  console.log(
+    '  NOTE: new means the account was made that day. A player who only opened the'
+    + '\n  game counts from the release that added app_opened; before it, only those'
+    + '\n  who played or did something recorded.\n',
+  );
+
   const f = r.funnel;
   const steps: Array<[string, number]> = [
     ['Signed up', f.signups],
@@ -59,18 +76,20 @@ async function main(): Promise<void> {
   );
 
   const ret = r.retention;
-  console.log('RETENTION (returned with any activity)');
+  console.log('RETENTION (did anything on that day; reminders sent to them do not count)');
   console.log(`  D1  ${ret.d1}/${ret.d1_cohort}  ${pct(ret.d1, ret.d1_cohort)}`);
-  console.log(`  D7  ${ret.d7}/${ret.d7_cohort}  ${pct(ret.d7, ret.d7_cohort)}\n`);
+  console.log(`  D7  ${ret.d7}/${ret.d7_cohort}  ${pct(ret.d7, ret.d7_cohort)}`);
+  console.log(`  D30 ${ret.d30}/${ret.d30_cohort}  ${pct(ret.d30, ret.d30_cohort)}\n`);
 
   // The pooled rate above mixes two populations that behave nothing alike, so
   // on its own it mostly reports the guest/account mix. This is the split.
   console.log('RETENTION BY ACCOUNT TYPE');
-  console.log(`  ${'cohort'.padEnd(10)} ${'D1'.padStart(11)} ${'D7'.padStart(11)}`);
+  console.log(`  ${'cohort'.padEnd(10)} ${'D1'.padStart(11)} ${'D7'.padStart(11)} ${'D30'.padStart(11)}`);
   for (const c of r.retention_by_cohort) {
     const d1 = `${c.d1}/${c.d1_cohort} ${pct(c.d1, c.d1_cohort)}`;
     const d7 = `${c.d7}/${c.d7_cohort} ${pct(c.d7, c.d7_cohort)}`;
-    console.log(`  ${c.cohort.padEnd(10)} ${d1.padStart(11)} ${d7.padStart(11)}`);
+    const d30 = `${c.d30}/${c.d30_cohort} ${pct(c.d30, c.d30_cohort)}`;
+    console.log(`  ${c.cohort.padEnd(10)} ${d1.padStart(11)} ${d7.padStart(11)} ${d30.padStart(11)}`);
   }
   console.log(
     '  NOTE: guests cannot sign back in, so a guest returning on another device'
