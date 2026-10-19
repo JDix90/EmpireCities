@@ -34,7 +34,7 @@ referrals, and async games all pre-date this doc). Three structural holes explai
 
 | Lever | What it does | Where |
 |---|---|---|
-| Retention worker | Hourly BullMQ sweep: streak-at-risk push (~20–24h after last session), daily-challenge reminder (17:00 UTC), D2/D7 win-back emails (15:00 UTC, opt-in only). Hard caps: 1 outbound/user/UTC-day (`UNIQUE (user_id, sent_on)`), 500/trigger/sweep, guests + banned excluded everywhere. | `backend/src/workers/retentionNotificationWorker.ts`, migration 036 |
+| Retention worker | Hourly BullMQ sweep: streak-at-risk push (~20–24h after last session), daily-challenge reminder (17:00 UTC), D2/D7 win-back emails (15:00 UTC, opt-in only). Hard caps: 1 outbound/user/UTC-day (`UNIQUE (user_id, sent_on)`), 500/trigger/sweep, banned excluded everywhere, guests too unless `guest_push_reminders_enabled` (push only). | `backend/src/workers/retentionNotificationWorker.ts`, migration 036 |
 | One-click unsubscribe | HMAC-tokenized `/unsubscribe` page (POST behind a confirm button so mail scanners can't prefetch-unsubscribe); footer link + `List-Unsubscribe` header on every engagement email, turn emails retrofitted. | `backend/src/utils/unsubscribeToken.ts`, `POST /api/users/unsubscribe`, `frontend/src/pages/UnsubscribePage.tsx` |
 | "Come back tomorrow" panel | Post-game panel: the streak they now must protect, distance to the next gold milestone, tomorrow's (bigger) login chest, daily-challenge tease. Guests get the streak + "create an account to protect it". | `frontend/src/components/game/ComeBackTomorrowPanel.tsx`, `GET /api/progression/comeback` |
 | Escalating login gold | 10 → 15 → 20 → 25 → 30 for consecutive login days (`users.login_streak`), replacing flat 10/day. Day 2 > day 1 is the point — tomorrow is always worth teasing. | `DAILY_LOGIN_REWARDS` in `packages/shared`, `claimDailyLogin`, login calendar |
@@ -94,8 +94,16 @@ day". New means the account was made that day.
 - **All day-boundaries are UTC** (streaks, claims, worker queries agree with each other).
   Copy says "midnight UTC". Per-user timezones are out of scope; `last_login_at` is used as
   a time-of-day proxy so the streak reminder lands near the user's usual hour.
-- Guests stay excluded from push/email by decision — the account *is* the notification
-  channel, which is why the nudge and the panel push guests toward upgrade.
+- Guests are excluded from push and email unless `guest_push_reminders_enabled` is on.
+  With it on, a guest who allowed notifications gets the streak-at-risk and
+  daily-challenge reminders by push. A guest has no email, so never an email or a
+  win-back. The ask is a "Remind me" row in the game-over panel, the one moment a
+  guest has just started a streak, because the browser shows its permission prompt
+  only from a click. A guest switches push off in Settings, where
+  `GET/PUT /api/users/me/preferences` lets them change `push_enabled` and nothing
+  else. With it off, the account is the only notification channel, which is why the
+  nudge and the panel push guests toward upgrade. Read guest reminders by joining
+  `retention_notifications` and `push_optin_granted` events to `users.is_guest`.
 - Emails are opt-in only; expect the win-back audience to grow slowly from new signups.
 - **A reminder takes a player's one slot for the day only if it can reach them**: a
   registered push device on a server with push configured (`FCM_SERVICE_ACCOUNT_PATH`),
@@ -147,8 +155,9 @@ tutorial→first-game conversion doesn't dip once the second CTA appears).
 
 ## Wave 3 backlog (not built — ordered by expected impact)
 
-1. **Guest push opt-in** — lift `rejectGuest` on push tokens if guest D1 stays weak after
-   Wave 1 (guests are the majority of first sessions and currently unreachable).
+1. **Guest push opt-in** — built behind `guest_push_reminders_enabled` (see Known
+   constraints). Guests could already register a browser; the flag puts them in the
+   sweep and asks them at the end of a game.
 2. **Weekly digest email** — rank changes, friend activity, season countdown (opt-in list).
 3. **Rivalry notifications** — "X just passed you on the weekly leaderboard" from existing
    `player_streaks`/friends data.

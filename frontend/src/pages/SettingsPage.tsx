@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useBackgroundMusicEnabled, useLocalizationEnabled, useEmailAccountSaveEnabled } from '../store/featureFlagsStore';
+import {
+  useBackgroundMusicEnabled,
+  useLocalizationEnabled,
+  useEmailAccountSaveEnabled,
+  useGuestPushRemindersEnabled,
+} from '../store/featureFlagsStore';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Settings,
@@ -82,6 +87,9 @@ export default function SettingsPage() {
   const emailSave = useEmailAccountSaveEnabled();
   const passwordless = user?.has_password === false;
   const isGuest = Boolean(user?.is_guest);
+  // guest_push_reminders_enabled: a guest gets push reminders, so they get the
+  // switch for them too (push only; a guest has no email).
+  const guestPushReminders = useGuestPushRemindersEnabled();
 
   // Language lives behind `localization_enabled` like every other localized
   // surface. useTranslation is what re-renders the row after a switch: the
@@ -325,10 +333,12 @@ export default function SettingsPage() {
         )}
 
         <SettingsSection title="Notifications" icon={Bell}>
-          {isGuest ? (
-            <SettingsGuestNotice message="Sign in with a full account to manage notification preferences." />
-          ) : (
+          {!isGuest ? (
             <NotificationPreferences embedded />
+          ) : guestPushReminders ? (
+            <NotificationPreferences embedded guest />
+          ) : (
+            <SettingsGuestNotice message="Sign in with a full account to manage notification preferences." />
           )}
         </SettingsSection>
 

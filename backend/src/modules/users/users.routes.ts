@@ -857,8 +857,12 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     return reply.send({ ...wornSlots(user), ratings });
   });
 
+  // Guests have no email, so with guest_push_reminders_enabled on they may
+  // read their preferences and switch push, and nothing else.
+  const rejectGuestUnlessPushReminders = rejectGuestUnless(() => featureFlags.guestPushRemindersEnabled);
+
   // ── GET /api/users/me/preferences ──────────────────────────────────────
-  fastify.get('/me/preferences', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+  fastify.get('/me/preferences', { preHandler: [authenticate, rejectGuestUnlessPushReminders] }, async (request, reply) => {
     // UPSERT default row if missing
     const prefs = await queryOne<{
       push_enabled: boolean;
@@ -904,12 +908,15 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     friend_requests_policy: z.enum(['everyone', 'friends_of_friends', 'nobody']).optional(),
   });
 
-  fastify.put('/me/preferences', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+  fastify.put('/me/preferences', { preHandler: [authenticate, rejectGuestUnlessPushReminders] }, async (request, reply) => {
     const parsed = UpdatePreferencesSchema.safeParse(request.body ?? {});
     if (!parsed.success) {
       return reply.status(400).send({ error: 'Invalid input' });
     }
     const body = parsed.data;
+    if (request.isGuest && Object.entries(body).some(([key, v]) => key !== 'push_enabled' && v !== undefined)) {
+      return reply.status(403).send({ error: 'Guest accounts can only change push notifications' });
+    }
     const updates: string[] = [];
     const values: unknown[] = [];
     let idx = 2; // $1 = user_id

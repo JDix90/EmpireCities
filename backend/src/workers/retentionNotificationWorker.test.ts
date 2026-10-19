@@ -19,10 +19,14 @@ vi.mock('../db/postgres', () => ({
 }));
 
 let flagOn = true;
+let guestFlagOn = false;
 vi.mock('../config/featureFlags', () => ({
   featureFlags: {
     get retentionNotificationsEnabled() {
       return flagOn;
+    },
+    get guestPushRemindersEnabled() {
+      return guestFlagOn;
     },
   },
 }));
@@ -61,6 +65,7 @@ describe('runRetentionSweep', () => {
     emailMock.mockReset();
     eventMock.mockReset();
     flagOn = true;
+    guestFlagOn = false;
     pushConfigured = true;
     queryMock.mockResolvedValue([]);
     queryOneMock.mockResolvedValue({ id: 'claim-1' }); // claim succeeds
@@ -169,12 +174,51 @@ describe('runRetentionSweep', () => {
     expect(pushMock).not.toHaveBeenCalled();
     // Both queries were told, so the database leaves those players out too.
     const [[streakSql, streakParams], [dailySql, dailyParams]] = queryMock.mock.calls as Array<[string, unknown[]]>;
-    expect(streakParams).toEqual([false]);
-    expect(dailyParams).toEqual([false]);
+    expect(streakParams).toEqual([false, false]);
+    expect(dailyParams).toEqual([false, false]);
     for (const sql of [streakSql, dailySql]) {
       expect(sql).toContain('EXISTS (SELECT 1 FROM push_tokens t WHERE t.user_id = u.user_id)');
     }
-    expect(streakSql).toContain('OR COALESCE(p.email_notifications, false)');
+    expect(streakSql).toContain('AND COALESCE(p.email_notifications, false))');
+  });
+
+  it('leaves guests out of every phase while guest_push_reminders_enabled is off', async () => {
+    await runRetentionSweep(17);
+    await runRetentionSweep(15);
+    const calls = queryMock.mock.calls as Array<[string, unknown[] | undefined]>;
+    const [[streakSql, streakParams], [dailySql, dailyParams]] = calls;
+    // The guest clause is there, and the flag passed to it is off.
+    for (const sql of [streakSql, dailySql]) {
+      expect(sql).toContain('(COALESCE(u.is_guest, false) = false OR $2::boolean)');
+    }
+    expect(streakParams).toEqual([true, false]);
+    expect(dailyParams).toEqual([true, false]);
+    // Win-back is email, which a guest has none of: excluded whatever the flag.
+    const winback = calls.filter(([sql]) => sql.includes("NOT LIKE '%@guest.local'"));
+    expect(winback).toHaveLength(2);
+    for (const [sql] of winback) expect(sql).toContain('WHERE COALESCE(u.is_guest, false) = false\n');
+  });
+
+  it('lets guests into the push phases, never by email, while the flag is on', async () => {
+    guestFlagOn = true;
+    await runRetentionSweep(17);
+    const [[streakSql, streakParams], [, dailyParams]] = queryMock.mock.calls as Array<[string, unknown[]]>;
+    expect(streakParams).toEqual([true, true]);
+    expect(dailyParams).toEqual([true, true]);
+    // The streak reminder's email branch, and the email_enabled column the
+    // send reads, both count accounts only.
+    expect(streakSql.match(/COALESCE\(u\.is_guest, false\) = false AND COALESCE\(p\.email_notifications, false\)/g))
+      .toHaveLength(2);
+  });
+
+  it('sends a guest the streak reminder by push', async () => {
+    guestFlagOn = true;
+    // As the query returns a guest: email_enabled is false for every guest.
+    queryMock.mockResolvedValueOnce([{ ...CANDIDATE, email_enabled: false }]);
+    const res = await runRetentionSweep(12);
+    expect(res.streak).toBe(1);
+    expect(pushMock).toHaveBeenCalledTimes(1);
+    expect(emailMock).not.toHaveBeenCalled();
   });
 
   it('keeps the claim (marks failed) when every channel fails', async () => {

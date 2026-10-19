@@ -122,6 +122,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   attack_blitz_enabled: () => envOptOut('ATTACK_BLITZ_ENABLED'),
   // Outbound email/push — production-only unless explicitly set.
   retention_notifications_enabled: () => envOrProdOnly('RETENTION_NOTIFICATIONS_ENABLED'),
+  guest_push_reminders_enabled: () => envOptIn('GUEST_PUSH_REMINDERS_ENABLED'),
   indexnow_enabled: () => envOptIn('INDEXNOW_ENABLED'),
   streak_freezes_enabled: () => envOptIn('STREAK_FREEZES_ENABLED'),
   today_panel_enabled: () => envOptIn('TODAY_PANEL_ENABLED'),
@@ -1034,6 +1035,19 @@ export const featureFlags = {
   },
 
   /**
+   * When true, guests who allowed notifications get the streak-at-risk and
+   * daily-challenge push reminders (workers/retentionNotificationWorker.ts),
+   * are asked for them at the end of a game, and can switch push off in
+   * Settings (the preferences routes open to guests for `push_enabled` only).
+   * A guest has no email, so never an email or a win-back. Dark-launched OFF:
+   * it reverses the earlier decision that the account is the notification
+   * channel (docs/RETENTION-PLAYBOOK.md).
+   */
+  get guestPushRemindersEnabled(): boolean {
+    return overrideBool('guest_push_reminders_enabled');
+  },
+
+  /**
    * When true, users can buy streak freezes (POST /progression/streak-freeze)
    * and the Today panel / comeback panel show freeze state. Consumption of an
    * already-held freeze in updateDailyStreak is deliberately NOT gated — once
@@ -1461,6 +1475,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     ranked_leaderboard_enabled: featureFlags.rankedLeaderboardEnabled,
     referral_survey_enabled: featureFlags.referralSurveyEnabled,
     player_links_play_enabled: featureFlags.playerLinksPlayEnabled,
+    guest_push_reminders_enabled: featureFlags.guestPushRemindersEnabled,
     daily_guest_play_enabled: featureFlags.dailyGuestPlayEnabled,
     guest_personal_features_enabled: featureFlags.guestPersonalFeaturesEnabled,
     streak_freezes_enabled: featureFlags.streakFreezesEnabled,

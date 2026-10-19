@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Flame, Coins, Swords, Snowflake } from 'lucide-react';
+import { Flame, Coins, Swords, Snowflake, BellRing } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { api } from '../../services/api';
+import { enableWebPush, getWebPushStatus, needsHomeScreenInstall } from '../../services/pushNotifications';
 import { guestLine } from '../../utils/guestGate';
-import { useGuestPromptV2Enabled } from '../../store/featureFlagsStore';
+import { getPushNudgeDismissedAt, markPushNudgeDismissed } from '../../utils/userPreferences';
+import { PUSH_NUDGE_SNOOZE_MS } from '../notifications/PushOptInBanner';
+import { useGuestPromptV2Enabled, useGuestPushRemindersEnabled } from '../../store/featureFlagsStore';
 import { useSaveAccountCopyEnabled } from '../../store/featureFlagsStore';
 
 interface ComebackData {
@@ -27,6 +31,7 @@ interface ComebackData {
 export default function ComeBackTomorrowPanel({ className }: { className?: string }) {
   const [data, setData] = useState<ComebackData | null>(null);
   const guestCopy = guestLine(useGuestPromptV2Enabled(), useSaveAccountCopyEnabled());
+  const guestReminders = useGuestPushRemindersEnabled();
 
   useEffect(() => {
     let cancelled = false;
@@ -98,6 +103,77 @@ export default function ComeBackTomorrowPanel({ className }: { className?: strin
           </span>
         </p>
       )}
+
+      {/* Only with a streak: it is what the reminders protect, and a game that
+          set none (a resignation) leaves the guest out of both of them. */}
+      {data.is_guest && guestReminders && data.daily_streak > 0 && <ReminderAsk />}
+    </div>
+  );
+}
+
+/**
+ * A guest's one way to hear from us: browser notifications (no email). Asked
+ * here, at the end of a game with a streak just started, because the browser
+ * shows its permission prompt only from a click. Shown only when the click can
+ * lead somewhere, and "Not now" shares the 30-day snooze with the lobby card
+ * and the after-turn prompt. On an iPhone tab, where web push exists only in a
+ * Home Screen app, it gives that advice instead.
+ */
+function ReminderAsk() {
+  const [status, setStatus] = useState(() => getWebPushStatus());
+  const [dismissed, setDismissed] = useState(() => {
+    const at = getPushNudgeDismissedAt();
+    return at !== null && Date.now() - at < PUSH_NUDGE_SNOOZE_MS;
+  });
+  const [busy, setBusy] = useState(false);
+
+  const iosTab = status === 'unsupported' && needsHomeScreenInstall();
+  if (dismissed || (status !== 'default' && !iosTab)) return null;
+
+  const dismiss = () => {
+    markPushNudgeDismissed();
+    setDismissed(true);
+  };
+
+  const turnOn = async () => {
+    setBusy(true);
+    try {
+      // enableWebPush prompts synchronously inside this click — see its doc.
+      const result = await enableWebPush();
+      if (result === 'granted') {
+        toast.success("We'll remind you before your streak ends");
+      } else if (result === 'denied') {
+        toast.error('Notifications are blocked for this site in your browser settings');
+      } else if (result === 'error') {
+        toast.error("Couldn't turn on reminders — try again from Settings");
+      }
+      // 'default': the prompt was closed without a choice; the row stays.
+      setStatus(result === 'granted' || result === 'denied' ? result : getWebPushStatus());
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="pt-1 space-y-2" role="region" aria-label="Reminders">
+      <p className="text-sm text-white/80 flex items-start gap-2">
+        <BellRing size={15} className="text-bf-gold mt-0.5 shrink-0" aria-hidden />
+        <span>
+          {iosTab
+            ? 'Want a reminder tomorrow? Add Borderfall to your Home Screen (Share → Add to Home Screen), then turn notifications on in Settings there.'
+            : 'Want a reminder tomorrow? One notification on this device before your streak ends, never more than one a day.'}
+        </span>
+      </p>
+      <div className="flex items-center gap-2 pl-[23px]">
+        {!iosTab && (
+          <button type="button" className="btn-primary text-sm py-1.5" onClick={turnOn} disabled={busy}>
+            {busy ? 'Turning on…' : 'Remind me'}
+          </button>
+        )}
+        <button type="button" className="btn-secondary text-sm py-1.5" onClick={dismiss}>
+          {iosTab ? 'Got it' : 'Not now'}
+        </button>
+      </div>
     </div>
   );
 }

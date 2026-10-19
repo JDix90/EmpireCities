@@ -21,9 +21,14 @@ export const TEST_PUSH_DELAY_MS = 5_000;
 interface NotificationPreferencesProps {
   /** When true, omit outer card wrapper (Settings page uses SettingsSection). */
   embedded?: boolean;
+  /**
+   * A guest (guest_push_reminders_enabled): push only. A guest has no email,
+   * and the server refuses them every other preference.
+   */
+  guest?: boolean;
 }
 
-export default function NotificationPreferences({ embedded = false }: NotificationPreferencesProps) {
+export default function NotificationPreferences({ embedded = false, guest = false }: NotificationPreferencesProps) {
   const [pushEnabled, setPushEnabled] = useState(true);
   // Transactional ("it's your turn") and marketing ("streak reminders and
   // comeback bonuses") are separate switches — see migration 041. They used
@@ -140,7 +145,11 @@ export default function NotificationPreferences({ embedded = false }: Notificati
         <SettingsRow
           icon={Smartphone}
           label="This browser"
-          description="Turn alerts arrive here as system notifications, even with the tab closed."
+          description={
+            guest
+              ? 'Reminders and turn alerts arrive here as system notifications, even with the tab closed.'
+              : 'Turn alerts arrive here as system notifications, even with the tab closed.'
+          }
         >
           <div className="flex items-center gap-2">
             <span className="text-xs text-green-400">On</span>
@@ -160,7 +169,11 @@ export default function NotificationPreferences({ embedded = false }: Notificati
       <SettingsRow
         icon={Smartphone}
         label="This browser"
-        description="Get a system notification when it's your turn, even with the tab closed."
+        description={
+          guest
+            ? "Get a system notification before your streak ends or when it's your turn, even with the tab closed."
+            : "Get a system notification when it's your turn, even with the tab closed."
+        }
       >
         <button
           type="button"
@@ -179,7 +192,11 @@ export default function NotificationPreferences({ embedded = false }: Notificati
       <SettingsRow
         icon={Bell}
         label="Push Notifications"
-        description="Get notified when it's your turn in async games or a ranked match is found"
+        description={
+          guest
+            ? "Streak and Daily Challenge reminders (at most one a day), and your turn in async games"
+            : "Get notified when it's your turn in async games or a ranked match is found"
+        }
       >
         <SettingsToggle
           label="Push Notifications"
@@ -191,34 +208,38 @@ export default function NotificationPreferences({ embedded = false }: Notificati
         />
       </SettingsRow>
       {browserRow}
-      <SettingsRow
-        icon={Mail}
-        label="Turn reminders"
-        description="Email me when it's my turn in an async game"
-      >
-        <SettingsToggle
-          label="Turn reminders"
-          checked={turnEmailsEnabled}
-          onChange={(checked) => {
-            setTurnEmailsEnabled(checked);
-            update('turn_emails_enabled', checked);
-          }}
-        />
-      </SettingsRow>
-      <SettingsRow
-        icon={Gift}
-        label="Streak reminders & comeback bonuses"
-        description="Occasional emails about your streak and comeback bonuses — the box from signup. Unsubscribe anytime."
-      >
-        <SettingsToggle
-          label="Streak reminders & comeback bonuses"
-          checked={emailEnabled}
-          onChange={(checked) => {
-            setEmailEnabled(checked);
-            update('email_notifications', checked);
-          }}
-        />
-      </SettingsRow>
+      {!guest && (
+        <>
+          <SettingsRow
+            icon={Mail}
+            label="Turn reminders"
+            description="Email me when it's my turn in an async game"
+          >
+            <SettingsToggle
+              label="Turn reminders"
+              checked={turnEmailsEnabled}
+              onChange={(checked) => {
+                setTurnEmailsEnabled(checked);
+                update('turn_emails_enabled', checked);
+              }}
+            />
+          </SettingsRow>
+          <SettingsRow
+            icon={Gift}
+            label="Streak reminders & comeback bonuses"
+            description="Occasional emails about your streak and comeback bonuses — the box from signup. Unsubscribe anytime."
+          >
+            <SettingsToggle
+              label="Streak reminders & comeback bonuses"
+              checked={emailEnabled}
+              onChange={(checked) => {
+                setEmailEnabled(checked);
+                update('email_notifications', checked);
+              }}
+            />
+          </SettingsRow>
+        </>
+      )}
     </div>
   );
 

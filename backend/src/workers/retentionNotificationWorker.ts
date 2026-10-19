@@ -10,9 +10,10 @@
 //   c) D2 / D7 win-back email     — lapsed, email opt-in only
 // Hard guarantees: max ONE outbound notification per user per UTC
 // day (UNIQUE (user_id, sent_on) in retention_notifications), all
-// queries exclude guests and banned users, emails only go to
-// email_notifications opt-ins, and each phase is capped per sweep
-// so a query bug can never blast the whole user table.
+// queries exclude banned users, and guests unless
+// guest_push_reminders_enabled lets push reach them (never email),
+// emails only go to email_notifications opt-ins, and each phase is
+// capped per sweep so a query bug can never blast the whole user table.
 // ============================================================
 
 import { Queue, Worker } from 'bullmq';
@@ -59,10 +60,16 @@ type Candidate = {
   has_push_token: boolean;
 };
 
+/**
+ * SQL: the player opted in to email. Only an account has an address; a guest's
+ * placeholder ends in @guest.local, and sendEngagementEmail refuses it.
+ */
+const EMAIL_OPT_IN_SQL = `(COALESCE(u.is_guest, false) = false AND COALESCE(p.email_notifications, false))`;
+
 /** The candidate columns every phase selects. */
 const CANDIDATE_COLUMNS = `u.user_id, COALESCE(u.daily_streak, 0) AS daily_streak,
             COALESCE(p.push_enabled, true) AS push_enabled,
-            COALESCE(p.email_notifications, false) AS email_enabled,
+            ${EMAIL_OPT_IN_SQL} AS email_enabled,
             EXISTS (SELECT 1 FROM push_tokens t WHERE t.user_id = u.user_id) AS has_push_token`;
 
 /**
@@ -72,6 +79,13 @@ const CANDIDATE_COLUMNS = `u.user_id, COALESCE(u.daily_streak, 0) AS daily_strea
 const PUSH_REACHABLE_SQL = `($1::boolean
          AND COALESCE(p.push_enabled, true)
          AND EXISTS (SELECT 1 FROM push_tokens t WHERE t.user_id = u.user_id))`;
+
+/**
+ * SQL: an account, or a guest while `$2` (guest_push_reminders_enabled) is on.
+ * A guest has no email (EMAIL_OPT_IN_SQL), so a guest is reached by push or
+ * not at all, and is never a win-back candidate.
+ */
+const ACCOUNT_OR_ALLOWED_GUEST_SQL = `(COALESCE(u.is_guest, false) = false OR $2::boolean)`;
 
 /**
  * Claim the user's one-per-day notification slot. Returns false when someone
@@ -167,25 +181,25 @@ function trackedUrl(path: string, trigger: RetentionTrigger): string {
 // never pings someone who was on the site within the last 20 hours. All date
 // math is UTC on purpose — updateDailyStreak keys streaks on UTC dates, so the
 // reminder and the streak logic always agree on what "today" means.
-async function sweepStreakAtRisk(pushReady: boolean): Promise<number> {
+async function sweepStreakAtRisk(pushReady: boolean, guests: boolean): Promise<number> {
   // Only players a push or an email can reach: the rest are never claimed, so
   // left in they would come back every hour and could fill SWEEP_LIMIT.
   const candidates = await query<Candidate>(
     `SELECT ${CANDIDATE_COLUMNS}
      FROM users u
      LEFT JOIN user_preferences p ON p.user_id = u.user_id
-     WHERE COALESCE(u.is_guest, false) = false
+     WHERE ${ACCOUNT_OR_ALLOWED_GUEST_SQL}
        AND COALESCE(u.is_banned, false) = false
        AND COALESCE(u.daily_streak, 0) >= 1
        AND u.last_played_date = CURRENT_DATE - 1
        AND u.last_login_at <= NOW() - INTERVAL '20 hours'
-       AND (${PUSH_REACHABLE_SQL} OR COALESCE(p.email_notifications, false))
+       AND (${PUSH_REACHABLE_SQL} OR ${EMAIL_OPT_IN_SQL})
        AND NOT EXISTS (
          SELECT 1 FROM retention_notifications rn
          WHERE rn.user_id = u.user_id AND rn.sent_on = CURRENT_DATE
        )
      LIMIT ${SWEEP_LIMIT}`,
-    [pushReady],
+    [pushReady, guests],
   );
 
   let sent = 0;
@@ -216,13 +230,13 @@ async function sweepStreakAtRisk(pushReady: boolean): Promise<number> {
 }
 
 // ── Phase b: daily-challenge reminder (one UTC hour, push-first) ─────────────
-async function sweepDailyChallenge(pushReady: boolean): Promise<number> {
+async function sweepDailyChallenge(pushReady: boolean, guests: boolean): Promise<number> {
   // Push only, so only players a push can reach.
   const candidates = await query<Candidate>(
     `SELECT ${CANDIDATE_COLUMNS}
      FROM users u
      LEFT JOIN user_preferences p ON p.user_id = u.user_id
-     WHERE COALESCE(u.is_guest, false) = false
+     WHERE ${ACCOUNT_OR_ALLOWED_GUEST_SQL}
        AND COALESCE(u.is_banned, false) = false
        AND u.last_played_date BETWEEN CURRENT_DATE - 3 AND CURRENT_DATE - 1
        AND ${PUSH_REACHABLE_SQL}
@@ -235,7 +249,7 @@ async function sweepDailyChallenge(pushReady: boolean): Promise<number> {
          WHERE rn.user_id = u.user_id AND rn.sent_on = CURRENT_DATE
        )
      LIMIT ${SWEEP_LIMIT}`,
-    [pushReady],
+    [pushReady, guests],
   );
 
   let sent = 0;
@@ -306,9 +320,10 @@ export async function runRetentionSweep(nowUtcHour?: number): Promise<{ streak: 
   }
   const hour = nowUtcHour ?? new Date().getUTCHours();
   const pushReady = await isPushConfigured();
+  const guests = featureFlags.guestPushRemindersEnabled;
 
-  const streak = await sweepStreakAtRisk(pushReady);
-  const daily = hour === DAILY_CHALLENGE_UTC_HOUR ? await sweepDailyChallenge(pushReady) : 0;
+  const streak = await sweepStreakAtRisk(pushReady, guests);
+  const daily = hour === DAILY_CHALLENGE_UTC_HOUR ? await sweepDailyChallenge(pushReady, guests) : 0;
   let winback = 0;
   if (hour === WINBACK_UTC_HOUR) {
     winback = (await sweepWinback(2)) + (await sweepWinback(7));
