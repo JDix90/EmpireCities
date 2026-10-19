@@ -131,7 +131,10 @@ Priority order:
 6. **Activate the built-in loops** — surface the **referral bonus** (50/25 gold) and the
    **post-game share card** in-product. Share-card, invite and referral links are counted
    under **Shared by players** without any tags; add `utm_campaign` to a link only to tell
-   one campaign's shares apart. Each signup then seeds more.
+   one campaign's shares apart. Each signup then seeds more. Switch on
+   `player_links_play_enabled` (Admin → Config, "Player links lead into play") so those
+   links lead into a game: an invitee can join as a guest, a referral link applies its code
+   when the visitor saves an account, and a shared replay shows a Play free button.
    (`referralService.ts`, `frontend/src/utils/shareCard.ts`, `ChallengeFriendModal.tsx`.)
 
 ---
