@@ -7,6 +7,7 @@ import * as Sentry from '@sentry/react';
 import App from './App';
 import './index.css';
 import { captureAttribution } from './utils/attribution';
+import { capturePendingReferral } from './utils/pendingReferral';
 import { applyLocalizationPolicy } from './i18n';
 import { notifyEmbedderReady } from './utils/embedContext';
 import { useFeatureFlagsStore } from './store/featureFlagsStore';
@@ -15,6 +16,8 @@ import { installTranslationDomGuard } from './utils/translationDomGuard';
 // Snapshot first-touch acquisition attribution (utm_* / referrer) before render,
 // so it's available for the first guest/register call. See utils/attribution.ts.
 captureAttribution();
+// Keep a referral link's code until the visitor makes or saves an account.
+capturePendingReferral();
 
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN as string | undefined;
 // The deployed commit, baked in at build time (scripts/deploy-production.sh).

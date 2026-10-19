@@ -130,6 +130,17 @@ interface AuthState {
   refreshUser: () => Promise<void>;
 }
 
+/**
+ * A referral link's code, kept from the visit that carried it, applies to the
+ * account just made or saved (utils/pendingReferral.ts). Loaded on demand and
+ * never awaited: it must not hold up or fail the signup.
+ */
+function redeemReferralAfterSignup(): void {
+  void import('../utils/pendingReferral')
+    .then((m) => m.redeemPendingReferral())
+    .catch(() => {});
+}
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -173,6 +184,7 @@ export const useAuthStore = create<AuthState>()(
           } catch { /* ignore */ }
           set({ user, accessToken, isAuthenticated: true, isLoading: false, bootstrapped: true });
           resyncSocketAuth();
+          redeemReferralAfterSignup();
         } catch (err) {
           set({ isLoading: false });
           throw err;
@@ -209,6 +221,7 @@ export const useAuthStore = create<AuthState>()(
           // The singleton socket still authenticates with the guest JWT;
           // reconnect so the server sees the full-account identity.
           resyncSocketAuth();
+          redeemReferralAfterSignup();
         } catch (err) {
           set({ isLoading: false });
           throw err;
