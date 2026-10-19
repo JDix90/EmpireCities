@@ -9,6 +9,7 @@ import { api } from './services/api';
 import { mergeServerTutorialModules } from './tutorial/progression';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { useAuthStoreHydrated } from './hooks/useAuthStoreHydrated';
+import { useDailyVisit } from './hooks/useDailyVisit';
 import { ownAuthUiAllowed } from './utils/embedContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import GlobalMatchNotifier from './components/notifications/GlobalMatchNotifier';
@@ -347,6 +348,10 @@ export default function App() {
         .catch(() => {});
     }
   }, [isAuthenticated, user]);
+
+  // A signed-in player opening the game: once a UTC day, for the return and
+  // active-player counts in Admin → Analytics.
+  useDailyVisit();
 
   // PWA install attribution (fires when the user adds the app to their home
   // screen). Best-effort: 401s for signed-out users are swallowed.

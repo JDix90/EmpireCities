@@ -94,6 +94,19 @@ describe('POST /api/analytics/ui-event', () => {
     await app.close();
   });
 
+  it("accepts app_opened, a player's daily visit, against the signed-in player", async () => {
+    const app = await build();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/analytics/ui-event',
+      payload: { event: 'app_opened', properties: { device: 'phone' } },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(recordServerEventMock).toHaveBeenCalledWith('app_opened', { device: 'phone' }, 'user-1');
+    await app.close();
+  });
+
   it('still rejects a name that is not on the allowlist', async () => {
     const app = await build();
     const res = await app.inject({
