@@ -7,6 +7,7 @@ import { Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { normalizeEmail, normalizeIdentifier } from '../utils/emailNormalize';
 import BrandWordmark from '../components/ui/BrandWordmark';
 import SaveWithEmailForm from '../components/account/SaveWithEmailForm';
+import ReferralGoldNote from '../components/account/ReferralGoldNote';
 import { useEmailAccountSaveEnabled } from '../store/featureFlagsStore';
 import { useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
 
@@ -185,6 +186,7 @@ export default function UpgradePage() {
               <span>. This just makes them permanent.</span>
             </span>
           </div>
+          <ReferralGoldNote action="save" />
 
           {emailSave ? (
             <SaveWithEmailForm onDone={() => navigate('/lobby')} />

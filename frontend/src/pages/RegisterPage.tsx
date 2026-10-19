@@ -7,6 +7,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { sanitizePostAuthRedirect } from '../utils/navRedirect';
 import { normalizeEmail, normalizeIdentifier } from '../utils/emailNormalize';
 import BrandWordmark from '../components/ui/BrandWordmark';
+import ReferralGoldNote from '../components/account/ReferralGoldNote';
 
 const AGE_GATE_KEY = 'cc-age-verified';
 const MIN_AGE = 13;
@@ -150,6 +151,7 @@ export default function RegisterPage() {
               Your session ended. Create an account or sign in — you can continue from the lobby after registering.
             </div>
           )}
+          <ReferralGoldNote action="create" />
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="label">Username</label>
