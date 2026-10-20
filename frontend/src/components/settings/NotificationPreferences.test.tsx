@@ -167,5 +167,23 @@ describe('NotificationPreferences', () => {
       expect(row()).not.toBeInTheDocument();
     });
   });
+  describe('for a guest (guest_push_reminders_enabled)', () => {
+    it('shows the push switch and this browser, and no email rows', async () => {
+      push.status = 'default';
+      render(<NotificationPreferences embedded guest />);
+      expect(await checkbox('Push Notifications')).toBeInTheDocument();
+      expect(screen.getByText(/Streak and Daily Challenge reminders/)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Turn on' })).toBeInTheDocument();
+      expect(screen.queryByRole('checkbox', { name: 'Turn reminders' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('checkbox', { name: 'Streak reminders & comeback bonuses' })).not.toBeInTheDocument();
+    });
+
+    it('switching push off saves only push_enabled, the one preference a guest may change', async () => {
+      render(<NotificationPreferences embedded guest />);
+      fireEvent.click(await checkbox('Push Notifications'));
+      await waitFor(() => expect(apiPut).toHaveBeenCalledWith('/users/me/preferences', { push_enabled: false }));
+      expect(apiPut).toHaveBeenCalledTimes(1);
+    });
+  });
 });
 

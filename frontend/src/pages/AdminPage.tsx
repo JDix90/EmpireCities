@@ -97,6 +97,12 @@ const CLIENT_FEATURE_FLAGS = [
       'The links players share bring their friends straight into a game. A signed-out player opening a Challenge a Friend invite can join as a guest instead of being sent to registration; a referral link applies its code (25 gold to the new player, 50 to the friend after three games) once the visitor makes or saves an account, and the save and register pages say so; and a shared replay offers signed-out viewers a Play free button. Off by default; switching it off gives all three links exactly as before.',
   },
   {
+    key: 'guest_push_reminders_enabled',
+    label: 'Push reminders for guests',
+    description:
+      "Guests who allow notifications get the same streak-at-risk and Daily Challenge push reminders as accounts, never an email. The end of a guest's game asks them (Remind me / Not now), and their Settings gets the push switch. Every player still gets at most one reminder a day. Off by default; switching it off stops guest reminders at the next hourly sweep and removes the ask.",
+  },
+  {
     key: 'daily_guest_play_enabled',
     label: 'Daily Challenge for guests',
     description:

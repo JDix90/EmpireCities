@@ -12,7 +12,7 @@ vi.mock('../services/api', () => ({
 }));
 
 vi.mock('../components/settings/NotificationPreferences', () => ({
-  default: () => <div />,
+  default: ({ guest }: { guest?: boolean }) => <div data-testid="notification-preferences" data-guest={String(Boolean(guest))} />,
 }));
 
 function setFlag(on: boolean) {
@@ -108,5 +108,42 @@ describe('SettingsPage — battery saver', () => {
     localStorage.setItem('cc-battery-saver', 'true');
     renderPage();
     expect((screen.getByLabelText('Battery saver') as HTMLInputElement).checked).toBe(true);
+  });
+});
+
+describe('SettingsPage — notifications for a guest', () => {
+  const setGuestPush = (on: boolean) => {
+    const st = useFeatureFlagsStore.getState();
+    useFeatureFlagsStore.setState({ ...st, flags: { ...st.flags, guest_push_reminders_enabled: on } });
+  };
+
+  beforeEach(() => {
+    useAuthStore.setState({
+      user: { user_id: 'g1', username: 'SwiftFalcon_48213', is_guest: true } as never,
+      isAuthenticated: true,
+    } as never);
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+    }) as unknown as typeof window.matchMedia;
+  });
+
+  afterEach(() => setGuestPush(false));
+
+  it('says to sign in, as before, with guest_push_reminders_enabled off', () => {
+    setGuestPush(false);
+    renderPage();
+    expect(screen.getByText('Sign in with a full account to manage notification preferences.')).toBeInTheDocument();
+    expect(screen.queryByTestId('notification-preferences')).not.toBeInTheDocument();
+  });
+
+  it('gives a guest the push-only preferences with it on', () => {
+    setGuestPush(true);
+    renderPage();
+    expect(screen.getByTestId('notification-preferences')).toHaveAttribute('data-guest', 'true');
+    expect(screen.queryByText('Sign in with a full account to manage notification preferences.')).not.toBeInTheDocument();
   });
 });
