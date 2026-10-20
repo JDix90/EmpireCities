@@ -78,10 +78,12 @@ It restores into a throwaway Postgres container with no network, prints restored
 
 ```bash
 docker compose -f docker/docker-compose.prod.yml --env-file .env.production up -d postgres
-docker exec -i borderfall_postgres_prod pg_restore -U chronouser -d borderfall \
-  --no-owner --no-privileges --exit-on-error < postgres_YYYYMMDD_HHMMSS.dump
+docker exec -i borderfall_postgres_prod sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+  --no-owner --no-privileges --exit-on-error' < postgres_YYYYMMDD_HHMMSS.dump
 ./scripts/deploy-production.sh
 ```
+
+The user and database come from the container, which Compose started with the values in `.env.production`. The single quotes matter: they keep the host shell from expanding `$POSTGRES_USER`, which is unset there. The `chronouser` default applies only when `.env.production` sets no user, so a hard-coded `-U chronouser` fails with `role "chronouser" does not exist` on a server that sets one.
 
 **2. Quick load test** (read-only, safe against prod — see [scripts/loadtest.js](../scripts/loadtest.js)):
 
