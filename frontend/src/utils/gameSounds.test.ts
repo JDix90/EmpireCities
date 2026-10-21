@@ -62,6 +62,33 @@ describe('sound effects and the audio device', () => {
     expect(ctx.resume).toHaveBeenCalledTimes(1);
   });
 
+  it('skips the sound, quietly, when the browser cannot start the audio device', async () => {
+    // Chrome rejects resume() with "Failed to start the audio device" when no
+    // output is available. Uncaught, each one reached Sentry as an error.
+    const unhandled = vi.fn();
+    process.on('unhandledRejection', unhandled);
+    try {
+      const { playAbilityConfirmSound, SFX_IDLE_SUSPEND_MS } = await import('./gameSounds');
+      playAbilityConfirmSound();
+      vi.advanceTimersByTime(SFX_IDLE_SUSPEND_MS + 200);
+      await Promise.resolve();
+      // A plain function, not vi.fn: a mock watches the promise it returns,
+      // which counts as handling the rejection and would hide the bug.
+      let refused = 0;
+      (ctxs[0] as unknown as { resume: () => Promise<void> }).resume = () => {
+        refused += 1;
+        return Promise.reject(new DOMException('Failed to start the audio device', 'InvalidStateError'));
+      };
+      expect(() => playAbilityConfirmSound()).not.toThrow();
+      expect(refused).toBe(1);
+      vi.useRealTimers();
+      await new Promise((r) => setTimeout(r, 20));
+      expect(unhandled).not.toHaveBeenCalled();
+    } finally {
+      process.off('unhandledRejection', unhandled);
+    }
+  });
+
   it('keeps a context that is busy with sounds running', async () => {
     const { playAbilityConfirmSound, SFX_IDLE_SUSPEND_MS } = await import('./gameSounds');
     for (let i = 0; i < 5; i++) {

@@ -245,6 +245,35 @@ describe('BackgroundMusicEngine', () => {
     engine.stop();
   });
 
+  it('stays silent, quietly, when the browser cannot start the audio device', async () => {
+    // Chrome rejects resume() (and can reject suspend()) with "Failed to start
+    // the audio device" when no output is available. Uncaught, each one
+    // reached Sentry as an error.
+    const unhandled = vi.fn();
+    process.on('unhandledRejection', unhandled);
+    try {
+      const engine = new BackgroundMusicEngine();
+      engine.start('space_age');
+      // Plain functions, not vi.fn: a mock watches the promise it returns,
+      // which counts as handling the rejection and would hide the bug.
+      let refused = 0;
+      const refuse = () => {
+        refused += 1;
+        return Promise.reject(new DOMException('Failed to start the audio device', 'InvalidStateError'));
+      };
+      Object.assign(StubAudioContext.last!, { resume: refuse, suspend: refuse });
+      engine.setVisible(false);
+      engine.setVisible(true);
+      expect(refused).toBe(2);
+      engine.stop();
+      vi.useRealTimers();
+      await new Promise((r) => setTimeout(r, 20));
+      expect(unhandled).not.toHaveBeenCalled();
+    } finally {
+      process.off('unhandledRejection', unhandled);
+    }
+  });
+
   it('suspends the clock while the tab is hidden and resumes on return', () => {
     const engine = new BackgroundMusicEngine();
     engine.start('space_age');
