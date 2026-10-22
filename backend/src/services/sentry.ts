@@ -4,6 +4,15 @@ import { config } from '../config';
 let initialized = false;
 
 /**
+ * Spans not worth sending. A BullMQ worker waits for its next job in a
+ * blocking BZPOPMIN that returns after up to 10s with nothing to do, so each
+ * worker records one of these every ~10s, all day. They were the top span by
+ * total duration in the weekly report (21 days of waiting a week) and say
+ * nothing about how fast the game is.
+ */
+export const IGNORED_SPANS: RegExp[] = [/\bbzpopmin\b/i];
+
+/**
  * Report server errors to Sentry when SENTRY_DSN is set; a no-op otherwise.
  *
  * Three routes in: the process-level handlers in index.ts (crashes and dropped
@@ -21,6 +30,7 @@ export function initSentry(): void {
     environment: config.nodeEnv,
     tracesSampleRate: config.nodeEnv === 'production' ? 0.2 : 1.0,
     integrations: [Sentry.captureConsoleIntegration({ levels: ['error'] })],
+    ignoreSpans: IGNORED_SPANS,
   });
   initialized = true;
 }

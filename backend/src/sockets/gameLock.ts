@@ -1,4 +1,4 @@
-import Redlock from 'redlock';
+import Redlock, { ResourceLockedError } from 'redlock';
 import { redis } from '../db/redis';
 
 export const redlock = new Redlock([redis], {
@@ -8,11 +8,20 @@ export const redlock = new Redlock([redis], {
   automaticExtensionThreshold: 1000,
 });
 
-redlock.on('error', (err) => {
-  if (!String(err).includes('LockError')) {
-    console.error('[Redlock] Unexpected error:', err);
-  }
-});
+/**
+ * Redlock emits an error for every attempt that fails, retries included. A
+ * game that is busy (a bot or away-AI turn holds the lock for its whole turn)
+ * fails with ResourceLockedError; that is the lock doing its job, and the
+ * caller gets an ExecutionError of its own if the retries run out. Logging it
+ * as an error sent each one to Sentry: the old check looked for the text
+ * "LockError", which "ResourceLockedError" does not contain.
+ */
+export function onRedlockError(err: unknown): void {
+  if (err instanceof ResourceLockedError) return;
+  console.error('[Redlock] Unexpected error:', err);
+}
+
+redlock.on('error', onRedlockError);
 
 /**
  * Acquire the per-game mutex, run fn, release.
