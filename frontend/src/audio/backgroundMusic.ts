@@ -301,7 +301,9 @@ export class BackgroundMusicEngine {
       return false;
     }
     const ctx = this.ctx;
-    if (ctx.state === 'suspended') void ctx.resume();
+    // Rejects when the browser cannot open an output device (none attached,
+    // or it just went away): the music stays silent, which is all there is to do.
+    if (ctx.state === 'suspended') void ctx.resume().catch(() => {});
 
     // master (user volume) ← soft clip ← bed (fixed level) ← presence (duck)
     //   ← { filter ← padBus, bellBus ; combatBus (unfiltered) }
@@ -426,12 +428,12 @@ export class BackgroundMusicEngine {
   setVisible(visible: boolean): void {
     if (!this.running || !this.ctx) return;
     if (visible) {
-      void this.ctx.resume();
+      void this.ctx.resume().catch(() => {});
       this.nextStepTime = this.ctx.currentTime + 0.05;
       this.startScheduler();
     } else {
       this.stopScheduler();
-      void this.ctx.suspend();
+      void this.ctx.suspend().catch(() => {});
     }
   }
 

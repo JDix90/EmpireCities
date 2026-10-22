@@ -41,7 +41,9 @@ function getAudioContext(): AudioContext | null {
     audioCtx = new Ctx();
   }
   if (audioCtx.state === 'suspended') {
-    void audioCtx.resume();
+    // Rejects when the browser cannot open an output device (none attached,
+    // or it just went away): the sound is skipped, which is all there is to do.
+    void audioCtx.resume().catch(() => {});
   }
   suspendWhenIdle(audioCtx);
   return audioCtx;
