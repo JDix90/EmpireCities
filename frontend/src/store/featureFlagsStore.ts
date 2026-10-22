@@ -98,8 +98,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   referral_survey_enabled: false,
   // Dark-launched OFF: invite, referral and shared-replay links lead into play.
   player_links_play_enabled: false,
-  // Dark-launched OFF: guests are asked for, and get, push streak and daily reminders.
-  guest_push_reminders_enabled: false,
+  // Guests are asked for, and get, push streak and daily reminders. On by default; admin kill switch.
+  guest_push_reminders_enabled: true,
   // Guests may play the Daily (registered players are the only ones ranked).
   daily_guest_play_enabled: true,
   // Guests see and use their own achievements, cosmetics, gold and settings. On by default; admin kill switch.

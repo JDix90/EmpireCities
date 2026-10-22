@@ -27,11 +27,14 @@ const PERSONAL: Array<{ method: 'GET' | 'PUT' | 'POST'; url: string; payload?: R
   { method: 'POST', url: '/api/users/me/tutorial-modules/core' },
 ];
 
-/** Routes that still need an account whatever the flag says. */
+/**
+ * Routes that still need an account whatever the flag says. Notification
+ * settings are left out: guest_push_reminders_enabled decides those
+ * (guestPreferencesRoutes.test.ts).
+ */
 const ACCOUNT_ONLY: Array<{ method: 'GET' | 'PUT'; url: string; payload?: Record<string, unknown> }> = [
   { method: 'GET', url: '/api/users/me/friends' },
   { method: 'GET', url: '/api/users/me/game-invites' },
-  { method: 'GET', url: '/api/users/me/preferences' },
 ];
 
 describe('a guest\'s own things', () => {
@@ -75,7 +78,7 @@ describe('a guest\'s own things', () => {
     }
   });
 
-  it('keeps friends, invites and notification settings account-only with the flag on', async () => {
+  it('keeps friends and invites account-only with the flag on', async () => {
     setFlag(true);
     for (const route of ACCOUNT_ONLY) {
       expect((await call(route)).statusCode, `${route.method} ${route.url}`).toBe(403);

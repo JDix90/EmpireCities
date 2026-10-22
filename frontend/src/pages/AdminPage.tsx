@@ -100,7 +100,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'guest_push_reminders_enabled',
     label: 'Push reminders for guests',
     description:
-      "Guests who allow notifications get the same streak-at-risk and Daily Challenge push reminders as accounts, never an email. The end of a guest's game asks them (Remind me / Not now), and their Settings gets the push switch. Every player still gets at most one reminder a day. Off by default; switching it off stops guest reminders at the next hourly sweep and removes the ask.",
+      "Guests who allow notifications get the same streak-at-risk and Daily Challenge push reminders as accounts, never an email. The end of a guest's game asks them (Remind me / Not now), and their Settings gets the push switch. Every player still gets at most one reminder a day. On by default; switching it off stops guest reminders at the next hourly sweep and removes the ask.",
   },
   {
     key: 'daily_guest_play_enabled',

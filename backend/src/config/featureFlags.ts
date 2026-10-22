@@ -122,7 +122,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   attack_blitz_enabled: () => envOptOut('ATTACK_BLITZ_ENABLED'),
   // Outbound email/push — production-only unless explicitly set.
   retention_notifications_enabled: () => envOrProdOnly('RETENTION_NOTIFICATIONS_ENABLED'),
-  guest_push_reminders_enabled: () => envOptIn('GUEST_PUSH_REMINDERS_ENABLED'),
+  guest_push_reminders_enabled: () => envOptOut('GUEST_PUSH_REMINDERS_ENABLED'),
   indexnow_enabled: () => envOptIn('INDEXNOW_ENABLED'),
   streak_freezes_enabled: () => envOptIn('STREAK_FREEZES_ENABLED'),
   today_panel_enabled: () => envOptIn('TODAY_PANEL_ENABLED'),
@@ -1039,9 +1039,10 @@ export const featureFlags = {
    * daily-challenge push reminders (workers/retentionNotificationWorker.ts),
    * are asked for them at the end of a game, and can switch push off in
    * Settings (the preferences routes open to guests for `push_enabled` only).
-   * A guest has no email, so never an email or a win-back. Dark-launched OFF:
-   * it reverses the earlier decision that the account is the notification
-   * channel (docs/RETENTION-PLAYBOOK.md).
+   * A guest has no email, so never an email or a win-back. On by default;
+   * `GUEST_PUSH_REMINDERS_ENABLED=false` or the admin override is the kill
+   * switch, which leaves guests out at the next hourly sweep and takes the ask
+   * away (docs/RETENTION-PLAYBOOK.md).
    */
   get guestPushRemindersEnabled(): boolean {
     return overrideBool('guest_push_reminders_enabled');

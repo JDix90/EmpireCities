@@ -100,6 +100,15 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().guest_personal_features_enabled).toBe(false);
   });
 
+  it('guest_push_reminders_enabled defaults to on and the admin override is its kill switch', () => {
+    expect(featureFlags.guestPushRemindersEnabled).toBe(true);
+    expect(getClientFeatureFlags().guest_push_reminders_enabled).toBe(true);
+    expect(getFeatureFlagStates().guest_push_reminders_enabled).toEqual({ code_default: true, overridden: false, effective: true });
+    setAdminConfigCacheForTests({ feature_flags: { guest_push_reminders_enabled: false } });
+    expect(featureFlags.guestPushRemindersEnabled).toBe(false);
+    expect(getClientFeatureFlags().guest_push_reminders_enabled).toBe(false);
+  });
+
   it('daily_guest_play_enabled defaults to on and is the kill switch for guest dailies', () => {
     expect(featureFlags.dailyGuestPlayEnabled).toBe(true);
     expect(getClientFeatureFlags().daily_guest_play_enabled).toBe(true);
