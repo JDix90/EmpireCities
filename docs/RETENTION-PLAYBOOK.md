@@ -94,7 +94,8 @@ day". New means the account was made that day.
 - **All day-boundaries are UTC** (streaks, claims, worker queries agree with each other).
   Copy says "midnight UTC". Per-user timezones are out of scope; `last_login_at` is used as
   a time-of-day proxy so the streak reminder lands near the user's usual hour.
-- Guests are excluded from push and email unless `guest_push_reminders_enabled` is on.
+- Guests are excluded from push and email unless `guest_push_reminders_enabled` is on
+  (the default; the admin override is its kill switch).
   With it on, a guest who allowed notifications gets the streak-at-risk and
   daily-challenge reminders by push. A guest has no email, so never an email or a
   win-back. The ask is a "Remind me" row in the game-over panel, the one moment a
