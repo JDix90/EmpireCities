@@ -3,6 +3,14 @@
  * crawler user-agents here (humans get the SPA index.html) so link unfurls get
  * per-replay Open Graph tags + a dynamic preview image. The page also renders a
  * human-readable fallback and a <link rel="canonical"> back to the SPA route.
+ *
+ * Two addresses, on purpose. The canonical is the plain /replay/:id, the one
+ * address search engines should file the replay under. og:url and the
+ * fallback link keep `?source=share`, the shared link itself: it opens the
+ * condensed highlight reel and records the visit as a share (attribution.ts).
+ * With `?source=share` as the canonical, Google filed the replay under the
+ * share link, so a visitor from search counted as a share, and the plain
+ * address was reported as an alternate of it.
  */
 import type { FastifyInstance } from 'fastify';
 import { buildReplayPreviewData } from './replayOgData';
@@ -26,7 +34,8 @@ export function registerReplayPreviewRoutes(app: FastifyInstance): void {
   app.get<{ Params: { gameId: string } }>('/replay/:gameId', async (request, reply) => {
     const { gameId } = request.params;
     const origin = baseUrl(request.headers as Record<string, unknown>);
-    const canonical = `${origin}/replay/${encodeURIComponent(gameId)}?source=share`;
+    const canonical = `${origin}/replay/${encodeURIComponent(gameId)}`;
+    const shareUrl = `${canonical}?source=share`;
 
     let title = 'Borderfall — Watch the replay';
     let description = 'Watch this Borderfall match replay — a condensed highlight reel of the campaign.';
@@ -57,7 +66,7 @@ export function registerReplayPreviewRoutes(app: FastifyInstance): void {
 <meta property="og:site_name" content="Borderfall" />
 <meta property="og:title" content="${esc(title)}" />
 <meta property="og:description" content="${esc(description)}" />
-<meta property="og:url" content="${esc(canonical)}" />
+<meta property="og:url" content="${esc(shareUrl)}" />
 <meta property="og:image" content="${esc(image)}" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
@@ -70,7 +79,7 @@ export function registerReplayPreviewRoutes(app: FastifyInstance): void {
 <main style="max-width:560px;padding:32px;">
 <h1 style="font-family:Georgia,serif;color:#c9a84c;">${esc(title)}</h1>
 <p style="color:#9aa3b2;">${esc(description)}</p>
-<p><a href="${esc(canonical)}" style="color:#c9a84c;">Open the replay →</a></p>
+<p><a href="${esc(shareUrl)}" style="color:#c9a84c;">Open the replay →</a></p>
 </main>
 </body>
 </html>`;
