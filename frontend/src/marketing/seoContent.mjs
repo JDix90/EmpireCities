@@ -1309,10 +1309,9 @@ const STATIC_MARKETING_PAGES = [
       {
         type: 'p',
         text:
-          'The officially licensed Risk game, for phones and for computers through Steam. If you '
-          + 'want the real rules and the name on the box, this is it, with a large player base and '
-          + 'a long list of maps and modes. It is free to play, with paid extras and a premium '
-          + 'upgrade, and it is an app you install.',
+          'The officially licensed Risk game, for phones and for computers through Steam. It '
+          + 'follows the board game’s rules, with a long list of maps and modes. It is free to play, '
+          + 'with paid extras and a premium upgrade, and it is an app you install.',
       },
       {
         type: 'p',
@@ -1369,16 +1368,6 @@ const STATIC_MARKETING_PAGES = [
         text:
           'How Borderfall differs: there is nothing to buy or download. You open the page and play, '
           + 'as a guest if you like, on a phone or a computer.',
-      },
-      { type: 'h2', text: 'Where Borderfall is the weaker choice' },
-      {
-        type: 'p',
-        text:
-          'If you want the official rules, play RISK: Global Domination. If you want the most maps '
-          + 'or the biggest multiplayer crowd, Warzone and Lux Delux have far more maps than '
-          + 'Borderfall, and Warzone and Conquer Club have larger communities. Borderfall is for '
-          + 'players who want Risk’s dice and pace in a browser tab, with eras and factions that '
-          + 'make each game different.',
       },
       { type: 'h2', text: 'The particulars' },
       {
