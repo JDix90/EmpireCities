@@ -232,6 +232,17 @@ export function mapPageBlocks(map) {
         { href: '/how-to-play', label: 'How to play' },
       ],
     },
+    // Every map page linked only from the /game-maps index, so a crawler had one
+    // way in to each and two sat in Search Console as "Discovered - currently not
+    // indexed". Linking the maps to each other gives every page a way in from
+    // all of the others.
+    { type: 'h2', text: 'Other maps' },
+    {
+      type: 'links',
+      links: MAP_PAGES
+        .filter((m) => m.slug !== map.slug)
+        .map((m) => ({ href: `/game-maps/${m.slug}`, label: m.h1 })),
+    },
   ];
 }
 
