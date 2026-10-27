@@ -70,6 +70,29 @@ function sessionLength(): { days: number; tokenExpiresIn: string | undefined } {
     : { days: 7, tokenExpiresIn: undefined };
 }
 
+/**
+ * How long a refresh token replaced by rotation can still renew the session
+ * (session_refresh_grace_enabled), as long as its replacement has never been
+ * used.
+ *
+ * Every page load and every hour of play rotates the token, and the old one
+ * stopped working the moment it was replaced. Two requests carrying the same
+ * cookie, two tabs or a phone waking with several requests queued, got one
+ * success and one 401, and the client reads a 401 from refresh as signed out
+ * (classifyRefreshFailure). So did a retry after a reply that never reached a
+ * phone: the server had rotated, the browser never got the new cookie.
+ *
+ * An unused replacement is what both look like: the browser that asks again
+ * either has the new cookie arriving in another response or never received it.
+ * Once the replacement has been used, the browser has it, and the old token is
+ * refused as before. Ten minutes covers a request repeated after a phone was
+ * locked or switched away mid-refresh. Ending a session revokes the
+ * replacement too, so the old token stops working with it: logout revokes the
+ * token in the cookie, and a password change or reset, a ban or upgrading a
+ * guest revokes every live token the account holds.
+ */
+const ROTATION_GRACE_SECONDS = 10 * 60;
+
 const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
 
 /** A sign-in link (email_account_save_enabled) works once, within 30 minutes. */
@@ -1153,7 +1176,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     expiresAt.setDate(expiresAt.getDate() + session.days);
 
     type RotationResult =
-      | { code: 'ok'; username: string; is_admin: boolean; is_guest: boolean }
+      | { code: 'ok'; username: string; is_admin: boolean; is_guest: boolean; graced: boolean }
       | { code: 'invalid' }
       | { code: 'no_user' }
       | { code: 'banned' };
@@ -1161,14 +1184,37 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     let rotation: RotationResult;
     try {
       rotation = await withTransaction<RotationResult>(async (client) => {
-        const { rows: storedRows } = await client.query<{ token_hash: string; revoked: boolean }>(
-          `SELECT token_hash, revoked FROM refresh_tokens
+        const { rows: storedRows } = await client.query<{
+          token_hash: string;
+          revoked: boolean;
+          recently_rotated: boolean | null;
+          replaced_by: string | null;
+        }>(
+          `SELECT token_hash, revoked, replaced_by,
+                  rotated_at > NOW() - make_interval(secs => $3) AS recently_rotated
+           FROM refresh_tokens
            WHERE token_id = $1 AND user_id = $2
            FOR UPDATE`,
-          [payload.tokenId, payload.sub],
+          [payload.tokenId, payload.sub, ROTATION_GRACE_SECONDS],
         );
         const stored = storedRows[0];
-        if (!stored || stored.revoked || !compareRefreshToken(refreshToken, stored.token_hash)) {
+        if (!stored || !compareRefreshToken(refreshToken, stored.token_hash)) {
+          return { code: 'invalid' };
+        }
+        // A token rotation replaced moments ago, whose replacement has never
+        // been used (ROTATION_GRACE_SECONDS). The replacement is looked up in
+        // a statement of its own: one that waited on the lock above for the
+        // request that rotated this token sees only the row, not the token
+        // that request inserted.
+        let graced = false;
+        if (stored.revoked && stored.recently_rotated && stored.replaced_by && featureFlags.sessionRefreshGraceEnabled) {
+          const { rows: live } = await client.query(
+            'SELECT 1 FROM refresh_tokens WHERE token_id = $1 AND revoked = FALSE',
+            [stored.replaced_by],
+          );
+          graced = live.length > 0;
+        }
+        if (stored.revoked && !graced) {
           return { code: 'invalid' };
         }
 
@@ -1191,10 +1237,14 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
           return { code: 'banned' };
         }
 
-        await client.query(
-          'UPDATE refresh_tokens SET revoked = TRUE WHERE token_id = $1',
-          [payload.tokenId],
-        );
+        // A graced token was already retired; it keeps pointing at its first
+        // replacement, so it stops working once that one is used.
+        if (!graced) {
+          await client.query(
+            'UPDATE refresh_tokens SET revoked = TRUE, rotated_at = NOW(), replaced_by = $2 WHERE token_id = $1',
+            [payload.tokenId, newTokenId],
+          );
+        }
         await client.query(
           'INSERT INTO refresh_tokens (token_id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
           [newTokenId, payload.sub, newRefreshHash, expiresAt],
@@ -1205,6 +1255,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
           username: userRows[0].username,
           is_admin: userRows[0].is_admin,
           is_guest: userRows[0].is_guest,
+          graced,
         };
       });
     } catch (err) {
@@ -1234,6 +1285,10 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       ...(rotation.is_guest ? { guest: true } : {}),
     });
     reply.setCookie('refreshToken', newRefreshToken, refreshCookieOpts(60 * 60 * 24 * session.days, request));
+    if (rotation.graced) {
+      // How often the grace saves a session, for judging the kill switch.
+      request.log.info({ userId: payload.sub }, 'refresh: renewed a token replaced moments ago');
+    }
 
     stampLastLogin(payload.sub);
     return reply.send({ accessToken: newAccessToken });

@@ -14,8 +14,9 @@ import { scheduleBootSweep } from '../../utils/bootSweep';
  *
  * A row is dead when the code that reads it would refuse it anyway:
  * - refresh_tokens: /auth/refresh accepts only a row that exists and is not
- *   revoked, for a JWT that has not expired. So an expired row, or a revoked
- *   one, signs no one in, and a missing row gets the same 401.
+ *   revoked, for a JWT that has not expired, or one rotation replaced in the
+ *   last ten minutes. So an expired row, or a revoked one, signs no one in,
+ *   and a missing row gets the same 401.
  * - password_reset_tokens, sign_in_link_tokens: redeemed only while
  *   `used_at IS NULL AND expires_at > NOW()`.
  *
@@ -35,7 +36,9 @@ export const TOKEN_TABLES = [
   {
     table: 'refresh_tokens',
     key: 'token_id',
-    dead: `expires_at < NOW() - ${GRACE} OR (revoked AND created_at < NOW() - ${GRACE})`,
+    // A rotated row counts from when it was replaced, not when it was issued:
+    // /auth/refresh can still accept it for a few minutes after (migration 054).
+    dead: `expires_at < NOW() - ${GRACE} OR (revoked AND COALESCE(rotated_at, created_at) < NOW() - ${GRACE})`,
   },
   {
     table: 'password_reset_tokens',

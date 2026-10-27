@@ -330,6 +330,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Every player, guest or account, stays signed in for 30 days between visits instead of 7, renewed every time they play. A guest who comes back within a month keeps their account and everything on it, and a saved account is not asked to sign in again. Applies to sessions started or renewed from then on. On by default; switching it off gives the 7-day session exactly as before.',
   },
   {
+    key: 'session_refresh_grace_enabled',
+    label: 'Sessions survive a refresh race',
+    description:
+      'Each visit swaps the player’s sign-in token for a new one, and the old one used to stop working that instant. Two requests carrying it at once (two tabs, or a phone waking up) got one success and one refusal, and the refusal signed the player out; so did a retry after a reply that never reached the phone. With this on, a token swapped in the last ten minutes still works while its replacement has never been used. Once the replacement is used, or the session is ended by logout, a password change or a ban, the old token is refused as before. On by default; this is its kill switch, and off is the old behaviour.',
+  },
+  {
     key: 'ww2_manhattan_science_enabled',
     label: 'WW2 Manhattan Project on the science line',
     description:
