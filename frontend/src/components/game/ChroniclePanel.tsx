@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ScrollText, Flag, Crown, Skull, Swords, Sparkles, Landmark, Milestone } from 'lucide-react';
+import { ScrollText, Flag, Crown, Skull, Swords, Sparkles, Landmark, Milestone, X } from 'lucide-react';
 import clsx from 'clsx';
 import { api } from '../../services/api';
 
@@ -129,12 +129,15 @@ export default function ChroniclePanel({
   gameId,
   currentTurn,
   onJumpToTurn,
+  onClose,
   className,
 }: {
   gameId: string;
   /** Highlights the entry the playback is sitting on. */
   currentTurn?: number;
   onJumpToTurn?: (turn: number) => void;
+  /** Shows a close button in the header (the replay's phone panel). */
+  onClose?: () => void;
   className?: string;
 }) {
   const { entries, failed } = useChronicle(gameId);
@@ -146,12 +149,26 @@ export default function ChroniclePanel({
       <div className="flex items-center gap-2 px-4 py-3 border-b border-bf-border">
         <ScrollText className="w-4 h-4 text-bf-gold" aria-hidden />
         <h3 className="font-display text-sm text-bf-gold tracking-widest">CHRONICLE</h3>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close chronicle"
+            className="tap-target ml-auto p-1 rounded text-bf-muted hover:text-bf-text hover:bg-white/5"
+          >
+            <X className="w-4 h-4" aria-hidden />
+          </button>
+        )}
       </div>
-      {!entries ? (
-        <p className="text-bf-muted text-sm px-4 py-6 text-center">Reading the record…</p>
-      ) : (
-        <ChronicleList entries={entries} currentTurn={currentTurn} onJumpToTurn={onJumpToTurn} />
-      )}
+      {/* Scrolls on its own when the card is given a height (the phone panel),
+          so the header and its close button stay put. */}
+      <div className="min-h-0 overflow-y-auto overscroll-contain">
+        {!entries ? (
+          <p className="text-bf-muted text-sm px-4 py-6 text-center">Reading the record…</p>
+        ) : (
+          <ChronicleList entries={entries} currentTurn={currentTurn} onJumpToTurn={onJumpToTurn} />
+        )}
+      </div>
     </div>
   );
 }
