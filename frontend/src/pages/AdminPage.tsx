@@ -549,7 +549,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'game_visible_height_enabled',
     label: 'Game screen fits the visible screen',
     description:
-      'The game screen is as tall as what the browser actually shows. It was sized to the screen with Safari\u2019s toolbar hidden, so on an iPhone with the toolbar showing, the bottom of the game, the phone\u2019s bar with the phase, the button that ends it and the game menu, could sit under the toolbar. Browsers that can\u2019t measure the visible height keep the old size. On by default; this is its kill switch, and off is the game screen exactly as before.',
+      'The game screen is as tall as what the browser actually shows. It was sized to the screen with Safari\u2019s toolbar hidden, so on an iPhone with the toolbar showing, the bottom of the game, the phone\u2019s bar with the phase, the button that ends it and the game menu, could sit under the toolbar. The replay page follows the same switch, for its playback controls. Browsers that can\u2019t measure the visible height keep the old size. On by default; this is its kill switch, and off is the game screen exactly as before.',
   },
   {
     key: 'store_v2_enabled',

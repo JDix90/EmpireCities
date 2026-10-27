@@ -24,6 +24,8 @@ import {
   LogIn,
   Clapperboard,
   ScrollText,
+  Lightbulb,
+  Orbit,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuthStore } from '../store/authStore';
@@ -35,12 +37,21 @@ import ReplayClipExporter from '../components/game/ReplayClipExporter';
 import ReplayInsightsPanel, { type ReplayInsight } from '../components/game/ReplayInsightsPanel';
 import ReplayTipToast from '../components/game/ReplayTipToast';
 import ReplayPlayBanner from '../components/game/ReplayPlayBanner';
+import ReplayActionsMenu, { type ReplayMenuAction } from '../components/game/ReplayActionsMenu';
 import Modal from '../components/ui/Modal';
 import {
   buildTimeLapseIndices,
   nextTimeLapseIndex,
 } from '../utils/replayTimeLapse';
-import { isMobileViewport, prefersReducedMotion } from '../utils/device';
+import { isMobileViewport, isPhoneLayout, prefersReducedMotion } from '../utils/device';
+import { useGameVisibleHeightEnabled } from '../store/featureFlagsStore';
+import {
+  distinctHighlights,
+  nextReplaySpeed,
+  REPLAY_SPEED_OPTIONS,
+  replayPhaseLabel,
+  type ReplaySpeed,
+} from '../utils/replayControls';
 import { isLiteMode } from '../utils/userPreferences';
 import { usePageFrameBudget } from '../hooks/useFrameBudget';
 import { inferWorldId } from '@borderfall/shared';
@@ -61,17 +72,7 @@ import {
 
 import { GalaxyStrategicViewLazy, GlobeMapLazy, preloadGlobeChunks } from '../utils/globeLoader';
 
-const SPEED_OPTIONS = [0.5, 1, 2, 4, 8] as const;
-/** Phase ids as the game calls them in the HUD, not raw snake_case. */
-const REPLAY_PHASE_LABELS: Record<string, string> = {
-  territory_select: 'territory draft',
-  reinforce: 'reinforcement',
-  attack: 'attack',
-  fortify: 'fortify',
-  game_over: 'game over',
-};
 const REPLAY_MAP_FX_HINT_KEY = 'replay_map_fx_hint_dismissed';
-type Speed = (typeof SPEED_OPTIONS)[number];
 
 interface MapData {
   map_id?: string;
@@ -158,7 +159,7 @@ export default function ReplayPage() {
   const [playing, setPlaying] = useState(false);
   // Daily-challenge replays default to a faster, time-lapse cadence; match
   // replays and general replays use real-time 1x.
-  const [speed, setSpeed] = useState<Speed>(fromDaily ? 4 : 1);
+  const [speed, setSpeed] = useState<ReplaySpeed>(fromDaily ? 4 : 1);
   // Playback cadence: 'all' walks every frame, 'timelapse' one frame per
   // turn-player pair, 'highlights' the condensed reel with variable dwell.
   // The clip IS the condensed reel, so a clip deep-link opens on it whatever
@@ -181,11 +182,48 @@ export default function ReplayPage() {
   const [insights, setInsights] = useState<ReplayInsight[]>([]);
   const [insightsLoading, setInsightsLoading] = useState(true);
   const [activeTip, setActiveTip] = useState<ReplayInsight | null>(null);
-  const [insightsOpen, setInsightsOpen] = useState(true);
+  // A phone gets its own layout (the game's phone test, so a phone turned on
+  // its side keeps it). Its header, controls and panels are built to leave the
+  // map most of the screen: the desktop page, squeezed onto one, covered the
+  // globe with the chronicle and left it a strip a few rows of pixels tall.
+  const [phoneLayout, setPhoneLayout] = useState(() => isPhoneLayout());
+  const [landscape, setLandscape] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth > window.innerHeight,
+  );
+  useEffect(() => {
+    const sync = () => {
+      setPhoneLayout(isPhoneLayout());
+      setLandscape(window.innerWidth > window.innerHeight);
+    };
+    sync();
+    window.addEventListener('resize', sync);
+    return () => window.removeEventListener('resize', sync);
+  }, []);
+  // The page as tall as what the browser shows, on the game page's switch:
+  // under 100vh a phone's playback controls sat behind Safari's toolbar.
+  const visibleHeight = useGameVisibleHeightEnabled();
+  // The tips list opens with the page on a desktop, beside the map. On a phone
+  // it would take the map's place, and each tip still surfaces on its own as
+  // playback reaches its turn.
+  const [insightsOpen, setInsightsOpen] = useState(() => !isPhoneLayout());
   // The chronicle rides the same participant gate as the coaching tips. It
   // opens on arrival when the game-over modal's "Watch it play out" sent the
   // viewer here from its Chronicle tab.
   const [chronicleOpen, setChronicleOpen] = useState(() => searchParams.get('chronicle') === '1');
+  // On a phone the tips and the chronicle share one panel under the map, so
+  // opening one closes the other (and a desktop window narrowed to a phone's
+  // width with both open keeps the chronicle).
+  const toggleInsights = () => {
+    setInsightsOpen((v) => !v);
+    if (phoneLayout) setChronicleOpen(false);
+  };
+  const toggleChronicle = () => {
+    setChronicleOpen((v) => !v);
+    if (phoneLayout) setInsightsOpen(false);
+  };
+  useEffect(() => {
+    if (phoneLayout && insightsOpen && chronicleOpen) setInsightsOpen(false);
+  }, [phoneLayout, insightsOpen, chronicleOpen]);
   const [galaxyOverviewMode, setGalaxyOverviewMode] = useState(true);
   const [focusedWorldId, setFocusedWorldId] = useState('earth');
   const [galaxyWorldBanner, setGalaxyWorldBanner] = useState<{
@@ -226,7 +264,9 @@ export default function ReplayPage() {
 
   // Measure the flex-1 map area so the canvas always fills exactly the space
   // between the top bar and the playback controls — no scrolling, no clipped
-  // chrome. Initial guess is conservative until the ResizeObserver fires.
+  // chrome. Initial guess is conservative until the ResizeObserver fires. The
+  // height's floor is low enough for a phone on its side: a canvas taller than
+  // its box is cut off at the bottom, globe and all.
   const mapAreaRef = useRef<HTMLDivElement>(null);
   const [mapCanvasSize, setMapCanvasSize] = useState(() => {
     if (typeof window === 'undefined') return { w: 900, h: 600 };
@@ -242,7 +282,7 @@ export default function ReplayPage() {
     const measure = () => {
       const { width, height } = el.getBoundingClientRect();
       const w = Math.max(320, Math.floor(width));
-      const h = Math.max(240, Math.floor(height));
+      const h = Math.max(120, Math.floor(height));
       setMapCanvasSize((prev) => (prev.w === w && prev.h === h ? prev : { w, h }));
     };
     measure();
@@ -809,16 +849,124 @@ export default function ReplayPage() {
   const reducedGlobe =
     prefersReducedMotion() || liteVisuals || (isMobileViewport() && mapView === 'globe') || !showMapAnimations || speed >= 4;
   const replayPhaseTintClass = phaseTintClass(currentState?.phase, replayAmbientEnabled && !reducedGlobe);
+  const lastTurn = replaySnapshots[totalFrames - 1]?.turn_number ?? totalFrames;
+  const goBack = () => {
+    if (backTarget.to === 'back') navigate(-1);
+    else navigate(backTarget.to);
+  };
+  const toggleMapView = () => {
+    setMapView((v) => {
+      const next = v === 'globe' ? '2d' : 'globe';
+      if (next === 'globe') preloadGlobeChunks();
+      return next;
+    });
+  };
+  const highlightChips = distinctHighlights(highlights);
+  // The phone's one panel under the map: the chronicle or the tips, never both.
+  const phoneSheet: 'chronicle' | 'tips' | null = !phoneLayout
+    ? null
+    : chronicleOpen && gameId
+      ? 'chronicle'
+      : insightsOpen
+        ? 'tips'
+        : null;
+  // What the phone header keeps behind its "More" button.
+  const phoneMenuActions: ReplayMenuAction[] = [
+    { label: 'Export clip', icon: Clapperboard, onSelect: () => setClipExporterOpen(true) },
+    ...(loadedPublic
+      ? [{ label: 'Copy link', icon: Share2, onSelect: () => void handleCopyLink() }]
+      : [
+          {
+            label: isPublic ? 'Copy link' : 'Share replay',
+            icon: Share2,
+            onSelect: requestShareReplay,
+            disabled: sharing,
+          },
+          ...(isPublic
+            ? [{ label: 'Make private', icon: Lock, onSelect: () => void handleMakePrivate(), disabled: sharing }]
+            : []),
+        ]),
+  ];
+  const phoneIconButton = (on: boolean) =>
+    clsx(
+      'tap-target shrink-0 flex items-center justify-center gap-1 h-8 min-w-8 px-2 rounded-lg border text-xs font-medium transition-colors',
+      on
+        ? 'bg-bf-gold/15 border-bf-gold/30 text-bf-gold'
+        : 'bg-white/5 border-bf-border text-bf-muted hover:text-bf-text',
+    );
 
   return (
-    <div className="h-screen overflow-hidden bg-bf-dark flex flex-col">
-      {/* Top bar */}
+    <div className={clsx(visibleHeight ? 'h-visible' : 'h-screen', 'overflow-hidden bg-bf-dark flex flex-col')}>
+      {/* Top bar. A phone gets one row of icons: the desktop row ran off the
+          right edge, its labels wrapping to three lines each. */}
+      {phoneLayout ? (
+        <div className="shrink-0 flex items-center gap-2 px-3 pt-safe-2 pb-2 border-b border-bf-border bg-bf-surface">
+          <button
+            type="button"
+            onClick={goBack}
+            aria-label={backTarget.label}
+            title={backTarget.label}
+            className="tap-target shrink-0 -ml-1 p-1 rounded-lg text-bf-muted hover:text-bf-text transition-colors"
+          >
+            <ChevronLeft className="w-5 h-5" aria-hidden />
+          </button>
+          <span className="text-bf-muted text-xs whitespace-nowrap tabular-nums">
+            Turn {currentTurn}/{lastTurn}
+          </span>
+          <div className="ml-auto flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={toggleMapView}
+              aria-label={mapView === 'globe' ? 'Switch to 2D map' : 'Switch to globe'}
+              title={mapView === 'globe' ? 'Switch to 2D map' : 'Switch to globe'}
+              className={phoneIconButton(false)}
+            >
+              {mapView === 'globe' ? <MapIcon className="w-4 h-4" aria-hidden /> : <GlobeIcon className="w-4 h-4" aria-hidden />}
+            </button>
+            {mapView === 'globe' && mapData.map_kind === 'galaxy' && (
+              <button
+                type="button"
+                onClick={() => setGalaxyOverviewMode(true)}
+                aria-label="Galaxy chart"
+                aria-pressed={galaxyOverviewMode}
+                title="Galaxy chart"
+                className={phoneIconButton(galaxyOverviewMode)}
+              >
+                <Orbit className="w-4 h-4" aria-hidden />
+              </button>
+            )}
+            {!loadedPublic && (
+              <button
+                type="button"
+                onClick={toggleInsights}
+                aria-label={insightsOpen ? 'Hide coaching tips' : 'Show coaching tips'}
+                aria-pressed={insightsOpen}
+                title="Coaching tips"
+                className={phoneIconButton(phoneSheet === 'tips')}
+              >
+                <Lightbulb className="w-4 h-4" aria-hidden />
+                {insights.length > 0 && <span className="tabular-nums">{insights.length}</span>}
+              </button>
+            )}
+            {!loadedPublic && (
+              <button
+                type="button"
+                onClick={toggleChronicle}
+                aria-label={chronicleOpen ? 'Hide chronicle' : 'Show chronicle'}
+                aria-pressed={chronicleOpen}
+                title="Read this match as a dated history"
+                className={phoneIconButton(phoneSheet === 'chronicle')}
+              >
+                <ScrollText className="w-4 h-4" aria-hidden />
+              </button>
+            )}
+            <ReplayActionsMenu actions={phoneMenuActions} />
+          </div>
+        </div>
+      ) : (
       <div className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-bf-border bg-bf-surface">
         <button
-          onClick={() => {
-            if (backTarget.to === 'back') navigate(-1);
-            else navigate(backTarget.to);
-          }}
+          onClick={goBack}
           className="flex items-center gap-1.5 text-bf-muted hover:text-bf-text transition-colors text-sm"
         >
           <ChevronLeft className="w-4 h-4" /> {backTarget.label}
@@ -826,19 +974,13 @@ export default function ReplayPage() {
         <div className="h-4 w-px bg-bf-border" />
         <span className="text-bf-gold font-display text-sm tracking-wide">{headerLabel}</span>
         <span className="text-bf-muted text-xs ml-auto">
-          Turn {currentTurn} of {replaySnapshots[totalFrames - 1]?.turn_number ?? totalFrames}
+          Turn {currentTurn} of {lastTurn}
         </span>
         <button
           type="button"
           onMouseEnter={preloadGlobeChunks}
           onFocus={preloadGlobeChunks}
-          onClick={() => {
-            setMapView((v) => {
-              const next = v === 'globe' ? '2d' : 'globe';
-              if (next === 'globe') preloadGlobeChunks();
-              return next;
-            });
-          }}
+          onClick={toggleMapView}
           aria-pressed={mapView === 'globe'}
           aria-label={mapView === 'globe' ? 'Switch to 2D map' : 'Switch to globe'}
           title={mapView === 'globe' ? 'Switch to 2D map' : 'Switch to globe'}
@@ -860,7 +1002,7 @@ export default function ReplayPage() {
         {!loadedPublic && (
           <button
             type="button"
-            onClick={() => setInsightsOpen((v) => !v)}
+            onClick={toggleInsights}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-bf-border text-bf-muted hover:text-bf-text hover:bg-white/10 text-xs font-medium transition-all"
           >
             <FilmIcon className="w-3.5 h-3.5" />
@@ -873,7 +1015,7 @@ export default function ReplayPage() {
         {!loadedPublic && (
           <button
             type="button"
-            onClick={() => setChronicleOpen((v) => !v)}
+            onClick={toggleChronicle}
             title="Read this match as a dated history"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-bf-border text-bf-muted hover:text-bf-text hover:bg-white/10 text-xs font-medium transition-all"
           >
@@ -925,13 +1067,17 @@ export default function ReplayPage() {
           </>
         )}
       </div>
+      )}
 
       <ReplayPlayBanner />
 
+      {/* The map and, on a phone, the panel that holds the chronicle or the
+          tips: under the map, or beside it with the phone on its side. */}
+      <div className={clsx('flex-1 min-h-0 flex', phoneLayout && landscape ? 'flex-row' : 'flex-col')}>
       {/* Map area — flex-1 between the top bar and the controls. The canvas
           dimensions come from a ResizeObserver on this container so the
           playback chrome stays fully visible without any page scrolling. */}
-      <div ref={mapAreaRef} className={`flex-1 relative overflow-hidden min-h-0${replayPhaseTintClass ? ` ${replayPhaseTintClass}` : ''}`}>
+      <div ref={mapAreaRef} className={`flex-1 relative overflow-hidden min-h-0 min-w-0${replayPhaseTintClass ? ` ${replayPhaseTintClass}` : ''}`}>
         {mapView === 'globe' ? (
           <Suspense
             fallback={
@@ -1041,7 +1187,14 @@ export default function ReplayPage() {
 
         {/* Player list overlay */}
         {currentState && (
-          <div className="absolute top-3 right-3 bg-bf-surface/90 border border-bf-border rounded-xl p-3 text-xs space-y-1 max-w-[160px]">
+          <div
+            className={clsx(
+              'absolute bg-bf-surface/90 border border-bf-border rounded-xl space-y-1',
+              // A phone's globe has no zoom buttons in the bottom corner, and
+              // its "Skip animations" button takes the top one.
+              phoneLayout ? 'bottom-2 right-2 p-2 text-[11px] max-w-[140px]' : 'top-3 right-3 p-3 text-xs max-w-[160px]',
+            )}
+          >
             {currentState.players.map((p) => (
               <div key={p.player_id} className="flex items-center gap-2">
                 <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
@@ -1054,11 +1207,17 @@ export default function ReplayPage() {
           </div>
         )}
 
-        {/* Phase indicator */}
+        {/* Phase indicator. On a phone a long name wraps rather than taking
+            the width of the map. */}
         {currentState && (
-          <div className="absolute top-3 left-3 flex flex-col gap-1.5 items-start">
-            <div className="bg-bf-surface/90 border border-bf-border rounded-lg px-3 py-1.5 text-xs text-bf-gold">
-              {currentState.players[currentState.current_player_index]?.username}'s {REPLAY_PHASE_LABELS[currentState.phase] ?? currentState.phase} phase
+          <div
+            className={clsx(
+              'absolute flex flex-col gap-1.5 items-start',
+              phoneLayout ? 'top-2 left-2 max-w-[calc(100%-10.5rem)]' : 'top-3 left-3',
+            )}
+          >
+            <div className={clsx('bg-bf-surface/90 border border-bf-border rounded-lg text-xs text-bf-gold', phoneLayout ? 'px-2.5 py-1' : 'px-3 py-1.5')}>
+              {replayPhaseLabel(currentState.phase, currentState.players[currentState.current_player_index]?.username)}
             </div>
             {playbackMode === 'highlights' && condensedByIndex.has(replayFrame) && (
               <div className="flex items-center gap-1.5 bg-bf-gold/15 border border-bf-gold/30 rounded-lg px-2.5 py-1 text-[11px] text-bf-gold">
@@ -1070,7 +1229,7 @@ export default function ReplayPage() {
         )}
 
         {/* Coaching insights sidebar (collapsible) */}
-        {insightsOpen && (
+        {insightsOpen && !phoneLayout && (
           <div className="absolute top-16 right-3 z-30">
             <ReplayInsightsPanel
               insights={insights}
@@ -1086,7 +1245,7 @@ export default function ReplayPage() {
         )}
 
         {/* Chronicle — the match as a dated history; each entry scrubs playback. */}
-        {chronicleOpen && gameId && (
+        {chronicleOpen && gameId && !phoneLayout && (
           <div className="absolute top-16 left-3 z-30 w-[min(24rem,calc(100%-1.5rem))] max-h-[70%] overflow-y-auto">
             <ChroniclePanel
               gameId={gameId}
@@ -1101,29 +1260,81 @@ export default function ReplayPage() {
           <ReplayTipToast
             insight={activeTip}
             onClose={() => setActiveTip(null)}
+            docked={phoneLayout}
           />
         )}
       </div>
 
+      {phoneSheet && (
+        <div
+          className={clsx(
+            'shrink-0 min-h-0 flex flex-col bg-bf-surface border-bf-border',
+            landscape ? 'w-[min(22rem,45%)] border-l' : 'max-h-[42%] border-t',
+          )}
+          data-testid="replay-phone-panel"
+        >
+          {phoneSheet === 'chronicle' && gameId ? (
+            <ChroniclePanel
+              gameId={gameId}
+              currentTurn={currentTurn}
+              onJumpToTurn={handleJumpToTurn}
+              onClose={() => setChronicleOpen(false)}
+              className="min-h-0 flex flex-col rounded-none border-0"
+            />
+          ) : (
+            <ReplayInsightsPanel
+              insights={insights}
+              currentTurn={currentTurn}
+              loading={insightsLoading && insights.length === 0}
+              onJumpToTurn={handleJumpToTurn}
+              onShowTip={(tip) => {
+                lastToastedTurnRef.current = tip.turn;
+                setActiveTip(tip);
+              }}
+              onClose={() => setInsightsOpen(false)}
+              fill
+            />
+          )}
+        </div>
+      )}
+      </div>
+
       {/* Playback controls — pinned to the bottom of the viewport via shrink-0
           so they're always visible without scrolling. */}
-      <div className="shrink-0 border-t border-bf-border bg-bf-surface px-4 py-3 flex flex-col gap-2">
-        {highlights.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 mb-1">
-            {highlights.slice(0, 5).map((h, idx) => (
+      <div
+        className={clsx(
+          'shrink-0 border-t border-bf-border bg-bf-surface flex flex-col',
+          phoneLayout ? 'px-3 pt-2 pb-safe-2 gap-1.5' : 'px-4 py-3 gap-2',
+        )}
+      >
+        {highlightChips.length > 0 && (
+          // A phone keeps the chips to one row that scrolls sideways.
+          <div
+            className={clsx(
+              'flex items-center gap-2',
+              phoneLayout ? 'overflow-x-auto scrollbar-none -mx-3 px-3' : 'flex-wrap mb-1',
+            )}
+          >
+            {highlightChips.map((h, idx) => (
               <button
                 key={`${h.turn}-${idx}`}
                 onClick={() => handleJumpToTurn(h.turn)}
-                className="px-2 py-1 rounded-md text-xs border border-bf-gold/25 bg-bf-gold/10 text-bf-gold hover:bg-bf-gold/20 transition-colors"
+                className={clsx(
+                  'px-2 py-1 rounded-md text-xs border border-bf-gold/25 bg-bf-gold/10 text-bf-gold hover:bg-bf-gold/20 transition-colors',
+                  phoneLayout && 'shrink-0 whitespace-nowrap',
+                )}
               >
                 T{h.turn}: {h.label}
               </button>
             ))}
           </div>
         )}
+        {/* A phone on its side has the width for the timeline and the
+            secondary controls in one row, and not the height for two. */}
+        <div className={phoneLayout && landscape ? 'flex items-center gap-3' : 'contents'}>
         {/* Timeline row — primary play/pause sits inline with the scrubber so
             the user can pause/resume without scanning the secondary controls. */}
-        <div className="flex items-center gap-3">
+        <div className={clsx('flex items-center gap-3', phoneLayout && landscape && 'flex-1 min-w-0')}>
           <button
             type="button"
             onClick={togglePlay}
@@ -1148,13 +1359,15 @@ export default function ReplayPage() {
           </span>
         </div>
 
-        {/* Secondary controls — step / mode / speed. */}
-        <div className="flex items-center gap-3">
+        {/* Secondary controls — step / mode / speed. On a phone the modes are
+            icons (their names stay their accessible names) and the speeds are
+            one button, so the row fits a 320px screen. */}
+        <div className={clsx('flex items-center', phoneLayout ? 'gap-2' : 'gap-3')}>
           <button
             onClick={handleStepBack}
             disabled={replayFrame <= 0}
             aria-label="Step back one frame"
-            className="p-1.5 rounded-lg hover:bg-white/10 text-white/60 hover:text-white disabled:opacity-30 transition-all"
+            className="tap-target p-1.5 rounded-lg hover:bg-white/10 text-white/60 hover:text-white disabled:opacity-30 transition-all"
           >
             <SkipBack className="w-4 h-4" />
           </button>
@@ -1163,7 +1376,7 @@ export default function ReplayPage() {
             onClick={handleStepForward}
             disabled={replayFrame >= totalFrames - 1}
             aria-label="Step forward one frame"
-            className="p-1.5 rounded-lg hover:bg-white/10 text-white/60 hover:text-white disabled:opacity-30 transition-all"
+            className="tap-target p-1.5 rounded-lg hover:bg-white/10 text-white/60 hover:text-white disabled:opacity-30 transition-all"
           >
             <SkipForward className="w-4 h-4" />
           </button>
@@ -1178,14 +1391,14 @@ export default function ReplayPage() {
             aria-pressed={playbackMode === 'highlights'}
             title={`Highlights reel${condensedTimeline.frames.length ? ` · ${condensedTimeline.frames.length} moments` : ''}`}
             className={clsx(
-              'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border',
+              'tap-target flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border',
               playbackMode === 'highlights'
                 ? 'bg-bf-gold/20 text-bf-gold border-bf-gold/30'
                 : 'bg-white/5 text-white/60 hover:text-white/80 border-bf-border',
             )}
           >
-            <Sparkles className="w-3.5 h-3.5" />
-            Highlights
+            <Sparkles className="w-3.5 h-3.5" aria-hidden />
+            <span className={phoneLayout ? 'sr-only' : undefined}>Highlights</span>
           </button>
 
           {/* Time-lapse — walks one frame per turn-player pair. */}
@@ -1198,14 +1411,14 @@ export default function ReplayPage() {
             aria-pressed={playbackMode === 'timelapse'}
             title={playbackMode === 'timelapse' ? 'Time-lapse on' : 'Time-lapse off'}
             className={clsx(
-              'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border',
+              'tap-target flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border',
               playbackMode === 'timelapse'
                 ? 'bg-bf-gold/20 text-bf-gold border-bf-gold/30'
                 : 'bg-white/5 text-white/60 hover:text-white/80 border-bf-border',
             )}
           >
-            <Film className="w-3.5 h-3.5" />
-            Time-lapse
+            <Film className="w-3.5 h-3.5" aria-hidden />
+            <span className={phoneLayout ? 'sr-only' : undefined}>Time-lapse</span>
           </button>
 
           <button
@@ -1217,7 +1430,7 @@ export default function ReplayPage() {
             }}
             aria-pressed={showMapAnimations}
             className={clsx(
-              'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border',
+              'tap-target flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all border',
               showMapAnimations
                 ? 'bg-bf-gold/20 text-bf-gold border-bf-gold/30'
                 : 'bg-white/5 text-white/60 hover:text-white/80 border-bf-border',
@@ -1226,8 +1439,19 @@ export default function ReplayPage() {
             Map FX
           </button>
 
+          {phoneLayout ? (
+            <button
+              type="button"
+              onClick={() => setSpeed((v) => nextReplaySpeed(v))}
+              aria-label={`Playback speed ${speed}×, tap for the next speed`}
+              title="Playback speed"
+              className="tap-target ml-auto px-2.5 py-1 rounded-lg text-xs font-medium tabular-nums bg-bf-gold/20 text-bf-gold border border-bf-gold/30"
+            >
+              {speed}×
+            </button>
+          ) : (
           <div className="flex items-center gap-1 ml-auto">
-            {SPEED_OPTIONS.map((s) => (
+            {REPLAY_SPEED_OPTIONS.map((s) => (
               <button
                 key={s}
                 onClick={() => setSpeed(s)}
@@ -1242,21 +1466,32 @@ export default function ReplayPage() {
               </button>
             ))}
           </div>
+          )}
+        </div>
         </div>
 
         {!replayFxHintDismissed && (
           <div
-            className="mt-2 flex items-start gap-2 rounded-lg border border-bf-border bg-white/[0.03] px-3 py-2 text-xs text-white/70"
+            className={clsx(
+              'flex items-start gap-2 rounded-lg border border-bf-border bg-white/[0.03] px-3 text-xs text-white/70',
+              phoneLayout ? 'py-1.5' : 'mt-2 py-2',
+            )}
             data-testid="replay-map-fx-disclaimer"
           >
             <Info className="w-4 h-4 shrink-0 text-bf-gold mt-0.5" aria-hidden />
             <div className="flex-1 min-w-0">
               {showMapAnimations ? (
                 <>
+                  {/* A phone shows the first line until Learn more: the whole
+                      note took five lines under the controls. */}
                   <p>
                     <span className="text-white/85 font-medium">Replay map animations are inferred</span>
-                    {' '}from turn snapshots. Captures and unit changes usually animate; strikes, event cards,
-                    naval battles, and fortify moves may not. Use 1×–2× speed for best results.
+                    {(!phoneLayout || replayFxHintExpanded) && (
+                      <span>
+                        {' '}from turn snapshots. Captures and unit changes usually animate; strikes, event cards,
+                        naval battles, and fortify moves may not. Use 1×–2× speed for best results.
+                      </span>
+                    )}
                   </p>
                   {replayFxHintExpanded && (
                     <ul className="mt-2 space-y-1 list-disc pl-4 text-white/55">

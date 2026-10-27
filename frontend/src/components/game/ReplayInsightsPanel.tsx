@@ -1,6 +1,6 @@
 import React from 'react';
 import clsx from 'clsx';
-import { Lightbulb, ChevronRight, Sparkles } from 'lucide-react';
+import { Lightbulb, ChevronRight, Sparkles, X } from 'lucide-react';
 
 export interface ReplayInsight {
   turn: number;
@@ -18,6 +18,13 @@ interface ReplayInsightsPanelProps {
   /** Called when the user wants to (re-)open the toast for an insight. */
   onShowTip: (insight: ReplayInsight) => void;
   loading?: boolean;
+  /** Shows a close button in the header (the phone panel). */
+  onClose?: () => void;
+  /**
+   * Fill the box it sits in (the phone panel under the map) instead of the
+   * desktop sidebar's fixed width and height.
+   */
+  fill?: boolean;
 }
 
 /** Sidebar listing every coaching tip, with click-to-jump to the relevant turn. */
@@ -27,13 +34,33 @@ export default function ReplayInsightsPanel({
   onJumpToTurn,
   onShowTip,
   loading,
+  onClose,
+  fill,
 }: ReplayInsightsPanelProps) {
   return (
-    <div className="rounded-xl border border-bf-border bg-bf-surface/85 backdrop-blur-sm w-72 max-w-[80vw] flex flex-col max-h-[70vh] overflow-hidden">
+    <div
+      className={clsx(
+        'flex flex-col overflow-hidden',
+        fill
+          ? 'w-full min-h-0 bg-bf-surface'
+          : 'rounded-xl border border-bf-border bg-bf-surface/85 backdrop-blur-sm w-72 max-w-[80vw] max-h-[70vh]',
+      )}
+      data-testid="replay-insights-panel"
+    >
       <div className="flex items-center gap-2 px-4 py-3 border-b border-bf-border">
         <Sparkles className="w-4 h-4 text-bf-gold" />
         <p className="font-display text-sm text-bf-gold tracking-wide">Coaching Tips</p>
         <span className="ml-auto text-xs text-bf-muted tabular-nums">{insights.length}</span>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close coaching tips"
+            className="tap-target p-1 rounded text-bf-muted hover:text-bf-text hover:bg-white/5"
+          >
+            <X className="w-4 h-4" aria-hidden />
+          </button>
+        )}
       </div>
 
       {loading ? (
@@ -45,7 +72,7 @@ export default function ReplayInsightsPanel({
           Coaching tips weren&apos;t generated for this match.
         </p>
       ) : (
-        <ul className="overflow-y-auto divide-y divide-bf-border/60">
+        <ul className="overflow-y-auto overscroll-contain divide-y divide-bf-border/60">
           {insights.map((tip, idx) => {
             const isCurrent = currentTurn === tip.turn;
             return (

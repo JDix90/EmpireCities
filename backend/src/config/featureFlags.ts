@@ -805,7 +805,8 @@ export const featureFlags = {
   /**
    * Game screen height: the game page is sized to the visible screen (100dvh)
    * instead of 100vh, the height with Safari's toolbar hidden, which put the
-   * phone's action bar under the toolbar when it showed. Client-only. Default
+   * phone's action bar under the toolbar when it showed. The replay page reads
+   * it too, for its playback controls. Client-only. Default
    * ON; `GAME_VISIBLE_HEIGHT_ENABLED=false` or the admin override turns it off,
    * and the page is 100vh as before.
    */
