@@ -1264,8 +1264,8 @@ const STATIC_MARKETING_PAGES = [
     path: '/answers/online-alternatives-to-risk-board-game',
     title: 'What Can I Play Instead of Risk, Online?',
     description:
-      'Online alternatives to the Risk board game, and what each one trades away. Borderfall '
-      + 'is free in the browser: same dice-and-territory core, shorter games.',
+      'Online alternatives to Risk compared: RISK: Global Domination, Warzone, Conquer Club and '
+      + 'Lux Delux, and how Borderfall differs from each.',
     h1: 'What can I play instead of Risk, online?',
     tagline: '',
     jsonLd: false,
@@ -1273,19 +1273,25 @@ const STATIC_MARKETING_PAGES = [
       {
         q: 'What can I play instead of Risk, online?',
         a:
-          'Borderfall is a free browser game built on the same dice-and-territory core as Risk, '
-          + 'with shorter games and asymmetric factions. It runs in any modern browser with no '
-          + 'download, and you can start as a guest without an account.',
+          'The main options are RISK: Global Domination (the official app), Warzone, Conquer Club '
+          + 'and Lux Delux. Borderfall is a free alternative that runs in the browser, keeps the '
+          + 'dice and the turn order of Risk, and adds historical eras and asymmetric factions.',
       },
       {
-        q: 'What is different from Risk itself?',
+        q: 'Is there an official online version of Risk?',
         a:
-          'A single game advances through historical eras, from ancient kingdoms to a galactic '
-          + 'age, each adding units and theatres of war. Factions are asymmetric rather than '
-          + 'identical, and games finish far faster than a board-game session.',
+          'Yes. RISK: Global Domination is the officially licensed Risk game, on phones and on '
+          + 'computers through Steam. It is free to play, with paid extras and a premium upgrade.',
       },
       {
-        q: 'Do I need to buy anything?',
+        q: 'How is Borderfall different from Warzone?',
+        a:
+          'By default Warzone decides battles without dice and has everyone move at once. Borderfall '
+          + 'keeps the dice and the turn-by-turn play of Risk, on hand-built historical maps with '
+          + 'factions that change by era, rather than a large library of community maps.',
+      },
+      {
+        q: 'Do I need to buy anything to play Borderfall?',
         a: 'No. Every mode is free, with no paywall on maps, eras or multiplayer.',
       },
     ],
@@ -1293,29 +1299,75 @@ const STATIC_MARKETING_PAGES = [
       {
         type: 'answer',
         text:
-          'Borderfall is a free, browser-based turn-based conquest game with the same core as Risk '
-          + '— reinforce, manoeuvre, roll for combat, hold regions for bonuses — but games finish in '
-          + 'minutes rather than hours, and the factions are asymmetric. Nothing to download, and '
-          + 'guest play needs no account.',
+          'The main online alternatives are RISK: Global Domination, the official app; Warzone, '
+          + 'free with thousands of community maps; Conquer Club, for slow games against people '
+          + 'over days; and Lux Delux, a paid download with a big map library. Borderfall is free '
+          + 'in the browser, keeps the dice and the turn order of Risk, and changes the game itself: '
+          + 'a match can climb through historical eras, and every faction plays differently.',
       },
-      { type: 'h2', text: 'What people usually want instead' },
+      { type: 'h2', text: 'RISK: Global Domination' },
       {
         type: 'p',
         text:
-          'Most people looking for an alternative want one of three things: a game that ends in one '
-          + 'sitting, one they can play with friends who are not in the room, or one that does not '
-          + 'require buying anything first. Borderfall is built around all three — short solo games, '
-          + 'shareable lobby links, asynchronous turns for people in different time zones, and no '
-          + 'purchase at any point.',
+          'The officially licensed Risk game, for phones and for computers through Steam. It '
+          + 'follows the board game’s rules, with a long list of maps and modes. It is free to play, '
+          + 'with paid extras and a premium upgrade, and it is an app you install.',
       },
-      { type: 'h2', text: 'Where it goes further' },
       {
         type: 'p',
         text:
-          'The board does not hold still. A game climbs through historical eras as you play it, so '
-          + 'a match can open with legions on a classical map and end with fleets contesting orbit. '
-          + 'There are also hand-built historical boards — Rome at its height, Sengoku Japan, '
-          + 'Napoleonic Europe — if you would rather play one setting properly.',
+          'How Borderfall differs: it runs in a browser tab with nothing to install, and nothing in '
+          + 'it is for sale. It is not a copy of Risk: the same reinforce, attack and fortify loop '
+          + 'sits under factions with their own strengths and a board that moves on through history '
+          + 'as the game is played.',
+      },
+      { type: 'h2', text: 'Warzone' },
+      {
+        type: 'p',
+        text:
+          'A free Risk-style game in the browser and on phones, also listed as War.app. Its '
+          + 'strength is scale: thousands of maps made by its community, custom rules, and a large '
+          + 'multiplayer scene. Two things play differently from Risk by default: battles are '
+          + 'settled without dice rolls, and every player moves at the same time each '
+          + 'turn. An optional membership removes ads and unlocks extras.',
+      },
+      {
+        type: 'p',
+        text:
+          'How Borderfall differs: it keeps the dice and the take-your-turn rhythm of Risk. Its '
+          + 'maps are a short list of hand-built historical boards, such as Rome in 117 and '
+          + 'Sengoku Japan, rather than a big community library, and each era gives its factions '
+          + 'their own abilities.',
+      },
+      { type: 'h2', text: 'Conquer Club' },
+      {
+        type: 'p',
+        text:
+          'A long-running browser site for Risk-style games against other people, usually played '
+          + 'a turn at a time over several days, with tournaments and clans. It is free to join, '
+          + 'with an optional paid membership. It suits players who want a steady community and do '
+          + 'not mind games that take a week.',
+      },
+      {
+        type: 'p',
+        text:
+          'How Borderfall differs: it does both speeds. A solo game against the computer takes '
+          + 'about 10 to 15 minutes, and asynchronous games with friends run over hours or days. '
+          + 'The map can be played flat or on a 3D globe.',
+      },
+      { type: 'h2', text: 'Lux Delux' },
+      {
+        type: 'p',
+        text:
+          'A downloadable Risk-style game for Windows, Mac and Linux, with phone versions. It is '
+          + 'a one-time purchase on computers, known for a very large map library and capable '
+          + 'computer opponents, and it has online play.',
+      },
+      {
+        type: 'p',
+        text:
+          'How Borderfall differs: there is nothing to buy or download. You open the page and play, '
+          + 'as a guest if you like, on a phone or a computer.',
       },
       { type: 'h2', text: 'The particulars' },
       {
@@ -1324,10 +1376,10 @@ const STATIC_MARKETING_PAGES = [
           { k: 'Price', v: 'Free. No purchase required to play any mode.' },
           { k: 'Install', v: 'None. It runs in the browser.' },
           { k: 'Account', v: 'Optional. Guest play starts immediately.' },
+          { k: 'Combat', v: 'Dice, rolled by the server, as in Risk.' },
           { k: 'Players', v: '1–8. Solo against AI, or 2–8 humans.' },
           { k: 'Pace', v: 'Real-time, or asynchronous turns over hours and days.' },
           { k: 'Typical solo game', v: 'About 10–15 minutes.' },
-          { k: 'Platforms', v: 'Any modern desktop or mobile browser.' },
         ],
       },
       {
@@ -1335,6 +1387,7 @@ const STATIC_MARKETING_PAGES = [
         links: [
           { href: '/', label: 'Play Borderfall' },
           { href: '/game-maps', label: 'The maps' },
+          { href: '/answers/free-risk-like-browser-games', label: 'Is there a free Risk-style game in the browser?' },
           { href: '/answers', label: 'More questions' },
         ],
       },
