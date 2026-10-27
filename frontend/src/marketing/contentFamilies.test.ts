@@ -85,6 +85,17 @@ describe('the map pages', () => {
     }
   });
 
+  it('links every map page to every other map, and not to itself', () => {
+    for (const map of MAP_CATALOG) {
+      const html = blocksToHtml(byPath(`/game-maps/${map.slug}`)!.blocks);
+      for (const other of MAP_CATALOG) {
+        const link = `href="/game-maps/${other.slug}"`;
+        if (other.slug === map.slug) expect(html, `${map.slug} links to itself`).not.toContain(link);
+        else expect(html, `${map.slug} does not link to ${other.slug}`).toContain(link);
+      }
+    }
+  });
+
   it('renders each map’s real numbers, not a template', () => {
     for (const map of MAP_CATALOG) {
       const page = byPath(`/game-maps/${map.slug}`)!;
