@@ -58,7 +58,8 @@ describe('deleteDeadTokens', () => {
 
   it('only ever deletes what the readers would refuse, a day after', () => {
     expect(TOKEN_TABLES.map((t) => [t.table, t.dead])).toEqual([
-      ['refresh_tokens', "expires_at < NOW() - INTERVAL '1 day' OR (revoked AND created_at < NOW() - INTERVAL '1 day')"],
+      // A rotated row counts from when it was replaced (migration 054).
+      ['refresh_tokens', "expires_at < NOW() - INTERVAL '1 day' OR (revoked AND COALESCE(rotated_at, created_at) < NOW() - INTERVAL '1 day')"],
       ['password_reset_tokens', "expires_at < NOW() - INTERVAL '1 day' OR used_at < NOW() - INTERVAL '1 day'"],
       ['sign_in_link_tokens', "expires_at < NOW() - INTERVAL '1 day' OR used_at < NOW() - INTERVAL '1 day'"],
     ]);

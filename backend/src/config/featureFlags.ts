@@ -163,6 +163,11 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // within a month is still signed in.
   // On by default; the admin override is the kill switch.
   session_30d_enabled: () => envOptOut('SESSION_30D_ENABLED'),
+  // A refresh token replaced moments ago still renews the session while its
+  // replacement has never been used: two tabs refreshing at once, or a reply
+  // lost on the way to a phone, no longer sign the player out.
+  // On by default; the admin override is the kill switch.
+  session_refresh_grace_enabled: () => envOptOut('SESSION_REFRESH_GRACE_ENABLED'),
   // Phase 2: Manhattan Project behind Radar Network. Dark-launched OFF; baked at create.
   ww2_manhattan_science_enabled: () => envOptIn('WW2_MANHATTAN_SCIENCE_ENABLED'),
   // Phase 3: the atomic arsenal (a repeatable, priced bomb with fallout). Dark-launched OFF; baked at create.
@@ -1257,6 +1262,18 @@ export const featureFlags = {
    */
   get session30dEnabled(): boolean {
     return overrideBool('session_30d_enabled');
+  },
+
+  /**
+   * Refresh grace: /auth/refresh accepts a token rotation replaced in the last
+   * ten minutes, as long as its replacement has never been used, and issues a
+   * new one. Without it a second request carrying the same cookie (two tabs, a
+   * phone waking with several requests queued) or a retry after a lost reply
+   * got a 401, which the client reads as signed out. Default ON;
+   * `SESSION_REFRESH_GRACE_ENABLED=false` or the admin override turns it off.
+   */
+  get sessionRefreshGraceEnabled(): boolean {
+    return overrideBool('session_refresh_grace_enabled');
   },
 
   /**

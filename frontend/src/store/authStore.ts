@@ -37,6 +37,18 @@ const rawHttp = axios.create({
  */
 export type RefreshOutcome = 'ok' | 'invalid' | 'unreachable';
 
+/**
+ * The refresh this tab has in flight, which every caller shares.
+ *
+ * Four things ask for one: the page load (App.tsx), the API's retry after a
+ * 401 (services/api.ts), and the socket's timer and its `auth:expired` notice
+ * (services/socket.ts). A phone waking up can ask for several at once. Each
+ * refresh retires the cookie it carries, so two of them used to race: one got
+ * the new cookie, the other a 401, and a 401 here signs the player out.
+ * `loud` is whether any caller wants the "session expired" notice written.
+ */
+let refreshInFlight: { promise: Promise<RefreshOutcome>; loud: boolean } | null = null;
+
 /** Exported for tests. Only an explicit auth rejection invalidates the session. */
 export function classifyRefreshFailure(err: unknown): Exclude<RefreshOutcome, 'ok'> {
   if (axios.isAxiosError(err)) {
@@ -265,30 +277,44 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      refreshToken: async (options) => {
+      refreshToken: (options) => {
         const silent = options?.silent ?? false;
-        // Guests refresh like everyone else: POST /api/auth/guest issues the
-        // same HttpOnly refresh cookie, and rotation preserves the guest claim.
-        try {
-          const res = await rawHttp.post('/auth/refresh');
-          const { accessToken } = res.data;
-          set({ accessToken, isAuthenticated: true });
-          resyncSocketAuth();
-          return 'ok';
-        } catch (err) {
-          const outcome = classifyRefreshFailure(err);
-          if (outcome === 'invalid') {
-            set({ user: null, accessToken: null, isAuthenticated: false });
-            if (!silent && typeof window !== 'undefined') {
-              try {
-                sessionStorage.setItem('cc-auth-notice', 'session_expired');
-              } catch { /* ignore */ }
-            }
-          }
-          // 'unreachable' keeps the session: the cookie may still be valid
-          // and a backend restart must not log every player out.
-          return outcome;
+        // One refresh at a time in this tab (refreshInFlight): a caller that
+        // asks while one is in flight gets its answer.
+        if (refreshInFlight) {
+          if (!silent) refreshInFlight.loud = true;
+          return refreshInFlight.promise;
         }
+        const flight = { loud: !silent } as { promise: Promise<RefreshOutcome>; loud: boolean };
+        const run = async (): Promise<RefreshOutcome> => {
+          // Guests refresh like everyone else: POST /api/auth/guest issues the
+          // same HttpOnly refresh cookie, and rotation preserves the guest claim.
+          try {
+            const res = await rawHttp.post('/auth/refresh');
+            const { accessToken } = res.data;
+            set({ accessToken, isAuthenticated: true });
+            resyncSocketAuth();
+            return 'ok';
+          } catch (err) {
+            const outcome = classifyRefreshFailure(err);
+            if (outcome === 'invalid') {
+              set({ user: null, accessToken: null, isAuthenticated: false });
+              if (flight.loud && typeof window !== 'undefined') {
+                try {
+                  sessionStorage.setItem('cc-auth-notice', 'session_expired');
+                } catch { /* ignore */ }
+              }
+            }
+            // 'unreachable' keeps the session: the cookie may still be valid
+            // and a backend restart must not log every player out.
+            return outcome;
+          }
+        };
+        flight.promise = run().finally(() => {
+          if (refreshInFlight === flight) refreshInFlight = null;
+        });
+        refreshInFlight = flight;
+        return flight.promise;
       },
 
       setUser: (user) => set({ user }),

@@ -33,19 +33,23 @@ describe.runIf(enabled)('token cleanup (Postgres)', { timeout: 20_000 }, () => {
   });
 
   it('deletes dead rows from all three tables and keeps the live and the recent', async () => {
-    // [label, expires_at offset, revoked, created_at offset]
-    const refresh: Array<[string, string, boolean, string]> = [
-      ['live', '+30 days', false, '-1 hour'],
-      ['revoked, issued just now', '+30 days', true, '-1 hour'],
-      ['revoked, issued two days ago', '+28 days', true, '-2 days'],
-      ['expired two days ago', '-2 days', false, '-32 days'],
-      ['expired an hour ago', '-1 hour', false, '-30 days'],
+    // [label, expires_at offset, revoked, created_at offset, rotated_at offset]
+    const refresh: Array<[string, string, boolean, string, string | null]> = [
+      ['live', '+30 days', false, '-1 hour', null],
+      ['revoked, issued just now', '+30 days', true, '-1 hour', null],
+      ['revoked, issued two days ago', '+28 days', true, '-2 days', null],
+      // A rotated row counts from when it was replaced: /auth/refresh can
+      // still accept it for a few minutes after (migration 054).
+      ['rotated a minute ago, issued three days ago', '+27 days', true, '-3 days', '-1 minute'],
+      ['rotated two days ago, issued five days ago', '+25 days', true, '-5 days', '-2 days'],
+      ['expired two days ago', '-2 days', false, '-32 days', null],
+      ['expired an hour ago', '-1 hour', false, '-30 days', null],
     ];
-    for (const [label, exp, revoked, created] of refresh) {
+    for (const [label, exp, revoked, created, rotated] of refresh) {
       await query(
-        `INSERT INTO refresh_tokens (user_id, token_hash, expires_at, revoked, created_at)
-         VALUES ($1, $2, NOW() + $3::interval, $4, NOW() + $5::interval)`,
-        [userId, label, exp, revoked, created],
+        `INSERT INTO refresh_tokens (user_id, token_hash, expires_at, revoked, created_at, rotated_at)
+         VALUES ($1, $2, NOW() + $3::interval, $4, NOW() + $5::interval, NOW() + $6::interval)`,
+        [userId, label, exp, revoked, created, rotated],
       );
     }
     // [label, expires_at offset, used_at offset or null]
@@ -68,14 +72,16 @@ describe.runIf(enabled)('token cleanup (Postgres)', { timeout: 20_000 }, () => {
 
     const deleted = await deleteDeadTokens();
     // Other rows in a shared database may go too, so count at least ours.
-    expect(deleted.refresh_tokens).toBeGreaterThanOrEqual(2);
+    expect(deleted.refresh_tokens).toBeGreaterThanOrEqual(3);
     expect(deleted.password_reset_tokens).toBeGreaterThanOrEqual(2);
     expect(deleted.sign_in_link_tokens).toBeGreaterThanOrEqual(2);
 
     const left = async (table: string) =>
       (await query(`SELECT token_hash FROM ${table} WHERE user_id = $1 ORDER BY token_hash`, [userId]))
         .map((r) => r.token_hash);
-    expect(await left('refresh_tokens')).toEqual(['expired an hour ago', 'live', 'revoked, issued just now']);
+    expect(await left('refresh_tokens')).toEqual([
+      'expired an hour ago', 'live', 'revoked, issued just now', 'rotated a minute ago, issued three days ago',
+    ]);
     expect(await left('password_reset_tokens')).toEqual(['expired an hour ago', 'pending', 'used an hour ago']);
     expect(await left('sign_in_link_tokens')).toEqual(['expired an hour ago', 'pending', 'used an hour ago']);
   });
