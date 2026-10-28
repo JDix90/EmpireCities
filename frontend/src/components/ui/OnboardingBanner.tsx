@@ -37,7 +37,7 @@ export default function OnboardingBanner({ stage, onSkip, className }: Onboardin
         {onSkip && (
           <button
             onClick={onSkip}
-            className="text-xs text-bf-muted hover:text-bf-text transition-colors whitespace-nowrap"
+            className="tap-min text-xs text-bf-muted hover:text-bf-text transition-colors whitespace-nowrap"
           >
             Skip all
           </button>

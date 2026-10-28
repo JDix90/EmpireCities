@@ -100,7 +100,7 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
                 <Link
                   key={to}
                   to={to}
-                  className={isActive(to, exact) ? `${styles.navLink} ${styles.active}` : styles.navLink}
+                  className={isActive(to, exact) ? `${styles.navLink} ${styles.active} tap-min` : `${styles.navLink} tap-min`}
                   aria-current={isActive(to, exact) ? 'page' : undefined}
                   title={title || label}
                 >
@@ -119,7 +119,7 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
           // redirect now that the separate "Store" nav link is removed.
           <Link
             to="/store"
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-sm font-medium transition-colors ${
+            className={`tap-min flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-full border text-sm font-medium transition-colors ${
               isActive('/store')
                 ? 'bg-bf-gold/25 border-bf-gold/50 text-bf-gold'
                 : 'bg-bf-gold/10 border-bf-gold/30 text-bf-gold hover:bg-bf-gold/20'
@@ -135,7 +135,7 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
         {!user?.is_guest && (
           <Link
             to="/friends"
-            className={isActive('/friends') ? `${styles.navLink} ${styles.active}` : styles.navLink}
+            className={isActive('/friends') ? `${styles.navLink} ${styles.active} tap-min` : `${styles.navLink} tap-min`}
             aria-current={isActive('/friends') ? 'page' : undefined}
             title="Friends"
           >
@@ -147,7 +147,7 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
           username={user?.username ?? 'Profile'}
           isGuest={!!user?.is_guest}
           onLogout={onLogout}
-          triggerClassName={isActive('/profile') ? `${styles.navLink} ${styles.active}` : styles.navLink}
+          triggerClassName={isActive('/profile') ? `${styles.navLink} ${styles.active} tap-min` : `${styles.navLink} tap-min`}
           iconClassName={styles.icon}
         />
       </div>

@@ -150,7 +150,7 @@ export default function ReferralPanel({ className }: ReferralPanelProps) {
             onChange={(e) => setRedeemCode(e.target.value.toUpperCase())}
             placeholder="Enter code"
             maxLength={16}
-            className="flex-1 bg-bf-dark border border-bf-border rounded-md px-3 py-1.5 text-sm text-bf-text placeholder:text-bf-muted/50 focus:outline-none focus:border-bf-gold/50"
+            className="flex-1 min-w-0 bg-bf-dark border border-bf-border rounded-md px-3 py-1.5 text-sm text-bf-text placeholder:text-bf-muted/50 focus:outline-none focus:border-bf-gold/50"
           />
           <button
             onClick={handleRedeem}

@@ -597,8 +597,8 @@ export default function ProfilePage() {
                 {games.map((game) => {
                   const isWin = game.final_rank === 1;
                   return (
-                    <div key={game.game_id} className="flex items-center justify-between p-3 bg-bf-dark rounded-lg border border-bf-border">
-                      <div className="flex items-center gap-3">
+                    <div key={game.game_id} className="flex items-center justify-between gap-3 p-3 bg-bf-dark rounded-lg border border-bf-border">
+                      <div className="flex items-center gap-3 min-w-0">
                         <div className="w-3 h-3 rounded-full" style={{ backgroundColor: game.player_color }} />
                         <div>
                           <div className="flex items-center gap-2">
@@ -614,7 +614,7 @@ export default function ProfilePage() {
                           <p className="text-xs text-bf-muted">{formatDate(game.created_at)}</p>
                         </div>
                       </div>
-                      <div className="text-right flex items-center gap-4">
+                      <div className="text-right flex flex-wrap items-center justify-end gap-x-4 gap-y-1">
                         {game.xp_earned > 0 && (
                           <span className="text-xs text-bf-gold">+{game.xp_earned} XP</span>
                         )}

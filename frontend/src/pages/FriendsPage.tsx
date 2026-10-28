@@ -169,7 +169,7 @@ export default function FriendsPage() {
                       key={p.id}
                       className="flex items-center justify-between gap-2 p-3 bg-bf-dark rounded-lg border border-bf-border"
                     >
-                      <span className="text-bf-text">{p.other_username}</span>
+                      <span className="text-bf-text min-w-0 truncate">{p.other_username}</span>
                       <span className="flex gap-1 shrink-0">
                         <button
                           type="button"
@@ -201,7 +201,7 @@ export default function FriendsPage() {
                       key={p.id}
                       className="flex items-center justify-between gap-2 p-3 bg-bf-dark rounded-lg border border-bf-border"
                     >
-                      <span className="text-bf-text">{p.other_username}</span>
+                      <span className="text-bf-text min-w-0 truncate">{p.other_username}</span>
                       <span className="text-bf-muted text-xs shrink-0">Waiting…</span>
                     </li>
                   ))}
