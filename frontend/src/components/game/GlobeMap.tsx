@@ -4118,13 +4118,17 @@ function GlobeMap({
           type="button"
           onClick={onSkipAll ?? skipRemainingAnimations}
           title="Skip queued animations (battles, reinforcements, and the current one end immediately)"
+          aria-label={`Skip animations (${animationUi.backlog} queued)`}
           className="absolute top-4 right-4 z-30 pointer-events-auto flex items-center gap-2 px-3 py-2 rounded-lg
             bg-[rgba(18,22,35,0.92)] border border-bf-gold/45 text-bf-gold text-sm font-medium shadow-lg
             hover:bg-bf-gold/10 hover:border-bf-gold/70 transition-colors backdrop-blur-sm"
         >
+          {/* Under 640px the short form: at full length the button took about
+              230px, which on a 320-344px phone reached over the replay's phase
+              label in the opposite corner. */}
           <FastForward className="w-4 h-4 shrink-0" aria-hidden />
-          <span>Skip animations</span>
-          <span className="text-xs tabular-nums opacity-85">({animationUi.backlog} queued)</span>
+          <span aria-hidden><span className="sm:hidden">Skip</span><span className="hidden sm:inline">Skip animations</span></span>
+          <span className="text-xs tabular-nums opacity-85" aria-hidden>({animationUi.backlog}<span className="hidden sm:inline"> queued</span>)</span>
         </button>
       )}
       <Globe

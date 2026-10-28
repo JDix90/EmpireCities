@@ -9,11 +9,11 @@ interface ReplayTipToastProps {
   autoDismissMs?: number;
   onClose: () => void;
   /**
-   * The phone's form: sits at the foot of the map it is rendered in rather than
-   * at a fixed height above the bottom of the screen (a phone's playback
-   * controls are taller than that height, so the fixed card covered the play
-   * button), and keeps to the title and what to try. The full card covered most
-   * of a phone's map; the whole tip is a tap away in the tips panel.
+   * The phone's form: keeps to the title and what to try. The full card
+   * covered most of a phone's map; the whole tip is a tap away in the tips
+   * panel. Either form sits at the foot of the map it is rendered in: at a
+   * fixed height above the bottom of the screen it covered the play button on
+   * a phone, and the turn chips and timeline on a tablet or a short window.
    */
   docked?: boolean;
 }
@@ -36,8 +36,10 @@ export default function ReplayTipToast({
       role="status"
       aria-live="polite"
       className={clsx(
-        'left-1/2 -translate-x-1/2 z-40 max-w-md pointer-events-auto',
-        docked ? 'absolute bottom-2 w-[calc(100%-1rem)]' : 'fixed bottom-28 w-[calc(100%-2rem)]',
+        'absolute left-1/2 -translate-x-1/2 z-40 pointer-events-auto',
+        // Narrower than the map on a tablet, clear of the player list in its
+        // bottom-left corner and the zoom buttons in the bottom-right.
+        docked ? 'bottom-2 w-[calc(100%-1rem)] max-w-md' : 'bottom-4 w-[calc(100%-2rem)] max-w-sm lg:max-w-md',
       )}
     >
       <div className={clsx('rounded-xl border border-amber-500/40 bg-bf-surface/95 shadow-2xl backdrop-blur-sm', docked ? 'p-3' : 'p-4')}>
