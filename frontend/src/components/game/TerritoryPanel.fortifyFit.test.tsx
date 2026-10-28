@@ -69,8 +69,14 @@ const setFlag = (on: boolean) =>
 describe('TerritoryPanel phone fortify fit', () => {
   let rects: ReturnType<typeof vi.spyOn>;
 
+  const width = Object.getOwnPropertyDescriptor(window, 'innerWidth');
+  const height = Object.getOwnPropertyDescriptor(window, 'innerHeight');
+
   beforeEach(() => {
-    // A phone: isMobileViewport() reads the 768px media query.
+    // An upright phone: isMobileViewport() reads the 768px media query, and
+    // the sheet is a portrait phone's (on its side the panel is a card).
+    Object.defineProperty(window, 'innerWidth', { value: 390, configurable: true });
+    Object.defineProperty(window, 'innerHeight', { value: 844, configurable: true });
     window.matchMedia = vi.fn().mockReturnValue({
       matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn(),
       addListener: vi.fn(), removeListener: vi.fn(),
@@ -90,6 +96,8 @@ describe('TerritoryPanel phone fortify fit', () => {
   afterEach(() => {
     rects.mockRestore();
     setFlag(true);
+    if (width) Object.defineProperty(window, 'innerWidth', width);
+    if (height) Object.defineProperty(window, 'innerHeight', height);
   });
 
   it('grows the peek snap to the first destination row with the flag on', () => {

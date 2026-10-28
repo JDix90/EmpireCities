@@ -20,7 +20,7 @@ import {
   modernizingTech,
   type BuildingModernization,
 } from '../../utils/buildingHeritage';
-import { isMobileViewport } from '../../utils/device';
+import { isLandscapeMobile, isMobileViewport, isPhoneLayout } from '../../utils/device';
 import { useBottomSheetSnap, type SheetSnap } from '../../hooks/useBottomSheetSnap';
 import { getRegionCssColors } from '../../constants/accessibleColors';
 import { getPlayerTerritoryAbilities, isAttackSelfBuffAbility } from '../../utils/playerAbilities';
@@ -480,26 +480,34 @@ function TerritoryPanelContent({
   // Fog-of-war: server sends unit_count -1 (and strips buildings/fleets/stability)
   // for territories this player hasn't revealed. Don't render scouting intel for them.
   const fogHidden = isFogHidden(tState);
-  const isMobile = isMobileViewport();
+  // The bottom sheet is a portrait phone's. On a phone on its side the sheet's
+  // snaps are a quarter to a third of a ~375px screen, and the attack button
+  // never fit under the territory's name; it gets the floating card that a
+  // phone wider than the mobile breakpoint already gets on its side.
+  const isMobile = isMobileViewport() && !isLandscapeMobile();
+  // The compact content below is the phone's, on its side too: a card under
+  // 300px tall that led with region progress and stats put the attack and
+  // fortify buttons below its fold.
+  const isPhoneScreen = isPhoneLayout();
   // Once the player has locked in an attacker on mobile, the panel should stay
   // compact whether they're viewing the attacker territory itself or sizing up
   // an enemy target. We strip non-essential info (region progress, stability,
   // fleet card, building panel) so the action button stays above the fold.
   const isAttackConfirmMode =
-    isMobile &&
+    isPhoneScreen &&
     !!attackSource &&
     gameState.phase === 'attack' &&
     (isEnemy || attackSource === selectedTerritory);
   const isViewingOwnAttacker = isAttackConfirmMode && attackSource === selectedTerritory;
   /** Keep Place reinforcements above the fold + clear of the nav bar (see `mobile-sheet-above-nav`). */
   const isMobileDraftPlacementMode =
-    isMobile &&
+    isPhoneScreen &&
     isMyTurn &&
     isMine &&
     gameState.phase === 'draft' &&
     draftPool > 0;
   const isMobileActionMode =
-    isMobile &&
+    isPhoneScreen &&
     isMyTurn &&
     (gameState.phase === 'attack' || gameState.phase === 'fortify');
   const isMobileCompactInfo = isMobileActionMode || isMobileDraftPlacementMode;
