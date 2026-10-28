@@ -29,6 +29,14 @@ describe('PrivacyPage', () => {
     expect(text).toContain('one-time sign-in link');
   });
 
+  it('says what in-game feedback stores, and that deleting the account deletes it', () => {
+    const { container } = renderPage();
+    const text = container.textContent ?? '';
+    expect(text).toContain('if you send us feedback from inside a game, we store what you wrote and your rating');
+    expect(text).toContain('your device type (phone, tablet or desktop) and your screen size');
+    expect(text).toContain('Deleting your account deletes it.');
+  });
+
   it('shows its own date, so changing it does not re-date the Terms of Service', () => {
     renderPage();
     expect(screen.getByText(`Last updated: ${PRIVACY_LAST_UPDATED}`)).toBeInTheDocument();

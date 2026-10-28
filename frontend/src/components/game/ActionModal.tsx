@@ -8,6 +8,7 @@ import clsx from 'clsx';
 import CombatAbilityCallouts from './CombatAbilityCallouts';
 import ComeBackTomorrowPanel from './ComeBackTomorrowPanel';
 import ReferralSurvey from './ReferralSurvey';
+import { GalacticGameOverFeedback } from './GalacticFeedback';
 import { useGuestPromptV2Enabled, useReferralSurveyEnabled, useResultsFooterEnabled } from '../../store/featureFlagsStore';
 import { shouldShowReferralSurvey, hasAnsweredReferralSurvey } from '../../utils/referralSurvey';
 import { CLASSIC_DAY_REVIEW_NOTE, GRADE_LABELS, type PuzzleReviewView } from '../../utils/dailyPuzzleV2';
@@ -146,6 +147,8 @@ export interface GameOverModalData {
     level_cosmetic: string | null;
     friend_streak_bonus?: number;
   };
+  /** A Galactic Age game while its beta is open (galaxy_age_beta_enabled): asks how it went. */
+  galacticBeta?: boolean;
   /** Daily v2 (docs/DAILY_PUZZLE_V2.md §3): the run's decisions, graded, and the share line. */
   puzzle_review?: PuzzleReviewView;
   /** A daily served as v1 while grading is on: no review is coming, and the screen says why. */
@@ -1945,6 +1948,20 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
             {saveAccountCopy ? SAVE_ACCOUNT_LABEL : 'Create Free Account'}
           </button>
         </div>
+      )}
+
+      {/* The Galactic Age beta's question, for a player who sat in the game.
+          Below the come-back panel and the guest-conversion block, like the
+          survey under it: those are the funnel. */}
+      {data.galacticBeta && data.gameId && myPlayer && (
+        <GalacticGameOverFeedback
+          gameId={data.gameId}
+          turn={data.turnCount}
+          className={clsx(
+            'mb-6 transition-all duration-500 delay-500',
+            showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
+          )}
+        />
       )}
 
       {/* Attribution we cannot measure any other way. Placed last on purpose:

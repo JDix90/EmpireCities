@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 
 /** What a player's first beta game adds to the Galactic Age welcome. */
 export const GALACTIC_BETA_WELCOME_NOTE =
-  'The Galactic Age is in beta: its rules and balance may change while we test and tune it. Tap BETA in the top bar any time to see what that means.';
+  'The Galactic Age is in beta: its rules and balance may change while we test and tune it. Tap BETA in the top bar any time to tell us what you think.';
 
 interface GalacticBetaTagProps {
   /** When given, the panel offers "Send feedback" and this opens the form. */
@@ -73,6 +73,7 @@ export default function GalacticBetaTag({ onSendFeedback }: GalacticBetaTagProps
           <p className="mt-2 text-bf-muted leading-relaxed">
             You’re playing an early version of the Galactic Age. Its rules and balance may change between games
             while we test and tune it.
+            {onSendFeedback && ' Tell us what works and what doesn’t: every note is read.'}
           </p>
           {onSendFeedback && (
             <button

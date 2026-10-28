@@ -39,6 +39,6 @@ describe('GalacticBetaTag', () => {
 
   it("points the first game's welcome at the tag", () => {
     expect(GALACTIC_BETA_WELCOME_NOTE).toMatch(/in beta/);
-    expect(GALACTIC_BETA_WELCOME_NOTE).toMatch(/Tap BETA in the top bar/);
+    expect(GALACTIC_BETA_WELCOME_NOTE).toMatch(/Tap BETA in the top bar any time to tell us what you think/);
   });
 });
