@@ -55,6 +55,35 @@
   transition: color 0.15s;
   text-decoration: none;
   position: relative;
+  white-space: nowrap;
+}
+
+/* One row needs about 1,150px, more with Live and Admin, and the bar shows
+   from 768px up: on an iPad, a small laptop or a phone on its side it ran past
+   the right edge, and the browser zoomed the whole lobby out to fit it. Below
+   1280px the wordmark and account stay on the first row and the links take a
+   row of their own, wrapping again before they would overflow. */
+@media (max-width: 1279px) {
+  .navBar {
+    flex-wrap: wrap;
+    row-gap: 0.75rem;
+    padding: 0.75rem 1.25rem;
+  }
+  .logo {
+    min-width: 0;
+  }
+  .accountNav {
+    order: 2;
+  }
+  .mainNav {
+    order: 3;
+    flex-basis: 100%;
+  }
+  .navLinks {
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
+    column-gap: 1rem;
+  }
 }
 .navLink:hover, .navLink:focus {
   color: var(--bf-gold, #ffd700);
