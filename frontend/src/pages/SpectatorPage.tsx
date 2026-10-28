@@ -1,8 +1,9 @@
 import { Suspense, useEffect, useLayoutEffect, useMemo, useState, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Eye, Users, Globe as GlobeIcon, Map as MapIcon } from 'lucide-react';
+import { ArrowLeft, Eye, Users, Globe as GlobeIcon, Map as MapIcon, MessageCircle, Orbit, X } from 'lucide-react';
+import clsx from 'clsx';
 import { useAuthStore } from '../store/authStore';
-import { useFeatureFlagsStore, useSpectateEnabled } from '../store/featureFlagsStore';
+import { useFeatureFlagsStore, useGameVisibleHeightEnabled, useSpectateEnabled } from '../store/featureFlagsStore';
 import { useGameStore } from '../store/gameStore';
 import { connectSocket, getSocket } from '../services/socket';
 import { api } from '../services/api';
@@ -36,7 +37,7 @@ import {
 import type { EventCard } from '../components/game/EventCardModal';
 import toast from 'react-hot-toast';
 import type { GameState } from '../store/gameStore';
-import { isMobileViewport, prefersReducedMotion } from '../utils/device';
+import { isMobileViewport, isPhoneLayout, prefersReducedMotion } from '../utils/device';
 import { isLiteMode } from '../utils/userPreferences';
 import { usePageFrameBudget } from '../hooks/useFrameBudget';
 import { playStrikeAbilitySound } from '../utils/abilitySoundFeedback';
@@ -46,6 +47,8 @@ import {
 } from '../utils/mapAmbientEffects';
 import { resolveConnectionHintMode } from '../utils/connectionHints';
 import { computeMapDensityMetrics } from '../utils/mapInteractionDensity';
+
+const REACTIONS = ['👏', '⚔️', '💀', '🏆'] as const;
 
 interface MapData {
   map_kind?: 'standard' | 'galaxy';
@@ -139,6 +142,32 @@ export default function SpectatorPage() {
   // paint, so this adds no visible delay.
   const [sizeReady, setSizeReady] = useState(false);
   const [globeReady, setGlobeReady] = useState(false);
+  // A phone gets its own layout (the game's phone test, so a phone turned on
+  // its side keeps it). The desktop page squeezed onto one ran 164px off the
+  // right edge, wrapped its header to three lines and the players to three
+  // rows, gave the map half the screen and put the chat below the fold.
+  const [phoneLayout, setPhoneLayout] = useState(() => isPhoneLayout());
+  const [landscape, setLandscape] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth > window.innerHeight,
+  );
+  useEffect(() => {
+    const sync = () => {
+      setPhoneLayout(isPhoneLayout());
+      setLandscape(window.innerWidth > window.innerHeight);
+    };
+    sync();
+    window.addEventListener('resize', sync);
+    return () => window.removeEventListener('resize', sync);
+  }, []);
+  // As tall as what the browser shows, on the game page's switch.
+  const visibleHeight = useGameVisibleHeightEnabled();
+  // On a phone the chat opens under the map from the bottom bar. It stays
+  // mounted while closed, so the messages it collects are there when it opens,
+  // and the button counts the ones that arrived meanwhile.
+  const [chatOpen, setChatOpen] = useState(false);
+  const [unreadChat, setUnreadChat] = useState(0);
+  const chatVisibleRef = useRef(true);
+  chatVisibleRef.current = !phoneLayout || chatOpen;
 
   useLayoutEffect(() => {
     const el = mapAreaRef.current;
@@ -147,7 +176,9 @@ export default function SpectatorPage() {
     const apply = () => {
       const { width, height } = el.getBoundingClientRect();
       const w = Math.max(320, Math.floor(width));
-      const h = Math.max(240, Math.floor(height));
+      // Low enough for a phone on its side: a canvas taller than its box is
+      // cut off at the bottom, globe and all.
+      const h = Math.max(120, Math.floor(height));
       setMapCanvasSize((prev) => (prev.w === w && prev.h === h ? prev : { w, h }));
       setSizeReady(true);
     };
@@ -169,7 +200,7 @@ export default function SpectatorPage() {
       window.removeEventListener('resize', measure);
       window.visualViewport?.removeEventListener('resize', measure);
     };
-  }, [connected, mapData, mapView]);
+  }, [connected, mapData, mapView, phoneLayout, landscape]);
 
   // Globe WebGL init (texture + geometry) blanks the canvas for a beat after the
   // lazy chunk resolves; keep a "Loading globe…" overlay up until it actually
@@ -274,6 +305,12 @@ export default function SpectatorPage() {
     };
     socket.on('game:spectator_emote', onSpectatorEmote);
 
+    const onSpectatorChat = (msg: { gameId?: string }) => {
+      if (msg.gameId !== gameId || chatVisibleRef.current) return;
+      setUnreadChat((n) => n + 1);
+    };
+    socket.on('game:spectator_chat_message', onSpectatorChat);
+
     const handleStrikeAnimationEvent = (event: StrikeAnimationEvent) => {
       if (!isMapStrikeAbility(event.abilityId)) return;
 
@@ -365,6 +402,7 @@ export default function SpectatorPage() {
       socket.off('game:spectator_count', onSpectatorCount);
       socket.off('game:over', onGameOver);
       socket.off('game:spectator_emote', onSpectatorEmote);
+      socket.off('game:spectator_chat_message', onSpectatorChat);
       socket.off('game:strike_animation', handleStrikeAnimationEvent);
       socket.off('game:map_visual', onMapVisual);
       socket.off('game:event_card', onEventCard);
@@ -436,6 +474,297 @@ export default function SpectatorPage() {
   });
   const focusedWorldSkin = mapData.worlds?.find((w) => w.world_id === focusedWorldId) ?? null;
 
+  const sendReaction = (emote: string) => getSocket().emit('game:spectator_emote', { gameId: gameId!, emote });
+  const toggleMapView = () => {
+    setMapView((v) => {
+      const next = v === 'globe' ? '2d' : 'globe';
+      if (next === 'globe') preloadGlobeChunks();
+      return next;
+    });
+  };
+  const aliveCount = gameState.players.filter((p) => !p.is_eliminated).length;
+
+  // The map and what floats on it, the same in both layouts.
+  const mapContent = (
+    <>
+        {eraAdvanceVignette && (
+          <EraAdvanceVignette
+            key={eraAdvanceVignette.key}
+            active
+            eraId={eraAdvanceVignette.eraId}
+            onComplete={() => setEraAdvanceVignette(null)}
+          />
+        )}
+        {!sizeReady ? (
+          <div className="flex h-full items-center justify-center">
+            <p className="text-bf-muted animate-pulse">Loading map…</p>
+          </div>
+        ) : mapView === 'globe' ? (
+          <Suspense
+            fallback={
+              <div className="flex items-center justify-center h-full">
+                <p className="text-bf-muted animate-pulse">Loading globe…</p>
+              </div>
+            }
+          >
+            {mapData.map_kind === 'galaxy' && galaxyOverviewMode ? (
+              <GalaxyStrategicViewLazy
+                mapData={mapData}
+                gameState={gameState}
+                selectedTerritoryId={null}
+                onTerritoryClick={(tid) => {
+                  const t = mapData.territories.find((x) => x.territory_id === tid);
+                  if (t) {
+                    setFocusedWorldId(inferWorldId(t));
+                    setGalaxyOverviewMode(false);
+                  }
+                }}
+                width={mapCanvasSize.w}
+                height={mapCanvasSize.h}
+                orbitAccessAllowed={true}
+                pulseWorldId={null}
+                pulseKey={0}
+                pulseLabel={null}
+              />
+            ) : (
+              <GlobeMapLazy
+                mapData={mapData}
+                onTerritoryClick={() => {}}
+                width={mapCanvasSize.w}
+                height={mapCanvasSize.h}
+                events={globeEvents}
+                onEventDone={onMapVisualDone}
+                reducedEffects={reducedGlobe}
+                frameBudget={frameBudget.active}
+                frameBudgetFps={frameBudget.fps}
+                autoSpin={!reducedGlobe}
+                ambientEnabled={spectatorAmbientEnabled && !reducedGlobe}
+                turnHolderPlayerId={currentPlayer?.player_id ?? null}
+                contestedBorders={contestedBorders}
+                connectionHintMode={connectionHintMode}
+                onGlobeReady={() => setGlobeReady(true)}
+                activeWorldId={mapData.map_kind === 'galaxy' ? focusedWorldId : 'earth'}
+                globeImageUrl={
+                  mapData.map_kind === 'galaxy'
+                    ? (proceduralWorldTextureUrl(focusedWorldId) ?? focusedWorldSkin?.globe_image_url)
+                    : undefined
+                }
+                bumpImageUrl={mapData.map_kind === 'galaxy' ? '' : undefined}
+                showAtmosphere={
+                  mapData.map_kind === 'galaxy'
+                    ? (focusedWorldSkin?.show_atmosphere ?? true)
+                    : true
+                }
+                {...(mapData.map_kind === 'galaxy'
+                  ? {
+                      atmosphereColor: focusedWorldSkin?.atmosphere_color ?? 'lightskyblue',
+                      atmosphereAltitude: focusedWorldSkin?.atmosphere_altitude ?? 0.15,
+                      backgroundColor: focusedWorldSkin?.background_color,
+                    }
+                  : {})}
+              />
+            )}
+          </Suspense>
+        ) : (
+          <GameMap
+            moonInset
+            mapData={mapData}
+            onTerritoryClick={() => {}}
+            width={mapCanvasSize.w}
+            height={mapCanvasSize.h}
+            strikeFlash={mapStrikeFlash}
+            mapVisualEvents={mapVisualEvents}
+            onMapVisualDone={onMapVisualDone}
+            frameBudget={frameBudget.active}
+            ambientEnabled={spectatorAmbientEnabled && !reducedGlobe}
+            turnHolderPlayerId={currentPlayer?.player_id ?? null}
+            turnHolderColor={currentPlayer?.color}
+            contestedBorders={contestedBorders}
+            connectionHintMode={connectionHintMode}
+          />
+        )}
+
+        {sizeReady && mapView === 'globe' && !(mapData.map_kind === 'galaxy' && galaxyOverviewMode) && !globeReady && (
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+            <p className="text-bf-muted animate-pulse">Loading globe…</p>
+          </div>
+        )}
+
+        {emotes.length > 0 && (
+          <div className="pointer-events-none absolute inset-x-0 top-6 flex justify-center">
+            <div className="space-y-2">
+              {emotes.map((item) => (
+                <div key={item.id} className="animate-bounce rounded-full bg-black/55 px-3 py-1 text-sm text-white shadow-lg backdrop-blur-sm">
+                  <span className="mr-2">{item.emote}</span>
+                  <span className="text-white/70">{item.username}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+    </>
+  );
+
+  if (phoneLayout) {
+    return (
+      <div className={clsx(visibleHeight ? 'h-visible' : 'h-screen', 'overflow-hidden bg-bf-dark flex flex-col')}>
+        {/* One row: the desktop bar's three groups ran off the right edge. */}
+        <div className="shrink-0 flex items-center gap-2 px-3 pt-safe-2 pb-2 border-b border-bf-border bg-bf-surface/50">
+          <Link
+            to="/live-games"
+            aria-label="Leave"
+            title="Leave"
+            className="tap-target shrink-0 -ml-1 p-1 rounded-lg text-bf-muted hover:text-bf-text transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" aria-hidden />
+          </Link>
+          <span
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-[11px] font-medium whitespace-nowrap"
+            title="Spectator view runs ~30 seconds behind the live game to prevent scouting"
+          >
+            <Eye className="w-3 h-3" aria-hidden />
+            <span>SPECTATING</span>
+          </span>
+          <span className="text-xs text-bf-muted whitespace-nowrap">Turn {gameState.turn_number}</span>
+          <div className="ml-auto flex items-center gap-1.5">
+            <span className="text-xs text-bf-muted flex items-center gap-1 whitespace-nowrap" title={`${spectatorCount} watching`}>
+              <Eye className="w-3.5 h-3.5" aria-hidden />
+              <span>{spectatorCount}</span>
+            </span>
+            <button
+              type="button"
+              onClick={toggleMapView}
+              aria-label={mapView === 'globe' ? 'Switch to 2D map' : 'Switch to globe'}
+              title={mapView === 'globe' ? 'Switch to 2D map' : 'Switch to globe'}
+              className="tap-target flex items-center justify-center h-8 w-8 rounded-lg border border-bf-border bg-white/5 text-bf-muted hover:text-bf-text transition-colors"
+            >
+              {mapView === 'globe' ? <MapIcon className="w-4 h-4" aria-hidden /> : <GlobeIcon className="w-4 h-4" aria-hidden />}
+            </button>
+            {mapView === 'globe' && mapData.map_kind === 'galaxy' && (
+              <button
+                type="button"
+                onClick={() => setGalaxyOverviewMode(true)}
+                aria-label="Galaxy chart"
+                aria-pressed={galaxyOverviewMode}
+                title="Galaxy chart"
+                className={clsx(
+                  'tap-target flex items-center justify-center h-8 w-8 rounded-lg border transition-colors',
+                  galaxyOverviewMode ? 'bg-bf-gold/15 border-bf-gold/30 text-bf-gold' : 'bg-white/5 border-bf-border text-bf-muted hover:text-bf-text',
+                )}
+              >
+                <Orbit className="w-4 h-4" aria-hidden />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* The players in one row that scrolls sideways, instead of three rows. */}
+        <div className="shrink-0 flex items-center gap-2 overflow-x-auto scrollbar-none px-3 py-1.5 border-b border-bf-border bg-bf-dark/50">
+          {gameState.players.map((p) => (
+            <span
+              key={p.player_id}
+              className={clsx(
+                'shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs',
+                p.is_eliminated && 'opacity-30 line-through',
+                p.player_index === gameState.current_player_index && 'bg-white/10 border border-white/20',
+              )}
+            >
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
+              <span className="text-bf-text">{p.username}</span>
+              <span className="text-bf-muted">{p.territory_count}T</span>
+              {p.is_away
+                ? <AiBadge away size="xs" showLabel={false} />
+                : p.is_ai && <AiBadge difficulty={p.ai_difficulty} size="xs" showLabel={false} />}
+            </span>
+          ))}
+        </div>
+
+        {/* The map, and the chat under it (beside it with the phone on its side). */}
+        <div className={clsx('flex-1 min-h-0 flex', landscape ? 'flex-row' : 'flex-col')}>
+          <div
+            ref={mapAreaRef}
+            className={`flex-1 relative min-h-0 min-w-0 overflow-hidden${phaseTint ? ` ${phaseTint}` : ''}`}
+          >
+            {mapContent}
+            {currentPlayer && (
+              <div className="pointer-events-none absolute top-2 left-2 max-w-[calc(100%-1rem)] inline-flex items-center gap-1.5 rounded-lg border border-bf-border bg-bf-surface/90 px-2.5 py-1 text-xs text-bf-text">
+                <span className="w-2.5 h-2.5 shrink-0 rounded-full" style={{ backgroundColor: currentPlayer.color }} />
+                <span className="truncate">{currentPlayer.username}'s turn</span>
+              </div>
+            )}
+          </div>
+          <div
+            className={clsx(
+              chatOpen ? 'flex' : 'hidden',
+              'shrink-0 min-h-0 flex-col bg-bf-surface border-bf-border',
+              landscape ? 'w-[min(20rem,45%)] border-l' : 'h-[42%] border-t',
+            )}
+            data-testid="spectator-chat-panel"
+          >
+            <div className="shrink-0 flex items-center gap-2 px-3 py-2">
+              <p className="text-xs uppercase tracking-widest text-bf-gold">Spectator Chat</p>
+              <span className="text-xs text-bf-muted">{spectatorCount} watching · {aliveCount} alive</span>
+              <button
+                type="button"
+                onClick={() => setChatOpen(false)}
+                aria-label="Close chat"
+                className="tap-target ml-auto p-1 rounded text-bf-muted hover:text-bf-text hover:bg-white/5"
+              >
+                <X className="w-4 h-4" aria-hidden />
+              </button>
+            </div>
+            <GameChat gameId={gameId!} embedded fill spectatorMode />
+          </div>
+        </div>
+
+        {/* Reactions and the chat, a thumb away. */}
+        <div className="shrink-0 flex items-center gap-2 px-3 pt-2 pb-safe-2 border-t border-bf-border bg-bf-surface">
+          {REACTIONS.map((emote) => (
+            <button
+              key={emote}
+              type="button"
+              onClick={() => sendReaction(emote)}
+              aria-label={`React ${emote}`}
+              className="tap-target h-9 w-10 rounded-lg border border-bf-border bg-bf-dark/60 text-base hover:border-bf-gold/30 transition-colors"
+            >
+              {emote}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => {
+              setChatOpen((v) => !v);
+              setUnreadChat(0);
+            }}
+            aria-expanded={chatOpen}
+            className={clsx(
+              'tap-target ml-auto inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border text-sm transition-colors',
+              chatOpen ? 'bg-bf-gold/15 border-bf-gold/30 text-bf-gold' : 'border-bf-border bg-white/5 text-bf-text',
+            )}
+          >
+            <MessageCircle className="w-4 h-4" aria-hidden />
+            <span>Chat</span>
+            {unreadChat > 0 && (
+              <span className="min-w-5 h-5 px-1 rounded-full bg-bf-gold text-bf-dark text-[11px] font-semibold leading-5 text-center" aria-label={`${unreadChat} unread`}>
+                {unreadChat > 9 ? '9+' : unreadChat}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {strikeAnim && (
+          <AtomBombAnimation
+            key={strikeAnim.key}
+            abilityId={strikeAnim.abilityId}
+            targetName={strikeAnim.targetName}
+            unitReduction={strikeAnim.unitReduction}
+            onDone={() => setStrikeAnim(null)}
+          />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-bf-dark flex flex-col">
       {/* Spectator top bar */}
@@ -468,13 +797,7 @@ export default function SpectatorPage() {
             type="button"
             onMouseEnter={preloadGlobeChunks}
             onFocus={preloadGlobeChunks}
-            onClick={() => {
-              setMapView((v) => {
-                const next = v === 'globe' ? '2d' : 'globe';
-                if (next === 'globe') preloadGlobeChunks();
-                return next;
-              });
-            }}
+            onClick={toggleMapView}
             aria-pressed={mapView === 'globe'}
             aria-label={mapView === 'globe' ? 'Switch to 2D map' : 'Switch to globe'}
             title={mapView === 'globe' ? 'Switch to 2D map' : 'Switch to globe'}
@@ -496,7 +819,7 @@ export default function SpectatorPage() {
             <Eye className="w-3 h-3" /> {spectatorCount} watching
           </span>
           <span className="text-xs text-bf-muted flex items-center gap-1">
-            <Users className="w-3 h-3" /> {gameState.players.filter(p => !p.is_eliminated).length} alive
+            <Users className="w-3 h-3" /> {aliveCount} alive
           </span>
         </div>
       </div>
@@ -525,121 +848,7 @@ export default function SpectatorPage() {
           ref={mapAreaRef}
           className={`flex-1 relative min-h-[50vh]${phaseTint ? ` ${phaseTint}` : ''}`}
         >
-          {eraAdvanceVignette && (
-            <EraAdvanceVignette
-              key={eraAdvanceVignette.key}
-              active
-              eraId={eraAdvanceVignette.eraId}
-              onComplete={() => setEraAdvanceVignette(null)}
-            />
-          )}
-          {!sizeReady ? (
-            <div className="flex h-full items-center justify-center">
-              <p className="text-bf-muted animate-pulse">Loading map…</p>
-            </div>
-          ) : mapView === 'globe' ? (
-            <Suspense
-              fallback={
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-bf-muted animate-pulse">Loading globe…</p>
-                </div>
-              }
-            >
-              {mapData.map_kind === 'galaxy' && galaxyOverviewMode ? (
-                <GalaxyStrategicViewLazy
-                  mapData={mapData}
-                  gameState={gameState}
-                  selectedTerritoryId={null}
-                  onTerritoryClick={(tid) => {
-                    const t = mapData.territories.find((x) => x.territory_id === tid);
-                    if (t) {
-                      setFocusedWorldId(inferWorldId(t));
-                      setGalaxyOverviewMode(false);
-                    }
-                  }}
-                  width={mapCanvasSize.w}
-                  height={mapCanvasSize.h}
-                  orbitAccessAllowed={true}
-                  pulseWorldId={null}
-                  pulseKey={0}
-                  pulseLabel={null}
-                />
-              ) : (
-                <GlobeMapLazy
-                  mapData={mapData}
-                  onTerritoryClick={() => {}}
-                  width={mapCanvasSize.w}
-                  height={mapCanvasSize.h}
-                  events={globeEvents}
-                  onEventDone={onMapVisualDone}
-                  reducedEffects={reducedGlobe}
-                  frameBudget={frameBudget.active}
-                  frameBudgetFps={frameBudget.fps}
-                  autoSpin={!reducedGlobe}
-                  ambientEnabled={spectatorAmbientEnabled && !reducedGlobe}
-                  turnHolderPlayerId={currentPlayer?.player_id ?? null}
-                  contestedBorders={contestedBorders}
-                  connectionHintMode={connectionHintMode}
-                  onGlobeReady={() => setGlobeReady(true)}
-                  activeWorldId={mapData.map_kind === 'galaxy' ? focusedWorldId : 'earth'}
-                  globeImageUrl={
-                    mapData.map_kind === 'galaxy'
-                      ? (proceduralWorldTextureUrl(focusedWorldId) ?? focusedWorldSkin?.globe_image_url)
-                      : undefined
-                  }
-                  bumpImageUrl={mapData.map_kind === 'galaxy' ? '' : undefined}
-                  showAtmosphere={
-                    mapData.map_kind === 'galaxy'
-                      ? (focusedWorldSkin?.show_atmosphere ?? true)
-                      : true
-                  }
-                  {...(mapData.map_kind === 'galaxy'
-                    ? {
-                        atmosphereColor: focusedWorldSkin?.atmosphere_color ?? 'lightskyblue',
-                        atmosphereAltitude: focusedWorldSkin?.atmosphere_altitude ?? 0.15,
-                        backgroundColor: focusedWorldSkin?.background_color,
-                      }
-                    : {})}
-                />
-              )}
-            </Suspense>
-          ) : (
-            <GameMap
-              moonInset
-              mapData={mapData}
-              onTerritoryClick={() => {}}
-              width={mapCanvasSize.w}
-              height={mapCanvasSize.h}
-              strikeFlash={mapStrikeFlash}
-              mapVisualEvents={mapVisualEvents}
-              onMapVisualDone={onMapVisualDone}
-              frameBudget={frameBudget.active}
-              ambientEnabled={spectatorAmbientEnabled && !reducedGlobe}
-              turnHolderPlayerId={currentPlayer?.player_id ?? null}
-              turnHolderColor={currentPlayer?.color}
-              contestedBorders={contestedBorders}
-              connectionHintMode={connectionHintMode}
-            />
-          )}
-
-          {sizeReady && mapView === 'globe' && !(mapData.map_kind === 'galaxy' && galaxyOverviewMode) && !globeReady && (
-            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-              <p className="text-bf-muted animate-pulse">Loading globe…</p>
-            </div>
-          )}
-
-          {emotes.length > 0 && (
-            <div className="pointer-events-none absolute inset-x-0 top-6 flex justify-center">
-              <div className="space-y-2">
-                {emotes.map((item) => (
-                  <div key={item.id} className="animate-bounce rounded-full bg-black/55 px-3 py-1 text-sm text-white shadow-lg backdrop-blur-sm">
-                    <span className="mr-2">{item.emote}</span>
-                    <span className="text-white/70">{item.username}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {mapContent}
         </div>
 
         <aside className="w-full lg:w-80 border-t lg:border-t-0 lg:border-l border-bf-border bg-bf-surface/70 p-4 flex flex-col gap-4">
@@ -650,11 +859,11 @@ export default function SpectatorPage() {
           <div>
             <p className="text-xs uppercase tracking-widest text-bf-gold mb-2">Reactions</p>
             <div className="grid grid-cols-4 gap-2">
-              {['👏', '⚔️', '💀', '🏆'].map((emote) => (
+              {REACTIONS.map((emote) => (
                 <button
                   key={emote}
                   type="button"
-                  onClick={() => getSocket().emit('game:spectator_emote', { gameId: gameId!, emote })}
+                  onClick={() => sendReaction(emote)}
                   className="rounded-lg border border-bf-border bg-bf-dark/60 py-2 text-lg hover:border-bf-gold/30 transition-colors"
                 >
                   {emote}

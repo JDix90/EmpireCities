@@ -28,6 +28,8 @@ const globe = vi.hoisted(() => {
     // three.js's frame counter, when a test wants the renderer to count frames.
     info: null as null | { render: { frame: number } },
     scene: null as null | { children: unknown[] },
+    // The perspective camera's shape, and how often its projection was rebuilt.
+    camera: { aspect: 1, projections: 0, updateProjectionMatrix() { this.projections += 1; } },
   };
 });
 
@@ -43,6 +45,7 @@ vi.mock('react-globe.gl', async () => {
       renderer: () => ({ setPixelRatio: (r: number) => { globe.pixelRatios.push(r); }, setSize: () => {}, domElement: document.createElement('canvas'), ...(globe.info ? { info: globe.info } : {}) }),
       toGlobeCoords: () => null,
       scene: () => globe.scene,
+      camera: () => globe.camera,
     }));
     React.useEffect(() => { (props.onGlobeReady as (() => void) | undefined)?.(); }, []);
     return React.createElement('div', { 'data-testid': 'globe-stub' });
@@ -106,6 +109,8 @@ describe('GlobeMap under the phone frame budget', () => {
     globe.props = null;
     globe.info = null;
     globe.scene = null;
+    globe.camera.aspect = 1;
+    globe.camera.projections = 0;
     for (const k of Object.keys(globe.listeners)) delete globe.listeners[k];
     window.matchMedia = vi.fn().mockReturnValue({
       matches: false, media: '', onchange: null,
@@ -333,6 +338,17 @@ describe('GlobeMap under the phone frame budget', () => {
     expect(globe.running).toBe(true);
     act(() => { vi.advanceTimersByTime(400); });
     expect(globe.running).toBe(false);
+  });
+
+  it('reshapes the camera for the new pane before drawing it, so the globe stays round', () => {
+    const props = { mapData: spaceAge, onTerritoryClick: () => {}, width: 390, selfPlayerId: 'me', autoSpin: false, frameBudget: true, reducedEffects: true };
+    const { rerender } = render(<GlobeMapCore {...props} height={600} />);
+    act(() => { vi.advanceTimersByTime(1000); });
+    const projections = globe.camera.projections;
+    // A chat panel opens under the map: the pane loses most of its height.
+    rerender(<GlobeMapCore {...props} height={300} />);
+    expect(globe.camera.aspect).toBeCloseTo(390 / 300, 5);
+    expect(globe.camera.projections).toBe(projections + 1);
   });
 
   it('draws a phone at 1.25 device pixels per CSS pixel, and the desktop at 1.5', () => {

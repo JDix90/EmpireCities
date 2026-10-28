@@ -1586,6 +1586,15 @@ function GlobeMap({
     // the phone budget's 1.25 draws about 70% of that (utils/frameBudget.ts).
     renderer.setPixelRatio(mapPixelRatio(frameBudget, window.devicePixelRatio));
     renderer.setSize(width, height);
+    // The camera's shape too: react-globe.gl sets it for the new size only on
+    // its next deferred update, after the frames below have drawn with the old
+    // one, and an idle loop then kept that squashed globe on screen until the
+    // next move or touch (a phone's map pane opening a panel under it).
+    const camera = globe.camera();
+    if ('aspect' in camera && 'updateProjectionMatrix' in camera) {
+      (camera as { aspect: number }).aspect = width / height;
+      (camera as { updateProjectionMatrix: () => void }).updateProjectionMatrix();
+    }
     // Sizing the backing store clears it, and an idle loop would leave the
     // globe blank until the next touch: a phone's map pane resizes whenever
     // the browser's toolbar comes or goes. Draw it again.

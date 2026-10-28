@@ -25,6 +25,12 @@ interface GameChatProps {
   lobbyMode?: boolean;
   /** When true, uses spectator chat events scoped to the spectator room. */
   spectatorMode?: boolean;
+  /**
+   * Embedded, and filling the box it sits in: the messages take whatever
+   * height the composer leaves (the spectator's phone panel). Without it the
+   * embedded chat caps itself for the game's sidebar.
+   */
+  fill?: boolean;
 }
 
 const GIF_REGEX = /^\[gif:(https:\/\/media1?\.tenor\.com\/[^\]]+)\]$/;
@@ -44,7 +50,7 @@ function renderMessage(message: string) {
   return <span className="text-bf-text/90 break-words">{message}</span>;
 }
 
-export default function GameChat({ gameId, embedded = false, defaultOpen = false, lobbyMode = false, spectatorMode = false }: GameChatProps) {
+export default function GameChat({ gameId, embedded = false, defaultOpen = false, lobbyMode = false, spectatorMode = false, fill = false }: GameChatProps) {
   const [messages, setMessages] = useState<ChatMessagePayload[]>([]);
   const [input, setInput] = useState('');
   const [open, setOpen] = useState(defaultOpen);
@@ -137,7 +143,9 @@ export default function GameChat({ gameId, embedded = false, defaultOpen = false
     <div
       className={clsx(
         'overflow-hidden',
-        embedded
+        embedded && fill
+          ? 'w-full flex-1 min-h-0 flex flex-col border-t border-bf-border bg-bf-dark/50'
+          : embedded
           // Capped so the composer, emoji and GIF rows can't grow the chat into
           // the sidebar's action button above it.
           ? 'w-full shrink-0 max-h-[45%] flex flex-col border-t border-bf-border bg-bf-dark/50'
@@ -161,7 +169,7 @@ export default function GameChat({ gameId, embedded = false, defaultOpen = false
             ref={chatContainerRef}
             className={clsx(
               'overflow-y-auto px-3 py-2 space-y-1.5',
-              embedded ? 'max-h-[min(28vh,200px)]' : 'h-[180px]',
+              embedded && fill ? 'flex-1 min-h-0' : embedded ? 'max-h-[min(28vh,200px)]' : 'h-[180px]',
             )}
           >
             {messages.map((m, i) => (
