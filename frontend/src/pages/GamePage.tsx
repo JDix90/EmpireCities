@@ -5704,14 +5704,17 @@ export default function GamePage() {
               <div className="min-w-0">
                 <div className="text-xs font-display text-bf-gold truncate">
                   {phaseLabel[gameState.phase] ?? gameState.phase}
-                  {mobileDraftPool > 0 && (
-                    <span className="ml-1.5 text-bf-text font-mono font-normal">
-                      · {mobileDraftPool} units
-                    </span>
-                  )}
                 </div>
                 <div className="flex items-center gap-1.5 text-xs text-bf-muted truncate flex-wrap">
-                  <span className="truncate">{myTurn ? 'Your turn' : cp?.username ?? '—'}</span>
+                  {/* The count to place takes the second line: after the phase
+                      name on the first, a 320-360px phone cut it off at
+                      "Reinforce…". It only shows on the player's own turn,
+                      which is what "Your turn" said. */}
+                  {mobileDraftPool > 0 ? (
+                    <span className="truncate text-bf-text font-mono">{mobileDraftPool} to place</span>
+                  ) : (
+                    <span className="truncate">{myTurn ? 'Your turn' : cp?.username ?? '—'}</span>
+                  )}
                   {gameState.settings.async_mode && (() => {
                     const dSec = gameState.settings.async_turn_deadline_seconds ?? 86400;
                     const elapsed = (Date.now() - gameState.turn_started_at) / 1000;
