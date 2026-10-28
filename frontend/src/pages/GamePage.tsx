@@ -146,7 +146,7 @@ import { eraBoardTheme } from '../constants/eraBoardTheme';
 import { getAbilityActivationMessage } from '../utils/abilityActivationFeedback';
 import { playAbilityActivationSound, playStrikeAbilitySound } from '../utils/abilitySoundFeedback';
 import { playFrontierUnlockSound } from '../utils/gameSounds';
-import { formatEraLabel } from '../utils/mapDisplayNames';
+import { formatEraLabel, type SecretMissionLike } from '../utils/mapDisplayNames';
 import { isHostileAbility, trucePartnerOwning } from '../utils/truces';
 import { teamOf } from '../utils/teams';
 import BrandWordmark from '../components/ui/BrandWordmark';
@@ -2089,6 +2089,7 @@ export default function GamePage() {
         units_lost_to_events?: number;
         turns_ended_with_set?: number;
         worst_round_loss?: { turn: number; from: number; to: number } | null;
+        secret_mission?: SecretMissionLike | null;
       }>;
       win_probability_history?: Array<{ step: number; turn: number; probabilities: Record<string, number> }>;
       rating_deltas?: Record<string, number>;

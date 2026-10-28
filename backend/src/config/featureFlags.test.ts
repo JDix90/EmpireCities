@@ -550,6 +550,15 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().loss_reason_enabled).toBe(false);
   });
 
+  it('mission_reveal_enabled defaults to on and the admin override is its kill switch', () => {
+    expect(featureFlags.missionRevealEnabled).toBe(true);
+    expect(getClientFeatureFlags().mission_reveal_enabled).toBe(true);
+    expect(getFeatureFlagStates().mission_reveal_enabled).toEqual({ code_default: true, overridden: false, effective: true });
+    setAdminConfigCacheForTests({ feature_flags: { mission_reveal_enabled: false } });
+    expect(featureFlags.missionRevealEnabled).toBe(false);
+    expect(getClientFeatureFlags().mission_reveal_enabled).toBe(false);
+  });
+
   it('custom_round_cap_enabled defaults to off (dark-launch) and is admin-overridable', () => {
     expect(featureFlags.customRoundCapEnabled).toBe(false);
     expect(getClientFeatureFlags().custom_round_cap_enabled).toBe(false);

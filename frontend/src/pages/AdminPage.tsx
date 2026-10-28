@@ -546,6 +546,12 @@ const CLIENT_FEATURE_FLAGS = [
       'The defeat screen shows one line on why the player lost, under how the game ended, from what the game counted: the turn their territories fell furthest (\u201cyour territories fell from 9 to 4\u201d), turns they ended holding a card set they never traded, or armies lost to event cards. Before, its coaching listed only their best moves. On by default; switching it off gives the defeat screen exactly as before.',
   },
   {
+    key: 'mission_reveal_enabled',
+    label: 'Reveal secret missions at game over',
+    description:
+      'When a game is won by a secret mission, or by two allies completing their alliance mission, the game-over screen lists every player\u2019s mission and marks the one that was completed. Before, it said only \u201cSecret Mission completed\u201d and never which mission, or what anyone else had been after. On by default; switching it off gives the game-over screen exactly as before.',
+  },
+  {
     key: 'translation_dom_guard_enabled',
     label: 'Translated pages don\u2019t crash',
     description:

@@ -5826,6 +5826,10 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
       units_lost_to_events: p.units_lost_to_events ?? 0,
       turns_ended_with_set: p.turns_ended_with_set ?? 0,
       worst_round_loss: worstRoundLoss(state, p),
+      // Every mission, for the game-over screen to reveal (mission_reveal_enabled).
+      // The game is over, so the state already shows them to everyone
+      // (clientStateRedaction.ts); this only saves the client waiting for it.
+      secret_mission: p.secret_mission ?? null,
     })),
     win_probability_history: state.win_probability_history ?? [],
     // Guests are redacted from both rating maps: competitive numbers are a
