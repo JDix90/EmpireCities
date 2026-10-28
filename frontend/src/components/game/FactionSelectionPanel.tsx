@@ -120,11 +120,16 @@ export default function FactionSelectionPanel({ lobby, eraId }: FactionSelection
               const canPick = (isMe && !isAI) || (isHost && isAI);
               return (
                 <tr key={playerKey} className="border-b border-bf-border last:border-0">
-                  <td className="py-2 pr-4">
-                    <span className="inline-flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-full border border-white/20" style={{ backgroundColor: p.player_color }} />
-                      {isAI ? lobbyBotName(p.player_index, lobbyCommanders(lobby)) : (p.username || '—')}
-                      {isMe && !isAI && <span className="ml-1 text-bf-gold text-xs">(you)</span>}
+                  <td className="py-2 pr-4 max-sm:pr-2">
+                    {/* Wraps: a bot's name, badges and "(host sets)" on one line
+                        ran the table past a 320px phone. The colour dot stays
+                        with the name. */}
+                    <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="inline-flex items-center gap-2">
+                        <span className="w-3 h-3 shrink-0 rounded-full border border-white/20" style={{ backgroundColor: p.player_color }} />
+                        <span className="[overflow-wrap:anywhere]">{isAI ? lobbyBotName(p.player_index, lobbyCommanders(lobby)) : (p.username || '—')}</span>
+                      </span>
+                      {isMe && !isAI && <span className="text-bf-gold text-xs">(you)</span>}
                       {commander?.style && <AiStyleBadge style={commander.style} size="xs" showLabel={false} />}
                       {isAI && <AiBadge difficulty={p.ai_difficulty} size="xs" />}
                       {isAI && isHost && <span className="ml-1 text-bf-muted text-xs">(host sets)</span>}
@@ -133,7 +138,7 @@ export default function FactionSelectionPanel({ lobby, eraId }: FactionSelection
                   <td className="py-2">
                     {canPick ? (
                       <select
-                        className="input"
+                        className="input min-w-[7.75rem] max-sm:px-2.5"
                         value={playerFactions[playerKey] || ''}
                         disabled={!!submitting}
                         onChange={e => handleSelect(playerKey, e.target.value)}
