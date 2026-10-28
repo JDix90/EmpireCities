@@ -964,16 +964,19 @@ export default function ReplayPage() {
           </div>
         </div>
       ) : (
+      // Below 1024px (a tablet, a narrow window) the secondary buttons keep
+      // their icons and drop their words, which wrapped every label onto two
+      // lines; a screen reader still reads each one.
       <div className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-bf-border bg-bf-surface">
         <button
           onClick={goBack}
-          className="flex items-center gap-1.5 text-bf-muted hover:text-bf-text transition-colors text-sm"
+          className="flex items-center gap-1.5 text-bf-muted hover:text-bf-text transition-colors text-sm whitespace-nowrap"
         >
           <ChevronLeft className="w-4 h-4" /> {backTarget.label}
         </button>
         <div className="h-4 w-px bg-bf-border" />
-        <span className="text-bf-gold font-display text-sm tracking-wide">{headerLabel}</span>
-        <span className="text-bf-muted text-xs ml-auto">
+        <span className="text-bf-gold font-display text-sm tracking-wide whitespace-nowrap">{headerLabel}</span>
+        <span className="text-bf-muted text-xs ml-auto whitespace-nowrap">
           Turn {currentTurn} of {lastTurn}
         </span>
         <button
@@ -987,7 +990,7 @@ export default function ReplayPage() {
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-bf-border text-bf-muted hover:text-bf-text hover:bg-white/10 text-xs font-medium transition-all"
         >
           {mapView === 'globe' ? <MapIcon className="w-3.5 h-3.5" /> : <GlobeIcon className="w-3.5 h-3.5" />}
-          <span>{mapView === 'globe' ? '2D' : 'Globe'}</span>
+          <span className="sr-only lg:not-sr-only">{mapView === 'globe' ? '2D' : 'Globe'}</span>
         </button>
         {mapView === 'globe' && mapData.map_kind === 'galaxy' && (
           <button
@@ -1006,7 +1009,7 @@ export default function ReplayPage() {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-bf-border text-bf-muted hover:text-bf-text hover:bg-white/10 text-xs font-medium transition-all"
           >
             <FilmIcon className="w-3.5 h-3.5" />
-            {insightsOpen ? 'Hide Tips' : 'Show Tips'}
+            <span className="sr-only lg:not-sr-only">{insightsOpen ? 'Hide Tips' : 'Show Tips'}</span>
             {insights.length > 0 && (
               <span className="ml-1 text-bf-gold">{insights.length}</span>
             )}
@@ -1020,7 +1023,7 @@ export default function ReplayPage() {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-bf-border text-bf-muted hover:text-bf-text hover:bg-white/10 text-xs font-medium transition-all"
           >
             <ScrollText className="w-3.5 h-3.5" />
-            {chronicleOpen ? 'Hide Chronicle' : 'Chronicle'}
+            <span className="sr-only lg:not-sr-only">{chronicleOpen ? 'Hide Chronicle' : 'Chronicle'}</span>
           </button>
         )}
         {/* Export a short, branded highlight clip (video/GIF) for socials. */}
@@ -1031,7 +1034,7 @@ export default function ReplayPage() {
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-bf-border text-bf-muted hover:text-bf-text hover:bg-white/10 text-xs font-medium transition-all"
         >
           <Clapperboard className="w-3.5 h-3.5" />
-          Clip
+          <span className="sr-only lg:not-sr-only">Clip</span>
         </button>
         {/* Public viewers (non-participants) can copy the already-public link;
             participants can make it public, copy it, or revoke. */}
@@ -1041,7 +1044,7 @@ export default function ReplayPage() {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bf-gold/10 border border-bf-gold/20 text-bf-gold hover:bg-bf-gold/20 text-xs font-medium transition-all"
           >
             {copied ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
-            <span>Copy Link</span>
+            <span className="sr-only lg:not-sr-only">Copy Link</span>
           </button>
         ) : (
           <>
@@ -1051,7 +1054,7 @@ export default function ReplayPage() {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-bf-gold/10 border border-bf-gold/20 text-bf-gold hover:bg-bf-gold/20 text-xs font-medium transition-all disabled:opacity-50"
             >
               {copied ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
-              <span>{isPublic ? 'Copy Link' : 'Share Replay'}</span>
+              <span className="sr-only lg:not-sr-only">{isPublic ? 'Copy Link' : 'Share Replay'}</span>
             </button>
             {isPublic && (
               <button
@@ -1061,7 +1064,7 @@ export default function ReplayPage() {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-bf-border text-bf-muted hover:text-bf-text hover:bg-white/10 text-xs font-medium transition-all disabled:opacity-50"
               >
                 <Lock className="w-3.5 h-3.5" />
-                Make Private
+                <span className="sr-only lg:not-sr-only">Make Private</span>
               </button>
             )}
           </>
@@ -1191,8 +1194,11 @@ export default function ReplayPage() {
             className={clsx(
               'absolute bg-bf-surface/90 border border-bf-border rounded-xl space-y-1',
               // A phone's globe has no zoom buttons in the bottom corner, and
-              // its "Skip animations" button takes the top one.
-              phoneLayout ? 'bottom-2 right-2 p-2 text-[11px] max-w-[140px]' : 'top-3 right-3 p-3 text-xs max-w-[160px]',
+              // its "Skip animations" button takes the top one. A larger
+              // screen's top-right corner is the skip button's and the tips
+              // panel's, which covered this list; its zoom buttons take the
+              // bottom right, so the list takes the bottom left.
+              phoneLayout ? 'bottom-2 right-2 p-2 text-[11px] max-w-[140px]' : 'bottom-3 left-3 p-3 text-xs max-w-[160px]',
             )}
           >
             {currentState.players.map((p) => (
@@ -1483,8 +1489,11 @@ export default function ReplayPage() {
               {showMapAnimations ? (
                 <>
                   {/* A phone shows the first line until Learn more: the whole
-                      note took five lines under the controls. */}
-                  <p>
+                      note took five lines under the controls. Learn more runs
+                      on after it, so the note is one line wherever it fits:
+                      under a phone on its side's controls, a second line came
+                      out of a map about 180px tall. */}
+                  <p className={phoneLayout && !replayFxHintExpanded ? 'inline' : undefined}>
                     <span className="text-white/85 font-medium">Replay map animations are inferred</span>
                     {(!phoneLayout || replayFxHintExpanded) && (
                       <span>
@@ -1502,7 +1511,10 @@ export default function ReplayPage() {
                   <button
                     type="button"
                     onClick={() => setReplayFxHintExpanded((v) => !v)}
-                    className="mt-1 text-bf-gold/90 hover:text-bf-gold underline-offset-2 hover:underline"
+                    className={clsx(
+                      'text-bf-gold/90 hover:text-bf-gold underline-offset-2 hover:underline',
+                      phoneLayout && !replayFxHintExpanded ? 'ml-2' : 'mt-1',
+                    )}
                   >
                     {replayFxHintExpanded ? 'Show less' : 'Learn more'}
                   </button>
@@ -1522,7 +1534,7 @@ export default function ReplayPage() {
                   /* ignore */
                 }
               }}
-              className="shrink-0 p-1 rounded hover:bg-white/10 text-white/40 hover:text-white/70"
+              className="tap-target shrink-0 p-1 rounded hover:bg-white/10 text-white/40 hover:text-white/70"
             >
               <X className="w-3.5 h-3.5" />
             </button>
