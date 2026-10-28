@@ -77,6 +77,7 @@
     },
     "galaxy_age": {
       "label": "Era galáctica — Próximamente",
+      "labelBeta": "Era galáctica · Beta",
       "years": "Futuro lejano",
       "summary": "Cuatro mundos unidos por rutas hiperespaciales: controla un sistema de entrada y ataca directamente a través de su ruta. Los cruces tiran menos dados, así que las entradas se defienden como costas, y cada facción combate en las rutas a su manera."
     }

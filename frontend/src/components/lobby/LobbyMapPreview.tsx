@@ -8,6 +8,8 @@ import { Globe, Loader2, Map as MapIcon } from 'lucide-react';
 import clsx from 'clsx';
 import { fetchMapById, GameMap, ERA_METADATA } from '../../services/mapService';
 import { startingBoardTerritoryCount } from '../../utils/startingBoard';
+import { useGalaxyAgeBetaEnabled } from '../../store/featureFlagsStore';
+import { withGalacticAgeLabel } from '../../constants/galacticAgeAccess';
 import { GlobeMapLazy, preloadGlobeChunks } from '../../utils/globeLoader';
 import MapPreview from './MapPreview';
 
@@ -29,6 +31,7 @@ export default function LobbyMapPreview({
 }: LobbyMapPreviewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<GameMap | null>(null);
+  const galacticBeta = useGalaxyAgeBetaEnabled();
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<PreviewView>(defaultView);
   const [size, setSize] = useState({ w: 720, h: height });
@@ -120,7 +123,7 @@ export default function LobbyMapPreview({
         className="absolute top-2 left-2 z-20 text-xs font-bold px-2 py-1 rounded pointer-events-none"
         style={{ backgroundColor: `${meta.color}33`, color: meta.color }}
       >
-        {meta.label} · {meta.year}
+        {withGalacticAgeLabel(map.era_theme, meta.label, galacticBeta)} · {meta.year}
       </div>
 
       <div className="absolute top-2 right-2 z-20 flex rounded-lg border border-bf-border/80 bg-black/55 overflow-hidden">

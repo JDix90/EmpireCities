@@ -46,9 +46,11 @@ export function isGalacticAgeGame(eraId: string | null | undefined, mapId: strin
 
 /**
  * The SQL twin of {@link isGalacticAgeGame} for table alias `g`. Open Games
- * never lists one: the era is admin-only, and a lobby that waits for humans
- * waits for the ones it was sent to — however it came to be Galactic (created
- * that way, or switched by a Map & Era vote).
+ * lists none while the era is admin-only: a lobby that waits for humans waits
+ * for the ones it was sent to — however it came to be Galactic (created that
+ * way, or switched by a Map & Era vote). With the open beta on
+ * (`galaxy_age_beta_enabled`) every signed-in player may play the era, and
+ * Open Games lists them like any other.
  */
 export const GALACTIC_AGE_GAME_SQL = `(g.era_id = 'galaxy_age' OR g.map_id = 'era_galaxy')`;
 

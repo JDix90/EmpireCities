@@ -77,6 +77,7 @@
     },
     "galaxy_age": {
       "label": "Era Galáctica — Em breve",
+      "labelBeta": "Era Galáctica · Beta",
       "years": "Futuro distante",
       "summary": "Quatro mundos ligados por rotas de hiperespaço: controle um sistema-portal e ataque diretamente pela sua rota. As travessias rolam menos dados, então os portais se defendem como litorais — e cada facção luta nas rotas do seu jeito."
     }

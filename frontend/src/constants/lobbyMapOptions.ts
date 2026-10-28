@@ -123,9 +123,10 @@ export function isCommunityTheaterMap(mapId: string): boolean {
 export function isEraSelectableInLobby(
   eraId: string,
   user: { is_admin?: boolean; is_guest?: boolean } | null | undefined,
+  galacticBeta = false,
 ): boolean {
   if (eraId === GALACTIC_AGE_ERA_ID) {
-    return canAccessGalacticAge(user);
+    return canAccessGalacticAge(user, galacticBeta);
   }
   return eraId in LOBBY_ERA_MAP_IDS;
 }

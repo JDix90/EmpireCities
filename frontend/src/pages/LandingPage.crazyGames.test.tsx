@@ -22,6 +22,7 @@ vi.mock('../store/featureFlagsStore', () => ({
   useOnboardingTutorialFirstEnabled: () => false,
   useHeroSingleCtaEnabled: () => true,
   useLocalizationEnabled: () => false,
+  useGalaxyAgeBetaEnabled: () => false,
 }));
 vi.mock('../utils/embedContext', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../utils/embedContext')>()),

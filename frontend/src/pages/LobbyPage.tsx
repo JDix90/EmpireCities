@@ -19,7 +19,7 @@ import { HEGEMONY_TURNS } from '../utils/lunarHegemony';
 import { RANKED_MIN_OPPONENTS, describeRankedGameSize, getRankedOpponents, rankedEraSize, saveRankedOpponents } from '../utils/rankedPrefs';
 import { clearRankedSearchMarker, setRankedSearchMarker } from '../utils/rankedSearchMarker';
 import { guestLine } from '../utils/guestGate';
-import { useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
+import { useSaveAccountCopyEnabled, useGalaxyAgeBetaEnabled, useFeatureFlagsStore } from '../store/featureFlagsStore';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
@@ -93,7 +93,9 @@ import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import Modal from '../components/ui/Modal';
 import {
   canAccessGalacticAge,
+  canAccessSpaceToStars,
   GALACTIC_AGE_ERA_ID,
+  withGalacticAgeLabel,
 } from '../constants/galacticAgeAccess';
 import {
   transitionEraSystemDefaults,
@@ -389,6 +391,9 @@ function timeAgo(dateStr: string): string {
 export default function LobbyPage() {
   useRnParamTracker();
   const { user, logout, accessToken, refreshUser } = useAuthStore();
+  // The Galactic Age open beta: every signed-in player may pick it.
+  const galacticBeta = useGalaxyAgeBetaEnabled();
+  const flagsLoaded = useFeatureFlagsStore((s) => s.loaded);
   const mapEditorEnabled = useMapEditorEnabled();
   const eraAdvancementLobbyEnabled = useEraAdvancementLobbyEnabled();
   const spaceAgeMoonRaceEnabled = useSpaceAgeMoonRaceEnabled();
@@ -871,6 +876,7 @@ export default function LobbyPage() {
       map_id: selectedTheaterMapId,
       settings,
       is_admin: user?.is_admin === true,
+      galactic_beta: galacticBeta,
       player_count: 1 + aiCount,
       max_players: isGalacticEra ? galaxySeatCap : undefined,
       map_meta: theaterMapDoc ? buildMapMetaFromGameMap(theaterMapDoc) : null,
@@ -889,6 +895,7 @@ export default function LobbyPage() {
     eraAdvancementLobbyEnabled,
     eraAdvancementEnabled,
     user?.is_admin,
+    galacticBeta,
     aiCount,
     isGalacticEra,
     galaxySeatCap,
@@ -912,9 +919,12 @@ export default function LobbyPage() {
 
   useEffect(() => {
     if (selectedEra !== GALACTIC_AGE_ERA_ID) return;
-    if (canAccessGalacticAge(user)) return;
+    // Wait for the flags: a "Play the beta" link lands here before they load,
+    // and the beta reads as off until they do.
+    if (!flagsLoaded) return;
+    if (canAccessGalacticAge(user, galacticBeta)) return;
     setSelectedEra('ww2');
-  }, [user, selectedEra]);
+  }, [user, selectedEra, galacticBeta, flagsLoaded]);
 
   // Orbit-gated endgame defaults: domination alone can't finish an orbit-gated
   // board (the galaxy's hyperspace-locked worlds, or Space Age's neutral Moon),
@@ -1244,7 +1254,7 @@ export default function LobbyPage() {
 
   const handleCreateGame = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedEra === GALACTIC_AGE_ERA_ID && !canAccessGalacticAge(user)) {
+    if (selectedEra === GALACTIC_AGE_ERA_ID && !canAccessGalacticAge(user, galacticBeta)) {
       toast.error('Galactic Age is coming soon.');
       return;
     }
@@ -2883,9 +2893,9 @@ export default function LobbyPage() {
                         <option
                           key={era.id}
                           value={era.id}
-                          disabled={era.id === GALACTIC_AGE_ERA_ID && !canAccessGalacticAge(user)}
+                          disabled={era.id === GALACTIC_AGE_ERA_ID && !canAccessGalacticAge(user, galacticBeta)}
                         >
-                          {era.label}{activeSeasonal.some((s) => s.era_id === era.id) ? ' 🎯' : ''}
+                          {withGalacticAgeLabel(era.id, era.label, galacticBeta)}{activeSeasonal.some((s) => s.era_id === era.id) ? ' 🎯' : ''}
                         </option>
                       ))}
                     </select>
@@ -2908,9 +2918,9 @@ export default function LobbyPage() {
                           <option
                             key={opt.map_id}
                             value={opt.map_id}
-                            disabled={isAscensionGalaxyMap(opt.map_id) && !canAccessGalacticAge(user)}
+                            disabled={isAscensionGalaxyMap(opt.map_id) && !canAccessSpaceToStars(user)}
                           >
-                            {opt.label}
+                            {withGalacticAgeLabel(opt.map_id, opt.label, galacticBeta)}
                           </option>
                         ))}
                       </select>

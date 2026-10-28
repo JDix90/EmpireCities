@@ -27,6 +27,7 @@ describe.runIf(enabled)('Galactic Age lobbies seat two to eight (Postgres)', () 
   let query: (sql: string, params?: unknown[]) => Promise<Record<string, unknown>[]>;
   let signAccessToken: (p: { sub: string; username: string; guest?: boolean; admin?: boolean }) => string;
   let GALAXY_PLAYER_COUNT_ERROR: string;
+  let setBeta: (on: boolean) => void;
   const userIds: string[] = [];
   const gameIds: string[] = [];
 
@@ -46,11 +47,11 @@ describe.runIf(enabled)('Galactic Age lobbies seat two to eight (Postgres)', () 
     return { authorization: `Bearer ${signAccessToken({ sub: user.id, username: user.name, guest: false, admin })}` };
   }
 
-  function createGalaxy(admin: { id: string; name: string }, maxPlayers: number, aiCount: number) {
+  function createGalaxy(admin: { id: string; name: string }, maxPlayers: number, aiCount: number, asAdmin = true) {
     return app.inject({
       method: 'POST',
       url: '/api/games',
-      headers: auth(admin, true),
+      headers: auth(admin, asAdmin),
       payload: {
         era_id: 'galaxy_age',
         map_id: 'era_galaxy',
@@ -81,6 +82,8 @@ describe.runIf(enabled)('Galactic Age lobbies seat two to eight (Postgres)', () 
     });
     ({ signAccessToken } = await import('../../utils/jwt'));
     ({ GALAXY_PLAYER_COUNT_ERROR } = await import('./lobbyCapacity'));
+    const adminConfig = await import('../../services/adminConfig');
+    setBeta = (on) => adminConfig.setAdminConfigCacheForTests({ feature_flags: { galaxy_age_beta_enabled: on } });
     const { registerErrorHandler } = await import('../../errorHandler');
     const { gamesRoutes } = await import('./games.routes');
     app = Fastify();
@@ -158,6 +161,21 @@ describe.runIf(enabled)('Galactic Age lobbies seat two to eight (Postgres)', () 
     expect(fifth.json()).toMatchObject({ code: 'full' });
   });
 
+  it('lets a player who is not an admin create one only while the open beta is on', async () => {
+    const player = await seedUser('gal_beta_player');
+    try {
+      setBeta(false);
+      const refused = await createGalaxy(player, 4, 3, false);
+      expect(refused.statusCode).toBe(403);
+      setBeta(true);
+      const created = await createGalaxy(player, 4, 3, false);
+      expect(created.statusCode).toBe(201);
+      gameIds.push((created.json() as { game_id: string }).game_id);
+    } finally {
+      setBeta(false);
+    }
+  });
+
   it('never lists a Galactic lobby in Open Games, even a public one a vote switched to the era', async () => {
     const host = await seedUser('gal_vote_host');
     const viewer = await seedUser('gal_vote_viewer');
@@ -185,6 +203,17 @@ describe.runIf(enabled)('Galactic Age lobbies seat two to eight (Postgres)', () 
     expect(ids).not.toContain(galactic);
     expect(ids).not.toContain(onTheBoard);
     expect(ids).toContain(ordinary);
+
+    // The open beta makes the era anyone's, so its open lobbies are listed.
+    try {
+      setBeta(true);
+      const open = await app.inject({ method: 'GET', url: '/api/games/public', headers: auth(viewer) });
+      const openIds = (open.json() as Array<{ game_id: string }>).map((g) => g.game_id);
+      expect(openIds).toContain(galactic);
+      expect(openIds).toContain(onTheBoard);
+    } finally {
+      setBeta(false);
+    }
   });
 
   it('holds a stored cap of six seats to six, now that five to seven have a board', async () => {

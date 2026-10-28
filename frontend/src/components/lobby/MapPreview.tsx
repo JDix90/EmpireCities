@@ -7,6 +7,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { fetchMapById, GameMap, ERA_METADATA, scalePolygon } from '../../services/mapService';
 import { startingBoardTerritoryCount } from '../../utils/startingBoard';
+import { useGalaxyAgeBetaEnabled } from '../../store/featureFlagsStore';
+import { withGalacticAgeLabel } from '../../constants/galacticAgeAccess';
 import { Loader2 } from 'lucide-react';
 
 // Distinct region colors for preview
@@ -36,6 +38,7 @@ export default function MapPreview({
   showChrome = true,
 }: MapPreviewProps) {
   const [map, setMap]             = useState<GameMap | null>(mapData ?? null);
+  const galacticBeta              = useGalaxyAgeBetaEnabled();
   const [loading, setLoading]     = useState(!mapData);
   const [hovered, setHovered]     = useState<string | null>(null);
   const [tooltip, setTooltip]     = useState<{ x: number; y: number; name: string } | null>(null);
@@ -96,7 +99,7 @@ export default function MapPreview({
         <>
           <div className="absolute top-2 left-2 z-10 text-xs font-bold px-2 py-1 rounded"
                style={{ backgroundColor: meta.color + '33', color: meta.color }}>
-            {meta.label} · {meta.year}
+            {withGalacticAgeLabel(map.era_theme, meta.label, galacticBeta)} · {meta.year}
           </div>
           <div className="absolute top-2 right-2 z-10 text-xs text-gray-400">
             {startingBoardTerritoryCount(map)} territories

@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore, waitForAuthBootstrap } from '../store/authStore';
 import { ownAuthUiAllowed } from '../utils/embedContext';
-import { useOnboardingTutorialFirstEnabled, useHeroSingleCtaEnabled } from '../store/featureFlagsStore';
+import { useOnboardingTutorialFirstEnabled, useHeroSingleCtaEnabled, useGalaxyAgeBetaEnabled } from '../store/featureFlagsStore';
 import { trackVisitEvent } from '../utils/visitAnalytics';
 import { canAccessGalacticAge, GALACTIC_AGE_ERA_ID } from '../constants/galacticAgeAccess';
 import toast from 'react-hot-toast';
@@ -26,11 +26,15 @@ type EraDefinition = LandingEra;
 /** The subset of i18next's `t` the era helpers need. */
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
-/** Era card copy in the active language; community maps fall back to their own data. */
-function eraCopy(t: Translate, era: EraDefinition): LandingEraCopy {
+/**
+ * Era card copy in the active language; community maps fall back to their own
+ * data. The Galactic Age is labelled Beta while its open beta is on.
+ */
+function eraCopy(t: Translate, era: EraDefinition, galacticBeta = false): LandingEraCopy {
   const fb = era.fallback;
+  const labelKey = galacticBeta && era.id === GALACTIC_AGE_ERA_ID ? 'labelBeta' : 'label';
   return {
-    label: t(`eras.${era.id}.label`, { defaultValue: fb?.label ?? era.id }),
+    label: t(`eras.${era.id}.${labelKey}`, { defaultValue: fb?.label ?? era.id }),
     years: t(`eras.${era.id}.years`, { defaultValue: fb?.years ?? '' }),
     summary: t(`eras.${era.id}.summary`, { defaultValue: fb?.summary ?? '' }),
   };
@@ -82,11 +86,11 @@ function EraDetailModal({
   era: EraDefinition;
   onClose: () => void;
   playHref: string;
-  /** Non-admins cannot start Galactic Age yet (marketing “coming soon”). */
+  /** Non-admins cannot start Galactic Age yet (marketing “coming soon”), unless its beta is open. */
   playLocked: boolean;
 }) {
   const { t } = useTranslation('landing');
-  const copy = eraCopy(t, era);
+  const copy = eraCopy(t, era, useGalaxyAgeBetaEnabled());
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -170,7 +174,7 @@ function EraDetailModal({
 
 function EraCardButton({ era, onOpen }: { era: EraDefinition; onOpen: (e: EraDefinition) => void }) {
   const { t } = useTranslation('landing');
-  const copy = eraCopy(t, era);
+  const copy = eraCopy(t, era, useGalaxyAgeBetaEnabled());
   return (
     <button
       type="button"
@@ -256,6 +260,7 @@ export default function LandingPage() {
   const navigate = useNavigate();
   const loginAsGuest = useAuthStore((s) => s.loginAsGuest);
   const user = useAuthStore((s) => s.user);
+  const galacticBeta = useGalaxyAgeBetaEnabled();
   const tutorialFirst = useOnboardingTutorialFirstEnabled();
   const singleCta = useHeroSingleCtaEnabled();
 
@@ -448,7 +453,9 @@ export default function LandingPage() {
           onClose={() => setModalEra(null)}
           playHref={`/lobby?map=${encodeURIComponent(modalEra.mapId)}`}
           playLocked={
-            modalEra.id === GALACTIC_AGE_ERA_ID && !canAccessGalacticAge(user)
+            // With the beta open anyone may follow Play: signing in, or
+            // starting as a guest, comes next, as it does for every other era.
+            modalEra.id === GALACTIC_AGE_ERA_ID && !galacticBeta && !canAccessGalacticAge(user)
           }
         />
       )}

@@ -324,7 +324,8 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     const { era_id, map_id, max_players, settings: rawSettings, ai_count, ai_difficulty, auto_start, is_private } = body.data;
 
     const isGalacticAge = isGalacticAgeGame(era_id, map_id);
-    if (isGalacticAge && !request.isAdmin) {
+    // The open beta lets every signed-in player in; off, admins only.
+    if (isGalacticAge && !request.isAdmin && !featureFlags.galaxyAgeBetaEnabled) {
       return reply.status(403).send({ error: 'Galactic Age is coming soon and is only available to administrators.' });
     }
     // Space to Stars: Space Age rules on a board that carries the Galactic Age
@@ -427,6 +428,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       map_id,
       settings: settings as unknown as Record<string, unknown>,
       is_admin: request.isAdmin,
+      galactic_beta: featureFlags.galaxyAgeBetaEnabled,
       player_count: 1 + ai_count,
       map_meta: mapMeta,
     });
@@ -668,7 +670,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
          AND g.game_type = ANY($2)
          AND g.is_ranked = false
          AND g.is_private = false
-         AND NOT ${GALACTIC_AGE_GAME_SQL}
+         ${featureFlags.galaxyAgeBetaEnabled ? '' : `AND NOT ${GALACTIC_AGE_GAME_SQL}`}
          AND EXISTS (
            SELECT 1
            FROM game_players human_gp

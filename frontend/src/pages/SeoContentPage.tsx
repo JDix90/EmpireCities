@@ -31,10 +31,15 @@ export interface SeoContentPageProps {
   /** Shown when the path resolves to nothing — an unknown map or era slug. */
   missingTitle: string;
   missingBody: string;
+  /**
+   * Shown above a resolved page's title, from live state the prerendered HTML
+   * cannot know (the Galactic Age beta). Crawlers get the page without it.
+   */
+  notice?: React.ReactNode;
 }
 
 export default function SeoContentPage({
-  section, icon, backHref, backLabel, missingTitle, missingBody,
+  section, icon, backHref, backLabel, missingTitle, missingBody, notice,
 }: SeoContentPageProps) {
   const { pathname } = useLocation();
   // Trailing slashes reach the router intact, and /game-maps/rome/ is the same
@@ -81,6 +86,7 @@ export default function SeoContentPage({
       headerLeft={<BrandWordmark to="/" className="text-xl" />}
       contentClassName="space-y-4 pb-12"
     >
+      {notice}
       <article className="space-y-4">
         <h1 className="font-display text-2xl sm:text-3xl text-bf-gold leading-tight">{page.h1}</h1>
         {page.tagline && <p className="text-bf-muted italic">{page.tagline}</p>}

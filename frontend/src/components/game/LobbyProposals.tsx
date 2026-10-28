@@ -5,6 +5,8 @@ import toast from 'react-hot-toast';
 import { getSocket } from '../../services/socket';
 import type { GameLobbySettingsJson } from '../../types/gameLobbyApi';
 import { useAuthStore } from '../../store/authStore';
+import { useGalaxyAgeBetaEnabled } from '../../store/featureFlagsStore';
+import { withGalacticAgeLabel } from '../../constants/galacticAgeAccess';
 import {
   LOBBY_ERAS,
   isEraSelectableInLobby,
@@ -175,6 +177,7 @@ export default function LobbyProposals({
   playerCount = 0,
 }: LobbyProposalsProps) {
   const { user } = useAuthStore();
+  const galacticBeta = useGalaxyAgeBetaEnabled();
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [showMapForm, setShowMapForm] = useState(false);
   const [showRulesForm, setShowRulesForm] = useState(false);
@@ -239,13 +242,14 @@ export default function LobbyProposals({
       map_id: previewSelection.map_id,
       settings,
       is_admin: user?.is_admin === true,
+      galactic_beta: galacticBeta,
       player_count: playerCount,
       map_meta: theaterMapDoc ? buildMapMetaFromGameMap(theaterMapDoc) : null,
     });
-  }, [previewSelection, currentSettings, user?.is_admin, playerCount, theaterMapDoc]);
+  }, [previewSelection, currentSettings, user?.is_admin, galacticBeta, playerCount, theaterMapDoc]);
 
   const proposeMapChange = useCallback(() => {
-    if (!isEraSelectableInLobby(previewSelection.era_id, user)) {
+    if (!isEraSelectableInLobby(previewSelection.era_id, user, galacticBeta)) {
       toast.error('Galactic Age is coming soon.');
       return;
     }
@@ -265,7 +269,7 @@ export default function LobbyProposals({
     });
     setShowMapForm(false);
     toast.success('Pairing change proposed — waiting for votes.');
-  }, [gameId, previewSelection, previewCompatibility.hardBlock, currentEraId, currentMapId, user]);
+  }, [gameId, previewSelection, previewCompatibility.hardBlock, currentEraId, currentMapId, user, galacticBeta]);
 
   const proposeRuleChange = useCallback(() => {
     if (!selectedSetting || selectedValue === '') return;
@@ -360,9 +364,9 @@ export default function LobbyProposals({
                     <option
                       key={era.id}
                       value={era.id}
-                      disabled={!isEraSelectableInLobby(era.id, user)}
+                      disabled={!isEraSelectableInLobby(era.id, user, galacticBeta)}
                     >
-                      {era.label}
+                      {withGalacticAgeLabel(era.id, era.label, galacticBeta)}
                     </option>
                   ))}
                 </select>
@@ -386,7 +390,7 @@ export default function LobbyProposals({
                 >
                   {LOBBY_THEATER_OPTIONS.map((opt) => (
                     <option key={opt.map_id} value={opt.map_id}>
-                      {opt.label}
+                      {withGalacticAgeLabel(opt.map_id, opt.label, galacticBeta)}
                     </option>
                   ))}
                 </select>

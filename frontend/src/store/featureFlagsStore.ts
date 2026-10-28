@@ -36,6 +36,7 @@ export interface ClientFeatureFlags {
   era_wonder_per_era_enabled: boolean;
   warfront_enabled: boolean;
   galaxy_tutorial_enabled: boolean;
+  galaxy_age_beta_enabled: boolean;
   localization_enabled: boolean;
   touch_targets_enabled: boolean;
   daily_puzzle_v2_enabled: boolean;
@@ -133,6 +134,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   // The Galactic Age tutorial track. On by default; admin kill switch. Off,
   // the Academy hides the galaxy lessons and the server refuses to start one.
   galaxy_tutorial_enabled: true,
+  // The Galactic Age open to every signed-in player as a beta. Dark-launched OFF.
+  galaxy_age_beta_enabled: false,
   // Localized landing + tutorial (src/i18n). Dark-launched OFF: the bundles
   // ship but everyone sees English until an operator turns this on.
   localization_enabled: false,
@@ -348,6 +351,11 @@ export function useWarfrontEnabled(): boolean {
  */
 export function useGalaxyTutorialEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.galaxy_tutorial_enabled);
+}
+
+/** The Galactic Age open beta: every signed-in player may play it, labelled Beta (constants/galacticAgeAccess.ts). */
+export function useGalaxyAgeBetaEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.galaxy_age_beta_enabled);
 }
 
 export function useAttackBlitzEnabled(): boolean {

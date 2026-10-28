@@ -16,6 +16,7 @@ vi.mock('../store/featureFlagsStore', () => ({
   useOnboardingTutorialFirstEnabled: () => false,
   useHeroSingleCtaEnabled: () => true,
   useLocalizationEnabled: () => false,
+  useGalaxyAgeBetaEnabled: () => false,
 }));
 vi.mock('react-router-dom', async (importOriginal) => ({
   ...(await importOriginal<typeof import('react-router-dom')>()),

@@ -10,7 +10,8 @@ import { getCustomMapImmersion } from '../data/customMapImmersion';
 import { ERA_LABELS } from '../constants/gameLobbyLabels';
 import BrandWordmark from '../components/ui/BrandWordmark';
 import SubpageShell from '../components/ui/SubpageShell';
-import { useMapEditorEnabled } from '../store/featureFlagsStore';
+import { useMapEditorEnabled, useGalaxyAgeBetaEnabled } from '../store/featureFlagsStore';
+import { withGalacticAgeLabel } from '../constants/galacticAgeAccess';
 import { useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
 import { useAuthStore } from '../store/authStore';
 import GuestGate from '../components/GuestGate';
@@ -69,6 +70,7 @@ function matches(query: string, ...fields: (string | undefined)[]): boolean {
 }
 
 export default function MapHubPage() {
+  const galacticBeta = useGalaxyAgeBetaEnabled();
   const navigate = useNavigate();
   const mapEditorEnabled = useMapEditorEnabled();
   const saveAccountCopy = useSaveAccountCopyEnabled();
@@ -207,7 +209,7 @@ export default function MapHubPage() {
         <div className="flex items-start justify-between mb-2">
           <div>
             <h3 className="font-display text-base text-bf-gold group-hover:text-white transition-colors">
-              {meta.label}
+              {withGalacticAgeLabel(map.era_theme, meta.label, galacticBeta)}
             </h3>
             <span className="text-xs font-mono" style={{ color: meta.color }}>{meta.year}</span>
           </div>

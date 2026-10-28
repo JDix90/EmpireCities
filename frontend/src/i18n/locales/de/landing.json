@@ -77,6 +77,7 @@
     },
     "galaxy_age": {
       "label": "Galaktisches Zeitalter – Demnächst",
+      "labelBeta": "Galaktisches Zeitalter · Beta",
       "years": "Ferne Zukunft",
       "summary": "Vier Welten, durch Hyperraumrouten verbunden: Halte ein Torsystem und schlage direkt über seine Route zu. Überquerungen würfeln mit weniger Würfeln, Tore verteidigen sich also wie Küsten – und jede Fraktion kämpft auf den Routen auf ihre eigene Weise."
     }

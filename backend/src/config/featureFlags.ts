@@ -191,6 +191,10 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // now that the track has shipped; this is its kill switch: off, the start
   // route refuses these lessons and the client hides them.
   galaxy_tutorial_enabled: () => envOptOut('GALAXY_TUTORIAL_ENABLED'),
+  // The Galactic Age as an open beta: every signed-in player (guests too) can
+  // create and join its games, labelled "Galactic Age · Beta". Off: admins
+  // only, as before. Space to Stars stays admin-only either way.
+  galaxy_age_beta_enabled: () => envOptIn('GALAXY_AGE_BETA_ENABLED'),
   // Localized landing page + tutorial (frontend/src/i18n). Dark-launched OFF:
   // the translated bundles ship in the client but nobody is routed to them
   // until this is on. Client-only effect.
@@ -1465,6 +1469,20 @@ export const featureFlags = {
   },
 
   /**
+   * The Galactic Age open beta. On, every signed-in player, guests included,
+   * can create a Galactic Age game (`POST /games`), switch a lobby to it by
+   * vote, and find open Galactic Age lobbies in Open Games; the client labels
+   * the era "Galactic Age · Beta" and marks its games BETA. Off, all of that
+   * is admin-only exactly as before. Space to Stars, the board that climbs
+   * into the galaxy from the Space Age, stays admin-only either way. Ranked
+   * play never offers the era. Default OFF; `GALAXY_AGE_BETA_ENABLED=true` or
+   * the admin override opens it.
+   */
+  get galaxyAgeBetaEnabled(): boolean {
+    return overrideBool('galaxy_age_beta_enabled');
+  },
+
+  /**
    * Localized landing page and tutorial (frontend/src/i18n). Off means English
    * for everyone whatever the browser says; on lets the client honour the
    * stored `cc-lang` choice or the browser language. Default OFF until the
@@ -1530,6 +1548,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     era_wonder_per_era_enabled: featureFlags.eraWonderPerEraEnabled,
     warfront_enabled: featureFlags.warfrontEnabled,
     galaxy_tutorial_enabled: featureFlags.galaxyTutorialEnabled,
+    galaxy_age_beta_enabled: featureFlags.galaxyAgeBetaEnabled,
     localization_enabled: featureFlags.localizationEnabled,
     touch_targets_enabled: featureFlags.touchTargetsEnabled,
     daily_puzzle_v2_enabled: featureFlags.dailyPuzzleV2Enabled,

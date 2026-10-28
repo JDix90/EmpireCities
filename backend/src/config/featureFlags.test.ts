@@ -118,6 +118,15 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().player_links_play_enabled).toBe(false);
   });
 
+  it('galaxy_age_beta_enabled defaults to off and the admin override opens the beta', () => {
+    expect(featureFlags.galaxyAgeBetaEnabled).toBe(false);
+    expect(getClientFeatureFlags().galaxy_age_beta_enabled).toBe(false);
+    expect(getFeatureFlagStates().galaxy_age_beta_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { galaxy_age_beta_enabled: true } });
+    expect(featureFlags.galaxyAgeBetaEnabled).toBe(true);
+    expect(getClientFeatureFlags().galaxy_age_beta_enabled).toBe(true);
+  });
+
   it('daily_guest_play_enabled defaults to on and is the kill switch for guest dailies', () => {
     expect(featureFlags.dailyGuestPlayEnabled).toBe(true);
     expect(getClientFeatureFlags().daily_guest_play_enabled).toBe(true);
