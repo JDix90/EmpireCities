@@ -67,6 +67,7 @@ import AiTurnRecapPanel, { appendRecap, ownTurnDigest, type TurnRecapEntry } fro
 import { useTurnRecapPanelEnabled } from '../store/featureFlagsStore';
 import { useSaveAccountCopyEnabled, useGalaxyAgeBetaEnabled } from '../store/featureFlagsStore';
 import GalacticBetaTag, { GALACTIC_BETA_WELCOME_NOTE } from '../components/game/GalacticBetaTag';
+import { GalacticFeedbackModal } from '../components/game/GalacticFeedback';
 import { isGalacticAgeGame } from '../constants/galacticAgeAccess';
 import GameStartModal, { isOpeningState } from '../components/game/GameStartModal';
 import SpaceAgeGuideModal from '../components/game/SpaceAgeGuide';
@@ -881,6 +882,8 @@ export default function GamePage() {
   // participants of non-tutorial, non-daily games still in their opening —
   // the first seat's first turn, whatever phase that game starts in.
   const [showStartModal, setShowStartModal] = useState(false);
+  // The Galactic Age beta's feedback form, opened from the BETA panel.
+  const [galacticFeedbackOpen, setGalacticFeedbackOpen] = useState(false);
   const startModalOpenRef = useRef(false);
   const startModalShownRef = useRef(false);
   // Snapshot the era payoff details from the pre-advance preview at click time:
@@ -2188,6 +2191,9 @@ export default function GamePage() {
         daily_classic: isClassicDaily(endState?.settings, useFeatureFlagsStore.getState().flags.daily_puzzle_v2_enabled),
         daily_challenge,
         allowReplayDespiteAbandon,
+        // A Galactic Age game while the beta is open asks how it went.
+        galacticBeta: useFeatureFlagsStore.getState().flags.galaxy_age_beta_enabled
+          && isGalacticAgeGame(endState?.era, endState?.map_id),
       };
       if (gameId) {
         api
@@ -4973,7 +4979,7 @@ export default function GamePage() {
         >
           {formatEraLabel(playerTechEra ?? gameState.era)}
         </span>
-        {showGalacticBetaTag && <GalacticBetaTag />}
+        {showGalacticBetaTag && <GalacticBetaTag onSendFeedback={() => setGalacticFeedbackOpen(true)} />}
         <span className={clsx('text-bf-muted text-xs', viewerMapControl && 'max-[359px]:hidden')}>·</span>
         <span className="text-bf-muted text-xs whitespace-nowrap shrink-0">Turn {gameState.turn_number}</span>
         {viewerMapControl && <MapControlChip progress={viewerMapControl} />}
@@ -5143,6 +5149,16 @@ export default function GamePage() {
           link={galaxyTutorialFlag
             ? { to: '/tutorial?module=galaxy_primer&start=1', label: `Take the Galactic Age primer first (~${tutorialModuleMinutes('galaxy_primer')} min, new tab)` }
             : undefined}
+        />
+      )}
+
+      {/* The BETA panel's "Send feedback" (components/game/GalacticFeedback). */}
+      {showGalacticBetaTag && (
+        <GalacticFeedbackModal
+          open={galacticFeedbackOpen}
+          onClose={() => setGalacticFeedbackOpen(false)}
+          gameId={gameId ?? null}
+          turn={gameState.turn_number}
         />
       )}
 

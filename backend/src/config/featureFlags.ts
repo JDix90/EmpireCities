@@ -1472,8 +1472,9 @@ export const featureFlags = {
    * The Galactic Age open beta. On, every signed-in player, guests included,
    * can create a Galactic Age game (`POST /games`), switch a lobby to it by
    * vote, and find open Galactic Age lobbies in Open Games; the client labels
-   * the era "Galactic Age · Beta" and marks its games BETA. Off, all of that
-   * is admin-only exactly as before. Space to Stars, the board that climbs
+   * the era "Galactic Age · Beta" and marks its games BETA, whose panel and
+   * game-over screen take feedback (`POST /api/feedback`, modules/feedback).
+   * Off, all of that is admin-only exactly as before. Space to Stars, the board that climbs
    * into the galaxy from the Space Age, stays admin-only either way. Ranked
    * play never offers the era. Default OFF; `GALAXY_AGE_BETA_ENABLED=true` or
    * the admin override opens it.

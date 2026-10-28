@@ -34,6 +34,7 @@ import { buildWarfrontStatus, loadWarfrontTerrain } from './warfrontStatus';
 import { loadGalaxyReport } from './galaxyReport';
 import { backfillGalaxyResults } from './galaxyBackfill';
 import { GALAXY_GAME_MODES } from '../../game-engine/state/galaxyResults';
+import { loadFeedbackReport } from '../feedback/feedback.service';
 
 /** Galactic Age report filters; `days` 0 (or absent) reads all time. */
 const GalaxyReportQuerySchema = z.object({
@@ -41,6 +42,14 @@ const GalaxyReportQuerySchema = z.object({
   seats: z.coerce.number().int().min(2).max(8).optional(),
   mode: z.enum(GALAXY_GAME_MODES).optional(),
   relations: z.enum(['concord', 'civil_war', 'allied']).optional(),
+});
+
+/** Admin → Feedback filters; `days` 0 (or absent) reads all time. */
+const FeedbackQuerySchema = z.object({
+  topic: z.enum(['galactic_age']).default('galactic_age'),
+  days: z.coerce.number().int().min(0).max(3650).optional(),
+  rating: z.enum(['up', 'down']).optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(200),
 });
 
 const DateFilterSchema = z.object({
@@ -294,6 +303,15 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
     const days = Math.max(1, Math.min(365, Number.isFinite(raw) ? Math.floor(raw) : 30));
     const report = await getAnalyticsReport(days, parseFunnelDevice(q?.device));
     return reply.send(report);
+  });
+
+  // Player feedback sent from inside the game (POST /api/feedback): its
+  // counts and the newest entries (modules/feedback/feedback.service.ts).
+  fastify.get('/feedback', { preHandler: [authenticate, requireAdmin] }, async (request, reply) => {
+    const parsed = FeedbackQuerySchema.safeParse(request.query ?? {});
+    if (!parsed.success) return reply.status(400).send({ error: 'Invalid query params' });
+    const { topic, days, rating, limit } = parsed.data;
+    return reply.send(await loadFeedbackReport({ topic, days: days ?? 0, rating, limit }));
   });
 
   // Galactic Age: finished games and their analytics, from the records

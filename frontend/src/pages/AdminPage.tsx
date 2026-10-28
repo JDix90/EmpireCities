@@ -23,6 +23,7 @@ import { api } from '../services/api';
 import Modal from '../components/ui/Modal';
 import AdminAnalyticsPanel, { type AnalyticsReport, type FunnelDeviceFilter } from '../components/admin/AdminAnalyticsPanel';
 import AdminGalaxyReportPanel from '../components/admin/AdminGalaxyReportPanel';
+import AdminFeedbackPanel from '../components/admin/AdminFeedbackPanel';
 import { useFeatureFlagsStore } from '../store/featureFlagsStore';
 
 /** Shown on every stats tab: whose play the numbers leave out (backend services/statsExclusion.ts). */
@@ -447,7 +448,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'galaxy_age_beta_enabled',
     label: 'Galactic Age open beta',
     description:
-      'Open the Galactic Age to every signed-in player, guests included, as "Galactic Age · Beta": they can create its games, vote a lobby onto it, and find its open lobbies in Open Games, and its games carry a BETA tag. Space to Stars stays admin-only, and ranked play never offers the era. Off by default; off, the era is admin-only exactly as before. Games already started keep playing either way.',
+      'Open the Galactic Age to every signed-in player, guests included, as "Galactic Age · Beta": they can create its games, vote a lobby onto it, and find its open lobbies in Open Games, and its games carry a BETA tag whose panel and game-over screen ask for feedback (read it in the Feedback tab). Space to Stars stays admin-only, and ranked play never offers the era. Off by default; off, the era is admin-only exactly as before. Games already started keep playing either way.',
   },
   {
     key: 'daily_puzzle_v2_enabled',
@@ -607,13 +608,15 @@ type TabKey =
   | 'dependencies'
   | 'audit'
   | 'warfront'
-  | 'galaxy';
+  | 'galaxy'
+  | 'feedback';
 
 const tabs: Array<{ key: TabKey; label: string; description: string }> = [
   { key: 'overview', label: 'Overview', description: 'Volume, health, trends' },
   { key: 'analytics', label: 'Analytics', description: 'Funnel & retention' },
   { key: 'balance', label: 'Balance', description: 'Factions, eras, maps, pace' },
   { key: 'galaxy', label: 'Galactic Age', description: 'Finished games & win rates' },
+  { key: 'feedback', label: 'Feedback', description: 'What players send from in game' },
   { key: 'ranked', label: 'Ranked', description: 'Rating distribution' },
   { key: 'config', label: 'Config', description: 'Live tuning & flags' },
   { key: 'users', label: 'Users', description: 'Search & moderation' },
@@ -1001,6 +1004,8 @@ export default function AdminPage() {
   const [warfront, setWarfront] = useState<WarfrontStatusView | null>(null);
   // The Galactic Age panel fetches for itself; Refresh bumps this to make it refetch.
   const [galaxyRefresh, setGalaxyRefresh] = useState(0);
+  // Same pattern for the Feedback tab's panel, which fetches for itself.
+  const [feedbackRefresh, setFeedbackRefresh] = useState(0);
   const [statOptions, setStatOptions] = useState<{ era_ids: string[]; map_ids: string[] }>({ era_ids: [], map_ids: [] });
   const [resetModalOpen, setResetModalOpen] = useState(false);
   const [resetSubmitting, setResetSubmitting] = useState(false);
@@ -1113,6 +1118,8 @@ export default function AdminPage() {
           setWarfront(res.data ?? null);
         } else if (tab === 'galaxy') {
           setGalaxyRefresh((n) => n + 1);
+        } else if (tab === 'feedback') {
+          setFeedbackRefresh((n) => n + 1);
         }
       } catch (e: unknown) {
         const err = e as { response?: { data?: { error?: string } } };
@@ -1132,6 +1139,7 @@ export default function AdminPage() {
   // that visit's first load, and the panel fetches once rather than twice.
   useEffect(() => {
     if (activeTab !== 'galaxy') setGalaxyRefresh(0);
+    if (activeTab !== 'feedback') setFeedbackRefresh(0);
   }, [activeTab]);
 
   // Approve/reject a community map, then refresh the queue. Reject prompts
@@ -1626,6 +1634,12 @@ export default function AdminPage() {
         {!loading && activeTab === 'galaxy' && galaxyRefresh > 0 && (
           <div className="mt-6">
             <AdminGalaxyReportPanel refreshKey={galaxyRefresh} />
+          </div>
+        )}
+
+        {!loading && activeTab === 'feedback' && feedbackRefresh > 0 && (
+          <div className="mt-6">
+            <AdminFeedbackPanel refreshKey={feedbackRefresh} />
           </div>
         )}
 
