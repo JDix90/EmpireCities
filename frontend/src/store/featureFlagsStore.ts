@@ -97,8 +97,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   ranked_leaderboard_enabled: false,
   // Dark-launched OFF: it adds a prompt at the end of a first session.
   referral_survey_enabled: false,
-  // Dark-launched OFF: invite, referral and shared-replay links lead into play.
-  player_links_play_enabled: false,
+  // Invite, referral and shared-replay links lead into play. On by default; admin kill switch.
+  player_links_play_enabled: true,
   // Guests are asked for, and get, push streak and daily reminders. On by default; admin kill switch.
   guest_push_reminders_enabled: true,
   // Guests may play the Daily (registered players are the only ones ranked).
