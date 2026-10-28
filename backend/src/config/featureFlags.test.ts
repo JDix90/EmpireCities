@@ -109,6 +109,15 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().guest_push_reminders_enabled).toBe(false);
   });
 
+  it('player_links_play_enabled defaults to on and the admin override is its kill switch', () => {
+    expect(featureFlags.playerLinksPlayEnabled).toBe(true);
+    expect(getClientFeatureFlags().player_links_play_enabled).toBe(true);
+    expect(getFeatureFlagStates().player_links_play_enabled).toEqual({ code_default: true, overridden: false, effective: true });
+    setAdminConfigCacheForTests({ feature_flags: { player_links_play_enabled: false } });
+    expect(featureFlags.playerLinksPlayEnabled).toBe(false);
+    expect(getClientFeatureFlags().player_links_play_enabled).toBe(false);
+  });
+
   it('daily_guest_play_enabled defaults to on and is the kill switch for guest dailies', () => {
     expect(featureFlags.dailyGuestPlayEnabled).toBe(true);
     expect(getClientFeatureFlags().daily_guest_play_enabled).toBe(true);

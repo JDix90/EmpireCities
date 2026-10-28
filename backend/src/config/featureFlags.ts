@@ -100,7 +100,10 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   results_footer_enabled: () => envOptOut('RESULTS_FOOTER_ENABLED'),
   ranked_leaderboard_enabled: () => envOptIn('RANKED_LEADERBOARD_ENABLED'),
   referral_survey_enabled: () => envOptIn('REFERRAL_SURVEY_ENABLED'),
-  player_links_play_enabled: () => envOptIn('PLAYER_LINKS_PLAY_ENABLED'),
+  // The links players share lead into play (invite as a guest, referral code
+  // applied, Play free on a shared replay).
+  // On by default; the admin override is the kill switch.
+  player_links_play_enabled: () => envOptOut('PLAYER_LINKS_PLAY_ENABLED'),
   daily_guest_play_enabled: () => envOptOut('DAILY_GUEST_PLAY_ENABLED'),
   // Guests' own things open to guests: their achievements, their unlocked
   // cosmetics (seen and worn), their gold balance, the Settings link and their
@@ -588,7 +591,9 @@ export const featureFlags = {
    * as a guest instead of being sent to registration, a referral link
    * (`?ref=CODE`) applies its code once the visitor makes or saves an account,
    * and a shared replay offers signed-out viewers a Play button. Client-side
-   * only; the endpoints involved are unchanged. Dark-launched OFF.
+   * only; the endpoints involved are unchanged. On by default;
+   * `PLAYER_LINKS_PLAY_ENABLED=false` or the admin override turns all three
+   * back to what they were.
    */
   get playerLinksPlayEnabled(): boolean {
     return overrideBool('player_links_play_enabled');
