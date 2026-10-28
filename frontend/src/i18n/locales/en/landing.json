@@ -77,6 +77,7 @@
     },
     "galaxy_age": {
       "label": "Galactic Age — Coming Soon",
+      "labelBeta": "Galactic Age · Beta",
       "years": "Far Future",
       "summary": "Four worlds linked by hyperspace lanes: hold a gateway system and strike straight across its lane. Crossings roll fewer dice, so gateways defend like coasts — and each faction fights the lanes its own way."
     }

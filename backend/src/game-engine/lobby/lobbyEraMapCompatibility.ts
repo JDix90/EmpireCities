@@ -38,6 +38,8 @@ export interface EraMapCompatibilityInput {
   settings: Record<string, unknown>;
   is_ranked?: boolean;
   is_admin?: boolean;
+  /** The Galactic Age open beta is on (`galaxy_age_beta_enabled`): the era is anyone's, not only an admin's. */
+  galactic_beta?: boolean;
   player_count?: number;
   map_meta?: MapCompatibilityMeta | null;
 }
@@ -154,7 +156,7 @@ export function evaluateEraMapCompatibility(input: EraMapCompatibilityInput): Er
   }
 
   const isGalactic = era_id === 'galaxy_age' || map_id === 'era_galaxy';
-  if (isGalactic && !input.is_admin) {
+  if (isGalactic && !input.is_admin && !input.galactic_beta) {
     return { allowed: false, hardBlock: 'Galactic Age is only available to administrators', warnings };
   }
 
@@ -321,6 +323,7 @@ export function validateLobbyMapChangePair(
   value: LobbyMapChangeValue,
   opts: {
     isAdmin: boolean;
+    galacticBeta?: boolean;
     settings?: Record<string, unknown>;
     is_ranked?: boolean;
     player_count?: number;
@@ -332,6 +335,7 @@ export function validateLobbyMapChangePair(
     map_id: value.map_id,
     settings: opts.settings ?? {},
     is_admin: opts.isAdmin,
+    galactic_beta: opts.galacticBeta,
     is_ranked: opts.is_ranked,
     player_count: opts.player_count,
     map_meta: opts.map_meta,

@@ -3641,6 +3641,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
         const pairError = validateLobbyMapChangePair(mapValue, {
           isAdmin: proposerAdmin?.is_admin === true,
+          galacticBeta: featureFlags.galaxyAgeBetaEnabled,
           settings: lobby.settings,
           is_ranked: lobby.game.is_ranked,
           player_count: lobby.players.length,

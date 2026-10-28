@@ -444,6 +444,12 @@ const CLIENT_FEATURE_FLAGS = [
       'List the Galactic Age lessons in the Academy (the primer, then Lane Sovereignty, Transcendence, Secret Missions, Capital, Threshold and Domination) and let POST /games/tutorial/start run them on the galaxy board. On by default; this is the kill switch — the server refuses a galaxy lesson while it is off, and the Academy hides them.',
   },
   {
+    key: 'galaxy_age_beta_enabled',
+    label: 'Galactic Age open beta',
+    description:
+      'Open the Galactic Age to every signed-in player, guests included, as "Galactic Age · Beta": they can create its games, vote a lobby onto it, and find its open lobbies in Open Games, and its games carry a BETA tag. Space to Stars stays admin-only, and ranked play never offers the era. Off by default; off, the era is admin-only exactly as before. Games already started keep playing either way.',
+  },
+  {
     key: 'daily_puzzle_v2_enabled',
     label: 'Daily Challenge v2 (decision puzzles)',
     description:

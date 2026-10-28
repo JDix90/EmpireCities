@@ -65,7 +65,9 @@ import GamePanelBoundary from '../components/game/GamePanelBoundary';
 import { MapControlChip } from '../components/game/MapControlTracker';
 import AiTurnRecapPanel, { appendRecap, ownTurnDigest, type TurnRecapEntry } from '../components/game/AiTurnRecapPanel';
 import { useTurnRecapPanelEnabled } from '../store/featureFlagsStore';
-import { useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
+import { useSaveAccountCopyEnabled, useGalaxyAgeBetaEnabled } from '../store/featureFlagsStore';
+import GalacticBetaTag, { GALACTIC_BETA_WELCOME_NOTE } from '../components/game/GalacticBetaTag';
+import { isGalacticAgeGame } from '../constants/galacticAgeAccess';
 import GameStartModal, { isOpeningState } from '../components/game/GameStartModal';
 import SpaceAgeGuideModal from '../components/game/SpaceAgeGuide';
 import GameEndedNotice from '../components/game/GameEndedNotice';
@@ -671,6 +673,8 @@ export default function GamePage() {
   // prompt and the post-game nudge (utils/signupNudge.ts).
   const guestPromptV2 = useGuestPromptV2Enabled();
   const saveAccountCopy = useSaveAccountCopyEnabled();
+  // The Galactic Age open beta: its games carry a BETA tag in the top bar.
+  const galacticBeta = useGalaxyAgeBetaEnabled();
   const asyncOnboardingFlag = useAsyncOnboardingEnabled();
   const turnClarityFlag = useTurnClarityEnabled();
   const galaxyTutorialFlag = useGalaxyTutorialEnabled();
@@ -4920,6 +4924,9 @@ export default function GamePage() {
     />
   );
 
+  // A Galactic Age game while the era is an open beta carries a BETA tag.
+  const showGalacticBetaTag = galacticBeta && isGalacticAgeGame(gameState.era, gameState.map_id);
+
   const reducedGlobe =
     prefersReducedMotion() || liteVisuals || (isMobileViewport() && mapView === 'globe');
   const mapPhaseTintClass = phaseTintClass(gameState.phase, mapAmbientEnabled && !reducedGlobe);
@@ -4930,7 +4937,15 @@ export default function GamePage() {
       data-mobile-layout={isMobileLayout ? 'true' : 'false'}
     >
       {/* Top Bar */}
-      <div className="min-h-10 pt-safe-1 pb-1 bg-bf-surface border-b border-bf-border flex items-center px-4 gap-4 shrink-0">
+      <div
+        className={clsx(
+          'min-h-10 pt-safe-1 pb-1 bg-bf-surface border-b border-bf-border flex items-center px-4 gap-4 shrink-0',
+          // The BETA tag is one more item in a bar that was already full: it
+          // ran 26px past a 320px phone, and 48px past an iPad upright, whose
+          // desktop layout puts the map views and world tabs in the bar.
+          showGalacticBetaTag && 'max-[959px]:gap-2.5',
+        )}
+      >
         <BrandWordmark to="/lobby" className="text-sm" />
         <span className="text-bf-muted text-xs">·</span>
         {/*
@@ -4949,11 +4964,16 @@ export default function GamePage() {
           className={clsx(
             'text-bf-muted text-xs capitalize min-w-0 truncate',
             viewerMapControl && 'max-[359px]:hidden',
+            // Where the bar is short of room, a phone upright or an iPad
+            // upright, the BETA tag stands in for the era's name, which its
+            // panel gives: beside the tag, the name was squeezed to nothing.
+            showGalacticBetaTag && 'max-[479px]:hidden dlayout:max-[959px]:hidden',
           )}
           title={gameState.settings.era_advancement_enabled ? 'Your civilization\u2019s current era' : undefined}
         >
           {formatEraLabel(playerTechEra ?? gameState.era)}
         </span>
+        {showGalacticBetaTag && <GalacticBetaTag />}
         <span className={clsx('text-bf-muted text-xs', viewerMapControl && 'max-[359px]:hidden')}>·</span>
         <span className="text-bf-muted text-xs whitespace-nowrap shrink-0">Turn {gameState.turn_number}</span>
         {viewerMapControl && <MapControlChip progress={viewerMapControl} />}
@@ -5116,7 +5136,7 @@ export default function GamePage() {
           featureKey="galactic_age_intro"
           icon="🌌"
           title="Welcome to the Galactic Age"
-          description={`${galaxyWorldCountWord(mapData.worlds?.length)} worlds, one war. Every hyperspace lane runs between two gateway systems. Hold a gateway and you can attack straight across its lane — no research needed — but a crossing rolls only 2 dice (3 with Lane Charts), so a defended gateway holds like a coast. Tap a world to drill into it; open the galaxy chart to see every lane and whose gateways it touches.`}
+          description={`${galaxyWorldCountWord(mapData.worlds?.length)} worlds, one war. Every hyperspace lane runs between two gateway systems. Hold a gateway and you can attack straight across its lane — no research needed — but a crossing rolls only 2 dice (3 with Lane Charts), so a defended gateway holds like a coast. Tap a world to drill into it; open the galaxy chart to see every lane and whose gateways it touches.${showGalacticBetaTag ? ` ${GALACTIC_BETA_WELCOME_NOTE}` : ''}`}
           // The Galactic Age lessons are offered here, where the game begins,
           // rather than on the lobby's Training Academy grid. A new tab: the
           // game behind the explainer keeps its place.

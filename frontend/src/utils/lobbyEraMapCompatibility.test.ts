@@ -142,3 +142,33 @@ describe('galaxySchismPickNote', () => {
     expect(galaxySchismPickNote('galaxy_age', 'era_galaxy', null)).toBeNull();
   });
 });
+
+/**
+ * The Galactic Age open beta (`galaxy_age_beta_enabled`): the era is anyone's
+ * while it is on, and Space to Stars stays an admin's either way. Mirrors the
+ * backend evaluator.
+ */
+describe('evaluateEraMapCompatibility — Galactic Age beta', () => {
+  const galaxy = { era_id: 'galaxy_age', map_id: 'era_galaxy', settings: { factions_enabled: true }, player_count: 4 };
+
+  it('keeps the era for admins while the beta is off', () => {
+    expect(evaluateEraMapCompatibility({ ...galaxy, is_admin: false }).hardBlock).toMatch(/administrators/);
+  });
+
+  it('opens it to every player while the beta is on', () => {
+    const result = evaluateEraMapCompatibility({ ...galaxy, is_admin: false, galactic_beta: true });
+    expect(result.allowed).toBe(true);
+    expect(result.hardBlock).toBeNull();
+  });
+
+  it('keeps Space to Stars admin-only during the beta', () => {
+    const result = evaluateEraMapCompatibility({
+      era_id: 'space_age',
+      map_id: 'era_ascension_galaxy',
+      settings: { era_advancement_enabled: true, era_advancement_spine_id: 'space_to_stars' },
+      is_admin: false,
+      galactic_beta: true,
+    });
+    expect(result.hardBlock).toMatch(/Space to Stars is only available to administrators/);
+  });
+});

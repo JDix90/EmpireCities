@@ -37,6 +37,8 @@ export interface EraMapCompatibilityInput {
   settings: Record<string, unknown>;
   is_ranked?: boolean;
   is_admin?: boolean;
+  /** The Galactic Age open beta is on (`galaxy_age_beta_enabled`): the era is anyone's, not only an admin's. */
+  galactic_beta?: boolean;
   player_count?: number;
   /**
    * The seat cap the create form asks for. Only the Galactic Age reads it: four
@@ -224,7 +226,7 @@ export function evaluateEraMapCompatibility(input: EraMapCompatibilityInput): Er
   }
 
   const isGalactic = era_id === 'galaxy_age' || map_id === 'era_galaxy';
-  if (isGalactic && !input.is_admin) {
+  if (isGalactic && !input.is_admin && !input.galactic_beta) {
     return { allowed: false, hardBlock: 'Galactic Age is only available to administrators', warnings };
   }
 

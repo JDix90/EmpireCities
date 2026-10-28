@@ -50,6 +50,35 @@ describe('lobbyEraMapCompatibility', () => {
     expect(result.hardBlock).toMatch(/administrators/i);
   });
 
+  it('opens the Galactic Age to a player who is not an admin while its beta is on', () => {
+    const result = evaluateEraMapCompatibility({
+      era_id: 'galaxy_age',
+      map_id: 'era_galaxy',
+      settings: { factions_enabled: true },
+      is_admin: false,
+      galactic_beta: true,
+      player_count: 4,
+    });
+    expect(result.allowed).toBe(true);
+    expect(result.hardBlock).toBeNull();
+    expect(validateLobbyMapChangePair(
+      { era_id: 'galaxy_age', map_id: 'era_galaxy' },
+      { isAdmin: false, galacticBeta: true, settings: { factions_enabled: true }, player_count: 4 },
+    )).toBeNull();
+  });
+
+  it('keeps Space to Stars admin-only while the Galactic Age is in beta', () => {
+    const result = evaluateEraMapCompatibility({
+      era_id: 'space_age',
+      map_id: 'era_ascension_galaxy',
+      settings: { era_advancement_enabled: true, era_advancement_spine_id: 'space_to_stars' },
+      is_admin: false,
+      galactic_beta: true,
+    });
+    expect(result.allowed).toBe(false);
+    expect(result.hardBlock).toMatch(/Space to Stars is only available to administrators/);
+  });
+
   it('blocks a Galactic Age game with factions off', () => {
     const result = evaluateEraMapCompatibility({
       era_id: 'galaxy_age',

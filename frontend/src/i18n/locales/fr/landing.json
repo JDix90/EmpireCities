@@ -77,6 +77,7 @@
     },
     "galaxy_age": {
       "label": "Ère galactique — Bientôt disponible",
+      "labelBeta": "Ère galactique · Bêta",
       "years": "Futur lointain",
       "summary": "Quatre mondes reliés par des couloirs hyperspatiaux : tenez un système-porte et frappez directement à travers son couloir. Les traversées lancent moins de dés, les portes se défendent donc comme des côtes — et chaque faction se bat dans les couloirs à sa manière."
     }
