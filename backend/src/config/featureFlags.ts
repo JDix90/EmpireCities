@@ -247,6 +247,11 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // cards). Its coaching only ever praised their best moves.
   // On by default; the admin override is the kill switch.
   loss_reason_enabled: () => envOptOut('LOSS_REASON_ENABLED'),
+  // Mission reveal: a game won by a secret mission (or an alliance mission)
+  // shows every player's mission on the game-over screen. The win named the
+  // mission only as "Secret Mission completed", never which one.
+  // On by default; the admin override is the kill switch.
+  mission_reveal_enabled: () => envOptOut('MISSION_REVEAL_ENABLED'),
   // Translated pages: a page the browser translated no longer crashes when a
   // label appears or disappears (frontend utils/translationDomGuard.ts).
   // On by default; the admin override is the kill switch.
@@ -794,6 +799,16 @@ export const featureFlags = {
    */
   get lossReasonEnabled(): boolean {
     return overrideBool('loss_reason_enabled');
+  },
+
+  /**
+   * Mission reveal: a game won by a secret mission or an alliance mission lists
+   * every player's mission on the game-over screen, from `secret_mission` on
+   * each player in the game-over stats. Client-only.
+   * Default ON; `MISSION_REVEAL_ENABLED=false` or the admin override turns it off.
+   */
+  get missionRevealEnabled(): boolean {
+    return overrideBool('mission_reveal_enabled');
   },
 
   /**
@@ -1530,6 +1545,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     custom_lobby_fold_enabled: featureFlags.customLobbyFoldEnabled,
     custom_round_cap_enabled: featureFlags.customRoundCapEnabled,
     loss_reason_enabled: featureFlags.lossReasonEnabled,
+    mission_reveal_enabled: featureFlags.missionRevealEnabled,
     translation_dom_guard_enabled: featureFlags.translationDomGuardEnabled,
     game_visible_height_enabled: featureFlags.gameVisibleHeightEnabled,
     // Read by the Custom Game form to say whether a Space Age game can also be

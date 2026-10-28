@@ -27,11 +27,11 @@ import { generateShareCard, buildShareText } from '../../utils/shareCard';
 import { achievementName, useAchievementNames } from '../../utils/achievementNames';
 import { api } from '../../services/api';
 import { APP_NAME } from '../../constants/brand';
-import { formatSecretMissionReveal, type MapNameLookup } from '../../utils/mapDisplayNames';
+import { formatSecretMissionReveal, type MapNameLookup, type SecretMissionLike } from '../../utils/mapDisplayNames';
 import { getFastCombatPreference } from '../../utils/userPreferences';
 import { useGameStore } from '../../store/gameStore';
 import { useBattleArmiesEnabled } from '../../store/featureFlagsStore';
-import { useLossReasonEnabled } from '../../store/featureFlagsStore';
+import { useLossReasonEnabled, useMissionRevealEnabled } from '../../store/featureFlagsStore';
 import { useBattlePlayerColorsEnabled } from '../../store/featureFlagsStore';
 import { useEmailAccountSaveEnabled, useSaveAccountCopyEnabled } from '../../store/featureFlagsStore';
 import { lossReason } from '../../utils/lossReason';
@@ -104,6 +104,8 @@ export interface GameOverModalData {
     units_lost_to_events?: number;
     turns_ended_with_set?: number;
     worst_round_loss?: { turn: number; from: number; to: number } | null;
+    /** Their secret mission, which the game over reveals (mission_reveal_enabled). */
+    secret_mission?: SecretMissionLike | null;
   }>;
   win_probability_history?: WinProbabilitySnapshot[];
   rating_change?: number;
@@ -1377,8 +1379,10 @@ function PositionShareChart({
 
 // ─── Game Over View ─────────────────────────────────────────────────────────
 
-function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, onChallengeFriend, onUpgradeAccount }: {
+function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, onChallengeFriend, onUpgradeAccount, mapNameLookup }: {
   data: GameOverModalData;
+  /** Names the territories and regions in a revealed secret mission. */
+  mapNameLookup?: MapNameLookup | null;
   onDismiss: () => void;
   onRematch?: (cfg: NonNullable<GameOverModalData['rematchConfig']>) => void;
   onWatchReplay?: (gameId: string, opts?: { withChronicle?: boolean }) => void;
@@ -1410,6 +1414,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
   const emailSave = useEmailAccountSaveEnabled();
   const resultsFooter = useResultsFooterEnabled();
   const lossReasonOn = useLossReasonEnabled();
+  const missionRevealOn = useMissionRevealEnabled();
   const [showReferralSurvey] = useState(() =>
     shouldShowReferralSurvey({
       flagEnabled: referralSurveyFlag,
@@ -1578,6 +1583,17 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
     : null;
 
   const reasonLabel = victoryReasonLabel(data.victory_condition, data.victory_threshold);
+
+  // A game won on a secret mission (an alliance's counts too) names every
+  // player's mission, the completed one first (mission_reveal_enabled). The
+  // win used to read only "Secret Mission completed", never which mission.
+  const missionWinners = data.winnerIds ?? [];
+  const missionReveal = missionRevealOn
+    && (data.victory_condition === 'secret_mission' || data.victory_condition === 'alliance_victory')
+    ? [...data.players]
+        .filter((p): p is typeof p & { secret_mission: SecretMissionLike } => !!p.secret_mission)
+        .sort((a, b) => Number(missionWinners.includes(b.player_id)) - Number(missionWinners.includes(a.player_id)))
+    : [];
 
   const showWatchReplay = Boolean(
     data.gameId &&
@@ -1758,6 +1774,35 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
             : 'bg-white/5 border-white/10 text-white/45'
         )}>
           {data.isWinner ? '🏆 ' : ''}{data.victory_condition === 'abandoned' ? reasonLabel : `Victory by ${reasonLabel}`}
+        </div>
+      )}
+
+      {missionReveal.length > 0 && (
+        <div
+          data-testid="gameover-missions"
+          className={clsx(
+            'mb-5 px-3 py-2.5 rounded-lg border border-white/10 bg-white/[0.03] text-left transition-all duration-500 delay-350',
+            showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2',
+          )}
+        >
+          <p className="text-white/40 text-[11px] font-semibold uppercase tracking-wider">Secret missions</p>
+          <ul className="mt-1.5 space-y-1.5">
+            {missionReveal.map((p) => {
+              const completed = missionWinners.includes(p.player_id);
+              return (
+                <li key={p.player_id} className="flex items-start gap-2 text-sm" data-testid="gameover-mission">
+                  <span className="mt-1.5 w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color }} aria-hidden />
+                  <span className="min-w-0 flex-1">
+                    <span className={clsx('font-medium', completed ? 'text-yellow-300' : 'text-white/75')}>
+                      {p.player_id === data.viewerId ? 'You' : p.username}
+                    </span>
+                    <span className="text-white/55">: {formatSecretMissionReveal(p.secret_mission, mapNameLookup, data.players)}</span>
+                  </span>
+                  {completed && <span className="shrink-0 pt-0.5 text-[11px] font-medium text-yellow-300">✓ Completed</span>}
+                </li>
+              );
+            })}
+          </ul>
         </div>
       )}
 
@@ -2720,7 +2765,7 @@ export default function ActionModal({
             backlogCount={backlogCount}
           />
         )}
-        {data.type === 'game_over' && <GameOverView data={data} onDismiss={onDismiss} onRematch={onRematch} onWatchReplay={onWatchReplay} onShareClip={onShareClip} onChallengeFriend={onChallengeFriend} onUpgradeAccount={onUpgradeAccount} />}
+        {data.type === 'game_over' && <GameOverView data={data} onDismiss={onDismiss} onRematch={onRematch} onWatchReplay={onWatchReplay} onShareClip={onShareClip} onChallengeFriend={onChallengeFriend} onUpgradeAccount={onUpgradeAccount} mapNameLookup={mapNameLookup} />}
         {data.type === 'elimination' && (
           <EliminationView
             data={data}
