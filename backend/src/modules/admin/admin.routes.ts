@@ -46,9 +46,11 @@ const GalaxyReportQuerySchema = z.object({
 
 /** Admin → Feedback filters; `days` 0 (or absent) reads all time. */
 const FeedbackQuerySchema = z.object({
-  topic: z.enum(['galactic_age']).default('galactic_age'),
+  // `all` (the default) reads every topic.
+  topic: z.enum(['all', 'general', 'galactic_age']).default('all'),
   days: z.coerce.number().int().min(0).max(3650).optional(),
   rating: z.enum(['up', 'down']).optional(),
+  category: z.enum(['bug', 'idea', 'other']).optional(),
   limit: z.coerce.number().int().min(1).max(500).default(200),
 });
 
@@ -310,8 +312,10 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get('/feedback', { preHandler: [authenticate, requireAdmin] }, async (request, reply) => {
     const parsed = FeedbackQuerySchema.safeParse(request.query ?? {});
     if (!parsed.success) return reply.status(400).send({ error: 'Invalid query params' });
-    const { topic, days, rating, limit } = parsed.data;
-    return reply.send(await loadFeedbackReport({ topic, days: days ?? 0, rating, limit }));
+    const { topic, days, rating, category, limit } = parsed.data;
+    return reply.send(await loadFeedbackReport({
+      topic: topic === 'all' ? null : topic, days: days ?? 0, rating, category, limit,
+    }));
   });
 
   // Galactic Age: finished games and their analytics, from the records

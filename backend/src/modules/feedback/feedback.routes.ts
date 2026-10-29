@@ -7,20 +7,26 @@ import { isGalacticAgeGame } from '../games/lobbyCapacity';
 import { recordFeedback, FEEDBACK_COMMENT_MAX } from './feedback.service';
 
 /**
- * POST /api/feedback — what a player thinks of the Galactic Age beta, from the
- * BETA panel's form (`beta_panel`) or the game-over thumbs (`game_over`).
+ * POST /api/feedback — what a player thinks, in two forms:
  *
- * Open while the beta is (`galaxy_age_beta_enabled`), and always to admins.
- * Guests included: the beta is open to them. A game id must be a Galactic Age
- * game the sender sat in, so nobody files feedback against someone else's
- * game; the turn, device and screen size are context the client fills in.
- * The comment is free text from a player: length-capped here and in the
- * table, and shown in Admin as text, never as markup.
+ * - `general`, from the Feedback entry in the lobby's menu (`menu`): a note
+ *   about anything, with an optional category (bug, idea, other) and the page
+ *   it was sent from. Open while `feedback_menu_enabled` is on.
+ * - `galactic_age`, the Galactic Age beta's: the BETA panel's form
+ *   (`beta_panel`) or the game-over thumbs (`game_over`). Open while the beta
+ *   is (`galaxy_age_beta_enabled`). A game id must be a Galactic Age game the
+ *   sender sat in, so nobody files feedback against someone else's game.
+ *
+ * Admins may always send either. Guests included. The turn, device and screen
+ * size are context the client fills in. The comment is free text from a
+ * player: length-capped here and in the table, and shown in Admin as text,
+ * never as markup.
  */
 const FeedbackSchema = z.object({
-  topic: z.literal('galactic_age'),
-  source: z.enum(['beta_panel', 'game_over']),
+  topic: z.enum(['galactic_age', 'general']),
+  source: z.enum(['beta_panel', 'game_over', 'menu']),
   rating: z.enum(['up', 'down']).optional(),
+  category: z.enum(['bug', 'idea', 'other']).optional(),
   comment: z
     .string()
     .max(FEEDBACK_COMMENT_MAX * 2)
@@ -32,7 +38,24 @@ const FeedbackSchema = z.object({
   turn: z.number().int().min(0).max(100000).optional(),
   device: z.enum(['phone', 'tablet', 'desktop']).optional(),
   viewport: z.string().regex(/^\d{2,5}x\d{2,5}$/).optional(),
+  page: z.string().regex(/^\/[A-Za-z0-9/_-]{0,63}$/).optional(),
 }).superRefine((value, ctx) => {
+  if (value.topic === 'general') {
+    // A note is the point of the menu's form; a category alone says nothing.
+    if (value.source !== 'menu') {
+      ctx.addIssue({ code: 'custom', path: ['source'], message: 'General feedback comes from the menu' });
+    }
+    if (!value.comment) {
+      ctx.addIssue({ code: 'custom', path: ['comment'], message: 'Write a note' });
+    }
+    if (value.game_id) {
+      ctx.addIssue({ code: 'custom', path: ['game_id'], message: 'General feedback is not about one game' });
+    }
+    return;
+  }
+  if (value.source === 'menu') {
+    ctx.addIssue({ code: 'custom', path: ['source'], message: 'The menu sends general feedback' });
+  }
   if (!value.rating && !value.comment) {
     ctx.addIssue({ code: 'custom', path: ['comment'], message: 'Pick a rating or write a comment' });
   }
@@ -47,14 +70,16 @@ export async function feedbackRoutes(fastify: FastifyInstance): Promise<void> {
     // A few a game is plenty; this stops a stuck button or a script, not a player.
     config: { rateLimit: { max: 10, timeWindow: '10 minutes' } },
   }, async (request, reply) => {
-    if (!featureFlags.galaxyAgeBetaEnabled && !request.isAdmin) {
-      return reply.status(403).send({ error: 'Feedback is closed.' });
-    }
     const parsed = FeedbackSchema.safeParse(request.body ?? {});
     if (!parsed.success) {
       return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? 'Invalid feedback' });
     }
     const body = parsed.data;
+
+    const open = body.topic === 'general' ? featureFlags.feedbackMenuEnabled : featureFlags.galaxyAgeBetaEnabled;
+    if (!open && !request.isAdmin) {
+      return reply.status(403).send({ error: 'Feedback is closed.' });
+    }
 
     if (body.game_id) {
       const game = await queryOne<{ era_id: string | null; map_id: string | null }>(
@@ -74,11 +99,13 @@ export async function feedbackRoutes(fastify: FastifyInstance): Promise<void> {
       topic: body.topic,
       source: body.source,
       rating: body.rating ?? null,
+      category: body.category ?? null,
       comment: body.comment ? body.comment : null,
       gameId: body.game_id ?? null,
       turn: body.turn ?? null,
       device: body.device ?? null,
       viewport: body.viewport ?? null,
+      page: body.page ?? null,
     });
     return reply.status(201).send({ ok: true, feedback_id: feedbackId });
   });

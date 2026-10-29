@@ -598,8 +598,8 @@ const STATIC_MARKETING_PAGES = [
           'Guest accounts are temporary: a guest that never plays a game is deleted '
           + 'within about 48 hours, and creating a free account converts your guest in '
           + 'place so your progress is kept. In-game chat is ephemeral and is not stored '
-          + 'on our servers. Feedback you send from inside a game is stored with your '
-          + 'account, with the game, turn, device type and screen size. '
+          + 'on our servers. Feedback you send, from the menu or inside a game, is stored '
+          + 'with your account, with the page or game and turn, device type and screen size. '
           + 'Questions: support@borderfall.gg.',
       },
       {

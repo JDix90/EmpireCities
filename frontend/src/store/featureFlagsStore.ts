@@ -37,6 +37,7 @@ export interface ClientFeatureFlags {
   warfront_enabled: boolean;
   galaxy_tutorial_enabled: boolean;
   galaxy_age_beta_enabled: boolean;
+  feedback_menu_enabled: boolean;
   localization_enabled: boolean;
   touch_targets_enabled: boolean;
   daily_puzzle_v2_enabled: boolean;
@@ -136,6 +137,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   galaxy_tutorial_enabled: true,
   // The Galactic Age open to every signed-in player as a beta. Dark-launched OFF.
   galaxy_age_beta_enabled: false,
+  // The lobby menu's Feedback entry. Dark-launched OFF.
+  feedback_menu_enabled: false,
   // Localized landing + tutorial (src/i18n). Dark-launched OFF: the bundles
   // ship but everyone sees English until an operator turns this on.
   localization_enabled: false,
@@ -356,6 +359,11 @@ export function useGalaxyTutorialEnabled(): boolean {
 /** The Galactic Age open beta: every signed-in player may play it, labelled Beta (constants/galacticAgeAccess.ts). */
 export function useGalaxyAgeBetaEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.galaxy_age_beta_enabled);
+}
+
+/** The lobby menu's Feedback entry (components/feedback/FeedbackModal.tsx). */
+export function useFeedbackMenuEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.feedback_menu_enabled);
 }
 
 export function useAttackBlitzEnabled(): boolean {

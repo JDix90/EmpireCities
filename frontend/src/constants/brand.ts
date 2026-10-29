@@ -18,4 +18,4 @@ export const SUPPORT_EMAIL =
 export const LEGAL_LAST_UPDATED = 'June 12, 2026';
 
 /** The Privacy Policy's date: guest accounts, accounts saved with just an email, sign-in links, in-game feedback. */
-export const PRIVACY_LAST_UPDATED = 'October 28, 2026';
+export const PRIVACY_LAST_UPDATED = 'October 29, 2026';

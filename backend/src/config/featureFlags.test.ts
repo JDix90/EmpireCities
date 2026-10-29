@@ -118,6 +118,14 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().player_links_play_enabled).toBe(false);
   });
 
+  it('feedback_menu_enabled defaults to off and the admin override turns it on', () => {
+    expect(featureFlags.feedbackMenuEnabled).toBe(false);
+    expect(getClientFeatureFlags().feedback_menu_enabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { feedback_menu_enabled: true } });
+    expect(featureFlags.feedbackMenuEnabled).toBe(true);
+    expect(getClientFeatureFlags().feedback_menu_enabled).toBe(true);
+  });
+
   it('galaxy_age_beta_enabled defaults to off and the admin override opens the beta', () => {
     expect(featureFlags.galaxyAgeBetaEnabled).toBe(false);
     expect(getClientFeatureFlags().galaxy_age_beta_enabled).toBe(false);

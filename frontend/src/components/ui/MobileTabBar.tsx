@@ -3,10 +3,12 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   Home, Users, User, MoreHorizontal, X, HelpCircle,
   Map, Calendar, ShoppingBag, PenSquare, Trophy, Eye, FileText, LogOut, Swords, Shield, BookOpen, Settings,
+  MessageSquare,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useIsLandscape } from '../../hooks/useIsLandscape';
-import { useMapEditorEnabled, useSpectateEnabled, useGuestPersonalFeaturesEnabled } from '../../store/featureFlagsStore';
+import { useMapEditorEnabled, useSpectateEnabled, useGuestPersonalFeaturesEnabled, useFeedbackMenuEnabled } from '../../store/featureFlagsStore';
+import FeedbackModal from '../feedback/FeedbackModal';
 
 interface MobileTabBarProps {
   isGuest?: boolean;
@@ -35,6 +37,8 @@ export default function MobileTabBar({ isGuest, onCreateGame, onLogout }: Mobile
   const spectateEnabled = useSpectateEnabled();
   // A guest can wear what they unlocked, so the store is open to them (buying is not).
   const guestPersonal = useGuestPersonalFeaturesEnabled();
+  const feedbackMenu = useFeedbackMenuEnabled();
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   // Hide tab bar in landscape to maximize screen real estate
   if (isLandscape) return null;
@@ -57,6 +61,18 @@ export default function MobileTabBar({ isGuest, onCreateGame, onLogout }: Mobile
                 the sheet is where a stuck first-timer looks. */}
             <nav className="px-4 pb-4 grid grid-cols-3 gap-2">
               <MoreLink to="/how-to-play" icon={HelpCircle} label="How to Play" onClick={() => setMoreOpen(false)} />
+              {/* Second: feedback is the other thing a stuck or annoyed player
+                  comes here for (feedback_menu_enabled). */}
+              {feedbackMenu && (
+                <button
+                  type="button"
+                  onClick={() => { setMoreOpen(false); setFeedbackOpen(true); }}
+                  className="flex flex-col items-center gap-1 py-3 rounded-lg bg-bf-dark text-bf-muted hover:text-bf-text transition-colors min-h-[44px]"
+                >
+                  <MessageSquare className="w-5 h-5" />
+                  <span className="text-[10px]">Feedback</span>
+                </button>
+              )}
               <MoreLink to="/daily" icon={Calendar} label="Daily" onClick={() => setMoreOpen(false)} />
               <MoreLink to="/maps" icon={Map} label="Maps" onClick={() => setMoreOpen(false)} />
               {!isGuest && mapEditorEnabled && (
@@ -132,6 +148,7 @@ export default function MobileTabBar({ isGuest, onCreateGame, onLogout }: Mobile
           <span className="text-[10px] font-medium">More</span>
         </button>
       </nav>
+      {feedbackMenu && <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />}
     </>
   );
 }
