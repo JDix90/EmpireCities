@@ -8,6 +8,9 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY backend/package.json ./backend/
 COPY packages/shared/package.json ./packages/shared/
+# pnpm-workspace.yaml's patchedDependencies: a frozen install refuses to run
+# without the patch files the lockfile names.
+COPY patches ./patches
 # package.json `packageManager` pins pnpm@10.9.0 — do not rely on corepack's
 # default (pnpm 11.x requires Node ≥22.13 and breaks on node:20 images).
 RUN corepack enable && corepack prepare pnpm@10.9.0 --activate && pnpm install --frozen-lockfile

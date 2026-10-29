@@ -2,3 +2,6 @@ packages:
   - 'frontend'
   - 'backend'
   - 'packages/*'
+
+patchedDependencies:
+  globe.gl@2.45.1: patches/globe.gl@2.45.1.patch

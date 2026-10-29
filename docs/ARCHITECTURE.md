@@ -26,7 +26,7 @@
 └─────────────────┘         └──────────────────┘
 ```
 
-Monorepo (pnpm workspaces): `frontend/` (SPA), `backend/` (API + realtime), `packages/shared/` (types shared across both — `GamePhase`, map types), `packages/warfront-sim/` (deterministic simulation core for the experimental Warfront mode; see its README), `database/` (SQL migrations + seeds + map documents + the generated Warfront terrain grid under `database/warfront/`), `docker/` (dev + prod compose), `scripts/` (ops).
+Monorepo (pnpm workspaces): `frontend/` (SPA), `backend/` (API + realtime), `packages/shared/` (types shared across both — `GamePhase`, map types), `packages/warfront-sim/` (deterministic simulation core for the experimental Warfront mode; see its README), `database/` (SQL migrations + seeds + map documents + the generated Warfront terrain grid under `database/warfront/`), `docker/` (dev + prod compose), `scripts/` (ops), `patches/` (fixes to third-party packages that pnpm applies at install, listed under `patchedDependencies` in `pnpm-workspace.yaml`; both Dockerfiles copy it before installing, since a frozen install refuses to run without it).
 
 ## Game state authority model
 
