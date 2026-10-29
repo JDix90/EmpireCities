@@ -14,6 +14,7 @@ import { inferWorldId } from '@borderfall/shared';
 import { proceduralWorldTextureUrl } from '../utils/proceduralPlanet';
 import EraAdvanceVignette from '../components/game/EraAdvanceVignette';
 import { useMapVisualEvents } from '../hooks/useMapVisualEvents';
+import { usePagePinchLock } from '../hooks/usePagePinchLock';
 import type { MapVisualEvent } from '../utils/mapVisualEvents';
 import { isForAnotherGame } from '../utils/gameScopedEvents';
 import GameChat from '../components/game/GameChat';
@@ -78,6 +79,8 @@ interface MapData {
 export default function SpectatorPage() {
   const { gameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
+  // A pinch off the map must not zoom the whole page in Safari on iOS (hooks/usePagePinchLock).
+  usePagePinchLock();
   // Subscribe to token *presence*, not the token itself: access tokens rotate
   // every few minutes, and re-running the join/leave effect on each rotation
   // churned the spectator session (and leaked listeners under the old guard).

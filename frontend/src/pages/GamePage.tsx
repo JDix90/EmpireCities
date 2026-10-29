@@ -27,6 +27,7 @@ import { useUiStore } from '../store/uiStore';
 import { useAuthStore } from '../store/authStore';
 import { useFeatureFlagsStore, useFirstTurnCoachEnabled, useSignupNudgeEnabled, useAsyncOnboardingEnabled, useTurnClarityEnabled, useBackgroundMusicEnabled, useGalaxyTutorialEnabled, useTutorialWrapupToMatchEnabled, useGuestPromptV2Enabled, useResultsFooterEnabled, useGameVisibleHeightEnabled } from '../store/featureFlagsStore';
 import { useBackgroundMusic } from '../hooks/useBackgroundMusic';
+import { usePagePinchLock } from '../hooks/usePagePinchLock';
 import { backgroundMusic, musicBedFor, musicTensionFor, type MusicCadence } from '../audio/backgroundMusic';
 import { canOfferBlitz } from '../utils/blitzEligibility';
 import { MIN_REGION_TERRITORIES } from '../utils/continentBonus';
@@ -503,6 +504,8 @@ function buildDraftSummaryModal(state: ClientGameState, map: MapData): DraftSumm
 export default function GamePage() {
   const { gameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
+  // A pinch off the map must not zoom the whole page in Safari on iOS (hooks/usePagePinchLock).
+  usePagePinchLock();
   const { user } = useAuthStore();
   const tutorialWrapupToMatch = useTutorialWrapupToMatchEnabled();
   const {

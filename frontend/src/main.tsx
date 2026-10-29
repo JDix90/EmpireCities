@@ -12,6 +12,7 @@ import { applyLocalizationPolicy } from './i18n';
 import { notifyEmbedderReady } from './utils/embedContext';
 import { useFeatureFlagsStore } from './store/featureFlagsStore';
 import { installTranslationDomGuard } from './utils/translationDomGuard';
+import { stopIosInputZoom } from './utils/iosZoom';
 
 // Snapshot first-touch acquisition attribution (utm_* / referrer) before render,
 // so it's available for the first guest/register call. See utils/attribution.ts.
@@ -36,6 +37,10 @@ if (SENTRY_DSN) {
 // Before anything renders: a page the browser translates must not crash when a
 // label appears or disappears. See utils/translationDomGuard.ts.
 installTranslationDomGuard();
+
+// Before a text box can be tapped: Safari on iOS zooms into one whose text is
+// under 16px and stays zoomed. See utils/iosZoom.ts.
+stopIosInputZoom();
 
 if (Capacitor.isNativePlatform()) {
   void StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
