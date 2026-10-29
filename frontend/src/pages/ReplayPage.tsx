@@ -54,6 +54,7 @@ import {
 } from '../utils/replayControls';
 import { isLiteMode } from '../utils/userPreferences';
 import { usePageFrameBudget } from '../hooks/useFrameBudget';
+import { usePagePinchLock } from '../hooks/usePagePinchLock';
 import { inferWorldId } from '@borderfall/shared';
 import { getGalaxyWorldLore } from '../constants/galaxyLore';
 import { resolveGalaxyDrillDownGlobeSkin } from '../utils/galaxyGlobeSkin';
@@ -121,6 +122,8 @@ interface MapData {
 export default function ReplayPage() {
   const { gameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
+  // A pinch off the map must not zoom the whole page in Safari on iOS (hooks/usePagePinchLock).
+  usePagePinchLock();
   const [searchParams] = useSearchParams();
   /**
    * React Router stamps 'default' on an entry the app did not navigate to —
