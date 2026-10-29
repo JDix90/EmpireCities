@@ -1,0 +1,22 @@
+diff --git a/dist/globe.gl.mjs b/dist/globe.gl.mjs
+index 422529703379b0ddeeea76536a6b9dbc702adaf8..90bd53a7ed4efb858d4483dc96a18c750068a236 100644
+--- a/dist/globe.gl.mjs
++++ b/dist/globe.gl.mjs
+@@ -715,7 +715,7 @@ var globe = Kapsule({
+         custom: state.onCustomLayerClick
+       };
+       var globeObj = getGlobeObj(obj);
+-      var objType = globeObj.__globeObjType;
++      var objType = globeObj && globeObj.__globeObjType;
+       if (globeObj && objFns.hasOwnProperty(objType) && objFns[objType]) {
+         var args = [ev];
+ 
+@@ -755,7 +755,7 @@ var globe = Kapsule({
+         custom: state.onCustomLayerRightClick
+       };
+       var globeObj = getGlobeObj(obj);
+-      var objType = globeObj.__globeObjType;
++      var objType = globeObj && globeObj.__globeObjType;
+       if (globeObj && objFns.hasOwnProperty(objType) && objFns[objType]) {
+         var args = [ev];
+ 
