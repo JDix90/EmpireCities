@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import FeatureExplainerModal from './FeatureExplainerModal';
@@ -12,6 +12,14 @@ describe('FeatureExplainerModal', () => {
     unmount();
     render(<FeatureExplainerModal featureKey="t" title="Once" description="d" />);
     expect(screen.queryByText('Once')).toBeNull();
+  });
+
+  it('says when it was closed, so what comes after it can wait for it', () => {
+    const onDismiss = vi.fn();
+    render(<FeatureExplainerModal featureKey="w" title="W" description="d" onDismiss={onDismiss} />);
+    expect(onDismiss).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Got it' }));
+    expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 
   it('offers the way onward in a new tab, and counts the explainer as read', () => {

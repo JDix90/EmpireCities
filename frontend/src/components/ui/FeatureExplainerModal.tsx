@@ -17,6 +17,8 @@ interface FeatureExplainerModalProps {
    * having read the explainer.
    */
   link?: { to: string; label: string };
+  /** Called when the player closes it, however they close it. */
+  onDismiss?: () => void;
 }
 
 export default function FeatureExplainerModal({
@@ -26,6 +28,7 @@ export default function FeatureExplainerModal({
   icon = '💡',
   className,
   link,
+  onDismiss,
 }: FeatureExplainerModalProps) {
   const storageKey = `explainer_seen_${featureKey}`;
   const [visible, setVisible] = useState(false);
@@ -42,6 +45,7 @@ export default function FeatureExplainerModal({
   const dismiss = () => {
     safeLocalStorage().setItem(storageKey, '1');
     setVisible(false);
+    onDismiss?.();
   };
 
   if (!visible) return null;

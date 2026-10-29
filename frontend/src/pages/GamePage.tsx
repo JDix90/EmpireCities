@@ -68,6 +68,8 @@ import AiTurnRecapPanel, { appendRecap, ownTurnDigest, type TurnRecapEntry } fro
 import { useTurnRecapPanelEnabled } from '../store/featureFlagsStore';
 import { useSaveAccountCopyEnabled, useGalaxyAgeBetaEnabled } from '../store/featureFlagsStore';
 import GalacticBetaTag, { GALACTIC_BETA_WELCOME_NOTE } from '../components/game/GalacticBetaTag';
+import GalaxyViewsTip, { GALAXY_VIEWS_TIP_KEY } from '../components/game/GalaxyViewsTip';
+import { safeLocalStorage } from '../utils/safeStorage';
 import { GalacticFeedbackModal } from '../components/game/GalacticFeedback';
 import { isGalacticAgeGame } from '../constants/galacticAgeAccess';
 import GameStartModal, { isOpeningState } from '../components/game/GameStartModal';
@@ -547,6 +549,18 @@ export default function GamePage() {
    * once, components/game/GalaxySplitView.tsx), or one world, `focusedWorldId`.
    */
   const [galaxyView, setGalaxyView] = useState<'chart' | 'split' | 'world'>('chart');
+  // The once-per-device pointer at the Galactic Age's view tabs (GalaxyViewsTip):
+  // it waits for the welcome explainer, whose dismissal it watches.
+  const [galaxyWelcomeSeen, setGalaxyWelcomeSeen] = useState(
+    () => !!safeLocalStorage().getItem('explainer_seen_galactic_age_intro'),
+  );
+  const [galaxyViewsTipSeen, setGalaxyViewsTipSeen] = useState(
+    () => !!safeLocalStorage().getItem(GALAXY_VIEWS_TIP_KEY),
+  );
+  const [galaxyViewsTipOpen, setGalaxyViewsTipOpen] = useState(false);
+  const galaxyTabsDesktopRef = useRef<HTMLDivElement>(null);
+  const galaxyTabsPhoneRef = useRef<HTMLDivElement>(null);
+  const galaxyTabAnchors = useMemo(() => [galaxyTabsPhoneRef, galaxyTabsDesktopRef], []);
   /** Socket `game:joined` seat — resolves viewer player_id before auth.user hydrates */
   const [joinPlayerIndex, setJoinPlayerIndex] = useState<number | null>(null);
   const joinPlayerIndexRef = useRef<number | null>(null);
@@ -3393,6 +3407,37 @@ export default function GamePage() {
     [mapData, gameState, user?.user_id],
   );
 
+  // The pointer at the view tabs (GalaxyViewsTip): a player's first Galactic
+  // Age game, once the start briefing and the welcome have closed, and a beat
+  // after, so it reads as its own note rather than part of the welcome. Not in
+  // a lesson, which walks the player through the views itself.
+  const galaxyViewsTipDue =
+    mapData?.map_kind === 'galaxy' && viewerInGalacticAge && !showStartModal
+    && galaxyWelcomeSeen && !galaxyViewsTipSeen && !gameState?.settings.tutorial;
+  useEffect(() => {
+    if (!galaxyViewsTipDue) return;
+    const t = setTimeout(() => setGalaxyViewsTipOpen(true), 600);
+    return () => clearTimeout(t);
+  }, [galaxyViewsTipDue]);
+  const dismissGalaxyViewsTip = useCallback(() => {
+    safeLocalStorage().setItem(GALAXY_VIEWS_TIP_KEY, '1');
+    setGalaxyViewsTipSeen(true);
+    setGalaxyViewsTipOpen(false);
+  }, []);
+  // Switching view is what the tip is for, so doing it closes the tip. Picking
+  // a system on the chart moves the focused world without leaving the chart,
+  // which is not a switch.
+  const galaxyViewKey = galaxyView === 'world' ? `world:${focusedWorldId}` : galaxyView;
+  const galaxyViewAtTipRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!galaxyViewsTipOpen) {
+      galaxyViewAtTipRef.current = null;
+      return;
+    }
+    if (galaxyViewAtTipRef.current === null) galaxyViewAtTipRef.current = galaxyViewKey;
+    else if (galaxyViewAtTipRef.current !== galaxyViewKey) dismissGalaxyViewsTip();
+  }, [galaxyViewsTipOpen, galaxyViewKey, dismissGalaxyViewsTip]);
+
   const orbitAccessHint = useMemo(() => {
     if (!mapData || !selectedTerritory) return null;
     if (!territoryRequiresOrbitAccessForClaim(mapData, selectedTerritory)) return null;
@@ -5074,7 +5119,7 @@ export default function GamePage() {
               >
                 <LayoutGrid className="w-3.5 h-3.5" aria-hidden /> Split
               </button>
-              <div className="hidden dlayout:flex flex-wrap gap-1 max-w-[min(420px,40vw)] justify-end">
+              <div ref={galaxyTabsDesktopRef} className="hidden dlayout:flex flex-wrap gap-1 max-w-[min(420px,40vw)] justify-end">
                 {galaxyWorldTabs.map((w) => (
                   <button
                     key={w.world_id}
@@ -5099,7 +5144,7 @@ export default function GamePage() {
         chip row gives mobile parity: jump to the all-worlds chart or any world.
       */}
       {mapData?.map_kind === 'galaxy' && (
-        <div className="dlayout:hidden flex items-center gap-1.5 overflow-x-auto px-2 py-1.5 bg-bf-dark/60 border-b border-bf-border/60 scrollbar-thin">
+        <div ref={galaxyTabsPhoneRef} className="dlayout:hidden flex items-center gap-1.5 overflow-x-auto px-2 py-1.5 bg-bf-dark/60 border-b border-bf-border/60 scrollbar-thin">
           <span className="shrink-0 inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-bf-muted/80 pr-0.5">
             <GlobeIcon className="w-3.5 h-3.5" /> Worlds
           </span>
@@ -5152,7 +5197,12 @@ export default function GamePage() {
           link={galaxyTutorialFlag
             ? { to: '/tutorial?module=galaxy_primer&start=1', label: `Take the Galactic Age primer first (~${tutorialModuleMinutes('galaxy_primer')} min, new tab)` }
             : undefined}
+          onDismiss={() => setGalaxyWelcomeSeen(true)}
         />
+      )}
+
+      {galaxyViewsTipOpen && (
+        <GalaxyViewsTip anchors={galaxyTabAnchors} onDismiss={dismissGalaxyViewsTip} />
       )}
 
       {/* The BETA panel's "Send feedback" (components/game/GalacticFeedback). */}
