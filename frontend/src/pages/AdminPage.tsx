@@ -445,6 +445,12 @@ const CLIENT_FEATURE_FLAGS = [
       'List the Galactic Age lessons in the Academy (the primer, then Lane Sovereignty, Transcendence, Secret Missions, Capital, Threshold and Domination) and let POST /games/tutorial/start run them on the galaxy board. On by default; this is the kill switch — the server refuses a galaxy lesson while it is off, and the Academy hides them.',
   },
   {
+    key: 'feedback_menu_enabled',
+    label: 'Feedback in the lobby menu',
+    description:
+      'A Feedback entry in the lobby menu (the desktop top bar and the phone\'s More sheet): every signed-in player, guests included, can send a note about anything, marked as a bug, an idea or something else. Read it in the Feedback tab. Off by default; off, the entry is hidden and the server refuses general feedback.',
+  },
+  {
     key: 'galaxy_age_beta_enabled',
     label: 'Galactic Age open beta',
     description:

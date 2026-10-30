@@ -5,20 +5,15 @@ import { ThumbsDown, ThumbsUp } from 'lucide-react';
 import Modal from '../ui/Modal';
 import { api } from '../../services/api';
 import { deviceClass } from '../../utils/device';
+import { CommentBox, FEEDBACK_COMMENT_MAX, feedbackErrorMessage as errorMessage, screenSize } from '../feedback/feedbackParts';
 
-/** The longest comment the server takes (backend modules/feedback). */
-export const FEEDBACK_COMMENT_MAX = 1000;
+export { FEEDBACK_COMMENT_MAX };
 
 type Rating = 'up' | 'down';
 
 interface FeedbackContext {
   gameId?: string | null;
   turn?: number | null;
-}
-
-/** The screen the feedback was sent from, so a layout report can be matched to it. */
-function screenSize(): string {
-  return `${Math.round(window.innerWidth)}x${Math.round(window.innerHeight)}`;
 }
 
 /**
@@ -43,12 +38,6 @@ export async function sendGalacticFeedback(
   });
 }
 
-function errorMessage(e: unknown): string {
-  const status = (e as { response?: { status?: number } })?.response?.status;
-  if (status === 429) return 'That’s a lot of feedback at once. Try again in a few minutes.';
-  return 'Couldn’t send that. Please try again.';
-}
-
 function Thumbs({ value, onChange, disabled }: { value: Rating | null; onChange: (r: Rating) => void; disabled?: boolean }) {
   const thumb = (rating: Rating, label: string, Icon: typeof ThumbsUp) => (
     <button
@@ -71,25 +60,6 @@ function Thumbs({ value, onChange, disabled }: { value: Rating | null; onChange:
     <div className="flex gap-2">
       {thumb('up', 'I like it', ThumbsUp)}
       {thumb('down', 'Not for me yet', ThumbsDown)}
-    </div>
-  );
-}
-
-function CommentBox({ value, onChange, id, placeholder }: { value: string; onChange: (v: string) => void; id: string; placeholder: string }) {
-  return (
-    <div>
-      <textarea
-        id={id}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        maxLength={FEEDBACK_COMMENT_MAX}
-        rows={4}
-        placeholder={placeholder}
-        className="input resize-y text-sm"
-      />
-      <p className="mt-1 text-right text-[11px] text-bf-muted" aria-live="polite">
-        {value.length}/{FEEDBACK_COMMENT_MAX}
-      </p>
     </div>
   );
 }

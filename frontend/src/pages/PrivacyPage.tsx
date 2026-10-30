@@ -47,9 +47,10 @@ export default function PrivacyPage() {
             in your game and are not stored on our servers.
           </p>
           <p className="text-sm text-bf-muted leading-relaxed">
-            <span className="text-bf-text">Feedback:</span> if you send us feedback from inside a game, we store what
-            you wrote and your rating with your account, along with the game, the turn, your device type (phone, tablet
-            or desktop) and your screen size, so we can see what you saw. Deleting your account deletes it.
+            <span className="text-bf-text">Feedback:</span> if you send us feedback, from the menu or from inside a game,
+            we store what you wrote, and any rating or category you picked, with your account, along with the page or the
+            game and turn you sent it from, your device type (phone, tablet or desktop) and your screen size, so we can
+            see what you saw. Deleting your account deletes it.
           </p>
         </section>
 

@@ -19,6 +19,7 @@ describe.runIf(enabled)('Galactic Age beta feedback (Postgres)', () => {
   let query: (sql: string, params?: unknown[]) => Promise<Record<string, unknown>[]>;
   let signAccessToken: (p: { sub: string; username: string; guest?: boolean; admin?: boolean }) => string;
   let setBeta: (on: boolean) => void;
+  let setFeedbackMenu: (on: boolean) => void;
   const userIds: string[] = [];
   const gameIds: string[] = [];
 
@@ -65,6 +66,7 @@ describe.runIf(enabled)('Galactic Age beta feedback (Postgres)', () => {
     ({ signAccessToken } = await import('../../utils/jwt'));
     const adminConfig = await import('../../services/adminConfig');
     setBeta = (on) => adminConfig.setAdminConfigCacheForTests({ feature_flags: { galaxy_age_beta_enabled: on } });
+    setFeedbackMenu = (on) => adminConfig.setAdminConfigCacheForTests({ feature_flags: { galaxy_age_beta_enabled: true, feedback_menu_enabled: on } });
     const { registerErrorHandler } = await import('../../errorHandler');
     const { feedbackRoutes } = await import('./feedback.routes');
     const { adminRoutes } = await import('../admin/admin.routes');
@@ -164,6 +166,39 @@ describe.runIf(enabled)('Galactic Age beta feedback (Postgres)', () => {
 
     const asPlayer = await app.inject({ method: 'GET', url: '/api/admin/feedback', headers: auth(player) });
     expect(asPlayer.statusCode).toBe(403);
+  });
+
+  it('takes a note from the lobby menu, and Admin reads it by topic and category', async () => {
+    setFeedbackMenu(true);
+    try {
+      const admin = await seedUser('fb_menu_reader', true);
+      const player = await seedUser('fb_menu_player');
+      const sent = await app.inject({
+        method: 'POST',
+        url: '/api/feedback',
+        headers: auth(player),
+        payload: { topic: 'general', source: 'menu', category: 'idea', comment: 'A rematch button on the results.', page: '/lobby', device: 'desktop', viewport: '1366x900' },
+      });
+      expect(sent.statusCode).toBe(201);
+      await send(player, { source: 'beta_panel', comment: 'galaxy note' });
+
+      const read = async (qs: string) => {
+        const res = await app.inject({ method: 'GET', url: `/api/admin/feedback?days=1${qs}`, headers: auth(admin) });
+        expect(res.statusCode).toBe(200);
+        return res.json() as { summary: { ideas: number }; items: Array<{ user_id: string; topic: string; category: string | null; page: string | null; comment: string }> };
+      };
+      const general = (await read('&topic=general')).items.filter((i) => i.user_id === player.id);
+      expect(general).toEqual([expect.objectContaining({ topic: 'general', category: 'idea', page: '/lobby', comment: 'A rematch button on the results.' })]);
+      const galaxy = (await read('&topic=galactic_age')).items.filter((i) => i.user_id === player.id);
+      expect(galaxy.map((i) => i.comment)).toEqual(['galaxy note']);
+      const all = await read('');
+      expect(all.items.filter((i) => i.user_id === player.id)).toHaveLength(2);
+      expect(all.summary.ideas).toBeGreaterThanOrEqual(1);
+      const ideas = (await read('&category=idea')).items;
+      expect(ideas.every((i) => i.category === 'idea')).toBe(true);
+    } finally {
+      setFeedbackMenu(false);
+    }
   });
 
   it('deletes what an account wrote when the account is deleted', async () => {

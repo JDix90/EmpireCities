@@ -85,6 +85,28 @@
     column-gap: 1rem;
   }
 }
+/* The same two rows wherever one row does not fit, which depends on what is in
+   it as well as the screen: TopNavBar measures its row and sets this class. */
+.navBar.stacked {
+  flex-wrap: wrap;
+  row-gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+}
+.navBar.stacked .logo {
+  min-width: 0;
+}
+.navBar.stacked .accountNav {
+  order: 2;
+}
+.navBar.stacked .mainNav {
+  order: 3;
+  flex-basis: 100%;
+}
+.navBar.stacked .navLinks {
+  flex-wrap: wrap;
+  row-gap: 0.5rem;
+  column-gap: 1rem;
+}
 .navLink:hover, .navLink:focus {
   color: var(--bf-gold, #ffd700);
 }

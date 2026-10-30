@@ -195,6 +195,9 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // create and join its games, labelled "Galactic Age · Beta". Off: admins
   // only, as before. Space to Stars stays admin-only either way.
   galaxy_age_beta_enabled: () => envOptIn('GALAXY_AGE_BETA_ENABLED'),
+  // A Feedback entry in the lobby's menu (the desktop top bar and the phone's
+  // More sheet): a note about anything, read in Admin → Feedback.
+  feedback_menu_enabled: () => envOptIn('FEEDBACK_MENU_ENABLED'),
   // Localized landing page + tutorial (frontend/src/i18n). Dark-launched OFF:
   // the translated bundles ship in the client but nobody is routed to them
   // until this is on. Client-only effect.
@@ -1484,6 +1487,18 @@ export const featureFlags = {
   },
 
   /**
+   * The lobby menu's Feedback entry: on, every signed-in player (guests
+   * included) can send a note about anything, with an optional category (bug,
+   * idea, other), through `POST /api/feedback` as topic `general`; it is read in
+   * Admin → Feedback beside the Galactic Age beta's. Off, the entry is hidden
+   * and the server refuses general feedback from anyone but an admin. Default
+   * OFF; `FEEDBACK_MENU_ENABLED=true` or the admin override turns it on.
+   */
+  get feedbackMenuEnabled(): boolean {
+    return overrideBool('feedback_menu_enabled');
+  },
+
+  /**
    * Localized landing page and tutorial (frontend/src/i18n). Off means English
    * for everyone whatever the browser says; on lets the client honour the
    * stored `cc-lang` choice or the browser language. Default OFF until the
@@ -1550,6 +1565,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     warfront_enabled: featureFlags.warfrontEnabled,
     galaxy_tutorial_enabled: featureFlags.galaxyTutorialEnabled,
     galaxy_age_beta_enabled: featureFlags.galaxyAgeBetaEnabled,
+    feedback_menu_enabled: featureFlags.feedbackMenuEnabled,
     localization_enabled: featureFlags.localizationEnabled,
     touch_targets_enabled: featureFlags.touchTargetsEnabled,
     daily_puzzle_v2_enabled: featureFlags.dailyPuzzleV2Enabled,

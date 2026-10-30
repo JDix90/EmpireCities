@@ -1,12 +1,13 @@
-import React from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-  Map, Calendar, PenSquare, Users, Trophy, Eye, Home, Swords, Shield, Coins
+  Map, Calendar, PenSquare, Users, Trophy, Eye, Home, Swords, Shield, Coins, MessageSquare
 } from 'lucide-react';
 import styles from './TopNavBar.module.css';
 import UserMenu from './UserMenu';
 import { useAuthStore, selectIsAdminFromToken } from '../../store/authStore';
-import { useMapEditorEnabled, useSpectateEnabled, useGuestPersonalFeaturesEnabled } from '../../store/featureFlagsStore';
+import { useMapEditorEnabled, useSpectateEnabled, useGuestPersonalFeaturesEnabled, useFeedbackMenuEnabled } from '../../store/featureFlagsStore';
+import FeedbackModal from '../feedback/FeedbackModal';
 import { APP_NAME_NAV } from '../../constants/brand';
 
 type NavItem = {
@@ -67,6 +68,18 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
   // Read gold from the store (not the prop) so it stays reactive after daily
   // claims, purchases, and game rewards update the balance elsewhere.
   const gold = useAuthStore((s) => s.user?.gold ?? 0);
+  // Feedback sits in the bar itself, not in the account menu, where nobody
+  // would look for it (feedback_menu_enabled).
+  const feedbackMenu = useFeedbackMenuEnabled();
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  // The bar takes its two-row layout below 1280px (TopNavBar.module.css), but
+  // whether one row fits depends on what is in it: an admin's Admin link, Live,
+  // Feedback, a long username. At 1280px an admin's row already ran 58px past
+  // the screen. So it also stacks whenever its one row does not fit, and goes
+  // back to one row once the screen is wide enough for the row it measured.
+  const navRef = useRef<HTMLElement>(null);
+  const oneRowWidth = useRef(0);
+  const [stacked, setStacked] = useState(false);
   // Groups are filtered before render so an empty group (all-guest-hidden, say)
   // can't leave a divider with nothing on one side of it.
   const visibleGroups = navGroups
@@ -80,12 +93,34 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
       ),
     )
     .filter((group) => group.length > 0);
+  const contents = `${visibleGroups.map((g) => g.map((i) => i.to).join()).join('|')}:${feedbackMenu}:${user?.username ?? ''}:${gold}`;
+  // New contents: measure the one row again.
+  useLayoutEffect(() => setStacked(false), [contents]);
+  useLayoutEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+    const fit = () => {
+      if (!stacked) {
+        if (nav.scrollWidth > nav.clientWidth + 1) {
+          oneRowWidth.current = nav.scrollWidth;
+          setStacked(true);
+        }
+      } else if (nav.clientWidth >= oneRowWidth.current) {
+        setStacked(false);
+      }
+    };
+    fit();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(fit);
+    ro.observe(nav);
+    return () => ro.disconnect();
+  }, [stacked, contents]);
   const isActive = (to: string, exact?: boolean) => {
     if (exact) return location.pathname === to;
     return location.pathname.startsWith(to) && to !== '/';
   };
   return (
-    <nav className={styles.navBar}>
+    <nav ref={navRef} className={stacked ? `${styles.navBar} ${styles.stacked}` : styles.navBar} data-stacked={stacked || undefined}>
       {/* Logo/Brand */}
       <Link to="/lobby" className={styles.logo}>
         {APP_NAME_NAV}
@@ -142,6 +177,16 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
             <Users className={styles.icon} /> Friends
           </Link>
         )}
+        {feedbackMenu && (
+          <button
+            type="button"
+            onClick={() => setFeedbackOpen(true)}
+            className={`${styles.navLink} tap-min`}
+            title="Send feedback"
+          >
+            <MessageSquare className={styles.icon} aria-hidden /> Feedback
+          </button>
+        )}
         {/* Profile/Settings/Help/Privacy/Logout collapse into the account menu. */}
         <UserMenu
           username={user?.username ?? 'Profile'}
@@ -151,6 +196,7 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
           iconClassName={styles.icon}
         />
       </div>
+      {feedbackMenu && <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />}
     </nav>
   );
 }
