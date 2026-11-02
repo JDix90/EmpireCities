@@ -471,6 +471,11 @@ export interface GameState {
    */
   phase_deadline_at?: number | null;
   winner_id?: string;
+  /**
+   * A play-on game (play_on_enabled): the table kept playing a won game for
+   * total domination. Mirrors backend `PlayOnMarker` (victory/playOn.ts).
+   */
+  play_on?: { of: string; won_by: string[]; won_with: string; won_turn: number };
   win_probability_history?: Array<{
     step: number;
     turn: number;

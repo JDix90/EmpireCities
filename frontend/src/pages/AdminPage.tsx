@@ -451,6 +451,12 @@ const CLIENT_FEATURE_FLAGS = [
       'A Feedback entry in the lobby menu (the desktop top bar and the phone\'s More sheet): every signed-in player, guests included, can send a note about anything, marked as a bug, an idea or something else. Read it in the Feedback tab. Off by default; off, the entry is hidden and the server refuses general feedback.',
   },
   {
+    key: 'play_on_enabled',
+    label: 'Play on after a win',
+    description:
+      'When a casual live game (Full Game, Quick Match, custom; not ranked, daily, campaign, tutorial, turn-a-day or team games) is won short of total domination with opponents still in, the winner\'s Victory screen can ask everyone still in to keep playing for domination. Every human must say yes within a minute; bots always do. The win stands as recorded, and the continuation is a new, unranked game that pays nothing and stays off players\' records. Off by default; off, nobody is offered it, and a vote already open cannot be started.',
+  },
+  {
     key: 'galaxy_age_beta_enabled',
     label: 'Galactic Age open beta',
     description:

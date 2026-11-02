@@ -28,7 +28,21 @@ export function notTutorialSql(alias = 'g'): string {
   return `COALESCE(${alias}.settings_json ->> 'tutorial', 'false') <> 'true'`;
 }
 
-/** The same predicate as an `AND` clause, for appending to an existing WHERE. */
+/**
+ * SQL predicate selecting rows of `games` that are NOT a play-on continuation
+ * (game-engine/victory/playOn.ts): the game a table kept playing after it was
+ * won. The win is on the record already, so the continuation is not a second
+ * game played, and losing it is not a loss.
+ */
+export function notPlayOnSql(alias = 'g'): string {
+  return `${alias}.settings_json ->> 'play_on_of' IS NULL`;
+}
+
+/**
+ * The same predicates as an `AND` clause, for appending to an existing WHERE:
+ * a game on the player's record is neither a tutorial nor a play-on
+ * continuation.
+ */
 export function andNotTutorialSql(alias = 'g'): string {
-  return `AND ${notTutorialSql(alias)}`;
+  return `AND ${notTutorialSql(alias)} AND ${notPlayOnSql(alias)}`;
 }

@@ -198,6 +198,11 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // A Feedback entry in the lobby's menu (the desktop top bar and the phone's
   // More sheet): a note about anything, read in Admin → Feedback.
   feedback_menu_enabled: () => envOptIn('FEEDBACK_MENU_ENABLED'),
+  // Play on after a win short of total domination (game-engine/playOn): the
+  // winner of a casual live game can ask the table to keep going for
+  // domination. Unanimous, bots always yes; the win stands and the rest is
+  // unranked and pays nothing.
+  play_on_enabled: () => envOptIn('PLAY_ON_ENABLED'),
   // Localized landing page + tutorial (frontend/src/i18n). Dark-launched OFF:
   // the translated bundles ship in the client but nobody is routed to them
   // until this is on. Client-only effect.
@@ -1499,6 +1504,19 @@ export const featureFlags = {
   },
 
   /**
+   * Play on after a win (game-engine/playOn/playOn.ts): when a casual live game
+   * ends on a win short of total domination with opponents still standing, the
+   * winner's Victory screen can ask everyone still in to keep playing for
+   * domination. Every surviving human must say yes within a minute; bots
+   * always do. The win stands as recorded, and the continuation is a new,
+   * unranked game that pays nothing and stays off every player's record.
+   * Default OFF; `PLAY_ON_ENABLED=true` or the admin override turns it on.
+   */
+  get playOnEnabled(): boolean {
+    return overrideBool('play_on_enabled');
+  },
+
+  /**
    * Localized landing page and tutorial (frontend/src/i18n). Off means English
    * for everyone whatever the browser says; on lets the client honour the
    * stored `cc-lang` choice or the browser language. Default OFF until the
@@ -1566,6 +1584,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     galaxy_tutorial_enabled: featureFlags.galaxyTutorialEnabled,
     galaxy_age_beta_enabled: featureFlags.galaxyAgeBetaEnabled,
     feedback_menu_enabled: featureFlags.feedbackMenuEnabled,
+    play_on_enabled: featureFlags.playOnEnabled,
     localization_enabled: featureFlags.localizationEnabled,
     touch_targets_enabled: featureFlags.touchTargetsEnabled,
     daily_puzzle_v2_enabled: featureFlags.dailyPuzzleV2Enabled,

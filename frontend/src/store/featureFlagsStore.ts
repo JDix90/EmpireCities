@@ -38,6 +38,7 @@ export interface ClientFeatureFlags {
   galaxy_tutorial_enabled: boolean;
   galaxy_age_beta_enabled: boolean;
   feedback_menu_enabled: boolean;
+  play_on_enabled: boolean;
   localization_enabled: boolean;
   touch_targets_enabled: boolean;
   daily_puzzle_v2_enabled: boolean;
@@ -139,6 +140,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   galaxy_age_beta_enabled: false,
   // The lobby menu's Feedback entry. Dark-launched OFF.
   feedback_menu_enabled: false,
+  // Play on after a win short of total domination. Dark-launched OFF.
+  play_on_enabled: false,
   // Localized landing + tutorial (src/i18n). Dark-launched OFF: the bundles
   // ship but everyone sees English until an operator turns this on.
   localization_enabled: false,
@@ -364,6 +367,11 @@ export function useGalaxyAgeBetaEnabled(): boolean {
 /** The lobby menu's Feedback entry (components/feedback/FeedbackModal.tsx). */
 export function useFeedbackMenuEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.feedback_menu_enabled);
+}
+
+/** Play on after a win (components/game/PlayOnPanel.tsx). */
+export function usePlayOnEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.play_on_enabled);
 }
 
 export function useAttackBlitzEnabled(): boolean {

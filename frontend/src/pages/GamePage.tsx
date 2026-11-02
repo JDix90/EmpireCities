@@ -67,6 +67,8 @@ import { MapControlChip } from '../components/game/MapControlTracker';
 import AiTurnRecapPanel, { appendRecap, ownTurnDigest, type TurnRecapEntry } from '../components/game/AiTurnRecapPanel';
 import { useTurnRecapPanelEnabled } from '../store/featureFlagsStore';
 import { useSaveAccountCopyEnabled, useGalaxyAgeBetaEnabled } from '../store/featureFlagsStore';
+import { usePlayOnStore, type PlayOnResult, type PlayOnVoteView } from '../store/playOnStore';
+import PlayOnTag from '../components/game/PlayOnTag';
 import GalacticBetaTag, { GALACTIC_BETA_WELCOME_NOTE } from '../components/game/GalacticBetaTag';
 import GalaxyViewsTip, { GALAXY_VIEWS_TIP_KEY } from '../components/game/GalaxyViewsTip';
 import { safeLocalStorage } from '../utils/safeStorage';
@@ -2131,6 +2133,8 @@ export default function GamePage() {
       }>;
       decision_summary?: GameOverModalData['decision_summary'];
       daily_result?: DailyRunResult;
+      play_on?: { proposer_ids: string[]; human_ids: string[]; bot_count: number; expires_in_ms: number };
+      play_on_of?: string;
     }) => {
       const myId = userRef.current?.user_id;
       const xpEarned =
@@ -2170,6 +2174,16 @@ export default function GamePage() {
       const myLastWinProb =
         myId && lastProbSnap ? (lastProbSnap.probabilities[myId] ?? 1) : 1;
       const mySeat = myId ? stats.players.find((p) => p.player_id === myId) : undefined;
+      // Play on (play_on_enabled): what this game offers, kept for the vote.
+      const playOnOffer = stats.play_on
+        ? {
+            proposer_ids: stats.play_on.proposer_ids,
+            human_ids: stats.play_on.human_ids,
+            bot_count: stats.play_on.bot_count,
+            expires_at: Date.now() + stats.play_on.expires_in_ms,
+          }
+        : undefined;
+      if (gameId) usePlayOnStore.getState().setOffer(gameId, playOnOffer ?? null);
       const allowReplayDespiteAbandon =
         vc === 'abandoned' &&
         !!mySeat &&
@@ -2211,6 +2225,8 @@ export default function GamePage() {
         // A Galactic Age game while the beta is open asks how it went.
         galacticBeta: useFeatureFlagsStore.getState().flags.galaxy_age_beta_enabled
           && isGalacticAgeGame(endState?.era, endState?.map_id),
+        playOn: playOnOffer,
+        playOnOf: stats.play_on_of,
       };
       if (gameId) {
         api
@@ -2226,6 +2242,20 @@ export default function GamePage() {
         return;
       }
       setModalQueue(q => [...q, gameOverData]);
+    });
+
+    // Play on (play_on_enabled): the table's vote on keeping a won game going,
+    // shown by the results' PlayOnPanel.
+    socket.on('game:play_on', (vote: PlayOnVoteView & { gameId: string; expires_in_ms: number }) => {
+      const { gameId: votedGameId, expires_in_ms, ...rest } = vote;
+      usePlayOnStore.getState().setVote(votedGameId, { ...rest, expires_at: Date.now() + expires_in_ms });
+    });
+    socket.on('game:play_on_result', (res: PlayOnResult & { gameId: string }) => {
+      usePlayOnStore.getState().setResult(res.gameId, { outcome: res.outcome, new_game_id: res.new_game_id });
+    });
+    socket.on('game:play_on_refused', ({ message }: { gameId: string; message: string }) => {
+      usePlayOnStore.getState().setSending(false);
+      toast.error(message);
     });
 
     socket.on('game:player_eliminated', ({ playerId, eliminatorName, eliminatedName, secretMission }: {
@@ -2921,6 +2951,9 @@ export default function GamePage() {
       socket.off('game:combat_result');
       socket.off('game:cards_redeemed');
       socket.off('game:over');
+      socket.off('game:play_on');
+      socket.off('game:play_on_result');
+      socket.off('game:play_on_refused');
       socket.off('game:campaign_advanced');
       socket.off('game:coaching_tip');
       socket.off('game:chat_message');
@@ -3930,6 +3963,12 @@ export default function GamePage() {
     if (reason !== 'auto' && reason !== 'action') countDismissTap(2);
     setOwnCombatSheet(null);
   }, [countDismissTap]);
+
+  // Play on: the table agreed, so the game goes on under a new id.
+  const handlePlayOnContinue = useCallback((newGameId: string) => {
+    dismissModal();
+    navigate(`/game/${newGameId}`);
+  }, [navigate, dismissModal]);
 
   const handleRematch = useCallback(async (cfg: NonNullable<GameOverModalData['rematchConfig']>) => {
     try {
@@ -4980,6 +5019,18 @@ export default function GamePage() {
 
   // A Galactic Age game while the era is an open beta carries a BETA tag.
   const showGalacticBetaTag = galacticBeta && isGalacticAgeGame(gameState.era, gameState.map_id);
+  // A play-on game says so in the top bar, and who won the game it continues.
+  const playOnMarker = gameState.play_on;
+  const playOnWinnerLabel = playOnMarker
+    ? (() => {
+        const myId = user?.user_id;
+        const others = playOnMarker.won_by
+          .filter((id) => id !== myId)
+          .map((id) => gameState.players.find((p) => p.player_id === id)?.username ?? 'A player');
+        const names = playOnMarker.won_by.includes(myId ?? '') ? ['You', ...others] : others;
+        return names.join(' and ') || 'A player';
+      })()
+    : null;
 
   const reducedGlobe =
     prefersReducedMotion() || liteVisuals || (isMobileViewport() && mapView === 'globe');
@@ -4997,7 +5048,7 @@ export default function GamePage() {
           // The BETA tag is one more item in a bar that was already full: it
           // ran 26px past a 320px phone, and 48px past an iPad upright, whose
           // desktop layout puts the map views and world tabs in the bar.
-          showGalacticBetaTag && 'max-[959px]:gap-2.5',
+          (showGalacticBetaTag || playOnMarker) && 'max-[959px]:gap-2.5',
         )}
       >
         <BrandWordmark to="/lobby" className="text-sm" />
@@ -5021,13 +5072,17 @@ export default function GamePage() {
             // Where the bar is short of room, a phone upright or an iPad
             // upright, the BETA tag stands in for the era's name, which its
             // panel gives: beside the tag, the name was squeezed to nothing.
-            showGalacticBetaTag && 'max-[479px]:hidden dlayout:max-[959px]:hidden',
+            // The PLAY ON tag does the same.
+            (showGalacticBetaTag || playOnMarker) && 'max-[479px]:hidden dlayout:max-[959px]:hidden',
           )}
           title={gameState.settings.era_advancement_enabled ? 'Your civilization\u2019s current era' : undefined}
         >
           {formatEraLabel(playerTechEra ?? gameState.era)}
         </span>
         {showGalacticBetaTag && <GalacticBetaTag onSendFeedback={() => setGalacticFeedbackOpen(true)} />}
+        {playOnMarker && playOnWinnerLabel && (
+          <PlayOnTag winnerLabel={playOnWinnerLabel} wonTurn={playOnMarker.won_turn} />
+        )}
         <span className={clsx('text-bf-muted text-xs', viewerMapControl && 'max-[359px]:hidden')}>·</span>
         <span className="text-bf-muted text-xs whitespace-nowrap shrink-0">Turn {gameState.turn_number}</span>
         {viewerMapControl && <MapControlChip progress={viewerMapControl} />}
@@ -6298,6 +6353,7 @@ export default function GamePage() {
           onRepeatCombat={handleAttack}
           onBlitzCombat={handleBlitzAttack}
           onRematch={handleRematch}
+          onPlayOnContinue={handlePlayOnContinue}
           onWatchReplay={handleWatchReplay}
           onShareClip={handleShareClip}
           onChallengeFriend={user?.is_guest ? undefined : () => navigate('/lobby?challenge=1')}

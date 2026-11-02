@@ -189,6 +189,7 @@ import {
 import { runWithGameLock } from './gameLock';
 import { isUserBanned } from '../services/bans';
 import { resolveMap } from './mapResolver';
+import { offerPlayOn, registerPlayOnHandlers, type PlayOnOfferPayload } from './playOnVote';
 import {
   isSameLobbyMap,
   lobbyMapChangeBlockedReason,
@@ -1303,6 +1304,9 @@ export function initGameSocket(httpServer: HttpServer): Server {
       getRoom: getCachedRoom, broadcastState, scheduleDebouncedSave, isSocketUsersTurn,
     };
     registerChatHandlers(ctx);
+    // Play on after a win (play_on_enabled): the ask and the vote, held in the
+    // finished game's room (sockets/playOnVote.ts).
+    registerPlayOnHandlers(io, socket, userId, { beginTurn: beginPlayOnTurn });
 
     // ── Join Game Room ──────────────────────────────────────────────────────
     socket.on('game:join', async ({ gameId }: { gameId: string }) => {
@@ -5355,6 +5359,10 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
   // Every credited winner is paid as a winner: a side that wins together
   // (state/teams.ts), or both allies of an alliance mission.
   const creditedIds = creditedWinnerIds(state, winnerIds);
+  // A play-on game (victory/playOn.ts) continues a win already recorded: it is
+  // unranked and pays nothing, so everything below that rates, pays, counts or
+  // unlocks is skipped for it. It is still completed, saved and announced.
+  const playOn = !!state.play_on;
 
   // Idempotency guard: finalizeGame can be entered more than once on the same
   // game — e.g. a resign victory check racing with the turn-timer victory
@@ -5480,18 +5488,31 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
   // and who won, kept after its snapshots are pruned. Any other game records
   // nothing and never reaches the database.
   try {
-    await recordGalaxyGameResult(gameId, state, creditedIds);
+    if (!playOn) await recordGalaxyGameResult(gameId, state, creditedIds);
   } catch (galaxyErr) {
     console.error('[Socket] Failed to record Galactic Age result:', galaxyErr);
   }
 
   // Post-game stats (non-critical — failures logged but game:over still sent)
+  const noResults = (): Awaited<ReturnType<typeof recordGameResults>> =>
+    ({ ratingDeltas: new Map(), ratingProvisional: new Map(), guestPlayerIds: new Set(), isRanked: false, xpEarnedByPlayer: {} });
   let resultCtx: Awaited<ReturnType<typeof recordGameResults>>;
   try {
-    resultCtx = await recordGameResults(gameId, state, creditedIds);
+    resultCtx = playOn ? noResults() : await recordGameResults(gameId, state, creditedIds);
   } catch (err) {
     console.error('[Socket] Failed to record game results:', err);
-    resultCtx = { ratingDeltas: new Map(), ratingProvisional: new Map(), guestPlayerIds: new Set(), isRanked: false, xpEarnedByPlayer: {} };
+    resultCtx = noResults();
+  }
+
+  // Play on (play_on_enabled): a win short of domination, with opponents
+  // standing, lets the winner ask the table to keep going. Non-critical.
+  let playOnOfferPayload: PlayOnOfferPayload | null = null;
+  if (featureFlags.playOnEnabled && !playOn) {
+    try {
+      playOnOfferPayload = await offerPlayOn(gameId, state, creditedIds);
+    } catch (playOnErr) {
+      console.error('[Socket] Failed to keep the play-on offer:', playOnErr);
+    }
   }
 
   const unlockedByPlayer: Record<string, string[]> = {};
@@ -5502,7 +5523,9 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
   // Per-human activation/retention signal: who finished a game, and the outcome.
   // (For human players, player_id is the user's UUID — see ranked insert below.)
   const finishedDurationMs = state.game_started_at ? Date.now() - state.game_started_at : null;
-  for (const human of humanPlayers) {
+  // A play-on game is not a second game finished: it reports its own event,
+  // so the funnels and retention reading game_finished count the game once.
+  for (const human of playOn ? [] : humanPlayers) {
     recordServerEvent(
       'game_finished',
       {
@@ -5560,7 +5583,20 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
     }
   }
 
-  if (humanPlayers.length > 0) {
+  if (playOn) {
+    for (const human of humanPlayers) {
+      recordServerEvent('play_on_finished', {
+        game_id: gameId,
+        play_on_of: state.play_on?.of ?? null,
+        won: creditedIds.includes(human.player_id),
+        victory_type: state.victory_condition ?? null,
+        duration_ms: finishedDurationMs,
+        turn_count: state.turn_number,
+      }, human.player_id);
+    }
+  }
+
+  if (!playOn && humanPlayers.length > 0) {
     const client = await pgPool.connect();
     try {
       await client.query('BEGIN');
@@ -5638,15 +5674,19 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
       friends: string[];
     };
   }> = {};
-  const friendStreaksByPlayer = await updateFriendStreaks(
-    humanPlayers.map((player) => player.player_id),
-    state.turn_number,
-  ).catch((err) => {
-    console.error('[Socket] Friend streak update failed:', err);
-    return {} as Awaited<ReturnType<typeof updateFriendStreaks>>;
-  });
+  // Nobody is paid, streaked or credited for a play-on game.
+  const rewardedPlayers = playOn ? [] : humanPlayers;
+  const friendStreaksByPlayer = rewardedPlayers.length === 0
+    ? {} as Awaited<ReturnType<typeof updateFriendStreaks>>
+    : await updateFriendStreaks(
+      rewardedPlayers.map((player) => player.player_id),
+      state.turn_number,
+    ).catch((err) => {
+      console.error('[Socket] Friend streak update failed:', err);
+      return {} as Awaited<ReturnType<typeof updateFriendStreaks>>;
+    });
 
-  for (const p of humanPlayers) {
+  for (const p of rewardedPlayers) {
     try {
       const isWinner = creditedIds.includes(p.player_id);
       const client = await pgPool.connect();
@@ -5843,10 +5883,14 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
     xp_earned_by_player: resultCtx.xpEarnedByPlayer,
     victory_condition: state.victory_condition,
     progression: progressionByPlayer,
+    // A rematch of a play-on game is a rematch of the game it continued, with
+    // that game's win rules, not domination alone.
     rematch_config: {
       era_id: state.era,
       map_id: state.map_id,
-      settings: redactSettingsForClient(state.settings),
+      settings: redactSettingsForClient(state.play_on
+        ? { ...state.settings, ...state.play_on.rematch_settings }
+        : state.settings),
       human_player_ids: state.players
         .filter((p) => !p.is_ai && p.player_id !== winnerId)
         .map((p) => p.player_id),
@@ -5860,6 +5904,11 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
     daily_result: humanForSummary && getDailyPuzzleSpec(state)
       ? settleDailyRun(state, humanForSummary.player_id, winnerIds)
       : undefined,
+    // Play on (play_on_enabled): who may ask the table to keep going, and for
+    // how long; absent when this game cannot be played on.
+    ...(playOnOfferPayload ? { play_on: playOnOfferPayload } : {}),
+    // A play-on game: the game whose win it continued.
+    ...(state.play_on ? { play_on_of: state.play_on.of } : {}),
   };
   io.to(gameId).emit('game:over', stats);
   // Spectators run on the delayed feed; a slim end-signal lands when their
@@ -5879,9 +5928,11 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
   generateAndStorePostMatchAnalysis(gameId, finalDecisionLog).catch((err) => {
     console.error('[Socket] Post-match analysis pipeline failed:', err);
   });
-  updateSkillProfilesFromGameState(state).catch((err) => {
-    console.error('[Socket] Skill profile update failed:', err);
-  });
+  if (!playOn) {
+    updateSkillProfilesFromGameState(state).catch((err) => {
+      console.error('[Socket] Skill profile update failed:', err);
+    });
+  }
 
   // Clean up after a delay so clients can see final state
   setTimeout(() => {
@@ -6316,6 +6367,20 @@ async function runDailyV2OpponentTurn(
   broadcastState(io, gameId, state);
   if (await doVictoryCheck()) return;
   startTurnTimer(io, gameId, state, map);
+}
+
+/**
+ * The opening turn of a play-on game (sockets/playOnVote.ts), started from the
+ * final board of the game it continues: the bot's turn, or the human's clock.
+ * As at any game start; the players' joins pick the board up from there.
+ */
+function beginPlayOnTurn(io: Server, gameId: string, state: GameState, map: GameMap): void {
+  getOrBuildAdjacency(map);
+  if (state.players[state.current_player_index]?.is_ai) {
+    setTimeout(() => processAiTurn(io, gameId), 1500);
+  } else {
+    startTurnTimer(io, gameId, state, map);
+  }
 }
 
 /**
