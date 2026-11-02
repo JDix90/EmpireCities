@@ -42,6 +42,8 @@ Turn timers and async deadlines are **BullMQ jobs** in Redis ([backend/src/worke
 
 Gameplay is **server-authoritative**: clients emit intents (`game:attack`, `game:draft`, …); all validation, dice, and state mutation happen server-side inside the lock; clients receive `game:state` broadcasts (fog-of-war filtered per viewer by `buildClientState`).
 
+**Play on after a win** (`play_on_enabled`): a casual live game won short of total domination, with opponents still in, can be kept going. `finalizeGame` keeps the offer in Redis (`play_on:<gameId>`) and names it in `game:over`; the winner asks and every surviving human answers in the finished game's room (`game:play_on_propose` / `game:play_on_vote`, under that game's lock; bots always say yes). A unanimous yes starts a **new** game from the final board ([backend/src/sockets/playOnVote.ts](../backend/src/sockets/playOnVote.ts), rules in [game-engine/victory/playOn.ts](../backend/src/game-engine/victory/playOn.ts)): same seats, domination only, no round cap, `settings_json.play_on_of` pointing back. The finished game and its win are never touched; the continuation is unranked, `finalizeGame` pays nothing for it, and `andNotTutorialSql` keeps it off player records.
+
 ## Connection resilience
 
 Layered so no single failure ejects a player or kills other games:

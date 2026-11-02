@@ -1175,6 +1175,19 @@ export interface DropAssault {
   units: number;
 }
 
+/** What a play-on game continues (GameState.play_on, victory/playOn.ts). */
+export interface PlayOnMarker {
+  /** The game whose win this continues. */
+  of: string;
+  /** Who won it, and how. */
+  won_by: string[];
+  won_with: VictoryConditionKey;
+  /** The round it was won in. */
+  won_turn: number;
+  /** The original game's win rules, for a rematch from the continuation. */
+  rematch_settings: Pick<GameSettings, 'victory_type' | 'allowed_victory_conditions' | 'victory_threshold' | 'max_turns'>;
+}
+
 export interface GameState {
   game_id: string;
   era: EraId;
@@ -1325,6 +1338,13 @@ export interface GameState {
   winner_ids?: string[];
   /** Which victory condition triggered the win. */
   victory_condition?: VictoryConditionKey;
+  /**
+   * Set on a play-on game (victory/playOn.ts, play_on_enabled): the table
+   * voted to keep playing a won game for total domination. The win it
+   * continues stands as recorded; this game is unranked, pays nothing, and
+   * ends only at domination (or with nobody left to fight).
+   */
+  play_on?: PlayOnMarker;
   win_probability_history?: WinProbabilitySnapshot[];
   /**
    * True when the game qualifies for in-turn coaching: exactly one human

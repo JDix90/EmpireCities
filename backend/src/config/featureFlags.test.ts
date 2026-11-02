@@ -126,6 +126,14 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().feedback_menu_enabled).toBe(true);
   });
 
+  it('play_on_enabled defaults to off and the admin override turns it on', () => {
+    expect(featureFlags.playOnEnabled).toBe(false);
+    expect(getClientFeatureFlags().play_on_enabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { play_on_enabled: true } });
+    expect(featureFlags.playOnEnabled).toBe(true);
+    expect(getClientFeatureFlags().play_on_enabled).toBe(true);
+  });
+
   it('galaxy_age_beta_enabled defaults to off and the admin override opens the beta', () => {
     expect(featureFlags.galaxyAgeBetaEnabled).toBe(false);
     expect(getClientFeatureFlags().galaxy_age_beta_enabled).toBe(false);

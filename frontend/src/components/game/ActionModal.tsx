@@ -9,7 +9,9 @@ import CombatAbilityCallouts from './CombatAbilityCallouts';
 import ComeBackTomorrowPanel from './ComeBackTomorrowPanel';
 import ReferralSurvey from './ReferralSurvey';
 import { GalacticGameOverFeedback } from './GalacticFeedback';
-import { useGuestPromptV2Enabled, useReferralSurveyEnabled, useResultsFooterEnabled } from '../../store/featureFlagsStore';
+import { useGuestPromptV2Enabled, usePlayOnEnabled, useReferralSurveyEnabled, useResultsFooterEnabled } from '../../store/featureFlagsStore';
+import type { PlayOnOffer } from '../../store/playOnStore';
+import PlayOnPanel from './PlayOnPanel';
 import { shouldShowReferralSurvey, hasAnsweredReferralSurvey } from '../../utils/referralSurvey';
 import { CLASSIC_DAY_REVIEW_NOTE, GRADE_LABELS, type PuzzleReviewView } from '../../utils/dailyPuzzleV2';
 import { bankedGoldNote } from '../../utils/signupNudge';
@@ -149,6 +151,13 @@ export interface GameOverModalData {
   };
   /** A Galactic Age game while its beta is open (galaxy_age_beta_enabled): asks how it went. */
   galacticBeta?: boolean;
+  /**
+   * Play on (play_on_enabled): this game can be kept going for total
+   * domination; who may ask, and who would play on (components/game/PlayOnPanel).
+   */
+  playOn?: PlayOnOffer;
+  /** This was a play-on game: the id of the game whose win it continued. */
+  playOnOf?: string;
   /** Daily v2 (docs/DAILY_PUZZLE_V2.md §3): the run's decisions, graded, and the share line. */
   puzzle_review?: PuzzleReviewView;
   /** A daily served as v1 while grading is on: no review is coming, and the screen says why. */
@@ -1382,8 +1391,10 @@ function PositionShareChart({
 
 // ─── Game Over View ─────────────────────────────────────────────────────────
 
-function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, onChallengeFriend, onUpgradeAccount, mapNameLookup }: {
+function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, onChallengeFriend, onUpgradeAccount, onPlayOnContinue, mapNameLookup }: {
   data: GameOverModalData;
+  /** The table agreed to play on: go to the new game (PlayOnPanel). */
+  onPlayOnContinue?: (newGameId: string) => void;
   /** Names the territories and regions in a revealed secret mission. */
   mapNameLookup?: MapNameLookup | null;
   onDismiss: () => void;
@@ -1416,6 +1427,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
   const saveAccountCopy = useSaveAccountCopyEnabled();
   const emailSave = useEmailAccountSaveEnabled();
   const resultsFooter = useResultsFooterEnabled();
+  const playOnEnabled = usePlayOnEnabled();
   const lossReasonOn = useLossReasonEnabled();
   const missionRevealOn = useMissionRevealEnabled();
   const [showReferralSurvey] = useState(() =>
@@ -1727,6 +1739,23 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
           })}
           <span className="text-yellow-400 text-lg">🤝</span>
         </div>
+      )}
+
+      {/* Play on (play_on_enabled): the winner can ask the table to keep going
+          for total domination, and the table answers here. */}
+      {playOnEnabled && data.playOn && data.gameId && onPlayOnContinue && (
+        <PlayOnPanel
+          gameId={data.gameId}
+          offer={data.playOn}
+          viewerId={data.viewerId}
+          onContinue={onPlayOnContinue}
+          className="mb-5"
+        />
+      )}
+      {data.playOnOf && (
+        <p className="mb-5 text-xs text-white/50" data-testid="play-on-finished-note">
+          You played on after the game was won. This part was unranked and paid nothing; the win before it stands.
+        </p>
       )}
 
       {/* Why a won war is a lost challenge: the goal was the win condition,
@@ -2602,6 +2631,8 @@ interface ActionModalProps {
   onRepeatCombat?: (fromId: string, toId: string) => void;
   onBlitzCombat?: (fromId: string, toId: string) => void;
   onRematch?: (cfg: NonNullable<GameOverModalData['rematchConfig']>) => void;
+  /** Play on: the table agreed, go to the new game (rendered on GameOverView). */
+  onPlayOnContinue?: (newGameId: string) => void;
   /** Navigate to the post-match replay (rendered as a CTA on GameOverView). */
   onWatchReplay?: (gameId: string, opts?: { withChronicle?: boolean }) => void;
   /** Deep-link into the replay's auto-generated share clip (rendered as a CTA on GameOverView). */
@@ -2702,6 +2733,7 @@ export default function ActionModal({
   onRepeatCombat,
   onBlitzCombat,
   onRematch,
+  onPlayOnContinue,
   onWatchReplay,
   onShareClip,
   onChallengeFriend,
@@ -2782,7 +2814,7 @@ export default function ActionModal({
             backlogCount={backlogCount}
           />
         )}
-        {data.type === 'game_over' && <GameOverView data={data} onDismiss={onDismiss} onRematch={onRematch} onWatchReplay={onWatchReplay} onShareClip={onShareClip} onChallengeFriend={onChallengeFriend} onUpgradeAccount={onUpgradeAccount} mapNameLookup={mapNameLookup} />}
+        {data.type === 'game_over' && <GameOverView data={data} onDismiss={onDismiss} onRematch={onRematch} onPlayOnContinue={onPlayOnContinue} onWatchReplay={onWatchReplay} onShareClip={onShareClip} onChallengeFriend={onChallengeFriend} onUpgradeAccount={onUpgradeAccount} mapNameLookup={mapNameLookup} />}
         {data.type === 'elimination' && (
           <EliminationView
             data={data}

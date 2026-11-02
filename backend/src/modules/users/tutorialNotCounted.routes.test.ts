@@ -55,12 +55,14 @@ describe.runIf(enabled)('the tutorial does not count as a game played (Postgres)
     tutorial: boolean;
     won: boolean;
     eraId?: string;
+    /** A play-on continuation of this game: finished, and never ranked. */
+    playOnOf?: string;
   }): Promise<string> {
     const gameId = uuidv4();
     gameIds.push(gameId);
     const settings = opts.tutorial
       ? { tutorial: true, tutorial_lesson_module: 'core', max_players: 2 }
-      : { max_players: 2 };
+      : { max_players: 2, ...(opts.playOnOf ? { play_on_of: opts.playOnOf } : {}) };
     await query(
       `INSERT INTO games (game_id, map_id, era_id, status, settings_json, game_type, ended_at)
        VALUES ($1, 'era_ancient', $2, 'completed', $3::jsonb, 'solo', NOW())`,
@@ -69,7 +71,7 @@ describe.runIf(enabled)('the tutorial does not count as a game played (Postgres)
     await query(
       `INSERT INTO game_players (game_id, user_id, player_index, player_color, is_ai, final_rank)
        VALUES ($1, $2, 0, '#e74c3c', false, $3)`,
-      [gameId, opts.userId, opts.won ? 1 : 2],
+      [gameId, opts.userId, opts.playOnOf ? null : opts.won ? 1 : 2],
     );
     return gameId;
   }
@@ -157,6 +159,21 @@ describe.runIf(enabled)('the tutorial does not count as a game played (Postgres)
     };
     expect(body.ten_streak.current).toBe(2);
     expect(body.immortal_streak.current).toBe(2);
+  });
+
+  it('a play-on continuation is not a second game: the win it continued stands alone', async () => {
+    const u = await seedUser('play_on');
+    const won = await seedCompletedGame({ userId: u.id, tutorial: false, won: true });
+    // Lost the continuation: it records no rank, and must not read as a loss.
+    await seedCompletedGame({ userId: u.id, tutorial: false, won: false, playOnOf: won });
+
+    const body = (await get('/api/users/me/stats', u.id, u.name)).json() as StatsBody;
+    expect(body.overall).toEqual({ played: 1, won: 1, win_rate: 1 });
+    expect(body.streaks.current_win).toBe(1);
+    const progress = (await get('/api/users/me/achievements/progress', u.id, u.name)).json() as {
+      veteran: { current: number };
+    };
+    expect(progress.veteran.current).toBe(1);
   });
 
   it('a real game still counts — the filter is not a blanket zero', async () => {
