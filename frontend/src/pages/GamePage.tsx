@@ -68,6 +68,8 @@ import AiTurnRecapPanel, { appendRecap, ownTurnDigest, type TurnRecapEntry } fro
 import { useTurnRecapPanelEnabled } from '../store/featureFlagsStore';
 import { useSaveAccountCopyEnabled, useGalaxyAgeBetaEnabled } from '../store/featureFlagsStore';
 import { usePlayOnStore, type PlayOnResult, type PlayOnVoteView } from '../store/playOnStore';
+import { useFirstTurnEventsEnabled } from '../store/featureFlagsStore';
+import { newFirstTurnSteps, type FirstTurnStep, type FirstTurnView } from '../utils/firstTurnSteps';
 import PlayOnTag from '../components/game/PlayOnTag';
 import GalacticBetaTag, { GALACTIC_BETA_WELCOME_NOTE } from '../components/game/GalacticBetaTag';
 import GalaxyViewsTip, { GALAXY_VIEWS_TIP_KEY } from '../components/game/GalaxyViewsTip';
@@ -921,6 +923,46 @@ export default function GamePage() {
   useEffect(() => {
     funnelEmittedRef.current = { map: false, attack: false, capture: false };
   }, [gameId]);
+
+  // First-turn measurement (first_turn_events_enabled; utils/firstTurnSteps.ts):
+  // each step of a real game's first turn the viewer reaches, posted once a
+  // game, so the funnel can say where a first turn stops before an attack.
+  const firstTurnEvents = useFirstTurnEventsEnabled();
+  const firstTurnRef = useRef<{ gameId: string | null; prev: FirstTurnView | null; sent: Set<FirstTurnStep>; since: number }>(
+    { gameId: null, prev: null, sent: new Set(), since: 0 },
+  );
+  useEffect(() => {
+    if (!firstTurnEvents || !gameState || !gameId) return;
+    if (firstTurnRef.current.gameId !== gameId) {
+      firstTurnRef.current = { gameId, prev: null, sent: new Set(), since: Date.now() };
+    }
+    const ft = firstTurnRef.current;
+    const myId = viewerPlayer?.player_id ?? null;
+    const view: FirstTurnView = {
+      realGame: !!myId && !gameState.settings?.tutorial,
+      turn: gameState.turn_number,
+      myTurn: !!myId && gameState.players[gameState.current_player_index]?.player_id === myId,
+      phase: gameState.phase,
+      briefingOpen: showStartModal,
+      ownTerritoryOpen: !!myId && !!selectedTerritory && gameState.territories[selectedTerritory]?.owner_id === myId,
+      draftLeft: draftUnitsRemaining,
+    };
+    for (const step of newFirstTurnSteps(ft.prev, view, ft.sent)) {
+      ft.sent.add(step);
+      api.post('/analytics/ui-event', {
+        event: 'first_turn_step',
+        properties: {
+          step,
+          game_id: gameId,
+          era: String(gameState.era ?? ''),
+          first_match: String((gameState.settings as { first_match?: boolean } | undefined)?.first_match === true),
+          layout: isMobileLayout ? 'phone' : 'desktop',
+          seconds: String(Math.round((Date.now() - ft.since) / 1000)),
+        },
+      }).catch(() => {});
+    }
+    ft.prev = view;
+  }, [firstTurnEvents, gameId, gameState, viewerPlayer, showStartModal, selectedTerritory, draftUnitsRemaining, isMobileLayout]);
 
   // ── Globe-readiness turn-timer ack (B-06) ────────────────────────────────
   // The server starts the turn timer the instant a turn begins, but the 3D

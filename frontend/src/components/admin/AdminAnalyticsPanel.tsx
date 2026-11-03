@@ -40,6 +40,20 @@ export interface CompletionStats {
   avg_minutes: number | null;
   avg_turns: number | null;
 }
+/** A real game's first turn, step by step (backend FirstTurnFunnel, first_turn_events_enabled). */
+export interface FirstTurnFunnel {
+  new_players: number;
+  saw_map: number;
+  briefing_closed: number;
+  territory_opened: number;
+  units_placed: number;
+  draft_ended: number;
+  attacked: number;
+  captured: number;
+  clock_ran_out: number;
+  /** The day the steps were first recorded, or null before any were. */
+  measured_since: string | null;
+}
 export interface FirstMatchStats {
   started: number;
   finished: number;
@@ -154,6 +168,8 @@ export interface AnalyticsReport {
   guest_accounts?: GuestAccountMetrics;
   /** Optional for rollout: older backends won't send it. */
   active_players?: ActivePlayers;
+  /** Optional for rollout: older backends won't send it. */
+  first_turn?: FirstTurnFunnel;
   acquisition_channels?: AcquisitionChannelRow[];
 }
 
@@ -580,6 +596,42 @@ export default function AdminAnalyticsPanel({
             A first match is a player&apos;s first Quick Match while &quot;Easy first match&quot; is on: one
             Easy bot on Great Britain 925. &quot;Back next day&quot; uses the D1 rule (any event the day
             after finishing) and counts only finishes from before today.
+          </p>
+        </section>
+      )}
+
+      {/* The first turn of a real game (first_turn_events_enabled): where it
+          stops between seeing the map and attacking. Shown once any step has
+          been recorded. */}
+      {data.first_turn && data.first_turn.measured_since && (
+        <section className="rounded-xl border border-bf-border bg-cc-panel/50 p-4" data-testid="admin-first-turn">
+          <p className="text-sm font-semibold text-bf-text">
+            First turn{' '}
+            <span className="text-xs font-normal text-bf-muted">
+              · new players in the last {data.window_days}d · real games
+            </span>
+          </p>
+          <div className="mt-3 space-y-2">
+            {([
+              ['Saw a game’s map', data.first_turn.saw_map],
+              ['Closed the briefing', data.first_turn.briefing_closed],
+              ['Opened a territory', data.first_turn.territory_opened],
+              ['Placed units', data.first_turn.units_placed],
+              ['Ended reinforcements', data.first_turn.draft_ended],
+              ['Attacked', data.first_turn.attacked],
+              ['Captured a territory', data.first_turn.captured],
+            ] as const).map(([label, n], i) => (
+              <FunnelStep key={label} label={label} n={n} total={data.first_turn!.saw_map} highlight={i === 0} />
+            ))}
+          </div>
+          <p className="mt-3 text-sm text-bf-text">
+            Turn-1 clock ran out: {data.first_turn.clock_ran_out.toLocaleString()}{' '}
+            <span className="text-bf-muted">({pctText(data.first_turn.clock_ran_out, data.first_turn.saw_map)} of those who saw a map)</span>
+          </p>
+          <p className="mt-2 text-xs text-bf-muted">
+            Recorded since {data.first_turn.measured_since}: players who signed up before then read as never
+            reaching the steps. Each row is &quot;ever did it&quot; in a real game (not the tutorial), as a share of
+            the new players who saw a real game&apos;s map; the steps are recorded only in a game&apos;s first round.
           </p>
         </section>
       )}

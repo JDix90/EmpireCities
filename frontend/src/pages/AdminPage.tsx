@@ -451,6 +451,12 @@ const CLIENT_FEATURE_FLAGS = [
       'A Feedback entry in the lobby menu (the desktop top bar and the phone\'s More sheet): every signed-in player, guests included, can send a note about anything, marked as a bug, an idea or something else. Read it in the Feedback tab. Off by default; off, the entry is hidden and the server refuses general feedback.',
   },
   {
+    key: 'first_turn_events_enabled',
+    label: 'First-turn measurement',
+    description:
+      'Records what players do in the first turn of a real game (not the tutorial): closing the start briefing, opening a territory of theirs, placing units, ending reinforcements, and whether their turn clock ran out. Analytics only: players see no change. Read it in the funnel report and Analytics → First turn. On by default; this is the kill switch. Needs analytics events on.',
+  },
+  {
     key: 'play_on_enabled',
     label: 'Play on after a win',
     description:

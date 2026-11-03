@@ -318,7 +318,11 @@ describe('analyticsQueries', () => {
       .mockResolvedValueOnce([{ saved: 2, saved_with_password: 1, saved_email_only: 1, links_sent: 1, link_signins: 1 }])
       .mockResolvedValueOnce([{ used_personal_cohort: 2, used_personal_saved: 1, other_guest_cohort: 3, other_guest_saved: 1 }])
       .mockResolvedValueOnce([{ yesterday: 4, last_7_days: 9, last_30_days: 20 }])
-      .mockResolvedValueOnce([{ day: '2026-10-18', active: 5, new_players: 2 }]);
+      .mockResolvedValueOnce([{ day: '2026-10-18', active: 5, new_players: 2 }])
+      .mockResolvedValueOnce([{
+        new_players: 3, saw_map: 3, briefing_closed: 3, territory_opened: 2, units_placed: 2,
+        draft_ended: 1, attacked: 1, captured: 1, clock_ran_out: 1, measured_since: '2026-11-03',
+      }]);
     queryOneMock.mockResolvedValueOnce({ total: 42 });
 
     const r = await getAnalyticsReport(30);
@@ -368,6 +372,10 @@ describe('analyticsQueries', () => {
       last_7_days: 9,
       last_30_days: 20,
       daily: [{ day: '2026-10-18', active: 5, new_players: 2, returning_players: 3 }],
+    });
+    expect(r.first_turn).toEqual({
+      new_players: 3, saw_map: 3, briefing_closed: 3, territory_opened: 2, units_placed: 2,
+      draft_ended: 1, attacked: 1, captured: 1, clock_ran_out: 1, measured_since: '2026-11-03',
     });
   });
 

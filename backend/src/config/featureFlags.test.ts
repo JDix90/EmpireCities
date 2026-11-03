@@ -126,6 +126,14 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().feedback_menu_enabled).toBe(true);
   });
 
+  it('first_turn_events_enabled defaults to on and the admin override turns it off', () => {
+    expect(featureFlags.firstTurnEventsEnabled).toBe(true);
+    expect(getClientFeatureFlags().first_turn_events_enabled).toBe(true);
+    setAdminConfigCacheForTests({ feature_flags: { first_turn_events_enabled: false } });
+    expect(featureFlags.firstTurnEventsEnabled).toBe(false);
+    expect(getClientFeatureFlags().first_turn_events_enabled).toBe(false);
+  });
+
   it('play_on_enabled defaults to off and the admin override turns it on', () => {
     expect(featureFlags.playOnEnabled).toBe(false);
     expect(getClientFeatureFlags().play_on_enabled).toBe(false);
