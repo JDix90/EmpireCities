@@ -1203,6 +1203,23 @@ export function initGameSocket(httpServer: HttpServer): Server {
       // The turn's clock ran out, in whichever phase: reinforcements still
       // unplaced are placed and the turn passes on (advancePhaseOnTimeout).
       const timedOutPlayerId = room.state.players[room.state.current_player_index]?.player_id;
+      // First-turn measurement: a human whose clock ran out, in the phase it
+      // ran out in, before the timeout places their units and moves on.
+      const timedOutSeat = room.state.players[room.state.current_player_index];
+      // A Territory Draft pick is not a turn, so its clock is left out.
+      if (
+        featureFlags.firstTurnEventsEnabled && timedOutSeat && !timedOutSeat.is_ai
+        && !room.state.settings.tutorial && room.state.phase !== 'territory_select'
+      ) {
+        recordServerEvent('turn_timed_out', {
+          game_id: gameId,
+          turn_number: room.state.turn_number,
+          phase: room.state.phase,
+          units_unplaced: room.state.phase === 'draft' ? room.state.draft_units_remaining : 0,
+          is_tutorial: false,
+          first_match: room.state.settings.first_match === true,
+        }, timedOutSeat.player_id);
+      }
       const adv = advancePhaseOnTimeout(room.state, room.map);
 
       if (adv.kind === 'selection') {

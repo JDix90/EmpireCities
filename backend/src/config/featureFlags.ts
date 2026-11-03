@@ -203,6 +203,10 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // domination. Unanimous, bots always yes; the win stands and the rest is
   // unranked and pays nothing.
   play_on_enabled: () => envOptIn('PLAY_ON_ENABLED'),
+  // First-turn measurement (analytics only, nothing a player sees): what a
+  // player does in the first turn of a real game, and whether its clock ran
+  // out. On by default; the kill switch stops recording it.
+  first_turn_events_enabled: () => envOptOut('FIRST_TURN_EVENTS_ENABLED'),
   // Localized landing page + tutorial (frontend/src/i18n). Dark-launched OFF:
   // the translated bundles ship in the client but nobody is routed to them
   // until this is on. Client-only effect.
@@ -1517,6 +1521,21 @@ export const featureFlags = {
   },
 
   /**
+   * First-turn measurement: in the first turn of a player's real (not
+   * tutorial) game, the client records each step it reaches (`first_turn_step`:
+   * the briefing closed, a territory of theirs opened, units placed, the
+   * reinforcement phase ended), and the server records a human whose turn
+   * clock ran out (`turn_timed_out`). Analytics only, so it changes nothing a
+   * player sees; the funnel report and Admin → Analytics read it as the First
+   * turn section. Default ON; `FIRST_TURN_EVENTS_ENABLED=false` or the admin
+   * override stops recording it. Analytics as a whole still needs
+   * `analytics_events_enabled`.
+   */
+  get firstTurnEventsEnabled(): boolean {
+    return overrideBool('first_turn_events_enabled');
+  },
+
+  /**
    * Localized landing page and tutorial (frontend/src/i18n). Off means English
    * for everyone whatever the browser says; on lets the client honour the
    * stored `cc-lang` choice or the browser language. Default OFF until the
@@ -1585,6 +1604,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     galaxy_age_beta_enabled: featureFlags.galaxyAgeBetaEnabled,
     feedback_menu_enabled: featureFlags.feedbackMenuEnabled,
     play_on_enabled: featureFlags.playOnEnabled,
+    first_turn_events_enabled: featureFlags.firstTurnEventsEnabled,
     localization_enabled: featureFlags.localizationEnabled,
     touch_targets_enabled: featureFlags.touchTargetsEnabled,
     daily_puzzle_v2_enabled: featureFlags.dailyPuzzleV2Enabled,

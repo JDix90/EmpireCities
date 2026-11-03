@@ -297,6 +297,29 @@ export interface AnalyticsReport {
   volume: EventVolumeRow[];
   guest_accounts: GuestAccountMetrics;
   active_players: ActivePlayers;
+  first_turn: FirstTurnFunnel;
+}
+
+/**
+ * The first turn of a real game, step by step, for the players who signed up
+ * in the window (first_turn_events_enabled): how many saw a real game's map,
+ * then each `first_turn_step` the client records in a game's first turn, then
+ * the first attack and capture. `clock_ran_out` counts those whose turn-1
+ * clock ran out (`turn_timed_out`, server-side). Each column is "ever did
+ * it", like the activation funnel. `measured_since` is the day the steps were
+ * first recorded: players who signed up before it read as never reaching them.
+ */
+export interface FirstTurnFunnel {
+  new_players: number;
+  saw_map: number;
+  briefing_closed: number;
+  territory_opened: number;
+  units_placed: number;
+  draft_ended: number;
+  attacked: number;
+  captured: number;
+  clock_ran_out: number;
+  measured_since: string | null;
 }
 
 function num(v: unknown): number {
@@ -942,12 +965,61 @@ export async function getActivePlayers(days: number, onlyUserIds?: readonly stri
   };
 }
 
+/** The first turn of a real game, step by step: see FirstTurnFunnel. */
+export async function getFirstTurnFunnel(
+  days: number,
+  device: FunnelDevice | null = null,
+  onlyUserIds?: readonly string[],
+): Promise<FirstTurnFunnel> {
+  const did = (event: string, extra = '') => `COUNT(*) FILTER (WHERE EXISTS (
+         SELECT 1 FROM analytics_events e WHERE e.user_id = s.user_id AND e.event = '${event}'
+           AND ${REAL_GAME_SQL}${extra}))::int`;
+  const step = (name: string) => did('first_turn_step', ` AND e.properties->>'step' = '${name}'`);
+  const [row] = await query<Record<string, unknown>>(
+    `WITH signups AS (
+       SELECT user_id
+       FROM analytics_events
+       WHERE event IN ('guest_created', 'user_registered') AND user_id IS NOT NULL
+         AND created_at >= NOW() - make_interval(days => $1::int)
+         AND ${countedEventSql('analytics_events')}
+         AND ($2::text IS NULL OR properties->>'device' = $2::text)
+         AND ($3::uuid[] IS NULL OR user_id = ANY($3::uuid[]))
+       GROUP BY user_id
+     )
+     SELECT
+       COUNT(*)::int AS new_players,
+       ${did('map_rendered')} AS saw_map,
+       ${step('briefing_closed')} AS briefing_closed,
+       ${step('territory_opened')} AS territory_opened,
+       ${step('units_placed')} AS units_placed,
+       ${step('draft_ended')} AS draft_ended,
+       ${did('first_attack')} AS attacked,
+       ${did('first_territory_captured')} AS captured,
+       ${did('turn_timed_out', ` AND e.properties->>'turn_number' = '1'`)} AS clock_ran_out,
+       (SELECT to_char(MIN(created_at), 'YYYY-MM-DD') FROM analytics_events WHERE event = 'first_turn_step') AS measured_since
+     FROM signups s`,
+    [days, device, onlyUserIds ?? null],
+  );
+  return {
+    new_players: num(row?.new_players),
+    saw_map: num(row?.saw_map),
+    briefing_closed: num(row?.briefing_closed),
+    territory_opened: num(row?.territory_opened),
+    units_placed: num(row?.units_placed),
+    draft_ended: num(row?.draft_ended),
+    attacked: num(row?.attacked),
+    captured: num(row?.captured),
+    clock_ran_out: num(row?.clock_ran_out),
+    measured_since: typeof row?.measured_since === 'string' ? row.measured_since : null,
+  };
+}
+
 /** Everything the funnel report / admin view needs, in one shot. */
 export async function getAnalyticsReport(days: number, device: FunnelDevice | null = null): Promise<AnalyticsReport> {
   // NOTE: the section queries share one mocked `query` in the unit test, which
   // matches them positionally — a new section goes on the END of this list so
   // it cannot shift the mocks of the ones above it.
-  const [visitors, funnel, retention, retentionByCohort, completion, acquisition, volume, tutorial, totalRow, firstMatch, soloByLevel, guestAccounts, activePlayers] = await Promise.all([
+  const [visitors, funnel, retention, retentionByCohort, completion, acquisition, volume, tutorial, totalRow, firstMatch, soloByLevel, guestAccounts, activePlayers, firstTurn] = await Promise.all([
     getVisitorFunnel(days),
     getFunnelMetrics(days, device),
     getRetentionMetrics(),
@@ -961,6 +1033,7 @@ export async function getAnalyticsReport(days: number, device: FunnelDevice | nu
     getSoloGamesByLevel(days),
     getGuestAccountMetrics(days),
     getActivePlayers(days),
+    getFirstTurnFunnel(days, device),
   ]);
   return {
     window_days: days,
@@ -979,5 +1052,6 @@ export async function getAnalyticsReport(days: number, device: FunnelDevice | nu
     volume,
     guest_accounts: guestAccounts,
     active_players: activePlayers,
+    first_turn: firstTurn,
   };
 }

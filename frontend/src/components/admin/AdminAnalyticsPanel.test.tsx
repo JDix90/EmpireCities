@@ -78,6 +78,29 @@ describe('AdminAnalyticsPanel', () => {
     expect(screen.getByText('75%')).toBeTruthy();
   });
 
+  it('shows the first turn step by step once a step is recorded, and nothing before or for an older backend', () => {
+    const firstTurn = {
+      new_players: 40, saw_map: 20, briefing_closed: 18, territory_opened: 12, units_placed: 9,
+      draft_ended: 8, attacked: 7, captured: 5, clock_ran_out: 6, measured_since: '2026-11-03',
+    };
+    const { unmount } = render(<AdminAnalyticsPanel data={report} />);
+    expect(screen.queryByTestId('admin-first-turn')).toBeNull();
+    unmount();
+    const { unmount: unmountQuiet } = render(
+      <AdminAnalyticsPanel data={{ ...report, first_turn: { ...firstTurn, measured_since: null } }} />,
+    );
+    expect(screen.queryByTestId('admin-first-turn')).toBeNull();
+    unmountQuiet();
+    render(<AdminAnalyticsPanel data={{ ...report, first_turn: firstTurn }} />);
+    const section = screen.getByTestId('admin-first-turn');
+    expect(within(section).getByText('Opened a territory')).toBeTruthy();
+    // Each step as a share of those who saw a real game's map.
+    expect(within(section).getByText('12 · 60%')).toBeTruthy();
+    expect(within(section).getByText('7 · 35%')).toBeTruthy();
+    expect(section.textContent).toMatch(/Turn-1 clock ran out: 6 \(30% of those who saw a map\)/);
+    expect(section.textContent).toMatch(/Recorded since 2026-11-03/);
+  });
+
   it('shows guest accounts once anything has happened, and nothing for an older backend', () => {
     const quiet = {
       saved: 0, saved_with_password: 0, saved_email_only: 0, links_sent: 0, links_not_sent: 0,

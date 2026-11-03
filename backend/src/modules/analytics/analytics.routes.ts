@@ -16,6 +16,13 @@ import { recordServerEvent } from '../../services/analyticsEvents';
  */
 const REFERRAL_SURVEY_ANSWERS = new Set(['ai_assistant', 'search', 'social', 'friend', 'other']);
 
+/**
+ * The steps `first_turn_step` may name (first_turn_events_enabled; frontend
+ * utils/firstTurnSteps.ts). A closed set, for the same reason as the survey's
+ * answers: it is a dimension the First turn report groups by.
+ */
+export const FIRST_TURN_STEPS = new Set(['briefing_closed', 'territory_opened', 'units_placed', 'draft_ended']);
+
 const UiEventSchema = z.object({
   event: z.enum([
     'retention_notification_clicked',
@@ -64,9 +71,25 @@ const UiEventSchema = z.object({
     // the D1/D7 returns and the active-player counts missed them. Property:
     // device.
     'app_opened',
+    // What a player does in the first turn of a real game (not the tutorial),
+    // posted once per step per game while first_turn_events_enabled is on
+    // (frontend utils/firstTurnSteps.ts): the briefing closed, a territory of
+    // theirs opened, units placed, the reinforcement phase ended. Between
+    // map_rendered and first_attack it says where a first turn stops.
+    // Properties: step, game_id, era, first_match, layout, seconds (since the
+    // map first showed).
+    'first_turn_step',
   ]),
   properties: z.record(z.string().max(64), z.string().max(200)).optional(),
 }).superRefine((value, ctx) => {
+  // A first-turn step is a closed set too: the First turn report groups by it.
+  if (value.event === 'first_turn_step') {
+    const step = value.properties?.step;
+    if (!step || !FIRST_TURN_STEPS.has(step)) {
+      ctx.addIssue({ code: 'custom', path: ['properties', 'step'], message: 'Unknown step' });
+    }
+    return;
+  }
   // The survey's `answer` is a dimension we group by, so it is a closed set,
   // not free text. The generic `properties` schema would happily accept 200
   // characters of anything — which would both pollute the grouping and turn a

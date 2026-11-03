@@ -14,7 +14,7 @@
  * Read-only. Requires the normal backend Postgres env (DATABASE_URL / PG*).
  */
 import { connectPostgres, pgPool, query } from '../src/db/postgres';
-import { getAnalyticsReport } from '../src/services/analyticsQueries';
+import { getAnalyticsReport, getFirstTurnFunnel, type FirstTurnFunnel } from '../src/services/analyticsQueries';
 
 const DAYS = Math.max(1, Number(process.argv[2]) || 30);
 
@@ -209,6 +209,37 @@ async function main(): Promise<void> {
     + '\n  are not arriving ("not sent" means the email provider refused the send).'
     + '\n  The saved split shows who saves, not why: players who explore more do both.\n',
   );
+
+  // The first turn of a real game, step by step (first_turn_events_enabled):
+  // where a first turn stops between seeing the map and attacking.
+  const byDevice: Array<[string, FirstTurnFunnel]> = [
+    ['all', r.first_turn],
+    ['phone', await getFirstTurnFunnel(DAYS, 'phone')],
+    ['desktop', await getFirstTurnFunnel(DAYS, 'desktop')],
+  ];
+  console.log('FIRST TURN (new players in window, real games; each column: ever did it)');
+  if (!r.first_turn.measured_since) {
+    console.log('  (nothing recorded yet: first_turn_step starts with the release that adds it)\n');
+  } else {
+    console.log(
+      `  ${'device'.padEnd(8)} ${'new'.padStart(5)} ${'map'.padStart(5)} ${'brief'.padStart(6)} ${'opened'.padStart(7)}`
+      + ` ${'placed'.padStart(7)} ${'ended'.padStart(6)} ${'attack'.padStart(7)} ${'capture'.padStart(8)} ${'clock out'.padStart(10)}`,
+    );
+    for (const [device, f] of byDevice) {
+      console.log(
+        `  ${device.padEnd(8)} ${String(f.new_players).padStart(5)} ${String(f.saw_map).padStart(5)}`
+        + ` ${String(f.briefing_closed).padStart(6)} ${String(f.territory_opened).padStart(7)}`
+        + ` ${String(f.units_placed).padStart(7)} ${String(f.draft_ended).padStart(6)}`
+        + ` ${String(f.attacked).padStart(7)} ${String(f.captured).padStart(8)} ${String(f.clock_ran_out).padStart(10)}`,
+      );
+    }
+    console.log(
+      `  NOTE: recorded since ${r.first_turn.measured_since}; players who signed up before then`
+      + '\n  read as never reaching the steps. map = saw a real game\'s map; brief = closed'
+      + '\n  the start briefing; opened = opened a territory of theirs; placed = placed units;'
+      + '\n  ended = ended reinforcements; clock out = their turn-1 clock ran out.\n',
+    );
+  }
 
   console.log('EVENT VOLUME');
   for (const row of r.volume) console.log(`  ${row.event.padEnd(20)} ${String(row.n).padStart(6)}`);

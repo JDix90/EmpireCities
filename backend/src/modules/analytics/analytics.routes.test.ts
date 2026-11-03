@@ -107,6 +107,34 @@ describe('POST /api/analytics/ui-event', () => {
     await app.close();
   });
 
+  it('accepts first_turn_step, a step of a real game\'s first turn, against the signed-in player', async () => {
+    const app = await build();
+    const properties = { step: 'territory_opened', game_id: 'g1', era: 'medieval', first_match: 'true', layout: 'phone', seconds: '14' };
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/analytics/ui-event',
+      payload: { event: 'first_turn_step', properties },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(recordServerEventMock).toHaveBeenCalledWith('first_turn_step', properties, 'user-1');
+    await app.close();
+  });
+
+  it('rejects a first_turn_step that names no step, or one it does not know', async () => {
+    const app = await build();
+    for (const properties of [{ game_id: 'g1' }, { step: 'clicked_everything', game_id: 'g1' }]) {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/analytics/ui-event',
+        payload: { event: 'first_turn_step', properties },
+      });
+      expect(res.statusCode).toBe(400);
+    }
+    expect(recordServerEventMock).not.toHaveBeenCalled();
+    await app.close();
+  });
+
   it('still rejects a name that is not on the allowlist', async () => {
     const app = await build();
     const res = await app.inject({
