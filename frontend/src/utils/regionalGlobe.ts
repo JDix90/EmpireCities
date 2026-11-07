@@ -99,3 +99,57 @@ export function resolveActiveGlobeView(
   if (mapData.map_kind !== 'galaxy') return mapData.globe_view;
   return mapData.worlds?.find((w) => w.world_id === activeWorldId)?.globe_view ?? mapData.globe_view;
 }
+
+/** A board's authored lat/lng box (`projection_bounds`). */
+export interface BoardBounds {
+  minLat: number;
+  maxLat: number;
+  minLng: number;
+  maxLng: number;
+}
+
+/** globe.gl's camera: three.js's default perspective camera, 50° vertical. */
+const CAMERA_VERTICAL_FOV_DEG = 50;
+/** The closest the opening view comes, well clear of the camera's near plane. */
+const MIN_FITTED_ALTITUDE = 0.12;
+
+/**
+ * The camera altitude at which a board's bounds fill `fill` of a canvas this
+ * size, looking straight down on the middle of the box. Each half-span is an
+ * arc on the sphere seen from a camera `1 + altitude` globe radii from its
+ * centre: an arc of θ subtends `atan(sin θ / (d − cos θ))`, so it fits a half
+ * field of view φ once `d ≥ cos θ + sin θ / tan φ`. The horizontal field of
+ * view is the vertical one times the canvas's width over its height.
+ */
+export function altitudeToFitBounds(bounds: BoardBounds, width: number, height: number, fill = 0.85): number {
+  const halfVertical = Math.tan((CAMERA_VERTICAL_FOV_DEG / 2) * (Math.PI / 180));
+  const centerLat = (bounds.minLat + bounds.maxLat) / 2;
+  const latArc = ((bounds.maxLat - bounds.minLat) / 2) * (Math.PI / 180);
+  const lngArc = ((bounds.maxLng - bounds.minLng) / 2) * (Math.PI / 180) * Math.cos(centerLat * (Math.PI / 180));
+  const need = (arc: number, halfTan: number) => Math.cos(arc) + Math.sin(arc) / (fill * halfTan) - 1;
+  return Math.max(need(latArc, halfVertical), need(lngArc, halfVertical * (width / height)));
+}
+
+/**
+ * The opening view of a fixed regional board on a canvas this size
+ * (`fit_board_camera_enabled`): centred on the board and zoomed in until it
+ * fills the view, so its territories are big enough to tap. Only ever closer
+ * than the authored view: a board wider than a portrait phone keeps its
+ * authored framing rather than shrinking every territory to fit.
+ */
+export function fitRegionalView(
+  view: DerivedRegionalGlobe,
+  bounds: BoardBounds,
+  width: number,
+  height: number,
+): DerivedRegionalGlobe {
+  if (width <= 0 || height <= 0 || bounds.maxLng <= bounds.minLng || bounds.maxLat <= bounds.minLat) return view;
+  const fitted = Math.max(MIN_FITTED_ALTITUDE, altitudeToFitBounds(bounds, width, height));
+  if (fitted >= view.altitude) return view;
+  return {
+    ...view,
+    centerLat: (bounds.minLat + bounds.maxLat) / 2,
+    centerLng: (bounds.minLng + bounds.maxLng) / 2,
+    altitude: fitted,
+  };
+}

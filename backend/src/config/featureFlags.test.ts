@@ -126,6 +126,14 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().feedback_menu_enabled).toBe(true);
   });
 
+  it('fit_board_camera_enabled defaults to off and the admin override turns it on', () => {
+    expect(featureFlags.fitBoardCameraEnabled).toBe(false);
+    expect(getClientFeatureFlags().fit_board_camera_enabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { fit_board_camera_enabled: true } });
+    expect(featureFlags.fitBoardCameraEnabled).toBe(true);
+    expect(getClientFeatureFlags().fit_board_camera_enabled).toBe(true);
+  });
+
   it('first_turn_events_enabled defaults to on and the admin override turns it off', () => {
     expect(featureFlags.firstTurnEventsEnabled).toBe(true);
     expect(getClientFeatureFlags().first_turn_events_enabled).toBe(true);
