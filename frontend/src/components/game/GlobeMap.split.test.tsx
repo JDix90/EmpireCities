@@ -221,6 +221,15 @@ describe('a Split globe: the lanes are the view\'s to draw', () => {
     // The gateway markers stay: they carry each lane's state.
     const markers = (globe.props!.htmlElementsData as Array<{ kind: string }>).filter((d) => d.kind === 'gateway-marker');
     expect(markers).toHaveLength(4);
+    // A diamond: the rotation is on a child, because the globe overwrites the
+    // placed element's own transform every frame and it drew as a square.
+    const build = globe.props!.htmlElement as (d: object) => HTMLElement;
+    for (const d of markers) {
+      const el = build(d);
+      expect(el.style.transform).toBe('');
+      expect((el.firstElementChild as HTMLElement).style.transform).toBe('rotate(45deg)');
+      expect(el.getAttribute('data-testid')).toBe('gateway-marker');
+    }
   });
 });
 

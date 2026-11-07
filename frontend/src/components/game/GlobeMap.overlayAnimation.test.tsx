@@ -1,11 +1,13 @@
 /**
  * Globe effects play over their territory, not in the canvas's top-left
- * corner. The globe's CSS2DRenderer places each HTML overlay by writing
+ * corner, and the capital diamond is a diamond. The globe's CSS2DRenderer places each HTML overlay by writing
  * `style.transform` on the element it is handed, every frame; an effect that
  * animated `transform` on that same element replaced the placement while it
  * ran, so a reinforcement's "+3" and "Total: 9", the capture flag and the
- * battle flashes all played in the corner. The placed element must stay bare
- * and the animation must run on a child.
+ * battle flashes all played in the corner. A static rotate(45deg) on it was
+ * overwritten the same way, so the capital diamond drew as a square. The
+ * placed element must stay bare, and the animation or rotation must be on a
+ * child.
  *
  * react-globe.gl is replaced by a stand-in that records the overlays and the
  * element builder it is handed.
@@ -51,7 +53,7 @@ import { useUiStore } from '../../store/uiStore';
 const britain = JSON.parse(readFileSync(resolve(process.cwd(), '../database/maps/community_britain_925.json'), 'utf8'));
 const [first, second] = britain.territories as Array<{ territory_id: string }>;
 
-function gameState() {
+function gameState(capitalOf?: string) {
   const territories: Record<string, { owner_id: string | null; unit_count: number }> = {};
   (britain.territories as Array<{ territory_id: string }>).forEach((t, i) => {
     territories[t.territory_id] = { owner_id: i % 2 ? 'ai_1' : 'me', unit_count: 3 };
@@ -59,7 +61,10 @@ function gameState() {
   return {
     game_id: 'g1', era: 'medieval', map_id: britain.map_id, phase: 'attack', turn_number: 1, current_player_index: 0,
     players: [
-      { player_id: 'me', player_index: 0, username: 'Me', color: '#c0392b', is_ai: false, is_eliminated: false, cards: [] },
+      {
+        player_id: 'me', player_index: 0, username: 'Me', color: '#c0392b', is_ai: false, is_eliminated: false, cards: [],
+        ...(capitalOf ? { capital_territory_id: capitalOf } : {}),
+      },
       { player_id: 'ai_1', player_index: 1, username: 'Bot', color: '#3498db', is_ai: true, is_eliminated: false, cards: [] },
     ],
     territories,
@@ -83,8 +88,8 @@ function expectPlacedElementBare(el: HTMLElement) {
   expect(el.style.transform).toBe('');
 }
 
-function play(events: GlobeEvent[]) {
-  act(() => { useGameStore.setState({ gameState: gameState() as never }); });
+function play(events: GlobeEvent[], capitalOf?: string) {
+  act(() => { useGameStore.setState({ gameState: gameState(capitalOf) as never }); });
   return render(
     <GlobeMapCore mapData={britain} onTerritoryClick={() => {}} width={390} height={740}
       selfPlayerId="me" frameBudget reducedEffects autoSpin={false} events={events} />,
@@ -147,5 +152,14 @@ describe('globe effects play over their territory', () => {
     }
     expect(seen.has('animation-captured')).toBe(true);
     expect(seen.has('animation-explosion')).toBe(true);
+  });
+
+  it('draws a capital as a diamond: the rotation is on a child, where the globe cannot overwrite it', () => {
+    play([], first.territory_id);
+    const capital = overlaysOnGlobe().find((o) => o.kind === 'capital-marker');
+    expect(capital).toBeDefined();
+    expectPlacedElementBare(capital!.el);
+    expect((capital!.el.firstElementChild as HTMLElement).style.transform).toBe('rotate(45deg)');
+    expect(capital!.el.title).toBe('Capital');
   });
 });

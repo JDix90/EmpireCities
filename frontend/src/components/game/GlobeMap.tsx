@@ -478,14 +478,16 @@ function uid(prefix: string): string {
 
 /**
  * The element handed to the globe is the one its CSS2DRenderer places, by
- * writing `style.transform` on it every frame. A CSS animation of `transform`
- * on that same element replaces the placement while it runs, so the effect
- * played in the canvas's top-left corner instead of over its territory (the
- * "+3" and "Total: 9" of a reinforcement, the capture flag, the battle
- * flashes). Animated overlays therefore style and animate a child, and leave
- * the placed element bare.
+ * writing `style.transform` on it every frame. Any `transform` of our own on
+ * that same element is lost. A CSS animation of it replaced the placement
+ * while it ran, so effects played in the canvas's top-left corner instead of
+ * over their territory (the "+3" and "Total: 9" of a reinforcement, the
+ * capture flag, the battle flashes). A static `rotate(45deg)` was overwritten
+ * on the first frame, so the capital and gateway diamonds drew as squares.
+ * Overlays that animate or rotate therefore style a child, and leave the
+ * placed element bare.
  */
-function animatedChild(el: HTMLElement, css: string[]): HTMLElement {
+function styledChild(el: HTMLElement, css: string[]): HTMLElement {
   const child = document.createElement('div');
   child.style.cssText = css.join(';');
   el.appendChild(child);
@@ -553,7 +555,7 @@ function buildHtmlOverlayElement(
         el.title = 'Capital';
         break;
       }
-      el.style.cssText = [
+      styledChild(el, [
         'width:12px',
         'height:12px',
         'transform:rotate(45deg)',
@@ -561,7 +563,7 @@ function buildHtmlOverlayElement(
         `background:${datum.color}`,
         'box-shadow:0 0 6px rgba(0,0,0,0.85)',
         'pointer-events:none',
-      ].join(';');
+      ]);
       el.title = 'Capital';
       break;
     }
@@ -583,7 +585,7 @@ function buildHtmlOverlayElement(
     case 'gateway-marker': {
       // A diamond in the lane's colour: solid for a corridor / open lane, dashed
       // while an Emergency Seal is on it. The tooltip lists every lane leaving.
-      el.style.cssText = [
+      styledChild(el, [
         `width:${datum.size}px`,
         `height:${datum.size}px`,
         'transform:rotate(45deg)',
@@ -591,7 +593,7 @@ function buildHtmlOverlayElement(
         'background:rgba(5,7,16,0.85)',
         `box-shadow:0 0 ${datum.sealed ? 12 : 8}px ${datum.color}, 0 0 3px rgba(0,0,0,0.9)`,
         'cursor:pointer',
-      ].join(';');
+      ]);
       el.title = datum.tooltip;
       el.setAttribute('data-testid', 'gateway-marker');
       el.setAttribute('data-lane-state', datum.laneState);
@@ -599,7 +601,7 @@ function buildHtmlOverlayElement(
     }
 
     case 'animation-units-plus': {
-      const fx = animatedChild(el, [
+      const fx = styledChild(el, [
         "font-family:'Courier New', monospace",
         'font-weight:900',
         'font-size:24px',
@@ -615,7 +617,7 @@ function buildHtmlOverlayElement(
     }
 
     case 'animation-units-total': {
-      const fx = animatedChild(el, [
+      const fx = styledChild(el, [
         "font-family:'Courier New', monospace",
         'font-weight:700',
         'font-size:15px',
@@ -634,7 +636,7 @@ function buildHtmlOverlayElement(
     }
 
     case 'animation-explosion': {
-      const fx = animatedChild(el, [
+      const fx = styledChild(el, [
         'font-size:36px',
         'text-align:center',
         'text-shadow:0 0 24px rgba(255,150,50,0.9), 0 0 48px rgba(255,100,0,0.5)',
@@ -646,7 +648,7 @@ function buildHtmlOverlayElement(
     }
 
     case 'animation-strike-flash': {
-      const fx = animatedChild(el, [
+      const fx = styledChild(el, [
         'font-size:42px',
         'text-align:center',
         `text-shadow:0 0 28px ${datum.glowRgb}, 0 0 56px ${datum.glowRgb}`,
@@ -658,7 +660,7 @@ function buildHtmlOverlayElement(
     }
 
     case 'animation-loss-banner': {
-      const fx = animatedChild(el, [
+      const fx = styledChild(el, [
         "font-family:'Courier New', monospace",
         'font-weight:900',
         'font-size:20px',
@@ -674,7 +676,7 @@ function buildHtmlOverlayElement(
     }
 
     case 'animation-captured': {
-      const fx = animatedChild(el, [
+      const fx = styledChild(el, [
         "font-family:'Courier New', monospace",
         'font-weight:900',
         'font-size:16px',
@@ -690,7 +692,7 @@ function buildHtmlOverlayElement(
     }
 
     case 'animation-source-units': {
-      const fx = animatedChild(el, [
+      const fx = styledChild(el, [
         "font-family:'Courier New', monospace",
         'font-weight:900',
         'font-size:20px',
@@ -706,7 +708,7 @@ function buildHtmlOverlayElement(
     }
 
     case 'animation-dest-units': {
-      const fx = animatedChild(el, [
+      const fx = styledChild(el, [
         "font-family:'Courier New', monospace",
         'font-weight:900',
         'font-size:20px',
@@ -725,7 +727,7 @@ function buildHtmlOverlayElement(
       // Small ambient crater glyph — no visible label, full name + flavor
       // text appear on hover via the native title tooltip. The territories
       // around it carry the gameplay; this is just world-building.
-      const fx = animatedChild(el, [
+      const fx = styledChild(el, [
         'width:20px',
         'height:20px',
         'border-radius:999px',
