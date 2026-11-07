@@ -211,6 +211,8 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   fit_board_camera_enabled: () => envOptIn('FIT_BOARD_CAMERA_ENABLED'),
   // Guest accounts appear on the leaderboards and see their own ratings.
   guest_leaderboards_enabled: () => envOptIn('GUEST_LEADERBOARDS_ENABLED'),
+  // Guest runs are ranked on the Daily Challenge board.
+  guest_daily_board_enabled: () => envOptIn('GUEST_DAILY_BOARD_ENABLED'),
   // Localized landing page + tutorial (frontend/src/i18n). Dark-launched OFF:
   // the translated bundles ship in the client but nobody is routed to them
   // until this is on. Client-only effect.
@@ -1569,6 +1571,19 @@ export const featureFlags = {
   },
 
   /**
+   * Guests on the Daily Challenge board: a guest's run is ranked on today's
+   * board and the archive's like an account's, counted in "N attempted", and
+   * the guest is told their real place (modules/daily). Separate from
+   * guest_leaderboards_enabled because this board is the farmable one: a new
+   * guest is a fresh set of daily attempts, so it may need closing again
+   * without touching the others. Default OFF; `GUEST_DAILY_BOARD_ENABLED=true`
+   * or the admin override turns it on.
+   */
+  get guestDailyBoardEnabled(): boolean {
+    return overrideBool('guest_daily_board_enabled');
+  },
+
+  /**
    * Localized landing page and tutorial (frontend/src/i18n). Off means English
    * for everyone whatever the browser says; on lets the client honour the
    * stored `cc-lang` choice or the browser language. Default OFF until the
@@ -1640,6 +1655,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     first_turn_events_enabled: featureFlags.firstTurnEventsEnabled,
     fit_board_camera_enabled: featureFlags.fitBoardCameraEnabled,
     guest_leaderboards_enabled: featureFlags.guestLeaderboardsEnabled,
+    guest_daily_board_enabled: featureFlags.guestDailyBoardEnabled,
     localization_enabled: featureFlags.localizationEnabled,
     touch_targets_enabled: featureFlags.touchTargetsEnabled,
     daily_puzzle_v2_enabled: featureFlags.dailyPuzzleV2Enabled,

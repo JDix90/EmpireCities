@@ -51,7 +51,7 @@ describe('DailyChallengePage — guests play, registered rank', () => {
   beforeEach(() => {
     getMock.mockReset();
     const st = useFeatureFlagsStore.getState();
-    useFeatureFlagsStore.setState({ ...st, flags: { ...st.flags, daily_guest_play_enabled: true } });
+    useFeatureFlagsStore.setState({ ...st, flags: { ...st.flags, daily_guest_play_enabled: true, guest_daily_board_enabled: false } });
   });
 
   it('closes the door again when the operator flips the kill switch', async () => {
@@ -86,6 +86,18 @@ describe('DailyChallengePage — guests play, registered rank', () => {
     expect(cta).toHaveAttribute('href', '/upgrade');
     // They are not on the board they are looking at.
     expect(screen.queryByText('Guest_u1')).toBeNull();
+  });
+
+  it('tells a guest their real place once guest runs are ranked', async () => {
+    setGuest(true);
+    const st = useFeatureFlagsStore.getState();
+    useFeatureFlagsStore.setState({ ...st, flags: { ...st.flags, guest_daily_board_enabled: true } });
+    mockToday({ challenge, my_entry: entry, active_game_id: null, attempts_today: 5, my_rank: 3, leaderboard: [] });
+    renderPage();
+    const line = await screen.findByTestId('daily-rank');
+    expect(line).toHaveTextContent(/You.re 3rd today/);
+    expect(screen.queryByTestId('daily-guest-rank')).toBeNull();
+    expect(screen.queryByText(/Guest runs aren.t ranked/)).toBeNull();
   });
 
   it('tells a registered player their rank without a pitch', async () => {

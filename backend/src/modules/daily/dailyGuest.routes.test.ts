@@ -1,5 +1,6 @@
 /**
- * Guests can PLAY the daily; only registered commanders are RANKED.
+ * Guests can PLAY the daily; only registered commanders are RANKED, unless
+ * guest_daily_board_enabled (the last case). A test account is never ranked.
  *
  * `POST /daily/start` used to carry `rejectGuest`, which closed the most
  * distinctive thing in the product at the moment intent is highest. Opening it
@@ -166,5 +167,41 @@ describe.runIf(enabled)('daily challenge — guests play, registered rank (Postg
     const view = await today(fresh, true);
     expect(view.my_entry).toBeNull();
     expect(view.my_rank).toBeNull();
+  });
+
+  /** Today's entries the board ranks: no test account, and guests only when `guests`. */
+  const boardCount = async (guests: boolean) => Number((await query(
+    `SELECT COUNT(*)::int AS n FROM daily_challenge_entries dce JOIN users u ON u.user_id = dce.user_id
+     WHERE dce.challenge_date = $1 AND ($2::boolean OR u.is_guest = false)
+       AND COALESCE(u.exclude_from_stats, false) = false`,
+    [challengeDate, guests],
+  ))[0].n);
+
+  it('never ranks or counts a run by an account marked as a test account', async () => {
+    const tester = await seedUser('tester', false);
+    await query('UPDATE users SET exclude_from_stats = true WHERE user_id = $1', [tester.id]);
+    await seedEntry(tester.id, 1000, 1); // the best run of the day
+    const viewer = await seedUser('viewer', false);
+    const view = await today(viewer, false);
+    expect(view.leaderboard.map((r) => r.username)).not.toContain(tester.name);
+    expect(view.attempts_today).toBe(await boardCount(false));
+    // The tester still learns where their own run stands.
+    expect((await today(tester, false)).my_rank).toBe(1);
+  });
+
+  it('ranks and counts guest runs like any once guest_daily_board_enabled is on', async () => {
+    const adminConfig = await import('../../services/adminConfig');
+    adminConfig.setAdminConfigCacheForTests({ feature_flags: { guest_daily_board_enabled: true } });
+    try {
+      const guest = await seedUser('onboard', true);
+      await seedEntry(guest.id, 1000, 2); // beats every ranked run above (the best is 1000 in 3)
+      const view = await today(guest, true);
+      expect(view.my_rank).toBe(1);
+      expect(view.leaderboard[0]?.username).toBe(guest.name);
+      expect(view.attempts_today).toBe(await boardCount(true));
+      expect(view.attempts_today).toBeGreaterThan(await boardCount(false));
+    } finally {
+      adminConfig.resetAdminConfigCacheForTests();
+    }
   });
 });

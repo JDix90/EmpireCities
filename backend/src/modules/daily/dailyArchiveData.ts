@@ -31,6 +31,7 @@ import type { GameMap } from '../../types';
 import type { DailyPuzzleSpec, DailyPuzzleV2, StoredPuzzleAction, StoredPuzzleDecision } from '../../game-engine/daily/dailyPuzzleTypes';
 import { DAILY_LEADERBOARD_COLUMNS, DAILY_LEADERBOARD_ORDER_BY } from './dailyLeaderboardOrder';
 import { humanizeEra } from '../share/replayOgData';
+import { dailyBoardUserSql } from './dailyBoard';
 
 /** Display-safe subset of a day's spec. Allowlist — never spread the spec. */
 export interface DailyArchiveSpec {
@@ -224,7 +225,7 @@ export async function getDailyArchiveEntry(
             ) FILTER (WHERE dce.won AND dce.turn_count IS NOT NULL) AS median_winning_turns
      FROM daily_challenge_entries dce
      JOIN users u ON u.user_id = dce.user_id
-     WHERE dce.challenge_date = $1::date AND u.is_guest = false`,
+     WHERE dce.challenge_date = $1::date AND ${dailyBoardUserSql('u')}`,
     [date],
   );
 
@@ -232,7 +233,7 @@ export async function getDailyArchiveEntry(
     `SELECT u.username, ${DAILY_LEADERBOARD_COLUMNS}
      FROM daily_challenge_entries dce
      JOIN users u ON u.user_id = dce.user_id
-     WHERE dce.challenge_date = $1::date AND u.is_guest = false
+     WHERE dce.challenge_date = $1::date AND ${dailyBoardUserSql('u')}
      ORDER BY ${DAILY_LEADERBOARD_ORDER_BY}
      LIMIT 10`,
     [date],
@@ -283,7 +284,7 @@ export async function listDailyArchive(
        SELECT COUNT(*)::int AS attempts, COUNT(*) FILTER (WHERE dce.won)::int AS wins
        FROM daily_challenge_entries dce
        JOIN users u ON u.user_id = dce.user_id
-       WHERE dce.challenge_date = dc.challenge_date AND u.is_guest = false
+       WHERE dce.challenge_date = dc.challenge_date AND ${dailyBoardUserSql('u')}
      ) s ON true
      WHERE dc.challenge_date < $1::date
      ORDER BY dc.challenge_date DESC

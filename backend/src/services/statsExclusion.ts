@@ -34,3 +34,17 @@ export function countedGameSql(gameAlias: string): string {
 export function countedEventSql(eventAlias: string): string {
   return `NOT EXISTS (SELECT 1 FROM users sx_eu WHERE sx_eu.user_id = ${eventAlias}.user_id AND ${excludedUserSql('sx_eu')})`;
 }
+
+/**
+ * A users row a public board shows: the leaderboards (modules/leaderboard) and
+ * the Daily Challenge board (modules/daily). An account an admin marked as a
+ * test account (`exclude_from_stats`) is never on one. Admins are, unlike in
+ * the stats: a board is the game's own, and the operator plays in it. Guests
+ * are when `guestsRanked` (each board has its own switch). `alias` is the
+ * `users` row's alias, or null for an unaliased `users`.
+ */
+export function boardUserSql(alias: string | null, guestsRanked: boolean): string {
+  const col = (name: string) => (alias ? `${alias}.${name}` : name);
+  const notTest = `COALESCE(${col('exclude_from_stats')}, false) = false`;
+  return guestsRanked ? notTest : `${col('is_guest')} = false AND ${notTest}`;
+}

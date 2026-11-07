@@ -8,7 +8,7 @@ import SubpageShell from '../components/ui/SubpageShell';
 import GuestGate from '../components/GuestGate';
 import { useAuthStore } from '../store/authStore';
 import { useDailyGuestPlayEnabled, useDailyPuzzleV2Enabled } from '../store/featureFlagsStore';
-import { useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
+import { useGuestDailyBoardEnabled, useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
 import { useRnParamTracker } from '../hooks/useRnParamTracker';
 import { ownAuthUiAllowed } from '../utils/embedContext';
 import { buildShareLine, classicDayNote, decisionsLine, type PublicDailyPuzzleV2 } from '../utils/dailyPuzzleV2';
@@ -82,9 +82,9 @@ interface DailyResponse {
   /** Real count of commanders who have attempted today's challenge. */
   attempts_today?: number;
   /**
-   * The viewer's place among registered commanders today, once they have an
-   * entry. For a guest this is the place they WOULD hold — guests play the
-   * daily but do not appear on the board.
+   * The viewer's place among the runs the board ranks today, once they have
+   * an entry. For a guest while guest runs are not ranked
+   * (guest_daily_board_enabled off), this is the place they WOULD hold.
    */
   my_rank?: number | null;
   leaderboard: LeaderboardRow[];
@@ -169,6 +169,9 @@ export default function DailyChallengePage() {
   const gradingOn = useDailyPuzzleV2Enabled();
   const guestPlayClosed = isGuest && !dailyGuestPlayEnabled;
   const saveAccountCopy = useSaveAccountCopyEnabled();
+  // With guest_daily_board_enabled a guest's run is ranked like anyone's, so
+  // they get the plain "You're 3rd today" rather than the place they would hold.
+  const guestRunsRanked = useGuestDailyBoardEnabled();
   const [data, setData] = useState<DailyResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
@@ -352,14 +355,15 @@ export default function DailyChallengePage() {
             )}
           </div>
 
-          {/* Where today's run stands. Guests can play the daily but are not on
-              the board (a guest identity is one unauthenticated POST away, so a
-              board that admitted them would be farmable). Naming the place they
-              WOULD hold turns that gap into the reason to create the account —
+          {/* Where today's run stands. Unless guest_daily_board_enabled, guests
+              can play the daily but are not on the board (a guest identity is
+              one unauthenticated POST away, so a board that admits them can be
+              farmed). Naming the place they WOULD hold turns that gap into the
+              reason to create the account —
               and upgrading keeps the same user_id, so the entry appears on the
               board the moment they do. */}
           {alreadyPlayed && typeof my_rank === 'number' && (
-            isGuest ? (
+            isGuest && !guestRunsRanked ? (
               <div
                 className="rounded-lg border border-bf-gold/40 bg-bf-gold/10 p-4 mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
                 data-testid="daily-guest-rank"

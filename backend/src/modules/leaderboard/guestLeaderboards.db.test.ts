@@ -2,7 +2,8 @@
  * Guests on the leaderboards (guest_leaderboards_enabled), against Postgres.
  * Guests earn ratings, XP and streaks like any account; with the switch off the
  * boards leave them out, as they always did, and with it on they are ranked,
- * see their own rank, and their profile opens from a board row.
+ * see their own rank, and their profile opens from a board row. An account
+ * marked as a test account is on no board either way.
  *
  * The seeded pair sits at the very top of each board (values no real or test
  * player reaches), so the check is safe beside the other PG_TEST files on a
@@ -36,6 +37,7 @@ describe.runIf(enabled)('guests on the leaderboards (Postgres)', { timeout: 30_0
   let guestAuth: { authorization: string };
   const guestId = uuidv4();
   const accountId = uuidv4();
+  const testerId = uuidv4();
   const gameIds: string[] = [];
 
   beforeAll(async () => {
@@ -44,15 +46,17 @@ describe.runIf(enabled)('guests on the leaderboards (Postgres)', { timeout: 30_0
     setGuestsRanked = (on) => adminConfig.setAdminConfigCacheForTests({ feature_flags: { guest_leaderboards_enabled: on } });
     // The guest edges out the account on every board, so "is the guest there"
     // is never answered by the account crowding it out of the top rows.
-    for (const [id, guest, xp, mu, streak] of [
-      [guestId, true, 2_000_000_000, 9_000, 99_999],
-      [accountId, false, 1_999_999_999, 8_999, 99_998],
+    // A test account tops every board, so leaving it out is visible.
+    for (const [id, guest, xp, mu, streak, tester] of [
+      [testerId, false, 2_100_000_000, 9_500, 100_000, true],
+      [guestId, true, 2_000_000_000, 9_000, 99_999, false],
+      [accountId, false, 1_999_999_999, 8_999, 99_998, false],
     ] as const) {
       const name = `lbg_${id.slice(0, 8)}`;
       await query(
-        `INSERT INTO users (user_id, username, email, password_hash, is_guest, xp, level, win_streak, daily_streak)
-         VALUES ($1, $2, $3, 'x', $4, $5, 99, $6, 1)`,
-        [id, name, `${name}@${guest ? 'guest.local' : 'test.local'}`, guest, xp, streak],
+        `INSERT INTO users (user_id, username, email, password_hash, is_guest, xp, level, win_streak, daily_streak, exclude_from_stats)
+         VALUES ($1, $2, $3, 'x', $4, $5, 99, $6, 1, $7)`,
+        [id, name, `${name}@${guest ? 'guest.local' : 'test.local'}`, guest, xp, streak, tester],
       );
       await query(
         `INSERT INTO user_ratings (user_id, rating_type, mu, phi, last_rated) VALUES ($1, 'solo', $2, 60, NOW())`,
@@ -60,7 +64,7 @@ describe.runIf(enabled)('guests on the leaderboards (Postgres)', { timeout: 30_0
       );
     }
     // Wins this week for the Weekly board: three for the guest, two for the account.
-    for (const [id, wins] of [[guestId, 3], [accountId, 2]] as const) {
+    for (const [id, wins] of [[testerId, 4], [guestId, 3], [accountId, 2]] as const) {
       for (let i = 0; i < wins; i += 1) {
         const gameId = uuidv4();
         gameIds.push(gameId);
@@ -91,8 +95,8 @@ describe.runIf(enabled)('guests on the leaderboards (Postgres)', { timeout: 30_0
     if (query) {
       await query('DELETE FROM game_players WHERE game_id = ANY($1)', [gameIds]).catch(() => {});
       await query('DELETE FROM games WHERE game_id = ANY($1)', [gameIds]).catch(() => {});
-      await query('DELETE FROM user_ratings WHERE user_id = ANY($1)', [[guestId, accountId]]).catch(() => {});
-      await query('DELETE FROM users WHERE user_id = ANY($1)', [[guestId, accountId]]).catch(() => {});
+      await query('DELETE FROM user_ratings WHERE user_id = ANY($1)', [[testerId, guestId, accountId]]).catch(() => {});
+      await query('DELETE FROM users WHERE user_id = ANY($1)', [[testerId, guestId, accountId]]).catch(() => {});
     }
   });
 
@@ -110,6 +114,7 @@ describe.runIf(enabled)('guests on the leaderboards (Postgres)', { timeout: 30_0
     }
     expect(await ids('/api/leaderboards/weekly?limit=100')).toContain(accountId);
     expect(await ids('/api/leaderboards/weekly?limit=100')).not.toContain(guestId);
+    expect(await ids('/api/leaderboards/weekly?limit=100')).not.toContain(testerId);
     const mine = (await get('/api/leaderboards/my-rank')).json();
     expect(mine.level).toBeNull();
     expect(mine.streak).toBeNull();
@@ -127,6 +132,7 @@ describe.runIf(enabled)('guests on the leaderboards (Postgres)', { timeout: 30_0
       expect(board.slice(0, 2)).toEqual([guestId, accountId]);
     }
     const weekly = await ids('/api/leaderboards/weekly?limit=100');
+    expect(weekly).not.toContain(testerId);
     expect(weekly.indexOf(guestId)).toBeGreaterThanOrEqual(0);
     expect(weekly.indexOf(guestId)).toBeLessThan(weekly.indexOf(accountId));
     const mine = (await get('/api/leaderboards/my-rank')).json();
