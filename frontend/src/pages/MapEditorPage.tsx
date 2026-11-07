@@ -3,7 +3,7 @@ import { useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
 import BrandWordmark from '../components/ui/BrandWordmark';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
-import { Save, Plus, MousePointer, Pencil, Globe2, Link, Trash2, Check, ArrowLeft, Undo2, Redo2 } from 'lucide-react';
+import { Save, Plus, MousePointer, Pencil, Globe2, Link, Trash2, Check, ArrowLeft, Undo2, Redo2, AlertTriangle, CheckCircle2, History } from 'lucide-react';
 import axios from 'axios';
 import { ERA_LABELS } from '../constants/gameLobbyLabels';
 import { isMobileViewport } from '../utils/device';
@@ -14,6 +14,13 @@ import type {
   EditorTool,
 } from '../components/editor/GlobeMapEditor';
 import { GlobeMapEditorLazy, preloadGlobeEditorChunk } from '../utils/globeLoader';
+import {
+  clearEditorDraft,
+  describeDraftAge,
+  readEditorDraft,
+  writeEditorDraft,
+  type EditorDraftSnapshot,
+} from '../utils/mapEditorDraft';
 
 const REGION_COLORS = [
   '#c9a84c', '#e74c3c', '#3498db', '#2ecc71', '#9b59b6',
@@ -37,6 +44,14 @@ function computeCentroid(ring: [number, number][]): [number, number] {
     latSum += lat;
   }
   return [lngSum / ring.length, latSum / ring.length];
+}
+
+/** " — 3 territories, 2 connections." for the recovery banner, or just the full stop. */
+function draftSummary(d: EditorDraftSnapshot): string {
+  const t = d.territories.length;
+  if (t === 0) return '.';
+  const c = d.connections.length;
+  return ` — ${t} territor${t === 1 ? 'y' : 'ies'}, ${c} connection${c === 1 ? '' : 's'}.`;
 }
 
 function extractExteriorRing(
@@ -76,9 +91,13 @@ export default function MapEditorPage() {
   const [submitting, setSubmitting] = useState(false);
   // Publish-quality warnings from the last save — what review would block on.
   const [saveWarnings, setSaveWarnings] = useState<string[]>([]);
+  // When the server last ran those checks for us; null until the first save.
+  const [checkedAt, setCheckedAt] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const skipDirtyRef = useRef(true); // suppress dirty on initial mount and load
+  // Unsaved work this browser kept from an earlier visit, offered back once.
+  const [pendingDraft, setPendingDraft] = useState<EditorDraftSnapshot | null>(null);
 
   // ── Undo / Redo ────────────────────────────────────────────────────────────
   interface EditorSnapshot {
@@ -172,7 +191,27 @@ export default function MapEditorPage() {
     }
     setIsDirty(true);
    
-  }, [territories, connections, regions, mapName, mapDescription]);
+  }, [territories, connections, regions, mapName, mapDescription, eraTheme]);
+
+  // Local recovery: a second after any unsaved change, keep a snapshot in this
+  // browser. A successful save clears it; a crash or closed tab leaves it for
+  // the next visit to offer back.
+  useEffect(() => {
+    if (!isDirty) return;
+    const handle = window.setTimeout(() => {
+      writeEditorDraft(mapId ?? null, {
+        v: 1,
+        savedAt: Date.now(),
+        mapName,
+        mapDescription,
+        eraTheme,
+        territories,
+        connections,
+        regions,
+      });
+    }, 1000);
+    return () => window.clearTimeout(handle);
+  }, [isDirty, mapId, mapName, mapDescription, eraTheme, territories, connections, regions]);
 
   // Warn on page close/refresh when there are unsaved changes
   useEffect(() => {
@@ -201,12 +240,14 @@ export default function MapEditorPage() {
     return () => window.removeEventListener('resize', measure);
   }, []);
 
-  // Seed history with the initial empty state on first render (new maps)
+  // Seed history with the initial empty state on first render (new maps),
+  // and offer back any unsaved new map this browser kept.
   useEffect(() => {
     if (!mapId) {
       historyRef.current = [takeSnapshot()];
       historyIndexRef.current = 0;
       updateUndoRedoFlags();
+      setPendingDraft(readEditorDraft(null));
     }
   // Only run once on mount
    
@@ -224,6 +265,7 @@ export default function MapEditorPage() {
       setConnections(data.connections ?? []);
       setRegions(data.regions ?? []);
       setIsDirty(false);
+      setPendingDraft(readEditorDraft(mapId));
       // Seed history after load — use setTimeout so state has settled
       setTimeout(() => {
         historyRef.current = [takeSnapshot()];
@@ -232,6 +274,27 @@ export default function MapEditorPage() {
       }, 0);
     }).catch(() => toast.error('Failed to load map'));
   }, [mapId]);  
+
+  const restorePendingDraft = useCallback(() => {
+    if (!pendingDraft) return;
+    recordUndo();
+    skipDirtyRef.current = false;
+    setTerritories(pendingDraft.territories);
+    setConnections(pendingDraft.connections);
+    setRegions(pendingDraft.regions);
+    setMapName(pendingDraft.mapName);
+    setMapDescription(pendingDraft.mapDescription);
+    setEraTheme(pendingDraft.eraTheme);
+    setSelectedTerritoryId(null);
+    setIsDirty(true);
+    setPendingDraft(null);
+    toast.success('Unsaved changes restored');
+  }, [pendingDraft, recordUndo]);
+
+  const discardPendingDraft = useCallback(() => {
+    clearEditorDraft(mapId ?? null);
+    setPendingDraft(null);
+  }, [mapId]);
 
   // Switching tools drops a half-made connection but keeps a half-drawn
   // polygon: the points stay where they are until Finish, Escape or a tool
@@ -390,13 +453,11 @@ export default function MapEditorPage() {
     }
   };
 
+  // Saving never gates on size: a two-territory draft is a draft. The floor a
+  // playable map needs comes back from the server as the warnings list.
   const handleSave = async () => {
-    if (territories.length < 6) {
-      toast.error('A map needs at least 6 territories');
-      return;
-    }
-    if (connections.length < 5) {
-      toast.error('A map needs at least 5 connections');
+    if (mapName.trim().length === 0) {
+      toast.error('Give the map a name first');
       return;
     }
     setSaving(true);
@@ -415,13 +476,18 @@ export default function MapEditorPage() {
         const res = await api.put<{ message: string; warnings?: string[] }>(`/maps/${mapId}`, payload);
         toast.success(res.data.message || 'Map updated!');
         setSaveWarnings(res.data.warnings ?? []);
+        setCheckedAt(Date.now());
         // Editing an approved map unlists it pending re-review.
         if (moderationStatus === 'approved') setModerationStatus('pending');
+        clearEditorDraft(mapId);
       } else {
         const res = await api.post<{ map_id: string; message: string; warnings?: string[] }>('/maps', payload);
         toast.success(res.data.message || 'Map saved!');
         setSaveWarnings(res.data.warnings ?? []);
+        setCheckedAt(Date.now());
         setModerationStatus('draft');
+        // The unsaved-map slot is spoken for by the saved copy from here on.
+        clearEditorDraft(null);
         navigate(`/editor/${res.data.map_id}`);
       }
       skipDirtyRef.current = true;
@@ -511,7 +577,11 @@ export default function MapEditorPage() {
           <button
             onClick={() => void handleSubmitForReview()}
             disabled={submitting || isDirty}
-            title={isDirty ? 'Save your changes first' : 'Send this map to moderation review'}
+            title={isDirty
+              ? 'Save your changes first'
+              : saveWarnings.length > 0
+                ? `Review will block on the ${saveWarnings.length} item${saveWarnings.length === 1 ? '' : 's'} listed under "Before you publish"`
+                : 'Send this map to moderation review'}
             className="btn-secondary text-sm py-1.5 disabled:opacity-50"
           >
             {submitting ? 'Submitting…' : 'Submit for review'}
@@ -522,12 +592,17 @@ export default function MapEditorPage() {
         </button>
       </div>
 
-      {/* Publish-quality warnings from the last save — review blocks on these. */}
-      {saveWarnings.length > 0 && (
-        <div className="bg-amber-950/60 border-b border-amber-500/30 px-4 py-2 text-xs text-amber-200 shrink-0">
-          <span className="font-semibold mr-2">Review will block on:</span>
-          {saveWarnings.slice(0, 3).join(' · ')}
-          {saveWarnings.length > 3 ? ` · +${saveWarnings.length - 3} more` : ''}
+      {/* Unsaved work this browser kept from an earlier visit. */}
+      {pendingDraft && (
+        <div className="bg-bf-gold/10 border-b border-bf-gold/30 px-4 py-2 text-xs text-bf-text shrink-0 flex items-center gap-3">
+          <History className="w-4 h-4 text-bf-gold shrink-0" aria-hidden />
+          <span className="flex-1">
+            Unsaved changes from <span className="text-bf-gold">{describeDraftAge(pendingDraft.savedAt)}</span> were
+            found on this device
+            <span className="text-bf-muted">{draftSummary(pendingDraft)}</span>
+          </span>
+          <button onClick={restorePendingDraft} className="btn-primary text-xs py-1 px-3">Restore</button>
+          <button onClick={discardPendingDraft} className="btn-secondary text-xs py-1 px-3">Discard</button>
         </div>
       )}
 
@@ -715,6 +790,35 @@ export default function MapEditorPage() {
               ))}
             </div>
           </div>
+
+          {/* Publish checks from the last save: the full list, not three of
+              them in a strip. Review blocks on exactly these. */}
+          {checkedAt !== null && (
+            <div className="p-4 border-t border-bf-border">
+              {saveWarnings.length > 0 ? (
+                <>
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" aria-hidden />
+                    <h3 className="text-xs font-medium text-amber-300 uppercase tracking-wider">Before you publish</h3>
+                    <span className="ml-auto text-[11px] text-bf-muted">{saveWarnings.length}</span>
+                  </div>
+                  <ul className="space-y-1.5 text-xs text-amber-100/90 list-disc pl-4">
+                    {saveWarnings.map((w) => (
+                      <li key={w}>{w}</li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-[11px] text-bf-muted">
+                    Your draft is saved. Review blocks on these, so fix them before you submit.
+                  </p>
+                </>
+              ) : (
+                <div className="flex items-center gap-2 text-xs text-green-300">
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" aria-hidden />
+                  <span>Passes every publish check.</span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Stats */}
           <div className="p-4 border-t border-bf-border mt-auto">
