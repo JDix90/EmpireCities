@@ -10,11 +10,11 @@ vi.mock('../services/api', () => ({
   api: { get: (...a: unknown[]) => getMock(...a) },
 }));
 
-function setRanked(ranked: boolean) {
+function setRanked(ranked: boolean, guestsRanked = false) {
   const s = useFeatureFlagsStore.getState();
   useFeatureFlagsStore.setState({
     ...s,
-    flags: { ...s.flags, ranked_leaderboard_enabled: ranked },
+    flags: { ...s.flags, ranked_leaderboard_enabled: ranked, guest_leaderboards_enabled: guestsRanked },
   });
 }
 
@@ -95,6 +95,29 @@ describe('LeaderboardsPage', () => {
     renderPage({ isGuest: true });
     expect(await screen.findByText(/Guests do not appear on the leaderboards/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Save your account/ })).toHaveAttribute('href', '/upgrade');
+  });
+
+  it('ranks a guest like anyone once guests are on the boards, and offers saving', async () => {
+    setRanked(false, true);
+    getMock.mockImplementation(async (url: string) => (url === '/leaderboards/my-rank'
+      ? { data: { rating: null, level: { rank: 3, value: 4, xp: 500 }, streak: null } }
+      : { data: { entries: [] } }));
+    renderPage({ url: '/leaderboards?tab=level', isGuest: true });
+    expect(await screen.findByText('Your Level Rank')).toBeInTheDocument();
+    expect(screen.getByText('#3')).toBeInTheDocument();
+    expect(screen.getByText('You are on the boards as a guest')).toBeInTheDocument();
+    expect(screen.queryByText(/Guests do not appear on the leaderboards/)).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Save your account/ })).toHaveAttribute('href', '/upgrade');
+  });
+
+  it('keeps a guest\'s rank card hidden while guests are left off the boards', async () => {
+    setRanked(false, false);
+    getMock.mockImplementation(async (url: string) => (url === '/leaderboards/my-rank'
+      ? { data: { rating: null, level: { rank: 3, value: 4, xp: 500 }, streak: null } }
+      : { data: { entries: [] } }));
+    renderPage({ url: '/leaderboards?tab=level', isGuest: true });
+    expect(await screen.findByText(/Guests do not appear on the leaderboards/)).toBeInTheDocument();
+    expect(screen.queryByText('Your Level Rank')).not.toBeInTheDocument();
   });
 
   it('never shows the guest notice to a registered player', async () => {

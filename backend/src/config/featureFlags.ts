@@ -209,6 +209,8 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   first_turn_events_enabled: () => envOptOut('FIRST_TURN_EVENTS_ENABLED'),
   // Small regional boards open zoomed in to fill the screen (client-only).
   fit_board_camera_enabled: () => envOptIn('FIT_BOARD_CAMERA_ENABLED'),
+  // Guest accounts appear on the leaderboards and see their own ratings.
+  guest_leaderboards_enabled: () => envOptIn('GUEST_LEADERBOARDS_ENABLED'),
   // Localized landing page + tutorial (frontend/src/i18n). Dark-launched OFF:
   // the translated bundles ship in the client but nobody is routed to them
   // until this is on. Client-only effect.
@@ -1551,6 +1553,22 @@ export const featureFlags = {
   },
 
   /**
+   * Guests on the leaderboards: the Solo, Level, Weekly, Streaks and Ranked
+   * boards (modules/leaderboard) and the viewer's own rank count guest
+   * accounts like any other, a guest's public profile opens from a board row,
+   * and a guest sees their own ratings (GET /users/me, the game-over rating
+   * change). Guests already earn every number these boards rank by: ratings,
+   * XP and streaks are written for them exactly as for an account; only the
+   * boards and the guest's own view left them out. The Daily Challenge board
+   * still leaves guests out: a fresh guest is a fresh set of daily attempts.
+   * Default OFF; `GUEST_LEADERBOARDS_ENABLED=true` or the admin override turns
+   * it on.
+   */
+  get guestLeaderboardsEnabled(): boolean {
+    return overrideBool('guest_leaderboards_enabled');
+  },
+
+  /**
    * Localized landing page and tutorial (frontend/src/i18n). Off means English
    * for everyone whatever the browser says; on lets the client honour the
    * stored `cc-lang` choice or the browser language. Default OFF until the
@@ -1621,6 +1639,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     play_on_enabled: featureFlags.playOnEnabled,
     first_turn_events_enabled: featureFlags.firstTurnEventsEnabled,
     fit_board_camera_enabled: featureFlags.fitBoardCameraEnabled,
+    guest_leaderboards_enabled: featureFlags.guestLeaderboardsEnabled,
     localization_enabled: featureFlags.localizationEnabled,
     touch_targets_enabled: featureFlags.touchTargetsEnabled,
     daily_puzzle_v2_enabled: featureFlags.dailyPuzzleV2Enabled,

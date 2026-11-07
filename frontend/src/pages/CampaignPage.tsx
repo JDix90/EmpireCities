@@ -10,9 +10,9 @@ import {
 import { ERA_LABELS } from '../constants/gameLobbyLabels';
 import SubpageShell from '../components/ui/SubpageShell';
 import GuestGateModal from '../components/ui/GuestGateModal';
-import { CAMPAIGN_START_GATE, CAMPAIGN_START_GATE_V2, CAMPAIGN_START_GATE_SAVE } from '../utils/guestGate';
+import { CAMPAIGN_START_GATE, CAMPAIGN_START_GATE_V2, CAMPAIGN_START_GATE_SAVE, withGuestsRanked } from '../utils/guestGate';
 import { useGuestPromptV2Enabled } from '../store/featureFlagsStore';
-import { useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
+import { useGuestLeaderboardsEnabled, useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
 import { ownAuthUiAllowed } from '../utils/embedContext';
 
 const CAMPAIGN_ERAS = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern'] as const;
@@ -379,6 +379,7 @@ export default function CampaignPage() {
   const [showGuestGate, setShowGuestGate] = useState(false);
   const guestPromptV2 = useGuestPromptV2Enabled();
   const saveAccountCopy = useSaveAccountCopyEnabled();
+  const guestsRanked = useGuestLeaderboardsEnabled();
   // Choosing a path used to create and open the Era 1 game on the spot, with
   // no settings shown and no way back; the run then sat in HQ as "active"
   // (PT-017). The choice now opens a confirmation first.
@@ -531,9 +532,10 @@ export default function CampaignPage() {
   // positioning means it does not matter where in the tree it sits.
   // The gate's only action is creating an account, which a CrazyGames embed
   // forbids — so there it is not offered at all.
+  const gateCopy = saveAccountCopy ? CAMPAIGN_START_GATE_SAVE : guestPromptV2 ? CAMPAIGN_START_GATE_V2 : CAMPAIGN_START_GATE;
   const guestGate = showGuestGate && ownAuthUiAllowed() ? (
     <GuestGateModal
-      copy={saveAccountCopy ? CAMPAIGN_START_GATE_SAVE : guestPromptV2 ? CAMPAIGN_START_GATE_V2 : CAMPAIGN_START_GATE}
+      copy={guestsRanked ? withGuestsRanked(gateCopy) : gateCopy}
       onCreateAccount={() => navigate('/upgrade')}
       onDismiss={() => setShowGuestGate(false)}
     />

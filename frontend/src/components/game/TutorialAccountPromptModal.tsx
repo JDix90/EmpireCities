@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
 import { GraduationCap, Trophy } from 'lucide-react';
 import { useGuestPromptV2Enabled } from '../../store/featureFlagsStore';
-import { useSaveAccountCopyEnabled } from '../../store/featureFlagsStore';
-import { SAVE_ACCOUNT_LABEL } from '../../utils/guestGate';
+import { useGuestLeaderboardsEnabled, useSaveAccountCopyEnabled } from '../../store/featureFlagsStore';
+import { SAVE_ACCOUNT_LABEL, accountBoardsPerk } from '../../utils/guestGate';
 
 interface TutorialAccountPromptModalProps {
   /** Called when the user dismisses without creating an account. */
@@ -30,6 +30,7 @@ export default function TutorialAccountPromptModal({
   // account adds is every other device (`guest_prompt_v2_enabled`).
   const guestPromptV2 = useGuestPromptV2Enabled();
   const saveAccountCopy = useSaveAccountCopyEnabled();
+  const guestsRanked = useGuestLeaderboardsEnabled();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onSkip();
@@ -80,7 +81,7 @@ export default function TutorialAccountPromptModal({
           </li>
           <li className="flex items-start gap-2">
             <Trophy className="w-4 h-4 text-bf-gold/80 mt-0.5 shrink-0" />
-            <span>Climb the leaderboards and chase daily challenges.</span>
+            <span>{accountBoardsPerk(guestsRanked)}</span>
           </li>
           <li className="flex items-start gap-2">
             <Trophy className="w-4 h-4 text-bf-gold/80 mt-0.5 shrink-0" />

@@ -97,6 +97,38 @@ export interface GuestGateCopy {
   bullets: string[];
 }
 
+/** A perk the account prompts list: the boards an account alone was ranked on. */
+export const ACCOUNT_BOARDS_PERK = 'Climb the leaderboards and chase daily challenges.';
+
+/**
+ * The same perk once guests are ranked on the leaderboards
+ * (`guest_leaderboards_enabled`): what still needs an account is ranked play
+ * and a place on the Daily Challenge board, which still leaves guests out.
+ */
+export const ACCOUNT_BOARDS_PERK_GUESTS_RANKED = 'Play ranked and get on the Daily Challenge board.';
+
+export function accountBoardsPerk(guestsRanked: boolean): string {
+  return guestsRanked ? ACCOUNT_BOARDS_PERK_GUESTS_RANKED : ACCOUNT_BOARDS_PERK;
+}
+
+const LEADERBOARD_PLACE_BULLET = 'Take your place on the leaderboards, where guests do not appear.';
+const RANKED_BOARDS_FRIENDS_BULLET = 'Compete in ranked and on the leaderboards, and play with friends.';
+
+/**
+ * A gate's copy once guests are ranked on the leaderboards: the bullets stop
+ * offering a leaderboard place as something only an account gets.
+ */
+export function withGuestsRanked(copy: GuestGateCopy): GuestGateCopy {
+  return {
+    ...copy,
+    bullets: copy.bullets.flatMap((b) => {
+      if (b === LEADERBOARD_PLACE_BULLET) return [];
+      if (b === RANKED_BOARDS_FRIENDS_BULLET) return ['Compete in ranked and play with friends.'];
+      return [b];
+    }),
+  };
+}
+
 /**
  * Shown when a guest presses Start on a campaign. The server says the same
  * thing with a 403 (`rejectGuest` on POST /campaign/start) — this turns that
@@ -112,7 +144,7 @@ export const CAMPAIGN_START_GATE: GuestGateCopy = {
   bullets: [
     'Your level, gold and unlocks carry over — the same account, upgraded in place.',
     'Pick a campaign back up on any device.',
-    'Take your place on the leaderboards, where guests do not appear.',
+    LEADERBOARD_PLACE_BULLET,
   ],
 };
 
@@ -158,7 +190,7 @@ export const CAMPAIGN_START_GATE_SAVE: GuestGateCopy = {
   bullets: [
     'Everything you have earned stays yours: it is the same account, saved.',
     'Play on any device and carry on where you left off.',
-    'Compete in ranked and on the leaderboards, and play with friends.',
+    RANKED_BOARDS_FRIENDS_BULLET,
   ],
 };
 
@@ -170,3 +202,19 @@ export const LEADERBOARD_GUEST_NOTICE_SAVE: GuestGateCopy = {
     + 'everything you have earned comes with you.',
   bullets: [],
 };
+
+/**
+ * Shown on /leaderboards to a guest once guests are ranked
+ * (`guest_leaderboards_enabled`), beside their rank card: they are on the
+ * boards, and saving keeps that place on any device and opens ranked.
+ * `v2` is `guest_prompt_v2_enabled`; `saveCopy` (`save_account_copy_enabled`)
+ * takes precedence.
+ */
+export function leaderboardGuestRankedNotice(v2: boolean, saveCopy: boolean): GuestGateCopy {
+  const body = saveCopy
+    ? `${GUEST_SAVED_HERE}. Save your account to keep your place on the boards on any device, and to compete in ranked.`
+    : v2
+      ? `${GUEST_SAVED_HERE}; ${GUEST_KEEP_EVERYWHERE_CTA}, your place on the boards included, and opens ranked play.`
+      : `${GUEST_NO_PERSIST}, so create an account to keep your place on the boards and to play ranked.`;
+  return { title: 'You are on the boards as a guest', body, bullets: [] };
+}

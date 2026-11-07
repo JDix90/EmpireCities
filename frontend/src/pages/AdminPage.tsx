@@ -113,7 +113,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'guest_personal_features_enabled',
     label: 'Guests use their own achievements and cosmetics',
     description:
-      'Opens a guest\u2019s own things to them: their achievements, the cosmetics they have unlocked (seen and worn, in the store and in matches), their gold balance, the Settings link and their saved tutorial progress. Buying in the store still needs an account, as do ranked, leaderboards, friends, invites, campaigns, referrals and publishing maps. On by default; switching it off gives the guest experience exactly as before.',
+      'Opens a guest\u2019s own things to them: their achievements, the cosmetics they have unlocked (seen and worn, in the store and in matches), their gold balance, the Settings link and their saved tutorial progress. Buying in the store still needs an account, as do ranked, leaderboards (unless Guests on the leaderboards is on), friends, invites, campaigns, referrals and publishing maps. On by default; switching it off gives the guest experience exactly as before.',
   },
   {
     key: 'first_turn_coach_enabled',
@@ -449,6 +449,12 @@ const CLIENT_FEATURE_FLAGS = [
     label: 'Feedback in the lobby menu',
     description:
       'A Feedback entry in the lobby menu (the desktop top bar and the phone\'s More sheet): every signed-in player, guests included, can send a note about anything, marked as a bug, an idea or something else. Read it in the Feedback tab. Off by default; off, the entry is hidden and the server refuses general feedback.',
+  },
+  {
+    key: 'guest_leaderboards_enabled',
+    label: 'Guests on the leaderboards',
+    description:
+      'Guest accounts are ranked on the Solo, Level, Weekly and Streaks boards (and Ranked, which they cannot play yet) like any account, see their own rank there, see their own ratings on their profile and after a game, and their profile opens from a board row. Guests already earn every number the boards rank by; only the boards left them out. The Daily Challenge board still leaves guests out, because a new guest is a fresh set of daily attempts. Off by default; off, the boards rank saved accounts only, as before.',
   },
   {
     key: 'fit_board_camera_enabled',

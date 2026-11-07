@@ -6,8 +6,8 @@ import clsx from 'clsx';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import { useGuestPromptV2Enabled, useRankedLeaderboardEnabled } from '../store/featureFlagsStore';
-import { useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
-import { LEADERBOARD_GUEST_NOTICE, LEADERBOARD_GUEST_NOTICE_V2, LEADERBOARD_GUEST_NOTICE_SAVE, SAVE_ACCOUNT_LABEL } from '../utils/guestGate';
+import { useGuestLeaderboardsEnabled, useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
+import { LEADERBOARD_GUEST_NOTICE, LEADERBOARD_GUEST_NOTICE_V2, LEADERBOARD_GUEST_NOTICE_SAVE, SAVE_ACCOUNT_LABEL, leaderboardGuestRankedNotice } from '../utils/guestGate';
 import type { TierInfo } from '@borderfall/shared';
 import { ownAuthUiAllowed } from '../utils/embedContext';
 
@@ -105,9 +105,15 @@ export default function LeaderboardsPage() {
   const { user } = useAuthStore();
   const saveAccountCopy = useSaveAccountCopyEnabled();
   const guestPromptV2 = useGuestPromptV2Enabled();
-  const guestNotice = saveAccountCopy
-    ? LEADERBOARD_GUEST_NOTICE_SAVE
-    : guestPromptV2 ? LEADERBOARD_GUEST_NOTICE_V2 : LEADERBOARD_GUEST_NOTICE;
+  // With guest_leaderboards_enabled a guest is ranked like anyone: they get
+  // the rank card, and the notice says what saving adds rather than that
+  // they are missing from the boards.
+  const guestsRanked = useGuestLeaderboardsEnabled();
+  const guestNotice = guestsRanked
+    ? leaderboardGuestRankedNotice(guestPromptV2, saveAccountCopy)
+    : saveAccountCopy
+      ? LEADERBOARD_GUEST_NOTICE_SAVE
+      : guestPromptV2 ? LEADERBOARD_GUEST_NOTICE_V2 : LEADERBOARD_GUEST_NOTICE;
 
   const setTab = (tab: LeaderboardTab) => {
     setData([]);
@@ -185,12 +191,26 @@ export default function LeaderboardsPage() {
           </div>
         )}
 
-        {/* A guest can read every board here but appears on none of them: each
-            query filters `u.is_guest = false`, so `myRankCard` is always null
-            for them and the slot would otherwise render nothing at all. Saying
-            so where their rank would be is the whole point. */}
-        {user?.is_guest ? (
-          <div className="mb-4 rounded-xl border border-bf-gold/20 bg-bf-gold/5 px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {/* Off guest_leaderboards_enabled a guest can read every board here
+            but appears on none of them: each query filters `u.is_guest =
+            false`, so `myRankCard` is always null for them and the slot would
+            otherwise render nothing at all. Saying so where their rank would
+            be is the whole point. With it on they are ranked: their rank card
+            shows as anyone's, and the notice below it offers saving. */}
+        {myRankCard && (!user?.is_guest || guestsRanked) && (
+          <div className="mb-4 rounded-xl border border-bf-gold/20 bg-bf-gold/5 px-4 py-3 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-bf-muted">{myRankCard.title}</p>
+              <p className="text-sm text-bf-text font-medium">#{myRankCard.rank}</p>
+            </div>
+            <p className="text-lg font-display text-bf-gold">{myRankCard.value}</p>
+          </div>
+        )}
+        {user?.is_guest && (
+          <div
+            data-testid="leaderboard-guest-notice"
+            className="mb-4 rounded-xl border border-bf-gold/20 bg-bf-gold/5 px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+          >
             <div>
               <p className="text-[10px] uppercase tracking-wider text-bf-muted">
                 {guestNotice.title}
@@ -208,15 +228,7 @@ export default function LeaderboardsPage() {
               </Link>
             )}
           </div>
-        ) : myRankCard ? (
-          <div className="mb-4 rounded-xl border border-bf-gold/20 bg-bf-gold/5 px-4 py-3 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-bf-muted">{myRankCard.title}</p>
-              <p className="text-sm text-bf-text font-medium">#{myRankCard.rank}</p>
-            </div>
-            <p className="text-lg font-display text-bf-gold">{myRankCard.value}</p>
-          </div>
-        ) : null}
+        )}
 
         {/* Table */}
         <div className="card overflow-hidden">

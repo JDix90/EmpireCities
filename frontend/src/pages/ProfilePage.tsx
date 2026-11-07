@@ -12,7 +12,7 @@ import TierBadge from '../components/ui/TierBadge';
 import ReferralPanel from '../components/ui/ReferralPanel';
 import { ownAuthUiAllowed } from '../utils/embedContext';
 import { useStoreV2Enabled, useGuestPersonalFeaturesEnabled } from '../store/featureFlagsStore';
-import { useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
+import { useGuestLeaderboardsEnabled, useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
 import FrameRing from '../components/cosmetics/FrameRing';
 import BannerTag from '../components/cosmetics/BannerTag';
 
@@ -135,6 +135,12 @@ export default function ProfilePage() {
   // A guest's gold is shown to them like their level (guest_personal_features_enabled).
   const guestPersonal = useGuestPersonalFeaturesEnabled();
   const saveAccountCopy = useSaveAccountCopyEnabled();
+  // With guest_leaderboards_enabled a guest is ranked on the boards and sees
+  // their own ratings (GET /users/me returns them): the rating row shows for
+  // them as for an account, and the guest line stops saying ratings are not
+  // tracked.
+  const guestsRanked = useGuestLeaderboardsEnabled();
+  const ownGuest = isOwnProfile && !!currentUser?.is_guest;
 
   useEffect(() => {
     if (!targetId) return;
@@ -255,28 +261,31 @@ export default function ProfilePage() {
             <p className="text-bf-muted text-sm mt-1">
               Level {profile.level} · Member since {new Date(profile.created_at).getFullYear()}
             </p>
-            {isOwnProfile && currentUser?.is_guest && saveAccountCopy ? (
+            {ownGuest && saveAccountCopy ? (
               <p className="text-bf-muted text-xs mt-1" data-testid="profile-guest-line">
                 Guest account, saved in this browser{ownAuthUiAllowed() ? (
                   <>
                     {' '}—{' '}
                     <Link to="/upgrade" className="text-bf-gold hover:underline">save your account</Link>
-                    {' '}to keep it safe, play on any device and track competitive ratings.
+                    {guestsRanked
+                      ? ' to keep it safe, play on any device and play ranked.'
+                      : ' to keep it safe, play on any device and track competitive ratings.'}
                   </>
-                ) : '. Competitive ratings are not tracked.'}
+                ) : guestsRanked ? '.' : '. Competitive ratings are not tracked.'}
               </p>
-            ) : isOwnProfile && currentUser?.is_guest ? (
-              <p className="text-bf-muted text-xs mt-1">
+            ) : ownGuest ? (
+              <p className="text-bf-muted text-xs mt-1" data-testid="profile-guest-line">
                 Guest account{ownAuthUiAllowed() ? (
                   <>
                     {' '}—{' '}
                     <Link to="/upgrade" className="text-bf-gold hover:underline">create a free account</Link>
-                    {' '}to track competitive ratings.
+                    {guestsRanked ? ' to keep your stats everywhere and play ranked.' : ' to track competitive ratings.'}
                   </>
-                ) : ' — competitive ratings are not tracked.'}
+                ) : guestsRanked ? '' : ' — competitive ratings are not tracked.'}
               </p>
-            ) : (
-            <div className="flex flex-col sm:flex-row items-center gap-4 mt-1">
+            ) : null}
+            {(!ownGuest || guestsRanked) && (
+            <div className="flex flex-col sm:flex-row items-center gap-4 mt-1" data-testid="profile-ratings">
               <span className="text-bf-muted text-xs flex items-center gap-1">
                 <Bot className="w-3 h-3" /> Solo {profile.ratings?.solo?.display ?? '—'}
                 {profile.ratings?.solo?.provisional && <span className="text-bf-gold/60">(P)</span>}
@@ -495,8 +504,9 @@ export default function ProfilePage() {
           <div className="grid grid-cols-3 gap-4">
             {[
               // Competitive numbers are gated for the viewer's own guest
-              // profile — show gold (progression) in the tile instead.
-              isOwnProfile && currentUser?.is_guest
+              // profile — show gold (progression) in the tile instead —
+              // unless guests are ranked on the boards.
+              ownGuest && !guestsRanked
                 ? { label: 'Gold', value: (profile.gold ?? 0).toLocaleString(), icon: Trophy }
                 : { label: 'Solo Rating', value: profile.ratings?.solo?.display ?? profile.mmr, icon: Trophy },
               { label: 'Level', value: profile.level, icon: Sword },
