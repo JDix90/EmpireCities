@@ -134,6 +134,14 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().fit_board_camera_enabled).toBe(true);
   });
 
+  it('guest_leaderboards_enabled defaults to off and the admin override turns it on', () => {
+    expect(featureFlags.guestLeaderboardsEnabled).toBe(false);
+    expect(getClientFeatureFlags().guest_leaderboards_enabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { guest_leaderboards_enabled: true } });
+    expect(featureFlags.guestLeaderboardsEnabled).toBe(true);
+    expect(getClientFeatureFlags().guest_leaderboards_enabled).toBe(true);
+  });
+
   it('first_turn_events_enabled defaults to on and the admin override turns it off', () => {
     expect(featureFlags.firstTurnEventsEnabled).toBe(true);
     expect(getClientFeatureFlags().first_turn_events_enabled).toBe(true);

@@ -212,13 +212,16 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     }
     if (!user) return reply.status(404).send({ error: 'User not found' });
 
-    // Competitive ratings are a registered-account feature: guests accrue
-    // them silently (so an upgrade inherits history) but never see numbers.
-    // Gate on the DB flag, not the JWT — a pre-upgrade access token stays
-    // valid for hours, and ratings should appear the moment the row flips.
-    // `{}` rather than omission: the client merges /me shallowly, and an
-    // empty object overwrites any previously cached ratings.
-    const ratings = user.is_guest ? {} : await fetchUserRatingsSafe(request.userId);
+    // Guests accrue ratings like anyone (so an upgrade inherits history). They
+    // see them only with guest_leaderboards_enabled, which also ranks them on
+    // the boards; otherwise competitive numbers are a registered-account
+    // feature. Gate on the DB flag, not the JWT — a pre-upgrade access token
+    // stays valid for hours, and ratings should appear the moment the row
+    // flips. `{}` rather than omission: the client merges /me shallowly, and
+    // an empty object overwrites any previously cached ratings.
+    const ratings = user.is_guest && !featureFlags.guestLeaderboardsEnabled
+      ? {}
+      : await fetchUserRatingsSafe(request.userId);
     // Fetch server-side tutorial module completions (migration 027).
     let tutorial_modules_completed: string[] = [];
     try {
@@ -849,8 +852,11 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
        FROM users
        WHERE user_id = $1
          AND COALESCE(is_banned, false) = false
-         AND COALESCE(is_guest, false) = false`,
-      [request.params.userId],
+         AND ($2::boolean OR COALESCE(is_guest, false) = false)`,
+      // A guest's profile opens once guests are ranked (guest_leaderboards_enabled):
+      // every board row links to one. It shows what an account's does, and a
+      // guest has no email or anything else private on it.
+      [request.params.userId, featureFlags.guestLeaderboardsEnabled],
     );
     if (!user) return reply.status(404).send({ error: 'User not found' });
     const ratings = await fetchUserRatingsSafe(request.params.userId);

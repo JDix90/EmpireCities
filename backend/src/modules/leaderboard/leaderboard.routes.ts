@@ -6,8 +6,29 @@ import { redis } from '../../db/redis';
 import { getTier } from '../../game-engine/rating/ratingService';
 import { getLevel } from '@borderfall/shared';
 import { andNotTutorialSql } from '../../game-engine/tutorial/tutorialGames';
+import { featureFlags } from '../../config/featureFlags';
 
 const CACHE_TTL = 300; // 5 minutes
+
+/**
+ * Who the boards rank. Guests earn ratings, XP and streaks exactly as an
+ * account does (statsManager, progressionService); the boards left them out.
+ * With guest_leaderboards_enabled every account is ranked, guest or not.
+ * `alias` is the `users` row's alias, or null for an unaliased `users`.
+ */
+function rankedUserSql(alias: string | null): string {
+  if (featureFlags.guestLeaderboardsEnabled) return 'TRUE';
+  return `${alias ? `${alias}.` : ''}is_guest = false`;
+}
+
+/**
+ * A cache key for a board, distinct for each answer to "are guests ranked?",
+ * so flipping the switch shows on the next request rather than after the TTL.
+ * Off, the keys are exactly the ones used before the switch existed.
+ */
+function boardKey(key: string): string {
+  return featureFlags.guestLeaderboardsEnabled ? `${key}:guests` : key;
+}
 
 // Leaderboard queries are window-function joins across users/ratings and a
 // cache miss costs ~hundreds of ms on a hot day. The default rate limit (set
@@ -24,7 +45,7 @@ export async function leaderboardRoutes(fastify: FastifyInstance): Promise<void>
     // (not per-user). Previously it was keyed by userId, so with thousands of
     // distinct viewers the global top-5 was recomputed per user — a full scan +
     // sort of user_ratings on every miss. One shared computation per TTL now.
-    const topCacheKey = 'lb:top:global';
+    const topCacheKey = boardKey('lb:top:global');
     let top: Array<{ rank: number; user_id: string; username: string; rating: number; tier: string }>;
     const cachedTop = await redis.get(topCacheKey);
     if (cachedTop) {
@@ -34,7 +55,7 @@ export async function leaderboardRoutes(fastify: FastifyInstance): Promise<void>
         `SELECT u.user_id, u.username, ur.mu
          FROM user_ratings ur
          JOIN users u ON u.user_id = ur.user_id
-         WHERE ur.rating_type = 'ranked' AND u.is_guest = false
+         WHERE ur.rating_type = 'ranked' AND ${rankedUserSql('u')}
          ORDER BY ur.mu DESC
          LIMIT 5`,
       );
@@ -49,7 +70,7 @@ export async function leaderboardRoutes(fastify: FastifyInstance): Promise<void>
     }
 
     // Personal rank IS per-user — cache it under a per-user key (shorter TTL).
-    const rankCacheKey = `lb:top:rank:${request.userId}`;
+    const rankCacheKey = boardKey(`lb:top:rank:${request.userId}`);
     let myRank: { rank: number; rating: number; tier: string } | null;
     const cachedRank = await redis.get(rankCacheKey);
     if (cachedRank !== null) {
@@ -62,7 +83,7 @@ export async function leaderboardRoutes(fastify: FastifyInstance): Promise<void>
                   ROW_NUMBER() OVER (ORDER BY ur.mu DESC) AS rank
            FROM user_ratings ur
            JOIN users u ON u.user_id = ur.user_id
-           WHERE ur.rating_type = 'ranked' AND u.is_guest = false
+           WHERE ur.rating_type = 'ranked' AND ${rankedUserSql('u')}
          )
          SELECT rank::text AS rating_rank, mu AS rating
          FROM ranked
@@ -79,7 +100,7 @@ export async function leaderboardRoutes(fastify: FastifyInstance): Promise<void>
   });
 
   fastify.get('/my-rank', { preHandler: authenticate, config: { rateLimit: LEADERBOARD_RATE_LIMIT } }, async (request, reply) => {
-    const cacheKey = `lb:my-rank:${request.userId}`;
+    const cacheKey = boardKey(`lb:my-rank:${request.userId}`);
     const cached = await redis.get(cacheKey);
     if (cached) return reply.send(JSON.parse(cached));
 
@@ -90,7 +111,7 @@ export async function leaderboardRoutes(fastify: FastifyInstance): Promise<void>
                 ROW_NUMBER() OVER (ORDER BY ur.mu DESC) AS rank
          FROM user_ratings ur
          JOIN users u ON u.user_id = ur.user_id
-         WHERE ur.rating_type = 'ranked' AND u.is_guest = false
+         WHERE ur.rating_type = 'ranked' AND ${rankedUserSql('u')}
        )
        SELECT rank::text AS rating_rank, mu
        FROM ranked WHERE user_id = $1`,
@@ -101,7 +122,7 @@ export async function leaderboardRoutes(fastify: FastifyInstance): Promise<void>
       `WITH leveled AS (
          SELECT user_id, xp, ROW_NUMBER() OVER (ORDER BY xp DESC) AS rank
          FROM users
-         WHERE is_guest = false
+         WHERE ${rankedUserSql(null)}
        )
        SELECT rank::text AS level_rank, xp
        FROM leveled WHERE user_id = $1`,
@@ -113,7 +134,7 @@ export async function leaderboardRoutes(fastify: FastifyInstance): Promise<void>
         SELECT user_id, username, win_streak, daily_streak,
                 ROW_NUMBER() OVER (ORDER BY win_streak DESC, daily_streak DESC, username ASC) AS rank
          FROM users
-         WHERE is_guest = false AND (win_streak > 0 OR daily_streak > 0)
+         WHERE ${rankedUserSql(null)} AND (win_streak > 0 OR daily_streak > 0)
        )
        SELECT rank::text AS streak_rank, win_streak, daily_streak
        FROM streaked WHERE user_id = $1`,
@@ -156,7 +177,7 @@ export async function leaderboardRoutes(fastify: FastifyInstance): Promise<void>
     // Whitelisted — anything else falls back to the ranked board.
     const ratingType = qs.type === 'solo' ? 'solo' : 'ranked';
 
-    const cacheKey = `lb:rating:${ratingType}:${limit}:${offset}`;
+    const cacheKey = boardKey(`lb:rating:${ratingType}:${limit}:${offset}`);
     const cached = await redis.get(cacheKey);
     if (cached) return reply.send(JSON.parse(cached));
 
@@ -170,7 +191,7 @@ export async function leaderboardRoutes(fastify: FastifyInstance): Promise<void>
                  ${andNotTutorialSql()}) AS games_played
        FROM user_ratings ur
        JOIN users u ON u.user_id = ur.user_id
-       WHERE ur.rating_type = $3 AND u.is_guest = false
+       WHERE ur.rating_type = $3 AND ${rankedUserSql('u')}
        ORDER BY ur.mu DESC
        LIMIT $1 OFFSET $2`,
       [limit, offset, ratingType],
@@ -199,7 +220,7 @@ export async function leaderboardRoutes(fastify: FastifyInstance): Promise<void>
     const limit = Math.min(parseInt(qs.limit ?? '50', 10) || 50, 100);
     const offset = parseInt(qs.offset ?? '0', 10) || 0;
 
-    const cacheKey = `lb:weekly:${limit}:${offset}`;
+    const cacheKey = boardKey(`lb:weekly:${limit}:${offset}`);
     const cached = await redis.get(cacheKey);
     if (cached) return reply.send(JSON.parse(cached));
 
@@ -222,7 +243,7 @@ export async function leaderboardRoutes(fastify: FastifyInstance): Promise<void>
        WHERE g.status = 'completed'
          AND g.ended_at >= NOW() - INTERVAL '7 days'
          AND gp.user_id IS NOT NULL
-         AND u.is_guest = false
+         AND ${rankedUserSql('u')}
          ${andNotTutorialSql()}
        GROUP BY gp.user_id, u.username
        HAVING COUNT(*) FILTER (WHERE gp.final_rank = 1) > 0
@@ -256,7 +277,7 @@ export async function leaderboardRoutes(fastify: FastifyInstance): Promise<void>
     const limit = Math.min(parseInt(qs.limit ?? '50', 10) || 50, 100);
     const offset = parseInt(qs.offset ?? '0', 10) || 0;
 
-    const cacheKey = `lb:level:${limit}:${offset}`;
+    const cacheKey = boardKey(`lb:level:${limit}:${offset}`);
     const cached = await redis.get(cacheKey);
     if (cached) return reply.send(JSON.parse(cached));
 
@@ -265,7 +286,7 @@ export async function leaderboardRoutes(fastify: FastifyInstance): Promise<void>
     }>(
       `SELECT user_id, username, xp, level
        FROM users
-       WHERE is_guest = false
+       WHERE ${rankedUserSql(null)}
        ORDER BY xp DESC
        LIMIT $1 OFFSET $2`,
       [limit, offset],
@@ -345,7 +366,7 @@ export async function leaderboardRoutes(fastify: FastifyInstance): Promise<void>
     const limit = Math.min(parseInt(qs.limit ?? '50', 10) || 50, 100);
     const offset = parseInt(qs.offset ?? '0', 10) || 0;
 
-    const cacheKey = `lb:streaks:${limit}:${offset}`;
+    const cacheKey = boardKey(`lb:streaks:${limit}:${offset}`);
     const cached = await redis.get(cacheKey);
     if (cached) return reply.send(JSON.parse(cached));
 
@@ -354,7 +375,7 @@ export async function leaderboardRoutes(fastify: FastifyInstance): Promise<void>
     }>(
       `SELECT user_id, username, win_streak, daily_streak
        FROM users
-       WHERE is_guest = false AND (win_streak > 0 OR daily_streak > 0)
+       WHERE ${rankedUserSql(null)} AND (win_streak > 0 OR daily_streak > 0)
        ORDER BY win_streak DESC, daily_streak DESC
        LIMIT $1 OFFSET $2`,
       [limit, offset],

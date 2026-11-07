@@ -8,6 +8,7 @@ import {
   displayRating,
 } from '../rating/ratingService';
 import { getXpConfig } from '../../services/adminConfig';
+import { featureFlags } from '../../config/featureFlags';
 
 type GameType = 'solo' | 'multiplayer' | 'hybrid';
 
@@ -97,7 +98,8 @@ export interface GameResultContext {
    * Human players whose users row is a guest account. Their ratings are
    * computed and stored like everyone's (so an account upgrade inherits the
    * history) but are REDACTED from client-facing payloads — competitive
-   * numbers are a registered-account feature. See redactGuestRatings.
+   * numbers are a registered-account feature — unless guests are ranked on
+   * the boards (guest_leaderboards_enabled). See redactGuestRatings.
    */
   guestPlayerIds: Set<string>;
   /** XP awarded per human player_id (for UI). */
@@ -109,18 +111,17 @@ export interface GameResultContext {
  * hides its rating cell when the viewer's delta is absent and the match
  * stats table shows '—' — both gate automatically off this redaction.
  * XP is intentionally NOT redacted: progression is the part guests keep.
+ * With guest_leaderboards_enabled nothing is removed: a guest ranked on the
+ * Solo board sees the change that moved them on it.
  */
 export function redactGuestRatings(ctx: GameResultContext): {
   rating_deltas: Record<string, number>;
   rating_provisional: Record<string, boolean>;
 } {
+  const shown = ([id]: [string, unknown]) => featureFlags.guestLeaderboardsEnabled || !ctx.guestPlayerIds.has(id);
   return {
-    rating_deltas: Object.fromEntries(
-      [...ctx.ratingDeltas].filter(([id]) => !ctx.guestPlayerIds.has(id)),
-    ),
-    rating_provisional: Object.fromEntries(
-      [...ctx.ratingProvisional].filter(([id]) => !ctx.guestPlayerIds.has(id)),
-    ),
+    rating_deltas: Object.fromEntries([...ctx.ratingDeltas].filter(shown)),
+    rating_provisional: Object.fromEntries([...ctx.ratingProvisional].filter(shown)),
   };
 }
 

@@ -96,6 +96,17 @@ describe('redactGuestRatings', () => {
     redactGuestRatings(c);
     expect(c.xpEarnedByPlayer).toEqual({ guest1: 25, reg1: 40 });
   });
+
+  it('shows a guest their rating change once guests are ranked on the boards', () => {
+    setAdminConfigCacheForTests({ feature_flags: { guest_leaderboards_enabled: true } });
+    try {
+      const out = redactGuestRatings(ctx());
+      expect(out.rating_deltas).toEqual({ guest1: -263, reg1: 12 });
+      expect(out.rating_provisional).toEqual({ guest1: true, reg1: false });
+    } finally {
+      resetAdminConfigCacheForTests();
+    }
+  });
 });
 
 describe('resolveXpConfig', () => {

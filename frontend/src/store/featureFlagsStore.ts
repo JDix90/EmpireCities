@@ -41,6 +41,7 @@ export interface ClientFeatureFlags {
   play_on_enabled: boolean;
   first_turn_events_enabled: boolean;
   fit_board_camera_enabled: boolean;
+  guest_leaderboards_enabled: boolean;
   localization_enabled: boolean;
   touch_targets_enabled: boolean;
   daily_puzzle_v2_enabled: boolean;
@@ -148,6 +149,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   first_turn_events_enabled: true,
   // Small regional boards open zoomed in to fill the screen. Dark-launched OFF.
   fit_board_camera_enabled: false,
+  // Guests appear on the leaderboards and see their own ratings. Dark-launched OFF.
+  guest_leaderboards_enabled: false,
   // Localized landing + tutorial (src/i18n). Dark-launched OFF: the bundles
   // ship but everyone sees English until an operator turns this on.
   localization_enabled: false,
@@ -388,6 +391,11 @@ export function useFirstTurnEventsEnabled(): boolean {
 /** Fit small boards to the screen (utils/regionalGlobe.ts fitRegionalView). */
 export function useFitBoardCameraEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.fit_board_camera_enabled);
+}
+
+/** Guests are ranked on the leaderboards and see their own ratings. */
+export function useGuestLeaderboardsEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.guest_leaderboards_enabled);
 }
 
 export function useAttackBlitzEnabled(): boolean {
