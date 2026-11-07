@@ -61,8 +61,13 @@ const RegionSchema = z.object({
 
 const SAFE_DESCRIPTION_REGEX = /^[\p{L}\p{N} '’._\-:()&,!?\n\r"/]*$/u;
 
+// What a SAVE accepts. A draft is a draft: two territories and no connections
+// is a legitimate thing to save and come back to, so the only limits here are
+// shape and size. The floor a PLAYABLE map needs (six territories, five
+// connections, a connected graph, …) lives in validateMapDocument, which
+// publish and test play enforce and every save reports as warnings.
 const CreateMapSchema = z.object({
-  name: z.string().min(3).max(64).regex(SAFE_NAME_REGEX, SAFE_NAME_MESSAGE),
+  name: z.string().min(1).max(64).regex(SAFE_NAME_REGEX, SAFE_NAME_MESSAGE),
   description: z
     .string()
     .max(512)
@@ -70,9 +75,9 @@ const CreateMapSchema = z.object({
     .default(''),
   era_theme: z.string().optional(),
   background_image_url: z.string().url().optional(),
-  territories: z.array(TerritorySchema).min(6).max(500),
-  connections: z.array(ConnectionSchema).min(5),
-  regions: z.array(RegionSchema).min(1),
+  territories: z.array(TerritorySchema).max(500),
+  connections: z.array(ConnectionSchema).max(5000),
+  regions: z.array(RegionSchema).min(1).max(100),
 });
 
 const CURATED_STATIC_REGIONAL_MAP_IDS = new Set<string>([

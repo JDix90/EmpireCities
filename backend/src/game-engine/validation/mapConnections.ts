@@ -20,6 +20,15 @@ export interface MapDocumentLike {
   connections: MapConnection[];
 }
 
+export interface MapConnectionValidationOptions {
+  /**
+   * How a territory is named in a message. Seed files have readable ids, so
+   * the default is the id itself; the editor's ids are timestamps, so it
+   * passes the territory's name.
+   */
+  label?: (territoryId: string) => string;
+}
+
 /**
  * Returns human-readable errors; empty array means valid.
  * Map JSON stores each **undirected** edge once (`from`/`to`). Gameplay treats connections as
@@ -27,7 +36,11 @@ export interface MapDocumentLike {
  * no self-loops, no duplicate territory pairs (including A→B plus B→A), and that the
  * combined land+sea graph is fully connected (no isolated territory islands).
  */
-export function validateMapConnections(map: MapDocumentLike): string[] {
+export function validateMapConnections(
+  map: MapDocumentLike,
+  options: MapConnectionValidationOptions = {},
+): string[] {
+  const label = options.label ?? ((id: string) => id);
   const errors: string[] = [];
   const idSet = new Set(map.territories.map((t) => t.territory_id));
   const pairSeen = new Set<string>();
@@ -40,10 +53,10 @@ export function validateMapConnections(map: MapDocumentLike): string[] {
     const fromValid = idSet.has(c.from);
     const toValid = idSet.has(c.to);
 
-    if (!fromValid) errors.push(`Connection references unknown territory "from": ${c.from}`);
-    if (!toValid) errors.push(`Connection references unknown territory "to": ${c.to}`);
+    if (!fromValid) errors.push(`Connection references unknown territory "from": ${label(c.from)}`);
+    if (!toValid) errors.push(`Connection references unknown territory "to": ${label(c.to)}`);
     if (c.from === c.to) {
-      errors.push(`Self-loop connection: ${c.from}`);
+      errors.push(`Self-loop connection: ${label(c.from)}`);
       continue;
     }
 
@@ -51,7 +64,7 @@ export function validateMapConnections(map: MapDocumentLike): string[] {
     const b = c.from < c.to ? c.to : c.from;
     const pairKey = `${a}\0${b}`;
     if (pairSeen.has(pairKey)) {
-      errors.push(`Duplicate connection between ${a} and ${b}`);
+      errors.push(`Duplicate connection between ${label(a)} and ${label(b)}`);
     }
     pairSeen.add(pairKey);
 
@@ -83,8 +96,9 @@ export function validateMapConnections(map: MapDocumentLike): string[] {
       if (!visited.has(id)) isolated.push(id);
     }
     if (isolated.length > 0) {
+      const names = isolated.slice(0, 5).map(label).join(', ');
       errors.push(
-        `Disconnected territory component — ${isolated.length} territories unreachable from "${start}": ${isolated.slice(0, 5).join(', ')}${isolated.length > 5 ? ` …and ${isolated.length - 5} more` : ''}`,
+        `Disconnected territory component — ${isolated.length} territor${isolated.length === 1 ? 'y' : 'ies'} unreachable from "${label(start)}": ${names}${isolated.length > 5 ? ` …and ${isolated.length - 5} more` : ''}`,
       );
     }
   }
