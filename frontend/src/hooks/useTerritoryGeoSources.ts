@@ -48,6 +48,16 @@ const EMPTY: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: 
 
 const cache = new Map<string, Promise<GeoJSON.FeatureCollection>>();
 
+/**
+ * The Natural Earth admin-0 countries set, from the same local file and the
+ * same promise cache the game uses — so the map editor's picker, the 2D map
+ * and the globe share one download per session instead of the editor
+ * fetching its own copy from a CDN.
+ */
+export function loadCountriesGeo(): Promise<GeoJSON.FeatureCollection> {
+  return fetchGeo(COUNTRIES_GEOJSON_URL);
+}
+
 function fetchGeo(url: string): Promise<GeoJSON.FeatureCollection> {
   let p = cache.get(url);
   if (!p) {

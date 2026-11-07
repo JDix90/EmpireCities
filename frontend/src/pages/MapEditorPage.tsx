@@ -233,11 +233,13 @@ export default function MapEditorPage() {
     }).catch(() => toast.error('Failed to load map'));
   }, [mapId]);  
 
-  // Reset tool-specific state when switching tools
+  // Switching tools drops a half-made connection but keeps a half-drawn
+  // polygon: the points stay where they are until Finish, Escape or a tool
+  // that consumes them, so the author can rotate, select or pick a country
+  // mid-shape and come back to it.
   const switchTool = useCallback((tool: EditorTool) => {
     setActiveTool(tool);
     setConnectSource(null);
-    setDrawingPoints([]);
   }, []);
 
   // Escape key deselects and cancels drawing
@@ -438,8 +440,8 @@ export default function MapEditorPage() {
   const toolHints: Record<EditorTool, string> = {
     select: 'Click a territory to select and edit its properties',
     draw: drawingPoints.length > 0
-      ? `${drawingPoints.length} point${drawingPoints.length > 1 ? 's' : ''} placed — click to add more, then press Finish`
-      : 'Click on the globe to place polygon vertices',
+      ? `${drawingPoints.length} point${drawingPoints.length > 1 ? 's' : ''} placed — click to add more, drag to rotate, then press Finish`
+      : 'Click the globe to place each corner of the territory; drag to rotate',
     country_pick: 'Click a country to add it as a territory',
     connect: connectSource ? 'Click a second territory to create a connection' : 'Click a territory to start a connection',
     delete: 'Click a territory to remove it',
@@ -535,13 +537,21 @@ export default function MapEditorPage() {
           {TOOLS.map(({ tool, icon, title }) => (
             <button
               key={tool}
-              title={title}
+              title={tool === 'draw' && drawingPoints.length > 0 && activeTool !== 'draw'
+                ? `${title} — ${drawingPoints.length} point${drawingPoints.length > 1 ? 's' : ''} waiting`
+                : title}
               onClick={() => switchTool(tool)}
-              className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+              className={`relative w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
                 activeTool === tool ? 'bg-bf-gold text-bf-dark' : 'bg-bf-dark text-bf-muted hover:bg-bf-border'
               }`}
             >
               {icon}
+              {tool === 'draw' && drawingPoints.length > 0 && activeTool !== 'draw' && (
+                <span
+                  className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-bf-gold border border-bf-surface"
+                  aria-hidden
+                />
+              )}
             </button>
           ))}
           <div className="mt-2 border-t border-bf-border w-full pt-2 flex flex-col items-center gap-2">

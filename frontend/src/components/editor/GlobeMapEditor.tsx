@@ -2,19 +2,30 @@
  * GlobeMapEditor — Interactive 3D globe for the map editor.
  * Supports free-draw polygon placement and country-pick from Natural Earth data.
  * Uses the same react-globe.gl stack as the in-game GlobeMap.
+ *
+ * The polygon data is cached per territory (editorGlobeData.ts) because
+ * three-globe keys its scene objects by datum identity: a datum rebuilt on
+ * every render re-tessellates its cap, and with ~240 country outlines in the
+ * layer that was a full rebuild of the globe per click. Selection, hover,
+ * region colour and names are read live by the accessors instead.
  */
 
 import React, { useRef, useMemo, useState, useEffect, useCallback } from 'react';
 import Globe, { type GlobeMethods } from 'react-globe.gl';
 // The globe libraries leave unheard frame tickers looping from import; see the module.
 import '../../utils/idleFrameTickers';
-import { homelandGeometry } from '../../utils/countryHomeland';
+import { registerPossessionFeatures } from '../../utils/countryHomeland';
+import { loadCountriesGeo } from '../../hooks/useTerritoryGeoSources';
+import {
+  TerritoryPolygonCache,
+  buildCountryData,
+  featureIsoCode,
+  type EditorPolygonDatum as PolygonDatum,
+  type EditorTerritory,
+  type PolyGeom,
+} from './editorGlobeData';
 
-// Pinned to a commit, not `@master`: through jsDelivr a branch name serves
-// whatever upstream pushes, so a change there could break the editor without a
-// deploy. This commit is byte-identical to what `@master` served when pinned.
-const COUNTRIES_GEOJSON_URL =
-  'https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@ca96624a56bd078437bca8184e78163e5039ad19/geojson/ne_50m_admin_0_countries.geojson';
+export type { EditorTerritory } from './editorGlobeData';
 
 const REGION_COLORS = [
   'rgba(201, 168, 76, 0.6)',
@@ -29,15 +40,14 @@ const REGION_COLORS = [
   'rgba(139, 195, 74, 0.6)',
 ];
 
-export interface EditorTerritory {
-  territory_id: string;
-  name: string;
-  polygon: [number, number][];
-  center_point: [number, number];
-  region_id: string;
-  iso_codes?: string[];
-  geo_polygon?: [number, number][];
-}
+// Country outlines stay on the globe in every tool as faint borders to trace
+// and place against; the Pick Country tool brightens them and highlights the
+// one under the pointer. A colour change is a material update, not a rebuild.
+const COUNTRY_FILL = 'rgba(100, 120, 150, 0.10)';
+const COUNTRY_FILL_PICKABLE = 'rgba(100, 120, 150, 0.18)';
+const COUNTRY_FILL_HOVER = 'rgba(201, 168, 76, 0.45)';
+const COUNTRY_STROKE = 'rgba(150, 170, 200, 0.30)';
+const COUNTRY_STROKE_PICKABLE = 'rgba(150, 170, 200, 0.55)';
 
 export interface EditorConnection {
   from: string;
@@ -53,16 +63,6 @@ export interface EditorRegion {
 
 export type EditorTool = 'select' | 'draw' | 'country_pick' | 'connect' | 'delete';
 
-interface PolygonDatum {
-  id: string;
-  name: string;
-  geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon;
-  kind: 'territory' | 'country';
-  regionIndex: number;
-  isoCode?: string;
-  isSelected: boolean;
-}
-
 interface PointDatum {
   lat: number;
   lng: number;
@@ -76,6 +76,8 @@ interface ArcDatum {
   endLng: number;
   kind: 'connection' | 'drawing';
   connectionType?: 'land' | 'sea' | 'orbit';
+  from?: string;
+  to?: string;
 }
 
 interface GlobeMapEditorProps {
@@ -90,26 +92,14 @@ interface GlobeMapEditorProps {
   height: number;
   onTerritoryClick: (id: string) => void;
   onGlobeClickCoords: (lng: number, lat: number) => void;
-  onCountryPick: (isoCode: string, name: string, geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon) => void;
+  onCountryPick: (isoCode: string, name: string, geometry: PolyGeom) => void;
 }
 
-function getPolygonCoordinates(
-  geom: GeoJSON.Polygon | GeoJSON.MultiPolygon
-): GeoJSON.Position[][][] {
-  if (geom.type === 'Polygon') return [geom.coordinates];
-  return geom.coordinates;
-}
-
-function mergeGeometries(
-  geometries: (GeoJSON.Polygon | GeoJSON.MultiPolygon)[]
-): GeoJSON.MultiPolygon {
-  const polygons: GeoJSON.Position[][][] = [];
-  for (const geom of geometries) {
-    for (const poly of getPolygonCoordinates(geom)) {
-      if (poly?.[0]?.length >= 4) polygons.push(poly);
-    }
-  }
-  return { type: 'MultiPolygon', coordinates: polygons };
+/** Tooltip content lands in innerHTML; names are user text. */
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => (
+    c === '&' ? '&amp;' : c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '"' ? '&quot;' : '&#39;'
+  ));
 }
 
 export default function GlobeMapEditor({
@@ -128,45 +118,48 @@ export default function GlobeMapEditor({
 }: GlobeMapEditorProps) {
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
   const [countriesGeo, setCountriesGeo] = useState<GeoJSON.FeatureCollection | null>(null);
+  const [hoveredCountryId, setHoveredCountryId] = useState<string | null>(null);
 
+  // The same local file and promise cache as the game, not a CDN copy.
   useEffect(() => {
-    fetch(COUNTRIES_GEOJSON_URL)
-      .then((r) => r.json())
-      .then(setCountriesGeo)
-      .catch((err) => console.warn('Failed to load countries GeoJSON:', err));
+    let cancelled = false;
+    void loadCountriesGeo().then((fc) => {
+      if (!cancelled) setCountriesGeo(fc);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  // Disable orbit controls during draw mode to prevent rotation on click
-  useEffect(() => {
-    const ctrl = globeRef.current?.controls?.();
-    if (!ctrl) return;
-    if (activeTool === 'draw') {
-      ctrl.enabled = false;
-      ctrl.autoRotate = false;
-    } else {
-      ctrl.enabled = true;
-    }
-  }, [activeTool]);
-
-  // ISO → features index
+  // ISO → features index, with the overseas pieces trimmed from their parents
+  // registered under their own codes so they are pickable by name.
   const isoToFeatures = useMemo(() => {
     const map = new Map<string, GeoJSON.Feature[]>();
     if (!countriesGeo?.features) return map;
     for (const f of countriesGeo.features) {
-      const props = f.properties ?? {};
-      const iso = props['ISO_A2'] ?? props['iso_a2'];
-      const isoEH = props['ISO_A2_EH'] ?? props['iso_a2_eh'];
-      const code = (iso && iso !== '-99') ? iso : (isoEH && isoEH !== '-99') ? isoEH : null;
-      if (code && typeof code === 'string') {
-        const list = map.get(code) ?? [];
-        list.push(f);
-        map.set(code, list);
-      }
+      const code = featureIsoCode(f);
+      if (!code) continue;
+      const list = map.get(code) ?? [];
+      list.push(f);
+      map.set(code, list);
     }
+    registerPossessionFeatures(map);
     return map;
   }, [countriesGeo]);
 
-  // ISO codes already claimed by editor territories
+  // Country outlines: built once per data load, never per edit.
+  const countryData = useMemo(() => buildCountryData(isoToFeatures), [isoToFeatures]);
+
+  // Territory polygons: one cached datum per territory, replaced only when
+  // its geometry changes. Renames, region moves and selection never touch it.
+  const territoryCacheRef = useRef(new TerritoryPolygonCache());
+  const territoryData = useMemo(
+    () => territoryCacheRef.current.build(territories, isoToFeatures),
+    [territories, isoToFeatures],
+  );
+
+  // ISO codes already claimed by editor territories: their outline is hidden
+  // under the territory that now draws it.
   const usedIsoCodes = useMemo(() => {
     const set = new Set<string>();
     for (const t of territories) {
@@ -175,83 +168,29 @@ export default function GlobeMapEditor({
     return set;
   }, [territories]);
 
-  // Build polygonsData: editor territories + (in country_pick mode) unclaimed country outlines
   const polygonsData = useMemo((): PolygonDatum[] => {
-    const result: PolygonDatum[] = [];
+    const countries = countryData.filter((c) => !usedIsoCodes.has(c.isoCode ?? ''));
+    return [...territoryData, ...countries];
+  }, [territoryData, countryData, usedIsoCodes]);
 
-    // Editor territories
-    for (const t of territories) {
-      const regionIdx = regions.findIndex((r) => r.region_id === t.region_id);
-      let geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon | null = null;
+  // Live lookups for the accessors, so the datum objects stay untouched.
+  const regionIndexById = useMemo(() => {
+    const regionIdx = new Map<string, number>();
+    regions.forEach((r, i) => regionIdx.set(r.region_id, i));
+    const out = new Map<string, number>();
+    for (const t of territories) out.set(t.territory_id, regionIdx.get(t.region_id) ?? 0);
+    return out;
+  }, [territories, regions]);
 
-      if (t.iso_codes && t.iso_codes.length > 0 && isoToFeatures.size > 0) {
-        const geometries: (GeoJSON.Polygon | GeoJSON.MultiPolygon)[] = [];
-        for (const code of t.iso_codes) {
-          const features = isoToFeatures.get(code) ?? [];
-          for (const f of features) {
-            const g = f.geometry;
-            if (g && (g.type === 'Polygon' || g.type === 'MultiPolygon')) {
-              // Preview what the game draws: a bare code is the homeland only.
-              const homeland = homelandGeometry(code, g as GeoJSON.Polygon | GeoJSON.MultiPolygon);
-              if (homeland) geometries.push(homeland);
-            }
-          }
-        }
-        if (geometries.length > 0) {
-          geometry = geometries.length === 1 && geometries[0].type === 'Polygon'
-            ? geometries[0]
-            : mergeGeometries(geometries);
-        }
-      }
+  const territoryNameById = useMemo(
+    () => new Map(territories.map((t) => [t.territory_id, t.name] as const)),
+    [territories],
+  );
 
-      if (!geometry && t.geo_polygon && t.geo_polygon.length >= 3) {
-        const ring: [number, number][] = [...t.geo_polygon];
-        if (ring[0][0] !== ring[ring.length - 1][0] || ring[0][1] !== ring[ring.length - 1][1]) {
-          ring.push([...ring[0]]);
-        }
-        geometry = { type: 'Polygon', coordinates: [ring] };
-      }
-
-      if (!geometry) continue;
-
-      result.push({
-        id: t.territory_id,
-        name: t.name,
-        geometry,
-        kind: 'territory',
-        regionIndex: regionIdx >= 0 ? regionIdx : 0,
-        isSelected: t.territory_id === selectedTerritoryId || t.territory_id === connectSource,
-      });
-    }
-
-    // Country outlines for picker mode
-    if (activeTool === 'country_pick' && countriesGeo?.features) {
-      for (const f of countriesGeo.features) {
-        const props = f.properties ?? {};
-        const iso = props['ISO_A2'] ?? props['iso_a2'];
-        const isoEH = props['ISO_A2_EH'] ?? props['iso_a2_eh'];
-        const code = (iso && iso !== '-99') ? iso : (isoEH && isoEH !== '-99') ? isoEH : null;
-        if (!code || typeof code !== 'string') continue;
-        if (usedIsoCodes.has(code)) continue;
-
-        const g = f.geometry;
-        if (!g || (g.type !== 'Polygon' && g.type !== 'MultiPolygon')) continue;
-
-        const name = props['NAME'] ?? props['name'] ?? code;
-        result.push({
-          id: `country_${code}`,
-          name,
-          geometry: g as GeoJSON.Polygon | GeoJSON.MultiPolygon,
-          kind: 'country',
-          regionIndex: -1,
-          isoCode: code,
-          isSelected: false,
-        });
-      }
-    }
-
-    return result;
-  }, [territories, regions, selectedTerritoryId, connectSource, activeTool, countriesGeo, isoToFeatures, usedIsoCodes]);
+  const territoryById = useMemo(
+    () => new Map(territories.map((t) => [t.territory_id, t] as const)),
+    [territories],
+  );
 
   // Drawing preview: vertex points
   const pointsData = useMemo((): PointDatum[] => {
@@ -263,10 +202,9 @@ export default function GlobeMapEditor({
   const arcsData = useMemo((): ArcDatum[] => {
     const arcs: ArcDatum[] = [];
 
-    // Territory connections
     for (const conn of connections) {
-      const fromT = territories.find((t) => t.territory_id === conn.from);
-      const toT = territories.find((t) => t.territory_id === conn.to);
+      const fromT = territoryById.get(conn.from);
+      const toT = territoryById.get(conn.to);
       if (!fromT || !toT) continue;
       arcs.push({
         startLat: fromT.center_point[1],
@@ -275,10 +213,11 @@ export default function GlobeMapEditor({
         endLng: toT.center_point[0],
         kind: 'connection',
         connectionType: conn.type,
+        from: conn.from,
+        to: conn.to,
       });
     }
 
-    // Drawing preview edges
     if (activeTool === 'draw' && drawingPoints.length >= 2) {
       for (let i = 0; i < drawingPoints.length - 1; i++) {
         arcs.push({
@@ -292,25 +231,37 @@ export default function GlobeMapEditor({
     }
 
     return arcs;
-  }, [connections, territories, activeTool, drawingPoints]);
+  }, [connections, territoryById, activeTool, drawingPoints]);
 
-  const getPolygonColor = useMemo(() => (polygon: object) => {
-    const p = polygon as PolygonDatum;
-    if (p.kind === 'country') return 'rgba(100, 120, 150, 0.15)';
-    return REGION_COLORS[p.regionIndex % REGION_COLORS.length];
-  }, [polygonsData]);
+  const pickMode = activeTool === 'country_pick';
 
-  const getPolygonStroke = useMemo(() => (polygon: object) => {
+  // Accessor identity changes with the state they read, which is what makes
+  // three-globe re-evaluate them; with stable data that is a material update.
+  const getPolygonColor = useCallback((polygon: object) => {
     const p = polygon as PolygonDatum;
-    if (p.kind === 'country') return 'rgba(150, 170, 200, 0.4)';
-    if (p.isSelected) return '#ffd700';
+    if (p.kind === 'country') {
+      if (pickMode && p.id === hoveredCountryId) return COUNTRY_FILL_HOVER;
+      return pickMode ? COUNTRY_FILL_PICKABLE : COUNTRY_FILL;
+    }
+    return REGION_COLORS[(regionIndexById.get(p.id) ?? 0) % REGION_COLORS.length];
+  }, [pickMode, hoveredCountryId, regionIndexById]);
+
+  const getPolygonStroke = useCallback((polygon: object) => {
+    const p = polygon as PolygonDatum;
+    if (p.kind === 'country') return pickMode ? COUNTRY_STROKE_PICKABLE : COUNTRY_STROKE;
+    if (p.id === selectedTerritoryId || p.id === connectSource) return '#ffd700';
     return '#ffffff';
-  }, [polygonsData]);
+  }, [pickMode, selectedTerritoryId, connectSource]);
 
-  const getPolygonAltitude = useMemo(() => (polygon: object) => {
+  const getPolygonAltitude = useCallback((polygon: object) => {
+    return (polygon as PolygonDatum).kind === 'country' ? 0.002 : 0.008;
+  }, []);
+
+  const getPolygonLabel = useCallback((polygon: object) => {
     const p = polygon as PolygonDatum;
-    return p.kind === 'country' ? 0.002 : 0.008;
-  }, [polygonsData]);
+    if (p.kind === 'country') return pickMode ? escapeHtml(p.countryName ?? '') : '';
+    return escapeHtml(territoryNameById.get(p.id) ?? '');
+  }, [pickMode, territoryNameById]);
 
   // Use refs for props so the handlers passed to react-globe.gl never go stale
   const activeToolRef = useRef(activeTool);
@@ -331,22 +282,37 @@ export default function GlobeMapEditor({
       return;
     }
 
-    if (p.kind === 'country' && tool === 'country_pick') {
-      if (p.isoCode) {
-        onCountryPickRef.current(p.isoCode, p.name, p.geometry);
+    if (p.kind === 'country') {
+      if (tool === 'country_pick' && p.isoCode) {
+        onCountryPickRef.current(p.isoCode, p.countryName ?? p.isoCode, p.geometry);
+      } else {
+        // To every other tool a faint outline is background.
+        onGlobeClickCoordsRef.current(coords.lng, coords.lat);
       }
       return;
     }
 
-    if (p.kind === 'territory') {
-      onTerritoryClickRef.current(p.id);
-    }
+    onTerritoryClickRef.current(p.id);
   }, []);
 
+  const handlePolygonHover = useCallback((polygon: object | null) => {
+    const p = polygon as PolygonDatum | null;
+    const next = p && p.kind === 'country' && activeToolRef.current === 'country_pick' ? p.id : null;
+    setHoveredCountryId((prev) => (prev === next ? prev : next));
+  }, []);
+
+  // Orbit controls stay on in every tool. The render layer already drops the
+  // click that ends a drag, so dragging rotates and a still click places.
   const handleGlobeClick = useCallback((coords: { lat: number; lng: number }) => {
-    if (activeToolRef.current === 'draw') {
-      onGlobeClickCoordsRef.current(coords.lng, coords.lat);
-    }
+    onGlobeClickCoordsRef.current(coords.lng, coords.lat);
+  }, []);
+
+  // The pointer cursor says "clickable": territories always, countries only
+  // when picking them does something.
+  const showPointerCursor = useCallback((objType: string, objData: object) => {
+    if (objType !== 'polygon') return true;
+    const p = objData as PolygonDatum;
+    return p.kind === 'territory' || activeToolRef.current === 'country_pick';
   }, []);
 
   const getArcColor = useCallback((arc: object) => {
@@ -373,6 +339,7 @@ export default function GlobeMapEditor({
         showAtmosphere={true}
         atmosphereColor="lightskyblue"
         atmosphereAltitude={0.15}
+        showPointerCursor={showPointerCursor}
 
         polygonsData={polygonsData}
         polygonGeoJsonGeometry="geometry"
@@ -381,8 +348,9 @@ export default function GlobeMapEditor({
         polygonSideColor={() => 'rgba(0, 0, 0, 0.15)'}
         polygonStrokeColor={getPolygonStroke}
         polygonAltitude={getPolygonAltitude}
-        polygonLabel={(p) => (p as PolygonDatum).name}
+        polygonLabel={getPolygonLabel}
         onPolygonClick={handlePolygonClick}
+        onPolygonHover={handlePolygonHover}
 
         pointsData={pointsData}
         pointLat="lat"
