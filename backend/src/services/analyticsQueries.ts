@@ -61,11 +61,14 @@ const WRAPUP_EXIT_VIAS_SQL = "('wrapup', 'wrapup_to_match')";
  * - `seat_player_away`: the server noticing that a disconnected player did not
  *   come back within the reconnect window.
  * - `email_unsubscribed`: an unsubscribe link followed from an email.
+ * - `session_refresh_graced`: a token refresh saved by the refresh grace. An
+ *   open tab refreshes its token with nobody looking at it.
  */
 export const NOT_PLAYER_ACTIVITY_EVENTS = [
   'retention_notification_sent',
   'seat_player_away',
   'email_unsubscribed',
+  'session_refresh_graced',
 ] as const;
 
 /** The event at `alias` is something the player did. */

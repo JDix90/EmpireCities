@@ -106,7 +106,7 @@ describe('analyticsQueries', () => {
     for (const [sql] of queryMock.mock.calls as Array<[string]>) {
       for (const n of [1, 7, 30]) {
         expect(sql).toContain(`d0 <= CURRENT_DATE - ${n})::int AS d${n}_cohort`);
-        expect(sql).toMatch(new RegExp(`d0 \\+ ${n}\\s+AND e\\.event NOT IN \\('retention_notification_sent', 'seat_player_away', 'email_unsubscribed'\\)`));
+        expect(sql).toMatch(new RegExp(`d0 \\+ ${n}\\s+AND e\\.event NOT IN \\('retention_notification_sent', 'seat_player_away', 'email_unsubscribed', 'session_refresh_graced'\\)`));
       }
     }
     // The split takes a list of signups to limit itself to; null is everyone.
@@ -399,7 +399,7 @@ describe('analyticsQueries', () => {
     const [[totalsSql, totalsParams], [dailySql, dailyParams]] = queryMock.mock.calls as Array<[string, unknown[]]>;
     for (const sql of [totalsSql, dailySql]) {
       expect(sql).toContain('COUNT');
-      expect(sql).toContain("e.event NOT IN ('retention_notification_sent', 'seat_player_away', 'email_unsubscribed')");
+      expect(sql).toContain("e.event NOT IN ('retention_notification_sent', 'seat_player_away', 'email_unsubscribed', 'session_refresh_graced')");
       expect(sql).toContain('e.user_id IS NOT NULL');
       // Admin and test accounts are left out, as everywhere else.
       expect(sql).toContain('NOT EXISTS (SELECT 1 FROM users sx_eu WHERE sx_eu.user_id = e.user_id');
