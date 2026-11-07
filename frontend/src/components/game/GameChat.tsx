@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { Smile, Film } from 'lucide-react';
 import clsx from 'clsx';
 import { getSocket } from '../../services/socket';
+import { lazyWithChunkRetry } from '../../utils/lazyWithChunkRetry';
 import { searchGifs, isGifSearchAvailable, type GifResult } from '../../utils/gifSearch';
 
-const EmojiPicker = lazy(() => import('@emoji-mart/react'));
+// Retries, then reloads onto a new build, if a deploy deleted this chunk.
+const EmojiPicker = lazyWithChunkRetry(() => import('@emoji-mart/react'));
 
 export interface ChatMessagePayload {
   gameId: string;
@@ -93,6 +95,9 @@ export default function GameChat({ gameId, embedded = false, defaultOpen = false
     if (emojiPickerOpen && !emojiData.current) {
       import('@emoji-mart/data').then((mod) => {
         emojiData.current = mod.default;
+      }).catch(() => {
+        // A stale tab after a deploy: the picker's own load recovers; this
+        // must not become an unhandled rejection (a Sentry error by itself).
       });
     }
   }, [emojiPickerOpen]);

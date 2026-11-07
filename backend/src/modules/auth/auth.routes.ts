@@ -20,6 +20,7 @@ import { isDisallowedUsername } from '../../utils/profanity';
 import { recordServerEvent } from '../../services/analyticsEvents';
 import { parseAttribution } from './attribution';
 import { friendlyGuestName } from './guestNames';
+import { guestPasswordHash } from './guestPassword';
 import { featureFlags } from '../../config/featureFlags';
 import { escapeHtml } from '../../utils/htmlSafe';
 
@@ -394,6 +395,10 @@ async function sendAccountSavedEmail(email: string, username: string, withPasswo
 }
 
 export async function authRoutes(fastify: FastifyInstance): Promise<void> {
+  // Made once per process (guestPassword.ts); start it now so the first guest
+  // after a restart does not wait for it either.
+  guestPasswordHash().catch(() => {});
+
   // ── POST /api/auth/guest ─────────────────────────────────────────────────
   /**
    * Short-lived session without refresh token; creates a minimal `users` row
@@ -410,11 +415,10 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
    * a clean ON CONFLICT bail rather than a corrupted partial insert.
    */
   fastify.post('/guest', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request, reply) => {
-    // Use the same cost factor as registered accounts so the row is
-    // indistinguishable by hash shape (defense in depth — the guest password
-    // is a never-exposed random UUID, but uniform parameters mean a future
-    // database leak can't be partitioned into guest vs. real users by cost).
-    const password_hash = await bcrypt.hash(randomUUID(), config.bcryptRounds);
+    // A guest has no password and nothing checks this hash, so every guest
+    // shares one made per process instead of paying for a bcrypt hash per
+    // request (guestPassword.ts).
+    const password_hash = await guestPasswordHash();
 
     let userId: string | null = null;
     let username: string | null = null;
