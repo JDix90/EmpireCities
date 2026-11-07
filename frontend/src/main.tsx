@@ -13,6 +13,7 @@ import { notifyEmbedderReady } from './utils/embedContext';
 import { useFeatureFlagsStore } from './store/featureFlagsStore';
 import { installTranslationDomGuard } from './utils/translationDomGuard';
 import { stopIosInputZoom } from './utils/iosZoom';
+import { reloadForNewBuild } from './utils/lazyWithChunkRetry';
 
 // Snapshot first-touch acquisition attribution (utm_* / referrer) before render,
 // so it's available for the first guest/register call. See utils/attribution.ts.
@@ -41,6 +42,14 @@ installTranslationDomGuard();
 // Before a text box can be tapped: Safari on iOS zooms into one whose text is
 // under 16px and stays zoomed. See utils/iosZoom.ts.
 stopIosInputZoom();
+
+// A deploy replaced the files this tab's build names. Vite reports a dynamic
+// import whose preloaded dependencies failed here, before the import itself
+// rejects ("Failed to fetch dynamically imported module"). Reload onto the new
+// build, at most once a minute, and only then keep the error from being thrown.
+window.addEventListener('vite:preloadError', (event) => {
+  if (reloadForNewBuild()) event.preventDefault();
+});
 
 if (Capacitor.isNativePlatform()) {
   void StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
