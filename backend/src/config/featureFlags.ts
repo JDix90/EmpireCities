@@ -207,6 +207,8 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // player does in the first turn of a real game, and whether its clock ran
   // out. On by default; the kill switch stops recording it.
   first_turn_events_enabled: () => envOptOut('FIRST_TURN_EVENTS_ENABLED'),
+  // Small regional boards open zoomed in to fill the screen (client-only).
+  fit_board_camera_enabled: () => envOptIn('FIT_BOARD_CAMERA_ENABLED'),
   // Localized landing page + tutorial (frontend/src/i18n). Dark-launched OFF:
   // the translated bundles ship in the client but nobody is routed to them
   // until this is on. Client-only effect.
@@ -1536,6 +1538,19 @@ export const featureFlags = {
   },
 
   /**
+   * Fit small boards to the screen (client-only; frontend
+   * utils/regionalGlobe.ts fitRegionalView): a fixed regional board opens on
+   * the globe zoomed in until it fills the view, never further out than its
+   * authored framing. The first match's Britain opened at the same altitude on
+   * every screen, which on a portrait phone left it about 8% of the screen
+   * with territories smaller than a fingertip. Default OFF;
+   * `FIT_BOARD_CAMERA_ENABLED=true` or the admin override turns it on.
+   */
+  get fitBoardCameraEnabled(): boolean {
+    return overrideBool('fit_board_camera_enabled');
+  },
+
+  /**
    * Localized landing page and tutorial (frontend/src/i18n). Off means English
    * for everyone whatever the browser says; on lets the client honour the
    * stored `cc-lang` choice or the browser language. Default OFF until the
@@ -1605,6 +1620,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     feedback_menu_enabled: featureFlags.feedbackMenuEnabled,
     play_on_enabled: featureFlags.playOnEnabled,
     first_turn_events_enabled: featureFlags.firstTurnEventsEnabled,
+    fit_board_camera_enabled: featureFlags.fitBoardCameraEnabled,
     localization_enabled: featureFlags.localizationEnabled,
     touch_targets_enabled: featureFlags.touchTargetsEnabled,
     daily_puzzle_v2_enabled: featureFlags.dailyPuzzleV2Enabled,

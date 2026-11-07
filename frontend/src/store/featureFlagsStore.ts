@@ -40,6 +40,7 @@ export interface ClientFeatureFlags {
   feedback_menu_enabled: boolean;
   play_on_enabled: boolean;
   first_turn_events_enabled: boolean;
+  fit_board_camera_enabled: boolean;
   localization_enabled: boolean;
   touch_targets_enabled: boolean;
   daily_puzzle_v2_enabled: boolean;
@@ -145,6 +146,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   play_on_enabled: false,
   // First-turn measurement (analytics only). On by default; kill switch.
   first_turn_events_enabled: true,
+  // Small regional boards open zoomed in to fill the screen. Dark-launched OFF.
+  fit_board_camera_enabled: false,
   // Localized landing + tutorial (src/i18n). Dark-launched OFF: the bundles
   // ship but everyone sees English until an operator turns this on.
   localization_enabled: false,
@@ -380,6 +383,11 @@ export function usePlayOnEnabled(): boolean {
 /** First-turn measurement (utils/firstTurnSteps.ts). */
 export function useFirstTurnEventsEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.first_turn_events_enabled);
+}
+
+/** Fit small boards to the screen (utils/regionalGlobe.ts fitRegionalView). */
+export function useFitBoardCameraEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.fit_board_camera_enabled);
 }
 
 export function useAttackBlitzEnabled(): boolean {
