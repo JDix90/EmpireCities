@@ -25,7 +25,8 @@ import { buildGalaxyWorldTextureFromPolygons, neutralLandColorFor } from '../../
 import { inferWorldId, markerLook, type MarkerLook } from '@borderfall/shared';
 import { usePlayerCosmetics } from '../cosmetics/useCosmetics';
 import { markerSvgElement } from '../cosmetics/markerSvg';
-import { deriveRegionalGlobeView, resolveActiveGlobeView, type GlobeViewConfig } from '../../utils/regionalGlobe';
+import { deriveRegionalGlobeView, fitRegionalView, resolveActiveGlobeView, type GlobeViewConfig } from '../../utils/regionalGlobe';
+import { useFitBoardCameraEnabled } from '../../store/featureFlagsStore';
 import { isFogHidden } from '../../utils/fogVisibility';
 import { getPlayerGlobeColor, getRegionCssColors } from '../../constants/accessibleColors';
 import { HIGHLIGHT_CSS, highlightRgba } from '../../constants/highlightColors';
@@ -1422,6 +1423,28 @@ function GlobeMap({
     ctrl.autoRotateSpeed = lock ? 0 : 0.4;
   }, [regionalGlobe.lockRotation, reducedEffects, autoSpin, globeReadyTick, noteAutomatedCameraMove]);
 
+  // Fit small boards to the screen (fit_board_camera_enabled): a fixed regional
+  // board (not a galaxy world) opens zoomed in until its authored bounds fill
+  // this canvas, never further out than the authored view. One altitude for
+  // every screen left the first match's Britain about 8% of a portrait phone
+  // (utils/regionalGlobe.ts fitRegionalView).
+  const fitBoardCamera = useFitBoardCameraEnabled();
+  const boardBounds = mapData.projection_bounds;
+  const boardView = useMemo(
+    () => (fitBoardCamera && regionalGlobe.lockRotation && boardBounds && mapData.map_kind !== 'galaxy'
+      ? fitRegionalView(regionalGlobe, boardBounds, width, height)
+      : regionalGlobe),
+    // On the values, as the framing effect below: `regionalGlobe` is a new object every broadcast.
+    [fitBoardCamera, regionalGlobe.lockRotation, regionalGlobe.centerLat, regionalGlobe.centerLng, regionalGlobe.altitude,
+      boardBounds?.minLat, boardBounds?.maxLat, boardBounds?.minLng, boardBounds?.maxLng, mapData.map_kind, width, height],
+  );
+  // Floating labels and markers sit up to 0.14 globe radii above the surface,
+  // tuned for the authored view's distance. Closer in, that height throws them
+  // outward from the screen's centre (the Anglo-Saxon England label landed on
+  // France), so a fitted view lowers them in proportion to how much closer the
+  // camera opens: on screen they sit where they did at the authored view.
+  const overlayAltScale = regionalGlobe.altitude > 0 ? Math.min(1, boardView.altitude / regionalGlobe.altitude) : 1;
+
   // Frame the authored view — on the values, not the `regionalGlobe` object.
   //
   // This used to share an effect with the spin control above and depend on the
@@ -1448,20 +1471,22 @@ function GlobeMap({
   // authored view (then it is a pure FOV correction and nothing visibly
   // moves); once anything has moved it, a resize leaves it alone. A new
   // authored view or a re-created globe still frames unconditionally.
+  //
+  // It frames `boardView`: the authored view, or the fitted one above.
   const lastAuthoredFrameKeyRef = useRef<string | null>(null);
   useEffect(() => {
     const globe = globeRef.current;
     if (!globe) return;
     if (width <= 0 || height <= 0) return;
-    const key = `${regionalGlobe.centerLat}:${regionalGlobe.centerLng}:${regionalGlobe.altitude}:${globeReadyTick}`;
+    const key = `${regionalGlobe.centerLat}:${regionalGlobe.centerLng}:${regionalGlobe.altitude}:${globeReadyTick}:${fitBoardCamera}`;
     const sizeOnlyChange = lastAuthoredFrameKeyRef.current === key;
     if (sizeOnlyChange && cameraMovedSinceFrameRef.current) return;
     lastAuthoredFrameKeyRef.current = key;
     globe.pointOfView(
       {
-        lat: regionalGlobe.centerLat,
-        lng: regionalGlobe.centerLng,
-        altitude: regionalGlobe.altitude,
+        lat: boardView.centerLat,
+        lng: boardView.centerLng,
+        altitude: boardView.altitude,
       },
       0,
     );
@@ -1472,9 +1497,13 @@ function GlobeMap({
     regionalGlobe.centerLat,
     regionalGlobe.centerLng,
     regionalGlobe.altitude,
+    boardView.centerLat,
+    boardView.centerLng,
+    boardView.altitude,
     globeReadyTick,
     width,
     height,
+    fitBoardCamera,
   ]);
 
   // WI2 — pause idle auto-spin while it's the viewing player's turn (so their
@@ -3813,9 +3842,9 @@ function GlobeMap({
   const htmlElAccessors = useMemo(() => ({
     lat: (d: object) => (d as HtmlDatum).lat,
     lng: (d: object) => (d as HtmlDatum).lng,
-    alt: (d: object) => (d as HtmlDatum).alt,
+    alt: (d: object) => (d as HtmlDatum).alt * overlayAltScale,
     element: (d: object) => buildHtmlOverlayElement(d as HtmlDatum, onTerritoryClick),
-  }), [onTerritoryClick]);
+  }), [onTerritoryClick, overlayAltScale]);
 
   const arcAccessors = useMemo(() => ({
     startLat: (d: object) => (d as ArcDatum).startLat,
