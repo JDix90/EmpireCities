@@ -10,6 +10,7 @@ import { featureFlags } from '../../config/featureFlags';
 import { toPublicDailyPuzzleV2 } from '../../game-engine/daily/dailyPuzzlePublic';
 import type { PublicDailyPuzzleV2 } from '../../game-engine/daily/dailyPuzzleTypes';
 import { DAILY_LEADERBOARD_COLUMNS, DAILY_LEADERBOARD_ORDER_BY } from './dailyLeaderboardOrder';
+import { dailyBoardUserSql } from './dailyBoard';
 import { runBadges } from '../../game-engine/daily/puzzlePlay';
 
 const PLAYER_COLORS = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12'];
@@ -123,22 +124,24 @@ export async function dailyRoutes(fastify: FastifyInstance): Promise<void> {
 
     // Honest "shared event" signal: how many commanders have attempted today's
     // challenge. Real count, interesting even when small. Same population as
-    // the board — registered only — so "12 attempted" and a 10-row board never
-    // disagree about who counts, and guest churn can't inflate it.
+    // the board (dailyBoardUserSql: registered only unless guest runs are
+    // ranked, never a test account) so "12 attempted" and a 10-row board never
+    // disagree about who counts.
     const attemptsRow = await queryOne<{ attempts: string }>(
       `SELECT COUNT(*)::int AS attempts
        FROM daily_challenge_entries dce
        JOIN users u ON u.user_id = dce.user_id
        WHERE dce.challenge_date = $1
-         AND u.is_guest = false`,
+         AND ${dailyBoardUserSql('u')}`,
       [row.challenge_date],
     );
 
-    // Where the viewer stands among registered commanders. For a registered
-    // player that is their rank today; for a guest it is the place they WOULD
-    // hold — the viewer's own row is admitted whatever their status, every
-    // other guest row is excluded, exactly as the board does. Same ORDER BY as
-    // the board so the number matches what they see.
+    // Where the viewer stands among the runs the board ranks. For a ranked
+    // player that is their rank today; for a guest while guest runs are not
+    // ranked, it is the place they WOULD hold — the viewer's own row is
+    // admitted whatever their status, every other row the board leaves out is
+    // left out here too. Same ORDER BY as the board so the number matches what
+    // they see.
     const rankRow = myEntry
       ? await queryOne<{ rank: number }>(
           `SELECT r.rank::int AS rank
@@ -150,21 +153,21 @@ export async function dailyRoutes(fastify: FastifyInstance): Promise<void> {
              FROM daily_challenge_entries dce
              JOIN users u ON u.user_id = dce.user_id
              WHERE dce.challenge_date = $1
-               AND (u.is_guest = false OR dce.user_id = $2)
+               AND (${dailyBoardUserSql('u')} OR dce.user_id = $2)
            ) r
            WHERE r.user_id = $2`,
           [row.challenge_date, request.userId],
         )
       : null;
 
-    // Top 10 leaderboard for today — registered commanders only, like every
-    // other board in the repo. Guests can PLAY the daily (see /start) but a
-    // guest identity is one unauthenticated POST away, so a board that admitted
-    // them would be farmable by anyone willing to clear their storage. A guest
-    // sees this board with their own would-be place named beside their result
-    // (`my_rank`), which is the account pitch in one number — and because
-    // upgrading keeps the same user_id, their entry appears here the moment
-    // they do.
+    // Top 10 leaderboard for today. Registered commanders only unless
+    // guest_daily_board_enabled (dailyBoardUserSql), and never a test account.
+    // Guests can PLAY the daily (see /start) but a guest identity is one
+    // unauthenticated POST away, so a board that admits them can be farmed by
+    // anyone willing to clear their storage; the switch is there to close it
+    // again. While it is off a guest sees this board with their own would-be
+    // place named beside their result (`my_rank`) — and because upgrading
+    // keeps the same user_id, their entry appears here the moment they do.
     // puzzle_score is the primary metric among winners: it is what the move
     // grading actually measures (1000 minus mistake penalties). Turn count
     // breaks ties, so domination days — where every winner scores 1000 —
@@ -187,7 +190,7 @@ export async function dailyRoutes(fastify: FastifyInstance): Promise<void> {
        FROM daily_challenge_entries dce
        JOIN users u ON u.user_id = dce.user_id
        WHERE dce.challenge_date = $1
-         AND u.is_guest = false
+         AND ${dailyBoardUserSql('u')}
        ORDER BY ${DAILY_LEADERBOARD_ORDER_BY}
        LIMIT 10`,
       [row.challenge_date],

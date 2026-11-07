@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Crown, Trophy, Save } from 'lucide-react';
 import { signupNudgeCopy } from '../../utils/signupNudge';
 import { useGuestPromptV2Enabled } from '../../store/featureFlagsStore';
-import { useEmailAccountSaveEnabled, useGuestLeaderboardsEnabled, useSaveAccountCopyEnabled } from '../../store/featureFlagsStore';
+import { useEmailAccountSaveEnabled, useGuestDailyBoardEnabled, useGuestLeaderboardsEnabled, useSaveAccountCopyEnabled } from '../../store/featureFlagsStore';
 import { SAVE_ACCOUNT_LABEL, accountBoardsPerk } from '../../utils/guestGate';
 
 interface GuestSignupNudgeModalProps {
@@ -47,6 +47,7 @@ export default function GuestSignupNudgeModal({
 
   const saveAccountCopy = useSaveAccountCopyEnabled();
   const guestsRanked = useGuestLeaderboardsEnabled();
+  const guestsOnDaily = useGuestDailyBoardEnabled();
   const copy = signupNudgeCopy(isWinner, gold, useGuestPromptV2Enabled(), saveAccountCopy, useEmailAccountSaveEnabled());
   const Icon = isWinner ? Crown : Save;
 
@@ -80,7 +81,7 @@ export default function GuestSignupNudgeModal({
           </li>
           <li className="flex items-start gap-2">
             <Trophy className="w-4 h-4 text-bf-gold/80 mt-0.5 shrink-0" />
-            <span>{accountBoardsPerk(guestsRanked)}</span>
+            <span>{accountBoardsPerk(guestsRanked, guestsOnDaily)}</span>
           </li>
           <li className="flex items-start gap-2">
             <Trophy className="w-4 h-4 text-bf-gold/80 mt-0.5 shrink-0" />

@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { GraduationCap, Trophy } from 'lucide-react';
 import { useGuestPromptV2Enabled } from '../../store/featureFlagsStore';
-import { useGuestLeaderboardsEnabled, useSaveAccountCopyEnabled } from '../../store/featureFlagsStore';
+import { useGuestDailyBoardEnabled, useGuestLeaderboardsEnabled, useSaveAccountCopyEnabled } from '../../store/featureFlagsStore';
 import { SAVE_ACCOUNT_LABEL, accountBoardsPerk } from '../../utils/guestGate';
 
 interface TutorialAccountPromptModalProps {
@@ -31,6 +31,7 @@ export default function TutorialAccountPromptModal({
   const guestPromptV2 = useGuestPromptV2Enabled();
   const saveAccountCopy = useSaveAccountCopyEnabled();
   const guestsRanked = useGuestLeaderboardsEnabled();
+  const guestsOnDaily = useGuestDailyBoardEnabled();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onSkip();
@@ -81,7 +82,7 @@ export default function TutorialAccountPromptModal({
           </li>
           <li className="flex items-start gap-2">
             <Trophy className="w-4 h-4 text-bf-gold/80 mt-0.5 shrink-0" />
-            <span>{accountBoardsPerk(guestsRanked)}</span>
+            <span>{accountBoardsPerk(guestsRanked, guestsOnDaily)}</span>
           </li>
           <li className="flex items-start gap-2">
             <Trophy className="w-4 h-4 text-bf-gold/80 mt-0.5 shrink-0" />

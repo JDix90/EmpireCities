@@ -7,18 +7,19 @@ import { getTier } from '../../game-engine/rating/ratingService';
 import { getLevel } from '@borderfall/shared';
 import { andNotTutorialSql } from '../../game-engine/tutorial/tutorialGames';
 import { featureFlags } from '../../config/featureFlags';
+import { boardUserSql } from '../../services/statsExclusion';
 
 const CACHE_TTL = 300; // 5 minutes
 
 /**
- * Who the boards rank. Guests earn ratings, XP and streaks exactly as an
- * account does (statsManager, progressionService); the boards left them out.
- * With guest_leaderboards_enabled every account is ranked, guest or not.
+ * Who the boards rank: never a test account (statsExclusion.ts boardUserSql).
+ * Guests earn ratings, XP and streaks exactly as an account does
+ * (statsManager, progressionService); the boards left them out. With
+ * guest_leaderboards_enabled they are ranked like any account.
  * `alias` is the `users` row's alias, or null for an unaliased `users`.
  */
 function rankedUserSql(alias: string | null): string {
-  if (featureFlags.guestLeaderboardsEnabled) return 'TRUE';
-  return `${alias ? `${alias}.` : ''}is_guest = false`;
+  return boardUserSql(alias, featureFlags.guestLeaderboardsEnabled);
 }
 
 /**
@@ -323,6 +324,8 @@ export async function leaderboardRoutes(fastify: FastifyInstance): Promise<void>
     const cached = await redis.get(cacheKey);
     if (cached) return reply.send(JSON.parse(cached));
 
+    // Test accounts are left off; guests need no filter here, since a season
+    // counts ranked games, which guests cannot play.
     const rows = await query<{
       user_id: string; username: string; highest_tier: string;
       games_played: number; mu: number;
@@ -333,6 +336,7 @@ export async function leaderboardRoutes(fastify: FastifyInstance): Promise<void>
        JOIN users u ON u.user_id = sr.user_id
        LEFT JOIN user_ratings ur ON ur.user_id = sr.user_id AND ur.rating_type = 'ranked'
        WHERE sr.season_id = $1
+         AND ${boardUserSql('u', true)}
        ORDER BY ur.mu DESC NULLS LAST
        LIMIT $2 OFFSET $3`,
       [season.season_id, limit, offset],

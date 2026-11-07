@@ -454,7 +454,13 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'guest_leaderboards_enabled',
     label: 'Guests on the leaderboards',
     description:
-      'Guest accounts are ranked on the Solo, Level, Weekly and Streaks boards (and Ranked, which they cannot play yet) like any account, see their own rank there, see their own ratings on their profile and after a game, and their profile opens from a board row. Guests already earn every number the boards rank by; only the boards left them out. The Daily Challenge board still leaves guests out, because a new guest is a fresh set of daily attempts. Off by default; off, the boards rank saved accounts only, as before.',
+      'Guest accounts are ranked on the Solo, Level, Weekly and Streaks boards (and Ranked, which they cannot play yet) like any account, see their own rank there, see their own ratings on their profile and after a game, and their profile opens from a board row. Guests already earn every number the boards rank by; only the boards left them out. The Daily Challenge board has its own switch, Guests on the Daily Challenge board. Accounts marked as test accounts in Users are on no board either way. Off by default; off, the boards rank saved accounts only, as before.',
+  },
+  {
+    key: 'guest_daily_board_enabled',
+    label: 'Guests on the Daily Challenge board',
+    description:
+      'Guest runs are ranked on the Daily Challenge board (today and the archive) like any account\u2019s, counted in "N attempted", and the guest is told their real place instead of the place they would hold. Its own switch because this is the board that can be farmed: a new guest is a fresh set of daily attempts, so turn it off if fresh guests start crowding the top. Off by default; off, only saved accounts are ranked there, as before.',
   },
   {
     key: 'fit_board_camera_enabled',

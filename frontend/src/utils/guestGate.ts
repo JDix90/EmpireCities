@@ -103,11 +103,19 @@ export const ACCOUNT_BOARDS_PERK = 'Climb the leaderboards and chase daily chall
 /**
  * The same perk once guests are ranked on the leaderboards
  * (`guest_leaderboards_enabled`): what still needs an account is ranked play
- * and a place on the Daily Challenge board, which still leaves guests out.
+ * and a place on the Daily Challenge board, unless guest runs are ranked there
+ * too (`guest_daily_board_enabled`).
  */
 export const ACCOUNT_BOARDS_PERK_GUESTS_RANKED = 'Play ranked and get on the Daily Challenge board.';
 
-export function accountBoardsPerk(guestsRanked: boolean): string {
+/**
+ * What an account adds on the boards: `guestsRanked` is
+ * `guest_leaderboards_enabled`, `guestsOnDaily` is `guest_daily_board_enabled`.
+ * With both on, only ranked play (and friends) still needs one.
+ */
+export function accountBoardsPerk(guestsRanked: boolean, guestsOnDaily = false): string {
+  if (guestsRanked && guestsOnDaily) return 'Play ranked and play with friends.';
+  if (guestsOnDaily) return 'Climb the leaderboards and play ranked.';
   return guestsRanked ? ACCOUNT_BOARDS_PERK_GUESTS_RANKED : ACCOUNT_BOARDS_PERK;
 }
 

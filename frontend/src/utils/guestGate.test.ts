@@ -24,9 +24,14 @@ describe('guest copy once guests are ranked on the leaderboards', () => {
     expect(withGuestsRanked(CAMPAIGN_START_GATE_SAVE).bullets).toContain('Compete in ranked and play with friends.');
   });
 
-  it('names ranked play and the Daily Challenge board as what an account adds', () => {
+  it('names only what an account still adds on the boards, for each pair of switches', () => {
     expect(accountBoardsPerk(false)).toMatch(/leaderboards/);
+    expect(accountBoardsPerk(false, false)).toBe(accountBoardsPerk(false));
     expect(accountBoardsPerk(true)).toBe('Play ranked and get on the Daily Challenge board.');
+    expect(accountBoardsPerk(false, true)).toBe('Climb the leaderboards and play ranked.');
+    const both = accountBoardsPerk(true, true);
+    expect(both).not.toMatch(/leaderboard|daily/i);
+    expect(both).toMatch(/ranked/);
   });
 
   it('tells a guest on /leaderboards that they are on the boards, in each wording', () => {
