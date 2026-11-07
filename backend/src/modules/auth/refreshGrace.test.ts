@@ -20,7 +20,8 @@ vi.mock('../../db/postgres', () => ({
 vi.mock('../../services/notificationService', () => ({
   sendTransactionalEmailToAddress: vi.fn().mockResolvedValue(undefined),
 }));
-vi.mock('../../services/analyticsEvents', () => ({ recordServerEvent: vi.fn() }));
+const recordServerEventMock = vi.hoisted(() => vi.fn());
+vi.mock('../../services/analyticsEvents', () => ({ recordServerEvent: recordServerEventMock }));
 
 const USER_ID = '11111111-2222-4333-8444-555555555555';
 const REPLACEMENT = '99999999-2222-4333-8444-555555555555';
@@ -72,6 +73,7 @@ const refresh = (token: string) =>
 beforeEach(async () => {
   queryMock.mockReset();
   txnClientQueryMock.mockReset();
+  recordServerEventMock.mockReset();
   queryMock.mockResolvedValue([]);
   adminConfig = await import('../../services/adminConfig');
   adminConfig.setAdminConfigCacheForTests({ feature_flags: { session_refresh_grace_enabled: true } });
@@ -89,6 +91,8 @@ describe('/refresh grace for a token rotation just replaced', () => {
     const [retire] = txnCalls(/UPDATE refresh_tokens SET revoked = TRUE, rotated_at = NOW\(\), replaced_by = \$2 WHERE token_id = \$1/);
     const [insert] = txnCalls(/INSERT INTO refresh_tokens/);
     expect(retire![1]).toEqual(['tok-1', (insert![1] as unknown[])[0]]);
+    // An ordinary rotation is not a save.
+    expect(recordServerEventMock).not.toHaveBeenCalledWith('session_refresh_graced', expect.anything(), expect.anything());
   });
 
   it('renews a token replaced moments ago whose replacement has never been used', async () => {
@@ -101,6 +105,8 @@ describe('/refresh grace for a token rotation just replaced', () => {
     // A new token is issued; the retired one keeps pointing at its first replacement.
     expect(txnCalls(/INSERT INTO refresh_tokens/)).toHaveLength(1);
     expect(txnCalls(/UPDATE refresh_tokens/)).toHaveLength(0);
+    // Recorded, so the saves can be counted in production, where info logs are off.
+    expect(recordServerEventMock).toHaveBeenCalledWith('session_refresh_graced', { is_guest: false }, USER_ID);
   });
 
   it('refuses it once the replacement has been used, or revoked by a logout or password change', async () => {

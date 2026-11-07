@@ -64,6 +64,8 @@ a player who may be nowhere near the game (`NOT_PLAYER_ACTIVITY_EVENTS` in
 - `seat_player_away`: the server marking a disconnected player away. It also fires during
   an ordinary page reload.
 - `email_unsubscribed`: an unsubscribe link followed from an email.
+- `session_refresh_graced`: a token refresh the refresh grace let through
+  (`sessionRefreshGraceEnabled`). An open tab refreshes its token with nobody looking at it.
 
 **Opening the game counts.** `app_opened {device}` is posted at most once a UTC day per
 signed-in player, guests included, when the page loads or comes back into view

@@ -28,7 +28,9 @@ describe.runIf(enabled)('refresh grace (Postgres)', { timeout: 30_000 }, () => {
     ({ query } = (await import('../../db/postgres')) as unknown as { query: Query });
     const adminConfig = await import('../../services/adminConfig');
     setFlags = (graceOn) =>
-      adminConfig.setAdminConfigCacheForTests({ feature_flags: { session_refresh_grace_enabled: graceOn } });
+      adminConfig.setAdminConfigCacheForTests({
+        feature_flags: { session_refresh_grace_enabled: graceOn, analytics_events_enabled: true },
+      });
     await query(
       `INSERT INTO users (user_id, username, email, password_hash) VALUES ($1, $2, $3, 'x')`,
       [userId, `grace_${userId.slice(0, 8)}`, `grace_${userId.slice(0, 8)}@test.local`],
@@ -44,8 +46,30 @@ describe.runIf(enabled)('refresh grace (Postgres)', { timeout: 30_000 }, () => {
 
   afterAll(async () => {
     await app?.close();
-    if (query) await query('DELETE FROM users WHERE user_id = $1', [userId]).catch(() => {});
+    if (query) {
+      await query('DELETE FROM analytics_events WHERE user_id = $1', [userId]).catch(() => {});
+      await query('DELETE FROM users WHERE user_id = $1', [userId]).catch(() => {});
+    }
   });
+
+  /** How many refreshes the grace has let through for the test user, as recorded. */
+  async function gracedCount(): Promise<number> {
+    const rows = await query(
+      `SELECT COUNT(*)::int AS n FROM analytics_events WHERE event = 'session_refresh_graced' AND user_id = $1`,
+      [userId],
+    );
+    return rows[0]!.n as number;
+  }
+
+  /** The event is written without being awaited, so wait for it to land. */
+  async function gracedCountReaches(n: number): Promise<number> {
+    let got = await gracedCount();
+    for (let i = 0; i < 40 && got < n; i += 1) {
+      await new Promise((r) => setTimeout(r, 50));
+      got = await gracedCount();
+    }
+    return got;
+  }
 
   /** A live refresh token for the test user, as a sign-in would issue. */
   async function signIn(): Promise<string> {
@@ -86,9 +110,12 @@ describe.runIf(enabled)('refresh grace (Postgres)', { timeout: 30_000 }, () => {
     const old = await signIn();
     const lost = await refresh(old);
     expect(lost.statusCode).toBe(200);
+    const before = await gracedCount();
 
     const retry = await refresh(old);
     expect(retry.statusCode).toBe(200);
+    // Each refresh the grace saves is recorded, to count in production.
+    expect(await gracedCountReaches(before + 1)).toBe(before + 1);
     const next = await refresh(newCookie(retry));
     expect(next.statusCode).toBe(200);
 
