@@ -51,10 +51,12 @@ describe.runIf(enabled)('returns and active players (Postgres)', () => {
     });
     ({ getActivePlayers, getRetentionByCohort } = await import('./analyticsQueries'));
 
-    // A guest who left after their first day: today brings only a reminder.
+    // A guest who left after their first day: today brings only a reminder,
+    // and a token refresh from a tab left open.
     const lapsed = await seedUser('lapsed_guest', 1);
     await event('guest_created', lapsed, 1);
     await event('retention_notification_sent', lapsed, 0);
+    await event('session_refresh_graced', lapsed, 0);
     // A guest who opened the game again today without playing.
     const back = await seedUser('back_guest', 1);
     await event('guest_created', back, 1);
@@ -95,7 +97,7 @@ describe.runIf(enabled)('returns and active players (Postgres)', () => {
     expect(active.daily.map(({ active: n, new_players, returning_players }) => [n, new_players, returning_players])).toEqual([
       [0, 0, 0],
       [2, 2, 0],
-      // Today only the guest who opened the game: the reminder, the away seat and the admin do not count.
+      // Today only the guest who opened the game: the reminder, the token refresh, the away seat and the admin do not count.
       [1, 0, 1],
     ]);
     const days = await query(

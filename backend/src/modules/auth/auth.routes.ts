@@ -1286,8 +1286,11 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     });
     reply.setCookie('refreshToken', newRefreshToken, refreshCookieOpts(60 * 60 * 24 * session.days, request));
     if (rotation.graced) {
-      // How often the grace saves a session, for judging the kill switch.
-      request.log.info({ userId: payload.sub }, 'refresh: renewed a token replaced moments ago');
+      // How often the grace saves a session, for judging the kill switch. An
+      // analytics row rather than a log line: production logs only warnings,
+      // and a redeploy starts a fresh log. Not something the player did, so it
+      // never counts as a return (NOT_PLAYER_ACTIVITY_EVENTS).
+      recordServerEvent('session_refresh_graced', { is_guest: rotation.is_guest === true }, payload.sub);
     }
 
     stampLastLogin(payload.sub);
