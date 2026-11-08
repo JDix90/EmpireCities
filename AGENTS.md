@@ -14,6 +14,7 @@ This repo is **Borderfall**: a browser-based historical Risk-style game — Reac
 - `pnpm run test:backend` — backend Vitest tests.
 - `pnpm run lint` — ESLint on backend and frontend (`lint:backend` + `lint:frontend`).
 - `pnpm run validate:maps` — validate map JSON under `database/maps/`.
+- `pnpm run test:e2e:smoke` — Playwright against the built frontend (`pnpm -C frontend run build` first; CI builds, then runs this and `test:e2e:map-visual`). Includes the map editor smoke, `frontend/tests/e2e/editor-smoke.spec.ts`.
 
 ## Balance harnesses (from `backend/`)
 
@@ -61,6 +62,11 @@ medium bot, so the numbers do not predict what a person scores.
 | 2D map | `frontend/src/components/game/GameMap.tsx` |
 | Globe | `frontend/src/components/game/GlobeMap.tsx` |
 | Globe geometry | `frontend/src/utils/globeTerritoryGeometry.ts` |
+| Map editor (page, store with undo, panels, start screen) | `frontend/src/pages/MapEditorPage.tsx`, `frontend/src/store/mapEditorStore.ts`, `frontend/src/components/editor/` |
+| Editor geography: Natural Earth templates, neighbours and sea lanes, provinces, camera | `frontend/src/components/editor/editorTemplates.ts`, `editorGeo.ts` (`cameraFit`), `editorProvinces.ts`; data under `frontend/public/geo/` |
+| Map rules shared by editor and server (publish health, structure read) | `packages/shared/src/mapHealth.ts`, `packages/shared/src/mapStructure.ts`; parity test `backend/src/modules/maps/mapHealthParity.test.ts` |
+| Map routes, moderation, balance report (bots in a worker thread), map of the week | `backend/src/modules/maps/maps.routes.ts`, `mapBalanceSim.ts` + `mapBalanceThread.ts`, `featuredMap.ts` |
+| Editor funnel (Admin → Analytics card, funnel CLI) | `backend/src/services/analyticsQueries.ts` (`getEditorMetrics`), `frontend/src/components/admin/AdminAnalyticsPanel.tsx`, `backend/scripts/funnelReport.ts` |
 
 ## Rules of thumb
 
@@ -68,5 +74,6 @@ medium bot, so the numbers do not predict what a person scores.
 - Maps and games both live in **PostgreSQL** — map geometry in the `maps` table (JSONB); game sessions in `games` / `game_states`. When debugging “map not found” vs “game not found,” distinguish HTTP map fetch from socket `game:join` and DB rows.
 - Globe: respect **GeoJSON winding** and **`projection_bounds` / `geo_polygon`**; map data changes may affect **both** 2D and globe.
 - Do not add new markdown docs unless the user asks.
+- **Map editor:** the publish rules live in `@borderfall/shared` (`mapHealth.ts`) and run identically in the editor and on the server — change them there, and rebuild shared (`pnpm --filter @borderfall/shared build`) before frontend tests, which resolve the built `dist/`. Two flags, both ON with Admin → Config kill switches: `map_editor_enabled` (the editor and publishing) and `map_showcase_enabled` (map of the week, creator shelves, author links). Camera moves go through `cameraFit`: Oceania and Europe cross the antimeridian in Natural Earth, and a plain bounding box sends the camera to the wrong ocean.
 - **Warfront** (experimental RTS mode) must never affect the live Borderfall game and is **admin-only until further notice** — see the isolation rule in [CLAUDE.md](CLAUDE.md) before touching anything under `packages/warfront-sim/`, `database/warfront/`, or any Warfront route.
 - **0→1 feature work:** when the user asks to add a new building, tech, wonder, event card, faction ability, combat/economy rule, or any new gameplay capability, load and follow `.cursor/skills/feature-integration-playbook/SKILL.md` before touching code.
