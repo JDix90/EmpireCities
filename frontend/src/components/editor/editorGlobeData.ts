@@ -23,6 +23,8 @@ export interface EditorTerritory {
   region_id: string;
   iso_codes?: string[];
   geo_polygon?: [number, number][];
+  /** Province geometry: Natural Earth admin-1 iso_3166_2 codes ("US-CA"). */
+  admin1?: string[];
 }
 
 export interface EditorConnection {
@@ -114,7 +116,8 @@ function singleOrMerged(geometries: PolyGeom[]): PolyGeom | null {
 }
 
 /** A key that changes exactly when the territory's rendered geometry would. */
-export function territoryGeometryKey(t: EditorTerritory, countriesReady: boolean): string {
+export function territoryGeometryKey(t: EditorTerritory, countriesReady: boolean, provincesReady = false): string {
+  if (t.admin1 && t.admin1.length > 0 && provincesReady) return `admin1:${t.admin1.join(',')}`;
   if (t.iso_codes && t.iso_codes.length > 0 && countriesReady) return `iso:${t.iso_codes.join(',')}`;
   if (t.geo_polygon && t.geo_polygon.length >= 3) return `ring:${t.geo_polygon.join(';')}`;
   return 'none';
@@ -123,7 +126,18 @@ export function territoryGeometryKey(t: EditorTerritory, countriesReady: boolean
 export function territoryGeometry(
   t: EditorTerritory,
   isoToFeatures: Map<string, GeoJSON.Feature[]>,
+  admin1ByCode?: Map<string, PolyGeom>,
 ): PolyGeom | null {
+  if (t.admin1 && t.admin1.length > 0 && admin1ByCode && admin1ByCode.size > 0) {
+    const geometries: PolyGeom[] = [];
+    for (const code of t.admin1) {
+      const g = admin1ByCode.get(code);
+      if (g) geometries.push(g);
+    }
+    const merged = singleOrMerged(geometries);
+    if (merged) return merged;
+  }
+
   if (t.iso_codes && t.iso_codes.length > 0 && isoToFeatures.size > 0) {
     const geometries: PolyGeom[] = [];
     for (const code of t.iso_codes) {
@@ -159,19 +173,24 @@ export function territoryGeometry(
 export class TerritoryPolygonCache {
   private readonly entries = new Map<string, { key: string; datum: EditorPolygonDatum }>();
 
-  build(territories: EditorTerritory[], isoToFeatures: Map<string, GeoJSON.Feature[]>): EditorPolygonDatum[] {
+  build(
+    territories: EditorTerritory[],
+    isoToFeatures: Map<string, GeoJSON.Feature[]>,
+    admin1ByCode?: Map<string, PolyGeom>,
+  ): EditorPolygonDatum[] {
     const countriesReady = isoToFeatures.size > 0;
+    const provincesReady = !!admin1ByCode && admin1ByCode.size > 0;
     const seen = new Set<string>();
     const result: EditorPolygonDatum[] = [];
     for (const t of territories) {
       seen.add(t.territory_id);
-      const key = territoryGeometryKey(t, countriesReady);
+      const key = territoryGeometryKey(t, countriesReady, provincesReady);
       const hit = this.entries.get(t.territory_id);
       if (hit && hit.key === key) {
         result.push(hit.datum);
         continue;
       }
-      const geometry = territoryGeometry(t, isoToFeatures);
+      const geometry = territoryGeometry(t, isoToFeatures, admin1ByCode);
       if (!geometry) {
         this.entries.delete(t.territory_id);
         continue;
