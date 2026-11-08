@@ -5,7 +5,8 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { fetchMapById, GameMap, ERA_METADATA, scalePolygon } from '../../services/mapService';
+import { fetchMapById, GameMap, ERA_METADATA } from '../../services/mapService';
+import { previewProjector, previewRing } from '../../utils/mapPreviewProjection';
 import { startingBoardTerritoryCount } from '../../utils/startingBoard';
 import { useGalaxyAgeBetaEnabled } from '../../store/featureFlagsStore';
 import { withGalacticAgeLabel } from '../../constants/galacticAgeAccess';
@@ -75,7 +76,9 @@ export default function MapPreview({
     );
   }
 
-  const meta = ERA_METADATA[map.era_theme] || ERA_METADATA['ww2'];
+  const meta = ERA_METADATA[map.era_theme] || ERA_METADATA['custom'] || ERA_METADATA['ww2'];
+  // Built-in boards scale their canvas; editor maps fit their geography.
+  const { project, geography } = previewProjector(map, width, height);
 
   // Build region → color map
   const regionColorMap = new Map<string, string>();
@@ -121,8 +124,8 @@ export default function MapPreview({
           const to   = map.territories.find(t => t.territory_id === c.to);
           if (!from || !to) return null;
 
-          const [fx, fy] = scalePolygon([from.center_point], map.canvas_width, map.canvas_height, width, height)[0];
-          const [tx, ty] = scalePolygon([to.center_point],   map.canvas_width, map.canvas_height, width, height)[0];
+          const [fx, fy] = project(from.center_point);
+          const [tx, ty] = project(to.center_point);
 
           return (
             <line
@@ -137,7 +140,7 @@ export default function MapPreview({
 
         {/* Territory polygons */}
         {map.territories.map(t => {
-          const scaled  = scalePolygon(t.polygon, map.canvas_width, map.canvas_height, width, height);
+          const scaled  = previewRing(t, geography).map(project);
           const points  = scaled.map(([x, y]) => `${x},${y}`).join(' ');
           const color   = regionColorMap.get(t.region_id) || '#666';
           const isHov   = hovered === t.territory_id;
@@ -154,7 +157,7 @@ export default function MapPreview({
                 setHovered(t.territory_id);
                 const rect = svgRef.current?.getBoundingClientRect();
                 if (rect) {
-                  const [cx, cy] = scalePolygon([t.center_point], map.canvas_width, map.canvas_height, width, height)[0];
+                  const [cx, cy] = project(t.center_point);
                   setTooltip({ x: cx, y: cy, name: t.name });
                 }
               }}
@@ -168,7 +171,7 @@ export default function MapPreview({
 
         {/* Territory center dots */}
         {map.territories.map(t => {
-          const [cx, cy] = scalePolygon([t.center_point], map.canvas_width, map.canvas_height, width, height)[0];
+          const [cx, cy] = project(t.center_point);
           return (
             <circle
               key={`dot-${t.territory_id}`}

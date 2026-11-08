@@ -15,6 +15,11 @@ export interface Territory {
   region_id: string;
   /** WGS84 [lng, lat] ring when present; globe uses this instead of projecting canvas polygons. */
   geo_polygon?: [number, number][];
+  /** Whole-country geometry: ISO 3166-1 alpha-2 codes merged from Natural Earth (editor maps). */
+  iso_codes?: string[];
+  /** Province geometry: Natural Earth admin-1 iso_3166_2 codes (editor Provinces mode). */
+  admin1?: string[];
+  geo_config?: Array<{ iso: string; clip_bbox?: [number, number, number, number] }>;
   globe_id?: 'earth' | 'moon';
   world_id?: string;
   galaxy_position?: [number, number];
@@ -84,6 +89,10 @@ export interface GameMap {
   is_public: boolean;
   play_count: number;
   creator_id: string;
+  /** Community maps: draft | pending | approved | rejected. */
+  moderation_status?: string;
+  rating_sum?: number;
+  rating_count?: number;
 }
 
 export interface MapSummary {
