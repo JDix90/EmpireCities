@@ -5,6 +5,7 @@ import { Star, Globe, Plus, Map, Users, Zap, Compass, Search, Landmark, Sparkles
 import { defaultTestPlayEra, startTestGame } from '../utils/testPlay';
 import MapOfTheWeekCard, { useFeaturedMap } from '../components/lobby/MapOfTheWeekCard';
 import { trackUiEvent } from '../utils/uiEvents';
+import { formatMapAuthor, isAccountId } from '../utils/mapAuthor';
 import toast from 'react-hot-toast';
 import { fetchEraMaps, MapSummary, ERA_METADATA, GameMap, selectCanonicalEraMaps } from '../services/mapService';
 import MapPreview from '../components/lobby/MapPreview';
@@ -61,14 +62,6 @@ const FEATURED: Array<{ kind: 'era'; era_theme: string } | { kind: 'regional'; m
   { kind: 'era', era_theme: 'ww2' },
   { kind: 'regional', map_id: 'community_balkanized_usa' },
 ];
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function formatCommunityUploader(creatorId: string): string {
-  if (creatorId === 'jmd') return 'JMD';
-  if (creatorId.length <= 3) return creatorId.toUpperCase();
-  return creatorId;
-}
 
 function matches(query: string, ...fields: (string | undefined)[]): boolean {
   if (!query) return true;
@@ -356,12 +349,12 @@ export default function MapHubPage() {
       {map.description && <p className="text-bf-muted text-sm mb-3 line-clamp-2">{map.description}</p>}
       <p className="text-xs text-bf-muted/90 mb-3">
         Uploaded by{' '}
-        {showcase && UUID_RE.test(map.creator_id) ? (
+        {showcase && isAccountId(map.creator_id) ? (
           <Link to={`/profile/${map.creator_id}`} className="text-bf-text hover:text-bf-gold" title="The author's profile and other maps">
-            {map.creator_name ?? formatCommunityUploader(map.creator_id)}
+            {formatMapAuthor(map.creator_id, map.creator_name)}
           </Link>
         ) : (
-          <span className="text-bf-text">{map.creator_name ?? formatCommunityUploader(map.creator_id)}</span>
+          <span className="text-bf-text">{formatMapAuthor(map.creator_id, map.creator_name)}</span>
         )}
       </p>
       <div className="flex items-center justify-between text-xs text-bf-muted mb-4">

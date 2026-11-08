@@ -35,6 +35,14 @@ describe('MapOfTheWeekCard', () => {
     expect(screen.getByText('Play This Map')).toBeInTheDocument();
   });
 
+  it('names a seeded author from the creator id, as the hub does, with no profile to link', () => {
+    const seeded = { ...featured, map: { ...featured.map, creator_id: 'jmd', creator_name: null } };
+    render(<MemoryRouter><MapOfTheWeekCard featured={seeded} /></MemoryRouter>);
+    expect(screen.getByText('JMD')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'JMD' })).toBeNull();
+    expect(screen.queryByText('a community author')).toBeNull();
+  });
+
   it('renders nothing while loading or with no community maps yet', () => {
     const { container, rerender } = render(<MemoryRouter><MapOfTheWeekCard featured={null} /></MemoryRouter>);
     expect(container.querySelector('[data-testid="map-of-the-week"]')).toBeNull();

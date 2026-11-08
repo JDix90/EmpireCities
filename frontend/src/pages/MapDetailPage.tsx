@@ -13,8 +13,7 @@ import { useAuthStore } from '../store/authStore';
 import { useMapEditorEnabled, useMapShowcaseEnabled } from '../store/featureFlagsStore';
 import { trackUiEvent } from '../utils/uiEvents';
 import { useFeaturedMap } from '../components/lobby/MapOfTheWeekCard';
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { formatMapAuthor, isAccountId } from '../utils/mapAuthor';
 
 type LoadState = 'loading' | 'ready' | 'missing';
 
@@ -127,12 +126,12 @@ export default function MapDetailPage() {
               </div>
               <p className="text-sm text-bf-muted">
                 By{' '}
-                {showcase && !isBuiltIn && UUID_RE.test(map.creator_id) ? (
+                {showcase && !isBuiltIn && isAccountId(map.creator_id) ? (
                   <Link to={`/profile/${map.creator_id}`} className="text-bf-text hover:text-bf-gold" title="The author's profile and other maps">
-                    {creatorName ?? 'a community author'}
+                    {formatMapAuthor(map.creator_id, creatorName)}
                   </Link>
                 ) : (
-                  <span className="text-bf-text">{isBuiltIn ? 'Borderfall' : creatorName ?? 'a community author'}</span>
+                  <span className="text-bf-text">{isBuiltIn ? 'Borderfall' : formatMapAuthor(map.creator_id, creatorName)}</span>
                 )}
               </p>
               <div className="flex flex-wrap items-center gap-3 text-xs text-bf-muted pt-1">
