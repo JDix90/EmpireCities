@@ -60,6 +60,7 @@ import TerritoryPanel from '../components/editor/TerritoryPanel';
 import RegionsPanel from '../components/editor/RegionsPanel';
 import TestPlayButton from '../components/editor/TestPlayButton';
 import PublishPanel, { type PublishStatus } from '../components/editor/PublishPanel';
+import BalancePanel from '../components/editor/BalancePanel';
 import { useEditorProvinces } from '../hooks/useEditorProvinces';
 import { buildProvinceSplit, coveredCountryCodes } from '../components/editor/editorProvinces';
 import { trackUiEvent } from '../utils/uiEvents';
@@ -1276,6 +1277,20 @@ export default function MapEditorPage() {
             onHoverIssue={hoverIssue}
             onClickIssue={clickIssue}
             fixes={fixes}
+          />
+
+          <BalancePanel
+            mapId={mapId ?? null}
+            isDirty={isDirty}
+            ready={report.ready}
+            territories={territories}
+            connections={connections}
+            regions={regions}
+            onHoverTerritories={(ids) => act().setHighlight(ids ?? [])}
+            onFocusTerritory={(id) => {
+              act().select(id);
+              focusTerritory(id);
+            }}
           />
 
           {/* Stats */}

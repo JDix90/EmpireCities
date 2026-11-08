@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { Star, Globe, Plus, Map, Users, Zap, Compass, Search, Landmark, Sparkles, Eye, Play } from 'lucide-react';
 import { defaultTestPlayEra, startTestGame } from '../utils/testPlay';
+import MapOfTheWeekCard, { useFeaturedMap } from '../components/lobby/MapOfTheWeekCard';
 import { trackUiEvent } from '../utils/uiEvents';
 import toast from 'react-hot-toast';
 import { fetchEraMaps, MapSummary, ERA_METADATA, GameMap, selectCanonicalEraMaps } from '../services/mapService';
@@ -61,6 +62,8 @@ const FEATURED: Array<{ kind: 'era'; era_theme: string } | { kind: 'regional'; m
   { kind: 'regional', map_id: 'community_balkanized_usa' },
 ];
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function formatCommunityUploader(creatorId: string): string {
   if (creatorId === 'jmd') return 'JMD';
   if (creatorId.length <= 3) return creatorId.toUpperCase();
@@ -79,6 +82,7 @@ export default function MapHubPage() {
   const mapEditorEnabled = useMapEditorEnabled();
   const saveAccountCopy = useSaveAccountCopyEnabled();
   const { user, isAuthenticated } = useAuthStore();
+  const featured = useFeaturedMap();
 
   // Hub navigation
   const [tab, setTab] = useState<HubTab>('all');
@@ -350,7 +354,14 @@ export default function MapHubPage() {
       </div>
       {map.description && <p className="text-bf-muted text-sm mb-3 line-clamp-2">{map.description}</p>}
       <p className="text-xs text-bf-muted/90 mb-3">
-        Uploaded by <span className="text-bf-text">{map.creator_name ?? formatCommunityUploader(map.creator_id)}</span>
+        Uploaded by{' '}
+        {UUID_RE.test(map.creator_id) ? (
+          <Link to={`/profile/${map.creator_id}`} className="text-bf-text hover:text-bf-gold" title="The author's profile and other maps">
+            {map.creator_name ?? formatCommunityUploader(map.creator_id)}
+          </Link>
+        ) : (
+          <span className="text-bf-text">{map.creator_name ?? formatCommunityUploader(map.creator_id)}</span>
+        )}
       </p>
       <div className="flex items-center justify-between text-xs text-bf-muted mb-4">
         <span className="flex items-center gap-1"><Star className="w-3.5 h-3.5 text-bf-gold" />{map.rating.toFixed(1)} ({map.rating_count})</span>
@@ -454,6 +465,9 @@ export default function MapHubPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Map of the week (All and Community tabs, no active search) ──── */}
+      {(tab === 'all' || tab === 'community') && !search && <MapOfTheWeekCard featured={featured} />}
 
       {/* ── Featured (All tab only, no active search) ────────────────────── */}
       {tab === 'all' && !search && !eraLoading && (

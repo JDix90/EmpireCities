@@ -416,15 +416,5 @@ export function regionStats(
   return stats;
 }
 
-/**
- * A region bonus in the classic proportions: a third of the territories plus
- * half the border territories, since a region with many ways in is harder to
- * hold. On the original board it gives North America (9, 3) → 5 and Asia
- * (12, 5) → 7 exactly, and lands within one everywhere else. Zero for a
- * region too small to ever pay.
- */
-export function suggestRegionBonus(territoryCount: number, borderTerritoryCount: number): number {
-  if (territoryCount < 2) return 0;
-  const raw = territoryCount / 3 + borderTerritoryCount / 2;
-  return Math.max(1, Math.min(20, Math.round(raw)));
-}
+/** The region-bonus rule of thumb lives with the structural analysis in @borderfall/shared. */
+export { suggestRegionBonus } from '@borderfall/shared';

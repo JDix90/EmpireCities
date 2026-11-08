@@ -20,7 +20,15 @@ import {
   upsertMapRating,
 } from './mapService';
 import { getTutorialMap } from '../../game-engine/tutorial/tutorialScript';
-import { findMapCreatorName } from '../../db/postgres/mapsRepository';
+import {
+  findMapCreatorName,
+  listApprovedMapsByCreator,
+  listFeaturedCandidates,
+  rowToSummary,
+} from '../../db/postgres/mapsRepository';
+import { isoWeekKey, pickFeaturedMap } from './featuredMap';
+import { BalanceBusyError, getBalanceReport, resolveBalanceOptions, type BalanceRequest } from './mapBalanceService';
+import { getRedis } from '../../db/redis';
 import { isMapEditorEnabled, mapEditorDisabledReply } from '../../middleware/mapEditorGate';
 import { formatZodError } from '../../utils/formatZodError';
 import { validateMapDocument } from './mapValidation';
@@ -266,6 +274,59 @@ export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
     return reply.send({ maps, total, page: pageNum, pages: Math.ceil(total / limit) });
   });
 
+  // ── The map of the week ────────────────────────────────────────────────
+  // One approved community map, the same for everyone all week, from the
+  // best-rated ten, rotating by the week (featuredMap.ts). Cached briefly so
+  // the hub does not rank the table on every visit.
+  fastify.get('/featured', async (_request, reply) => {
+    const week = isoWeekKey(new Date());
+    const cacheKey = `maps:featured:${week}`;
+    try {
+      const cached = await getRedis().get(cacheKey);
+      if (cached) return reply.send(JSON.parse(cached));
+    } catch {
+      /* no cache: compute */
+    }
+    const candidates = await listFeaturedCandidates(40);
+    const pick = pickFeaturedMap(
+      candidates.map((row) => ({ ...row, rating: Number(row.rating) })),
+      week,
+    );
+    const payload = {
+      week,
+      map: pick
+        ? {
+          ...rowToSummary(pick),
+          rating: Number(pick.rating),
+          rating_count: pick.rating_count,
+          creator_name: pick.creator_name,
+          created_at: pick.created_at,
+        }
+        : null,
+    };
+    try {
+      await getRedis().setex(cacheKey, 600, JSON.stringify(payload));
+    } catch {
+      /* non-fatal */
+    }
+    return reply.send(payload);
+  });
+
+  // A creator's published maps: the shelf on their profile.
+  fastify.get<{ Params: { userId: string } }>('/by-creator/:userId', async (request, reply) => {
+    const { userId } = request.params;
+    if (!/^[0-9a-f-]{36}$/i.test(userId)) return reply.status(404).send({ error: 'User not found' });
+    const rows = await listApprovedMapsByCreator(userId);
+    return reply.send({
+      maps: rows.map((row) => ({
+        ...rowToSummary(row),
+        rating: Number(row.rating),
+        rating_count: row.rating_count,
+        created_at: row.created_at,
+      })),
+    });
+  });
+
   fastify.get('/me', { preHandler: authenticate }, async (request, reply) => {
     const rows = await listMapsByCreator(request.userId!);
     const maps = rows.map((row) => ({
@@ -355,6 +416,57 @@ export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
       await submitMapForModeration(request.params.mapId, request.userId!);
       await invalidateMapCache(request.params.mapId);
       return reply.send({ message: 'Map submitted for moderation review' });
+    },
+  );
+
+  // ── Balance report ─────────────────────────────────────────────────────
+  // Bots play the map a few times in a worker thread; the author (or anyone
+  // on a published map) learns which seats win, how games end, which regions
+  // ever pay and what never changes hands. The board has to pass the publish
+  // checks first: the engine cannot deal a split map.
+  const BalanceBodySchema = z.object({
+    games: z.number().int().min(1).max(12).optional(),
+    seats: z.number().int().min(2).max(6).optional(),
+    difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
+    max_rounds: z.number().int().min(10).max(80).optional(),
+  });
+  fastify.post<{ Params: { mapId: string } }>(
+    '/:mapId/balance',
+    { preHandler: [authenticate, rejectGuest], config: { rateLimit: { max: 6, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      if (!isMapEditorEnabled()) return mapEditorDisabledReply(reply);
+      const parsed = BalanceBodySchema.safeParse(request.body ?? {});
+      if (!parsed.success) return reply.status(400).send(formatZodError(parsed.error, 'Invalid balance options'));
+
+      const row = await findMapVisibleToUser(request.params.mapId, request.userId!);
+      if (!row) return reply.status(404).send({ error: 'Map not found' });
+      const errors = validateMapDocument({
+        map_id: row.map_id,
+        name: row.name,
+        territories: row.territories,
+        connections: row.connections,
+        regions: row.regions,
+      });
+      if (errors.length > 0) {
+        return reply.status(400).send({ error: 'Fix the Map health blockers before simulating', errors });
+      }
+
+      const body: BalanceRequest = {
+        games: parsed.data.games,
+        seats: parsed.data.seats,
+        difficulty: parsed.data.difficulty,
+        maxRounds: parsed.data.max_rounds,
+      };
+      const map = rowToGameMap(row);
+      const options = resolveBalanceOptions(map.map_id, body);
+      try {
+        const result = await getBalanceReport(map, options);
+        return reply.send(result);
+      } catch (err) {
+        if (err instanceof BalanceBusyError) return reply.status(429).send({ error: err.message });
+        fastify.log.error({ err, mapId: map.map_id }, 'balance simulation failed');
+        return reply.status(500).send({ error: 'The balance simulation failed; try again in a moment' });
+      }
     },
   );
 

@@ -15,6 +15,7 @@ import { useStoreV2Enabled, useGuestPersonalFeaturesEnabled } from '../store/fea
 import { useGuestLeaderboardsEnabled, useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
 import FrameRing from '../components/cosmetics/FrameRing';
 import BannerTag from '../components/cosmetics/BannerTag';
+import CreatorMaps from '../components/account/CreatorMaps';
 
 /** Format a date string with locale date + browser timezone abbreviation (e.g. "Apr 21, 2025 · PDT"). */
 function formatDate(iso: string): string {
@@ -446,6 +447,9 @@ export default function ProfilePage() {
             )}
           </div>
         )}
+
+        {/* Published maps */}
+        {targetId && !ownGuest && <CreatorMaps userId={targetId} isOwn={isOwnProfile} />}
 
         {/* Achievements */}
         {isOwnProfile && allAchievements.length > 0 && (

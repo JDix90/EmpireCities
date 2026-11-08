@@ -84,6 +84,8 @@ const UiEventSchema = z.object({
     'editor_submit_clicked',
     'editor_test_play_started',
     'map_shared',
+    // A balance simulation asked for from the editor (map_id, seats, games).
+    'editor_balance_run',
     // What a player does in the first turn of a real game (not the tutorial),
     // posted once per step per game while first_turn_events_enabled is on
     // (frontend utils/firstTurnSteps.ts): the briefing closed, a territory of
