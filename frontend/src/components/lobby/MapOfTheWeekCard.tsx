@@ -4,6 +4,7 @@ import { Crown, Eye, Globe, Map, Star, Users } from 'lucide-react';
 import { api } from '../../services/api';
 import MapPreview from './MapPreview';
 import { ERA_LABELS } from '../../constants/gameLobbyLabels';
+import { formatMapAuthor, isAccountId } from '../../utils/mapAuthor';
 
 export interface FeaturedMap {
   map_id: string;
@@ -23,8 +24,6 @@ export interface FeaturedPayload {
   week: string;
   map: FeaturedMap | null;
 }
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const NO_FEATURED: FeaturedPayload = { week: '', map: null };
 
@@ -75,10 +74,10 @@ export default function MapOfTheWeekCard({ featured }: { featured: FeaturedPaylo
             <h2 className="font-display text-2xl text-bf-gold truncate">{map.name}</h2>
             <p className="text-sm text-bf-muted mt-1">
               by{' '}
-              {UUID_RE.test(map.creator_id) ? (
-                <Link to={`/profile/${map.creator_id}`} className="text-bf-text hover:text-bf-gold">{map.creator_name ?? 'a community author'}</Link>
+              {isAccountId(map.creator_id) ? (
+                <Link to={`/profile/${map.creator_id}`} className="text-bf-text hover:text-bf-gold">{formatMapAuthor(map.creator_id, map.creator_name)}</Link>
               ) : (
-                <span className="text-bf-text">{map.creator_name ?? 'a community author'}</span>
+                <span className="text-bf-text">{formatMapAuthor(map.creator_id, map.creator_name)}</span>
               )}
               <span>{map.era_theme && map.era_theme !== 'custom' && ERA_LABELS[map.era_theme] ? ` · ${ERA_LABELS[map.era_theme]}` : ''}</span>
             </p>

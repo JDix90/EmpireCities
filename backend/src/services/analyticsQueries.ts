@@ -301,6 +301,8 @@ export interface AnalyticsReport {
   guest_accounts: GuestAccountMetrics;
   active_players: ActivePlayers;
   first_turn: FirstTurnFunnel;
+  /** The map editor: who opened it, who built and sent something, and what came of the review. */
+  editor: EditorMetrics;
 }
 
 /**
@@ -1017,12 +1019,97 @@ export async function getFirstTurnFunnel(
   };
 }
 
+/**
+ * The map editor's funnel. Players, not events, for the steps: a maker with
+ * five maps counts once per step. Staff and test accounts are left out as
+ * everywhere else, except for the moderation decisions, which are the
+ * moderator's own events and would otherwise never count.
+ */
+export interface EditorMetrics {
+  /** Players who opened the editor in the window. */
+  opened: number;
+  /** Players who started from a template, a remix or an imported file. */
+  templated: number;
+  /** Players who saved a map. */
+  saved: number;
+  /** Players who sent a map for review (the click, not the moderator's answer). */
+  submitted: number;
+  /** Players who played a test game or ran a balance report from the editor. */
+  tested: number;
+  /** Test games started from the editor or My Maps. */
+  test_plays: number;
+  /** Balance reports run. */
+  balance_runs: number;
+  /** Maps approved and sent back in the window, from every account. */
+  approved: number;
+  rejected: number;
+  /** What players started from, most used first: a continent, 'remix', 'import'. */
+  templates: Array<{ template: string; n: number }>;
+}
+
+export async function getEditorMetrics(days: number): Promise<EditorMetrics> {
+  const [players, moderation, templates] = await Promise.all([
+    query<Record<string, unknown>>(
+      `SELECT
+         COUNT(DISTINCT user_id) FILTER (WHERE event = 'editor_opened')::int AS opened,
+         COUNT(DISTINCT user_id) FILTER (WHERE event = 'editor_template_applied')::int AS templated,
+         COUNT(DISTINCT user_id) FILTER (WHERE event = 'editor_map_saved')::int AS saved,
+         COUNT(DISTINCT user_id) FILTER (WHERE event = 'editor_submit_clicked')::int AS submitted,
+         COUNT(DISTINCT user_id) FILTER (WHERE event IN ('editor_test_play_started', 'editor_balance_run'))::int AS tested,
+         COUNT(*) FILTER (WHERE event = 'editor_test_play_started')::int AS test_plays,
+         COUNT(*) FILTER (WHERE event = 'editor_balance_run')::int AS balance_runs
+       FROM analytics_events
+       WHERE event IN ('editor_opened', 'editor_template_applied', 'editor_map_saved', 'editor_submit_clicked',
+                       'editor_test_play_started', 'editor_balance_run')
+         AND created_at >= NOW() - make_interval(days => $1::int)
+         AND ${countedEventSql('analytics_events')}`,
+      [days],
+    ),
+    // Moderation is recorded under the moderator's account, which the stats
+    // exclusion would drop, so these two are counted from every account.
+    query<Record<string, unknown>>(
+      `SELECT
+         COUNT(*) FILTER (WHERE event = 'map_approved')::int AS approved,
+         COUNT(*) FILTER (WHERE event = 'map_rejected')::int AS rejected
+       FROM analytics_events
+       WHERE event IN ('map_approved', 'map_rejected')
+         AND created_at >= NOW() - make_interval(days => $1::int)`,
+      [days],
+    ),
+    query<{ template: string; n: number | string }>(
+      `SELECT COALESCE(properties->>'template', 'unknown') AS template, COUNT(*)::int AS n
+       FROM analytics_events
+       WHERE event = 'editor_template_applied'
+         AND created_at >= NOW() - make_interval(days => $1::int)
+         AND ${countedEventSql('analytics_events')}
+       GROUP BY 1
+       ORDER BY n DESC, template ASC
+       LIMIT 8`,
+      [days],
+    ),
+  ]);
+  const p = players[0];
+  const m = moderation[0];
+  return {
+    opened: num(p?.opened),
+    templated: num(p?.templated),
+    saved: num(p?.saved),
+    submitted: num(p?.submitted),
+    tested: num(p?.tested),
+    test_plays: num(p?.test_plays),
+    balance_runs: num(p?.balance_runs),
+    approved: num(m?.approved),
+    rejected: num(m?.rejected),
+    templates: templates.map((t) => ({ template: t.template, n: num(t.n) })),
+  };
+}
+
 /** Everything the funnel report / admin view needs, in one shot. */
 export async function getAnalyticsReport(days: number, device: FunnelDevice | null = null): Promise<AnalyticsReport> {
   // NOTE: the section queries share one mocked `query` in the unit test, which
   // matches them positionally — a new section goes on the END of this list so
   // it cannot shift the mocks of the ones above it.
-  const [visitors, funnel, retention, retentionByCohort, completion, acquisition, volume, tutorial, totalRow, firstMatch, soloByLevel, guestAccounts, activePlayers, firstTurn] = await Promise.all([
+  const [visitors, funnel, retention, retentionByCohort, completion, acquisition, volume, tutorial, totalRow, firstMatch, soloByLevel, guestAccounts, activePlayers, firstTurn, editor] = await Promise.all([
     getVisitorFunnel(days),
     getFunnelMetrics(days, device),
     getRetentionMetrics(),
@@ -1037,6 +1124,7 @@ export async function getAnalyticsReport(days: number, device: FunnelDevice | nu
     getGuestAccountMetrics(days),
     getActivePlayers(days),
     getFirstTurnFunnel(days, device),
+    getEditorMetrics(days),
   ]);
   return {
     window_days: days,
@@ -1056,5 +1144,6 @@ export async function getAnalyticsReport(days: number, device: FunnelDevice | nu
     guest_accounts: guestAccounts,
     active_players: activePlayers,
     first_turn: firstTurn,
+    editor,
   };
 }

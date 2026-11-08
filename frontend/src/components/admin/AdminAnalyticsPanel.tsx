@@ -145,6 +145,20 @@ export interface GuestAccountMetrics {
   other_guest_saved: number;
 }
 
+/** The map editor's funnel: players per step, event counts for the rest (backend EditorMetrics). */
+export interface EditorMetrics {
+  opened: number;
+  templated: number;
+  saved: number;
+  submitted: number;
+  tested: number;
+  test_plays: number;
+  balance_runs: number;
+  approved: number;
+  rejected: number;
+  templates: Array<{ template: string; n: number }>;
+}
+
 export interface AnalyticsReport {
   window_days: number;
   /** The signup device the funnels were narrowed to; null or absent for all. */
@@ -170,6 +184,8 @@ export interface AnalyticsReport {
   active_players?: ActivePlayers;
   /** Optional for rollout: older backends won't send it. */
   first_turn?: FirstTurnFunnel;
+  /** Optional for rollout: older backends won't send it. */
+  editor?: EditorMetrics;
   acquisition_channels?: AcquisitionChannelRow[];
 }
 
@@ -675,6 +691,54 @@ export default function AdminAnalyticsPanel({
             (&quot;not sent&quot; means the email provider refused the send). The last card compares new guests who
             looked at their achievements or wore a cosmetic with those who did neither: it shows who saves,
             not why, since players who explore more do both.
+          </p>
+        </section>
+      )}
+
+      {/* The map editor: who opened it, who built something, who sent it in,
+          and what came of the review. Players, not events, so a maker with
+          five maps counts once per step. Shown once anyone has opened it. */}
+      {data.editor && (data.editor.opened > 0 || data.editor.approved + data.editor.rejected > 0) && (
+        <section className="rounded-xl border border-bf-border bg-cc-panel/50 p-4">
+          <p className="text-sm font-semibold text-bf-text">
+            Map editor{' '}
+            <span className="text-xs font-normal text-bf-muted">· last {data.window_days}d · players</span>
+          </p>
+          <div className="mt-3 space-y-2">
+            <FunnelStep label="Opened the editor" n={data.editor.opened} total={data.editor.opened} />
+            <FunnelStep label="Started from a template" n={data.editor.templated} total={data.editor.opened} />
+            <FunnelStep label="Saved a map" n={data.editor.saved} total={data.editor.opened} />
+            <FunnelStep label="Tried it against bots" n={data.editor.tested} total={data.editor.opened} />
+            <FunnelStep label="Sent one for review" n={data.editor.submitted} total={data.editor.opened} highlight />
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Stat
+              label="Approved"
+              value={data.editor.approved.toLocaleString()}
+              sub={`${data.editor.rejected} sent back`}
+            />
+            <Stat
+              label="Test games"
+              value={data.editor.test_plays.toLocaleString()}
+              sub="started from the editor or My Maps"
+            />
+            <Stat
+              label="Balance reports"
+              value={data.editor.balance_runs.toLocaleString()}
+              sub="bot simulations run"
+            />
+            <Stat
+              label="Most used start"
+              value={data.editor.templates[0]?.template ?? '—'}
+              sub={data.editor.templates.length > 1
+                ? data.editor.templates.slice(1, 4).map((t) => `${t.template} ${t.n}`).join(' · ')
+                : 'nothing else yet'}
+            />
+          </div>
+          <p className="mt-2 text-xs text-bf-muted">
+            Each step counts a player once however many maps they made. Staff and test accounts are left out as
+            elsewhere; the approvals are the moderator&apos;s own acts, so those come from every account. &quot;Sent
+            one for review&quot; is the click; the Maps tab shows what is still waiting.
           </p>
         </section>
       )}

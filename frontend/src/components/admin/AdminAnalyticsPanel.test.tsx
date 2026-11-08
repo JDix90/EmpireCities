@@ -134,6 +134,33 @@ describe('AdminAnalyticsPanel', () => {
     expect(screen.getByText('5/20 · 5% of the rest')).toBeTruthy();
   });
 
+  it('shows the map editor once anyone has opened it, and nothing for an older backend', () => {
+    const quiet = { opened: 0, templated: 0, saved: 0, submitted: 0, tested: 0, test_plays: 0, balance_runs: 0, approved: 0, rejected: 0, templates: [] };
+    const { unmount } = render(<AdminAnalyticsPanel data={report} />);
+    expect(screen.queryByText('Map editor')).toBeNull();
+    unmount();
+    const { unmount: unmountQuiet } = render(<AdminAnalyticsPanel data={{ ...report, editor: quiet }} />);
+    expect(screen.queryByText('Map editor')).toBeNull();
+    unmountQuiet();
+    render(
+      <AdminAnalyticsPanel
+        data={{
+          ...report,
+          editor: {
+            opened: 20, templated: 12, saved: 8, submitted: 3, tested: 5, test_plays: 9, balance_runs: 4, approved: 2, rejected: 1,
+            templates: [{ template: 'Europe', n: 6 }, { template: 'remix', n: 4 }, { template: 'Oceania', n: 2 }],
+          },
+        }}
+      />,
+    );
+    expect(screen.getByText('Map editor')).toBeTruthy();
+    expect(screen.getByText('Sent one for review')).toBeTruthy();
+    expect(screen.getByText('3 · 15%')).toBeTruthy();
+    expect(screen.getByText('1 sent back')).toBeTruthy();
+    expect(screen.getByText('Europe')).toBeTruthy();
+    expect(screen.getByText('remix 4 · Oceania 2')).toBeTruthy();
+  });
+
   it('shows solo games by bot level when the backend sends any, and nothing otherwise', () => {
     const noCaptures = { bot_captures: 0, bot_captures_from_human: 0, bot_captures_from_leader: 0, bot_captures_from_weakest: 0 };
     const { unmount } = render(<AdminAnalyticsPanel data={{ ...report, solo_by_level: [] }} />);
