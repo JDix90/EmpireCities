@@ -42,7 +42,9 @@ async function cameraCentre(page: Page) {
 
 async function startFromContinent(page: Page, continent: string) {
   await page.goto('/editor');
-  await expect(page.getByRole('heading', { name: 'Start a map' })).toBeVisible();
+  // A cold load of a code-split route behind the flags fetch: on a busy runner
+  // it has taken longer than the default five seconds.
+  await expect(page.getByRole('heading', { name: 'Start a map' })).toBeVisible({ timeout: 30_000 });
   // The continent cards wait for the 3 MB Natural Earth file.
   const card = page.getByRole('button', { name: new RegExp(`^${continent}\\b`) });
   await expect(card).toBeEnabled({ timeout: 20_000 });
