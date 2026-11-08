@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { ERA_LABELS } from '../constants/gameLobbyLabels';
-import { isMobileViewport } from '../utils/device';
+import { isPhoneLayout } from '../utils/device';
 import { GlobeMapEditorLazy, preloadGlobeEditorChunk } from '../utils/globeLoader';
 import type { GlobeFocus } from '../components/editor/GlobeMapEditor';
 import {
@@ -58,6 +58,12 @@ import CountrySearch from '../components/editor/CountrySearch';
 import EditorGuide, { type GuideStep } from '../components/editor/EditorGuide';
 import TerritoryPanel from '../components/editor/TerritoryPanel';
 import RegionsPanel from '../components/editor/RegionsPanel';
+import TestPlayButton from '../components/editor/TestPlayButton';
+import PublishPanel, { type PublishStatus } from '../components/editor/PublishPanel';
+import { useEditorProvinces } from '../hooks/useEditorProvinces';
+import { buildProvinceSplit, coveredCountryCodes } from '../components/editor/editorProvinces';
+import { trackUiEvent } from '../utils/uiEvents';
+import type { GameMap } from '../services/mapService';
 
 const TOOLS: { tool: EditorTool; icon: React.ReactNode; title: string; shortcut: string }[] = [
   { tool: 'select', icon: <MousePointer className="w-4 h-4" />, title: 'Select', shortcut: 'V' },
@@ -139,11 +145,14 @@ export default function MapEditorPage() {
   const { ready: countriesReady, isoToFeatures, countryData, countries } = useEditorCountries();
   const countryByCode = useMemo(() => new Map(countries.map((c) => [c.code, c] as const)), [countries]);
   const continents = useMemo(() => continentOptions(countries), [countries]);
+  // Provinces load on demand: when the author splits a country, or at once
+  // for a map that already has province territories.
+  const provinces = useEditorProvinces(territories.some((t) => (t.admin1?.length ?? 0) > 0));
 
   const polygonCacheRef = useRef(new TerritoryPolygonCache());
   const territoryPolygons = useMemo(
-    () => polygonCacheRef.current.build(territories, isoToFeatures),
-    [territories, isoToFeatures],
+    () => polygonCacheRef.current.build(territories, isoToFeatures, provinces.byCode),
+    [territories, isoToFeatures, provinces.byCode],
   );
   const geometryById = useMemo(
     () => new Map(territoryPolygons.map((p) => [p.id, p.geometry] as const)),
@@ -153,11 +162,8 @@ export default function MapEditorPage() {
     (): TerritoryGeom[] => territoryPolygons.map((p) => ({ id: p.id, geometry: p.geometry })),
     [territoryPolygons],
   );
-  const usedCodes = useMemo(() => {
-    const set = new Set<string>();
-    for (const t of territories) t.iso_codes?.forEach((c) => set.add(c));
-    return set;
-  }, [territories]);
+  // Countries on the map, whole or as provinces: the search shows them as taken.
+  const usedCodes = useMemo(() => coveredCountryCodes(territories), [territories]);
 
   // ── Live map health: the publish rules, plus advice ──────────────────────
   const report = useMemo(
@@ -174,6 +180,8 @@ export default function MapEditorPage() {
 
   // ── Page state ───────────────────────────────────────────────────────────
   const [moderationStatus, setModerationStatus] = useState<string | null>(null);
+  const [moderationReason, setModerationReason] = useState<string | null>(null);
+  const [splitting, setSplitting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
@@ -191,6 +199,11 @@ export default function MapEditorPage() {
   // ── Lifecycle ────────────────────────────────────────────────────────────
   useEffect(() => {
     preloadGlobeEditorChunk();
+  }, []);
+
+  // Once per visit: the top of the editor funnel.
+  useEffect(() => {
+    trackUiEvent('editor_opened', { source: mapId ? 'existing' : 'new' });
   }, []);
 
   // The store outlives the page: start clean, and leave clean.
@@ -235,10 +248,13 @@ export default function MapEditorPage() {
   // listing does. One fetch drives the status pill and the submit button.
   useEffect(() => {
     if (!mapId) return;
-    api.get<Array<{ map_id: string; moderation_status: string }>>('/maps/me')
+    api.get<Array<{ map_id: string; moderation_status: string; moderation_reason?: string | null }>>('/maps/me')
       .then((res) => {
         const mine = res.data.find((m) => m.map_id === mapId);
-        if (mine) setModerationStatus(mine.moderation_status);
+        if (mine) {
+          setModerationStatus(mine.moderation_status);
+          setModerationReason(mine.moderation_reason ?? null);
+        }
       })
       .catch(() => {});
   }, [mapId]);
@@ -326,7 +342,7 @@ export default function MapEditorPage() {
 
   const handleCountryPick = useCallback((code: string, name: string, geometry: PolyGeom) => {
     const s = act();
-    if (s.territories.some((t) => t.iso_codes?.includes(code))) {
+    if (coveredCountryCodes(s.territories).has(code)) {
       toast.error(`${name} is already on the map`);
       return;
     }
@@ -473,13 +489,48 @@ export default function MapEditorPage() {
     toast(added > 0 ? `Added ${added} sea lane${added === 1 ? '' : 's'}` : 'Nothing to bridge');
   }, [report.components, geometryById]);
 
+  // Provinces mode: a country becomes its states or provinces, each a
+  // territory in the same region, bordered to each other and to whatever
+  // the country touched. The provinces file loads the first time.
+  const splitIntoProvinces = useCallback(async (id: string) => {
+    const s = act();
+    const parent = s.territories.find((t) => t.territory_id === id);
+    const code = parent?.iso_codes?.length === 1 ? parent.iso_codes[0] : null;
+    if (!parent || !code || !provinces.countriesWithProvinces.has(code)) return;
+    setSplitting(true);
+    try {
+      const indexes = await provinces.load();
+      const list = indexes.byCountry.get(code) ?? [];
+      if (list.length === 0) {
+        toast.error(`No provinces for ${parent.name} in the data`);
+        return;
+      }
+      const split = buildProvinceSplit({
+        parent,
+        provinces: list,
+        others: territoryGeoms.filter((g) => g.id !== id),
+        existingIds: new Set(s.territories.map((t) => t.territory_id)),
+        parentConnections: s.connections.filter((c) => c.from === id || c.to === id),
+      });
+      const parentGeometry = geometryById.get(id);
+      act().replaceTerritory(id, split.territories, split.connections);
+      if (parentGeometry) focusBbox(geometryBbox(parentGeometry), 1.6);
+      toast.success(`${parent.name} split into ${list.length} ${list.length === 1 ? 'province' : 'provinces'}`);
+    } catch {
+      toast.error('Could not load the provinces data');
+    } finally {
+      setSplitting(false);
+    }
+  }, [provinces, territoryGeoms, geometryById, focusBbox]);
+
   // ── Templates, remix, import, export ─────────────────────────────────────
-  const applyContent = useCallback((content: MapEditorContent, message: string) => {
+  const applyContent = useCallback((content: MapEditorContent, message: string, template: string) => {
     act().replaceContent(content, { undoable: true });
     setStartOpen(false);
     setServerWarnings([]);
     setFitNonce((n) => n + 1);
     toast.success(message);
+    trackUiEvent('editor_template_applied', { template });
   }, []);
 
   const applyContinent = useCallback((continent: string, includeSmall: boolean) => {
@@ -491,6 +542,7 @@ export default function MapEditorPage() {
         applyContent(
           { ...emptyContent(), ...t, mapName: continent },
           `${continent}: ${t.territories.length} territories, ${t.connections.length} connections, ${t.regions.length} regions`,
+          continent,
         );
       } finally {
         setTemplateBusy(false);
@@ -505,16 +557,18 @@ export default function MapEditorPage() {
       const data = res.data.map ?? res.data;
       const content = sanitizeEditorContent({ ...data, name: `${data.name ?? name} (remix)` });
       const editable = content?.territories.every(
-        (t) => (t.iso_codes && t.iso_codes.length > 0) || (t.geo_polygon && t.geo_polygon.length >= 3),
+        (t) => (t.iso_codes && t.iso_codes.length > 0)
+          || (t.admin1 && t.admin1.length > 0)
+          || (t.geo_polygon && t.geo_polygon.length >= 3),
       );
       if (!content || !editable) {
         toast.error('That map uses hand-tuned geometry the editor cannot edit yet');
         return;
       }
       const converted = (data.territories as Array<Record<string, unknown>>).some(
-        (t) => t.geo_config || t.admin1 || t.clip_bbox,
+        (t) => t.geo_config || t.clip_bbox,
       );
-      applyContent(content, `Remixing ${name}`);
+      applyContent(content, `Remixing ${name}`, 'remix');
       if (converted) toast('Some territories used clipped geometry; they now use their outline', { icon: 'ℹ️' });
     } catch {
       toast.error('Could not load that map');
@@ -530,7 +584,7 @@ export default function MapEditorPage() {
         toast.error('That file is not a map this editor can read');
         return;
       }
-      applyContent(content, `Imported ${content.mapName}`);
+      applyContent(content, `Imported ${content.mapName}`, 'import');
     } catch {
       toast.error('That file is not valid JSON');
     }
@@ -574,21 +628,24 @@ export default function MapEditorPage() {
   // ── Save and submit ──────────────────────────────────────────────────────
   const descriptionInvalid = !SAFE_DESCRIPTION.test(mapDescription);
 
-  const handleSave = useCallback(async () => {
-    if (savingRef.current) return;
+  // Resolves to the saved map's id (a new map gets one here), or null when
+  // nothing was saved — Test play saves first and then needs the id.
+  const handleSave = useCallback(async (): Promise<string | null> => {
+    if (savingRef.current) return null;
     const s = act();
     if (s.mapName.trim().length === 0) {
       toast.error('Give the map a name first');
       nameRef.current?.focus();
-      return;
+      return null;
     }
     if (!SAFE_DESCRIPTION.test(s.mapDescription)) {
       toast.error('The description has a character the server will not accept');
       descriptionRef.current?.focus();
-      return;
+      return null;
     }
     savingRef.current = true;
     setSaving(true);
+    let savedId: string | null = null;
     try {
       const payload = {
         name: s.mapName,
@@ -605,6 +662,7 @@ export default function MapEditorPage() {
         if (moderationStatus === 'approved') setModerationStatus('pending');
         clearEditorDraft(mapId);
         act().markSaved();
+        savedId = mapId;
       } else {
         const res = await api.post<{ map_id: string; message: string; warnings?: string[] }>('/maps', payload);
         toast.success(res.data.message || 'Map saved!');
@@ -612,8 +670,10 @@ export default function MapEditorPage() {
         setModerationStatus('draft');
         clearEditorDraft(null);
         act().markSaved();
+        savedId = res.data.map_id;
         navigate(`/editor/${res.data.map_id}`);
       }
+      trackUiEvent('editor_map_saved', { map_id: savedId, territories: s.territories.length });
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
         toast.error(err.response?.data?.error || 'Failed to save map');
@@ -622,15 +682,18 @@ export default function MapEditorPage() {
       savingRef.current = false;
       setSaving(false);
     }
+    return savedId;
   }, [mapId, moderationStatus, navigate]);
 
   const handleSubmitForReview = useCallback(async () => {
     if (!mapId || submitting) return;
     setSubmitting(true);
+    trackUiEvent('editor_submit_clicked', { map_id: mapId });
     try {
       const res = await api.post<{ message: string }>(`/maps/${mapId}/publish`, {});
       toast.success(res.data.message);
       setModerationStatus('pending');
+      setModerationReason(null);
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
         toast.error(err.response?.data?.error || 'Failed to submit for review');
@@ -782,6 +845,42 @@ export default function MapEditorPage() {
     },
   ];
 
+  // ── Publishing ───────────────────────────────────────────────────────────
+  const publishStatus: PublishStatus = !mapId
+    ? 'unsaved'
+    : moderationStatus === 'pending' || moderationStatus === 'approved' || moderationStatus === 'rejected'
+      ? moderationStatus
+      : 'draft';
+
+  // The map as it stands, for the preflight preview.
+  const previewMap = useMemo((): GameMap | null => (
+    territories.length === 0
+      ? null
+      : {
+        map_id: mapId ?? 'draft',
+        name: mapName,
+        description: mapDescription,
+        era_theme: (eraTheme || 'custom') as GameMap['era_theme'],
+        canvas_width: 1200,
+        canvas_height: 700,
+        territories,
+        connections,
+        regions,
+        is_public: false,
+        play_count: 0,
+        creator_id: '',
+      }
+  ), [mapId, mapName, mapDescription, eraTheme, territories, connections, regions]);
+
+  const shareLink = useCallback(() => {
+    if (!mapId) return;
+    const url = `${window.location.origin}/maps/${mapId}`;
+    const done = () => toast.success('Link copied');
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url).then(done).catch(() => toast(url));
+    else toast(url);
+    trackUiEvent('map_shared', { map_id: mapId, source: 'editor' });
+  }, [mapId]);
+
   // ── Hint bar copy ────────────────────────────────────────────────────────
   const paintRegion = regions.find((r) => r.region_id === paintRegionId);
   const toolHints: Record<EditorTool, string> = {
@@ -804,12 +903,12 @@ export default function MapEditorPage() {
   return (
     <div className="h-screen bg-bf-dark flex flex-col overflow-hidden">
       {/* Mobile warning — map editing requires a pointer device */}
-      {isMobileViewport() && (
+      {isPhoneLayout() && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-bf-dark px-6 text-center">
           <div className="text-5xl mb-4">🗺️</div>
-          <h2 className="font-display text-xl text-bf-gold mb-2">Desktop Required</h2>
+          <h2 className="font-display text-xl text-bf-gold mb-2">A bigger screen, please</h2>
           <p className="text-bf-muted text-sm max-w-xs">
-            Map editing requires a mouse or trackpad. Please open the editor on a laptop or desktop.
+            Phone screens are too small for map editing. Open the editor on a tablet, laptop or desktop.
           </p>
           <RouterLink to="/lobby" className="btn-secondary mt-6 flex items-center gap-2">
             <ArrowLeft className="w-4 h-4" /> Back to Lobby
@@ -862,20 +961,18 @@ export default function MapEditorPage() {
             {moderationStatus === 'pending' ? 'In review' : moderationStatus}
           </span>
         )}
-        {mapId && (moderationStatus === 'draft' || moderationStatus === 'rejected') && (
-          <button
-            onClick={() => void handleSubmitForReview()}
-            disabled={submitting || isDirty || !report.ready}
-            title={isDirty
-              ? 'Save your changes first'
-              : !report.ready
-                ? `Map health lists ${report.blockers.length} thing${report.blockers.length === 1 ? '' : 's'} review will block on`
-                : 'Send this map to moderation review'}
-            className="btn-secondary text-sm py-1.5 disabled:opacity-50"
-          >
-            {submitting ? 'Submitting…' : 'Submit for review'}
-          </button>
-        )}
+        <TestPlayButton
+          mapId={mapId ?? null}
+          eraTheme={eraTheme}
+          disabledReason={territories.length === 0
+            ? 'Add some territories first'
+            : !report.ready
+              ? `Map health lists ${report.blockers.length} thing${report.blockers.length === 1 ? '' : 's'} to fix first`
+              : null}
+          beforeStart={async () => (isDirty || !mapId ? handleSave() : mapId)}
+          onStarted={({ mapId: playedId, era, opponents }) =>
+            trackUiEvent('editor_test_play_started', { map_id: playedId, era, opponents, source: 'editor' })}
+        />
         <button
           onClick={() => void handleSave()}
           disabled={saving}
@@ -1127,6 +1224,20 @@ export default function MapEditorPage() {
 
         {/* Right Panel */}
         <div className="w-72 bg-bf-surface border-l border-bf-border flex flex-col shrink-0 overflow-y-auto">
+          <PublishPanel
+            status={publishStatus}
+            reason={moderationReason}
+            report={report}
+            isDirty={isDirty}
+            submitting={submitting}
+            previewMap={previewMap}
+            mapName={mapName}
+            mapDescription={mapDescription}
+            eraLabel={eraTheme ? ERA_LABELS[eraTheme] ?? eraTheme : 'No era tag'}
+            onSubmit={handleSubmitForReview}
+            onShare={mapId ? shareLink : null}
+          />
+
           {/* Map details: what the hub card shows beside the name and era. */}
           <div className="p-4 border-b border-bf-border">
             <h3 className="text-xs font-medium text-bf-muted uppercase tracking-wider mb-3">Map</h3>
@@ -1149,7 +1260,13 @@ export default function MapEditorPage() {
             </p>
           </div>
 
-          <TerritoryPanel onConnectNeighbors={(id) => connectNeighbors([id])} onFocus={focusTerritory} />
+          <TerritoryPanel
+            onConnectNeighbors={(id) => connectNeighbors([id])}
+            onFocus={focusTerritory}
+            provinceCountries={provinces.countriesWithProvinces}
+            onSplit={(id) => void splitIntoProvinces(id)}
+            splitting={splitting || provinces.loading}
+          />
 
           <RegionsPanel />
 

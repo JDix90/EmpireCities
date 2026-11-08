@@ -192,9 +192,10 @@ describe('MapEditorPage', () => {
     await waitFor(() => expect(localStorage.getItem(editorDraftKey(null))).not.toBeNull(), { timeout: 2500 });
 
     fireEvent.click(screen.getByText('Save Map'));
-    await waitFor(() => expect(postMock).toHaveBeenCalledTimes(1));
-    expect(postMock.mock.calls[0][0]).toBe('/maps');
-    expect(postMock.mock.calls[0][1]).toEqual(expect.objectContaining({ name: 'Sahel', territories: expect.any(Array) }));
+    // Analytics beacons share the mock; only the save itself is of interest.
+    const saves = () => postMock.mock.calls.filter(([url]) => url === '/maps');
+    await waitFor(() => expect(saves()).toHaveLength(1));
+    expect(saves()[0][1]).toEqual(expect.objectContaining({ name: 'Sahel', territories: expect.any(Array) }));
     await waitFor(() => expect(getMock).toHaveBeenCalledWith('/maps/m1'));
     expect(localStorage.getItem(editorDraftKey(null))).toBeNull();
     await waitFor(() => expect(store().isDirty).toBe(false));
