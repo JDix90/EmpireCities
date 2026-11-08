@@ -32,6 +32,18 @@ export {
 } from './mapHealth';
 
 export {
+  type MapStructureReport,
+  type RegionStructure,
+  type StructureInput,
+  type StructureNote,
+  type StructureNoteCode,
+  type TerritoryStructure,
+  analyzeMapStructure,
+  articulationPoints,
+  suggestRegionBonus,
+} from './mapStructure';
+
+export {
   type MapKind,
   type OrbitAccessMode,
   type MapTerritoryWorldLike,
