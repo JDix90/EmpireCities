@@ -58,6 +58,11 @@ export function loadCountriesGeo(): Promise<GeoJSON.FeatureCollection> {
   return fetchGeo(COUNTRIES_GEOJSON_URL);
 }
 
+/** The Natural Earth admin-1 set (states and provinces), for the editor's Provinces mode. */
+export function loadAdmin1Geo(): Promise<GeoJSON.FeatureCollection> {
+  return fetchGeo(ADMIN50_STATES_GEOJSON_URL);
+}
+
 function fetchGeo(url: string): Promise<GeoJSON.FeatureCollection> {
   let p = cache.get(url);
   if (!p) {

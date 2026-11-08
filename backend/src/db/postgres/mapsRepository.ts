@@ -349,6 +349,18 @@ export async function incrementMapPlayCount(
 }
 
 /** The player who made the map, if they still have an account (never 'system'). */
+/** The author's current username; null for a seed author or a deleted account. */
+export async function findMapCreatorName(mapId: string): Promise<string | null> {
+  const row = await queryOne<{ username: string | null }>(
+    `SELECT u.username
+     FROM maps m
+     LEFT JOIN users u ON u.user_id::text = m.creator_id
+     WHERE m.map_id = $1`,
+    [mapId],
+  );
+  return row?.username ?? null;
+}
+
 export async function findMapCreatorUserId(mapId: string): Promise<string | null> {
   const rows = await query<{ user_id: string }>(
     `SELECT u.user_id FROM maps m JOIN users u ON u.user_id::text = m.creator_id

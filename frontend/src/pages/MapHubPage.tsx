@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
-import { Star, Globe, Plus, Map, Users, Zap, Compass, Search, Landmark, Sparkles } from 'lucide-react';
+import { Star, Globe, Plus, Map, Users, Zap, Compass, Search, Landmark, Sparkles, Eye, Play } from 'lucide-react';
+import { defaultTestPlayEra, startTestGame } from '../utils/testPlay';
+import { trackUiEvent } from '../utils/uiEvents';
 import toast from 'react-hot-toast';
 import { fetchEraMaps, MapSummary, ERA_METADATA, GameMap, selectCanonicalEraMaps } from '../services/mapService';
 import MapPreview from '../components/lobby/MapPreview';
@@ -100,6 +102,9 @@ export default function MapHubPage() {
   // My Maps (the author's own, with moderation state)
   const [myMaps, setMyMaps] = useState<MyMapRow[]>([]);
   const [myMapsLoading, setMyMapsLoading] = useState(false);
+  const [communityPreview, setCommunityPreview] = useState<string | null>(null);
+  const [minePreview, setMinePreview] = useState<string | null>(null);
+  const [testPlaying, setTestPlaying] = useState<string | null>(null);
 
   // Load era maps
   useEffect(() => {
@@ -142,6 +147,24 @@ export default function MapHubPage() {
       const details = err?.response?.data?.errors;
       toast.error(err?.response?.data?.error ?? 'Failed to submit for review');
       if (details?.length) details.slice(0, 3).forEach((d) => toast.error(d));
+    }
+  };
+
+  // The author against bots on an unpublished map: three medium bots under the
+  // map's own era (or Modern). The server refuses a draft that would not pass
+  // review and says what is missing.
+  const testPlay = async (m: MyMapRow) => {
+    setTestPlaying(m.map_id);
+    try {
+      const era = defaultTestPlayEra(m.era_theme);
+      const gameId = await startTestGame({ mapId: m.map_id, era, opponents: 3, difficulty: 'medium' });
+      trackUiEvent('editor_test_play_started', { map_id: m.map_id, era, opponents: 3, source: 'hub' });
+      navigate(`/game/${gameId}`);
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { error?: string } } };
+      toast.error(err?.response?.data?.error ?? 'Could not start a test game');
+    } finally {
+      setTestPlaying(null);
     }
   };
 
@@ -342,9 +365,29 @@ export default function MapHubPage() {
           >★</button>
         ))}
       </div>
-      <button onClick={() => navigate(`/lobby?map=${map.map_id}`)} className="btn-secondary w-full text-sm py-1.5">
-        Play This Map
-      </button>
+      {communityPreview === map.map_id && (
+        <div className="mb-3 rounded-lg overflow-hidden">
+          <MapPreview mapId={map.map_id} width={320} height={180} />
+        </div>
+      )}
+      <div className="flex items-center gap-2">
+        <button onClick={() => navigate(`/lobby?map=${map.map_id}`)} className="btn-secondary flex-1 text-sm py-1.5">
+          Play This Map
+        </button>
+        <button
+          type="button"
+          onClick={() => setCommunityPreview((p) => (p === map.map_id ? null : map.map_id))}
+          className="btn-secondary text-sm py-1.5 px-2.5"
+          title={communityPreview === map.map_id ? 'Hide preview' : 'Preview the board'}
+          aria-label={communityPreview === map.map_id ? 'Hide preview' : 'Preview the board'}
+          aria-pressed={communityPreview === map.map_id}
+        >
+          <Eye className="w-4 h-4" aria-hidden />
+        </button>
+        <Link to={`/maps/${map.map_id}`} className="btn-secondary text-sm py-1.5 px-2.5" title="The map's page, with a link to share">
+          Details
+        </Link>
+      </div>
     </div>
   );
 
@@ -574,7 +617,12 @@ export default function MapHubPage() {
                     {m.moderation_status === 'pending' && (
                       <p className="text-bf-muted text-xs mb-2">A moderator will review this version before it is listed.</p>
                     )}
-                    <div className="flex items-center gap-2 mt-3">
+                    {minePreview === m.map_id && (
+                      <div className="mt-3 rounded-lg overflow-hidden">
+                        <MapPreview mapId={m.map_id} width={320} height={180} />
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 mt-3 flex-wrap">
                       <button onClick={() => navigate(`/editor/${m.map_id}`)} className="btn-secondary text-xs py-1.5 flex-1">
                         Edit
                       </button>
@@ -583,11 +631,34 @@ export default function MapHubPage() {
                           Submit for review
                         </button>
                       )}
-                      {m.moderation_status === 'approved' && (
+                      {m.moderation_status === 'approved' ? (
                         <button onClick={() => navigate(`/lobby?map=${m.map_id}`)} className="btn-primary text-xs py-1.5 flex-1">
                           Play
                         </button>
+                      ) : (
+                        <button
+                          onClick={() => void testPlay(m)}
+                          disabled={testPlaying === m.map_id}
+                          className="btn-secondary text-xs py-1.5 flex-1 flex items-center justify-center gap-1 disabled:opacity-50"
+                          title="Play it against bots — only you can, until it is published"
+                        >
+                          <Play className="w-3.5 h-3.5" aria-hidden />
+                          <span>{testPlaying === m.map_id ? 'Starting…' : 'Test play'}</span>
+                        </button>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => setMinePreview((p) => (p === m.map_id ? null : m.map_id))}
+                        className="btn-secondary text-xs py-1.5 px-2.5"
+                        title={minePreview === m.map_id ? 'Hide preview' : 'Preview the board'}
+                        aria-label={minePreview === m.map_id ? 'Hide preview' : 'Preview the board'}
+                        aria-pressed={minePreview === m.map_id}
+                      >
+                        <Eye className="w-3.5 h-3.5" aria-hidden />
+                      </button>
+                      <Link to={`/maps/${m.map_id}`} className="btn-secondary text-xs py-1.5 px-2.5" title="The map's page, with a link to share">
+                        Details
+                      </Link>
                     </div>
                   </div>
                 );

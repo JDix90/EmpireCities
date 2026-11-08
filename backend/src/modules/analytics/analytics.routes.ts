@@ -71,6 +71,19 @@ const UiEventSchema = z.object({
     // the D1/D7 returns and the active-player counts missed them. Property:
     // device.
     'app_opened',
+    // The map editor funnel (frontend pages/MapEditorPage.tsx, MapHubPage.tsx):
+    // the editor opened (property: source — new or existing), a start-screen
+    // template applied (template), a draft saved (map_id, territories), a
+    // map submitted for review (map_id), a test game started on a draft
+    // (map_id, era, opponents), a map link copied (map_id, source). Between
+    // them: how many who open the editor ever save, and how many who save
+    // ever publish.
+    'editor_opened',
+    'editor_template_applied',
+    'editor_map_saved',
+    'editor_submit_clicked',
+    'editor_test_play_started',
+    'map_shared',
     // What a player does in the first turn of a real game (not the tutorial),
     // posted once per step per game while first_turn_events_enabled is on
     // (frontend utils/firstTurnSteps.ts): the briefing closed, a territory of

@@ -38,6 +38,7 @@ const GamePage = lazyWithChunkRetry(() => import('./pages/GamePage'));
 const MapEditorPage = lazyWithChunkRetry(() => import('./pages/MapEditorPage'));
 const ProfilePage = lazyWithChunkRetry(() => import('./pages/ProfilePage'));
 const MapHubPage = lazyWithChunkRetry(() => import('./pages/MapHubPage'));
+const MapDetailPage = lazyWithChunkRetry(() => import('./pages/MapDetailPage'));
 const FriendsPage = lazyWithChunkRetry(() => import('./pages/FriendsPage'));
 const NotFoundPage = lazyWithChunkRetry(() => import('./pages/NotFoundPage'));
 const PrivacyPage = lazyWithChunkRetry(() => import('./pages/PrivacyPage'));
@@ -482,6 +483,8 @@ export default function App() {
             `path="/maps/"` route actually hijacks the `/maps` match and renders
             a no-op <Navigate to="/maps">, blanking the page. */}
         <Route path="/maps" element={<PrivateRoute><MapHubPage /></PrivateRoute>} />
+        {/* A map's own page: the link an author shares; the hub cards' Details. */}
+        <Route path="/maps/:mapId" element={<PrivateRoute><MapDetailPage /></PrivateRoute>} />
         <Route path="/friends" element={<PrivateRoute><FriendsPage /></PrivateRoute>} />
         <Route path="/leaderboards" element={<PrivateRoute><LeaderboardsPage /></PrivateRoute>} />
         <Route path="/live-games" element={<PrivateRoute><LiveGamesPage /></PrivateRoute>} />

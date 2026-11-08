@@ -1,5 +1,5 @@
 import React from 'react';
-import { Crosshair, Network } from 'lucide-react';
+import { Crosshair, Network, Scissors } from 'lucide-react';
 import { useMapEditorStore } from '../../store/mapEditorStore';
 
 interface TerritoryPanelProps {
@@ -7,10 +7,20 @@ interface TerritoryPanelProps {
   onConnectNeighbors: (territoryId: string) => void;
   /** Fly the globe to it. */
   onFocus: (territoryId: string) => void;
+  /** Countries the provinces file covers, so a whole country can be split. */
+  provinceCountries?: ReadonlySet<string>;
+  onSplit?: (territoryId: string) => void;
+  splitting?: boolean;
 }
 
 /** The selected territory: name, region, its connections, and the ways out. */
-export default function TerritoryPanel({ onConnectNeighbors, onFocus }: TerritoryPanelProps) {
+export default function TerritoryPanel({
+  onConnectNeighbors,
+  onFocus,
+  provinceCountries,
+  onSplit,
+  splitting = false,
+}: TerritoryPanelProps) {
   const selectedId = useMapEditorStore((s) => s.selectedTerritoryId);
   const territories = useMapEditorStore((s) => s.territories);
   const regions = useMapEditorStore((s) => s.regions);
@@ -73,6 +83,28 @@ export default function TerritoryPanel({ onConnectNeighbors, onFocus }: Territor
         </div>
         {territory.iso_codes && (
           <div className="text-xs text-bf-muted">ISO: {territory.iso_codes.join(', ')}</div>
+        )}
+        {territory.admin1 && territory.admin1.length > 0 && (
+          <div className="text-xs text-bf-muted">
+            {territory.admin1.length === 1 ? 'Province: ' : 'Provinces: '}
+            {territory.admin1.join(', ')}
+          </div>
+        )}
+        {onSplit && provinceCountries && territory.iso_codes?.length === 1 && provinceCountries.has(territory.iso_codes[0]) && (
+          <div>
+            <button
+              type="button"
+              onClick={() => onSplit(selectedId)}
+              disabled={splitting}
+              className="w-full text-xs py-1.5 rounded border border-bf-gold/40 text-bf-gold hover:bg-bf-gold/10 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+            >
+              <Scissors className="w-3.5 h-3.5" aria-hidden />
+              <span>{splitting ? 'Loading provinces…' : 'Split into provinces'}</span>
+            </button>
+            <p className="text-[11px] text-bf-muted mt-1 leading-snug">
+              Its states or provinces become territories of their own, in this region, connected along their borders. One undo step.
+            </p>
+          </div>
         )}
         <div>
           <div className="flex items-center justify-between mb-1">

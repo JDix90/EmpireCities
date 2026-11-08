@@ -122,6 +122,8 @@ export default function GlobeMapEditor({
     const set = new Set<string>();
     for (const t of territories) {
       if (t.iso_codes) t.iso_codes.forEach((c) => set.add(c));
+      // A country split into provinces is covered too: "US-CA" covers "US".
+      if (t.admin1) t.admin1.forEach((c) => set.add(c.slice(0, 2)));
     }
     return set;
   }, [territories]);

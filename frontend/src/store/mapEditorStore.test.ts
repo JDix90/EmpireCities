@@ -171,6 +171,30 @@ describe('mapEditorStore', () => {
     expect(store().past).toHaveLength(2);
   });
 
+  it('replaces one territory with several in one undo step, keeping the rest of the graph', () => {
+    store().addTerritory(territory('fr'));
+    store().addTerritory(territory('us'), [{ from: 'us', to: 'fr', type: 'sea' }]);
+    store().addTerritory(territory('ca'), [{ from: 'ca', to: 'us', type: 'land' }]);
+    store().replaceTerritory('us', [territory('us_ca'), territory('us_nv')], [
+      { from: 'us_ca', to: 'us_nv', type: 'land' },
+      { from: 'us_ca', to: 'fr', type: 'sea' },
+      { from: 'us_nv', to: 'ca', type: 'land' },
+      { from: 'us_nv', to: 'us', type: 'land' }, // the old id is gone: dropped
+      { from: 'us_ca', to: 'us_nv', type: 'sea' }, // duplicate: dropped
+    ]);
+    const s = store();
+    expect(s.territories.map((t) => t.territory_id)).toEqual(['fr', 'ca', 'us_ca', 'us_nv']);
+    expect(s.connections).toEqual([
+      { from: 'us_ca', to: 'us_nv', type: 'land' },
+      { from: 'us_ca', to: 'fr', type: 'sea' },
+      { from: 'us_nv', to: 'ca', type: 'land' },
+    ]);
+    expect(s.selectedTerritoryId).toBeNull();
+    store().undo();
+    expect(store().territories.map((t) => t.territory_id)).toEqual(['fr', 'us', 'ca']);
+    expect(store().connections).toHaveLength(2);
+  });
+
   it('hands out ids the server accepts, never twice', () => {
     const ids = new Set(Array.from({ length: 50 }, () => newEditorId('t')));
     expect(ids.size).toBe(50);

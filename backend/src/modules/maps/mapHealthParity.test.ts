@@ -58,6 +58,19 @@ const fixtures: Record<string, () => Doc> = {
     return doc;
   },
   'a two-letter name': () => ({ ...ring(7), name: 'Hi' }),
+  'a province claimed by two territories': () => {
+    const doc = ring(7);
+    (doc.territories[0] as { admin1?: string[] }).admin1 = ['US-CA', 'US-NV'];
+    (doc.territories[1] as { admin1?: string[] }).admin1 = ['US-CA'];
+    return doc;
+  },
+  'a province claimed twice but clipped in one': () => {
+    const doc = ring(7);
+    (doc.territories[0] as { admin1?: string[] }).admin1 = ['US-CA'];
+    (doc.territories[1] as { admin1?: string[]; admin1_clips?: Record<string, unknown> }).admin1 = ['US-CA'];
+    (doc.territories[1] as { admin1_clips?: Record<string, unknown> }).admin1_clips = { 'US-CA': [-125, 32, -120, 42] };
+    return doc;
+  },
 };
 
 // Rules whose wording is the same on both sides.

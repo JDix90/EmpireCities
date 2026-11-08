@@ -24,6 +24,10 @@ import {
   setMapModeration,
 } from '../../db/postgres/mapsRepository';
 import { grantMapMaker, invalidateMapCache } from '../maps/mapService';
+import { findMapCreatorUserId, getMapRowById } from '../../db/postgres/mapsRepository';
+import { sendPushNotification } from '../../services/notificationService';
+import { recordServerEvent } from '../../services/analyticsEvents';
+import { config } from '../../config';
 import { validateMapDocument } from '../maps/mapValidation';
 import { getAnalyticsReport, parseFunnelDevice } from '../../services/analyticsQueries';
 import { andNotTutorialSql } from '../../game-engine/tutorial/tutorialGames';
@@ -544,6 +548,23 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
     });
   });
 
+  // The author hears the decision where they are, not on their next visit to
+  // the hub. Best effort: no push tokens, or FCM down, is not a failed review.
+  const notifyMapAuthor = async (mapId: string, outcome: 'approved' | 'rejected', reason?: string) => {
+    try {
+      const [authorId, row] = await Promise.all([findMapCreatorUserId(mapId), getMapRowById(mapId)]);
+      if (!authorId || !row) return;
+      const url = `${config.frontendUrl}/maps/${mapId}`;
+      const title = outcome === 'approved' ? 'Your map is live' : 'Your map needs a change';
+      const body = outcome === 'approved'
+        ? `${row.name} is now in the Map Hub for everyone to play.`
+        : `${row.name} was sent back${reason ? `: ${reason}` : ''}`;
+      await sendPushNotification(authorId, title, body, { type: `map_${outcome}`, mapId, url }, url);
+    } catch (err) {
+      fastify.log.warn({ err, mapId }, 'map author notification failed');
+    }
+  };
+
   fastify.post<{ Params: { mapId: string } }>(
     '/maps/:mapId/actions/approve',
     { preHandler: [authenticate, requireAdmin] },
@@ -553,6 +574,8 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
       await invalidateMapCache(request.params.mapId);
       await writeAuditLog(request.userId, 'map_approved', { map_id: request.params.mapId });
       await grantMapMaker(request.params.mapId);
+      recordServerEvent('map_approved', { map_id: request.params.mapId }, request.userId);
+      await notifyMapAuthor(request.params.mapId, 'approved');
       return reply.send({ ok: true });
     },
   );
@@ -571,6 +594,8 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
         map_id: request.params.mapId,
         reason: parsed.data.reason,
       });
+      recordServerEvent('map_rejected', { map_id: request.params.mapId }, request.userId);
+      await notifyMapAuthor(request.params.mapId, 'rejected', parsed.data.reason);
       return reply.send({ ok: true });
     },
   );

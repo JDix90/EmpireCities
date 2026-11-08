@@ -92,6 +92,11 @@ export interface MapEditorState extends MapEditorContent {
   renameTerritory: (id: string, name: string) => void;
   setTerritoryRegion: (id: string, regionId: string) => void;
   paintTerritory: (id: string) => void;
+  /**
+   * One territory becomes several (a country into its provinces): its own
+   * connections go, the replacements and theirs arrive, as one undo step.
+   */
+  replaceTerritory: (id: string, replacements: EditorTerritory[], connections: EditorConnection[]) => void;
 
   // Connections
   addConnection: (from: string, to: string, type?: EditorConnection['type']) => boolean;
@@ -151,7 +156,7 @@ type MapEditorActions = Pick<
   MapEditorState,
   | 'setTool' | 'select' | 'toggleSelect' | 'setConnectSource' | 'setConnectType' | 'setPaintRegion' | 'setHighlight'
   | 'beginEdit' | 'setMapName' | 'setMapDescription' | 'setEraTheme'
-  | 'addTerritory' | 'removeTerritory' | 'renameTerritory' | 'setTerritoryRegion' | 'paintTerritory'
+  | 'addTerritory' | 'removeTerritory' | 'renameTerritory' | 'setTerritoryRegion' | 'paintTerritory' | 'replaceTerritory'
   | 'addConnection' | 'addConnections' | 'removeConnection' | 'toggleConnectionType'
   | 'addRegion' | 'removeRegion' | 'renameRegion' | 'setRegionBonus'
   | 'addDrawingPoint' | 'popDrawingPoint' | 'clearDrawing'
@@ -227,6 +232,29 @@ export const useMapEditorStore = create<MapEditorState>((set, get) => ({
     const regionId = get().paintRegionId;
     if (regionId) get().setTerritoryRegion(id, regionId);
   },
+
+  replaceTerritory: (id, replacements, connections) => set((s) => {
+    if (!s.territories.some((t) => t.territory_id === id) || replacements.length === 0) return s;
+    const remaining = s.territories.filter((t) => t.territory_id !== id);
+    const known = new Set(remaining.map((t) => t.territory_id));
+    for (const r of replacements) known.add(r.territory_id);
+    const kept = s.connections.filter((c) => c.from !== id && c.to !== id);
+    const fresh: EditorConnection[] = [];
+    for (const c of connections) {
+      if (c.from === c.to || !known.has(c.from) || !known.has(c.to)) continue;
+      if (kept.some((e) => sameEdge(e, c.from, c.to)) || fresh.some((e) => sameEdge(e, c.from, c.to))) continue;
+      fresh.push(c);
+    }
+    return {
+      ...withUndo(s),
+      territories: [...remaining, ...replacements],
+      connections: [...kept, ...fresh],
+      selectedTerritoryId: null,
+      connectSource: s.connectSource === id ? null : s.connectSource,
+      highlightedTerritoryIds: s.highlightedTerritoryIds.filter((h) => h !== id),
+      isDirty: true,
+    };
+  }),
 
   // ── Connections ───────────────────────────────────────────────────────────
   addConnection: (from, to, type = 'land') => {

@@ -44,6 +44,7 @@ function isTerritory(v: unknown): v is EditorTerritory {
     && isPair(t.center_point)
     && typeof t.region_id === 'string'
     && (t.iso_codes === undefined || (Array.isArray(t.iso_codes) && t.iso_codes.every((c) => typeof c === 'string')))
+    && (t.admin1 === undefined || (Array.isArray(t.admin1) && t.admin1.every((c) => typeof c === 'string')))
     && (t.geo_polygon === undefined || isRing(t.geo_polygon));
 }
 
@@ -97,6 +98,7 @@ export function sanitizeEditorContent(raw: unknown): EditorContentFields | null 
       center_point: t.center_point,
       region_id: t.region_id,
       ...(t.iso_codes ? { iso_codes: t.iso_codes } : {}),
+      ...(t.admin1 ? { admin1: t.admin1 } : {}),
       ...(t.geo_polygon ? { geo_polygon: t.geo_polygon } : {}),
     })),
     connections: d.connections.map((c) => ({ from: c.from, to: c.to, type: c.type })),
