@@ -223,6 +223,35 @@ export async function listPublicMapRows(options: {
   return { rows, total: parseInt(totalRow?.count ?? '0', 10) };
 }
 
+/** Approved community maps with their author's name, for the week's featured pick. */
+export async function listFeaturedCandidates(limit = 40): Promise<PublicMapRow[]> {
+  return query<PublicMapRow>(
+    `SELECT m.map_id, m.creator_id, m.name, m.description, m.era_theme, m.background_image_url,
+            m.canvas_width, m.canvas_height, m.projection_bounds, m.globe_view, m.map_kind, m.worlds,
+            m.orbit_access, m.rts_terrain, m.territories, m.connections, m.regions,
+            m.is_public, m.is_moderated, m.moderation_status, m.rating, m.rating_count, m.play_count,
+            m.created_at, m.updated_at,
+            u.username AS creator_name
+     FROM maps m
+     LEFT JOIN users u ON u.user_id::text = m.creator_id
+     WHERE m.is_public = true AND m.moderation_status = 'approved' AND m.creator_id <> 'system'
+     ORDER BY m.rating DESC, m.play_count DESC, m.created_at ASC
+     LIMIT $1`,
+    [limit],
+  );
+}
+
+/** A creator's published maps, newest first — their public shelf. */
+export async function listApprovedMapsByCreator(creatorId: string, limit = 50): Promise<MapRow[]> {
+  return query<MapRow>(
+    `SELECT ${MAP_SELECT} FROM maps
+     WHERE creator_id = $1 AND is_public = true AND moderation_status = 'approved'
+     ORDER BY created_at DESC
+     LIMIT $2`,
+    [creatorId, limit],
+  );
+}
+
 export async function listMapsByCreator(creatorId: string): Promise<MapRow[]> {
   return query<MapRow>(
     `SELECT ${MAP_SELECT} FROM maps WHERE creator_id = $1 ORDER BY created_at DESC`,
