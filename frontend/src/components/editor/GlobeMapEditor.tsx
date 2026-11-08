@@ -3,10 +3,11 @@
  * Supports free-draw polygon placement and country-pick from Natural Earth data.
  * Uses the same react-globe.gl stack as the in-game GlobeMap.
  *
- * The polygon data is cached per territory (editorGlobeData.ts) because
- * three-globe keys its scene objects by datum identity: a datum rebuilt on
- * every render re-tessellates its cap, and with ~240 country outlines in the
- * layer that was a full rebuild of the globe per click. Selection, hover,
+ * Presentational: the page owns the country data (useEditorCountries) and the
+ * per-territory polygon cache (editorGlobeData.ts), because three-globe keys
+ * its scene objects by datum identity — a datum rebuilt on every render
+ * re-tessellates its cap, and with ~240 country outlines in the layer that
+ * was a full rebuild of the globe per click. Selection, hover, highlight,
  * region colour and names are read live by the accessors instead.
  */
 
@@ -14,31 +15,17 @@ import React, { useRef, useMemo, useState, useEffect, useCallback } from 'react'
 import Globe, { type GlobeMethods } from 'react-globe.gl';
 // The globe libraries leave unheard frame tickers looping from import; see the module.
 import '../../utils/idleFrameTickers';
-import { registerPossessionFeatures } from '../../utils/countryHomeland';
-import { loadCountriesGeo } from '../../hooks/useTerritoryGeoSources';
 import {
-  TerritoryPolygonCache,
-  buildCountryData,
-  featureIsoCode,
+  regionColorRgba,
+  type EditorConnection,
   type EditorPolygonDatum as PolygonDatum,
+  type EditorRegion,
   type EditorTerritory,
+  type EditorTool,
   type PolyGeom,
 } from './editorGlobeData';
 
-export type { EditorTerritory } from './editorGlobeData';
-
-const REGION_COLORS = [
-  'rgba(201, 168, 76, 0.6)',
-  'rgba(231, 76, 60, 0.6)',
-  'rgba(52, 152, 219, 0.6)',
-  'rgba(46, 204, 113, 0.6)',
-  'rgba(155, 89, 182, 0.6)',
-  'rgba(26, 188, 156, 0.6)',
-  'rgba(230, 126, 34, 0.6)',
-  'rgba(233, 30, 99, 0.6)',
-  'rgba(0, 188, 212, 0.6)',
-  'rgba(139, 195, 74, 0.6)',
-];
+export type { EditorConnection, EditorRegion, EditorTerritory, EditorTool } from './editorGlobeData';
 
 // Country outlines stay on the globe in every tool as faint borders to trace
 // and place against; the Pick Country tool brightens them and highlights the
@@ -48,20 +35,8 @@ const COUNTRY_FILL_PICKABLE = 'rgba(100, 120, 150, 0.18)';
 const COUNTRY_FILL_HOVER = 'rgba(201, 168, 76, 0.45)';
 const COUNTRY_STROKE = 'rgba(150, 170, 200, 0.30)';
 const COUNTRY_STROKE_PICKABLE = 'rgba(150, 170, 200, 0.55)';
-
-export interface EditorConnection {
-  from: string;
-  to: string;
-  type: 'land' | 'sea' | 'orbit';
-}
-
-export interface EditorRegion {
-  region_id: string;
-  name: string;
-  bonus: number;
-}
-
-export type EditorTool = 'select' | 'draw' | 'country_pick' | 'connect' | 'delete';
+const HIGHLIGHT_STROKE = '#ff6b6b';
+const SELECTED_STROKE = '#ffd700';
 
 interface PointDatum {
   lat: number;
@@ -80,14 +55,29 @@ interface ArcDatum {
   to?: string;
 }
 
+/** A camera request; a new nonce flies the globe there. */
+export interface GlobeFocus {
+  lat: number;
+  lng: number;
+  altitude?: number;
+  nonce: number;
+}
+
 interface GlobeMapEditorProps {
   territories: EditorTerritory[];
+  /** The page's cached polygon per territory (editorGlobeData.TerritoryPolygonCache). */
+  territoryPolygons: PolygonDatum[];
+  /** Country outlines for the picker, one datum per ISO code (useEditorCountries). */
+  countryData: PolygonDatum[];
   connections: EditorConnection[];
   regions: EditorRegion[];
   selectedTerritoryId: string | null;
   connectSource: string | null;
+  /** Territories the Map Health panel is pointing at. */
+  highlightedIds: string[];
   activeTool: EditorTool;
   drawingPoints: [number, number][];
+  focus: GlobeFocus | null;
   width: number;
   height: number;
   onTerritoryClick: (id: string) => void;
@@ -106,12 +96,16 @@ function escapeHtml(s: string): string {
 
 export default function GlobeMapEditor({
   territories,
+  territoryPolygons,
+  countryData,
   connections,
   regions,
   selectedTerritoryId,
   connectSource,
+  highlightedIds,
   activeTool,
   drawingPoints,
+  focus,
   width,
   height,
   onTerritoryClick,
@@ -120,46 +114,7 @@ export default function GlobeMapEditor({
   onConnectionClick,
 }: GlobeMapEditorProps) {
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
-  const [countriesGeo, setCountriesGeo] = useState<GeoJSON.FeatureCollection | null>(null);
   const [hoveredCountryId, setHoveredCountryId] = useState<string | null>(null);
-
-  // The same local file and promise cache as the game, not a CDN copy.
-  useEffect(() => {
-    let cancelled = false;
-    void loadCountriesGeo().then((fc) => {
-      if (!cancelled) setCountriesGeo(fc);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // ISO → features index, with the overseas pieces trimmed from their parents
-  // registered under their own codes so they are pickable by name.
-  const isoToFeatures = useMemo(() => {
-    const map = new Map<string, GeoJSON.Feature[]>();
-    if (!countriesGeo?.features) return map;
-    for (const f of countriesGeo.features) {
-      const code = featureIsoCode(f);
-      if (!code) continue;
-      const list = map.get(code) ?? [];
-      list.push(f);
-      map.set(code, list);
-    }
-    registerPossessionFeatures(map);
-    return map;
-  }, [countriesGeo]);
-
-  // Country outlines: built once per data load, never per edit.
-  const countryData = useMemo(() => buildCountryData(isoToFeatures), [isoToFeatures]);
-
-  // Territory polygons: one cached datum per territory, replaced only when
-  // its geometry changes. Renames, region moves and selection never touch it.
-  const territoryCacheRef = useRef(new TerritoryPolygonCache());
-  const territoryData = useMemo(
-    () => territoryCacheRef.current.build(territories, isoToFeatures),
-    [territories, isoToFeatures],
-  );
 
   // ISO codes already claimed by editor territories: their outline is hidden
   // under the territory that now draws it.
@@ -173,8 +128,8 @@ export default function GlobeMapEditor({
 
   const polygonsData = useMemo((): PolygonDatum[] => {
     const countries = countryData.filter((c) => !usedIsoCodes.has(c.isoCode ?? ''));
-    return [...territoryData, ...countries];
-  }, [territoryData, countryData, usedIsoCodes]);
+    return [...territoryPolygons, ...countries];
+  }, [territoryPolygons, countryData, usedIsoCodes]);
 
   // Live lookups for the accessors, so the datum objects stay untouched.
   const regionIndexById = useMemo(() => {
@@ -194,6 +149,8 @@ export default function GlobeMapEditor({
     () => new Map(territories.map((t) => [t.territory_id, t] as const)),
     [territories],
   );
+
+  const highlighted = useMemo(() => new Set(highlightedIds), [highlightedIds]);
 
   // Drawing preview: vertex points
   const pointsData = useMemo((): PointDatum[] => {
@@ -246,15 +203,16 @@ export default function GlobeMapEditor({
       if (pickMode && p.id === hoveredCountryId) return COUNTRY_FILL_HOVER;
       return pickMode ? COUNTRY_FILL_PICKABLE : COUNTRY_FILL;
     }
-    return REGION_COLORS[(regionIndexById.get(p.id) ?? 0) % REGION_COLORS.length];
-  }, [pickMode, hoveredCountryId, regionIndexById]);
+    return regionColorRgba(regionIndexById.get(p.id) ?? 0, highlighted.has(p.id) ? 0.85 : 0.6);
+  }, [pickMode, hoveredCountryId, regionIndexById, highlighted]);
 
   const getPolygonStroke = useCallback((polygon: object) => {
     const p = polygon as PolygonDatum;
     if (p.kind === 'country') return pickMode ? COUNTRY_STROKE_PICKABLE : COUNTRY_STROKE;
-    if (p.id === selectedTerritoryId || p.id === connectSource) return '#ffd700';
+    if (highlighted.has(p.id)) return HIGHLIGHT_STROKE;
+    if (p.id === selectedTerritoryId || p.id === connectSource) return SELECTED_STROKE;
     return '#ffffff';
-  }, [pickMode, selectedTerritoryId, connectSource]);
+  }, [pickMode, selectedTerritoryId, connectSource, highlighted]);
 
   const getPolygonAltitude = useCallback((polygon: object) => {
     return (polygon as PolygonDatum).kind === 'country' ? 0.002 : 0.008;
@@ -356,6 +314,13 @@ export default function GlobeMapEditor({
     if (a.kind === 'drawing') return 0.5;
     return a.connectionType === 'sea' ? 0.4 : 0;
   }, []);
+
+  // Camera requests from the page: a country found by search, a health issue
+  // clicked, "fit the map".
+  useEffect(() => {
+    if (!focus) return;
+    globeRef.current?.pointOfView({ lat: focus.lat, lng: focus.lng, altitude: focus.altitude ?? 1.2 }, 900);
+  }, [focus]);
 
   return (
     <div className="w-full h-full overflow-hidden bg-bf-dark">
