@@ -77,6 +77,7 @@ Env vars: a flag defaulting **on** is disabled with `X=false`; one defaulting **
 | `analyticsEventsEnabled` | `ANALYTICS_EVENTS_ENABLED` | **on** (off under test) | Funnel/retention events → `analytics_events` + JSON log lines. Cohorts only accrue while this is live |
 | `metricsEndpointEnabled` | `METRICS_ENDPOINT_ENABLED` | **on in dev, off in prod** | `GET /metrics/json` (room count, lock/persistence failure counters, memory) |
 | `mapEditorEnabled` | `MAP_EDITOR_ENABLED` | **on** | Map Editor UI + custom-map publishing (draft → review → approve pipeline; kill switch in Admin → Config) |
+| `mapShowcaseEnabled` | `MAP_SHOWCASE_ENABLED` | **on** | The community showcase around the editor: the map of the week atop the Map Hub, a creator's published maps on their profile, and author links from community maps to those profiles. Off, the client hides them and `GET /maps/featured` / `GET /maps/by-creator/:userId` answer empty. Separate from the editor flag; kill switch in Admin → Config |
 | `firstTurnCoachEnabled` | `FIRST_TURN_COACH_ENABLED` | **on** | Coached first turn for 0-XP players (globe, turn 1 only) |
 | `turnRecapPanelEnabled` | `TURN_RECAP_PANEL_ENABLED` | on | Desktop own-turn recap: the end of the player's own turn adds a "Your turn" row to the non-blocking recap panel instead of the modal "Your Turn Complete" summary, as phones already do. Off is the modal as before |
 | `turnClarityEnabled` | `TURN_CLARITY_ENABLED` | **on** | Phase-progression bar, valid source/target highlighting, reinforcement undo |
