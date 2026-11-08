@@ -21,6 +21,7 @@ import {
   getAcquisitionBySource,
   getAnalyticsReport,
   getGuestAccountMetrics,
+  getEditorMetrics,
   parseFunnelDevice,
 } from './analyticsQueries';
 
@@ -290,6 +291,30 @@ describe('analyticsQueries', () => {
     expect(await getSoloGamesByLevel(7)).toEqual([]);
   });
 
+  it('getEditorMetrics counts players once per step, keeps moderation from every account, and zero-fills', async () => {
+    queryMock
+      .mockResolvedValueOnce([{ opened: '5', templated: 3, saved: 2, submitted: 1, tested: 2, test_plays: 4, balance_runs: 1 }])
+      .mockResolvedValueOnce([{ approved: 1, rejected: '1' }])
+      .mockResolvedValueOnce([{ template: 'Oceania', n: 2 }]);
+    const e = await getEditorMetrics(14);
+    const [playersSql, playersParams] = queryMock.mock.calls[0] as [string, unknown[]];
+    const [moderationSql] = queryMock.mock.calls[1] as [string, unknown[]];
+    expect(playersSql).toContain("COUNT(DISTINCT user_id) FILTER (WHERE event = 'editor_opened')");
+    expect(playersSql).toContain('sx_eu'); // staff and test accounts left out, as elsewhere
+    expect(moderationSql).not.toContain('sx_eu'); // the moderator's own events must count
+    expect(playersParams).toEqual([14]);
+    expect(e).toEqual({
+      opened: 5, templated: 3, saved: 2, submitted: 1, tested: 2, test_plays: 4, balance_runs: 1, approved: 1, rejected: 1,
+      templates: [{ template: 'Oceania', n: 2 }],
+    });
+
+    queryMock.mockReset();
+    queryMock.mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    expect(await getEditorMetrics(7)).toEqual({
+      opened: 0, templated: 0, saved: 0, submitted: 0, tested: 0, test_plays: 0, balance_runs: 0, approved: 0, rejected: 0, templates: [],
+    });
+  });
+
   it('getAnalyticsReport assembles every section plus the lifetime total', async () => {
     // Promise.all invokes the section queries in array order: visitors, funnel,
     // retention, retention-by-cohort, completion, acquisition, volume,
@@ -322,7 +347,10 @@ describe('analyticsQueries', () => {
       .mockResolvedValueOnce([{
         new_players: 3, saw_map: 3, briefing_closed: 3, territory_opened: 2, units_placed: 2,
         draft_ended: 1, attacked: 1, captured: 1, clock_ran_out: 1, measured_since: '2026-11-03',
-      }]);
+      }])
+      .mockResolvedValueOnce([{ opened: 4, templated: 3, saved: 2, submitted: 1, tested: 2, test_plays: 3, balance_runs: 1 }])
+      .mockResolvedValueOnce([{ approved: 1, rejected: 0 }])
+      .mockResolvedValueOnce([{ template: 'Europe', n: 2 }, { template: 'remix', n: '1' }]);
     queryOneMock.mockResolvedValueOnce({ total: 42 });
 
     const r = await getAnalyticsReport(30);
@@ -331,6 +359,10 @@ describe('analyticsQueries', () => {
     expect(r.total_events).toBe(42);
     expect(r.visitors).toEqual({ landed: 10, clicked_play: 4, signed_up: 3 });
     expect(r.funnel.finished_game).toBe(1);
+    expect(r.editor).toEqual({
+      opened: 4, templated: 3, saved: 2, submitted: 1, tested: 2, test_plays: 3, balance_runs: 1, approved: 1, rejected: 0,
+      templates: [{ template: 'Europe', n: 2 }, { template: 'remix', n: 1 }],
+    });
     expect(r.retention.d1).toBe(1);
     // The pooled row and the split must describe the same cohort: 1 of 3 back
     // on day one, and all of that one is the account side.

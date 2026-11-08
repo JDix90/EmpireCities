@@ -241,6 +241,25 @@ async function main(): Promise<void> {
     );
   }
 
+  // The map editor: who opened it, who built and sent something, and what
+  // came of the review. Players per step; the counts on the second line are events.
+  const ed = r.editor;
+  if (ed.opened > 0 || ed.approved + ed.rejected > 0) {
+    console.log('MAP EDITOR (players in window; staff and test accounts left out, approvals from every account)');
+    console.log(
+      `  opened ${ed.opened} · template ${ed.templated} ${pct(ed.templated, ed.opened)}`
+      + ` · saved ${ed.saved} ${pct(ed.saved, ed.opened)} · tried vs bots ${ed.tested} ${pct(ed.tested, ed.opened)}`
+      + ` · sent for review ${ed.submitted} ${pct(ed.submitted, ed.opened)}`,
+    );
+    console.log(
+      `  approved ${ed.approved} · sent back ${ed.rejected} · test games ${ed.test_plays} · balance reports ${ed.balance_runs}`,
+    );
+    if (ed.templates.length > 0) {
+      console.log(`  started from: ${ed.templates.map((t) => `${t.template} ${t.n}`).join(' · ')}`);
+    }
+    console.log('');
+  }
+
   console.log('EVENT VOLUME');
   for (const row of r.volume) console.log(`  ${row.event.padEnd(20)} ${String(row.n).padStart(6)}`);
   console.log('');
