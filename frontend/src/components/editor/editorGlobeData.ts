@@ -25,6 +25,38 @@ export interface EditorTerritory {
   geo_polygon?: [number, number][];
 }
 
+export interface EditorConnection {
+  from: string;
+  to: string;
+  type: 'land' | 'sea' | 'orbit';
+}
+
+export interface EditorRegion {
+  region_id: string;
+  name: string;
+  bonus: number;
+}
+
+export type EditorTool = 'select' | 'draw' | 'country_pick' | 'connect' | 'paint' | 'delete';
+
+/** Region colours by region index; the globe reads them with an alpha, the panels as-is. */
+export const REGION_COLORS = [
+  '#c9a84c', '#e74c3c', '#3498db', '#2ecc71', '#9b59b6',
+  '#1abc9c', '#e67e22', '#e91e63', '#00bcd4', '#8bc34a',
+];
+
+export function regionColorHex(index: number): string {
+  return REGION_COLORS[((index % REGION_COLORS.length) + REGION_COLORS.length) % REGION_COLORS.length];
+}
+
+export function regionColorRgba(index: number, alpha: number): string {
+  const hex = regionColorHex(index);
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 export interface EditorPolygonDatum {
   id: string;
   kind: 'territory' | 'country';

@@ -61,6 +61,49 @@ function isRegion(v: unknown): v is EditorRegion {
     && typeof r.bonus === 'number' && Number.isFinite(r.bonus);
 }
 
+/** The map content fields a snapshot, an export file or an API document carry. */
+export interface EditorContentFields {
+  mapName: string;
+  mapDescription: string;
+  eraTheme: string;
+  territories: EditorTerritory[];
+  connections: EditorConnection[];
+  regions: EditorRegion[];
+}
+
+/**
+ * Well-formed map content from untrusted JSON, or null. Accepts the editor's
+ * own field names (mapName) and the API document's (name, description,
+ * era_theme), so an exported file and a saved map both import.
+ */
+export function sanitizeEditorContent(raw: unknown): EditorContentFields | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const d = raw as Record<string, unknown>;
+  const name = typeof d.mapName === 'string' ? d.mapName : typeof d.name === 'string' ? d.name : null;
+  if (name === null) return null;
+  if (!Array.isArray(d.territories) || !d.territories.every(isTerritory)) return null;
+  if (!Array.isArray(d.connections) || !d.connections.every(isConnection)) return null;
+  if (!Array.isArray(d.regions) || !d.regions.every(isRegion) || d.regions.length === 0) return null;
+  const description = typeof d.mapDescription === 'string' ? d.mapDescription : typeof d.description === 'string' ? d.description : '';
+  const era = typeof d.eraTheme === 'string' ? d.eraTheme : typeof d.era_theme === 'string' ? d.era_theme : '';
+  return {
+    mapName: name,
+    mapDescription: description,
+    eraTheme: era,
+    territories: d.territories.map((t) => ({
+      territory_id: t.territory_id,
+      name: t.name,
+      polygon: t.polygon,
+      center_point: t.center_point,
+      region_id: t.region_id,
+      ...(t.iso_codes ? { iso_codes: t.iso_codes } : {}),
+      ...(t.geo_polygon ? { geo_polygon: t.geo_polygon } : {}),
+    })),
+    connections: d.connections.map((c) => ({ from: c.from, to: c.to, type: c.type })),
+    regions: d.regions.map((r) => ({ region_id: r.region_id, name: r.name, bonus: r.bonus })),
+  };
+}
+
 /** The snapshot if one is stored and well-formed; anything else reads as none. */
 export function readEditorDraft(mapId: string | null): EditorDraftSnapshot | null {
   if (typeof window === 'undefined') return null;
@@ -71,20 +114,9 @@ export function readEditorDraft(mapId: string | null): EditorDraftSnapshot | nul
     if (!parsed || typeof parsed !== 'object') return null;
     const d = parsed as Record<string, unknown>;
     if (d.v !== 1 || typeof d.savedAt !== 'number' || !Number.isFinite(d.savedAt)) return null;
-    if (typeof d.mapName !== 'string') return null;
-    if (!Array.isArray(d.territories) || !d.territories.every(isTerritory)) return null;
-    if (!Array.isArray(d.connections) || !d.connections.every(isConnection)) return null;
-    if (!Array.isArray(d.regions) || !d.regions.every(isRegion) || d.regions.length === 0) return null;
-    return {
-      v: 1,
-      savedAt: d.savedAt,
-      mapName: d.mapName,
-      mapDescription: typeof d.mapDescription === 'string' ? d.mapDescription : '',
-      eraTheme: typeof d.eraTheme === 'string' ? d.eraTheme : '',
-      territories: d.territories,
-      connections: d.connections,
-      regions: d.regions,
-    };
+    const content = sanitizeEditorContent(d);
+    if (!content) return null;
+    return { v: 1, savedAt: d.savedAt, ...content };
   } catch {
     return null;
   }
