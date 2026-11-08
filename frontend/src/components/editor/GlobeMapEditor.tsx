@@ -93,6 +93,8 @@ interface GlobeMapEditorProps {
   onTerritoryClick: (id: string) => void;
   onGlobeClickCoords: (lng: number, lat: number) => void;
   onCountryPick: (isoCode: string, name: string, geometry: PolyGeom) => void;
+  /** A click on a connection line, as (from, to) of the stored edge. */
+  onConnectionClick?: (from: string, to: string) => void;
 }
 
 /** Tooltip content lands in innerHTML; names are user text. */
@@ -115,6 +117,7 @@ export default function GlobeMapEditor({
   onTerritoryClick,
   onGlobeClickCoords,
   onCountryPick,
+  onConnectionClick,
 }: GlobeMapEditorProps) {
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
   const [countriesGeo, setCountriesGeo] = useState<GeoJSON.FeatureCollection | null>(null);
@@ -272,6 +275,8 @@ export default function GlobeMapEditor({
   onGlobeClickCoordsRef.current = onGlobeClickCoords;
   const onCountryPickRef = useRef(onCountryPick);
   onCountryPickRef.current = onCountryPick;
+  const onConnectionClickRef = useRef(onConnectionClick);
+  onConnectionClickRef.current = onConnectionClick;
 
   const handlePolygonClick = useCallback((polygon: object, _event: MouseEvent, coords: { lat: number; lng: number }) => {
     const p = polygon as PolygonDatum;
@@ -313,6 +318,31 @@ export default function GlobeMapEditor({
     if (objType !== 'polygon') return true;
     const p = objData as PolygonDatum;
     return p.kind === 'territory' || activeToolRef.current === 'country_pick';
+  }, []);
+
+  const handleArcClick = useCallback((arc: object) => {
+    const a = arc as ArcDatum;
+    if (a.kind === 'connection' && a.from && a.to) onConnectionClickRef.current?.(a.from, a.to);
+  }, []);
+
+  const getArcLabel = useCallback((arc: object) => {
+    const a = arc as ArcDatum;
+    if (a.kind !== 'connection' || !a.from || !a.to) return '';
+    const from = escapeHtml(territoryNameById.get(a.from) ?? a.from);
+    const to = escapeHtml(territoryNameById.get(a.to) ?? a.to);
+    const kind = a.connectionType === 'sea' ? 'sea lane' : 'land border';
+    const tool = activeToolRef.current;
+    const hint = tool === 'delete'
+      ? ' — click to remove'
+      : tool === 'connect'
+        ? ' — click to switch land/sea'
+        : '';
+    return `${from} ↔ ${to} · ${kind}${hint}`;
+  }, [territoryNameById]);
+
+  const getArcStroke = useCallback((arc: object) => {
+    // A little thicker than the drawing preview: these take clicks.
+    return (arc as ArcDatum).kind === 'connection' ? 0.7 : 0.5;
   }, []);
 
   const getArcColor = useCallback((arc: object) => {
@@ -366,7 +396,9 @@ export default function GlobeMapEditor({
         arcEndLng="endLng"
         arcColor={getArcColor}
         arcAltitudeAutoScale={0.3}
-        arcStroke={0.5}
+        arcStroke={getArcStroke}
+        arcLabel={getArcLabel}
+        onArcClick={handleArcClick}
         arcDashLength={getArcDash}
         arcDashGap={(arc) => {
           const a = arc as ArcDatum;

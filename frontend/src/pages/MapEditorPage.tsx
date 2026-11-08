@@ -46,6 +46,13 @@ function computeCentroid(ring: [number, number][]): [number, number] {
   return [lngSum / ring.length, latSum / ring.length];
 }
 
+/** Mirrors the server's SAFE_DESCRIPTION_REGEX so a bad character is caught while typing, not at save. */
+const SAFE_DESCRIPTION = /^[\p{L}\p{N} '’._\-:()&,!?\n\r"/]*$/u;
+
+function regionCountLabel(n: number): string {
+  return `${n} territor${n === 1 ? 'y' : 'ies'}`;
+}
+
 /** " — 3 territories, 2 connections." for the recovery banner, or just the full stop. */
 function draftSummary(d: EditorDraftSnapshot): string {
   const t = d.territories.length;
@@ -82,6 +89,8 @@ export default function MapEditorPage() {
   const [activeTool, setActiveTool] = useState<EditorTool>('select');
   const [selectedTerritoryId, setSelectedTerritoryId] = useState<string | null>(null);
   const [connectSource, setConnectSource] = useState<string | null>(null);
+  // What the Connect tool draws next: a land border, or a sea lane (dashed in game).
+  const [connectType, setConnectType] = useState<'land' | 'sea'>('land');
   const [drawingPoints, setDrawingPoints] = useState<[number, number][]>([]);
   const [mapName, setMapName] = useState('My Custom Map');
   const [mapDescription, setMapDescription] = useState('');
@@ -106,6 +115,7 @@ export default function MapEditorPage() {
     regions: EditorRegion[];
     mapName: string;
     mapDescription: string;
+    eraTheme: string;
   }
   const historyRef = useRef<EditorSnapshot[]>([]);
   const historyIndexRef = useRef<number>(-1);
@@ -122,6 +132,8 @@ export default function MapEditorPage() {
   mapNameRef.current = mapName;
   const mapDescRef = useRef(mapDescription);
   mapDescRef.current = mapDescription;
+  const eraThemeRef = useRef(eraTheme);
+  eraThemeRef.current = eraTheme;
 
   const updateUndoRedoFlags = useCallback(() => {
     setCanUndo(historyIndexRef.current > 0);
@@ -134,6 +146,7 @@ export default function MapEditorPage() {
     regions: structuredClone(regionsRef.current),
     mapName: mapNameRef.current,
     mapDescription: mapDescRef.current,
+    eraTheme: eraThemeRef.current,
   }), []);
 
   const pushHistory = useCallback((snap: EditorSnapshot) => {
@@ -154,6 +167,7 @@ export default function MapEditorPage() {
     setRegions(snap.regions);
     setMapName(snap.mapName);
     setMapDescription(snap.mapDescription);
+    setEraTheme(snap.eraTheme);
     updateUndoRedoFlags();
   }, [updateUndoRedoFlags]);
 
@@ -326,6 +340,31 @@ export default function MapEditorPage() {
   connectSourceRef.current = connectSource;
   const connectionsRef = useRef(connections);
   connectionsRef.current = connections;
+  const connectTypeRef = useRef(connectType);
+  connectTypeRef.current = connectType;
+
+  const sameEdge = (c: EditorConnection, from: string, to: string) =>
+    (c.from === from && c.to === to) || (c.from === to && c.to === from);
+
+  const removeConnection = useCallback((from: string, to: string) => {
+    recordUndo();
+    setConnections((prev) => prev.filter((c) => !sameEdge(c, from, to)));
+  }, [recordUndo]);
+
+  const toggleConnectionType = useCallback((from: string, to: string) => {
+    recordUndo();
+    setConnections((prev) => prev.map((c) =>
+      sameEdge(c, from, to) ? { ...c, type: c.type === 'sea' ? 'land' : 'sea' } : c,
+    ));
+  }, [recordUndo]);
+
+  // A click on a connection line on the globe: Delete removes it, Connect
+  // switches it between land and sea. Other tools leave it alone.
+  const handleConnectionClick = useCallback((from: string, to: string) => {
+    const tool = activeToolRef.current;
+    if (tool === 'delete') removeConnection(from, to);
+    else if (tool === 'connect') toggleConnectionType(from, to);
+  }, [removeConnection, toggleConnectionType]);
 
   const handleTerritoryClick = useCallback((id: string) => {
     const tool = activeToolRef.current;
@@ -345,7 +384,7 @@ export default function MapEditorPage() {
         );
         if (!exists) {
           recordUndo();
-          setConnections((prev) => [...prev, { from: src, to: id, type: 'land' }]);
+          setConnections((prev) => [...prev, { from: src, to: id, type: connectTypeRef.current }]);
         }
         setConnectSource(null);
       }
@@ -417,6 +456,31 @@ export default function MapEditorPage() {
     setRegions((prev) => [...prev, { region_id: id, name: `Region ${prev.length + 1}`, bonus: 3 }]);
   };
 
+  // Removing a region moves its territories to another one rather than
+  // leaving them pointing at nothing; the last region stays.
+  const removeRegion = (regionId: string) => {
+    const fallback = regions.find((r) => r.region_id !== regionId);
+    if (!fallback) return;
+    const moved = territories.filter((t) => t.region_id === regionId).length;
+    recordUndo();
+    setTerritories((prev) => prev.map((t) => (t.region_id === regionId ? { ...t, region_id: fallback.region_id } : t)));
+    setRegions((prev) => prev.filter((r) => r.region_id !== regionId));
+    if (moved > 0) toast(`${moved} territor${moved === 1 ? 'y' : 'ies'} moved to ${fallback.name}`);
+  };
+
+  const territoryCountByRegion = React.useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const t of territories) counts.set(t.region_id, (counts.get(t.region_id) ?? 0) + 1);
+    return counts;
+  }, [territories]);
+
+  const territoryNameById = React.useMemo(
+    () => new Map(territories.map((t) => [t.territory_id, t.name] as const)),
+    [territories],
+  );
+
+  const descriptionInvalid = !SAFE_DESCRIPTION.test(mapDescription);
+
   // The map document endpoint has no moderation fields; the author's own
   // listing does. One fetch drives the status pill and the submit button.
   useEffect(() => {
@@ -458,6 +522,10 @@ export default function MapEditorPage() {
   const handleSave = async () => {
     if (mapName.trim().length === 0) {
       toast.error('Give the map a name first');
+      return;
+    }
+    if (descriptionInvalid) {
+      toast.error('The description has a character the server will not accept');
       return;
     }
     setSaving(true);
@@ -502,6 +570,9 @@ export default function MapEditorPage() {
   };
 
   const selectedTerritory = territories.find((t) => t.territory_id === selectedTerritoryId);
+  const selectedConnections = selectedTerritoryId
+    ? connections.filter((c) => c.from === selectedTerritoryId || c.to === selectedTerritoryId)
+    : [];
 
   const toolHints: Record<EditorTool, string> = {
     select: 'Click a territory to select and edit its properties',
@@ -509,8 +580,10 @@ export default function MapEditorPage() {
       ? `${drawingPoints.length} point${drawingPoints.length > 1 ? 's' : ''} placed — click to add more, drag to rotate, then press Finish`
       : 'Click the globe to place each corner of the territory; drag to rotate',
     country_pick: 'Click a country to add it as a territory',
-    connect: connectSource ? 'Click a second territory to create a connection' : 'Click a territory to start a connection',
-    delete: 'Click a territory to remove it',
+    connect: connectSource
+      ? `Click a second territory to add a ${connectType === 'sea' ? 'sea lane' : 'land border'}`
+      : 'Click a territory to start a connection, or an existing line to switch it between land and sea',
+    delete: 'Click a territory or a connection line to remove it',
   };
 
   return (
@@ -548,7 +621,7 @@ export default function MapEditorPage() {
         <select
           className="bg-bf-dark border border-bf-border rounded-lg text-xs text-bf-text py-1 px-2"
           value={eraTheme}
-          onChange={(e) => setEraTheme(e.target.value)}
+          onChange={(e) => { recordUndo(); setEraTheme(e.target.value); }}
           title="Era theme (used by the community hub's era filter)"
         >
           <option value="">No era tag</option>
@@ -665,12 +738,29 @@ export default function MapEditorPage() {
               onTerritoryClick={handleTerritoryClick}
               onGlobeClickCoords={handleGlobeClick}
               onCountryPick={handleCountryPick}
+              onConnectionClick={handleConnectionClick}
             />
           </Suspense>
 
           {/* Hint bar */}
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-bf-surface/90 backdrop-blur border border-bf-border rounded-lg px-4 py-2 text-sm text-bf-muted flex items-center gap-3">
             <span>{toolHints[activeTool]}</span>
+            {activeTool === 'connect' && (
+              <div className="flex items-center gap-0.5 rounded-md border border-bf-border p-0.5" role="radiogroup" aria-label="Connection type">
+                {(['land', 'sea'] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    role="radio"
+                    aria-checked={connectType === t}
+                    onClick={() => setConnectType(t)}
+                    className={`px-2 py-0.5 rounded text-xs ${connectType === t ? 'bg-bf-gold text-bf-dark' : 'text-bf-muted hover:text-bf-text'}`}
+                  >
+                    {t === 'land' ? 'Land border' : 'Sea lane'}
+                  </button>
+                ))}
+              </div>
+            )}
             {activeTool === 'draw' && drawingPoints.length >= 3 && (
               <button
                 onClick={finishDrawing}
@@ -684,6 +774,27 @@ export default function MapEditorPage() {
 
         {/* Right Panel */}
         <div className="w-64 bg-bf-surface border-l border-bf-border flex flex-col shrink-0 overflow-y-auto">
+          {/* Map details: what the hub card shows beside the name and era. */}
+          <div className="p-4 border-b border-bf-border">
+            <h3 className="text-xs font-medium text-bf-muted uppercase tracking-wider mb-3">Map</h3>
+            <label className="label text-xs" htmlFor="map-editor-description">Description</label>
+            <textarea
+              id="map-editor-description"
+              className={`input text-sm py-1.5 resize-none ${descriptionInvalid ? 'border-red-500/60' : ''}`}
+              rows={3}
+              maxLength={512}
+              value={mapDescription}
+              onFocus={recordUndo}
+              onChange={(e) => setMapDescription(e.target.value)}
+              placeholder="What is this map about? Shown on its card in the Map Hub."
+            />
+            <p className={`text-[11px] mt-1 ${descriptionInvalid ? 'text-red-300' : 'text-bf-muted text-right'}`}>
+              {descriptionInvalid
+                ? 'Letters, numbers and basic punctuation only'
+                : `${mapDescription.length}/512`}
+            </p>
+          </div>
+
           {/* Territory Properties */}
           {selectedTerritory && (
             <div className="p-4 border-b border-bf-border">
@@ -731,6 +842,43 @@ export default function MapEditorPage() {
                     ISO: {selectedTerritory.iso_codes.join(', ')}
                   </div>
                 )}
+                <div>
+                  <label className="label text-xs">Connections ({selectedConnections.length})</label>
+                  {selectedConnections.length === 0 ? (
+                    <p className="text-[11px] text-bf-muted">None yet. Use the Connect tool to link it to a neighbour.</p>
+                  ) : (
+                    <ul className="space-y-1">
+                      {selectedConnections.map((c) => {
+                        const otherId = c.from === selectedTerritoryId ? c.to : c.from;
+                        const other = territoryNameById.get(otherId) ?? otherId;
+                        return (
+                          <li key={`${c.from}|${c.to}`} className="flex items-center gap-1.5 text-xs">
+                            <span className="flex-1 truncate text-bf-text" title={other}>{other}</span>
+                            <button
+                              type="button"
+                              onClick={() => toggleConnectionType(c.from, c.to)}
+                              title="Switch between a land border and a sea lane"
+                              className={`px-1.5 py-0.5 rounded border text-[10px] uppercase tracking-wide ${
+                                c.type === 'sea' ? 'border-sky-500/40 text-sky-300' : 'border-bf-border text-bf-muted'
+                              }`}
+                            >
+                              {c.type}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeConnection(c.from, c.to)}
+                              title="Remove connection"
+                              aria-label={`Remove connection to ${other}`}
+                              className="text-bf-muted hover:text-red-400 transition-colors"
+                            >
+                              ✕
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
                 <button
                   onClick={() => {
                     const id = selectedTerritoryId!;
@@ -764,13 +912,25 @@ export default function MapEditorPage() {
                       style={{ backgroundColor: REGION_COLORS[idx % REGION_COLORS.length] }}
                     />
                     <input
-                      className="bg-transparent text-sm text-bf-text flex-1 focus:outline-none"
+                      className="bg-transparent text-sm text-bf-text flex-1 min-w-0 focus:outline-none"
                       value={region.name}
                       onFocus={recordUndo}
                       onChange={(e) => setRegions((prev) =>
                         prev.map((r) => r.region_id === region.region_id ? { ...r, name: e.target.value } : r)
                       )}
                     />
+                    <button
+                      type="button"
+                      onClick={() => removeRegion(region.region_id)}
+                      disabled={regions.length <= 1}
+                      title={regions.length <= 1
+                        ? 'A map needs at least one region'
+                        : 'Remove region (its territories move to another region)'}
+                      aria-label={`Remove region ${region.name}`}
+                      className="text-bf-muted hover:text-red-400 transition-colors text-xs disabled:opacity-30 disabled:hover:text-bf-muted"
+                    >
+                      ✕
+                    </button>
                   </div>
                   <div className="flex items-center gap-2">
                     <label className="text-xs text-bf-muted">Bonus:</label>
@@ -785,6 +945,16 @@ export default function MapEditorPage() {
                         prev.map((r) => r.region_id === region.region_id ? { ...r, bonus: Number(e.target.value) } : r)
                       )}
                     />
+                    <span
+                      className={`ml-auto text-[11px] ${
+                        (territoryCountByRegion.get(region.region_id) ?? 0) < 2 && region.bonus > 0
+                          ? 'text-amber-300'
+                          : 'text-bf-muted'
+                      }`}
+                      title="A region with a bonus pays only once it holds two or more territories"
+                    >
+                      {regionCountLabel(territoryCountByRegion.get(region.region_id) ?? 0)}
+                    </span>
                   </div>
                 </div>
               ))}
