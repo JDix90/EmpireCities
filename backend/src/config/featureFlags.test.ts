@@ -91,6 +91,16 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().first_turn_coach_enabled).toBe(false);
   });
 
+  it('map_showcase_enabled defaults to on, ships to the client, and is admin-overridable', () => {
+    expect(featureFlags.mapShowcaseEnabled).toBe(true);
+    expect(getClientFeatureFlags().map_showcase_enabled).toBe(true);
+    setAdminConfigCacheForTests({ feature_flags: { map_showcase_enabled: false } });
+    expect(featureFlags.mapShowcaseEnabled).toBe(false);
+    expect(getClientFeatureFlags().map_showcase_enabled).toBe(false);
+    // The editor itself is a separate switch.
+    expect(featureFlags.mapEditorEnabled).toBe(true);
+  });
+
   it('guest_personal_features_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.guestPersonalFeaturesEnabled).toBe(true);
     expect(getClientFeatureFlags().guest_personal_features_enabled).toBe(true);

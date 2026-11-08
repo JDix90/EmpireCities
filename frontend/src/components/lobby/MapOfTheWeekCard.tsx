@@ -26,10 +26,17 @@ export interface FeaturedPayload {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** The week's community map, as the server picks it (GET /maps/featured). */
-export function useFeaturedMap(): FeaturedPayload | null {
+const NO_FEATURED: FeaturedPayload = { week: '', map: null };
+
+/**
+ * The week's community map, as the server picks it (GET /maps/featured).
+ * With the showcase switched off (`enabled` false) nothing is asked for and
+ * there is no map, so every surface reading it stays quiet.
+ */
+export function useFeaturedMap(enabled = true): FeaturedPayload | null {
   const [payload, setPayload] = useState<FeaturedPayload | null>(null);
   useEffect(() => {
+    if (!enabled) return undefined;
     let cancelled = false;
     api.get<FeaturedPayload>('/maps/featured')
       .then((res) => {
@@ -41,8 +48,8 @@ export function useFeaturedMap(): FeaturedPayload | null {
     return () => {
       cancelled = true;
     };
-  }, []);
-  return payload;
+  }, [enabled]);
+  return enabled ? payload : NO_FEATURED;
 }
 
 /**

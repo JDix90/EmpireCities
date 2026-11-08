@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, renderHook, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import MapOfTheWeekCard from './MapOfTheWeekCard';
+import MapOfTheWeekCard, { useFeaturedMap } from './MapOfTheWeekCard';
+import { api } from '../../services/api';
 
 vi.mock('../../services/api', () => ({ api: { get: vi.fn() } }));
 vi.mock('./MapPreview', () => ({ default: () => <div data-testid="preview" /> }));
@@ -39,5 +40,13 @@ describe('MapOfTheWeekCard', () => {
     expect(container.querySelector('[data-testid="map-of-the-week"]')).toBeNull();
     rerender(<MemoryRouter><MapOfTheWeekCard featured={{ week: '2026-W45', map: null }} /></MemoryRouter>);
     expect(container.querySelector('[data-testid="map-of-the-week"]')).toBeNull();
+  });
+});
+
+describe('useFeaturedMap', () => {
+  it('asks the server for nothing while the showcase is switched off', () => {
+    const { result } = renderHook(() => useFeaturedMap(false));
+    expect(api.get).not.toHaveBeenCalled();
+    expect(result.current).toEqual({ week: '', map: null });
   });
 });

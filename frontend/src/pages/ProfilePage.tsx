@@ -12,7 +12,7 @@ import TierBadge from '../components/ui/TierBadge';
 import ReferralPanel from '../components/ui/ReferralPanel';
 import { ownAuthUiAllowed } from '../utils/embedContext';
 import { useStoreV2Enabled, useGuestPersonalFeaturesEnabled } from '../store/featureFlagsStore';
-import { useGuestLeaderboardsEnabled, useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
+import { useGuestLeaderboardsEnabled, useSaveAccountCopyEnabled, useMapShowcaseEnabled } from '../store/featureFlagsStore';
 import FrameRing from '../components/cosmetics/FrameRing';
 import BannerTag from '../components/cosmetics/BannerTag';
 import CreatorMaps from '../components/account/CreatorMaps';
@@ -136,6 +136,7 @@ export default function ProfilePage() {
   // A guest's gold is shown to them like their level (guest_personal_features_enabled).
   const guestPersonal = useGuestPersonalFeaturesEnabled();
   const saveAccountCopy = useSaveAccountCopyEnabled();
+  const showcase = useMapShowcaseEnabled();
   // With guest_leaderboards_enabled a guest is ranked on the boards and sees
   // their own ratings (GET /users/me returns them): the rating row shows for
   // them as for an account, and the guest line stops saying ratings are not
@@ -449,7 +450,7 @@ export default function ProfilePage() {
         )}
 
         {/* Published maps */}
-        {targetId && !ownGuest && <CreatorMaps userId={targetId} isOwn={isOwnProfile} />}
+        {showcase && targetId && !ownGuest && <CreatorMaps userId={targetId} isOwn={isOwnProfile} />}
 
         {/* Achievements */}
         {isOwnProfile && allAchievements.length > 0 && (
