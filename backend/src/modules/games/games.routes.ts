@@ -18,6 +18,7 @@ import { featureFlags } from '../../config/featureFlags';
 import { isValidSpineId, reachesSpaceAge } from '../../game-engine/eraAdvancement/spines';
 import { recordServerEvent } from '../../services/analyticsEvents';
 import { resolveMap } from '../../sockets/mapResolver';
+import { checkMapPlayable } from '../../modules/maps/mapPlayability';
 import { buildChronicle } from '../../game-engine/chronicle/buildChronicle';
 import { COMBINED_TUTORIAL_SCENARIO } from '../../game-engine/tutorial/combinedTutorialScenario';
 import {
@@ -374,6 +375,13 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     });
     if (seatRejection) {
       return reply.status(400).send({ error: seatRejection });
+    }
+
+    // An unpublished community map is its author's alone, and only once it
+    // would pass review; resolveMap loads any row by id and cannot say so.
+    const playable = await checkMapPlayable(map_id, request.userId!);
+    if (!playable.ok) {
+      return reply.status(403).send({ error: playable.reason });
     }
 
     // Resolved before the settings are built: whether the board has a Moon

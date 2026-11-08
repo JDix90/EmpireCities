@@ -189,6 +189,7 @@ import {
 import { runWithGameLock } from './gameLock';
 import { isUserBanned } from '../services/bans';
 import { resolveMap } from './mapResolver';
+import { checkMapPlayable } from '../modules/maps/mapPlayability';
 import { offerPlayOn, registerPlayOnHandlers, type PlayOnOfferPayload } from './playOnVote';
 import {
   isSameLobbyMap,
@@ -3657,6 +3658,10 @@ export function initGameSocket(httpServer: HttpServer): Server {
           'SELECT COALESCE(is_admin, false) AS is_admin FROM users WHERE user_id = $1',
           [userId],
         );
+        // The same gate as game creation: a draft is its author's alone.
+        const playable = await checkMapPlayable(mapValue.map_id, userId);
+        if (!playable.ok) return socket.emit('error', { message: playable.reason });
+
         const resolved = await resolveMap(mapValue.map_id);
         if (!resolved) return socket.emit('error', { message: 'Map not found' });
 
