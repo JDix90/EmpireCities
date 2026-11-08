@@ -76,39 +76,82 @@ export function geometryBbox(geom: PolyGeom): GeoBbox {
 }
 
 /**
- * One box around several geometries for the camera, the shorter way round
- * the globe. Longitudes are measured in the usual [-180, 180] frame and in
- * one cut at the prime meridian ([0, 360)), and the narrower span is kept.
- * Natural Earth splits Fiji at the antimeridian, so in the usual frame
- * Oceania's box runs the whole way round and its centre is the Atlantic; in
- * the other it is a box around the Pacific, with longitudes past 180 that
- * wrapLng brings back for whoever points the camera. Spatial tests keep
- * geometryBbox: two boxes only compare in one frame.
+ * One box around several geometries for the camera, the short way round the
+ * globe: the widest stretch of longitude with no vertex in it is left out and
+ * the box is everything else, so it may run past 180. Natural Earth splits
+ * Fiji at the antimeridian, so a box in plain longitudes ran the whole way
+ * round for Oceania and centred the camera on the Atlantic; Russia reaches
+ * past 180 too, so Europe's did the same. Spatial tests keep geometryBbox:
+ * two boxes only compare in one frame.
  */
 export function cameraBbox(geoms: PolyGeom[]): GeoBbox | null {
   let minLat = Infinity;
   let maxLat = -Infinity;
-  let minUsual = Infinity;
-  let maxUsual = -Infinity;
-  let minCut = Infinity;
-  let maxCut = -Infinity;
+  const lngs: number[] = [];
   for (const geom of geoms) {
     for (const poly of polygonsOf(geom)) {
       for (const [lng, lat] of poly[0] ?? []) {
         if (lat < minLat) minLat = lat;
         if (lat > maxLat) maxLat = lat;
-        if (lng < minUsual) minUsual = lng;
-        if (lng > maxUsual) maxUsual = lng;
-        const cut = lng < 0 ? lng + 360 : lng;
-        if (cut < minCut) minCut = cut;
-        if (cut > maxCut) maxCut = cut;
+        lngs.push(lng);
       }
     }
   }
-  if (!Number.isFinite(minLat)) return null;
-  return maxCut - minCut < maxUsual - minUsual
-    ? { minLng: minCut, minLat, maxLng: maxCut, maxLat }
-    : { minLng: minUsual, minLat, maxLng: maxUsual, maxLat };
+  if (lngs.length === 0) return null;
+  lngs.sort((a, b) => a - b);
+  // The gap round the back, from the easternmost vertex to the westernmost, is
+  // the usual box; a wider gap between two neighbours means the land wraps.
+  let widest = lngs[0]! + 360 - lngs[lngs.length - 1]!;
+  let after = -1;
+  for (let i = 1; i < lngs.length; i++) {
+    const gap = lngs[i]! - lngs[i - 1]!;
+    if (gap > widest) {
+      widest = gap;
+      after = i;
+    }
+  }
+  const [minLng, maxLng] = after < 0
+    ? [lngs[0]!, lngs[lngs.length - 1]!]
+    : [lngs[after]!, lngs[after - 1]! + 360];
+  return { minLng, minLat, maxLng, maxLat };
+}
+
+export interface CameraFit {
+  lat: number;
+  lng: number;
+  /** The box the altitude is chosen for; its longitudes may run past 180. */
+  bbox: GeoBbox;
+}
+
+/**
+ * Where to point the camera to see some territories: high enough for their
+ * box, centred not on the box's middle but on the territories themselves,
+ * the circular mean of their label points. A box's middle is often where
+ * the land is not. Europe in Natural Earth runs from Iceland to Russia's
+ * Bering coast, so its box is 259° wide and its middle is Siberia, while
+ * its countries sit near 15° E; a box's middle also moves with one far
+ * island. Measured on the data: Europe 15° E, Oceania 160° E, North
+ * America 81° W, Asia 75° E.
+ */
+export function cameraFit(geoms: PolyGeom[]): CameraFit | null {
+  const bbox = cameraBbox(geoms);
+  if (!bbox) return null;
+  let x = 0;
+  let y = 0;
+  let latSum = 0;
+  let n = 0;
+  for (const geom of geoms) {
+    const [lng, lat] = geometryLabelPoint(geom);
+    x += Math.cos(lng * DEG);
+    y += Math.sin(lng * DEG);
+    latSum += lat;
+    n++;
+  }
+  // Label points spread evenly round the globe have no mean; the box's middle will do.
+  if (n === 0 || Math.hypot(x, y) < 1e-9) {
+    return { lat: (bbox.minLat + bbox.maxLat) / 2, lng: wrapLng((bbox.minLng + bbox.maxLng) / 2), bbox };
+  }
+  return { lat: latSum / n, lng: Math.atan2(y, x) / DEG, bbox };
 }
 
 /** A longitude back into [-180, 180): a camera box may run past 180. */
