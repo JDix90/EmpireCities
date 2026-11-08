@@ -45,6 +45,9 @@ export interface MapHealthTerritory {
   iso_codes?: string[];
   clip_bbox?: unknown;
   geo_config?: Array<{ iso: string; clip_bbox?: unknown }>;
+  /** Province/state codes (Natural Earth admin-1 iso_3166_2). */
+  admin1?: string[];
+  admin1_clips?: Record<string, unknown>;
 }
 
 export interface MapHealthConnection {
@@ -284,6 +287,12 @@ export function evaluateMapHealth(input: MapHealthInput): MapHealthReport {
       const uses = byCode.get(iso) ?? [];
       uses.push({ territoryId: t.territory_id, clipped: !!t.clip_bbox });
       byCode.set(iso, uses);
+    }
+    // A province is clipped by the territory's box or by its own entry.
+    for (const code of t.admin1 ?? []) {
+      const uses = byCode.get(code) ?? [];
+      uses.push({ territoryId: t.territory_id, clipped: !!t.clip_bbox || !!t.admin1_clips?.[code] });
+      byCode.set(code, uses);
     }
   }
   for (const [code, uses] of byCode) {

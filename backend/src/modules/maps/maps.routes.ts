@@ -20,6 +20,7 @@ import {
   upsertMapRating,
 } from './mapService';
 import { getTutorialMap } from '../../game-engine/tutorial/tutorialScript';
+import { findMapCreatorName } from '../../db/postgres/mapsRepository';
 import { isMapEditorEnabled, mapEditorDisabledReply } from '../../middleware/mapEditorGate';
 import { formatZodError } from '../../utils/formatZodError';
 import { validateMapDocument } from './mapValidation';
@@ -42,6 +43,13 @@ const TerritorySchema = z.object({
     .min(1)
     .optional(),
   geo_polygon: z.array(z.tuple([z.number(), z.number()])).min(3).max(500).optional(),
+  /** Province/state geometry: Natural Earth admin-1 iso_3166_2 codes ("US-CA", "CN-34"). */
+  admin1: z
+    .array(z.string().regex(/^[A-Z]{2}-[A-Z0-9]{1,3}$/, 'Invalid province code'))
+    .min(1)
+    .max(100)
+    .optional(),
+  admin1_clips: z.record(z.string(), ClipBboxSchema).optional(),
   globe_id: z.enum(['earth', 'moon']).optional(),
   world_id: z.string().regex(/^[a-zA-Z0-9_-]+$/).max(48).optional(),
   galaxy_position: z.tuple([z.number(), z.number()]).optional(),
@@ -301,7 +309,12 @@ export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     const row = await findMapVisibleToUser(mapId, request.userId!);
-    if (row) return reply.send({ map: rowToGameMap(row) });
+    if (row) {
+      // The author's name rides along for the map's own page; the document
+      // itself carries only the creator id.
+      const creator_name = await findMapCreatorName(mapId);
+      return reply.send({ map: rowToGameMap(row), creator_name });
+    }
 
     return reply.status(404).send({ error: 'Map not found' });
   });
