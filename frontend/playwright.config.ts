@@ -19,7 +19,7 @@ export default defineConfig({
       use: {
         ...devices['Desktop Chrome'],
       },
-      testMatch: '**/smoke.spec.ts',
+      testMatch: ['**/smoke.spec.ts', '**/editor-smoke.spec.ts'],
     },
     {
       name: 'chromium-map-visual',
@@ -34,8 +34,9 @@ export default defineConfig({
         ...devices['iPhone 13'],
       },
       // The tap-to-select regression guard runs in its own chromium-mobile-touch
-      // project (Pixel 5); on WebKit it's flaky and adds no coverage.
-      testIgnore: '**/mobile-territory-tap.spec.ts',
+      // project (Pixel 5); on WebKit it's flaky and adds no coverage. The map
+      // editor is a desktop surface and is guarded in chromium-smoke.
+      testIgnore: ['**/mobile-territory-tap.spec.ts', '**/editor-smoke.spec.ts'],
     },
     {
       name: 'chromium-mobile-touch',

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   bridgeComponents,
   cameraBbox,
+  cameraFit,
   classifyNeighbor,
   findNeighbors,
   geometryLabelPoint,
@@ -161,10 +162,42 @@ describe('cameraBbox / wrapLng', () => {
     expect(wrapLng((box!.minLng + box!.maxLng) / 2)).toBeCloseTo(148.5);
   });
 
+  it('leaves out the widest empty stretch, so a Europe that reaches past 180 is boxed from Iceland to the Bering coast', () => {
+    const box = cameraBbox([poly(square(-25, 63, 5)), poly(square(0, 40, 40)), poly(square(170, 60, 10)), poly(square(-180, 60, 10))]);
+    expect(box).toEqual({ minLng: -25, minLat: 40, maxLng: 190, maxLat: 80 });
+  });
+
   it('is null with nothing to box, and wraps longitudes past 180 back round', () => {
     expect(cameraBbox([])).toBeNull();
     expect(wrapLng(190)).toBe(-170);
     expect(wrapLng(-190)).toBe(170);
     expect(wrapLng(45)).toBe(45);
+  });
+});
+
+describe('cameraFit', () => {
+  it('centres on the territories, not the middle of their box: a Europe with Russia reads from Europe', () => {
+    // Iceland, four mainland countries, a wide Russia, and its far east past 180°:
+    // the box runs from Iceland to the Bering coast and its middle is Siberia.
+    const rect = (x: number, y: number, w: number, h: number): Ring => [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
+    const fit = cameraFit([
+      poly(square(-25, 63, 5)),
+      poly(square(0, 40, 10)), poly(square(10, 40, 10)), poly(square(20, 40, 10)), poly(square(30, 40, 10)),
+      poly(rect(40, 50, 140, 20)),
+      poly(rect(-180, 60, 10, 10)),
+    ]);
+    expect(fit).not.toBeNull();
+    expect(fit!.bbox).toEqual({ minLng: -25, minLat: 40, maxLng: 190, maxLat: 70 });
+    expect(fit!.lng).toBeGreaterThan(-30);
+    expect(fit!.lng).toBeLessThan(60);
+    expect(fit!.lat).toBeGreaterThan(40);
+  });
+
+  it('takes the short way round for the Pacific, and is null with nothing to see', () => {
+    const fit = cameraFit([poly(square(115, -35, 35)), poly(square(166, -46, 12)), poly(square(177, -19, 3)), poly(square(-180, -19, 2))]);
+    expect(fit!.lng).toBeGreaterThan(140);
+    expect(fit!.lng).toBeLessThanOrEqual(180);
+    expect(fit!.bbox.maxLng).toBe(182);
+    expect(cameraFit([])).toBeNull();
   });
 });

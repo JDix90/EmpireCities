@@ -325,7 +325,14 @@ export default function GlobeMapEditor({
   }, [focus]);
 
   return (
-    <div className="w-full h-full overflow-hidden bg-bf-dark">
+    <div
+      className="w-full h-full overflow-hidden bg-bf-dark"
+      data-testid="editor-globe"
+      // Where the camera was last sent: the browser smoke test reads it, since
+      // the WebGL camera itself cannot be asked.
+      data-focus-lat={focus ? focus.lat.toFixed(2) : undefined}
+      data-focus-lng={focus ? focus.lng.toFixed(2) : undefined}
+    >
       <Globe
         ref={globeRef}
         width={width}
