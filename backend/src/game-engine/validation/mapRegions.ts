@@ -27,7 +27,9 @@ export interface MapRegionDocument {
 export function validateMapRegions(
   map: MapRegionDocument,
   homeRegionIds: ReadonlySet<string> = new Set(),
+  options: { label?: (regionId: string) => string } = {},
 ): string[] {
+  const label = options.label ?? ((id: string) => id);
   const errors: string[] = [];
   const count = new Map<string, number>();
   for (const t of map.territories) {
@@ -39,7 +41,7 @@ export function validateMapRegions(
     const size = r.territory_ids ? r.territory_ids.length : count.get(r.region_id) ?? 0;
     if (size < MIN_REGION_TERRITORIES) {
       errors.push(
-        `Region "${r.region_id}" has a +${r.bonus} bonus but ${size} territor${size === 1 ? 'y' : 'ies'}: `
+        `Region "${label(r.region_id)}" has a +${r.bonus} bonus but ${size} territor${size === 1 ? 'y' : 'ies'}: `
           + `a region pays only with ${MIN_REGION_TERRITORIES} or more. Fold it into a neighbouring region, or set its bonus to 0 `
           + "(a faction's home may keep its bonus: see validation/mapRegions.ts).",
       );

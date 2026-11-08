@@ -25,6 +25,8 @@ interface PublicMap {
   rating_count: number;
   play_count: number;
   creator_id: string;
+  /** The author's username; null when the account is gone, absent from older servers. */
+  creator_name?: string | null;
   created_at: string;
 }
 
@@ -325,7 +327,7 @@ export default function MapHubPage() {
       </div>
       {map.description && <p className="text-bf-muted text-sm mb-3 line-clamp-2">{map.description}</p>}
       <p className="text-xs text-bf-muted/90 mb-3">
-        Uploaded by <span className="text-bf-text">{formatCommunityUploader(map.creator_id)}</span>
+        Uploaded by <span className="text-bf-text">{map.creator_name ?? formatCommunityUploader(map.creator_id)}</span>
       </p>
       <div className="flex items-center justify-between text-xs text-bf-muted mb-4">
         <span className="flex items-center gap-1"><Star className="w-3.5 h-3.5 text-bf-gold" />{map.rating.toFixed(1)} ({map.rating_count})</span>

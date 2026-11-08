@@ -179,37 +179,45 @@ export async function listEraMapRows(): Promise<MapRow[]> {
   );
 }
 
+/** A hub listing row: the map plus its author's current username, if the account still exists. */
+export type PublicMapRow = MapRow & { creator_name: string | null };
+
 export async function listPublicMapRows(options: {
   era?: string;
   sort: 'rating' | 'plays' | 'new';
   page: number;
   limit: number;
-}): Promise<{ rows: MapRow[]; total: number }> {
+}): Promise<{ rows: PublicMapRow[]; total: number }> {
   const { era, sort, page, limit } = options;
   const offset = (page - 1) * limit;
   const params: unknown[] = [];
-  const filters = [`is_public = true`, `moderation_status = 'approved'`, `creator_id <> 'system'`];
+  const filters = [`m.is_public = true`, `m.moderation_status = 'approved'`, `m.creator_id <> 'system'`];
   if (era) {
     params.push(era);
-    filters.push(`era_theme = $${params.length}`);
+    filters.push(`m.era_theme = $${params.length}`);
   }
   const where = filters.join(' AND ');
   const orderBy =
-    sort === 'plays' ? 'play_count DESC' : sort === 'new' ? 'created_at DESC' : 'rating DESC';
+    sort === 'plays' ? 'm.play_count DESC' : sort === 'new' ? 'm.created_at DESC' : 'm.rating DESC';
 
+  // creator_id is text (seed authors are not accounts), so the join casts the
+  // uuid side; twenty rows a page makes the lost index irrelevant.
   const [rows, totalRow] = await Promise.all([
-    query<MapRow>(
-      `SELECT map_id, creator_id, name, description, era_theme, background_image_url,
-              canvas_width, canvas_height, projection_bounds, globe_view, map_kind, worlds,
-              orbit_access, rts_terrain, territories, connections, regions,
-              is_public, is_moderated, moderation_status, rating, rating_count, play_count,
-              created_at, updated_at
-       FROM maps WHERE ${where}
+    query<PublicMapRow>(
+      `SELECT m.map_id, m.creator_id, m.name, m.description, m.era_theme, m.background_image_url,
+              m.canvas_width, m.canvas_height, m.projection_bounds, m.globe_view, m.map_kind, m.worlds,
+              m.orbit_access, m.rts_terrain, m.territories, m.connections, m.regions,
+              m.is_public, m.is_moderated, m.moderation_status, m.rating, m.rating_count, m.play_count,
+              m.created_at, m.updated_at,
+              u.username AS creator_name
+       FROM maps m
+       LEFT JOIN users u ON u.user_id::text = m.creator_id
+       WHERE ${where}
        ORDER BY ${orderBy}
        LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
       [...params, limit, offset],
     ),
-    queryOne<{ count: string }>(`SELECT COUNT(*)::text AS count FROM maps WHERE ${where}`, params),
+    queryOne<{ count: string }>(`SELECT COUNT(*)::text AS count FROM maps m WHERE ${where}`, params),
   ]);
 
   return { rows, total: parseInt(totalRow?.count ?? '0', 10) };

@@ -15,6 +15,23 @@ export interface MapConnectionEdge {
 }
 
 export {
+  type MapHealthCode,
+  type MapHealthConnection,
+  type MapHealthInput,
+  type MapHealthIssue,
+  type MapHealthRegion,
+  type MapHealthReport,
+  type MapHealthSeverity,
+  type MapHealthTerritory,
+  MAP_MIN_BONUS_REGION_TERRITORIES,
+  MAP_MIN_CONNECTIONS,
+  MAP_MIN_NAME_LENGTH,
+  MAP_MIN_TERRITORIES,
+  evaluateMapHealth,
+  mapComponents,
+} from './mapHealth';
+
+export {
   type MapKind,
   type OrbitAccessMode,
   type MapTerritoryWorldLike,
