@@ -79,9 +79,11 @@ describe('BalancePanel', () => {
     renderPanel();
     fireEvent.click(screen.getByText('Simulate'));
     await waitFor(() => expect(screen.getByTestId('balance-report')).toBeInTheDocument());
-    const [url, body] = postMock.mock.calls.find(([u]) => u === '/maps/m1/balance') as [string, Record<string, unknown>];
+    const [url, body, config] = postMock.mock.calls.find(([u]) => u === '/maps/m1/balance') as [string, Record<string, unknown>, Record<string, unknown>];
     expect(url).toBe('/maps/m1/balance');
     expect(body).toEqual({ seats: 4, difficulty: 'medium' });
+    // The worker may take up to a minute; the shared 15 s client timeout must not call that a failure.
+    expect(config).toEqual({ timeout: 65_000 });
     expect(screen.getByText(/8 games, 4 medium bots, 23 rounds on average/)).toBeInTheDocument();
     expect(screen.getByText('50%')).toBeInTheDocument(); // seat 1: 4 of 8
     expect(screen.getByText(/5 by conquest, 3 by board share/)).toBeInTheDocument();

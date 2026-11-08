@@ -7,6 +7,13 @@ import { api } from '../../services/api';
 import { trackUiEvent } from '../../utils/uiEvents';
 import type { EditorConnection, EditorRegion, EditorTerritory } from './editorGlobeData';
 
+/**
+ * The server gives the simulation worker a minute before it answers with an
+ * error; the shared client timeout is a quarter of that, and a run that is
+ * still going should not be reported as failed by the browser.
+ */
+const BALANCE_REQUEST_TIMEOUT_MS = 65_000;
+
 /** What the server's simulation returns (backend/src/modules/maps/mapBalanceSim.ts). */
 export interface BalanceSimReport {
   gamesPlayed: number;
@@ -101,10 +108,11 @@ export default function BalancePanel({
     if (!mapId || blocked || running) return;
     setRunning(true);
     try {
-      const res = await api.post<{ report: BalanceSimReport; cached: boolean }>(`/maps/${mapId}/balance`, {
-        seats,
-        difficulty,
-      });
+      const res = await api.post<{ report: BalanceSimReport; cached: boolean }>(
+        `/maps/${mapId}/balance`,
+        { seats, difficulty },
+        { timeout: BALANCE_REQUEST_TIMEOUT_MS },
+      );
       setResult(res.data);
       trackUiEvent('editor_balance_run', { map_id: mapId, seats, games: res.data.report.gamesPlayed });
     } catch (err: unknown) {
@@ -256,7 +264,7 @@ export default function BalancePanel({
                   type="button"
                   onClick={() => void run()}
                   disabled={!!blocked || running}
-                  title={blocked ?? 'Eight short games, a few seconds'}
+                  title={blocked ?? 'Twenty or so short games, a few seconds'}
                   className="btn-secondary w-full text-xs py-1.5 disabled:opacity-50"
                 >
                   {running ? 'Playing…' : report ? 'Run again' : 'Simulate'}

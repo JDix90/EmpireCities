@@ -10,7 +10,7 @@ import { api } from '../services/api';
 import type { GameMap } from '../services/mapService';
 import { ERA_LABELS } from '../constants/gameLobbyLabels';
 import { useAuthStore } from '../store/authStore';
-import { useMapEditorEnabled } from '../store/featureFlagsStore';
+import { useMapEditorEnabled, useMapShowcaseEnabled } from '../store/featureFlagsStore';
 import { trackUiEvent } from '../utils/uiEvents';
 import { useFeaturedMap } from '../components/lobby/MapOfTheWeekCard';
 
@@ -28,7 +28,8 @@ export default function MapDetailPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const editorEnabled = useMapEditorEnabled();
-  const featured = useFeaturedMap();
+  const showcase = useMapShowcaseEnabled();
+  const featured = useFeaturedMap(showcase);
   const [map, setMap] = useState<GameMap | null>(null);
   const [creatorName, setCreatorName] = useState<string | null>(null);
   const [state, setState] = useState<LoadState>('loading');
@@ -126,7 +127,7 @@ export default function MapDetailPage() {
               </div>
               <p className="text-sm text-bf-muted">
                 By{' '}
-                {!isBuiltIn && UUID_RE.test(map.creator_id) ? (
+                {showcase && !isBuiltIn && UUID_RE.test(map.creator_id) ? (
                   <Link to={`/profile/${map.creator_id}`} className="text-bf-text hover:text-bf-gold" title="The author's profile and other maps">
                     {creatorName ?? 'a community author'}
                   </Link>

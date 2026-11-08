@@ -43,6 +43,10 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
     return envValue === 'true';
   },
   map_editor_enabled: () => envOptOut('MAP_EDITOR_ENABLED'),
+  // The community showcase around the editor: the map of the week in the
+  // hub, a creator's published maps on their profile, and author links to
+  // those profiles. ON by default; the kill switch for that layer alone.
+  map_showcase_enabled: () => envOptOut('MAP_SHOWCASE_ENABLED'),
   first_turn_coach_enabled: () => envOptOut('FIRST_TURN_COACH_ENABLED'),
   // Desktop: the end of the player's own turn adds a "Your turn" row to the
   // non-blocking recap panel instead of opening the modal "Your Turn
@@ -430,6 +434,17 @@ export const featureFlags = {
    */
   get mapEditorEnabled(): boolean {
     return overrideBool('map_editor_enabled');
+  },
+
+  /**
+   * When true, the Map Hub shows the map of the week, profiles show a
+   * creator's published maps, and community maps link their author's
+   * profile. The editor and publishing do not depend on it. Default ON;
+   * MAP_SHOWCASE_ENABLED=false or the Admin → Config override hides the
+   * layer while leaving the editor alone.
+   */
+  get mapShowcaseEnabled(): boolean {
+    return overrideBool('map_showcase_enabled');
   },
 
   /**
@@ -1616,6 +1631,7 @@ export const featureFlags = {
 export function getClientFeatureFlags(): Record<string, boolean> {
   return {
     map_editor_enabled: featureFlags.mapEditorEnabled,
+    map_showcase_enabled: featureFlags.mapShowcaseEnabled,
     era_advancement_lobby_enabled: featureFlags.eraAdvancementLobbyEnabled,
     first_turn_coach_enabled: featureFlags.firstTurnCoachEnabled,
     turn_recap_panel_enabled: featureFlags.turnRecapPanelEnabled,

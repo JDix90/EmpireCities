@@ -223,6 +223,12 @@ const CLIENT_FEATURE_FLAGS = [
     description: 'Show Map Editor navigation and allow players to create or publish custom maps.',
   },
   {
+    key: 'map_showcase_enabled',
+    label: 'Community map showcase',
+    description:
+      'The map of the week atop the Map Hub, a creator\u2019s published maps on their profile, and author links from community maps to those profiles. On by default; switching it off hides that layer without touching the editor or publishing.',
+  },
+  {
     key: 'era_advancement_lobby_enabled',
     label: 'Era Advancement (lobby)',
     description:

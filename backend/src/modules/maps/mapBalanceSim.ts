@@ -80,7 +80,17 @@ export interface BalanceSimReport {
 }
 
 export const BALANCE_DEFAULTS = {
-  games: 8,
+  /**
+   * About this many games by default. A game costs around a tenth of a
+   * second on a 50-territory map (measured: 8 games, 4 seats, medium bots
+   * in 0.5-0.9 s on 44-111 territories), so twenty is a few seconds and a
+   * far better sample for wins by seat than the eight the first cut played.
+   */
+  games: 20,
+  /** Never fewer first moves per seat than this: the seat bars need the deal to repeat. */
+  rotations: 5,
+  /** Most games in one report: a multiple of 2, 3, 4 and 6, so the first move still rotates evenly. */
+  maxGames: 36,
   seats: 4,
   maxRounds: 40,
   difficulty: 'medium' as BalanceDifficulty,

@@ -3,6 +3,7 @@ import { api } from '../services/api';
 
 export interface ClientFeatureFlags {
   map_editor_enabled: boolean;
+  map_showcase_enabled: boolean;
   era_advancement_lobby_enabled: boolean;
   first_turn_coach_enabled: boolean;
   turn_recap_panel_enabled: boolean;
@@ -79,6 +80,8 @@ export interface ClientFeatureFlags {
 const DEFAULT_FLAGS: ClientFeatureFlags = {
   // ON since the editor publish -> moderation -> community loop closed.
   map_editor_enabled: true,
+  // The map of the week, creators' maps on profiles, author links. On by default; admin kill switch.
+  map_showcase_enabled: true,
   era_advancement_lobby_enabled: true,
   first_turn_coach_enabled: true,
   // Desktop: the own-turn recap is a panel row, not a modal. On by default; admin kill switch.
@@ -231,6 +234,10 @@ export const useFeatureFlagsStore = create<FeatureFlagsState>((set) => ({
 
 export function useMapEditorEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.map_editor_enabled);
+}
+
+export function useMapShowcaseEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.map_showcase_enabled);
 }
 
 export function useEraAdvancementLobbyEnabled(): boolean {

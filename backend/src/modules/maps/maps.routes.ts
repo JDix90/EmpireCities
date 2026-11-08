@@ -27,9 +27,10 @@ import {
   rowToSummary,
 } from '../../db/postgres/mapsRepository';
 import { isoWeekKey, pickFeaturedMap } from './featuredMap';
-import { BalanceBusyError, getBalanceReport, resolveBalanceOptions, type BalanceRequest } from './mapBalanceService';
+import { BalanceBusyError, MAX_BALANCE_GAMES, getBalanceReport, resolveBalanceOptions, type BalanceRequest } from './mapBalanceService';
 import { getRedis } from '../../db/redis';
 import { isMapEditorEnabled, mapEditorDisabledReply } from '../../middleware/mapEditorGate';
+import { featureFlags } from '../../config/featureFlags';
 import { formatZodError } from '../../utils/formatZodError';
 import { validateMapDocument } from './mapValidation';
 
@@ -280,6 +281,8 @@ export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
   // the hub does not rank the table on every visit.
   fastify.get('/featured', async (_request, reply) => {
     const week = isoWeekKey(new Date());
+    // The showcase switch (Admin → Config) hides the week's map everywhere at once.
+    if (!featureFlags.mapShowcaseEnabled) return reply.send({ week, map: null });
     const cacheKey = `maps:featured:${week}`;
     try {
       const cached = await getRedis().get(cacheKey);
@@ -316,6 +319,7 @@ export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get<{ Params: { userId: string } }>('/by-creator/:userId', async (request, reply) => {
     const { userId } = request.params;
     if (!/^[0-9a-f-]{36}$/i.test(userId)) return reply.status(404).send({ error: 'User not found' });
+    if (!featureFlags.mapShowcaseEnabled) return reply.send({ maps: [] });
     const rows = await listApprovedMapsByCreator(userId);
     return reply.send({
       maps: rows.map((row) => ({
@@ -425,7 +429,7 @@ export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
   // ever pay and what never changes hands. The board has to pass the publish
   // checks first: the engine cannot deal a split map.
   const BalanceBodySchema = z.object({
-    games: z.number().int().min(1).max(12).optional(),
+    games: z.number().int().min(1).max(MAX_BALANCE_GAMES).optional(),
     seats: z.number().int().min(2).max(6).optional(),
     difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
     max_rounds: z.number().int().min(10).max(80).optional(),

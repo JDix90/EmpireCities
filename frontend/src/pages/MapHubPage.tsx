@@ -13,7 +13,7 @@ import { getCustomMapImmersion } from '../data/customMapImmersion';
 import { ERA_LABELS } from '../constants/gameLobbyLabels';
 import BrandWordmark from '../components/ui/BrandWordmark';
 import SubpageShell from '../components/ui/SubpageShell';
-import { useMapEditorEnabled, useGalaxyAgeBetaEnabled } from '../store/featureFlagsStore';
+import { useMapEditorEnabled, useGalaxyAgeBetaEnabled, useMapShowcaseEnabled } from '../store/featureFlagsStore';
 import { withGalacticAgeLabel } from '../constants/galacticAgeAccess';
 import { useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
 import { useAuthStore } from '../store/authStore';
@@ -82,7 +82,8 @@ export default function MapHubPage() {
   const mapEditorEnabled = useMapEditorEnabled();
   const saveAccountCopy = useSaveAccountCopyEnabled();
   const { user, isAuthenticated } = useAuthStore();
-  const featured = useFeaturedMap();
+  const showcase = useMapShowcaseEnabled();
+  const featured = useFeaturedMap(showcase);
 
   // Hub navigation
   const [tab, setTab] = useState<HubTab>('all');
@@ -355,7 +356,7 @@ export default function MapHubPage() {
       {map.description && <p className="text-bf-muted text-sm mb-3 line-clamp-2">{map.description}</p>}
       <p className="text-xs text-bf-muted/90 mb-3">
         Uploaded by{' '}
-        {UUID_RE.test(map.creator_id) ? (
+        {showcase && UUID_RE.test(map.creator_id) ? (
           <Link to={`/profile/${map.creator_id}`} className="text-bf-text hover:text-bf-gold" title="The author's profile and other maps">
             {map.creator_name ?? formatCommunityUploader(map.creator_id)}
           </Link>
@@ -467,7 +468,7 @@ export default function MapHubPage() {
       </div>
 
       {/* ── Map of the week (All and Community tabs, no active search) ──── */}
-      {(tab === 'all' || tab === 'community') && !search && <MapOfTheWeekCard featured={featured} />}
+      {showcase && (tab === 'all' || tab === 'community') && !search && <MapOfTheWeekCard featured={featured} />}
 
       {/* ── Featured (All tab only, no active search) ────────────────────── */}
       {tab === 'all' && !search && !eraLoading && (
