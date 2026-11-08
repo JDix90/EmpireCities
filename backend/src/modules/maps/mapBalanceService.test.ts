@@ -13,7 +13,7 @@ vi.mock('../../db/redis', () => ({
 
 import type { GameMap } from '../../types';
 import type { BalanceSimReport } from './mapBalanceSim';
-import { BalanceBusyError, balanceCacheKey, getBalanceReport, resetBalanceRuns, resolveBalanceOptions } from './mapBalanceService';
+import { BalanceBusyError, balanceCacheKey, balanceGameCount, getBalanceReport, resetBalanceRuns, resolveBalanceOptions } from './mapBalanceService';
 
 const map = {
   map_id: 'm1',
@@ -36,8 +36,27 @@ beforeEach(() => {
 describe('resolveBalanceOptions', () => {
   it('clamps what the request may choose and fixes the rest', () => {
     const o = resolveBalanceOptions('m1', { games: 99, seats: 1, difficulty: 'hard', maxRounds: 3 });
-    expect(o).toMatchObject({ games: 12, seats: 2, difficulty: 'hard', maxRounds: 10, era: 'modern', seed: 'balance:m1' });
+    expect(o).toMatchObject({ games: 36, seats: 2, difficulty: 'hard', maxRounds: 10, era: 'modern', seed: 'balance:m1' });
     expect(resolveBalanceOptions('m1', { difficulty: 'expert' as never }).difficulty).toBe('medium');
+  });
+
+  it('plays about twenty games by default, never fewer than five first moves per seat', () => {
+    expect([2, 3, 4, 5, 6].map((seats) => resolveBalanceOptions('m1', { seats }).games)).toEqual([20, 21, 20, 25, 30]);
+  });
+});
+
+describe('balanceGameCount', () => {
+  it('rounds a requested count to whole rotations of the first move', () => {
+    expect(balanceGameCount(4, 9)).toBe(8);
+    expect(balanceGameCount(4, 10)).toBe(12);
+    expect(balanceGameCount(3, 21)).toBe(21);
+  });
+
+  it('plays at least one rotation and at most the cap, kept a multiple of the seats', () => {
+    expect(balanceGameCount(6, 1)).toBe(6);
+    expect(balanceGameCount(4, 99)).toBe(36);
+    expect(balanceGameCount(5, 99)).toBe(35);
+    expect(balanceGameCount(6, 99)).toBe(36);
   });
 });
 

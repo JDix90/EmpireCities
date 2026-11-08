@@ -20,15 +20,36 @@ export interface BalanceRequest {
   maxRounds?: number;
 }
 
+/** The most games one report plays; the route's schema and the game count share it. */
+export const MAX_BALANCE_GAMES = BALANCE_DEFAULTS.maxGames;
+
+/**
+ * Games as whole rotations of the first move. The starting seat advances
+ * every game, so a count that is not a multiple of the seats hands some
+ * seats an extra first move and the wins-by-seat bars stop meaning the
+ * deal. A requested count rounds to the nearest whole rotation, at least
+ * one and at most what the cap allows; the default is about
+ * BALANCE_DEFAULTS.games games and never fewer than
+ * BALANCE_DEFAULTS.rotations first moves per seat.
+ */
+export function balanceGameCount(seats: number, requested?: number): number {
+  const maxRotations = Math.max(1, Math.floor(MAX_BALANCE_GAMES / seats));
+  const rotations = typeof requested === 'number' && Number.isFinite(requested)
+    ? Math.round(requested / seats)
+    : Math.max(BALANCE_DEFAULTS.rotations, Math.round(BALANCE_DEFAULTS.games / seats));
+  return seats * Math.min(maxRotations, Math.max(1, rotations));
+}
+
 export function resolveBalanceOptions(mapId: string, request: BalanceRequest): BalanceSimOptions {
   const clamp = (v: number | undefined, lo: number, hi: number, fallback: number) =>
     typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : fallback;
   const difficulty = request.difficulty && ['easy', 'medium', 'hard'].includes(request.difficulty)
     ? request.difficulty
     : BALANCE_DEFAULTS.difficulty;
+  const seats = clamp(request.seats, 2, 6, BALANCE_DEFAULTS.seats);
   return {
-    games: clamp(request.games, 1, 12, BALANCE_DEFAULTS.games),
-    seats: clamp(request.seats, 2, 6, BALANCE_DEFAULTS.seats),
+    games: balanceGameCount(seats, request.games),
+    seats,
     maxRounds: clamp(request.maxRounds, 10, 80, BALANCE_DEFAULTS.maxRounds),
     difficulty,
     era: BALANCE_DEFAULTS.era,
