@@ -250,6 +250,8 @@ export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
       rating_count: row.rating_count,
       play_count: row.play_count,
       creator_id: row.creator_id,
+      // The author's username, for the card; null once the account is gone.
+      creator_name: row.creator_name,
       created_at: row.created_at,
     }));
 
