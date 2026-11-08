@@ -75,6 +75,47 @@ export function geometryBbox(geom: PolyGeom): GeoBbox {
   return { minLng, minLat, maxLng, maxLat };
 }
 
+/**
+ * One box around several geometries for the camera, the shorter way round
+ * the globe. Longitudes are measured in the usual [-180, 180] frame and in
+ * one cut at the prime meridian ([0, 360)), and the narrower span is kept.
+ * Natural Earth splits Fiji at the antimeridian, so in the usual frame
+ * Oceania's box runs the whole way round and its centre is the Atlantic; in
+ * the other it is a box around the Pacific, with longitudes past 180 that
+ * wrapLng brings back for whoever points the camera. Spatial tests keep
+ * geometryBbox: two boxes only compare in one frame.
+ */
+export function cameraBbox(geoms: PolyGeom[]): GeoBbox | null {
+  let minLat = Infinity;
+  let maxLat = -Infinity;
+  let minUsual = Infinity;
+  let maxUsual = -Infinity;
+  let minCut = Infinity;
+  let maxCut = -Infinity;
+  for (const geom of geoms) {
+    for (const poly of polygonsOf(geom)) {
+      for (const [lng, lat] of poly[0] ?? []) {
+        if (lat < minLat) minLat = lat;
+        if (lat > maxLat) maxLat = lat;
+        if (lng < minUsual) minUsual = lng;
+        if (lng > maxUsual) maxUsual = lng;
+        const cut = lng < 0 ? lng + 360 : lng;
+        if (cut < minCut) minCut = cut;
+        if (cut > maxCut) maxCut = cut;
+      }
+    }
+  }
+  if (!Number.isFinite(minLat)) return null;
+  return maxCut - minCut < maxUsual - minUsual
+    ? { minLng: minCut, minLat, maxLng: maxCut, maxLat }
+    : { minLng: minUsual, minLat, maxLng: maxUsual, maxLat };
+}
+
+/** A longitude back into [-180, 180): a camera box may run past 180. */
+export function wrapLng(lng: number): number {
+  return ((((lng + 180) % 360) + 360) % 360) - 180;
+}
+
 export function ringBbox(ring: Ring): GeoBbox {
   return geometryBbox({ type: 'Polygon', coordinates: [ring] });
 }

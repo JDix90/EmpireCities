@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   bridgeComponents,
+  cameraBbox,
   classifyNeighbor,
   findNeighbors,
   geometryLabelPoint,
@@ -11,6 +12,7 @@ import {
   ringSelfIntersects,
   suggestRegionBonus,
   trimRing,
+  wrapLng,
   type PolyGeom,
   type Ring,
 } from './editorGeo';
@@ -137,5 +139,32 @@ describe('regionStats / suggestRegionBonus', () => {
     expect(suggestRegionBonus(6, 3)).toBe(4); // Africa is 3
     expect(suggestRegionBonus(1, 1)).toBe(0);
     expect(suggestRegionBonus(2, 0)).toBe(1);
+  });
+});
+
+describe('cameraBbox / wrapLng', () => {
+  it('boxes a continent the usual way when it does not cross the antimeridian', () => {
+    expect(cameraBbox([poly(square(-10, 40, 5)), poly(square(20, 50, 5))]))
+      .toEqual({ minLng: -10, minLat: 40, maxLng: 25, maxLat: 55 });
+  });
+
+  it('boxes the Pacific the short way round when a member straddles the antimeridian', () => {
+    // Australia and New Zealand, roughly, and an island group split at 180° the way Natural Earth splits Fiji.
+    const box = cameraBbox([
+      poly(square(115, -35, 35)),
+      poly(square(166, -46, 12)),
+      poly(square(177, -19, 3)),
+      poly(square(-180, -19, 2)),
+    ]);
+    expect(box).toEqual({ minLng: 115, minLat: -46, maxLng: 182, maxLat: 0 });
+    // The centre the camera flies to is over the Coral Sea, not the Atlantic.
+    expect(wrapLng((box!.minLng + box!.maxLng) / 2)).toBeCloseTo(148.5);
+  });
+
+  it('is null with nothing to box, and wraps longitudes past 180 back round', () => {
+    expect(cameraBbox([])).toBeNull();
+    expect(wrapLng(190)).toBe(-170);
+    expect(wrapLng(-190)).toBe(170);
+    expect(wrapLng(45)).toBe(45);
   });
 });

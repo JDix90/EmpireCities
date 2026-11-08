@@ -32,7 +32,6 @@ import {
   bridgeComponents,
   closeRing,
   findNeighbors,
-  geometryBbox,
   geometryLabelPoint,
   largestExteriorRing,
   ringOverlaps,
@@ -42,6 +41,8 @@ import {
   type Ring,
   type RingOverlap,
   type TerritoryGeom,
+  cameraBbox,
+  wrapLng,
 } from '../components/editor/editorGeo';
 import { buildContinentTemplate, continentOptions, type CountryInfo } from '../components/editor/editorTemplates';
 import {
@@ -306,26 +307,23 @@ export default function MapEditorPage() {
     setFocus({ lat, lng, altitude, nonce: Date.now() });
   }, []);
 
+  // A camera box may run past 180° (cameraBbox keeps the shorter way round), so the centre is wrapped.
   const focusBbox = useCallback((b: GeoBbox, pad?: number) => {
-    flyTo((b.minLat + b.maxLat) / 2, (b.minLng + b.maxLng) / 2, altitudeForBbox(b, pad));
+    flyTo((b.minLat + b.maxLat) / 2, wrapLng((b.minLng + b.maxLng) / 2), altitudeForBbox(b, pad));
   }, [flyTo]);
 
   const focusTerritory = useCallback((id: string) => {
     const g = geometryById.get(id);
-    if (g) focusBbox(geometryBbox(g), 2);
+    const box = g ? cameraBbox([g]) : null;
+    if (box) focusBbox(box, 2);
   }, [geometryById, focusBbox]);
 
+  // One box the shorter way round the globe: Oceania straddles the antimeridian,
+  // and a box in plain longitudes put its centre over the Atlantic, so picking
+  // the template left the player looking at the wrong side of the world.
   const fitView = useCallback(() => {
-    if (territoryGeoms.length === 0) return;
-    const box: GeoBbox = { minLng: Infinity, minLat: Infinity, maxLng: -Infinity, maxLat: -Infinity };
-    for (const t of territoryGeoms) {
-      const b = geometryBbox(t.geometry);
-      box.minLng = Math.min(box.minLng, b.minLng);
-      box.minLat = Math.min(box.minLat, b.minLat);
-      box.maxLng = Math.max(box.maxLng, b.maxLng);
-      box.maxLat = Math.max(box.maxLat, b.maxLat);
-    }
-    focusBbox(box);
+    const box = cameraBbox(territoryGeoms.map((t) => t.geometry));
+    if (box) focusBbox(box);
   }, [territoryGeoms, focusBbox]);
 
   // A template or a loaded map asks for a fit once its geometry is on screen.
@@ -368,7 +366,8 @@ export default function MapEditorPage() {
 
   const pickFromSearch = useCallback((c: CountryInfo) => {
     handleCountryPick(c.code, c.name, c.geometry);
-    focusBbox(geometryBbox(c.geometry), 2);
+    const box = cameraBbox([c.geometry]);
+    if (box) focusBbox(box, 2);
   }, [handleCountryPick, focusBbox]);
 
   const createDrawnTerritory = useCallback((ring: Ring) => {
@@ -515,7 +514,8 @@ export default function MapEditorPage() {
       });
       const parentGeometry = geometryById.get(id);
       act().replaceTerritory(id, split.territories, split.connections);
-      if (parentGeometry) focusBbox(geometryBbox(parentGeometry), 1.6);
+      const parentBox = parentGeometry ? cameraBbox([parentGeometry]) : null;
+      if (parentBox) focusBbox(parentBox, 1.6);
       toast.success(`${parent.name} split into ${list.length} ${list.length === 1 ? 'province' : 'provinces'}`);
     } catch {
       toast.error('Could not load the provinces data');
