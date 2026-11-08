@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Globe, Link2, Map, Pencil, Star, Users } from 'lucide-react';
+import { Crown, Globe, Link2, Map, Pencil, Star, Users } from 'lucide-react';
 import SubpageShell from '../components/ui/SubpageShell';
 import BrandWordmark from '../components/ui/BrandWordmark';
 import MapPreview from '../components/lobby/MapPreview';
@@ -12,6 +12,9 @@ import { ERA_LABELS } from '../constants/gameLobbyLabels';
 import { useAuthStore } from '../store/authStore';
 import { useMapEditorEnabled } from '../store/featureFlagsStore';
 import { trackUiEvent } from '../utils/uiEvents';
+import { useFeaturedMap } from '../components/lobby/MapOfTheWeekCard';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type LoadState = 'loading' | 'ready' | 'missing';
 
@@ -25,6 +28,7 @@ export default function MapDetailPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const editorEnabled = useMapEditorEnabled();
+  const featured = useFeaturedMap();
   const [map, setMap] = useState<GameMap | null>(null);
   const [creatorName, setCreatorName] = useState<string | null>(null);
   const [state, setState] = useState<LoadState>('loading');
@@ -104,10 +108,16 @@ export default function MapDetailPage() {
 
           <div className="lg:col-span-2 space-y-4">
             <div className="card space-y-2">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <span className="badge bg-bf-dark text-bf-muted border border-bf-border text-xs">
                   {isBuiltIn ? 'Official' : ERA_LABELS[map.era_theme] ?? 'Community map'}
                 </span>
+                {featured?.map?.map_id === map.map_id && (
+                  <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border border-bf-gold/50 text-bf-gold bg-bf-gold/10">
+                    <Crown className="w-3 h-3" aria-hidden />
+                    <span>Map of the week</span>
+                  </span>
+                )}
                 {!published && (
                   <span className="text-xs px-2.5 py-1 rounded-full border bg-slate-600/20 border-slate-400/40 text-slate-300">
                     {map.moderation_status === 'pending' ? 'In review' : map.moderation_status === 'rejected' ? 'Sent back' : 'Draft'}
@@ -115,7 +125,14 @@ export default function MapDetailPage() {
                 )}
               </div>
               <p className="text-sm text-bf-muted">
-                By <span className="text-bf-text">{isBuiltIn ? 'Borderfall' : creatorName ?? 'a community author'}</span>
+                By{' '}
+                {!isBuiltIn && UUID_RE.test(map.creator_id) ? (
+                  <Link to={`/profile/${map.creator_id}`} className="text-bf-text hover:text-bf-gold" title="The author's profile and other maps">
+                    {creatorName ?? 'a community author'}
+                  </Link>
+                ) : (
+                  <span className="text-bf-text">{isBuiltIn ? 'Borderfall' : creatorName ?? 'a community author'}</span>
+                )}
               </p>
               <div className="flex flex-wrap items-center gap-3 text-xs text-bf-muted pt-1">
                 <span className="flex items-center gap-1"><Map className="w-3 h-3" aria-hidden />{map.territories.length} territories</span>
