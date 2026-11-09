@@ -121,6 +121,7 @@ interface LiveGameSummary {
 
 interface ActivityStats {
   games_in_progress: number;
+  /** Games started or finished in the last 24 hours (a rolling window, not since midnight). */
   games_today: number;
   games_total: number;
 }
@@ -2266,11 +2267,18 @@ export default function LobbyPage() {
                 {activityStats.games_in_progress === 1 ? 'game being played right now' : 'games being played right now'}
               </span>
             )}
+            {/* A rolling 24 hours, not since midnight (games.routes.ts,
+                gamesPlayedWindow.ts), so it says so: as "today" it fell during
+                the day as games aged out, which read as a made-up number. */}
             {activityStats.games_today > 0 && (
-              <span className="inline-flex items-center gap-1.5">
+              <span
+                className="inline-flex items-center gap-1.5"
+                title="Every game started or finished in the last 24 hours, tutorials and unfinished games included. Updates every half minute."
+                data-testid="lobby-games-24h"
+              >
                 <Activity className="w-3.5 h-3.5 text-bf-gold" aria-hidden />
                 <span className="text-bf-text font-medium">{activityStats.games_today.toLocaleString()}</span>
-                {activityStats.games_today === 1 ? 'game played today' : 'games played today'}
+                {activityStats.games_today === 1 ? 'game played in the last 24 hours' : 'games played in the last 24 hours'}
               </span>
             )}
           </div>
