@@ -6250,8 +6250,7 @@ export default function GamePage() {
 
       {/* Truce Proposal Modal */}
       {truceProposal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-             style={{ backdropFilter: 'blur(4px)' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
           <div className="bg-[#1e2332] border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl text-center">
             <div className="text-4xl mb-3">🤝</div>
             <h3 className="font-display text-lg text-white mb-1">Truce Proposal</h3>
@@ -6297,8 +6296,7 @@ export default function GamePage() {
 
       {/* Break Truce Confirmation Modal */}
       {truceBreakerConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-             style={{ backdropFilter: 'blur(4px)' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
           <div className="bg-[#1e2332] border border-amber-500/30 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
             <div className="text-3xl mb-3 text-center">⚠️</div>
             <h3 className="font-display text-lg text-amber-400 text-center mb-1">Break Active Truce?</h3>
@@ -6350,8 +6348,7 @@ export default function GamePage() {
       )}
 
       {endDraftConfirm !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-             style={{ backdropFilter: 'blur(4px)' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
           <div className="bg-[#1e2332] border border-amber-500/30 rounded-2xl p-6 max-w-sm w-full shadow-2xl">
             <div className="text-3xl mb-3 text-center">🛡️</div>
             <h3 className="font-display text-lg text-amber-400 text-center mb-1">End reinforcement?</h3>
