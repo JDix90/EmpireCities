@@ -371,9 +371,19 @@ describe('a Split globe: coming and going', () => {
     expect(globe.renderer).toEqual({ disposed: 1, contextsLost: 1 });
   });
 
-  it('leaves the single globe to be collected', () => {
+  it('gives the single globe\'s context back too, by default', () => {
+    // iOS refused a new context once the page held the lobby preview's and
+    // earlier games' ("Error creating WebGL context."): every globe lets go.
     vi.useFakeTimers();
     const { unmount } = pane();
+    unmount();
+    act(() => { vi.advanceTimersByTime(10); });
+    expect(globe.renderer).toEqual({ disposed: 1, contextsLost: 1 });
+  });
+
+  it('keeps the context when told to', () => {
+    vi.useFakeTimers();
+    const { unmount } = pane({ releaseContextOnUnmount: false });
     unmount();
     act(() => { vi.advanceTimersByTime(10); });
     expect(globe.renderer).toEqual({ disposed: 0, contextsLost: 0 });
