@@ -192,6 +192,13 @@ interface GlobeMapProps {
    * tier (M-13 phase 3). The controls' damping is rescaled for it.
    */
   frameBudgetFps?: number;
+  /**
+   * A full-screen modal covers the globe (the combat result, a turn summary,
+   * a confirmation): hold the render loop, so the frames nobody can see are
+   * not drawn. A board change still reaches the screen in a frame or two,
+   * and the loop resumes with a catch-up draw when the modal lifts.
+   */
+  held?: boolean;
   /** User-controlled globe spin toggle. When false, globe does not auto-rotate. */
   autoSpin?: boolean;
   /**
@@ -912,6 +919,7 @@ function GlobeMap({
   reducedEffects = false,
   frameBudget = false,
   frameBudgetFps = PHONE_FRAME_CAP_FPS,
+  held = false,
   autoSpin = true,
   cameraFollow = true,
   skipAnimationsRef,
@@ -1701,6 +1709,8 @@ function GlobeMap({
   // applyRenderActivity(), for as long as that thing needs.
   const frameBudgetRef = useRef(frameBudget);
   frameBudgetRef.current = frameBudget;
+  const heldRef = useRef(held);
+  heldRef.current = held;
   const renderWakeRef = useRef<RenderWake | null>(null);
   if (!renderWakeRef.current) {
     renderWakeRef.current = createRenderWake({
@@ -1714,6 +1724,7 @@ function GlobeMap({
         isAnimatingRef.current ||
         userInteractingRef.current,
       hidden: () => typeof document !== 'undefined' && document.visibilityState === 'hidden',
+      held: () => heldRef.current,
       // Under the phone budget a running loop re-checks every half second, so
       // it idles soon after the last animation ends.
       pollMs: () => (frameBudgetRef.current ? BUDGET_ACTIVITY_POLL_MS : RENDER_IDLE_MS),
@@ -1733,10 +1744,24 @@ function GlobeMap({
     const globe = globeRef.current;
     if (!globe?.pauseAnimation || !globe.resumeAnimation) return;
     const wake = renderWakeRef.current!;
-    if (interacted) wake.wake(awakeMs, frames);
+    // Under a hold only owed frames draw, so a wake that asked for none asks for a few.
+    if (interacted) wake.wake(awakeMs, frames || (heldRef.current ? BUDGET_BOARD_CHANGE_FRAMES : 0));
     else wake.check();
   }, []);
   keepRenderingRef.current = (ms: number, frames?: number) => applyRenderActivity(true, ms, frames);
+
+  // The hold itself: pause now; when it lifts, draw the board as it is, and
+  // the loop then keeps up for as long as anything is still moving.
+  useEffect(() => {
+    if (held) renderWakeRef.current?.check();
+    else applyRenderActivity(true, BOARD_CHANGE_RENDER_MS, BUDGET_BOARD_CHANGE_FRAMES);
+  }, [held, applyRenderActivity]);
+  // What an animation adds under the hold (an arc, rings, an overlay) is
+  // drawn once, not every frame: an overlay the CSS2D renderer has not placed
+  // yet would otherwise sit at the canvas corner until the next draw.
+  useEffect(() => {
+    if (heldRef.current) applyRenderActivity(true, 0, BUDGET_BOARD_CHANGE_FRAMES);
+  }, [overlays, arcs, rings, applyRenderActivity]);
 
   /**
    * Drive wheel zoom ourselves. OrbitControls scales its own `zoomSpeed` by the

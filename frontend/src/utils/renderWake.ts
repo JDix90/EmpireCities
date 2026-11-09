@@ -15,6 +15,10 @@
  * before that happens. Owed frames keep the loop running past the deadline,
  * for at most OWED_FRAMES_MAX_MS, so a renderer that stops drawing cannot keep
  * it awake.
+ *
+ * A hold (`held`) is a full-screen modal over the canvas: nothing time-based
+ * and nothing `busy` keeps the loop running, only frames a wake asked for,
+ * so a board change still reaches the screen once; otherwise the loop pauses.
  */
 
 /** The longest owed frames can hold the loop past a wake's own deadline. */
@@ -29,6 +33,8 @@ export interface RenderWakeDeps {
   busy: () => boolean;
   /** The page is hidden: never render. */
   hidden: () => boolean;
+  /** A full-screen modal covers the canvas: draw only frames a wake asked for. */
+  held?: () => boolean;
   /** How often a loop kept running by `busy` re-checks whether it can stop. */
   pollMs: () => number;
   /** Frames drawn so far, or null when the renderer cannot count them (then wakes are time only). */
@@ -78,6 +84,15 @@ export function createRenderWake(deps: RenderWakeDeps): RenderWake {
       awakeUntil = 0;
       framesTarget = 0;
       framesGiveUpAt = 0;
+      deps.pause();
+      return;
+    }
+    if (deps.held?.()) {
+      if (framesOwed()) {
+        deps.resume();
+        timer = setT(evaluate, OWED_FRAMES_RECHECK_MS);
+        return;
+      }
       deps.pause();
       return;
     }

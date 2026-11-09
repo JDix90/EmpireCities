@@ -1271,6 +1271,11 @@ export default function GamePage() {
   // Guards ending the reinforcement phase with unplaced units (the server would
   // auto-place them). Only armed when the turn-clarity flag is on.
   const [endDraftConfirm, setEndDraftConfirm] = useState<number | null>(null);
+  // A full-screen modal over the globe: the combat result and the other
+  // blocking modals, and the confirmation dialogs. The globe holds its render
+  // loop while one is up (GlobeMap `held`): the frames behind the dim are
+  // not drawn.
+  const globeHeld = modalQueue.length > 0 || !!truceProposal || !!truceBreakerConfirm || endDraftConfirm !== null;
   /** Blocking dialogs the tutorial card must drop behind — see its use below. */
   const tutorialCardBehindModal = !!modalQueue[0] || endDraftConfirm !== null;
 
@@ -5547,6 +5552,7 @@ export default function GamePage() {
                           frameBudgetFps={frameBudget.fps}
                           autoSpin={globeSpinEnabled}
                           cameraFollow={cameraFollowEnabled}
+                          held={globeHeld}
                           skipAnimationsRef={skipGlobeAnimationsRef}
                           onSkipAll={skipAllBacklogByTap}
                           onGlobeReady={handleGlobeReady}

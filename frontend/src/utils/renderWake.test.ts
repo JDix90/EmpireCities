@@ -140,3 +140,39 @@ describe('createRenderWake', () => {
     expect(h.log).toEqual(['resume']);
   });
 });
+
+describe('createRenderWake under a hold', () => {
+  beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(0); });
+  afterEach(() => { vi.useRealTimers(); });
+
+  it('neither a time wake nor something moving starts the loop while a modal covers the canvas', () => {
+    let held = true;
+    const { wake, log, state } = harness({ held: () => held });
+    state.busy = true;
+    wake.wake(4000);
+    expect(log).toEqual([]);
+    // The modal lifts: the same wake and the same spin now run the loop.
+    held = false;
+    wake.check();
+    expect(log).toEqual(['resume']);
+  });
+
+  it('frames a wake asked for are still drawn under the hold, then the loop pauses again', () => {
+    let drawn = 0;
+    const { wake, log, running } = harness({ held: () => true, framesDrawn: () => drawn });
+    wake.wake(0, 2);
+    expect(log).toEqual(['resume']);
+    vi.advanceTimersByTime(50);
+    expect(running()).toBe(true);
+    drawn = 2;
+    vi.advanceTimersByTime(50);
+    expect(log).toEqual(['resume', 'pause']);
+  });
+
+  it('a hidden page still wins: no frames while hidden, whatever is owed', () => {
+    const { wake, log, state } = harness({ held: () => true, framesDrawn: () => 0 });
+    state.hidden = true;
+    wake.wake(0, 2);
+    expect(log).toEqual([]);
+  });
+});
