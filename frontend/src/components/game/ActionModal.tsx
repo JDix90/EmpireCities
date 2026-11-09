@@ -2764,10 +2764,15 @@ export default function ActionModal({
 
   const allowBackdropDismiss = !isGameOver && !isResign;
 
+  // A flat dim, no backdrop blur. Over the WebGL globe a blurred backdrop is
+  // re-blurred at full resolution on every frame the globe draws, and it
+  // fades in and out on every attack: on a Retina display that was the
+  // costliest thing on screen during a dice roll. The phone stylesheet
+  // already strips blur for the same reason (index.css, data-frame-budget).
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center animate-modal-backdrop pt-safe-4 pb-safe-4 px-safe-4"
-      style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(4px)' }}
+      style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)' }}
       onClick={allowBackdropDismiss ? () => onDismiss() : undefined}
     >
       <div
