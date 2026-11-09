@@ -670,6 +670,13 @@ export default function GamePage() {
     setMapView('globe');
     persistMapView('globe');
   }, []);
+  // Offered by the globe when this device cannot give it a WebGL context
+  // (GlobeFailureBoundary). Kept as the player's choice, as the toggle does,
+  // so their next game does not ask the globe again.
+  const switchToFlatMap = useCallback(() => {
+    setMapView('2d');
+    persistMapView('2d');
+  }, []);
   // Resume the coached step where the player left it. Game state is
   // Redis-authoritative and survives a reload; without this the coaching did
   // not, so a refresh restarted the lesson at step 1 on an advanced board.
@@ -5543,6 +5550,7 @@ export default function GamePage() {
                         <GlobeMapLazy
                           mapData={mapData}
                           onTerritoryClick={handleTerritoryClick}
+                          onUseFlatMap={switchToFlatMap}
                           width={mapCanvasSize.w}
                           height={mapCanvasSize.h}
                           events={phoneGlobeEvents}
@@ -5612,6 +5620,7 @@ export default function GamePage() {
                             <GlobeMapLazy
                               mapData={mapData}
                               onTerritoryClick={handleTerritoryClick}
+                              onUseFlatMap={switchToFlatMap}
                               width={Math.max(240, Math.floor(mapCanvasSize.w * 0.34))}
                               height={Math.max(200, Math.floor(mapCanvasSize.h * 0.34))}
                               reducedEffects={true}

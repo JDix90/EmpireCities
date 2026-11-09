@@ -10,6 +10,7 @@ import Globe, { type GlobeMethods } from 'react-globe.gl';
 import '../../utils/idleFrameTickers';
 import { FastForward } from 'lucide-react';
 import MapUnavailable from './MapUnavailable';
+import GlobeFailureBoundary from './GlobeFailureBoundary';
 import { webglAvailable } from '../../utils/webglSupport';
 import { useGameStore } from '../../store/gameStore';
 import { resolvePlayerTechEraId } from '../../utils/eraAdvancement';
@@ -295,7 +296,10 @@ interface GlobeMapProps {
    * browser keeps only so many live (Chrome 16, dropping the oldest past
    * that), and three.js gives one back only when it is garbage-collected.
    * Split puts up four globes at a time, so a player switching views runs
-   * past the limit within a few switches.
+   * past the limit within a few switches. On by default: iOS refuses a new
+   * context outright once the page holds too much ("Error creating WebGL
+   * context."), which a player reached moving between the lobby's map
+   * preview and games, each globe keeping its context and textures.
    */
   releaseContextOnUnmount?: boolean;
 }
@@ -946,7 +950,7 @@ function GlobeMap({
   targetsAcrossWorlds = false,
   ownWorldEffectsOnly = false,
   onTerritoryCenters,
-  releaseContextOnUnmount = false,
+  releaseContextOnUnmount = true,
 }: GlobeMapProps) {
   const isFloodedNorthAmerica =
     mapData.map_id === 'community_flooded_north_america' ||
@@ -4286,7 +4290,13 @@ function GlobeMap({
 // and the rest of the game page stays up.
 export { GlobeMap as GlobeMapCore };
 
-function GlobeMapWithFallback(props: GlobeMapProps) {
+function GlobeMapWithFallback({ onUseFlatMap, ...props }: GlobeMapProps & {
+  /**
+   * Switches to the 2D map. Offered when the globe cannot get a WebGL context
+   * even though the page's probe found WebGL (GlobeFailureBoundary).
+   */
+  onUseFlatMap?: () => void;
+}) {
   const [webglOk, setWebglOk] = useState<boolean | null>(null);
   const onGlobeReadyRef = useRef(props.onGlobeReady);
   onGlobeReadyRef.current = props.onGlobeReady;
@@ -4309,7 +4319,11 @@ function GlobeMapWithFallback(props: GlobeMapProps) {
   // the map says what is missing instead of failing the page.
   if (!webglOk) return <MapUnavailable width={props.width} height={props.height} />;
 
-  return <GlobeMap {...props} />;
+  return (
+    <GlobeFailureBoundary width={props.width} height={props.height} onUseFlatMap={onUseFlatMap}>
+      <GlobeMap {...props} />
+    </GlobeFailureBoundary>
+  );
 }
 
 export default GlobeMapWithFallback;
