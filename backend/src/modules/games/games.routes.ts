@@ -51,6 +51,7 @@ import {
 } from './lobbyCapacity';
 import { recordDailyChallengeLoss } from '../../game-engine/daily/recordDailyEntry';
 import { dailyRunWonForGame } from '../../game-engine/daily/dailyRunResult';
+import { playedInLast24HoursSql } from './gamesPlayedWindow';
 
 /** Optional body for POST /tutorial/start — default matches lobby quick-start (small tutorial map). */
 const TutorialStartSchema = z.object({
@@ -808,6 +809,8 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
   // ── GET /api/games/stats/activity ─────────────────────────────────────────
   // Honest, real-time-ish activity signals for the lobby. Every number maps to
   // real rows, so they stay truthful even when small. Cached briefly in Redis.
+  // `games_today` is a rolling 24 hours (playedInLast24HoursSql), shown as
+  // "games played in the last 24 hours"; the name stays for older clients.
   fastify.get('/stats/activity', { preHandler: authenticate }, async (_request, reply) => {
     const cacheKey = 'games:activity-stats';
     try {
@@ -837,9 +840,8 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
                 (SELECT MAX(gs_recent.saved_at) FROM game_states gs_recent WHERE gs_recent.game_id = g.game_id),
                 g.created_at
               ) > NOW() - INTERVAL '${LIVE_ACTIVITY_WINDOW_MINUTES} minutes')::int AS games_in_progress,
-         (SELECT COUNT(*) FROM games
-            WHERE status IN ('completed', 'abandoned')
-              AND ended_at >= NOW() - INTERVAL '24 hours')::int AS games_today,
+         (SELECT COUNT(*) FROM games g
+            WHERE ${playedInLast24HoursSql('g')})::int AS games_today,
          (SELECT COUNT(*) FROM games
             WHERE status IN ('completed', 'abandoned'))::int AS games_total`,
     );
