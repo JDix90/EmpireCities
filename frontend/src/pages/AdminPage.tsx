@@ -134,6 +134,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Let the AI spend its per-turn attack budget as dice exchanges rather than distinct targets, so it can grind one territory until it falls. Off, one planned attack is one exchange — which makes any territory holding 3+ units impossible for the AI to take at any difficulty. Same number of exchanges per turn either way, so turn length is unchanged. On by default.',
   },
   {
+    key: 'auto_place_stack_enabled',
+    label: 'Stacked auto-placement',
+    description:
+      'Reinforcements placed for a player — their turn clock ran out, or they ended Reinforce with units left — go onto their most threatened border territory (the one facing the most enemy units, as the bots choose), spilling to the next only past a stability cap. Round-robin placement put one unit on each territory, which left nothing strong enough to attack or hold with: a player who only pressed the phase button lost every simulated first match. Every mode. On by default; switching it off spreads them as before.',
+  },
+  {
     key: 'ai_capture_odds_enabled',
     label: 'AI odds-aware targeting',
     description:
