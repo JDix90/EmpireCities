@@ -9,7 +9,7 @@ import DefenderBattleTheater from '../components/game/DefenderBattleTheater';
 import type { CombatResult } from '../store/gameStore';
 import type { GameState } from '../store/gameStore';
 
-type LabModal = 'create' | 'event' | 'tech' | 'combat' | 'combat-tutorial' | 'theater' | null;
+type LabModal = 'create' | 'event' | 'tech' | 'combat' | 'combat-tutorial' | 'theater' | 'era-advance' | null;
 
 // Mirrors the live "Launch an Attack!" coaching beat, used to verify the
 // tutorial popup yields to the combat result modal instead of covering it.
@@ -161,6 +161,7 @@ export default function ModalLabPage() {
           <button type="button" className="btn-primary" onClick={() => setActiveModal('combat')}>Open combat modal</button>
           <button type="button" className="btn-primary" onClick={() => setActiveModal('combat-tutorial')}>Combat + tutorial</button>
           <button type="button" className="btn-primary" onClick={() => setActiveModal('theater')}>Defender theater</button>
+          <button type="button" className="btn-primary" onClick={() => setActiveModal('era-advance')}>Era advance</button>
         </div>
 
         <div className="card space-y-3">
@@ -221,6 +222,23 @@ export default function ModalLabPage() {
           onDismiss={() => setActiveModal(null)}
           onSkipAll={() => setActiveModal(null)}
           backlogCount={4}
+        />
+      )}
+
+      {/* Every optional line on at once: the tallest the dialog gets, which is
+          what has to keep Onward reachable on a 664px phone. */}
+      {activeModal === 'era-advance' && (
+        <ActionModal
+          data={{
+            type: 'era_advance',
+            eraId: 'medieval',
+            signatureName: 'Feudal Levy',
+            signatureDescription: 'Raise extra defenders in a threatened territory once this era.',
+            legacyLabel: 'Legion March',
+            unitLossPct: 30,
+            vulnerable: true,
+          }}
+          onDismiss={() => setActiveModal(null)}
         />
       )}
 

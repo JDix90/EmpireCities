@@ -545,6 +545,19 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().phone_fortify_fit_enabled).toBe(false);
   });
 
+  it.each([
+    ['phone_sheet_fit_enabled', 'phoneSheetFitEnabled'],
+    ['phone_turn_countdown_enabled', 'phoneTurnCountdownEnabled'],
+    ['solo_untimed_enabled', 'soloUntimedEnabled'],
+  ] as const)('%s defaults to on and the admin override is its kill switch', (key, getter) => {
+    expect(featureFlags[getter]).toBe(true);
+    expect(getClientFeatureFlags()[key]).toBe(true);
+    expect(getFeatureFlagStates()[key]).toEqual({ code_default: true, overridden: false, effective: true });
+    setAdminConfigCacheForTests({ feature_flags: { [key]: false } });
+    expect(featureFlags[getter]).toBe(false);
+    expect(getClientFeatureFlags()[key]).toBe(false);
+  });
+
   it('first_match_primary_cta_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.firstMatchPrimaryCtaEnabled).toBe(true);
     expect(getClientFeatureFlags().first_match_primary_cta_enabled).toBe(true);
