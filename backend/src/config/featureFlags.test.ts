@@ -558,6 +558,20 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags()[key]).toBe(false);
   });
 
+  it('loss_reason_play_enabled defaults to on, reaches the client, and the admin override is its kill switch', () => {
+    expect(featureFlags.lossReasonPlayEnabled).toBe(true);
+    expect(getClientFeatureFlags().loss_reason_play_enabled).toBe(true);
+    setAdminConfigCacheForTests({ feature_flags: { loss_reason_play_enabled: false } });
+    expect(getClientFeatureFlags().loss_reason_play_enabled).toBe(false);
+  });
+
+  it('placement_rating_enabled defaults to on, is server-only, and the admin override is its kill switch', () => {
+    expect(featureFlags.placementRatingEnabled).toBe(true);
+    expect(getClientFeatureFlags()).not.toHaveProperty('placement_rating_enabled');
+    setAdminConfigCacheForTests({ feature_flags: { placement_rating_enabled: false } });
+    expect(featureFlags.placementRatingEnabled).toBe(false);
+  });
+
   it('first_match_fair_start_enabled defaults to on, is server-only, and the admin override is its kill switch', () => {
     expect(featureFlags.firstMatchFairStartEnabled).toBe(true);
     expect(getFeatureFlagStates().first_match_fair_start_enabled).toEqual({ code_default: true, overridden: false, effective: true });

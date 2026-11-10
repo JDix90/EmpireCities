@@ -5,7 +5,7 @@ import { verifyAccessToken } from '../utils/jwt';
 import { query, queryOne } from '../db/postgres';
 import { emitGameError, GameErrorCode } from './socketErrors';
 import { featureFlags } from '../config/featureFlags';
-import { worstRoundLoss } from '../game-engine/state/lossTally';
+import { noteTurnTimedOut, worstRoundLoss } from '../game-engine/state/lossTally';
 import {
   trackSpectator,
   untrackSpectator,
@@ -1143,6 +1143,9 @@ export function initGameSocket(httpServer: HttpServer): Server {
         unitsPlaced: autoDraft.total,
       });
 
+      // The deadline ended this player's turn, for the defeat screen (state/lossTally.ts).
+      const lapsedSeat = state.players[state.current_player_index];
+      if (lapsedSeat && !lapsedSeat.is_ai) noteTurnTimedOut(lapsedSeat);
       advanceToNextPlayer(state, map);
       landPendingDropAssaults(io, gameId, state, map);
       await syncLaneWeatherAndBroadcastMap(io, gameId, room);
@@ -2967,6 +2970,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
 
       const navalAttackProbBefore = captureProbBefore(state, userId);
       const navalResult = resolveNavalCombat(fromTerritory.naval_units, toTerritory.naval_units, truceBrokenDefenseDie);
+      // A naval battle is an attack too, for the defeat screen (state/lossTally.ts).
+      currentPlayer.attacked_this_turn = true;
       fromTerritory.naval_units = Math.max(0, fromTerritory.naval_units - navalResult.attacker_losses);
       toTerritory.naval_units = Math.max(0, (toTerritory.naval_units ?? 0) - navalResult.defender_losses);
 
@@ -5522,7 +5527,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
 
   // Post-game stats (non-critical — failures logged but game:over still sent)
   const noResults = (): Awaited<ReturnType<typeof recordGameResults>> =>
-    ({ ratingDeltas: new Map(), ratingProvisional: new Map(), guestPlayerIds: new Set(), isRanked: false, xpEarnedByPlayer: {} });
+    ({ ratingDeltas: new Map(), ratingProvisional: new Map(), ratingPlacement: new Map(), guestPlayerIds: new Set(), isRanked: false, xpEarnedByPlayer: {} });
   let resultCtx: Awaited<ReturnType<typeof recordGameResults>>;
   try {
     resultCtx = playOn ? noResults() : await recordGameResults(gameId, state, creditedIds);
@@ -5894,6 +5899,9 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
       units_lost_to_events: p.units_lost_to_events ?? 0,
       turns_ended_with_set: p.turns_ended_with_set ?? 0,
       worst_round_loss: worstRoundLoss(state, p),
+      turns_taken: p.turns_taken ?? 0,
+      turns_attacked: p.turns_attacked ?? 0,
+      turns_timed_out: p.turns_timed_out ?? 0,
       // Every mission, for the game-over screen to reveal (mission_reveal_enabled).
       // The game is over, so the state already shows them to everyone
       // (clientStateRedaction.ts); this only saves the client waiting for it.

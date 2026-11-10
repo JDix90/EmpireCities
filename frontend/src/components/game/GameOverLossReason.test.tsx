@@ -90,3 +90,60 @@ describe('why you lost', () => {
     expect(screen.queryByText('Why you lost')).toBeNull();
   });
 });
+
+describe('why you lost: how you played (loss_reason_play_enabled)', () => {
+  beforeEach(() => {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+      addListener: vi.fn(), removeListener: vi.fn(),
+    }) as unknown as typeof window.matchMedia;
+    useAuthStore.setState({
+      user: { user_id: 'me', username: 'Ada', level: 2, xp: 250, mmr: 1000 },
+      isAuthenticated: true,
+    });
+  });
+  afterEach(() => useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, loss_reason_enabled: true, loss_reason_play_enabled: true } })));
+
+  const neverAttacked = () => {
+    const data = gameOver();
+    data.players = [{ ...data.players[0], turns_taken: 7, turns_attacked: 0 }, data.players[1]];
+    return data;
+  };
+
+  it('says the viewer never attacked, ahead of the collapse it caused', () => {
+    render(<ActionModal data={neverAttacked()} onDismiss={() => {}} />);
+    expect(line()?.textContent).toContain('You never attacked.');
+  });
+
+  it('keeps the existing reasons with the flag off', () => {
+    useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, loss_reason_play_enabled: false } }));
+    render(<ActionModal data={neverAttacked()} onDismiss={() => {}} />);
+    expect(line()?.textContent).toContain('Turn 12 cost you most');
+  });
+});
+
+describe('placement games (placement_rating_enabled)', () => {
+  beforeEach(() => {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+      addListener: vi.fn(), removeListener: vi.fn(),
+    }) as unknown as typeof window.matchMedia;
+    useAuthStore.setState({
+      user: { user_id: 'me', username: 'Ada', level: 2, xp: 250, mmr: 1000 },
+      isAuthenticated: true,
+    });
+  });
+
+  it('shows which placement game this was instead of the rating swing', () => {
+    render(<ActionModal data={gameOver({ rating_change: -305, rating_provisional: true, rating_placement: 1 })} onDismiss={() => {}} />);
+    expect(screen.getByTestId('gameover-placement').textContent).toContain('1 of 5');
+    expect(screen.queryByText('-305')).toBeNull();
+    expect(screen.queryByText('Calibrating')).toBeNull();
+  });
+
+  it('shows the swing once the server sends no placement number', () => {
+    render(<ActionModal data={gameOver({ rating_change: -12, rating_provisional: false })} onDismiss={() => {}} />);
+    expect(screen.queryByTestId('gameover-placement')).toBeNull();
+    expect(screen.getByText('-12')).toBeTruthy();
+  });
+});

@@ -123,6 +123,9 @@ export function executeLandAttack(
 
   if (from.unit_count < 2 || to.unit_count < 1) return null;
 
+  // The battle happens: the defeat screen's "attacked this turn" (state/lossTally.ts).
+  attacker.attacked_this_turn = true;
+
   const defenderId = to.owner_id;
   const attackBuffs = consumeAttackBuffs(attacker);
   const signatureAttackBonus = consumeSignatureAttackBonus(attacker);

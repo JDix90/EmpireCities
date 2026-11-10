@@ -60,3 +60,46 @@ describe('lossReason', () => {
     expect(lossReason({ units_lost_to_events: 2, turns_ended_with_set: 1, worst_round_loss: { turn: 4, from: 6, to: 5 } })).toBeNull();
   });
 });
+
+describe('lossReason: how the player played (loss_reason_play_enabled)', () => {
+  const play = { play: true };
+
+  it('says the player never attacked, once it is a pattern', () => {
+    expect(lossReason({ turns_taken: 2, turns_attacked: 0 }, play)).toBeNull();
+    expect(lossReason({ turns_taken: 7, turns_attacked: 0 }, play)).toEqual({
+      kind: 'never_attacked',
+      text:
+        'You never attacked. Bots grow when they are left alone: stack your armies on one border, ' +
+        'then attack the weakest neighbour from there.',
+    });
+  });
+
+  it('puts never attacking ahead of the collapse it causes', () => {
+    const t = { turns_taken: 7, turns_attacked: 0, worst_round_loss: { turn: 7, from: 6, to: 0 } };
+    expect(lossReason(t, play)?.kind).toBe('never_attacked');
+    expect(lossReason(t)?.kind).toBe('collapse');
+  });
+
+  it('says the player rarely attacked, under a third of their turns', () => {
+    expect(lossReason({ turns_taken: 9, turns_attacked: 2 }, play)).toEqual({
+      kind: 'rarely_attacked',
+      text:
+        'You attacked in only 2 of your 9 turns. Every turn you hold back, the other side grows: ' +
+        'attack the weakest neighbour from your biggest stack.',
+    });
+    expect(lossReason({ turns_taken: 9, turns_attacked: 3 }, play)).toBeNull();
+    expect(lossReason({ turns_taken: 4, turns_attacked: 1 }, play)).toBeNull();
+  });
+
+  it('says the clock ended the player\u2019s turns, from two', () => {
+    expect(lossReason({ turns_timed_out: 1 }, play)).toBeNull();
+    expect(lossReason({ turns_timed_out: 3 }, play)).toEqual({
+      kind: 'clock',
+      text: 'The clock ran out on 3 turns of yours, so the game placed your armies and ended those turns for you.',
+    });
+  });
+
+  it('says none of it with the flag off', () => {
+    expect(lossReason({ turns_taken: 7, turns_attacked: 0, turns_timed_out: 4 })).toBeNull();
+  });
+});

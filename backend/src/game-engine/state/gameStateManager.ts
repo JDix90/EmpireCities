@@ -18,7 +18,7 @@ import { getEraDeck, drawRandomCard, applyEventEffect, tickTemporaryModifiers, c
 import { getActiveSeasonalDeck } from '../events/seasonalDecks';
 import { initializeNavalUnits, collectFleetIncome } from './navalManager';
 import { initializeStability, applyStabilityTick, getDeployCap } from './stabilityManager';
-import { noteRoundEnd, noteTurnEnd, noteTurnStart } from './lossTally';
+import { noteRoundEnd, noteTurnEnd, noteTurnStart, noteTurnTimedOut } from './lossTally';
 import { autoDraftStackOrder } from './autoDraftTargets';
 import { anyWholeRegionDealt, FAIR_DEAL_ATTEMPTS, fairFirstMatchStartingIndex } from './fairFirstMatch';
 import { getWonderReinforceBonus, applyWonderProductionIncome } from './wonderManager';
@@ -1355,6 +1355,9 @@ export function advancePhaseOnTimeout(
     : { total: 0, placements: [] };
   state.draft_units_remaining = 0;
   state.fortify_moves_used = 0;
+  // The clock ended this player's turn, for the defeat screen (lossTally.ts).
+  const timedOut = state.players[state.current_player_index];
+  if (timedOut && !timedOut.is_ai) noteTurnTimedOut(timedOut);
   advanceToNextPlayer(state, map);
   return { kind: 'turn', autoDraft };
 }

@@ -74,6 +74,7 @@ describe('redactGuestRatings', () => {
       isRanked: false,
       ratingDeltas: new Map([['guest1', -263], ['reg1', 12]]),
       ratingProvisional: new Map([['guest1', true], ['reg1', false]]),
+      ratingPlacement: new Map([['guest1', 1], ['reg1', 3]]),
       guestPlayerIds: new Set(['guest1']),
       xpEarnedByPlayer: { guest1: 25, reg1: 40 },
       ...overrides,
@@ -84,6 +85,8 @@ describe('redactGuestRatings', () => {
     const out = redactGuestRatings(ctx());
     expect(out.rating_deltas).toEqual({ reg1: 12 });
     expect(out.rating_provisional).toEqual({ reg1: false });
+    // Placement games (placement_rating_enabled) are part of the rating, so they go too.
+    expect(out.rating_placement).toEqual({ reg1: 3 });
   });
 
   it('passes everything through when no guests played', () => {

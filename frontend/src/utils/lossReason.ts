@@ -12,9 +12,26 @@ export interface LossTallies {
   turns_ended_with_set?: number;
   /** The round the player's territory count fell furthest in. */
   worst_round_loss?: { turn: number; from: number; to: number } | null;
+  /** Turns the player took, and of those, turns with at least one attack in them. */
+  turns_taken?: number;
+  turns_attacked?: number;
+  /** Turns of theirs the turn clock (or an async deadline) ended. */
+  turns_timed_out?: number;
 }
 
-export type LossReasonKind = 'collapse' | 'idle_cards' | 'events';
+export type LossReasonKind = 'never_attacked' | 'rarely_attacked' | 'clock' | 'collapse' | 'idle_cards' | 'events';
+
+/**
+ * How the player played (`loss_reason_play_enabled`). The commonest loss a new
+ * player has is slow erosion from not attacking: a stand-in that never attacks
+ * loses every first match against one Easy bot, and the reasons above never
+ * named it. Never attacking needs a few turns to be a pattern rather than a
+ * short game; rarely is under a third of the player's turns.
+ */
+export const NEVER_ATTACKED_MIN_TURNS = 3;
+export const RARELY_ATTACKED_MIN_TURNS = 5;
+export const RARELY_ATTACKED_MAX_SHARE = 1 / 3;
+export const CLOCK_MIN_TURNS = 2;
 
 export interface LossReason {
   kind: LossReasonKind;
@@ -37,10 +54,46 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
  * of territory lost (0.4 to 1), idle sets by how many turns (0.5 at 3, 1 at 8),
  * event losses by how many units, capped low (at most 0.6) because a region
  * disaster takes from every player alike. Ties go to the order collapse, idle
- * cards, events.
+ * cards, events. With `play` (loss_reason_play_enabled), how the player played
+ * comes first: never attacking scores 1, rarely attacking 0.42 to 0.75 by how
+ * rarely, and turns the clock ended 0.5 at two rising to 0.9.
  */
-export function lossReason(t: LossTallies): LossReason | null {
+export function lossReason(t: LossTallies, options: { play?: boolean } = {}): LossReason | null {
   const candidates: Array<{ score: number } & LossReason> = [];
+
+  // How the player played, first so a tie goes to it: a player who never
+  // attacked also collapses, and the collapse is the symptom.
+  if (options.play) {
+    const taken = t.turns_taken ?? 0;
+    const attacked = t.turns_attacked ?? 0;
+    if (taken >= NEVER_ATTACKED_MIN_TURNS && attacked === 0) {
+      candidates.push({
+        kind: 'never_attacked',
+        score: 1,
+        text:
+          'You never attacked. Bots grow when they are left alone: stack your armies on one border, ' +
+          'then attack the weakest neighbour from there.',
+      });
+    } else if (taken >= RARELY_ATTACKED_MIN_TURNS && attacked / taken < RARELY_ATTACKED_MAX_SHARE) {
+      candidates.push({
+        kind: 'rarely_attacked',
+        score: 0.75 - attacked / taken,
+        text:
+          `You attacked in only ${attacked} of your ${taken} turns. Every turn you hold back, the other side grows: ` +
+          'attack the weakest neighbour from your biggest stack.',
+      });
+    }
+    const clock = t.turns_timed_out ?? 0;
+    if (clock >= CLOCK_MIN_TURNS) {
+      candidates.push({
+        kind: 'clock',
+        score: Math.min(0.9, 0.5 + 0.1 * (clock - CLOCK_MIN_TURNS)),
+        text:
+          `The clock ran out on ${plural(clock, 'turn', 'turns')} of yours, so the game placed your armies ` +
+          'and ended those turns for you.',
+      });
+    }
+  }
 
   const fall = t.worst_round_loss;
   if (fall && fall.from > 0) {
