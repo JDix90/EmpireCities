@@ -85,6 +85,7 @@ describe('featureFlags', () => {
 
   it.each([
     ['coach_tips_enabled', 'coachTipsEnabled'],
+    ['first_match_ladder_enabled', 'firstMatchLadderEnabled'],
     ['first_match_button_emphasis_enabled', 'firstMatchButtonEmphasisEnabled'],
   ] as const)('%s defaults to on, reaches the client, and the admin override is its kill switch', (key, getter) => {
     expect(featureFlags[getter]).toBe(true);
@@ -723,13 +724,13 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().placement_cap_note_enabled).toBe(false);
   });
 
-  it('full_game_evening_enabled defaults to off (dark-launch) and is admin-overridable', () => {
-    expect(featureFlags.fullGameEveningEnabled).toBe(false);
-    expect(getClientFeatureFlags().full_game_evening_enabled).toBe(false);
-    expect(getFeatureFlagStates().full_game_evening_enabled).toEqual({ code_default: false, overridden: false, effective: false });
-    setAdminConfigCacheForTests({ feature_flags: { full_game_evening_enabled: true } });
+  it('full_game_evening_enabled defaults to on (promoted with the first-win ladder) and the admin override is its kill switch', () => {
     expect(featureFlags.fullGameEveningEnabled).toBe(true);
     expect(getClientFeatureFlags().full_game_evening_enabled).toBe(true);
+    expect(getFeatureFlagStates().full_game_evening_enabled).toEqual({ code_default: true, overridden: false, effective: true });
+    setAdminConfigCacheForTests({ feature_flags: { full_game_evening_enabled: false } });
+    expect(featureFlags.fullGameEveningEnabled).toBe(false);
+    expect(getClientFeatureFlags().full_game_evening_enabled).toBe(false);
   });
 
   it('store_v2_enabled defaults to on, and the admin override is its kill switch', () => {

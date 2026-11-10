@@ -954,6 +954,13 @@ export interface GameSettings {
    */
   first_match?: boolean;
   /**
+   * The first-win ladder's rung this game was built for (first_match_ladder_enabled):
+   * 1 is the first match, 2 the battle after the first win. An analytics tag
+   * that also lets the results screen offer the next battle; the game's rules
+   * come from its other settings.
+   */
+  ladder_step?: number;
+  /**
    * Bot commanders and styles (ai_personalities_enabled), baked at create for
    * a custom or Quick Match game with the flag on: the game draws a commander
    * for each bot seat when it starts (@borderfall/shared drawAiCommanders).

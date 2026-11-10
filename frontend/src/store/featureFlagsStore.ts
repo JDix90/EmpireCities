@@ -7,6 +7,7 @@ export interface ClientFeatureFlags {
   era_advancement_lobby_enabled: boolean;
   first_turn_coach_enabled: boolean;
   coach_tips_enabled: boolean;
+  first_match_ladder_enabled: boolean;
   first_match_button_emphasis_enabled: boolean;
   turn_recap_panel_enabled: boolean;
   turn_clarity_enabled: boolean;
@@ -93,6 +94,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   first_turn_coach_enabled: true,
   // Coach tips: offered in a first match's briefing, a one-line strip that retires step by step. On by default; admin kill switch.
   coach_tips_enabled: true,
+  // The first-win ladder: first match until the first win, one Medium bot until the second, Next battle on their results. On by default; admin kill switch.
+  first_match_ladder_enabled: true,
   // A first match's phase button is plain until the phase's action is done. On by default; admin kill switch.
   first_match_button_emphasis_enabled: true,
   // Desktop: the own-turn recap is a panel row, not a modal. On by default; admin kill switch.
@@ -207,8 +210,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   solo_untimed_enabled: true,
   // In-game mute: one sound and music switch in Tools & options. On by default; admin kill switch.
   in_game_mute_enabled: true,
-  // A Full Game fits an evening: the 65% ending by default, an 80-round cap. Dark-launched OFF.
-  full_game_evening_enabled: false,
+  // A Full Game fits an evening: the 65% ending by default, an 80-round cap. On by default (promoted with the first-win ladder); admin kill switch.
+  full_game_evening_enabled: true,
   // Placement cap note: explain the stability cap where units are placed. On by default; admin kill switch.
   placement_cap_note_enabled: true,
   // The Custom Game form folds its less-used options under Advanced. Dark-launched OFF.
@@ -267,6 +270,11 @@ export function useEraAdvancementLobbyEnabled(): boolean {
 
 export function useFirstTurnCoachEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.first_turn_coach_enabled);
+}
+
+/** The first-win ladder: first match until the first win, then one Medium bot, and Next battle on their results (utils/ladder.ts). */
+export function useFirstMatchLadderEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.first_match_ladder_enabled);
 }
 
 /** Coach tips: the one-line next-step strip, offered in a first match's briefing (utils/coachTips.ts). */

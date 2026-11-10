@@ -71,7 +71,8 @@ import { usePlayOnStore, type PlayOnResult, type PlayOnVoteView } from '../store
 import { useFirstTurnEventsEnabled } from '../store/featureFlagsStore';
 import { useFirstTurnClockWaitEnabled, usePhoneTurnCountdownEnabled } from '../store/featureFlagsStore';
 import { PhonePhaseButton, phoneCountdownApplies } from '../components/game/PhoneTurnCountdown';
-import { useResultsActionEventsEnabled } from '../store/featureFlagsStore';
+import { useResultsActionEventsEnabled, useFirstMatchLadderEnabled } from '../store/featureFlagsStore';
+import { isLadderGame, nextBattleLabel } from '../utils/ladder';
 import { resultsActionProperties, type ResultsAction } from '../utils/resultsAction';
 import { newFirstTurnSteps, type FirstTurnStep, type FirstTurnView } from '../utils/firstTurnSteps';
 import PlayOnTag from '../components/game/PlayOnTag';
@@ -4105,6 +4106,24 @@ export default function GamePage() {
     }).catch(() => {});
   }, []);
 
+  // The first-win ladder (first_match_ladder_enabled, utils/ladder.ts): a ladder
+  // game's results lead with the next battle, which the lobby builds from the
+  // player's rung (?play=quick starts it on arrival).
+  const ladderEnabled = useFirstMatchLadderEnabled();
+  const ladderHead = modalQueue[0]?.type === 'game_over' ? (modalQueue[0] as GameOverModalData) : null;
+  const ladderNextBattle = ladderEnabled && ladderHead && !isTutorial
+    && isLadderGame(gameState?.settings as { first_match?: boolean; ladder_step?: number } | undefined)
+    && ladderHead.victory_condition !== 'abandoned'
+    ? {
+        label: nextBattleLabel(ladderHead.isWinner),
+        onClick: () => {
+          recordResultsAction('next_battle');
+          dismissModal();
+          navigate('/lobby?play=quick');
+        },
+      }
+    : undefined;
+
   const handleModalDismiss = useCallback((reason?: DismissReason) => {
     const head = modalHeadRef.current;
     const byTap = reason !== 'auto' && reason !== 'action';
@@ -6528,6 +6547,7 @@ export default function GamePage() {
           onWatchReplay={(id, opts) => { recordResultsAction('replay'); handleWatchReplay(id, opts); }}
           onShareClip={(id) => { recordResultsAction('clip'); handleShareClip(id); }}
           onShareOpened={() => recordResultsAction('share')}
+          nextBattle={ladderNextBattle}
           onChallengeFriend={user?.is_guest ? undefined : () => { recordResultsAction('challenge'); navigate('/lobby?challenge=1'); }}
           onUpgradeAccount={user?.is_guest && ownAuthUiAllowed() ? () => { recordResultsAction('save_account'); handleGameOverUpgrade(); } : undefined}
           onSkipAll={skipAllBacklogByTap}

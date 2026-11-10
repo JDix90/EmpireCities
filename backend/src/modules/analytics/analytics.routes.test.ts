@@ -167,6 +167,16 @@ describe('POST /api/analytics/ui-event', () => {
     await app.close();
   });
 
+  it('accepts the first-win ladder\u2019s next_battle as a results action', async () => {
+    const app = await build();
+    const res = await app.inject({
+      method: 'POST', url: '/api/analytics/ui-event',
+      payload: { event: 'results_action', properties: { action: 'next_battle', outcome: 'won', first_match: 'true' } },
+    });
+    expect(res.statusCode).toBe(200);
+    await app.close();
+  });
+
   it('rejects a results_action that names no action, or one it does not know', async () => {
     const app = await build();
     for (const properties of [{ outcome: 'won' }, { action: 'rage_quit', outcome: 'lost' }]) {

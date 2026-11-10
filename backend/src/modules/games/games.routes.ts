@@ -15,7 +15,7 @@ import { getCancelGameAuthorizationError } from '../../sockets/socketGuards';
 import { redactReplaySnapshot } from '../../sockets/clientStateRedaction';
 import { formatZodError } from '../../utils/formatZodError';
 import { featureFlags } from '../../config/featureFlags';
-import { eligibleFirstMatchTag, hasFinishedRealGame } from './firstMatchEligibility';
+import { eligibleFirstMatchTag, hasFinishedRealGame, hasWonRealGame } from './firstMatchEligibility';
 import { isValidSpineId, reachesSpaceAge } from '../../game-engine/eraAdvancement/spines';
 import { recordServerEvent } from '../../services/analyticsEvents';
 import { resolveMap } from '../../sockets/mapResolver';
@@ -79,6 +79,8 @@ export const CreateGameSchema = z.object({
       fog_of_war: z.boolean().default(false),
       /** The player's first Quick Match (see featureFlags.firstMatchEasyEnabled). Kept only while that flag is on. */
       first_match: z.boolean().optional(),
+      /** The first-win ladder's rung (featureFlags.firstMatchLadderEnabled). Kept only while that flag is on. */
+      ladder_step: z.number().int().min(1).max(5).optional(),
       allowed_victory_conditions: z.array(victoryConditionEnum).min(1).max(5).optional(),
       /** Legacy single-select; ignored when `allowed_victory_conditions` is set. */
       victory_type: victoryConditionEnum.optional(),
@@ -406,8 +408,13 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     // A first match starts fair (first_match_fair_start_enabled), so the tag is
     // checked here rather than taken from the client: only a player who has yet
     // to finish a game keeps it (firstMatchEligibility.ts).
+    // With the first-win ladder (first_match_ladder_enabled) the first match
+    // lasts until the player's first win, so the tag is kept until then.
     if (settings.first_match && featureFlags.firstMatchFairStartEnabled) {
-      settings.first_match = eligibleFirstMatchTag(settings.first_match, await hasFinishedRealGame(request.userId!));
+      const past = featureFlags.firstMatchLadderEnabled
+        ? await hasWonRealGame(request.userId!)
+        : await hasFinishedRealGame(request.userId!);
+      settings.first_match = eligibleFirstMatchTag(settings.first_match, past);
     }
 
     if (settings.era_advancement_enabled) {
@@ -537,6 +544,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
         status: startedStatus,
         is_tutorial: false,
         first_match: settings.first_match === true,
+        ladder_step: settings.ladder_step ?? null,
       },
       request.userId,
     );

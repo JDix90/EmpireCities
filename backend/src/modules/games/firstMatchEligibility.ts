@@ -24,7 +24,26 @@ export async function hasFinishedRealGame(userId: string): Promise<boolean> {
   return row?.finished === true;
 }
 
-/** The tag a new game keeps: dropped once the player has finished a real game. */
+/**
+ * With the first-win ladder (`first_match_ladder_enabled`) the first match is
+ * offered until the player's first win, not their first finished game, so the
+ * tag is kept on the same terms: no won game that is not the tutorial or a
+ * Play On. A win is `final_rank = 1`, as GET /users/me/stats counts it.
+ */
+export async function hasWonRealGame(userId: string): Promise<boolean> {
+  const row = await queryOne<{ won: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1 FROM game_players gp
+       JOIN games g ON g.game_id = gp.game_id
+       WHERE gp.user_id = $1 AND g.status = 'completed' AND gp.final_rank = 1
+         ${andNotTutorialSql()}
+     ) AS won`,
+    [userId],
+  );
+  return row?.won === true;
+}
+
+/** The tag a new game keeps: dropped once the player is past the first match. */
 export function eligibleFirstMatchTag(requested: true | undefined, hasFinished: boolean): true | undefined {
   return requested === true && !hasFinished ? true : undefined;
 }

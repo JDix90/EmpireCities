@@ -167,3 +167,40 @@ describe('results actions (results_action_events_enabled)', () => {
     expect(onShareOpened).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('the first-win ladder\u2019s next battle (first_match_ladder_enabled)', () => {
+  beforeEach(() => {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+      addListener: vi.fn(), removeListener: vi.fn(),
+    }) as unknown as typeof window.matchMedia;
+    useAuthStore.setState({
+      user: { user_id: 'me', username: 'Ada', level: 2, xp: 250, mmr: 1000 },
+      isAuthenticated: true,
+    });
+  });
+
+  const rematchConfig = { era_id: 'medieval', map_id: 'community_britain_925', settings: {}, human_player_ids: [] };
+
+  it('leads with the next battle, in Rematch\u2019s place', () => {
+    const onClick = vi.fn();
+    render(
+      <ActionModal
+        data={gameOver({ rematchConfig })}
+        onDismiss={() => {}}
+        onRematch={() => {}}
+        nextBattle={{ label: 'Try again', onClick }}
+      />,
+    );
+    const button = screen.getByTestId('gameover-next-battle');
+    expect(button.textContent).toContain('Try again');
+    expect(screen.queryByRole('button', { name: /^rematch$/i })).toBeNull();
+    button.click();
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('is the results screen as before without one', () => {
+    render(<ActionModal data={gameOver({ rematchConfig })} onDismiss={() => {}} onRematch={() => {}} />);
+    expect(screen.queryByTestId('gameover-next-battle')).toBeNull();
+  });
+});
