@@ -95,6 +95,13 @@ export interface GameResultContext {
    */
   ratingProvisional: Map<string, boolean>;
   /**
+   * placement_rating_enabled: which of the player's first rated games of this
+   * kind (solo or ranked) this was, 1 to PLACEMENT_GAMES, while it is one of
+   * them. The game-over screen shows "Placement game N of 5" in place of the
+   * rating's swing; absent after the fifth.
+   */
+  ratingPlacement: Map<string, number>;
+  /**
    * Human players whose users row is a guest account. Their ratings are
    * computed and stored like everyone's (so an account upgrade inherits the
    * history) but are REDACTED from client-facing payloads — competitive
@@ -117,13 +124,46 @@ export interface GameResultContext {
 export function redactGuestRatings(ctx: GameResultContext): {
   rating_deltas: Record<string, number>;
   rating_provisional: Record<string, boolean>;
+  rating_placement: Record<string, number>;
 } {
   const shown = ([id]: [string, unknown]) => featureFlags.guestLeaderboardsEnabled || !ctx.guestPlayerIds.has(id);
   return {
     rating_deltas: Object.fromEntries([...ctx.ratingDeltas].filter(shown)),
     rating_provisional: Object.fromEntries([...ctx.ratingProvisional].filter(shown)),
+    rating_placement: Object.fromEntries([...ctx.ratingPlacement].filter(shown)),
   };
 }
+
+/**
+ * A player's first rated games of a kind are placement games
+ * (placement_rating_enabled). A fresh rating swings hard (−305 on a first loss
+ * in the 9 Nov review), and a new player read that red number as the verdict
+ * on their first game. Through PLACEMENT_GAMES the game-over screen shows
+ * "Placement game N of 5" instead; the rating still moves underneath.
+ */
+export const PLACEMENT_GAMES = 5;
+
+/** This game's number among the player's rated games, while it is a placement game. */
+export function placementGameNumber(priorRatedGames: number): number | null {
+  const n = priorRatedGames + 1;
+  return n <= PLACEMENT_GAMES ? n : null;
+}
+
+/**
+ * The player's earlier rated games of the same kind: finished, not this one,
+ * and rated by the same rule as `ratesPlayers` below (not the tutorial, not a
+ * daily challenge). Casual and ranked are counted apart, as they are rated apart.
+ */
+const PRIOR_RATED_GAMES_SQL = `
+  SELECT COUNT(*)::int AS n
+  FROM game_players gp
+  JOIN games g ON g.game_id = gp.game_id
+  WHERE gp.user_id = $1
+    AND g.game_id <> $2
+    AND g.status = 'completed'
+    AND COALESCE(g.is_ranked, false) = $3
+    AND COALESCE(g.settings_json->>'tutorial', 'false') <> 'true'
+    AND g.settings_json->>'daily_challenge_date' IS NULL`;
 
 /**
  * Glicko rating bucket for a finished game. Era Advancement is a meaningfully
@@ -145,6 +185,7 @@ export async function recordGameResults(
     isRanked: false,
     ratingDeltas: new Map(),
     ratingProvisional: new Map(),
+    ratingPlacement: new Map(),
     guestPlayerIds: new Set(),
     xpEarnedByPlayer: {},
   };
@@ -270,6 +311,11 @@ export async function recordGameResults(
         muDelta = Math.round(updated.mu - current.mu);
         ctx.ratingDeltas.set(p.player_id, muDelta);
         ctx.ratingProvisional.set(p.player_id, displayRating(updated.mu, updated.phi).provisional);
+        if (featureFlags.placementRatingEnabled) {
+          const prior = await client.query<{ n: number }>(PRIOR_RATED_GAMES_SQL, [p.player_id, gameId, isRanked]);
+          const placement = placementGameNumber(prior.rows[0]?.n ?? 0);
+          if (placement !== null) ctx.ratingPlacement.set(p.player_id, placement);
+        }
 
         // Write Glicko rating
         await client.query(

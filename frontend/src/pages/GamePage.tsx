@@ -2175,11 +2175,15 @@ export default function GamePage() {
         units_lost_to_events?: number;
         turns_ended_with_set?: number;
         worst_round_loss?: { turn: number; from: number; to: number } | null;
+        turns_taken?: number;
+        turns_attacked?: number;
+        turns_timed_out?: number;
         secret_mission?: SecretMissionLike | null;
       }>;
       win_probability_history?: Array<{ step: number; turn: number; probabilities: Record<string, number> }>;
       rating_deltas?: Record<string, number>;
       rating_provisional?: Record<string, boolean>;
+      rating_placement?: Record<string, number>;
       is_ranked?: boolean;
       achievements_unlocked?: Record<string, string[]>;
       xp_earned_by_player?: Record<string, number>;
@@ -2260,6 +2264,7 @@ export default function GamePage() {
         win_probability_history: stats.win_probability_history,
         rating_change: myId && stats.rating_deltas ? stats.rating_deltas[myId] : undefined,
         rating_provisional: myId ? stats.rating_provisional?.[myId] : undefined,
+        rating_placement: myId ? stats.rating_placement?.[myId] : undefined,
         is_ranked: stats.is_ranked,
         achievements_unlocked: myId && stats.achievements_unlocked ? stats.achievements_unlocked[myId] : undefined,
         xpEarned,

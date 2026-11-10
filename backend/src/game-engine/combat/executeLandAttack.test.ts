@@ -25,6 +25,17 @@ function state(
 }
 
 describe('executeLandAttack', () => {
+  it('marks that the attacker attacked this turn, for the defeat screen, only when a battle happens', () => {
+    const s = state(
+      { a: terr('a', 'p1', 4), b: terr('b', 'p2', 3), c: terr('c', 'p1', 1) },
+      [player('p1', { territory_count: 2 }), player('p2', { territory_count: 1 })],
+    );
+    expect(executeLandAttack(s, 'p1', 'c', 'b', { dieRoll: diceFrom([6]) })).toBeNull(); // one unit cannot attack
+    expect(s.players[0]!.attacked_this_turn).toBeUndefined();
+    executeLandAttack(s, 'p1', 'a', 'b', { dieRoll: diceFrom([1, 1, 1, 6, 6]) });
+    expect(s.players[0]!.attacked_this_turn).toBe(true);
+  });
+
   it('captures and transfers a territory on a winning exchange', () => {
     const s = state(
       { a: terr('a', 'p1', 10), b: terr('b', 'p2', 1) },

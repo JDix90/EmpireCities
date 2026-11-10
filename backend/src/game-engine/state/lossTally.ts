@@ -5,7 +5,8 @@ import { findRedeemableCardIds } from './gameStateManager';
  * Running tallies the defeat screen reads to say why a player lost
  * (`loss_reason_enabled`, frontend utils/lossReason.ts): units lost to event
  * cards, turns that began with a tradeable card set and ended without trading
- * it, and the round the player's territory count fell furthest in. They are
+ * it, the round the player's territory count fell furthest in, and turns
+ * taken, turns with an attack in them and turns the clock ended. They are
  * counters only, kept on every game; nothing in play reads them.
  */
 
@@ -24,6 +25,16 @@ export function noteTurnStart(player: PlayerState): void {
   player.set_in_hand_at_turn_start = findRedeemableCardIds(player.cards ?? [])
     ? (player.cards_redeemed_count ?? 0)
     : undefined;
+  player.attacked_this_turn = undefined;
+}
+
+/**
+ * The turn's clock ran out on the player (real-time timer or async deadline),
+ * so the game placed what was left and ended the turn for them. Counted
+ * before the turn hands off.
+ */
+export function noteTurnTimedOut(player: PlayerState): void {
+  player.turns_timed_out = (player.turns_timed_out ?? 0) + 1;
 }
 
 /**
@@ -34,7 +45,13 @@ export function noteTurnStart(player: PlayerState): void {
 export function noteTurnEnd(player: PlayerState): void {
   const startCount = player.set_in_hand_at_turn_start;
   player.set_in_hand_at_turn_start = undefined;
-  if (startCount === undefined || player.is_eliminated) return;
+  if (player.is_eliminated) return;
+  // Every turn the player had, and whether they attacked in it: the passive
+  // loss (never or rarely attacking) is the commonest a new player has.
+  player.turns_taken = (player.turns_taken ?? 0) + 1;
+  if (player.attacked_this_turn) player.turns_attacked = (player.turns_attacked ?? 0) + 1;
+  player.attacked_this_turn = undefined;
+  if (startCount === undefined) return;
   if ((player.cards_redeemed_count ?? 0) === startCount) {
     player.turns_ended_with_set = (player.turns_ended_with_set ?? 0) + 1;
   }

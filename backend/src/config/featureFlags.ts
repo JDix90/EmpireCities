@@ -359,6 +359,16 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // keeps the tag only for a player who has yet to finish a game. Server-only.
   // On by default; the admin override is the kill switch.
   first_match_fair_start_enabled: () => envOptOut('FIRST_MATCH_FAIR_START_ENABLED'),
+  // Loss reasons for how the player played: "you never attacked", "you rarely
+  // attacked", "the clock ended your turns", from tallies the server now keeps
+  // (state/lossTally.ts). Rides on loss_reason_enabled.
+  // On by default; the admin override is the kill switch.
+  loss_reason_play_enabled: () => envOptOut('LOSS_REASON_PLAY_ENABLED'),
+  // Placement games: a player's first five rated games of a kind show
+  // "Placement game N of 5" on the game-over screen instead of the rating's
+  // swing. Server-only (the server sends the number or nothing).
+  // On by default; the admin override is the kill switch.
+  placement_rating_enabled: () => envOptOut('PLACEMENT_RATING_ENABLED'),
   // In-game mute: a "Sound and music" switch in the HUD's Tools & options,
   // which the phone menu shares, muting both at once. Music starts on the
   // first tap and the only mutes were on the Settings page.
@@ -856,6 +866,26 @@ export const featureFlags = {
    */
   get firstMatchFairStartEnabled(): boolean {
     return overrideBool('first_match_fair_start_enabled');
+  },
+
+  /**
+   * Loss reasons for how the player played (frontend utils/lossReason.ts):
+   * never or rarely attacking, and turns the clock ended. Read by the client
+   * alongside `loss_reason_enabled`. Default ON; `LOSS_REASON_PLAY_ENABLED=false`
+   * or the admin override turns it off.
+   */
+  get lossReasonPlayEnabled(): boolean {
+    return overrideBool('loss_reason_play_enabled');
+  },
+
+  /**
+   * Placement games (state/statsManager.ts): the game-over stats carry
+   * `rating_placement` for a player's first five rated games of a kind, and
+   * the screen shows that instead of the rating's swing. Default ON;
+   * `PLACEMENT_RATING_ENABLED=false` or the admin override turns it off.
+   */
+  get placementRatingEnabled(): boolean {
+    return overrideBool('placement_rating_enabled');
   },
 
   /**
@@ -1771,6 +1801,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     custom_lobby_fold_enabled: featureFlags.customLobbyFoldEnabled,
     custom_round_cap_enabled: featureFlags.customRoundCapEnabled,
     loss_reason_enabled: featureFlags.lossReasonEnabled,
+    loss_reason_play_enabled: featureFlags.lossReasonPlayEnabled,
     mission_reveal_enabled: featureFlags.missionRevealEnabled,
     translation_dom_guard_enabled: featureFlags.translationDomGuardEnabled,
     game_visible_height_enabled: featureFlags.gameVisibleHeightEnabled,

@@ -134,6 +134,18 @@ const CLIENT_FEATURE_FLAGS = [
       'Let the AI spend its per-turn attack budget as dice exchanges rather than distinct targets, so it can grind one territory until it falls. Off, one planned attack is one exchange — which makes any territory holding 3+ units impossible for the AI to take at any difficulty. Same number of exchanges per turn either way, so turn length is unchanged. On by default.',
   },
   {
+    key: 'loss_reason_play_enabled',
+    label: 'Loss reasons: how you played',
+    description:
+      'The defeat screen\u2019s one-line reason can now name how the player played: \u201cYou never attacked\u201d, \u201cYou attacked in only N of your M turns\u201d, or \u201cThe clock ran out on N of your turns\u201d, from tallies the server keeps on every game. A new player\u2019s commonest loss is slow erosion from not attacking, which the existing reasons (a collapse, unused card sets, event losses) never named. Needs Loss reasons on. On by default; switching it off gives the existing reasons only.',
+  },
+  {
+    key: 'placement_rating_enabled',
+    label: 'Placement games',
+    description:
+      'A player\u2019s first five rated games of a kind (Solo, or Ranked) show \u201cPlacement game N of 5\u201d on the game-over screen instead of the rating\u2019s swing. A fresh rating moves hard (\u2212305 on a first loss in the 9 Nov review), and a red number was the verdict a new player took from their first game. The rating still moves underneath and shows from the sixth game. Guests see neither, as before. On by default; switching it off shows the swing from the first game.',
+  },
+  {
     key: 'first_match_fair_start_enabled',
     label: 'Fair first match',
     description:

@@ -68,6 +68,7 @@ export interface ClientFeatureFlags {
   custom_lobby_fold_enabled: boolean;
   custom_round_cap_enabled: boolean;
   loss_reason_enabled: boolean;
+  loss_reason_play_enabled: boolean;
   mission_reveal_enabled: boolean;
   translation_dom_guard_enabled: boolean;
   game_visible_height_enabled: boolean;
@@ -208,6 +209,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   // The Custom Game form sets a round limit. Dark-launched OFF.
   custom_round_cap_enabled: false,
   // Loss reason: the defeat screen says why the player lost. On by default; admin kill switch.
+  // Loss reasons for how the player played: never/rarely attacked, the clock. On by default; admin kill switch.
+  loss_reason_play_enabled: true,
   loss_reason_enabled: true,
   // A game won by a secret mission names every player's mission at game over. On by default; admin kill switch.
   mission_reveal_enabled: true,
@@ -563,6 +566,11 @@ export function useCustomRoundCapEnabled(): boolean {
 /** Loss reason: a "Why you lost" line on the defeat screen (utils/lossReason.ts). */
 export function useLossReasonEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.loss_reason_enabled);
+}
+
+/** Loss reasons for how the player played — never or rarely attacking, turns the clock ended (utils/lossReason.ts). */
+export function useLossReasonPlayEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.loss_reason_play_enabled);
 }
 
 export function useMissionRevealEnabled(): boolean {

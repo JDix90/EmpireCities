@@ -59,7 +59,7 @@ vi.mock('../game-engine/state/statsManager', async (importOriginal) => {
     ...mod,
     recordGameResults: async (_gameId: string, _state: unknown, winnerIds: string[]) => {
       spies.paidWinners.push([...winnerIds]);
-      return { ratingDeltas: new Map(), ratingProvisional: new Map(), guestPlayerIds: new Set(), isRanked: false, xpEarnedByPlayer: {} };
+      return { ratingDeltas: new Map(), ratingProvisional: new Map(), ratingPlacement: new Map(), guestPlayerIds: new Set(), isRanked: false, xpEarnedByPlayer: {} };
     },
   };
 });

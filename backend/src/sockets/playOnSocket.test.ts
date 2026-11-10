@@ -61,7 +61,7 @@ vi.mock('../game-engine/state/statsManager', async (importOriginal) => {
     ...mod,
     recordGameResults: async () => {
       spies.results++;
-      return { ratingDeltas: new Map(), ratingProvisional: new Map(), guestPlayerIds: new Set(), isRanked: false, xpEarnedByPlayer: {} };
+      return { ratingDeltas: new Map(), ratingProvisional: new Map(), ratingPlacement: new Map(), guestPlayerIds: new Set(), isRanked: false, xpEarnedByPlayer: {} };
     },
   };
 });

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { noteEventLosses, noteRoundEnd, noteTurnEnd, noteTurnStart, worstRoundLoss } from './lossTally';
-import { advanceToNextPlayer } from './gameStateManager';
+import { noteEventLosses, noteRoundEnd, noteTurnEnd, noteTurnStart, noteTurnTimedOut, worstRoundLoss } from './lossTally';
+import { advanceToNextPlayer, advancePhaseOnTimeout } from './gameStateManager';
 import { applyEventEffect } from '../events/eventCardManager';
 import type { GameMap, GameState, PlayerState, TerritoryCard, TerritoryState } from '../../types';
 
@@ -161,5 +161,45 @@ describe('through advanceToNextPlayer', () => {
     // p1 held 4 as round 3 began and 2 as it ended.
     expect(state.players[0].worst_round_loss).toEqual({ turn: 3, from: 4, to: 2 });
     expect(state.players[0].round_start_territory_count).toBe(2);
+  });
+});
+
+describe('turns taken, turns attacked and turns the clock ended (loss_reason_play_enabled)', () => {
+  it('counts every turn a player has, and the ones with an attack in them', () => {
+    const p = player('p1', 0);
+    for (const attacked of [false, true, false]) {
+      noteTurnStart(p);
+      if (attacked) p.attacked_this_turn = true;
+      noteTurnEnd(p);
+    }
+    expect({ taken: p.turns_taken, attacked: p.turns_attacked, flag: p.attacked_this_turn }).toEqual({
+      taken: 3, attacked: 1, flag: undefined,
+    });
+  });
+
+  it('does not carry an attack into the next turn, and stops counting once eliminated', () => {
+    const p = player('p1', 0, { attacked_this_turn: true });
+    noteTurnStart(p);
+    noteTurnEnd(p);
+    expect(p.turns_attacked).toBeUndefined();
+    p.is_eliminated = true;
+    noteTurnStart(p);
+    noteTurnEnd(p);
+    expect(p.turns_taken).toBe(1);
+  });
+
+  it('counts a turn the clock ended, for a human only', () => {
+    const p = player('p1', 0);
+    noteTurnTimedOut(p);
+    noteTurnTimedOut(p);
+    expect(p.turns_timed_out).toBe(2);
+
+    const s = game({ phase: 'attack' });
+    advancePhaseOnTimeout(s);
+    expect(s.players[0]!.turns_timed_out).toBe(1);
+    expect(s.players[0]!.turns_taken).toBe(1);
+    const bot = game({ phase: 'attack', players: [player('p1', 0, { is_ai: true, territory_count: 2 }), player('p2', 1, { territory_count: 1 })] });
+    advancePhaseOnTimeout(bot);
+    expect(bot.players[0]!.turns_timed_out).toBeUndefined();
   });
 });

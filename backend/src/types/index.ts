@@ -340,6 +340,14 @@ export interface PlayerState {
   round_start_territory_count?: number;
   /** Post-match loss reason: the round this player's territory count fell furthest in. */
   worst_round_loss?: RoundLoss;
+  /** Post-match loss reason: turns this player has taken (lossTally `noteTurnEnd`). */
+  turns_taken?: number;
+  /** Post-match loss reason: of those, turns in which they attacked at least once. */
+  turns_attacked?: number;
+  /** lossTally: set by any attack this player makes, cleared as their turn starts. */
+  attacked_this_turn?: boolean;
+  /** Post-match loss reason: turns of theirs the turn clock (or an async deadline) ended. */
+  turns_timed_out?: number;
   /** Player IDs with whom this player has established at least one truce (diplomat achievement). */
   truces_established?: string[];
   /**

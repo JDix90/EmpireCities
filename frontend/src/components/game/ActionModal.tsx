@@ -34,7 +34,7 @@ import { formatSecretMissionReveal, type MapNameLookup, type SecretMissionLike }
 import { getFastCombatPreference } from '../../utils/userPreferences';
 import { useGameStore } from '../../store/gameStore';
 import { useBattleArmiesEnabled } from '../../store/featureFlagsStore';
-import { useLossReasonEnabled, useMissionRevealEnabled } from '../../store/featureFlagsStore';
+import { useLossReasonEnabled, useLossReasonPlayEnabled, useMissionRevealEnabled } from '../../store/featureFlagsStore';
 import { useBattlePlayerColorsEnabled } from '../../store/featureFlagsStore';
 import { useEmailAccountSaveEnabled, useSaveAccountCopyEnabled } from '../../store/featureFlagsStore';
 import { lossReason } from '../../utils/lossReason';
@@ -107,6 +107,9 @@ export interface GameOverModalData {
     units_lost_to_events?: number;
     turns_ended_with_set?: number;
     worst_round_loss?: { turn: number; from: number; to: number } | null;
+    turns_taken?: number;
+    turns_attacked?: number;
+    turns_timed_out?: number;
     /** Their secret mission, which the game over reveals (mission_reveal_enabled). */
     secret_mission?: SecretMissionLike | null;
   }>;
@@ -114,6 +117,12 @@ export interface GameOverModalData {
   rating_change?: number;
   /** True while the local player's rating is still calibrating (high RD) — early deltas swing widely. */
   rating_provisional?: boolean;
+  /**
+   * Which of the local player's first five rated games of this kind this was
+   * (placement_rating_enabled, server statsManager). Present, the rating cell
+   * shows "Placement game N of 5" instead of the swing.
+   */
+  rating_placement?: number;
   is_ranked?: boolean;
   achievements_unlocked?: string[];
   /** XP earned by the local player (from server `xp_earned_by_player`). */
@@ -1429,6 +1438,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
   const resultsFooter = useResultsFooterEnabled();
   const playOnEnabled = usePlayOnEnabled();
   const lossReasonOn = useLossReasonEnabled();
+  const lossReasonPlayOn = useLossReasonPlayEnabled();
   const missionRevealOn = useMissionRevealEnabled();
   const [showReferralSurvey] = useState(() =>
     shouldShowReferralSurvey({
@@ -1594,7 +1604,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
   const viewerSeat = data.viewerId ? data.players.find((p) => p.player_id === data.viewerId) : undefined;
   const whyLost = lossReasonOn && !data.isWinner && viewerSeat && !viewerSeat.is_ai
     && !isAbandoned && !daily && !data.puzzle_review
-    ? lossReason(viewerSeat)
+    ? lossReason(viewerSeat, { play: lossReasonPlayOn })
     : null;
 
   const reasonLabel = victoryReasonLabel(data.victory_condition, data.victory_threshold);
@@ -1895,7 +1905,20 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
           <p className="text-2xl font-bold text-white tabular-nums">{data.players.length}</p>
           <p className="text-white/35 text-xs">Players</p>
         </div>
-        {data.rating_change != null && (
+        {data.rating_change != null && data.rating_placement != null && (
+          // A placement game (placement_rating_enabled): a fresh rating's swing
+          // (−305 on a first loss) read as the verdict on the game, so the
+          // first five show where the player is in placement instead.
+          <div className="p-3 rounded-xl bg-white/[0.04] border border-white/[0.06]" data-testid="gameover-placement">
+            <p className="text-xl font-bold tabular-nums text-amber-300">
+              {data.rating_placement} of 5
+            </p>
+            <p className="text-white/35 text-xs">
+              {data.is_ranked ? 'Ranked' : 'Solo'} placement game · rating shows after 5
+            </p>
+          </div>
+        )}
+        {data.rating_change != null && data.rating_placement == null && (
           <div className="p-3 rounded-xl bg-white/[0.04] border border-white/[0.06]">
             <p className={clsx(
               'font-bold tabular-nums flex items-center justify-center gap-1.5 flex-wrap',
