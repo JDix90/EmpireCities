@@ -283,6 +283,24 @@ describe('GameStartModal', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it('offers tips in place of To battle, and passes the answer on (coach_tips_enabled)', () => {
+    const onClose = vi.fn();
+    const onTipsChoice = vi.fn();
+    const { unmount } = render(
+      <GameStartModal open onClose={onClose} gameState={makeState()} viewerPlayerId="me" offerTips onTipsChoice={onTipsChoice} />,
+    );
+    expect(screen.queryByRole('button', { name: /^to battle$/i })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /to battle, with tips/i }));
+    expect(onTipsChoice).toHaveBeenLastCalledWith('on');
+    expect(onClose).toHaveBeenCalledTimes(1);
+    unmount();
+
+    render(<GameStartModal open onClose={onClose} gameState={makeState()} viewerPlayerId="me" offerTips onTipsChoice={onTipsChoice} />);
+    fireEvent.click(screen.getByRole('button', { name: /i know this kind of game/i }));
+    expect(onTipsChoice).toHaveBeenLastCalledWith('off');
+    expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
   it('renders nothing when closed', () => {
     const { container } = render(
       <GameStartModal open={false} onClose={() => {}} gameState={makeState()} viewerPlayerId="me" />,

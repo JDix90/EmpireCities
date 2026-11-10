@@ -146,6 +146,8 @@ export default function GameStartModal({
   moonTiles = 0,
   guideFirst = false,
   onGuideShown,
+  offerTips = false,
+  onTipsChoice,
 }: {
   open: boolean;
   onClose: () => void;
@@ -158,6 +160,12 @@ export default function GameStartModal({
   guideFirst?: boolean;
   /** The guide page was shown — by the first-time `'next'` or by the link. */
   onGuideShown?: (via: 'next' | 'link') => void;
+  /**
+   * Coach tips (coach_tips_enabled, utils/coachTips.ts): a first match asks
+   * once whether the player wants tips, in place of the single To battle.
+   */
+  offerTips?: boolean;
+  onTipsChoice?: (choice: 'on' | 'off') => void;
 }) {
   const [page, setPage] = useState<'briefing' | 'guide'>('briefing');
   useEffect(() => {
@@ -423,6 +431,29 @@ export default function GameStartModal({
           <BookOpen className="w-4 h-4" aria-hidden />
           Next: how the Space Age works
         </button>
+      ) : offerTips ? (
+        // Tips are offered, not imposed: someone who knows this kind of game
+        // says so once and is never asked again.
+        <div className="space-y-2" data-testid="coach-tips-offer">
+          <p className="text-xs text-bf-muted">
+            Tips show the next step in one line and stop once you have done it.
+          </p>
+          <button
+            type="button"
+            onClick={() => { onTipsChoice?.('on'); onClose(); }}
+            className="w-full flex items-center justify-center gap-2 bg-bf-gold text-bf-dark font-display py-2.5 rounded-lg hover:bg-bf-gold/90 transition-colors"
+          >
+            <Swords className="w-4 h-4" aria-hidden />
+            To battle, with tips
+          </button>
+          <button
+            type="button"
+            onClick={() => { onTipsChoice?.('off'); onClose(); }}
+            className="w-full btn-secondary text-sm py-2"
+          >
+            I know this kind of game
+          </button>
+        </div>
       ) : (
         <button
           type="button"

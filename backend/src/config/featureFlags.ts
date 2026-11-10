@@ -48,6 +48,15 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // those profiles. ON by default; the kill switch for that layer alone.
   map_showcase_enabled: () => envOptOut('MAP_SHOWCASE_ENABLED'),
   first_turn_coach_enabled: () => envOptOut('FIRST_TURN_COACH_ENABLED'),
+  // Coach tips: a first match's briefing offers tips ("with tips, or I know
+  // this kind of game"); taken, a one-line strip says the next step and each
+  // step retires once done. Replaces the first-turn card while on.
+  // On by default; the admin override is the kill switch.
+  coach_tips_enabled: () => envOptOut('COACH_TIPS_ENABLED'),
+  // A first match's phase button is plain, not gold, until the phase's own
+  // action is done (units placed; an attack made). Fortify keeps its gold.
+  // On by default; the admin override is the kill switch.
+  first_match_button_emphasis_enabled: () => envOptOut('FIRST_MATCH_BUTTON_EMPHASIS_ENABLED'),
   // Desktop: the end of the player's own turn adds a "Your turn" row to the
   // non-blocking recap panel instead of opening the modal "Your Turn
   // Complete" summary, as phones already do. Every turn on a laptop opened
@@ -497,6 +506,24 @@ export const featureFlags = {
    */
   get firstTurnCoachEnabled(): boolean {
     return overrideBool('first_turn_coach_enabled');
+  },
+
+  /**
+   * Coach tips (frontend utils/coachTips.ts): offered in a first match's
+   * briefing, a one-line strip with the next step, each retiring once done.
+   * Default ON; `COACH_TIPS_ENABLED=false` or the admin override turns it off.
+   */
+  get coachTipsEnabled(): boolean {
+    return overrideBool('coach_tips_enabled');
+  },
+
+  /**
+   * A first match's phase button stays plain until the phase's action is done
+   * (frontend utils/coachTips.ts phaseButtonQuiet). Default ON;
+   * `FIRST_MATCH_BUTTON_EMPHASIS_ENABLED=false` or the admin override turns it off.
+   */
+  get firstMatchButtonEmphasisEnabled(): boolean {
+    return overrideBool('first_match_button_emphasis_enabled');
   },
 
   /**
@@ -1755,6 +1782,8 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     map_showcase_enabled: featureFlags.mapShowcaseEnabled,
     era_advancement_lobby_enabled: featureFlags.eraAdvancementLobbyEnabled,
     first_turn_coach_enabled: featureFlags.firstTurnCoachEnabled,
+    coach_tips_enabled: featureFlags.coachTipsEnabled,
+    first_match_button_emphasis_enabled: featureFlags.firstMatchButtonEmphasisEnabled,
     turn_recap_panel_enabled: featureFlags.turnRecapPanelEnabled,
     turn_clarity_enabled: featureFlags.turnClarityEnabled,
     map_gestures_v2_enabled: featureFlags.mapGesturesV2Enabled,

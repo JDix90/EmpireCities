@@ -33,6 +33,7 @@ export function PhonePhaseButton({
   gameState,
   countdown,
   holdClock,
+  quiet = false,
 }: {
   label: string;
   onClick: () => void;
@@ -41,6 +42,8 @@ export function PhonePhaseButton({
   countdown: boolean;
   /** The first turn's clock is held while the game-start briefing is open. */
   holdClock: boolean;
+  /** Plain rather than gold (first_match_button_emphasis_enabled, utils/coachTips.ts phaseButtonQuiet). */
+  quiet?: boolean;
 }) {
   const secondsLeft = useTurnCountdown(countdown ? gameState : null, holdClock);
   const descriptionId = useId();
@@ -50,7 +53,7 @@ export function PhonePhaseButton({
     <>
       <button
         onClick={onClick}
-        className={clsx('btn-primary text-xs px-3 py-2 min-h-[40px]', urgent && 'ring-2 ring-red-500')}
+        className={clsx(quiet ? 'btn-secondary' : 'btn-primary', 'text-xs px-3 py-2 min-h-[40px]', urgent && 'ring-2 ring-red-500')}
         aria-describedby={shown ? descriptionId : undefined}
       >
         {shown ? (

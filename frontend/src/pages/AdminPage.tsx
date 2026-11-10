@@ -119,7 +119,19 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'first_turn_coach_enabled',
     label: 'First-turn coaching',
     description:
-      'Give brand-new players (0 XP, first game, globe view) place/attack/fortify prompts and an owned-territory pulse. On by default.',
+      'Give brand-new players (0 XP, first game, globe view) place/attack/fortify prompts and an owned-territory pulse. On by default. While Coach tips is on, its strip takes this card\u2019s place.',
+  },
+  {
+    key: 'coach_tips_enabled',
+    label: 'Coach tips',
+    description:
+      'A player\u2019s first match asks in its briefing whether they want tips (\u201cTo battle, with tips\u201d or \u201cI know this kind of game\u201d), and the answer is kept. With tips, a one-line strip says the next step (tap a territory, press Place, press Begin Attack, attack a weaker neighbour, Begin Fortify, End Turn); each step retires once the player has done it, and \u201cHide tips\u201d turns them off. Replaces the first-turn card, which covered the board on a phone, showed only on turn 1 and only to players with no XP. On by default; switching it off gives the first-turn card as before.',
+  },
+  {
+    key: 'first_match_button_emphasis_enabled',
+    label: 'First match: gold on the action',
+    description:
+      'In a player\u2019s first match, the phase button (Begin Attack, Begin Fortify) is plain rather than gold until that phase\u2019s own action is done: all units placed, or one attack made. The gold button was always the one that left the phase, so a player who only pressed it placed nothing by hand, never attacked and lost. The button always works; only its colour changes. End Turn stays gold. On by default; switching it off keeps the gold button throughout.',
   },
   {
     key: 'turn_recap_panel_enabled',

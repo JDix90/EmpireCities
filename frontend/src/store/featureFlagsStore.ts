@@ -6,6 +6,8 @@ export interface ClientFeatureFlags {
   map_showcase_enabled: boolean;
   era_advancement_lobby_enabled: boolean;
   first_turn_coach_enabled: boolean;
+  coach_tips_enabled: boolean;
+  first_match_button_emphasis_enabled: boolean;
   turn_recap_panel_enabled: boolean;
   turn_clarity_enabled: boolean;
   map_gestures_v2_enabled: boolean;
@@ -89,6 +91,10 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   map_showcase_enabled: true,
   era_advancement_lobby_enabled: true,
   first_turn_coach_enabled: true,
+  // Coach tips: offered in a first match's briefing, a one-line strip that retires step by step. On by default; admin kill switch.
+  coach_tips_enabled: true,
+  // A first match's phase button is plain until the phase's action is done. On by default; admin kill switch.
+  first_match_button_emphasis_enabled: true,
   // Desktop: the own-turn recap is a panel row, not a modal. On by default; admin kill switch.
   turn_recap_panel_enabled: true,
   turn_clarity_enabled: true,
@@ -261,6 +267,16 @@ export function useEraAdvancementLobbyEnabled(): boolean {
 
 export function useFirstTurnCoachEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.first_turn_coach_enabled);
+}
+
+/** Coach tips: the one-line next-step strip, offered in a first match's briefing (utils/coachTips.ts). */
+export function useCoachTipsEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.coach_tips_enabled);
+}
+
+/** A first match's phase button stays plain until the phase's action is done (utils/coachTips.ts phaseButtonQuiet). */
+export function useFirstMatchButtonEmphasisEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.first_match_button_emphasis_enabled);
 }
 
 /** Desktop: the end of your own turn adds a row to the non-blocking recap panel instead of a modal summary (pages/GamePage.tsx, components/game/AiTurnRecapPanel.tsx). */

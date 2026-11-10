@@ -83,6 +83,17 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().turn_recap_panel_enabled).toBe(false);
   });
 
+  it.each([
+    ['coach_tips_enabled', 'coachTipsEnabled'],
+    ['first_match_button_emphasis_enabled', 'firstMatchButtonEmphasisEnabled'],
+  ] as const)('%s defaults to on, reaches the client, and the admin override is its kill switch', (key, getter) => {
+    expect(featureFlags[getter]).toBe(true);
+    expect(getClientFeatureFlags()[key]).toBe(true);
+    setAdminConfigCacheForTests({ feature_flags: { [key]: false } });
+    expect(featureFlags[getter]).toBe(false);
+    expect(getClientFeatureFlags()[key]).toBe(false);
+  });
+
   it('first_turn_coach_enabled defaults to on and is admin-overridable', () => {
     expect(featureFlags.firstTurnCoachEnabled).toBe(true);
     expect(getClientFeatureFlags().first_turn_coach_enabled).toBe(true);
