@@ -14,7 +14,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { useCustomLobbyFoldEnabled, useCustomRoundCapEnabled, useEraAdvancementLobbyEnabled, useFirstMatchEasyEnabled, useFirstMatchPrimaryCtaEnabled, useFullGameEveningEnabled, useGuestPromptV2Enabled, useMapEditorEnabled, useMatchAlertsEnabled, useRankedMultiSizeEnabled, useSpaceAgeMoonRaceEnabled, useSpectateEnabled, useTodayPanelEnabled } from '../store/featureFlagsStore';
+import { useCustomLobbyFoldEnabled, useCustomRoundCapEnabled, useEraAdvancementLobbyEnabled, useFirstMatchEasyEnabled, useFirstMatchPrimaryCtaEnabled, useFullGameEveningEnabled, useGuestPromptV2Enabled, useMapEditorEnabled, useMatchAlertsEnabled, useRankedMultiSizeEnabled, useSpaceAgeMoonRaceEnabled, useSoloUntimedEnabled, useSpectateEnabled, useTodayPanelEnabled } from '../store/featureFlagsStore';
 import { HEGEMONY_TURNS } from '../utils/lunarHegemony';
 import { RANKED_MIN_OPPONENTS, describeRankedGameSize, getRankedOpponents, rankedEraSize, saveRankedOpponents } from '../utils/rankedPrefs';
 import { clearRankedSearchMarker, setRankedSearchMarker } from '../utils/rankedSearchMarker';
@@ -63,6 +63,7 @@ import {
   FIRST_MATCH_PREFS,
   fetchFirstMatchPending,
 } from '../utils/firstMatch';
+import { soloTurnTimerSeconds } from '../utils/soloTimer';
 import {
   ASCENSION_GALAXY_SPINE_ID,
   isAscensionGalaxyMap,
@@ -433,6 +434,9 @@ export default function LobbyPage() {
   // first, and Full Game steps back: a newcomer's most prominent choice is
   // then the short, winnable match rather than the one that runs to its cap.
   const firstMatchPrimaryCtaEnabled = useFirstMatchPrimaryCtaEnabled();
+  // Quick Match and Full Game seat one player against bots, so they start
+  // untimed with solo_untimed_enabled (utils/soloTimer.ts).
+  const soloUntimed = useSoloUntimedEnabled();
   const quickMatchLeads = firstMatchPrimaryCtaEnabled && firstMatchPending === true;
   const quickMatchButtonClass = !eraAdvancementLobbyEnabled || quickMatchLeads ? 'btn-primary' : 'btn-secondary';
   // The welcome banner's guest line (utils/guestGate.ts).
@@ -1597,7 +1601,7 @@ export default function LobbyPage() {
         // rotation no longer includes. Kept so a future pool entry can't ship
         // without the systems its map needs.
         settings: withRequiredEraSystems(era, {
-          turn_timer_seconds: 300,
+          turn_timer_seconds: soloTurnTimerSeconds(soloUntimed),
           initial_unit_count: 3,
           card_set_escalating: true,
           diplomacy_enabled: false,
@@ -1654,7 +1658,7 @@ export default function LobbyPage() {
         ai_difficulty: fullGamePrefs.aiDifficulty,
         auto_start: true,
         settings: {
-          turn_timer_seconds: 300,
+          turn_timer_seconds: soloTurnTimerSeconds(soloUntimed),
           // The chosen ending — conditions and threshold. Its per-condition
           // turn cap is overridden by `max_turns` below: Full Game is an
           // era-advancement game with its own cap, and Blitz's 45 turns would

@@ -12,6 +12,8 @@ import {
 } from './campaignPaths';
 import { applyAdminSnapshotsToSettings } from '../../services/adminConfig';
 import { DEFAULT_CARD_SET_BONUS_CAP } from '../../game-engine/combat/combatResolver';
+import { featureFlags } from '../../config/featureFlags';
+import { campaignClockSettings } from './campaignClock';
 
 const CAMPAIGN_ERAS = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern'] as const;
 /** A stage that cannot be won by turn 100 is a stalemate, not a campaign. */
@@ -564,6 +566,9 @@ async function createEraGame({
     max_turns: pathEra?.max_turns ?? CAMPAIGN_STAGE_MAX_TURNS,
     combat_dice_cap_enabled: true,
     card_set_bonus_cap: DEFAULT_CARD_SET_BONUS_CAP,
+    // A stage is one player against bots, so it is untimed with
+    // solo_untimed_enabled; off, it takes the default clock as before.
+    ...campaignClockSettings(featureFlags.soloUntimedEnabled),
     // Display-only fields consumed by the in-game campaign intro modal so the
     // client doesn't need a second round-trip to /api/campaign/list.
     campaign_path_name: pathConfig?.name ?? 'Classic Campaign',
