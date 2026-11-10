@@ -251,6 +251,10 @@ export function bakeCreateGameSettings(input: Theater & {
         // The first-match tag counts toward the Analytics tab's first-match
         // rows, so it is kept only while the feature is on.
         first_match: (rawSettings.first_match === true && featureFlags.firstMatchEasyEnabled) || undefined,
+        // The first-win ladder's rung, likewise only while that feature is on.
+        ladder_step: featureFlags.firstMatchLadderEnabled && Number.isInteger(rawSettings.ladder_step)
+          ? rawSettings.ladder_step
+          : undefined,
         // Bot commanders and styles: drawn when the game starts, shown in the
         // lobby before. A style plays out mostly through the bots' goals, so it
         // needs ai_intents_enabled too, or a Raider would play as any bot.

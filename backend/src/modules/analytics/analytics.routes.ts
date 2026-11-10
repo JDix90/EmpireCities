@@ -28,7 +28,7 @@ export const FIRST_TURN_STEPS = new Set(['briefing_closed', 'territory_opened', 
  * frontend utils/resultsAction.ts). A closed set: it is the dimension the
  * question "what do players do after a game" groups by.
  */
-export const RESULTS_ACTIONS = new Set(['rematch', 'lobby', 'share', 'replay', 'clip', 'challenge', 'save_account', 'play_on']);
+export const RESULTS_ACTIONS = new Set(['rematch', 'lobby', 'share', 'replay', 'clip', 'challenge', 'save_account', 'play_on', 'next_battle']);
 
 const UiEventSchema = z.object({
   event: z.enum([
@@ -107,7 +107,8 @@ const UiEventSchema = z.object({
     // map first showed).
     'first_turn_step',
     // What a player pressed on the game-over screen, once per press, while
-    // results_action_events_enabled is on (frontend utils/resultsAction.ts):
+    // results_action_events_enabled is on (frontend utils/resultsAction.ts;
+    // next_battle is the first-win ladder's button):
     // there was no record of whether a finished game led to a second one, a
     // share or a saved account. Properties: action, outcome (won|lost),
     // game_id, first_match, is_tutorial, is_guest.

@@ -122,6 +122,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Give brand-new players (0 XP, first game, globe view) place/attack/fortify prompts and an owned-territory pulse. On by default. While Coach tips is on, its strip takes this card\u2019s place.',
   },
   {
+    key: 'first_match_ladder_enabled',
+    label: 'First-win ladder',
+    description:
+      'Quick Match stays the first match (one Easy bot on Britain) until the player\u2019s first win, not their first finished game; then one Medium bot on Britain until their second win; then the player\u2019s own Quick Match. The results screen of a ladder game leads with Try again (after a loss) or Next battle (after a win), and Full Game stays the second choice until the ladder is done. Before it, one finished game, won or lost, made Full Game the gold button. The server keeps the first-match tag (fair start, gold on the action, the tips offer) until the first win. On by default; switching it off gives the first match for the first finished game only, as before.',
+  },
+  {
     key: 'coach_tips_enabled',
     label: 'Coach tips',
     description:
@@ -628,7 +634,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'full_game_evening_enabled',
     label: 'Full Game fits an evening',
     description:
-      'Full Game defaults to the 65% ending (Conquest) for a player who has not saved a setup of their own, and every Full Game ending is capped at 80 rounds instead of 150. Today\u2019s default, taking the whole board, ran to the 150-round cap in nearly every simulated game: about 2 h 40 at a minute a turn. Off by default (dark launch) \u2014 off is Full Game exactly as before.',
+      'Full Game defaults to the 65% ending (Conquest) for a player who has not saved a setup of their own, and every Full Game ending is capped at 80 rounds instead of 150. Today\u2019s default, taking the whole board, ran to the 150-round cap in nearly every simulated game: about 2 h 40 at a minute a turn. On by default since the first-win ladder, which leads players to Full Game; switching it off gives Full Game exactly as before.',
   },
   {
     key: 'placement_cap_note_enabled',

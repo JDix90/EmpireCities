@@ -5,6 +5,7 @@ import LobbyPage from './LobbyPage';
 import { useAuthStore } from '../store/authStore';
 import { useFeatureFlagsStore } from '../store/featureFlagsStore';
 import { FIRST_MATCH_BUTTON_LINE } from '../utils/firstMatch';
+import { LADDER_RUNG_2_BUTTON_LINE } from '../utils/ladder';
 import { QUICK_MATCH_ERAS } from '../constants/lobbyMapOptions';
 import { saveQuickMatchPrefs } from '../utils/quickMatchPrefs';
 
@@ -38,17 +39,17 @@ function stubMatchMedia() {
   }) as unknown as typeof window.matchMedia;
 }
 
-function setFlag(on: boolean, primaryCta = false) {
+function setFlag(on: boolean, primaryCta = false, ladder = true) {
   useFeatureFlagsStore.setState((s) => ({
-    flags: { ...s.flags, first_match_easy_enabled: on, first_match_primary_cta_enabled: primaryCta },
+    flags: { ...s.flags, first_match_easy_enabled: on, first_match_primary_cta_enabled: primaryCta, first_match_ladder_enabled: ladder },
   }));
 }
 
-/** Answers the stats check with `played` finished games; everything else is offline. */
-function finishedGames(played: number) {
+/** Answers the stats check with `played` finished games, `won` of them won; everything else is offline. */
+function finishedGames(played: number, won = 0) {
   getMock.mockImplementation((url: string) =>
     url === '/users/me/stats'
-      ? Promise.resolve({ data: { overall: { played, won: 0, win_rate: 0 } } })
+      ? Promise.resolve({ data: { overall: { played, won, win_rate: played ? won / played : 0 } } })
       : Promise.reject(new Error('offline')),
   );
 }
@@ -108,8 +109,8 @@ describe('LobbyPage first match', () => {
     });
   });
 
-  it('leaves Quick Match alone once the player has finished a game', async () => {
-    setFlag(true);
+  it('leaves Quick Match alone once the player has finished a game, with the first-win ladder off', async () => {
+    setFlag(true, false, false);
     finishedGames(1);
     renderLobby();
     const body = await startQuickMatch(/vs 3 AI · random era/);
@@ -151,12 +152,45 @@ describe('LobbyPage first match', () => {
     expect(screen.getByTestId('quick-match-start').className).toContain('btn-secondary');
     unmount();
 
+    // Done: past the first-win ladder's two wins.
     setFlag(true, true);
-    finishedGames(1);
+    finishedGames(3, 2);
     renderLobby();
     await screen.findByText(/vs 3 AI · random era/);
     expect(screen.getByTestId('full-game-start').className).toContain('btn-primary');
     expect(screen.getByTestId('quick-match-start').className).toContain('btn-secondary');
+  });
+
+  // The first-win ladder (first_match_ladder_enabled, utils/ladder.ts).
+  it('keeps the first match after a loss, until the first win', async () => {
+    setFlag(true);
+    finishedGames(2, 0);
+    renderLobby();
+    const body = await startQuickMatch(FIRST_MATCH_BUTTON_LINE);
+    expect(body).toMatchObject({ map_id: 'community_britain_925', ai_count: 1, ai_difficulty: 'easy' });
+    expect(body.settings).toMatchObject({ first_match: true, ladder_step: 1 });
+  });
+
+  it('moves to one Medium bot on Britain after the first win, still ahead of Full Game', async () => {
+    setFlag(true, true);
+    finishedGames(3, 1);
+    renderLobby();
+    await screen.findByText(LADDER_RUNG_2_BUTTON_LINE);
+    expect(screen.getByTestId('quick-match-start').className).toContain('btn-primary');
+    expect(screen.getByTestId('full-game-start').className).toContain('btn-secondary');
+    const body = await startQuickMatch(LADDER_RUNG_2_BUTTON_LINE);
+    expect(body).toMatchObject({ era_id: 'medieval', map_id: 'community_britain_925', ai_count: 1, ai_difficulty: 'medium' });
+    expect(body.settings.ladder_step).toBe(2);
+    expect(body.settings.first_match).toBeUndefined();
+  });
+
+  it('leaves Quick Match alone after the second win', async () => {
+    setFlag(true);
+    finishedGames(5, 2);
+    renderLobby();
+    const body = await startQuickMatch(/vs 3 AI · random era/);
+    expect(body.settings.first_match).toBeUndefined();
+    expect(body.settings.ladder_step).toBeUndefined();
   });
 
   it('starts the first match on arrival from the tutorial wrap-up, once', async () => {

@@ -13,7 +13,8 @@ export type ResultsAction =
   | 'clip'
   | 'challenge'
   | 'save_account'
-  | 'play_on';
+  | 'play_on'
+  | 'next_battle';
 
 export interface ResultsActionContext {
   gameId?: string;

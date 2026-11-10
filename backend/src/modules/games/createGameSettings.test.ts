@@ -175,6 +175,14 @@ describe('Galactic Age buildings v2 is baked at create from its flag', () => {
     expect(created(BRITAIN, { first_match: true }).first_match).toBeUndefined();
   });
 
+  it('keeps the first-win ladder\u2019s rung only while the ladder is on', () => {
+    const BRITAIN = { era_id: 'medieval', map_id: 'community_britain_925' };
+    expect(created(BRITAIN, { ladder_step: 2 }).ladder_step).toBe(2);
+    expect(created(BRITAIN).ladder_step).toBeUndefined();
+    setAdminConfigCacheForTests({ feature_flags: { first_match_ladder_enabled: false } });
+    expect(created(BRITAIN, { ladder_step: 2 }).ladder_step).toBeUndefined();
+  });
+
   it('bakes bot commanders in while the feature and goals are on, never into a tutorial, a daily or a campaign stage', () => {
     // Both are on by default.
     expect(created(WW2).ai_personalities).toBe(true);

@@ -53,6 +53,12 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // step retires once done. Replaces the first-turn card while on.
   // On by default; the admin override is the kill switch.
   coach_tips_enabled: () => envOptOut('COACH_TIPS_ENABLED'),
+  // The first-win ladder: the first match (one Easy bot on Britain) is offered
+  // until the player's first win, then one Medium bot on Britain until their
+  // second, and the results screen of either offers the next battle. Full
+  // Game steps back as the gold button until the ladder is done.
+  // On by default; the admin override is the kill switch.
+  first_match_ladder_enabled: () => envOptOut('FIRST_MATCH_LADDER_ENABLED'),
   // A first match's phase button is plain, not gold, until the phase's own
   // action is done (units placed; an attack made). Fortify keeps its gold.
   // On by default; the admin override is the kill switch.
@@ -266,7 +272,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // caps every ending at 80 rounds instead of 150, where the full-board
   // default ran to the cap in 99% of arena games (scripts/simAiArena.ts,
   // ARENA_RULES=full-default and full-evening). Dark-launched OFF.
-  full_game_evening_enabled: () => envOptIn('FULL_GAME_EVENING_ENABLED'),
+  full_game_evening_enabled: () => envOptOut('FULL_GAME_EVENING_ENABLED'),
   // Placement cap note: where the player places units on an unsettled
   // territory (stability under 50), say in words how many more it takes this
   // turn and why, instead of "stability cap: 3 more here". A just-conquered
@@ -515,6 +521,17 @@ export const featureFlags = {
    */
   get coachTipsEnabled(): boolean {
     return overrideBool('coach_tips_enabled');
+  },
+
+  /**
+   * The first-win ladder (frontend utils/ladder.ts): the first match until the
+   * first win, one Medium bot on Britain until the second, and a Next battle
+   * button on their results. POST /api/games keeps `first_match` until the
+   * player's first win and keeps `ladder_step`. Default ON;
+   * `FIRST_MATCH_LADDER_ENABLED=false` or the admin override turns it off.
+   */
+  get firstMatchLadderEnabled(): boolean {
+    return overrideBool('first_match_ladder_enabled');
   },
 
   /**
@@ -943,7 +960,8 @@ export const featureFlags = {
    * A Full Game fits an evening: the lobby's Full Game defaults to the 65%
    * ending for a player with no setup of their own, and caps every ending at
    * 80 rounds instead of 150. The client builds the game; nothing else changes.
-   * Default OFF; `FULL_GAME_EVENING_ENABLED=true` or the admin override turns it on.
+   * Default ON (promoted with the first-win ladder); `FULL_GAME_EVENING_ENABLED=false`
+   * or the admin override turns it off.
    */
   get fullGameEveningEnabled(): boolean {
     return overrideBool('full_game_evening_enabled');
@@ -1783,6 +1801,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     era_advancement_lobby_enabled: featureFlags.eraAdvancementLobbyEnabled,
     first_turn_coach_enabled: featureFlags.firstTurnCoachEnabled,
     coach_tips_enabled: featureFlags.coachTipsEnabled,
+    first_match_ladder_enabled: featureFlags.firstMatchLadderEnabled,
     first_match_button_emphasis_enabled: featureFlags.firstMatchButtonEmphasisEnabled,
     turn_recap_panel_enabled: featureFlags.turnRecapPanelEnabled,
     turn_clarity_enabled: featureFlags.turnClarityEnabled,

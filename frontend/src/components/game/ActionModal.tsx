@@ -1400,7 +1400,7 @@ function PositionShareChart({
 
 // ─── Game Over View ─────────────────────────────────────────────────────────
 
-function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, onChallengeFriend, onUpgradeAccount, onPlayOnContinue, onShareOpened, mapNameLookup }: {
+function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, onChallengeFriend, onUpgradeAccount, onPlayOnContinue, onShareOpened, nextBattle, mapNameLookup }: {
   data: GameOverModalData;
   /** The table agreed to play on: go to the new game (PlayOnPanel). */
   onPlayOnContinue?: (newGameId: string) => void;
@@ -1415,6 +1415,8 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
   onUpgradeAccount?: () => void;
   /** The share sheet opened, for the results_action event (utils/resultsAction.ts). */
   onShareOpened?: () => void;
+  /** The first-win ladder's next battle (utils/ladder.ts): leads the actions, in Rematch's place. */
+  nextBattle?: { label: string; onClick: () => void };
 }) {
   const [reviewCopied, setReviewCopied] = useState(false);
   const [showContent, setShowContent] = useState(false);
@@ -1644,7 +1646,22 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
   // at the bottom of the scroll; off, it sits after the chart and coaching.
   const primaryActions = (
     <>
-      {showRematch && (
+      {/* The first-win ladder (first_match_ladder_enabled): Try again after a
+          loss, Next battle after a win. It is the rematch for a ladder game,
+          so Rematch steps aside. */}
+      {nextBattle && (
+        <button
+          type="button"
+          onClick={nextBattle.onClick}
+          data-testid="gameover-next-battle"
+          className="w-full py-3 px-4 rounded-xl bg-bf-gold text-bf-dark hover:bg-bf-gold/90
+                     font-semibold transition-all flex items-center justify-center gap-2"
+        >
+          {nextBattle.label}
+          <ChevronRight className="w-4 h-4 shrink-0" />
+        </button>
+      )}
+      {showRematch && !nextBattle && (
         <button
           type="button"
           onClick={() => onRematch!(data.rematchConfig!)}
@@ -2669,6 +2686,8 @@ interface ActionModalProps {
   onUpgradeAccount?: () => void;
   /** The game-over share sheet opened (results_action_events_enabled). */
   onShareOpened?: () => void;
+  /** The first-win ladder's next battle on the game-over screen (first_match_ladder_enabled). */
+  nextBattle?: { label: string; onClick: () => void };
   /** Clear the whole animation backlog at once (combat modals + theater + globe). */
   onSkipAll?: () => void;
   /** Total queued items; gates the in-modal "Skip all" button (shown when > 1). */
@@ -2777,6 +2796,7 @@ export default function ActionModal({
   onChallengeFriend,
   onUpgradeAccount,
   onShareOpened,
+  nextBattle,
   onSkipAll,
   backlogCount = 0,
   mapNameLookup,
@@ -2858,7 +2878,7 @@ export default function ActionModal({
             backlogCount={backlogCount}
           />
         )}
-        {data.type === 'game_over' && <GameOverView data={data} onDismiss={onDismiss} onRematch={onRematch} onPlayOnContinue={onPlayOnContinue} onWatchReplay={onWatchReplay} onShareClip={onShareClip} onChallengeFriend={onChallengeFriend} onUpgradeAccount={onUpgradeAccount} onShareOpened={onShareOpened} mapNameLookup={mapNameLookup} />}
+        {data.type === 'game_over' && <GameOverView data={data} onDismiss={onDismiss} onRematch={onRematch} onPlayOnContinue={onPlayOnContinue} onWatchReplay={onWatchReplay} onShareClip={onShareClip} onChallengeFriend={onChallengeFriend} onUpgradeAccount={onUpgradeAccount} onShareOpened={onShareOpened} nextBattle={nextBattle} mapNameLookup={mapNameLookup} />}
         {data.type === 'elimination' && (
           <EliminationView
             data={data}
