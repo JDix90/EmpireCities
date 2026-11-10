@@ -121,20 +121,6 @@ describe('POST /api/analytics/ui-event', () => {
     await app.close();
   });
 
-  it('rejects a first_turn_step that names no step, or one it does not know', async () => {
-    const app = await build();
-    for (const properties of [{ game_id: 'g1' }, { step: 'clicked_everything', game_id: 'g1' }]) {
-      const res = await app.inject({
-        method: 'POST',
-        url: '/api/analytics/ui-event',
-        payload: { event: 'first_turn_step', properties },
-      });
-      expect(res.statusCode).toBe(400);
-    }
-    expect(recordServerEventMock).not.toHaveBeenCalled();
-    await app.close();
-  });
-
   it('accepts the coach tips answer and the strip\u2019s Hide tips, with a known choice only', async () => {
     const app = await build();
     for (const event of ['coach_tips_choice', 'coach_tips_hidden']) {
@@ -150,6 +136,20 @@ describe('POST /api/analytics/ui-event', () => {
     });
     expect(bad.statusCode).toBe(400);
     expect(recordServerEventMock).toHaveBeenCalledTimes(2);
+    await app.close();
+  });
+
+  it('rejects a first_turn_step that names no step, or one it does not know', async () => {
+    const app = await build();
+    for (const properties of [{ game_id: 'g1' }, { step: 'clicked_everything', game_id: 'g1' }]) {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/analytics/ui-event',
+        payload: { event: 'first_turn_step', properties },
+      });
+      expect(res.statusCode).toBe(400);
+    }
+    expect(recordServerEventMock).not.toHaveBeenCalled();
     await app.close();
   });
 
