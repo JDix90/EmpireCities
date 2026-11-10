@@ -134,6 +134,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Let the AI spend its per-turn attack budget as dice exchanges rather than distinct targets, so it can grind one territory until it falls. Off, one planned attack is one exchange — which makes any territory holding 3+ units impossible for the AI to take at any difficulty. Same number of exchanges per turn either way, so turn length is unchanged. On by default.',
   },
   {
+    key: 'first_match_fair_start_enabled',
+    label: 'Fair first match',
+    description:
+      'In a player\u2019s first match (one Easy bot on Britain), the player moves first and the deal is redone until neither side starts holding a whole region. Bot-against-bot on that map, the first mover won 57% and a side dealt more region bonus won 75%: a newcomer could start a game already lost. The server keeps the first-match tag only for a player who has yet to finish a game, so it cannot be claimed for later games. Only first matches change. On by default; switching it off deals and seats them at random as before.',
+  },
+  {
     key: 'auto_place_stack_enabled',
     label: 'Stacked auto-placement',
     description:

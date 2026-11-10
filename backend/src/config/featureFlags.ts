@@ -354,6 +354,11 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // nothing to attack or hold with. Every mode. Server-only.
   // On by default; the admin override is the kill switch.
   auto_place_stack_enabled: () => envOptOut('AUTO_PLACE_STACK_ENABLED'),
+  // Fair first match: in a game tagged first_match the human moves first and
+  // the random deal is redone until no seat holds a whole region; the server
+  // keeps the tag only for a player who has yet to finish a game. Server-only.
+  // On by default; the admin override is the kill switch.
+  first_match_fair_start_enabled: () => envOptOut('FIRST_MATCH_FAIR_START_ENABLED'),
   // In-game mute: a "Sound and music" switch in the HUD's Tools & options,
   // which the phone menu shares, muting both at once. Music starts on the
   // first tap and the only mutes were on the Settings page.
@@ -841,6 +846,16 @@ export const featureFlags = {
    */
   get autoPlaceStackEnabled(): boolean {
     return overrideBool('auto_place_stack_enabled');
+  },
+
+  /**
+   * Fair first match: a game tagged `first_match` seats the human first on a
+   * deal where no seat holds a whole region (game-engine/state/fairFirstMatch.ts),
+   * and POST /api/games keeps the tag only for a player with no finished game.
+   * Default ON; `FIRST_MATCH_FAIR_START_ENABLED=false` or the admin override turns it off.
+   */
+  get firstMatchFairStartEnabled(): boolean {
+    return overrideBool('first_match_fair_start_enabled');
   },
 
   /**

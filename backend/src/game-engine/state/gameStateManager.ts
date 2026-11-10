@@ -20,6 +20,7 @@ import { initializeNavalUnits, collectFleetIncome } from './navalManager';
 import { initializeStability, applyStabilityTick, getDeployCap } from './stabilityManager';
 import { noteRoundEnd, noteTurnEnd, noteTurnStart } from './lossTally';
 import { autoDraftStackOrder } from './autoDraftTargets';
+import { anyWholeRegionDealt, FAIR_DEAL_ATTEMPTS, fairFirstMatchStartingIndex } from './fairFirstMatch';
 import { getWonderReinforceBonus, applyWonderProductionIncome } from './wonderManager';
 import {
   assignCapitals,
@@ -102,6 +103,12 @@ export interface InitializeGameStateOptions {
    * world whose first-seated house is listed.
    */
   forceSchismHalves?: Readonly<Record<string, 0 | 1>>;
+  /**
+   * `first_match_fair_start_enabled`, read by the caller. In a game tagged
+   * `first_match`, the human moves first and the random deal is redone until
+   * no seat holds a whole region (fairFirstMatch.ts). Ignored for any other game.
+   */
+  fairFirstMatchStart?: boolean;
 }
 
 /** Resolved starting seat for draft/territory-select transitions (persists after init). */
@@ -193,6 +200,7 @@ export function initializeGameState(
   initOptions?: InitializeGameStateOptions,
 ): GameState {
   const settingsNorm = normalizeGameSettings(settings);
+  const fairFirstMatch = !!initOptions?.fairFirstMatchStart && settingsNorm.first_match === true;
   // Galaxy per-world identity: snapshot the map's per-world modifiers onto settings
   // so per-turn calc sites (which only have `state`) can apply them by world_id.
   if (settingsNorm.world_modifiers_enabled !== false) {
@@ -395,12 +403,21 @@ export function initializeGameState(
       distributeTerritoriesGeographic(territories, earthMap, players, era, settingsNorm.initial_unit_count);
     }
   } else {
-    const shuffled = shuffleArray([...earthTerritoryIds]);
-    shuffled.forEach((tid, idx) => {
-      const playerIndex = idx % players.length;
-      territories[tid].owner_id = players[playerIndex].player_id;
-      territories[tid].unit_count = settingsNorm.initial_unit_count;
-    });
+    const deal = () => {
+      const shuffled = shuffleArray([...earthTerritoryIds]);
+      shuffled.forEach((tid, idx) => {
+        const playerIndex = idx % players.length;
+        territories[tid].owner_id = players[playerIndex].player_id;
+        territories[tid].unit_count = settingsNorm.initial_unit_count;
+      });
+    };
+    deal();
+    // A fair first match: no seat starts holding a whole region.
+    if (fairFirstMatch) {
+      for (let attempt = 1; attempt < FAIR_DEAL_ATTEMPTS && anyWholeRegionDealt(territories, earthMap, earthTerritoryIds); attempt++) {
+        deal();
+      }
+    }
   }
 
   // Final pass: ensure lunar territories stay neutral with a defending garrison
@@ -516,6 +533,7 @@ export function initializeGameState(
   }
 
   const startingPlayerIndex = initOptions?.forceStartingPlayerIndex
+    ?? (fairFirstMatch ? fairFirstMatchStartingIndex(playerStates) : null)
     ?? pickStartingPlayerIndex(playerStates.length, settingsNorm);
   const firstPlayer = playerStates[startingPlayerIndex];
   const isTerritorySelect = !!settingsNorm.territory_selection;
