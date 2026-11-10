@@ -15,6 +15,7 @@ import { getCancelGameAuthorizationError } from '../../sockets/socketGuards';
 import { redactReplaySnapshot } from '../../sockets/clientStateRedaction';
 import { formatZodError } from '../../utils/formatZodError';
 import { featureFlags } from '../../config/featureFlags';
+import { eligibleFirstMatchTag, hasFinishedRealGame } from './firstMatchEligibility';
 import { isValidSpineId, reachesSpaceAge } from '../../game-engine/eraAdvancement/spines';
 import { recordServerEvent } from '../../services/analyticsEvents';
 import { resolveMap } from '../../sockets/mapResolver';
@@ -401,6 +402,13 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       settings: rawSettings,
       hasMoon: mapMeta.has_moon_territories,
     });
+
+    // A first match starts fair (first_match_fair_start_enabled), so the tag is
+    // checked here rather than taken from the client: only a player who has yet
+    // to finish a game keeps it (firstMatchEligibility.ts).
+    if (settings.first_match && featureFlags.firstMatchFairStartEnabled) {
+      settings.first_match = eligibleFirstMatchTag(settings.first_match, await hasFinishedRealGame(request.userId!));
+    }
 
     if (settings.era_advancement_enabled) {
       if (!featureFlags.eraAdvancementLobbyEnabled && !request.isAdmin) {

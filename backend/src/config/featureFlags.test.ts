@@ -558,6 +558,14 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags()[key]).toBe(false);
   });
 
+  it('first_match_fair_start_enabled defaults to on, is server-only, and the admin override is its kill switch', () => {
+    expect(featureFlags.firstMatchFairStartEnabled).toBe(true);
+    expect(getFeatureFlagStates().first_match_fair_start_enabled).toEqual({ code_default: true, overridden: false, effective: true });
+    expect(getClientFeatureFlags()).not.toHaveProperty('first_match_fair_start_enabled');
+    setAdminConfigCacheForTests({ feature_flags: { first_match_fair_start_enabled: false } });
+    expect(featureFlags.firstMatchFairStartEnabled).toBe(false);
+  });
+
   it('auto_place_stack_enabled defaults to on, is server-only, and the admin override is its kill switch', () => {
     expect(featureFlags.autoPlaceStackEnabled).toBe(true);
     expect(getFeatureFlagStates().auto_place_stack_enabled).toEqual({ code_default: true, overridden: false, effective: true });

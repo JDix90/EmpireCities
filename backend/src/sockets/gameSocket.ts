@@ -4484,7 +4484,10 @@ async function startWaitingGameLocked(io: Server, gameId: string): Promise<Start
   }));
 
   const settings = game.settings_json as GameState['settings'];
-  const state = initializeGameState(game.game_id, game.era_id as GameState['era'], gameMap, playerStates, settings);
+  // first_match_fair_start_enabled: a first match seats the human first on a deal with no whole region.
+  const state = initializeGameState(game.game_id, game.era_id as GameState['era'], gameMap, playerStates, settings, {
+    fairFirstMatchStart: featureFlags.firstMatchFairStartEnabled,
+  });
 
   const humanSeatId = playerStates.find((p) => !p.is_ai)?.player_id ?? null;
   const aiSeat = playerStates.find((p) => p.is_ai);
