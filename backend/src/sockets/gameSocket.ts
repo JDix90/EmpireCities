@@ -1128,7 +1128,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
       // so reinforcements the card grants are placed with the rest.
       resolveChoiceCardForAi(io, gameId, state);
 
-      const autoDraft = autoPlaceDraftUnits(state);
+      // auto_place_stack_enabled: onto the most threatened border, not one each.
+      const autoDraft = autoPlaceDraftUnits(state, { stackOn: featureFlags.autoPlaceStackEnabled ? map : undefined });
       if (autoDraft.total > 0) {
         emitAutoDraftMapVisuals(io, gameId, state, autoDraft.placements);
         broadcastState(io, gameId, state);
@@ -1221,7 +1222,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
           first_match: room.state.settings.first_match === true,
         }, timedOutSeat.player_id);
       }
-      const adv = advancePhaseOnTimeout(room.state, room.map);
+      const adv = advancePhaseOnTimeout(room.state, room.map, { stackAutoDraft: featureFlags.autoPlaceStackEnabled });
 
       if (adv.kind === 'selection') {
         // Territory Draft: a pick was made for the seat that timed out.
@@ -2536,7 +2537,8 @@ export function initGameSocket(httpServer: HttpServer): Server {
         // and inconsistent with the turn-timer expiration path which
         // already auto-places via `autoPlaceDraftUnits`.
         if (state.draft_units_remaining > 0) {
-          const autoDraft = autoPlaceDraftUnits(state);
+          // auto_place_stack_enabled: onto the most threatened border, not one each.
+          const autoDraft = autoPlaceDraftUnits(state, { stackOn: featureFlags.autoPlaceStackEnabled ? map : undefined });
           if (autoDraft.total > 0) {
             emitAutoDraftMapVisuals(io, gameId, state, autoDraft.placements);
           }

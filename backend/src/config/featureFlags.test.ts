@@ -558,6 +558,14 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags()[key]).toBe(false);
   });
 
+  it('auto_place_stack_enabled defaults to on, is server-only, and the admin override is its kill switch', () => {
+    expect(featureFlags.autoPlaceStackEnabled).toBe(true);
+    expect(getFeatureFlagStates().auto_place_stack_enabled).toEqual({ code_default: true, overridden: false, effective: true });
+    expect(getClientFeatureFlags()).not.toHaveProperty('auto_place_stack_enabled');
+    setAdminConfigCacheForTests({ feature_flags: { auto_place_stack_enabled: false } });
+    expect(featureFlags.autoPlaceStackEnabled).toBe(false);
+  });
+
   it('first_match_primary_cta_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.firstMatchPrimaryCtaEnabled).toBe(true);
     expect(getClientFeatureFlags().first_match_primary_cta_enabled).toBe(true);

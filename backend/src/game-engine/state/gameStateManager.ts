@@ -19,6 +19,7 @@ import { getActiveSeasonalDeck } from '../events/seasonalDecks';
 import { initializeNavalUnits, collectFleetIncome } from './navalManager';
 import { initializeStability, applyStabilityTick, getDeployCap } from './stabilityManager';
 import { noteRoundEnd, noteTurnEnd, noteTurnStart } from './lossTally';
+import { autoDraftStackOrder } from './autoDraftTargets';
 import { getWonderReinforceBonus, applyWonderProductionIncome } from './wonderManager';
 import {
   assignCapitals,
@@ -1320,14 +1321,19 @@ export type TimeoutPhaseAdvance =
  * The Territory Draft keeps its clock per pick: an expiry picks for the seat
  * (`{ kind: 'selection' }`).
  */
-export function advancePhaseOnTimeout(state: GameState, map?: GameMap): TimeoutPhaseAdvance {
+export function advancePhaseOnTimeout(
+  state: GameState,
+  map?: GameMap,
+  /** `auto_place_stack_enabled`, read by the caller (see autoPlaceDraftUnits). */
+  options: { stackAutoDraft?: boolean } = {},
+): TimeoutPhaseAdvance {
   // Territory Draft: pick for the seat that timed out. Falling through to the
   // turn hand-off below set phase = 'draft' and abandoned every unclaimed tile.
   if (state.phase === 'territory_select' && map) {
     return { kind: 'selection', ...autoPickSelectionTerritory(state, map) };
   }
   const autoDraft = state.phase === 'draft' && state.draft_units_remaining > 0
-    ? autoPlaceDraftUnits(state)
+    ? autoPlaceDraftUnits(state, { stackOn: options.stackAutoDraft ? map : undefined })
     : { total: 0, placements: [] };
   state.draft_units_remaining = 0;
   state.fortify_moves_used = 0;
@@ -1337,13 +1343,21 @@ export function advancePhaseOnTimeout(state: GameState, map?: GameMap): TimeoutP
 
 /**
  * Auto-place remaining draft units when the turn timer expires (or a player ends
- * the draft with units unspent). Distributes units round-robin across the player's
- * territories in sorted `territory_id` order, honoring the per-territory stability
- * deploy cap so the auto-place path can't quietly bypass the limit the manual
- * `game:draft` handler enforces. Units that can't be placed because every owned
- * territory is capped are left in `draft_units_remaining` for the caller to clear.
+ * the draft with units unspent), honoring the per-territory stability deploy cap
+ * so the auto-place path can't quietly bypass the limit the manual `game:draft`
+ * handler enforces. Units that can't be placed because every owned territory is
+ * capped are left in `draft_units_remaining` for the caller to clear.
+ *
+ * With `stackOn` (the game's map, passed while `auto_place_stack_enabled` is on)
+ * the units go onto the most threatened border territory, spilling to the next
+ * only past a stability cap (autoDraftTargets.ts). Without it, they go
+ * round-robin across the player's territories in sorted `territory_id` order —
+ * one each, which left nothing to attack or hold with.
  */
-export function autoPlaceDraftUnits(state: GameState): AutoDraftResult {
+export function autoPlaceDraftUnits(
+  state: GameState,
+  options: { stackOn?: GameMap } = {},
+): AutoDraftResult {
   const empty: AutoDraftResult = { total: 0, placements: [] };
   if (state.phase !== 'draft' || state.draft_units_remaining <= 0) return empty;
 
@@ -1381,6 +1395,27 @@ export function autoPlaceDraftUnits(state: GameState): AutoDraftResult {
 
   const counts = new Map<string, number>();
   let placed = 0;
+  const place = (tid: string, units: number) => {
+    state.territories[tid].unit_count += units;
+    state.draft_units_remaining -= units;
+    remainingCap.set(tid, (remainingCap.get(tid) ?? 0) - units);
+    if (placedThisTurn) placedThisTurn[tid] = (placedThisTurn[tid] ?? 0) + units;
+    counts.set(tid, (counts.get(tid) ?? 0) + units);
+    placed += units;
+  };
+
+  const stackOrder = options.stackOn ? autoDraftStackOrder(state, options.stackOn, playerId) : null;
+  // A board with no border at all (every neighbour an ally's) has nothing to
+  // stack against; spread as before.
+  if (stackOrder && stackOrder.length > 0) {
+    for (const tid of stackOrder) {
+      if (state.draft_units_remaining <= 0) break;
+      const units = Math.min(state.draft_units_remaining, remainingCap.get(tid) ?? 0);
+      if (units > 0) place(tid, units);
+    }
+    return finishAutoDraft(state, counts, placed);
+  }
+
   let idx = 0;
   let consecutiveSkips = 0;
   // Stop when the pool is empty or every territory has hit its cap (a full lap of
@@ -1393,15 +1428,14 @@ export function autoPlaceDraftUnits(state: GameState): AutoDraftResult {
       consecutiveSkips++;
       continue;
     }
-    state.territories[tid].unit_count += 1;
-    state.draft_units_remaining -= 1;
-    remainingCap.set(tid, cap - 1);
-    if (placedThisTurn) placedThisTurn[tid] = (placedThisTurn[tid] ?? 0) + 1;
-    counts.set(tid, (counts.get(tid) ?? 0) + 1);
-    placed++;
+    place(tid, 1);
     consecutiveSkips = 0;
   }
 
+  return finishAutoDraft(state, counts, placed);
+}
+
+function finishAutoDraft(state: GameState, counts: Map<string, number>, placed: number): AutoDraftResult {
   const placements: AutoDraftPlacement[] = [...counts.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([territory_id, units]) => ({

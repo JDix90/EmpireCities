@@ -348,6 +348,12 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // solo player, so the clock only took turns off people still at the screen.
   // On by default; the admin override is the kill switch.
   solo_untimed_enabled: () => envOptOut('SOLO_UNTIMED_ENABLED'),
+  // Stacked auto-placement: reinforcements placed for a player (the clock ran
+  // out, or they ended the draft with units left) go onto their most
+  // threatened border territory instead of one per territory, which left
+  // nothing to attack or hold with. Every mode. Server-only.
+  // On by default; the admin override is the kill switch.
+  auto_place_stack_enabled: () => envOptOut('AUTO_PLACE_STACK_ENABLED'),
   // In-game mute: a "Sound and music" switch in the HUD's Tools & options,
   // which the phone menu shares, muting both at once. Music starts on the
   // first tap and the only mutes were on the Settings page.
@@ -825,6 +831,16 @@ export const featureFlags = {
    */
   get soloUntimedEnabled(): boolean {
     return overrideBool('solo_untimed_enabled');
+  },
+
+  /**
+   * Stacked auto-placement: units placed for a player go onto their most
+   * threatened border territory (game-engine/state/autoDraftTargets.ts) rather
+   * than round-robin. Read by every auto-place caller in sockets/gameSocket.ts.
+   * Default ON; `AUTO_PLACE_STACK_ENABLED=false` or the admin override turns it off.
+   */
+  get autoPlaceStackEnabled(): boolean {
+    return overrideBool('auto_place_stack_enabled');
   },
 
   /**
