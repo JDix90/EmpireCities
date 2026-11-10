@@ -71,19 +71,6 @@ import { usePlayOnStore, type PlayOnResult, type PlayOnVoteView } from '../store
 import { useFirstTurnEventsEnabled } from '../store/featureFlagsStore';
 import { useFirstTurnClockWaitEnabled, usePhoneTurnCountdownEnabled } from '../store/featureFlagsStore';
 import { PhonePhaseButton, phoneCountdownApplies } from '../components/game/PhoneTurnCountdown';
-import { useCoachTipsEnabled, useFirstMatchButtonEmphasisEnabled } from '../store/featureFlagsStore';
-import CoachTipStrip from '../components/game/CoachTipStrip';
-import {
-  coachTipFor,
-  coachTipsDoneBetween,
-  phaseButtonQuiet,
-  readCoachTipsChoice,
-  readCoachTipsDone,
-  writeCoachTipsChoice,
-  writeCoachTipsDone,
-  type CoachTipView,
-  type CoachTipsChoice,
-} from '../utils/coachTips';
 import { newFirstTurnSteps, type FirstTurnStep, type FirstTurnView } from '../utils/firstTurnSteps';
 import PlayOnTag from '../components/game/PlayOnTag';
 import GalacticBetaTag, { GALACTIC_BETA_WELCOME_NOTE } from '../components/game/GalacticBetaTag';
@@ -103,6 +90,19 @@ import AdvanceEraPanel from '../components/game/AdvanceEraPanel';
 import GameChat from '../components/game/GameChat';
 import MobileCardsTray from '../components/game/MobileCardsTray';
 import FirstTurnCoach from '../components/game/FirstTurnCoach';
+import { useCoachTipsEnabled, useFirstMatchButtonEmphasisEnabled } from '../store/featureFlagsStore';
+import CoachTipStrip from '../components/game/CoachTipStrip';
+import {
+  coachTipFor,
+  coachTipsDoneBetween,
+  phaseButtonQuiet,
+  readCoachTipsChoice,
+  readCoachTipsDone,
+  writeCoachTipsChoice,
+  writeCoachTipsDone,
+  type CoachTipView,
+  type CoachTipsChoice,
+} from '../utils/coachTips';
 import MobileTurnStrip from '../components/game/MobileTurnStrip';
 import MobileCombatSheet from '../components/game/MobileCombatSheet';
 import { keepsMapVisualOnPhone, lostTerritoryIds, pushRecapRound, type RecapRound } from '../utils/mobileOverlays';
