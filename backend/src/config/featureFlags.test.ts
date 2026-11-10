@@ -565,6 +565,13 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().loss_reason_play_enabled).toBe(false);
   });
 
+  it('results_action_events_enabled defaults to on, reaches the client, and the admin override is its kill switch', () => {
+    expect(featureFlags.resultsActionEventsEnabled).toBe(true);
+    expect(getClientFeatureFlags().results_action_events_enabled).toBe(true);
+    setAdminConfigCacheForTests({ feature_flags: { results_action_events_enabled: false } });
+    expect(getClientFeatureFlags().results_action_events_enabled).toBe(false);
+  });
+
   it('placement_rating_enabled defaults to on, is server-only, and the admin override is its kill switch', () => {
     expect(featureFlags.placementRatingEnabled).toBe(true);
     expect(getClientFeatureFlags()).not.toHaveProperty('placement_rating_enabled');

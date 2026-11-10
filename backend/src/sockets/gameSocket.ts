@@ -5580,6 +5580,12 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
         // other players, and how many were a human's, the leading rival's
         // and the weakest rival's (services/botAimTelemetry.ts).
         ...(state.players.some((p) => p.is_ai) ? botAimProperties(gameBotAim.get(gameId)) : {}),
+        // How the player played (state/lossTally.ts): turns they took, turns
+        // with an attack in them, turns the clock ended. Says whether the
+        // passive game the defeat screen now names is what new players play.
+        turns_taken: human.turns_taken ?? 0,
+        turns_attacked: human.turns_attacked ?? 0,
+        turns_timed_out: human.turns_timed_out ?? 0,
       },
       human.player_id,
     );

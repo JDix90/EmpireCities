@@ -98,7 +98,8 @@ describe('AdminAnalyticsPanel', () => {
     expect(within(section).getByText('12 · 60%')).toBeTruthy();
     expect(within(section).getByText('7 · 35%')).toBeTruthy();
     expect(section.textContent).toMatch(/Turn-1 clock ran out: 6 \(30% of those who saw a map\)/);
-    expect(section.textContent).toMatch(/Recorded since 2026-11-03/);
+    // One cohort for every row: the players who signed up since the steps were recorded.
+    expect(section.textContent).toMatch(/New players who signed up since 2026-11-03, when the steps were first\s+recorded/);
   });
 
   it('shows guest accounts once anything has happened, and nothing for an older backend', () => {

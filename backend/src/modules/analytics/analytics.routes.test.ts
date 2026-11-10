@@ -135,6 +135,34 @@ describe('POST /api/analytics/ui-event', () => {
     await app.close();
   });
 
+  it('accepts results_action, what a player pressed on the game-over screen', async () => {
+    const app = await build();
+    const properties = { action: 'rematch', outcome: 'lost', game_id: 'g1', first_match: 'true', is_tutorial: 'false', is_guest: 'true' };
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/analytics/ui-event',
+      payload: { event: 'results_action', properties },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(recordServerEventMock).toHaveBeenCalledWith('results_action', properties, 'user-1');
+    await app.close();
+  });
+
+  it('rejects a results_action that names no action, or one it does not know', async () => {
+    const app = await build();
+    for (const properties of [{ outcome: 'won' }, { action: 'rage_quit', outcome: 'lost' }]) {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/analytics/ui-event',
+        payload: { event: 'results_action', properties },
+      });
+      expect(res.statusCode).toBe(400);
+    }
+    expect(recordServerEventMock).not.toHaveBeenCalled();
+    await app.close();
+  });
+
   it('still rejects a name that is not on the allowlist', async () => {
     const app = await build();
     const res = await app.inject({

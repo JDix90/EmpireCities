@@ -369,6 +369,11 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // swing. Server-only (the server sends the number or nothing).
   // On by default; the admin override is the kill switch.
   placement_rating_enabled: () => envOptOut('PLACEMENT_RATING_ENABLED'),
+  // Results actions: the game-over screen posts what the player pressed
+  // (results_action: rematch, lobby, share, replay, clip, challenge, save
+  // account, play on). Analytics only; changes nothing a player sees.
+  // On by default; the admin override is the kill switch.
+  results_action_events_enabled: () => envOptOut('RESULTS_ACTION_EVENTS_ENABLED'),
   // In-game mute: a "Sound and music" switch in the HUD's Tools & options,
   // which the phone menu shares, muting both at once. Music starts on the
   // first tap and the only mutes were on the Settings page.
@@ -886,6 +891,16 @@ export const featureFlags = {
    */
   get placementRatingEnabled(): boolean {
     return overrideBool('placement_rating_enabled');
+  },
+
+  /**
+   * Results actions: the client posts `results_action` with what the player
+   * pressed on the game-over screen (frontend utils/resultsAction.ts).
+   * Analytics only. Default ON; `RESULTS_ACTION_EVENTS_ENABLED=false` or the
+   * admin override turns it off.
+   */
+  get resultsActionEventsEnabled(): boolean {
+    return overrideBool('results_action_events_enabled');
   },
 
   /**
@@ -1802,6 +1817,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     custom_round_cap_enabled: featureFlags.customRoundCapEnabled,
     loss_reason_enabled: featureFlags.lossReasonEnabled,
     loss_reason_play_enabled: featureFlags.lossReasonPlayEnabled,
+    results_action_events_enabled: featureFlags.resultsActionEventsEnabled,
     mission_reveal_enabled: featureFlags.missionRevealEnabled,
     translation_dom_guard_enabled: featureFlags.translationDomGuardEnabled,
     game_visible_height_enabled: featureFlags.gameVisibleHeightEnabled,

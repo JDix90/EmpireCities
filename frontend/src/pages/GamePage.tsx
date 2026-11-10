@@ -71,6 +71,8 @@ import { usePlayOnStore, type PlayOnResult, type PlayOnVoteView } from '../store
 import { useFirstTurnEventsEnabled } from '../store/featureFlagsStore';
 import { useFirstTurnClockWaitEnabled, usePhoneTurnCountdownEnabled } from '../store/featureFlagsStore';
 import { PhonePhaseButton, phoneCountdownApplies } from '../components/game/PhoneTurnCountdown';
+import { useResultsActionEventsEnabled } from '../store/featureFlagsStore';
+import { resultsActionProperties, type ResultsAction } from '../utils/resultsAction';
 import { newFirstTurnSteps, type FirstTurnStep, type FirstTurnView } from '../utils/firstTurnSteps';
 import PlayOnTag from '../components/game/PlayOnTag';
 import GalacticBetaTag, { GALACTIC_BETA_WELCOME_NOTE } from '../components/game/GalacticBetaTag';
@@ -4015,13 +4017,37 @@ export default function GamePage() {
   // every render of this page.
   const handleGameOverDismissRef = useRef(handleGameOverDismiss);
   handleGameOverDismissRef.current = handleGameOverDismiss;
+  // What the player pressed on the game-over screen (results_action_events_enabled,
+  // utils/resultsAction.ts). Read when pressed, from the modal on screen.
+  const resultsActionEvents = useResultsActionEventsEnabled();
+  const resultsActionEventsRef = useRef(resultsActionEvents);
+  resultsActionEventsRef.current = resultsActionEvents;
+  const recordResultsAction = useCallback((action: ResultsAction) => {
+    const head = modalHeadRef.current;
+    if (!resultsActionEventsRef.current || head?.type !== 'game_over') return;
+    const settings = useGameStore.getState().gameState?.settings;
+    api.post('/analytics/ui-event', {
+      event: 'results_action',
+      properties: resultsActionProperties(action, {
+        gameId: head.gameId,
+        isWinner: head.isWinner,
+        firstMatch: (settings as { first_match?: boolean } | undefined)?.first_match === true,
+        isTutorial: settings?.tutorial === true,
+        isGuest: !!useAuthStore.getState().user?.is_guest,
+      }),
+    }).catch(() => {});
+  }, []);
+
   const handleModalDismiss = useCallback((reason?: DismissReason) => {
     const head = modalHeadRef.current;
     const byTap = reason !== 'auto' && reason !== 'action';
     if (head && byTap) countDismissTap(dismissTierOf(head));
-    if (head?.type === 'game_over') handleGameOverDismissRef.current();
-    else dismissModal();
-  }, [countDismissTap, dismissModal]);
+    if (head?.type === 'game_over') {
+      // Leaving the results (Return to Lobby, or the close button) goes to the lobby.
+      if (reason !== 'auto') recordResultsAction('lobby');
+      handleGameOverDismissRef.current();
+    } else dismissModal();
+  }, [countDismissTap, dismissModal, recordResultsAction]);
 
   /** The own-attack sheet closing: Continue is a tier-2 tap; the lite-mode timer and Attack again / Blitz are not. */
   const handleOwnCombatSheetDismiss = useCallback((reason?: DismissReason) => {
@@ -6425,12 +6451,13 @@ export default function GamePage() {
           onLeaveGame={handleEliminatedLeave}
           onRepeatCombat={handleAttack}
           onBlitzCombat={handleBlitzAttack}
-          onRematch={handleRematch}
-          onPlayOnContinue={handlePlayOnContinue}
-          onWatchReplay={handleWatchReplay}
-          onShareClip={handleShareClip}
-          onChallengeFriend={user?.is_guest ? undefined : () => navigate('/lobby?challenge=1')}
-          onUpgradeAccount={user?.is_guest && ownAuthUiAllowed() ? handleGameOverUpgrade : undefined}
+          onRematch={(cfg) => { recordResultsAction('rematch'); return handleRematch(cfg); }}
+          onPlayOnContinue={(id) => { recordResultsAction('play_on'); handlePlayOnContinue(id); }}
+          onWatchReplay={(id, opts) => { recordResultsAction('replay'); handleWatchReplay(id, opts); }}
+          onShareClip={(id) => { recordResultsAction('clip'); handleShareClip(id); }}
+          onShareOpened={() => recordResultsAction('share')}
+          onChallengeFriend={user?.is_guest ? undefined : () => { recordResultsAction('challenge'); navigate('/lobby?challenge=1'); }}
+          onUpgradeAccount={user?.is_guest && ownAuthUiAllowed() ? () => { recordResultsAction('save_account'); handleGameOverUpgrade(); } : undefined}
           onSkipAll={skipAllBacklogByTap}
           backlogCount={modalQueue.length + defenderTheaterQueue.length}
           mapNameLookup={mapData}

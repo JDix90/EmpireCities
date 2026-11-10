@@ -23,6 +23,13 @@ const REFERRAL_SURVEY_ANSWERS = new Set(['ai_assistant', 'search', 'social', 'fr
  */
 export const FIRST_TURN_STEPS = new Set(['briefing_closed', 'territory_opened', 'units_placed', 'draft_ended']);
 
+/**
+ * What a player pressed on the game-over screen (results_action_events_enabled;
+ * frontend utils/resultsAction.ts). A closed set: it is the dimension the
+ * question "what do players do after a game" groups by.
+ */
+export const RESULTS_ACTIONS = new Set(['rematch', 'lobby', 'share', 'replay', 'clip', 'challenge', 'save_account', 'play_on']);
+
 const UiEventSchema = z.object({
   event: z.enum([
     'retention_notification_clicked',
@@ -94,9 +101,22 @@ const UiEventSchema = z.object({
     // Properties: step, game_id, era, first_match, layout, seconds (since the
     // map first showed).
     'first_turn_step',
+    // What a player pressed on the game-over screen, once per press, while
+    // results_action_events_enabled is on (frontend utils/resultsAction.ts):
+    // there was no record of whether a finished game led to a second one, a
+    // share or a saved account. Properties: action, outcome (won|lost),
+    // game_id, first_match, is_tutorial, is_guest.
+    'results_action',
   ]),
   properties: z.record(z.string().max(64), z.string().max(200)).optional(),
 }).superRefine((value, ctx) => {
+  if (value.event === 'results_action') {
+    const action = value.properties?.action;
+    if (!action || !RESULTS_ACTIONS.has(action)) {
+      ctx.addIssue({ code: 'custom', path: ['properties', 'action'], message: 'Unknown action' });
+    }
+    return;
+  }
   // A first-turn step is a closed set too: the First turn report groups by it.
   if (value.event === 'first_turn_step') {
     const step = value.properties?.step;

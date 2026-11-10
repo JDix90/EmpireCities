@@ -312,7 +312,9 @@ export interface AnalyticsReport {
  * the first attack and capture. `clock_ran_out` counts those whose turn-1
  * clock ran out (`turn_timed_out`, server-side). Each column is "ever did
  * it", like the activation funnel. `measured_since` is the day the steps were
- * first recorded: players who signed up before it read as never reaching them.
+ * first recorded, and the players counted are those who signed up from that
+ * day on (within the window), so every row is the same cohort. The steps are
+ * the game's first round; the attack and capture are any turn.
  */
 export interface FirstTurnFunnel {
   new_players: number;
@@ -980,12 +982,21 @@ export async function getFirstTurnFunnel(
          SELECT 1 FROM analytics_events e WHERE e.user_id = s.user_id AND e.event = '${event}'
            AND ${REAL_GAME_SQL}${extra}))::int`;
   const step = (name: string) => did('first_turn_step', ` AND e.properties->>'step' = '${name}'`);
+  // Every row counts the same players: those who signed up from the day the
+  // steps were first recorded. The window used to start $1 days back for every
+  // row, so a signup from before the steps existed counted in Saw the map,
+  // Attacked and Captured (recorded since long before) but never in a step —
+  // which read as 40% attacking after 18% opened a territory.
   const [row] = await query<Record<string, unknown>>(
-    `WITH signups AS (
+    `WITH measured AS (
+       SELECT date_trunc('day', MIN(created_at)) AS since FROM analytics_events WHERE event = 'first_turn_step'
+     ),
+     signups AS (
        SELECT user_id
        FROM analytics_events
        WHERE event IN ('guest_created', 'user_registered') AND user_id IS NOT NULL
          AND created_at >= NOW() - make_interval(days => $1::int)
+         AND created_at >= COALESCE((SELECT since FROM measured), NOW())
          AND ${countedEventSql('analytics_events')}
          AND ($2::text IS NULL OR properties->>'device' = $2::text)
          AND ($3::uuid[] IS NULL OR user_id = ANY($3::uuid[]))

@@ -69,6 +69,7 @@ export interface ClientFeatureFlags {
   custom_round_cap_enabled: boolean;
   loss_reason_enabled: boolean;
   loss_reason_play_enabled: boolean;
+  results_action_events_enabled: boolean;
   mission_reveal_enabled: boolean;
   translation_dom_guard_enabled: boolean;
   game_visible_height_enabled: boolean;
@@ -211,6 +212,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   // Loss reason: the defeat screen says why the player lost. On by default; admin kill switch.
   // Loss reasons for how the player played: never/rarely attacked, the clock. On by default; admin kill switch.
   loss_reason_play_enabled: true,
+  // What the player pressed on the game-over screen, as an analytics event. On by default; admin kill switch.
+  results_action_events_enabled: true,
   loss_reason_enabled: true,
   // A game won by a secret mission names every player's mission at game over. On by default; admin kill switch.
   mission_reveal_enabled: true,
@@ -571,6 +574,11 @@ export function useLossReasonEnabled(): boolean {
 /** Loss reasons for how the player played — never or rarely attacking, turns the clock ended (utils/lossReason.ts). */
 export function useLossReasonPlayEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.loss_reason_play_enabled);
+}
+
+/** Results actions: post what the player pressed on the game-over screen (utils/resultsAction.ts). */
+export function useResultsActionEventsEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.results_action_events_enabled);
 }
 
 export function useMissionRevealEnabled(): boolean {
