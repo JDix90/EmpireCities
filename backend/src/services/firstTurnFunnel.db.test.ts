@@ -73,6 +73,22 @@ describe.runIf(enabled)('the first turn of a real game, step by step (Postgres)'
     // An admin's play is left out of the stats.
     const admin = await newPlayer('ft_admin', 'phone', { admin: true });
     await event(admin, 'map_rendered', real);
+
+    // Signed up and attacked three days before any step was recorded: in the
+    // window, but outside the cohort every row shares, so counted nowhere
+    // (they used to count in Saw the map and Attacked, never in a step).
+    const early = uuidv4();
+    userIds.push(early);
+    await query(
+      `INSERT INTO users (user_id, username, email, password_hash, is_guest) VALUES ($1, $2, $3, 'x', true)`,
+      [early, `ft_early_${early.slice(0, 8)}`, `ft_early_${early.slice(0, 8)}@guest.local`],
+    );
+    for (const [name, properties] of [['guest_created', { device: 'phone' }], ['map_rendered', real], ['first_attack', real]] as const) {
+      await query(
+        `INSERT INTO analytics_events (event, user_id, properties, created_at) VALUES ($1, $2, $3::jsonb, NOW() - INTERVAL '3 days')`,
+        [name, early, JSON.stringify(properties)],
+      );
+    }
   });
 
   afterAll(async () => {

@@ -134,6 +134,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Let the AI spend its per-turn attack budget as dice exchanges rather than distinct targets, so it can grind one territory until it falls. Off, one planned attack is one exchange — which makes any territory holding 3+ units impossible for the AI to take at any difficulty. Same number of exchanges per turn either way, so turn length is unchanged. On by default.',
   },
   {
+    key: 'results_action_events_enabled',
+    label: 'Results actions (analytics)',
+    description:
+      'The game-over screen records what the player pressed: Rematch, Return to Lobby, Share, Watch replay, Share clip, Challenge a friend, Save account or Play on, with whether they won, whether it was their first match and whether they are a guest. There was no record of what a finished game led to. Analytics only, nothing a player sees changes. On by default; switching it off stops the event.',
+  },
+  {
     key: 'loss_reason_play_enabled',
     label: 'Loss reasons: how you played',
     description:

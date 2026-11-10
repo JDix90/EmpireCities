@@ -1400,7 +1400,7 @@ function PositionShareChart({
 
 // ─── Game Over View ─────────────────────────────────────────────────────────
 
-function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, onChallengeFriend, onUpgradeAccount, onPlayOnContinue, mapNameLookup }: {
+function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, onChallengeFriend, onUpgradeAccount, onPlayOnContinue, onShareOpened, mapNameLookup }: {
   data: GameOverModalData;
   /** The table agreed to play on: go to the new game (PlayOnPanel). */
   onPlayOnContinue?: (newGameId: string) => void;
@@ -1413,6 +1413,8 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
   onShareClip?: (gameId: string) => void;
   onChallengeFriend?: () => void;
   onUpgradeAccount?: () => void;
+  /** The share sheet opened, for the results_action event (utils/resultsAction.ts). */
+  onShareOpened?: () => void;
 }) {
   const [reviewCopied, setReviewCopied] = useState(false);
   const [showContent, setShowContent] = useState(false);
@@ -1470,6 +1472,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
   const handleOpenShare = async () => {
     if (shareBusy) return;
     setShareBusy(true);
+    onShareOpened?.();
     // Make the replay public so the link works for anyone — without this the
     // recipient hits the "not public" gate. Fire-and-forget; the viewer also
     // re-asserts public when copying from the replay page.
@@ -2664,6 +2667,8 @@ interface ActionModalProps {
   onChallengeFriend?: () => void;
   /** Guest viewers only: leave the game cleanly and open the account-upgrade page. */
   onUpgradeAccount?: () => void;
+  /** The game-over share sheet opened (results_action_events_enabled). */
+  onShareOpened?: () => void;
   /** Clear the whole animation backlog at once (combat modals + theater + globe). */
   onSkipAll?: () => void;
   /** Total queued items; gates the in-modal "Skip all" button (shown when > 1). */
@@ -2771,6 +2776,7 @@ export default function ActionModal({
   onShareClip,
   onChallengeFriend,
   onUpgradeAccount,
+  onShareOpened,
   onSkipAll,
   backlogCount = 0,
   mapNameLookup,
@@ -2852,7 +2858,7 @@ export default function ActionModal({
             backlogCount={backlogCount}
           />
         )}
-        {data.type === 'game_over' && <GameOverView data={data} onDismiss={onDismiss} onRematch={onRematch} onPlayOnContinue={onPlayOnContinue} onWatchReplay={onWatchReplay} onShareClip={onShareClip} onChallengeFriend={onChallengeFriend} onUpgradeAccount={onUpgradeAccount} mapNameLookup={mapNameLookup} />}
+        {data.type === 'game_over' && <GameOverView data={data} onDismiss={onDismiss} onRematch={onRematch} onPlayOnContinue={onPlayOnContinue} onWatchReplay={onWatchReplay} onShareClip={onShareClip} onChallengeFriend={onChallengeFriend} onUpgradeAccount={onUpgradeAccount} onShareOpened={onShareOpened} mapNameLookup={mapNameLookup} />}
         {data.type === 'elimination' && (
           <EliminationView
             data={data}

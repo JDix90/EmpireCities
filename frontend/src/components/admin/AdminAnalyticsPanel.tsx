@@ -624,7 +624,7 @@ export default function AdminAnalyticsPanel({
           <p className="text-sm font-semibold text-bf-text">
             First turn{' '}
             <span className="text-xs font-normal text-bf-muted">
-              · new players in the last {data.window_days}d · real games
+              · new players in the last {data.window_days}d, since steps were recorded · real games
             </span>
           </p>
           <div className="mt-3 space-y-2">
@@ -645,9 +645,10 @@ export default function AdminAnalyticsPanel({
             <span className="text-bf-muted">({pctText(data.first_turn.clock_ran_out, data.first_turn.saw_map)} of those who saw a map)</span>
           </p>
           <p className="mt-2 text-xs text-bf-muted">
-            Recorded since {data.first_turn.measured_since}: players who signed up before then read as never
-            reaching the steps. Each row is &quot;ever did it&quot; in a real game (not the tutorial), as a share of
-            the new players who saw a real game&apos;s map; the steps are recorded only in a game&apos;s first round.
+            New players who signed up since {data.first_turn.measured_since}, when the steps were first
+            recorded, so every row counts the same players. Each row is &quot;ever did it&quot; in a real game (not
+            the tutorial), as a share of those who saw a real game&apos;s map. The steps are a game&apos;s first
+            round; Attacked and Captured count any turn.
           </p>
         </section>
       )}

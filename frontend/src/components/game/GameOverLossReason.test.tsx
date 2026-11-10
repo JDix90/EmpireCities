@@ -147,3 +147,23 @@ describe('placement games (placement_rating_enabled)', () => {
     expect(screen.getByText('-12')).toBeTruthy();
   });
 });
+
+describe('results actions (results_action_events_enabled)', () => {
+  beforeEach(() => {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+      addListener: vi.fn(), removeListener: vi.fn(),
+    }) as unknown as typeof window.matchMedia;
+    useAuthStore.setState({
+      user: { user_id: 'me', username: 'Ada', level: 2, xp: 250, mmr: 1000 },
+      isAuthenticated: true,
+    });
+  });
+
+  it('tells the page when the share sheet opens', async () => {
+    const onShareOpened = vi.fn();
+    render(<ActionModal data={gameOver({ isWinner: true })} onDismiss={() => {}} onShareOpened={onShareOpened} />);
+    screen.getAllByRole('button', { name: /share/i })[0]!.click();
+    expect(onShareOpened).toHaveBeenCalledTimes(1);
+  });
+});
