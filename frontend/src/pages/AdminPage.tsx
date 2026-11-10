@@ -559,6 +559,24 @@ const CLIENT_FEATURE_FLAGS = [
       'On a phone, when a player picks a territory to fortify from, the bottom sheet grows just enough to show the amount and the first row of destinations together, up to the sheet\u2019s full height, so the map stays the larger half. At the fixed default height the destinations sat below the fold and a player had to know to swipe the sheet up. Desktop is unchanged. On by default; switching it off gives the sheet exactly as before.',
   },
   {
+    key: 'phone_sheet_fit_enabled',
+    label: 'Phone sheet: show the main action',
+    description:
+      'On a phone, the territory sheet grows just enough to show its main action: the Place button while reinforcing, the first target row while attacking, up to the sheet\u2019s full height. On a 664px-tall phone the Place button sat half under the bottom bar at the default height, so a tap on its lower half landed on Begin Attack. Desktop is unchanged. On by default; switching it off gives the sheet exactly as before.',
+  },
+  {
+    key: 'phone_turn_countdown_enabled',
+    label: 'Phone turn countdown',
+    description:
+      'In a live game with a turn clock, the phone\u2019s bottom bar shows the countdown for the last minute of the player\u2019s own turn, turning red for the last 15 seconds. The clock was only inside the \u2630 menu, so a phone player\u2019s turn ran out with nothing on screen saying it would. Async games keep their own chip; desktop is unchanged. On by default; switching it off gives the bar exactly as before.',
+  },
+  {
+    key: 'solo_untimed_enabled',
+    label: 'Solo games have no turn clock',
+    description:
+      'A game with one human and only bots is untimed: Quick Match (the first match included), Full Game and campaign stages start with no turn clock, and Custom Game\u2019s Turn Timer defaults to No Timer while every other seat is a bot (a timer the player picks is kept). Nobody waits on a solo player, and a player who leaves is already handled: their seat waits and the game is closed as abandoned. The clock only ended turns for players still at the screen. Daily Challenge and the tutorial were already untimed. Multiplayer and ranked are unchanged. On by default; switching it off gives every game its clock as before.',
+  },
+  {
     key: 'in_game_mute_enabled',
     label: 'In-game mute switch',
     description:

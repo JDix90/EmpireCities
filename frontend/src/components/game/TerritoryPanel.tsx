@@ -7,7 +7,7 @@ import clsx from 'clsx';
 import { computeDraftPool } from '../../utils/draftPool';
 import { canOfferBlitz } from '../../utils/blitzEligibility';
 import { plural } from '../../utils/plural';
-import { useAttackBlitzEnabled, usePhoneFortifyFitEnabled, usePlacementCapNoteEnabled } from '../../store/featureFlagsStore';
+import { useAttackBlitzEnabled, usePhoneFortifyFitEnabled, usePhoneSheetFitEnabled, usePlacementCapNoteEnabled } from '../../store/featureFlagsStore';
 import { getFastCombatPreference } from '../../utils/userPreferences';
 import { isFogHidden } from '../../utils/fogVisibility';
 import BuildingPanel from './BuildingPanel';
@@ -756,6 +756,36 @@ function TerritoryPanelContent({
     }
   }, [fortifyFitActive, fortifyNeighborSourceId, fortifyNeighbors.length, sheetRef]);
 
+  // Phone sheet fit (`phone_sheet_fit_enabled`): the same idea for the sheet's
+  // other main actions. On a 664px-tall phone the half snap (42vh) ended 30px
+  // into the Place button, so the button showed as a sliver over the bottom
+  // bar and a tap on its lower part landed on Begin Attack; while attacking,
+  // the target rows sat under the fold the same way. The peek and half snaps
+  // grow to the measured bottom of that action (index.css caps it at the full
+  // snap); a sheet the player dragged to full is left alone, and fortify keeps
+  // its own fit above.
+  const phoneSheetFit = usePhoneSheetFitEnabled();
+  const actionFitAnchor: string | null =
+    !phoneSheetFit || !isMobile || sheetSnap === 'full' || fortifyFitActive
+      ? null
+      : isMobileDraftPlacementMode && !deployCapReached
+        ? '[data-testid="draft-place"]'
+        : isMobileActionMode && gameState.phase === 'attack' && attackNeighbors.length > 0 && !!attackNeighborSourceId
+          ? '[data-neighbor-target]'
+          : null;
+  React.useLayoutEffect(() => {
+    const sheet = sheetRef.current;
+    if (!sheet) return;
+    const anchor = actionFitAnchor ? sheet.querySelector<HTMLElement>(actionFitAnchor) : null;
+    if (!anchor) {
+      sheet.style.removeProperty('--sheet-fit-height');
+      return;
+    }
+    const sheetTop = sheet.getBoundingClientRect().top;
+    const anchorBottom = anchor.getBoundingClientRect().bottom - sheetTop + sheet.scrollTop;
+    sheet.style.setProperty('--sheet-fit-height', `${Math.ceil(anchorBottom + 12)}px`);
+  }, [actionFitAnchor, selectedTerritory, draftPool, attackNeighbors.length, sheetRef]);
+
   return (
     <div
       ref={isMobile ? sheetRef : undefined}
@@ -764,7 +794,11 @@ function TerritoryPanelContent({
       isMobile
         ? clsx(
             'fixed mobile-sheet-above-nav inset-x-0 overflow-y-auto rounded-t-2xl border-t border-bf-border z-40 animate-slide-up',
-            fortifyFitActive ? 'mobile-sheet-fortify-fit' : snapClassName,
+            fortifyFitActive
+              ? 'mobile-sheet-fortify-fit'
+              : actionFitAnchor
+                ? `mobile-sheet-fit-${sheetSnap}`
+                : snapClassName,
           )
         // Capped to the map pane (it is positioned inside it) and scrolls
         // internally: a territory with buildings, abilities, a neighbor picker

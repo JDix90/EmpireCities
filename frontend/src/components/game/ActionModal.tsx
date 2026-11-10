@@ -2715,12 +2715,22 @@ function EraAdvanceView({ data, onDismiss }: { data: EraAdvanceModalData; onDism
         )}
       </div>
 
-      <button
-        onClick={onDismiss}
-        className="mt-6 w-full rounded-xl bg-bf-gold/90 py-2.5 font-medium text-bf-dark transition-colors hover:bg-bf-gold"
-      >
-        Onward →
-      </button>
+      {/* Pinned to the dialog's bottom edge. With every line showing, the
+          dialog is taller than a 664px phone, and Onward sat below the fold
+          of its scroll area with nothing to say it was there. The negative
+          margins reach into the dialog's own padding: sideways so the strip is
+          full-width, below so it pins to the dialog's edge (a sticky box stops
+          at the padding, and the text scrolled past showed through under it)
+          and the scroll still ends where it did. The top of the strip fades,
+          so a line scrolled under it reads as more above. */}
+      <div className="sticky -bottom-8 -mx-6 sm:-mx-8 -mb-8 px-6 sm:px-8 pt-6 pb-8 bg-gradient-to-t from-[rgb(15,17,23)] from-75% to-transparent">
+        <button
+          onClick={onDismiss}
+          className="w-full rounded-xl bg-bf-gold/90 py-2.5 font-medium text-bf-dark transition-colors hover:bg-bf-gold"
+        >
+          Onward →
+        </button>
+      </div>
     </div>
   );
 }

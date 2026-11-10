@@ -59,6 +59,9 @@ export interface ClientFeatureFlags {
   tutorial_wrapup_to_match_enabled: boolean;
   first_match_primary_cta_enabled: boolean;
   phone_fortify_fit_enabled: boolean;
+  phone_sheet_fit_enabled: boolean;
+  phone_turn_countdown_enabled: boolean;
+  solo_untimed_enabled: boolean;
   in_game_mute_enabled: boolean;
   full_game_evening_enabled: boolean;
   placement_cap_note_enabled: boolean;
@@ -188,6 +191,12 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   first_match_primary_cta_enabled: true,
   // Phone fortify: the sheet grows to show the amount and the first destination. On by default; admin kill switch.
   phone_fortify_fit_enabled: true,
+  // Phone sheet fit: the sheet grows to show the Place button / first attack target. On by default; admin kill switch.
+  phone_sheet_fit_enabled: true,
+  // Phone turn countdown: the last minute of a live turn in the phone's bottom bar. On by default; admin kill switch.
+  phone_turn_countdown_enabled: true,
+  // Solo games are untimed: no turn clock with one human and only bots. On by default; admin kill switch.
+  solo_untimed_enabled: true,
   // In-game mute: one sound and music switch in Tools & options. On by default; admin kill switch.
   in_game_mute_enabled: true,
   // A Full Game fits an evening: the 65% ending by default, an 80-round cap. Dark-launched OFF.
@@ -509,6 +518,21 @@ export function useFirstMatchPrimaryCtaEnabled(): boolean {
 /** Phone fortify: the territory sheet grows to show the amount dial and the first destination row together (components/game/TerritoryPanel.tsx). */
 export function usePhoneFortifyFitEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.phone_fortify_fit_enabled);
+}
+
+/** Phone sheet fit: the territory sheet grows to show its main action — Place, or the first attack target (components/game/TerritoryPanel.tsx). */
+export function usePhoneSheetFitEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.phone_sheet_fit_enabled);
+}
+
+/** Phone turn countdown: the last minute of a live turn's clock in the phone's bottom bar (pages/GamePage.tsx). */
+export function usePhoneTurnCountdownEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.phone_turn_countdown_enabled);
+}
+
+/** Solo games are untimed: the lobby builds one-human-vs-bots games with no turn clock (pages/LobbyPage.tsx, utils/soloTimer.ts). */
+export function useSoloUntimedEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.solo_untimed_enabled);
 }
 
 /** In-game mute: one sound and music switch in the HUD's Tools & options, on desktop and in the phone menu (components/game/GameHUD.tsx). */

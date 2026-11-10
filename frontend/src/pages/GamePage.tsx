@@ -69,6 +69,8 @@ import { useTurnRecapPanelEnabled } from '../store/featureFlagsStore';
 import { useSaveAccountCopyEnabled, useGalaxyAgeBetaEnabled } from '../store/featureFlagsStore';
 import { usePlayOnStore, type PlayOnResult, type PlayOnVoteView } from '../store/playOnStore';
 import { useFirstTurnEventsEnabled } from '../store/featureFlagsStore';
+import { useFirstTurnClockWaitEnabled, usePhoneTurnCountdownEnabled } from '../store/featureFlagsStore';
+import { PhonePhaseButton, phoneCountdownApplies } from '../components/game/PhoneTurnCountdown';
 import { newFirstTurnSteps, type FirstTurnStep, type FirstTurnView } from '../utils/firstTurnSteps';
 import PlayOnTag from '../components/game/PlayOnTag';
 import GalacticBetaTag, { GALACTIC_BETA_WELCOME_NOTE } from '../components/game/GalacticBetaTag';
@@ -935,6 +937,10 @@ export default function GamePage() {
   // each step of a real game's first turn the viewer reaches, posted once a
   // game, so the funnel can say where a first turn stops before an attack.
   const firstTurnEvents = useFirstTurnEventsEnabled();
+  // The phone bar's turn clock (components/game/PhoneTurnCountdown.tsx). The
+  // first turn's clock is held while the briefing is open, as on desktop.
+  const phoneTurnCountdown = usePhoneTurnCountdownEnabled();
+  const firstTurnClockWait = useFirstTurnClockWaitEnabled();
   const firstTurnRef = useRef<{ gameId: string | null; prev: FirstTurnView | null; sent: Set<FirstTurnStep>; since: number }>(
     { gameId: null, prev: null, sent: new Set(), since: 0 },
   );
@@ -5911,8 +5917,15 @@ export default function GamePage() {
                       name on the first, a 320-360px phone cut it off at
                       "Reinforce…". It only shows on the player's own turn,
                       which is what "Your turn" said. */}
+                  {/* The number never truncates; the words go first. In
+                      monospace "4 to place" needed 72px of a 62px box once
+                      the cards button joined the bar, and printed "4 to pl…" —
+                      the turn's most important number, cut off. */}
                   {mobileDraftPool > 0 ? (
-                    <span className="truncate text-bf-text font-mono">{mobileDraftPool} to place</span>
+                    <span className="inline-flex min-w-0 items-baseline gap-1 text-bf-text" data-testid="mobile-draft-pool">
+                      <span className="shrink-0 font-mono font-bold">{mobileDraftPool}</span>
+                      <span className="truncate">to place</span>
+                    </span>
                   ) : (
                     <span className="truncate">{myTurn ? 'Your turn' : cp?.username ?? '—'}</span>
                   )}
@@ -5950,12 +5963,13 @@ export default function GamePage() {
             )}
             {/* End-phase button */}
             {myTurn && gameState.phase !== 'game_over' && gameState.phase !== 'territory_select' && (
-              <button
+              <PhonePhaseButton
+                label={phaseAdvanceLabel(gameState.phase)}
                 onClick={handleAdvancePhase}
-                className="btn-primary text-xs px-3 py-2 min-h-[40px]"
-              >
-                {phaseAdvanceLabel(gameState.phase)}
-              </button>
+                gameState={gameState}
+                countdown={phoneCountdownApplies(gameState, myTurn, phoneTurnCountdown)}
+                holdClock={firstTurnClockWait && showStartModal && gameState.turn_number === 1}
+              />
             )}
             {/* Cards badge */}
             {mobileMyPlayer && mobileMyPlayer.cards.length > 0 && (

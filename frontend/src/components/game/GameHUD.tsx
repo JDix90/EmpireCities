@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useGameStore } from '../../store/gameStore';
+import { useTurnCountdown } from '../../hooks/useTurnCountdown';
 import { useAuthStore } from '../../store/authStore';
 import { ArrowRight, ChevronUp, Clock, CreditCard, Flag, LogOut, Save, ScrollText, Shield, Sword, Undo2, Users, Zap } from 'lucide-react';
 import clsx from 'clsx';
@@ -168,7 +169,6 @@ export default function GameHUD({
   const { user } = useAuthStore();
   const [showCards, setShowCards] = useState(false);
   const [selectedCards, setSelectedCards] = useState<string[]>([]);
-  const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [spectatorCount, setSpectatorCount] = useState(0);
   const [fastCombat, setFastCombat] = useState(getFastCombatPreference);
   const [cameraFollow, setCameraFollow] = useState(getCameraFollowPreference);
@@ -262,43 +262,8 @@ export default function GameHUD({
     (lastCombatResult.defenderId === myPlayer.player_id) &&
     defenderFactionBonus > 0;
 
-  // Turn timer countdown. Prefers the server-authoritative deadline (one per
-  // turn, running on through its phases) and recomputes from the clock each
-  // tick so the display can't drift or go stale at 0:00.
-  //
-  // Null-vs-undefined matters: a server that KNOWS the timer is off right now
-  // (AI turns, choice-event pauses) sends phase_deadline_at: null — show no
-  // clock rather than a ghost countdown ticking toward a timeout that will
-  // never fire. Only `undefined` (a pre-deadline server) falls back to
-  // turn_started_at math, and then only on a human's turn.
-  useEffect(() => {
-    if (!gameState?.settings.turn_timer_seconds || gameState.settings.turn_timer_seconds === 0) {
-      setTimeLeft(null);
-      return;
-    }
-    const currentPlayer = gameState.players[gameState.current_player_index];
-    if (gameState.phase === 'game_over' || currentPlayer?.is_ai || gameState.phase_deadline_at === null) {
-      setTimeLeft(null);
-      return;
-    }
-    // The first turn's clock starts when the game-start briefing closes (the
-    // server honours that ready signal however late on turn 1), so it holds
-    // at the full turn while the briefing is open.
-    if (holdFirstTurnClock) {
-      setTimeLeft(gameState.settings.turn_timer_seconds);
-      return;
-    }
-    const deadline =
-      gameState.phase_deadline_at ??
-      gameState.turn_started_at + gameState.settings.turn_timer_seconds * 1000;
-    const compute = () => Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
-    setTimeLeft(compute());
-
-    const interval = setInterval(() => {
-      setTimeLeft(compute());
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [gameState?.turn_started_at, gameState?.phase_deadline_at, gameState?.settings.turn_timer_seconds, gameState?.phase, gameState?.current_player_index, gameState?.players, holdFirstTurnClock]);
+  // Turn timer countdown (hooks/useTurnCountdown.ts, shared with the phone bar).
+  const timeLeft = useTurnCountdown(gameState, holdFirstTurnClock);
 
   useEffect(() => {
     if (!gameId) return;

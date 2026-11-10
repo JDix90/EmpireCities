@@ -331,6 +331,23 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // and a player had to know to swipe the sheet up.
   // On by default; the admin override is the kill switch.
   phone_fortify_fit_enabled: () => envOptOut('PHONE_FORTIFY_FIT_ENABLED'),
+  // Phone sheet fit: the territory sheet grows to show its main action — the
+  // Place button while reinforcing, the first target row while attacking —
+  // measured on the device, up to the full snap. On a 664px-tall phone the
+  // Place button sat half under the bottom bar at the default snap.
+  // On by default; the admin override is the kill switch.
+  phone_sheet_fit_enabled: () => envOptOut('PHONE_SHEET_FIT_ENABLED'),
+  // Phone turn countdown: the phone's bottom bar shows the turn clock for its
+  // last minute in a live (not async) game. The clock was only in the ☰ menu,
+  // so a phone player's turn ran out with nothing on screen saying so.
+  // On by default; the admin override is the kill switch.
+  phone_turn_countdown_enabled: () => envOptOut('PHONE_TURN_COUNTDOWN_ENABLED'),
+  // Solo games are untimed: a game with one human and only bots (Quick Match,
+  // the first match, Full Game, campaign) gets no turn clock, and Custom Game's
+  // timer defaults to None when every other seat is a bot. Nobody waits on a
+  // solo player, so the clock only took turns off people still at the screen.
+  // On by default; the admin override is the kill switch.
+  solo_untimed_enabled: () => envOptOut('SOLO_UNTIMED_ENABLED'),
   // In-game mute: a "Sound and music" switch in the HUD's Tools & options,
   // which the phone menu shares, muting both at once. Music starts on the
   // first tap and the only mutes were on the Settings page.
@@ -780,6 +797,34 @@ export const featureFlags = {
    */
   get phoneFortifyFitEnabled(): boolean {
     return overrideBool('phone_fortify_fit_enabled');
+  },
+
+  /**
+   * Phone sheet fit: the territory sheet grows to show its main action (the
+   * Place button, the first attack target) up to the full snap (TerritoryPanel).
+   * Default ON; `PHONE_SHEET_FIT_ENABLED=false` or the admin override turns it off.
+   */
+  get phoneSheetFitEnabled(): boolean {
+    return overrideBool('phone_sheet_fit_enabled');
+  },
+
+  /**
+   * Phone turn countdown: the last minute of a live game's turn clock in the
+   * phone's bottom bar (GamePage). Default ON; `PHONE_TURN_COUNTDOWN_ENABLED=false`
+   * or the admin override turns it off.
+   */
+  get phoneTurnCountdownEnabled(): boolean {
+    return overrideBool('phone_turn_countdown_enabled');
+  },
+
+  /**
+   * Solo games are untimed: no turn clock in a game with one human and only
+   * bots. The lobby builds Quick Match, Full Game and Custom Game; the campaign
+   * route builds its stages. Default ON; `SOLO_UNTIMED_ENABLED=false` or the
+   * admin override turns it off.
+   */
+  get soloUntimedEnabled(): boolean {
+    return overrideBool('solo_untimed_enabled');
   },
 
   /**
@@ -1686,6 +1731,9 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     tutorial_wrapup_to_match_enabled: featureFlags.tutorialWrapupToMatchEnabled,
     first_match_primary_cta_enabled: featureFlags.firstMatchPrimaryCtaEnabled,
     phone_fortify_fit_enabled: featureFlags.phoneFortifyFitEnabled,
+    phone_sheet_fit_enabled: featureFlags.phoneSheetFitEnabled,
+    phone_turn_countdown_enabled: featureFlags.phoneTurnCountdownEnabled,
+    solo_untimed_enabled: featureFlags.soloUntimedEnabled,
     in_game_mute_enabled: featureFlags.inGameMuteEnabled,
     full_game_evening_enabled: featureFlags.fullGameEveningEnabled,
     placement_cap_note_enabled: featureFlags.placementCapNoteEnabled,

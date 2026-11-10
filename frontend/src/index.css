@@ -227,10 +227,29 @@
   max-height: max(36vh, min(var(--fortify-fit-height, 36vh), 55vh));
 }
 
+/* Phone sheet fit (phone_sheet_fit_enabled): the peek and half snaps grow to
+   the measured bottom of the sheet's main action — the Place button, the first
+   attack target — which TerritoryPanel writes to --sheet-fit-height. Never
+   shorter than the snap, never taller than full. At 42vh on a 664px phone the
+   half snap ended 30px into the Place button. */
+.mobile-sheet-fit-peek {
+  max-height: max(36vh, min(var(--sheet-fit-height, 36vh), 55vh));
+}
+
+.mobile-sheet-fit-half {
+  max-height: max(42vh, min(var(--sheet-fit-height, 42vh), 55vh));
+}
+
 /* Landscape mobile: cap full snap only */
 @media (max-width: 768px) and (orientation: landscape) {
   .mobile-sheet-fortify-fit {
     max-height: max(26vh, min(var(--fortify-fit-height, 26vh), 35vh));
+  }
+  .mobile-sheet-fit-peek {
+    max-height: max(26vh, min(var(--sheet-fit-height, 26vh), 35vh));
+  }
+  .mobile-sheet-fit-half {
+    max-height: max(32vh, min(var(--sheet-fit-height, 32vh), 35vh));
   }
   .mobile-sheet-full {
     max-height: 35vh;
