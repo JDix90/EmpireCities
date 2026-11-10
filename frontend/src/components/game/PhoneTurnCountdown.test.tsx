@@ -63,6 +63,22 @@ describe('PhonePhaseButton', () => {
   });
 });
 
+describe('PhonePhaseButton quiet (first_match_button_emphasis_enabled)', () => {
+  it('is plain rather than gold while quiet, and still works', () => {
+    const onClick = vi.fn();
+    const { rerender } = render(
+      <PhonePhaseButton label="Begin Attack →" onClick={onClick} gameState={game(200)} countdown={false} holdClock={false} quiet />,
+    );
+    const button = screen.getByRole('button', { name: 'Begin Attack →' });
+    expect(button.className).toContain('btn-secondary');
+    expect(button.className).not.toContain('btn-primary');
+    button.click();
+    expect(onClick).toHaveBeenCalledTimes(1);
+    rerender(<PhonePhaseButton label="Begin Attack →" onClick={onClick} gameState={game(200)} countdown={false} holdClock={false} />);
+    expect(screen.getByRole('button', { name: 'Begin Attack →' }).className).toContain('btn-primary');
+  });
+});
+
 describe('phoneCountdownApplies', () => {
   it('needs the flag, the viewer’s own turn and a live timed game', () => {
     expect(phoneCountdownApplies(game(30), true, true)).toBe(true);

@@ -28,6 +28,11 @@ const UiEventSchema = z.object({
     'retention_notification_clicked',
     'signup_nudge_shown',
     'signup_nudge_clicked',
+    // Coach tips (coach_tips_enabled, frontend utils/coachTips.ts): the answer a
+    // first match's briefing got (choice: on | off), and tips hidden from the
+    // strip. Whether most players hide them in round 1 says the tips are wrong.
+    'coach_tips_choice',
+    'coach_tips_hidden',
     'pwa_installed',
     // Browser push opt-in outcomes (frontend enableWebPush): the permission
     // prompt is a one-shot per origin, so how often it is granted vs refused
@@ -102,6 +107,14 @@ const UiEventSchema = z.object({
     const step = value.properties?.step;
     if (!step || !FIRST_TURN_STEPS.has(step)) {
       ctx.addIssue({ code: 'custom', path: ['properties', 'step'], message: 'Unknown step' });
+    }
+    return;
+  }
+  // The coach tips choice is a closed set too.
+  if (value.event === 'coach_tips_choice' || value.event === 'coach_tips_hidden') {
+    const choice = value.properties?.choice;
+    if (choice !== 'on' && choice !== 'off') {
+      ctx.addIssue({ code: 'custom', path: ['properties', 'choice'], message: 'Unknown choice' });
     }
     return;
   }

@@ -135,6 +135,24 @@ describe('POST /api/analytics/ui-event', () => {
     await app.close();
   });
 
+  it('accepts the coach tips answer and the strip\u2019s Hide tips, with a known choice only', async () => {
+    const app = await build();
+    for (const event of ['coach_tips_choice', 'coach_tips_hidden']) {
+      const ok = await app.inject({
+        method: 'POST', url: '/api/analytics/ui-event',
+        payload: { event, properties: { choice: 'off', first_match: 'true' } },
+      });
+      expect(ok.statusCode).toBe(200);
+    }
+    const bad = await app.inject({
+      method: 'POST', url: '/api/analytics/ui-event',
+      payload: { event: 'coach_tips_choice', properties: { choice: 'maybe' } },
+    });
+    expect(bad.statusCode).toBe(400);
+    expect(recordServerEventMock).toHaveBeenCalledTimes(2);
+    await app.close();
+  });
+
   it('still rejects a name that is not on the allowlist', async () => {
     const app = await build();
     const res = await app.inject({

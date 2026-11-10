@@ -61,6 +61,12 @@ import { nothingToFightMessage } from '../../utils/attackAvailability';
 
 interface GameHUDProps {
   onAdvancePhase: () => void;
+  /**
+   * The phase button is plain rather than gold (first_match_button_emphasis_enabled,
+   * utils/coachTips.ts phaseButtonQuiet): in a first match, until the phase's
+   * own action is done.
+   */
+  advanceQuiet?: boolean;
   /** Reverse the last manual reinforcement placement this turn (turn-clarity flag). */
   onDraftUndo?: () => void;
   onRedeemCards: (cardIds: string[]) => void;
@@ -139,6 +145,7 @@ function isSoundOn(): boolean {
 
 export default function GameHUD({
   onAdvancePhase,
+  advanceQuiet = false,
   onDraftUndo,
   onRedeemCards,
   onResign,
@@ -982,7 +989,7 @@ export default function GameHUD({
       {/* Phase Advance Button */}
       {isMyTurn && gameState.phase !== 'game_over' && gameState.phase !== 'territory_select' && (
         <div className="shrink-0 p-4 border-t border-bf-border">
-          <button onClick={onAdvancePhase} className="btn-primary w-full">
+          <button onClick={onAdvancePhase} className={clsx(advanceQuiet ? 'btn-secondary' : 'btn-primary', 'w-full')}>
             {phaseAdvanceLabel(gameState.phase)}
           </button>
         </div>

@@ -71,6 +71,19 @@ import { usePlayOnStore, type PlayOnResult, type PlayOnVoteView } from '../store
 import { useFirstTurnEventsEnabled } from '../store/featureFlagsStore';
 import { useFirstTurnClockWaitEnabled, usePhoneTurnCountdownEnabled } from '../store/featureFlagsStore';
 import { PhonePhaseButton, phoneCountdownApplies } from '../components/game/PhoneTurnCountdown';
+import { useCoachTipsEnabled, useFirstMatchButtonEmphasisEnabled } from '../store/featureFlagsStore';
+import CoachTipStrip from '../components/game/CoachTipStrip';
+import {
+  coachTipFor,
+  coachTipsDoneBetween,
+  phaseButtonQuiet,
+  readCoachTipsChoice,
+  readCoachTipsDone,
+  writeCoachTipsChoice,
+  writeCoachTipsDone,
+  type CoachTipView,
+  type CoachTipsChoice,
+} from '../utils/coachTips';
 import { newFirstTurnSteps, type FirstTurnStep, type FirstTurnView } from '../utils/firstTurnSteps';
 import PlayOnTag from '../components/game/PlayOnTag';
 import GalacticBetaTag, { GALACTIC_BETA_WELCOME_NOTE } from '../components/game/GalacticBetaTag';
@@ -709,13 +722,15 @@ export default function GamePage() {
   const asyncOnboardingFlag = useAsyncOnboardingEnabled();
   const turnClarityFlag = useTurnClarityEnabled();
   const galaxyTutorialFlag = useGalaxyTutorialEnabled();
+  // Coach tips (coach_tips_enabled, utils/coachTips.ts) replace the first-turn card.
+  const coachTipsFlag = useCoachTipsEnabled();
   const coachEligible = shouldShowFirstTurnCoach({
     xp: user?.xp,
     isTutorial,
     coachingEnabled: gameState?.settings?.coaching_enabled === true,
     mapView,
     turnNumber: gameState?.turn_number,
-    flagEnabled: firstTurnCoachFlag,
+    flagEnabled: firstTurnCoachFlag && !coachTipsFlag,
   });
   const coachEligibleRef = useRef(coachEligible);
   coachEligibleRef.current = coachEligible;
@@ -784,6 +799,58 @@ export default function GamePage() {
     () => (gameState ? resolvePlayerTechEraId(gameState, viewerPlayer) : null),
     [gameState, viewerPlayer],
   );
+
+  // Coach tips (coach_tips_enabled) and the first match's phase button
+  // (first_match_button_emphasis_enabled), both in utils/coachTips.ts. What the
+  // player is doing now, read once here for both.
+  const buttonEmphasisFlag = useFirstMatchButtonEmphasisEnabled();
+  const [coachTipsChoice, setCoachTipsChoice] = useState<CoachTipsChoice | null>(readCoachTipsChoice);
+  const [coachTipsDone, setCoachTipsDone] = useState(readCoachTipsDone);
+  const coachView = useMemo<CoachTipView | null>(() => {
+    if (!gameState || !viewerPlayer) return null;
+    const myTurn = gameState.players[gameState.current_player_index]?.player_id === viewerPlayer.player_id;
+    return {
+      phase: gameState.phase,
+      myTurn,
+      draftPool: myTurn && gameState.phase === 'draft'
+        ? computeDraftPool(gameState, user?.user_id, user?.username, draftUnitsRemaining, resolvedViewerPlayerId)
+        : 0,
+      ownTerritorySelected: !!selectedTerritory && gameState.territories[selectedTerritory]?.owner_id === viewerPlayer.player_id,
+      // Server-kept since the loss tallies (state/lossTally.ts).
+      attackedThisTurn: (viewerPlayer as { attacked_this_turn?: boolean }).attacked_this_turn === true,
+    };
+  }, [gameState, viewerPlayer, user?.user_id, user?.username, draftUnitsRemaining, resolvedViewerPlayerId, selectedTerritory]);
+  const firstMatchGame = (gameState?.settings as { first_match?: boolean } | undefined)?.first_match === true;
+  const phaseButtonIsQuiet = !!coachView && phaseButtonQuiet({
+    enabled: buttonEmphasisFlag,
+    firstMatch: firstMatchGame,
+    phase: coachView.phase,
+    draftPool: coachView.draftPool,
+    attackedThisTurn: coachView.attackedThisTurn,
+  });
+  // Retire each step once the player has done it (coachTipsDoneBetween).
+  const prevCoachViewRef = useRef<CoachTipView | null>(null);
+  useEffect(() => {
+    if (!coachView) return;
+    const newlyDone = coachTipsDoneBetween(prevCoachViewRef.current, coachView);
+    prevCoachViewRef.current = coachView;
+    if (newlyDone.length === 0) return;
+    setCoachTipsDone((done) => {
+      if (newlyDone.every((id) => done.has(id))) return done;
+      const next = new Set(done);
+      newlyDone.forEach((id) => next.add(id));
+      writeCoachTipsDone(next);
+      return next;
+    });
+  }, [coachView]);
+  const chooseCoachTips = useCallback((choice: CoachTipsChoice, via: 'briefing' | 'strip') => {
+    setCoachTipsChoice(choice);
+    writeCoachTipsChoice(choice);
+    api.post('/analytics/ui-event', {
+      event: via === 'strip' ? 'coach_tips_hidden' : 'coach_tips_choice',
+      properties: { choice, first_match: String(firstMatchGame) },
+    }).catch(() => {});
+  }, [firstMatchGame]);
   // A game created under Galactic Age buildings v2 plays on the v2 tree; ask
   // the static route for that one so the client gates the same buildings.
   // Lane powers (`galaxy_powers`) likewise: the tree whose nodes open them, and
@@ -5756,6 +5823,8 @@ export default function GamePage() {
               mapNameLookup={mapData}
               moonTiles={moonTiles}
               guideFirst={!spaceAgeGuideSeen}
+              offerTips={coachTipsFlag && firstMatchGame && coachTipsChoice === null && !isTutorial}
+              onTipsChoice={(choice) => chooseCoachTips(choice, 'briefing')}
               onGuideShown={(via) => {
                 // The first-time page is one more tap the game asked for, so
                 // the overlay budget counts it; opening it by choice is not.
@@ -5838,6 +5907,7 @@ export default function GamePage() {
             <GamePanelBoundary name="hud" resetKey={gameState?.turn_number}>
               <GameHUD
                 onAdvancePhase={handleAdvancePhase}
+                advanceQuiet={phaseButtonIsQuiet}
                 onDraftUndo={handleDraftUndo}
                 onRedeemCards={handleRedeemCards}
                 onResign={isTutorial ? undefined : handleResignRequest}
@@ -5974,6 +6044,7 @@ export default function GamePage() {
                 gameState={gameState}
                 countdown={phoneCountdownApplies(gameState, myTurn, phoneTurnCountdown)}
                 holdClock={firstTurnClockWait && showStartModal && gameState.turn_number === 1}
+                quiet={phaseButtonIsQuiet}
               />
             )}
             {/* Cards badge */}
@@ -6096,6 +6167,7 @@ export default function GamePage() {
               <GameHUD
                 mobile
                 onAdvancePhase={() => { handleAdvancePhase(); setMobileHudOpen(false); }}
+                advanceQuiet={phaseButtonIsQuiet}
                 onDraftUndo={handleDraftUndo}
                 onRedeemCards={(ids) => { handleRedeemCards(ids); setMobileHudOpen(false); }}
                 onResign={isTutorial ? undefined : handleResignRequest}
@@ -6452,6 +6524,22 @@ export default function GamePage() {
       {/* Action Notification (auto-dismiss — reinforcements, fortify, phase changes).
           A phone shows it in the turn strip instead (M-12 phase 2). */}
       {!isMobileLayout && <ActionNotification key={notifState?.key} data={notifState?.data ?? null} />}
+
+      {/* Coach tips (coach_tips_enabled): the next step in one line, once the
+          player has asked for tips; each step retires once done. */}
+      {(() => {
+        if (!coachTipsFlag || coachTipsChoice !== 'on' || isTutorial || showStartModal || !coachView) return null;
+        if (gameState?.phase === 'game_over') return null;
+        const tip = coachTipFor(coachView, coachTipsDone);
+        if (!tip) return null;
+        return (
+          <CoachTipStrip
+            tip={tip}
+            playerColor={viewerPlayer?.color}
+            onHide={() => chooseCoachTips('off', 'strip')}
+          />
+        );
+      })()}
 
       {/* First-turn coach (WI1) — one-time per-phase prompt for brand-new players on the globe */}
       {coachPhase && (
