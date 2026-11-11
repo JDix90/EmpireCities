@@ -148,12 +148,12 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().feedback_menu_enabled).toBe(true);
   });
 
-  it('fit_board_camera_enabled defaults to off and the admin override turns it on', () => {
-    expect(featureFlags.fitBoardCameraEnabled).toBe(false);
-    expect(getClientFeatureFlags().fit_board_camera_enabled).toBe(false);
-    setAdminConfigCacheForTests({ feature_flags: { fit_board_camera_enabled: true } });
+  it('fit_board_camera_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.fitBoardCameraEnabled).toBe(true);
     expect(getClientFeatureFlags().fit_board_camera_enabled).toBe(true);
+    setAdminConfigCacheForTests({ feature_flags: { fit_board_camera_enabled: false } });
+    expect(featureFlags.fitBoardCameraEnabled).toBe(false);
+    expect(getClientFeatureFlags().fit_board_camera_enabled).toBe(false);
   });
 
   it('globe_unit_counts_enabled defaults to off and the admin override turns it on', () => {

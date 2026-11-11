@@ -80,7 +80,9 @@ function gameState(fogged: string[] = []) {
 
 function mount({ flag = true, fogged = [] as string[] } = {}) {
   act(() => {
-    useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, globe_unit_counts_enabled: flag } }));
+    // The authored camera, which the stand-in's flat projection is drawn for:
+    // framing is GlobeMap.fitBoard.test.tsx's business.
+    useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, globe_unit_counts_enabled: flag, fit_board_camera_enabled: false } }));
     useGameStore.setState({ gameState: gameState(fogged) as never });
   });
   return render(

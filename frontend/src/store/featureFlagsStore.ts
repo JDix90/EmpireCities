@@ -166,8 +166,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   play_on_enabled: false,
   // First-turn measurement (analytics only). On by default; kill switch.
   first_turn_events_enabled: true,
-  // Small regional boards open zoomed in to fill the screen. Dark-launched OFF.
-  fit_board_camera_enabled: false,
+  // Small regional boards open zoomed in to fill the screen. On by default; kill switch.
+  fit_board_camera_enabled: true,
   // Army counts on the globe, where they have room. Dark-launched OFF.
   globe_unit_counts_enabled: false,
   // Guests appear on the leaderboards and see their own ratings. Dark-launched OFF.
