@@ -156,6 +156,14 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().fit_board_camera_enabled).toBe(false);
   });
 
+  it('guest_replay_sharing_enabled defaults to on and the admin override is its kill switch', () => {
+    expect(featureFlags.guestReplaySharingEnabled).toBe(true);
+    expect(getClientFeatureFlags().guest_replay_sharing_enabled).toBe(true);
+    setAdminConfigCacheForTests({ feature_flags: { guest_replay_sharing_enabled: false } });
+    expect(featureFlags.guestReplaySharingEnabled).toBe(false);
+    expect(getClientFeatureFlags().guest_replay_sharing_enabled).toBe(false);
+  });
+
   it('globe_unit_counts_enabled defaults to off and the admin override turns it on', () => {
     expect(featureFlags.globeUnitCountsEnabled).toBe(false);
     expect(getClientFeatureFlags().globe_unit_counts_enabled).toBe(false);

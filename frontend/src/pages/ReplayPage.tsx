@@ -36,7 +36,7 @@ import { buildCondensedTimeline, condenseReasonLabel } from '../utils/replayCond
 import ReplayClipExporter from '../components/game/ReplayClipExporter';
 import ReplayInsightsPanel, { type ReplayInsight } from '../components/game/ReplayInsightsPanel';
 import ReplayTipToast from '../components/game/ReplayTipToast';
-import ReplayPlayBanner from '../components/game/ReplayPlayBanner';
+import ReplayPlayBanner, { ReplayPlayFreeButton, useReplayOffersPlay } from '../components/game/ReplayPlayBanner';
 import ReplayActionsMenu, { type ReplayMenuAction } from '../components/game/ReplayActionsMenu';
 import Modal from '../components/ui/Modal';
 import {
@@ -159,6 +159,9 @@ export default function ReplayPage() {
   const [error, setError] = useState<string | null>(null);
   // Set when a replay exists but isn't public and the viewer can't see it.
   const [notPublic, setNotPublic] = useState(false);
+  // A signed-out visitor, most often from a shared link, is offered a game even
+  // where the replay is private: Play free leads there, Sign in follows it.
+  const offersPlay = useReplayOffersPlay();
   const [playing, setPlaying] = useState(false);
   // Daily-challenge replays default to a faster, time-lapse cadence; match
   // replays and general replays use real-time 1x.
@@ -793,11 +796,17 @@ export default function ReplayPage() {
             The player who shared this match hasn't made it publicly viewable
             {isAuthenticated ? '.' : ', or you need to sign in if you played in it.'}
           </p>
+          {offersPlay && (
+            <p className="text-bf-text text-sm mt-3 max-w-sm">
+              Borderfall is a free strategy game on a 3D globe. Play in your browser.
+            </p>
+          )}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <ReplayPlayFreeButton className="btn-primary text-sm px-5" />
           {!isAuthenticated && (
             <button
-              className="btn-primary text-sm flex items-center gap-1.5"
+              className={`${offersPlay ? 'btn-secondary' : 'btn-primary'} text-sm flex items-center gap-1.5`}
               onClick={() => navigate(`/login?redirect=${encodeURIComponent(`/replay/${gameId}`)}`)}
             >
               <LogIn className="w-4 h-4" /> Sign in

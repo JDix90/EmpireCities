@@ -1458,6 +1458,11 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
   const [shareBlob, setShareBlob] = useState<Blob | null>(null);
   const [shareImageUrl, setShareImageUrl] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle');
+  // The replay link, once the replay is public. Making it public can fail (a
+  // guest while guest_replay_sharing_enabled is off, a game the server has not
+  // closed yet), and a link handed out then opens on "This replay isn't public"
+  // for whoever receives it.
+  const [replayLink, setReplayLink] = useState<string | null>(null);
 
   useEffect(() => {
     return () => { if (shareImageUrl) URL.revokeObjectURL(shareImageUrl); };
@@ -1475,12 +1480,13 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
     if (shareBusy) return;
     setShareBusy(true);
     onShareOpened?.();
-    // Make the replay public so the link works for anyone — without this the
-    // recipient hits the "not public" gate. Fire-and-forget; the viewer also
-    // re-asserts public when copying from the replay page.
-    if (data.gameId) {
-      api.post(`/share/${data.gameId}/make-public`).catch(() => {});
-    }
+    // Make the replay public so the link works for anyone; without it the
+    // recipient hits the "not public" gate. Only a public replay's link is
+    // offered, and the card carries the site's address otherwise.
+    const linkLive = data.gameId
+      ? await api.post(`/share/${data.gameId}/make-public`).then(() => true, () => false)
+      : false;
+    setReplayLink(linkLive ? replayShareUrl : null);
     try {
       const blob = await generateShareCard({
         eraName: data.eraName ?? APP_NAME,
@@ -1489,7 +1495,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
         territoryCount: myPlayer?.territory_count ?? 0,
         turnCount: data.turnCount,
         username: user?.username ?? data.winnerName,
-        shareUrl: replayShareUrl,
+        shareUrl: linkLive ? replayShareUrl : window.location.origin,
         isWinner: data.isWinner,
         achievements: data.achievements_unlocked?.map((id) => achievementName(id, achievementNames)),
         friendStreakBonus: data.progression?.friend_streak_bonus,
@@ -2373,16 +2379,23 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
             <p className="text-white/50 text-xs font-semibold uppercase tracking-wider">Share Your Result</p>
             <img src={shareImageUrl} alt="Share card preview" className="w-full rounded-xl shadow-2xl" />
 
-            {/* Replay link */}
-            {data.gameId && (
-              <div className="w-full flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2">
+            {/* Replay link, only once the replay is public */}
+            {data.gameId && !replayLink && (
+              <p className="w-full text-center text-white/50 text-xs" data-testid="share-no-replay-link">
+                {user?.is_guest
+                  ? 'Save your account to share a link to the replay.'
+                  : 'The replay could not be made public, so this shares the picture without a link.'}
+              </p>
+            )}
+            {data.gameId && replayLink && (
+              <div className="w-full flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2" data-testid="share-replay-link">
                 <Link2 className="w-4 h-4 text-white/40 shrink-0" />
                 <span className="text-white/60 text-xs truncate flex-1">
                   {window.location.origin}/replay/{data.gameId}
                 </span>
                 <button
                   onClick={async () => {
-                    await navigator.clipboard.writeText(replayShareUrl).catch(() => {});
+                    await navigator.clipboard.writeText(replayLink).catch(() => {});
                     setCopyStatus('copied');
                     setTimeout(() => setCopyStatus('idle'), 2000);
                     // Track share
@@ -2417,7 +2430,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
                     eraName: data.eraName ?? APP_NAME,
                     victoryCondition: data.victory_condition ?? 'domination',
                     turnCount: data.turnCount,
-                    shareUrl: replayShareUrl,
+                    shareUrl: replayLink ?? window.location.origin,
                   });
                   window.open(
                     `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`,
@@ -2444,7 +2457,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
                     eraName: data.eraName ?? APP_NAME,
                     victoryCondition: data.victory_condition ?? 'domination',
                     turnCount: data.turnCount,
-                    shareUrl: replayShareUrl,
+                    shareUrl: replayLink ?? window.location.origin,
                   });
                   await navigator.clipboard.writeText(text).catch(() => {});
                   setCopyStatus('copied');

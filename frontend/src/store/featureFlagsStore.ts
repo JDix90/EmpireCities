@@ -27,6 +27,7 @@ export interface ClientFeatureFlags {
   guest_push_reminders_enabled: boolean;
   daily_guest_play_enabled: boolean;
   guest_personal_features_enabled: boolean;
+  guest_replay_sharing_enabled: boolean;
   streak_freezes_enabled: boolean;
   today_panel_enabled: boolean;
   async_onboarding_enabled: boolean;
@@ -130,6 +131,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   daily_guest_play_enabled: true,
   // Guests see and use their own achievements, cosmetics, gold and settings. On by default; admin kill switch.
   guest_personal_features_enabled: true,
+  // A guest shares their own finished game's replay. On by default; kill switch.
+  guest_replay_sharing_enabled: true,
   // Wave 2 retention flags — all default off (dark-launch).
   streak_freezes_enabled: false,
   today_panel_enabled: false,

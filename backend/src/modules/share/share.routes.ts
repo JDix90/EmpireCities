@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { authenticate } from '../../middleware/authenticate';
-import { rejectGuest } from '../../middleware/rejectGuest';
+import { rejectGuestUnless } from '../../middleware/rejectGuest';
+import { featureFlags } from '../../config/featureFlags';
 import { query, queryOne } from '../../db/postgres';
 import { recordActivity } from '../../services/activityService';
 import { formatZodError } from '../../utils/formatZodError';
@@ -18,11 +19,15 @@ const OG_IMAGE_CACHE = new Map<string, Buffer>();
 const OG_IMAGE_CACHE_MAX = 200;
 
 export async function shareRoutes(fastify: FastifyInstance): Promise<void> {
+  // A guest shares their own games as an account does (guest_replay_sharing_enabled);
+  // each route still requires the caller to have played in the game.
+  const rejectGuestUnlessSharing = rejectGuestUnless(() => featureFlags.guestReplaySharingEnabled);
+
   // ── POST /api/share/:gameId ─────────────────────────────────────────────
   // Record that a user shared a game result
   fastify.post<{ Params: { gameId: string } }>(
     '/:gameId',
-    { preHandler: [authenticate, rejectGuest] },
+    { preHandler: [authenticate, rejectGuestUnlessSharing] },
     async (request, reply) => {
       const { gameId } = request.params;
       const schema = z.object({
@@ -79,7 +84,7 @@ export async function shareRoutes(fastify: FastifyInstance): Promise<void> {
   // Make a game replay publicly accessible (no auth required to watch)
   fastify.post<{ Params: { gameId: string } }>(
     '/:gameId/make-public',
-    { preHandler: [authenticate, rejectGuest] },
+    { preHandler: [authenticate, rejectGuestUnlessSharing] },
     async (request, reply) => {
       const { gameId } = request.params;
 
@@ -264,7 +269,7 @@ export async function shareRoutes(fastify: FastifyInstance): Promise<void> {
   // participant can do this.
   fastify.post<{ Params: { gameId: string } }>(
     '/:gameId/make-private',
-    { preHandler: [authenticate, rejectGuest] },
+    { preHandler: [authenticate, rejectGuestUnlessSharing] },
     async (request, reply) => {
       const { gameId } = request.params;
 
