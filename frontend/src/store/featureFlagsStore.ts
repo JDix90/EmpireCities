@@ -60,6 +60,7 @@ export interface ClientFeatureFlags {
   game_loading_label_enabled: boolean;
   tutorial_phone_gate_visible_enabled: boolean;
   desktop_card_cue_enabled: boolean;
+  card_sets_explain_enabled: boolean;
   battle_armies_enabled: boolean;
   battle_player_colors_enabled: boolean;
   tutorial_wrapup_to_match_enabled: boolean;
@@ -201,6 +202,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   tutorial_phone_gate_visible_enabled: true,
   // Desktop HUD offers a one-click card trade when a set is ready. On by default; admin kill switch.
   desktop_card_cue_enabled: true,
+  // Cards tray and list mark sets and say what the next one pays. Dark-launched OFF.
+  card_sets_explain_enabled: false,
   // Battle result: armies left beside both names, blitz dice marked as the last roll. On by default; admin kill switch.
   battle_armies_enabled: true,
   // Battle colours by player: battle dice and names in each player's map colour. On by default; admin kill switch.
@@ -542,6 +545,11 @@ export function useTutorialPhoneGateVisibleEnabled(): boolean {
 /** Desktop HUD offers a one-click card trade during the draft when a set is ready (components/game/GameHUD.tsx). */
 export function useDesktopCardCueEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.desktop_card_cue_enabled);
+}
+
+/** Cards tray and desktop card list mark sets and say what the next one pays (utils/cardSets.ts `cardPickView`). */
+export function useCardSetsExplainEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.card_sets_explain_enabled);
 }
 
 /** Battle result: armies left beside both territory names on your own attack, and a blitz's dice labelled as its last roll (components/game/ActionModal.tsx). */

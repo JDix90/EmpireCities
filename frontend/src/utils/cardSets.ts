@@ -51,3 +51,57 @@ export function cardSetBonus(redemptionCount: number, cap?: number): number {
     : 15 + (redemptionCount - schedule.length + 1) * 5;
   return cap && cap > 0 ? Math.min(bonus, cap) : bonus;
 }
+
+/** Every valid 3-card set in a hand, each as its card ids in hand order. */
+export function validSetsInHand(cards: HandCard[]): string[][] {
+  const sets: string[][] = [];
+  const n = cards.length;
+  for (let i = 0; i < n - 2; i++) {
+    for (let j = i + 1; j < n - 1; j++) {
+      for (let k = j + 1; k < n; k++) {
+        if (isValidCardSet([cards[i].symbol, cards[j].symbol, cards[k].symbol])) {
+          sets.push([cards[i].card_id, cards[j].card_id, cards[k].card_id]);
+        }
+      }
+    }
+  }
+  return sets;
+}
+
+/** The rule for a set, in the words the cards UI uses. */
+export const CARD_SET_RULE = 'Three of a kind, one of each, or a pair plus a wild.';
+
+export interface CardPickView {
+  /** Cards that belong to at least one valid set in the hand. */
+  inSet: Set<string>;
+  /** Whether a card can be picked toward a set with the cards already picked. */
+  canJoin: (cardId: string) => boolean;
+  /** What the pick so far is: nothing, part of a pick, a set, or three that are not one. */
+  pick: 'none' | 'partial' | 'valid' | 'invalid';
+  /** The set a one-tap trade redeems: the server's own first choice, as the bots trade. */
+  firstSet: string[] | null;
+}
+
+/**
+ * What the cards UI shows for a hand and a pick (card_sets_explain_enabled):
+ * the cards that make a set, which cards could still complete the pick, and
+ * whether three picked cards are a set the server will take.
+ */
+export function cardPickView(cards: HandCard[], selected: string[]): CardPickView {
+  const sets = validSetsInHand(cards);
+  const inSet = new Set(sets.flat());
+  const picked = selected.filter((id) => cards.some((c) => c.card_id === id));
+  const symbolOf = (id: string) => cards.find((c) => c.card_id === id)?.symbol ?? '';
+  const pick: CardPickView['pick'] =
+    picked.length === 0
+      ? 'none'
+      : picked.length < 3
+        ? 'partial'
+        : isValidCardSet(picked.map(symbolOf))
+          ? 'valid'
+          : 'invalid';
+  const canJoin = (cardId: string) =>
+    picked.includes(cardId) ||
+    (picked.length < 3 && sets.some((s) => s.includes(cardId) && picked.every((id) => s.includes(id))));
+  return { inSet, canJoin, pick, firstSet: findRedeemableCardIds(cards) };
+}

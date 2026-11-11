@@ -326,6 +326,11 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // already badge and open their cards tray.
   // On by default; the admin override is the kill switch.
   desktop_card_cue_enabled: () => envOptOut('DESKTOP_CARD_CUE_ENABLED'),
+  // Cards explain themselves: the cards tray and the desktop card list mark
+  // the cards that make a set, say what the next set pays, dim cards that
+  // cannot complete the pick, and offer a one-tap trade; the phone's cards
+  // button lights up when a set is ready in the player's draft. Dark-launched OFF.
+  card_sets_explain_enabled: () => envOptIn('CARD_SETS_EXPLAIN_ENABLED'),
   // Battle result: once the dice settle on the player's own attack, each
   // territory name shows the armies left on it, and a blitz labels its dice
   // "Last roll" with its losses as the total. The result showed dice and
@@ -858,6 +863,21 @@ export const featureFlags = {
    */
   get desktopCardCueEnabled(): boolean {
     return overrideBool('desktop_card_cue_enabled');
+  },
+
+  /**
+   * Cards explain themselves. The phone's cards tray and the desktop card
+   * list say what the next set pays ("+6 units") and the rule for a set,
+   * mark the cards that make one, dim the cards that cannot complete the
+   * current pick, say whether three picked cards are a set, and offer
+   * "Trade a set for +N units" in one tap. On a phone the cards button lights
+   * up during the player's draft while a set is ready. Before, the tray was
+   * the bare symbol names and "Select 3 cards to redeem for bonus units", and
+   * a player could hold a set for turns until five cards forced the tray open.
+   * Default OFF; `CARD_SETS_EXPLAIN_ENABLED=true` or the admin override turns it on.
+   */
+  get cardSetsExplainEnabled(): boolean {
+    return overrideBool('card_sets_explain_enabled');
   },
 
   /**
@@ -1906,6 +1926,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     game_loading_label_enabled: featureFlags.gameLoadingLabelEnabled,
     tutorial_phone_gate_visible_enabled: featureFlags.tutorialPhoneGateVisibleEnabled,
     desktop_card_cue_enabled: featureFlags.desktopCardCueEnabled,
+    card_sets_explain_enabled: featureFlags.cardSetsExplainEnabled,
     battle_armies_enabled: featureFlags.battleArmiesEnabled,
     battle_player_colors_enabled: featureFlags.battlePlayerColorsEnabled,
     tutorial_wrapup_to_match_enabled: featureFlags.tutorialWrapupToMatchEnabled,

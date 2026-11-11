@@ -14,13 +14,14 @@ import { ERA_LABELS } from '../../constants/gameLobbyLabels';
 import { phaseAdvanceLabel, PHASE_LABELS } from '../../constants/phaseLabels';
 import { PhaseProgressBar } from './PhaseProgressBar';
 import {
+  useCardSetsExplainEnabled,
   useDesktopCardCueEnabled,
   useFirstTurnClockWaitEnabled,
   useGlobeUnitCountsEnabled,
   useInGameMuteEnabled,
   useTurnClarityEnabled,
 } from '../../store/featureFlagsStore';
-import { cardSetBonus, findRedeemableCardIds } from '../../utils/cardSets';
+import { cardPickView, cardSetBonus, CARD_SET_RULE, findRedeemableCardIds } from '../../utils/cardSets';
 import { getEraIdForAdvancementIndex } from '../../utils/eraAdvancement';
 import { AiBadge } from '../ui/AiBadge';
 import { AiStyleBadge } from '../ui/AiStyleBadge';
@@ -251,6 +252,7 @@ export default function GameHUD({
       : null;
   const turnClarityEnabled = useTurnClarityEnabled();
   const desktopCardCueEnabled = useDesktopCardCueEnabled();
+  const cardSetsExplain = useCardSetsExplainEnabled();
   const draftPool = computeDraftPool(
     gameState,
     user?.user_id,
@@ -710,7 +712,13 @@ export default function GameHUD({
           )}
 
           {/* My Cards */}
-          {myPlayer && myPlayer.cards.length > 0 && (
+          {myPlayer && myPlayer.cards.length > 0 && (() => {
+            // card_sets_explain_enabled: which cards make a set, where the pick
+            // stands, and what the next set pays. Off, the list is as before.
+            const cardView = cardSetsExplain ? cardPickView(myPlayer.cards, selectedCards) : null;
+            const canTrade = isMyTurn && gameState.phase === 'draft';
+            const payout = `+${cardSetBonus(gameState.card_set_redemption_count ?? 0, gameState.settings.card_set_bonus_cap)} units`;
+            return (
             <div className="p-4 border-b border-bf-border">
               <button
                 className="w-full flex items-center justify-between text-xs font-medium text-bf-muted uppercase tracking-wider hover:text-bf-gold transition-colors"
@@ -718,43 +726,92 @@ export default function GameHUD({
               >
                 <span className="flex items-center gap-1.5">
                   <CreditCard className="w-3.5 h-3.5" /> Cards ({myPlayer.cards.length})
+                  {cardView && (
+                    <span className="normal-case tracking-normal text-bf-muted/80" data-testid="hud-cards-next-bonus">
+                      · next set {payout}
+                    </span>
+                  )}
                 </span>
                 <span>{showCards ? '▲' : '▼'}</span>
               </button>
 
               {showCards && (
                 <div className="mt-3 space-y-2">
-                  {myPlayer.cards.map((card) => (
-                    <button
-                      key={card.card_id}
-                      onClick={() => toggleCardSelection(card.card_id)}
-                      className={clsx(
-                        'w-full text-left p-2 rounded border text-sm transition-colors',
-                        selectedCards.includes(card.card_id)
-                          ? 'border-bf-gold bg-bf-gold/10 text-bf-gold'
-                          : 'border-bf-border text-bf-text hover:border-bf-gold/50'
+                  {myPlayer.cards.map((card) => {
+                    const picked = selectedCards.includes(card.card_id);
+                    const inSet = !!cardView?.inSet.has(card.card_id);
+                    const blocked = !!cardView?.firstSet && canTrade && selectedCards.length > 0 && !cardView.canJoin(card.card_id);
+                    return (
+                      <button
+                        key={card.card_id}
+                        onClick={() => toggleCardSelection(card.card_id)}
+                        disabled={blocked}
+                        aria-pressed={cardView ? picked : undefined}
+                        data-in-set={cardView ? String(inSet) : undefined}
+                        className={clsx(
+                          'w-full text-left p-2 rounded border text-sm transition-colors',
+                          picked
+                            ? 'border-bf-gold bg-bf-gold/10 text-bf-gold'
+                            : 'border-bf-border text-bf-text hover:border-bf-gold/50',
+                          cardView && 'flex items-center justify-between',
+                          blocked && 'opacity-40 cursor-not-allowed',
+                        )}
+                      >
+                        <span className="capitalize">{card.symbol}</span>
+                        {inSet && <span className="text-[10px] text-bf-gold/80">in a set</span>}
+                      </button>
+                    );
+                  })}
+                  {cardView ? (
+                    <>
+                      {canTrade && selectedCards.length === 3 && (
+                        <button
+                          onClick={handleRedeemCards}
+                          disabled={cardView.pick !== 'valid'}
+                          className={clsx('btn-primary w-full text-sm py-1.5 mt-2', cardView.pick !== 'valid' && 'opacity-50 cursor-not-allowed')}
+                          data-testid="hud-cards-redeem"
+                        >
+                          {cardView.pick === 'valid' ? `Redeem for ${payout}` : 'Not a set'}
+                        </button>
                       )}
-                    >
-                      <span className="capitalize">{card.symbol}</span>
-                    </button>
-                  ))}
-                  {selectedCards.length === 3 && isMyTurn && gameState.phase === 'draft' && (
-                    <button onClick={handleRedeemCards} className="btn-primary w-full text-sm py-1.5 mt-2">
-                      Redeem Set
-                    </button>
-                  )}
-                  {selectedCards.length > 0 && selectedCards.length < 3 && (
-                    <p className="text-xs text-bf-muted">Select {3 - selectedCards.length} more</p>
-                  )}
-                  {selectedCards.length === 0 && (
-                    <p className="text-xs text-bf-muted">
-                      Pick 3 to redeem for extra reinforcements during your draft: three of a kind, one of each, or a pair plus a wild.
-                    </p>
+                      <p className="text-xs text-bf-muted" data-testid="hud-cards-guidance">
+                        {!canTrade
+                          ? cardView.firstSet
+                            ? `You have a set ready for ${payout}. Trade it during your draft.`
+                            : `Trade a set during your draft. ${CARD_SET_RULE}`
+                          : cardView.pick === 'valid'
+                            ? `That's a set: ${payout}.`
+                            : cardView.pick === 'invalid'
+                              ? `Not a set. ${CARD_SET_RULE}`
+                              : cardView.pick === 'partial' && cardView.firstSet
+                                ? `Pick ${3 - selectedCards.length} more. Cards that can't finish a set are dimmed.`
+                                : cardView.firstSet
+                                  ? `Cards marked \u201cin a set\u201d make one. Pick three. ${CARD_SET_RULE}`
+                                  : `No set yet. ${CARD_SET_RULE}`}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      {selectedCards.length === 3 && isMyTurn && gameState.phase === 'draft' && (
+                        <button onClick={handleRedeemCards} className="btn-primary w-full text-sm py-1.5 mt-2">
+                          Redeem Set
+                        </button>
+                      )}
+                      {selectedCards.length > 0 && selectedCards.length < 3 && (
+                        <p className="text-xs text-bf-muted">Select {3 - selectedCards.length} more</p>
+                      )}
+                      {selectedCards.length === 0 && (
+                        <p className="text-xs text-bf-muted">
+                          Pick 3 to redeem for extra reinforcements during your draft: three of a kind, one of each, or a pair plus a wild.
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
               )}
             </div>
-          )}
+            );
+          })()}
 
           {!myPlayer?.capital_territory_id && !myPlayer?.secret_mission && !sovereignty.applicable && !mapControl
             && !(gameState.settings.economy_enabled || gameState.settings.tech_trees_enabled)
