@@ -523,6 +523,12 @@ const CLIENT_FEATURE_FLAGS = [
       'A fixed regional board (Britain, Spain, Japan and the other regional maps) opens on the globe zoomed in until it fills the screen, so its territories are big enough to tap. It never zooms out further than the board\'s own framing, so wide boards on a phone are unchanged. Players can still pinch and zoom. On by default; this is the kill switch. Off, every board opens at its authored framing, which on a phone leaves Britain about 8% of the screen.',
   },
   {
+    key: 'globe_unit_counts_enabled',
+    label: 'Army counts on the globe',
+    description:
+      'Each territory on the globe shows its army count, the same badge the 2D map draws, where it has room: the selected territory and its neighbours always, every other count where it does not crowd one already shown (the player\u2019s own first, then the biggest stacks), so zoomed in or on a board that fills the screen that is every count. Never on a territory hidden by fog of war. Players can turn it off in Tools & options and Settings. Off by default; off, the globe shows no counts, as before.',
+  },
+  {
     key: 'first_turn_events_enabled',
     label: 'First-turn measurement',
     description:

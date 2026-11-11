@@ -21,11 +21,14 @@ import {
   isMusicMuted,
   getCameraFollowPreference,
   setCameraFollowPreference,
+  getGlobeArmyCountsPreference,
+  setGlobeArmyCountsPreference,
   readTutorialProgress,
   writeTutorialProgress,
   clearTutorialProgress,
   hasSeenSpaceAgeGuide,
   markSpaceAgeGuideSeen,
+  subscribeUserPreferences,
 } from './userPreferences';
 
 /** The device's primary pointer, as `(pointer: coarse)` reports it: a phone or tablet when coarse. */
@@ -88,6 +91,19 @@ describe('userPreferences', () => {
     expect(getCameraFollowPreference()).toBe(false);
     setCameraFollowPreference(true);
     expect(getCameraFollowPreference()).toBe(true);
+  });
+
+  it('defaults army counts on the globe to ON, round-trips it, and tells subscribers', () => {
+    let heard = 0;
+    const unsubscribe = subscribeUserPreferences(() => { heard += 1; });
+    expect(getGlobeArmyCountsPreference()).toBe(true);
+    setGlobeArmyCountsPreference(false);
+    expect(localStorage.getItem('cc-globe-army-counts')).toBe('false');
+    expect(getGlobeArmyCountsPreference()).toBe(false);
+    setGlobeArmyCountsPreference(true);
+    expect(getGlobeArmyCountsPreference()).toBe(true);
+    expect(heard).toBe(2);
+    unsubscribe();
   });
 
   it('exposes a persist alias for camera follow matching the setter', () => {

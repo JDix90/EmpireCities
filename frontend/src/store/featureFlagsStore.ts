@@ -45,6 +45,7 @@ export interface ClientFeatureFlags {
   play_on_enabled: boolean;
   first_turn_events_enabled: boolean;
   fit_board_camera_enabled: boolean;
+  globe_unit_counts_enabled: boolean;
   guest_leaderboards_enabled: boolean;
   guest_daily_board_enabled: boolean;
   localization_enabled: boolean;
@@ -167,6 +168,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   first_turn_events_enabled: true,
   // Small regional boards open zoomed in to fill the screen. On by default; kill switch.
   fit_board_camera_enabled: true,
+  // Army counts on the globe, where they have room. Dark-launched OFF.
+  globe_unit_counts_enabled: false,
   // Guests appear on the leaderboards and see their own ratings. Dark-launched OFF.
   guest_leaderboards_enabled: false,
   // Guest runs are ranked on the Daily Challenge board. Dark-launched OFF.
@@ -440,6 +443,11 @@ export function useFirstTurnEventsEnabled(): boolean {
 /** Fit small boards to the screen (utils/regionalGlobe.ts fitRegionalView). */
 export function useFitBoardCameraEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.fit_board_camera_enabled);
+}
+
+/** Army counts on the globe, where they have room (utils/globeUnitCounts.ts). */
+export function useGlobeUnitCountsEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.globe_unit_counts_enabled);
 }
 
 /** Guests are ranked on the leaderboards and see their own ratings. */

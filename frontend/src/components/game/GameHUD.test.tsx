@@ -6,7 +6,7 @@ import GameHUD from './GameHUD';
 import { useGameStore, type GameState } from '../../store/gameStore';
 import { useAuthStore } from '../../store/authStore';
 import { useFeatureFlagsStore } from '../../store/featureFlagsStore';
-import { isMusicMuted, isSfxMuted, setMusicMuted, setSfxMuted } from '../../utils/userPreferences';
+import { getGlobeArmyCountsPreference, isMusicMuted, isSfxMuted, setMusicMuted, setSfxMuted } from '../../utils/userPreferences';
 import { translatePage } from '../../test/translatePage';
 
 vi.mock('../../services/socket', () => ({
@@ -305,6 +305,24 @@ describe('GameHUD — tabbed redesign (#9)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Tools & options/ }));
     expect(screen.getByRole('button', { name: /Resign/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Save & Leave/ })).toBeInTheDocument();
+  });
+
+  it('offers army counts on the globe in Tools only while that switch is on, and remembers the choice', () => {
+    useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, globe_unit_counts_enabled: false } }));
+    const off = renderHud();
+    fireEvent.click(screen.getByRole('button', { name: /Tools & options/ }));
+    expect(screen.queryByTestId('hud-army-counts-toggle')).toBeNull();
+    off.unmount();
+
+    useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, globe_unit_counts_enabled: true } }));
+    renderHud();
+    fireEvent.click(screen.getByRole('button', { name: /Tools & options/ }));
+    const toggle = screen.getByTestId('hud-army-counts-toggle') as HTMLInputElement;
+    expect(toggle.checked).toBe(true);
+    fireEvent.click(toggle);
+    expect(toggle.checked).toBe(false);
+    expect(getGlobeArmyCountsPreference()).toBe(false);
+    useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, globe_unit_counts_enabled: false } }));
   });
 
   it('persists the selected tab across remounts', () => {
