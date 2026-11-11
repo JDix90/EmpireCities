@@ -130,26 +130,6 @@ describe('GlobeMap under the phone frame budget', () => {
     expect(globe.running).toBe(false);
   });
 
-  it('creates a phone globe without three-globe\'s build-in, which the idling loop froze part-way', () => {
-    // The build-in turns the globe a full circle over 1.2 s on the render
-    // loop; idling a few frames in left the board turned under the camera.
-    mount();
-    expect(globe.props!.animateIn).toBe(false);
-  });
-
-  it('keeps the build-in on the desktop, where the ready wake outlasts its 1.2 s', () => {
-    const { rerender } = mount({ frameBudget: false, reducedEffects: false });
-    expect(globe.props!.animateIn).toBe(true);
-    act(() => { vi.advanceTimersByTime(1300); });
-    expect(globe.running).toBe(true);
-    // Read once, at creation, as react-globe.gl reads it: a later budget does not pretend otherwise.
-    rerender(
-      <GlobeMapCore mapData={spaceAge} onTerritoryClick={() => {}} width={390} height={600}
-        selfPlayerId="me" frameBudget reducedEffects autoSpin={false} />,
-    );
-    expect(globe.props!.animateIn).toBe(true);
-  });
-
   it('keeps the four-second idle on the desktop', () => {
     mount({ frameBudget: false, reducedEffects: false });
     act(() => { vi.advanceTimersByTime(400); });

@@ -1789,16 +1789,6 @@ function GlobeMap({
   // applyRenderActivity(), for as long as that thing needs.
   const frameBudgetRef = useRef(frameBudget);
   frameBudgetRef.current = frameBudget;
-  // three-globe builds a new globe in (its `animateIn`): a full turn about
-  // the pole easing to rest over 1.2 s, and a scale-up over the first 0.6 s,
-  // both tweens on the render loop. Under the phone budget the loop idles a
-  // few frames after the globe is ready, part-way through: the earth stayed
-  // turned and shrunk under a camera aimed where it should be until the
-  // first touch snapped it home, and the American Civil War board opened
-  // with the US at the screen's edge over the Pacific. A phone globe is
-  // created without it; any other globe's ready wake (RENDER_IDLE_MS)
-  // outlasts it. Read once, at creation, as react-globe.gl reads it.
-  const buildInRef = useRef(!frameBudget);
   const heldRef = useRef(held);
   heldRef.current = held;
   const renderWakeRef = useRef<RenderWake | null>(null);
@@ -4498,7 +4488,6 @@ function GlobeMap({
         htmlElement={htmlElAccessors.element}
         htmlTransitionDuration={0}
         rendererConfig={frameBudget ? LOW_POWER_RENDERER : undefined}
-        animateIn={buildInRef.current}
 
         /* Arcs (event animations + adjacency indicators) */
         arcsData={combinedArcs}
