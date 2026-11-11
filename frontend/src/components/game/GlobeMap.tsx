@@ -4451,6 +4451,16 @@ function GlobeMap({
         ref={globeRef}
         width={width}
         height={height}
+        /*
+          No build-in spin. three-globe's default spins the globe itself (not
+          the camera) a full turn over 1.2 s as it appears, and its tween moves
+          only while the render loop runs. At a game's opening the loop stops
+          well short of that: the intro modal holds it, and on a phone the
+          budget wakes it for 100 ms. The globe froze part-way round with the
+          camera on the authored view, and the Civil War board opened on the
+          Pacific, the US against the right edge, until the next touch.
+        */
+        animateIn={false}
         backgroundColor={effectiveBackgroundColor}
         globeImageUrl={galaxyPolygonTexture ?? globeImageUrl}
         bumpImageUrl={bumpImageUrl}
