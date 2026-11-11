@@ -2,6 +2,7 @@ import clsx from 'clsx';
 import { Anchor, Sword, Rocket, Lock, Info } from 'lucide-react';
 import type { NeighborTargetRow } from '../../utils/mapAdjacencyTargets';
 import { plural } from '../../utils/plural';
+import { formatWinChance, winChanceTone, WIN_CHANCE_HINT } from '../../hooks/useAttackOdds';
 
 /** Why a sea-lane attack row is disabled (PT-010). */
 const NEEDS_FLEET_HINT =
@@ -79,6 +80,8 @@ export default function NeighborTerritoryPicker({
           // so it is offered greyed out with the reason, not as a live button.
           const fleetless = isAttack && neighbor.needsFleet;
           const blocked = locked || fleetless;
+          // combat_explain_enabled: the chance of taking it, once the server has priced it.
+          const chance = isAttack && !blocked && neighbor.winChance != null ? formatWinChance(neighbor.winChance) : null;
           const accent = isOrbit
             ? 'border-violet-600/55 bg-violet-950/40 text-violet-100 hover:border-violet-400/70 hover:bg-violet-900/45'
             : phase === 'attack'
@@ -115,9 +118,9 @@ export default function NeighborTerritoryPicker({
                     : fleetless
                       ? `${neighbor.name} — needs a fleet to cross the sea lane`
                     : isAttack
-                      ? isOrbit
+                      ? (isOrbit
                         ? `Hyperspace assault on ${neighbor.targetWorldName ?? neighbor.name}`
-                        : `Attack ${neighbor.name}`
+                        : `Attack ${neighbor.name}`) + (chance ? `, ${chance} chance to take it` : '')
                       : `Select ${neighbor.name}`
                 }
                 onClick={() => {
@@ -138,6 +141,18 @@ export default function NeighborTerritoryPicker({
                   {neighbor.isSea ? (fleetless ? ' · sea · needs a fleet' : ' · sea') : ''}
                   {isOrbit ? ` · ${neighbor.targetWorldName ?? 'hyperspace'}` : ''}
                   {isOrbit && isAttack && neighbor.laneDice != null ? ` · ${neighbor.laneDice} dice` : ''}
+                  {chance && (
+                    <>
+                      {' · '}
+                      <span
+                        data-testid="attack-win-chance"
+                        className={clsx('font-semibold', winChanceTone(neighbor.winChance!))}
+                        title={WIN_CHANCE_HINT}
+                      >
+                        {chance} to take
+                      </span>
+                    </>
+                  )}
                 </span>
               </button>
               {isAttack && (

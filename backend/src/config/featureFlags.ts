@@ -339,6 +339,10 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // and the defender red.
   // On by default; the admin override is the kill switch.
   battle_player_colors_enabled: () => envOptOut('BATTLE_PLAYER_COLORS_ENABLED'),
+  // Combat explains itself: each attack target shows the chance of taking it,
+  // and a battle result shows which dice were compared, that ties go to the
+  // defender, and which dice had nothing to face. Dark-launched OFF.
+  combat_explain_enabled: () => envOptIn('COMBAT_EXPLAIN_ENABLED'),
   // The tutorial's wrap-up card leads into the player's first real match:
   // its main button starts a Quick Match (the Easy first match when that is
   // on) instead of keeping them on the tutorial board, and saving progress
@@ -876,6 +880,19 @@ export const featureFlags = {
    */
   get battlePlayerColorsEnabled(): boolean {
     return overrideBool('battle_player_colors_enabled');
+  },
+
+  /**
+   * Combat explains itself. Each attack target in the territory panel shows
+   * the chance of taking it if the attack is pressed to the end (the server's
+   * exact odds, `game:attack_odds`, priced as the AI prices an edge), and so
+   * does "Attack again". A battle result pairs the dice it compared, marks
+   * each pair's winner, says when a tie went to the defender, and notes dice
+   * that had nothing to face. Default OFF; `COMBAT_EXPLAIN_ENABLED=true` or
+   * the admin override turns it on.
+   */
+  get combatExplainEnabled(): boolean {
+    return overrideBool('combat_explain_enabled');
   },
 
   /**
@@ -1908,6 +1925,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     desktop_card_cue_enabled: featureFlags.desktopCardCueEnabled,
     battle_armies_enabled: featureFlags.battleArmiesEnabled,
     battle_player_colors_enabled: featureFlags.battlePlayerColorsEnabled,
+    combat_explain_enabled: featureFlags.combatExplainEnabled,
     tutorial_wrapup_to_match_enabled: featureFlags.tutorialWrapupToMatchEnabled,
     first_match_primary_cta_enabled: featureFlags.firstMatchPrimaryCtaEnabled,
     phone_fortify_fit_enabled: featureFlags.phoneFortifyFitEnabled,

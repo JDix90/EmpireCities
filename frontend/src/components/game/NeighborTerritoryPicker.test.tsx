@@ -199,3 +199,36 @@ describe('NeighborTerritoryPicker — attack rows attack', () => {
     expect(desktop.container.querySelector('.overflow-x-auto')).toBeNull();
   });
 });
+
+describe('NeighborTerritoryPicker — win chance (combat_explain_enabled)', () => {
+  it('shows each priced target\'s chance of being taken, and none before the server answers', () => {
+    render(
+      <NeighborTerritoryPicker
+        phase="attack"
+        sourceName="Greece"
+        neighbors={[row({ winChance: 0.724 }), row({ territoryId: 'rome', name: 'Rome', winChance: 0.004 }), row({ territoryId: 'nice', name: 'Nice' })]}
+        onSelect={() => {}}
+        onAttack={() => {}}
+      />,
+    );
+    const chances = screen.getAllByTestId('attack-win-chance');
+    expect(chances.map((c) => c.textContent)).toEqual(['72% to take', '<1% to take']);
+    expect(chances[0].className).toContain('text-emerald-300');
+    expect(chances[1].className).toContain('text-rose-300');
+    expect(screen.getByRole('button', { name: 'Attack Milan, 72% chance to take it' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Attack Nice' })).toBeInTheDocument();
+  });
+
+  it('gives no chance for a target the attacker cannot reach', () => {
+    render(
+      <NeighborTerritoryPicker
+        phase="attack"
+        sourceName="Greece"
+        neighbors={[row({ isSea: true, needsFleet: true, winChance: 0.9 })]}
+        onSelect={() => {}}
+        onAttack={() => {}}
+      />,
+    );
+    expect(screen.queryByTestId('attack-win-chance')).toBeNull();
+  });
+});

@@ -98,5 +98,21 @@ describe('battle colours by player', () => {
     expect(screen.getByTestId('combat-defender-name').className).toContain('text-blue-400');
     expect(diceOf('combat-attacker-name')[0].className).toContain('bg-red-500/25');
     expect(diceOf('combat-attacker-name')[0].style.backgroundColor).toBe('');
+    // The losses too.
+    expect(screen.getByTestId('combat-defender-losses').className).toContain('bg-blue-500/10');
+    expect(screen.getByTestId('combat-defender-losses').style.backgroundColor).toBe('');
+  });
+
+  it('puts each side\'s losses in that player\'s colour, not red under a blue name', () => {
+    setFlag(true);
+    render(<CombatResultView result={result({ attacker_losses: 1, defender_losses: 1, attacker_rolls: [6, 3], defender_rolls: [4, 3] })} perspective="attacker" onDismiss={() => {}} />);
+    settle();
+    const mine = screen.getByTestId('combat-attacker-losses');
+    const theirs = screen.getByTestId('combat-defender-losses');
+    expect(mine.className).not.toContain('bg-red-500/10');
+    expect(mine.style.backgroundColor).toBe('rgba(52, 152, 219, 0.12)');
+    expect(mine.querySelector('p')!.style.color).toBe('rgb(52, 152, 219)');
+    expect(theirs.style.backgroundColor).toBe('rgba(231, 76, 60, 0.12)');
+    expect(theirs.querySelector('p')!.style.color).toBe('rgb(231, 76, 60)');
   });
 });

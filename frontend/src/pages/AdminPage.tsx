@@ -604,7 +604,13 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'battle_player_colors_enabled',
     label: 'Battle dice in player colours',
     description:
-      'In a battle result, each side\'s dice and name take that player\'s map colour, instead of red for the attacker and blue for the defender, which read backwards whenever the attacker was blue on the map and the defender red. A dice skin keeps its look; only its ring takes the colour. A neutral defender keeps blue. On by default; switching it off gives the battle result exactly as before.',
+      'In a battle result, each side\'s dice, name and losses take that player\'s map colour, instead of red for the attacker and blue for the defender, which read backwards whenever the attacker was blue on the map and the defender red. A dice skin keeps its look; only its ring takes the colour. A neutral defender keeps blue. On by default; switching it off gives the battle result exactly as before.',
+  },
+  {
+    key: 'combat_explain_enabled',
+    label: 'Combat explains itself',
+    description:
+      'Before an attack, each target in the territory panel shows the chance of taking it if the attack is pressed until it falls or the stack runs out, worked out by the server with the same dice, bonuses and caps the battle will use (and the bots use to plan). "Attack again" shows the chance from where the fight stands. After an attack, the battle result lines up the dice it compared, highest against highest, marks who won each pair, says "tie \u2192 defender" when a tie decided one, and notes any dice that had nothing to face. Hidden territories in a fog game get no odds. Off by default; off, attacks and battle results are exactly as before.',
   },
   {
     key: 'tutorial_wrapup_to_match_enabled',
