@@ -520,7 +520,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'fit_board_camera_enabled',
     label: 'Fit small boards to the screen',
     description:
-      'A fixed regional board (Britain, Spain, Japan and the other regional maps) opens on the globe zoomed in until it fills the screen, so its territories are big enough to tap. It never zooms out further than the board\'s own framing, so wide boards on a phone are unchanged. Players can still pinch and zoom. Off by default; off, every board opens exactly as before.',
+      'A fixed regional board (Britain, Spain, Japan and the other regional maps) opens on the globe zoomed in until it fills the screen, so its territories are big enough to tap. It never zooms out further than the board\'s own framing, so wide boards on a phone are unchanged. Players can still pinch and zoom. On by default; this is the kill switch. Off, every board opens at its authored framing, which on a phone leaves Britain about 8% of the screen.',
   },
   {
     key: 'first_turn_events_enabled',

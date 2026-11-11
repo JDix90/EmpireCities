@@ -165,8 +165,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   play_on_enabled: false,
   // First-turn measurement (analytics only). On by default; kill switch.
   first_turn_events_enabled: true,
-  // Small regional boards open zoomed in to fill the screen. Dark-launched OFF.
-  fit_board_camera_enabled: false,
+  // Small regional boards open zoomed in to fill the screen. On by default; kill switch.
+  fit_board_camera_enabled: true,
   // Guests appear on the leaderboards and see their own ratings. Dark-launched OFF.
   guest_leaderboards_enabled: false,
   // Guest runs are ranked on the Daily Challenge board. Dark-launched OFF.

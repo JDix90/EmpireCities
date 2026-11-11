@@ -227,7 +227,8 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // out. On by default; the kill switch stops recording it.
   first_turn_events_enabled: () => envOptOut('FIRST_TURN_EVENTS_ENABLED'),
   // Small regional boards open zoomed in to fill the screen (client-only).
-  fit_board_camera_enabled: () => envOptIn('FIT_BOARD_CAMERA_ENABLED'),
+  // On by default; the kill switch puts every board back at its authored view.
+  fit_board_camera_enabled: () => envOptOut('FIT_BOARD_CAMERA_ENABLED'),
   // Guest accounts appear on the leaderboards and see their own ratings.
   guest_leaderboards_enabled: () => envOptIn('GUEST_LEADERBOARDS_ENABLED'),
   // Guest runs are ranked on the Daily Challenge board.
@@ -1728,8 +1729,10 @@ export const featureFlags = {
    * the globe zoomed in until it fills the view, never further out than its
    * authored framing. The first match's Britain opened at the same altitude on
    * every screen, which on a portrait phone left it about 8% of the screen
-   * with territories smaller than a fingertip. Default OFF;
-   * `FIT_BOARD_CAMERA_ENABLED=true` or the admin override turns it on.
+   * with territories smaller than a fingertip. Default ON (a grid of 180
+   * taps over Britain on a phone opened a territory 13 times before it, 69
+   * after); `FIT_BOARD_CAMERA_ENABLED=false` or the admin override is the
+   * kill switch.
    */
   get fitBoardCameraEnabled(): boolean {
     return overrideBool('fit_board_camera_enabled');
