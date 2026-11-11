@@ -228,6 +228,8 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   first_turn_events_enabled: () => envOptOut('FIRST_TURN_EVENTS_ENABLED'),
   // Small regional boards open zoomed in to fill the screen (client-only).
   fit_board_camera_enabled: () => envOptIn('FIT_BOARD_CAMERA_ENABLED'),
+  // Army counts on the globe, where they have room (client-only).
+  globe_unit_counts_enabled: () => envOptIn('GLOBE_UNIT_COUNTS_ENABLED'),
   // Guest accounts appear on the leaderboards and see their own ratings.
   guest_leaderboards_enabled: () => envOptIn('GUEST_LEADERBOARDS_ENABLED'),
   // Guest runs are ranked on the Daily Challenge board.
@@ -1736,6 +1738,19 @@ export const featureFlags = {
   },
 
   /**
+   * Army counts on the globe: the 2D map's count badge on each territory,
+   * shown where it has room (frontend utils/globeUnitCounts.ts): the selected
+   * territory and its neighbours always, every other count where it does not
+   * crowd one already placed, none under fog of war. Before it a player had to
+   * tap a territory on the globe to read its army. Players can turn it off in
+   * Tools & options and Settings. Default OFF;
+   * `GLOBE_UNIT_COUNTS_ENABLED=true` or the admin override turns it on.
+   */
+  get globeUnitCountsEnabled(): boolean {
+    return overrideBool('globe_unit_counts_enabled');
+  },
+
+  /**
    * Guests on the leaderboards: the Solo, Level, Weekly, Streaks and Ranked
    * boards (modules/leaderboard) and the viewer's own rank count guest
    * accounts like any other, a guest's public profile opens from a board row,
@@ -1839,6 +1854,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     play_on_enabled: featureFlags.playOnEnabled,
     first_turn_events_enabled: featureFlags.firstTurnEventsEnabled,
     fit_board_camera_enabled: featureFlags.fitBoardCameraEnabled,
+    globe_unit_counts_enabled: featureFlags.globeUnitCountsEnabled,
     guest_leaderboards_enabled: featureFlags.guestLeaderboardsEnabled,
     guest_daily_board_enabled: featureFlags.guestDailyBoardEnabled,
     localization_enabled: featureFlags.localizationEnabled,

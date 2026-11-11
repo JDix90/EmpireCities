@@ -23,6 +23,7 @@ const TUTORIAL_PROGRESS_KEY = 'cc-tutorial-progress';
 const MOON_INSET_COLLAPSED_KEY = 'cc-moon-inset-collapsed';
 const SPACE_AGE_GUIDE_SEEN_KEY = 'cc-space-age-guide-seen';
 const PUSH_NUDGE_DISMISSED_AT_KEY = 'cc-push-nudge-dismissed-at';
+const GLOBE_ARMY_COUNTS_KEY = 'cc-globe-army-counts';
 
 const listeners = new Set<() => void>();
 
@@ -160,6 +161,21 @@ export function getCameraFollowPreference(): boolean {
 
 export function setCameraFollowPreference(enabled: boolean): void {
   writeBool(CAMERA_FOLLOW_KEY, enabled);
+}
+
+// ── Army counts on the globe ─────────────────────────────────────────────────
+
+/**
+ * Whether the globe shows army counts (`globe_unit_counts_enabled`, see
+ * utils/globeUnitCounts.ts). Default ON: with the flag on, a player sees the
+ * counts until they turn them off. The 2D map always shows them.
+ */
+export function getGlobeArmyCountsPreference(): boolean {
+  return readBool(GLOBE_ARMY_COUNTS_KEY, true);
+}
+
+export function setGlobeArmyCountsPreference(enabled: boolean): void {
+  writeBool(GLOBE_ARMY_COUNTS_KEY, enabled);
 }
 
 // ── Lite / reduced effects ──────────────────────────────────────────────────
