@@ -113,7 +113,7 @@ import { seatCommanders, styledLevel } from '../game-engine/ai/aiStyles';
 import { resignSeat } from '../game-engine/state/resignation';
 import { acceptSurrender, surrenderOffered } from '../game-engine/victory/surrender';
 import { aiProfile, gameAiDifficulty, keepsTodaysBots, seatAiDifficulty } from '../game-engine/ai/aiProfiles';
-import { recordGameResults, computeRanks, redactGuestRatings, resolveRatingType, resultsXpSummary, type ResultsXpSummary } from '../game-engine/state/statsManager';
+import { recordGameResults, computeRanks, redactGuestRatings, resolveRatingType, resultsXpSummary, computeLevel, type ResultsXpSummary } from '../game-engine/state/statsManager';
 import { checkAndUnlockAchievements, grantAchievementsOutsideGame } from '../game-engine/achievements/achievementService';
 import { noteCapture, noteTerritoryLost } from '../game-engine/achievements/achievementTally';
 import { pgPool } from '../db/postgres';
@@ -5785,11 +5785,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
           [p.player_id],
         );
         const currentXp = userXp.rows[0]?.xp ?? 0;
-        const oldLevel = userXp.rows[0]?.level ?? 1;
         const xpEarned = resultCtx.xpEarnedByPlayer[p.player_id] ?? 0;
-        const newLevel = Math.floor(Math.sqrt((currentXp) / 250)) + 1;
-        const prevLevel = Math.floor(Math.sqrt(Math.max(0, currentXp - xpEarned) / 250)) + 1;
-        const levelCosmetic = await checkLevelCosmetic(client, p.player_id, prevLevel, newLevel);
 
         // The medals this game unlocked paid their XP before this read
         // (achievementService), so the total before the game is the total now
@@ -5806,6 +5802,11 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
           id,
           xp: medalRewards.find((r) => r.achievement_id === id)?.xp_reward ?? 0,
         })));
+        // The level frame for every threshold this game crossed, from where the
+        // player stood before it. "Before" was the total less the game's XP
+        // alone, with the medals' XP still in it, so a level-up the medals
+        // brought never earned its frame.
+        const levelCosmetic = await checkLevelCosmetic(client, p.player_id, xpSummary.before.level, xpSummary.after.level);
 
         await client.query('COMMIT');
 
@@ -5868,7 +5869,11 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
         }).catch(() => {});
       }
       if (progressionByPlayer[p.player_id]?.level_cosmetic) {
-        const newLevel = Math.floor(Math.sqrt((resultCtx.xpEarnedByPlayer[p.player_id] ?? 0) / 250)) + 1;
+        // The level the player reached: their total's, not the level this
+        // game's XP alone would make (which put "Level 1" in the feed of a
+        // player crossing into Level 10).
+        const newLevel = progressionByPlayer[p.player_id].xp?.after.level
+          ?? computeLevel(resultCtx.xpEarnedByPlayer[p.player_id] ?? 0);
         recordActivity(p.player_id, 'level_up', {
           username: p.username,
           level: newLevel,

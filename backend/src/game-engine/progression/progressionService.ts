@@ -208,24 +208,35 @@ const LEVEL_COSMETICS: Record<number, string> = {
   50: 'frame_level_50',
 };
 
+/**
+ * The level frames a climb from `oldLevel` to `newLevel` earns, lowest first:
+ * every threshold crossed. A medal can pay a player up several levels in one
+ * game, and only the first threshold crossed used to count.
+ */
+export function levelCosmeticsCrossed(oldLevel: number, newLevel: number): string[] {
+  return Object.entries(LEVEL_COSMETICS)
+    .map(([lvl, cosmeticId]) => [Number(lvl), cosmeticId] as const)
+    .filter(([threshold]) => oldLevel < threshold && newLevel >= threshold)
+    .sort((a, b) => a[0] - b[0])
+    .map(([, cosmeticId]) => cosmeticId);
+}
+
+/** Grants every level frame the climb crossed; returns the highest, or null. */
 export async function checkLevelCosmetic(
   client: PoolClient,
   userId: string,
   oldLevel: number,
   newLevel: number,
 ): Promise<string | null> {
-  for (const [lvl, cosmeticId] of Object.entries(LEVEL_COSMETICS)) {
-    const threshold = Number(lvl);
-    if (oldLevel < threshold && newLevel >= threshold) {
-      await client.query(
-        `INSERT INTO user_cosmetics (user_id, cosmetic_id)
-         VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-        [userId, cosmeticId],
-      );
-      return cosmeticId;
-    }
+  const earned = levelCosmeticsCrossed(oldLevel, newLevel);
+  for (const cosmeticId of earned) {
+    await client.query(
+      `INSERT INTO user_cosmetics (user_id, cosmetic_id)
+       VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+      [userId, cosmeticId],
+    );
   }
-  return null;
+  return earned.at(-1) ?? null;
 }
 
 // ── Onboarding quest checker ────────────────────────────────────────────

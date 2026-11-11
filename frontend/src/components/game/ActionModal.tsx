@@ -28,6 +28,7 @@ import {
 import { ChronicleList, useChronicle } from './ChroniclePanel';
 import { hapticImpact, ImpactStyle } from '../../utils/haptics';
 import { generateShareCard, buildShareText } from '../../utils/shareCard';
+import { friendStreakPercent, type FriendStreakBonus } from '../../utils/friendStreakBonus';
 import { achievementName, useAchievementNames } from '../../utils/achievementNames';
 import { api } from '../../services/api';
 import { APP_NAME } from '../../constants/brand';
@@ -157,7 +158,8 @@ export interface GameOverModalData {
     gold_awarded: number;
     gold_multiplier: number;
     level_cosmetic: string | null;
-    friend_streak_bonus?: number;
+    /** The server sends the bonus object; a bare number is a percentage (utils/friendStreakBonus.ts). */
+    friend_streak_bonus?: FriendStreakBonus | number;
     /** The game's and each medal's XP, and the totals before and after (results_rewards_first_enabled). */
     xp?: ResultsXpSummary;
   };
@@ -1504,7 +1506,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
         shareUrl: linkLive ? replayShareUrl : window.location.origin,
         isWinner: data.isWinner,
         achievements: data.achievements_unlocked?.map((id) => achievementName(id, achievementNames)),
-        friendStreakBonus: data.progression?.friend_streak_bonus,
+        friendStreakBonus: friendStreakPercent(data.progression?.friend_streak_bonus),
       });
       const url = URL.createObjectURL(blob);
       if (shareImageUrl) URL.revokeObjectURL(shareImageUrl);
@@ -1943,6 +1945,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
             awarded: data.progression.gold_awarded,
             multiplier: data.progression.gold_multiplier,
             winStreak: data.progression.win_streak,
+            friendStreakPercent: friendStreakPercent(data.progression.friend_streak_bonus),
           } : undefined}
           className={clsx(
             'mb-5 transition-all duration-500 delay-350',
@@ -1974,9 +1977,9 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
               🔥 {data.progression.win_streak} win streak
             </span>
           )}
-          {(data.progression.friend_streak_bonus ?? 0) > 0 && (
+          {friendStreakPercent(data.progression.friend_streak_bonus) > 0 && (
             <span className="inline-flex items-center gap-1 text-xs text-sky-300 font-medium bg-sky-400/10 border border-sky-400/20 rounded-md px-2 py-0.5">
-              <Flame size={12} /> +{data.progression.friend_streak_bonus}% friend streak bonus
+              <Flame size={12} /> +{friendStreakPercent(data.progression.friend_streak_bonus)}% friend streak bonus
             </span>
           )}
         </div>

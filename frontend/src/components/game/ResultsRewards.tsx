@@ -66,7 +66,7 @@ export default function ResultsRewards({
   xpEarned?: number;
   medalIds: string[];
   medalName: (id: string) => string;
-  gold?: { awarded: number; multiplier: number; winStreak: number };
+  gold?: { awarded: number; multiplier: number; winStreak: number; friendStreakPercent?: number };
   className?: string;
 }) {
   const plan = xp ? levelBarPlan(xp) : null;
@@ -162,6 +162,14 @@ export default function ResultsRewards({
           )}
           {gold.winStreak >= 3 && (
             <span className="inline-flex items-center gap-1 text-xs text-orange-300">🔥 {gold.winStreak} win streak</span>
+          )}
+          {(gold.friendStreakPercent ?? 0) > 0 && (
+            <span
+              className="inline-flex items-center gap-1 text-xs text-sky-300 font-medium bg-sky-400/10 border border-sky-400/20 rounded-md px-2 py-0.5"
+              data-testid="results-friend-streak"
+            >
+              <Flame size={12} /> +{gold.friendStreakPercent}% friend streak bonus
+            </span>
           )}
         </div>
       )}
