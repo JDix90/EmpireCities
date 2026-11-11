@@ -117,6 +117,10 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // signup nudge would be the same ask twice.
   // On by default; the admin override is the kill switch.
   results_footer_enabled: () => envOptOut('RESULTS_FOOTER_ENABLED'),
+  // Game results lead with the rewards: a level bar that fills and levels up,
+  // the medals with their XP, then the territory chart; standings, stats and
+  // coaching in tabs below. Dark-launched OFF.
+  results_rewards_first_enabled: () => envOptIn('RESULTS_REWARDS_FIRST_ENABLED'),
   ranked_leaderboard_enabled: () => envOptIn('RANKED_LEADERBOARD_ENABLED'),
   referral_survey_enabled: () => envOptIn('REFERRAL_SURVEY_ENABLED'),
   // The links players share lead into play (invite as a guest, referral code
@@ -685,6 +689,21 @@ export const featureFlags = {
    */
   get resultsFooterEnabled(): boolean {
     return overrideBool('results_footer_enabled');
+  },
+
+  /**
+   * Game results lead with what the game paid: after the outcome, a level bar
+   * that fills (and levels up) from the total before the game to the total
+   * after it, the XP the game and each medal paid, the gold, and the medals;
+   * then the turns and rating, the territory-share chart, and the come-back
+   * and save prompts; standings, match stats, coaching and the chronicle in
+   * tabs. Before, a win read "+105 XP" for a game whose medals paid 1,000
+   * more, never showed the level-up, and put the medals last on a screen four
+   * and a half phone screens long. Default OFF;
+   * `RESULTS_REWARDS_FIRST_ENABLED=true` or the admin override turns it on.
+   */
+  get resultsRewardsFirstEnabled(): boolean {
+    return overrideBool('results_rewards_first_enabled');
   },
 
   /**
@@ -1849,6 +1868,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     guest_prompt_v2_enabled: featureFlags.guestPromptV2Enabled,
     save_account_copy_enabled: featureFlags.saveAccountCopyEnabled,
     results_footer_enabled: featureFlags.resultsFooterEnabled,
+    results_rewards_first_enabled: featureFlags.resultsRewardsFirstEnabled,
     ranked_leaderboard_enabled: featureFlags.rankedLeaderboardEnabled,
     referral_survey_enabled: featureFlags.referralSurveyEnabled,
     player_links_play_enabled: featureFlags.playerLinksPlayEnabled,
