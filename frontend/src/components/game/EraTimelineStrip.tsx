@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import clsx from 'clsx';
 import type { GameState, PlayerState } from '../../store/gameStore';
 import { ERA_LABELS } from '../../constants/gameLobbyLabels';
@@ -17,6 +17,16 @@ interface EraTimelineStripProps {
  */
 export default function EraTimelineStrip({ gameState, myPlayer }: EraTimelineStripProps) {
   const steps = gameState.era_spine ?? [];
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const myStep = Math.min(Math.max(myPlayer?.current_era_index ?? 0, 0), Math.max(steps.length - 1, 0));
+  // A spine too long for the sidebar scrolls: keep the viewer's own era in view.
+  useEffect(() => {
+    const box = scrollRef.current;
+    const step = box?.querySelector<HTMLElement>(`[data-testid="era-timeline-step-${myStep}"]`);
+    if (!box || !step) return;
+    const overflow = step.getBoundingClientRect().right - box.getBoundingClientRect().right;
+    if (overflow > 0) box.scrollLeft += overflow + 8;
+  }, [myStep, steps.length]);
   if (!gameState.settings.era_advancement_enabled || steps.length < 2) return null;
 
   const maxIndex = steps.length - 1;
@@ -30,7 +40,9 @@ export default function EraTimelineStrip({ gameState, myPlayer }: EraTimelineStr
       role="group"
       aria-label="Era advancement progress"
     >
-      <div className="flex items-stretch">
+      {/* A long spine scrolls rather than squeezing its labels; the top
+          padding keeps the viewer's ring inside the scroll box. */}
+      <div ref={scrollRef} className="flex items-stretch overflow-x-auto pt-0.5 scrollbar-thin">
         {steps.map((step, i) => {
           const meta = eraMeta(step.era_id);
           const here = livePlayers.filter((p) => clampIndex(p.current_era_index ?? 0) === i);
@@ -38,7 +50,7 @@ export default function EraTimelineStrip({ gameState, myPlayer }: EraTimelineStr
           return (
             <React.Fragment key={`${step.era_id}-${i}`}>
               {i > 0 && (
-                <div className="flex-1 self-start mt-[7px] h-px bg-bf-border/70 min-w-[8px]" aria-hidden />
+                <div className="flex-1 self-start mt-[7px] h-px bg-bf-border/70 min-w-[2px]" aria-hidden />
               )}
               <div
                 className="flex flex-col items-center gap-0.5 shrink-0"
@@ -49,7 +61,10 @@ export default function EraTimelineStrip({ gameState, myPlayer }: EraTimelineStr
                   className={clsx('w-3.5 h-3.5 rounded-full border', mineHere ? 'ring-2 ring-offset-1 ring-offset-bf-dark' : '')}
                   style={{ backgroundColor: meta.color, borderColor: meta.color, ...(mineHere ? { boxShadow: `0 0 0 1px ${meta.color}` } : {}) }}
                 />
-                <span className="text-[8px] leading-tight text-bf-muted whitespace-nowrap">{meta.short}</span>
+                {/* 10px, not 8. Set tight, with the connectors allowed down to
+                    2px, the six-step spine still fits the sidebar; a longer
+                    one scrolls. */}
+                <span className="text-[10px] leading-tight tracking-tight text-bf-muted whitespace-nowrap">{meta.short}</span>
                 <div className="flex flex-wrap justify-center gap-0.5 max-w-[44px] min-h-[6px]">
                   {here.map((p) => (
                     <span

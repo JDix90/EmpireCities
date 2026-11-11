@@ -24,6 +24,7 @@ import {
   type EditorTool,
   type PolyGeom,
 } from './editorGlobeData';
+import { EARTH_BUMP_TEXTURE, EARTH_GLOBE_TEXTURE } from '../../assets/globe/textures';
 
 export type { EditorConnection, EditorRegion, EditorTerritory, EditorTool } from './editorGlobeData';
 
@@ -338,8 +339,8 @@ export default function GlobeMapEditor({
         width={width}
         height={height}
         backgroundColor="rgba(10, 14, 26, 1)"
-        globeImageUrl="https://cdn.jsdelivr.net/npm/three-globe@2.45.1/example/img/earth-blue-marble.jpg"
-        bumpImageUrl="https://cdn.jsdelivr.net/npm/three-globe@2.45.1/example/img/earth-topology.png"
+        globeImageUrl={EARTH_GLOBE_TEXTURE}
+        bumpImageUrl={EARTH_BUMP_TEXTURE}
         showAtmosphere={true}
         atmosphereColor="lightskyblue"
         atmosphereAltitude={0.15}

@@ -77,7 +77,7 @@ export default function FirstTurnCoach({
           )}
         >
           <div className="flex items-start justify-between gap-2 mb-1">
-            <span className="text-[10px] text-bf-muted/60 uppercase tracking-widest">First turn</span>
+            <span className="text-[10px] text-bf-muted uppercase tracking-widest">First turn</span>
             <button
               type="button"
               onClick={onDismiss}
@@ -97,7 +97,8 @@ export default function FirstTurnCoach({
           <p className={clsx('text-bf-muted leading-relaxed mb-2', anchorTop ? 'text-xs' : 'text-sm')}>
             {renderTutorialText(body, playerColorName)}
           </p>
-          <p className={clsx('text-bf-muted/60 italic', anchorTop ? 'text-[11px]' : 'text-xs')}>
+          {/* Full muted, not 60%: the hint read at 2.8:1 on the card. */}
+          <p className={clsx('text-bf-muted italic', anchorTop ? 'text-[11px]' : 'text-xs')}>
             {renderTutorialText(hint, playerColorName)}
           </p>
 
