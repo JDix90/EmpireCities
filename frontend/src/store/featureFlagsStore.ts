@@ -21,6 +21,7 @@ export interface ClientFeatureFlags {
   guest_prompt_v2_enabled: boolean;
   save_account_copy_enabled: boolean;
   results_footer_enabled: boolean;
+  results_rewards_first_enabled: boolean;
   ranked_leaderboard_enabled: boolean;
   referral_survey_enabled: boolean;
   player_links_play_enabled: boolean;
@@ -118,6 +119,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   save_account_copy_enabled: true,
   // Results: Rematch and Return to Lobby pinned, no second account ask. On by default; admin kill switch.
   results_footer_enabled: true,
+  // Results lead with the level bar and medals. Dark-launched OFF.
+  results_rewards_first_enabled: false,
   // OFF until the ranked ladder has enough players not to render empty.
   ranked_leaderboard_enabled: false,
   // Dark-launched OFF: it adds a prompt at the end of a first session.
@@ -353,6 +356,11 @@ export function useSaveAccountCopyEnabled(): boolean {
 /** Results: Rematch and Return to Lobby pinned in a footer, and no signup nudge after the results offered saving (components/game/ActionModal.tsx, pages/GamePage.tsx). */
 export function useResultsFooterEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.results_footer_enabled);
+}
+
+/** Results lead with the level bar, XP and medals (components/game/ResultsRewards.tsx). */
+export function useResultsRewardsFirstEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.results_rewards_first_enabled);
 }
 
 /** The game screen sized to the visible screen, not 100vh (pages/GamePage.tsx, `.h-visible` in index.css). */

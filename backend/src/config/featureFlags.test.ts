@@ -256,6 +256,14 @@ describe('featureFlags', () => {
     expect(featureFlags.retentionNotificationsEnabled).toBe(true);
   });
 
+  it('results_rewards_first_enabled defaults to off and the admin override turns it on', () => {
+    expect(featureFlags.resultsRewardsFirstEnabled).toBe(false);
+    expect(getClientFeatureFlags().results_rewards_first_enabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { results_rewards_first_enabled: true } });
+    expect(featureFlags.resultsRewardsFirstEnabled).toBe(true);
+    expect(getClientFeatureFlags().results_rewards_first_enabled).toBe(true);
+  });
+
   it('results_footer_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.resultsFooterEnabled).toBe(true);
     expect(getClientFeatureFlags().results_footer_enabled).toBe(true);

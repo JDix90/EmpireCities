@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import type { GameState, PlayerState } from '../../types';
-import { computeRanks, resolveXpConfig, redactGuestRatings, type GameResultContext } from './statsManager';
+import { computeRanks, resolveXpConfig, redactGuestRatings, levelBand, resultsXpSummary, type GameResultContext } from './statsManager';
 import { resetAdminConfigCacheForTests, setAdminConfigCacheForTests } from '../../services/adminConfig';
 
 function makePlayer(overrides: Partial<PlayerState>): PlayerState {
@@ -133,5 +133,29 @@ describe('resolveXpConfig', () => {
       },
     } as GameState;
     expect(resolveXpConfig(state).base).toBe(52);
+  });
+});
+
+describe('the results screen\'s level bar (levelBand, resultsXpSummary)', () => {
+  it('gives each total its level and the XP that level starts and ends at', () => {
+    expect(levelBand(0)).toEqual({ xp: 0, level: 1, floor: 0, next: 250 });
+    expect(levelBand(249)).toEqual({ xp: 249, level: 1, floor: 0, next: 250 });
+    expect(levelBand(250)).toEqual({ xp: 250, level: 2, floor: 250, next: 1000 });
+    expect(levelBand(1155)).toEqual({ xp: 1155, level: 3, floor: 1000, next: 2250 });
+    expect(levelBand(-40)).toEqual({ xp: 0, level: 1, floor: 0, next: 250 });
+  });
+
+  it('takes the game\'s XP and every medal\'s off the total now, to find where the game began', () => {
+    // The review's guest: a win paid 105 XP, two medals 1,000 more, and the
+    // lobby then showed 1,155 XP at Level 3 after a screen that said "+105 XP".
+    const summary = resultsXpSummary(1155, 105, [{ id: 'first_victory', xp: 500 }, { id: 'conqueror', xp: 500 }]);
+    expect(summary.before).toEqual({ xp: 50, level: 1, floor: 0, next: 250 });
+    expect(summary.after).toEqual({ xp: 1155, level: 3, floor: 1000, next: 2250 });
+    expect(summary.game).toBe(105);
+    expect(summary.medals).toHaveLength(2);
+  });
+
+  it('never starts below nothing', () => {
+    expect(resultsXpSummary(80, 105, []).before).toEqual({ xp: 0, level: 1, floor: 0, next: 250 });
   });
 });

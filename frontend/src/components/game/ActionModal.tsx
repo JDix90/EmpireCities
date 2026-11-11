@@ -9,7 +9,8 @@ import CombatAbilityCallouts from './CombatAbilityCallouts';
 import ComeBackTomorrowPanel from './ComeBackTomorrowPanel';
 import ReferralSurvey from './ReferralSurvey';
 import { GalacticGameOverFeedback } from './GalacticFeedback';
-import { useGuestPromptV2Enabled, usePlayOnEnabled, useReferralSurveyEnabled, useResultsFooterEnabled } from '../../store/featureFlagsStore';
+import { useGuestPromptV2Enabled, usePlayOnEnabled, useReferralSurveyEnabled, useResultsFooterEnabled, useResultsRewardsFirstEnabled } from '../../store/featureFlagsStore';
+import ResultsRewards, { type ResultsXpSummary } from './ResultsRewards';
 import type { PlayOnOffer } from '../../store/playOnStore';
 import PlayOnPanel from './PlayOnPanel';
 import { shouldShowReferralSurvey, hasAnsweredReferralSurvey } from '../../utils/referralSurvey';
@@ -157,6 +158,8 @@ export interface GameOverModalData {
     gold_multiplier: number;
     level_cosmetic: string | null;
     friend_streak_bonus?: number;
+    /** The game's and each medal's XP, and the totals before and after (results_rewards_first_enabled). */
+    xp?: ResultsXpSummary;
   };
   /** A Galactic Age game while its beta is open (galaxy_age_beta_enabled): asks how it went. */
   galacticBeta?: boolean;
@@ -1421,7 +1424,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
   const [reviewCopied, setReviewCopied] = useState(false);
   const [showContent, setShowContent] = useState(false);
   useEffect(() => { const t = setTimeout(() => setShowContent(true), 300); return () => clearTimeout(t); }, []);
-  const [statsTab, setStatsTab] = useState<'result' | 'stats' | 'chronicle'>('result');
+  const [statsTab, setStatsTab] = useState<'result' | 'stats' | 'coaching' | 'chronicle'>('result');
   // The match read back as a dated history. Fetched with the modal rather than
   // on tab click, so the tab can be hidden outright when there is no chronicle
   // to show — a game too short to have beats, or one this viewer didn't play.
@@ -1440,6 +1443,9 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
   const saveAccountCopy = useSaveAccountCopyEnabled();
   const emailSave = useEmailAccountSaveEnabled();
   const resultsFooter = useResultsFooterEnabled();
+  // Rewards first (results_rewards_first_enabled): the level bar, XP and medals
+  // under the outcome, the territory chart next, coaching in its own tab.
+  const rewardsFirst = useResultsRewardsFirstEnabled();
   const playOnEnabled = usePlayOnEnabled();
   const lossReasonOn = useLossReasonEnabled();
   const lossReasonPlayOn = useLossReasonPlayEnabled();
@@ -1690,6 +1696,46 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
     </>
   );
 
+  // Each player's share of the map over the game: its own spot on the main view
+  // with rewards first, after the prompts without.
+  const positionChart = probHistory && probHistory.length >= 2 ? (
+    <div className={clsx(
+      'mb-6 transition-all duration-500 delay-500',
+      showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+    )}>
+      <PositionShareChart
+        history={probHistory}
+        players={data.players}
+        thresholdPct={data.map_control_threshold ?? null}
+      />
+    </div>
+  ) : null;
+  const insights = data.insights ?? [];
+  const insightList = (
+    <div className="space-y-2">
+      {insights.map((insight, idx) => (
+        <div key={`${insight.turn}-${idx}`} className="text-left rounded-lg bg-white/[0.03] border border-white/10 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm text-white/80 font-medium">{insight.title}</p>
+            <span className={clsx(
+              'text-[10px] uppercase tracking-wide px-2 py-0.5 rounded border',
+              insight.impact === 'high'
+                ? 'text-amber-300 border-amber-500/40 bg-amber-500/10'
+                : 'text-sky-300 border-sky-500/40 bg-sky-500/10',
+            )}>
+              {insight.impact}
+            </span>
+          </div>
+          <p className="text-[11px] text-white/45 mt-1">Turn {insight.turn}</p>
+          <p className="text-xs text-white/70 mt-2">{insight.explanation}</p>
+          <p className="text-xs text-emerald-300/90 mt-2">Alternative: {insight.alternative}</p>
+        </div>
+      ))}
+    </div>
+  );
+  // Rewards first puts coaching in its own tab rather than above the tabs.
+  const coachingTab = rewardsFirst && insights.length > 0;
+
   return (
     <div className="w-full min-w-0 text-center">
       {/* Trophy / Skull / Flag Animation */}
@@ -1881,12 +1927,30 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
         </div>
       )}
 
-      {data.xpEarned != null && data.xpEarned > 0 && (
+      {rewardsFirst && (
+        <ResultsRewards
+          xp={data.progression?.xp}
+          xpEarned={data.xpEarned}
+          medalIds={data.achievements_unlocked ?? []}
+          medalName={(id) => achievementName(id, achievementNames)}
+          gold={data.progression ? {
+            awarded: data.progression.gold_awarded,
+            multiplier: data.progression.gold_multiplier,
+            winStreak: data.progression.win_streak,
+          } : undefined}
+          className={clsx(
+            'mb-5 transition-all duration-500 delay-350',
+            showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2',
+          )}
+        />
+      )}
+
+      {!rewardsFirst && data.xpEarned != null && data.xpEarned > 0 && (
         <p className="text-bf-gold/90 text-sm font-medium mb-2">+{data.xpEarned} XP</p>
       )}
 
       {/* Progression rewards summary */}
-      {data.progression && data.progression.gold_awarded > 0 && (
+      {!rewardsFirst && data.progression && data.progression.gold_awarded > 0 && (
         <div className={clsx(
           'flex flex-wrap items-center justify-center gap-3 mb-4 transition-all duration-500 delay-350',
           showContent ? 'opacity-100' : 'opacity-0',
@@ -1962,6 +2026,10 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
           </div>
         )}
       </div>
+
+      {/* Rewards first: each player's share of the map over the game, on the
+          main view, under the turns and rating. */}
+      {rewardsFirst && positionChart}
 
       {/* Come-back-tomorrow hook: streak to protect, tomorrow's login chest,
           daily-challenge tease. Skipped for tutorial and daily-challenge
@@ -2049,18 +2117,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
         />
       )}
 
-      {probHistory && probHistory.length >= 2 && (
-        <div className={clsx(
-          'mb-6 transition-all duration-500 delay-500',
-          showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-        )}>
-          <PositionShareChart
-            history={probHistory}
-            players={data.players}
-            thresholdPct={data.map_control_threshold ?? null}
-          />
-        </div>
-      )}
+      {!rewardsFirst && positionChart}
 
       {data.daily_classic && !data.puzzle_review && (
         <p
@@ -2145,32 +2202,13 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
         </div>
       )}
 
-      {data.insights && data.insights.length > 0 && (
+      {!rewardsFirst && insights.length > 0 && (
         <div className={clsx(
           'mb-6 transition-all duration-500 delay-500',
           showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
         )}>
           <p className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-3">Coaching Turning Points</p>
-          <div className="space-y-2">
-            {data.insights.map((insight, idx) => (
-              <div key={`${insight.turn}-${idx}`} className="text-left rounded-lg bg-white/[0.03] border border-white/10 p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm text-white/80 font-medium">{insight.title}</p>
-                  <span className={clsx(
-                    'text-[10px] uppercase tracking-wide px-2 py-0.5 rounded border',
-                    insight.impact === 'high'
-                      ? 'text-amber-300 border-amber-500/40 bg-amber-500/10'
-                      : 'text-sky-300 border-sky-500/40 bg-sky-500/10',
-                  )}>
-                    {insight.impact}
-                  </span>
-                </div>
-                <p className="text-[11px] text-white/45 mt-1">Turn {insight.turn}</p>
-                <p className="text-xs text-white/70 mt-2">{insight.explanation}</p>
-                <p className="text-xs text-emerald-300/90 mt-2">Alternative: {insight.alternative}</p>
-              </div>
-            ))}
-          </div>
+          {insightList}
         </div>
       )}
 
@@ -2179,7 +2217,12 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
         'mb-4 flex border-b border-white/10 transition-all duration-500 delay-500',
         showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
       )}>
-        {(hasChronicle ? (['result', 'stats', 'chronicle'] as const) : (['result', 'stats'] as const)).map((tab) => (
+        {([
+          'result',
+          'stats',
+          ...(coachingTab ? ['coaching'] : []),
+          ...(hasChronicle ? ['chronicle'] : []),
+        ] as Array<typeof statsTab>).map((tab) => (
           <button
             key={tab}
             onClick={() => setStatsTab(tab)}
@@ -2190,7 +2233,11 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
                 : 'text-white/30 hover:text-white/50',
             )}
           >
-            {tab === 'result' ? 'Results' : tab === 'stats' ? 'Match Stats' : 'Chronicle'}
+            {tab === 'result'
+              ? (rewardsFirst ? 'Standings' : 'Results')
+              : tab === 'stats'
+                ? (rewardsFirst ? 'Stats' : 'Match Stats')
+                : tab === 'coaching' ? 'Coaching' : 'Chronicle'}
           </button>
         ))}
       </div>
@@ -2215,6 +2262,17 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
               Watch it play out →
             </button>
           )}
+        </div>
+      ) : statsTab === 'coaching' && coachingTab ? (
+        /* ── Coaching Tab (rewards first): the turning points, off the main view ── */
+        <div
+          className={clsx(
+            'mb-6 transition-all duration-500 delay-500',
+            showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
+          )}
+          data-testid="gameover-coaching"
+        >
+          {insightList}
         </div>
       ) : statsTab === 'stats' ? (
         /* ── Match Stats Tab ─────────────────────────────────────────────── */
@@ -2255,8 +2313,8 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
             </div>
           </div>
 
-          {/* Achievements unlocked */}
-          {data.achievements_unlocked && data.achievements_unlocked.length > 0 && (
+          {/* Achievements unlocked (rewards first shows them, with their XP, under the outcome) */}
+          {!rewardsFirst && data.achievements_unlocked && data.achievements_unlocked.length > 0 && (
             <div className={clsx(
               'mb-6 transition-all duration-500 delay-500',
               showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'

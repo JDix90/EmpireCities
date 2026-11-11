@@ -2258,7 +2258,7 @@ export default function GamePage() {
       achievements_unlocked?: Record<string, string[]>;
       xp_earned_by_player?: Record<string, number>;
       victory_condition?: GameOverModalData['victory_condition'];
-      progression?: Record<string, { win_streak: number; daily_streak: number; daily_streak_milestone: number | null; gold_awarded: number; gold_multiplier: number; level_cosmetic: string | null; friend_streak_bonus?: number }>;
+      progression?: Record<string, { win_streak: number; daily_streak: number; daily_streak_milestone: number | null; gold_awarded: number; gold_multiplier: number; level_cosmetic: string | null; friend_streak_bonus?: number; xp?: NonNullable<GameOverModalData['progression']>['xp'] }>;
       rematch_config?: { era_id: string; map_id: string; settings: Record<string, unknown>; human_player_ids: string[] };
       combat_stats?: Record<string, {
         attacks: number; attack_wins: number; defenses: number; defense_wins: number;
