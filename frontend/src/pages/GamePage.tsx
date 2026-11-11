@@ -174,7 +174,7 @@ import { eraBoardTheme } from '../constants/eraBoardTheme';
 import { getAbilityActivationMessage } from '../utils/abilityActivationFeedback';
 import { playAbilityActivationSound, playStrikeAbilitySound } from '../utils/abilitySoundFeedback';
 import { playFrontierUnlockSound } from '../utils/gameSounds';
-import { formatEraLabel, type SecretMissionLike } from '../utils/mapDisplayNames';
+import { formatEraLabel, shortEraLabel, type SecretMissionLike } from '../utils/mapDisplayNames';
 import { isHostileAbility, trucePartnerOwning } from '../utils/truces';
 import { teamOf } from '../utils/teams';
 import BrandWordmark from '../components/ui/BrandWordmark';
@@ -4314,7 +4314,7 @@ export default function GamePage() {
     clearTutorialProgress();
     try {
       await api.delete(`/games/${gameId}/abandon`);
-      toast.success('Tutorial ended. Welcome back to the lobby.');
+      toast.success('Tutorial ended. Start a match from the lobby whenever you\u2019re ready.');
     } catch {
       toast.error('Could not end the tutorial game. You can remove it from the lobby if it appears.');
     }
@@ -5239,13 +5239,13 @@ export default function GamePage() {
           games without era advancement.
 
           It gives way to the map-control meter when a phone is short of room:
-          truncated first, and dropped with its separator below 360px, where
-          all that would be left of it is "A…".
+          a short name ("Medieval") below 480px, and dropped with its separator
+          below 375px, where the meter's "Map 27%/65%" leaves it nothing.
         */}
         <span
           className={clsx(
             'text-bf-muted text-xs capitalize min-w-0 truncate',
-            viewerMapControl && 'max-[359px]:hidden',
+            viewerMapControl && 'max-[374px]:hidden',
             // Where the bar is short of room, a phone upright or an iPad
             // upright, the BETA tag stands in for the era's name, which its
             // panel gives: beside the tag, the name was squeezed to nothing.
@@ -5254,13 +5254,16 @@ export default function GamePage() {
           )}
           title={gameState.settings.era_advancement_enabled ? 'Your civilization\u2019s current era' : undefined}
         >
-          {formatEraLabel(playerTechEra ?? gameState.era)}
+          {/* Below 480px the era's short name: "Medieval Era" was cut to
+              "Medie…" beside the turn and the map-control figures. */}
+          <span className="xs:hidden">{shortEraLabel(playerTechEra ?? gameState.era)}</span>
+          <span className="hidden xs:inline">{formatEraLabel(playerTechEra ?? gameState.era)}</span>
         </span>
         {showGalacticBetaTag && <GalacticBetaTag onSendFeedback={() => setGalacticFeedbackOpen(true)} />}
         {playOnMarker && playOnWinnerLabel && (
           <PlayOnTag winnerLabel={playOnWinnerLabel} wonTurn={playOnMarker.won_turn} />
         )}
-        <span className={clsx('text-bf-muted text-xs', viewerMapControl && 'max-[359px]:hidden')}>·</span>
+        <span className={clsx('text-bf-muted text-xs', viewerMapControl && 'max-[374px]:hidden')}>·</span>
         <span className="text-bf-muted text-xs whitespace-nowrap shrink-0">Turn {gameState.turn_number}</span>
         {viewerMapControl && <MapControlChip progress={viewerMapControl} />}
         <div className="flex-1" />

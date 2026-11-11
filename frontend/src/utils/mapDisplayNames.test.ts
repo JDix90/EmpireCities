@@ -6,6 +6,7 @@ import {
   humanizeMapId,
   resolveRegionName,
   resolveTerritoryName,
+  shortEraLabel,
 } from './mapDisplayNames';
 import type { PlayerState } from '../store/gameStore';
 
@@ -69,5 +70,12 @@ describe('mapDisplayNames', () => {
   it('formats era labels from ERA_LABELS', () => {
     expect(formatEraLabel('modern')).toBe('The Modern Day');
     expect(formatEraLabel('custom')).toBe('Community map');
+  });
+
+  it('gives the short era name where room is tight, and the full label for anything else', () => {
+    expect(shortEraLabel('medieval')).toBe('Medieval');
+    expect(shortEraLabel('ww2')).toBe('WWII');
+    expect(shortEraLabel('custom')).toBe('Community map');
+    expect(shortEraLabel(undefined)).toBe('—');
   });
 });

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Sparkles, AlertTriangle, Check, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Sparkles, AlertTriangle, Check, X, ChevronDown, ChevronUp, Coins } from 'lucide-react';
 import clsx from 'clsx';
 import type { GameState, PlayerState } from '../../store/gameStore';
 import { ERA_LABELS } from '../../constants/gameLobbyLabels';
@@ -73,6 +73,7 @@ export default function AdvanceEraPanel({
         onClick={onAdvanceEra}
         disabled={!buttonEnabled}
         title={status.blockers.join(' · ') || `Advance to ${ERA_LABELS[status.nextEraId] ?? status.nextEraId}`}
+        aria-label={`Advance to ${ERA_LABELS[status.nextEraId] ?? status.nextEraId}: ${status.cost} gold`}
         className={clsx(
           'inline-flex items-center gap-1.5 min-h-[40px] px-2.5 xs:px-3 py-2 text-xs rounded-lg border shrink-0',
           buttonEnabled
@@ -90,7 +91,14 @@ export default function AdvanceEraPanel({
           {ERA_LABELS[status.nextEraId] ?? status.nextEraId}
         </span>
         <span className="opacity-75 whitespace-nowrap">
-          <span className="hidden xs:inline">· </span>{status.cost}g
+          {/* "13g" said nothing. Where there is room the cost reads "13 gold";
+              a portrait phone has none to spare (the place count and the
+              phase button come first), so there a coin stands for the word. */}
+          <span className="hidden xs:inline">· {status.cost} gold</span>
+          <span className="xs:hidden inline-flex items-center gap-0.5">
+            {status.cost}
+            <Coins className="w-3 h-3" aria-hidden />
+          </span>
         </span>
       </button>
     );

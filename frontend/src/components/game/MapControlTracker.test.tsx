@@ -8,7 +8,8 @@ describe('MapControlChip', () => {
   it('shows the share held over the share that wins, and says both in words', () => {
     render(<MapControlChip progress={progress} />);
     const meter = screen.getByRole('meter', { name: 'Map control' });
-    expect(meter).toHaveTextContent('42%/65%');
+    // "42%/65%" alone said nothing on a phone, where the sidebar that explains it is behind the menu.
+    expect(meter).toHaveTextContent('Map 42%/65%');
     expect(meter).toHaveAttribute('aria-valuetext', 'You hold 42% of the map. 65% wins — 10 more territories.');
   });
 });

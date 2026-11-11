@@ -405,6 +405,14 @@ describe('ActionModal — the winner\'s line matches how the game ended', () => 
     expect(screen.getByText(/Victory by Resignation/)).toBeTruthy();
   });
 
+  it('names the share of the map a threshold win took', async () => {
+    const { unmount } = render(<ActionModal data={gameOver({ victory_condition: 'threshold', victory_threshold: 65 })} onDismiss={() => {}} />);
+    await waitFor(() => expect(screen.getByText('You hold 65% of the map, the share that wins.')).toBeTruthy());
+    unmount();
+    render(<ActionModal data={gameOver({ victory_condition: 'threshold' })} onDismiss={() => {}} />);
+    await waitFor(() => expect(screen.getByText('You hold enough of the map to win.')).toBeTruthy());
+  });
+
   it('says the rivals surrendered after an accepted surrender', async () => {
     render(<ActionModal data={gameOver({ victory_condition: 'surrender' })} onDismiss={() => {}} />);
     await waitFor(() => expect(screen.getByText('Your rivals surrendered to you.')).toBeTruthy());

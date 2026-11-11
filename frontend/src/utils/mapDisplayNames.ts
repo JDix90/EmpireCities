@@ -1,5 +1,6 @@
 import type { PlayerState, SecretMissionPayload } from '../store/gameStore';
 import { ERA_LABELS } from '../constants/gameLobbyLabels';
+import { ERA_META } from '../constants/eraMeta';
 
 export interface MapNameLookup {
   territories?: Array<{ territory_id: string; name: string }>;
@@ -41,6 +42,11 @@ export function formatEraLabel(eraId: string | undefined | null): string {
   if (!eraId) return '—';
   if (eraId === 'custom') return 'Community map';
   return ERA_LABELS[eraId] ?? humanizeMapId(eraId);
+}
+
+/** The era's short name ("Medieval", "WWII") where room is tight; anything else keeps its full label. */
+export function shortEraLabel(eraId: string | undefined | null): string {
+  return eraId && ERA_META[eraId] ? ERA_META[eraId].short : formatEraLabel(eraId);
 }
 
 /**
