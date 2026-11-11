@@ -658,6 +658,14 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().battle_player_colors_enabled).toBe(false);
   });
 
+  it('combat_explain_enabled defaults to off and the admin override turns it on', () => {
+    expect(featureFlags.combatExplainEnabled).toBe(false);
+    expect(getClientFeatureFlags().combat_explain_enabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { combat_explain_enabled: true } });
+    expect(featureFlags.combatExplainEnabled).toBe(true);
+    expect(getClientFeatureFlags().combat_explain_enabled).toBe(true);
+  });
+
   it('battle_armies_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.battleArmiesEnabled).toBe(true);
     expect(getClientFeatureFlags().battle_armies_enabled).toBe(true);

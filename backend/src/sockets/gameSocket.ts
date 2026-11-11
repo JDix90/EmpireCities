@@ -60,6 +60,7 @@ import { getEraIdForAdvancementIndex } from '../game-engine/eraAdvancement/const
 import { getPlayerEraModifiers } from '../game-engine/state/eraModifiers';
 import { executeLandAttack } from '../game-engine/combat/executeLandAttack';
 import { executeBlitzAttack } from '../game-engine/combat/executeBlitzAttack';
+import { attackOddsFor, sanitizeOddsPairs } from '../game-engine/combat/attackOdds';
 import { getWonderDefenseBonus, getWonderSeaAttackDice, getWonderInfluenceRange } from '../game-engine/state/wonderManager';
 import { getTechNodeById, getEraTechTree } from '../game-engine/eras';
 import { getPlayerFaction } from '../game-engine/eras/factionLineage';
@@ -1864,6 +1865,31 @@ export function initGameSocket(httpServer: HttpServer): Server {
         startTurnTimer(io, gameId, state, map);
       }
       });
+    });
+
+    // ── Attack odds (combat_explain_enabled) ───────────────────────────────
+    // Read-only: the chance of taking each target the attacker's panel lists,
+    // answered with `game:attack_odds`. Under the room lock so the odds are
+    // priced on the board the next attack will be rolled against. Advisory:
+    // any failure just leaves the panel without odds, so nothing is surfaced.
+    socket.on('game:attack_odds', async (payload: { gameId?: unknown; pairs?: unknown; requestId?: unknown } | undefined) => {
+      if (!featureFlags.combatExplainEnabled) return;
+      const gameId = typeof payload?.gameId === 'string' ? payload.gameId : null;
+      const pairs = sanitizeOddsPairs(payload?.pairs);
+      // Echoed so each asking panel takes its own, latest answer.
+      const requestId = typeof payload?.requestId === 'string' && payload.requestId.length <= 40 ? payload.requestId : undefined;
+      if (!gameId || pairs.length === 0) return;
+      try {
+        await withLockedRoom(gameId, async ({ state, map }) => {
+          if (state.phase !== 'attack' || !isSocketUsersTurn(state, userId, username)) return;
+          const attackerId = state.players[state.current_player_index]?.player_id;
+          if (!attackerId) return;
+          const visible = state.settings.fog_of_war ? fogVisibleTerritoryIds(state, attackerId, map) : null;
+          socket.emit('game:attack_odds', { gameId, requestId, odds: attackOddsFor(state, map, attackerId, pairs, visible) });
+        }, { durationMs: 2000 });
+      } catch (err) {
+        if (!(err instanceof GameRoomNotFoundError)) console.warn('[Socket] attack odds failed for', gameId, err);
+      }
     });
 
     // ── Attack Action ───────────────────────────────────────────────────────

@@ -285,6 +285,8 @@ export interface NeighborTargetRow {
   targetWorldName?: string;
   /** Galaxy corridors: attacker dice an assault across this lane rolls (2, 3 with Lane Charts). */
   laneDice?: number;
+  /** combat_explain_enabled: P(capture) pressing the attack to the end, from the server. */
+  winChance?: number;
 }
 
 export function listNeighborTargets(

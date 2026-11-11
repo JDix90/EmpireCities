@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { CombatResult } from '../../store/gameStore';
 import { useAuthStore } from '../../store/authStore';
 import MatchStatsTab from './MatchStatsTab';
@@ -37,7 +37,9 @@ import { getFastCombatPreference } from '../../utils/userPreferences';
 import { useGameStore } from '../../store/gameStore';
 import { useBattleArmiesEnabled } from '../../store/featureFlagsStore';
 import { useLossReasonEnabled, useLossReasonPlayEnabled, useMissionRevealEnabled } from '../../store/featureFlagsStore';
-import { useBattlePlayerColorsEnabled } from '../../store/featureFlagsStore';
+import { useBattlePlayerColorsEnabled, useCombatExplainEnabled } from '../../store/featureFlagsStore';
+import CombatDicePairs from './CombatDicePairs';
+import { attackOddsKey, formatWinChance, useAttackOdds, WIN_CHANCE_HINT } from '../../hooks/useAttackOdds';
 import { useEmailAccountSaveEnabled, useSaveAccountCopyEnabled } from '../../store/featureFlagsStore';
 import { lossReason } from '../../utils/lossReason';
 import { eraBoardTheme } from '../../constants/eraBoardTheme';
@@ -498,6 +500,13 @@ function DieFace({ value, index, variant, fast, boxClass, textClass, skin, faces
   return <AnimatedDie value={value} index={index} variant={variant} fast={fast} boxClass={boxClass} textClass={textClass} skin={skin} faces={faces} color={color} />;
 }
 
+/** One attack pair as a stable array for useAttackOdds (none when null). */
+function useMemoPair(pair: { fromId: string; toId: string } | null): Array<{ fromId: string; toId: string }> {
+  const fromId = pair?.fromId;
+  const toId = pair?.toId;
+  return useMemo(() => (fromId && toId ? [{ fromId, toId }] : []), [fromId, toId]);
+}
+
 // ─── Combat Result View ────────────────────────────────────────────────────
 
 /**
@@ -595,6 +604,18 @@ export function CombatResultView({
     (playerColors && id ? players?.find((p) => p.player_id === id)?.color ?? null : null);
   const attackerColor = colorOf(result.attackerId);
   const defenderColor = colorOf(result.defenderId);
+  // The losses take the same colours as the names above them: the attacker's
+  // loss read in red under a blue name, the defender's in blue under a red one.
+  const lossStyle = (color: string | null) =>
+    color ? ({ backgroundColor: tint(color, 0.12) ?? undefined, borderColor: tint(color, 0.35) ?? undefined } as React.CSSProperties) : undefined;
+  // combat_explain_enabled: the dice compared in pairs, and the chance of
+  // taking the territory if the attacker keeps going, on "Attack again".
+  const combatExplain = useCombatExplainEnabled();
+  const repeatPair = useMemoPair(
+    combatExplain && perspective === 'attacker' && !result.territory_captured && repeatAttack ? repeatAttack : null,
+  );
+  const repeatOdds = useAttackOdds(repeatPair);
+  const repeatChance = repeatAttack ? repeatOdds.get(attackOddsKey(repeatAttack.fromId, repeatAttack.toId)) : undefined;
   const blitzExchanges = result.blitz_exchanges ?? 0;
   const blitzTotals = battleArmies && blitzExchanges > 1;
   const headerLabel = isDefending ? 'Incoming Attack!' : perspective === 'attacker' ? 'Your Attack' : 'Battle';
@@ -677,6 +698,16 @@ export function CombatResultView({
         'transition-all duration-500 ease-out',
         showResult ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6 pointer-events-none'
       )}>
+        {combatExplain && (
+          <CombatDicePairs
+            attackerRolls={result.attacker_rolls}
+            defenderRolls={result.defender_rolls}
+            attackerColor={attackerColor}
+            defenderColor={defenderColor}
+            lastOf={blitzExchanges > 1 ? blitzExchanges : undefined}
+            compact={compact}
+          />
+        )}
         {/* Ability + faction activation feedback */}
         {(result.combat_ability_callouts?.length ?? 0) > 0 && (
           <CombatAbilityCallouts
@@ -752,17 +783,25 @@ export function CombatResultView({
         {/* Losses */}
         <div className={clsx('flex', compact ? 'gap-2 mb-2' : 'gap-3 mb-4')}>
           {result.attacker_losses > 0 && (
-            <div className={clsx('flex-1 rounded-xl bg-red-500/10 border border-red-500/20 text-center', compact ? 'py-1.5 px-2 flex items-center justify-center gap-1.5' : 'p-3')}>
-              <Skull className={clsx('text-red-400/70', compact ? 'w-3.5 h-3.5' : 'w-4 h-4 mx-auto mb-1')} />
-              <p className="text-red-300 text-sm font-semibold">
+            <div
+              data-testid="combat-attacker-losses"
+              className={clsx('flex-1 rounded-xl border text-center', !attackerColor && 'bg-red-500/10 border-red-500/20', compact ? 'py-1.5 px-2 flex items-center justify-center gap-1.5' : 'p-3')}
+              style={lossStyle(attackerColor)}
+            >
+              <Skull className={clsx(!attackerColor && 'text-red-400/70', compact ? 'w-3.5 h-3.5' : 'w-4 h-4 mx-auto mb-1')} style={attackerColor ? { color: attackerColor, opacity: 0.75 } : undefined} />
+              <p className={clsx(!attackerColor && 'text-red-300', 'text-sm font-semibold')} style={attackerColor ? { color: attackerColor } : undefined}>
                 &minus;{result.attacker_losses} troop{result.attacker_losses > 1 ? 's' : ''}{blitzTotals ? ' in all' : ''}
               </p>
             </div>
           )}
           {result.defender_losses > 0 && (
-            <div className={clsx('flex-1 rounded-xl bg-blue-500/10 border border-blue-500/20 text-center', compact ? 'py-1.5 px-2 flex items-center justify-center gap-1.5' : 'p-3')}>
-              <Skull className={clsx('text-blue-400/70', compact ? 'w-3.5 h-3.5' : 'w-4 h-4 mx-auto mb-1')} />
-              <p className="text-blue-300 text-sm font-semibold">
+            <div
+              data-testid="combat-defender-losses"
+              className={clsx('flex-1 rounded-xl border text-center', !defenderColor && 'bg-blue-500/10 border-blue-500/20', compact ? 'py-1.5 px-2 flex items-center justify-center gap-1.5' : 'p-3')}
+              style={lossStyle(defenderColor)}
+            >
+              <Skull className={clsx(!defenderColor && 'text-blue-400/70', compact ? 'w-3.5 h-3.5' : 'w-4 h-4 mx-auto mb-1')} style={defenderColor ? { color: defenderColor, opacity: 0.75 } : undefined} />
+              <p className={clsx(!defenderColor && 'text-blue-300', 'text-sm font-semibold')} style={defenderColor ? { color: defenderColor } : undefined}>
                 &minus;{result.defender_losses} defender{result.defender_losses > 1 ? 's' : ''}{blitzTotals ? ' in all' : ''}
               </p>
             </div>
@@ -845,7 +884,17 @@ export function CombatResultView({
               className={clsx(compact ? 'py-2.5 text-sm min-w-0' : 'py-3', 'w-full rounded-xl bg-bf-gold/15 hover:bg-bf-gold/25 border border-bf-gold/40 text-bf-gold font-medium transition-all duration-200 flex items-center justify-center gap-2')}
             >
               <Sword className="w-4 h-4 shrink-0" />
-              {compact ? 'Attack again' : 'Attack again (same battle)'}
+              {repeatChance == null ? (
+                compact ? 'Attack again' : 'Attack again (same battle)'
+              ) : (
+                // On a phone the button is half the sheet wide: the chance goes under the label.
+                <span className={compact ? 'flex flex-col items-start leading-tight' : 'inline-flex items-baseline gap-1.5'}>
+                  <span>{compact ? 'Attack again' : 'Attack again (same battle)'}</span>
+                  <span data-testid="repeat-win-chance" className="whitespace-nowrap text-xs font-normal text-bf-gold/80" title={WIN_CHANCE_HINT}>
+                    {compact ? '' : '· '}{formatWinChance(repeatChance)} to take
+                  </span>
+                </span>
+              )}
             </button>
             {repeatAttack.blitzEligible && onBlitzAttack && (
               <button

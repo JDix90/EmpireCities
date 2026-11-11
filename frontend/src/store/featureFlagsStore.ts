@@ -62,6 +62,7 @@ export interface ClientFeatureFlags {
   desktop_card_cue_enabled: boolean;
   battle_armies_enabled: boolean;
   battle_player_colors_enabled: boolean;
+  combat_explain_enabled: boolean;
   tutorial_wrapup_to_match_enabled: boolean;
   first_match_primary_cta_enabled: boolean;
   phone_fortify_fit_enabled: boolean;
@@ -205,6 +206,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   battle_armies_enabled: true,
   // Battle colours by player: battle dice and names in each player's map colour. On by default; admin kill switch.
   battle_player_colors_enabled: true,
+  // Combat explains itself: win chance on attack targets, dice pairs in the result. Dark-launched OFF.
+  combat_explain_enabled: false,
   // The tutorial wrap-up leads into the first real match. On by default; admin kill switch.
   tutorial_wrapup_to_match_enabled: true,
   // While the next Quick Match is the first, it is the lobby's gold button. On by default; admin kill switch.
@@ -552,6 +555,11 @@ export function useBattleArmiesEnabled(): boolean {
 /** Battle colours by player: battle dice and names in each player's map colour (ActionModal CombatResultView). */
 export function useBattlePlayerColorsEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.battle_player_colors_enabled);
+}
+
+/** Combat explains itself: win chance on attack targets, dice pairs in the result (hooks/useAttackOdds, CombatDicePairs). */
+export function useCombatExplainEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.combat_explain_enabled);
 }
 
 /** The tutorial wrap-up's main button starts the first real match (components/game/TutorialOverlay.tsx). */

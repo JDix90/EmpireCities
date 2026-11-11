@@ -79,6 +79,14 @@ import { dropAssaultsTargeting } from '../../utils/dropAssaults';
 import { areAllies, inOpeningCeasefire, isFriendlyOwner, regionBonusHolder } from '../../utils/teams';
 import { nothingToFightMessage } from '../../utils/attackAvailability';
 import PlacementCapNote, { SETTLED_STABILITY } from './PlacementCapNote';
+import {
+  useAttackOdds,
+  attackOddsKey,
+  formatWinChance,
+  winChanceTone,
+  WIN_CHANCE_HINT,
+  type AttackOddsPair,
+} from '../../hooks/useAttackOdds';
 
 /** Why a region with one territory on the board shows +0 (utils/continentBonus). */
 const REGION_TOO_FEW_TO_PAY = 'A region pays only with two or more of its territories on the board.';
@@ -622,6 +630,58 @@ function TerritoryPanelContent({
       worldNameByTerritoryId,
     ],
   );
+
+  /**
+   * combat_explain_enabled: the chance of taking each target this panel offers
+   * (the source's neighbours, the stacks that border the enemy in view, and the
+   * armed attacker's strike), priced by the server. Empty with the flag off.
+   */
+  const oddsPairs = React.useMemo(() => {
+    if (!isMyTurn || gameState.phase !== 'attack') return [] as AttackOddsPair[];
+    const pairs: AttackOddsPair[] = [];
+    if (attackNeighborSourceId) {
+      for (const n of attackNeighbors) {
+        if (!n.needsFleet) pairs.push({ fromId: attackNeighborSourceId, toId: n.territoryId });
+      }
+    }
+    for (const src of directAttackSources) pairs.push({ fromId: src.territoryId, toId: selectedTerritory });
+    if (attackSource && attackSource !== selectedTerritory && canAttackSelectedFromSource) {
+      pairs.push({ fromId: attackSource, toId: selectedTerritory });
+    }
+    return pairs;
+  }, [
+    isMyTurn,
+    gameState.phase,
+    attackNeighborSourceId,
+    attackNeighbors,
+    directAttackSources,
+    selectedTerritory,
+    attackSource,
+    canAttackSelectedFromSource,
+  ]);
+  const attackOdds = useAttackOdds(oddsPairs);
+  const winChanceOf = (fromId: string | null | undefined, toId: string): number | undefined =>
+    fromId ? attackOdds.get(attackOddsKey(fromId, toId)) : undefined;
+  const attackNeighborRows = React.useMemo(
+    () =>
+      attackOdds.size === 0 || !attackNeighborSourceId
+        ? attackNeighborsWithLaneDice
+        : attackNeighborsWithLaneDice.map((n) => {
+            const p = attackOdds.get(attackOddsKey(attackNeighborSourceId, n.territoryId));
+            return p == null ? n : { ...n, winChance: p };
+          }),
+    [attackNeighborsWithLaneDice, attackOdds, attackNeighborSourceId],
+  );
+  /** " · 72% to take" after a strike's label, once priced. */
+  const winChanceNote = (p: number | undefined) =>
+    p == null ? null : (
+      <>
+        {' · '}
+        <span data-testid="attack-win-chance" className={clsx('font-semibold', winChanceTone(p))} title={WIN_CHANCE_HINT}>
+          {formatWinChance(p)} to take
+        </span>
+      </>
+    );
 
   /**
    * My territories touching this one, however thin. Only used to explain why no
@@ -1355,7 +1415,7 @@ function TerritoryPanelContent({
             <NeighborTerritoryPicker
               phase="attack"
               sourceName={territoryNameById.get(attackNeighborSourceId) ?? attackNeighborSourceId}
-              neighbors={attackNeighborsWithLaneDice}
+              neighbors={attackNeighborRows}
                 denseMap={denseMap}
                 compact={isMobileActionMode}
                 orbitLocked={!orbitAccessAllowed}
@@ -1459,6 +1519,7 @@ function TerritoryPanelContent({
                             </span>
                             <span className="block text-[11px] opacity-75">
                               {plural(src.unitCount, 'unit')}
+                              {winChanceNote(winChanceOf(src.territoryId, selectedTerritory))}
                             </span>
                           </span>
                         </button>
@@ -1544,6 +1605,9 @@ function TerritoryPanelContent({
                       onClick={() => onAttack(attackSource, selectedTerritory)}
                     >
                       <Sword className="w-4 h-4" /> Attack from {territoryNameById.get(attackSource) ?? attackSource}
+                      {winChanceOf(attackSource, selectedTerritory) != null && (
+                        <span className="text-xs opacity-90">{winChanceNote(winChanceOf(attackSource, selectedTerritory))}</span>
+                      )}
                     </button>
                     {blitzOffered && (
                       <button
