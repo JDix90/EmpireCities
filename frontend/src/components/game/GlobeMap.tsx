@@ -357,6 +357,15 @@ type HtmlDatum =
       size: number;
     })
   | (HtmlDatumBase & {
+      kind: 'unit-count';
+      count: number;
+      /** Owner colour, or null for an unowned territory. */
+      color: string | null;
+      emphasis: 'selected' | 'near' | 'plain';
+      /** Nudged further down when the territory carries a capital marker. */
+      dy: number;
+    })
+  | (HtmlDatumBase & {
       kind: 'animation-units-plus';
       text: string;
       color: string;
@@ -536,6 +545,35 @@ function buildHtmlOverlayElement(
       bonusEl.style.cssText = 'color:#ffd700;opacity:0.9';
       bonusEl.textContent = `+${datum.bonus}`;
       el.appendChild(bonusEl);
+      break;
+    }
+
+    case 'unit-count': {
+      // MOCKUP (cc-globe-counts-mock): the 2D map's count badge on the globe.
+      el.style.cssText = 'pointer-events:none;user-select:none';
+      const pill = document.createElement('div');
+      const owned = datum.color != null;
+      const sel = datum.emphasis === 'selected';
+      pill.style.cssText = [
+        `transform:translateY(${datum.dy}px)${sel ? ' scale(1.18)' : ''}`,
+        'min-width:20px',
+        'height:20px',
+        'padding:0 5px',
+        'box-sizing:border-box',
+        'border-radius:999px',
+        `background:${owned ? `color-mix(in srgb, ${datum.color} 52%, #0b0e14)` : '#1b2233'}`,
+        `border:${sel ? '2px solid #ffd700' : `1.5px solid rgba(255,255,255,${owned ? 0.9 : 0.45})`}`,
+        'color:#fff',
+        'font:700 11px/1 system-ui,-apple-system,Segoe UI,sans-serif',
+        'font-variant-numeric:tabular-nums',
+        'display:flex',
+        'align-items:center',
+        'justify-content:center',
+        'box-shadow:0 1px 4px rgba(0,0,0,0.75)',
+        datum.emphasis === 'plain' ? 'opacity:0.82' : '',
+      ].filter(Boolean).join(';');
+      pill.textContent = String(datum.count);
+      el.appendChild(pill);
       break;
     }
 
@@ -958,6 +996,18 @@ function GlobeMap({
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
   const { gameState } = useGameStore();
   const { selectedTerritory, attackSource } = useUiStore();
+  // MOCKUP: 'off' | 'selective' | 'all', read once from localStorage.
+  const [countsMock] = useState<'off' | 'selective' | 'all'>(() => {
+    try {
+      const v = localStorage.getItem('cc-globe-counts-mock');
+      return v === 'selective' || v === 'all' ? v : 'off';
+    } catch {
+      return 'off';
+    }
+  });
+  const [countsZoomedIn, setCountsZoomedIn] = useState(false);
+  const [countsViewTick, setCountsViewTick] = useState(0);
+  const countsTickRaf = useRef(0);
   const [, setPrefsRevision] = useState(0);
   useEffect(() => subscribeUserPreferences(() => setPrefsRevision((n) => n + 1)), []);
   // GeoJSON sources load through the shared module-cached loader, so the 2D
@@ -3214,7 +3264,8 @@ function GlobeMap({
         id: `region-label-${region.region_id}`,
         lat: sumLat / count,
         lng: sumLng / count,
-        alt: 0.07,
+        // MOCKUP: below the count badges when they are on, so a count draws over a name.
+        alt: countsMock !== 'off' ? 0.02 : 0.07,
         name: region.name,
         bonus: effectiveContinentBonus(region.bonus, playerCount),
         color,
@@ -3233,7 +3284,7 @@ function GlobeMap({
       }
     }
     return out;
-  }, [mapData.regions, mapData.territories, territoryCentroids, regionColorMap, activeWorldId, gameState?.players.length]);
+  }, [mapData.regions, mapData.territories, territoryCentroids, regionColorMap, activeWorldId, gameState?.players.length, countsMock]);
 
   const buildingHtmlOverlays = useMemo((): HtmlDatum[] => {
     if (!gameState) return [];
@@ -3641,6 +3692,89 @@ function GlobeMap({
     });
   }, [showOrbitStubs, gatewayLaneInfo, mapData.territories, activeWorldId, territoryCentroids]);
 
+  // MOCKUP: army counts on the globe, shown selectively.
+  //  - the selected territory (or attack source) and its neighbours: always;
+  //  - every other count: only where it has room on screen right now, own
+  //    territories first, then bigger stacks first. Zoomed out, a world map
+  //    shows a handful; zoomed in, or on a board that fills the screen, all.
+  //  - fog-hidden territories (unit_count -1): no badge at all.
+  //  'all' skips the room test (the clutter comparison).
+  const COUNTS_MIN_GAP_PX = 26;
+  const countHtmlOverlays = useMemo((): HtmlDatum[] => {
+    if (countsMock === 'off' || !gameState) return [];
+    const onWorld = mapData.territories.filter(
+      (t) => t.region_id !== 'sea_routes' && inferWorldId(t) === activeWorldId,
+    );
+    const focus = attackSource ?? selectedTerritory;
+    const near = new Set<string>();
+    if (focus) {
+      near.add(focus);
+      for (const conn of mapData.connections) {
+        if (conn.from === focus) near.add(conn.to);
+        else if (conn.to === focus) near.add(conn.from);
+      }
+    }
+    const capitals = new Set(gameState.players.map((p) => p.capital_territory_id).filter(Boolean));
+    const colorOf = new Map(gameState.players.map((p) => [p.player_id, p.color]));
+    const mine = selfPlayerId;
+    const globe = globeRef.current;
+    globe?.camera?.()?.updateMatrixWorld?.();
+    const pov = globe?.pointOfView?.();
+    type Cand = { tid: string; lat: number; lng: number; prio: number; count: number; x: number; y: number; facing: boolean };
+    const cands: Cand[] = [];
+    for (const t of onWorld) {
+      const tid = t.territory_id;
+      const ts = gameState.territories[tid];
+      if (!ts || isFogHidden(ts)) continue;
+      const c = territoryCentroids.get(tid);
+      if (!c) continue;
+      const prio = tid === focus ? 0 : near.has(tid) ? 1 : ts.owner_id && ts.owner_id === mine ? 2 : 3;
+      let x = 0, y = 0, facing = true;
+      if (globe?.getScreenCoords && pov) {
+        const sc = globe.getScreenCoords(c.lat, c.lng, 0.04 * overlayAltScale);
+        x = sc?.x ?? 0; y = sc?.y ?? 0;
+        // Far side of a world globe: not on screen, so it takes no room.
+        const toRad = Math.PI / 180;
+        const cosAng = Math.sin(c.lat * toRad) * Math.sin(pov.lat * toRad)
+          + Math.cos(c.lat * toRad) * Math.cos(pov.lat * toRad) * Math.cos((c.lng - pov.lng) * toRad);
+        facing = cosAng > 1 / (1 + (pov.altitude ?? 2.5)) + 0.08; // inside the horizon, with a margin
+      }
+      cands.push({ tid, lat: c.lat, lng: c.lng, prio, count: ts.unit_count ?? 0, x, y, facing });
+    }
+    cands.sort((a, b) => a.prio - b.prio || b.count - a.count);
+    const placed: Cand[] = [];
+    const out: HtmlDatum[] = [];
+    for (const cd of cands) {
+      // The far side of a world globe is not on screen at all.
+      if (!cd.facing) continue;
+      if (countsMock === 'selective' && cd.prio > 1) {
+        const clash = placed.some((p) => Math.hypot(p.x - cd.x, p.y - cd.y) < COUNTS_MIN_GAP_PX);
+        if (clash) continue;
+      }
+      if (cd.facing) placed.push(cd);
+      const ts = gameState.territories[cd.tid];
+      out.push({
+        kind: 'unit-count',
+        id: `count-${cd.tid}`,
+        lat: cd.lat,
+        lng: cd.lng,
+        alt: 0.04,
+        count: cd.count,
+        color: ts.owner_id ? colorOf.get(ts.owner_id) ?? '#888888' : null,
+        emphasis: cd.prio === 0 ? 'selected' : focus && cd.prio === 1 ? 'near' : focus ? 'plain' : 'near',
+        dy: capitals.has(cd.tid) ? 16 : 0,
+      });
+    }
+    return out;
+    // countsViewTick: recompute the room test when the camera moves.
+  }, [countsMock, countsViewTick, countsZoomedIn, gameState, mapData.territories, mapData.connections, activeWorldId,
+    attackSource, selectedTerritory, territoryCentroids, selfPlayerId, overlayAltScale, globeReadyTick, width, height]);
+
+  // MOCKUP: the loop renders on demand; draw the new badges.
+  useEffect(() => {
+    if (countsMock !== 'off') keepRenderingRef.current(400, 3);
+  }, [countHtmlOverlays, countsMock]);
+
   const combinedHtmlOverlays = useMemo(
     () => [
       ...regionHtmlOverlays,
@@ -3649,9 +3783,11 @@ function GlobeMap({
       ...capitalHtmlOverlays,
       ...buildingHtmlOverlays,
       ...wastelandHtmlOverlays,
+      ...countHtmlOverlays,
       ...overlays,
     ],
     [
+      countHtmlOverlays,
       regionHtmlOverlays,
       seaRouteHtmlOverlays,
       gatewayHtmlOverlays,
@@ -3693,6 +3829,45 @@ function GlobeMap({
   useEffect(() => {
     reportScreenCenters();
   }, [reportScreenCenters, globeReadyTick, width, height]);
+
+  const handleGlobeZoom = useCallback((pov: { altitude?: number }) => {
+    if (onTerritoryCenters) reportScreenCenters();
+    if (countsMock === 'off' || typeof pov?.altitude !== 'number') return;
+    setCountsZoomedIn(pov.altitude < boardView.altitude * 0.55);
+    cancelAnimationFrame(countsTickRaf.current);
+    countsTickRaf.current = requestAnimationFrame(() => setCountsViewTick((n) => n + 1));
+  }, [onTerritoryCenters, reportScreenCenters, countsMock, boardView.altitude]);
+
+  // MOCKUP: re-run the room test once the opening camera has settled.
+  useEffect(() => {
+    if (countsMock === 'off') return;
+    const t = setTimeout(() => setCountsViewTick((n) => n + 1), 1500);
+    return () => clearTimeout(t);
+  }, [countsMock, globeReadyTick]);
+
+  // MOCKUP: a camera hook for the screenshot script only.
+  const centroidsRef = useRef(territoryCentroids);
+  centroidsRef.current = territoryCentroids;
+  const boardAltRef = useRef(boardView.altitude);
+  boardAltRef.current = boardView.altitude;
+  useEffect(() => {
+    (window as unknown as { __globeMock?: unknown }).__globeMock = {
+      pov: (lat: number, lng: number, altitude: number) => {
+        const g = globeRef.current;
+        if (!g) return null;
+        const c = g.controls?.() as { autoRotate?: boolean } | undefined;
+        if (c) c.autoRotate = false;
+        keepRenderingRef.current(2000);
+        g.pointOfView({ lat, lng, altitude }, 0);
+        setCountsZoomedIn(altitude < boardAltRef.current * 0.55);
+        setTimeout(() => setCountsViewTick((n) => n + 1), 50);
+        return boardAltRef.current;
+      },
+      board: () => boardAltRef.current,
+      centroid: (tid: string) => centroidsRef.current.get(tid) ?? null,
+      wake: () => keepRenderingRef.current(1500, 10),
+    };
+  }, [countsMock]);
 
   const adjacencyTargets = useMemo(() => {
     const source = attackSource ?? selectedTerritory;
@@ -4278,7 +4453,7 @@ function GlobeMap({
           else readyBeforeMountRef.current = true;
           onGlobeReady?.();
         }}
-        onZoom={onTerritoryCenters ? reportScreenCenters : undefined}
+        onZoom={onTerritoryCenters || countsMock !== 'off' ? handleGlobeZoom : undefined}
       />
     </div>
   );
