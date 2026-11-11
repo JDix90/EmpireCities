@@ -116,6 +116,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Let guest accounts start the Daily Challenge. Only registered players are ranked on its board either way. Off closes the door with a "create a free account" prompt — use it if guest game creation becomes a load or abuse problem. On by default.',
   },
   {
+    key: 'guest_replay_sharing_enabled',
+    label: 'Guests share their own replays',
+    description:
+      'A guest who presses Share on their results can make that game\u2019s replay public, so the link they send opens for whoever receives it, as an account\u2019s does; they can make it private again from the replay page. Only a player who was in the game can share it. Before this, guests were refused while the results screen still gave them the link, and it opened on "This replay isn\u2019t public". On by default; this is the kill switch, and off refuses guests again (the results screen then offers the picture but no replay link).',
+  },
+  {
     key: 'guest_personal_features_enabled',
     label: 'Guests use their own achievements and cosmetics',
     description:

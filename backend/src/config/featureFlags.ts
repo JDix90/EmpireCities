@@ -134,6 +134,10 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // store, campaigns, referrals and map publishing still need an account.
   // On by default; the admin override is the kill switch.
   guest_personal_features_enabled: () => envOptOut('GUEST_PERSONAL_FEATURES_ENABLED'),
+  // A guest can share their own finished game: its replay made public and the
+  // share recorded, as for a saved account. On by default; the admin override
+  // is the kill switch.
+  guest_replay_sharing_enabled: () => envOptOut('GUEST_REPLAY_SHARING_ENABLED'),
   ai_attack_grind_enabled: () => envOptOut('AI_ATTACK_GRIND_ENABLED'),
   ai_capture_odds_enabled: () => envOptOut('AI_CAPTURE_ODDS_ENABLED'),
   ai_decided_game_press_enabled: () => envOptOut('AI_DECIDED_GAME_PRESS_ENABLED'),
@@ -780,6 +784,18 @@ export const featureFlags = {
    */
   get guestPersonalFeaturesEnabled(): boolean {
     return overrideBool('guest_personal_features_enabled');
+  },
+
+  /**
+   * A guest shares their own finished game: POST /api/share/:gameId (record a
+   * share), /make-public and /make-private accept a guest who played in it.
+   * They refused every guest, while the results screen offered guests Share
+   * and handed out the replay link anyway, so the link said "This replay
+   * isn't public" to whoever opened it; most players are guests.
+   * Default ON; `GUEST_REPLAY_SHARING_ENABLED=false` or the admin override turns it off.
+   */
+  get guestReplaySharingEnabled(): boolean {
+    return overrideBool('guest_replay_sharing_enabled');
   },
 
   /**
@@ -1859,6 +1875,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     guest_push_reminders_enabled: featureFlags.guestPushRemindersEnabled,
     daily_guest_play_enabled: featureFlags.dailyGuestPlayEnabled,
     guest_personal_features_enabled: featureFlags.guestPersonalFeaturesEnabled,
+    guest_replay_sharing_enabled: featureFlags.guestReplaySharingEnabled,
     streak_freezes_enabled: featureFlags.streakFreezesEnabled,
     today_panel_enabled: featureFlags.todayPanelEnabled,
     async_onboarding_enabled: featureFlags.asyncOnboardingEnabled,
