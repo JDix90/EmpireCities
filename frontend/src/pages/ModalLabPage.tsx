@@ -3,13 +3,13 @@ import { Link, useSearchParams } from 'react-router-dom';
 import Modal from '../components/ui/Modal';
 import EventCardModal, { type EventCard } from '../components/game/EventCardModal';
 import TechTreeModal, { type TechNode } from '../components/game/TechTreeModal';
-import ActionModal from '../components/game/ActionModal';
+import ActionModal, { type GameOverModalData } from '../components/game/ActionModal';
 import TutorialOverlay, { type TutorialStep } from '../components/game/TutorialOverlay';
 import DefenderBattleTheater from '../components/game/DefenderBattleTheater';
 import type { CombatResult } from '../store/gameStore';
 import type { GameState } from '../store/gameStore';
 
-type LabModal = 'create' | 'event' | 'tech' | 'combat' | 'combat-tutorial' | 'theater' | 'era-advance' | null;
+type LabModal = 'create' | 'event' | 'tech' | 'combat' | 'combat-tutorial' | 'theater' | 'era-advance' | 'game-over' | null;
 
 // Mirrors the live "Launch an Attack!" coaching beat, used to verify the
 // tutorial popup yields to the combat result modal instead of covering it.
@@ -126,6 +126,51 @@ const mockTechTree: TechNode[] = [
   { tech_id: 'legendary_generals', name: 'Legendary Generals', description: 'Elite command doctrine unlocks decisive campaigns.', tier: 4, cost: 9, prerequisite: 'fortified_cities', unlocks_ability: 'Decisive March' },
 ];
 
+// A first win as the review's guest had it: 105 XP from the game and two medals
+// paying 1,000 more, from Level 1 to Level 3; the results showed "+105 XP".
+const mockShareHistory = Array.from({ length: 9 }, (_, i) => {
+  const me = 0.5 + i * 0.03;
+  return { step: i, turn: i + 1, probabilities: { me, ai1: 1 - me } };
+});
+const mockGameOver: GameOverModalData = {
+  type: 'game_over',
+  gameId: 'lab-game',
+  isWinner: true,
+  winnerName: 'GallantPuma',
+  winnerColor: '#e74c3c',
+  turnCount: 9,
+  viewerId: 'me',
+  victory_condition: 'threshold',
+  victory_threshold: 65,
+  map_control_threshold: 65,
+  players: [
+    { player_id: 'me', username: 'GallantPuma', color: '#e74c3c', territory_count: 10, is_eliminated: false, is_ai: false },
+    { player_id: 'ai1', username: 'Atabeg Kerim', color: '#3498db', territory_count: 4, is_eliminated: false, is_ai: true, ai_difficulty: 'easy' },
+  ],
+  xpEarned: 105,
+  achievements_unlocked: ['first_victory', 'conqueror'],
+  rating_change: 42,
+  rating_placement: 1,
+  win_probability_history: mockShareHistory,
+  progression: {
+    win_streak: 1,
+    daily_streak: 1,
+    daily_streak_milestone: null,
+    gold_awarded: 20,
+    gold_multiplier: 1,
+    level_cosmetic: null,
+    xp: {
+      game: 105,
+      medals: [{ id: 'first_victory', xp: 500 }, { id: 'conqueror', xp: 500 }],
+      before: { xp: 50, level: 1, floor: 0, next: 250 },
+      after: { xp: 1155, level: 3, floor: 1000, next: 2250 },
+    },
+  },
+  insights: [
+    { turn: 3, title: 'Held the line at Wessex', impact: 'high', explanation: 'Stacking your reinforcements on one border kept Wessex standing.', alternative: 'Spread thin, it would have fallen on turn 4.' },
+  ],
+} as GameOverModalData;
+
 export default function ModalLabPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedModal = searchParams.get('modal') as LabModal;
@@ -162,6 +207,7 @@ export default function ModalLabPage() {
           <button type="button" className="btn-primary" onClick={() => setActiveModal('combat-tutorial')}>Combat + tutorial</button>
           <button type="button" className="btn-primary" onClick={() => setActiveModal('theater')}>Defender theater</button>
           <button type="button" className="btn-primary" onClick={() => setActiveModal('era-advance')}>Era advance</button>
+          <button type="button" className="btn-primary" onClick={() => setActiveModal('game-over')}>Game over (win)</button>
         </div>
 
         <div className="card space-y-3">
@@ -240,6 +286,10 @@ export default function ModalLabPage() {
           }}
           onDismiss={() => setActiveModal(null)}
         />
+      )}
+
+      {activeModal === 'game-over' && (
+        <ActionModal data={mockGameOver} onDismiss={() => setActiveModal(null)} />
       )}
 
       {activeModal === 'theater' && (

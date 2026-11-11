@@ -113,7 +113,7 @@ import { seatCommanders, styledLevel } from '../game-engine/ai/aiStyles';
 import { resignSeat } from '../game-engine/state/resignation';
 import { acceptSurrender, surrenderOffered } from '../game-engine/victory/surrender';
 import { aiProfile, gameAiDifficulty, keepsTodaysBots, seatAiDifficulty } from '../game-engine/ai/aiProfiles';
-import { recordGameResults, computeRanks, redactGuestRatings, resolveRatingType } from '../game-engine/state/statsManager';
+import { recordGameResults, computeRanks, redactGuestRatings, resolveRatingType, resultsXpSummary, type ResultsXpSummary } from '../game-engine/state/statsManager';
 import { checkAndUnlockAchievements, grantAchievementsOutsideGame } from '../game-engine/achievements/achievementService';
 import { noteCapture, noteTerritoryLost } from '../game-engine/achievements/achievementTally';
 import { pgPool } from '../db/postgres';
@@ -5711,6 +5711,12 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
       streak: number;
       friends: string[];
     };
+    /**
+     * What this game added to the player's XP and where it left their level,
+     * for the results screen's level bar: the game's own XP, each medal's,
+     * and the totals before and after with their level bands.
+     */
+    xp?: ResultsXpSummary;
   }> = {};
   // Nobody is paid, streaked or credited for a play-on game.
   const rewardedPlayers = playOn ? [] : humanPlayers;
@@ -5785,6 +5791,22 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
         const prevLevel = Math.floor(Math.sqrt(Math.max(0, currentXp - xpEarned) / 250)) + 1;
         const levelCosmetic = await checkLevelCosmetic(client, p.player_id, prevLevel, newLevel);
 
+        // The medals this game unlocked paid their XP before this read
+        // (achievementService), so the total before the game is the total now
+        // less both. The results screen showed the game's XP alone, and a
+        // level-up that medals brought was never shown.
+        const medalIds = unlockedByPlayer[p.player_id] ?? [];
+        const medalRewards = medalIds.length > 0
+          ? (await client.query<{ achievement_id: string; xp_reward: number }>(
+            'SELECT achievement_id, xp_reward FROM achievements WHERE achievement_id = ANY($1)',
+            [medalIds],
+          )).rows
+          : [];
+        const xpSummary = resultsXpSummary(currentXp, xpEarned, medalIds.map((id) => ({
+          id,
+          xp: medalRewards.find((r) => r.achievement_id === id)?.xp_reward ?? 0,
+        })));
+
         await client.query('COMMIT');
 
         progressionByPlayer[p.player_id] = {
@@ -5795,6 +5817,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
           gold_awarded: goldAwarded,
           gold_multiplier: isWinner ? (winStreak >= 10 ? 2.0 : winStreak >= 7 ? 1.75 : winStreak >= 5 ? 1.5 : winStreak >= 3 ? 1.25 : 1.0) : 1.0,
           level_cosmetic: levelCosmetic,
+          xp: xpSummary,
           friend_streak_bonus: friendStreaksByPlayer[p.player_id]
             ? {
                 multiplier: friendStreaksByPlayer[p.player_id].multiplier,

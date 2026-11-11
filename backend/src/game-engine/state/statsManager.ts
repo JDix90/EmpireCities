@@ -85,6 +85,43 @@ export function computeLevel(totalXp: number): number {
   return Math.floor(Math.sqrt(totalXp / 250)) + 1;
 }
 
+/** A total's level and the XP that level starts and ends at, for a level bar. */
+export interface LevelBand {
+  xp: number;
+  level: number;
+  /** Total XP at which this level began. */
+  floor: number;
+  /** Total XP at which the next level begins. */
+  next: number;
+}
+
+export function levelBand(totalXp: number): LevelBand {
+  const xp = Math.max(0, totalXp);
+  const level = computeLevel(xp);
+  return { xp, level, floor: 250 * (level - 1) ** 2, next: 250 * level ** 2 };
+}
+
+export interface ResultsXpSummary {
+  game: number;
+  medals: Array<{ id: string; xp: number }>;
+  before: LevelBand;
+  after: LevelBand;
+}
+
+/**
+ * What a finished game added to a player's XP, for the results screen's level
+ * bar. `totalNow` is read after the game's XP and its medals' XP were both
+ * paid, so the total before the game is the total now less both.
+ */
+export function resultsXpSummary(
+  totalNow: number,
+  gameXp: number,
+  medals: Array<{ id: string; xp: number }>,
+): ResultsXpSummary {
+  const medalXp = medals.reduce((sum, m) => sum + m.xp, 0);
+  return { game: gameXp, medals, before: levelBand(totalNow - gameXp - medalXp), after: levelBand(totalNow) };
+}
+
 export interface GameResultContext {
   isRanked: boolean;
   ratingDeltas: Map<string, number>;

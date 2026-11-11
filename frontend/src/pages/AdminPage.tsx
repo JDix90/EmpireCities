@@ -68,6 +68,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Every guest surface describes a guest account and a full one the same way: \u201cYour progress is saved in this browser\u201d, and saving the account keeps it safe and lets you play on any device, in ranked and with friends. One \u201cSave your account\u201d button replaces \u201cCreate free account\u201d, \u201cCreate account\u201d and the like; where saving takes just an email (email_account_save_enabled) the main prompts say so. Wording only. On by default; switching it off gives the wording exactly as before.',
   },
   {
+    key: 'results_rewards_first_enabled',
+    label: 'Results: rewards first',
+    description:
+      'The end of a game leads with what it paid. Under the outcome comes a level bar that fills from where the player started to where they are now, with a "Level up" when it crosses one, then the XP split between the game and each medal, the gold, and the medals themselves, each with its XP. Then the turns and rating, the chart of each player\u2019s share of the map over the game, and the come-back and save prompts. Final standings, match stats, coaching and the chronicle sit in tabs below. Before, a win could read "+105 XP" when medals had paid 1,000 more and taken the player up two levels, which the screen never showed. Off by default; off, the results are exactly as before.',
+  },
+  {
     key: 'results_footer_enabled',
     label: 'Results: pinned way out',
     description:
