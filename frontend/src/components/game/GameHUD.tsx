@@ -16,6 +16,7 @@ import { PhaseProgressBar } from './PhaseProgressBar';
 import {
   useDesktopCardCueEnabled,
   useFirstTurnClockWaitEnabled,
+  useGlobeUnitCountsEnabled,
   useInGameMuteEnabled,
   useTurnClarityEnabled,
 } from '../../store/featureFlagsStore';
@@ -49,6 +50,8 @@ import {
   setFastCombatPreference,
   getCameraFollowPreference,
   setCameraFollowPreference,
+  getGlobeArmyCountsPreference,
+  setGlobeArmyCountsPreference,
   subscribeUserPreferences,
   isSfxMuted,
   setSfxMuted,
@@ -179,6 +182,8 @@ export default function GameHUD({
   const [spectatorCount, setSpectatorCount] = useState(0);
   const [fastCombat, setFastCombat] = useState(getFastCombatPreference);
   const [cameraFollow, setCameraFollow] = useState(getCameraFollowPreference);
+  const globeUnitCounts = useGlobeUnitCountsEnabled();
+  const [armyCounts, setArmyCounts] = useState(getGlobeArmyCountsPreference);
   const [activeTab, setActiveTab] = useState<HudTab>(readStoredHudTab);
   const [logUnread, setLogUnread] = useState(false);
   const [showTools, setShowTools] = useState(false);
@@ -193,6 +198,7 @@ export default function GameHUD({
   useEffect(() => subscribeUserPreferences(() => {
     setFastCombat(getFastCombatPreference());
     setCameraFollow(getCameraFollowPreference());
+    setArmyCounts(getGlobeArmyCountsPreference());
     setSoundOn(isSoundOn());
   }), []);
 
@@ -1184,6 +1190,24 @@ export default function GameHUD({
                 />
                 Follow the action
               </label>
+              {globeUnitCounts && (
+                <label
+                  className="flex items-center gap-2 px-1 py-1 text-xs text-bf-muted cursor-pointer select-none"
+                  title="Show each territory's army on the globe wherever there's room for it. The 2D map always shows them."
+                >
+                  <input
+                    type="checkbox"
+                    checked={armyCounts}
+                    onChange={(e) => {
+                      setArmyCounts(e.target.checked);
+                      setGlobeArmyCountsPreference(e.target.checked);
+                    }}
+                    className="accent-bf-gold w-3 h-3"
+                    data-testid="hud-army-counts-toggle"
+                  />
+                  Army counts on the globe
+                </label>
+              )}
               {inGameMute && (
                 <label
                   className="flex items-center gap-2 px-1 py-1 text-xs text-bf-muted cursor-pointer select-none"

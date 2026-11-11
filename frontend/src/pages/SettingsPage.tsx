@@ -5,6 +5,7 @@ import {
   useLocalizationEnabled,
   useEmailAccountSaveEnabled,
   useGuestPushRemindersEnabled,
+  useGlobeUnitCountsEnabled,
 } from '../store/featureFlagsStore';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -45,6 +46,8 @@ import {
   setGlobeSpinPreference,
   getCameraFollowPreference,
   setCameraFollowPreference,
+  getGlobeArmyCountsPreference,
+  setGlobeArmyCountsPreference,
   isLiteMode,
   setLiteMode,
   isBatterySaver,
@@ -103,6 +106,8 @@ export default function SettingsPage() {
   const [mapView, setMapView] = useState<MapViewPreference>(getInitialMapView);
   const [globeSpin, setGlobeSpin] = useState(getGlobeSpinPreference);
   const [cameraFollow, setCameraFollow] = useState(getCameraFollowPreference);
+  const globeUnitCounts = useGlobeUnitCountsEnabled();
+  const [armyCounts, setArmyCounts] = useState(getGlobeArmyCountsPreference);
   const [liteMode, setLiteModeState] = useState(isLiteMode);
   const [batterySaver, setBatterySaverState] = useState(isBatterySaver);
   const [connectionHints, setConnectionHints] = useState<ConnectionHintPreference>(getConnectionHintPreference);
@@ -128,6 +133,7 @@ export default function SettingsPage() {
     setMapView(getInitialMapView());
     setGlobeSpin(getGlobeSpinPreference());
     setCameraFollow(getCameraFollowPreference());
+    setArmyCounts(getGlobeArmyCountsPreference());
     setLiteModeState(isLiteMode());
     setBatterySaverState(isBatterySaver());
     setConnectionHints(getConnectionHintPreference());
@@ -387,6 +393,21 @@ export default function SettingsPage() {
                 }}
               />
             </SettingsRow>
+            {globeUnitCounts && (
+              <SettingsRow
+                label="Army counts on the globe"
+                description="Show each territory's army on the globe wherever there's room (the 2D map always shows them)"
+              >
+                <SettingsToggle
+                  label="Army counts on the globe"
+                  checked={armyCounts}
+                  onChange={(checked) => {
+                    setArmyCounts(checked);
+                    setGlobeArmyCountsPreference(checked);
+                  }}
+                />
+              </SettingsRow>
+            )}
             <SettingsRow
               label="Connection hints"
               description="How territory connections are shown during attack and fortify"

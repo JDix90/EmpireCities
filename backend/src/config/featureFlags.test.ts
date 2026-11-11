@@ -156,6 +156,14 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().fit_board_camera_enabled).toBe(true);
   });
 
+  it('globe_unit_counts_enabled defaults to off and the admin override turns it on', () => {
+    expect(featureFlags.globeUnitCountsEnabled).toBe(false);
+    expect(getClientFeatureFlags().globe_unit_counts_enabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { globe_unit_counts_enabled: true } });
+    expect(featureFlags.globeUnitCountsEnabled).toBe(true);
+    expect(getClientFeatureFlags().globe_unit_counts_enabled).toBe(true);
+  });
+
   it('guest_leaderboards_enabled defaults to off and the admin override turns it on', () => {
     expect(featureFlags.guestLeaderboardsEnabled).toBe(false);
     expect(getClientFeatureFlags().guest_leaderboards_enabled).toBe(false);

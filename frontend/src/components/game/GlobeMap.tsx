@@ -27,13 +27,22 @@ import { inferWorldId, markerLook, type MarkerLook } from '@borderfall/shared';
 import { usePlayerCosmetics } from '../cosmetics/useCosmetics';
 import { markerSvgElement } from '../cosmetics/markerSvg';
 import { deriveRegionalGlobeView, fitRegionalView, resolveActiveGlobeView, type GlobeViewConfig } from '../../utils/regionalGlobe';
-import { useFitBoardCameraEnabled } from '../../store/featureFlagsStore';
+import { useFitBoardCameraEnabled, useGlobeUnitCountsEnabled } from '../../store/featureFlagsStore';
 import { isFogHidden } from '../../utils/fogVisibility';
 import { getPlayerGlobeColor, getRegionCssColors } from '../../constants/accessibleColors';
 import { HIGHLIGHT_CSS, highlightRgba } from '../../constants/highlightColors';
 import { useTerritoryGeoSources } from '../../hooks/useTerritoryGeoSources';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
-import { subscribeUserPreferences } from '../../utils/userPreferences';
+import { getGlobeArmyCountsPreference, subscribeUserPreferences } from '../../utils/userPreferences';
+import {
+  countBadgeFill,
+  countTier,
+  facesCamera,
+  placeCountBadges,
+  sortCountCandidates,
+  visibleCountsKey,
+  type CountCandidate,
+} from '../../utils/globeUnitCounts';
 import { isCoarsePointer } from '../../utils/device';
 import { PHONE_FRAME_CAP_FPS, dampingFactorForFrameRate, mapPixelRatio } from '../../utils/frameBudget';
 import { createRenderWake, type RenderWake } from '../../utils/renderWake';
@@ -334,6 +343,17 @@ type HtmlDatum =
       kind: 'building-icons';
       icons: string;
       tooltip: string;
+      /** Up and right of the centre, where the army count badge is not (globe_unit_counts_enabled). */
+      besideCount?: boolean;
+    })
+  | (HtmlDatumBase & {
+      kind: 'unit-count';
+      count: number;
+      /** The owner's colour, or null for an unowned territory. */
+      color: string | null;
+      emphasis: 'selected' | 'normal' | 'muted';
+      /** Pixels below the centre: clear of a capital's or sea route's marker. */
+      dy: number;
     })
   | (HtmlDatumBase & {
       kind: 'capital-marker';
@@ -541,9 +561,46 @@ function buildHtmlOverlayElement(
 
     case 'building-icons': {
       el.style.cssText =
-        'font-size:11px;line-height:1;text-shadow:0 1px 3px rgba(0,0,0,0.9);pointer-events:none';
+        'font-size:11px;line-height:1;text-shadow:0 1px 3px rgba(0,0,0,0.9);pointer-events:none'
+        + (datum.besideCount ? ';margin:-14px 0 0 22px' : '');
       el.title = datum.tooltip;
       el.textContent = datum.icons;
+      break;
+    }
+
+    case 'unit-count': {
+      // The 2D map's count badge (GameMap.tsx): the owner's colour darkened,
+      // a white ring, the count in white. The selection's ring is gold. The
+      // numbers are in the territory panel for a screen reader; here they
+      // would be read in no useful order.
+      el.style.cssText = 'pointer-events:none;user-select:none';
+      el.setAttribute('aria-hidden', 'true');
+      el.dataset.testid = 'globe-unit-count';
+      const owned = datum.color != null;
+      const selected = datum.emphasis === 'selected';
+      const badge = document.createElement('div');
+      badge.style.cssText = [
+        `transform:translateY(${datum.dy}px)${selected ? ' scale(1.18)' : ''}`,
+        'min-width:20px',
+        'height:20px',
+        'padding:0 5px',
+        'box-sizing:border-box',
+        'border-radius:999px',
+        `background:${owned ? countBadgeFill(datum.color!) : '#1b2233'}`,
+        `border:${selected ? '2px solid #ffd700' : `1.5px solid rgba(255,255,255,${owned ? 0.9 : 0.45})`}`,
+        'color:#fff',
+        'font-size:11px',
+        'font-weight:700',
+        'line-height:1',
+        'font-variant-numeric:tabular-nums',
+        'display:flex',
+        'align-items:center',
+        'justify-content:center',
+        'box-shadow:0 1px 4px rgba(0,0,0,0.75)',
+        datum.emphasis === 'muted' ? 'opacity:0.82' : '',
+      ].filter(Boolean).join(';');
+      badge.textContent = String(datum.count);
+      el.appendChild(badge);
       break;
     }
 
@@ -910,6 +967,21 @@ const GLOBE_DAMPING_FACTOR = 0.1;
 const LOW_POWER_RENDERER = { powerPreference: 'low-power' as const };
 /** A galaxy gateway's diamond marker sits this high (globe radii); Split's lanes meet it there. */
 const GATEWAY_MARKER_ALT = 0.03;
+/**
+ * Army count badges (globe_unit_counts_enabled) sit this high, and region
+ * names drop below them while they show, so a count draws over a name: the
+ * CSS2D layer stacks by distance to the camera. Low, so a badge stays on its
+ * territory toward the globe's edge.
+ */
+const COUNT_BADGE_ALT = 0.04;
+const REGION_LABEL_ALT_UNDER_COUNTS = 0.02;
+/** A count on a capital or a sea route sits this far below the marker there. */
+const COUNT_BADGE_BELOW_MARKER_PX = 16;
+/** Which counts have room is worked out again at most this often while the camera moves. */
+const COUNT_PLACEMENT_THROTTLE_MS = 150;
+/** ...and once more after the opening camera has settled. */
+const COUNT_PLACEMENT_SETTLE_MS = 1200;
+const NO_COUNT_OVERLAYS: HtmlDatum[] = [];
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
@@ -960,6 +1032,10 @@ function GlobeMap({
   const { selectedTerritory, attackSource } = useUiStore();
   const [, setPrefsRevision] = useState(0);
   useEffect(() => subscribeUserPreferences(() => setPrefsRevision((n) => n + 1)), []);
+  // Army counts on the globe, unless the player has turned them off; a change
+  // of mind re-renders through the subscription above.
+  const globeUnitCountsFlag = useGlobeUnitCountsEnabled();
+  const showUnitCounts = globeUnitCountsFlag && getGlobeArmyCountsPreference() && !previewMode;
   // GeoJSON sources load through the shared module-cached loader, so the 2D
   // map and the globe download each Natural Earth file once per session and
   // the per-map trigger conditions live in exactly one place
@@ -3214,7 +3290,7 @@ function GlobeMap({
         id: `region-label-${region.region_id}`,
         lat: sumLat / count,
         lng: sumLng / count,
-        alt: 0.07,
+        alt: showUnitCounts ? REGION_LABEL_ALT_UNDER_COUNTS : 0.07,
         name: region.name,
         bonus: effectiveContinentBonus(region.bonus, playerCount),
         color,
@@ -3233,7 +3309,7 @@ function GlobeMap({
       }
     }
     return out;
-  }, [mapData.regions, mapData.territories, territoryCentroids, regionColorMap, activeWorldId, gameState?.players.length]);
+  }, [mapData.regions, mapData.territories, territoryCentroids, regionColorMap, activeWorldId, gameState?.players.length, showUnitCounts]);
 
   const buildingHtmlOverlays = useMemo((): HtmlDatum[] => {
     if (!gameState) return [];
@@ -3264,10 +3340,11 @@ function GlobeMap({
         alt: 0.055,
         icons,
         tooltip: buildings.join(', '),
+        ...(showUnitCounts ? { besideCount: true } : {}),
       });
     }
     return out;
-  }, [gameState, territoryCentroids, territoryById, activeWorldId]);
+  }, [gameState, territoryCentroids, territoryById, activeWorldId, showUnitCounts]);
 
   const cosmeticsOf = usePlayerCosmetics();
   const capitalHtmlOverlays = useMemo((): HtmlDatum[] => {
@@ -3641,26 +3718,6 @@ function GlobeMap({
     });
   }, [showOrbitStubs, gatewayLaneInfo, mapData.territories, activeWorldId, territoryCentroids]);
 
-  const combinedHtmlOverlays = useMemo(
-    () => [
-      ...regionHtmlOverlays,
-      ...seaRouteHtmlOverlays,
-      ...gatewayHtmlOverlays,
-      ...capitalHtmlOverlays,
-      ...buildingHtmlOverlays,
-      ...wastelandHtmlOverlays,
-      ...overlays,
-    ],
-    [
-      regionHtmlOverlays,
-      seaRouteHtmlOverlays,
-      gatewayHtmlOverlays,
-      capitalHtmlOverlays,
-      buildingHtmlOverlays,
-      wastelandHtmlOverlays,
-      overlays,
-    ],
-  );
 
   // ── Split: where this world's territories show ─────────────────────────
   // Split draws its lanes between globes (GalaxySplitView), so each globe says
@@ -3693,6 +3750,183 @@ function GlobeMap({
   useEffect(() => {
     reportScreenCenters();
   }, [reportScreenCenters, globeReadyTick, width, height]);
+
+  // ── Army counts (globe_unit_counts_enabled) ─────────────────────────────
+  // Every territory that could show its count, in placement order. Which of
+  // them do show depends on where they land on screen (utils/globeUnitCounts.ts),
+  // so that is worked out again as the camera moves.
+  type CountCandidateOnGlobe = CountCandidate & { lat: number; lng: number; color: string | null; dy: number };
+  const countCandidates = useMemo((): CountCandidateOnGlobe[] => {
+    if (!showUnitCounts || !gameState) return [];
+    const focus = attackSource ?? selectedTerritory;
+    const neighbours = new Set<string>();
+    if (focus) {
+      for (const conn of mapData.connections) {
+        if (conn.from === focus) neighbours.add(conn.to);
+        else if (conn.to === focus) neighbours.add(conn.from);
+      }
+    }
+    const capitals = new Set(gameState.players.map((p) => p.capital_territory_id).filter(Boolean));
+    const colorOf = new Map(gameState.players.map((p) => [p.player_id, p.color]));
+    const out: CountCandidateOnGlobe[] = [];
+    for (const t of mapData.territories) {
+      if (inferWorldId(t) !== activeWorldId) continue;
+      const tState = gameState.territories[t.territory_id];
+      // Fog of war: an unscouted territory's army stays hidden, as everywhere else.
+      if (!tState || isFogHidden(tState)) continue;
+      const c = territoryCentroids.get(t.territory_id);
+      if (!c) continue;
+      out.push({
+        id: t.territory_id,
+        tier: countTier(t.territory_id, focus, neighbours, tState.owner_id, selfPlayerId),
+        count: tState.unit_count ?? 0,
+        lat: c.lat,
+        lng: c.lng,
+        color: tState.owner_id ? colorOf.get(tState.owner_id) ?? '#888888' : null,
+        dy: capitals.has(t.territory_id) || t.region_id === 'sea_routes' ? COUNT_BADGE_BELOW_MARKER_PX : 0,
+      });
+    }
+    return sortCountCandidates(out);
+  }, [showUnitCounts, gameState, attackSource, selectedTerritory, mapData.connections, mapData.territories,
+    activeWorldId, territoryCentroids, selfPlayerId]);
+
+  const [visibleCountIds, setVisibleCountIds] = useState<readonly string[]>(NO_TERRITORY_IDS);
+  const visibleCountsKeyRef = useRef('');
+  const countCandidatesRef = useRef(countCandidates);
+  countCandidatesRef.current = countCandidates;
+  const countViewRef = useRef({ width, height, overlayAltScale });
+  countViewRef.current = { width, height, overlayAltScale };
+  /** Project the candidates and apply the room rule; re-render only for a changed set. */
+  const placeUnitCounts = useCallback(() => {
+    const candidates = countCandidatesRef.current;
+    const globe = globeRef.current;
+    let ids: string[] = [];
+    if (candidates.length > 0 && globe?.getScreenCoords && globe.pointOfView) {
+      // As in reportScreenCenters: the controls move the camera just before a
+      // frame renders, and three.js refreshes its matrices only as it renders.
+      globe.camera?.()?.updateMatrixWorld?.();
+      const view = globe.pointOfView();
+      const { width: w, height: h, overlayAltScale: altScale } = countViewRef.current;
+      const byId = new Map(candidates.map((c) => [c.id, c]));
+      ids = placeCountBadges(candidates, (id) => {
+        const c = byId.get(id);
+        if (!c) return null;
+        if (!facesCamera(c.lat, c.lng, view)) return { x: 0, y: 0, onScreen: false };
+        const at = globe.getScreenCoords(c.lat, c.lng, COUNT_BADGE_ALT * altScale);
+        if (!at || !Number.isFinite(at.x) || !Number.isFinite(at.y)) return null;
+        const y = at.y + c.dy;
+        return { x: at.x, y, onScreen: at.x >= 0 && at.x <= w && y >= 0 && y <= h };
+      });
+    }
+    const key = visibleCountsKey(ids);
+    if (key === visibleCountsKeyRef.current) return;
+    visibleCountsKeyRef.current = key;
+    setVisibleCountIds(ids);
+  }, []);
+  const countPlacementTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** From the camera: at most every COUNT_PLACEMENT_THROTTLE_MS, and always once after the last move. */
+  const scheduleCountPlacement = useCallback(() => {
+    if (countPlacementTimerRef.current) return;
+    countPlacementTimerRef.current = setTimeout(() => {
+      countPlacementTimerRef.current = null;
+      placeUnitCounts();
+    }, COUNT_PLACEMENT_THROTTLE_MS);
+  }, [placeUnitCounts]);
+  useEffect(() => () => {
+    if (countPlacementTimerRef.current) clearTimeout(countPlacementTimerRef.current);
+  }, []);
+  // A new board, selection, canvas or camera framing: place now, and again
+  // once the opening camera has settled. Not under a hold: the board is not
+  // being drawn, and the hold lifting runs this again.
+  useEffect(() => {
+    if (!showUnitCounts || held) return;
+    placeUnitCounts();
+    const settle = setTimeout(placeUnitCounts, COUNT_PLACEMENT_SETTLE_MS);
+    return () => clearTimeout(settle);
+  }, [showUnitCounts, held, countCandidates, globeReadyTick, width, height, overlayAltScale, placeUnitCounts]);
+
+  const showUnitCountsRef = useRef(showUnitCounts);
+  showUnitCountsRef.current = showUnitCounts;
+  const handleGlobeZoom = useCallback(() => {
+    reportScreenCenters();
+    if (showUnitCountsRef.current) scheduleCountPlacement();
+  }, [reportScreenCenters, scheduleCountPlacement]);
+
+  // The badges themselves. A badge whose territory, count, owner and emphasis
+  // are unchanged keeps its datum, and so its element: three-globe matches
+  // overlays to elements by identity, and a turning globe changes the set often.
+  const countDatumCacheRef = useRef(new Map<string, HtmlDatum>());
+  const countHtmlOverlays = useMemo((): HtmlDatum[] => {
+    if (!showUnitCounts || visibleCountIds.length === 0) {
+      countDatumCacheRef.current = new Map();
+      return NO_COUNT_OVERLAYS;
+    }
+    const byId = new Map(countCandidates.map((c) => [c.id, c]));
+    const focused = countCandidates.some((c) => c.tier === 0);
+    const previous = countDatumCacheRef.current;
+    const next = new Map<string, HtmlDatum>();
+    const out: HtmlDatum[] = [];
+    for (const id of visibleCountIds) {
+      const c = byId.get(id);
+      if (!c) continue;
+      const emphasis: 'selected' | 'normal' | 'muted' = c.tier === 0 ? 'selected' : focused && c.tier > 1 ? 'muted' : 'normal';
+      const prior = previous.get(id);
+      const datum = prior && prior.kind === 'unit-count' && prior.count === c.count && prior.color === c.color
+        && prior.emphasis === emphasis && prior.dy === c.dy && prior.lat === c.lat && prior.lng === c.lng
+        ? prior
+        : {
+          kind: 'unit-count' as const,
+          id: `unit-count-${id}`,
+          lat: c.lat,
+          lng: c.lng,
+          alt: COUNT_BADGE_ALT,
+          count: c.count,
+          color: c.color,
+          emphasis,
+          dy: c.dy,
+        };
+      next.set(id, datum);
+      out.push(datum);
+    }
+    countDatumCacheRef.current = next;
+    return out;
+  }, [showUnitCounts, visibleCountIds, countCandidates]);
+  // Paint a changed set: after the camera settles the loop may already be
+  // idle. Nothing to paint while no counts show, so with the flag off this
+  // never wakes anything.
+  const paintedCountsRef = useRef(0);
+  useEffect(() => {
+    if (countHtmlOverlays.length === 0 && paintedCountsRef.current === 0) return;
+    paintedCountsRef.current = countHtmlOverlays.length;
+    applyRenderActivity(
+      true,
+      frameBudgetRef.current ? BUDGET_BOARD_CHANGE_RENDER_MS : BOARD_CHANGE_RENDER_MS,
+      BUDGET_BOARD_CHANGE_FRAMES,
+    );
+  }, [countHtmlOverlays, applyRenderActivity]);
+
+  const combinedHtmlOverlays = useMemo(
+    () => [
+      ...regionHtmlOverlays,
+      ...seaRouteHtmlOverlays,
+      ...gatewayHtmlOverlays,
+      ...capitalHtmlOverlays,
+      ...buildingHtmlOverlays,
+      ...wastelandHtmlOverlays,
+      ...countHtmlOverlays,
+      ...overlays,
+    ],
+    [
+      countHtmlOverlays,
+      regionHtmlOverlays,
+      seaRouteHtmlOverlays,
+      gatewayHtmlOverlays,
+      capitalHtmlOverlays,
+      buildingHtmlOverlays,
+      wastelandHtmlOverlays,
+      overlays,
+    ],
+  );
 
   const adjacencyTargets = useMemo(() => {
     const source = attackSource ?? selectedTerritory;
@@ -4148,7 +4382,13 @@ function GlobeMap({
     <div
       ref={rootRef}
       className="w-full h-full rounded-lg overflow-hidden bg-bf-dark relative"
-      style={{ touchAction: 'none', overscrollBehavior: 'contain' }}
+      // The CSS2D overlay layer numbers its elements' z-index by distance, one
+      // per overlay, in the page's stacking context: with the army counts that
+      // is dozens, enough to paint over the territory panel beside the globe.
+      // Isolating the globe keeps those numbers inside it.
+      style={showUnitCounts
+        ? { touchAction: 'none', overscrollBehavior: 'contain', isolation: 'isolate' }
+        : { touchAction: 'none', overscrollBehavior: 'contain' }}
       data-testid="globe-map-root"
       data-globe-queue-depth={animationUi.backlog}
       data-globe-playing={animationUi.playing ? 'true' : undefined}
@@ -4278,7 +4518,7 @@ function GlobeMap({
           else readyBeforeMountRef.current = true;
           onGlobeReady?.();
         }}
-        onZoom={onTerritoryCenters ? reportScreenCenters : undefined}
+        onZoom={onTerritoryCenters || showUnitCounts ? handleGlobeZoom : undefined}
       />
     </div>
   );
