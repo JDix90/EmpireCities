@@ -675,6 +675,14 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().battle_armies_enabled).toBe(false);
   });
 
+  it('card_sets_explain_enabled defaults to off and the admin override turns it on', () => {
+    expect(featureFlags.cardSetsExplainEnabled).toBe(false);
+    expect(getClientFeatureFlags().card_sets_explain_enabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { card_sets_explain_enabled: true } });
+    expect(featureFlags.cardSetsExplainEnabled).toBe(true);
+    expect(getClientFeatureFlags().card_sets_explain_enabled).toBe(true);
+  });
+
   it('desktop_card_cue_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.desktopCardCueEnabled).toBe(true);
     expect(getClientFeatureFlags().desktop_card_cue_enabled).toBe(true);

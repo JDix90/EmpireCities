@@ -589,6 +589,12 @@ const CLIENT_FEATURE_FLAGS = [
       'On a phone, the core tutorial\u2019s \u201cAdvance to Medieval\u201d card arrives folded to a one-line strip over the open tech tree, instead of opening over the research buttons it asks the player to press; a tap unfolds it. The economy and era cards also show only their main message on a phone, without the extra detail. Desktop is unchanged. On by default; switching it off gives the tutorial exactly as before.',
   },
   {
+    key: 'card_sets_explain_enabled',
+    label: 'Cards explain themselves',
+    description:
+      'The phone\u2019s cards tray and the desktop card list say what the next set pays (\u201cNext set +6 units\u201d) and what a set is (three of a kind, one of each, or a pair plus a wild); they mark the cards that make a set, dim the cards that cannot complete the player\u2019s pick, say whether three picked cards are a set before they redeem, and offer \u201cTrade a set for +N units\u201d in one tap. On a phone the cards button lights up during the player\u2019s draft while a set is ready, instead of waiting until five cards force the tray open. Redemption and its rules are unchanged. Off by default; off, the cards are exactly as before.',
+  },
+  {
     key: 'desktop_card_cue_enabled',
     label: 'Desktop card trade prompt',
     description:

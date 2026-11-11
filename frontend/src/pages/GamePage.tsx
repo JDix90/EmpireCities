@@ -94,6 +94,8 @@ import GameChat from '../components/game/GameChat';
 import MobileCardsTray from '../components/game/MobileCardsTray';
 import FirstTurnCoach from '../components/game/FirstTurnCoach';
 import { useCoachTipsEnabled, useFirstMatchButtonEmphasisEnabled } from '../store/featureFlagsStore';
+import { useCardSetsExplainEnabled } from '../store/featureFlagsStore';
+import { cardSetBonus, findRedeemableCardIds } from '../utils/cardSets';
 import CoachTipStrip from '../components/game/CoachTipStrip';
 import {
   coachTipFor,
@@ -4521,6 +4523,19 @@ export default function GamePage() {
   const mobileIsMyTurn =
     !!mobileMyPlayer &&
     gameState?.players[gameState.current_player_index]?.player_id === mobileMyPlayer.player_id;
+  // card_sets_explain_enabled: what the next set pays, and whether one is
+  // ready to trade in the viewer's draft (the cards button lights up).
+  const cardSetsExplain = useCardSetsExplainEnabled();
+  const nextCardSetBonus =
+    cardSetsExplain && gameState
+      ? cardSetBonus(gameState.card_set_redemption_count ?? 0, gameState.settings.card_set_bonus_cap)
+      : undefined;
+  const cardSetReady =
+    cardSetsExplain &&
+    mobileIsMyTurn &&
+    gameState?.phase === 'draft' &&
+    !!mobileMyPlayer &&
+    findRedeemableCardIds(mobileMyPlayer.cards) != null;
   // The strip shrinks to a pill, and the loss pulse ends, on the viewer's
   // first move of the turn: a placed unit, or the phase already past draft.
   const stripActed =
@@ -6097,8 +6112,15 @@ export default function GamePage() {
               <button
                 type="button"
                 onClick={() => setMobileCardsTrayOpen((o) => !o)}
-                className="relative w-10 h-10 flex items-center justify-center rounded-lg bg-bf-dark border border-bf-border text-bf-muted hover:text-bf-text shrink-0"
-                aria-label="Show cards"
+                className={clsx(
+                  'relative w-10 h-10 flex items-center justify-center rounded-lg bg-bf-dark border shrink-0',
+                  cardSetReady
+                    ? 'border-bf-gold text-bf-gold ring-2 ring-bf-gold/40 motion-safe:animate-pulse'
+                    : 'border-bf-border text-bf-muted hover:text-bf-text',
+                )}
+                aria-label={cardSetReady ? `Show cards: a set is ready to trade for +${nextCardSetBonus} units` : 'Show cards'}
+                data-testid="mobile-cards-button"
+                data-set-ready={cardSetReady ? 'true' : undefined}
               >
                 <CreditCard className="w-5 h-5" />
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-bf-gold text-bf-dark text-[10px] font-bold rounded-full flex items-center justify-center">
@@ -6182,6 +6204,7 @@ export default function GamePage() {
             isDraftPhase={gameState?.phase === 'draft'}
             onRedeemCards={handleRedeemCards}
             onClose={() => setMobileCardsTrayOpen(false)}
+            nextSetBonus={nextCardSetBonus}
           />
         </div>
       )}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import GameHUD from './GameHUD';
@@ -723,6 +723,79 @@ describe('GameHUD — desktop card trade cue', () => {
     setup();
     renderHud({ mobile: true });
     expect(screen.queryByTestId('hud-card-trade-cue')).toBeNull();
+  });
+});
+
+describe('GameHUD — desktop card list, sets explained (card_sets_explain_enabled)', () => {
+  const hand = [
+    { card_id: 'c1', territory_id: 't1', symbol: 'infantry' },
+    { card_id: 'c2', territory_id: 't2', symbol: 'infantry' },
+    { card_id: 'c3', territory_id: 't3', symbol: 'cavalry' },
+  ];
+
+  function setup(flag: boolean) {
+    // The HUD remembers its tab; the cards live on Status.
+    try { localStorage.clear(); } catch { /* ignore */ }
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+      addListener: vi.fn(), removeListener: vi.fn(),
+    }) as unknown as typeof window.matchMedia;
+    useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, card_sets_explain_enabled: flag } }));
+    useAuthStore.setState({ user: { user_id: 'me', username: 'me', level: 1, xp: 0, mmr: 1000 } } as never);
+    useGameStore.setState({
+      gameState: makeState({
+        phase: 'draft',
+        card_set_redemption_count: 1,
+        players: [player('me', 0, { cards: hand }), player('rival', 1, { username: 'Rival' })],
+      }),
+      draftUnitsRemaining: 3, lastCombatResult: null,
+    } as never);
+  }
+  afterEach(() => setup(false));
+
+  it('says what the next set pays, and that a pair plus an odd card is not a set', () => {
+    setup(true);
+    renderHud();
+    fireEvent.click(screen.getByRole('button', { name: /Cards \(3\)/ }));
+    expect(screen.getByTestId('hud-cards-next-bonus')).toHaveTextContent('next set +6 units');
+    expect(screen.getByTestId('hud-cards-guidance')).toHaveTextContent('No set yet. Three of a kind, one of each, or a pair plus a wild.');
+    const cards = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-in-set]'));
+    expect(cards.map((b) => b.dataset.inSet)).toEqual(['false', 'false', 'false']);
+    // Picking from a hand with no set dims nothing: there is no set to steer toward.
+    fireEvent.click(cards[0]);
+    expect(cards.every((b) => !b.disabled)).toBe(true);
+    expect(screen.getByTestId('hud-cards-guidance')).toHaveTextContent('No set yet.');
+    fireEvent.click(cards[1]);
+    fireEvent.click(cards[2]);
+    expect(screen.getByTestId('hud-cards-redeem')).toHaveTextContent('Not a set');
+    expect(screen.getByTestId('hud-cards-redeem')).toBeDisabled();
+    expect(screen.getByTestId('hud-cards-guidance')).toHaveTextContent('Not a set. Three of a kind, one of each, or a pair plus a wild.');
+  });
+
+  it('marks the cards that make a set once the hand holds one', () => {
+    setup(true);
+    useGameStore.setState((st) => ({
+      gameState: {
+        ...st.gameState!,
+        players: [player('me', 0, { cards: [...hand, { card_id: 'c4', territory_id: 't4', symbol: 'artillery' }] }), player('rival', 1, { username: 'Rival' })],
+      },
+    }) as never);
+    renderHud();
+    fireEvent.click(screen.getByRole('button', { name: /Cards \(4\)/ }));
+    const cards = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-in-set]'));
+    expect(cards.map((b) => b.dataset.inSet)).toEqual(['true', 'true', 'true', 'true']);
+    fireEvent.click(cards[0]);
+    // The other infantry can't finish a set with this one.
+    expect(cards[1]).toBeDisabled();
+    expect(cards[2]).toBeEnabled();
+  });
+
+  it('is the list as before with the flag off', () => {
+    setup(false);
+    renderHud();
+    fireEvent.click(screen.getByRole('button', { name: /Cards \(3\)/ }));
+    expect(screen.queryByTestId('hud-cards-next-bonus')).toBeNull();
+    expect(screen.getByText(/Pick 3 to redeem for extra reinforcements/)).toBeInTheDocument();
   });
 });
 
