@@ -76,6 +76,11 @@ describe('ResultsRewards', () => {
     expect(screen.getByTestId('results-level-fill').style.width).toBe('12.4%');
   });
 
+  it('shows the friend-streak bonus with the gold', () => {
+    render(<ResultsRewards xp={sameLevel} medalIds={[]} medalName={String} gold={{ awarded: 22, multiplier: 1, winStreak: 1, friendStreakPercent: 10 }} />);
+    expect(screen.getByTestId('results-friend-streak')).toHaveTextContent('+10% friend streak bonus');
+  });
+
   it('falls back to the game\'s XP when the server sent no summary', () => {
     render(<ResultsRewards xpEarned={105} medalIds={['conqueror']} medalName={(id) => names[id]!} />);
     expect(screen.queryByTestId('results-level')).toBeNull();
