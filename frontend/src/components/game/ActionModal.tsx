@@ -1644,7 +1644,10 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
       case 'resignation':     return 'Your last rival conceded the field.';
       case 'surrender':       return 'Your rivals surrendered to you.';
       case 'capital':         return 'Every rival capital is yours.';
-      case 'threshold':       return 'You hold the share of the map the game asked for.';
+      case 'threshold':
+        return typeof data.victory_threshold === 'number'
+          ? `You hold ${data.victory_threshold}% of the map, the share that wins.`
+          : 'You hold enough of the map to win.';
       case 'secret_mission':  return 'Your secret mission is complete.';
       case 'turn_limit':      return 'The turn limit fell with you in the strongest position.';
       case 'lunar_hegemony':  return 'The Moon is yours, and so is the game.';

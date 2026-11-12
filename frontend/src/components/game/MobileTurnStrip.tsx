@@ -273,10 +273,12 @@ export default function MobileTurnStrip({
               ? 'bg-bf-surface/95 border-red-500/50 text-red-300'
               : 'bg-bf-surface/95 border-bf-border text-bf-muted',
           )}
-          aria-label={`${awayLabel}: ${summary.turns} turns`}
+          aria-label={summary.turns > 0 ? `${awayLabel}: ${summary.turns} ${summary.turns === 1 ? 'turn' : 'turns'}` : 'Earlier turns'}
         >
           <History className="w-3.5 h-3.5" aria-hidden />
-          <span className="tabular-nums">{summary.turns}</span>
+          {/* With nothing new since the viewer's turn, the pill only opens the
+              earlier rounds: a "0" there read as "While you were away: 0 turns". */}
+          {summary.turns > 0 && <span className="tabular-nums">{summary.turns}</span>}
         </button>
         {sheet}
       </>

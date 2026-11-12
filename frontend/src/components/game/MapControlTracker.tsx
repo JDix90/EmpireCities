@@ -55,6 +55,8 @@ export function MapControlChip({ progress }: { progress: MapControlProgress }) {
       {/* The bar needs 46px a portrait phone's top bar does not have; the figures carry it there. */}
       <MapControlBar progress={progress} className="w-10 hidden xs:block" />
       <span className="font-mono whitespace-nowrap">
+        {/* "50%/65%" alone said nothing on a phone, where the sidebar that explains it is behind the menu. */}
+        <span className="font-sans text-bf-muted">Map </span>
         <span className={progress.remaining === 0 ? 'text-bf-gold font-medium' : 'text-bf-text'}>
           {progress.heldPct}%
         </span>

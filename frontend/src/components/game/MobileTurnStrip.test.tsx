@@ -249,7 +249,11 @@ describe('MobileTurnStrip', () => {
       const onScrub = vi.fn();
       strip({ recaps: [], history: HISTORY, isMyTurn: false, onScrub });
       expect(screen.queryByTestId('turn-strip-line')).toBeNull();
-      fireEvent.click(screen.getByTestId('turn-strip-pill'));
+      // Nothing new since the viewer's turn: no "While you were away: 0 turns".
+      const pill = screen.getByTestId('turn-strip-pill');
+      expect(pill.textContent).toBe('');
+      expect(pill.getAttribute('aria-label')).toBe('Earlier turns');
+      fireEvent.click(pill);
       expect(screen.getByTestId('turn-strip-sheet-title').textContent).toBe('Turn 4 · 1 turn ago');
       expect(screen.getByText('Admiral Chen')).toBeTruthy();
       expect(screen.queryByText('Marshal Okonkwo')).toBeNull();

@@ -143,7 +143,7 @@ export default function TechTreeModal({ gameState, currentPlayerId, techTree, er
             <div>
               <h2 className="text-lg font-semibold text-white">Technology Tree</h2>
               {eraLabel && gameState.settings.era_advancement_enabled && (
-                <p className="text-xs text-amber-300/90 mt-0.5">{eraLabel} era · fresh tree after advancement</p>
+                <p className="text-xs text-amber-300/90 mt-0.5">{eraLabel} era · advancing to the next era brings a new tree</p>
               )}
             </div>
             <span className="ml-2 px-2 py-0.5 rounded-full bg-blue-800 text-blue-200 text-sm font-mono">

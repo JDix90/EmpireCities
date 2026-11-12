@@ -200,7 +200,12 @@ describe('AdvanceEraPanel — compact pill in the phone action bar', () => {
 
   it('always shows the cost — that is what makes it a decision', () => {
     compact();
-    expect(screen.getByRole('button').textContent).toMatch(/10g/);
+    const button = screen.getByRole('button');
+    // "10g" said nothing: in words where there is room, a coin on a narrow phone,
+    // and the button's name says it either way.
+    expect(button.textContent).not.toMatch(/10g/);
+    expect(screen.getByText('· 10 gold').className).toContain('xs:inline');
+    expect(button).toHaveAccessibleName(/: 10 gold$/);
   });
 
   it('gates the era name behind xs so it can leave a narrow bar', () => {
