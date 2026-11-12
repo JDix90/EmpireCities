@@ -6,7 +6,7 @@
  * shares the 30-day snooze with the other push prompts.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import ComeBackTomorrowPanel from './ComeBackTomorrowPanel';
@@ -171,5 +171,75 @@ describe('ComeBackTomorrowPanel funnel events (funnel_events_v2_enabled)', () =>
     useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, funnel_events_v2_enabled: false } }));
     await renderPanel();
     expect(apiPost).not.toHaveBeenCalled();
+  });
+});
+
+describe('ComeBackTomorrowPanel, a reason to come back (comeback_hook_enabled)', () => {
+  const setHook = (on: boolean) =>
+    useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, comeback_hook_enabled: on, guest_push_reminders_enabled: true } }));
+  const withTomorrow = (isGuest: boolean, players: number) => ({
+    data: {
+      ...comeback(isGuest).data,
+      tomorrow_daily: { date: '2026-11-13', title: 'The Ottoman Gates', era_id: 'medieval' },
+      daily_players_yesterday: players,
+    },
+  });
+  const renderWith = async (payload: unknown, won?: boolean) => {
+    apiGet.mockResolvedValue(payload);
+    render(<MemoryRouter><ComeBackTomorrowPanel won={won} /></MemoryRouter>);
+    await screen.findByText('Tomorrow awaits');
+  };
+
+  beforeEach(() => {
+    localStorage.clear();
+    apiGet.mockReset();
+    push.status = 'default';
+    push.homeScreen = false;
+    setHook(true);
+  });
+
+  it('leads with tomorrow\'s Daily Challenge by name, and yesterday\'s players when there are enough', async () => {
+    await renderWith(withTomorrow(true, 14), true);
+    const line = screen.getByTestId('tomorrow-daily');
+    expect(line).toHaveTextContent("Tomorrow's Daily Challenge: The Ottoman Gates · Medieval Era. It opens at midnight UTC.");
+    expect(line).toHaveTextContent("14 commanders played yesterday's.");
+  });
+
+  it('leaves out a count too small to be a reason to come', async () => {
+    await renderWith(withTomorrow(true, 2), true);
+    expect(screen.getByTestId('tomorrow-daily')).not.toHaveTextContent('commanders');
+  });
+
+  it('reads a guest\'s streak without the gold a guest cannot spend, with a link to save', async () => {
+    await renderWith(withTomorrow(true, 0), true);
+    const streak = screen.getByTestId('tomorrow-guest-streak');
+    expect(streak).toHaveTextContent('1-day play streak. Play tomorrow to make it 2.');
+    expect(streak).not.toHaveTextContent('gold');
+    expect(screen.getByRole('link', { name: /save your account/i })).toHaveAttribute('href', '/upgrade');
+  });
+
+  it('keeps the gold milestone for an account', async () => {
+    await renderWith(withTomorrow(false, 0), true);
+    expect(screen.queryByTestId('tomorrow-guest-streak')).toBeNull();
+    expect(screen.getByText(/50-gold milestone/)).toBeInTheDocument();
+  });
+
+  it('asks for the reminder after a win, saying what it sends, and not after a loss', async () => {
+    await renderWith(withTomorrow(true, 0), true);
+    expect(screen.getByRole('region', { name: 'Reminders' })).toHaveTextContent(
+      'never more than one a day: when the new Daily Challenge is up, or before your streak runs out.',
+    );
+    cleanup();
+    await renderWith(withTomorrow(true, 0), false);
+    expect(screen.queryByRole('region', { name: 'Reminders' })).toBeNull();
+  });
+
+  it('is the panel as before with the flag off', async () => {
+    setHook(false);
+    await renderWith(withTomorrow(true, 14), false);
+    expect(screen.queryByTestId('tomorrow-daily')).toBeNull();
+    expect(screen.queryByTestId('tomorrow-guest-streak')).toBeNull();
+    expect(screen.getByText(/50-gold milestone/)).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Reminders' })).toBeInTheDocument();
   });
 });

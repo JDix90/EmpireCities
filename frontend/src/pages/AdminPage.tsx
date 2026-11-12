@@ -164,6 +164,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Let the AI spend its per-turn attack budget as dice exchanges rather than distinct targets, so it can grind one territory until it falls. Off, one planned attack is one exchange — which makes any territory holding 3+ units impossible for the AI to take at any difficulty. Same number of exchanges per turn either way, so turn length is unchanged. On by default.',
   },
   {
+    key: 'comeback_hook_enabled',
+    label: 'A reason to come back (guests)',
+    description:
+      'The results screen\u2019s Tomorrow panel leads with tomorrow\u2019s Daily Challenge by name (\u201cTomorrow: The Ottoman Gates\u201d), and how many played yesterday\u2019s when that is five or more. A guest\u2019s streak no longer promises a gold milestone a guest cannot spend; it links to saving the account instead. The reminder ask comes after a win, and says what it sends: one notification a day at most, when the new Daily Challenge is up or before the streak runs out. A guest\u2019s lobby gets a card with their streak and the day\u2019s challenge, and the home page greets a returning player (\u201cContinue as \u2026\u201d) instead of offering a new guest. Off by default; off, all of these are as before.',
+  },
+  {
     key: 'funnel_events_v2_enabled',
     label: 'Funnel events v2 (analytics)',
     description:

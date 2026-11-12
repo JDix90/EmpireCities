@@ -6,13 +6,17 @@
     "signIn": "Iniciar sesión",
     "learnToPlay": "Aprende a jugar",
     "seeGameplay": "Ver el juego",
-    "createFreeAccount": "Crear cuenta gratis"
+    "createFreeAccount": "Crear cuenta gratis",
+    "continueAs": "Continuar como {{name}}"
   },
   "hero": {
     "tagline": "Toda frontera es temporal.",
     "description": "Borderfall es un juego de estrategia por turnos en el que conquistas territorio a lo largo de nueve eras, desde las legiones antiguas hasta una frontera galáctica. Gratis, en tu navegador.",
     "descriptionSuffix": "Juega en tiempo real o por turnos asíncronos con amigos, rivales o la IA.",
-    "friction": "Sin cuenta · Sin descargas · Una partida en unos 20 minutos"
+    "friction": "Sin cuenta · Sin descargas · Una partida en unos 20 minutos",
+    "welcomeBack": "Bienvenido de nuevo. Tus partidas y tu progreso siguen donde los dejaste.",
+    "streak_one": "Racha de {{count}} día. Mantenla hoy.",
+    "streak_other": "Racha de {{count}} días. Mantenla hoy."
   },
   "showcase": {
     "caption": "Partida real en el globo del Mundo actual: uno de los mapas de abajo."
