@@ -88,3 +88,31 @@ describe('checkOnboardingQuests', () => {
     expect(quest?.quest_id).toBe('first_building');
   });
 });
+
+describe('checkOnboardingQuests with lobby_cleanup_enabled', () => {
+  beforeEach(async () => {
+    queryMock.mockReset();
+    queryOneMock.mockReset();
+    const { setAdminConfigCacheForTests } = await import('../../services/adminConfig');
+    setAdminConfigCacheForTests({ feature_flags: { lobby_cleanup_enabled: true } });
+  });
+
+  it('completes a quest out of order: research before a first win, a friend before a building', async () => {
+    setCompleted([]);
+    expect((await checkOnboardingQuests('u1', 'research'))?.quest_id).toBe('first_tech');
+    setCompleted(['first_win']);
+    expect((await checkOnboardingQuests('u1', 'friend_accept'))?.quest_id).toBe('first_friend');
+  });
+
+  it('still completes each quest once', async () => {
+    setCompleted(['first_tech']);
+    expect(await checkOnboardingQuests('u1', 'research')).toBeNull();
+  });
+
+  it('keeps the chain with the flag off', async () => {
+    const { resetAdminConfigCacheForTests } = await import('../../services/adminConfig');
+    resetAdminConfigCacheForTests();
+    setCompleted([]);
+    expect(await checkOnboardingQuests('u1', 'research')).toBeNull();
+  });
+});

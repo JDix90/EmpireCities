@@ -164,6 +164,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Let the AI spend its per-turn attack budget as dice exchanges rather than distinct targets, so it can grind one territory until it falls. Off, one planned attack is one exchange — which makes any territory holding 3+ units impossible for the AI to take at any difficulty. Same number of exchanges per turn either way, so turn length is unchanged. On by default.',
   },
   {
+    key: 'lobby_cleanup_enabled',
+    label: 'Lobby clean-up',
+    description:
+      'The lobby stops advertising an empty room and goals a player cannot reach. \u201cGames being played right now\u201d shows from 3 and \u201cgames in the last 24 hours\u201d from 10, instead of \u201c1 game being played right now\u201d. The Getting Started quests complete in any order and the banner shows the next one the player can do where they are, with where to do it: a Quick Match player was held at \u201cBuild your first building\u201d in a mode with no buildings, and a guest no longer sees quests that need an account. The profile names the next three achievements and how to earn them instead of \u201c???\u201d on every one. Off by default; off, all three are as before.',
+  },
+  {
     key: 'funnel_events_v2_enabled',
     label: 'Funnel events v2 (analytics)',
     description:

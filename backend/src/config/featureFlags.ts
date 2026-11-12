@@ -416,6 +416,11 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // Analytics only; changes nothing a player sees.
   // On by default; the admin override is the kill switch.
   funnel_events_v2_enabled: () => envOptOut('FUNNEL_EVENTS_V2_ENABLED'),
+  // The lobby stops advertising an empty room and impossible goals: live
+  // counters hidden while small, quests completable in any order and shown
+  // in an order the player can do them, the next achievements named.
+  // Dark-launched OFF.
+  lobby_cleanup_enabled: () => envOptIn('LOBBY_CLEANUP_ENABLED'),
   // In-game mute: a "Sound and music" switch in the HUD's Tools & options,
   // which the phone menu shares, muting both at once. Music starts on the
   // first tap and the only mutes were on the Settings page.
@@ -1040,6 +1045,21 @@ export const featureFlags = {
    */
   get funnelEventsV2Enabled(): boolean {
     return overrideBool('funnel_events_v2_enabled');
+  },
+
+  /**
+   * The lobby stops advertising an empty room and impossible goals (the
+   * review's finding 13). The onboarding quests complete in any order
+   * (progressionService.checkOnboardingQuests; /progression/quests locks none),
+   * and the client shows the next one the player can do where they are, with
+   * where to do it (frontend utils/questOrder.ts): a Quick Match player was
+   * held at "Build your first building" in a mode with no buildings. The live
+   * game counters hide while small, and the profile names the next three
+   * locked achievements and how to earn them instead of "???" on every one.
+   * Default OFF; `LOBBY_CLEANUP_ENABLED=true` or the admin override turns it on.
+   */
+  get lobbyCleanupEnabled(): boolean {
+    return overrideBool('lobby_cleanup_enabled');
   },
 
   /**
@@ -1982,6 +2002,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     loss_reason_play_enabled: featureFlags.lossReasonPlayEnabled,
     results_action_events_enabled: featureFlags.resultsActionEventsEnabled,
     funnel_events_v2_enabled: featureFlags.funnelEventsV2Enabled,
+    lobby_cleanup_enabled: featureFlags.lobbyCleanupEnabled,
     mission_reveal_enabled: featureFlags.missionRevealEnabled,
     translation_dom_guard_enabled: featureFlags.translationDomGuardEnabled,
     game_visible_height_enabled: featureFlags.gameVisibleHeightEnabled,

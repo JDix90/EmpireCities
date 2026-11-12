@@ -58,8 +58,9 @@ export async function progressionRoutes(fastify: FastifyInstance): Promise<void>
     const quests = ONBOARDING_QUESTS.map((q) => {
       const completedAt = completedMap.get(q.quest_id) ?? null;
       // Non-sequential quests (first_async) are always completable: never
-      // locked, and they don't occupy the chain's "current" slot.
-      if (NON_SEQUENTIAL_QUESTS.has(q.quest_id)) {
+      // locked, and they don't occupy the chain's "current" slot. With
+      // lobby_cleanup_enabled every quest is (progressionService).
+      if (NON_SEQUENTIAL_QUESTS.has(q.quest_id) || featureFlags.lobbyCleanupEnabled) {
         return { ...q, completed_at: completedAt, is_current: false, is_locked: false };
       }
       const isCurrent = !completedAt && !foundCurrent;

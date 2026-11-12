@@ -8,6 +8,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import LobbyPage from './LobbyPage';
 import { useAuthStore } from '../store/authStore';
+import { useFeatureFlagsStore } from '../store/featureFlagsStore';
 
 const getMock = vi.fn();
 vi.mock('../services/api', () => ({
@@ -21,10 +22,10 @@ vi.mock('../services/mapService', () => ({
   fetchMapById: vi.fn(() => Promise.reject(new Error('offline'))),
 }));
 
-function renderLobby(gamesInLast24h: number) {
+function renderLobby(gamesInLast24h: number, gamesInProgress = 0) {
   getMock.mockImplementation((url: string) =>
     url === '/games/stats/activity'
-      ? Promise.resolve({ data: { games_in_progress: 0, games_today: gamesInLast24h, games_total: 500 } })
+      ? Promise.resolve({ data: { games_in_progress: gamesInProgress, games_today: gamesInLast24h, games_total: 500 } })
       : Promise.reject(new Error('offline')),
   );
   useAuthStore.setState({
@@ -57,5 +58,34 @@ describe('the lobby\'s games count', () => {
   it('says "game" for one', async () => {
     renderLobby(1);
     expect(await screen.findByTestId('lobby-games-24h')).toHaveTextContent(/^1\s*game played in the last 24 hours$/);
+  });
+});
+
+describe('the lobby\'s counters while small (lobby_cleanup_enabled)', () => {
+  const setFlag = (on: boolean) =>
+    useFeatureFlagsStore.setState((st) => ({ flags: { ...st.flags, lobby_cleanup_enabled: on } }));
+  beforeEach(() => {
+    getMock.mockReset();
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(), addListener: vi.fn(), removeListener: vi.fn(),
+    }) as unknown as typeof window.matchMedia;
+  });
+
+  it('hides "1 game being played right now · 3 in the last 24 hours", which reads as an empty room', async () => {
+    setFlag(true);
+    renderLobby(3, 1);
+    await screen.findByText(/Welcome, commander/);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByTestId('lobby-games-live')).toBeNull();
+    expect(screen.queryByTestId('lobby-games-24h')).toBeNull();
+    setFlag(false);
+  });
+
+  it('shows them once there are enough', async () => {
+    setFlag(true);
+    renderLobby(12, 4);
+    expect(await screen.findByTestId('lobby-games-24h')).toHaveTextContent(/12\s*games played/);
+    expect(screen.getByTestId('lobby-games-live')).toHaveTextContent(/4\s*games being played right now/);
+    setFlag(false);
   });
 });
