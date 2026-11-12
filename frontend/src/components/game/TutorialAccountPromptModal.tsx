@@ -3,6 +3,7 @@ import { GraduationCap, Trophy } from 'lucide-react';
 import { useGuestPromptV2Enabled } from '../../store/featureFlagsStore';
 import { useGuestDailyBoardEnabled, useGuestLeaderboardsEnabled, useSaveAccountCopyEnabled } from '../../store/featureFlagsStore';
 import { SAVE_ACCOUNT_LABEL, accountBoardsPerk } from '../../utils/guestGate';
+import { trackFunnel, useTrackShown } from '../../utils/funnelEvents';
 
 interface TutorialAccountPromptModalProps {
   /** Called when the user dismisses without creating an account. */
@@ -26,6 +27,8 @@ export default function TutorialAccountPromptModal({
   onSignIn,
   outcomeLabel,
 }: TutorialAccountPromptModalProps) {
+  // funnel_events_v2_enabled: shown against pressed, by surface.
+  useTrackShown({ event: 'save_prompt_shown', surface: 'tutorial_end' }, true);
   // A guest's progress already survives a reload in this browser; what an
   // account adds is every other device (`guest_prompt_v2_enabled`).
   const guestPromptV2 = useGuestPromptV2Enabled();
@@ -93,7 +96,10 @@ export default function TutorialAccountPromptModal({
         <div className="flex flex-col gap-3">
           <button
             type="button"
-            onClick={onCreateAccount}
+            onClick={() => {
+              trackFunnel({ event: 'save_prompt_clicked', surface: 'tutorial_end' });
+              onCreateAccount();
+            }}
             className="btn-primary py-3 text-base"
           >
             {saveAccountCopy ? SAVE_ACCOUNT_LABEL : 'Create Free Account'}

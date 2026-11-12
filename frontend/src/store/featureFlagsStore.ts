@@ -78,6 +78,7 @@ export interface ClientFeatureFlags {
   loss_reason_enabled: boolean;
   loss_reason_play_enabled: boolean;
   results_action_events_enabled: boolean;
+  funnel_events_v2_enabled: boolean;
   mission_reveal_enabled: boolean;
   translation_dom_guard_enabled: boolean;
   game_visible_height_enabled: boolean;
@@ -238,6 +239,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   loss_reason_play_enabled: true,
   // What the player pressed on the game-over screen, as an analytics event. On by default; admin kill switch.
   results_action_events_enabled: true,
+  // Funnel events v2 (first-turn steps, tutorial steps, prompts shown/answered). Analytics only. On by default; admin kill switch.
+  funnel_events_v2_enabled: true,
   loss_reason_enabled: true,
   // A game won by a secret mission names every player's mission at game over. On by default; admin kill switch.
   mission_reveal_enabled: true,
@@ -638,6 +641,11 @@ export function useLossReasonPlayEnabled(): boolean {
 /** Results actions: post what the player pressed on the game-over screen (utils/resultsAction.ts). */
 export function useResultsActionEventsEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.results_action_events_enabled);
+}
+
+/** Funnel events v2 (utils/funnelEvents.ts): first-turn and tutorial steps, prompts shown and answered. */
+export function useFunnelEventsV2Enabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.funnel_events_v2_enabled);
 }
 
 export function useMissionRevealEnabled(): boolean {

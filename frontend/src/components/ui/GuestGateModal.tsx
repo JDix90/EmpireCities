@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Lock, Check } from 'lucide-react';
 import { SAVE_ACCOUNT_LABEL, type GuestGateCopy } from '../../utils/guestGate';
 import { useSaveAccountCopyEnabled } from '../../store/featureFlagsStore';
+import { gatePage, trackFunnel, useTrackShown } from '../../utils/funnelEvents';
 
 interface GuestGateModalProps {
   /** Title / body / bullets — see utils/guestGate.ts. */
@@ -24,6 +25,8 @@ interface GuestGateModalProps {
  * Escape to dismiss, scroll lock while open).
  */
 export default function GuestGateModal({ copy, onCreateAccount, onDismiss }: GuestGateModalProps) {
+  // funnel_events_v2_enabled: shown against pressed, by surface and page.
+  useTrackShown({ event: 'save_prompt_shown', surface: 'guest_gate' }, true, { page: gatePage() });
   const primaryRef = useRef<HTMLButtonElement>(null);
   const saveAccountCopy = useSaveAccountCopyEnabled();
 
@@ -77,7 +80,10 @@ export default function GuestGateModal({ copy, onCreateAccount, onDismiss }: Gue
           <button
             ref={primaryRef}
             type="button"
-            onClick={onCreateAccount}
+            onClick={() => {
+              trackFunnel({ event: 'save_prompt_clicked', surface: 'guest_gate' }, { page: gatePage() });
+              onCreateAccount();
+            }}
             className="btn-primary py-3 text-base"
           >
             {saveAccountCopy ? SAVE_ACCOUNT_LABEL : 'Create Free Account'}

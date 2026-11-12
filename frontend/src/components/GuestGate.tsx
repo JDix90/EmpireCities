@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ownAuthUiAllowed } from '../utils/embedContext';
 import { useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
 import { SAVE_ACCOUNT_LABEL } from '../utils/guestGate';
+import { gatePage, trackFunnel, useTrackShown } from '../utils/funnelEvents';
 
 interface GuestGateProps {
   /** What the guest can't do yet, e.g. "Daily Challenge". */
@@ -45,14 +46,18 @@ export default function GuestGate({
   // save_account_copy_enabled: one "Save your account" button wherever a caller does not name its own.
   const saveAccountCopy = useSaveAccountCopyEnabled();
   const ctaLabel = ctaLabelProp ?? (saveAccountCopy ? SAVE_ACCOUNT_LABEL : 'Create free account');
+  // funnel_events_v2_enabled: shown (with its button) against pressed, by page.
+  const showCta = ownAuthUiAllowed();
+  useTrackShown({ event: 'save_prompt_shown', surface: 'guest_gate' }, showCta, { page: gatePage() });
+  const onCta = () => trackFunnel({ event: 'save_prompt_clicked', surface: 'guest_gate' }, { page: gatePage() });
   if (variant === 'page') {
     return (
       <div className={`text-center py-12 space-y-4 ${className}`}>
         {Icon && <Icon className="w-8 h-8 text-bf-gold mx-auto" aria-hidden />}
         <h2 className="font-display text-lg text-bf-gold">{title}</h2>
         <p className="text-bf-muted max-w-md mx-auto">{description}</p>
-        {ownAuthUiAllowed() && (
-          <Link to="/upgrade" className="btn-primary inline-flex items-center justify-center min-h-[44px] px-5">
+        {showCta && (
+          <Link to="/upgrade" onClick={onCta} className="btn-primary inline-flex items-center justify-center min-h-[44px] px-5">
             {ctaLabel}
           </Link>
         )}
@@ -70,9 +75,10 @@ export default function GuestGate({
             <p className="text-bf-muted text-sm mt-1">{description}</p>
           </div>
         </div>
-        {ownAuthUiAllowed() && (
+        {showCta && (
         <Link
           to="/upgrade"
+          onClick={onCta}
           className="btn-secondary self-start sm:self-center shrink-0 min-h-[44px] inline-flex items-center justify-center px-4 touch-manipulation"
         >
           {ctaLabel}

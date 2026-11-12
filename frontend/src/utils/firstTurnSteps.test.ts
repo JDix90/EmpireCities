@@ -35,8 +35,24 @@ describe('newFirstTurnSteps', () => {
     expect(newFirstTurnSteps(view({ draftLeft: 0 }), view({ phase: 'attack', draftLeft: 0 }), none)).toEqual(['draft_ended']);
   });
 
-  it('does not count the turn passing on, as when the clock runs out', () => {
-    expect(newFirstTurnSteps(view(), view({ myTurn: false, phase: 'draft' }), none)).toEqual([]);
+  it('does not count the turn passing on, as when the clock runs out, as ending reinforcements', () => {
+    // The first turn is over all the same (funnel_events_v2_enabled), but no draft_ended.
+    expect(newFirstTurnSteps(view(), view({ myTurn: false, phase: 'draft' }), none)).toEqual(['turn_ended']);
+  });
+
+  it('records opening a territory of theirs in the attack phase, the attack picker on screen', () => {
+    expect(newFirstTurnSteps(view({ phase: 'attack' }), view({ phase: 'attack', ownTerritoryOpen: true }), none))
+      .toEqual(['attack_source_opened']);
+    // Not in the draft: that is territory_opened.
+    expect(newFirstTurnSteps(view(), view({ ownTerritoryOpen: true }), none)).not.toContain('attack_source_opened');
+  });
+
+  it('records the first turn ending, even when the round number moves on with it', () => {
+    // The player in the last seat: their turn ends round 1.
+    expect(newFirstTurnSteps(view({ phase: 'fortify' }), view({ turn: 2, myTurn: false, phase: 'draft' }), none))
+      .toEqual(['turn_ended']);
+    // A later turn's end is not the first turn's.
+    expect(newFirstTurnSteps(view({ turn: 2, phase: 'fortify' }), view({ turn: 3, myTurn: false }), none)).toEqual([]);
   });
 
   it('sends each step once a game', () => {

@@ -21,7 +21,34 @@ const REFERRAL_SURVEY_ANSWERS = new Set(['ai_assistant', 'search', 'social', 'fr
  * utils/firstTurnSteps.ts). A closed set, for the same reason as the survey's
  * answers: it is a dimension the First turn report groups by.
  */
-export const FIRST_TURN_STEPS = new Set(['briefing_closed', 'territory_opened', 'units_placed', 'draft_ended']);
+export const FIRST_TURN_STEPS = new Set([
+  'briefing_closed',
+  'territory_opened',
+  'units_placed',
+  'draft_ended',
+  // funnel_events_v2_enabled: one of the player's territories opened in the
+  // attack phase (the attack picker on screen), and the first turn over.
+  'attack_source_opened',
+  'turn_ended',
+]);
+
+/**
+ * Where a prompt appeared (funnel_events_v2_enabled; frontend
+ * utils/funnelEvents.ts). Closed sets: they are what the Prompts report
+ * groups by, shown against pressed.
+ */
+export const SAVE_PROMPT_SURFACES = new Set(['results', 'post_game', 'tutorial_end', 'tomorrow', 'lobby', 'guest_gate']);
+export const PUSH_ASK_SURFACES = new Set(['results', 'after_turn', 'lobby_banner']);
+export const DAILY_LINK_SURFACES = new Set(['tomorrow', 'today_panel', 'lobby']);
+
+/** The events whose `surface` must come from a closed set, and the set. */
+const SURFACE_EVENTS: Record<string, Set<string>> = {
+  save_prompt_shown: SAVE_PROMPT_SURFACES,
+  save_prompt_clicked: SAVE_PROMPT_SURFACES,
+  push_ask_shown: PUSH_ASK_SURFACES,
+  push_ask_dismissed: PUSH_ASK_SURFACES,
+  daily_link_clicked: DAILY_LINK_SURFACES,
+};
 
 /**
  * What a player pressed on the game-over screen (results_action_events_enabled;
@@ -113,6 +140,22 @@ const UiEventSchema = z.object({
     // share or a saved account. Properties: action, outcome (won|lost),
     // game_id, first_match, is_tutorial, is_guest.
     'results_action',
+    // funnel_events_v2_enabled (frontend utils/funnelEvents.ts). Each tutorial
+    // step reached, once per step per game: tutorial_exited only sees players
+    // who press a button, not those who close the tab. Properties: module,
+    // step, step_index, step_count.
+    'tutorial_step',
+    // The denominators the come-back work needs. A save-account prompt shown
+    // and pressed, and a reminder ask shown and dismissed, by `surface` (the
+    // browser's own answer is push_optin_granted/refused); the results
+    // screen's Tomorrow panel shown (is_guest, daily_streak, daily_open);
+    // a Daily Challenge link pressed (surface).
+    'save_prompt_shown',
+    'save_prompt_clicked',
+    'push_ask_shown',
+    'push_ask_dismissed',
+    'tomorrow_panel_shown',
+    'daily_link_clicked',
   ]),
   properties: z.record(z.string().max(64), z.string().max(200)).optional(),
 }).superRefine((value, ctx) => {
@@ -120,6 +163,14 @@ const UiEventSchema = z.object({
     const action = value.properties?.action;
     if (!action || !RESULTS_ACTIONS.has(action)) {
       ctx.addIssue({ code: 'custom', path: ['properties', 'action'], message: 'Unknown action' });
+    }
+    return;
+  }
+  const surfaces = SURFACE_EVENTS[value.event];
+  if (surfaces) {
+    const surface = value.properties?.surface;
+    if (!surface || !surfaces.has(surface)) {
+      ctx.addIssue({ code: 'custom', path: ['properties', 'surface'], message: 'Unknown surface' });
     }
     return;
   }

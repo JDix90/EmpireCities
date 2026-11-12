@@ -102,6 +102,44 @@ describe('AdminAnalyticsPanel', () => {
     expect(section.textContent).toMatch(/New players who signed up since 2026-11-03, when the steps were first\s+recorded/);
   });
 
+  it('adds the attack picker and the turn ending to the first turn when the backend sends them', () => {
+    const firstTurn = {
+      new_players: 40, saw_map: 20, briefing_closed: 18, territory_opened: 12, units_placed: 9,
+      draft_ended: 8, attack_source_opened: 6, attacked: 5, captured: 4, turn_ended: 10, clock_ran_out: 6, measured_since: '2026-11-03',
+    };
+    render(<AdminAnalyticsPanel data={{ ...report, first_turn: firstTurn }} />);
+    const section = screen.getByTestId('admin-first-turn');
+    expect(within(section).getByText('Opened a territory to attack from')).toBeTruthy();
+    expect(within(section).getByText('Ended the first turn')).toBeTruthy();
+    expect(within(section).getByText('6 · 30%')).toBeTruthy();
+  });
+
+  it('shows prompts shown against answered by surface, once any is recorded', () => {
+    const prompts = {
+      save: [{ surface: 'results', shown: 40, clicked: 4 }, { surface: 'guest_gate', shown: 10, clicked: 3 }],
+      push: [{ surface: 'results', shown: 20, dismissed: 15 }],
+      push_granted: 3,
+      push_refused: 1,
+      tomorrow_shown: 50,
+      tomorrow_shown_guests: 42,
+      daily_links: [{ surface: 'tomorrow', players: 6 }],
+      measured_since: '2026-11-12',
+    };
+    const { unmount } = render(<AdminAnalyticsPanel data={{ ...report, prompts: { ...prompts, measured_since: null } }} />);
+    expect(screen.queryByTestId('admin-prompts')).toBeNull();
+    unmount();
+    render(<AdminAnalyticsPanel data={{ ...report, prompts }} />);
+    const save = screen.getByTestId('admin-prompts-save');
+    expect(within(save).getByText('Results screen')).toBeTruthy();
+    expect(save.textContent).toContain('4 (10%)');
+    expect(within(save).getByText('Locked feature')).toBeTruthy();
+    expect(screen.getByTestId('admin-prompts-push').textContent).toContain('15 (75%)');
+    const section = screen.getByTestId('admin-prompts');
+    expect(section.textContent).toMatch(/3 allowed · 1 blocked/);
+    expect(section.textContent).toMatch(/Tomorrow panel shown to 50 \(42 guests\)/);
+    expect(section.textContent).toMatch(/Daily Challenge links pressed: Tomorrow panel 6/);
+  });
+
   it('shows guest accounts once anything has happened, and nothing for an older backend', () => {
     const quiet = {
       saved: 0, saved_with_password: 0, saved_email_only: 0, links_sent: 0, links_not_sent: 0,

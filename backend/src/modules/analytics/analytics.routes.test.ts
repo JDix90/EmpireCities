@@ -153,6 +153,58 @@ describe('POST /api/analytics/ui-event', () => {
     await app.close();
   });
 
+  it('accepts the two new first-turn steps: the attack picker opened, and the first turn over', async () => {
+    const app = await build();
+    for (const step of ['attack_source_opened', 'turn_ended']) {
+      const res = await app.inject({
+        method: 'POST', url: '/api/analytics/ui-event',
+        payload: { event: 'first_turn_step', properties: { step, game_id: 'g1' } },
+      });
+      expect(res.statusCode).toBe(200);
+    }
+    expect(recordServerEventMock).toHaveBeenCalledTimes(2);
+    await app.close();
+  });
+
+  it('accepts tutorial_step, each tutorial step reached', async () => {
+    const app = await build();
+    const properties = { module: 'combined_core', step: 'attack', step_index: '4', step_count: '9' };
+    const res = await app.inject({ method: 'POST', url: '/api/analytics/ui-event', payload: { event: 'tutorial_step', properties } });
+    expect(res.statusCode).toBe(200);
+    expect(recordServerEventMock).toHaveBeenCalledWith('tutorial_step', properties, 'user-1');
+    await app.close();
+  });
+
+  it('accepts prompts shown and answered from a known surface only', async () => {
+    const app = await build();
+    const ok: Array<[string, string]> = [
+      ['save_prompt_shown', 'results'],
+      ['save_prompt_clicked', 'guest_gate'],
+      ['push_ask_shown', 'after_turn'],
+      ['push_ask_dismissed', 'lobby_banner'],
+      ['daily_link_clicked', 'tomorrow'],
+    ];
+    for (const [event, surface] of ok) {
+      const res = await app.inject({ method: 'POST', url: '/api/analytics/ui-event', payload: { event, properties: { surface } } });
+      expect(res.statusCode, event).toBe(200);
+    }
+    for (const payload of [
+      { event: 'save_prompt_shown', properties: { surface: 'somewhere' } },
+      { event: 'push_ask_shown', properties: { surface: 'results_screen' } },
+      { event: 'daily_link_clicked' },
+    ]) {
+      const res = await app.inject({ method: 'POST', url: '/api/analytics/ui-event', payload });
+      expect(res.statusCode).toBe(400);
+    }
+    const tomorrow = await app.inject({
+      method: 'POST', url: '/api/analytics/ui-event',
+      payload: { event: 'tomorrow_panel_shown', properties: { is_guest: 'true', daily_streak: '1', daily_open: 'true' } },
+    });
+    expect(tomorrow.statusCode).toBe(200);
+    expect(recordServerEventMock).toHaveBeenCalledTimes(ok.length + 1);
+    await app.close();
+  });
+
   it('accepts results_action, what a player pressed on the game-over screen', async () => {
     const app = await build();
     const properties = { action: 'rematch', outcome: 'lost', game_id: 'g1', first_match: 'true', is_tutorial: 'false', is_guest: 'true' };

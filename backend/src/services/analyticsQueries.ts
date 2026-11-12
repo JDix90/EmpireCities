@@ -303,6 +303,8 @@ export interface AnalyticsReport {
   first_turn: FirstTurnFunnel;
   /** The map editor: who opened it, who built and sent something, and what came of the review. */
   editor: EditorMetrics;
+  /** Save prompts and reminder asks shown against answered, by surface (funnel_events_v2_enabled). */
+  prompts: PromptFunnel;
 }
 
 /**
@@ -323,9 +325,32 @@ export interface FirstTurnFunnel {
   territory_opened: number;
   units_placed: number;
   draft_ended: number;
+  /** One of their territories opened in the attack phase (funnel_events_v2_enabled). */
+  attack_source_opened: number;
   attacked: number;
   captured: number;
+  /** Their first turn ended, by them or the clock (funnel_events_v2_enabled). */
+  turn_ended: number;
   clock_ran_out: number;
+  measured_since: string | null;
+}
+
+/**
+ * The prompts the come-back work leans on, in players (funnel_events_v2_enabled):
+ * each save-account prompt and reminder ask shown against pressed or
+ * dismissed, by where it appeared; the browser's own answers to the
+ * reminder; the results screen's Tomorrow panel; Daily Challenge links
+ * pressed, by where. Before these events the "4 of 225 guests saved" had no
+ * denominator per surface. `measured_since` is the first day any was recorded.
+ */
+export interface PromptFunnel {
+  save: Array<{ surface: string; shown: number; clicked: number }>;
+  push: Array<{ surface: string; shown: number; dismissed: number }>;
+  push_granted: number;
+  push_refused: number;
+  tomorrow_shown: number;
+  tomorrow_shown_guests: number;
+  daily_links: Array<{ surface: string; players: number }>;
   measured_since: string | null;
 }
 
@@ -1009,8 +1034,10 @@ export async function getFirstTurnFunnel(
        ${step('territory_opened')} AS territory_opened,
        ${step('units_placed')} AS units_placed,
        ${step('draft_ended')} AS draft_ended,
+       ${step('attack_source_opened')} AS attack_source_opened,
        ${did('first_attack')} AS attacked,
        ${did('first_territory_captured')} AS captured,
+       ${step('turn_ended')} AS turn_ended,
        ${did('turn_timed_out', ` AND e.properties->>'turn_number' = '1'`)} AS clock_ran_out,
        (SELECT to_char(MIN(created_at), 'YYYY-MM-DD') FROM analytics_events WHERE event = 'first_turn_step') AS measured_since
      FROM signups s`,
@@ -1023,8 +1050,10 @@ export async function getFirstTurnFunnel(
     territory_opened: num(row?.territory_opened),
     units_placed: num(row?.units_placed),
     draft_ended: num(row?.draft_ended),
+    attack_source_opened: num(row?.attack_source_opened),
     attacked: num(row?.attacked),
     captured: num(row?.captured),
+    turn_ended: num(row?.turn_ended),
     clock_ran_out: num(row?.clock_ran_out),
     measured_since: typeof row?.measured_since === 'string' ? row.measured_since : null,
   };
@@ -1115,12 +1144,72 @@ export async function getEditorMetrics(days: number): Promise<EditorMetrics> {
   };
 }
 
+const PROMPT_EVENTS = [
+  'save_prompt_shown',
+  'save_prompt_clicked',
+  'push_ask_shown',
+  'push_ask_dismissed',
+  'push_optin_granted',
+  'push_optin_refused',
+  'tomorrow_panel_shown',
+  'daily_link_clicked',
+];
+
+/** See PromptFunnel. Players, not events: one guest seeing the results prompt five times is one. */
+export async function getPromptFunnel(days: number, onlyUserIds?: readonly string[]): Promise<PromptFunnel> {
+  const rows = (await query<{ event: string; surface: string | null; guest: boolean | null; players: number; since: string | null }>(
+    `SELECT event,
+            properties->>'surface' AS surface,
+            (event = 'tomorrow_panel_shown' AND properties->>'is_guest' = 'true') AS guest,
+            COUNT(DISTINCT user_id)::int AS players,
+            to_char(MIN(created_at), 'YYYY-MM-DD') AS since
+     FROM analytics_events
+     WHERE event = ANY($2::text[])
+       AND created_at >= NOW() - make_interval(days => $1::int)
+       AND ${countedEventSql('analytics_events')}
+       AND ($3::uuid[] IS NULL OR user_id = ANY($3::uuid[]))
+     GROUP BY 1, 2, 3`,
+    [days, PROMPT_EVENTS, onlyUserIds ?? null],
+  )) ?? [];
+  const bySurface = (shownEvent: string, otherEvent: string) => {
+    const surfaces = new Map<string, { shown: number; other: number }>();
+    for (const r of rows) {
+      if ((r.event !== shownEvent && r.event !== otherEvent) || !r.surface) continue;
+      const entry = surfaces.get(r.surface) ?? { shown: 0, other: 0 };
+      if (r.event === shownEvent) entry.shown += num(r.players);
+      else entry.other += num(r.players);
+      surfaces.set(r.surface, entry);
+    }
+    return [...surfaces.entries()].sort((a, b) => b[1].shown - a[1].shown);
+  };
+  const total = (event: string, pick: (r: (typeof rows)[number]) => boolean = () => true) =>
+    rows.filter((r) => r.event === event && pick(r)).reduce((sum, r) => sum + num(r.players), 0);
+  const since = rows
+    .filter((r) => r.event !== 'push_optin_granted' && r.event !== 'push_optin_refused')
+    .map((r) => r.since)
+    .filter((d): d is string => typeof d === 'string')
+    .sort()[0] ?? null;
+  return {
+    save: bySurface('save_prompt_shown', 'save_prompt_clicked').map(([surface, c]) => ({ surface, shown: c.shown, clicked: c.other })),
+    push: bySurface('push_ask_shown', 'push_ask_dismissed').map(([surface, c]) => ({ surface, shown: c.shown, dismissed: c.other })),
+    push_granted: total('push_optin_granted'),
+    push_refused: total('push_optin_refused'),
+    tomorrow_shown: total('tomorrow_panel_shown'),
+    tomorrow_shown_guests: total('tomorrow_panel_shown', (r) => r.guest === true),
+    daily_links: rows
+      .filter((r) => r.event === 'daily_link_clicked' && r.surface)
+      .map((r) => ({ surface: r.surface as string, players: num(r.players) }))
+      .sort((a, b) => b.players - a.players),
+    measured_since: since,
+  };
+}
+
 /** Everything the funnel report / admin view needs, in one shot. */
 export async function getAnalyticsReport(days: number, device: FunnelDevice | null = null): Promise<AnalyticsReport> {
   // NOTE: the section queries share one mocked `query` in the unit test, which
   // matches them positionally — a new section goes on the END of this list so
   // it cannot shift the mocks of the ones above it.
-  const [visitors, funnel, retention, retentionByCohort, completion, acquisition, volume, tutorial, totalRow, firstMatch, soloByLevel, guestAccounts, activePlayers, firstTurn, editor] = await Promise.all([
+  const [visitors, funnel, retention, retentionByCohort, completion, acquisition, volume, tutorial, totalRow, firstMatch, soloByLevel, guestAccounts, activePlayers, firstTurn, editor, prompts] = await Promise.all([
     getVisitorFunnel(days),
     getFunnelMetrics(days, device),
     getRetentionMetrics(),
@@ -1136,6 +1225,7 @@ export async function getAnalyticsReport(days: number, device: FunnelDevice | nu
     getActivePlayers(days),
     getFirstTurnFunnel(days, device),
     getEditorMetrics(days),
+    getPromptFunnel(days),
   ]);
   return {
     window_days: days,
@@ -1156,5 +1246,6 @@ export async function getAnalyticsReport(days: number, device: FunnelDevice | nu
     active_players: activePlayers,
     first_turn: firstTurn,
     editor,
+    prompts,
   };
 }

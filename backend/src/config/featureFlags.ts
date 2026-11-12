@@ -409,6 +409,13 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // account, play on). Analytics only; changes nothing a player sees.
   // On by default; the admin override is the kill switch.
   results_action_events_enabled: () => envOptOut('RESULTS_ACTION_EVENTS_ENABLED'),
+  // The funnel events the product review asked for: two more first-turn steps
+  // (attack_source_opened, turn_ended), each tutorial step reached, and the
+  // denominators the come-back work needs (save prompts and push asks shown
+  // and answered, the tomorrow panel shown, daily-challenge links pressed).
+  // Analytics only; changes nothing a player sees.
+  // On by default; the admin override is the kill switch.
+  funnel_events_v2_enabled: () => envOptOut('FUNNEL_EVENTS_V2_ENABLED'),
   // In-game mute: a "Sound and music" switch in the HUD's Tools & options,
   // which the phone menu shares, muting both at once. Music starts on the
   // first tap and the only mutes were on the Settings page.
@@ -1020,6 +1027,19 @@ export const featureFlags = {
    */
   get resultsActionEventsEnabled(): boolean {
     return overrideBool('results_action_events_enabled');
+  },
+
+  /**
+   * Funnel events v2: the client also posts `first_turn_step` for
+   * attack_source_opened and turn_ended, `tutorial_step` for each tutorial
+   * step reached, `save_prompt_shown`/`save_prompt_clicked` and
+   * `push_ask_shown`/`push_ask_dismissed` by surface, `tomorrow_panel_shown`
+   * and `daily_link_clicked` (frontend utils/funnelEvents.ts). Analytics only.
+   * Default ON; `FUNNEL_EVENTS_V2_ENABLED=false` or the admin override turns
+   * it off.
+   */
+  get funnelEventsV2Enabled(): boolean {
+    return overrideBool('funnel_events_v2_enabled');
   },
 
   /**
@@ -1961,6 +1981,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     loss_reason_enabled: featureFlags.lossReasonEnabled,
     loss_reason_play_enabled: featureFlags.lossReasonPlayEnabled,
     results_action_events_enabled: featureFlags.resultsActionEventsEnabled,
+    funnel_events_v2_enabled: featureFlags.funnelEventsV2Enabled,
     mission_reveal_enabled: featureFlags.missionRevealEnabled,
     translation_dom_guard_enabled: featureFlags.translationDomGuardEnabled,
     game_visible_height_enabled: featureFlags.gameVisibleHeightEnabled,

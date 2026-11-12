@@ -53,7 +53,8 @@ describe('CampaignPage guest gate', () => {
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
     expect(screen.getByText(/Campaigns need a saved account/)).toBeInTheDocument();
     // The whole point of intercepting client-side: the guest never eats a 403.
-    expect(postMock).not.toHaveBeenCalled();
+    // No request but the analytics beacon (funnel_events_v2_enabled records the prompt shown).
+    expect(postMock.mock.calls.filter(([url]) => url !== '/analytics/ui-event')).toEqual([]);
   });
 
   it('sends the guest to /upgrade, which converts the row in place', async () => {
@@ -68,7 +69,8 @@ describe('CampaignPage guest gate', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Iron Road/ }));
     fireEvent.click(await screen.findByRole('button', { name: /Maybe later/ }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    expect(postMock).not.toHaveBeenCalled();
+    // No request but the analytics beacon (funnel_events_v2_enabled records the prompt shown).
+    expect(postMock.mock.calls.filter(([url]) => url !== '/analytics/ui-event')).toEqual([]);
   });
 
   it('starts normally for a registered player', async () => {
@@ -77,7 +79,8 @@ describe('CampaignPage guest gate', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Iron Road/ }));
     // The choice opens a confirmation first (PT-017); nothing is created until it is accepted.
     expect(await screen.findByRole('dialog', { name: /Iron Road/ })).toBeInTheDocument();
-    expect(postMock).not.toHaveBeenCalled();
+    // No request but the analytics beacon (funnel_events_v2_enabled records the prompt shown).
+    expect(postMock.mock.calls.filter(([url]) => url !== '/analytics/ui-event')).toEqual([]);
     fireEvent.click(screen.getByRole('button', { name: /Start campaign/ }));
 
     await waitFor(() => expect(postMock).toHaveBeenCalledWith('/campaign/start', { path_id: 'iron' }));
