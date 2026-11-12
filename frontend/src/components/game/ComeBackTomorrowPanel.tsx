@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Flame, Coins, Swords, Snowflake, BellRing } from 'lucide-react';
+import { Flame, Coins, Swords, Snowflake, BellRing, CalendarClock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../../services/api';
 import { enableWebPush, getWebPushStatus, needsHomeScreenInstall } from '../../services/pushNotifications';
 import { guestLine } from '../../utils/guestGate';
 import { getPushNudgeDismissedAt, markPushNudgeDismissed } from '../../utils/userPreferences';
 import { PUSH_NUDGE_SNOOZE_MS } from '../notifications/PushOptInBanner';
-import { useGuestPromptV2Enabled, useGuestPushRemindersEnabled } from '../../store/featureFlagsStore';
+import { useComebackHookEnabled, useGuestPromptV2Enabled, useGuestPushRemindersEnabled } from '../../store/featureFlagsStore';
+import { ERA_LABELS } from '../../constants/gameLobbyLabels';
+import { ownAuthUiAllowed } from '../../utils/embedContext';
 import { useSaveAccountCopyEnabled } from '../../store/featureFlagsStore';
 import { trackFunnel, useTrackShown } from '../../utils/funnelEvents';
 
@@ -20,7 +22,17 @@ interface ComebackData {
   already_claimed_today: boolean | null;
   daily_challenge_done_today: boolean;
   streak_freezes: number | null;
+  /** comeback_hook_enabled: tomorrow's Daily Challenge, named ahead (null when it cannot be had). */
+  tomorrow_daily?: { date: string; title: string; era_id: string } | null;
+  /** comeback_hook_enabled: players who finished yesterday's Daily Challenge. */
+  daily_players_yesterday?: number | null;
 }
+
+/**
+ * "Yesterday 14 commanders played it" is a reason to come; "yesterday 1
+ * commander played it" is the opposite. Below this the count is left out.
+ */
+export const DAILY_PLAYERS_SHOWN_FROM = 5;
 
 /**
  * The "come back tomorrow" moment on the game-over screen — the one place we
@@ -29,10 +41,17 @@ interface ComebackData {
  * daily-challenge tease. Self-contained and fail-silent: if the fetch dies,
  * the game-over screen simply doesn't grow this section.
  */
-export default function ComeBackTomorrowPanel({ className }: { className?: string }) {
+export default function ComeBackTomorrowPanel({ className, won }: {
+  className?: string;
+  /** The viewer won the game this panel closes (comeback_hook_enabled asks for the reminder then). */
+  won?: boolean;
+}) {
   const [data, setData] = useState<ComebackData | null>(null);
   const guestCopy = guestLine(useGuestPromptV2Enabled(), useSaveAccountCopyEnabled());
   const guestReminders = useGuestPushRemindersEnabled();
+  // comeback_hook_enabled: tomorrow's challenge leads, a guest's streak reads
+  // without the gold a guest cannot spend, and the reminder ask follows a win.
+  const hook = useComebackHookEnabled();
 
   useEffect(() => {
     let cancelled = false;
@@ -51,7 +70,11 @@ export default function ComeBackTomorrowPanel({ className }: { className?: strin
     is_guest: String(!!data?.is_guest),
     daily_streak: String(data?.daily_streak ?? 0),
     daily_open: String(!!data && !data.daily_challenge_done_today),
+    ...(hook ? { tomorrow_named: String(!!data?.tomorrow_daily) } : {}),
   });
+  // The guest's save link in the streak line (comeback_hook_enabled).
+  const guestSaveLink = hook && !!data?.is_guest && (data?.daily_streak ?? 0) > 0 && ownAuthUiAllowed();
+  useTrackShown({ event: 'save_prompt_shown', surface: 'tomorrow' }, guestSaveLink);
 
   if (!data) return null;
 
@@ -62,7 +85,50 @@ export default function ComeBackTomorrowPanel({ className }: { className?: strin
     <div className={`p-4 rounded-xl bg-white/[0.03] border border-white/10 text-left space-y-2.5 ${className ?? ''}`}>
       <p className="text-white/40 text-xs font-semibold uppercase tracking-wider">Tomorrow awaits</p>
 
-      {data.daily_streak > 0 && (
+      {/* The day's reason to come back, by name (comeback_hook_enabled). */}
+      {hook && data.tomorrow_daily && (
+        <p className="text-sm text-white/85 flex items-start gap-2" data-testid="tomorrow-daily">
+          <CalendarClock size={15} className="text-sky-300 mt-0.5 shrink-0" aria-hidden />
+          <span>
+            Tomorrow&apos;s Daily Challenge:{' '}
+            <span className="text-sky-200 font-medium">{data.tomorrow_daily.title}</span>
+            <span>
+              {ERA_LABELS[data.tomorrow_daily.era_id] ? ` · ${ERA_LABELS[data.tomorrow_daily.era_id]}` : ''}. It opens at midnight UTC.
+            </span>
+            {(data.daily_players_yesterday ?? 0) >= DAILY_PLAYERS_SHOWN_FROM && (
+              <span className="text-white/55"> {data.daily_players_yesterday} commanders played yesterday&apos;s.</span>
+            )}
+          </span>
+        </p>
+      )}
+
+      {hook && data.is_guest && data.daily_streak > 0 && (
+        <p className="text-sm text-white/80 flex items-start gap-2" data-testid="tomorrow-guest-streak">
+          <Flame size={15} className="text-orange-400 mt-0.5 shrink-0" />
+          <span>
+            <span className="text-orange-300 font-medium">{data.daily_streak}-day play streak.</span>{' '}
+            Play tomorrow to make it {data.daily_streak + 1}.{' '}
+            <span className="text-bf-muted">
+              <span>{guestCopy.statement}</span>
+              {guestSaveLink ? (
+                <>
+                  <span>{' — '}</span>
+                  <Link
+                    to="/upgrade"
+                    className="text-bf-gold underline underline-offset-2 hover:text-bf-gold/80"
+                    onClick={() => trackFunnel({ event: 'save_prompt_clicked', surface: 'tomorrow' })}
+                  >
+                    {guestCopy.cta}
+                  </Link>
+                </>
+              ) : null}
+              <span>.</span>
+            </span>
+          </span>
+        </p>
+      )}
+
+      {data.daily_streak > 0 && !(hook && data.is_guest) && (
         <p className="text-sm text-white/80 flex items-start gap-2">
           <Flame size={15} className="text-orange-400 mt-0.5 shrink-0" />
           <span>
@@ -121,7 +187,7 @@ export default function ComeBackTomorrowPanel({ className }: { className?: strin
 
       {/* Only with a streak: it is what the reminders protect, and a game that
           set none (a resignation) leaves the guest out of both of them. */}
-      {data.is_guest && guestReminders && data.daily_streak > 0 && <ReminderAsk />}
+      {data.is_guest && guestReminders && data.daily_streak > 0 && (!hook || won) && <ReminderAsk daily={hook} />}
     </div>
   );
 }
@@ -134,7 +200,7 @@ export default function ComeBackTomorrowPanel({ className }: { className?: strin
  * and the after-turn prompt. On an iPhone tab, where web push exists only in a
  * Home Screen app, it gives that advice instead.
  */
-function ReminderAsk() {
+function ReminderAsk({ daily = false }: { daily?: boolean }) {
   const [status, setStatus] = useState(() => getWebPushStatus());
   const [dismissed, setDismissed] = useState(() => {
     const at = getPushNudgeDismissedAt();
@@ -179,7 +245,11 @@ function ReminderAsk() {
         <span>
           {iosTab
             ? 'Want a reminder tomorrow? Add Borderfall to your Home Screen (Share → Add to Home Screen), then turn notifications on in Settings there.'
-            : 'Want a reminder tomorrow? One notification on this device before your streak ends, never more than one a day.'}
+            : daily
+              // What the reminders actually send (backend retentionNotificationWorker):
+              // the day's challenge at 17:00 UTC, or the streak about to end; one a day.
+              ? 'Want a reminder tomorrow? One notification on this device, never more than one a day: when the new Daily Challenge is up, or before your streak runs out.'
+              : 'Want a reminder tomorrow? One notification on this device before your streak ends, never more than one a day.'}
         </span>
       </p>
       <div className="flex items-center gap-2 pl-[23px]">

@@ -6,13 +6,17 @@
     "signIn": "Anmelden",
     "learnToPlay": "Spielen lernen",
     "seeGameplay": "Gameplay ansehen",
-    "createFreeAccount": "Kostenloses Konto erstellen"
+    "createFreeAccount": "Kostenloses Konto erstellen",
+    "continueAs": "Weiter als {{name}}"
   },
   "hero": {
     "tagline": "Jede Grenze ist vorübergehend.",
     "description": "Borderfall ist ein rundenbasiertes Strategiespiel, in dem du Gebiete über neun Zeitalter hinweg eroberst – von antiken Legionen bis zur galaktischen Grenze. Kostenlos im Browser spielbar.",
     "descriptionSuffix": "Spiele in Echtzeit oder asynchron mit Freunden, Rivalen oder der KI.",
-    "friction": "Kein Konto · Kein Download · Eine Partie in etwa 20 Minuten"
+    "friction": "Kein Konto · Kein Download · Eine Partie in etwa 20 Minuten",
+    "welcomeBack": "Willkommen zurück. Deine Partien und dein Fortschritt warten auf dich.",
+    "streak_one": "Spielserie: {{count}} Tag. Halte sie heute am Laufen.",
+    "streak_other": "Spielserie: {{count}} Tage. Halte sie heute am Laufen."
   },
   "showcase": {
     "caption": "Echtes Gameplay auf dem Globus der Gegenwart – eine der Karten unten."

@@ -226,11 +226,11 @@ export default function NotificationPreferences({ embedded = false, guest = fals
           </SettingsRow>
           <SettingsRow
             icon={Gift}
-            label="Streak reminders & comeback bonuses"
-            description="Occasional emails about your streak and comeback bonuses — the box from signup. Unsubscribe anytime."
+            label="Streak reminders & come-back emails"
+            description="An email when your streak is about to end, and one if you’ve been away a while — the box from signup. Unsubscribe anytime."
           >
             <SettingsToggle
-              label="Streak reminders & comeback bonuses"
+              label="Streak reminders & come-back emails"
               checked={emailEnabled}
               onChange={(checked) => {
                 setEmailEnabled(checked);

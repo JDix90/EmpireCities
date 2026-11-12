@@ -170,6 +170,12 @@ const CLIENT_FEATURE_FLAGS = [
       'In a game, overlays queue instead of stacking. The Full Game used to open with four at once: the briefing, the era banner, the recap of the bots\u2019 moves and the first-turn coach. Now an intro or the briefing shows alone, then the first-turn coach, then the era banner. In the tutorial the era banner stays off the coaching card except on the steps about eras. The bots\u2019 surrender offer takes the strip above the bottom bar, ahead of the recap, instead of the top of the map, where it sat on a territory a player could not tap through. Off by default; off, the overlays are exactly as before.',
   },
   {
+    key: 'comeback_hook_enabled',
+    label: 'A reason to come back (guests)',
+    description:
+      'The results screen\u2019s Tomorrow panel leads with tomorrow\u2019s Daily Challenge by name (\u201cTomorrow: The Ottoman Gates\u201d), and how many played yesterday\u2019s when that is five or more. A guest\u2019s streak no longer promises a gold milestone a guest cannot spend; it links to saving the account instead. The reminder ask comes after a win, and says what it sends: one notification a day at most, when the new Daily Challenge is up or before the streak runs out. A guest\u2019s lobby gets a card with their streak and the day\u2019s challenge, and the home page greets a returning player (\u201cContinue as \u2026\u201d) instead of offering a new guest. Off by default; off, all of these are as before.',
+  },
+  {
     key: 'funnel_events_v2_enabled',
     label: 'Funnel events v2 (analytics)',
     description:

@@ -2103,6 +2103,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
           games (each has its own end flow). */}
       {!data.rematchConfig?.settings?.tutorial && !data.rematchConfig?.settings?.daily_challenge_date && (
         <ComeBackTomorrowPanel
+          won={data.isWinner}
           className={clsx(
             'mb-6 transition-all duration-500 delay-450',
             showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',

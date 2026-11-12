@@ -294,7 +294,7 @@ export default function UpgradePage() {
                 onChange={(e) => setEmailOptIn(e.target.checked)}
               />
               <span className="text-sm text-bf-muted leading-snug">
-                Email me streak reminders and comeback bonuses. Unsubscribe anytime.
+                Email me when my streak is about to end, or if I’ve been away a while. Unsubscribe anytime.
               </span>
             </label>
             <button type="submit" className="btn-primary w-full" disabled={isLoading}>

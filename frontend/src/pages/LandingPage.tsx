@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore, waitForAuthBootstrap } from '../store/authStore';
 import { ownAuthUiAllowed } from '../utils/embedContext';
-import { useOnboardingTutorialFirstEnabled, useHeroSingleCtaEnabled, useGalaxyAgeBetaEnabled } from '../store/featureFlagsStore';
+import { useOnboardingTutorialFirstEnabled, useHeroSingleCtaEnabled, useGalaxyAgeBetaEnabled, useComebackHookEnabled } from '../store/featureFlagsStore';
+import { api } from '../services/api';
 import { trackVisitEvent } from '../utils/visitAnalytics';
 import { canAccessGalacticAge, GALACTIC_AGE_ERA_ID } from '../constants/galacticAgeAccess';
 import toast from 'react-hot-toast';
@@ -263,6 +264,29 @@ export default function LandingPage() {
   const galacticBeta = useGalaxyAgeBetaEnabled();
   const tutorialFirst = useOnboardingTutorialFirstEnabled();
   const singleCta = useHeroSingleCtaEnabled();
+  // comeback_hook_enabled: a returning session is greeted, not offered a new
+  // guest. "Play Free Now · No account" read to them as starting over, though
+  // pressing it did keep their identity.
+  const comebackHook = useComebackHookEnabled();
+  const returning = comebackHook && !!user;
+  const [returningStreak, setReturningStreak] = useState<number | null>(null);
+  useEffect(() => {
+    if (!returning) return;
+    let cancelled = false;
+    api.get<{ daily_streak: number; streak_alive?: boolean }>('/progression/comeback')
+      .then((res) => {
+        // A lapsed run still reads as its old count until the next game: say nothing then.
+        if (!cancelled && res.data.streak_alive && res.data.daily_streak > 0) setReturningStreak(res.data.daily_streak);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [returning]);
+  const heroPlayLabel = returning && user ? t('actions.continueAs', { name: user.username }) : t('actions.playFreeNow');
+  const heroSubline = returning
+    ? returningStreak ? t('hero.streak', { count: returningStreak }) : t('hero.welcomeBack')
+    : t('hero.friction');
 
   // Pre-auth visitor funnel: landing_viewed once per tab, hero_play_clicked on
   // every Play CTA. `placement` tells the buttons apart; `variant` labels the
@@ -382,9 +406,9 @@ export default function LandingPage() {
               disabled={guestLoading}
               onClick={() => { trackPlayClick('hero'); void handleGuest(); }}
             >
-              {guestLoading ? startingLabel : t('actions.playFreeNow')}
+              {guestLoading ? startingLabel : heroPlayLabel}
             </button>
-            <p className="text-bf-muted text-sm">{t('hero.friction')}</p>
+            <p className="text-bf-muted text-sm" data-testid="hero-subline">{heroSubline}</p>
             <button
               type="button"
               className="text-bf-gold/80 hover:text-bf-gold text-sm underline underline-offset-4"
@@ -397,11 +421,15 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-stretch sm:items-center sm:flex-wrap max-w-sm sm:max-w-none mx-auto">
             <button
               type="button"
+              data-testid={returning ? 'hero-continue-cta' : undefined}
               className="btn-primary text-base sm:text-lg px-8 sm:px-10 py-3"
-              onClick={() => { trackPlayClick('hero'); setShowGetStarted(true); }}
+              disabled={returning && guestLoading}
+              // A returning player has nothing to choose between: straight back in.
+              onClick={() => { trackPlayClick('hero'); if (returning) void handleGuest(); else setShowGetStarted(true); }}
             >
-              {t('actions.playFreeNow')}
+              {returning && guestLoading ? startingLabel : heroPlayLabel}
             </button>
+            {returning && <p className="text-bf-muted text-sm sm:basis-full" data-testid="hero-subline">{heroSubline}</p>}
             <Link to="/tutorial" className="btn-secondary text-base sm:text-lg px-8 sm:px-10 py-3 text-center">
               {t('actions.learnToPlay')}
             </Link>
