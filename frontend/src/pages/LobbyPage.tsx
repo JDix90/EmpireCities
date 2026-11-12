@@ -119,6 +119,8 @@ import GalaxyLessonsOffer from '../components/lobby/GalaxyLessonsOffer';
 import { Settings2, FlaskConical, Radio, Activity, Eye, Swords, ChevronDown } from 'lucide-react';
 import { ownAuthUiAllowed } from '../utils/embedContext';
 import { trackFunnel, useTrackShown } from '../utils/funnelEvents';
+import GuestDayCard from '../components/lobby/GuestDayCard';
+import { useComebackHookEnabled } from '../store/featureFlagsStore';
 
 interface LiveGameSummary {
   game_id: string;
@@ -465,6 +467,7 @@ export default function LobbyPage() {
   // The welcome banner's guest line (utils/guestGate.ts).
   const saveAccountCopy = useSaveAccountCopyEnabled();
   const guestCopy = guestLine(useGuestPromptV2Enabled(), saveAccountCopy);
+  const comebackHook = useComebackHookEnabled();
   // funnel_events_v2_enabled: the welcome banner's save link, shown against pressed.
   useTrackShown({ event: 'save_prompt_shown', surface: 'lobby' }, !!user?.is_guest && ownAuthUiAllowed());
   const [fullGameLoading, setFullGameLoading] = useState(false);
@@ -3399,7 +3402,11 @@ export default function LobbyPage() {
                 <SeasonBanner />
               </>
             ) : (
-              <LeaderboardWidget />
+              <>
+                {/* comeback_hook_enabled: a guest's streak and the day's challenge. */}
+                {comebackHook && user?.is_guest && <GuestDayCard dailySummary={dailySummary} />}
+                <LeaderboardWidget />
+              </>
             )}
           </aside>
         </div>

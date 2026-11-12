@@ -3,7 +3,7 @@
  *
  * One toggle used to drive `email_notifications` while describing itself as
  * "Receive an email when it's your turn in async games" — the same column the
- * signup checkbox ("streak reminders and comeback bonuses") writes. Declining
+ * signup checkbox ("Email me when my streak is about to end…") writes. Declining
  * marketing at signup therefore silently declined turn alerts. Migration 041
  * split them; this pins that the UI shows both honestly and saves each on its
  * own.
@@ -59,7 +59,7 @@ describe('NotificationPreferences', () => {
   it('shows turn reminders and marketing as two switches, each reflecting its own preference', async () => {
     render(<NotificationPreferences embedded />);
     const turn = await checkbox('Turn reminders');
-    const marketing = await checkbox('Streak reminders & comeback bonuses');
+    const marketing = await checkbox('Streak reminders & come-back emails');
     // A fresh account: transactional on, marketing off — the column defaults.
     expect(turn.checked).toBe(true);
     expect(marketing.checked).toBe(false);
@@ -79,7 +79,7 @@ describe('NotificationPreferences', () => {
 
   it('opting into marketing does not touch turn reminders', async () => {
     render(<NotificationPreferences embedded />);
-    fireEvent.click(await checkbox('Streak reminders & comeback bonuses'));
+    fireEvent.click(await checkbox('Streak reminders & come-back emails'));
     await waitFor(() =>
       expect(apiPut).toHaveBeenCalledWith('/users/me/preferences', { email_notifications: true }),
     );
@@ -175,7 +175,7 @@ describe('NotificationPreferences', () => {
       expect(screen.getByText(/Streak and Daily Challenge reminders/)).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Turn on' })).toBeInTheDocument();
       expect(screen.queryByRole('checkbox', { name: 'Turn reminders' })).not.toBeInTheDocument();
-      expect(screen.queryByRole('checkbox', { name: 'Streak reminders & comeback bonuses' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('checkbox', { name: 'Streak reminders & come-back emails' })).not.toBeInTheDocument();
     });
 
     it('switching push off saves only push_enabled, the one preference a guest may change', async () => {

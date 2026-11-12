@@ -416,6 +416,12 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // Analytics only; changes nothing a player sees.
   // On by default; the admin override is the kill switch.
   funnel_events_v2_enabled: () => envOptOut('FUNNEL_EVENTS_V2_ENABLED'),
+  // A reason to come back that works for a guest (the review's Project 4): the
+  // results screen names tomorrow's Daily Challenge, a guest's streak reads
+  // honestly and links to saving, the reminder ask comes after a win and says
+  // what it sends, a guest's lobby shows their streak and the day's challenge,
+  // and the home page greets a returning session. Dark-launched OFF.
+  comeback_hook_enabled: () => envOptIn('COMEBACK_HOOK_ENABLED'),
   // In-game mute: a "Sound and music" switch in the HUD's Tools & options,
   // which the phone menu shares, muting both at once. Music starts on the
   // first tap and the only mutes were on the Settings page.
@@ -1040,6 +1046,22 @@ export const featureFlags = {
    */
   get funnelEventsV2Enabled(): boolean {
     return overrideBool('funnel_events_v2_enabled');
+  },
+
+  /**
+   * A reason to come back that works for a guest. `/progression/comeback`
+   * adds tomorrow's Daily Challenge (its title and era, game-engine
+   * daily/dailyTeaser.ts) and how many played yesterday's, and the client:
+   * leads the results screen's Tomorrow panel with them; reads a guest's
+   * streak without the gold milestone a guest cannot spend, with a link to
+   * save the account; asks for the reminder after a win, saying it sends one
+   * notification a day at most (the new daily, or the streak about to end);
+   * gives a guest's lobby a card with their streak and the day's challenge;
+   * and greets a returning session on the home page ("Continue as …").
+   * Default OFF; `COMEBACK_HOOK_ENABLED=true` or the admin override turns it on.
+   */
+  get comebackHookEnabled(): boolean {
+    return overrideBool('comeback_hook_enabled');
   },
 
   /**
@@ -1982,6 +2004,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     loss_reason_play_enabled: featureFlags.lossReasonPlayEnabled,
     results_action_events_enabled: featureFlags.resultsActionEventsEnabled,
     funnel_events_v2_enabled: featureFlags.funnelEventsV2Enabled,
+    comeback_hook_enabled: featureFlags.comebackHookEnabled,
     mission_reveal_enabled: featureFlags.missionRevealEnabled,
     translation_dom_guard_enabled: featureFlags.translationDomGuardEnabled,
     game_visible_height_enabled: featureFlags.gameVisibleHeightEnabled,

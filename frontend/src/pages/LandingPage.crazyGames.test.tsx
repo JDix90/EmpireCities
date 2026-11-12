@@ -23,6 +23,7 @@ vi.mock('../store/featureFlagsStore', () => ({
   useHeroSingleCtaEnabled: () => true,
   useLocalizationEnabled: () => false,
   useGalaxyAgeBetaEnabled: () => false,
+  useComebackHookEnabled: () => false,
 }));
 vi.mock('../utils/embedContext', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../utils/embedContext')>()),
