@@ -9,6 +9,15 @@ interface SurrenderOfferBannerProps {
   /** Sit below the era-advancement banner, which takes the same spot. */
   belowEraBanner?: boolean;
   onAccept: () => void;
+  /**
+   * overlay_queue_enabled: 'strip' takes the strip above the bottom bar, the
+   * one place transient messages go, instead of the top of the map, where it
+   * sat on a territory a player could not tap through. Default 'top'.
+   */
+  placement?: 'top' | 'strip';
+  /** Controlled "Play on": the round it was pressed in, held by the parent (which queues the strip). */
+  playedOnTurn?: number | null;
+  onPlayOn?: (turnNumber: number) => void;
 }
 
 /**
@@ -17,8 +26,19 @@ interface SurrenderOfferBannerProps {
  * the game as a win; "Play on" hides the offer until the next round, when it
  * comes back if it still stands.
  */
-export default function SurrenderOfferBanner({ offered, turnNumber, belowEraBanner, onAccept }: SurrenderOfferBannerProps) {
-  const [dismissedTurn, setDismissedTurn] = React.useState<number | null>(null);
+export default function SurrenderOfferBanner({
+  offered,
+  turnNumber,
+  belowEraBanner,
+  onAccept,
+  placement = 'top',
+  playedOnTurn,
+  onPlayOn,
+}: SurrenderOfferBannerProps) {
+  const [ownDismissedTurn, setOwnDismissedTurn] = React.useState<number | null>(null);
+  const controlled = onPlayOn !== undefined;
+  const dismissedTurn = controlled ? playedOnTurn ?? null : ownDismissedTurn;
+  const setDismissedTurn = (turn: number) => (controlled ? onPlayOn!(turn) : setOwnDismissedTurn(turn));
   const [accepting, setAccepting] = React.useState(false);
   // A new offer (a later round) can be accepted again.
   React.useEffect(() => { setAccepting(false); }, [turnNumber]);
@@ -27,9 +47,15 @@ export default function SurrenderOfferBanner({ offered, turnNumber, belowEraBann
 
   return (
     <div
-      className={`pointer-events-none absolute ${belowEraBanner ? 'top-14' : 'top-3'} left-1/2 -translate-x-1/2 z-30 max-w-[min(92vw,520px)]`}
+      className={
+        placement === 'strip'
+          ? 'pointer-events-none absolute bottom-2 inset-x-2 z-20 flex justify-center'
+          : `pointer-events-none absolute ${belowEraBanner ? 'top-14' : 'top-3'} left-1/2 -translate-x-1/2 z-30 max-w-[min(92vw,520px)]`
+      }
       role="status"
       aria-live="polite"
+      data-testid="surrender-offer"
+      data-placement={placement}
     >
       <div className="pointer-events-auto flex items-center justify-center gap-2 pl-3 pr-1.5 py-2 rounded-lg border border-bf-gold/40 bg-bf-surface/95 backdrop-blur-sm shadow-lg text-xs sm:text-sm">
         <Flag className="w-4 h-4 text-bf-gold shrink-0" />

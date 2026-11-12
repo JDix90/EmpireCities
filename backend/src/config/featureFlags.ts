@@ -421,6 +421,11 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // in an order the player can do them, the next achievements named.
   // Dark-launched OFF.
   lobby_cleanup_enabled: () => envOptIn('LOBBY_CLEANUP_ENABLED'),
+  // One overlay at a time in a game: the intro or briefing alone, then the
+  // first-turn coach, then the era banner; the era banner off the tutorial
+  // card but for its era steps; the surrender offer in the strip above the
+  // bottom bar, not on the map. Dark-launched OFF.
+  overlay_queue_enabled: () => envOptIn('OVERLAY_QUEUE_ENABLED'),
   // A reason to come back that works for a guest (the review's Project 4): the
   // results screen names tomorrow's Daily Challenge, a guest's streak reads
   // honestly and links to saving, the reminder ask comes after a win and says
@@ -1066,6 +1071,20 @@ export const featureFlags = {
    */
   get lobbyCleanupEnabled(): boolean {
     return overrideBool('lobby_cleanup_enabled');
+  },
+
+  /**
+   * One overlay at a time (frontend utils/overlayQueue.ts). The Full Game
+   * opened with four at once: the briefing, the era banner, the recap and the
+   * first-turn coach. Now the intro or briefing shows alone, then the coach,
+   * then the era banner; the tutorial card keeps the era banner away except
+   * on its era steps; and the surrender offer takes the strip above the
+   * bottom bar (ahead of the recap) instead of the top of the map, where a
+   * player could not tap the territory under it.
+   * Default OFF; `OVERLAY_QUEUE_ENABLED=true` or the admin override turns it on.
+   */
+  get overlayQueueEnabled(): boolean {
+    return overrideBool('overlay_queue_enabled');
   },
 
   /**
@@ -2025,6 +2044,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     results_action_events_enabled: featureFlags.resultsActionEventsEnabled,
     funnel_events_v2_enabled: featureFlags.funnelEventsV2Enabled,
     lobby_cleanup_enabled: featureFlags.lobbyCleanupEnabled,
+    overlay_queue_enabled: featureFlags.overlayQueueEnabled,
     comeback_hook_enabled: featureFlags.comebackHookEnabled,
     mission_reveal_enabled: featureFlags.missionRevealEnabled,
     translation_dom_guard_enabled: featureFlags.translationDomGuardEnabled,

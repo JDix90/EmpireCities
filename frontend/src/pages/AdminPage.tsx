@@ -170,6 +170,12 @@ const CLIENT_FEATURE_FLAGS = [
       'The lobby stops advertising an empty room and goals a player cannot reach. \u201cGames being played right now\u201d shows from 3 and \u201cgames in the last 24 hours\u201d from 10, instead of \u201c1 game being played right now\u201d. The Getting Started quests complete in any order and the banner shows the next one the player can do where they are, with where to do it: a Quick Match player was held at \u201cBuild your first building\u201d in a mode with no buildings, and a guest no longer sees quests that need an account. The profile names the next three achievements and how to earn them instead of \u201c???\u201d on every one. Off by default; off, all three are as before.',
   },
   {
+    key: 'overlay_queue_enabled',
+    label: 'One overlay at a time',
+    description:
+      'In a game, overlays queue instead of stacking. The Full Game used to open with four at once: the briefing, the era banner, the recap of the bots\u2019 moves and the first-turn coach. Now an intro or the briefing shows alone, then the first-turn coach, then the era banner. In the tutorial the era banner stays off the coaching card except on the steps about eras. The bots\u2019 surrender offer takes the strip above the bottom bar, ahead of the recap, instead of the top of the map, where it sat on a territory a player could not tap through. Off by default; off, the overlays are exactly as before.',
+  },
+  {
     key: 'comeback_hook_enabled',
     label: 'A reason to come back (guests)',
     description:
