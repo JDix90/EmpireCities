@@ -9,6 +9,7 @@ import { getPushNudgeDismissedAt, markPushNudgeDismissed } from '../../utils/use
 import { PUSH_NUDGE_SNOOZE_MS } from '../notifications/PushOptInBanner';
 import { useGuestPromptV2Enabled, useGuestPushRemindersEnabled } from '../../store/featureFlagsStore';
 import { useSaveAccountCopyEnabled } from '../../store/featureFlagsStore';
+import { trackFunnel, useTrackShown } from '../../utils/funnelEvents';
 
 interface ComebackData {
   is_guest: boolean;
@@ -44,6 +45,13 @@ export default function ComeBackTomorrowPanel({ className }: { className?: strin
       cancelled = true;
     };
   }, []);
+  // funnel_events_v2_enabled: the panel is the results screen's tomorrow hook;
+  // shown, against the daily links pressed and the next day's return.
+  useTrackShown({ event: 'tomorrow_panel_shown' }, !!data, {
+    is_guest: String(!!data?.is_guest),
+    daily_streak: String(data?.daily_streak ?? 0),
+    daily_open: String(!!data && !data.daily_challenge_done_today),
+  });
 
   if (!data) return null;
 
@@ -98,7 +106,14 @@ export default function ComeBackTomorrowPanel({ className }: { className?: strin
         <p className="text-sm text-white/80 flex items-start gap-2">
           <Swords size={15} className="text-sky-300 mt-0.5 shrink-0" />
           <span>
-            Today&apos;s <Link to="/daily" className="text-sky-300 underline underline-offset-2 hover:text-sky-200">Daily Challenge</Link>{' '}
+            Today&apos;s{' '}
+            <Link
+              to="/daily"
+              className="text-sky-300 underline underline-offset-2 hover:text-sky-200"
+              onClick={() => trackFunnel({ event: 'daily_link_clicked', surface: 'tomorrow' })}
+            >
+              Daily Challenge
+            </Link>{' '}
             is still open — a fresh one lands at midnight UTC.
           </span>
         </p>
@@ -128,9 +143,12 @@ function ReminderAsk() {
   const [busy, setBusy] = useState(false);
 
   const iosTab = status === 'unsupported' && needsHomeScreenInstall();
+  // funnel_events_v2_enabled: the ask shown against dismissed.
+  useTrackShown({ event: 'push_ask_shown', surface: 'results' }, !dismissed && (status === 'default' || iosTab), { ios_tab: String(iosTab) });
   if (dismissed || (status !== 'default' && !iosTab)) return null;
 
   const dismiss = () => {
+    trackFunnel({ event: 'push_ask_dismissed', surface: 'results' }, { ios_tab: String(iosTab) });
     markPushNudgeDismissed();
     setDismissed(true);
   };

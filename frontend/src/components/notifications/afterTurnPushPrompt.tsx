@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { enableWebPush, getWebPushStatus, needsHomeScreenInstall } from '../../services/pushNotifications';
 import { getPushNudgeDismissedAt, markPushNudgeDismissed } from '../../utils/userPreferences';
 import { PUSH_NUDGE_SNOOZE_MS } from './PushOptInBanner';
+import { trackFunnel, useTrackShown } from '../../utils/funnelEvents';
 
 export const AFTER_TURN_PROMPT_TOAST_ID = 'push-after-turn';
 
@@ -65,8 +66,11 @@ export function resetAfterTurnPromptForTests(): void {
 
 function AfterTurnPrompt({ toastId, iosTab, wait }: { toastId: string; iosTab: boolean; wait: string }) {
   const [busy, setBusy] = useState(false);
+  // funnel_events_v2_enabled: the ask shown against dismissed.
+  useTrackShown({ event: 'push_ask_shown', surface: 'after_turn' }, true, { ios_tab: String(iosTab) });
 
   const dismiss = () => {
+    trackFunnel({ event: 'push_ask_dismissed', surface: 'after_turn' }, { ios_tab: String(iosTab) });
     markPushNudgeDismissed();
     toast.dismiss(toastId);
   };

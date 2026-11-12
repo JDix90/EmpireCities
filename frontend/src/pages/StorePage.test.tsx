@@ -326,7 +326,8 @@ describe('StorePage', () => {
 
       fireEvent.click(await within(bone).findByRole('button', { name: /^Buy/ }));
       expect(screen.queryByRole('dialog')).toBeNull();
-      expect(postMock).not.toHaveBeenCalled();
+      // No request but the analytics beacon (funnel_events_v2_enabled records the prompt shown).
+      expect(postMock.mock.calls.filter(([url]) => url !== '/analytics/ui-event')).toEqual([]);
     });
   });
 
@@ -347,7 +348,8 @@ describe('StorePage', () => {
 
       fireEvent.click(within(card('Ancient Bone Dice')).getByRole('button', { name: /^Buy/ }));
       expect(screen.queryByRole('dialog')).toBeNull();
-      expect(postMock).not.toHaveBeenCalled();
+      // No request but the analytics beacon (funnel_events_v2_enabled records the prompt shown).
+      expect(postMock.mock.calls.filter(([url]) => url !== '/analytics/ui-event')).toEqual([]);
     });
   });
 });

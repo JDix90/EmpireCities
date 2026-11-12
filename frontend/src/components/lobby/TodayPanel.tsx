@@ -8,6 +8,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useStreakFreezesEnabled, useAsyncOnboardingEnabled } from '../../store/featureFlagsStore';
 import { ERA_LABELS } from '../../constants/gameLobbyLabels';
 import DailyLoginCalendar from '../ui/DailyLoginCalendar';
+import { trackFunnel } from '../../utils/funnelEvents';
 
 interface ComebackData {
   is_guest: boolean;
@@ -210,7 +211,12 @@ export default function TodayPanel({ isNewUser, dailySummary, hasActiveAsyncGame
 
         {/* Daily challenge */}
         {!isNewUser && (
-          <Link to="/daily" className="flex items-start gap-2 text-sm text-bf-text group" data-testid="daily-challenge-row">
+          <Link
+            to="/daily"
+            className="flex items-start gap-2 text-sm text-bf-text group"
+            data-testid="daily-challenge-row"
+            onClick={() => trackFunnel({ event: 'daily_link_clicked', surface: 'today_panel' })}
+          >
             <Swords size={15} className="text-sky-300 mt-0.5 shrink-0" />
             <span>
               <span className="group-hover:underline underline-offset-2">Daily Challenge</span>

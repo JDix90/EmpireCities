@@ -5,6 +5,9 @@ import { GUEST_NO_PERSIST, GUEST_SAVED_HERE } from '../../utils/guestGate';
 import { useFeatureFlagsStore } from '../../store/featureFlagsStore';
 import TutorialAccountPromptModal from './TutorialAccountPromptModal';
 
+const apiPost = vi.hoisted(() => vi.fn(async () => ({ data: {} })));
+vi.mock('../../services/api', () => ({ api: { post: apiPost, get: vi.fn(async () => ({ data: {} })) } }));
+
 function renderModal(isWinner: boolean, gold?: number) {
   const onCreateAccount = vi.fn();
   const onSkip = vi.fn();
@@ -114,5 +117,30 @@ describe('guest prompts v2 (guest_prompt_v2_enabled)', () => {
     setV2(false);
     render(<TutorialAccountPromptModal {...props} />);
     expect(screen.getByText('Save XP, gold, ratings, and unlocks across sessions.')).toBeTruthy();
+  });
+});
+
+describe('save prompts record shown and pressed (funnel_events_v2_enabled)', () => {
+  const events = () => apiPost.mock.calls.map((c) => (c as unknown as [string, { event: string; properties: Record<string, string> }])[1]);
+  beforeEach(() => {
+    apiPost.mockClear();
+    useFeatureFlagsStore.setState((st) => ({ flags: { ...st.flags, funnel_events_v2_enabled: true } }));
+  });
+
+  it('the post-game nudge: shown on open, pressed on its button', () => {
+    const { onCreateAccount } = renderModal(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Save your account' }));
+    expect(onCreateAccount).toHaveBeenCalled();
+    expect(events()).toEqual([
+      { event: 'save_prompt_shown', properties: { surface: 'post_game' } },
+      { event: 'save_prompt_clicked', properties: { surface: 'post_game' } },
+    ]);
+  });
+
+  it('the tutorial-end prompt: shown on open, pressed on its button', () => {
+    const onCreateAccount = vi.fn();
+    render(<TutorialAccountPromptModal onCreateAccount={onCreateAccount} onSignIn={() => {}} onSkip={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Save your account' }));
+    expect(events().map((e) => `${e.event}:${e.properties.surface}`)).toEqual(['save_prompt_shown:tutorial_end', 'save_prompt_clicked:tutorial_end']);
   });
 });

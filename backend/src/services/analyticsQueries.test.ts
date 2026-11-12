@@ -346,11 +346,18 @@ describe('analyticsQueries', () => {
       .mockResolvedValueOnce([{ day: '2026-10-18', active: 5, new_players: 2 }])
       .mockResolvedValueOnce([{
         new_players: 3, saw_map: 3, briefing_closed: 3, territory_opened: 2, units_placed: 2,
-        draft_ended: 1, attacked: 1, captured: 1, clock_ran_out: 1, measured_since: '2026-11-03',
+        draft_ended: 1, attack_source_opened: 1, attacked: 1, captured: 1, turn_ended: 2, clock_ran_out: 1, measured_since: '2026-11-03',
       }])
       .mockResolvedValueOnce([{ opened: 4, templated: 3, saved: 2, submitted: 1, tested: 2, test_plays: 3, balance_runs: 1 }])
       .mockResolvedValueOnce([{ approved: 1, rejected: 0 }])
-      .mockResolvedValueOnce([{ template: 'Europe', n: 2 }, { template: 'remix', n: '1' }]);
+      .mockResolvedValueOnce([{ template: 'Europe', n: 2 }, { template: 'remix', n: '1' }])
+      .mockResolvedValueOnce([
+        { event: 'save_prompt_shown', surface: 'results', guest: false, players: 5, since: '2026-11-12' },
+        { event: 'save_prompt_clicked', surface: 'results', guest: false, players: '1', since: '2026-11-13' },
+        { event: 'tomorrow_panel_shown', surface: null, guest: true, players: 3, since: '2026-11-12' },
+        { event: 'tomorrow_panel_shown', surface: null, guest: false, players: 1, since: '2026-11-12' },
+        { event: 'daily_link_clicked', surface: 'tomorrow', guest: false, players: 2, since: '2026-11-14' },
+      ]);
     queryOneMock.mockResolvedValueOnce({ total: 42 });
 
     const r = await getAnalyticsReport(30);
@@ -407,7 +414,17 @@ describe('analyticsQueries', () => {
     });
     expect(r.first_turn).toEqual({
       new_players: 3, saw_map: 3, briefing_closed: 3, territory_opened: 2, units_placed: 2,
-      draft_ended: 1, attacked: 1, captured: 1, clock_ran_out: 1, measured_since: '2026-11-03',
+      draft_ended: 1, attack_source_opened: 1, attacked: 1, captured: 1, turn_ended: 2, clock_ran_out: 1, measured_since: '2026-11-03',
+    });
+    expect(r.prompts).toEqual({
+      save: [{ surface: 'results', shown: 5, clicked: 1 }],
+      push: [],
+      push_granted: 0,
+      push_refused: 0,
+      tomorrow_shown: 4,
+      tomorrow_shown_guests: 3,
+      daily_links: [{ surface: 'tomorrow', players: 2 }],
+      measured_since: '2026-11-12',
     });
   });
 

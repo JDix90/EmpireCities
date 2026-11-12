@@ -14,7 +14,8 @@ import { useFeatureFlagsStore } from '../../store/featureFlagsStore';
 import { getPushNudgeDismissedAt, markPushNudgeDismissed } from '../../utils/userPreferences';
 
 const apiGet = vi.fn();
-vi.mock('../../services/api', () => ({ api: { get: (...a: unknown[]) => apiGet(...a), post: vi.fn() } }));
+const apiPost = vi.fn(async () => ({ data: {} }));
+vi.mock('../../services/api', () => ({ api: { get: (...a: unknown[]) => apiGet(...a), post: (...a: unknown[]) => apiPost(...(a as [])) } }));
 vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }) }));
 const push = vi.hoisted(() => ({ status: 'default' as string, homeScreen: false, enable: vi.fn() }));
 vi.mock('../../services/pushNotifications', () => ({
@@ -134,5 +135,41 @@ describe('ComeBackTomorrowPanel reminder ask', () => {
   it('is not shown to an account', async () => {
     await renderPanel(false);
     expect(screen.queryByRole('region', { name: 'Reminders' })).not.toBeInTheDocument();
+  });
+});
+
+describe('ComeBackTomorrowPanel funnel events (funnel_events_v2_enabled)', () => {
+  const posted = (event: string) =>
+    apiPost.mock.calls.filter((c) => (c as unknown as [string, { event: string }])[1]?.event === event).map((c) => (c as unknown as [string, { properties: Record<string, string> }])[1].properties);
+
+  beforeEach(() => {
+    localStorage.clear();
+    apiGet.mockReset();
+    apiPost.mockClear();
+    push.status = 'default';
+    push.homeScreen = false;
+    setFlag(true);
+    useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, funnel_events_v2_enabled: true } }));
+  });
+
+  it('records the panel shown once, the reminder ask shown, and "Not now"', async () => {
+    await renderPanel();
+    expect(posted('tomorrow_panel_shown')).toEqual([{ is_guest: 'true', daily_streak: '1', daily_open: 'false' }]);
+    expect(posted('push_ask_shown')).toEqual([{ surface: 'results', ios_tab: 'false' }]);
+    fireEvent.click(screen.getByRole('button', { name: 'Not now' }));
+    expect(posted('push_ask_dismissed')).toEqual([{ surface: 'results', ios_tab: 'false' }]);
+  });
+
+  it('records a press on the Daily Challenge link', async () => {
+    apiGet.mockResolvedValue({ data: { ...comeback(true).data, daily_challenge_done_today: false } });
+    render(<MemoryRouter><ComeBackTomorrowPanel /></MemoryRouter>);
+    fireEvent.click(await screen.findByRole('link', { name: 'Daily Challenge' }));
+    expect(posted('daily_link_clicked')).toEqual([{ surface: 'tomorrow' }]);
+  });
+
+  it('records nothing with the flag off', async () => {
+    useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, funnel_events_v2_enabled: false } }));
+    await renderPanel();
+    expect(apiPost).not.toHaveBeenCalled();
   });
 });

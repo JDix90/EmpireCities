@@ -48,12 +48,39 @@ export interface FirstTurnFunnel {
   territory_opened: number;
   units_placed: number;
   draft_ended: number;
+  /** funnel_events_v2_enabled; absent from an older backend. */
+  attack_source_opened?: number;
   attacked: number;
   captured: number;
+  /** funnel_events_v2_enabled; absent from an older backend. */
+  turn_ended?: number;
   clock_ran_out: number;
   /** The day the steps were first recorded, or null before any were. */
   measured_since: string | null;
 }
+/** Prompts shown against answered, in players (backend PromptFunnel, funnel_events_v2_enabled). */
+export interface PromptFunnel {
+  save: Array<{ surface: string; shown: number; clicked: number }>;
+  push: Array<{ surface: string; shown: number; dismissed: number }>;
+  push_granted: number;
+  push_refused: number;
+  tomorrow_shown: number;
+  tomorrow_shown_guests: number;
+  daily_links: Array<{ surface: string; players: number }>;
+  measured_since: string | null;
+}
+
+const PROMPT_SURFACE_LABELS: Record<string, string> = {
+  results: 'Results screen',
+  post_game: 'After the game (modal)',
+  tutorial_end: 'Tutorial end',
+  tomorrow: 'Tomorrow panel',
+  lobby: 'Lobby banner',
+  guest_gate: 'Locked feature',
+  after_turn: 'After an async turn',
+  lobby_banner: 'Lobby card',
+  today_panel: 'Today panel',
+};
 export interface FirstMatchStats {
   started: number;
   finished: number;
@@ -187,6 +214,8 @@ export interface AnalyticsReport {
   /** Optional for rollout: older backends won't send it. */
   editor?: EditorMetrics;
   acquisition_channels?: AcquisitionChannelRow[];
+  /** Optional for rollout: older backends won't send it. */
+  prompts?: PromptFunnel;
 }
 
 const SOLO_MODE_LABELS: Record<SoloLevelRow['mode'], string> = {
@@ -634,8 +663,12 @@ export default function AdminAnalyticsPanel({
               ['Opened a territory', data.first_turn.territory_opened],
               ['Placed units', data.first_turn.units_placed],
               ['Ended reinforcements', data.first_turn.draft_ended],
+              ...(data.first_turn.attack_source_opened != null
+                ? [['Opened a territory to attack from', data.first_turn.attack_source_opened] as const]
+                : []),
               ['Attacked', data.first_turn.attacked],
               ['Captured a territory', data.first_turn.captured],
+              ...(data.first_turn.turn_ended != null ? [['Ended the first turn', data.first_turn.turn_ended] as const] : []),
             ] as const).map(([label, n], i) => (
               <FunnelStep key={label} label={label} n={n} total={data.first_turn!.saw_map} highlight={i === 0} />
             ))}
@@ -649,6 +682,79 @@ export default function AdminAnalyticsPanel({
             recorded, so every row counts the same players. Each row is &quot;ever did it&quot; in a real game (not
             the tutorial), as a share of those who saw a real game&apos;s map. The steps are a game&apos;s first
             round; Attacked and Captured count any turn.
+          </p>
+        </section>
+      )}
+
+      {/* Prompts (funnel_events_v2_enabled): each save prompt and reminder ask,
+          shown against answered, by where it appeared. Shown once any has
+          been recorded. */}
+      {data.prompts && data.prompts.measured_since && (
+        <section className="rounded-xl border border-bf-border bg-cc-panel/50 p-4" data-testid="admin-prompts">
+          <p className="text-sm font-semibold text-bf-text">
+            Prompts{' '}
+            <span className="text-xs font-normal text-bf-muted">
+              · players, last {data.window_days}d · recorded since {data.prompts.measured_since}
+            </span>
+          </p>
+          <div className="mt-3 grid gap-4 sm:grid-cols-2">
+            <table className="w-full text-sm" data-testid="admin-prompts-save">
+              <thead>
+                <tr className="text-left text-xs text-bf-muted">
+                  <th className="font-normal">Save your account</th>
+                  <th className="font-normal text-right">Shown</th>
+                  <th className="font-normal text-right">Pressed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.prompts.save.map((r) => (
+                  <tr key={r.surface}>
+                    <td className="py-0.5">{PROMPT_SURFACE_LABELS[r.surface] ?? r.surface}</td>
+                    <td className="py-0.5 text-right tabular-nums">{r.shown.toLocaleString()}</td>
+                    <td className="py-0.5 text-right tabular-nums">
+                      {r.clicked.toLocaleString()} <span className="text-bf-muted">({pctText(r.clicked, r.shown)})</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <table className="w-full text-sm" data-testid="admin-prompts-push">
+              <thead>
+                <tr className="text-left text-xs text-bf-muted">
+                  <th className="font-normal">Reminder ask</th>
+                  <th className="font-normal text-right">Shown</th>
+                  <th className="font-normal text-right">Not now</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.prompts.push.map((r) => (
+                  <tr key={r.surface}>
+                    <td className="py-0.5">{PROMPT_SURFACE_LABELS[r.surface] ?? r.surface}</td>
+                    <td className="py-0.5 text-right tabular-nums">{r.shown.toLocaleString()}</td>
+                    <td className="py-0.5 text-right tabular-nums">
+                      {r.dismissed.toLocaleString()} <span className="text-bf-muted">({pctText(r.dismissed, r.shown)})</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-3 text-sm text-bf-text">
+            Browser answers: {data.prompts.push_granted.toLocaleString()} allowed · {data.prompts.push_refused.toLocaleString()} blocked.
+            {' '}Tomorrow panel shown to {data.prompts.tomorrow_shown.toLocaleString()} ({data.prompts.tomorrow_shown_guests.toLocaleString()} guests).
+            {data.prompts.daily_links.length > 0 && (
+              <>
+                {' '}Daily Challenge links pressed:{' '}
+                {data.prompts.daily_links
+                  .map((d) => `${PROMPT_SURFACE_LABELS[d.surface] ?? d.surface} ${d.players.toLocaleString()}`)
+                  .join(' · ')}
+                .
+              </>
+            )}
+          </p>
+          <p className="mt-2 text-xs text-bf-muted">
+            Players, not views: a guest who saw the results prompt after five games counts once. &quot;Pressed&quot;
+            opens the save form; saved accounts are under Guest accounts.
           </p>
         </section>
       )}

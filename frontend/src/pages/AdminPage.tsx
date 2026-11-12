@@ -164,6 +164,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Let the AI spend its per-turn attack budget as dice exchanges rather than distinct targets, so it can grind one territory until it falls. Off, one planned attack is one exchange — which makes any territory holding 3+ units impossible for the AI to take at any difficulty. Same number of exchanges per turn either way, so turn length is unchanged. On by default.',
   },
   {
+    key: 'funnel_events_v2_enabled',
+    label: 'Funnel events v2 (analytics)',
+    description:
+      'Records the steps the product review found missing. In a first real game: the player opening one of their territories in the attack phase, and their first turn ending. In the tutorial: each step reached, so drop-off shows for players who close the tab. And the counts the come-back work needs: each save-account prompt and reminder ask shown and pressed (or dismissed), by where it appeared; the results screen\u2019s Tomorrow panel shown; and a Daily Challenge link pressed. Analytics only, nothing a player sees changes. On by default; switching it off stops these events.',
+  },
+  {
     key: 'results_action_events_enabled',
     label: 'Results actions (analytics)',
     description:

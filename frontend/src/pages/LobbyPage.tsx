@@ -118,6 +118,7 @@ import { TUTORIAL_MODULES, TUTORIAL_V2_ENABLED, getCompletedTutorialModules, tut
 import GalaxyLessonsOffer from '../components/lobby/GalaxyLessonsOffer';
 import { Settings2, FlaskConical, Radio, Activity, Eye, Swords, ChevronDown } from 'lucide-react';
 import { ownAuthUiAllowed } from '../utils/embedContext';
+import { trackFunnel, useTrackShown } from '../utils/funnelEvents';
 
 interface LiveGameSummary {
   game_id: string;
@@ -464,6 +465,8 @@ export default function LobbyPage() {
   // The welcome banner's guest line (utils/guestGate.ts).
   const saveAccountCopy = useSaveAccountCopyEnabled();
   const guestCopy = guestLine(useGuestPromptV2Enabled(), saveAccountCopy);
+  // funnel_events_v2_enabled: the welcome banner's save link, shown against pressed.
+  useTrackShown({ event: 'save_prompt_shown', surface: 'lobby' }, !!user?.is_guest && ownAuthUiAllowed());
   const [fullGameLoading, setFullGameLoading] = useState(false);
   // Full Game setup — separate prefs from Quick Match (a long campaign table
   // and a quick-stomp table are different choices).
@@ -2183,7 +2186,13 @@ export default function LobbyPage() {
                   {ownAuthUiAllowed() && (
                     <>
                       {' '}
-                      <Link to="/upgrade" className="text-bf-gold hover:underline">— {guestCopy.cta}</Link>
+                      <Link
+                        to="/upgrade"
+                        className="text-bf-gold hover:underline"
+                        onClick={() => trackFunnel({ event: 'save_prompt_clicked', surface: 'lobby' })}
+                      >
+                        — {guestCopy.cta}
+                      </Link>
                     </>
                   )}
                 </p>
@@ -2591,7 +2600,10 @@ export default function LobbyPage() {
                     </p>
                   </button>
                   <button
-                    onClick={() => navigate('/daily')}
+                    onClick={() => {
+                      trackFunnel({ event: 'daily_link_clicked', surface: 'lobby' }, { place: 'quick_actions' });
+                      navigate('/daily');
+                    }}
                     className="p-4 rounded-lg bg-bf-dark border border-bf-border hover:border-bf-gold/50 transition-colors text-left group"
                   >
                     <Calendar className="w-5 h-5 text-bf-gold mb-2 group-hover:scale-110 transition-transform" />
@@ -3356,6 +3368,7 @@ export default function LobbyPage() {
                     <Link
                       to="/daily"
                       className="card block hover:border-bf-gold/40 transition-colors group"
+                      onClick={() => trackFunnel({ event: 'daily_link_clicked', surface: 'lobby' }, { place: 'daily_card' })}
                     >
                       <div className="flex items-center justify-between gap-2 mb-1">
                         <h3 className="font-display text-bf-gold flex items-center gap-2">

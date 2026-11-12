@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { useAuthStore } from '../../store/authStore';
 import { enableWebPush, getWebPushStatus, needsHomeScreenInstall } from '../../services/pushNotifications';
 import { getPushNudgeDismissedAt, markPushNudgeDismissed } from '../../utils/userPreferences';
+import { trackFunnel, useTrackShown } from '../../utils/funnelEvents';
 
 /** "Not now" keeps the card away this long. */
 export const PUSH_NUDGE_SNOOZE_MS = 30 * 24 * 3_600_000;
@@ -35,12 +36,20 @@ export default function PushOptInBanner({ hasAsyncGames }: PushOptInBannerProps)
     return at !== null && Date.now() - at < PUSH_NUDGE_SNOOZE_MS;
   });
   const [busy, setBusy] = useState(false);
+  const iosTab = status === 'unsupported' && needsHomeScreenInstall();
+  // funnel_events_v2_enabled: the ask shown against dismissed (the browser's
+  // own answer is push_optin_granted/refused).
+  useTrackShown(
+    { event: 'push_ask_shown', surface: 'lobby_banner' },
+    !!hasAsyncGames && !!user && !dismissed && (status === 'default' || iosTab),
+    { ios_tab: String(iosTab) },
+  );
 
   if (!hasAsyncGames || !user || dismissed) return null;
-  const iosTab = status === 'unsupported' && needsHomeScreenInstall();
   if (status !== 'default' && !iosTab) return null;
 
   const dismiss = () => {
+    trackFunnel({ event: 'push_ask_dismissed', surface: 'lobby_banner' }, { ios_tab: String(iosTab) });
     markPushNudgeDismissed();
     setDismissed(true);
   };

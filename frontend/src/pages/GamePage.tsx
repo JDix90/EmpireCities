@@ -74,7 +74,9 @@ import { PhonePhaseButton, phoneCountdownApplies } from '../components/game/Phon
 import { useResultsActionEventsEnabled, useFirstMatchLadderEnabled } from '../store/featureFlagsStore';
 import { isLadderGame, nextBattleLabel } from '../utils/ladder';
 import { resultsActionProperties, type ResultsAction } from '../utils/resultsAction';
-import { newFirstTurnSteps, type FirstTurnStep, type FirstTurnView } from '../utils/firstTurnSteps';
+import { FIRST_TURN_STEPS_V2, newFirstTurnSteps, type FirstTurnStep, type FirstTurnView } from '../utils/firstTurnSteps';
+import { useFunnelEventsV2Enabled } from '../store/featureFlagsStore';
+import { trackFunnel } from '../utils/funnelEvents';
 import PlayOnTag from '../components/game/PlayOnTag';
 import GalacticBetaTag, { GALACTIC_BETA_WELCOME_NOTE } from '../components/game/GalacticBetaTag';
 import GalaxyViewsTip, { GALAXY_VIEWS_TIP_KEY } from '../components/game/GalaxyViewsTip';
@@ -1010,6 +1012,8 @@ export default function GamePage() {
   // each step of a real game's first turn the viewer reaches, posted once a
   // game, so the funnel can say where a first turn stops before an attack.
   const firstTurnEvents = useFirstTurnEventsEnabled();
+  // The steps funnel_events_v2_enabled adds (attack_source_opened, turn_ended).
+  const funnelEventsV2 = useFunnelEventsV2Enabled();
   // The phone bar's turn clock (components/game/PhoneTurnCountdown.tsx). The
   // first turn's clock is held while the briefing is open, as on desktop.
   const phoneTurnCountdown = usePhoneTurnCountdownEnabled();
@@ -1034,6 +1038,7 @@ export default function GamePage() {
       draftLeft: draftUnitsRemaining,
     };
     for (const step of newFirstTurnSteps(ft.prev, view, ft.sent)) {
+      if (!funnelEventsV2 && FIRST_TURN_STEPS_V2.has(step)) continue;
       ft.sent.add(step);
       api.post('/analytics/ui-event', {
         event: 'first_turn_step',
@@ -1048,7 +1053,7 @@ export default function GamePage() {
       }).catch(() => {});
     }
     ft.prev = view;
-  }, [firstTurnEvents, gameId, gameState, viewerPlayer, showStartModal, selectedTerritory, draftUnitsRemaining, isMobileLayout]);
+  }, [firstTurnEvents, funnelEventsV2, gameId, gameState, viewerPlayer, showStartModal, selectedTerritory, draftUnitsRemaining, isMobileLayout]);
 
   // ── Globe-readiness turn-timer ack (B-06) ────────────────────────────────
   // The server starts the turn timer the instant a turn begins, but the 3D
@@ -1250,6 +1255,24 @@ export default function GamePage() {
   tutorialStepsRef.current = tutorialSteps;
   /** When the current tutorial step became visible — auto-advance steps hold a minimum dwell. */
   const tutorialStepShownAtRef = useRef(Date.now());
+  // Each tutorial step reached, once per step per game (funnel_events_v2_enabled):
+  // tutorial_exited only hears from players who press a button, so a tab
+  // closed mid-lesson left no trace of where. step_index is 1-based, as the
+  // card's "Step 2 / 9".
+  const tutorialStepsSentRef = useRef<{ gameId: string | null; sent: Set<number> }>({ gameId: null, sent: new Set() });
+  useEffect(() => {
+    if (!isTutorial || !gameId) return;
+    if (tutorialStepsSentRef.current.gameId !== gameId) tutorialStepsSentRef.current = { gameId, sent: new Set() };
+    const { sent } = tutorialStepsSentRef.current;
+    if (sent.has(tutorialStep)) return;
+    sent.add(tutorialStep);
+    trackFunnel({ event: 'tutorial_step' }, {
+      module: tutorialLessonModule,
+      step: tutorialSteps[tutorialStep]?.id ?? 'wrapup',
+      step_index: String(tutorialStep + 1),
+      step_count: String(tutorialSteps.length),
+    });
+  }, [isTutorial, gameId, tutorialStep, tutorialSteps, tutorialLessonModule]);
   const tutorialDwellTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     tutorialStepShownAtRef.current = Date.now();
@@ -2078,7 +2101,8 @@ export default function GamePage() {
         const era = String(state?.era ?? '');
         if (!funnelEmittedRef.current.attack) {
           funnelEmittedRef.current.attack = true;
-          api.post('/analytics/ui-event', { event: 'first_attack', properties: { era, is_tutorial: isTut } }).catch(() => {});
+          // game_id so the attack joins the game's first-turn steps (the review's Project 1 metric).
+          api.post('/analytics/ui-event', { event: 'first_attack', properties: { era, is_tutorial: isTut, game_id: String(state?.game_id ?? '') } }).catch(() => {});
         }
         if (territory_captured && !funnelEmittedRef.current.capture) {
           funnelEmittedRef.current.capture = true;

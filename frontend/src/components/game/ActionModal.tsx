@@ -39,6 +39,7 @@ import { useBattleArmiesEnabled } from '../../store/featureFlagsStore';
 import { useLossReasonEnabled, useLossReasonPlayEnabled, useMissionRevealEnabled } from '../../store/featureFlagsStore';
 import { useBattlePlayerColorsEnabled, useCombatExplainEnabled } from '../../store/featureFlagsStore';
 import CombatDicePairs from './CombatDicePairs';
+import { trackFunnel, useTrackShown } from '../../utils/funnelEvents';
 import { attackOddsKey, formatWinChance, useAttackOdds, WIN_CHANCE_HINT } from '../../hooks/useAttackOdds';
 import { useEmailAccountSaveEnabled, useSaveAccountCopyEnabled } from '../../store/featureFlagsStore';
 import { lossReason } from '../../utils/lossReason';
@@ -1494,6 +1495,11 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
   const saveAccountCopy = useSaveAccountCopyEnabled();
   const emailSave = useEmailAccountSaveEnabled();
   const resultsFooter = useResultsFooterEnabled();
+  // funnel_events_v2_enabled: the results screen's save box, shown against pressed.
+  useTrackShown(
+    { event: 'save_prompt_shown', surface: 'results' },
+    !!user?.is_guest && !!onUpgradeAccount && !data.rematchConfig?.settings?.tutorial,
+  );
   // Rewards first (results_rewards_first_enabled): the level bar, XP and medals
   // under the outcome, the territory chart next, coaching in its own tab.
   const rewardsFirst = useResultsRewardsFirstEnabled();
@@ -2143,7 +2149,10 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
           )}
           <button
             type="button"
-            onClick={onUpgradeAccount}
+            onClick={() => {
+              trackFunnel({ event: 'save_prompt_clicked', surface: 'results' });
+              onUpgradeAccount();
+            }}
             className="w-full py-2.5 rounded-lg bg-bf-gold text-bf-dark font-display hover:bg-bf-gold/90 transition-colors"
           >
             {saveAccountCopy ? SAVE_ACCOUNT_LABEL : 'Create Free Account'}

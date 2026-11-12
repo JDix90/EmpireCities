@@ -4,6 +4,7 @@ import { signupNudgeCopy } from '../../utils/signupNudge';
 import { useGuestPromptV2Enabled } from '../../store/featureFlagsStore';
 import { useEmailAccountSaveEnabled, useGuestDailyBoardEnabled, useGuestLeaderboardsEnabled, useSaveAccountCopyEnabled } from '../../store/featureFlagsStore';
 import { SAVE_ACCOUNT_LABEL, accountBoardsPerk } from '../../utils/guestGate';
+import { trackFunnel, useTrackShown } from '../../utils/funnelEvents';
 
 interface GuestSignupNudgeModalProps {
   /** Whether the guest just won — drives outcome-aware copy + icon. */
@@ -28,6 +29,8 @@ export default function GuestSignupNudgeModal({
   onCreateAccount,
   onSkip,
 }: GuestSignupNudgeModalProps) {
+  // funnel_events_v2_enabled: shown against pressed, by surface.
+  useTrackShown({ event: 'save_prompt_shown', surface: 'post_game' }, true);
   const primaryRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -97,7 +100,10 @@ export default function GuestSignupNudgeModal({
           <button
             ref={primaryRef}
             type="button"
-            onClick={onCreateAccount}
+            onClick={() => {
+              trackFunnel({ event: 'save_prompt_clicked', surface: 'post_game' });
+              onCreateAccount();
+            }}
             className="btn-primary py-3 text-base"
           >
             {saveAccountCopy ? SAVE_ACCOUNT_LABEL : 'Create Free Account'}
