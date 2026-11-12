@@ -601,6 +601,14 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().loss_reason_play_enabled).toBe(false);
   });
 
+  it('overlay_queue_enabled defaults to off and the admin override turns it on', () => {
+    expect(featureFlags.overlayQueueEnabled).toBe(false);
+    expect(getClientFeatureFlags().overlay_queue_enabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { overlay_queue_enabled: true } });
+    expect(featureFlags.overlayQueueEnabled).toBe(true);
+    expect(getClientFeatureFlags().overlay_queue_enabled).toBe(true);
+  });
+
   it('funnel_events_v2_enabled defaults to on, reaches the client, and the admin override is its kill switch', () => {
     expect(featureFlags.funnelEventsV2Enabled).toBe(true);
     expect(getClientFeatureFlags().funnel_events_v2_enabled).toBe(true);

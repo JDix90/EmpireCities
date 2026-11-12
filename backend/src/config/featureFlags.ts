@@ -416,6 +416,11 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // Analytics only; changes nothing a player sees.
   // On by default; the admin override is the kill switch.
   funnel_events_v2_enabled: () => envOptOut('FUNNEL_EVENTS_V2_ENABLED'),
+  // One overlay at a time in a game: the intro or briefing alone, then the
+  // first-turn coach, then the era banner; the era banner off the tutorial
+  // card but for its era steps; the surrender offer in the strip above the
+  // bottom bar, not on the map. Dark-launched OFF.
+  overlay_queue_enabled: () => envOptIn('OVERLAY_QUEUE_ENABLED'),
   // In-game mute: a "Sound and music" switch in the HUD's Tools & options,
   // which the phone menu shares, muting both at once. Music starts on the
   // first tap and the only mutes were on the Settings page.
@@ -1040,6 +1045,20 @@ export const featureFlags = {
    */
   get funnelEventsV2Enabled(): boolean {
     return overrideBool('funnel_events_v2_enabled');
+  },
+
+  /**
+   * One overlay at a time (frontend utils/overlayQueue.ts). The Full Game
+   * opened with four at once: the briefing, the era banner, the recap and the
+   * first-turn coach. Now the intro or briefing shows alone, then the coach,
+   * then the era banner; the tutorial card keeps the era banner away except
+   * on its era steps; and the surrender offer takes the strip above the
+   * bottom bar (ahead of the recap) instead of the top of the map, where a
+   * player could not tap the territory under it.
+   * Default OFF; `OVERLAY_QUEUE_ENABLED=true` or the admin override turns it on.
+   */
+  get overlayQueueEnabled(): boolean {
+    return overrideBool('overlay_queue_enabled');
   },
 
   /**
@@ -1982,6 +2001,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     loss_reason_play_enabled: featureFlags.lossReasonPlayEnabled,
     results_action_events_enabled: featureFlags.resultsActionEventsEnabled,
     funnel_events_v2_enabled: featureFlags.funnelEventsV2Enabled,
+    overlay_queue_enabled: featureFlags.overlayQueueEnabled,
     mission_reveal_enabled: featureFlags.missionRevealEnabled,
     translation_dom_guard_enabled: featureFlags.translationDomGuardEnabled,
     game_visible_height_enabled: featureFlags.gameVisibleHeightEnabled,

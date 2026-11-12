@@ -29,3 +29,20 @@ describe('SurrenderOfferBanner', () => {
     expect(screen.getByText('Your rivals offer their surrender.')).toBeTruthy();
   });
 });
+
+describe('SurrenderOfferBanner in the strip (overlay_queue_enabled)', () => {
+  it('sits in the strip above the bottom bar, and leaves "Play on" to the parent', () => {
+    const onPlayOn = vi.fn();
+    const { rerender } = render(
+      <SurrenderOfferBanner offered turnNumber={12} onAccept={() => {}} placement="strip" playedOnTurn={null} onPlayOn={onPlayOn} />,
+    );
+    const banner = screen.getByTestId('surrender-offer');
+    expect(banner.dataset.placement).toBe('strip');
+    expect(banner.className).toContain('bottom-2');
+    expect(banner.className).not.toContain('top-');
+    fireEvent.click(screen.getByRole('button', { name: 'Play on' }));
+    expect(onPlayOn).toHaveBeenCalledWith(12);
+    rerender(<SurrenderOfferBanner offered turnNumber={12} onAccept={() => {}} placement="strip" playedOnTurn={12} onPlayOn={onPlayOn} />);
+    expect(screen.queryByTestId('surrender-offer')).toBeNull();
+  });
+});

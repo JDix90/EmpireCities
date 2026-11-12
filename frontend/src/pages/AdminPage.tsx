@@ -164,6 +164,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Let the AI spend its per-turn attack budget as dice exchanges rather than distinct targets, so it can grind one territory until it falls. Off, one planned attack is one exchange — which makes any territory holding 3+ units impossible for the AI to take at any difficulty. Same number of exchanges per turn either way, so turn length is unchanged. On by default.',
   },
   {
+    key: 'overlay_queue_enabled',
+    label: 'One overlay at a time',
+    description:
+      'In a game, overlays queue instead of stacking. The Full Game used to open with four at once: the briefing, the era banner, the recap of the bots\u2019 moves and the first-turn coach. Now an intro or the briefing shows alone, then the first-turn coach, then the era banner. In the tutorial the era banner stays off the coaching card except on the steps about eras. The bots\u2019 surrender offer takes the strip above the bottom bar, ahead of the recap, instead of the top of the map, where it sat on a territory a player could not tap through. Off by default; off, the overlays are exactly as before.',
+  },
+  {
     key: 'funnel_events_v2_enabled',
     label: 'Funnel events v2 (analytics)',
     description:
