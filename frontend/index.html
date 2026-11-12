@@ -60,11 +60,21 @@
       .bf-prerender .bf-marketing-links { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem; }
       .bf-prerender .bf-marketing-links a { color: #c9a84c; }
     </style>
-    <!-- Google Fonts: Cinzel for display, Inter for body -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600&display=optional" />
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600&display=optional" rel="stylesheet" />
+    <!-- Cinzel for display, Inter for body: self-hosted (src/assets/fonts, SIL OFL,
+         from Fontsource's variable builds) rather than fetched from Google at
+         run time, which was a third-party request on every visit and a failure
+         point where Google is blocked. Latin and latin-ext only, which covers
+         every locale the game ships; latin-ext loads only when a page uses it.
+         Vite hashes them into /assets, which nginx caches for a year.
+         `font-display: optional` as before, so a slow font never shifts layout. -->
+    <link rel="preload" href="./src/assets/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="./src/assets/fonts/cinzel-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <style>
+      @font-face { font-family: 'Inter'; font-style: normal; font-weight: 100 900; font-display: optional; src: url(./src/assets/fonts/inter-latin-ext-wght-normal.woff2) format('woff2-variations'), url(./src/assets/fonts/inter-latin-ext-wght-normal.woff2) format('woff2'); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+      @font-face { font-family: 'Inter'; font-style: normal; font-weight: 100 900; font-display: optional; src: url(./src/assets/fonts/inter-latin-wght-normal.woff2) format('woff2-variations'), url(./src/assets/fonts/inter-latin-wght-normal.woff2) format('woff2'); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+      @font-face { font-family: 'Cinzel'; font-style: normal; font-weight: 400 900; font-display: optional; src: url(./src/assets/fonts/cinzel-latin-ext-wght-normal.woff2) format('woff2-variations'), url(./src/assets/fonts/cinzel-latin-ext-wght-normal.woff2) format('woff2'); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+      @font-face { font-family: 'Cinzel'; font-style: normal; font-weight: 400 900; font-display: optional; src: url(./src/assets/fonts/cinzel-latin-wght-normal.woff2) format('woff2-variations'), url(./src/assets/fonts/cinzel-latin-wght-normal.woff2) format('woff2'); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+    </style>
   </head>
   <body class="bg-bf-dark text-bf-text font-body">
     <div id="root"></div>

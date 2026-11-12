@@ -237,6 +237,7 @@ import { proceduralWorldTextureUrl } from '../utils/proceduralPlanet';
 import { GalaxySplitViewLazy, GalaxyStrategicViewLazy, GlobeMapLazy, preloadGlobeChunks } from '../utils/globeLoader';
 import { webglAvailable } from '../utils/webglSupport';
 import { ownAuthUiAllowed } from '../utils/embedContext';
+import { MOON_GLOBE_TEXTURE } from '../assets/globe/textures';
 /** "a", "a and b", "a, b and c" — plain English for a short list of names. */
 function formatList(items: string[]): string {
   if (items.length <= 1) return items[0] ?? '';
@@ -5229,10 +5230,15 @@ export default function GamePage() {
   const mapPhaseTintClass = phaseTintClass(gameState.phase, mapAmbientEnabled && !reducedGlobe);
 
   return (
-    <div
+    // The game is the page's main content: a `main` landmark, and an h1 a
+    // screen reader can jump to (the bar shows the brand, not a heading).
+    <main
       className={clsx(visibleHeight ? 'h-visible' : 'h-screen', 'bg-bf-dark flex flex-col overflow-hidden')}
       data-mobile-layout={isMobileLayout ? 'true' : 'false'}
     >
+      <h1 className="sr-only" data-testid="game-heading">
+        Borderfall: {mapData?.name ?? formatEraLabel(gameState.era)}
+      </h1>
       {/* Top Bar */}
       <div
         className={clsx(
@@ -5551,6 +5557,10 @@ export default function GamePage() {
         <div
           ref={mapAreaRef}
           className={`flex-1 relative overflow-hidden min-h-0 min-w-0${mapPhaseTintClass ? ` ${mapPhaseTintClass}` : ''}`}
+          // The canvas had no name. The Territories list is the way to pick
+          // one by name; the map's label says so.
+          role="region"
+          aria-label="Game map. The Territories list names every territory."
         >
           {gameState?.settings.era_advancement_enabled && !tutorialCardIsCentered && (
             <EraAdvancementBanner
@@ -5770,7 +5780,7 @@ export default function GamePage() {
                               autoSpin={false}
                               activeWorldId="moon"
                               validSourceOwnerId={validSourceOwnerId}
-                              globeImageUrl="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r186/examples/textures/planets/moon_1024.jpg"
+                              globeImageUrl={MOON_GLOBE_TEXTURE}
                               bumpImageUrl=""
                               showAtmosphere={false}
                               backgroundColor="rgb(20, 22, 32)"
@@ -6856,6 +6866,6 @@ export default function GamePage() {
           />
         )}
 
-    </div>
+    </main>
   );
 }

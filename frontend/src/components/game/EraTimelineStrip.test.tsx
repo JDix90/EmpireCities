@@ -33,6 +33,13 @@ function state(players: PlayerState[], overrides: Partial<GameState> = {}): Game
 }
 
 describe('EraTimelineStrip', () => {
+  it('labels each era in 10px text, not 8px', () => {
+    render(<EraTimelineStrip gameState={state([player('me', 0)])} myPlayer={player('me', 0)} />);
+    const label = screen.getByText('Medieval');
+    expect(label.className).toContain('text-[10px]');
+    expect(label.className).not.toContain('text-[8px]');
+  });
+
   it('renders one node per spine step', () => {
     render(<EraTimelineStrip gameState={state([player('me', 0)])} myPlayer={player('me', 0)} />);
     expect(screen.getByTestId('era-timeline')).toBeInTheDocument();

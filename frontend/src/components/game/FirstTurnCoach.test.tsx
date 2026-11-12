@@ -30,6 +30,13 @@ describe('FirstTurnCoach', () => {
     expect(screen.getByText('Move your troops')).toBeTruthy();
   });
 
+  it('draws the hint in the full muted colour, not at 60% (2.8:1 on the card)', () => {
+    const { container } = render(<FirstTurnCoach phase="attack" onDismiss={() => {}} />);
+    const hint = container.querySelector('p.italic')!;
+    expect(hint.className).toContain('text-bf-muted');
+    expect(hint.className).not.toContain('text-bf-muted/60');
+  });
+
   it('calls onDismiss from the close (X) button', () => {
     const onDismiss = vi.fn();
     render(<FirstTurnCoach phase="attack" onDismiss={onDismiss} />);

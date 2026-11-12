@@ -88,6 +88,7 @@ import {
 } from '../../utils/galaxyLanes';
 import { effectiveContinentBonus } from '../../utils/continentBonus';
 import { globeScreenAnchor, type ScreenAnchor } from '../../utils/globeScreenAnchor';
+import { EARTH_BUMP_TEXTURE, EARTH_GLOBE_TEXTURE } from '../../assets/globe/textures';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -1002,8 +1003,8 @@ function GlobeMap({
   onSkipAll,
   highlightTerritoryId,
   lossPulseTerritoryIds = NO_TERRITORY_IDS,
-  globeImageUrl = 'https://cdn.jsdelivr.net/npm/three-globe@2.45.1/example/img/earth-blue-marble.jpg',
-  bumpImageUrl = 'https://cdn.jsdelivr.net/npm/three-globe@2.45.1/example/img/earth-topology.png',
+  globeImageUrl = EARTH_GLOBE_TEXTURE,
+  bumpImageUrl = EARTH_BUMP_TEXTURE,
   atmosphereColor = 'lightskyblue',
   atmosphereAltitude = 0.15,
   showAtmosphere = true,
