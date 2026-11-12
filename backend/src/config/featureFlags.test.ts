@@ -601,6 +601,14 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().loss_reason_play_enabled).toBe(false);
   });
 
+  it('overlay_queue_enabled defaults to off and the admin override turns it on', () => {
+    expect(featureFlags.overlayQueueEnabled).toBe(false);
+    expect(getClientFeatureFlags().overlay_queue_enabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { overlay_queue_enabled: true } });
+    expect(featureFlags.overlayQueueEnabled).toBe(true);
+    expect(getClientFeatureFlags().overlay_queue_enabled).toBe(true);
+  });
+
   it('comeback_hook_enabled defaults to off and the admin override turns it on', () => {
     expect(featureFlags.comebackHookEnabled).toBe(false);
     expect(getClientFeatureFlags().comeback_hook_enabled).toBe(false);

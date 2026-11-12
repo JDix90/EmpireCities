@@ -97,6 +97,8 @@ import MobileCardsTray from '../components/game/MobileCardsTray';
 import FirstTurnCoach from '../components/game/FirstTurnCoach';
 import { useCoachTipsEnabled, useFirstMatchButtonEmphasisEnabled } from '../store/featureFlagsStore';
 import { useCardSetsExplainEnabled } from '../store/featureFlagsStore';
+import { useOverlayQueueEnabled } from '../store/featureFlagsStore';
+import { planOverlays } from '../utils/overlayQueue';
 import { cardSetBonus, findRedeemableCardIds } from '../utils/cardSets';
 import CoachTipStrip from '../components/game/CoachTipStrip';
 import {
@@ -1462,6 +1464,11 @@ export default function GamePage() {
   const [showDailyIntro, setShowDailyIntro] = useState(false);
   const dailyIntroSeenRef = useRef(false);
   const [showCampaignIntro, setShowCampaignIntro] = useState(false);
+  // overlay_queue_enabled (utils/overlayQueue.ts): one overlay at a time. The
+  // round "Play on" was pressed in is held here, so the strip knows when the
+  // surrender offer has stepped aside for the recap.
+  const overlayQueue = useOverlayQueueEnabled();
+  const [surrenderPlayedOn, setSurrenderPlayedOn] = useState<number | null>(null);
   const campaignIntroSeenRef = useRef(false);
 
   /** Map area is flex-sized; measure it so Globe/PIXI get real pixels when the viewport changes (devtools, rotate, resize). */
@@ -5252,6 +5259,19 @@ export default function GamePage() {
   const reducedGlobe =
     prefersReducedMotion() || liteVisuals || (isMobileViewport() && mapView === 'globe');
   const mapPhaseTintClass = phaseTintClass(gameState.phase, mapAmbientEnabled && !reducedGlobe);
+  // overlay_queue_enabled: what may show, given what wants to.
+  const tutorialStepOnScreen = isTutorial && tutorialStep < tutorialSteps.length ? tutorialSteps[tutorialStep] : null;
+  const overlayPlan = planOverlays({
+    intro: showCampaignIntro && !!campaignIntroData,
+    briefing: showStartModal,
+    tutorialCard: !!tutorialStepOnScreen,
+    tutorialEraStep: !!tutorialStepOnScreen?.id.startsWith('ea_'),
+    coach: !!coachPhase,
+    eraBanner: !!gameState.settings.era_advancement_enabled,
+    surrender: !!gameState.surrender_offer && surrenderPlayedOn !== gameState.turn_number,
+    recap: true,
+    phone: isMobileLayout,
+  });
 
   return (
     // The game is the page's main content: a `main` landmark, and an h1 a
@@ -5586,7 +5606,7 @@ export default function GamePage() {
           role="region"
           aria-label="Game map. The Territories list names every territory."
         >
-          {gameState?.settings.era_advancement_enabled && !tutorialCardIsCentered && (
+          {gameState?.settings.era_advancement_enabled && (overlayQueue ? overlayPlan.eraBanner : !tutorialCardIsCentered) && (
             <EraAdvancementBanner
               gameState={gameState}
               myPlayer={
@@ -5598,12 +5618,13 @@ export default function GamePage() {
               }
             />
           )}
-          {gameState && !tutorialCardIsCentered && (
+          {gameState && (overlayQueue ? overlayPlan.surrender : !tutorialCardIsCentered) && (
             <SurrenderOfferBanner
               offered={!!gameState.surrender_offer}
               turnNumber={gameState.turn_number}
               belowEraBanner={!!gameState.settings.era_advancement_enabled}
               onAccept={handleAcceptSurrender}
+              {...(overlayQueue ? { placement: 'strip' as const, playedOnTurn: surrenderPlayedOn, onPlayOn: setSurrenderPlayedOn } : {})}
             />
           )}
           {/* Daily-challenge puzzle feedback. Floats over the map rather than
@@ -5874,8 +5895,10 @@ export default function GamePage() {
           )}
 
           {/* Non-blocking recap of other players' turns (replaces queued modals).
-              A phone gets the one-line strip instead of the panel (M-12). */}
-          {isMobileLayout ? (
+              A phone gets the one-line strip instead of the panel (M-12).
+              overlay_queue_enabled: it waits behind a briefing, a standing
+              surrender offer, and on a phone the first-turn coach. */}
+          {(!overlayQueue || overlayPlan.recap) && (isMobileLayout ? (
             <GamePanelBoundary name="turn-strip" variant="silent" resetKey={aiRecaps}>
               <MobileTurnStrip
                 recaps={aiRecaps}
@@ -5899,7 +5922,7 @@ export default function GamePage() {
                 beforeFirstTurn={beforeFirstTurn}
               />
             </GamePanelBoundary>
-          )}
+          ))}
 
           {/* Live dice theater for attacks against the local player (desktop; the strip carries it on phones) */}
           {!isMobileLayout && (
@@ -5913,7 +5936,7 @@ export default function GamePage() {
           {/* One-time game-start briefing: turn order + starting resources */}
           {gameState && (
             <GameStartModal
-              open={showStartModal}
+              open={overlayQueue ? overlayPlan.briefing : showStartModal}
               onClose={() => { countDismissTap(3); dismissStartModal(); }}
               gameState={gameState}
               viewerPlayerId={resolvedViewerPlayerIdRef.current ?? user?.user_id ?? null}
@@ -6649,7 +6672,7 @@ export default function GamePage() {
       })()}
 
       {/* First-turn coach (WI1) — one-time per-phase prompt for brand-new players on the globe */}
-      {coachPhase && (
+      {coachPhase && (!overlayQueue || overlayPlan.coach) && (
         <FirstTurnCoach
           phase={coachPhase}
           unitsToPlace={coachPhase === 'reinforcement' ? draftUnitsRemaining : undefined}
