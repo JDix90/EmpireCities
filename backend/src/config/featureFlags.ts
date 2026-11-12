@@ -422,6 +422,12 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // what it sends, a guest's lobby shows their streak and the day's challenge,
   // and the home page greets a returning session. Dark-launched OFF.
   comeback_hook_enabled: () => envOptIn('COMEBACK_HOOK_ENABLED'),
+  // Secret-mission guards (the review's 6.4): a mission win waits for round 4,
+  // and the deal skips a mission its holder is two territories or fewer from
+  // finishing, or whose capture targets both border them. Baked into a game's
+  // settings at create, so a running game keeps the rules it started under.
+  // Dark-launched OFF.
+  mission_guard_enabled: () => envOptIn('MISSION_GUARD_ENABLED'),
   // In-game mute: a "Sound and music" switch in the HUD's Tools & options,
   // which the phone menu shares, muting both at once. Music starts on the
   // first tap and the only mutes were on the Settings page.
@@ -1062,6 +1068,17 @@ export const featureFlags = {
    */
   get comebackHookEnabled(): boolean {
     return overrideBool('comeback_hook_enabled');
+  },
+
+  /**
+   * Secret-mission guards (`mission_guard_enabled`), baked into new games'
+   * settings: no mission or alliance win before round 4, and no mission dealt
+   * that is two territories or fewer from done (a capture pair needs a target
+   * that does not border its holder). Default OFF;
+   * `MISSION_GUARD_ENABLED=true` or the admin override turns it on.
+   */
+  get missionGuardEnabled(): boolean {
+    return overrideBool('mission_guard_enabled');
   },
 
   /**

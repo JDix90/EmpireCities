@@ -369,6 +369,8 @@ export interface GameState {
     era_advancement_enabled?: boolean;
     /** Heritage build rights + the modernize rule (baked at create). */
     era_heritage_buildings_enabled?: boolean;
+    /** Secret-mission guards (baked at create): no mission win before round 4. */
+    mission_guard_enabled?: boolean;
     era_advancement_preset?: 'skirmish' | 'standard' | 'epic' | 'custom';
     era_advancement_cost_mult?: number;
     era_advancement_cost_escalation?: number;

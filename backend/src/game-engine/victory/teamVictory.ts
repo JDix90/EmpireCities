@@ -18,7 +18,7 @@
 
 import type { GameMap, GameState, PlayerState, VictoryConditionKey } from '../../types';
 import { getMaxEraIndex } from '../eraAdvancement/spines';
-import { alternativeVictoriesLive } from './openingRound';
+import { alternativeVictoriesLive, missionVictoryLive } from './openingRound';
 import { getAllowedVictoryConditions, normalizeGameSettings } from '../state/gameSettings';
 import { hasCompletedHegemony } from '../state/lunarHegemony';
 import { hasLaneSovereignty } from './laneSovereignty';
@@ -111,6 +111,8 @@ export function checkTeamVictory(state: GameState, map: GameMap): TeamVictoryRes
   const winners: Array<{ side: string[]; condition: VictoryConditionKey }> = [];
   // Everything but domination waits for the opening round (openingRound.ts).
   const alternatesLive = alternativeVictoriesLive(state);
+  // Missions can be held to a later round still (mission_guard_enabled).
+  const missionsLive = missionVictoryLive(state);
 
   for (const side of live) {
     const members = side.filter(isLive).map((id) => byId.get(id)!) as PlayerState[];
@@ -133,7 +135,7 @@ export function checkTeamVictory(state: GameState, map: GameMap): TeamVictoryRes
       && members.some((p) => hasLaneSovereignty(state, p.player_id))) {
       condition = 'lane_sovereignty';
     }
-    if (condition == null && alternatesLive && allowed.includes('secret_mission')
+    if (condition == null && missionsLive && allowed.includes('secret_mission')
       && members.some((p) => p.secret_mission && p.secret_mission.kind !== 'alliance' && isMissionComplete(state, map, p))) {
       condition = 'secret_mission';
     }

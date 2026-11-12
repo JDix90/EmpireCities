@@ -109,6 +109,83 @@ export function createSeededRng(seed: number): () => number {
   };
 }
 
+/**
+ * Under the mission guard (`mission_guard_enabled`), the fewest territories a
+ * region mission may start short of done. The review's harness found 10–14% of
+ * region missions one territory short at the deal and a quarter to a third two
+ * or fewer; one territory short was completed 47% of the time.
+ */
+export const MISSION_GUARD_MIN_TO_TAKE = 3;
+
+/** Territories in `regionId` the player does not hold. */
+function territoriesShortInRegion(state: GameState, map: GameMap, playerId: string, regionId: string): number {
+  return map.territories.filter(
+    (t) => t.region_id === regionId && state.territories[t.territory_id]?.owner_id !== playerId,
+  ).length;
+}
+
+/** Territories bordering ground the player holds, that they do not hold. */
+function bordersOf(map: GameMap, owned: Set<string>): Set<string> {
+  const out = new Set<string>();
+  for (const c of map.connections) {
+    if (owned.has(c.from) && !owned.has(c.to)) out.add(c.to);
+    if (owned.has(c.to) && !owned.has(c.from)) out.add(c.from);
+  }
+  return out;
+}
+
+/**
+ * A capture pair under the mission guard: at least one target that does not
+ * border its holder. The harness found both targets next to the holder in
+ * 43–59% of capture missions, and capture the fastest mission, a third to a
+ * half of its wins by round 3. With no such target (a holder bordering every
+ * rival tile) any pair, as without the guard.
+ */
+function pickGuardedCapturePair(
+  enemyOwned: string[],
+  borders: Set<string>,
+  rng: () => number,
+): [string, string] {
+  const far = enemyOwned.filter((id) => !borders.has(id));
+  if (far.length === 0) {
+    const [a, b] = pickManyUnique(enemyOwned, 2, rng);
+    return [a!, b!];
+  }
+  const [a] = pickManyUnique(far, 1, rng);
+  const [b] = pickManyUnique(enemyOwned.filter((id) => id !== a), 1, rng);
+  return [a!, b!];
+}
+
+/**
+ * The regions of a region mission under the mission guard: one region or two,
+ * as without it, but only ones that leave at least MISSION_GUARD_MIN_TO_TAKE
+ * territories to take between them. Two small regions together can qualify
+ * where neither would alone (Britain's regions hold 2, 2, 4 and 6). Null when
+ * nothing qualifies, and the deal moves on to the next kind of mission.
+ */
+function pickGuardedRegions(
+  state: GameState,
+  map: GameMap,
+  playerId: string,
+  openRegionIds: string[],
+  rng: () => number,
+): string[] | null {
+  const short = new Map(openRegionIds.map((rid) => [rid, territoriesShortInRegion(state, map, playerId, rid)]));
+  const singles = openRegionIds.filter((rid) => short.get(rid)! >= MISSION_GUARD_MIN_TO_TAKE);
+  const pairs: Array<[string, string]> = [];
+  for (let i = 0; i < openRegionIds.length; i++) {
+    for (let j = i + 1; j < openRegionIds.length; j++) {
+      const [x, y] = [openRegionIds[i]!, openRegionIds[j]!];
+      if (short.get(x)! + short.get(y)! >= MISSION_GUARD_MIN_TO_TAKE) pairs.push([x, y]);
+    }
+  }
+  const wantOne = rng() < 0.5;
+  if (wantOne && singles.length > 0) return pickManyUnique(singles, 1, rng);
+  if (pairs.length > 0) return [...pickManyUnique(pairs, 1, rng)[0]!];
+  if (singles.length > 0) return pickManyUnique(singles, 1, rng);
+  return null;
+}
+
 function pickManyUnique<T>(items: T[], count: number, rng: () => number): T[] {
   const pool = [...items];
   const out: T[] = [];
@@ -190,6 +267,9 @@ export function assignSecretMissions(
     .filter((id) => (territoriesPerRegion.get(id) ?? 0) > 0);
 
   const lunarMissionsEnabled = state.settings.space_age_moon_missions_enabled === true;
+  // The mission guard (mission_guard_enabled) changes only the capture and
+  // region picks below. Off, those draw from the RNG exactly as before.
+  const guard = state.settings.mission_guard_enabled === true;
 
   for (const player of state.players) {
     const others = state.players.filter((p) => p.player_id !== player.player_id);
@@ -207,6 +287,25 @@ export function assignSecretMissions(
     );
     const roll = rng();
     let mission: SecretMission;
+    const borders = guard ? bordersOf(map, owned) : null;
+    const capturePair = (): [string, string] => {
+      if (borders) return pickGuardedCapturePair(enemyOwned, borders, rng);
+      const [a, b] = pickManyUnique(enemyOwned, 2, rng);
+      return [a!, b!];
+    };
+    // A region mission's picks: drawn once, and only when that branch is
+    // reached, so the stream without the guard is the one it always was.
+    let regionPicked: string[] | null | undefined;
+    const regionPicks = (): string[] | null => {
+      if (regionPicked !== undefined) return regionPicked;
+      if (guard) {
+        regionPicked = pickGuardedRegions(state, map, player.player_id, openRegionIds, rng);
+      } else {
+        const m = rng() < 0.5 ? 1 : 2;
+        regionPicked = pickManyUnique(openRegionIds, Math.min(m, openRegionIds.length), rng);
+      }
+      return regionPicked;
+    };
 
     // Space Age lunar branch (Moon Race, Phase 5). Placed after the
     // era-advancement branch and gated the same way — on a setting that is off
@@ -226,18 +325,14 @@ export function assignSecretMissions(
     } else if (lunarMission) {
       mission = lunarMission;
     } else if (roll < 0.34 && enemyOwned.length >= 2) {
-      const [a, b] = pickManyUnique(enemyOwned, 2, rng);
-      mission = { kind: 'capture_territories', territory_ids: [a, b] };
+      mission = { kind: 'capture_territories', territory_ids: capturePair() };
     } else if (roll < 0.67 && others.length > 0) {
       const target = others[Math.floor(rng() * others.length)]!;
       mission = { kind: 'eliminate_player', target_player_id: target.player_id };
-    } else if (openRegionIds.length >= 2) {
-      const m = rng() < 0.5 ? 1 : 2;
-      const picks = pickManyUnique(openRegionIds, Math.min(m, openRegionIds.length), rng);
-      mission = { kind: 'control_regions', region_ids: picks };
+    } else if (openRegionIds.length >= 2 && regionPicks() !== null) {
+      mission = { kind: 'control_regions', region_ids: regionPicks()! };
     } else if (enemyOwned.length >= 2) {
-      const [a, b] = pickManyUnique(enemyOwned, 2, rng);
-      mission = { kind: 'capture_territories', territory_ids: [a, b] };
+      mission = { kind: 'capture_territories', territory_ids: capturePair() };
     } else if (others.length > 0) {
       const target = others[Math.floor(rng() * others.length)]!;
       mission = { kind: 'eliminate_player', target_player_id: target.player_id };
