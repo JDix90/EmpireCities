@@ -17,6 +17,10 @@ import { featureFlags } from '../../config/featureFlags';
 import { getMonthlyChallenges } from '../../game-engine/progression/challengeService';
 import { redeemReferralCode, getReferralStats } from '../../game-engine/progression/referralService';
 import { formatZodError } from '../../utils/formatZodError';
+import { dailyPlayersOn, tomorrowsDailyTeaser } from '../../game-engine/daily/dailyTeaser';
+
+/** How long /comeback waits for tomorrow's Daily Challenge to be named before going without it. */
+const TEASER_WAIT_MS = 800;
 
 export async function progressionRoutes(fastify: FastifyInstance): Promise<void> {
   // ── POST /api/progression/daily-login ────────────────────────────────────
@@ -236,6 +240,23 @@ export async function progressionRoutes(fastify: FastifyInstance): Promise<void>
       [request.userId],
     );
 
+    // comeback_hook_enabled: tomorrow's Daily Challenge by name, and how many
+    // played yesterday's, for the panel's lead line. Only fetched with the
+    // flag on: naming tomorrow's day generates it ahead of the pre-warm.
+    const comebackHook = featureFlags.comebackHookEnabled;
+    const [tomorrowDaily, playersYesterday] = comebackHook
+      ? await Promise.all([
+        // The first ask of the hour generates tomorrow's day (about 1.7s
+        // measured locally). Wait a little; past that the panel goes without
+        // the line this once, and generation carries on into the cache.
+        Promise.race([
+          tomorrowsDailyTeaser(now).catch(() => null),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), TEASER_WAIT_MS)),
+        ]),
+        dailyPlayersOn(yesterday).catch(() => null),
+      ])
+      : [null, null];
+
     return reply.send({
       is_guest: user.is_guest,
       daily_streak: user.daily_streak,
@@ -255,6 +276,17 @@ export async function progressionRoutes(fastify: FastifyInstance): Promise<void>
       streak_freeze_price: STREAK_FREEZE_PRICE_GOLD,
       streak_freeze_max: STREAK_FREEZE_MAX_HELD,
       streak_freezes_purchasable: !user.is_guest && featureFlags.streakFreezesEnabled,
+      ...(comebackHook
+        ? {
+          tomorrow_daily: tomorrowDaily,
+          daily_players_yesterday: playersYesterday,
+          // The streak column is only reset by the next game, so a run broken
+          // days ago still reads as alive. A game today or yesterday keeps it;
+          // anything older, the lobby card and the home page leave it unsaid.
+          streak_alive: user.daily_streak > 0
+            && (user.last_played_date === today || user.last_played_date === yesterday),
+        }
+        : {}),
     });
   });
 

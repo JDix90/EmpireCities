@@ -609,6 +609,14 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().lobby_cleanup_enabled).toBe(true);
   });
 
+  it('comeback_hook_enabled defaults to off and the admin override turns it on', () => {
+    expect(featureFlags.comebackHookEnabled).toBe(false);
+    expect(getClientFeatureFlags().comeback_hook_enabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { comeback_hook_enabled: true } });
+    expect(featureFlags.comebackHookEnabled).toBe(true);
+    expect(getClientFeatureFlags().comeback_hook_enabled).toBe(true);
+  });
+
   it('funnel_events_v2_enabled defaults to on, reaches the client, and the admin override is its kill switch', () => {
     expect(featureFlags.funnelEventsV2Enabled).toBe(true);
     expect(getClientFeatureFlags().funnel_events_v2_enabled).toBe(true);

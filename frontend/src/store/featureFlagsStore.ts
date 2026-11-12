@@ -80,6 +80,7 @@ export interface ClientFeatureFlags {
   results_action_events_enabled: boolean;
   funnel_events_v2_enabled: boolean;
   lobby_cleanup_enabled: boolean;
+  comeback_hook_enabled: boolean;
   mission_reveal_enabled: boolean;
   translation_dom_guard_enabled: boolean;
   game_visible_height_enabled: boolean;
@@ -244,6 +245,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   funnel_events_v2_enabled: true,
   // Lobby clean-up: small live counters hidden, quests that fit the mode, next achievements named. Dark-launched OFF.
   lobby_cleanup_enabled: false,
+  // Project 4: tomorrow's daily on results, honest guest streak, reminder after a win, guest lobby card, home greeting. Dark-launched OFF.
+  comeback_hook_enabled: false,
   loss_reason_enabled: true,
   // A game won by a secret mission names every player's mission at game over. On by default; admin kill switch.
   mission_reveal_enabled: true,
@@ -654,6 +657,11 @@ export function useLobbyCleanupEnabled(): boolean {
 /** Funnel events v2 (utils/funnelEvents.ts): first-turn and tutorial steps, prompts shown and answered. */
 export function useFunnelEventsV2Enabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.funnel_events_v2_enabled);
+}
+
+/** A reason to come back that works for a guest (ComeBackTomorrowPanel, GuestDayCard, LandingPage). */
+export function useComebackHookEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.comeback_hook_enabled);
 }
 
 export function useMissionRevealEnabled(): boolean {

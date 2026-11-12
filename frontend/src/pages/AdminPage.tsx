@@ -170,6 +170,12 @@ const CLIENT_FEATURE_FLAGS = [
       'The lobby stops advertising an empty room and goals a player cannot reach. \u201cGames being played right now\u201d shows from 3 and \u201cgames in the last 24 hours\u201d from 10, instead of \u201c1 game being played right now\u201d. The Getting Started quests complete in any order and the banner shows the next one the player can do where they are, with where to do it: a Quick Match player was held at \u201cBuild your first building\u201d in a mode with no buildings, and a guest no longer sees quests that need an account. The profile names the next three achievements and how to earn them instead of \u201c???\u201d on every one. Off by default; off, all three are as before.',
   },
   {
+    key: 'comeback_hook_enabled',
+    label: 'A reason to come back (guests)',
+    description:
+      'The results screen\u2019s Tomorrow panel leads with tomorrow\u2019s Daily Challenge by name (\u201cTomorrow: The Ottoman Gates\u201d), and how many played yesterday\u2019s when that is five or more. A guest\u2019s streak no longer promises a gold milestone a guest cannot spend; it links to saving the account instead. The reminder ask comes after a win, and says what it sends: one notification a day at most, when the new Daily Challenge is up or before the streak runs out. A guest\u2019s lobby gets a card with their streak and the day\u2019s challenge, and the home page greets a returning player (\u201cContinue as \u2026\u201d) instead of offering a new guest. Off by default; off, all of these are as before.',
+  },
+  {
     key: 'funnel_events_v2_enabled',
     label: 'Funnel events v2 (analytics)',
     description:
