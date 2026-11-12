@@ -671,6 +671,12 @@ export interface GameSettings {
    * never re-rules a game already running.
    */
   era_wonder_per_era_enabled?: boolean;
+  /**
+   * Secret-mission guards, baked at create from the `mission_guard_enabled`
+   * flag: no mission or alliance win before round 4 (victory/openingRound.ts),
+   * and no mission dealt nearly done (victory/missions.ts).
+   */
+  mission_guard_enabled?: boolean;
   /** Lobby preset bundle ('skirmish'|'standard'|'epic'|'custom') resolved server-side. */
   era_advancement_preset?: 'skirmish' | 'standard' | 'epic' | 'custom';
   /** Which spine from the registry governs this game (default 'poc'). */

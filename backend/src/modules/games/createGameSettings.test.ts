@@ -223,3 +223,20 @@ describe('Galactic Age buildings v2 is baked at create from its flag', () => {
     expect(created(SPACE, { economy_enabled: true, tech_trees_enabled: true }).galaxy_world_buildings).toBeUndefined();
   });
 });
+
+describe('the secret-mission guard is baked at create from its flag', () => {
+  afterEach(() => resetAdminConfigCacheForTests());
+  const missions = { allowed_victory_conditions: ['secret_mission' as const] };
+
+  it('is absent while the flag is off, and baked (and kept on reload) once it is on', () => {
+    expect(created(WW2, missions).mission_guard_enabled).toBeUndefined();
+    setAdminConfigCacheForTests({ feature_flags: { mission_guard_enabled: true } });
+    expect(created(WW2, missions).mission_guard_enabled).toBe(true);
+    // Stored without missions too: the waiting room's vote can add them later.
+    expect(created(WW2).mission_guard_enabled).toBe(true);
+  });
+
+  it('cannot be switched on by the client', () => {
+    expect(created(WW2, { ...missions, mission_guard_enabled: true }).mission_guard_enabled).toBeUndefined();
+  });
+});

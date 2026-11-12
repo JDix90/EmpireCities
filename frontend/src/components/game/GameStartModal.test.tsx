@@ -125,6 +125,11 @@ describe('describeWinConditions', () => {
     expect(out.turnCap).toBe('Most territory when turn 150 ends also wins');
   });
 
+  it('says a mission counts from round 4 in a game with the mission guard', () => {
+    const settings = { ...makeState().settings, allowed_victory_conditions: ['secret_mission'], mission_guard_enabled: true };
+    expect(describeWinConditions(settings).conditions).toEqual(['Complete your secret mission (counts from round 4)']);
+  });
+
   it('uses the single victory_type when no allowed list exists', () => {
     const settings = { ...makeState().settings, victory_type: 'capital' };
     expect(describeWinConditions(settings).conditions).toEqual([

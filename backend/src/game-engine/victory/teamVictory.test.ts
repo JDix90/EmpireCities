@@ -231,3 +231,22 @@ describe('a free-for-all game', () => {
     expect(checkVictory(s, MAP)).toBeNull();
   });
 });
+
+describe('a side\'s secret mission under the mission guard', () => {
+  // a1 holds t0 and t1: a capture mission naming both is done.
+  const game = (turn: number, guard: boolean) => {
+    const s = teamGame(SEATS([2, 1, 1, 1]), { conditions: ['secret_mission'], turn });
+    (s.players[0] as { secret_mission?: unknown }).secret_mission = { kind: 'capture_territories', territory_ids: ['t0', 't1'] };
+    if (guard) s.settings.mission_guard_enabled = true;
+    return s;
+  };
+
+  it('waits for round 4, then wins for the side', () => {
+    expect(checkTeamVictory(game(3, true), MAP)).toBeNull();
+    expect(checkTeamVictory(game(4, true), MAP)).toEqual({ winnerIds: ['a1', 'a2'], condition: 'secret_mission' });
+  });
+
+  it('off: wins from round 2, as before', () => {
+    expect(checkTeamVictory(game(2, false), MAP)?.condition).toBe('secret_mission');
+  });
+});

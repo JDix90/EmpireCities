@@ -40,7 +40,7 @@ import { hasLaneSovereignty, tickLaneSovereignty } from '../victory/laneSovereig
 import { checkTeamVictory } from '../victory/teamVictory';
 import { isTeamGame, regionBonusHolder } from './teams';
 import { regionsOnBoard } from './regionsOnBoard';
-import { alternativeVictoriesLive } from '../victory/openingRound';
+import { alternativeVictoriesLive, missionVictoryLive } from '../victory/openingRound';
 import { dropSecretMissions, galaxyTeamsFor, seatTeamsApart } from './galaxyTeams';
 import { applyLaneClosure, applyLaneSurge, laneSurgeHasGap, tickLaneWeather } from './laneWeather';
 import { colonyGarrison, colonyLayout, resolveGalaxyHomeWorlds, syncGalaxyModeLanes } from './galaxyModes';
@@ -1554,9 +1554,11 @@ export function checkVictory(state: GameState, map: GameMap): { winnerIds: strin
   const winners: Array<{ winnerIds: string[]; condition: VictoryConditionKey }> = [];
   // Everything but domination waits for the opening round (victory/openingRound.ts).
   const alternatesLive = alternativeVictoriesLive(state);
+  // Missions can be held to a later round still (mission_guard_enabled).
+  const missionsLive = missionVictoryLive(state);
 
   // Alliance victory check (secret_mission mode)
-  if (alternatesLive && allowed.includes('secret_mission')) {
+  if (missionsLive && allowed.includes('secret_mission')) {
     for (let i = 0; i < activePlayers.length; i++) {
       const p1 = activePlayers[i];
       if (p1.secret_mission?.kind !== 'alliance') continue;
@@ -1612,7 +1614,7 @@ export function checkVictory(state: GameState, map: GameMap): { winnerIds: strin
       if (hasLaneSovereignty(state, player.player_id)) condition = 'lane_sovereignty';
     }
 
-    if (condition == null && alternatesLive && allowed.includes('secret_mission') && player.secret_mission) {
+    if (condition == null && missionsLive && allowed.includes('secret_mission') && player.secret_mission) {
       if (player.secret_mission.kind !== 'alliance' && isMissionComplete(state, map, player)) condition = 'secret_mission';
     }
 
