@@ -50,6 +50,13 @@ export function shortEraLabel(eraId: string | undefined | null): string {
 }
 
 /**
+ * The round a secret mission can first win in, in a game with the mission
+ * guard (`settings.mission_guard_enabled`; the server's MISSION_GUARD_FIRST_ROUND
+ * in victory/openingRound.ts).
+ */
+export const MISSION_FIRST_ROUND = 4;
+
+/**
  * `holderId` is the player whose mission it is: with it, an "Eliminate X"
  * mission that can no longer succeed says so, and an alliance shows both
  * allies' territory counts.

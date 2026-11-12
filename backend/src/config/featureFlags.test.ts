@@ -625,6 +625,15 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().comeback_hook_enabled).toBe(true);
   });
 
+  it('mission_guard_enabled defaults to off, stays server-side, and the admin override turns it on', () => {
+    expect(featureFlags.missionGuardEnabled).toBe(false);
+    expect(getFeatureFlagStates().mission_guard_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    // Read from the game's own settings by the client, never from the flag.
+    expect('mission_guard_enabled' in getClientFeatureFlags()).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { mission_guard_enabled: true } });
+    expect(featureFlags.missionGuardEnabled).toBe(true);
+  });
+
   it('funnel_events_v2_enabled defaults to on, reaches the client, and the admin override is its kill switch', () => {
     expect(featureFlags.funnelEventsV2Enabled).toBe(true);
     expect(getClientFeatureFlags().funnel_events_v2_enabled).toBe(true);

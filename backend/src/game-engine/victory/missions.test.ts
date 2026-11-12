@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { allianceTerritoryThreshold, assignSecretMissions, isMissionComplete } from './missions';
+import { allianceTerritoryThreshold, assignSecretMissions, createSeededRng, hashStringToSeed, isMissionComplete } from './missions';
 import { checkVictory, initializeGameState } from '../state/gameStateManager';
 import { executeLandAttack } from '../combat/executeLandAttack';
 import type { GameMap, GameState, PlayerState } from '../../types';
@@ -601,3 +601,134 @@ describe('alliance missions', () => {
     expect(alliesOf(state)).toEqual([]);
   });
 });
+
+describe('the mission guard (mission_guard_enabled)', () => {
+  const loadMap = (id: string) => JSON.parse(
+    readFileSync(join(__dirname, `../../../../database/maps/${id}.json`), 'utf8'),
+  ) as GameMap;
+  const MAPS = { britain: loadMap('community_britain_925'), medieval: loadMap('era_medieval'), ww2: loadMap('era_ww2') };
+
+  /**
+   * A board dealt round-robin from a seeded shuffle, and its missions dealt
+   * from the same seed: the same input every run, unlike a live game's salt.
+   */
+  function seededDeal(map: GameMap, seats: number, seed: number, guard: boolean | undefined): GameState {
+    const rng = createSeededRng(seed);
+    const ids = map.territories.map((t) => t.territory_id);
+    for (let i = ids.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [ids[i], ids[j]] = [ids[j]!, ids[i]!];
+    }
+    const players = Array.from({ length: seats }, (_, i) => mkPlayer(`p${i + 1}`, { player_index: i, is_ai: i > 0 }));
+    const state = baseState(players);
+    state.territories = {};
+    ids.forEach((id, i) => {
+      state.territories[id] = { territory_id: id, owner_id: `p${(i % seats) + 1}`, unit_count: 3, unit_type: 'infantry' };
+    });
+    for (const p of players) p.territory_count = Object.values(state.territories).filter((t) => t.owner_id === p.player_id).length;
+    if (guard !== undefined) state.settings.mission_guard_enabled = guard;
+    assignSecretMissions(state, map, createSeededRng(seed ^ 0x9e3779b9));
+    return state;
+  }
+
+  const ownedBy = (state: GameState, id: string) =>
+    new Set(Object.keys(state.territories).filter((t) => state.territories[t]!.owner_id === id));
+  const bordering = (map: GameMap, owned: Set<string>) => {
+    const out = new Set<string>();
+    for (const c of map.connections) {
+      if (owned.has(c.from) && !owned.has(c.to)) out.add(c.to);
+      if (owned.has(c.to) && !owned.has(c.from)) out.add(c.from);
+    }
+    return out;
+  };
+  const toTake = (state: GameState, map: GameMap, id: string, regions: string[]) =>
+    map.territories.filter((t) => regions.includes(t.region_id) && state.territories[t.territory_id]?.owner_id !== id).length;
+
+  for (const [name, map] of Object.entries(MAPS)) {
+    it(`${name}: no region mission starts under 3 to take, no capture pair both borders its holder (200 deals)`, () => {
+      const kinds = new Set<string>();
+      for (let seed = 0; seed < 200; seed++) {
+        const state = seededDeal(map, 3 + (seed % 2), seed, true);
+        for (const p of state.players) {
+          const m = p.secret_mission!;
+          kinds.add(m.kind);
+          if (m.kind === 'control_regions') {
+            expect({ seed, toTake: toTake(state, map, p.player_id, m.region_ids) >= 3 }).toEqual({ seed, toTake: true });
+          }
+          if (m.kind === 'capture_territories') {
+            const near = bordering(map, ownedBy(state, p.player_id));
+            const anyFar = Object.keys(state.territories).some((t) => state.territories[t]!.owner_id !== p.player_id && !near.has(t));
+            if (!anyFar) continue; // a holder bordering every rival tile: any pair, as documented
+            expect({ seed, oneFar: m.territory_ids.some((t) => !near.has(t)) }).toEqual({ seed, oneFar: true });
+          }
+        }
+        expect({ seed, victory: checkVictory({ ...state, turn_number: 4 }, map) }).toEqual({ seed, victory: null });
+      }
+      // Not a vacuous pass: both guarded kinds are dealt.
+      expect(kinds.has('control_regions') && kinds.has('capture_territories')).toBe(true);
+    });
+  }
+
+  it('off: every deal is the one main dealt (fingerprint of 240 seeded deals on three maps)', () => {
+    // An extra draw anywhere would re-roll every mission after it. The value
+    // was taken from the deal before the guard existed; absent and `false`
+    // must both reproduce it.
+    const fingerprint = (guard: boolean | undefined) => {
+      const all: unknown[] = [];
+      for (const map of Object.values(MAPS)) {
+        for (let seed = 0; seed < 80; seed++) {
+          all.push(seededDeal(map, 3 + (seed % 3), seed, guard).players.map((p) => p.secret_mission));
+        }
+      }
+      return hashStringToSeed(JSON.stringify(all));
+    };
+    expect(fingerprint(undefined)).toBe(MAIN_DEAL_FINGERPRINT);
+    expect(fingerprint(false)).toBe(MAIN_DEAL_FINGERPRINT);
+    expect(fingerprint(true)).not.toBe(MAIN_DEAL_FINGERPRINT);
+  });
+
+  describe('no mission win before round 4', () => {
+    const holder = () => mkPlayer('p1', {
+      territory_count: 2,
+      secret_mission: { kind: 'capture_territories', territory_ids: ['a', 'b'] },
+    });
+
+    it('a mission done in round 2 or 3 waits, and wins in round 4 if still held', () => {
+      for (const [turn, won] of [[2, false], [3, false], [4, true]] as const) {
+        const state = baseState([holder(), mkPlayer('p2', { player_index: 1 })]);
+        state.settings.mission_guard_enabled = true;
+        state.turn_number = turn;
+        expect({ turn, won: checkVictory(state, miniMap)?.condition === 'secret_mission' }).toEqual({ turn, won });
+      }
+    });
+
+    it('off: round 2 wins, as before', () => {
+      const state = baseState([holder(), mkPlayer('p2', { player_index: 1 })]);
+      expect(checkVictory(state, miniMap)?.condition).toBe('secret_mission');
+    });
+
+    it('holds an alliance win to round 4 as well', () => {
+      const ally = (id: string, other: string, i: number) => mkPlayer(id, {
+        player_index: i, territory_count: 5,
+        secret_mission: { kind: 'alliance', ally_player_id: other, territory_threshold: 5 },
+      });
+      const state = baseState([ally('p1', 'p2', 0), ally('p2', 'p1', 1), mkPlayer('p3', { player_index: 2 }), mkPlayer('p4', { player_index: 3 })]);
+      state.settings.mission_guard_enabled = true;
+      state.turn_number = 3;
+      expect(checkVictory(state, miniMap)).toBeNull();
+      state.turn_number = 4;
+      expect(checkVictory(state, miniMap)?.condition).toBe('alliance_victory');
+    });
+
+    it('domination is never held back', () => {
+      const state = baseState([mkPlayer('p1', { territory_count: 3 }), mkPlayer('p2', { player_index: 1, territory_count: 0 })]);
+      state.settings.allowed_victory_conditions = ['domination', 'secret_mission'];
+      state.settings.mission_guard_enabled = true;
+      state.territories.c!.owner_id = 'p1';
+      expect(checkVictory(state, miniMap)?.condition).toBe('domination');
+    });
+  });
+});
+
+/** See "every deal is the one main dealt" above. */
+const MAIN_DEAL_FINGERPRINT = 2030968384;

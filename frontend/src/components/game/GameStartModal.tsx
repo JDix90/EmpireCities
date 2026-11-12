@@ -3,7 +3,7 @@ import { ArrowLeft, BookOpen, Crown, Globe2, Swords, Trophy, Target, Shield, Use
 import clsx from 'clsx';
 import Modal from '../ui/Modal';
 import { api } from '../../services/api';
-import { describeSecretMission, type MapNameLookup } from '../../utils/mapDisplayNames';
+import { MISSION_FIRST_ROUND, describeSecretMission, type MapNameLookup } from '../../utils/mapDisplayNames';
 import { hegemonyTurnsFor } from '../../utils/lunarHegemony';
 import { describeSpaceAgeEra, spaceAgeGuideInput } from '../../utils/spaceAgeGuide';
 import {
@@ -95,7 +95,9 @@ export function describeWinConditions(settings: GameState['settings'], seats = 0
       case 'capital':
         return team ? 'Your side holds every capital' : 'Hold your capital and capture every enemy capital';
       case 'secret_mission':
-        return 'Complete your secret mission';
+        return settings.mission_guard_enabled
+          ? `Complete your secret mission (counts from round ${MISSION_FIRST_ROUND})`
+          : 'Complete your secret mission';
       case 'lunar_hegemony':
         // Without this case the raw enum name reached players, which is what a
         // Moon Race game shows on its very first screen.
@@ -373,7 +375,14 @@ export default function GameStartModal({
           <h4 className="text-xs font-medium text-bf-muted uppercase tracking-wider mb-2">Your secret mission</h4>
           <p className="flex items-start gap-2 text-sm text-bf-text mb-4">
             <Target className="w-3.5 h-3.5 text-bf-gold shrink-0 mt-0.5" aria-hidden />
-            <span>{describeSecretMission(viewer.secret_mission, gameState.players, mapNameLookup, viewer.player_id)}</span>
+            <span>
+              {describeSecretMission(viewer.secret_mission, gameState.players, mapNameLookup, viewer.player_id)}
+              {gameState.settings.mission_guard_enabled && (
+                <span className="block text-xs text-bf-muted mt-0.5" data-testid="mission-round-note">
+                  Counts from round {MISSION_FIRST_ROUND}: done sooner, it must still be held then.
+                </span>
+              )}
+            </span>
           </p>
         </>
       ) : missionDealtAfterDraft && (

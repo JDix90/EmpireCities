@@ -21,3 +21,20 @@ export function alternativeVictoriesLive(state: GameState): boolean {
   if (state.settings.daily_challenge_date) return true;
   return state.turn_number >= 2;
 }
+
+/**
+ * The round a secret mission can first win in under the mission guard
+ * (`mission_guard_enabled`). Simulated with Medium bots, a third of games on
+ * the 14-territory Britain map and one in eight on the era maps ended on a
+ * mission by round 3, before most seats had taken three turns. A mission done
+ * earlier wins only if it is still held when round 4 begins: the hand-off into
+ * round 4 checks victory, as the hand-off into round 2 does above.
+ */
+export const MISSION_GUARD_FIRST_ROUND = 4;
+
+/** Whether a secret mission (alliances included) can win yet. */
+export function missionVictoryLive(state: GameState): boolean {
+  if (!alternativeVictoriesLive(state)) return false;
+  if (state.settings.mission_guard_enabled !== true) return true;
+  return state.turn_number >= MISSION_GUARD_FIRST_ROUND;
+}

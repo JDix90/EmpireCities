@@ -182,6 +182,12 @@ const CLIENT_FEATURE_FLAGS = [
       'The results screen\u2019s Tomorrow panel leads with tomorrow\u2019s Daily Challenge by name (\u201cTomorrow: The Ottoman Gates\u201d), and how many played yesterday\u2019s when that is five or more. A guest\u2019s streak no longer promises a gold milestone a guest cannot spend; it links to saving the account instead. The reminder ask comes after a win, and says what it sends: one notification a day at most, when the new Daily Challenge is up or before the streak runs out. A guest\u2019s lobby gets a card with their streak and the day\u2019s challenge, and the home page greets a returning player (\u201cContinue as \u2026\u201d) instead of offering a new guest. Off by default; off, all of these are as before.',
   },
   {
+    key: 'mission_guard_enabled',
+    label: 'Secret missions wait for round 4',
+    description:
+      'In new games with secret missions: a mission or alliance win counts only from round 4, so a mission finished earlier must still be held then. The deal also skips missions that start almost done: a region mission needs at least three territories still to take, and a capture mission at least one target that does not border its holder. Games already running keep the rules they started with. Off by default.',
+  },
+  {
     key: 'funnel_events_v2_enabled',
     label: 'Funnel events v2 (analytics)',
     description:
