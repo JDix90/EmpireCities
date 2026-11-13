@@ -240,3 +240,31 @@ describe('the secret-mission guard is baked at create from its flag', () => {
     expect(created(WW2, { ...missions, mission_guard_enabled: true }).mission_guard_enabled).toBeUndefined();
   });
 });
+
+describe('the two-player opening balance is baked at create from its flag', () => {
+  afterEach(() => resetAdminConfigCacheForTests());
+
+  it('is absent while the flag is off, and baked once it is on', () => {
+    expect(created(WW2).duel_opening_enabled).toBeUndefined();
+    setAdminConfigCacheForTests({ feature_flags: { duel_opening_enabled: true } });
+    // Stored whatever the seat count: the engine applies it to two seats only.
+    expect(created(WW2).duel_opening_enabled).toBe(true);
+  });
+
+  it('never in the first match, a tutorial, a daily, a campaign stage or a Territory Selection game', () => {
+    setAdminConfigCacheForTests({ feature_flags: { duel_opening_enabled: true } });
+    for (const extra of [
+      { first_match: true },
+      { tutorial: true },
+      { daily_challenge_date: '2026-11-13' },
+      { is_campaign: true },
+      { territory_selection: true },
+    ]) {
+      expect({ extra, baked: created(WW2, extra).duel_opening_enabled }).toEqual({ extra, baked: undefined });
+    }
+  });
+
+  it('cannot be switched on by the client', () => {
+    expect(created(WW2, { duel_opening_enabled: true }).duel_opening_enabled).toBeUndefined();
+  });
+});

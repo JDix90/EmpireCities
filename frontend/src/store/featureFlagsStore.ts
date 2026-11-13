@@ -81,6 +81,7 @@ export interface ClientFeatureFlags {
   funnel_events_v2_enabled: boolean;
   lobby_cleanup_enabled: boolean;
   early_access_count_enabled: boolean;
+  duel_opening_enabled: boolean;
   overlay_queue_enabled: boolean;
   comeback_hook_enabled: boolean;
   mission_reveal_enabled: boolean;
@@ -249,6 +250,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   lobby_cleanup_enabled: false,
   // The lobby's "Early access · N games played so far" (LobbyPage). Dark-launched OFF.
   early_access_count_enabled: false,
+  // Two-player opening balance; the client only states the rule (HowToPlayPage). Dark-launched OFF.
+  duel_opening_enabled: false,
   // One overlay at a time in a game (utils/overlayQueue.ts). Dark-launched OFF.
   overlay_queue_enabled: false,
   // Project 4: tomorrow's daily on results, honest guest streak, reminder after a win, guest lobby card, home greeting. Dark-launched OFF.
@@ -663,6 +666,11 @@ export function useLobbyCleanupEnabled(): boolean {
 /** The lobby's "Early access · N games played so far" beside the live counters. */
 export function useEarlyAccessCountEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.early_access_count_enabled);
+}
+
+/** Two-player opening balance (server-side, baked at create): How to Play states the rule while it is live. */
+export function useDuelOpeningEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.duel_opening_enabled);
 }
 
 /** One overlay at a time in a game (utils/overlayQueue.ts). */

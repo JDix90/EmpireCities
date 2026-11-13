@@ -5,6 +5,7 @@ import { APP_NAME } from '../constants/brand';
 import SubpageShell from '../components/ui/SubpageShell';
 import { FAQ } from '../marketing/seoContent.mjs';
 import { useAuthStore } from '../store/authStore';
+import { useDuelOpeningEnabled } from '../store/featureFlagsStore';
 
 /* ─── Collapsible section ─────────────────────────────────── */
 function Section({ icon: Icon, title, children, defaultOpen = false }: {
@@ -33,6 +34,9 @@ function Section({ icon: Icon, title, children, defaultOpen = false }: {
 /* ─── Page ────────────────────────────────────────────────── */
 export default function HowToPlayPage() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  // Two-player opening balance (backend state/duelOpening.ts): the one place
+  // the rule is stated, and only while it is live.
+  const duelOpening = useDuelOpeningEnabled();
   return (
     <SubpageShell
       title="HOW TO PLAY"
@@ -89,6 +93,13 @@ export default function HowToPlayPage() {
               The first player each game is chosen at random (not lobby seat order), so creating
               the match does not guarantee going first.
             </p>
+            {duelOpening && (
+              <p className="text-bf-muted/70 text-xs" data-testid="duel-opening-rule">
+                In a two-player game going first is a real edge, so the first player places at most 3 units on
+                their opening turn and the second player places 1 extra on theirs. Your first match, tutorials,
+                campaigns, the Daily Challenge and Territory Selection games keep the usual opening.
+              </p>
+            )}
             <p className="text-bf-muted/70 text-xs">
               Some games enable a <strong>Territory Selection</strong> phase before the first draft,
               where players take turns picking starting territories instead of receiving random ones.

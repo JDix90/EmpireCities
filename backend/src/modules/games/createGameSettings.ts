@@ -252,6 +252,14 @@ export function bakeCreateGameSettings(input: Theater & {
         // like the heritage rule. Stored even when missions are off, since the
         // waiting room's vote can switch them on after create.
         mission_guard_enabled: featureFlags.missionGuardEnabled || undefined,
+        // Two-player opening balance (state/duelOpening.ts). Stored whatever
+        // the seat count, which can change before the game starts; the engine
+        // applies it only to two seats. Never in the first match, whose human
+        // moves first on purpose, nor a tutorial, daily, campaign stage or
+        // Territory Draft: none of those openings was measured.
+        duel_opening_enabled: (featureFlags.duelOpeningEnabled && rawSettings.first_match !== true
+          && !rawSettings.tutorial && !rawSettings.daily_challenge_date && !rawSettings.is_campaign
+          && !rawSettings.territory_selection) || undefined,
         // The first-match tag counts toward the Analytics tab's first-match
         // rows, so it is kept only while the feature is on.
         first_match: (rawSettings.first_match === true && featureFlags.firstMatchEasyEnabled) || undefined,

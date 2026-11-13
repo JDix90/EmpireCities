@@ -617,6 +617,15 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().early_access_count_enabled).toBe(true);
   });
 
+  it('duel_opening_enabled defaults to off, reaches the client, and the admin override turns it on', () => {
+    expect(featureFlags.duelOpeningEnabled).toBe(false);
+    expect(getFeatureFlagStates().duel_opening_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    expect(getClientFeatureFlags().duel_opening_enabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { duel_opening_enabled: true } });
+    expect(featureFlags.duelOpeningEnabled).toBe(true);
+    expect(getClientFeatureFlags().duel_opening_enabled).toBe(true);
+  });
+
   it('overlay_queue_enabled defaults to off and the admin override turns it on', () => {
     expect(featureFlags.overlayQueueEnabled).toBe(false);
     expect(getClientFeatureFlags().overlay_queue_enabled).toBe(false);

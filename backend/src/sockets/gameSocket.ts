@@ -5612,6 +5612,13 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
         turns_taken: human.turns_taken ?? 0,
         turns_attacked: human.turns_attacked ?? 0,
         turns_timed_out: human.turns_timed_out ?? 0,
+        // Who moved first, so the first-move edge in two-player games can be
+        // read from real games, before and after duel_opening_enabled
+        // (state/duelOpening.ts): the bots measured 71% for the first mover.
+        moved_first: state.players[state.starting_player_index ?? 0]?.player_id === human.player_id,
+        seat_count: state.players.length,
+        is_ranked: !!resultCtx.isRanked,
+        duel_opening: state.settings.duel_opening_enabled === true,
       },
       human.player_id,
     );

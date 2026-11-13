@@ -41,6 +41,7 @@ import { checkTeamVictory } from '../victory/teamVictory';
 import { isTeamGame, regionBonusHolder } from './teams';
 import { regionsOnBoard } from './regionsOnBoard';
 import { alternativeVictoriesLive, missionVictoryLive } from '../victory/openingRound';
+import { applyDuelOpening } from './duelOpening';
 import { dropSecretMissions, galaxyTeamsFor, seatTeamsApart } from './galaxyTeams';
 import { applyLaneClosure, applyLaneSurge, laneSurgeHasGap, tickLaneWeather } from './laneWeather';
 import { colonyGarrison, colonyLayout, resolveGalaxyHomeWorlds, syncGalaxyModeLanes } from './galaxyModes';
@@ -633,6 +634,8 @@ export function initializeGameState(
     applyOpeningEconomyTick(state);
   }
   if (!isTerritorySelect) payFirstTurnProduction(state);
+  // Two-player opening balance: the first mover's opening turn (duelOpening.ts).
+  if (!isTerritorySelect) applyDuelOpening(state, state.current_player_index);
 
   // Inject seasonal event cards into the game-start deck
   if (settingsNorm.events_enabled) {
@@ -1217,6 +1220,8 @@ function passTurn(state: GameState, map?: GameMap): void {
     );
   }
   floorSchismDraft(state);
+  // Two-player opening balance: the second mover's first turn (duelOpening.ts).
+  applyDuelOpening(state, next);
 
   appendWinProbabilitySnapshot(state);
   noteFewestTerritories(state);

@@ -363,6 +363,9 @@ async function createRankedGameTx(
     diplomacy_enabled: false,
     max_players: players.length,
   };
+  // Two-player opening balance (state/duelOpening.ts), baked like the lobby
+  // path; the engine applies it only when the match has two seats.
+  if (featureFlags.duelOpeningEnabled) settings.duel_opening_enabled = true;
   if (bucketCfg.async_mode) {
     settings.async_mode = true;
     settings.async_turn_deadline_seconds = bucketCfg.turn_timer_seconds;
