@@ -170,6 +170,12 @@ const CLIENT_FEATURE_FLAGS = [
       'The lobby stops advertising goals a player cannot reach. The Getting Started quests complete in any order and the banner shows the next one the player can do where they are, with where to do it: a Quick Match player was held at \u201cBuild your first building\u201d in a mode with no buildings, and a guest no longer sees quests that need an account. The profile names the next three achievements and how to earn them instead of \u201c???\u201d on every one. The live game counters are not affected. Off by default; off, both are as before.',
   },
   {
+    key: 'duel_opening_enabled',
+    label: 'Two-player opening balance',
+    description:
+      'In a two-player game whoever moves first places at most 3 units on their opening turn, and the other player 1 extra on their first turn. Moving first won about 71% of two-player games between equal bots; with this, about 50% (Easy, Medium, Hard and Ranked\u2019s rules all within 47\u201350%). Nothing is shown in the game; How to Play states the rule. New games only, lobby and Ranked; never the first match, a tutorial, a campaign stage, the Daily Challenge or a Territory Selection game. Off by default.',
+  },
+  {
     key: 'early_access_count_enabled',
     label: 'Early access games count',
     description:

@@ -261,6 +261,10 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     // Baked at create from mission_guard_enabled; dropping it from this
     // whitelist would silently switch the guards off on the next room load.
     mission_guard_enabled: raw.mission_guard_enabled === true || undefined,
+    // Two-player opening balance (state/duelOpening.ts). Baked at create from
+    // duel_opening_enabled; dropping it from this whitelist would silently
+    // switch it off on the next room load.
+    duel_opening_enabled: raw.duel_opening_enabled === true || undefined,
     era_advancement_preset: eraAdvancementEnabled ? eraPreset : undefined,
     era_advancement_spine_id: eraAdvancementEnabled
       ? (isValidSpineId(raw.era_advancement_spine_id) ? raw.era_advancement_spine_id : eraDefaults.era_advancement_spine_id)

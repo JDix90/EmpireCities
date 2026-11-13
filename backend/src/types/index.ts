@@ -677,6 +677,13 @@ export interface GameSettings {
    * and no mission dealt nearly done (victory/missions.ts).
    */
   mission_guard_enabled?: boolean;
+  /**
+   * Two-player opening balance, baked at create from the
+   * `duel_opening_enabled` flag: in a two-seat game the first mover's opening
+   * turn places at most 3 units and the second mover's first turn 1 more
+   * (state/duelOpening.ts).
+   */
+  duel_opening_enabled?: boolean;
   /** Lobby preset bundle ('skirmish'|'standard'|'epic'|'custom') resolved server-side. */
   era_advancement_preset?: 'skirmish' | 'standard' | 'epic' | 'custom';
   /** Which spine from the registry governs this game (default 'poc'). */
