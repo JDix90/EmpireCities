@@ -53,6 +53,7 @@ import { validateResearch, applyResearch, getPlayerAttackBonus, getPlayerDefense
 import { isBuildingTechUnlocked } from '../game-engine/eraAdvancement/buildingHeritage';
 import { markPlayerAway, applySeatReclaim, AWAY_AI_GRACE_MS } from '../game-engine/state/seatTakeover';
 import { buildAdvanceEraClientPreview, executeAdvanceEra, isEraAdvancePhase } from '../game-engine/eraAdvancement/advanceEra';
+import { buildConquestClientStatus } from '../game-engine/victory/conquestStatus';
 import { projectMapToEraFloor, unlockTerritoriesForFloor, seedsFullBoardAtStart, maxUnlockEra } from '../game-engine/eraAdvancement/territoryUnlock';
 import { transformBoardOnAdvance } from '../game-engine/eraAdvancement/boardTransformTrigger';
 import { createSeededRng } from '../game-engine/victory/missions';
@@ -5239,9 +5240,17 @@ function buildClientState(state: GameState, playerId: string | null, fogOfWar: b
   // Read from the authoritative state, as the server will check it again
   // when the viewer accepts.
   const attachSurrenderOffer = (s: GameState): GameState =>
-    playerId && featureFlags.surrenderOffersEnabled && surrenderOffered(state, playerId)
+    attachConquestStatus(playerId && featureFlags.surrenderOffersEnabled && surrenderOffered(state, playerId)
       ? { ...s, surrender_offer: true }
-      : s;
+      : s);
+
+  // Era-tied conquest (transport-only): the share that wins this round and
+  // who is on course to win as their turn opens, from the authoritative state
+  // (victory/conquestStatus.ts). Null, and so absent, in every other game.
+  const attachConquestStatus = (s: GameState): GameState => {
+    const status = buildConquestClientStatus(state, playerId);
+    return status ? { ...s, conquest_status: status } : s;
+  };
 
   const actingPlayerId = state.players[state.current_player_index]?.player_id;
   const stripSecretMissions = (s: GameState): GameState => ({

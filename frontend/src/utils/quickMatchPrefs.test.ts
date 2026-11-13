@@ -5,8 +5,11 @@ import {
   EVENING_FULL_GAME_PREFS,
   FULL_GAME_EVENING_MAX_TURNS,
   FULL_GAME_MAX_TURNS,
+  FULL_GAME_AGES_CONQUEST,
   describeQuickMatchPrefs,
+  fullGameEndingSettings,
   fullGameMaxTurns,
+  fullGameUsesAgesConquest,
   hasSavedFullGamePrefs,
   hasSavedQuickMatchPrefs,
   loadFullGamePrefs,
@@ -236,5 +239,73 @@ describe('win condition labels', () => {
     expect(QUICK_MATCH_VICTORY_LABELS.conquest).toBe('Domination');
     expect(Object.values(QUICK_MATCH_VICTORY_LABELS)).not.toContain('Majority');
     expect(new Set(Object.values(QUICK_MATCH_VICTORY_LABELS)).size).toBe(4);
+  });
+});
+
+describe('how a Full Game ends (fullGameEndingSettings)', () => {
+  const off = { evening: false, ages: false };
+  const evening = { evening: true, ages: false };
+  const ages = { evening: true, ages: true };
+
+  it('with neither flag, is Full Game as it always was: the ending, 150 rounds, the lead cap of 2', () => {
+    expect(fullGameEndingSettings(DEFAULT_FULL_GAME_PREFS, off)).toEqual({
+      allowed_victory_conditions: ['domination'],
+      max_turns: 150,
+      era_advancement_max_lead: 2,
+    });
+  });
+
+  it('with the evening flag, caps the ending at 80 rounds and keeps the lead cap', () => {
+    expect(fullGameEndingSettings(EVENING_FULL_GAME_PREFS, evening)).toEqual({
+      allowed_victory_conditions: ['domination', 'threshold'],
+      victory_threshold: 65,
+      max_turns: 80,
+      era_advancement_max_lead: 2,
+    });
+  });
+
+  it('with full_game_ages_ending_enabled, ties the 65% ending to the eras, with no round cap and no lead cap', () => {
+    const settings = fullGameEndingSettings(EVENING_FULL_GAME_PREFS, ages);
+    expect(settings).toEqual({
+      allowed_victory_conditions: ['domination', 'threshold'],
+      victory_threshold: 65,
+      ...FULL_GAME_AGES_CONQUEST,
+    });
+    expect('max_turns' in settings).toBe(false);
+    expect('era_advancement_max_lead' in settings).toBe(false);
+    expect(FULL_GAME_AGES_CONQUEST).toEqual({
+      conquest_final_era_only: true,
+      conquest_decay_points_per_round: 3,
+      conquest_decay_delay_rounds: 5,
+      conquest_claim_at_turn_start: true,
+    });
+  });
+
+  it('does the same without the evening flag: the two are independent', () => {
+    expect(fullGameEndingSettings(EVENING_FULL_GAME_PREFS, { evening: false, ages: true }))
+      .toEqual(fullGameEndingSettings(EVENING_FULL_GAME_PREFS, ages));
+  });
+
+  it('gives a saved Blitz setup era-tied conquest too, at its own share', () => {
+    const blitz = { ...DEFAULT_FULL_GAME_PREFS, victory: 'blitz' as const };
+    expect(fullGameUsesAgesConquest(blitz, ages)).toBe(true);
+    expect(fullGameEndingSettings(blitz, ages)).toMatchObject({ victory_threshold: 50, ...FULL_GAME_AGES_CONQUEST });
+  });
+
+  it('leaves a saved whole-board or capitals setup its ending and its cap, without the lead cap', () => {
+    for (const victory of ['conquest', 'capitals'] as const) {
+      const prefs = { ...DEFAULT_FULL_GAME_PREFS, victory };
+      expect(fullGameUsesAgesConquest(prefs, ages)).toBe(false);
+      const settings = fullGameEndingSettings(prefs, ages);
+      expect(settings.max_turns).toBe(80);
+      expect(settings.conquest_final_era_only).toBeUndefined();
+      expect('era_advancement_max_lead' in settings).toBe(false);
+    }
+  });
+
+  it('never applies without the flag, whatever the ending', () => {
+    for (const victory of QUICK_MATCH_VICTORY_MODES) {
+      expect(fullGameUsesAgesConquest({ ...DEFAULT_FULL_GAME_PREFS, victory }, evening)).toBe(false);
+    }
   });
 });

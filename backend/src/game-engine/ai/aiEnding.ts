@@ -20,8 +20,9 @@
  * tiebreak at the round cap. Never secret missions, and never whether a seat
  * is human: the leader is pressed because it is about to win, whoever it is.
  */
-import type { GameState } from '../../types';
+import type { GameState, PlayerState } from '../../types';
 import { getAllowedVictoryConditions } from '../state/gameSettings';
+import { conquestOpenFor, conquestTerritoriesNeeded } from '../victory/conquestRules';
 import { isFriendlyOwner, isTeamGame } from '../state/teams';
 import { aiProfile, type AiLevel } from './aiProfiles';
 
@@ -49,13 +50,16 @@ interface Standing {
   closeness: number;
 }
 
-/** Territories a player must hold to win on territory: the threshold, or the whole board. */
-function territoryGoal(state: GameState): number | null {
+/**
+ * Territories `player` must hold to win on territory: the threshold as it
+ * stands this round, or the whole board, also when conquest is not yet open
+ * to that player (victory/conquestRules.ts).
+ */
+function territoryGoal(state: GameState, player: PlayerState | undefined): number | null {
   const allowed = getAllowedVictoryConditions(state.settings);
   const total = Object.keys(state.territories).length;
-  if (allowed.includes('threshold') && state.settings.victory_threshold != null) {
-    return Math.ceil((total * state.settings.victory_threshold) / 100);
-  }
+  const needed = conquestTerritoriesNeeded(state);
+  if (needed != null && (!player || conquestOpenFor(state, player))) return needed;
   return allowed.includes('domination') ? total : null;
 }
 
@@ -72,7 +76,6 @@ function roundsLeft(state: GameState): number | null {
  */
 export function winStandings(state: GameState): Standing[] {
   const active = state.players.filter((p) => !p.is_eliminated);
-  const goal = territoryGoal(state);
   const capitals = getAllowedVictoryConditions(state.settings).includes('capital')
     && active.every((p) => !!p.capital_territory_id);
   const left = roundsLeft(state);
@@ -89,6 +92,7 @@ export function winStandings(state: GameState): Standing[] {
   }
 
   return active.map((p) => {
+    const goal = territoryGoal(state, p);
     let closeness = goal ? Math.min(1, (p.territory_count ?? 0) / goal) : 0;
     if (capitals && state.territories[p.capital_territory_id!]?.owner_id === p.player_id) {
       const rivals = active.filter((o) => o.player_id !== p.player_id);
@@ -147,8 +151,9 @@ export function endingPlan(state: GameState, playerId: string, difficulty: AiLev
   // Race: a few territories from its own line, or the last rounds before the cap.
   let raceUrgency = 0;
   if (profile.racesEnding) {
-    const goal = territoryGoal(state);
-    const held = state.players.find((p) => p.player_id === playerId)?.territory_count ?? 0;
+    const self = state.players.find((p) => p.player_id === playerId);
+    const goal = territoryGoal(state, self);
+    const held = self?.territory_count ?? 0;
     if (goal != null && goal - held <= RACE_WINDOW) {
       raceUrgency = 1 - Math.max(0, goal - held - 1) / RACE_WINDOW;
     }

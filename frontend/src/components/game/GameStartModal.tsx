@@ -87,6 +87,16 @@ export function describeWinConditions(settings: GameState['settings'], seats = 0
       case 'domination':
         return team ? 'Your side controls every territory' : 'Control every territory';
       case 'threshold':
+        // Era-tied conquest (backend victory/conquestRules.ts): say when the
+        // share counts and that it moves, or the first screen promises a win
+        // the opening board cannot give.
+        if (typeof settings.victory_threshold === 'number' && settings.conquest_final_era_only) {
+          const falls = (settings.conquest_decay_points_per_round ?? 0) > 0
+            ? '; the share needed falls as that era goes on'
+            : '';
+          const claim = settings.conquest_claim_at_turn_start ? ', and you win when your own turn begins still holding it' : '';
+          return `Reach the last era, then control ${settings.victory_threshold}% of the map${falls}${claim}`;
+        }
         return typeof settings.victory_threshold === 'number'
           ? team
             ? `Your side controls ${settings.victory_threshold}% of the map between you`

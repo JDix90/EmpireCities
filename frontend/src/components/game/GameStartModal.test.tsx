@@ -105,6 +105,25 @@ describe('describeWinConditions', () => {
     expect(describeWinConditions(settings).conditions).toEqual(['Control 70% of the map']);
   });
 
+  it('says when era-tied conquest counts, that the share falls, and when it is won', () => {
+    const settings = {
+      ...makeState().settings,
+      allowed_victory_conditions: ['domination', 'threshold'],
+      victory_threshold: 65,
+      conquest_final_era_only: true,
+      conquest_decay_points_per_round: 3,
+      conquest_decay_delay_rounds: 5,
+      conquest_claim_at_turn_start: true,
+    };
+    expect(describeWinConditions(settings)).toEqual({
+      conditions: [
+        'Control every territory',
+        'Reach the last era, then control 65% of the map; the share needed falls as that era goes on, and you win when your own turn begins still holding it',
+      ],
+      turnCap: null,
+    });
+  });
+
   it('falls back to a generic phrase when the threshold percent is missing', () => {
     const settings = { ...makeState().settings, allowed_victory_conditions: ['threshold'] };
     expect(describeWinConditions(settings).conditions).toEqual(['Control most of the map']);

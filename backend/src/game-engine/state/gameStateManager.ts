@@ -37,6 +37,7 @@ import {
 } from './moonAccess';
 import { buildWorldModifierSnapshot } from './worldModifiers';
 import { hasLaneSovereignty, tickLaneSovereignty } from '../victory/laneSovereignty';
+import { hasConquestVictory, tickConquestClaim } from '../victory/conquestRules';
 import { checkTeamVictory } from '../victory/teamVictory';
 import { isTeamGame, regionBonusHolder } from './teams';
 import { regionsOnBoard } from './regionsOnBoard';
@@ -1172,6 +1173,9 @@ function passTurn(state: GameState, map?: GameMap): void {
   // right now — both are "at the start of your turn" rules.
   tickLaneBlockades(state, state.players[next].player_id);
   if (map) tickLaneSovereignty(state, map, state.players[next].player_id);
+  // Era-tied conquest: whether the incoming player's turn opens with the
+  // winning share in hand is another "at the start of your turn" rule.
+  tickConquestClaim(state, state.players[next].player_id);
   // Galaxy transit: convoys the incoming player sent last turn arrive now (or
   // turn back, if the world they were sent to is no longer theirs).
   const arrivals = arriveConvoys(state, state.players[next].player_id);
@@ -1603,10 +1607,9 @@ export function checkVictory(state: GameState, map: GameMap): { winnerIds: strin
       allowed.includes('threshold') &&
       settings.victory_threshold != null
     ) {
-      // Integer maths: `total * (pct / 100)` rounds in binary floating point,
-      // so 55% of 100 came out 55.000000000000007 and demanded a 56th territory.
-      const need = Math.ceil((totalTerritories * settings.victory_threshold) / 100);
-      if (player.territory_count >= need) condition = 'threshold';
+      // The share asked, of whom and when is victory/conquestRules.ts: the
+      // plain threshold, unless the game ties conquest to the eras.
+      if (hasConquestVictory(state, player)) condition = 'threshold';
     }
 
     // Lunar Hegemony (Space Age Moon Race, Phase 3): the clock is advanced at

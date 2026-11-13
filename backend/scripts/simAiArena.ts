@@ -29,6 +29,12 @@
  *          era_ancient; the full-board ending, 150-round cap.
  *   full-evening  Full Game with full_game_evening_enabled: the 65% ending,
  *          80-round cap.
+ *   full-ages  Full Game with full_game_ages_ending_enabled: conquest (65%)
+ *          counts only from the Modern era, its share falls during that era, a
+ *          win is claimed as the holder's own turn opens, and there is no round
+ *          cap and no era lead cap (victory/conquestRules.ts). The script turns
+ *          the flag on for itself; set ARENA_ROUND_LIMIT to stop games that
+ *          have not ended.
  *   full   Full Game's systems with the 65% ending and the 150-round cap. Not
  *          the lobby's default, whose ending is the whole board; kept so the
  *          runs and digests measured on it still compare.
@@ -53,7 +59,9 @@
  * Settings (environment):
  *   ARENA_GAMES            games per map and seat count (default 50)
  *   ARENA_SEATS            seat counts, comma-separated (default 4)
- *   ARENA_RULES            quick | full-default | full-evening | full (default quick)
+ *   ARENA_RULES            quick | full-default | full-evening | full-ages | full (default quick)
+ *   ARENA_ROUND_LIMIT      the round a game with no cap of its own is stopped at,
+ *                            unfinished and with no winner (default 60)
  *   ARENA_SETTINGS         JSON object of create settings laid over the rules' own,
  *                            to measure a variant (another ending or cap)
  *   ARENA_MAPS             map ids (default: the rules' maps above); `map:era` plays
@@ -281,6 +289,32 @@ const RULESETS: Record<string, { maps: Record<string, EraId>; settings: CreateGa
     },
   },
 };
+
+RULESETS['full-ages'] = {
+  maps: { era_ancient: 'ancient' },
+  settings: {
+    turn_timer_seconds: 0,
+    allowed_victory_conditions: ['domination', 'threshold'],
+    victory_threshold: 65,
+    conquest_final_era_only: true,
+    conquest_decay_points_per_round: 3,
+    conquest_decay_delay_rounds: 5,
+    conquest_claim_at_turn_start: true,
+    initial_unit_count: 3,
+    card_set_escalating: true,
+    diplomacy_enabled: false,
+    economy_enabled: true,
+    tech_trees_enabled: true,
+    stability_enabled: true,
+    naval_enabled: true,
+    events_enabled: true,
+    era_advancement_enabled: true,
+    era_advancement_preset: 'standard',
+  },
+};
+// The create boundary keeps the era-tied conquest settings only with the flag on.
+if (RULES === 'full-ages') process.env.FULL_GAME_AGES_ENDING_ENABLED ??= 'true';
+const ROUND_LIMIT = Number(process.env.ARENA_ROUND_LIMIT ?? 60);
 
 const ruleset = RULESETS[RULES];
 if (!ruleset) throw new Error(`ARENA_RULES=${RULES}: expected ${Object.keys(RULESETS).join(' or ')}`);
@@ -782,7 +816,7 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
     }
   };
 
-  const maxTurns = state.settings.max_turns ?? 60;
+  const maxTurns = state.settings.max_turns ?? ROUND_LIMIT;
   let guard = 0;
   while (state.phase !== 'game_over' && guard < (maxTurns + 2) * seatCount + 5) {
     guard += 1;

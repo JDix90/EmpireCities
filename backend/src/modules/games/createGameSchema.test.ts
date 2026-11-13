@@ -22,6 +22,31 @@ import {
  * before normalizeGameSettings ever sees it. That is how Quick Match's
  * 150-turn cap was disabled without any error.
  */
+describe('CreateGameSchema keeps the era-tied conquest settings', () => {
+  it('passes the four settings the lobby\'s Full Game sends, which zod would otherwise strip', () => {
+    const parsed = CreateGameSchema.parse({
+      era_id: 'ancient',
+      map_id: 'era_ancient',
+      max_players: 4,
+      ai_count: 3,
+      settings: {
+        allowed_victory_conditions: ['domination', 'threshold'],
+        victory_threshold: 65,
+        conquest_final_era_only: true,
+        conquest_decay_points_per_round: 3,
+        conquest_decay_delay_rounds: 5,
+        conquest_claim_at_turn_start: true,
+      },
+    });
+    expect(parsed.settings).toMatchObject({
+      conquest_final_era_only: true,
+      conquest_decay_points_per_round: 3,
+      conquest_decay_delay_rounds: 5,
+      conquest_claim_at_turn_start: true,
+    });
+  });
+});
+
 describe('CreateGameSchema settings whitelist', () => {
   const quickMatchPayload = {
     era_id: 'ancient',

@@ -715,6 +715,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Full Game defaults to the 65% ending (Conquest) for a player who has not saved a setup of their own, and every Full Game ending is capped at 80 rounds instead of 150. Today\u2019s default, taking the whole board, ran to the 150-round cap in nearly every simulated game: about 2 h 40 at a minute a turn. On by default since the first-win ladder, which leads players to Full Game; switching it off gives Full Game exactly as before.',
   },
   {
+    key: 'full_game_ages_ending_enabled',
+    label: 'Full Game ends by the eras',
+    description:
+      'Full Game’s Conquest ending is tied to the eras. Holding 65% of the map wins only for a player who has reached the Modern era; once anyone is there the share needed holds for five rounds and then falls 3 points a round until somebody holds it; and a player over the line wins only if they still hold it when their own next turn begins, so every rival has one turn to take it back. There is no round cap, and Full Game no longer sends the era lead cap. Today’s 65% ending is counted on the starting board, a third of the full one: in simulation it ended one even game in five by round 20 in the Ancient era, a strong player’s game in 11 rounds and a two-player game in three, while the rest ran to the cap. With this on, a simulated game lasts a median 50 rounds whoever is at the table and the winner has played every era. It becomes the default ending for a player with no saved setup; a saved Conquest or Blitz setup gets it too, and a saved Domination or Capitals setup keeps its ending and its cap. Games already running keep the rules they started with. Dark-launched off; switching it on applies to Full Games created from then on.',
+  },
+  {
     key: 'placement_cap_note_enabled',
     label: 'Explain the placement cap',
     description:

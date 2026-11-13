@@ -139,6 +139,76 @@ export function fullGameMaxTurns(evening: boolean): number {
   return evening ? FULL_GAME_EVENING_MAX_TURNS : FULL_GAME_MAX_TURNS;
 }
 
+/**
+ * With `full_game_ages_ending_enabled`, a Full Game ends by the eras. Over
+ * 52,340 simulated games (docs/full-game-pacing/REPORT.md) the 65% ending on
+ * its own ended one even game in five by round 20 with the winner still in the
+ * Ancient era, and a strong player's in 11 rounds, because 65% of the starting
+ * board is 22 territories and of the board the eras open, 38. These settings
+ * tie conquest to the eras instead (backend victory/conquestRules.ts):
+ *
+ *   - conquest counts only for a player in the last era;
+ *   - once anyone is there, the share needed holds for five rounds and then
+ *     falls 3 points a round until somebody holds it;
+ *   - a win is claimed as the holder's own turn opens, so every rival has one
+ *     turn to take it back.
+ *
+ * A median 51 rounds whoever is at the table, with no round cap and no era
+ * lead cap. The server keeps the settings only while its own flag is on.
+ */
+export const FULL_GAME_AGES_CONQUEST = {
+  conquest_final_era_only: true,
+  conquest_decay_points_per_round: 3,
+  conquest_decay_delay_rounds: 5,
+  conquest_claim_at_turn_start: true,
+} as const;
+
+/** The era lead cap Full Game sends without `full_game_ages_ending_enabled` (see startFullGame). */
+export const FULL_GAME_ERA_MAX_LEAD = 2;
+
+export interface FullGameFlags {
+  /** `full_game_evening_enabled`. */
+  evening: boolean;
+  /** `full_game_ages_ending_enabled`. */
+  ages: boolean;
+}
+
+/** Whether this Full Game is won by era-tied conquest: the flag is on and its ending holds a share of the map. */
+export function fullGameUsesAgesConquest(prefs: QuickMatchPrefs, flags: FullGameFlags): boolean {
+  const plan = QUICK_MATCH_VICTORY_PLANS[prefs.victory] ?? QUICK_MATCH_VICTORY_PLANS.majority;
+  return flags.ages && plan.allowed_victory_conditions.includes('threshold');
+}
+
+/**
+ * How a Full Game ends and what bounds it, as create settings: the chosen
+ * ending, then Full Game's own cap in place of the ending's (Blitz's 45 rounds
+ * would end most Full Games on the cap instead of on the criterion).
+ *
+ * With `full_game_ages_ending_enabled` an ending that holds a share of the map
+ * (the default, and Blitz) is era-tied conquest with no cap, and no Full Game
+ * sends the era lead cap: one seat that never advances held every other seat
+ * out of the last three eras under it. An ending the player chose that holds
+ * no share (the whole board, capitals) keeps today's cap, since nothing else
+ * would end it against bots.
+ */
+export function fullGameEndingSettings(prefs: QuickMatchPrefs, flags: FullGameFlags): {
+  allowed_victory_conditions: QuickMatchVictoryCondition[];
+  victory_threshold?: number;
+  max_turns?: number;
+  era_advancement_max_lead?: number;
+  conquest_final_era_only?: boolean;
+  conquest_decay_points_per_round?: number;
+  conquest_decay_delay_rounds?: number;
+  conquest_claim_at_turn_start?: boolean;
+} {
+  const { max_turns: _endingCap, ...ending } = quickMatchVictorySettings(prefs);
+  return {
+    ...ending,
+    ...(fullGameUsesAgesConquest(prefs, flags) ? FULL_GAME_AGES_CONQUEST : { max_turns: fullGameMaxTurns(flags.evening) }),
+    ...(flags.ages ? {} : { era_advancement_max_lead: FULL_GAME_ERA_MAX_LEAD }),
+  };
+}
+
 function fullGameDefaults(evening: boolean): QuickMatchPrefs {
   return evening ? EVENING_FULL_GAME_PREFS : DEFAULT_FULL_GAME_PREFS;
 }

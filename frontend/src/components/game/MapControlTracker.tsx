@@ -1,12 +1,63 @@
 import clsx from 'clsx';
 import type { MapControlProgress } from '../../utils/mapControl';
+import { ERA_LABELS } from '../../constants/gameLobbyLabels';
 
-/** "You hold 42% of the map. 65% wins — 10 more territories." ("Your side holds" in a team game.) */
+const eraName = (eraId: string): string => ERA_LABELS[eraId] ?? eraId;
+
+/**
+ * "You hold 42% of the map. 65% wins — 10 more territories." ("Your side holds"
+ * in a team game.) With era-tied conquest it also says what the plain line
+ * would get wrong: that the share does not count for the player yet, that it
+ * is about to fall, or that holding it wins only when their turn comes round.
+ */
 export function describeMapControl(p: MapControlProgress): string {
   const who = p.side ? 'Your side holds' : 'You hold';
-  if (p.remaining === 0) return `${who} ${p.heldPct}% of the map — ${p.thresholdPct}% wins.`;
+  const c = p.conquest;
+  if (c?.lockedUntilEraId) {
+    return `${who} ${p.heldPct}% of the map. ${p.thresholdPct}% wins once you reach the last era, ${eraName(c.lockedUntilEraId)}.`;
+  }
+  const next = c?.nextPct != null ? ` Next round ${c.nextPct}% wins.` : '';
+  if (p.remaining === 0) {
+    return c?.claimAtTurnStart
+      ? `${who} ${p.heldPct}% of the map — ${p.thresholdPct}% wins. Hold it until your next turn begins.`
+      : `${who} ${p.heldPct}% of the map — ${p.thresholdPct}% wins.`;
+  }
   const more = p.remaining === 1 ? '1 more territory' : `${p.remaining} more territories`;
-  return `${who} ${p.heldPct}% of the map. ${p.thresholdPct}% wins — ${more}.`;
+  return `${who} ${p.heldPct}% of the map. ${p.thresholdPct}% wins — ${more}.${next}`;
+}
+
+/** Era-tied conquest, in the sidebar: who is about to win, and how the share is moving. */
+function ConquestNotes({ progress }: { progress: MapControlProgress }) {
+  const c = progress.conquest;
+  if (!c) return null;
+  const rivals = c.rivalsOnCourse;
+  return (
+    <>
+      {rivals.length > 0 && (
+        <p className="text-[11px] text-bf-gold mt-1 leading-snug" data-testid="conquest-rival-on-course" role="status">
+          {rivals.join(' and ')} {rivals.length === 1 ? 'holds' : 'hold'} the share that wins, and{' '}
+          {rivals.length === 1 ? 'wins' : 'the first to move wins'} when their turn begins. Take territory from them first.
+        </p>
+      )}
+      {c.onCourse && (
+        <p className="text-[11px] text-bf-gold mt-1 leading-snug" data-testid="conquest-on-course" role="status">
+          You hold the share that wins. Keep it until your next turn begins and the game is yours.
+        </p>
+      )}
+      <p className="text-[10px] text-bf-muted/80 mt-0.5 leading-snug" data-testid="conquest-share-note">
+        {c.lockedUntilEraId
+          ? `Conquest opens for you in the last era, ${eraName(c.lockedUntilEraId)}. `
+          : ''}
+        {c.nextPct != null
+          ? `The share needed falls to ${c.nextPct}% next round.`
+          : c.fallsFromRound != null
+            ? `The share needed starts to fall in round ${c.fallsFromRound}.`
+            : progress.thresholdPct < c.basePct
+              ? ''
+              : 'Once a player reaches the last era, the share needed starts to fall.'}
+      </p>
+    </>
+  );
 }
 
 /** Share of the map held, with a tick where the threshold sits. */
@@ -86,6 +137,7 @@ export function MapControlObjective({ progress }: { progress: MapControlProgress
           ? `. ${progress.remaining} more to go.`
           : '.'}
       </p>
+      <ConquestNotes progress={progress} />
     </div>
   );
 }

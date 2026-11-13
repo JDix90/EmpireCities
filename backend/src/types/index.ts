@@ -577,6 +577,30 @@ export interface AuthoredScenario {
   human_secret_mission?: SecretMission;
 }
 
+/**
+ * Era-tied conquest as a client reads it (victory/conquestStatus.ts): the
+ * server's own numbers, so no screen mirrors the rule.
+ */
+export interface ConquestClientStatus {
+  /** The share of the board that wins this round, in percent, and the territories it comes to. */
+  share_pct: number;
+  needed: number;
+  /** The share before any fall. */
+  base_share_pct: number;
+  /** The share next round, when it will be lower. */
+  next_share_pct?: number;
+  /** The round the share starts to fall, once the last era has been reached and the fall is still ahead. */
+  falls_from_round?: number;
+  /** The era a player must be in to win on the share, when the game asks for one. */
+  required_era_id?: EraId;
+  /** Whether the viewer may win on the share yet; true for a spectator. */
+  open_for_viewer: boolean;
+  /** Whether a win is claimed only as the holder's own turn opens. */
+  claim_at_turn_start: boolean;
+  /** Players who win as their next turn opens unless a rival takes territory from them first. */
+  on_course_ids: string[];
+}
+
 export interface GameSettings {
   fog_of_war: boolean;
   /** @deprecated Prefer allowed_victory_conditions; kept for legacy DB rows. */
@@ -722,6 +746,21 @@ export interface GameSettings {
   era_advancement_board_transform?: boolean;
   /** Anti-steamroll cap: no player may advance more than this many eras ahead of the trailing living player (null = no cap). */
   era_advancement_max_lead?: number | null;
+  /**
+   * Conquest tied to the eras (victory/conquestRules.ts), baked at create from
+   * the `full_game_ages_ending_enabled` flag for the lobby's Full Game. The
+   * threshold victory counts only for a player in the spine's last era.
+   */
+  conquest_final_era_only?: boolean;
+  /**
+   * Once any player reaches the last era, the threshold falls this many
+   * percentage points each round (absent or 0: it never falls), after holding
+   * for `conquest_decay_delay_rounds` rounds.
+   */
+  conquest_decay_points_per_round?: number;
+  conquest_decay_delay_rounds?: number;
+  /** A threshold win is claimed only as the holder's own turn opens with the share still in hand. */
+  conquest_claim_at_turn_start?: boolean;
   era_advancement_combat_gap_dice?: number;
   /**
    * Combat dice cap (anti-fortress). When enabled, the post-bonus dice count for
@@ -1392,6 +1431,22 @@ export interface GameState {
    * `settings.era_advancement_enabled`.
    */
   era_spine?: EraSpineStep[];
+  /**
+   * The round a player first reached the spine's last era, from which the
+   * conquest share falls (victory/conquestRules.ts). Set only in a game with
+   * `conquest_decay_points_per_round`.
+   */
+  final_era_reached_turn?: number;
+  /**
+   * The player whose turn opened holding the conquest share, under
+   * `conquest_claim_at_turn_start`. Rewritten at every hand-off.
+   */
+  conquest_claimant_id?: string;
+  /**
+   * What the conquest share asks this round, attached at broadcast by
+   * `buildClientState` in a game with era-tied conquest. Transport-only.
+   */
+  conquest_status?: ConquestClientStatus;
   /**
    * Viewer-scoped era advancement status, attached per-player at broadcast by
    * `buildClientState`. Transport-only: never set on the authoritative state.

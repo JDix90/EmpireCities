@@ -147,6 +147,14 @@ export const CreateGameSchema = z.object({
        * could never fire no matter what a caller sent — the same silent-strip
        * failure `max_turns` below carries a warning about. */
       era_advancement_max_lead: z.number().int().min(1).max(10).optional(),
+      /** Era-tied conquest (victory/conquestRules.ts), sent by the lobby's Full
+       * Game and kept by bakeCreateGameSettings only while
+       * full_game_ages_ending_enabled is on. Without these entries zod strips
+       * them and the flag could never take effect. */
+      conquest_final_era_only: z.boolean().optional(),
+      conquest_decay_points_per_round: z.number().min(1).max(20).optional(),
+      conquest_decay_delay_rounds: z.number().int().min(0).max(50).optional(),
+      conquest_claim_at_turn_start: z.boolean().optional(),
       /** Board-transform model: advancing eras swaps the whole board to the next
        * era's map and lets a game start on any ascension-line era map. */
       era_advancement_board_transform: z.boolean().optional(),

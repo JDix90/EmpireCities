@@ -248,6 +248,19 @@ export interface GalaxySchismMode {
   lanes?: Array<{ from: string; to: string }>;
 }
 
+/** Mirrors the backend's ConquestClientStatus (types/index.ts): the server's numbers, rendered as sent. */
+export interface ConquestClientStatus {
+  share_pct: number;
+  needed: number;
+  base_share_pct: number;
+  next_share_pct?: number;
+  falls_from_round?: number;
+  required_era_id?: string;
+  open_for_viewer: boolean;
+  claim_at_turn_start: boolean;
+  on_course_ids: string[];
+}
+
 export interface GameState {
   game_id: string;
   era: string;
@@ -371,6 +384,15 @@ export interface GameState {
     era_heritage_buildings_enabled?: boolean;
     /** Secret-mission guards (baked at create): no mission win before round 4. */
     mission_guard_enabled?: boolean;
+    /**
+     * Era-tied conquest (baked at create; backend victory/conquestRules.ts):
+     * the threshold counts only in the last era, falls during it, and is won
+     * as the holder's own turn opens. The numbers come in `conquest_status`.
+     */
+    conquest_final_era_only?: boolean;
+    conquest_decay_points_per_round?: number;
+    conquest_decay_delay_rounds?: number;
+    conquest_claim_at_turn_start?: boolean;
     era_advancement_preset?: 'skirmish' | 'standard' | 'epic' | 'custom';
     era_advancement_cost_mult?: number;
     era_advancement_cost_escalation?: number;
@@ -444,6 +466,12 @@ export interface GameState {
    * bots; accepting it (`game:accept_surrender`) ends the game as a win.
    */
   surrender_offer?: boolean;
+  /**
+   * Era-tied conquest as the server reads it this round, present only in a
+   * game that has it: the share that wins, whether it is open to the viewer
+   * yet, and who is on course to win as their turn opens.
+   */
+  conquest_status?: ConquestClientStatus;
   /** Fortify moves the current player has spent this turn (vs the per-turn limit). */
   fortify_moves_used?: number;
   era_modifiers?: {

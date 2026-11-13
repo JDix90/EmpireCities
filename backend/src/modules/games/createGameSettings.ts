@@ -247,6 +247,15 @@ export function bakeCreateGameSettings(input: Theater & {
         // in the normalizer, which re-runs on every room load) keeps a running
         // game on the rules it started under.
         era_heritage_buildings_enabled: featureFlags.eraHeritageBuildingsEnabled,
+        // Era-tied conquest (victory/conquestRules.ts): the lobby's Full Game
+        // asks for it, and it is kept only while full_game_ages_ending_enabled
+        // is on, so the flag is a server-side switch and not a hidden control.
+        ...(featureFlags.fullGameAgesEndingEnabled ? {} : {
+          conquest_final_era_only: undefined,
+          conquest_decay_points_per_round: undefined,
+          conquest_decay_delay_rounds: undefined,
+          conquest_claim_at_turn_start: undefined,
+        }),
         era_wonder_per_era_enabled: featureFlags.eraWonderPerEraEnabled,
         // Secret-mission guards: read by the deal and the win check, so baked
         // like the heritage rule. Stored even when missions are off, since the
