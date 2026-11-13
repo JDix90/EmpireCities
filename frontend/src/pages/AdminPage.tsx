@@ -302,6 +302,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Medium, Hard and Expert bots plan their fortify after their attacks, on the board as it then stands: every move the era and their techs allow, each sending troops from where they are least needed to where a tile is most at risk of being lost before the bot\u2019s next turn. Hard and Expert also count what each rival will reinforce with, and Hard moves troops up for next turn\u2019s attacks. Expert also keeps back, on each tile it attacks from, what that tile needs against the stacks beside it of every rival but the one it attacks. Moves follow the same routes a player\u2019s must. Easy and the tutorial bot keep today\u2019s single move. Daily challenges and campaign games are unchanged. Off by default while it is tried.',
   },
   {
+    key: 'ai_era_patience_enabled',
+    label: 'AI stops waiting to advance an era',
+    description:
+      'A bot that has met every requirement to advance an era for eight of its own turns running advances, whatever its caution says. Bots hold back from advancing while their borders are threatened, and in a standoff every bot\u2019s borders are: in simulated Full Games with no round cap, 0.5 to 2% froze with every bot one era short of the last, each ready and none willing, and nothing left to end the game. Matters most with \u201cFull Game ends by the eras\u201d, which has no round cap. Daily challenges and campaign stages keep today\u2019s bots. Dark-launched off.',
+  },
+  {
     key: 'attack_blitz_enabled',
     label: 'Blitz attacks',
     description:
@@ -713,6 +719,12 @@ const CLIENT_FEATURE_FLAGS = [
     label: 'Full Game fits an evening',
     description:
       'Full Game defaults to the 65% ending (Conquest) for a player who has not saved a setup of their own, and every Full Game ending is capped at 80 rounds instead of 150. Today\u2019s default, taking the whole board, ran to the 150-round cap in nearly every simulated game: about 2 h 40 at a minute a turn. On by default since the first-win ladder, which leads players to Full Game; switching it off gives Full Game exactly as before.',
+  },
+  {
+    key: 'full_game_ages_ending_enabled',
+    label: 'Full Game ends by the eras',
+    description:
+      'Full Game’s Conquest ending is tied to the eras. Holding 65% of the map wins only for a player who has reached the Modern era; once anyone is there the share needed holds for five rounds and then falls 3 points a round until somebody holds it; and a player over the line wins only if they still hold it when their own next turn begins, so every rival has one turn to take it back. There is no round cap, and Full Game no longer sends the era lead cap. Today’s 65% ending is counted on the starting board, a third of the full one: in simulation it ended one even game in five by round 20 in the Ancient era, a strong player’s game in 11 rounds and a two-player game in three, while the rest ran to the cap. With this on, a simulated game lasts a median 50 rounds whoever is at the table and the winner has played every era. It becomes the default ending for a player with no saved setup; a saved Conquest or Blitz setup gets it too, and a saved Domination or Capitals setup keeps its ending and its cap. Games already running keep the rules they started with. Dark-launched off; switching it on applies to Full Games created from then on.',
   },
   {
     key: 'placement_cap_note_enabled',

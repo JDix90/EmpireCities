@@ -1,0 +1,57 @@
+
+══ em.ages-patience: 200 games, 4 seats ══
+Every figure is "value [95% interval]": Wilson for shares, a 1,000-draw bootstrap for medians and means.
+
+Length
+  rounds                 median 47 [47, 49], mean 47.0 [46.1, 48.0], 20th pct 40, 80th pct 52
+  ended by               threshold 100% [98%, 100%]
+  minutes at 45 s a turn  median 27 [19, 33], 80th pct 43 [41, 44], over 90 min 0% [0%, 2%], over 120 min 0% [0%, 2%]
+  minutes at 60 s a turn  median 35 [25, 42], 80th pct 55 [54, 57], over 90 min 0% [0%, 2%], over 120 min 0% [0%, 2%]
+  minutes at 90 s a turn  median 51 [36, 61], 80th pct 80 [77, 83], over 90 min 6% [3%, 10%], over 120 min 0% [0%, 2%]
+  rounds, by tens        31-40: 21%, 41-50: 48%, 51-60: 30%, 61-70: 2%
+  stand-in seat          wins 3% [1%, 6%], knocked out 57% [51%, 64%], plays 32 [22, 38] rounds, ends in era 2.3 [2.0, 2.5], reaches the last era 8% [5%, 12%]
+
+Eras (index 0 Ancient … 5 the last)
+  seats finishing in     era 0: 9%, era 1: 4%, era 2: 3%, era 3: 8%, era 4: 20%, era 5: 57%
+  seats in the last era  57% [53%, 60%]; games where someone is 100% [98%, 100%]; games where every living seat is 31% [25%, 38%]; winners 100% [98%, 100%]
+  over before the WW2 era 0% [0%, 2%] of games (no seat past era 2 when the game ended)
+  first seat reaches     era 1: 100% of games, round 13 [13, 13]; era 2: 100% of games, round 18 [18, 19]; era 3: 100% of games, round 24 [23, 25]; era 4: 100% of games, round 31 [30, 31]; era 5: 100% of games, round 39 [39, 40]
+  half the table reaches era 1: 100%, round 13 [13, 14]; era 2: 100%, round 20 [19, 20]; era 3: 100%, round 26 [26, 27]; era 4: 96%, round 33 [32, 34]; era 5: 77%, round 41 [40, 42]
+
+Stages                    climbing | arriving | after the ages
+  mean rounds            39.3 [38.8, 39.8] | 5.9 [5.2, 6.6] | 1.9 [1.4, 2.4]
+  quiet rounds           7% | 30% | 53%
+  captures a round       4.9 | 2.7 | 2.0
+
+By ten rounds            games running, captures a round, territories changing standing a round, quiet rounds, armies on the board
+  1-10        200    6.4    3.9     0%      83
+  11-20       200    5.5    3.6     2%     197
+  21-30       200    4.4    2.9     6%     304
+  31-40       200    3.2    2.4    20%     407
+  41-50       158    2.6    1.9    33%     506
+  51-60        63    1.7    1.4    54%     636
+
+Decided (one seat with 60% of the board and 2× the next seat's armies)
+  games that get there   51% [44%, 57%], at round 29 [23, 33]; that seat wins 95% [89%, 98%]
+  rounds played after    median 1 [0, 4]; 19% [15%, 22%] of a game on average
+  lead                   changes hands 3.3 [3.0, 3.6] times a game; the winner leads for good from round 17 [14, 20]
+
+Quiet
+  quiet rounds           11% [10%, 13%] of a game; in lulls of 5+ rounds 4% [3%, 6%]; longest lull 2 [1, 2] rounds
+  after the ages         0 [0, 0] rounds (4% [3%, 5%] of a game) played after every living seat is in the last era
+
+Trailing seats
+  sidelined              18% [16%, 19%] of seat-rounds are played holding under 10% of the board; 17% [15%, 19%] of seats are knocked out before the end
+
+Snowball (fair share 25%)
+  goes on to win         first seat to advance an era 47% [40%, 53%]; territory leader after round 10 49% [42%, 56%], after round 20 67% [60%, 74%]
+
+Surrender offer to the stand-in (victory/surrender.ts)
+  offered in             0% [0%, 2%] of games, at round n/a [n/a, n/a], with n/a [n/a, n/a] rounds still to play
+
+What held a seat in each era (share of its turns short of each gate; a turn can be short of several)
+  leaving era 0          13.8 turns a seat: gold 55%, tech 85%, buildings 16%, stability 4%, lead 0%, ready 12%
+  leaving era 1          5.8 turns a seat: gold 59%, tech 64%, buildings 2%, stability 2%, lead 0%, ready 19%
+  leaving era 2          6.1 turns a seat: gold 30%, tech 83%, buildings 4%, stability 0%, lead 0%, ready 11%
+  leaving era 3          6.2 turns a seat: gold 49%, tech 79%, buildings 1%, stability 0%, lead 0%, ready 12%
+  leaving era 4          5.9 turns a seat: gold 52%, tech 79%, buildings 3%, stability 0%, lead 0%, ready 17%

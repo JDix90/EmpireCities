@@ -149,6 +149,11 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   ai_personalities_enabled: () => envOptOut('AI_PERSONALITIES_ENABLED'),
   surrender_offers_enabled: () => envOptOut('SURRENDER_OFFERS_ENABLED'),
   ai_defense_enabled: () => envOptIn('AI_DEFENSE_ENABLED'),
+  // A bot that has met every era gate for eight of its own turns running
+  // advances, whatever its heuristic says: in a standoff every bot's borders
+  // are threatened, and each waited on the others for the rest of the game
+  // (ai/aiEraAdvancement.ts ERA_PATIENCE_TURNS). Dark-launched OFF.
+  ai_era_patience_enabled: () => envOptIn('AI_ERA_PATIENCE_ENABLED'),
   attack_blitz_enabled: () => envOptOut('ATTACK_BLITZ_ENABLED'),
   // Outbound email/push — production-only unless explicitly set.
   retention_notifications_enabled: () => envOrProdOnly('RETENTION_NOTIFICATIONS_ENABLED'),
@@ -282,8 +287,16 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // A Full Game fits an evening: the lobby defaults it to the 65% ending and
   // caps every ending at 80 rounds instead of 150, where the full-board
   // default ran to the cap in 99% of arena games (scripts/simAiArena.ts,
-  // ARENA_RULES=full-default and full-evening). Dark-launched OFF.
+  // ARENA_RULES=full-default and full-evening). On by default since the
+  // first-win ladder; the admin override is the kill switch.
   full_game_evening_enabled: () => envOptOut('FULL_GAME_EVENING_ENABLED'),
+  // A Full Game ends by the eras: conquest (65% of the map) counts only from
+  // the Modern era, the share needed falls during that era until someone holds
+  // it, a win is claimed as the holder's own turn opens, and there is no round
+  // cap and no era lead cap (victory/conquestRules.ts, measured in
+  // docs/full-game-pacing/REPORT.md). The lobby's Full Game sends the settings
+  // and the server keeps them only while this is on. Dark-launched OFF.
+  full_game_ages_ending_enabled: () => envOptIn('FULL_GAME_AGES_ENDING_ENABLED'),
   // Placement cap note: where the player places units on an unsettled
   // territory (stability under 50), say in words how many more it takes this
   // turn and why, instead of "stability cap: 3 more here". A just-conquered
@@ -1196,6 +1209,21 @@ export const featureFlags = {
   },
 
   /**
+   * A Full Game ends by the eras (victory/conquestRules.ts): conquest counts
+   * only from the Modern era, its share falls during that era, a win is
+   * claimed as the holder's own turn opens, and the game has no round cap and
+   * no era lead cap. The lobby's Full Game sends the settings; the create
+   * boundary (bakeCreateGameSettings) keeps them only while this is on, so the
+   * admin override is a kill switch for new games. Games already created keep
+   * the rules they were baked with.
+   * Dark-launched OFF; `FULL_GAME_AGES_ENDING_ENABLED=true` or the admin
+   * override turns it on.
+   */
+  get fullGameAgesEndingEnabled(): boolean {
+    return overrideBool('full_game_ages_ending_enabled');
+  },
+
+  /**
    * Placement cap note: explains the stability deploy cap where units are placed
    * (components/game/PlacementCapNote.tsx in the territory panel).
    * Default ON; `PLACEMENT_CAP_NOTE_ENABLED=false` or the admin override turns it off.
@@ -1425,6 +1453,19 @@ export const featureFlags = {
    */
   get aiDefenseEnabled(): boolean {
     return overrideBool('ai_defense_enabled');
+  },
+
+  /**
+   * A bot that has met every era gate for ERA_PATIENCE_TURNS of its own turns
+   * running advances anyway (ai/aiEraAdvancement.ts). The advance heuristic
+   * holds a bot back while its borders are threatened, and in a standoff every
+   * bot's are: with no round cap, 0.5 to 2% of simulated Full Games froze one
+   * era short of the last, every bot ready and none willing
+   * (docs/full-game-pacing/REPORT.md). Daily challenges and campaign stages
+   * keep today's bots. Default OFF until measured live.
+   */
+  get aiEraPatienceEnabled(): boolean {
+    return overrideBool('ai_era_patience_enabled');
   },
 
   /**
@@ -2108,6 +2149,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     solo_untimed_enabled: featureFlags.soloUntimedEnabled,
     in_game_mute_enabled: featureFlags.inGameMuteEnabled,
     full_game_evening_enabled: featureFlags.fullGameEveningEnabled,
+    full_game_ages_ending_enabled: featureFlags.fullGameAgesEndingEnabled,
     placement_cap_note_enabled: featureFlags.placementCapNoteEnabled,
     custom_lobby_fold_enabled: featureFlags.customLobbyFoldEnabled,
     custom_round_cap_enabled: featureFlags.customRoundCapEnabled,

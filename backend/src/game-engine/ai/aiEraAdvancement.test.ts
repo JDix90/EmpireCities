@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import type { GameMap, GameState, PlayerState } from '../../types';
 import {
+  ERA_PATIENCE_TURNS,
+  eraPatienceSpent,
   countBorderStrength,
   countBorderThreat,
   evaluateAiEraAdvancement,
@@ -256,3 +258,36 @@ describe('evaluateAiEraAdvancement', () => {
     expect(final.score).toBe(nonFinal.score - 2);
   });
 });
+
+describe('a bot that has been ready long enough advances anyway (ai_era_patience_enabled)', () => {
+  const stay = { shouldAdvance: false, score: 4, threshold: 6, gatePassed: true };
+  const blocked = { shouldAdvance: false, score: 0, threshold: 6, gatePassed: false };
+  const go = { shouldAdvance: true, score: 9, threshold: 6, gatePassed: true };
+  const bot = (): PlayerState => ({ player_id: 'bot', player_index: 0 } as PlayerState);
+
+  it('counts own turns with every gate met and the advance declined, and runs out at the limit', () => {
+    const player = bot();
+    for (let turn = 1; turn < ERA_PATIENCE_TURNS; turn++) {
+      expect(eraPatienceSpent(player, stay), `turn ${turn}`).toBe(false);
+      expect(player.ai_era_ready_turns).toBe(turn);
+    }
+    expect(eraPatienceSpent(player, stay)).toBe(true);
+  });
+
+  it('starts again when a gate is unmet, so only an unbroken wait counts', () => {
+    const player = bot();
+    for (let turn = 1; turn < ERA_PATIENCE_TURNS; turn++) eraPatienceSpent(player, stay);
+    expect(eraPatienceSpent(player, blocked)).toBe(false);
+    expect(player.ai_era_ready_turns).toBeUndefined();
+    expect(eraPatienceSpent(player, stay)).toBe(false);
+    expect(player.ai_era_ready_turns).toBe(1);
+  });
+
+  it('keeps no count for a bot that advances on its own judgment', () => {
+    const player = bot();
+    eraPatienceSpent(player, stay);
+    expect(eraPatienceSpent(player, go)).toBe(false);
+    expect(player.ai_era_ready_turns).toBeUndefined();
+  });
+});
+

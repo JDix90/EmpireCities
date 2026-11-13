@@ -130,3 +130,47 @@ describe('mapControlProgress rounding', () => {
       .toMatchObject({ needed: 55, remaining: 0 });
   });
 });
+
+describe('mapControlProgress with era-tied conquest (the server\'s conquest_status)', () => {
+  const status = {
+    share_pct: 50,
+    needed: 29,
+    base_share_pct: 65,
+    next_share_pct: 47,
+    required_era_id: 'modern',
+    open_for_viewer: false,
+    claim_at_turn_start: true,
+    on_course_ids: ['rival'],
+  };
+  const withStatus = (held: number, over: Partial<typeof status> = {}): GameState => {
+    const state = mkState({ total: 57, held });
+    (state.players as unknown as Array<{ player_id: string; username: string }>).forEach((p) => { p.username = p.player_id === 'me' ? 'Me' : 'Rome'; });
+    return { ...state, conquest_status: { ...status, ...over } } as GameState;
+  };
+
+  it('takes the share and the territories it comes to from the server, not from the settings', () => {
+    expect(mapControlProgress(withStatus(20), 'me')).toMatchObject({ thresholdPct: 50, needed: 29, remaining: 9 });
+  });
+
+  it('says the share is not open to the player yet, and names a rival on course to win', () => {
+    expect(mapControlProgress(withStatus(20), 'me')!.conquest).toEqual({
+      basePct: 65,
+      lockedUntilEraId: 'modern',
+      nextPct: 47,
+      claimAtTurnStart: true,
+      onCourse: false,
+      rivalsOnCourse: ['Rome'],
+    });
+  });
+
+  it('says when the player is the one on course, once the share is open to them', () => {
+    const conquest = mapControlProgress(withStatus(29, { open_for_viewer: true, on_course_ids: ['me'] }), 'me')!.conquest!;
+    expect(conquest.lockedUntilEraId).toBeUndefined();
+    expect(conquest.onCourse).toBe(true);
+    expect(conquest.rivalsOnCourse).toEqual([]);
+  });
+
+  it('is absent in a game without era-tied conquest', () => {
+    expect(mapControlProgress(mkState({ total: 57, held: 20 }), 'me')!.conquest).toBeUndefined();
+  });
+});

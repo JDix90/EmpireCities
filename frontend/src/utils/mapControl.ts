@@ -35,6 +35,27 @@ export interface MapControlProgress {
   remaining: number;
   /** True in a team game: `held` counts the player's whole side. */
   side?: boolean;
+  /**
+   * Era-tied conquest (the server's `conquest_status`), in a game that has it.
+   * `thresholdPct` and `needed` above are then the share as it stands this
+   * round, taken from the server and not worked out here.
+   */
+  conquest?: {
+    /** The share before any fall. */
+    basePct: number;
+    /** The era the player must reach before the share counts for them; absent once it does. */
+    lockedUntilEraId?: string;
+    /** The share next round, when it will be lower. */
+    nextPct?: number;
+    /** The round the share starts to fall, while that is still ahead. */
+    fallsFromRound?: number;
+    /** A win is claimed only as the holder's own turn opens. */
+    claimAtTurnStart: boolean;
+    /** The player wins as their next turn opens unless a rival takes territory from them. */
+    onCourse: boolean;
+    /** Rivals who win as their next turn opens unless someone takes territory from them. */
+    rivalsOnCourse: string[];
+  };
 }
 
 /**
@@ -54,7 +75,7 @@ export function mapControlThreshold(settings: GameState['settings'] | null | und
  * the eliminated), or the board is empty.
  */
 export function mapControlProgress(
-  gameState: (Pick<GameState, 'settings' | 'territories' | 'players'> & Partial<Pick<GameState, 'teams'>>) | null | undefined,
+  gameState: (Pick<GameState, 'settings' | 'territories' | 'players'> & Partial<Pick<GameState, 'teams' | 'conquest_status'>>) | null | undefined,
   playerId: string | null | undefined,
 ): MapControlProgress | null {
   if (!gameState || !playerId) return null;
@@ -69,14 +90,33 @@ export function mapControlProgress(
     (n, p) => (p.player_id === playerId || allies.includes(p.player_id) ? n + p.territory_count : n),
     0,
   );
-  const needed = Math.ceil((total * thresholdPct) / 100);
+  // Era-tied conquest: the share moves with the round and the era, so the
+  // server's own figures stand in for the settings' fixed one.
+  const status = gameState.conquest_status;
+  const sharePct = status ? status.share_pct : thresholdPct;
+  const needed = status ? status.needed : Math.ceil((total * sharePct) / 100);
   return {
     held,
     total,
     heldPct: Math.floor((held * 100) / total),
-    thresholdPct,
+    thresholdPct: sharePct,
     needed,
     remaining: Math.max(0, needed - held),
     ...(allies.length > 0 ? { side: true } : {}),
+    ...(status
+      ? {
+        conquest: {
+          basePct: status.base_share_pct,
+          ...(!status.open_for_viewer && status.required_era_id ? { lockedUntilEraId: status.required_era_id } : {}),
+          ...(status.next_share_pct != null ? { nextPct: status.next_share_pct } : {}),
+          ...(status.falls_from_round != null ? { fallsFromRound: status.falls_from_round } : {}),
+          claimAtTurnStart: status.claim_at_turn_start,
+          onCourse: status.on_course_ids.includes(playerId),
+          rivalsOnCourse: gameState.players
+            .filter((p) => p.player_id !== playerId && status.on_course_ids.includes(p.player_id))
+            .map((p) => p.username),
+        },
+      }
+      : {}),
   };
 }

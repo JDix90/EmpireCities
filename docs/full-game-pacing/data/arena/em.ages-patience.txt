@@ -1,0 +1,32 @@
+AI arena: rules=full-ages, 200 games per map and table, seats=4, seed="borderfall-ai-arena"
+candidate: easy [captureOddsScoring, attackGrind, decidedGamePress, oddsPress, plannedDraft, endingPlay, resignation, intents, eraPatience]
+baseline:  medium with style=random [captureOddsScoring, attackGrind, decidedGamePress, oddsPress, plannedDraft, endingPlay, resignation, intents, eraPatience]
+maps: era_ancient
+
+── 4 seats, 200 games ─────────────────────────
+candidate wins            6  (3.0%; fair share 25.0%)
+decided before the cap    200  (100.0%)
+mean rounds (decided)     47.4
+mean rounds (all)         47.4
+median rounds (all)       47.0
+round-10 leader wins      46.3% of 175 games with one leader
+exchanges per turn        candidate 1.50, baseline 3.81
+candidate attacks         0.81 runs a turn, 72.0% taken, 1.63 units lost a capture
+candidate targets         29.5% of captures from rivals taken from the weakest
+candidate holds           5.79 tiles lost per 100 held through a rival's turn
+other seats hold          3.98 tiles lost per 100 held, in the same games
+candidate fortifies       0.02 moves a turn, 4.5 units a move
+threat calibration        <10% 0.4% called, 4.6% lost (15172); 10-30% 20.3% called, 14.2% lost (3774); 30-60% 46.7% called, 28.0% lost (7512); 60%+ 72.5% called, 54.3% lost (2222)
+candidate early           11.8% of the board at round 10; 0.90 captures a turn in rounds 1-10; 0.11 whole regions at round 10
+influences per game       candidate 0.00, baseline seat 1.78
+card sets per turn        candidate 0.122, baseline 0.235
+final era index           candidate 2.29, baseline 4.53
+ended by                  threshold 100.0%
+era first reached         1: 100.0% by round 13; 2: 100.0% by round 18; 3: 100.0% by round 24; 4: 100.0% by round 31; 5: 100.0% by round 39 (median round, among games that reached it)
+player's game             31 own turns (median); out before the end 57.5%; other seats ~6.5 s a round
+  minutes at 45 s a turn  median 27, 80th pct 43, over 120 0.0%
+  minutes at 60 s a turn  median 35, 80th pct 55, over 120 0.0%
+  minutes at 90 s a turn  median 50, 80th pct 80, over 120 0.0%
+bot turn, p95             2.7 ms compute; ~3.6 s live with pacing (longest ~7.2 s)
+  era_ancient            candidate   3.0%  rounds 47.4
+digest 6eafe2f2

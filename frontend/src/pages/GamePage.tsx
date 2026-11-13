@@ -2314,7 +2314,8 @@ export default function GamePage() {
       // tier is the one that decided the match.
       const winnerPlayer = endState?.players.find((p) => p.player_id === winnerIds[0]);
       const currentEra = endState ? resolvePlayerTechEraId(endState, winnerPlayer) : undefined;
-      const victoryThreshold = endState?.settings?.victory_threshold;
+      // Era-tied conquest: the share that won is the round's, not the settings' starting one.
+      const victoryThreshold = endState?.conquest_status?.share_pct ?? endState?.settings?.victory_threshold;
       const { isWinner, daily_challenge } = resolveGameOverResult(
         stats.daily_result,
         myId,

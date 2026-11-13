@@ -14,7 +14,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { useCustomLobbyFoldEnabled, useCustomRoundCapEnabled, useEraAdvancementLobbyEnabled, useFirstMatchEasyEnabled, useFirstMatchPrimaryCtaEnabled, useFullGameEveningEnabled, useGuestPromptV2Enabled, useMapEditorEnabled, useMatchAlertsEnabled, useRankedMultiSizeEnabled, useSpaceAgeMoonRaceEnabled, useSoloUntimedEnabled, useFirstMatchLadderEnabled, useSpectateEnabled, useTodayPanelEnabled } from '../store/featureFlagsStore';
+import { useCustomLobbyFoldEnabled, useCustomRoundCapEnabled, useEraAdvancementLobbyEnabled, useFirstMatchEasyEnabled, useFirstMatchPrimaryCtaEnabled, useFullGameAgesEndingEnabled, useFullGameEveningEnabled, useGuestPromptV2Enabled, useMapEditorEnabled, useMatchAlertsEnabled, useRankedMultiSizeEnabled, useSpaceAgeMoonRaceEnabled, useSoloUntimedEnabled, useFirstMatchLadderEnabled, useSpectateEnabled, useTodayPanelEnabled } from '../store/featureFlagsStore';
 import { HEGEMONY_TURNS } from '../utils/lunarHegemony';
 import { RANKED_MIN_OPPONENTS, describeRankedGameSize, getRankedOpponents, rankedEraSize, saveRankedOpponents } from '../utils/rankedPrefs';
 import { clearRankedSearchMarker, setRankedSearchMarker } from '../utils/rankedSearchMarker';
@@ -49,8 +49,10 @@ import {
   saveQuickMatchPrefs,
   hasSavedQuickMatchPrefs,
   hasSavedFullGamePrefs,
-  fullGameMaxTurns,
+  fullGameEndingSettings,
+  fullGameUsesAgesConquest,
   FULL_GAME_EVENING_MAX_TURNS,
+  type FullGameFlags,
   type QuickMatchPrefs,
 } from '../utils/quickMatchPrefs';
 import { advancedSummary, loadAdvancedOpen, saveAdvancedOpen } from '../utils/customLobbyFold';
@@ -315,11 +317,14 @@ const ERA_MAP_IDS: Record<string, string> = {
 
 // Shown in the Full Game confirm modal so players see exactly what the complete
 // experience turns on before committing. Mirrors the startFullGame() payload.
-const fullGameSummaryChips = (prefs: QuickMatchPrefs, evening: boolean): string[] => [
+const fullGameSummaryChips = (prefs: QuickMatchPrefs, flags: FullGameFlags): string[] => [
   'Ancient World',
   `${prefs.aiCount} AI · ${QUICK_MATCH_DIFFICULTY_LABELS[prefs.aiDifficulty]}`,
   QUICK_MATCH_VICTORY_LABELS[prefs.victory],
-  ...(evening ? [`Up to ${FULL_GAME_EVENING_MAX_TURNS} rounds`] : []),
+  // Era-tied conquest has no round cap; every other Full Game keeps its own.
+  ...(fullGameUsesAgesConquest(prefs, flags)
+    ? ['No round limit']
+    : flags.evening ? [`Up to ${FULL_GAME_EVENING_MAX_TURNS} rounds`] : []),
   '5-min turns',
 ];
 const FULL_GAME_FEATURES: Array<{ label: string; desc: string }> = [
@@ -477,15 +482,20 @@ export default function LobbyPage() {
   // Full Game setup — separate prefs from Quick Match (a long campaign table
   // and a quick-stomp table are different choices).
   const fullGameEvening = useFullGameEveningEnabled();
-  const [fullGamePrefs, setFullGamePrefs] = useState<QuickMatchPrefs>(() => loadFullGamePrefs(fullGameEvening));
+  const fullGameAges = useFullGameAgesEndingEnabled();
+  const fullGameFlags: FullGameFlags = { evening: fullGameEvening, ages: fullGameAges };
+  // Either flag makes the 65% ending the default for a player with no setup of
+  // their own: era-tied conquest (full_game_ages_ending_enabled) is that ending.
+  const fullGameShareDefault = fullGameEvening || fullGameAges;
+  const [fullGamePrefs, setFullGamePrefs] = useState<QuickMatchPrefs>(() => loadFullGamePrefs(fullGameShareDefault));
   // The flags land after the first paint: a player with no setup of their own
   // takes the default the flag picks once it does.
   useEffect(() => {
-    if (!hasSavedFullGamePrefs()) setFullGamePrefs(loadFullGamePrefs(fullGameEvening));
-  }, [fullGameEvening]);
+    if (!hasSavedFullGamePrefs()) setFullGamePrefs(loadFullGamePrefs(fullGameShareDefault));
+  }, [fullGameShareDefault]);
   const updateFullGamePrefs = (prefs: QuickMatchPrefs) => {
     setFullGamePrefs(prefs);
-    saveFullGamePrefs(prefs, fullGameEvening);
+    saveFullGamePrefs(prefs, fullGameShareDefault);
   };
   const [confirmAbandon, setConfirmAbandon] = useState<string | null>(null);
 
@@ -1711,12 +1721,6 @@ export default function LobbyPage() {
         auto_start: true,
         settings: {
           turn_timer_seconds: soloTurnTimerSeconds(soloUntimed),
-          // The chosen ending — conditions and threshold. Its per-condition
-          // turn cap is overridden by `max_turns` below: Full Game is an
-          // era-advancement game with its own cap, and Blitz's 45 turns would
-          // end most Full Games on the cap instead of on the criterion. The cap
-          // is 150, or 80 with full_game_evening_enabled (utils/quickMatchPrefs.ts).
-          ...quickMatchVictorySettings(fullGamePrefs),
           initial_unit_count: 3,
           card_set_escalating: true,
           diplomacy_enabled: false,
@@ -1728,23 +1732,20 @@ export default function LobbyPage() {
           era_advancement_enabled: true,
           era_advancement_preset: 'standard',
           /**
-           * Anti-steamroll guardrail: nobody may advance more than two eras
-           * ahead of the trailing living player. The plumbing has existed since
-           * era advancement shipped, but no lobby path ever sent the key, so
-           * `canAdvanceEra`'s clause was dead.
+           * How it ends and what bounds it (utils/quickMatchPrefs.ts
+           * fullGameEndingSettings): the chosen ending under Full Game's own
+           * round cap (150, or 80 with full_game_evening_enabled) and the era
+           * lead cap of 2; or, with full_game_ages_ending_enabled, era-tied
+           * conquest with no round cap and no lead cap.
            *
-           * 2, not 1. Over 120 seeded 4p medium games (60 turns, cards and
-           * events on, an expert bot standing in for the human) the natural
-           * peak era spread is 1.65, so 2 never fires — it costs nothing today
-           * and still catches a genuine three-era runaway. 1 fires ~4.6 times a
-           * game, every time on a turn where the player had legitimately
-           * cleared the gate, and changed nothing about who won (55.8% -> 57.5%
-           * human wins, inside the noise at that sample). There is no runaway
-           * left to cap: since the AI advancement fix the best bot finishes
-           * AHEAD of an optimizing human (4.75 vs 4.48 eras), not behind.
+           * The lead cap was sent as an anti-steamroll guardrail: nobody may
+           * advance more than two eras ahead of the trailing living player.
+           * Between bots it rarely binds, but it is measured against the
+           * lowest living seat, so one seat that never advances held all four
+           * out of the last three eras in 96% of simulated games
+           * (docs/full-game-pacing/REPORT.md section 3.5).
            */
-          era_advancement_max_lead: 2,
-          max_turns: fullGameMaxTurns(fullGameEvening),
+          ...fullGameEndingSettings(fullGamePrefs, fullGameFlags),
         },
       });
       navigate(`/game/${res.data.game_id}`);
@@ -2122,7 +2123,7 @@ export default function LobbyPage() {
           against {fullGamePrefs.aiCount} AI commander{fullGamePrefs.aiCount === 1 ? '' : 's'}.
         </p>
         <div className="flex flex-wrap gap-2 mb-4">
-          {fullGameSummaryChips(fullGamePrefs, fullGameEvening).map((c) => (
+          {fullGameSummaryChips(fullGamePrefs, fullGameFlags).map((c) => (
             <span key={c} className="px-2 py-1 rounded-full border border-bf-border bg-bf-dark text-bf-text text-xs">
               {c}
             </span>
@@ -2142,6 +2143,13 @@ export default function LobbyPage() {
         <div className="mb-6 rounded-xl border border-bf-border bg-bf-dark/40 p-3 space-y-4">
           <AiOpponentPicker prefs={fullGamePrefs} onChange={updateFullGamePrefs} />
           <VictoryCriteriaPicker prefs={fullGamePrefs} onChange={updateFullGamePrefs} />
+          {fullGameUsesAgesConquest(fullGamePrefs, fullGameFlags) && (
+            <p className="text-xs text-bf-muted leading-snug" data-testid="full-game-ages-note">
+              In a Full Game, conquest opens in the Modern era: reach it, then hold the share of the map.
+              Five rounds into the Modern era the share needed starts to fall, 3 points a round, and you
+              win at the start of your own turn if you still hold it. There is no round limit.
+            </p>
+          )}
         </div>
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" className="btn-secondary" onClick={() => setShowFullGameModal(false)}>

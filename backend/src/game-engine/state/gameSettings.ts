@@ -333,6 +333,19 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     era_advancement_max_lead: eraAdvancementEnabled && typeof raw.era_advancement_max_lead === 'number'
       ? raw.era_advancement_max_lead
       : undefined,
+    // Era-tied conquest (victory/conquestRules.ts), baked at create. Dropping
+    // one from this whitelist would re-rule a running game on its next load.
+    conquest_final_era_only: (eraAdvancementEnabled && raw.conquest_final_era_only === true) || undefined,
+    conquest_decay_points_per_round:
+      eraAdvancementEnabled && typeof raw.conquest_decay_points_per_round === 'number' && raw.conquest_decay_points_per_round > 0
+        ? Math.min(20, raw.conquest_decay_points_per_round)
+        : undefined,
+    conquest_decay_delay_rounds:
+      eraAdvancementEnabled && typeof raw.conquest_decay_points_per_round === 'number' && raw.conquest_decay_points_per_round > 0
+        && typeof raw.conquest_decay_delay_rounds === 'number' && raw.conquest_decay_delay_rounds > 0
+        ? Math.min(50, Math.floor(raw.conquest_decay_delay_rounds))
+        : undefined,
+    conquest_claim_at_turn_start: (eraAdvancementEnabled && raw.conquest_claim_at_turn_start === true) || undefined,
     era_advancement_catchup_discount: eraAdvancementEnabled
       ? numSetting(raw.era_advancement_catchup_discount, eraDefaults.era_advancement_catchup_discount)
       : undefined,

@@ -1,0 +1,56 @@
+
+══ x.th70-c150: 200 games, 4 seats ══
+Every figure is "value [95% interval]": Wilson for shares, a 1,000-draw bootstrap for medians and means.
+
+Length
+  rounds                 median 12 [11, 14], mean 17.2 [15.0, 20.0], 20th pct 8, 80th pct 25
+  ended by               threshold 99% [96%, 100%], turn_limit 1% [0%, 4%]
+  minutes at 45 s a turn  median 10 [9, 11], 80th pct 18 [14, 24], over 90 min 1% [0%, 4%], over 120 min 1% [0%, 4%]
+  minutes at 60 s a turn  median 13 [11, 14], 80th pct 24 [18, 32], over 90 min 1% [0%, 4%], over 120 min 1% [0%, 4%]
+  minutes at 90 s a turn  median 18 [16, 21], 80th pct 34 [26, 47], over 90 min 1% [0%, 4%], over 120 min 1% [0%, 4%]
+  rounds, by tens        1-10: 42%, 11-20: 36%, 21-30: 8%, 31-40: 10%, 41-50: 2%, 51-60: 2%, 61-70: 1%, 141-150: 1%
+  stand-in seat          wins 99% [96%, 99%], knocked out 2% [1%, 4%], plays 12 [11, 13] rounds, ends in era 1.0 [0.8, 1.2], reaches the last era 3% [1%, 6%]
+
+Eras (index 0 Ancient … 5 the last)
+  seats finishing in     era 0: 65%, era 1: 16%, era 2: 5%, era 3: 7%, era 4: 5%, era 5: 3%
+  seats in the last era  3% [2%, 4%]; games where someone is 5% [2%, 8%]; games where every living seat is 2% [1%, 5%]; winners 4% [2%, 7%]
+  over before the WW2 era 81% [74%, 85%] of games (no seat past era 2 when the game ended)
+  first seat reaches     era 1: 47% of games, round 13 [12, 14]; era 2: 23% of games, round 20 [19, 21]; era 3: 20% of games, round 26 [25, 26]; era 4: 12% of games, round 33 [31, 34]; era 5: 5% of games, round 36 [33, 43]
+  half the table reaches era 1: 40%, round 14 [13, 15]; era 2: 23%, round 21 [21, 23]; era 3: 17%, round 28 [26, 29]; era 4: 10%, round 34 [33, 37]; era 5: 4%, round 40 [36, 45]
+
+Stages                    climbing | arriving | after the ages
+  mean rounds            15.6 [14.2, 17.1] | 0.5 [0.1, 0.8] | 1.2 [0.1, 2.7]
+  quiet rounds           0% | 1% | 9%
+  captures a round       9.1 | 8.9 | 5.7
+
+By ten rounds            games running, captures a round, territories changing standing a round, quiet rounds, armies on the board
+  1-10        200    9.2    5.2     0%      70
+  11-20       116    9.4    4.8     0%     187
+  21-30        45    8.7    4.4     1%     287
+  31-40        30    8.4    4.1     5%     351
+  41-50        11    8.0    3.9     9%     454
+
+Decided (one seat with 60% of the board and 2× the next seat's armies)
+  games that get there   49% [42%, 55%], at round 8 [8, 9]; that seat wins 99% [94%, 100%]
+  rounds played after    median 0 [0, 0]; 5% [3%, 7%] of a game on average
+  lead                   changes hands 1.9 [1.6, 2.2] times a game; the winner leads for good from round 6 [6, 7]
+
+Quiet
+  quiet rounds           0% [0%, 1%] of a game; in lulls of 5+ rounds 0% [0%, 0%]; longest lull 0 [0, 0] rounds
+  after the ages         0 [0, 0] rounds (1% [0%, 2%] of a game) played after every living seat is in the last era
+
+Trailing seats
+  sidelined              13% [12%, 14%] of seat-rounds are played holding under 10% of the board; 13% [11%, 15%] of seats are knocked out before the end
+
+Snowball (fair share 25%)
+  goes on to win         first seat to advance an era 41% [32%, 52%]; territory leader after round 10 78% [70%, 85%], after round 20 84% [70%, 92%]
+
+Surrender offer to the stand-in (victory/surrender.ts)
+  offered in             1% [0%, 4%] of games, at round 16 [10, 21], with 1 [0, 1] rounds still to play
+
+What held a seat in each era (share of its turns short of each gate; a turn can be short of several)
+  leaving era 0          10.7 turns a seat: gold 70%, tech 90%, buildings 20%, stability 9%, lead 0%, ready 7%
+  leaving era 1          1.8 turns a seat: gold 73%, tech 61%, buildings 1%, stability 3%, lead 0%, ready 17%
+  leaving era 2          1.1 turns a seat: gold 40%, tech 85%, buildings 4%, stability 1%, lead 2%, ready 7%
+  leaving era 3          0.9 turns a seat: gold 64%, tech 73%, buildings 5%, stability 1%, lead 19%, ready 10%
+  leaving era 4          0.4 turns a seat: gold 67%, tech 82%, buildings 8%, stability 0%, lead 17%, ready 7%

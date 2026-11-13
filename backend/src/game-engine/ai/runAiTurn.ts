@@ -35,7 +35,7 @@ import { consumeSealBreaker, lanePowersEnabled } from '../abilities/lanePowers';
 import { createPuzzleDieRoll } from '../daily/puzzleDice';
 import { dailySiegeTarget } from '../daily/dailySiege';
 import { eliminatePlayer } from '../state/elimination';
-import { evaluateAiEraAdvancement } from './aiEraAdvancement';
+import { eraPatienceSpent, evaluateAiEraAdvancement } from './aiEraAdvancement';
 import { executeAdvanceEra } from '../eraAdvancement/advanceEra';
 import { combineExchanges } from '../combat/executeBlitzAttack';
 import { executeLandAttack, type LandAttackOutcome } from '../combat/executeLandAttack';
@@ -99,6 +99,13 @@ export interface AiTurnFlags {
    * a tile attacked from keeps a reserve (ai/aiReserve.ts). Off when absent.
    */
   defense?: boolean;
+  /**
+   * ai_era_patience_enabled: a bot that has met every era gate for
+   * ERA_PATIENCE_TURNS of its own turns running advances, whatever its
+   * heuristic says (ai/aiEraAdvancement.ts). Without it bots in a standoff can
+   * each wait on the others for the rest of the game.
+   */
+  eraPatience?: boolean;
 }
 
 /** How planning reaches the board: the view the bot may see, and the planner to run on it. */
@@ -172,6 +179,8 @@ export interface AiTurnPlan {
    * ending, its race.
    */
   defense?: { intent?: AiIntent; endingPlay?: boolean };
+  /** ai_era_patience_enabled: advance once every gate has been met for long enough. */
+  eraPatience?: boolean;
 }
 
 /** Plan the turn: the planner's ranked actions and the turn's attack budget. */
@@ -274,6 +283,7 @@ export async function planAiTurn(
     ...(oddsPress ? { oddsPress: true } : {}),
     ...(replan ? { replan } : {}),
     ...(defense ? { defense: { ...(intent ? { intent } : {}), ...(endingPlay ? { endingPlay: true } : {}) } } : {}),
+    ...(flags.eraPatience && !keepsTodaysBots(state.settings) ? { eraPatience: true } : {}),
   };
 }
 
@@ -358,13 +368,17 @@ export async function playAiTurn(
     if (await hooks.victoryCheck()) return 'over';
   }
 
-  if (
-    state.settings.era_advancement_enabled
-    && !aiProfile(difficulty).passive
-    && evaluateAiEraAdvancement(seen(), map, currentPlayer.player_id, difficulty).shouldAdvance
-  ) {
+  // With ai_era_patience_enabled a bot that has been ready for long enough
+  // advances whatever the heuristic says; the count lives on the
+  // authoritative player, since the verdict may be read off a fogged copy.
+  const eraVerdict = state.settings.era_advancement_enabled && !aiProfile(difficulty).passive
+    ? evaluateAiEraAdvancement(seen(), map, currentPlayer.player_id, difficulty)
+    : null;
+  const eraPatienceOut = !!eraVerdict && !!plan.eraPatience && eraPatienceSpent(currentPlayer, eraVerdict);
+  if (eraVerdict && (eraVerdict.shouldAdvance || eraPatienceOut)) {
     const advanceResult = executeAdvanceEra(state, currentPlayer.player_id, map);
     if (advanceResult.success) {
+      if (plan.eraPatience) currentPlayer.ai_era_ready_turns = undefined;
       const nextEraId = getEraIdForAdvancementIndex(state, currentPlayer.current_era_index ?? 0);
       hooks.visual(buildEraAdvanceMapVisual({
         playerId: currentPlayer.player_id,

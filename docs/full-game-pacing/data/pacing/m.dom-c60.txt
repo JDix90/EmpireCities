@@ -1,0 +1,57 @@
+
+══ m.dom-c60: 200 games, 4 seats ══
+Every figure is "value [95% interval]": Wilson for shares, a 1,000-draw bootstrap for medians and means.
+
+Length
+  rounds                 median 60 [60, 60], mean 60.0 [60.0, 60.0], 20th pct 60, 80th pct 60
+  ended by               turn_limit 100% [98%, 100%]
+  minutes at 45 s a turn  median 51 [50, 51], 80th pct 51 [51, 52], over 90 min 0% [0%, 2%], over 120 min 0% [0%, 2%]
+  minutes at 60 s a turn  median 66 [65, 66], 80th pct 66 [66, 67], over 90 min 0% [0%, 2%], over 120 min 0% [0%, 2%]
+  minutes at 90 s a turn  median 96 [95, 96], 80th pct 96 [96, 97], over 90 min 93% [89%, 96%], over 120 min 0% [0%, 2%]
+  rounds, by tens        51-60: 100%
+  stand-in seat          wins 32% [26%, 39%], knocked out 8% [5%, 13%], plays 60 [60, 60] rounds, ends in era 4.5 [4.3, 4.7], reaches the last era 80% [74%, 85%]
+
+Eras (index 0 Ancient … 5 the last)
+  seats finishing in     era 0: 6%, era 1: 1%, era 2: 0%, era 3: 3%, era 4: 14%, era 5: 76%
+  seats in the last era  76% [73%, 78%]; games where someone is 98% [95%, 99%]; games where every living seat is 53% [46%, 59%]; winners 98% [95%, 99%]
+  over before the WW2 era 0% [0%, 2%] of games (no seat past era 2 when the game ended)
+  first seat reaches     era 1: 100% of games, round 13 [12, 13]; era 2: 100% of games, round 18 [18, 19]; era 3: 100% of games, round 24 [23, 24]; era 4: 100% of games, round 31 [31, 32]; era 5: 98% of games, round 40 [39, 41]
+  half the table reaches era 1: 100%, round 14 [13, 14]; era 2: 100%, round 20 [19, 20]; era 3: 100%, round 26 [26, 27]; era 4: 100%, round 33 [33, 34]; era 5: 96%, round 42 [42, 43]
+
+Stages                    climbing | arriving | after the ages
+  mean rounds            41.2 [40.5, 42.0] | 14.4 [13.4, 15.5] | 4.4 [3.5, 5.3]
+  quiet rounds           7% | 21% | 31%
+  captures a round       5.4 | 3.2 | 3.0
+
+By ten rounds            games running, captures a round, territories changing standing a round, quiet rounds, armies on the board
+  1-10        200    7.3    4.1     0%      83
+  11-20       200    6.3    3.7     1%     211
+  21-30       200    5.1    3.1     5%     331
+  31-40       200    3.6    2.5    16%     448
+  41-50       200    3.1    1.9    22%     602
+  51-60       200    3.1    1.5    30%     845
+
+Decided (one seat with 60% of the board and 2× the next seat's armies)
+  games that get there   44% [37%, 51%], at round 37 [33, 41]; that seat wins 94% [87%, 98%]
+  rounds played after    median 0 [0, 1]; 18% [15%, 22%] of a game on average
+  lead                   changes hands 4.1 [3.7, 4.5] times a game; the winner leads for good from round 25 [21, 30]
+
+Quiet
+  quiet rounds           12% [10%, 14%] of a game; in lulls of 5+ rounds 7% [6%, 9%]; longest lull 3 [2, 4] rounds
+  after the ages         0 [0, 2] rounds (7% [6%, 9%] of a game) played after every living seat is in the last era
+
+Trailing seats
+  sidelined              19% [18%, 21%] of seat-rounds are played holding under 10% of the board; 9% [7%, 11%] of seats are knocked out before the end
+
+Snowball (fair share 25%)
+  goes on to win         first seat to advance an era 43% [36%, 50%]; territory leader after round 10 40% [33%, 47%], after round 20 57% [50%, 63%]
+
+Surrender offer to the stand-in (victory/surrender.ts)
+  offered in             9% [6%, 14%] of games, at round 52 [37, 59], with 8 [1, 23] rounds still to play
+
+What held a seat in each era (share of its turns short of each gate; a turn can be short of several)
+  leaving era 0          13.9 turns a seat: gold 59%, tech 83%, buildings 14%, stability 6%, lead 0%, ready 13%
+  leaving era 1          6.6 turns a seat: gold 65%, tech 57%, buildings 0%, stability 1%, lead 0%, ready 21%
+  leaving era 2          6.5 turns a seat: gold 32%, tech 79%, buildings 1%, stability 0%, lead 2%, ready 12%
+  leaving era 3          8.0 turns a seat: gold 53%, tech 68%, buildings 0%, stability 0%, lead 11%, ready 14%
+  leaving era 4          9.5 turns a seat: gold 47%, tech 75%, buildings 2%, stability 0%, lead 11%, ready 16%

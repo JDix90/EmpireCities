@@ -13,6 +13,7 @@ import {
   storeHeritageUnlocks,
 } from './buildingHeritage';
 import { getCarryableLegacyAbility } from '../abilities/techAbilities';
+import { noteEraReached } from '../victory/conquestRules';
 import { TERRITORY_ABILITY_DEFS } from '../abilities/techAbilities';
 
 export interface AdvanceEraGateResult {
@@ -230,6 +231,7 @@ export function executeAdvanceEra(
 
   const nextIndex = (player.current_era_index ?? 0) + 1;
   player.current_era_index = nextIndex;
+  noteEraReached(state, nextIndex);
   player.era_transition_turns_remaining = state.settings.era_advancement_vuln_turns ?? 1;
 
   const arrivingEraId = getEraIdForAdvancementIndex(state, nextIndex);

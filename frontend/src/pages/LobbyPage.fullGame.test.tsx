@@ -36,6 +36,10 @@ function stubMatchMedia() {
   }) as unknown as typeof window.matchMedia;
 }
 
+function setAges(on: boolean) {
+  useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, full_game_ages_ending_enabled: on } }));
+}
+
 function setEvening(on: boolean) {
   useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, full_game_evening_enabled: on } }));
 }
@@ -72,6 +76,7 @@ describe('LobbyPage Full Game length', () => {
     postMock.mockResolvedValue({ data: { game_id: 'g1' } });
     stubMatchMedia();
     setEvening(false);
+    setAges(false);
   });
 
   it('with the flag off, is Full Game as before: the whole board, 150 rounds', async () => {
@@ -111,5 +116,61 @@ describe('LobbyPage Full Game length', () => {
     const settings = await startFullGame();
     expect(settings.victory_threshold).toBe(65);
     expect(settings.max_turns).toBe(80);
+  });
+
+  it('without full_game_ages_ending_enabled, sends the era lead cap and none of the era-tied conquest settings', async () => {
+    setEvening(true);
+    renderLobby();
+    await openFullGame();
+    expect(screen.queryByTestId('full-game-ages-note')).toBeNull();
+    const settings = await startFullGame();
+    expect(settings.era_advancement_max_lead).toBe(2);
+    expect(settings.conquest_final_era_only).toBeUndefined();
+    expect(settings.conquest_claim_at_turn_start).toBeUndefined();
+  });
+
+  it('with full_game_ages_ending_enabled, ends by the eras: conquest from the last era, a falling share, no round cap, no lead cap', async () => {
+    setEvening(true);
+    setAges(true);
+    renderLobby();
+    await openFullGame();
+    expect(screen.getByText('No round limit')).toBeTruthy();
+    expect(screen.queryByText('Up to 80 rounds')).toBeNull();
+    expect(screen.getByTestId('full-game-ages-note')).toHaveTextContent('conquest opens in the Modern era');
+    const settings = await startFullGame();
+    expect(settings).toMatchObject({
+      allowed_victory_conditions: ['domination', 'threshold'],
+      victory_threshold: 65,
+      conquest_final_era_only: true,
+      conquest_decay_points_per_round: 3,
+      conquest_decay_delay_rounds: 5,
+      conquest_claim_at_turn_start: true,
+      era_advancement_enabled: true,
+    });
+    expect(settings.max_turns).toBeUndefined();
+    expect(settings.era_advancement_max_lead).toBeUndefined();
+  });
+
+  it('makes the 65% ending the default with full_game_ages_ending_enabled alone', async () => {
+    setAges(true);
+    renderLobby();
+    const settings = await startFullGame();
+    expect(settings.victory_threshold).toBe(65);
+    expect(settings.conquest_final_era_only).toBe(true);
+    expect(settings.max_turns).toBeUndefined();
+  });
+
+  it('keeps a whole-board ending the player saved, with its cap, and still drops the lead cap', async () => {
+    saveFullGamePrefs({ ...DEFAULT_FULL_GAME_PREFS, victory: 'conquest' });
+    setEvening(true);
+    setAges(true);
+    renderLobby();
+    await openFullGame();
+    expect(screen.queryByTestId('full-game-ages-note')).toBeNull();
+    const settings = await startFullGame();
+    expect(settings.allowed_victory_conditions).toEqual(['domination']);
+    expect(settings.max_turns).toBe(80);
+    expect(settings.conquest_final_era_only).toBeUndefined();
+    expect(settings.era_advancement_max_lead).toBeUndefined();
   });
 });

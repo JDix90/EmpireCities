@@ -1,5 +1,5 @@
 import { randomInt } from 'crypto';
-import type { GameMap, GameState } from '../../types';
+import type { GameMap, GameState, PlayerState } from '../../types';
 import { aiProfile, type AiLevel } from './aiProfiles';
 import { canAdvanceEra } from '../eraAdvancement/advanceEra';
 import { getPlayerEraIndex } from '../eraAdvancement/constants';
@@ -81,6 +81,34 @@ export function maxOpponentEraIndex(state: GameState, playerId: string): number 
     max = Math.max(max, getPlayerEraIndex(state, p.player_id));
   }
   return max;
+}
+
+/**
+ * A bot's own turns in a row that may open with every gate met and the
+ * advance declined before it advances anyway (ai_era_patience_enabled).
+ *
+ * The heuristic below holds a bot back while its borders are threatened, and
+ * in a standoff every bot's are: over 400 simulated Full Games with no round
+ * cap (docs/full-game-pacing/REPORT.md section 5.3), 2 froze with all four
+ * bots one era short of the last, each ready for 150 turns and none willing,
+ * and nothing left to end the game. Eight turns is longer than a bot waits in
+ * a game that is moving (a seat spends 7 to 11 turns in a later era, gates
+ * and all), so it changes little there. ⚠ balance
+ */
+export const ERA_PATIENCE_TURNS = 8;
+
+/**
+ * Count this turn against `player`'s patience and say whether it has run out:
+ * a turn counts when every gate is met and the heuristic still said stay.
+ * Called once a turn, on the authoritative player, after the verdict.
+ */
+export function eraPatienceSpent(player: PlayerState, verdict: AiEraAdvancementScore): boolean {
+  if (!verdict.gatePassed || verdict.shouldAdvance) {
+    player.ai_era_ready_turns = undefined;
+    return false;
+  }
+  player.ai_era_ready_turns = (player.ai_era_ready_turns ?? 0) + 1;
+  return player.ai_era_ready_turns >= ERA_PATIENCE_TURNS;
 }
 
 export interface AiEraAdvancementScore {

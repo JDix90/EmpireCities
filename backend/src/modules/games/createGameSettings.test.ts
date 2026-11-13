@@ -289,3 +289,48 @@ describe('the even deal is baked at create from its flag', () => {
     expect(created(WW2, { even_deal_enabled: true }).even_deal_enabled).toBeUndefined();
   });
 });
+
+describe('era-tied conquest is kept only while full_game_ages_ending_enabled is on', () => {
+  afterEach(() => resetAdminConfigCacheForTests());
+
+  const ANCIENT = { era_id: 'ancient', map_id: 'era_ancient' };
+  /** What the lobby's Full Game sends with the flag on. */
+  const FULL_GAME = {
+    allowed_victory_conditions: ['domination' as const, 'threshold' as const],
+    victory_threshold: 65,
+    economy_enabled: true,
+    tech_trees_enabled: true,
+    era_advancement_enabled: true,
+    era_advancement_preset: 'standard',
+    conquest_final_era_only: true,
+    conquest_decay_points_per_round: 3,
+    conquest_decay_delay_rounds: 5,
+    conquest_claim_at_turn_start: true,
+  };
+  const CONQUEST_KEYS = ['conquest_final_era_only', 'conquest_decay_points_per_round', 'conquest_decay_delay_rounds', 'conquest_claim_at_turn_start'];
+
+  it('drops the settings with the flag off, so a client cannot switch the ending on by itself', () => {
+    const settings = created(ANCIENT, FULL_GAME, false);
+    for (const key of CONQUEST_KEYS) expect(settings[key], key).toBeUndefined();
+    expect(settings.victory_threshold).toBe(65);
+  });
+
+  it('bakes them with the flag on, with no round cap and no lead cap unless the lobby sent one', () => {
+    setAdminConfigCacheForTests({ feature_flags: { full_game_ages_ending_enabled: true } });
+    const settings = created(ANCIENT, FULL_GAME, false);
+    expect(settings).toMatchObject({
+      conquest_final_era_only: true,
+      conquest_decay_points_per_round: 3,
+      conquest_decay_delay_rounds: 5,
+      conquest_claim_at_turn_start: true,
+      max_turns: null,
+    });
+    expect(settings.era_advancement_max_lead).toBeUndefined();
+  });
+
+  it('never bakes them into a game without era advancement', () => {
+    setAdminConfigCacheForTests({ feature_flags: { full_game_ages_ending_enabled: true } });
+    const settings = created(ANCIENT, { ...FULL_GAME, era_advancement_enabled: false }, false);
+    for (const key of CONQUEST_KEYS) expect(settings[key], key).toBeUndefined();
+  });
+});
