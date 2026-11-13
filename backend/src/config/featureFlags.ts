@@ -445,6 +445,11 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // turn places at most 3 units and the second mover's first turn 1 more.
   // Baked into a game's settings at create (lobby and ranked). Dark-launched OFF.
   duel_opening_enabled: () => envOptIn('DUEL_OPENING_ENABLED'),
+  // Even deal: a dealt board that does not divide evenly leaves its leftover
+  // territory neutral in a two-player game, and deals leftovers from a random
+  // seat with three or more, instead of always to the host's. Baked at create.
+  // Dark-launched OFF.
+  even_deal_enabled: () => envOptIn('EVEN_DEAL_ENABLED'),
   // In-game mute: a "Sound and music" switch in the HUD's Tools & options,
   // which the phone menu shares, muting both at once. Music starts on the
   // first tap and the only mutes were on the Settings page.
@@ -1153,6 +1158,21 @@ export const featureFlags = {
    */
   get duelOpeningEnabled(): boolean {
     return overrideBool('duel_opening_enabled');
+  },
+
+  /**
+   * Even deal (`even_deal_enabled`, game-engine gameStateManager
+   * evenDealShape), baked into new games' settings by the lobby and the ranked
+   * matchmaker. Dealing in seat order handed every leftover territory to the
+   * lowest seats, so on an odd-count map the host's seat won about 61% of
+   * two-player games between equal bots. With it, a two-player game's leftover
+   * starts neutral (3 units, anyone may take it), and with three or more seats
+   * the leftovers go to seats from a random one. Faction deals are unchanged.
+   * Never the first match, a tutorial, a daily or a campaign stage. Default OFF;
+   * `EVEN_DEAL_ENABLED=true` or the admin override turns it on.
+   */
+  get evenDealEnabled(): boolean {
+    return overrideBool('even_deal_enabled');
   },
 
   /**
@@ -2099,6 +2119,8 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     early_access_count_enabled: featureFlags.earlyAccessCountEnabled,
     // The How to Play page states the rule only while it is live.
     duel_opening_enabled: featureFlags.duelOpeningEnabled,
+    // How to Play states the rule only while it is live.
+    even_deal_enabled: featureFlags.evenDealEnabled,
     overlay_queue_enabled: featureFlags.overlayQueueEnabled,
     comeback_hook_enabled: featureFlags.comebackHookEnabled,
     mission_reveal_enabled: featureFlags.missionRevealEnabled,

@@ -5,7 +5,7 @@ import { APP_NAME } from '../constants/brand';
 import SubpageShell from '../components/ui/SubpageShell';
 import { FAQ } from '../marketing/seoContent.mjs';
 import { useAuthStore } from '../store/authStore';
-import { useDuelOpeningEnabled } from '../store/featureFlagsStore';
+import { useDuelOpeningEnabled, useEvenDealEnabled } from '../store/featureFlagsStore';
 
 /* ─── Collapsible section ─────────────────────────────────── */
 function Section({ icon: Icon, title, children, defaultOpen = false }: {
@@ -37,6 +37,8 @@ export default function HowToPlayPage() {
   // Two-player opening balance (backend state/duelOpening.ts): the one place
   // the rule is stated, and only while it is live.
   const duelOpening = useDuelOpeningEnabled();
+  // Even deal (backend gameStateManager evenDealShape): likewise stated once, here.
+  const evenDeal = useEvenDealEnabled();
   return (
     <SubpageShell
       title="HOW TO PLAY"
@@ -98,6 +100,13 @@ export default function HowToPlayPage() {
                 In a two-player game going first is a real edge, so the first player places at most 3 units on
                 their opening turn and the second player places 1 extra on theirs. Your first match, tutorials,
                 campaigns, the Daily Challenge and Territory Selection games keep the usual opening.
+              </p>
+            )}
+            {evenDeal && (
+              <p className="text-bf-muted/70 text-xs" data-testid="even-deal-rule">
+                When the territories cannot be dealt out evenly in a two-player game, the one left over starts
+                neutral with 3 units, and either player may take it. With three or more players, who gets the
+                extra territories is drawn at random.
               </p>
             )}
             <p className="text-bf-muted/70 text-xs">
