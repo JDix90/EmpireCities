@@ -1,0 +1,58 @@
+
+══ m.A12-seats6: 120 games, 6 seats ══
+Every figure is "value [95% interval]": Wilson for shares, a 1,000-draw bootstrap for medians and means.
+
+Length
+  rounds                 median 55 [54, 56], mean 56.3 [55.2, 57.6], 20th pct 51, 80th pct 61
+  ended by               turn_limit 84% [77%, 90%], threshold 16% [10%, 23%]
+  minutes at 45 s a turn  median 47 [45, 49], 80th pct 54 [52, 55], over 90 min 0% [0%, 3%], over 120 min 0% [0%, 3%]
+  minutes at 60 s a turn  median 61 [58, 62], 80th pct 69 [67, 71], over 90 min 0% [0%, 3%], over 120 min 0% [0%, 3%]
+  minutes at 90 s a turn  median 88 [84, 90], 80th pct 99 [96, 102], over 90 min 40% [32%, 49%], over 120 min 1% [0%, 5%]
+  rounds, by tens        31-40: 2%, 41-50: 15%, 51-60: 62%, 61-70: 18%, 71-80: 3%
+  stand-in seat          wins 12% [7%, 19%], knocked out 22% [15%, 30%], plays 54 [51, 55] rounds, ends in era 3.6 [3.2, 3.9], reaches the last era 54% [45%, 63%]
+
+Eras (index 0 Ancient … 5 the last)
+  seats finishing in     era 0: 19%, era 1: 0%, era 2: 1%, era 3: 7%, era 4: 17%, era 5: 56%
+  seats in the last era  56% [53%, 60%]; games where someone is 95% [90%, 98%]; games where every living seat is 21% [15%, 29%]; winners 93% [87%, 97%]
+  over before the WW2 era 0% [0%, 3%] of games (no seat past era 2 when the game ended)
+  first seat reaches     era 1: 100% of games, round 16 [15, 16]; era 2: 100% of games, round 21 [20, 22]; era 3: 100% of games, round 27 [26, 28]; era 4: 100% of games, round 35 [35, 36]; era 5: 95% of games, round 44 [43, 45]
+  half the table reaches era 1: 100%, round 17 [16, 17]; era 2: 100%, round 24 [24, 25]; era 3: 100%, round 31 [30, 32]; era 4: 96%, round 39 [38, 40]; era 5: 80%, round 47 [46, 48]
+
+Stages                    climbing | arriving | after the ages
+  mean rounds            45.4 [44.1, 46.7] | 9.9 [9.2, 10.7] | 1.0 [0.5, 1.4]
+  quiet rounds           6% | 14% | 29%
+  captures a round       6.8 | 4.1 | 4.2
+
+By ten rounds            games running, captures a round, territories changing standing a round, quiet rounds, armies on the board
+  1-10        120    9.4    5.3     0%     105
+  11-20       120    8.0    3.9     0%     318
+  21-30       120    6.8    3.8     1%     457
+  31-40       120    5.0    3.1     9%     578
+  41-50       118    3.8    2.7    15%     722
+  51-60       100    3.9    2.4    22%     921
+  61-70        26    3.0    1.8    36%    1274
+
+Decided (one seat with 60% of the board and 2× the next seat's armies)
+  games that get there   13% [8%, 21%], at round 45 [34, 50]; that seat wins 94% [72%, 99%]
+  rounds played after    median 0 [0, 0]; 2% [1%, 4%] of a game on average
+  lead                   changes hands 5.4 [4.8, 5.9] times a game; the winner leads for good from round 37 [32, 42]
+
+Quiet
+  quiet rounds           7% [5%, 9%] of a game; in lulls of 5+ rounds 3% [2%, 5%]; longest lull 1 [0, 1] rounds
+  after the ages         0 [0, 0] rounds (2% [1%, 2%] of a game) played after every living seat is in the last era
+
+Trailing seats
+  sidelined              26% [24%, 27%] of seat-rounds are played holding under 10% of the board; 20% [18%, 22%] of seats are knocked out before the end
+
+Snowball (fair share 17%)
+  goes on to win         first seat to advance an era 32% [24%, 40%]; territory leader after round 10 34% [25%, 43%], after round 20 51% [42%, 61%]
+
+Surrender offer to the stand-in (victory/surrender.ts)
+  offered in             0% [0%, 3%] of games, at round n/a [n/a, n/a], with n/a [n/a, n/a] rounds still to play
+
+What held a seat in each era (share of its turns short of each gate; a turn can be short of several)
+  leaving era 0          14.7 turns a seat: gold 73%, tech 85%, buildings 16%, stability 9%, lead 0%, ready 10%
+  leaving era 1          6.4 turns a seat: gold 71%, tech 49%, buildings 0%, stability 0%, lead 0%, ready 21%
+  leaving era 2          5.7 turns a seat: gold 45%, tech 71%, buildings 1%, stability 0%, lead 4%, ready 13%
+  leaving era 3          7.2 turns a seat: gold 58%, tech 62%, buildings 1%, stability 0%, lead 17%, ready 13%
+  leaving era 4          6.9 turns a seat: gold 49%, tech 64%, buildings 2%, stability 0%, lead 23%, ready 20%

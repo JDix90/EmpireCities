@@ -1,0 +1,34 @@
+AI arena: rules=full-default, 200 games per map and table, seats=4, seed="borderfall-ai-arena"
+candidate: medium with style=random [captureOddsScoring, attackGrind, decidedGamePress, oddsPress, plannedDraft, endingPlay, resignation, intents]
+baseline:  medium with style=random [captureOddsScoring, attackGrind, decidedGamePress, oddsPress, plannedDraft, endingPlay, resignation, intents]
+maps: era_ancient
+settings over the rules: {"max_turns":80,"era_advancement_cost_mult":3}
+
+── 4 seats, 200 games ─────────────────────────
+candidate wins            62  (31.0%; fair share 25.0%)
+decided before the cap    0  (0.0%)
+mean rounds (decided)     0.0
+mean rounds (all)         81.0
+median rounds (all)       81.0
+round-10 leader wins      39.7% of 184 games with one leader
+candidate goals           take_region 63.5% (met 27.4%), break_region 31.1% (met 28.3%), hunt 5.3% (met 1.1%) of its turns
+exchanges per turn        candidate 2.97, baseline 2.76
+candidate attacks         1.80 runs a turn, 67.2% taken, 2.14 units lost a capture
+candidate targets         26.9% of captures from rivals taken from the weakest
+candidate holds           3.26 tiles lost per 100 held through a rival's turn
+other seats hold          3.53 tiles lost per 100 held, in the same games
+candidate fortifies       0.15 moves a turn, 7.2 units a move
+threat calibration        <10% 0.1% called, 1.5% lost (160793); 10-30% 20.7% called, 11.6% lost (9189); 30-60% 50.2% called, 49.0% lost (27954); 60%+ 60.0% called, 92.8% lost (265)
+candidate early           25.5% of the board at round 10; 1.89 captures a turn in rounds 1-10; 0.83 whole regions at round 10
+influences per game       candidate 3.47, baseline seat 2.67
+card sets per turn        candidate 0.208, baseline 0.204
+final era index           candidate 4.51, baseline 4.51
+ended by                  turn_limit 100.0%
+era first reached         1: 100.0% by round 14; 2: 100.0% by round 21; 3: 100.0% by round 27; 4: 100.0% by round 38; 5: 99.0% by round 50 (median round, among games that reached it)
+player's game             80 own turns (median); out before the end 7.5%; other seats ~5.3 s a round
+  minutes at 45 s a turn  median 67, 80th pct 68, over 120 0.0%
+  minutes at 60 s a turn  median 87, 80th pct 88, over 120 0.0%
+  minutes at 90 s a turn  median 127, 80th pct 128, over 120 92.5%
+bot turn, p95             2.4 ms compute; ~3.6 s live with pacing (longest ~6.6 s)
+  era_ancient            candidate  31.0%  rounds 81.0
+digest 23a6085e
