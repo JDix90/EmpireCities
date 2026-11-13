@@ -52,7 +52,7 @@ import {
 } from './lobbyCapacity';
 import { recordDailyChallengeLoss } from '../../game-engine/daily/recordDailyEntry';
 import { dailyRunWonForGame } from '../../game-engine/daily/dailyRunResult';
-import { playedInLast24HoursSql } from './gamesPlayedWindow';
+import { playedAllTimeSql, playedInLast24HoursSql } from './gamesPlayedWindow';
 
 /** Optional body for POST /tutorial/start — default matches lobby quick-start (small tutorial map). */
 const TutorialStartSchema = z.object({
@@ -827,6 +827,10 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
   // real rows, so they stay truthful even when small. Cached briefly in Redis.
   // `games_today` is a rolling 24 hours (playedInLast24HoursSql), shown as
   // "games played in the last 24 hours"; the name stays for older clients.
+  // `games_played_total` (playedAllTimeSql) is every game played to its end
+  // or left part-way, shown as "N games played so far" with
+  // early_access_count_enabled. `games_total` also counts lobbies abandoned
+  // before they started, so it is not the number to show.
   fastify.get('/stats/activity', { preHandler: authenticate }, async (_request, reply) => {
     const cacheKey = 'games:activity-stats';
     try {
@@ -840,6 +844,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       games_in_progress: number;
       games_today: number;
       games_total: number;
+      games_played_total: number;
     }>(
       // "Being played right now" must mean RIGHT NOW: without a freshness
       // filter this counted every in_progress row ever left behind (saved solo
@@ -859,13 +864,16 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
          (SELECT COUNT(*) FROM games g
             WHERE ${playedInLast24HoursSql('g')})::int AS games_today,
          (SELECT COUNT(*) FROM games
-            WHERE status IN ('completed', 'abandoned'))::int AS games_total`,
+            WHERE status IN ('completed', 'abandoned'))::int AS games_total,
+         (SELECT COUNT(*) FROM games g
+            WHERE ${playedAllTimeSql('g')})::int AS games_played_total`,
     );
 
     const result = {
       games_in_progress: row?.games_in_progress ?? 0,
       games_today: row?.games_today ?? 0,
       games_total: row?.games_total ?? 0,
+      games_played_total: row?.games_played_total ?? 0,
     };
 
     try {

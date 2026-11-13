@@ -48,12 +48,6 @@ export function nextQuest(
 }
 
 /**
- * The lobby's live counters show from these (lobby_cleanup_enabled). "1 game
- * being played right now · 3 games played today" read as an empty room.
- */
-export const LIVE_COUNTER_MIN = { inProgress: 3, last24h: 10 } as const;
-
-/**
  * Roughly how soon a player who plays against the bots earns each achievement
  * (database/migrations 014, 051, 052): the tutorial and a first win, then a
  * win in each era's rules and the in-game feats, then the long ones, and last

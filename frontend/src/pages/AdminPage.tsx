@@ -167,7 +167,13 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'lobby_cleanup_enabled',
     label: 'Lobby clean-up',
     description:
-      'The lobby stops advertising an empty room and goals a player cannot reach. \u201cGames being played right now\u201d shows from 3 and \u201cgames in the last 24 hours\u201d from 10, instead of \u201c1 game being played right now\u201d. The Getting Started quests complete in any order and the banner shows the next one the player can do where they are, with where to do it: a Quick Match player was held at \u201cBuild your first building\u201d in a mode with no buildings, and a guest no longer sees quests that need an account. The profile names the next three achievements and how to earn them instead of \u201c???\u201d on every one. Off by default; off, all three are as before.',
+      'The lobby stops advertising goals a player cannot reach. The Getting Started quests complete in any order and the banner shows the next one the player can do where they are, with where to do it: a Quick Match player was held at \u201cBuild your first building\u201d in a mode with no buildings, and a guest no longer sees quests that need an account. The profile names the next three achievements and how to earn them instead of \u201c???\u201d on every one. The live game counters are not affected. Off by default; off, both are as before.',
+  },
+  {
+    key: 'early_access_count_enabled',
+    label: 'Early access games count',
+    description:
+      'The lobby\u2019s activity line adds \u201cEarly access \u00b7 1,284 games played so far\u201d: every game that started and is over, tutorials and games left part-way included. Unlike \u201cright now\u201d and \u201cin the last 24 hours\u201d it only ever goes up, and the wording makes a small number read as early rather than empty. The live counters beside it are unchanged. Switch it off when the game leaves early access. Off by default.',
   },
   {
     key: 'overlay_queue_enabled',
