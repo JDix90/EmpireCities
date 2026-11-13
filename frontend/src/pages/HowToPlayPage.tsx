@@ -98,7 +98,7 @@ export default function HowToPlayPage() {
             {duelOpening && (
               <p className="text-bf-muted/70 text-xs" data-testid="duel-opening-rule">
                 In a two-player game going first is a real edge, so the first player places at most 3 units on
-                their opening turn and the second player places 1 extra on theirs. Your first match, tutorials,
+                their opening turn (4 on the Modern map) and the second player places 1 extra on theirs. Your first match, tutorials,
                 campaigns, the Daily Challenge and Territory Selection games keep the usual opening.
               </p>
             )}

@@ -179,7 +179,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'duel_opening_enabled',
     label: 'Two-player opening balance',
     description:
-      'In a two-player game whoever moves first places at most 3 units on their opening turn, and the other player 1 extra on their first turn. Moving first won about 71% of two-player games between equal bots; with this, about 50% (Easy, Medium, Hard and Ranked\u2019s rules all within 47\u201350%). Nothing is shown in the game; How to Play states the rule. New games only, lobby and Ranked; never the first match, a tutorial, a campaign stage, the Daily Challenge or a Territory Selection game. Off by default.',
+      'In a two-player game whoever moves first places at most 3 units on their opening turn (4 on the Modern map), and the other player 1 extra on their first turn. Moving first won about 71% of two-player games between equal bots; with this, about 50% (Easy, Medium, Hard and Ranked\u2019s rules all within 47\u201350%). Nothing is shown in the game; How to Play states the rule. New games only, lobby and Ranked; never the first match, a tutorial, a campaign stage, the Daily Challenge or a Territory Selection game. Off by default.',
   },
   {
     key: 'early_access_count_enabled',
