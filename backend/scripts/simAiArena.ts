@@ -74,6 +74,31 @@
  *   ARENA_RECORDS          a file to write every game's record to, one JSON line
  *                            each with its seat count, for measures the report
  *                            does not print (game lengths by ending, say)
+ *   ARENA_TRACE            a file to write every game's round-by-round trace to, one
+ *                            JSON line each (GameTrace below): what each seat held,
+ *                            fielded and took in every round, each era advance and
+ *                            elimination, and what kept each seat from advancing.
+ *                            For pacing studies (scripts/fullGamePacing.ts). Read off
+ *                            the same games, so it leaves every digest alone.
+ *   ARENA_PROTO            PROTOTYPE endings, for measuring a rule before anyone
+ *                            builds it. Nothing here exists in the live game: each is
+ *                            played by this script rewriting the game's own settings
+ *                            between turns, so the engine and the bots read them as
+ *                            they would a real rule. A JSON object of:
+ *                              finalAgeRounds N       the game ends N rounds after the
+ *                                                     first seat reaches the last era
+ *                                                     (the round cap moves up to then)
+ *                              fullBoardThreshold     the conquest threshold counts the
+ *                                                     whole authored board, locked
+ *                                                     territories included, not the
+ *                                                     part in play
+ *                              thresholdFromEra K     conquest by threshold counts only
+ *                                                     for a seat in era index K or later
+ *                              supremacy {share, ratio, rounds}
+ *                                                     a seat holding `share` of the
+ *                                                     board and `ratio` times the next
+ *                                                     seat's armies as `rounds` rounds
+ *                                                     in a row end wins ("supremacy")
  */
 import { appendFileSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
@@ -97,6 +122,11 @@ import { styledLevel, type AiStyle } from '../src/game-engine/ai/aiStyles';
 import { AI_STYLES, drawAiCommanders } from '@borderfall/shared';
 import { aiLevelChanges, describeAiTurnFlags, handOff, parseAiLevel, parseAiTurnFlags, resolveChoiceCard } from './aiHarness';
 import { seedEngineRandomness, seededUuid } from './seededEngineRandomness';
+import { computeAdvanceCost } from '../src/game-engine/eraAdvancement/advanceEra';
+import { evaluateEraAdvancementReadiness } from '../src/game-engine/eraAdvancement/eraAdvancementReadiness';
+import { getCatchupGap, getMaxEraIndex } from '../src/game-engine/eraAdvancement/spines';
+import { getEmpireWeightedStability } from '../src/game-engine/state/stabilityManager';
+import { winStandings } from '../src/game-engine/ai/aiEnding';
 
 const DIFFICULTIES: readonly AiDifficulty[] = ['tutorial', 'easy', 'medium', 'hard', 'expert'];
 
@@ -365,6 +395,136 @@ interface Timing {
   othersSecondsWhileIn: number[];
 }
 
+/**
+ * A game round by round (ARENA_TRACE), for pacing studies. Every array of
+ * arrays is indexed [round - 1][seat]. Kept out of the record and its digest.
+ */
+interface GameTrace {
+  seats: number;
+  map: string;
+  game: number;
+  candidateSeat: number;
+  startSeat: number;
+  winnerSeat: number | null;
+  condition: string | null;
+  rounds: number;
+  /** Territories on the board as each round ended (the board grows with the eras), and those nobody held. */
+  board: number[];
+  neutral: number[];
+  /** As each round ended: territories held, units fielded and era index, by seat. */
+  held: number[][];
+  units: number[][];
+  era: number[][];
+  /** During each round, by seat: territories taken from rivals and from nobody, attack runs, and paced steps. */
+  rivalCaptures: number[][];
+  neutralCaptures: number[][];
+  runs: number[][];
+  steps: number[][];
+  /** Each era advance as [round, seat, era index reached], and each seat's exit as [round, seat]. */
+  advances: [number, number, number][];
+  exits: [number, number][];
+  /**
+   * What stood between each seat and its next era as each of its turns opened:
+   * by seat, then era index, a count of turns under each set of unmet gates
+   * (`gold`, `stability`, `tech`, `buildings`, `lead`, joined by `+`), or
+   * `ready` when every gate was met and the seat had yet to advance.
+   */
+  blockers: Record<string, number>[][];
+  /**
+   * The round the candidate's turn first opened with the bots' surrender on
+   * offer, had it been the one player (victory/surrender.ts), or 0.
+   */
+  surrenderOfferRound: number;
+}
+
+/** A round's running counts, by seat. */
+interface RoundTally {
+  rivalCaptures: number[];
+  neutralCaptures: number[];
+  runs: number[];
+  steps: number[];
+}
+
+/** The gates between `player` and its next era that are unmet as its turn opens (advanceEra.ts canAdvanceEra). */
+function unmetEraGates(state: GameState, player: GameState['players'][number]): string {
+  const unmet: string[] = [];
+  if ((player.special_resource ?? 0) < computeAdvanceCost(state, player)) unmet.push('gold');
+  if (state.settings.stability_enabled) {
+    const gate = Math.max(0, (state.settings.era_advancement_stability_gate ?? 60) - 20 * getCatchupGap(state, player));
+    if (getEmpireWeightedStability(state, player.player_id) < gate) unmet.push('stability');
+  }
+  const readiness = evaluateEraAdvancementReadiness(state, player.player_id);
+  if (readiness.mode === 'percent' ? !readiness.met : [readiness.tier1, readiness.tier2, readiness.tier3].some((t) => t && !t.met)) unmet.push('tech');
+  if (readiness.buildings && !readiness.buildings.met) unmet.push('buildings');
+  const maxLead = state.settings.era_advancement_max_lead;
+  if (typeof maxLead === 'number') {
+    const lowest = Math.min(...state.players.filter((p) => !p.is_eliminated).map((p) => p.current_era_index ?? 0));
+    if ((player.current_era_index ?? 0) + 1 - lowest > maxLead) unmet.push('lead');
+  }
+  return unmet.length ? unmet.join('+') : 'ready';
+}
+
+/** victory/surrender.ts surrenderOffered for `playerId`, less the checks that the seat is a person's. */
+function wouldBeOfferedSurrender(state: GameState, playerId: string): boolean {
+  if (state.turn_number < 10) return false;
+  const standings = winStandings(state);
+  if ((standings.find((s) => s.playerId === playerId)?.closeness ?? 0) < 0.7) return false;
+  if (standings.some((s) => s.playerId !== playerId && s.closeness > 0.5)) return false;
+  let own = 0;
+  let all = 0;
+  const active = new Set(state.players.filter((p) => !p.is_eliminated).map((p) => p.player_id));
+  for (const t of Object.values(state.territories)) {
+    if (!t.owner_id || !active.has(t.owner_id)) continue;
+    all += t.unit_count;
+    if (t.owner_id === playerId) own += t.unit_count;
+  }
+  return all > 0 && own >= (2 / 3) * all;
+}
+
+const TRACE_FILE = process.env.ARENA_TRACE?.trim();
+
+/** ARENA_PROTO: prototype endings this script plays over the live rules (see the header). */
+interface Proto {
+  finalAgeRounds?: number;
+  fullBoardThreshold?: boolean;
+  thresholdFromEra?: number;
+  supremacy?: { share: number; ratio: number; rounds: number };
+}
+const PROTO = ((): Proto => {
+  const raw = process.env.ARENA_PROTO?.trim();
+  if (!raw) return {};
+  const parsed = JSON.parse(raw) as Proto;
+  const known = ['finalAgeRounds', 'fullBoardThreshold', 'thresholdFromEra', 'supremacy'];
+  for (const key of Object.keys(parsed)) if (!known.includes(key)) throw new Error(`ARENA_PROTO: ${key} is not one of ${known.join(', ')}`);
+  return parsed;
+})();
+
+/**
+ * PROTOTYPE (ARENA_PROTO): bring the game's settings up to date with the
+ * prototype endings as `player`'s turn opens. Rewrites settings only.
+ */
+function applyProtoSettings(state: GameState, map: GameMap, player: GameState['players'][number], base: { threshold?: number; allowed: string[] }): void {
+  const settings = state.settings;
+  if (PROTO.finalAgeRounds !== undefined && !state.players.every((p) => (p.current_era_index ?? 0) < getMaxEraIndex(state))) {
+    const end = state.turn_number + PROTO.finalAgeRounds;
+    if (typeof settings.max_turns !== 'number' || end < settings.max_turns) settings.max_turns = Math.max(10, end);
+  }
+  if (base.threshold === undefined) return;
+  let threshold = base.threshold;
+  let live = true;
+  if (PROTO.fullBoardThreshold) {
+    // The territories the base threshold asks for on the whole authored board,
+    // as a whole-number percentage of the part in play (99 when out of reach).
+    const need = Math.ceil((map.territories.length * base.threshold) / 100);
+    const inPlay = Object.keys(state.territories).length;
+    const pct = Math.floor((100 * need) / inPlay);
+    threshold = pct <= 99 && Math.ceil((inPlay * pct) / 100) === need ? pct : 99;
+  }
+  if (PROTO.thresholdFromEra !== undefined) live = (player.current_era_index ?? 0) >= PROTO.thresholdFromEra;
+  settings.victory_threshold = threshold;
+  settings.allowed_victory_conditions = (live ? base.allowed : base.allowed.filter((c) => c !== 'threshold')) as GameSettings['allowed_victory_conditions'];
+}
+
 function leaderSeat(state: GameState): number | null {
   let best = -1;
   let seat: number | null = null;
@@ -377,13 +537,14 @@ function leaderSeat(state: GameState): number | null {
 }
 
 /** Headless hooks that count, per seat, what the live game would have paced or announced. */
-function countingHooks(state: GameState, map: GameMap, record: GameRecord, watch: Watch): AiTurnHooks {
+function countingHooks(state: GameState, map: GameMap, record: GameRecord, watch: Watch, tally: RoundTally): AiTurnHooks {
   const base = headlessAiTurnHooks(state, map);
   const seat = (): number => state.players[state.current_player_index]!.player_index;
   return {
     ...base,
     delay: async () => {
       record.steps[seat()]! += 1;
+      tally.steps[seat()]! += 1;
     },
     emit: (event, payload) => {
       if (event === 'game:cards_redeemed') record.cardSets[seat()]! += 1;
@@ -399,6 +560,8 @@ function countingHooks(state: GameState, map: GameMap, record: GameRecord, watch
     recordCombat: (defenderId, result, options) => {
       // Pressing on the odds, one call carries a whole run of exchanges.
       record.exchanges[seat()]! += result.blitz_exchanges ?? 1;
+      tally.runs[seat()]! += 1;
+      if (result.territory_captured) (defenderId ? tally.rivalCaptures : tally.neutralCaptures)[seat()]! += 1;
       const b = watch.behaviour;
       if (seat() === watch.seat) {
         b.runs += 1;
@@ -478,7 +641,70 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
     calibration: { tiles: [0, 0, 0, 0], predicted: [0, 0, 0, 0], lost: [0, 0, 0, 0] },
   };
   const watch: Watch = { seat: candidateSeat, playerId: candidate.player_id, weakest: new Set(), behaviour };
-  const hooks = countingHooks(state, map, record, watch);
+  const tally: RoundTally = { rivalCaptures: zeros(), neutralCaptures: zeros(), runs: zeros(), steps: zeros() };
+  const hooks = countingHooks(state, map, record, watch, tally);
+  const trace: GameTrace | undefined = TRACE_FILE ? {
+    seats: seatCount, map: mapId, game: gameIndex, candidateSeat, startSeat, winnerSeat: null, condition: null, rounds: 0,
+    board: [], neutral: [], held: [], units: [], era: [], rivalCaptures: [], neutralCaptures: [], runs: [], steps: [],
+    advances: [], exits: [], blockers: seats.map(() => []), surrenderOfferRound: 0,
+  } : undefined;
+  const out = new Set<number>();
+  // PROTOTYPE endings (ARENA_PROTO).
+  const protoBase = {
+    threshold: (state.settings.allowed_victory_conditions ?? []).includes('threshold') ? state.settings.victory_threshold : undefined,
+    allowed: [...(state.settings.allowed_victory_conditions ?? [])] as string[],
+  };
+  let supremeSeat = -1;
+  let supremeRounds = 0;
+  /** PROTOTYPE: the seat that has won by supremacy as `round` ends, or null. */
+  const supremacyWinner = (): string | null => {
+    const rule = PROTO.supremacy;
+    if (!rule) return null;
+    const units = zeros();
+    for (const t of Object.values(state.territories)) {
+      const owner = t.owner_id ? state.players.find((p) => p.player_id === t.owner_id) : undefined;
+      if (owner) units[owner.player_index]! += t.unit_count;
+    }
+    const total = Object.keys(state.territories).length;
+    const seat = state.players.find((p) => !p.is_eliminated
+      && (p.territory_count ?? 0) >= rule.share * total
+      && units[p.player_index]! >= rule.ratio * Math.max(0, ...units.filter((_, i) => i !== p.player_index)));
+    if (!seat) { supremeSeat = -1; supremeRounds = 0; return null; }
+    supremeRounds = seat.player_index === supremeSeat ? supremeRounds + 1 : 1;
+    supremeSeat = seat.player_index;
+    return supremeRounds >= rule.rounds ? seat.player_id : null;
+  };
+  let lastRound = 1;
+  /** Close the trace's row for `round`: the board as it stands, and the round's counts. */
+  const closeRound = (round: number): void => {
+    if (!trace || trace.held.length >= round) return;
+    const units = zeros();
+    let neutral = 0;
+    for (const t of Object.values(state.territories)) {
+      const owner = t.owner_id ? state.players.find((p) => p.player_id === t.owner_id) : undefined;
+      if (owner) units[owner.player_index]! += t.unit_count; else neutral += 1;
+    }
+    trace.board.push(Object.keys(state.territories).length);
+    trace.neutral.push(neutral);
+    trace.held.push(state.players.map((p) => (p.is_eliminated ? 0 : p.territory_count ?? 0)));
+    trace.units.push(units);
+    trace.era.push(state.players.map((p) => p.current_era_index ?? 0));
+    for (const key of ['rivalCaptures', 'neutralCaptures', 'runs', 'steps'] as const) {
+      trace[key].push([...tally[key]]);
+      tally[key].fill(0);
+    }
+  };
+  /** Era advances and exits since the last look, into the trace. */
+  const erasSeen = seats.map(() => 0);
+  const noteTraceEvents = (round: number): void => {
+    if (!trace) return;
+    for (const p of state.players) {
+      const e = p.current_era_index ?? 0;
+      for (let k = erasSeen[p.player_index]! + 1; k <= e; k++) trace.advances.push([round, p.player_index, k]);
+      erasSeen[p.player_index] = e;
+      if (p.is_eliminated && !out.has(p.player_index)) { out.add(p.player_index); trace.exits.push([round, p.player_index]); }
+    }
+  };
   let sawRound10 = false;
   let othersSecondsWhileIn = 0;
   const eraRounds = state.settings.era_advancement_enabled ? [0] : undefined;
@@ -506,6 +732,18 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
     const stepsBefore = record.steps[player.player_index]!;
     const candidateWasIn = !candidate.is_eliminated;
     const cooldownBefore = state.influence_cooldown_remaining ?? 0;
+    const round = state.turn_number;
+    lastRound = round;
+    if (process.env.ARENA_PROTO) applyProtoSettings(state, map, player, protoBase);
+    if (trace && state.settings.era_advancement_enabled && (player.current_era_index ?? 0) < getMaxEraIndex(state)) {
+      const byEra = trace.blockers[player.player_index]!;
+      const tallyOf = (byEra[player.current_era_index ?? 0] ??= {});
+      const key = unmetEraGates(state, player);
+      tallyOf[key] = (tallyOf[key] ?? 0) + 1;
+    }
+    if (trace && !trace.surrenderOfferRound && player.player_index === candidateSeat && wouldBeOfferedSurrender(state, player.player_id)) {
+      trace.surrenderOfferRound = round;
+    }
     const started = performance.now();
     if (player.player_index === candidateSeat) {
       watch.weakest = weakestRivals(state, candidate.player_id);
@@ -538,6 +776,7 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
         state.winner_id = victory.winnerIds[0]!;
         state.winner_ids = victory.winnerIds;
         state.victory_condition = victory.condition;
+        noteTraceEvents(round);
         break;
       }
     } else {
@@ -574,10 +813,24 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
       timing.liveSeconds.push(live);
       if (candidateWasIn && player.player_index !== candidateSeat) othersSecondsWhileIn += live;
       noteEras();
+      noteTraceEvents(round);
       if (outcome === 'over') break;
     }
 
     handOff(state, map);
+    noteTraceEvents(round);
+    if (state.turn_number !== round) {
+      closeRound(round);
+      const supreme = supremacyWinner();
+      if (supreme) {
+        state.phase = 'game_over';
+        state.winner_id = supreme;
+        state.winner_ids = [supreme];
+        state.victory_condition = 'supremacy' as GameState['victory_condition'];
+        break;
+      }
+    }
+    if (process.env.ARENA_PROTO) applyProtoSettings(state, map, state.players[state.current_player_index]!, protoBase);
     if (await hooks.victoryCheck()) break;
   }
 
@@ -589,6 +842,14 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
   if (eraRounds) record.eraRounds = Array.from({ length: Math.max(...record.eras, 0) + 1 }, (_, k) => eraRounds[k] ?? 0);
   record.behaviour = behaviour;
   timing.othersSecondsWhileIn.push(othersSecondsWhileIn);
+  if (trace) {
+    // The round the game ended in, if it ended before the round did.
+    closeRound(lastRound);
+    trace.winnerSeat = record.winnerSeat;
+    trace.condition = record.condition;
+    trace.rounds = record.rounds;
+    appendFileSync(TRACE_FILE!, `${JSON.stringify(trace)}\n`);
+  }
   return record;
 }
 
@@ -755,12 +1016,15 @@ function report(seatCount: number, records: GameRecord[], timing: Timing): void 
 (async () => {
   console.log(
     `AI arena: rules=${RULES}, ${GAMES} games per map and table, seats=${SEAT_COUNTS.join('/')}, seed="${MASTER_SEED}"\n` +
-    `candidate: ${describe(CANDIDATE)}\nbaseline:  ${describe(BASELINE)}\nmaps: ${MAP_IDS.join(', ')}`,
+    `candidate: ${describe(CANDIDATE)}\nbaseline:  ${describe(BASELINE)}\nmaps: ${MAP_IDS.join(', ')}` +
+    (process.env.ARENA_SETTINGS ? `\nsettings over the rules: ${JSON.stringify(SETTINGS_OVERRIDE)}` : '') +
+    (process.env.ARENA_PROTO ? `\nPROTOTYPE endings (not in the live game): ${JSON.stringify(PROTO)}` : ''),
   );
   const maps = new Map(MAP_IDS.map((id) => [id, loadMap(id)]));
   const all: GameRecord[] = [];
   const recordsFile = process.env.ARENA_RECORDS?.trim();
   if (recordsFile) writeFileSync(recordsFile, '');
+  if (TRACE_FILE) writeFileSync(TRACE_FILE, '');
   for (const seatCount of SEAT_COUNTS) {
     if (!Number.isInteger(seatCount) || seatCount < 2 || seatCount > 6) throw new Error(`ARENA_SEATS: ${seatCount} is not 2 to 6`);
     const records: GameRecord[] = [];
