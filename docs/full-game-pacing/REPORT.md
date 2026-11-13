@@ -1,10 +1,17 @@
 # Full Game pacing: what it is like today, and what to change
 
 Analysis and recommendation only. No game code that players run was changed.
-Every figure comes from seeded bot simulations (about 46,000 games across 217
+Every figure comes from seeded bot simulations (52,340 games across 245
 configurations); each is given as `value [95% interval]`. Section 7 says what
 the minute estimates assume, and section 6 says where real players could change
 the conclusion.
+
+Revised on 13 November 2026 after your answers to section 9: you run the
+evening variant today, a win must not be decided by an expiring clock, a Full
+Game should have no round cap, and the lead cap can go. The recommendation
+below was changed and re-measured to fit. The first version, with a 12-round
+countdown and an 80-round cap, is kept as a measured alternative in section
+5.5.
 
 ## The answer
 
@@ -25,28 +32,39 @@ and neither meets the goal.
   than the bots it stops being a Full Game: a Hard stand-in finishes in a
   median 26 rounds, and an Expert stand-in in 11 rounds (12 minutes) with 86%
   of games over before anyone reaches the WW2 era.
-- **You may be running the evening variant already.** The brief describes
-  `full_game_evening_enabled` as off. In the code on `main` its default is on
-  (section 1.1). Unless production pins it off with an admin override, a
-  player with no saved setup gets the evening variant today.
+- **Players get the evening variant today.** You confirmed
+  `full_game_evening_enabled` is on, as its code default is (section 1.1). So
+  the "today" that matters is the evening rows below, for anyone without a
+  saved setup; the 150-round game is what players with an older saved setup
+  still get.
 
 **What I recommend.** Keep the Full Game as it is up to the ending, and tie the
-ending to the eras, with four rules:
+ending to the eras, with five rules:
 
 1. **Conquest counts only from the Modern era.** Holding 65% of the board wins
    the game only for a player who has reached the last era. Taking the whole
    board, or being the last player standing, still wins at any time.
-2. **The Modern era lasts 12 rounds.** Twelve rounds after the first player
-   reaches the Modern era the game ends, and the player holding the most
-   territory wins (the rule the round cap already uses, moved to a moment the
-   table can see coming).
-3. **An 80-round cap stays as a backstop.** It was reached in 1% of games.
-4. **Drop the era lead cap (`era_advancement_max_lead`) for these games.**
-   With it, one seat that never advances keeps every other seat out of the
-   last three eras for the whole game (section 3.5).
+2. **In the Modern era the share needed falls.** It stays at 65% for five
+   rounds after the first player reaches the Modern era, then falls 3 points a
+   round until somebody holds it.
+3. **A conquest win is claimed as your own turn begins.** A player over the
+   line wins only if they still hold it when their next turn opens, so every
+   rival sees it coming and has one turn to push them back under it.
+4. **No round cap.**
+5. **No era lead cap (`era_advancement_max_lead`).** With it, one seat that
+   never advances keeps every other seat out of the last three eras for the
+   whole game (section 3.5).
 
-Rules 1 and 2 need new engine code; they were measured as prototypes inside the
-simulation script. Rules 3 and 4 are existing settings.
+Nothing here ends a game on a clock: there is no last round, and nobody is
+handed a win for being ahead when time runs out. A player wins by holding the
+share the board asks for through a full round of their rivals' turns. Rule 2
+is still driven by time, and I do not want to hide that: in an even four-way
+game half the tables never produce a player with 65%, and the falling share is
+what lets one of them win. Section 5.3 says what that looks like, and what
+happens with no such rule at all.
+
+Rules 1 to 3 need new engine code; they were measured as prototypes inside the
+simulation script. Rules 4 and 5 are existing settings.
 
 **What it would change, in numbers.** Three kinds of player against three
 Medium bots: one level with the bots (a Medium stand-in, wins 26–28%), one
@@ -60,21 +78,28 @@ better than them (Hard, wins 51–58%) and one far better (Expert, wins 96–97%
 | Today: evening (65%, cap 80) | level | 62 [54, 72] (20–80) | 66, 87 | 62% [57%, 66%] | 22% [18%, 26%] | 0 [0, 0] |
 | | better | 26 [19, 36] (10–80) | 25, 87 | 39% [35%, 44%] | 49% [44%, 54%] | 0 [0, 0] |
 | | far better | 11 [10, 11] (7–18) | 12, 19 | 5% [3%, 8%] | 86% [83%, 89%] | 0 [0, 0] |
-| **Recommended** | level | 51 [50, 51] (44–55) | 55, 61 | 96% [94%, 98%] | 0% [0%, 1%] | 0 [0, 0] |
-| | better | 49 [48, 50] (39–55) | 53, 61 | 98% [96%, 99%] | 0% [0%, 1%] | 4 [1, 8] |
-| | far better | 36 [35, 36] (32–42) | 38, 45 | 93% [90%, 95%] | 4% [2%, 6%] | 20 [18, 22] |
+| **Recommended** | level | 51 [50, 52] (45–57) | 55, 62 | 100% [98%, 100%] | 0% [0%, 1%] | 0 [0, 0] |
+| | better | 49 [48, 50] (39–56) | 53, 61 | 100% [98%, 100%] | 0% [0%, 1%] | 5 [0, 9] |
+| | far better | 36 [36, 37] (33–42) | 39, 46 | 95% [92%, 97%] | 4% [2%, 6%] | 21 [19, 22] |
 
 400 games a row, except "today, whole board, better" (200). At 45 seconds a
 turn the recommended game is 43 minutes for the level player (80th percentile
-47); at 90 seconds it is 81 (88).
+48); at 90 seconds it is 81 (90).
 
 The recommended rules make the game one length for nearly everyone: about 50
-rounds, in which every era is played and the game ends about 12 rounds after
-the Modern era begins. The cost is in the last row. A one-sided game is decided
-early under any rules; today's evening variant ends it at once in the Ancient
-era, and the recommended rules let it run through the eras for about 20 more
-rounds. The bots' existing surrender offer gives that player a way out from
-about round 14 in half of those games (section 5.2).
+rounds, in which every era is played and the game ends by conquest about 11
+rounds after the Modern era begins. Two costs:
+
+- **A one-sided game runs on after it is decided.** Today's evening variant
+  ends it at once in the Ancient era; the recommended rules let it run through
+  the eras for about 20 more rounds. The bots' existing surrender offer gives
+  that player a way out from about round 14 in half of those games (section
+  5.2).
+- **With no cap, a few games against bots do not end.** Of 400 even games, 2
+  were still running at round 200, where I stopped them: all four bots sat one
+  era short of Modern, each ready to advance and none willing to. A person at
+  the table ends such a game by advancing. An all-Easy table is the bad case:
+  42 of 100 games were still running at round 200 (section 5.3).
 
 ## 1. What a Full Game is like today
 
@@ -94,9 +119,9 @@ about round 14 in half of those games (section 5.2).
 So in a database with no override for that key, the lobby's Full Game defaults
 to the 65% ending with an 80-round cap for anyone without a saved setup, and
 every Full Game ending is capped at 80 rounds. A player who saved a setup
-before the change keeps their ending. I could not see production's
-`admin_config`, so both variants are measured throughout. This is question 1 in
-section 9.
+before the change keeps their ending. You have since confirmed the flag is on
+in production, so the evening rows are what most players get; both variants
+are measured throughout.
 
 ### 1.2 How long games last and how they end
 
@@ -382,8 +407,9 @@ might who never opens the Advance Era panel:
 |---|---|---|---|
 | Today, whole board | 2 | 96% [92%, 98%] | 150 |
 | Today, evening | 2 | 93% [89%, 96%] | 69 |
-| Recommended endings | 2 | 96% [92%, 98%] | 80 (98% on the cap) |
-| Recommended endings | none | 1% [0%, 3%] | 54 |
+| Conquest from the Modern era, 12-round countdown, cap 80 | 2 | 96% [92%, 98%] | 80 (98% on the cap) |
+| The same | none | 1% [0%, 3%] | 54 |
+| Recommended (section 5) | none | 0.5% [0%, 3%] | 59 |
 
 With the cap, that one seat keeps all four seats out of the WW2, Cold War and
 Modern eras for the whole game. That is why the recommendation drops it.
@@ -431,16 +457,25 @@ These were prototyped in the simulation script (section 7.3).
 | The same, but the 65% falls 3 points a round during a 15-round countdown | 46 (40–52) | 97% | 1% | 38 (34–43) | 93% | 22 |
 | The same as the bold row, with cost multiplier 1.5 (400 games) | 49 (43–52) | 100% | 0% | 36 (32–41) | 94% | 21 |
 | Whole board, or a seat holding the "decided" position for 3 rounds wins | 102 (43–150) | 80% | 43% | 24 (11–47) | 28% | 2 |
+| No cap or countdown: 65% from the Modern era and nothing else (stopped at round 200) | 84 (45–200) | 98% | 42% not over | not run | | |
+| No cap or countdown: 65% from the Modern era, falling 3 points a round from the start of the Modern era | 45 (39–51) | 94% | 1% not over | 35 (32–39) | 94% | 20 |
+| The same, claimed as the holder's own turn begins | 47 (41–52) | 99% | 1% not over | 36 (33–40) | 97% | 21 |
+| The same, falling 2 points a round | 49 (42–56) | 99% | 1% not over | 36 (33–40) | 97% | 21 |
+| **The same, falling 3 points a round after five rounds at 65% (400 games)** | 51 (45–57) | 100% | 0.5% not over | 36 (33–42) | 95% | 21 |
 
 The countdown rows carry an 80-round fixed cap, except the whole-board and
-falling-threshold rows (150). All rows keep today's lead cap of 2; the
-recommended configuration in section 5 is the bold row without it.
+falling-threshold rows (150), and keep today's lead cap of 2. The five "no cap
+or countdown" rows have neither a cap nor a lead cap; I stopped each game at
+round 200 and the cap column gives the share still running. The last bold row
+is the recommended configuration in section 5; the first bold row is the
+earlier recommendation, now the alternative in section 5.5.
 
 Three things follow.
 
-- **The countdown is what fixes the long side.** Once the first seat is in the
-  Modern era, a fixed number of rounds remains. In every variant with a
-  countdown, the middle 60% of even-table games end between rounds 40 and 59.
+- **Something that closes the game in the Modern era is what fixes the long
+  side.** A countdown and a falling share both do it. In every variant with
+  either, the middle 60% of even-table games end between rounds 39 and 59;
+  with neither, 42% of games are still running at round 200.
 - **Tying conquest to the eras is what fixes the short side.** Either way of
   doing it removes the games that end in the Ancient era. Counting conquest
   only from the Modern era also means the winner has played every era in 97% of
@@ -462,15 +497,15 @@ For a four-seat game against Medium bots, in the measures above:
 | What | Target | Today, whole board | Today, evening | Recommended |
 |---|---|---|---|---|
 | Rounds, median | 45–55 | 150 | 62 | 51 |
-| Middle 60% of games | within 40–60 rounds | 150–150 | 20–80 | 44–55 |
-| Minutes at 60 s a turn, median (80th pct) | 50–60 (under 65) | 161 (163) | 66 (87) | 55 (61) |
-| Winner finishes in the Modern era | at least 95% of games | 100% | 62% | 96% |
-| All seats finishing in the Modern era | at least 60% | 91% | 55% | 65% |
+| Middle 60% of games | within 40–60 rounds | 150–150 | 20–80 | 45–57 |
+| Minutes at 60 s a turn, median (80th pct) | 50–60 (under 65) | 161 (163) | 66 (87) | 55 (62) |
+| Winner finishes in the Modern era | at least 95% of games | 100% | 62% | 100% |
+| All seats finishing in the Modern era | at least 60% | 91% | 55% | 66% |
 | Games over before the WW2 era | under 2% | 0% | 22% | 0% |
-| Rounds played after the first seat reaches the Modern era | 10–15 | 110 | varies | 12 |
+| Rounds played after the first seat reaches the Modern era | 10–15 | 110 | varies | 11 |
 | Rounds after the result is decided, median | 5 or fewer at an even table | 72 | 0 | 0 |
-| Quiet rounds | under 10% | 31% | 12% | 9% |
-| Games ending on the fixed cap | under 5% | 100% | 42% | 1% |
+| Quiet rounds | under 10% | 31% | 12% | 10% |
+| Games ended by a round cap, or still running at round 200 | under 2% | 100% | 42% | 0.5% |
 | Sidelined seat-rounds | under 20% | 31% | 15% | 16% |
 
 The reasoning behind the numbers: the six eras take 40 rounds to climb, and
@@ -489,46 +524,49 @@ technology, stability, naval and events on, three bots), with:
 | Setting | Today (whole board) | Today (evening) | Recommended |
 |---|---|---|---|
 | Ending | whole board | 65% of the board in play, or whole board | 65% of the board for a player in the Modern era, or whole board |
-| When the Modern era begins | nothing | nothing | 12 rounds remain; then the most territory wins |
-| Fixed round cap | 150 | 80 | 80 |
+| During the Modern era | nothing | nothing | the 65% holds for five rounds, then falls 3 points a round |
+| When a conquest win is claimed | at once | at once | as the holder's own next turn begins |
+| Round cap | 150 | 80 | none |
 | `era_advancement_max_lead` | 2 | 2 | none |
 
 Once any seat is in the Modern era the board is at its full 57 territories, so
-65% is always 38 territories.
+65% is 38 territories, and each 3 points is about two territories.
 
 ### 5.2 What it does
 
-Even table (400 games): median 51 [50, 51] rounds, with 93% of games ending
-between rounds 31 and 60. The Modern era begins at round 39 and is played for 12 rounds. Games
-end by conquest in 32% of cases, by the countdown in 68%, and on the fixed cap
-in 1%. The countdown is contested: in 20% of the games that went through it,
-the territory leader when it began did not win. Being first to advance an era
-is worth no more than today (the first to advance wins 41% [36%, 46%], against
-39% today).
+Even table (400 games): median 51 [50, 52] rounds, with the middle 60% of games
+between rounds 45 and 57. The Modern era begins at round 39 and is played for a
+median 11 rounds (14 at the 80th percentile, 21 at most). Of the 400 games, 398
+ended by conquest and 2 were still running at round 200. The winner is in the
+Modern era in every game that ended. The Modern era is contested: in 21% of
+games the territory leader when it began did not win. Being first to advance an
+era is worth no more than today (the first to advance wins 40% [36%, 45%],
+against 39% today).
 
 Across tables and players:
 
-| Table | Games | Rounds, median (20th–80th) | Minutes at 60 s, median (80th) | Winner in the Modern era | Ends by countdown |
+| Table | Games | Rounds, median (20th–80th) | Minutes at 60 s, median (80th) | Winner in the Modern era | Still running at round 200 |
 |---|---|---|---|---|---|
-| Level player, 3 Medium bots | 400 | 51 (44–55) | 55 (61) | 96% | 68% |
-| Better player (Hard stand-in) | 400 | 49 (39–55) | 53 (61) | 98% | 57% |
-| Far better player (Expert stand-in) | 400 | 36 (32–42) | 38 (45) | 93% | 12% |
-| Weaker player (Easy stand-in, wins 2%) | 200 | 48 (40–54) | 34 (56) for the player, knocked out in 59% | 97% | 52% |
-| 2 seats | 200 | 33 (30–42) | 34 (44) | 93% | 23% |
-| 3 seats | 200 | 46 (38–50) | 49 (54) | 99% | 60% |
-| 5 seats | 120 | 53 (48–57) | 58 (64) | 97% | 77% |
-| 6 seats | 120 | 54 (51–58) | 60 (65) | 94% | 90% |
-| 4 Hard seats | 200 | 49 (36–55) | 53 (63) | 96% | 56% |
-| 4 Expert seats | 200 | 38 (31–53) | 40 (63) | 92% | 40% |
-| Medium stand-in against 3 Easy bots | 200 | 46 (39–55) | 48 (59) | 88% | 26% |
-| Expert stand-in against 3 Easy bots | 200 | 32 (21–36) | 33 (37) | 72% | 1% |
-| Medium stand-in that never advances | 200 | 54 (49–60) | 59 (66) | 57% | 80% |
+| Level player, 3 Medium bots | 400 | 51 (45–57) | 55 (62) | 100% | 2 games |
+| Better player (Hard stand-in) | 400 | 49 (39–56) | 53 (61) | 100% | 1 |
+| Far better player (Expert stand-in) | 400 | 36 (33–42) | 39 (46) | 95% | 0 |
+| Weaker player (Easy stand-in, wins 3%) | 200 | 48 (41–54) | 34 (56) for the player, knocked out in 58% | 98% | 5 |
+| 2 seats | 200 | 34 (31–39) | 35 (41) | 93% | 1 |
+| 3 seats | 200 | 45 (39–50) | 48 (54) | 99% | 2 |
+| 5 seats | 120 | 54 (48–59) | 59 (66) | 98% | 2 |
+| 6 seats | 120 | 57 (51–62) | 62 (69) | 99% | 1 |
+| 4 Hard seats | 200 | 48 (38–57) | 52 (64) | 99% | 0 |
+| 4 Expert seats | 200 | 40 (31–55) | 41 (63) | 94% | 0 |
+| Medium stand-in against 3 Easy bots | 200 | 47 (39–56) | 50 (59) | 90% | 0 |
+| Expert stand-in against 3 Easy bots | 200 | 33 (21–36) | 34 (38) | 72% | 0 |
+| Medium stand-in that never advances | 200 | 59 (51–67) | 65 (73) | 96% | 5 |
+| 4 Easy seats | 100 | 170 (111–200) | 176 (213) | 62% | 42 |
 
-The length holds between 33 and 54 rounds from two seats to six, where today's
+The length holds between 34 and 57 rounds from two seats to six, where today's
 evening variant ranges from 3 to 80.
 
 For the far-better player the game is decided at round 11 and ends at round 36.
-The bots' surrender would be offered in 52% [47%, 56%] of those games, at round
+The bots' surrender would be offered in 51% [46%, 56%] of those games, at round
 14 [12, 16]. A player who always accepts finishes in a median 33 rounds (20th
 percentile 11), and one who declines plays on into the Modern era. That is a
 choice the evening variant does not give: it ends the game for them in the
@@ -536,30 +574,44 @@ Ancient era.
 
 ### 5.3 Trade-offs
 
-- **Two games in three at an even table end by the countdown, not by
-  conquest.** The winner is whoever holds the most territory when it runs out,
-  by a median of about 16 territories over second place. This is the same rule as
-  today's cap. What changes is that it arrives at a moment the players caused
-  and can see, 12 rounds out, in place of an arbitrary round number. If you
-  want the last word to be conquest, the falling-threshold variant ends about nine
-  even games in ten that way and is five rounds shorter, at the cost of a rule that is
-  harder to explain.
+- **The falling share is a clock in everything but name, and you should decide
+  with that in view.** At an even table the winner holds 65% or more of the
+  board in 20% of games, 50–65% in 32%, 40–50% in 29% and under 40% in 20%. So
+  in four games out of five the win comes because the share needed came down to
+  the leader. What separates this from an expiring clock is how it is lost: the
+  share needed is on screen every round, a player over it has to stay over it
+  through every rival's turn, and the leader when the Modern era began lost in
+  21% of games. Nobody is ahead on territory, short of the line, and told the
+  game is over.
+- **With no falling share at all, even games against bots mostly do not end.**
+  Conquest from the Modern era at a fixed 65%, with no cap, left 42% of even
+  games still running at round 200 (median 84 rounds). That is section 1.4's
+  frozen board again. People may break a standoff that bots cannot, but nothing
+  in the rules would make them.
+- **With no cap, a small share of games against bots never end.** In 0.5% of
+  even games (2 of 400) and about 2% at other tables, every bot stops one era
+  short of Modern: each has met every gate and declines to advance while its
+  borders are threatened, and the board is frozen. A person in the game ends
+  it by advancing. An all-Easy table is worse: Easy bots rarely reach the
+  Modern era, and 42 of 100 games were still running at round 200. With a
+  person at an Easy table who advances, every game ended (median 47 rounds).
+  The fix belongs in the bots, not in a cap (section 8, item 2).
 - **One-sided games last longer than under the evening variant** (36 rounds
-  against 11). This is the price of the winner playing every era. If you
-  prefer shorter one-sided games, count conquest on the whole board: 27 rounds,
-  with the winner in the Modern era in 17% of them.
-- **35% of seats do not finish in the Modern era.** The countdown starts with
-  the first seat, and the last living seat arrives about 20 rounds later.
-  Lowering the cost multiplier to 1.5 is a settings-only change that lifts the
-  share to 68% and gives the winner the Modern era in every game; adding the
-  same gates for every era lifts it to 80%. I have left both out of the first step so
-  that the ending can be judged alone.
-- **A player can win without having reached the Modern era**, on territory when
-  the countdown ends. The never-advancing stand-in won 40% of its games that
-  way. That seems right: conquest is closed to them and the board is not.
-- **An all-Easy table still runs to the 80-round cap,** because Easy bots do
-  not reach the Modern era. A person at that table does reach it and starts the
-  countdown (46 rounds with a Medium stand-in).
+  against 11). This is the price of the winner playing every era, which you
+  chose.
+- **34% of seats do not finish in the Modern era.** The last living seat
+  arrives about 20 rounds after the first. Lowering the cost multiplier to 1.5
+  is a settings-only change that lifted the share by 3 points under the earlier
+  recommendation; the same gates for every era as well lifted it by 15. Both
+  are left out of the first step so that the ending can be judged alone.
+- **A player who never advances can still be beaten by a smaller rival who
+  has.** Conquest is closed to them until they reach the Modern era. The
+  never-advancing stand-in's games ran longer (59 rounds) and the winner held a
+  median 39% of the board. The game screen has to say this plainly.
+- **The three numbers are tunable.** Falling 2 points a round with no delay
+  gives 49 rounds (42–56); 3 points with no delay gives 47 (41–52). Dropping
+  the claim-on-your-own-turn rule saves about two rounds and lowers the share
+  of winners in the Modern era from 99% to 94%.
 
 ### 5.4 Confidence
 
@@ -568,13 +620,23 @@ Ancient era.
   eras for strong players and small tables. These are large effects, seen in
   every sample, and their causes are visible in the rules (sections 1.6 and
   3.1).
-- **High** that a countdown from the Modern era bounds the length, and that
-  tying conquest to the eras removes the early endings. Every prototype with
-  those two features landed in the same window.
+- **High** that tying conquest to the Modern era removes the early endings, and
+  that a share that falls during the Modern era bounds the length. Every
+  prototype with those two features landed in the same window.
 - **Medium** on the exact numbers for real players. The 40-round climb is the
   bots' climb; section 6 lists what could move it.
-- **Low** on whether ending by countdown feels satisfying. Simulations cannot
-  measure that.
+- **Low** on how the ending feels. Whether a falling share reads as fair, and
+  whether a round's warning is enough, are playtest questions.
+
+### 5.5 The alternative measured first: a countdown and a cap
+
+The first version of this report recommended conquest from the Modern era, a
+fixed 12 rounds after the first player reached it (then the most territory
+wins), an 80-round cap and no lead cap. You ruled out the expiring clock and
+the cap. For the record, at 400 games a row it gave 51 (44–55) rounds for the
+level player, 49 (39–55) for the better one and 36 (32–42) for the far better
+one; 68% of even games ended when the 12 rounds ran out and 1% on the cap. The
+recommended rules give the same lengths without either.
 
 ## 6. Where human play could change the conclusion
 
@@ -588,13 +650,14 @@ Ancient era.
   strengthens the case for a shorter game.
 - **People advance eras at their own pace.** A person who races the eras could
   reach the Modern era before round 35 and shorten the game; one who is slow
-  does not lengthen it, because any seat starts the countdown. One who never
+  does not lengthen it, because any seat's arrival starts the share falling. One who never
   advances is covered in section 3.5.
-- **People may play the countdown differently.** A territory leader can rush
-  the Modern era to start the clock, and rivals have 12 rounds to pull them
-  down. Bots already press a leader and race at the end
-  (`ai/aiEnding.ts`), and the result changed hands in 20% of countdowns.
-  Whether people find a counter is a playtest question.
+- **People may play the Modern era differently.** A territory leader can rush
+  the Modern era to start the share falling, and rivals then have five rounds
+  at the full 65% and a turn's warning before any win. Bots already press a
+  leader who is close to the line (`ai/aiEnding.ts`), and the leader when the
+  Modern era began lost 21% of games. Whether people find a stronger counter,
+  or a way to stall, is a playtest question.
 - **Skill varies more than three stand-ins show.** The Expert stand-in wins 96%
   of games against Medium bots; few players will be that far ahead of the bots
   they chose. The Hard stand-in, at 51–58%, may be closer to a typical player
@@ -627,7 +690,7 @@ other seats' turns at the live game's bot pacing (0.6 seconds per paced step,
 about 4.5 seconds a round at four seats), counted until the game ends or the
 stand-in is knocked out. They assume one turn length for the whole game, no
 thinking during bots' turns, no pauses, and a single human. I have no data on
-real turn lengths (question 5).
+real turn lengths (section 9).
 
 ### 7.3 Script changes
 
@@ -663,69 +726,94 @@ The headline rows are [`default-m4`](data/pacing/default-m4.txt),
 [`evening-m4`](data/pacing/evening-m4.txt),
 [`evening-hard-v-m3`](data/pacing/evening-hard-v-m3.txt),
 [`evening-expert-v-m3`](data/pacing/evening-expert-v-m3.txt),
-[`m.rec`](data/pacing/m.rec.txt), [`h.rec`](data/pacing/h.rec.txt) and
-[`x.rec`](data/pacing/x.rec.txt). In the labels, the prefix names the stand-in
+[`m.fall`](data/pacing/m.fall.txt), [`h.fall`](data/pacing/h.fall.txt) and
+[`x.fall`](data/pacing/x.fall.txt). In the labels, the prefix names the stand-in
 and the table (`m.` Medium, `h.` Hard and `x.` Expert against three Medium
 bots; `em.` Easy against Medium; `me.` and `xe.` Medium and Expert against
 Easy; `na.` a Medium stand-in that never advances; `all-…` every seat at one
-level). `rec` is the recommended configuration and `p-` marks a prototype.
+level). `fall` is the recommended configuration, `rec` the earlier one with a
+countdown and a cap, `nocap-` the other endings with neither, and `p-` marks a
+prototype. Games with no cap were stopped at round 200.
 The round-by-round traces (about 160 MB) are not committed; each is rebuilt by
 its line in `runs.tsv`.
 
 To rebuild one row, from `backend/`:
 
 ```bash
-ARENA_RULES=full ARENA_GAMES=400 ARENA_BASELINE_STYLE=random ARENA_CANDIDATE_STYLE=random ARENA_SETTINGS='{"max_turns":80,"era_advancement_max_lead":null}' ARENA_PROTO='{"thresholdFromEra":5,"finalAgeRounds":12}' ARENA_TRACE=/tmp/rec.trace.jsonl pnpm exec tsx scripts/simAiArena.ts
+ARENA_RULES=full ARENA_GAMES=400 ARENA_BASELINE_STYLE=random ARENA_CANDIDATE_STYLE=random ARENA_SETTINGS='{"max_turns":200,"era_advancement_max_lead":null}' ARENA_PROTO='{"thresholdFromEra":5,"finalAgeThresholdStep":3,"finalAgeThresholdFloor":1,"finalAgeThresholdDelay":5,"thresholdHeldToOwnTurn":true}' ARENA_TRACE=/tmp/fall.trace.jsonl pnpm exec tsx scripts/simAiArena.ts
 ```
 
 ```bash
-pnpm exec tsx scripts/fullGamePacing.ts rec=/tmp/rec.trace.jsonl
+pnpm exec tsx scripts/fullGamePacing.ts fall=/tmp/fall.trace.jsonl
 ```
 
 ## 8. What I would build next
 
-1. **The two ending rules, dark-launched.** Two settings baked at create (the
-   earliest era from which the conquest threshold counts, and the length of the
-   countdown once the last era is reached), read by `checkVictory`, by the
-   bots' ending logic in `ai/aiEnding.ts` and by the surrender offer through
-   one shared helper, so that players, bots and the offer agree on what wins.
-   A new flag, off in `FLAG_CODE_DEFAULTS`, with its Admin → Config toggle;
-   when on, the lobby's Full Game sends the two settings, cap 80 and no lead
-   cap. Settings are baked at create, so running games keep their rules. The
-   game screen needs the countdown ("Modern era: 9 rounds left") and a "how to
-   win" line that says conquest opens in the Modern era. Then add the rules as
-   an arena ruleset and check it against the prototype's numbers.
-2. **Measure real games.** Log turn length by round, and track on live Full
-   Games the measures in section 2: rounds, how the game ended, the winner's
-   era, rounds after decided, quiet rounds. That replaces the 45/60/90-second
-   assumption and tells you whether the bots' 40-round climb is a person's.
-3. **Three fixes that stand apart from the recommendation.** A two-player
-   evening Full Game ends in three rounds. One seat that never advances freezes
-   every seat's eras under the lead cap. The comment above
-   `full_game_evening_enabled` says off while the code says on.
-4. **Offer the bots' surrender at the decided position** (60% of the board and
+1. **The ending rules, dark-launched, for the lobby's Full Game only.** Three
+   settings baked at create: the earliest era from which the conquest
+   threshold counts, how the threshold falls once the last era is reached (the
+   delay and the points a round), and that a threshold win is claimed as the
+   holder's turn begins. One shared helper answers "what share wins now, and
+   for whom", read by `checkVictory`, by the bots' ending logic in
+   `ai/aiEnding.ts` and by the surrender offer, so players, bots and the offer
+   agree. A new flag, off in `FLAG_CODE_DEFAULTS`, with its Admin → Config
+   toggle; when on, the lobby's Full Game sends those settings with no round
+   cap and no lead cap. Settings are baked at create, so running games keep
+   their rules. The game screen needs the share needed this round and next, a
+   warning when a player is over it ("Rome holds the share needed and wins at
+   the start of its turn"), and a "how to win" line saying conquest opens in
+   the Modern era. Then add the rules as an arena ruleset and check it against
+   the prototype's numbers.
+2. **Two bot changes, because with no cap they are what stands between a game
+   and never ending.** A bot that has met every gate for several turns should
+   advance (the frozen standoff one era short of Modern, 0.5–2% of games). Easy
+   bots should advance at a pace that reaches the Modern era (42% of all-Easy
+   games were still running at round 200). Both can be measured in the arena
+   before they ship.
+3. **Measure real games.** The client already sends a `turn_ended` analytics
+   event, so turn length by round can be read from the gaps between them. Add
+   the measures in section 2 for live Full Games: rounds, how the game ended,
+   the winner's era, rounds after decided, quiet rounds.
+4. **Two fixes that stand apart from the recommendation, both live today.** A
+   two-player evening Full Game ends in three rounds. The comment above
+   `full_game_evening_enabled` says off while the code and production say on.
+5. **Offer the bots' surrender at the decided position** (60% of the board and
    twice the next seat's armies) and measure it. It would let a one-sided game
-   end at about round 12 for a player who wants out, under any rules.
-5. **A second step on the era climb**, once the ending is live: cost multiplier
+   end at about round 12 for a player who wants out.
+6. **A second step on the era climb**, once the ending is live: cost multiplier
    1.5, then the same gates for every era, each judged by how many seats reach
    the Modern era.
 
-## 9. Questions for you
+## 9. Your answers, and what is still open
 
-1. Is `full_game_evening_enabled` pinned off in production? It decides which
-   of the two "today" columns your players are in.
-2. In a one-sided game, do you want the winner to play through to the Modern
-   era (about 36 rounds, recommended), or the game to end sooner without it
-   (about 27 rounds, conquest counted on the whole board)?
-3. Is a countdown an acceptable way for most even games to end, or should the
-   last word be conquest (the falling-threshold variant)?
-4. Is about 55 minutes at a minute a turn the right length for a Full Game? A
-   10-round or 15-round countdown moves it by about three minutes either way;
-   going much shorter means speeding up the era climb.
-5. Do you have real turn lengths for Full Games, by round? They would replace
-   the main assumption in every minute figure here.
-6. Should the new ending apply only to the lobby's Full Game button, or also to
-   Custom Game lobbies with era advancement and to multiplayer?
-7. Is dropping the era lead cap for Full Game acceptable? It was added to stop
-   a player running away from bots that did not advance; Medium, Hard and
-   Expert bots now keep up without it, and Easy bots do not keep up with it.
+What you decided on 13 November 2026, and what I did with it:
+
+| Question | Your answer | Effect on this report |
+|---|---|---|
+| Is the evening flag on in production? | Yes. | The evening rows are today's game for most players (section 1.1). |
+| One-sided games: play through to the Modern era? | Yes. | Conquest counts only from the Modern era. |
+| Is a countdown acceptable? | No: a player must not be cheated of a win by an expiring clock. | The countdown is replaced by a share that falls during the Modern era and a win claimed on the holder's own turn (section 5). |
+| Is about 55 minutes right? | Games should have no hard cap. | The cap is removed; the length is unchanged at a median 51 rounds (section 5.2). |
+| Do you have real turn lengths? | There is a five-minute cap per turn. | See the note below. |
+| Where should it apply? | Only to the Full Game. | Item 1 in section 8 is scoped to the lobby's Full Game. |
+| Drop the lead cap? | Yes. | Dropped. |
+
+On turn lengths: the five-minute limit is a ceiling, not a measurement, and a
+solo Full Game does not have it. With `solo_untimed_enabled` on, which is its
+code default, a game with one person and bots is created with no turn clock
+(`frontend/src/utils/soloTimer.ts`). What the minute estimates need is how long
+turns take in practice, by round, which the `turn_ended` events can give.
+
+Still open:
+
+1. The falling share ends games without a last round, but it is driven by time
+   (section 5.3). Is that acceptable? The only measured ending with nothing
+   time-driven left 42% of even games against bots still running at round 200.
+2. With no cap, what should happen to the rare game that cannot end (every bot
+   stalled one era short of Modern, or an all-Easy table)? I recommend fixing
+   the bots and measuring again before deciding whether any backstop is needed.
+3. Are five rounds at 65% and then 3 points a round the right numbers? They
+   set the Modern era at about 11 rounds; 2 points a round with no delay gives
+   about 9.
+4. Players with a saved Full Game setup keep the whole-board ending today.
+   Should the new ending replace it for them too, or only be the default?

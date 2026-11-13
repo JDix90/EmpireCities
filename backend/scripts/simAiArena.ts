@@ -95,7 +95,13 @@
  *                              finalAgeThresholdStep P  once the last age has begun, the
  *                                                     conquest threshold falls P points
  *                                                     a round, to finalAgeThresholdFloor
- *                                                     (default 35)
+ *                                                     (default 35), starting
+ *                                                     finalAgeThresholdDelay rounds in
+ *                                                     (default 0)
+ *                              thresholdHeldToOwnTurn conquest by threshold is won only
+ *                                                     as the holder's own next turn
+ *                                                     opens: every rival has had a turn
+ *                                                     to take it back below the line
  *                              fullBoardThreshold     the conquest threshold counts the
  *                                                     whole authored board, locked
  *                                                     territories included, not the
@@ -119,7 +125,7 @@
 import { appendFileSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import type { AiDifficulty, AiIntent, EraId, GameMap, GameSettings, GameState } from '../src/types';
-import { initializeGameState } from '../src/game-engine/state/gameStateManager';
+import { checkVictory, initializeGameState } from '../src/game-engine/state/gameStateManager';
 import { computeAiTurn } from '../src/game-engine/ai/aiBot';
 import { aiProfile, type AiLevel } from '../src/game-engine/ai/aiProfiles';
 import {
@@ -507,6 +513,8 @@ interface Proto {
   finalAgeAfter?: 'first' | 'half' | 'all';
   finalAgeThresholdStep?: number;
   finalAgeThresholdFloor?: number;
+  finalAgeThresholdDelay?: number;
+  thresholdHeldToOwnTurn?: boolean;
   fullBoardThreshold?: boolean;
   thresholdFromEra?: number;
   flatEraGates?: boolean;
@@ -517,7 +525,7 @@ const PROTO = ((): Proto => {
   const raw = process.env.ARENA_PROTO?.trim();
   if (!raw) return {};
   const parsed = JSON.parse(raw) as Proto;
-  const known = ['finalAgeRounds', 'finalAgeAfter', 'finalAgeThresholdStep', 'finalAgeThresholdFloor', 'fullBoardThreshold', 'thresholdFromEra', 'flatEraGates', 'candidateNeverAdvances', 'supremacy'];
+  const known = ['finalAgeRounds', 'finalAgeAfter', 'finalAgeThresholdStep', 'finalAgeThresholdFloor', 'finalAgeThresholdDelay', 'thresholdHeldToOwnTurn', 'fullBoardThreshold', 'thresholdFromEra', 'flatEraGates', 'candidateNeverAdvances', 'supremacy'];
   for (const key of Object.keys(parsed)) if (!known.includes(key)) throw new Error(`ARENA_PROTO: ${key} is not one of ${known.join(', ')}`);
   return parsed;
 })();
@@ -545,7 +553,7 @@ function applyProtoSettings(state: GameState, map: GameMap, player: GameState['p
   if (base.threshold === undefined) return;
   let asked = base.threshold;
   if (PROTO.finalAgeThresholdStep !== undefined && base.finalAgeStart !== undefined) {
-    asked = Math.max(PROTO.finalAgeThresholdFloor ?? 35, asked - PROTO.finalAgeThresholdStep * (state.turn_number - base.finalAgeStart));
+    asked = Math.max(PROTO.finalAgeThresholdFloor ?? 35, asked - PROTO.finalAgeThresholdStep * Math.max(0, state.turn_number - base.finalAgeStart - (PROTO.finalAgeThresholdDelay ?? 0)));
   }
   let threshold = asked;
   let live = true;
@@ -694,6 +702,23 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
     finalAgeStart: undefined as number | undefined,
   };
   if (PROTO.flatEraGates) for (const step of state.era_spine ?? []) delete step.gate_overrides;
+  // PROTOTYPE (thresholdHeldToOwnTurn): a threshold win stands only as its
+  // holder's own turn opens. The settings stay as they are, so the bots still
+  // read the line everyone is playing to.
+  let turnOpening = false;
+  if (PROTO.thresholdHeldToOwnTurn) {
+    hooks.victoryCheck = async () => {
+      const victory = checkVictory(state, map);
+      if (!victory) return false;
+      const current = state.players[state.current_player_index]!;
+      if (victory.condition === 'threshold' && !(turnOpening && victory.winnerIds.includes(current.player_id))) return false;
+      state.phase = 'game_over';
+      state.winner_id = victory.winnerIds[0]!;
+      state.winner_ids = victory.winnerIds;
+      state.victory_condition = victory.condition;
+      return true;
+    };
+  }
   let supremeSeat = -1;
   let supremeRounds = 0;
   /** PROTOTYPE: the seat that has won by supremacy as `round` ends, or null. */
@@ -775,6 +800,12 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
     const round = state.turn_number;
     lastRound = round;
     if (process.env.ARENA_PROTO) applyProtoSettings(state, map, player, protoBase);
+    if (PROTO.thresholdHeldToOwnTurn) {
+      turnOpening = true;
+      const won = await hooks.victoryCheck();
+      turnOpening = false;
+      if (won) break;
+    }
     if (trace && state.settings.era_advancement_enabled && (player.current_era_index ?? 0) < getMaxEraIndex(state)) {
       const byEra = trace.blockers[player.player_index]!;
       const tallyOf = (byEra[player.current_era_index ?? 0] ??= {});
