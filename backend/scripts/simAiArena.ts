@@ -56,7 +56,8 @@
  *   ARENA_RULES            quick | full-default | full-evening | full (default quick)
  *   ARENA_SETTINGS         JSON object of create settings laid over the rules' own,
  *                            to measure a variant (another ending or cap)
- *   ARENA_MAPS             map ids (default: the rules' maps above)
+ *   ARENA_MAPS             map ids (default: the rules' maps above); `map:era` plays
+ *                            a map the tables below do not know under that era
  *   ARENA_CANDIDATE        candidate difficulty (default medium)
  *   ARENA_BASELINE         baseline difficulty (default medium)
  *   ARENA_CANDIDATE_FLAGS  name=0|1 overrides of the live AI flags, comma-separated:
@@ -135,6 +136,14 @@ function seat(side: 'CANDIDATE' | 'BASELINE'): Seat {
 }
 const CANDIDATE = seat('CANDIDATE');
 const BASELINE = seat('BASELINE');
+
+/**
+ * Maps outside the Quick Match rotation the arena knows the era of: the first
+ * match's (frontend utils/firstMatch.ts, FIRST_MATCH_MAP_ID / FIRST_MATCH_ERA_ID).
+ */
+const OTHER_MAPS: Record<string, EraId> = {
+  community_britain_925: 'medieval',
+};
 
 /** Each Quick Match map and the era the lobby creates it under (ERA_MAP_IDS). */
 const QUICK_MATCH_MAPS: Record<string, EraId> = {
@@ -231,17 +240,23 @@ const SETTINGS_OVERRIDE = ((): CreateGameSettingsInput => {
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('ARENA_SETTINGS: expected a JSON object');
   return parsed as CreateGameSettingsInput;
 })();
-const MAP_IDS = process.env.ARENA_MAPS
-  ? process.env.ARENA_MAPS.split(',').map((s) => s.trim())
-  : Object.keys(ruleset.maps);
+/** ARENA_MAPS entries, each a map id or `map:era`. */
+const MAP_ENTRIES = process.env.ARENA_MAPS
+  ? process.env.ARENA_MAPS.split(',').map((s) => s.trim()).filter(Boolean).map((entry) => {
+    const [map, era] = entry.split(':').map((s) => s.trim());
+    return { map: map!, era: (era || undefined) as EraId | undefined };
+  })
+  : Object.keys(ruleset.maps).map((map) => ({ map, era: undefined }));
+const MAP_IDS = MAP_ENTRIES.map((e) => e.map);
+const ERA_OVERRIDES = new Map(MAP_ENTRIES.filter((e) => e.era).map((e) => [e.map, e.era!]));
 
 function loadMap(id: string): GameMap {
   return JSON.parse(readFileSync(join(__dirname, `../../database/maps/${id}.json`), 'utf-8')) as GameMap;
 }
 
 function eraFor(mapId: string): EraId {
-  const era = ruleset!.maps[mapId] ?? QUICK_MATCH_MAPS[mapId];
-  if (!era) throw new Error(`No era known for map ${mapId}; add it to QUICK_MATCH_MAPS`);
+  const era = ERA_OVERRIDES.get(mapId) ?? ruleset!.maps[mapId] ?? QUICK_MATCH_MAPS[mapId] ?? OTHER_MAPS[mapId];
+  if (!era) throw new Error(`No era known for map ${mapId}; pass it as ${mapId}:<era> in ARENA_MAPS, or add it to OTHER_MAPS`);
   return era;
 }
 
