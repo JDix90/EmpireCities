@@ -24,7 +24,7 @@ describe('How to Play and the two-player opening', () => {
     setFlag(true);
     openTurnStructure();
     expect(screen.getByTestId('duel-opening-rule')).toHaveTextContent(
-      /first player places at most 3 units on their opening turn and the second player places 1 extra on theirs/,
+      /first player places at most 3 units on their opening turn \(4 on the Modern map\) and the second player places 1 extra on theirs/,
     );
   });
 

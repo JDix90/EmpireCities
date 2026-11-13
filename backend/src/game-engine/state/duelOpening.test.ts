@@ -10,7 +10,7 @@
 import { describe, it, expect } from 'vitest';
 import type { GameMap, GameState } from '../../types';
 import { advanceToNextPlayer, initializeGameState } from './gameStateManager';
-import { duelOpeningApplies } from './duelOpening';
+import { duelOpeningApplies, duelOpeningFirstMoverUnits } from './duelOpening';
 
 const MAP: GameMap = {
   map_id: 'duel_test',
@@ -22,11 +22,11 @@ const MAP: GameMap = {
   regions: [{ region_id: 'r', name: 'R', bonus: 5 }],
 } as GameMap;
 
-function game(seats: number, opts: { on?: boolean; start?: number; extra?: Record<string, unknown> } = {}): GameState {
+function game(seats: number, opts: { on?: boolean; start?: number; extra?: Record<string, unknown>; mapId?: string } = {}): GameState {
   return initializeGameState(
     `duel-${seats}-${opts.start ?? 0}`,
     'medieval',
-    MAP,
+    opts.mapId ? { ...MAP, map_id: opts.mapId } : MAP,
     Array.from({ length: seats }, (_, i) => ({
       player_id: `p${i}`, player_index: i, username: `P${i}`, color: '#abc', is_ai: false, is_eliminated: false, mmr: 1000,
     })),
@@ -70,6 +70,17 @@ describe('the two-player opening balance', () => {
       { seat: 0, round: 1, units: 8 },
       { seat: 1, round: 2, units: 7 },
     ]);
+  });
+
+  it('opens the first mover with 4 on Modern, its one exception', () => {
+    expect(drafts(game(2, { on: true, mapId: 'era_modern' }), 3)).toEqual([
+      { seat: 0, round: 1, units: 4 },
+      { seat: 1, round: 1, units: 8 },
+      { seat: 0, round: 2, units: 7 },
+    ]);
+    expect(duelOpeningFirstMoverUnits('era_modern')).toBe(4);
+    expect(duelOpeningFirstMoverUnits('era_coldwar')).toBe(3);
+    expect(duelOpeningFirstMoverUnits(undefined)).toBe(3);
   });
 
   it('is the usual opening without the setting', () => {

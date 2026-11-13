@@ -442,7 +442,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // Dark-launched OFF.
   mission_guard_enabled: () => envOptIn('MISSION_GUARD_ENABLED'),
   // Two-player opening balance: in a two-seat game the first mover's opening
-  // turn places at most 3 units and the second mover's first turn 1 more.
+  // turn places at most 3 units (4 on Modern) and the second mover's first turn 1 more.
   // Baked into a game's settings at create (lobby and ranked). Dark-launched OFF.
   duel_opening_enabled: () => envOptIn('DUEL_OPENING_ENABLED'),
   // In-game mute: a "Sound and music" switch in the HUD's Tools & options,
@@ -1145,7 +1145,7 @@ export const featureFlags = {
    * Two-player opening balance (`duel_opening_enabled`, game-engine
    * state/duelOpening.ts), baked into new games' settings by the lobby and the
    * ranked matchmaker: in a two-seat game the first mover's opening turn
-   * places at most 3 units and the second mover's first turn 1 more. Moving
+   * places at most 3 units (4 on Modern) and the second mover's first turn 1 more. Moving
    * first won about 71% of two-player Medium-bot games; with this, about 50%.
    * Never the first match, a tutorial, a daily, a campaign stage or a
    * Territory Draft. Default OFF; `DUEL_OPENING_ENABLED=true` or the admin
