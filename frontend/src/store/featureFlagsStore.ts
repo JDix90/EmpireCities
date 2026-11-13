@@ -79,6 +79,8 @@ export interface ClientFeatureFlags {
   loss_reason_play_enabled: boolean;
   results_action_events_enabled: boolean;
   funnel_events_v2_enabled: boolean;
+  lobby_cleanup_enabled: boolean;
+  early_access_count_enabled: boolean;
   overlay_queue_enabled: boolean;
   comeback_hook_enabled: boolean;
   mission_reveal_enabled: boolean;
@@ -243,6 +245,10 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   results_action_events_enabled: true,
   // Funnel events v2 (first-turn steps, tutorial steps, prompts shown/answered). Analytics only. On by default; admin kill switch.
   funnel_events_v2_enabled: true,
+  // Lobby clean-up: quests that fit the mode, next achievements named. Dark-launched OFF.
+  lobby_cleanup_enabled: false,
+  // The lobby's "Early access · N games played so far" (LobbyPage). Dark-launched OFF.
+  early_access_count_enabled: false,
   // One overlay at a time in a game (utils/overlayQueue.ts). Dark-launched OFF.
   overlay_queue_enabled: false,
   // Project 4: tomorrow's daily on results, honest guest streak, reminder after a win, guest lobby card, home greeting. Dark-launched OFF.
@@ -647,6 +653,16 @@ export function useLossReasonPlayEnabled(): boolean {
 /** Results actions: post what the player pressed on the game-over screen (utils/resultsAction.ts). */
 export function useResultsActionEventsEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.results_action_events_enabled);
+}
+
+/** Lobby clean-up (utils/questOrder.ts, LobbyPage quest banner, ProfilePage achievements). */
+export function useLobbyCleanupEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.lobby_cleanup_enabled);
+}
+
+/** The lobby's "Early access · N games played so far" beside the live counters. */
+export function useEarlyAccessCountEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.early_access_count_enabled);
 }
 
 /** One overlay at a time in a game (utils/overlayQueue.ts). */

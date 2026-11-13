@@ -13,7 +13,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { v4 as uuidv4 } from 'uuid';
-import { playedInLast24HoursSql } from './gamesPlayedWindow';
+import { playedAllTimeSql, playedInLast24HoursSql } from './gamesPlayedWindow';
 
 const enabled = process.env.PG_TEST === '1';
 type Query = (sql: string, params?: unknown[]) => Promise<Record<string, unknown>[]>;
@@ -61,6 +61,20 @@ describe.runIf(enabled)('games played in the last 24 hours (Postgres)', () => {
       'finished',
       'started yesterday, finished this morning',
       'still going',
+      'tutorial left part-way',
+    ]);
+  });
+
+  it('counts every game played so far: started and over, at any age, and no lobby or game still going', async () => {
+    const rows = await query(
+      `SELECT g.game_id FROM games g WHERE g.game_id = ANY($1) AND ${playedAllTimeSql('g')}`,
+      [Object.values(games)],
+    );
+    const counted = Object.entries(games).filter(([, id]) => rows.some((r) => r.game_id === id)).map(([name]) => name).sort();
+    expect(counted).toEqual([
+      'finished',
+      'finished two days ago',
+      'started yesterday, finished this morning',
       'tutorial left part-way',
     ]);
   });

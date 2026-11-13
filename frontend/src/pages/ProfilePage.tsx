@@ -13,6 +13,8 @@ import ReferralPanel from '../components/ui/ReferralPanel';
 import { ownAuthUiAllowed } from '../utils/embedContext';
 import { useStoreV2Enabled, useGuestPersonalFeaturesEnabled } from '../store/featureFlagsStore';
 import { useGuestLeaderboardsEnabled, useSaveAccountCopyEnabled, useMapShowcaseEnabled } from '../store/featureFlagsStore';
+import { useLobbyCleanupEnabled } from '../store/featureFlagsStore';
+import { nextAchievementIds } from '../utils/questOrder';
 import FrameRing from '../components/cosmetics/FrameRing';
 import BannerTag from '../components/cosmetics/BannerTag';
 import CreatorMaps from '../components/account/CreatorMaps';
@@ -130,6 +132,9 @@ export default function ProfilePage() {
   // A 404 is a wrong username, not an outage — the copy should say which.
   const isNotFound = loadError === null || loadStatus === 404;
   const [achievementProgress, setAchievementProgress] = useState<Record<string, { current: number; target: number }>>({});
+  // lobby_cleanup_enabled: the next three locked achievements are named, with
+  // how to earn them, instead of "???" on every one.
+  const lobbyCleanup = useLobbyCleanupEnabled();
 
   const targetId = userId ?? currentUser?.user_id;
   const isOwnProfile = !userId || userId === currentUser?.user_id;
@@ -459,23 +464,32 @@ export default function ProfilePage() {
               <Award className="w-5 h-5" /> Achievements
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {allAchievements.map((a) => {
+              {(() => {
+                const nextUp = lobbyCleanup
+                  ? nextAchievementIds(allAchievements, new Set(achievements.map((u) => u.achievement_id)), achievementProgress)
+                  : new Set<string>();
+                return allAchievements.map((a) => {
                 const unlocked = achievements.find((u) => u.achievement_id === a.achievement_id);
                 const prog = !unlocked ? achievementProgress[a.achievement_id] : undefined;
+                const revealed = !unlocked && nextUp.has(a.achievement_id);
                 return (
                   <div
                     key={a.achievement_id}
+                    data-testid={revealed ? 'achievement-next' : undefined}
                     className={`p-3 rounded-lg border ${
                       unlocked
                         ? 'bg-bf-gold/5 border-bf-gold/20'
-                        : 'bg-bf-dark border-bf-border opacity-60'
+                        : revealed
+                          ? 'bg-bf-dark border-bf-gold/30'
+                          : 'bg-bf-dark border-bf-border opacity-60'
                     }`}
                   >
-                    <p className={`text-sm font-medium ${unlocked ? 'text-bf-gold' : 'text-bf-muted'}`}>
-                      {unlocked ? a.name : '???'}
+                    {revealed && <p className="text-[10px] uppercase tracking-wider text-bf-gold/80 mb-0.5">Next up</p>}
+                    <p className={`text-sm font-medium ${unlocked ? 'text-bf-gold' : revealed ? 'text-bf-text' : 'text-bf-muted'}`}>
+                      {unlocked || revealed ? a.name : '???'}
                     </p>
                     <p className="text-xs text-bf-muted mt-1 leading-relaxed">
-                      {unlocked ? a.description : 'Locked — keep playing to reveal this achievement.'}
+                      {unlocked || revealed ? a.description : 'Locked — keep playing to reveal this achievement.'}
                     </p>
                     {unlocked?.unlocked_at && (
                       <p className="text-[10px] text-bf-muted/60 mt-1">
@@ -499,7 +513,8 @@ export default function ProfilePage() {
                     <p className="text-[10px] text-bf-gold/50 mt-1">+{a.xp_reward} XP</p>
                   </div>
                 );
-              })}
+                });
+              })()}
             </div>
           </div>
         )}

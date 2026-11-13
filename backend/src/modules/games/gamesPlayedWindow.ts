@@ -16,3 +16,19 @@ export function playedInLast24HoursSql(alias: string): string {
               AND (${alias}.started_at >= NOW() - INTERVAL '24 hours'
                    OR ${alias}.ended_at >= NOW() - INTERVAL '24 hours')`;
 }
+
+/**
+ * The games the lobby's "N games played so far" counts
+ * (`early_access_count_enabled`, GET /api/games/stats/activity's
+ * `games_played_total`): every game that started and is over, finished or
+ * left part-way, tutorials included. A lobby that never started does not count,
+ * nor does a game still going until it ends.
+ *
+ * Only ever goes up: game clean-up (gameCleanupService.ts) deletes only games
+ * still waiting or in progress, and a game's status never leaves completed or
+ * abandoned. `alias` is the `games` row's alias.
+ */
+export function playedAllTimeSql(alias: string): string {
+  return `${alias}.started_at IS NOT NULL
+              AND ${alias}.status IN ('completed', 'abandoned')`;
+}

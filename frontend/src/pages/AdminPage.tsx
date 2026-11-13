@@ -164,6 +164,18 @@ const CLIENT_FEATURE_FLAGS = [
       'Let the AI spend its per-turn attack budget as dice exchanges rather than distinct targets, so it can grind one territory until it falls. Off, one planned attack is one exchange — which makes any territory holding 3+ units impossible for the AI to take at any difficulty. Same number of exchanges per turn either way, so turn length is unchanged. On by default.',
   },
   {
+    key: 'lobby_cleanup_enabled',
+    label: 'Lobby clean-up',
+    description:
+      'The lobby stops advertising goals a player cannot reach. The Getting Started quests complete in any order and the banner shows the next one the player can do where they are, with where to do it: a Quick Match player was held at \u201cBuild your first building\u201d in a mode with no buildings, and a guest no longer sees quests that need an account. The profile names the next three achievements and how to earn them instead of \u201c???\u201d on every one. The live game counters are not affected. Off by default; off, both are as before.',
+  },
+  {
+    key: 'early_access_count_enabled',
+    label: 'Early access games count',
+    description:
+      'The lobby\u2019s activity line adds \u201cEarly access \u00b7 1,284 games played so far\u201d: every game that started and is over, tutorials and games left part-way included. Unlike \u201cright now\u201d and \u201cin the last 24 hours\u201d it only ever goes up, and the wording makes a small number read as early rather than empty. The live counters beside it are unchanged. Switch it off when the game leaves early access. Off by default.',
+  },
+  {
     key: 'overlay_queue_enabled',
     label: 'One overlay at a time',
     description:

@@ -601,6 +601,22 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().loss_reason_play_enabled).toBe(false);
   });
 
+  it('lobby_cleanup_enabled defaults to off and the admin override turns it on', () => {
+    expect(featureFlags.lobbyCleanupEnabled).toBe(false);
+    expect(getClientFeatureFlags().lobby_cleanup_enabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { lobby_cleanup_enabled: true } });
+    expect(featureFlags.lobbyCleanupEnabled).toBe(true);
+    expect(getClientFeatureFlags().lobby_cleanup_enabled).toBe(true);
+  });
+
+  it('early_access_count_enabled defaults to off and the admin override turns it on', () => {
+    expect(featureFlags.earlyAccessCountEnabled).toBe(false);
+    expect(getClientFeatureFlags().early_access_count_enabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { early_access_count_enabled: true } });
+    expect(featureFlags.earlyAccessCountEnabled).toBe(true);
+    expect(getClientFeatureFlags().early_access_count_enabled).toBe(true);
+  });
+
   it('overlay_queue_enabled defaults to off and the admin override turns it on', () => {
     expect(featureFlags.overlayQueueEnabled).toBe(false);
     expect(getClientFeatureFlags().overlay_queue_enabled).toBe(false);

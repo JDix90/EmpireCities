@@ -120,7 +120,8 @@ import { Settings2, FlaskConical, Radio, Activity, Eye, Swords, ChevronDown } fr
 import { ownAuthUiAllowed } from '../utils/embedContext';
 import { trackFunnel, useTrackShown } from '../utils/funnelEvents';
 import GuestDayCard from '../components/lobby/GuestDayCard';
-import { useComebackHookEnabled } from '../store/featureFlagsStore';
+import { useComebackHookEnabled, useEarlyAccessCountEnabled, useLobbyCleanupEnabled } from '../store/featureFlagsStore';
+import { nextQuest } from '../utils/questOrder';
 
 interface LiveGameSummary {
   game_id: string;
@@ -136,6 +137,8 @@ interface ActivityStats {
   /** Games started or finished in the last 24 hours (a rolling window, not since midnight). */
   games_today: number;
   games_total: number;
+  /** Every game that started and is over, ever (early_access_count_enabled); absent from an older server. */
+  games_played_total?: number;
 }
 
 // ── Small tooltip component used in the game-creation form ─────────────────
@@ -526,6 +529,10 @@ export default function LobbyPage() {
   // NOT users.onboarding_stage — that counter is gated on tutorial completion
   // and doesn't reflect quests actually completed (first_win, etc.). null = hide.
   const [questStage, setQuestStage] = useState<number | null>(null);
+  // lobby_cleanup_enabled: the quests themselves, so the banner can pick the
+  // next one this player can do (utils/questOrder.ts).
+  const [questProgress, setQuestProgress] = useState<Array<{ quest_id: string; completed_at: string | null }> | null>(null);
+  const lobbyCleanup = useLobbyCleanupEnabled();
 
   // Re-fetch the user's profile whenever the lobby mounts (e.g. returning from a
   // finished game) so level/XP/gold reflect the latest server state rather than
@@ -540,8 +547,9 @@ export default function LobbyPage() {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await api.get<{ quests: { completed_at: string | null }[] }>('/progression/quests');
+        const res = await api.get<{ quests: { quest_id: string; completed_at: string | null }[] }>('/progression/quests');
         const quests = res.data?.quests ?? [];
+        if (!cancelled) setQuestProgress(quests);
         // Index of the first incomplete quest, not the completed count —
         // first_async can complete out of order, which would otherwise skew
         // the banner onto the wrong quest.
@@ -812,6 +820,10 @@ export default function LobbyPage() {
   const [showFullGameModal, setShowFullGameModal] = useState(false);
   const [dailySummary, setDailySummary] = useState<{ era_id: string; title: string | null; attempts_today: number; completed: boolean } | null>(null);
   const [activityStats, setActivityStats] = useState<ActivityStats | null>(null);
+  // early_access_count_enabled: "Early access · N games played so far", the
+  // one count here that only goes up.
+  const earlyAccessCount = useEarlyAccessCountEnabled();
+  const playedSoFar = earlyAccessCount ? activityStats?.games_played_total ?? 0 : 0;
   const joinFromUrlHandled = useRef(false);
 
   // New-user welcome modal — shown once for users with no XP
@@ -2163,9 +2175,10 @@ export default function LobbyPage() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-20 md:pb-8">
         {/* Onboarding Quest Banner — driven by real quest completion (questStage),
             derived from /progression/quests, not the gated users.onboarding_stage. */}
-        {questStage != null && (
+        {(lobbyCleanup ? questProgress != null && nextQuest(questProgress, !!user?.is_guest) != null : questStage != null) && (
           <OnboardingBanner
             stage={questStage}
+            pick={lobbyCleanup && questProgress ? nextQuest(questProgress, !!user?.is_guest) : undefined}
             onSkip={async () => {
               try {
                 await api.post('/progression/onboarding/skip');
@@ -2306,14 +2319,29 @@ export default function LobbyPage() {
           </div>
         </div>
 
-        {/* Honest activity signals — real counts. Lead with live + today's
-            activity. The all-time total is intentionally NOT shown: a small
-            absolute count reads as "this is brand-new" and dents credibility. */}
+        {/* Honest activity signals — real counts. Without
+            early_access_count_enabled the all-time total is not shown: a small
+            absolute count on its own reads as "this is brand-new". With it, the
+            total leads, framed as early access, so being brand-new is the point
+            and the number only climbs. */}
         {activityStats &&
-          (activityStats.games_in_progress > 0 || activityStats.games_today > 0) && (
+          (activityStats.games_in_progress > 0 || activityStats.games_today > 0 || playedSoFar > 0) && (
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1 mb-6 text-sm text-bf-muted">
+            {playedSoFar > 0 && (
+              <span
+                className="inline-flex items-center gap-1.5"
+                title="Every game started and played to its end or left part-way since Borderfall opened, tutorials included."
+                data-testid="lobby-games-all-time"
+              >
+                <span className="rounded-full border border-bf-gold/35 bg-bf-gold/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-bf-gold">
+                  Early access
+                </span>
+                <span className="text-bf-text font-medium">{playedSoFar.toLocaleString()}</span>
+                {playedSoFar === 1 ? 'game played so far' : 'games played so far'}
+              </span>
+            )}
             {activityStats.games_in_progress > 0 && (
-              <span className="inline-flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1.5" data-testid="lobby-games-live">
                 <Radio className="w-3.5 h-3.5 text-green-400" aria-hidden />
                 <span className="text-bf-text font-medium">{activityStats.games_in_progress}</span>
                 {activityStats.games_in_progress === 1 ? 'game being played right now' : 'games being played right now'}

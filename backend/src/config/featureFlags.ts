@@ -416,6 +416,14 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // Analytics only; changes nothing a player sees.
   // On by default; the admin override is the kill switch.
   funnel_events_v2_enabled: () => envOptOut('FUNNEL_EVENTS_V2_ENABLED'),
+  // The lobby stops advertising goals a player cannot reach: quests
+  // completable in any order and shown in an order the player can do them,
+  // the next achievements named. Dark-launched OFF.
+  lobby_cleanup_enabled: () => envOptIn('LOBBY_CLEANUP_ENABLED'),
+  // The lobby's activity line adds "Early access · N games played so far": a
+  // count that only goes up, worded so a small number reads as early rather
+  // than empty. Dark-launched OFF; switch it off when the game leaves early access.
+  early_access_count_enabled: () => envOptIn('EARLY_ACCESS_COUNT_ENABLED'),
   // One overlay at a time in a game: the intro or briefing alone, then the
   // first-turn coach, then the era banner; the era banner off the tutorial
   // card but for its era steps; the surrender offer in the strip above the
@@ -1057,6 +1065,35 @@ export const featureFlags = {
    */
   get funnelEventsV2Enabled(): boolean {
     return overrideBool('funnel_events_v2_enabled');
+  },
+
+  /**
+   * The lobby stops advertising goals a player cannot reach (the review's
+   * finding 13). The onboarding quests complete in any order
+   * (progressionService.checkOnboardingQuests; /progression/quests locks none),
+   * and the client shows the next one the player can do where they are, with
+   * where to do it (frontend utils/questOrder.ts): a Quick Match player was
+   * held at "Build your first building" in a mode with no buildings. The
+   * profile names the next three locked achievements and how to earn them
+   * instead of "???" on every one. The lobby's live counters are not touched:
+   * they show at any size, as before.
+   * Default OFF; `LOBBY_CLEANUP_ENABLED=true` or the admin override turns it on.
+   */
+  get lobbyCleanupEnabled(): boolean {
+    return overrideBool('lobby_cleanup_enabled');
+  },
+
+  /**
+   * The lobby's activity line adds "Early access · N games played so far"
+   * (GET /api/games/stats/activity's `games_played_total`, every game that
+   * started and is over: modules/games/gamesPlayedWindow.ts playedAllTimeSql).
+   * Unlike "right now" and "in the last 24 hours" it only goes up, and the
+   * wording makes a small number read as early rather than empty. The live
+   * counters beside it are unchanged.
+   * Default OFF; `EARLY_ACCESS_COUNT_ENABLED=true` or the admin override turns it on.
+   */
+  get earlyAccessCountEnabled(): boolean {
+    return overrideBool('early_access_count_enabled');
   },
 
   /**
@@ -2040,6 +2077,8 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     loss_reason_play_enabled: featureFlags.lossReasonPlayEnabled,
     results_action_events_enabled: featureFlags.resultsActionEventsEnabled,
     funnel_events_v2_enabled: featureFlags.funnelEventsV2Enabled,
+    lobby_cleanup_enabled: featureFlags.lobbyCleanupEnabled,
+    early_access_count_enabled: featureFlags.earlyAccessCountEnabled,
     overlay_queue_enabled: featureFlags.overlayQueueEnabled,
     comeback_hook_enabled: featureFlags.comebackHookEnabled,
     mission_reveal_enabled: featureFlags.missionRevealEnabled,

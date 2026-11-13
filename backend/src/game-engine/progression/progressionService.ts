@@ -11,6 +11,7 @@ import {
 } from '@borderfall/shared';
 import { recordServerEvent } from '../../services/analyticsEvents';
 import { andNotTutorialSql } from '../tutorial/tutorialGames';
+import { featureFlags } from '../../config/featureFlags';
 
 // ── Gold award helpers (non-transactional convenience wrappers) ────────
 
@@ -255,10 +256,14 @@ export async function checkOnboardingQuests(
   // Sequential quests unlock strictly in order: only the first incomplete
   // one is eligible. NON_SEQUENTIAL_QUESTS (first_async) are always eligible —
   // the players their CTAs target are early in the chain.
+  // lobby_cleanup_enabled: every quest completes in any order. A Quick Match
+  // player was held at first_building in a mode with no buildings, and every
+  // quest after it waited behind that one.
+  const anyOrder = featureFlags.lobbyCleanupEnabled;
   let sequentialSeen = false;
   for (const quest of ONBOARDING_QUESTS) {
     if (completedIds.has(quest.quest_id)) continue;
-    const nonSequential = NON_SEQUENTIAL_QUESTS.has(quest.quest_id);
+    const nonSequential = anyOrder || NON_SEQUENTIAL_QUESTS.has(quest.quest_id);
     const eligible = nonSequential || !sequentialSeen;
     if (!nonSequential) sequentialSeen = true;
     if (!eligible) continue;
