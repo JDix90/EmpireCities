@@ -2,9 +2,15 @@
  * Headless faction-balance harness: rank an era's factions against each other.
  *
  * Every seat is the same medium AI and only the faction differs, so a win-rate
- * gap is a kit gap. The faction-to-seat mapping rotates every game, which means
- * seat order and starting-position luck average out across the run rather than
- * explaining a result.
+ * gap is a kit gap. The faction-to-seat mapping rotates every game, and who
+ * moves first rotates once per full turn of that mapping, so every faction
+ * moves first equally often and seat order and starting-position luck average
+ * out across the run rather than explaining a result. (Both used to rotate
+ * together, which handed the first move to faction (2 x game) mod seats: the
+ * same faction every game in a two-faction era, where the Union read 69% to
+ * the Confederacy's 31% and 58 to 42 once separated, and never the odd-indexed
+ * factions in a six-faction one.) Exact balance needs SIM_GAMES to be a
+ * multiple of seats squared; the header says when it is not.
  *
  * Two things this harness does that a naive loop does not, both learned the
  * hard way:
@@ -147,9 +153,19 @@ function simSettings(): GameSettings {
   } as GameSettings;
 }
 
-/** Seat i draws the faction i places along from the start, rotated per game. */
+/**
+ * Seat i draws the faction i places along from the start, rotated per game.
+ * Who moves first is the seat `firstSeat(game)`, so the faction moving first is
+ * (game + floor(game / seats)) mod seats: each faction equally often over
+ * seats squared games.
+ */
 function seatFactions(game: number): typeof factions {
   return factions.map((_, i) => factions[(i + game) % SEATS]!);
+}
+
+/** The seat that moves first: steps once per full rotation of the factions. */
+function firstSeat(game: number): number {
+  return Math.floor(game / SEATS) % SEATS;
 }
 
 function newGame(game: number): { state: GameState; order: typeof factions } {
@@ -170,7 +186,7 @@ function newGame(game: number): { state: GameState; order: typeof factions } {
     map,
     players,
     simSettings(),
-    { forceStartingPlayerIndex: game % SEATS },
+    { forceStartingPlayerIndex: firstSeat(game) },
   );
   return { state, order };
 }
@@ -450,6 +466,9 @@ async function main(): Promise<void> {
     + ` · tech=${TECH ? 'on' : 'off'} economy=${ECONOMY ? 'on' : 'off'} · fair share ${fairShare}%`,
   );
   if (process.env.SIM_PATCH) console.log(`patch: ${process.env.SIM_PATCH}`);
+  if (GAMES % (SEATS * SEATS) !== 0) {
+    console.log(`note: ${GAMES} games is not a multiple of ${SEATS * SEATS}, so not every faction moved first equally often`);
+  }
 
   const rows = factions
     .map((f) => ({
