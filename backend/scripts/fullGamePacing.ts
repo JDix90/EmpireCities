@@ -15,6 +15,10 @@
  *   PACING_JSON     a file to write every configuration's summary to, as JSON
  *   PACING_DETAIL   1 to print each configuration's full breakdown (default: the
  *                     comparison table only when more than one trace is given)
+ *   PACING_ACCEPT_SURRENDER  1 to read every game as ending the first time the
+ *                     stand-in's turn opened with the bots' surrender on offer
+ *                     (victory/surrender.ts): the game a player who always
+ *                     accepts would have had.
  *   PACING_CAP      read every game as if it had been capped at this round (the
  *                     leader then wins, as at the real cap). An approximation:
  *                     bots race in the last three rounds before a real cap.
@@ -40,9 +44,17 @@
  *   quiet round   a round with no era advance, no seat leaving, no change of
  *                 territory leader, and at most QUIET_TILES territories changing
  *                 hands. A lull is LULL_ROUNDS or more quiet rounds in a row.
- *   settled       a game is "over the hill" once no era is left to reach or the
- *                 result is decided, whichever comes first; the rounds after
- *                 that are the tail a player sits through for no new outcome.
+ *   after the ages  rounds played once every living seat is in the last era: the
+ *                 part of a game with no era left for anyone to reach. A short
+ *                 one is the game's last act; a long one is a game outliving
+ *                 its own content.
+ *   sidelined     a seat still in the game but holding under SIDELINED_SHARE of
+ *                 the board: playing turns with no realistic way back. The
+ *                 share of all seat-rounds spent that way says how well a game
+ *                 keeps its trailing players in it.
+ *   snowball      how often the seat that advanced an era first, and the seat
+ *                 leading on territory as round 10 and round 20 ended, went on
+ *                 to win. A fair share is one game in the number of seats.
  */
 import { readFileSync, writeFileSync } from 'fs';
 import { createSeededRng, hashStringToSeed } from '../src/game-engine/victory/missions';
@@ -56,6 +68,7 @@ interface GameTrace {
   winnerSeat: number | null;
   condition: string | null;
   rounds: number;
+  lastEra?: number;
   board: number[];
   neutral: number[];
   held: number[][];
@@ -75,10 +88,12 @@ export const DECIDED_BOARD_SHARE = 0.6;
 export const DECIDED_ARMY_RATIO = 2;
 export const QUIET_TILES = 1;
 export const LULL_ROUNDS = 5;
+export const SIDELINED_SHARE = 0.1;
 const TURN_SECONDS = [45, 60, 90];
 const STEP_SECONDS = 0.6;
 
 const CAP = process.env.PACING_CAP ? Number(process.env.PACING_CAP) : undefined;
+const ACCEPT_SURRENDER = process.env.PACING_ACCEPT_SURRENDER === '1';
 
 // ── statistics ───────────────────────────────────────────────────────────────
 
@@ -154,10 +169,15 @@ interface GameMeasures {
   quietShare: number;
   lullShare: number;
   longestLull: number;
-  /** Rounds after the game is over the hill (no era left to reach, or decided). */
-  tailRounds: number;
-  tailShare: number;
   deadRounds: number;
+  /** Whether the first seat to advance an era won (null if nobody advanced), and the territory leader as rounds 10 and 20 ended. */
+  firstAdvancerWon: boolean | null;
+  leaderAt10Won: boolean | null;
+  leaderAt20Won: boolean | null;
+  candidateAtLast: boolean;
+  /** Seat-rounds played, and those played holding under SIDELINED_SHARE of the board. */
+  seatRounds: number;
+  sidelinedRounds: number;
   afterErasRounds: number;
   capturesByRound: number[];
   movedByRound: number[];
@@ -178,15 +198,18 @@ function leaderOf(held: number[]): number | null {
 }
 
 function measure(g: GameTrace): GameMeasures {
-  const played = Math.min(g.held.length, CAP ?? Infinity);
-  const cut = CAP !== undefined && g.held.length > CAP;
+  // An accepted surrender ends the game as that turn opens: the rounds before it stand.
+  const surrendered = ACCEPT_SURRENDER && g.surrenderOfferRound > 1 && g.surrenderOfferRound - 1 <= Math.min(g.held.length, CAP ?? Infinity);
+  const played = surrendered ? g.surrenderOfferRound - 1 : Math.min(g.held.length, CAP ?? Infinity);
+  const cut = !surrendered && CAP !== undefined && g.held.length > CAP;
   const rows = <T>(xs: T[]): T[] => xs.slice(0, played);
   const held = rows(g.held);
   const units = rows(g.units);
   const era = rows(g.era);
   const board = rows(g.board);
   const seats = g.seats;
-  const lastEra = Math.max(5, ...g.era.flat()); // the classic spine tops out at 5; longer spines show themselves
+  // Traces from before `lastEra` was recorded are all of the classic spine, which tops out at 5.
+  const lastEra = g.lastEra ?? Math.max(5, ...g.era.flat());
   const advances = g.advances.filter(([r]) => r <= played);
   const exits = g.exits.filter(([r]) => r <= played);
   const exitRound = new Map(exits.map(([r, s]) => [s, r]));
@@ -199,6 +222,10 @@ function measure(g: GameTrace): GameMeasures {
     const last = played - 1;
     winnerSeat = [...Array(seats).keys()].sort((a, b) => held[last]![b]! - held[last]![a]! || units[last]![b]! - units[last]![a]!)[0]!;
     ending = 'turn_limit';
+  }
+  if (surrendered) {
+    winnerSeat = g.candidateSeat;
+    ending = 'surrender';
   }
   const capped = ending === 'turn_limit';
 
@@ -285,8 +312,11 @@ function measure(g: GameTrace): GameMeasures {
 
   const afterErasRounds = allAtLast ? played - allAtLast : 0;
   const deadRounds = decidedRound ? played - decidedRound : 0;
-  const hill = Math.min(allAtLast || Infinity, decidedRound || Infinity);
-  const tailRounds = Number.isFinite(hill) ? played - hill : 0;
+  const leaderWonAt = (round: number): boolean | null => {
+    if (played < round) return null;
+    const leader = leaderOf(held[round - 1]!);
+    return leader === null ? null : leader === winnerSeat;
+  };
 
   // The stand-in's clock: its own turns, plus the other seats' paced steps, while it is in.
   const out = exitRound.get(g.candidateSeat);
@@ -294,6 +324,16 @@ function measure(g: GameTrace): GameMeasures {
   let botSeconds = 0;
   for (let r = 0; r < candidateRounds; r++) {
     g.steps[r]!.forEach((n, s) => { if (s !== g.candidateSeat) botSeconds += n * STEP_SECONDS; });
+  }
+
+  let seatRounds = 0;
+  let sidelinedRounds = 0;
+  for (let r = 0; r < played; r++) {
+    for (let s2 = 0; s2 < seats; s2++) {
+      if (held[r]![s2]! <= 0) continue;
+      seatRounds += 1;
+      if (held[r]![s2]! < SIDELINED_SHARE * board[r]!) sidelinedRounds += 1;
+    }
   }
 
   const finalEras = era[played - 1] ?? Array.from({ length: seats }, () => 0);
@@ -324,9 +364,13 @@ function measure(g: GameTrace): GameMeasures {
     quietShare: quiet.filter(Boolean).length / played,
     lullShare: inLull / played,
     longestLull,
-    tailRounds,
-    tailShare: tailRounds / played,
     deadRounds,
+    firstAdvancerWon: advances.length ? advances[0]![1] === winnerSeat : null,
+    leaderAt10Won: leaderWonAt(10),
+    leaderAt20Won: leaderWonAt(20),
+    candidateAtLast: finalEras[g.candidateSeat]! >= lastEra,
+    seatRounds,
+    sidelinedRounds,
     afterErasRounds,
     capturesByRound,
     movedByRound,
@@ -334,7 +378,7 @@ function measure(g: GameTrace): GameMeasures {
     stageRounds,
     stageQuiet,
     stageCaptures,
-    surrenderOfferRound: g.surrenderOfferRound && g.surrenderOfferRound <= played ? g.surrenderOfferRound : 0,
+    surrenderOfferRound: g.surrenderOfferRound && g.surrenderOfferRound <= played + (surrendered ? 1 : 0) ? g.surrenderOfferRound : 0,
     exits: exits.length,
     blockers: g.blockers.reduce<Record<string, number>[]>((acc, bySeat) => {
       bySeat.forEach((tally, k) => {
@@ -356,7 +400,8 @@ interface Summary {
   endings: Record<string, Estimate>;
   capped: Estimate;
   minutes: Record<string, { median: Estimate; p80: Estimate; over90: Estimate; over120: Estimate }>;
-  candidate: { wins: Estimate; out: Estimate; era: Estimate; rounds: Estimate };
+  roundsHistogram: { rounds: string; share: number }[];
+  candidate: { wins: Estimate; out: Estimate; era: Estimate; rounds: Estimate; atLast: Estimate };
   eras: {
     /** Share of all seats finishing in each era, and of games whose top seat finished there. */
     seatFinal: number[];
@@ -365,6 +410,8 @@ interface Summary {
     gamesTopAtLast: Estimate;
     gamesAllAtLast: Estimate;
     winnerAtLast: Estimate;
+    /** Games that ended with no seat past the third era (index 2): over before the WW2 era. */
+    endedEarly: Estimate;
     medianSeatEra: Estimate;
     firstReached: { share: Estimate; round: Estimate }[];
     halfReached: { share: Estimate; round: Estimate }[];
@@ -372,8 +419,9 @@ interface Summary {
   decided: { share: Estimate; round: Estimate; precision: Estimate; deadRounds: Estimate; deadShare: Estimate };
   leadLock: { round: Estimate; changes: Estimate };
   quiet: { share: Estimate; lullShare: Estimate; longestLull: Estimate };
-  tail: { rounds: Estimate; share: Estimate; minutes60: Estimate };
-  afterEras: { rounds: Estimate };
+  afterEras: { rounds: Estimate; share: Estimate };
+  snowball: { firstAdvancerWins: Estimate; leaderAt10Wins: Estimate; leaderAt20Wins: Estimate };
+  sidelined: { share: Estimate; knockedOut: Estimate };
   stages: { rounds: Estimate[]; quietShare: number[]; capturesPerRound: number[] };
   byDecile: { rounds: string; games: number; captures: number; moved: number; quiet: number; units: number }[];
   surrender: { offered: Estimate; round: Estimate; roundsSaved: Estimate };
@@ -455,7 +503,12 @@ function summarize(label: string, traces: GameTrace[]): Summary {
       out: share((m) => m.candidateOut),
       era: avg(ms.map((m) => m.candidateEra), tag('candEra')),
       rounds: med(ms.map((m) => m.candidateRounds), tag('candRounds')),
+      atLast: share((m) => m.candidateAtLast),
     },
+    roundsHistogram: Array.from({ length: Math.ceil(longest / 10) }, (_, i) => ({
+      rounds: `${i * 10 + 1}-${i * 10 + 10}`,
+      share: ms.filter((m) => Math.floor((m.rounds - 1) / 10) === i).length / n,
+    })),
     eras: {
       seatFinal,
       seatsAtLast: proportion(allSeatEras.filter((e) => e >= lastEra).length, allSeatEras.length),
@@ -463,6 +516,7 @@ function summarize(label: string, traces: GameTrace[]): Summary {
       gamesTopAtLast: share((m) => m.topEra >= lastEra),
       gamesAllAtLast: share((m) => m.allAtLast > 0),
       winnerAtLast: share((m) => m.winnerEra >= lastEra),
+      endedEarly: share((m) => m.topEra < Math.min(3, lastEra)),
       medianSeatEra: avg(ms.map((m) => median(m.finalEras)), tag('medSeatEra')),
       firstReached: reached((m) => m.firstReached),
       halfReached: reached((m) => m.halfReached),
@@ -483,12 +537,19 @@ function summarize(label: string, traces: GameTrace[]): Summary {
       lullShare: avg(ms.map((m) => m.lullShare), tag('lull')),
       longestLull: med(ms.map((m) => m.longestLull), tag('longestLull')),
     },
-    tail: {
-      rounds: med(ms.map((m) => m.tailRounds), tag('tail')),
-      share: avg(ms.map((m) => m.tailShare), tag('tailShare')),
-      minutes60: med(ms.map((m) => (m.tailRounds * m.minutes[1]!) / m.rounds), tag('tailMin')),
+    afterEras: {
+      rounds: med(ms.map((m) => m.afterErasRounds), tag('afterEras')),
+      share: avg(ms.map((m) => m.afterErasRounds / m.rounds), tag('afterErasShare')),
     },
-    afterEras: { rounds: med(ms.map((m) => m.afterErasRounds), tag('afterEras')) },
+    sidelined: {
+      share: avg(ms.map((m) => m.sidelinedRounds / Math.max(1, m.seatRounds)), tag('sidelined')),
+      knockedOut: avg(ms.map((m) => m.exits / seats), tag('knockedOut')),
+    },
+    snowball: {
+      firstAdvancerWins: proportion(ms.filter((m) => m.firstAdvancerWon === true).length, ms.filter((m) => m.firstAdvancerWon !== null).length),
+      leaderAt10Wins: proportion(ms.filter((m) => m.leaderAt10Won === true).length, ms.filter((m) => m.leaderAt10Won !== null).length),
+      leaderAt20Wins: proportion(ms.filter((m) => m.leaderAt20Won === true).length, ms.filter((m) => m.leaderAt20Won !== null).length),
+    },
     stages: {
       rounds: [0, 1, 2].map((s) => avg(ms.map((m) => m.stageRounds[s]!), tag(`stage${s}`))),
       quietShare: stageTotals.map((t) => (t.rounds ? t.quiet / t.rounds : NaN)),
@@ -523,7 +584,7 @@ const estP = (e: Estimate): string => est(e, p0);
 
 function printDetail(s: Summary): void {
   const last = s.eras.firstReached.length - 1;
-  console.log(`\n══ ${s.label}: ${s.games} games, ${s.seats} seats${CAP ? `, read as capped at round ${CAP}` : ''} ══`);
+  console.log(`\n══ ${s.label}: ${s.games} games, ${s.seats} seats${CAP ? `, read as capped at round ${CAP}` : ''}${ACCEPT_SURRENDER ? ', read as ending when the stand-in is first offered the bots\' surrender' : ''} ══`);
   console.log('Every figure is "value [95% interval]": Wilson for shares, a 1,000-draw bootstrap for medians and means.');
   console.log(`\nLength`);
   console.log(`  rounds                 median ${est(s.rounds.median)}, mean ${est(s.rounds.mean, f1)}, 20th pct ${f0(s.rounds.p20.value)}, 80th pct ${f0(s.rounds.p80.value)}`);
@@ -532,10 +593,12 @@ function printDetail(s: Summary): void {
     const m = s.minutes[String(t)]!;
     console.log(`  minutes at ${t} s a turn  median ${est(m.median)}, 80th pct ${est(m.p80)}, over 90 min ${estP(m.over90)}, over 120 min ${estP(m.over120)}`);
   }
-  console.log(`  stand-in seat          wins ${estP(s.candidate.wins)}, knocked out ${estP(s.candidate.out)}, plays ${est(s.candidate.rounds)} rounds, ends in era ${est(s.candidate.era, f1)}`);
+  console.log(`  rounds, by tens        ${s.roundsHistogram.filter((h) => h.share > 0).map((h) => `${h.rounds}: ${p0(h.share)}`).join(', ')}`);
+  console.log(`  stand-in seat          wins ${estP(s.candidate.wins)}, knocked out ${estP(s.candidate.out)}, plays ${est(s.candidate.rounds)} rounds, ends in era ${est(s.candidate.era, f1)}, reaches the last era ${estP(s.candidate.atLast)}`);
   console.log(`\nEras (index 0 Ancient … ${last} the last)`);
   console.log(`  seats finishing in     ${s.eras.seatFinal.map((x, k) => `era ${k}: ${p0(x)}`).join(', ')}`);
   console.log(`  seats in the last era  ${estP(s.eras.seatsAtLast)}; games where someone is ${estP(s.eras.gamesTopAtLast)}; games where every living seat is ${estP(s.eras.gamesAllAtLast)}; winners ${estP(s.eras.winnerAtLast)}`);
+  console.log(`  over before the WW2 era ${estP(s.eras.endedEarly)} of games (no seat past era 2 when the game ended)`);
   console.log(`  first seat reaches     ${s.eras.firstReached.slice(1).map((e, i) => `era ${i + 1}: ${p0(e.share.value)} of games, round ${est(e.round)}`).join('; ')}`);
   console.log(`  half the table reaches ${s.eras.halfReached.slice(1).map((e, i) => `era ${i + 1}: ${p0(e.share.value)}, round ${est(e.round)}`).join('; ')}`);
   console.log(`\nStages                    climbing | arriving | after the ages`);
@@ -550,8 +613,11 @@ function printDetail(s: Summary): void {
   console.log(`  lead                   changes hands ${est(s.leadLock.changes, f1)} times a game; the winner leads for good from round ${est(s.leadLock.round)}`);
   console.log(`\nQuiet`);
   console.log(`  quiet rounds           ${estP(s.quiet.share)} of a game; in lulls of ${LULL_ROUNDS}+ rounds ${estP(s.quiet.lullShare)}; longest lull ${est(s.quiet.longestLull)} rounds`);
-  console.log(`  tail                   ${est(s.tail.rounds)} rounds (${estP(s.tail.share)} of a game) after no era is left to reach or the result is decided; about ${est(s.tail.minutes60)} min at 60 s a turn`);
-  console.log(`  after the ages         ${est(s.afterEras.rounds)} rounds played after every living seat is in the last era`);
+  console.log(`  after the ages         ${est(s.afterEras.rounds)} rounds (${estP(s.afterEras.share)} of a game) played after every living seat is in the last era`);
+  console.log(`\nTrailing seats`);
+  console.log(`  sidelined              ${estP(s.sidelined.share)} of seat-rounds are played holding under ${p0(SIDELINED_SHARE)} of the board; ${estP(s.sidelined.knockedOut)} of seats are knocked out before the end`);
+  console.log(`\nSnowball (fair share ${p0(1 / s.seats)})`);
+  console.log(`  goes on to win         first seat to advance an era ${estP(s.snowball.firstAdvancerWins)}; territory leader after round 10 ${estP(s.snowball.leaderAt10Wins)}, after round 20 ${estP(s.snowball.leaderAt20Wins)}`);
   console.log(`\nSurrender offer to the stand-in (victory/surrender.ts)`);
   console.log(`  offered in             ${estP(s.surrender.offered)} of games, at round ${est(s.surrender.round)}, with ${est(s.surrender.roundsSaved)} rounds still to play`);
   console.log(`\nWhat held a seat in each era (share of its turns short of each gate; a turn can be short of several)`);
@@ -565,16 +631,16 @@ function printTable(rows: Summary[]): void {
   const cols: [string, (s: Summary) => string][] = [
     ['configuration', (s) => s.label],
     ['games', (s) => String(s.games)],
-    ['rounds, median', (s) => est(s.rounds.median)],
-    ['on the cap', (s) => estP(s.capped)],
-    ['min at 60 s, median', (s) => est(s.minutes['60']!.median)],
-    ['min at 60 s, 80th', (s) => f0(s.minutes['60']!.p80.value)],
+    ['rounds: median (20th-80th)', (s) => `${est(s.rounds.median)} (${f0(s.rounds.p20.value)}-${f0(s.rounds.p80.value)})`],
+    ['min at 60 s: median, 80th', (s) => `${f0(s.minutes['60']!.median.value)}, ${f0(s.minutes['60']!.p80.value)}`],
+    ['ends on the cap', (s) => estP(s.capped)],
+    ['over before WW2', (s) => estP(s.eras.endedEarly)],
     ['seats in last era', (s) => estP(s.eras.seatsAtLast)],
     ['winner in last era', (s) => estP(s.eras.winnerAtLast)],
-    ['mean final era, median seat', (s) => f1(s.eras.medianSeatEra.value)],
-    ['tail rounds, median', (s) => est(s.tail.rounds)],
-    ['tail share', (s) => estP(s.tail.share)],
+    ['rounds after decided', (s) => `${est(s.decided.deadRounds)}; ${p0(s.decided.deadShare.value)}`],
+    ['rounds after the ages', (s) => `${est(s.afterEras.rounds)}; ${p0(s.afterEras.share.value)}`],
     ['quiet rounds', (s) => estP(s.quiet.share)],
+    ['sidelined seat-rounds', (s) => estP(s.sidelined.share)],
     ['stand-in wins', (s) => estP(s.candidate.wins)],
   ];
   console.log(`\n| ${cols.map(([h]) => h).join(' | ')} |`);

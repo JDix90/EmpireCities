@@ -88,12 +88,28 @@
  *                              finalAgeRounds N       the game ends N rounds after the
  *                                                     first seat reaches the last era
  *                                                     (the round cap moves up to then)
+ *                              finalAgeAfter          who starts that last age: 'first'
+ *                                                     seat to reach the last era (the
+ *                                                     default), 'half' the living
+ *                                                     seats, or 'all' of them
+ *                              finalAgeThresholdStep P  once the last age has begun, the
+ *                                                     conquest threshold falls P points
+ *                                                     a round, to finalAgeThresholdFloor
+ *                                                     (default 35)
  *                              fullBoardThreshold     the conquest threshold counts the
  *                                                     whole authored board, locked
  *                                                     territories included, not the
  *                                                     part in play
  *                              thresholdFromEra K     conquest by threshold counts only
  *                                                     for a seat in era index K or later
+ *                              flatEraGates           every era asks the same research and
+ *                                                     buildings to leave it (the game's
+ *                                                     era_advancement_min_* settings),
+ *                                                     without the later eras' steeper asks
+ *                              candidateNeverAdvances the candidate seat never advances an
+ *                                                     era, as a player might who never
+ *                                                     opens the Advance Era panel (not an
+ *                                                     ending: a stand-in's behaviour)
  *                              supremacy {share, ratio, rounds}
  *                                                     a seat holding `share` of the
  *                                                     board and `ratio` times the next
@@ -408,6 +424,8 @@ interface GameTrace {
   winnerSeat: number | null;
   condition: string | null;
   rounds: number;
+  /** The last era index the game's spine reaches (0 without era advancement). */
+  lastEra: number;
   /** Territories on the board as each round ended (the board grows with the eras), and those nobody held. */
   board: number[];
   neutral: number[];
@@ -486,15 +504,20 @@ const TRACE_FILE = process.env.ARENA_TRACE?.trim();
 /** ARENA_PROTO: prototype endings this script plays over the live rules (see the header). */
 interface Proto {
   finalAgeRounds?: number;
+  finalAgeAfter?: 'first' | 'half' | 'all';
+  finalAgeThresholdStep?: number;
+  finalAgeThresholdFloor?: number;
   fullBoardThreshold?: boolean;
   thresholdFromEra?: number;
+  flatEraGates?: boolean;
+  candidateNeverAdvances?: boolean;
   supremacy?: { share: number; ratio: number; rounds: number };
 }
 const PROTO = ((): Proto => {
   const raw = process.env.ARENA_PROTO?.trim();
   if (!raw) return {};
   const parsed = JSON.parse(raw) as Proto;
-  const known = ['finalAgeRounds', 'fullBoardThreshold', 'thresholdFromEra', 'supremacy'];
+  const known = ['finalAgeRounds', 'finalAgeAfter', 'finalAgeThresholdStep', 'finalAgeThresholdFloor', 'fullBoardThreshold', 'thresholdFromEra', 'flatEraGates', 'candidateNeverAdvances', 'supremacy'];
   for (const key of Object.keys(parsed)) if (!known.includes(key)) throw new Error(`ARENA_PROTO: ${key} is not one of ${known.join(', ')}`);
   return parsed;
 })();
@@ -503,19 +526,33 @@ const PROTO = ((): Proto => {
  * PROTOTYPE (ARENA_PROTO): bring the game's settings up to date with the
  * prototype endings as `player`'s turn opens. Rewrites settings only.
  */
-function applyProtoSettings(state: GameState, map: GameMap, player: GameState['players'][number], base: { threshold?: number; allowed: string[] }): void {
+function applyProtoSettings(state: GameState, map: GameMap, player: GameState['players'][number], base: { threshold?: number; allowed: string[]; finalAgeStart?: number }): void {
   const settings = state.settings;
-  if (PROTO.finalAgeRounds !== undefined && !state.players.every((p) => (p.current_era_index ?? 0) < getMaxEraIndex(state))) {
-    const end = state.turn_number + PROTO.finalAgeRounds;
+  // The last age begins once enough seats are in the last era.
+  if ((PROTO.finalAgeRounds !== undefined || PROTO.finalAgeThresholdStep !== undefined) && base.finalAgeStart === undefined) {
+    const last = getMaxEraIndex(state);
+    const living = state.players.filter((p) => !p.is_eliminated);
+    const there = living.filter((p) => (p.current_era_index ?? 0) >= last).length;
+    const begun = PROTO.finalAgeAfter === 'all' ? there >= living.length
+      : PROTO.finalAgeAfter === 'half' ? there >= Math.ceil(living.length / 2)
+        : state.players.some((p) => (p.current_era_index ?? 0) >= last);
+    if (begun) base.finalAgeStart = state.turn_number;
+  }
+  if (PROTO.finalAgeRounds !== undefined && base.finalAgeStart !== undefined) {
+    const end = base.finalAgeStart + PROTO.finalAgeRounds;
     if (typeof settings.max_turns !== 'number' || end < settings.max_turns) settings.max_turns = Math.max(10, end);
   }
   if (base.threshold === undefined) return;
-  let threshold = base.threshold;
+  let asked = base.threshold;
+  if (PROTO.finalAgeThresholdStep !== undefined && base.finalAgeStart !== undefined) {
+    asked = Math.max(PROTO.finalAgeThresholdFloor ?? 35, asked - PROTO.finalAgeThresholdStep * (state.turn_number - base.finalAgeStart));
+  }
+  let threshold = asked;
   let live = true;
   if (PROTO.fullBoardThreshold) {
-    // The territories the base threshold asks for on the whole authored board,
-    // as a whole-number percentage of the part in play (99 when out of reach).
-    const need = Math.ceil((map.territories.length * base.threshold) / 100);
+    // The territories the threshold asks for on the whole authored board, as a
+    // whole-number percentage of the part in play (99 when out of reach).
+    const need = Math.ceil((map.territories.length * asked) / 100);
     const inPlay = Object.keys(state.territories).length;
     const pct = Math.floor((100 * need) / inPlay);
     threshold = pct <= 99 && Math.ceil((inPlay * pct) / 100) === need ? pct : 99;
@@ -645,6 +682,7 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
   const hooks = countingHooks(state, map, record, watch, tally);
   const trace: GameTrace | undefined = TRACE_FILE ? {
     seats: seatCount, map: mapId, game: gameIndex, candidateSeat, startSeat, winnerSeat: null, condition: null, rounds: 0,
+    lastEra: state.settings.era_advancement_enabled ? getMaxEraIndex(state) : 0,
     board: [], neutral: [], held: [], units: [], era: [], rivalCaptures: [], neutralCaptures: [], runs: [], steps: [],
     advances: [], exits: [], blockers: seats.map(() => []), surrenderOfferRound: 0,
   } : undefined;
@@ -653,7 +691,9 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
   const protoBase = {
     threshold: (state.settings.allowed_victory_conditions ?? []).includes('threshold') ? state.settings.victory_threshold : undefined,
     allowed: [...(state.settings.allowed_victory_conditions ?? [])] as string[],
+    finalAgeStart: undefined as number | undefined,
   };
+  if (PROTO.flatEraGates) for (const step of state.era_spine ?? []) delete step.gate_overrides;
   let supremeSeat = -1;
   let supremeRounds = 0;
   /** PROTOTYPE: the seat that has won by supremacy as `round` ends, or null. */
@@ -780,6 +820,11 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
         break;
       }
     } else {
+      // PROTOTYPE stand-in (ARENA_PROTO candidateNeverAdvances): for the length
+      // of the candidate's own turn its era is the spine's last, so it cannot advance.
+      const holdsEra = PROTO.candidateNeverAdvances && player.player_index === candidateSeat;
+      const maxEraSetting = state.settings.era_advancement_max_era_index;
+      if (holdsEra) state.settings.era_advancement_max_era_index = player.current_era_index ?? 0;
       const plan = await planAiTurn(state, map, player, level, seat.flags, {
         planningState: () => seatView(state, map, player.player_id),
         plan: async (s, m, d, o) => computeAiTurn(s, m, d, { ...o, rng: jitter }),
@@ -787,6 +832,7 @@ async function runGame(mapId: string, sourceMap: GameMap, seatCount: number, gam
       });
       const goal = player.player_index === candidateSeat ? player.ai_intent : undefined;
       const outcome = await playAiTurn(state, map, player, level, plan, 'draft', hooks);
+      if (holdsEra) state.settings.era_advancement_max_era_index = maxEraSetting;
       record.turns[player.player_index]! += 1;
       if (player.player_index === candidateSeat && outcome !== 'over') {
         const model = aiProfile(level).fortifyPlan === 'threat' ? aiProfile(level).threatModel : 'full';
