@@ -149,6 +149,11 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   ai_personalities_enabled: () => envOptOut('AI_PERSONALITIES_ENABLED'),
   surrender_offers_enabled: () => envOptOut('SURRENDER_OFFERS_ENABLED'),
   ai_defense_enabled: () => envOptIn('AI_DEFENSE_ENABLED'),
+  // A bot that has met every era gate for eight of its own turns running
+  // advances, whatever its heuristic says: in a standoff every bot's borders
+  // are threatened, and each waited on the others for the rest of the game
+  // (ai/aiEraAdvancement.ts ERA_PATIENCE_TURNS). Dark-launched OFF.
+  ai_era_patience_enabled: () => envOptIn('AI_ERA_PATIENCE_ENABLED'),
   attack_blitz_enabled: () => envOptOut('ATTACK_BLITZ_ENABLED'),
   // Outbound email/push — production-only unless explicitly set.
   retention_notifications_enabled: () => envOrProdOnly('RETENTION_NOTIFICATIONS_ENABLED'),
@@ -1448,6 +1453,19 @@ export const featureFlags = {
    */
   get aiDefenseEnabled(): boolean {
     return overrideBool('ai_defense_enabled');
+  },
+
+  /**
+   * A bot that has met every era gate for ERA_PATIENCE_TURNS of its own turns
+   * running advances anyway (ai/aiEraAdvancement.ts). The advance heuristic
+   * holds a bot back while its borders are threatened, and in a standoff every
+   * bot's are: with no round cap, 0.5 to 2% of simulated Full Games froze one
+   * era short of the last, every bot ready and none willing
+   * (docs/full-game-pacing/REPORT.md). Daily challenges and campaign stages
+   * keep today's bots. Default OFF until measured live.
+   */
+  get aiEraPatienceEnabled(): boolean {
+    return overrideBool('ai_era_patience_enabled');
   },
 
   /**

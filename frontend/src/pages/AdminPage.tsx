@@ -302,6 +302,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Medium, Hard and Expert bots plan their fortify after their attacks, on the board as it then stands: every move the era and their techs allow, each sending troops from where they are least needed to where a tile is most at risk of being lost before the bot\u2019s next turn. Hard and Expert also count what each rival will reinforce with, and Hard moves troops up for next turn\u2019s attacks. Expert also keeps back, on each tile it attacks from, what that tile needs against the stacks beside it of every rival but the one it attacks. Moves follow the same routes a player\u2019s must. Easy and the tutorial bot keep today\u2019s single move. Daily challenges and campaign games are unchanged. Off by default while it is tried.',
   },
   {
+    key: 'ai_era_patience_enabled',
+    label: 'AI stops waiting to advance an era',
+    description:
+      'A bot that has met every requirement to advance an era for eight of its own turns running advances, whatever its caution says. Bots hold back from advancing while their borders are threatened, and in a standoff every bot\u2019s borders are: in simulated Full Games with no round cap, 0.5 to 2% froze with every bot one era short of the last, each ready and none willing, and nothing left to end the game. Matters most with \u201cFull Game ends by the eras\u201d, which has no round cap. Daily challenges and campaign stages keep today\u2019s bots. Dark-launched off.',
+  },
+  {
     key: 'attack_blitz_enabled',
     label: 'Blitz attacks',
     description:

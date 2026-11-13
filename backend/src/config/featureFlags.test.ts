@@ -840,6 +840,13 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().full_game_evening_enabled).toBe(false);
   });
 
+  it('ai_era_patience_enabled is dark-launched off, and the admin override turns it on', () => {
+    expect(featureFlags.aiEraPatienceEnabled).toBe(false);
+    expect(getFeatureFlagStates().ai_era_patience_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { ai_era_patience_enabled: true } });
+    expect(featureFlags.aiEraPatienceEnabled).toBe(true);
+  });
+
   it('full_game_ages_ending_enabled is dark-launched off, and the admin override turns it on', () => {
     expect(featureFlags.fullGameAgesEndingEnabled).toBe(false);
     expect(getClientFeatureFlags().full_game_ages_ending_enabled).toBe(false);

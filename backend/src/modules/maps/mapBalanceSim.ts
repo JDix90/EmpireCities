@@ -112,6 +112,7 @@ function liveAiTurnFlags(): AiTurnFlags {
     resignation: featureFlags.aiResignationEnabled,
     intents: featureFlags.aiIntentsEnabled,
     defense: featureFlags.aiDefenseEnabled,
+    eraPatience: featureFlags.aiEraPatienceEnabled,
   };
 }
 

@@ -375,6 +375,12 @@ export interface PlayerState {
    * LANE_SOVEREIGNTY_ROUNDS wins the game (victory/laneSovereignty.ts).
    */
   lane_sovereignty_streak?: number;
+  /**
+   * A bot's own turns in a row that opened with every era gate met and the
+   * advance declined (ai/aiEraAdvancement.ts eraPatienceSpent). Kept only with
+   * ai_era_patience_enabled.
+   */
+  ai_era_ready_turns?: number;
   /** Bonus defender losses applied before the next land attack resolves (air_strike). */
   pending_pre_attack_damage?: number;
   /** +1 attack die on the next land attack (knights_charge, bersaglieri_charge). */

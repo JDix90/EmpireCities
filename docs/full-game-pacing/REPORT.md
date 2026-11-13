@@ -1,7 +1,7 @@
 # Full Game pacing: what it is like today, and what to change
 
 Analysis and recommendation only. No game code that players run was changed.
-Every figure comes from seeded bot simulations (52,340 games across 245
+Every figure comes from seeded bot simulations (56,300 games across 260
 configurations); each is given as `value [95% interval]`. Section 7 says what
 the minute estimates assume, and section 6 says where real players could change
 the conclusion.
@@ -804,6 +804,30 @@ Games without the new settings are unchanged: Quick Match (60 games) and both
 of today's Full Game variants (400 games) give the same digests before and
 after the engine change. Outputs: [`m.ages`](data/pacing/m.ages.txt),
 [`h.ages`](data/pacing/h.ages.txt), [`x.ages`](data/pacing/x.ages.txt).
+
+### 8.2 Built: the standoff half of item 2
+
+Also built on this branch, behind `ai_era_patience_enabled` (off): a bot that
+has met every era gate for eight of its own turns running advances, whatever
+its caution says (`backend/src/game-engine/ai/aiEraAdvancement.ts`). Under the
+built ending, with no round cap, games stopped unfinished at round 200:
+
+| Table | Games | Unfinished without it | Unfinished with it | Rounds, median (20th–80th), with it |
+|---|---|---|---|---|
+| Level player, 3 Medium bots | 400 | 2 | 0 | 50 (44–56) |
+| Better player | 400 | 1 | 0 | 48 (39–55) |
+| Far better player | 400 | 0 | 0 | 36 (32–42) |
+| Weaker player (Easy stand-in) | 200 | 5 | 0 | 47 (40–53) |
+| 5 seats | 120 | 2 | 0 | 53 (48–58) |
+| 4 Easy seats | 100 | 37 | 0 | 80 (74–85) |
+
+No game in 1,620 failed to end with it, and length and win rates are otherwise
+unchanged. It also answers the all-Easy table: Easy bots that are ready no
+longer put the advance off, so the first reaches the Modern era at round 66
+where it was round 121 in two games out of three. Under today's evening rules
+it changes nothing measurable (median 62 rounds, 42% on the cap, with and
+without). The other half of item 2, how quickly Easy bots meet the gates at
+all, is not built: an all-Easy game still takes 80 rounds.
 
 ## 9. Your answers, and what is still open
 
