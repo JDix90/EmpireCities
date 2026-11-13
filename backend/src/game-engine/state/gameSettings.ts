@@ -265,6 +265,10 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     // duel_opening_enabled; dropping it from this whitelist would silently
     // switch it off on the next room load.
     duel_opening_enabled: raw.duel_opening_enabled === true || undefined,
+    // Even deal (gameStateManager evenDealShape), baked at create from
+    // even_deal_enabled. Read only at the deal, but kept like the others so a
+    // saved game says which deal it had.
+    even_deal_enabled: raw.even_deal_enabled === true || undefined,
     era_advancement_preset: eraAdvancementEnabled ? eraPreset : undefined,
     era_advancement_spine_id: eraAdvancementEnabled
       ? (isValidSpineId(raw.era_advancement_spine_id) ? raw.era_advancement_spine_id : eraDefaults.era_advancement_spine_id)

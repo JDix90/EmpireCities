@@ -684,6 +684,12 @@ export interface GameSettings {
    * (state/duelOpening.ts).
    */
   duel_opening_enabled?: boolean;
+  /**
+   * Even deal, baked at create from the `even_deal_enabled` flag: a dealt
+   * board's leftover territory starts neutral in a two-player game, and goes to
+   * seats from a random one with three or more (gameStateManager evenDealShape).
+   */
+  even_deal_enabled?: boolean;
   /** Lobby preset bundle ('skirmish'|'standard'|'epic'|'custom') resolved server-side. */
   era_advancement_preset?: 'skirmish' | 'standard' | 'epic' | 'custom';
   /** Which spine from the registry governs this game (default 'poc'). */

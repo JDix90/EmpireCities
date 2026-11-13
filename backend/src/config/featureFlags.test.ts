@@ -617,6 +617,15 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().early_access_count_enabled).toBe(true);
   });
 
+  it('even_deal_enabled defaults to off, reaches the client, and the admin override turns it on', () => {
+    expect(featureFlags.evenDealEnabled).toBe(false);
+    expect(getFeatureFlagStates().even_deal_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    expect(getClientFeatureFlags().even_deal_enabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { even_deal_enabled: true } });
+    expect(featureFlags.evenDealEnabled).toBe(true);
+    expect(getClientFeatureFlags().even_deal_enabled).toBe(true);
+  });
+
   it('duel_opening_enabled defaults to off, reaches the client, and the admin override turns it on', () => {
     expect(featureFlags.duelOpeningEnabled).toBe(false);
     expect(getFeatureFlagStates().duel_opening_enabled).toEqual({ code_default: false, overridden: false, effective: false });
