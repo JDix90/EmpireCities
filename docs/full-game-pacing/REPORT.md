@@ -784,6 +784,27 @@ pnpm exec tsx scripts/fullGamePacing.ts fall=/tmp/fall.trace.jsonl
    1.5, then the same gates for every era, each judged by how many seats reach
    the Modern era.
 
+### 8.1 Built: item 1
+
+Item 1 is built on this branch, behind `full_game_ages_ending_enabled` (off).
+The rule lives in `backend/src/game-engine/victory/conquestRules.ts`; the
+lobby's Full Game sends the settings and the server keeps them only while the
+flag is on. Played through the real engine (`ARENA_RULES=full-ages`, 400 games
+a stand-in, stopped at round 200) it matches the prototype:
+
+| Table | Prototype: rounds, median (20th–80th) | Built rule | Built rule: winner in the Modern era |
+|---|---|---|---|
+| Level player, 3 Medium bots | 51 (45–57) | 50 (44–56) | 100% |
+| Better player | 49 (39–56) | 48 (39–55) | 100% |
+| Far better player | 36 (33–42) | 36 (32–42) | 95% |
+| 2 seats | 34 (31–39) | 33 (30–39) | 93% |
+| 6 seats | 57 (51–62) | 57 (51–62) | 99% |
+
+Games without the new settings are unchanged: Quick Match (60 games) and both
+of today's Full Game variants (400 games) give the same digests before and
+after the engine change. Outputs: [`m.ages`](data/pacing/m.ages.txt),
+[`h.ages`](data/pacing/h.ages.txt), [`x.ages`](data/pacing/x.ages.txt).
+
 ## 9. Your answers, and what is still open
 
 What you decided on 13 November 2026, and what I did with it:

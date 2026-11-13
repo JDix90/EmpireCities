@@ -64,6 +64,14 @@ describe('era-tied conquest', () => {
     expect(screen.getByTestId('conquest-on-course')).toHaveTextContent('Keep it until your next turn begins');
   });
 
+  it('does not promise a win at the share while it is closed to the player', () => {
+    render(<MapControlObjective progress={{ ...progress, conquest: { ...conquest, lockedUntilEraId: 'modern' } }} />);
+    const entry = screen.getByTestId('map-control-progress');
+    expect(entry).toHaveTextContent('65% of the map wins once you are in the last era: 28 of its 42 territories as the map stands, and it grows as the eras open.');
+    expect(entry).not.toHaveTextContent('more to go');
+    expect(screen.getByTestId('conquest-share-note')).toHaveTextContent('Conquest opens for you in the last era, The Modern Day.');
+  });
+
   it('adds nothing in a game without it', () => {
     render(<MapControlObjective progress={progress} />);
     expect(screen.queryByTestId('conquest-share-note')).toBeNull();

@@ -132,10 +132,21 @@ export function MapControlObjective({ progress }: { progress: MapControlProgress
       </p>
       <MapControlBar progress={progress} className="mt-1" />
       <p className="text-[10px] text-bf-muted/80 mt-0.5 leading-snug">
-        Hold {progress.thresholdPct}% of the map{progress.side ? ' as a side' : ''} — {progress.needed} of its {progress.total} territories — to win
-        {progress.remaining > 0
-          ? `. ${progress.remaining} more to go.`
-          : '.'}
+        {progress.conquest?.lockedUntilEraId ? (
+          // "22 of its 33 territories to win" would promise a win the player
+          // cannot have yet, on a board the eras have still to open.
+          <>
+            {progress.thresholdPct}% of the map wins once you are in the last era: {progress.needed} of its {progress.total}{' '}
+            territories as the map stands, and it grows as the eras open.
+          </>
+        ) : (
+          <>
+            Hold {progress.thresholdPct}% of the map{progress.side ? ' as a side' : ''} — {progress.needed} of its {progress.total} territories — to win
+            {progress.remaining > 0
+              ? `. ${progress.remaining} more to go.`
+              : '.'}
+          </>
+        )}
       </p>
       <ConquestNotes progress={progress} />
     </div>
