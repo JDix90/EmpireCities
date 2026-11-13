@@ -257,6 +257,11 @@ export function bakeCreateGameSettings(input: Theater & {
         // applies it only to two seats. Never in the first match, whose human
         // moves first on purpose, nor a tutorial, daily, campaign stage or
         // Territory Draft: none of those openings was measured.
+        // Even deal (gameStateManager evenDealShape): never in the first match,
+        // whose fair start redeals for its own reasons, nor a tutorial, daily
+        // or campaign stage, whose boards are authored around their deal.
+        even_deal_enabled: (featureFlags.evenDealEnabled && rawSettings.first_match !== true
+          && !rawSettings.tutorial && !rawSettings.daily_challenge_date && !rawSettings.is_campaign) || undefined,
         duel_opening_enabled: (featureFlags.duelOpeningEnabled && rawSettings.first_match !== true
           && !rawSettings.tutorial && !rawSettings.daily_challenge_date && !rawSettings.is_campaign
           && !rawSettings.territory_selection) || undefined,

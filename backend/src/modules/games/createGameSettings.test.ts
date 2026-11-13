@@ -268,3 +268,24 @@ describe('the two-player opening balance is baked at create from its flag', () =
     expect(created(WW2, { duel_opening_enabled: true }).duel_opening_enabled).toBeUndefined();
   });
 });
+
+describe('the even deal is baked at create from its flag', () => {
+  afterEach(() => resetAdminConfigCacheForTests());
+
+  it('is absent while the flag is off, and baked once it is on', () => {
+    expect(created(WW2).even_deal_enabled).toBeUndefined();
+    setAdminConfigCacheForTests({ feature_flags: { even_deal_enabled: true } });
+    expect(created(WW2).even_deal_enabled).toBe(true);
+  });
+
+  it('never in the first match, a tutorial, a daily or a campaign stage', () => {
+    setAdminConfigCacheForTests({ feature_flags: { even_deal_enabled: true } });
+    for (const extra of [{ first_match: true }, { tutorial: true }, { daily_challenge_date: '2026-11-13' }, { is_campaign: true }]) {
+      expect({ extra, baked: created(WW2, extra).even_deal_enabled }).toEqual({ extra, baked: undefined });
+    }
+  });
+
+  it('cannot be switched on by the client', () => {
+    expect(created(WW2, { even_deal_enabled: true }).even_deal_enabled).toBeUndefined();
+  });
+});
