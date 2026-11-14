@@ -589,6 +589,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Guest runs are ranked on the Daily Challenge board (today and the archive) like any account\u2019s, counted in "N attempted", and the guest is told their real place instead of the place they would hold. Its own switch because this is the board that can be farmed: a new guest is a fresh set of daily attempts, so turn it off if fresh guests start crowding the top. Off by default; off, only saved accounts are ranked there, as before.',
   },
   {
+    key: 'first_attack_hint_enabled',
+    label: 'Suggested first attack',
+    description:
+      'In a first match, when the attack phase starts and the player has not attacked yet, the tip names one attack, for example "Attack J\u00f3rv\u00edk from Strathclyde: your 6 against their 3. Tap Strathclyde." The map rings that territory in gold, then the target once it is open, and the panel lists the target first, outlined. It picks the attack with the biggest edge, and only one the attacker outnumbers. Shows only for players who chose tips, and stops after their first attack with it up. An attack in the tutorial does not hide it (that used to retire the attack tip, so a player who had done the tutorial got no attack tip at all in their first match). Off by default; off, the tip says "Tap your biggest stack, then tap a neighbour with fewer units to attack it." as before.',
+  },
+  {
     key: 'fit_board_camera_enabled',
     label: 'Fit small boards to the screen',
     description:

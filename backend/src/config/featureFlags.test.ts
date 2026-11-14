@@ -188,6 +188,14 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().guest_daily_board_enabled).toBe(true);
   });
 
+  it('first_attack_hint_enabled defaults to off and the admin override turns it on', () => {
+    expect(featureFlags.firstAttackHintEnabled).toBe(false);
+    expect(getClientFeatureFlags().first_attack_hint_enabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { first_attack_hint_enabled: true } });
+    expect(featureFlags.firstAttackHintEnabled).toBe(true);
+    expect(getClientFeatureFlags().first_attack_hint_enabled).toBe(true);
+  });
+
   it('first_turn_events_enabled defaults to on and the admin override turns it off', () => {
     expect(featureFlags.firstTurnEventsEnabled).toBe(true);
     expect(getClientFeatureFlags().first_turn_events_enabled).toBe(true);

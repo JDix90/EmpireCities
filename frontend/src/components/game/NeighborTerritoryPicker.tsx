@@ -20,6 +20,12 @@ interface NeighborTerritoryPickerProps {
   orbitLocked?: boolean;
   /** Why orbit targets are locked (Space Age Moon ladder, or the galaxy kill-switch gate). */
   orbitLockReason?: string;
+  /**
+   * The target the coach tip suggests (`first_attack_hint_enabled`,
+   * utils/firstAttackHint.ts): listed first, so a phone's single scrolling
+   * row shows it, and outlined in gold, the colour of the map's ring.
+   */
+  suggestedTargetId?: string | null;
 }
 
 export default function NeighborTerritoryPicker({
@@ -32,8 +38,13 @@ export default function NeighborTerritoryPicker({
   onAttack,
   orbitLocked = false,
   orbitLockReason,
+  suggestedTargetId = null,
 }: NeighborTerritoryPickerProps) {
   if (neighbors.length === 0) return null;
+  const suggested = phase === 'attack' && suggestedTargetId
+    ? neighbors.find((n) => n.territoryId === suggestedTargetId) ?? null
+    : null;
+  const rows = suggested ? [suggested, ...neighbors.filter((n) => n !== suggested)] : neighbors;
 
   const title = phase === 'attack'
     ? `Attack from ${sourceName}`
@@ -72,7 +83,7 @@ export default function NeighborTerritoryPicker({
           // ragged x-positions that read as misalignment.
           : 'flex flex-col gap-1.5',
       )}>
-        {neighbors.map((neighbor) => {
+        {rows.map((neighbor) => {
           const isOrbit = neighbor.isOrbit;
           const isAttack = phase === 'attack' && !!onAttack;
           const locked = orbitLocked && isOrbit;
@@ -104,12 +115,15 @@ export default function NeighborTerritoryPicker({
               <button
                 type="button"
                 data-neighbor-target=""
+                data-suggested-target={neighbor === suggested ? '' : undefined}
                 disabled={blocked}
                 title={locked ? orbitLockReason : fleetless ? NEEDS_FLEET_HINT : undefined}
                 className={clsx(
                   'tap-min flex-1 rounded-md border text-left text-xs transition-colors touch-manipulation',
                   compact ? 'min-h-[32px] px-2 py-1' : 'min-h-[36px] px-2.5 py-1.5',
                   accent,
+                  // Inset: the phone's row scrolls sideways and would clip a ring drawn outside.
+                  neighbor === suggested && 'ring-2 ring-inset ring-bf-gold',
                   blocked && 'opacity-50 cursor-not-allowed',
                 )}
                 aria-label={
