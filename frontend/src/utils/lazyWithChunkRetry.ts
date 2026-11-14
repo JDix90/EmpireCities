@@ -17,8 +17,32 @@ import { lazy, type ComponentType } from 'react';
  *
  * Every lazily loaded component goes through it: the routes (App.tsx), the
  * globe stack (globeLoader.ts) and the chat's emoji picker.
+ *
+ * Once a reload onto the new build has started, a load that fails or comes
+ * back empty waits for the reload instead of throwing. The page keeps running
+ * until the browser navigates, and in that window Vite resolves an import
+ * whose `vite:preloadError` was cancelled (main.tsx cancels it as it reloads)
+ * to `undefined`: React then read `.default` off nothing, which Sentry
+ * reported as "undefined is not an object (evaluating 'e._result.default')"
+ * on Safari, and the error screen could flash before the new build loaded.
  */
 const RELOADED_KEY = 'ec_chunk_reloaded';
+
+/** A reload onto the new build has been started in this page. */
+let reloadStarted = false;
+
+/** True once this page has started reloading onto the new build (it has not navigated yet). */
+export function reloadingForNewBuild(): boolean {
+  return reloadStarted;
+}
+
+/** Tests only: forget a reload started by an earlier test. */
+export function resetChunkReloadStateForTests(): void {
+  reloadStarted = false;
+}
+
+/** Never settles: the reload under way replaces the page. */
+const waitForReload = <T,>(): Promise<T> => new Promise<T>(() => {});
 
 /**
  * No second reload within this long of the last one. A deploy that is itself
@@ -56,6 +80,7 @@ export function reloadForNewBuild(now: number = Date.now()): boolean {
     /* sessionStorage may be unavailable (privacy mode): no reload without a guard */
     return false;
   }
+  reloadStarted = true;
   window.location.reload();
   return true;
 }
@@ -66,18 +91,29 @@ export function lazyWithChunkRetry<T extends ComponentType<any>>(
   factory: () => Promise<{ default: T }>,
 ): ReturnType<typeof lazy<T>> {
   return lazy(async () => {
+    let mod: { default: T } | undefined;
     try {
-      return await factory();
+      mod = await factory();
     } catch (err1) {
+      // The page is already on its way to the new build: whatever failed
+      // (a missing chunk, or a named-export factory reading an empty module)
+      // will load there.
+      if (reloadingForNewBuild()) return waitForReload<{ default: T }>();
       if (!isChunkLoadError(err1)) throw err1;
       await new Promise((resolve) => setTimeout(resolve, 500));
       try {
-        return await factory();
+        mod = await factory();
       } catch (err2) {
+        if (reloadingForNewBuild()) return waitForReload<{ default: T }>();
         if (!isChunkLoadError(err2)) throw err2;
-        if (reloadForNewBuild()) return new Promise(() => {}) as Promise<{ default: T }>;
+        if (reloadForNewBuild()) return waitForReload<{ default: T }>();
         throw err2;
       }
     }
+    // Vite's answer to a cancelled vite:preloadError: an empty module. Only
+    // while reloading; anywhere else an empty module is a real bug and React
+    // reports it as before.
+    if (mod == null && reloadingForNewBuild()) return waitForReload<{ default: T }>();
+    return mod as { default: T };
   });
 }
