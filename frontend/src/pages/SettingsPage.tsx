@@ -6,6 +6,7 @@ import {
   useEmailAccountSaveEnabled,
   useGuestPushRemindersEnabled,
   useGlobeUnitCountsEnabled,
+  useChatSafetyEnabled,
   useGuestAccountDeletionEnabled,
 } from '../store/featureFlagsStore';
 import { Link, useNavigate } from 'react-router-dom';
@@ -22,6 +23,7 @@ import {
   Eye,
   Shield,
   Globe,
+  UserX,
   Trash2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -30,6 +32,7 @@ import { useAuthStore } from '../store/authStore';
 import SubpageShell from '../components/ui/SubpageShell';
 import NotificationPreferences from '../components/settings/NotificationPreferences';
 import HomeScreenSettingsRow from '../components/install/HomeScreenSettingsRow';
+import BlockedPlayers from '../components/settings/BlockedPlayers';
 import { LOCALE_NAMES, SUPPORTED_LOCALES, isLocaleCode, type LocaleCode } from '../i18n/locales';
 import { setLanguage } from '../i18n';
 import {
@@ -110,6 +113,7 @@ export default function SettingsPage() {
   const [globeSpin, setGlobeSpin] = useState(getGlobeSpinPreference);
   const [cameraFollow, setCameraFollow] = useState(getCameraFollowPreference);
   const globeUnitCounts = useGlobeUnitCountsEnabled();
+  const chatSafety = useChatSafetyEnabled();
   // guest_account_deletion_enabled: Settings → Account links to deleting the account, a guest's included.
   const accountDeletionLink = useGuestAccountDeletionEnabled();
   const [armyCounts, setArmyCounts] = useState(getGlobeArmyCountsPreference);
@@ -595,6 +599,13 @@ export default function SettingsPage() {
             </SettingsRow>
           )}
         </SettingsSection>
+
+        {/* chat_safety_enabled: players blocked from the chat's menu. */}
+        {chatSafety && (
+          <SettingsSection title="Blocked players" icon={UserX}>
+            <BlockedPlayers />
+          </SettingsSection>
+        )}
       </div>
     </SubpageShell>
   );

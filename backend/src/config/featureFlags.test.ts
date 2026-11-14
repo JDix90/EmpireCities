@@ -188,6 +188,14 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().guest_daily_board_enabled).toBe(true);
   });
 
+  it('chat_safety_enabled defaults to off and the admin override turns it on', () => {
+    expect(featureFlags.chatSafetyEnabled).toBe(false);
+    expect(getClientFeatureFlags().chat_safety_enabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { chat_safety_enabled: true } });
+    expect(featureFlags.chatSafetyEnabled).toBe(true);
+    expect(getClientFeatureFlags().chat_safety_enabled).toBe(true);
+  });
+
   it('guest_account_deletion_enabled defaults to off and the admin override turns it on', () => {
     expect(featureFlags.guestAccountDeletionEnabled).toBe(false);
     expect(getClientFeatureFlags().guest_account_deletion_enabled).toBe(false);

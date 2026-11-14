@@ -250,6 +250,8 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   guest_daily_board_enabled: () => envOptIn('GUEST_DAILY_BOARD_ENABLED'),
   // A first match's attack tip names one attack and the map rings it (client-only).
   first_attack_hint_enabled: () => envOptIn('FIRST_ATTACK_HINT_ENABLED'),
+  // Report a chat message and block a player; Admin → Reports.
+  chat_safety_enabled: () => envOptIn('CHAT_SAFETY_ENABLED'),
   // A guest can delete their own account in the app (Profile, and Settings' link).
   guest_account_deletion_enabled: () => envOptIn('GUEST_ACCOUNT_DELETION_ENABLED'),
   // Localized landing page + tutorial (frontend/src/i18n). Dark-launched OFF:
@@ -2114,6 +2116,18 @@ export const featureFlags = {
   },
 
   /**
+   * Chat safety: a player can report a chat message (to Admin → Reports) and
+   * block a player, whose chat then no longer reaches them in any game, lobby
+   * or spectator chat (modules/safety, sockets/handlers/chatHandler.ts). The
+   * App Store asks it of an app with chat (guideline 1.2). Default OFF;
+   * `CHAT_SAFETY_ENABLED=true` or the admin override turns it on. Admins can
+   * always use it, and always read the reports.
+   */
+  get chatSafetyEnabled(): boolean {
+    return overrideBool('chat_safety_enabled');
+  },
+
+  /**
    * A guest can delete their own account: DELETE /api/users/me accepts a
    * guest, who confirms by typing their name (a guest has no password of its
    * own), and the client shows the form on the guest's profile, linked from
@@ -2206,6 +2220,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     guest_leaderboards_enabled: featureFlags.guestLeaderboardsEnabled,
     guest_daily_board_enabled: featureFlags.guestDailyBoardEnabled,
     first_attack_hint_enabled: featureFlags.firstAttackHintEnabled,
+    chat_safety_enabled: featureFlags.chatSafetyEnabled,
     guest_account_deletion_enabled: featureFlags.guestAccountDeletionEnabled,
     localization_enabled: featureFlags.localizationEnabled,
     touch_targets_enabled: featureFlags.touchTargetsEnabled,

@@ -41,6 +41,7 @@ import { feedRoutes } from './modules/feed/feed.routes';
 import { enhancementsRoutes } from './modules/enhancements/enhancements.routes';
 import { analyticsRoutes } from './modules/analytics/analytics.routes';
 import { feedbackRoutes } from './modules/feedback/feedback.routes';
+import { chatSafetyRoutes } from './modules/safety/chatSafety.routes';
 import { adminRoutes } from './modules/admin/admin.routes';
 import { getEraTechTree, getEraFactions } from './game-engine/eras';
 import { getActiveSeasonal } from './game-engine/events/seasonalDecks';
@@ -304,6 +305,7 @@ async function bootstrap(): Promise<void> {
   await app.register(enhancementsRoutes, { prefix: '/api/enhancements' });
   await app.register(analyticsRoutes, { prefix: '/api/analytics' });
   await app.register(feedbackRoutes, { prefix: '/api/feedback' });
+  await app.register(chatSafetyRoutes, { prefix: '/api/safety' });
   await app.register(
     async (scope) => {
       await scope.register(fastifyRateLimit, {

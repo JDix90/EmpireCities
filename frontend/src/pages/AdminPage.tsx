@@ -24,6 +24,7 @@ import Modal from '../components/ui/Modal';
 import AdminAnalyticsPanel, { type AnalyticsReport, type FunnelDeviceFilter } from '../components/admin/AdminAnalyticsPanel';
 import AdminGalaxyReportPanel from '../components/admin/AdminGalaxyReportPanel';
 import AdminFeedbackPanel from '../components/admin/AdminFeedbackPanel';
+import AdminChatReportsPanel from '../components/admin/AdminChatReportsPanel';
 import { useFeatureFlagsStore } from '../store/featureFlagsStore';
 
 /** Shown on every stats tab: whose play the numbers leave out (backend services/statsExclusion.ts). */
@@ -589,6 +590,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Guest runs are ranked on the Daily Challenge board (today and the archive) like any account\u2019s, counted in "N attempted", and the guest is told their real place instead of the place they would hold. Its own switch because this is the board that can be farmed: a new guest is a fresh set of daily attempts, so turn it off if fresh guests start crowding the top. Off by default; off, only saved accounts are ranked there, as before.',
   },
   {
+    key: 'chat_safety_enabled',
+    label: 'Chat report and block',
+    description:
+      'Each chat message from another player (in a game, its lobby, or spectator chat) gets a \u22ef menu: Report message, or Block. A report goes to Admin \u2192 Reports with the server\u2019s own copy of the message, the reason and who sent it, and you close it as actioned or dismissed, or ban the sender. A blocked player\u2019s chat no longer reaches the player who blocked them, in any game; Settings \u2192 Blocked players lists them and unblocks. Guests can use both. The App Store requires both for an app with chat (guideline 1.2). Admin \u2192 Reports stays readable with this off. Off by default; off, chat has no menu, as before.',
+  },
+  {
     key: 'guest_account_deletion_enabled',
     label: 'Guests can delete their account',
     description:
@@ -831,7 +838,8 @@ type TabKey =
   | 'audit'
   | 'warfront'
   | 'galaxy'
-  | 'feedback';
+  | 'feedback'
+  | 'reports';
 
 const tabs: Array<{ key: TabKey; label: string; description: string }> = [
   { key: 'overview', label: 'Overview', description: 'Volume, health, trends' },
@@ -839,6 +847,7 @@ const tabs: Array<{ key: TabKey; label: string; description: string }> = [
   { key: 'balance', label: 'Balance', description: 'Factions, eras, maps, pace' },
   { key: 'galaxy', label: 'Galactic Age', description: 'Finished games & win rates' },
   { key: 'feedback', label: 'Feedback', description: 'What players send from in game' },
+  { key: 'reports', label: 'Reports', description: 'Chat messages players reported' },
   { key: 'ranked', label: 'Ranked', description: 'Rating distribution' },
   { key: 'config', label: 'Config', description: 'Live tuning & flags' },
   { key: 'users', label: 'Users', description: 'Search & moderation' },
@@ -1228,6 +1237,7 @@ export default function AdminPage() {
   const [galaxyRefresh, setGalaxyRefresh] = useState(0);
   // Same pattern for the Feedback tab's panel, which fetches for itself.
   const [feedbackRefresh, setFeedbackRefresh] = useState(0);
+  const [reportsRefresh, setReportsRefresh] = useState(0);
   const [statOptions, setStatOptions] = useState<{ era_ids: string[]; map_ids: string[] }>({ era_ids: [], map_ids: [] });
   const [resetModalOpen, setResetModalOpen] = useState(false);
   const [resetSubmitting, setResetSubmitting] = useState(false);
@@ -1342,6 +1352,8 @@ export default function AdminPage() {
           setGalaxyRefresh((n) => n + 1);
         } else if (tab === 'feedback') {
           setFeedbackRefresh((n) => n + 1);
+        } else if (tab === 'reports') {
+          setReportsRefresh((n) => n + 1);
         }
       } catch (e: unknown) {
         const err = e as { response?: { data?: { error?: string } } };
@@ -1362,6 +1374,7 @@ export default function AdminPage() {
   useEffect(() => {
     if (activeTab !== 'galaxy') setGalaxyRefresh(0);
     if (activeTab !== 'feedback') setFeedbackRefresh(0);
+    if (activeTab !== 'reports') setReportsRefresh(0);
   }, [activeTab]);
 
   // Approve/reject a community map, then refresh the queue. Reject prompts
@@ -1862,6 +1875,12 @@ export default function AdminPage() {
         {!loading && activeTab === 'feedback' && feedbackRefresh > 0 && (
           <div className="mt-6">
             <AdminFeedbackPanel refreshKey={feedbackRefresh} />
+          </div>
+        )}
+
+        {!loading && activeTab === 'reports' && reportsRefresh > 0 && (
+          <div className="mt-6">
+            <AdminChatReportsPanel refreshKey={reportsRefresh} />
           </div>
         )}
 
