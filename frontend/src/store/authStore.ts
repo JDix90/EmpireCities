@@ -92,7 +92,14 @@ export interface AuthUser {
   has_completed_tutorial?: boolean;
   /** Module IDs completed server-side (populated from /api/users/me). */
   tutorial_modules_completed?: string[];
-  /** Onboarding quest stage (0–5, null = completed) */
+  /**
+   * users.onboarding_stage as /api/users/me sends it: always a number, never
+   * null (the column is NOT NULL and the route COALESCEs it), and absent until
+   * the first profile refresh after sign-in. 0 for nearly every account: only
+   * POST /api/progression/onboarding/skip writes it (3), and that refuses a
+   * player at 0. Not a measure of onboarding; the lobby's quest banner reads
+   * /progression/quests instead.
+   */
   onboarding_stage?: number | null;
   /** Current win streak */
   win_streak?: number;

@@ -437,6 +437,11 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // count that only goes up, worded so a small number reads as early rather
   // than empty. Dark-launched OFF; switch it off when the game leaves early access.
   early_access_count_enabled: () => envOptIn('EARLY_ACCESS_COUNT_ENABLED'),
+  // The lobby's new-player layout (the Getting Started block, no Daily
+  // Challenge row beside it) goes only to a player with no XP. It went to
+  // every player, because the check read users.onboarding_stage, which the
+  // server always sends as a number. Dark-launched OFF.
+  lobby_new_player_gate_enabled: () => envOptIn('LOBBY_NEW_PLAYER_GATE_ENABLED'),
   // One overlay at a time in a game: the intro or briefing alone, then the
   // first-turn coach, then the era banner; the era banner off the tutorial
   // card but for its era steps; the surrender offer in the strip above the
@@ -1116,6 +1121,25 @@ export const featureFlags = {
    */
   get earlyAccessCountEnabled(): boolean {
     return overrideBool('early_access_count_enabled');
+  },
+
+  /**
+   * The lobby's new-player layout goes only to new players (LobbyPage
+   * `isNewUser`: the Getting Started block, and the Daily Challenge row beside
+   * it held back). The check was `xp === 0 || onboarding_stage != null`, from
+   * when a null stage meant "onboarding finished". /api/users/me and the
+   * account-upgrade route both send COALESCE(onboarding_stage, 0), so once the
+   * profile had loaded the second half was true for every player, at any XP.
+   * With this on, a new player is one with no XP. The stage is not read at
+   * all: nothing advances it (POST /api/progression/onboarding/skip is the
+   * only writer, and it refuses a player at stage 0, where every account
+   * starts), so `onboarding_stage < 3` would be true for every player too.
+   * Client-only; the server changes nothing.
+   * Default OFF; `LOBBY_NEW_PLAYER_GATE_ENABLED=true` or the admin override
+   * turns it on. Off, the lobby is as before.
+   */
+  get lobbyNewPlayerGateEnabled(): boolean {
+    return overrideBool('lobby_new_player_gate_enabled');
   },
 
   /**
@@ -2159,6 +2183,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     funnel_events_v2_enabled: featureFlags.funnelEventsV2Enabled,
     lobby_cleanup_enabled: featureFlags.lobbyCleanupEnabled,
     early_access_count_enabled: featureFlags.earlyAccessCountEnabled,
+    lobby_new_player_gate_enabled: featureFlags.lobbyNewPlayerGateEnabled,
     // The How to Play page states the rule only while it is live.
     duel_opening_enabled: featureFlags.duelOpeningEnabled,
     // How to Play states the rule only while it is live.

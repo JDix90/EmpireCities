@@ -188,6 +188,12 @@ const CLIENT_FEATURE_FLAGS = [
       'The lobby\u2019s activity line adds \u201cEarly access \u00b7 1,284 games played so far\u201d: every game that started and is over, tutorials and games left part-way included. Unlike \u201cright now\u201d and \u201cin the last 24 hours\u201d it only ever goes up, and the wording makes a small number read as early rather than empty. The live counters beside it are unchanged. Switch it off when the game leaves early access. Off by default.',
   },
   {
+    key: 'lobby_new_player_gate_enabled',
+    label: 'Lobby: Getting Started only for new players',
+    description:
+      'The lobby\u2019s new-player layout goes only to a player with no XP: the Getting Started block (tutorial, Quick Match, Daily Challenge), with the Daily Challenge row beside it held back. It went to every player at any XP, because the check read an onboarding counter the server always sends. With this on, a player who has finished a game gets the regular lobby, Daily Challenge row included. Off by default; off, the lobby is exactly as before.',
+  },
+  {
     key: 'overlay_queue_enabled',
     label: 'One overlay at a time',
     description:
