@@ -596,6 +596,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Each chat message from another player (in a game, its lobby, or spectator chat) gets a \u22ef menu: Report message, or Block. A report goes to Admin \u2192 Reports with the server\u2019s own copy of the message, the reason and who sent it, and you close it as actioned or dismissed, or ban the sender. A blocked player\u2019s chat no longer reaches the player who blocked them, in any game; Settings \u2192 Blocked players lists them and unblocks. Guests can use both. The App Store requires both for an app with chat (guideline 1.2). Admin \u2192 Reports stays readable with this off. Off by default; off, chat has no menu, as before.',
   },
   {
+    key: 'guest_account_deletion_enabled',
+    label: 'Guests can delete their account',
+    description:
+      'A guest can delete their own account from their profile, confirming by typing their name (a guest has no password of its own); their name, games, ratings and progress go, and they are signed out. Settings \u2192 Account gets a Delete account link to that form, for every player. The App Store expects any account made in the app to be deletable in it. Off by default; off, the server refuses guests and their profile shows no delete form.',
+  },
+  {
     key: 'first_attack_hint_enabled',
     label: 'Suggested first attack',
     description:
