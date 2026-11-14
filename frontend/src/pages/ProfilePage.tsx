@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useRef, useState } from 'react';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import SubpageShell from '../components/ui/SubpageShell';
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
@@ -13,7 +13,7 @@ import ReferralPanel from '../components/ui/ReferralPanel';
 import { ownAuthUiAllowed } from '../utils/embedContext';
 import { useStoreV2Enabled, useGuestPersonalFeaturesEnabled } from '../store/featureFlagsStore';
 import { useGuestLeaderboardsEnabled, useSaveAccountCopyEnabled, useMapShowcaseEnabled } from '../store/featureFlagsStore';
-import { useLobbyCleanupEnabled } from '../store/featureFlagsStore';
+import { useLobbyCleanupEnabled, useGuestAccountDeletionEnabled } from '../store/featureFlagsStore';
 import { nextAchievementIds } from '../utils/questOrder';
 import FrameRing from '../components/cosmetics/FrameRing';
 import BannerTag from '../components/cosmetics/BannerTag';
@@ -148,6 +148,16 @@ export default function ProfilePage() {
   // tracked.
   const guestsRanked = useGuestLeaderboardsEnabled();
   const ownGuest = isOwnProfile && !!currentUser?.is_guest;
+  // guest_account_deletion_enabled: a guest deletes their own account here, by
+  // name. Without it a guest is not shown the form: the server refuses them.
+  const guestDeletion = useGuestAccountDeletionEnabled();
+  const showDeleteAccount = isOwnProfile && (!ownGuest || guestDeletion);
+  // Settings → Account links here (#delete-account).
+  const { hash } = useLocation();
+  const deleteCardRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (hash === '#delete-account' && !loading) deleteCardRef.current?.scrollIntoView({ block: 'start' });
+  }, [hash, loading]);
 
   useEffect(() => {
     if (!targetId) return;
@@ -220,8 +230,9 @@ export default function ProfilePage() {
     );
   }
 
-  // An account saved with just an email (email_account_save_enabled) has no password yet.
-  const passwordless = isOwnProfile && profile.has_password === false;
+  // An account saved with just an email (email_account_save_enabled) has no
+  // password yet, and a guest has none of its own: both confirm by name.
+  const passwordless = isOwnProfile && (profile.has_password === false || ownGuest);
 
   const avatar = (
     <div className="w-20 h-20 rounded-full bg-bf-border flex items-center justify-center text-3xl">
@@ -567,11 +578,13 @@ export default function ProfilePage() {
         )}
 
         {/* Game History */}
-        {isOwnProfile && (
-          <div className="card border-red-500/20">
+        {showDeleteAccount && (
+          <div id="delete-account" ref={deleteCardRef} className="card border-red-500/20 scroll-mt-4" data-testid="delete-account">
             <h3 className="font-display text-lg text-red-400/90 mb-2">Delete account</h3>
             <p className="text-bf-muted text-sm mb-4">
-              Permanently remove your account and sign out. This action cannot be undone.
+              {ownGuest
+                ? 'Permanently remove your guest account (your name, games, ratings and progress) and sign out. This cannot be undone.'
+                : 'Permanently remove your account and sign out. This action cannot be undone.'}
             </p>
             <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
               <div className="flex-1">

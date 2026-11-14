@@ -6,6 +6,7 @@ import {
   useEmailAccountSaveEnabled,
   useGuestPushRemindersEnabled,
   useGlobeUnitCountsEnabled,
+  useGuestAccountDeletionEnabled,
 } from '../store/featureFlagsStore';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -21,6 +22,7 @@ import {
   Eye,
   Shield,
   Globe,
+  Trash2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../services/api';
@@ -108,6 +110,8 @@ export default function SettingsPage() {
   const [globeSpin, setGlobeSpin] = useState(getGlobeSpinPreference);
   const [cameraFollow, setCameraFollow] = useState(getCameraFollowPreference);
   const globeUnitCounts = useGlobeUnitCountsEnabled();
+  // guest_account_deletion_enabled: Settings → Account links to deleting the account, a guest's included.
+  const accountDeletionLink = useGuestAccountDeletionEnabled();
   const [armyCounts, setArmyCounts] = useState(getGlobeArmyCountsPreference);
   const [liteMode, setLiteModeState] = useState(isLiteMode);
   const [batterySaver, setBatterySaverState] = useState(isBatterySaver);
@@ -246,6 +250,15 @@ export default function SettingsPage() {
               </div>
               <ChevronRight className="w-4 h-4 text-bf-muted group-hover:text-bf-gold transition-colors" />
             </Link>
+            {accountDeletionLink && (
+              <Link to="/profile#delete-account" className="flex items-center justify-between py-2 group" data-testid="settings-delete-account">
+                <div className="flex items-center gap-2">
+                  <Trash2 className="w-4 h-4 text-bf-muted" />
+                  <span className="text-sm text-bf-text group-hover:text-red-300 transition-colors">Delete account</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-bf-muted group-hover:text-red-300 transition-colors" />
+              </Link>
+            )}
             {!isGuest && (
               <>
                 <button

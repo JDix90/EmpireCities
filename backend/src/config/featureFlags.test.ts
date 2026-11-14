@@ -188,6 +188,14 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().guest_daily_board_enabled).toBe(true);
   });
 
+  it('guest_account_deletion_enabled defaults to off and the admin override turns it on', () => {
+    expect(featureFlags.guestAccountDeletionEnabled).toBe(false);
+    expect(getClientFeatureFlags().guest_account_deletion_enabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { guest_account_deletion_enabled: true } });
+    expect(featureFlags.guestAccountDeletionEnabled).toBe(true);
+    expect(getClientFeatureFlags().guest_account_deletion_enabled).toBe(true);
+  });
+
   it('first_attack_hint_enabled defaults to off and the admin override turns it on', () => {
     expect(featureFlags.firstAttackHintEnabled).toBe(false);
     expect(getClientFeatureFlags().first_attack_hint_enabled).toBe(false);

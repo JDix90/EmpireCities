@@ -589,6 +589,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Guest runs are ranked on the Daily Challenge board (today and the archive) like any account\u2019s, counted in "N attempted", and the guest is told their real place instead of the place they would hold. Its own switch because this is the board that can be farmed: a new guest is a fresh set of daily attempts, so turn it off if fresh guests start crowding the top. Off by default; off, only saved accounts are ranked there, as before.',
   },
   {
+    key: 'guest_account_deletion_enabled',
+    label: 'Guests can delete their account',
+    description:
+      'A guest can delete their own account from their profile, confirming by typing their name (a guest has no password of its own); their name, games, ratings and progress go, and they are signed out. Settings \u2192 Account gets a Delete account link to that form, for every player. The App Store expects any account made in the app to be deletable in it. Off by default; off, the server refuses guests and their profile shows no delete form.',
+  },
+  {
     key: 'first_attack_hint_enabled',
     label: 'Suggested first attack',
     description:

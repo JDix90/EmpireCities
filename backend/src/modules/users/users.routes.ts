@@ -291,20 +291,27 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   // ── DELETE /api/users/me (account deletion — run migration 003 first) ───
-  fastify.delete('/me', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+  // Guests too, with guest_account_deletion_enabled: the App Store expects any
+  // account made in the app to be deletable in it, and a guest's name, games
+  // and ratings are on the public boards. A guest has no password of its own
+  // (guestPassword.ts), so it confirms by name, as a passwordless account does.
+  const rejectGuestUnlessDeletable = rejectGuestUnless(() => featureFlags.guestAccountDeletionEnabled);
+  fastify.delete('/me', { preHandler: [authenticate, rejectGuestUnlessDeletable] }, async (request, reply) => {
     const parsed = DeleteAccountSchema.safeParse(request.body ?? {});
-    if (!parsed.success) {
+    if (!parsed.success || request.isGuest) {
       const byName = PasswordlessDeleteSchema.safeParse(request.body ?? {});
       if (!byName.success) {
-        return reply.status(400).send(formatZodError(parsed.error));
+        return reply.status(400).send(request.isGuest || parsed.success
+          ? { error: 'Type your username to confirm' }
+          : formatZodError(parsed.error));
       }
-      // Only an account with no password confirms by name (email_account_save_enabled).
-      const account = await queryOne<{ username: string; has_password: boolean }>(
-        'SELECT username, has_password FROM users WHERE user_id = $1',
+      // Only a guest, or an account with no password (email_account_save_enabled), confirms by name.
+      const account = await queryOne<{ username: string; has_password: boolean; is_guest: boolean }>(
+        'SELECT username, has_password, COALESCE(is_guest, false) AS is_guest FROM users WHERE user_id = $1',
         [request.userId],
       );
       if (!account) return reply.status(404).send({ error: 'User not found' });
-      if (account.has_password !== false) {
+      if (!account.is_guest && account.has_password !== false) {
         return reply.status(400).send({ error: 'Password is required to delete your account' });
       }
       if (byName.data.confirm_username.toLowerCase() !== account.username.trim().toLowerCase()) {
