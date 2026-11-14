@@ -473,3 +473,40 @@ describe('ActionModal — the post-game chart is a position share, with the fini
     expect(screen.getByText('50%')).toBeTruthy();
   });
 });
+
+describe('ActionModal — Add to Home Screen after a win (home_screen_install_enabled)', () => {
+  const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
+  const setFlag = async (on: boolean) => {
+    const { useFeatureFlagsStore } = await import('../../store/featureFlagsStore');
+    useFeatureFlagsStore.setState((st) => ({ flags: { ...st.flags, home_screen_install_enabled: on } }));
+  };
+  const show = (data: GameOverModalData) =>
+    render(<ActionModal data={data} onDismiss={() => {}} onWatchReplay={() => {}} />);
+
+  beforeEach(async () => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
+    vi.stubGlobal('navigator', { ...navigator, userAgent: IPHONE, platform: 'iPhone', maxTouchPoints: 5 });
+    await setFlag(true);
+  });
+
+  it('offers it to the winner', () => {
+    show(gameOver());
+    expect(screen.getByTestId('install-offer-results')).toBeInTheDocument();
+  });
+
+  it('does not offer it after a loss, or after a tutorial', () => {
+    const { unmount } = show(gameOver({ isWinner: false }));
+    expect(screen.queryByTestId('install-offer-results')).toBeNull();
+    unmount();
+    show(gameOver({ rematchConfig: { era_id: 'ancient', map_id: 'era_ancient', settings: { tutorial: true }, human_player_ids: ['p1'] } }));
+    expect(screen.queryByTestId('install-offer-results')).toBeNull();
+  });
+
+  it('offers nothing with the flag off', async () => {
+    await setFlag(false);
+    show(gameOver());
+    expect(screen.queryByTestId('install-offer-results')).toBeNull();
+  });
+});
+

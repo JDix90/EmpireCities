@@ -23,6 +23,8 @@ const TUTORIAL_PROGRESS_KEY = 'cc-tutorial-progress';
 const MOON_INSET_COLLAPSED_KEY = 'cc-moon-inset-collapsed';
 const SPACE_AGE_GUIDE_SEEN_KEY = 'cc-space-age-guide-seen';
 const PUSH_NUDGE_DISMISSED_AT_KEY = 'cc-push-nudge-dismissed-at';
+const INSTALL_OFFER_DISMISSED_AT_KEY = 'cc-install-offer-dismissed-at';
+const IOS_INSTALL_RECORDED_KEY = 'cc-ios-install-recorded';
 const GLOBE_ARMY_COUNTS_KEY = 'cc-globe-army-counts';
 
 const listeners = new Set<() => void>();
@@ -488,4 +490,41 @@ export function getPushNudgeDismissedAt(now: number = Date.now()): number | null
 
 export function markPushNudgeDismissed(now: number = Date.now()): void {
   writeString(PUSH_NUDGE_DISMISSED_AT_KEY, String(now));
+}
+
+// ── Home screen install offer (home_screen_install_enabled) ─────────────────
+// When the player last said "Not now" to an offer to add Borderfall to their
+// home screen, on any surface: one snooze for the lobby card and the results
+// screen. Read as the push nudge's is: anything but a plausible past
+// epoch-millisecond means never dismissed.
+
+export function getInstallOfferDismissedAt(now: number = Date.now()): number | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(INSTALL_OFFER_DISMISSED_AT_KEY);
+    if (raw === null) return null;
+    const at = Number(raw);
+    if (!Number.isFinite(at) || at <= 0 || at > now + 60_000) return null;
+    return at;
+  } catch {
+    return null;
+  }
+}
+
+export function markInstallOfferDismissed(now: number = Date.now()): void {
+  writeString(INSTALL_OFFER_DISMISSED_AT_KEY, String(now));
+}
+
+/** Whether this home-screen app's first launch on an iPhone has been counted (it has no install event). */
+export function hasRecordedIosInstall(): boolean {
+  if (typeof window === 'undefined') return true;
+  try {
+    return localStorage.getItem(IOS_INSTALL_RECORDED_KEY) === '1';
+  } catch {
+    return true;
+  }
+}
+
+export function markIosInstallRecorded(): void {
+  writeString(IOS_INSTALL_RECORDED_KEY, '1');
 }

@@ -5,6 +5,7 @@ import { enableWebPush, getWebPushStatus, needsHomeScreenInstall } from '../../s
 import { getPushNudgeDismissedAt, markPushNudgeDismissed } from '../../utils/userPreferences';
 import { PUSH_NUDGE_SNOOZE_MS } from './PushOptInBanner';
 import { trackFunnel, useTrackShown } from '../../utils/funnelEvents';
+import { InstallButton } from '../install/InstallOffer';
 
 export const AFTER_TURN_PROMPT_TOAST_ID = 'push-after-turn';
 
@@ -114,6 +115,7 @@ function AfterTurnPrompt({ toastId, iosTab, wait }: { toastId: string; iosTab: b
             {busy ? 'Turning on…' : 'Turn on'}
           </button>
         )}
+        {iosTab && <InstallButton surface="push_ask" label="Show me how" />}
         <button type="button" className="btn-secondary text-sm py-1.5" onClick={dismiss}>
           {iosTab ? 'Got it' : 'Not now'}
         </button>

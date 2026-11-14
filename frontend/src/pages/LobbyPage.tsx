@@ -29,6 +29,7 @@ import {
 import TopNavBar from '../components/ui/TopNavBar';
 import GuestGate from '../components/GuestGate';
 import PushOptInBanner from '../components/notifications/PushOptInBanner';
+import InstallOffer from '../components/install/InstallOffer';
 import axios from 'axios';
 import { getSocketUrl } from '../config/env';
 import { io as ioClient, Socket as IOSocket } from 'socket.io-client';
@@ -2484,6 +2485,11 @@ export default function LobbyPage() {
           <div className="min-w-0">
             {/* Active / Saved Games — surfaced first so players can immediately resume */}
             <PushOptInBanner hasAsyncGames={activeGames.some((g) => g.async_mode)} />
+            {/* Add to Home Screen (home_screen_install_enabled): never on a first
+                visit, so only to a player who has finished a game (any XP). Not
+                `isNewUser`: that also reads onboarding_stage, which the server
+                sends as a number for every player. */}
+            {(user?.xp ?? 0) > 0 && <InstallOffer surface="lobby" className="mb-6" />}
             {activeGames.length > 0 && (
               <div className="card mb-6 animate-fade-in">
                 <h3 className="font-display text-xl text-bf-gold mb-6 flex items-center gap-2">

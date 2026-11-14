@@ -5,6 +5,9 @@ import { useAuthStore } from '../../store/authStore';
 import { enableWebPush, getWebPushStatus, needsHomeScreenInstall } from '../../services/pushNotifications';
 import { getPushNudgeDismissedAt, markPushNudgeDismissed } from '../../utils/userPreferences';
 import { trackFunnel, useTrackShown } from '../../utils/funnelEvents';
+import { useHomeScreenInstallEnabled } from '../../store/featureFlagsStore';
+import { isStandaloneDisplay } from '../../services/homeScreenInstall';
+import { InstallButton } from '../install/InstallOffer';
 
 /** "Not now" keeps the card away this long. */
 export const PUSH_NUDGE_SNOOZE_MS = 30 * 24 * 3_600_000;
@@ -37,15 +40,22 @@ export default function PushOptInBanner({ hasAsyncGames }: PushOptInBannerProps)
   });
   const [busy, setBusy] = useState(false);
   const iosTab = status === 'unsupported' && needsHomeScreenInstall();
+  // home_screen_install_enabled: a player who has just opened Borderfall from
+  // their home screen is asked here whatever games they have. Installing was
+  // the step notifications were waiting on, most of all on an iPhone, where
+  // this is the first place the question can be put at all.
+  const installGuide = useHomeScreenInstallEnabled();
+  const installedApp = installGuide && isStandaloneDisplay();
+  const relevant = hasAsyncGames || installedApp;
   // funnel_events_v2_enabled: the ask shown against dismissed (the browser's
   // own answer is push_optin_granted/refused).
   useTrackShown(
     { event: 'push_ask_shown', surface: 'lobby_banner' },
-    !!hasAsyncGames && !!user && !dismissed && (status === 'default' || iosTab),
-    { ios_tab: String(iosTab) },
+    relevant && !!user && !dismissed && (status === 'default' || iosTab),
+    { ios_tab: String(iosTab), ...(installedApp ? { installed_app: 'true' } : {}) },
   );
 
-  if (!hasAsyncGames || !user || dismissed) return null;
+  if (!relevant || !user || dismissed) return null;
   if (status !== 'default' && !iosTab) return null;
 
   const dismiss = () => {
@@ -85,12 +95,14 @@ export default function PushOptInBanner({ hasAsyncGames }: PushOptInBannerProps)
       <BellRing className="w-6 h-6 text-bf-gold shrink-0" aria-hidden="true" />
       <div className="min-w-0 flex-1">
         <p className="font-medium text-bf-text">
-          {iosTab ? 'Get turn alerts on this iPhone' : "Know when it's your turn"}
+          {iosTab ? 'Get turn alerts on this iPhone' : installedApp && !hasAsyncGames ? 'Turn on notifications' : "Know when it's your turn"}
         </p>
         <p className="text-sm text-bf-muted">
           {iosTab
             ? 'Add Borderfall to your Home Screen (Share → Add to Home Screen), then turn notifications on from there.'
-            : 'Get a notification on this device when an opponent moves — even with the tab closed.'}
+            : installedApp && !hasAsyncGames
+              ? 'Borderfall is on your home screen. Let it tell you when it is your turn, and before a daily streak runs out.'
+              : 'Get a notification on this device when an opponent moves — even with the tab closed.'}
         </p>
       </div>
       <div className="flex items-center gap-2 shrink-0">
@@ -99,6 +111,7 @@ export default function PushOptInBanner({ hasAsyncGames }: PushOptInBannerProps)
             {busy ? 'Turning on…' : 'Turn on'}
           </button>
         )}
+        {iosTab && <InstallButton surface="push_ask" label="Show me how" />}
         <button
           type="button"
           className="btn-secondary text-sm py-1.5 inline-flex items-center gap-1"

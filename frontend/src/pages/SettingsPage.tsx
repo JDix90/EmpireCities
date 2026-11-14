@@ -27,6 +27,7 @@ import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import SubpageShell from '../components/ui/SubpageShell';
 import NotificationPreferences from '../components/settings/NotificationPreferences';
+import HomeScreenSettingsRow from '../components/install/HomeScreenSettingsRow';
 import { LOCALE_NAMES, SUPPORTED_LOCALES, isLocaleCode, type LocaleCode } from '../i18n/locales';
 import { setLanguage } from '../i18n';
 import {
@@ -339,6 +340,7 @@ export default function SettingsPage() {
         )}
 
         <SettingsSection title="Notifications" icon={Bell}>
+          <HomeScreenSettingsRow />
           {!isGuest ? (
             <NotificationPreferences embedded />
           ) : guestPushReminders ? (

@@ -73,6 +73,7 @@ export interface ClientFeatureFlags {
   in_game_mute_enabled: boolean;
   full_game_evening_enabled: boolean;
   full_game_ages_ending_enabled: boolean;
+  home_screen_install_enabled: boolean;
   placement_cap_note_enabled: boolean;
   custom_lobby_fold_enabled: boolean;
   custom_round_cap_enabled: boolean;
@@ -237,6 +238,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   full_game_evening_enabled: true,
   // A Full Game ends by the eras: conquest from the Modern era, a share that falls during it, no round cap. Dark-launched OFF.
   full_game_ages_ending_enabled: false,
+  // Add to Home Screen: an install button where the browser offers one, a step-by-step guide on iPhone. Dark-launched OFF.
+  home_screen_install_enabled: false,
   // Placement cap note: explain the stability cap where units are placed. On by default; admin kill switch.
   placement_cap_note_enabled: true,
   // The Custom Game form folds its less-used options under Advanced. Dark-launched OFF.
@@ -632,6 +635,11 @@ export function useInGameMuteEnabled(): boolean {
 /** A Full Game fits an evening: the 65% ending by default, an 80-round cap (utils/quickMatchPrefs.ts). */
 export function useFullGameEveningEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.full_game_evening_enabled);
+}
+
+/** Add to Home Screen: the install button, the iPhone guide and where they are offered (services/homeScreenInstall.ts). */
+export function useHomeScreenInstallEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.home_screen_install_enabled);
 }
 
 /** A Full Game ends by the eras: conquest from the Modern era, a falling share, no round cap (utils/quickMatchPrefs.ts). */

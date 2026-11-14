@@ -183,6 +183,11 @@ describe('POST /api/analytics/ui-event', () => {
       ['push_ask_shown', 'after_turn'],
       ['push_ask_dismissed', 'lobby_banner'],
       ['daily_link_clicked', 'tomorrow'],
+      ['install_offer_shown', 'lobby'],
+      ['install_offer_clicked', 'results'],
+      ['install_offer_dismissed', 'lobby'],
+      ['install_prompt_answered', 'settings'],
+      ['install_offer_clicked', 'push_ask'],
     ];
     for (const [event, surface] of ok) {
       const res = await app.inject({ method: 'POST', url: '/api/analytics/ui-event', payload: { event, properties: { surface } } });
@@ -192,6 +197,8 @@ describe('POST /api/analytics/ui-event', () => {
       { event: 'save_prompt_shown', properties: { surface: 'somewhere' } },
       { event: 'push_ask_shown', properties: { surface: 'results_screen' } },
       { event: 'daily_link_clicked' },
+      { event: 'install_offer_shown', properties: { surface: 'landing' } },
+      { event: 'install_offer_clicked' },
     ]) {
       const res = await app.inject({ method: 'POST', url: '/api/analytics/ui-event', payload });
       expect(res.statusCode).toBe(400);

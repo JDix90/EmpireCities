@@ -12,6 +12,7 @@ import { ERA_LABELS } from '../../constants/gameLobbyLabels';
 import { ownAuthUiAllowed } from '../../utils/embedContext';
 import { useSaveAccountCopyEnabled } from '../../store/featureFlagsStore';
 import { trackFunnel, useTrackShown } from '../../utils/funnelEvents';
+import { InstallButton } from '../install/InstallOffer';
 
 interface ComebackData {
   is_guest: boolean;
@@ -258,6 +259,7 @@ function ReminderAsk({ daily = false }: { daily?: boolean }) {
             {busy ? 'Turning on…' : 'Remind me'}
           </button>
         )}
+        {iosTab && <InstallButton surface="push_ask" label="Show me how" />}
         <button type="button" className="btn-secondary text-sm py-1.5" onClick={dismiss}>
           {iosTab ? 'Got it' : 'Not now'}
         </button>
