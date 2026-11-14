@@ -51,6 +51,7 @@ export interface ClientFeatureFlags {
   guest_leaderboards_enabled: boolean;
   guest_daily_board_enabled: boolean;
   first_attack_hint_enabled: boolean;
+  chat_safety_enabled: boolean;
   localization_enabled: boolean;
   touch_targets_enabled: boolean;
   daily_puzzle_v2_enabled: boolean;
@@ -195,6 +196,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   guest_daily_board_enabled: false,
   // A first match's attack tip names one attack and the map rings it. Dark-launched OFF.
   first_attack_hint_enabled: false,
+  // Report a chat message and block a player. Dark-launched OFF.
+  chat_safety_enabled: false,
   // Localized landing + tutorial (src/i18n). Dark-launched OFF: the bundles
   // ship but everyone sees English until an operator turns this on.
   localization_enabled: false,
@@ -513,6 +516,11 @@ export function useGuestDailyBoardEnabled(): boolean {
 /** A first match's attack tip names one attack and the map rings it (utils/firstAttackHint.ts). */
 export function useFirstAttackHintEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.first_attack_hint_enabled);
+}
+
+/** Report a chat message and block a player (services/chatSafety.ts). */
+export function useChatSafetyEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.chat_safety_enabled);
 }
 
 export function useAttackBlitzEnabled(): boolean {

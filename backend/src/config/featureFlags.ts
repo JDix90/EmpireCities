@@ -250,6 +250,8 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   guest_daily_board_enabled: () => envOptIn('GUEST_DAILY_BOARD_ENABLED'),
   // A first match's attack tip names one attack and the map rings it (client-only).
   first_attack_hint_enabled: () => envOptIn('FIRST_ATTACK_HINT_ENABLED'),
+  // Report a chat message and block a player; Admin → Reports.
+  chat_safety_enabled: () => envOptIn('CHAT_SAFETY_ENABLED'),
   // Localized landing page + tutorial (frontend/src/i18n). Dark-launched OFF:
   // the translated bundles ship in the client but nobody is routed to them
   // until this is on. Client-only effect.
@@ -2112,6 +2114,18 @@ export const featureFlags = {
   },
 
   /**
+   * Chat safety: a player can report a chat message (to Admin → Reports) and
+   * block a player, whose chat then no longer reaches them in any game, lobby
+   * or spectator chat (modules/safety, sockets/handlers/chatHandler.ts). The
+   * App Store asks it of an app with chat (guideline 1.2). Default OFF;
+   * `CHAT_SAFETY_ENABLED=true` or the admin override turns it on. Admins can
+   * always use it, and always read the reports.
+   */
+  get chatSafetyEnabled(): boolean {
+    return overrideBool('chat_safety_enabled');
+  },
+
+  /**
    * Localized landing page and tutorial (frontend/src/i18n). Off means English
    * for everyone whatever the browser says; on lets the client honour the
    * stored `cc-lang` choice or the browser language. Default OFF until the
@@ -2192,6 +2206,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     guest_leaderboards_enabled: featureFlags.guestLeaderboardsEnabled,
     guest_daily_board_enabled: featureFlags.guestDailyBoardEnabled,
     first_attack_hint_enabled: featureFlags.firstAttackHintEnabled,
+    chat_safety_enabled: featureFlags.chatSafetyEnabled,
     localization_enabled: featureFlags.localizationEnabled,
     touch_targets_enabled: featureFlags.touchTargetsEnabled,
     daily_puzzle_v2_enabled: featureFlags.dailyPuzzleV2Enabled,

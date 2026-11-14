@@ -6,6 +6,7 @@ import {
   useEmailAccountSaveEnabled,
   useGuestPushRemindersEnabled,
   useGlobeUnitCountsEnabled,
+  useChatSafetyEnabled,
 } from '../store/featureFlagsStore';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -21,6 +22,7 @@ import {
   Eye,
   Shield,
   Globe,
+  UserX,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../services/api';
@@ -28,6 +30,7 @@ import { useAuthStore } from '../store/authStore';
 import SubpageShell from '../components/ui/SubpageShell';
 import NotificationPreferences from '../components/settings/NotificationPreferences';
 import HomeScreenSettingsRow from '../components/install/HomeScreenSettingsRow';
+import BlockedPlayers from '../components/settings/BlockedPlayers';
 import { LOCALE_NAMES, SUPPORTED_LOCALES, isLocaleCode, type LocaleCode } from '../i18n/locales';
 import { setLanguage } from '../i18n';
 import {
@@ -108,6 +111,7 @@ export default function SettingsPage() {
   const [globeSpin, setGlobeSpin] = useState(getGlobeSpinPreference);
   const [cameraFollow, setCameraFollow] = useState(getCameraFollowPreference);
   const globeUnitCounts = useGlobeUnitCountsEnabled();
+  const chatSafety = useChatSafetyEnabled();
   const [armyCounts, setArmyCounts] = useState(getGlobeArmyCountsPreference);
   const [liteMode, setLiteModeState] = useState(isLiteMode);
   const [batterySaver, setBatterySaverState] = useState(isBatterySaver);
@@ -582,6 +586,13 @@ export default function SettingsPage() {
             </SettingsRow>
           )}
         </SettingsSection>
+
+        {/* chat_safety_enabled: players blocked from the chat's menu. */}
+        {chatSafety && (
+          <SettingsSection title="Blocked players" icon={UserX}>
+            <BlockedPlayers />
+          </SettingsSection>
+        )}
       </div>
     </SubpageShell>
   );

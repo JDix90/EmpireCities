@@ -1,6 +1,9 @@
+import { randomUUID } from 'crypto';
 import { z } from 'zod';
 import type { SocketContext } from './types';
 import { maskMessage } from '../../utils/profanity';
+import { featureFlags } from '../../config/featureFlags';
+import { blockersOf, rememberChatMessage, type ChatChannel } from '../../modules/safety/chatSafety.service';
 
 const SPECTATOR_CHAT_COOLDOWN_MS = 2_000;
 
@@ -20,6 +23,43 @@ const EmotePayload = z.object({
  */
 export function registerChatHandlers(ctx: SocketContext): void {
   const { io, socket, userId } = ctx;
+
+  /**
+   * Send a chat message to a room. Every message carries a `messageId`, which
+   * is what a report names. With chat_safety_enabled the server keeps a copy
+   * for reports (modules/safety) and leaves out the sockets of everyone who
+   * has blocked the sender: each socket joins `user:<id>` on connect. A
+   * failed block lookup sends to everyone rather than losing the message.
+   * This player's messages go out one after another, in the order sent.
+   */
+  let sending: Promise<void> = Promise.resolve();
+  const deliver = (
+    gameId: string,
+    roomName: string,
+    event: string,
+    channel: ChatChannel,
+    payload: { message: string; username: string } & Record<string, unknown>,
+  ): void => {
+    const messageId = randomUUID();
+    const full = { ...payload, messageId };
+    if (!featureFlags.chatSafetyEnabled) {
+      io.to(roomName).emit(event, full);
+      return;
+    }
+    void rememberChatMessage(gameId, {
+      id: messageId, channel, senderId: userId, username: payload.username, message: payload.message, at: Date.now(),
+    });
+    sending = sending.then(async () => {
+      let blockers: string[] = [];
+      try {
+        blockers = await blockersOf(userId);
+      } catch (err) {
+        console.warn('[chat] block lookup failed; sending to everyone:', (err as Error).message);
+      }
+      const target = blockers.length ? io.to(roomName).except(blockers.map((id) => `user:${id}`)) : io.to(roomName);
+      target.emit(event, full);
+    }).catch(() => {});
+  };
 
   // Note on chat sanitisation:
   // Chat messages are rendered as TEXT by the React client (no
@@ -45,7 +85,7 @@ export function registerChatHandlers(ctx: SocketContext): void {
     if (!clean) return;
 
     const player = room.state.players.find((p) => p.player_id === userId);
-    io.to(gameId).emit('game:chat_message', {
+    deliver(gameId, gameId, 'game:chat_message', 'game', {
       gameId,
       playerId: userId,
       username: player?.username ?? 'Unknown',
@@ -71,8 +111,10 @@ export function registerChatHandlers(ctx: SocketContext): void {
     const text = message.trim().slice(0, 200);
     if (!text) return;
 
-    io.to(`${gameId}:spectators`).emit('game:spectator_chat_message', {
+    deliver(gameId, `${gameId}:spectators`, 'game:spectator_chat_message', 'spectator', {
       gameId,
+      // Who sent it, so a spectator can report or block them.
+      playerId: userId,
       username: socket.data?.username ?? ctx.username,
       message: maskMessage(text),
       timestamp: now,
@@ -113,7 +155,7 @@ export function registerChatHandlers(ctx: SocketContext): void {
     const clean = gifMatch ? text : maskMessage(text.slice(0, 200));
     if (!clean) return;
 
-    io.to(gameId).emit('game:lobby_chat_message', {
+    deliver(gameId, gameId, 'game:lobby_chat_message', 'lobby', {
       gameId,
       playerId: userId,
       username: socket.data?.username ?? ctx.username,
