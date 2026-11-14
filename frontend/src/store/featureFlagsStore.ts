@@ -83,6 +83,7 @@ export interface ClientFeatureFlags {
   funnel_events_v2_enabled: boolean;
   lobby_cleanup_enabled: boolean;
   early_access_count_enabled: boolean;
+  lobby_new_player_gate_enabled: boolean;
   duel_opening_enabled: boolean;
   even_deal_enabled: boolean;
   overlay_queue_enabled: boolean;
@@ -257,6 +258,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   lobby_cleanup_enabled: false,
   // The lobby's "Early access · N games played so far" (LobbyPage). Dark-launched OFF.
   early_access_count_enabled: false,
+  // The lobby's new-player layout only for a player with no XP (LobbyPage isNewUser). Dark-launched OFF.
+  lobby_new_player_gate_enabled: false,
   // Two-player opening balance; the client only states the rule (HowToPlayPage). Dark-launched OFF.
   duel_opening_enabled: false,
   // Even deal (server-side, baked at create); the client only states the rule (HowToPlayPage). Dark-launched OFF.
@@ -685,6 +688,11 @@ export function useLobbyCleanupEnabled(): boolean {
 /** The lobby's "Early access · N games played so far" beside the live counters. */
 export function useEarlyAccessCountEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.early_access_count_enabled);
+}
+
+/** The lobby's new-player layout only for a player with no XP (LobbyPage isNewUser). */
+export function useLobbyNewPlayerGateEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.lobby_new_player_gate_enabled);
 }
 
 /** Two-player opening balance (server-side, baked at create): How to Play states the rule while it is live. */

@@ -617,6 +617,14 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().early_access_count_enabled).toBe(true);
   });
 
+  it('lobby_new_player_gate_enabled defaults to off and the admin override turns it on', () => {
+    expect(featureFlags.lobbyNewPlayerGateEnabled).toBe(false);
+    expect(getClientFeatureFlags().lobby_new_player_gate_enabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { lobby_new_player_gate_enabled: true } });
+    expect(featureFlags.lobbyNewPlayerGateEnabled).toBe(true);
+    expect(getClientFeatureFlags().lobby_new_player_gate_enabled).toBe(true);
+  });
+
   it('even_deal_enabled defaults to off, reaches the client, and the admin override turns it on', () => {
     expect(featureFlags.evenDealEnabled).toBe(false);
     expect(getFeatureFlagStates().even_deal_enabled).toEqual({ code_default: false, overridden: false, effective: false });

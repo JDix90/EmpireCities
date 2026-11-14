@@ -123,7 +123,7 @@ import { Settings2, FlaskConical, Radio, Activity, Eye, Swords, ChevronDown } fr
 import { ownAuthUiAllowed } from '../utils/embedContext';
 import { trackFunnel, useTrackShown } from '../utils/funnelEvents';
 import GuestDayCard from '../components/lobby/GuestDayCard';
-import { useComebackHookEnabled, useEarlyAccessCountEnabled, useLobbyCleanupEnabled } from '../store/featureFlagsStore';
+import { useComebackHookEnabled, useEarlyAccessCountEnabled, useLobbyCleanupEnabled, useLobbyNewPlayerGateEnabled } from '../store/featureFlagsStore';
 import { nextQuest } from '../utils/questOrder';
 
 interface LiveGameSummary {
@@ -834,6 +834,7 @@ export default function LobbyPage() {
   // early_access_count_enabled: "Early access · N games played so far", the
   // one count here that only goes up.
   const earlyAccessCount = useEarlyAccessCountEnabled();
+  const newPlayerGate = useLobbyNewPlayerGateEnabled();
   const playedSoFar = earlyAccessCount ? activityStats?.games_played_total ?? 0 : 0;
   const joinFromUrlHandled = useRef(false);
 
@@ -1764,8 +1765,22 @@ export default function LobbyPage() {
     await startQuickMatch();
   };
 
-  // New players (or anyone yet to score XP) get a solo-first layout: play now, no empty lobby.
-  const isNewUser = !!user && ((user.xp ?? 0) === 0 || user.onboarding_stage != null);
+  // A new player gets a solo-first layout: the Getting Started block, and no
+  // Daily Challenge row beside it (TodayPanel, or the card that stands in for it).
+  //
+  // lobby_new_player_gate_enabled: new means no XP yet, the same test the
+  // welcome modal uses. XP comes with the first finished game or the finished
+  // tutorial (100 XP, after which Training Academy takes over below), and is in
+  // the user from sign-in on, so the answer does not change when /users/me lands.
+  // users.onboarding_stage is deliberately not read. Nothing advances it (see
+  // the flag's note in backend featureFlags.ts), so no threshold on it would
+  // ever tell two players apart; quest progress is the banner's, above.
+  //
+  // Flag off, the check is as it was: written for a stage that was null once
+  // onboarding was finished, but /users/me sends COALESCE(onboarding_stage, 0),
+  // so after the profile refresh it is true for every player at any XP.
+  const hasNoXp = (user?.xp ?? 0) === 0;
+  const isNewUser = !!user && (newPlayerGate ? hasNoXp : hasNoXp || user.onboarding_stage != null);
 
   // ── The Custom Game form's pieces that fold under Advanced ──────────────
   // With custom_lobby_fold_enabled they render inside the fold, after the
