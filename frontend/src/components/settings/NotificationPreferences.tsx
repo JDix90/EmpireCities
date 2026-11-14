@@ -9,6 +9,8 @@ import {
   type WebPushStatus,
 } from '../../services/pushNotifications';
 import { SettingsRow, SettingsToggle } from './SettingsPrimitives';
+import { useHomeScreenInstallEnabled } from '../../store/featureFlagsStore';
+import { InstallButton } from '../install/InstallOffer';
 
 /**
  * The FCM web SDK shows a system notification only while the tab is hidden;
@@ -41,6 +43,8 @@ export default function NotificationPreferences({ embedded = false, guest = fals
   // the server's switch for every device; this row is the browser's own
   // permission, which only a click can ask for.
   const [browserStatus, setBrowserStatus] = useState<WebPushStatus>(() => getWebPushStatus());
+  // home_screen_install_enabled: the iPhone row shows how, in place of a line of text.
+  const installGuide = useHomeScreenInstallEnabled();
   const [enabling, setEnabling] = useState(false);
   const [testing, setTesting] = useState(false);
 
@@ -125,7 +129,9 @@ export default function NotificationPreferences({ embedded = false, guest = fals
           label="This iPhone or iPad"
           description="Add Borderfall to your Home Screen (Share → Add to Home Screen), then turn notifications on from there."
         >
-          <span className="text-xs text-bf-muted">Home Screen only</span>
+          {installGuide
+            ? <InstallButton surface="push_ask" label="Show me how" />
+            : <span className="text-xs text-bf-muted">Home Screen only</span>}
         </SettingsRow>
       );
     }

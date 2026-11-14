@@ -16,11 +16,14 @@ import { useFeatureFlagsStore } from '../store/featureFlagsStore';
 export type SavePromptSurface = 'results' | 'post_game' | 'tutorial_end' | 'tomorrow' | 'lobby' | 'guest_gate';
 export type PushAskSurface = 'results' | 'after_turn' | 'lobby_banner';
 export type DailyLinkSurface = 'tomorrow' | 'today_panel' | 'lobby';
+/** Where an offer to add Borderfall to the home screen appeared (home_screen_install_enabled). */
+export type InstallOfferSurface = 'lobby' | 'results' | 'settings' | 'push_ask';
 
 type FunnelEvent =
   | { event: 'save_prompt_shown' | 'save_prompt_clicked'; surface: SavePromptSurface }
   | { event: 'push_ask_shown' | 'push_ask_dismissed'; surface: PushAskSurface }
   | { event: 'daily_link_clicked'; surface: DailyLinkSurface }
+  | { event: 'install_offer_shown' | 'install_offer_clicked' | 'install_offer_dismissed' | 'install_prompt_answered'; surface: InstallOfferSurface }
   | { event: 'tomorrow_panel_shown'; surface?: undefined }
   | { event: 'tutorial_step'; surface?: undefined };
 

@@ -297,6 +297,15 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // docs/full-game-pacing/REPORT.md). The lobby's Full Game sends the settings
   // and the server keeps them only while this is on. Dark-launched OFF.
   full_game_ages_ending_enabled: () => envOptIn('FULL_GAME_AGES_ENDING_ENABLED'),
+  // Add to Home Screen. A player on the home screen comes back, and on an
+  // iPhone it is the only place a website may send notifications from; the
+  // site offered it nowhere but a line of text at the notification ask. With
+  // this on: an Install button that opens the browser's own dialog where the
+  // browser offers one (Chrome, Edge, Samsung Internet), a step-by-step guide
+  // on iPhone and iPad, where Apple allows nothing more, offered in the lobby
+  // (never to a brand-new player), after a win and in Settings; and the
+  // installed app asks for notifications. Client-only. Dark-launched OFF.
+  home_screen_install_enabled: () => envOptIn('HOME_SCREEN_INSTALL_ENABLED'),
   // Placement cap note: where the player places units on an unsettled
   // territory (stability under 50), say in words how many more it takes this
   // turn and why, instead of "stability cap: 3 more here". A just-conquered
@@ -1221,6 +1230,22 @@ export const featureFlags = {
    */
   get fullGameAgesEndingEnabled(): boolean {
     return overrideBool('full_game_ages_ending_enabled');
+  },
+
+  /**
+   * Add to Home Screen (frontend services/homeScreenInstall.ts): an Install
+   * button that opens the browser's own install dialog where the browser
+   * offers one, and a step-by-step guide on iPhone and iPad, where a page can
+   * do no more. Offered in the lobby to a player past their first game, after
+   * a win, and in Settings; it replaces the one-line "Share → Add to Home
+   * Screen" at the notification asks; and a player who opens the installed
+   * app is asked about notifications there. Client-only: the server does
+   * nothing differently.
+   * Dark-launched OFF; `HOME_SCREEN_INSTALL_ENABLED=true` or the admin
+   * override turns it on.
+   */
+  get homeScreenInstallEnabled(): boolean {
+    return overrideBool('home_screen_install_enabled');
   },
 
   /**
@@ -2150,6 +2175,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     in_game_mute_enabled: featureFlags.inGameMuteEnabled,
     full_game_evening_enabled: featureFlags.fullGameEveningEnabled,
     full_game_ages_ending_enabled: featureFlags.fullGameAgesEndingEnabled,
+    home_screen_install_enabled: featureFlags.homeScreenInstallEnabled,
     placement_cap_note_enabled: featureFlags.placementCapNoteEnabled,
     custom_lobby_fold_enabled: featureFlags.customLobbyFoldEnabled,
     custom_round_cap_enabled: featureFlags.customRoundCapEnabled,

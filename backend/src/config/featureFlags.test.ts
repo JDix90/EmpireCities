@@ -847,6 +847,15 @@ describe('featureFlags', () => {
     expect(featureFlags.aiEraPatienceEnabled).toBe(true);
   });
 
+  it('home_screen_install_enabled is dark-launched off, and the admin override turns it on', () => {
+    expect(featureFlags.homeScreenInstallEnabled).toBe(false);
+    expect(getClientFeatureFlags().home_screen_install_enabled).toBe(false);
+    expect(getFeatureFlagStates().home_screen_install_enabled).toEqual({ code_default: false, overridden: false, effective: false });
+    setAdminConfigCacheForTests({ feature_flags: { home_screen_install_enabled: true } });
+    expect(featureFlags.homeScreenInstallEnabled).toBe(true);
+    expect(getClientFeatureFlags().home_screen_install_enabled).toBe(true);
+  });
+
   it('full_game_ages_ending_enabled is dark-launched off, and the admin override turns it on', () => {
     expect(featureFlags.fullGameAgesEndingEnabled).toBe(false);
     expect(getClientFeatureFlags().full_game_ages_ending_enabled).toBe(false);

@@ -14,12 +14,16 @@ import { useFeatureFlagsStore } from './store/featureFlagsStore';
 import { installTranslationDomGuard } from './utils/translationDomGuard';
 import { stopIosInputZoom } from './utils/iosZoom';
 import { reloadForNewBuild } from './utils/lazyWithChunkRetry';
+import { listenForInstallPrompt } from './services/homeScreenInstall';
 
 // Snapshot first-touch acquisition attribution (utm_* / referrer) before render,
 // so it's available for the first guest/register call. See utils/attribution.ts.
 captureAttribution();
 // Keep a referral link's code until the visitor makes or saves an account.
 capturePendingReferral();
+// Hold the browser's install offer from the first moment (home_screen_install_enabled):
+// it comes once per page load, often before the app has rendered.
+listenForInstallPrompt(() => useFeatureFlagsStore.getState().flags.home_screen_install_enabled === true);
 
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN as string | undefined;
 // The deployed commit, baked in at build time (scripts/deploy-production.sh).

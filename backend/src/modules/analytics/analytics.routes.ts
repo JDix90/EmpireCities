@@ -40,6 +40,8 @@ export const FIRST_TURN_STEPS = new Set([
 export const SAVE_PROMPT_SURFACES = new Set(['results', 'post_game', 'tutorial_end', 'tomorrow', 'lobby', 'guest_gate']);
 export const PUSH_ASK_SURFACES = new Set(['results', 'after_turn', 'lobby_banner']);
 export const DAILY_LINK_SURFACES = new Set(['tomorrow', 'today_panel', 'lobby']);
+/** Where an offer to add the site to the home screen appeared (home_screen_install_enabled). */
+export const INSTALL_OFFER_SURFACES = new Set(['lobby', 'results', 'settings', 'push_ask']);
 
 /** The events whose `surface` must come from a closed set, and the set. */
 const SURFACE_EVENTS: Record<string, Set<string>> = {
@@ -48,6 +50,10 @@ const SURFACE_EVENTS: Record<string, Set<string>> = {
   push_ask_shown: PUSH_ASK_SURFACES,
   push_ask_dismissed: PUSH_ASK_SURFACES,
   daily_link_clicked: DAILY_LINK_SURFACES,
+  install_offer_shown: INSTALL_OFFER_SURFACES,
+  install_offer_clicked: INSTALL_OFFER_SURFACES,
+  install_offer_dismissed: INSTALL_OFFER_SURFACES,
+  install_prompt_answered: INSTALL_OFFER_SURFACES,
 };
 
 /**
@@ -156,6 +162,17 @@ const UiEventSchema = z.object({
     'push_ask_dismissed',
     'tomorrow_panel_shown',
     'daily_link_clicked',
+    // home_screen_install_enabled (frontend services/homeScreenInstall.ts): an
+    // offer to add the site to the home screen shown, pressed and dismissed,
+    // by `surface`, with `path` (prompt | ios_share | ios_in_app | manual):
+    // which browsers the offer reaches and where players give up. And the
+    // answer the browser's own install dialog got (`result`: accepted |
+    // dismissed). An iPhone install has no event of its own; it shows up as
+    // pwa_installed with platform=ios on the first launch from the home screen.
+    'install_offer_shown',
+    'install_offer_clicked',
+    'install_offer_dismissed',
+    'install_prompt_answered',
   ]),
   properties: z.record(z.string().max(64), z.string().max(200)).optional(),
 }).superRefine((value, ctx) => {

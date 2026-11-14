@@ -2,6 +2,9 @@ import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import SubpageShell from './components/ui/SubpageShell';
 import { Toaster } from 'react-hot-toast';
+import InstallGuideHost from './components/install/InstallGuide';
+import { isIosDevice, isStandaloneDisplay, readInstallEnvironment } from './services/homeScreenInstall';
+import { hasRecordedIosInstall, markIosInstallRecorded } from './utils/userPreferences';
 import { useAuthStore, selectIsAdminFromToken } from './store/authStore';
 import { useFeatureFlagsStore, useMapEditorEnabled } from './store/featureFlagsStore';
 import { applyLocalizationPolicy } from './i18n';
@@ -364,6 +367,19 @@ export default function App() {
     return () => window.removeEventListener('appinstalled', onInstalled);
   }, []);
 
+  // An iPhone has no `appinstalled`: an install there shows only as the first
+  // launch from the Home Screen. Count it once per device, for a signed-in
+  // session (the event needs one), so home_screen_install_enabled can be
+  // judged on the platform it matters most for.
+  const homeScreenInstall = useFeatureFlagsStore((s) => s.flags.home_screen_install_enabled);
+  useEffect(() => {
+    if (!homeScreenInstall || !isAuthenticated || hasRecordedIosInstall()) return;
+    if (!isStandaloneDisplay() || !isIosDevice(readInstallEnvironment(false))) return;
+    api.post('/analytics/ui-event', { event: 'pwa_installed', properties: { platform: 'ios' } })
+      .then(() => markIosInstallRecorded())
+      .catch(() => {});
+  }, [homeScreenInstall, isAuthenticated]);
+
   const isOnline = useNetworkStatus();
 
   // Track viewport width so the toaster position can flip to bottom-center on
@@ -400,6 +416,7 @@ export default function App() {
           You are offline — reconnecting…
         </div>
       )}
+      <InstallGuideHost />
       <Toaster
         position={toasterPosition}
         containerStyle={toasterContainerStyle}

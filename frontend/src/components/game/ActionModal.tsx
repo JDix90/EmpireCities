@@ -7,6 +7,7 @@ import { Sword, Swords, Shield, ArrowRight, Crown, Skull, Flag, ChevronRight, Ch
 import clsx from 'clsx';
 import CombatAbilityCallouts from './CombatAbilityCallouts';
 import ComeBackTomorrowPanel from './ComeBackTomorrowPanel';
+import InstallOffer from '../install/InstallOffer';
 import ReferralSurvey from './ReferralSurvey';
 import { GalacticGameOverFeedback } from './GalacticFeedback';
 import { useGuestPromptV2Enabled, usePlayOnEnabled, useReferralSurveyEnabled, useResultsFooterEnabled, useResultsRewardsFirstEnabled } from '../../store/featureFlagsStore';
@@ -2104,6 +2105,18 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
       {!data.rematchConfig?.settings?.tutorial && !data.rematchConfig?.settings?.daily_challenge_date && (
         <ComeBackTomorrowPanel
           won={data.isWinner}
+          className={clsx(
+            'mb-6 transition-all duration-500 delay-450',
+            showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
+          )}
+        />
+      )}
+
+      {/* Add to Home Screen (home_screen_install_enabled): offered after a win,
+          when the player has a reason to come back. Not after a tutorial. */}
+      {data.isWinner && !data.rematchConfig?.settings?.tutorial && (
+        <InstallOffer
+          surface="results"
           className={clsx(
             'mb-6 transition-all duration-500 delay-450',
             showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4',
