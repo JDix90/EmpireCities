@@ -53,7 +53,7 @@ export function InstallButton({ surface, className, label }: {
   return (
     <button
       type="button"
-      className={clsx('btn-primary text-sm py-1.5 inline-flex items-center gap-1.5', className)}
+      className={clsx('btn-primary text-sm py-1.5 inline-flex items-center gap-1.5 whitespace-nowrap', className)}
       onClick={press}
       disabled={busy}
       data-testid={`install-button-${surface}`}
@@ -107,11 +107,11 @@ export default function InstallOffer({ surface, className }: {
             : 'It opens full screen like an app, straight to your games. No app store, nothing to download.'}
         </p>
       </div>
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex flex-wrap items-center gap-2 shrink-0">
         <InstallButton surface={surface} />
         <button
           type="button"
-          className="btn-secondary text-sm py-1.5 inline-flex items-center gap-1"
+          className="btn-secondary text-sm py-1.5 inline-flex items-center gap-1 whitespace-nowrap"
           onClick={dismiss}
         >
           <X className="w-3.5 h-3.5" aria-hidden="true" /> Not now
