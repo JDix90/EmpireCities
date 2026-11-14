@@ -19,6 +19,14 @@ describe('classifyAcquisitionSource', () => {
     }
   });
 
+  it('counts the Google app on Android as search, by its package name, and not other Google apps', () => {
+    // android-app://com.google.android.googlequicksearchbox/… stores this host.
+    expect(classifyAcquisitionSource('com.google.android.googlequicksearchbox')).toBe('search');
+    expect(classifyAcquisitionSource('COM.GOOGLE.ANDROID.GOOGLEQUICKSEARCHBOX')).toBe('search');
+    // The Gmail app is an email link, not a search.
+    expect(classifyAcquisitionSource('com.google.android.gm')).toBe('referral');
+  });
+
   it('keeps gemini.google.com out of search even though it ends in google.com', () => {
     // Order matters: the llm list is consulted first. If search won here, the
     // assistant channel would silently lose Gemini to the search row.

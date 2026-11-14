@@ -76,6 +76,10 @@ export const SEARCH_SOURCES = [
   'search.brave.com',
   'startpage.com',
   'qwant.com',
+  // The Google app on Android (its search box and its Discover feed) refers as
+  // android-app://com.google.android.googlequicksearchbox, and the stored
+  // referrer host is that package name. It counted as `referral`.
+  'com.google.android.googlequicksearchbox',
 ] as const;
 
 export const SOCIAL_SOURCES = [
