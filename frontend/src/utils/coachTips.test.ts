@@ -34,6 +34,21 @@ describe('coachTipFor', () => {
   it('skips a step the player has already done', () => {
     expect(coachTipFor(view({ phase: 'attack' }), new Set<CoachTipId>(['attack']))).toBeNull();
   });
+
+  it('names the suggested first attack in the attack step (first_attack_hint_enabled), and only there', () => {
+    const hint = { fromId: 'strathclyde', fromName: 'Strathclyde', fromUnits: 6, toId: 'jorvik', toName: 'Jórvík', toUnits: 3 };
+    const tip = coachTipFor(view({ phase: 'attack', firstAttack: { hint, open: null } }), none);
+    expect(tip).toEqual({ id: 'first_attack', text: 'Attack Jórvík from Strathclyde: your 6 against their 3. Tap Strathclyde.' });
+    expect(coachTipFor(view({ phase: 'attack', firstAttack: { hint, open: 'from' } }), none)?.text).toBe('Tap Jórvík in the panel to attack it.');
+    // An attack in the tutorial retired the generic step; the suggestion still shows.
+    expect(coachTipFor(view({ phase: 'attack', firstAttack: { hint, open: null } }), new Set<CoachTipId>(['attack']))?.id).toBe('first_attack');
+    // Once attacked, or with its own step retired, it goes.
+    expect(coachTipFor(view({ phase: 'attack', attackedThisTurn: true, firstAttack: { hint, open: null } }), none)?.id).toBe('end_attack');
+    expect(coachTipFor(view({ phase: 'attack', firstAttack: { hint, open: null } }), new Set<CoachTipId>(['attack', 'first_attack']))).toBeNull();
+    // Without one, the tip is as before.
+    expect(coachTipFor(view({ phase: 'attack', firstAttack: null }), none)?.text)
+      .toBe('Tap your biggest stack, then tap a neighbour with fewer units to attack it.');
+  });
 });
 
 describe('coachTipsDoneBetween', () => {
@@ -43,6 +58,21 @@ describe('coachTipsDoneBetween', () => {
     expect(coachTipsDoneBetween(view({ phase: 'attack' }), view({ phase: 'attack', attackedThisTurn: true }))).toEqual(['attack']);
     expect(coachTipsDoneBetween(view({ phase: 'attack', attackedThisTurn: true }), view({ phase: 'fortify' }))).toEqual(['end_attack']);
     expect(coachTipsDoneBetween(view({ phase: 'fortify' }), view({ phase: 'draft', myTurn: false }))).toEqual(['fortify']);
+  });
+
+  it('retires the suggested first attack only with an attack made while it was up', () => {
+    const hint = { fromId: 'a', fromName: 'A', fromUnits: 5, toId: 'b', toName: 'B', toUnits: 2 };
+    expect(coachTipsDoneBetween(
+      view({ phase: 'attack', firstAttack: { hint, open: 'from' } }),
+      view({ phase: 'attack', attackedThisTurn: true, firstAttack: null }),
+    )).toEqual(['attack', 'first_attack']);
+    // The tutorial's attack (no suggestion there) leaves it for the first match.
+    expect(coachTipsDoneBetween(view({ phase: 'attack' }), view({ phase: 'attack', attackedThisTurn: true }))).toEqual(['attack']);
+  });
+
+  it('keeps first_attack when reading retired steps back', () => {
+    writeCoachTipsDone(new Set<CoachTipId>(['attack', 'first_attack']));
+    expect([...readCoachTipsDone()].sort()).toEqual(['attack', 'first_attack']);
   });
 
   it('retires nothing on the first view, or when the turn changes hands mid-draft', () => {

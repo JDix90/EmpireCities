@@ -95,12 +95,13 @@ import AdvanceEraPanel from '../components/game/AdvanceEraPanel';
 import GameChat from '../components/game/GameChat';
 import MobileCardsTray from '../components/game/MobileCardsTray';
 import FirstTurnCoach from '../components/game/FirstTurnCoach';
-import { useCoachTipsEnabled, useFirstMatchButtonEmphasisEnabled } from '../store/featureFlagsStore';
+import { useCoachTipsEnabled, useFirstAttackHintEnabled, useFirstMatchButtonEmphasisEnabled } from '../store/featureFlagsStore';
 import { useCardSetsExplainEnabled } from '../store/featureFlagsStore';
 import { useOverlayQueueEnabled } from '../store/featureFlagsStore';
 import { planOverlays } from '../utils/overlayQueue';
 import { cardSetBonus, findRedeemableCardIds } from '../utils/cardSets';
 import CoachTipStrip from '../components/game/CoachTipStrip';
+import { firstAttackOpen, firstAttackRingId, suggestFirstAttack, type FirstAttackHint } from '../utils/firstAttackHint';
 import {
   coachTipFor,
   coachTipsDoneBetween,
@@ -816,6 +817,21 @@ export default function GamePage() {
   const buttonEmphasisFlag = useFirstMatchButtonEmphasisEnabled();
   const [coachTipsChoice, setCoachTipsChoice] = useState<CoachTipsChoice | null>(readCoachTipsChoice);
   const [coachTipsDone, setCoachTipsDone] = useState(readCoachTipsDone);
+  // The suggested first attack (first_attack_hint_enabled, utils/firstAttackHint.ts):
+  // a first match's attack phase, on the player's turn, before their attack.
+  const firstAttackHintFlag = useFirstAttackHintEnabled();
+  const firstAttackHint = useMemo<FirstAttackHint | null>(() => {
+    if (!firstAttackHintFlag || !gameState || !viewerPlayer || !mapData) return null;
+    if (gameState.settings?.tutorial || (gameState.settings as { first_match?: boolean } | undefined)?.first_match !== true) return null;
+    if (gameState.phase !== 'attack') return null;
+    if (gameState.players[gameState.current_player_index]?.player_id !== viewerPlayer.player_id) return null;
+    if ((viewerPlayer as { attacked_this_turn?: boolean }).attacked_this_turn === true) return null;
+    const names = new Map(mapData.territories.map((t) => [t.territory_id, t.name]));
+    return suggestFirstAttack(gameState, mapData.connections, viewerPlayer.player_id, names);
+  }, [firstAttackHintFlag, gameState, viewerPlayer, mapData]);
+  /** The suggestion on screen, and whether the last attack sent was it: for the first_attack event. */
+  const visibleFirstAttackRef = useRef<FirstAttackHint | null>(null);
+  const lastAttackHintRef = useRef<'followed' | 'other' | null>(null);
   const coachView = useMemo<CoachTipView | null>(() => {
     if (!gameState || !viewerPlayer) return null;
     const myTurn = gameState.players[gameState.current_player_index]?.player_id === viewerPlayer.player_id;
@@ -828,8 +844,11 @@ export default function GamePage() {
       ownTerritorySelected: !!selectedTerritory && gameState.territories[selectedTerritory]?.owner_id === viewerPlayer.player_id,
       // Server-kept since the loss tallies (state/lossTally.ts).
       attackedThisTurn: (viewerPlayer as { attacked_this_turn?: boolean }).attacked_this_turn === true,
+      firstAttack: firstAttackHint
+        ? { hint: firstAttackHint, open: firstAttackOpen(firstAttackHint, selectedTerritory, attackSource) }
+        : null,
     };
-  }, [gameState, viewerPlayer, user?.user_id, user?.username, draftUnitsRemaining, resolvedViewerPlayerId, selectedTerritory]);
+  }, [gameState, viewerPlayer, user?.user_id, user?.username, draftUnitsRemaining, resolvedViewerPlayerId, selectedTerritory, firstAttackHint, attackSource]);
   const firstMatchGame = (gameState?.settings as { first_match?: boolean } | undefined)?.first_match === true;
   const phaseButtonIsQuiet = !!coachView && phaseButtonQuiet({
     enabled: buttonEmphasisFlag,
@@ -2109,7 +2128,12 @@ export default function GamePage() {
         if (!funnelEmittedRef.current.attack) {
           funnelEmittedRef.current.attack = true;
           // game_id so the attack joins the game's first-turn steps (the review's Project 1 metric).
-          api.post('/analytics/ui-event', { event: 'first_attack', properties: { era, is_tutorial: isTut, game_id: String(state?.game_id ?? '') } }).catch(() => {});
+          // attack_hint (first_attack_hint_enabled): the suggestion was on screen, and whether this was it.
+          const attackHint = lastAttackHintRef.current;
+          api.post('/analytics/ui-event', {
+            event: 'first_attack',
+            properties: { era, is_tutorial: isTut, game_id: String(state?.game_id ?? ''), ...(attackHint ? { attack_hint: attackHint } : {}) },
+          }).catch(() => {});
         }
         if (territory_captured && !funnelEmittedRef.current.capture) {
           funnelEmittedRef.current.capture = true;
@@ -3226,6 +3250,18 @@ export default function GamePage() {
       });
   }, [gameId]);
 
+  // The suggested first attack shows only while its tip does: tips chosen, and
+  // its step not yet retired (the strip below, coachTipFor).
+  const visibleFirstAttack =
+    coachTipsFlag && coachTipsChoice === 'on' && !showStartModal && !coachTipsDone.has('first_attack')
+      ? coachView?.firstAttack ?? null
+      : null;
+  visibleFirstAttackRef.current = visibleFirstAttack?.hint ?? null;
+  const noteAttackAgainstHint = (fromId: string, toId: string) => {
+    const hint = visibleFirstAttackRef.current;
+    lastAttackHintRef.current = hint ? (hint.fromId === fromId && hint.toId === toId ? 'followed' : 'other') : null;
+  };
+
   // ── Tutorial territory highlight ─────────────────────────────────────────
   const tutorialHighlightId = useMemo<string | undefined>(() => {
     if (!isTutorial || !gameState || !user?.user_id) return undefined;
@@ -3255,6 +3291,9 @@ export default function GamePage() {
     }
     return undefined;
   }, [isTutorial, gameState, user?.user_id, tutorialStep, tutorialSteps]);
+  /** The tutorial's ring, or else the suggested first attack's. */
+  const mapHighlightId = tutorialHighlightId
+    ?? (visibleFirstAttack ? firstAttackRingId(visibleFirstAttack.hint, visibleFirstAttack.open) : undefined);
 
   useEffect(() => {
     loadLobby();
@@ -3716,6 +3755,7 @@ export default function GamePage() {
   }, []);
 
   const handleAttack = (fromId: string, toId: string) => {
+    noteAttackAgainstHint(fromId, toId);
     const send = (breakTruce: boolean) => {
       if (breakTruce) {
         getSocket().emit('game:attack', { gameId, fromId, toId, breakTruce: true });
@@ -3736,6 +3776,7 @@ export default function GamePage() {
   // "Blitz until captured": one event, server resolves repeated exchanges. On
   // a truce partner it asks first, as a single attack does.
   const handleBlitzAttack = (fromId: string, toId: string) => {
+    noteAttackAgainstHint(fromId, toId);
     const send = (breakTruce: boolean) => {
       getSocket().emit('game:attack_blitz', { gameId, fromId, toId, ...(breakTruce ? { breakTruce: true } : {}) });
       setAttackSource(null);
@@ -5685,7 +5726,7 @@ export default function GamePage() {
                     viewerPlayerId={resolvedViewerPlayerId}
                     mapProps={{
                       onTerritoryClick: handleTerritoryClick,
-                      highlightTerritoryId: tutorialHighlightId,
+                      highlightTerritoryId: mapHighlightId,
                       lossPulseTerritoryIds: lossPulseIds,
                       strikeFlash: mapStrikeFlash,
                       mapVisualEvents: phoneMapVisualEvents,
@@ -5710,7 +5751,7 @@ export default function GamePage() {
                       skipAnimationsRef: skipGlobeAnimationsRef,
                       onSkipAll: skipAllBacklogByTap,
                       onGlobeReady: handleGlobeReady,
-                      highlightTerritoryId: tutorialHighlightId,
+                      highlightTerritoryId: mapHighlightId,
                       lossPulseTerritoryIds: lossPulseIds,
                       turnHolderPlayerId: turnHolderPlayer?.player_id ?? null,
                       selfPlayerId: resolvedViewerPlayerId,
@@ -5761,7 +5802,7 @@ export default function GamePage() {
                           skipAnimationsRef={skipGlobeAnimationsRef}
                           onSkipAll={skipAllBacklogByTap}
                           onGlobeReady={handleGlobeReady}
-                          highlightTerritoryId={tutorialHighlightId}
+                          highlightTerritoryId={mapHighlightId}
                           lossPulseTerritoryIds={lossPulseIds}
                           ambientEnabled={mapAmbientEnabled && !reducedGlobe}
                           turnHolderPlayerId={turnHolderPlayer?.player_id ?? null}
@@ -5849,7 +5890,7 @@ export default function GamePage() {
                   onTerritoryClick={handleTerritoryClick}
                   width={mapCanvasSize.w}
                   height={mapCanvasSize.h}
-                  highlightTerritoryId={tutorialHighlightId}
+                  highlightTerritoryId={mapHighlightId}
                   lossPulseTerritoryIds={lossPulseIds}
                   strikeFlash={mapStrikeFlash}
                   mapVisualEvents={phoneMapVisualEvents}
@@ -6006,6 +6047,7 @@ export default function GamePage() {
                 onClaimTerritory={gameState?.phase === 'territory_select' ? handleClaimTerritory : undefined}
                 sheetSnap={territorySheetSnap}
                 onSheetSnapChange={setTerritorySheetSnap}
+                suggestedAttack={visibleFirstAttack ? { fromId: visibleFirstAttack.hint.fromId, toId: visibleFirstAttack.hint.toId } : null}
                 onClose={() => {
                   setSelectedTerritory(null);
                   setAttackSource(null);

@@ -232,3 +232,41 @@ describe('NeighborTerritoryPicker — win chance (combat_explain_enabled)', () =
     expect(screen.queryByTestId('attack-win-chance')).toBeNull();
   });
 });
+
+describe('NeighborTerritoryPicker — the suggested first attack (first_attack_hint_enabled)', () => {
+  const rows = [
+    row({ territoryId: 'alba', name: 'Kingdom of Alba' }),
+    row({ territoryId: 'cumbria', name: 'Cumbria' }),
+    row({ territoryId: 'jorvik', name: 'Jórvík' }),
+  ];
+  const attackButtons = () => screen.getAllByRole('button', { name: /^Attack / });
+
+  it('lists the suggested target first, outlined, so a phone\'s scrolling row shows it', () => {
+    const onAttack = vi.fn();
+    render(
+      <NeighborTerritoryPicker phase="attack" sourceName="Strathclyde" neighbors={rows} compact
+        onSelect={() => {}} onAttack={onAttack} suggestedTargetId="jorvik" />,
+    );
+    const [first, ...rest] = attackButtons();
+    expect(first).toHaveAccessibleName('Attack Jórvík');
+    expect(first).toHaveAttribute('data-suggested-target');
+    expect(first.className).toMatch(/ring-bf-gold/);
+    expect(rest.map((b) => b.getAttribute('aria-label'))).toEqual(['Attack Kingdom of Alba', 'Attack Cumbria']);
+    rest.forEach((b) => expect(b).not.toHaveAttribute('data-suggested-target'));
+    fireEvent.click(first);
+    expect(onAttack).toHaveBeenCalledWith('jorvik');
+  });
+
+  it('keeps the usual order without a suggestion, or with one that is not a neighbour', () => {
+    for (const suggestedTargetId of [null, 'wessex']) {
+      const { unmount } = render(
+        <NeighborTerritoryPicker phase="attack" sourceName="Strathclyde" neighbors={rows}
+          onSelect={() => {}} onAttack={() => {}} suggestedTargetId={suggestedTargetId} />,
+      );
+      expect(attackButtons().map((b) => b.getAttribute('aria-label')))
+        .toEqual(['Attack Kingdom of Alba', 'Attack Cumbria', 'Attack Jórvík']);
+      expect(document.querySelector('[data-suggested-target]')).toBeNull();
+      unmount();
+    }
+  });
+});

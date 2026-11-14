@@ -167,6 +167,11 @@ interface TerritoryPanelProps {
   onClose: () => void;
   sheetSnap?: SheetSnap;
   onSheetSnapChange?: (snap: SheetSnap) => void;
+  /**
+   * The attack the coach tip suggests (`first_attack_hint_enabled`): with its
+   * source open, its target leads the attack rows, outlined.
+   */
+  suggestedAttack?: { fromId: string; toId: string } | null;
 }
 
 /**
@@ -415,6 +420,7 @@ function TerritoryPanelContent({
   onClaimTerritory,
   sheetSnap = 'half',
   onSheetSnapChange,
+  suggestedAttack = null,
 }: TerritoryPanelOuterProps & {
   gameState: NonNullable<ReturnType<typeof useGameStore.getState>['gameState']>;
   selectedTerritory: string;
@@ -1422,6 +1428,7 @@ function TerritoryPanelContent({
                 orbitLockReason={orbitAccessReason ?? undefined}
               onSelect={(territoryId) => setSelectedTerritory(territoryId)}
               onAttack={(toTerritoryId) => onAttack(attackNeighborSourceId, toTerritoryId)}
+              suggestedTargetId={suggestedAttack?.fromId === attackNeighborSourceId ? suggestedAttack.toId : null}
             />
           )}
 

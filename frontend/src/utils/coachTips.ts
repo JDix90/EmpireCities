@@ -11,6 +11,7 @@
  * done it, so it teaches only what they have not done yet; "Hide tips" turns
  * them off for good.
  */
+import { firstAttackTipText, type FirstAttackHint, type FirstAttackOpen } from './firstAttackHint';
 
 export type CoachTipsChoice = 'on' | 'off';
 
@@ -19,6 +20,9 @@ export type CoachTipId =
   | 'place'
   | 'begin_attack'
   | 'attack'
+  // first_attack_hint_enabled: the suggested first attack. Its own step, so an
+  // attack in the tutorial (which retires 'attack') does not hide it.
+  | 'first_attack'
   | 'end_attack'
   | 'fortify';
 
@@ -27,6 +31,7 @@ export const COACH_TIP_IDS: readonly CoachTipId[] = [
   'place',
   'begin_attack',
   'attack',
+  'first_attack',
   'end_attack',
   'fortify',
 ];
@@ -41,6 +46,11 @@ export interface CoachTipView {
   ownTerritorySelected: boolean;
   /** The player attacked at least once this turn (server `attacked_this_turn`). */
   attackedThisTurn: boolean;
+  /**
+   * `first_attack_hint_enabled`: the attack the tip suggests, and which end of
+   * it is open (utils/firstAttackHint.ts). Absent, the attack tip is generic.
+   */
+  firstAttack?: { hint: FirstAttackHint; open: FirstAttackOpen } | null;
 }
 
 export interface CoachTip {
@@ -63,9 +73,15 @@ export function coachTipFor(view: CoachTipView, done: ReadonlySet<CoachTipId>): 
       }
       return pick('begin_attack', 'All placed. Now press Begin Attack →');
     case 'attack':
-      return view.attackedThisTurn
-        ? pick('end_attack', 'Keep attacking while you have more units than them, or press Begin Fortify →')
-        : pick('attack', 'Tap your biggest stack, then tap a neighbour with fewer units to attack it.');
+      if (view.attackedThisTurn) {
+        return pick('end_attack', 'Keep attacking while you have more units than them, or press Begin Fortify →');
+      }
+      // The suggestion outlives the generic step: a player who attacked in the
+      // tutorial has retired 'attack' but has not yet attacked in a match.
+      if (view.firstAttack && !done.has('first_attack')) {
+        return { id: 'first_attack', text: firstAttackTipText(view.firstAttack.hint, view.firstAttack.open) };
+      }
+      return pick('attack', 'Tap your biggest stack, then tap a neighbour with fewer units to attack it.');
     case 'fortify':
       return pick('fortify', 'Move units up to a border if you like, then press End Turn →');
     default:
@@ -86,7 +102,11 @@ export function coachTipsDoneBetween(prev: CoachTipView | null, next: CoachTipVi
     out.push('select_territory', 'place');
   }
   if (stillMine && prev.phase === 'draft' && next.phase === 'attack') out.push('begin_attack');
-  if (next.myTurn && next.phase === 'attack' && next.attackedThisTurn && !prev.attackedThisTurn) out.push('attack');
+  if (next.myTurn && next.phase === 'attack' && next.attackedThisTurn && !prev.attackedThisTurn) {
+    out.push('attack');
+    // Only an attack made with the suggestion up retires it; the tutorial never shows it.
+    if (prev.firstAttack) out.push('first_attack');
+  }
   if (stillMine && prev.phase === 'attack' && next.phase === 'fortify') out.push('end_attack');
   if (prev.myTurn && prev.phase === 'fortify' && !next.myTurn) out.push('fortify');
   return out;

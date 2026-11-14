@@ -248,6 +248,8 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   guest_leaderboards_enabled: () => envOptIn('GUEST_LEADERBOARDS_ENABLED'),
   // Guest runs are ranked on the Daily Challenge board.
   guest_daily_board_enabled: () => envOptIn('GUEST_DAILY_BOARD_ENABLED'),
+  // A first match's attack tip names one attack and the map rings it (client-only).
+  first_attack_hint_enabled: () => envOptIn('FIRST_ATTACK_HINT_ENABLED'),
   // Localized landing page + tutorial (frontend/src/i18n). Dark-launched OFF:
   // the translated bundles ship in the client but nobody is routed to them
   // until this is on. Client-only effect.
@@ -2098,6 +2100,18 @@ export const featureFlags = {
   },
 
   /**
+   * The suggested first attack: in a first match's attack phase, until the
+   * player has attacked, the coach tip names one attack (source, target, the
+   * two stacks) and the map rings the territory to tap (frontend
+   * utils/firstAttackHint.ts). Players who reached the attack phase and then
+   * left had not opened a single territory. Client-only. Default OFF;
+   * `FIRST_ATTACK_HINT_ENABLED=true` or the admin override turns it on.
+   */
+  get firstAttackHintEnabled(): boolean {
+    return overrideBool('first_attack_hint_enabled');
+  },
+
+  /**
    * Localized landing page and tutorial (frontend/src/i18n). Off means English
    * for everyone whatever the browser says; on lets the client honour the
    * stored `cc-lang` choice or the browser language. Default OFF until the
@@ -2177,6 +2191,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     globe_unit_counts_enabled: featureFlags.globeUnitCountsEnabled,
     guest_leaderboards_enabled: featureFlags.guestLeaderboardsEnabled,
     guest_daily_board_enabled: featureFlags.guestDailyBoardEnabled,
+    first_attack_hint_enabled: featureFlags.firstAttackHintEnabled,
     localization_enabled: featureFlags.localizationEnabled,
     touch_targets_enabled: featureFlags.touchTargetsEnabled,
     daily_puzzle_v2_enabled: featureFlags.dailyPuzzleV2Enabled,
