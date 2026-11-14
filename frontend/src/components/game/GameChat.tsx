@@ -1,20 +1,30 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
-import { Smile, Film } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Smile, Film, MoreHorizontal } from 'lucide-react';
 import clsx from 'clsx';
+import toast from 'react-hot-toast';
 import { getSocket } from '../../services/socket';
 import { lazyWithChunkRetry } from '../../utils/lazyWithChunkRetry';
 import { searchGifs, isGifSearchAvailable, type GifResult } from '../../utils/gifSearch';
+import { useAuthStore } from '../../store/authStore';
+import { useChatSafetyEnabled } from '../../store/featureFlagsStore';
+import { blockPlayer, type ChatMessageToReport } from '../../services/chatSafety';
+import ReportChatModal from './ReportChatModal';
 
 // Retries, then reloads onto a new build, if a deploy deleted this chunk.
 const EmojiPicker = lazyWithChunkRetry(() => import('@emoji-mart/react'));
 
 export interface ChatMessagePayload {
   gameId: string;
-  playerId: string;
+  /** The sender. Spectator chat carries it since chat_safety_enabled. */
+  playerId?: string;
   username: string;
-  color: string;
+  /** Spectator chat has no seat colour. */
+  color?: string;
   message: string;
   timestamp: number;
+  /** What a report names (chat_safety_enabled). */
+  messageId?: string;
 }
 
 interface GameChatProps {
@@ -65,6 +75,28 @@ export default function GameChat({ gameId, embedded = false, defaultOpen = false
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const gifTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const emojiData = useRef<any>(null);
+  // Chat safety (chat_safety_enabled): each message from someone else offers
+  // Report and Block. A block also drops what they already said here; the
+  // server stops sending their messages to this player.
+  const chatSafety = useChatSafetyEnabled();
+  const myId = useAuthStore((s) => s.user?.user_id);
+  const channel: ChatMessageToReport['channel'] = spectatorMode ? 'spectator' : lobbyMode ? 'lobby' : 'game';
+  const [actionsFor, setActionsFor] = useState<string | null>(null);
+  const [reporting, setReporting] = useState<ChatMessageToReport | null>(null);
+  const dropMessagesFrom = useCallback((playerId: string) => {
+    setMessages((prev) => prev.filter((m) => m.playerId !== playerId));
+    setActionsFor(null);
+  }, []);
+  const block = useCallback(async (m: ChatMessagePayload) => {
+    if (!m.playerId) return;
+    try {
+      await blockPlayer(m.playerId);
+      dropMessagesFrom(m.playerId);
+      toast.success(`Blocked ${m.username}. You won’t see their chat. Unblock them in Settings.`);
+    } catch {
+      toast.error('Could not block them. Try again in a moment.');
+    }
+  }, [dropMessagesFrom]);
 
   useEffect(() => {
     const socket = getSocket();
@@ -177,14 +209,61 @@ export default function GameChat({ gameId, embedded = false, defaultOpen = false
               embedded && fill ? 'flex-1 min-h-0' : embedded ? 'max-h-[min(28vh,200px)]' : 'h-[180px]',
             )}
           >
-            {messages.map((m, i) => (
-              <div key={`${m.timestamp}-${i}`} className="text-xs">
-                <span className="font-semibold" style={{ color: m.color }}>
-                  {m.username}:
-                </span>{' '}
-                {renderMessage(m.message)}
-              </div>
-            ))}
+            {messages.map((m, i) => {
+              const key = m.messageId ?? `${m.timestamp}-${i}`;
+              const canAct = chatSafety && !!m.playerId && m.playerId !== myId;
+              return (
+                <div key={key} className="text-xs" data-chat-message="">
+                  <div className="flex items-start gap-1">
+                    <div className="min-w-0 flex-1">
+                      <span className="font-semibold" style={{ color: m.color }}>
+                        {m.username}:
+                      </span>{' '}
+                      {renderMessage(m.message)}
+                    </div>
+                    {canAct && (
+                      <button
+                        type="button"
+                        onClick={() => setActionsFor((cur) => (cur === key ? null : key))}
+                        aria-label={`Report or block ${m.username}`}
+                        aria-expanded={actionsFor === key}
+                        className="tap-target shrink-0 -my-0.5 min-h-[24px] min-w-[24px] flex items-center justify-center rounded text-bf-muted/70 hover:text-bf-text hover:bg-white/5"
+                      >
+                        <MoreHorizontal className="w-3.5 h-3.5" aria-hidden />
+                      </button>
+                    )}
+                  </div>
+                  {canAct && actionsFor === key && (
+                    <div className="mt-1 flex flex-wrap gap-1.5" role="group" aria-label={`${m.username}'s message`}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActionsFor(null);
+                          setReporting({ gameId, channel, messageId: m.messageId, playerId: m.playerId!, username: m.username, message: m.message });
+                        }}
+                        className="tap-target rounded border border-bf-border px-2 py-1 text-bf-text hover:border-bf-muted"
+                      >
+                        Report message
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void block(m)}
+                        className="tap-target rounded border border-red-800/60 px-2 py-1 text-red-200 hover:border-red-600"
+                      >
+                        Block {m.username}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActionsFor(null)}
+                        className="tap-target rounded px-2 py-1 text-bf-muted hover:text-bf-text"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
             {messages.length === 0 && (
               <p className="text-[11px] text-bf-muted/70 italic">
                 Chat is live only — messages aren't stored, so they won't be here after a reload.
@@ -288,6 +367,11 @@ export default function GameChat({ gameId, embedded = false, defaultOpen = false
             </button>
           </div>
         </>
+      )}
+      {/* On the page, not in the chat box: its blur and clipping would trap a fixed overlay. */}
+      {reporting && createPortal(
+        <ReportChatModal target={reporting} onClose={() => setReporting(null)} onBlocked={dropMessagesFrom} />,
+        document.body,
       )}
     </div>
   );

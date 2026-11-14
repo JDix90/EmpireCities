@@ -39,6 +39,7 @@ import { loadGalaxyReport } from './galaxyReport';
 import { backfillGalaxyResults } from './galaxyBackfill';
 import { GALAXY_GAME_MODES } from '../../game-engine/state/galaxyResults';
 import { loadFeedbackReport } from '../feedback/feedback.service';
+import { CHAT_REPORT_STATUSES, loadChatReports, setChatReportStatus } from '../safety/chatSafety.service';
 
 /** Galactic Age report filters; `days` 0 (or absent) reads all time. */
 const GalaxyReportQuerySchema = z.object({
@@ -599,6 +600,28 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.send({ ok: true });
     },
   );
+
+  // Chat reports (chat_safety_enabled): Admin → Reports lists them and closes
+  // them. Readable whatever the switch, so reports filed while it was on can
+  // still be handled after it is turned off.
+  fastify.get<{ Querystring: { status?: string } }>('/chat-reports', { preHandler: [authenticate, requireAdmin] }, async (request, reply) => {
+    const status = z.enum([...CHAT_REPORT_STATUSES, 'all']).catch('open').parse(request.query.status ?? 'open');
+    return reply.send(await loadChatReports(status));
+  });
+
+  const ChatReportUpdateSchema = z.object({
+    status: z.enum(CHAT_REPORT_STATUSES),
+    note: z.string().max(500).transform((s) => s.split('\u0000').join('').trim()).optional(),
+  });
+  fastify.post<{ Params: { reportId: string } }>('/chat-reports/:reportId', { preHandler: [authenticate, requireAdmin] }, async (request, reply) => {
+    const id = z.string().uuid().safeParse(request.params.reportId);
+    const parsed = ChatReportUpdateSchema.safeParse(request.body ?? {});
+    if (!id.success || !parsed.success) return reply.status(400).send({ error: 'Invalid payload' });
+    const found = await setChatReportStatus(id.data, parsed.data.status, parsed.data.note || null, request.userId);
+    if (!found) return reply.status(404).send({ error: 'No such report' });
+    await writeAuditLog(request.userId, 'chat_report_' + parsed.data.status, { report_id: id.data });
+    return reply.send({ ok: true });
+  });
 
   fastify.post('/actions/ban', { preHandler: [authenticate, requireAdmin] }, async (request, reply) => {
     const parsed = UserActionSchema.safeParse(request.body ?? {});
