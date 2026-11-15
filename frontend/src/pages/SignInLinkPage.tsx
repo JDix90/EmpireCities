@@ -4,7 +4,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
-import { useEmailAccountSaveEnabled, useFeatureFlagsStore } from '../store/featureFlagsStore';
+import { useEmailAccountSaveEnabled, useFeatureFlagsStore, useSignInCodeEnabled } from '../store/featureFlagsStore';
 import { normalizeEmail } from '../utils/emailNormalize';
 import BrandWordmark from '../components/ui/BrandWordmark';
 
@@ -15,6 +15,11 @@ import BrandWordmark from '../components/ui/BrandWordmark';
  * Without a token it asks for an email and sends the link. With one (the link
  * itself) it redeems it: the token is POSTed, so a mail scanner that opens the
  * link does not use it up, and redeemed once, since a link signs in once.
+ *
+ * With sign_in_code_enabled the email also shows a code, and once a link has
+ * been requested the page asks for it. That is the way in when the link opens
+ * somewhere else: in the native app, a link tapped in a mail app usually
+ * lands in a browser.
  */
 export default function SignInLinkPage() {
   const flagsLoaded = useFeatureFlagsStore((s) => s.loaded);
@@ -23,6 +28,11 @@ export default function SignInLinkPage() {
   const token = searchParams.get('token');
   const navigate = useNavigate();
   const signInWithLink = useAuthStore((s) => s.signInWithLink);
+  const signInWithCode = useAuthStore((s) => s.signInWithCode);
+  const codeEnabled = useSignInCodeEnabled();
+  const [code, setCode] = useState('');
+  const [checkingCode, setCheckingCode] = useState(false);
+  const [codeError, setCodeError] = useState<string | null>(null);
 
   const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
@@ -66,6 +76,22 @@ export default function SignInLinkPage() {
     }
   };
 
+  const handleCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCheckingCode(true);
+    setCodeError(null);
+    try {
+      await signInWithCode(normalizeEmail(email), code);
+      toast.success('Welcome back, Commander!');
+      navigate('/lobby', { replace: true });
+    } catch (err: unknown) {
+      const msg = axios.isAxiosError(err) ? (err.response?.data?.error as string | undefined) : undefined;
+      setCodeError(msg ?? 'That code did not work. Check it against the email, or request a new one.');
+    } finally {
+      setCheckingCode(false);
+    }
+  };
+
   return (
     <div className="min-h-screen-safe bg-bf-dark overflow-y-auto px-4 pt-safe pb-safe flex items-start justify-center">
       <div className="w-full max-w-md py-10">
@@ -83,6 +109,45 @@ export default function SignInLinkPage() {
                 If an account exists for that email, we sent a sign-in link. Check your inbox (and spam):
                 the link works once and expires in 30 minutes.
               </p>
+              {codeEnabled && (
+                <form onSubmit={handleCode} className="space-y-3 text-left" data-testid="sign-in-code-form">
+                  <p className="text-bf-muted text-sm">
+                    If the link opens somewhere else, type the code from the same email here instead.
+                  </p>
+                  {codeError && (
+                    <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                      {codeError}
+                    </p>
+                  )}
+                  <div>
+                    <label className="label" htmlFor="sign-in-code">Code from the email</label>
+                    <input
+                      id="sign-in-code"
+                      className="input font-mono tracking-widest uppercase"
+                      placeholder="ABCD-EFGH"
+                      value={code}
+                      onChange={(e) => setCode(e.target.value)}
+                      required
+                      maxLength={16}
+                      inputMode="text"
+                      autoCapitalize="characters"
+                      autoCorrect="off"
+                      autoComplete="one-time-code"
+                      spellCheck={false}
+                    />
+                  </div>
+                  <button type="submit" className="btn-primary w-full" disabled={checkingCode || code.trim().length < 8}>
+                    {checkingCode ? 'Signing in…' : 'Sign in with the code'}
+                  </button>
+                  <button
+                    type="button"
+                    className="tap-min w-full text-center text-sm text-bf-gold hover:underline"
+                    onClick={() => { setSent(false); setCode(''); setCodeError(null); }}
+                  >
+                    Send a new email
+                  </button>
+                </form>
+              )}
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">

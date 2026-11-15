@@ -160,6 +160,8 @@ interface AuthState {
   upgradeAccount: (username: string | undefined, email: string, password: string | undefined, emailOptIn?: boolean) => Promise<void>;
   /** Sign in with the token from an emailed sign-in link (email_account_save_enabled). */
   signInWithLink: (token: string) => Promise<void>;
+  /** Sign in with the code from a sign-in email and the address it was sent to (sign_in_code_enabled). */
+  signInWithCode: (email: string, code: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshToken: (options?: { silent?: boolean }) => Promise<RefreshOutcome>;
   /**
@@ -289,6 +291,24 @@ export const useAuthStore = create<AuthState>()(
           set({ user, accessToken, isAuthenticated: true, isLoading: false, bootstrapped: true });
           // Same as login: a socket opened by an earlier (often guest) session
           // must reconnect as this account.
+          resyncSocketAuth();
+        } catch (err) {
+          set({ isLoading: false });
+          throw err;
+        }
+      },
+
+      signInWithCode: async (email, code) => {
+        set({ isLoading: true });
+        try {
+          const res = await api.post('/auth/sign-in-link/verify-code', { email, code });
+          const { accessToken, user } = res.data;
+          if (usesNativeSession()) await keepNativeSessionFrom(res.data);
+          try {
+            sessionStorage.removeItem('cc-auth-notice');
+          } catch { /* ignore */ }
+          set({ user, accessToken, isAuthenticated: true, isLoading: false, bootstrapped: true });
+          // As with the link: a socket opened by an earlier session must reconnect as this account.
           resyncSocketAuth();
         } catch (err) {
           set({ isLoading: false });

@@ -1,0 +1,16 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["REPLACE_WITH_APPLE_TEAM_ID.com.borderfall.app"],
+        "components": [
+          { "/": "/sign-in-link", "comment": "Emailed sign-in links" },
+          { "/": "/reset-password", "comment": "Emailed password reset links" },
+          { "/": "/join/*", "comment": "Game invites" },
+          { "/": "/replay/*", "comment": "Shared replays" },
+          { "/": "/game/*", "comment": "Your-turn links in emails and notifications" }
+        ]
+      }
+    ]
+  }
+}

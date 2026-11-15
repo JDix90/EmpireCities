@@ -20,6 +20,7 @@ the server, how it differs from the website, and how to test it on a device.
 - [Sync, open, run](#sync-open-run)
 - [How the app differs from the website](#how-the-app-differs-from-the-website)
 - [Staying signed in](#staying-signed-in)
+- [Links that open the app](#links-that-open-the-app)
 - [Minimum app version and API compatibility](#minimum-app-version-and-api-compatibility)
 - [Analytics: telling the app from the website](#analytics-telling-the-app-from-the-website)
 - [Not built yet](#not-built-yet)
@@ -135,7 +136,8 @@ pnpm run cap:ios          # opens Xcode
 release checklist.
 
 In Xcode: pick your team under Signing & Capabilities (the project uses automatic signing and
-has no team committed), choose a device, Run.
+has no team committed), choose a device, Run. The app's entitlements
+(`App/App.entitlements`) need a team in the paid Apple Developer Program.
 
 **First time after a clone**, or if CocoaPods failed:
 
@@ -218,6 +220,76 @@ keeps it in the iOS Keychain.
   The app then behaves as if it had no token.
 - **Signing out, or deleting the account, removes the token** from the Keychain and retires it
   on the server.
+
+## Links that open the app
+
+An emailed sign-in link, a password reset link, a game invite, a shared replay and a
+your-turn link all point at the website. With universal links, an iPhone that has the app
+opens them in the app instead of Safari. Since most accounts are saved with only an email,
+this is also how a reinstalled app on a *new* device signs back in.
+
+**The paths the app claims** are one list, `APP_LINK_PATHS` in
+`frontend/src/utils/appLinks.ts`: `/sign-in-link`, `/reset-password`, `/join/*`, `/replay/*`,
+`/game/*`. Every other page of the site stays in Safari. A test checks that the list, the
+association file, the nginx location and the entitlement agree
+(`frontend/src/utils/appLinks.test.ts`).
+
+| Piece | Where | What it does |
+|-------|-------|--------------|
+| Association file | `frontend/public/.well-known/apple-app-site-association` | Served by the website; tells iOS which paths belong to which app |
+| nginx location | `docker/nginx.prod.conf`, `location = /.well-known/apple-app-site-association` | Serves it as `application/json`; a missing file is a 404, never `index.html` |
+| Entitlement | `frontend/ios/App/App/App.entitlements`, `applinks:borderfall.gg` | Tells iOS the app claims links on that site |
+| In the app | `frontend/src/components/native/AppLinkHandler.tsx` | Routes the opened link inside the app. Follows only https links on the site's own origin, on those paths |
+
+### Before it works: the Team ID
+
+The association file names the app as `<Team ID>.com.borderfall.app`. It ships with a
+placeholder:
+
+```json
+"appIDs": ["REPLACE_WITH_APPLE_TEAM_ID.com.borderfall.app"]
+```
+
+**Replace `REPLACE_WITH_APPLE_TEAM_ID` with your ten-character Apple Developer Team ID**
+(developer.apple.com → Membership details), in that one file, and deploy the website. Nothing
+else holds the Team ID. Until then the file is served but matches no app, and links keep
+opening Safari.
+
+Then check what production serves, from any machine:
+
+```bash
+curl -sI https://borderfall.gg/.well-known/apple-app-site-association
+```
+
+It must answer `200` with `content-type: application/json` and no `location:` header. A
+redirect (to `www.`, to a trailing slash, to a login page) or an HTML answer and iOS ignores
+it. nginx here serves it correctly; TLS and any redirects are in the proxy in front of it
+(Caddy), outside this repository, which is why this check is worth running.
+
+Things to know:
+
+- **iOS fetches the file through Apple's servers when the app is installed**, and they cache
+  it. After changing it, allow a day, or delete and reinstall the app to fetch it again.
+- **Associated Domains needs the paid Apple Developer Program.** With a free personal team,
+  Xcode refuses to sign the app while `App.entitlements` lists the domain.
+- **Universal links do not fire for a link typed or pasted into Safari's address bar**, or
+  followed within the same site. They fire for a tap in Mail, Messages, Notes and most apps.
+- **Some mail apps open links in their own browser**, or wrap them in a tracking redirect, and
+  the link then lands in a browser, not the app. That is what the sign-in code is for.
+
+### The sign-in code
+
+With `sign_in_code_enabled` (off by default), the sign-in email also shows a short code, and
+the sign-in page asks for it once a link has been requested. The player types the code into
+the app, next to the address the email was sent to. Turn it on before the app is released:
+without it, a player whose mail app does not hand links to the app has no way to sign in to
+an email-only account there.
+
+- The code and the link spend the same one-time sign-in: either works once, both expire in 30
+  minutes, and asking again replaces both.
+- A code is only good with the address it was sent to, and an address gets ten tries per half
+  hour, right or wrong.
+- It works on the website too, for a player who opened the email on a different device.
 
 ## Minimum app version and API compatibility
 
@@ -306,12 +378,11 @@ the website's.
 
 ## Not built yet
 
-Two things the iOS app needs before it can be submitted. Each needs a real iPhone to confirm.
-Until they are built:
+One thing the iOS app needs before it can be submitted. It needs a real iPhone to confirm.
+Until it is built:
 
 | | What happens in the app today | Why |
 |---|---|---|
-| **Links that open the app** | An emailed sign-in link, an invite link and a shared replay link all open Safari, not the app | There is no `apple-app-site-association` file, no Associated Domains entitlement and no `appUrlOpen` handler |
 | **Push notifications** | The app asks for notification permission at sign-in, and no notification ever arrives | `AppDelegate.swift` does not forward the registration callbacks, there is no push entitlement, and the server sends only through Firebase, which cannot use the token iOS gives the app. The Settings and lobby notification controls are also web-only |
 
 When each is built, its section moves up into this page with its own device test steps.
@@ -325,7 +396,8 @@ safe to create accounts on.
 
 1. The server's `CORS_ORIGINS` and `NATIVE_APP_ORIGINS` both include `capacitor://localhost`,
    and the backend was restarted.
-2. `chat_safety_enabled` and `guest_account_deletion_enabled` are on (Admin → Config).
+2. `chat_safety_enabled`, `guest_account_deletion_enabled` and `sign_in_code_enabled` are on
+   (Admin → Config).
 3. On the Mac:
    ```bash
    git pull && pnpm install && pnpm --filter @borderfall/shared build
@@ -378,6 +450,26 @@ Note the guest's name in the lobby before you start.
     `capacitor://localhost`.
 12. From a finished game, copy the replay link: the same.
 
+**Links that open the app**
+
+These need the Team ID in the association file, the website deployed with it, and a build
+signed with a paid team. Save a guest's account with an email first (Settings → Account).
+
+- **Sign-in link.** Sign out. On the start screen tap Sign In, then "Email me a sign-in
+  link", and enter the address. Open the email in Apple's Mail app on the same iPhone and tap the
+  link: the Borderfall app opens and signs you in. Safari does not open.
+- **Sign-in code.** Sign out and request a link again. Do not tap the link. Type the code from
+  the email into the app: it signs you in. Type it a second time after signing out: refused.
+- **Cold start.** Force-quit the app, then tap a fresh sign-in link in Mail: the app starts
+  and signs you in.
+- **Invite.** From another account on the website, create a lobby and send yourself its invite
+  link in Messages. Tap it on the iPhone: the app opens on that lobby.
+- **Replay.** Tap a shared replay link in Messages: the app opens the replay.
+- **Not claimed.** Tap a link to `https://borderfall.gg/how-to-play` in Messages: Safari
+  opens, not the app.
+- **Without the app.** On a device without the app, the same sign-in link opens the website
+  and signs in there, as before.
+
 **Analytics**
 
 13. In Admin → Analytics, "By platform" shows the guest you made under "iOS app", and one
@@ -424,8 +516,10 @@ What is different, and not done:
 | `frontend/src/utils/publicOrigin.ts` | The public site's address, for shared links |
 | `frontend/src/services/nativeAppVersion.ts` | Version headers, the launch check, the update-required state |
 | `frontend/src/services/nativeSession.ts` | The Keychain refresh token |
+| `frontend/src/utils/appLinks.ts`, `frontend/public/.well-known/apple-app-site-association`, `frontend/ios/App/App/App.entitlements` | Universal links: the paths, the file iOS reads, the entitlement |
+| `backend/src/modules/auth/signInCode.ts` | The typed sign-in code |
 | `backend/src/modules/auth/nativeSession.ts` | The app's session path on the server |
-| `frontend/src/components/native/` | `NativeLinkHandler`, `WebOnlyRoute`, `UpdateRequiredScreen` |
+| `frontend/src/components/native/` | `NativeLinkHandler`, `AppLinkHandler`, `WebOnlyRoute`, `UpdateRequiredScreen` |
 | `frontend/src/pages/NativeHomePage.tsx` | `/` in the app |
 | `backend/src/middleware/minAppVersion.ts` | The 426 hook |
 | `scripts/build-ios-release.sh`, `scripts/build-android-release.sh` | Build, sync, open the IDE |

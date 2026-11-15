@@ -53,6 +53,7 @@ export interface ClientFeatureFlags {
   first_attack_hint_enabled: boolean;
   chat_safety_enabled: boolean;
   guest_account_deletion_enabled: boolean;
+  sign_in_code_enabled: boolean;
   localization_enabled: boolean;
   touch_targets_enabled: boolean;
   daily_puzzle_v2_enabled: boolean;
@@ -201,6 +202,7 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   chat_safety_enabled: false,
   // A guest can delete their own account in the app. Dark-launched OFF.
   guest_account_deletion_enabled: false,
+  sign_in_code_enabled: false,
   // Localized landing + tutorial (src/i18n). Dark-launched OFF: the bundles
   // ship but everyone sees English until an operator turns this on.
   localization_enabled: false,
@@ -524,6 +526,11 @@ export function useFirstAttackHintEnabled(): boolean {
 /** Report a chat message and block a player (services/chatSafety.ts). */
 export function useChatSafetyEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.chat_safety_enabled);
+}
+
+/** The sign-in email carries a code to type, and the sign-in page asks for it (pages/SignInLinkPage.tsx). */
+export function useSignInCodeEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.sign_in_code_enabled);
 }
 
 /** A guest can delete their own account (Profile; Settings → Account links it for everyone). */

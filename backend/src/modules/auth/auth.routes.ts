@@ -15,6 +15,13 @@ import { refreshCookieAttrs,
   EMBEDDER_HEADER,
 } from './embedContext';
 import { isNativeAppOrigin, NATIVE_CLIENT, refreshTokenFromBody } from './nativeSession';
+import {
+  formatSignInCode,
+  generateSignInCode,
+  normalizeSignInCode,
+  redeemSignInCode,
+  rememberSignInCode,
+} from './signInCode';
 import { compareWithDummy } from '../../utils/constantTimeBcrypt';
 import { sendTransactionalEmailToAddress } from '../../services/notificationService';
 import { isDisallowedUsername } from '../../utils/profanity';
@@ -103,6 +110,7 @@ const SIGN_IN_LINK_RESPONSE = {
   message: 'If an account exists for that email, we sent a sign-in link.',
 } as const;
 const SIGN_IN_LINK_INVALID = 'This sign-in link has expired or was already used. Request a new one.';
+const SIGN_IN_CODE_INVALID = 'That code did not work. Check it against the email, or request a new one.';
 const FORGOT_PASSWORD_RESPONSE = {
   message: 'If an account exists for that email, we sent password reset instructions.',
 } as const;
@@ -281,6 +289,11 @@ export const EmailSaveSchema = z.object({
 
 const SignInLinkSchema = z.object({
   email: z.string().trim().email().max(254),
+});
+
+const SignInCodeVerifySchema = z.object({
+  email: z.string().trim().email().max(254),
+  code: z.string().max(64),
 });
 
 const SignInLinkVerifySchema = z.object({
@@ -1027,26 +1040,52 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
     const baseUrl = config.frontendUrl.replace(/\/+$/, '');
     const expiresAt = new Date(Date.now() + SIGN_IN_LINK_TTL_MS);
-    const links: Array<{ username: string; url: string }> = [];
+    // sign_in_code_enabled: each link also gets a code to type, for a player
+    // whose mail app opens the link somewhere other than where they play
+    // (signInCode.ts). The code spends the same row as the link.
+    const withCodes = featureFlags.signInCodeEnabled;
+    const links: Array<{ username: string; url: string; code?: string }> = [];
     for (const account of accounts) {
       await query('DELETE FROM sign_in_link_tokens WHERE user_id = $1 AND used_at IS NULL', [account.user_id]);
       const rawToken = randomBytes(32).toString('base64url');
-      await query(
-        'INSERT INTO sign_in_link_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
+      const inserted = await query<{ id: string }>(
+        'INSERT INTO sign_in_link_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3) RETURNING id',
         [account.user_id, hashSignInLinkToken(rawToken), expiresAt],
       );
-      links.push({ username: account.username, url: `${baseUrl}/sign-in-link?token=${encodeURIComponent(rawToken)}` });
+      let code: string | undefined;
+      if (withCodes && inserted[0]?.id) {
+        try {
+          code = generateSignInCode();
+          await rememberSignInCode(body.data.email, code, inserted[0].id, SIGN_IN_LINK_TTL_MS);
+        } catch (err) {
+          // The link still works without its code: send the email either way.
+          code = undefined;
+          request.log.warn({ err }, 'sign-in code could not be stored');
+        }
+      }
+      links.push({
+        username: account.username,
+        url: `${baseUrl}/sign-in-link?token=${encodeURIComponent(rawToken)}`,
+        ...(code ? { code } : {}),
+      });
     }
 
+    // Without codes the email is exactly what it was.
+    const codeLine = (l: { code?: string }) =>
+      l.code ? `. Or type this code where you asked for the link: <strong>${formatSignInCode(l.code)}</strong>` : '';
     const htmlBody = links.length === 1
       ? `
-      <p><a href="${links[0].url}">Sign in to Borderfall as ${escapeHtml(links[0].username)}</a></p>
+      <p><a href="${links[0].url}">Sign in to Borderfall as ${escapeHtml(links[0].username)}</a></p>${
+        links[0].code
+          ? `\n      <p>In the Borderfall app? Type this code where you asked for the link: <strong>${formatSignInCode(links[0].code)}</strong></p>`
+          : ''
+      }
       <p>This link works once and expires in 30 minutes. If you did not ask for it, you can ignore this email.</p>
     `.trim()
       : `
       <p>This address has ${links.length} Borderfall accounts. Choose the one to sign in to:</p>
       <ul>
-        ${links.map((l) => `<li><a href="${l.url}">Sign in as ${escapeHtml(l.username)}</a></li>`).join('\n        ')}
+        ${links.map((l) => `<li><a href="${l.url}">Sign in as ${escapeHtml(l.username)}</a>${codeLine(l)}</li>`).join('\n        ')}
       </ul>
       <p>Each link works once and expires in 30 minutes. If you did not ask for this, you can ignore this email.</p>
     `.trim();
@@ -1081,6 +1120,55 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(400).send({ error: SIGN_IN_LINK_INVALID });
     }
 
+    return finishLinkSignIn(request, reply, { tokenHash: hashSignInLinkToken(body.data.token) }, 'email_link');
+  });
+
+  // ── POST /api/auth/sign-in-link/verify-code ──────────────────────────────
+  /**
+   * Redeems the code from a sign-in email (sign_in_code_enabled, signInCode.ts):
+   * the address the email went to plus the code it showed. It spends the same
+   * one-time row the link would, so link and code are used up together.
+   */
+  fastify.post('/sign-in-link/verify-code', { config: { rateLimit: { max: 10, timeWindow: '15 minutes' } } }, async (request, reply) => {
+    if (!featureFlags.emailAccountSaveEnabled || !featureFlags.signInCodeEnabled) {
+      return reply.status(404).send({ error: 'Not found' });
+    }
+    const body = SignInCodeVerifySchema.safeParse(request.body);
+    const code = body.success ? normalizeSignInCode(body.data.code) : null;
+    if (!body.success || !code) {
+      recordServerEvent('sign_in_link_failed', { reason: 'malformed', via: 'code' });
+      return reply.status(400).send({ error: SIGN_IN_CODE_INVALID });
+    }
+    let redeemed: Awaited<ReturnType<typeof redeemSignInCode>>;
+    try {
+      redeemed = await redeemSignInCode(body.data.email, code);
+    } catch (err) {
+      request.log.error({ err }, 'sign-in code lookup failed');
+      return reply.status(503).send({ error: 'Sign-in is unavailable right now. Use the link in the email, or try again shortly.' });
+    }
+    if (redeemed.status === 'locked') {
+      recordServerEvent('sign_in_link_failed', { reason: 'too_many_tries', via: 'code' });
+      return reply.status(429).send({ error: 'Too many tries for this address. Wait half an hour, or use the link in the email.' });
+    }
+    if (redeemed.status === 'wrong') {
+      recordServerEvent('sign_in_link_failed', { reason: 'invalid', via: 'code' });
+      return reply.status(400).send({ error: SIGN_IN_CODE_INVALID });
+    }
+    return finishLinkSignIn(request, reply, { id: redeemed.linkId }, 'email_code');
+  });
+
+  /**
+   * Spend one sign-in link row and sign its account in. The row is found by
+   * the link's token or, for a typed code, by its id (signInCode.ts), and is
+   * used up in the same transaction that finds it, so it signs in once
+   * whichever way it is reached.
+   */
+  async function finishLinkSignIn(
+    request: FastifyRequest,
+    reply: FastifyReply,
+    which: { tokenHash: string } | { id: string },
+    method: 'email_link' | 'email_code',
+  ) {
     type LinkUserRow = {
       user_id: string; username: string; level: number; xp: number; mmr: number;
       is_banned: boolean; is_admin: boolean; is_guest: boolean;
@@ -1090,9 +1178,9 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       user = await withTransaction(async (client) => {
         const { rows } = await client.query<{ id: string; user_id: string }>(
           `SELECT id, user_id FROM sign_in_link_tokens
-           WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW()
+           WHERE ${'tokenHash' in which ? 'token_hash' : 'id'} = $1 AND used_at IS NULL AND expires_at > NOW()
            FOR UPDATE`,
-          [hashSignInLinkToken(body.data.token)],
+          ['tokenHash' in which ? which.tokenHash : which.id],
         );
         const link = rows[0];
         if (!link) return null;
@@ -1114,7 +1202,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     if (!user || user.is_guest) {
       // 'invalid': used already, expired, cut short, or never issued.
       recordServerEvent('sign_in_link_failed', { reason: user ? 'guest' : 'invalid' }, user?.user_id);
-      return reply.status(400).send({ error: SIGN_IN_LINK_INVALID });
+      return reply.status(400).send({ error: method === 'email_code' ? SIGN_IN_CODE_INVALID : SIGN_IN_LINK_INVALID });
     }
     if (user.is_banned) {
       recordServerEvent('sign_in_link_failed', { reason: 'banned' }, user.user_id);
@@ -1136,9 +1224,9 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
     const { is_banned: _ib, is_guest: _ig, ...safeUser } = user;
     stampLastLogin(user.user_id);
-    recordServerEvent('user_login', { method: 'email_link' }, user.user_id);
+    recordServerEvent('user_login', { method }, user.user_id);
     return reply.send({ accessToken, ...sessionBody, user: safeUser });
-  });
+  }
 
   // ── POST /api/auth/set-password ──────────────────────────────────────────
   /**
