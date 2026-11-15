@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { api } from '../services/api';
 import { useAuthStore } from '../store/authStore';
 import { deviceClass } from '../utils/device';
+import { clientPlatform } from '../utils/platform';
 
 /**
  * Daily visit beacon: `app_opened`, at most once a UTC day per player, when a
@@ -41,7 +42,8 @@ export function reportDailyVisit(userId: string, now: Date = new Date()): void {
   if (inFlight === mark || lastSent === mark || storedMark() === mark) return;
   inFlight = mark;
   api
-    .post('/analytics/ui-event', { event: 'app_opened', properties: { device: deviceClass() } })
+    // The platform tells the iOS app from Safari on the same phone (Admin → Analytics, By platform).
+    .post('/analytics/ui-event', { event: 'app_opened', properties: { device: deviceClass(), platform: clientPlatform() } })
     .then(() => {
       lastSent = mark;
       try {

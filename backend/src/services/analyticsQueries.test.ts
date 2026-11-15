@@ -23,6 +23,8 @@ import {
   getGuestAccountMetrics,
   getEditorMetrics,
   parseFunnelDevice,
+  parseFunnelPlatform,
+  getPlatformBreakdown,
 } from './analyticsQueries';
 
 describe('analyticsQueries', () => {
@@ -43,7 +45,7 @@ describe('analyticsQueries', () => {
     expect(sql).toContain("e.event = 'map_rendered'");
     expect(sql).toContain("e.event = 'first_attack'");
     expect(sql).toContain("e.event = 'first_territory_captured'");
-    expect(params).toEqual([14, null]);
+    expect(params).toEqual([14, null, null]);
     expect(f).toEqual({ signups: 10, created_game: 7, started_game: 6, map_rendered: 6, first_attack: 5, first_capture: 4, finished_game: 4, upgraded: 2 });
   });
 
@@ -57,7 +59,7 @@ describe('analyticsQueries', () => {
     }
     // The device is the one recorded on the signup event; null keeps everyone.
     expect(sql).toContain("($2::text IS NULL OR properties->>'device' = $2::text)");
-    expect(params).toEqual([7, 'phone']);
+    expect(params).toEqual([7, 'phone', null]);
   });
 
   it('parseFunnelDevice accepts the three device classes and nothing else', () => {
@@ -67,6 +69,42 @@ describe('analyticsQueries', () => {
     expect(parseFunnelDevice('all')).toBeNull();
     expect(parseFunnelDevice(undefined)).toBeNull();
     expect(parseFunnelDevice("phone' OR 1=1")).toBeNull();
+  });
+
+  it('parseFunnelPlatform accepts the three platforms and nothing else', () => {
+    expect(parseFunnelPlatform('web')).toBe('web');
+    expect(parseFunnelPlatform('ios')).toBe('ios');
+    expect(parseFunnelPlatform('android')).toBe('android');
+    expect(parseFunnelPlatform('all')).toBeNull();
+    expect(parseFunnelPlatform(undefined)).toBeNull();
+    expect(parseFunnelPlatform("ios' OR 1=1")).toBeNull();
+  });
+
+  it('getFunnelMetrics narrows to a signup platform, and a signup without one is the web', async () => {
+    queryMock.mockResolvedValueOnce([]);
+    await getFunnelMetrics(7, null, 'ios');
+    const [sql, params] = queryMock.mock.calls[0] as [string, unknown[]];
+    expect(sql).toContain("$3::text IS NULL OR (CASE WHEN analytics_events.properties->>'platform' IN ('ios', 'android')");
+    expect(sql).toContain("ELSE 'web' END) = $3::text");
+    expect(params).toEqual([7, null, 'ios']);
+  });
+
+  it('getPlatformBreakdown always returns the three platforms, zeroed when one has nobody', async () => {
+    queryMock.mockResolvedValueOnce([
+      { platform: 'web', signups: 8, started_game: 5, finished_game: 3, upgraded: 1, d1_cohort: 6, d1: 2, opened: '12' },
+      // Opened on a phone app with no signup there in the window.
+      { platform: 'ios', signups: null, started_game: null, finished_game: null, upgraded: null, d1_cohort: null, d1: null, opened: 2 },
+    ]);
+    const rows = await getPlatformBreakdown(30);
+    const [sql, params] = queryMock.mock.calls[0] as [string, unknown[]];
+    expect(sql).toContain("o.event = 'app_opened'");
+    expect(sql).toContain("e.event = 'game_started' AND COALESCE(e.properties->>'is_tutorial', 'false') <> 'true'");
+    expect(params).toEqual([30, null]);
+    expect(rows).toEqual([
+      { platform: 'web', signups: 8, started_game: 5, finished_game: 3, upgraded: 1, d1_cohort: 6, d1: 2, opened: 12 },
+      { platform: 'ios', signups: 0, started_game: 0, finished_game: 0, upgraded: 0, d1_cohort: 0, d1: 0, opened: 2 },
+      { platform: 'android', signups: 0, started_game: 0, finished_game: 0, upgraded: 0, d1_cohort: 0, d1: 0, opened: 0 },
+    ]);
   });
 
   it('getFunnelMetrics defaults a missing row to zeros', async () => {
@@ -214,7 +252,7 @@ describe('analyticsQueries', () => {
     // Leaving from the wrap-up card after playing the lesson counts as completed:
     // that path abandons the tutorial game, so the server event never fires.
     expect(sql).toContain("e.event = 'tutorial_exited' AND e.properties->>'via' IN ('wrapup', 'wrapup_to_match')");
-    expect(params).toEqual([30, null]);
+    expect(params).toEqual([30, null, null]);
     expect(rows).toEqual([
       { cohort: 'account', started: 8, completed: 6 },
       { cohort: 'guest', started: 30, completed: 9 },
@@ -357,12 +395,17 @@ describe('analyticsQueries', () => {
         { event: 'tomorrow_panel_shown', surface: null, guest: true, players: 3, since: '2026-11-12' },
         { event: 'tomorrow_panel_shown', surface: null, guest: false, players: 1, since: '2026-11-12' },
         { event: 'daily_link_clicked', surface: 'tomorrow', guest: false, players: 2, since: '2026-11-14' },
+      ])
+      .mockResolvedValueOnce([
+        { platform: 'web', signups: 3, started_game: 2, finished_game: 1, upgraded: 1, d1_cohort: 3, d1: 1, opened: 4 },
       ]);
     queryOneMock.mockResolvedValueOnce({ total: 42 });
 
     const r = await getAnalyticsReport(30);
     expect(r.window_days).toBe(30);
     expect(r.device).toBeNull();
+    expect(r.platform).toBeNull();
+    expect(r.platforms.map((p) => [p.platform, p.signups, p.opened])).toEqual([['web', 3, 4], ['ios', 0, 0], ['android', 0, 0]]);
     expect(r.total_events).toBe(42);
     expect(r.visitors).toEqual({ landed: 10, clicked_play: 4, signed_up: 3 });
     expect(r.funnel.finished_game).toBe(1);

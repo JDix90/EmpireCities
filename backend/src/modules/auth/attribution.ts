@@ -50,6 +50,18 @@ export type SignupDeviceClass = (typeof SIGNUP_DEVICE_CLASSES)[number];
 const DeviceClassSchema = z.enum(SIGNUP_DEVICE_CLASSES);
 
 /**
+ * Where the client was running: the website, or the iOS or Android app
+ * (frontend/src/utils/platform.ts `clientPlatform`). The device class cannot
+ * tell the iOS app from Safari on the same phone: both are a `phone`. Validated
+ * on its own, like the device. A signup that carries no platform came from the
+ * website: nothing else existed before the value was sent, and a browser tab
+ * still running an older build is on the web by definition (SIGNUP_PLATFORM_SQL).
+ */
+export const CLIENT_PLATFORMS = ['web', 'ios', 'android'] as const;
+export type ClientPlatform = (typeof CLIENT_PLATFORMS)[number];
+const ClientPlatformSchema = z.enum(CLIENT_PLATFORMS);
+
+/**
  * Pull the optional `attribution` object off an auth request body and flatten it
  * into an analytics payload. Never throws: a missing / malformed / oversized
  * body just yields `{}` (an un-attributed event), so wiring this into an auth
@@ -70,6 +82,8 @@ export function parseAttribution(body: unknown): Record<string, string> {
     if (anon.success) out.anon_session_id = anon.data;
     const device = DeviceClassSchema.safeParse((raw as Record<string, unknown>).device);
     if (device.success) out.device = device.data;
+    const platform = ClientPlatformSchema.safeParse((raw as Record<string, unknown>).platform);
+    if (platform.success) out.platform = platform.data;
   }
   return out;
 }

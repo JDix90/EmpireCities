@@ -1,7 +1,11 @@
 /**
  * Funnel + retention report over the first-party `analytics_events` table.
  *
- *   cd backend && pnpm exec tsx scripts/funnelReport.ts [days]
+ *   cd backend && pnpm exec tsx scripts/funnelReport.ts [days] [--platform=web|ios|android]
+ *
+ * `--platform` narrows the activation funnel, the tutorial and the first turn
+ * to signups on the website or in one of the apps; the BY PLATFORM table
+ * always shows all three side by side.
  *
  * `days` is the trailing window for acquisition/volume (default 30). Cohorts are
  * defined by each user's first `guest_created`/`user_registered` event, so the
@@ -14,9 +18,21 @@
  * Read-only. Requires the normal backend Postgres env (DATABASE_URL / PG*).
  */
 import { connectPostgres, pgPool, query } from '../src/db/postgres';
-import { getAnalyticsReport, getFirstTurnFunnel, type FirstTurnFunnel } from '../src/services/analyticsQueries';
+import {
+  getAnalyticsReport,
+  getFirstTurnFunnel,
+  parseFunnelPlatform,
+  type FirstTurnFunnel,
+} from '../src/services/analyticsQueries';
 
-const DAYS = Math.max(1, Number(process.argv[2]) || 30);
+const ARGS = process.argv.slice(2);
+const DAYS = Math.max(1, Number(ARGS.find((a) => !a.startsWith('--'))) || 30);
+const PLATFORM_ARG = ARGS.find((a) => a.startsWith('--platform='))?.slice('--platform='.length);
+const PLATFORM = parseFunnelPlatform(PLATFORM_ARG);
+if (PLATFORM_ARG !== undefined && !PLATFORM) {
+  console.error(`Unknown --platform "${PLATFORM_ARG}": use web, ios or android.`);
+  process.exit(1);
+}
 
 function pct(n: number, d: number): string {
   if (!d) return '  —  ';
@@ -32,9 +48,9 @@ function bar(n: number, d: number, width = 24): string {
 async function main(): Promise<void> {
   await connectPostgres();
 
-  const r = await getAnalyticsReport(DAYS);
+  const r = await getAnalyticsReport(DAYS, null, PLATFORM);
 
-  console.log(`\n=== Borderfall funnel — last ${DAYS} days ===`);
+  console.log(`\n=== Borderfall funnel — last ${DAYS} days${PLATFORM ? ` — signups on ${PLATFORM}` : ''} ===`);
   console.log(`(total events ever recorded: ${r.total_events})\n`);
   if (r.total_events === 0) {
     console.log('No analytics events yet. Set ANALYTICS_EVENTS_ENABLED=true and play through a game.\n');
@@ -57,6 +73,26 @@ async function main(): Promise<void> {
     '  NOTE: new means the account was made that day. A player who only opened the'
     + '\n  game counts from the release that added app_opened; before it, only those'
     + '\n  who played or did something recorded.\n',
+  );
+
+  // The website against the apps. A phone in Safari and the iOS app are both a
+  // "phone" to the device class; this is the split that tells them apart.
+  console.log('BY PLATFORM (signups in window and what became of them; opened = players who opened the game there)');
+  console.log(
+    `  ${'platform'.padEnd(9)} ${'signups'.padStart(8)} ${'started'.padStart(8)} ${'finished'.padStart(9)}`
+    + ` ${'saved'.padStart(6)} ${'D1'.padStart(12)} ${'opened'.padStart(7)}`,
+  );
+  for (const row of r.platforms) {
+    console.log(
+      `  ${row.platform.padEnd(9)} ${String(row.signups).padStart(8)} ${String(row.started_game).padStart(8)}`
+      + ` ${String(row.finished_game).padStart(9)} ${String(row.upgraded).padStart(6)}`
+      + ` ${`${row.d1}/${row.d1_cohort} ${pct(row.d1, row.d1_cohort).trim()}`.padStart(12)} ${String(row.opened).padStart(7)}`,
+    );
+  }
+  console.log(
+    '  NOTE: a signup or visit recorded without a platform is the website\'s (there was no'
+    + '\n  app before the value was sent). A player who uses the website and the app is under'
+    + '\n  both in "opened". Started and finished count real games, not the tutorial.\n',
   );
 
   const f = r.funnel;
@@ -214,8 +250,8 @@ async function main(): Promise<void> {
   // where a first turn stops between seeing the map and attacking.
   const byDevice: Array<[string, FirstTurnFunnel]> = [
     ['all', r.first_turn],
-    ['phone', await getFirstTurnFunnel(DAYS, 'phone')],
-    ['desktop', await getFirstTurnFunnel(DAYS, 'desktop')],
+    ['phone', await getFirstTurnFunnel(DAYS, 'phone', undefined, PLATFORM)],
+    ['desktop', await getFirstTurnFunnel(DAYS, 'desktop', undefined, PLATFORM)],
   ];
   console.log('FIRST TURN (new players in window, real games; each column: ever did it)');
   if (!r.first_turn.measured_since) {

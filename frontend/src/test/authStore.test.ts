@@ -95,6 +95,8 @@ describe('authStore', () => {
         anon_session_id: expect.stringMatching(/^[0-9a-f-]{36}$/i),
         // The test DOM has no matchMedia, which reads as a desktop.
         device: 'desktop',
+        // Not inside the Capacitor shell.
+        platform: 'web',
       },
     });
     // Same user_id (in-place conversion), progression intact, flag flipped.
