@@ -1455,8 +1455,12 @@ export default function AdminPage() {
         await useFeatureFlagsStore.getState().load();
       }
       setError(null);
-    } catch {
-      setError('Config patch failed. Ensure JSON is valid.');
+    } catch (err) {
+      // The server says what is wrong with a block it checks (native_app, feature_flags).
+      const serverError = (err as { response?: { data?: { error?: unknown } } })?.response?.data?.error;
+      setError(typeof serverError === 'string' && serverError
+        ? `Config patch failed: ${serverError}`
+        : 'Config patch failed. Ensure JSON is valid.');
     }
   }
 
@@ -2159,7 +2163,19 @@ export default function AdminPage() {
                   <option value="matchmaking">matchmaking</option>
                   <option value="default_game_settings">default_game_settings</option>
                   <option value="feature_flags">feature_flags</option>
+                  <option value="native_app">native_app (minimum app version)</option>
                 </select>
+                {patchKey === 'native_app' && (
+                  <p className="text-xs text-bf-muted" data-testid="native-app-config-help">
+                    The oldest iOS and Android app versions the server still serves. An app older than{' '}
+                    <span className="font-mono">ios_min_version</span> is shown an &quot;update required&quot; screen that
+                    opens <span className="font-mono">ios_store_url</span>, and can do nothing else; the website is never
+                    affected. Versions look like <span className="font-mono">1.4.0</span>;{' '}
+                    <span className="font-mono">&quot;&quot;</span> means no minimum. Send only the fields you mean to change.
+                    Never set a minimum above the newest version live in the store: those players would have nothing to
+                    update to.
+                  </p>
+                )}
                 <textarea
                   value={patchValue}
                   onChange={(e) => setPatchValue(e.target.value)}

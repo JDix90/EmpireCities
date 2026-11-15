@@ -2,6 +2,7 @@ import axios, { type InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '../store/authStore';
 import { getApiBaseUrl, REQUEST_TIMEOUT_MS } from '../config/env';
 import { embedderHeaders } from '../utils/embedContext';
+import { attachNativeAppVersion } from './nativeAppVersion';
 
 /** Wrong-password responses must not trigger refresh-token rotation (side effects + confusing retries). */
 function isAuthCredentialPost(config: InternalAxiosRequestConfig): boolean {
@@ -32,6 +33,10 @@ export const api = axios.create({
   headers: { 'Content-Type': 'application/json', ...embedderHeaders() },
   timeout: REQUEST_TIMEOUT_MS,
 });
+
+// Native app only: name the build on every request, and notice the server's
+// "update required" (426). On the website this adds no header and sees no 426.
+attachNativeAppVersion(api);
 
 // ── Request interceptor: attach access token ─────────────────────────────────
 api.interceptors.request.use((config) => {

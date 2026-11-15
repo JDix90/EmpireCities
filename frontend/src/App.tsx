@@ -13,6 +13,7 @@ import { mergeServerTutorialModules } from './tutorial/progression';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { useAuthStoreHydrated } from './hooks/useAuthStoreHydrated';
 import { useDailyVisit } from './hooks/useDailyVisit';
+import { checkNativeAppVersion, useUpdateRequiredStore } from './services/nativeAppVersion';
 import { ownAuthUiAllowed } from './utils/embedContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import GlobalMatchNotifier from './components/notifications/GlobalMatchNotifier';
@@ -75,6 +76,9 @@ const AdminPage = lazyWithChunkRetry(() => import('./pages/AdminPage'));
 // the PixiJS tactical view never lands in a player's bundle.
 const WarfrontPage = lazyWithChunkRetry(() => import('./pages/WarfrontPage'));
 const UpgradePage = lazyWithChunkRetry(() => import('./pages/UpgradePage'));
+// Native app only: shown in place of everything when the server no longer
+// serves this build. Lazy, so the website never downloads it.
+const UpdateRequiredScreen = lazyWithChunkRetry(() => import('./components/native/UpdateRequiredScreen'));
 const CodexPage = lazyWithChunkRetry(() => import('./pages/CodexPage'));
 const WarRoomPage = lazyWithChunkRetry(() => import('./pages/WarRoomPage'));
 
@@ -330,6 +334,13 @@ export default function App() {
     void useFeatureFlagsStore.getState().load();
   }, []);
 
+  // Native app only (a no-op on the website): ask the server at launch
+  // whether this build is still served. See services/nativeAppVersion.ts.
+  const updateRequired = useUpdateRequiredStore((s) => s.required);
+  useEffect(() => {
+    void checkNativeAppVersion();
+  }, []);
+
   // Reconcile the UI language with the server's `localization_enabled` once
   // the flags land — an admin override can differ from the client-side default
   // main.tsx applied before first paint. Idempotent; see src/i18n.
@@ -407,6 +418,18 @@ export default function App() {
     }
     return { top: `calc(env(safe-area-inset-top, 0px) + ${isOnline ? 16 : 48}px)` };
   }, [isNarrow, isOnline]);
+
+  // The server has refused this build of the native app: nothing else it
+  // could show would work, so the update screen replaces the app.
+  if (updateRequired) {
+    return (
+      <ErrorBoundary>
+        <Suspense fallback={<RouteLoadingFallback />}>
+          <UpdateRequiredScreen info={updateRequired} />
+        </Suspense>
+      </ErrorBoundary>
+    );
+  }
 
   return (
     <ErrorBoundary>
