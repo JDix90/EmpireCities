@@ -25,7 +25,7 @@ vi.mock('../config', async (importOriginal) => {
   const mod = await importOriginal<typeof import('../config')>();
   return {
     ...mod,
-    config: { ...mod.config, frontendUrl: 'https://bf.test', push: { fcmServiceAccountPath: saPath } },
+    config: { ...mod.config, frontendUrl: 'https://bf.test', push: { ...mod.config.push, fcmServiceAccountPath: saPath } },
   };
 });
 

@@ -1,5 +1,5 @@
 // ============================================================
-// Notification Service — Push (FCM) + Email (Nodemailer)
+// Notification Service — Push (FCM, and APNs for the iOS app) + Email (Nodemailer)
 // ============================================================
 // Dispatches notifications for async games when it's a player's
 // turn. Includes deduplication to avoid spamming on reconnects.
@@ -12,6 +12,7 @@ import { query, queryOne } from '../db/postgres';
 import type { GameState } from '../types';
 import { APP_NAME } from '../constants/brand';
 import { signUnsubscribeToken } from '../utils/unsubscribeToken';
+import { getApnsSender, isApnsConfigured } from './apnsService';
 
 // ── Era labels for notification text ─────────────────────────────────────────
 
@@ -110,7 +111,8 @@ export function webPushTag(data?: Record<string, string>): string {
  * unreachable player from a failed send before trying.
  */
 export async function isPushConfigured(): Promise<boolean> {
-  return (await getFirebaseAdmin()) !== null;
+  // Either transport: Firebase for the website (and Android), APNs for the iOS app.
+  return (await getFirebaseAdmin()) !== null || isApnsConfigured();
 }
 
 /**
@@ -126,17 +128,51 @@ export async function sendPushNotification(
   data?: Record<string, string>,
   link?: string,
 ): Promise<number> {
+  // Two transports, by the platform a token was registered with: the iOS app's
+  // tokens are Apple's and go straight to APNs (apnsService.ts); every other
+  // token is Firebase's. With neither configured there is nobody to ask.
   const admin = await getFirebaseAdmin();
-  if (!admin) return 0;
+  const apns = isApnsConfigured() ? getApnsSender() : null;
+  if (!admin && !apns) return 0;
 
-  const tokens = await query<{ token_id: string; token: string }>(
-    'SELECT token_id, token FROM push_tokens WHERE user_id = $1',
+  const tokens = await query<{ token_id: string; token: string; platform?: string }>(
+    'SELECT token_id, token, platform FROM push_tokens WHERE user_id = $1',
     [userId],
   );
 
   if (tokens.length === 0) return 0;
 
-  const tokenStrings = tokens.map((t) => t.token);
+  const iosTokens = tokens.filter((t) => t.platform === 'ios');
+  const fcmTokens = tokens.filter((t) => t.platform !== 'ios');
+  let delivered = 0;
+
+  // An iOS token is never offered to Firebase: it is not a Firebase token, and
+  // Firebase's "invalid token" answer would delete it. Without APNs configured
+  // it is left alone until it is.
+  if (apns && iosTokens.length > 0) {
+    const results = await Promise.all(
+      iosTokens.map((t) =>
+        apns
+          .send(t.token, {
+            title,
+            body,
+            data: { ...(data ?? {}), ...(link && !data?.url ? { url: link } : {}) },
+            collapseId: webPushTag(data),
+          })
+          .catch((err: unknown) => ({ status: 'failed' as const, reason: (err as Error).message })),
+      ),
+    );
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      if (r.status === 'sent') delivered += 1;
+      else if (r.status === 'gone') await query('DELETE FROM push_tokens WHERE token_id = $1', [iosTokens[i].token_id]);
+      else console.error('[Notifications] APNs send failed:', r.reason);
+    }
+  }
+
+  if (!admin || fcmTokens.length === 0) return delivered;
+
+  const tokenStrings = fcmTokens.map((t) => t.token);
   try {
     // The message carries a `notification` block so the FCM web SDK shows it
     // itself while the tab is hidden (and native trays display it). The
@@ -168,14 +204,14 @@ export async function sendPushNotification(
           r.error.code === 'messaging/registration-token-not-registered' ||
           r.error.code === 'messaging/invalid-registration-token'
         )) {
-          await query('DELETE FROM push_tokens WHERE token_id = $1', [tokens[i].token_id]);
+          await query('DELETE FROM push_tokens WHERE token_id = $1', [fcmTokens[i].token_id]);
         }
       }
     }
-    return response.successCount;
+    return delivered + response.successCount;
   } catch (err) {
     console.error('[Notifications] Push send failed:', err);
-    return 0;
+    return delivered;
   }
 }
 

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Flame, Coins, Swords, Snowflake, BellRing, CalendarClock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../../services/api';
-import { enableWebPush, getWebPushStatus, needsHomeScreenInstall } from '../../services/pushNotifications';
+import { enableWebPush, getWebPushStatus, needsHomeScreenInstall, pushBlockedMessage, subscribePushStatus } from '../../services/pushNotifications';
 import { guestLine } from '../../utils/guestGate';
 import { getPushNudgeDismissedAt, markPushNudgeDismissed } from '../../utils/userPreferences';
 import { PUSH_NUDGE_SNOOZE_MS } from '../notifications/PushOptInBanner';
@@ -208,6 +208,8 @@ function ReminderAsk({ daily = false }: { daily?: boolean }) {
     return at !== null && Date.now() - at < PUSH_NUDGE_SNOOZE_MS;
   });
   const [busy, setBusy] = useState(false);
+  // The native app learns its permission after this has first drawn.
+  useEffect(() => subscribePushStatus(() => setStatus(getWebPushStatus())), []);
 
   const iosTab = status === 'unsupported' && needsHomeScreenInstall();
   // funnel_events_v2_enabled: the ask shown against dismissed.
@@ -228,7 +230,7 @@ function ReminderAsk({ daily = false }: { daily?: boolean }) {
       if (result === 'granted') {
         toast.success("We'll remind you before your streak ends");
       } else if (result === 'denied') {
-        toast.error('Notifications are blocked for this site in your browser settings');
+        toast.error(pushBlockedMessage());
       } else if (result === 'error') {
         toast.error("Couldn't turn on reminders — try again from Settings");
       }

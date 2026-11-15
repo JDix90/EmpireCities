@@ -30,23 +30,25 @@ Recorded 15 November 2026.
 | App and website told apart in analytics | Built |
 | Privacy page covers chat reports, blocks, iOS push tokens, crash reports and where to delete an account | Built |
 | Native build: required server addresses, clean app shell, shared links that point at the website | Built |
+| Push notifications on iPhone and iPad, sent straight to Apple; asked for only from the existing controls | Built; off until the server has the Apple push key (`APNS_*`). Not yet confirmed on a device |
 | Links that open the app (sign-in, password reset, invites, replays, your-turn links), and a sign-in code to type when a link lands in a browser | Built; needs the Team ID in the association file, and `sign_in_code_enabled` (off by default). Not yet confirmed on a device |
 | Staying signed in: a refresh token in the iOS Keychain, sent only by the app; survives a force-quit and a reinstall | Built; off until the server sets `NATIVE_APP_ORIGINS`. Not yet confirmed on a device |
 
 ## What is still to do before the App Store process can start
 
-**Product work, not built.** Each needs a real iPhone to confirm;
-[MOBILE_CAPACITOR.md § Not built yet](MOBILE_CAPACITOR.md#not-built-yet) says what the app does
-without each.
-
-- [ ] **Push notifications on iPhone.** Today the app asks for permission at sign-in and no
-      notification ever arrives.
+**Confirm on a device.** Staying signed in, links that open the app and push notifications
+are built but have only been tested in simulation: this work was done without access to an
+iPhone. The device test list in
+[MOBILE_CAPACITOR.md](MOBILE_CAPACITOR.md#testing-on-a-device) covers each. Treat any failure
+there as a blocker.
 
 **Details only the owner can supply**
 
 - [ ] Legal name (or company) and the privacy and support contact emails, for the placeholders
       in `PRIVACY_POLICY.md` and `TERMS_AND_CONDITIONS.md`. The governing-law and venue
       placeholders in the terms need a decision too. Have counsel read both.
+- [ ] An Apple push key (`.p8`), created in the Apple Developer account and copied to the
+      server ([how](MOBILE_CAPACITOR.md#push-notifications)).
 - [ ] The Apple Developer Team ID, once enrolled: put it in the association file, deploy the
       website, and run the `curl` check
       ([how](MOBILE_CAPACITOR.md#before-it-works-the-team-id)).
@@ -57,6 +59,8 @@ without each.
       ([how](MOBILE_CAPACITOR.md#1-allow-the-apps-origin)).
 - [ ] `NATIVE_APP_ORIGINS=capacitor://localhost`, so the app stays signed in
       ([how](MOBILE_CAPACITOR.md#2-let-the-app-stay-signed-in)).
+- [ ] `APNS_KEY_PATH`, `APNS_KEY_ID` and `APNS_TEAM_ID`, with the key file in place
+      ([how](MOBILE_CAPACITOR.md#4-give-the-server-the-apple-push-key)).
 - [ ] `chat_safety_enabled`, `guest_account_deletion_enabled` and `sign_in_code_enabled`
       switched on (Admin → Config). Once they have been checked on production, promote their
       code defaults to on.
