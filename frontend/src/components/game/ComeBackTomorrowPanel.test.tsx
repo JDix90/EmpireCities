@@ -22,6 +22,10 @@ vi.mock('../../services/pushNotifications', () => ({
   getWebPushStatus: () => push.status,
   needsHomeScreenInstall: () => push.homeScreen,
   enableWebPush: () => push.enable(),
+  // The website's answers from the helpers the native app also uses.
+  isNativePush: () => false,
+  pushBlockedMessage: () => 'Notifications are blocked for this site in your browser settings',
+  subscribePushStatus: () => () => {},
 }));
 
 const comeback = (isGuest: boolean) => ({

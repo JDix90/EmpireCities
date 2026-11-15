@@ -184,6 +184,15 @@ export const config = {
 
   push: {
     fcmServiceAccountPath: process.env.FCM_SERVICE_ACCOUNT_PATH || '',
+    // Push to the iOS app goes straight to Apple (services/apnsService.ts).
+    // All of keyPath, keyId and teamId, or iOS push is off.
+    apns: {
+      /** Path to the `.p8` key from the Apple Developer account. */
+      keyPath: process.env.APNS_KEY_PATH || '',
+      keyId: process.env.APNS_KEY_ID || '',
+      teamId: process.env.APNS_TEAM_ID || '',
+      bundleId: process.env.APNS_BUNDLE_ID || 'com.borderfall.app',
+    },
   },
 
   sentryDsn: process.env.SENTRY_DSN || '',

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { BellRing } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { enableWebPush, getWebPushStatus, needsHomeScreenInstall } from '../../services/pushNotifications';
+import { enableWebPush, getWebPushStatus, needsHomeScreenInstall, pushBlockedMessage } from '../../services/pushNotifications';
 import { getPushNudgeDismissedAt, markPushNudgeDismissed } from '../../utils/userPreferences';
 import { PUSH_NUDGE_SNOOZE_MS } from './PushOptInBanner';
 import { trackFunnel, useTrackShown } from '../../utils/funnelEvents';
@@ -85,7 +85,7 @@ function AfterTurnPrompt({ toastId, iosTab, wait }: { toastId: string; iosTab: b
       if (result === 'granted') {
         toast.success("You'll get a ping when it's your move");
       } else if (result === 'denied') {
-        toast.error('Notifications are blocked for this site in your browser settings');
+        toast.error(pushBlockedMessage());
       } else if (result === 'error') {
         toast.error("Couldn't turn on notifications — try again from Settings");
       }

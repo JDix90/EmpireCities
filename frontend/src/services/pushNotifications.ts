@@ -4,10 +4,13 @@
 // Device registration for web (Firebase Cloud Messaging + service worker)
 // and native (Capacitor) platforms, plus foreground display.
 //
-// Web push is OPT-IN. Nothing in this module asks for notification
-// permission on its own: initPushNotifications() only completes a
-// registration the player already granted, and enableWebPush() — the one
-// function that prompts — is meant to be called from a click handler.
+// Push is OPT-IN, on the web and in the native app alike. Nothing in this
+// module asks for notification permission on its own: initPushNotifications()
+// only completes a registration the player already granted, and
+// enableWebPush() — the one function that prompts — is meant to be called
+// from a click handler. In the native app the same two functions drive the
+// system's own permission (see "Native Push" below), so every control built
+// on them works there unchanged.
 // ============================================================
 
 import { Capacitor } from '@capacitor/core';
@@ -81,6 +84,9 @@ export type WebPushStatus =
   | 'granted';
 
 export function getWebPushStatus(): WebPushStatus {
+  // The native app: the system's permission for the app, as last checked. It
+  // needs no Firebase web config; its token comes from the system.
+  if (Capacitor.isNativePlatform()) return nativeStatus;
   if (!readFirebaseWebConfig()) return 'unconfigured';
   // Test the VALUE, not the key: an iOS Safari tab (and a stubbed test) can
   // carry the property as undefined.
@@ -115,15 +121,17 @@ let initialized = false;
  * - Native (iOS/Android): uses @capacitor/push-notifications.
  */
 export async function initPushNotifications(): Promise<void> {
+  // The native app runs this for every sign-in, not once per launch: the
+  // device's token has to be registered to whoever is signed in now.
+  if (Capacitor.isNativePlatform()) {
+    await initNativePush();
+    return;
+  }
   if (initialized) return;
   initialized = true;
 
   try {
-    if (Capacitor.isNativePlatform()) {
-      await initNativePush();
-    } else {
-      await initWebPush();
-    }
+    await initWebPush();
   } catch (err) {
     console.error('[Push] Initialization failed:', err);
   }
@@ -175,6 +183,7 @@ export type EnableWebPushResult = WebPushStatus | 'error';
  * granted but registration failed (network, FCM, or the backend).
  */
 export async function enableWebPush(): Promise<EnableWebPushResult> {
+  if (Capacitor.isNativePlatform()) return enableNativePush();
   const status = getWebPushStatus();
   if (status === 'unconfigured' || status === 'unsupported' || status === 'denied') return status;
   const cfg = readFirebaseWebConfig();
@@ -263,58 +272,166 @@ export function handleForegroundMessage(payload: MessagePayload): void {
 }
 
 // ── Native Push (Capacitor) ──────────────────────────────────────────────────
+//
+// The native app uses the system's push: on iOS the token is Apple's (APNs),
+// which the server sends to directly (backend services/apnsService.ts). The
+// rules are the web's: never ask at sign-in, ask only from a control the
+// player pressed.
 
+/**
+ * The system's permission for the app, in the web's terms. 'unsupported'
+ * until it has been checked, so no control offers anything on a guess.
+ */
+let nativeStatus: WebPushStatus = 'unsupported';
+let nativeListeners: Promise<void> | null = null;
+/** The token the system gave this run, to register to whoever signs in next. */
+let nativeToken: string | null = null;
+const statusListeners = new Set<() => void>();
+
+/**
+ * Be told when the push status changes without the control having asked: in
+ * the native app it is learned after the first screen has drawn. Returns the
+ * unsubscribe. On the website it never fires.
+ */
+export function subscribePushStatus(listener: () => void): () => void {
+  statusListeners.add(listener);
+  return () => {
+    statusListeners.delete(listener);
+  };
+}
+
+function setNativeStatus(next: WebPushStatus): void {
+  if (next === nativeStatus) return;
+  nativeStatus = next;
+  for (const listener of statusListeners) listener();
+}
+
+function fromNativePermission(receive: string): WebPushStatus {
+  if (receive === 'granted') return 'granted';
+  if (receive === 'denied') return 'denied';
+  return 'default';
+}
+
+/** Whether this is the native app: its notification copy names the device and the Settings app, not a browser. */
+export function isNativePush(): boolean {
+  return Capacitor.isNativePlatform();
+}
+
+/** What to tell a player whose notifications are blocked: where the switch is. */
+export function pushBlockedMessage(): string {
+  return isNativePush()
+    ? 'Notifications are off for Borderfall. Turn them on in the Settings app, under Notifications.'
+    : 'Notifications are blocked for this site in your browser settings';
+}
+
+async function postNativeToken(token: string): Promise<void> {
+  try {
+    await api.post('/users/me/push-tokens', {
+      token,
+      platform: Capacitor.getPlatform() as 'ios' | 'android',
+    });
+  } catch (err) {
+    console.error('[Push] Failed to register native token:', err);
+  }
+}
+
+/** Go to a route without reloading the app: the router follows the history. */
+function openInApp(path: string): void {
+  window.history.pushState({}, '', path);
+  window.dispatchEvent(new PopStateEvent('popstate'));
+}
+
+/** Listeners first, once: a token that arrives before anyone listens is lost. */
+function attachNativeListeners(): Promise<void> {
+  if (!nativeListeners) {
+    nativeListeners = (async () => {
+      const { PushNotifications } = await import('@capacitor/push-notifications');
+      await PushNotifications.addListener('registration', (tokenData) => {
+        nativeToken = tokenData.value;
+        void postNativeToken(tokenData.value);
+      });
+      await PushNotifications.addListener('registrationError', (err) => {
+        console.error('[Push] Native registration failed:', err);
+      });
+      // In front, the system shows nothing; this does. The same rules as the
+      // web: what the app-wide socket listeners already announce is not said twice.
+      await PushNotifications.addListener('pushNotificationReceived', (notification) => {
+        handleForegroundMessage({
+          data: notification.data,
+          notification: { title: notification.title, body: notification.body },
+        } as MessagePayload);
+      });
+      // A tap on the notification opens the game it is about, inside the app.
+      await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+        const gameId = action.notification.data?.gameId;
+        if (typeof gameId === 'string' && /^[A-Za-z0-9-]{1,64}$/.test(gameId)) {
+          openInApp(`/game/${gameId}`);
+        }
+      });
+    })().catch((err) => {
+      nativeListeners = null;
+      throw err;
+    });
+  }
+  return nativeListeners;
+}
+
+/**
+ * Runs at sign-in. Never prompts: it reads the permission the player has
+ * already given or refused, and with it given registers the device to the
+ * account now signed in.
+ */
 async function initNativePush(): Promise<void> {
   try {
     const { PushNotifications } = await import('@capacitor/push-notifications');
-
-    // Request permission
-    const permResult = await PushNotifications.requestPermissions();
-    if (permResult.receive !== 'granted') {
-      console.log('[Push] Native push permission denied');
-      return;
-    }
-
-    // Register with APNs / FCM
-    await PushNotifications.register();
-
-    // Handle successful registration
-    PushNotifications.addListener('registration', async (tokenData) => {
-      const platform = Capacitor.getPlatform() as 'ios' | 'android';
-      try {
-        await api.post('/users/me/push-tokens', {
-          token: tokenData.value,
-          platform,
-        });
-        console.log('[Push] Native push token registered');
-      } catch (err) {
-        console.error('[Push] Failed to register native token:', err);
-      }
-    });
-
-    // Handle registration errors
-    PushNotifications.addListener('registrationError', (err) => {
-      console.error('[Push] Native registration failed:', err);
-    });
-
-    // Handle received notifications when app is in foreground
-    PushNotifications.addListener('pushNotificationReceived', (notification) => {
-      // Match-found is surfaced by the app-wide socket listener (see web path).
-      if (notification.data?.type === 'match_found') return;
-      toast(
-        `${notification.title ?? "It's your turn!"}\n${notification.body ?? ''}`,
-        { duration: 8000, icon: '🎮' },
-      );
-    });
-
-    // Handle notification tap (open game)
-    PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-      const gameId = action.notification.data?.gameId;
-      if (gameId) {
-        window.location.href = `/game/${gameId}`;
-      }
-    });
+    await attachNativeListeners();
+    const permission = await PushNotifications.checkPermissions();
+    setNativeStatus(fromNativePermission(permission.receive));
+    if (nativeStatus !== 'granted') return;
+    // A token already in hand belongs to this device, whoever is signed in.
+    if (nativeToken) await postNativeToken(nativeToken);
+    else await PushNotifications.register();
   } catch (err) {
     console.error('[Push] Native push setup failed:', err);
   }
+}
+
+/**
+ * The native side of enableWebPush(): show the system's permission prompt and,
+ * if the player allows, register the device. Call from a click, like the web's.
+ * iOS shows its prompt once; after a refusal this resolves 'denied' without
+ * one, and only the Settings app can change it.
+ */
+async function enableNativePush(): Promise<EnableWebPushResult> {
+  try {
+    const { PushNotifications } = await import('@capacitor/push-notifications');
+    await attachNativeListeners();
+    const before = nativeStatus;
+    const permission = await PushNotifications.requestPermissions();
+    const status = fromNativePermission(permission.receive);
+    setNativeStatus(status);
+    if (before !== 'granted') {
+      api
+        .post('/analytics/ui-event', {
+          event: status === 'granted' ? 'push_optin_granted' : 'push_optin_refused',
+          properties: { result: status },
+        })
+        .catch(() => {});
+    }
+    if (status !== 'granted') return status;
+    if (nativeToken) await postNativeToken(nativeToken);
+    else await PushNotifications.register();
+    return 'granted';
+  } catch (err) {
+    console.error('[Push] Native push opt-in failed:', err);
+    return 'error';
+  }
+}
+
+/** Test seam: forget what the native side has learned. */
+export function resetNativePushForTests(): void {
+  nativeStatus = 'unsupported';
+  nativeListeners = null;
+  nativeToken = null;
+  statusListeners.clear();
 }

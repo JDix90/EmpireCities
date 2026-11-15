@@ -12,6 +12,7 @@ build/
 
 # Credential material that should never be committed from any directory.
 *.pem
+*.p8
 *.p12
 *.pfx
 *.keystore

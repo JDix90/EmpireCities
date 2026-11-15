@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BellRing, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../../store/authStore';
-import { enableWebPush, getWebPushStatus, needsHomeScreenInstall } from '../../services/pushNotifications';
+import { enableWebPush, getWebPushStatus, needsHomeScreenInstall, pushBlockedMessage, subscribePushStatus, isNativePush } from '../../services/pushNotifications';
 import { getPushNudgeDismissedAt, markPushNudgeDismissed } from '../../utils/userPreferences';
 import { trackFunnel, useTrackShown } from '../../utils/funnelEvents';
 import { useHomeScreenInstallEnabled } from '../../store/featureFlagsStore';
@@ -39,6 +39,8 @@ export default function PushOptInBanner({ hasAsyncGames }: PushOptInBannerProps)
     return at !== null && Date.now() - at < PUSH_NUDGE_SNOOZE_MS;
   });
   const [busy, setBusy] = useState(false);
+  // The native app learns its permission after this has first drawn.
+  useEffect(() => subscribePushStatus(() => setStatus(getWebPushStatus())), []);
   const iosTab = status === 'unsupported' && needsHomeScreenInstall();
   // home_screen_install_enabled: a player who has just opened Borderfall from
   // their home screen is asked here whatever games they have. Installing was
@@ -73,7 +75,7 @@ export default function PushOptInBanner({ hasAsyncGames }: PushOptInBannerProps)
         toast.success("You'll get a notification when it's your turn");
         setStatus('granted');
       } else if (result === 'denied') {
-        toast.error('Notifications are blocked for this site in your browser settings');
+        toast.error(pushBlockedMessage());
         setStatus('denied');
       } else if (result === 'error') {
         toast.error("Couldn't turn on notifications — try again in a moment");
@@ -102,7 +104,7 @@ export default function PushOptInBanner({ hasAsyncGames }: PushOptInBannerProps)
             ? 'Add Borderfall to your Home Screen (Share → Add to Home Screen), then turn notifications on from there.'
             : installedApp && !hasAsyncGames
               ? 'Borderfall is on your home screen. Let it tell you when it is your turn, and before a daily streak runs out.'
-              : 'Get a notification on this device when an opponent moves — even with the tab closed.'}
+              : `Get a notification on this device when an opponent moves — even with the ${isNativePush() ? 'app' : 'tab'} closed.`}
         </p>
       </div>
       <div className="flex items-center gap-2 shrink-0">

@@ -149,6 +149,16 @@ services:
       #   FCM_SERVICE_ACCOUNT_PATH=/run/secrets/borderfall/service-account-fcm.json
       # Unset = push disabled with a one-line notice at first use, as before.
       FCM_SERVICE_ACCOUNT_PATH: ${FCM_SERVICE_ACCOUNT_PATH:-}
+      # Push to the iOS app goes straight to Apple (services/apnsService.ts),
+      # signed with the .p8 key from the Apple Developer account. The key file
+      # is bind-mounted like the Firebase one, so the path is the one INSIDE
+      # the container:
+      #   APNS_KEY_PATH=/run/secrets/borderfall/AuthKey_XXXXXXXXXX.p8
+      # All three of path, key ID and team ID, or iOS push stays off.
+      APNS_KEY_PATH: ${APNS_KEY_PATH:-}
+      APNS_KEY_ID: ${APNS_KEY_ID:-}
+      APNS_TEAM_ID: ${APNS_TEAM_ID:-}
+      APNS_BUNDLE_ID: ${APNS_BUNDLE_ID:-com.borderfall.app}
       INSTANCE_ID: ${INSTANCE_ID:-backend-1}
     # Secrets that live as files rather than env vars — today only the Firebase
     # service account. A DIRECTORY is mounted, not the file: bind-mounting a

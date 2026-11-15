@@ -5,6 +5,9 @@ import { api } from '../../services/api';
 import {
   enableWebPush,
   getWebPushStatus,
+  isNativePush,
+  pushBlockedMessage,
+  subscribePushStatus,
   needsHomeScreenInstall,
   type WebPushStatus,
 } from '../../services/pushNotifications';
@@ -47,6 +50,11 @@ export default function NotificationPreferences({ embedded = false, guest = fals
   const installGuide = useHomeScreenInstallEnabled();
   const [enabling, setEnabling] = useState(false);
   const [testing, setTesting] = useState(false);
+  // The native app learns its permission after this has first drawn.
+  useEffect(() => subscribePushStatus(() => setBrowserStatus(getWebPushStatus())), []);
+  // In the native app this row is the device's own permission, not a browser's.
+  const native = isNativePush();
+  const thisDevice = native ? 'This device' : 'This browser';
 
   useEffect(() => {
     api
@@ -73,7 +81,7 @@ export default function NotificationPreferences({ embedded = false, guest = fals
       const result = await enableWebPush();
       if (result === 'granted') {
         setBrowserStatus('granted');
-        toast.success('Notifications are on for this browser');
+        toast.success(isNativePush() ? 'Notifications are on for this device' : 'Notifications are on for this browser');
         // The account-level switch gates every device, so a browser turned on
         // while it is off would be a silent no-op. Opting in here is the
         // clearest possible "yes" to the account switch as well.
@@ -83,9 +91,9 @@ export default function NotificationPreferences({ embedded = false, guest = fals
         }
       } else if (result === 'denied') {
         setBrowserStatus('denied');
-        toast.error('Notifications are blocked for this site in your browser settings');
+        toast.error(pushBlockedMessage());
       } else if (result === 'error') {
-        toast.error("Couldn't register this browser — try again in a moment");
+        toast.error(isNativePush() ? "Couldn't register this device — try again in a moment" : "Couldn't register this browser — try again in a moment");
       } else {
         // Dismissed without a choice, or the environment changed under us.
         setBrowserStatus(getWebPushStatus());
@@ -139,8 +147,10 @@ export default function NotificationPreferences({ embedded = false, guest = fals
       return (
         <SettingsRow
           icon={Smartphone}
-          label="This browser"
-          description="Blocked. Allow notifications for this site in your browser settings, then reload."
+          label={thisDevice}
+          description={native
+            ? 'Off. Turn notifications on for Borderfall in the Settings app, under Notifications.'
+            : 'Blocked. Allow notifications for this site in your browser settings, then reload.'}
         >
           <span className="text-xs text-red-400">Blocked</span>
         </SettingsRow>
@@ -150,11 +160,11 @@ export default function NotificationPreferences({ embedded = false, guest = fals
       return (
         <SettingsRow
           icon={Smartphone}
-          label="This browser"
+          label={thisDevice}
           description={
             guest
-              ? 'Reminders and turn alerts arrive here as system notifications, even with the tab closed.'
-              : 'Turn alerts arrive here as system notifications, even with the tab closed.'
+              ? `Reminders and turn alerts arrive here as system notifications, even with the ${native ? 'app' : 'tab'} closed.`
+              : `Turn alerts arrive here as system notifications, even with the ${native ? 'app' : 'tab'} closed.`
           }
         >
           <div className="flex items-center gap-2">
@@ -174,11 +184,11 @@ export default function NotificationPreferences({ embedded = false, guest = fals
     return (
       <SettingsRow
         icon={Smartphone}
-        label="This browser"
+        label={thisDevice}
         description={
           guest
-            ? "Get a system notification before your streak ends or when it's your turn, even with the tab closed."
-            : "Get a system notification when it's your turn, even with the tab closed."
+            ? `Get a system notification before your streak ends or when it's your turn, even with the ${native ? 'app' : 'tab'} closed.`
+            : `Get a system notification when it's your turn, even with the ${native ? 'app' : 'tab'} closed.`
         }
       >
         <button

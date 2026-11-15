@@ -21,9 +21,9 @@ the server, how it differs from the website, and how to test it on a device.
 - [How the app differs from the website](#how-the-app-differs-from-the-website)
 - [Staying signed in](#staying-signed-in)
 - [Links that open the app](#links-that-open-the-app)
+- [Push notifications](#push-notifications)
 - [Minimum app version and API compatibility](#minimum-app-version-and-api-compatibility)
 - [Analytics: telling the app from the website](#analytics-telling-the-app-from-the-website)
-- [Not built yet](#not-built-yet)
 - [Testing on a device](#testing-on-a-device)
 - [Android](#android)
 - [Repo layout](#repo-layout)
@@ -73,7 +73,7 @@ A plain `pnpm run build` followed by `cap sync` ships the landing page inside th
 
 ## Server settings
 
-Four things on the server, none of which the website needs.
+Five things on the server, none of which the website needs.
 
 ### 1. Allow the app's origin
 
@@ -117,7 +117,20 @@ for a way to delete them inside the app (guideline 5.1.1(v)).
 The in-app privacy page reads both flags and describes what is actually switched on
 (`frontend/src/pages/PrivacyPage.tsx`).
 
-### 4. Leave the minimum app version empty until there is a second version
+### 4. Give the server the Apple push key
+
+```bash
+# in the server's .env.production; the path is the one inside the container
+APNS_KEY_PATH=/run/secrets/borderfall/AuthKey_XXXXXXXXXX.p8
+APNS_KEY_ID=XXXXXXXXXX
+APNS_TEAM_ID=XXXXXXXXXX
+```
+
+The key file goes on the host in `/etc/borderfall/secrets/`, beside the Firebase one. See
+[Push notifications](#push-notifications) for where it comes from. Without these the app works
+and simply receives no notifications.
+
+### 5. Leave the minimum app version empty until there is a second version
 
 See [Minimum app version and API compatibility](#minimum-app-version-and-api-compatibility).
 
@@ -291,6 +304,57 @@ an email-only account there.
   hour, right or wrong.
 - It works on the website too, for a player who opened the email on a different device.
 
+## Push notifications
+
+The website's push goes through Firebase. The iOS app's goes **straight to Apple** (APNs):
+the app has no Firebase SDK and no `GoogleService-Info.plist`, so the token iOS gives it is
+Apple's, and the server sends to it itself (`backend/src/services/apnsService.ts`).
+
+| | Website | iOS app |
+|---|---|---|
+| Token comes from | Firebase, through the browser's push service | iOS (`@capacitor/push-notifications`) |
+| Stored as | `push_tokens.platform = 'web'` | `push_tokens.platform = 'ios'` |
+| Sent through | Firebase (`FCM_SERVICE_ACCOUNT_PATH`) | APNs (`APNS_KEY_PATH`, `APNS_KEY_ID`, `APNS_TEAM_ID`) |
+| Asked for | Only from a control the player pressed | The same controls, the same rule |
+
+**Opt-in is the same as on the web.** Signing in never raises the system's permission prompt.
+The lobby card, the after-turn prompt, the results panel and Settings → Notifications raise it
+when the player presses "Turn on" (`frontend/src/services/pushNotifications.ts`). iOS shows
+its prompt once: after a refusal the row says to turn notifications on in the Settings app.
+
+**The key** (do this once, in the Apple Developer account):
+
+1. Certificates, Identifiers & Profiles → Keys → **+**.
+2. Enable "Apple Push Notifications service (APNs)", continue, register.
+3. Download `AuthKey_<KEY ID>.p8`. It can be downloaded once; keep a copy somewhere safe.
+4. Note the Key ID on that page, and the Team ID under Membership details.
+5. Copy the file to the server, into `/etc/borderfall/secrets/` (owner root, mode 600), and
+   set the three variables in [Server settings](#4-give-the-server-the-apple-push-key).
+
+The key is a secret. `*.p8` is in `.gitignore`; never commit it or paste its contents into an
+env file. One key serves both the development and production environments.
+
+**In the Xcode project**
+
+- `App/App.entitlements` carries `aps-environment`. Xcode signs a build run from Xcode for
+  the development environment and an archived build for production; nothing needs editing.
+- `AppDelegate.swift` passes iOS's registration answer on to Capacitor. Without those two
+  methods the app never learns its token.
+- The App ID needs the Push Notifications capability, which needs the paid Apple Developer
+  Program. With automatic signing Xcode adds it when the entitlement is present.
+
+Things to know:
+
+- **A build run from Xcode gets a sandbox token**; a TestFlight or App Store build gets a
+  production one, and the token does not say which. The server tries production, then the
+  sandbox, and remembers. Nothing to configure.
+- **An iOS token is never sent to Firebase**, with or without the Apple key: Firebase would
+  call it invalid, and that answer deletes the token.
+- **A token Apple reports as gone** (the app was removed) is deleted, as Firebase's are.
+- **The simulator** cannot be relied on for push; test on a device.
+- A tap on a notification opens its game inside the app. With the app in front, the alert
+  shows as a toast, and not at all for what the app already announces itself.
+
 ## Minimum app version and API compatibility
 
 A browser tab on an old build is moved to the new one by a reload. An installed app is not: it
@@ -376,17 +440,6 @@ the website's.
 - **CLI:** `pnpm -C backend exec tsx scripts/funnelReport.ts 30` prints a `BY PLATFORM` table;
   add `--platform=ios` to narrow the funnels to signups in the iOS app.
 
-## Not built yet
-
-One thing the iOS app needs before it can be submitted. It needs a real iPhone to confirm.
-Until it is built:
-
-| | What happens in the app today | Why |
-|---|---|---|
-| **Push notifications** | The app asks for notification permission at sign-in, and no notification ever arrives | `AppDelegate.swift` does not forward the registration callbacks, there is no push entitlement, and the server sends only through Firebase, which cannot use the token iOS gives the app. The Settings and lobby notification controls are also web-only |
-
-When each is built, its section moves up into this page with its own device test steps.
-
 ## Testing on a device
 
 What only a device can confirm, for the parts that are built. Do this against a server that is
@@ -395,7 +448,8 @@ safe to create accounts on.
 **Before you start**
 
 1. The server's `CORS_ORIGINS` and `NATIVE_APP_ORIGINS` both include `capacitor://localhost`,
-   and the backend was restarted.
+   the three `APNS_*` variables are set with the key file in place, and the backend was
+   restarted.
 2. `chat_safety_enabled`, `guest_account_deletion_enabled` and `sign_in_code_enabled` are on
    (Admin → Config).
 3. On the Mac:
@@ -470,6 +524,24 @@ signed with a paid team. Save a guest's account with an email first (Settings �
 - **Without the app.** On a device without the app, the same sign-in link opens the website
   and signs in there, as before.
 
+**Push notifications**
+
+These need the Apple push key on the server and a build signed with a paid team.
+
+- **No prompt at sign-in.** On a fresh install, tap Play Free Now and reach the lobby: iOS
+  has not asked about notifications.
+- **Turn on.** Settings → Notifications → "This device" → Turn on: iOS asks now. Allow. The
+  row reads On.
+- **Test.** Tap "Send test", then go to the Home Screen: a "Test notification" banner arrives
+  within a few seconds.
+- **In front.** Send another test and stay in the app: a toast appears in the app.
+- **Your turn.** Start an async game against a second account on the website. Make the
+  website's move with the app in the background: a "your turn" notification arrives. Tap it:
+  the app opens on that game.
+- **Refusal.** Delete and reinstall the app, tap Turn on, and choose Don't Allow: the row says
+  to use the Settings app, and nothing arrives.
+- **The website.** In a browser signed in to the same account, notifications behave as before.
+
 **Analytics**
 
 13. In Admin → Analytics, "By platform" shows the guest you made under "iOS app", and one
@@ -518,6 +590,8 @@ What is different, and not done:
 | `frontend/src/services/nativeSession.ts` | The Keychain refresh token |
 | `frontend/src/utils/appLinks.ts`, `frontend/public/.well-known/apple-app-site-association`, `frontend/ios/App/App/App.entitlements` | Universal links: the paths, the file iOS reads, the entitlement |
 | `backend/src/modules/auth/signInCode.ts` | The typed sign-in code |
+| `backend/src/services/apnsService.ts` | Push to the iOS app, sent to Apple |
+| `frontend/src/services/pushNotifications.ts` | Push registration and opt-in, web and app |
 | `backend/src/modules/auth/nativeSession.ts` | The app's session path on the server |
 | `frontend/src/components/native/` | `NativeLinkHandler`, `AppLinkHandler`, `WebOnlyRoute`, `UpdateRequiredScreen` |
 | `frontend/src/pages/NativeHomePage.tsx` | `/` in the app |
