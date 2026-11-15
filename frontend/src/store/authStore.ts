@@ -7,6 +7,7 @@ import { getApiBaseUrl, REQUEST_TIMEOUT_MS } from '../config/env';
 import { embedderHeaders } from '../utils/embedContext';
 import { getSignupAttribution } from '../utils/attribution';
 import { safeLocalStorage } from '../utils/safeStorage';
+import { attachNativeAppVersion } from '../services/nativeAppVersion';
 
 // `rawHttp` bypasses the api interceptors, and it is the instance that calls
 // /auth/guest and /auth/refresh — the two endpoints that WRITE the refresh
@@ -25,6 +26,11 @@ const rawHttp = axios.create({
   // backoff, rather than logging the player out.
   timeout: REQUEST_TIMEOUT_MS,
 });
+// Native app only: the same build headers and "update required" notice as
+// `api` carries (services/nativeAppVersion.ts). A 426 on /auth/refresh is not
+// a rejected session: `classifyRefreshFailure` reads it as 'unreachable', so
+// an outdated app keeps its account and finds it again after the update.
+attachNativeAppVersion(rawHttp);
 
 /**
  * Outcome of a refresh-token attempt:

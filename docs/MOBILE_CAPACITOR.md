@@ -74,3 +74,76 @@ pnpm run cap:sync
 ```
 
 Verify the home-screen label reads **Borderfall** and deep links use the `com.borderfall.app` URL scheme from `strings.xml` (Android) / associated domains (if configured).
+
+## Minimum app version and API compatibility
+
+A browser tab on an old build is moved to the new one by a reload. An installed app is not: it
+bundles the frontend as it was when the app was built, and keeps it until the player updates,
+which can be weeks later or never. Two things follow.
+
+### The compatibility rule
+
+**Every API and socket change must keep the oldest app version still being served working.**
+"Still being served" means at or above the minimum set in Admin → Config (below), or every
+version ever shipped while no minimum is set.
+
+- Add response fields; do not rename, retype or remove one an app reads.
+- Do not make a new request field or header required. Give it a default that matches what an
+  old app meant by leaving it out.
+- Do not remove or repurpose an endpoint, a socket event or an error code an app handles.
+- A new feature flag must default, on a client that has never heard of it, to the behaviour old
+  apps already have.
+- If a change cannot follow these, ship it in this order:
+  1. Release an app version that works with both the old and the new server behaviour.
+  2. Wait for it to be live in the store.
+  3. Raise the minimum to that version.
+  4. Only then deploy the server change.
+
+### The minimum version
+
+The app sends two headers on every API request, read from `App.getInfo()`
+(`frontend/src/services/nativeAppVersion.ts`):
+
+| Header | Value |
+|--------|-------|
+| `X-BF-Platform` | `ios` or `android` |
+| `X-BF-App-Version` | the store version, e.g. `1.4.0` (iOS `MARKETING_VERSION`) |
+
+The server holds a minimum per platform in the `native_app` admin-config block
+(`backend/src/services/adminConfig.ts`):
+
+```json
+{
+  "ios_min_version": "",
+  "ios_store_url": "",
+  "android_min_version": "",
+  "android_store_url": ""
+}
+```
+
+Empty means no minimum, which is the default. When a request's version is older than its
+platform's minimum, a global hook (`backend/src/middleware/minAppVersion.ts`) answers
+`426` with `code: "UPDATE_REQUIRED"`, the minimum and the store link, and the app replaces
+itself with an "Update required" screen that opens the store. The app also asks
+`GET /api/app/version-check` at launch, so the screen appears before anything else loads. The
+website sends neither header and is never refused.
+
+To set it: Admin → Config → Patch config block → `native_app`. Send only the fields you are
+changing, for example:
+
+```json
+{ "ios_min_version": "1.4.0", "ios_store_url": "https://apps.apple.com/app/id0000000000" }
+```
+
+The block is validated: a version must be one to three numbers (`1.4.0`), a store link must be
+`https://`. It applies to every instance within a moment, with no deploy.
+
+- **Never set a minimum above the newest version live in the store.** Those players would be
+  locked out with nothing to update to. If that happens, set the minimum back (or to `""`);
+  the screen's "Check again" button lets them back in without restarting the app.
+- A request whose version is missing or unreadable is served, not refused.
+- A refused app keeps its session: a `426` on the token refresh is not treated as a rejected
+  sign-in, so the player is still signed in after updating.
+- Sockets are not checked on their own. A refused app shows the update screen on its first API
+  request and opens no socket after that.
+

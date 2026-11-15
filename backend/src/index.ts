@@ -19,6 +19,7 @@ import { registerErrorHandler } from './errorHandler';
 import { fastifyLoggerOptions } from './loggerOptions';
 import { authenticate } from './middleware/authenticate';
 import { userOrIpKey } from './middleware/rateLimitKey';
+import { rejectOutdatedApp, versionCheckBody } from './middleware/minAppVersion';
 import { authRoutes } from './modules/auth/auth.routes';
 import { usersRoutes } from './modules/users/users.routes';
 import { gamesRoutes } from './modules/games/games.routes';
@@ -213,6 +214,11 @@ async function bootstrap(): Promise<void> {
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
 
+  // The minimum native app version (middleware/minAppVersion.ts). After CORS,
+  // so an outdated app can read the 426; before everything else, so it reaches
+  // nothing. The website sends no app headers and passes straight through.
+  app.addHook('onRequest', rejectOutdatedApp);
+
   await app.register(fastifyCookie, {
     secret: config.jwt.refreshSecret,
   });
@@ -328,6 +334,12 @@ async function bootstrap(): Promise<void> {
     },
     { prefix: '/api/admin' },
   );
+
+  // What the native app asks at launch: an outdated build gets the 426 from
+  // the hook above instead of this.
+  app.get('/api/app/version-check', async (req, reply) => {
+    return reply.send(versionCheckBody(req.headers));
+  });
 
   app.get('/api/feature-flags', async (_req, reply) => {
     return reply.send(getClientFeatureFlags());

@@ -14,6 +14,8 @@ vi.mock('axios', async (importOriginal) => {
 });
 vi.mock('../services/api', () => ({ api: { post: vi.fn(), get: vi.fn() } }));
 vi.mock('../services/socket', () => ({ resyncSocketAuth: vi.fn(), disconnectSocket: vi.fn() }));
+// The store's client is the bare stub above, which has no interceptors to attach to.
+vi.mock('../services/nativeAppVersion', () => ({ attachNativeAppVersion: vi.fn() }));
 
 import { useAuthStore } from './authStore';
 
