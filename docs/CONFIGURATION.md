@@ -217,7 +217,7 @@ Env vars: a flag defaulting **on** is disabled with `X=false`; one defaulting **
 | `VITE_PUBLIC_SITE_URL` | Native app builds only: the website's origin, used for links the app shares (invites, replays, referral and map links). Defaults to the origin of `VITE_API_URL`; set it when the website is on a different host from the API. The website ignores it and uses its own address |
 | `VITE_SENTRY_DSN` | Frontend error reporting |
 | `VITE_SENTRY_RELEASE` | The release on frontend reports and sessions; the prod build takes it from `SENTRY_RELEASE` (see the backend table) |
-| `VITE_SUPPORT_EMAIL` | Contact shown on Privacy/Terms (default `support@borderfall.com`) |
+| `VITE_SUPPORT_EMAIL` | Contact shown on Privacy/Terms (default `support@borderfall.gg`) |
 | `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID`, `VITE_FIREBASE_VAPID_KEY` | Web push. The first five come from the Firebase web app registration, the VAPID key from Cloud Messaging → Web Push certificates. Unset → the app shows no push UI at all (`getWebPushStatus()` = `unconfigured`). The page hands the config to `public/firebase-messaging-sw.js` through the worker's registration URL query string (`buildServiceWorkerUrl`), so nothing injects it at build time; permission is asked only from the opt-in controls (Settings → Notifications → This browser, and the lobby card), never on load. Forwarded as build args by `docker-compose.prod.yml` → `Dockerfile.frontend`. Native builds use Capacitor instead |
 | `VITE_TENOR_API_KEY` | In-chat GIF search (feature hidden without it) |
 | `VITE_TUTORIAL_V2` | Set `0` to fall back to the legacy tutorial (default: on) |

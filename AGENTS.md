@@ -66,6 +66,7 @@ medium bot, so the numbers do not predict what a person scores.
 | Editor geography: Natural Earth templates, neighbours and sea lanes, provinces, camera | `frontend/src/components/editor/editorTemplates.ts`, `editorGeo.ts` (`cameraFit`), `editorProvinces.ts`; data under `frontend/public/geo/` |
 | Map rules shared by editor and server (publish health, structure read) | `packages/shared/src/mapHealth.ts`, `packages/shared/src/mapStructure.ts`; parity test `backend/src/modules/maps/mapHealthParity.test.ts` |
 | Map routes, moderation, balance report (bots in a worker thread), map of the week | `backend/src/modules/maps/maps.routes.ts`, `mapBalanceSim.ts` + `mapBalanceThread.ts`, `featuredMap.ts` |
+| Native app (iOS/Android shell): what differs from the website, version gate, build guard | `frontend/src/utils/nativeApp.ts`, `frontend/src/components/native/`, `frontend/src/services/nativeAppVersion.ts`, `backend/src/middleware/minAppVersion.ts`, `frontend/scripts/nativeBuildEnv.mjs` — see [docs/MOBILE_CAPACITOR.md](docs/MOBILE_CAPACITOR.md) |
 | Editor funnel (Admin → Analytics card, funnel CLI) | `backend/src/services/analyticsQueries.ts` (`getEditorMetrics`), `frontend/src/components/admin/AdminAnalyticsPanel.tsx`, `backend/scripts/funnelReport.ts` |
 
 ## Rules of thumb

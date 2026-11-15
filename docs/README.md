@@ -32,7 +32,7 @@ Status: **current** (maintained, carries source-of-truth pointers) · **point-in
 | [PLAYER_GUIDE.md](PLAYER_GUIDE.md) | Complete game rules | current |
 | [LORE_AND_MAPS_CATALOG.md](LORE_AND_MAPS_CATALOG.md) | Era/map content reference | current |
 | [SECURITY_CHECKLIST.md](SECURITY_CHECKLIST.md) | Rolling security review checklist | current |
-| [MOBILE_CAPACITOR.md](MOBILE_CAPACITOR.md) | Native iOS/Android builds | current |
+| [MOBILE_CAPACITOR.md](MOBILE_CAPACITOR.md) | The native apps: build and server settings, how the app differs from the website, minimum app version and the API compatibility rule, device test list | current |
 | [COMMUNITY_MAP_FIXES.md](COMMUNITY_MAP_FIXES.md) | Community-map maintenance log | current |
 | [LAUNCH_QA_SIGNOFF.md](LAUNCH_QA_SIGNOFF.md) | Pre-release QA gates A–H | current |
 | [PORTALS.md](PORTALS.md) | Game-portal embedding (itch.io, CrazyGames): the origin registry, the add-a-portal routine, live verification probes | current |
@@ -44,7 +44,7 @@ Status: **current** (maintained, carries source-of-truth pointers) · **point-in
 | [LAUNCH_QA_ROADMAP.md](LAUNCH_QA_ROADMAP.md) | QA automation roadmap | design-archive |
 | [MOBILE_UX_PLAN.md](MOBILE_UX_PLAN.md) / [MOBILE_UX_REQUIREMENTS.md](MOBILE_UX_REQUIREMENTS.md) | Mobile UX strategy/requirements | design-archive |
 | [BRAND_COMPETITIVE_ANALYSIS.md](BRAND_COMPETITIVE_ANALYSIS.md) | Positioning & market analysis | design-archive |
-| [STORE_RELEASE.md](STORE_RELEASE.md) | App-store submission checklist | design-archive |
+| [STORE_RELEASE.md](STORE_RELEASE.md) | iOS App Store: decisions made, what is built, what is left, the submission checklist | current |
 | [GLOBE_2D_CHECKLIST.md](GLOBE_2D_CHECKLIST.md) | 2D/globe parity checklist | design-archive |
 | [era-advancement/](era-advancement/README.md) | Era Advancement feature design (stages 0–3) | design-archive |
 | [WARFRONT_RTS_MODE.md](WARFRONT_RTS_MODE.md) | Warfront: real-time-strategy mode on the globe — design brief; admin-only solo prototype built through Slice A step 4, no fun verdict yet | experimental |
