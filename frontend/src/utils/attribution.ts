@@ -12,6 +12,7 @@
  */
 import { getAnonSessionId } from './anonSession';
 import { deviceClass, type DeviceClass } from './device';
+import { clientPlatform, type ClientPlatform } from './platform';
 
 const STORAGE_KEY = 'bf_attribution';
 const MAX_LEN = 200;
@@ -106,11 +107,16 @@ export function getAttribution(): Attribution | undefined {
  * to the signup event in the visitor funnel, and the device class. Unlike
  * getAttribution(), this is defined for organic/direct visits too.
  */
-export function getSignupAttribution(): Attribution & { anon_session_id?: string; device: DeviceClass } {
+export function getSignupAttribution(): Attribution & {
+  anon_session_id?: string;
+  device: DeviceClass;
+  platform: ClientPlatform;
+} {
   const attribution = getAttribution() ?? {};
   const anonId = getAnonSessionId();
   const withAnon = anonId ? { ...attribution, anon_session_id: anonId } : attribution;
   // The device class rides every signup so the admin funnels can be split by
   // phone and desktop (backend services/analyticsQueries.ts getFunnelMetrics).
-  return { ...withAnon, device: deviceClass() };
+  // The platform says what the device class cannot: the iOS app or Safari.
+  return { ...withAnon, device: deviceClass(), platform: clientPlatform() };
 }

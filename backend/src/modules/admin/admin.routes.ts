@@ -29,7 +29,7 @@ import { sendPushNotification } from '../../services/notificationService';
 import { recordServerEvent } from '../../services/analyticsEvents';
 import { config } from '../../config';
 import { validateMapDocument } from '../maps/mapValidation';
-import { getAnalyticsReport, parseFunnelDevice } from '../../services/analyticsQueries';
+import { getAnalyticsReport, parseFunnelDevice, parseFunnelPlatform } from '../../services/analyticsQueries';
 import { andNotTutorialSql } from '../../game-engine/tutorial/tutorialGames';
 import { countedGameSql, excludedUserSql } from '../../services/statsExclusion';
 import { featureFlags } from '../../config/featureFlags';
@@ -304,11 +304,13 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
   // same shape as scripts/funnelReport.ts. `days` is the trailing window (1–365);
   // `device` (phone | tablet | desktop) narrows the activation and tutorial
   // funnels to signups recorded on that device class, anything else means all.
+  // `platform` (web | ios | android) narrows them the same way, to signups on
+  // the website or in one of the apps.
   fastify.get('/metrics/funnel', { preHandler: [authenticate, requireAdmin] }, async (request, reply) => {
-    const q = request.query as { days?: string; device?: string } | undefined;
+    const q = request.query as { days?: string; device?: string; platform?: string } | undefined;
     const raw = Number(q?.days);
     const days = Math.max(1, Math.min(365, Number.isFinite(raw) ? Math.floor(raw) : 30));
-    const report = await getAnalyticsReport(days, parseFunnelDevice(q?.device));
+    const report = await getAnalyticsReport(days, parseFunnelDevice(q?.device), parseFunnelPlatform(q?.platform));
     return reply.send(report);
   });
 

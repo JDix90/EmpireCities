@@ -154,6 +154,32 @@ const FUNNEL_DEVICE_OPTIONS: Array<{ value: FunnelDeviceFilter; label: string }>
   { value: 'desktop', label: 'Desktop' },
 ];
 
+/** Where a signup happened: the website, or the iOS or Android app. */
+export type FunnelPlatformFilter = 'all' | 'web' | 'ios' | 'android';
+const FUNNEL_PLATFORM_OPTIONS: Array<{ value: FunnelPlatformFilter; label: string }> = [
+  { value: 'all', label: 'All platforms' },
+  { value: 'web', label: 'Website' },
+  { value: 'ios', label: 'iOS app' },
+  { value: 'android', label: 'Android app' },
+];
+const PLATFORM_LABELS: Record<PlatformRow['platform'], string> = {
+  web: 'Website',
+  ios: 'iOS app',
+  android: 'Android app',
+};
+
+/** Mirrors PlatformRow in backend/src/services/analyticsQueries.ts. */
+export interface PlatformRow {
+  platform: 'web' | 'ios' | 'android';
+  signups: number;
+  started_game: number;
+  finished_game: number;
+  upgraded: number;
+  d1_cohort: number;
+  d1: number;
+  opened: number;
+}
+
 /** Mirrors GuestAccountMetrics in backend/src/services/analyticsQueries.ts. */
 export interface GuestAccountMetrics {
   saved: number;
@@ -190,6 +216,8 @@ export interface AnalyticsReport {
   window_days: number;
   /** The signup device the funnels were narrowed to; null or absent for all. */
   device?: 'phone' | 'tablet' | 'desktop' | null;
+  /** The platform the same funnels were narrowed to; null or absent for all. */
+  platform?: 'web' | 'ios' | 'android' | null;
   total_events: number;
   /** Optional for rollout: older backends won't send it. */
   visitors?: VisitorFunnelMetrics;
@@ -216,6 +244,8 @@ export interface AnalyticsReport {
   acquisition_channels?: AcquisitionChannelRow[];
   /** Optional for rollout: older backends won't send it. */
   prompts?: PromptFunnel;
+  /** The website against the apps. Optional for rollout: older backends won't send it. */
+  platforms?: PlatformRow[];
 }
 
 const SOLO_MODE_LABELS: Record<SoloLevelRow['mode'], string> = {
@@ -316,10 +346,14 @@ export default function AdminAnalyticsPanel({
   data,
   device = 'all',
   onDeviceChange,
+  platform = 'all',
+  onPlatformChange,
 }: {
   data: AnalyticsReport | null;
   device?: FunnelDeviceFilter;
   onDeviceChange?: (device: FunnelDeviceFilter) => void;
+  platform?: FunnelPlatformFilter;
+  onPlatformChange?: (platform: FunnelPlatformFilter) => void;
 }) {
   if (!data) {
     return <div className="text-sm text-bf-muted">Loading…</div>;
@@ -431,6 +465,21 @@ export default function AdminAnalyticsPanel({
                 </select>
               </label>
             )}
+            {onPlatformChange && (
+              <label className="flex items-center gap-1.5 text-xs text-bf-muted">
+                in
+                <select
+                  aria-label="Signup platform"
+                  value={platform}
+                  onChange={(e) => onPlatformChange(e.target.value as FunnelPlatformFilter)}
+                  className="rounded-md border border-bf-border bg-bf-dark px-2 py-1 text-xs text-bf-text"
+                >
+                  {FUNNEL_PLATFORM_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </label>
+            )}
             <p className="text-xs text-bf-muted">new users · last {data.window_days}d</p>
           </div>
         </div>
@@ -449,12 +498,73 @@ export default function AdminAnalyticsPanel({
         <p className="mt-1 text-xs text-bf-muted">
           Every step after signup counts real games only; the tutorial has its own table.
           A device narrows the cohort to signups recorded on it, so signups from before the
-          device was recorded appear only under All devices.
+          device was recorded appear only under All devices. A platform narrows it to signups on
+          the website or in one of the apps; a signup recorded without one is the website&apos;s.
         </p>
         <p className="mt-1 text-xs text-bf-muted">
           Admin and test accounts are left out of every cohort here; mark test accounts on the Users tab.
         </p>
       </section>
+
+      {/* The website against the apps. The device class cannot tell them apart:
+          Safari on an iPhone and the iOS app are both a phone. */}
+      {data.platforms && data.platforms.length > 0 && (
+        <section className="rounded-xl border border-bf-border bg-cc-panel/50 p-4" data-testid="admin-platforms">
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="text-sm font-semibold text-bf-text">By platform</p>
+            <p className="text-xs text-bf-muted">signups and visits · last {data.window_days}d</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="mt-3 w-full min-w-[34rem] text-sm">
+              <thead>
+                <tr className="text-left text-xs text-bf-muted">
+                  <th className="pb-1 font-medium">Platform</th>
+                  <th className="pb-1 text-right font-medium">Signups</th>
+                  <th className="pb-1 text-right font-medium">Started a game</th>
+                  <th className="pb-1 text-right font-medium">Finished a game</th>
+                  <th className="pb-1 text-right font-medium">Saved account</th>
+                  <th className="pb-1 text-right font-medium">Back next day</th>
+                  <th className="pb-1 text-right font-medium">Opened the game</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.platforms.map((row) => (
+                  <tr key={row.platform} className="border-t border-bf-border/50" data-testid={`admin-platform-${row.platform}`}>
+                    <td className="py-1.5 text-bf-text">{PLATFORM_LABELS[row.platform]}</td>
+                    <td className="py-1.5 text-right tabular-nums text-bf-text">{row.signups}</td>
+                    <td className="py-1.5 text-right tabular-nums text-bf-text">
+                      {pctText(row.started_game, row.signups)}{' '}
+                      <span className="text-bf-muted">({row.started_game})</span>
+                    </td>
+                    <td className="py-1.5 text-right tabular-nums text-bf-text">
+                      {pctText(row.finished_game, row.signups)}{' '}
+                      <span className="text-bf-muted">({row.finished_game})</span>
+                    </td>
+                    <td className="py-1.5 text-right tabular-nums text-bf-text">
+                      {pctText(row.upgraded, row.signups)}{' '}
+                      <span className="text-bf-muted">({row.upgraded})</span>
+                    </td>
+                    <td className="py-1.5 text-right tabular-nums text-bf-text">
+                      {pctText(row.d1, row.d1_cohort)}{' '}
+                      <span className="text-bf-muted">({row.d1}/{row.d1_cohort})</span>
+                    </td>
+                    <td className="py-1.5 text-right tabular-nums text-bf-text">{row.opened}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-2 text-xs text-bf-muted">
+            Signups follow the platform on the signup; started and finished count real games, not the
+            tutorial. Opened the game is players who opened it there in the window, whenever they signed
+            up: someone who uses the website and the app is under both.
+          </p>
+          <p className="mt-1 text-xs text-bf-muted">
+            A signup or visit recorded without a platform is the website&apos;s: there was no app before the
+            value was sent.
+          </p>
+        </section>
+      )}
 
       {/* Where the signups in the window came from, by first touch. */}
       {data.acquisition_channels && data.acquisition_channels.length > 0 && (

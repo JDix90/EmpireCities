@@ -67,9 +67,12 @@ a player who may be nowhere near the game (`NOT_PLAYER_ACTIVITY_EVENTS` in
 - `session_refresh_graced`: a token refresh the refresh grace let through
   (`sessionRefreshGraceEnabled`). An open tab refreshes its token with nobody looking at it.
 
-**Opening the game counts.** `app_opened {device}` is posted at most once a UTC day per
+**Opening the game counts.** `app_opened {device, platform}` is posted at most once a UTC day per
 signed-in player, guests included, when the page loads or comes back into view
-(`frontend/src/hooks/useDailyVisit.ts`). It is posted from the page, not from the server's
+(`frontend/src/hooks/useDailyVisit.ts`). `platform` is `web`, `ios` or `android`: the device
+class cannot tell the iOS app from Safari on the same phone. Signups carry it too, and
+Admin → Analytics → **By platform** and the funnel report's `BY PLATFORM` table read both
+(`--platform=ios` narrows the report's funnels to signups in that app). It is posted from the page, not from the server's
 token refresh, because an open tab refreshes its token with nobody looking at it. Before it,
 a player who came back without starting a game recorded nothing.
 
