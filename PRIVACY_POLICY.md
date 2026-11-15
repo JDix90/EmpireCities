@@ -7,7 +7,7 @@
 > bracketed placeholders with counsel before submitting it anywhere.
 
 
-**Effective date:** March 31, 2026  
+**Effective date:** November 15, 2026  
 
 This Privacy Policy describes how **Borderfall** (“**we**,” “**us**,” or “**our**”) collects, uses, stores, and shares information when you use our websites, games, and related services (collectively, the “**Services**”).  
 
@@ -35,6 +35,11 @@ If you deploy Borderfall yourself, the entity operating that deployment is respo
 - **Gameplay and progression:** game state, match history, statistics, rankings, achievements, and similar data tied to your account.
 - **Technical data:** IP address, device or browser type, general location derived from IP (if used), timestamps, and diagnostic logs needed to operate and secure the Services.
 - **Identifiers:** session tokens, refresh mechanisms (e.g., HTTP-only cookies), and similar data used to keep you signed in, for up to 30 days after your last visit.
+- **Push tokens:** if you allow push notifications, a token for your browser or, in the iPhone and iPad app, one that Apple issues for the app on your device. It is stored with your account, used only to send you alerts, and deleted when you delete your account or when it stops working (for example after the app is removed from the device).
+- **Chat:** chat messages are delivered to the players in your game and no history of them is kept. Where the report and block tools are switched on, the most recent messages of each game are held for up to six hours so that a report can be checked against what was sent, and then discarded.
+- **Chat reports:** if you report a chat message, we keep the reported message, the username and account of the player who sent it, your account as the reporter, the reason you chose, anything you added, and the game it was sent in. A report is kept after it is closed. If either account is later deleted, the report stays without the link to that account; the reported player's username at the time stays in it as text.
+- **Blocks:** if you block a player, we store that you blocked them, and when, so that their chat stops reaching you. A block is deleted when you undo it (Settings → Blocked players) or when either account is deleted.
+- **Crash and error reports:** when the game hits an error, a report may be sent to our error-monitoring provider (Sentry). It holds the error and where in the code it happened, the page you were on, your browser or device type and operating system, and the technical events just before it; the provider also sees the IP address the report came from.
 
 ### 2.3 We do not intentionally collect
 
@@ -66,7 +71,7 @@ If laws such as the GDPR apply, we rely on one or more of: **contract** (providi
 
 We may share information with:
 
-- **Service providers** who assist us with hosting, databases, email, analytics, or security, under contracts that require appropriate safeguards.
+- **Service providers** who assist us with hosting, databases, email, push notification delivery (Firebase Cloud Messaging; Apple's push notification service in the iPhone and iPad app), error monitoring (Sentry), analytics, or security, under contracts that require appropriate safeguards.
 - **Authorities** when required by law or to protect rights, safety, and integrity of users and the Services.
 - **Business transfers** in connection with a merger, acquisition, or sale of assets, subject to applicable law.
 
@@ -86,7 +91,7 @@ Mobile applications built with the same backend may use equivalent token storage
 
 We retain information for as long as your account is active and as needed to provide the Services, comply with law, resolve disputes, and enforce our agreements. Some gameplay records may be retained in anonymized or aggregated form after account deletion where necessary for historical match integrity.
 
-You may request deletion of your account where the product supports it; see your profile or contact us at the address above.
+You can delete your account yourself, in the game and in the app, under **Settings → Account → Delete account**; where guest deletion is switched on, this works for guest accounts as well as saved ones. Deleting an account removes its user record, sessions, push tokens, blocks and feedback. You can also contact us at the address above.
 
 ---
 
