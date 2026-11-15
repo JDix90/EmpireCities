@@ -115,6 +115,10 @@ services:
       # reload on itch. Diagnosable from outside: helmet's own CSP on an /api
       # response reports `frame-ancestors 'none'` when this is unset.
       EMBED_ORIGINS: ${EMBED_ORIGINS:-}
+      # The native app's origin(s): sessions from these use a refresh token in
+      # the request body instead of the cookie, which the app's web view never
+      # sends back. Empty leaves that path off (modules/auth/nativeSession.ts).
+      NATIVE_APP_ORIGINS: ${NATIVE_APP_ORIGINS:-}
       # REFRESH_COOKIE_SECURE only overrides; unset it auto-detects from
       # FRONTEND_URL's scheme, which is https in production. So the default was
       # right and the knob simply did not work.

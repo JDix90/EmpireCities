@@ -108,6 +108,8 @@ export interface JwtAccessPayload {
 export interface JwtRefreshPayload {
   sub: string;       // user_id
   tokenId: string;   // refresh_token row id
+  /** Set on a token issued to the native app in a response body; absent on a cookie's (modules/auth/nativeSession.ts). */
+  client?: 'native';
   iat?: number;
   exp?: number;
 }

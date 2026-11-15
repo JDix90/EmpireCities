@@ -1,14 +1,40 @@
-# Borderfall — Capacitor mobile workflow
+# Borderfall — the native apps (Capacitor)
 
-The web client lives in `frontend/`. Capacitor wraps the Vite `dist/` output as iOS and Android apps.
+The web client lives in `frontend/`. Capacitor 6 wraps its build as an iOS app (iPhone and
+iPad) and an Android app. There is one codebase and one bundle: everything the app does
+differently from the website is behind `Capacitor.isNativePlatform()`, so none of it changes
+the website.
+
+**iOS is the app being prepared for release.** The Android project builds from the same
+commands but has not been taken through this work; see [Android](#android).
+
+The store submission itself (enrolment, listing, screenshots, TestFlight) is in
+[STORE_RELEASE.md](STORE_RELEASE.md). This page is how the app is built, what it needs from
+the server, how it differs from the website, and how to test it on a device.
+
+## Contents
+
+- [Prerequisites](#prerequisites)
+- [Build settings](#build-settings)
+- [Server settings](#server-settings)
+- [Sync, open, run](#sync-open-run)
+- [How the app differs from the website](#how-the-app-differs-from-the-website)
+- [Staying signed in](#staying-signed-in)
+- [Minimum app version and API compatibility](#minimum-app-version-and-api-compatibility)
+- [Analytics: telling the app from the website](#analytics-telling-the-app-from-the-website)
+- [Not built yet](#not-built-yet)
+- [Testing on a device](#testing-on-a-device)
+- [Android](#android)
+- [Repo layout](#repo-layout)
 
 ## Prerequisites
 
-- Node / pnpm (repo root: `pnpm install`)
+- Node and pnpm (repo root: `pnpm install`, then `pnpm --filter @borderfall/shared build`)
+- **iOS (macOS only):** Xcode from the App Store, CocoaPods (`sudo gem install cocoapods`), an
+  Apple Developer account for running on a device
 - **Android:** Android Studio, JDK 17+
-- **iOS (macOS only):** Xcode from the App Store, CocoaPods (`sudo gem install cocoapods`)
 
-## Environment
+## Build settings
 
 The website is served from the same host as its API and builds with no server address. The
 native app is served from inside the app (`capacitor://localhost` on iOS), where a relative
@@ -19,9 +45,10 @@ native app is served from inside the app (`capacitor://localhost` on iOS), where
 | `VITE_API_URL` | yes | The server's origin, `https://` only, no path. The app adds `/api` |
 | `VITE_SOCKET_URL` | yes | The Socket.IO origin, normally the same value |
 | `VITE_PUBLIC_SITE_URL` | no | The website's origin for links the app shares (invites, replays). Defaults to the origin of `VITE_API_URL`; set it only when the website is on a different host from the API |
+| `VITE_SENTRY_DSN` | no | Error reporting from the app's JavaScript, as on the website |
 
 Set them as shell variables for that one build. Do not put them in `.env.production`: the
-website's Docker build reads that file and must keep them empty.
+website's Docker build reads that file and must keep the first two empty.
 
 ```bash
 cd frontend
@@ -33,12 +60,21 @@ pnpm run build:native
 `build:native` is `build` with two differences (`frontend/scripts/nativeBuildEnv.mjs`):
 
 - It refuses to build unless both addresses are absolute `https://` origins. iOS will not load
-  plain http. `NATIVE_ALLOW_HTTP=1` allows http for a local test build only.
+  plain http (App Transport Security). `NATIVE_ALLOW_HTTP=1` allows http for a local test
+  build only; never submit such a build.
 - It leaves out the last step of the web build, which writes the landing page's text into
-  `index.html` for search engines. In the app that text would show at every launch until the
-  game had loaded. It then checks that `dist/index.html` is the bare app shell.
+  `index.html` for search engines and prerenders the marketing pages. In the app that text
+  would show at every launch until the game had loaded. It then checks that
+  `dist/index.html` is the bare app shell.
 
-### The server must allow the app's origin
+Use `build:native` (or the `cap:sync` scripts below, which run it) for every native build.
+A plain `pnpm run build` followed by `cap sync` ships the landing page inside the app.
+
+## Server settings
+
+Four things on the server, none of which the website needs.
+
+### 1. Allow the app's origin
 
 Every request the iOS app makes is cross-origin, from `capacitor://localhost`. The development
 server allows that origin on its own; **a production server allows it only when `CORS_ORIGINS`
@@ -52,63 +88,136 @@ CORS_ORIGINS=capacitor://localhost
 Then restart the backend. Without it the app loads and every request fails.
 
 Do not add `https://localhost`, the Android app's default origin: production refuses to start
-with a loopback web origin in the list (`backend/src/config/validateEnv.ts`). The Android app
-needs its own hostname before it can talk to a production server.
+with a loopback web origin in the list (`backend/src/config/validateEnv.ts`).
 
-## Sync native projects
+### 2. Let the app stay signed in
+
+```bash
+# in the server's .env.production
+NATIVE_APP_ORIGINS=capacitor://localhost
+```
+
+Without it the app is signed out every time it is closed, and a guest loses their account.
+See [Staying signed in](#staying-signed-in) for what it does and why it does not touch the
+website. It names the same origin as `CORS_ORIGINS` above and needs that entry too. Never put a
+web origin in it: the server refuses to start on one.
+
+### 3. Turn on what an app with chat must have
+
+Both are OFF by default and both are required before submission: Apple asks an app with chat
+for a way to report content and block users (guideline 1.2), and an app that creates accounts
+for a way to delete them inside the app (guideline 5.1.1(v)).
+
+| Flag | What it adds | Where to switch it |
+|------|--------------|--------------------|
+| `chat_safety_enabled` | Report a chat message, block a player, Admin → Reports, Settings → Blocked players | Admin → Config, or `CHAT_SAFETY_ENABLED=true` |
+| `guest_account_deletion_enabled` | A guest can delete their own account; Settings → Account → Delete account for everyone | Admin → Config, or `GUEST_ACCOUNT_DELETION_ENABLED=true` |
+
+The in-app privacy page reads both flags and describes what is actually switched on
+(`frontend/src/pages/PrivacyPage.tsx`).
+
+### 4. Leave the minimum app version empty until there is a second version
+
+See [Minimum app version and API compatibility](#minimum-app-version-and-api-compatibility).
+
+## Sync, open, run
 
 ```bash
 cd frontend
-pnpm run cap:sync:ios     # build:native, then cap sync ios
-pnpm run cap:sync         # build:native, then cap sync (iOS and Android)
+export VITE_API_URL=https://your-domain.example
+export VITE_SOCKET_URL=https://your-domain.example
+pnpm run cap:sync:ios     # build:native, then cap sync ios (copies dist/, updates the Podfile, runs pod install)
+pnpm run cap:ios          # opens Xcode
 ```
 
-Both need the two variables above. `scripts/build-ios-release.sh` and
-`scripts/build-android-release.sh` do the same and then open the IDE.
+`pnpm run cap:sync` does the same for iOS and Android together.
+`scripts/build-ios-release.sh` and `scripts/build-android-release.sh` wrap these and print a
+release checklist.
 
-## Open in IDEs
+In Xcode: pick your team under Signing & Capabilities (the project uses automatic signing and
+has no team committed), choose a device, Run.
+
+**First time after a clone**, or if CocoaPods failed:
 
 ```bash
-pnpm run cap:ios       # opens Xcode (after pods install)
-pnpm run cap:android   # opens Android Studio
+cd frontend/ios/App && pod install
 ```
 
-## iOS ATS
+**Version numbers.** `MARKETING_VERSION` (the store version, `1.0` today) and
+`CURRENT_PROJECT_VERSION` (the build number) are in the Xcode project. The store version is
+what the app reports to the server as its version; bump it for every release.
 
-Use **HTTPS** for the API. The default Capacitor iOS project enforces App Transport Security; do not point production builds at `http://` APIs.
+**Custom native code.** Plugins from npm are picked up by `cap sync`. Plugins that live in
+this repo are registered by hand in `frontend/ios/App/App/MainViewController.swift`
+(`ThermalPlugin.swift`, which reports device heat, is the one today).
 
-## Android network security
+## How the app differs from the website
 
-`android/app/src/main/res/xml/network_security_config.xml` disables cleartext traffic. For emulator testing against `http://10.0.2.2:3001`, add a **debug-only** manifest or a debug `network_security_config` that permits that host (do not ship that to production).
+All of it is in `frontend/src/utils/nativeApp.ts` and the files it names. The check is
+`isNativeApp()`, which is false in every browser, a Home Screen web app included.
 
-## First-time iOS after clone
+| | Website | Native app |
+|---|---|---|
+| `/` | The marketing landing page | Play: the lobby with a session; otherwise a start screen with Play and Sign In (`pages/NativeHomePage.tsx`) |
+| Pages written for search engines: `/eras`, `/eras/:slug`, `/game-maps`, `/game-maps/:slug`, `/answers`, `/answers/:slug`, `/daily/archive`, `/daily/:date`, `/about`; and `/unsubscribe` | Served | Redirect to `/` (`components/native/WebOnlyRoute.tsx`) |
+| `/how-to-play`, `/codex`, `/privacy`, `/terms` | Served | Served: the app links to them |
+| "Home", "Landing", "Marketing Home" links in the lobby | Shown | Hidden |
+| A link to another site | New tab | An in-app browser sheet over the game (`@capacitor/browser`; `components/native/NativeLinkHandler.tsx`). `mailto:` and store links go to the system |
+| "Add to Home Screen" offers and the Settings Home Screen row | Shown where the browser supports it | Never |
+| GIF search in chat | On when `VITE_TENOR_API_KEY` is set | Off. Chat itself is on. A GIF sent from the website still shows, and can be reported |
+| Guest copy | "saved in this browser" | "saved on this device" |
+| Links the game shares (invites, replays, referral, map pages) | Built from the page's address | Built from the public site's address (`utils/publicOrigin.ts`) |
+| A build the server no longer serves | Not applicable | An "Update required" screen (next section) |
 
-If `ios/` is missing or CocoaPods failed:
+Adding a page that only makes sense on the website: wrap its route in `WebOnlyRoute` in
+`App.tsx`. Opening another site from code: call `openExternal(url)`, not `window.open`.
 
-```bash
-cd frontend
-pnpm exec cap add ios
-cd ios/App && pod install && cd ../..
-```
+**iPad.** The app targets iPhone and iPad (`TARGETED_DEVICE_FAMILY = "1,2"`). An iPad gets
+the game's desktop layout, the same as a tablet browser; the e2e smoke suite checks that no
+page overflows at 820×1180 and 1024×768 (`frontend/tests/e2e/smoke.spec.ts`). The iPad build
+supports all four orientations, so it also runs in Split View.
 
-## Repo layout
+## Staying signed in
 
-- `frontend/capacitor.config.ts` — `appId: com.borderfall.app`, `appName: Borderfall`, `webDir: dist`, `androidScheme: https`
-- `frontend/android/` — Gradle project (`com.borderfall.app`; sync copies `dist` into assets)
-- `frontend/ios/` — Xcode project (`PRODUCT_BUNDLE_IDENTIFIER = com.borderfall.app`, when present)
+The website's session is an httpOnly refresh cookie on `/api/auth`, which the page's
+JavaScript can never read. The app cannot use it: its page is served from inside the app and
+calls the server across sites, and the web view does not send that cookie back. So for the app,
+and only for the app, the refresh token travels in the request and response body, and the app
+keeps it in the iOS Keychain.
 
-## Borderfall store migration
+| | Website | Native app |
+|---|---|---|
+| Where the refresh token is kept | httpOnly cookie | iOS Keychain, this device only, not iCloud (`frontend/src/services/nativeSession.ts`) |
+| How it reaches the server | The browser sends the cookie | In the body of `POST /api/auth/refresh` |
+| How a new one comes back | `Set-Cookie` | `refreshToken` in the response body |
+| After the app or tab is closed | Still signed in | Still signed in |
+| After a reinstall | Not applicable | Signed back in to the same account, a guest's included: the Keychain outlives the app |
 
-The native apps ship as **Borderfall** with bundle ID `com.borderfall.app`. This is a **new** App Store / Google Play listing — not an update to the legacy `com.chronoconquest.app` package.
+**What keeps this from weakening the website** (`backend/src/modules/auth/nativeSession.ts`):
 
-After changing web branding or API URLs, set the two variables as above and run:
+- Which path a request takes is decided by its `Origin` header against `NATIVE_APP_ORIGINS`, and
+  by nothing the client chooses. A browser sets `Origin` itself, so a page on the website, even
+  one running injected script, cannot ask for a token in a body.
+- Every refresh token is signed as the app's or not. A cookie's token is refused in a body, and
+  the app's is refused in a cookie.
+- `NATIVE_APP_ORIGINS` refuses http(s) origins, so a mistake there cannot switch a website over
+  to body tokens.
+- With `NATIVE_APP_ORIGINS` empty, the default in production, the body path does not exist.
 
-```bash
-cd frontend
-pnpm run cap:sync
-```
+**What is different about the app's token**
 
-Verify the home-screen label reads **Borderfall** and deep links use the `com.borderfall.app` URL scheme from `strings.xml` (Android) / associated domains (if configured).
+- **A reply the app never received does not sign it out.** A phone suspends an app
+  mid-request as a matter of course. The app's old token stays good until a newer one has been
+  *used*, which is the proof the app received it. The website keeps its ten-minute window.
+- **The app deletes its token only when the server says the app's session is over.** Every
+  refusal on the app's path carries `native: true`. A `401` without it means the server is
+  running without `NATIVE_APP_ORIGINS`; the app keeps its token and its session, because a
+  deleted token cannot be got back.
+- **A build without the Keychain plugin's native code does not freeze.** The app checks the
+  native half is present before calling it, and Keychain calls time out after three seconds.
+  The app then behaves as if it had no token.
+- **Signing out, or deleting the account, removes the token** from the Keychain and retires it
+  on the server.
 
 ## Minimum app version and API compatibility
 
@@ -182,3 +291,144 @@ The block is validated: a version must be one to three numbers (`1.4.0`), a stor
 - Sockets are not checked on their own. A refused app shows the update screen on its first API
   request and opens no socket after that.
 
+## Analytics: telling the app from the website
+
+The device class (`phone | tablet | desktop`) cannot: Safari on an iPhone and the iOS app are
+both a `phone`. Signups and the daily `app_opened` beacon also carry `platform`
+(`web | ios | android`, `frontend/src/utils/platform.ts`). An event recorded without one is
+the website's.
+
+- **Admin → Analytics:** a "By platform" table (signups, started a game, finished a game,
+  saved account, back next day, opened the game), and a platform selector that narrows the
+  activation, tutorial and first-turn funnels.
+- **CLI:** `pnpm -C backend exec tsx scripts/funnelReport.ts 30` prints a `BY PLATFORM` table;
+  add `--platform=ios` to narrow the funnels to signups in the iOS app.
+
+## Not built yet
+
+Two things the iOS app needs before it can be submitted. Each needs a real iPhone to confirm.
+Until they are built:
+
+| | What happens in the app today | Why |
+|---|---|---|
+| **Links that open the app** | An emailed sign-in link, an invite link and a shared replay link all open Safari, not the app | There is no `apple-app-site-association` file, no Associated Domains entitlement and no `appUrlOpen` handler |
+| **Push notifications** | The app asks for notification permission at sign-in, and no notification ever arrives | `AppDelegate.swift` does not forward the registration callbacks, there is no push entitlement, and the server sends only through Firebase, which cannot use the token iOS gives the app. The Settings and lobby notification controls are also web-only |
+
+When each is built, its section moves up into this page with its own device test steps.
+
+## Testing on a device
+
+What only a device can confirm, for the parts that are built. Do this against a server that is
+safe to create accounts on.
+
+**Before you start**
+
+1. The server's `CORS_ORIGINS` and `NATIVE_APP_ORIGINS` both include `capacitor://localhost`,
+   and the backend was restarted.
+2. `chat_safety_enabled` and `guest_account_deletion_enabled` are on (Admin → Config).
+3. On the Mac:
+   ```bash
+   git pull && pnpm install && pnpm --filter @borderfall/shared build
+   cd frontend
+   export VITE_API_URL=https://<the server>
+   export VITE_SOCKET_URL=https://<the server>
+   pnpm run cap:sync:ios
+   pnpm run cap:ios
+   ```
+4. In Xcode: select your team, select your iPhone, Run. Repeat the list on an iPad.
+
+**Opens as an app**
+
+1. First launch shows the Borderfall start screen with "Play Free Now" and "Sign In". There is
+   no landing page, and no flash of landing-page text before it.
+2. The start screen clears the status bar and the home indicator.
+3. Tap Play Free Now: a guest is made and the tutorial match (or the lobby) opens.
+4. The lobby has no "Home", "Landing" or "Marketing Home" link.
+5. Send the app to the background and bring it back: you are still in the lobby.
+6. Lobby copy for a guest says "saved on this device", not "in this browser".
+7. Settings has no "Borderfall on your home screen" row, and nothing offers "Add to Home Screen".
+8. In a game with chat, there is no GIF button. Text chat works; a message's menu offers Report
+   and Block.
+9. Finish a game and tap the Twitter / X share button: a browser sheet slides up over the
+   game. Close it: you are back on the results screen, not in Safari.
+10. Tap a Privacy or Terms link: it opens inside the app.
+
+**Staying signed in**
+
+Note the guest's name in the lobby before you start.
+
+- **Force-quit.** Swipe the app away in the app switcher and reopen it: it opens on the lobby,
+  as the same guest.
+- **Time.** Leave the app closed for more than four hours (a guest's access token lasts four)
+  and reopen it: still the same guest.
+- **Airplane mode.** Turn it on, reopen the app, turn it off: you are not signed out, and the
+  game reconnects.
+- **Reinstall.** Delete the app from the Home Screen, then run it again from Xcode: it opens
+  on the lobby as the same guest, with the same level and games.
+- **Sign out.** Sign out from the menu, force-quit, reopen: the start screen. Sign back in to
+  a saved account and repeat the force-quit check.
+- **Delete account.** Settings → Account → Delete account, then force-quit and reopen: the
+  start screen, and the old guest does not come back.
+- **The website.** Sign in on the website in Safari, close the tab, open it again: still
+  signed in, exactly as before.
+
+**Shared links**
+
+11. In a lobby, open Invite and copy the link: it starts with `https://<the site>`, not
+    `capacitor://localhost`.
+12. From a finished game, copy the replay link: the same.
+
+**Analytics**
+
+13. In Admin → Analytics, "By platform" shows the guest you made under "iOS app", and one
+    under "Opened the game".
+
+**Update required**
+
+14. In Xcode, note the app's version (`MARKETING_VERSION`, `1.0`).
+15. In Admin → Config → Patch config block → `native_app`, save
+    `{ "ios_min_version": "9.0", "ios_store_url": "https://apps.apple.com/app/id0000000000" }`.
+16. Reopen the app: the "Update required" screen appears and nothing else is reachable.
+17. Tap "Update in the App Store": the App Store app opens (on a listing that does not exist
+    yet, which is expected).
+18. Back in the app, tap "Check again": the screen stays.
+19. Save `{ "ios_min_version": "", "ios_store_url": "" }` in Admin → Config, tap "Check
+    again": the app returns with no restart, and you are still signed in.
+20. On the website, in a browser, nothing changed during steps 15 to 19.
+
+## Android
+
+The Android project (`frontend/android/`) builds with the same scripts, and everything in
+[How the app differs from the website](#how-the-app-differs-from-the-website) applies to it.
+What is different, and not done:
+
+- **It cannot talk to a production server yet.** Its page is served from `https://localhost`,
+  and production refuses to start with that origin in `CORS_ORIGINS`. It needs its own
+  hostname (Capacitor's `server.hostname`) first.
+- `android/app/src/main/res/xml/network_security_config.xml` disables cleartext traffic. For
+  emulator testing against `http://10.0.2.2:3001`, add a **debug-only** network security
+  config that permits that host; do not ship it.
+- After adding or removing a Capacitor plugin, run `pnpm exec cap sync android` so its Gradle
+  plugin list is regenerated.
+
+## Repo layout
+
+| Path | What |
+|------|------|
+| `frontend/capacitor.config.ts` | `appId: com.borderfall.app`, `appName: Borderfall`, `webDir: dist` |
+| `frontend/ios/App/` | The Xcode project. `App/AppDelegate.swift`, `App/MainViewController.swift` (registers in-repo plugins), `App/ThermalPlugin.swift`, `App/Info.plist`, `Podfile` (rewritten by `cap sync`) |
+| `frontend/android/` | The Gradle project |
+| `frontend/scripts/nativeBuildEnv.mjs`, `check-native-env.mjs` | The `build:native` guard |
+| `frontend/src/utils/nativeApp.ts` | `isNativeApp()`, link handling, `openExternal()` |
+| `frontend/src/utils/platform.ts` | `clientPlatform()` for analytics |
+| `frontend/src/utils/publicOrigin.ts` | The public site's address, for shared links |
+| `frontend/src/services/nativeAppVersion.ts` | Version headers, the launch check, the update-required state |
+| `frontend/src/services/nativeSession.ts` | The Keychain refresh token |
+| `backend/src/modules/auth/nativeSession.ts` | The app's session path on the server |
+| `frontend/src/components/native/` | `NativeLinkHandler`, `WebOnlyRoute`, `UpdateRequiredScreen` |
+| `frontend/src/pages/NativeHomePage.tsx` | `/` in the app |
+| `backend/src/middleware/minAppVersion.ts` | The 426 hook |
+| `scripts/build-ios-release.sh`, `scripts/build-android-release.sh` | Build, sync, open the IDE |
+
+The apps ship as **Borderfall** with bundle ID `com.borderfall.app`: a new App Store and
+Google Play listing, not an update to the legacy `com.chronoconquest.app` package.
