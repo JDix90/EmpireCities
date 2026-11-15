@@ -17,5 +17,8 @@ export const SUPPORT_EMAIL =
 /** The Terms of Service's date. The Privacy Policy keeps its own, so changing one does not re-date the other. */
 export const LEGAL_LAST_UPDATED = 'June 12, 2026';
 
-/** The Privacy Policy's date: guest accounts, accounts saved with just an email, sign-in links, in-game feedback. */
-export const PRIVACY_LAST_UPDATED = 'October 29, 2026';
+/**
+ * The Privacy Policy's date: chat reports and blocks, push tokens in the iOS
+ * app, crash reports, and where a guest deletes their account.
+ */
+export const PRIVACY_LAST_UPDATED = 'November 15, 2026';

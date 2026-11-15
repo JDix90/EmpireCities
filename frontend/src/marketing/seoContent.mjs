@@ -578,7 +578,7 @@ const STATIC_MARKETING_PAGES = [
     title: 'Privacy Policy — Borderfall',
     description:
       'How Borderfall handles your data: account info, game history, guest '
-      + 'accounts, ephemeral chat, and the technical data needed to run the service.',
+      + 'accounts, chat and chat reports, and the technical data needed to run the service.',
     h1: 'Privacy Policy',
     jsonLd: false,
     blocks: [
@@ -597,10 +597,21 @@ const STATIC_MARKETING_PAGES = [
         text:
           'Guest accounts are temporary: a guest that never plays a game is deleted '
           + 'within about 48 hours, and creating a free account converts your guest in '
-          + 'place so your progress is kept. In-game chat is ephemeral and is not stored '
-          + 'on our servers. Feedback you send, from the menu or inside a game, is stored '
+          + 'place so your progress is kept. No history of in-game chat is kept; where the '
+          + 'report tools are on, the latest messages of a game are held for up to six hours '
+          + 'so a report can be checked, and a reported message is kept with the report, '
+          + 'who sent it, who reported it and the reason. Feedback you send, from the menu '
+          + 'or inside a game, is stored '
           + 'with your account, with the page or game and turn, device type and screen size. '
           + 'Questions: support@borderfall.gg.',
+      },
+      {
+        type: 'p',
+        text:
+          'If you allow push notifications we store a push token for your browser or, in '
+          + 'the iPhone and iPad app, for the app on your device. Crash and error reports '
+          + 'may be sent to Sentry, our error-monitoring provider. You can delete your '
+          + 'account in the game; the full policy says where.',
       },
       {
         type: 'links',
