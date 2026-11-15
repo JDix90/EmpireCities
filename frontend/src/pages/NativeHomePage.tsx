@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../store/authStore';
 import { useAuthStoreHydrated } from '../hooks/useAuthStoreHydrated';
 import { useGuestStart } from '../hooks/useGuestStart';
+import PlayTermsNotice from '../components/legal/PlayTermsNotice';
 import { useOnboardingTutorialFirstEnabled } from '../store/featureFlagsStore';
 import { APP_NAME_NAV, TAGLINE_PRIMARY } from '../constants/brand';
 
@@ -62,6 +63,7 @@ export default function NativeHomePage() {
           {t('actions.signIn')}
         </Link>
       </div>
+      {!isAuthenticated && <PlayTermsNotice className="mt-4 max-w-xs" />}
 
       <nav className="mt-10 flex gap-5 text-xs text-bf-muted" aria-label="Legal">
         <Link to="/privacy" className="hover:text-bf-gold transition-colors">Privacy Policy</Link>

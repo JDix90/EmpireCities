@@ -15,6 +15,7 @@ import GameplayShowcase from '../components/landing/GameplayShowcase';
 import { APP_NAME, SUPPORT_EMAIL } from '../constants/brand';
 import { REGIONAL_MAPS } from '../data/regionalMaps';
 import { LANDING_ERAS, type LandingEra, type LandingEraCopy } from '../data/landingEras';
+import PlayTermsNotice from '../components/legal/PlayTermsNotice';
 
 /**
  * Every visible string on this page comes from the `landing` bundle
@@ -239,6 +240,7 @@ function GetStartedModal({
             {t('actions.createFreeAccount')}
           </Link>}
         </div>
+        <PlayTermsNotice className="text-center mt-4" />
 
         {ownAuthUiAllowed() && (
           <p className="text-center text-xs text-bf-muted mt-4">
@@ -409,6 +411,7 @@ export default function LandingPage() {
               {guestLoading ? startingLabel : heroPlayLabel}
             </button>
             <p className="text-bf-muted text-sm" data-testid="hero-subline">{heroSubline}</p>
+            {!user && <PlayTermsNotice />}
             <button
               type="button"
               className="text-bf-gold/80 hover:text-bf-gold text-sm underline underline-offset-4"
@@ -516,6 +519,8 @@ export default function LandingPage() {
         >
           {singleCta && guestLoading ? startingLabel : t('actions.playFreeNow')}
         </button>
+        {/* Without the single CTA this opens Get Started, which says it itself. */}
+        {singleCta && !user && <PlayTermsNotice className="mt-3" />}
       </section>
 
       {/* Footer */}

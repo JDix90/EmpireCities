@@ -49,11 +49,19 @@ describe('ReplayPlayBanner', () => {
     setFlags(false, true);
     const { unmount } = renderBanner();
     expect(screen.queryByRole('button', { name: 'Play free' })).toBeNull();
+    expect(screen.queryByTestId('play-terms-notice')).toBeNull();
     unmount();
     setFlags(true, true);
     useAuthStore.setState({ isAuthenticated: true, user: { user_id: 'u1', username: 'p' } as AuthUser });
     renderBanner();
     expect(screen.queryByRole('button', { name: 'Play free' })).toBeNull();
+  });
+
+  it('says that playing agrees to the terms, beside its Play free', () => {
+    setFlags(true, true);
+    renderBanner();
+    expect(screen.getByRole('button', { name: 'Play free' })).toBeInTheDocument();
+    expect(screen.getByTestId('play-terms-notice')).toHaveTextContent(/you agree to our Terms of Service and Privacy Policy/);
   });
 
   it('starts a new guest in the tutorial, as the landing page does', async () => {

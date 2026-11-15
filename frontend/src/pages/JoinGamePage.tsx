@@ -3,6 +3,7 @@ import { useAuthStore } from '../store/authStore';
 import { useFeatureFlagsStore, usePlayerLinksPlayEnabled } from '../store/featureFlagsStore';
 import { useGuestStart } from '../hooks/useGuestStart';
 import { trackVisitEvent } from '../utils/visitAnalytics';
+import PlayTermsNotice from '../components/legal/PlayTermsNotice';
 
 /**
  * Public landing for a shared "Challenge a friend" link (/join/:code).
@@ -60,6 +61,7 @@ function InviteWelcome({ code, target }: { code: string; target: string }) {
         >
           {starting ? 'Joining…' : 'Join as a guest'}
         </button>
+        <PlayTermsNotice />
         <p className="text-sm text-bf-muted">
           Have an account?{' '}
           <Link to={`/login?redirect=${redirect}`} className="text-bf-gold hover:underline">

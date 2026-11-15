@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 vi.mock('../services/api', () => ({ api: { post: vi.fn(), get: vi.fn() } }));
@@ -54,8 +54,13 @@ describe('NativeHomePage', () => {
     renderHome();
     expect(screen.getByTestId('native-home-play')).toBeEnabled();
     expect(screen.getByTestId('native-home-sign-in')).toHaveAttribute('href', '/login');
-    expect(screen.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/privacy');
-    expect(screen.getByRole('link', { name: 'Terms of Service' })).toHaveAttribute('href', '/terms');
+    const legal = within(screen.getByRole('navigation', { name: 'Legal' }));
+    expect(legal.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/privacy');
+    expect(legal.getByRole('link', { name: 'Terms of Service' })).toHaveAttribute('href', '/terms');
+    // Play makes a guest with no form to agree on: the screen says what playing agrees to.
+    const notice = screen.getByTestId('play-terms-notice');
+    expect(notice).toHaveTextContent('By playing, you agree to our Terms of Service and Privacy Policy.');
+    expect(within(notice).getByRole('link', { name: 'Terms of Service' })).toHaveAttribute('href', '/terms');
     // The website's hero, era catalogue and marketing footer are not here.
     expect(screen.queryByTestId('hero-tagline')).toBeNull();
     expect(screen.queryByText('Choose Your Era')).toBeNull();
