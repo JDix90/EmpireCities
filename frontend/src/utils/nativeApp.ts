@@ -30,6 +30,11 @@ export function thisBrowserOrDevice(): 'this browser' | 'this device' {
   return isNativeApp() ? 'this device' : 'this browser';
 }
 
+/** The same with its preposition: saved "in this browser", saved "on this device". */
+export function inThisBrowserOrOnThisDevice(): 'in this browser' | 'on this device' {
+  return isNativeApp() ? 'on this device' : 'in this browser';
+}
+
 /** What a click on a link should do inside the native app. */
 export type NativeLinkAction =
   /** Leave it to the router or the web view: an in-app link, `mailto:`, `tel:`, a download. */
