@@ -14,7 +14,7 @@ Recorded 15 November 2026.
 |----------|----------|----------------------|
 | iPhone only, or iPad too? | **iPhone and iPad** | The Xcode target stays `TARGETED_DEVICE_FAMILY = "1,2"`. The listing needs iPad screenshots, and Apple reviews the app on an iPad as well |
 | Chat in the app at launch? | **Yes, with GIF search off in the app** | Chat needs the report and block tools switched on (below). GIF search is hidden in the app only; a GIF sent from the website still shows there and can be reported |
-| Apple Developer Team ID | **Not known yet** | Only universal links need it. When they are built, the `apple-app-site-association` file carries a marked placeholder until the real ID is put in |
+| Apple Developer Team ID | **Not known yet** | Only universal links need it. `frontend/public/.well-known/apple-app-site-association` carries the placeholder `REPLACE_WITH_APPLE_TEAM_ID` until the real ID is put in ([how](MOBILE_CAPACITOR.md#before-it-works-the-team-id)) |
 | Legal name and contact emails | **Not provided yet** | `PRIVACY_POLICY.md` and `TERMS_AND_CONDITIONS.md` keep their bracketed placeholders. The in-app pages name `support@borderfall.gg` (`VITE_SUPPORT_EMAIL`) and no legal entity |
 | Sign in with Apple | Not required | The app has no third-party sign-in |
 | In-app purchase | Not required | Nothing is sold for real money; gold and gems are earned |
@@ -30,6 +30,7 @@ Recorded 15 November 2026.
 | App and website told apart in analytics | Built |
 | Privacy page covers chat reports, blocks, iOS push tokens, crash reports and where to delete an account | Built |
 | Native build: required server addresses, clean app shell, shared links that point at the website | Built |
+| Links that open the app (sign-in, password reset, invites, replays, your-turn links), and a sign-in code to type when a link lands in a browser | Built; needs the Team ID in the association file, and `sign_in_code_enabled` (off by default). Not yet confirmed on a device |
 | Staying signed in: a refresh token in the iOS Keychain, sent only by the app; survives a force-quit and a reinstall | Built; off until the server sets `NATIVE_APP_ORIGINS`. Not yet confirmed on a device |
 
 ## What is still to do before the App Store process can start
@@ -38,9 +39,6 @@ Recorded 15 November 2026.
 [MOBILE_CAPACITOR.md § Not built yet](MOBILE_CAPACITOR.md#not-built-yet) says what the app does
 without each.
 
-- [ ] **Links that open the app**: emailed sign-in links, invites, shared replays. Since most
-      accounts are saved with only an email, a reinstalled app cannot sign back in without this
-      (or a code the player can type).
 - [ ] **Push notifications on iPhone.** Today the app asks for permission at sign-in and no
       notification ever arrives.
 
@@ -49,7 +47,9 @@ without each.
 - [ ] Legal name (or company) and the privacy and support contact emails, for the placeholders
       in `PRIVACY_POLICY.md` and `TERMS_AND_CONDITIONS.md`. The governing-law and venue
       placeholders in the terms need a decision too. Have counsel read both.
-- [ ] The Apple Developer Team ID, once enrolled.
+- [ ] The Apple Developer Team ID, once enrolled: put it in the association file, deploy the
+      website, and run the `curl` check
+      ([how](MOBILE_CAPACITOR.md#before-it-works-the-team-id)).
 
 **Server, before the first device build**
 
@@ -57,8 +57,9 @@ without each.
       ([how](MOBILE_CAPACITOR.md#1-allow-the-apps-origin)).
 - [ ] `NATIVE_APP_ORIGINS=capacitor://localhost`, so the app stays signed in
       ([how](MOBILE_CAPACITOR.md#2-let-the-app-stay-signed-in)).
-- [ ] `chat_safety_enabled` and `guest_account_deletion_enabled` switched on (Admin → Config).
-      Once they have been checked on production, promote their code defaults to on.
+- [ ] `chat_safety_enabled`, `guest_account_deletion_enabled` and `sign_in_code_enabled`
+      switched on (Admin → Config). Once they have been checked on production, promote their
+      code defaults to on.
 - [ ] Every migration in `database/migrations/` applied (`pnpm run db:migrate`);
       `057_chat_safety.sql` is the one the report and block tools need.
 - [ ] Someone reads Admin → Reports. Apple expects reports of objectionable content to be
@@ -83,7 +84,8 @@ None of this has been started. It is listed so that nothing is discovered late.
       `com.chronoconquest.app`
 - [ ] Capabilities on the App ID, when their features are built: Associated Domains (universal
       links), Push Notifications
-- [ ] The Team ID put where the product work left its placeholder
+- [ ] The Team ID put in `frontend/public/.well-known/apple-app-site-association`, and the
+      website deployed
 
 ### The build
 

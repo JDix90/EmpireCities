@@ -204,6 +204,14 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().guest_account_deletion_enabled).toBe(true);
   });
 
+  it('sign_in_code_enabled defaults to off and the admin override turns it on', () => {
+    expect(featureFlags.signInCodeEnabled).toBe(false);
+    expect(getClientFeatureFlags().sign_in_code_enabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { sign_in_code_enabled: true } });
+    expect(featureFlags.signInCodeEnabled).toBe(true);
+    expect(getClientFeatureFlags().sign_in_code_enabled).toBe(true);
+  });
+
   it('first_attack_hint_enabled defaults to off and the admin override turns it on', () => {
     expect(featureFlags.firstAttackHintEnabled).toBe(false);
     expect(getClientFeatureFlags().first_attack_hint_enabled).toBe(false);

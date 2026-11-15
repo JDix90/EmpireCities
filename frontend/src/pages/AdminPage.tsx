@@ -602,6 +602,12 @@ const CLIENT_FEATURE_FLAGS = [
       'A guest can delete their own account from their profile, confirming by typing their name (a guest has no password of its own); their name, games, ratings and progress go, and they are signed out. Settings \u2192 Account gets a Delete account link to that form, for every player. The App Store expects any account made in the app to be deletable in it. Off by default; off, the server refuses guests and their profile shows no delete form.',
   },
   {
+    key: 'sign_in_code_enabled',
+    label: 'Sign-in code in the email',
+    description:
+      'The sign-in email also shows a short code (ABCD-EFGH), and the sign-in page asks for it after a link is requested. The code and the link spend the same one-time sign-in: either works once, both expire in 30 minutes, and asking again replaces both. It is only good together with the email address, and an address gets ten tries per half hour. For the iOS app, where a link opened from a mail app lands in a browser and not in the app. Needs "save with just an email". Off by default; off, the email and the page are as before.',
+  },
+  {
     key: 'first_attack_hint_enabled',
     label: 'Suggested first attack',
     description:

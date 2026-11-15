@@ -19,6 +19,7 @@ import { ownAuthUiAllowed } from './utils/embedContext';
 import { isNativeApp } from './utils/nativeApp';
 import NativeLinkHandler from './components/native/NativeLinkHandler';
 import WebOnlyRoute from './components/native/WebOnlyRoute';
+import AppLinkHandler from './components/native/AppLinkHandler';
 import ErrorBoundary from './components/ErrorBoundary';
 import GlobalMatchNotifier from './components/notifications/GlobalMatchNotifier';
 import GlobalTurnNotifier from './components/notifications/GlobalTurnNotifier';
@@ -455,6 +456,8 @@ export default function App() {
       <InstallGuideHost />
       {/* Native app only: links to other sites open in a sheet over the game. */}
       <NativeLinkHandler />
+      {/* Native app only: a link that opened the app goes to its route inside it. */}
+      <AppLinkHandler />
       <Toaster
         position={toasterPosition}
         containerStyle={toasterContainerStyle}

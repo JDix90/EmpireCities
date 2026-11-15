@@ -254,6 +254,8 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   chat_safety_enabled: () => envOptIn('CHAT_SAFETY_ENABLED'),
   // A guest can delete their own account in the app (Profile, and Settings' link).
   guest_account_deletion_enabled: () => envOptIn('GUEST_ACCOUNT_DELETION_ENABLED'),
+  // The sign-in email also carries a code to type (modules/auth/signInCode.ts).
+  sign_in_code_enabled: () => envOptIn('SIGN_IN_CODE_ENABLED'),
   // Localized landing page + tutorial (frontend/src/i18n). Dark-launched OFF:
   // the translated bundles ship in the client but nobody is routed to them
   // until this is on. Client-only effect.
@@ -2140,6 +2142,19 @@ export const featureFlags = {
   },
 
   /**
+   * The emailed sign-in link also comes with a short code the player can type
+   * (modules/auth/signInCode.ts): the email shows it, the sign-in page asks
+   * for it once a link has been requested, and POST
+   * /api/auth/sign-in-link/verify-code spends it. For the native app, where a
+   * link opened from a mail app lands in a browser and not in the app. Needs
+   * `emailAccountSaveEnabled`. Default OFF; `SIGN_IN_CODE_ENABLED=true` or the
+   * admin override turns it on.
+   */
+  get signInCodeEnabled(): boolean {
+    return overrideBool('sign_in_code_enabled');
+  },
+
+  /**
    * Localized landing page and tutorial (frontend/src/i18n). Off means English
    * for everyone whatever the browser says; on lets the client honour the
    * stored `cc-lang` choice or the browser language. Default OFF until the
@@ -2222,6 +2237,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     first_attack_hint_enabled: featureFlags.firstAttackHintEnabled,
     chat_safety_enabled: featureFlags.chatSafetyEnabled,
     guest_account_deletion_enabled: featureFlags.guestAccountDeletionEnabled,
+    sign_in_code_enabled: featureFlags.signInCodeEnabled,
     localization_enabled: featureFlags.localizationEnabled,
     touch_targets_enabled: featureFlags.touchTargetsEnabled,
     daily_puzzle_v2_enabled: featureFlags.dailyPuzzleV2Enabled,
