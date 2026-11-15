@@ -4,7 +4,7 @@ import { Capacitor } from '@capacitor/core';
 const browserOpen = vi.fn();
 vi.mock('@capacitor/browser', () => ({ Browser: { open: (...a: unknown[]) => browserOpen(...a) } }));
 
-import { isNativeApp, nativeLinkAction, openExternal, thisBrowserOrDevice } from './nativeApp';
+import { inThisBrowserOrOnThisDevice, isNativeApp, nativeLinkAction, openExternal, thisBrowserOrDevice } from './nativeApp';
 
 const APP = 'capacitor://localhost';
 
@@ -31,8 +31,11 @@ describe('isNativeApp', () => {
 describe('thisBrowserOrDevice', () => {
   it('names the browser on the website and the device in the app', () => {
     expect(thisBrowserOrDevice()).toBe('this browser');
+    expect(inThisBrowserOrOnThisDevice()).toBe('in this browser');
     vi.spyOn(Capacitor, 'isNativePlatform').mockReturnValue(true);
     expect(thisBrowserOrDevice()).toBe('this device');
+    // "Saved on this device", not "saved in this device".
+    expect(inThisBrowserOrOnThisDevice()).toBe('on this device');
   });
 });
 

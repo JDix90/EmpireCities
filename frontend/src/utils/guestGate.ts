@@ -16,7 +16,7 @@
  * describes what is actually true.
  */
 
-import { thisBrowserOrDevice } from './nativeApp';
+import { inThisBrowserOrOnThisDevice } from './nativeApp';
 
 /**
  * The one statement of the guest limitation, shared verbatim by every surface
@@ -26,7 +26,7 @@ import { thisBrowserOrDevice } from './nativeApp';
  * It is a constant because those five surfaces had five different phrasings
  * ("this browser only", "lives in one browser", "a guest streak lives in this
  * browser only"), which is how the claim drifts and how one of them ends up
- * saying something the others do not. In the native app it reads "this
+ * saying something the others do not. In the native app it reads "on this
  * device": the player there never saw a browser (utils/nativeApp.ts).
  */
 export const GUEST_NO_PERSIST = 'Guest accounts do not persist across sessions';
@@ -44,7 +44,7 @@ export const GUEST_KEEP_STATS_CTA_SENTENCE = 'Create an account to keep your sta
  * across sessions" overstates it. What a guest lacks is a way back from
  * anywhere else, which the paired call to action says.
  */
-export const GUEST_SAVED_HERE = `Your progress is saved in ${thisBrowserOrDevice()}`;
+export const GUEST_SAVED_HERE = `Your progress is saved ${inThisBrowserOrOnThisDevice()}`;
 
 /** The v2 call to action — lowercase, for link text and mid-sentence use. */
 export const GUEST_KEEP_EVERYWHERE_CTA = 'an account keeps it everywhere';

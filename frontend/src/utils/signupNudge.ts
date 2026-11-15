@@ -14,7 +14,7 @@ import {
   JUST_AN_EMAIL,
   SAVED_ACCOUNT_PERKS,
 } from './guestGate';
-import { thisBrowserOrDevice } from './nativeApp';
+import { inThisBrowserOrOnThisDevice } from './nativeApp';
 
 /** sessionStorage key — once per tab session, mirroring the tutorial prompt. */
 export const SIGNUP_NUDGE_SHOWN_KEY = 'cc-signup-nudge-shown';
@@ -114,7 +114,7 @@ export function signupNudgeCopy(
       : {
           bankedGold: banked,
           title: 'Keep your progress safe',
-          body: `Your level, gold and streak are saved in ${thisBrowserOrDevice()}. Save your account to ${SAVED_ACCOUNT_PERKS}.${email}`,
+          body: `Your level, gold and streak are saved ${inThisBrowserOrOnThisDevice()}. Save your account to ${SAVED_ACCOUNT_PERKS}.${email}`,
         };
   }
   // `guest_prompt_v2_enabled`: the same stake without the overstatement. The
@@ -129,7 +129,7 @@ export function signupNudgeCopy(
         }
       : {
           bankedGold: banked,
-          title: `Saved in ${thisBrowserOrDevice()}`,
+          title: `Saved ${inThisBrowserOrOnThisDevice()}`,
           body: `Your level, gold and streak are on a guest account with no email or password to sign back in with. Switch browsers, or clear your site data, and there is no way back to it. ${GUEST_KEEP_EVERYWHERE_CTA_SENTENCE}, anywhere you play.`,
         };
   }
