@@ -2,6 +2,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useOnboardingTutorialFirstEnabled, usePlayerLinksPlayEnabled } from '../../store/featureFlagsStore';
 import { useGuestStart } from '../../hooks/useGuestStart';
 import { trackVisitEvent } from '../../utils/visitAnalytics';
+import { isNativeApp } from '../../utils/nativeApp';
 
 /** Whether a replay offers this viewer a game: signed out, with `player_links_play_enabled` on. */
 export function useReplayOffersPlay(): boolean {
@@ -44,7 +45,7 @@ export default function ReplayPlayBanner() {
   if (!offersPlay) return null;
   return (
     <div className="shrink-0 flex items-center justify-between gap-3 px-4 py-2 border-b border-bf-border bg-bf-gold/10">
-      <p className="text-sm text-bf-text">Borderfall is a free strategy game on a 3D globe. Play in your browser.</p>
+      <p className="text-sm text-bf-text">Borderfall is a free strategy game on a 3D globe.{isNativeApp() ? '' : ' Play in your browser.'}</p>
       <ReplayPlayFreeButton />
     </div>
   );

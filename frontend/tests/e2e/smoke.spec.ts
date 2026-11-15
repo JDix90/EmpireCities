@@ -89,3 +89,62 @@ for (const [signedIn, pages] of [[false, PUBLIC_PAGES], [true, PLAYER_PAGES]] as
     }
   });
 }
+
+/**
+ * The native app is this same bundle inside the Capacitor shell, where it must
+ * open as an app and not as the website (utils/nativeApp.ts): `/` is play, not
+ * the landing page, and the pages written for search engines are left out.
+ * `CapacitorCustomPlatform` is Capacitor's own switch for the platform it
+ * reports, so this runs the real routing without a device. The first test is
+ * the other half: none of it may change the website.
+ */
+test.describe('native app shell', () => {
+  const WEB_ONLY = ['/eras', '/eras/ww2', '/game-maps', '/answers', '/about', '/daily/archive'];
+
+  async function asNativeApp(page: Page) {
+    await page.addInitScript(() => {
+      (window as unknown as { CapacitorCustomPlatform: { name: string } }).CapacitorCustomPlatform = { name: 'ios' };
+    });
+  }
+
+  test('the website still opens on its landing page and serves its content pages', async ({ page }) => {
+    await stubApi(page, false);
+    await page.goto('/');
+    await expect(page.getByTestId('hero-tagline')).toBeVisible();
+    await expect(page.getByTestId('native-home')).toHaveCount(0);
+    await page.goto('/answers');
+    await expect(page).toHaveURL(/\/answers$/);
+    await expect(page.locator('h1').first()).toBeVisible();
+  });
+
+  test('signed out, the app opens on play and sign in, with no landing page', async ({ page }) => {
+    await asNativeApp(page);
+    await stubApi(page, false);
+    await page.goto('/');
+    await expect(page.getByTestId('native-home-play')).toBeVisible();
+    await expect(page.getByTestId('native-home-sign-in')).toBeVisible();
+    await expect(page.getByTestId('hero-tagline')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Choose Your Era' })).toHaveCount(0);
+    for (const path of WEB_ONLY) {
+      await page.goto(path);
+      await expect(page, `${path} is a website page`).toHaveURL(/\/$/);
+      await expect(page.getByTestId('native-home')).toBeVisible();
+    }
+    // The pages a player needs inside the app are still there.
+    await page.goto('/privacy');
+    await expect(page.locator('article').getByRole('heading', { name: 'Privacy Policy' })).toBeVisible();
+    await page.goto('/how-to-play');
+    await expect(page).toHaveURL(/\/how-to-play$/);
+  });
+
+  test('signed in, the app opens on the lobby and offers no way back to the landing page', async ({ page }) => {
+    await asNativeApp(page);
+    await stubApi(page, true);
+    await page.goto('/');
+    await expect(page).toHaveURL(/\/lobby$/);
+    await page.goto('/answers');
+    await expect(page).toHaveURL(/\/lobby$/);
+    await expect(page.getByRole('link', { name: 'Marketing Home' })).toHaveCount(0);
+    await expect(page.locator('[title="Landing page"]')).toHaveCount(0);
+  });
+});

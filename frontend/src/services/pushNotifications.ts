@@ -97,6 +97,9 @@ export function getWebPushStatus(): WebPushStatus {
  */
 export function needsHomeScreenInstall(): boolean {
   if (typeof navigator === 'undefined' || typeof window === 'undefined') return false;
+  // The native app is not a browser tab: there is nothing to add to the Home
+  // Screen, and telling a player who installed the app to install it is wrong.
+  if (Capacitor.isNativePlatform()) return false;
   const nav = navigator as Navigator & { standalone?: boolean };
   const isIos = /iPhone|iPad|iPod/.test(nav.userAgent) || (nav.platform === 'MacIntel' && nav.maxTouchPoints > 1);
   if (!isIos) return false;

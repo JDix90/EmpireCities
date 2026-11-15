@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { isNativeApp } from '../../utils/nativeApp';
 import {
   Home, Users, User, MoreHorizontal, X, HelpCircle,
   Map, Calendar, ShoppingBag, PenSquare, Trophy, Eye, FileText, LogOut, Swords, Shield, BookOpen, Settings,
@@ -91,7 +92,8 @@ export default function MobileTabBar({ isGuest, onCreateGame, onLogout }: Mobile
               <MoreLink to="/settings" icon={Settings} label="Settings" onClick={() => setMoreOpen(false)} />
               <MoreLink to="/privacy" icon={FileText} label="Privacy" onClick={() => setMoreOpen(false)} />
               <MoreLink to="/terms" icon={FileText} label="Terms" onClick={() => setMoreOpen(false)} />
-              <MoreLink to="/" icon={Home} label="Landing" onClick={() => setMoreOpen(false)} />
+              {/* The website's landing page; in the native app `/` is the lobby. */}
+              {!isNativeApp() && <MoreLink to="/" icon={Home} label="Landing" onClick={() => setMoreOpen(false)} />}
               <button
                 type="button"
                 onClick={() => { setMoreOpen(false); onLogout(); }}

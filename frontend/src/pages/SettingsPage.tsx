@@ -78,6 +78,7 @@ import {
   type MapViewPreference,
   type FriendRequestsPolicy,
 } from '../utils/userPreferences';
+import { thisBrowserOrDevice } from '../utils/nativeApp';
 
 const FRIEND_REQUEST_POLICY_LABELS: Record<FriendRequestsPolicy, string> = {
   everyone: 'Everyone',
@@ -338,7 +339,7 @@ export default function SettingsPage() {
           <SettingsSection title="Language" icon={Globe}>
             <SettingsRow
               label="Preferred language"
-              description="Sets the landing page and the tutorial. The in-game interface stays English for now, and the choice is saved in this browser."
+              description={`Sets the landing page and the tutorial. The in-game interface stays English for now, and the choice is saved in ${thisBrowserOrDevice()}.`}
             >
               <SettingsSelect<LocaleCode>
                 aria-label="Preferred language"

@@ -1,3 +1,5 @@
+import { isNativeApp } from './nativeApp';
+
 export interface GifResult {
   id: string;
   url: string;
@@ -44,7 +46,14 @@ export async function searchGifs(query: string): Promise<GifResult[]> {
   }
 }
 
-/** Check whether the Tenor API key is configured. */
+/**
+ * Whether chat offers GIF search: the Tenor API key is configured, and this is
+ * not the native app. The app ships with chat but without GIF search, so that
+ * what a player can post from it is text the server masks, which the report
+ * and block tools were built around. A GIF sent from the website still shows
+ * in the app's chat, and can be reported or its sender blocked like any other
+ * message.
+ */
 export function isGifSearchAvailable(): boolean {
-  return !!TENOR_API_KEY;
+  return !!TENOR_API_KEY && !isNativeApp();
 }

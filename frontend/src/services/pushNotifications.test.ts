@@ -15,8 +15,9 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+const nativePlatform = vi.hoisted(() => ({ on: false }));
 vi.mock('@capacitor/core', () => ({
-  Capacitor: { isNativePlatform: () => false, getPlatform: () => 'web' },
+  Capacitor: { isNativePlatform: () => nativePlatform.on, getPlatform: () => (nativePlatform.on ? 'ios' : 'web') },
 }));
 const apiPost = vi.fn();
 vi.mock('./api', () => ({ api: { post: (...args: unknown[]) => apiPost(...args), get: vi.fn() } }));
@@ -268,5 +269,19 @@ describe('needsHomeScreenInstall', () => {
     const { needsHomeScreenInstall } = await fresh();
     ua('Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/128.0 Mobile Safari/537.36');
     expect(needsHomeScreenInstall()).toBe(false);
+  });
+
+  // The native app's web view is an iPhone that is not "standalone", which
+  // read as a Safari tab: the app told a player who had installed it to add
+  // it to the Home Screen.
+  it('is false inside the native app, which has nothing to add to the Home Screen', async () => {
+    nativePlatform.on = true;
+    try {
+      const { needsHomeScreenInstall } = await fresh();
+      ua('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148');
+      expect(needsHomeScreenInstall()).toBe(false);
+    } finally {
+      nativePlatform.on = false;
+    }
   });
 });

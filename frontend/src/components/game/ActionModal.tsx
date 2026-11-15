@@ -52,6 +52,7 @@ import { diceEffectClass, diceFaceStyle } from '../cosmetics/diceSkin';
 import { DICE_SIDE_RING } from '../cosmetics/SkinnedMiniDie';
 import { FramedDot, PlayerBannerTag } from '../cosmetics/PlayerFlair';
 import { useCosmeticMotion, usePlayerCosmetics } from '../cosmetics/useCosmetics';
+import { openExternal } from '../../utils/nativeApp';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -2568,11 +2569,8 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
                     turnCount: data.turnCount,
                     shareUrl: replayLink ?? window.location.origin,
                   });
-                  window.open(
-                    `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`,
-                    '_blank',
-                    'noopener,noreferrer',
-                  );
+                  // A new tab on the website; a sheet over the game in the native app.
+                  void openExternal(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`);
                   if (data.gameId) {
                     api.post(`/share/${data.gameId}`, { platform: 'twitter' }).catch(() => {});
                   }
@@ -2601,7 +2599,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
                   if (data.gameId) {
                     api.post(`/share/${data.gameId}`, { platform: 'discord' }).catch(() => {});
                   }
-                  window.open('https://discord.com/app', '_blank', 'noopener,noreferrer');
+                  void openExternal('https://discord.com/app');
                 }}
                 className="py-2.5 rounded-xl bg-[#5865f2]/10 hover:bg-[#5865f2]/20 text-[#5865f2] text-sm font-medium
                            flex items-center justify-center gap-2 transition-all border border-[#5865f2]/20"

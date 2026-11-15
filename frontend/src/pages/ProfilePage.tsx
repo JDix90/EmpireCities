@@ -18,6 +18,7 @@ import { nextAchievementIds } from '../utils/questOrder';
 import FrameRing from '../components/cosmetics/FrameRing';
 import BannerTag from '../components/cosmetics/BannerTag';
 import CreatorMaps from '../components/account/CreatorMaps';
+import { thisBrowserOrDevice } from '../utils/nativeApp';
 
 /** Format a date string with locale date + browser timezone abbreviation (e.g. "Apr 21, 2025 · PDT"). */
 function formatDate(iso: string): string {
@@ -281,7 +282,7 @@ export default function ProfilePage() {
             </p>
             {ownGuest && saveAccountCopy ? (
               <p className="text-bf-muted text-xs mt-1" data-testid="profile-guest-line">
-                Guest account, saved in this browser{ownAuthUiAllowed() ? (
+                Guest account, saved in {thisBrowserOrDevice()}{ownAuthUiAllowed() ? (
                   <>
                     {' '}—{' '}
                     <Link to="/upgrade" className="text-bf-gold hover:underline">save your account</Link>
