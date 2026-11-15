@@ -8,8 +8,10 @@ import {
   applyFeatureFlagPatch,
   getAdminConfigSnapshot,
   getFeatureFlagOverrides,
+  getNativeAppConfig,
   refreshAdminConfigCache,
   upsertAdminConfig,
+  validateNativeAppConfig,
   type AdminConfigState,
 } from '../../services/adminConfig';
 import { getFeatureFlagStates } from '../../config/featureFlags';
@@ -483,6 +485,7 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
       'matchmaking',
       'default_game_settings',
       'feature_flags',
+      'native_app',
     ]);
     const key = request.params.key as keyof AdminConfigState;
     if (!allowed.has(key)) {
@@ -495,6 +498,12 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
       const merged = applyFeatureFlagPatch(getFeatureFlagOverrides(), parsed.data.value);
       if ('error' in merged) return reply.status(400).send({ error: merged.error });
       nextValue = merged.next;
+    }
+    if (key === 'native_app') {
+      // The minimum app version: a typo here locks players out. See validateNativeAppConfig.
+      const checked = validateNativeAppConfig(getNativeAppConfig(), parsed.data.value);
+      if ('error' in checked) return reply.status(400).send({ error: checked.error });
+      nextValue = checked.next;
     }
 
     await upsertAdminConfig(key, nextValue, request.userId);

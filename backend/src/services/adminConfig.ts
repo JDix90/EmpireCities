@@ -1,6 +1,7 @@
 import { query } from '../db/postgres';
 import type { BuildingType, GameSettings } from '../types';
 import { redis } from '../db/redis';
+import { parseAppVersion } from '../utils/appVersion';
 
 /**
  * Pub/sub channel that tells every instance to reload its admin-config cache.
@@ -49,6 +50,28 @@ export interface EconomyConfig {
   production_income: Partial<Record<BuildingType, number>>;
 }
 
+/**
+ * The native apps (iOS, Android): the oldest version of each the server still
+ * serves, and where its update is. An app bundles a copy of the frontend
+ * frozen at build time, so unlike a browser tab it cannot be moved to the new
+ * build by a reload: this is the only way to retire one.
+ *
+ * `*_min_version` is `1.4.0`-style, or empty for no minimum (the default: no
+ * app is turned away until an operator sets one). `*_store_url` is the store
+ * listing the "update required" screen opens, empty until the listing exists.
+ * Flat on purpose: a stored row is merged over these defaults one level deep.
+ * Enforced by middleware/minAppVersion.ts.
+ */
+export interface NativeAppConfig {
+  ios_min_version: string;
+  ios_store_url: string;
+  android_min_version: string;
+  android_store_url: string;
+}
+
+export const NATIVE_APP_PLATFORMS = ['ios', 'android'] as const;
+export type NativeAppPlatform = (typeof NATIVE_APP_PLATFORMS)[number];
+
 export interface AdminConfigState {
   economy: EconomyConfig;
   xp: XpConfig;
@@ -56,6 +79,7 @@ export interface AdminConfigState {
   matchmaking: MatchmakingConfig;
   default_game_settings: Pick<GameSettings, 'turn_timer_seconds' | 'initial_unit_count'>;
   feature_flags: Record<string, boolean>;
+  native_app: NativeAppConfig;
 }
 
 export const DEFAULTS: AdminConfigState = {
@@ -118,6 +142,13 @@ export const DEFAULTS: AdminConfigState = {
    * "explicit operator override" (the kill switch) and nothing else.
    */
   feature_flags: {},
+  // No minimum and no store link until an operator sets them (Admin → Config).
+  native_app: {
+    ios_min_version: '',
+    ios_store_url: '',
+    android_min_version: '',
+    android_store_url: '',
+  },
 };
 
 let cache: AdminConfigState = structuredClone(DEFAULTS);
@@ -129,6 +160,7 @@ const CONFIG_KEYS: Record<keyof AdminConfigState, string> = {
   matchmaking: 'matchmaking',
   default_game_settings: 'default_game_settings',
   feature_flags: 'feature_flags',
+  native_app: 'native_app',
 };
 
 function mergeFromDb(value: unknown, fallback: unknown): unknown {
@@ -153,6 +185,7 @@ export async function refreshAdminConfigCache(): Promise<void> {
       DEFAULTS.default_game_settings,
     ) as AdminConfigState['default_game_settings'],
     feature_flags: mergeFromDb(map.get(CONFIG_KEYS.feature_flags), DEFAULTS.feature_flags) as Record<string, boolean>,
+    native_app: mergeFromDb(map.get(CONFIG_KEYS.native_app), DEFAULTS.native_app) as NativeAppConfig,
   };
 }
 
@@ -170,6 +203,7 @@ export function setAdminConfigCacheForTests(next: Partial<AdminConfigState>): vo
     matchmaking: { ...cache.matchmaking, ...(next.matchmaking ?? {}) },
     default_game_settings: { ...cache.default_game_settings, ...(next.default_game_settings ?? {}) },
     feature_flags: { ...cache.feature_flags, ...(next.feature_flags ?? {}) },
+    native_app: { ...cache.native_app, ...(next.native_app ?? {}) },
   };
 }
 
@@ -199,6 +233,59 @@ export function getDefaultGameSettingsConfig(): AdminConfigState['default_game_s
 
 export function getFeatureFlagOverrides(): Record<string, boolean> {
   return cache.feature_flags;
+}
+
+export function getNativeAppConfig(): NativeAppConfig {
+  return cache.native_app;
+}
+
+/**
+ * Check a `native_app` block before it is stored, and return it whole.
+ *
+ * Unlike the other blocks this one is validated, because a typo here locks
+ * players out: a minimum of `v1.2` or `1.2.0 ` would be unreadable (and so
+ * read as no minimum at all, silently), and a minimum above the newest
+ * version in the store turns away everyone with no update to install. The
+ * first can be caught here; the second cannot, so the panel says it.
+ *
+ * Every field is optional in the patch: what is left out keeps its current
+ * value, so raising the iOS minimum cannot blank the Android one.
+ */
+export function validateNativeAppConfig(
+  current: NativeAppConfig,
+  patch: unknown,
+): { next: NativeAppConfig } | { error: string } {
+  if (!patch || typeof patch !== 'object' || Array.isArray(patch)) {
+    return { error: 'native_app must be an object' };
+  }
+  const next: NativeAppConfig = { ...current };
+  const known = Object.keys(DEFAULTS.native_app) as Array<keyof NativeAppConfig>;
+  for (const [key, value] of Object.entries(patch as Record<string, unknown>)) {
+    if (!(known as string[]).includes(key)) {
+      return { error: `native_app.${key} is not a setting (use ${known.join(', ')})` };
+    }
+    if (typeof value !== 'string') {
+      return { error: `native_app.${key} must be a string ("" for none)` };
+    }
+    const text = value.trim();
+    if (key.endsWith('_min_version')) {
+      if (text !== '' && !parseAppVersion(text)) {
+        return { error: `native_app.${key} must look like 1.4.0 (one to three numbers), or "" for no minimum` };
+      }
+    } else if (text !== '') {
+      let url: URL | null = null;
+      try {
+        url = new URL(text);
+      } catch {
+        /* reported below */
+      }
+      if (!url || url.protocol !== 'https:') {
+        return { error: `native_app.${key} must be an https:// link to the store listing, or ""` };
+      }
+    }
+    next[key as keyof NativeAppConfig] = text;
+  }
+  return { next };
 }
 
 /**
