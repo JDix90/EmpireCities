@@ -1301,6 +1301,9 @@ export function initGameSocket(httpServer: HttpServer): Server {
     (socket as Socket & { userId: string; username: string }).username = payload.username;
     socket.data.userId = payload.sub;
     socket.data.username = payload.username;
+    // An admin's socket hears admin-only events (the open chat reports count,
+    // modules/safety/reportAlerts.ts), from the token's claim as /admin does.
+    socket.data.isAdmin = payload.admin === true;
     // Record the token's expiry so registerSocketAuth can stop the socket
     // acting on an expired credential (and let it refresh in place).
     socket.data.tokenExp = payload.exp;
@@ -1312,6 +1315,7 @@ export function initGameSocket(httpServer: HttpServer): Server {
     const username = (socket as Socket & { username: string }).username;
     console.log(`[Socket] Connected: ${userId} (${socket.id})`);
     socket.join(`user:${userId}`);
+    if (socket.data.isAdmin) socket.join('admins');
 
     // Enforce access-token expiry on the live socket (the handshake only checks
     // it once) and accept `auth:refresh` to extend it in place. Registered

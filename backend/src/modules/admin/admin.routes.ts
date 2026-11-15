@@ -41,7 +41,8 @@ import { loadGalaxyReport } from './galaxyReport';
 import { backfillGalaxyResults } from './galaxyBackfill';
 import { GALAXY_GAME_MODES } from '../../game-engine/state/galaxyResults';
 import { loadFeedbackReport } from '../feedback/feedback.service';
-import { CHAT_REPORT_STATUSES, loadChatReports, setChatReportStatus } from '../safety/chatSafety.service';
+import { CHAT_REPORT_STATUSES, countOpenChatReports, loadChatReports, setChatReportStatus } from '../safety/chatSafety.service';
+import { announceOpenReports } from '../safety/reportAlerts';
 
 /** Galactic Age report filters; `days` 0 (or absent) reads all time. */
 const GalaxyReportQuerySchema = z.object({
@@ -620,6 +621,11 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
     return reply.send(await loadChatReports(status));
   });
 
+  // The badge on Admin in the top bar: just the count, polled and pushed.
+  fastify.get('/chat-reports/open-count', { preHandler: [authenticate, requireAdmin] }, async (_request, reply) => {
+    return reply.send({ open: await countOpenChatReports() });
+  });
+
   const ChatReportUpdateSchema = z.object({
     status: z.enum(CHAT_REPORT_STATUSES),
     note: z.string().max(500).transform((s) => s.split('\u0000').join('').trim()).optional(),
@@ -631,6 +637,7 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
     const found = await setChatReportStatus(id.data, parsed.data.status, parsed.data.note || null, request.userId);
     if (!found) return reply.status(404).send({ error: 'No such report' });
     await writeAuditLog(request.userId, 'chat_report_' + parsed.data.status, { report_id: id.data });
+    void announceOpenReports();
     return reply.send({ ok: true });
   });
 

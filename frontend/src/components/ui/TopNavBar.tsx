@@ -10,6 +10,7 @@ import { useAuthStore, selectIsAdminFromToken } from '../../store/authStore';
 import { useMapEditorEnabled, useSpectateEnabled, useGuestPersonalFeaturesEnabled, useFeedbackMenuEnabled } from '../../store/featureFlagsStore';
 import FeedbackModal from '../feedback/FeedbackModal';
 import { APP_NAME_NAV } from '../../constants/brand';
+import { useOpenChatReports } from '../../hooks/useOpenChatReports';
 
 type NavItem = {
   to: string;
@@ -64,6 +65,8 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
   // persisted user.is_admin field — see selectIsAdminFromToken docstring.
   const accessToken = useAuthStore((s) => s.accessToken);
   const isAdmin = selectIsAdminFromToken(accessToken);
+  // Chat reports waiting on an admin: a badge on Admin, which then opens Reports.
+  const openReports = useOpenChatReports(isAdmin);
   const mapEditorEnabled = useMapEditorEnabled();
   const spectateEnabled = useSpectateEnabled();
   const nativeApp = isNativeApp();
@@ -98,7 +101,7 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
       ),
     )
     .filter((group) => group.length > 0);
-  const contents = `${visibleGroups.map((g) => g.map((i) => i.to).join()).join('|')}:${feedbackMenu}:${user?.username ?? ''}:${gold}`;
+  const contents = `${visibleGroups.map((g) => g.map((i) => i.to).join()).join('|')}:${feedbackMenu}:${user?.username ?? ''}:${gold}:${openReports ?? 0}`;
   // New contents: measure the one row again.
   useLayoutEffect(() => setStacked(false), [contents]);
   useLayoutEffect(() => {
@@ -136,17 +139,31 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
           {visibleGroups.map((group, groupIndex) => (
             <React.Fragment key={group[0].to}>
               {groupIndex > 0 && <span className={styles.navDivider} aria-hidden />}
-              {group.map(({ to, label, icon: Icon, title, exact }) => (
-                <Link
-                  key={to}
-                  to={to}
-                  className={isActive(to, exact) ? `${styles.navLink} ${styles.active} tap-min` : `${styles.navLink} tap-min`}
-                  aria-current={isActive(to, exact) ? 'page' : undefined}
-                  title={title || label}
-                >
-                  <Icon className={styles.icon} /> {label}
-                </Link>
-              ))}
+              {group.map(({ to, label, icon: Icon, title, exact }) => {
+                const reports = to === '/admin' && openReports ? openReports : 0;
+                const reportsLabel = `${reports} open ${reports === 1 ? 'report' : 'reports'}`;
+                return (
+                  <Link
+                    key={to}
+                    to={reports ? '/admin?tab=reports' : to}
+                    className={isActive(to, exact) ? `${styles.navLink} ${styles.active} tap-min` : `${styles.navLink} tap-min`}
+                    aria-current={isActive(to, exact) ? 'page' : undefined}
+                    title={reports ? `${title || label}: ${reportsLabel}` : title || label}
+                    aria-label={reports ? `${label}, ${reportsLabel}` : undefined}
+                  >
+                    <Icon className={styles.icon} /> {label}
+                    {reports > 0 && (
+                      <span
+                        className="ml-1 min-w-[1.25rem] h-5 px-1 inline-flex items-center justify-center rounded-full bg-red-600 text-white text-[11px] font-semibold leading-none tabular-nums"
+                        data-testid="admin-reports-badge"
+                        aria-hidden
+                      >
+                        {reports > 99 ? '99+' : reports}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
             </React.Fragment>
           ))}
         </div>
