@@ -186,4 +186,27 @@ export function validateProductionEnv(): void {
       '[config] Production requires FRONTEND_URL or CORS_ORIGINS to be set to at least one public origin.',
     );
   }
+
+  // The native app's origins get their refresh token in a response body
+  // instead of the httpOnly cookie (modules/auth/nativeSession.ts). A web
+  // origin named here would hand that website's pages their refresh tokens
+  // where script can read them, which is exactly what the cookie prevents.
+  const nativeOrigins = (process.env.NATIVE_APP_ORIGINS ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  const webNativeOrigins = nativeOrigins.filter((o) => /^https?:\/\//i.test(o) || o === '*');
+  if (webNativeOrigins.length > 0) {
+    throw new Error(
+      `[config] NATIVE_APP_ORIGINS must name only the native app's own origin (capacitor://localhost), ` +
+        `never a web origin: ${webNativeOrigins.join(', ')}. A website keeps its session in the httpOnly cookie.`,
+    );
+  }
+  const unreachable = nativeOrigins.filter((o) => !extraOrigins.includes(o));
+  if (unreachable.length > 0) {
+    console.warn(
+      `[config] Warning: NATIVE_APP_ORIGINS names ${unreachable.join(', ')}, which CORS_ORIGINS does not ` +
+        'allow. The app cannot read any response until CORS_ORIGINS lists it too.',
+    );
+  }
 }

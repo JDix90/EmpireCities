@@ -22,6 +22,7 @@
     "cap:android": "npx cap open android"
   },
   "dependencies": {
+    "@aparajita/capacitor-secure-storage": "^6.0.1",
     "@borderfall/shared": "workspace:*",
     "@borderfall/warfront-sim": "workspace:*",
     "@capacitor/browser": "^6.0.6",

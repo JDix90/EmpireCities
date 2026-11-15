@@ -43,8 +43,9 @@ export default function PrivacyPage() {
           </p>
           <p className="text-sm text-bf-muted leading-relaxed">
             <span className="text-bf-text">Guest accounts:</span> playing as a guest creates an account with no email
-            address or password. A cookie in your browser keeps you signed in to it for up to 30 days after your last
-            visit; without that cookie there is no way back into it. Guest accounts that never play a game are deleted
+            address or password. A cookie in your browser (in the iPhone and iPad app, a token in the device&apos;s
+            keychain) keeps you signed in to it for up to 30 days after your last visit; without it there is no way
+            back into it. Guest accounts that never play a game are deleted
             automatically within about 48 hours. Saving your account adds your email address (and a password, if you
             choose one) to the same account, so your progress is kept.
           </p>
@@ -126,7 +127,13 @@ export default function PrivacyPage() {
           <p className="text-sm text-bf-muted leading-relaxed">
             We use an HTTP-only cookie to keep you signed in, for up to 30 days after your last visit, and store an
             access token in the app for API requests.
-            Mobile apps using the same backend follow the same model.
+          </p>
+          <p className="text-sm text-bf-muted leading-relaxed" data-testid="privacy-app-session">
+            <span className="text-bf-text">The iPhone and iPad app</span> uses no cookie. It keeps a sign-in token in
+            the device&apos;s keychain instead, for the same 30 days after your last visit. The token stays on that
+            device: it is not synced to iCloud. Because the keychain outlives the app, deleting and reinstalling the
+            app on the same device signs you back in to the same account, a guest account included. Signing out, or
+            deleting your account, removes the token.
           </p>
         </section>
 

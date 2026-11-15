@@ -14,6 +14,7 @@ import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { useAuthStoreHydrated } from './hooks/useAuthStoreHydrated';
 import { useDailyVisit } from './hooks/useDailyVisit';
 import { checkNativeAppVersion, useUpdateRequiredStore } from './services/nativeAppVersion';
+import { usesNativeSession } from './services/nativeSession';
 import { ownAuthUiAllowed } from './utils/embedContext';
 import { isNativeApp } from './utils/nativeApp';
 import NativeLinkHandler from './components/native/NativeLinkHandler';
@@ -277,6 +278,12 @@ export default function App() {
       // Logged out — nothing to recover. (Guests recover like registered
       // users now: their refresh cookie survives the reload.)
       if (!state.isAuthenticated || !state.user) {
+        // Native app only: the web view may remember nobody (a reinstall
+        // clears it) while the device keychain still holds the session. Sign
+        // back in with it before anything decides this player is new.
+        if (usesNativeSession()) {
+          await useAuthStore.getState().recoverNativeSession().catch(() => false);
+        }
         useAuthStore.getState().setBootstrapped(true);
         return;
       }

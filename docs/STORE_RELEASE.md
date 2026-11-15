@@ -30,15 +30,14 @@ Recorded 15 November 2026.
 | App and website told apart in analytics | Built |
 | Privacy page covers chat reports, blocks, iOS push tokens, crash reports and where to delete an account | Built |
 | Native build: required server addresses, clean app shell, shared links that point at the website | Built |
+| Staying signed in: a refresh token in the iOS Keychain, sent only by the app; survives a force-quit and a reinstall | Built; off until the server sets `NATIVE_APP_ORIGINS`. Not yet confirmed on a device |
 
 ## What is still to do before the App Store process can start
 
-**Product work, not built.** Each needs a real iPhone to confirm and is waiting on a decision
-about its approach; [MOBILE_CAPACITOR.md § Not built yet](MOBILE_CAPACITOR.md#not-built-yet)
-says what the app does without each.
+**Product work, not built.** Each needs a real iPhone to confirm;
+[MOBILE_CAPACITOR.md § Not built yet](MOBILE_CAPACITOR.md#not-built-yet) says what the app does
+without each.
 
-- [ ] **Staying signed in.** Today a player is signed out when the app is force-quit, and a
-      guest loses their account. This alone makes the app unfit to submit.
 - [ ] **Links that open the app**: emailed sign-in links, invites, shared replays. Since most
       accounts are saved with only an email, a reinstalled app cannot sign back in without this
       (or a code the player can type).
@@ -56,6 +55,8 @@ says what the app does without each.
 
 - [ ] `CORS_ORIGINS` includes `capacitor://localhost`, backend restarted
       ([how](MOBILE_CAPACITOR.md#1-allow-the-apps-origin)).
+- [ ] `NATIVE_APP_ORIGINS=capacitor://localhost`, so the app stays signed in
+      ([how](MOBILE_CAPACITOR.md#2-let-the-app-stay-signed-in)).
 - [ ] `chat_safety_enabled` and `guest_account_deletion_enabled` switched on (Admin → Config).
       Once they have been checked on production, promote their code defaults to on.
 - [ ] Every migration in `database/migrations/` applied (`pnpm run db:migrate`);
@@ -111,6 +112,7 @@ None of this has been started. It is listed so that nothing is discovered late.
   - chat reports: the reported message, sender, reporter and reason; and blocks
   - feedback a player sends, with device type and screen size
   - a push token, if notifications are allowed
+  - a sign-in token kept in the device Keychain by the app (it stays on the device)
   - crash and error reports, sent to Sentry when `VITE_SENTRY_DSN` / `SENTRY_DSN` are set
   - first-party usage events (`analytics_events`), including device class and platform
   - IP address and browser or device type in server logs
