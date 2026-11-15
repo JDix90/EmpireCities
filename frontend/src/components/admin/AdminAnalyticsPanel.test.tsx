@@ -372,4 +372,48 @@ describe('AdminAnalyticsPanel', () => {
     fireEvent.change(select, { target: { value: 'phone' } });
     expect(onDeviceChange).toHaveBeenCalledWith('phone');
   });
+
+  it('offers a signup-platform filter only when the page can act on it', () => {
+    const { unmount } = render(<AdminAnalyticsPanel data={report} />);
+    expect(screen.queryByLabelText('Signup platform')).toBeNull();
+    unmount();
+    const onPlatformChange = vi.fn();
+    render(<AdminAnalyticsPanel data={report} platform="all" onPlatformChange={onPlatformChange} />);
+    const select = screen.getByLabelText('Signup platform') as HTMLSelectElement;
+    expect(select.value).toBe('all');
+    expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual([
+      'All platforms', 'Website', 'iOS app', 'Android app',
+    ]);
+    fireEvent.change(select, { target: { value: 'ios' } });
+    expect(onPlatformChange).toHaveBeenCalledWith('ios');
+  });
+
+  it('sets the website beside the apps, and shows nothing for an older backend', () => {
+    const { unmount } = render(<AdminAnalyticsPanel data={report} />);
+    expect(screen.queryByTestId('admin-platforms')).toBeNull();
+    unmount();
+    render(
+      <AdminAnalyticsPanel
+        data={{
+          ...report,
+          platforms: [
+            { platform: 'web', signups: 80, started_game: 40, finished_game: 20, upgraded: 8, d1_cohort: 70, d1: 14, opened: 55 },
+            { platform: 'ios', signups: 20, started_game: 15, finished_game: 10, upgraded: 5, d1_cohort: 10, d1: 4, opened: 18 },
+            { platform: 'android', signups: 0, started_game: 0, finished_game: 0, upgraded: 0, d1_cohort: 0, d1: 0, opened: 0 },
+          ],
+        }}
+      />,
+    );
+    const ios = within(screen.getByTestId('admin-platform-ios'));
+    expect(ios.getByText('iOS app')).toBeTruthy();
+    expect(ios.getByText('20')).toBeTruthy();
+    // 15 of 20 started a real game; 4 of the 10 old enough came back the next day.
+    expect(ios.getByText('(15)')).toBeTruthy();
+    expect(ios.getByText('(4/10)')).toBeTruthy();
+    expect(ios.getByText('18')).toBeTruthy();
+    // A platform with nobody still has its row, with no rate to show.
+    const android = within(screen.getByTestId('admin-platform-android'));
+    expect(android.getByText('Android app')).toBeTruthy();
+    expect(android.getByText('(0/0)')).toBeTruthy();
+  });
 });

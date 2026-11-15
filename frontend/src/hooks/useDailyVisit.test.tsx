@@ -48,7 +48,7 @@ describe('useDailyVisit', () => {
     expect(post).not.toHaveBeenCalled();
     act(() => { useAuthStore.setState({ accessToken: 'token', bootstrapped: true }); });
     expect(post).toHaveBeenCalledTimes(1);
-    expect(post).toHaveBeenCalledWith('/analytics/ui-event', { event: 'app_opened', properties: { device: 'desktop' } });
+    expect(post).toHaveBeenCalledWith('/analytics/ui-event', { event: 'app_opened', properties: { device: 'desktop', platform: 'web' } });
     await flush();
     setVisibility('hidden');
     setVisibility('visible');

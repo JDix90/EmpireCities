@@ -20,7 +20,12 @@ import {
   CHANNEL_LABELS,
   type AcquisitionChannel,
 } from './acquisitionChannel';
-import { SIGNUP_DEVICE_CLASSES, type SignupDeviceClass } from '../modules/auth/attribution';
+import {
+  SIGNUP_DEVICE_CLASSES,
+  CLIENT_PLATFORMS,
+  type SignupDeviceClass,
+  type ClientPlatform,
+} from '../modules/auth/attribution';
 
 /** The device classes a funnel can be narrowed to: the one recorded on the signup event. */
 export const FUNNEL_DEVICES = SIGNUP_DEVICE_CLASSES;
@@ -31,6 +36,29 @@ export function parseFunnelDevice(raw: unknown): FunnelDevice | null {
   return typeof raw === 'string' && (FUNNEL_DEVICES as readonly string[]).includes(raw)
     ? (raw as FunnelDevice)
     : null;
+}
+
+/** Where a signup happened: the website, or the iOS or Android app. */
+export const FUNNEL_PLATFORMS = CLIENT_PLATFORMS;
+export type FunnelPlatform = ClientPlatform;
+
+/** A query-string value narrowed to a platform, or null for every platform. */
+export function parseFunnelPlatform(raw: unknown): FunnelPlatform | null {
+  return typeof raw === 'string' && (FUNNEL_PLATFORMS as readonly string[]).includes(raw)
+    ? (raw as FunnelPlatform)
+    : null;
+}
+
+/**
+ * The platform an event was recorded on, over `alias`.properties. An event
+ * with no platform, or with a value outside the set, is the website's: there
+ * was no app before the value was sent, and a browser tab still running an
+ * older build is on the web. So `web` holds every signup from before the
+ * platform was recorded, unlike a device, where those appear only under "all".
+ */
+export function eventPlatformSql(alias: string): string {
+  return `(CASE WHEN ${alias}.properties->>'platform' IN ('ios', 'android')
+                THEN ${alias}.properties->>'platform' ELSE 'web' END)`;
 }
 
 /**
@@ -283,6 +311,8 @@ export interface AnalyticsReport {
   window_days: number;
   /** The device class the activation and tutorial funnels were narrowed to; null for every device. */
   device: FunnelDevice | null;
+  /** The platform the same funnels were narrowed to; null for every platform. */
+  platform: FunnelPlatform | null;
   total_events: number;
   visitors: VisitorFunnelMetrics;
   funnel: FunnelMetrics;
@@ -305,6 +335,29 @@ export interface AnalyticsReport {
   editor: EditorMetrics;
   /** Save prompts and reminder asks shown against answered, by surface (funnel_events_v2_enabled). */
   prompts: PromptFunnel;
+  /** The website against the iOS and Android apps: one row each, always all three. */
+  platforms: PlatformRow[];
+}
+
+/**
+ * One platform's signups in the window and what became of them, with the
+ * players who opened the game there. `signups` and the columns after it follow
+ * the platform recorded on the signup event (eventPlatformSql), counted like
+ * the activation funnel: real games only. `d1_cohort` is the signups old
+ * enough to have had a next day and `d1` those who did something on it.
+ * `opened` is different: the players with an `app_opened` on that platform in
+ * the window, whenever they signed up. A player who uses the website and the
+ * app is counted under both, so the three do not add up to the active players.
+ */
+export interface PlatformRow {
+  platform: FunnelPlatform;
+  signups: number;
+  started_game: number;
+  finished_game: number;
+  upgraded: number;
+  d1_cohort: number;
+  d1: number;
+  opened: number;
 }
 
 /**
@@ -369,9 +422,14 @@ function numOrNull(v: unknown): number | null {
  * Acquisition → activation funnel for signups in the trailing window. The steps
  * after signup count real games only (REAL_GAME_SQL); `device` narrows the
  * cohort to signups recorded on that device class, and null keeps every signup,
- * including those from before the device was recorded.
+ * including those from before the device was recorded. `platform` narrows it
+ * to signups on the website or in one of the apps (eventPlatformSql).
  */
-export async function getFunnelMetrics(days: number, device: FunnelDevice | null = null): Promise<FunnelMetrics> {
+export async function getFunnelMetrics(
+  days: number,
+  device: FunnelDevice | null = null,
+  platform: FunnelPlatform | null = null,
+): Promise<FunnelMetrics> {
   const [row] = await query<Record<string, unknown>>(
     `WITH signups AS (
        SELECT user_id, MIN(created_at) AS signed_up_at
@@ -380,6 +438,7 @@ export async function getFunnelMetrics(days: number, device: FunnelDevice | null
          AND created_at >= NOW() - make_interval(days => $1::int)
          AND ${countedEventSql('analytics_events')}
          AND ($2::text IS NULL OR properties->>'device' = $2::text)
+         AND ($3::text IS NULL OR ${eventPlatformSql('analytics_events')} = $3::text)
        GROUP BY user_id
      )
      SELECT
@@ -399,7 +458,7 @@ export async function getFunnelMetrics(days: number, device: FunnelDevice | null
        COUNT(*) FILTER (WHERE EXISTS (
          SELECT 1 FROM analytics_events e WHERE e.user_id = s.user_id AND e.event = 'guest_upgraded'))::int AS upgraded
      FROM signups s`,
-    [days, device],
+    [days, device, platform],
   );
   return {
     signups: num(row?.signups),
@@ -540,9 +599,14 @@ export async function getRetentionByCohort(onlyUserIds?: readonly string[]): Pro
  *
  * Completed means the game's own `tutorial_completed`, or leaving from the
  * wrap-up card after playing the lesson (WRAPUP_EXIT_VIAS_SQL). `device` narrows
- * the starters to signups recorded on that device class.
+ * the starters to signups recorded on that device class, and `platform` to
+ * signups on that platform.
  */
-export async function getTutorialFunnel(days: number, device: FunnelDevice | null = null): Promise<TutorialCohortRow[]> {
+export async function getTutorialFunnel(
+  days: number,
+  device: FunnelDevice | null = null,
+  platform: FunnelPlatform | null = null,
+): Promise<TutorialCohortRow[]> {
   const rows = await query<Record<string, unknown>>(
     `WITH starters AS (
        SELECT user_id
@@ -555,6 +619,11 @@ export async function getTutorialFunnel(days: number, device: FunnelDevice | nul
            WHERE g.user_id = analytics_events.user_id
              AND g.event IN ('guest_created', 'user_registered')
              AND g.properties->>'device' = $2::text))
+         AND ($3::text IS NULL OR EXISTS (
+           SELECT 1 FROM analytics_events g
+           WHERE g.user_id = analytics_events.user_id
+             AND g.event IN ('guest_created', 'user_registered')
+             AND ${eventPlatformSql('g')} = $3::text))
        GROUP BY user_id
      ),
      classified AS (
@@ -576,7 +645,7 @@ export async function getTutorialFunnel(days: number, device: FunnelDevice | nul
              OR (e.event = 'tutorial_exited' AND e.properties->>'via' IN ${WRAPUP_EXIT_VIAS_SQL}))))::int AS completed
      FROM classified c
      GROUP BY c.is_account`,
-    [days, device],
+    [days, device, platform],
   );
 
   const byCohort = new Map<RetentionCohort, TutorialCohortRow>();
@@ -1002,6 +1071,7 @@ export async function getFirstTurnFunnel(
   days: number,
   device: FunnelDevice | null = null,
   onlyUserIds?: readonly string[],
+  platform: FunnelPlatform | null = null,
 ): Promise<FirstTurnFunnel> {
   const did = (event: string, extra = '') => `COUNT(*) FILTER (WHERE EXISTS (
          SELECT 1 FROM analytics_events e WHERE e.user_id = s.user_id AND e.event = '${event}'
@@ -1025,6 +1095,7 @@ export async function getFirstTurnFunnel(
          AND ${countedEventSql('analytics_events')}
          AND ($2::text IS NULL OR properties->>'device' = $2::text)
          AND ($3::uuid[] IS NULL OR user_id = ANY($3::uuid[]))
+         AND ($4::text IS NULL OR ${eventPlatformSql('analytics_events')} = $4::text)
        GROUP BY user_id
      )
      SELECT
@@ -1041,7 +1112,7 @@ export async function getFirstTurnFunnel(
        ${did('turn_timed_out', ` AND e.properties->>'turn_number' = '1'`)} AS clock_ran_out,
        (SELECT to_char(MIN(created_at), 'YYYY-MM-DD') FROM analytics_events WHERE event = 'first_turn_step') AS measured_since
      FROM signups s`,
-    [days, device, onlyUserIds ?? null],
+    [days, device, onlyUserIds ?? null, platform],
   );
   return {
     new_players: num(row?.new_players),
@@ -1204,32 +1275,98 @@ export async function getPromptFunnel(days: number, onlyUserIds?: readonly strin
   };
 }
 
+/**
+ * See PlatformRow. Always three rows, in FUNNEL_PLATFORMS order, zeroed when a
+ * platform has nobody: the app's row is there before the app has a player.
+ * `onlyUserIds` narrows it to those players, for a test on a shared database.
+ */
+export async function getPlatformBreakdown(days: number, onlyUserIds?: readonly string[]): Promise<PlatformRow[]> {
+  const did = (event: string, real: boolean) => `COUNT(*) FILTER (WHERE EXISTS (
+           SELECT 1 FROM analytics_events e WHERE e.user_id = s.user_id AND e.event = '${event}'${real ? ` AND ${REAL_GAME_SQL}` : ''}))::int`;
+  const rows = (await query<Record<string, unknown>>(
+    `WITH signups AS (
+       SELECT DISTINCT ON (user_id) user_id, created_at::date AS d0,
+              ${eventPlatformSql('analytics_events')} AS platform
+       FROM analytics_events
+       WHERE event IN ('guest_created', 'user_registered') AND user_id IS NOT NULL
+         AND created_at >= NOW() - make_interval(days => $1::int)
+         AND ${countedEventSql('analytics_events')}
+         AND ($2::uuid[] IS NULL OR user_id = ANY($2::uuid[]))
+       ORDER BY user_id, created_at
+     ),
+     by_signup AS (
+       SELECT s.platform,
+         COUNT(*)::int AS signups,
+         ${did('game_started', true)} AS started_game,
+         ${did('game_finished', true)} AS finished_game,
+         ${did('guest_upgraded', false)} AS upgraded,
+         ${dayNReturnSql(1, 's')}
+       FROM signups s
+       GROUP BY s.platform
+     ),
+     opened AS (
+       SELECT ${eventPlatformSql('o')} AS platform, COUNT(DISTINCT o.user_id)::int AS opened
+       FROM analytics_events o
+       WHERE o.event = 'app_opened' AND o.user_id IS NOT NULL
+         AND o.created_at >= NOW() - make_interval(days => $1::int)
+         AND ${countedEventSql('o')}
+         AND ($2::uuid[] IS NULL OR o.user_id = ANY($2::uuid[]))
+       GROUP BY 1
+     )
+     SELECT COALESCE(b.platform, o.platform) AS platform,
+            b.signups, b.started_game, b.finished_game, b.upgraded, b.d1_cohort, b.d1, o.opened
+     FROM by_signup b
+     FULL OUTER JOIN opened o ON o.platform = b.platform`,
+    [days, onlyUserIds ?? null],
+  )) ?? [];
+  const byPlatform = new Map(rows.map((r) => [String(r.platform), r]));
+  return FUNNEL_PLATFORMS.map((platform) => {
+    const r = byPlatform.get(platform);
+    return {
+      platform,
+      signups: num(r?.signups),
+      started_game: num(r?.started_game),
+      finished_game: num(r?.finished_game),
+      upgraded: num(r?.upgraded),
+      d1_cohort: num(r?.d1_cohort),
+      d1: num(r?.d1),
+      opened: num(r?.opened),
+    };
+  });
+}
+
 /** Everything the funnel report / admin view needs, in one shot. */
-export async function getAnalyticsReport(days: number, device: FunnelDevice | null = null): Promise<AnalyticsReport> {
+export async function getAnalyticsReport(
+  days: number,
+  device: FunnelDevice | null = null,
+  platform: FunnelPlatform | null = null,
+): Promise<AnalyticsReport> {
   // NOTE: the section queries share one mocked `query` in the unit test, which
   // matches them positionally — a new section goes on the END of this list so
   // it cannot shift the mocks of the ones above it.
-  const [visitors, funnel, retention, retentionByCohort, completion, acquisition, volume, tutorial, totalRow, firstMatch, soloByLevel, guestAccounts, activePlayers, firstTurn, editor, prompts] = await Promise.all([
+  const [visitors, funnel, retention, retentionByCohort, completion, acquisition, volume, tutorial, totalRow, firstMatch, soloByLevel, guestAccounts, activePlayers, firstTurn, editor, prompts, platforms] = await Promise.all([
     getVisitorFunnel(days),
-    getFunnelMetrics(days, device),
+    getFunnelMetrics(days, device, platform),
     getRetentionMetrics(),
     getRetentionByCohort(),
     getCompletionStats(days),
     getAcquisitionBySource(days),
     getEventVolume(days),
-    getTutorialFunnel(days, device),
+    getTutorialFunnel(days, device, platform),
     queryOne<{ total: number }>(`SELECT COUNT(*)::int AS total FROM analytics_events`),
     getFirstMatchStats(days),
     getSoloGamesByLevel(days),
     getGuestAccountMetrics(days),
     getActivePlayers(days),
-    getFirstTurnFunnel(days, device),
+    getFirstTurnFunnel(days, device, undefined, platform),
     getEditorMetrics(days),
     getPromptFunnel(days),
+    getPlatformBreakdown(days),
   ]);
   return {
     window_days: days,
     device,
+    platform,
     total_events: num(totalRow?.total),
     visitors,
     funnel,
@@ -1247,5 +1384,6 @@ export async function getAnalyticsReport(days: number, device: FunnelDevice | nu
     first_turn: firstTurn,
     editor,
     prompts,
+    platforms,
   };
 }

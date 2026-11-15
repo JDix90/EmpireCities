@@ -78,4 +78,18 @@ describe('parseAttribution', () => {
       utm_source: 'reddit',
     });
   });
+
+  // The device class cannot tell the iOS app from Safari on the same phone.
+  it('carries the client platform, a closed set, without risking the rest', () => {
+    expect(parseAttribution({ attribution: { platform: 'ios' } })).toEqual({ platform: 'ios' });
+    expect(parseAttribution({ attribution: { utm_source: 'reddit', device: 'phone', platform: 'web' } })).toEqual({
+      utm_source: 'reddit',
+      device: 'phone',
+      platform: 'web',
+    });
+    expect(parseAttribution({ attribution: { device: 'phone', platform: 'windows-phone' } })).toEqual({ device: 'phone' });
+    expect(parseAttribution({ attribution: { device: 'phone', platform: 3 } })).toEqual({ device: 'phone' });
+    // An older build sends none: the event is stored without one and reads as the web.
+    expect(parseAttribution({ attribution: { device: 'tablet' } })).toEqual({ device: 'tablet' });
+  });
 });
