@@ -4,6 +4,7 @@ import { useHomeScreenInstallEnabled } from '../../store/featureFlagsStore';
 import { useInstallPath } from '../../services/homeScreenInstall';
 import { useTrackShown } from '../../utils/funnelEvents';
 import { InstallButton } from './InstallOffer';
+import { isNativeApp } from '../../utils/nativeApp';
 
 /**
  * Settings → Notifications: put Borderfall on the home screen
@@ -17,7 +18,8 @@ export default function HomeScreenSettingsRow() {
   const path = useInstallPath();
   const offered = enabled && path !== 'none' && path !== 'installed';
   useTrackShown({ event: 'install_offer_shown', surface: 'settings' }, offered, { path });
-  if (!enabled || path === 'none') return null;
+  // The native app came from the store: it has no Home Screen row to show.
+  if (!enabled || path === 'none' || isNativeApp()) return null;
   if (path === 'installed') {
     return (
       <SettingsRow icon={Smartphone} label="Borderfall on your home screen" description="You are using the installed app.">

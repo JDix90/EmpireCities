@@ -1,5 +1,6 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { isNativeApp } from '../../utils/nativeApp';
 import {
   Map, Calendar, PenSquare, Users, Trophy, Eye, Home, Swords, Shield, Coins, MessageSquare
 } from 'lucide-react';
@@ -19,6 +20,8 @@ type NavItem = {
   hideForNonAdmin?: boolean;
   requiresMapEditor?: boolean;
   requiresSpectate?: boolean;
+  /** The website's landing page: left out of the native app, where `/` is the lobby. */
+  webOnly?: boolean;
   exact?: boolean;
 };
 
@@ -50,7 +53,7 @@ const navGroups: NavItem[][] = [
   [
     { to: '/leaderboards', label: 'Leaderboards', icon: Trophy, title: 'Leaderboards' },
     { to: '/live-games', label: 'Live', icon: Eye, title: 'Live', requiresSpectate: true },
-    { to: '/', label: 'Home', icon: Home, title: 'Landing page', exact: true },
+    { to: '/', label: 'Home', icon: Home, title: 'Landing page', exact: true, webOnly: true },
     { to: '/admin', label: 'Admin', icon: Shield, title: 'Admin', hideForNonAdmin: true },
   ],
 ];
@@ -63,6 +66,7 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
   const isAdmin = selectIsAdminFromToken(accessToken);
   const mapEditorEnabled = useMapEditorEnabled();
   const spectateEnabled = useSpectateEnabled();
+  const nativeApp = isNativeApp();
   // A guest's gold is theirs to see, and the store is where they wear what they unlocked.
   const guestPersonal = useGuestPersonalFeaturesEnabled();
   // Read gold from the store (not the prop) so it stays reactive after daily
@@ -85,8 +89,9 @@ export default function TopNavBar({ user, onLogout }: { user: any, onLogout: () 
   const visibleGroups = navGroups
     .map((group) =>
       group.filter(
-        ({ hideForGuest, hideForNonAdmin, requiresMapEditor, requiresSpectate }) =>
+        ({ hideForGuest, hideForNonAdmin, requiresMapEditor, requiresSpectate, webOnly }) =>
           (!hideForGuest || !user?.is_guest)
+          && (!webOnly || !nativeApp)
           && (!hideForNonAdmin || isAdmin)
           && (!requiresMapEditor || mapEditorEnabled)
           && (!requiresSpectate || spectateEnabled),

@@ -22,6 +22,7 @@
   "dependencies": {
     "@borderfall/shared": "workspace:*",
     "@borderfall/warfront-sim": "workspace:*",
+    "@capacitor/browser": "^6.0.6",
     "@capacitor/haptics": "^6.0.3",
     "@capacitor/keyboard": "^6.0.4",
     "@capacitor/network": "^6.0.4",
