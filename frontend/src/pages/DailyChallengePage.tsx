@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { publicSiteOrigin } from '../utils/publicOrigin';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { ERA_LABELS, formatWeeklyScoring } from '../constants/gameLobbyLabels';
@@ -281,7 +282,7 @@ export default function DailyChallengePage() {
       won: my_entry.won,
       bestCount: my_entry.decisions_best ?? 0,
       decisionCount: my_entry.decisions_count ?? 0,
-      url: `${window.location.origin}/daily`,
+      url: `${publicSiteOrigin()}/daily`,
     })
     : null;
   const eraLabel = ERA_LABELS[challenge.era_id] ?? challenge.era_id;

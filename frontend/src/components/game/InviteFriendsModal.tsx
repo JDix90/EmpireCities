@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { publicSiteOrigin } from '../../utils/publicOrigin';
 import { X, Copy, UserPlus } from 'lucide-react';
 import { api } from '../../services/api';
 import { buildInviteUrl } from '../../utils/inviteLink';
@@ -25,7 +26,7 @@ export default function InviteFriendsModal({ gameId, joinCode, onClose }: Invite
       .catch(() => toast.error('Could not load friends'));
   }, []);
 
-  const inviteUrl = buildInviteUrl(window.location.origin, gameId, joinCode);
+  const inviteUrl = buildInviteUrl(publicSiteOrigin(), gameId, joinCode);
 
   const copyLink = () => {
     void navigator.clipboard.writeText(inviteUrl);
@@ -39,7 +40,7 @@ export default function InviteFriendsModal({ gameId, joinCode, onClose }: Invite
   };
 
   const copyLobbyLink = () => {
-    const u = new URL('/lobby', window.location.origin);
+    const u = new URL('/lobby', publicSiteOrigin());
     u.searchParams.set('join', joinCode ?? gameId);
     void navigator.clipboard.writeText(u.toString());
     toast.success('Lobby join link copied');

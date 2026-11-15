@@ -25,8 +25,11 @@ fi
 
 cd "${REPO_ROOT}/frontend"
 
+# build:native, not build: it checks the two addresses are https origins, and
+# it leaves out the website's prerendered landing page, which would otherwise
+# show at every launch until the game had loaded (frontend/scripts/nativeBuildEnv.mjs).
 echo "[android] Building web assets with production API..."
-pnpm run build
+pnpm run build:native
 
 echo "[android] Syncing Capacitor (com.borderfall.app)..."
 pnpm exec cap sync android

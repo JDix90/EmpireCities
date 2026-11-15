@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { publicSiteOrigin } from '../../utils/publicOrigin';
 import { X, Download, Share2, Film, Loader2, Clapperboard } from 'lucide-react';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
@@ -182,7 +183,7 @@ export default function ReplayClipExporter({
     // The shared text embeds the replay link, so make sure it's viewable.
     // 403s harmlessly for non-participants (the link is already public to them).
     api.post(`/share/${gameId}/make-public`).catch(() => {});
-    const text = `My Borderfall match — watch the highlights! ${window.location.origin}/replay/${gameId}?source=share`;
+    const text = `My Borderfall match — watch the highlights! ${publicSiteOrigin()}/replay/${gameId}?source=share`;
     const shared = await shareClipFile(result, baseName, text);
     if (shared) {
       onShared?.('native');

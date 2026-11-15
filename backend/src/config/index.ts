@@ -3,7 +3,14 @@ dotenv.config();
 
 import { parseEmbedOriginList } from '../modules/auth/embedContext';
 
-function parseCorsOrigins(): string[] {
+/**
+ * The origins allowed to call the API and open a socket: FRONTEND_URL plus
+ * CORS_ORIGINS. Only the development server adds the native apps' origins on
+ * its own; a production server the iOS app talks to must list
+ * `capacitor://localhost` in CORS_ORIGINS (docs/MOBILE_CAPACITOR.md).
+ * Exported for its test.
+ */
+export function parseCorsOrigins(): string[] {
   const extra = process.env.CORS_ORIGINS;
   const primary = process.env.FRONTEND_URL || 'http://localhost:5173';
   const list = [primary];

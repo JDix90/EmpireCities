@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { publicSiteOrigin } from '../../utils/publicOrigin';
 import { CombatResult } from '../../store/gameStore';
 import { useAuthStore } from '../../store/authStore';
 import MatchStatsTab from './MatchStatsTab';
@@ -1538,8 +1539,8 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
   // Canonical shareable replay URL. `?source=share` opens recipients straight
   // into the condensed Highlights reel.
   const replayShareUrl = data.gameId
-    ? `${window.location.origin}/replay/${data.gameId}?source=share`
-    : window.location.origin;
+    ? `${publicSiteOrigin()}/replay/${data.gameId}?source=share`
+    : publicSiteOrigin();
 
   const handleOpenShare = async () => {
     if (shareBusy) return;
@@ -1560,7 +1561,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
         territoryCount: myPlayer?.territory_count ?? 0,
         turnCount: data.turnCount,
         username: user?.username ?? data.winnerName,
-        shareUrl: linkLive ? replayShareUrl : window.location.origin,
+        shareUrl: linkLive ? replayShareUrl : publicSiteOrigin(),
         isWinner: data.isWinner,
         achievements: data.achievements_unlocked?.map((id) => achievementName(id, achievementNames)),
         friendStreakBonus: friendStreakPercent(data.progression?.friend_streak_bonus),
@@ -1598,7 +1599,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
         eraName: data.eraName ?? APP_NAME,
         victoryCondition: data.victory_condition ?? 'domination',
         turnCount: data.turnCount,
-        shareUrl: window.location.origin,
+        shareUrl: publicSiteOrigin(),
       });
       try { await navigator.clipboard.writeText(text); } catch { /* silent */ }
     }
@@ -2528,7 +2529,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
               <div className="w-full flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2" data-testid="share-replay-link">
                 <Link2 className="w-4 h-4 text-white/40 shrink-0" />
                 <span className="text-white/60 text-xs truncate flex-1">
-                  {window.location.origin}/replay/{data.gameId}
+                  {publicSiteOrigin()}/replay/{data.gameId}
                 </span>
                 <button
                   onClick={async () => {
@@ -2567,7 +2568,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
                     eraName: data.eraName ?? APP_NAME,
                     victoryCondition: data.victory_condition ?? 'domination',
                     turnCount: data.turnCount,
-                    shareUrl: replayLink ?? window.location.origin,
+                    shareUrl: replayLink ?? publicSiteOrigin(),
                   });
                   // A new tab on the website; a sheet over the game in the native app.
                   void openExternal(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`);
@@ -2591,7 +2592,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
                     eraName: data.eraName ?? APP_NAME,
                     victoryCondition: data.victory_condition ?? 'domination',
                     turnCount: data.turnCount,
-                    shareUrl: replayLink ?? window.location.origin,
+                    shareUrl: replayLink ?? publicSiteOrigin(),
                   });
                   await navigator.clipboard.writeText(text).catch(() => {});
                   setCopyStatus('copied');
