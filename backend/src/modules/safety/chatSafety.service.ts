@@ -171,6 +171,12 @@ export interface ChatReportList {
   items: ChatReportRow[];
 }
 
+/** How many reports wait on an admin: the badge on Admin in the top bar. */
+export async function countOpenChatReports(): Promise<number> {
+  const [row] = await query<{ open: number }>(`SELECT COUNT(*)::int AS open FROM chat_reports WHERE status = 'open'`);
+  return row?.open ?? 0;
+}
+
 /** Admin → Reports: the open count, and reports of one status (or all), newest first. */
 export async function loadChatReports(status: ChatReportStatus | 'all', limit = 100): Promise<ChatReportList> {
   const [counts] = await query<{ open: number }>(

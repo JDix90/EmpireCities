@@ -14,6 +14,7 @@ import {
   recordChatReport,
   unblockPlayer,
 } from './chatSafety.service';
+import { announceOpenReports } from './reportAlerts';
 
 /**
  * /api/safety: a player's blocks, and reports of chat messages
@@ -119,6 +120,8 @@ export async function chatSafetyRoutes(fastify: FastifyInstance): Promise<void> 
       reason: body.reason,
       details: body.details || null,
     });
+    // The admins' top bar shows the new count at once.
+    void announceOpenReports();
     return reply.status(201).send({ ok: true });
   });
 }

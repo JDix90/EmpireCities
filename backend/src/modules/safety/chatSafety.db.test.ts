@@ -8,9 +8,14 @@
  *     POSTGRES_DB=borderfall POSTGRES_PASSWORD= REDIS_HOST=127.0.0.1 REDIS_PORT=6399 \
  *     pnpm exec vitest run src/modules/safety/chatSafety.db.test.ts
  */
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { v4 as uuidv4 } from 'uuid';
+
+// The admins' badge is told about each report filed or closed (reportAlerts.ts,
+// which loads the game server); here it is only counted.
+const announceMock = vi.hoisted(() => vi.fn(async () => {}));
+vi.mock('./reportAlerts', () => ({ announceOpenReports: announceMock, ADMIN_CHAT_REPORTS_EVENT: 'admin:chat_reports' }));
 
 const enabled = process.env.PG_TEST === '1' && process.env.REDIS_TEST === '1';
 
@@ -170,19 +175,30 @@ describe.runIf(enabled)('chat safety (Postgres + Redis)', () => {
       game_id: gameId, channel: 'game', message_id: messageId, reported_user_id: sender.id, reason: 'spam',
     });
 
+    // Filing it told the admins.
+    expect(announceMock).toHaveBeenCalled();
+
     expect((await call(reporter, 'GET', '/api/admin/chat-reports')).statusCode).toBe(403);
+    // The badge's count: admins only, and it matches the list.
+    expect((await call(reporter, 'GET', '/api/admin/chat-reports/open-count')).statusCode).toBe(403);
+    const count = (await call(admin, 'GET', '/api/admin/chat-reports/open-count')).json() as { open: number };
     const list = (await call(admin, 'GET', '/api/admin/chat-reports?status=open')).json() as {
       open: number; items: Array<Record<string, unknown>>;
     };
     expect(list.open).toBeGreaterThanOrEqual(1);
+    expect(count.open).toBe(list.open);
     const item = list.items.find((i) => i.reported_id === sender.id)!;
     expect(item).toMatchObject({
       reporter_username: reporter.name, reported_username: sender.name, message: 'spam spam',
       message_verified: true, reported_open_reports: 1, reported_is_banned: false,
     });
 
+    announceMock.mockClear();
     const close = await call(admin, 'POST', `/api/admin/chat-reports/${item.report_id}`, { status: 'actioned', note: 'warned' });
     expect(close.statusCode).toBe(200);
+    // Closing it told the admins too, and the count went down by one.
+    expect(announceMock).toHaveBeenCalledTimes(1);
+    expect(((await call(admin, 'GET', '/api/admin/chat-reports/open-count')).json() as { open: number }).open).toBe(count.open - 1);
     const [row] = await query('SELECT status, resolution_note, resolved_by FROM chat_reports WHERE report_id = $1', [item.report_id]);
     expect(row).toMatchObject({ status: 'actioned', resolution_note: 'warned', resolved_by: admin.id });
     expect((await call(admin, 'POST', `/api/admin/chat-reports/${uuidv4()}`, { status: 'dismissed' })).statusCode).toBe(404);

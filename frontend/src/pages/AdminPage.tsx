@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import {
   Area,
@@ -1159,7 +1159,12 @@ function SortableUserHeader({
 
 export default function AdminPage() {
   type ResetScope = 'all' | 'era' | 'map' | 'era_map';
-  const [activeTab, setActiveTab] = useState<TabKey>('overview');
+  // ?tab=reports (the top bar's Admin badge) opens on that tab.
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<TabKey>(() => {
+    const asked = searchParams.get('tab');
+    return tabs.some((t) => t.key === asked) ? (asked as TabKey) : 'overview';
+  });
   const [loading, setLoading] = useState(false);
   const [overview, setOverview] = useState<OverviewPayload | null>(null);
   const [timeseries, setTimeseries] = useState<TimeseriesPayload | null>(null);
