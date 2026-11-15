@@ -47,6 +47,7 @@ import { phaseAdvanceLabel } from '../constants/phaseLabels';
 import { resolveRejectionText } from '../constants/rejectionMessages';
 import { colorDisplayName } from '../utils/colorName';
 import { shouldShowFirstTurnCoach, coachPhaseForGamePhase, type CoachPhase } from '../utils/firstTurnCoach';
+import { thisBrowserOrDevice } from '../utils/nativeApp';
 
 /** Minimum time an auto-advancing tutorial card stays readable (see the `my_turn` gate). */
 const TUTORIAL_MIN_DWELL_MS = 4000;
@@ -4066,8 +4067,8 @@ export default function GamePage() {
         maybePromptTutorialAccount(
           () => navigate('/lobby'),
           saveAccountCopy
-            ? 'Great work, Commander. Your XP is saved in this browser. Save your account to keep it safe and play on any device.'
-            : 'Great work, Commander. That XP is on a guest account tied to this browser — a free account keeps it wherever you play.',
+            ? `Great work, Commander. Your XP is saved in ${thisBrowserOrDevice()}. Save your account to keep it safe and play on any device.`
+            : `Great work, Commander. That XP is on a guest account tied to ${thisBrowserOrDevice()} — a free account keeps it wherever you play.`,
         );
       } else {
         setPostTutorialPrompt(true);
@@ -4373,8 +4374,8 @@ export default function GamePage() {
     maybePromptTutorialAccount(
       continueInTutorial,
       saveAccountCopy
-        ? 'Your progress is saved in this browser. Save your account to keep it safe, on any device, and the next match counts.'
-        : 'Your progress lives in this browser alone — create a free account so it follows you, and the next match counts.',
+        ? `Your progress is saved in ${thisBrowserOrDevice()}. Save your account to keep it safe, on any device, and the next match counts.`
+        : `Your progress lives in ${thisBrowserOrDevice()} alone — create a free account so it follows you, and the next match counts.`,
     );
   }, [tutorialSkipped, maybePromptTutorialAccount, markLessonComplete, tutorialSteps.length, saveAccountCopy]);
 

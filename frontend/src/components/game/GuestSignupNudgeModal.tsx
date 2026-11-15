@@ -5,6 +5,7 @@ import { useGuestPromptV2Enabled } from '../../store/featureFlagsStore';
 import { useEmailAccountSaveEnabled, useGuestDailyBoardEnabled, useGuestLeaderboardsEnabled, useSaveAccountCopyEnabled } from '../../store/featureFlagsStore';
 import { SAVE_ACCOUNT_LABEL, accountBoardsPerk } from '../../utils/guestGate';
 import { trackFunnel, useTrackShown } from '../../utils/funnelEvents';
+import { isNativeApp } from '../../utils/nativeApp';
 
 interface GuestSignupNudgeModalProps {
   /** Whether the guest just won — drives outcome-aware copy + icon. */
@@ -88,7 +89,7 @@ export default function GuestSignupNudgeModal({
           </li>
           <li className="flex items-start gap-2">
             <Trophy className="w-4 h-4 text-bf-gold/80 mt-0.5 shrink-0" />
-            <span>Get streak and turn reminders so you never lose progress. Free, no download.</span>
+            <span>Get streak and turn reminders so you never lose progress. {isNativeApp() ? 'Free.' : 'Free, no download.'}</span>
           </li>
         </ul>
 

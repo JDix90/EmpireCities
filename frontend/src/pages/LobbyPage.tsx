@@ -13,6 +13,7 @@ interface FactionInfo {
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { isNativeApp } from '../utils/nativeApp';
 import { useAuthStore } from '../store/authStore';
 import { useCustomLobbyFoldEnabled, useCustomRoundCapEnabled, useEraAdvancementLobbyEnabled, useFirstMatchEasyEnabled, useFirstMatchPrimaryCtaEnabled, useFullGameAgesEndingEnabled, useFullGameEveningEnabled, useGuestPromptV2Enabled, useMapEditorEnabled, useMatchAlertsEnabled, useRankedMultiSizeEnabled, useSpaceAgeMoonRaceEnabled, useSoloUntimedEnabled, useFirstMatchLadderEnabled, useSpectateEnabled, useTodayPanelEnabled } from '../store/featureFlagsStore';
 import { HEGEMONY_TURNS } from '../utils/lunarHegemony';
@@ -3487,7 +3488,8 @@ export default function LobbyPage() {
             <Link to="/privacy" className="hover:text-bf-gold transition-colors">Privacy Policy</Link>
             <span className="text-bf-border">·</span>
             <Link to="/terms" className="hover:text-bf-gold transition-colors">Terms of Service</Link>
-            <Link to="/" className="hover:text-bf-gold transition-colors">Marketing Home</Link>
+            {/* The website's landing page; in the native app `/` is this lobby. */}
+            {!isNativeApp() && <Link to="/" className="hover:text-bf-gold transition-colors">Marketing Home</Link>}
           </nav>
         </div>
       </footer>

@@ -14,6 +14,9 @@ import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { useAuthStoreHydrated } from './hooks/useAuthStoreHydrated';
 import { useDailyVisit } from './hooks/useDailyVisit';
 import { ownAuthUiAllowed } from './utils/embedContext';
+import { isNativeApp } from './utils/nativeApp';
+import NativeLinkHandler from './components/native/NativeLinkHandler';
+import WebOnlyRoute from './components/native/WebOnlyRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import GlobalMatchNotifier from './components/notifications/GlobalMatchNotifier';
 import GlobalTurnNotifier from './components/notifications/GlobalTurnNotifier';
@@ -29,6 +32,9 @@ import GameLoadingFallback, { useGameLoadingKind } from './components/ui/GameLoa
 // and then force-reloads, instead of dumping the user into a blank error
 // screen. See utils/lazyWithChunkRetry.ts for the recovery policy.
 const LandingPage = lazyWithChunkRetry(() => import('./pages/LandingPage'));
+// What `/` is in the native app. Lazy like every page, so the website, which
+// never renders it, never downloads it.
+const NativeHomePage = lazyWithChunkRetry(() => import('./pages/NativeHomePage'));
 const LoginPage = lazyWithChunkRetry(() => import('./pages/LoginPage'));
 const RegisterPage = lazyWithChunkRetry(() => import('./pages/RegisterPage'));
 const ForgotPasswordPage = lazyWithChunkRetry(() => import('./pages/ForgotPasswordPage'));
@@ -417,6 +423,8 @@ export default function App() {
         </div>
       )}
       <InstallGuideHost />
+      {/* Native app only: links to other sites open in a sheet over the game. */}
+      <NativeLinkHandler />
       <Toaster
         position={toasterPosition}
         containerStyle={toasterContainerStyle}
@@ -432,7 +440,9 @@ export default function App() {
       <GlobalTurnNotifier />
       <Routes>
         {/* Public routes */}
-        <Route path="/" element={<LandingPage />} />
+        {/* The website's front door is its landing page. The app's is play:
+            the lobby with a session, a start screen without one. */}
+        <Route path="/" element={isNativeApp() ? <NativeHomePage /> : <LandingPage />} />
         {/*
           QA harnesses for the Playwright modal/map-visual specs. They shipped
           unauthenticated and ungated on production, above even /privacy, with
@@ -447,29 +457,29 @@ export default function App() {
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/how-to-play" element={<HowToPlayPage />} />
-        <Route path="/eras" element={<ErasPage />} />
+        <Route path="/eras" element={<WebOnlyRoute><ErasPage /></WebOnlyRoute>} />
         {/* Per-era and per-map pages. One component for each family — it
             resolves its content from seoContent.mjs by pathname, the same
             module the build prerenders the crawlable HTML from. A static
             segment outranks the dynamic one, so /maps never falls through
             to /maps/:slug. */}
-        <Route path="/eras/:slug" element={<EraDetailPage />} />
+        <Route path="/eras/:slug" element={<WebOnlyRoute><EraDetailPage /></WebOnlyRoute>} />
         {/* NOT /maps: that belongs to the authenticated Map Hub below, and a
             second route on the same path silently wins on declaration order,
             which is how this shipped once already. */}
-        <Route path="/game-maps" element={<MapsPage />} />
-        <Route path="/game-maps/:slug" element={<MapsPage />} />
+        <Route path="/game-maps" element={<WebOnlyRoute><MapsPage /></WebOnlyRoute>} />
+        <Route path="/game-maps/:slug" element={<WebOnlyRoute><MapsPage /></WebOnlyRoute>} />
         {/* Settled Daily puzzles are public and crawlable; /daily itself stays
             private. A static segment outranks the dynamic one in React Router,
             so /daily/archive never falls through to /daily/:date. */}
         {/* Question-shaped answer pages. One component for all of them — it
             resolves its content from seoContent.mjs by pathname, the same
             module the build prerenders the crawlable HTML from. */}
-        <Route path="/answers" element={<AnswerPage />} />
-        <Route path="/answers/:slug" element={<AnswerPage />} />
-        <Route path="/daily/archive" element={<DailyArchiveIndexPage />} />
-        <Route path="/daily/:date" element={<DailyArchivePage />} />
-        <Route path="/about" element={<AboutPage />} />
+        <Route path="/answers" element={<WebOnlyRoute><AnswerPage /></WebOnlyRoute>} />
+        <Route path="/answers/:slug" element={<WebOnlyRoute><AnswerPage /></WebOnlyRoute>} />
+        <Route path="/daily/archive" element={<WebOnlyRoute><DailyArchiveIndexPage /></WebOnlyRoute>} />
+        <Route path="/daily/:date" element={<WebOnlyRoute><DailyArchivePage /></WebOnlyRoute>} />
+        <Route path="/about" element={<WebOnlyRoute><AboutPage /></WebOnlyRoute>} />
         <Route path="/tutorial" element={<TutorialPage />} />
         <Route path="/join/:code" element={<JoinGamePage />} />
         {/* Public replay viewer — ReplayPage loads the authed participant feed
@@ -482,7 +492,7 @@ export default function App() {
         <Route path="/forgot-password" element={<AuthUiRoute><PublicOnlyRoute><ForgotPasswordPage /></PublicOnlyRoute></AuthUiRoute>} />
         <Route path="/reset-password" element={<AuthUiRoute><ResetPasswordPage /></AuthUiRoute>} />
         <Route path="/sign-in-link" element={<AuthUiRoute><SignInLinkPage /></AuthUiRoute>} />
-        <Route path="/unsubscribe" element={<UnsubscribePage />} />
+        <Route path="/unsubscribe" element={<WebOnlyRoute><UnsubscribePage /></WebOnlyRoute>} />
 
         {/* Protected routes */}
         <Route path="/daily" element={<PrivateRoute><DailyChallengePage /></PrivateRoute>} />

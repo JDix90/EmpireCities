@@ -10,6 +10,7 @@ import SaveWithEmailForm from '../components/account/SaveWithEmailForm';
 import ReferralGoldNote from '../components/account/ReferralGoldNote';
 import { useEmailAccountSaveEnabled } from '../store/featureFlagsStore';
 import { useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
+import { thisBrowserOrDevice } from '../utils/nativeApp';
 
 const AGE_GATE_KEY = 'cc-age-verified';
 const MIN_AGE = 13;
@@ -158,15 +159,15 @@ export default function UpgradePage() {
           <BrandWordmark className="text-3xl block text-center" />
           {emailSave ? (
             <p className="text-bf-muted mt-2">
-              Your progress is saved in this browser. Save your account with your email to keep it safe and play on any device.
+              Your progress is saved in {thisBrowserOrDevice()}. Save your account with your email to keep it safe and play on any device.
             </p>
           ) : saveAccountCopy ? (
             <p className="text-bf-muted mt-2">
-              Your progress is saved in this browser. Save your account to keep it safe, play on any device, compete in ranked and play with friends.
+              Your progress is saved in {thisBrowserOrDevice()}. Save your account to keep it safe, play on any device, compete in ranked and play with friends.
             </p>
           ) : (
           <p className="text-bf-muted mt-2">
-            Your guest account has no email or password — it lives in this browser alone. This keeps it, on any device.
+            Your guest account has no email or password — it lives in {thisBrowserOrDevice()} alone. This keeps it, on any device.
           </p>
           )}
         </div>
