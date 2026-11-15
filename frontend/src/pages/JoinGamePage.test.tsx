@@ -65,6 +65,8 @@ describe('JoinGamePage', () => {
     const target = encodeURIComponent('/lobby?join=ABC123');
     expect(screen.getByRole('link', { name: 'Sign in' }).getAttribute('href')).toBe(`/login?redirect=${target}`);
     expect(screen.getByRole('link', { name: 'create one' }).getAttribute('href')).toBe(`/register?redirect=${target}`);
+    // Joining makes a guest: the invitee is told what that agrees to.
+    expect(screen.getByTestId('play-terms-notice')).toHaveTextContent(/By playing, you agree to our Terms of Service/);
   });
 
   it('joins as a new guest and moves on to the join', async () => {

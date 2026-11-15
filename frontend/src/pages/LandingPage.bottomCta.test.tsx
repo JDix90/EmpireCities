@@ -6,7 +6,7 @@
  * hero flag off both still open the modal, as before.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 const navigateMock = vi.fn();
@@ -69,5 +69,15 @@ describe('the landing\'s bottom Play Free Now', () => {
     await clickBottom();
     expect(loginAsGuestMock).not.toHaveBeenCalled();
     expect(screen.getByRole('dialog')).toBeTruthy();
+    // The modal's Play as guest makes the guest, so the modal says what that agrees to.
+    expect(within(screen.getByRole('dialog')).getByTestId('play-terms-notice')).toHaveTextContent(/By playing, you agree/);
+  });
+
+  it('says under both Play Free Now buttons that playing agrees to the terms, to a new visitor', () => {
+    render(<MemoryRouter><LandingPage /></MemoryRouter>);
+    const notices = screen.getAllByTestId('play-terms-notice');
+    expect(notices).toHaveLength(2);
+    expect(within(notices[0]!).getByRole('link', { name: 'Terms of Service' })).toHaveAttribute('href', '/terms');
+    expect(within(notices[0]!).getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/privacy');
   });
 });

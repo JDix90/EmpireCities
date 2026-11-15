@@ -74,6 +74,7 @@ import {
 
 import { GalaxyStrategicViewLazy, GlobeMapLazy, preloadGlobeChunks } from '../utils/globeLoader';
 import { isNativeApp } from '../utils/nativeApp';
+import PlayTermsNotice from '../components/legal/PlayTermsNotice';
 
 const REPLAY_MAP_FX_HINT_KEY = 'replay_map_fx_hint_dismissed';
 
@@ -799,9 +800,12 @@ export default function ReplayPage() {
             {isAuthenticated ? '.' : ', or you need to sign in if you played in it.'}
           </p>
           {offersPlay && (
-            <p className="text-bf-text text-sm mt-3 max-w-sm">
-              Borderfall is a free strategy game on a 3D globe.{isNativeApp() ? '' : ' Play in your browser.'}
-            </p>
+            <>
+              <p className="text-bf-text text-sm mt-3 max-w-sm">
+                Borderfall is a free strategy game on a 3D globe.{isNativeApp() ? '' : ' Play in your browser.'}
+              </p>
+              <PlayTermsNotice className="mt-2 max-w-sm mx-auto" />
+            </>
           )}
         </div>
         <div className="flex flex-wrap items-center justify-center gap-3">

@@ -19,6 +19,7 @@ import {
 } from '../tutorial';
 import { localizeTutorialModuleMeta } from '../tutorial/localize';
 import { useGalaxyTutorialEnabled } from '../store/featureFlagsStore';
+import PlayTermsNotice from '../components/legal/PlayTermsNotice';
 
 const MODULE_ICONS: Record<TutorialLessonModule, React.ElementType> = {
   core: GraduationCap,
@@ -223,6 +224,8 @@ export default function TutorialPage() {
             </button>
           </div>
         )}
+
+        {!isAuthenticated && <PlayTermsNotice className="text-center" />}
 
         <div className="space-y-3">
           {listedModules.map((mod) => {

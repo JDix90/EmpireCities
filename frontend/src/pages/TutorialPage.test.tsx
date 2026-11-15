@@ -120,3 +120,15 @@ describe('TutorialPage auto-start failure', () => {
     expect(postMock).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('TutorialPage lessons for a signed-out visitor', () => {
+  it('says that starting a lesson agrees to the terms, since it makes a guest; not once signed in', () => {
+    useAuthStore.setState({ isAuthenticated: false, bootstrapped: true, user: null });
+    const { unmount } = render(<MemoryRouter initialEntries={['/tutorial']}><TutorialPage /></MemoryRouter>);
+    expect(screen.getByTestId('play-terms-notice')).toHaveTextContent(/By playing, you agree to our Terms of Service/);
+    unmount();
+    useAuthStore.setState({ isAuthenticated: true, user: { user_id: 'u1', username: 'guest', is_guest: true } as never });
+    render(<MemoryRouter initialEntries={['/tutorial']}><TutorialPage /></MemoryRouter>);
+    expect(screen.queryByTestId('play-terms-notice')).toBeNull();
+  });
+});
