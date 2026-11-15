@@ -14,7 +14,7 @@
 | `NODE_ENV` | `development` | set to `production` | Gates CSP, cookie flags, error verbosity, metrics default |
 | `PORT` | `3001` | — | Fastify + Socket.io listen port |
 | `FRONTEND_URL` | `http://localhost:5173` | ✅ (non-localhost) | Public app origin: CORS primary, deep links, cookie Secure auto-detect |
-| `CORS_ORIGINS` | — | as needed | Comma-separated extra origins (Capacitor app URL, staging). Dev auto-adds localhost:5173–5177 + capacitor/ionic |
+| `CORS_ORIGINS` | — | as needed | Comma-separated extra origins (staging, the native apps). Feeds HTTP CORS and Socket.IO alike. **A production server the iOS app talks to must list `capacitor://localhost`**: the app's page is served from inside the app and every request it makes is cross-origin. Never list `http(s)://localhost` (the Android app's default origin is `https://localhost`): production refuses to start with a loopback web origin here. Dev auto-adds localhost:5173–5177 + capacitor/ionic; production adds nothing |
 | `REFRESH_COOKIE_SAME_SITE` | `lax` prod / `strict` dev | — | Refresh-cookie SameSite (`none` forces Secure) |
 | `REFRESH_COOKIE_SECURE` | auto from `FRONTEND_URL` scheme | — | Override refresh-cookie Secure flag |
 | `EMBED_ORIGINS` | — | when embedded by a portal | Comma-separated portal origins (`*.` = subdomains only) that receive a `Partitioned; SameSite=None` refresh cookie so the game keeps its session inside their iframe. Generated from `docker/portals.json` — see [PORTALS.md](PORTALS.md) |
@@ -212,8 +212,9 @@ Env vars: a flag defaulting **on** is disabled with `X=false`; one defaulting **
 
 | Variable | Effect |
 |---|---|
-| `VITE_API_URL` | REST base when API is on another origin (default: same-origin `/api` via proxy) |
+| `VITE_API_URL` | REST base when API is on another origin (default: same-origin `/api` via proxy). **Required, with `VITE_SOCKET_URL`, for a native app build** (`pnpm -C frontend run build:native` refuses to build without both as `https://` origins): inside the app there is no same-origin server |
 | `VITE_SOCKET_URL` | Socket.io origin (default: same-origin) |
+| `VITE_PUBLIC_SITE_URL` | Native app builds only: the website's origin, used for links the app shares (invites, replays, referral and map links). Defaults to the origin of `VITE_API_URL`; set it when the website is on a different host from the API. The website ignores it and uses its own address |
 | `VITE_SENTRY_DSN` | Frontend error reporting |
 | `VITE_SENTRY_RELEASE` | The release on frontend reports and sessions; the prod build takes it from `SENTRY_RELEASE` (see the backend table) |
 | `VITE_SUPPORT_EMAIL` | Contact shown on Privacy/Terms (default `support@borderfall.com`) |

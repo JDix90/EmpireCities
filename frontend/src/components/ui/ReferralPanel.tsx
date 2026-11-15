@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { publicSiteOrigin } from '../../utils/publicOrigin';
 import clsx from 'clsx';
 import { Share2, Copy, Users, Coins, CheckCircle } from 'lucide-react';
 import { api } from '../../services/api';
@@ -42,7 +43,7 @@ export default function ReferralPanel({ className }: ReferralPanelProps) {
 
   const shareLink = () => {
     if (!data) return;
-    const url = `${window.location.origin}?ref=${data.referral_code}`;
+    const url = `${publicSiteOrigin()}?ref=${data.referral_code}`;
     if (navigator.share) {
       navigator.share({
         title: `Join ${APP_NAME}!`,

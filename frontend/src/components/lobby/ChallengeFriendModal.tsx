@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { publicSiteOrigin } from '../../utils/publicOrigin';
 import { useNavigate } from 'react-router-dom';
 import { Bot, Copy, Share2, Swords, Check } from 'lucide-react';
 import clsx from 'clsx';
@@ -35,7 +36,7 @@ export default function ChallengeFriendModal({ open, onClose }: ChallengeFriendM
   const [result, setResult] = useState<{ gameId: string; joinCode: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const shareUrl = result ? `${window.location.origin}/join/${result.joinCode}` : '';
+  const shareUrl = result ? `${publicSiteOrigin()}/join/${result.joinCode}` : '';
 
   const reset = () => {
     setResult(null);

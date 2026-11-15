@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { publicSiteOrigin } from '../utils/publicOrigin';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Crown, Globe, Link2, Map, Pencil, Star, Users } from 'lucide-react';
@@ -59,7 +60,7 @@ export default function MapDetailPage() {
   const published = isBuiltIn || map?.moderation_status === 'approved';
 
   const share = () => {
-    const url = `${window.location.origin}/maps/${mapId}`;
+    const url = `${publicSiteOrigin()}/maps/${mapId}`;
     const done = () => toast.success('Link copied');
     if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url).then(done).catch(() => toast(url));
     else toast(url);

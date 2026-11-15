@@ -15,7 +15,9 @@
     "compute-map-connections": "tsx scripts/computeMapConnections.ts",
     "compute-era-lineage": "tsx scripts/computeEraLineage.ts",
     "build:warfront-terrain": "tsx --tsconfig tsconfig.node.json scripts/buildWarfrontTerrain.ts",
-    "cap:sync": "npm run build && pnpm exec cap sync",
+    "build:native": "node scripts/check-native-env.mjs && tsc && vite build && node scripts/check-native-env.mjs --dist",
+    "cap:sync": "npm run build:native && pnpm exec cap sync",
+    "cap:sync:ios": "npm run build:native && pnpm exec cap sync ios",
     "cap:ios": "npx cap open ios",
     "cap:android": "npx cap open android"
   },
