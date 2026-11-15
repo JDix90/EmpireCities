@@ -35,6 +35,36 @@ export function parseCorsOrigins(): string[] {
   return list;
 }
 
+/**
+ * The origins of the native app (NATIVE_APP_ORIGINS, comma-separated), whose
+ * sessions use a refresh token in the request body instead of the cookie
+ * (modules/auth/nativeSession.ts). Empty, the production default, switches
+ * that path off entirely.
+ *
+ * An http(s) origin is dropped: it is a website's, and naming one here would
+ * hand that website's pages their refresh tokens in a response body, where
+ * script can read them. (Production refuses to start on one: validateEnv.ts.)
+ * The development server allows the iOS app's origin on its own, as it does
+ * for CORS. Exported for its test.
+ */
+export function parseNativeAppOrigins(): string[] {
+  const raw = process.env.NATIVE_APP_ORIGINS;
+  const list: string[] = [];
+  for (const o of (raw ?? '').split(',')) {
+    const t = o.trim();
+    if (!t || list.includes(t)) continue;
+    if (/^https?:\/\//i.test(t)) {
+      console.warn(`[config] NATIVE_APP_ORIGINS: ignoring "${t}" (a web origin must keep its httpOnly cookie)`);
+      continue;
+    }
+    list.push(t);
+  }
+  if (raw === undefined && (process.env.NODE_ENV || 'development') === 'development') {
+    list.push('capacitor://localhost');
+  }
+  return list;
+}
+
 function parseRefreshCookieSameSite(): 'strict' | 'lax' | 'none' {
   const v = (process.env.REFRESH_COOKIE_SAME_SITE || '').toLowerCase();
   if (v === 'strict' || v === 'lax' || v === 'none') return v;
@@ -102,6 +132,7 @@ export const config = {
   port: parseInt(process.env.PORT || '3001', 10),
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
   corsOrigins: parseCorsOrigins(),
+  nativeAppOrigins: parseNativeAppOrigins(),
   // Portals allowed to iframe us. Empty by default, and that default is
   // load-bearing: it keeps `frame-ancestors 'none'` and leaves every refresh
   // cookie on the SameSite below. See modules/auth/embedContext.ts.

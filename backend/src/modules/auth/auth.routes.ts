@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { randomUUID, randomBytes, createHash, timingSafeEqual } from 'crypto';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
@@ -14,6 +14,7 @@ import { refreshCookieAttrs,
   resolveEmbedderOrigin,
   EMBEDDER_HEADER,
 } from './embedContext';
+import { isNativeAppOrigin, NATIVE_CLIENT, refreshTokenFromBody } from './nativeSession';
 import { compareWithDummy } from '../../utils/constantTimeBcrypt';
 import { sendTransactionalEmailToAddress } from '../../services/notificationService';
 import { isDisallowedUsername } from '../../utils/profanity';
@@ -332,6 +333,33 @@ function refreshCookieOpts(maxAgeSeconds: number, request?: FastifyRequest) {
   });
 }
 
+/** A request from the native app: its browser-set Origin is in NATIVE_APP_ORIGINS (nativeSession.ts). */
+function isNativeRequest(request: FastifyRequest): boolean {
+  return isNativeAppOrigin(request.headers.origin, config.nativeAppOrigins);
+}
+
+/** The claim that marks a refresh token as the app's. Nothing for the website's. */
+function refreshClientClaim(request: FastifyRequest): { client?: typeof NATIVE_CLIENT } {
+  return isNativeRequest(request) ? { client: NATIVE_CLIENT } : {};
+}
+
+/**
+ * Hand a new refresh token to whoever asked. The website gets it in its
+ * httpOnly cookie, as always, and nothing in the body. The native app cannot
+ * use that cookie (nativeSession.ts), so it gets the token in the body and no
+ * cookie. Returns what to add to the response body.
+ */
+function deliverRefreshToken(
+  reply: FastifyReply,
+  request: FastifyRequest,
+  refreshToken: string,
+  days: number,
+): { refreshToken?: string } {
+  if (isNativeRequest(request)) return { refreshToken };
+  reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * days, request));
+  return {};
+}
+
 /**
  * Deletion has to repeat the attributes the cookie was written with, or the
  * browser treats it as a different cookie and the old one survives logout.
@@ -458,7 +486,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     // the session lasts 30 days, not 7.
     const tokenId = uuidv4();
     const session = sessionLength();
-    const refreshToken = signRefreshToken({ sub: userId, tokenId }, session.tokenExpiresIn);
+    const refreshToken = signRefreshToken({ sub: userId, tokenId, ...refreshClientClaim(request) }, session.tokenExpiresIn);
     const refreshHash = hashRefreshToken(refreshToken);
     const refreshExpiresAt = new Date();
     refreshExpiresAt.setDate(refreshExpiresAt.getDate() + session.days);
@@ -466,7 +494,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       'INSERT INTO refresh_tokens (token_id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
       [tokenId, userId, refreshHash, refreshExpiresAt],
     );
-    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * session.days, request));
+    const sessionBody = deliverRefreshToken(reply, request, refreshToken, session.days);
 
     stampLastLogin(userId);
     // First server touch for most acquisition paths (the landing jumps straight
@@ -475,6 +503,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
     return reply.send({
       accessToken,
+      ...sessionBody,
       guestId: userId,
       user: {
         user_id: userId,
@@ -543,7 +572,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     const accessToken = signAccessToken({ sub: user.user_id, username: user.username, admin: user.is_admin });
     const tokenId = uuidv4();
     const session = sessionLength();
-    const refreshToken = signRefreshToken({ sub: user.user_id, tokenId }, session.tokenExpiresIn);
+    const refreshToken = signRefreshToken({ sub: user.user_id, tokenId, ...refreshClientClaim(request) }, session.tokenExpiresIn);
     const refreshHash = hashRefreshToken(refreshToken);
 
     const expiresAt = new Date();
@@ -553,7 +582,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       [tokenId, user.user_id, refreshHash, expiresAt]
     );
 
-    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * session.days, request));
+    const sessionBody = deliverRefreshToken(reply, request, refreshToken, session.days);
 
     stampLastLogin(user.user_id);
     if (email_opt_in) grantEmailOptIn(user.user_id);
@@ -562,7 +591,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       { username: user.username, email_opt_in: Boolean(email_opt_in), ...parseAttribution(request.body) },
       user.user_id,
     );
-    return reply.status(201).send({ accessToken, user });
+    return reply.status(201).send({ accessToken, ...sessionBody, user });
   });
 
   // ── POST /api/auth/upgrade ───────────────────────────────────────────────
@@ -669,7 +698,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         [request.userId],
       );
 
-      refreshToken = signRefreshToken({ sub: upgraded.user_id, tokenId }, session.tokenExpiresIn);
+      refreshToken = signRefreshToken({ sub: upgraded.user_id, tokenId, ...refreshClientClaim(request) }, session.tokenExpiresIn);
       const refreshHash = hashRefreshToken(refreshToken);
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + session.days);
@@ -697,7 +726,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       username: upgraded.username,
       admin: upgraded.is_admin,
     });
-    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * session.days, request));
+    const sessionBody = deliverRefreshToken(reply, request, refreshToken, session.days);
 
     stampLastLogin(upgraded.user_id);
     // Written by the trusted upgrade path itself (the /me/preferences routes
@@ -721,6 +750,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     }
     return reply.send({
       accessToken,
+      ...sessionBody,
       user: {
         ...upgraded,
         is_guest: false,
@@ -822,7 +852,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     const accessToken = signAccessToken({ sub: user.user_id, username: user.username, admin: user.is_admin });
     const tokenId = uuidv4();
     const session = sessionLength();
-    const refreshToken = signRefreshToken({ sub: user.user_id, tokenId }, session.tokenExpiresIn);
+    const refreshToken = signRefreshToken({ sub: user.user_id, tokenId, ...refreshClientClaim(request) }, session.tokenExpiresIn);
     const refreshHash = hashRefreshToken(refreshToken);
 
     const expiresAt = new Date();
@@ -832,12 +862,12 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       [tokenId, user.user_id, refreshHash, expiresAt]
     );
 
-    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * session.days, request));
+    const sessionBody = deliverRefreshToken(reply, request, refreshToken, session.days);
 
     const { password_hash: _ph, is_banned: _ib, ...safeUser } = user;
     stampLastLogin(user.user_id);
     recordServerEvent('user_login', {}, user.user_id);
-    return reply.send({ accessToken, user: safeUser });
+    return reply.send({ accessToken, ...sessionBody, user: safeUser });
   });
 
   // ── POST /api/auth/forgot-password ───────────────────────────────────────
@@ -1095,19 +1125,19 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     const tokenId = uuidv4();
     // As long as any other sign-in's session (session_30d_enabled).
     const session = sessionLength();
-    const refreshToken = signRefreshToken({ sub: user.user_id, tokenId }, session.tokenExpiresIn);
+    const refreshToken = signRefreshToken({ sub: user.user_id, tokenId, ...refreshClientClaim(request) }, session.tokenExpiresIn);
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + session.days);
     await query(
       'INSERT INTO refresh_tokens (token_id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
       [tokenId, user.user_id, hashRefreshToken(refreshToken), expiresAt],
     );
-    reply.setCookie('refreshToken', refreshToken, refreshCookieOpts(60 * 60 * 24 * session.days, request));
+    const sessionBody = deliverRefreshToken(reply, request, refreshToken, session.days);
 
     const { is_banned: _ib, is_guest: _ig, ...safeUser } = user;
     stampLastLogin(user.user_id);
     recordServerEvent('user_login', { method: 'email_link' }, user.user_id);
-    return reply.send({ accessToken, user: safeUser });
+    return reply.send({ accessToken, ...sessionBody, user: safeUser });
   });
 
   // ── POST /api/auth/set-password ──────────────────────────────────────────
@@ -1152,14 +1182,31 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── POST /api/auth/refresh ───────────────────────────────────────────────
   fastify.post('/refresh', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (request, reply) => {
-    const refreshToken = request.cookies?.refreshToken;
+    // The website's token is its cookie; the native app's is in the body
+    // (nativeSession.ts). Each is read from its own place only, so a body
+    // sent by a web page is never looked at.
+    const native = isNativeRequest(request);
+    // A refusal on the app's path says so (`native: true`). The app deletes
+    // its keychain token only on a refusal that carries it: if this server
+    // were ever run without NATIVE_APP_ORIGINS, the app's request would fall
+    // to the cookie path and be refused for having no cookie, and an app that
+    // took that for a dead session would throw away every player's sign-in.
+    // The website's refusals are exactly what they were.
+    const refuse = (status: 401 | 403, error: string) =>
+      reply.status(status).send(native ? { error, native: true } : { error });
+    const refreshToken = native ? refreshTokenFromBody(request.body) : request.cookies?.refreshToken;
     if (!refreshToken) {
-      return reply.status(401).send({ error: 'No refresh token' });
+      return refuse(401, 'No refresh token');
     }
 
     const payload = verifyRefreshToken(refreshToken);
     if (!payload) {
-      return reply.status(401).send({ error: 'Invalid or expired refresh token' });
+      return refuse(401, 'Invalid or expired refresh token');
+    }
+    // And each kind is accepted only where it was issued: a cookie's token is
+    // refused in a body, and the app's in a cookie.
+    if ((payload.client === NATIVE_CLIENT) !== native) {
+      return refuse(401, 'Refresh token invalid or revoked');
     }
 
     // Rotation must be atomic: SELECT → bcrypt.compare → UPDATE revoked →
@@ -1174,7 +1221,10 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     // whole compare→update window, preventing TOCTOU on concurrent refreshes.
     const newTokenId = uuidv4();
     const session = sessionLength();
-    const newRefreshToken = signRefreshToken({ sub: payload.sub, tokenId: newTokenId }, session.tokenExpiresIn);
+    const newRefreshToken = signRefreshToken(
+      { sub: payload.sub, tokenId: newTokenId, ...refreshClientClaim(request) },
+      session.tokenExpiresIn,
+    );
     const newRefreshHash = hashRefreshToken(newRefreshToken);
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + session.days);
@@ -1210,8 +1260,18 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         // a statement of its own: one that waited on the lock above for the
         // request that rotated this token sees only the row, not the token
         // that request inserted.
+        //
+        // The app is given longer than those moments. A browser stores a new
+        // cookie the instant the reply's headers arrive, page or no page; the
+        // app has to receive the reply and write the token to the keychain
+        // itself, and a phone suspends an app mid-request as a matter of
+        // course. Past the window that player would be signed out, and a
+        // guest's account gone. So the app's old token stays good until a
+        // newer one is USED, which is the proof the app received it; the
+        // unused replacement is retired below so only one stays live.
         let graced = false;
-        if (stored.revoked && stored.recently_rotated && stored.replaced_by && featureFlags.sessionRefreshGraceEnabled) {
+        const withinGrace = native ? true : stored.recently_rotated;
+        if (stored.revoked && withinGrace && stored.replaced_by && featureFlags.sessionRefreshGraceEnabled) {
           const { rows: live } = await client.query(
             'SELECT 1 FROM refresh_tokens WHERE token_id = $1 AND revoked = FALSE',
             [stored.replaced_by],
@@ -1248,6 +1308,16 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
             'UPDATE refresh_tokens SET revoked = TRUE, rotated_at = NOW(), replaced_by = $2 WHERE token_id = $1',
             [payload.tokenId, newTokenId],
           );
+        } else if (native) {
+          // The app never received that first replacement (it would have used
+          // it). Retire it and point the old token at the one issued now, so
+          // there is one live token, and the old one stops working as soon as
+          // the app uses this one.
+          await client.query('UPDATE refresh_tokens SET revoked = TRUE WHERE token_id = $1', [stored.replaced_by]);
+          await client.query('UPDATE refresh_tokens SET replaced_by = $2 WHERE token_id = $1', [
+            payload.tokenId,
+            newTokenId,
+          ]);
         }
         await client.query(
           'INSERT INTO refresh_tokens (token_id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
@@ -1268,16 +1338,16 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     if (rotation.code === 'invalid') {
-      return reply.status(401).send({ error: 'Refresh token invalid or revoked' });
+      return refuse(401, 'Refresh token invalid or revoked');
     }
     if (rotation.code === 'no_user') {
-      return reply.status(401).send({ error: 'User not found' });
+      return refuse(401, 'User not found');
     }
     if (rotation.code === 'banned') {
       // Same answer as /login gives a banned account. The client treats a 403
       // from refresh as signed out (classifyRefreshFailure, authStore.ts).
       reply.clearCookie('refreshToken', clearRefreshCookieOpts(request));
-      return reply.status(403).send({ error: 'Account is banned' });
+      return refuse(403, 'Account is banned');
     }
 
     // Preserve the guest claim across rotation: without it, a guest's first
@@ -1288,7 +1358,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       admin: rotation.is_admin,
       ...(rotation.is_guest ? { guest: true } : {}),
     });
-    reply.setCookie('refreshToken', newRefreshToken, refreshCookieOpts(60 * 60 * 24 * session.days, request));
+    const sessionBody = deliverRefreshToken(reply, request, newRefreshToken, session.days);
     if (rotation.graced) {
       // How often the grace saves a session, for judging the kill switch. An
       // analytics row rather than a log line: production logs only warnings,
@@ -1298,7 +1368,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     stampLastLogin(payload.sub);
-    return reply.send({ accessToken: newAccessToken });
+    return reply.send({ accessToken: newAccessToken, ...sessionBody });
   });
 
   // ── POST /api/auth/change-password ───────────────────────────────────────
@@ -1353,7 +1423,8 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
   // ── POST /api/auth/logout ────────────────────────────────────────────────
   fastify.post('/logout', async (request, reply) => {
-    const refreshToken = request.cookies?.refreshToken;
+    // The native app names the token to retire in the body; it has no cookie.
+    const refreshToken = isNativeRequest(request) ? refreshTokenFromBody(request.body) : request.cookies?.refreshToken;
     if (refreshToken) {
       const payload = verifyRefreshToken(refreshToken);
       if (payload) {

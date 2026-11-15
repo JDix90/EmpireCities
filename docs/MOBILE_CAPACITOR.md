@@ -19,6 +19,7 @@ the server, how it differs from the website, and how to test it on a device.
 - [Server settings](#server-settings)
 - [Sync, open, run](#sync-open-run)
 - [How the app differs from the website](#how-the-app-differs-from-the-website)
+- [Staying signed in](#staying-signed-in)
 - [Minimum app version and API compatibility](#minimum-app-version-and-api-compatibility)
 - [Analytics: telling the app from the website](#analytics-telling-the-app-from-the-website)
 - [Not built yet](#not-built-yet)
@@ -71,7 +72,7 @@ A plain `pnpm run build` followed by `cap sync` ships the landing page inside th
 
 ## Server settings
 
-Three things on the server, none of which the website needs.
+Four things on the server, none of which the website needs.
 
 ### 1. Allow the app's origin
 
@@ -89,7 +90,19 @@ Then restart the backend. Without it the app loads and every request fails.
 Do not add `https://localhost`, the Android app's default origin: production refuses to start
 with a loopback web origin in the list (`backend/src/config/validateEnv.ts`).
 
-### 2. Turn on what an app with chat must have
+### 2. Let the app stay signed in
+
+```bash
+# in the server's .env.production
+NATIVE_APP_ORIGINS=capacitor://localhost
+```
+
+Without it the app is signed out every time it is closed, and a guest loses their account.
+See [Staying signed in](#staying-signed-in) for what it does and why it does not touch the
+website. It names the same origin as `CORS_ORIGINS` above and needs that entry too. Never put a
+web origin in it: the server refuses to start on one.
+
+### 3. Turn on what an app with chat must have
 
 Both are OFF by default and both are required before submission: Apple asks an app with chat
 for a way to report content and block users (guideline 1.2), and an app that creates accounts
@@ -103,7 +116,7 @@ for a way to delete them inside the app (guideline 5.1.1(v)).
 The in-app privacy page reads both flags and describes what is actually switched on
 (`frontend/src/pages/PrivacyPage.tsx`).
 
-### 3. Leave the minimum app version empty until there is a second version
+### 4. Leave the minimum app version empty until there is a second version
 
 See [Minimum app version and API compatibility](#minimum-app-version-and-api-compatibility).
 
@@ -163,6 +176,48 @@ Adding a page that only makes sense on the website: wrap its route in `WebOnlyRo
 the game's desktop layout, the same as a tablet browser; the e2e smoke suite checks that no
 page overflows at 820×1180 and 1024×768 (`frontend/tests/e2e/smoke.spec.ts`). The iPad build
 supports all four orientations, so it also runs in Split View.
+
+## Staying signed in
+
+The website's session is an httpOnly refresh cookie on `/api/auth`, which the page's
+JavaScript can never read. The app cannot use it: its page is served from inside the app and
+calls the server across sites, and the web view does not send that cookie back. So for the app,
+and only for the app, the refresh token travels in the request and response body, and the app
+keeps it in the iOS Keychain.
+
+| | Website | Native app |
+|---|---|---|
+| Where the refresh token is kept | httpOnly cookie | iOS Keychain, this device only, not iCloud (`frontend/src/services/nativeSession.ts`) |
+| How it reaches the server | The browser sends the cookie | In the body of `POST /api/auth/refresh` |
+| How a new one comes back | `Set-Cookie` | `refreshToken` in the response body |
+| After the app or tab is closed | Still signed in | Still signed in |
+| After a reinstall | Not applicable | Signed back in to the same account, a guest's included: the Keychain outlives the app |
+
+**What keeps this from weakening the website** (`backend/src/modules/auth/nativeSession.ts`):
+
+- Which path a request takes is decided by its `Origin` header against `NATIVE_APP_ORIGINS`, and
+  by nothing the client chooses. A browser sets `Origin` itself, so a page on the website, even
+  one running injected script, cannot ask for a token in a body.
+- Every refresh token is signed as the app's or not. A cookie's token is refused in a body, and
+  the app's is refused in a cookie.
+- `NATIVE_APP_ORIGINS` refuses http(s) origins, so a mistake there cannot switch a website over
+  to body tokens.
+- With `NATIVE_APP_ORIGINS` empty, the default in production, the body path does not exist.
+
+**What is different about the app's token**
+
+- **A reply the app never received does not sign it out.** A phone suspends an app
+  mid-request as a matter of course. The app's old token stays good until a newer one has been
+  *used*, which is the proof the app received it. The website keeps its ten-minute window.
+- **The app deletes its token only when the server says the app's session is over.** Every
+  refusal on the app's path carries `native: true`. A `401` without it means the server is
+  running without `NATIVE_APP_ORIGINS`; the app keeps its token and its session, because a
+  deleted token cannot be got back.
+- **A build without the Keychain plugin's native code does not freeze.** The app checks the
+  native half is present before calling it, and Keychain calls time out after three seconds.
+  The app then behaves as if it had no token.
+- **Signing out, or deleting the account, removes the token** from the Keychain and retires it
+  on the server.
 
 ## Minimum app version and API compatibility
 
@@ -251,12 +306,11 @@ the website's.
 
 ## Not built yet
 
-Three things the iOS app needs before it can be submitted. Each needs a real iPhone to
-confirm, and each is waiting on a decision about its approach. Until they are built:
+Two things the iOS app needs before it can be submitted. Each needs a real iPhone to confirm.
+Until they are built:
 
 | | What happens in the app today | Why |
 |---|---|---|
-| **Staying signed in** | The session lasts only while the app stays in memory, and at most until the access token expires (about an hour for an account, four for a guest). Force-quit the app, or let iOS evict it, and the player is signed out. A guest loses their account, since nothing else can sign back in to it | The access token is kept in memory only, and the session renews with an httpOnly cookie on `/api/auth`. The app calls the API from another site (`capacitor://localhost`), and the web view does not send that cookie back |
 | **Links that open the app** | An emailed sign-in link, an invite link and a shared replay link all open Safari, not the app | There is no `apple-app-site-association` file, no Associated Domains entitlement and no `appUrlOpen` handler |
 | **Push notifications** | The app asks for notification permission at sign-in, and no notification ever arrives | `AppDelegate.swift` does not forward the registration callbacks, there is no push entitlement, and the server sends only through Firebase, which cannot use the token iOS gives the app. The Settings and lobby notification controls are also web-only |
 
@@ -269,7 +323,8 @@ safe to create accounts on.
 
 **Before you start**
 
-1. The server's `CORS_ORIGINS` includes `capacitor://localhost`, and the backend was restarted.
+1. The server's `CORS_ORIGINS` and `NATIVE_APP_ORIGINS` both include `capacitor://localhost`,
+   and the backend was restarted.
 2. `chat_safety_enabled` and `guest_account_deletion_enabled` are on (Admin → Config).
 3. On the Mac:
    ```bash
@@ -289,9 +344,7 @@ safe to create accounts on.
 2. The start screen clears the status bar and the home indicator.
 3. Tap Play Free Now: a guest is made and the tutorial match (or the lobby) opens.
 4. The lobby has no "Home", "Landing" or "Marketing Home" link.
-5. Send the app to the background and bring it back: you are still in the lobby. (Force-quit
-   and reopen, and you are back on the start screen with the guest gone. That is the
-   sign-in gap in [Not built yet](#not-built-yet), not a fault in this list.)
+5. Send the app to the background and bring it back: you are still in the lobby.
 6. Lobby copy for a guest says "saved on this device", not "in this browser".
 7. Settings has no "Borderfall on your home screen" row, and nothing offers "Add to Home Screen".
 8. In a game with chat, there is no GIF button. Text chat works; a message's menu offers Report
@@ -299,6 +352,25 @@ safe to create accounts on.
 9. Finish a game and tap the Twitter / X share button: a browser sheet slides up over the
    game. Close it: you are back on the results screen, not in Safari.
 10. Tap a Privacy or Terms link: it opens inside the app.
+
+**Staying signed in**
+
+Note the guest's name in the lobby before you start.
+
+- **Force-quit.** Swipe the app away in the app switcher and reopen it: it opens on the lobby,
+  as the same guest.
+- **Time.** Leave the app closed for more than four hours (a guest's access token lasts four)
+  and reopen it: still the same guest.
+- **Airplane mode.** Turn it on, reopen the app, turn it off: you are not signed out, and the
+  game reconnects.
+- **Reinstall.** Delete the app from the Home Screen, then run it again from Xcode: it opens
+  on the lobby as the same guest, with the same level and games.
+- **Sign out.** Sign out from the menu, force-quit, reopen: the start screen. Sign back in to
+  a saved account and repeat the force-quit check.
+- **Delete account.** Settings → Account → Delete account, then force-quit and reopen: the
+  start screen, and the old guest does not come back.
+- **The website.** Sign in on the website in Safari, close the tab, open it again: still
+  signed in, exactly as before.
 
 **Shared links**
 
@@ -351,6 +423,8 @@ What is different, and not done:
 | `frontend/src/utils/platform.ts` | `clientPlatform()` for analytics |
 | `frontend/src/utils/publicOrigin.ts` | The public site's address, for shared links |
 | `frontend/src/services/nativeAppVersion.ts` | Version headers, the launch check, the update-required state |
+| `frontend/src/services/nativeSession.ts` | The Keychain refresh token |
+| `backend/src/modules/auth/nativeSession.ts` | The app's session path on the server |
 | `frontend/src/components/native/` | `NativeLinkHandler`, `WebOnlyRoute`, `UpdateRequiredScreen` |
 | `frontend/src/pages/NativeHomePage.tsx` | `/` in the app |
 | `backend/src/middleware/minAppVersion.ts` | The 426 hook |

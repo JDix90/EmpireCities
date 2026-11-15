@@ -137,6 +137,9 @@ importers:
 
   frontend:
     dependencies:
+      '@aparajita/capacitor-secure-storage':
+        specifier: ^6.0.1
+        version: 6.0.1
       '@borderfall/shared':
         specifier: workspace:*
         version: link:../packages/shared
@@ -363,6 +366,10 @@ packages:
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
     engines: {node: '>=10'}
+
+  '@aparajita/capacitor-secure-storage@6.0.1':
+    resolution: {integrity: sha512-3enXCck7Uumg3xCvzh4EHHo4mqYAMMhVWQ1db35xDsuRCSKEGFTJVVdOMpwnrOlS6RqzmZEoGB7n5wftbRHRqQ==}
+    engines: {node: '>=16.15.1'}
 
   '@asamuzakjp/css-color@5.1.11':
     resolution: {integrity: sha512-KVw6qIiCTUQhByfTd78h2yD1/00waTmm9uy/R7Ck/ctUyAPj+AEDLkQIdJW0T8+qGgj3j5bpNKK7Q3G+LedJWg==}
@@ -4948,6 +4955,13 @@ snapshots:
   '@adobe/css-tools@4.4.4': {}
 
   '@alloc/quick-lru@5.2.0': {}
+
+  '@aparajita/capacitor-secure-storage@6.0.1':
+    dependencies:
+      '@capacitor/android': 6.2.2(@capacitor/core@6.2.2)
+      '@capacitor/app': 6.0.3(@capacitor/core@6.2.2)
+      '@capacitor/core': 6.2.2
+      '@capacitor/ios': 6.2.2(@capacitor/core@6.2.2)
 
   '@asamuzakjp/css-color@5.1.11':
     dependencies:

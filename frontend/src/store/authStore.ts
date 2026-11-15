@@ -8,6 +8,14 @@ import { embedderHeaders } from '../utils/embedContext';
 import { getSignupAttribution } from '../utils/attribution';
 import { safeLocalStorage } from '../utils/safeStorage';
 import { attachNativeAppVersion } from '../services/nativeAppVersion';
+import {
+  clearNativeRefreshToken,
+  isNativeSessionRefusal,
+  keepNativeSessionFrom,
+  loadNativeRefreshToken,
+  readNativeRefreshToken,
+  usesNativeSession,
+} from '../services/nativeSession';
 
 // `rawHttp` bypasses the api interceptors, and it is the instance that calls
 // /auth/guest and /auth/refresh — the two endpoints that WRITE the refresh
@@ -59,6 +67,12 @@ let refreshInFlight: { promise: Promise<RefreshOutcome>; loud: boolean } | null 
 export function classifyRefreshFailure(err: unknown): Exclude<RefreshOutcome, 'ok'> {
   if (axios.isAxiosError(err)) {
     const status = err.response?.status;
+    // In the native app only a refusal the server marks as the app's ends the
+    // session (services/nativeSession.ts `isNativeSessionRefusal`): anything
+    // else keeps the keychain token, which cannot be got back once deleted.
+    if (usesNativeSession()) {
+      return isNativeSessionRefusal(status, err.response?.data) ? 'invalid' : 'unreachable';
+    }
     if (status === 401 || status === 403) return 'invalid';
   }
   return 'unreachable';
@@ -148,6 +162,12 @@ interface AuthState {
   signInWithLink: (token: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshToken: (options?: { silent?: boolean }) => Promise<RefreshOutcome>;
+  /**
+   * Native app only: sign back in with the token in the device keychain when
+   * the web view remembers nobody (after a reinstall, or its storage being
+   * cleared). Resolves true when a session was restored. A no-op on the website.
+   */
+  recoverNativeSession: () => Promise<boolean>;
   setUser: (user: AuthUser) => void;
   setAccessToken: (token: string) => void;
   setBootstrapped: (bootstrapped: boolean) => void;
@@ -180,6 +200,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           const res = await api.post('/auth/login', { email, password });
           const { accessToken, user } = res.data;
+          if (usesNativeSession()) await keepNativeSessionFrom(res.data);
           try {
             sessionStorage.removeItem('cc-auth-notice');
           } catch { /* ignore */ }
@@ -204,6 +225,7 @@ export const useAuthStore = create<AuthState>()(
             attribution: getSignupAttribution(),
           });
           const { accessToken, user } = res.data;
+          if (usesNativeSession()) await keepNativeSessionFrom(res.data);
           try {
             sessionStorage.removeItem('cc-auth-notice');
           } catch { /* ignore */ }
@@ -221,6 +243,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           const res = await rawHttp.post('/auth/guest', { attribution: getSignupAttribution() });
           const { accessToken, user } = res.data;
+          if (usesNativeSession()) await keepNativeSessionFrom(res.data);
           set({ user, accessToken, isAuthenticated: true, isLoading: false, bootstrapped: true });
           resyncSocketAuth();
         } catch (err) {
@@ -242,6 +265,7 @@ export const useAuthStore = create<AuthState>()(
             attribution: getSignupAttribution(),
           });
           const { accessToken, user } = res.data;
+          if (usesNativeSession()) await keepNativeSessionFrom(res.data);
           set({ user, accessToken, isAuthenticated: true, isLoading: false, bootstrapped: true });
           // The singleton socket still authenticates with the guest JWT;
           // reconnect so the server sees the full-account identity.
@@ -258,6 +282,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           const res = await api.post('/auth/sign-in-link/verify', { token });
           const { accessToken, user } = res.data;
+          if (usesNativeSession()) await keepNativeSessionFrom(res.data);
           try {
             sessionStorage.removeItem('cc-auth-notice');
           } catch { /* ignore */ }
@@ -275,7 +300,12 @@ export const useAuthStore = create<AuthState>()(
         try {
           // Guests included: they hold a refresh cookie now, and logout is
           // what revokes it server-side and clears it from the browser.
-          await api.post('/auth/logout');
+          if (usesNativeSession()) {
+            // The app has no cookie for the server to read: it names the token to retire.
+            await api.post('/auth/logout', { refreshToken: await loadNativeRefreshToken() });
+          } else {
+            await api.post('/auth/logout');
+          }
         } catch {
           // Best-effort — local state is cleared regardless.
         } finally {
@@ -303,7 +333,25 @@ export const useAuthStore = create<AuthState>()(
           // Guests refresh like everyone else: POST /api/auth/guest issues the
           // same HttpOnly refresh cookie, and rotation preserves the guest claim.
           try {
-            const res = await rawHttp.post('/auth/refresh');
+            let res;
+            if (usesNativeSession()) {
+              // The app's token is in the Keychain, and travels in the body
+              // (services/nativeSession.ts). With none held there is nothing
+              // to renew: the session is over.
+              const held = await readNativeRefreshToken();
+              // Not readable just now is not the same as not there: keep the session.
+              if (held.status === 'unreadable') return 'unreachable';
+              if (held.status === 'none') {
+                set({ user: null, accessToken: null, isAuthenticated: false });
+                return 'invalid';
+              }
+              res = await rawHttp.post('/auth/refresh', { refreshToken: held.token });
+              // Stored before anything can use the new access token: the old
+              // refresh token stops working once the new one has been used.
+              await keepNativeSessionFrom(res.data);
+            } else {
+              res = await rawHttp.post('/auth/refresh');
+            }
             const { accessToken } = res.data;
             set({ accessToken, isAuthenticated: true });
             resyncSocketAuth();
@@ -328,6 +376,28 @@ export const useAuthStore = create<AuthState>()(
         });
         refreshInFlight = flight;
         return flight.promise;
+      },
+
+      recoverNativeSession: async () => {
+        if (!usesNativeSession() || get().isAuthenticated) return false;
+        const held = await readNativeRefreshToken();
+        if (held.status !== 'held') return false;
+        try {
+          const res = await rawHttp.post('/auth/refresh', { refreshToken: held.token });
+          await keepNativeSessionFrom(res.data);
+          const { accessToken } = res.data;
+          // Who this is: the web view has no record, only the server does.
+          const me = await rawHttp.get('/users/me', { headers: { Authorization: `Bearer ${accessToken}` } });
+          const user = (me.data?.user ?? me.data) as AuthUser | undefined;
+          if (!user?.user_id) return false;
+          set({ user, accessToken, isAuthenticated: true });
+          resyncSocketAuth();
+          return true;
+        } catch (err) {
+          // The server ended that session: the token is no use to anyone.
+          if (classifyRefreshFailure(err) === 'invalid') await clearNativeRefreshToken();
+          return false;
+        }
       },
 
       setUser: (user) => set({ user }),
@@ -372,6 +442,15 @@ export const useAuthStore = create<AuthState>()(
     }
   )
 );
+
+// Native app only: whenever a session ends (sign-out, a deleted account, the
+// server refusing the token), the keychain token goes with it. One place, so
+// no way of ending a session can forget to. The website has no token to clear.
+if (usesNativeSession()) {
+  useAuthStore.subscribe((state, previous) => {
+    if (previous.isAuthenticated && !state.isAuthenticated) void clearNativeRefreshToken();
+  });
+}
 
 /**
  * How long `waitForAuthBootstrap` will wait before giving up. The silent
