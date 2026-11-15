@@ -49,11 +49,14 @@ You may not:
 
 You agree not to:
 
-- Harass, threaten, defame, or harm other users.
+- Harass, threaten, bully, defame, or harm other users.
+- Post or share objectionable content (anything hateful, harassing, threatening, sexually explicit, graphically violent, or otherwise objectionable) in chat, usernames, custom maps, or anywhere else in the Services.
 - Cheat, exploit bugs, use unauthorized automation, or interfere with matchmaking or servers.
 - Upload malware, conduct denial-of-service attacks, or probe systems without authorization.
 - Use the Services for unlawful purposes or in violation of third-party rights.
 - Impersonate any person or entity or misrepresent your affiliation.
+
+**There is no tolerance for objectionable content or abusive users.** Chat is filtered for offensive language and community maps are reviewed before they are published, but filters can miss things. Users can report a chat message from the chat itself, block a user so that user's chat no longer reaches them, or contact us at **[support@yourdomain.com]**. We review every report within 24 hours; when content breaks these Terms, we remove it and act against the user who posted it, up to permanently terminating their account, without notice where the case is serious.
 
 We may investigate violations and cooperate with law enforcement where appropriate.
 

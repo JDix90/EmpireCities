@@ -14,8 +14,12 @@ export const STORE_DESCRIPTION =
 export const SUPPORT_EMAIL =
   (import.meta.env.VITE_SUPPORT_EMAIL as string | undefined)?.trim() || 'support@borderfall.gg';
 
-/** The Terms of Service's date. The Privacy Policy keeps its own, so changing one does not re-date the other. */
-export const LEGAL_LAST_UPDATED = 'June 12, 2026';
+/**
+ * The Terms of Service's date. The Privacy Policy keeps its own, so changing
+ * one does not re-date the other. Last change: no tolerance for objectionable
+ * content or abusive players, and how reports are handled.
+ */
+export const LEGAL_LAST_UPDATED = 'November 15, 2026';
 
 /**
  * The Privacy Policy's date: chat reports and blocks, push tokens in the iOS
