@@ -4,8 +4,12 @@ import { Scale } from 'lucide-react';
 import BrandWordmark from '../components/ui/BrandWordmark';
 import SubpageShell from '../components/ui/SubpageShell';
 import { APP_NAME, LEGAL_LAST_UPDATED, SUPPORT_EMAIL } from '../constants/brand';
+import { useChatSafetyEnabled } from '../store/featureFlagsStore';
 
 export default function TermsPage() {
+  // How to report and block depends on chat_safety_enabled, as on the Privacy
+  // Policy: with it off there is no ⋯ menu in chat, so reports go by email.
+  const chatSafety = useChatSafetyEnabled();
   return (
     <SubpageShell
       titleAs="div"
@@ -44,9 +48,44 @@ export default function TermsPage() {
         <section className="space-y-3">
           <h2 className="font-display text-lg text-bf-gold">Acceptable use</h2>
           <p className="text-sm text-bf-muted leading-relaxed">
-            Play fairly. Do not cheat, exploit bugs for advantage, automate gameplay, harass other players,
-            upload unlawful content to community maps or chat, or attempt to disrupt servers or other users&apos;
-            sessions. Report map or player issues through in-app tools where available.
+            Play fairly. Do not cheat, exploit bugs for advantage, automate gameplay, or attempt to disrupt servers
+            or other users&apos; sessions.
+          </p>
+        </section>
+
+        {/* The App Store requires an app with chat to say there is no tolerance
+            for objectionable content or abusive users, and that reports are acted on. */}
+        <section className="space-y-3" data-testid="terms-conduct">
+          <h2 className="font-display text-lg text-bf-gold">Chat, player content and reports</h2>
+          <p className="text-sm text-bf-muted leading-relaxed">
+            There is no tolerance for objectionable content or abusive players on {APP_NAME}. Do not post or share
+            anything hateful, harassing, threatening, sexually explicit, graphically violent, or otherwise
+            objectionable, whether in chat, in your username, in a custom map, or anywhere else in the Service.
+            Do not bully, abuse, or impersonate other players.
+          </p>
+          <p className="text-sm text-bf-muted leading-relaxed">
+            Chat is filtered for offensive language, and community maps are reviewed before they are published,
+            but filters can miss things.{' '}
+            {chatSafety ? (
+              <>
+                If you see something objectionable, report it: tap &#8943; beside a chat message and choose Report
+                message, or email us at{' '}
+                <a href={`mailto:${SUPPORT_EMAIL}`} className="text-bf-gold hover:underline">{SUPPORT_EMAIL}</a>.
+                You can also block a player from the same menu, so their chat no longer reaches you; Settings lists
+                the players you have blocked.
+              </>
+            ) : (
+              <>
+                If you see something objectionable, report it by emailing us at{' '}
+                <a href={`mailto:${SUPPORT_EMAIL}`} className="text-bf-gold hover:underline">{SUPPORT_EMAIL}</a>{' '}
+                with the player&apos;s name and what they posted.
+              </>
+            )}
+          </p>
+          <p className="text-sm text-bf-muted leading-relaxed">
+            We review every report within 24 hours. When content breaks these rules, we remove it and act against
+            the player who posted it, from a warning to a permanent ban of their account, without notice where the
+            case is serious.
           </p>
         </section>
 
