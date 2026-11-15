@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useState, useRef, useCallback, useMemo, Suspense } from 'react';
+import { publicSiteOrigin } from '../utils/publicOrigin';
 import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useGameStore } from '../store/gameStore';
 import { api } from '../services/api';
@@ -727,7 +728,7 @@ export default function ReplayPage() {
       await api.post(`/share/${gameId}/make-public`);
       setIsPublic(true);
       // ?source=share opens the link straight into the condensed Highlights reel.
-      const url = `${window.location.origin}/replay/${gameId}?source=share`;
+      const url = `${publicSiteOrigin()}/replay/${gameId}?source=share`;
       await navigator.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -744,7 +745,7 @@ export default function ReplayPage() {
   const handleCopyLink = async () => {
     if (!gameId) return;
     try {
-      const url = `${window.location.origin}/replay/${gameId}?source=share`;
+      const url = `${publicSiteOrigin()}/replay/${gameId}?source=share`;
       await navigator.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);

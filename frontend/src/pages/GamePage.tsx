@@ -1,4 +1,5 @@
 import React, { Suspense, useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { publicSiteOrigin } from '../utils/publicOrigin';
 import clsx from 'clsx';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -1432,7 +1433,7 @@ export default function GamePage() {
     const nameOf = (id: string) => mapDataRef.current?.territories.find((t) => t.territory_id === id)?.name ?? id;
     const settings = useGameStore.getState().gameState?.settings;
     const date = typeof settings?.daily_challenge_date === 'string' ? settings.daily_challenge_date.slice(0, 10) : '';
-    return describePuzzleReview(review, nameOf, date, `${window.location.origin}/daily`);
+    return describePuzzleReview(review, nameOf, date, `${publicSiteOrigin()}/daily`);
   }, []);
   /**
    * Before a move that may matter on a v2 day, ask the board
@@ -4502,7 +4503,7 @@ export default function GamePage() {
 
   const copyGameUrl = () => {
     if (!gameId) return;
-    const url = `${window.location.origin}/game/${gameId}`;
+    const url = `${publicSiteOrigin()}/game/${gameId}`;
     void navigator.clipboard.writeText(url);
     toast.success('Game link copied');
   };
@@ -4854,7 +4855,7 @@ export default function GamePage() {
       );
     }
 
-    const shareUrl = gameId ? `${window.location.origin}/game/${gameId}` : '';
+    const shareUrl = gameId ? `${publicSiteOrigin()}/game/${gameId}` : '';
     const lobby = lobbySnapshot;
     const settings = lobby?.settings_json ?? {};
     const maxPlayers =

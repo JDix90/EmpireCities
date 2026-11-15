@@ -106,6 +106,19 @@ describe('validateProductionEnv', () => {
     expect(() => validateProductionEnv()).toThrow(/CORS/i);
   });
 
+  // The iOS app's page is served from inside the app at capacitor://localhost
+  // and calls the server across origins, so production has to be able to list
+  // it. The Android app's default origin is https://localhost, which is a
+  // loopback web origin like any other and stays refused: a page served by
+  // anything on the player's own machine would carry it.
+  it('accepts the iOS app origin, and still refuses the Android default', () => {
+    setValidProd();
+    process.env.CORS_ORIGINS = 'capacitor://localhost';
+    expect(() => validateProductionEnv()).not.toThrow();
+    process.env.CORS_ORIGINS = 'capacitor://localhost,https://localhost';
+    expect(() => validateProductionEnv()).toThrow(/https:\/\/localhost/);
+  });
+
   it('warns (does not throw) on a short JWT secret', () => {
     setValidProd();
     process.env.JWT_ACCESS_SECRET = 'short';

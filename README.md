@@ -436,10 +436,12 @@ After pulling the Borderfall rebrand, run these on each environment:
 
    ```bash
    cd frontend
+   export VITE_API_URL=https://your-domain.example      # required for a native build
+   export VITE_SOCKET_URL=https://your-domain.example
    pnpm run cap:sync
    ```
 
-   Then open Xcode / Android Studio (`pnpm run cap:ios` / `cap:android`) and submit as a **new** App Store / Play listing. See [docs/STORE_RELEASE.md](docs/STORE_RELEASE.md).
+   The server must also list the app's origin in `CORS_ORIGINS`; see [docs/MOBILE_CAPACITOR.md](docs/MOBILE_CAPACITOR.md). Then open Xcode / Android Studio (`pnpm run cap:ios` / `cap:android`) and submit as a **new** App Store / Play listing. See [docs/STORE_RELEASE.md](docs/STORE_RELEASE.md).
 
 4. **Email** — Set `SMTP_FROM` to a domain you control (default example: `noreply@borderfall.com`).
 
@@ -474,6 +476,7 @@ Or run them individually in separate terminals as described in Quick Start.
 | `backend/` | `pnpm run test:backend` | Vitest unit tests (combat resolver, missions, map validation) |
 | `frontend/` | `pnpm run dev` | Start Vite dev server |
 | `frontend/` | `pnpm run build` | Build for production |
+| `frontend/` | `pnpm run build:native` | Build for the iOS/Android app: needs `VITE_API_URL` and `VITE_SOCKET_URL`, leaves out the marketing prerender |
 | `frontend/` | `pnpm run preview` | Preview production build |
 | Root | `pnpm run validate:maps` | Validate all `database/maps/*.json` connection graphs |
 

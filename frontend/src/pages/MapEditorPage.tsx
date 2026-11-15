@@ -1,4 +1,5 @@
 import React, { Suspense, useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { publicSiteOrigin } from '../utils/publicOrigin';
 import { useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
 import BrandWordmark from '../components/ui/BrandWordmark';
 import { api } from '../services/api';
@@ -871,7 +872,7 @@ export default function MapEditorPage() {
 
   const shareLink = useCallback(() => {
     if (!mapId) return;
-    const url = `${window.location.origin}/maps/${mapId}`;
+    const url = `${publicSiteOrigin()}/maps/${mapId}`;
     const done = () => toast.success('Link copied');
     if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url).then(done).catch(() => toast(url));
     else toast(url);
