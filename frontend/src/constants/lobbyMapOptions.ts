@@ -79,7 +79,8 @@ export function pickQuickMatchEra(
 
 export const CURATED_COMMUNITY_MAP_IDS = [
   'community_14_nations',
-  'community_strait_hormuz',
+  // Rebuilt from real provinces; replaces community_strait_hormuz, which stays resolvable for old games.
+  'community_strait_of_hormuz',
   'community_flooded_north_america',
   'community_charlemagne_814',
   'community_roman_empire_117',

@@ -781,6 +781,13 @@ const STRAIT_HORMUZ: CustomMapImmersionProfile = {
   },
 };
 
+/** The rebuilt Strait of Hormuz (real provinces, 31 territories); the old id keeps its profile for games on it. */
+const STRAIT_OF_HORMUZ: CustomMapImmersionProfile = {
+  ...STRAIT_HORMUZ,
+  map_id: 'community_strait_of_hormuz',
+  tagline: 'Thirty-one territories around one strait. Close it and the world notices.',
+};
+
 const ROMAN_EMPIRE_117: CustomMapImmersionProfile = {
   map_id: 'community_roman_empire_117',
   tagline: 'All roads lead to Rome — and every legion wants to march on it.',
@@ -971,6 +978,7 @@ export const CUSTOM_MAP_IMMERSION: Record<string, CustomMapImmersionProfile> = {
   [AUSTRALIA_1337.map_id]: AUSTRALIA_1337,
   [NATIONS_14.map_id]: NATIONS_14,
   [STRAIT_HORMUZ.map_id]: STRAIT_HORMUZ,
+  [STRAIT_OF_HORMUZ.map_id]: STRAIT_OF_HORMUZ,
 };
 
 for (const p of Object.values(CUSTOM_MAP_IMMERSION)) {
