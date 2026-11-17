@@ -182,7 +182,11 @@ jobs:
         run: pnpm run test:warfront
 
   frontend:
-    runs-on: ubuntu-latest
+    # Pinned, not ubuntu-latest: the E2E steps install Playwright's Chromium,
+    # and Playwright 1.59 has no build for Ubuntu 26.04 ("Playwright does not
+    # support chromium on ubuntu26.04-x64"), which ubuntu-latest became in
+    # November 2026. Move back to ubuntu-latest with a Playwright that supports it.
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
