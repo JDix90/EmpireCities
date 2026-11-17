@@ -142,9 +142,9 @@ const CLIENT_FEATURE_FLAGS = [
   },
   {
     key: 'first_match_ladder_maps_enabled',
-    label: 'Map ladder: Britain, China, Japan',
+    label: 'Map ladder: Britain to the world maps',
     description:
-      'With the first-win ladder on, the battles after the first match grow the map instead of the bot: after the first win, one Easy bot on Fractured China (30 territories) until the second win; then one Easy bot on Sengoku Japan (38) until the third; then the player\u2019s own Quick Match on a world map. Each battle is a little longer than the last instead of a jump from Britain (14) to a world map (36 to 57). Simulated, a newcomer who attacks with purpose wins nearly every one of them in 4 to 6 minutes; one who barely attacks wins 56%, 48% and 40%, in a median 13, 17 and 22 minutes. Off by default; off, the battle after the first win is one Medium bot on Britain, then the player\u2019s own Quick Match, as before.',
+      'With the first-win ladder on, each win after the first match moves the player up one battle, one change at a time: one Easy bot on Balkanized Spain (24 territories), then Fractured China (30), then Sengoku Japan (38); then the Medieval world map (36) against one Medium bot, then against two; then the player\u2019s own Quick Match (three Medium bots on a world map, 36 to 57). The map grows from Britain\u2019s 14 before the bot gets harder, instead of one jump from Britain to a world map. Simulated, a newcomer who attacks with purpose wins 92 to 100% of the Easy battles in 4 to 6 minutes, 42% against one Medium bot, 23% against two (about 19 minutes), and 15 to 19% of the full Quick Match. Off by default; off, the battle after the first win is one Medium bot on Britain, then the player\u2019s own Quick Match, as before.',
   },
   {
     key: 'coach_tips_enabled',
