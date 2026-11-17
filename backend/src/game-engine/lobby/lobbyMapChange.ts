@@ -65,7 +65,8 @@ export const CURATED_COMMUNITY_MAP_IDS = new Set([
   'community_horn_africa',
   'community_australia_1337',
   'community_14_nations',
-  'community_strait_hormuz',
+  // Rebuilt from real provinces; replaces community_strait_hormuz, which stays resolvable for old games.
+  'community_strait_of_hormuz',
   'community_roman_empire_117',
   'community_mongol_empire',
   'community_napoleonic_europe',
@@ -75,6 +76,7 @@ export const CURATED_COMMUNITY_MAP_IDS = new Set([
 export const COMMUNITY_MAP_LABELS: Record<string, string> = {
   community_14_nations: 'The 14 Nations',
   community_strait_hormuz: 'Strait of Hormuz',
+  community_strait_of_hormuz: 'Strait of Hormuz',
   community_flooded_north_america: 'Flooded North America',
   community_charlemagne_814: 'Europe — Death of Charlemagne, 814 A.D.',
   community_roman_empire_117: 'Roman Empire — 117 A.D.',
