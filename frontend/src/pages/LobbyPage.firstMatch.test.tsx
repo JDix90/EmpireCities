@@ -5,7 +5,7 @@ import LobbyPage from './LobbyPage';
 import { useAuthStore } from '../store/authStore';
 import { useFeatureFlagsStore } from '../store/featureFlagsStore';
 import { FIRST_MATCH_BUTTON_LINE } from '../utils/firstMatch';
-import { LADDER_RUNG_2_BUTTON_LINE } from '../utils/ladder';
+import { LADDER_MAP_BATTLES, LADDER_RUNG_2_BUTTON_LINE } from '../utils/ladder';
 import { QUICK_MATCH_ERAS } from '../constants/lobbyMapOptions';
 import { saveQuickMatchPrefs } from '../utils/quickMatchPrefs';
 
@@ -39,9 +39,15 @@ function stubMatchMedia() {
   }) as unknown as typeof window.matchMedia;
 }
 
-function setFlag(on: boolean, primaryCta = false, ladder = true) {
+function setFlag(on: boolean, primaryCta = false, ladder = true, ladderMaps = false) {
   useFeatureFlagsStore.setState((s) => ({
-    flags: { ...s.flags, first_match_easy_enabled: on, first_match_primary_cta_enabled: primaryCta, first_match_ladder_enabled: ladder },
+    flags: {
+      ...s.flags,
+      first_match_easy_enabled: on,
+      first_match_primary_cta_enabled: primaryCta,
+      first_match_ladder_enabled: ladder,
+      first_match_ladder_maps_enabled: ladderMaps,
+    },
   }));
 }
 
@@ -190,6 +196,75 @@ describe('LobbyPage first match', () => {
     renderLobby();
     const body = await startQuickMatch(/vs 3 AI · random era/);
     expect(body.settings.first_match).toBeUndefined();
+    expect(body.settings.ladder_step).toBeUndefined();
+  });
+
+  // The map ladder (first_match_ladder_maps_enabled): a bigger board each win.
+  it('keeps the first match on Britain with the map ladder', async () => {
+    setFlag(true, false, true, true);
+    finishedGames(1, 0);
+    renderLobby();
+    const body = await startQuickMatch(FIRST_MATCH_BUTTON_LINE);
+    expect(body).toMatchObject({ era_id: 'medieval', map_id: 'community_britain_925', ai_count: 1, ai_difficulty: 'easy' });
+    expect(body.settings).toMatchObject({ first_match: true, ladder_step: 1 });
+  });
+
+  it('moves to one Easy bot on Fractured China after the first win, still ahead of Full Game', async () => {
+    setFlag(true, true, true, true);
+    finishedGames(2, 1);
+    renderLobby();
+    await screen.findByText(LADDER_MAP_BATTLES[2].buttonLine);
+    expect(screen.getByTestId('quick-match-start').className).toContain('btn-primary');
+    expect(screen.getByTestId('full-game-start').className).toContain('btn-secondary');
+    const body = await startQuickMatch(LADDER_MAP_BATTLES[2].buttonLine);
+    expect(body).toMatchObject({
+      era_id: 'modern',
+      map_id: 'community_fractured_china',
+      max_players: 2,
+      ai_count: 1,
+      ai_difficulty: 'easy',
+    });
+    expect(body.settings).toMatchObject({ ladder_step: 2, allowed_victory_conditions: ['domination', 'threshold'], victory_threshold: 65 });
+    expect(body.settings.first_match).toBeUndefined();
+  });
+
+  it('moves to one Easy bot on Sengoku Japan after the second win', async () => {
+    setFlag(true, true, true, true);
+    finishedGames(4, 2);
+    renderLobby();
+    await screen.findByText(LADDER_MAP_BATTLES[3].buttonLine);
+    expect(screen.getByTestId('quick-match-start').className).toContain('btn-primary');
+    const body = await startQuickMatch(LADDER_MAP_BATTLES[3].buttonLine);
+    expect(body).toMatchObject({ era_id: 'medieval', map_id: 'community_sengoku_japan', ai_count: 1, ai_difficulty: 'easy' });
+    expect(body.settings.ladder_step).toBe(3);
+  });
+
+  it('leaves Quick Match alone after the third win with the map ladder', async () => {
+    setFlag(true, true, true, true);
+    finishedGames(6, 3);
+    renderLobby();
+    const body = await startQuickMatch(/vs 3 AI · random era/);
+    expect(body.settings.ladder_step).toBeUndefined();
+    expect(screen.getByTestId('full-game-start').className).toContain('btn-primary');
+  });
+
+  it('starts the next battle on arrival from a results screen\'s Next battle', async () => {
+    setFlag(true, false, true, true);
+    finishedGames(3, 2);
+    renderLobby('/lobby?play=quick');
+    await waitFor(() => expect(postMock).toHaveBeenCalledWith('/games', expect.anything()));
+    const body = postMock.mock.calls.find(([url]) => url === '/games')![1] as { map_id: string; settings: Record<string, unknown> };
+    expect(body.map_id).toBe('community_sengoku_japan');
+    expect(body.settings.ladder_step).toBe(3);
+  });
+
+  it('drops the ladder once the player sets up Quick Match themselves', async () => {
+    setFlag(true, false, true, true);
+    finishedGames(2, 1);
+    saveQuickMatchPrefs({ aiCount: 2, aiDifficulty: 'hard', victory: 'blitz' });
+    renderLobby();
+    const body = await startQuickMatch(/vs 2 AI · random era/);
+    expect(body).toMatchObject({ ai_count: 2, ai_difficulty: 'hard' });
     expect(body.settings.ladder_step).toBeUndefined();
   });
 

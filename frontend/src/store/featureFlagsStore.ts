@@ -8,6 +8,7 @@ export interface ClientFeatureFlags {
   first_turn_coach_enabled: boolean;
   coach_tips_enabled: boolean;
   first_match_ladder_enabled: boolean;
+  first_match_ladder_maps_enabled: boolean;
   first_match_button_emphasis_enabled: boolean;
   turn_recap_panel_enabled: boolean;
   turn_clarity_enabled: boolean;
@@ -115,6 +116,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   coach_tips_enabled: true,
   // The first-win ladder: first match until the first win, one Medium bot until the second, Next battle on their results. On by default; admin kill switch.
   first_match_ladder_enabled: true,
+  // The map ladder: Britain, then Fractured China, then Sengoku Japan, one Easy bot each. Dark-launched OFF.
+  first_match_ladder_maps_enabled: false,
   // A first match's phase button is plain until the phase's action is done. On by default; admin kill switch.
   first_match_button_emphasis_enabled: true,
   // Desktop: the own-turn recap is a panel row, not a modal. On by default; admin kill switch.
@@ -331,6 +334,11 @@ export function useFirstTurnCoachEnabled(): boolean {
 /** The first-win ladder: first match until the first win, then one Medium bot, and Next battle on their results (utils/ladder.ts). */
 export function useFirstMatchLadderEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.first_match_ladder_enabled);
+}
+
+/** The map ladder: the battles after the first match grow the board, not the bot (utils/ladder.ts). */
+export function useFirstMatchLadderMapsEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.first_match_ladder_maps_enabled);
 }
 
 /** Coach tips: the one-line next-step strip, offered in a first match's briefing (utils/coachTips.ts). */
