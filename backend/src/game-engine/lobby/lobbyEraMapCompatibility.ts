@@ -85,6 +85,7 @@ const COMMUNITY_RECOMMENDED_RULES_ERA: Record<string, string> = {
   community_14_nations: 'discovery',
   community_fourteen_nations: 'discovery',
   community_strait_hormuz: 'coldwar',
+  community_strait_of_hormuz: 'coldwar',
 };
 
 export function isLobbySelectableTheaterMap(mapId: string): boolean {

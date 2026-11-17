@@ -48,6 +48,7 @@ import { resignIfBeaten, victoryAfterResignation } from '../src/game-engine/ai/a
 import { createSeededRng, hashStringToSeed } from '../src/game-engine/victory/missions';
 import { bakeCreateGameSettings, type CreateGameSettingsInput } from '../src/modules/games/createGameSettings';
 import { featureFlags } from '../src/config/featureFlags';
+import { recommendedRulesEraForTheater } from '../src/game-engine/lobby/lobbyEraMapCompatibility';
 import { describeAiTurnFlags, handOff, parseAiTurnFlags, resolveChoiceCard } from './aiHarness';
 import { seedEngineRandomness, seededUuid } from './seededEngineRandomness';
 
@@ -76,6 +77,13 @@ const MAP_ERA: Record<string, EraId> = {
   community_fractured_china: 'modern',
   community_sengoku_japan: 'medieval',
 };
+
+/** A map's rules era: the table above, an era map's own era, or the era a theater recommends. */
+function mapEra(mapId: string): EraId {
+  if (MAP_ERA[mapId]) return MAP_ERA[mapId]!;
+  if (mapId.startsWith('era_')) return mapId.slice(4) as EraId;
+  return (recommendedRulesEraForTheater(mapId) ?? 'ancient') as EraId;
+}
 
 function loadMap(id: string): GameMap {
   return JSON.parse(readFileSync(join(__dirname, `../../database/maps/${id}.json`), 'utf-8')) as GameMap;
@@ -216,7 +224,7 @@ function quantile(xs: number[], q: number): number {
   console.log('|---|---|---|---|---|---|---|---|---|---|');
   for (const mapId of MAPS) {
     const map = loadMap(mapId);
-    const era: EraId = MAP_ERA[mapId] ?? 'ancient';
+    const era = mapEra(mapId);
     for (const bots of BOT_COUNTS) {
       for (const newcomer of NEWCOMERS) {
         const results: GameResult[] = [];

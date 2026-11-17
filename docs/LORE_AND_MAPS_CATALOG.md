@@ -307,7 +307,7 @@ These maps use **custom geometry** (often with `projection_bounds` / `globe_view
 |----------|---------------|--------|
 | `community_fourteen_nations` | The 14 Nations | North America where no fleet came to stay: 62 territories in fourteen indigenous nations, every border a river, crest or divide. Built by `database/maps/build_fourteen_nations.py`; the globe draws `/geo/fourteen_nations_admin1.json`. |
 | `community_14_nations` | The 14 Nations (retired) | The earlier board, cut along state and provincial lines. Out of the lobby; still served for games and replays that use it. |
-| `community_strait_hormuz` | Strait of Hormuz | Gulf chokepoint theater; admin-1 subset for coastlines. |
+| `community_strait_of_hormuz` | Strait of Hormuz | Gulf chokepoint theater: 31 territories built from real provinces by `frontend/scripts/buildStraitOfHormuz.ts` (Natural Earth ne_10m admin-1; large provinces split between their towns). Replaces `community_strait_hormuz`, which is no longer offered in the lobby but still loads for games and replays on it. |
 
 ### Immersion profiles (verbatim from `customMapImmersion.ts`)
 
@@ -391,7 +391,7 @@ Lobby tooltips combine each feature’s **lore** + **effectFlavor** with the bas
 - **population_stability** — *Lore:* Megacity unrest and rural resentment decide whether your war machine keeps drafting. *How it feels:* Stability is national morale — heartland peace funds coastal tech; riots cap your surge.
 - **fog_of_war** — *Lore:* Satellite gaps, cyber smoke, and media blackout zones hide mobilization in plain sight. *How it feels:* Fog models strategic ambiguity — you see borders, not stacks, until you probe or ally-share intel.
 
-#### `community_strait_hormuz` — recommended era: `coldwar`
+#### `community_strait_of_hormuz` (and the retired `community_strait_hormuz`) — recommended era: `coldwar`
 
 - **Tagline:** Chokepoint kings — tankers, gunboats, and desert mirages.
 - **Backdrop:** The Gulf’s narrow throat concentrates oil, faith, and firepower. Iran, the Arab Gulf states, and Oman’s coast are one locked room — whoever holds the strait holds the world’s pulse for a week.

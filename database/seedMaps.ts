@@ -32,6 +32,7 @@ const COMMUNITY_MAP_FILES: { file: string; creator_id: string }[] = [
   { file: 'community_14_nations.json', creator_id: 'jmd' },
   { file: 'community_fourteen_nations.json', creator_id: 'jmd' },
   { file: 'community_strait_hormuz.json', creator_id: 'jmd' },
+  { file: 'community_strait_of_hormuz.json', creator_id: 'jmd' },
   { file: 'community_charlemagne_814.json', creator_id: 'system' },
   { file: 'community_balkanized_usa.json', creator_id: 'system' },
   { file: 'community_fractured_china.json', creator_id: 'system' },

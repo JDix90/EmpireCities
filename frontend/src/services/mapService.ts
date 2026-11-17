@@ -252,7 +252,9 @@ const STATIC_REGIONAL_MAP_IDS = new Set<string>([
   // Retired from the lobby; still served for games and replays that use it.
   'community_14_nations',
   'community_fourteen_nations',
+  // Retired from the lobby; still served for games and replays that use it.
   'community_strait_hormuz',
+  'community_strait_of_hormuz',
   'community_roman_empire_117',
   'community_mongol_empire',
   'community_napoleonic_europe',

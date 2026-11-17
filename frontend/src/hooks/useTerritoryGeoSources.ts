@@ -42,6 +42,8 @@ const REGIONAL_ADMIN1_SUBSET: Record<string, string> = {
   community_nusantara: '/geo/nusantara_admin1.json',
   community_south_america: '/geo/south_america_admin1.json',
   community_uncolonized_africa: '/geo/uncolonized_africa_admin1.json',
+  // Built by frontend/scripts/buildStraitOfHormuz.ts: provinces, and the pieces of the split ones.
+  community_strait_of_hormuz: '/geo/strait_of_hormuz_admin1.json',
   // Built by database/maps/build_fourteen_nations.py: one feature per territory.
   community_fourteen_nations: '/geo/fourteen_nations_admin1.json',
 };

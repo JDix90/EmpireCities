@@ -259,12 +259,12 @@ export const REGIONAL_MAPS: RegionalMapMeta[] = [
     year: 'Uncolonized Age',
   },
   {
-    map_id: 'community_strait_hormuz',
+    map_id: 'community_strait_of_hormuz',
     name: 'Strait of Hormuz',
     description:
-      "The world's most strategic maritime chokepoint — 24 territories spanning Iran's Hormozgan coast, the Gulf islands of Kish, Qeshm, and Lavan, the Musandam Peninsula, the UAE east coast, and Oman's Batinah. A naval theater decided in the straits.",
-    territory_count: 24,
-    region_count: 5,
+      "The world's busiest oil chokepoint and the coasts around it — 31 territories from Bushehr and the Iranian shore to the islands of Qeshm, Kish and Abu Musa, the seven emirates, Bahrain, Qatar, Saudi Arabia's Gulf coast and northern Oman. A naval theater decided in the straits.",
+    territory_count: 31,
+    region_count: 8,
     icon: '⚓',
     color: '#1CA3A3',
     bgColor: '#0B1A2B',
@@ -288,7 +288,7 @@ export const REGIONAL_THEATER_IDS = new Set<string>([
   'community_fractured_china',
   'community_nusantara',
   'community_fourteen_nations',
-  'community_strait_hormuz',
+  'community_strait_of_hormuz',
 ]);
 
 export type RegionalCategory = 'theater' | 'alt';
