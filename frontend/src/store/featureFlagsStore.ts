@@ -116,7 +116,7 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   coach_tips_enabled: true,
   // The first-win ladder: first match until the first win, one Medium bot until the second, Next battle on their results. On by default; admin kill switch.
   first_match_ladder_enabled: true,
-  // The map ladder: Britain, then Fractured China, then Sengoku Japan, one Easy bot each. Dark-launched OFF.
+  // The map ladder: Britain, Spain, China, Japan against one Easy bot, then the Medieval world against one Medium. Dark-launched OFF.
   first_match_ladder_maps_enabled: false,
   // A first match's phase button is plain until the phase's action is done. On by default; admin kill switch.
   first_match_button_emphasis_enabled: true,
@@ -336,7 +336,7 @@ export function useFirstMatchLadderEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.first_match_ladder_enabled);
 }
 
-/** The map ladder: the battles after the first match grow the board, not the bot (utils/ladder.ts). */
+/** The map ladder: the battles after the first match grow the board, then the bot (utils/ladder.ts). */
 export function useFirstMatchLadderMapsEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.first_match_ladder_maps_enabled);
 }

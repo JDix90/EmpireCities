@@ -209,7 +209,7 @@ describe('LobbyPage first match', () => {
     expect(body.settings).toMatchObject({ first_match: true, ladder_step: 1 });
   });
 
-  it('moves to one Easy bot on Fractured China after the first win, still ahead of Full Game', async () => {
+  it('moves to one Easy bot on Balkanized Spain after the first win, still ahead of Full Game', async () => {
     setFlag(true, true, true, true);
     finishedGames(2, 1);
     renderLobby();
@@ -219,7 +219,7 @@ describe('LobbyPage first match', () => {
     const body = await startQuickMatch(LADDER_MAP_BATTLES[2].buttonLine);
     expect(body).toMatchObject({
       era_id: 'modern',
-      map_id: 'community_fractured_china',
+      map_id: 'community_balkanized_spain',
       max_players: 2,
       ai_count: 1,
       ai_difficulty: 'easy',
@@ -228,20 +228,25 @@ describe('LobbyPage first match', () => {
     expect(body.settings.first_match).toBeUndefined();
   });
 
-  it('moves to one Easy bot on Sengoku Japan after the second win', async () => {
+  it.each([
+    [2, 3, 'modern', 'community_fractured_china', 'easy'],
+    [3, 4, 'medieval', 'community_sengoku_japan', 'easy'],
+    [4, 5, 'medieval', 'era_medieval', 'medium'],
+  ] as const)('after win %i, starts battle %i: %s rules on %s against one %s bot', async (won, step, era, map, level) => {
     setFlag(true, true, true, true);
-    finishedGames(4, 2);
+    finishedGames(won + 2, won);
     renderLobby();
-    await screen.findByText(LADDER_MAP_BATTLES[3].buttonLine);
+    const line = LADDER_MAP_BATTLES[step].buttonLine;
+    await screen.findByText(line);
     expect(screen.getByTestId('quick-match-start').className).toContain('btn-primary');
-    const body = await startQuickMatch(LADDER_MAP_BATTLES[3].buttonLine);
-    expect(body).toMatchObject({ era_id: 'medieval', map_id: 'community_sengoku_japan', ai_count: 1, ai_difficulty: 'easy' });
-    expect(body.settings.ladder_step).toBe(3);
+    const body = await startQuickMatch(line);
+    expect(body).toMatchObject({ era_id: era, map_id: map, max_players: 2, ai_count: 1, ai_difficulty: level });
+    expect(body.settings.ladder_step).toBe(step);
   });
 
-  it('leaves Quick Match alone after the third win with the map ladder', async () => {
+  it('leaves Quick Match alone after the fifth win with the map ladder', async () => {
     setFlag(true, true, true, true);
-    finishedGames(6, 3);
+    finishedGames(8, 5);
     renderLobby();
     const body = await startQuickMatch(/vs 3 AI · random era/);
     expect(body.settings.ladder_step).toBeUndefined();
@@ -254,7 +259,7 @@ describe('LobbyPage first match', () => {
     renderLobby('/lobby?play=quick');
     await waitFor(() => expect(postMock).toHaveBeenCalledWith('/games', expect.anything()));
     const body = postMock.mock.calls.find(([url]) => url === '/games')![1] as { map_id: string; settings: Record<string, unknown> };
-    expect(body.map_id).toBe('community_sengoku_japan');
+    expect(body.map_id).toBe('community_fractured_china');
     expect(body.settings.ladder_step).toBe(3);
   });
 
