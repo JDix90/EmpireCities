@@ -247,16 +247,16 @@ export const REGIONAL_MAPS: RegionalMapMeta[] = [
     year: 'Sengoku Jidai',
   },
   {
-    map_id: 'community_14_nations',
+    map_id: 'community_fourteen_nations',
     name: 'The 14 Nations',
     description:
-      'North America from the Yucatán to the Yukon — 43 territories across 8 regions inspired by pre-contact indigenous nations. Hold the Subarctic tundra, the Pacific coast, the Great Basin, the sweeping Great Plains, the Eastern Woodlands, and Mesoamerica.',
-    territory_count: 43,
-    region_count: 8,
+      'North America in an age when no fleet came to stay — 62 territories held by fourteen nations, from Lingít Aaní and the Salmon League to the Triple Alliance and the League of Mayapán. Every border follows the land: the Missouri and the Mississippi, the Rio Grande, the Continental Divide, the Sierras Madre and the Appalachian crest.',
+    territory_count: 62,
+    region_count: 14,
     icon: '🪶',
     color: '#B5651D',
     bgColor: '#1A140E',
-    year: 'Pre-Contact',
+    year: 'Uncolonized Age',
   },
   {
     map_id: 'community_strait_of_hormuz',
@@ -287,7 +287,7 @@ export const REGIONAL_THEATER_IDS = new Set<string>([
   'community_britain_925',
   'community_fractured_china',
   'community_nusantara',
-  'community_14_nations',
+  'community_fourteen_nations',
   'community_strait_of_hormuz',
 ]);
 

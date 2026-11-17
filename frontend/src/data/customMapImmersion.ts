@@ -739,6 +739,54 @@ const NATIONS_14: CustomMapImmersionProfile = {
   },
 };
 
+/**
+ * The rebuilt 14 Nations: fourteen indigenous confederacies on borders drawn
+ * from rivers and ranges. Replaces NATIONS_14 in the lobby; that profile stays
+ * for games already played on community_14_nations.
+ */
+const FOURTEEN_NATIONS: CustomMapImmersionProfile = {
+  map_id: 'community_fourteen_nations',
+  tagline: 'Fourteen nations, one continent, and no fleet ever came to stay.',
+  backdrop:
+    'North America where the ships that came traded and sailed home. Cahokia’s mound cities, the Triple Alliance on its lake, the Longhouse, the Salmon League and ten more confederacies grew into fourteen nations whose borders follow the rivers and ranges they fought over.',
+  // An alternate age of contact: discovery rules; must match COMMUNITY_RECOMMENDED_RULES_ERA (backend).
+  recommended_rules_era: 'discovery',
+  advanced: {
+    territory_draft: af(
+      'Before the war belts go out, every council names the river it will not give up.',
+      'Draft lets you claim a nation’s heartland, a river crossing, or a mountain pass before the fighting starts.',
+    ),
+    asymmetric_factions: af(
+      'Horse peoples of the plains, canoe nations of the lakes and the coast, and city-builders of the south each make war their own way.',
+      'Factions read as ways of life: mounted raiders, river fleets, or walled cities that hold.',
+    ),
+    economy_buildings: af(
+      'Maize, salmon, buffalo, and the shell and copper trade feed the war chests.',
+      'Buildings follow the land: river valleys and coasts pay best, and the plains reward whoever holds them.',
+    ),
+    tech_trees: af(
+      'Horses and iron came ashore with traders, not conquerors, and every nation learned to use them.',
+      'Tech unlocks the age’s edges: faster riders, stronger palisades, and longer reach by water.',
+    ),
+    historical_events: af(
+      'A drought on the plains, a failed harvest at Cahokia, a broken treaty belt: the continent’s luck turns by season.',
+      'Events are natural and political, from droughts and floods to councils that make or break alliances.',
+    ),
+    naval_warfare: af(
+      'The Great Lakes, the Mississippi and three coasts are highways for war canoes.',
+      'Sea lanes cross the Straits of Mackinac, Lake Erie, the Gulf of St. Lawrence and the Gulf of California.',
+    ),
+    population_stability: af(
+      'A nation holds together while its council fire burns; lose the heartland and the bands drift away.',
+      'Stability rewards holding a nation whole, and spreading thin across the plains costs you.',
+    ),
+    fog_of_war: af(
+      'Forest, prairie grass and mountain passes hide a war party until it is at the palisade.',
+      'Fog hides garrisons beyond your borders until you scout them; the wide interior rewards patience.',
+    ),
+  },
+};
+
 const STRAIT_HORMUZ: CustomMapImmersionProfile = {
   map_id: 'community_strait_hormuz',
   tagline: 'Twenty-four territories around one strait. Close it and the world notices.',
@@ -977,6 +1025,7 @@ export const CUSTOM_MAP_IMMERSION: Record<string, CustomMapImmersionProfile> = {
   [HORN_AFRICA.map_id]: HORN_AFRICA,
   [AUSTRALIA_1337.map_id]: AUSTRALIA_1337,
   [NATIONS_14.map_id]: NATIONS_14,
+  [FOURTEEN_NATIONS.map_id]: FOURTEEN_NATIONS,
   [STRAIT_HORMUZ.map_id]: STRAIT_HORMUZ,
   [STRAIT_OF_HORMUZ.map_id]: STRAIT_OF_HORMUZ,
 };

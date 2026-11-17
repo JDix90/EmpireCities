@@ -113,7 +113,9 @@ const CURATED_STATIC_REGIONAL_MAP_IDS = new Set<string>([
   'community_horn_africa',
   'community_australia_1337',
   'community_flooded_north_america',
+  // Retired from the lobby; still served for games and replays that use it.
   'community_14_nations',
+  'community_fourteen_nations',
   // Retired from the lobby; still served for games and replays that use it.
   'community_strait_hormuz',
   'community_strait_of_hormuz',
