@@ -59,6 +59,10 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // Game steps back as the gold button until the ladder is done.
   // On by default; the admin override is the kill switch.
   first_match_ladder_enabled: () => envOptOut('FIRST_MATCH_LADDER_ENABLED'),
+  // The map ladder: after the first match on Britain, the ladder grows the
+  // board instead of the bot: Fractured China until the second win, Sengoku
+  // Japan until the third, one Easy bot each (client-only).
+  first_match_ladder_maps_enabled: () => envOptIn('FIRST_MATCH_LADDER_MAPS_ENABLED'),
   // A first match's phase button is plain, not gold, until the phase's own
   // action is done (units placed; an attack made). Fortify keeps its gold.
   // On by default; the admin override is the kill switch.
@@ -628,6 +632,18 @@ export const featureFlags = {
    */
   get firstMatchLadderEnabled(): boolean {
     return overrideBool('first_match_ladder_enabled');
+  },
+
+  /**
+   * The map ladder (frontend utils/ladder.ts): with the first-win ladder on,
+   * the battles after the first match grow the board instead of the bot:
+   * Fractured China (30 territories) until the second win, Sengoku Japan (38)
+   * until the third, one Easy bot each, then the ordinary Quick Match. Games
+   * carry `ladder_step` 2 and 3. Client-only. Default OFF;
+   * `FIRST_MATCH_LADDER_MAPS_ENABLED=true` or the admin override turns it on.
+   */
+  get firstMatchLadderMapsEnabled(): boolean {
+    return overrideBool('first_match_ladder_maps_enabled');
   },
 
   /**
@@ -2192,6 +2208,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     first_turn_coach_enabled: featureFlags.firstTurnCoachEnabled,
     coach_tips_enabled: featureFlags.coachTipsEnabled,
     first_match_ladder_enabled: featureFlags.firstMatchLadderEnabled,
+    first_match_ladder_maps_enabled: featureFlags.firstMatchLadderMapsEnabled,
     first_match_button_emphasis_enabled: featureFlags.firstMatchButtonEmphasisEnabled,
     turn_recap_panel_enabled: featureFlags.turnRecapPanelEnabled,
     turn_clarity_enabled: featureFlags.turnClarityEnabled,

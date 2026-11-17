@@ -5,7 +5,7 @@
  * Seat 0 stands in for the newcomer: a human seat, as in the live game, played
  * by the engine's own AI at SIM_NEWCOMER difficulty. `easy` models someone who
  * barely presses, `medium` someone who attacks with purpose. Every other seat
- * is an Easy bot. Rules are the lobby's Quick Match payload (no economy, tech,
+ * is an Easy bot (SIM_BOT_LEVEL=medium for a harder rung). Rules are the lobby's Quick Match payload (no economy, tech,
  * factions, naval, events or diplomacy; territory cards on, escalating) with
  * the default Conquest ending: domination or 65% of the board, 60-round cap
  * (SIM_MAX_TURNS), baked by the server's own bakeCreateGameSettings.
@@ -55,6 +55,8 @@ const GAMES = Number(process.env.SIM_GAMES ?? 300);
 const MAPS = (process.env.SIM_MAPS ?? 'era_risorgimento,community_britain_925').split(',').map((s) => s.trim());
 const BOT_COUNTS = (process.env.SIM_BOTS ?? '1,2,3').split(',').map((s) => Number(s.trim()));
 const NEWCOMERS = (process.env.SIM_NEWCOMER ?? 'easy,medium').split(',').map((s) => s.trim() as AiDifficulty);
+/** How the bots play: Easy for the first match, Medium for a harder rung of the ladder. */
+const BOT_LEVEL = (process.env.SIM_BOT_LEVEL ?? 'easy').trim() as AiDifficulty;
 const MASTER_SEED = process.env.SIM_SEED ?? 'borderfall-first-match';
 const HUMAN_TURN_SECONDS = Number(process.env.SIM_HUMAN_TURN_SECONDS ?? 45);
 const BOT_TURN_OVERHEAD = Number(process.env.SIM_BOT_TURN_OVERHEAD ?? 1);
@@ -70,6 +72,9 @@ const FLAGS = parseAiTurnFlags('SIM_FLAGS', process.env.SIM_FLAGS);
 const MAP_ERA: Record<string, EraId> = {
   era_risorgimento: 'risorgimento',
   community_britain_925: 'medieval',
+  // The first-win ladder's later battles (frontend utils/ladder.ts), under each map's recommended rules era.
+  community_fractured_china: 'modern',
+  community_sengoku_japan: 'medieval',
 };
 
 function loadMap(id: string): GameMap {
@@ -113,7 +118,7 @@ async function runGame(map: GameMap, mapId: string, era: EraId, bots: number, ne
     username: i === 0 ? 'Newcomer' : `Bot-${i}`,
     color: ['#e74c3c', '#3498db', '#2ecc71', '#f39c12'][i] ?? '#9b59b6',
     is_ai: i > 0,
-    ...(i > 0 ? { ai_difficulty: 'easy' as AiDifficulty } : {}),
+    ...(i > 0 ? { ai_difficulty: BOT_LEVEL } : {}),
     is_eliminated: false,
     mmr: 1000,
   }));
@@ -145,7 +150,7 @@ async function runGame(map: GameMap, mapId: string, era: EraId, bots: number, ne
     guard += 1;
     const player = state.players[state.current_player_index]!;
     const isNewcomer = player.player_index === 0;
-    const level: AiDifficulty = isNewcomer ? newcomer : 'easy';
+    const level: AiDifficulty = isNewcomer ? newcomer : BOT_LEVEL;
     resolveChoiceCard(state);
     // processAiTurn's opening: a beaten bot resigns before it plans. A person does not.
     if (!isNewcomer && resignIfBeaten(state, player, level, FLAGS.resignation)) {
@@ -207,7 +212,7 @@ function quantile(xs: number[], q: number): number {
       `rules: ${FIRST_MATCH_RULES ? 'the live first match (newcomer moves first, no whole region dealt)' : 'Quick Match, who moves first rotated'}\n` +
       `bot flags: ${describeAiTurnFlags(FLAGS)}\n`,
   );
-  console.log('| Map | Easy bots | Newcomer plays as | Newcomer wins | Newcomer out | Bot wins | Hit cap | Median rounds | Median min | 80th pct min |');
+  console.log(`| Map | ${BOT_LEVEL === 'easy' ? 'Easy' : BOT_LEVEL[0]!.toUpperCase() + BOT_LEVEL.slice(1)} bots | Newcomer plays as | Newcomer wins | Newcomer out | Bot wins | Hit cap | Median rounds | Median min | 80th pct min |`);
   console.log('|---|---|---|---|---|---|---|---|---|---|');
   for (const mapId of MAPS) {
     const map = loadMap(mapId);

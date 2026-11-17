@@ -18,8 +18,24 @@ import type { QuickMatchPrefs } from './quickMatchPrefs';
  * against one Medium, 11% against two Easy (and those games run three times as
  * long), 26.5% against one Easy on the Medieval world map. One Medium on the
  * board they know is the step up that stays short.
+ *
+ * The map ladder (`first_match_ladder_maps_enabled`) grows the board instead
+ * of the bot: Britain (14 territories), then Fractured China (30) until the
+ * second win, then Sengoku Japan (38) until the third, one Easy bot each time,
+ * before the ordinary Quick Match on a world map (36 to 57). One thing changes
+ * per battle. backend/scripts/simFirstMatch.ts, 400 games per row, one bot,
+ * the newcomer barely attacking / attacking with purpose:
+ *
+ *   Britain, Easy (first match): wins 56% / 92%, median 12.6 / 3.9 min
+ *   China, Easy:                 wins 48% / 100%, median 17.4 / 3.9 min
+ *   Japan, Easy:                 wins 40% / 95%, median 22.2 / 5.5 min
+ *   China, Medium:               wins  1% / 46%
+ *   Japan, Medium:               wins  0% / 43%
+ *
+ * A Medium bot on the bigger boards would make two steps at once; two Easy
+ * bots stall (the 60-round cap in 57% of games on China, 77% on Japan).
  */
-export type LadderRung = 1 | 2;
+export type LadderRung = 1 | 2 | 3;
 
 export const LADDER_RUNG_2_ERA_ID = 'medieval';
 export const LADDER_RUNG_2_MAP_ID = 'community_britain_925';
@@ -30,16 +46,74 @@ export const LADDER_RUNG_2_BUTTON_LINE = 'Battle 2 · vs 1 Medium AI · Great Br
 /** The welcome screen and new-player card's Quick Match line on rung 2. */
 export const LADDER_RUNG_2_CARD_LINE = 'One Medium opponent on Britain — a step up from your first win.';
 
+/** A battle of the ladder after the first match: what the lobby's Quick Match starts, and how it says so. */
+export interface LadderBattle {
+  /** The game's `ladder_step`. */
+  step: 2 | 3;
+  eraId: string;
+  mapId: string;
+  prefs: QuickMatchPrefs;
+  /** The Quick Match button's second line. */
+  buttonLine: string;
+  /** The welcome screen and new-player card's Quick Match line. */
+  cardLine: string;
+}
+
+/** Rung 2 without the map ladder: one Medium bot on Britain. */
+export const LADDER_RUNG_2_BATTLE: LadderBattle = {
+  step: 2,
+  eraId: LADDER_RUNG_2_ERA_ID,
+  mapId: LADDER_RUNG_2_MAP_ID,
+  prefs: LADDER_RUNG_2_PREFS,
+  buttonLine: LADDER_RUNG_2_BUTTON_LINE,
+  cardLine: LADDER_RUNG_2_CARD_LINE,
+};
+
+/** One Easy bot, the 65% ending: the first match's table, on a bigger board. */
+const ONE_EASY_BOT: QuickMatchPrefs = { aiCount: 1, aiDifficulty: 'easy', victory: 'majority' };
+
+/**
+ * The map ladder's battles (`first_match_ladder_maps_enabled`), each under the
+ * rules era its map recommends (lobbyEraMapCompatibility.ts).
+ */
+export const LADDER_MAP_BATTLES: Record<2 | 3, LadderBattle> = {
+  2: {
+    step: 2,
+    eraId: 'modern',
+    mapId: 'community_fractured_china',
+    prefs: ONE_EASY_BOT,
+    buttonLine: 'Battle 2 · vs 1 Easy AI · Fractured China',
+    cardLine: 'One Easy opponent on warlord-era China — a bigger map, 30 territories.',
+  },
+  3: {
+    step: 3,
+    eraId: 'medieval',
+    mapId: 'community_sengoku_japan',
+    prefs: ONE_EASY_BOT,
+    buttonLine: 'Battle 3 · vs 1 Easy AI · Sengoku Japan',
+    cardLine: 'One Easy opponent across Sengoku Japan — 38 provinces, the last step before the world maps.',
+  },
+};
+
+/** The battle a rung past the first starts, or null when the ladder has none (rung 1 is the first match). */
+export function ladderBattle(rung: LadderRung | null | undefined, maps: boolean): LadderBattle | null {
+  if (rung === 2) return maps ? LADDER_MAP_BATTLES[2] : LADDER_RUNG_2_BATTLE;
+  if (rung === 3 && maps) return LADDER_MAP_BATTLES[3];
+  return null;
+}
+
 /**
  * The rung a player is on, read from GET /users/me/stats (finished games that
- * are not the tutorial): no win yet is rung 1, one win rung 2, more is past
- * the ladder (null). Undefined when the response is not readable.
+ * are not the tutorial): no win yet is rung 1, one win rung 2, two wins rung 3
+ * with the map ladder, more is past the ladder (null). Undefined when the
+ * response is not readable.
  */
-export function ladderRungFromStats(stats: unknown): LadderRung | null | undefined {
+export function ladderRungFromStats(stats: unknown, maps = false): LadderRung | null | undefined {
   const won = (stats as { overall?: { won?: unknown } } | null | undefined)?.overall?.won;
   if (typeof won !== 'number') return undefined;
   if (won <= 0) return 1;
   if (won === 1) return 2;
+  if (won === 2 && maps) return 3;
   return null;
 }
 
@@ -51,10 +125,11 @@ export function ladderRungFromStats(stats: unknown): LadderRung | null | undefin
 export async function fetchLadderRung(
   get: (url: string) => Promise<{ data: unknown }>,
   hasOwnSetup: boolean,
+  maps = false,
 ): Promise<LadderRung | null> {
   if (hasOwnSetup) return null;
   try {
-    return ladderRungFromStats((await get('/users/me/stats')).data) ?? null;
+    return ladderRungFromStats((await get('/users/me/stats')).data, maps) ?? null;
   } catch {
     return null;
   }
@@ -71,5 +146,6 @@ export function nextBattleLabel(won: boolean): string {
 
 /** Whether a finished game was one of the ladder's, so its results offer the next battle. */
 export function isLadderGame(settings: { first_match?: boolean; ladder_step?: number } | null | undefined): boolean {
-  return settings?.first_match === true || settings?.ladder_step === 1 || settings?.ladder_step === 2;
+  const step = settings?.ladder_step;
+  return settings?.first_match === true || step === 1 || step === 2 || step === 3;
 }
