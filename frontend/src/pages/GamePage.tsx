@@ -147,6 +147,7 @@ import {
 import TutorialAccountPromptModal from '../components/game/TutorialAccountPromptModal';
 import GuestSignupNudgeModal from '../components/game/GuestSignupNudgeModal';
 import PostTutorialPromptModal from '../components/game/PostTutorialPromptModal';
+import { POST_TUTORIAL_MATCH_LINE, POST_TUTORIAL_MATCH_PATH } from '../utils/firstMatch';
 import DailyClock from '../components/game/DailyClock';
 import DailyChallengeIntroModal, { type DailyIntroSpec } from '../components/game/DailyChallengeIntroModal';
 import PuzzleVerdictCard from '../components/game/PuzzleVerdictCard';
@@ -1408,8 +1409,6 @@ export default function GamePage() {
   // loop while one is up (GlobeMap `held`): the frames behind the dim are
   // not drawn.
   const globeHeld = modalQueue.length > 0 || !!truceProposal || !!truceBreakerConfirm || endDraftConfirm !== null;
-  /** Blocking dialogs the tutorial card must drop behind — see its use below. */
-  const tutorialCardBehindModal = !!modalQueue[0] || endDraftConfirm !== null;
 
   const [wonderNotif, setWonderNotif] = useState<{
     wonderId: string;
@@ -1470,6 +1469,12 @@ export default function GamePage() {
   }>(null);
   const [postTutorialPrompt, setPostTutorialPrompt] = useState(false);
   const [postTutorialStarting, setPostTutorialStarting] = useState(false);
+  /**
+   * Blocking dialogs the tutorial card must drop behind — see its use below.
+   * The post-tutorial prompt is one: a tutorial game that ends before its last
+   * step leaves the card up, and the card covered the prompt's Start button.
+   */
+  const tutorialCardBehindModal = !!modalQueue[0] || endDraftConfirm !== null || postTutorialPrompt;
   // One-time guest → create-account nudge after a non-tutorial game (see
   // maybePromptSignupNudge + GuestSignupNudgeModal).
   const [signupNudge, setSignupNudge] = useState<null | {
@@ -4098,6 +4103,17 @@ export default function GamePage() {
 
   // Post-tutorial activation: spin up an instant solo match vs AI.
   const startSoloFromTutorial = useCallback(async () => {
+    // With tutorial_wrapup_to_match_enabled this is the wrap-up's own route
+    // (handleTutorialPlayFirstMatch): the lobby's Quick Match, which is the
+    // first match for a newcomer (one Easy bot on Britain, utils/firstMatch.ts)
+    // and then the first-win ladder's next battle. This prompt shows after a
+    // tutorial GAME ends, for an account; it used to start three Medium bots on
+    // the 57-territory Ancient world map, to the whole board, on a 5-minute clock.
+    if (tutorialWrapupToMatch) {
+      setPostTutorialPrompt(false);
+      navigate(POST_TUTORIAL_MATCH_PATH);
+      return;
+    }
     setPostTutorialStarting(true);
     try {
       const res = await api.post<{ game_id: string }>('/games', {
@@ -4122,7 +4138,7 @@ export default function GamePage() {
       setPostTutorialPrompt(false);
       navigate('/lobby');
     }
-  }, [navigate]);
+  }, [navigate, tutorialWrapupToMatch]);
 
   /**
    * Navigate to the post-match replay. Wired to the "Watch Replay" CTA on
@@ -4479,7 +4495,7 @@ export default function GamePage() {
       reportTutorialExit('wrapup_to_match');
     }
     await leaveTutorialGame();
-    navigate('/lobby?play=quick');
+    navigate(POST_TUTORIAL_MATCH_PATH);
   }, [gameId, tutorialSkipped, markLessonComplete, reportTutorialExit, leaveTutorialGame, navigate]);
 
   /** Wrap-up's secondary button for a guest: save progress with an account, as a choice, not a modal. */
@@ -6846,6 +6862,7 @@ export default function GamePage() {
       {postTutorialPrompt && (
         <PostTutorialPromptModal
           loading={postTutorialStarting}
+          line={tutorialWrapupToMatch ? POST_TUTORIAL_MATCH_LINE : undefined}
           onStartSolo={() => void startSoloFromTutorial()}
           onBackToLobby={() => { setPostTutorialPrompt(false); navigate('/lobby'); }}
           onChallengeFriend={asyncOnboardingFlag ? () => {
