@@ -10,7 +10,16 @@ interface PostTutorialPromptModalProps {
    * the async path is additive so activation is never gated on a second human.
    */
   onChallengeFriend?: () => void;
+  /**
+   * The line under the title. With `tutorial_wrapup_to_match_enabled` Start
+   * leads to the lobby's Quick Match, which is the first match (one Easy bot on
+   * Britain) for a newcomer, so the default's "three AI opponents" is not true.
+   */
+  line?: string;
 }
+
+/** The default line: the old solo game, three Medium bots on the Ancient world map. */
+export const POST_TUTORIAL_THREE_AI_LINE = "You've got the basics. Ready for a real match? Three AI opponents are standing by — start now, no waiting.";
 
 /**
  * Shown right after a player finishes the tutorial. Rather than dropping back
@@ -22,6 +31,7 @@ export default function PostTutorialPromptModal({
   onStartSolo,
   onBackToLobby,
   onChallengeFriend,
+  line = POST_TUTORIAL_THREE_AI_LINE,
 }: PostTutorialPromptModalProps) {
   return (
     <div
@@ -46,10 +56,7 @@ export default function PostTutorialPromptModal({
             <Bot className="w-6 h-6 text-bf-gold" aria-hidden />
           </div>
           <h2 className="font-display text-2xl text-bf-gold mb-2">Nice work, Commander</h2>
-          <p className="text-bf-muted text-sm leading-relaxed">
-            You&apos;ve got the basics. Ready for a real match? Three AI opponents are standing by — start
-            now, no waiting.
-          </p>
+          <p className="text-bf-muted text-sm leading-relaxed">{line}</p>
         </div>
 
         <button

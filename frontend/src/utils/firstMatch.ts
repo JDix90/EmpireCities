@@ -16,6 +16,16 @@ export const FIRST_MATCH_ERA_ID = 'medieval';
 export const FIRST_MATCH_MAP_ID = 'community_britain_925';
 export const FIRST_MATCH_PREFS: QuickMatchPrefs = { aiCount: 1, aiDifficulty: 'easy', victory: 'majority' };
 
+/**
+ * Where the tutorial sends a player to their first real match
+ * (`tutorial_wrapup_to_match_enabled`): the lobby, which starts its Quick Match
+ * on arrival. Both endings of the tutorial use it: the wrap-up card's button,
+ * and the prompt an account sees when the tutorial game itself ends.
+ */
+export const POST_TUTORIAL_MATCH_PATH = '/lobby?play=quick';
+/** That prompt's line: true for the first match, the ladder's next battle and a player's own Quick Match. */
+export const POST_TUTORIAL_MATCH_LINE = "You've got the basics. Ready for a real match? Start now, no waiting.";
+
 /** The Quick Match button's second line while the next match is the first. */
 export const FIRST_MATCH_BUTTON_LINE = 'First match · vs 1 Easy AI · Great Britain';
 /** The welcome screen and new-player card's Quick Match line while the next match is the first. */

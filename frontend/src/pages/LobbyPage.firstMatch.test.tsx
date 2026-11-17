@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import LobbyPage from './LobbyPage';
 import { useAuthStore } from '../store/authStore';
 import { useFeatureFlagsStore } from '../store/featureFlagsStore';
-import { FIRST_MATCH_BUTTON_LINE } from '../utils/firstMatch';
+import { FIRST_MATCH_BUTTON_LINE, POST_TUTORIAL_MATCH_PATH } from '../utils/firstMatch';
 import { LADDER_RUNG_2_BUTTON_LINE } from '../utils/ladder';
 import { QUICK_MATCH_ERAS } from '../constants/lobbyMapOptions';
 import { saveQuickMatchPrefs } from '../utils/quickMatchPrefs';
@@ -196,7 +196,8 @@ describe('LobbyPage first match', () => {
   it('starts the first match on arrival from the tutorial wrap-up, once', async () => {
     setFlag(true);
     finishedGames(0);
-    renderLobby('/lobby?play=quick');
+    // Where both of the tutorial's endings send a player (GamePage).
+    renderLobby(POST_TUTORIAL_MATCH_PATH);
     await waitFor(() => expect(postMock).toHaveBeenCalledWith('/games', expect.anything()));
     const body = postMock.mock.calls.find(([url]) => url === '/games')![1] as { map_id: string; settings: Record<string, unknown> };
     expect(body.map_id).toBe('community_britain_925');
