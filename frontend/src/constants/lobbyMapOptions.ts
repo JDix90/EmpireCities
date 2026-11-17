@@ -78,7 +78,8 @@ export function pickQuickMatchEra(
 }
 
 export const CURATED_COMMUNITY_MAP_IDS = [
-  'community_14_nations',
+  // Rebuilt on rivers and ranges; replaces community_14_nations, which stays resolvable for old games.
+  'community_fourteen_nations',
   'community_strait_hormuz',
   'community_flooded_north_america',
   'community_charlemagne_814',

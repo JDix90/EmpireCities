@@ -2,6 +2,7 @@
 
 export const COMMUNITY_MAP_TITLES: Record<string, string> = {
   community_14_nations: 'The 14 Nations',
+  community_fourteen_nations: 'The 14 Nations',
   community_strait_hormuz: 'Strait of Hormuz',
   community_flooded_north_america: 'Flooded North America',
   community_charlemagne_814: 'Europe — Death of Charlemagne, 814 A.D.',

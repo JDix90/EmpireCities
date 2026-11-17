@@ -305,7 +305,8 @@ These maps use **custom geometry** (often with `projection_bounds` / `globe_view
 
 | `map_id` | Lobby title | Notes |
 |----------|---------------|--------|
-| `community_14_nations` | The 14 Nations | North America as fourteen peer powers; globe uses admin-1 geometry (`GlobeMap` / `globeTerritoryGeometry`). |
+| `community_fourteen_nations` | The 14 Nations | North America where no fleet came to stay: 62 territories in fourteen indigenous nations, every border a river, crest or divide. Built by `database/maps/build_fourteen_nations.py`; the globe draws `/geo/fourteen_nations_admin1.json`. |
+| `community_14_nations` | The 14 Nations (retired) | The earlier board, cut along state and provincial lines. Out of the lobby; still served for games and replays that use it. |
 | `community_strait_hormuz` | Strait of Hormuz | Gulf chokepoint theater; admin-1 subset for coastlines. |
 
 ### Immersion profiles (verbatim from `customMapImmersion.ts`)
@@ -364,7 +365,20 @@ Lobby tooltips combine each feature’s **lore** + **effectFlavor** with the bas
 - **population_stability** — *Lore:* Populations move with seasons; stability is harmony between fire, water, and law. *How it feels:* Stability models carrying capacity — crowded coasts stress faster; inland recovery follows rain.
 - **fog_of_war** — *Lore:* Reefs, mangrove mazes, and night voyaging hide fleets until the first torch on the beach. *How it feels:* Fog hides island garrisons until you send scouts — the Pacific rewards patience.
 
-#### `community_14_nations` — recommended era: `modern`
+#### `community_fourteen_nations` — recommended era: `discovery`
+
+- **Tagline:** Fourteen nations, one continent, and no fleet ever came to stay.
+- **Backdrop:** North America where the ships that came traded and sailed home. Cahokia’s mound cities, the Triple Alliance on its lake, the Longhouse, the Salmon League and ten more confederacies grew into fourteen nations whose borders follow the rivers and ranges they fought over.
+- **territory_draft** — *Lore:* Before the war belts go out, every council names the river it will not give up. *How it feels:* Draft lets you claim a nation’s heartland, a river crossing, or a mountain pass before the fighting starts.
+- **asymmetric_factions** — *Lore:* Horse peoples of the plains, canoe nations of the lakes and the coast, and city-builders of the south each make war their own way. *How it feels:* Factions read as ways of life: mounted raiders, river fleets, or walled cities that hold.
+- **economy_buildings** — *Lore:* Maize, salmon, buffalo, and the shell and copper trade feed the war chests. *How it feels:* Buildings follow the land: river valleys and coasts pay best, and the plains reward whoever holds them.
+- **tech_trees** — *Lore:* Horses and iron came ashore with traders, not conquerors, and every nation learned to use them. *How it feels:* Tech unlocks the age’s edges: faster riders, stronger palisades, and longer reach by water.
+- **historical_events** — *Lore:* A drought on the plains, a failed harvest at Cahokia, a broken treaty belt: the continent’s luck turns by season. *How it feels:* Events are natural and political, from droughts and floods to councils that make or break alliances.
+- **naval_warfare** — *Lore:* The Great Lakes, the Mississippi and three coasts are highways for war canoes. *How it feels:* Sea lanes cross the Straits of Mackinac, Lake Erie, the Gulf of St. Lawrence and the Gulf of California.
+- **population_stability** — *Lore:* A nation holds together while its council fire burns; lose the heartland and the bands drift away. *How it feels:* Stability rewards holding a nation whole, and spreading thin across the plains costs you.
+- **fog_of_war** — *Lore:* Forest, prairie grass and mountain passes hide a war party until it is at the palisade. *How it feels:* Fog hides garrisons beyond your borders until you scout them; the wide interior rewards patience.
+
+#### `community_14_nations` (retired) — recommended era: `discovery`
 
 - **Tagline:** Fourteen crowns — one continent, infinite border grudges.
 - **Backdrop:** North America reimagined as fourteen peer powers sharing one landmass. Every border is a treaty waiting to break; every heartland is someone else’s manifest destiny.
