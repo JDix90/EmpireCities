@@ -15,6 +15,7 @@ import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { isNativeApp } from '../utils/nativeApp';
 import { useAuthStore } from '../store/authStore';
+import { useFirstMatchLadderMapsEnabled } from '../store/featureFlagsStore';
 import { useCustomLobbyFoldEnabled, useCustomRoundCapEnabled, useEraAdvancementLobbyEnabled, useFirstMatchEasyEnabled, useFirstMatchPrimaryCtaEnabled, useFullGameAgesEndingEnabled, useFullGameEveningEnabled, useGuestPromptV2Enabled, useMapEditorEnabled, useMatchAlertsEnabled, useRankedMultiSizeEnabled, useSpaceAgeMoonRaceEnabled, useSoloUntimedEnabled, useFirstMatchLadderEnabled, useSpectateEnabled, useTodayPanelEnabled } from '../store/featureFlagsStore';
 import { HEGEMONY_TURNS } from '../utils/lunarHegemony';
 import { RANKED_MIN_OPPONENTS, describeRankedGameSize, getRankedOpponents, rankedEraSize, saveRankedOpponents } from '../utils/rankedPrefs';
@@ -68,14 +69,7 @@ import {
   fetchFirstMatchPending,
 } from '../utils/firstMatch';
 import { soloTurnTimerSeconds } from '../utils/soloTimer';
-import {
-  fetchLadderRung,
-  LADDER_RUNG_2_BUTTON_LINE,
-  LADDER_RUNG_2_CARD_LINE,
-  LADDER_RUNG_2_ERA_ID,
-  LADDER_RUNG_2_MAP_ID,
-  LADDER_RUNG_2_PREFS,
-} from '../utils/ladder';
+import { fetchLadderRung, ladderBattle, type LadderBattle } from '../utils/ladder';
 import {
   ASCENSION_GALAXY_SPINE_ID,
   isAscensionGalaxyMap,
@@ -438,22 +432,25 @@ export default function LobbyPage() {
   const firstMatchEasyEnabled = useFirstMatchEasyEnabled();
   const [firstMatchPending, setFirstMatchPending] = useState<boolean | null>(null);
   // The first-win ladder (first_match_ladder_enabled, utils/ladder.ts): the
-  // first match until the first win, then rung 2 until the second.
+  // first match until the first win, then the next battle (`ladderNext`) until
+  // the second; with the map ladder (first_match_ladder_maps_enabled) a bigger
+  // board each win, through the third.
   const ladderEnabled = useFirstMatchLadderEnabled();
-  const [ladderRung2, setLadderRung2] = useState(false);
+  const ladderMaps = useFirstMatchLadderMapsEnabled();
+  const [ladderNext, setLadderNext] = useState<LadderBattle | null>(null);
   const userId = user?.user_id;
   useEffect(() => {
     if (!firstMatchEasyEnabled || !userId) {
       setFirstMatchPending(false);
-      setLadderRung2(false);
+      setLadderNext(null);
       return;
     }
     let cancelled = false;
     if (ladderEnabled) {
-      void fetchLadderRung((url) => api.get(url), hasSavedQuickMatchPrefs()).then((rung) => {
+      void fetchLadderRung((url) => api.get(url), hasSavedQuickMatchPrefs(), ladderMaps).then((rung) => {
         if (cancelled) return;
         setFirstMatchPending(rung === 1);
-        setLadderRung2(rung === 2);
+        setLadderNext(ladderBattle(rung, ladderMaps));
       });
     } else {
       void fetchFirstMatchPending((url) => api.get(url), hasSavedQuickMatchPrefs()).then((pending) => {
@@ -463,7 +460,7 @@ export default function LobbyPage() {
     return () => {
       cancelled = true;
     };
-  }, [firstMatchEasyEnabled, ladderEnabled, userId]);
+  }, [firstMatchEasyEnabled, ladderEnabled, ladderMaps, userId]);
   // While the next Quick Match is the first, it is the gold button and comes
   // first, and Full Game steps back: a newcomer's most prominent choice is
   // then the short, winnable match rather than the one that runs to its cap.
@@ -471,8 +468,8 @@ export default function LobbyPage() {
   // Quick Match and Full Game seat one player against bots, so they start
   // untimed with solo_untimed_enabled (utils/soloTimer.ts).
   const soloUntimed = useSoloUntimedEnabled();
-  // On the ladder's second rung Full Game still steps back: the ladder is not done.
-  const quickMatchLeads = firstMatchPrimaryCtaEnabled && (firstMatchPending === true || ladderRung2);
+  // On the ladder's later rungs Full Game still steps back: the ladder is not done.
+  const quickMatchLeads = firstMatchPrimaryCtaEnabled && (firstMatchPending === true || ladderNext !== null);
   const quickMatchButtonClass = !eraAdvancementLobbyEnabled || quickMatchLeads ? 'btn-primary' : 'btn-secondary';
   // The welcome banner's guest line (utils/guestGate.ts).
   const saveAccountCopy = useSaveAccountCopyEnabled();
@@ -1599,8 +1596,9 @@ export default function LobbyPage() {
   const updateQuickMatchPrefs = (prefs: QuickMatchPrefs) => {
     setQuickMatchPrefs(prefs);
     saveQuickMatchPrefs(prefs);
-    // A setup of their own is the player's choice: it replaces the first match.
+    // A setup of their own is the player's choice: it replaces the ladder.
     setFirstMatchPending(false);
+    setLadderNext(null);
   };
 
   // Close the Quick Match options popover on outside click / Escape.
@@ -1632,22 +1630,22 @@ export default function LobbyPage() {
       // only if the lobby's own check has not answered yet.
       // With the first-win ladder the rung is read fresh here when the lobby's
       // own check has not answered (a Next battle arrives straight from a game).
-      let rung2 = ladderRung2;
+      let next = ladderNext;
       let firstMatch: boolean;
       if (!firstMatchEasyEnabled) {
         firstMatch = false;
       } else if (ladderEnabled && firstMatchPending === null) {
-        const rung = await fetchLadderRung((url) => api.get(url), hasSavedQuickMatchPrefs());
+        const rung = await fetchLadderRung((url) => api.get(url), hasSavedQuickMatchPrefs(), ladderMaps);
         firstMatch = rung === 1;
-        rung2 = rung === 2;
+        next = ladderBattle(rung, ladderMaps);
       } else {
         firstMatch = firstMatchPending ?? (await fetchFirstMatchPending((url) => api.get(url), hasSavedQuickMatchPrefs()));
       }
-      const prefs = firstMatch ? FIRST_MATCH_PREFS : rung2 ? LADDER_RUNG_2_PREFS : quickMatchPrefs;
+      const prefs = firstMatch ? FIRST_MATCH_PREFS : next ? next.prefs : quickMatchPrefs;
       // Random era each match — always-Ancient got repetitive (player
       // feedback). Pool: the six Earth world maps; see QUICK_MATCH_ERAS.
-      const era = firstMatch ? FIRST_MATCH_ERA_ID : rung2 ? LADDER_RUNG_2_ERA_ID : pickQuickMatchEra(Math.random);
-      const mapId = firstMatch ? FIRST_MATCH_MAP_ID : rung2 ? LADDER_RUNG_2_MAP_ID : ERA_MAP_IDS[era];
+      const era = firstMatch ? FIRST_MATCH_ERA_ID : next ? next.eraId : pickQuickMatchEra(Math.random);
+      const mapId = firstMatch ? FIRST_MATCH_MAP_ID : next ? next.mapId : ERA_MAP_IDS[era];
       const res = await api.post('/games', {
         era_id: era,
         map_id: mapId,
@@ -1677,7 +1675,7 @@ export default function LobbyPage() {
           // Tags the game for the Analytics tab's first-match rows.
           ...(firstMatch ? { first_match: true } : {}),
           // And for the first-win ladder: its rung (utils/ladder.ts).
-          ...(ladderEnabled && (firstMatch || rung2) ? { ladder_step: firstMatch ? 1 : 2 } : {}),
+          ...(ladderEnabled && (firstMatch || next) ? { ladder_step: firstMatch ? 1 : next!.step } : {}),
         }),
       });
       navigate(`/game/${res.data.game_id}`);
@@ -2122,7 +2120,7 @@ export default function LobbyPage() {
     <div className="min-h-screen bg-bf-dark" {...pullHandlers}>
       {showWelcomeModal && (
         <NewUserWelcomeModal
-          quickMatchLine={firstMatchPending ? FIRST_MATCH_CARD_LINE : ladderRung2 ? LADDER_RUNG_2_CARD_LINE : undefined}
+          quickMatchLine={firstMatchPending ? FIRST_MATCH_CARD_LINE : ladderNext ? ladderNext.cardLine : undefined}
           onStartTutorial={() => void handleWelcomeTutorial()}
           onJumpIn={() => void handleWelcomeQuickSolo()}
           onDismiss={() => { markWelcomeSeen(); setShowWelcomeModal(false); }}
@@ -2284,8 +2282,8 @@ export default function LobbyPage() {
                 <span className="text-[11px] font-normal opacity-75">
                   {firstMatchPending
                     ? FIRST_MATCH_BUTTON_LINE
-                    : ladderRung2
-                      ? LADDER_RUNG_2_BUTTON_LINE
+                    : ladderNext
+                      ? ladderNext.buttonLine
                       : `${QUICK_MATCH_VICTORY_LABELS[quickMatchPrefs.victory]} · vs ${quickMatchPrefs.aiCount} AI · random era`}
                 </span>
               </button>
@@ -2652,8 +2650,8 @@ export default function LobbyPage() {
                     <p className="text-bf-muted text-xs mt-1">
                       {firstMatchPending
                         ? FIRST_MATCH_CARD_LINE
-                        : ladderRung2
-                          ? LADDER_RUNG_2_CARD_LINE
+                        : ladderNext
+                          ? ladderNext.cardLine
                           : `${describeQuickMatchPrefs(quickMatchPrefs)} opponents ready — start now. Random era map.`}
                     </p>
                     <p className="text-bf-muted text-xs mt-1">

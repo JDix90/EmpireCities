@@ -141,6 +141,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Quick Match stays the first match (one Easy bot on Britain) until the player\u2019s first win, not their first finished game; then one Medium bot on Britain until their second win; then the player\u2019s own Quick Match. The results screen of a ladder game leads with Try again (after a loss) or Next battle (after a win), and Full Game stays the second choice until the ladder is done. Before it, one finished game, won or lost, made Full Game the gold button. The server keeps the first-match tag (fair start, gold on the action, the tips offer) until the first win. On by default; switching it off gives the first match for the first finished game only, as before.',
   },
   {
+    key: 'first_match_ladder_maps_enabled',
+    label: 'Map ladder: Britain, China, Japan',
+    description:
+      'With the first-win ladder on, the battles after the first match grow the map instead of the bot: after the first win, one Easy bot on Fractured China (30 territories) until the second win; then one Easy bot on Sengoku Japan (38) until the third; then the player\u2019s own Quick Match on a world map. Each battle is a little longer than the last instead of a jump from Britain (14) to a world map (36 to 57). Simulated, a newcomer who attacks with purpose wins nearly every one of them in 4 to 6 minutes; one who barely attacks wins 56%, 48% and 40%, in a median 13, 17 and 22 minutes. Off by default; off, the battle after the first win is one Medium bot on Britain, then the player\u2019s own Quick Match, as before.',
+  },
+  {
     key: 'coach_tips_enabled',
     label: 'Coach tips',
     description:
