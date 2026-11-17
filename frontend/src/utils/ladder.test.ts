@@ -15,8 +15,8 @@ describe('ladderRungFromStats (first_match_ladder_enabled)', () => {
     expect(ladderRungFromStats({ overall: { played: 9, won: 2 } })).toBeNull();
   });
 
-  it('climbs a rung each win to the fifth battle with the map ladder, then lets go', () => {
-    expect([0, 1, 2, 3, 4, 5, 9].map((won) => ladderRungFromStats({ overall: { won } }, true))).toEqual([1, 2, 3, 4, 5, null, null]);
+  it('climbs a rung each win to the sixth battle with the map ladder, then lets go', () => {
+    expect([0, 1, 2, 3, 4, 5, 6, 9].map((won) => ladderRungFromStats({ overall: { won } }, true))).toEqual([1, 2, 3, 4, 5, 6, null, null]);
   });
 
   it('says nothing for a response it cannot read', () => {
@@ -36,7 +36,7 @@ describe('fetchLadderRung', () => {
     await expect(fetchLadderRung(async () => ({ data: { overall: { won: 1 } } }), false)).resolves.toBe(2);
     await expect(fetchLadderRung(async () => ({ data: { overall: { won: 2 } } }), false)).resolves.toBeNull();
     await expect(fetchLadderRung(async () => ({ data: { overall: { won: 2 } } }), false, true)).resolves.toBe(3);
-    await expect(fetchLadderRung(async () => ({ data: { overall: { won: 4 } } }), false, true)).resolves.toBe(5);
+    await expect(fetchLadderRung(async () => ({ data: { overall: { won: 5 } } }), false, true)).resolves.toBe(6);
     await expect(fetchLadderRung(async () => { throw new Error('offline'); }, false)).resolves.toBeNull();
   });
 });
@@ -49,22 +49,24 @@ describe('ladderBattle (first_match_ladder_maps_enabled)', () => {
       mapId: 'community_britain_925',
       prefs: { aiCount: 1, aiDifficulty: 'medium' },
     });
-    for (const rung of [3, 4, 5] as const) expect(ladderBattle(rung, false)).toBeNull();
+    for (const rung of [3, 4, 5, 6] as const) expect(ladderBattle(rung, false)).toBeNull();
   });
 
-  it('grows the board with the map ladder against one Easy bot, then steps the bot up on a world map', () => {
-    const battles = ([2, 3, 4, 5] as const).map((rung) => ladderBattle(rung, true)!);
+  it('grows the board with the map ladder against one Easy bot, then steps the bots up on a world map', () => {
+    const battles = ([2, 3, 4, 5, 6] as const).map((rung) => ladderBattle(rung, true)!);
     expect(battles.map((b) => [b.step, b.eraId, b.mapId, b.prefs.aiCount, b.prefs.aiDifficulty, b.prefs.victory])).toEqual([
       [2, 'modern', 'community_balkanized_spain', 1, 'easy', 'majority'],
       [3, 'modern', 'community_fractured_china', 1, 'easy', 'majority'],
       [4, 'medieval', 'community_sengoku_japan', 1, 'easy', 'majority'],
       [5, 'medieval', 'era_medieval', 1, 'medium', 'majority'],
+      [6, 'medieval', 'era_medieval', 2, 'medium', 'majority'],
     ]);
     expect(battles.map((b) => b.buttonLine)).toEqual([
       'Battle 2 · vs 1 Easy AI · Balkanized Spain',
       'Battle 3 · vs 1 Easy AI · Fractured China',
       'Battle 4 · vs 1 Easy AI · Sengoku Japan',
       'Battle 5 · vs 1 Medium AI · Medieval world',
+      'Battle 6 · vs 2 Medium AI · Medieval world',
     ]);
   });
 
@@ -86,8 +88,8 @@ describe('the results screen’s ladder button', () => {
   it('shows on the ladder’s games only', () => {
     expect(isLadderGame({ first_match: true })).toBe(true);
     expect(isLadderGame({ ladder_step: 2 })).toBe(true);
-    expect(isLadderGame({ ladder_step: 5 })).toBe(true);
-    expect(isLadderGame({ ladder_step: 6 })).toBe(false);
+    expect(isLadderGame({ ladder_step: 6 })).toBe(true);
+    expect(isLadderGame({ ladder_step: 7 })).toBe(false);
     expect(isLadderGame({ ladder_step: 2.5 })).toBe(false);
     expect(isLadderGame({})).toBe(false);
     expect(isLadderGame(null)).toBe(false);

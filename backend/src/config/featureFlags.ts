@@ -61,7 +61,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   first_match_ladder_enabled: () => envOptOut('FIRST_MATCH_LADDER_ENABLED'),
   // The map ladder: after the first match on Britain, a bigger board each win
   // against one Easy bot (Balkanized Spain, Fractured China, Sengoku Japan),
-  // then the Medieval world map against one Medium bot (client-only).
+  // then the Medieval world map against one Medium bot and then two (client-only).
   first_match_ladder_maps_enabled: () => envOptIn('FIRST_MATCH_LADDER_MAPS_ENABLED'),
   // A first match's phase button is plain, not gold, until the phase's own
   // action is done (units placed; an attack made). Fortify keeps its gold.
@@ -639,8 +639,9 @@ export const featureFlags = {
    * the battles after the first match grow the board, then the bot, a step
    * per win: Balkanized Spain (24 territories), Fractured China (30) and
    * Sengoku Japan (38) against one Easy bot, then the Medieval world map (36)
-   * against one Medium bot, then the ordinary Quick Match. Games carry
-   * `ladder_step` 2 to 5. Client-only. Default OFF;
+   * against one Medium bot and then two, then the ordinary Quick Match. Games
+   * carry `ladder_step` 2 to 6 (POST /api/games accepts up to 6). The server
+   * does not read the flag. Default OFF;
    * `FIRST_MATCH_LADDER_MAPS_ENABLED=true` or the admin override turns it on.
    */
   get firstMatchLadderMapsEnabled(): boolean {

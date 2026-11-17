@@ -229,10 +229,11 @@ describe('LobbyPage first match', () => {
   });
 
   it.each([
-    [2, 3, 'modern', 'community_fractured_china', 'easy'],
-    [3, 4, 'medieval', 'community_sengoku_japan', 'easy'],
-    [4, 5, 'medieval', 'era_medieval', 'medium'],
-  ] as const)('after win %i, starts battle %i: %s rules on %s against one %s bot', async (won, step, era, map, level) => {
+    [2, 3, 'modern', 'community_fractured_china', 1, 'easy'],
+    [3, 4, 'medieval', 'community_sengoku_japan', 1, 'easy'],
+    [4, 5, 'medieval', 'era_medieval', 1, 'medium'],
+    [5, 6, 'medieval', 'era_medieval', 2, 'medium'],
+  ] as const)('after win %i, starts battle %i: %s rules on %s against %i %s bot(s)', async (won, step, era, map, bots, level) => {
     setFlag(true, true, true, true);
     finishedGames(won + 2, won);
     renderLobby();
@@ -240,13 +241,13 @@ describe('LobbyPage first match', () => {
     await screen.findByText(line);
     expect(screen.getByTestId('quick-match-start').className).toContain('btn-primary');
     const body = await startQuickMatch(line);
-    expect(body).toMatchObject({ era_id: era, map_id: map, max_players: 2, ai_count: 1, ai_difficulty: level });
+    expect(body).toMatchObject({ era_id: era, map_id: map, max_players: bots + 1, ai_count: bots, ai_difficulty: level });
     expect(body.settings.ladder_step).toBe(step);
   });
 
-  it('leaves Quick Match alone after the fifth win with the map ladder', async () => {
+  it('leaves Quick Match alone after the sixth win with the map ladder', async () => {
     setFlag(true, true, true, true);
-    finishedGames(8, 5);
+    finishedGames(9, 6);
     renderLobby();
     const body = await startQuickMatch(/vs 3 AI · random era/);
     expect(body.settings.ladder_step).toBeUndefined();

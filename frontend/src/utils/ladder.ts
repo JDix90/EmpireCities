@@ -22,9 +22,9 @@ import type { QuickMatchPrefs } from './quickMatchPrefs';
  * The map ladder (`first_match_ladder_maps_enabled`) grows the board, then
  * the bot, one win at a time: Britain (14 territories), Balkanized Spain
  * (24), Fractured China (30) and Sengoku Japan (38) against one Easy bot,
- * then the Medieval world map (36) against one Medium bot, before the
- * ordinary Quick Match (three Medium bots on a world map of 36 to 57). One
- * thing changes per battle. backend/scripts/simFirstMatch.ts, 400 games per
+ * then the Medieval world map (36) against one Medium bot and then two,
+ * before the ordinary Quick Match (three Medium bots on a world map of 36 to
+ * 57). One thing changes per battle. backend/scripts/simFirstMatch.ts, 400 games per
  * row, the newcomer barely attacking / attacking with purpose:
  *
  *   1 Britain, 1 Easy (first match):  wins 56% / 92%,  median 12.6 / 3.9 min
@@ -32,15 +32,18 @@ import type { QuickMatchPrefs } from './quickMatchPrefs';
  *   3 China, 1 Easy:                  wins 48% / 100%, median 17.4 / 3.9 min
  *   4 Japan, 1 Easy:                  wins 40% / 95%,  median 22.2 / 5.5 min
  *   5 Medieval world, 1 Medium:       wins  7% / 42%,  median  4.9 / 5.5 min
+ *   6 Medieval world, 2 Medium:       wins  3% / 23%,  median 16.6 / 19.0 min
  *   then a world map, 3 Medium:       wins 0-3% / 15-19%, median 18-38 min
  *
  * A Medium bot on the regional boards would make two steps at once (China
  * 1% / 46%, Japan 0% / 43%); two Easy bots stall (the 60-round cap in 57% of
  * games on China, 77% on Japan). One Easy bot on the Medieval world map
- * stalls too (cap in 53% of a passive newcomer's games), and two Medium bots
- * there run 19 minutes for a 23% win: one Medium is the step from Easy.
+ * stalls too (cap in 53% of a passive newcomer's games): one Medium is the
+ * step from Easy. Two Medium bots on the board the player just won keep the
+ * last step to one change; on the other world maps they ran 18-22% (WW2,
+ * Cold War, Modern), and on Discovery stalled at the cap in half the games.
  */
-export type LadderRung = 1 | 2 | 3 | 4 | 5;
+export type LadderRung = 1 | 2 | 3 | 4 | 5 | 6;
 
 export const LADDER_RUNG_2_ERA_ID = 'medieval';
 export const LADDER_RUNG_2_MAP_ID = 'community_britain_925';
@@ -54,7 +57,7 @@ export const LADDER_RUNG_2_CARD_LINE = 'One Medium opponent on Britain — a ste
 /** A battle of the ladder after the first match: what the lobby's Quick Match starts, and how it says so. */
 export interface LadderBattle {
   /** The game's `ladder_step`. */
-  step: 2 | 3 | 4 | 5;
+  step: 2 | 3 | 4 | 5 | 6;
   eraId: string;
   mapId: string;
   prefs: QuickMatchPrefs;
@@ -78,15 +81,17 @@ export const LADDER_RUNG_2_BATTLE: LadderBattle = {
 const ONE_EASY_BOT: QuickMatchPrefs = { aiCount: 1, aiDifficulty: 'easy', victory: 'majority' };
 /** One Medium bot, the 65% ending: the step from Easy toward the ordinary Quick Match's three. */
 const ONE_MEDIUM_BOT: QuickMatchPrefs = { aiCount: 1, aiDifficulty: 'medium', victory: 'majority' };
+/** Two Medium bots: the last step before the ordinary Quick Match's three. */
+const TWO_MEDIUM_BOTS: QuickMatchPrefs = { aiCount: 2, aiDifficulty: 'medium', victory: 'majority' };
 
-/** The map ladder's last rung: past it, the ordinary Quick Match. */
-export const LADDER_MAPS_LAST_RUNG = 5;
+/** The map ladder's last rung: past it, the ordinary Quick Match. POST /api/games accepts `ladder_step` up to it. */
+export const LADDER_MAPS_LAST_RUNG = 6;
 
 /**
  * The map ladder's battles (`first_match_ladder_maps_enabled`), each under the
  * rules era its map recommends (lobbyEraMapCompatibility.ts).
  */
-export const LADDER_MAP_BATTLES: Record<2 | 3 | 4 | 5, LadderBattle> = {
+export const LADDER_MAP_BATTLES: Record<2 | 3 | 4 | 5 | 6, LadderBattle> = {
   2: {
     step: 2,
     eraId: 'modern',
@@ -117,21 +122,29 @@ export const LADDER_MAP_BATTLES: Record<2 | 3 | 4 | 5, LadderBattle> = {
     mapId: 'era_medieval',
     prefs: ONE_MEDIUM_BOT,
     buttonLine: 'Battle 5 · vs 1 Medium AI · Medieval world',
-    cardLine: 'Your first world map, against one Medium opponent — the last battle before the full Quick Match.',
+    cardLine: 'Your first world map, against one Medium opponent.',
+  },
+  6: {
+    step: 6,
+    eraId: 'medieval',
+    mapId: 'era_medieval',
+    prefs: TWO_MEDIUM_BOTS,
+    buttonLine: 'Battle 6 · vs 2 Medium AI · Medieval world',
+    cardLine: 'Two Medium opponents on the world you just won — the last battle before the full Quick Match.',
   },
 };
 
 /** The battle a rung past the first starts, or null when the ladder has none (rung 1 is the first match). */
 export function ladderBattle(rung: LadderRung | null | undefined, maps: boolean): LadderBattle | null {
   if (rung === 2 && !maps) return LADDER_RUNG_2_BATTLE;
-  if (maps && (rung === 2 || rung === 3 || rung === 4 || rung === 5)) return LADDER_MAP_BATTLES[rung];
+  if (maps && (rung === 2 || rung === 3 || rung === 4 || rung === 5 || rung === 6)) return LADDER_MAP_BATTLES[rung];
   return null;
 }
 
 /**
  * The rung a player is on, read from GET /users/me/stats (finished games that
  * are not the tutorial): no win yet is rung 1, one win rung 2; with the map
- * ladder, each further win a rung up to rung 5 (four wins). Past the ladder is
+ * ladder, each further win a rung up to rung 6 (five wins). Past the ladder is
  * null. Undefined when the response is not readable.
  */
 export function ladderRungFromStats(stats: unknown, maps = false): LadderRung | null | undefined {

@@ -79,8 +79,11 @@ export const CreateGameSchema = z.object({
       fog_of_war: z.boolean().default(false),
       /** The player's first Quick Match (see featureFlags.firstMatchEasyEnabled). Kept only while that flag is on. */
       first_match: z.boolean().optional(),
-      /** The first-win ladder's rung (featureFlags.firstMatchLadderEnabled). Kept only while that flag is on. */
-      ladder_step: z.number().int().min(1).max(5).optional(),
+      /**
+       * The first-win ladder's rung (featureFlags.firstMatchLadderEnabled). Kept only while that flag is on.
+       * Up to the map ladder's last battle (frontend utils/ladder.ts LADDER_MAPS_LAST_RUNG).
+       */
+      ladder_step: z.number().int().min(1).max(6).optional(),
       allowed_victory_conditions: z.array(victoryConditionEnum).min(1).max(5).optional(),
       /** Legacy single-select; ignored when `allowed_victory_conditions` is set. */
       victory_type: victoryConditionEnum.optional(),
