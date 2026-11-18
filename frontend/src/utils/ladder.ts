@@ -1,5 +1,5 @@
 import type { QuickMatchPrefs } from './quickMatchPrefs';
-import { fetchFirstMatchPending } from './firstMatch';
+import { fetchFirstMatchPending, ladderCounts } from './firstMatch';
 
 /**
  * The first-win ladder (`first_match_ladder_enabled`): the stopgap for the
@@ -144,12 +144,12 @@ export function ladderBattle(rung: LadderRung | null | undefined, maps: boolean)
 
 /**
  * The rung a player is on, read from GET /users/me/stats (finished games that
- * are not the tutorial): no win yet is rung 1, one win rung 2; with the map
+ * are not the tutorial or a campaign stage): no win yet is rung 1, one win rung 2; with the map
  * ladder, each further win a rung up to rung 6 (five wins). Past the ladder is
  * null. Undefined when the response is not readable.
  */
 export function ladderRungFromStats(stats: unknown, maps = false): LadderRung | null | undefined {
-  const won = (stats as { overall?: { won?: unknown } } | null | undefined)?.overall?.won;
+  const won = ladderCounts(stats)?.won;
   if (typeof won !== 'number') return undefined;
   if (won <= 0) return 1;
   const rung = Math.floor(won) + 1;

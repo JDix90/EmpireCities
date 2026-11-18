@@ -8,6 +8,7 @@ import { pgPool, query, queryOne, withTransaction } from '../../db/postgres';
 import { checkOnboardingQuests } from '../../game-engine/progression/progressionService';
 import { effectiveLoadout, loadoutColumns, type Loadout, type LoadoutRow } from './loadout';
 import { andNotTutorialSql } from '../../game-engine/tutorial/tutorialGames';
+import { IS_CAMPAIGN_GAME_SQL } from '../games/firstMatchEligibility';
 import { isTutorialLessonModule } from '../../game-engine/tutorial/tutorialModules';
 import { currentWinStreak, grantAchievementsOutsideGame } from '../../game-engine/achievements/achievementService';
 import { formatZodError } from '../../utils/formatZodError';
@@ -367,23 +368,28 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
   // ── GET /api/users/me/stats ───────────────────────────────────────────
   fastify.get('/me/stats', { preHandler: authenticate }, async (request, reply) => {
     const rows = await query<{
-      game_type: string; era_id: string; won: boolean; game_count: string;
+      game_type: string; era_id: string; won: boolean; is_campaign: boolean; game_count: string;
     }>(
       `SELECT g.game_type, g.era_id,
               (gp.final_rank = 1) AS won,
+              ${IS_CAMPAIGN_GAME_SQL} AS is_campaign,
               COUNT(*) AS game_count
        FROM game_players gp
        JOIN games g ON g.game_id = gp.game_id
        WHERE gp.user_id = $1
          AND g.status = 'completed'
          ${andNotTutorialSql()}
-       GROUP BY g.game_type, g.era_id, (gp.final_rank = 1)`,
+       GROUP BY g.game_type, g.era_id, (gp.final_rank = 1), ${IS_CAMPAIGN_GAME_SQL}`,
       [request.userId],
     );
 
     type Bucket = { played: number; won: number; win_rate: number };
     const bucket = (): Bucket => ({ played: 0, won: 0, win_rate: 0 });
     const overall = bucket();
+    // The first match and the first-win ladder read this one: the same games
+    // without the campaign's, whose stages are their own progression. A stage
+    // won must not skip a player past a first match they have not played.
+    const ladder = bucket();
     const solo = bucket();
     const multi = bucket();
     const hybrid = bucket();
@@ -396,9 +402,11 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
       const cat = categoryMap[row.game_type] ?? hybrid;
       cat.played += count;
       overall.played += count;
+      if (!row.is_campaign) ladder.played += count;
       if (row.won) {
         cat.won += count;
         overall.won += count;
+        if (!row.is_campaign) ladder.won += count;
       }
       if (!byEra[row.era_id]) byEra[row.era_id] = { played: 0, won: 0 };
       byEra[row.era_id].played += count;
@@ -406,7 +414,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     const rate = (b: Bucket) => { b.win_rate = b.played > 0 ? +(b.won / b.played).toFixed(2) : 0; };
-    rate(overall); rate(solo); rate(multi); rate(hybrid);
+    rate(overall); rate(ladder); rate(solo); rate(multi); rate(hybrid);
 
     const recentGames = await query<{ won: boolean; ended_at: Date }>(
       `SELECT (gp.final_rank = 1) AS won, g.ended_at
@@ -444,6 +452,7 @@ export async function usersRoutes(fastify: FastifyInstance): Promise<void> {
 
     return reply.send({
       overall,
+      ladder,
       solo,
       multi,
       hybrid,

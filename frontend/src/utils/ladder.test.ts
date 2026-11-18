@@ -18,6 +18,11 @@ describe('ladderRungFromStats (first_match_ladder_enabled)', () => {
     expect(ladderRungFromStats({ overall: { played: 9, won: 2 } })).toBeNull();
   });
 
+  it('counts wins off the ladder counts when the server sends them: a campaign stage won is not a rung', () => {
+    expect(ladderRungFromStats({ overall: { played: 2, won: 2 }, ladder: { played: 0, won: 0 } })).toBe(1);
+    expect(ladderRungFromStats({ overall: { played: 5, won: 3 }, ladder: { played: 2, won: 1 } })).toBe(2);
+  });
+
   it('climbs a rung each win to the sixth battle with the map ladder, then lets go', () => {
     expect([0, 1, 2, 3, 4, 5, 6, 9].map((won) => ladderRungFromStats({ overall: { won } }, true))).toEqual([1, 2, 3, 4, 5, 6, null, null]);
   });
