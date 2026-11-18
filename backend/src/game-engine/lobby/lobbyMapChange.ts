@@ -47,6 +47,16 @@ export const LOBBY_ERA_LABELS: Record<string, string> = {
   galaxy_age: 'Galactic Age',
 };
 
+/**
+ * Curated maps rebuilt under a new id (community_fourteen_nations,
+ * community_strait_of_hormuz). They still load for games and replays that use
+ * them — the static map lists keep serving them — but they are not offered for
+ * new games, so the Map Hub's community listing and the Map of the Week leave
+ * them out too: both were seeded as community maps, and their "Play This Map"
+ * only met "That theater map is not available in the lobby".
+ */
+export const RETIRED_COMMUNITY_MAP_IDS: readonly string[] = ['community_14_nations', 'community_strait_hormuz'];
+
 /** Curated community / regional maps selectable in lobby (matches customMapImmersion). */
 export const CURATED_COMMUNITY_MAP_IDS = new Set([
   'community_flooded_north_america',

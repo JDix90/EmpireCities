@@ -187,14 +187,20 @@ export async function listPublicMapRows(options: {
   sort: 'rating' | 'plays' | 'new';
   page: number;
   limit: number;
+  /** Map ids to leave out: retired maps that still exist for old games. */
+  excludeIds?: readonly string[];
 }): Promise<{ rows: PublicMapRow[]; total: number }> {
-  const { era, sort, page, limit } = options;
+  const { era, sort, page, limit, excludeIds = [] } = options;
   const offset = (page - 1) * limit;
   const params: unknown[] = [];
   const filters = [`m.is_public = true`, `m.moderation_status = 'approved'`, `m.creator_id <> 'system'`];
   if (era) {
     params.push(era);
     filters.push(`m.era_theme = $${params.length}`);
+  }
+  if (excludeIds.length) {
+    params.push([...excludeIds]);
+    filters.push(`NOT (m.map_id = ANY($${params.length}))`);
   }
   const where = filters.join(' AND ');
   const orderBy =
@@ -224,7 +230,7 @@ export async function listPublicMapRows(options: {
 }
 
 /** Approved community maps with their author's name, for the week's featured pick. */
-export async function listFeaturedCandidates(limit = 40): Promise<PublicMapRow[]> {
+export async function listFeaturedCandidates(limit = 40, excludeIds: readonly string[] = []): Promise<PublicMapRow[]> {
   return query<PublicMapRow>(
     `SELECT m.map_id, m.creator_id, m.name, m.description, m.era_theme, m.background_image_url,
             m.canvas_width, m.canvas_height, m.projection_bounds, m.globe_view, m.map_kind, m.worlds,
@@ -235,9 +241,10 @@ export async function listFeaturedCandidates(limit = 40): Promise<PublicMapRow[]
      FROM maps m
      LEFT JOIN users u ON u.user_id::text = m.creator_id
      WHERE m.is_public = true AND m.moderation_status = 'approved' AND m.creator_id <> 'system'
+       AND NOT (m.map_id = ANY($2))
      ORDER BY m.rating DESC, m.play_count DESC, m.created_at ASC
      LIMIT $1`,
-    [limit],
+    [limit, [...excludeIds]],
   );
 }
 
