@@ -80,6 +80,7 @@ import { hasSavedQuickMatchPrefs } from '../utils/quickMatchPrefs';
 import { useFirstMatchEasyEnabled, useFirstMatchLadderMapsEnabled } from '../store/featureFlagsStore';
 import { resultsActionProperties, type ResultsAction } from '../utils/resultsAction';
 import { campaignResultButtonLabel, type CampaignGameResult } from '../utils/campaignResult';
+import { factionDisplayName } from '../utils/factionNames';
 import { FIRST_TURN_STEPS_V2, newFirstTurnSteps, type FirstTurnStep, type FirstTurnView } from '../utils/firstTurnSteps';
 import { useFunnelEventsV2Enabled } from '../store/featureFlagsStore';
 import { trackFunnel } from '../utils/funnelEvents';
@@ -4841,12 +4842,19 @@ export default function GamePage() {
       ?? '';
     const eraLabel = ERA_LABELS[eraIdFromSettings] ?? eraIdFromSettings;
 
-    const lockedFaction = get<string>('campaign_locked_faction') ?? null;
+    // The faction's own name ("Mongol Khanate"), not its id.
+    const lockedFactionId = get<string>('campaign_locked_faction') ?? null;
+    const lockedFaction = factionDisplayName(eraIdFromSettings, lockedFactionId) ?? lockedFactionId;
     const aiDifficulty = (() => {
       const ai = lobbySnapshot?.players?.find((p) => p.is_ai);
       return ai?.ai_difficulty ?? null;
     })();
     const aiCount = lobbySnapshot?.players?.filter((p) => p.is_ai).length ?? null;
+    // The powers the stage seats, by name, for the intro to say who is across the table.
+    const opponents = (lobbySnapshot?.players ?? [])
+      .filter((p) => p.is_ai)
+      .map((p) => factionDisplayName(eraIdFromSettings, (p as { faction_id?: string | null }).faction_id))
+      .filter((name): name is string => !!name);
     const carry = get<{ survivor_bonus?: number; revolutionary_spirit?: number }>('campaign_carry');
     const prestigeBonus = get<number>('campaign_prestige_bonus') ?? null;
 
@@ -4861,6 +4869,7 @@ export default function GamePage() {
       lockedFaction,
       aiDifficulty,
       aiCount,
+      opponents,
       prestigeBonus,
       carry,
     };

@@ -14,13 +14,23 @@
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { buildFactionCodex, renderCodexModule, CODEX_ERA_IDS } from './factionCodex';
-import { CODEX_OUTPUT_PATH } from '../../../scripts/generateFactionCodex';
+import { buildFactionCodex, buildFactionNames, renderCodexModule, renderFactionNamesModule, CODEX_ERA_IDS } from './factionCodex';
+import { CODEX_OUTPUT_PATH, FACTION_NAMES_OUTPUT_PATH } from '../../../scripts/generateFactionCodex';
 
 describe('faction codex export', () => {
   it('matches the committed generated file', () => {
     const committed = readFileSync(CODEX_OUTPUT_PATH, 'utf8');
     const expected = renderCodexModule(buildFactionCodex());
+    expect(
+      committed === expected
+        ? true
+        : 'stale — run: pnpm -C backend exec tsx scripts/generateFactionCodex.ts',
+    ).toBe(true);
+  });
+
+  it('matches the committed faction names the game client reads', () => {
+    const committed = readFileSync(FACTION_NAMES_OUTPUT_PATH, 'utf8');
+    const expected = renderFactionNamesModule(buildFactionNames());
     expect(
       committed === expected
         ? true

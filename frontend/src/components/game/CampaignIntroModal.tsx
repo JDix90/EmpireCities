@@ -10,6 +10,8 @@ export interface CampaignIntroData {
   eraLabel: string;
   introText?: string;
   lockedFaction?: string | null;
+  /** The powers the stage seats against the player, by display name. */
+  opponents?: string[];
   aiDifficulty?: string | null;
   aiCount?: number | null;
   prestigeBonus?: number | null;
@@ -113,6 +115,12 @@ export default function CampaignIntroModal({ data, onBegin }: CampaignIntroModal
             </p>
           </div>
         </div>
+
+        {data.opponents && data.opponents.length > 0 && (
+          <p className="text-xs text-bf-muted text-center mb-3" data-testid="campaign-intro-opponents">
+            Against: <span className="text-bf-text">{data.opponents.join(', ')}</span>
+          </p>
+        )}
 
         {data.lockedFaction && (
           <p className="text-bf-muted text-xs text-center mb-4">

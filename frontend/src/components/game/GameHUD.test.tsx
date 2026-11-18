@@ -270,6 +270,27 @@ describe('GameHUD — tabbed redesign (#9)', () => {
     expect(screen.queryByText('Resources')).toBeNull();
   });
 
+  it('names a campaign stage\'s bots for the powers they play, and no other game\'s', () => {
+    const bots = [
+      player('me', 0),
+      player('ai_1', 1, { username: 'Marshal Okonkwo (AI)', is_ai: true, ai_difficulty: 'easy', faction_id: 'parthia' }),
+    ];
+    useGameStore.setState({
+      gameState: makeState({ players: bots, settings: { is_campaign: true } as GameState['settings'] }),
+    } as never);
+    const { unmount } = renderHud();
+    fireEvent.click(screen.getByRole('tab', { name: /Players/ }));
+    const named = screen.getByTestId('player-faction-name');
+    expect(named.textContent).toBe('Parthian Empire · Marshal Okonkwo (AI)');
+    unmount();
+
+    useGameStore.setState({ gameState: makeState({ players: bots }) } as never);
+    renderHud();
+    fireEvent.click(screen.getByRole('tab', { name: /Players/ }));
+    expect(screen.queryByTestId('player-faction-name')).toBeNull();
+    expect(screen.getByText('Marshal Okonkwo (AI)')).toBeInTheDocument();
+  });
+
   it('shows a bot commander\'s style on its seat, as an icon that says what it is', () => {
     useGameStore.setState({
       gameState: makeState({

@@ -31,7 +31,7 @@ export interface PathEraConfig {
    * shorter one than a conquest stage.
    */
   max_turns?: number;
-  /** AI faction ids to assign in order (fills with random if fewer than ai_count). */
+  /** AI faction ids, one per AI seat, in seat order. */
   ai_factions: string[];
   ai_difficulty: AiDifficulty;
   ai_count: number;
@@ -174,7 +174,11 @@ const BLOOD_EMPIRE: CampaignPath = {
       map_id: 'era_coldwar',
       locked_faction: 'usa_cw',
       allowed_victory_conditions: ['domination'],
-      ai_factions: ['ussr', 'china_cw', 'decolonization_movement'],
+      // Four seats, four named factions. A seat with no faction named plays
+      // with none: no passive, no ability, no home region, and nothing for the
+      // board to call it. The NATO Alliance in the fourth: 13% for the stand-in
+      // against 18% with the seat empty, inside what 40 games can tell apart.
+      ai_factions: ['ussr', 'china_cw', 'decolonization_movement', 'nato_proxy'],
       // Medium, not hard. The cold war balance pass gave the NATO Alliance
       // Europe to itself, and this stage fell to 4% — the lowest of all
       // eighteen, an outlier rather than a hard stage. Medium puts it at 13%
@@ -195,7 +199,11 @@ const BLOOD_EMPIRE: CampaignPath = {
       map_id: 'era_modern',
       locked_faction: 'western_power',
       allowed_victory_conditions: ['domination'],
-      ai_factions: ['eastern_bloc', 'rogue_state', 'emerging_power'],
+      // Four seats, four named factions. A seat with no faction named plays
+      // with none: no passive, no ability, no home region, and nothing for the
+      // board to call it. The Petrostate in the fourth: 18% for the stand-in
+      // against 20% with the seat empty.
+      ai_factions: ['eastern_bloc', 'rogue_state', 'emerging_power', 'petro_state'],
       ai_difficulty: 'expert',
       ai_count: 4,
       starting_unit_modifier: 0,
@@ -297,7 +305,11 @@ const REVOLUTIONARY_FLAME: CampaignPath = {
       map_id: 'era_coldwar',
       locked_faction: 'ussr',
       allowed_victory_conditions: ['domination'],
-      ai_factions: ['usa_cw', 'china_cw', 'nato_proxy'],
+      // Four seats, four named factions. A seat with no faction named plays
+      // with none: no passive, no ability, no home region, and nothing for the
+      // board to call it. The Non-Aligned Movement in the fourth: 13% for the
+      // stand-in against 20% with the seat empty (the United Kingdom there made it 35%).
+      ai_factions: ['usa_cw', 'china_cw', 'nato_proxy', 'decolonization_movement'],
       // Same reason: the Alliance is one of this stage's opponents, and the
       // stage dropped from 25% to 11%, a dip below the finale that follows it.
       // Medium restores it to 19% and the path reads as a ramp again.
@@ -315,7 +327,11 @@ const REVOLUTIONARY_FLAME: CampaignPath = {
       map_id: 'era_modern',
       locked_faction: 'rogue_state',
       allowed_victory_conditions: ['secret_mission'],
-      ai_factions: ['western_power', 'eastern_bloc', 'petro_state'],
+      // Four seats, four named factions. A seat with no faction named plays
+      // with none: no passive, no ability, no home region, and nothing for the
+      // board to call it. The Emerging Economy in the fourth: 13% for the
+      // stand-in against 8% with the seat empty.
+      ai_factions: ['western_power', 'eastern_bloc', 'petro_state', 'emerging_power'],
       ai_difficulty: 'expert',
       ai_count: 4,
       starting_unit_modifier: -2,
@@ -449,7 +465,11 @@ const LAST_DEFENDERS: CampaignPath = {
       map_id: 'era_coldwar',
       locked_faction: 'decolonization_movement',
       allowed_victory_conditions: ['secret_mission'],
-      ai_factions: ['usa_cw', 'ussr', 'nato_proxy'],
+      // Four seats, four named factions. A seat with no faction named plays
+      // with none: no passive, no ability, no home region, and nothing for the
+      // board to call it. The United Kingdom in the fourth, the empire the
+      // stage's text has retreating: 18% for the stand-in against 25% with the seat empty.
+      ai_factions: ['usa_cw', 'ussr', 'nato_proxy', 'uk_cw'],
       ai_difficulty: 'hard',
       ai_count: 4,
       starting_unit_modifier: -3,
