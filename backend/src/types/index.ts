@@ -88,6 +88,20 @@ export type CampaignStageMission =
   | { kind: 'control_regions'; region_ids: string[]; from_round?: number }
   | { kind: 'capture_territories'; territory_ids: [string, string] }
   | { kind: 'eliminate_faction'; faction_id: string };
+/**
+ * Names a campaign stage shows in place of the era's own, where the stage
+ * plays one period on another's rules: the American Revolution runs on the
+ * WW2 era, whose factions and label would otherwise be on screen in 1776.
+ * Display only: nothing in the engine reads it.
+ */
+export interface CampaignStageDisplay {
+  /** In place of the era's label ("The American Revolution"). */
+  era_label?: string;
+  /** Faction id to the name shown for it. */
+  factions?: Record<string, string>;
+  /** The objective in the stage's own words, in place of the map's region names. */
+  objective?: string;
+}
 export type AiDifficulty = 'easy' | 'medium' | 'hard' | 'expert' | 'tutorial';
 export type DiplomacyStatus = 'neutral' | 'truce' | 'nap' | 'war';
 
@@ -1015,6 +1029,13 @@ export interface GameSettings {
     survivor_bonus?: number;
     revolutionary_spirit?: number;
   };
+  /**
+   * Territories a campaign stage leaves out of the deal: they open unowned,
+   * with a garrison, and anyone may take them (campaignPaths `neutral_territories`).
+   */
+  campaign_neutral_territories?: string[];
+  /** Names the stage shows in place of the era's own. Display only. */
+  campaign_display?: CampaignStageDisplay;
   /** The stage's stated objective, replacing the dealt mission (victory/missions.ts). */
   campaign_mission?: CampaignStageMission;
   /** What the carries do in this stage, in words (modules/campaign/campaignCarryEffects.ts). */

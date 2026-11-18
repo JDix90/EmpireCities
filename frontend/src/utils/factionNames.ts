@@ -18,7 +18,10 @@ export function campaignBotFaction(input: {
   isCampaign: boolean;
   eraId: string | null | undefined;
   player: { is_ai?: boolean; faction_id?: string | null };
+  /** The stage's own names for its factions, where it plays one period on another's (`campaign_display`). */
+  names?: Record<string, string> | null;
 }): string | null {
   if (!input.isCampaign || !input.player.is_ai) return null;
-  return factionDisplayName(input.eraId, input.player.faction_id);
+  const own = input.player.faction_id ? input.names?.[input.player.faction_id] : undefined;
+  return own ?? factionDisplayName(input.eraId, input.player.faction_id);
 }

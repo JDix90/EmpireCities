@@ -275,6 +275,7 @@ async function runStage(
       card_set_bonus_cap: DEFAULT_CARD_SET_BONUS_CAP,
       campaign_carry: NO_CARRY ? {} : { ...initialCarry, ...EXTRA_CARRY },
       ...(stage.mission ? { campaign_mission: stage.mission } : {}),
+      ...(stage.neutral_territories ? { campaign_neutral_territories: stage.neutral_territories } : {}),
       ...(HANDICAP && stage.starting_unit_modifier
         ? { campaign_starting_units_delta: stage.starting_unit_modifier }
         : {}),

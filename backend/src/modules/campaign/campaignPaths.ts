@@ -2,7 +2,7 @@
 // Campaign Paths — static configuration for narrative campaigns
 // ============================================================
 
-import type { VictoryType, AiDifficulty, CampaignStageMission } from '../../types';
+import type { VictoryType, AiDifficulty, CampaignStageMission, CampaignStageDisplay } from '../../types';
 
 export type PathId = 'blood_empire' | 'revolutionary_flame' | 'last_defenders';
 
@@ -28,6 +28,13 @@ export interface PathEraConfig {
    * `secret_mission` among the victory conditions and nothing else beside it.
    */
   mission?: CampaignStageMission;
+  /**
+   * Territories the stage's story has no part for. They sit out of the deal
+   * and open unowned, with a garrison; anyone may take them.
+   */
+  neutral_territories?: string[];
+  /** Names the stage shows in place of the era's own (types `CampaignStageDisplay`). */
+  display?: CampaignStageDisplay;
   /** Map override — set when a special map replaces the era default. */
   map_id: string;
   /** Player's faction is locked; faction picker is disabled in lobby. */
@@ -455,13 +462,29 @@ const REVOLUTIONARY_FLAME: CampaignPath = {
       // 18-territory board the stage was over on turn 6 and won 8% of the
       // time: a share any seat could cross before the player had moved. Two
       // named territories were taken by turn 7 in four games of five.
+      // With the west neutral and six units down: 42% for the stand-in in 21
+      // turns, 74% for the expert one (two seeds).
       mission: { kind: 'control_regions', region_ids: ['union_northeast', 'confederate_east'] },
+      // The board is the Civil War's, eighty years on. The war of 1775-83 was
+      // fought on the seaboard, over the mountains behind it and along the
+      // Gulf, where Spain took British West Florida. The lands west of the
+      // Mississippi had no part in it and belong to neither side here. With
+      // Alabama and the river neutral as well the board is ten territories,
+      // and the stand-in won 70% of a stage that was over by turn 12.
+      neutral_territories: ['acw_louisiana', 'acw_arkansas', 'acw_missouri', 'acw_plains', 'acw_texas', 'acw_far_west'],
+      // The stage runs on the WW2 era's rules and factions. What it is called
+      // on screen is 1776's.
+      display: {
+        era_label: 'The American Revolution',
+        factions: { usa: 'Continental Congress', uk: 'The Crown', germany: 'Hessian Regiments' },
+        objective: 'Hold the Atlantic seaboard: every territory of the Northeast & Lakes and Atlantic regions',
+      },
       max_turns: 30,
       ai_factions: ['uk', 'germany'],
       ai_difficulty: 'hard',
       ai_count: 2,
-      starting_unit_modifier: 0,
-      intro_text: 'The colonists do not want to be a province. The Crown\'s armies are professional, better supplied and backed by the most powerful navy in the world, with Hessian regiments hired to fight beside them. You hold interior lines, local knowledge and the desperation of people with nowhere else to go. Objective: hold the Atlantic seaboard, every territory of the Northeast & Lakes and of the Atlantic region, from New England to Georgia. If the thirtieth turn ends first, whoever holds the most ground decides whether this was a revolution or a rebellion.',
+      starting_unit_modifier: -6,
+      intro_text: 'The colonists do not want to be a province. The Crown\'s armies are professional, better supplied and backed by the most powerful navy in the world, with Hessian regiments hired to fight beside them. You hold interior lines, local knowledge and the desperation of people with nowhere else to go. The lands west of the Mississippi belong to neither side. Objective: hold the Atlantic seaboard, every territory of the Northeast & Lakes and of the Atlantic region, from New England to Georgia. If the thirtieth turn ends first, whoever holds the most ground decides whether this was a revolution or a rebellion.',
       outro_win_text: 'Yorktown. The empire leaves. Revolutionary Spirit carries the muscle memory of asymmetric persistence.',
       outro_loss_text: 'This revolution was ahead of its time. The next one will remember this failure.',
       carry_on_win: { revolutionary_spirit: 2, prestige_bonus: 1 },

@@ -35,6 +35,9 @@ interface CampaignEraEntry {
   map_id: string;
   /** The stage's own name, where it has one. Absent from an older server. */
   title?: string | null;
+  /** The stage's own names for its period and the player's power, where it has them. */
+  era_label?: string | null;
+  faction_name?: string | null;
   intro_text: string | null;
   outro_win_text: string | null;
   outro_loss_text: string | null;
@@ -299,12 +302,12 @@ function EraRow({
         </div>
         <div className="flex-1">
           <p className={`text-sm font-medium ${isCurrent ? 'text-bf-gold' : isDone ? 'text-green-300' : isLocked ? 'text-bf-muted' : 'text-bf-text'}`}>
-            {ERA_LABELS[era.era_id] ?? era.era_id}
+            {(!isLocked && era.era_label) || (ERA_LABELS[era.era_id] ?? era.era_id)}
             {era.title && !isLocked && <span className="font-normal text-bf-muted"> · {era.title}</span>}
           </p>
           {era.faction_id && !isLocked && (
             <p className="text-xs text-bf-muted mt-0.5 capitalize">
-              {factionDisplayName(era.era_id, era.faction_id) ?? era.faction_id.replace(/_/g, ' ')}
+              {era.faction_name ?? factionDisplayName(era.era_id, era.faction_id) ?? era.faction_id.replace(/_/g, ' ')}
             </p>
           )}
           {isAttempted && !isDone && (
@@ -805,7 +808,8 @@ export default function CampaignPage() {
               >
                 {isContinuing
                   ? 'Preparing era…'
-                  : `Continue → ${ERA_LABELS[campaign.current_era ?? ''] ?? campaign.current_era}`}
+                  : `Continue → ${campaign.eras.find((e) => e.era_id === campaign.current_era)?.era_label
+                    ?? ERA_LABELS[campaign.current_era ?? ''] ?? campaign.current_era}`}
               </button>
             )}
             <button

@@ -169,6 +169,7 @@ import {
 import { isClassicDaily, resolveGameOverResult, type DailyRunResult } from '../utils/dailyGameOver';
 import CampaignIntroModal, { type CampaignIntroData } from '../components/game/CampaignIntroModal';
 import { describeCampaignMission, readCampaignMission } from '../utils/campaignMission';
+import { readCampaignDisplay } from '../utils/campaignDisplay';
 import InviteFriendsModal from '../components/game/InviteFriendsModal';
 import GameShortcutsModal from '../components/game/GameShortcutsModal';
 import TerritoryListDialog from '../components/game/TerritoryListDialog';
@@ -843,6 +844,8 @@ export default function GamePage() {
     ) ?? null;
   }, [gameState, resolvedViewerPlayerId, user?.user_id, user?.username]);
 
+  /** A campaign stage's own name for its period, where it plays one on another's rules. */
+  const campaignEraLabel = readCampaignDisplay(gameState?.settings?.campaign_display).era_label ?? null;
   const playerTechEra = useMemo(
     () => (gameState ? resolvePlayerTechEraId(gameState, viewerPlayer) : null),
     [gameState, viewerPlayer],
@@ -4849,7 +4852,10 @@ export default function GamePage() {
 
     // The faction's own name ("Mongol Khanate"), not its id.
     const lockedFactionId = get<string>('campaign_locked_faction') ?? null;
-    const lockedFaction = factionDisplayName(eraIdFromSettings, lockedFactionId) ?? lockedFactionId;
+    // A stage that plays one period on another's rules brings its own names.
+    const display = readCampaignDisplay(get<unknown>('campaign_display'));
+    const lockedFaction = (lockedFactionId ? display.factions?.[lockedFactionId] : undefined)
+      ?? factionDisplayName(eraIdFromSettings, lockedFactionId) ?? lockedFactionId;
     const aiDifficulty = (() => {
       const ai = lobbySnapshot?.players?.find((p) => p.is_ai);
       return ai?.ai_difficulty ?? null;
@@ -4858,7 +4864,8 @@ export default function GamePage() {
     // The powers the stage seats, by name, for the intro to say who is across the table.
     const opponents = (lobbySnapshot?.players ?? [])
       .filter((p) => p.is_ai)
-      .map((p) => factionDisplayName(eraIdFromSettings, (p as { faction_id?: string | null }).faction_id))
+      .map((p) => (p as { faction_id?: string | null }).faction_id)
+      .map((id) => (id ? display.factions?.[id] : undefined) ?? factionDisplayName(eraIdFromSettings, id))
       .filter((name): name is string => !!name);
     const carryEffects = get<CampaignCarryEffect[]>('campaign_carry_effects') ?? [];
     // How the stage is won, in the words the briefing uses, from whichever
@@ -4869,7 +4876,7 @@ export default function GamePage() {
     // stage can only say that one will be dealt.
     const objective = readCampaignMission(get<unknown>('campaign_mission'));
     const goals = objective
-      ? [describeCampaignMission(objective, { lookup: mapData, eraId: eraIdFromSettings })]
+      ? [display.objective ?? describeCampaignMission(objective, { lookup: mapData, eraId: eraIdFromSettings })]
       : goal.conditions;
 
     return {
@@ -4878,7 +4885,7 @@ export default function GamePage() {
       signatureCarryLabel: get<string>('campaign_signature_carry_label'),
       eraIndex: get<number>('campaign_era_index'),
       eraCount: get<number>('campaign_era_count'),
-      eraLabel,
+      eraLabel: display.era_label ?? eraLabel,
       stageTitle: get<string>('campaign_stage_title'),
       introText: get<string>('campaign_intro_text'),
       lockedFaction,
@@ -5448,7 +5455,7 @@ export default function GamePage() {
       data-mobile-layout={isMobileLayout ? 'true' : 'false'}
     >
       <h1 className="sr-only" data-testid="game-heading">
-        Borderfall: {mapData?.name ?? formatEraLabel(gameState.era)}
+        Borderfall: {campaignEraLabel ?? mapData?.name ?? formatEraLabel(gameState.era)}
       </h1>
       {/* Top Bar */}
       <div
@@ -5488,8 +5495,8 @@ export default function GamePage() {
         >
           {/* Below 480px the era's short name: "Medieval Era" was cut to
               "Medie…" beside the turn and the map-control figures. */}
-          <span className="xs:hidden">{shortEraLabel(playerTechEra ?? gameState.era)}</span>
-          <span className="hidden xs:inline">{formatEraLabel(playerTechEra ?? gameState.era)}</span>
+          <span className="xs:hidden">{campaignEraLabel ?? shortEraLabel(playerTechEra ?? gameState.era)}</span>
+          <span className="hidden xs:inline">{campaignEraLabel ?? formatEraLabel(playerTechEra ?? gameState.era)}</span>
         </span>
         {showGalacticBetaTag && <GalacticBetaTag onSendFeedback={() => setGalacticFeedbackOpen(true)} />}
         {playOnMarker && playOnWinnerLabel && (

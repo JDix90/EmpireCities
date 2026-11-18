@@ -57,6 +57,7 @@ export interface GameLobbySettingsJson {
   campaign_intro_text?: string;
   campaign_stage_title?: string;
   campaign_mission?: unknown;
+  campaign_display?: unknown;
   campaign_carry?: { survivor_bonus?: number; revolutionary_spirit?: number };
   campaign_carry_effects?: CampaignCarryEffect[];
   campaign_prestige_bonus?: number;

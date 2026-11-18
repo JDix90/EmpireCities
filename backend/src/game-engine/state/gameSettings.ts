@@ -1,4 +1,4 @@
-import type { CampaignStageMission, GameSettings, VictoryType } from '../../types';
+import type { CampaignStageDisplay, CampaignStageMission, GameSettings, VictoryType } from '../../types';
 import {
   DEFAULT_ECONOMY_TECH_STARTING_GOLD,
   DEFAULT_ECONOMY_TECH_STARTING_TECH_POINTS,
@@ -429,6 +429,13 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     campaign_carry_effects: Array.isArray(ext.campaign_carry_effects) ? ext.campaign_carry_effects : undefined,
     campaign_starting_units_delta: ext.campaign_starting_units_delta,
     campaign_mission: sanitizeCampaignMission(ext.campaign_mission),
+    campaign_display: sanitizeCampaignDisplay(ext.campaign_display),
+    campaign_neutral_territories:
+      Array.isArray(ext.campaign_neutral_territories)
+      && ext.campaign_neutral_territories.length > 0
+      && ext.campaign_neutral_territories.every((id) => typeof id === 'string' && id.length > 0)
+        ? [...ext.campaign_neutral_territories]
+        : undefined,
     daily_challenge_date: typeof ext.daily_challenge_date === 'string' ? ext.daily_challenge_date : undefined,
     first_match: ext.first_match === true ? true : undefined,
     ladder_step: typeof ext.ladder_step === 'number' && Number.isInteger(ext.ladder_step) ? ext.ladder_step : undefined,
@@ -504,4 +511,25 @@ export function sanitizeCampaignMission(raw: unknown): CampaignStageMission | un
     return { kind: 'eliminate_faction', faction_id: m.faction_id };
   }
   return undefined;
+}
+
+/** A stage's display names as stored on the game row: strings only, and nothing at all when empty. */
+export function sanitizeCampaignDisplay(raw: unknown): CampaignStageDisplay | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const d = raw as Record<string, unknown>;
+  const text = (v: unknown): string | undefined => (typeof v === 'string' && v.trim() ? v.trim().slice(0, 200) : undefined);
+  const out: CampaignStageDisplay = {};
+  const eraLabel = text(d.era_label);
+  if (eraLabel) out.era_label = eraLabel;
+  const objective = text(d.objective);
+  if (objective) out.objective = objective;
+  if (d.factions && typeof d.factions === 'object') {
+    const factions: Record<string, string> = {};
+    for (const [id, name] of Object.entries(d.factions as Record<string, unknown>)) {
+      const shown = text(name);
+      if (shown) factions[id] = shown;
+    }
+    if (Object.keys(factions).length > 0) out.factions = factions;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
 }

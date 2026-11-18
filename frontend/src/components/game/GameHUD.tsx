@@ -1,3 +1,4 @@
+import { readCampaignDisplay } from '../../utils/campaignDisplay';
 import React, { useState, useEffect, useRef } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { useTurnCountdown } from '../../hooks/useTurnCountdown';
@@ -599,7 +600,8 @@ export default function GameHUD({
               {myPlayer.secret_mission && (
                 <p className="text-xs text-bf-text mt-1">
                   <span className="text-bf-muted">{gameState.settings.campaign_mission ? 'Objective: ' : 'Mission: '}</span>
-                  {describeSecretMission(myPlayer.secret_mission, gameState.players, mapNameLookup, myPlayer.player_id)}
+                  {(gameState.settings.campaign_mission ? readCampaignDisplay(gameState.settings.campaign_display).objective : undefined)
+                    ?? describeSecretMission(myPlayer.secret_mission, gameState.players, mapNameLookup, myPlayer.player_id)}
                   {gameState.settings.mission_guard_enabled && gameState.turn_number < MISSION_FIRST_ROUND && (
                     <span className="block text-bf-muted mt-0.5" data-testid="mission-round-note">
                       Counts from round {MISSION_FIRST_ROUND}: done sooner, it must still be held then.
@@ -879,6 +881,7 @@ export default function GameHUD({
                             isCampaign: gameState.settings.is_campaign === true,
                             eraId: gameState.era,
                             player,
+                            names: readCampaignDisplay(gameState.settings.campaign_display).factions,
                           });
                           return faction ? (
                             <span className="truncate" data-testid="player-faction-name" title={`${faction} · ${player.username}`}>

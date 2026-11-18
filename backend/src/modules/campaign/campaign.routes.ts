@@ -433,6 +433,9 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
           faction_id: entry?.faction_id ?? pathEra?.locked_faction ?? null,
           map_id: entry?.map_id_override ?? pathEra?.map_id ?? ERA_MAP_IDS[era as CampaignEra],
           title: pathEra?.title ?? null,
+          // The stage's own names for its period and the player's power, where it has them.
+          era_label: pathEra?.display?.era_label ?? null,
+          faction_name: pathEra?.display?.factions?.[pathEra.locked_faction] ?? null,
           intro_text: pathEra?.intro_text ?? null,
           outro_win_text: pathEra?.outro_win_text ?? null,
           outro_loss_text: pathEra?.outro_loss_text ?? null,
@@ -550,6 +553,9 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
         faction_id: entry?.faction_id ?? pathEra?.locked_faction ?? null,
         map_id: entry?.map_id_override ?? pathEra?.map_id ?? ERA_MAP_IDS[era as CampaignEra],
         title: pathEra?.title ?? null,
+        // The stage's own names for its period and the player's power, where it has them.
+        era_label: pathEra?.display?.era_label ?? null,
+        faction_name: pathEra?.display?.factions?.[pathEra.locked_faction] ?? null,
         intro_text: pathEra?.intro_text ?? null,
         outro_win_text: pathEra?.outro_win_text ?? null,
         outro_loss_text: pathEra?.outro_loss_text ?? null,
@@ -692,6 +698,8 @@ async function createEraGame({
   // The stage's stated objective: the player's mission, in place of a dealt
   // one (victory/missions.ts).
   if (pathEra?.mission) settings.campaign_mission = pathEra.mission;
+  if (pathEra?.neutral_territories?.length) settings.campaign_neutral_territories = pathEra.neutral_territories;
+  if (pathEra?.display) settings.campaign_display = pathEra.display;
 
   if (pathId) {
     settings.campaign_path_id = pathId;

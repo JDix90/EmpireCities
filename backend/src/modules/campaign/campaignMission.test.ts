@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { allCampaignStages, type PathEraConfig } from './campaignPaths';
 import { checkVictory, initializeGameState } from '../../game-engine/state/gameStateManager';
 import { applyCampaignMission, isMissionComplete, resolveCampaignMission } from '../../game-engine/victory/missions';
-import { normalizeGameSettings, sanitizeCampaignMission } from '../../game-engine/state/gameSettings';
+import { normalizeGameSettings, sanitizeCampaignDisplay, sanitizeCampaignMission } from '../../game-engine/state/gameSettings';
 import type { EraId, GameMap, GameSettings, GameState } from '../../types';
 
 /**
@@ -141,6 +141,67 @@ describe('campaign stage objectives', () => {
       .toEqual({ kind: 'eliminate_player', target_player_id: germany.player_id });
     // Never the player's own faction: that is nobody to eliminate.
     expect(resolveCampaignMission(state, map, { kind: 'eliminate_faction', faction_id: 'usa' })).toBeNull();
+  });
+});
+
+describe('a stage\'s neutral ground', () => {
+  const entry = allCampaignStages().find((s) => s.stage.neutral_territories)!;
+  const deal = (isCampaign: boolean) => {
+    const { stage, index } = entry;
+    const map = loadMap(stage.map_id);
+    const players = [stage.locked_faction, ...stage.ai_factions].map((faction_id, i) => ({
+      player_id: i === 0 ? 'human' : `ai_${i}`, player_index: i, username: `P${i}`, color: '#3498db', is_ai: i > 0, is_eliminated: false, mmr: 1000, faction_id,
+    }));
+    const settings = normalizeGameSettings({
+      is_campaign: isCampaign ? true : undefined,
+      factions_enabled: true,
+      campaign_neutral_territories: stage.neutral_territories,
+    } as unknown as GameSettings);
+    return initializeGameState('neutral', CAMPAIGN_ERAS[index]!, map, players as never, settings, { forceStartingPlayerIndex: 0 });
+  };
+
+  it('sits out of the deal, garrisoned and unowned, and everything else is dealt evenly', () => {
+    const state = deal(true);
+    const neutral = new Set(entry.stage.neutral_territories);
+    for (const id of neutral) {
+      expect({ id, owner: state.territories[id]!.owner_id, units: state.territories[id]!.unit_count })
+        .toEqual({ id, owner: null, units: 3 });
+    }
+    const dealt = Object.entries(state.territories).filter(([id]) => !neutral.has(id));
+    expect(dealt.every(([, t]) => t.owner_id != null)).toBe(true);
+    const counts = state.players.map((p) => dealt.filter(([, t]) => t.owner_id === p.player_id).length);
+    expect(Math.max(...counts) - Math.min(...counts)).toBeLessThanOrEqual(1);
+  });
+
+  it('is a campaign stage\'s alone: the same key on any other game leaves the deal as it was', () => {
+    const state = deal(false);
+    expect(Object.values(state.territories).every((t) => t.owner_id != null)).toBe(true);
+  });
+
+  it('survives the settings normalisation a room load runs, and is dropped when malformed', () => {
+    expect(normalizeGameSettings({ campaign_neutral_territories: ['a', 'b'] } as unknown as GameSettings).campaign_neutral_territories).toEqual(['a', 'b']);
+    for (const bad of [[], ['a', 1], 'a', null]) {
+      expect(normalizeGameSettings({ campaign_neutral_territories: bad } as unknown as GameSettings).campaign_neutral_territories).toBeUndefined();
+    }
+  });
+});
+
+describe('sanitizeCampaignDisplay', () => {
+  it('keeps the names a stage brings, as strings, and is nothing when there are none', () => {
+    const display = { era_label: 'The American Revolution', factions: { germany: 'Hessian Regiments' }, objective: 'Hold the seaboard' };
+    expect(sanitizeCampaignDisplay(display)).toEqual(display);
+    expect(normalizeGameSettings({ campaign_display: display } as unknown as GameSettings).campaign_display).toEqual(display);
+    expect(sanitizeCampaignDisplay({ era_label: 7, factions: { germany: null, uk: ' The Crown ' }, extra: true }))
+      .toEqual({ factions: { uk: 'The Crown' } });
+    for (const empty of [undefined, null, 'x', {}, { factions: {} }, { era_label: '  ' }]) {
+      expect(sanitizeCampaignDisplay(empty)).toBeUndefined();
+    }
+  });
+
+  it('is on the one stage that plays a period on another era\'s rules', () => {
+    const shown = allCampaignStages().filter((s) => s.stage.display);
+    expect(shown.map((s) => `${s.path.path_id}:${s.index}`)).toEqual(['revolutionary_flame:3']);
+    expect(shown[0]!.stage.display!.factions).toMatchObject({ germany: 'Hessian Regiments' });
   });
 });
 

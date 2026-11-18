@@ -432,6 +432,8 @@ export interface GameState {
     campaign_stage_title?: string;
     /** The stage's stated objective, replacing a dealt mission (utils/campaignMission.ts). */
     campaign_mission?: unknown;
+    /** Names the stage shows in place of the era's own (utils/campaignDisplay.ts). */
+    campaign_display?: unknown;
     /** Numeric carry-forward stats for the campaign engine. */
     campaign_carry?: { survivor_bonus?: number; revolutionary_spirit?: number };
     /** What the carries do in this stage, in words (utils/campaignCarry.ts). */
