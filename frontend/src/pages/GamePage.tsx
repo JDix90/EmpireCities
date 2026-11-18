@@ -898,10 +898,12 @@ export default function GamePage() {
     draftPool: coachView.draftPool,
     attackedThisTurn: coachView.attackedThisTurn,
   });
-  // Retire each step once the player has done it (coachTipsDoneBetween).
+  // Retire each step once the player has done it (coachTipsDoneBetween). Not
+  // in a tutorial: its own cards walk the player through the turn, and a step
+  // retired there would never show in the first match, where the tips are offered.
   const prevCoachViewRef = useRef<CoachTipView | null>(null);
   useEffect(() => {
-    if (!coachView) return;
+    if (!coachView || isTutorial) return;
     const newlyDone = coachTipsDoneBetween(prevCoachViewRef.current, coachView);
     prevCoachViewRef.current = coachView;
     if (newlyDone.length === 0) return;
@@ -912,7 +914,7 @@ export default function GamePage() {
       writeCoachTipsDone(next);
       return next;
     });
-  }, [coachView]);
+  }, [coachView, isTutorial]);
   const handoffDraftPoolRef = useRef<number | null>(null);
   useEffect(() => {
     if (!tutorialHandoff || !coachView || !gameId) return;

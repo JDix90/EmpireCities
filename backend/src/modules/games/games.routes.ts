@@ -16,6 +16,7 @@ import { redactReplaySnapshot } from '../../sockets/clientStateRedaction';
 import { formatZodError } from '../../utils/formatZodError';
 import { featureFlags } from '../../config/featureFlags';
 import { eligibleFirstMatchTag, hasFinishedRealGame, hasWonRealGame } from './firstMatchEligibility';
+import { lobbySeatColors } from './seatColors';
 import { isValidSpineId, reachesSpaceAge } from '../../game-engine/eraAdvancement/spines';
 import { recordServerEvent } from '../../services/analyticsEvents';
 import { resolveMap } from '../../sockets/mapResolver';
@@ -473,8 +474,7 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     const gameId = uuidv4();
-    // Seat 7 was a second orange (#e67e22) next to seat 4's #f39c12 (PT-016).
-    const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#ff69b4', '#ecf0f1'];
+    const colors = lobbySeatColors(ai_count, max_players);
 
     // A game with AI waits as `solo`: invite-only, so Open Games never lists
     // it. Its open seats are just the form's max_players, which the host never
