@@ -9,7 +9,7 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { v4 as uuidv4 } from 'uuid';
-import { CAMPAIGN_PATHS, pathOpenToGuests } from './campaignPaths';
+import { CAMPAIGN_PATHS, allCampaignStages, pathOpenToGuests } from './campaignPaths';
 import { setAdminConfigCacheForTests } from '../../services/adminConfig';
 
 const recorded: Array<{ event: string; props: Record<string, unknown> }> = [];
@@ -20,9 +20,20 @@ vi.mock('../../services/analyticsEvents', () => ({
 }));
 
 describe('paths open to guests', () => {
-  it('opens Blood & Empire, the path to start with, and nothing else yet', () => {
-    expect(Object.values(CAMPAIGN_PATHS).filter((p) => p.guest_open).map((p) => p.path_id)).toEqual(['blood_empire']);
-    expect(CAMPAIGN_PATHS.blood_empire.recommended_start).toBe(true);
+  it('opens a path only once every stage of it states its objective and runs on a clock', () => {
+    for (const { path, index, line_id, stage } of allCampaignStages()) {
+      if (!path.guest_open) continue;
+      const stated = !!stage.mission || stage.allowed_victory_conditions.includes('threshold');
+      expect({ path: path.path_id, stage: index + 1, line_id, stated, clock: stage.max_turns != null })
+        .toEqual({ path: path.path_id, stage: index + 1, line_id, stated: true, clock: true });
+      // Short enough to finish in a sitting.
+      expect(stage.max_turns!).toBeLessThanOrEqual(40);
+    }
+  });
+
+  it('opens all three paths', () => {
+    expect(Object.values(CAMPAIGN_PATHS).filter((p) => p.guest_open).map((p) => p.path_id))
+      .toEqual(['blood_empire', 'revolutionary_flame', 'last_defenders']);
   });
 
   it('never opens the classic campaign, which has no path', () => {
@@ -80,14 +91,25 @@ describe.runIf(enabled)('guests in the campaign (Postgres)', () => {
     expect(await query('SELECT 1 FROM user_campaigns WHERE user_id = $1', [userId])).toEqual([]);
   });
 
-  it('with the flag on, refuses a path that still needs a saved account, and the classic campaign', async () => {
+  it('with the flag on, still refuses the classic campaign, which has no path', async () => {
     flag(true);
-    for (const path of ['revolutionary_flame', 'last_defenders', undefined]) {
-      const res = await start(path);
-      expect({ path, status: res.statusCode }).toEqual({ path, status: 403 });
-      expect(res.json()).toMatchObject({ code: 'guest_path_closed' });
-    }
+    const res = await start(undefined);
+    expect(res.statusCode).toBe(403);
+    expect(res.json()).toMatchObject({ code: 'guest_path_closed' });
     expect(await query('SELECT 1 FROM user_campaigns WHERE user_id = $1', [userId])).toEqual([]);
+  });
+
+  it('with the flag on, refuses a path the config closes to guests', async () => {
+    flag(true);
+    const path = CAMPAIGN_PATHS.last_defenders;
+    path.guest_open = false;
+    try {
+      const res = await start('last_defenders');
+      expect(res.statusCode).toBe(403);
+      expect(res.json()).toMatchObject({ code: 'guest_path_closed' });
+    } finally {
+      path.guest_open = true;
+    }
   });
 
   it('with the flag on, starts and continues an open path, and says the player is a guest', async () => {
@@ -116,7 +138,7 @@ describe.runIf(enabled)('guests in the campaign (Postgres)', () => {
     const res = await app.inject({ method: 'GET', url: '/api/campaign/paths', headers });
     const paths = res.json() as Array<{ path_id: string; guest_open: boolean }>;
     expect(paths.map((p) => [p.path_id, p.guest_open])).toEqual([
-      ['blood_empire', true], ['revolutionary_flame', false], ['last_defenders', false],
+      ['blood_empire', true], ['revolutionary_flame', true], ['last_defenders', true],
     ]);
   });
 });

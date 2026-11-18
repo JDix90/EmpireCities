@@ -379,7 +379,7 @@ const REVOLUTIONARY_FLAME: CampaignPath = {
   signature_carry_max: 10,
   difficulty: 'hardest',
   recommended_start: false,
-  guest_open: false,
+  guest_open: true,
   initial_carry: { revolutionary_spirit: 2 },
   eras: [
     {
@@ -548,7 +548,7 @@ const LAST_DEFENDERS: CampaignPath = {
   signature_carry_max: 8,
   difficulty: 'hard',
   recommended_start: false,
-  guest_open: false,
+  guest_open: true,
   initial_carry: { survivor_bonus: 2 },
   eras: [
     {
