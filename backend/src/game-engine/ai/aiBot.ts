@@ -402,6 +402,14 @@ export function attackObjectiveBonus(
       const owner = state.territories[targetTerritoryId]?.owner_id;
       if (owner === m.target_player_id) b += 2;
     }
+    // A campaign stage's stated objective. Only a pinned region mission is
+    // chased: a bot holds none on such a stage, so this steers the stand-in the
+    // stage simulator seats in the player's place, and a dealt region mission
+    // plays as it always has.
+    if (m.kind === 'control_regions' && state.settings.campaign_mission) {
+      const regionId = map.territories.find((t) => t.territory_id === targetTerritoryId)?.region_id;
+      if (regionId && m.region_ids.includes(regionId)) b += 2.5;
+    }
   }
 
   return b;

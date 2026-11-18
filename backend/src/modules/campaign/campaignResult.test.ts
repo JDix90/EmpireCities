@@ -17,6 +17,7 @@ describe('buildCampaignGameResult', () => {
       path_name: 'Blood & Empire',
       stage: 1,
       stage_count: 6,
+      stage_title: null,
       outcome: 'advanced',
       next_era: 'medieval',
       outro_text: CAMPAIGN_PATHS.blood_empire.eras[0]!.outro_win_text,
@@ -43,6 +44,22 @@ describe('buildCampaignGameResult', () => {
     expect(r.carry_effects).toEqual([]);
     expect(r.next_era).toBeNull();
     expect(r.stage).toBe(6);
+  });
+
+  it('closes a stage with sides in the words of the side played', () => {
+    const lines = CAMPAIGN_PATHS.blood_empire.lines!;
+    const soviets = lines.options.find((o) => o.line_id === 'soviets')!;
+    const allies = lines.options.find((o) => o.line_id === 'allies')!;
+    const asSoviets = buildCampaignGameResult({ ...base, pathId: 'blood_empire', eraIndex: 3, lineId: 'soviets', won: true });
+    expect(asSoviets.stage_title).toBe(soviets.eras[3]!.title);
+    expect(asSoviets.outro_text).toBe(soviets.eras[3]!.outro_win_text);
+    const lost = buildCampaignGameResult({ ...base, pathId: 'blood_empire', eraIndex: 4, lineId: 'soviets', won: false });
+    expect(lost.outro_text).toBe(soviets.eras[4]!.outro_loss_text);
+    // A campaign older than the choice stored no side and plays the default one.
+    const noneStored = buildCampaignGameResult({ ...base, pathId: 'blood_empire', eraIndex: 3, won: true });
+    expect(noneStored.stage_title).toBe(allies.eras[3]!.title);
+    // Either side's last stage completes the path.
+    expect(buildCampaignGameResult({ ...base, pathId: 'blood_empire', eraIndex: 5, lineId: 'soviets', won: true }).outcome).toBe('completed');
   });
 
   it('the classic campaign has no path, text or carry', () => {

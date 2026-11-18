@@ -1,7 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { CAMPAIGN_PATHS } from './campaignPaths';
+import { readFileSync } from 'node:fs';
+import {
+  CAMPAIGN_PATHS,
+  allCampaignStages,
+  describeLineChoice,
+  getPathEraConfig,
+  resolveLineId,
+} from './campaignPaths';
 import { getFactionById } from '../../game-engine/eras';
 import type { EraId } from '../../types';
 
@@ -56,15 +63,20 @@ describe('campaign path config', () => {
         expect(seeded).toBeLessThanOrEqual(path.signature_carry_max);
       });
 
-      path.eras.forEach((stage, index) => {
+      // Every stage a player can be dealt, each side's included: `path.eras`
+      // alone is the default side's.
+      const stages = allCampaignStages()
+        .filter((s) => s.path.path_id === pathId)
+        .map((s) => ({ ...s, label: s.line_id ? `${s.index + 1} (${s.line_id})` : `${s.index + 1}` }));
+      stages.forEach(({ stage, index, label }) => {
         const era = CAMPAIGN_ERAS[index];
 
-        it(`stage ${index + 1} locks a faction that exists in ${era}`, () => {
+        it(`stage ${label} locks a faction that exists in ${era}`, () => {
           expect({ stage: index + 1, faction: stage.locked_faction, found: !!getFactionById(era, stage.locked_faction) })
             .toEqual({ stage: index + 1, faction: stage.locked_faction, found: true });
         });
 
-        it(`stage ${index + 1} names AI factions that exist in ${era}, with no repeats`, () => {
+        it(`stage ${label} names AI factions that exist in ${era}, with no repeats`, () => {
           const missing = stage.ai_factions.filter((f) => !getFactionById(era, f));
           expect({ stage: index + 1, missing }).toEqual({ stage: index + 1, missing: [] });
           expect({ stage: index + 1, count: stage.ai_factions.length })
@@ -73,12 +85,12 @@ describe('campaign path config', () => {
 
         // A seat with no faction named is not filled at random: it plays with
         // no faction at all, and the board has no power to name it for.
-        it(`stage ${index + 1} names a faction for every AI seat`, () => {
+        it(`stage ${label} names a faction for every AI seat`, () => {
           expect({ stage: index + 1, factions: stage.ai_factions.length })
             .toEqual({ stage: index + 1, factions: stage.ai_count });
         });
 
-        it(`stage ${index + 1} cannot be won by the opening deal`, () => {
+        it(`stage ${label} cannot be won by the opening deal`, () => {
           if (!stage.allowed_victory_conditions.includes('threshold')) return;
           const openingShare = Math.ceil(100 / (stage.ai_count + 1));
           expect({
@@ -93,30 +105,112 @@ describe('campaign path config', () => {
           expect(stage.victory_threshold ?? 0).toBeGreaterThan(openingShare + OPENING_SHARE_MARGIN);
         });
 
-        it(`stage ${index + 1} declares a threshold only where one is read`, () => {
+        it(`stage ${label} declares a threshold only where one is read`, () => {
           const declaresThreshold = stage.victory_threshold != null;
           expect({ stage: index + 1, declaresThreshold })
             .toEqual({ stage: index + 1, declaresThreshold: stage.allowed_victory_conditions.includes('threshold') });
         });
 
-        it(`stage ${index + 1} sets a turn clock the engine will keep`, () => {
+        it(`stage ${label} sets a turn clock the engine will keep`, () => {
           if (stage.max_turns == null) return;
           expect({ stage: index + 1, clock: stage.max_turns, integer: Number.isInteger(stage.max_turns) })
             .toEqual({ stage: index + 1, clock: stage.max_turns, integer: true });
           expect(stage.max_turns).toBeGreaterThanOrEqual(MIN_ACCEPTED_MAX_TURNS);
         });
 
-        it(`stage ${index + 1} does not pay the signature carry for losing`, () => {
+        it(`stage ${label} does not pay the signature carry for losing`, () => {
           const paid = stage.carry_on_loss[path.signature_carry_key] ?? 0;
           expect({ stage: index + 1, carry: path.signature_carry_key, paid })
             .toEqual({ stage: index + 1, carry: path.signature_carry_key, paid: 0 });
         });
 
-        it(`stage ${index + 1} points at a map that ships`, () => {
+        it(`stage ${label} points at a map that ships`, () => {
           expect({ map: stage.map_id, exists: existsSync(join(MAPS_DIR, `${stage.map_id}.json`)) })
             .toEqual({ map: stage.map_id, exists: true });
+        });
+
+        // A stage that states its objective is won by it and by nothing else:
+        // with a second condition a bot, which holds no mission there, would
+        // still be racing the player to that one.
+        it(`stage ${label} states an objective the board can carry`, () => {
+          if (!stage.mission) {
+            expect(stage.title).toBeUndefined();
+            return;
+          }
+          expect(stage.title).toBeTruthy();
+          expect(stage.allowed_victory_conditions).toEqual(['secret_mission']);
+          // Without a clock the bots, holding no mission, could not win at all.
+          expect(stage.max_turns).toBeGreaterThanOrEqual(MIN_ACCEPTED_MAX_TURNS);
+          const map = JSON.parse(readFileSync(join(MAPS_DIR, `${stage.map_id}.json`), 'utf-8')) as {
+            territories: Array<{ territory_id: string; region_id: string; unlock_era_index?: number }>;
+          };
+          const inPlay = map.territories.filter((t) => !t.unlock_era_index);
+          const m = stage.mission;
+          if (m.kind === 'control_regions') {
+            const empty = m.region_ids.filter((r) => !inPlay.some((t) => t.region_id === r));
+            expect({ stage: label, empty }).toEqual({ stage: label, empty: [] });
+          } else if (m.kind === 'capture_territories') {
+            const missing = m.territory_ids.filter((id) => !inPlay.some((t) => t.territory_id === id));
+            expect({ stage: label, missing }).toEqual({ stage: label, missing: [] });
+          } else {
+            expect(stage.ai_factions).toContain(m.faction_id);
+          }
         });
       });
     });
   }
+});
+
+describe('campaign lines', () => {
+  const path = CAMPAIGN_PATHS.blood_empire;
+  const lines = path.lines!;
+
+  it('gives every side a stage for each era from the choice to the end', () => {
+    expect(lines.options.map((o) => o.line_id)).toContain(lines.default_line);
+    expect(new Set(lines.options.map((o) => o.line_id)).size).toBe(lines.options.length);
+    for (const option of lines.options) {
+      const indexes = Object.keys(option.eras).map(Number).sort();
+      const expected = CAMPAIGN_ERAS.map((_, i) => i).filter((i) => i >= lines.choose_at);
+      expect({ line: option.line_id, indexes }).toEqual({ line: option.line_id, indexes: expected });
+    }
+  });
+
+  it('keeps `eras` a whole path: the default side\'s stages from the choice on', () => {
+    const fallback = lines.options.find((o) => o.line_id === lines.default_line)!;
+    for (let i = lines.choose_at; i < CAMPAIGN_ERAS.length; i++) {
+      expect(path.eras[i]).toBe(fallback.eras[i]);
+    }
+  });
+
+  it('plays the side stored, the default with none stored or one it does not know', () => {
+    expect(getPathEraConfig('blood_empire', 3, 'soviets')?.locked_faction).toBe('soviet_union');
+    expect(getPathEraConfig('blood_empire', 4, 'soviets')?.locked_faction).toBe('ussr');
+    expect(getPathEraConfig('blood_empire', 5, 'soviets')?.locked_faction).toBe('eastern_bloc');
+    expect(getPathEraConfig('blood_empire', 3, 'allies')?.locked_faction).toBe('usa');
+    expect(getPathEraConfig('blood_empire', 3)?.locked_faction).toBe('usa');
+    expect(getPathEraConfig('blood_empire', 3, 'axis')?.locked_faction).toBe('usa');
+    // Before the choice there is one stage, whatever is stored.
+    expect(getPathEraConfig('blood_empire', 0, 'soviets')).toBe(path.eras[0]);
+    expect(resolveLineId('blood_empire', 'soviets')).toBe('soviets');
+    expect(resolveLineId('blood_empire', undefined)).toBe('allies');
+    // A path with no sides has none to resolve.
+    expect(resolveLineId('last_defenders', 'soviets')).toBeNull();
+    expect(getPathEraConfig('last_defenders', 3, 'soviets')).toBe(CAMPAIGN_PATHS.last_defenders.eras[3]);
+  });
+
+  it('describes the choice: both sides, and which is taken', () => {
+    const open = describeLineChoice('blood_empire', undefined)!;
+    expect(open.choose_at).toBe(3);
+    expect(open.chosen).toBeNull();
+    expect(open.options.map((o) => [o.line_id, o.faction_id])).toEqual([['allies', 'usa'], ['soviets', 'soviet_union']]);
+    expect(open.options.every((o) => o.title && o.pitch && o.name)).toBe(true);
+    expect(describeLineChoice('blood_empire', 'soviets')!.chosen).toBe('soviets');
+    expect(describeLineChoice('revolutionary_flame', 'soviets')).toBeNull();
+  });
+
+  it('never seats the player as the power that started the war', () => {
+    for (const option of lines.options) {
+      expect(['germany', 'japan']).not.toContain(option.eras[3]!.locked_faction);
+    }
+  });
 });

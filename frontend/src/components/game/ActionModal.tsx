@@ -1647,7 +1647,8 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
           ? `Territorial Threshold — held ${threshold}% of all territories`
           : 'Territorial Threshold — held the required share of the map';
       case 'capital':         return 'Capital Capture — all rival capitals seized';
-      case 'secret_mission':  return 'Secret Mission completed';
+      // A campaign stage states its objective; nothing about it was secret.
+      case 'secret_mission':  return data.campaign?.stage_title ? 'Objective — completed' : 'Secret Mission completed';
       case 'lane_sovereignty': return 'Lane Sovereignty — the hyperspace network held, corridor by corridor';
       case 'alliance_victory':return 'Alliance Victory — allied commanders triumphed together';
       case 'abandoned':       return 'Game ended — no human players remained';
@@ -1675,7 +1676,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
         return typeof data.victory_threshold === 'number'
           ? `You hold ${data.victory_threshold}% of the map, the share that wins.`
           : 'You hold enough of the map to win.';
-      case 'secret_mission':  return 'Your secret mission is complete.';
+      case 'secret_mission':  return data.campaign?.stage_title ? 'Your objective is complete.' : 'Your secret mission is complete.';
       case 'turn_limit':      return 'The turn limit fell with you in the strongest position.';
       case 'lunar_hegemony':  return 'The Moon is yours, and so is the game.';
       case 'lane_sovereignty': return 'The hyperspace network is yours.';
@@ -1986,7 +1987,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
             showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2',
           )}
         >
-          <p className="text-white/40 text-[11px] font-semibold uppercase tracking-wider">Secret missions</p>
+          <p className="text-white/40 text-[11px] font-semibold uppercase tracking-wider">{data.campaign?.stage_title ? 'Objective' : 'Secret missions'}</p>
           <ul className="mt-1.5 space-y-1.5">
             {missionReveal.map((p) => {
               const completed = missionWinners.includes(p.player_id);

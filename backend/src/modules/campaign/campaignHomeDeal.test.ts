@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { CAMPAIGN_PATH_LIST } from './campaignPaths';
+import { CAMPAIGN_PATH_LIST, allCampaignStages, type CampaignPath, type PathEraConfig } from './campaignPaths';
 import { initializeGameState } from '../../game-engine/state/gameStateManager';
 import { getFactionById } from '../../game-engine/eras';
 import type { EraId, GameMap, GameSettings } from '../../types';
@@ -20,9 +20,7 @@ const CAMPAIGN_ERAS: EraId[] = ['ancient', 'medieval', 'discovery', 'ww2', 'cold
 const MAPS_DIR = join(__dirname, '../../../../database/maps');
 const loadMap = (mapId: string): GameMap => JSON.parse(readFileSync(join(MAPS_DIR, `${mapId}.json`), 'utf-8')) as GameMap;
 
-function dealStage(pathIndex: number, stageIndex: number) {
-  const path = CAMPAIGN_PATH_LIST[pathIndex]!;
-  const stage = path.eras[stageIndex]!;
+function dealStage(path: CampaignPath, stageIndex: number, stage: PathEraConfig) {
   const era = CAMPAIGN_ERAS[stageIndex]!;
   const map = loadMap(stage.map_id);
   const players = [
@@ -43,10 +41,10 @@ function dealStage(pathIndex: number, stageIndex: number) {
 }
 
 describe('campaign home deal', () => {
-  CAMPAIGN_PATH_LIST.forEach((path, pathIndex) => {
-    path.eras.forEach((stage, stageIndex) => {
-      it(`${path.path_id} stage ${stageIndex + 1}: every seat starts on its home regions, with an even count`, () => {
-        const { era, map, state, players } = dealStage(pathIndex, stageIndex);
+  {
+    allCampaignStages().forEach(({ path, index: stageIndex, line_id, stage }) => {
+      it(`${path.path_id} stage ${stageIndex + 1}${line_id ? ` (${line_id})` : ''}: every seat starts on its home regions, with an even count`, () => {
+        const { era, map, state, players } = dealStage(path, stageIndex, stage);
         const dealt = Object.values(state.territories).filter((t) => t.owner_id);
         const share = Math.floor(dealt.length / players.length);
         const counts = players.map((p) => dealt.filter((t) => t.owner_id === p.player_id).length);
@@ -66,7 +64,7 @@ describe('campaign home deal', () => {
         });
       });
     });
-  });
+  }
 
   it('is the campaign\'s rule alone: the same seats in an ordinary game are dealt as before', () => {
     // The Last Defenders' opener: the Germanic tribes against Rome, Carthage and Parthia.

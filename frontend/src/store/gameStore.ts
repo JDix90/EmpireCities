@@ -426,6 +426,10 @@ export interface GameState {
     campaign_era_count?: number;
     /** Display: narrative intro text for this era (path campaigns only). */
     campaign_intro_text?: string;
+    /** Display: the stage's own name, where it stages a named campaign. */
+    campaign_stage_title?: string;
+    /** The stage's stated objective, replacing a dealt mission (utils/campaignMission.ts). */
+    campaign_mission?: unknown;
     /** Numeric carry-forward stats for the campaign engine. */
     campaign_carry?: { survivor_bonus?: number; revolutionary_spirit?: number };
     /** What the carries do in this stage, in words (utils/campaignCarry.ts). */

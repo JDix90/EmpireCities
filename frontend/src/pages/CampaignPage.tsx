@@ -11,10 +11,15 @@ import {
 import { ERA_LABELS } from '../constants/gameLobbyLabels';
 import SubpageShell from '../components/ui/SubpageShell';
 import GuestGateModal from '../components/ui/GuestGateModal';
-import { CAMPAIGN_START_GATE, CAMPAIGN_START_GATE_V2, CAMPAIGN_START_GATE_SAVE, withGuestsRanked } from '../utils/guestGate';
+import {
+  CAMPAIGN_START_GATE, CAMPAIGN_START_GATE_V2, CAMPAIGN_START_GATE_SAVE, CAMPAIGN_PATH_GATE,
+  GUEST_SAVED_HERE, SAVE_ACCOUNT_LABEL, withGuestsRanked,
+} from '../utils/guestGate';
 import { useGuestPromptV2Enabled } from '../store/featureFlagsStore';
-import { useGuestLeaderboardsEnabled, useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
+import { useGuestCampaignEnabled, useGuestLeaderboardsEnabled, useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
 import { ownAuthUiAllowed } from '../utils/embedContext';
+import { pendingLineChoice, type CampaignLineChoice } from '../utils/campaignLine';
+import { factionDisplayName } from '../utils/factionNames';
 
 const CAMPAIGN_ERAS = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern'] as const;
 
@@ -28,6 +33,8 @@ interface CampaignEraEntry {
   game_id: string | null;
   faction_id: string | null;
   map_id: string;
+  /** The stage's own name, where it has one. Absent from an older server. */
+  title?: string | null;
   intro_text: string | null;
   outro_win_text: string | null;
   outro_loss_text: string | null;
@@ -57,6 +64,8 @@ interface Campaign {
   /** What the campaign will carry into its next stage, in words. Absent from an older server. */
   carry_effects?: CampaignCarryEffect[];
   path_narrative: Record<string, string>;
+  /** The side the path lets the player take. Absent on a path with none. */
+  line_choice?: CampaignLineChoice | null;
   path_config: PathConfig | null;
   eras: CampaignEraEntry[];
 }
@@ -76,6 +85,8 @@ interface AvailablePath {
   recommended_start?: boolean;
   /** The most rounds its opening stage can run. */
   first_stage_max_turns?: number;
+  /** A guest can play it while guest_campaign_enabled is on. Absent from an older server. */
+  guest_open?: boolean;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────
@@ -127,9 +138,12 @@ function PathSelectionScreen({
   onCancel,
   starting,
   canCancel,
+  needsAccount,
 }: {
   paths: AvailablePath[];
   activePathIds: Set<string>;
+  /** For a guest who can play some paths: whether this one still needs a saved account. */
+  needsAccount?: (path: AvailablePath) => boolean;
   onSelect: (pathId: string) => void;
   onCancel: () => void;
   starting: boolean;
@@ -168,6 +182,14 @@ function PathSelectionScreen({
                         data-testid="campaign-path-start-here"
                       >
                         Start here
+                      </span>
+                    )}
+                    {needsAccount?.(path) && (
+                      <span
+                        className="ml-1 text-[10px] uppercase tracking-widest text-bf-muted bg-bf-surface border border-bf-border rounded-full px-2 py-0.5"
+                        data-testid="campaign-path-needs-account"
+                      >
+                        Needs a saved account
                       </span>
                     )}
                   </div>
@@ -278,9 +300,12 @@ function EraRow({
         <div className="flex-1">
           <p className={`text-sm font-medium ${isCurrent ? 'text-bf-gold' : isDone ? 'text-green-300' : isLocked ? 'text-bf-muted' : 'text-bf-text'}`}>
             {ERA_LABELS[era.era_id] ?? era.era_id}
+            {era.title && !isLocked && <span className="font-normal text-bf-muted"> · {era.title}</span>}
           </p>
           {era.faction_id && !isLocked && (
-            <p className="text-xs text-bf-muted mt-0.5 capitalize">{era.faction_id.replace(/_/g, ' ')}</p>
+            <p className="text-xs text-bf-muted mt-0.5 capitalize">
+              {factionDisplayName(era.era_id, era.faction_id) ?? era.faction_id.replace(/_/g, ' ')}
+            </p>
           )}
           {isAttempted && !isDone && (
             <p className="text-xs text-red-400 mt-0.5">Failed — try again</p>
@@ -387,9 +412,12 @@ export default function CampaignPage() {
   const [continuing, setContinuing] = useState<string | null>(null);
   const [showPathSelection, setShowPathSelection] = useState(false);
   const [showGuestGate, setShowGuestGate] = useState(false);
+  /** The campaign whose side is being chosen, while its dialog is open. */
+  const [choosingLineFor, setChoosingLineFor] = useState<string | null>(null);
   const guestPromptV2 = useGuestPromptV2Enabled();
   const saveAccountCopy = useSaveAccountCopyEnabled();
   const guestsRanked = useGuestLeaderboardsEnabled();
+  const guestCampaign = useGuestCampaignEnabled();
   // Choosing a path used to create and open the Era 1 game on the spot, with
   // no settings shown and no way back; the run then sat in HQ as "active"
   // (PT-017). The choice now opens a confirmation first.
@@ -430,12 +458,18 @@ export default function CampaignPage() {
 
   const selectedCampaign = selectedId ? campaigns.find((c) => c.campaign_id === selectedId) ?? null : null;
 
+  /** Whether this guest can play the path: the flag is on and the server marks it open. */
+  const guestMayPlay = (pathId?: string): boolean =>
+    guestCampaign && !!pathId && availablePaths.find((p) => p.path_id === pathId)?.guest_open === true;
+
   const handleStartWithPath = async (pathId?: string) => {
     // A guest may browse campaigns (GET /campaign/list and /paths take any
     // authenticated caller) but not start one — POST /campaign/start carries
     // `rejectGuest` and answers 403. Intercepting here turns that dead end into
     // the account offer at the moment they have chosen a campaign and pressed go.
-    if (isGuest) {
+    // With guest_campaign_enabled the server lets a guest into the paths it
+    // marks open; any other still gets the offer.
+    if (isGuest && !guestMayPlay(pathId)) {
       setShowGuestGate(true);
       return;
     }
@@ -481,6 +515,13 @@ export default function CampaignPage() {
           This creates your first era&apos;s game and opens it. The run stays in Campaign HQ, and a stage
           you leave part-way is kept there to pick up.
         </p>
+        {/* A guest can play on; saving is offered, never required. */}
+        {isGuest && ownAuthUiAllowed() && (
+          <p className="text-xs text-bf-muted -mt-3 mb-5" data-testid="campaign-start-guest-note">
+            {GUEST_SAVED_HERE}. You can save your account at any point to keep this campaign safe and play it
+            on any device.
+          </p>
+        )}
         <div className="flex gap-3">
           <button type="button" className="btn-secondary flex-1" onClick={() => setPendingStart(null)}>
             Not yet
@@ -502,13 +543,19 @@ export default function CampaignPage() {
     </div>
   );
 
-  const handleContinue = async (campaign: Campaign) => {
+  const handleContinue = async (campaign: Campaign, line?: string) => {
     if (campaign.status === 'completed') return;
+    // A stage that offers a side asks for it before it deals the game.
+    if (!line && pendingLineChoice(campaign)) {
+      setChoosingLineFor(campaign.campaign_id);
+      return;
+    }
+    setChoosingLineFor(null);
     setContinuing(campaign.campaign_id);
     try {
       const res = await api.post<{ game_id: string }>(
         '/campaign/continue',
-        { campaign_id: campaign.campaign_id },
+        { campaign_id: campaign.campaign_id, ...(line ? { line } : {}) },
       );
       navigate(`/game/${res.data.game_id}`);
     } catch (err: unknown) {
@@ -518,6 +565,61 @@ export default function CampaignPage() {
       setContinuing(null);
     }
   };
+
+  // The side to fight on, asked by the stage that offers one.
+  const choosingCampaign = choosingLineFor ? campaigns.find((c) => c.campaign_id === choosingLineFor) ?? null : null;
+  const lineChoice = choosingCampaign ? pendingLineChoice(choosingCampaign) : null;
+  const lineChooser = choosingCampaign && lineChoice && (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 pt-safe pb-safe overflow-y-auto"
+      onClick={() => setChoosingLineFor(null)}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="campaign-line-title"
+        data-testid="campaign-line-chooser"
+        className="bg-bf-surface border border-bf-gold/35 rounded-xl p-5 sm:p-6 w-full max-w-2xl my-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="text-[11px] uppercase tracking-widest text-bf-muted mb-1">
+          {choosingCampaign.path_config?.name ?? 'Campaign'} · Era {lineChoice.choose_at + 1} of {CAMPAIGN_ERAS.length}
+        </p>
+        <h3 id="campaign-line-title" className="font-display text-xl text-bf-gold mb-1">Choose your side</h3>
+        <p className="text-sm text-bf-muted mb-4">
+          {ERA_LABELS[CAMPAIGN_ERAS[lineChoice.choose_at] ?? ''] ?? 'This era'} is fought from one of two sides, and
+          the side you take is the one you lead through the eras that follow.
+          {lineChoice.chosen ? ' You can change sides for as long as this era is not yet won.' : ''}
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+          {lineChoice.options.map((option) => {
+            const faction = factionDisplayName(CAMPAIGN_ERAS[lineChoice.choose_at], option.faction_id);
+            return (
+              <button
+                key={option.line_id}
+                type="button"
+                data-testid={`campaign-line-${option.line_id}`}
+                disabled={continuing === choosingCampaign.campaign_id}
+                onClick={() => void handleContinue(choosingCampaign, option.line_id)}
+                className="text-left rounded-lg border border-bf-border bg-bf-dark/50 hover:border-bf-gold/60 focus-visible:border-bf-gold/60 transition-colors p-4 disabled:opacity-60"
+              >
+                <p className="font-display text-lg text-bf-gold leading-tight">{option.name}</p>
+                {option.title && <p className="text-sm text-bf-text mt-1">{option.title}</p>}
+                {faction && <p className="text-xs text-bf-muted mt-0.5">You command: {faction}</p>}
+                <p className="text-sm text-bf-muted mt-2">{option.pitch}</p>
+                {lineChoice.chosen === option.line_id && (
+                  <p className="text-xs text-bf-gold/80 mt-2">Your side on the last attempt</p>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        <button type="button" className="btn-secondary w-full" onClick={() => setChoosingLineFor(null)}>
+          Not yet
+        </button>
+      </div>
+    </div>
+  );
 
   // ?continue=1: a stage's results sent the player here to go straight on, to
   // the next era after a win or the same stage after a loss. Once, and the
@@ -557,7 +659,10 @@ export default function CampaignPage() {
   // positioning means it does not matter where in the tree it sits.
   // The gate's only action is creating an account, which a CrazyGames embed
   // forbids — so there it is not offered at all.
-  const gateCopy = saveAccountCopy ? CAMPAIGN_START_GATE_SAVE : guestPromptV2 ? CAMPAIGN_START_GATE_V2 : CAMPAIGN_START_GATE;
+  // With the campaign open to guests the offer is about one path, not all of them.
+  const gateCopy = guestCampaign && availablePaths.some((p) => p.guest_open)
+    ? CAMPAIGN_PATH_GATE
+    : saveAccountCopy ? CAMPAIGN_START_GATE_SAVE : guestPromptV2 ? CAMPAIGN_START_GATE_V2 : CAMPAIGN_START_GATE;
   const guestGate = showGuestGate && ownAuthUiAllowed() ? (
     <GuestGateModal
       copy={guestsRanked ? withGuestsRanked(gateCopy) : gateCopy}
@@ -582,12 +687,13 @@ export default function CampaignPage() {
             paths={availablePaths}
             activePathIds={activePathIds}
             onSelect={(pathId) => {
-              // A guest cannot start one at all: the account offer, not a confirm.
-              if (isGuest) { setShowGuestGate(true); return; }
+              // A guest gets the account offer, not a confirm, for a path not open to them.
+              if (isGuest && !guestMayPlay(pathId)) { setShowGuestGate(true); return; }
               const path = availablePaths.find((p) => p.path_id === pathId);
               setPendingStart({ pathId, name: path?.name ?? 'Campaign', tagline: path?.tagline });
             }}
             onCancel={() => setShowPathSelection(false)}
+            needsAccount={isGuest && guestCampaign ? (path) => !path.guest_open : undefined}
             starting={starting}
             canCancel={campaigns.length > 0}
           />
@@ -620,6 +726,23 @@ export default function CampaignPage() {
           {campaign.path_config && (
             <div className={`mb-4 p-3 rounded-lg border ${pathAccentColor(campaign.path_id)}`}>
               <p className="text-sm text-bf-muted italic">{campaign.path_config.tagline}</p>
+            </div>
+          )}
+
+          {/* A guest's run lives on this device until the account is saved:
+              said here, where the run is, and never in the way of playing it. */}
+          {isGuest && ownAuthUiAllowed() && campaign.status === 'active' && (
+            <div
+              className="mb-4 p-3 rounded-lg border border-bf-gold/30 bg-bf-gold/5 flex flex-col sm:flex-row sm:items-center gap-3"
+              data-testid="campaign-guest-save"
+            >
+              <p className="text-sm text-bf-text flex-1">
+                {GUEST_SAVED_HERE}. Save your account to keep this campaign safe, pick it up on any device and
+                open the other paths.
+              </p>
+              <button type="button" className="btn-secondary flex-shrink-0" onClick={() => navigate('/upgrade')}>
+                {SAVE_ACCOUNT_LABEL}
+              </button>
             </div>
           )}
 
@@ -693,6 +816,7 @@ export default function CampaignPage() {
               All Campaigns
             </button>
           </div>
+          {lineChooser}
       </SubpageShell>
     );
   }

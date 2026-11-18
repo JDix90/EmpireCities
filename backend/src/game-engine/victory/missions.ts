@@ -1,5 +1,5 @@
 import { randomBytes } from 'crypto';
-import type { GameMap, GameState, PlayerState, SecretMission } from '../../types';
+import type { CampaignStageMission, GameMap, GameState, PlayerState, SecretMission } from '../../types';
 import { getMaxEraIndex, getStateSpineSteps } from '../eraAdvancement/spines';
 import { territoryUnlockEra } from '../eraAdvancement/territoryUnlock';
 import { territoryRequiresOrbitAccessForClaim } from '../state/moonAccess';
@@ -207,6 +207,53 @@ export function dealSecretMissions(state: GameState, map: GameMap): void {
   state.mission_seed_salt ??= randomBytes(16).toString('hex');
   const seed = hashStringToSeed(`${state.game_id}:${state.mission_seed_salt}:secret_missions`);
   assignSecretMissions(state, map, createSeededRng(seed));
+  applyCampaignMission(state, map);
+}
+
+/**
+ * Turn a stage's pinned objective into a mission on this board, or null when
+ * the board cannot carry it: a region with no tile in play, a tile that is not
+ * dealt, a faction nobody is seated as.
+ */
+export function resolveCampaignMission(
+  state: GameState,
+  map: GameMap,
+  pin: CampaignStageMission,
+): SecretMission | null {
+  if (pin.kind === 'control_regions') {
+    const live = pin.region_ids.every((rid) =>
+      map.territories.some((t) => t.region_id === rid && state.territories[t.territory_id] != null));
+    return live ? { kind: 'control_regions', region_ids: [...pin.region_ids] } : null;
+  }
+  if (pin.kind === 'capture_territories') {
+    const [a, b] = pin.territory_ids;
+    return state.territories[a] && state.territories[b]
+      ? { kind: 'capture_territories', territory_ids: [a, b] }
+      : null;
+  }
+  const target = state.players.find((p) => p.is_ai && p.faction_id === pin.faction_id);
+  return target ? { kind: 'eliminate_player', target_player_id: target.player_id } : null;
+}
+
+/**
+ * A campaign stage that names its objective (`campaign_mission`): the player
+ * holds that mission and the bots hold none. A dealt mission is a different one
+ * every attempt, which is no way to stage a named battle, and a bot's is an
+ * objective the player cannot see and loses to without warning. With none, a
+ * bot wins such a stage by eliminating the player or by holding the most ground
+ * when the clock runs out.
+ *
+ * A pin the board cannot carry changes nothing: the stage keeps the missions it
+ * was dealt.
+ */
+export function applyCampaignMission(state: GameState, map: GameMap): void {
+  const pin = state.settings.campaign_mission;
+  if (!pin) return;
+  const mission = resolveCampaignMission(state, map, pin);
+  if (!mission) return;
+  for (const player of state.players) {
+    player.secret_mission = player.is_ai ? null : { ...mission };
+  }
 }
 
 /**

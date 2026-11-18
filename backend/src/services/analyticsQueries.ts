@@ -198,6 +198,26 @@ export interface CampaignPathRow {
  * Where a solo game came from, read from its settings. `other` is a Quick
  * Match or a custom lobby.
  */
+/**
+ * One campaign stage in the window, by the side played where the stage has
+ * sides: what a stage's measured win rate is read from.
+ */
+export interface CampaignStageRow {
+  path: string;
+  /** One-based. */
+  stage: number;
+  /** The side played ('allies', 'soviets'), or null on a stage with none. */
+  line: string | null;
+  /** Stage games created, retries included, and those that were retries. */
+  games: number;
+  retries: number;
+  /** Stage games played to a result, and those the player won. */
+  finished: number;
+  won: number;
+  /** Median rounds of the finished games; null with none finished. */
+  median_rounds: number | null;
+}
+
 export type SoloGameMode = 'tutorial' | 'first_match' | 'campaign' | 'daily' | 'other';
 
 /** Bot levels, lowest first: the order the solo table sorts and ranks them by. */
@@ -363,6 +383,8 @@ export interface AnalyticsReport {
   platforms: PlatformRow[];
   /** The campaign by path: started, stage games finished and won, completed. */
   campaign: CampaignPathRow[];
+  /** The campaign by stage, and by side where a stage has sides. */
+  campaign_stages: CampaignStageRow[];
 }
 
 /**
@@ -1403,6 +1425,45 @@ export async function getCampaignMetrics(days: number): Promise<CampaignPathRow[
   }));
 }
 
+/**
+ * The campaign by stage in the window, and by side where a stage has sides:
+ * stage games created (and how many were retries), finished and won. In path
+ * and stage order.
+ */
+export async function getCampaignStageMetrics(days: number): Promise<CampaignStageRow[]> {
+  const rows = await query<Record<string, unknown>>(
+    `SELECT COALESCE(e.properties->>'path_id', 'classic') AS path,
+            (e.properties->>'stage')::int AS stage,
+            NULLIF(e.properties->>'line', '') AS line,
+            COUNT(*) FILTER (WHERE e.event = 'campaign_stage_started')::int AS games,
+            COUNT(*) FILTER (WHERE e.event = 'campaign_stage_started'
+                               AND e.properties->>'retry' = 'true')::int AS retries,
+            COUNT(*) FILTER (WHERE e.event = 'campaign_stage_finished')::int AS finished,
+            COUNT(*) FILTER (WHERE e.event = 'campaign_stage_finished'
+                               AND e.properties->>'won' = 'true')::int AS won,
+            percentile_cont(0.5) WITHIN GROUP (ORDER BY (e.properties->>'rounds')::numeric)
+              FILTER (WHERE e.event = 'campaign_stage_finished') AS median_rounds
+     FROM analytics_events e
+     WHERE e.event IN ('campaign_stage_started', 'campaign_stage_finished')
+       AND e.properties->>'stage' ~ '^[0-9]+$'
+       AND e.created_at >= NOW() - make_interval(days => $1::int)
+       AND ${countedEventSql('e')}
+     GROUP BY 1, 2, 3
+     ORDER BY path, stage, line NULLS FIRST`,
+    [days],
+  );
+  return rows.map((r) => ({
+    path: String(r.path),
+    stage: num(r.stage),
+    line: r.line == null ? null : String(r.line),
+    games: num(r.games),
+    retries: num(r.retries),
+    finished: num(r.finished),
+    won: num(r.won),
+    median_rounds: numOrNull(r.median_rounds),
+  }));
+}
+
 /** Everything the funnel report / admin view needs, in one shot. */
 export async function getAnalyticsReport(
   days: number,
@@ -1412,7 +1473,7 @@ export async function getAnalyticsReport(
   // NOTE: the section queries share one mocked `query` in the unit test, which
   // matches them positionally — a new section goes on the END of this list so
   // it cannot shift the mocks of the ones above it.
-  const [visitors, funnel, retention, retentionByCohort, completion, acquisition, volume, tutorial, totalRow, firstMatch, soloByLevel, guestAccounts, activePlayers, firstTurn, editor, prompts, platforms, campaign] = await Promise.all([
+  const [visitors, funnel, retention, retentionByCohort, completion, acquisition, volume, tutorial, totalRow, firstMatch, soloByLevel, guestAccounts, activePlayers, firstTurn, editor, prompts, platforms, campaign, campaignStages] = await Promise.all([
     getVisitorFunnel(days),
     getFunnelMetrics(days, device, platform),
     getRetentionMetrics(),
@@ -1431,6 +1492,7 @@ export async function getAnalyticsReport(
     getPromptFunnel(days),
     getPlatformBreakdown(days),
     getCampaignMetrics(days),
+    getCampaignStageMetrics(days),
   ]);
   return {
     window_days: days,
@@ -1455,5 +1517,6 @@ export async function getAnalyticsReport(
     prompts,
     platforms,
     campaign,
+    campaign_stages: campaignStages,
   };
 }

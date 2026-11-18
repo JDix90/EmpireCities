@@ -168,6 +168,7 @@ import {
 } from '../utils/dailyPuzzleV2';
 import { isClassicDaily, resolveGameOverResult, type DailyRunResult } from '../utils/dailyGameOver';
 import CampaignIntroModal, { type CampaignIntroData } from '../components/game/CampaignIntroModal';
+import { describeCampaignMission, readCampaignMission } from '../utils/campaignMission';
 import InviteFriendsModal from '../components/game/InviteFriendsModal';
 import GameShortcutsModal from '../components/game/GameShortcutsModal';
 import TerritoryListDialog from '../components/game/TerritoryListDialog';
@@ -1199,8 +1200,10 @@ export default function GamePage() {
     // player's faction, so this one was a second dialog saying it again. A
     // secret-mission stage keeps it: the mission is dealt at the start, after
     // the intro can be shown, and this is where it is first read.
+    // A stage with a stated objective has none dealt: its intro already says it.
     if (gameState.settings.is_campaign
-      && !(gameState.settings.allowed_victory_conditions ?? []).includes('secret_mission')) return;
+      && (!(gameState.settings.allowed_victory_conditions ?? []).includes('secret_mission')
+        || !!(gameState.settings as { campaign_mission?: unknown }).campaign_mission)) return;
     if (!isOpeningState(gameState)) return;
     const viewerId = resolvedViewerPlayerIdRef.current ?? userRef.current?.user_id ?? null;
     if (!viewerId || !gameState.players.some((p) => p.player_id === viewerId)) return;
@@ -4862,6 +4865,12 @@ export default function GamePage() {
     // settings have loaded (the stage's rules are the same in both).
     const rules = (stateSettings ?? lobbySettings ?? {}) as Parameters<typeof describeWinConditions>[0];
     const goal = describeWinConditions(rules, (aiCount ?? 0) + 1);
+    // A stage that states its objective names it, where an ordinary mission
+    // stage can only say that one will be dealt.
+    const objective = readCampaignMission(get<unknown>('campaign_mission'));
+    const goals = objective
+      ? [describeCampaignMission(objective, { lookup: mapData, eraId: eraIdFromSettings })]
+      : goal.conditions;
 
     return {
       pathName: get<string>('campaign_path_name'),
@@ -4870,18 +4879,19 @@ export default function GamePage() {
       eraIndex: get<number>('campaign_era_index'),
       eraCount: get<number>('campaign_era_count'),
       eraLabel,
+      stageTitle: get<string>('campaign_stage_title'),
       introText: get<string>('campaign_intro_text'),
       lockedFaction,
       aiDifficulty,
       aiCount,
       opponents,
       carryEffects,
-      goals: goal.conditions,
+      goals,
       turnCap: goal.turnCap,
       eraId: eraIdFromSettings || null,
       lockedFactionId,
     };
-  }, [lobbySnapshot, gameState]);
+  }, [lobbySnapshot, gameState, mapData]);
 
   const dismissCampaignIntro = useCallback(() => {
     setShowCampaignIntro(false);

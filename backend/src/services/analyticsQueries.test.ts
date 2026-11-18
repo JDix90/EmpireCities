@@ -26,6 +26,7 @@ import {
   parseFunnelPlatform,
   getPlatformBreakdown,
   getCampaignMetrics,
+  getCampaignStageMetrics,
 } from './analyticsQueries';
 
 describe('analyticsQueries', () => {
@@ -305,6 +306,25 @@ describe('analyticsQueries', () => {
     expect(params).toEqual([30]);
   });
 
+  it('getCampaignStageMetrics reads one row per stage and side', async () => {
+    queryMock.mockResolvedValueOnce([
+      { path: 'blood_empire', stage: 1, line: null, games: '6', retries: 2, finished: 5, won: 3, median_rounds: '19' },
+      { path: 'blood_empire', stage: 4, line: 'allies', games: 2, retries: 0, finished: 1, won: 0, median_rounds: 30 },
+      { path: 'blood_empire', stage: 4, line: 'soviets', games: 1, retries: 0, finished: 0, won: 0, median_rounds: null },
+    ]);
+    expect(await getCampaignStageMetrics(30)).toEqual([
+      { path: 'blood_empire', stage: 1, line: null, games: 6, retries: 2, finished: 5, won: 3, median_rounds: 19 },
+      { path: 'blood_empire', stage: 4, line: 'allies', games: 2, retries: 0, finished: 1, won: 0, median_rounds: 30 },
+      { path: 'blood_empire', stage: 4, line: 'soviets', games: 1, retries: 0, finished: 0, won: 0, median_rounds: null },
+    ]);
+    const [sql, params] = queryMock.mock.calls[0]!;
+    expect(String(sql)).toContain("properties->>'line'");
+    expect(String(sql)).toContain('exclude_from_stats');
+    // A stage that is not a number is skipped, not a cast error for the whole report.
+    expect(String(sql)).toContain("~ '^[0-9]+$'");
+    expect(params).toEqual([30]);
+  });
+
   it('getFirstMatchStats reads zeros on an empty window', async () => {
     queryMock.mockResolvedValueOnce([{}]);
     expect(await getFirstMatchStats(30)).toEqual({ started: 0, finished: 0, won: 0, next_day_cohort: 0, next_day: 0 });
@@ -417,12 +437,18 @@ describe('analyticsQueries', () => {
       ])
       .mockResolvedValueOnce([
         { path: 'blood_empire', started: 2, guest_started: 1, stage_games: 3, stage_finished: 2, stage_won: 1, stage1_won: 1, completed: 0, median_rounds: '19' },
+      ])
+      .mockResolvedValueOnce([
+        { path: 'blood_empire', stage: 4, line: 'soviets', games: 3, retries: 1, finished: 2, won: 1, median_rounds: '14' },
       ]);
     queryOneMock.mockResolvedValueOnce({ total: 42 });
 
     const r = await getAnalyticsReport(30);
     expect(r.campaign).toEqual([
       { path: 'blood_empire', started: 2, guest_started: 1, stage_games: 3, stage_finished: 2, stage_won: 1, stage1_won: 1, completed: 0, median_rounds: 19 },
+    ]);
+    expect(r.campaign_stages).toEqual([
+      { path: 'blood_empire', stage: 4, line: 'soviets', games: 3, retries: 1, finished: 2, won: 1, median_rounds: 14 },
     ]);
     expect(r.window_days).toBe(30);
     expect(r.device).toBeNull();

@@ -172,6 +172,14 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().globe_unit_counts_enabled).toBe(true);
   });
 
+  it('guest_campaign_enabled defaults to off and the admin override turns it on', () => {
+    expect(featureFlags.guestCampaignEnabled).toBe(false);
+    expect(getClientFeatureFlags().guest_campaign_enabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { guest_campaign_enabled: true } });
+    expect(featureFlags.guestCampaignEnabled).toBe(true);
+    expect(getClientFeatureFlags().guest_campaign_enabled).toBe(true);
+  });
+
   it('guest_leaderboards_enabled defaults to off and the admin override turns it on', () => {
     expect(featureFlags.guestLeaderboardsEnabled).toBe(false);
     expect(getClientFeatureFlags().guest_leaderboards_enabled).toBe(false);

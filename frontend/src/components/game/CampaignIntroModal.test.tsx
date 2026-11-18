@@ -29,6 +29,20 @@ describe('CampaignIntroModal', () => {
     expect(screen.getByTestId('campaign-intro-carry').textContent).toContain('Nothing yet. Win this era to carry Prestige into the next.');
   });
 
+  it('names a stage that stages a named campaign, and calls its goal the objective', () => {
+    render(
+      <CampaignIntroModal
+        data={{ ...base, eraIndex: 3, eraLabel: 'World War II', pathTagline: 'Conquer the world.', stageTitle: 'The Second Front, 1944', goals: ['Hold every territory in Western Front'], turnCap: 'Most territory when turn 30 ends also wins' }}
+        onBegin={() => {}}
+      />,
+    );
+    expect(screen.getByTestId('campaign-intro-stage-title').textContent).toBe('The Second Front, 1944');
+    const goal = screen.getByTestId('campaign-intro-goal');
+    expect(goal.textContent).toContain('Objective');
+    expect(goal.textContent).toContain('Hold every territory in Western Front');
+    expect(goal.textContent).not.toContain('How to win');
+  });
+
   it('names the powers across the table', () => {
     render(<CampaignIntroModal data={{ ...base, opponents: ['Byzantine Empire', 'Holy Roman Empire'] }} onBegin={() => {}} />);
     expect(screen.getByTestId('campaign-intro-opponents').textContent).toBe('Against: Byzantine Empire, Holy Roman Empire');

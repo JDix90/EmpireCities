@@ -1,4 +1,4 @@
-import { CAMPAIGN_PATHS, type PathId } from './campaignPaths';
+import { CAMPAIGN_PATHS, getPathEraConfig, type PathId } from './campaignPaths';
 import { describeCampaignCarry, type CampaignCarryEffect } from './campaignCarryEffects';
 
 /**
@@ -16,6 +16,8 @@ export interface CampaignGameResult {
   /** One-based. */
   stage: number;
   stage_count: number;
+  /** The stage's own name, where it has one. */
+  stage_title: string | null;
   /** 'advanced': won, another stage follows. 'completed': won the last stage. 'lost': the stage is played again. */
   outcome: 'advanced' | 'completed' | 'lost';
   /** The era the next stage is set in, after 'advanced'. */
@@ -33,6 +35,8 @@ export function buildCampaignGameResult(input: {
   pathId: string | null;
   /** Zero-based index of the stage just played. */
   eraIndex: number;
+  /** The side the campaign took, on a path that offers one. */
+  lineId?: string | null;
   /** The campaign's eras, in order. */
   eras: readonly string[];
   won: boolean;
@@ -42,7 +46,7 @@ export function buildCampaignGameResult(input: {
   prestigeAfter: number;
 }): CampaignGameResult {
   const path = input.pathId ? CAMPAIGN_PATHS[input.pathId as PathId] ?? null : null;
-  const stageConfig = path?.eras[input.eraIndex] ?? null;
+  const stageConfig = path ? getPathEraConfig(path.path_id, input.eraIndex, input.lineId) : null;
   const isLast = input.eraIndex + 1 >= input.eras.length;
   const outcome = !input.won ? 'lost' : isLast ? 'completed' : 'advanced';
   return {
@@ -51,6 +55,7 @@ export function buildCampaignGameResult(input: {
     path_name: path?.name ?? 'Classic Campaign',
     stage: input.eraIndex + 1,
     stage_count: input.eras.length,
+    stage_title: stageConfig?.title ?? null,
     outcome,
     next_era: outcome === 'advanced' ? input.eras[input.eraIndex + 1] ?? null : null,
     outro_text: stageConfig ? (input.won ? stageConfig.outro_win_text : stageConfig.outro_loss_text) : null,

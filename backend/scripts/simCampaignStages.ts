@@ -39,7 +39,14 @@
  *   SIM_STAGES=last_defenders:5 SIM_MISSIONS=1 pnpm exec tsx scripts/simCampaignStages.ts
  *   SIM_STAGES=last_defenders:1 SIM_AI_COUNT=2 SIM_CLOCK=25 pnpm exec tsx scripts/simCampaignStages.ts
  *   SIM_STAGES=last_defenders:0 SIM_AI_FACTIONS=rome,carthage,maurya SIM_BY_SEAT=1 pnpm exec tsx scripts/simCampaignStages.ts
+ *   SIM_STAGES=blood_empire:3:soviets pnpm exec tsx scripts/simCampaignStages.ts
+ *   SIM_STAGES=blood_empire:4 SIM_MISSION='{"kind":"control_regions","region_ids":["nato_europe"]}' pnpm exec tsx scripts/simCampaignStages.ts
  *   SIM_PATCH='parthia.reinforce_bonus=0' pnpm exec tsx scripts/simCampaignStages.ts
+ *
+ * A path with sides (campaignPaths `lines`) prints a row per side from the
+ * stage that offers the choice: `path:index` takes both, `path:index:line` one.
+ * SIM_MISSION replaces a stage's stated objective, or with `none` deals
+ * missions as a stage without one would.
  *   SIM_AI_FLAGS=oddsPress=1,plannedDraft=1,endingPlay=1 pnpm exec tsx scripts/simCampaignStages.ts
  *
  * The bots' settings (environment):
@@ -66,8 +73,9 @@ import type { AiLevel } from '../src/game-engine/ai/aiProfiles';
 import { DEFAULT_CARD_SET_BONUS_CAP } from '../src/game-engine/combat/combatResolver';
 import { headlessAiTurnHooks, planAiTurn, playAiTurn } from '../src/game-engine/ai/runAiTurn';
 import { resignIfBeaten, victoryAfterResignation } from '../src/game-engine/ai/aiResign';
-import { assignSecretMissions, createSeededRng, hashStringToSeed } from '../src/game-engine/victory/missions';
-import { CAMPAIGN_PATHS, type PathEraConfig } from '../src/modules/campaign/campaignPaths';
+import { applyCampaignMission, assignSecretMissions, createSeededRng, hashStringToSeed } from '../src/game-engine/victory/missions';
+import { allCampaignStages, type PathEraConfig } from '../src/modules/campaign/campaignPaths';
+import { sanitizeCampaignMission } from '../src/game-engine/state/gameSettings';
 import { getEraFactions } from '../src/game-engine/eras';
 import { describeAiTurnFlags, handOff, parseAiLevel, parseAiTurnFlags, resolveChoiceCard } from './aiHarness';
 import { seedEngineRandomness, seededUuid } from './seededEngineRandomness';
@@ -109,6 +117,12 @@ const OVERRIDE_THRESHOLD = process.env.SIM_THRESHOLD == null ? null : Number(pro
 const OVERRIDE_CLOCK = process.env.SIM_CLOCK == null ? null : Number(process.env.SIM_CLOCK);
 const OVERRIDE_VICTORY = (process.env.SIM_VICTORY ?? '')
   .split(',').map((v) => v.trim()).filter(Boolean) as VictoryType[];
+/**
+ * The stage's pinned objective as JSON, e.g.
+ * `{"kind":"control_regions","region_ids":["western_front"]}`, or `none` to
+ * deal missions as an unpinned stage would.
+ */
+const OVERRIDE_MISSION = process.env.SIM_MISSION?.trim();
 /** Extra carry for seat 0, e.g. `survivor_bonus:2`. Merged over the path's own. */
 const EXTRA_CARRY = (process.env.SIM_CARRY ?? '').split(',').map((c) => c.trim()).filter(Boolean)
   .reduce<Record<string, number>>((acc, pair) => {
@@ -188,6 +202,9 @@ function resolveStage(stage: PathEraConfig): PathEraConfig {
     victory_threshold: OVERRIDE_THRESHOLD ?? stage.victory_threshold,
     max_turns: OVERRIDE_CLOCK ?? stage.max_turns,
     starting_unit_modifier: OVERRIDE_UNIT_MOD ?? stage.starting_unit_modifier,
+    mission: OVERRIDE_MISSION == null
+      ? stage.mission
+      : OVERRIDE_MISSION === 'none' ? undefined : sanitizeCampaignMission(JSON.parse(OVERRIDE_MISSION)),
   };
 }
 
@@ -207,6 +224,8 @@ async function runStage(
   index: number,
   stage: PathEraConfig,
   initialCarry: Record<string, number>,
+  /** A line other than the path's default: part of the game id, so of the seed. */
+  lineId: string | null = null,
 ): Promise<StageResult> {
   const era = CAMPAIGN_ERAS[index] ?? 'ancient';
   // A misspelt faction would seat a factionless AI and still print a win rate.
@@ -225,7 +244,7 @@ async function runStage(
     // seeds secret-mission assignment from it (gameStateManager), so an id that
     // does not follow SIM_SEED would hand every seat different objectives while
     // claiming to be the same run.
-    const gameId = `${SEED}:${pathId}:${index}:${g}`;
+    const gameId = `${SEED}:${pathId}:${index}${lineId ? `:${lineId}` : ''}:${g}`;
     // The dice and every other draw the engine makes, then the planner's jitter.
     seedEngineRandomness(`${gameId}:engine`);
     const jitter = createSeededRng(hashStringToSeed(gameId));
@@ -255,6 +274,7 @@ async function runStage(
       // As the route sets it. The old loop never traded a card, so it never needed it.
       card_set_bonus_cap: DEFAULT_CARD_SET_BONUS_CAP,
       campaign_carry: NO_CARRY ? {} : { ...initialCarry, ...EXTRA_CARRY },
+      ...(stage.mission ? { campaign_mission: stage.mission } : {}),
       ...(HANDICAP && stage.starting_unit_modifier
         ? { campaign_starting_units_delta: stage.starting_unit_modifier }
         : {}),
@@ -280,6 +300,7 @@ async function runStage(
         state, map,
         createSeededRng(hashStringToSeed(`${gameId}:${state.mission_seed_salt}:secret_missions`)),
       );
+      applyCampaignMission(state, map);
     }
 
     const missionKind = (state.players[0] as { secret_mission?: { kind?: string } })
@@ -352,13 +373,24 @@ async function main(): Promise<void> {
     + `\nstand-in: [${describeAiTurnFlags(STANDIN_FLAGS)}]\n`,
   );
 
-  for (const [pathId, path] of Object.entries(CAMPAIGN_PATHS)) {
-    const printed: string[] = [];
-    for (const [index, authored] of path.eras.entries()) {
-      if (ONLY.length > 0 && !ONLY.includes(`${pathId}:${index}`)) continue;
+  let lastPath: string | null = null;
+  for (const { path, index, line_id, stage: authored } of allCampaignStages()) {
+    {
+      const pathId = path.path_id;
+      // `path:index` takes every line of a stage, `path:index:line` one.
+      if (
+        ONLY.length > 0
+        && !ONLY.includes(`${pathId}:${index}`)
+        && !ONLY.includes(`${pathId}:${index}:${line_id}`)
+      ) continue;
+      const printed: string[] = lastPath === pathId ? [pathId] : [];
+      if (lastPath !== pathId && lastPath !== null) console.log();
+      lastPath = pathId;
       const stage = resolveStage(authored);
       const carry = NO_CARRY ? {} : (path.initial_carry as Record<string, number>);
-      const r = await runStage(pathId, index, stage, carry ?? {});
+      // The default line keeps the id, and so the digest, the stage had before lines.
+      const seedLine = line_id && line_id !== path.lines?.default_line ? line_id : null;
+      const r = await runStage(pathId, index, stage, carry ?? {}, seedLine);
       const avg = (r.turns.reduce((a, b) => a + b, 0) / r.turns.length).toFixed(0);
       if (printed.length === 0) {
         console.log(`=== ${path.name} ===`);
@@ -370,7 +402,7 @@ async function main(): Promise<void> {
       }
       printed.push(pathId);
       console.log(
-        `${String(index + 1).padEnd(3)}${(CAMPAIGN_ERAS[index] ?? '?').padEnd(12)}${stage.ai_difficulty.padEnd(8)}`
+        `${String(index + 1).padEnd(3)}${`${CAMPAIGN_ERAS[index] ?? '?'}${line_id ? `/${line_id.slice(0, 3)}` : ''}`.padEnd(12)}${stage.ai_difficulty.padEnd(8)}`
         + `${String(stage.ai_count).padEnd(3)}${String(stage.starting_unit_modifier).padEnd(5)}`
         + `${String(stage.victory_threshold ?? '-').padEnd(5)}${String(stage.max_turns ?? '-').padEnd(7)}`
         + `${pct(r.wins).padEnd(6)}${pct(r.losses).padEnd(6)}${pct(r.draws).padEnd(6)}${avg.padEnd(6)}`
@@ -386,7 +418,6 @@ async function main(): Promise<void> {
         }
       }
     }
-    if (printed.length > 0) console.log();
   }
   process.exit(0);
 }

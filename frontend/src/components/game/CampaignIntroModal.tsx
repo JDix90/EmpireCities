@@ -10,6 +10,8 @@ export interface CampaignIntroData {
   eraIndex?: number;
   eraCount?: number;
   eraLabel: string;
+  /** The stage's own name ("The Second Front, 1944"), where it has one. */
+  stageTitle?: string;
   introText?: string;
   lockedFaction?: string | null;
   /** The powers the stage seats against the player, by display name. */
@@ -103,7 +105,11 @@ export default function CampaignIntroModal({ data, onBegin }: CampaignIntroModal
         >
           {data.pathName ?? 'Classic Campaign'}
         </h2>
-        {data.pathTagline && (
+        {data.stageTitle ? (
+          <p className="text-center text-bf-text text-base font-display mb-5" data-testid="campaign-intro-stage-title">
+            {data.stageTitle}
+          </p>
+        ) : data.pathTagline && (
           <p className="text-center text-bf-muted text-sm italic mb-5">{data.pathTagline}</p>
         )}
 
@@ -116,7 +122,7 @@ export default function CampaignIntroModal({ data, onBegin }: CampaignIntroModal
         {/* How the stage is won, first: it is what the player came to do. */}
         {goals.length > 0 && (
           <div className="rounded-lg border border-bf-gold/40 bg-bf-gold/5 px-3 py-2.5 mb-3" data-testid="campaign-intro-goal">
-            <p className="text-[10px] uppercase tracking-wider text-bf-gold/80 mb-1">How to win</p>
+            <p className="text-[10px] uppercase tracking-wider text-bf-gold/80 mb-1">{data.stageTitle ? 'Objective' : 'How to win'}</p>
             <ul className="space-y-0.5">
               {goals.map((goal, i) => (
                 <li key={goal} className="text-sm text-bf-text font-medium">
