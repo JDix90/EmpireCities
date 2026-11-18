@@ -5,6 +5,7 @@ import { useAuthStore } from '../../store/authStore';
 import { ArrowRight, ChevronUp, Clock, CreditCard, Flag, LogOut, Save, ScrollText, Shield, Sword, Undo2, Users, Zap } from 'lucide-react';
 import clsx from 'clsx';
 import { campaignBotFaction } from '../../utils/factionNames';
+import { activeCarryEffects, carryEffectLine } from '../../utils/campaignCarry';
 import { computeDraftPool } from '../../utils/draftPool';
 import EraModifierBadge from './EraModifierBadge';
 import NavalDiceResult from './NavalDiceResult';
@@ -448,6 +449,13 @@ export default function GameHUD({
         })()}
         {/* Era modifier badges */}
         <EraModifierBadge gameState={gameState} className="mt-2" />
+        {/* A campaign stage: what earlier eras carried into it, while it applies. */}
+        {gameState.settings.is_campaign && gameState.phase !== 'game_over'
+          && activeCarryEffects(gameState.settings.campaign_carry_effects, gameState.turn_number).map((effect) => (
+            <p key={effect.key} className="mt-1.5 text-xs text-bf-gold/90" data-testid="hud-campaign-carry">
+              {carryEffectLine(effect)}
+            </p>
+          ))}
         <SpaceProgramTracker
           gameState={gameState}
           mapData={mapData}

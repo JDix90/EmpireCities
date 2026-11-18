@@ -425,6 +425,8 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     campaign_path_id: ext.campaign_path_id,
     campaign_locked_faction: ext.campaign_locked_faction,
     campaign_carry: ext.campaign_carry,
+    // What the carries do, in words, for the HUD (modules/campaign/campaignCarryEffects.ts).
+    campaign_carry_effects: Array.isArray(ext.campaign_carry_effects) ? ext.campaign_carry_effects : undefined,
     campaign_starting_units_delta: ext.campaign_starting_units_delta,
     daily_challenge_date: typeof ext.daily_challenge_date === 'string' ? ext.daily_challenge_date : undefined,
     first_match: ext.first_match === true ? true : undefined,

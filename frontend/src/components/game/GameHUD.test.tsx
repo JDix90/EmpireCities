@@ -291,6 +291,26 @@ describe('GameHUD — tabbed redesign (#9)', () => {
     expect(screen.getByText('Marshal Okonkwo (AI)')).toBeInTheDocument();
   });
 
+  it('shows what a campaign stage carries while it applies, and drops Prestige after its last round', () => {
+    const effects = [
+      { key: 'prestige', label: 'Prestige', text: '+2 attack dice in rounds 1\u20133', until_round: 3 },
+      { key: 'survivor', label: 'Survivor Bonus', text: '+2 defense dice on your home ground' },
+    ];
+    const settings = { is_campaign: true, campaign_carry_effects: effects } as GameState['settings'];
+    useGameStore.setState({ gameState: makeState({ turn_number: 2, settings }) } as never);
+    const { unmount } = renderHud();
+    expect(screen.getAllByTestId('hud-campaign-carry').map((el) => el.textContent)).toEqual([
+      'Prestige: +2 attack dice in rounds 1\u20133',
+      'Survivor Bonus: +2 defense dice on your home ground',
+    ]);
+    unmount();
+    useGameStore.setState({ gameState: makeState({ turn_number: 4, settings }) } as never);
+    renderHud();
+    expect(screen.getAllByTestId('hud-campaign-carry').map((el) => el.textContent)).toEqual([
+      'Survivor Bonus: +2 defense dice on your home ground',
+    ]);
+  });
+
   it('shows a bot commander\'s style on its seat, as an icon that says what it is', () => {
     useGameStore.setState({
       gameState: makeState({

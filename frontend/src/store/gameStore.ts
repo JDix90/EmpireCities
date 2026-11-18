@@ -1,3 +1,4 @@
+import type { CampaignCarryEffect } from '../utils/campaignCarry';
 import type { TutorialLessonModule } from '../tutorial/types';
 import { create } from 'zustand';
 import type { PublicDailyPuzzleV2 } from '../utils/dailyPuzzleV2';
@@ -427,6 +428,8 @@ export interface GameState {
     campaign_intro_text?: string;
     /** Numeric carry-forward stats for the campaign engine. */
     campaign_carry?: { survivor_bonus?: number; revolutionary_spirit?: number };
+    /** What the carries do in this stage, in words (utils/campaignCarry.ts). */
+    campaign_carry_effects?: CampaignCarryEffect[];
     /** Attack bonus from prior-era prestige (applied for first 3 turns). */
     campaign_prestige_bonus?: number;
     /** Daily puzzle metadata (when playing a daily challenge). */

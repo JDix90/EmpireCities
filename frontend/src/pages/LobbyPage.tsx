@@ -14,6 +14,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { isNativeApp } from '../utils/nativeApp';
+import { carryEffectLine, type CampaignCarryEffect } from '../utils/campaignCarry';
 import { useAuthStore } from '../store/authStore';
 import { useFirstMatchLadderMapsEnabled } from '../store/featureFlagsStore';
 import { markTutorialHandoff, TUTORIAL_HANDOFF_PARAM, TUTORIAL_HANDOFF_VALUE } from '../utils/tutorialHandoff';
@@ -386,6 +387,8 @@ interface LobbyCampaignMe {
   path_id: string | null;
   path_config: { name: string; signature_carry_key: string; signature_carry_label?: string } | null;
   path_carry: Record<string, number>;
+  /** What the campaign carries into its next stage, in words. Absent from an older server. */
+  carry_effects?: CampaignCarryEffect[];
   eras: Array<{ era_id: string; game_id: string | null }>;
 }
 
@@ -2470,22 +2473,17 @@ export default function LobbyPage() {
                           · {ERA_LABELS[campaignMe.current_era] ?? campaignMe.current_era}
                         </>
                       )}
-                      <span>
-                        {' · '}
-                        Prestige {campaignMe.prestige_points}
-                      </span>
                     </p>
                   </div>
-                  {campaignMe.path_config &&
-                    (campaignMe.path_carry[campaignMe.path_config.signature_carry_key] ?? 0) > 0 && (
-                      <p className="text-xs text-bf-gold/90 inline-flex items-center gap-1.5 rounded-md border border-bf-gold/25 bg-bf-gold/5 px-2.5 py-1 w-fit">
-                        <Trophy className="w-3.5 h-3.5 shrink-0" aria-hidden />
-                        <span>
-                          {campaignMe.path_config.signature_carry_label ?? 'Path bonus'}:{' '}
-                          {campaignMe.path_carry[campaignMe.path_config.signature_carry_key] ?? 0}
-                        </span>
-                      </p>
-                    )}
+                  {(campaignMe.carry_effects ?? []).map((effect) => (
+                    <p
+                      key={effect.key}
+                      className="text-xs text-bf-gold/90 inline-flex items-center gap-1.5 rounded-md border border-bf-gold/25 bg-bf-gold/5 px-2.5 py-1 w-fit"
+                    >
+                      <Trophy className="w-3.5 h-3.5 shrink-0" aria-hidden />
+                      <span>{carryEffectLine(effect)}</span>
+                    </p>
+                  ))}
                 </div>
               </div>
               <div className="flex flex-col sm:flex-row gap-2 shrink-0 w-full sm:w-auto">

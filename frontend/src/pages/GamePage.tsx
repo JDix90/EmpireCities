@@ -81,6 +81,7 @@ import { useFirstMatchEasyEnabled, useFirstMatchLadderMapsEnabled } from '../sto
 import { resultsActionProperties, type ResultsAction } from '../utils/resultsAction';
 import { campaignResultButtonLabel, type CampaignGameResult } from '../utils/campaignResult';
 import { factionDisplayName } from '../utils/factionNames';
+import type { CampaignCarryEffect } from '../utils/campaignCarry';
 import { FIRST_TURN_STEPS_V2, newFirstTurnSteps, type FirstTurnStep, type FirstTurnView } from '../utils/firstTurnSteps';
 import { useFunnelEventsV2Enabled } from '../store/featureFlagsStore';
 import { trackFunnel } from '../utils/funnelEvents';
@@ -4855,8 +4856,7 @@ export default function GamePage() {
       .filter((p) => p.is_ai)
       .map((p) => factionDisplayName(eraIdFromSettings, (p as { faction_id?: string | null }).faction_id))
       .filter((name): name is string => !!name);
-    const carry = get<{ survivor_bonus?: number; revolutionary_spirit?: number }>('campaign_carry');
-    const prestigeBonus = get<number>('campaign_prestige_bonus') ?? null;
+    const carryEffects = get<CampaignCarryEffect[]>('campaign_carry_effects') ?? [];
 
     return {
       pathName: get<string>('campaign_path_name'),
@@ -4870,8 +4870,7 @@ export default function GamePage() {
       aiDifficulty,
       aiCount,
       opponents,
-      prestigeBonus,
-      carry,
+      carryEffects,
     };
   }, [lobbySnapshot, gameState]);
 

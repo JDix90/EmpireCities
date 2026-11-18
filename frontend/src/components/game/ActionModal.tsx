@@ -6,7 +6,7 @@ import MatchStatsTab from './MatchStatsTab';
 import { AiBadge } from '../ui/AiBadge';
 import { Sword, Swords, Shield, ArrowRight, Crown, Skull, Flag, ChevronRight, ChevronLeft, Plus, Trophy, LogOut, Eye, Share2, Check, Flame, Coins, Link2, ExternalLink, Copy, RotateCcw, Film, Clapperboard, MessageCircle, FastForward, Users } from 'lucide-react';
 import clsx from 'clsx';
-import { campaignCarryLine, campaignStageLine, type CampaignGameResult } from '../../utils/campaignResult';
+import { campaignCarryLines, campaignStageLine, type CampaignGameResult } from '../../utils/campaignResult';
 import CombatAbilityCallouts from './CombatAbilityCallouts';
 import ComeBackTomorrowPanel from './ComeBackTomorrowPanel';
 import InstallOffer from '../install/InstallOffer';
@@ -757,6 +757,21 @@ export function CombatResultView({
                   : 'border-blue-500/40 bg-blue-900/20 text-blue-300',
               )}>
                 🛡️ Faction defense bonus activated (+{result.defender_bonus_breakdown?.faction} die)
+              </p>
+            )}
+          </div>
+        )}
+        {/* A campaign stage's carries at work: Prestige on the attack, the Survivor Bonus in defence. */}
+        {((result.attacker_bonus_breakdown?.campaign ?? 0) > 0 || (result.defender_bonus_breakdown?.campaign ?? 0) > 0) && (
+          <div className="mb-4 space-y-2" data-testid="combat-campaign-carry">
+            {(result.attacker_bonus_breakdown?.campaign ?? 0) > 0 && (
+              <p className="text-xs px-3 py-2 rounded-lg border border-bf-gold/40 bg-bf-gold/10 text-bf-gold">
+                Prestige: +{result.attacker_bonus_breakdown?.campaign} attack {result.attacker_bonus_breakdown?.campaign === 1 ? 'die' : 'dice'}
+              </p>
+            )}
+            {(result.defender_bonus_breakdown?.campaign ?? 0) > 0 && (
+              <p className="text-xs px-3 py-2 rounded-lg border border-bf-gold/40 bg-bf-gold/10 text-bf-gold">
+                Survivor Bonus: +{result.defender_bonus_breakdown?.campaign} defense {result.defender_bonus_breakdown?.campaign === 1 ? 'die' : 'dice'}
               </p>
             )}
           </div>
@@ -1719,7 +1734,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
       !isCampaignGame &&
       onRematch,
   );
-  const campaignCarry = data.campaign ? campaignCarryLine(data.campaign) : null;
+  const campaignCarry = data.campaign ? campaignCarryLines(data.campaign) : [];
   const showChallenge = Boolean(onChallengeFriend);
   // The clip CTA rides the same availability gate as Watch Replay — both need
   // a persisted replay to deep-link into.
@@ -2011,8 +2026,15 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
           {data.campaign.outcome === 'completed' && (
             <p className="text-sm text-bf-gold font-semibold mt-2">Campaign complete.</p>
           )}
-          {campaignCarry && (
-            <p className="text-xs text-bf-gold/90 mt-2" data-testid="gameover-campaign-carry">{campaignCarry}</p>
+          {campaignCarry.length > 0 && (
+            <div className="mt-2" data-testid="gameover-campaign-carry">
+              <p className="text-white/40 text-[11px] uppercase tracking-wider">
+                {data.campaign.outcome === 'lost' ? 'Still carried' : 'Carried into the next era'}
+              </p>
+              {campaignCarry.map((line) => (
+                <p key={line} className="text-xs text-bf-gold/90 mt-0.5">{line}</p>
+              ))}
+            </div>
           )}
         </div>
       )}

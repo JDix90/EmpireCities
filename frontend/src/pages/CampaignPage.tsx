@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { carryEffectLine, type CampaignCarryEffect } from '../utils/campaignCarry';
 import { useAuthStore } from '../store/authStore';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
@@ -53,6 +54,8 @@ interface Campaign {
   completed_at: string | null;
   path_id: string | null;
   path_carry: Record<string, number>;
+  /** What the campaign will carry into its next stage, in words. Absent from an older server. */
+  carry_effects?: CampaignCarryEffect[];
   path_narrative: Record<string, string>;
   path_config: PathConfig | null;
   eras: CampaignEraEntry[];
@@ -81,12 +84,6 @@ function carryColor(carryKey: string): string {
   if (carryKey === 'survivor_bonus') return 'text-blue-400';
   if (carryKey === 'revolutionary_spirit') return 'text-red-400';
   return 'text-amber-400';
-}
-
-function carryBgColor(carryKey: string): string {
-  if (carryKey === 'survivor_bonus') return 'bg-blue-900/30 border-blue-600/40';
-  if (carryKey === 'revolutionary_spirit') return 'bg-red-900/30 border-red-600/40';
-  return 'bg-amber-900/30 border-amber-600/40';
 }
 
 function pathAccentColor(pathId: string | null): string {
@@ -190,20 +187,27 @@ function PathSelectionScreen({
   );
 }
 
-// ── Carry Badge ────────────────────────────────────────────────────────
+// ── Carry effects ──────────────────────────────────────────────────────
 
-function PathCarryBadge({ campaign }: { campaign: Campaign }) {
-  const pc = campaign.path_config;
-  if (!pc) return null;
-  const value = campaign.path_carry[pc.signature_carry_key] ?? 0;
-  if (value <= 0) return null;
-
+/**
+ * What the campaign carries into its next stage: the effect each stat has,
+ * as the server words it. The stored numbers ("Prestige: 6 / 12") ran past
+ * what the game applies, so they are not shown.
+ */
+function CarryEffects({ campaign }: { campaign: Campaign }) {
+  const effects = campaign.carry_effects ?? [];
+  if (effects.length === 0 || campaign.status === 'completed') return null;
   return (
-    <div className={`flex items-center gap-2 border rounded-lg px-4 py-2 w-fit ${carryBgColor(pc.signature_carry_key)}`}>
-      <CarryIcon carryKey={pc.signature_carry_key} className={`w-4 h-4 ${carryColor(pc.signature_carry_key)}`} />
-      <span className={`text-sm font-semibold ${carryColor(pc.signature_carry_key)}`}>
-        {pc.signature_carry_label}: {value} / {pc.signature_carry_max}
-      </span>
+    <div className="mb-6 rounded-lg border border-bf-gold/25 bg-bf-gold/5 px-4 py-3" data-testid="campaign-carry-effects">
+      <p className="text-[11px] uppercase tracking-widest text-bf-muted mb-1.5">Carried into your next era</p>
+      <ul className="space-y-1">
+        {effects.map((effect) => (
+          <li key={effect.key} className="flex items-center gap-2 text-sm text-bf-text">
+            <Trophy className="w-3.5 h-3.5 text-bf-gold shrink-0" aria-hidden />
+            {carryEffectLine(effect)}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -351,11 +355,6 @@ function CampaignListCard({
               )}
             </span>
             <span>· {wonCount} / {CAMPAIGN_ERAS.length} eras won</span>
-            {campaign.prestige_points > 0 && (
-              <span className="flex items-center gap-1">
-                · <Trophy className="w-3 h-3 text-amber-400" /> {campaign.prestige_points}
-              </span>
-            )}
           </div>
         </div>
         <ChevronRight className="w-4 h-4 text-bf-muted flex-shrink-0 mt-1" />
@@ -623,15 +622,7 @@ export default function CampaignPage() {
           )}
 
           {/* Badges */}
-          <div className="mb-6 flex flex-wrap gap-3">
-            {campaign.prestige_points > 0 && (
-              <div className="flex items-center gap-2 bg-amber-900/30 border border-amber-600/40 rounded-lg px-4 py-2">
-                <Trophy className="w-4 h-4 text-amber-400" />
-                <span className="text-amber-300 text-sm font-semibold">{campaign.prestige_points} Prestige</span>
-              </div>
-            )}
-            <PathCarryBadge campaign={campaign} />
-          </div>
+          <CarryEffects campaign={campaign} />
 
           {/* Timeline */}
           <div className="mb-8">

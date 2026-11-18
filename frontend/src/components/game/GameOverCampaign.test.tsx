@@ -19,6 +19,7 @@ const campaign = (overrides: Partial<CampaignGameResult> = {}): CampaignGameResu
   next_era: 'medieval',
   outro_text: 'The eagle flies from the Rhine to the Euphrates.',
   carry: { label: 'Prestige', before: 0, after: 2 },
+  carry_effects: [{ key: 'prestige', label: 'Prestige', text: '+2 attack dice in rounds 1\u20133', until_round: 3 }],
   ...overrides,
 });
 
@@ -66,7 +67,7 @@ describe('campaign stage results', () => {
     const block = within(screen.getByTestId('gameover-campaign'));
     expect(block.getByText(/Blood & Empire · Era 1 of 6/)).toBeTruthy();
     expect(block.getByText(/The eagle flies/)).toBeTruthy();
-    expect(screen.getByTestId('gameover-campaign-carry').textContent).toBe('Prestige +2 (now 2)');
+    expect(screen.getByTestId('gameover-campaign-carry').textContent).toBe('Carried into the next eraPrestige: +2 attack dice in rounds 1\u20133');
 
     fireEvent.click(screen.getByRole('button', { name: /Next era: Medieval Era/ }));
     expect(next).toHaveBeenCalledTimes(1);

@@ -1,4 +1,5 @@
 import { CAMPAIGN_PATHS, type PathId } from './campaignPaths';
+import { describeCampaignCarry, type CampaignCarryEffect } from './campaignCarryEffects';
 
 /**
  * What a campaign stage's result means for the campaign, sent with
@@ -23,6 +24,8 @@ export interface CampaignGameResult {
   outro_text: string | null;
   /** The path's signature carry before and after this result; null with no path. */
   carry: { label: string; before: number; after: number } | null;
+  /** What the campaign now carries into its next stage, in words; empty once it is completed. */
+  carry_effects: CampaignCarryEffect[];
 }
 
 export function buildCampaignGameResult(input: {
@@ -35,6 +38,8 @@ export function buildCampaignGameResult(input: {
   won: boolean;
   carryBefore: Record<string, number>;
   carryAfter: Record<string, number>;
+  /** `prestige_points` after this result, what the next stage's combat reads. */
+  prestigeAfter: number;
 }): CampaignGameResult {
   const path = input.pathId ? CAMPAIGN_PATHS[input.pathId as PathId] ?? null : null;
   const stageConfig = path?.eras[input.eraIndex] ?? null;
@@ -56,5 +61,8 @@ export function buildCampaignGameResult(input: {
           after: input.carryAfter[path.signature_carry_key] ?? 0,
         }
       : null,
+    carry_effects: outcome === 'completed'
+      ? []
+      : describeCampaignCarry({ prestigePoints: input.prestigeAfter, carry: input.carryAfter }),
   };
 }

@@ -5414,6 +5414,7 @@ async function handleCampaignCompletion(
     won,
     carryBefore: campaignRow.path_carry ?? {},
     carryAfter: updatedCarry,
+    prestigeAfter: newPrestige,
   });
 
   if (won) {
