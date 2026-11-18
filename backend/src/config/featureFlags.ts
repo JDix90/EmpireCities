@@ -162,6 +162,9 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // Outbound email/push — production-only unless explicitly set.
   retention_notifications_enabled: () => envOrProdOnly('RETENTION_NOTIFICATIONS_ENABLED'),
   guest_push_reminders_enabled: () => envOptOut('GUEST_PUSH_REMINDERS_ENABLED'),
+  // "Your game is waiting": the retention sweep reminds a player of an
+  // unfinished solo game they left a day ago. Needs retention_notifications_enabled.
+  game_waiting_reminder_enabled: () => envOptIn('GAME_WAITING_REMINDER_ENABLED'),
   indexnow_enabled: () => envOptIn('INDEXNOW_ENABLED'),
   streak_freezes_enabled: () => envOptIn('STREAK_FREEZES_ENABLED'),
   today_panel_enabled: () => envOptIn('TODAY_PANEL_ENABLED'),
@@ -1622,6 +1625,20 @@ export const featureFlags = {
    */
   get guestPushRemindersEnabled(): boolean {
     return overrideBool('guest_push_reminders_enabled');
+  },
+
+  /**
+   * "Your game is waiting" (workers/retentionNotificationWorker.ts, the first
+   * phase of the sweep): a player whose latest game is an unfinished solo game
+   * against bots, left 20 to 48 hours ago, and who has not been back since,
+   * gets one reminder that links straight into it, by push or, for an account
+   * that opted in, email. Under the sweep's own rules: one reminder a day,
+   * guests by push only while `guestPushRemindersEnabled`, and nothing at all
+   * while `retentionNotificationsEnabled` is off. Server-only. Default OFF;
+   * `GAME_WAITING_REMINDER_ENABLED=true` or the admin override turns it on.
+   */
+  get gameWaitingReminderEnabled(): boolean {
+    return overrideBool('game_waiting_reminder_enabled');
   },
 
   /**

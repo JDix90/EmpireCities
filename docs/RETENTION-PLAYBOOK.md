@@ -159,6 +159,31 @@ first (self-contained economy change), then `today_panel_enabled` (presentation 
 eyeball a staging lobby), then `async_onboarding_enabled` (funnel-adjacent; watch that
 tutorial→first-game conversion doesn't dip once the second CTA appears).
 
+## "Your game is waiting" (`game_waiting_reminder_enabled`, off by default)
+
+Most first matches are never finished, and most are left in their first round with
+the tab closed. The game stays in progress, but the player never sees it again unless
+they come back to the lobby on their own. This reminder is the first phase of the
+hourly sweep (`sweepGameWaiting` in the worker):
+
+- **Who:** a player whose *latest* game is an unfinished solo game against bots (not
+  the tutorial, the Daily Challenge, a play-on or an async game), not eliminated, left
+  20 to 48 hours ago (last snapshot, else the start), and who has not been back on the
+  site since (`last_login_at` at least 20 hours old).
+- **What:** "Your first match is waiting" (or "Your game is waiting"), "Great Britain
+  925 A.D.: your battle is right where you left it." linking to
+  `/game/:id?rn=game_waiting`. Push first; email ("Resume My Game") for an account
+  that opted in. The game page counts the click (`retention_notification_clicked`).
+- **Limits:** once per game (no `game_waiting` row since the player left it), and the
+  sweep's one-a-day cap, which it takes ahead of the streak reminder on a day both
+  apply. Guests only by push, and only while `guest_push_reminders_enabled`.
+- **Resumable:** live game state is kept in Redis for seven days, so a game left two
+  days ago opens where it stopped.
+- **Read it:** `SELECT channel, delivery_status, count(*) FROM retention_notifications
+  WHERE trigger_type = 'game_waiting' GROUP BY 1, 2;` against
+  `retention_notification_clicked` events with `trigger = 'game_waiting'`, and whether
+  those games then finish.
+
 ## Wave 3 backlog (not built — ordered by expected impact)
 
 1. **Guest push opt-in** — built behind `guest_push_reminders_enabled` (see Known

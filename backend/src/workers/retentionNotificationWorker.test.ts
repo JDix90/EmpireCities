@@ -20,6 +20,7 @@ vi.mock('../db/postgres', () => ({
 
 let flagOn = true;
 let guestFlagOn = false;
+let waitingFlagOn = false;
 vi.mock('../config/featureFlags', () => ({
   featureFlags: {
     get retentionNotificationsEnabled() {
@@ -27,6 +28,9 @@ vi.mock('../config/featureFlags', () => ({
     },
     get guestPushRemindersEnabled() {
       return guestFlagOn;
+    },
+    get gameWaitingReminderEnabled() {
+      return waitingFlagOn;
     },
   },
 }));
@@ -66,6 +70,7 @@ describe('runRetentionSweep', () => {
     eventMock.mockReset();
     flagOn = true;
     guestFlagOn = false;
+    waitingFlagOn = false;
     pushConfigured = true;
     queryMock.mockResolvedValue([]);
     queryOneMock.mockResolvedValue({ id: 'claim-1' }); // claim succeeds
@@ -76,7 +81,7 @@ describe('runRetentionSweep', () => {
   it('does nothing when the feature flag is off', async () => {
     flagOn = false;
     const res = await runRetentionSweep(12);
-    expect(res).toEqual({ streak: 0, daily: 0, winback: 0 });
+    expect(res).toEqual({ waiting: 0, streak: 0, daily: 0, winback: 0 });
     expect(queryMock).not.toHaveBeenCalled();
   });
 
@@ -169,7 +174,7 @@ describe('runRetentionSweep', () => {
       .mockResolvedValueOnce([{ ...CANDIDATE, email_enabled: false }]) // streak: push only, so unreachable
       .mockResolvedValueOnce([CANDIDATE]); // daily
     const res = await runRetentionSweep(17);
-    expect(res).toEqual({ streak: 0, daily: 0, winback: 0 });
+    expect(res).toEqual({ waiting: 0, streak: 0, daily: 0, winback: 0 });
     expect(claims()).toHaveLength(0);
     expect(pushMock).not.toHaveBeenCalled();
     // Both queries were told, so the database leaves those players out too.
@@ -231,5 +236,70 @@ describe('runRetentionSweep', () => {
     const updates = queryMock.mock.calls.filter(([sql]) => String(sql).includes('UPDATE retention_notifications'));
     expect(updates.length).toBeGreaterThan(0);
     expect(eventMock).not.toHaveBeenCalled();
+  });
+
+  describe('your game is waiting (game_waiting_reminder_enabled)', () => {
+    const WAITING = { ...CANDIDATE, game_id: 'g-1', map_name: 'Great Britain 925 A.D.', first_match: true };
+    const waitingSql = () =>
+      (queryMock.mock.calls as Array<[string, unknown[]]>).filter(([sql]) => sql.includes("rn.trigger_type = 'game_waiting'"));
+
+    it('does not run while its flag is off', async () => {
+      await runRetentionSweep(12);
+      expect(waitingSql()).toHaveLength(0);
+    });
+
+    it('runs first, and links a first match straight back into its game', async () => {
+      waitingFlagOn = true;
+      queryMock.mockResolvedValueOnce([WAITING]);
+      const res = await runRetentionSweep(12);
+      expect(res.waiting).toBe(1);
+      // Its query is the sweep's first, ahead of the streak reminder's.
+      expect(String(queryMock.mock.calls[0][0])).toContain("rn.trigger_type = 'game_waiting'");
+      expect(pushMock).toHaveBeenCalledTimes(1);
+      const [userId, title, body, data, url] = pushMock.mock.calls[0];
+      expect(userId).toBe('u-1');
+      expect(title).toBe('Your first match is waiting');
+      expect(body).toBe('Great Britain 925 A.D.: your battle is right where you left it. Pick it up in one tap.');
+      expect(url).toContain('/game/g-1?rn=game_waiting&');
+      expect(data).toEqual({ url });
+      expect(claims()[0][1]).toEqual(['u-1', 'game_waiting', 'push']);
+      expect(eventMock).toHaveBeenCalledWith('retention_notification_sent', { trigger: 'game_waiting', channel: 'push' }, 'u-1');
+    });
+
+    it('names any other game plainly, and does without a map name it cannot find', async () => {
+      waitingFlagOn = true;
+      queryMock.mockResolvedValueOnce([{ ...WAITING, first_match: false, map_name: null }]);
+      await runRetentionSweep(12);
+      const [, title, body] = pushMock.mock.calls[0];
+      expect(title).toBe('Your game is waiting');
+      expect(body).toBe('Your battle is right where you left it. Pick it up in one tap.');
+    });
+
+    it('emails an opted-in account it cannot push to, the map name escaped and on one line', async () => {
+      waitingFlagOn = true;
+      queryMock.mockResolvedValueOnce([{ ...WAITING, has_push_token: false, map_name: 'Rome <b>&\nCo' }]);
+      const res = await runRetentionSweep(12);
+      expect(res.waiting).toBe(1);
+      expect(pushMock).not.toHaveBeenCalled();
+      const [userId, subject, html] = emailMock.mock.calls[0] as [string, string, string];
+      expect(userId).toBe('u-1');
+      expect(subject).toBe('Your battle is waiting: Rome <b>& Co');
+      expect(html).toContain('(<strong>Rome &lt;b&gt;&amp; Co</strong>)');
+      expect(html).toContain('/game/g-1?rn=game_waiting&');
+      expect(html).toContain('Resume My Game');
+    });
+
+    it('selects with the same reach, guest and ban rules as every phase, and once per game', async () => {
+      waitingFlagOn = true;
+      guestFlagOn = true;
+      await runRetentionSweep(12);
+      const [[sql, params]] = waitingSql();
+      expect(params).toEqual([true, true]);
+      expect(sql).toContain('(COALESCE(u.is_guest, false) = false OR $2::boolean)');
+      expect(sql).toContain('EXISTS (SELECT 1 FROM push_tokens t WHERE t.user_id = u.user_id)');
+      expect(sql).toContain('COALESCE(u.is_banned, false) = false');
+      expect(sql).toContain("rn.sent_at >= w.last_activity");
+      expect(sql).toContain("BETWEEN NOW() - INTERVAL '48 hours' AND NOW() - INTERVAL '20 hours'");
+    });
   });
 });
