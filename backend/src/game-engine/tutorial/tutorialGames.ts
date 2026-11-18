@@ -46,3 +46,35 @@ export function notPlayOnSql(alias = 'g'): string {
 export function andNotTutorialSql(alias = 'g'): string {
   return `AND ${notTutorialSql(alias)} AND ${notPlayOnSql(alias)}`;
 }
+
+/**
+ * The `settings_json` key `DELETE /games/:gameId/abandon` sets on a tutorial
+ * the player ended themselves.
+ *
+ * Every way out of the tutorial goes through that endpoint: "Exit Tutorial"
+ * mid-lesson, "Skip to the end", and each wrap-up button (to the lobby, to the
+ * first match, to save an account, to the next lesson). A tutorial left open in
+ * a closed tab never calls it; the stale-game sweep (gameCleanupService.ts)
+ * abandons that one days later, unstamped.
+ */
+export const TUTORIAL_EXITED_KEY = 'tutorial_exited';
+
+/** SQL predicate: a tutorial the player ended themselves (see TUTORIAL_EXITED_KEY). */
+export function tutorialExitedSql(alias = 'g'): string {
+  return `(${alias}.status = 'abandoned'
+    AND COALESCE(${alias}.settings_json ->> 'tutorial', 'false') = 'true'
+    AND ${alias}.settings_json ->> '${TUTORIAL_EXITED_KEY}' = 'true')`;
+}
+
+/**
+ * SQL predicate: a game the admin dashboard counts as completed. That is a
+ * finished game, or a tutorial the player skipped or ended early to move on.
+ * The tutorial exists to get a player to a real match, so leaving it for the
+ * lobby is the outcome it is for, not a dropped game.
+ *
+ * Admin metrics only. The game stays `abandoned`, so nothing a player sees
+ * changes: the tutorial is on no one's record either way (notTutorialSql).
+ */
+export function completedGameSql(alias = 'g'): string {
+  return `(${alias}.status = 'completed' OR ${tutorialExitedSql(alias)})`;
+}
