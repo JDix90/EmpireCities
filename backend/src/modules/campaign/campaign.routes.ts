@@ -536,6 +536,11 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
         signature_carry_label: p.signature_carry_label,
         signature_carry_max: p.signature_carry_max,
         era_count: p.eras.length,
+        // For the path's card: how hard it is, whether to start with it, and
+        // how long its opening stage can run (its own clock, or the campaign's).
+        difficulty: p.difficulty,
+        recommended_start: p.recommended_start,
+        first_stage_max_turns: p.eras[0]?.max_turns ?? CAMPAIGN_STAGE_MAX_TURNS,
       })),
     );
   });

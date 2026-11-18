@@ -61,6 +61,13 @@ export interface CampaignPath {
   /** Max value for the signature carry stat (for progress display). */
   signature_carry_max: number;
   /**
+   * How hard the path is next to the others, for its card on the selection
+   * screen: the screen gave a newcomer nothing to choose between three paths by.
+   */
+  difficulty: 'standard' | 'hard' | 'hardest';
+  /** The path the selection screen marks as the one to start with. Exactly one. */
+  recommended_start: boolean;
+  /**
    * Carry the path starts stage one holding. A path whose stages hand the
    * player a starting-unit deficit has to hand them the compensating stat with
    * it, or stage one is the only stage played without the thing the path is
@@ -81,6 +88,8 @@ const BLOOD_EMPIRE: CampaignPath = {
   signature_carry_key: 'prestige_bonus',
   signature_carry_label: 'Prestige',
   signature_carry_max: 12,
+  difficulty: 'standard',
+  recommended_start: true,
   // Rome starts the path at full strength and takes no deficit anywhere in it,
   // so prestige is purely earned.
   initial_carry: {},
@@ -226,6 +235,8 @@ const REVOLUTIONARY_FLAME: CampaignPath = {
   signature_carry_key: 'revolutionary_spirit',
   signature_carry_label: 'Revolutionary Spirit',
   signature_carry_max: 10,
+  difficulty: 'hard',
+  recommended_start: false,
   initial_carry: { revolutionary_spirit: 2 },
   eras: [
     {
@@ -354,6 +365,8 @@ const LAST_DEFENDERS: CampaignPath = {
   signature_carry_key: 'survivor_bonus',
   signature_carry_label: 'Survivor Bonus',
   signature_carry_max: 8,
+  difficulty: 'hardest',
+  recommended_start: false,
   initial_carry: { survivor_bonus: 2 },
   eras: [
     {

@@ -82,6 +82,7 @@ import { resultsActionProperties, type ResultsAction } from '../utils/resultsAct
 import { campaignResultButtonLabel, type CampaignGameResult } from '../utils/campaignResult';
 import { factionDisplayName } from '../utils/factionNames';
 import type { CampaignCarryEffect } from '../utils/campaignCarry';
+import { campaignIntroSeen, markCampaignIntroSeen } from '../utils/campaignIntroSeen';
 import { FIRST_TURN_STEPS_V2, newFirstTurnSteps, type FirstTurnStep, type FirstTurnView } from '../utils/firstTurnSteps';
 import { useFunnelEventsV2Enabled } from '../store/featureFlagsStore';
 import { trackFunnel } from '../utils/funnelEvents';
@@ -91,7 +92,7 @@ import GalaxyViewsTip, { GALAXY_VIEWS_TIP_KEY } from '../components/game/GalaxyV
 import { safeLocalStorage } from '../utils/safeStorage';
 import { GalacticFeedbackModal } from '../components/game/GalacticFeedback';
 import { isGalacticAgeGame } from '../constants/galacticAgeAccess';
-import GameStartModal, { isOpeningState } from '../components/game/GameStartModal';
+import GameStartModal, { describeWinConditions, isOpeningState } from '../components/game/GameStartModal';
 import SpaceAgeGuideModal from '../components/game/SpaceAgeGuide';
 import GameEndedNotice from '../components/game/GameEndedNotice';
 import { describeEndedOutcome } from '../utils/gameEndedOutcome';
@@ -1194,6 +1195,12 @@ export default function GamePage() {
     // turn limit — so this one is a second modal to dismiss that says less,
     // and its win conditions are the game's rather than the puzzle's objective.
     if (gameState.settings.daily_challenge_spec) return;
+    // A campaign stage opens with its own intro, which states the goal and the
+    // player's faction, so this one was a second dialog saying it again. A
+    // secret-mission stage keeps it: the mission is dealt at the start, after
+    // the intro can be shown, and this is where it is first read.
+    if (gameState.settings.is_campaign
+      && !(gameState.settings.allowed_victory_conditions ?? []).includes('secret_mission')) return;
     if (!isOpeningState(gameState)) return;
     const viewerId = resolvedViewerPlayerIdRef.current ?? userRef.current?.user_id ?? null;
     if (!viewerId || !gameState.players.some((p) => p.player_id === viewerId)) return;
@@ -4666,15 +4673,9 @@ export default function GamePage() {
     const lobbyIsCampaign = lobbySnapshot?.settings_json?.is_campaign === true;
     const stateIsCampaign = gameState?.settings?.is_campaign === true;
     if (!lobbyIsCampaign && !stateIsCampaign) return;
-    try {
-      if (sessionStorage.getItem(`cc-campaign-intro-${gameId}`) === '1') {
-        campaignIntroSeenRef.current = true;
-        return;
-      }
-    } catch {
-      /* sessionStorage unavailable — show once anyway */
-    }
     campaignIntroSeenRef.current = true;
+    // Once per game on this browser, not once per tab (utils/campaignIntroSeen.ts).
+    if (campaignIntroSeen(gameId)) return;
     setShowCampaignIntro(true);
   }, [gameId, lobbySnapshot, gameState]);
 
@@ -4857,6 +4858,10 @@ export default function GamePage() {
       .map((p) => factionDisplayName(eraIdFromSettings, (p as { faction_id?: string | null }).faction_id))
       .filter((name): name is string => !!name);
     const carryEffects = get<CampaignCarryEffect[]>('campaign_carry_effects') ?? [];
+    // How the stage is won, in the words the briefing uses, from whichever
+    // settings have loaded (the stage's rules are the same in both).
+    const rules = (stateSettings ?? lobbySettings ?? {}) as Parameters<typeof describeWinConditions>[0];
+    const goal = describeWinConditions(rules, (aiCount ?? 0) + 1);
 
     return {
       pathName: get<string>('campaign_path_name'),
@@ -4871,13 +4876,17 @@ export default function GamePage() {
       aiCount,
       opponents,
       carryEffects,
+      goals: goal.conditions,
+      turnCap: goal.turnCap,
+      eraId: eraIdFromSettings || null,
+      lockedFactionId,
     };
   }, [lobbySnapshot, gameState]);
 
   const dismissCampaignIntro = useCallback(() => {
     setShowCampaignIntro(false);
     if (gameId) {
-      try { sessionStorage.setItem(`cc-campaign-intro-${gameId}`, '1'); } catch { /* ignore */ }
+      markCampaignIntroSeen(gameId);
     }
   }, [gameId]);
 

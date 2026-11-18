@@ -70,6 +70,12 @@ interface AvailablePath {
   signature_carry_label: string;
   signature_carry_max: number;
   era_count: number;
+  /** How hard the path is next to the others. Absent from an older server. */
+  difficulty?: 'standard' | 'hard' | 'hardest';
+  /** The path to start with. */
+  recommended_start?: boolean;
+  /** The most rounds its opening stage can run. */
+  first_stage_max_turns?: number;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────
@@ -97,23 +103,34 @@ function campaignDisplayName(c: Campaign): string {
   return c.path_config?.name ?? 'Classic Campaign';
 }
 
+const PATH_DIFFICULTY_LABEL: Record<string, string> = {
+  standard: 'Standard',
+  hard: 'Hard',
+  hardest: 'Hardest',
+};
+
+/** "Standard · 6 eras · Opening stage: up to 25 rounds", from what the server sends of it. */
+export function pathMetaLine(path: Pick<AvailablePath, 'difficulty' | 'era_count' | 'first_stage_max_turns'>): string {
+  return [
+    path.difficulty ? PATH_DIFFICULTY_LABEL[path.difficulty] ?? null : null,
+    path.era_count ? `${path.era_count} eras` : null,
+    path.first_stage_max_turns ? `Opening stage: up to ${path.first_stage_max_turns} rounds` : null,
+  ].filter(Boolean).join(' \u00b7 ');
+}
+
 // ── Path Selection Screen ──────────────────────────────────────────────
 
 function PathSelectionScreen({
   paths,
   activePathIds,
-  hasActiveClassic,
   onSelect,
-  onClassic,
   onCancel,
   starting,
   canCancel,
 }: {
   paths: AvailablePath[];
   activePathIds: Set<string>;
-  hasActiveClassic: boolean;
   onSelect: (pathId: string) => void;
-  onClassic: () => void;
   onCancel: () => void;
   starting: boolean;
   canCancel: boolean;
@@ -145,8 +162,19 @@ function PathSelectionScreen({
                         In progress
                       </span>
                     )}
+                    {path.recommended_start && !alreadyActive && (
+                      <span
+                        className="ml-1 text-[10px] uppercase tracking-widest text-bf-gold bg-bf-gold/10 border border-bf-gold/40 rounded-full px-2 py-0.5"
+                        data-testid="campaign-path-start-here"
+                      >
+                        Start here
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-bf-muted italic mb-2">{path.tagline}</p>
+                  {pathMetaLine(path) && (
+                    <p className="text-xs text-bf-text/80 mb-2" data-testid="campaign-path-meta">{pathMetaLine(path)}</p>
+                  )}
                   <p className="text-sm text-bf-muted">{path.description}</p>
                 </div>
                 <ChevronRight className="w-4 h-4 text-bf-muted flex-shrink-0 mt-1" />
@@ -156,23 +184,6 @@ function PathSelectionScreen({
         })}
       </div>
       <div className="border-t border-bf-border pt-4 flex flex-col gap-3">
-        <button
-          onClick={onClassic}
-          disabled={starting || hasActiveClassic}
-          title={hasActiveClassic ? 'You already have an active classic campaign' : undefined}
-          className="w-full text-left p-4 rounded-lg border border-bf-border bg-bf-surface/50 hover:border-bf-text transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          <div className="flex items-center gap-2 mb-1">
-            <Sword className="w-4 h-4 text-bf-muted" />
-            <span className="font-semibold text-bf-text">Classic Campaign</span>
-            {hasActiveClassic && (
-              <span className="ml-1 text-[10px] uppercase tracking-widest text-bf-muted bg-bf-surface border border-bf-border rounded-full px-2 py-0.5">
-                In progress
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-bf-muted">Free faction choice, standard progression — no narrative path.</p>
-        </button>
         {canCancel && (
           <button
             onClick={onCancel}
@@ -413,7 +424,6 @@ export default function CampaignPage() {
   const activePathIds = new Set(
     campaigns.filter((c) => c.status === 'active' && c.path_id).map((c) => c.path_id!),
   );
-  const hasActiveClassic = campaigns.some((c) => c.status === 'active' && !c.path_id);
 
   const activeCampaigns = campaigns.filter((c) => c.status === 'active');
   const completedCampaigns = campaigns.filter((c) => c.status === 'completed');
@@ -468,8 +478,8 @@ export default function CampaignPage() {
         <h3 id="campaign-start-title" className="font-display text-lg text-bf-gold mb-1">{pendingStart.name}</h3>
         {pendingStart.tagline && <p className="text-xs text-bf-muted italic mb-3">{pendingStart.tagline}</p>}
         <p className="text-sm text-bf-muted mb-5">
-          This creates your first era&apos;s game right away and opens it. The run then stays in Campaign HQ
-          until you finish it, so start when you have time for a full era.
+          This creates your first era&apos;s game and opens it. The run stays in Campaign HQ, and a stage
+          you leave part-way is kept there to pick up.
         </p>
         <div className="flex gap-3">
           <button type="button" className="btn-secondary flex-1" onClick={() => setPendingStart(null)}>
@@ -571,19 +581,11 @@ export default function CampaignPage() {
           <PathSelectionScreen
             paths={availablePaths}
             activePathIds={activePathIds}
-            hasActiveClassic={hasActiveClassic}
             onSelect={(pathId) => {
               // A guest cannot start one at all: the account offer, not a confirm.
               if (isGuest) { setShowGuestGate(true); return; }
               const path = availablePaths.find((p) => p.path_id === pathId);
               setPendingStart({ pathId, name: path?.name ?? 'Campaign', tagline: path?.tagline });
-            }}
-            onClassic={() => {
-              if (isGuest) { setShowGuestGate(true); return; }
-              setPendingStart({
-                name: 'Classic Campaign',
-                tagline: 'Free faction choice, standard progression — no narrative path.',
-              });
             }}
             onCancel={() => setShowPathSelection(false)}
             starting={starting}

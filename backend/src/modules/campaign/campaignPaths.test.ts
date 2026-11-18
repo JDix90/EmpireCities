@@ -34,6 +34,10 @@ const OPENING_SHARE_MARGIN = 10;
 const MIN_ACCEPTED_MAX_TURNS = 10;
 
 describe('campaign path config', () => {
+  it('marks exactly one path as the one to start with', () => {
+    expect(Object.values(CAMPAIGN_PATHS).filter((p) => p.recommended_start).map((p) => p.path_id)).toHaveLength(1);
+  });
+
   for (const [pathId, path] of Object.entries(CAMPAIGN_PATHS)) {
     describe(pathId, () => {
       it('runs six stages, one per campaign era', () => {
