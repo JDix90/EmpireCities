@@ -12,7 +12,7 @@ import type { V2Calendar } from '../game-engine/daily/dailyScheduleV2';
 export const DAILY_V2_CALENDAR: V2Calendar = {
   from: '2026-09-21',
   to: '2027-12-31',
-  fingerprint: 'c4a4518af1f1ba3a',
+  fingerprint: 'e8ce578785559e23',
   days: {
     '2026-09-21': { set_piece_id: 'the_38th_parallel', verb: 'tactical', attempt: 3, shift: -0.21000000000000002 },
     '2026-09-22': { set_piece_id: 'barbarossa', verb: 'tactical', attempt: 0, shift: 0 },
