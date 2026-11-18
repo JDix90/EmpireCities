@@ -33,6 +33,7 @@ import { isMapEditorEnabled, mapEditorDisabledReply } from '../../middleware/map
 import { featureFlags } from '../../config/featureFlags';
 import { formatZodError } from '../../utils/formatZodError';
 import { validateMapDocument } from './mapValidation';
+import { RETIRED_COMMUNITY_MAP_IDS } from '../../game-engine/lobby/lobbyMapChange';
 
 const ClipBboxSchema = z.tuple([z.number(), z.number(), z.number(), z.number()]);
 
@@ -260,6 +261,7 @@ export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
       sort: sortKey,
       page: pageNum,
       limit,
+      excludeIds: RETIRED_COMMUNITY_MAP_IDS,
     });
 
     const maps = rows.map((row) => ({
@@ -287,14 +289,15 @@ export async function mapsRoutes(fastify: FastifyInstance): Promise<void> {
     const week = isoWeekKey(new Date());
     // The showcase switch (Admin → Config) hides the week's map everywhere at once.
     if (!featureFlags.mapShowcaseEnabled) return reply.send({ week, map: null });
-    const cacheKey = `maps:featured:${week}`;
+    // v2: a week's pick cached before the retired maps were left out could be one of them.
+    const cacheKey = `maps:featured:v2:${week}`;
     try {
       const cached = await getRedis().get(cacheKey);
       if (cached) return reply.send(JSON.parse(cached));
     } catch {
       /* no cache: compute */
     }
-    const candidates = await listFeaturedCandidates(40);
+    const candidates = await listFeaturedCandidates(40, RETIRED_COMMUNITY_MAP_IDS);
     const pick = pickFeaturedMap(
       candidates.map((row) => ({ ...row, rating: Number(row.rating) })),
       week,
