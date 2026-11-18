@@ -20,8 +20,8 @@ export type CoachTipId =
   | 'place'
   | 'begin_attack'
   | 'attack'
-  // first_attack_hint_enabled: the suggested first attack. Its own step, so an
-  // attack in the tutorial (which retires 'attack') does not hide it.
+  // first_attack_hint_enabled: the suggested first attack. Its own step, so a
+  // player who retired 'attack' in an earlier match still gets the suggestion.
   | 'first_attack'
   | 'end_attack'
   | 'fortify';
@@ -76,8 +76,8 @@ export function coachTipFor(view: CoachTipView, done: ReadonlySet<CoachTipId>): 
       if (view.attackedThisTurn) {
         return pick('end_attack', 'Keep attacking while you have more units than them, or press Begin Fortify →');
       }
-      // The suggestion outlives the generic step: a player who attacked in the
-      // tutorial has retired 'attack' but has not yet attacked in a match.
+      // The suggestion outlives the generic step: it shows until an attack is
+      // made with it up, whether or not 'attack' is already retired.
       if (view.firstAttack && !done.has('first_attack')) {
         return { id: 'first_attack', text: firstAttackTipText(view.firstAttack.hint, view.firstAttack.open) };
       }
@@ -104,7 +104,7 @@ export function coachTipsDoneBetween(prev: CoachTipView | null, next: CoachTipVi
   if (stillMine && prev.phase === 'draft' && next.phase === 'attack') out.push('begin_attack');
   if (next.myTurn && next.phase === 'attack' && next.attackedThisTurn && !prev.attackedThisTurn) {
     out.push('attack');
-    // Only an attack made with the suggestion up retires it; the tutorial never shows it.
+    // Only an attack made with the suggestion up retires it.
     if (prev.firstAttack) out.push('first_attack');
   }
   if (stillMine && prev.phase === 'attack' && next.phase === 'fortify') out.push('end_attack');
