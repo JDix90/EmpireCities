@@ -7,6 +7,10 @@ Geometry: a Voronoi tessellation of the province seeds tiles the frame; each
 province renders its overlapping modern country geometry clipped to its Voronoi
 cell — real coastlines (especially the Mediterranean) with organic, gap-free
 borders, the same approach as the Charlemagne 814 map. Built via mapkit.
+
+This writes each territory's Voronoi cell as its geo_polygon. Run
+database/maps/bake_land_outlines.py afterwards to put back the land outlines the
+map previews draw (mapPreviewProjection.ts).
 """
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
