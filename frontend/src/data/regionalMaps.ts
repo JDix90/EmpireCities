@@ -250,7 +250,7 @@ export const REGIONAL_MAPS: RegionalMapMeta[] = [
     map_id: 'community_fourteen_nations',
     name: 'The 14 Nations',
     description:
-      'North America in an age when no fleet came to stay — 62 territories held by fourteen nations, from Lingít Aaní and the Salmon League to the Triple Alliance and the League of Mayapán. Every border follows the land: the Missouri and the Mississippi, the Rio Grande, the Continental Divide, the Sierras Madre and the Appalachian crest.',
+      'North America in an age when no fleet came to stay — 62 territories across 14 nations, from the Salmon League on the Pacific coast to the Triple Alliance and the League of Mayapán. Every border follows the land: the Missouri and the Mississippi, the Rio Grande, the Continental Divide, the Sierras Madre and the Appalachian crest.',
     territory_count: 62,
     region_count: 14,
     icon: '🪶',

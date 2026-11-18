@@ -14,10 +14,8 @@ export type AdvancedFeatureKey =
   | 'fog_of_war';
 
 export interface AdvancedFeatureImmersion {
-  /** Why this mode fits the map’s story. */
+  /** Why this mode fits the map’s story; shown in the lobby tooltip above the rules, and on the Map Hub. */
   lore: string;
-  /** How bonuses and pressure show up in play on this map (flavor, not new mechanics). */
-  effectFlavor: string;
 }
 
 export interface CustomMapImmersionProfile {
@@ -40,11 +38,8 @@ export interface CustomMapImmersionProfile {
   advanced: Record<AdvancedFeatureKey, AdvancedFeatureImmersion>;
 }
 
-function af(
-  lore: string,
-  effectFlavor: string,
-): AdvancedFeatureImmersion {
-  return { lore, effectFlavor };
+function af(lore: string): AdvancedFeatureImmersion {
+  return { lore };
 }
 
 const BASE_KEYS: AdvancedFeatureKey[] = [
@@ -74,35 +69,27 @@ const FLOODED_NA: CustomMapImmersionProfile = {
   advanced: {
     territory_draft: af(
       'Neutral high ground is the prize — powers carve spheres before the first shot.',
-      'Draft favors coastal citadels and choke islands; early borders echo real geography under water.',
     ),
     asymmetric_factions: af(
       'Mountain republics, bay fleets, and desert enclaves each bring a distinct doctrine to the drowned world.',
-      'Faction bonuses read as regional survival perks: logistics, defense in narrows, or rapid island hops.',
     ),
     economy_buildings: af(
       'Everything above the waterline runs on desalination; the ports are what defend it.',
-      'Production and wonders feel like reclaiming infrastructure — income spikes along restored trade spines.',
     ),
     tech_trees: af(
       'Salvaged engineering, climate tech, and hardened logistics define who thrives above the new sea level.',
-      'Research gates coastal batteries, faster reinforcement along sea lanes, and crisis-response perks.',
     ),
     historical_events: af(
       'A dam from the old world lets go, and a whole coast renegotiates its borders.',
-      'Events hit as environmental and political shocks — production swings, stability shocks, sudden truce pressure.',
     ),
     naval_warfare: af(
       'The map is half ocean; fleets are how empires breathe between archipelagos.',
-      'Naval income and amphibious pressure mirror island-hopping across drowned plains and sounds.',
     ),
     population_stability: af(
       'Crowded enclaves and salt-stressed cities riot or thrive on rationing and morale.',
-      'Stability caps and recovery echo refugee logistics — coastal holds swing harder when contested.',
     ),
     fog_of_war: af(
       'Storms, sensor gaps, and smuggler smoke hide fleet movements between fractured coasts.',
-      'Fog hides unit stacks beyond your archipelago rim — scouting archipelagos matters as much as brute force.',
     ),
   },
 };
@@ -116,35 +103,27 @@ const CHARLEMAGNE_814: CustomMapImmersionProfile = {
   advanced: {
     territory_draft: af(
       'Counts and margraves stake their duchies before the host musters — Neustria, Saxony, and the Italian crown are claimed in the partition, not the field.',
-      'Draft lets you anchor in the Carolingian heartland, the Iberian marches, or the open steppe before rivals spread.',
     ),
     asymmetric_factions: af(
       'Frankish heavy cavalry, Byzantine thematic defense, Norse raiders, and steppe horse-archers each wage a different war.',
-      'Faction passives read like the era’s powers: mailed charge, fortified themes, longship tempo, or the endless mobility of the khaganates.',
     ),
     economy_buildings: af(
       'A palatine mint is what turns conquered land into an empire that can pay its own marches.',
-      'Buildings feel like the Carolingian renovatio — production rewards holding the Rhine–Seine breadbasket and the Italian and Greek cities.',
     ),
     tech_trees: af(
       'Stirrup and mail, Carolingian minuscule, and stone burhs drag the post-Roman world toward statecraft.',
-      'Tech unlocks heavier knights, stronger marches, and faster recovery after a Viking or Magyar raid season.',
     ),
     historical_events: af(
       'One succession, or one Viking landfall, is enough to redraw a march.',
-      'Events model partition crises and frontier raids — sudden windfalls of legitimacy or brutal losses along the marches.',
     ),
     naval_warfare: af(
       'The Channel and the Aegean are the same road to a longship and to a dromon.',
-      'Fleets and ports make the Norse coasts and Byzantine seas decisive — sea connections are invasions waiting to sail.',
     ),
     population_stability: af(
       'Newly conquered Saxons and Lombards chafe under Frankish counts; stability is the peace an emperor must keep.',
-      'Low stability is a march in revolt; recovery is missi dominici and the king’s justice riding the frontier.',
     ),
     fog_of_war: af(
       'Forests, steppe, and storm-locked seas hide warbands until the raven banners crest the horizon.',
-      'Fog hides musters beyond the Elbe and across the Danube — scouting the frontier wins the campaign before the levy marches.',
     ),
   },
 };
@@ -158,35 +137,27 @@ const USA_BALKAN: CustomMapImmersionProfile = {
   advanced: {
     territory_draft: af(
       'Successor states stake their claims at the post-collapse Continental Conference.',
-      'Snake-draft territory picks weighted toward your faction’s historic heartland.',
     ),
     asymmetric_factions: af(
       'Industrial Great Lakes, agrarian Heartland, and theocratic Deseret each rebuilt differently.',
-      'Every region grants a unique passive — Texas +oil income, Cascadia +defensive terrain.',
     ),
     economy_buildings: af(
       'Whoever holds the Gulf refineries can field an army the farm states cannot match.',
-      'Build factories, farms, and ports to convert resources into reinforcement bonuses.',
     ),
     tech_trees: af(
       'Salvaged labs and university towns drive a new arms race.',
-      'Research unlocks mechanized units, rail logistics, and recon doctrine.',
     ),
     historical_events: af(
       'A referendum in one successor state drags its neighbours’ borders along with it.',
-      'Timed event cards shift bonuses, spawn rebels, or open new fronts.',
     ),
     naval_warfare: af(
       'The old navy scattered to three coasts and the Great Lakes.',
-      'Coastal and lake territories support fleets enabling amphibious assault and blockade.',
     ),
     population_stability: af(
       'Divided loyalties simmer in border cities like St. Louis and Cincinnati.',
-      'Over-stacked or newly conquered territories accrue unrest, risking revolt.',
     ),
     fog_of_war: af(
       'With the satellite network down, intel comes from scouts and ham radio.',
-      'Enemy troop counts stay hidden beyond your borders until you scout them.',
     ),
   },
 };
@@ -200,35 +171,27 @@ const CHINA_WARLORD: CustomMapImmersionProfile = {
   advanced: {
     territory_draft: af(
       'Cliques carve up the provinces in a frantic land-grab as the Republic collapses.',
-      'Players snake-draft starting provinces, each pick locking an adjacent one until the map is claimed.',
     ),
     asymmetric_factions: af(
       'Fengtian cavalry, Zhili infantry, the cash-rich Jiangnan ports, and the mountain cliques each fight to their strengths.',
-      'Each region grants a unique perk — extra reinforcements, cheaper buildings, or defensive terrain.',
     ),
     economy_buildings: af(
       'The Hanyang arsenals arm a clique; the salt-tax bureaus are what keep it paid.',
-      'Build factories, banks, and forts to convert income into troops, gold, or defense.',
     ),
     tech_trees: af(
       'Warlords court foreign advisors for aircraft, armored trains, and Mauser rifles.',
-      'Spend research to unlock combat modifiers, faster movement, and unit upgrades.',
     ),
     historical_events: af(
       'The Northern Expedition marches and the May Thirtieth strikes spread, ready or not.',
-      'Timed event cards trigger reinforcements, unrest, or diplomatic windfalls at key cities.',
     ),
     naval_warfare: af(
       'Gunboats patrol the Yangtze and the South China Sea while fleets contest Taiwan and Hainan.',
-      'Sea connections require naval units, and island assaults need a controlled coastal port.',
     ),
     population_stability: af(
       'Famine, conscription, and bandit unrest churn the vast peasant population.',
-      'Over-taxed or over-garrisoned provinces accrue unrest that can spawn rebel armies.',
     ),
     fog_of_war: af(
       'Rival cliques hide troop strength behind rumor and bought intelligence.',
-      'Enemy army sizes stay hidden until scouted or adjacent, rewarding spies and garrisons.',
     ),
   },
 };
@@ -242,35 +205,27 @@ const INDIA_BALKAN: CustomMapImmersionProfile = {
   advanced: {
     territory_draft: af(
       'Princely houses and panchayats parcel out the land before the first monsoon campaign.',
-      'Players snake-draft territories; contiguous home regions grant a one-time founding levy.',
     ),
     asymmetric_factions: af(
       'Khalsa cavalry, Maratha light horse, Bengal’s river fleets, and southern temple-treasuries each fight by their own doctrine.',
-      'Each region confers a passive — Maratha gain movement, Bengal gain trade income, Punjab gain attack dice.',
     ),
     economy_buildings: af(
       'Temple granaries and river ghats make a district worth more than the ground it sits on.',
-      'Spend income on structures that boost reinforcement output or fortify a territory’s defense.',
     ),
     tech_trees: af(
       'From matchlock to flintlock, from war-elephant to field artillery, each court races to modernize.',
-      'Research unlocks unit upgrades and economic multipliers along a branching tree.',
     ),
     historical_events: af(
       'A failed monsoon costs more provinces here than most armies manage.',
-      'Event cards apply map-wide modifiers, sometimes spawning neutral company enclaves on the coast.',
     ),
     naval_warfare: af(
       'Dhows and the first steam frigates share the Bay of Bengal, badly.',
-      'Sea connections (Lanka, the Konkan) allow naval invasions and blockades that cut coastal income.',
     ),
     population_stability: af(
       'Overtaxed ryots riot; a contented province feeds armies and fills treasuries.',
-      'Each territory tracks unrest; high unrest cuts reinforcements and can trigger rebel garrisons.',
     ),
     fog_of_war: af(
       'Beyond the Ghats and across the great rivers, scouts carry only rumors of enemy strength.',
-      'Enemy army counts stay hidden until a bordering or scouted territory reveals them.',
     ),
   },
 };
@@ -284,35 +239,27 @@ const AFRICA_UNCOL: CustomMapImmersionProfile = {
   advanced: {
     territory_draft: af(
       'Founding chiefs and sultans parcel out the land at the first great council.',
-      'Snake-draft starting territories; first picks claim coastal hubs, later picks gain extra garrisons.',
     ),
     asymmetric_factions: af(
       'A Sahelian gold-empire fights nothing like a Swahili merchant city or a Zulu impi.',
-      'Each region grants a trait — Sahel +income, Abyssinia defensive terrain, Swahili naval reach.',
     ),
     economy_buildings: af(
       'Gold reefs buy muskets. Grain terraces decide how long you can keep the men holding them.',
-      'Build markets, mines, and ports to multiply yield; coastal builds unlock trade routes.',
     ),
     tech_trees: af(
       'From savanna horse-cavalry to ocean-going dhows and imported firearms, knowledge spreads along the caravan roads.',
-      'Three branches — Cavalry, Seafaring, Firearms — each unlocking stronger units and a region passive.',
     ),
     historical_events: af(
       'A monsoon failure, a gold rush at the Niger bend, or a foreign caravel can upend the balance.',
-      'Era events fire each round: famines cut income, gold strikes spawn resources, ships open sea raids.',
     ),
     naval_warfare: af(
       'Dhows and war-canoes rule the Indian Ocean coast; whoever holds Zanzibar reaches Madagascar first.',
-      'Sea connections require a fleet to traverse; naval units can blockade enemy ports.',
     ),
     population_stability: af(
       'Overtaxed villages revolt, and lands stripped for war empty as people flee to safer kingdoms.',
-      'Over-mobilizing or over-taxing lowers stability, risking revolts that flip a territory neutral.',
     ),
     fog_of_war: af(
       'Beyond the last waterhole and the rim of the rainforest, rival armies move unseen.',
-      'Enemy stack sizes stay hidden in non-adjacent territories until scouted or contacted.',
     ),
   },
 };
@@ -326,35 +273,27 @@ const SOUTHAM_BALKAN: CustomMapImmersionProfile = {
   advanced: {
     territory_draft: af(
       'Provincial juntas pledge to whichever caudillo reaches them first as the old federations dissolve.',
-      'Players claim territories in snake-draft order; border provinces grant a one-time muster bonus.',
     ),
     asymmetric_factions: af(
       'Brazil fields an imperial navy and coffee wealth; Chile is a thin nitrate-rich blade; Paraguay is a fortress of conscripts.',
-      'Each region starts with a trait — Brazil +income, Chile +defense in mountains, Guaraní +reinforcement rate.',
     ),
     economy_buildings: af(
       'Silver mints at Potosí, coffee fazendas, and the cattle saladeros of the Plata bankroll every army.',
-      'Build mines, plantations, and ports on matching terrain to multiply territory income.',
     ),
     tech_trees: af(
       'Railroads, ironclads, and breech-loading rifles arrive unevenly across canyons and jungle.',
-      'Spend research to unlock rail movement, naval bombardment, and entrenchment along three branches.',
     ),
     historical_events: af(
       'The War of the Pacific lands on this map, and the rubber boom pays for the next one.',
-      'Timed event cards trigger blockades, gold rushes, and border arbitration.',
     ),
     naval_warfare: af(
       'Squadrons duel from Valparaíso to Rio while the Paraná and Amazon carry gunboats inland.',
-      'Coastal and river territories enable fleets; holding the Plata and Magellan straits taxes enemy sea movement.',
     ),
     population_stability: af(
       'Conscription drains the villages, and a hungry province will hoist the black flag of revolt.',
-      'Over-garrisoned or starved territories accrue unrest; high unrest spawns rebel armies.',
     ),
     fog_of_war: af(
       'Beyond the Andean passes and under the Amazon canopy, scouts vanish and rumor rules.',
-      'Enemy strength in jungle and mountain territories is hidden until adjacent or scouted.',
     ),
   },
 };
@@ -368,35 +307,27 @@ const JAPAN_DIVIDED: CustomMapImmersionProfile = {
   advanced: {
     territory_draft: af(
       'As the occupation begins, each power races to plant its flag before the demarcation lines harden.',
-      'Players alternate claiming territories; contested straits are drafted last and stay neutral a turn longer.',
     ),
     asymmetric_factions: af(
       'The Red Army marches down Hokkaido, the US Navy anchors off Tokyo Bay, the Royal Navy patrols the Inland Sea, and China presses up from Kyūshū.',
-      'Soviet Zone gets cheap land reinforcements; American +naval movement; British draws extra cards; Chinese reinforces faster after losses.',
     ),
     economy_buildings: af(
       'Yokosuka, Kure and Sasebo are the only yards that keep a fleet at sea through the winter.',
-      'Shipyards lower the cost of sea-crossing attacks; docks raise the income of the straits you control.',
     ),
     tech_trees: af(
       'From battleship gunnery to carrier doctrine to early missile boats, each zone invests in the navy it can afford.',
-      'Naval techs add dice to amphibious assaults; coastal radar reveals adjacent enemy sea movement.',
     ),
     historical_events: af(
       'The Korean front flares, then a summit freezes the lines wherever they happen to be.',
-      'Event cards trigger DMZ clashes, storm turns that disable sea attacks, and single-strait ceasefires.',
     ),
     naval_warfare: af(
       'This is a war of straits. The Tsugaru and the Tsushima crossings are the only roads between the islands.',
-      'Every sea connection requires naval supremacy to cross; massing a fleet in a strait blockades it and halves enemy reinforcements beyond.',
     ),
     population_stability: af(
       'Occupied cities seethe under foreign garrisons; an overstretched fleet cannot also hold the docks quiet.',
-      'Dense zones (Tokyo, Osaka, Seoul) risk unrest that spawns rebels unless garrisoned; loyal ports boost income.',
     ),
     fog_of_war: af(
       'Beyond the horizon, enemy convoys and landing fleets move unseen until they break the surf.',
-      'Sea-adjacent enemy stacks are hidden until they attack or you hold coastal radar.',
     ),
   },
 };
@@ -410,35 +341,27 @@ const RUSSIA_FRACTURED: CustomMapImmersionProfile = {
   advanced: {
     territory_draft: af(
       'As the center hollows out, oblast governors and warlords race to plant their flags.',
-      'Players claim starting territories in snake-draft order; border regions seed extra contested zones.',
     ),
     asymmetric_factions: af(
       'Muscovy commands the old bureaucracy; the Cossack Don rides light; Turkestan trades across the steppe.',
-      'Each region grants a perk — Muscovy +reinforcement, Cossacks +attack die on plains, Siberia resource resilience.',
     ),
     economy_buildings: af(
       'A continent this size is held by rail junctions, not by infantry.',
-      'Build depots and rail hubs to boost production and accelerate cross-region movement.',
     ),
     tech_trees: af(
       'Some republics inherit the rocket forges and reactor towns; others rebuild industry from scratch.',
-      'Invest in Industry, Logistics, or Strategic branches; the Urals unlock heavy industry early.',
     ),
     historical_events: af(
       'Coup season comes round, and whoever sits furthest from Moscow hears about it last.',
-      'Each turn draws an event — defections, oil booms, or winter freezes that close river crossings.',
     ),
     naval_warfare: af(
       'Whoever holds the Pacific shore and the Caspian flotillas controls the seams the land routes can’t span.',
-      'Sea links (Sakhalin, Okhotsk) require naval units; coastal hubs enable amphibious assault.',
     ),
     population_stability: af(
       'A republic that overreaches its supply lines breeds unrest in the cities it cannot feed.',
-      'Overextended players accrue unrest, cutting income and risking partisan revolts in the rear.',
     ),
     fog_of_war: af(
       'Across nine time zones of taiga and tundra, no one knows what masses beyond the Yenisei.',
-      'Enemy troop counts in non-adjacent territories stay hidden until scouted or bordered.',
     ),
   },
 };
@@ -452,35 +375,27 @@ const BYZANTIUM_MEGALI: CustomMapImmersionProfile = {
   advanced: {
     territory_draft: af(
       'Themes and ducats are apportioned by the Logothete before the campaigning season opens.',
-      'Players snake-draft starting themes; coastal and island holdings cost an extra pick.',
     ),
     asymmetric_factions: af(
       'The Basileus, the Sultan’s heirs, the Tsars of Tarnovo, the Serbian Kral, and the island Latins each rule by different law.',
-      'Each faction gains a bonus — Byzantines a free strait crossing, Latins cheaper fleets, Ottomans stronger land levies.',
     ),
     economy_buildings: af(
       'The silk-works pay the tagmata, and the tagmata are the only reason the frontier holds.',
-      'Build harbours for +naval income, kastra for defense, workshops for +gold per turn.',
     ),
     tech_trees: af(
       'Greek fire, dromon design, and the cataphract drill advance along distinct paths of war.',
-      'Spend research on Naval, Fortification, or Cavalry trees; Greek Fire unlocks a one-time fleet-wipe.',
     ),
     historical_events: af(
       'Crusader fleets and plague galleys both arrive unannounced, and neither asks whose harbour it is.',
-      'Random events reshuffle the board — plague halves a region’s garrisons, a Crusade grants a neutral army.',
     ),
     naval_warfare: af(
       'The Aegean is the true frontier; every island is won by oar and sail, and no march crosses the straits unescorted.',
-      'Sea links require fleets; a contested strait blockades all crossing armies until the navy is broken.',
     ),
     population_stability: af(
       'A province bled of men and faith breeds revolt, and the Aegean isles are quick to declare for Venice.',
-      'Over-taxed or under-garrisoned territories lose stability and may defect; islands defect fastest.',
     ),
     fog_of_war: af(
       'Beyond the Pharos and the watchtowers of the Mani, the sea hides every enemy sail.',
-      'Enemy fleet sizes stay hidden until adjacent; scouting ships reveal one sea-zone per turn.',
     ),
   },
 };
@@ -494,35 +409,27 @@ const SPAIN_BALKAN: CustomMapImmersionProfile = {
   advanced: {
     territory_draft: af(
       'The old kingdoms reconvene their Cortes and parcel the peninsula province by province before the first muster.',
-      'Players snake-draft starting provinces; your historic heartland drafts first.',
     ),
     asymmetric_factions: af(
       'Castilian tercios, Catalan almogàvers, Basque ironworks, and Andalusian cavalry each wage a different war.',
-      'Each region grants a passive — Castile +reinforcements, Catalonia +trade income, Basque +defense in hills.',
     ),
     economy_buildings: af(
       'Silver from the Indies bankrolls a crown; the wool fairs keep it solvent between fleets.',
-      'Build markets, ports, and forts to convert territory income into troops and defense.',
     ),
     tech_trees: af(
       'From the arquebus to the bastion fort, each kingdom modernizes its army at its own pace.',
-      'Research unlocks stronger infantry, fortification, and faster recovery after a defeat.',
     ),
     historical_events: af(
       'A dynastic marriage redraws an alliance overnight; a foral revolt undoes it by morning.',
-      'Event cards trigger reinforcements, unrest, or a rival’s sudden claim on your throne.',
     ),
     naval_warfare: af(
       'Catalonia lives off the Mediterranean and Portugal off the Atlantic, and neither can reach the other’s.',
-      'Coastal territories support fleets enabling amphibious assault and blockade.',
     ),
     population_stability: af(
       'Mountain provinces chafe under a distant crown; stability is the peace between harvest and revolt.',
-      'Over-taxed or over-garrisoned provinces accrue unrest that can flip them neutral.',
     ),
     fog_of_war: af(
       'The sierras and the Meseta hide armies until the watchfires are lit.',
-      'Enemy strength stays hidden beyond your borders until scouted.',
     ),
   },
 };
@@ -536,35 +443,27 @@ const NUSANTARA: CustomMapImmersionProfile = {
   advanced: {
     territory_draft: af(
       'Petty rajahs and harbor-lords stake claim to their home isles before the monsoon turns.',
-      'Players alternate-pick island clusters; coastal capitals draft first, granting an early port.',
     ),
     asymmetric_factions: af(
       'Srivijaya the river-thalassocracy, Majapahit the rice-and-fleet empire, the Moluccan sultanates rich in cloves alone.',
-      'Each faction begins with a bonus — Srivijaya +sea-link reach, Majapahit cheaper musters, Maluku double spice income.',
     ),
     economy_buildings: af(
       'Every sheltered bay holds a dry-dock and a pepper terrace, in that order of importance.',
-      'Build shipyards to cut fleet cost, warehouses to store income through a bad monsoon, plantations for +gold on spice isles.',
     ),
     tech_trees: af(
       'From the outrigger jong to the lateen-rigged trade junk, shipwrights chase the wind.',
-      'A naval-weighted tree: hull upgrades raise fleet range, navigation unlocks crossing the open Banda and Sulu seas.',
     ),
     historical_events: af(
       'The monsoon reverses on schedule. The first carracks rounding Malacca do not.',
-      'Timed events flip the wind (favoring east- or west-bound fleets) and spawn foreign traders bidding for ports.',
     ),
     naval_warfare: af(
       'War here is fought rail-to-rail, with grappling jongs and boarding parties in the narrows of Malacca.',
-      'Sea links require fleets to traverse and contest; naval dominance is the only path between most regions.',
     ),
     population_stability: af(
       'Overtaxed pepper villages riot; a glutted spice market starves the outer isles.',
-      'Each territory tracks unrest; over-garrisoning or stripping income raises revolt risk that can flip an island neutral.',
     ),
     fog_of_war: af(
       'Beyond the horizon lie reef, squall, and pirate prahu — charts are worth their weight in cloves.',
-      'Open-sea tiles hide enemy fleet strength until scouted; scouting ships reveal incoming armadas a turn early.',
     ),
   },
 };
@@ -578,35 +477,27 @@ const BRITAIN_925: CustomMapImmersionProfile = {
   advanced: {
     territory_draft: af(
       'Jarls and ealdormen pick heartlands before the fyrd marches — the scramble for Mercia and Northumbria begins in ink, not iron.',
-      'Draft lets you anchor in Welsh hills, Danelaw coasts, or the southern wheat belt before random warbands spread.',
     ),
     asymmetric_factions: af(
       'Wessex consolidation, Viking sea-kings, Welsh mountain princes — each crown fights differently.',
-      'Faction passives feel like saga gifts: shield-wall defense, raid tempo, or hill-fort stubbornness.',
     ),
     economy_buildings: af(
       'The burhs are paid for by a shield-tax the monastic granaries are quietly funding.',
-      'Buildings read as burh rings and monastic wealth — production rewards holding the fertile midlands and safe harbors.',
     ),
     tech_trees: af(
       'Iron rivets, longship upgrades, and royal charters drag Britain from raid economy to kingdom.',
-      'Tech unlocks heavier fortification, better coastal muster, and faster recovery after Viking burns.',
     ),
     historical_events: af(
       'A famine winter, or a longship landing nobody saw coming, decides the year.',
-      'Events model harvest prayer, cattle plague, and oath-breaking — spikes of loss or windfall across shires.',
     ),
     naval_warfare: af(
       'The Irish Sea and Channel mouths are Viking highways; whoever owns the waves owns the harvest coast.',
-      'Fleets and ports make Danelaw corridors lethal — sea connections are raids-in-waiting.',
     ),
     population_stability: af(
       'Peasants flee burning burhs; stability is the peace between harvest and reaving.',
-      'Low stability is fyrd exhaustion; recovery is the king’s justice returning to the shire.',
     ),
     fog_of_war: af(
       'Mist moors and forest tracks hide warbands until the ravens rise.',
-      'Fog hides muster sizes in the Welsh marches and Scottish edges — scouts earn their silver.',
     ),
   },
 };
@@ -620,35 +511,27 @@ const HORN_AFRICA: CustomMapImmersionProfile = {
   advanced: {
     territory_draft: af(
       'Revolutionary committees parcel the federation before the first congress — who claims the Ogaden, the coast, the highlands?',
-      'Draft reflects competing visions: coastal trade, highland defense, or Red Sea projection.',
     ),
     asymmetric_factions: af(
       'Highland defense cadres, coastal planners, and desert federators each embody a pillar of the union.',
-      'Factions map to doctrine: stability-first, naval outreach, or rapid mobilization along porous borders.',
     ),
     economy_buildings: af(
       'The five-year plan made concrete: a port, and the industrial node it exists to feed.',
-      'Economy feels like planned development — bonuses cluster on choke ports and breadbasket highlands.',
     ),
     tech_trees: af(
       'Soviet-adjacent aid, local innovation, and Red Sea radar nets drag the union into modernity.',
-      'Tech unlocks better logistics, influence projection, and crisis-response along long supply lines.',
     ),
     historical_events: af(
       'Drought turns into diplomacy, and a Gulf crisis turns diplomacy into a vote of no confidence.',
-      'Events are coups of fortune: aid convoys, border incidents, and ideological purges that swing production.',
     ),
     naval_warfare: af(
       'The map is a hinge between two seas, so a blockade is not a tactic here, it is the war.',
-      'Naval play mirrors Bab el-Mandeb reality — whoever parks fleets shapes Yemen and Somali coasts alike.',
     ),
     population_stability: af(
       'Multi-ethnic federation means loyalty is earned every harvest; stability is the union’s true currency.',
-      'Stability swings echo pastoral stress and urban unrest — coastal cities recover faster with ports secured.',
     ),
     fog_of_war: af(
       'Sandstorms, smuggler dhows, and radio silence cloak troop movements along desert seams.',
-      'Fog hides buildups on the Ogaden and Red Sea rims — intel wins before armor rolls.',
     ),
   },
 };
@@ -663,35 +546,27 @@ const AUSTRALIA_1337: CustomMapImmersionProfile = {
   advanced: {
     territory_draft: af(
       'Elders and voyaging captains choose ceremonial grounds before the great gatherings arm.',
-      'Draft lets you anchor reef nations, desert trade hubs, or Aotearoa’s volcanic north before the map colors.',
     ),
     asymmetric_factions: af(
       'Each realm’s law and lore grant different blessings — sea mastery, desert endurance, or island unity.',
-      'Factions read as cultural strengths: reef raiders, inland law-holders, or double-hulled navigators.',
     ),
     economy_buildings: af(
       'Fish weirs and stone storehouses turn a songline into something you can bank.',
-      'Buildings feel like sustainable extraction — bonuses along coasts and reliable river basins.',
     ),
     tech_trees: af(
       'Voyaging astronomy, hardened hulls, and seasonal calendars push fleets farther each generation.',
-      'Tech unlocks longer sea reach, safer harvests, and faster recovery after fire-season or storm.',
     ),
     historical_events: af(
       'El Niño empties the storehouses, and a disputed sacred site empties an alliance.',
-      'Events are natural and cultural — reef bleaching, trade wind shifts, or alliance ceremonies.',
     ),
     naval_warfare: af(
       'The theater is ocean-braided; outriggers and war canoes are sovereignty made hull.',
-      'Naval bonuses reward island chains and reef passages — amphibious play is the default tempo.',
     ),
     population_stability: af(
       'Populations move with seasons; stability is harmony between fire, water, and law.',
-      'Stability models carrying capacity — crowded coasts stress faster; inland recovery follows rain.',
     ),
     fog_of_war: af(
       'Reefs, mangrove mazes, and night voyaging hide fleets until the first torch on the beach.',
-      'Fog hides island garrisons until you send scouts — the Pacific rewards patience.',
     ),
   },
 };
@@ -706,35 +581,27 @@ const NATIONS_14: CustomMapImmersionProfile = {
   advanced: {
     territory_draft: af(
       'The continent is partitioned at the treaty table before armies march — manifest destiny starts in negotiation.',
-      'Draft rewards locking Great Lakes industry, Gulf ports, or Pacific gateways early.',
     ),
     asymmetric_factions: af(
       'Industrial giants, breadbasket republics, and energy kingdoms each bend the rules of continental war.',
-      'Factions feel like national character: mass mobilization, defensive depth, or economic snowball.',
     ),
     economy_buildings: af(
       'A fourteen-way cold war turns hot at whichever tech campus changes hands first.',
-      'Economy is modern total war — production spikes in megacity clusters and resource belts.',
     ),
     tech_trees: af(
       'Stealth, precision, and integrated logistics define who wins the next brushfire on a superpower lawn.',
-      'Tech unlocks doctrine edges: faster fortify, better defense in urban tiles, or attack tempo bonuses.',
     ),
     historical_events: af(
       'The continent is wired together, so a blackout in one state is an election shock in the next.',
-      'Events are cable-news crises made mechanical — swing PP/TP, stability, or diplomacy windows.',
     ),
     naval_warfare: af(
       'Three oceans touch the map; sea control is how you flank a continental rival.',
-      'Naval play unlocks amphibious end-arounds and strait pressure — Great Lakes and both coasts matter.',
     ),
     population_stability: af(
       'Megacity unrest and rural resentment decide whether your war machine keeps drafting.',
-      'Stability is national morale — heartland peace funds coastal tech; riots cap your surge.',
     ),
     fog_of_war: af(
       'Satellite gaps, cyber smoke, and media blackout zones hide mobilization in plain sight.',
-      'Fog models strategic ambiguity — you see borders, not stacks, until you probe or ally-share intel.',
     ),
   },
 };
@@ -754,35 +621,27 @@ const FOURTEEN_NATIONS: CustomMapImmersionProfile = {
   advanced: {
     territory_draft: af(
       'Before the war belts go out, every council names the river it will not give up.',
-      'Draft lets you claim a nation’s heartland, a river crossing, or a mountain pass before the fighting starts.',
     ),
     asymmetric_factions: af(
       'Horse peoples of the plains, canoe nations of the lakes and the coast, and city-builders of the south each make war their own way.',
-      'Factions read as ways of life: mounted raiders, river fleets, or walled cities that hold.',
     ),
     economy_buildings: af(
       'Maize, salmon, buffalo, and the shell and copper trade feed the war chests.',
-      'Buildings follow the land: river valleys and coasts pay best, and the plains reward whoever holds them.',
     ),
     tech_trees: af(
       'Horses and iron came ashore with traders, not conquerors, and every nation learned to use them.',
-      'Tech unlocks the age’s edges: faster riders, stronger palisades, and longer reach by water.',
     ),
     historical_events: af(
       'A drought on the plains, a failed harvest at Cahokia, a broken treaty belt: the continent’s luck turns by season.',
-      'Events are natural and political, from droughts and floods to councils that make or break alliances.',
     ),
     naval_warfare: af(
       'The Great Lakes, the Mississippi and three coasts are highways for war canoes.',
-      'Sea lanes cross the Straits of Mackinac, Lake Erie, the Gulf of St. Lawrence and the Gulf of California.',
     ),
     population_stability: af(
       'A nation holds together while its council fire burns; lose the heartland and the bands drift away.',
-      'Stability rewards holding a nation whole, and spreading thin across the plains costs you.',
     ),
     fog_of_war: af(
       'Forest, prairie grass and mountain passes hide a war party until it is at the palisade.',
-      'Fog hides garrisons beyond your borders until you scout them; the wide interior rewards patience.',
     ),
   },
 };
@@ -796,35 +655,27 @@ const STRAIT_HORMUZ: CustomMapImmersionProfile = {
   advanced: {
     territory_draft: af(
       'Coalitions pick ports and desert spines before the first convoy is threatened.',
-      'Draft emphasizes Hormuz islands, UAE hubs, and Iranian plateau gateways.',
     ),
     asymmetric_factions: af(
       'Revolutionary guards, emirate fleets, and desert monarchies each fight the chokepoint differently.',
-      'Factions map to coastal AA, oil rent, or plateau depth — bonuses feel doctrinal, not cosmetic.',
     ),
     economy_buildings: af(
       'Black gold becomes bunkers and planes at the refinery, and revenue at the free-zone port.',
-      'Economy is petro-state logic — income clusters on coasts and choke hexes; wonders feel like national projects.',
     ),
     tech_trees: af(
       'Missile tech, radar nets, and blue-water escorts escalate the narrow sea into a chessboard.',
-      'Tech unlocks sea denial, faster fleet redeploy, and crisis income when straits flash hot.',
     ),
     historical_events: af(
       'An embargo, then a rumour out of OPEC, and the Gulf is one incident from closing.',
-      'Events are tanker incidents and summit ultimatums — swing diplomacy and production together.',
     ),
     naval_warfare: af(
       'This map is naval war by design — gunboats are border guards and oil is blood.',
-      'Every sea connection is a potential blockade; fleet income rewards holding island and mouth tiles.',
     ),
     population_stability: af(
       'Coastal cities swell; interior lines hold loyalty only while ration and rent hold.',
-      'Stability tracks urban pressure and sanctions pain — strait owners feel riots first.',
     ),
     fog_of_war: af(
       'Jamming, sand haze, and smuggler dhows hide missile batteries until first salvo.',
-      'Fog hides Gulf buildups — ISR (scouting) wins the strait before carriers do.',
     ),
   },
 };
@@ -845,35 +696,27 @@ const ROMAN_EMPIRE_117: CustomMapImmersionProfile = {
   advanced: {
     territory_draft: af(
       'Carve the provinces as the legions did — secure the grain of Aegypt and Africa before a rival does.',
-      'Draft rewards locking Italia, the Aegyptian breadbasket, or a defensible frontier early.',
     ),
     asymmetric_factions: af(
       'Senatorial Rome, the frontier legions, and the client kingdoms each wage war by different rules.',
-      'Factions feel distinct: heartland economy, legionary tempo, or frontier resilience.',
     ),
     economy_buildings: af(
       'Roads move the legions. Grain fleets are what let them stay where they arrive.',
-      'Economy rewards connected provinces — infrastructure compounds across the Mediterranean.',
     ),
     tech_trees: af(
       'Siege craft, road engineering, and legionary doctrine decide the frontier wars.',
-      'Tech unlocks faster movement on roads, stronger sieges, and frontier defense bonuses.',
     ),
     historical_events: af(
       'A succession crisis in Rome becomes a frontier revolt everywhere else inside a year.',
-      'Events swing reinforcements, stability, and frontier pressure — the Crisis is always one bad emperor away.',
     ),
     naval_warfare: af(
       'The Mediterranean sea-lanes bind the empire; control them to flank from Carthage to Cyprus.',
-      'Naval play unlocks rapid redeployment and amphibious strikes across Mare Nostrum.',
     ),
     population_stability: af(
       'Bread and circuses keep the provinces loyal; tax them too hard and the legions revolt.',
-      'Stability funds expansion — unrest in the heartland caps your campaigns.',
     ),
     fog_of_war: af(
       'Beyond the limes lies the barbaricum — scouts and frontier forts reveal the next incursion.',
-      'Fog models the unknown frontier; ISR (scouting) the borders before the horde arrives.',
     ),
   },
 };
@@ -887,35 +730,27 @@ const MONGOL_EMPIRE_1279: CustomMapImmersionProfile = {
   advanced: {
     territory_draft: af(
       'The khanates are divided among the sons of the line — claim your ulus before the kurultai turns to war.',
-      'Draft rewards a contiguous khanate: China’s wealth, Persia’s cities, or the open steppe.',
     ),
     asymmetric_factions: af(
       'Settled Yuan China, the Persian Ilkhanate, and the nomad Horde fight by utterly different doctrines.',
-      'Factions split along steppe vs. sown — cavalry tempo against fortified wealth.',
     ),
     economy_buildings: af(
       'The Silk Road and the Yam relay network turn a continent of cities into one treasury.',
-      'Economy rewards holding trade arteries — connected provinces snowball.',
     ),
     tech_trees: af(
       'Horse archery, siege engineers from China, and the relay post define Mongol war.',
-      'Tech unlocks unmatched movement, siege power, and reinforcement reach.',
     ),
     historical_events: af(
       'Every campaign runs under the same shadow: the kurultai that splits the empire in four.',
-      'Events swing unity and reinforcements — the empire is one disputed succession from civil war.',
     ),
     naval_warfare: af(
       'From the Yangtze to the Caspian, rivers and coasts flank the great land powers.',
-      'Naval play opens river crossings and coastal raids on the settled south.',
     ),
     population_stability: af(
       'Tax the cities, spare the steppe — overreach and the conquered rise.',
-      'Stability funds the next conquest; revolts in distant ulus bleed your armies.',
     ),
     fog_of_war: af(
       'Scouts range days ahead of the tumens across the open steppe.',
-      'Fog rewards the faster scout — the Mongols always saw the enemy first.',
     ),
   },
 };
@@ -929,35 +764,27 @@ const NAPOLEONIC_EUROPE: CustomMapImmersionProfile = {
   advanced: {
     territory_draft: af(
       'The Confederation of the Rhine, the satellites, and the coalition powers are divided before the campaign opens.',
-      'Draft rewards a coherent bloc: the French core, the German middle, or the Russian depth.',
     ),
     asymmetric_factions: af(
       'Napoleonic France, the maritime British, and continental Russia each break the rules of war.',
-      'Factions feel like grand strategy: offensive tempo, naval supremacy, or scorched-earth depth.',
     ),
     economy_buildings: af(
       'Conscription fills the ranks and the Continental System pays for them, badly.',
-      'Economy rewards mobilization — production scales with held capitals and industry.',
     ),
     tech_trees: af(
       'Massed artillery, corps organization, and line-infantry drill decide the great battles.',
-      'Tech unlocks attack tempo, combined-arms bonuses, and faster fortification.',
     ),
     historical_events: af(
       'The Spanish ulcer bleeds all game, and the Russian winter arrives whether you are ready or not.',
-      'Events swing attrition, reinforcements, and diplomacy — the coalition can always reform.',
     ),
     naval_warfare: af(
       'Britannia rules the waves; the Channel and the Baltic decide who can be invaded.',
-      'Naval play unlocks blockade, amphibious landings, and the defense of the isles.',
     ),
     population_stability: af(
       'Nationalism stirs in the occupied lands; overextend and the partisans rise.',
-      'Stability funds the next offensive — unrest behind the lines bleeds the Grande Armée.',
     ),
     fog_of_war: af(
       'Cavalry screens and the fog of the great battlefield hide the decisive corps.',
-      'Fog rewards reconnaissance — find the enemy army before it finds your flank.',
     ),
   },
 };
@@ -971,35 +798,27 @@ const SENGOKU_JAPAN: CustomMapImmersionProfile = {
   advanced: {
     territory_draft: af(
       'The provinces are parcelled to the clans before the first castle falls.',
-      'Draft rewards a defensible home province and a road toward the capital.',
     ),
     asymmetric_factions: af(
       'Coastal trade clans, mountain cavalry houses, and the central powers each fight by their own code.',
-      'Factions feel like clan character: naval reach, cavalry shock, or central economy.',
     ),
     economy_buildings: af(
       'Rice paddies feed the march on Kyōto; the silver mines pay for the castles behind it.',
-      'Economy rewards rich home provinces — koku funds bigger armies.',
     ),
     tech_trees: af(
       'The matchlock, castle engineering, and massed ashigaru transform the battlefield.',
-      'Tech unlocks firearms volleys, stronger castles, and faster levies.',
     ),
     historical_events: af(
       'A retainer changes sides at the worst possible moment; later, the Europeans land with guns.',
-      'Events swing loyalty, reinforcements, and the firearms trade — treachery is a mechanic.',
     ),
     naval_warfare: af(
       'The Inland Sea and the straits divide the islands; fleets carry the war across the water.',
-      'Naval play unlocks island crossings and blockades of the trade ports.',
     ),
     population_stability: af(
       'A loyal province feeds your armies; tax the rice too hard and the ikkō-ikki revolt.',
-      'Stability funds campaigns — unrest at home stalls your march on the capital.',
     ),
     fog_of_war: af(
       'Shinobi scouts and mountain mists hide the enemy’s muster.',
-      'Fog rewards the better-informed daimyō — scout before you commit the levy.',
     ),
   },
 };
@@ -1075,8 +894,9 @@ export function advancedFeatureTooltip(mapId: string | null | undefined, key: Ad
   const base = MECHANIC_BASE[key];
   const imm = getCustomMapImmersion(mapId);
   if (!imm) return base;
-  // Lore and rules only. `effectFlavor` described map-specific rules the engine
-  // does not have (fleets blockading straits, halved reinforcements), so it is
-  // no longer shown next to the rules it contradicted.
+  // Lore and rules only. Profiles once carried a second, "how it feels" line
+  // per setting; it described map-specific rules the engine does not have
+  // (fleets blockading straits, halved reinforcements), so it was taken out
+  // of the tooltip and then deleted, so it cannot drift back in.
   return `${imm.advanced[key].lore}\n\nRules: ${base}`;
 }
