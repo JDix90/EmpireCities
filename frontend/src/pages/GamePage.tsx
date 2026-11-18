@@ -79,6 +79,7 @@ import { fetchNextMatchKind, isLadderGame, nextBattleLabel, type NextMatchKind }
 import { hasSavedQuickMatchPrefs } from '../utils/quickMatchPrefs';
 import { useFirstMatchEasyEnabled, useFirstMatchLadderMapsEnabled } from '../store/featureFlagsStore';
 import { resultsActionProperties, type ResultsAction } from '../utils/resultsAction';
+import { campaignResultButtonLabel, type CampaignGameResult } from '../utils/campaignResult';
 import { FIRST_TURN_STEPS_V2, newFirstTurnSteps, type FirstTurnStep, type FirstTurnView } from '../utils/firstTurnSteps';
 import { useFunnelEventsV2Enabled } from '../store/featureFlagsStore';
 import { trackFunnel } from '../utils/funnelEvents';
@@ -2391,6 +2392,7 @@ export default function GamePage() {
       }>;
       decision_summary?: GameOverModalData['decision_summary'];
       daily_result?: DailyRunResult;
+      campaign?: CampaignGameResult;
       play_on?: { proposer_ids: string[]; human_ids: string[]; bot_count: number; expires_in_ms: number };
       play_on_of?: string;
     }) => {
@@ -2472,6 +2474,7 @@ export default function GamePage() {
         viewerId: myId,
         progression: myProgression,
         rematchConfig: stats.rematch_config,
+        campaign: stats.campaign,
         combat_stats: stats.combat_stats,
         xp_earned_by_player: stats.xp_earned_by_player,
         rating_deltas: stats.rating_deltas,
@@ -4114,8 +4117,9 @@ export default function GamePage() {
     const isCampaign = settings?.is_campaign === true;
     if (isCampaign) {
       const advanced = campaignAdvancedRef.current;
-      if (advanced) {
-        navigate(`/campaign?campaign_id=${advanced.campaign_id}`);
+      const campaignId = goData?.campaign?.campaign_id ?? advanced?.campaign_id;
+      if (campaignId) {
+        navigate(`/campaign?campaign_id=${campaignId}`);
       } else {
         // Lost (or draw) — return to the campaign list; the page will refresh
         // state and surface the "try again" affordance for this era.
@@ -4273,6 +4277,23 @@ export default function GamePage() {
           recordResultsAction('next_battle');
           dismissModal();
           navigate('/lobby?play=quick');
+        },
+      }
+    : undefined;
+
+  // A campaign stage's results lead with where the campaign goes next: the
+  // next era after a win, the stage again after a loss, the campaign page once
+  // the last stage is won. The campaign page makes the next game (?continue=1),
+  // as the lobby does for the ladder, so this page is left before it opens.
+  const campaignHead = ladderHead?.campaign ?? null;
+  const campaignNext = campaignHead
+    ? {
+        label: campaignResultButtonLabel(campaignHead, campaignHead.next_era ? (ERA_LABELS[campaignHead.next_era] ?? null) : null),
+        onClick: () => {
+          const completed = campaignHead.outcome === 'completed';
+          recordResultsAction(completed ? 'campaign_hq' : campaignHead.outcome === 'lost' ? 'campaign_retry' : 'campaign_next');
+          dismissModal();
+          navigate(`/campaign?campaign_id=${campaignHead.campaign_id}${completed ? '' : '&continue=1'}`);
         },
       }
     : undefined;
@@ -6750,7 +6771,7 @@ export default function GamePage() {
           onWatchReplay={(id, opts) => { recordResultsAction('replay'); handleWatchReplay(id, opts); }}
           onShareClip={(id) => { recordResultsAction('clip'); handleShareClip(id); }}
           onShareOpened={() => recordResultsAction('share')}
-          nextBattle={ladderNextBattle}
+          nextBattle={campaignNext ?? ladderNextBattle}
           onChallengeFriend={user?.is_guest ? undefined : () => { recordResultsAction('challenge'); navigate('/lobby?challenge=1'); }}
           onUpgradeAccount={user?.is_guest && ownAuthUiAllowed() ? () => { recordResultsAction('save_account'); handleGameOverUpgrade(); } : undefined}
           onSkipAll={skipAllBacklogByTap}

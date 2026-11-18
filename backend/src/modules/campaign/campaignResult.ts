@@ -1,0 +1,60 @@
+import { CAMPAIGN_PATHS, type PathId } from './campaignPaths';
+
+/**
+ * What a campaign stage's result means for the campaign, sent with
+ * `game:over` so the result screen can say it: the stage's own closing text,
+ * what was carried forward, and what comes next. Without it the screen was
+ * the ordinary one, and the closing text was only ever shown in a collapsed
+ * row on the campaign page.
+ */
+export interface CampaignGameResult {
+  campaign_id: string;
+  /** Null for the classic campaign, which has no path. */
+  path_id: string | null;
+  path_name: string;
+  /** One-based. */
+  stage: number;
+  stage_count: number;
+  /** 'advanced': won, another stage follows. 'completed': won the last stage. 'lost': the stage is played again. */
+  outcome: 'advanced' | 'completed' | 'lost';
+  /** The era the next stage is set in, after 'advanced'. */
+  next_era: string | null;
+  /** The stage's closing text for this outcome; null where none is written. */
+  outro_text: string | null;
+  /** The path's signature carry before and after this result; null with no path. */
+  carry: { label: string; before: number; after: number } | null;
+}
+
+export function buildCampaignGameResult(input: {
+  campaignId: string;
+  pathId: string | null;
+  /** Zero-based index of the stage just played. */
+  eraIndex: number;
+  /** The campaign's eras, in order. */
+  eras: readonly string[];
+  won: boolean;
+  carryBefore: Record<string, number>;
+  carryAfter: Record<string, number>;
+}): CampaignGameResult {
+  const path = input.pathId ? CAMPAIGN_PATHS[input.pathId as PathId] ?? null : null;
+  const stageConfig = path?.eras[input.eraIndex] ?? null;
+  const isLast = input.eraIndex + 1 >= input.eras.length;
+  const outcome = !input.won ? 'lost' : isLast ? 'completed' : 'advanced';
+  return {
+    campaign_id: input.campaignId,
+    path_id: path ? path.path_id : null,
+    path_name: path?.name ?? 'Classic Campaign',
+    stage: input.eraIndex + 1,
+    stage_count: input.eras.length,
+    outcome,
+    next_era: outcome === 'advanced' ? input.eras[input.eraIndex + 1] ?? null : null,
+    outro_text: stageConfig ? (input.won ? stageConfig.outro_win_text : stageConfig.outro_loss_text) : null,
+    carry: path
+      ? {
+          label: path.signature_carry_label,
+          before: input.carryBefore[path.signature_carry_key] ?? 0,
+          after: input.carryAfter[path.signature_carry_key] ?? 0,
+        }
+      : null,
+  };
+}

@@ -6,6 +6,7 @@ import MatchStatsTab from './MatchStatsTab';
 import { AiBadge } from '../ui/AiBadge';
 import { Sword, Swords, Shield, ArrowRight, Crown, Skull, Flag, ChevronRight, ChevronLeft, Plus, Trophy, LogOut, Eye, Share2, Check, Flame, Coins, Link2, ExternalLink, Copy, RotateCcw, Film, Clapperboard, MessageCircle, FastForward, Users } from 'lucide-react';
 import clsx from 'clsx';
+import { campaignCarryLine, campaignStageLine, type CampaignGameResult } from '../../utils/campaignResult';
 import CombatAbilityCallouts from './CombatAbilityCallouts';
 import ComeBackTomorrowPanel from './ComeBackTomorrowPanel';
 import InstallOffer from '../install/InstallOffer';
@@ -204,6 +205,8 @@ export interface GameOverModalData {
     settings: Record<string, unknown>;
     human_player_ids: string[];
   };
+  /** A campaign stage: what the result means for the campaign (utils/campaignResult.ts). */
+  campaign?: CampaignGameResult;
   combat_stats?: Record<string, {
     attacks: number;
     attack_wins: number;
@@ -1705,12 +1708,18 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
       onWatchReplay &&
       (data.victory_condition !== 'abandoned' || data.allowReplayDespiteAbandon),
   );
+  // A campaign stage is played again from the campaign, which keeps its
+  // rules, bots and place in the run; a rematch of one made an empty lobby
+  // with none of them.
+  const isCampaignGame = !!data.campaign || data.rematchConfig?.settings?.is_campaign === true;
   const showRematch = Boolean(
     data.rematchConfig &&
       !data.rematchConfig.settings?.daily_challenge_date &&
       !data.rematchConfig.settings?.tutorial &&
+      !isCampaignGame &&
       onRematch,
   );
+  const campaignCarry = data.campaign ? campaignCarryLine(data.campaign) : null;
   const showChallenge = Boolean(onChallengeFriend);
   // The clip CTA rides the same availability gate as Watch Replay — both need
   // a persisted replay to deep-link into.
@@ -1759,7 +1768,7 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
             : 'bg-white/10 hover:bg-white/15 border-white/10 text-white',
         )}
       >
-        Return to Lobby
+        {isCampaignGame ? 'Campaign HQ' : 'Return to Lobby'}
         <ChevronRight className="w-4 h-4 shrink-0" />
       </button>
     </>
@@ -1980,6 +1989,31 @@ function GameOverView({ data, onDismiss, onRematch, onWatchReplay, onShareClip, 
               );
             })}
           </ul>
+        </div>
+      )}
+
+      {/* A campaign stage: its closing text and what was carried forward. */}
+      {data.campaign && (
+        <div
+          data-testid="gameover-campaign"
+          className={clsx(
+            'mb-5 px-4 py-3 rounded-lg border text-left transition-all duration-500 delay-300',
+            data.campaign.outcome === 'lost' ? 'border-white/10 bg-white/[0.03]' : 'border-bf-gold/30 bg-bf-gold/5',
+            showContent ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2',
+          )}
+        >
+          <p className="text-white/40 text-[11px] font-semibold uppercase tracking-wider">
+            {data.campaign.path_name} · {campaignStageLine(data.campaign)}
+          </p>
+          {data.campaign.outro_text && (
+            <p className="text-sm text-white/80 italic mt-1.5">{data.campaign.outro_text}</p>
+          )}
+          {data.campaign.outcome === 'completed' && (
+            <p className="text-sm text-bf-gold font-semibold mt-2">Campaign complete.</p>
+          )}
+          {campaignCarry && (
+            <p className="text-xs text-bf-gold/90 mt-2" data-testid="gameover-campaign-carry">{campaignCarry}</p>
+          )}
         </div>
       )}
 

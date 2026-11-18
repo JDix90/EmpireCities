@@ -132,6 +132,7 @@ import { updateChallengeProgress, type GameChallengeEvent } from '../game-engine
 import { checkReferralCompletion } from '../game-engine/progression/referralService';
 import { recordActivity } from '../services/activityService';
 import { recordServerEvent } from '../services/analyticsEvents';
+import { buildCampaignGameResult, type CampaignGameResult } from '../modules/campaign/campaignResult';
 import {
   botAimProperties,
   botAimStandings,
@@ -5318,8 +5319,16 @@ function scheduleDebouncedSave(gameId: string): void {
 
 const CAMPAIGN_ERAS = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern'] as const;
 
-/** Returns the achievements the result unlocked (Perfect Campaign). */
-async function handleCampaignCompletion(io: Server, gameId: string, state: GameState, winnerId: string): Promise<string[]> {
+/**
+ * Returns the achievements the result unlocked (Perfect Campaign) and what the
+ * result means for the campaign, for the result screen (campaignResult.ts).
+ */
+async function handleCampaignCompletion(
+  io: Server,
+  gameId: string,
+  state: GameState,
+  winnerId: string,
+): Promise<{ unlocks: string[]; result: CampaignGameResult | null }> {
   const campaignRow = await queryOne<{
     campaign_id: string;
     user_id: string;
@@ -5341,7 +5350,7 @@ async function handleCampaignCompletion(io: Server, gameId: string, state: GameS
      LIMIT 1`,
     [gameId],
   );
-  if (!campaignRow) return [];
+  if (!campaignRow) return { unlocks: [], result: null };
 
   const won = !!winnerId && !state.players.find((p) => p.player_id === winnerId)?.is_ai;
   const eraIndex = campaignRow.current_era_index;
@@ -5397,6 +5406,15 @@ async function handleCampaignCompletion(io: Server, gameId: string, state: GameS
   }
 
   const newPrestige = campaignRow.prestige_points + (won ? prestigeDelta : 0);
+  const result = buildCampaignGameResult({
+    campaignId: campaignRow.campaign_id,
+    pathId: campaignRow.path_id,
+    eraIndex,
+    eras: CAMPAIGN_ERAS,
+    won,
+    carryBefore: campaignRow.path_carry ?? {},
+    carryAfter: updatedCarry,
+  });
 
   if (won) {
     const newIdx = eraIndex + 1;
@@ -5422,7 +5440,7 @@ async function handleCampaignCompletion(io: Server, gameId: string, state: GameS
       // Perfect Campaign: every era won at the first attempt. NULL is a
       // campaign begun before attempts were counted, which cannot show that.
       if (completed?.failed_era_attempts === 0) {
-        return grantAchievementsOutsideGame(campaignRow.user_id, ['perfect_campaign']);
+        return { unlocks: await grantAchievementsOutsideGame(campaignRow.user_id, ['perfect_campaign']), result };
       }
     } else {
       await query(
@@ -5446,7 +5464,7 @@ async function handleCampaignCompletion(io: Server, gameId: string, state: GameS
       [JSON.stringify(updatedCarry), JSON.stringify(updatedNarrative), campaignRow.campaign_id],
     );
   }
-  return [];
+  return { unlocks: [], result };
 }
 
 async function finalizeGame(io: Server, gameId: string, state: GameState, winnerIds: string[]): Promise<void> {
@@ -5579,9 +5597,10 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
 
   // Campaign hook (non-critical)
   let campaignUnlocks: string[] = [];
+  let campaignResult: CampaignGameResult | null = null;
   if (state.settings?.is_campaign) {
     try {
-      campaignUnlocks = await handleCampaignCompletion(io, gameId, state, winnerId);
+      ({ unlocks: campaignUnlocks, result: campaignResult } = await handleCampaignCompletion(io, gameId, state, winnerId));
     } catch (campErr) {
       console.error('[Socket] Campaign hook failed:', campErr);
     }
@@ -6052,6 +6071,8 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
     daily_result: humanForSummary && getDailyPuzzleSpec(state)
       ? settleDailyRun(state, humanForSummary.player_id, winnerIds)
       : undefined,
+    // A campaign stage: what the result means for the campaign.
+    ...(campaignResult ? { campaign: campaignResult } : {}),
     // Play on (play_on_enabled): who may ask the table to keep going, and for
     // how long; absent when this game cannot be played on.
     ...(playOnOfferPayload ? { play_on: playOnOfferPayload } : {}),

@@ -61,7 +61,7 @@ const SURFACE_EVENTS: Record<string, Set<string>> = {
  * frontend utils/resultsAction.ts). A closed set: it is the dimension the
  * question "what do players do after a game" groups by.
  */
-export const RESULTS_ACTIONS = new Set(['rematch', 'lobby', 'share', 'replay', 'clip', 'challenge', 'save_account', 'play_on', 'next_battle']);
+export const RESULTS_ACTIONS = new Set(['rematch', 'lobby', 'share', 'replay', 'clip', 'challenge', 'save_account', 'play_on', 'next_battle', 'campaign_next', 'campaign_retry', 'campaign_hq']);
 
 const UiEventSchema = z.object({
   event: z.enum([
