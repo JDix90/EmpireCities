@@ -30,6 +30,7 @@ import {
 } from '../../game-engine/tutorial/tutorialGrants';
 import { isGalaxyTutorialModule, TUTORIAL_LESSON_MODULES } from '../../game-engine/tutorial/tutorialModules';
 import { galaxyTutorialGameSpec, type TutorialSeat } from '../../game-engine/tutorial/galaxyTutorialGames';
+import { notTutorialSql, TUTORIAL_EXITED_KEY } from '../../game-engine/tutorial/tutorialGames';
 import {
   ASCENSION_GALAXY_ADVANCEMENT_ERROR,
   buildMapMetaFromDoc,
@@ -1249,9 +1250,19 @@ export async function gamesRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(409).send({ error: 'Game already finished' });
     }
 
+    // A tutorial the player leaves is stamped, so the admin dashboard counts it
+    // as completed (tutorialGames.ts, completedGameSql). Every other game's
+    // settings are written back unchanged.
     await query(
-      'UPDATE games SET status = $1, ended_at = NOW() WHERE game_id = $2',
-      ['abandoned', request.params.gameId]
+      `UPDATE games
+       SET status = $1,
+           ended_at = NOW(),
+           settings_json = CASE
+             WHEN ${notTutorialSql('games')} THEN settings_json
+             ELSE settings_json || jsonb_build_object($3::text, true)
+           END
+       WHERE game_id = $2`,
+      ['abandoned', request.params.gameId, TUTORIAL_EXITED_KEY]
     );
 
     // Abandoning a daily-challenge game past the grace window records a loss, so

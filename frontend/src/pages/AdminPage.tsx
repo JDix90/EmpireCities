@@ -1027,6 +1027,8 @@ interface OverviewPayload {
   total_users: number;
   games_created: number;
   games_completed: number;
+  /** Of games_completed: tutorials the player skipped or ended early to move on. Absent from an older backend. */
+  tutorials_exited?: number;
   games_in_progress: number;
   games_waiting: number;
   games_by_status: Record<string, number>;
@@ -1730,7 +1732,11 @@ export default function AdminPage() {
               <Kpi
                 label="Completed (range)"
                 value={overview.games_completed.toLocaleString()}
-                hint={`Avg length: ${formatDuration(overview.avg_completed_duration_seconds)}`}
+                hint={`${
+                  overview.tutorials_exited
+                    ? `Incl. ${overview.tutorials_exited.toLocaleString()} tutorials skipped or left early · `
+                    : ''
+                }Avg length of finished games: ${formatDuration(overview.avg_completed_duration_seconds)}`}
               />
               <Kpi
                 label="Matchmaking"

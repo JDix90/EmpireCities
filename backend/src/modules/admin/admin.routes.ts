@@ -32,7 +32,7 @@ import { recordServerEvent } from '../../services/analyticsEvents';
 import { config } from '../../config';
 import { validateMapDocument } from '../maps/mapValidation';
 import { getAnalyticsReport, parseFunnelDevice, parseFunnelPlatform } from '../../services/analyticsQueries';
-import { andNotTutorialSql } from '../../game-engine/tutorial/tutorialGames';
+import { andNotTutorialSql, completedGameSql, tutorialExitedSql } from '../../game-engine/tutorial/tutorialGames';
 import { countedGameSql, excludedUserSql } from '../../services/statsExclusion';
 import { featureFlags } from '../../config/featureFlags';
 import { endSessionsForBannedUser } from '../../services/bans';
@@ -190,16 +190,21 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
     if (!parsed.success) return reply.status(400).send({ error: 'Invalid query params' });
     const dw = dateWhere(parsed.data);
 
-    const [users, games, completed, queue, byStatus, inProgress, waiting] = await Promise.all([
+    // "Completed" counts a tutorial the player skipped or ended early to move
+    // on (tutorialGames.ts, completedGameSql), and the status breakdown files
+    // it there too, so the two agree.
+    const [users, games, completed, queue, byStatus, inProgress, waiting, tutorialsExited] = await Promise.all([
       queryOne<{ c: string }>(`SELECT COUNT(*)::text AS c FROM users u WHERE NOT ${excludedUserSql('u')}`),
       queryOne<{ c: string }>(`SELECT COUNT(*)::text AS c FROM games g WHERE ${countedGameSql('g')} ${dw.clause}`, dw.values),
       queryOne<{ c: string }>(
-        `SELECT COUNT(*)::text AS c FROM games g WHERE g.status = 'completed' AND ${countedGameSql('g')} ${dw.clause}`,
+        `SELECT COUNT(*)::text AS c FROM games g WHERE ${completedGameSql('g')} AND ${countedGameSql('g')} ${dw.clause}`,
         dw.values,
       ),
       queryOne<{ c: string }>('SELECT COUNT(*)::text AS c FROM ranked_queue'),
       query<{ status: string; n: string }>(
-        `SELECT g.status, COUNT(*)::text AS n FROM games g WHERE ${countedGameSql('g')} ${dw.clause} GROUP BY g.status`,
+        `SELECT CASE WHEN ${completedGameSql('g')} THEN 'completed' ELSE g.status END AS status, COUNT(*)::text AS n
+         FROM games g WHERE ${countedGameSql('g')} ${dw.clause}
+         GROUP BY 1`,
         dw.values,
       ),
       queryOne<{ c: string }>(
@@ -210,6 +215,10 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
         `SELECT COUNT(*)::text AS c FROM games g WHERE g.status = 'waiting' AND ${countedGameSql('g')} ${dw.clause}`,
         dw.values,
       ),
+      queryOne<{ c: string }>(
+        `SELECT COUNT(*)::text AS c FROM games g WHERE ${tutorialExitedSql('g')} AND ${countedGameSql('g')} ${dw.clause}`,
+        dw.values,
+      ),
     ]);
 
     const gamesByStatus: Record<string, number> = {};
@@ -217,6 +226,8 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
       gamesByStatus[row.status] = Number(row.n);
     }
 
+    // A game's length: finished games only. A tutorial left at its second card
+    // is completed for the count above, but it is not a match length.
     const completedForAvg = await queryOne<{ avg_sec: string | null }>(
       `SELECT ROUND(AVG(EXTRACT(EPOCH FROM (g.ended_at - g.started_at))))::text AS avg_sec
        FROM games g
@@ -232,6 +243,8 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
       total_users: Number(users?.c ?? 0),
       games_created: Number(games?.c ?? 0),
       games_completed: Number(completed?.c ?? 0),
+      /** Of games_completed: tutorials the player skipped or ended early to move on. */
+      tutorials_exited: Number(tutorialsExited?.c ?? 0),
       games_in_progress: Number(inProgress?.c ?? 0),
       games_waiting: Number(waiting?.c ?? 0),
       games_by_status: gamesByStatus,
@@ -250,7 +263,7 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
     const completed = await query<{ day: string; n: number }>(
       `SELECT (g.ended_at AT TIME ZONE 'UTC')::date::text AS day, COUNT(*)::int AS n
        FROM games g
-       WHERE g.status = 'completed'
+       WHERE ${completedGameSql('g')}
          AND g.ended_at IS NOT NULL
          AND g.ended_at >= NOW() - make_interval(days => $1)
          AND ${countedGameSql('g')}
@@ -272,7 +285,7 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
     const byType = await query<{ game_type: string; n: number }>(
       `SELECT g.game_type, COUNT(*)::int AS n
        FROM games g
-       WHERE g.status = 'completed'
+       WHERE ${completedGameSql('g')}
          AND g.ended_at >= NOW() - make_interval(days => $1)
          AND ${countedGameSql('g')}
        GROUP BY g.game_type
