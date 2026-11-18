@@ -14,6 +14,14 @@ import {
 } from '../../tutorial';
 import { getCompletedTutorialModules } from '../../tutorial/progression';
 import { localizeTutorialModuleMeta, localizeTutorialStep } from '../../tutorial/localize';
+import type { NextMatchKind } from '../../utils/ladder';
+
+/** The wrap-up's main button, by the match it starts. */
+const PLAY_NEXT_MATCH_KEYS: Record<NextMatchKind, string> = {
+  first: 'overlay.playFirstMatch',
+  ladder: 'overlay.playNextBattle',
+  quick: 'overlay.playQuickMatch',
+};
 
 export type { TutorialStep };
 
@@ -57,6 +65,12 @@ interface TutorialOverlayProps {
    * the player's first real match instead of continuing on the tutorial board.
    */
   onPlayFirstMatch?: () => void;
+  /**
+   * What that button starts, so it says so (utils/ladder.ts): the first match,
+   * the ladder's next battle, or the player's own Quick Match. Defaults to the
+   * first match, which it is for a newcomer.
+   */
+  nextMatch?: NextMatchKind;
   /** A guest's secondary wrap-up button: save progress with an account (same flag). */
   onSaveProgress?: () => void;
   onReturnToLobby: () => void;
@@ -116,6 +130,7 @@ export default function TutorialOverlay({
   onAdvance,
   onContinuePlaying,
   onPlayFirstMatch,
+  nextMatch = 'first',
   onSaveProgress,
   onReturnToLobby,
   onExitTutorial,
@@ -509,7 +524,7 @@ export default function TutorialOverlay({
                   onClick={onPlayFirstMatch}
                   className="btn-primary text-base w-full"
                 >
-                  {t('overlay.playFirstMatch')}
+                  {t(PLAY_NEXT_MATCH_KEYS[nextMatch])}
                 </button>
               ) : (
                 <button

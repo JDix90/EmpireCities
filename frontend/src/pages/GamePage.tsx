@@ -74,7 +74,9 @@ import { useFirstTurnEventsEnabled } from '../store/featureFlagsStore';
 import { useFirstTurnClockWaitEnabled, usePhoneTurnCountdownEnabled } from '../store/featureFlagsStore';
 import { PhonePhaseButton, phoneCountdownApplies } from '../components/game/PhoneTurnCountdown';
 import { useResultsActionEventsEnabled, useFirstMatchLadderEnabled } from '../store/featureFlagsStore';
-import { isLadderGame, nextBattleLabel } from '../utils/ladder';
+import { fetchNextMatchKind, isLadderGame, nextBattleLabel, type NextMatchKind } from '../utils/ladder';
+import { hasSavedQuickMatchPrefs } from '../utils/quickMatchPrefs';
+import { useFirstMatchEasyEnabled, useFirstMatchLadderMapsEnabled } from '../store/featureFlagsStore';
 import { resultsActionProperties, type ResultsAction } from '../utils/resultsAction';
 import { FIRST_TURN_STEPS_V2, newFirstTurnSteps, type FirstTurnStep, type FirstTurnView } from '../utils/firstTurnSteps';
 import { useFunnelEventsV2Enabled } from '../store/featureFlagsStore';
@@ -725,6 +727,27 @@ export default function GamePage() {
     if (!isTutorial || !gameId) return;
     writeTutorialProgress(gameId, tutorialStep, tutorialSkipped);
   }, [isTutorial, gameId, tutorialStep, tutorialSkipped]);
+  // The match the wrap-up's main button will start, read now as the lobby will
+  // read it then (utils/ladder.ts), so the button names it: a returning
+  // player's tutorial ends in their next battle or their own Quick Match.
+  const firstMatchEasyFlag = useFirstMatchEasyEnabled();
+  const ladderFlag = useFirstMatchLadderEnabled();
+  const ladderMapsFlag = useFirstMatchLadderMapsEnabled();
+  const [tutorialNextMatch, setTutorialNextMatch] = useState<NextMatchKind>('first');
+  useEffect(() => {
+    if (!isTutorial || !tutorialWrapupToMatch || !user?.user_id) return;
+    let cancelled = false;
+    void fetchNextMatchKind((url) => api.get(url), hasSavedQuickMatchPrefs(), {
+      firstMatchEasy: firstMatchEasyFlag,
+      ladder: ladderFlag,
+      ladderMaps: ladderMapsFlag,
+    }).then((kind) => {
+      if (!cancelled) setTutorialNextMatch(kind);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isTutorial, tutorialWrapupToMatch, user?.user_id, firstMatchEasyFlag, ladderFlag, ladderMapsFlag]);
   // First-turn coach eligibility (WI1) — recomputed each render; a ref lets the
   // socket handler read the live value without re-subscribing.
   const firstTurnCoachFlag = useFirstTurnCoachEnabled();
@@ -6931,6 +6954,7 @@ export default function GamePage() {
             onAdvance={() => setTutorialStep((s) => Math.min(s + 1, tutorialSteps.length))}
             onContinuePlaying={handleTutorialContinuePlaying}
             onPlayFirstMatch={tutorialWrapupToMatch ? () => void handleTutorialPlayFirstMatch() : undefined}
+            nextMatch={tutorialNextMatch}
             onSaveProgress={tutorialWrapupToMatch && user?.is_guest ? () => void handleTutorialSaveProgress() : undefined}
             onReturnToLobby={handleTutorialReturnToLobby}
             onExitTutorial={handleTutorialExit}

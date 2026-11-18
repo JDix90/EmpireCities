@@ -70,7 +70,7 @@ import {
   fetchFirstMatchPending,
 } from '../utils/firstMatch';
 import { soloTurnTimerSeconds } from '../utils/soloTimer';
-import { fetchLadderRung, ladderBattle, type LadderBattle } from '../utils/ladder';
+import { fetchLadderRung, ladderBattle, NEXT_MATCH_TITLES, nextMatchKind, type LadderBattle } from '../utils/ladder';
 import {
   ASCENSION_GALAXY_SPINE_ID,
   isAscensionGalaxyMap,
@@ -471,6 +471,10 @@ export default function LobbyPage() {
   const soloUntimed = useSoloUntimedEnabled();
   // On the ladder's later rungs Full Game still steps back: the ladder is not done.
   const quickMatchLeads = firstMatchPrimaryCtaEnabled && (firstMatchPending === true || ladderNext !== null);
+  // Named for the match it starts: First Match, then Next Battle up the ladder,
+  // then Quick Match. On the ladder it read "Quick Match" with the battle in
+  // small print, and there seemed to be nowhere to pick the ladder back up.
+  const quickMatchTitle = NEXT_MATCH_TITLES[nextMatchKind(firstMatchPending, ladderNext)];
   const quickMatchButtonClass = !eraAdvancementLobbyEnabled || quickMatchLeads ? 'btn-primary' : 'btn-secondary';
   // The welcome banner's guest line (utils/guestGate.ts).
   const saveAccountCopy = useSaveAccountCopyEnabled();
@@ -2128,6 +2132,7 @@ export default function LobbyPage() {
       {showWelcomeModal && (
         <NewUserWelcomeModal
           quickMatchLine={firstMatchPending ? FIRST_MATCH_CARD_LINE : ladderNext ? ladderNext.cardLine : undefined}
+          quickMatchTitle={quickMatchTitle}
           onStartTutorial={() => void handleWelcomeTutorial()}
           onJumpIn={() => void handleWelcomeQuickSolo()}
           onDismiss={() => { markWelcomeSeen(); setShowWelcomeModal(false); }}
@@ -2284,7 +2289,7 @@ export default function LobbyPage() {
               >
                 <span className="flex items-center gap-2 font-semibold">
                   <Bot className="w-4 h-4" aria-hidden />
-                  {quickSoloLoading ? 'Starting…' : 'Quick Match'}
+                  {quickSoloLoading ? 'Starting…' : quickMatchTitle}
                 </span>
                 <span className="text-[11px] font-normal opacity-75">
                   {firstMatchPending
@@ -2652,7 +2657,7 @@ export default function LobbyPage() {
                   >
                     <Bot className="w-5 h-5 text-bf-gold mb-2 group-hover:scale-110 transition-transform" />
                     <p className="font-display text-bf-gold group-hover:text-white transition-colors">
-                      {quickSoloLoading ? 'Starting…' : 'Quick Match'}
+                      {quickSoloLoading ? 'Starting…' : quickMatchTitle}
                     </p>
                     <p className="text-bf-muted text-xs mt-1">
                       {firstMatchPending

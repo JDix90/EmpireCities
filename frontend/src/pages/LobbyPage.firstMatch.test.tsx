@@ -305,6 +305,23 @@ describe('LobbyPage first match', () => {
     expect(isTutorialHandoffGame('g1')).toBe(false);
   });
 
+  it('names the button for the match it starts: First Match, Next Battle, then Quick Match', async () => {
+    setFlag(true, false, true, true);
+    finishedGames(0);
+    const newcomer = renderLobby();
+    expect((await screen.findByText(FIRST_MATCH_BUTTON_LINE)).closest('button')).toHaveTextContent('First Match');
+    newcomer.unmount();
+
+    finishedGames(3, 2);
+    const climbing = renderLobby();
+    expect((await screen.findByText(LADDER_MAP_BATTLES[3].buttonLine)).closest('button')).toHaveTextContent('Next Battle');
+    climbing.unmount();
+
+    finishedGames(9, 9);
+    renderLobby();
+    expect((await screen.findByText(/vs \d AI · random era/)).closest('button')).toHaveTextContent('Quick Match');
+  });
+
   it('starts nothing on a plain lobby visit', async () => {
     setFlag(true);
     finishedGames(0);

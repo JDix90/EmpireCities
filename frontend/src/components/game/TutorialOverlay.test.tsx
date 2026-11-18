@@ -197,6 +197,14 @@ describe('TutorialOverlay', () => {
       expect(onContinuePlaying).not.toHaveBeenCalled();
     });
 
+    it('names the match it starts for a returning player: the next battle, or their own Quick Match', () => {
+      const { unmount } = overlay([wrapup], { onPlayFirstMatch: vi.fn(), nextMatch: 'ladder' });
+      expect(screen.getByTestId('tutorial-first-match-btn')).toHaveTextContent('Play your next battle');
+      unmount();
+      overlay([wrapup], { onPlayFirstMatch: vi.fn(), nextMatch: 'quick' });
+      expect(screen.getByTestId('tutorial-first-match-btn')).toHaveTextContent('Play a Quick Match');
+    });
+
     it('offers no save button when the player is not a guest', () => {
       overlay([wrapup], { onPlayFirstMatch: vi.fn() });
       expect(screen.getByTestId('tutorial-first-match-btn')).toBeInTheDocument();

@@ -1,7 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   LADDER_RUNG_2_BATTLE,
+  NEXT_MATCH_TITLES,
   fetchLadderRung,
+  fetchNextMatchKind,
+  nextMatchKind,
   isLadderGame,
   ladderBattle,
   ladderRungFromStats,
@@ -93,5 +96,46 @@ describe('the results screen’s ladder button', () => {
     expect(isLadderGame({ ladder_step: 2.5 })).toBe(false);
     expect(isLadderGame({})).toBe(false);
     expect(isLadderGame(null)).toBe(false);
+  });
+});
+
+describe('the next match, named (lobby button and tutorial wrap-up)', () => {
+  const stats = (won: number, played = won) => async () => ({ data: { overall: { played, won } } });
+  const flags = { firstMatchEasy: true, ladder: true, ladderMaps: true };
+
+  it('names the first match, a later battle, and the player\u2019s own Quick Match', () => {
+    expect(NEXT_MATCH_TITLES[nextMatchKind(true, null)]).toBe('First Match');
+    expect(NEXT_MATCH_TITLES[nextMatchKind(false, LADDER_RUNG_2_BATTLE)]).toBe('Next Battle');
+    expect(NEXT_MATCH_TITLES[nextMatchKind(false, null)]).toBe('Quick Match');
+    // Not yet known reads as the ordinary Quick Match, as the lobby starts it.
+    expect(nextMatchKind(null, null)).toBe('quick');
+  });
+
+  it('reads it as the lobby does: the first match until the first win, the ladder, then Quick Match', async () => {
+    await expect(fetchNextMatchKind(stats(0, 3), false, flags)).resolves.toBe('first');
+    await expect(fetchNextMatchKind(stats(2), false, flags)).resolves.toBe('ladder');
+    await expect(fetchNextMatchKind(stats(6), false, flags)).resolves.toBe('quick');
+    // Without the map ladder the ladder ends after its second battle.
+    await expect(fetchNextMatchKind(stats(1), false, { ...flags, ladderMaps: false })).resolves.toBe('ladder');
+    await expect(fetchNextMatchKind(stats(2), false, { ...flags, ladderMaps: false })).resolves.toBe('quick');
+  });
+
+  it('keeps a player who set up Quick Match themselves on it, without asking', async () => {
+    const get = vi.fn();
+    await expect(fetchNextMatchKind(get, true, flags)).resolves.toBe('quick');
+    await expect(fetchNextMatchKind(get, true, { ...flags, ladder: false })).resolves.toBe('quick');
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it('follows the flags: no first match without first_match_easy_enabled, no ladder without its own', async () => {
+    const get = vi.fn(stats(0));
+    await expect(fetchNextMatchKind(get, false, { ...flags, firstMatchEasy: false })).resolves.toBe('quick');
+    expect(get).not.toHaveBeenCalled();
+    await expect(fetchNextMatchKind(stats(0), false, { ...flags, ladder: false })).resolves.toBe('first');
+    await expect(fetchNextMatchKind(stats(1), false, { ...flags, ladder: false })).resolves.toBe('quick');
+  });
+
+  it('falls back to the ordinary Quick Match when the stats cannot be read', async () => {
+    await expect(fetchNextMatchKind(async () => { throw new Error('offline'); }, false, flags)).resolves.toBe('quick');
   });
 });
