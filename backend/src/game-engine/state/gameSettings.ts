@@ -488,7 +488,11 @@ export function sanitizeCampaignMission(raw: unknown): CampaignStageMission | un
       : null;
   if (m.kind === 'control_regions') {
     const ids = strings(m.region_ids);
-    return ids ? { kind: 'control_regions', region_ids: [...ids] } : undefined;
+    if (!ids) return undefined;
+    const from = m.from_round;
+    return typeof from === 'number' && Number.isInteger(from) && from >= 2
+      ? { kind: 'control_regions', region_ids: [...ids], from_round: from }
+      : { kind: 'control_regions', region_ids: [...ids] };
   }
   if (m.kind === 'capture_territories') {
     const ids = strings(m.territory_ids);

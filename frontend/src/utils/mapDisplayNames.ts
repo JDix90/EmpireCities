@@ -82,6 +82,8 @@ export function describeSecretMission(
   }
   if (mission.kind === 'control_regions' && mission.region_ids?.length) {
     const names = mission.region_ids.map((id) => resolveRegionName(id, lookup));
+    // A stand: held from the start, and won by still being held in that round.
+    if (mission.from_round) return `Still hold ${names.join(', ')} in round ${mission.from_round}, or any round after`;
     return `Control ${names.join(', ')}`;
   }
   if (mission.kind === 'reach_era' && mission.era_id) {
@@ -113,6 +115,7 @@ export type SecretMissionLike = {
   territory_ids?: string[];
   target_player_id?: string;
   region_ids?: string[];
+  from_round?: number;
   ally_player_id?: string;
   /** Alliance: the territories each ally must hold. */
   territory_threshold?: number;

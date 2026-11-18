@@ -315,6 +315,11 @@ export function evaluateBoard(
  */
 export const HEGEMONY_BREAK_URGENCY_TURNS = 3;
 
+/** How hard a campaign stand's bots lean on the regions the player has to hold. */
+// Level with a mission target's own bonus. Doubling it moved no stage by more
+// than 11 points (simCampaignStages): who is seated on the border does the work.
+const STAND_SIEGE_BONUS = 2.5;
+
 /** Extra attack score toward enemy capitals, secret-mission targets, and gateways. */
 export function attackObjectiveBonus(
   state: GameState,
@@ -388,6 +393,20 @@ export function attackObjectiveBonus(
       // Above the capital bonus of 3: one tile taken anywhere on the Moon
       // resets the clock outright, so it is the cheapest answer on the board.
       b += 4;
+    }
+  }
+
+  // A campaign stage's stand (campaign_mission with from_round): the player
+  // wins by still holding the named regions when that round comes, so the
+  // stage's bots come for them. Without this they have no reason to, and the
+  // siege the stage describes is a wait. Only such a stage sets the key.
+  const stand = state.settings.campaign_mission;
+  if (me.is_ai && stand?.kind === 'control_regions' && stand.from_round != null) {
+    const target = state.territories[targetTerritoryId];
+    const holder = target?.owner_id ? state.players.find((p) => p.player_id === target.owner_id) : undefined;
+    if (holder && !holder.is_ai) {
+      const regionId = map.territories.find((t) => t.territory_id === targetTerritoryId)?.region_id;
+      if (regionId && stand.region_ids.includes(regionId)) b += STAND_SIEGE_BONUS;
     }
   }
 

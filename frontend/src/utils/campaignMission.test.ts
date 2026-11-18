@@ -21,6 +21,16 @@ describe('describeCampaignMission', () => {
       .toBe('Hold every territory in North America and Europe');
   });
 
+  it('words a stand as holding on until a round', () => {
+    expect(describeCampaignMission({ kind: 'control_regions', region_ids: ['western_front'], from_round: 15 }, { lookup }))
+      .toBe('Still hold every territory in Western Front in round 15, or any round after');
+    expect(readCampaignMission({ kind: 'control_regions', region_ids: ['a'], from_round: 15 }))
+      .toEqual({ kind: 'control_regions', region_ids: ['a'], from_round: 15 });
+    // A round that is not one is dropped, and the objective is an ordinary one.
+    expect(readCampaignMission({ kind: 'control_regions', region_ids: ['a'], from_round: 'soon' }))
+      .toEqual({ kind: 'control_regions', region_ids: ['a'] });
+  });
+
   it('names the two territories to capture', () => {
     expect(describeCampaignMission({ kind: 'capture_territories', territory_ids: ['germany', 'manchuria_ww2'] }, { lookup }))
       .toBe('Capture Germany and Manchuria, and hold both');

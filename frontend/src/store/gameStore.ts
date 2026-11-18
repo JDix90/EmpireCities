@@ -52,6 +52,8 @@ export interface SecretMissionPayload {
   territory_ids?: [string, string];
   target_player_id?: string;
   region_ids?: string[];
+  /** control_regions: the regions count only from this round on (a campaign stage's stand). */
+  from_round?: number;
   era_index?: number;
   era_id?: string;
   /** Lunar Foothold: how many Moon territories the objective needs. */

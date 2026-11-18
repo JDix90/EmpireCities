@@ -7,7 +7,7 @@ import { factionDisplayName } from './factionNames';
  * this one, and the bots hold none.
  */
 export type CampaignStageMission =
-  | { kind: 'control_regions'; region_ids: string[] }
+  | { kind: 'control_regions'; region_ids: string[]; from_round?: number }
   | { kind: 'capture_territories'; territory_ids: [string, string] }
   | { kind: 'eliminate_faction'; faction_id: string };
 
@@ -17,7 +17,10 @@ export function readCampaignMission(raw: unknown): CampaignStageMission | null {
   const m = raw as { kind?: unknown; region_ids?: unknown; territory_ids?: unknown; faction_id?: unknown };
   const strings = (v: unknown): v is string[] => Array.isArray(v) && v.length > 0 && v.every((x) => typeof x === 'string');
   if (m.kind === 'control_regions' && strings(m.region_ids)) {
-    return { kind: 'control_regions', region_ids: m.region_ids };
+    const from = (raw as { from_round?: unknown }).from_round;
+    return typeof from === 'number' && Number.isInteger(from) && from >= 2
+      ? { kind: 'control_regions', region_ids: m.region_ids, from_round: from }
+      : { kind: 'control_regions', region_ids: m.region_ids };
   }
   if (m.kind === 'capture_territories' && strings(m.territory_ids) && m.territory_ids.length === 2) {
     return { kind: 'capture_territories', territory_ids: [m.territory_ids[0]!, m.territory_ids[1]!] };
@@ -54,7 +57,11 @@ export function describeCampaignMission(
 ): string {
   if (mission.kind === 'control_regions') {
     const regions = opts.lookup?.regions?.map((r) => ({ id: r.region_id, name: r.name }));
-    return `Hold every territory in ${joinNames(mission.region_ids.map((id) => nameOf(id, regions)))}`;
+    const held = `every territory in ${joinNames(mission.region_ids.map((id) => nameOf(id, regions)))}`;
+    // A stand: the player starts holding it, and wins by holding it then.
+    return mission.from_round
+      ? `Still hold ${held} in round ${mission.from_round}, or any round after`
+      : `Hold ${held}`;
   }
   if (mission.kind === 'capture_territories') {
     const territories = opts.lookup?.territories?.map((t) => ({ id: t.territory_id, name: t.name }));

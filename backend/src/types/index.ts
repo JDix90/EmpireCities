@@ -56,7 +56,12 @@ export type VictoryConditionKey =
 export type SecretMission =
   | { kind: 'capture_territories'; territory_ids: [string, string] }
   | { kind: 'eliminate_player'; target_player_id: string }
-  | { kind: 'control_regions'; region_ids: string[] }
+  /**
+   * `from_round`: the regions count only from that round on, so a mission the
+   * holder starts with done is one to still be holding then (a campaign
+   * stage's "survive until", victory/missions.ts).
+   */
+  | { kind: 'control_regions'; region_ids: string[]; from_round?: number }
   | { kind: 'alliance'; ally_player_id: string; territory_threshold: number }
   /** Era-advancement mode: climb to the target era. era_id is the resolved era for display. */
   | { kind: 'reach_era'; era_index: number; era_id: string }
@@ -79,7 +84,8 @@ export type SecretMission =
  * settings.
  */
 export type CampaignStageMission =
-  | { kind: 'control_regions'; region_ids: string[] }
+  /** With `from_round`, a stand: the regions must be held in that round or a later one. */
+  | { kind: 'control_regions'; region_ids: string[]; from_round?: number }
   | { kind: 'capture_territories'; territory_ids: [string, string] }
   | { kind: 'eliminate_faction'; faction_id: string };
 export type AiDifficulty = 'easy' | 'medium' | 'hard' | 'expert' | 'tutorial';

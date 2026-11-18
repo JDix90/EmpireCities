@@ -223,7 +223,10 @@ export function resolveCampaignMission(
   if (pin.kind === 'control_regions') {
     const live = pin.region_ids.every((rid) =>
       map.territories.some((t) => t.region_id === rid && state.territories[t.territory_id] != null));
-    return live ? { kind: 'control_regions', region_ids: [...pin.region_ids] } : null;
+    if (!live) return null;
+    return pin.from_round != null
+      ? { kind: 'control_regions', region_ids: [...pin.region_ids], from_round: pin.from_round }
+      : { kind: 'control_regions', region_ids: [...pin.region_ids] };
   }
   if (pin.kind === 'capture_territories') {
     const [a, b] = pin.territory_ids;
@@ -474,6 +477,9 @@ export function isMissionComplete(state: GameState, map: GameMap, player: Player
       return target?.is_eliminated === true && target.eliminated_by === player.player_id;
     }
     case 'control_regions':
+      // A stand: held from the deal, it is won by still being held in the
+      // round named, or retaken by a later one.
+      if (m.from_round != null && state.turn_number < m.from_round) return false;
       return playerOwnsAllTerritoriesInRegions(state, map, player.player_id, m.region_ids);
     case 'reach_era':
       return (player.current_era_index ?? 0) >= m.era_index;
