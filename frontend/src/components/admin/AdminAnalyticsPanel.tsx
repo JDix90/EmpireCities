@@ -252,6 +252,8 @@ export interface AnalyticsReport {
   first_match?: FirstMatchStats;
   /** Optional for rollout: older backends won't send it. */
   campaign?: CampaignPathRow[];
+  /** The campaign by stage and side. Optional for rollout: older backends won't send it. */
+  campaign_stages?: CampaignStageRow[];
   /** Optional for rollout: older backends won't send it. */
   solo_by_level?: SoloLevelRow[];
   volume: EventVolumeRow[];
@@ -269,6 +271,20 @@ export interface AnalyticsReport {
   /** The website against the apps. Optional for rollout: older backends won't send it. */
   platforms?: PlatformRow[];
 }
+
+/** One campaign stage in the window, by side where it has sides (backend services/analyticsQueries.ts). */
+export interface CampaignStageRow {
+  path: string;
+  stage: number;
+  line: string | null;
+  games: number;
+  retries: number;
+  finished: number;
+  won: number;
+  median_rounds: number | null;
+}
+
+const CAMPAIGN_LINE_LABEL: Record<string, string> = { allies: 'Allies', soviets: 'Soviets' };
 
 const SOLO_MODE_LABELS: Record<SoloLevelRow['mode'], string> = {
   tutorial: 'Tutorial',
@@ -822,6 +838,48 @@ export default function AdminAnalyticsPanel({
             stage games created, &quot;Won&quot; of those finished. Counted from the day the campaign events
             went live.
           </p>
+          {/* Stage by stage, and side by side where a stage has sides: the
+              measured win rate a stage's settings are tuned against. */}
+          {data.campaign_stages && data.campaign_stages.length > 0 && (
+            <div className="mt-4 overflow-x-auto" data-testid="admin-campaign-stages">
+              <p className="text-xs font-semibold text-bf-text mb-1">By stage</p>
+              <table className="w-full text-left text-xs">
+                <thead className="text-bf-muted">
+                  <tr>
+                    <th className="py-1 pr-3 font-medium">Path</th>
+                    <th className="py-1 pr-3 font-medium">Stage</th>
+                    <th className="py-1 pr-3 font-medium">Stage games</th>
+                    <th className="py-1 pr-3 font-medium">Retries</th>
+                    <th className="py-1 pr-3 font-medium">Finished</th>
+                    <th className="py-1 pr-3 font-medium">Won</th>
+                    <th className="py-1 font-medium">Median rounds</th>
+                  </tr>
+                </thead>
+                <tbody className="text-bf-text">
+                  {data.campaign_stages.map((row) => (
+                    <tr key={`${row.path}:${row.stage}:${row.line ?? ''}`} className="border-t border-bf-border/50">
+                      <td className="py-1 pr-3">{CAMPAIGN_PATH_LABEL[row.path] ?? row.path}</td>
+                      <td className="py-1 pr-3">
+                        {row.stage}
+                        {row.line ? ` · ${CAMPAIGN_LINE_LABEL[row.line] ?? row.line}` : ''}
+                      </td>
+                      <td className="py-1 pr-3">{row.games.toLocaleString()}</td>
+                      <td className="py-1 pr-3">{row.retries.toLocaleString()}</td>
+                      <td className="py-1 pr-3">{pctText(row.finished, row.games)}</td>
+                      <td className="py-1 pr-3">
+                        {pctText(row.won, row.finished)}
+                        <span className="text-bf-muted"> ({row.won}/{row.finished})</span>
+                      </td>
+                      <td className="py-1">{row.median_rounds == null ? '—' : Math.round(row.median_rounds)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="mt-2 text-xs text-bf-muted">
+                A win rate over fewer than about 30 finished games moves a long way on a handful of results.
+              </p>
+            </div>
+          )}
         </section>
       )}
 

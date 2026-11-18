@@ -100,6 +100,30 @@ describe('AdminAnalyticsPanel', () => {
     expect(card.getByText('50%')).toBeTruthy();
     expect(card.getByText('67%')).toBeTruthy();
     expect(card.getByText('19')).toBeTruthy();
+    // No stage rows from an older backend: the path table stands alone.
+    expect(screen.queryByTestId('admin-campaign-stages')).toBeNull();
+  });
+
+  it('breaks the campaign down by stage, and by side where a stage has sides', () => {
+    render(
+      <AdminAnalyticsPanel
+        data={{
+          ...report,
+          campaign: [
+            { path: 'blood_empire', started: 4, guest_started: 1, stage_games: 9, stage_finished: 7, stage_won: 3, stage1_won: 2, completed: 0, median_rounds: 18.5 },
+          ],
+          campaign_stages: [
+            { path: 'blood_empire', stage: 1, line: null, games: 6, retries: 2, finished: 5, won: 3, median_rounds: 19 },
+            { path: 'blood_empire', stage: 4, line: 'soviets', games: 3, retries: 1, finished: 2, won: 0, median_rounds: 13.5 },
+          ],
+        }}
+      />,
+    );
+    const stages = within(screen.getByTestId('admin-campaign-stages'));
+    expect(stages.getByText('4 · Soviets')).toBeTruthy();
+    expect(stages.getByText('(3/5)')).toBeTruthy();
+    expect(stages.getByText('(0/2)')).toBeTruthy();
+    expect(stages.getByText('14')).toBeTruthy();
   });
 
   it('shows the first turn step by step once a step is recorded, and nothing before or for an older backend', () => {
