@@ -111,6 +111,12 @@ const CLIENT_FEATURE_FLAGS = [
       "Guests who allow notifications get the same streak-at-risk and Daily Challenge push reminders as accounts, never an email. The end of a guest's game asks them (Remind me / Not now), and their Settings gets the push switch. Every player still gets at most one reminder a day. On by default; switching it off stops guest reminders at the next hourly sweep and removes the ask.",
   },
   {
+    key: 'game_waiting_reminder_enabled',
+    label: '\u201cYour game is waiting\u201d reminder',
+    description:
+      'A player whose latest game is an unfinished solo game against AI (not the tutorial or the Daily Challenge), left 20 to 48 hours ago, and who has not been back on the site since, gets one reminder that opens that game: "Your first match is waiting" (or "Your game is waiting") with "Great Britain 925 A.D.: your battle is right where you left it." By push, or by email for an account that opted in. It is the first reminder the hourly sweep sends, so on a day it applies it takes the player\u2019s one reminder in place of the streak reminder; once per game. Needs "Retention email & push" on; guests only by push, with "Push reminders for guests". Off by default.',
+  },
+  {
     key: 'daily_guest_play_enabled',
     label: 'Daily Challenge for guests',
     description:

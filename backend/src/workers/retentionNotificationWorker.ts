@@ -5,6 +5,8 @@
 // scheduler is deduped in Redis, and each send is claimed with an
 // INSERT .. ON CONFLICT DO NOTHING before dispatch). Sends, in
 // priority order:
+//   0) your game is waiting       — a solo game left unfinished a day ago
+//                                   (game_waiting_reminder_enabled)
 //   a) streak-at-risk push        — played yesterday, not yet today
 //   b) daily-challenge reminder   — recently active, no entry today
 //   c) D2 / D7 win-back email     — lapsed, email opt-in only
@@ -23,6 +25,8 @@ import { query, queryOne } from '../db/postgres';
 import { isPushConfigured, sendPushNotification, sendEngagementEmail } from '../services/notificationService';
 import { recordServerEvent } from '../services/analyticsEvents';
 import { APP_NAME } from '../constants/brand';
+import { notPlayOnSql, notTutorialSql } from '../game-engine/tutorial/tutorialGames';
+import { escapeHtml } from '../utils/htmlSafe';
 
 const QUEUE_NAME = 'retention-notifications';
 const SCHEDULER_ID = 'retention-hourly';
@@ -34,7 +38,7 @@ const SWEEP_LIMIT = 500;
 const DAILY_CHALLENGE_UTC_HOUR = 17;
 const WINBACK_UTC_HOUR = 15;
 
-type RetentionTrigger = 'streak_at_risk' | 'daily_challenge' | 'winback_d2' | 'winback_d7';
+type RetentionTrigger = 'game_waiting' | 'streak_at_risk' | 'daily_challenge' | 'winback_d2' | 'winback_d7';
 
 const connection = {
   host: config.redis.host,
@@ -172,6 +176,113 @@ function ctaButton(url: string, label: string): string {
 
 function trackedUrl(path: string, trigger: RetentionTrigger): string {
   return `${config.frontendUrl}${path}?rn=${trigger}&utm_source=retention&utm_medium=notification&utm_campaign=${trigger}`;
+}
+
+// ── Phase 0: your game is waiting (all hours, push-first) ────────────────────
+// Most first matches are never finished, and most are left in their first
+// round with the tab closed: the game is still there, in progress, but the
+// player never sees it again unless they come back to the lobby on their own.
+// A player whose latest game is an unfinished solo game against bots, left 20
+// to 48 hours ago, gets one reminder that links straight back into it, the
+// same time of day the streak reminder aims for (see phase a). It runs first:
+// it is the most specific thing a player can be told. Live game state is kept
+// in Redis for seven days (sockets/redisGameStore.ts), so a game left two days
+// ago opens where it stopped.
+
+type WaitingCandidate = Candidate & {
+  game_id: string;
+  /** The map's display name, when the map is in the maps table. */
+  map_name: string | null;
+  /** The game is the player's first match (settings `first_match`). */
+  first_match: boolean;
+};
+
+/** Exported for tests. */
+export async function sweepGameWaiting(pushReady: boolean, guests: boolean): Promise<number> {
+  const candidates = await query<WaitingCandidate>(
+    `WITH waiting AS (
+       SELECT gp.user_id, g.game_id, g.created_at, m.name AS map_name,
+              COALESCE(g.settings_json ->> 'first_match', 'false') = 'true' AS first_match,
+              COALESCE(
+                (SELECT MAX(gs.saved_at) FROM game_states gs WHERE gs.game_id = g.game_id),
+                g.started_at
+              ) AS last_activity
+       FROM games g
+       JOIN game_players gp ON gp.game_id = g.game_id AND gp.is_ai = false AND gp.user_id IS NOT NULL
+       LEFT JOIN maps m ON m.map_id = g.map_id
+       WHERE g.status = 'in_progress'
+         AND g.started_at >= NOW() - INTERVAL '3 days'
+         AND COALESCE(gp.is_eliminated, false) = false
+         AND ${notTutorialSql('g')}
+         AND ${notPlayOnSql('g')}
+         AND COALESCE(g.settings_json ->> 'daily_challenge_date', '') = ''
+         AND COALESCE(g.async_mode, false) = false
+         -- One player against bots: a table of people has its own turn alerts.
+         AND NOT EXISTS (
+           SELECT 1 FROM game_players other
+           WHERE other.game_id = g.game_id AND other.is_ai = false
+             AND other.user_id IS DISTINCT FROM gp.user_id
+         )
+     )
+     SELECT ${CANDIDATE_COLUMNS}, w.game_id, w.map_name, w.first_match
+     FROM waiting w
+     JOIN users u ON u.user_id = w.user_id
+     LEFT JOIN user_preferences p ON p.user_id = u.user_id
+     WHERE w.last_activity BETWEEN NOW() - INTERVAL '48 hours' AND NOW() - INTERVAL '20 hours'
+       AND ${ACCOUNT_OR_ALLOWED_GUEST_SQL}
+       AND COALESCE(u.is_banned, false) = false
+       -- Not back on the site since: a player who came back and left the game
+       -- where it was has already seen it.
+       AND u.last_login_at <= NOW() - INTERVAL '20 hours'
+       AND (${PUSH_REACHABLE_SQL} OR ${EMAIL_OPT_IN_SQL})
+       -- Their latest game: they have not moved on to another.
+       AND NOT EXISTS (
+         SELECT 1 FROM game_players gp2 JOIN games g2 ON g2.game_id = gp2.game_id
+         WHERE gp2.user_id = u.user_id AND g2.created_at > w.created_at
+       )
+       -- Once per game: no reminder of this kind since they left it.
+       AND NOT EXISTS (
+         SELECT 1 FROM retention_notifications rn
+         WHERE rn.user_id = u.user_id AND rn.trigger_type = 'game_waiting'
+           AND rn.sent_at >= w.last_activity
+       )
+       AND NOT EXISTS (
+         SELECT 1 FROM retention_notifications rn
+         WHERE rn.user_id = u.user_id AND rn.sent_on = CURRENT_DATE
+       )
+     LIMIT ${SWEEP_LIMIT}`,
+    [pushReady, guests],
+  );
+
+  let sent = 0;
+  for (const c of candidates) {
+    const url = trackedUrl(`/game/${c.game_id}`, 'game_waiting');
+    // A community map's name is a player's text: one line in the push and the
+    // subject, escaped in the email body.
+    // Led by the map's name, which reads whatever it is ("The Modern Day").
+    const mapName = c.map_name ? c.map_name.replace(/\s+/g, ' ').trim() : '';
+    const ok = await dispatchPushFirst(
+      c,
+      'game_waiting',
+      {
+        title: c.first_match ? 'Your first match is waiting' : 'Your game is waiting',
+        body: `${mapName ? `${mapName}: your` : 'Your'} battle is right where you left it. Pick it up in one tap.`,
+        url,
+      },
+      {
+        subject: `Your battle is waiting${mapName ? `: ${mapName}` : ''}`,
+        innerHtml: `
+          <h2 style="color: #d4a843;">Your armies are holding their positions</h2>
+          <p>You left a game unfinished${mapName ? ` (<strong>${escapeHtml(mapName)}</strong>)` : ''}.
+             It is exactly where you left it.</p>
+          ${ctaButton(url, 'Resume My Game')}
+        `,
+      },
+      pushReady,
+    );
+    if (ok) sent++;
+  }
+  return sent;
 }
 
 // ── Phase a: streak-at-risk (all hours, push-first) ──────────────────────────
@@ -314,14 +425,17 @@ async function sweepWinback(daysAgo: 2 | 7): Promise<number> {
 // ── Sweep orchestration ──────────────────────────────────────────────────────
 
 /** Exported for tests. Runs one hourly sweep; phase order IS the priority order. */
-export async function runRetentionSweep(nowUtcHour?: number): Promise<{ streak: number; daily: number; winback: number }> {
+export async function runRetentionSweep(
+  nowUtcHour?: number,
+): Promise<{ waiting: number; streak: number; daily: number; winback: number }> {
   if (!featureFlags.retentionNotificationsEnabled) {
-    return { streak: 0, daily: 0, winback: 0 };
+    return { waiting: 0, streak: 0, daily: 0, winback: 0 };
   }
   const hour = nowUtcHour ?? new Date().getUTCHours();
   const pushReady = await isPushConfigured();
   const guests = featureFlags.guestPushRemindersEnabled;
 
+  const waiting = featureFlags.gameWaitingReminderEnabled ? await sweepGameWaiting(pushReady, guests) : 0;
   const streak = await sweepStreakAtRisk(pushReady, guests);
   const daily = hour === DAILY_CHALLENGE_UTC_HOUR ? await sweepDailyChallenge(pushReady, guests) : 0;
   let winback = 0;
@@ -329,10 +443,10 @@ export async function runRetentionSweep(nowUtcHour?: number): Promise<{ streak: 
     winback = (await sweepWinback(2)) + (await sweepWinback(7));
   }
 
-  if (streak + daily + winback > 0) {
-    console.log(`[Retention] Sweep sent: streak=${streak} daily=${daily} winback=${winback}`);
+  if (waiting + streak + daily + winback > 0) {
+    console.log(`[Retention] Sweep sent: waiting=${waiting} streak=${streak} daily=${daily} winback=${winback}`);
   }
-  return { streak, daily, winback };
+  return { waiting, streak, daily, winback };
 }
 
 let worker: Worker | null = null;
