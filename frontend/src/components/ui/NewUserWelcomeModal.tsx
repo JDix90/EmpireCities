@@ -25,6 +25,8 @@ export function markWelcomeSeen(): void {
 interface NewUserWelcomeModalProps {
   /** Replaces the Quick Match card's line, e.g. when the next match is the player's first. */
   quickMatchLine?: string;
+  /** The lobby's name for the match its Quick Match button starts (utils/ladder.ts NEXT_MATCH_TITLES). */
+  quickMatchTitle?: string;
   onStartTutorial: () => void;
   onJumpIn: () => void;
   onDismiss: () => void;
@@ -36,6 +38,7 @@ interface NewUserWelcomeModalProps {
  */
 export default function NewUserWelcomeModal({
   quickMatchLine,
+  quickMatchTitle = 'Quick Match',
   onStartTutorial,
   onJumpIn,
   onDismiss,
@@ -107,7 +110,7 @@ export default function NewUserWelcomeModal({
             <Zap className="w-5 h-5 text-bf-gold" aria-hidden />
           </div>
           <div className="min-w-0">
-            <p className="font-display text-bf-gold text-base mb-0.5">Quick Match</p>
+            <p className="font-display text-bf-gold text-base mb-0.5">{quickMatchTitle}</p>
             <p className="text-bf-muted text-xs leading-relaxed">
               {quickMatchLine ??
                 '3 AI opponents on a random era map — start now, no waiting. Best if you already know territory strategy games.'}

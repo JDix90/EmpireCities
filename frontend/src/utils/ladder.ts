@@ -1,4 +1,5 @@
 import type { QuickMatchPrefs } from './quickMatchPrefs';
+import { fetchFirstMatchPending } from './firstMatch';
 
 /**
  * The first-win ladder (`first_match_ladder_enabled`): the stopgap for the
@@ -188,4 +189,48 @@ export function isLadderGame(settings: { first_match?: boolean; ladder_step?: nu
   const step = settings?.ladder_step;
   return settings?.first_match === true
     || (typeof step === 'number' && Number.isInteger(step) && step >= 1 && step <= LADDER_MAPS_LAST_RUNG);
+}
+
+/**
+ * What the lobby's next Quick Match is: the first match (no win yet), a later
+ * battle of the ladder, or the player's own Quick Match (past the ladder, or
+ * set up themselves). The button that starts it is named for it, in the lobby
+ * and on the tutorial's last card, which sends the player there: an account
+ * that has played before read "Play your first match" and got its own Quick
+ * Match on a random world map.
+ */
+export type NextMatchKind = 'first' | 'ladder' | 'quick';
+
+export function nextMatchKind(
+  firstMatchPending: boolean | null | undefined,
+  ladderNext: LadderBattle | null | undefined,
+): NextMatchKind {
+  if (firstMatchPending) return 'first';
+  if (ladderNext) return 'ladder';
+  return 'quick';
+}
+
+/** The lobby button's title for each. "Next battle" is the results screen's word for the same match. */
+export const NEXT_MATCH_TITLES: Record<NextMatchKind, string> = {
+  first: 'First Match',
+  ladder: 'Next Battle',
+  quick: 'Quick Match',
+};
+
+/**
+ * The lobby's next Quick Match, read as the lobby reads it when it starts one
+ * (LobbyPage startQuickMatch): the flags, the player's own setup, then the
+ * stats. Anything unreadable is the ordinary Quick Match, as there.
+ */
+export async function fetchNextMatchKind(
+  get: (url: string) => Promise<{ data: unknown }>,
+  hasOwnSetup: boolean,
+  flags: { firstMatchEasy: boolean; ladder: boolean; ladderMaps: boolean },
+): Promise<NextMatchKind> {
+  if (!flags.firstMatchEasy) return 'quick';
+  if (flags.ladder) {
+    const rung = await fetchLadderRung(get, hasOwnSetup, flags.ladderMaps);
+    return nextMatchKind(rung === 1, ladderBattle(rung, flags.ladderMaps));
+  }
+  return (await fetchFirstMatchPending(get, hasOwnSetup)) ? 'first' : 'quick';
 }
