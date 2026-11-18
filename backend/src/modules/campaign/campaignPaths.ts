@@ -77,7 +77,7 @@ const BLOOD_EMPIRE: CampaignPath = {
   path_id: 'blood_empire',
   name: 'Blood & Empire',
   tagline: 'Conquer the world — era after era.',
-  description: 'You are history\'s great empire-builders. Each era you command the apex offensive civilization of that period. Pure domination, maximum prestige — every victory doubles your carry-forward combat bonus.',
+  description: 'You are history\'s great empire-builders. Each era you command the apex offensive civilization of that period. Take the greater share of the map before the clock runs out — every era you win earns Prestige, extra attack dice for your opening turns in the next.',
   signature_carry_key: 'prestige_bonus',
   signature_carry_label: 'Prestige',
   signature_carry_max: 12,
@@ -89,12 +89,20 @@ const BLOOD_EMPIRE: CampaignPath = {
       era: 'ancient',
       map_id: 'era_ancient',
       locked_faction: 'rome',
-      allowed_victory_conditions: ['domination'],
+      // The path's opener, and the first campaign stage most players meet: a
+      // share of the map against a clock, on Easy. As a domination stage it
+      // ran to the 100-turn cap (an average of 95 turns for the stand-in, 79
+      // for an expert one) and the stand-in won 35% of them. Half the map in
+      // 25 turns ends on turn 19 on average and the stand-in wins 67%, the
+      // expert stand-in 88% in 14 (simCampaignStages, two seeds).
+      allowed_victory_conditions: ['threshold'],
+      victory_threshold: 50,
+      max_turns: 25,
       ai_factions: ['parthia', 'germanic_tribes', 'han'],
-      ai_difficulty: 'medium',
+      ai_difficulty: 'easy',
       ai_count: 3,
       starting_unit_modifier: 0,
-      intro_text: 'From seven hills, Rome eyes the known world. Carthage spreads its fleets, Parthia bleeds invaders dry, and Germanic war bands wait in the dark forests. The Republic survives by making everyone else understand the cost of resistance.',
+      intro_text: 'From seven hills, Rome eyes the known world. Parthia bleeds invaders dry, Germanic war bands wait in the dark forests, and at the far end of the Silk Road the Han court answers to no one. The Republic survives by making everyone else understand the cost of resistance. Hold half the map, or simply hold more of it than any rival when the twenty-fifth turn ends.',
       outro_win_text: 'The eagle flies from the Rhine to the Euphrates. Prestige carries the memory of Rome\'s iron discipline into every age that follows.',
       outro_loss_text: 'Even Rome falls, eventually. The legions who fought leave their bones in foreign earth, and the next emperor will know what not to repeat.',
       carry_on_win: { prestige_bonus: 2 },
@@ -104,12 +112,21 @@ const BLOOD_EMPIRE: CampaignPath = {
       era: 'medieval',
       map_id: 'era_medieval',
       locked_faction: 'mongol_empire',
-      allowed_victory_conditions: ['domination'],
-      ai_factions: ['byzantine', 'hre', 'caliphate'],
-      ai_difficulty: 'medium',
-      ai_count: 3,
+      // A share of the map against a clock, like the opener (86 turns and 18%
+      // for the stand-in as a domination stage). Two seats, not three: on a
+      // 30-turn clock the Caliphate out-held everyone, winning 37 of 40 games
+      // against the stand-in and against an expert one, so with it seated the
+      // stage was 3% whatever the difficulty. The two left are the two the
+      // stage's own text rides through. 70% for the stand-in in 18-21 turns,
+      // 53-60% for the expert one.
+      allowed_victory_conditions: ['threshold'],
+      victory_threshold: 55,
+      max_turns: 30,
+      ai_factions: ['byzantine', 'hre'],
+      ai_difficulty: 'easy',
+      ai_count: 2,
       starting_unit_modifier: 0,
-      intro_text: 'The steppes are your launching ground. Silk Road cities, Byzantine walls, and Crusader kingdoms all underestimate what coordinated cavalry can do to a feudal line. Ride through them before they coordinate a defense.',
+      intro_text: 'The steppes are your launching ground. Silk Road cities, Byzantine walls, and Crusader kingdoms all underestimate what coordinated cavalry can do to a feudal line. Ride through them before they coordinate a defense. Hold 55% of the map, or lead it when the thirtieth turn ends.',
       outro_win_text: 'The Pax Mongolica spans half the world. Every trade route runs through your yam network. Prestige swells with the terror of your name.',
       outro_loss_text: 'The steppes reclaim their armies. History will remember the reach, if not the permanence.',
       carry_on_win: { prestige_bonus: 2 },
@@ -119,12 +136,18 @@ const BLOOD_EMPIRE: CampaignPath = {
       era: 'discovery',
       map_id: 'era_discovery',
       locked_faction: 'spain',
-      allowed_victory_conditions: ['domination'],
+      // The same shape again, and the hardest of the three openers: 53-55% for
+      // the stand-in in 28-29 turns, 60-62% for the expert one. As a
+      // domination stage it averaged 93 turns. On Medium with this clock it
+      // was 25%, below the stage that follows it.
+      allowed_victory_conditions: ['threshold'],
+      victory_threshold: 55,
+      max_turns: 30,
       ai_factions: ['ottoman', 'portugal', 'england_discovery'],
-      ai_difficulty: 'medium',
+      ai_difficulty: 'easy',
       ai_count: 3,
       starting_unit_modifier: 0,
-      intro_text: 'Gold and God justify the crossing. The Ottomans hold the eastern routes, the Portuguese shadow your ships, and Ming China watches from behind its walls. Your advantage is ruthlessness and the element of surprise.',
+      intro_text: 'Gold and God justify the crossing. The Ottomans hold the eastern routes, the Portuguese shadow your ships, and English privateers wait for the treasure fleet. Your advantage is ruthlessness and the element of surprise. Hold 55% of the map, or lead it when the thirtieth turn ends.',
       outro_win_text: 'Silver pours from Potosi. The Spanish Empire straddles the globe, and prestige rides on the back of the treasure fleet.',
       outro_loss_text: 'Another power will claim the New World. The routes remain; the ships will sail again.',
       carry_on_win: { prestige_bonus: 2 },
@@ -191,7 +214,7 @@ const REVOLUTIONARY_FLAME: CampaignPath = {
   path_id: 'revolutionary_flame',
   name: 'The Revolutionary Flame',
   tagline: 'History from below. The Flame never dies.',
-  description: 'You are always the revolutionary — reformer, rebel, the mob. Stability and secret missions matter more than brute conquest. Your Revolutionary Spirit grows even when you lose — some flames cannot be extinguished.',
+  description: 'You are always the revolutionary — reformer, rebel, the mob. Secret missions matter more than brute conquest. Your Revolutionary Spirit grows with every era you win and rallies extra reinforcements to your cause each turn.',
   signature_carry_key: 'revolutionary_spirit',
   signature_carry_label: 'Revolutionary Spirit',
   signature_carry_max: 10,
@@ -311,7 +334,7 @@ const LAST_DEFENDERS: CampaignPath = {
   path_id: 'last_defenders',
   name: 'The Last Defenders',
   tagline: 'Outnumbered. Outgunned. Still standing.',
-  description: 'You are always the underdog — civilizations at the moment of existential threat. Survival IS victory. Threshold conditions shrink each era while your Survivor Bonus stacks defensive dice. The hardest path. For those who believe in holding the line.',
+  description: 'You are always the underdog — civilizations at the moment of existential threat. Survival IS victory: you start each era outnumbered, and your Survivor Bonus adds defense dice on home ground. The hardest path. For those who believe in holding the line.',
   signature_carry_key: 'survivor_bonus',
   signature_carry_label: 'Survivor Bonus',
   signature_carry_max: 8,
