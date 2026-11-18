@@ -3,6 +3,10 @@ Mongol Empire — 1279 — generated map. Voronoi tessellation of province seeds
 overlapping modern country geometry for real coastlines and organic, gap-free borders.
 Connections are derived from Voronoi adjacency (land/sea typed by the shared border).
 Reproducible via mapkit.voronoi_cells; per-cell country lists + connections baked.
+
+This writes each territory's Voronoi cell as its geo_polygon. Run
+database/maps/bake_land_outlines.py afterwards to put back the land outlines the
+map previews draw (mapPreviewProjection.ts).
 """
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))

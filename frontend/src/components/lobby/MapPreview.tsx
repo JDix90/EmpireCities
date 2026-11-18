@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { fetchMapById, GameMap, ERA_METADATA } from '../../services/mapService';
-import { previewProjector, previewRing } from '../../utils/mapPreviewProjection';
+import { previewCenter, previewProjector, previewRing } from '../../utils/mapPreviewProjection';
 import { startingBoardTerritoryCount } from '../../utils/startingBoard';
 import { useGalaxyAgeBetaEnabled } from '../../store/featureFlagsStore';
 import { withGalacticAgeLabel } from '../../constants/galacticAgeAccess';
@@ -131,8 +131,8 @@ export default function MapPreview({
           const to   = map.territories.find(t => t.territory_id === c.to);
           if (!from || !to) return null;
 
-          const [fx, fy] = project(from.center_point);
-          const [tx, ty] = project(to.center_point);
+          const [fx, fy] = project(previewCenter(from, map));
+          const [tx, ty] = project(previewCenter(to, map));
 
           return (
             <line
@@ -147,7 +147,7 @@ export default function MapPreview({
 
         {/* Territory polygons */}
         {map.territories.map(t => {
-          const scaled  = previewRing(t, geography).map(project);
+          const scaled  = previewRing(t, geography, map).map(project);
           const points  = scaled.map(([x, y]) => `${x},${y}`).join(' ');
           const color   = regionColorMap.get(t.region_id) || '#666';
           const isHov   = hovered === t.territory_id;
@@ -166,7 +166,7 @@ export default function MapPreview({
                 setHovered(t.territory_id);
                 const rect = svgRef.current?.getBoundingClientRect();
                 if (rect) {
-                  const [cx, cy] = project(t.center_point);
+                  const [cx, cy] = project(previewCenter(t, map));
                   setTooltip({ x: cx, y: cy, name: t.name });
                 }
               }}
@@ -180,7 +180,7 @@ export default function MapPreview({
 
         {/* Territory center dots */}
         {map.territories.map(t => {
-          const [cx, cy] = project(t.center_point);
+          const [cx, cy] = project(previewCenter(t, map));
           return (
             <circle
               key={`dot-${t.territory_id}`}
