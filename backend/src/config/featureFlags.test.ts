@@ -220,6 +220,14 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().first_attack_hint_enabled).toBe(true);
   });
 
+  it('tutorial_handoff_enabled defaults to off and the admin override turns it on', () => {
+    expect(featureFlags.tutorialHandoffEnabled).toBe(false);
+    expect(getClientFeatureFlags().tutorial_handoff_enabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { tutorial_handoff_enabled: true } });
+    expect(featureFlags.tutorialHandoffEnabled).toBe(true);
+    expect(getClientFeatureFlags().tutorial_handoff_enabled).toBe(true);
+  });
+
   it('first_turn_events_enabled defaults to on and the admin override turns it off', () => {
     expect(featureFlags.firstTurnEventsEnabled).toBe(true);
     expect(getClientFeatureFlags().first_turn_events_enabled).toBe(true);

@@ -21,8 +21,10 @@ export const FIRST_MATCH_PREFS: QuickMatchPrefs = { aiCount: 1, aiDifficulty: 'e
  * (`tutorial_wrapup_to_match_enabled`): the lobby, which starts its Quick Match
  * on arrival. Both endings of the tutorial use it: the wrap-up card's button,
  * and the prompt an account sees when the tutorial game itself ends.
+ * `from=tutorial` tells it apart from the ladder's Next battle, which starts
+ * the same Quick Match (utils/tutorialHandoff.ts, `tutorial_handoff_enabled`).
  */
-export const POST_TUTORIAL_MATCH_PATH = '/lobby?play=quick';
+export const POST_TUTORIAL_MATCH_PATH = '/lobby?play=quick&from=tutorial';
 /** That prompt's line: true for the first match, the ladder's next battle and a player's own Quick Match. */
 export const POST_TUTORIAL_MATCH_LINE = "You've got the basics. Ready for a real match? Start now, no waiting.";
 

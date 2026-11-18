@@ -16,6 +16,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { isNativeApp } from '../utils/nativeApp';
 import { useAuthStore } from '../store/authStore';
 import { useFirstMatchLadderMapsEnabled } from '../store/featureFlagsStore';
+import { markTutorialHandoff, TUTORIAL_HANDOFF_PARAM, TUTORIAL_HANDOFF_VALUE } from '../utils/tutorialHandoff';
 import { useCustomLobbyFoldEnabled, useCustomRoundCapEnabled, useEraAdvancementLobbyEnabled, useFirstMatchEasyEnabled, useFirstMatchPrimaryCtaEnabled, useFullGameAgesEndingEnabled, useFullGameEveningEnabled, useGuestPromptV2Enabled, useMapEditorEnabled, useMatchAlertsEnabled, useRankedMultiSizeEnabled, useSpaceAgeMoonRaceEnabled, useSoloUntimedEnabled, useFirstMatchLadderEnabled, useSpectateEnabled, useTodayPanelEnabled } from '../store/featureFlagsStore';
 import { HEGEMONY_TURNS } from '../utils/lunarHegemony';
 import { RANKED_MIN_OPPONENTS, describeRankedGameSize, getRankedOpponents, rankedEraSize, saveRankedOpponents } from '../utils/rankedPrefs';
@@ -1620,7 +1621,8 @@ export default function LobbyPage() {
     };
   }, [quickOptionsOpen]);
 
-  const startQuickMatch = async () => {
+  /** `fromTutorial`: the tutorial's wrap-up sent the player here (utils/tutorialHandoff.ts). */
+  const startQuickMatch = async ({ fromTutorial = false }: { fromTutorial?: boolean } = {}) => {
     if (quickSoloLoading) return;
     setQuickSoloLoading(true);
     setQuickOptionsOpen(false);
@@ -1678,6 +1680,7 @@ export default function LobbyPage() {
           ...(ladderEnabled && (firstMatch || next) ? { ladder_step: firstMatch ? 1 : next!.step } : {}),
         }),
       });
+      if (fromTutorial) markTutorialHandoff(res.data.game_id);
       navigate(`/game/${res.data.game_id}`);
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
@@ -1694,10 +1697,14 @@ export default function LobbyPage() {
   useEffect(() => {
     if (searchParams.get('play') !== 'quick' || playOnArrivalStarted.current || !userId) return;
     playOnArrivalStarted.current = true;
+    const fromTutorial = searchParams.get(TUTORIAL_HANDOFF_PARAM) === TUTORIAL_HANDOFF_VALUE;
     const next = new URLSearchParams(searchParams);
     next.delete('play');
+    next.delete(TUTORIAL_HANDOFF_PARAM);
     setSearchParams(next, { replace: true });
-    void startQuickMatch();
+    // Noted whatever tutorial_handoff_enabled says: GamePage reads the flag, so
+    // a lobby that arrives before the flags have loaded cannot lose it.
+    void startQuickMatch({ fromTutorial });
   }, [searchParams, setSearchParams, userId, startQuickMatch]);
 
   // One-click "the complete game": Ancient + Era Advancement (standard) + the full

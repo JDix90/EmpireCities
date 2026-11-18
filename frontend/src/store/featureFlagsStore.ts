@@ -52,6 +52,7 @@ export interface ClientFeatureFlags {
   guest_leaderboards_enabled: boolean;
   guest_daily_board_enabled: boolean;
   first_attack_hint_enabled: boolean;
+  tutorial_handoff_enabled: boolean;
   chat_safety_enabled: boolean;
   guest_account_deletion_enabled: boolean;
   sign_in_code_enabled: boolean;
@@ -201,6 +202,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   guest_daily_board_enabled: false,
   // A first match's attack tip names one attack and the map rings it. Dark-launched OFF.
   first_attack_hint_enabled: false,
+  // The match the tutorial starts opens on the board, no briefing. Dark-launched OFF.
+  tutorial_handoff_enabled: false,
   // Report a chat message and block a player. Dark-launched OFF.
   chat_safety_enabled: false,
   // A guest can delete their own account in the app. Dark-launched OFF.
@@ -529,6 +532,11 @@ export function useGuestDailyBoardEnabled(): boolean {
 /** A first match's attack tip names one attack and the map rings it (utils/firstAttackHint.ts). */
 export function useFirstAttackHintEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.first_attack_hint_enabled);
+}
+
+/** The match the tutorial's wrap-up starts opens on the board (utils/tutorialHandoff.ts). */
+export function useTutorialHandoffEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.tutorial_handoff_enabled);
 }
 
 /** Report a chat message and block a player (services/chatSafety.ts). */

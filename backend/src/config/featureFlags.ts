@@ -254,6 +254,9 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   guest_daily_board_enabled: () => envOptIn('GUEST_DAILY_BOARD_ENABLED'),
   // A first match's attack tip names one attack and the map rings it (client-only).
   first_attack_hint_enabled: () => envOptIn('FIRST_ATTACK_HINT_ENABLED'),
+  // The match the tutorial's wrap-up starts opens on the board: no "The battle
+  // begins" briefing, tips on, the goal in one line (client-only).
+  tutorial_handoff_enabled: () => envOptIn('TUTORIAL_HANDOFF_ENABLED'),
   // Report a chat message and block a player; Admin → Reports.
   chat_safety_enabled: () => envOptIn('CHAT_SAFETY_ENABLED'),
   // A guest can delete their own account in the app (Profile, and Settings' link).
@@ -2136,6 +2139,20 @@ export const featureFlags = {
   },
 
   /**
+   * The match the tutorial hands a player to (its wrap-up's "first match"
+   * button, `/lobby?play=quick&from=tutorial`) opens on the board. It skips
+   * "The battle begins" briefing and its tips question (tips on, as its main
+   * button would have it), and a one-line goal shows until the player opens
+   * one of their territories. 85% of first matches start straight from the tutorial, and seven
+   * in eight of those were never finished, most left in round 1. Client-only.
+   * Default OFF; `TUTORIAL_HANDOFF_ENABLED=true` or the admin override turns
+   * it on.
+   */
+  get tutorialHandoffEnabled(): boolean {
+    return overrideBool('tutorial_handoff_enabled');
+  },
+
+  /**
    * Chat safety: a player can report a chat message (to Admin → Reports) and
    * block a player, whose chat then no longer reaches them in any game, lobby
    * or spectator chat (modules/safety, sockets/handlers/chatHandler.ts). The
@@ -2254,6 +2271,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     guest_leaderboards_enabled: featureFlags.guestLeaderboardsEnabled,
     guest_daily_board_enabled: featureFlags.guestDailyBoardEnabled,
     first_attack_hint_enabled: featureFlags.firstAttackHintEnabled,
+    tutorial_handoff_enabled: featureFlags.tutorialHandoffEnabled,
     chat_safety_enabled: featureFlags.chatSafetyEnabled,
     guest_account_deletion_enabled: featureFlags.guestAccountDeletionEnabled,
     sign_in_code_enabled: featureFlags.signInCodeEnabled,

@@ -620,6 +620,12 @@ const CLIENT_FEATURE_FLAGS = [
       'In a first match, when the attack phase starts and the player has not attacked yet, the tip names one attack, for example "Attack J\u00f3rv\u00edk from Strathclyde: your 6 against their 3. Tap Strathclyde." The map rings that territory in gold, then the target once it is open, and the panel lists the target first, outlined. It picks the attack with the biggest edge, and only one the attacker outnumbers. Shows only for players who chose tips, and stops after their first attack with it up. An attack in the tutorial does not hide it (that used to retire the attack tip, so a player who had done the tutorial got no attack tip at all in their first match). Off by default; off, the tip says "Tap your biggest stack, then tap a neighbour with fewer units to attack it." as before.',
   },
   {
+    key: 'tutorial_handoff_enabled',
+    label: 'Tutorial \u2192 first match: straight to the board',
+    description:
+      'The match the tutorial\u2019s last card starts (its first-match button) opens on the board instead of on "The battle begins". It skips that briefing and its tips question, with tips on as its main button would have them, and a one-line goal ("Hold 10 of the 14 territories to win. You have 7. Your move.") shows in the tip\u2019s place until the player opens one of their territories, when the tips take over. Only that one match: a Quick Match started from the lobby, and the ladder\u2019s Next battle, keep the briefing. Its first-turn analytics carry tutorial_handoff, so the admin funnel\u2019s "Closed the briefing" row will not count those games. Off by default; off, the tutorial\u2019s match opens with the briefing as before.',
+  },
+  {
     key: 'fit_board_camera_enabled',
     label: 'Fit small boards to the screen',
     description:
