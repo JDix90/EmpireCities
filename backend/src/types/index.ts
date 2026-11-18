@@ -72,6 +72,16 @@ export type SecretMission =
    * instead of one race.
    */
   | { kind: 'lunar_denial'; target_player_id: string };
+/**
+ * A campaign stage's stated objective (campaignPaths `mission`). The player's
+ * mission is this one instead of a dealt one, and the bots hold none. A faction
+ * is named, not a seat: the route does not know player ids when it writes the
+ * settings.
+ */
+export type CampaignStageMission =
+  | { kind: 'control_regions'; region_ids: string[] }
+  | { kind: 'capture_territories'; territory_ids: [string, string] }
+  | { kind: 'eliminate_faction'; faction_id: string };
 export type AiDifficulty = 'easy' | 'medium' | 'hard' | 'expert' | 'tutorial';
 export type DiplomacyStatus = 'neutral' | 'truce' | 'nap' | 'war';
 
@@ -999,6 +1009,8 @@ export interface GameSettings {
     survivor_bonus?: number;
     revolutionary_spirit?: number;
   };
+  /** The stage's stated objective, replacing the dealt mission (victory/missions.ts). */
+  campaign_mission?: CampaignStageMission;
   /** What the carries do in this stage, in words (modules/campaign/campaignCarryEffects.ts). */
   campaign_carry_effects?: Array<{ key: string; label: string; text: string; until_round?: number }>;
   /** Display: campaign path name (e.g. "Blood & Empire") or "Classic Campaign". */
@@ -1013,6 +1025,8 @@ export interface GameSettings {
   campaign_era_count?: number;
   /** Display: narrative intro text for this era (path campaigns only). */
   campaign_intro_text?: string;
+  /** Display: the stage's own name, where it stages a named campaign. */
+  campaign_stage_title?: string;
   /** Daily challenge date (YYYY-MM-DD) when this session is the daily. */
   daily_challenge_date?: string;
   /**

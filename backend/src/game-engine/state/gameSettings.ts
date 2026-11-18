@@ -1,4 +1,4 @@
-import type { GameSettings, VictoryType } from '../../types';
+import type { CampaignStageMission, GameSettings, VictoryType } from '../../types';
 import {
   DEFAULT_ECONOMY_TECH_STARTING_GOLD,
   DEFAULT_ECONOMY_TECH_STARTING_TECH_POINTS,
@@ -428,6 +428,7 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     // What the carries do, in words, for the HUD (modules/campaign/campaignCarryEffects.ts).
     campaign_carry_effects: Array.isArray(ext.campaign_carry_effects) ? ext.campaign_carry_effects : undefined,
     campaign_starting_units_delta: ext.campaign_starting_units_delta,
+    campaign_mission: sanitizeCampaignMission(ext.campaign_mission),
     daily_challenge_date: typeof ext.daily_challenge_date === 'string' ? ext.daily_challenge_date : undefined,
     first_match: ext.first_match === true ? true : undefined,
     ladder_step: typeof ext.ladder_step === 'number' && Number.isInteger(ext.ladder_step) ? ext.ladder_step : undefined,
@@ -471,4 +472,32 @@ export function getAllowedVictoryConditions(settings: GameSettings): VictoryType
     return [];
   }
   return [settings.victory_type ?? 'domination'];
+}
+
+/**
+ * A stage's pinned objective, as stored on the game row. Anything not shaped
+ * like one of the three kinds is dropped, and the stage deals missions as an
+ * ordinary mission game would.
+ */
+export function sanitizeCampaignMission(raw: unknown): CampaignStageMission | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const m = raw as Record<string, unknown>;
+  const strings = (v: unknown): string[] | null =>
+    Array.isArray(v) && v.length > 0 && v.every((x) => typeof x === 'string' && x.length > 0)
+      ? (v as string[])
+      : null;
+  if (m.kind === 'control_regions') {
+    const ids = strings(m.region_ids);
+    return ids ? { kind: 'control_regions', region_ids: [...ids] } : undefined;
+  }
+  if (m.kind === 'capture_territories') {
+    const ids = strings(m.territory_ids);
+    return ids && ids.length === 2 && ids[0] !== ids[1]
+      ? { kind: 'capture_territories', territory_ids: [ids[0]!, ids[1]!] }
+      : undefined;
+  }
+  if (m.kind === 'eliminate_faction' && typeof m.faction_id === 'string' && m.faction_id) {
+    return { kind: 'eliminate_faction', faction_id: m.faction_id };
+  }
+  return undefined;
 }
