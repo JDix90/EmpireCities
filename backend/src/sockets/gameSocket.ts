@@ -5371,6 +5371,7 @@ async function handleCampaignCompletion(
       gameStartedAt: state.game_started_at,
       endedBy: state.victory_condition,
       failedAttempts: campaignRow.failed_era_attempts,
+      line: campaignRow.path_narrative?.line ?? null,
     }),
     campaignRow.user_id,
   );
@@ -5387,7 +5388,8 @@ async function handleCampaignCompletion(
 
   if (campaignRow.path_id) {
     const { getPathEraConfig } = await import('../modules/campaign/campaignPaths');
-    const pathEra = getPathEraConfig(campaignRow.path_id as any, eraIndex);
+    // On the side the campaign took, where its path has sides.
+    const pathEra = getPathEraConfig(campaignRow.path_id as any, eraIndex, campaignRow.path_narrative?.line);
     if (pathEra) {
       const delta = won ? pathEra.carry_on_win : pathEra.carry_on_loss;
       if (delta.prestige_bonus != null) {
@@ -5410,6 +5412,7 @@ async function handleCampaignCompletion(
     campaignId: campaignRow.campaign_id,
     pathId: campaignRow.path_id,
     eraIndex,
+    lineId: campaignRow.path_narrative?.line ?? null,
     eras: CAMPAIGN_ERAS,
     won,
     carryBefore: campaignRow.path_carry ?? {},

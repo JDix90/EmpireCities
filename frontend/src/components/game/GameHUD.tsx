@@ -598,7 +598,7 @@ export default function GameHUD({
               })()}
               {myPlayer.secret_mission && (
                 <p className="text-xs text-bf-text mt-1">
-                  <span className="text-bf-muted">Mission: </span>
+                  <span className="text-bf-muted">{gameState.settings.campaign_mission ? 'Objective: ' : 'Mission: '}</span>
                   {describeSecretMission(myPlayer.secret_mission, gameState.players, mapNameLookup, myPlayer.player_id)}
                   {gameState.settings.mission_guard_enabled && gameState.turn_number < MISSION_FIRST_ROUND && (
                     <span className="block text-bf-muted mt-0.5" data-testid="mission-round-note">

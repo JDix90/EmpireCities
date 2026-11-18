@@ -2,7 +2,7 @@
 // Campaign Paths — static configuration for narrative campaigns
 // ============================================================
 
-import type { VictoryType, AiDifficulty } from '../../types';
+import type { VictoryType, AiDifficulty, CampaignStageMission } from '../../types';
 
 export type PathId = 'blood_empire' | 'revolutionary_flame' | 'last_defenders';
 
@@ -15,8 +15,19 @@ export interface PathCarry {
   revolutionary_spirit: number;
 }
 
+/** A side a path lets the player take (CampaignPath `lines`). */
+export type LineId = 'allies' | 'soviets';
+
 export interface PathEraConfig {
   era: string;
+  /** The stage's own name, for a stage that stages a named campaign. */
+  title?: string;
+  /**
+   * The stage's stated objective. The player holds this mission instead of a
+   * dealt one and the bots hold none (victory/missions.ts), so it needs
+   * `secret_mission` among the victory conditions and nothing else beside it.
+   */
+  mission?: CampaignStageMission;
   /** Map override — set when a special map replaces the era default. */
   map_id: string;
   /** Player's faction is locked; faction picker is disabled in lobby. */
@@ -75,8 +86,160 @@ export interface CampaignPath {
    * 0% to a 25% win rate on nothing but two points of Survivor Bonus.
    */
   initial_carry: Partial<PathCarry>;
+  /**
+   * The stages, by index. Where the path has `lines`, the stages from
+   * `choose_at` on are the default line's, so a reader that knows nothing of
+   * lines still gets a whole path.
+   */
   eras: PathEraConfig[];
+  /** The path lets the player take a side partway through, and keep it. */
+  lines?: CampaignLines;
 }
+
+export interface CampaignLine {
+  line_id: LineId;
+  /** The side, as the choice names it. */
+  name: string;
+  /** One or two sentences on what choosing it means. */
+  pitch: string;
+  /** This line's stages by index: every stage from `choose_at` to the last. */
+  eras: Record<number, PathEraConfig>;
+}
+
+export interface CampaignLines {
+  /** Index of the stage that offers the choice. Every later stage follows it. */
+  choose_at: number;
+  /** The line a campaign with none stored plays: one older than the choice. */
+  default_line: LineId;
+  options: CampaignLine[];
+}
+
+// ── Blood & Empire, stages 4 to 6: two lines ───────────────────────────
+//
+// The twentieth century is played from one of two sides, chosen at stage 4 and
+// kept to the end. Each stage stages a named campaign and states its objective
+// (`mission`): the player wins by completing it, a bot by eliminating the
+// player or by holding the most ground when the clock runs out.
+//
+// Win rates, simCampaignStages over two seeds of 40 games, Medium stand-in then
+// Expert: Allies 39% / 44%, 44% / 55%, 39% / 53%; Soviets 51% / 70%, 39% / 68%,
+// 33% / 51%. An objective the stand-in could not reach was changed, not left
+// hard: Cuba sits six territories from the Soviet homeland and was taken in
+// none of 40 games, and "eliminate the Rogue State" was completed in one.
+
+const ALLIES_WW2: PathEraConfig = {
+  era: 'ww2',
+  map_id: 'era_ww2',
+  title: 'The Second Front, 1944',
+  locked_faction: 'usa',
+  allowed_victory_conditions: ['secret_mission'],
+  mission: { kind: 'control_regions', region_ids: ['western_front'] },
+  max_turns: 30,
+  ai_factions: ['germany', 'japan', 'soviet_union'],
+  ai_difficulty: 'medium',
+  ai_count: 3,
+  starting_unit_modifier: 0,
+  intro_text: 'June 1944. Four years of occupation are about to end the way they began: from the sea. You command the Western Allies, with American industry behind you and an armada pointed at the coast of France. The Third Reich holds the continent and Imperial Japan holds the Pacific. In the east the Red Army is already driving on Berlin: an ally today, and a rival for the peace tomorrow. Objective: liberate the Western Front by holding every territory in it. If the thirtieth turn ends first, whoever holds the most ground dictates the terms.',
+  outro_win_text: 'Paris, Rome, the Rhine, Berlin. The war in Europe ends with the Western Allies holding the continent they came to free. Prestige carries that victory into the long peace that follows, which will not be peaceful.',
+  outro_loss_text: 'The second front stalls short of the Rhine, and the map of Europe is drawn by someone else. The landing craft are still there. So is the coast.',
+  carry_on_win: { prestige_bonus: 2 },
+  carry_on_loss: { prestige_bonus: 0 },
+};
+
+const SOVIETS_WW2: PathEraConfig = {
+  era: 'ww2',
+  map_id: 'era_ww2',
+  title: 'Berlin and Manchuria, 1945',
+  locked_faction: 'soviet_union',
+  allowed_victory_conditions: ['secret_mission'],
+  mission: { kind: 'capture_territories', territory_ids: ['germany', 'manchuria_ww2'] },
+  max_turns: 30,
+  ai_factions: ['germany', 'japan', 'usa'],
+  ai_difficulty: 'expert',
+  ai_count: 3,
+  starting_unit_modifier: 0,
+  intro_text: 'The invader reached the gates of Moscow and the banks of the Volga, and was thrown back from both. Now the Red Army goes west. You command the Soviet Union on the road from Stalingrad to Berlin, and once Germany falls, east against Japan\'s army in Manchuria. The Western Allies are ashore in France, and whoever reaches the heart of Germany first shapes what comes after. Objective: capture Germany and Manchuria, and hold both. If the thirtieth turn ends first, whoever holds the most ground dictates the terms.',
+  outro_win_text: 'The red banner flies over the Reichstag, and three months later the Kwantung Army lays down its arms in Manchuria. Prestige carries the weight of that victory into the age of the bomb.',
+  outro_loss_text: 'The offensive runs out of road before it runs out of enemies. The front holds where it stands, and the Stavka draws up the next plan.',
+  carry_on_win: { prestige_bonus: 2 },
+  carry_on_loss: { prestige_bonus: 0 },
+};
+
+const ALLIES_COLD_WAR: PathEraConfig = {
+  era: 'coldwar',
+  map_id: 'era_coldwar',
+  title: 'Thirteen Days, 1962',
+  locked_faction: 'usa_cw',
+  allowed_victory_conditions: ['secret_mission'],
+  mission: { kind: 'control_regions', region_ids: ['north_america_cw', 'latin_america'] },
+  max_turns: 35,
+  ai_factions: ['ussr', 'china_cw', 'decolonization_movement'],
+  ai_difficulty: 'hard',
+  ai_count: 3,
+  starting_unit_modifier: 0,
+  intro_text: 'The war is won and the alliance that won it is gone. Two powers with the bomb now face each other across every ocean, and the contest has come home: a revolution in Havana, missile sites ninety miles off Florida, and thirteen days in October 1962 when the world held its breath. You command the United States. Objective: hold all of North America and Latin America, the whole hemisphere. If the thirty-fifth turn ends first, whoever holds the most ground has won the argument.',
+  outro_win_text: 'The ships turn back, the missiles come out, and the hemisphere is quiet. Prestige is the weight of a superpower that did not blink.',
+  outro_loss_text: 'The quarantine line does not hold, and the hemisphere is no longer yours alone. The hotline is still open.',
+  carry_on_win: { prestige_bonus: 2 },
+  carry_on_loss: { prestige_bonus: 0 },
+};
+
+const SOVIETS_COLD_WAR: PathEraConfig = {
+  era: 'coldwar',
+  map_id: 'era_coldwar',
+  title: 'Pyongyang and Hanoi, 1950',
+  locked_faction: 'ussr',
+  allowed_victory_conditions: ['secret_mission'],
+  mission: { kind: 'capture_territories', territory_ids: ['korea_cw', 'vietnam_korea'] },
+  max_turns: 35,
+  ai_factions: ['usa_cw', 'nato_proxy', 'china_cw'],
+  ai_difficulty: 'easy',
+  ai_count: 3,
+  starting_unit_modifier: 0,
+  intro_text: 'You hold everything from the Elbe to the Pacific, and every mile of it is ringed with bases. Europe is frozen in place, so the contest has moved to Asia: a peninsula divided at the 38th parallel, and a colonial war in Indochina that is about to become something larger. You command the Soviet Union, and Beijing, an ally on paper, is no longer taking instructions. Objective: capture Korea and Vietnam & Indochina, and hold both. If the thirty-fifth turn ends first, whoever holds the most ground has won the argument.',
+  outro_win_text: 'Friendly governments in Pyongyang and Hanoi, and a border that now runs to the South China Sea. Prestige is a superpower that can no longer be contained on a map.',
+  outro_loss_text: 'The armistice line holds where it was drawn, and the advisers come home. The ring of bases is still there, and so is the next opening.',
+  carry_on_win: { prestige_bonus: 2 },
+  carry_on_loss: { prestige_bonus: 0 },
+};
+
+const ALLIES_MODERN: PathEraConfig = {
+  era: 'modern',
+  map_id: 'era_modern',
+  title: 'The Atlantic Order',
+  locked_faction: 'western_power',
+  allowed_victory_conditions: ['secret_mission'],
+  mission: { kind: 'control_regions', region_ids: ['north_america', 'europe'] },
+  max_turns: 40,
+  ai_factions: ['eastern_bloc', 'rogue_state', 'emerging_power', 'petro_state'],
+  ai_difficulty: 'expert',
+  ai_count: 4,
+  starting_unit_modifier: 0,
+  intro_text: 'The wall came down and for a decade the order you built had no rival. That decade is over. Precision strikes, satellites and sanctions are every power\'s tools now, and four of them are testing how much of the alliance is still an alliance. Objective: hold all of North America and Europe, both shores of the Atlantic. If the fortieth turn ends first, whoever holds the most ground writes the next set of rules.',
+  outro_win_text: 'Blood & Empire ends where it began: one power, one map, and a history written by the side that held together. From the Second Front to the present, the Atlantic held.',
+  outro_loss_text: 'Every order ends. This one was built on a beach in Normandy, and it was a long way from there to here.',
+  carry_on_win: { prestige_bonus: 2 },
+  carry_on_loss: { prestige_bonus: 0 },
+};
+
+const SOVIETS_MODERN: PathEraConfig = {
+  era: 'modern',
+  map_id: 'era_modern',
+  title: 'The Southern Flank',
+  locked_faction: 'eastern_bloc',
+  allowed_victory_conditions: ['secret_mission'],
+  mission: { kind: 'capture_territories', territory_ids: ['iran_mod', 'turkey_mod'] },
+  max_turns: 40,
+  ai_factions: ['rogue_state', 'western_power', 'emerging_power', 'petro_state'],
+  ai_difficulty: 'hard',
+  ai_count: 4,
+  starting_unit_modifier: 0,
+  intro_text: 'The bloc you led did not survive the century, but the power at its centre did. Now a rogue state on your southern flank has slipped every treaty it ever signed, and it is arming faster than anyone can sanction it. The straits and the plateau south of your border are the two doors it has to be shut behind. Objective: capture Turkey and Iran, and hold both. If the fortieth turn ends first, whoever holds the most ground writes the next set of rules.',
+  outro_win_text: 'Blood & Empire ends where it began: one power, one map, and a history written by the side still standing. From Stalingrad to the present, the centre held.',
+  outro_loss_text: 'Every order ends. This one began in the ruins of Stalingrad, and it was a long way from there to here.',
+  carry_on_win: { prestige_bonus: 2 },
+  carry_on_loss: { prestige_bonus: 0 },
+};
 
 // ── Path 1: Blood & Empire ──────────────────────────────────────────────
 
@@ -84,7 +247,7 @@ const BLOOD_EMPIRE: CampaignPath = {
   path_id: 'blood_empire',
   name: 'Blood & Empire',
   tagline: 'Conquer the world — era after era.',
-  description: 'You are history\'s great empire-builders. Each era you command the apex offensive civilization of that period. Take the greater share of the map before the clock runs out — every era you win earns Prestige, extra attack dice for your opening turns in the next.',
+  description: 'You are history\'s great empire-builders. Each era you command a power at the height of its reach, and in the twentieth century you choose which side to fight on. Take the greater share of the map, or the objective you are given, before the clock runs out — every era you win earns Prestige, extra attack dice for your opening turns in the next.',
   signature_carry_key: 'prestige_bonus',
   signature_carry_label: 'Prestige',
   signature_carry_max: 12,
@@ -166,67 +329,28 @@ const BLOOD_EMPIRE: CampaignPath = {
       carry_on_win: { prestige_bonus: 2 },
       carry_on_loss: { prestige_bonus: 0 },
     },
-    {
-      era: 'ww2',
-      map_id: 'era_ww2',
-      locked_faction: 'germany',
-      allowed_victory_conditions: ['threshold'],
-      victory_threshold: 70,
-      ai_factions: ['soviet_union', 'usa', 'uk'],
-      ai_difficulty: 'hard',
-      ai_count: 3,
-      starting_unit_modifier: 0,
-      intro_text: 'Mechanized war has no sentiment. Blitzkrieg tears through static defenses. Total domination is not the goal — hold 70% of the map when the clock runs down and history calls it empire.',
-      outro_win_text: 'The war map is yours. Prestige carries the cold logic of industrial warfare into the nuclear age.',
-      outro_loss_text: 'Overreach was always the gamble. The Eastern Front does not forgive. Carry forward what you learned about supply lines.',
-      carry_on_win: { prestige_bonus: 2 },
-      carry_on_loss: { prestige_bonus: 0 },
-    },
-    {
-      era: 'coldwar',
-      map_id: 'era_coldwar',
-      locked_faction: 'usa_cw',
-      allowed_victory_conditions: ['domination'],
-      // Four seats, four named factions. A seat with no faction named plays
-      // with none: no passive, no ability, no home region, and nothing for the
-      // board to call it. The NATO Alliance in the fourth: 13% for the stand-in
-      // against 18% with the seat empty, inside what 40 games can tell apart.
-      ai_factions: ['ussr', 'china_cw', 'decolonization_movement', 'nato_proxy'],
-      // Medium, not hard. The cold war balance pass gave the NATO Alliance
-      // Europe to itself, and this stage fell to 4% — the lowest of all
-      // eighteen, an outlier rather than a hard stage. Medium puts it at 13%
-      // against the 11% it scored before. Reducing ai_count was not an option:
-      // on a domination stage fewer seats means a slower board and the clock
-      // runs out, measured twice in #400 and #401.
-      ai_difficulty: 'medium',
-      ai_count: 4,
-      starting_unit_modifier: 0,
-      intro_text: 'The bombs ended one war and started another — of influence, proxy, and ideology. You don\'t need to occupy the world. You need to make it depend on you. Dominate the map before the Soviet bloc can harden.',
-      outro_win_text: 'The Iron Curtain is rust. Prestige is now the weight of a unipolar world.',
-      outro_loss_text: 'Multipolar reality asserts itself. History offers a second draft.',
-      carry_on_win: { prestige_bonus: 2 },
-      carry_on_loss: { prestige_bonus: 0 },
-    },
-    {
-      era: 'modern',
-      map_id: 'era_modern',
-      locked_faction: 'western_power',
-      allowed_victory_conditions: ['domination'],
-      // Four seats, four named factions. A seat with no faction named plays
-      // with none: no passive, no ability, no home region, and nothing for the
-      // board to call it. The Petrostate in the fourth: 18% for the stand-in
-      // against 20% with the seat empty.
-      ai_factions: ['eastern_bloc', 'rogue_state', 'emerging_power', 'petro_state'],
-      ai_difficulty: 'expert',
-      ai_count: 4,
-      starting_unit_modifier: 0,
-      intro_text: 'Precision strikes, satellite surveillance, and dollar-denominated debt. The battlefield is everywhere and nowhere. Dominate before asymmetric threats prove that empires dissolve without a single pitched battle.',
-      outro_win_text: 'Blood and Empire ends where it began: one power, one map, one history written by the winner.',
-      outro_loss_text: 'Every empire ends. The path was glorious.',
-      carry_on_win: { prestige_bonus: 2 },
-      carry_on_loss: { prestige_bonus: 0 },
-    },
+    ALLIES_WW2,
+    ALLIES_COLD_WAR,
+    ALLIES_MODERN,
   ],
+  lines: {
+    choose_at: 3,
+    default_line: 'allies',
+    options: [
+      {
+        line_id: 'allies',
+        name: 'The Western Allies',
+        pitch: 'Land in France and fight to the heart of Germany. Then hold the Atlantic alliance together through the Cold War and after it.',
+        eras: { 3: ALLIES_WW2, 4: ALLIES_COLD_WAR, 5: ALLIES_MODERN },
+      },
+      {
+        line_id: 'soviets',
+        name: 'The Soviet Union',
+        pitch: 'Drive the invader back from the Volga to Berlin, then turn on Japan\'s army in Manchuria. Then lead the Eastern bloc through the Cold War and after it.',
+        eras: { 3: SOVIETS_WW2, 4: SOVIETS_COLD_WAR, 5: SOVIETS_MODERN },
+      },
+    ],
+  },
 };
 
 // ── Path 2: The Revolutionary Flame ────────────────────────────────────
@@ -551,6 +675,85 @@ export const CAMPAIGN_PATH_LIST: CampaignPath[] = [
   LAST_DEFENDERS,
 ];
 
-export function getPathEraConfig(pathId: PathId, eraIndex: number): PathEraConfig | null {
-  return CAMPAIGN_PATHS[pathId]?.eras[eraIndex] ?? null;
+/**
+ * The line a campaign plays: the one it stored if the path still offers it,
+ * the path's default otherwise, and none on a path with no lines.
+ */
+export function resolveLineId(pathId: PathId | null | undefined, stored: unknown): LineId | null {
+  const lines = pathId ? CAMPAIGN_PATHS[pathId]?.lines : undefined;
+  if (!lines) return null;
+  return lines.options.find((o) => o.line_id === stored)?.line_id ?? lines.default_line;
+}
+
+/** A stage's config, on the given line where the path has them. */
+export function getPathEraConfig(
+  pathId: PathId,
+  eraIndex: number,
+  lineId?: LineId | string | null,
+): PathEraConfig | null {
+  const path = CAMPAIGN_PATHS[pathId];
+  if (!path) return null;
+  const lines = path.lines;
+  if (lines && eraIndex >= lines.choose_at) {
+    const line = lines.options.find((o) => o.line_id === resolveLineId(pathId, lineId));
+    const onLine = line?.eras[eraIndex];
+    if (onLine) return onLine;
+  }
+  return path.eras[eraIndex] ?? null;
+}
+
+/**
+ * Every stage a player can be dealt, each line's included: what a test or the
+ * stage simulator has to cover. `path.eras` alone misses every line but the
+ * default.
+ */
+export function allCampaignStages(): Array<{
+  path: CampaignPath;
+  index: number;
+  line_id: LineId | null;
+  stage: PathEraConfig;
+}> {
+  const out: ReturnType<typeof allCampaignStages> = [];
+  for (const path of CAMPAIGN_PATH_LIST) {
+    path.eras.forEach((stage, index) => {
+      const lines = path.lines;
+      if (!lines || index < lines.choose_at) {
+        out.push({ path, index, line_id: null, stage });
+        return;
+      }
+      for (const option of lines.options) {
+        const onLine = option.eras[index];
+        if (onLine) out.push({ path, index, line_id: option.line_id, stage: onLine });
+      }
+    });
+  }
+  return out;
+}
+
+/** What a line's choice shows: the side, and the stage it opens on. */
+export function describeLineChoice(pathId: PathId | null | undefined, stored: unknown): {
+  choose_at: number;
+  /** The line this campaign has taken, or null while it has taken none. */
+  chosen: LineId | null;
+  options: Array<{
+    line_id: LineId;
+    name: string;
+    pitch: string;
+    title: string | null;
+    faction_id: string | null;
+  }>;
+} | null {
+  const lines = pathId ? CAMPAIGN_PATHS[pathId]?.lines : undefined;
+  if (!lines) return null;
+  return {
+    choose_at: lines.choose_at,
+    chosen: lines.options.find((o) => o.line_id === stored)?.line_id ?? null,
+    options: lines.options.map((o) => ({
+      line_id: o.line_id,
+      name: o.name,
+      pitch: o.pitch,
+      title: o.eras[lines.choose_at]?.title ?? null,
+      faction_id: o.eras[lines.choose_at]?.locked_faction ?? null,
+    })),
+  };
 }

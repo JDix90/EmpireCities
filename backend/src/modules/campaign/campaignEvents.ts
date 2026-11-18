@@ -4,7 +4,8 @@ import type { AnalyticsPayload } from '../../services/analyticsEvents';
  * The properties of `campaign_stage_finished`: one stage game played to a
  * result. `rounds` and `ended_by` say how long the stage ran and what decided
  * it ('threshold', 'turn_limit', 'secret_mission', ...); `failed_attempts` is
- * the stage attempts the campaign had lost before this result.
+ * the stage attempts the campaign had lost before this result; `line` is the
+ * side played, on a stage that has sides.
  */
 export function campaignStageFinishedProperties(input: {
   campaignId: string;
@@ -19,6 +20,7 @@ export function campaignStageFinishedProperties(input: {
   gameStartedAt: number | null | undefined;
   endedBy: string | null | undefined;
   failedAttempts: number | null;
+  line?: string | null;
   now?: number;
 }): AnalyticsPayload {
   return {
@@ -33,5 +35,6 @@ export function campaignStageFinishedProperties(input: {
     duration_ms: input.gameStartedAt ? (input.now ?? Date.now()) - input.gameStartedAt : null,
     ended_by: input.endedBy ?? null,
     failed_attempts: input.failedAttempts ?? 0,
+    line: input.line ?? null,
   };
 }

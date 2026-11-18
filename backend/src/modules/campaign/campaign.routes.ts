@@ -6,9 +6,13 @@ import { query, queryOne } from '../../db/postgres';
 import {
   type PathId,
   type PathCarry,
+  type PathEraConfig,
+  type LineId,
   CAMPAIGN_PATHS,
   CAMPAIGN_PATH_LIST,
   getPathEraConfig,
+  resolveLineId,
+  describeLineChoice,
 } from './campaignPaths';
 import { applyAdminSnapshotsToSettings } from '../../services/adminConfig';
 import { DEFAULT_CARD_SET_BONUS_CAP } from '../../game-engine/combat/combatResolver';
@@ -146,7 +150,7 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
    */
   app.post('/continue', { preHandler: [authenticate, rejectGuest] }, async (req, reply) => {
     const userId = (req as any).userId as string;
-    const body = (req.body ?? {}) as { campaign_id?: string };
+    const body = (req.body ?? {}) as { campaign_id?: string; line?: string };
     const requestedId = body.campaign_id;
 
     const campaign = requestedId
@@ -260,16 +264,38 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
       );
     }
 
+    // The side this campaign fights on, where its path offers one. The stage
+    // that offers the choice takes it from the request, on a first attempt or
+    // a retry: a player who lost as one side may try the other. A request that
+    // names none (a client older than the choice) plays the path's default, and
+    // every later stage plays the line stored.
+    const pathId = campaign.path_id as PathId | null;
+    const lines = pathId ? CAMPAIGN_PATHS[pathId]?.lines : undefined;
+    let lineId = resolveLineId(pathId, campaign.path_narrative?.line);
+    if (lines && eraIndex === lines.choose_at) {
+      const asked = lines.options.find((o) => o.line_id === body.line);
+      if (asked) lineId = asked.line_id;
+    }
+
     // Clear any stale per-era narrative outcome (e.g. 'lost' from a previous
-    // attempt) so the retro outro text does not linger into the retry.
+    // attempt) so the retro outro text does not linger into the retry, and
+    // store the line the stage is about to be played on.
     if (shouldCreateFresh) {
+      const narrative: Record<string, string> = { ...(campaign.path_narrative ?? {}) };
       const narrativeKey = `era_${eraIndex}_outcome`;
-      if (campaign.path_narrative && narrativeKey in campaign.path_narrative) {
-        const cleanedNarrative: Record<string, string> = { ...campaign.path_narrative };
-        delete cleanedNarrative[narrativeKey];
+      let changed = false;
+      if (narrativeKey in narrative) {
+        delete narrative[narrativeKey];
+        changed = true;
+      }
+      if (lines && lineId && eraIndex >= lines.choose_at && narrative.line !== lineId) {
+        narrative.line = lineId;
+        changed = true;
+      }
+      if (changed) {
         await query(
           `UPDATE user_campaigns SET path_narrative = $1::jsonb WHERE campaign_id = $2`,
-          [JSON.stringify(cleanedNarrative), campaign.campaign_id],
+          [JSON.stringify(narrative), campaign.campaign_id],
         );
       }
     }
@@ -284,7 +310,8 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
       userId,
       campaignId: campaign.campaign_id,
       eraIndex,
-      pathId: campaign.path_id as PathId | null,
+      pathId,
+      lineId,
       pathCarry: campaign.path_carry,
       prestigePoints: campaign.prestige_points,
       isGuest: req.isGuest === true,
@@ -362,9 +389,18 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
         ? CAMPAIGN_ERAS[currentEraIndex + 1]
         : null;
 
+      const lineChoice = describeLineChoice(c.path_id as PathId | null, c.path_narrative?.line);
+      // A stage past a choice not yet made belongs to no side: it shows no
+      // faction and no text rather than the default line's.
+      const stageFor = (idx: number): PathEraConfig | null => {
+        if (!pathConfig) return null;
+        if (lineChoice && idx >= lineChoice.choose_at && !lineChoice.chosen) return null;
+        return getPathEraConfig(pathConfig.path_id, idx, lineChoice?.chosen);
+      };
+
       const erasWithNarrative = CAMPAIGN_ERAS.map((era, idx) => {
         const entry = entries.find((e) => e.era_id === era);
-        const pathEra = pathConfig?.eras[idx];
+        const pathEra = stageFor(idx);
         // "completed" must mean the era game reached a terminal outcome (won or
         // lost) — not merely that an entry row was created at era start. The
         // authoritative terminal signal is the per-era outcome stored in
@@ -380,6 +416,7 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
           game_id: entry?.game_id ?? null,
           faction_id: entry?.faction_id ?? pathEra?.locked_faction ?? null,
           map_id: entry?.map_id_override ?? pathEra?.map_id ?? ERA_MAP_IDS[era as CampaignEra],
+          title: pathEra?.title ?? null,
           intro_text: pathEra?.intro_text ?? null,
           outro_win_text: pathEra?.outro_win_text ?? null,
           outro_loss_text: pathEra?.outro_loss_text ?? null,
@@ -400,6 +437,8 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
         // What the campaign will carry into its next stage, in words.
         carry_effects: describeCampaignCarry({ prestigePoints: c.prestige_points, carry: c.path_carry }),
         path_narrative: c.path_narrative,
+        // The side the path lets the player take, and whether it is taken.
+        line_choice: lineChoice,
         path_config: pathConfig
           ? {
               path_id: pathConfig.path_id,
@@ -476,9 +515,16 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
     // Build era list, using path config for narrative text when available
     const pathConfig = campaign.path_id ? CAMPAIGN_PATHS[campaign.path_id as PathId] : null;
 
+    const lineChoice = describeLineChoice(campaign.path_id as PathId | null, campaign.path_narrative?.line);
+    const stageFor = (idx: number): PathEraConfig | null => {
+      if (!pathConfig) return null;
+      if (lineChoice && idx >= lineChoice.choose_at && !lineChoice.chosen) return null;
+      return getPathEraConfig(pathConfig.path_id, idx, lineChoice?.chosen);
+    };
+
     const erasWithNarrative = CAMPAIGN_ERAS.map((era, idx) => {
       const entry = entries.find((e) => e.era_id === era);
-      const pathEra = pathConfig?.eras[idx];
+      const pathEra = stageFor(idx);
       return {
         era_id: era,
         index: idx,
@@ -487,6 +533,7 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
         game_id: entry?.game_id ?? null,
         faction_id: entry?.faction_id ?? pathEra?.locked_faction ?? null,
         map_id: entry?.map_id_override ?? pathEra?.map_id ?? ERA_MAP_IDS[era as CampaignEra],
+        title: pathEra?.title ?? null,
         intro_text: pathEra?.intro_text ?? null,
         outro_win_text: pathEra?.outro_win_text ?? null,
         outro_loss_text: pathEra?.outro_loss_text ?? null,
@@ -506,6 +553,7 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
       path_carry: campaign.path_carry,
       carry_effects: describeCampaignCarry({ prestigePoints: campaign.prestige_points, carry: campaign.path_carry }),
       path_narrative: campaign.path_narrative,
+      line_choice: lineChoice,
       path_config: pathConfig
         ? {
             path_id: pathConfig.path_id,
@@ -553,6 +601,8 @@ interface CreateEraGameArgs {
   campaignId: string;
   eraIndex: number;
   pathId: PathId | null;
+  /** The side the campaign fights on, on a path that offers one. */
+  lineId?: LineId | null;
   pathCarry: Partial<PathCarry>;
   prestigePoints: number;
   /** For the analytics events only. */
@@ -568,6 +618,7 @@ async function createEraGame({
   campaignId,
   eraIndex,
   pathId,
+  lineId = null,
   pathCarry,
   prestigePoints,
   isGuest,
@@ -576,7 +627,7 @@ async function createEraGame({
 }: CreateEraGameArgs): Promise<{ gameId: string; eraId: string; mapId: string }> {
   const eraId = CAMPAIGN_ERAS[eraIndex];
   const pathConfig = pathId ? CAMPAIGN_PATHS[pathId] : null;
-  const pathEra = pathId ? getPathEraConfig(pathId, eraIndex) : null;
+  const pathEra = pathId ? getPathEraConfig(pathId, eraIndex, lineId) : null;
 
   const mapId = pathEra?.map_id ?? ERA_MAP_IDS[eraId];
   const aiCount = pathEra?.ai_count ?? ERA_AI_COUNT[eraId];
@@ -619,6 +670,10 @@ async function createEraGame({
   if (pathEra?.intro_text) {
     settings.campaign_intro_text = pathEra.intro_text;
   }
+  if (pathEra?.title) settings.campaign_stage_title = pathEra.title;
+  // The stage's stated objective: the player's mission, in place of a dealt
+  // one (victory/missions.ts).
+  if (pathEra?.mission) settings.campaign_mission = pathEra.mission;
 
   if (pathId) {
     settings.campaign_path_id = pathId;
@@ -738,6 +793,8 @@ async function createEraGame({
       ai_difficulty: aiDifficulty,
       ai_count: aiCount,
       is_guest: isGuest,
+      // The side played, on a stage that has sides.
+      line: pathConfig?.lines && eraIndex >= pathConfig.lines.choose_at ? lineId : null,
     },
     userId,
   );

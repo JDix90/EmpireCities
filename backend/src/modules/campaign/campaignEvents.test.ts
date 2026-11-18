@@ -30,7 +30,10 @@ describe('campaignStageFinishedProperties', () => {
       duration_ms: 60_000,
       ended_by: 'threshold',
       failed_attempts: 2,
+      line: null,
     });
+    // The side played, on a stage that has sides.
+    expect(campaignStageFinishedProperties({ ...base, eraIndex: 3, line: 'soviets' })).toMatchObject({ stage: 4, line: 'soviets' });
   });
 
   it('calls a campaign with no path classic, and leaves unknowns null or zero', () => {

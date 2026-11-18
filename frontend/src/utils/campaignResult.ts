@@ -12,6 +12,8 @@ export interface CampaignGameResult {
   path_name: string;
   stage: number;
   stage_count: number;
+  /** The stage's own name, where it has one. Absent from an older server. */
+  stage_title?: string | null;
   outcome: 'advanced' | 'completed' | 'lost';
   next_era: string | null;
   outro_text: string | null;
@@ -27,9 +29,10 @@ export function campaignResultButtonLabel(result: Pick<CampaignGameResult, 'outc
   return nextEraLabel ? `Next era: ${nextEraLabel}` : 'Next era';
 }
 
-/** "Era 2 of 6" for the result's stage. */
-export function campaignStageLine(result: Pick<CampaignGameResult, 'stage' | 'stage_count'>): string {
-  return `Era ${result.stage} of ${result.stage_count}`;
+/** "Era 2 of 6" for the result's stage, with the stage's own name where it has one. */
+export function campaignStageLine(result: Pick<CampaignGameResult, 'stage' | 'stage_count' | 'stage_title'>): string {
+  const line = `Era ${result.stage} of ${result.stage_count}`;
+  return result.stage_title ? `${line} · ${result.stage_title}` : line;
 }
 
 /**

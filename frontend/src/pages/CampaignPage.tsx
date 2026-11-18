@@ -15,6 +15,8 @@ import { CAMPAIGN_START_GATE, CAMPAIGN_START_GATE_V2, CAMPAIGN_START_GATE_SAVE, 
 import { useGuestPromptV2Enabled } from '../store/featureFlagsStore';
 import { useGuestLeaderboardsEnabled, useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
 import { ownAuthUiAllowed } from '../utils/embedContext';
+import { pendingLineChoice, type CampaignLineChoice } from '../utils/campaignLine';
+import { factionDisplayName } from '../utils/factionNames';
 
 const CAMPAIGN_ERAS = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern'] as const;
 
@@ -28,6 +30,8 @@ interface CampaignEraEntry {
   game_id: string | null;
   faction_id: string | null;
   map_id: string;
+  /** The stage's own name, where it has one. Absent from an older server. */
+  title?: string | null;
   intro_text: string | null;
   outro_win_text: string | null;
   outro_loss_text: string | null;
@@ -57,6 +61,8 @@ interface Campaign {
   /** What the campaign will carry into its next stage, in words. Absent from an older server. */
   carry_effects?: CampaignCarryEffect[];
   path_narrative: Record<string, string>;
+  /** The side the path lets the player take. Absent on a path with none. */
+  line_choice?: CampaignLineChoice | null;
   path_config: PathConfig | null;
   eras: CampaignEraEntry[];
 }
@@ -278,9 +284,12 @@ function EraRow({
         <div className="flex-1">
           <p className={`text-sm font-medium ${isCurrent ? 'text-bf-gold' : isDone ? 'text-green-300' : isLocked ? 'text-bf-muted' : 'text-bf-text'}`}>
             {ERA_LABELS[era.era_id] ?? era.era_id}
+            {era.title && !isLocked && <span className="font-normal text-bf-muted"> · {era.title}</span>}
           </p>
           {era.faction_id && !isLocked && (
-            <p className="text-xs text-bf-muted mt-0.5 capitalize">{era.faction_id.replace(/_/g, ' ')}</p>
+            <p className="text-xs text-bf-muted mt-0.5 capitalize">
+              {factionDisplayName(era.era_id, era.faction_id) ?? era.faction_id.replace(/_/g, ' ')}
+            </p>
           )}
           {isAttempted && !isDone && (
             <p className="text-xs text-red-400 mt-0.5">Failed — try again</p>
@@ -387,6 +396,8 @@ export default function CampaignPage() {
   const [continuing, setContinuing] = useState<string | null>(null);
   const [showPathSelection, setShowPathSelection] = useState(false);
   const [showGuestGate, setShowGuestGate] = useState(false);
+  /** The campaign whose side is being chosen, while its dialog is open. */
+  const [choosingLineFor, setChoosingLineFor] = useState<string | null>(null);
   const guestPromptV2 = useGuestPromptV2Enabled();
   const saveAccountCopy = useSaveAccountCopyEnabled();
   const guestsRanked = useGuestLeaderboardsEnabled();
@@ -502,13 +513,19 @@ export default function CampaignPage() {
     </div>
   );
 
-  const handleContinue = async (campaign: Campaign) => {
+  const handleContinue = async (campaign: Campaign, line?: string) => {
     if (campaign.status === 'completed') return;
+    // A stage that offers a side asks for it before it deals the game.
+    if (!line && pendingLineChoice(campaign)) {
+      setChoosingLineFor(campaign.campaign_id);
+      return;
+    }
+    setChoosingLineFor(null);
     setContinuing(campaign.campaign_id);
     try {
       const res = await api.post<{ game_id: string }>(
         '/campaign/continue',
-        { campaign_id: campaign.campaign_id },
+        { campaign_id: campaign.campaign_id, ...(line ? { line } : {}) },
       );
       navigate(`/game/${res.data.game_id}`);
     } catch (err: unknown) {
@@ -518,6 +535,61 @@ export default function CampaignPage() {
       setContinuing(null);
     }
   };
+
+  // The side to fight on, asked by the stage that offers one.
+  const choosingCampaign = choosingLineFor ? campaigns.find((c) => c.campaign_id === choosingLineFor) ?? null : null;
+  const lineChoice = choosingCampaign ? pendingLineChoice(choosingCampaign) : null;
+  const lineChooser = choosingCampaign && lineChoice && (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 pt-safe pb-safe overflow-y-auto"
+      onClick={() => setChoosingLineFor(null)}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="campaign-line-title"
+        data-testid="campaign-line-chooser"
+        className="bg-bf-surface border border-bf-gold/35 rounded-xl p-5 sm:p-6 w-full max-w-2xl my-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="text-[11px] uppercase tracking-widest text-bf-muted mb-1">
+          {choosingCampaign.path_config?.name ?? 'Campaign'} · Era {lineChoice.choose_at + 1} of {CAMPAIGN_ERAS.length}
+        </p>
+        <h3 id="campaign-line-title" className="font-display text-xl text-bf-gold mb-1">Choose your side</h3>
+        <p className="text-sm text-bf-muted mb-4">
+          {ERA_LABELS[CAMPAIGN_ERAS[lineChoice.choose_at] ?? ''] ?? 'This era'} is fought from one of two sides, and
+          the side you take is the one you lead through the eras that follow.
+          {lineChoice.chosen ? ' You can change sides for as long as this era is not yet won.' : ''}
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+          {lineChoice.options.map((option) => {
+            const faction = factionDisplayName(CAMPAIGN_ERAS[lineChoice.choose_at], option.faction_id);
+            return (
+              <button
+                key={option.line_id}
+                type="button"
+                data-testid={`campaign-line-${option.line_id}`}
+                disabled={continuing === choosingCampaign.campaign_id}
+                onClick={() => void handleContinue(choosingCampaign, option.line_id)}
+                className="text-left rounded-lg border border-bf-border bg-bf-dark/50 hover:border-bf-gold/60 focus-visible:border-bf-gold/60 transition-colors p-4 disabled:opacity-60"
+              >
+                <p className="font-display text-lg text-bf-gold leading-tight">{option.name}</p>
+                {option.title && <p className="text-sm text-bf-text mt-1">{option.title}</p>}
+                {faction && <p className="text-xs text-bf-muted mt-0.5">You command: {faction}</p>}
+                <p className="text-sm text-bf-muted mt-2">{option.pitch}</p>
+                {lineChoice.chosen === option.line_id && (
+                  <p className="text-xs text-bf-gold/80 mt-2">Your side on the last attempt</p>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        <button type="button" className="btn-secondary w-full" onClick={() => setChoosingLineFor(null)}>
+          Not yet
+        </button>
+      </div>
+    </div>
+  );
 
   // ?continue=1: a stage's results sent the player here to go straight on, to
   // the next era after a win or the same stage after a loss. Once, and the
@@ -693,6 +765,7 @@ export default function CampaignPage() {
               All Campaigns
             </button>
           </div>
+          {lineChooser}
       </SubpageShell>
     );
   }

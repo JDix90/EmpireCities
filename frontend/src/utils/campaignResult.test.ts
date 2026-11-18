@@ -11,6 +11,10 @@ describe('campaign result helpers', () => {
 
   it('says which stage this was', () => {
     expect(campaignStageLine({ stage: 2, stage_count: 6 })).toBe('Era 2 of 6');
+    // With the stage's own name, where it stages a named campaign.
+    expect(campaignStageLine({ stage: 4, stage_count: 6, stage_title: 'The Second Front, 1944' }))
+      .toBe('Era 4 of 6 · The Second Front, 1944');
+    expect(campaignStageLine({ stage: 4, stage_count: 6, stage_title: null })).toBe('Era 4 of 6');
   });
 
   it('lists what is carried into the next stage as its effect', () => {
