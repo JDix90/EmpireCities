@@ -3,13 +3,13 @@ import { buildCampaignGameResult } from './campaignResult';
 import { CAMPAIGN_PATHS } from './campaignPaths';
 
 const ERAS = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern'] as const;
-const base = { campaignId: 'c1', eras: ERAS, carryBefore: {}, carryAfter: {} };
+const base = { campaignId: 'c1', eras: ERAS, carryBefore: {}, carryAfter: {}, prestigeAfter: 0 };
 
 describe('buildCampaignGameResult', () => {
   it('a won stage advances: the win text, the carry gained and the next era', () => {
     const r = buildCampaignGameResult({
       ...base, pathId: 'blood_empire', eraIndex: 0, won: true,
-      carryBefore: {}, carryAfter: { prestige_bonus: 2 },
+      carryBefore: {}, carryAfter: { prestige_bonus: 2 }, prestigeAfter: 2,
     });
     expect(r).toEqual({
       campaign_id: 'c1',
@@ -21,6 +21,7 @@ describe('buildCampaignGameResult', () => {
       next_era: 'medieval',
       outro_text: CAMPAIGN_PATHS.blood_empire.eras[0]!.outro_win_text,
       carry: { label: 'Prestige', before: 0, after: 2 },
+      carry_effects: [{ key: 'prestige', label: 'Prestige', text: '+2 attack dice in rounds 1\u20133', until_round: 3 }],
     });
   });
 
@@ -38,6 +39,8 @@ describe('buildCampaignGameResult', () => {
   it('winning the last stage completes the campaign', () => {
     const r = buildCampaignGameResult({ ...base, pathId: 'revolutionary_flame', eraIndex: 5, won: true });
     expect(r.outcome).toBe('completed');
+    // Nothing follows the last stage, so nothing is carried into one.
+    expect(r.carry_effects).toEqual([]);
     expect(r.next_era).toBeNull();
     expect(r.stage).toBe(6);
   });

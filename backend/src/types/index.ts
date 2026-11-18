@@ -999,6 +999,8 @@ export interface GameSettings {
     survivor_bonus?: number;
     revolutionary_spirit?: number;
   };
+  /** What the carries do in this stage, in words (modules/campaign/campaignCarryEffects.ts). */
+  campaign_carry_effects?: Array<{ key: string; label: string; text: string; until_round?: number }>;
   /** Display: campaign path name (e.g. "Blood & Empire") or "Classic Campaign". */
   campaign_path_name?: string;
   /** Display: campaign path tagline shown in the era intro modal. */

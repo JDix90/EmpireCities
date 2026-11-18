@@ -1,5 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Crown, Flag, Shield, Trophy } from 'lucide-react';
+import { carryEffectLine, type CampaignCarryEffect } from '../../utils/campaignCarry';
+import { api } from '../../services/api';
 
 export interface CampaignIntroData {
   pathName?: string;
@@ -14,8 +16,15 @@ export interface CampaignIntroData {
   opponents?: string[];
   aiDifficulty?: string | null;
   aiCount?: number | null;
-  prestigeBonus?: number | null;
-  carry?: { survivor_bonus?: number; revolutionary_spirit?: number };
+  /** What the campaign carries into this stage, in words. */
+  carryEffects?: CampaignCarryEffect[];
+  /** How the stage is won ("Control 55% of the map"), any one of them. */
+  goals?: string[];
+  /** The clock's own way to win ("Most territory when turn 30 ends also wins"). */
+  turnCap?: string | null;
+  /** The stage's era and the player's faction id, to look up the faction's ability. */
+  eraId?: string | null;
+  lockedFactionId?: string | null;
 }
 
 interface CampaignIntroModalProps {
@@ -50,12 +59,27 @@ export default function CampaignIntroModal({ data, onBegin }: CampaignIntroModal
       ? `Era ${data.eraIndex + 1} of ${data.eraCount} \u00b7 ${data.eraLabel}`
       : data.eraLabel;
 
-  const carryValue =
-    data.carry?.survivor_bonus
-    ?? data.carry?.revolutionary_spirit
-    ?? data.prestigeBonus
-    ?? 0;
-  const carryShown = carryValue > 0 && !!data.signatureCarryLabel;
+  const carryEffects = data.carryEffects ?? [];
+  const goals = data.goals ?? [];
+
+  // The faction's ability, from the era endpoint the briefing and the Bonuses
+  // modal read. Best effort: the line is left out until the fetch succeeds.
+  const [ability, setAbility] = useState<string | null>(null);
+  useEffect(() => {
+    if (!data.eraId || !data.lockedFactionId) return;
+    let cancelled = false;
+    api
+      .get(`/eras/${data.eraId}/factions`)
+      .then((res) => {
+        if (cancelled) return;
+        const factions = (res.data?.factions ?? []) as Array<{ faction_id: string; ability_description?: string }>;
+        setAbility(factions.find((f) => f.faction_id === data.lockedFactionId)?.ability_description ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [data.eraId, data.lockedFactionId]);
 
   return (
     <div
@@ -89,7 +113,23 @@ export default function CampaignIntroModal({ data, onBegin }: CampaignIntroModal
           </div>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-6">
+        {/* How the stage is won, first: it is what the player came to do. */}
+        {goals.length > 0 && (
+          <div className="rounded-lg border border-bf-gold/40 bg-bf-gold/5 px-3 py-2.5 mb-3" data-testid="campaign-intro-goal">
+            <p className="text-[10px] uppercase tracking-wider text-bf-gold/80 mb-1">How to win</p>
+            <ul className="space-y-0.5">
+              {goals.map((goal, i) => (
+                <li key={goal} className="text-sm text-bf-text font-medium">
+                  {i > 0 && <span className="text-bf-muted font-normal">or </span>}
+                  {goal}
+                </li>
+              ))}
+            </ul>
+            {data.turnCap && <p className="text-xs text-bf-muted mt-1">{data.turnCap}.</p>}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mb-3">
           <div className="rounded-lg border border-bf-border bg-bf-dark/50 px-3 py-3 text-center">
             <Flag className="w-4 h-4 text-bf-gold/80 mx-auto mb-1.5" />
             <p className="text-[10px] uppercase tracking-wider text-bf-muted mb-0.5">Faction</p>
@@ -105,15 +145,26 @@ export default function CampaignIntroModal({ data, onBegin }: CampaignIntroModal
               {data.aiDifficulty ? ` \u00b7 ${data.aiDifficulty}` : ''}
             </p>
           </div>
-          <div className="rounded-lg border border-bf-border bg-bf-dark/50 px-3 py-3 text-center">
-            <Trophy className="w-4 h-4 text-bf-gold/80 mx-auto mb-1.5" />
-            <p className="text-[10px] uppercase tracking-wider text-bf-muted mb-0.5">
-              {carryShown && data.signatureCarryLabel ? data.signatureCarryLabel : 'Carry'}
+        </div>
+
+        {/* What earlier eras carried into this one: the effect, not a number. */}
+        <div className="rounded-lg border border-bf-border bg-bf-dark/50 px-3 py-2.5 mb-5" data-testid="campaign-intro-carry">
+          <p className="text-[10px] uppercase tracking-wider text-bf-muted mb-1 flex items-center gap-1.5">
+            <Trophy className="w-3.5 h-3.5 text-bf-gold/80" aria-hidden />
+            Carried forward
+          </p>
+          {carryEffects.length > 0 ? (
+            <ul className="space-y-0.5">
+              {carryEffects.map((effect) => (
+                <li key={effect.key} className="text-sm text-bf-text">{carryEffectLine(effect)}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-bf-muted">
+              Nothing yet.
+              {data.signatureCarryLabel ? ` Win this era to carry ${data.signatureCarryLabel} into the next.` : ''}
             </p>
-            <p className="text-sm text-bf-text font-medium leading-tight">
-              {carryShown ? `+${carryValue}` : '\u2014'}
-            </p>
-          </div>
+          )}
         </div>
 
         {data.opponents && data.opponents.length > 0 && (
@@ -122,9 +173,9 @@ export default function CampaignIntroModal({ data, onBegin }: CampaignIntroModal
           </p>
         )}
 
-        {data.lockedFaction && (
-          <p className="text-bf-muted text-xs text-center mb-4">
-            Your faction is fixed for this era of the campaign.
+        {ability && (
+          <p className="text-xs text-bf-muted text-center mb-4" data-testid="campaign-intro-ability">
+            <span className="text-bf-text">{data.lockedFaction}</span> — {ability}
           </p>
         )}
 

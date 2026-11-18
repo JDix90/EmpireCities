@@ -1,3 +1,5 @@
+import { carryEffectLine, type CampaignCarryEffect } from './campaignCarry';
+
 /**
  * What a campaign stage's result means for the campaign, as `game:over` sends
  * it (backend modules/campaign/campaignResult.ts). The result screen shows the
@@ -14,6 +16,8 @@ export interface CampaignGameResult {
   next_era: string | null;
   outro_text: string | null;
   carry: { label: string; before: number; after: number } | null;
+  /** What the campaign now carries into its next stage, in words. Absent from an older server. */
+  carry_effects?: CampaignCarryEffect[];
 }
 
 /** The main button on a campaign stage's results. */
@@ -28,10 +32,15 @@ export function campaignStageLine(result: Pick<CampaignGameResult, 'stage' | 'st
   return `Era ${result.stage} of ${result.stage_count}`;
 }
 
-/** The carry line: what was gained, or what is held; null with no path or nothing held. */
-export function campaignCarryLine(result: Pick<CampaignGameResult, 'carry'>): string | null {
+/**
+ * What the result screen says is carried on: the effect each stat will have in
+ * the next stage, as the server words it. From a server that sends no effects,
+ * the stat's name alone when it grew, since its number is not what the game
+ * applies. Empty with nothing carried.
+ */
+export function campaignCarryLines(result: Pick<CampaignGameResult, 'carry' | 'carry_effects' | 'outcome'>): string[] {
+  if (result.outcome === 'completed') return [];
+  if (result.carry_effects) return result.carry_effects.map(carryEffectLine);
   const c = result.carry;
-  if (!c) return null;
-  if (c.after > c.before) return `${c.label} +${c.after - c.before} (now ${c.after})`;
-  return c.after > 0 ? `${c.label}: ${c.after}` : null;
+  return c && c.after > c.before ? [`${c.label} earned`] : [];
 }

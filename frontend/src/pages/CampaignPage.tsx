@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { carryEffectLine, type CampaignCarryEffect } from '../utils/campaignCarry';
 import { useAuthStore } from '../store/authStore';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
@@ -53,6 +54,8 @@ interface Campaign {
   completed_at: string | null;
   path_id: string | null;
   path_carry: Record<string, number>;
+  /** What the campaign will carry into its next stage, in words. Absent from an older server. */
+  carry_effects?: CampaignCarryEffect[];
   path_narrative: Record<string, string>;
   path_config: PathConfig | null;
   eras: CampaignEraEntry[];
@@ -67,6 +70,12 @@ interface AvailablePath {
   signature_carry_label: string;
   signature_carry_max: number;
   era_count: number;
+  /** How hard the path is next to the others. Absent from an older server. */
+  difficulty?: 'standard' | 'hard' | 'hardest';
+  /** The path to start with. */
+  recommended_start?: boolean;
+  /** The most rounds its opening stage can run. */
+  first_stage_max_turns?: number;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────
@@ -83,12 +92,6 @@ function carryColor(carryKey: string): string {
   return 'text-amber-400';
 }
 
-function carryBgColor(carryKey: string): string {
-  if (carryKey === 'survivor_bonus') return 'bg-blue-900/30 border-blue-600/40';
-  if (carryKey === 'revolutionary_spirit') return 'bg-red-900/30 border-red-600/40';
-  return 'bg-amber-900/30 border-amber-600/40';
-}
-
 function pathAccentColor(pathId: string | null): string {
   if (pathId === 'blood_empire') return 'border-amber-600/60 bg-amber-900/10';
   if (pathId === 'revolutionary_flame') return 'border-red-600/60 bg-red-900/10';
@@ -100,23 +103,34 @@ function campaignDisplayName(c: Campaign): string {
   return c.path_config?.name ?? 'Classic Campaign';
 }
 
+const PATH_DIFFICULTY_LABEL: Record<string, string> = {
+  standard: 'Standard',
+  hard: 'Hard',
+  hardest: 'Hardest',
+};
+
+/** "Standard · 6 eras · Opening stage: up to 25 rounds", from what the server sends of it. */
+export function pathMetaLine(path: Pick<AvailablePath, 'difficulty' | 'era_count' | 'first_stage_max_turns'>): string {
+  return [
+    path.difficulty ? PATH_DIFFICULTY_LABEL[path.difficulty] ?? null : null,
+    path.era_count ? `${path.era_count} eras` : null,
+    path.first_stage_max_turns ? `Opening stage: up to ${path.first_stage_max_turns} rounds` : null,
+  ].filter(Boolean).join(' \u00b7 ');
+}
+
 // ── Path Selection Screen ──────────────────────────────────────────────
 
 function PathSelectionScreen({
   paths,
   activePathIds,
-  hasActiveClassic,
   onSelect,
-  onClassic,
   onCancel,
   starting,
   canCancel,
 }: {
   paths: AvailablePath[];
   activePathIds: Set<string>;
-  hasActiveClassic: boolean;
   onSelect: (pathId: string) => void;
-  onClassic: () => void;
   onCancel: () => void;
   starting: boolean;
   canCancel: boolean;
@@ -148,8 +162,19 @@ function PathSelectionScreen({
                         In progress
                       </span>
                     )}
+                    {path.recommended_start && !alreadyActive && (
+                      <span
+                        className="ml-1 text-[10px] uppercase tracking-widest text-bf-gold bg-bf-gold/10 border border-bf-gold/40 rounded-full px-2 py-0.5"
+                        data-testid="campaign-path-start-here"
+                      >
+                        Start here
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-bf-muted italic mb-2">{path.tagline}</p>
+                  {pathMetaLine(path) && (
+                    <p className="text-xs text-bf-text/80 mb-2" data-testid="campaign-path-meta">{pathMetaLine(path)}</p>
+                  )}
                   <p className="text-sm text-bf-muted">{path.description}</p>
                 </div>
                 <ChevronRight className="w-4 h-4 text-bf-muted flex-shrink-0 mt-1" />
@@ -159,23 +184,6 @@ function PathSelectionScreen({
         })}
       </div>
       <div className="border-t border-bf-border pt-4 flex flex-col gap-3">
-        <button
-          onClick={onClassic}
-          disabled={starting || hasActiveClassic}
-          title={hasActiveClassic ? 'You already have an active classic campaign' : undefined}
-          className="w-full text-left p-4 rounded-lg border border-bf-border bg-bf-surface/50 hover:border-bf-text transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          <div className="flex items-center gap-2 mb-1">
-            <Sword className="w-4 h-4 text-bf-muted" />
-            <span className="font-semibold text-bf-text">Classic Campaign</span>
-            {hasActiveClassic && (
-              <span className="ml-1 text-[10px] uppercase tracking-widest text-bf-muted bg-bf-surface border border-bf-border rounded-full px-2 py-0.5">
-                In progress
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-bf-muted">Free faction choice, standard progression — no narrative path.</p>
-        </button>
         {canCancel && (
           <button
             onClick={onCancel}
@@ -190,20 +198,27 @@ function PathSelectionScreen({
   );
 }
 
-// ── Carry Badge ────────────────────────────────────────────────────────
+// ── Carry effects ──────────────────────────────────────────────────────
 
-function PathCarryBadge({ campaign }: { campaign: Campaign }) {
-  const pc = campaign.path_config;
-  if (!pc) return null;
-  const value = campaign.path_carry[pc.signature_carry_key] ?? 0;
-  if (value <= 0) return null;
-
+/**
+ * What the campaign carries into its next stage: the effect each stat has,
+ * as the server words it. The stored numbers ("Prestige: 6 / 12") ran past
+ * what the game applies, so they are not shown.
+ */
+function CarryEffects({ campaign }: { campaign: Campaign }) {
+  const effects = campaign.carry_effects ?? [];
+  if (effects.length === 0 || campaign.status === 'completed') return null;
   return (
-    <div className={`flex items-center gap-2 border rounded-lg px-4 py-2 w-fit ${carryBgColor(pc.signature_carry_key)}`}>
-      <CarryIcon carryKey={pc.signature_carry_key} className={`w-4 h-4 ${carryColor(pc.signature_carry_key)}`} />
-      <span className={`text-sm font-semibold ${carryColor(pc.signature_carry_key)}`}>
-        {pc.signature_carry_label}: {value} / {pc.signature_carry_max}
-      </span>
+    <div className="mb-6 rounded-lg border border-bf-gold/25 bg-bf-gold/5 px-4 py-3" data-testid="campaign-carry-effects">
+      <p className="text-[11px] uppercase tracking-widest text-bf-muted mb-1.5">Carried into your next era</p>
+      <ul className="space-y-1">
+        {effects.map((effect) => (
+          <li key={effect.key} className="flex items-center gap-2 text-sm text-bf-text">
+            <Trophy className="w-3.5 h-3.5 text-bf-gold shrink-0" aria-hidden />
+            {carryEffectLine(effect)}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -351,11 +366,6 @@ function CampaignListCard({
               )}
             </span>
             <span>· {wonCount} / {CAMPAIGN_ERAS.length} eras won</span>
-            {campaign.prestige_points > 0 && (
-              <span className="flex items-center gap-1">
-                · <Trophy className="w-3 h-3 text-amber-400" /> {campaign.prestige_points}
-              </span>
-            )}
           </div>
         </div>
         <ChevronRight className="w-4 h-4 text-bf-muted flex-shrink-0 mt-1" />
@@ -414,7 +424,6 @@ export default function CampaignPage() {
   const activePathIds = new Set(
     campaigns.filter((c) => c.status === 'active' && c.path_id).map((c) => c.path_id!),
   );
-  const hasActiveClassic = campaigns.some((c) => c.status === 'active' && !c.path_id);
 
   const activeCampaigns = campaigns.filter((c) => c.status === 'active');
   const completedCampaigns = campaigns.filter((c) => c.status === 'completed');
@@ -469,8 +478,8 @@ export default function CampaignPage() {
         <h3 id="campaign-start-title" className="font-display text-lg text-bf-gold mb-1">{pendingStart.name}</h3>
         {pendingStart.tagline && <p className="text-xs text-bf-muted italic mb-3">{pendingStart.tagline}</p>}
         <p className="text-sm text-bf-muted mb-5">
-          This creates your first era&apos;s game right away and opens it. The run then stays in Campaign HQ
-          until you finish it, so start when you have time for a full era.
+          This creates your first era&apos;s game and opens it. The run stays in Campaign HQ, and a stage
+          you leave part-way is kept there to pick up.
         </p>
         <div className="flex gap-3">
           <button type="button" className="btn-secondary flex-1" onClick={() => setPendingStart(null)}>
@@ -572,19 +581,11 @@ export default function CampaignPage() {
           <PathSelectionScreen
             paths={availablePaths}
             activePathIds={activePathIds}
-            hasActiveClassic={hasActiveClassic}
             onSelect={(pathId) => {
               // A guest cannot start one at all: the account offer, not a confirm.
               if (isGuest) { setShowGuestGate(true); return; }
               const path = availablePaths.find((p) => p.path_id === pathId);
               setPendingStart({ pathId, name: path?.name ?? 'Campaign', tagline: path?.tagline });
-            }}
-            onClassic={() => {
-              if (isGuest) { setShowGuestGate(true); return; }
-              setPendingStart({
-                name: 'Classic Campaign',
-                tagline: 'Free faction choice, standard progression — no narrative path.',
-              });
             }}
             onCancel={() => setShowPathSelection(false)}
             starting={starting}
@@ -623,15 +624,7 @@ export default function CampaignPage() {
           )}
 
           {/* Badges */}
-          <div className="mb-6 flex flex-wrap gap-3">
-            {campaign.prestige_points > 0 && (
-              <div className="flex items-center gap-2 bg-amber-900/30 border border-amber-600/40 rounded-lg px-4 py-2">
-                <Trophy className="w-4 h-4 text-amber-400" />
-                <span className="text-amber-300 text-sm font-semibold">{campaign.prestige_points} Prestige</span>
-              </div>
-            )}
-            <PathCarryBadge campaign={campaign} />
-          </div>
+          <CarryEffects campaign={campaign} />
 
           {/* Timeline */}
           <div className="mb-8">

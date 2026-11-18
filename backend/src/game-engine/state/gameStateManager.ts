@@ -402,7 +402,10 @@ export function initializeGameState(
         settingsNorm.initial_unit_count,
       );
     if (!galaxyHomeworldsOk) {
-      distributeTerritoriesGeographic(territories, earthMap, players, era, settingsNorm.initial_unit_count);
+      distributeTerritoriesGeographic(territories, earthMap, players, era, settingsNorm.initial_unit_count, {
+        // A campaign stage deals each faction its homeland.
+        homeFirst: settingsNorm.is_campaign === true,
+      });
     }
   } else {
     const deal = () => {
@@ -1927,10 +1930,21 @@ function distributeTerritoriesGeographic(
   map: GameMap,
   players: Omit<PlayerState, 'territory_count' | 'cards' | 'capital_territory_id' | 'secret_mission'>[],
   era: EraId,
-  initialUnitCount: number
+  initialUnitCount: number,
+  options: { homeFirst?: boolean } = {},
 ): void {
   const factions = getEraFactions(era);
   if (players.length === 0) return;
+  /**
+   * Home first (a campaign stage): each seat is dealt the territories of its
+   * faction's home regions before anything else, up to its share of the board,
+   * and keeps them through the balancing passes below. Without it a home
+   * region only seeds a seat's first territory and breaks ties after that, so
+   * a stage whose text has Rome on its seven hills could deal Rome one
+   * territory in Italy and the rest in India.
+   */
+  const homeFirst = options.homeFirst === true;
+  const homeLocked = new Set<string>();
 
   const adjacency: Record<string, string[]> = {};
   for (const conn of map.connections) {
@@ -2135,6 +2149,7 @@ function distributeTerritoriesGeographic(
       ).length;
 
       const strongestCandidates = strongestOwned
+        .filter((territoryId) => !homeLocked.has(territoryId))
         .filter((territoryId) => (adjacency[territoryId] ?? []).some((adjacentId) => weakestOwned.has(adjacentId)))
         .filter((territoryId) => {
           const regionId = territoryById.get(territoryId)?.region_id ?? '';
@@ -2152,6 +2167,7 @@ function distributeTerritoriesGeographic(
         });
 
       const weakestCandidates = [...weakestOwned]
+        .filter((territoryId) => !homeLocked.has(territoryId))
         .filter((territoryId) => (adjacency[territoryId] ?? []).some((adjacentId) => ownership.get(adjacentId) === players[strongestIndex].player_id))
         .filter((territoryId) => {
           const regionId = territoryById.get(territoryId)?.region_id ?? '';
@@ -2216,7 +2232,27 @@ function distributeTerritoriesGeographic(
     return left - right;
   });
 
+  if (homeFirst) {
+    // Every homeland before any other seed, so a seat with no home territory
+    // left to take is not seeded on another seat's. A region two seats call
+    // home is shared out between them a territory at a time; a seat stops
+    // at its share of the board.
+    let took = true;
+    while (took) {
+      took = false;
+      for (const playerIndex of seedOrder) {
+        if (ownedCounts[playerIndex] >= targetCounts[playerIndex]) continue;
+        const territoryId = playerHomeIds[playerIndex].find((id) => !assigned.has(id));
+        if (!territoryId) continue;
+        assignTerritory(territoryId, playerIndex);
+        homeLocked.add(territoryId);
+        took = true;
+      }
+    }
+  }
+
   for (const playerIndex of seedOrder) {
+    if (ownedCounts[playerIndex] > 0) continue;
     const preferredSeed = playerHomeIds[playerIndex].find((territoryId) => !assigned.has(territoryId));
     const fallbackSeed = allTerritoryIds.find((territoryId) => !assigned.has(territoryId));
     const seedTerritoryId = preferredSeed ?? fallbackSeed;
@@ -2313,7 +2349,7 @@ function distributeTerritoriesGeographic(
       );
 
       const richestOwned = [...assigned.entries()]
-        .filter(([, id]) => id === players[richest].player_id)
+        .filter(([tid, id]) => id === players[richest].player_id && !homeLocked.has(tid))
         .map(([tid]) => tid);
 
       // Prefer territories adjacent to the poorest player's holdings (promotes contiguity).

@@ -15,6 +15,7 @@ import { DEFAULT_CARD_SET_BONUS_CAP } from '../../game-engine/combat/combatResol
 import { featureFlags } from '../../config/featureFlags';
 import { campaignClockSettings } from './campaignClock';
 import { recordServerEvent } from '../../services/analyticsEvents';
+import { describeCampaignCarry } from './campaignCarryEffects';
 
 const CAMPAIGN_ERAS = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern'] as const;
 /** A stage that cannot be won by turn 100 is a stalemate, not a campaign. */
@@ -396,6 +397,8 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
         completed_at: c.completed_at,
         path_id: c.path_id,
         path_carry: c.path_carry,
+        // What the campaign will carry into its next stage, in words.
+        carry_effects: describeCampaignCarry({ prestigePoints: c.prestige_points, carry: c.path_carry }),
         path_narrative: c.path_narrative,
         path_config: pathConfig
           ? {
@@ -501,6 +504,7 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
       completed_at: campaign.completed_at,
       path_id: campaign.path_id,
       path_carry: campaign.path_carry,
+      carry_effects: describeCampaignCarry({ prestigePoints: campaign.prestige_points, carry: campaign.path_carry }),
       path_narrative: campaign.path_narrative,
       path_config: pathConfig
         ? {
@@ -532,6 +536,11 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
         signature_carry_label: p.signature_carry_label,
         signature_carry_max: p.signature_carry_max,
         era_count: p.eras.length,
+        // For the path's card: how hard it is, whether to start with it, and
+        // how long its opening stage can run (its own clock, or the campaign's).
+        difficulty: p.difficulty,
+        recommended_start: p.recommended_start,
+        first_stage_max_turns: p.eras[0]?.max_turns ?? CAMPAIGN_STAGE_MAX_TURNS,
       })),
     );
   });
@@ -597,6 +606,11 @@ async function createEraGame({
     campaign_era_index: eraIndex,
     campaign_era_count: CAMPAIGN_ERAS.length,
   };
+
+  // What the campaign carries into this stage, in words, for the intro and
+  // the HUD: the effect combat and reinforcement apply, not the stored number.
+  const carryEffects = describeCampaignCarry({ prestigePoints, carry: pathCarry });
+  if (carryEffects.length > 0) settings.campaign_carry_effects = carryEffects;
 
   if (pathConfig) {
     settings.campaign_path_tagline = pathConfig.tagline;

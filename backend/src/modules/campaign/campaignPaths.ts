@@ -61,6 +61,13 @@ export interface CampaignPath {
   /** Max value for the signature carry stat (for progress display). */
   signature_carry_max: number;
   /**
+   * How hard the path is next to the others, for its card on the selection
+   * screen: the screen gave a newcomer nothing to choose between three paths by.
+   */
+  difficulty: 'standard' | 'hard' | 'hardest';
+  /** The path the selection screen marks as the one to start with. Exactly one. */
+  recommended_start: boolean;
+  /**
    * Carry the path starts stage one holding. A path whose stages hand the
    * player a starting-unit deficit has to hand them the compensating stat with
    * it, or stage one is the only stage played without the thing the path is
@@ -81,6 +88,8 @@ const BLOOD_EMPIRE: CampaignPath = {
   signature_carry_key: 'prestige_bonus',
   signature_carry_label: 'Prestige',
   signature_carry_max: 12,
+  difficulty: 'standard',
+  recommended_start: true,
   // Rome starts the path at full strength and takes no deficit anywhere in it,
   // so prestige is purely earned.
   initial_carry: {},
@@ -93,8 +102,9 @@ const BLOOD_EMPIRE: CampaignPath = {
       // share of the map against a clock, on Easy. As a domination stage it
       // ran to the 100-turn cap (an average of 95 turns for the stand-in, 79
       // for an expert one) and the stand-in won 35% of them. Half the map in
-      // 25 turns ends on turn 19 on average and the stand-in wins 67%, the
-      // expert stand-in 88% in 14 (simCampaignStages, two seeds).
+      // 25 turns ended on turn 19 on average with the stand-in winning 67%
+      // (simCampaignStages, two seeds); dealt its homeland, as every campaign
+      // seat now is, Rome wins 83% in 19 turns and 100% in 9 for the expert.
       allowed_victory_conditions: ['threshold'],
       victory_threshold: 50,
       max_turns: 25,
@@ -114,19 +124,20 @@ const BLOOD_EMPIRE: CampaignPath = {
       locked_faction: 'mongol_empire',
       // A share of the map against a clock, like the opener (86 turns and 18%
       // for the stand-in as a domination stage). Two seats, not three: on a
-      // 30-turn clock the Caliphate out-held everyone, winning 37 of 40 games
-      // against the stand-in and against an expert one, so with it seated the
-      // stage was 3% whatever the difficulty. The two left are the two the
-      // stage's own text rides through. 70% for the stand-in in 18-21 turns,
-      // 53-60% for the expert one.
+      // 30-turn clock the Caliphate out-holds everyone, and with it seated the
+      // stage is 28% whatever else is set. The two left are the two the
+      // stage's own text rides through. Dealt their homeland the Mongols start
+      // on the steppe with its bonus, and two Easy seats at 55% were a
+      // walkover (100% in 12 turns), so the seats are Medium and the line 60%:
+      // 83% for the stand-in in 17 turns, 98% for the expert one in 9.
       allowed_victory_conditions: ['threshold'],
-      victory_threshold: 55,
+      victory_threshold: 60,
       max_turns: 30,
       ai_factions: ['byzantine', 'hre'],
-      ai_difficulty: 'easy',
+      ai_difficulty: 'medium',
       ai_count: 2,
       starting_unit_modifier: 0,
-      intro_text: 'The steppes are your launching ground. Silk Road cities, Byzantine walls, and Crusader kingdoms all underestimate what coordinated cavalry can do to a feudal line. Ride through them before they coordinate a defense. Hold 55% of the map, or lead it when the thirtieth turn ends.',
+      intro_text: 'The steppes are your launching ground. Silk Road cities, Byzantine walls, and Crusader kingdoms all underestimate what coordinated cavalry can do to a feudal line. Ride through them before they coordinate a defense. Hold 60% of the map, or lead it when the thirtieth turn ends.',
       outro_win_text: 'The Pax Mongolica spans half the world. Every trade route runs through your yam network. Prestige swells with the terror of your name.',
       outro_loss_text: 'The steppes reclaim their armies. History will remember the reach, if not the permanence.',
       carry_on_win: { prestige_bonus: 2 },
@@ -136,18 +147,20 @@ const BLOOD_EMPIRE: CampaignPath = {
       era: 'discovery',
       map_id: 'era_discovery',
       locked_faction: 'spain',
-      // The same shape again, and the hardest of the three openers: 53-55% for
-      // the stand-in in 28-29 turns, 60-62% for the expert one. As a
-      // domination stage it averaged 93 turns. On Medium with this clock it
-      // was 25%, below the stage that follows it.
+      // The same shape again, and the hardest of the three openers. The seats
+      // are the powers Spain met abroad, not its neighbours: Portugal and
+      // England share Spain's European homeland, and dealt it three ways
+      // Spain won 15% (with either one alone, 5-10%). Against the Ottomans,
+      // the Mughals and the Ming, each on its own ground: 53% for the
+      // stand-in in 28 turns, 68% for the expert one in 26.
       allowed_victory_conditions: ['threshold'],
       victory_threshold: 55,
       max_turns: 30,
-      ai_factions: ['ottoman', 'portugal', 'england_discovery'],
+      ai_factions: ['ottoman', 'ming_china', 'mughal'],
       ai_difficulty: 'easy',
       ai_count: 3,
       starting_unit_modifier: 0,
-      intro_text: 'Gold and God justify the crossing. The Ottomans hold the eastern routes, the Portuguese shadow your ships, and English privateers wait for the treasure fleet. Your advantage is ruthlessness and the element of surprise. Hold 55% of the map, or lead it when the thirtieth turn ends.',
+      intro_text: 'Gold and God justify the crossing. The Ottomans hold the eastern routes, the Mughal court commands the wealth of India, and Ming China watches from behind its walls. Your advantage is ruthlessness and the element of surprise. Hold 55% of the map, or lead it when the thirtieth turn ends.',
       outro_win_text: 'Silver pours from Potosi. The Spanish Empire straddles the globe, and prestige rides on the back of the treasure fleet.',
       outro_loss_text: 'Another power will claim the New World. The routes remain; the ships will sail again.',
       carry_on_win: { prestige_bonus: 2 },
@@ -226,6 +239,8 @@ const REVOLUTIONARY_FLAME: CampaignPath = {
   signature_carry_key: 'revolutionary_spirit',
   signature_carry_label: 'Revolutionary Spirit',
   signature_carry_max: 10,
+  difficulty: 'hard',
+  recommended_start: false,
   initial_carry: { revolutionary_spirit: 2 },
   eras: [
     {
@@ -354,6 +369,8 @@ const LAST_DEFENDERS: CampaignPath = {
   signature_carry_key: 'survivor_bonus',
   signature_carry_label: 'Survivor Bonus',
   signature_carry_max: 8,
+  difficulty: 'hardest',
+  recommended_start: false,
   initial_carry: { survivor_bonus: 2 },
   eras: [
     {
@@ -393,23 +410,21 @@ const LAST_DEFENDERS: CampaignPath = {
       max_turns: 40,
       // Two besiegers, not three. A capital victory means taking every other
       // seat's capital, so a third seat was a third fortified city to storm
-      // from four units down — which is why no combination of difficulty,
-      // clock or deficit ever moved this stage off the floor: 0 wins in 100
-      // games against three, 38 against two with nothing else changed. The
-      // two are the ones the stage's own text has doing something: the Mongols
-      // east of the Danube and the Crusaders who already sacked the city. The
-      // Caliphate watches the walls from outside, which is exactly what the
-      // intro says it does.
-      ai_factions: ['mongol_empire', 'hre'],
-      // Dropping the third capital is a large cut on its own — 38% at the old
-      // hard and -4, which would have left the path's catastrophe beat easier
-      // than its cold-war stage. The difficulty and the deficit put that back
-      // where the path wants it: 22%, in line with the ww2 stage, with the
-      // stage decided by the siege rather than by the count of cities.
+      // from six units down: 0 wins in 100 games against three, 38 against
+      // two with nothing else changed.
+      // The two are the Crusaders and the Caliphate. The Mongols were one of
+      // them until every campaign seat was dealt its homeland: theirs borders
+      // Byzantium's, and with the steppe's bonus behind them they took
+      // Constantinople by turn 6 in all 40 games, whatever the difficulty,
+      // deficit or clock. They stay in the stage's text as what is coming.
+      ai_factions: ['hre', 'caliphate'],
+      // Expert and six units down put the siege where the path wants its
+      // catastrophe beat: 18% for the stand-in, 50% for the expert one, in
+      // 20-25 turns, as it measured with the Mongols before the deal changed.
       ai_difficulty: 'expert',
       ai_count: 2,
       starting_unit_modifier: -6,
-      intro_text: 'The Mongols have shattered every kingdom east of the Danube. The Crusaders who came to help looted your city once already. The Caliphate watches the walls from outside. Hold Constantinople, then break the two armies encamped around it — or simply still be holding more of the map than they do after forty turns. Let history record the city stood.',
+      intro_text: 'The Mongols have shattered every kingdom east of the Danube and will reach the walls soon enough. The Crusaders who came to help looted your city once already, and the Caliphate\'s armies are camped outside. Hold Constantinople, then break those two armies — or simply still be holding more of the map than they do after forty turns. Let history record the city stood.',
       outro_win_text: 'Constantinople survives the medieval catastrophe. The Church, the libraries, the Greek language — all preserved. Survivor Bonus carries the weight of what was saved.',
       outro_loss_text: 'The city falls in 1453 in every version of history. The libraries burned slowly.',
       carry_on_win: { survivor_bonus: 2, prestige_bonus: 1 },
@@ -422,15 +437,16 @@ const LAST_DEFENDERS: CampaignPath = {
       allowed_victory_conditions: ['threshold'],
       victory_threshold: 60,
       max_turns: 35,
-      // Ming holds a single contiguous bloc at the deal and out-territories
-      // three colonial seats by default: the stand-in won 88% of 24 games,
-      // the one stage of the underdog path that played like a reward. A
-      // fourth besieger dilutes the deal and takes it to 38%.
-      ai_factions: ['spain', 'portugal', 'england_discovery', 'mughal'],
+      // Three colonial seats. A fourth (the Mughals) was added when Ming, on
+      // a contiguous bloc, won 88% against three. Dealt their homelands the
+      // four held Ming to 0% (23% for the expert stand-in), and with the
+      // Mughals out it is 50% and 60% in 25 turns, at any deficit from three
+      // units to six.
+      ai_factions: ['spain', 'portugal', 'england_discovery'],
       ai_difficulty: 'hard',
-      ai_count: 4,
+      ai_count: 3,
       starting_unit_modifier: -3,
-      intro_text: 'Portuguese caravels probe the coast. Spanish silver buys political leverage. English merchants want trading posts that become footholds. The Yongle Emperor built a wall and burned the treasure fleet — it did not save the dynasty, but it bought time. Hold 60% of the map against four powers probing at once, or lead it when the thirty-fifth turn ends.',
+      intro_text: 'Portuguese caravels probe the coast. Spanish silver buys political leverage. English merchants want trading posts that become footholds. The Yongle Emperor built a wall and burned the treasure fleet — it did not save the dynasty, but it bought time. Hold 60% of the map against three powers probing at once, or lead it when the thirty-fifth turn ends.',
       outro_win_text: 'The Middle Kingdom holds its borders through the Age of Discovery. The isolation costs — but survival is its own kind of victory.',
       outro_loss_text: 'The treaty ports open. History files this under "unequal treaties." The dynasty survives on paper.',
       carry_on_win: { survivor_bonus: 2, prestige_bonus: 1 },
@@ -453,7 +469,10 @@ const LAST_DEFENDERS: CampaignPath = {
       ai_factions: ['germany', 'japan'],
       ai_difficulty: 'expert',
       ai_count: 2,
-      starting_unit_modifier: -5,
+      // Two units down, not five: with every seat dealt its homeland the
+      // stage fell from 23% to 8% (48% to 15% for the expert stand-in), and
+      // the smaller deficit puts it at 15% and 45%.
+      starting_unit_modifier: -2,
       intro_text: 'Dunkirk is over. France is gone. The Luftwaffe is assembling. You hold an island, a navy, and the stubborn conviction that this is not over. The USA has not yet entered the war. Hold 55% of the map — your island, North Africa, and whatever remains of the Commonwealth lifelines — or lead it when the thirtieth turn ends.',
       outro_win_text: 'Britain stands alone and standing is enough. The Allies will come. Survivor Bonus grows from the knowledge that holding is a form of winning.',
       outro_loss_text: 'Even the darkest hour eventually ends.',
