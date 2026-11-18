@@ -311,98 +311,98 @@ These maps use **custom geometry** (often with `projection_bounds` / `globe_view
 
 ### Immersion profiles (verbatim from `customMapImmersion.ts`)
 
-Lobby tooltips combine each feature’s **lore** + **effectFlavor** with the base rules text (`advancedFeatureTooltip`). Below is the full immersion copy for the six curated maps.
+Lobby tooltips show each feature’s **lore** line above the base rules text (`advancedFeatureTooltip`), and the Map Hub quotes the economy, naval and events lines. Below is the full immersion copy for the curated maps.
 
 #### `community_flooded_north_america` — recommended era: `modern`
 
 - **Tagline:** Rise from drowned valleys — trade arcs, citadels, and exile fleets.
 - **Backdrop:** After the great inundation, North America is a lattice of inland seas and shattered ranges. Survivor states cling to high ground; whoever controls ports, narrows, and hydro-corridors controls the continent’s ghost economy.
-- **territory_draft** — *Lore:* Neutral high ground is the prize — powers carve spheres before the first shot. *How it feels:* Draft favors coastal citadels and choke islands; early borders echo real geography under water.
-- **asymmetric_factions** — *Lore:* Mountain republics, bay fleets, and desert enclaves each bring a distinct doctrine to the drowned world. *How it feels:* Faction bonuses read as regional survival perks: logistics, defense in narrows, or rapid island hops.
-- **economy_buildings** — *Lore:* Hydro-farms, desalination, and fortified ports are the spine of post-flood civilization. *How it feels:* Production and wonders feel like reclaiming infrastructure — income spikes along restored trade spines.
-- **tech_trees** — *Lore:* Salvaged engineering, climate tech, and hardened logistics define who thrives above the new sea level. *How it feels:* Research gates coastal batteries, faster reinforcement along sea lanes, and crisis-response perks.
-- **historical_events** — *Lore:* Storm surges, refugee waves, and relic dam failures keep every era unstable. *How it feels:* Events hit as environmental and political shocks — production swings, stability shocks, sudden truce pressure.
-- **naval_warfare** — *Lore:* The map is half ocean; fleets are how empires breathe between archipelagos. *How it feels:* Naval income and amphibious pressure mirror island-hopping across drowned plains and sounds.
-- **population_stability** — *Lore:* Crowded enclaves and salt-stressed cities riot or thrive on rationing and morale. *How it feels:* Stability caps and recovery echo refugee logistics — coastal holds swing harder when contested.
-- **fog_of_war** — *Lore:* Storms, sensor gaps, and smuggler smoke hide fleet movements between fractured coasts. *How it feels:* Fog hides unit stacks beyond your archipelago rim — scouting archipelagos matters as much as brute force.
+- **territory_draft** — *Lore:* Neutral high ground is the prize — powers carve spheres before the first shot.
+- **asymmetric_factions** — *Lore:* Mountain republics, bay fleets, and desert enclaves each bring a distinct doctrine to the drowned world.
+- **economy_buildings** — *Lore:* Hydro-farms, desalination, and fortified ports are the spine of post-flood civilization.
+- **tech_trees** — *Lore:* Salvaged engineering, climate tech, and hardened logistics define who thrives above the new sea level.
+- **historical_events** — *Lore:* Storm surges, refugee waves, and relic dam failures keep every era unstable.
+- **naval_warfare** — *Lore:* The map is half ocean; fleets are how empires breathe between archipelagos.
+- **population_stability** — *Lore:* Crowded enclaves and salt-stressed cities riot or thrive on rationing and morale.
+- **fog_of_war** — *Lore:* Storms, sensor gaps, and smuggler smoke hide fleet movements between fractured coasts.
 
 #### `community_britain_925` — recommended era: `medieval`
 
 - **Tagline:** Heptarchy blood-oaths — shield-walls, longships, and crown claims.
 - **Backdrop:** Britain in 925 is a patchwork of Anglo-Saxon kingdoms, Norse footholds, Welsh fastnesses, and Scottish raids. Every shire is a borderland; every coast hears oars before dawn.
-- **territory_draft** — *Lore:* Jarls and ealdormen pick heartlands before the fyrd marches — the scramble for Mercia and Northumbria begins in ink, not iron. *How it feels:* Draft lets you anchor in Welsh hills, Danelaw coasts, or the southern wheat belt before random warbands spread.
-- **asymmetric_factions** — *Lore:* Wessex consolidation, Viking sea-kings, Welsh mountain princes — each crown fights differently. *How it feels:* Faction passives feel like saga gifts: shield-wall defense, raid tempo, or hill-fort stubbornness.
-- **economy_buildings** — *Lore:* Burhs, monastic granaries, and coastal salt-works fund the endless shield-tax. *How it feels:* Buildings read as burh rings and monastic wealth — production rewards holding the fertile midlands and safe harbors.
-- **tech_trees** — *Lore:* Iron rivets, longship upgrades, and royal charters drag Britain from raid economy to kingdom. *How it feels:* Tech unlocks heavier fortification, better coastal muster, and faster recovery after Viking burns.
-- **historical_events** — *Lore:* Famine winters, saintly omens, and sudden longship landings rewrite the year’s story. *How it feels:* Events model harvest prayer, cattle plague, and oath-breaking — spikes of loss or windfall across shires.
-- **naval_warfare** — *Lore:* The Irish Sea and Channel mouths are Viking highways; whoever owns the waves owns the harvest coast. *How it feels:* Fleets and ports make Danelaw corridors lethal — sea connections are raids-in-waiting.
-- **population_stability** — *Lore:* Peasants flee burning burhs; stability is the peace between harvest and reaving. *How it feels:* Low stability is fyrd exhaustion; recovery is the king’s justice returning to the shire.
-- **fog_of_war** — *Lore:* Mist moors and forest tracks hide warbands until the ravens rise. *How it feels:* Fog hides muster sizes in the Welsh marches and Scottish edges — scouts earn their silver.
+- **territory_draft** — *Lore:* Jarls and ealdormen pick heartlands before the fyrd marches — the scramble for Mercia and Northumbria begins in ink, not iron.
+- **asymmetric_factions** — *Lore:* Wessex consolidation, Viking sea-kings, Welsh mountain princes — each crown fights differently.
+- **economy_buildings** — *Lore:* Burhs, monastic granaries, and coastal salt-works fund the endless shield-tax.
+- **tech_trees** — *Lore:* Iron rivets, longship upgrades, and royal charters drag Britain from raid economy to kingdom.
+- **historical_events** — *Lore:* Famine winters, saintly omens, and sudden longship landings rewrite the year’s story.
+- **naval_warfare** — *Lore:* The Irish Sea and Channel mouths are Viking highways; whoever owns the waves owns the harvest coast.
+- **population_stability** — *Lore:* Peasants flee burning burhs; stability is the peace between harvest and reaving.
+- **fog_of_war** — *Lore:* Mist moors and forest tracks hide warbands until the ravens rise.
 
 #### `community_horn_africa` — recommended era: `coldwar`
 
 - **Tagline:** Red Sea socialism — federated steel, coffee coasts, and desert frontiers.
 - **Backdrop:** A unified Horn and southern Yemen imagines a federated socialist state bridging highlands, nomad corridors, and the Bab el-Mandeb choke. Ideology, logistics, and clan loyalties pull in three directions at once.
-- **territory_draft** — *Lore:* Revolutionary committees parcel the federation before the first congress — who claims the Ogaden, the coast, the highlands? *How it feels:* Draft reflects competing visions: coastal trade, highland defense, or Red Sea projection.
-- **asymmetric_factions** — *Lore:* Highland defense cadres, coastal planners, and desert federators each embody a pillar of the union. *How it feels:* Factions map to doctrine: stability-first, naval outreach, or rapid mobilization along porous borders.
-- **economy_buildings** — *Lore:* Collective farms, ports, and industrial nodes are the five-year plan made concrete. *How it feels:* Economy feels like planned development — bonuses cluster on choke ports and breadbasket highlands.
-- **tech_trees** — *Lore:* Soviet-adjacent aid, local innovation, and Red Sea radar nets drag the union into modernity. *How it feels:* Tech unlocks better logistics, influence projection, and crisis-response along long supply lines.
-- **historical_events** — *Lore:* Drought diplomacy, Gulf crises, and solidarity congresses keep the federation on a knife edge. *How it feels:* Events are coups of fortune: aid convoys, border incidents, and ideological purges that swing production.
-- **naval_warfare** — *Lore:* The map is a hinge between seas — convoys, blockades, and gunboat politics are existential. *How it feels:* Naval play mirrors Bab el-Mandeb reality — whoever parks fleets shapes Yemen and Somali coasts alike.
-- **population_stability** — *Lore:* Multi-ethnic federation means loyalty is earned every harvest; stability is the union’s true currency. *How it feels:* Stability swings echo pastoral stress and urban unrest — coastal cities recover faster with ports secured.
-- **fog_of_war** — *Lore:* Sandstorms, smuggler dhows, and radio silence cloak troop movements along desert seams. *How it feels:* Fog hides buildups on the Ogaden and Red Sea rims — intel wins before armor rolls.
+- **territory_draft** — *Lore:* Revolutionary committees parcel the federation before the first congress — who claims the Ogaden, the coast, the highlands?
+- **asymmetric_factions** — *Lore:* Highland defense cadres, coastal planners, and desert federators each embody a pillar of the union.
+- **economy_buildings** — *Lore:* Collective farms, ports, and industrial nodes are the five-year plan made concrete.
+- **tech_trees** — *Lore:* Soviet-adjacent aid, local innovation, and Red Sea radar nets drag the union into modernity.
+- **historical_events** — *Lore:* Drought diplomacy, Gulf crises, and solidarity congresses keep the federation on a knife edge.
+- **naval_warfare** — *Lore:* The map is a hinge between seas — convoys, blockades, and gunboat politics are existential.
+- **population_stability** — *Lore:* Multi-ethnic federation means loyalty is earned every harvest; stability is the union’s true currency.
+- **fog_of_war** — *Lore:* Sandstorms, smuggler dhows, and radio silence cloak troop movements along desert seams.
 
 #### `community_australia_1337` — recommended era: `discovery`
 
 - **Tagline:** Karkiyapani crowns — songlines, trade winds, and island thrones.
 - **Backdrop:** An alternate 1337 where Indigenous Australian polities, Aotearoa, and Pacific neighbors appear as structured realms. The continent is a web of trade winds, fire-country, and reef gates — empire is kinship scaled to geography.
-- **territory_draft** — *Lore:* Elders and voyaging captains choose ceremonial grounds before the great gatherings arm. *How it feels:* Draft lets you anchor reef nations, desert trade hubs, or Aotearoa’s volcanic north before the map colors.
-- **asymmetric_factions** — *Lore:* Each realm’s law and lore grant different blessings — sea mastery, desert endurance, or island unity. *How it feels:* Factions read as cultural strengths: reef raiders, inland law-holders, or double-hulled navigators.
-- **economy_buildings** — *Lore:* Ceremonial trade houses, fish weirs, and stone storehouses turn songlines into surplus. *How it feels:* Buildings feel like sustainable extraction — bonuses along coasts and reliable river basins.
-- **tech_trees** — *Lore:* Voyaging astronomy, hardened hulls, and seasonal calendars push fleets farther each generation. *How it feels:* Tech unlocks longer sea reach, safer harvests, and faster recovery after fire-season or storm.
-- **historical_events** — *Lore:* El Niño hunger, sacred site disputes, and voyaging omens rewrite the year’s luck. *How it feels:* Events are natural and cultural — reef bleaching, trade wind shifts, or alliance ceremonies.
-- **naval_warfare** — *Lore:* The theater is ocean-braided; outriggers and war canoes are sovereignty made hull. *How it feels:* Naval bonuses reward island chains and reef passages — amphibious play is the default tempo.
-- **population_stability** — *Lore:* Populations move with seasons; stability is harmony between fire, water, and law. *How it feels:* Stability models carrying capacity — crowded coasts stress faster; inland recovery follows rain.
-- **fog_of_war** — *Lore:* Reefs, mangrove mazes, and night voyaging hide fleets until the first torch on the beach. *How it feels:* Fog hides island garrisons until you send scouts — the Pacific rewards patience.
+- **territory_draft** — *Lore:* Elders and voyaging captains choose ceremonial grounds before the great gatherings arm.
+- **asymmetric_factions** — *Lore:* Each realm’s law and lore grant different blessings — sea mastery, desert endurance, or island unity.
+- **economy_buildings** — *Lore:* Ceremonial trade houses, fish weirs, and stone storehouses turn songlines into surplus.
+- **tech_trees** — *Lore:* Voyaging astronomy, hardened hulls, and seasonal calendars push fleets farther each generation.
+- **historical_events** — *Lore:* El Niño hunger, sacred site disputes, and voyaging omens rewrite the year’s luck.
+- **naval_warfare** — *Lore:* The theater is ocean-braided; outriggers and war canoes are sovereignty made hull.
+- **population_stability** — *Lore:* Populations move with seasons; stability is harmony between fire, water, and law.
+- **fog_of_war** — *Lore:* Reefs, mangrove mazes, and night voyaging hide fleets until the first torch on the beach.
 
 #### `community_fourteen_nations` — recommended era: `discovery`
 
 - **Tagline:** Fourteen nations, one continent, and no fleet ever came to stay.
 - **Backdrop:** North America where the ships that came traded and sailed home. Cahokia’s mound cities, the Triple Alliance on its lake, the Longhouse, the Salmon League and ten more confederacies grew into fourteen nations whose borders follow the rivers and ranges they fought over.
-- **territory_draft** — *Lore:* Before the war belts go out, every council names the river it will not give up. *How it feels:* Draft lets you claim a nation’s heartland, a river crossing, or a mountain pass before the fighting starts.
-- **asymmetric_factions** — *Lore:* Horse peoples of the plains, canoe nations of the lakes and the coast, and city-builders of the south each make war their own way. *How it feels:* Factions read as ways of life: mounted raiders, river fleets, or walled cities that hold.
-- **economy_buildings** — *Lore:* Maize, salmon, buffalo, and the shell and copper trade feed the war chests. *How it feels:* Buildings follow the land: river valleys and coasts pay best, and the plains reward whoever holds them.
-- **tech_trees** — *Lore:* Horses and iron came ashore with traders, not conquerors, and every nation learned to use them. *How it feels:* Tech unlocks the age’s edges: faster riders, stronger palisades, and longer reach by water.
-- **historical_events** — *Lore:* A drought on the plains, a failed harvest at Cahokia, a broken treaty belt: the continent’s luck turns by season. *How it feels:* Events are natural and political, from droughts and floods to councils that make or break alliances.
-- **naval_warfare** — *Lore:* The Great Lakes, the Mississippi and three coasts are highways for war canoes. *How it feels:* Sea lanes cross the Straits of Mackinac, Lake Erie, the Gulf of St. Lawrence and the Gulf of California.
-- **population_stability** — *Lore:* A nation holds together while its council fire burns; lose the heartland and the bands drift away. *How it feels:* Stability rewards holding a nation whole, and spreading thin across the plains costs you.
-- **fog_of_war** — *Lore:* Forest, prairie grass and mountain passes hide a war party until it is at the palisade. *How it feels:* Fog hides garrisons beyond your borders until you scout them; the wide interior rewards patience.
+- **territory_draft** — *Lore:* Before the war belts go out, every council names the river it will not give up.
+- **asymmetric_factions** — *Lore:* Horse peoples of the plains, canoe nations of the lakes and the coast, and city-builders of the south each make war their own way.
+- **economy_buildings** — *Lore:* Maize, salmon, buffalo, and the shell and copper trade feed the war chests.
+- **tech_trees** — *Lore:* Horses and iron came ashore with traders, not conquerors, and every nation learned to use them.
+- **historical_events** — *Lore:* A drought on the plains, a failed harvest at Cahokia, a broken treaty belt: the continent’s luck turns by season.
+- **naval_warfare** — *Lore:* The Great Lakes, the Mississippi and three coasts are highways for war canoes.
+- **population_stability** — *Lore:* A nation holds together while its council fire burns; lose the heartland and the bands drift away.
+- **fog_of_war** — *Lore:* Forest, prairie grass and mountain passes hide a war party until it is at the palisade.
 
 #### `community_14_nations` (retired) — recommended era: `discovery`
 
 - **Tagline:** Fourteen crowns — one continent, infinite border grudges.
 - **Backdrop:** North America reimagined as fourteen peer powers sharing one landmass. Every border is a treaty waiting to break; every heartland is someone else’s manifest destiny.
-- **territory_draft** — *Lore:* The continent is partitioned at the treaty table before armies march — manifest destiny starts in negotiation. *How it feels:* Draft rewards locking Great Lakes industry, Gulf ports, or Pacific gateways early.
-- **asymmetric_factions** — *Lore:* Industrial giants, breadbasket republics, and energy kingdoms each bend the rules of continental war. *How it feels:* Factions feel like national character: mass mobilization, defensive depth, or economic snowball.
-- **economy_buildings** — *Lore:* Factories, rails, and tech campuses are how a fourteen-way cold war turns hot. *How it feels:* Economy is modern total war — production spikes in megacity clusters and resource belts.
-- **tech_trees** — *Lore:* Stealth, precision, and integrated logistics define who wins the next brushfire on a superpower lawn. *How it feels:* Tech unlocks doctrine edges: faster fortify, better defense in urban tiles, or attack tempo bonuses.
-- **historical_events** — *Lore:* Sanctions, blackouts, and election shocks ripple across a continent wired together and armed to the teeth. *How it feels:* Events are cable-news crises made mechanical — swing PP/TP, stability, or diplomacy windows.
-- **naval_warfare** — *Lore:* Three oceans touch the map; sea control is how you flank a continental rival. *How it feels:* Naval play unlocks amphibious end-arounds and strait pressure — Great Lakes and both coasts matter.
-- **population_stability** — *Lore:* Megacity unrest and rural resentment decide whether your war machine keeps drafting. *How it feels:* Stability is national morale — heartland peace funds coastal tech; riots cap your surge.
-- **fog_of_war** — *Lore:* Satellite gaps, cyber smoke, and media blackout zones hide mobilization in plain sight. *How it feels:* Fog models strategic ambiguity — you see borders, not stacks, until you probe or ally-share intel.
+- **territory_draft** — *Lore:* The continent is partitioned at the treaty table before armies march — manifest destiny starts in negotiation.
+- **asymmetric_factions** — *Lore:* Industrial giants, breadbasket republics, and energy kingdoms each bend the rules of continental war.
+- **economy_buildings** — *Lore:* Factories, rails, and tech campuses are how a fourteen-way cold war turns hot.
+- **tech_trees** — *Lore:* Stealth, precision, and integrated logistics define who wins the next brushfire on a superpower lawn.
+- **historical_events** — *Lore:* Sanctions, blackouts, and election shocks ripple across a continent wired together and armed to the teeth.
+- **naval_warfare** — *Lore:* Three oceans touch the map; sea control is how you flank a continental rival.
+- **population_stability** — *Lore:* Megacity unrest and rural resentment decide whether your war machine keeps drafting.
+- **fog_of_war** — *Lore:* Satellite gaps, cyber smoke, and media blackout zones hide mobilization in plain sight.
 
 #### `community_strait_of_hormuz` (and the retired `community_strait_hormuz`) — recommended era: `coldwar`
 
 - **Tagline:** Chokepoint kings — tankers, gunboats, and desert mirages.
 - **Backdrop:** The Gulf’s narrow throat concentrates oil, faith, and firepower. Iran, the Arab Gulf states, and Oman’s coast are one locked room — whoever holds the strait holds the world’s pulse for a week.
-- **territory_draft** — *Lore:* Coalitions pick ports and desert spines before the first convoy is threatened. *How it feels:* Draft emphasizes Hormuz islands, UAE hubs, and Iranian plateau gateways.
-- **asymmetric_factions** — *Lore:* Revolutionary guards, emirate fleets, and desert monarchies each fight the chokepoint differently. *How it feels:* Factions map to coastal AA, oil rent, or plateau depth — bonuses feel doctrinal, not cosmetic.
-- **economy_buildings** — *Lore:* Refineries, pipelines, and port free zones turn black gold into bunkers and planes. *How it feels:* Economy is petro-state logic: Workshops pay for the war, Ports on the coast build the fleets, and the Wonder is a national project only one player can finish.
-- **tech_trees** — *Lore:* Missile tech, radar nets, and blue-water escorts escalate the narrow sea into a chessboard. *How it feels:* Tech unlocks sea denial, faster fleet redeploy, and crisis income when straits flash hot.
-- **historical_events** — *Lore:* Embargo shocks, OPEC whispers, and proxy flare-ups keep the Gulf one spark from inferno. *How it feels:* Events are tanker incidents and summit ultimatums — swing diplomacy and production together.
-- **naval_warfare** — *Lore:* This map is naval war by design — gunboats are border guards and oil is blood. *How it feels:* Every sea crossing costs a fleet, and fleets come from Ports on the coast: hold the islands and both shores of the Strait and you build them where you need them.
-- **population_stability** — *Lore:* Coastal cities swell; interior lines hold loyalty only while ration and rent hold. *How it feels:* Stability tracks urban pressure and sanctions pain — strait owners feel riots first.
-- **fog_of_war** — *Lore:* Jamming, sand haze, and smuggler dhows hide missile batteries until first salvo. *How it feels:* Fog hides Gulf buildups — ISR (scouting) wins the strait before carriers do.
+- **territory_draft** — *Lore:* Coalitions pick ports and desert spines before the first convoy is threatened.
+- **asymmetric_factions** — *Lore:* Revolutionary guards, emirate fleets, and desert monarchies each fight the chokepoint differently.
+- **economy_buildings** — *Lore:* Refineries, pipelines, and port free zones turn black gold into bunkers and planes.
+- **tech_trees** — *Lore:* Missile tech, radar nets, and blue-water escorts escalate the narrow sea into a chessboard.
+- **historical_events** — *Lore:* Embargo shocks, OPEC whispers, and proxy flare-ups keep the Gulf one spark from inferno.
+- **naval_warfare** — *Lore:* This map is naval war by design — gunboats are border guards and oil is blood.
+- **population_stability** — *Lore:* Coastal cities swell; interior lines hold loyalty only while ration and rent hold.
+- **fog_of_war** — *Lore:* Jamming, sand haze, and smuggler dhows hide missile batteries until first salvo.
 
 ---
 
