@@ -393,8 +393,8 @@ SEA_LINKS = [
 ]
 
 DESCRIPTION = (
-    "North America in an age when no fleet came to stay — 62 territories held by fourteen nations, from "
-    "Lingít Aaní and the Salmon League to the Triple Alliance and the League of Mayapán. Every border "
+    "North America in an age when no fleet came to stay — 62 territories across 14 nations, from the "
+    "Salmon League on the Pacific coast to the Triple Alliance and the League of Mayapán. Every border "
     "follows the land: the Missouri and the Mississippi, the Rio Grande, the Continental Divide, the "
     "Sierras Madre and the Appalachian crest. Hold a nation's homeland, or break it at the river."
 )

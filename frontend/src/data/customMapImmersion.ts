@@ -804,7 +804,7 @@ const STRAIT_HORMUZ: CustomMapImmersionProfile = {
     ),
     economy_buildings: af(
       'Black gold becomes bunkers and planes at the refinery, and revenue at the free-zone port.',
-      'Economy is petro-state logic — income clusters on coasts and choke hexes; wonders feel like national projects.',
+      'Economy is petro-state logic: Workshops pay for the war, Ports on the coast build the fleets, and the Wonder is a national project only one player can finish.',
     ),
     tech_trees: af(
       'Missile tech, radar nets, and blue-water escorts escalate the narrow sea into a chessboard.',
@@ -816,7 +816,7 @@ const STRAIT_HORMUZ: CustomMapImmersionProfile = {
     ),
     naval_warfare: af(
       'This map is naval war by design — gunboats are border guards and oil is blood.',
-      'Every sea connection is a potential blockade; fleet income rewards holding island and mouth tiles.',
+      'Every sea crossing costs a fleet, and fleets come from Ports on the coast: hold the islands and both shores of the Strait and you build them where you need them.',
     ),
     population_stability: af(
       'Coastal cities swell; interior lines hold loyalty only while ration and rent hold.',

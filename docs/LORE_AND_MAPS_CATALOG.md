@@ -305,7 +305,7 @@ These maps use **custom geometry** (often with `projection_bounds` / `globe_view
 
 | `map_id` | Lobby title | Notes |
 |----------|---------------|--------|
-| `community_fourteen_nations` | The 14 Nations | North America where no fleet came to stay: 62 territories in fourteen indigenous nations, every border a river, crest or divide. Built by `database/maps/build_fourteen_nations.py`; the globe draws `/geo/fourteen_nations_admin1.json`. |
+| `community_fourteen_nations` | The 14 Nations | North America where no fleet came to stay: 62 territories across 14 indigenous nations, every border a river, crest or divide. Built by `database/maps/build_fourteen_nations.py`; the globe draws `/geo/fourteen_nations_admin1.json`. |
 | `community_14_nations` | The 14 Nations (retired) | The earlier board, cut along state and provincial lines. Out of the lobby; still served for games and replays that use it. |
 | `community_strait_of_hormuz` | Strait of Hormuz | Gulf chokepoint theater: 31 territories built from real provinces by `frontend/scripts/buildStraitOfHormuz.ts` (Natural Earth ne_10m admin-1; large provinces split between their towns). Replaces `community_strait_hormuz`, which is no longer offered in the lobby but still loads for games and replays on it. |
 
@@ -397,10 +397,10 @@ Lobby tooltips combine each feature’s **lore** + **effectFlavor** with the bas
 - **Backdrop:** The Gulf’s narrow throat concentrates oil, faith, and firepower. Iran, the Arab Gulf states, and Oman’s coast are one locked room — whoever holds the strait holds the world’s pulse for a week.
 - **territory_draft** — *Lore:* Coalitions pick ports and desert spines before the first convoy is threatened. *How it feels:* Draft emphasizes Hormuz islands, UAE hubs, and Iranian plateau gateways.
 - **asymmetric_factions** — *Lore:* Revolutionary guards, emirate fleets, and desert monarchies each fight the chokepoint differently. *How it feels:* Factions map to coastal AA, oil rent, or plateau depth — bonuses feel doctrinal, not cosmetic.
-- **economy_buildings** — *Lore:* Refineries, pipelines, and port free zones turn black gold into bunkers and planes. *How it feels:* Economy is petro-state logic — income clusters on coasts and choke hexes; wonders feel like national projects.
+- **economy_buildings** — *Lore:* Refineries, pipelines, and port free zones turn black gold into bunkers and planes. *How it feels:* Economy is petro-state logic: Workshops pay for the war, Ports on the coast build the fleets, and the Wonder is a national project only one player can finish.
 - **tech_trees** — *Lore:* Missile tech, radar nets, and blue-water escorts escalate the narrow sea into a chessboard. *How it feels:* Tech unlocks sea denial, faster fleet redeploy, and crisis income when straits flash hot.
 - **historical_events** — *Lore:* Embargo shocks, OPEC whispers, and proxy flare-ups keep the Gulf one spark from inferno. *How it feels:* Events are tanker incidents and summit ultimatums — swing diplomacy and production together.
-- **naval_warfare** — *Lore:* This map is naval war by design — gunboats are border guards and oil is blood. *How it feels:* Every sea connection is a potential blockade; fleet income rewards holding island and mouth tiles.
+- **naval_warfare** — *Lore:* This map is naval war by design — gunboats are border guards and oil is blood. *How it feels:* Every sea crossing costs a fleet, and fleets come from Ports on the coast: hold the islands and both shores of the Strait and you build them where you need them.
 - **population_stability** — *Lore:* Coastal cities swell; interior lines hold loyalty only while ration and rent hold. *How it feels:* Stability tracks urban pressure and sanctions pain — strait owners feel riots first.
 - **fog_of_war** — *Lore:* Jamming, sand haze, and smuggler dhows hide missile batteries until first salvo. *How it feels:* Fog hides Gulf buildups — ISR (scouting) wins the strait before carriers do.
 
