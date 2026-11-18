@@ -366,11 +366,11 @@ const REVOLUTIONARY_FLAME: CampaignPath = {
   path_id: 'revolutionary_flame',
   name: 'The Revolutionary Flame',
   tagline: 'History from below. The Flame never dies.',
-  description: 'You are always the revolutionary — reformer, rebel, the mob. Secret missions matter more than brute conquest. Your Revolutionary Spirit grows with every era you win and rallies extra reinforcements to your cause each turn.',
+  description: 'You are always the revolutionary — reformer, rebel, the mob. Each era sets you one objective, and it is never to conquer the map. Your Revolutionary Spirit grows with every era you win and rallies extra reinforcements to your cause each turn.',
   signature_carry_key: 'revolutionary_spirit',
   signature_carry_label: 'Revolutionary Spirit',
   signature_carry_max: 10,
-  difficulty: 'hard',
+  difficulty: 'hardest',
   recommended_start: false,
   guest_open: false,
   initial_carry: { revolutionary_spirit: 2 },
@@ -379,18 +379,19 @@ const REVOLUTIONARY_FLAME: CampaignPath = {
       era: 'ancient',
       map_id: 'era_ancient',
       locked_faction: 'rome',
+      title: 'The Republic\'s Sea',
       allowed_victory_conditions: ['secret_mission'],
-      // Two openers, not three. The ancient balance pass gave the Germanic
-      // tribes a homeland they can hold, which is worth about nine points to
-      // whoever plays them — here that is the opposition, and this stage fell
-      // from 44% to 26% on it. Dropping the third seat put it back at 44%.
-      // The stage's own text names no faction, so which three was never the
-      // point; how many of them open on the player is.
-      ai_factions: ['parthia', 'germanic_tribes'],
+      mission: { kind: 'control_regions', region_ids: ['roman_west', 'roman_east'] },
+      max_turns: 30,
+      // The lands around the inner sea, against a clock. With a mission dealt
+      // at random this stage ran 60 turns for a 68% stand-in. Against the two
+      // seats it had, the stated objective was done by turn 7 nine games in
+      // ten; Carthage in a third seat makes it 78% in 23 turns (73% expert).
+      ai_factions: ['parthia', 'germanic_tribes', 'carthage'],
       ai_difficulty: 'easy',
-      ai_count: 2,
+      ai_count: 3,
       starting_unit_modifier: 0,
-      intro_text: 'Rome is a republic, not yet an empire, and the Senate is a battlefield of factions. Foreign powers probe the borders. Your mission is not conquest — hold the regions that define Roman identity and demonstrate governance where tyrants only demand tribute.',
+      intro_text: 'Rome is a republic, not yet an empire, and the Senate is a battlefield of factions. Carthage watches the sea lanes, Parthia the eastern roads and the Germanic tribes the forests. Your mission is not conquest for its own sake: bring the lands around the inner sea under one law, and show governance where tyrants only demand tribute. Objective: hold every territory in the Roman West and the Roman East. If the thirtieth turn ends first, whoever holds the most ground has made the better case.',
       outro_win_text: 'The Republic\'s institutions hold. Revolutionary Spirit ignites: the model of citizen governance will echo through history.',
       outro_loss_text: 'The Republic fractures under pressure. But the idea survives in fragments.',
       carry_on_win: { revolutionary_spirit: 2, prestige_bonus: 1 },
@@ -400,13 +401,21 @@ const REVOLUTIONARY_FLAME: CampaignPath = {
       era: 'medieval',
       map_id: 'era_medieval',
       locked_faction: 'byzantine',
+      title: 'The Komnenian Restoration',
       allowed_victory_conditions: ['secret_mission'],
-      ai_factions: ['mongol_empire', 'hre', 'caliphate'],
-      ai_difficulty: 'medium',
-      ai_count: 3,
+      mission: { kind: 'capture_territories', territory_ids: ['anatolia_med', 'levant_crusader'] },
+      max_turns: 30,
+      // Two seats, the two the objective is taken from and defended against.
+      // Who sits decides this stage more than how well they play: with the
+      // Holy Roman Empire in a seat the stand-in won 13-23% at any level, and
+      // against the Mongols and the Caliphate on Medium it won 93%. Expert,
+      // those two give 48% in 20 turns (90% for the expert stand-in).
+      ai_factions: ['mongol_empire', 'caliphate'],
+      ai_difficulty: 'expert',
+      ai_count: 2,
       starting_unit_modifier: 0,
-      intro_text: 'Constantinople is the last ember of Rome, surrounded by Mongols from the east, Crusaders who looted your city once, and an Abbasid world that has outthought the West for centuries. Hold the capital regions. Survive through statecraft, not just swords.',
-      outro_win_text: 'Byzantium endures another century. The flame passes. The libraries survive.',
+      intro_text: 'Constantinople is the last ember of Rome. Anatolia was lost at Manzikert, the Caliphate holds the roads to the Holy Land, and the Mongols are riding in from the east. Under the Komnenoi the empire took back what it had lost, by statecraft as much as by the sword. Objective: capture Anatolia and the Crusader States, and hold both. If the thirtieth turn ends first, whoever holds the most ground keeps the purple.',
+      outro_win_text: 'Anatolia and the coast road are Roman again. Byzantium endures another century, the flame passes, and the libraries survive.',
       outro_loss_text: 'The walls fall eventually. But the books were copied.',
       carry_on_win: { revolutionary_spirit: 2, prestige_bonus: 1 },
       carry_on_loss: {},
@@ -415,14 +424,20 @@ const REVOLUTIONARY_FLAME: CampaignPath = {
       era: 'discovery',
       map_id: 'era_discovery',
       locked_faction: 'england_discovery',
+      title: 'Virginia and the Spanish Main',
       allowed_victory_conditions: ['secret_mission'],
+      mission: { kind: 'capture_territories', territory_ids: ['north_america_east', 'new_spain'] },
+      max_turns: 30,
+      // A colony and a raid: 35% in 23 turns for the stand-in, 50% for the
+      // expert one. The Atlantic route in place of New Spain was done by
+      // turn 8 in four games of five, and all of North America in none of 40.
       ai_factions: ['spain', 'ottoman', 'portugal'],
       ai_difficulty: 'medium',
       ai_count: 3,
       starting_unit_modifier: 0,
-      intro_text: 'England\'s crown is not absolute. Parliament has teeth. Merchant adventurers and privateers build an empire without kings needing to ask permission. Form an unlikely alliance with one rival power — revolutionary ideas travel on trade ships.',
-      outro_win_text: 'The Glorious Revolution is prefigured here. An alliance holds where dominance would have failed.',
-      outro_loss_text: 'Coalitions are fragile. History files this failure under "useful precedent."',
+      intro_text: 'England\'s crown is not absolute. Parliament has teeth, and merchant adventurers and privateers are building an empire without waiting for a king\'s permission: a colony on the James River, and raids on the treasure ports of New Spain. Spain and Portugal have divided the world between them, and nobody asked England. Objective: capture Eastern North America and New Spain, and hold both. If the thirtieth turn ends first, whoever holds the most ground has the better claim.',
+      outro_win_text: 'A colony that governs itself, and a Spanish treasure fleet that never reached Seville. The Glorious Revolution is prefigured here.',
+      outro_loss_text: 'The colony starves and the privateers come home empty. History files this failure under "useful precedent."',
       carry_on_win: { revolutionary_spirit: 2, prestige_bonus: 1 },
       carry_on_loss: {},
     },
@@ -434,14 +449,19 @@ const REVOLUTIONARY_FLAME: CampaignPath = {
       era: 'ww2',
       map_id: 'era_acw',
       locked_faction: 'usa',
-      allowed_victory_conditions: ['threshold'],
-      victory_threshold: 60,
-      max_turns: 40,
+      title: 'From Boston to Yorktown',
+      allowed_victory_conditions: ['secret_mission'],
+      // The seaboard, from New England to Georgia. As a 60% threshold on this
+      // 18-territory board the stage was over on turn 6 and won 8% of the
+      // time: a share any seat could cross before the player had moved. Two
+      // named territories were taken by turn 7 in four games of five.
+      mission: { kind: 'control_regions', region_ids: ['union_northeast', 'confederate_east'] },
+      max_turns: 30,
       ai_factions: ['uk', 'germany'],
       ai_difficulty: 'hard',
       ai_count: 2,
-      starting_unit_modifier: -3,
-      intro_text: 'The colonists do not want to be a province. The Crown\'s armies are professional, better-supplied, and backed by the most powerful navy in the world. You hold interior lines, local knowledge, and the desperation of people with nowhere else to go. Survive — hold 60% of the map, or lead it after forty turns — until the empire decides the cost is not worth the prize.',
+      starting_unit_modifier: 0,
+      intro_text: 'The colonists do not want to be a province. The Crown\'s armies are professional, better supplied and backed by the most powerful navy in the world, with Hessian regiments hired to fight beside them. You hold interior lines, local knowledge and the desperation of people with nowhere else to go. Objective: hold the Atlantic seaboard, every territory of the Northeast & Lakes and of the Atlantic region, from New England to Georgia. If the thirtieth turn ends first, whoever holds the most ground decides whether this was a revolution or a rebellion.',
       outro_win_text: 'Yorktown. The empire leaves. Revolutionary Spirit carries the muscle memory of asymmetric persistence.',
       outro_loss_text: 'This revolution was ahead of its time. The next one will remember this failure.',
       carry_on_win: { revolutionary_spirit: 2, prestige_bonus: 1 },
@@ -450,22 +470,22 @@ const REVOLUTIONARY_FLAME: CampaignPath = {
     {
       era: 'coldwar',
       map_id: 'era_coldwar',
-      locked_faction: 'ussr',
-      allowed_victory_conditions: ['domination'],
-      // Four seats, four named factions. A seat with no faction named plays
-      // with none: no passive, no ability, no home region, and nothing for the
-      // board to call it. The Non-Aligned Movement in the fourth: 13% for the
-      // stand-in against 20% with the seat empty (the United Kingdom there made it 35%).
-      ai_factions: ['usa_cw', 'china_cw', 'nato_proxy', 'decolonization_movement'],
-      // Same reason: the Alliance is one of this stage's opponents, and the
-      // stage dropped from 25% to 11%, a dip below the finale that follows it.
-      // Medium restores it to 19% and the path reads as a ramp again.
-      ai_difficulty: 'medium',
-      ai_count: 4,
+      title: 'Winds of Change',
+      locked_faction: 'decolonization_movement',
+      allowed_victory_conditions: ['secret_mission'],
+      mission: { kind: 'control_regions', region_ids: ['africa_cw', 'middle_east_cw'] },
+      max_turns: 35,
+      // The flame, in the Cold War, is the movement neither bloc owns. As the
+      // Soviet Union on a domination stage this ran 88 turns for a 13%
+      // stand-in. Africa and the Middle East against the two blocs and the
+      // old colonial powers: 40% in 32 turns on Easy (65% expert); 23% on Medium.
+      ai_factions: ['usa_cw', 'ussr', 'nato_proxy'],
+      ai_difficulty: 'easy',
+      ai_count: 3,
       starting_unit_modifier: 0,
-      intro_text: 'The revolution succeeded. Now defend it. Every proxy war, every satellite state is a symptom of revolutionary ideology hardening into a state apparatus. Dominate before the contradictions collapse from within.',
-      outro_win_text: 'The Soviet project endures its peak. Revolutionary Spirit turns institutional.',
-      outro_loss_text: 'The wall will come down regardless. The Flame was always bigger than one state.',
+      intro_text: 'Two blocs have divided the world, and neither asked the people who live in it. From Accra to Cairo to Bandung a third answer is taking shape: independence, and alignment with no one. You lead the movement. Washington, Moscow and the old colonial capitals of Europe each have plans for your continent. Objective: hold every territory in Africa and the Middle East. If the thirty-fifth turn ends first, whoever holds the most ground speaks for the rest.',
+      outro_win_text: 'The flags come down in one capital after another, and nobody replaces them with a superpower\'s. Revolutionary Spirit is now the vote of half the world.',
+      outro_loss_text: 'The blocs carve up the map as they meant to. The winds have not stopped blowing.',
       carry_on_win: { revolutionary_spirit: 2, prestige_bonus: 1 },
       carry_on_loss: {},
     },
@@ -473,16 +493,18 @@ const REVOLUTIONARY_FLAME: CampaignPath = {
       era: 'modern',
       map_id: 'era_modern',
       locked_faction: 'rogue_state',
+      title: 'The Last Ember',
       allowed_victory_conditions: ['secret_mission'],
-      // Four seats, four named factions. A seat with no faction named plays
-      // with none: no passive, no ability, no home region, and nothing for the
-      // board to call it. The Emerging Economy in the fourth: 13% for the
-      // stand-in against 8% with the seat empty.
+      mission: { kind: 'control_regions', region_ids: ['middle_east'] },
+      max_turns: 40,
+      // The whole of the player's own region, which the Petrostate shares:
+      // 33% in 28 turns for the stand-in (50% expert), where a mission dealt
+      // at random gave 8% (25%).
       ai_factions: ['western_power', 'eastern_bloc', 'petro_state', 'emerging_power'],
       ai_difficulty: 'expert',
       ai_count: 4,
       starting_unit_modifier: -2,
-      intro_text: 'You are small, sanctioned, and surrounded. But Revolutionary Spirit at this level makes every occupied territory a front. Eliminate one superpower\'s presence from your region and prove the Flame outlasts every empire.',
+      intro_text: 'You are small, sanctioned and surrounded. But Revolutionary Spirit at this level makes every occupied territory a front. A petrostate shares your region and four powers have interests in it. Objective: hold every territory in the Middle East & North Africa, with no other power\'s flag anywhere in it. If the fortieth turn ends first, whoever holds the most ground has outlasted the rest.',
       outro_win_text: 'The Revolutionary Flame burned through every era and refused to be extinguished. History does not belong only to the powerful.',
       outro_loss_text: 'The last ember goes out. But it lit fires history will not forget.',
       carry_on_win: { revolutionary_spirit: 2, prestige_bonus: 1 },
@@ -497,171 +519,143 @@ const LAST_DEFENDERS: CampaignPath = {
   path_id: 'last_defenders',
   name: 'The Last Defenders',
   tagline: 'Outnumbered. Outgunned. Still standing.',
-  description: 'You are always the underdog — civilizations at the moment of existential threat. Survival IS victory: you start each era outnumbered, and your Survivor Bonus adds defense dice on home ground. The hardest path. For those who believe in holding the line.',
+  description: 'You are always the underdog — civilizations at the moment of existential threat. Survival IS victory: each era you start on your homeland, outnumbered, and win by still holding it when the round you are given comes. Your Survivor Bonus adds defense dice on home ground. For those who believe in holding the line.',
   signature_carry_key: 'survivor_bonus',
   signature_carry_label: 'Survivor Bonus',
   signature_carry_max: 8,
-  difficulty: 'hardest',
+  difficulty: 'hard',
   recommended_start: false,
   guest_open: false,
   initial_carry: { survivor_bonus: 2 },
   eras: [
     {
+      // A stand: the tribes start on their forests and win by still holding
+      // them when round 12 comes. As a 55% share of the map this stage asked
+      // the defenders to out-conquer Rome. Medium seats: 63% for the stand-in
+      // in 17 turns, 75% for the expert one (88% and 95% against Easy).
       era: 'ancient',
       map_id: 'era_ancient',
+      title: 'The Teutoburg Forest',
       locked_faction: 'germanic_tribes',
-      allowed_victory_conditions: ['threshold'],
-      victory_threshold: 55,
-      max_turns: 30,
+      allowed_victory_conditions: ['secret_mission'],
+      mission: { kind: 'control_regions', region_ids: ['germanic', 'northern_frontier'], from_round: 12 },
+      max_turns: 25,
       ai_factions: ['rome', 'carthage', 'parthia'],
-      // Easy: the one setting that moves this stage, because the deal decides
-      // it. When the map merge in #586 re-dealt Asia, the tribes lost Central
-      // Steppe, their road into the Steppe region, to Parthia and drew Southern
-      // India in its place. The stand-in's wins at the 55% line fell from 29%
-      // of games to 8%, and the stage from 43% to 27%, level with this path's
-      // ww2 stage, so the opener had stopped being the way in. No deficit
-      // (-4 to 0), threshold (50 to 65) or clock (25 to 40 turns) lifted it by
-      // as much as two points, and every other choice of seats made it harder.
-      // Easy puts it at 36%: the easiest stage of this path, and still the
-      // hardest of the three openers.
-      ai_difficulty: 'easy',
+      ai_difficulty: 'medium',
       ai_count: 3,
       starting_unit_modifier: -4,
-      intro_text: 'Rome does not ask permission. Three legions have crossed the Rhine and the Senate has already declared the forests a province. You have no roads, no siege engines, and no allies — only trees, ambushes, and the knowledge that every mile the legions march is a mile they must defend. Hold 55% of the map, or simply hold more of it than Rome does when the thirtieth turn ends.',
+      intro_text: 'Rome does not ask permission. Three legions have crossed the Rhine and the Senate has already declared the forests a province. You have no roads, no siege engines and no allies: only trees, ambushes, and the knowledge that every mile the legions march is a mile they must defend. Objective: still hold every territory of the Germanic Lands and the Northern Frontier when round 12 comes. Lose one and you can take it back; if the twenty-fifth turn ends first, whoever holds the most ground owns the forest.',
       outro_win_text: 'Varus and his three legions do not return. The Rhine becomes Rome\'s permanent frontier. Survivor Bonus grows from the knowledge that terrain is a weapon.',
       outro_loss_text: 'The forests fall to engineering. But the chieftains who survived learned how Rome thinks.',
       carry_on_win: { survivor_bonus: 2, prestige_bonus: 1 },
       carry_on_loss: {},
     },
     {
+      // Three besiegers, and the Mongols are one of them again. As a capital
+      // stage they took Constantinople by turn 6 in every game; a stand lets
+      // the city fall and be retaken. Expert, three units down: 43% for the
+      // stand-in in 23 turns, 55% for the expert one (30% and 50% six down;
+      // 68% and 90% against two seats).
       era: 'medieval',
       map_id: 'era_medieval',
+      title: 'The Walls of Constantinople',
       locked_faction: 'byzantine',
-      allowed_victory_conditions: ['capital'],
-      // A clock, to bound a stage that otherwise ran to a 47-turn average with
-      // a tail at the 100-turn cap.
-      max_turns: 40,
-      // Two besiegers, not three. A capital victory means taking every other
-      // seat's capital, so a third seat was a third fortified city to storm
-      // from six units down: 0 wins in 100 games against three, 38 against
-      // two with nothing else changed.
-      // The two are the Crusaders and the Caliphate. The Mongols were one of
-      // them until every campaign seat was dealt its homeland: theirs borders
-      // Byzantium's, and with the steppe's bonus behind them they took
-      // Constantinople by turn 6 in all 40 games, whatever the difficulty,
-      // deficit or clock. They stay in the stage's text as what is coming.
-      ai_factions: ['hre', 'caliphate'],
-      // Expert and six units down put the siege where the path wants its
-      // catastrophe beat: 18% for the stand-in, 50% for the expert one, in
-      // 20-25 turns, as it measured with the Mongols before the deal changed.
+      allowed_victory_conditions: ['secret_mission'],
+      mission: { kind: 'control_regions', region_ids: ['eastern_europe'], from_round: 15 },
+      max_turns: 30,
+      ai_factions: ['hre', 'caliphate', 'mongol_empire'],
       ai_difficulty: 'expert',
-      ai_count: 2,
-      starting_unit_modifier: -6,
-      intro_text: 'The Mongols have shattered every kingdom east of the Danube and will reach the walls soon enough. The Crusaders who came to help looted your city once already, and the Caliphate\'s armies are camped outside. Hold Constantinople, then break those two armies — or simply still be holding more of the map than they do after forty turns. Let history record the city stood.',
+      ai_count: 3,
+      starting_unit_modifier: -3,
+      intro_text: 'The Mongols have shattered every kingdom east of the Danube and will reach the walls soon enough. The Crusaders who came to help looted your city once already, and the Caliphate\'s armies are camped outside. Objective: still hold every territory of Eastern Europe, Constantinople and the lands that feed it, when round 15 comes. What falls can be retaken; if the thirtieth turn ends first, whoever holds the most ground holds the city. Let history record that it stood.',
       outro_win_text: 'Constantinople survives the medieval catastrophe. The Church, the libraries, the Greek language — all preserved. Survivor Bonus carries the weight of what was saved.',
       outro_loss_text: 'The city falls in 1453 in every version of history. The libraries burned slowly.',
       carry_on_win: { survivor_bonus: 2, prestige_bonus: 1 },
       carry_on_loss: {},
     },
     {
+      // The seats decide a stand: against Spain, Portugal and England, whose
+      // homelands are a continent away, nobody came and the stand-in won 90%.
+      // The Mughals share a border. With them, Expert: 50% in 23 turns, 53%
+      // for the expert stand-in.
       era: 'discovery',
       map_id: 'era_discovery',
+      title: 'The Sea Ban',
       locked_faction: 'ming_china',
-      allowed_victory_conditions: ['threshold'],
-      victory_threshold: 60,
-      max_turns: 35,
-      // Three colonial seats. A fourth (the Mughals) was added when Ming, on
-      // a contiguous bloc, won 88% against three. Dealt their homelands the
-      // four held Ming to 0% (23% for the expert stand-in), and with the
-      // Mughals out it is 50% and 60% in 25 turns, at any deficit from three
-      // units to six.
-      ai_factions: ['spain', 'portugal', 'england_discovery'],
-      ai_difficulty: 'hard',
+      allowed_victory_conditions: ['secret_mission'],
+      mission: { kind: 'control_regions', region_ids: ['ming_china'], from_round: 15 },
+      max_turns: 30,
+      ai_factions: ['portugal', 'spain', 'mughal'],
+      ai_difficulty: 'expert',
       ai_count: 3,
       starting_unit_modifier: -3,
-      intro_text: 'Portuguese caravels probe the coast. Spanish silver buys political leverage. English merchants want trading posts that become footholds. The Yongle Emperor built a wall and burned the treasure fleet — it did not save the dynasty, but it bought time. Hold 60% of the map against three powers probing at once, or lead it when the thirty-fifth turn ends.',
+      intro_text: 'Portuguese caravels probe the coast. Spanish silver buys political leverage. On the land frontier the Mughal court is counting your garrisons. The Yongle Emperor built a wall and burned the treasure fleet: it did not save the dynasty, but it bought time. Objective: still hold every territory of Ming China when round 15 comes. What is lost can be retaken; if the thirtieth turn ends first, whoever holds the most ground writes the treaty.',
       outro_win_text: 'The Middle Kingdom holds its borders through the Age of Discovery. The isolation costs — but survival is its own kind of victory.',
       outro_loss_text: 'The treaty ports open. History files this under "unequal treaties." The dynasty survives on paper.',
       carry_on_win: { survivor_bonus: 2, prestige_bonus: 1 },
       carry_on_loss: {},
     },
     {
+      // The island and the desert, the two places Britain could not lose in
+      // 1940. Two Expert seats, five units down: 45% for the stand-in in 24
+      // turns, 68% for the expert one (57% and 68% two down). As a 55% share
+      // of the map it was 15% and 45%.
       era: 'ww2',
       map_id: 'era_ww2',
+      title: 'Their Finest Hour, 1940',
       locked_faction: 'uk',
-      allowed_victory_conditions: ['threshold'],
-      victory_threshold: 55,
+      allowed_victory_conditions: ['secret_mission'],
+      mission: { kind: 'control_regions', region_ids: ['british_isles', 'north_africa_th'], from_round: 15 },
       max_turns: 30,
-      // Two besiegers, not three, for the same reason as this path's medieval
-      // stage: the two are the ones the stage's own text has doing something.
-      // Britain alone in 1940 is not fighting Nationalist China. This stage was
-      // winnable at 24% only because the UK's homeland used to span Britain AND
-      // all of continental western Europe, which is what left Germany sharing
-      // its own homeland and unplayable; with the UK moved to its island and
-      // its real theatres, three expert seats took it to 4%. Two put it at 21%.
       ai_factions: ['germany', 'japan'],
       ai_difficulty: 'expert',
       ai_count: 2,
-      // Two units down, not five: with every seat dealt its homeland the
-      // stage fell from 23% to 8% (48% to 15% for the expert stand-in), and
-      // the smaller deficit puts it at 15% and 45%.
-      starting_unit_modifier: -2,
-      intro_text: 'Dunkirk is over. France is gone. The Luftwaffe is assembling. You hold an island, a navy, and the stubborn conviction that this is not over. The USA has not yet entered the war. Hold 55% of the map — your island, North Africa, and whatever remains of the Commonwealth lifelines — or lead it when the thirtieth turn ends.',
+      starting_unit_modifier: -5,
+      intro_text: 'Dunkirk is over. France is gone. The Luftwaffe is assembling. You hold an island, a navy, and the stubborn conviction that this is not over. The USA has not yet entered the war. Objective: still hold the British Isles and every territory of North Africa when round 15 comes: the island, and the desert road to the oil. What is lost can be retaken; if the thirtieth turn ends first, whoever holds the most ground dictates the peace.',
       outro_win_text: 'Britain stands alone and standing is enough. The Allies will come. Survivor Bonus grows from the knowledge that holding is a form of winning.',
       outro_loss_text: 'Even the darkest hour eventually ends.',
       carry_on_win: { survivor_bonus: 2, prestige_bonus: 1 },
       carry_on_loss: {},
     },
     {
+      // Four Expert seats, and a long stand: round 26 of 35. Africa has no
+      // seat's homeland on its border, so the round is the lever here: 63%
+      // for the stand-in in 30 turns and 57% for the expert one, against 80%
+      // and 73% at round 18. Dealt missions gave 20%, half of them lost to an
+      // objective the player could not see.
       era: 'coldwar',
       map_id: 'era_coldwar',
+      title: 'The Year of Africa, 1960',
       locked_faction: 'decolonization_movement',
       allowed_victory_conditions: ['secret_mission'],
-      // Four seats, four named factions. A seat with no faction named plays
-      // with none: no passive, no ability, no home region, and nothing for the
-      // board to call it. The United Kingdom in the fourth, the empire the
-      // stage's text has retreating: 18% for the stand-in against 25% with the seat empty.
+      mission: { kind: 'control_regions', region_ids: ['africa_cw'], from_round: 26 },
+      max_turns: 35,
       ai_factions: ['usa_cw', 'ussr', 'nato_proxy', 'uk_cw'],
-      ai_difficulty: 'hard',
+      ai_difficulty: 'expert',
       ai_count: 4,
       starting_unit_modifier: -3,
-      intro_text: 'The empires retreated but left their borders. The USA and USSR both want your allegiance and will destabilize your government if you refuse to choose. Control your three home regions. Do not let the superpowers\' proxy war become your civil war.',
+      intro_text: 'The empires retreated but left their borders. Washington and Moscow both want your allegiance, and each will destabilize your government if you refuse to choose. Seventeen nations raise their own flags this year. Objective: still hold every territory of Africa when round 26 comes. What is lost can be retaken; if the thirty-fifth turn ends first, whoever holds the most ground drew the borders. Do not let the superpowers\' proxy war become your civil war.',
       outro_win_text: 'Non-alignment survives the Cold War. Survivor Bonus becomes sovereignty.',
       outro_loss_text: 'The Cold War carved new nations into old wounds. But the independence movements cannot be unmade.',
       carry_on_win: { survivor_bonus: 2, prestige_bonus: 1 },
       carry_on_loss: {},
     },
     {
+      // The finale is the longest stand: round 30 of 40, against three Expert
+      // seats. 53% for the stand-in in 33 turns, 73% for the expert one. With
+      // missions dealt it was 8%, and most of those lost to a bot's.
       era: 'modern',
       map_id: 'era_modern',
+      title: 'Under Sanction',
       locked_faction: 'rogue_state',
-      // A shared land race is the one thing a seat five units down cannot
-      // win. Set as a territory threshold — alongside secret_mission, which
-      // gave each of the four AI seats two lanes to the player's one board —
-      // the stand-in took 2% of 100 games, and no knob moved it past 7%:
-      // fewer seats made it worse, because a smaller table hands every AI a
-      // bigger share of the deal. A secret mission is a private objective
-      // rather than a race, which is what this stage's own text promised all
-      // along, and it takes the finale to 10% with the difficulty left where
-      // a finale wants it.
       allowed_victory_conditions: ['secret_mission'],
-      // The 35-turn clock was cutting off the games the player was on track to
-      // win. A secret-mission stage is a race to finish a private objective,
-      // and the weakest seat on the board finishes last: at 35 turns the
-      // stand-in completed its mission in 28 of 300 games, at 50 turns in 45.
-      // Measured by mission kind, no objective was the culprit — capture,
-      // eliminate and control all landed between 6% and 11% — the player was
-      // simply slower at all of them.
-      max_turns: 50,
-      // Three superpowers, the ones the stage names. The fourth seat was added
-      // in #390 only because ai_count was 4 with three factions listed, and it
-      // is one more racer the player has to beat to the finish: an AI completed
-      // its mission first in 56% of games.
-      ai_factions: ['western_power', 'eastern_bloc', 'petro_state'],
+      mission: { kind: 'control_regions', region_ids: ['middle_east'], from_round: 30 },
+      max_turns: 40,
+      ai_factions: ['western_power', 'eastern_bloc', 'emerging_power'],
       ai_difficulty: 'expert',
       ai_count: 3,
       starting_unit_modifier: -4,
-      intro_text: 'Sanctioned, surrounded, and targeted. Precision airstrikes and economic isolation are the tools of an age that prefers clean wars. Complete the one objective that matters to you while the powers argue over who owns the map — prove that a small nation can survive a superpower\'s attention long enough to become inconvenient rather than conquerable.',
+      intro_text: 'Sanctioned, surrounded and targeted. Precision airstrikes and economic isolation are the tools of an age that prefers clean wars. Three powers are arguing over who owns the map, and your region is on every one of their tables. Objective: still hold every territory of the Middle East & North Africa when round 30 comes. What is lost can be retaken; if the fortieth turn ends first, whoever holds the most ground has won the argument. Prove that a small nation can survive a superpower\'s attention long enough to become inconvenient rather than conquerable.',
       outro_win_text: 'The Last Defenders held. Through six eras of overwhelming force, the underdog found a way. History belongs to survivors too.',
       outro_loss_text: 'Every empire needs an enemy to justify itself. The Last Defenders gave them a worthy one.',
       carry_on_win: { survivor_bonus: 2, prestige_bonus: 1 },
