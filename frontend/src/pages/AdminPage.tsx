@@ -590,6 +590,12 @@ const CLIENT_FEATURE_FLAGS = [
       'A Feedback entry in the lobby menu (the desktop top bar and the phone\'s More sheet): every signed-in player, guests included, can send a note about anything, marked as a bug, an idea or something else. Read it in the Feedback tab. Off by default; off, the entry is hidden and the server refuses general feedback.',
   },
   {
+    key: 'guest_campaign_enabled',
+    label: 'Guests in the campaign',
+    description:
+      'A guest can start and continue the campaign paths marked open to guests (Blood & Empire today; the list is in campaignPaths.ts), every stage of them. Saving the account is suggested on the campaign page and after each stage, never required, and the run is kept when the account is saved. The other paths still ask for a saved account. Watch Analytics → Campaign: "By guests" and the per-stage table. Off by default; off, a guest is offered an account instead of a campaign, as before, and a guest run already started waits until the account is saved or the switch is back on.',
+  },
+  {
     key: 'guest_leaderboards_enabled',
     label: 'Guests on the leaderboards',
     description:

@@ -23,7 +23,7 @@ import { HEGEMONY_TURNS } from '../utils/lunarHegemony';
 import { RANKED_MIN_OPPONENTS, describeRankedGameSize, getRankedOpponents, rankedEraSize, saveRankedOpponents } from '../utils/rankedPrefs';
 import { clearRankedSearchMarker, setRankedSearchMarker } from '../utils/rankedSearchMarker';
 import { guestLine } from '../utils/guestGate';
-import { useSaveAccountCopyEnabled, useGalaxyAgeBetaEnabled, useFeatureFlagsStore } from '../store/featureFlagsStore';
+import { useSaveAccountCopyEnabled, useGalaxyAgeBetaEnabled, useFeatureFlagsStore, useGuestCampaignEnabled } from '../store/featureFlagsStore';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
@@ -481,6 +481,7 @@ export default function LobbyPage() {
   const quickMatchButtonClass = !eraAdvancementLobbyEnabled || quickMatchLeads ? 'btn-primary' : 'btn-secondary';
   // The welcome banner's guest line (utils/guestGate.ts).
   const saveAccountCopy = useSaveAccountCopyEnabled();
+  const guestCampaign = useGuestCampaignEnabled();
   const guestCopy = guestLine(useGuestPromptV2Enabled(), saveAccountCopy);
   const comebackHook = useComebackHookEnabled();
   // funnel_events_v2_enabled: the welcome banner's save link, shown against pressed.
@@ -519,7 +520,8 @@ export default function LobbyPage() {
   const [campaignMeReady, setCampaignMeReady] = useState(false);
 
   const fetchCampaignMe = useCallback(async () => {
-    if (!user || user.is_guest) {
+    // A guest has a campaign to show only once guests can play one.
+    if (!user || (user.is_guest && !guestCampaign)) {
       setCampaignMe(null);
       setCampaignMeReady(true);
       return;
@@ -536,7 +538,7 @@ export default function LobbyPage() {
     }
     // Keyed on the identity, not the `user` object: the post-load profile sync
     // replaces that object and used to fire this request a second time.
-  }, [user?.user_id, user?.is_guest]);
+  }, [user?.user_id, user?.is_guest, guestCampaign]);
 
   useEffect(() => {
     void fetchCampaignMe();
@@ -2402,8 +2404,9 @@ export default function LobbyPage() {
           </div>
         )}
 
-        {/* Solo campaign — lobby CTA (context-aware) */}
-        {user?.is_guest ? (
+        {/* Solo campaign — lobby CTA (context-aware). With the campaign open
+            to guests they get the card everyone else does. */}
+        {user?.is_guest && !guestCampaign ? (
           <GuestGate
             className="mb-6"
             icon={Sword}

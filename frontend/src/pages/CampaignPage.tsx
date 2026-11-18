@@ -11,9 +11,12 @@ import {
 import { ERA_LABELS } from '../constants/gameLobbyLabels';
 import SubpageShell from '../components/ui/SubpageShell';
 import GuestGateModal from '../components/ui/GuestGateModal';
-import { CAMPAIGN_START_GATE, CAMPAIGN_START_GATE_V2, CAMPAIGN_START_GATE_SAVE, withGuestsRanked } from '../utils/guestGate';
+import {
+  CAMPAIGN_START_GATE, CAMPAIGN_START_GATE_V2, CAMPAIGN_START_GATE_SAVE, CAMPAIGN_PATH_GATE,
+  GUEST_SAVED_HERE, SAVE_ACCOUNT_LABEL, withGuestsRanked,
+} from '../utils/guestGate';
 import { useGuestPromptV2Enabled } from '../store/featureFlagsStore';
-import { useGuestLeaderboardsEnabled, useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
+import { useGuestCampaignEnabled, useGuestLeaderboardsEnabled, useSaveAccountCopyEnabled } from '../store/featureFlagsStore';
 import { ownAuthUiAllowed } from '../utils/embedContext';
 import { pendingLineChoice, type CampaignLineChoice } from '../utils/campaignLine';
 import { factionDisplayName } from '../utils/factionNames';
@@ -82,6 +85,8 @@ interface AvailablePath {
   recommended_start?: boolean;
   /** The most rounds its opening stage can run. */
   first_stage_max_turns?: number;
+  /** A guest can play it while guest_campaign_enabled is on. Absent from an older server. */
+  guest_open?: boolean;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────
@@ -133,9 +138,12 @@ function PathSelectionScreen({
   onCancel,
   starting,
   canCancel,
+  needsAccount,
 }: {
   paths: AvailablePath[];
   activePathIds: Set<string>;
+  /** For a guest who can play some paths: whether this one still needs a saved account. */
+  needsAccount?: (path: AvailablePath) => boolean;
   onSelect: (pathId: string) => void;
   onCancel: () => void;
   starting: boolean;
@@ -174,6 +182,14 @@ function PathSelectionScreen({
                         data-testid="campaign-path-start-here"
                       >
                         Start here
+                      </span>
+                    )}
+                    {needsAccount?.(path) && (
+                      <span
+                        className="ml-1 text-[10px] uppercase tracking-widest text-bf-muted bg-bf-surface border border-bf-border rounded-full px-2 py-0.5"
+                        data-testid="campaign-path-needs-account"
+                      >
+                        Needs a saved account
                       </span>
                     )}
                   </div>
@@ -401,6 +417,7 @@ export default function CampaignPage() {
   const guestPromptV2 = useGuestPromptV2Enabled();
   const saveAccountCopy = useSaveAccountCopyEnabled();
   const guestsRanked = useGuestLeaderboardsEnabled();
+  const guestCampaign = useGuestCampaignEnabled();
   // Choosing a path used to create and open the Era 1 game on the spot, with
   // no settings shown and no way back; the run then sat in HQ as "active"
   // (PT-017). The choice now opens a confirmation first.
@@ -441,12 +458,18 @@ export default function CampaignPage() {
 
   const selectedCampaign = selectedId ? campaigns.find((c) => c.campaign_id === selectedId) ?? null : null;
 
+  /** Whether this guest can play the path: the flag is on and the server marks it open. */
+  const guestMayPlay = (pathId?: string): boolean =>
+    guestCampaign && !!pathId && availablePaths.find((p) => p.path_id === pathId)?.guest_open === true;
+
   const handleStartWithPath = async (pathId?: string) => {
     // A guest may browse campaigns (GET /campaign/list and /paths take any
     // authenticated caller) but not start one — POST /campaign/start carries
     // `rejectGuest` and answers 403. Intercepting here turns that dead end into
     // the account offer at the moment they have chosen a campaign and pressed go.
-    if (isGuest) {
+    // With guest_campaign_enabled the server lets a guest into the paths it
+    // marks open; any other still gets the offer.
+    if (isGuest && !guestMayPlay(pathId)) {
       setShowGuestGate(true);
       return;
     }
@@ -492,6 +515,13 @@ export default function CampaignPage() {
           This creates your first era&apos;s game and opens it. The run stays in Campaign HQ, and a stage
           you leave part-way is kept there to pick up.
         </p>
+        {/* A guest can play on; saving is offered, never required. */}
+        {isGuest && ownAuthUiAllowed() && (
+          <p className="text-xs text-bf-muted -mt-3 mb-5" data-testid="campaign-start-guest-note">
+            {GUEST_SAVED_HERE}. You can save your account at any point to keep this campaign safe and play it
+            on any device.
+          </p>
+        )}
         <div className="flex gap-3">
           <button type="button" className="btn-secondary flex-1" onClick={() => setPendingStart(null)}>
             Not yet
@@ -629,7 +659,10 @@ export default function CampaignPage() {
   // positioning means it does not matter where in the tree it sits.
   // The gate's only action is creating an account, which a CrazyGames embed
   // forbids — so there it is not offered at all.
-  const gateCopy = saveAccountCopy ? CAMPAIGN_START_GATE_SAVE : guestPromptV2 ? CAMPAIGN_START_GATE_V2 : CAMPAIGN_START_GATE;
+  // With the campaign open to guests the offer is about one path, not all of them.
+  const gateCopy = guestCampaign && availablePaths.some((p) => p.guest_open)
+    ? CAMPAIGN_PATH_GATE
+    : saveAccountCopy ? CAMPAIGN_START_GATE_SAVE : guestPromptV2 ? CAMPAIGN_START_GATE_V2 : CAMPAIGN_START_GATE;
   const guestGate = showGuestGate && ownAuthUiAllowed() ? (
     <GuestGateModal
       copy={guestsRanked ? withGuestsRanked(gateCopy) : gateCopy}
@@ -654,12 +687,13 @@ export default function CampaignPage() {
             paths={availablePaths}
             activePathIds={activePathIds}
             onSelect={(pathId) => {
-              // A guest cannot start one at all: the account offer, not a confirm.
-              if (isGuest) { setShowGuestGate(true); return; }
+              // A guest gets the account offer, not a confirm, for a path not open to them.
+              if (isGuest && !guestMayPlay(pathId)) { setShowGuestGate(true); return; }
               const path = availablePaths.find((p) => p.path_id === pathId);
               setPendingStart({ pathId, name: path?.name ?? 'Campaign', tagline: path?.tagline });
             }}
             onCancel={() => setShowPathSelection(false)}
+            needsAccount={isGuest && guestCampaign ? (path) => !path.guest_open : undefined}
             starting={starting}
             canCancel={campaigns.length > 0}
           />
@@ -692,6 +726,23 @@ export default function CampaignPage() {
           {campaign.path_config && (
             <div className={`mb-4 p-3 rounded-lg border ${pathAccentColor(campaign.path_id)}`}>
               <p className="text-sm text-bf-muted italic">{campaign.path_config.tagline}</p>
+            </div>
+          )}
+
+          {/* A guest's run lives on this device until the account is saved:
+              said here, where the run is, and never in the way of playing it. */}
+          {isGuest && ownAuthUiAllowed() && campaign.status === 'active' && (
+            <div
+              className="mb-4 p-3 rounded-lg border border-bf-gold/30 bg-bf-gold/5 flex flex-col sm:flex-row sm:items-center gap-3"
+              data-testid="campaign-guest-save"
+            >
+              <p className="text-sm text-bf-text flex-1">
+                {GUEST_SAVED_HERE}. Save your account to keep this campaign safe, pick it up on any device and
+                open the other paths.
+              </p>
+              <button type="button" className="btn-secondary flex-shrink-0" onClick={() => navigate('/upgrade')}>
+                {SAVE_ACCOUNT_LABEL}
+              </button>
             </div>
           )}
 

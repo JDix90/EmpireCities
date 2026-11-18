@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { v4 as uuidv4 } from 'uuid';
 import { authenticate } from '../../middleware/authenticate';
-import { rejectGuest } from '../../middleware/rejectGuest';
+import { rejectGuestUnless } from '../../middleware/rejectGuest';
 import { query, queryOne } from '../../db/postgres';
 import {
   type PathId,
@@ -13,6 +13,7 @@ import {
   getPathEraConfig,
   resolveLineId,
   describeLineChoice,
+  pathOpenToGuests,
 } from './campaignPaths';
 import { applyAdminSnapshotsToSettings } from '../../services/adminConfig';
 import { DEFAULT_CARD_SET_BONUS_CAP } from '../../game-engine/combat/combatResolver';
@@ -20,6 +21,15 @@ import { featureFlags } from '../../config/featureFlags';
 import { campaignClockSettings } from './campaignClock';
 import { recordServerEvent } from '../../services/analyticsEvents';
 import { describeCampaignCarry } from './campaignCarryEffects';
+
+/**
+ * Guests reach the campaign only while guest_campaign_enabled is on, and then
+ * only the paths marked open to them (campaignPaths `guest_open`). Read on
+ * every request, so the flag turned off closes the routes to guests at once.
+ */
+const guestsWithFlag = rejectGuestUnless(() => featureFlags.guestCampaignEnabled);
+/** A guest asking for a path that still needs a saved account. */
+const GUEST_PATH_CLOSED = { error: 'Save your account to play this campaign', code: 'guest_path_closed' } as const;
 
 const CAMPAIGN_ERAS = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern'] as const;
 /** A stage that cannot be won by turn 100 is a stalemate, not a campaign. */
@@ -61,13 +71,16 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
    * POST /api/campaign/start
    * Start a new campaign. Accepts optional `path_id` to begin a narrative path.
    */
-  app.post('/start', { preHandler: [authenticate, rejectGuest] }, async (req, reply) => {
+  app.post('/start', { preHandler: [authenticate, guestsWithFlag] }, async (req, reply) => {
     const userId = (req as any).userId as string;
     const body = (req.body ?? {}) as { path_id?: string };
     const pathId = body.path_id as PathId | undefined;
 
     if (pathId && !CAMPAIGN_PATHS[pathId]) {
       return reply.status(400).send({ error: 'Invalid path_id' });
+    }
+    if (req.isGuest === true && !pathOpenToGuests(pathId)) {
+      return reply.status(403).send(GUEST_PATH_CLOSED);
     }
 
     // Prevent two active campaigns on the SAME path — each path has unique narrative
@@ -148,7 +161,7 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
    * POST /api/campaign/continue
    * Create the next era game for an active campaign.
    */
-  app.post('/continue', { preHandler: [authenticate, rejectGuest] }, async (req, reply) => {
+  app.post('/continue', { preHandler: [authenticate, guestsWithFlag] }, async (req, reply) => {
     const userId = (req as any).userId as string;
     const body = (req.body ?? {}) as { campaign_id?: string; line?: string };
     const requestedId = body.campaign_id;
@@ -184,6 +197,9 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
           [userId],
         );
     if (!campaign) return reply.status(404).send({ error: 'No active campaign' });
+    if (req.isGuest === true && !pathOpenToGuests(campaign.path_id)) {
+      return reply.status(403).send(GUEST_PATH_CLOSED);
+    }
 
     const eraIndex = campaign.current_era_index;
     if (eraIndex >= CAMPAIGN_ERAS.length) {
@@ -588,6 +604,8 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
         // how long its opening stage can run (its own clock, or the campaign's).
         difficulty: p.difficulty,
         recommended_start: p.recommended_start,
+        // Whether a guest can play it while guest_campaign_enabled is on.
+        guest_open: p.guest_open,
         first_stage_max_turns: p.eras[0]?.max_turns ?? CAMPAIGN_STAGE_MAX_TURNS,
       })),
     );

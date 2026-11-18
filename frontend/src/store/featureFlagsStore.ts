@@ -50,6 +50,7 @@ export interface ClientFeatureFlags {
   fit_board_camera_enabled: boolean;
   globe_unit_counts_enabled: boolean;
   guest_leaderboards_enabled: boolean;
+  guest_campaign_enabled: boolean;
   guest_daily_board_enabled: boolean;
   first_attack_hint_enabled: boolean;
   tutorial_handoff_enabled: boolean;
@@ -198,6 +199,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   globe_unit_counts_enabled: false,
   // Guests appear on the leaderboards and see their own ratings. Dark-launched OFF.
   guest_leaderboards_enabled: false,
+  // Guests can play the campaign paths open to them. Dark-launched OFF.
+  guest_campaign_enabled: false,
   // Guest runs are ranked on the Daily Challenge board. Dark-launched OFF.
   guest_daily_board_enabled: false,
   // A first match's attack tip names one attack and the map rings it. Dark-launched OFF.
@@ -517,6 +520,11 @@ export function useFitBoardCameraEnabled(): boolean {
 /** Army counts on the globe, where they have room (utils/globeUnitCounts.ts). */
 export function useGlobeUnitCountsEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.globe_unit_counts_enabled);
+}
+
+/** Guests can start and continue the campaign paths the server marks open to them. */
+export function useGuestCampaignEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.guest_campaign_enabled);
 }
 
 /** Guests are ranked on the leaderboards and see their own ratings. */

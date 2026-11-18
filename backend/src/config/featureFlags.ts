@@ -253,6 +253,8 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   globe_unit_counts_enabled: () => envOptIn('GLOBE_UNIT_COUNTS_ENABLED'),
   // Guest accounts appear on the leaderboards and see their own ratings.
   guest_leaderboards_enabled: () => envOptIn('GUEST_LEADERBOARDS_ENABLED'),
+  // Guests can play the campaign paths marked open to them.
+  guest_campaign_enabled: () => envOptIn('GUEST_CAMPAIGN_ENABLED'),
   // Guest runs are ranked on the Daily Challenge board.
   guest_daily_board_enabled: () => envOptIn('GUEST_DAILY_BOARD_ENABLED'),
   // A first match's attack tip names one attack and the map rings it (client-only).
@@ -2131,6 +2133,19 @@ export const featureFlags = {
   },
 
   /**
+   * Guests in the campaign. Off, `POST /campaign/start` and `/continue` refuse
+   * a guest, as they always have. On, a guest can start and continue the paths
+   * marked `guest_open` in modules/campaign/campaignPaths.ts, every stage of
+   * them: saving the account is offered along the way and never required. A
+   * path not marked open still needs a saved account. The run lives on the
+   * guest account, so it is kept when that account is saved. Default OFF;
+   * `GUEST_CAMPAIGN_ENABLED=true` or the admin override turns it on.
+   */
+  get guestCampaignEnabled(): boolean {
+    return overrideBool('guest_campaign_enabled');
+  },
+
+  /**
    * Guests on the Daily Challenge board: a guest's run is ranked on today's
    * board and the archive's like an account's, counted in "N attempted", and
    * the guest is told their real place (modules/daily). Separate from
@@ -2286,6 +2301,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     fit_board_camera_enabled: featureFlags.fitBoardCameraEnabled,
     globe_unit_counts_enabled: featureFlags.globeUnitCountsEnabled,
     guest_leaderboards_enabled: featureFlags.guestLeaderboardsEnabled,
+    guest_campaign_enabled: featureFlags.guestCampaignEnabled,
     guest_daily_board_enabled: featureFlags.guestDailyBoardEnabled,
     first_attack_hint_enabled: featureFlags.firstAttackHintEnabled,
     tutorial_handoff_enabled: featureFlags.tutorialHandoffEnabled,

@@ -79,6 +79,12 @@ export interface CampaignPath {
   /** The path the selection screen marks as the one to start with. Exactly one. */
   recommended_start: boolean;
   /**
+   * A guest can play the path while `guest_campaign_enabled` is on. Open a
+   * path once every stage of it states its goal, runs on a clock and sits on
+   * a measured difficulty curve: a guest's first campaign is this one.
+   */
+  guest_open: boolean;
+  /**
    * Carry the path starts stage one holding. A path whose stages hand the
    * player a starting-unit deficit has to hand them the compensating stat with
    * it, or stage one is the only stage played without the thing the path is
@@ -253,6 +259,7 @@ const BLOOD_EMPIRE: CampaignPath = {
   signature_carry_max: 12,
   difficulty: 'standard',
   recommended_start: true,
+  guest_open: true,
   // Rome starts the path at full strength and takes no deficit anywhere in it,
   // so prestige is purely earned.
   initial_carry: {},
@@ -365,6 +372,7 @@ const REVOLUTIONARY_FLAME: CampaignPath = {
   signature_carry_max: 10,
   difficulty: 'hard',
   recommended_start: false,
+  guest_open: false,
   initial_carry: { revolutionary_spirit: 2 },
   eras: [
     {
@@ -495,6 +503,7 @@ const LAST_DEFENDERS: CampaignPath = {
   signature_carry_max: 8,
   difficulty: 'hardest',
   recommended_start: false,
+  guest_open: false,
   initial_carry: { survivor_bonus: 2 },
   eras: [
     {
@@ -674,6 +683,11 @@ export const CAMPAIGN_PATH_LIST: CampaignPath[] = [
   REVOLUTIONARY_FLAME,
   LAST_DEFENDERS,
 ];
+
+/** Whether a guest may play this path. The classic campaign, with no path, is never open. */
+export function pathOpenToGuests(pathId: string | null | undefined): boolean {
+  return !!pathId && CAMPAIGN_PATHS[pathId as PathId]?.guest_open === true;
+}
 
 /**
  * The line a campaign plays: the one it stored if the path still offers it,

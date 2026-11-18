@@ -205,6 +205,18 @@ export const CAMPAIGN_START_GATE_SAVE: GuestGateCopy = {
   ],
 };
 
+/**
+ * A campaign path a guest cannot play yet, with `guest_campaign_enabled` on:
+ * another path is open to them, so this says which and what saving adds.
+ */
+export const CAMPAIGN_PATH_GATE: GuestGateCopy = {
+  title: 'This path needs a saved account',
+  body:
+    'You can play the path marked "Start here" right now, as a guest. The other paths open once your '
+    + `account is saved. ${GUEST_SAVED_HERE}; save your account to keep it safe and to play every path.`,
+  bullets: CAMPAIGN_START_GATE_SAVE.bullets,
+};
+
 /** LEADERBOARD_GUEST_NOTICE under `save_account_copy_enabled`. */
 export const LEADERBOARD_GUEST_NOTICE_SAVE: GuestGateCopy = {
   title: 'Guests do not appear on the leaderboards',
