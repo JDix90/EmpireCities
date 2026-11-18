@@ -12,12 +12,19 @@ import { useGalaxyAgeBetaEnabled } from '../../store/featureFlagsStore';
 import { withGalacticAgeLabel } from '../../constants/galacticAgeAccess';
 import { Loader2 } from 'lucide-react';
 
-// Distinct region colors for preview
+// Distinct region colors for preview. Sixteen, so a board of up to sixteen
+// regions (The 14 Nations, Space Age, Ancient World) shows each in its own colour.
 const REGION_COLORS = [
   '#E74C3C', '#3498DB', '#2ECC71', '#F39C12',
   '#9B59B6', '#1ABC9C', '#E67E22', '#E91E63',
   '#00BCD4', '#8BC34A', '#FF5722', '#607D8B',
+  '#FFC107', '#3F51B5', '#795548', '#CDDC39',
 ];
+
+// Territory borders are dark, so the territories of one region read as separate
+// shapes at thumbnail size; a faint white line vanished between same-coloured
+// neighbours, and a 62-territory board looked like its 14 regions.
+const TERRITORY_BORDER = '#0B0F14';
 
 interface MapPreviewProps {
   mapId: string;
@@ -150,8 +157,10 @@ export default function MapPreview({
               key={t.territory_id}
               points={points}
               fill={isHov ? color : color + 'CC'}
-              stroke={isHov ? '#FFFFFF' : '#FFFFFF44'}
-              strokeWidth={isHov ? 1.5 : 0.5}
+              stroke={isHov ? '#FFFFFF' : TERRITORY_BORDER}
+              strokeOpacity={isHov ? 1 : 0.85}
+              strokeWidth={isHov ? 1.5 : 1}
+              strokeLinejoin="round"
               className="cursor-pointer transition-all duration-100"
               onMouseEnter={() => {
                 setHovered(t.territory_id);
