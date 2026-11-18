@@ -97,12 +97,14 @@ import AdvanceEraPanel from '../components/game/AdvanceEraPanel';
 import GameChat from '../components/game/GameChat';
 import MobileCardsTray from '../components/game/MobileCardsTray';
 import FirstTurnCoach from '../components/game/FirstTurnCoach';
-import { useCoachTipsEnabled, useFirstAttackHintEnabled, useFirstMatchButtonEmphasisEnabled } from '../store/featureFlagsStore';
+import { useCoachTipsEnabled, useFirstAttackHintEnabled, useFirstMatchButtonEmphasisEnabled, useTutorialHandoffEnabled } from '../store/featureFlagsStore';
 import { useCardSetsExplainEnabled } from '../store/featureFlagsStore';
 import { useOverlayQueueEnabled } from '../store/featureFlagsStore';
 import { planOverlays } from '../utils/overlayQueue';
 import { cardSetBonus, findRedeemableCardIds } from '../utils/cardSets';
 import CoachTipStrip from '../components/game/CoachTipStrip';
+import HandoffGoalStrip from '../components/game/HandoffGoalStrip';
+import { isTutorialHandoffGame, tutorialHandoffGoalLine } from '../utils/tutorialHandoff';
 import { firstAttackOpen, firstAttackRingId, suggestFirstAttack, type FirstAttackHint } from '../utils/firstAttackHint';
 import {
   coachTipFor,
@@ -820,6 +822,15 @@ export default function GamePage() {
   const buttonEmphasisFlag = useFirstMatchButtonEmphasisEnabled();
   const [coachTipsChoice, setCoachTipsChoice] = useState<CoachTipsChoice | null>(readCoachTipsChoice);
   const [coachTipsDone, setCoachTipsDone] = useState(readCoachTipsDone);
+  // The match the tutorial handed this tab to (tutorial_handoff_enabled,
+  // utils/tutorialHandoff.ts) opens on the board, so the briefing never asks
+  // about tips: they are on, as its main button has them, unless the player
+  // has already said. Its goal shows in one line until the player opens one of
+  // their territories (the tips then take over) or places a unit.
+  const tutorialHandoffFlag = useTutorialHandoffEnabled();
+  const tutorialHandoff = useMemo(() => tutorialHandoffFlag && isTutorialHandoffGame(gameId), [tutorialHandoffFlag, gameId]);
+  const tipsChoice: CoachTipsChoice | null = coachTipsChoice ?? (tutorialHandoff ? 'on' : null);
+  const [handoffGoalClosedFor, setHandoffGoalClosedFor] = useState<string | null>(null);
   // The suggested first attack (first_attack_hint_enabled, utils/firstAttackHint.ts):
   // a first match's attack phase, on the player's turn, before their attack.
   const firstAttackHintFlag = useFirstAttackHintEnabled();
@@ -875,6 +886,16 @@ export default function GamePage() {
       return next;
     });
   }, [coachView]);
+  const handoffDraftPoolRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!tutorialHandoff || !coachView || !gameId) return;
+    const drafting = coachView.myTurn && coachView.phase === 'draft';
+    const prev = handoffDraftPoolRef.current;
+    handoffDraftPoolRef.current = drafting ? coachView.draftPool : null;
+    if (drafting && (coachView.ownTerritorySelected || (prev != null && coachView.draftPool < prev))) {
+      setHandoffGoalClosedFor(gameId);
+    }
+  }, [tutorialHandoff, coachView, gameId]);
   const chooseCoachTips = useCallback((choice: CoachTipsChoice, via: 'briefing' | 'strip') => {
     setCoachTipsChoice(choice);
     writeCoachTipsChoice(choice);
@@ -1073,11 +1094,13 @@ export default function GamePage() {
           first_match: String((gameState.settings as { first_match?: boolean } | undefined)?.first_match === true),
           layout: isMobileLayout ? 'phone' : 'desktop',
           seconds: String(Math.round((Date.now() - ft.since) / 1000)),
+          // No briefing to close in the tutorial's match (tutorial_handoff_enabled).
+          ...(tutorialHandoff ? { tutorial_handoff: 'true' } : {}),
         },
       }).catch(() => {});
     }
     ft.prev = view;
-  }, [firstTurnEvents, funnelEventsV2, gameId, gameState, viewerPlayer, showStartModal, selectedTerritory, draftUnitsRemaining, isMobileLayout]);
+  }, [firstTurnEvents, funnelEventsV2, gameId, gameState, viewerPlayer, showStartModal, selectedTerritory, draftUnitsRemaining, isMobileLayout, tutorialHandoff]);
 
   // ── Globe-readiness turn-timer ack (B-06) ────────────────────────────────
   // The server starts the turn timer the instant a turn begins, but the 3D
@@ -1143,6 +1166,8 @@ export default function GamePage() {
     const viewerId = resolvedViewerPlayerIdRef.current ?? userRef.current?.user_id ?? null;
     if (!viewerId || !gameState.players.some((p) => p.player_id === viewerId)) return;
     startModalShownRef.current = true;
+    // The match the tutorial handed this tab to opens on the board.
+    if (tutorialHandoff) return;
     const storageKey = `bf-start-modal:${gameId}`;
     try {
       if (sessionStorage.getItem(storageKey)) return; // already seen (e.g. mid-turn-1 reload)
@@ -1150,7 +1175,12 @@ export default function GamePage() {
     } catch { /* storage unavailable — still show the modal */ }
     startModalOpenRef.current = true;
     setShowStartModal(true);
-  }, [gameState, gameId]);
+  }, [gameState, gameId, tutorialHandoff]);
+
+  /** The tutorial's match: its goal in the tip's place, on the player's first reinforcement until their first move. */
+  const handoffGoalVisible =
+    tutorialHandoff && handoffGoalClosedFor !== gameId && !showStartModal
+    && gameState?.turn_number === 1 && coachView?.myTurn === true && coachView.phase === 'draft';
 
   // 2D map and galaxy overview render immediately (no WebGL init), so treat
   // them as "map ready" for the turn-timer ack without waiting on onGlobeReady.
@@ -3260,7 +3290,7 @@ export default function GamePage() {
   // The suggested first attack shows only while its tip does: tips chosen, and
   // its step not yet retired (the strip below, coachTipFor).
   const visibleFirstAttack =
-    coachTipsFlag && coachTipsChoice === 'on' && !showStartModal && !coachTipsDone.has('first_attack')
+    coachTipsFlag && tipsChoice === 'on' && !showStartModal && !coachTipsDone.has('first_attack')
       ? coachView?.firstAttack ?? null
       : null;
   visibleFirstAttackRef.current = visibleFirstAttack?.hint ?? null;
@@ -6716,10 +6746,20 @@ export default function GamePage() {
           A phone shows it in the turn strip instead (M-12 phase 2). */}
       {!isMobileLayout && <ActionNotification key={notifState?.key} data={notifState?.data ?? null} />}
 
+      {/* The tutorial's match (tutorial_handoff_enabled): its goal in one line,
+          in the tip's place, until the player opens one of their territories. */}
+      {handoffGoalVisible && gameState && (
+        <HandoffGoalStrip
+          text={tutorialHandoffGoalLine(mapControlProgress(gameState, viewerPlayer?.player_id ?? null))}
+          playerColor={viewerPlayer?.color}
+          onClose={() => setHandoffGoalClosedFor(gameId ?? null)}
+        />
+      )}
+
       {/* Coach tips (coach_tips_enabled): the next step in one line, once the
           player has asked for tips; each step retires once done. */}
       {(() => {
-        if (!coachTipsFlag || coachTipsChoice !== 'on' || isTutorial || showStartModal || !coachView) return null;
+        if (!coachTipsFlag || tipsChoice !== 'on' || isTutorial || showStartModal || !coachView || handoffGoalVisible) return null;
         if (gameState?.phase === 'game_over') return null;
         const tip = coachTipFor(coachView, coachTipsDone);
         if (!tip) return null;

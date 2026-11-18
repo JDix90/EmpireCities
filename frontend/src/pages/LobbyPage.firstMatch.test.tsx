@@ -8,6 +8,7 @@ import { FIRST_MATCH_BUTTON_LINE, POST_TUTORIAL_MATCH_PATH } from '../utils/firs
 import { LADDER_MAP_BATTLES, LADDER_RUNG_2_BUTTON_LINE } from '../utils/ladder';
 import { QUICK_MATCH_ERAS } from '../constants/lobbyMapOptions';
 import { saveQuickMatchPrefs } from '../utils/quickMatchPrefs';
+import { isTutorialHandoffGame } from '../utils/tutorialHandoff';
 
 const getMock = vi.fn();
 const postMock = vi.fn();
@@ -89,6 +90,7 @@ async function startQuickMatch(line: RegExp | string) {
 describe('LobbyPage first match', () => {
   beforeEach(() => {
     localStorage.clear();
+    sessionStorage.clear();
     getMock.mockReset();
     postMock.mockReset();
     navigateMock.mockReset();
@@ -285,6 +287,22 @@ describe('LobbyPage first match', () => {
     expect(body.settings.first_match).toBe(true);
     await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/game/g1'));
     expect(postMock.mock.calls.filter(([url]) => url === '/games')).toHaveLength(1);
+  });
+
+  it('notes the match it starts for the tutorial (GamePage reads tutorial_handoff_enabled)', async () => {
+    setFlag(true);
+    finishedGames(0);
+    renderLobby(POST_TUTORIAL_MATCH_PATH);
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/game/g1'));
+    expect(isTutorialHandoffGame('g1')).toBe(true);
+  });
+
+  it("notes nothing for the ladder's Next battle", async () => {
+    setFlag(true);
+    finishedGames(0);
+    renderLobby('/lobby?play=quick');
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/game/g1'));
+    expect(isTutorialHandoffGame('g1')).toBe(false);
   });
 
   it('starts nothing on a plain lobby visit', async () => {
