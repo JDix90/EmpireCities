@@ -25,6 +25,7 @@ import {
   parseFunnelDevice,
   parseFunnelPlatform,
   getPlatformBreakdown,
+  getCampaignMetrics,
 } from './analyticsQueries';
 
 describe('analyticsQueries', () => {
@@ -289,6 +290,21 @@ describe('analyticsQueries', () => {
     expect(sql).toMatch(/e\.created_at::date = f\.d0 \+ 1\s+AND e\.event NOT IN \('retention_notification_sent'/);
   });
 
+  it('getCampaignMetrics reads one row per path from the campaign events, leaving out test accounts', async () => {
+    queryMock.mockResolvedValueOnce([
+      { path: 'blood_empire', started: '3', guest_started: 1, stage_games: 5, stage_finished: 4, stage_won: 2, stage1_won: 2, completed: 0, median_rounds: '21.5' },
+      { path: 'classic', started: 1, guest_started: 0, stage_games: 1, stage_finished: 0, stage_won: 0, stage1_won: 0, completed: 0, median_rounds: null },
+    ]);
+    expect(await getCampaignMetrics(30)).toEqual([
+      { path: 'blood_empire', started: 3, guest_started: 1, stage_games: 5, stage_finished: 4, stage_won: 2, stage1_won: 2, completed: 0, median_rounds: 21.5 },
+      { path: 'classic', started: 1, guest_started: 0, stage_games: 1, stage_finished: 0, stage_won: 0, stage1_won: 0, completed: 0, median_rounds: null },
+    ]);
+    const [sql, params] = queryMock.mock.calls[0]!;
+    expect(String(sql)).toContain("'campaign_stage_finished'");
+    expect(String(sql)).toContain('exclude_from_stats');
+    expect(params).toEqual([30]);
+  });
+
   it('getFirstMatchStats reads zeros on an empty window', async () => {
     queryMock.mockResolvedValueOnce([{}]);
     expect(await getFirstMatchStats(30)).toEqual({ started: 0, finished: 0, won: 0, next_day_cohort: 0, next_day: 0 });
@@ -398,10 +414,16 @@ describe('analyticsQueries', () => {
       ])
       .mockResolvedValueOnce([
         { platform: 'web', signups: 3, started_game: 2, finished_game: 1, upgraded: 1, d1_cohort: 3, d1: 1, opened: 4 },
+      ])
+      .mockResolvedValueOnce([
+        { path: 'blood_empire', started: 2, guest_started: 1, stage_games: 3, stage_finished: 2, stage_won: 1, stage1_won: 1, completed: 0, median_rounds: '19' },
       ]);
     queryOneMock.mockResolvedValueOnce({ total: 42 });
 
     const r = await getAnalyticsReport(30);
+    expect(r.campaign).toEqual([
+      { path: 'blood_empire', started: 2, guest_started: 1, stage_games: 3, stage_finished: 2, stage_won: 1, stage1_won: 1, completed: 0, median_rounds: 19 },
+    ]);
     expect(r.window_days).toBe(30);
     expect(r.device).toBeNull();
     expect(r.platform).toBeNull();

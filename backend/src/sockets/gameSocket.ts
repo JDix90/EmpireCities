@@ -5328,11 +5328,15 @@ async function handleCampaignCompletion(io: Server, gameId: string, state: GameS
     path_id: string | null;
     path_carry: Record<string, number>;
     path_narrative: Record<string, string>;
+    failed_era_attempts: number | null;
+    is_guest: boolean | null;
   }>(
     `SELECT uc.campaign_id, uc.user_id, uc.current_era_index, uc.prestige_points,
-            uc.path_id, uc.path_carry, uc.path_narrative
+            uc.path_id, uc.path_carry, uc.path_narrative, uc.failed_era_attempts,
+            u.is_guest
      FROM user_campaigns uc
      JOIN campaign_entries ce ON ce.campaign_id = uc.campaign_id
+     LEFT JOIN users u ON u.user_id = uc.user_id
      WHERE ce.game_id = $1 AND uc.status = 'active'
      LIMIT 1`,
     [gameId],
@@ -5343,6 +5347,24 @@ async function handleCampaignCompletion(io: Server, gameId: string, state: GameS
   const eraIndex = campaignRow.current_era_index;
   const narrativeKey = `era_${eraIndex}_outcome`;
   const updatedNarrative = { ...campaignRow.path_narrative, [narrativeKey]: won ? 'won' : 'lost' };
+  const { campaignStageFinishedProperties } = await import('../modules/campaign/campaignEvents');
+  recordServerEvent(
+    'campaign_stage_finished',
+    campaignStageFinishedProperties({
+      campaignId: campaignRow.campaign_id,
+      pathId: campaignRow.path_id,
+      isGuest: campaignRow.is_guest === true,
+      eraIndex,
+      eraId: state.era,
+      gameId,
+      won,
+      rounds: state.turn_number,
+      gameStartedAt: state.game_started_at,
+      endedBy: state.victory_condition,
+      failedAttempts: campaignRow.failed_era_attempts,
+    }),
+    campaignRow.user_id,
+  );
 
   await query(
     `INSERT INTO campaign_entries (id, campaign_id, era_id, game_id, won, completed_at)
@@ -5386,6 +5408,16 @@ async function handleCampaignCompletion(io: Server, gameId: string, state: GameS
          WHERE campaign_id = $4
          RETURNING failed_era_attempts`,
         [newPrestige, JSON.stringify(updatedCarry), JSON.stringify(updatedNarrative), campaignRow.campaign_id],
+      );
+      recordServerEvent(
+        'campaign_completed',
+        {
+          campaign_id: campaignRow.campaign_id,
+          path_id: campaignRow.path_id ?? 'classic',
+          is_guest: campaignRow.is_guest === true,
+          failed_attempts: completed?.failed_era_attempts ?? null,
+        },
+        campaignRow.user_id,
       );
       // Perfect Campaign: every era won at the first attempt. NULL is a
       // campaign begun before attempts were counted, which cannot show that.
@@ -5610,6 +5642,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
         // targets) and measure guest finish → upgrade conversion.
         is_guest: resultCtx.guestPlayerIds.has(human.player_id),
         first_match: state.settings.first_match === true,
+        is_campaign: state.settings.is_campaign === true,
         // Which bots the game was against: 'turn_limit' in victory_type is a
         // game the round cap decided.
         ai_difficulty: gameAiDifficulty(state.players),

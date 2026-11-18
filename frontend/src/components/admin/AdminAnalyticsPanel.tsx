@@ -81,6 +81,26 @@ const PROMPT_SURFACE_LABELS: Record<string, string> = {
   lobby_banner: 'Lobby card',
   today_panel: 'Today panel',
 };
+/** One campaign path in the window (backend services/analyticsQueries.ts). */
+export interface CampaignPathRow {
+  path: string;
+  started: number;
+  guest_started: number;
+  stage_games: number;
+  stage_finished: number;
+  stage_won: number;
+  stage1_won: number;
+  completed: number;
+  median_rounds: number | null;
+}
+
+const CAMPAIGN_PATH_LABEL: Record<string, string> = {
+  blood_empire: 'Blood & Empire',
+  revolutionary_flame: 'The Revolutionary Flame',
+  last_defenders: 'The Last Defenders',
+  classic: 'Classic',
+};
+
 export interface FirstMatchStats {
   started: number;
   finished: number;
@@ -230,6 +250,8 @@ export interface AnalyticsReport {
   completion: CompletionStats;
   /** Optional for rollout: older backends won't send it. */
   first_match?: FirstMatchStats;
+  /** Optional for rollout: older backends won't send it. */
+  campaign?: CampaignPathRow[];
   /** Optional for rollout: older backends won't send it. */
   solo_by_level?: SoloLevelRow[];
   volume: EventVolumeRow[];
@@ -751,6 +773,54 @@ export default function AdminAnalyticsPanel({
             A first match is a player&apos;s first Quick Match while &quot;Easy first match&quot; is on: one
             Easy bot on Great Britain 925. &quot;Back next day&quot; uses the D1 rule (any event the day
             after finishing) and counts only finishes from before today.
+          </p>
+        </section>
+      )}
+
+      {/* The campaign by path, from the campaign_* events. Shown once any
+          campaign has been started or a stage played in the window. */}
+      {data.campaign && data.campaign.length > 0 && (
+        <section className="rounded-xl border border-bf-border bg-cc-panel/50 p-4" data-testid="admin-campaign">
+          <p className="text-sm font-semibold text-bf-text">
+            Campaign{' '}
+            <span className="text-xs font-normal text-bf-muted">· last {data.window_days}d</span>
+          </p>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="text-bf-muted">
+                <tr>
+                  <th className="py-1 pr-3 font-medium">Path</th>
+                  <th className="py-1 pr-3 font-medium">Started</th>
+                  <th className="py-1 pr-3 font-medium">By guests</th>
+                  <th className="py-1 pr-3 font-medium">Stage 1 won</th>
+                  <th className="py-1 pr-3 font-medium">Stage games</th>
+                  <th className="py-1 pr-3 font-medium">Finished</th>
+                  <th className="py-1 pr-3 font-medium">Won</th>
+                  <th className="py-1 pr-3 font-medium">Median rounds</th>
+                  <th className="py-1 font-medium">Completed</th>
+                </tr>
+              </thead>
+              <tbody className="text-bf-text">
+                {data.campaign.map((row) => (
+                  <tr key={row.path} className="border-t border-bf-border/50">
+                    <td className="py-1 pr-3">{CAMPAIGN_PATH_LABEL[row.path] ?? row.path}</td>
+                    <td className="py-1 pr-3">{row.started.toLocaleString()}</td>
+                    <td className="py-1 pr-3">{row.guest_started.toLocaleString()}</td>
+                    <td className="py-1 pr-3">{row.stage1_won.toLocaleString()}</td>
+                    <td className="py-1 pr-3">{row.stage_games.toLocaleString()}</td>
+                    <td className="py-1 pr-3">{pctText(row.stage_finished, row.stage_games)}</td>
+                    <td className="py-1 pr-3">{pctText(row.stage_won, row.stage_finished)}</td>
+                    <td className="py-1 pr-3">{row.median_rounds == null ? '—' : Math.round(row.median_rounds)}</td>
+                    <td className="py-1">{row.completed.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-2 text-xs text-bf-muted">
+            A stage game is one attempt at one era; a retry is another stage game. &quot;Finished&quot; is of
+            stage games created, &quot;Won&quot; of those finished. Counted from the day the campaign events
+            went live.
           </p>
         </section>
       )}

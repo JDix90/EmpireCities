@@ -14,6 +14,7 @@ import { applyAdminSnapshotsToSettings } from '../../services/adminConfig';
 import { DEFAULT_CARD_SET_BONUS_CAP } from '../../game-engine/combat/combatResolver';
 import { featureFlags } from '../../config/featureFlags';
 import { campaignClockSettings } from './campaignClock';
+import { recordServerEvent } from '../../services/analyticsEvents';
 
 const CAMPAIGN_ERAS = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern'] as const;
 /** A stage that cannot be won by turn 100 is a stalemate, not a campaign. */
@@ -112,6 +113,9 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
       [campaignId, userId, pathId ?? null, JSON.stringify(initialCarry)],
     );
 
+    const isGuest = req.isGuest === true;
+    recordServerEvent('campaign_started', { campaign_id: campaignId, path_id: pathId ?? 'classic', is_guest: isGuest }, userId);
+
     const { gameId, eraId } = await createEraGame({
       userId,
       campaignId,
@@ -119,6 +123,9 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
       pathId: pathId ?? null,
       pathCarry: initialCarry,
       prestigePoints: 0,
+      isGuest,
+      retry: false,
+      failedAttempts: 0,
     });
 
     return reply.status(201).send({
@@ -149,9 +156,10 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
           path_id: string | null;
           path_carry: Partial<PathCarry>;
           path_narrative: Record<string, string>;
+          failed_era_attempts: number | null;
         }>(
           `SELECT campaign_id, current_era_index, prestige_points, path_id,
-                  path_carry, path_narrative
+                  path_carry, path_narrative, failed_era_attempts
            FROM user_campaigns WHERE campaign_id = $1 AND user_id = $2 AND status = 'active'`,
           [requestedId, userId],
         )
@@ -162,9 +170,10 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
           path_id: string | null;
           path_carry: Partial<PathCarry>;
           path_narrative: Record<string, string>;
+          failed_era_attempts: number | null;
         }>(
           `SELECT campaign_id, current_era_index, prestige_points, path_id,
-                  path_carry, path_narrative
+                  path_carry, path_narrative, failed_era_attempts
            FROM user_campaigns WHERE user_id = $1 AND status = 'active'
            ORDER BY started_at DESC LIMIT 1`,
           [userId],
@@ -242,7 +251,8 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
 
     // An earlier attempt at this era that did not win it: the campaign is no
     // longer one without a loss (Perfect Campaign).
-    if (shouldCreateFresh && existingGame) {
+    const isRetry = shouldCreateFresh && !!existingGame;
+    if (isRetry) {
       await query(
         `UPDATE user_campaigns SET failed_era_attempts = failed_era_attempts + 1 WHERE campaign_id = $1`,
         [campaign.campaign_id],
@@ -276,6 +286,9 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
       pathId: campaign.path_id as PathId | null,
       pathCarry: campaign.path_carry,
       prestigePoints: campaign.prestige_points,
+      isGuest: req.isGuest === true,
+      retry: isRetry,
+      failedAttempts: (campaign.failed_era_attempts ?? 0) + (isRetry ? 1 : 0),
     });
 
     return reply.status(201).send({
@@ -533,6 +546,12 @@ interface CreateEraGameArgs {
   pathId: PathId | null;
   pathCarry: Partial<PathCarry>;
   prestigePoints: number;
+  /** For the analytics events only. */
+  isGuest: boolean;
+  /** This game replaces an earlier attempt at the same stage that was not won. */
+  retry: boolean;
+  /** Stage attempts this campaign has lost so far, this retry included. */
+  failedAttempts: number;
 }
 
 async function createEraGame({
@@ -542,6 +561,9 @@ async function createEraGame({
   pathId,
   pathCarry,
   prestigePoints,
+  isGuest,
+  retry,
+  failedAttempts,
 }: CreateEraGameArgs): Promise<{ gameId: string; eraId: string; mapId: string }> {
   const eraId = CAMPAIGN_ERAS[eraIndex];
   const pathConfig = pathId ? CAMPAIGN_PATHS[pathId] : null;
@@ -667,6 +689,43 @@ async function createEraGame({
       pathEra?.map_id !== ERA_MAP_IDS[eraId] ? pathEra?.map_id ?? null : null,
       JSON.stringify(pathCarry),
     ],
+  );
+
+  // The stage game is written here, not through POST /api/games, so that
+  // route's `game_created` never fired for one: a campaign start was missing
+  // from every funnel that reads it. Same fields, plus `is_campaign`.
+  recordServerEvent(
+    'game_created',
+    {
+      game_id: gameId,
+      era_id: eraId,
+      map_id: mapId,
+      max_players: aiCount + 1,
+      ai_count: aiCount,
+      game_type: 'solo',
+      status: 'waiting',
+      is_tutorial: false,
+      first_match: false,
+      ladder_step: null,
+      is_campaign: true,
+    },
+    userId,
+  );
+  recordServerEvent(
+    'campaign_stage_started',
+    {
+      campaign_id: campaignId,
+      path_id: pathId ?? 'classic',
+      stage: eraIndex + 1,
+      era_id: eraId,
+      game_id: gameId,
+      retry,
+      failed_attempts: failedAttempts,
+      ai_difficulty: aiDifficulty,
+      ai_count: aiCount,
+      is_guest: isGuest,
+    },
+    userId,
   );
 
   return { gameId, eraId, mapId };
