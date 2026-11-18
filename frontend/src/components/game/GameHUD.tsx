@@ -4,6 +4,7 @@ import { useTurnCountdown } from '../../hooks/useTurnCountdown';
 import { useAuthStore } from '../../store/authStore';
 import { ArrowRight, ChevronUp, Clock, CreditCard, Flag, LogOut, Save, ScrollText, Shield, Sword, Undo2, Users, Zap } from 'lucide-react';
 import clsx from 'clsx';
+import { campaignBotFaction } from '../../utils/factionNames';
 import { computeDraftPool } from '../../utils/draftPool';
 import EraModifierBadge from './EraModifierBadge';
 import NavalDiceResult from './NavalDiceResult';
@@ -864,7 +865,22 @@ export default function GameHUD({
                         'flex-1 flex items-center gap-1.5 min-w-0',
                         player.player_id === user?.user_id ? 'text-bf-gold font-medium' : 'text-bf-text'
                       )}>
-                        <span className="truncate">{player.username}</span>
+                        {(() => {
+                          // A campaign stage names its bots for the powers they play.
+                          const faction = campaignBotFaction({
+                            isCampaign: gameState.settings.is_campaign === true,
+                            eraId: gameState.era,
+                            player,
+                          });
+                          return faction ? (
+                            <span className="truncate" data-testid="player-faction-name" title={`${faction} · ${player.username}`}>
+                              {faction}
+                              <span className="text-bf-muted text-xs font-normal"> · {player.username}</span>
+                            </span>
+                          ) : (
+                            <span className="truncate">{player.username}</span>
+                          );
+                        })()}
                         {player.is_away
                           ? <AiBadge away size="xs" showLabel={false} />
                           : player.is_ai && <AiBadge difficulty={player.ai_difficulty} size="xs" showLabel={false} />}

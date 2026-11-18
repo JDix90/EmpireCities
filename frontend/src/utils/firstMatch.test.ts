@@ -36,6 +36,12 @@ describe('firstMatchPendingFromStats', () => {
     expect(firstMatchPendingFromStats({})).toBeNull();
     expect(firstMatchPendingFromStats({ overall: { played: '0' } })).toBeNull();
   });
+
+  it('reads the ladder counts when the server sends them, so a campaign stage is not a first game', () => {
+    // One campaign stage finished: on the record, not on the ladder.
+    expect(firstMatchPendingFromStats({ overall: { played: 1, won: 1 }, ladder: { played: 0, won: 0 } })).toBe(true);
+    expect(firstMatchPendingFromStats({ overall: { played: 3, won: 1 }, ladder: { played: 1, won: 0 } })).toBe(false);
+  });
 });
 
 describe('fetchFirstMatchPending', () => {

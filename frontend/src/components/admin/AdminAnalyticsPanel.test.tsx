@@ -78,6 +78,30 @@ describe('AdminAnalyticsPanel', () => {
     expect(screen.getByText('75%')).toBeTruthy();
   });
 
+  it('shows the campaign by path once the backend sends any, and nothing otherwise', () => {
+    const { unmount } = render(<AdminAnalyticsPanel data={report} />);
+    expect(screen.queryByTestId('admin-campaign')).toBeNull();
+    unmount();
+    const { unmount: unmountEmpty } = render(<AdminAnalyticsPanel data={{ ...report, campaign: [] }} />);
+    expect(screen.queryByTestId('admin-campaign')).toBeNull();
+    unmountEmpty();
+    render(
+      <AdminAnalyticsPanel
+        data={{
+          ...report,
+          campaign: [
+            { path: 'blood_empire', started: 4, guest_started: 1, stage_games: 6, stage_finished: 3, stage_won: 2, stage1_won: 2, completed: 0, median_rounds: 18.5 },
+          ],
+        }}
+      />,
+    );
+    const card = within(screen.getByTestId('admin-campaign'));
+    expect(card.getByText('Blood & Empire')).toBeTruthy();
+    expect(card.getByText('50%')).toBeTruthy();
+    expect(card.getByText('67%')).toBeTruthy();
+    expect(card.getByText('19')).toBeTruthy();
+  });
+
   it('shows the first turn step by step once a step is recorded, and nothing before or for an older backend', () => {
     const firstTurn = {
       new_players: 40, saw_map: 20, briefing_closed: 18, territory_opened: 12, units_placed: 9,

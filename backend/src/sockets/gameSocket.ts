@@ -132,6 +132,7 @@ import { updateChallengeProgress, type GameChallengeEvent } from '../game-engine
 import { checkReferralCompletion } from '../game-engine/progression/referralService';
 import { recordActivity } from '../services/activityService';
 import { recordServerEvent } from '../services/analyticsEvents';
+import { buildCampaignGameResult, type CampaignGameResult } from '../modules/campaign/campaignResult';
 import {
   botAimProperties,
   botAimStandings,
@@ -5318,8 +5319,16 @@ function scheduleDebouncedSave(gameId: string): void {
 
 const CAMPAIGN_ERAS = ['ancient', 'medieval', 'discovery', 'ww2', 'coldwar', 'modern'] as const;
 
-/** Returns the achievements the result unlocked (Perfect Campaign). */
-async function handleCampaignCompletion(io: Server, gameId: string, state: GameState, winnerId: string): Promise<string[]> {
+/**
+ * Returns the achievements the result unlocked (Perfect Campaign) and what the
+ * result means for the campaign, for the result screen (campaignResult.ts).
+ */
+async function handleCampaignCompletion(
+  io: Server,
+  gameId: string,
+  state: GameState,
+  winnerId: string,
+): Promise<{ unlocks: string[]; result: CampaignGameResult | null }> {
   const campaignRow = await queryOne<{
     campaign_id: string;
     user_id: string;
@@ -5328,21 +5337,43 @@ async function handleCampaignCompletion(io: Server, gameId: string, state: GameS
     path_id: string | null;
     path_carry: Record<string, number>;
     path_narrative: Record<string, string>;
+    failed_era_attempts: number | null;
+    is_guest: boolean | null;
   }>(
     `SELECT uc.campaign_id, uc.user_id, uc.current_era_index, uc.prestige_points,
-            uc.path_id, uc.path_carry, uc.path_narrative
+            uc.path_id, uc.path_carry, uc.path_narrative, uc.failed_era_attempts,
+            u.is_guest
      FROM user_campaigns uc
      JOIN campaign_entries ce ON ce.campaign_id = uc.campaign_id
+     LEFT JOIN users u ON u.user_id = uc.user_id
      WHERE ce.game_id = $1 AND uc.status = 'active'
      LIMIT 1`,
     [gameId],
   );
-  if (!campaignRow) return [];
+  if (!campaignRow) return { unlocks: [], result: null };
 
   const won = !!winnerId && !state.players.find((p) => p.player_id === winnerId)?.is_ai;
   const eraIndex = campaignRow.current_era_index;
   const narrativeKey = `era_${eraIndex}_outcome`;
   const updatedNarrative = { ...campaignRow.path_narrative, [narrativeKey]: won ? 'won' : 'lost' };
+  const { campaignStageFinishedProperties } = await import('../modules/campaign/campaignEvents');
+  recordServerEvent(
+    'campaign_stage_finished',
+    campaignStageFinishedProperties({
+      campaignId: campaignRow.campaign_id,
+      pathId: campaignRow.path_id,
+      isGuest: campaignRow.is_guest === true,
+      eraIndex,
+      eraId: state.era,
+      gameId,
+      won,
+      rounds: state.turn_number,
+      gameStartedAt: state.game_started_at,
+      endedBy: state.victory_condition,
+      failedAttempts: campaignRow.failed_era_attempts,
+    }),
+    campaignRow.user_id,
+  );
 
   await query(
     `INSERT INTO campaign_entries (id, campaign_id, era_id, game_id, won, completed_at)
@@ -5375,6 +5406,15 @@ async function handleCampaignCompletion(io: Server, gameId: string, state: GameS
   }
 
   const newPrestige = campaignRow.prestige_points + (won ? prestigeDelta : 0);
+  const result = buildCampaignGameResult({
+    campaignId: campaignRow.campaign_id,
+    pathId: campaignRow.path_id,
+    eraIndex,
+    eras: CAMPAIGN_ERAS,
+    won,
+    carryBefore: campaignRow.path_carry ?? {},
+    carryAfter: updatedCarry,
+  });
 
   if (won) {
     const newIdx = eraIndex + 1;
@@ -5387,10 +5427,20 @@ async function handleCampaignCompletion(io: Server, gameId: string, state: GameS
          RETURNING failed_era_attempts`,
         [newPrestige, JSON.stringify(updatedCarry), JSON.stringify(updatedNarrative), campaignRow.campaign_id],
       );
+      recordServerEvent(
+        'campaign_completed',
+        {
+          campaign_id: campaignRow.campaign_id,
+          path_id: campaignRow.path_id ?? 'classic',
+          is_guest: campaignRow.is_guest === true,
+          failed_attempts: completed?.failed_era_attempts ?? null,
+        },
+        campaignRow.user_id,
+      );
       // Perfect Campaign: every era won at the first attempt. NULL is a
       // campaign begun before attempts were counted, which cannot show that.
       if (completed?.failed_era_attempts === 0) {
-        return grantAchievementsOutsideGame(campaignRow.user_id, ['perfect_campaign']);
+        return { unlocks: await grantAchievementsOutsideGame(campaignRow.user_id, ['perfect_campaign']), result };
       }
     } else {
       await query(
@@ -5414,7 +5464,7 @@ async function handleCampaignCompletion(io: Server, gameId: string, state: GameS
       [JSON.stringify(updatedCarry), JSON.stringify(updatedNarrative), campaignRow.campaign_id],
     );
   }
-  return [];
+  return { unlocks: [], result };
 }
 
 async function finalizeGame(io: Server, gameId: string, state: GameState, winnerIds: string[]): Promise<void> {
@@ -5547,9 +5597,10 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
 
   // Campaign hook (non-critical)
   let campaignUnlocks: string[] = [];
+  let campaignResult: CampaignGameResult | null = null;
   if (state.settings?.is_campaign) {
     try {
-      campaignUnlocks = await handleCampaignCompletion(io, gameId, state, winnerId);
+      ({ unlocks: campaignUnlocks, result: campaignResult } = await handleCampaignCompletion(io, gameId, state, winnerId));
     } catch (campErr) {
       console.error('[Socket] Campaign hook failed:', campErr);
     }
@@ -5610,6 +5661,7 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
         // targets) and measure guest finish → upgrade conversion.
         is_guest: resultCtx.guestPlayerIds.has(human.player_id),
         first_match: state.settings.first_match === true,
+        is_campaign: state.settings.is_campaign === true,
         // Which bots the game was against: 'turn_limit' in victory_type is a
         // game the round cap decided.
         ai_difficulty: gameAiDifficulty(state.players),
@@ -6019,6 +6071,8 @@ async function finalizeGame(io: Server, gameId: string, state: GameState, winner
     daily_result: humanForSummary && getDailyPuzzleSpec(state)
       ? settleDailyRun(state, humanForSummary.player_id, winnerIds)
       : undefined,
+    // A campaign stage: what the result means for the campaign.
+    ...(campaignResult ? { campaign: campaignResult } : {}),
     // Play on (play_on_enabled): who may ask the table to keep going, and for
     // how long; absent when this game cannot be played on.
     ...(playOnOfferPayload ? { play_on: playOnOfferPayload } : {}),

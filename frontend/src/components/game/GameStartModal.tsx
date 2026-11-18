@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, BookOpen, Crown, Globe2, Swords, Trophy, Target, Shield, Users } from 'lucide-react';
 import clsx from 'clsx';
+import { campaignBotFaction } from '../../utils/factionNames';
 import Modal from '../ui/Modal';
 import { api } from '../../services/api';
 import { MISSION_FIRST_ROUND, describeSecretMission, type MapNameLookup } from '../../utils/mapDisplayNames';
@@ -290,7 +291,20 @@ export default function GameStartModal({
                 aria-hidden
               />
               <span className="text-sm text-bf-text truncate flex-1">
-                {p.username}
+                {(() => {
+                  // A campaign stage names its bots for the powers they play.
+                  const faction = campaignBotFaction({
+                    isCampaign: gameState.settings.is_campaign === true,
+                    eraId: gameState.era,
+                    player: p,
+                  });
+                  return faction ? (
+                    <>
+                      <span data-testid="turn-order-faction-name">{faction}</span>
+                      <span className="text-bf-muted text-xs"> · {p.username}</span>
+                    </>
+                  ) : p.username;
+                })()}
                 {isViewer && <span className="text-bf-gold"> (you)</span>}
               </span>
               {p.is_ai && p.ai_style && <AiStyleBadge style={p.ai_style} size="xs" className="shrink-0" />}

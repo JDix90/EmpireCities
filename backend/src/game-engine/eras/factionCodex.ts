@@ -117,3 +117,33 @@ export const FACTION_CODEX = ${JSON.stringify(codex, null, 2)};
 export const FACTION_COUNT = ${total};
 `;
 }
+
+/**
+ * Every faction's display name by era and id, for the game client: a campaign
+ * stage names its bots for the powers they play. The codex above carries the
+ * same names with a paragraph of lore each, which the game screen has no use
+ * for and should not download.
+ */
+export function buildFactionNames(): Record<string, Record<string, string>> {
+  const out: Record<string, Record<string, string>> = {};
+  for (const era of buildFactionCodex()) {
+    out[era.era_id] = Object.fromEntries(era.factions.map((f) => [f.faction_id, f.name]));
+  }
+  return out;
+}
+
+/** Render the names module; the drift test compares against these bytes. */
+export function renderFactionNamesModule(names: Record<string, Record<string, string>>): string {
+  return `/**
+ * GENERATED FILE — DO NOT EDIT BY HAND.
+ *
+ * Source: backend/src/game-engine/eras/*.ts, projected by
+ * backend/src/game-engine/eras/factionCodex.ts.
+ * Regenerate: pnpm -C backend exec tsx scripts/generateFactionCodex.ts
+ *
+ * Faction display names by era and faction id (utils/factionNames.ts reads
+ * it). A backend test fails if this drifts from the era definitions.
+ */
+export const FACTION_NAMES: Record<string, Record<string, string>> = ${JSON.stringify(names, null, 2)};
+`;
+}

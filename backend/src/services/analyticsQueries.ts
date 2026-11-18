@@ -171,6 +171,30 @@ export interface FirstMatchStats {
 }
 
 /**
+ * One campaign path in the window, read from the `campaign_*` events the
+ * campaign routes and the completion handler record. `classic` is a campaign
+ * with no path.
+ */
+export interface CampaignPathRow {
+  path: string;
+  /** Campaigns started. */
+  started: number;
+  /** Of those, started by a guest. */
+  guest_started: number;
+  /** Stage games created, retries included. */
+  stage_games: number;
+  /** Stage games played to a result, and those the player won. */
+  stage_finished: number;
+  stage_won: number;
+  /** Campaigns whose first stage was won. */
+  stage1_won: number;
+  /** Campaigns finished. */
+  completed: number;
+  /** Median rounds of a finished stage game; null with none finished. */
+  median_rounds: number | null;
+}
+
+/**
  * Where a solo game came from, read from its settings. `other` is a Quick
  * Match or a custom lobby.
  */
@@ -337,6 +361,8 @@ export interface AnalyticsReport {
   prompts: PromptFunnel;
   /** The website against the iOS and Android apps: one row each, always all three. */
   platforms: PlatformRow[];
+  /** The campaign by path: started, stage games finished and won, completed. */
+  campaign: CampaignPathRow[];
 }
 
 /**
@@ -1335,6 +1361,48 @@ export async function getPlatformBreakdown(days: number, onlyUserIds?: readonly 
   });
 }
 
+/**
+ * The campaign by path in the window: campaigns started, stage games created,
+ * finished and won, campaigns whose first stage was won, campaigns completed.
+ * Busiest path first.
+ */
+export async function getCampaignMetrics(days: number): Promise<CampaignPathRow[]> {
+  const rows = await query<Record<string, unknown>>(
+    `SELECT COALESCE(e.properties->>'path_id', 'classic') AS path,
+            COUNT(*) FILTER (WHERE e.event = 'campaign_started')::int AS started,
+            COUNT(*) FILTER (WHERE e.event = 'campaign_started'
+                               AND e.properties->>'is_guest' = 'true')::int AS guest_started,
+            COUNT(*) FILTER (WHERE e.event = 'campaign_stage_started')::int AS stage_games,
+            COUNT(*) FILTER (WHERE e.event = 'campaign_stage_finished')::int AS stage_finished,
+            COUNT(*) FILTER (WHERE e.event = 'campaign_stage_finished'
+                               AND e.properties->>'won' = 'true')::int AS stage_won,
+            COUNT(DISTINCT e.properties->>'campaign_id') FILTER (
+              WHERE e.event = 'campaign_stage_finished' AND e.properties->>'won' = 'true'
+                AND e.properties->>'stage' = '1')::int AS stage1_won,
+            COUNT(*) FILTER (WHERE e.event = 'campaign_completed')::int AS completed,
+            percentile_cont(0.5) WITHIN GROUP (ORDER BY (e.properties->>'rounds')::numeric)
+              FILTER (WHERE e.event = 'campaign_stage_finished') AS median_rounds
+     FROM analytics_events e
+     WHERE e.event IN ('campaign_started', 'campaign_stage_started', 'campaign_stage_finished', 'campaign_completed')
+       AND e.created_at >= NOW() - make_interval(days => $1::int)
+       AND ${countedEventSql('e')}
+     GROUP BY 1
+     ORDER BY started DESC, stage_games DESC, path`,
+    [days],
+  );
+  return rows.map((r) => ({
+    path: String(r.path),
+    started: num(r.started),
+    guest_started: num(r.guest_started),
+    stage_games: num(r.stage_games),
+    stage_finished: num(r.stage_finished),
+    stage_won: num(r.stage_won),
+    stage1_won: num(r.stage1_won),
+    completed: num(r.completed),
+    median_rounds: numOrNull(r.median_rounds),
+  }));
+}
+
 /** Everything the funnel report / admin view needs, in one shot. */
 export async function getAnalyticsReport(
   days: number,
@@ -1344,7 +1412,7 @@ export async function getAnalyticsReport(
   // NOTE: the section queries share one mocked `query` in the unit test, which
   // matches them positionally — a new section goes on the END of this list so
   // it cannot shift the mocks of the ones above it.
-  const [visitors, funnel, retention, retentionByCohort, completion, acquisition, volume, tutorial, totalRow, firstMatch, soloByLevel, guestAccounts, activePlayers, firstTurn, editor, prompts, platforms] = await Promise.all([
+  const [visitors, funnel, retention, retentionByCohort, completion, acquisition, volume, tutorial, totalRow, firstMatch, soloByLevel, guestAccounts, activePlayers, firstTurn, editor, prompts, platforms, campaign] = await Promise.all([
     getVisitorFunnel(days),
     getFunnelMetrics(days, device, platform),
     getRetentionMetrics(),
@@ -1362,6 +1430,7 @@ export async function getAnalyticsReport(
     getEditorMetrics(days),
     getPromptFunnel(days),
     getPlatformBreakdown(days),
+    getCampaignMetrics(days),
   ]);
   return {
     window_days: days,
@@ -1385,5 +1454,6 @@ export async function getAnalyticsReport(
     editor,
     prompts,
     platforms,
+    campaign,
   };
 }

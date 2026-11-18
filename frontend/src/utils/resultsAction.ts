@@ -14,7 +14,11 @@ export type ResultsAction =
   | 'challenge'
   | 'save_account'
   | 'play_on'
-  | 'next_battle';
+  | 'next_battle'
+  // A campaign stage's results: on to the next era, the stage again, or the campaign page.
+  | 'campaign_next'
+  | 'campaign_retry'
+  | 'campaign_hq';
 
 export interface ResultsActionContext {
   gameId?: string;

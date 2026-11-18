@@ -596,3 +596,36 @@ describe('the bots\' commanders', () => {
     expect(screen.queryAllByLabelText(/^(Conqueror|Raider|Expansionist|Opportunist|Defender):/)).toHaveLength(1);
   });
 });
+
+describe('GameStartModal — campaign stage', () => {
+  const seats = [
+    player({ player_id: 'me', player_index: 0, username: 'Jeff' }),
+    player({ player_id: 'a1', player_index: 1, username: 'Marshal Okonkwo (AI)', is_ai: true, ai_difficulty: 'easy', faction_id: 'parthia' }),
+    player({ player_id: 'a2', player_index: 2, username: 'Admiral Chen (AI)', is_ai: true, ai_difficulty: 'easy', faction_id: 'han' }),
+  ];
+
+  it('names the bots in the turn order for the powers they play', () => {
+    render(
+      <GameStartModal
+        open
+        onClose={() => {}}
+        gameState={makeState({ players: seats, starting_player_index: 0, current_player_index: 0, settings: { is_campaign: true } as GameState['settings'] })}
+        viewerPlayerId="me"
+      />,
+    );
+    expect(screen.getAllByTestId('turn-order-faction-name').map((el) => el.textContent)).toEqual(['Parthian Empire', 'Han Dynasty']);
+    expect(screen.getByText(/Marshal Okonkwo \(AI\)/)).toBeInTheDocument();
+  });
+
+  it('leaves the names of any other game as they are', () => {
+    render(
+      <GameStartModal
+        open
+        onClose={() => {}}
+        gameState={makeState({ players: seats, starting_player_index: 0, current_player_index: 0 })}
+        viewerPlayerId="me"
+      />,
+    );
+    expect(screen.queryByTestId('turn-order-faction-name')).toBeNull();
+  });
+});

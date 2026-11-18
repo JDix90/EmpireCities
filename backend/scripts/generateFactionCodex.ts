@@ -18,7 +18,9 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   buildFactionCodex,
+  buildFactionNames,
   renderCodexModule,
+  renderFactionNamesModule,
 } from '../src/game-engine/eras/factionCodex';
 
 export const CODEX_OUTPUT_PATH = resolve(
@@ -26,9 +28,17 @@ export const CODEX_OUTPUT_PATH = resolve(
   '..', '..', 'frontend', 'src', 'marketing', 'factionCodex.generated.mjs',
 );
 
+/** Names only, for the game client (frontend utils/factionNames.ts). */
+export const FACTION_NAMES_OUTPUT_PATH = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  '..', '..', 'frontend', 'src', 'constants', 'factionNames.generated.ts',
+);
+
 export async function run(): Promise<void> {
   const codex = buildFactionCodex();
   await writeFile(CODEX_OUTPUT_PATH, renderCodexModule(codex), 'utf8');
+  await writeFile(FACTION_NAMES_OUTPUT_PATH, renderFactionNamesModule(buildFactionNames()), 'utf8');
+  console.log(`[faction-codex] wrote ${FACTION_NAMES_OUTPUT_PATH}`);
   const total = codex.reduce((n, e) => n + e.factions.length, 0);
   console.log(`[faction-codex] wrote ${CODEX_OUTPUT_PATH}`);
   console.log(`[faction-codex] ${codex.length} eras, ${total} factions`);

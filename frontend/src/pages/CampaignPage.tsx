@@ -510,6 +510,22 @@ export default function CampaignPage() {
     }
   };
 
+  // ?continue=1: a stage's results sent the player here to go straight on, to
+  // the next era after a win or the same stage after a loss. Once, and the
+  // parameter is dropped so Back does not start another game.
+  const autoContinue = searchParams.get('continue') === '1';
+  const autoContinuedRef = React.useRef(false);
+  useEffect(() => {
+    if (!autoContinue || loading || autoContinuedRef.current) return;
+    autoContinuedRef.current = true;
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('continue');
+      return next;
+    }, { replace: true });
+    if (selectedCampaign && selectedCampaign.status === 'active') void handleContinue(selectedCampaign);
+  }, [autoContinue, loading, selectedCampaign]);
+
   const openCampaign = (id: string) => {
     setSelectedId(id);
     setSearchParams((prev) => {

@@ -67,8 +67,11 @@ describe('campaign path config', () => {
             .toEqual({ stage: index + 1, count: new Set(stage.ai_factions).size });
         });
 
-        it(`stage ${index + 1} does not name more AI factions than it has AI seats`, () => {
-          expect(stage.ai_factions.length).toBeLessThanOrEqual(stage.ai_count);
+        // A seat with no faction named is not filled at random: it plays with
+        // no faction at all, and the board has no power to name it for.
+        it(`stage ${index + 1} names a faction for every AI seat`, () => {
+          expect({ stage: index + 1, factions: stage.ai_factions.length })
+            .toEqual({ stage: index + 1, factions: stage.ai_count });
         });
 
         it(`stage ${index + 1} cannot be won by the opening deal`, () => {

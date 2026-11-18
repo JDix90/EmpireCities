@@ -2,14 +2,21 @@ import { queryOne } from '../../db/postgres';
 import { andNotTutorialSql } from '../../game-engine/tutorial/tutorialGames';
 
 /**
+ * True for a campaign stage's game; `g` is the `games` row. The first match
+ * and the first-win ladder leave these out: a campaign is its own
+ * progression, and a stage won is not the first win the ladder waits for.
+ */
+export const IS_CAMPAIGN_GAME_SQL = `COALESCE(g.settings_json->>'is_campaign', 'false') = 'true'`;
+
+/**
  * Whether a player may tag a new game `first_match` (`first_match_fair_start_enabled`).
  *
  * The lobby sends the tag while the player has yet to finish a game (client
  * utils/firstMatch.ts, read from GET /users/me/stats). Once the tag also seats
  * the player first and deals them a fair board, it is worth faking: solo games
  * move the Solo rating. So the server counts the same thing the lobby does —
- * finished games that are not the tutorial or a Play On — and drops the tag
- * from anyone who has one.
+ * finished games that are not the tutorial, a Play On or a campaign stage —
+ * and drops the tag from anyone who has one.
  */
 export async function hasFinishedRealGame(userId: string): Promise<boolean> {
   const row = await queryOne<{ finished: boolean }>(
@@ -18,6 +25,7 @@ export async function hasFinishedRealGame(userId: string): Promise<boolean> {
        JOIN games g ON g.game_id = gp.game_id
        WHERE gp.user_id = $1 AND g.status = 'completed'
          ${andNotTutorialSql()}
+         AND NOT ${IS_CAMPAIGN_GAME_SQL}
      ) AS finished`,
     [userId],
   );
@@ -37,6 +45,7 @@ export async function hasWonRealGame(userId: string): Promise<boolean> {
        JOIN games g ON g.game_id = gp.game_id
        WHERE gp.user_id = $1 AND g.status = 'completed' AND gp.final_rank = 1
          ${andNotTutorialSql()}
+         AND NOT ${IS_CAMPAIGN_GAME_SQL}
      ) AS won`,
     [userId],
   );

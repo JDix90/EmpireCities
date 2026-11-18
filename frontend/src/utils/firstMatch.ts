@@ -34,11 +34,22 @@ export const FIRST_MATCH_BUTTON_LINE = 'First match · vs 1 Easy AI · Great Bri
 export const FIRST_MATCH_CARD_LINE = 'One Easy opponent on a small map of Britain — a short first match. Start now.';
 
 /**
+ * The games the first match and the first-win ladder count, from GET
+ * /users/me/stats: `ladder` (finished games that are not the tutorial or a
+ * campaign stage), or `overall` from a server that does not send it yet.
+ */
+export function ladderCounts(stats: unknown): { played?: unknown; won?: unknown } | undefined {
+  const s = stats as { ladder?: { played?: unknown; won?: unknown }; overall?: { played?: unknown; won?: unknown } } | null | undefined;
+  return s?.ladder ?? s?.overall;
+}
+
+/**
  * Whether the player has yet to finish a game, read from GET /users/me/stats
- * (finished, non-tutorial games). Null when the response is not readable.
+ * (finished games that are not the tutorial or a campaign stage). Null when
+ * the response is not readable.
  */
 export function firstMatchPendingFromStats(stats: unknown): boolean | null {
-  const played = (stats as { overall?: { played?: unknown } } | null | undefined)?.overall?.played;
+  const played = ladderCounts(stats)?.played;
   return typeof played === 'number' ? played === 0 : null;
 }
 
