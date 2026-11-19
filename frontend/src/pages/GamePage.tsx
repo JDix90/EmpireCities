@@ -69,7 +69,7 @@ import GamePanelBoundary from '../components/game/GamePanelBoundary';
 import { MapControlChip } from '../components/game/MapControlTracker';
 import AiTurnRecapPanel, { appendRecap, ownTurnDigest, type TurnRecapEntry } from '../components/game/AiTurnRecapPanel';
 import { useTurnRecapPanelEnabled } from '../store/featureFlagsStore';
-import { useSaveAccountCopyEnabled, useGalaxyAgeBetaEnabled } from '../store/featureFlagsStore';
+import { useSaveAccountCopyEnabled, useGalaxyAgeBetaEnabled, useTutorialGuidedDraftEnabled } from '../store/featureFlagsStore';
 import { usePlayOnStore, type PlayOnResult, type PlayOnVoteView } from '../store/playOnStore';
 import { useFirstTurnEventsEnabled } from '../store/featureFlagsStore';
 import { useFirstTurnClockWaitEnabled, usePhoneTurnCountdownEnabled } from '../store/featureFlagsStore';
@@ -169,6 +169,7 @@ import {
 import { isClassicDaily, resolveGameOverResult, type DailyRunResult } from '../utils/dailyGameOver';
 import CampaignIntroModal, { type CampaignIntroData } from '../components/game/CampaignIntroModal';
 import { describeCampaignMission, readCampaignMission } from '../utils/campaignMission';
+import { guidedDraftStage, isGuidedDraftStep } from '../tutorial/guidedDraft';
 import { readCampaignDisplay } from '../utils/campaignDisplay';
 import InviteFriendsModal from '../components/game/InviteFriendsModal';
 import GameShortcutsModal from '../components/game/GameShortcutsModal';
@@ -833,6 +834,22 @@ export default function GamePage() {
     return gameState.players[joinPlayerIndex]?.player_id ?? null;
   }, [gameState, joinPlayerIndex]);
   resolvedViewerPlayerIdRef.current = resolvedViewerPlayerId;
+  /**
+   * The reinforcement card's current step while it is guided
+   * (tutorial_guided_draft_enabled, tutorial/guidedDraft.ts); null otherwise.
+   */
+  const tutorialGuidedDraft = useTutorialGuidedDraftEnabled();
+  const tutorialGuidedStage = isGuidedDraftStep({
+    enabled: tutorialGuidedDraft,
+    isTutorial: isTutorial && gameState?.phase === 'draft',
+    stepId: tutorialSteps[tutorialStep]?.id,
+  })
+    ? guidedDraftStage({
+        unitsRemaining: draftUnitsRemaining,
+        ownTerritorySelected: !!selectedTerritory
+          && gameState?.territories[selectedTerritory]?.owner_id === resolvedViewerPlayerId,
+      })
+    : null;
 
   const viewerPlayer = useMemo(() => {
     if (!gameState) return null;
@@ -5887,7 +5904,7 @@ export default function GamePage() {
                       lossPulseTerritoryIds: lossPulseIds,
                       turnHolderPlayerId: turnHolderPlayer?.player_id ?? null,
                       selfPlayerId: resolvedViewerPlayerId,
-                      coachHighlightOwnerId: coachPhase === 'reinforcement' ? resolvedViewerPlayerId : null,
+                      coachHighlightOwnerId: coachPhase === 'reinforcement' || tutorialGuidedStage === 'pick' ? resolvedViewerPlayerId : null,
                       validSourceOwnerId,
                       contestedBorders,
                       connectionHintMode,
@@ -5939,7 +5956,7 @@ export default function GamePage() {
                           ambientEnabled={mapAmbientEnabled && !reducedGlobe}
                           turnHolderPlayerId={turnHolderPlayer?.player_id ?? null}
                           selfPlayerId={resolvedViewerPlayerId}
-                          coachHighlightOwnerId={coachPhase === 'reinforcement' ? resolvedViewerPlayerId : null}
+                          coachHighlightOwnerId={coachPhase === 'reinforcement' || tutorialGuidedStage === 'pick' ? resolvedViewerPlayerId : null}
                           validSourceOwnerId={validSourceOwnerId}
                           contestedBorders={contestedBorders}
                           connectionHintMode={connectionHintMode}
@@ -7036,6 +7053,12 @@ export default function GamePage() {
             behindModal={tutorialCardBehindModal}
             panelOpen={showTechTree || showBonuses || showSettingsLab}
             territorySelected={!!selectedTerritory}
+            guided={tutorialGuidedStage ? {
+              stage: tutorialGuidedStage,
+              advanceLabel: phaseAdvanceLabel('draft'),
+              // Places what is left and ends the phase, as the gold button's own confirmation does.
+              onPlaceForMe: tutorialGuidedStage === 'advance' ? undefined : advancePhaseNow,
+            } : null}
             phoneLayout={isMobileLayout}
           />
         </GamePanelBoundary>

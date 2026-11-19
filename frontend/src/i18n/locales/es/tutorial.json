@@ -47,6 +47,14 @@
     "waitEraAdvanced": "Avanza de era para continuar…",
     "waitDefault": "Completa la acción para continuar…",
     "exitTutorial": "Salir del tutorial",
+    "guidedDraft": {
+      "pick": "Toca uno de tus territorios, en **{playerColor}**.",
+      "place": "Pulsa **All** y luego **Place**.",
+      "advance": "Ahora pulsa el botón dorado **{{button}}**.",
+      "progress": "{{current}} de {{total}}",
+      "doIt": "Colócalas por mí",
+      "skip": "Saltar el tutorial"
+    },
     "openLinkedLesson": "Lee primero: {{title}}"
   },
   "modules": {

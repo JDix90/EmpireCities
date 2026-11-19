@@ -47,6 +47,14 @@
     "waitEraAdvanced": "Advance your era to continue…",
     "waitDefault": "Complete the action to continue…",
     "exitTutorial": "Exit Tutorial",
+    "guidedDraft": {
+      "pick": "Tap one of your **{playerColor}** territories.",
+      "place": "Press **All**, then **Place**.",
+      "advance": "Now press the gold **{{button}}** button.",
+      "progress": "{{current}} of {{total}}",
+      "doIt": "Place them for me",
+      "skip": "Skip the tutorial"
+    },
     "openLinkedLesson": "Read first: {{title}}"
   }
 }

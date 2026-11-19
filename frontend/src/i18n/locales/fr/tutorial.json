@@ -47,6 +47,14 @@
     "waitEraAdvanced": "Passez à l'ère suivante pour continuer…",
     "waitDefault": "Effectuez l'action pour continuer…",
     "exitTutorial": "Quitter le tutoriel",
+    "guidedDraft": {
+      "pick": "Touchez l'un de vos territoires, en **{playerColor}**.",
+      "place": "Appuyez sur **All**, puis sur **Place**.",
+      "advance": "Appuyez maintenant sur le bouton doré **{{button}}**.",
+      "progress": "{{current}} sur {{total}}",
+      "doIt": "Placez-les pour moi",
+      "skip": "Passer le tutoriel"
+    },
     "openLinkedLesson": "À lire d'abord : {{title}}"
   },
   "modules": {

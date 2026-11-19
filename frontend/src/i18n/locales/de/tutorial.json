@@ -47,6 +47,14 @@
     "waitEraAdvanced": "Steige ein Zeitalter auf, um fortzufahren…",
     "waitDefault": "Führe die Aktion aus, um fortzufahren…",
     "exitTutorial": "Tutorial verlassen",
+    "guidedDraft": {
+      "pick": "Tippe auf eines deiner Gebiete, in **{playerColor}**.",
+      "place": "Drücke **All**, dann **Place**.",
+      "advance": "Drücke jetzt die goldene Schaltfläche **{{button}}**.",
+      "progress": "{{current}} von {{total}}",
+      "doIt": "Für mich platzieren",
+      "skip": "Tutorial überspringen"
+    },
     "openLinkedLesson": "Zuerst lesen: {{title}}"
   },
   "modules": {

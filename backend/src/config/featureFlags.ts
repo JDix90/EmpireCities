@@ -88,6 +88,8 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // said there was more to read.
   // On by default; the admin override is the kill switch.
   tutorial_card_fade_enabled: () => envOptOut('TUTORIAL_CARD_FADE_ENABLED'),
+  // The tutorial's first action card walks the player through placing units one step at a time (client-only).
+  tutorial_guided_draft_enabled: () => envOptIn('TUTORIAL_GUIDED_DRAFT_ENABLED'),
   hero_single_cta_enabled: () => envOptOut('HERO_SINGLE_CTA_ENABLED'),
   era_advance_payoff_enabled: () => envOptOut('ERA_ADVANCE_PAYOFF_ENABLED'),
   era_advancement_lobby_enabled: () => envOptOut('ERA_ADVANCEMENT_LOBBY_ENABLED'),
@@ -711,6 +713,21 @@ export const featureFlags = {
    */
   get tutorialCardFadeEnabled(): boolean {
     return overrideBool('tutorial_card_fade_enabled');
+  },
+
+  /**
+   * Guided reinforcement card (client-only; tutorial/guidedDraft.ts). The
+   * tutorial's second card is the first that asks the player to do something,
+   * and it asked for four things in one sentence, sat over the player's own
+   * territories, and offered one button: Exit Tutorial. Guided, the card says
+   * only the next step (pick a territory, place the units, press the gold
+   * button), stays small and clear of the board, rings the player's
+   * territories, offers to place the units for them, and shows Exit as a link.
+   * Default OFF; `TUTORIAL_GUIDED_DRAFT_ENABLED=true` or the admin override
+   * turns it on.
+   */
+  get tutorialGuidedDraftEnabled(): boolean {
+    return overrideBool('tutorial_guided_draft_enabled');
   },
 
   /**
@@ -2266,6 +2283,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     map_gestures_v2_enabled: featureFlags.mapGesturesV2Enabled,
     onboarding_tutorial_first_enabled: featureFlags.onboardingTutorialFirstEnabled,
     tutorial_card_fade_enabled: featureFlags.tutorialCardFadeEnabled,
+    tutorial_guided_draft_enabled: featureFlags.tutorialGuidedDraftEnabled,
     hero_single_cta_enabled: featureFlags.heroSingleCtaEnabled,
     era_advance_payoff_enabled: featureFlags.eraAdvancePayoffEnabled,
     signup_nudge_enabled: featureFlags.signupNudgeEnabled,
