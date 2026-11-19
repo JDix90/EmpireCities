@@ -46,7 +46,13 @@ const ERA_MAP_IDS: Record<CampaignEra, string> = {
   modern:    'era_modern',
 };
 
-const PLAYER_COLORS = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6'];
+/**
+ * Seat colours, the player's first. One for every seat a stage can deal: with
+ * five, The Last Defenders' six-seat finale wrote a null colour and the stage
+ * could not be created at all. campaignPaths.test.ts holds every stage to this.
+ */
+export const CAMPAIGN_SEAT_COLORS = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#ff69b4', '#ecf0f1'];
+const PLAYER_COLORS = CAMPAIGN_SEAT_COLORS;
 
 const ERA_AI_DIFFICULTY: Record<CampaignEra, string> = {
   ancient:   'easy',

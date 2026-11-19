@@ -10,6 +10,7 @@ import {
   resolveLineId,
 } from './campaignPaths';
 import { getFactionById } from '../../game-engine/eras';
+import { CAMPAIGN_SEAT_COLORS } from './campaign.routes';
 import type { EraId } from '../../types';
 
 /**
@@ -149,6 +150,12 @@ describe('campaign path config', () => {
             .toEqual({ stage: label, unseated: [] });
           // A stage that says what its objective is called has one.
           if (stage.display?.objective) expect(stage.mission).toBeDefined();
+        });
+
+        // A seat past the last colour is written with none, and the stage game cannot be created.
+        it(`stage ${label} seats no more players than there are seat colours`, () => {
+          expect(stage.ai_count + 1).toBeLessThanOrEqual(CAMPAIGN_SEAT_COLORS.length);
+          expect(new Set(CAMPAIGN_SEAT_COLORS).size).toBe(CAMPAIGN_SEAT_COLORS.length);
         });
 
         it(`stage ${label} points at a map that ships`, () => {
