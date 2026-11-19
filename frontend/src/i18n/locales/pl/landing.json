@@ -1,0 +1,115 @@
+{
+  "actions": {
+    "playFreeNow": "Zagraj teraz za darmo",
+    "playFree": "Graj za darmo",
+    "playAsGuest": "Graj jako gość",
+    "signIn": "Zaloguj się",
+    "learnToPlay": "Naucz się grać",
+    "seeGameplay": "Zobacz rozgrywkę",
+    "createFreeAccount": "Załóż darmowe konto",
+    "continueAs": "Kontynuuj jako {{name}}"
+  },
+  "hero": {
+    "tagline": "Każda granica jest tymczasowa.",
+    "description": "Borderfall to turowa gra strategiczna, w której podbijasz terytoria przez dziewięć er – od starożytnych legionów po galaktyczne pogranicze. Za darmo, w przeglądarce.",
+    "descriptionSuffix": "Graj na żywo lub asynchronicznie – ze znajomymi, rywalami albo SI.",
+    "friction": "Bez konta · Bez pobierania · Gra w około 20 minut",
+    "welcomeBack": "Witaj ponownie. Twoje gry i postępy czekają tam, gdzie zostały.",
+    "streak_one": "Grasz już {{count}} dzień z rzędu. Podtrzymaj passę także dziś.",
+    "streak_few": "Grasz już {{count}} dni z rzędu. Podtrzymaj passę także dziś.",
+    "streak_many": "Grasz już {{count}} dni z rzędu. Podtrzymaj passę także dziś.",
+    "streak_other": "Grasz już {{count}} dnia z rzędu. Podtrzymaj passę także dziś."
+  },
+  "showcase": {
+    "caption": "Prawdziwa rozgrywka na globie współczesności – jednej z map poniżej."
+  },
+  "eras": {
+    "heading": "Wybierz swoją erę",
+    "globalHeading": "Mapy świata",
+    "globalDescription": "Mapy całego świata, obejmujące wiele kontynentów i epok historii.",
+    "regionalHeading": "Mapy regionalne i niestandardowe",
+    "regionalDescription": "Mapy w skali teatru działań i historii alternatywnej – od pól bitew wojny secesyjnej po zalane wybrzeża i państwa ludów rdzennych – na szybsze, bardziej kameralne kampanie.",
+    "suggestedPlayers": "Sugerowana liczba graczy:",
+    "territories": "Terytoria:",
+    "playersRange": "Gracze: {{range}}",
+    "close": "Zamknij",
+    "closeDialog": "Zamknij okno",
+    "comingSoon": "Wkrótce",
+    "playThisMap": "Zagraj na tej mapie",
+    "ancient": {
+      "label": "Starożytność",
+      "years": "3000 p.n.e. – 400 n.e.",
+      "summary": "Schyłek świata klasycznego, gdy Rzym, Partia i Chiny dynastii Han władały wszystkim, co miały w zasięgu wzroku. Fronty biegną od Morza Śródziemnego przez Persję po Żółtą Rzekę, a za plecami wszystkich rozciąga się otwarty step. Doktryną jest tu Legion Tactics: zaatakuj trzema kośćmi, a przerzucisz najniższą."
+    },
+    "medieval": {
+      "label": "Średniowiecze",
+      "years": "400–1400 n.e.",
+      "summary": "Od wypraw krzyżowych po podboje mongolskie – królestwa, kalifaty i imperia koczowników na jednej planszy. Nie obowiązuje tu żadna doktryna ery, więc o kształcie gry decydują frakcje. Mongol Khanate rzuca dodatkową kością ataku, a bizantyjski Greek Fire spala atakującemu jednostkę, zanim kości pójdą w ruch."
+    },
+    "discovery": {
+      "label": "Epoka odkryć",
+      "years": "1400–1800 n.e.",
+      "summary": "Epoka żagli i imperiów prochu, w której o wodę walczy się tak samo jak o ląd. Sea Lanes ogranicza atak przez wodę do dwóch kości zamiast trzech, więc przeprawa, którą na lądzie masz w kieszeni, tutaj jest hazardem. Wyjątkiem jest frakcja Portugal: jej Naval Charts przywracają trzecią kość."
+    },
+    "ww2": {
+      "label": "II wojna światowa",
+      "years": "1939–1945",
+      "summary": "Potęgi przemysłowe w wojnie od Atlantyku po Pacyfik, na mapie wyrysowanej wzdłuż prawdziwych linii frontu. Wartime Logistics pozwala przegrupować jednostki dwa razy w turze, więc twoje rezerwy odpowiedzą na dwóch teatrach działań, gdy w innych erach wciąż odpowiadają na jednym."
+    },
+    "coldwar": {
+      "label": "Zimna wojna",
+      "years": "1945–1991",
+      "summary": "NATO, Układ Warszawski i państwa niezaangażowane rywalizują o wpływy, nie o ziemię. Influence Spread pozwala wydać trzy jednostki z graniczących terytoriów, by przejąć słabego sąsiada od ręki, bez rzutu kośćmi – a potem trzeba odczekać trzy tury, zanim zrobisz to ponownie."
+    },
+    "modern": {
+      "label": "Współczesność",
+      "years": "2026",
+      "summary": "Współczesne supermocarstwa i bloki gospodarcze na planszy skrojonej pod XXI wiek. Precision Strike nagradza masę, nie podgryzanie: rzuć do walki co najmniej cztery jednostki, a atak dostanie trzy kości."
+    },
+    "acw": {
+      "label": "Wojna secesyjna",
+      "years": "1861–1865",
+      "summary": "Unia przeciw Konfederacji – wschodnie wybrzeże, Missisipi i terytoria zachodnie, w prawdziwych granicach stanów. Wszędzie indziej w grze remisy wygrywa obrońca. Rifle Doctrine je przerzuca, więc atak kosztuje tu mniej niż gdziekolwiek."
+    },
+    "risorgimento": {
+      "label": "Zjednoczenie Włoch",
+      "years": "1859–1871",
+      "summary": "Piemont, Królestwo Obojga Sycylii i papieski środek – prawdziwe zarysy prowincji połączone w regionalne teatry działań. Carbonari Network sięga poza twoją granicę, więc prowincja, z którą nie sąsiadujesz, też może zmienić właściciela bez jednego wystrzału."
+    },
+    "space_age": {
+      "label": "Era kosmiczna",
+      "years": "2100 n.e.",
+      "summary": "Wizja świata roku 2100: podnoszące się morza, nadbrzeżne megamiasta i Księżyc, o który toczy się spór. Zbadaj Lunar Expansion, zbuduj Launch Pad i wystrzel Space Station, by sięgnąć siłą na orbitę. Frakcja Lunar Pioneers zaczyna z dostępem do Księżyca; budowniczowie cudów mogą pominąć stację dzięki Space Elevator."
+    },
+    "galaxy_age": {
+      "label": "Era galaktyczna – wkrótce",
+      "labelBeta": "Era galaktyczna · Beta",
+      "years": "Daleka przyszłość",
+      "summary": "Cztery światy połączone trasami nadprzestrzennymi: utrzymaj system gateway i uderzaj prosto przez jego trasę. Przy przeprawie rzuca się mniej kości, więc systemy gateway bronią się jak wybrzeża – a każda frakcja walczy na trasach po swojemu."
+    }
+  },
+  "getStarted": {
+    "title": "Wskakuj do gry",
+    "body": "Zacznij od razu jako gość – bez rejestracji. Konto gościa zostaje w przeglądarce, w której powstało; załóż darmowe konto, gdy chcesz, by postępy szły za tobą, i gdy chcesz piąć się w rankingach.",
+    "haveAccount": "Masz już konto?"
+  },
+  "cta": {
+    "heading": "Czas objąć dowodzenie?",
+    "tagline": "Gdy pękają granice, upadają epoki.",
+    "noDownload": "Nic nie musisz pobierać. Graj od razu w przeglądarce."
+  },
+  "footer": {
+    "copyright": "© 2026 {{appName}}. Wszelkie prawa zastrzeżone.",
+    "howToPlay": "Jak grać",
+    "eras": "Ery",
+    "maps": "Mapy",
+    "codex": "Kodeks",
+    "about": "O grze",
+    "privacy": "Polityka prywatności",
+    "terms": "Regulamin",
+    "contact": "Kontakt"
+  },
+  "errors": {
+    "guestStart": "Nie udało się rozpocząć sesji gościa"
+  }
+}

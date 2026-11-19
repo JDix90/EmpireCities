@@ -845,7 +845,7 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'localization_enabled',
     label: 'Localized landing & tutorial',
     description:
-      'Show the landing page and the tutorial in the player\u2019s language (Spanish, Brazilian Portuguese, German, French) and add a language switcher to both; a stored choice wins, then the browser language. Off by default while the translations await native review \u2014 off means English for everyone, exactly as before. Client-only: the in-game HUD stays English either way.',
+      'Show the landing page and the tutorial in the player\u2019s language (Spanish, Brazilian Portuguese, German, French, Polish) and add a language switcher to both; a stored choice wins, then the browser language. Off by default while the translations await native review \u2014 off means English for everyone, exactly as before. Client-only: the in-game HUD stays English either way.',
   },
   {
     key: 'touch_targets_enabled',
