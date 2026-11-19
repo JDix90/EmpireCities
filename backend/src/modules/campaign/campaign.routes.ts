@@ -21,6 +21,7 @@ import { featureFlags } from '../../config/featureFlags';
 import { campaignClockSettings } from './campaignClock';
 import { recordServerEvent } from '../../services/analyticsEvents';
 import { describeCampaignCarry } from './campaignCarryEffects';
+import { campaignRetryUnits, campaignStageLosses } from '../../game-engine/campaign/carryLadder';
 
 /**
  * Guests reach the campaign only while guest_campaign_enabled is on, and then
@@ -333,6 +334,9 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
       isGuest: req.isGuest === true,
       retry: isRetry,
       failedAttempts: (campaign.failed_era_attempts ?? 0) + (isRetry ? 1 : 0),
+      // Losses of this stage, as the completion handler counted them: a stage
+      // game walked away from is another attempt, not a loss.
+      stageLosses: campaignStageLosses(campaign.path_narrative, eraIndex),
     });
 
     return reply.status(201).send({
@@ -433,6 +437,9 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
           faction_id: entry?.faction_id ?? pathEra?.locked_faction ?? null,
           map_id: entry?.map_id_override ?? pathEra?.map_id ?? ERA_MAP_IDS[era as CampaignEra],
           title: pathEra?.title ?? null,
+          // The stage's own names for its period and the player's power, where it has them.
+          era_label: pathEra?.display?.era_label ?? null,
+          faction_name: pathEra?.display?.factions?.[pathEra.locked_faction] ?? null,
           intro_text: pathEra?.intro_text ?? null,
           outro_win_text: pathEra?.outro_win_text ?? null,
           outro_loss_text: pathEra?.outro_loss_text ?? null,
@@ -451,7 +458,11 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
         path_id: c.path_id,
         path_carry: c.path_carry,
         // What the campaign will carry into its next stage, in words.
-        carry_effects: describeCampaignCarry({ prestigePoints: c.prestige_points, carry: c.path_carry }),
+        carry_effects: describeCampaignCarry({
+          prestigePoints: c.prestige_points,
+          carry: c.path_carry,
+          stageLosses: c.status === 'active' ? campaignStageLosses(c.path_narrative, currentEraIndex) : 0,
+        }),
         path_narrative: c.path_narrative,
         // The side the path lets the player take, and whether it is taken.
         line_choice: lineChoice,
@@ -550,6 +561,9 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
         faction_id: entry?.faction_id ?? pathEra?.locked_faction ?? null,
         map_id: entry?.map_id_override ?? pathEra?.map_id ?? ERA_MAP_IDS[era as CampaignEra],
         title: pathEra?.title ?? null,
+        // The stage's own names for its period and the player's power, where it has them.
+        era_label: pathEra?.display?.era_label ?? null,
+        faction_name: pathEra?.display?.factions?.[pathEra.locked_faction] ?? null,
         intro_text: pathEra?.intro_text ?? null,
         outro_win_text: pathEra?.outro_win_text ?? null,
         outro_loss_text: pathEra?.outro_loss_text ?? null,
@@ -567,7 +581,11 @@ export async function campaignRoutes(app: FastifyInstance): Promise<void> {
       completed_at: campaign.completed_at,
       path_id: campaign.path_id,
       path_carry: campaign.path_carry,
-      carry_effects: describeCampaignCarry({ prestigePoints: campaign.prestige_points, carry: campaign.path_carry }),
+      carry_effects: describeCampaignCarry({
+        prestigePoints: campaign.prestige_points,
+        carry: campaign.path_carry,
+        stageLosses: campaign.status === 'active' ? campaignStageLosses(campaign.path_narrative, currentEraIndex) : 0,
+      }),
       path_narrative: campaign.path_narrative,
       line_choice: lineChoice,
       path_config: pathConfig
@@ -629,6 +647,8 @@ interface CreateEraGameArgs {
   retry: boolean;
   /** Stage attempts this campaign has lost so far, this retry included. */
   failedAttempts: number;
+  /** Times this stage has been played to a loss: what trying again adds. */
+  stageLosses?: number;
 }
 
 async function createEraGame({
@@ -642,6 +662,7 @@ async function createEraGame({
   isGuest,
   retry,
   failedAttempts,
+  stageLosses = 0,
 }: CreateEraGameArgs): Promise<{ gameId: string; eraId: string; mapId: string }> {
   const eraId = CAMPAIGN_ERAS[eraIndex];
   const pathConfig = pathId ? CAMPAIGN_PATHS[pathId] : null;
@@ -678,7 +699,9 @@ async function createEraGame({
 
   // What the campaign carries into this stage, in words, for the intro and
   // the HUD: the effect combat and reinforcement apply, not the stored number.
-  const carryEffects = describeCampaignCarry({ prestigePoints, carry: pathCarry });
+  const carryEffects = describeCampaignCarry({ prestigePoints, carry: pathCarry, stageLosses });
+  const retryUnits = campaignRetryUnits(stageLosses);
+  if (retryUnits > 0) settings.campaign_retry_units = retryUnits;
   if (carryEffects.length > 0) settings.campaign_carry_effects = carryEffects;
 
   if (pathConfig) {
@@ -692,6 +715,8 @@ async function createEraGame({
   // The stage's stated objective: the player's mission, in place of a dealt
   // one (victory/missions.ts).
   if (pathEra?.mission) settings.campaign_mission = pathEra.mission;
+  if (pathEra?.neutral_territories?.length) settings.campaign_neutral_territories = pathEra.neutral_territories;
+  if (pathEra?.display) settings.campaign_display = pathEra.display;
 
   if (pathId) {
     settings.campaign_path_id = pathId;
@@ -811,6 +836,8 @@ async function createEraGame({
       ai_difficulty: aiDifficulty,
       ai_count: aiCount,
       is_guest: isGuest,
+      // Extra starting units this attempt opens with, for losses of this stage.
+      retry_units: retryUnits,
       // The side played, on a stage that has sides.
       line: pathConfig?.lines && eraIndex >= pathConfig.lines.choose_at ? lineId : null,
     },

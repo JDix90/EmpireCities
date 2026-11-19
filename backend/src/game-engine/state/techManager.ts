@@ -2,6 +2,7 @@
 // Tech Manager — technology tree research, passive bonuses
 // ============================================================
 
+import { campaignSpiritReinforcements } from '../campaign/carryLadder';
 import type { EraId, GameState, PlayerState } from '../../types';
 import type { TechNode } from '../eras/types';
 import { eraTechTreeOptions, getEraTechTree } from '../eras';
@@ -166,11 +167,9 @@ export function getPlayerDefenseBonus(state: GameState, playerId: string): numbe
  * events system a campaign stage never turns on. Blood & Empire's Prestige
  * pays in attack dice and The Last Defenders' Survivor Bonus in defence dice
  * (both in combatModifiers); a revolution's advantage is mobilisation, so this
- * one pays in reinforcements — one extra unit per two points banked, to the
- * human seat of a campaign stage only.
+ * one pays in reinforcements, to the human seat of a campaign stage only. How
+ * many is campaign/carryLadder.ts.
  */
-export const CAMPAIGN_SPIRIT_PER_REINFORCEMENT = 2;
-export const CAMPAIGN_SPIRIT_REINFORCE_CAP = 2;
 
 /**
  * Compute total extra reinforcements per turn from unlocked tech nodes + faction passive.
@@ -183,11 +182,7 @@ export function getPlayerReinforceBonus(state: GameState, playerId: string): num
 
   // Campaign carry: Revolutionary Spirit (see the constants above).
   if (state.settings.is_campaign && !player.is_ai) {
-    const spirit = state.settings.campaign_carry?.revolutionary_spirit ?? 0;
-    bonus += Math.min(
-      Math.floor(spirit / CAMPAIGN_SPIRIT_PER_REINFORCEMENT),
-      CAMPAIGN_SPIRIT_REINFORCE_CAP,
-    );
+    bonus += campaignSpiritReinforcements(state.settings.campaign_carry?.revolutionary_spirit);
   }
 
   // Faction passive reinforce bonus (the Colonies board may set its own for a

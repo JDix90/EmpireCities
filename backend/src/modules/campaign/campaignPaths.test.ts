@@ -124,6 +124,33 @@ describe('campaign path config', () => {
             .toEqual({ stage: index + 1, carry: path.signature_carry_key, paid: 0 });
         });
 
+        it(`stage ${label} leaves neutral only ground its objective does not need`, () => {
+          if (!stage.neutral_territories) return;
+          const map = JSON.parse(readFileSync(join(MAPS_DIR, `${stage.map_id}.json`), 'utf-8')) as {
+            territories: Array<{ territory_id: string; region_id: string }>;
+          };
+          const neutral = new Set(stage.neutral_territories);
+          expect(neutral.size).toBe(stage.neutral_territories.length);
+          const unknown = [...neutral].filter((id) => !map.territories.some((t) => t.territory_id === id));
+          expect({ stage: label, unknown }).toEqual({ stage: label, unknown: [] });
+          const m = stage.mission;
+          const needed = map.territories.filter((t) =>
+            (m?.kind === 'control_regions' && m.region_ids.includes(t.region_id))
+            || (m?.kind === 'capture_territories' && m.territory_ids.includes(t.territory_id)));
+          expect(needed.filter((t) => neutral.has(t.territory_id)).map((t) => t.territory_id)).toEqual([]);
+          // Every seat still has ground to be dealt.
+          expect(map.territories.length - neutral.size).toBeGreaterThanOrEqual((stage.ai_count + 1) * 3);
+        });
+
+        it(`stage ${label} renames only factions it seats`, () => {
+          const renamed = Object.keys(stage.display?.factions ?? {});
+          const seated = [stage.locked_faction, ...stage.ai_factions];
+          expect({ stage: label, unseated: renamed.filter((id) => !seated.includes(id)) })
+            .toEqual({ stage: label, unseated: [] });
+          // A stage that says what its objective is called has one.
+          if (stage.display?.objective) expect(stage.mission).toBeDefined();
+        });
+
         it(`stage ${label} points at a map that ships`, () => {
           expect({ map: stage.map_id, exists: existsSync(join(MAPS_DIR, `${stage.map_id}.json`)) })
             .toEqual({ map: stage.map_id, exists: true });

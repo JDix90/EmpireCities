@@ -5355,7 +5355,12 @@ async function handleCampaignCompletion(
   const won = !!winnerId && !state.players.find((p) => p.player_id === winnerId)?.is_ai;
   const eraIndex = campaignRow.current_era_index;
   const narrativeKey = `era_${eraIndex}_outcome`;
-  const updatedNarrative = { ...campaignRow.path_narrative, [narrativeKey]: won ? 'won' : 'lost' };
+  const updatedNarrative: Record<string, string> = { ...campaignRow.path_narrative, [narrativeKey]: won ? 'won' : 'lost' };
+  // A stage played to a loss: counted here, where the loss is known, for what
+  // trying again adds (campaign/carryLadder.ts). Walking away is not counted.
+  const { campaignStageLosses } = await import('../game-engine/campaign/carryLadder');
+  const stageLossesAfter = campaignStageLosses(campaignRow.path_narrative, eraIndex) + (won ? 0 : 1);
+  if (!won) updatedNarrative[`era_${eraIndex}_losses`] = String(stageLossesAfter);
   const { campaignStageFinishedProperties } = await import('../modules/campaign/campaignEvents');
   recordServerEvent(
     'campaign_stage_finished',
@@ -5413,6 +5418,7 @@ async function handleCampaignCompletion(
     pathId: campaignRow.path_id,
     eraIndex,
     lineId: campaignRow.path_narrative?.line ?? null,
+    stageLosses: stageLossesAfter,
     eras: CAMPAIGN_ERAS,
     won,
     carryBefore: campaignRow.path_carry ?? {},

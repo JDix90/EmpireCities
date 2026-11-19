@@ -29,17 +29,8 @@ import {
   getUnderdefendedAttackDiceBonus,
 } from '../abilities/techAbilities';
 import { attackerDieFaces, defenderDieFaces } from '../state/garrisonDoctrines';
+import { campaignPrestigeDice, campaignPrestigeRounds, campaignSurvivorDice } from '../campaign/carryLadder';
 
-/**
- * Campaign carry caps. The stats accumulate to 8 and 12 in the campaign UI,
- * which is a progress display, not a dice count: a defender rolls two dice
- * normally, so handing one player eight more would end the mode. These are the
- * values combat will actually honour.
- */
-export const CAMPAIGN_SURVIVOR_DICE_CAP = 2;
-export const CAMPAIGN_PRESTIGE_DICE_CAP = 2;
-/** Prestige is the opening push only; it lapses after this many turns. */
-export const CAMPAIGN_PRESTIGE_TURNS = 3;
 
 export interface LandCombatModifierParams {
   state: GameState;
@@ -179,7 +170,7 @@ export function computeLandCombatModifiers(params: LandCombatModifierParams): La
   const campaignSurvivorBonus = state.settings.is_campaign
     && defenderIsHuman
     && homeRegions.includes(state.territories[toId]?.region_id ?? '')
-    ? Math.min(state.settings.campaign_carry?.survivor_bonus ?? 0, CAMPAIGN_SURVIVOR_DICE_CAP)
+    ? campaignSurvivorDice(state.settings.campaign_carry?.survivor_bonus)
     : 0;
   const eventDefenseBonus = state.settings.events_enabled && defenderId
     ? getTemporaryModifierValue(state, defenderId, 'defense_modifier')
@@ -293,8 +284,10 @@ export function computeLandCombatModifiers(params: LandCombatModifierParams): La
   const attackerIsHuman = !state.players.find((p) => p.player_id === attackerId)?.is_ai;
   const campaignPrestigeBonus = state.settings.is_campaign
     && attackerIsHuman
-    && state.turn_number <= CAMPAIGN_PRESTIGE_TURNS
-    ? Math.min(state.settings.campaign_prestige_bonus ?? 0, CAMPAIGN_PRESTIGE_DICE_CAP)
+    // The opening push only: how many dice and for how many rounds both grow
+    // with what the campaign has banked (campaign/carryLadder.ts).
+    && state.turn_number <= campaignPrestigeRounds(state.settings.campaign_prestige_bonus)
+    ? campaignPrestigeDice(state.settings.campaign_prestige_bonus)
     : 0;
   const underdefendedBonus = getUnderdefendedAttackDiceBonus(state, attackerId, defendingUnits);
   let eraGapAttackBonus = 0;

@@ -52,6 +52,8 @@ export interface SecretMissionPayload {
   territory_ids?: [string, string];
   target_player_id?: string;
   region_ids?: string[];
+  /** control_regions: the regions count only from this round on (a campaign stage's stand). */
+  from_round?: number;
   era_index?: number;
   era_id?: string;
   /** Lunar Foothold: how many Moon territories the objective needs. */
@@ -430,6 +432,8 @@ export interface GameState {
     campaign_stage_title?: string;
     /** The stage's stated objective, replacing a dealt mission (utils/campaignMission.ts). */
     campaign_mission?: unknown;
+    /** Names the stage shows in place of the era's own (utils/campaignDisplay.ts). */
+    campaign_display?: unknown;
     /** Numeric carry-forward stats for the campaign engine. */
     campaign_carry?: { survivor_bonus?: number; revolutionary_spirit?: number };
     /** What the carries do in this stage, in words (utils/campaignCarry.ts). */

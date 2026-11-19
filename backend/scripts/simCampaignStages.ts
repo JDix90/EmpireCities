@@ -74,7 +74,8 @@ import { DEFAULT_CARD_SET_BONUS_CAP } from '../src/game-engine/combat/combatReso
 import { headlessAiTurnHooks, planAiTurn, playAiTurn } from '../src/game-engine/ai/runAiTurn';
 import { resignIfBeaten, victoryAfterResignation } from '../src/game-engine/ai/aiResign';
 import { applyCampaignMission, assignSecretMissions, createSeededRng, hashStringToSeed } from '../src/game-engine/victory/missions';
-import { allCampaignStages, type PathEraConfig } from '../src/modules/campaign/campaignPaths';
+import { allCampaignStages, getPathEraConfig, type CampaignPath, type PathEraConfig } from '../src/modules/campaign/campaignPaths';
+import { campaignRetryUnits } from '../src/game-engine/campaign/carryLadder';
 import { sanitizeCampaignMission } from '../src/game-engine/state/gameSettings';
 import { getEraFactions } from '../src/game-engine/eras';
 import { describeAiTurnFlags, handOff, parseAiLevel, parseAiTurnFlags, resolveChoiceCard } from './aiHarness';
@@ -130,8 +131,35 @@ const EXTRA_CARRY = (process.env.SIM_CARRY ?? '').split(',').map((c) => c.trim()
     if (key) acc[key] = Number(value);
     return acc;
   }, {});
-/** Ignore the path's opening carry, to reproduce a config as it shipped. */
+/** Play every stage with no carry at all: what a carry is worth is the difference. */
 const NO_CARRY = process.env.SIM_NO_CARRY === '1';
+/**
+ * Play every stage on the path's opening carry alone, as this harness did
+ * before it knew what a campaign banks on the way: to reproduce older numbers.
+ */
+const OPENING_CARRY_ONLY = process.env.SIM_OPENING_CARRY === '1';
+/** Times the stage has been lost before this attempt: the retry bonus under test. */
+const RETRIES = process.env.SIM_RETRIES == null ? 0 : Number(process.env.SIM_RETRIES);
+
+/**
+ * What a campaign that has won every stage so far holds going into this one:
+ * the path's opening carry plus each earlier stage's win, on the same side,
+ * and the Prestige those wins banked. A stage is played with this, so that is
+ * what it is measured with.
+ */
+function carryInto(path: CampaignPath, index: number, lineId: string | null): { carry: Record<string, number>; prestige: number } {
+  const carry: Record<string, number> = { ...(path.initial_carry as Record<string, number>) };
+  let prestige = 0;
+  if (OPENING_CARRY_ONLY) return { carry, prestige };
+  for (let i = 0; i < index; i++) {
+    const won = getPathEraConfig(path.path_id, i, lineId)?.carry_on_win ?? {};
+    // As the completion handler banks them: Prestige uncapped in points, the others to their stored ceilings.
+    if (won.prestige_bonus != null) prestige += won.prestige_bonus; else prestige += 1;
+    if (won.survivor_bonus != null) carry.survivor_bonus = Math.min(8, (carry.survivor_bonus ?? 0) + won.survivor_bonus);
+    if (won.revolutionary_spirit != null) carry.revolutionary_spirit = Math.min(10, (carry.revolutionary_spirit ?? 0) + won.revolutionary_spirit);
+  }
+  return { carry, prestige };
+}
 /**
  * Name the AI seat that won each game by its faction (`AI.rome:threshold`)
  * rather than pooling them as `AI:`. A stage that gets harder can do so
@@ -224,6 +252,8 @@ async function runStage(
   index: number,
   stage: PathEraConfig,
   initialCarry: Record<string, number>,
+  /** Prestige points banked going into the stage. */
+  prestige: number,
   /** A line other than the path's default: part of the game id, so of the seed. */
   lineId: string | null = null,
 ): Promise<StageResult> {
@@ -274,7 +304,10 @@ async function runStage(
       // As the route sets it. The old loop never traded a card, so it never needed it.
       card_set_bonus_cap: DEFAULT_CARD_SET_BONUS_CAP,
       campaign_carry: NO_CARRY ? {} : { ...initialCarry, ...EXTRA_CARRY },
+      ...(NO_CARRY || prestige <= 0 ? {} : { campaign_prestige_bonus: prestige }),
+      ...(campaignRetryUnits(RETRIES) > 0 ? { campaign_retry_units: campaignRetryUnits(RETRIES) } : {}),
       ...(stage.mission ? { campaign_mission: stage.mission } : {}),
+      ...(stage.neutral_territories ? { campaign_neutral_territories: stage.neutral_territories } : {}),
       ...(HANDICAP && stage.starting_unit_modifier
         ? { campaign_starting_units_delta: stage.starting_unit_modifier }
         : {}),
@@ -387,10 +420,10 @@ async function main(): Promise<void> {
       if (lastPath !== pathId && lastPath !== null) console.log();
       lastPath = pathId;
       const stage = resolveStage(authored);
-      const carry = NO_CARRY ? {} : (path.initial_carry as Record<string, number>);
+      const into = carryInto(path, index, line_id);
       // The default line keeps the id, and so the digest, the stage had before lines.
       const seedLine = line_id && line_id !== path.lines?.default_line ? line_id : null;
-      const r = await runStage(pathId, index, stage, carry ?? {}, seedLine);
+      const r = await runStage(pathId, index, stage, into.carry, into.prestige, seedLine);
       const avg = (r.turns.reduce((a, b) => a + b, 0) / r.turns.length).toFixed(0);
       if (printed.length === 0) {
         console.log(`=== ${path.name} ===`);

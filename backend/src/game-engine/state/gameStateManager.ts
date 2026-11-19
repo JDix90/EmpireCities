@@ -193,6 +193,9 @@ function payFirstTurnProduction(state: GameState): void {
 /**
  * Initialize a brand-new GameState from a map and player list.
  */
+/** Units on a territory a campaign stage leaves neutral: enough that taking one is a decision. */
+const CAMPAIGN_NEUTRAL_GARRISON = 3;
+
 export function initializeGameState(
   gameId: string,
   era: EraId,
@@ -349,6 +352,13 @@ export function initializeGameState(
   // neutral too, with the garrison the board records (galaxySchism.ts).
   const unclaimedTileIds = new Set(schism?.unclaimed_garrison ? schismUnclaimedTiles(schism) : []);
   for (const tid of unclaimedTileIds) lunarTerritoryIds.add(tid);
+  // A campaign stage's neutral ground: territories its story has no part for
+  // (the lands beyond the Mississippi in 1776) sit out of the deal, garrisoned
+  // and unowned. Only a campaign stage that names some sets the key.
+  const campaignNeutralIds = new Set(
+    settingsNorm.is_campaign === true ? settingsNorm.campaign_neutral_territories ?? [] : [],
+  );
+  for (const tid of campaignNeutralIds) lunarTerritoryIds.add(tid);
   // Landing zones (tiles on an orbit lane — where the race arrives) hold a
   // beachhead garrison; the interior is tougher, so the first player to gain
   // orbit access establishes a foothold but can't sweep the whole world in one
@@ -365,7 +375,8 @@ export function initializeGameState(
   // A Vault region keeps its authored garrison on a colony world too.
   const unclaimedGarrison = schism?.unclaimed_garrison;
   const neutralOffworldGarrison = (tid: string): number =>
-    vaultGarrisons.get(tid)
+    (campaignNeutralIds.has(tid) ? CAMPAIGN_NEUTRAL_GARRISON : undefined)
+      ?? vaultGarrisons.get(tid)
       ?? (colonyTileIds.has(tid) ? colonyGarrison(orbitTouched.has(tid)) : undefined)
       ?? (unclaimedGarrison && unclaimedTileIds.has(tid)
         ? (orbitTouched.has(tid) ? unclaimedGarrison.gateway : unclaimedGarrison.interior)
@@ -683,6 +694,24 @@ export function initializeGameState(
         territories[biggest].unit_count -= 1;
         left -= 1;
       }
+    }
+  }
+
+  // Trying again: an attempt at a stage already lost opens with extra units,
+  // one at a time onto the human's thinnest territories, so they shore up the
+  // line rather than pile onto one stack.
+  const retryUnits = settingsNorm.is_campaign ? settingsNorm.campaign_retry_units ?? 0 : 0;
+  if (retryUnits > 0) {
+    const human = state.players.find((p) => !p.is_ai);
+    const owned = human
+      ? Object.keys(territories).filter((t) => territories[t].owner_id === human.player_id).sort()
+      : [];
+    for (let placed = 0; placed < retryUnits && owned.length > 0; placed++) {
+      let thinnest = owned[0]!;
+      for (const id of owned) {
+        if (territories[id].unit_count < territories[thinnest].unit_count) thinnest = id;
+      }
+      territories[thinnest].unit_count += 1;
     }
   }
 

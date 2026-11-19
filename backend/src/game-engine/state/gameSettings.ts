@@ -1,4 +1,5 @@
-import type { CampaignStageMission, GameSettings, VictoryType } from '../../types';
+import { CAMPAIGN_RETRY_UNITS_MAX } from '../campaign/carryLadder';
+import type { CampaignStageDisplay, CampaignStageMission, GameSettings, VictoryType } from '../../types';
 import {
   DEFAULT_ECONOMY_TECH_STARTING_GOLD,
   DEFAULT_ECONOMY_TECH_STARTING_TECH_POINTS,
@@ -428,7 +429,18 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     // What the carries do, in words, for the HUD (modules/campaign/campaignCarryEffects.ts).
     campaign_carry_effects: Array.isArray(ext.campaign_carry_effects) ? ext.campaign_carry_effects : undefined,
     campaign_starting_units_delta: ext.campaign_starting_units_delta,
+    campaign_retry_units:
+      typeof ext.campaign_retry_units === 'number' && Number.isInteger(ext.campaign_retry_units) && ext.campaign_retry_units > 0
+        ? Math.min(ext.campaign_retry_units, CAMPAIGN_RETRY_UNITS_MAX)
+        : undefined,
     campaign_mission: sanitizeCampaignMission(ext.campaign_mission),
+    campaign_display: sanitizeCampaignDisplay(ext.campaign_display),
+    campaign_neutral_territories:
+      Array.isArray(ext.campaign_neutral_territories)
+      && ext.campaign_neutral_territories.length > 0
+      && ext.campaign_neutral_territories.every((id) => typeof id === 'string' && id.length > 0)
+        ? [...ext.campaign_neutral_territories]
+        : undefined,
     daily_challenge_date: typeof ext.daily_challenge_date === 'string' ? ext.daily_challenge_date : undefined,
     first_match: ext.first_match === true ? true : undefined,
     ladder_step: typeof ext.ladder_step === 'number' && Number.isInteger(ext.ladder_step) ? ext.ladder_step : undefined,
@@ -488,7 +500,11 @@ export function sanitizeCampaignMission(raw: unknown): CampaignStageMission | un
       : null;
   if (m.kind === 'control_regions') {
     const ids = strings(m.region_ids);
-    return ids ? { kind: 'control_regions', region_ids: [...ids] } : undefined;
+    if (!ids) return undefined;
+    const from = m.from_round;
+    return typeof from === 'number' && Number.isInteger(from) && from >= 2
+      ? { kind: 'control_regions', region_ids: [...ids], from_round: from }
+      : { kind: 'control_regions', region_ids: [...ids] };
   }
   if (m.kind === 'capture_territories') {
     const ids = strings(m.territory_ids);
@@ -500,4 +516,25 @@ export function sanitizeCampaignMission(raw: unknown): CampaignStageMission | un
     return { kind: 'eliminate_faction', faction_id: m.faction_id };
   }
   return undefined;
+}
+
+/** A stage's display names as stored on the game row: strings only, and nothing at all when empty. */
+export function sanitizeCampaignDisplay(raw: unknown): CampaignStageDisplay | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const d = raw as Record<string, unknown>;
+  const text = (v: unknown): string | undefined => (typeof v === 'string' && v.trim() ? v.trim().slice(0, 200) : undefined);
+  const out: CampaignStageDisplay = {};
+  const eraLabel = text(d.era_label);
+  if (eraLabel) out.era_label = eraLabel;
+  const objective = text(d.objective);
+  if (objective) out.objective = objective;
+  if (d.factions && typeof d.factions === 'object') {
+    const factions: Record<string, string> = {};
+    for (const [id, name] of Object.entries(d.factions as Record<string, unknown>)) {
+      const shown = text(name);
+      if (shown) factions[id] = shown;
+    }
+    if (Object.keys(factions).length > 0) out.factions = factions;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
 }

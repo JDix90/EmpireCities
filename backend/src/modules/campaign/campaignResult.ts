@@ -37,6 +37,8 @@ export function buildCampaignGameResult(input: {
   eraIndex: number;
   /** The side the campaign took, on a path that offers one. */
   lineId?: string | null;
+  /** Times this stage has now been lost, this result included. */
+  stageLosses?: number;
   /** The campaign's eras, in order. */
   eras: readonly string[];
   won: boolean;
@@ -68,6 +70,11 @@ export function buildCampaignGameResult(input: {
       : null,
     carry_effects: outcome === 'completed'
       ? []
-      : describeCampaignCarry({ prestigePoints: input.prestigeAfter, carry: input.carryAfter }),
+      : describeCampaignCarry({
+          prestigePoints: input.prestigeAfter,
+          carry: input.carryAfter,
+          // After a loss, what the next attempt at this stage opens with.
+          stageLosses: outcome === 'lost' ? input.stageLosses : 0,
+        }),
   };
 }

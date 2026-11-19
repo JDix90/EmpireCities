@@ -1,3 +1,4 @@
+import { readCampaignDisplay } from '../../utils/campaignDisplay';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, BookOpen, Crown, Globe2, Swords, Trophy, Target, Shield, Users } from 'lucide-react';
 import clsx from 'clsx';
@@ -297,6 +298,7 @@ export default function GameStartModal({
                     isCampaign: gameState.settings.is_campaign === true,
                     eraId: gameState.era,
                     player: p,
+                    names: readCampaignDisplay(gameState.settings.campaign_display).factions,
                   });
                   return faction ? (
                     <>

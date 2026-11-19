@@ -82,6 +82,8 @@ export function describeSecretMission(
   }
   if (mission.kind === 'control_regions' && mission.region_ids?.length) {
     const names = mission.region_ids.map((id) => resolveRegionName(id, lookup));
+    // Counts from a round: won by holding it then, whether held from the start or taken since.
+    if (mission.from_round) return `Hold ${names.join(', ')} in round ${mission.from_round}, or any round after`;
     return `Control ${names.join(', ')}`;
   }
   if (mission.kind === 'reach_era' && mission.era_id) {
@@ -113,6 +115,7 @@ export type SecretMissionLike = {
   territory_ids?: string[];
   target_player_id?: string;
   region_ids?: string[];
+  from_round?: number;
   ally_player_id?: string;
   /** Alliance: the territories each ally must hold. */
   territory_threshold?: number;
