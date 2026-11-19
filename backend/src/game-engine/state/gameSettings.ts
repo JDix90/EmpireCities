@@ -1,3 +1,4 @@
+import { CAMPAIGN_RETRY_UNITS_MAX } from '../campaign/carryLadder';
 import type { CampaignStageDisplay, CampaignStageMission, GameSettings, VictoryType } from '../../types';
 import {
   DEFAULT_ECONOMY_TECH_STARTING_GOLD,
@@ -428,6 +429,10 @@ export function normalizeGameSettings(raw: Partial<GameSettings>): GameSettings 
     // What the carries do, in words, for the HUD (modules/campaign/campaignCarryEffects.ts).
     campaign_carry_effects: Array.isArray(ext.campaign_carry_effects) ? ext.campaign_carry_effects : undefined,
     campaign_starting_units_delta: ext.campaign_starting_units_delta,
+    campaign_retry_units:
+      typeof ext.campaign_retry_units === 'number' && Number.isInteger(ext.campaign_retry_units) && ext.campaign_retry_units > 0
+        ? Math.min(ext.campaign_retry_units, CAMPAIGN_RETRY_UNITS_MAX)
+        : undefined,
     campaign_mission: sanitizeCampaignMission(ext.campaign_mission),
     campaign_display: sanitizeCampaignDisplay(ext.campaign_display),
     campaign_neutral_territories:

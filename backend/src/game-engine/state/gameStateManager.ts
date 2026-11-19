@@ -697,6 +697,24 @@ export function initializeGameState(
     }
   }
 
+  // Trying again: an attempt at a stage already lost opens with extra units,
+  // one at a time onto the human's thinnest territories, so they shore up the
+  // line rather than pile onto one stack.
+  const retryUnits = settingsNorm.is_campaign ? settingsNorm.campaign_retry_units ?? 0 : 0;
+  if (retryUnits > 0) {
+    const human = state.players.find((p) => !p.is_ai);
+    const owned = human
+      ? Object.keys(territories).filter((t) => territories[t].owner_id === human.player_id).sort()
+      : [];
+    for (let placed = 0; placed < retryUnits && owned.length > 0; placed++) {
+      let thinnest = owned[0]!;
+      for (const id of owned) {
+        if (territories[id].unit_count < territories[thinnest].unit_count) thinnest = id;
+      }
+      territories[thinnest].unit_count += 1;
+    }
+  }
+
   // Prestige and the Survivor Bonus are no longer injected as
   // temporary_modifiers here. Combat only reads those when events are enabled,
   // which campaigns never do, so both carries were inert for every campaign

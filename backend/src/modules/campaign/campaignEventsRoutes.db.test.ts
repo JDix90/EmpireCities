@@ -83,6 +83,35 @@ describe.runIf(enabled)('campaign events (Postgres)', () => {
     expect(recorded[1]!.props).toMatchObject({ stage: 1, game_id: secondGame, retry: true, failed_attempts: 1 });
   });
 
+  it('opens an attempt at a stage already lost with the units trying again adds', async () => {
+    const [{ campaign_id }] = (await query(
+      `SELECT campaign_id FROM user_campaigns WHERE user_id = $1 AND path_id = 'blood_empire'`, [userId],
+    )) as Array<{ campaign_id: string }>;
+    // As the completion handler leaves a stage lost twice.
+    await query(
+      `UPDATE user_campaigns SET path_narrative = '{"era_0_outcome":"lost","era_0_losses":"2"}'::jsonb WHERE campaign_id = $1`,
+      [campaign_id],
+    );
+    await query(
+      `UPDATE games SET status = 'completed', ended_at = NOW()
+       WHERE game_id IN (SELECT game_id FROM campaign_entries WHERE campaign_id = $1)`, [campaign_id],
+    );
+    recorded.length = 0;
+    const res = await app.inject({ method: 'POST', url: '/api/campaign/continue', headers, payload: { campaign_id } });
+    expect(res.statusCode).toBe(201);
+    const [game] = (await query(`SELECT settings_json FROM games WHERE game_id = $1`, [(res.json() as { game_id: string }).game_id])) as Array<{ settings_json: Record<string, any> }>;
+    expect(game!.settings_json.campaign_retry_units).toBe(4);
+    expect(game!.settings_json.campaign_carry_effects).toEqual([
+      { key: 'retry', label: 'Trying again', text: '+4 starting units on this era', until_round: 1 },
+    ]);
+    expect(recorded.find((r) => r.event === 'campaign_stage_started')!.props).toMatchObject({ stage: 1, retry: true, retry_units: 4 });
+    // The losses are the stage's: the count is kept, and the campaign page says what it is worth.
+    const listed = (await app.inject({ method: 'GET', url: '/api/campaign/list', headers })).json() as { campaigns: Array<Record<string, any>> };
+    expect(listed.campaigns.find((c) => c.campaign_id === campaign_id)!.carry_effects).toEqual([
+      { key: 'retry', label: 'Trying again', text: '+4 starting units on this era', until_round: 1 },
+    ]);
+  });
+
   it('plays the side asked for at the stage that offers one, and keeps it', async () => {
     const [{ campaign_id }] = (await query(
       `SELECT campaign_id FROM user_campaigns WHERE user_id = $1 AND path_id = 'blood_empire'`, [userId],

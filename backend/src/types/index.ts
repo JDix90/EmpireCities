@@ -1024,6 +1024,11 @@ export interface GameSettings {
    * init, after territories are dealt.
    */
   campaign_starting_units_delta?: number;
+  /**
+   * Extra starting units for the human seat on an attempt at a stage already
+   * lost (campaign/carryLadder.ts `campaignRetryUnits`). Applied once, at init.
+   */
+  campaign_retry_units?: number;
   /** Numeric carry-forward stats injected from path_carry at game creation time. */
   campaign_carry?: {
     survivor_bonus?: number;

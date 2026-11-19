@@ -22,7 +22,7 @@ describe('buildCampaignGameResult', () => {
       next_era: 'medieval',
       outro_text: CAMPAIGN_PATHS.blood_empire.eras[0]!.outro_win_text,
       carry: { label: 'Prestige', before: 0, after: 2 },
-      carry_effects: [{ key: 'prestige', label: 'Prestige', text: '+2 attack dice in rounds 1\u20133', until_round: 3 }],
+      carry_effects: [{ key: 'prestige', label: 'Prestige', text: '+1 attack die in rounds 1\u20133', until_round: 3 }],
     });
   });
 
@@ -35,6 +35,13 @@ describe('buildCampaignGameResult', () => {
     expect(r.next_era).toBeNull();
     expect(r.outro_text).toBe(CAMPAIGN_PATHS.last_defenders.eras[1]!.outro_loss_text);
     expect(r.carry).toEqual({ label: 'Survivor Bonus', before: 4, after: 4 });
+  });
+
+  it('a lost stage says what the next attempt at it opens with, and a won one does not', () => {
+    const lost = buildCampaignGameResult({ ...base, pathId: 'blood_empire', eraIndex: 1, won: false, stageLosses: 2 });
+    expect(lost.carry_effects.find((e) => e.key === 'retry')).toMatchObject({ text: '+4 starting units on this era' });
+    const won = buildCampaignGameResult({ ...base, pathId: 'blood_empire', eraIndex: 1, won: true, stageLosses: 2 });
+    expect(won.carry_effects.some((e) => e.key === 'retry')).toBe(false);
   });
 
   it('winning the last stage completes the campaign', () => {

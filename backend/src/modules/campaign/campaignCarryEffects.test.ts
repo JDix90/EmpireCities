@@ -11,20 +11,35 @@ describe('describeCampaignCarry', () => {
     expect(describeCampaignCarry({ prestigePoints: 1, carry: {} })).toEqual([
       { key: 'prestige', label: 'Prestige', text: '+1 attack die in rounds 1–3', until_round: 3 },
     ]);
-    // Six points banked is still two dice: the number is never shown.
-    expect(describeCampaignCarry({ prestigePoints: 6, carry: {} })[0]!.text).toBe('+2 attack dice in rounds 1–3');
+    // More banked is more dice for longer; the number itself is never shown.
+    expect(describeCampaignCarry({ prestigePoints: 6, carry: {} })[0]).toMatchObject({ text: '+2 attack dice in rounds 1–4', until_round: 4 });
+    expect(describeCampaignCarry({ prestigePoints: 10, carry: {} })[0]).toMatchObject({ text: '+2 attack dice in rounds 1–5', until_round: 5 });
   });
 
-  it('shows the Survivor Bonus as defense dice at home, capped as combat caps it', () => {
+  it('shows the Survivor Bonus as defense dice at home, as many as combat rolls', () => {
+    expect(describeCampaignCarry({ prestigePoints: 0, carry: { survivor_bonus: 2 } })[0]!.text).toBe('+1 defense die on your home ground');
     expect(describeCampaignCarry({ prestigePoints: 0, carry: { survivor_bonus: 8 } })).toEqual([
-      { key: 'survivor', label: 'Survivor Bonus', text: '+2 defense dice on your home ground' },
+      { key: 'survivor', label: 'Survivor Bonus', text: '+3 defense dice on your home ground' },
     ]);
   });
 
-  it('shows Revolutionary Spirit as reinforcements, one per two points, and nothing for one point', () => {
+  it('shows Revolutionary Spirit as reinforcements, and nothing for one point', () => {
     expect(describeCampaignCarry({ prestigePoints: 0, carry: { revolutionary_spirit: 1 } })).toEqual([]);
     expect(describeCampaignCarry({ prestigePoints: 0, carry: { revolutionary_spirit: 2 } })[0]!.text).toBe('+1 reinforcement every turn');
-    expect(describeCampaignCarry({ prestigePoints: 0, carry: { revolutionary_spirit: 10 } })[0]!.text).toBe('+2 reinforcements every turn');
+    expect(describeCampaignCarry({ prestigePoints: 0, carry: { revolutionary_spirit: 10 } })[0]!.text).toBe('+3 reinforcements every turn');
+    expect(describeCampaignCarry({ prestigePoints: 0, carry: { revolutionary_spirit: 6 } })[0]!.text).toBe('+2 reinforcements every turn');
+  });
+
+  it('adds what trying again is worth, last, for a stage already lost', () => {
+    expect(describeCampaignCarry({ prestigePoints: 0, carry: {}, stageLosses: 0 })).toEqual([]);
+    expect(describeCampaignCarry({ prestigePoints: 2, carry: {}, stageLosses: 1 }).map((e) => [e.key, e.text])).toEqual([
+      ['prestige', '+1 attack die in rounds 1–3'],
+      ['retry', '+2 starting units on this era'],
+    ]);
+    // It is placed at the deal, so it is not a standing effect after round one.
+    expect(describeCampaignCarry({ prestigePoints: 0, carry: {}, stageLosses: 9 })).toEqual([
+      { key: 'retry', label: 'Trying again', text: '+6 starting units on this era', until_round: 1 },
+    ]);
   });
 
   it('lists every carry a path holds, Prestige first', () => {
