@@ -26,7 +26,7 @@
     "globalHeading": "Global",
     "globalDescription": "Weltkarten, die mehrere Kontinente und Epochen der Geschichte umspannen.",
     "regionalHeading": "Regionale und eigene Karten",
-    "regionalDescription": "Karten im Maßstab eines Kriegsschauplatzes und Alternativgeschichte – von den Schlachtfeldern des Bürgerkriegs über überflutete Küsten bis zu indigenen Reichen – für schnellere, intensivere Feldzüge.",
+    "regionalDescription": "Karten einzelner Kriegsschauplätze und alternativer Geschichtsverläufe – von den Schlachtfeldern des Amerikanischen Bürgerkriegs über überflutete Küsten bis zu indigenen Reichen – für schnellere, intensivere Feldzüge.",
     "suggestedPlayers": "Empfohlene Spielerzahl:",
     "territories": "Gebiete:",
     "playersRange": "{{range}} Spieler",
@@ -42,7 +42,7 @@
     "medieval": {
       "label": "Mittelalter",
       "years": "400 – 1400 n. Chr.",
-      "summary": "Von den Kreuzzügen bis zu den Mongolenstürmen, mit Königreichen, Kalifaten und Nomadenreichen auf einem Brett. Hier gilt keine Epochendoktrin, also entscheiden die Fraktionen, wie eine Partie verläuft. Das Mongolische Khanat würfelt einen zusätzlichen Angriffswürfel, und das byzantinische Griechische Feuer kostet den Angreifer eine Einheit, noch bevor gewürfelt wird."
+      "summary": "Von den Kreuzzügen bis zu den Mongolenstürmen, mit Königreichen, Kalifaten und Nomadenreichen auf einem Brett. Hier gilt keine zeitalterweite Doktrin, also entscheiden die Fraktionen, wie eine Partie verläuft. Das Mongolische Khanat würfelt einen zusätzlichen Angriffswürfel, und das byzantinische Griechische Feuer kostet den Angreifer eine Einheit, noch bevor gewürfelt wird."
     },
     "discovery": {
       "label": "Zeitalter der Entdeckungen",
@@ -52,7 +52,7 @@
     "ww2": {
       "label": "Zweiter Weltkrieg",
       "years": "1939 – 1945",
-      "summary": "Industriemächte im Krieg, vom Atlantik bis zum Pazifik, auf einer Karte entlang der echten Frontlinien. Die Kriegslogistik erlaubt dir zwei Truppenverlegungen pro Zug, also bedienen deine Reserven zwei Schauplätze, während andere Epochen noch einen bedienen."
+      "summary": "Industriemächte im Krieg, vom Atlantik bis zum Pazifik, auf einer Karte entlang der echten Frontlinien. Die Kriegslogistik erlaubt dir, zweimal pro Zug zu befestigen, also bedienen deine Reserven zwei Schauplätze, während andere Zeitalter noch einen bedienen."
     },
     "coldwar": {
       "label": "Kalter Krieg",
@@ -62,7 +62,7 @@
     "modern": {
       "label": "Die Gegenwart",
       "years": "2026",
-      "summary": "Die Großmächte und Wirtschaftsblöcke der Gegenwart, auf einem Brett für das 21. Jahrhundert. Der Präzisionsschlag belohnt Masse statt Knabbern: Setze vier oder mehr Einheiten ein, und der Angriff würfelt mit drei Würfeln."
+      "summary": "Die Großmächte und Wirtschaftsblöcke der Gegenwart, auf einem Brett für das 21. Jahrhundert. Der Präzisionsschlag belohnt Masse statt Nadelstiche: Setze vier oder mehr Einheiten ein, und der Angriff würfelt mit drei Würfeln."
     },
     "acw": {
       "label": "Amerikanischer Bürgerkrieg",
@@ -72,18 +72,18 @@
     "risorgimento": {
       "label": "Italienische Einigung",
       "years": "1859 – 1871",
-      "summary": "Piemont, Beide Sizilien und der Kirchenstaat in der Mitte, auf echten Provinzgrenzen, zu regionalen Schauplätzen zusammengefasst. Das Carbonari-Netzwerk reicht über deine eigene Grenze hinaus, eine Provinz, die du gar nicht berührst, kann also ohne einen Schuss den Besitzer wechseln."
+      "summary": "Piemont, das Königreich beider Sizilien und der Kirchenstaat in der Mitte, auf echten Provinzgrenzen, zu regionalen Schauplätzen zusammengefasst. Das Carbonari-Netzwerk reicht über deine eigene Grenze hinaus, eine Provinz, die du gar nicht berührst, kann also ohne einen Schuss den Besitzer wechseln."
     },
     "space_age": {
       "label": "Weltraumzeitalter",
       "years": "2100 n. Chr.",
-      "summary": "Eine Welt im Jahr 2100 mit steigenden Meeren, Küstenmegastädten und einem umkämpften Mond. Erforsche die Mondexpansion, baue eine Startrampe und bringe eine Raumstation in den Orbit, um Macht ins All zu projizieren. Die Fraktion der Mondpioniere beginnt mit Zugang zum Mond; wer Wunder baut, kann die Station mit einem Weltraumlift überspringen."
+      "summary": "Eine Welt im Jahr 2100 mit steigenden Meeren, Küstenmegastädten und einem umkämpften Mond. Erforsche Lunar Expansion, baue ein Launch Pad und bringe eine Raumstation in den Orbit, um Macht ins All zu projizieren. Die Fraktion Lunar Pioneers beginnt mit Zugang zum Mond; wer Wunder baut, kann die Station mit einem Space Elevator überspringen."
     },
     "galaxy_age": {
       "label": "Galaktisches Zeitalter – Demnächst",
       "labelBeta": "Galaktisches Zeitalter · Beta",
       "years": "Ferne Zukunft",
-      "summary": "Vier Welten, durch Hyperraumrouten verbunden: Halte ein Torsystem und schlage direkt über seine Route zu. Überquerungen würfeln mit weniger Würfeln, Tore verteidigen sich also wie Küsten – und jede Fraktion kämpft auf den Routen auf ihre eigene Weise."
+      "summary": "Vier Welten, durch Hyperraumrouten verbunden: Halte ein Gateway-System und schlage direkt über seine Route zu. Überquerungen würfeln mit weniger Würfeln, Gateways verteidigen sich also wie Küsten – und jede Fraktion kämpft auf den Routen auf ihre eigene Weise."
     }
   },
   "getStarted": {
@@ -99,7 +99,7 @@
   "footer": {
     "copyright": "© 2026 {{appName}}. Alle Rechte vorbehalten.",
     "howToPlay": "Spielanleitung",
-    "eras": "Epochen",
+    "eras": "Zeitalter",
     "maps": "Karten",
     "codex": "Kodex",
     "about": "Über uns",

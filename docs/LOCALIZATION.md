@@ -14,7 +14,7 @@
 
 **Not localized:** the in-game HUD, the lobby, the codex, the marketing/SEO routes (`/eras`, `/how-to-play`, …), emails, push notifications. Because the HUD is still English, tutorial translations name the buttons and panels the player can actually see — **Advance Era**, the **Bonuses** panel, the phase button via `{{draftButton}}` — rather than translating labels that do not exist in the game.
 
-Languages shipped: English (source), Spanish, Brazilian Portuguese, German, French. The translations were produced in-house and have **not had native review**; that review is the gate for promoting the flag (below).
+Languages shipped: English (source), Spanish, Brazilian Portuguese, German, French. The translations were produced in-house and have had one full in-house review pass against the English, but **not native review**; that review is the gate for promoting the flag (below).
 
 ## The flag
 
@@ -89,6 +89,10 @@ The terms every translation must keep consistent, and the English UI labels that
 | Vulnerability window | ventana de vulnerabilidad | janela de vulnerabilidade | Verwundbarkeitsfenster | fenêtre de vulnérabilité |
 | Signature reward | recompensa distintiva | recompensa exclusiva | Signatur-Belohnung | récompense signature |
 | Lobby | vestíbulo | lobby | Lobby | salon |
+| Turn (one player's go) / Round (every seat has played) | turno / ronda | turno / rodada | Zug / Runde | tour / manche |
+| Kit (a faction's set of abilities) | repertorio | kit | Ausrüstung | kit |
 | Codex | Códice | Códice | Kodex | Codex |
+
+Turn and round are different things in the rules (the turn limit counts rounds; "once per turn" is per player), so a translation must not use one word for both. Register: Spanish, Portuguese and German address the player informally (tú, você, du); French uses *vous* throughout. A world's rule on the galaxy board is translated, but its name (**Cradle**, **Storms**, **Forge**, **The Vault**) is quoted, since the panel prints it in English.
 
 Quoted as-is because the game shows them in English: territory names on the tutorial board (**Tuscany & Latium**, **Umbria & Abruzzo**, …), **Advance Era**, **Place** / **All**, the **Bonuses** and **Era** panels, faction and ability names (**Guerrilla Warfare**), technology names, and the phase labels the HUD prints ("Reinforcement").

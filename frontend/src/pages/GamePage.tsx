@@ -69,7 +69,7 @@ import GamePanelBoundary from '../components/game/GamePanelBoundary';
 import { MapControlChip } from '../components/game/MapControlTracker';
 import AiTurnRecapPanel, { appendRecap, ownTurnDigest, type TurnRecapEntry } from '../components/game/AiTurnRecapPanel';
 import { useTurnRecapPanelEnabled } from '../store/featureFlagsStore';
-import { useSaveAccountCopyEnabled, useGalaxyAgeBetaEnabled } from '../store/featureFlagsStore';
+import { useSaveAccountCopyEnabled, useGalaxyAgeBetaEnabled, useTutorialGuidedDraftEnabled } from '../store/featureFlagsStore';
 import { usePlayOnStore, type PlayOnResult, type PlayOnVoteView } from '../store/playOnStore';
 import { useFirstTurnEventsEnabled } from '../store/featureFlagsStore';
 import { useFirstTurnClockWaitEnabled, usePhoneTurnCountdownEnabled } from '../store/featureFlagsStore';
@@ -169,6 +169,7 @@ import {
 import { isClassicDaily, resolveGameOverResult, type DailyRunResult } from '../utils/dailyGameOver';
 import CampaignIntroModal, { type CampaignIntroData } from '../components/game/CampaignIntroModal';
 import { describeCampaignMission, readCampaignMission } from '../utils/campaignMission';
+import { guidedAttackStep, guidedCardFor, guidedDraftStep, guidedFortifyStep, type GuidedStep } from '../tutorial/guidedCards';
 import { readCampaignDisplay } from '../utils/campaignDisplay';
 import InviteFriendsModal from '../components/game/InviteFriendsModal';
 import GameShortcutsModal from '../components/game/GameShortcutsModal';
@@ -878,6 +879,49 @@ export default function GamePage() {
     const names = new Map(mapData.territories.map((t) => [t.territory_id, t.name]));
     return suggestFirstAttack(gameState, mapData.connections, viewerPlayer.player_id, names);
   }, [firstAttackHintFlag, gameState, viewerPlayer, mapData]);
+  /**
+   * The tutorial's first three action cards, one step at a time
+   * (tutorial_guided_draft_enabled, tutorial/guidedCards.ts): the step the
+   * current card is on, or null when it is not one of them or the flag is off.
+   */
+  const tutorialGuidedFlag = useTutorialGuidedDraftEnabled();
+  const tutorialGuidedCard = tutorialGuidedFlag && isTutorial ? guidedCardFor(tutorialSteps[tutorialStep]?.id) : null;
+  /** The attack the guided attack card names: the one a first match's coach would. */
+  const tutorialAttackHint = useMemo<FirstAttackHint | null>(() => {
+    if (tutorialGuidedCard !== 'attack' || !gameState || !viewerPlayer || !mapData) return null;
+    if (gameState.phase !== 'attack') return null;
+    if (gameState.players[gameState.current_player_index]?.player_id !== viewerPlayer.player_id) return null;
+    const names = new Map(mapData.territories.map((t) => [t.territory_id, t.name]));
+    return suggestFirstAttack(gameState, mapData.connections, viewerPlayer.player_id, names);
+  }, [tutorialGuidedCard, gameState, viewerPlayer, mapData]);
+  const tutorialAttackOpen = tutorialAttackHint ? firstAttackOpen(tutorialAttackHint, selectedTerritory, attackSource) : null;
+  const tutorialGuided = ((): GuidedStep | null => {
+    if (!tutorialGuidedCard || !gameState || !viewerPlayer) return null;
+    if (gameState.players[gameState.current_player_index]?.player_id !== viewerPlayer.player_id) return null;
+    if (tutorialGuidedCard === 'draft' && gameState.phase === 'draft') {
+      return guidedDraftStep({
+        unitsRemaining: computeDraftPool(gameState, user?.user_id, user?.username, draftUnitsRemaining, resolvedViewerPlayerId),
+        ownTerritorySelected: !!selectedTerritory && gameState.territories[selectedTerritory]?.owner_id === viewerPlayer.player_id,
+        advanceLabel: phaseAdvanceLabel('draft'),
+      });
+    }
+    if (tutorialGuidedCard === 'attack' && gameState.phase === 'attack') {
+      return guidedAttackStep({
+        hint: tutorialAttackHint,
+        open: tutorialAttackOpen,
+        attackedThisTurn: (viewerPlayer as { attacked_this_turn?: boolean }).attacked_this_turn === true,
+        advanceLabel: phaseAdvanceLabel('attack'),
+      });
+    }
+    if (tutorialGuidedCard === 'fortify' && gameState.phase === 'fortify') {
+      return guidedFortifyStep({ movesUsed: gameState.fortify_moves_used ?? 0, advanceLabel: phaseAdvanceLabel('fortify') });
+    }
+    return null;
+  })();
+  /** The territory the guided attack card rings: the named attack's source, then its target. */
+  const tutorialGuidedRingId = tutorialGuided?.card === 'attack' && tutorialAttackHint && tutorialGuided.stage !== 'advance'
+    ? firstAttackRingId(tutorialAttackHint, tutorialAttackOpen)
+    : undefined;
   /** The suggestion on screen, and whether the last attack sent was it: for the first_attack event. */
   const visibleFirstAttackRef = useRef<FirstAttackHint | null>(null);
   const lastAttackHintRef = useRef<'followed' | 'other' | null>(null);
@@ -3376,7 +3420,8 @@ export default function GamePage() {
     return undefined;
   }, [isTutorial, gameState, user?.user_id, tutorialStep, tutorialSteps]);
   /** The tutorial's ring, or else the suggested first attack's. */
-  const mapHighlightId = tutorialHighlightId
+  const mapHighlightId = tutorialGuidedRingId
+    ?? tutorialHighlightId
     ?? (visibleFirstAttack ? firstAttackRingId(visibleFirstAttack.hint, visibleFirstAttack.open) : undefined);
 
   useEffect(() => {
@@ -3804,6 +3849,15 @@ export default function GamePage() {
     setNavalSource(null);
     setFortifyUnits(1);
   };
+
+  /**
+   * What a guided tutorial card's one button does: place what is left and move
+   * on (the gold button's own confirmation does the same), open the named
+   * attack's source, or end the turn.
+   */
+  const tutorialGuidedAction = tutorialGuided?.action === 'showMe'
+    ? () => { if (tutorialAttackHint) handleTerritoryClick(tutorialAttackHint.fromId); }
+    : tutorialGuided?.action ? advancePhaseNow : undefined;
 
   const handleAdvancePhase = () => {
     // Leaving the reinforcement phase with unplaced units silently auto-places
@@ -5887,7 +5941,7 @@ export default function GamePage() {
                       lossPulseTerritoryIds: lossPulseIds,
                       turnHolderPlayerId: turnHolderPlayer?.player_id ?? null,
                       selfPlayerId: resolvedViewerPlayerId,
-                      coachHighlightOwnerId: coachPhase === 'reinforcement' ? resolvedViewerPlayerId : null,
+                      coachHighlightOwnerId: coachPhase === 'reinforcement' || (tutorialGuided?.card === 'draft' && tutorialGuided.stage === 'pick') ? resolvedViewerPlayerId : null,
                       validSourceOwnerId,
                       contestedBorders,
                       connectionHintMode,
@@ -5939,7 +5993,7 @@ export default function GamePage() {
                           ambientEnabled={mapAmbientEnabled && !reducedGlobe}
                           turnHolderPlayerId={turnHolderPlayer?.player_id ?? null}
                           selfPlayerId={resolvedViewerPlayerId}
-                          coachHighlightOwnerId={coachPhase === 'reinforcement' ? resolvedViewerPlayerId : null}
+                          coachHighlightOwnerId={coachPhase === 'reinforcement' || (tutorialGuided?.card === 'draft' && tutorialGuided.stage === 'pick') ? resolvedViewerPlayerId : null}
                           validSourceOwnerId={validSourceOwnerId}
                           contestedBorders={contestedBorders}
                           connectionHintMode={connectionHintMode}
@@ -7036,6 +7090,7 @@ export default function GamePage() {
             behindModal={tutorialCardBehindModal}
             panelOpen={showTechTree || showBonuses || showSettingsLab}
             territorySelected={!!selectedTerritory}
+            guided={tutorialGuided ? { ...tutorialGuided, onAction: tutorialGuidedAction } : null}
             phoneLayout={isMobileLayout}
           />
         </GamePanelBoundary>

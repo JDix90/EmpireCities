@@ -284,6 +284,14 @@ describe('featureFlags', () => {
     expect(featureFlags.turnClarityEnabled).toBe(false);
   });
 
+  it('tutorial_guided_draft_enabled defaults to off and the admin override turns it on', () => {
+    expect(featureFlags.tutorialGuidedDraftEnabled).toBe(false);
+    expect(getClientFeatureFlags().tutorial_guided_draft_enabled).toBe(false);
+    setAdminConfigCacheForTests({ feature_flags: { tutorial_guided_draft_enabled: true } });
+    expect(featureFlags.tutorialGuidedDraftEnabled).toBe(true);
+    expect(getClientFeatureFlags().tutorial_guided_draft_enabled).toBe(true);
+  });
+
   it('tutorial_card_fade_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.tutorialCardFadeEnabled).toBe(true);
     expect(getClientFeatureFlags().tutorial_card_fade_enabled).toBe(true);

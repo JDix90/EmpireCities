@@ -599,3 +599,126 @@ describe('TutorialOverlay on a page the browser has translated', () => {
     expect(screen.queryByText('The reason.')).toBeNull();
   });
 });
+
+/**
+ * The first three action cards, one step at a time (tutorial_guided_draft_enabled).
+ * They were the first cards to ask the player to do something, and the only
+ * thing on any of them to press was Exit Tutorial.
+ */
+describe('TutorialOverlay, guided cards', () => {
+  const draftStep: TutorialStep = {
+    id: 'draft_do',
+    title: 'Place Your Reinforcements',
+    message: 'Pick one of your territories, then dial how many and press Place. Then press the gold button.',
+    hint: 'Where you stack them decides which front you can open next.',
+    requireAction: 'end_phase',
+  };
+  const draft = (stage: 'pick' | 'place' | 'advance', onAction?: () => void) => ({
+    card: 'draft' as const, stage, number: stage === 'pick' ? 1 : stage === 'place' ? 2 : 3, total: 3,
+    vars: { button: 'Begin Attack →' }, action: stage === 'advance' ? null : ('placeForMe' as const), onAction,
+  });
+  const props = { steps: [draftStep], stepIndex: 0, lessonModule: 'core' as const, onAdvance: noop, onContinuePlaying: noop, onReturnToLobby: noop, onExitTutorial: noop, playerColorName: 'blue' };
+
+  it('says only the next thing to do, and changes as the player does it', () => {
+    const { rerender } = overlay([draftStep], { guided: draft('pick', noop), playerColorName: 'blue', onExitTutorial: noop });
+    const card = () => screen.getByTestId('tutorial-guided');
+    expect(card().getAttribute('data-stage')).toBe('pick');
+    expect(card().textContent).toContain('Tap one of your blue territories.');
+    // The long paragraph and its hint are gone: one line, not four instructions.
+    expect(document.body.textContent).not.toContain('dial how many');
+    expect(document.body.textContent).not.toContain('Where you stack them');
+    expect(document.body.textContent).not.toContain('Complete the action to continue');
+
+    rerender(<TutorialOverlay {...props} guided={draft('place', noop)} territorySelected />);
+    expect(card().textContent).toContain('Press All, then Place.');
+    rerender(<TutorialOverlay {...props} guided={draft('advance')} />);
+    expect(card().textContent).toContain('Now press the gold Begin Attack → button.');
+    expect(screen.getByRole('img', { name: '3 of 3' })).toBeTruthy();
+  });
+
+  it('names one attack, end to end, on the attack card', () => {
+    const attack = (stage: string, number: number, action: 'showMe' | null = null) => ({
+      card: 'attack' as const, stage, number, total: 3, action, onAction: noop,
+      vars: { from: 'Tuscany & Latium', to: 'Umbria & Abruzzo', button: 'Begin Fortify →' },
+    });
+    const { rerender } = overlay([draftStep], { guided: attack('source', 1, 'showMe'), onExitTutorial: noop });
+    const card = () => screen.getByTestId('tutorial-guided');
+    expect(card().getAttribute('data-card')).toBe('attack');
+    expect(card().textContent).toContain('Attack Umbria & Abruzzo from Tuscany & Latium. Tap Tuscany & Latium.');
+    expect(screen.getByTestId('tutorial-guided-action').textContent).toBe('Show me');
+    rerender(<TutorialOverlay {...props} guided={attack('target', 2)} territorySelected />);
+    expect(card().textContent).toContain('Tap Umbria & Abruzzo in the panel to attack it.');
+    expect(screen.queryByTestId('tutorial-guided-action')).toBeNull();
+    rerender(<TutorialOverlay {...props} guided={attack('confirm', 2)} territorySelected />);
+    expect(card().textContent).toContain('Press Attack from Tuscany & Latium.');
+    rerender(<TutorialOverlay {...props} guided={attack('advance', 3)} />);
+    expect(card().textContent).toContain('press the gold Begin Fortify → button.');
+  });
+
+  it('says fortifying is optional and offers to end the turn', () => {
+    const onAction = vi.fn();
+    overlay([draftStep], {
+      guided: { card: 'fortify', stage: 'choose', number: 1, total: 2, vars: { button: 'End Turn' }, action: 'endTurn', onAction },
+      onExitTutorial: noop,
+    });
+    expect(screen.getByTestId('tutorial-guided').textContent).toContain('Optional');
+    expect(screen.getByRole('img', { name: '1 of 2' })).toBeTruthy();
+    const button = screen.getByTestId('tutorial-guided-action');
+    expect(button.textContent).toBe('End my turn');
+    fireEvent.click(button);
+    expect(onAction).toHaveBeenCalledTimes(1);
+  });
+
+  it('gives the player something to press that moves them on, and shows Exit as a link', () => {
+    const onAction = vi.fn();
+    const onExit = vi.fn();
+    overlay([draftStep], { guided: draft('pick', onAction), onExitTutorial: onExit });
+    const button = screen.getByTestId('tutorial-guided-action');
+    expect(button.textContent).toBe('Place them for me');
+    fireEvent.click(button);
+    expect(onAction).toHaveBeenCalledTimes(1);
+    const exit = screen.getByTestId('tutorial-exit-btn');
+    expect(exit.textContent).toBe('Skip the tutorial');
+    // A link, not the bordered full-width button that was the card's only control.
+    expect(exit.className).not.toContain('border-red');
+    expect(exit.className).not.toContain('w-full');
+    fireEvent.click(exit);
+    expect(onExit).toHaveBeenCalledTimes(1);
+  });
+
+  it('has no button where the gold button is the step', () => {
+    overlay([draftStep], { guided: draft('advance', noop), onExitTutorial: noop });
+    expect(screen.queryByTestId('tutorial-guided-action')).toBeNull();
+  });
+
+  it('stays open while the territory panel is open, where the long card folds away', () => {
+    mockViewport({ mobile: true });
+    overlay([draftStep], { guided: draft('place', noop), territorySelected: true, onExitTutorial: noop });
+    expect(screen.getByTestId('tutorial-guided')).toBeTruthy();
+    expect(screen.queryByTestId('tutorial-card-unfold')).toBeNull();
+  });
+
+  it('on a phone sits above the bottom bar, and at the top while a territory panel is open', () => {
+    mockViewport({ mobile: true });
+    const position = () => screen.getByTestId('tutorial-guided').closest('.pointer-events-auto')!.className;
+    const { unmount } = overlay([draftStep], { guided: draft('pick', noop), onExitTutorial: noop });
+    expect(position()).toContain('bottom-');
+    expect(position()).not.toContain('top-[');
+    unmount();
+    overlay([draftStep], { guided: draft('place', noop), territorySelected: true, onExitTutorial: noop });
+    expect(position()).toContain('top-[');
+  });
+
+  it('on desktop docks aside, clear of the board', () => {
+    overlay([draftStep], { guided: draft('pick', noop), onExitTutorial: noop });
+    expect(screen.getByTestId('tutorial-guided').closest('.pointer-events-auto')!.className).toContain('left-0');
+  });
+
+  it('is the long card, unchanged, without the flag', () => {
+    overlay([draftStep], { onExitTutorial: noop });
+    expect(screen.queryByTestId('tutorial-guided')).toBeNull();
+    expect(document.body.textContent).toContain('dial how many');
+    expect(screen.getByTestId('tutorial-exit-btn').textContent).toContain('Exit Tutorial');
+    expect(screen.getByTestId('tutorial-exit-btn').className).toContain('border-red');
+  });
+});

@@ -392,6 +392,12 @@ const CLIENT_FEATURE_FLAGS = [
       'Route the landing page’s "Play as Guest" CTA straight into the guided tutorial match instead of the lobby. On by default; switch off to send guests to the lobby instead.',
   },
   {
+    key: 'tutorial_guided_draft_enabled',
+    label: 'Tutorial: guided first turn',
+    description:
+      'The tutorial\u2019s place, attack and fortify cards, the first three that ask the player to do something, each show one short step at a time instead of a paragraph: tap a territory, press All then Place, press the gold button; attack one named territory from another; fortify or end the turn. The card stays small and clear of the board, offers one button that moves the player on (\u201cPlace them for me\u201d, \u201cShow me\u201d, \u201cEnd my turn\u201d), and shows Exit as a small link instead of the card\u2019s only button. Changes who reaches the first match, so read first-match numbers before and after separately. Off by default; off, the cards are the paragraphs they were.',
+  },
+  {
     key: 'tutorial_card_fade_enabled',
     label: 'Tutorial card: fade when there is more',
     description:

@@ -15,6 +15,7 @@ export interface ClientFeatureFlags {
   map_gestures_v2_enabled: boolean;
   onboarding_tutorial_first_enabled: boolean;
   tutorial_card_fade_enabled: boolean;
+  tutorial_guided_draft_enabled: boolean;
   hero_single_cta_enabled: boolean;
   era_advance_payoff_enabled: boolean;
   signup_nudge_enabled: boolean;
@@ -130,6 +131,8 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   onboarding_tutorial_first_enabled: true,
   // Tutorial card: a fade above the buttons while there is more to read. On by default; admin kill switch.
   tutorial_card_fade_enabled: true,
+  // The tutorial's place, attack and fortify cards, one step at a time. Dark-launched OFF.
+  tutorial_guided_draft_enabled: false,
   hero_single_cta_enabled: true,
   era_advance_payoff_enabled: true,
   signup_nudge_enabled: true,
@@ -373,6 +376,11 @@ export function useMapGesturesV2Enabled(): boolean {
 
 export function useOnboardingTutorialFirstEnabled(): boolean {
   return useFeatureFlagsStore((s) => s.flags.onboarding_tutorial_first_enabled);
+}
+
+/** The tutorial's place, attack and fortify cards show one step at a time (tutorial/guidedCards.ts). */
+export function useTutorialGuidedDraftEnabled(): boolean {
+  return useFeatureFlagsStore((s) => s.flags.tutorial_guided_draft_enabled);
 }
 
 /** Tutorial card: a fade above the buttons while the prose has more below the fold (components/game/TutorialOverlay.tsx). */

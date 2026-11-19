@@ -42,7 +42,7 @@
     "medieval": {
       "label": "Era medieval",
       "years": "400 – 1400 d. C.",
-      "summary": "De las cruzadas a las conquistas mongolas, con reinos, califatos e imperios nómadas en un mismo tablero. Aquí no rige ninguna doctrina de era, así que son las facciones las que deciden cómo va la partida. El Kanato mongol tira un dado de ataque extra, y el fuego griego bizantino le quema una unidad al atacante antes de los dados."
+      "summary": "De las cruzadas a las conquistas mongolas, con reinos, califatos e imperios nómadas en un mismo tablero. Aquí no rige ninguna doctrina de era, así que son las facciones las que deciden cómo va la partida. El Kanato mongol tira un dado de ataque extra, y el fuego griego bizantino le quema una unidad al atacante antes de que se tiren los dados."
     },
     "discovery": {
       "label": "Era de los descubrimientos",
@@ -62,7 +62,7 @@
     "modern": {
       "label": "El mundo actual",
       "years": "2026",
-      "summary": "Las superpotencias contemporáneas y los bloques económicos, en un tablero ajustado al siglo XXI. El Ataque de precisión premia la masa antes que el mordisqueo: compromete cuatro unidades o más y el ataque tira tres dados."
+      "summary": "Las superpotencias contemporáneas y los bloques económicos, en un tablero ajustado al siglo XXI. El Ataque de precisión premia el ataque en masa, no el desgaste a mordiscos: lanza cuatro unidades o más y el ataque tira tres dados."
     },
     "acw": {
       "label": "Guerra de Secesión",
@@ -83,7 +83,7 @@
       "label": "Era galáctica — Próximamente",
       "labelBeta": "Era galáctica · Beta",
       "years": "Futuro lejano",
-      "summary": "Cuatro mundos unidos por rutas hiperespaciales: controla un sistema de entrada y ataca directamente a través de su ruta. Los cruces tiran menos dados, así que las entradas se defienden como costas, y cada facción combate en las rutas a su manera."
+      "summary": "Cuatro mundos unidos por rutas hiperespaciales: controla un sistema gateway y ataca directamente a través de su ruta. Los cruces tiran menos dados, así que los gateways se defienden como costas, y cada facción combate en las rutas a su manera."
     }
   },
   "getStarted": {
