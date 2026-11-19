@@ -1,6 +1,6 @@
 {
   "actions": {
-    "playFreeNow": "Jouez gratuitement maintenant",
+    "playFreeNow": "Jouer gratuitement maintenant",
     "playFree": "Jouer gratuitement",
     "playAsGuest": "Jouer en invité",
     "signIn": "Se connecter",
@@ -14,16 +14,16 @@
     "description": "Borderfall est un jeu de stratégie au tour par tour où vous conquérez des territoires à travers neuf ères, des légions antiques à la frontière galactique. Gratuit, dans votre navigateur.",
     "descriptionSuffix": "Jouez en temps réel ou en asynchrone avec des amis, des rivaux ou l'IA.",
     "friction": "Sans compte · Sans téléchargement · Une partie en 20 minutes environ",
-    "welcomeBack": "Bon retour. Tes parties et ta progression t’attendent.",
-    "streak_one": "Série de {{count}} jour. Garde-la aujourd’hui.",
-    "streak_other": "Série de {{count}} jours. Garde-la aujourd’hui."
+    "welcomeBack": "Bon retour. Vos parties et votre progression vous attendent.",
+    "streak_one": "Série de {{count}} jour. Prolongez-la aujourd’hui.",
+    "streak_other": "Série de {{count}} jours. Prolongez-la aujourd’hui."
   },
   "showcase": {
     "caption": "Du vrai gameplay sur le globe du Monde actuel — l'une des cartes ci-dessous."
   },
   "eras": {
     "heading": "Choisissez votre ère",
-    "globalHeading": "Mondiales",
+    "globalHeading": "Cartes mondiales",
     "globalDescription": "Des cartes du monde entier couvrant plusieurs continents et plusieurs époques de l'histoire.",
     "regionalHeading": "Cartes régionales et personnalisées",
     "regionalDescription": "Des cartes à l'échelle d'un théâtre d'opérations et d'histoire alternative — des champs de bataille de la guerre de Sécession aux littoraux submergés et aux nations autochtones — pour des campagnes plus rapides et plus serrées.",
@@ -33,26 +33,26 @@
     "close": "Fermer",
     "closeDialog": "Fermer la fenêtre",
     "comingSoon": "Bientôt disponible",
-    "playThisMap": "Jouer cette carte",
+    "playThisMap": "Jouer sur cette carte",
     "ancient": {
       "label": "Monde antique",
       "years": "3000 av. J.-C. – 400 apr. J.-C.",
-      "summary": "Le monde de l'Antiquité tardive, quand Rome, la Parthie et la Chine des Han régnaient chacune sur tout ce qu'elles pouvaient voir. Les fronts s'étendent de la Méditerranée à la Perse jusqu'au fleuve Jaune, avec la steppe ouverte derrière eux tous. Ici, la doctrine est la Tactique légionnaire : attaquez avec trois dés et vous relancez le plus faible."
+      "summary": "Le monde de la fin de l'Antiquité classique, quand Rome, la Parthie et la Chine des Han régnaient chacune sur tout ce qu'elles pouvaient voir. Les fronts s'étendent de la Méditerranée au fleuve Jaune en passant par la Perse, avec la steppe ouverte derrière eux tous. Ici, la doctrine est la Tactique légionnaire : attaquez avec trois dés et vous relancez le plus faible."
     },
     "medieval": {
       "label": "Ère médiévale",
       "years": "400 – 1400 apr. J.-C.",
-      "summary": "Des croisades aux conquêtes mongoles, avec royaumes, califats et empires nomades sur un même plateau. Aucune doctrine d'époque ne s'applique : ce sont les factions qui décident de l'allure d'une partie. Le Khanat mongol lance un dé d'attaque supplémentaire, et le feu grégeois byzantin brûle une unité à l'attaquant avant même les dés."
+      "summary": "Des croisades aux conquêtes mongoles, avec royaumes, califats et empires nomades sur un même plateau. Aucune doctrine propre à l'ère ne s'applique : ce sont les factions qui décident de l'allure d'une partie. Le Khanat mongol lance un dé d'attaque supplémentaire, et le feu grégeois byzantin brûle une unité à l'attaquant avant même le lancer des dés."
     },
     "discovery": {
       "label": "Grandes découvertes",
       "years": "1400 – 1800 apr. J.-C.",
-      "summary": "L'âge de la voile et des empires à poudre, disputé autant sur l'eau que sur terre. Les Routes maritimes limitent une attaque par mer à deux dés au lieu de trois : une traversée que vous gagneriez sur terre devient ici un pari. Le Portugal fait exception, ses Cartes marines rendent le troisième dé."
+      "summary": "L'âge de la voile et des empires de la poudre à canon, disputé autant sur l'eau que sur terre. Les Routes maritimes limitent une attaque par mer à deux dés au lieu de trois : une traversée que vous gagneriez sur terre devient ici un pari. Le Portugal fait exception : ses Cartes marines rendent le troisième dé."
     },
     "ww2": {
       "label": "Seconde Guerre mondiale",
       "years": "1939 – 1945",
-      "summary": "Les puissances industrielles en guerre, de l'Atlantique au Pacifique, sur une carte tracée le long des vrais fronts. La Logistique de guerre vous laisse fortifier deux fois par tour : vos réserves répondent sur deux théâtres quand les autres époques n'en couvrent qu'un."
+      "summary": "Les puissances industrielles en guerre, de l'Atlantique au Pacifique, sur une carte tracée le long des vrais fronts. La Logistique de guerre vous laisse fortifier deux fois par tour : vos réserves répondent sur deux théâtres quand les autres ères n'en couvrent qu'un."
     },
     "coldwar": {
       "label": "Guerre froide",
@@ -72,7 +72,7 @@
     "risorgimento": {
       "label": "Unification italienne",
       "years": "1859 – 1871",
-      "summary": "Le Piémont, les Deux-Siciles et le milieu pontifical, sur de vrais contours provinciaux regroupés en théâtres régionaux. Le Réseau carbonaro porte au-delà de votre propre frontière : une province que vous ne touchez pas peut changer de mains sans un coup de feu."
+      "summary": "Le Piémont, les Deux-Siciles et le centre pontifical, sur de vrais contours provinciaux regroupés en théâtres régionaux. Le Réseau carbonaro porte au-delà de votre propre frontière : une province que vous ne touchez pas peut changer de mains sans un coup de feu."
     },
     "space_age": {
       "label": "Ère spatiale",
@@ -83,23 +83,23 @@
       "label": "Ère galactique — Bientôt disponible",
       "labelBeta": "Ère galactique · Bêta",
       "years": "Futur lointain",
-      "summary": "Quatre mondes reliés par des couloirs hyperspatiaux : tenez un système-porte et frappez directement à travers son couloir. Les traversées lancent moins de dés, les portes se défendent donc comme des côtes — et chaque faction se bat dans les couloirs à sa manière."
+      "summary": "Quatre mondes reliés par des routes hyperspatiales : tenez un système gateway et frappez directement à travers sa route. Les traversées lancent moins de dés, les gateways se défendent donc comme des côtes — et chaque faction se bat sur les routes à sa manière."
     }
   },
   "getStarted": {
     "title": "Lancez-vous",
-    "body": "Entrez directement en invité — sans inscription. Un compte invité reste dans le navigateur où vous l'avez créé ; créez un compte gratuit quand vous voudrez que votre progression vous suive et grimper dans les classements.",
+    "body": "Entrez directement en invité — sans inscription. Un compte invité reste dans le navigateur où vous l'avez créé ; créez un compte gratuit quand vous voudrez que votre progression vous suive et que vous puissiez grimper dans les classements.",
     "haveAccount": "Vous avez déjà un compte ?"
   },
   "cta": {
-    "heading": "Prêt à commander ?",
+    "heading": "Prêt à prendre le commandement ?",
     "tagline": "Quand les frontières cèdent, les ères s'effondrent.",
     "noDownload": "Aucun téléchargement. Jouez instantanément dans votre navigateur."
   },
   "footer": {
     "copyright": "© 2026 {{appName}}. Tous droits réservés.",
     "howToPlay": "Comment jouer",
-    "eras": "Époques",
+    "eras": "Ères",
     "maps": "Cartes",
     "codex": "Codex",
     "about": "À propos",

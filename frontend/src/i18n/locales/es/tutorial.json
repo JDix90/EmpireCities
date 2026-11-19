@@ -42,7 +42,7 @@
     "skipToEnd": "Saltar al final",
     "waitTechResearched": "Investiga una tecnología para continuar…",
     "waitAbilityUsed": "Usa la habilidad de tu facción para continuar…",
-    "waitBonusesOpened": "Abre el panel de bonificaciones para continuar…",
+    "waitBonusesOpened": "Abre el panel Bonuses para continuar…",
     "waitTechTreeOpened": "Abre el árbol tecnológico para continuar…",
     "waitEraAdvanced": "Avanza de era para continuar…",
     "waitDefault": "Completa la acción para continuar…",
@@ -77,7 +77,7 @@
     "core": { "title": "Tutorial básico", "description": "Refuerzo, ataque, fortificación y tu primer avance de era." },
     "advanced_settings": { "title": "Ajustes avanzados", "description": "Cómo las reglas opcionales cambian el ritmo y la estrategia." },
     "faction_ability": { "title": "Habilidades de facción", "description": "Poderes de una vez por turno y de una vez por partida, y las bonificaciones pasivas que añaden algunas facciones." },
-    "tech_tree": { "title": "Árbol tecnológico", "description": "Costes de investigación, requisitos y mejoras de combate." },
+    "tech_tree": { "title": "Árbol tecnológico", "description": "Costos de investigación, requisitos y mejoras de combate." },
     "era_advancement": { "title": "Avance de era", "description": "Sube de la Antigüedad al Medievo: supera la puerta, avanza y descubre lo que cuesta la ventana de vulnerabilidad." },
     "galaxy_lane_sovereignty": {
       "title": "Era Galáctica: Lane Sovereignty",
@@ -105,7 +105,7 @@
     },
     "galaxy_primer": {
       "title": "Era Galáctica: Las diferencias",
-      "description": "Seis tarjetas sobre lo que cambia la galaxia —rutas, gateways, reglas de mundo, tableros y victorias— en un tablero real de cuatro asientos, antes de las seis lecciones que juegan cada una una victoria."
+      "description": "Seis tarjetas sobre lo que cambia la galaxia —rutas, gateways, reglas de mundo, tableros y victorias— en un tablero real de cuatro asientos, antes de las seis lecciones, cada una dedicada a una victoria."
     }
   },
   "steps": {
@@ -134,7 +134,7 @@
         "detail": "Un movimiento por turno, y solo entre territorios tuyos unidos por una cadena de terreno propio."
       },
       "turn_ends": {
-        "title": "Ahora observa al rival",
+        "title": "Turno del rival",
         "message": "Su turno sigue las mismas tres fases, pero este rival de práctica solo coloca sus refuerzos: nunca ataca. La barra lateral indica quién está activo; puede que una IA rápida ya haya terminado cuando leas esto.",
         "messagePhone": "Su turno sigue las mismas tres fases, pero este rival de práctica solo coloca sus refuerzos: nunca ataca. La barra inferior indica quién está activo; puede que una IA rápida ya haya terminado cuando leas esto.",
         "detail": "Aquí no hay nada que hacer: la siguiente tarjeta llegará cuando el turno vuelva a ti."
@@ -144,7 +144,7 @@
         "message": "Te toca de nuevo, y esta vez, antes de atacar. El territorio es solo la mitad del juego: tu imperio tiene un **tesoro** de oro y un **programa de investigación** de puntos tecnológicos, y ambos han crecido mientras conservabas terreno.",
         "detail": "El panel Era Advancement de tu barra lateral muestra la línea temporal de eras y tu posición en ella; despliégalo para ver la puerta que debes superar para avanzar. Este rival de práctica se queda en la era Antigua; los rivales reales suben a su propio ritmo.",
         "detailPhone": "El panel Era Advancement en **☰ Menu** muestra la línea temporal de eras y tu posición en ella; despliégalo para ver la puerta que debes superar para avanzar. Este rival de práctica se queda en la era Antigua; los rivales reales suben a su propio ritmo.",
-        "whyItMatters": "La conquista es cómo ganas un mapa. Avanzar de era es cómo superas al rival que lo ocupa: unidades más fuertes, un árbol tecnológico nuevo y una recompensa distintiva única."
+        "whyItMatters": "Conquistando ganas un mapa. Avanzando de era superas al rival que lo ocupa: unidades más fuertes, un árbol tecnológico nuevo y una recompensa distintiva que solo se obtiene una vez."
       },
       "ea_research": {
         "title": "Investiga hacia la puerta",
@@ -154,22 +154,22 @@
       "ea_advance": {
         "title": "Avanza al Medievo",
         "message": "Cuando todos los indicadores de la puerta estén en verde, pulsa **Advance to Medieval Era**: el botón aparece justo ahí, en la barra de la puerta del árbol tecnológico. A la puerta de este tablero solo le falta una tecnología más de nivel 1.",
-        "detail": "Avanzar consolida tus ejércitos: en torno al 30 % de tus unidades se retiran para siempre, repartidas entre tus territorios, y durante un turno después tus defensores luchan con menos fuerza: la ventana de vulnerabilidad. Tu investigación se reinicia en un árbol medieval nuevo y más potente; conservas un eco de tus antiguas bonificaciones y obtienes la recompensa distintiva de la era.",
+        "detail": "Avanzar consolida tus ejércitos: en torno al 30 % de tus unidades se retiran para siempre, repartidas entre tus territorios, y durante el turno siguiente tus defensores luchan con menos fuerza: la ventana de vulnerabilidad. Tu investigación se reinicia en un árbol medieval nuevo y más potente; conservas un eco de tus antiguas bonificaciones y obtienes la recompensa distintiva de la era.",
         "hint": "Subir en tu fase de refuerzo significa que la fuerza de la nueva era se aplica a los ataques de este mismo turno. ¿Te falta un indicador? La barra dice qué falta, y el botón Advance aparece en cuanto no falte nada."
       },
       "wrapup": {
         "title": "¡Estás listo!",
-        "message": "Has completado el ciclo de turno entero —refuerzo, ataque, fortificación— y has subido una era. Ese es todo el bucle. Este tablero se gana por dominación: capturar todos los territorios. Una partida Quick Match se gana antes, controlando el 65 % del mapa, y los anfitriones también pueden elegir Captura de capitales o Misiones secretas.",
+        "message": "Has completado el ciclo de turno entero —refuerzo, ataque, fortificación— y has subido una era. Ese es todo el bucle. Este tablero se gana por dominación: capturar todos los territorios. Una partida Quick Match se gana antes, controlando el 65 % del mapa, y los anfitriones también pueden elegir Captura de capital o Misiones secretas.",
         "skippedTitle": "Directo a la acción",
         "skippedMessage": "Así es en resumen: cada turno colocas refuerzos, atacas territorios vecinos con dados y luego fortificas. Por el camino investigas una tecnología y avanzas de la Antigüedad al Medievo: esa es la parte que los juegos de conquista clásicos no tienen. Este tablero se gana por dominación: capturar todos los territorios; una partida Quick Match se gana antes, controlando el 65 % del mapa. Pulsa el botón dorado de abajo para empezar a jugar: puedes repetir esta lección desde la Academia de entrenamiento cuando quieras.",
-        "detail": "Las partidas reales pueden añadir lo que este tablero deja fuera: facciones con poderes únicos, estabilidad, niebla de guerra, una puerta de avance más exigente (más investigación y edificios) y la columna completa de la Antigüedad a la Era moderna en lugar de un salto de dos eras. Las cartas de territorio ya están activadas: un turno con una captura te da una, y un juego de tres se canjea por unidades extra."
+        "detail": "Las partidas reales pueden añadir lo que este tablero deja fuera: facciones con poderes únicos, estabilidad, niebla de guerra, una puerta de avance más exigente (más investigación y edificios) y el recorrido completo de la Antigüedad al Mundo actual en lugar de un salto de dos eras. Las cartas de territorio ya están activadas: un turno con una captura te da una, y un juego de tres se canjea por unidades extra."
       }
     },
     "advanced_settings": {
       "as_welcome": {
         "title": "Ajustes avanzados",
         "message": "Los anfitriones configuran cada partida en el vestíbulo. Puedes combinar eras, número de jugadores, temporizadores y sistemas opcionales sin cambiar el bucle básico Refuerzo → Ataque → Fortificación.",
-        "hint": "Casi todo es lectura: pasa cada tarjeta con Siguiente. Una tarjeta te pide activar dos opciones en el laboratorio de ajustes antes de seguir; prueba el resto en tu próxima partida personalizada."
+        "hint": "Casi todo es lectura: pasa cada tarjeta con Siguiente. Una tarjeta te pide cambiar dos opciones en el laboratorio de ajustes antes de seguir; prueba el resto en tu próxima partida personalizada."
       },
       "as_timers": {
         "title": "Temporizadores y modo asíncrono",
@@ -193,10 +193,10 @@
       },
       "as_try_toggle": {
         "title": "Prueba un ajuste",
-        "message": "Abre el laboratorio de ajustes de abajo y activa al menos dos opciones. Tus elecciones se aplican a esta partida de práctica: busca la nueva interfaz en la barra lateral al cerrar el laboratorio.",
-        "messagePhone": "Abre el laboratorio de ajustes de abajo y activa al menos dos opciones. Tus elecciones se aplican a esta partida de práctica: busca la nueva interfaz en **☰ Menu** al cerrar el laboratorio.",
-        "hint": "Pulsa «Abrir el laboratorio de ajustes», activa dos opciones, cierra el laboratorio y mira la barra lateral.",
-        "hintPhone": "Toca «Abrir el laboratorio de ajustes», activa dos opciones, cierra el laboratorio y mira en **☰ Menu**.",
+        "message": "Abre el laboratorio de ajustes de abajo y cambia al menos dos opciones. Tus elecciones se aplican a esta partida de práctica: busca la nueva interfaz en la barra lateral al cerrar el laboratorio.",
+        "messagePhone": "Abre el laboratorio de ajustes de abajo y cambia al menos dos opciones. Tus elecciones se aplican a esta partida de práctica: busca la nueva interfaz en **☰ Menu** al cerrar el laboratorio.",
+        "hint": "Pulsa «Abrir el laboratorio de ajustes», cambia dos opciones, cierra el laboratorio y mira la barra lateral.",
+        "hintPhone": "Toca «Abrir el laboratorio de ajustes», cambia dos opciones, cierra el laboratorio y mira en **☰ Menu**.",
         "whyItMatters": "Experimentar antes de tu primer vestíbulo personalizado significa que ya sabrás qué opciones importan para tu grupo."
       },
       "as_complete": {
@@ -207,7 +207,7 @@
     "era_advancement": {
       "ea_welcome": {
         "title": "Avance de era",
-        "message": "Esta partida permite que tu civilización suba a través de las eras. Empiezas en la era **Antigua**: investiga hacia la puerta y luego avanza a la **Medieval** para obtener unidades más fuertes y una recompensa única.",
+        "message": "Esta partida permite que tu civilización suba a través de las eras. Empiezas en la era **Antigua**: investiga hacia la puerta y luego avanza a la **Medieval** para obtener unidades más fuertes y una recompensa que solo se obtiene una vez.",
         "detail": "Empiezas con puntos de investigación y oro extra para alcanzar el avance rápidamente."
       },
       "ea_progress": {
@@ -228,7 +228,7 @@
       },
       "ea_gate": {
         "title": "Supera la puerta",
-        "message": "Sigue investigando hasta que todos los indicadores de la puerta se pongan en verde: la puerta necesita unas cuantas tecnologías y oro suficiente (ya tienes de sobra). El botón **Advance to Medieval Era** se enciende cuando estés listo.",
+        "message": "Sigue investigando hasta que todos los indicadores de la puerta se pongan en verde: la puerta necesita unas cuantas tecnologías y oro suficiente (ya tienes de sobra). El botón **Advance to Medieval Era** se encenderá cuando estés listo.",
         "detail": "Los nodos de nivel 2 requieren primero su prerrequisito de nivel 1, así que investiga el padre y luego el de nivel 2.",
         "whyItMatters": "La misma puerta existe en las partidas reales, pero allí también equilibras edificios y estabilidad."
       },
@@ -244,7 +244,7 @@
       },
       "ea_complete": {
         "title": "Avance de era completado",
-        "message": "Has subido una era: superaste una puerta y avanzaste. La ventana de vulnerabilidad se cierra cuando empieza tu siguiente turno. En una partida Standard la ascensión llega hasta la Era moderna, y Epic sigue hasta la Era Espacial."
+        "message": "Has subido una era: superaste una puerta y avanzaste. La ventana de vulnerabilidad se cierra cuando empieza tu siguiente turno. En una partida Standard la ascensión llega hasta el Mundo actual, y Epic sigue hasta la Era Espacial."
       }
     },
     "faction_ability": {
@@ -296,7 +296,7 @@
       },
       "tt_open": {
         "title": "Abre el árbol tecnológico",
-        "message": "Abre el árbol para explorar niveles, costes y requisitos. Los nodos bloqueados muestran qué debes investigar antes.",
+        "message": "Abre el árbol para explorar niveles, costos y requisitos. Los nodos bloqueados muestran qué debes investigar antes.",
         "hint": "Pulsa «Abrir el árbol tecnológico» abajo. Tus 8 TP extra ya están disponibles."
       },
       "tt_research": {
@@ -314,20 +314,20 @@
         "title": "Lane Sovereignty",
         "message": "La Era Galáctica son cuatro mundos en un anillo —**Sol III – Verdan Reach – Rust Belt – Nexus Station**— unidos por ocho rutas hiperespaciales, cada una con un sistema **gateway** en cada extremo. Juegas con los Helion Navigators de Verdan Reach, y esta partida añade la forma de ganar propia de la galaxia: **Lane Sovereignty**.",
         "detail": "Una ruta es tu **corredor** cuando controlas sus dos gateways. Mantén 5 de las 8 rutas al inicio de tu turno, 3 turnos seguidos, y la red es tuya. Un duelo o un 2v2 necesita 5 turnos, y solo cuentan las ocho rutas cartografiadas.",
-        "hint": "Ya controlas cuatro corredores. Esta lección toma el quinto y lo conserva. Pulsa Siguiente, o salta al final para entrar directamente."
+        "hint": "Ya controlas cuatro corredores. Esta lección toma el quinto y lo conserva. Pulsa «Siguiente», o «Saltar al final» para entrar directamente."
       },
       "gls_chart": {
         "title": "Lee el mapa galáctico",
-        "message": "Haz clic en el botón **Galaxy chart** sobre el tablero —así vuelves desde cualquier pestaña de mundo o desde Split— y lee las rutas: una ruta de **tu color** es un corredor, una ruta **azul** está abierta (controlas un extremo) y una ruta atenuada está cerrada para ti. El panel de objetivos de la barra lateral lleva la cuenta: **corridors 4 of 5 · held 0 of 3 rounds**.",
-        "messagePhone": "Toca el chip **Galaxy chart** de la fila Worlds, sobre el tablero —así vuelves desde cualquier pestaña de mundo— y lee las rutas: una ruta de **tu color** es un corredor, una ruta **azul** está abierta (controlas un extremo) y una ruta atenuada está cerrada para ti. El panel de objetivos en **☰ Menu** lleva la cuenta: **corridors 4 of 5 · held 0 of 3 rounds**.",
+        "message": "Haz clic en el botón **Galaxy chart** sobre el tablero —así vuelves desde cualquier pestaña de mundo o desde Split— y lee las rutas: una ruta de **tu color** es un corredor, una ruta **azul** está abierta (controlas un extremo) y una ruta atenuada está cerrada para ti. El panel Objectives de la barra lateral lleva la cuenta: **corridors 4 of 5 · held 0 of 3 rounds**.",
+        "messagePhone": "Toca el chip **Galaxy chart** de la fila Worlds, sobre el tablero —así vuelves desde cualquier pestaña de mundo— y lee las rutas: una ruta de **tu color** es un corredor, una ruta **azul** está abierta (controlas un extremo) y una ruta atenuada está cerrada para ti. El panel Objectives en **☰ Menu** lleva la cuenta: **corridors 4 of 5 · held 0 of 3 rounds**.",
         "detail": "Con tres asientos, dos rutas coloniales salvan los huecos del anillo. Permiten ataques como cualquier ruta, pero Lane Sovereignty solo cuenta las ocho cartografiadas.",
         "hint": "Una pestaña de mundo abre ese mundo por separado."
       },
       "gls_charts": {
         "title": "Investiga Lane Charts",
-        "message": "Un ataque a través de una ruta tira como máximo **2 dados**, no 3: un gateway defendido aguanta como una costa. **Lane Charts** recupera el tercer dado. Abre el árbol tecnológico e investígalo; se te ha concedido exactamente su coste.",
+        "message": "Un ataque a través de una ruta tira como máximo **2 dados**, no 3: un gateway defendido aguanta como una costa. **Lane Charts** recupera el tercer dado. Abre el árbol tecnológico e investígalo; se te ha concedido exactamente su costo.",
         "detail": "Lane Charts es la raíz de nivel 1 de las rutas en la galaxia. La maravilla Hyperlane Anchor elimina el límite por completo, y los Void Custodians tiran un dado extra cuando defienden una ruta.",
-        "hint": "Investiga en tu fase de Refuerzo o de Fortificación, no en mitad de un ataque. Pulsa «Abrir árbol tecnológico» abajo."
+        "hint": "Investiga en tu fase de Refuerzo o de Fortificación, no en mitad de un ataque. Pulsa «Abrir el árbol tecnológico» abajo."
       },
       "gls_draft": {
         "title": "Apila en tu gateway",
@@ -344,7 +344,7 @@
       },
       "gls_hold_1": {
         "title": "Cinco corredores: ahora consérvalos",
-        "message": "El panel de objetivos marca **corridors 5 of 5**. La racha solo avanza al inicio de **tu** turno, así que pulsa **{{attackButton}}** y luego **{{fortifyButton}}**, y observa pasar los dos turnos rivales.",
+        "message": "El panel Objectives marca **corridors 5 of 5**. La racha solo avanza al inicio de **tu** turno, así que pulsa **{{attackButton}}** y luego **{{fortifyButton}}**, y observa pasar los dos turnos rivales.",
         "detail": "Un rival rompe un corredor tomando cualquiera de sus gateways en su turno, antes de que tu racha avance. Los oponentes del tutorial nunca atacan; los reales sí."
       },
       "gls_hold_2": {
@@ -367,15 +367,15 @@
     "galaxy_transcendence": {
       "gtr_welcome": {
         "title": "Trascendencia",
-        "message": "Esta partida juega la ascensión **Space to Stars**: empieza en la **Era Espacial**, en la Tierra y la Luna, y los tres mundos lejanos de la Era Galáctica no están en el tablero hasta que alguien la alcanza. Juegas con los **Lunar Pioneers**. La **Trascendencia** es la victoria del jugador que llega a la última era de la columna —aquí la Era Galáctica— y posee una maravilla.",
+        "message": "Esta partida juega la ascensión **Space to Stars**: empieza en la **Era Espacial**, en la Tierra y la Luna, y los tres mundos lejanos de la Era Galáctica no están en el tablero hasta que alguien la alcanza. Juegas con los **Lunar Pioneers**. La **Trascendencia** es la victoria del jugador que llega a la última era del recorrido —aquí la Era Galáctica— y posee una maravilla.",
         "detail": "Salir de la Era Espacial requiere la puerta de hitos (2 tecnologías de nivel 1, 2 de nivel 2 y 1 de nivel 3, y 3 edificios) y un **Programa Espacial** en marcha. Los Pioneers tienen acceso a la Luna desde el primer turno, así que para ti la puerta es investigación y edificios. Como toda victoria salvo Dominación, la Trascendencia se juzga desde la ronda 2.",
-        "hint": "Se te han concedido la investigación y los puntos de producción que la ascensión necesita, con poco margen. Pulsa Siguiente, o salta al final para entrar directamente."
+        "hint": "Se te han concedido la investigación y los puntos de producción que la ascensión necesita, con poco margen. Pulsa «Siguiente», o «Saltar al final» para entrar directamente."
       },
       "gtr_research": {
         "title": "Investiga hacia la puerta",
-        "message": "Abre el árbol tecnológico. La barra **Advancement gate → Galactic Age** de arriba lista los chips que hay que completar. Investiga primero **Megacity Logistics**: desbloquea la Workshop, y la puerta pide tres edificios; tu Launch Pad en **Southern African Union** ya es uno.",
+        "message": "Abre el árbol tecnológico. La barra **Advancement gate → Galactic Age** de arriba enumera los indicadores que hay que completar. Investiga primero **Megacity Logistics**: desbloquea la Workshop, y la puerta pide tres edificios; tu Launch Pad en **Southern African Union** ya es uno.",
         "detail": "El camino más barato por la puerta: Megacity Logistics y Digital Warfare (las raíces de nivel 1 de las dos de nivel 2 que necesitas), Fusion Power Grid y AI-Directed Command sobre ellas, y luego Hypersonic Swarm o Quantum Computing Grid como nivel 3.",
-        "hint": "Investiga en tu fase de Refuerzo o de Fortificación, no en mitad de un ataque. Pulsa «Abrir árbol tecnológico» abajo."
+        "hint": "Investiga en tu fase de Refuerzo o de Fortificación, no en mitad de un ataque. Pulsa «Abrir el árbol tecnológico» abajo."
       },
       "gtr_build": {
         "title": "Levanta una Workshop",
@@ -385,15 +385,15 @@
       },
       "gtr_gate": {
         "title": "Supera la puerta y avanza",
-        "message": "Termina la investigación y la segunda Workshop hasta que todos los chips de la barra estén en verde, y pulsa **Advance to Galactic Age** ahí mismo, en la barra (el panel **Era Advancement** de la barra lateral tiene el mismo botón). El avance también cuesta PP: el chip **Gold** de la barra muestra cuánto.",
-        "messagePhone": "Termina la investigación y la segunda Workshop hasta que todos los chips de la barra estén en verde, y pulsa **Advance to Galactic Age** ahí mismo, en la barra (el panel **Era Advancement** en **☰ Menu** tiene el mismo botón). El avance también cuesta PP: el chip **Gold** de la barra muestra cuánto.",
-        "detail": "Avanzar consolida tus ejércitos: cerca del 30 % de tus unidades se pierden para siempre, y durante un turno tus defensores luchan más débiles. Tu investigación de la Era Espacial se borra —la era que llega cierra sus rutas por posición, no por tecnología— y obtienes el **Pathfinder Gate**: las rutas desde tus sistemas a mundos que aún no has alcanzado —en este tablero, la ruta de Southern African Union a Luna— son solo tuyas durante dos rondas.",
-        "hint": "Avanza en tu fase de Refuerzo o de Fortificación. ¿Falta un chip? La barra indica qué falta."
+        "message": "Termina la investigación y la segunda Workshop hasta que todos los indicadores de la barra estén en verde, y pulsa **Advance to Galactic Age** ahí mismo, en la barra (el panel **Era Advancement** de la barra lateral tiene el mismo botón). El avance también cuesta PP: el indicador **Gold** de la barra muestra cuánto.",
+        "messagePhone": "Termina la investigación y la segunda Workshop hasta que todos los indicadores de la barra estén en verde, y pulsa **Advance to Galactic Age** ahí mismo, en la barra (el panel **Era Advancement** en **☰ Menu** tiene el mismo botón). El avance también cuesta PP: el indicador **Gold** de la barra muestra cuánto.",
+        "detail": "Avanzar consolida tus ejércitos: cerca del 30 % de tus unidades se pierden para siempre, y durante un turno tus defensores luchan más débiles. Tu investigación de la Era Espacial se borra —en la era que llega el acceso a las rutas depende de la posición, no de la tecnología— y obtienes el **Pathfinder Gate**: las rutas desde tus sistemas a mundos que aún no has alcanzado —en este tablero, la ruta de Southern African Union a Luna— son solo tuyas durante dos rondas.",
+        "hint": "Avanza en tu fase de Refuerzo o de Fortificación. ¿Te falta un indicador? La barra indica qué falta."
       },
       "gtr_arrive": {
         "title": "Los mundos lejanos se abren",
         "message": "Estás en la Era Galáctica. Tres pestañas de mundo nuevas —**Verdan Reach**, **Rust Belt**, **Nexus Station**— se abrieron para todos como fronteras neutrales, con los gateways más débiles, y tu facción siguió su linaje hasta los **Helion Navigators**. Abre el **Galaxy chart** sobre el tablero para ver el anillo.",
-        "detail": "Tu rival sigue en la Era Espacial, en la escalera lunar. La Era Galáctica cierra sus rutas según quién controla un gateway, así que el borrado tecnológico no te costó nada que aún necesites."
+        "detail": "Tu rival sigue en la Era Espacial, en la escalera lunar. En la Era Galáctica el acceso a las rutas depende de controlar un gateway, así que el borrado tecnológico no te costó nada que aún necesites."
       },
       "gtr_wonder": {
         "title": "Levanta el Hyperlane Anchor",
@@ -403,12 +403,12 @@
       },
       "gtr_win": {
         "title": "Se juzga desde la ronda 2",
-        "message": "Si todavía es la ronda 1, lleva tu turno hasta **{{fortifyButton}}**: la victoria llega al abrirse la ronda 2, antes de que coloques una unidad. Levantado en la ronda 2 o después, la partida terminó en cuanto el Anchor se alzó.",
+        "message": "Si todavía es la ronda 1, lleva tu turno hasta **{{fortifyButton}}**: la victoria llega al abrirse la ronda 2, antes de que coloques una unidad. Si lo levantaste en la ronda 2 o después, la partida terminó en cuanto se alzó el Anchor.",
         "detail": "La regla de la ronda 2 protege toda victoria alternativa: una capital con sus tres unidades iniciales podría caer ante los dados del primer asiento antes de que el último hubiera colocado una."
       },
       "gtr_complete": {
         "title": "Trascendencia completada",
-        "message": "Superaste la puerta de la Era Espacial, llegaste a la Era Galáctica con el Pathfinder Gate en la mano y levantaste el Hyperlane Anchor. En una partida real de Space to Stars, cada otro asiento necesita el Programa Espacial completo para seguirte, y los mundos lejanos son tuyos para aterrizar primero.",
+        "message": "Superaste la puerta de la Era Espacial, llegaste a la Era Galáctica con el Pathfinder Gate en tu poder y levantaste el Hyperlane Anchor. En una partida real de Space to Stars, todos los demás asientos necesitan el Programa Espacial completo para seguirte, y tú puedes ser el primero en aterrizar en los mundos lejanos.",
         "skippedTitle": "Directo a la partida",
         "skippedMessage": "En pocas palabras: investiga más allá de la puerta (2 tecnologías de nivel 1, 2 de nivel 2, 1 de nivel 3, 3 edificios), pulsa **Advance to Galactic Age** en la barra de la puerta del árbol tecnológico y luego levanta el **Hyperlane Anchor** en cualquier sistema que controles. La victoria se juzga desde la ronda 2. Ahora mismo tienes refuerzos que colocar: elige cualquiera de tus sistemas y luego investiga, construye y avanza antes de pulsar {{draftButton}}."
       }
@@ -416,21 +416,21 @@
     "galaxy_secret_missions": {
       "gsm_welcome": {
         "title": "Misiones secretas en la galaxia",
-        "message": "Esta partida se juega por **misiones secretas**: cada asiento recibe un objetivo privado al empezar, y completar el tuyo gana. Juegas con los Helion Navigators de **Verdan Reach**; la Stellar Mandate controla **Sol III** al otro lado de dos rutas hiperespaciales. La tuya dice **Own Guinea Coast and Pacific Rim**: los dos gateways de Sol que miran a tu mundo.",
-        "detail": "La galaxia cambia el reparto. Una misión nunca nombra un mundo detrás de una puerta hiperespacial, y aquí lo es todo mundo salvo Sol III: cada misión de captura o control de este mapa nombra terreno de Sol, así que para quien no tenga su base en Sol está a un cruce de ruta. Un asiento que ya controla todo Sol solo puede sacar una misión de eliminación. Las misiones se juzgan desde la ronda 2.",
-        "hint": "Pulsa Siguiente, o salta al final para entrar directamente."
+        "message": "Esta partida se juega por **misiones secretas**: cada asiento recibe un objetivo privado al empezar, y si completas el tuyo, ganas. Juegas con los Helion Navigators de **Verdan Reach**; la Stellar Mandate controla **Sol III** al otro lado de dos rutas hiperespaciales. Tu misión dice **Own Guinea Coast and Pacific Rim**: los dos gateways de Sol que miran a tu mundo.",
+        "detail": "La galaxia cambia el reparto. Una misión nunca nombra un mundo detrás de una puerta hiperespacial, y aquí todos los mundos salvo Sol III lo están: cada misión de captura o control de este mapa nombra terreno de Sol, así que para quien no tenga su base en Sol está a un cruce de ruta. Un asiento que ya controla todo Sol solo puede sacar una misión de eliminación. Las misiones se juzgan desde la ronda 2.",
+        "hint": "Pulsa «Siguiente», o «Saltar al final» para entrar directamente."
       },
       "gsm_objectives": {
         "title": "Lee tu misión",
         "message": "El panel **Objectives** de la pestaña Status de la barra lateral la muestra: **Mission: Own Guinea Coast and Pacific Rim**. Nadie más puede verla: una misión solo se revela a quien la tiene, y luego a todos cuando quien la tiene queda eliminado o la partida termina. La misión de la Mandate es igual de privada.",
         "messagePhone": "El panel **Objectives** de la pestaña **Status**, en **☰ Menu**, la muestra: **Mission: Own Guinea Coast and Pacific Rim**. Nadie más puede verla: una misión solo se revela a quien la tiene, y luego a todos cuando quien la tiene queda eliminado o la partida termina. La misión de la Mandate es igual de privada.",
-        "detail": "En este tablero hay tres tipos de misión: poseer dos sistemas con nombre, controlar una o dos regiones con nombre, o eliminar tú mismo a un jugador concreto (si lo hace otro, la misión falla). El avance de era añade «alcanzar una era»; la Era Espacial, objetivos lunares.",
+        "detail": "En este tablero hay tres tipos de misión: poseer dos sistemas concretos, controlar una o dos regiones concretas, o eliminar tú mismo a un jugador concreto (si lo hace otro, la misión falla). El avance de era añade «alcanzar una era»; la Era Espacial, objetivos lunares.",
         "whyItMatters": "Un rival que adivine tu misión puede retener el único gateway que necesitas. Dos asientos pueden incluso sacar el mismo objetivo: las misiones se reparten por separado."
       },
       "gsm_alliance": {
         "title": "Alianzas, y por qué no aquí",
         "message": "En una partida de **cuatro o más asientos con al menos dos humanos**, más o menos en un reparto de cada cinco dos de ellos reciben una **alianza** en lugar de misiones: cada uno debe controlar una parte igual de los sistemas repartidos más un 7 % —21 cada uno en el tablero galáctico de cuatro asientos—, con ambos aún en pie, y ganan juntos con una Victoria por alianza.",
-        "detail": "Las partidas por equipos prescinden de las misiones: en un 2v2 o con casas aliadas una misión podría nombrar a un aliado para eliminarlo, así que el lobby desactiva la condición. Un humano contra la IA nunca recibe una alianza, y por eso esta lección realiza una misión de captura."
+        "detail": "Las partidas por equipos prescinden de las misiones: en un 2v2 o con casas aliadas una misión podría nombrar a un aliado para eliminarlo, así que el vestíbulo desactiva la condición. Un humano contra la IA nunca recibe una alianza, y por eso esta lección realiza una misión de captura."
       },
       "gsm_draft": {
         "title": "Apila en un gateway",
@@ -449,14 +449,14 @@
       },
       "gsm_win": {
         "title": "Se juzga desde la ronda 2",
-        "message": "Los dos gateways son tuyos. Si la barra superior todavía indica Turn 1, termina tu turno con **{{attackButton}}** y **{{fortifyButton}}**: la victoria llega al abrirse la ronda 2, antes de que coloques una unidad. Completada en la ronda 2 o después, la partida terminó con la captura.",
+        "message": "Los dos gateways son tuyos. Si la barra superior todavía indica Turn 1, termina tu turno con **{{attackButton}}** y **{{fortifyButton}}**: la victoria llega al abrirse la ronda 2, antes de que coloques una unidad. Si la completaste en la ronda 2 o después, la partida terminó con la captura.",
         "detail": "Consérvalos durante el turno de la Mandate. Una misión se juzga por lo que controlas en la comprobación, no por lo que tomaste una vez."
       },
       "gsm_complete": {
         "title": "Misiones secretas completadas",
         "message": "Leíste una misión, tomaste los dos sistemas que nombraba a través de sus rutas y ganaste con ella. En una partida galáctica real, quien controla Sol solo puede sacar una misión de eliminación, y las misiones de captura de todos los demás apuntan a Sol: espera compañía en sus gateways.",
         "skippedTitle": "Directo a la partida",
-        "skippedMessage": "En pocas palabras: tu misión está en el panel Objectives —**Own Guinea Coast and Pacific Rim**, los dos gateways de Sol al otro lado de tus rutas. Toma **Guinea Coast** desde **Chlorophage Span** y **Pacific Rim** desde **Greenfire Vault**; la victoria se juzga desde la ronda 2. Ahora mismo tienes refuerzos que colocar: elige **Chlorophage Span** y luego pulsa {{draftButton}}."
+        "skippedMessage": "En pocas palabras: tu misión está en el panel Objectives —**Own Guinea Coast and Pacific Rim**, los dos gateways de Sol al otro lado de tus rutas—. Toma **Guinea Coast** desde **Chlorophage Span** y **Pacific Rim** desde **Greenfire Vault**; la victoria se juzga desde la ronda 2. Ahora mismo tienes refuerzos que colocar: elige **Chlorophage Span** y luego pulsa {{draftButton}}."
       }
     },
     "galaxy_capital": {
@@ -464,13 +464,13 @@
         "title": "Captura de capital en la galaxia",
         "message": "Esta partida se juega por la victoria de **Capital**: conserva tu propia capital y toma la de cada rival. Eres la Stellar Mandate de **Sol III**, y tu capital es **Amazon Basin**. Los Helion Navigators controlan **Verdan Reach**, y la suya es **Chlorophage Span**.",
         "detail": "El reparto fija la capital de cada asiento al abrirse la partida, y en este tablero las dos cayeron en **gateways**: Amazon Basin es la puerta de Sol hacia Nexus Station, Chlorophage Span es la puerta de Verdan frente a tu Guinea Coast. Así que el ataque ganador aquí es un cruce de ruta, con el límite de 2 dados de las rutas.",
-        "hint": "Pulsa Siguiente, o salta al final para entrar directamente."
+        "hint": "Pulsa «Siguiente», o «Saltar al final» para entrar directamente."
       },
       "gcp_rules": {
         "title": "Lee las capitales",
         "message": "Toda capital está marcada en el mapa de su mundo, y el panel **Objectives** de la barra lateral muestra **Your capital: Amazon Basin** con la regla debajo: consérvala y toma toda capital rival, juzgado desde la ronda 2. Si pierdes Amazon Basin esa línea se pone roja: no puedes ganar por capitales hasta recuperarla.",
         "messagePhone": "Toda capital está marcada en el mapa de su mundo, y el panel **Objectives** en **☰ Menu** muestra **Your capital: Amazon Basin** con la regla debajo: consérvala y toma toda capital rival, juzgado desde la ronda 2. Si pierdes Amazon Basin esa línea se pone roja: no puedes ganar por capitales hasta recuperarla.",
-        "detail": "Solo cuentan los rivales vivos: la capital de un asiento eliminado ya no hace falta conservarla. En un 2v2 o con casas aliadas, el bando gana cuando toda capital viva está en manos de sus miembros entre todos.",
+        "detail": "Solo cuentan los rivales vivos: la capital de un asiento eliminado ya no hace falta conservarla. En un 2v2 o con casas aliadas, el bando gana cuando, entre todos sus miembros, tienen todas las capitales vivas.",
         "whyItMatters": "Una capital en un gateway es a la vez el premio y la puerta. Quien controla Chlorophage Span controla un extremo de la ruta de Guinea Coast y, si controla también Guinea Coast, un corredor de Sovereignty."
       },
       "gcp_draft": {
@@ -481,11 +481,11 @@
       "gcp_cross": {
         "title": "Toma la capital rival",
         "message": "Elige **Guinea Coast** y luego **Chlorophage Span** al otro lado de la ruta. Un ataque de ruta tira como máximo 2 dados; **⚡ Blitz until captured** insiste hasta que la capital caiga, y hasta 3 de tus atacantes avanzan por su cuenta.",
-        "detail": "Los Navigators defienden una ruta sin dado extra, así que tu pila contra sus dos se impone al límite en unas pocas tiradas."
+        "detail": "Los Navigators defienden una ruta sin dado extra, así que tu pila contra sus dos se impone pese al límite en unas pocas tiradas."
       },
       "gcp_win": {
         "title": "Se juzga desde la ronda 2",
-        "message": "Las dos capitales son tuyas. Si la barra superior todavía indica Turn 1, termina tu turno con **{{attackButton}}** y **{{fortifyButton}}**: la victoria llega al abrirse la ronda 2, antes de que coloques una unidad. Tomada en la ronda 2 o después, la partida terminó con la captura.",
+        "message": "Las dos capitales son tuyas. Si la barra superior todavía indica Turn 1, termina tu turno con **{{attackButton}}** y **{{fortifyButton}}**: la victoria llega al abrirse la ronda 2, antes de que coloques una unidad. Si la tomaste en la ronda 2 o después, la partida terminó con la captura.",
         "detail": "La regla de la ronda 2 existe sobre todo por las capitales: con tres unidades iniciales, una capital podría caer ante los dados del primer asiento antes de que el último hubiera colocado una."
       },
       "gcp_complete": {
@@ -499,20 +499,20 @@
       "gth_welcome": {
         "title": "Umbral de territorio en la galaxia",
         "message": "Esta partida se juega por la victoria de **Umbral**: controla el **60 %** del mapa. Eres la Stellar Mandate de **Sol III**, ya has colonizado toda **Nexus Station** y has desembarcado seis sistemas adentro en **Verdan Reach**, a través de las dos rutas Sol–Verdan. Los Helion Navigators controlan el resto de Verdan. El **Rust Belt** es una colonia neutral que nadie ha reclamado.",
-        "detail": "La galaxia cuenta **todos** los sistemas del tablero, colonias neutrales incluidas: el 60 % de 64 es 38,4, así que la victoria exige **39**. La dominación exigiría los 64 —cada guarnición colonial además de cada rival—, y por eso una sala galáctica abre con el Umbral activado al 60 % a su lado (y Lane Sovereignty, con Home Worlds activado), y un límite de 90 rondas detrás de todas ellas.",
-        "hint": "Pulsa Siguiente, o salta al final para entrar directamente."
+        "detail": "La galaxia cuenta **todos** los sistemas del tablero, colonias neutrales incluidas: el 60 % de 64 es 38,4, así que la victoria exige **39**. La dominación exigiría los 64 —cada guarnición colonial además de cada rival—, y por eso un vestíbulo galáctico abre con el Umbral activado al 60 % a su lado (y Lane Sovereignty, con Home Worlds activado), y un límite de 90 rondas detrás de todas ellas.",
+        "hint": "Pulsa «Siguiente», o «Saltar al final» para entrar directamente."
       },
       "gth_meter": {
         "title": "Lee el medidor de control del mapa",
         "message": "La barra superior muestra **59%/60%**, y el panel **Objectives** de la pestaña Status de la barra lateral lo detalla: **Map control: 59% of 60% · 38 of 39 territories**, con **Hold 60% of the map — 39 of its 64 territories — to win. 1 more to go.** debajo. La cuota se redondea hacia abajo, así que el medidor nunca anuncia una victoria que el servidor no haya dado.",
         "messagePhone": "La barra superior muestra **59%/60%**, y el panel **Objectives** de la pestaña **Status**, en **☰ Menu**, lo detalla: **Map control: 59% of 60% · 38 of 39 territories**, con **Hold 60% of the map — 39 of its 64 territories — to win. 1 more to go.** debajo. La cuota se redondea hacia abajo, así que el medidor nunca anuncia una victoria que el servidor no haya dado.",
-        "detail": "La cantidad necesaria es el número entero igual o superior al 60 % del tablero; el medidor y el servidor usan la misma expresión, así que nunca discrepan sobre el último sistema. En un 2v2 o con casas aliadas, los sistemas de tu bando cuentan juntos, y la sala mueve el valor por defecto al **75 %** al activar el 2v2. Se juzga desde la ronda 2, como toda victoria salvo la dominación y Last Commander Standing.",
+        "detail": "La cantidad necesaria es el número entero igual o superior al 60 % del tablero; el medidor y el servidor usan la misma expresión, así que nunca discrepan sobre el último sistema. En un 2v2 o con casas aliadas, los sistemas de tu bando cuentan juntos, y el vestíbulo mueve el valor por defecto al **75 %** al activar el 2v2. Se juzga desde la ronda 2, como toda victoria salvo la dominación y Last Commander Standing.",
         "whyItMatters": "Nadie refuerza una colonia. Los dieciséis sistemas neutrales de Rust están dentro de los 64 los controle quien los controle, así que en una partida real las colonias son el camino más barato hacia la cifra."
       },
       "gth_draft": {
         "title": "Apila en Saffron Mire",
         "message": "Elige **Saffron Mire** —tu sistema de cabeza de puente junto a Spore Reach, resaltado—, selecciona **All** y pulsa **Place**. Después pulsa el botón dorado **{{draftButton}}**.",
-        "detail": "Un imperio de 38 sistemas recluta a lo grande: un tercio de sus sistemas, más una bonificación por cada región que controla entera —cada una escalada por el número de asientos, un tercio de su valor indicado con dos, y nunca por debajo de uno. Algo que saber de Verdan en una partida real: sus tormentas quitan una unidad por ronda a cualquier pila por encima de 12."
+        "detail": "Un imperio de 38 sistemas recluta a lo grande: un tercio de sus sistemas, más una bonificación por cada región que controla entera —cada una ajustada según el número de asientos: un tercio de su valor indicado con dos, y nunca por debajo de uno—. Algo que saber de Verdan en una partida real: sus tormentas quitan una unidad por ronda a cualquier pila por encima de 12."
       },
       "gth_take": {
         "title": "Toma el 39.º sistema",
@@ -521,8 +521,8 @@
       },
       "gth_win": {
         "title": "Se juzga desde la ronda 2",
-        "message": "El medidor marca **60% of 60% · 39 of 39 territories**, con la cuota en dorado. Si la barra superior todavía indica Turn 1, termina tu turno con **{{attackButton}}** y **{{fortifyButton}}**: la victoria llega al abrirse la ronda 2, antes de que coloques una unidad. Tomado en la ronda 2 o después, la partida terminó con la captura.",
-        "detail": "Cada asiento tiene un primer turno antes de que se lea umbral alguno, así que nadie puede ganar antes de que haya jugado el último asiento. En una partida real el límite de 90 rondas es el otro extremo del mismo recuento: pasado, sin nadie por encima de la línea, gana quien tenga más sistemas."
+        "message": "El medidor marca **60% of 60% · 39 of 39 territories**, con la cuota en dorado. Si la barra superior todavía indica Turn 1, termina tu turno con **{{attackButton}}** y **{{fortifyButton}}**: la victoria llega al abrirse la ronda 2, antes de que coloques una unidad. Si lo tomaste en la ronda 2 o después, la partida terminó con la captura.",
+        "detail": "Cada asiento tiene un primer turno antes de que se lea umbral alguno, así que nadie puede ganar antes de que haya jugado el último asiento. En una partida real el límite de 90 rondas es el otro extremo del mismo recuento: pasado ese límite, sin nadie por encima de la línea, gana quien tenga más sistemas."
       },
       "gth_complete": {
         "title": "Umbral de territorio completado",
@@ -535,8 +535,8 @@
       "gdm_welcome": {
         "title": "Dominación en la galaxia",
         "message": "Esta partida se juega solo por **Dominación**: **Control every territory**, que en este tablero son los **64** sistemas. Eres la Stellar Mandate de **Sol III**. Los Helion Navigators han quedado con un solo sistema en **Verdan Reach** —**Greenfire Vault**, el gateway frente a tu Pacific Rim—, y tú controlas los otros quince a su alrededor. **Nexus Station** y el **Rust Belt** son colonias neutrales.",
-        "detail": "Esto es lo que la galaxia hace con la dominación: la partida nunca llega a ella. En cuanto cae el último rival, el servidor termina la partida como **Last Commander Standing**, que se juzga al instante y no desde la ronda 2, igual que se juzgaría la propia dominación; así que las **32** guarniciones coloniales nunca hace falta tomarlas, y un resultado galáctico nunca dice Total Domination mientras quede un rival en la partida. Por eso una sala galáctica real combina la dominación con el Umbral.",
-        "hint": "Pulsa Siguiente, o salta al final para entrar directamente."
+        "detail": "Esto es lo que la galaxia hace con la dominación: la partida nunca llega a ella. En cuanto cae el último rival, el servidor termina la partida como **Last Commander Standing**, que se juzga al instante y no desde la ronda 2, igual que se juzgaría la propia dominación; así que las **32** guarniciones coloniales nunca hace falta tomarlas, y un resultado galáctico nunca dice Total Domination mientras quede un rival en la partida. Por eso un vestíbulo galáctico real combina la dominación con el Umbral.",
+        "hint": "Pulsa «Siguiente», o «Saltar al final» para entrar directamente."
       },
       "gdm_rules": {
         "title": "Last Commander Standing",
@@ -558,7 +558,7 @@
       "gdm_win": {
         "title": "Se juzga al instante",
         "message": "La pantalla de resultado muestra **Victory!** con **Last Commander Standing — all opponents eliminated** debajo: no Total Domination, aunque la dominación era la única condición fijada. **32** sistemas neutrales siguen en pie en Nexus Station y el Rust Belt; ninguno importó.",
-        "detail": "Esa es la dominación de la galaxia en la práctica: elimina a todo rival y deja las colonias a quien las quiera. Contra rivales que conservan sus mundos natales eso puede llevar mucho tiempo, y por eso una sala galáctica real añade el umbral del 60 % y un límite de 90 rondas."
+        "detail": "Esa es la dominación de la galaxia en la práctica: elimina a todo rival y deja las colonias a quien las quiera. Contra rivales que conservan sus mundos natales eso puede llevar mucho tiempo, y por eso un vestíbulo galáctico real añade el umbral del 60 % y un límite de 90 rondas."
       },
       "gdm_complete": {
         "title": "Dominación completada",
@@ -571,8 +571,8 @@
       "gpr_welcome": {
         "title": "La Era Galáctica, en breve",
         "message": "**Cuatro mundos, una guerra.** La Era Galáctica se juega en **Sol III**, **Verdan Reach**, el **Rust Belt** y **Nexus Station**, unidos en anillo por **8 rutas hiperespaciales**. Cada ruta va entre dos sistemas **gateway**: controla un gateway y podrás atacar directamente a través de su ruta, sin investigación. Un cruce tira solo **2 dados** (3 con **Lane Charts**), así que un gateway defendido aguanta como una costa; la maravilla **Hyperlane Anchor** elimina el límite para su dueño.",
-        "detail": "Este primer son seis tarjetas de lectura en un tablero real de cuatro asientos —eres la Stellar Mandate de Sol III, con un oponente del tutorial en cada otro mundo— y una cosa que abrir. Cada tarjeta termina donde empieza una de las seis lecciones de la Era Galáctica.",
-        "hint": "Pulsa Siguiente, o salta al final para entrar directamente."
+        "detail": "Esta introducción consta de seis tarjetas de lectura en un tablero real de cuatro asientos —eres la Stellar Mandate de Sol III, con un oponente del tutorial en cada uno de los otros mundos— y una cosa que abrir. Cada tarjeta termina donde empieza una de las seis lecciones de la Era Galáctica.",
+        "hint": "Pulsa «Siguiente», o «Saltar al final» para entrar directamente."
       },
       "gpr_chart": {
         "title": "Lee el tablero",
@@ -583,14 +583,14 @@
         "hintPhone": "Elige un mundo del mapa y luego pulsa **Enter world →** en su tarjeta para entrar."
       },
       "gpr_worlds": {
-        "title": "Reglas de mundo y equipos",
-        "message": "Cada mundo juega con una regla propia, que se muestra en el panel de cualquier sistema de ese mundo y, para los mundos que controlas, en el panel **Bonuses**. **Sol III** — Cradle: every 5th round, any system held here with fewer than 2 units musters 1 more. **Verdan Reach** — Storms: at round start any system above 12 units loses 1 to the weather. **Rust Belt** — Forge: a system with a defence building rolls +1 extra defence die. **Nexus Station** — The Vault: Nexus Gate Ring starts neutral (garrison 6); hold all of it for +2 tech per turn and one Emergency Seal per turn on any lane. Its home faction starts with +1 unit per system, paying for the ring it begins without.",
-        "detail": "Los equipos. **Stellar Mandate**: un hogar en la Cradle de arriba (que recluta para quien controle Sol) y **Blockade Runner**: una vez por turno, tu siguiente ataque a través de una ruta hiperespacial ignora un Emergency Seal. **Forge Syndicate**: +2 refuerzos por turno, Jump Gates a mitad de precio y **Supply Insert**: una vez por turno, coloca 1 unidad gratis en un territorio propio. **Helion Navigators**: +2 refuerzos por turno (+1 en un duelo de dos asientos), todo gateway de la galaxia visible y **Drift Jump**: una vez por turno, fortifica entre dos gateways que controles en mundos distintos sin ruta que los conecte. **Void Custodians**: +1 dado de defensa contra cualquier ataque a través de una ruta, recuperación de estabilidad más rápida y el **Emergency Seal**: una vez por turno, cierra cualquier ruta hiperespacial que toque Nexus Station a todos los demás durante una ronda."
+        "title": "Reglas de mundo y repertorios",
+        "message": "Cada mundo juega con una regla propia, que se muestra en el panel de cualquier sistema de ese mundo y, para los mundos que controlas, en el panel **Bonuses**. **Sol III** — Cradle: cada 5 rondas, todo sistema controlado aquí con menos de 2 unidades recluta 1 más. **Verdan Reach** — Storms: al inicio de la ronda, todo sistema con más de 12 unidades pierde 1 por el clima. **Rust Belt** — Forge: un sistema con un edificio de defensa tira +1 dado de defensa extra. **Nexus Station** — The Vault: el Nexus Gate Ring empieza neutral (guarnición de 6); contrólalo entero para obtener +2 de tecnología por turno y un Emergency Seal por turno en cualquier ruta. Su facción natal empieza con +1 unidad por sistema, en compensación por el anillo con el que no empieza.",
+        "detail": "Los repertorios. **Stellar Mandate**: un hogar en la Cradle descrita arriba (que recluta para quien controle Sol) y **Blockade Runner**: una vez por turno, tu siguiente ataque a través de una ruta hiperespacial ignora un Emergency Seal. **Forge Syndicate**: +2 refuerzos por turno, Jump Gates a mitad de precio y **Supply Insert**: una vez por turno, coloca 1 unidad gratis en un territorio propio. **Helion Navigators**: +2 refuerzos por turno (+1 en un duelo de dos asientos), todo gateway de la galaxia visible y **Drift Jump**: una vez por turno, fortifica entre dos gateways que controles en mundos distintos sin ruta que los conecte. **Void Custodians**: +1 dado de defensa contra cualquier ataque a través de una ruta, recuperación de estabilidad más rápida y el **Emergency Seal**: una vez por turno, cierra cualquier ruta hiperespacial que toque Nexus Station a todos los demás durante una ronda."
       },
       "gpr_boards": {
         "title": "Tableros y bandos",
-        "message": "**Home Worlds** en la sala reparte a cada facción su propio mundo, y el tablero sigue al número de asientos. **Colonies**, con dos o tres asientos: los mundos que nadie llama hogar empiezan neutrales y guarnecidos —5 unidades en cada gateway y 7 en el interior—, y con tres asientos dos rutas extra salvan los huecos del anillo. El inicio clásico con cuatro. El **Schism**, de cinco a ocho: las casas comparten mundos —con ocho asientos, cada mundo se divide en dos; por debajo, uno por cada asiento por encima de cuatro—, cada casa en la mitad de su mundo con el equipo de la facción, bajo la **Concord** (una tregua durante las 3 primeras rondas), en **Civil War** o **Allied** como un solo bando. Una casa que controle los cuatro gateways de su mundo lleva la **Lane Crown**: +2 unidades por turno, salvo que las casas sean Allied.",
-        "detail": "**2v2** empareja los cuatro mundos natales a través del anillo —Sol III y el Rust Belt contra Verdan Reach y Nexus Station—, así que toda ruta es un frente. Los aliados nunca se atacan, ven lo que ve el otro y ganan juntos: el umbral y la dominación cuentan los sistemas del bando juntos, y la sala mueve el umbral por defecto al 75 %. Una partida por equipos se juega sin misiones secretas."
+        "message": "La opción **Home Worlds** del vestíbulo reparte a cada facción su propio mundo, y el tablero sigue al número de asientos. **Colonies**, con dos o tres asientos: los mundos que nadie llama hogar empiezan neutrales y guarnecidos —5 unidades en cada gateway y 7 en el interior—, y con tres asientos dos rutas extra salvan los huecos del anillo. El inicio clásico con cuatro. El **Schism**, de cinco a ocho: las casas comparten mundos —con ocho asientos, cada mundo se divide en dos; por debajo, uno por cada asiento por encima de cuatro—, cada casa en la mitad de su mundo con el repertorio de la facción, bajo la **Concord** (una tregua durante las 3 primeras rondas), en **Civil War** o **Allied** como un solo bando. Una casa que controle los cuatro gateways de su mundo lleva la **Lane Crown**: +2 unidades por turno, salvo que las casas sean Allied.",
+        "detail": "**2v2** empareja los cuatro mundos natales a través del anillo —Sol III y el Rust Belt contra Verdan Reach y Nexus Station—, así que toda ruta es un frente. Los aliados nunca se atacan, ven lo que ve el otro y ganan juntos: el umbral y la dominación cuentan los sistemas del bando juntos, y el vestíbulo mueve el umbral por defecto al 75 %. Una partida por equipos se juega sin misiones secretas."
       },
       "gpr_lanes": {
         "title": "Clima de rutas, sellos y puertas",
@@ -599,13 +599,13 @@
       },
       "gpr_wins": {
         "title": "Siete formas de ganar, seis lecciones",
-        "message": "**Lane Sovereignty** es la propia de la galaxia: controla 5 de las 8 rutas cartografiadas como corredores al inicio de tu turno, 3 turnos seguidos; 5 en un duelo o un 2v2. **Threshold** cuenta todos los sistemas, colonias incluidas: el 60 % de 64 es 39, y una sala galáctica abre con él activado al 60 % —75 % en 2v2— con un límite de 90 rondas detrás. **Capital**: la capital de cada asiento es el primero de sus sistemas repartidos en orden alfabético, y en este mapa eso es un gateway en cada mundo. **Secret Missions** nunca nombran terreno tras una puerta hiperespacial, así que toda misión de captura o control nombra aquí Sol III, y un asiento que controle todo Sol solo puede recibir una misión de eliminación. **Domination** termina cuando cae el último rival: Last Commander Standing, juzgada al instante. **Transcendence** necesita el tablero Space to Stars: sube desde la Era Espacial a la Era Galáctica y levanta una maravilla.",
-        "detail": "Toda victoria salvo la dominación se juzga desde la ronda 2, una vez que cada asiento ha tenido un turno. El panel **Objectives** de la pestaña Status de la barra lateral lleva la cuenta de las que juega este tablero: **Map control** y **Lane Sovereignty**. Cada una de las seis lecciones de la Era Galáctica juega una de estas victorias hasta el final en un tablero diseñado.",
-        "detailPhone": "Toda victoria salvo la dominación se juzga desde la ronda 2, una vez que cada asiento ha tenido un turno. El panel **Objectives** de la pestaña **Status**, en **☰ Menu**, lleva la cuenta de las que juega este tablero: **Map control** y **Lane Sovereignty**. Cada una de las seis lecciones de la Era Galáctica juega una de estas victorias hasta el final en un tablero diseñado."
+        "message": "**Lane Sovereignty** es la propia de la galaxia: controla 5 de las 8 rutas cartografiadas como corredores al inicio de tu turno, 3 turnos seguidos; 5 en un duelo o un 2v2. El **Umbral** cuenta todos los sistemas, colonias incluidas: el 60 % de 64 es 39, y un vestíbulo galáctico abre con él activado al 60 % —75 % en 2v2— con un límite de 90 rondas detrás. **Capital**: la capital de cada asiento es el primero de sus sistemas repartidos en orden alfabético, y en este mapa eso es un gateway en cada mundo. Las **Misiones secretas** nunca nombran terreno tras una puerta hiperespacial, así que toda misión de captura o control nombra aquí Sol III, y un asiento que controle todo Sol solo puede recibir una misión de eliminación. La **Dominación** termina cuando cae el último rival: Last Commander Standing, juzgada al instante. La **Trascendencia** necesita el tablero Space to Stars: sube desde la Era Espacial a la Era Galáctica y levanta una maravilla.",
+        "detail": "Toda victoria salvo la dominación se juzga desde la ronda 2, una vez que cada asiento ha tenido un turno. El panel **Objectives** de la pestaña Status de la barra lateral lleva la cuenta de las que juega este tablero: **Map control** y **Lane Sovereignty**. Cada una de las seis lecciones de la Era Galáctica juega una de estas victorias hasta el final en un tablero preparado a medida.",
+        "detailPhone": "Toda victoria salvo la dominación se juzga desde la ronda 2, una vez que cada asiento ha tenido un turno. El panel **Objectives** de la pestaña **Status**, en **☰ Menu**, lleva la cuenta de las que juega este tablero: **Map control** y **Lane Sovereignty**. Cada una de las seis lecciones de la Era Galáctica juega una de estas victorias hasta el final en un tablero preparado a medida."
       },
       "gpr_complete": {
-        "title": "Primer completado",
-        "message": "Esa es la forma de la Era Galáctica: cuatro mundos, ocho rutas, gateways que deciden quién puede atacar a quién, una regla por mundo, tableros según los asientos y toda victoria salvo la dominación juzgada desde la ronda 2. Las seis lecciones juegan cada una una victoria hasta el final: empieza por Lane Sovereignty, la propia de la galaxia.",
+        "title": "Introducción completada",
+        "message": "Esa es la forma de la Era Galáctica: cuatro mundos, ocho rutas, gateways que deciden quién puede atacar a quién, una regla por mundo, tableros según los asientos y toda victoria salvo la dominación juzgada desde la ronda 2. Cada una de las seis lecciones juega una victoria hasta el final: empieza por Lane Sovereignty, la propia de la galaxia.",
         "skippedTitle": "Directo a la partida",
         "skippedMessage": "Te saltaste la lectura. En resumen: cuatro mundos en anillo, ocho rutas entre sistemas gateway, cruces a 2 dados (3 con Lane Charts), una regla por mundo y toda victoria salvo la dominación juzgada desde la ronda 2. «Volver al vestíbulo» te lleva a las seis lecciones, cada una de las cuales juega una victoria hasta el final."
       }
