@@ -29,8 +29,8 @@
     "openSettingsLab": "Otwórz laboratorium ustawień",
     "continuePlaying": "Graj dalej",
     "playFirstMatch": "Zagraj pierwszy mecz",
-    "playNextBattle": "Zagraj kolejną bitwę",
-    "playQuickMatch": "Zagraj Quick Match",
+    "playNextBattle": "Stocz kolejną bitwę",
+    "playQuickMatch": "Zagraj w Quick Match",
     "saveProgress": "Zapisz postępy na darmowym koncie",
     "optionalDeepDives": "Lekcje dodatkowe (opcjonalne)",
     "done": "Ukończono",
@@ -96,11 +96,11 @@
     },
     "galaxy_primer": {
       "title": "Era galaktyczna: różnice",
-      "description": "Sześć kart o tym, co zmienia galaktyka – trasy, systemy gateway, reguły światów, plansze i zwycięstwa – na prawdziwej planszy dla czterech graczy, przed sześcioma lekcjami, z których każda rozgrywa jedno zwycięstwo."
+      "description": "Sześć kart o tym, co zmienia galaktyka – trasy, systemy gateway, reguły światów, plansze i zwycięstwa – na prawdziwej planszy dla czterech graczy, przed sześcioma lekcjami, z których każda prowadzi do jednego zwycięstwa."
     },
     "galaxy_lane_sovereignty": {
       "title": "Era galaktyczna: Lane Sovereignty",
-      "description": "Trasy nadprzestrzenne, systemy gateway i korytarze: zajmij piąty korytarz po drugiej stronie trasy i utrzymaj sieć, by wygrać."
+      "description": "Trasy nadprzestrzenne, systemy gateway i korytarze: zdobądź piąty korytarz atakiem przez trasę i utrzymaj sieć, by wygrać."
     },
     "galaxy_transcendence": {
       "title": "Era galaktyczna: Transcendencja",
@@ -120,7 +120,7 @@
     },
     "galaxy_domination": {
       "title": "Era galaktyczna: Dominacja",
-      "description": "Dominacja kończy się tu, gdy pada ostatni rywal, a nie ostatni system: zajmij ostatni gateway frakcji Navigators, a gra skończy się od razu, bez ruszania kolonii."
+      "description": "Dominacja kończy się tu, gdy pada ostatni rywal, a nie ostatni system: zajmij ostatni system gateway frakcji Navigators, a mecz skończy się od razu – kolonie zostają nietknięte."
     }
   },
   "steps": {
@@ -139,7 +139,7 @@
       },
       "choose_front": {
         "title": "Wybierz front",
-        "message": "Wybierz swoje terytorium (co najmniej 2 jednostki), a potem sąsiednie terytorium wroga. **Tuscany & Latium → Umbria & Abruzzo** to tanie otwarcie: stoją tam 2 jednostki, a terytorium graniczy z obiema pozostałymi ziemiami Adriatyku, więc po jego zajęciu sąsiadujesz ze wszystkim. **Lombardy & Piedmont → Veneto & Emilia** to wolniejsza flanka: 3 obrońców na szerokim północnym froncie.",
+        "message": "Wybierz swoje terytorium (co najmniej 2 jednostki), a potem sąsiednie terytorium wroga. **Tuscany & Latium → Umbria & Abruzzo** to tanie otwarcie: stoją tam 2 jednostki, a terytorium graniczy z oboma pozostałymi terytoriami adriatyckimi, więc po jego zajęciu sąsiadujesz ze wszystkim. **Lombardy & Piedmont → Veneto & Emilia** to wolniejsza flanka: 3 obrońców na szerokim północnym froncie.",
         "detail": "Atakujący rzuca maksymalnie 3 kośćmi, obrońca maksymalnie 2 – to wartości bazowe; zdolności frakcji, technologie i wydarzenia mogą dodać kości, a na tej starożytnej planszy atakujący raz przerzuca swoją najniższą kość. Najwyższe wyniki porównuje się parami; przegrany w każdej parze traci jednostkę, a remisy wygrywa obrońca. Zajmujesz terytorium, gdy padnie jego ostatni obrońca, a maksymalnie 3 z twoich ocalałych atakujących wchodzą tam same – bez pytania, a jedna jednostka zawsze zostaje na miejscu.",
         "hint": "Atakuj, ile chcesz – albo wcale. Gdy skończysz, naciśnij złoty przycisk **{{attackButton}}**."
       },
@@ -158,7 +158,7 @@
         "title": "Twoje imperium to także gospodarka",
         "message": "Znów twoja tura – tym razem zatrzymaj się przed atakiem. Terytoria to tylko połowa gry: twoje imperium ma **skarbiec** ze złotem i **program badań** z punktami technologii, a jedno i drugie rosło przez cały czas, gdy ziemie były twoje.",
         "detail": "Panel „Era Advancement” w panelu bocznym pokazuje oś czasu er i twoje miejsce na niej; rozwiń go, by zobaczyć bramę, której warunki musisz spełnić, żeby awansować. Ten przeciwnik treningowy zostaje w starożytności – prawdziwi rywale pną się we własnym tempie.",
-        "whyItMatters": "Podbojem wygrywasz mapę. Awansem do nowej ery przerastasz przeciwnika, który ją trzyma – silniejsze jednostki, świeże drzewo technologii i jednorazowa nagroda specjalna.",
+        "whyItMatters": "Podbojem wygrywasz mapę. Awansem do nowej ery przerastasz przeciwnika, który tę mapę trzyma – silniejsze jednostki, nowe drzewo technologii i jednorazowa nagroda specjalna.",
         "detailPhone": "Panel „Era Advancement” pod **☰ Menu** pokazuje oś czasu er i twoje miejsce na niej; rozwiń go, by zobaczyć bramę, której warunki musisz spełnić, żeby awansować. Ten przeciwnik treningowy zostaje w starożytności – prawdziwi rywale pną się we własnym tempie."
       },
       "ea_research": {
@@ -170,7 +170,7 @@
         "title": "Awansuj do średniowiecza",
         "message": "Gdy wszystkie wskaźniki bramy będą zielone, naciśnij **Advance to Medieval Era** – przycisk pojawia się właśnie tam, na pasku bramy w drzewie technologii. Brama na tej planszy wymaga już tylko jednej technologii poziomu 1.",
         "detail": "Awans konsoliduje twoje armie: około 30% jednostek znika na dobre, po trochu z różnych terytoriów, a przez jedną turę po awansie twoi obrońcy walczą słabiej – to okno podatności. Badania zerują się i zaczynasz nowe, silniejsze drzewo średniowiecza; zachowujesz echo dawnych premii i zyskujesz nagrodę specjalną ery.",
-        "hint": "Awans w fazie Wzmocnienia sprawia, że siła nowej ery działa już na ataki w tej turze. Brakuje wskaźnika? Pasek podaje, czego brak, a przycisk awansu pojawia się, gdy tylko niczego nie brakuje."
+        "hint": "Awans w fazie Wzmocnienia sprawia, że siła nowej ery działa już na ataki w tej turze. Któryś wskaźnik nie jest jeszcze zielony? Pasek podaje, czego brakuje, a przycisk awansu pojawia się, gdy tylko nie brakuje niczego."
       },
       "wrapup": {
         "title": "Wszystko już umiesz!",
@@ -188,8 +188,8 @@
       },
       "as_timers": {
         "title": "Limity czasu tury i tryb asynchroniczny",
-        "message": "Gry na żywo mają limit czasu tury (3, 5 lub 10 minut w grze niestandardowej albo żaden), żeby mecz nie stał w miejscu. Gry asynchroniczne dają za to na każdą turę 12 godzin, dobę albo trzy dni – świetne do gry korespondencyjnej między strefami czasowymi.",
-        "whyItMatters": "Dobierz limity do tego, ile skupienia ma twoja grupa; tryb asynchroniczny chroni przed porzucaniem gier, gdy ktoś nie ma czasu."
+        "message": "Mecze na żywo mają limit czasu tury (3, 5 lub 10 minut w grze niestandardowej albo żaden), żeby gra nie stała w miejscu. Mecze asynchroniczne dają za to na każdą turę 12 godzin, dobę albo trzy dni – w sam raz do gry korespondencyjnej między strefami czasowymi.",
+        "whyItMatters": "Dobierz limity do tego, ile skupienia ma twoja grupa; tryb asynchroniczny chroni przed porzucaniem meczów, gdy ktoś nie ma czasu."
       },
       "as_fog": {
         "title": "Mgła wojny",
@@ -216,20 +216,20 @@
       },
       "as_complete": {
         "title": "Lekcja o ustawieniach ukończona",
-        "message": "Wiesz już, co zmieniają główne opcje. Utwórz grę niestandardową i dodawaj po jednej nowej opcji naraz – tam „Factions” i „Era Events” nazywają się „Asymmetric Factions” i „Historical Events”."
+        "message": "Wiesz już, co zmieniają główne opcje. Utwórz grę niestandardową i dodawaj po jednej nowej opcji na raz – tam „Factions” i „Era Events” nazywają się „Asymmetric Factions” i „Historical Events”."
       }
     },
     "faction_ability": {
       "fa_welcome": {
         "title": "Moce frakcji",
-        "message": "W tym meczu treningowym frakcje są włączone na mapie II wojny światowej. Grasz frakcją China (Chinese Nationalists) – jej cały zestaw to jedna aktywna zdolność, Guerrilla Warfare.",
+        "message": "W tym meczu treningowym frakcje są włączone na mapie II wojny światowej. Grasz jako China (Chinese Nationalists) – cały zestaw tej frakcji to jedna aktywna zdolność: Guerrilla Warfare.",
         "detail": "Zdolności frakcji są unikalne i nic nie kosztują. Inaczej niż ulepszenia z drzewa technologii (które kosztują punkty technologii), większość odnawia się co turę; kilku można użyć tylko raz na grę."
       },
       "fa_identity": {
         "title": "Poznaj swoją frakcję",
         "message": "Otwórz panel Bonuses, by przeczytać wpis frakcji China i opis Guerrilla Warfare. China nie ma pasywnej premii; niektóre inne frakcje ją mają, na przykład dodatkowe posiłki.",
         "hint": "Naciśnij „Otwórz panel Bonuses” poniżej – sekcja „Your Faction” wymienia Chinese Nationalists i ich zdolność Guerrilla Warfare.",
-        "whyItMatters": "Znajomość zestawu zmienia sposób gry. Atutem frakcji China jest darmowa jednostka, którą Guerrilla Warfare rozmieszcza co turę – postaw ją tam, gdzie granica jest cienka."
+        "whyItMatters": "Znajomość zestawu zmienia sposób gry. Atutem frakcji China jest darmowa jednostka, którą Guerrilla Warfare rozmieszcza co turę – postaw ją tam, gdzie granica jest słabo obsadzona."
       },
       "fa_when": {
         "title": "Kiedy pojawiają się zdolności",
@@ -251,7 +251,7 @@
       },
       "fa_complete": {
         "title": "Lekcja o frakcjach ukończona",
-        "message": "Darmowa jednostka stoi na planszy dzięki aktywnej zdolności twojej frakcji – dokładnie tak to działa w każdej grze z włączoną opcją Asymmetric Factions. Każda frakcja ma inny moment użycia, cel i zasięg. Zajrzyj do Kodeksu, by porównać wszystkie frakcje przed następną grą."
+        "message": "Darmowa jednostka stoi na planszy dzięki aktywnej zdolności twojej frakcji – dokładnie tak to działa w każdym meczu z włączoną opcją Asymmetric Factions. Każda frakcja ma inny moment użycia, cel i zasięg. Zajrzyj do Kodeksu, by porównać wszystkie frakcje przed następnym meczem."
       }
     },
     "tech_tree": {
@@ -273,7 +273,7 @@
       },
       "tt_research": {
         "title": "Zbadaj technologię",
-        "message": "Wybierz węzeł poziomu 1, na który cię stać, i naciśnij jego przycisk badania. Premie do kości działają od razu, a dodatkowe posiłki od twojej następnej tury; zdolności pojawiają się w panelu terytorium.",
+        "message": "Wybierz węzeł poziomu 1, na który cię stać, i naciśnij przy nim przycisk „Research”. Premie do kości działają od razu, a dodatkowe posiłki od twojej następnej tury; zdolności pojawiają się w panelu terytorium.",
         "hint": "Badaj w fazie Wzmocnienia lub Fortyfikacji. Radio Communications (3 TP) i Motorization (5 TP) dają po +1 do posiłków – 8 TP wystarczy na obie."
       },
       "tt_complete": {
@@ -305,9 +305,9 @@
       },
       "ea_gate": {
         "title": "Spełnij warunki bramy",
-        "message": "Badaj dalej, aż wszystkie wskaźniki bramy zmienią się na zielone – brama wymaga kilku technologii i dość złota (masz go już pod dostatkiem). Przycisk **Advance to Medieval Era** zaświeci się, gdy wszystko będzie gotowe.",
+        "message": "Badaj dalej, aż wszystkie wskaźniki bramy zmienią się na zielone – brama wymaga kilku technologii i odpowiedniej ilości złota (masz go już pod dostatkiem). Przycisk **Advance to Medieval Era** zaświeci się, gdy wszystko będzie gotowe.",
         "detail": "Węzły poziomu 2 wymagają najpierw swojego węzła poziomu 1, więc zbadaj węzeł nadrzędny, a potem ten z poziomu 2.",
-        "whyItMatters": "Ta sama brama jest w prawdziwych grach – ale tam musisz jeszcze pogodzić ją z budynkami i stabilnością."
+        "whyItMatters": "Ta sama brama jest w prawdziwych meczach – ale tam musisz jeszcze pogodzić ją z budynkami i stabilnością."
       },
       "ea_advance": {
         "title": "Awansuj do średniowiecza",
@@ -326,138 +326,138 @@
     },
     "galaxy_primer": {
       "gpr_welcome": {
-        "title": "Era Galaktyczna w skrócie",
-        "message": "**Cztery światy, jedna wojna.** Era Galaktyczna rozgrywa się na **Sol III**, **Verdan Reach**, **Rust Belt** i **Nexus Station**, połączonych w pierścień **8 trasami nadprzestrzennymi**. Każda trasa biegnie między dwoma układami typu **gateway**: kontrolujesz gateway – możesz atakować prosto przez jego trasę, bez żadnych badań. Przeprawa to rzut tylko **2 kośćmi** (3 z **Lane Charts**), więc broniony gateway trzyma się jak wybrzeże; cud **Hyperlane Anchor** znosi ten limit dla swojego właściciela.",
-        "detail": "To wprowadzenie to sześć kart do przeczytania na prawdziwej planszy dla czterech graczy – grasz jako Stellar Mandate z Sol III, a na każdym z pozostałych światów czeka samouczkowy przeciwnik – i jedna rzecz do otwarcia. Każda karta kończy się tam, gdzie zaczyna się jedna z sześciu lekcji Ery Galaktycznej.",
-        "hint": "Naciśnij „Dalej” albo „Przejdź do końca”, żeby od razu wskoczyć do gry."
+        "title": "Era galaktyczna w skrócie",
+        "message": "**Cztery światy, jedna wojna.** Era galaktyczna rozgrywa się na **Sol III**, **Verdan Reach**, **Rust Belt** i **Nexus Station**, połączonych w pierścień **8 trasami nadprzestrzennymi**. Każda trasa biegnie między dwoma systemami **gateway**: kontrolujesz gateway – możesz atakować prosto przez jego trasę, bez żadnych badań. Przeprawa to rzut tylko **2 kośćmi** (3 z **Lane Charts**), więc broniony gateway trzyma się jak wybrzeże; cud **Hyperlane Anchor** znosi ten limit dla swojego właściciela.",
+        "detail": "To wprowadzenie to sześć kart do przeczytania na prawdziwej planszy dla czterech graczy – grasz jako Stellar Mandate z Sol III, a na każdym z pozostałych światów czeka przeciwnik z samouczka – i jedna rzecz do otwarcia. Każda karta kończy się tam, gdzie zaczyna się jedna z sześciu lekcji ery galaktycznej.",
+        "hint": "Naciśnij „Dalej” albo „Przejdź na koniec”, żeby od razu wskoczyć do gry."
       },
       "gpr_chart": {
         "title": "Czytaj planszę",
-        "message": "Kliknij przycisk **Galaxy chart** nad planszą. Jego legenda **Lanes** podaje: **Corridor · both gateways yours**, **Open · you hold one end**, **Closed · take a gateway first** i **Sealed · Emergency Seal, 1 round**. Karta świata otwiera sam ten świat; **Split** pokazuje mapy wszystkich światów naraz.",
-        "detail": "Na wybranym świecie wskaż gateway rywala: jego karta **Gateway** wymienia każdą trasę wraz ze światem po drugiej stronie, jej stanem i liczbą kości przy przeprawie – **Lane attacks roll 2 dice (3 with Lane Charts)**.",
-        "hint": "Kliknij dwukrotnie świat na mapie galaktyki albo jego przycisk **Enter world →**, żeby wejść głębiej.",
-        "messagePhone": "Dotknij znacznika **Galaxy chart** w wierszu Worlds nad planszą, a potem **Key**: legenda **Lanes** podaje: **Corridor · both gateways yours**, **Open · you hold one end**, **Closed · take a gateway first** i **Sealed · Emergency Seal, 1 round**. Znacznik świata otwiera sam ten świat; **Split**, na szerszym ekranie, pokazuje mapy wszystkich światów naraz.",
-        "hintPhone": "Wybierz świat na mapie galaktyki, a potem naciśnij **Enter world →** na jego karcie, żeby wejść głębiej."
+        "message": "Kliknij przycisk **Galaxy chart** nad planszą. Jego legenda **Lanes** podaje: **Corridor · both gateways yours**, **Open · you hold one end**, **Closed · take a gateway first** i **Sealed · Emergency Seal, 1 round**. Zakładka świata otwiera tylko ten świat; **Split** pokazuje mapy wszystkich światów naraz.",
+        "detail": "Na dowolnym świecie wybierz system gateway rywala: jego karta **Gateway** wymienia każdą trasę wraz ze światem po drugiej stronie, jej stanem i liczbą kości przy przeprawie – **Lane attacks roll 2 dice (3 with Lane Charts)**.",
+        "hint": "Kliknij dwukrotnie świat na mapie galaktyki albo użyj jego przycisku **Enter world →**, żeby wejść do środka.",
+        "messagePhone": "Dotknij znacznika **Galaxy chart** w wierszu Worlds nad planszą, a potem **Key**: legenda **Lanes** podaje: **Corridor · both gateways yours**, **Open · you hold one end**, **Closed · take a gateway first** i **Sealed · Emergency Seal, 1 round**. Znacznik świata otwiera tylko ten świat; **Split**, na szerszym ekranie, pokazuje mapy wszystkich światów naraz.",
+        "hintPhone": "Wybierz świat na mapie galaktyki, a potem naciśnij **Enter world →** na jego karcie, żeby wejść do środka."
       },
       "gpr_worlds": {
         "title": "Reguły światów i zestawy",
-        "message": "Każdy świat ma jedną własną regułę, widoczną w panelu dowolnego układu na tym świecie, a dla światów, które kontrolujesz, także w panelu **Bonuses**. **Sol III** – Cradle: co 5. rundę każdy kontrolowany tu układ, w którym są mniej niż 2 jednostki, dostaje 1 dodatkową. **Verdan Reach** – Storms: na początku rundy każdy układ z ponad 12 jednostkami traci 1 przez pogodę. **Rust Belt** – Forge: układ z budynkiem obronnym rzuca +1 dodatkową kością obrony. **Nexus Station** – The Vault: Nexus Gate Ring zaczyna jako neutralny (garnizon 6); kontroluj go w całości, a dostaniesz +2 technologii na turę i jeden Emergency Seal na turę na dowolnej trasie. Frakcja, dla której to świat macierzysty, zaczyna z +1 jednostką na układ w zamian za pierścień, bez którego startuje.",
-        "detail": "Zestawy. **Stellar Mandate**: dom na opisanym wyżej Cradle (jednostki dostaje ten, kto kontroluje Sol) oraz **Blockade Runner** – raz na turę twój następny atak przez trasę nadprzestrzenną ignoruje Emergency Seal. **Forge Syndicate**: +2 posiłki na turę, Jump Gates za pół ceny oraz **Supply Insert** – raz na turę rozmieść 1 darmową jednostkę na własnym terytorium. **Helion Navigators**: +2 posiłki na turę (+1 w pojedynku dwóch graczy), widoczny każdy gateway w galaktyce oraz **Drift Jump** – raz na turę przegrupuj jednostki między dwoma swoimi gatewayami na różnych światach, bez łączącej je drogi. **Void Custodians**: +1 kość obrony przeciw każdemu atakowi przez trasę, szybszy powrót stabilności oraz **Emergency Seal** – raz na turę zamknij na jedną rundę dla wszystkich pozostałych dowolną trasę nadprzestrzenną dochodzącą do Nexus Station."
+        "message": "Każdy świat ma jedną własną regułę, widoczną w panelu dowolnego systemu na tym świecie, a dla światów, które kontrolujesz, także w panelu **Bonuses**. **Sol III** – Cradle: co 5. rundę każdy kontrolowany tu system, w którym jest mniej niż 2 jednostki, dostaje 1 dodatkową. **Verdan Reach** – Storms: na początku rundy każdy system z ponad 12 jednostkami traci 1 przez pogodę. **Rust Belt** – Forge: system z budynkiem obronnym rzuca 1 dodatkową kością obrony. **Nexus Station** – The Vault: Nexus Gate Ring zaczyna jako neutralny (garnizon 6); kontroluj go w całości, a dostaniesz +2 punkty technologii na turę i jeden Emergency Seal na turę na dowolnej trasie. Frakcja, dla której to świat macierzysty, zaczyna z +1 jednostką na system w zamian za pierścień, bez którego startuje.",
+        "detail": "Zestawy. **Stellar Mandate**: dom na opisanym wyżej Cradle (jednostki dostaje ten, kto kontroluje Sol) oraz **Blockade Runner** – raz na turę twój następny atak przez trasę nadprzestrzenną ignoruje Emergency Seal. **Forge Syndicate**: +2 posiłki na turę, Jump Gates za pół ceny oraz **Supply Insert** – raz na turę rozmieść 1 darmową jednostkę na własnym terytorium. **Helion Navigators**: +2 posiłki na turę (+1 w pojedynku dwóch graczy), widoczny każdy gateway w galaktyce oraz **Drift Jump** – raz na turę przegrupuj jednostki między dwoma swoimi systemami gateway na różnych światach, bez łączącej je drogi. **Void Custodians**: +1 kość obrony przeciw każdemu atakowi przez trasę, szybsze odzyskiwanie stabilności oraz **Emergency Seal** – raz na turę zamknij na jedną rundę dla wszystkich pozostałych dowolną trasę nadprzestrzenną dochodzącą do Nexus Station."
       },
       "gpr_boards": {
         "title": "Plansze i strony",
-        "message": "Opcja **Home Worlds** w lobby przydziela każdej frakcji jej własny świat, a plansza zależy od liczby graczy. **Colonies**, przy dwóch lub trzech graczach: światy, które nie są niczyim domem, zaczynają neutralne i obsadzone garnizonami – 5 jednostek na każdym gatewayu i 7 w głębi – a przy trzech graczach dwie dodatkowe trasy łączą luki w pierścieniu. Klasyczny start przy czterech. **Schism**, przy pięciu do ośmiu: rody dzielą światy – przy ośmiu graczach każdy świat jest podzielony na dwa, przy mniejszej liczbie jeden świat na każdego gracza ponad czterech – każdy ród na połowie swojego świata, z zestawem frakcji, w trybie **Concord** (rozejm na pierwsze 3 rundy), **Civil War** albo **Allied** jako jedna strona. Ród, który kontroluje wszystkie cztery gatewaye swojego świata, nosi **Lane Crown**: +2 jednostki na turę, chyba że rody są w trybie Allied.",
-        "detail": "**2v2** łączy cztery światy macierzyste w pary po przeciwnych stronach pierścienia – Sol III i Rust Belt przeciw Verdan Reach i Nexus Station – więc każda trasa jest frontem. Sojusznicy nigdy nie atakują się nawzajem, widzą to samo i wygrywają razem: Próg i Dominacja liczą układy całej strony łącznie, a lobby ustawia domyślny Próg na 75%. W grze drużynowej nie ma Tajnych misji."
+        "message": "Opcja **Home Worlds** w lobby przydziela każdej frakcji jej własny świat, a plansza zależy od liczby graczy. **Colonies**, przy dwóch lub trzech graczach: światy, które nie są niczyim domem, zaczynają jako neutralne i obsadzone garnizonami – 5 jednostek na każdym systemie gateway i 7 w głębi – a przy trzech graczach dwie dodatkowe trasy zamykają luki w pierścieniu. Klasyczny start przy czterech. **Schism**, przy pięciu do ośmiu: rody dzielą się światami – przy ośmiu graczach każdy świat jest podzielony na dwa, przy mniejszej liczbie podzielony jest jeden świat na każdego gracza ponad czterech – każdy ród na połowie swojego świata, z zestawem frakcji, w trybie **Concord** (rozejm na pierwsze 3 rundy), **Civil War** albo **Allied** jako jedna strona. Ród, który kontroluje wszystkie cztery systemy gateway swojego świata, nosi **Lane Crown**: +2 jednostki na turę, chyba że rody są w trybie Allied.",
+        "detail": "**2v2** łączy cztery światy macierzyste w pary po przeciwnych stronach pierścienia – Sol III i Rust Belt przeciw Verdan Reach i Nexus Station – więc każda trasa jest frontem. Sojusznicy nigdy nie atakują się nawzajem, widzą to samo i wygrywają razem: Próg i Dominacja liczą systemy całej strony łącznie, a lobby ustawia domyślny Próg na 75%. W grze drużynowej nie ma Tajnych misji."
       },
       "gpr_lanes": {
         "title": "Pogoda na trasach, blokady i bramy",
-        "message": "Sama mapa może się zmieniać. Dwie karty wydarzeń zmieniają ją na **dwie rundy**: **Nebula Closure** zamyka dla wszystkich najbardziej sporną trasę, a **Lane Surge** otwiera tymczasową trasę między dwoma światami, których pierścień nie łączy. **Emergency Seal** zamyka trasę dla wszystkich pozostałych na jedną rundę: w rękach Void Custodians – dowolną trasę dochodzącą do Nexus Station, w rękach tego, kto kontroluje The Vault – każdą bez wyjątku. Blockade Runner frakcji Mandate ją ignoruje.",
-        "detail": "**Jump Gates** to trasy, które budujesz: brama na jednym świecie i druga na innym – po 12 punktów produkcji, połowa dla Forge Syndicate i połowa na Rust Belt, jedna na świat – otwierają prywatną trasę, która przenosi twoje jednostki, nigdy nie przenosi ataku i znika razem z którąkolwiek z bram. Lane Sovereignty liczy tylko osiem wytyczonych tras: nigdy trasę z Lane Surge, trasę kolonii ani Jump Gate."
+        "message": "Sama mapa może się zmieniać. Dwie karty wydarzeń zmieniają ją na **dwie rundy**: **Nebula Closure** zamyka dla wszystkich najbardziej sporną trasę, a **Lane Surge** otwiera tymczasową trasę między dwoma światami, których pierścień nie łączy. **Emergency Seal** zamyka trasę dla wszystkich pozostałych na jedną rundę: w rękach Void Custodians – dowolną trasę dochodzącą do Nexus Station, w rękach tego, kto kontroluje The Vault – każdą bez wyjątku. Blockade Runner, zdolność Stellar Mandate, go ignoruje.",
+        "detail": "**Jump Gates** to trasy, które budujesz: brama na jednym świecie i druga na innym – po 12 punktów produkcji, za pół ceny dla Forge Syndicate i za pół ceny na Rust Belt, jedna na świat – otwierają prywatną trasę, która przenosi twoje jednostki, nigdy nie przenosi ataku i znika razem z którąkolwiek z bram. Lane Sovereignty liczy tylko osiem wytyczonych tras: nigdy trasy z Lane Surge, trasy kolonii ani Jump Gate."
       },
       "gpr_wins": {
         "title": "Siedem dróg do zwycięstwa, sześć lekcji",
-        "message": "**Lane Sovereignty** to zwycięstwo właściwe tylko galaktyce: na początku swojej tury miej 5 z 8 wytyczonych tras jako korytarze, 3 tury z rzędu – 5 w pojedynku lub w 2v2. **Próg** liczy każdy układ, łącznie z koloniami: 60% z 64 to 39, a lobby galaktyki otwiera się z nim włączonym na 60% – 75% w 2v2 – i z limitem 90 rund w zapasie. **Zdobycie stolicy**: stolicą każdego gracza jest pierwszy alfabetycznie z przydzielonych mu układów, a na tej mapie na każdym świecie jest to gateway. **Tajne misje** nigdy nie wskazują terenu za bramą nadprzestrzenną, więc każda misja zdobycia lub kontroli wskazuje tu Sol III, a gracz kontrolujący całe Sol może wylosować tylko misję eliminacji. **Dominacja** kończy grę, gdy pada ostatni rywal – Last Commander Standing, rozstrzygane natychmiast. **Transcendencja** wymaga planszy Space to Stars: wejdź z Ery Kosmicznej do Ery Galaktycznej i wznieś cud.",
-        "detail": "Każde zwycięstwo poza Dominacją jest rozstrzygane od rundy 2, gdy każdy gracz ma już za sobą turę. Panel **Objectives** na karcie Status w panelu bocznym śledzi te, o które toczy się gra na tej planszy: **Map control** i **Lane Sovereignty**. Każda z sześciu lekcji Ery Galaktycznej rozgrywa jedno z tych zwycięstw do końca na przygotowanej planszy.",
-        "detailPhone": "Każde zwycięstwo poza Dominacją jest rozstrzygane od rundy 2, gdy każdy gracz ma już za sobą turę. Panel **Objectives** na karcie **Status** pod **☰ Menu** śledzi te, o które toczy się gra na tej planszy: **Map control** i **Lane Sovereignty**. Każda z sześciu lekcji Ery Galaktycznej rozgrywa jedno z tych zwycięstw do końca na przygotowanej planszy."
+        "message": "**Lane Sovereignty** to zwycięstwo właściwe tylko galaktyce: na początku swojej tury utrzymuj 5 z 8 wytyczonych tras jako korytarze, 3 tury z rzędu – 5 w pojedynku lub w 2v2. **Próg** liczy każdy system, łącznie z koloniami: 60% z 64 to 39, a w lobby galaktyki jest on od razu włączony na 60% – 75% w 2v2 – z limitem 90 rund w odwodzie. **Zdobycie stolicy**: stolicą każdego gracza jest pierwszy alfabetycznie z przydzielonych mu systemów, a na tej mapie na każdym świecie jest to gateway. **Tajne misje** nigdy nie wskazują terenu za bramą nadprzestrzenną, więc każda misja zdobycia lub kontroli wskazuje tu Sol III, a gracz kontrolujący całe Sol może wylosować tylko misję eliminacji. **Dominacja** kończy grę, gdy pada ostatni rywal – Last Commander Standing, rozstrzygane natychmiast. **Transcendencja** wymaga planszy Space to Stars: wespnij się z ery kosmicznej do ery galaktycznej i wznieś cud.",
+        "detail": "Każde zwycięstwo poza Dominacją jest rozstrzygane od rundy 2, gdy każdy gracz ma już za sobą turę. Panel **Objectives** w zakładce Status w panelu bocznym śledzi te, o które toczy się gra na tej planszy: **Map control** i **Lane Sovereignty**. W każdej z sześciu lekcji ery galaktycznej doprowadzasz jedno z tych zwycięstw do końca na przygotowanej planszy.",
+        "detailPhone": "Każde zwycięstwo poza Dominacją jest rozstrzygane od rundy 2, gdy każdy gracz ma już za sobą turę. Panel **Objectives** w zakładce **Status** pod **☰ Menu** śledzi te, o które toczy się gra na tej planszy: **Map control** i **Lane Sovereignty**. W każdej z sześciu lekcji ery galaktycznej doprowadzasz jedno z tych zwycięstw do końca na przygotowanej planszy."
       },
       "gpr_complete": {
         "title": "Wprowadzenie ukończone",
-        "message": "Tak wygląda Era Galaktyczna: cztery światy, osiem tras, gatewaye, które decydują, kto kogo może zaatakować, jedna reguła na każdy świat, plansze zależne od liczby graczy i każde zwycięstwo poza Dominacją rozstrzygane od rundy 2. Każda z sześciu lekcji rozgrywa jedno zwycięstwo do końca – zacznij od Lane Sovereignty, właściwego tylko galaktyce.",
+        "message": "Tak wygląda era galaktyczna: cztery światy, osiem tras, systemy gateway, które decydują, kto kogo może zaatakować, jedna reguła na każdy świat, plansze zależne od liczby graczy i każde zwycięstwo poza Dominacją rozstrzygane od rundy 2. W każdej z sześciu lekcji doprowadzasz jedno zwycięstwo do końca – zacznij od Lane Sovereignty, właściwego tylko galaktyce.",
         "skippedTitle": "Od razu do gry",
-        "skippedMessage": "Lektura pominięta. W skrócie: cztery światy w pierścieniu, osiem tras między układami gateway, przeprawy na 2 kościach (3 z Lane Charts), jedna reguła na każdy świat i każde zwycięstwo poza Dominacją rozstrzygane od rundy 2. „Wróć do lobby” prowadzi do sześciu lekcji, z których każda rozgrywa jedno zwycięstwo do końca."
+        "skippedMessage": "Lektura pominięta. W skrócie: cztery światy w pierścieniu, osiem tras między systemami gateway, przeprawy z rzutem 2 kośćmi (3 z Lane Charts), jedna reguła na każdy świat i każde zwycięstwo poza Dominacją rozstrzygane od rundy 2. „Wróć do lobby” prowadzi do sześciu lekcji, a w każdej z nich doprowadzasz jedno zwycięstwo do końca."
       }
     },
     "galaxy_lane_sovereignty": {
       "gls_welcome": {
         "title": "Lane Sovereignty",
-        "message": "Era Galaktyczna to cztery światy w pierścieniu – **Sol III – Verdan Reach – Rust Belt – Nexus Station** – połączone ośmioma trasami nadprzestrzennymi, z których każda kończy się po obu stronach układem typu **gateway**. Grasz jako Helion Navigators z Verdan Reach, a ta rozgrywka dodaje zwycięstwo właściwe tylko galaktyce: **Lane Sovereignty**.",
-        "detail": "Trasa jest twoim **korytarzem**, gdy kontrolujesz oba jej gatewaye. Miej 5 z 8 tras na początku swojej tury, 3 tury z rzędu, a sieć jest twoja. Pojedynek lub 2v2 wymaga zamiast tego 5 tur, a liczy się tylko osiem wytyczonych tras.",
-        "hint": "Masz już cztery korytarze. W tej lekcji zdobędziesz piąty i go utrzymasz. Naciśnij „Dalej” albo „Przejdź do końca”, żeby od razu wskoczyć do gry."
+        "message": "Era galaktyczna to cztery światy w pierścieniu – **Sol III – Verdan Reach – Rust Belt – Nexus Station** – połączone ośmioma trasami nadprzestrzennymi, z których każda kończy się na obu końcach systemem **gateway**. Grasz jako Helion Navigators z Verdan Reach, a ten mecz dodaje zwycięstwo właściwe tylko galaktyce: **Lane Sovereignty**.",
+        "detail": "Trasa jest twoim **korytarzem**, gdy kontrolujesz oba jej systemy gateway. Utrzymaj 5 z 8 tras na początku swojej tury, 3 tury z rzędu, a sieć jest twoja. W pojedynku lub 2v2 potrzeba na to 5 tur, a liczy się tylko osiem wytyczonych tras.",
+        "hint": "Masz już cztery korytarze. W tej lekcji zdobędziesz piąty i go utrzymasz. Naciśnij „Dalej” albo „Przejdź na koniec”, żeby od razu wskoczyć do gry."
       },
       "gls_chart": {
         "title": "Czytaj mapę galaktyki",
-        "message": "Kliknij przycisk **Galaxy chart** nad planszą – tak wracasz z karty dowolnego świata albo z widoku Split – i odczytaj trasy: trasa w **twoim kolorze** to korytarz, **niebieska** trasa jest otwarta (masz jeden koniec), przygaszona jest dla ciebie zamknięta. Panel Objectives w panelu bocznym prowadzi rachunek: **corridors 4 of 5 · held 0 of 3 rounds**.",
-        "detail": "Przy trzech graczach dwie luki w pierścieniu łączą trasy kolonii. Przenoszą ataki jak każda trasa, ale Lane Sovereignty liczy tylko osiem wytyczonych.",
-        "hint": "Karta świata otwiera sam ten świat.",
-        "messagePhone": "Dotknij znacznika **Galaxy chart** w wierszu Worlds nad planszą – tak wracasz z karty dowolnego świata – i odczytaj trasy: trasa w **twoim kolorze** to korytarz, **niebieska** trasa jest otwarta (masz jeden koniec), przygaszona jest dla ciebie zamknięta. Panel Objectives pod **☰ Menu** prowadzi rachunek: **corridors 4 of 5 · held 0 of 3 rounds**."
+        "message": "Kliknij przycisk **Galaxy chart** nad planszą – tak wracasz z zakładki dowolnego świata albo z widoku Split – i odczytaj trasy: trasa w **twoim kolorze** to korytarz, **niebieska** trasa jest otwarta (masz jeden koniec), przygaszona jest dla ciebie zamknięta. Panel Objectives w panelu bocznym podaje wynik: **corridors 4 of 5 · held 0 of 3 rounds**.",
+        "detail": "Przy trzech graczach trasy kolonii zamykają dwie luki w pierścieniu. Można przez nie atakować jak przez każdą trasę, ale Lane Sovereignty liczy tylko osiem wytyczonych.",
+        "hint": "Zakładka świata otwiera tylko ten świat.",
+        "messagePhone": "Dotknij znacznika **Galaxy chart** w wierszu Worlds nad planszą – tak wracasz z zakładki dowolnego świata – i odczytaj trasy: trasa w **twoim kolorze** to korytarz, **niebieska** trasa jest otwarta (masz jeden koniec), przygaszona jest dla ciebie zamknięta. Panel Objectives pod **☰ Menu** podaje wynik: **corridors 4 of 5 · held 0 of 3 rounds**."
       },
       "gls_charts": {
         "title": "Zbadaj Lane Charts",
         "message": "Atak przez trasę to rzut najwyżej **2 kośćmi**, nie 3 – broniony gateway trzyma się jak wybrzeże. **Lane Charts** przywraca trzecią kość. Otwórz drzewo technologii i zbadaj tę technologię; masz dokładnie tyle, ile kosztuje.",
-        "detail": "Lane Charts to w galaktyce technologia 1. poziomu, od której zaczyna się gałąź tras. Cud Hyperlane Anchor znosi limit całkowicie, a Void Custodians rzucają dodatkową kością, gdy bronią trasy.",
+        "detail": "Lane Charts to w galaktyce technologia poziomu 1, od której zaczyna się gałąź tras. Cud Hyperlane Anchor znosi limit całkowicie, a Void Custodians rzucają dodatkową kością, gdy bronią trasy.",
         "hint": "Badaj w fazie Wzmocnienia lub Fortyfikacji, nie w trakcie ataku. Naciśnij „Otwórz drzewo technologii” poniżej."
       },
       "gls_draft": {
         "title": "Wzmocnij swój gateway",
         "message": "Wybierz **Hematite Span** – swój podświetlony gateway na Rust Belt – ustaw **All** i naciśnij **Place**. Potem naciśnij złoty przycisk **{{draftButton}}**.",
-        "detail": "Otwórz kartę **Rust Belt**, żeby go znaleźć. Jego karta Gateway pokazuje trasę do Nexus Station jako **Open**: ten koniec jest twój, a **Antenna Spire** na drugim końcu kontrolują Void Custodians.",
-        "hint": "Navigators dostają +2 posiłki na turę. Na Verdan Reach trzymaj w układzie najwyżej 12 jednostek: tamtejsze burze co rundę zabierają jednostkę wszystkiemu, co większe.",
+        "detail": "Otwórz zakładkę **Rust Belt**, żeby go znaleźć. Jego karta Gateway pokazuje trasę do Nexus Station jako **Open**: ten koniec jest twój, a **Antenna Spire** na drugim końcu kontrolują Void Custodians.",
+        "hint": "Navigators dostają +2 posiłki na turę. Na Verdan Reach trzymaj stosy do 12 jednostek: tamtejsze burze co rundę zabierają jednostkę każdemu większemu stosowi.",
         "detailPhone": "Otwórz znacznik **Rust Belt**, żeby go znaleźć. Gdy jednostki są już rozmieszczone, jego karta Gateway pokazuje trasę do Nexus Station jako **Open**: ten koniec jest twój, a **Antenna Spire** na drugim końcu kontrolują Void Custodians."
       },
       "gls_cross": {
         "title": "Przepraw się przez trasę",
         "message": "Wybierz **Hematite Span**, a potem **Antenna Spire** po drugiej stronie trasy. Wiersz ataku pokazuje, iloma kośćmi rzuca się przy przeprawie. Atakuj ponownie albo użyj **⚡ Blitz until captured**, aż gateway padnie.",
-        "detail": "Zajęcie go czyni z trasy Rust–Nexus twój piąty korytarz. Karta walki pokazuje dodatkową kość obrony Custodians przy przeprawie przez trasę – twoje siły przeciw dwóm jednostkom przebiją się mimo niej w kilku rzutach.",
-        "hint": "Trasę może pokonać tylko atak z gatewaya: to trasa jest granicą."
+        "detail": "Zajęcie go czyni z trasy Rust–Nexus twój piąty korytarz. Karta walki pokazuje dodatkową kość obrony Custodians przy przeprawie przez trasę – twój stos przeciw dwóm jednostkom przebije się mimo niej w kilku rzutach.",
+        "hint": "Trasę może pokonać tylko atak z systemu gateway: to trasa jest granicą."
       },
       "gls_hold_1": {
         "title": "Pięć korytarzy – teraz je utrzymaj",
         "message": "Panel Objectives pokazuje **corridors 5 of 5**. Seria rośnie tylko na początku **twojej** tury, więc naciśnij **{{attackButton}}**, a potem **{{fortifyButton}}** i patrz, jak mijają dwie tury rywali.",
-        "detail": "Rywal przerywa korytarz, zajmując w swojej turze którykolwiek z jego gatewayów, zanim twoja seria wzrośnie. Przeciwnicy z samouczka nigdy nie atakują; prawdziwi będą."
+        "detail": "Rywal przerywa korytarz, zajmując w swojej turze którykolwiek z jego systemów gateway, zanim twoja seria wzrośnie. Przeciwnicy z samouczka nigdy nie atakują; prawdziwi będą."
       },
       "gls_hold_2": {
-        "title": "Utrzymane 1 z 3 rund",
+        "title": "Utrzymane: 1 z 3 rund",
         "message": "Znowu twoja tura, a seria wzrosła: **held 1 of 3 rounds**. Rozmieść posiłki tam, gdzie wzmocnią gateway, a potem rozegraj turę aż do **{{fortifyButton}}**.",
         "detail": "Gracz Void Custodians mógłby zyskać rundę dzięki **Emergency Seal**: zamyka on jedną trasę dochodzącą do Nexus Station dla wszystkich pozostałych aż do jego następnej tury. Powstrzymuje ataki przez trasę, ale nie sam korytarz."
       },
       "gls_win": {
-        "title": "Utrzymane 2 z 3 – jeszcze jeden początek tury",
-        "message": "Zakończ także tę turę. Gdy znów przyjdzie twoja kolej, seria dojdzie do 3, a gra skończy się przez **Lane Sovereignty**, zanim rozmieścisz choć jedną jednostkę.",
+        "title": "Utrzymane: 2 z 3 – jeszcze jeden początek tury",
+        "message": "Zakończ także tę turę. Gdy znów przyjdzie twoja kolej, seria dojdzie do 3, a gra skończy się zwycięstwem **Lane Sovereignty**, zanim rozmieścisz choć jedną jednostkę.",
         "detail": "Każde zwycięstwo w galaktyce poza Dominacją jest rozstrzygane od rundy 2, gdy każdy gracz ma już za sobą turę; trzy rundy Lane Sovereignty załatwiają to same."
       },
       "gls_complete": {
         "title": "Lane Sovereignty ukończone",
-        "message": "Trasa pokonana, piąty korytarz domknięty, a sieć utrzymana przez trzy początki tur. W prawdziwej rozgrywce rywale walczą z tobą o każdy gateway, a utrata korytarza w ich turze spycha cię poniżej pięciu, co zeruje twoją serię.",
+        "message": "Trasa pokonana, piąty korytarz domknięty, a sieć utrzymana przez trzy początki tur. W prawdziwym meczu rywale walczą z tobą o każdy gateway, a utrata korytarza w ich turze spycha cię poniżej pięciu, co zeruje twoją serię.",
         "skippedTitle": "Od razu do gry",
-        "skippedMessage": "W skrócie: na początku swojej tury kontroluj oba gatewaye 5 z 8 wytyczonych tras, 3 tury z rzędu (5 w pojedynku lub w 2v2). Masz teraz cztery korytarze. Zajmij **Antenna Spire** z **Hematite Span** przez trasę, żeby mieć piąty, a potem go utrzymaj. W tej chwili masz posiłki do rozmieszczenia – wybierz **Hematite Span**, a potem naciśnij {{draftButton}}."
+        "skippedMessage": "W skrócie: na początku swojej tury kontroluj oba systemy gateway 5 z 8 wytyczonych tras, 3 tury z rzędu (5 w pojedynku lub w 2v2). Masz teraz cztery korytarze. Zajmij **Antenna Spire** z **Hematite Span** przez trasę, żeby mieć piąty, a potem go utrzymaj. W tej chwili masz posiłki do rozmieszczenia – wybierz **Hematite Span**, a potem naciśnij {{draftButton}}."
       }
     },
     "galaxy_transcendence": {
       "gtr_welcome": {
         "title": "Transcendencja",
-        "message": "Ta rozgrywka to wspinaczka **Space to Stars**: zaczyna się w **Erze Kosmicznej** na Ziemi i Księżycu, a trzech odległych światów Ery Galaktycznej nie ma na planszy, dopóki ktoś do niej nie dotrze. Grasz jako **Lunar Pioneers**. **Transcendencja** to zwycięstwo gracza, który dotrze do ostatniej ery ścieżki – tutaj Ery Galaktycznej – i ma cud.",
-        "detail": "Wyjście z Ery Kosmicznej wymaga spełnienia warunków bramy awansu (2 technologie 1. poziomu, 2 technologie 2. poziomu i 1 technologia 3. poziomu oraz 3 budynki) i działającego **Space Program**. Pioneers mają dostęp do Księżyca od pierwszej tury, więc dla ciebie brama to badania i budynki. Jak każde zwycięstwo poza Dominacją, Transcendencja jest rozstrzygana od rundy 2.",
-        "hint": "Masz przyznane punkty badań i produkcji potrzebne do wspinaczki, z niewielkim zapasem. Naciśnij „Dalej” albo „Przejdź do końca”, żeby od razu wskoczyć do gry."
+        "message": "Ten mecz to wspinaczka **Space to Stars**: zaczyna się w **erze kosmicznej** na Ziemi i Księżycu, a trzech odległych światów ery galaktycznej nie ma na planszy, dopóki ktoś do niej nie dotrze. Grasz jako **Lunar Pioneers**. **Transcendencja** to zwycięstwo gracza, który dotrze do ostatniej ery ścieżki – tutaj ery galaktycznej – i ma cud.",
+        "detail": "Wyjście z ery kosmicznej wymaga spełnienia warunków bramy awansu (2 technologie poziomu 1, 2 technologie poziomu 2 i 1 technologia poziomu 3 oraz 3 budynki) i działającego **Space Program**. Pioneers mają dostęp do Księżyca od pierwszej tury, więc dla ciebie brama to badania i budynki. Jak każde zwycięstwo poza Dominacją, Transcendencja jest rozstrzygana od rundy 2.",
+        "hint": "Dostajesz punkty badań i punkty produkcji potrzebne do wspinaczki, z niewielkim zapasem. Naciśnij „Dalej” albo „Przejdź na koniec”, żeby od razu wskoczyć do gry."
       },
       "gtr_research": {
-        "title": "Badaj w stronę bramy",
+        "title": "Badaj z myślą o bramie",
         "message": "Otwórz drzewo technologii. Pasek **Advancement gate → Galactic Age** u góry wymienia wskaźniki do spełnienia. Najpierw zbadaj **Megacity Logistics**: odblokowuje Workshop, a brama wymaga trzech budynków – twój Launch Pad w **Southern African Union** to już jeden z nich.",
-        "detail": "Najtańsza droga przez bramę: Megacity Logistics i Digital Warfare (technologie 1. poziomu, na których opierają się dwie potrzebne ci technologie 2. poziomu), nad nimi Fusion Power Grid i AI-Directed Command, a potem Hypersonic Swarm albo Quantum Computing Grid jako technologia 3. poziomu.",
+        "detail": "Najtańsza droga przez bramę: Megacity Logistics i Digital Warfare (technologie poziomu 1, na których opierają się dwie potrzebne ci technologie poziomu 2), nad nimi Fusion Power Grid i AI-Directed Command, a potem Hypersonic Swarm albo Quantum Computing Grid jako technologia poziomu 3.",
         "hint": "Badaj w fazie Wzmocnienia lub Fortyfikacji, nie w trakcie ataku. Naciśnij „Otwórz drzewo technologii” poniżej."
       },
       "gtr_build": {
         "title": "Wznieś Workshop",
-        "message": "Otwórz kartę **Earth, 2100**, wybierz podświetlony układ **Australian Meridian** i w jego sekcji **Buildings** wznieś **Workshop** (3 PP). Budować można w fazach Wzmocnienia i Fortyfikacji.",
-        "detail": "Potem wznieś drugi w innym ze swoich układów: razem z Launch Pad daje to trzy budynki wymagane przez bramę. Workshop daje +1 PP na turę, a brama patrzy na samą liczbę budynków.",
-        "messagePhone": "Dotknij znacznika **Earth, 2100** i rozmieść wszystkie posiłki, a potem wybierz podświetlony układ **Australian Meridian** i w jego sekcji **Buildings** wznieś **Workshop** (3 PP). Sekcja pojawia się w twojej fazie Wzmocnienia, gdy wszystkie jednostki są już rozmieszczone."
+        "message": "Otwórz zakładkę **Earth, 2100**, wybierz podświetlony system **Australian Meridian** i w jego sekcji **Buildings** wznieś **Workshop** (3 PP). Budować można w fazach Wzmocnienia i Fortyfikacji.",
+        "detail": "Potem wznieś drugi w innym ze swoich systemów: razem z Launch Pad daje to trzy budynki wymagane przez bramę. Workshop daje +1 PP na turę, a brama patrzy na samą liczbę budynków.",
+        "messagePhone": "Dotknij znacznika **Earth, 2100** i rozmieść wszystkie posiłki, a potem wybierz podświetlony system **Australian Meridian** i w jego sekcji **Buildings** wznieś **Workshop** (3 PP). Sekcja pojawia się w twojej fazie Wzmocnienia, gdy wszystkie jednostki są już rozmieszczone."
       },
       "gtr_gate": {
         "title": "Spełnij warunki bramy i awansuj",
-        "message": "Dokończ badania i drugi Workshop, aż każdy wskaźnik na pasku będzie zielony, a potem naciśnij **Advance to Galactic Age** od razu na pasku (panel **Era Advancement** w panelu bocznym ma ten sam przycisk). Awans kosztuje też PP – wskaźnik **Gold** na pasku pokazuje ile.",
-        "detail": "Awans konsoliduje twoje armie: około 30% jednostek przepada na dobre, a przez jedną turę twoi obrońcy walczą słabiej. Twoje badania z Ery Kosmicznej przepadają – nowa era uzależnia dostęp do tras od pozycji, nie od technologii – a ty zyskujesz **Pathfinder Gate**: trasy z twoich układów do światów, na których cię jeszcze nie ma – na tej planszy trasa z Southern African Union na Lunę – są przez dwie rundy tylko twoje.",
+        "message": "Dokończ badania i drugi Workshop, aż każdy wskaźnik na pasku będzie zielony, a potem naciśnij **Advance to Galactic Age** bezpośrednio na pasku (panel **Era Advancement** w panelu bocznym ma ten sam przycisk). Awans kosztuje też PP – wskaźnik **Gold** na pasku pokazuje, ile.",
+        "detail": "Awans konsoliduje twoje armie: około 30% jednostek przepada na dobre, a przez jedną turę twoi obrońcy walczą słabiej. Twoje badania z ery kosmicznej przepadają – nowa era uzależnia dostęp do tras od pozycji, nie od technologii – a ty zyskujesz **Pathfinder Gate**: trasy z twoich systemów do światów, na których cię jeszcze nie ma – na tej planszy trasa z Southern African Union do Luna – są przez dwie rundy tylko twoje.",
         "hint": "Awansuj w fazie Wzmocnienia lub Fortyfikacji. Brakuje ci któregoś wskaźnika? Pasek podaje, czego brakuje.",
-        "messagePhone": "Dokończ badania i drugi Workshop, aż każdy wskaźnik na pasku będzie zielony, a potem naciśnij **Advance to Galactic Age** od razu na pasku (panel **Era Advancement** pod **☰ Menu** ma ten sam przycisk). Awans kosztuje też PP – wskaźnik **Gold** na pasku pokazuje ile."
+        "messagePhone": "Dokończ badania i drugi Workshop, aż każdy wskaźnik na pasku będzie zielony, a potem naciśnij **Advance to Galactic Age** bezpośrednio na pasku (panel **Era Advancement** pod **☰ Menu** ma ten sam przycisk). Awans kosztuje też PP – wskaźnik **Gold** na pasku pokazuje, ile."
       },
       "gtr_arrive": {
         "title": "Odległe światy stoją otworem",
-        "message": "Jesteś w Erze Galaktycznej. Trzy nowe karty światów – **Verdan Reach**, **Rust Belt**, **Nexus Station** – otworzyły się dla wszystkich jako neutralne pogranicza, z najsłabiej obsadzonymi gatewayami, a twoja frakcja zgodnie ze swoim rodowodem stała się **Helion Navigators**. Otwórz **Galaxy chart** nad planszą, żeby zobaczyć pierścień.",
-        "detail": "Twój rywal wciąż jest w Erze Kosmicznej, na księżycowej drabinie. Era Galaktyczna uzależnia dostęp do tras od kontroli nad gatewayem, więc utrata technologii nie zabrała ci niczego, czego jeszcze potrzebujesz."
+        "message": "Jesteś w erze galaktycznej. Trzy nowe zakładki światów – **Verdan Reach**, **Rust Belt**, **Nexus Station** – otworzyły się dla wszystkich jako neutralne pogranicza, z najsłabiej obsadzonymi systemami gateway, a twoja frakcja zgodnie ze swoim rodowodem stała się **Helion Navigators**. Otwórz **Galaxy chart** nad planszą, żeby zobaczyć pierścień.",
+        "detail": "Twój rywal wciąż jest w erze kosmicznej, na księżycowej drabinie. Era galaktyczna uzależnia dostęp do tras od kontroli nad systemem gateway, więc utrata technologii nie zabrała ci niczego, czego jeszcze potrzebujesz."
       },
       "gtr_wonder": {
         "title": "Wznieś Hyperlane Anchor",
-        "message": "Cudem twojej ery jest teraz **Hyperlane Anchor** (22 PP). Otwórz kartę **Earth, 2100**, wybierz dowolny ze swoich układów i wznieś go z wiersza cudów na dole sekcji **Buildings**.",
+        "message": "Cudem twojej ery jest teraz **Hyperlane Anchor** (22 PP). Otwórz zakładkę **Earth, 2100**, wybierz dowolny ze swoich systemów i wznieś go z wiersza cudów na dole sekcji **Buildings**.",
         "detail": "Transcendencja wymaga ostatniej ery i posiadanego cudu; Anchor pozwala też twoim atakom przez trasy nadprzestrzenne rzucać pełną liczbą kości. Każdy cud powstaje raz na grę, więc zostaje u tego, kto wzniesie go pierwszy.",
-        "messagePhone": "Cudem twojej ery jest teraz **Hyperlane Anchor** (22 PP). Dotknij znacznika **Earth, 2100**, wybierz dowolny ze swoich układów i wznieś go z wiersza cudów na dole sekcji **Buildings**, która pojawia się w twojej fazie Wzmocnienia."
+        "messagePhone": "Cudem twojej ery jest teraz **Hyperlane Anchor** (22 PP). Dotknij znacznika **Earth, 2100**, wybierz dowolny ze swoich systemów i wznieś go z wiersza cudów na dole sekcji **Buildings**, która pojawia się w twojej fazie Wzmocnienia."
       },
       "gtr_win": {
         "title": "Rozstrzygane od rundy 2",
@@ -466,28 +466,28 @@
       },
       "gtr_complete": {
         "title": "Transcendencja ukończona",
-        "message": "Brama Ery Kosmicznej pokonana, Era Galaktyczna osiągnięta z Pathfinder Gate w ręku, a Hyperlane Anchor wzniesiony. W prawdziwej rozgrywce Space to Stars każdy inny gracz potrzebuje pełnego Space Program, żeby pójść w twoje ślady, a pierwszeństwo lądowania na odległych światach należy do ciebie.",
+        "message": "Brama ery kosmicznej pokonana, era galaktyczna osiągnięta z Pathfinder Gate w ręku, a Hyperlane Anchor wzniesiony. W prawdziwym meczu Space to Stars każdy inny gracz potrzebuje pełnego Space Program, żeby pójść w twoje ślady, a pierwszeństwo lądowania na odległych światach należy do ciebie.",
         "skippedTitle": "Od razu do gry",
-        "skippedMessage": "W skrócie: przejdź badaniami przez bramę (2 technologie 1. poziomu, 2 technologie 2. poziomu, 1 technologia 3. poziomu, 3 budynki), naciśnij **Advance to Galactic Age** na pasku bramy w drzewie technologii, a potem wznieś **Hyperlane Anchor** w dowolnym kontrolowanym układzie. Zwycięstwo jest rozstrzygane od rundy 2. W tej chwili masz posiłki do rozmieszczenia – wybierz dowolny ze swoich układów, a potem badaj, buduj i awansuj, zanim naciśniesz {{draftButton}}."
+        "skippedMessage": "W skrócie: przejdź badaniami przez bramę (2 technologie poziomu 1, 2 technologie poziomu 2, 1 technologia poziomu 3, 3 budynki), naciśnij **Advance to Galactic Age** na pasku bramy w drzewie technologii, a potem wznieś **Hyperlane Anchor** w dowolnym kontrolowanym systemie. Zwycięstwo jest rozstrzygane od rundy 2. W tej chwili masz posiłki do rozmieszczenia – wybierz dowolny ze swoich systemów, a potem badaj, buduj i awansuj, zanim naciśniesz {{draftButton}}."
       }
     },
     "galaxy_secret_missions": {
       "gsm_welcome": {
         "title": "Tajne misje w galaktyce",
-        "message": "Ta rozgrywka toczy się o **Tajne misje**: na początku gry każdy gracz dostaje prywatny cel, a kto wykona swój, wygrywa. Grasz frakcją Helion Navigators z **Verdan Reach**; Stellar Mandate trzyma **Sol III** po drugiej stronie dwóch tras nadprzestrzennych. Twoja misja brzmi **Own Guinea Coast and Pacific Rim** – to dwa systemy gateway Sol zwrócone ku twojemu światu.",
-        "detail": "Galaktyka zmienia rozdanie. Misja nigdy nie wskazuje świata za bramą nadprzestrzenną, a tutaj jest nim każdy świat poza Sol III: każda misja zdobycia lub kontroli na tej mapie wskazuje teren Sol, więc każdego, kto nie ma bazy na Sol, dzieli od celu przeprawa trasą. Gracz, który już trzyma cały Sol, może wylosować wyłącznie misję eliminacji. Misje są rozstrzygane od rundy 2.",
-        "hint": "Naciśnij „Dalej” albo „Przejdź do końca”, aby od razu zacząć grę."
+        "message": "Ten mecz toczy się o **Tajne misje**: na początku gry każdy gracz dostaje tajny cel, a kto wykona swój, wygrywa. Grasz jako Helion Navigators z **Verdan Reach**; Stellar Mandate trzyma **Sol III** po drugiej stronie dwóch tras nadprzestrzennych. Twoja misja brzmi **Own Guinea Coast and Pacific Rim** – to dwa systemy gateway Sol zwrócone ku twojemu światu.",
+        "detail": "Galaktyka zmienia rozdanie. Misja nigdy nie wskazuje świata za bramą nadprzestrzenną, a tutaj jest nim każdy świat poza Sol III: każda misja zdobycia lub kontroli na tej mapie wskazuje teren Sol, więc każdego, kto nie zaczyna na Sol, dzieli od celu przeprawa przez trasę. Gracz, który już trzyma cały Sol, może wylosować wyłącznie misję eliminacji. Misje są rozstrzygane od rundy 2.",
+        "hint": "Naciśnij „Dalej” albo „Przejdź na koniec”, żeby od razu wskoczyć do gry."
       },
       "gsm_objectives": {
         "title": "Przeczytaj swoją misję",
         "message": "Pokazuje ją panel **Objectives** w zakładce Status panelu bocznego: **Mission: Own Guinea Coast and Pacific Rim**. Nikt inny jej nie widzi – misję zna tylko jej posiadacz, a wszyscy poznają ją dopiero wtedy, gdy zostanie on wyeliminowany albo gra się skończy. Misja Mandate jest równie tajna.",
-        "detail": "Na tej planszy są trzy rodzaje misji: posiadać dwa wskazane systemy, kontrolować jeden lub dwa wskazane regiony albo samodzielnie wyeliminować wskazanego gracza (jeśli zrobi to ktoś inny, misja przepada). Awans er dodaje misję „osiągnij erę”, a era kosmiczna – cele na Księżycu.",
+        "detail": "Na tej planszy są trzy rodzaje misji: posiadać dwa wskazane systemy, kontrolować jeden lub dwa wskazane regiony albo samodzielnie wyeliminować wskazanego gracza (jeśli zrobi to ktoś inny, misja przepada). Awans ery dodaje misję „osiągnij erę”, a era kosmiczna – cele na Księżycu.",
         "whyItMatters": "Rywal, który odgadnie twoją misję, może obsadzić ten jeden gateway, którego potrzebujesz. Dwóch graczy może nawet wylosować ten sam cel: misje są rozdawane niezależnie.",
         "messagePhone": "Pokazuje ją panel **Objectives** w zakładce **Status** pod **☰ Menu**: **Mission: Own Guinea Coast and Pacific Rim**. Nikt inny jej nie widzi – misję zna tylko jej posiadacz, a wszyscy poznają ją dopiero wtedy, gdy zostanie on wyeliminowany albo gra się skończy. Misja Mandate jest równie tajna."
       },
       "gsm_alliance": {
         "title": "Sojusze – i dlaczego nie tutaj",
-        "message": "W grze na **czterech lub więcej graczy, w tym co najmniej dwoje ludzi**, mniej więcej co piąte rozdanie daje dwóm z nich **sojusz** zamiast misji: każdy musi trzymać równy udział rozdanych systemów plus 7% – po 21 na galaktycznej planszy dla czterech graczy – obaj muszą pozostać w grze, a wygrywają wspólnie, zwycięstwem sojuszu.",
+        "message": "W grze na **czterech lub więcej graczy, w tym co najmniej dwoje ludzi**, mniej więcej co piąte rozdanie daje dwojgu z nich **sojusz** zamiast misji: każde musi trzymać równy udział rozdanych systemów plus 7% – po 21 na planszy galaktyki dla czterech graczy – i oboje muszą pozostać w grze; wygrywają wtedy wspólnie, jako Alliance Victory.",
         "detail": "Gry drużynowe całkiem rezygnują z misji: w 2v2 albo z opcją Allied houses misja mogłaby kazać wyeliminować sojusznika, więc lobby wyszarza ten warunek. Jeden człowiek przeciwko SI nigdy nie dostanie sojuszu, dlatego w tej lekcji wykonujesz misję zdobycia."
       },
       "gsm_draft": {
@@ -498,12 +498,12 @@
       },
       "gsm_first": {
         "title": "Zdobądź pierwszy gateway",
-        "message": "Wybierz **Chlorophage Span**, potem **Guinea Coast** po drugiej stronie trasy i atakuj, aż padnie – atak przez trasę rzuca najwyżej 2 kośćmi, więc **⚡ Blitz until captured** oszczędza atakowania rzut po rzucie. Najpierw zdobądź Guinea Coast; Pacific Rim będzie następny.",
-        "detail": "Do 3 atakujących jednostek wchodzi samoczynnie. Resztę zostaw: Guinea Coast graniczy z pięcioma systemami Sol, ale misji wystarczy, że trzymasz gateway."
+        "message": "Wybierz **Chlorophage Span**, potem **Guinea Coast** po drugiej stronie trasy i atakuj, aż padnie – w ataku przez trasę rzucasz najwyżej 2 kośćmi, więc **⚡ Blitz until captured** oszczędzi ci atakowania rzut po rzucie. Najpierw zdobądź Guinea Coast; Pacific Rim będzie następny.",
+        "detail": "Do 3 atakujących jednostek wchodzi automatycznie. Resztę zostaw: Guinea Coast graniczy z pięcioma systemami Sol, ale misji wystarczy, że trzymasz gateway."
       },
       "gsm_second": {
         "title": "Zdobądź drugi",
-        "message": "Teraz druga trasa: **Greenfire Vault → Pacific Rim**. Gdy oba wskazane systemy będą twoje, misja jest wykonana, a gra wygrana – od rundy 2."
+        "message": "Teraz druga trasa: **Greenfire Vault → Pacific Rim**. Gdy oba wskazane systemy będą twoje, misja będzie wykonana, a gra wygrana – od rundy 2."
       },
       "gsm_win": {
         "title": "Rozstrzygnięcie od rundy 2",
@@ -512,7 +512,7 @@
       },
       "gsm_complete": {
         "title": "Tajne misje ukończone",
-        "message": "Misja odczytana, oba wskazane systemy zdobyte przez trasy, zwycięstwo dzięki niej. W prawdziwej rozgrywce w galaktyce posiadacz Sol może wylosować tylko misję eliminacji, a misje zdobycia wszystkich pozostałych celują w Sol – spodziewaj się więc towarzystwa przy jego systemach gateway.",
+        "message": "Misja odczytana, oba wskazane systemy zdobyte przez trasy, zwycięstwo dzięki niej. W prawdziwym meczu w galaktyce ten, kto trzyma Sol, może wylosować tylko misję eliminacji, a misje zdobycia wszystkich pozostałych celują w Sol – spodziewaj się więc towarzystwa przy jego systemach gateway.",
         "skippedTitle": "Od razu do gry",
         "skippedMessage": "W skrócie: twoja misja jest w panelu Objectives – **Own Guinea Coast and Pacific Rim**, czyli dwa systemy gateway Sol po drugiej stronie twoich tras. Zdobądź **Guinea Coast** z **Chlorophage Span** i **Pacific Rim** z **Greenfire Vault**; zwycięstwo jest rozstrzygane od rundy 2. Teraz masz posiłki do rozmieszczenia – wybierz **Chlorophage Span**, a potem naciśnij {{draftButton}}."
       }
@@ -520,35 +520,35 @@
     "galaxy_capital": {
       "gcp_welcome": {
         "title": "Zdobycie stolicy w galaktyce",
-        "message": "Ta rozgrywka toczy się o zwycięstwo przez **Zdobycie stolicy**: utrzymaj własną stolicę i zdobądź stolicę każdego rywala. Jesteś frakcją Stellar Mandate z **Sol III**, a twoja stolica to **Amazon Basin**. Helion Navigators trzymają **Verdan Reach**, a ich stolicą jest **Chlorophage Span**.",
-        "detail": "Rozdanie wyznacza stolicę każdego gracza na początku gry, a na tej planszy obie wypadły na **systemach gateway**: Amazon Basin to drzwi Sol do Nexus Station, a Chlorophage Span to drzwi Verdan naprzeciw twojego Guinea Coast. Zwycięski atak jest tu więc przeprawą przez trasę, z limitem 2 kości.",
-        "hint": "Naciśnij „Dalej” albo „Przejdź do końca”, aby od razu zacząć grę."
+        "message": "Ten mecz toczy się o zwycięstwo przez **Zdobycie stolicy**: utrzymaj własną stolicę i zdobądź stolicę każdego rywala. Grasz jako Stellar Mandate z **Sol III**, a twoja stolica to **Amazon Basin**. Helion Navigators trzymają **Verdan Reach**, a ich stolicą jest **Chlorophage Span**.",
+        "detail": "Rozdanie wyznacza stolicę każdego gracza na początku gry, a na tej planszy obie trafiły do **systemów gateway**: Amazon Basin to drzwi Sol do Nexus Station, a Chlorophage Span to drzwi Verdan naprzeciw twojego Guinea Coast. Zwycięski atak jest tu więc przeprawą przez trasę, z limitem 2 kości.",
+        "hint": "Naciśnij „Dalej” albo „Przejdź na koniec”, żeby od razu wskoczyć do gry."
       },
       "gcp_rules": {
-        "title": "Odczytaj stolice",
-        "message": "Każda stolica jest oznaczona na mapie swojego świata, a panel **Objectives** w panelu bocznym pokazuje **Your capital: Amazon Basin** z zasadą pod spodem: utrzymaj ją i zdobądź stolicę każdego rywala, rozstrzygane od rundy 2. Jeśli stracisz Amazon Basin, ta linia zrobi się czerwona – nie wygrasz przez stolice, dopóki jej nie odbijesz.",
+        "title": "Sprawdź stolice",
+        "message": "Każda stolica jest oznaczona na mapie swojego świata, a panel **Objectives** w panelu bocznym pokazuje **Your capital: Amazon Basin** z zasadą pod spodem: utrzymaj ją i zdobądź stolicę każdego rywala (rozstrzygane od rundy 2). Jeśli stracisz Amazon Basin, ten wiersz zrobi się czerwony – nie wygrasz przez Zdobycie stolicy, dopóki jej nie odbijesz.",
         "detail": "Liczą się tylko rywale pozostający w grze: stolicy wyeliminowanego gracza nie trzeba już trzymać. W 2v2 albo z opcją Allied houses strona wygrywa, gdy wszystkie stolice graczy pozostających w grze są łącznie w rękach jej członków.",
         "whyItMatters": "Stolica w systemie gateway jest zarazem nagrodą i drzwiami. Kto trzyma Chlorophage Span, trzyma jeden koniec trasy do Guinea Coast – a razem z Guinea Coast także korytarz Sovereignty.",
-        "messagePhone": "Każda stolica jest oznaczona na mapie swojego świata, a panel **Objectives** pod **☰ Menu** pokazuje **Your capital: Amazon Basin** z zasadą pod spodem: utrzymaj ją i zdobądź stolicę każdego rywala, rozstrzygane od rundy 2. Jeśli stracisz Amazon Basin, ta linia zrobi się czerwona – nie wygrasz przez stolice, dopóki jej nie odbijesz."
+        "messagePhone": "Każda stolica jest oznaczona na mapie swojego świata, a panel **Objectives** pod **☰ Menu** pokazuje **Your capital: Amazon Basin** z zasadą pod spodem: utrzymaj ją i zdobądź stolicę każdego rywala (rozstrzygane od rundy 2). Jeśli stracisz Amazon Basin, ten wiersz zrobi się czerwony – nie wygrasz przez Zdobycie stolicy, dopóki jej nie odbijesz."
       },
       "gcp_draft": {
         "title": "Wzmocnij Guinea Coast",
         "message": "Wybierz **Guinea Coast** – twój podświetlony gateway naprzeciw Chlorophage Span – ustaw **All** i naciśnij **Place**. Potem naciśnij złoty przycisk **{{draftButton}}**.",
-        "detail": "Jego karta Gateway podaje trasę do Verdan Reach jako **Open**: ty trzymasz ten koniec, a Navigators trzymają swoją stolicę na drugim. Amazon Basin niczego nie potrzebuje: przeciwnik z samouczka nigdy nie atakuje, ale w prawdziwej rozgrywce to właśnie stolicę trzeba obsadzić garnizonem."
+        "detail": "Jego karta Gateway podaje trasę do Verdan Reach jako **Open**: ty trzymasz ten koniec, a Navigators trzymają swoją stolicę na drugim. Amazon Basin niczego nie potrzebuje: przeciwnik z samouczka nigdy nie atakuje, ale w prawdziwym meczu to właśnie stolicę trzeba obsadzić garnizonem."
       },
       "gcp_cross": {
         "title": "Zdobądź stolicę rywala",
-        "message": "Wybierz **Guinea Coast**, potem **Chlorophage Span** po drugiej stronie trasy. Atak przez trasę rzuca najwyżej 2 kośćmi; **⚡ Blitz until captured** atakuje, aż stolica padnie, a do 3 twoich atakujących jednostek wchodzi samoczynnie.",
+        "message": "Wybierz **Guinea Coast**, potem **Chlorophage Span** po drugiej stronie trasy. W ataku przez trasę rzucasz najwyżej 2 kośćmi; **⚡ Blitz until captured** atakuje, aż stolica padnie, a do 3 twoich atakujących jednostek wchodzi automatycznie.",
         "detail": "Navigators bronią trasy bez dodatkowej kości, więc twój stos przeciw ich dwóm jednostkom przebije się mimo limitu w kilku rzutach."
       },
       "gcp_win": {
         "title": "Rozstrzygnięcie od rundy 2",
         "message": "Obie stolice są twoje. Jeśli górny pasek nadal pokazuje „Turn 1”, zakończ turę przyciskami **{{attackButton}}** i **{{fortifyButton}}**: zwycięstwo przychodzi z początkiem rundy 2, zanim rozmieścisz choć jedną jednostkę. Jeśli stolica padła w rundzie 2 lub później, gra skończyła się w chwili zdobycia.",
-        "detail": "Zasada rundy 2 istnieje przede wszystkim ze względu na stolice: przy trzech jednostkach startowych stolica mogłaby paść od kości pierwszego gracza, zanim ostatni rozmieściłby choć jedną."
+        "detail": "Zasada rundy 2 istnieje przede wszystkim ze względu na stolice: przy trzech jednostkach startowych stolica mogłaby inaczej paść po rzutach pierwszego gracza, zanim ostatni rozmieściłby choć jedną."
       },
       "gcp_complete": {
         "title": "Zdobycie stolicy ukończone",
-        "message": "Amazon Basin utrzymany, Chlorophage Span zdobyty przez trasę. W prawdziwej rozgrywce w galaktyce o stolice w systemach gateway wszyscy walczą z podwójnego powodu – to stolice, a zarazem końce tras.",
+        "message": "Amazon Basin utrzymany, Chlorophage Span zdobyty przez trasę. W prawdziwym meczu w galaktyce o stolice w systemach gateway wszyscy walczą z podwójnego powodu – to stolice, a zarazem końce tras.",
         "skippedTitle": "Od razu do gry",
         "skippedMessage": "W skrócie: utrzymaj swoją stolicę, **Amazon Basin**, i zdobądź stolicę Navigators, **Chlorophage Span**, atakując z **Guinea Coast** przez trasę; zwycięstwo jest rozstrzygane od rundy 2. Teraz masz posiłki do rozmieszczenia – wybierz **Guinea Coast**, a potem naciśnij {{draftButton}}."
       }
@@ -556,45 +556,45 @@
     "galaxy_threshold": {
       "gth_welcome": {
         "title": "Próg terytoriów w galaktyce",
-        "message": "Ta rozgrywka toczy się o zwycięstwo przez **Próg**: trzymaj **60%** mapy. Jesteś frakcją Stellar Mandate z **Sol III**; masz już zasiedloną całą **Nexus Station** i przyczółek głęboki na sześć systemów na **Verdan Reach**, po drugiej stronie dwóch tras Sol–Verdan. Helion Navigators trzymają resztę Verdan. **Rust Belt** to neutralna kolonia, której nikt nie zajął.",
+        "message": "Ten mecz toczy się o zwycięstwo przez **Próg**: trzymaj **60%** mapy. Grasz jako Stellar Mandate z **Sol III**; masz już zasiedloną całą **Nexus Station** i przyczółek z sześciu systemów na **Verdan Reach**, po drugiej stronie dwóch tras Sol–Verdan. Helion Navigators trzymają resztę Verdan. **Rust Belt** to neutralna kolonia, której nikt nie zajął.",
         "detail": "Galaktyka liczy **każdy** system na planszy, łącznie z neutralnymi koloniami: 60% z 64 to 38,4, więc do zwycięstwa trzeba **39**. Dominacja wymagałaby wszystkich 64 – każdego garnizonu kolonii i każdego rywala – dlatego lobby galaktyki otwiera się z włączonym obok niej Progiem na 60% (oraz Lane Sovereignty, gdy włączone są Home Worlds), a za nimi wszystkimi stoi limit 90 rund.",
-        "hint": "Naciśnij „Dalej” albo „Przejdź do końca”, aby od razu zacząć grę."
+        "hint": "Naciśnij „Dalej” albo „Przejdź na koniec”, żeby od razu wskoczyć do gry."
       },
       "gth_meter": {
         "title": "Odczytaj miernik kontroli mapy",
         "message": "Górny pasek pokazuje **59%/60%**, a panel **Objectives** w zakładce Status panelu bocznego podaje szczegóły: **Map control: 59% of 60% · 38 of 39 territories**, a pod spodem **Hold 60% of the map — 39 of its 64 territories — to win. 1 more to go.** Udział jest zaokrąglany w dół, więc miernik nigdy nie ogłasza zwycięstwa, którego serwer nie przyznał.",
         "detail": "Potrzebna liczba to najmniejsza liczba całkowita nie mniejsza niż 60% planszy; miernik i serwer używają tego samego wyrażenia, więc nigdy nie różnią się co do ostatniego systemu. W 2v2 albo z opcją Allied houses systemy twojej strony liczą się razem, a po włączeniu 2v2 lobby zmienia wartość domyślną na **75%**. Rozstrzygane od rundy 2, jak każde zwycięstwo poza Dominacją i Last Commander Standing.",
-        "whyItMatters": "Kolonii nikt nie wzmacnia. Szesnaście neutralnych systemów Rust wlicza się do 64 bez względu na to, kto je trzyma, więc w prawdziwej rozgrywce kolonie są najtańszą drogą do tej liczby.",
+        "whyItMatters": "Kolonii nikt nie wzmacnia. Szesnaście neutralnych systemów Rust wlicza się do 64 bez względu na to, kto je trzyma, więc w prawdziwym meczu kolonie są najtańszą drogą do tej liczby.",
         "messagePhone": "Górny pasek pokazuje **59%/60%**, a panel **Objectives** w zakładce **Status** pod **☰ Menu** podaje szczegóły: **Map control: 59% of 60% · 38 of 39 territories**, a pod spodem **Hold 60% of the map — 39 of its 64 territories — to win. 1 more to go.** Udział jest zaokrąglany w dół, więc miernik nigdy nie ogłasza zwycięstwa, którego serwer nie przyznał."
       },
       "gth_draft": {
         "title": "Wzmocnij Saffron Mire",
-        "message": "Wybierz **Saffron Mire** – twój podświetlony system-przyczółek obok Spore Reach – ustaw **All** i naciśnij **Place**. Potem naciśnij złoty przycisk **{{draftButton}}**.",
-        "detail": "Imperium z 38 systemów dostaje duże posiłki: jedną trzecią liczby systemów plus premię za każdy region trzymany w całości – przy czym każda premia jest skalowana liczbą graczy: przy dwóch to jedna trzecia podanej wartości, ale nigdy mniej niż jeden. Jedno warto wiedzieć o Verdan w prawdziwej rozgrywce: jego burze co rundę uszczuplają o jedną jednostkę każdy stos powyżej 12."
+        "message": "Wybierz **Saffron Mire** – twój podświetlony przyczółek obok Spore Reach – ustaw **All** i naciśnij **Place**. Potem naciśnij złoty przycisk **{{draftButton}}**.",
+        "detail": "Imperium z 38 systemów dostaje duże posiłki: jedną trzecią liczby systemów plus premię za każdy region trzymany w całości – przy czym każda premia jest skalowana liczbą graczy: przy dwóch to jedna trzecia podanej wartości, ale nigdy mniej niż jeden. Jedno warto wiedzieć o Verdan w prawdziwym meczu: tamtejsze burze co rundę uszczuplają o jedną jednostkę każdy stos powyżej 12."
       },
       "gth_take": {
         "title": "Zdobądź 39. system",
-        "message": "Wybierz **Saffron Mire**, potem **Spore Reach** obok. To atak naziemny na tym samym świecie, więc rzuca pełnymi 3 kośćmi – bez limitu trasy. **⚡ Blitz until captured** atakuje, aż system padnie, a do 3 twoich atakujących jednostek wchodzi samoczynnie.",
+        "message": "Wybierz **Saffron Mire**, potem **Spore Reach** obok. To atak naziemny na tym samym świecie, więc rzucasz wszystkimi 3 kośćmi – bez limitu trasy. **⚡ Blitz until captured** atakuje, aż system padnie, a do 3 twoich atakujących jednostek wchodzi automatycznie.",
         "detail": "Nadałby się dowolny system: 39. mógłby równie dobrze być neutralnym garnizonem Rust Belt po drugiej stronie trasy. Navigators trzymają Spore Reach dwiema jednostkami i bez premii do obrony."
       },
       "gth_win": {
         "title": "Rozstrzygnięcie od rundy 2",
-        "message": "Miernik pokazuje **60% of 60% · 39 of 39 territories**, z udziałem na złoto. Jeśli górny pasek nadal pokazuje „Turn 1”, zakończ turę przyciskami **{{attackButton}}** i **{{fortifyButton}}**: zwycięstwo przychodzi z początkiem rundy 2, zanim rozmieścisz choć jedną jednostkę. Jeśli system padł w rundzie 2 lub później, gra skończyła się w chwili zdobycia.",
-        "detail": "Każdy gracz dostaje pierwszą turę, zanim jakikolwiek próg zostanie sprawdzony, więc nikt nie wygra, zanim zagra ostatni gracz. W prawdziwej rozgrywce limit 90 rund to drugi koniec tego samego liczenia – po jego upływie, jeśli nikt nie przekroczył progu, wygrywa ten, kto ma najwięcej systemów."
+        "message": "Miernik pokazuje **60% of 60% · 39 of 39 territories**, z udziałem wyświetlonym na złoto. Jeśli górny pasek nadal pokazuje „Turn 1”, zakończ turę przyciskami **{{attackButton}}** i **{{fortifyButton}}**: zwycięstwo przychodzi z początkiem rundy 2, zanim rozmieścisz choć jedną jednostkę. Jeśli system padł w rundzie 2 lub później, gra skończyła się w chwili zdobycia.",
+        "detail": "Każdy gracz dostaje pierwszą turę, zanim jakikolwiek próg zostanie sprawdzony, więc nikt nie wygra, zanim zagra ostatni gracz. W prawdziwym meczu limit 90 rund to drugi koniec tego samego liczenia – po jego upływie, jeśli nikt nie przekroczył progu, wygrywa ten, kto ma najwięcej systemów."
       },
       "gth_complete": {
         "title": "Próg terytoriów ukończony",
-        "message": "39. system zdobyty, 60% galaktyki przekroczone. W prawdziwej rozgrywce liczy się tak samo bez względu na to, kto trzyma resztę: kolonie, rywale i puste garnizony – wszystko wchodzi do 64, a panel Objectives mówi, ilu jeszcze potrzebujesz.",
+        "message": "39. system zdobyty, próg 60% galaktyki przekroczony. W prawdziwym meczu rachunek jest ten sam bez względu na to, kto trzyma resztę: kolonie, rywale i puste garnizony – wszystko wlicza się do 64, a panel Objectives mówi, ilu jeszcze potrzebujesz.",
         "skippedTitle": "Od razu do gry",
-        "skippedMessage": "W skrócie: trzymasz **38 z 39** systemów, których wymaga 60% tej planszy. Zdobądź jeszcze jeden – **Spore Reach**, obok twojego **Saffron Mire** – a zwycięstwo zostanie rozstrzygnięte od rundy 2. Teraz masz posiłki do rozmieszczenia – wybierz **Saffron Mire**, a potem naciśnij {{draftButton}}."
+        "skippedMessage": "W skrócie: trzymasz **38 z 39** systemów, których wymaga 60% tej planszy. Zdobądź jeszcze jeden – **Spore Reach**, obok twojego **Saffron Mire** – a zwycięstwo jest rozstrzygane od rundy 2. Teraz masz posiłki do rozmieszczenia – wybierz **Saffron Mire**, a potem naciśnij {{draftButton}}."
       }
     },
     "galaxy_domination": {
       "gdm_welcome": {
         "title": "Dominacja w galaktyce",
-        "message": "Ta rozgrywka toczy się wyłącznie o **Dominację** – **Control every territory**, czyli na tej planszy wszystkie **64** systemy. Jesteś frakcją Stellar Mandate z **Sol III**. Frakcji Helion Navigators został już tylko jeden system na **Verdan Reach** – **Greenfire Vault**, gateway naprzeciw twojego Pacific Rim – a ty trzymasz pozostałych piętnaście wokół niego. **Nexus Station** i **Rust Belt** to neutralne kolonie.",
-        "detail": "Oto co galaktyka robi z Dominacją: gra nigdy do niej nie dochodzi. Gdy tylko padnie ostatni rywal, serwer kończy rozgrywkę jako **Last Commander Standing** – rozstrzygane natychmiast, a nie od rundy 2, jak byłoby przy samej Dominacji – więc **32** garnizonów kolonii nigdy nie trzeba zdobywać, a wynik w galaktyce nigdy nie brzmi Total Domination, dopóki w grze jest jakiś rywal. Dlatego prawdziwe lobby galaktyki łączy Dominację z Progiem.",
-        "hint": "Naciśnij „Dalej” albo „Przejdź do końca”, aby od razu zacząć grę."
+        "message": "Ten mecz toczy się wyłącznie o **Dominację** – **Control every territory**, czyli na tej planszy wszystkie **64** systemy. Grasz jako Stellar Mandate z **Sol III**. Frakcji Helion Navigators został już tylko jeden system na **Verdan Reach** – **Greenfire Vault**, gateway naprzeciw twojego Pacific Rim – a ty trzymasz pozostałych piętnaście wokół niego. **Nexus Station** i **Rust Belt** to neutralne kolonie.",
+        "detail": "Oto, co galaktyka robi z Dominacją: gra nigdy do niej nie dochodzi. Gdy tylko padnie ostatni rywal, serwer kończy mecz jako **Last Commander Standing** – rozstrzygane natychmiast, tak jak sama Dominacja, a nie od rundy 2 – więc **32** garnizonów kolonii nigdy nie trzeba zdobywać, a wynik w galaktyce nigdy nie brzmi Total Domination, dopóki w grze jest jakiś rywal. Dlatego prawdziwe lobby galaktyki łączy Dominację z Progiem.",
+        "hint": "Naciśnij „Dalej” albo „Przejdź na koniec”, żeby od razu wskoczyć do gry."
       },
       "gdm_rules": {
         "title": "Last Commander Standing",
@@ -606,21 +606,21 @@
       "gdm_draft": {
         "title": "Wzmocnij Glowmire Shelf",
         "message": "Wybierz **Glowmire Shelf** – twój podświetlony system obok Greenfire Vault – ustaw **All** i naciśnij **Place**. Potem naciśnij złoty przycisk **{{draftButton}}**.",
-        "detail": "W prawdziwej rozgrywce gracz z jednym systemem nadal co turę rozmieszcza w nim co najmniej trzy jednostki posiłków, więc im dłużej się trzyma, tym trudniej go zdobyć. Przeciwnik z samouczka nigdy nie atakuje, ale posiłki by rozmieszczał – zdobądź ten system teraz."
+        "detail": "W prawdziwym meczu gracz z jednym systemem nadal co turę rozmieszcza w nim co najmniej trzy jednostki posiłków, więc im dłużej się trzyma, tym trudniej go zdobyć. Przeciwnik z samouczka nigdy nie atakuje, ale posiłki by rozmieszczał – zdobądź ten system teraz."
       },
       "gdm_take": {
         "title": "Zdobądź ich ostatni system",
-        "message": "Wybierz **Glowmire Shelf**, potem **Greenfire Vault** obok. Atak naziemny rzuca pełnymi 3 kośćmi; **⚡ Blitz until captured** atakuje, aż system padnie. Zdobycie eliminuje Navigators, a skoro nie zostaje żaden rywal, gra kończy się natychmiast.",
+        "message": "Wybierz **Glowmire Shelf**, potem **Greenfire Vault** obok. W ataku naziemnym rzucasz wszystkimi 3 kośćmi; **⚡ Blitz until captured** atakuje, aż system padnie. Zdobycie eliminuje Navigators, a skoro nie zostaje żaden rywal, gra kończy się natychmiast.",
         "detail": "Bez czekania na rundę 2: Last Commander Standing jest rozstrzygane w chwili, gdy do niego dochodzi. Zobaczysz ekran Player Eliminated, a potem wynik."
       },
       "gdm_win": {
-        "title": "Rozstrzygnięcie natychmiast",
+        "title": "Natychmiastowe rozstrzygnięcie",
         "message": "Ekran wyniku pokazuje **Victory!**, a pod spodem **Last Commander Standing — all opponents eliminated** – nie Total Domination, choć Dominacja była jedynym ustawionym warunkiem. **32** neutralne systemy wciąż stoją na Nexus Station i w Rust Belt; żaden z nich nie miał znaczenia.",
         "detail": "Tak wygląda Dominacja w galaktyce w praktyce: wyeliminuj każdego rywala, a kolonie zostaw temu, kto je zechce. Przeciw rywalom, którzy trzymają swoje światy macierzyste, może to trwać długo, dlatego prawdziwe lobby galaktyki dodaje próg 60% i limit 90 rund."
       },
       "gdm_complete": {
         "title": "Dominacja ukończona",
-        "message": "Ostatni rywal wyeliminowany, a galaktyka natychmiast zakończyła rozgrywkę. Dominacja jest tu wyścigiem do ostatniego gracza, nie do ostatniego systemu; kolonie to sprawa Progu.",
+        "message": "Ostatni rywal wyeliminowany, a galaktyka natychmiast zakończyła mecz. Dominacja jest tu wyścigiem do ostatniego gracza, nie do ostatniego systemu; kolonie to sprawa Progu.",
         "skippedTitle": "Od razu do gry",
         "skippedMessage": "W skrócie: Navigators trzymają jeden system, **Greenfire Vault**, a ty trzymasz **Glowmire Shelf** obok. Zdobądź go, a gra natychmiast skończy się jako Last Commander Standing – bez czekania na rundę 2. Teraz masz posiłki do rozmieszczenia – wybierz **Glowmire Shelf**, a potem naciśnij {{draftButton}}."
       }
