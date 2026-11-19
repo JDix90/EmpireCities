@@ -227,7 +227,11 @@ const ALLIES_MODERN: PathEraConfig = {
   ai_factions: ['eastern_bloc', 'rogue_state', 'emerging_power', 'petro_state'],
   ai_difficulty: 'expert',
   ai_count: 4,
-  starting_unit_modifier: 0,
+  // The finale, and with what a winning run carries into it (two Prestige dice
+  // for five rounds) the stand-in won 60% at even strength: the easiest stage
+  // of the line. Eight units down it is 34% over two seeds of 80 games, 46%
+  // for the expert stand-in.
+  starting_unit_modifier: -8,
   intro_text: 'The wall came down and for a decade the order you built had no rival. That decade is over. Precision strikes, satellites and sanctions are every power\'s tools now, and four of them are testing how much of the alliance is still an alliance. Objective: hold all of North America and Europe, both shores of the Atlantic. If the fortieth turn ends first, whoever holds the most ground writes the next set of rules.',
   outro_win_text: 'Blood & Empire ends where it began: one power, one map, and a history written by the side that held together. From the Second Front to the present, the Atlantic held.',
   outro_loss_text: 'Every order ends. This one was built on a beach in Normandy, and it was a long way from there to here.',
@@ -244,7 +248,11 @@ const SOVIETS_MODERN: PathEraConfig = {
   mission: { kind: 'capture_territories', territory_ids: ['iran_mod', 'turkey_mod'] },
   max_turns: 40,
   ai_factions: ['rogue_state', 'western_power', 'emerging_power', 'petro_state'],
-  ai_difficulty: 'hard',
+  // Expert, for the same reason as the Allied finale: 50% on Hard with the
+  // carry counted, 35% on Expert over two seeds of 80 games (65% for the
+  // expert stand-in). A deficit on top took it to 33% by wiping the player
+  // out in two games of five.
+  ai_difficulty: 'expert',
   ai_count: 4,
   starting_unit_modifier: 0,
   intro_text: 'The bloc you led did not survive the century, but the power at its centre did. Now a rogue state on your southern flank has slipped every treaty it ever signed, and it is arming faster than anyone can sanction it. The straits and the plateau south of your border are the two doors it has to be shut behind. Objective: capture Turkey and Iran, and hold both. If the fortieth turn ends first, whoever holds the most ground writes the next set of rules.',
@@ -518,7 +526,13 @@ const REVOLUTIONARY_FLAME: CampaignPath = {
       locked_faction: 'rogue_state',
       title: 'The Last Ember',
       allowed_victory_conditions: ['secret_mission'],
-      mission: { kind: 'control_regions', region_ids: ['middle_east'] },
+      // Taken, and still held when round 15 comes. Three reinforcements a turn,
+      // what Revolutionary Spirit is worth by now, took the region in 18 turns
+      // more often than not (56%) and no deficit, fifth seat or shorter clock
+      // changed that. Having to hold it does: the other powers come for it
+      // (aiBot STAND_SIEGE_BONUS). 30% over two seeds, 40% for the expert
+      // stand-in; with Africa added to the objective it was 17%.
+      mission: { kind: 'control_regions', region_ids: ['middle_east'], from_round: 15 },
       max_turns: 40,
       // The whole of the player's own region, which the Petrostate shares:
       // 33% in 28 turns for the stand-in (50% expert), where a mission dealt
@@ -526,8 +540,8 @@ const REVOLUTIONARY_FLAME: CampaignPath = {
       ai_factions: ['western_power', 'eastern_bloc', 'petro_state', 'emerging_power'],
       ai_difficulty: 'expert',
       ai_count: 4,
-      starting_unit_modifier: -2,
-      intro_text: 'You are small, sanctioned and surrounded. But Revolutionary Spirit at this level makes every occupied territory a front. A petrostate shares your region and four powers have interests in it. Objective: hold every territory in the Middle East & North Africa, with no other power\'s flag anywhere in it. If the fortieth turn ends first, whoever holds the most ground has outlasted the rest.',
+      starting_unit_modifier: 0,
+      intro_text: 'You are small, sanctioned and surrounded. But Revolutionary Spirit at this level makes every occupied territory a front. A petrostate shares your region and four powers have interests in it. Objective: hold every territory in the Middle East & North Africa when round 15 comes, with no other power\'s flag anywhere in it. Take it sooner and they will come to take it back; lose it and you can retake it. If the fortieth turn ends first, whoever holds the most ground has outlasted the rest.',
       outro_win_text: 'The Revolutionary Flame burned through every era and refused to be extinguished. History does not belong only to the powerful.',
       outro_loss_text: 'The last ember goes out. But it lit fires history will not forget.',
       carry_on_win: { revolutionary_spirit: 2, prestige_bonus: 1 },
@@ -664,21 +678,25 @@ const LAST_DEFENDERS: CampaignPath = {
       carry_on_loss: {},
     },
     {
-      // The finale is the longest stand: round 30 of 40, against three Expert
-      // seats. 53% for the stand-in in 33 turns, 73% for the expert one. With
-      // missions dealt it was 8%, and most of those lost to a bot's.
+      // The finale is the longest stand: round 36 of 40, against five Expert
+      // seats, sixteen units down. With three Survivor dice at home, what a
+      // winning run carries here, a stand to round 30 against three seats was
+      // won 57% of the time: easier than the path's second stage. This is 35%
+      // over two seeds of 80 games. No one lever did it: two more seats 48%,
+      // the later round 45%, ten units down with both 42%. The player is
+      // wiped out in about a quarter of games, as in the path's other sieges.
       era: 'modern',
       map_id: 'era_modern',
       title: 'Under Sanction',
       locked_faction: 'rogue_state',
       allowed_victory_conditions: ['secret_mission'],
-      mission: { kind: 'control_regions', region_ids: ['middle_east'], from_round: 30 },
+      mission: { kind: 'control_regions', region_ids: ['middle_east'], from_round: 36 },
       max_turns: 40,
-      ai_factions: ['western_power', 'eastern_bloc', 'emerging_power'],
+      ai_factions: ['western_power', 'eastern_bloc', 'emerging_power', 'petro_state', 'cyber_power'],
       ai_difficulty: 'expert',
-      ai_count: 3,
-      starting_unit_modifier: -4,
-      intro_text: 'Sanctioned, surrounded and targeted. Precision airstrikes and economic isolation are the tools of an age that prefers clean wars. Three powers are arguing over who owns the map, and your region is on every one of their tables. Objective: still hold every territory of the Middle East & North Africa when round 30 comes. What is lost can be retaken; if the fortieth turn ends first, whoever holds the most ground has won the argument. Prove that a small nation can survive a superpower\'s attention long enough to become inconvenient rather than conquerable.',
+      ai_count: 5,
+      starting_unit_modifier: -16,
+      intro_text: 'Sanctioned, surrounded and targeted. Precision airstrikes and economic isolation are the tools of an age that prefers clean wars. Five powers are arguing over who owns the map, and your region is on every one of their tables. Objective: still hold every territory of the Middle East & North Africa when round 36 comes. What is lost can be retaken; if the fortieth turn ends first, whoever holds the most ground has won the argument. Prove that a small nation can survive a superpower\'s attention long enough to become inconvenient rather than conquerable.',
       outro_win_text: 'The Last Defenders held. Through six eras of overwhelming force, the underdog found a way. History belongs to survivors too.',
       outro_loss_text: 'Every empire needs an enemy to justify itself. The Last Defenders gave them a worthy one.',
       carry_on_win: { survivor_bonus: 2, prestige_bonus: 1 },

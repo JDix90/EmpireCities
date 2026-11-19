@@ -44,10 +44,14 @@ describe('campaign stage objectives', () => {
     expect(of('blood_empire')).toEqual(['3:allies', '3:soviets', '4:allies', '4:soviets', '5:allies', '5:soviets']);
     expect(of('revolutionary_flame')).toEqual(['0:null', '1:null', '2:null', '3:null', '4:null', '5:null']);
     expect(of('last_defenders')).toEqual(['0:null', '1:null', '2:null', '3:null', '4:null', '5:null']);
-    // The Last Defenders is the path of stands: every stage is one, and no other path has any.
+    // The Last Defenders is the path of stands: every stage is one. The one
+    // other objective that counts from a round is The Revolutionary Flame's
+    // finale, which has to be taken first and then held.
     const stands = pinned.filter((s) => s.stage.mission!.kind === 'control_regions' && (s.stage.mission as { from_round?: number }).from_round != null);
-    expect([...new Set(stands.map((s) => s.path.path_id))]).toEqual(['last_defenders']);
-    expect(stands).toHaveLength(6);
+    expect(stands.map((s) => `${s.path.path_id}:${s.index}`)).toEqual([
+      'revolutionary_flame:5',
+      'last_defenders:0', 'last_defenders:1', 'last_defenders:2', 'last_defenders:3', 'last_defenders:4', 'last_defenders:5',
+    ]);
   });
 
   for (const { path, index, line_id, stage } of pinned) {

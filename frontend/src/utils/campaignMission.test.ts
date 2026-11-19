@@ -21,9 +21,9 @@ describe('describeCampaignMission', () => {
       .toBe('Hold every territory in North America and Europe');
   });
 
-  it('words a stand as holding on until a round', () => {
+  it('words an objective that counts from a round as holding it then', () => {
     expect(describeCampaignMission({ kind: 'control_regions', region_ids: ['western_front'], from_round: 15 }, { lookup }))
-      .toBe('Still hold every territory in Western Front in round 15, or any round after');
+      .toBe('Hold every territory in Western Front in round 15, or any round after');
     expect(readCampaignMission({ kind: 'control_regions', region_ids: ['a'], from_round: 15 }))
       .toEqual({ kind: 'control_regions', region_ids: ['a'], from_round: 15 });
     // A round that is not one is dropped, and the objective is an ordinary one.

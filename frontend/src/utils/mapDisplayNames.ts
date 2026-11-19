@@ -82,8 +82,8 @@ export function describeSecretMission(
   }
   if (mission.kind === 'control_regions' && mission.region_ids?.length) {
     const names = mission.region_ids.map((id) => resolveRegionName(id, lookup));
-    // A stand: held from the start, and won by still being held in that round.
-    if (mission.from_round) return `Still hold ${names.join(', ')} in round ${mission.from_round}, or any round after`;
+    // Counts from a round: won by holding it then, whether held from the start or taken since.
+    if (mission.from_round) return `Hold ${names.join(', ')} in round ${mission.from_round}, or any round after`;
     return `Control ${names.join(', ')}`;
   }
   if (mission.kind === 'reach_era' && mission.era_id) {

@@ -58,9 +58,9 @@ export function describeCampaignMission(
   if (mission.kind === 'control_regions') {
     const regions = opts.lookup?.regions?.map((r) => ({ id: r.region_id, name: r.name }));
     const held = `every territory in ${joinNames(mission.region_ids.map((id) => nameOf(id, regions)))}`;
-    // A stand: the player starts holding it, and wins by holding it then.
+    // Counts from a round: won by holding it then, whether held from the start or taken since.
     return mission.from_round
-      ? `Still hold ${held} in round ${mission.from_round}, or any round after`
+      ? `Hold ${held} in round ${mission.from_round}, or any round after`
       : `Hold ${held}`;
   }
   if (mission.kind === 'capture_territories') {
