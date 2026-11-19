@@ -54,7 +54,7 @@ describe('SettingsPage — language', () => {
     renderPage();
     const select = screen.getByLabelText('Preferred language') as HTMLSelectElement;
     expect([...select.options].map((o) => o.textContent)).toEqual([
-      'English', 'Español', 'Português (Brasil)', 'Deutsch', 'Français',
+      'English', 'Español', 'Português (Brasil)', 'Deutsch', 'Français', 'Polski',
     ]);
   });
 

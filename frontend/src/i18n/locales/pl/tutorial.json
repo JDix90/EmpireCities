@@ -129,7 +129,7 @@
         "title": "Witaj, dowódco!",
         "message": "Borderfall to gra strategiczna o kontrolę nad terytoriami. Każda tura to Wzmocnienie → Atak → Fortyfikacja. Masz trzy terytoria regionu **Tyrrhenian Coast** – zachodniej strony Włoch; przeciwnik trzyma **Adriatic Coast**.",
         "detail": "Wzmocnienie daje 1 jednostkę za każde 3 terytoria (minimum 3) oraz premię za cały region – masz całe Tyrrhenian Coast, więc to +1 już jest twoje.",
-        "hint": "Znasz planszówki o podboju terytoriów? Poczujesz się jak u siebie – a ten mecz dodaje to, czego w nich nie ma: wspinaczkę przez ery. Naciśnij „Dalej” albo „Przejdź na koniec”, by od razu zacząć grać."
+        "hint": "Znasz planszówki o podboju terytoriów? Poczujesz się jak u siebie – a ten mecz dodaje to, czego w nich nie ma: wspinaczkę przez ery. Naciśnij „Dalej” albo „Przejdź na koniec”, żeby od razu wskoczyć do gry."
       },
       "draft_do": {
         "title": "Rozmieść posiłki",
@@ -157,9 +157,9 @@
       "economy_intro": {
         "title": "Twoje imperium to także gospodarka",
         "message": "Znów twoja tura – tym razem zatrzymaj się przed atakiem. Terytoria to tylko połowa gry: twoje imperium ma **skarbiec** ze złotem i **program badań** z punktami technologii, a jedno i drugie rosło przez cały czas, gdy ziemie były twoje.",
-        "detail": "Panel „Era Advancement” w panelu bocznym pokazuje oś czasu er i twoje miejsce na niej; rozwiń go, by zobaczyć bramę, której warunki musisz spełnić, żeby awansować. Ten przeciwnik treningowy zostaje w starożytności – prawdziwi rywale pną się we własnym tempie.",
+        "detail": "Panel Era Advancement w panelu bocznym pokazuje oś czasu er i twoje miejsce na niej; rozwiń go, by zobaczyć bramę, której warunki musisz spełnić, żeby awansować. Ten przeciwnik treningowy zostaje w starożytności – prawdziwi rywale pną się we własnym tempie.",
         "whyItMatters": "Podbojem wygrywasz mapę. Awansem do nowej ery przerastasz przeciwnika, który tę mapę trzyma – silniejsze jednostki, nowe drzewo technologii i jednorazowa nagroda specjalna.",
-        "detailPhone": "Panel „Era Advancement” pod **☰ Menu** pokazuje oś czasu er i twoje miejsce na niej; rozwiń go, by zobaczyć bramę, której warunki musisz spełnić, żeby awansować. Ten przeciwnik treningowy zostaje w starożytności – prawdziwi rywale pną się we własnym tempie."
+        "detailPhone": "Panel Era Advancement pod **☰ Menu** pokazuje oś czasu er i twoje miejsce na niej; rozwiń go, by zobaczyć bramę, której warunki musisz spełnić, żeby awansować. Ten przeciwnik treningowy zostaje w starożytności – prawdziwi rywale pną się we własnym tempie."
       },
       "ea_research": {
         "title": "Badania w stronę bramy",
@@ -209,14 +209,14 @@
       "as_try_toggle": {
         "title": "Wypróbuj ustawienie",
         "message": "Otwórz laboratorium ustawień poniżej i przełącz co najmniej dwie opcje. Twoje wybory działają w tym meczu treningowym – po zamknięciu laboratorium poszukaj nowych elementów w panelu bocznym.",
-        "hint": "Kliknij „Otwórz laboratorium ustawień”, przełącz dwie opcje, a potem zamknij laboratorium i zajrzyj do panelu bocznego.",
+        "hint": "Naciśnij „Otwórz laboratorium ustawień”, przełącz dwie opcje, a potem zamknij laboratorium i zajrzyj do panelu bocznego.",
         "whyItMatters": "Dzięki eksperymentom przed pierwszym własnym lobby wiesz już, które przełączniki są ważne dla twojej grupy.",
         "messagePhone": "Otwórz laboratorium ustawień poniżej i przełącz co najmniej dwie opcje. Twoje wybory działają w tym meczu treningowym – po zamknięciu laboratorium poszukaj nowych elementów pod **☰ Menu**.",
         "hintPhone": "Dotknij „Otwórz laboratorium ustawień”, przełącz dwie opcje, a potem zamknij laboratorium i zajrzyj pod **☰ Menu**."
       },
       "as_complete": {
         "title": "Lekcja o ustawieniach ukończona",
-        "message": "Wiesz już, co zmieniają główne opcje. Utwórz grę niestandardową i dodawaj po jednej nowej opcji na raz – tam „Factions” i „Era Events” nazywają się „Asymmetric Factions” i „Historical Events”."
+        "message": "Wiesz już, co zmieniają główne opcje. Utwórz grę niestandardową i dodawaj po jednej nowej opcji naraz – tam „Factions” i „Era Events” nazywają się „Asymmetric Factions” i „Historical Events”."
       }
     },
     "faction_ability": {
@@ -289,9 +289,9 @@
       },
       "ea_progress": {
         "title": "Twoja era i oś czasu",
-        "message": "Panel „Era Advancement” w panelu bocznym pokazuje oś czasu er i twoją pozycję na niej; rozwiń go, by zobaczyć bramę, której warunki musisz spełnić, żeby awansować. Ten przeciwnik treningowy zostaje w starożytności – prawdziwi rywale pną się we własnym tempie.",
+        "message": "Panel Era Advancement w panelu bocznym pokazuje oś czasu er i twoją pozycję na niej; rozwiń go, by zobaczyć bramę, której warunki musisz spełnić, żeby awansować. Ten przeciwnik treningowy zostaje w starożytności – prawdziwi rywale pną się we własnym tempie.",
         "whyItMatters": "Kto awansuje pierwszy, zyskuje przewagę – ale awans na chwilę osłabia armię, więc liczy się wybór momentu.",
-        "messagePhone": "Panel „Era Advancement” pod **☰ Menu** pokazuje oś czasu er i twoją pozycję na niej; rozwiń go, by zobaczyć bramę, której warunki musisz spełnić, żeby awansować. Ten przeciwnik treningowy zostaje w starożytności – prawdziwi rywale pną się we własnym tempie."
+        "messagePhone": "Panel Era Advancement pod **☰ Menu** pokazuje oś czasu er i twoją pozycję na niej; rozwiń go, by zobaczyć bramę, której warunki musisz spełnić, żeby awansować. Ten przeciwnik treningowy zostaje w starożytności – prawdziwi rywale pną się we własnym tempie."
       },
       "ea_open_tree": {
         "title": "Otwórz drzewo technologii",
@@ -311,7 +311,7 @@
       },
       "ea_advance": {
         "title": "Awansuj do średniowiecza",
-        "message": "Gdy wszystkie wskaźniki bramy będą zielone, naciśnij **Advance to Medieval Era** u góry drzewa albo w panelu „Era Advancement”. Około 70% twoich jednostek przechodzi dalej – reszta przepada na dobre – technologie zerują się pod nową erę, a ty zyskujesz nagrodę specjalną.",
+        "message": "Gdy wszystkie wskaźniki bramy będą zielone, naciśnij **Advance to Medieval Era** u góry drzewa albo w panelu Era Advancement. Około 70% twoich jednostek przechodzi dalej – reszta przepada na dobre – technologie zerują się pod nową erę, a ty zyskujesz nagrodę specjalną.",
         "hint": "Wciąż czegoś brakuje? Najpierw zbadaj brakujące węzły – pasek bramy u góry drzewa pokazuje, co zostało, a przycisk awansu zaświeci się, gdy nie zostanie nic."
       },
       "ea_signature": {
@@ -419,7 +419,7 @@
         "title": "Lane Sovereignty ukończone",
         "message": "Trasa pokonana, piąty korytarz domknięty, a sieć utrzymana przez trzy początki tur. W prawdziwym meczu rywale walczą z tobą o każdy gateway, a utrata korytarza w ich turze spycha cię poniżej pięciu, co zeruje twoją serię.",
         "skippedTitle": "Od razu do gry",
-        "skippedMessage": "W skrócie: na początku swojej tury kontroluj oba systemy gateway 5 z 8 wytyczonych tras, 3 tury z rzędu (5 w pojedynku lub w 2v2). Masz teraz cztery korytarze. Zajmij **Antenna Spire** z **Hematite Span** przez trasę, żeby mieć piąty, a potem go utrzymaj. W tej chwili masz posiłki do rozmieszczenia – wybierz **Hematite Span**, a potem naciśnij {{draftButton}}."
+        "skippedMessage": "W skrócie: na początku swojej tury kontroluj oba systemy gateway 5 z 8 wytyczonych tras, 3 tury z rzędu (5 w pojedynku lub w 2v2). Masz teraz cztery korytarze. Zajmij **Antenna Spire** z **Hematite Span** przez trasę, żeby mieć piąty, a potem go utrzymaj. Teraz masz posiłki do rozmieszczenia – wybierz **Hematite Span**, a potem naciśnij {{draftButton}}."
       }
     },
     "galaxy_transcendence": {
@@ -430,7 +430,7 @@
         "hint": "Dostajesz punkty badań i punkty produkcji potrzebne do wspinaczki, z niewielkim zapasem. Naciśnij „Dalej” albo „Przejdź na koniec”, żeby od razu wskoczyć do gry."
       },
       "gtr_research": {
-        "title": "Badaj z myślą o bramie",
+        "title": "Badania w stronę bramy",
         "message": "Otwórz drzewo technologii. Pasek **Advancement gate → Galactic Age** u góry wymienia wskaźniki do spełnienia. Najpierw zbadaj **Megacity Logistics**: odblokowuje Workshop, a brama wymaga trzech budynków – twój Launch Pad w **Southern African Union** to już jeden z nich.",
         "detail": "Najtańsza droga przez bramę: Megacity Logistics i Digital Warfare (technologie poziomu 1, na których opierają się dwie potrzebne ci technologie poziomu 2), nad nimi Fusion Power Grid i AI-Directed Command, a potem Hypersonic Swarm albo Quantum Computing Grid jako technologia poziomu 3.",
         "hint": "Badaj w fazie Wzmocnienia lub Fortyfikacji, nie w trakcie ataku. Naciśnij „Otwórz drzewo technologii” poniżej."
@@ -460,7 +460,7 @@
         "messagePhone": "Cudem twojej ery jest teraz **Hyperlane Anchor** (22 PP). Dotknij znacznika **Earth, 2100**, wybierz dowolny ze swoich systemów i wznieś go z wiersza cudów na dole sekcji **Buildings**, która pojawia się w twojej fazie Wzmocnienia."
       },
       "gtr_win": {
-        "title": "Rozstrzygane od rundy 2",
+        "title": "Rozstrzygnięcie od rundy 2",
         "message": "Jeśli to wciąż runda 1, rozegraj turę aż do **{{fortifyButton}}**: zwycięstwo przychodzi z początkiem rundy 2, zanim rozmieścisz choć jedną jednostkę. Jeśli Anchor powstał w rundzie 2 lub później, gra skończyła się w chwili jego wzniesienia.",
         "detail": "Zasada rundy 2 chroni każde alternatywne zwycięstwo: inaczej stolica z trzema startowymi jednostkami mogłaby paść od kości pierwszego gracza, zanim ostatni rozmieściłby choć jedną."
       },
@@ -468,14 +468,14 @@
         "title": "Transcendencja ukończona",
         "message": "Brama ery kosmicznej pokonana, era galaktyczna osiągnięta z Pathfinder Gate w ręku, a Hyperlane Anchor wzniesiony. W prawdziwym meczu Space to Stars każdy inny gracz potrzebuje pełnego Space Program, żeby pójść w twoje ślady, a pierwszeństwo lądowania na odległych światach należy do ciebie.",
         "skippedTitle": "Od razu do gry",
-        "skippedMessage": "W skrócie: przejdź badaniami przez bramę (2 technologie poziomu 1, 2 technologie poziomu 2, 1 technologia poziomu 3, 3 budynki), naciśnij **Advance to Galactic Age** na pasku bramy w drzewie technologii, a potem wznieś **Hyperlane Anchor** w dowolnym kontrolowanym systemie. Zwycięstwo jest rozstrzygane od rundy 2. W tej chwili masz posiłki do rozmieszczenia – wybierz dowolny ze swoich systemów, a potem badaj, buduj i awansuj, zanim naciśniesz {{draftButton}}."
+        "skippedMessage": "W skrócie: przejdź badaniami przez bramę (2 technologie poziomu 1, 2 technologie poziomu 2, 1 technologia poziomu 3, 3 budynki), naciśnij **Advance to Galactic Age** na pasku bramy w drzewie technologii, a potem wznieś **Hyperlane Anchor** w dowolnym kontrolowanym systemie. Zwycięstwo jest rozstrzygane od rundy 2. Teraz masz posiłki do rozmieszczenia – wybierz dowolny ze swoich systemów, a potem badaj, buduj i awansuj, zanim naciśniesz {{draftButton}}."
       }
     },
     "galaxy_secret_missions": {
       "gsm_welcome": {
         "title": "Tajne misje w galaktyce",
         "message": "Ten mecz toczy się o **Tajne misje**: na początku gry każdy gracz dostaje tajny cel, a kto wykona swój, wygrywa. Grasz jako Helion Navigators z **Verdan Reach**; Stellar Mandate trzyma **Sol III** po drugiej stronie dwóch tras nadprzestrzennych. Twoja misja brzmi **Own Guinea Coast and Pacific Rim** – to dwa systemy gateway Sol zwrócone ku twojemu światu.",
-        "detail": "Galaktyka zmienia rozdanie. Misja nigdy nie wskazuje świata za bramą nadprzestrzenną, a tutaj jest nim każdy świat poza Sol III: każda misja zdobycia lub kontroli na tej mapie wskazuje teren Sol, więc każdego, kto nie zaczyna na Sol, dzieli od celu przeprawa przez trasę. Gracz, który już trzyma cały Sol, może wylosować wyłącznie misję eliminacji. Misje są rozstrzygane od rundy 2.",
+        "detail": "Galaktyka zmienia rozdanie. Misja nigdy nie wskazuje świata za bramą nadprzestrzenną, a tutaj jest nim każdy świat poza Sol III: każda misja zdobycia lub kontroli na tej mapie wskazuje teren Sol, więc każdego, kto nie zaczyna na Sol, dzieli od celu przeprawa przez trasę. Gracz, który już trzyma całe Sol, może wylosować wyłącznie misję eliminacji. Misje są rozstrzygane od rundy 2.",
         "hint": "Naciśnij „Dalej” albo „Przejdź na koniec”, żeby od razu wskoczyć do gry."
       },
       "gsm_objectives": {
@@ -493,7 +493,7 @@
       "gsm_draft": {
         "title": "Wzmocnij gateway",
         "message": "Wybierz **Chlorophage Span** – twój podświetlony gateway naprzeciw Guinea Coast – ustaw **All** i naciśnij **Place**. Potem naciśnij złoty przycisk **{{draftButton}}**.",
-        "detail": "Jego karta Gateway podaje trasę do Sol III jako **Open**: ty trzymasz ten koniec, a Mandate trzyma Guinea Coast na drugim. Greenfire Vault, twój drugi gateway, tak samo leży naprzeciw Pacific Rim.",
+        "detail": "Jego karta Gateway pokazuje trasę do Sol III jako **Open**: ty trzymasz ten koniec, a Mandate trzyma Guinea Coast na drugim. Greenfire Vault, twój drugi gateway, tak samo leży naprzeciw Pacific Rim.",
         "hint": "Navigators dostają +1 do posiłków na turę w grze dwuosobowej, takiej jak ta (+2 przy większej liczbie graczy). Burze na Verdan Reach co rundę zabierają jednostkę z każdego stosu powyżej 12."
       },
       "gsm_first": {
@@ -534,7 +534,7 @@
       "gcp_draft": {
         "title": "Wzmocnij Guinea Coast",
         "message": "Wybierz **Guinea Coast** – twój podświetlony gateway naprzeciw Chlorophage Span – ustaw **All** i naciśnij **Place**. Potem naciśnij złoty przycisk **{{draftButton}}**.",
-        "detail": "Jego karta Gateway podaje trasę do Verdan Reach jako **Open**: ty trzymasz ten koniec, a Navigators trzymają swoją stolicę na drugim. Amazon Basin niczego nie potrzebuje: przeciwnik z samouczka nigdy nie atakuje, ale w prawdziwym meczu to właśnie stolicę trzeba obsadzić garnizonem."
+        "detail": "Jego karta Gateway pokazuje trasę do Verdan Reach jako **Open**: ty trzymasz ten koniec, a Navigators trzymają swoją stolicę na drugim. Amazon Basin niczego nie potrzebuje: przeciwnik z samouczka nigdy nie atakuje, ale w prawdziwym meczu to właśnie stolicę trzeba obsadzić garnizonem."
       },
       "gcp_cross": {
         "title": "Zdobądź stolicę rywala",
@@ -556,7 +556,7 @@
     "galaxy_threshold": {
       "gth_welcome": {
         "title": "Próg terytoriów w galaktyce",
-        "message": "Ten mecz toczy się o zwycięstwo przez **Próg**: trzymaj **60%** mapy. Grasz jako Stellar Mandate z **Sol III**; masz już zasiedloną całą **Nexus Station** i przyczółek z sześciu systemów na **Verdan Reach**, po drugiej stronie dwóch tras Sol–Verdan. Helion Navigators trzymają resztę Verdan. **Rust Belt** to neutralna kolonia, której nikt nie zajął.",
+        "message": "Ten mecz toczy się o zwycięstwo przez **Próg**: utrzymaj **60%** mapy. Grasz jako Stellar Mandate z **Sol III**; masz już zasiedloną całą **Nexus Station** i przyczółek z sześciu systemów na **Verdan Reach**, po drugiej stronie dwóch tras Sol–Verdan. Helion Navigators trzymają resztę Verdan. **Rust Belt** to neutralna kolonia, której nikt nie zajął.",
         "detail": "Galaktyka liczy **każdy** system na planszy, łącznie z neutralnymi koloniami: 60% z 64 to 38,4, więc do zwycięstwa trzeba **39**. Dominacja wymagałaby wszystkich 64 – każdego garnizonu kolonii i każdego rywala – dlatego lobby galaktyki otwiera się z włączonym obok niej Progiem na 60% (oraz Lane Sovereignty, gdy włączone są Home Worlds), a za nimi wszystkimi stoi limit 90 rund.",
         "hint": "Naciśnij „Dalej” albo „Przejdź na koniec”, żeby od razu wskoczyć do gry."
       },
@@ -615,8 +615,8 @@
       },
       "gdm_win": {
         "title": "Natychmiastowe rozstrzygnięcie",
-        "message": "Ekran wyniku pokazuje **Victory!**, a pod spodem **Last Commander Standing — all opponents eliminated** – nie Total Domination, choć Dominacja była jedynym ustawionym warunkiem. **32** neutralne systemy wciąż stoją na Nexus Station i w Rust Belt; żaden z nich nie miał znaczenia.",
-        "detail": "Tak wygląda Dominacja w galaktyce w praktyce: wyeliminuj każdego rywala, a kolonie zostaw temu, kto je zechce. Przeciw rywalom, którzy trzymają swoje światy macierzyste, może to trwać długo, dlatego prawdziwe lobby galaktyki dodaje próg 60% i limit 90 rund."
+        "message": "Ekran wyniku pokazuje **Victory!**, a pod spodem **Last Commander Standing — all opponents eliminated** – nie Total Domination, choć Dominacja była jedynym ustawionym warunkiem. **32** neutralne systemy wciąż stoją na Nexus Station i na Rust Belt; żaden z nich nie miał znaczenia.",
+        "detail": "Tak wygląda Dominacja w galaktyce w praktyce: wyeliminuj każdego rywala, a kolonie zostaw temu, kto je zechce. Przeciw rywalom, którzy trzymają swoje światy macierzyste, może to trwać długo, dlatego prawdziwe lobby galaktyki dodaje Próg 60% i limit 90 rund."
       },
       "gdm_complete": {
         "title": "Dominacja ukończona",
