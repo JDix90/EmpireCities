@@ -1,4 +1,4 @@
-import { GUIDED_DRAFT_STAGES, guidedDraftStageNumber, type GuidedDraftStage } from '../../tutorial/guidedDraft';
+import type { GuidedStep } from '../../tutorial/guidedCards';
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { GraduationCap, ChevronDown, ChevronRight, ChevronUp, X } from 'lucide-react';
 import clsx from 'clsx';
@@ -123,18 +123,16 @@ interface TutorialOverlayProps {
    */
   phoneLayout?: boolean;
   /**
-   * The reinforcement card, one step at a time (`tutorial_guided_draft_enabled`,
-   * tutorial/guidedDraft.ts). Set while that card is current: the card then
-   * says only the next thing to do, stays small and out of the board's way,
-   * offers to place the units for the player, and shows Exit as a link.
+   * One of the first three action cards, one step at a time
+   * (`tutorial_guided_draft_enabled`, tutorial/guidedCards.ts). Set while such
+   * a card is current: it then says only the next thing to do, stays small and
+   * out of the board's way, offers one button that moves the player on, and
+   * shows Exit as a link.
    */
-  guided?: {
-    stage: GuidedDraftStage;
-    /** The gold button's label, as the sidebar or bottom bar shows it. */
-    advanceLabel: string;
-    /** Places what is left and moves on. Absent once nothing is left to place. */
-    onPlaceForMe?: () => void;
-  } | null;
+  guided?: (GuidedStep & {
+    /** What the step's button does. The button is shown when the step names an action and this is set. */
+    onAction?: () => void;
+  }) | null;
 }
 
 export default function TutorialOverlay({
@@ -368,7 +366,7 @@ export default function TutorialOverlay({
             // with Next and "Skip to the end" below the fold and no scroll
             // affordance, which is the first screen of the game.
             ? 'absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-w-lg max-h-[82vh] flex'
-            : anchorTop && guided && guided.stage !== 'place'
+            : anchorTop && guided && !territorySelected
               // Above the bottom bar, not under the top bar: at the top even the
               // short guided card sat on two of the player's three territories.
               // Not while a territory's panel is open: on a phone that is a
@@ -418,7 +416,9 @@ export default function TutorialOverlay({
             onScroll={cardFade ? measureProse : undefined}
             className={centered || compact ? 'min-h-0 overflow-y-auto' : undefined}
           >
-          <div className={`flex items-center justify-between mb-1 ${centered ? 'px-1' : ''}`}>
+          {/* The guided card on a phone has no header row: every row it drops
+              is a row of board back, and its dots and skip link share one. */}
+          <div className={clsx('flex items-center justify-between mb-1', centered && 'px-1', guided && compact && 'hidden')}>
             <span className="text-[10px] text-bf-muted/60 uppercase tracking-widest">
               {t('overlay.step', { current: stepIndex + 1, total: steps.length })}
             </span>
@@ -440,7 +440,7 @@ export default function TutorialOverlay({
           {/* The guided card drops its title on a phone, and beside an open
               territory panel on desktop, where it docks just above the panel:
               the step line is the card. */}
-          <div className={clsx(centered ? 'flex flex-col items-center gap-3 mb-4' : 'flex items-center gap-2 mb-3', guided && (compact || guided.stage === 'place') && 'hidden')}>
+          <div className={clsx(centered ? 'flex flex-col items-center gap-3 mb-4' : 'flex items-center gap-2 mb-3', guided && (compact || territorySelected) && 'hidden')}>
             <GraduationCap className={centered ? 'w-8 h-8 text-bf-gold' : 'w-5 h-5 text-bf-gold'} />
             <h3 className={centered ? 'font-display text-2xl text-bf-gold' : 'font-display text-lg text-bf-gold'}>
               {title}
@@ -448,32 +448,38 @@ export default function TutorialOverlay({
           </div>
 
           {guided ? (
-            <div data-testid="tutorial-guided" data-stage={guided.stage}>
-              <div
-                className="flex items-center gap-1.5 mb-1.5"
-                role="img"
-                aria-label={t('overlay.guidedDraft.progress', {
-                  current: guidedDraftStageNumber(guided.stage),
-                  total: GUIDED_DRAFT_STAGES.length,
-                })}
-              >
-                {GUIDED_DRAFT_STAGES.map((s, i) => (
-                  <span
-                    key={s}
-                    className={clsx(
-                      'h-1.5 rounded-full transition-all',
-                      i < guidedDraftStageNumber(guided.stage) - 1
-                        ? 'w-3 bg-bf-gold/50'
-                        : s === guided.stage ? 'w-6 bg-bf-gold' : 'w-3 bg-bf-border',
-                    )}
-                  />
-                ))}
+            <div data-testid="tutorial-guided" data-card={guided.card} data-stage={guided.stage}>
+              <div className="flex items-center justify-between gap-3 mb-1.5">
+                <div
+                  className="flex items-center gap-1.5"
+                  role="img"
+                  aria-label={t('overlay.guided.progress', { current: guided.number, total: guided.total })}
+                >
+                  {Array.from({ length: guided.total }, (_, i) => (
+                    <span
+                      key={i}
+                      className={clsx(
+                        'h-1.5 rounded-full transition-all',
+                        i + 1 < guided.number
+                          ? 'w-3 bg-bf-gold/50'
+                          : i + 1 === guided.number ? 'w-6 bg-bf-gold' : 'w-3 bg-bf-border',
+                      )}
+                    />
+                  ))}
+                </div>
+                {compact && onExitTutorial && (
+                  <button
+                    type="button"
+                    data-testid="tutorial-exit-btn"
+                    onClick={onExitTutorial}
+                    className="tap-target text-[11px] text-bf-muted/70 underline underline-offset-2 hover:text-bf-text transition-colors"
+                  >
+                    {t('overlay.guided.skip')}
+                  </button>
+                )}
               </div>
               <p className={clsx('text-bf-text leading-snug mb-2', compact ? 'text-sm' : 'text-base')}>
-                {renderTutorialText(
-                  t(`overlay.guidedDraft.${guided.stage}`, { button: guided.advanceLabel }),
-                  playerColorName,
-                )}
+                {renderTutorialText(t(`overlay.guided.${guided.card}.${guided.stage}`, guided.vars), playerColorName)}
               </p>
             </div>
           ) : (
@@ -668,14 +674,15 @@ export default function TutorialOverlay({
           ) : guided ? (
             // Something to press that moves the player on. Before this the
             // card's one button was Exit Tutorial.
-            guided.onPlaceForMe && (
+            guided.action && guided.onAction && (
               <button
                 type="button"
-                data-testid="tutorial-place-for-me"
-                onClick={guided.onPlaceForMe}
+                data-testid="tutorial-guided-action"
+                data-action={guided.action}
+                onClick={guided.onAction}
                 className="btn-secondary text-sm w-full"
               >
-                {t('overlay.guidedDraft.doIt')}
+                {t(`overlay.guided.actions.${guided.action}`)}
               </button>
             )
           ) : (
@@ -690,14 +697,14 @@ export default function TutorialOverlay({
           )}
 
           {/* Exit Tutorial — clearly separated from primary action by divider */}
-          {onExitTutorial && guided && (
+          {onExitTutorial && guided && !compact && (
             <button
               type="button"
               data-testid="tutorial-exit-btn"
               onClick={onExitTutorial}
               className="mt-2 block mx-auto text-[11px] text-bf-muted/70 underline underline-offset-2 hover:text-bf-text transition-colors"
             >
-              {t('overlay.guidedDraft.skip')}
+              {t('overlay.guided.skip')}
             </button>
           )}
           {onExitTutorial && !guided && step.variant !== 'wrapup' && step.variant !== 'module_complete' && (

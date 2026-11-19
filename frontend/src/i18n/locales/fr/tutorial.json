@@ -47,13 +47,29 @@
     "waitEraAdvanced": "Passez à l'ère suivante pour continuer…",
     "waitDefault": "Effectuez l'action pour continuer…",
     "exitTutorial": "Quitter le tutoriel",
-    "guidedDraft": {
-      "pick": "Touchez l'un de vos territoires, en **{playerColor}**.",
-      "place": "Appuyez sur **All**, puis sur **Place**.",
-      "advance": "Appuyez maintenant sur le bouton doré **{{button}}**.",
+    "guided": {
       "progress": "{{current}} sur {{total}}",
-      "doIt": "Placez-les pour moi",
-      "skip": "Passer le tutoriel"
+      "skip": "Passer le tutoriel",
+      "actions": {
+        "placeForMe": "Placez-les pour moi",
+        "showMe": "Montrez-moi",
+        "endTurn": "Terminer mon tour"
+      },
+      "draft": {
+        "pick": "Touchez l'un de vos territoires, en **{playerColor}**.",
+        "place": "Appuyez sur **All**, puis sur **Place**.",
+        "advance": "Appuyez maintenant sur le bouton doré **{{button}}**."
+      },
+      "attack": {
+        "source": "Attaquez **{{to}}** depuis **{{from}}**. Touchez **{{from}}**.",
+        "target": "Touchez **{{to}}** dans le panneau pour l'attaquer.",
+        "confirm": "Appuyez sur **Attack from {{from}}**.",
+        "advance": "Attaquez encore si vous voulez. Ensuite, appuyez sur le bouton doré **{{button}}**."
+      },
+      "fortify": {
+        "choose": "Facultatif : touchez l'un de vos territoires pour déplacer des unités vers un voisin. Ou terminez votre tour.",
+        "advance": "Appuyez maintenant sur le bouton doré **{{button}}**."
+      }
     },
     "openLinkedLesson": "À lire d'abord : {{title}}"
   },

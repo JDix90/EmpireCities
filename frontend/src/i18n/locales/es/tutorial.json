@@ -47,13 +47,29 @@
     "waitEraAdvanced": "Avanza de era para continuar…",
     "waitDefault": "Completa la acción para continuar…",
     "exitTutorial": "Salir del tutorial",
-    "guidedDraft": {
-      "pick": "Toca uno de tus territorios, en **{playerColor}**.",
-      "place": "Pulsa **All** y luego **Place**.",
-      "advance": "Ahora pulsa el botón dorado **{{button}}**.",
+    "guided": {
       "progress": "{{current}} de {{total}}",
-      "doIt": "Colócalas por mí",
-      "skip": "Saltar el tutorial"
+      "skip": "Saltar el tutorial",
+      "actions": {
+        "placeForMe": "Colócalas por mí",
+        "showMe": "Muéstrame",
+        "endTurn": "Terminar mi turno"
+      },
+      "draft": {
+        "pick": "Toca uno de tus territorios, en **{playerColor}**.",
+        "place": "Pulsa **All** y luego **Place**.",
+        "advance": "Ahora pulsa el botón dorado **{{button}}**."
+      },
+      "attack": {
+        "source": "Ataca **{{to}}** desde **{{from}}**. Toca **{{from}}**.",
+        "target": "Toca **{{to}}** en el panel para atacarlo.",
+        "confirm": "Pulsa **Attack from {{from}}**.",
+        "advance": "Ataca otra vez si quieres. Cuando termines, pulsa el botón dorado **{{button}}**."
+      },
+      "fortify": {
+        "choose": "Opcional: toca uno de tus territorios para mover unidades a un vecino. O termina tu turno.",
+        "advance": "Ahora pulsa el botón dorado **{{button}}**."
+      }
     },
     "openLinkedLesson": "Lee primero: {{title}}"
   },

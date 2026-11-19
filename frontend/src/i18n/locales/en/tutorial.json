@@ -47,13 +47,29 @@
     "waitEraAdvanced": "Advance your era to continue…",
     "waitDefault": "Complete the action to continue…",
     "exitTutorial": "Exit Tutorial",
-    "guidedDraft": {
-      "pick": "Tap one of your **{playerColor}** territories.",
-      "place": "Press **All**, then **Place**.",
-      "advance": "Now press the gold **{{button}}** button.",
+    "guided": {
       "progress": "{{current}} of {{total}}",
-      "doIt": "Place them for me",
-      "skip": "Skip the tutorial"
+      "skip": "Skip the tutorial",
+      "actions": {
+        "placeForMe": "Place them for me",
+        "showMe": "Show me",
+        "endTurn": "End my turn"
+      },
+      "draft": {
+        "pick": "Tap one of your **{playerColor}** territories.",
+        "place": "Press **All**, then **Place**.",
+        "advance": "Now press the gold **{{button}}** button."
+      },
+      "attack": {
+        "source": "Attack **{{to}}** from **{{from}}**. Tap **{{from}}**.",
+        "target": "Tap **{{to}}** in the panel to attack it.",
+        "confirm": "Press **Attack from {{from}}**.",
+        "advance": "Attack again if you like. When you are done, press the gold **{{button}}** button."
+      },
+      "fortify": {
+        "choose": "Optional: tap one of your territories to move units to a neighbour. Or end your turn.",
+        "advance": "Now press the gold **{{button}}** button."
+      }
     },
     "openLinkedLesson": "Read first: {{title}}"
   }
