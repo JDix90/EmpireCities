@@ -95,7 +95,7 @@ describe('Galactic Age · Domination lesson', () => {
     const settings = { allowed_victory_conditions: ['domination'] } as unknown as GameState['settings'];
     const briefing = describeWinConditions(settings).conditions[0]!;
     expect(text('gdm_welcome')).toContain(`**${briefing}**`);
-    expect(text('gdm_welcome')).toMatch(/judged at once rather than from round 2/);
+    expect(text('gdm_welcome')).toMatch(/judged at once, as Domination itself would be, rather than from round 2/);
     expect(text('gdm_welcome')).toMatch(/never reads Total Domination/);
     expect(text('gdm_rules')).toContain(`**${LAST_STANDING_LABEL}**`);
     expect(text('gdm_win')).toContain(`**${LAST_STANDING_LABEL}**`);

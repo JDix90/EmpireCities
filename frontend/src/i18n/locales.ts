@@ -8,7 +8,7 @@
  * tutorial}.json` with exactly the English key set (localeBundles.test.ts
  * fails on any gap or leftover), and give it a native name below.
  */
-export const SUPPORTED_LOCALES = ['en', 'es', 'pt-BR', 'de', 'fr'] as const;
+export const SUPPORTED_LOCALES = ['en', 'es', 'pt-BR', 'de', 'fr', 'pl'] as const;
 export type LocaleCode = (typeof SUPPORTED_LOCALES)[number];
 export const DEFAULT_LOCALE: LocaleCode = 'en';
 
@@ -19,6 +19,7 @@ export const LOCALE_NAMES: Record<LocaleCode, string> = {
   'pt-BR': 'Português (Brasil)',
   de: 'Deutsch',
   fr: 'Français',
+  pl: 'Polski',
 };
 
 export function isLocaleCode(value: unknown): value is LocaleCode {

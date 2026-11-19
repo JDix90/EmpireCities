@@ -33,6 +33,7 @@ describe('sanitizeLocale', () => {
     expect(sanitizeLocale('pt-PT')).toBe('pt-BR');
     expect(sanitizeLocale('de-AT')).toBe('de');
     expect(sanitizeLocale('fr_CA')).toBe('fr');
+    expect(sanitizeLocale('pl-PL')).toBe('pl');
     expect(sanitizeLocale('en-GB')).toBe('en');
   });
 

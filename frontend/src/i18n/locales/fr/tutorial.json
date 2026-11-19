@@ -535,7 +535,7 @@
       "gdm_welcome": {
         "title": "Domination dans la galaxie",
         "message": "Cette partie se joue à la **domination** seule — **Control every territory**, ce qui sur ce plateau représente les **64** systèmes. Vous êtes la Stellar Mandate de **Sol III**. Les Helion Navigators n'ont plus qu'un système sur **Verdan Reach** — **Greenfire Vault**, le gateway face à votre Pacific Rim —, et vous tenez les quinze autres autour. **Nexus Station** et le **Rust Belt** sont des colonies neutres.",
-        "detail": "Voici ce que la galaxie fait de la domination : la partie n'y arrive jamais. À l'instant où le dernier rival tombe, le serveur termine la partie en **Last Commander Standing** — jugée aussitôt plutôt qu'à partir de la manche 2, comme le serait la domination elle-même —, les **32** garnisons coloniales n'ont donc jamais besoin d'être prises, et un résultat galactique n'affiche jamais Total Domination tant qu'un rival est en jeu. C'est pour cela qu'un vrai salon galactique associe la domination au seuil.",
+        "detail": "Voici ce que la galaxie fait de la domination : la partie n'y arrive jamais. À l'instant où le dernier rival tombe, le serveur termine la partie en **Last Commander Standing** — jugée aussitôt, comme le serait la domination elle-même, plutôt qu'à partir de la manche 2 —, les **32** garnisons coloniales n'ont donc jamais besoin d'être prises, et un résultat galactique n'affiche jamais Total Domination tant qu'un rival est en jeu. C'est pour cela qu'un vrai salon galactique associe la domination au seuil.",
         "hint": "Appuyez sur « Suivant », ou sur « Aller à la fin » pour entrer directement en jeu."
       },
       "gdm_rules": {

@@ -14,7 +14,7 @@
 
 **Not localized:** the in-game HUD, the lobby, the codex, the marketing/SEO routes (`/eras`, `/how-to-play`, …), emails, push notifications. Because the HUD is still English, tutorial translations name the buttons and panels the player can actually see — **Advance Era**, the **Bonuses** panel, the phase button via `{{draftButton}}` — rather than translating labels that do not exist in the game.
 
-Languages shipped: English (source), Spanish, Brazilian Portuguese, German, French. The translations were produced in-house and have had one full in-house review pass against the English, but **not native review**; that review is the gate for promoting the flag (below).
+Languages shipped: English (source), Spanish, Brazilian Portuguese, German, French, Polish. The translations were produced in-house and have had one full in-house review pass against the English, but **not native review**; that review is the gate for promoting the flag (below).
 
 ## The flag
 
@@ -62,8 +62,9 @@ Switching through the picker persists the choice and syncs `<html lang>`. Bundle
 
 1. Append the tag to `SUPPORTED_LOCALES` and its native name to `LOCALE_NAMES` in `locales.ts`. Use the tag players expect (`pt-BR`, not `pt`), since `sanitizeLocale` maps base languages onto it.
 2. Create `locales/<tag>/common.json`, `landing.json` and `tutorial.json` with exactly the English key set; for `tutorial.json` also every `modules.*` and `steps.*` key (run the bundle test to get the list of what is missing).
-3. Run `cd frontend && npx vitest run src/i18n` — parity, coverage and placeholder checks — and `pnpm -C frontend exec tsc --noEmit`.
-4. Nothing else changes: the lazy loader picks the new files up by path.
+3. If the language has more plural forms than English (Polish: one, few, many, other), add `_few` / `_many` beside each `_one` / `_other` pair; the bundle test accepts those extras. Give the language its sidebar, click and tap words in `tutorial/cardCopy.test.ts`.
+4. Run `cd frontend && npx vitest run src/i18n` — parity, coverage and placeholder checks — and `pnpm -C frontend exec tsc --noEmit`.
+5. Nothing else changes: the lazy loader picks the new files up by path.
 
 ## Verification
 
@@ -79,20 +80,20 @@ By hand, with the flag forced on in Admin → Config: open `/` in a browser whos
 
 The terms every translation must keep consistent, and the English UI labels that are quoted rather than translated:
 
-| English (concept) | es | pt-BR | de | fr |
-|---|---|---|---|---|
-| Draft / Reinforcement phase | Refuerzo | Reforço | Verstärkung | Renfort |
-| Attack | Ataque | Ataque | Angriff | Attaque |
-| Fortify | Fortificación | Fortificação | Befestigung | Fortification |
-| Era | era | era | Zeitalter | ère |
-| Advancement gate | puerta (de avance) | portão (de avanço) | (Aufstiegs-)Tor | seuil (de passage) |
-| Vulnerability window | ventana de vulnerabilidad | janela de vulnerabilidade | Verwundbarkeitsfenster | fenêtre de vulnérabilité |
-| Signature reward | recompensa distintiva | recompensa exclusiva | Signatur-Belohnung | récompense signature |
-| Lobby | vestíbulo | lobby | Lobby | salon |
-| Turn (one player's go) / Round (every seat has played) | turno / ronda | turno / rodada | Zug / Runde | tour / manche |
-| Kit (a faction's set of abilities) | repertorio | kit | Ausrüstung | kit |
-| Codex | Códice | Códice | Kodex | Codex |
+| English (concept) | es | pt-BR | de | fr | pl |
+|---|---|---|---|---|---|
+| Draft / Reinforcement phase | Refuerzo | Reforço | Verstärkung | Renfort | Wzmocnienie |
+| Attack | Ataque | Ataque | Angriff | Attaque | Atak |
+| Fortify | Fortificación | Fortificação | Befestigung | Fortification | Fortyfikacja |
+| Era | era | era | Zeitalter | ère | era |
+| Advancement gate | puerta (de avance) | portão (de avanço) | (Aufstiegs-)Tor | seuil (de passage) | brama (awansu) |
+| Vulnerability window | ventana de vulnerabilidad | janela de vulnerabilidade | Verwundbarkeitsfenster | fenêtre de vulnérabilité | okno podatności |
+| Signature reward | recompensa distintiva | recompensa exclusiva | Signatur-Belohnung | récompense signature | nagroda specjalna |
+| Lobby | vestíbulo | lobby | Lobby | salon | lobby |
+| Turn (one player's go) / Round (every seat has played) | turno / ronda | turno / rodada | Zug / Runde | tour / manche | tura / runda |
+| Kit (a faction's set of abilities) | repertorio | kit | Ausrüstung | kit | zestaw |
+| Codex | Códice | Códice | Kodex | Codex | Kodeks |
 
-Turn and round are different things in the rules (the turn limit counts rounds; "once per turn" is per player), so a translation must not use one word for both. Register: Spanish, Portuguese and German address the player informally (tú, você, du); French uses *vous* throughout. A world's rule on the galaxy board is translated, but its name (**Cradle**, **Storms**, **Forge**, **The Vault**) is quoted, since the panel prints it in English.
+Turn and round are different things in the rules (the turn limit counts rounds; "once per turn" is per player), so a translation must not use one word for both. Register: Spanish, Portuguese, German and Polish address the player informally (tú, você, du, ty); French uses *vous* throughout. Polish avoids past-tense forms that mark the player's gender ("wygrałeś"). A world's rule on the galaxy board is translated, but its name (**Cradle**, **Storms**, **Forge**, **The Vault**) is quoted, since the panel prints it in English.
 
 Quoted as-is because the game shows them in English: territory names on the tutorial board (**Tuscany & Latium**, **Umbria & Abruzzo**, …), **Advance Era**, **Place** / **All**, the **Bonuses** and **Era** panels, faction and ability names (**Guerrilla Warfare**), technology names, and the phase labels the HUD prints ("Reinforcement").

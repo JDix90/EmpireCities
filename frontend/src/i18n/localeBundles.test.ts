@@ -2,7 +2,8 @@
  * The contract every shipped language must meet, so a string cannot ship
  * half-translated and a translation cannot silently drop a placeholder:
  *   - every locale has every namespace;
- *   - `common` and `landing` carry exactly the English key set;
+ *   - `common` and `landing` carry exactly the English key set (plus the extra
+ *     plural forms a language needs: Polish has `_few` and `_many`);
  *   - `tutorial` carries the English chrome keys plus every module and every
  *     card of every lesson (derived from the code, which is the English source);
  *   - `{{placeholders}}` and the `{playerColor}` token match the source string;
@@ -42,6 +43,21 @@ function placeholders(s: string): string[] {
 /** What a tutorial card may interpolate beyond what its English source has. */
 const CARD_INTERPOLATION = new Set(['draftButton', 'attackButton', 'fortifyButton']);
 
+/**
+ * English has two plural forms, `_one` and `_other`; some languages have more
+ * (Polish: one, few, many, other). A translation may add `_few` and `_many`
+ * beside a plural pair the English has; `sourceKey` maps such a key back to
+ * the English `_other` it is a form of.
+ */
+const EXTRA_PLURAL_SUFFIX = /_(few|many)$/;
+function sourceKey(key: string): string {
+  return key.replace(EXTRA_PLURAL_SUFFIX, '_other');
+}
+/** The key set with the extra plural forms folded away, for comparing with English. */
+function withoutExtraPlurals(keys: string[], english: Record<string, string>): string[] {
+  return keys.filter((k) => !(EXTRA_PLURAL_SUFFIX.test(k) && english[sourceKey(k)] !== undefined));
+}
+
 const OTHER_LOCALES = SUPPORTED_LOCALES.filter((l) => l !== 'en');
 const en = Object.fromEntries(NAMESPACES.map((ns) => [ns, flatten(bundle('en', ns))]));
 
@@ -76,13 +92,13 @@ describe.each(OTHER_LOCALES)('%s', (locale) => {
 
   it('common and landing carry exactly the English key set', () => {
     for (const ns of ['common', 'landing'] as const) {
-      expect(Object.keys(own[ns]).sort()).toEqual(Object.keys(en[ns]).sort());
+      expect(withoutExtraPlurals(Object.keys(own[ns]), en[ns]).sort()).toEqual(Object.keys(en[ns]).sort());
     }
   });
 
   it('tutorial carries the chrome, every module and every card of every lesson', () => {
     const expected = [...Object.keys(en.tutorial), ...tutorialTranslationKeys()].sort();
-    expect(Object.keys(own.tutorial).sort()).toEqual(expected);
+    expect(withoutExtraPlurals(Object.keys(own.tutorial), en.tutorial).sort()).toEqual(expected);
   });
 
   it('has no empty strings', () => {
@@ -94,11 +110,11 @@ describe.each(OTHER_LOCALES)('%s', (locale) => {
   it('keeps every placeholder its source string has', () => {
     for (const ns of NAMESPACES) {
       for (const [key, value] of Object.entries(own[ns])) {
-        const source = en[ns][key] ?? (ns === 'tutorial' ? tutorialSourceText(key) : undefined);
+        const source = en[ns][key] ?? en[ns][sourceKey(key)] ?? (ns === 'tutorial' ? tutorialSourceText(key) : undefined);
         expect(source, `${ns}:${key} has no English source`).toBeDefined();
         const got = placeholders(value);
         const want = placeholders(source as string);
-        if (ns === 'tutorial' && en.tutorial[key] === undefined) {
+        if (ns === 'tutorial' && en.tutorial[sourceKey(key)] === undefined) {
           // A card: the source has none, the translation may use the button labels.
           for (const p of got) expect(CARD_INTERPOLATION.has(p), `${key}: unknown placeholder {{${p}}}`).toBe(true);
           expect(value.includes('{playerColor}'), `${key}: {playerColor}`).toBe((source as string).includes('{playerColor}'));

@@ -117,6 +117,7 @@ describe.each([
   ['es', 'barra lateral', /\bclic\b|cliquea|clica/i, /(?<!te )\btoca\b|\btócal[oa]\b/i],
   ['fr', 'barre latérale', /cliqu|\bclic\b/i, /\btouchez\b/i],
   ['pt-BR', 'barra lateral', /cliqu|\bclique\b|\bclicar\b/i, /(?<!que )\btoque\b/i],
+  ['pl', 'panel boczny', /klikn|klikaj/i, /\b(dotknij|stuknij)\b/i],
 ] as const)('%s', (locale, sidebar, click, tap) => {
   async function translator(): Promise<TranslateFn> {
     await loadLocale(locale);
