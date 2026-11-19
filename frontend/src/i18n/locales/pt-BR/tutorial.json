@@ -535,7 +535,7 @@
       "gdm_welcome": {
         "title": "Dominação na galáxia",
         "message": "Esta partida é jogada só pela **Dominação** — **Control every territory**, o que neste tabuleiro são todos os **64** sistemas. Você é a Stellar Mandate de **Sol III**. Os Helion Navigators ficaram com um único sistema em **Verdan Reach** — **Greenfire Vault**, o gateway de frente para o seu Pacific Rim —, e você controla os outros quinze ao redor. **Nexus Station** e o **Rust Belt** são colônias neutras.",
-        "detail": "É isto que a galáxia faz com a dominação: a partida nunca chega lá. No momento em que o último rival cai, o servidor encerra a partida como **Last Commander Standing** — julgada na hora, e não a partir da rodada 2 como a própria dominação seria —, então as **32** guarnições coloniais nunca precisam ser tomadas, e um resultado galáctico nunca diz Total Domination enquanto houver um rival na partida. É por isso que um lobby galáctico real combina a dominação com o Limiar.",
+        "detail": "É isto que a galáxia faz com a dominação: a partida nunca chega lá. No momento em que o último rival cai, o servidor encerra a partida como **Last Commander Standing** — julgada na hora, como a própria dominação seria, e não a partir da rodada 2 —, então as **32** guarnições coloniais nunca precisam ser tomadas, e um resultado galáctico nunca diz Total Domination enquanto houver um rival na partida. É por isso que um lobby galáctico real combina a dominação com o Limiar.",
         "hint": "Pressione “Avançar”, ou “Pular para o final” para entrar direto no jogo."
       },
       "gdm_rules": {

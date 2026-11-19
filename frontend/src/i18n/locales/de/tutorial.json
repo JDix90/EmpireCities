@@ -535,7 +535,7 @@
       "gdm_welcome": {
         "title": "Dominanz in der Galaxis",
         "message": "Diese Partie wird allein um **Dominanz** gespielt – **Control every territory**, was auf diesem Spielfeld alle **64** Systeme sind. Du bist die Stellar Mandate von **Sol III**. Die Helion Navigators sind auf ein System auf **Verdan Reach** geschrumpft – **Greenfire Vault**, das Gateway gegenüber deinem Pacific Rim –, und du hältst die anderen fünfzehn darum herum. **Nexus Station** und der **Rust Belt** sind neutrale Kolonien.",
-        "detail": "Das macht die Galaxis aus der Dominanz: Die Partie kommt nie dort an. Sobald der letzte Rivale fällt, beendet der Server das Spiel als **Last Commander Standing** – sofort gewertet, nicht ab Runde 2 wie die Dominanz selbst –, die **32** Koloniegarnisonen müssen also nie eingenommen werden, und ein Galaxis-Ergebnis lautet nie Total Domination, solange ein Rivale im Spiel ist. Deshalb kombiniert eine echte Galaxis-Lobby Dominanz mit der Schwelle.",
+        "detail": "Das macht die Galaxis aus der Dominanz: Die Partie kommt nie dort an. Sobald der letzte Rivale fällt, beendet der Server das Spiel als **Last Commander Standing** – sofort gewertet wie die Dominanz selbst, nicht erst ab Runde 2 –, die **32** Koloniegarnisonen müssen also nie eingenommen werden, und ein Galaxis-Ergebnis lautet nie Total Domination, solange ein Rivale im Spiel ist. Deshalb kombiniert eine echte Galaxis-Lobby Dominanz mit der Schwelle.",
         "hint": "Drücke „Weiter“ oder „Zum Ende springen“, um direkt einzusteigen."
       },
       "gdm_rules": {

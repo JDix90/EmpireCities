@@ -9,7 +9,7 @@ import type { TutorialStep } from '../types';
  * last standing before anything else, and a seat whose last system falls is
  * eliminated on the spot, so with a rival in the game a result never reads
  * Total Domination: the last rival's fall ends it as Last Commander Standing,
- * the one win judged at once rather than from round 2, and the neutral colony
+ * judged at once like Domination rather than from round 2, and the neutral colony
  * garrisons never need taking. The player does exactly that: the Navigators
  * are down to Greenfire Vault, and the player takes it by ground from Glowmire
  * Shelf in round 1. The opening is `galaxyDominationScenario.ts` (backend);
@@ -28,7 +28,7 @@ export const GALAXY_DOMINATION_STEPS: TutorialStep[] = [
     id: 'gdm_welcome',
     title: 'Domination in the Galaxy',
     message: 'This match is played for **Domination** alone — **Control every territory**, which on this board is all **64** systems. You are the Stellar Mandate of **Sol III**. The Helion Navigators are down to one system on **Verdan Reach** — **Greenfire Vault**, the gateway facing your Pacific Rim — and you hold the other fifteen around it. **Nexus Station** and the **Rust Belt** are neutral colonies.',
-    detail: 'Here is what the galaxy does to Domination: the game never gets there. The moment the last rival falls the server ends the match as **Last Commander Standing** — judged at once rather than from round 2, as Domination itself would be — so the **32** colony garrisons never need taking, and a galaxy result never reads Total Domination while a rival is in the game. That is why a real galaxy lobby pairs Domination with the Threshold.',
+    detail: 'Here is what the galaxy does to Domination: the game never gets there. The moment the last rival falls the server ends the match as **Last Commander Standing** — judged at once, as Domination itself would be, rather than from round 2 — so the **32** colony garrisons never need taking, and a galaxy result never reads Total Domination while a rival is in the game. That is why a real galaxy lobby pairs Domination with the Threshold.',
     hint: 'Press Next, or Skip to the end to jump straight in.',
     skippable: true,
     linkModule: 'galaxy_primer',
