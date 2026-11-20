@@ -12,6 +12,8 @@ export interface WarfrontResultProps {
   result: MatchResult;
   seatNames: Record<number, string>;
   playerSeat: number;
+  /** The match seed, when the caller wants it on record with the standings. */
+  seed?: number;
   onRestart: () => void;
 }
 
@@ -21,7 +23,7 @@ const REASON: Record<string, string> = {
   'last-standing': 'last seat standing',
 };
 
-export default function WarfrontResult({ result, seatNames, playerSeat, onRestart }: WarfrontResultProps) {
+export default function WarfrontResult({ result, seatNames, playerSeat, seed, onRestart }: WarfrontResultProps) {
   const you = result.standings.find((s) => s.seat === playerSeat);
   return (
     <div className="absolute inset-0 flex items-center justify-center bg-bf-dark/85 px-6">
@@ -59,6 +61,12 @@ export default function WarfrontResult({ result, seatNames, playerSeat, onRestar
             ))}
           </tbody>
         </table>
+
+        {seed !== undefined ? (
+          <div data-testid="warfront-result-seed" className="mt-3 font-mono text-[10px] text-bf-muted">
+            Seed {seed}
+          </div>
+        ) : null}
 
         <button
           type="button"

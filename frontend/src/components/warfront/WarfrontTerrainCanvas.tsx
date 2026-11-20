@@ -467,7 +467,10 @@ export default function WarfrontTerrainCanvas({
 
     app.ticker.add(tick);
     return () => {
-      app.ticker.remove(tick);
+      // On unmount the mount effect's cleanup runs first and destroys the application,
+      // which nulls its ticker; removing the callback from a ticker that is gone threw
+      // and took the page down with it.
+      app.ticker?.remove(tick);
     };
   }, [ready, setCamera]);
 
