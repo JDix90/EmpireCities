@@ -260,19 +260,18 @@ association file, the nginx location and the entitlement agree
 
 ### Before it works: the Team ID
 
-The association file names the app as `<Team ID>.com.borderfall.app`. It ships with a
-placeholder:
+The association file names the app as `<Team ID>.com.borderfall.app`, with the Apple
+Developer Team ID (developer.apple.com → Membership details):
 
 ```json
-"appIDs": ["REPLACE_WITH_APPLE_TEAM_ID.com.borderfall.app"]
+"appIDs": ["4RNR4T2NYM.com.borderfall.app"]
 ```
 
-**Replace `REPLACE_WITH_APPLE_TEAM_ID` with your ten-character Apple Developer Team ID**
-(developer.apple.com → Membership details), in that one file, and deploy the website. Nothing
-else holds the Team ID. Until then the file is served but matches no app, and links keep
-opening Safari.
+That file is the only place in the repository that holds the Team ID, and a test checks it is
+ten capitals and digits (`frontend/src/utils/appLinks.test.ts`). It takes effect when the
+website is deployed with it; until then links keep opening Safari.
 
-Then check what production serves, from any machine:
+After deploying, check what production serves, from any machine:
 
 ```bash
 curl -sI https://borderfall.gg/.well-known/apple-app-site-association
@@ -523,7 +522,7 @@ Note the guest's name in the lobby before you start.
 
 **Links that open the app**
 
-These need the Team ID in the association file, the website deployed with it, and a build
+These need the website deployed with the Team ID in its association file, and a build
 signed with a paid team. Save a guest's account with an email first (Settings → Account).
 
 - **Sign-in link.** Sign out. On the start screen tap Sign In, then "Email me a sign-in
