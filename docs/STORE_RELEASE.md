@@ -127,9 +127,22 @@ None of this has been started. It is listed so that nothing is discovered late.
 - [ ] Age rating questionnaire (strategy, mild combat; chat between players is user-generated
       content)
 - [ ] Screenshots for the required iPhone and iPad sizes, taken from the app, not the website
-- [ ] Review notes: a demo account (or "tap Play Free Now to play as a guest"), and where to
-      find Report and Block (the menu on a chat message), Blocked players (Settings) and
-      Delete account (Settings → Account)
+- [ ] Review notes. Paste as written; the second paragraph names what the app does that the
+      website cannot, which is what a reviewer weighs under guideline 4.2 ("more than a
+      repackaged website"):
+
+      > Tap Play Free Now to play as a guest; no account is needed. Report and Block are in the
+      > menu on any chat message from another player. Blocked players is in Settings. Delete
+      > account is in Settings → Account.
+      >
+      > Built for iPhone and iPad: turn alerts through Apple Push Notifications, asked for only
+      > when the player turns them on; the account kept in the iOS Keychain, so a guest's game
+      > survives quitting and reinstalling; universal links, so sign-in, invite, replay and
+      > your-turn links open the app; haptic feedback in play; and a layout for iPad, including
+      > Split View.
+
+      Every claim in it is built and is in the device test list; recheck it against the build you
+      submit
 - [ ] TestFlight: internal testing first
 - [ ] Once the listing has an ID, put its URL in Admin → Config → `native_app` →
       `ios_store_url`, so the "update required" screen can open it

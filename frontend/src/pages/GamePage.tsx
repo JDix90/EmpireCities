@@ -49,7 +49,7 @@ import { phaseAdvanceLabel } from '../constants/phaseLabels';
 import { resolveRejectionText } from '../constants/rejectionMessages';
 import { colorDisplayName } from '../utils/colorName';
 import { shouldShowFirstTurnCoach, coachPhaseForGamePhase, type CoachPhase } from '../utils/firstTurnCoach';
-import { thisBrowserOrDevice, inThisBrowserOrOnThisDevice } from '../utils/nativeApp';
+import { thisBrowserOrDevice, inThisBrowserOrOnThisDevice, isNativeApp } from '../utils/nativeApp';
 
 /** Minimum time an auto-advancing tutorial card stays readable (see the `my_turn` gate). */
 const TUTORIAL_MIN_DWELL_MS = 4000;
@@ -5694,9 +5694,10 @@ export default function GamePage() {
           description={`${galaxyWorldCountWord(mapData.worlds?.length)} worlds, one war. Every hyperspace lane runs between two gateway systems. Hold a gateway and you can attack straight across its lane — no research needed — but a crossing rolls only 2 dice (3 with Lane Charts), so a defended gateway holds like a coast. Tap a world to drill into it; open the galaxy chart to see every lane and whose gateways it touches.${showGalacticBetaTag ? ` ${GALACTIC_BETA_WELCOME_NOTE}` : ''}`}
           // The Galactic Age lessons are offered here, where the game begins,
           // rather than on the lobby's Training Academy grid. A new tab: the
-          // game behind the explainer keeps its place.
+          // game behind the explainer keeps its place. The app has no tabs and
+          // opens it in place (utils/nativeApp.ts), so it does not promise one.
           link={galaxyTutorialFlag
-            ? { to: '/tutorial?module=galaxy_primer&start=1', label: `Take the Galactic Age primer first (~${tutorialModuleMinutes('galaxy_primer')} min, new tab)` }
+            ? { to: '/tutorial?module=galaxy_primer&start=1', label: `Take the Galactic Age primer first (~${tutorialModuleMinutes('galaxy_primer')} min${isNativeApp() ? '' : ', new tab'})` }
             : undefined}
           onDismiss={() => setGalaxyWelcomeSeen(true)}
         />

@@ -22,6 +22,19 @@ export function isNativeApp(): boolean {
   }
 }
 
+/** The class `markNativeAppDocument` puts on `<html>`; index.css scopes the app's own rules to it. */
+export const NATIVE_APP_CLASS = 'native-app';
+
+/**
+ * Mark the page as the native app, before it renders, so CSS can drop what
+ * makes a web view feel like a web page: text that a long press selects, and
+ * the callout over a long-pressed image. A browser never gets the class, so
+ * the website's CSS is unchanged.
+ */
+export function markNativeAppDocument(doc: Document = document): void {
+  if (isNativeApp()) doc.documentElement.classList.add(NATIVE_APP_CLASS);
+}
+
 /**
  * Where a guest's account lives, for copy that says so: "this browser" on the
  * website, "this device" in the app, where the player never saw a browser.

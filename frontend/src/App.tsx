@@ -449,7 +449,12 @@ export default function App() {
     <ErrorBoundary>
     <Suspense fallback={<RouteLoadingFallback />}>
       {!isOnline && (
-        <div className="fixed top-0 inset-x-0 z-[100] bg-red-600 text-white text-center text-sm py-1.5 font-medium">
+        // Clears the status bar and notch, like the toaster below: with
+        // viewport-fit=cover the page starts under them. Zero in a browser tab.
+        <div
+          className="fixed top-0 inset-x-0 z-[100] bg-red-600 text-white text-center text-sm pb-1.5 font-medium"
+          style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.375rem)' }}
+        >
           You are offline — reconnecting…
         </div>
       )}

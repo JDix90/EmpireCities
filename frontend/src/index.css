@@ -23,6 +23,20 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  /* The native app only: main.tsx puts `native-app` on <html> inside the
+     Capacitor shell, never in a browser. A long press selects nothing and
+     raises no callout, as in any app; text boxes still select and paste. */
+  html.native-app body {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+  html.native-app :is(input, textarea, [contenteditable='true'], [contenteditable='']) {
+    -webkit-user-select: text;
+    user-select: text;
+    -webkit-touch-callout: default;
+  }
+
   h1, h2, h3 {
     font-family: 'Cinzel', serif;
   }
