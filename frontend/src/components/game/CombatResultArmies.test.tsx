@@ -1,5 +1,5 @@
 /**
- * Battle result (`battle_armies_enabled`): the result showed dice and losses
+ * Battle result: the result showed dice and losses
  * only, so a player had to remember how many armies were left, and a blitz
  * showed its last exchange's dice under every exchange's losses.
  */
@@ -7,7 +7,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, render, screen } from '@testing-library/react';
 import { CombatResultView } from './ActionModal';
 import { useGameStore, type CombatResult, type GameState } from '../../store/gameStore';
-import { useFeatureFlagsStore } from '../../store/featureFlagsStore';
 
 function result(overrides: Partial<CombatResult> = {}): CombatResult {
   return {
@@ -38,9 +37,6 @@ function board(kent: number, sussex: number) {
   });
 }
 
-const setFlag = (on: boolean) =>
-  useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, battle_armies_enabled: on } }));
-
 /** Past the dice settling, however many dice rolled. */
 const settle = () => act(() => { vi.advanceTimersByTime(5_000); });
 
@@ -55,12 +51,10 @@ describe('battle result armies', () => {
   });
   afterEach(() => {
     vi.useRealTimers();
-    setFlag(true);
     useGameStore.setState({ gameState: null });
   });
 
-  it('shows the armies left beside both names once the dice settle, with the flag on', () => {
-    setFlag(true);
+  it('shows the armies left beside both names once the dice settle', () => {
     render(<CombatResultView result={result()} perspective="attacker" onDismiss={() => {}} />);
     // Not while the dice are still rolling: the board already holds the outcome.
     expect(screen.queryByTestId('combat-from-units')).toBeNull();
@@ -70,7 +64,6 @@ describe('battle result armies', () => {
   });
 
   it('follows the board, as after an Attack again', () => {
-    setFlag(true);
     render(<CombatResultView result={result()} perspective="attacker" onDismiss={() => {}} />);
     settle();
     act(() => board(6, 0));
@@ -79,7 +72,6 @@ describe('battle result armies', () => {
   });
 
   it('keeps a fog-hidden count hidden', () => {
-    setFlag(true);
     board(7, -1);
     render(<CombatResultView result={result()} perspective="attacker" onDismiss={() => {}} />);
     settle();
@@ -88,14 +80,12 @@ describe('battle result armies', () => {
   });
 
   it('shows nothing on a replayed incoming attack, which the board may be ahead of', () => {
-    setFlag(true);
     render(<CombatResultView result={result()} perspective="defender" onDismiss={() => {}} />);
     settle();
     expect(screen.queryByTestId('combat-from-units')).toBeNull();
   });
 
   it('labels a blitz\'s dice as the last roll and its losses as the total', () => {
-    setFlag(true);
     render(
       <CombatResultView
         result={result({ blitz_exchanges: 6, attacker_losses: 3, defender_losses: 5 })}
@@ -107,20 +97,5 @@ describe('battle result armies', () => {
     expect(screen.getByTestId('combat-last-roll').textContent).toBe('Last roll of 6');
     expect(screen.getByText(/3 troops in all/)).toBeTruthy();
     expect(screen.getByText(/5 defenders in all/)).toBeTruthy();
-  });
-
-  it('is the result as before with the flag off', () => {
-    setFlag(false);
-    render(
-      <CombatResultView
-        result={result({ blitz_exchanges: 6, attacker_losses: 3 })}
-        perspective="attacker"
-        onDismiss={() => {}}
-      />,
-    );
-    settle();
-    expect(screen.queryByTestId('combat-from-units')).toBeNull();
-    expect(screen.queryByTestId('combat-last-roll')).toBeNull();
-    expect(screen.queryByText(/in all/)).toBeNull();
   });
 });

@@ -1,19 +1,18 @@
 /**
- * Placement cap note (`placement_cap_note_enabled`): below 50 stability a
+ * Placement cap note: below 50 stability a
  * territory takes only a few units per draft, and every conquered one starts
  * at 30. The panel said "stability cap: 3 more here" at most, and nothing at
- * all in its stability section above 29. With the flag on, it says how many
+ * all in its stability section above 29. Now it says how many
  * more and why where the units are placed.
  */
 import React from 'react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import TerritoryPanel from './TerritoryPanel';
 import { placementCapMessage } from './PlacementCapNote';
 import { useGameStore, type GameState } from '../../store/gameStore';
 import { useUiStore } from '../../store/uiStore';
 import { useAuthStore } from '../../store/authStore';
-import { useFeatureFlagsStore } from '../../store/featureFlagsStore';
 
 const MAP_TERRITORIES = [
   { territory_id: 'home', name: 'Eastern USA', region_id: 'atlantic' },
@@ -62,9 +61,6 @@ function renderPanel() {
   );
 }
 
-const setFlag = (on: boolean) =>
-  useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, placement_cap_note_enabled: on } }));
-
 describe('placement cap note', () => {
   beforeEach(() => {
     // Desktop: the draft section under the territory details.
@@ -76,10 +72,8 @@ describe('placement cap note', () => {
     useUiStore.setState({ selectedTerritory: 'won', attackSource: null, navalSource: null } as never);
   });
 
-  afterEach(() => setFlag(true));
 
   it('says how many more units a newly conquered territory takes, and why', () => {
-    setFlag(true);
     useGameStore.setState({ gameState: draftGame(3), draftUnitsRemaining: 7 } as never);
     renderPanel();
     const note = screen.getByTestId('placement-cap-note');
@@ -93,7 +87,6 @@ describe('placement cap note', () => {
   });
 
   it('says the cap is reached, and where the rest can go', () => {
-    setFlag(true);
     useGameStore.setState({ gameState: draftGame(0), draftUnitsRemaining: 7 } as never);
     renderPanel();
     expect(screen.getByTestId('placement-cap-note')).toHaveTextContent(
@@ -104,7 +97,6 @@ describe('placement cap note', () => {
   });
 
   it('sits under the dial on a phone, so the dial stays above the fold', () => {
-    setFlag(true);
     window.matchMedia = vi.fn().mockReturnValue({
       matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn(),
       addListener: vi.fn(), removeListener: vi.fn(),
@@ -119,25 +111,10 @@ describe('placement cap note', () => {
   });
 
   it('shows nothing on a settled territory', () => {
-    setFlag(true);
     useGameStore.setState({ gameState: draftGame(3), draftUnitsRemaining: 7 } as never);
     useUiStore.setState({ selectedTerritory: 'home' } as never);
     renderPanel();
     expect(screen.queryByTestId('placement-cap-note')).toBeNull();
-  });
-
-  it('is the panel as before with the flag off', () => {
-    setFlag(false);
-    useGameStore.setState({ gameState: draftGame(3), draftUnitsRemaining: 7 } as never);
-    const { unmount } = renderPanel();
-    expect(screen.queryByTestId('placement-cap-note')).toBeNull();
-    expect(screen.getByText(/stability cap: 3 more here/)).toBeTruthy();
-    expect(screen.queryByText(/Unsettled/)).toBeNull();
-    unmount();
-
-    useGameStore.setState({ gameState: draftGame(0), draftUnitsRemaining: 7 } as never);
-    renderPanel();
-    expect(screen.getByText(/Stability cap reached/)).toBeTruthy();
   });
 });
 

@@ -1,7 +1,7 @@
 /**
- * Phone fortify (`phone_fortify_fit_enabled`): at the fixed peek height the
+ * Phone fortify: at the fixed peek height the
  * header, owner and amount dial filled the sheet and the destinations sat below
- * the fold. With the flag on, the peek snap grows to the measured bottom of the
+ * the fold. Now the peek snap grows to the measured bottom of the
  * first destination; off, the sheet is the peek snap it always was.
  */
 import React from 'react';
@@ -12,7 +12,6 @@ import type { SheetSnap } from '../../hooks/useBottomSheetSnap';
 import { useGameStore, type GameState } from '../../store/gameStore';
 import { useUiStore } from '../../store/uiStore';
 import { useAuthStore } from '../../store/authStore';
-import { useFeatureFlagsStore } from '../../store/featureFlagsStore';
 
 const MAP_TERRITORIES = [
   { territory_id: 'home', name: 'Eastern USA', region_id: 'atlantic' },
@@ -63,9 +62,6 @@ function renderPanel(sheetSnap: SheetSnap) {
   return sheet!;
 }
 
-const setFlag = (on: boolean) =>
-  useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, phone_fortify_fit_enabled: on } }));
-
 describe('TerritoryPanel phone fortify fit', () => {
   let rects: ReturnType<typeof vi.spyOn>;
 
@@ -95,29 +91,18 @@ describe('TerritoryPanel phone fortify fit', () => {
 
   afterEach(() => {
     rects.mockRestore();
-    setFlag(true);
     if (width) Object.defineProperty(window, 'innerWidth', width);
     if (height) Object.defineProperty(window, 'innerHeight', height);
   });
 
-  it('grows the peek snap to the first destination row with the flag on', () => {
-    setFlag(true);
+  it('grows the peek snap to the first destination row', () => {
     const sheet = renderPanel('peek');
     expect(sheet.classList.contains('mobile-sheet-fortify-fit')).toBe(true);
     expect(sheet.classList.contains('mobile-sheet-peek')).toBe(false);
     expect(sheet.style.getPropertyValue('--fortify-fit-height')).toBe('312px');
   });
 
-  it('keeps the peek snap exactly as before with the flag off', () => {
-    setFlag(false);
-    const sheet = renderPanel('peek');
-    expect(sheet.classList.contains('mobile-sheet-peek')).toBe(true);
-    expect(sheet.classList.contains('mobile-sheet-fortify-fit')).toBe(false);
-    expect(sheet.style.getPropertyValue('--fortify-fit-height')).toBe('');
-  });
-
   it('leaves a snap the player dragged to alone', () => {
-    setFlag(true);
     const sheet = renderPanel('full');
     expect(sheet.classList.contains('mobile-sheet-full')).toBe(true);
     expect(sheet.classList.contains('mobile-sheet-fortify-fit')).toBe(false);

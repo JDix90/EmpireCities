@@ -1,5 +1,5 @@
 /**
- * Flat map gestures (`map_gestures_v2_enabled`), driven through the canvas's
+ * Flat map gestures, driven through the canvas's
  * pointer events with PixiJS replaced by the shared fake. A pinch used to
  * scale the board around its top-left corner, panning had no bounds, and the
  * first finger of a pinch could complete a double-tap: on a phone the board
@@ -16,7 +16,6 @@ vi.mock('../../hooks/useTerritoryGeoSources', () => ({ useTerritoryGeoSources: (
 import GameMap from './GameMap';
 import { pixi } from '../../test/fakePixi';
 import { useGameStore } from '../../store/gameStore';
-import { useFeatureFlagsStore } from '../../store/featureFlagsStore';
 
 const spaceAge = JSON.parse(readFileSync(resolve(process.cwd(), '../database/maps/era_space_age.json'), 'utf8'));
 
@@ -42,8 +41,7 @@ const onClick = () => {};
 const W = 390;
 const H = 600;
 
-function renderMap(gesturesV2: boolean) {
-  useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, map_gestures_v2_enabled: gesturesV2 } }));
+function renderMap() {
   render(
     <GameMap
       mapData={spaceAge}
@@ -85,11 +83,10 @@ describe('GameMap gestures', () => {
   });
   afterEach(() => {
     act(() => { useGameStore.setState({ gameState: null }); });
-    useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, map_gestures_v2_enabled: true } }));
   });
 
   it('pinch zooms around the point between the fingers', () => {
-    const { view, board } = renderMap(true);
+    const { view, board } = renderMap();
     down(view, 1, 150, 300);
     down(view, 2, 250, 300);
     // Fingers spread to twice the distance, the midpoint drifting right.
@@ -99,17 +96,8 @@ describe('GameMap gestures', () => {
     expect(onScreen(board, { x: 200, y: 300 })).toEqual({ x: 250, y: 300 });
   });
 
-  it('off, pinch scales around the corner as before', () => {
-    const { view, board } = renderMap(false);
-    down(view, 1, 150, 300);
-    down(view, 2, 250, 300);
-    move(view, 2, 350, 300);
-    expect(board.scale.x).toBe(2);
-    expect({ x: board.x, y: board.y }).toEqual({ x: 0, y: 0 });
-  });
-
   it('a fling keeps a strip of land on screen', () => {
-    const { view, board } = renderMap(true);
+    const { view, board } = renderMap();
     down(view, 1, 100, 100);
     move(view, 1, 5000, 5000);
     up(view, 1, 5000, 5000);
@@ -127,15 +115,8 @@ describe('GameMap gestures', () => {
     expect(board.y).toBeGreaterThan(-H);
   });
 
-  it('off, a fling throws the board off-screen as before', () => {
-    const { view, board } = renderMap(false);
-    down(view, 1, 100, 100);
-    move(view, 1, 5000, 5000);
-    expect({ x: board.x, y: board.y }).toEqual({ x: 4900, y: 4900 });
-  });
-
   it('a tap followed by a pinch is not a double-tap', () => {
-    const { view, board } = renderMap(true);
+    const { view, board } = renderMap();
     down(view, 1, 100, 100);
     up(view, 1, 100, 100);
     // The pinch's first finger lands where the tap was, moments later.
@@ -147,16 +128,8 @@ describe('GameMap gestures', () => {
     expect(board.scale.x).toBe(1);
   });
 
-  it('off, the first finger of that pinch zoomed the board 2x', () => {
-    const { view, board } = renderMap(false);
-    down(view, 1, 100, 100);
-    up(view, 1, 100, 100);
-    down(view, 1, 100, 100);
-    expect(board.scale.x).toBe(2);
-  });
-
   it('a double-tap zooms 2x around the tap', () => {
-    const { view, board } = renderMap(true);
+    const { view, board } = renderMap();
     for (let i = 0; i < 2; i++) {
       down(view, 1, 120, 200);
       up(view, 1, 120, 200);
@@ -166,7 +139,7 @@ describe('GameMap gestures', () => {
   });
 
   it('a drag is not half of a double-tap', () => {
-    const { view, board } = renderMap(true);
+    const { view, board } = renderMap();
     down(view, 1, 120, 200);
     move(view, 1, 160, 200);
     up(view, 1, 160, 200);

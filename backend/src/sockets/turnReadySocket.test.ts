@@ -1,8 +1,8 @@
 /**
  * game:turn_ready realigns a turn's clock to the moment the player can act.
  * It counts only in the first 20 seconds of a turn, so a reconnect deep into a
- * turn cannot hand out a fresh clock. With first_turn_clock_wait_enabled a
- * seat's first turn (turn 1) is the exception: the client holds the signal
+ * turn cannot hand out a fresh clock. A seat's first turn (turn 1) is the
+ * exception: the client holds the signal
  * until the game-start briefing closes, however long the player reads it.
  *
  * Redis-gated like the rest of the Redis tier:
@@ -186,12 +186,7 @@ describe.runIf(redisTestEnabled)('game:turn_ready', () => {
     return (await getGameState(gameId))!.turn_started_at;
   }
 
-  function firstTurnWaits(on: boolean): void {
-    adminConfig.setAdminConfigCacheForTests({ feature_flags: { first_turn_clock_wait_enabled: on } });
-  }
-
-  it('starts the first turn\'s clock when the player is ready, however late, with the flag on', async () => {
-    firstTurnWaits(true);
+  it('starts the first turn\'s clock when the player is ready, however late', async () => {
     const gameId = 'turn-ready-first-late';
     const startedAt = await seed(gameId, ['trf-a', 'trf-b'], 1, 90_000);
     const before = Date.now();
@@ -203,7 +198,6 @@ describe.runIf(redisTestEnabled)('game:turn_ready', () => {
   }, 20_000);
 
   it('honours it once: a second signal on the same turn keeps the clock', async () => {
-    firstTurnWaits(true);
     const gameId = 'turn-ready-first-once';
     const startedAt = await seed(gameId, ['tro-a', 'tro-b'], 1, 90_000);
     const first = await ready(gameId, 'tro-a');
@@ -217,22 +211,13 @@ describe.runIf(redisTestEnabled)('game:turn_ready', () => {
     expect((await getGameState(gameId))!.turn_started_at).toBe(first - 60_000);
   }, 20_000);
 
-  it('keeps the 20-second window on later turns, with the flag on', async () => {
-    firstTurnWaits(true);
+  it('keeps the 20-second window on later turns', async () => {
     const gameId = 'turn-ready-later-late';
     const startedAt = await seed(gameId, ['trl-a', 'trl-b'], 2, 90_000);
     expect(await ready(gameId, 'trl-a')).toBe(startedAt);
   }, 20_000);
 
-  it('keeps the 20-second window on the first turn with the flag off', async () => {
-    firstTurnWaits(false);
-    const gameId = 'turn-ready-first-off';
-    const startedAt = await seed(gameId, ['trx-a', 'trx-b'], 1, 90_000);
-    expect(await ready(gameId, 'trx-a')).toBe(startedAt);
-  }, 20_000);
-
-  it('still realigns a signal inside the window, with the flag off', async () => {
-    firstTurnWaits(false);
+  it('realigns a signal inside the window on a later turn', async () => {
     const gameId = 'turn-ready-in-window';
     const startedAt = await seed(gameId, ['trw-a', 'trw-b'], 3, 5_000);
     expect(await ready(gameId, 'trw-a')).toBeGreaterThan(startedAt);

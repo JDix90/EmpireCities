@@ -67,31 +67,10 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // action is done (units placed; an attack made). Fortify keeps its gold.
   // On by default; the admin override is the kill switch.
   first_match_button_emphasis_enabled: () => envOptOut('FIRST_MATCH_BUTTON_EMPHASIS_ENABLED'),
-  // Desktop: the end of the player's own turn adds a "Your turn" row to the
-  // non-blocking recap panel instead of opening the modal "Your Turn
-  // Complete" summary, as phones already do. Every turn on a laptop opened
-  // that modal before the next one could start.
-  // On by default; the admin override is the kill switch.
-  turn_recap_panel_enabled: () => envOptOut('TURN_RECAP_PANEL_ENABLED'),
-  turn_clarity_enabled: () => envOptOut('TURN_CLARITY_ENABLED'),
-  // Flat map gestures: pinch zooms around the point between the fingers (and
-  // the wheel around the cursor) instead of the map's corner, panning keeps
-  // some land on screen, and a pinch never counts towards a double-tap. A pinch
-  // used to slide the board off-screen on a phone, leaving a blank map that
-  // only Reset brought back.
-  // On by default; the admin override is the kill switch.
-  map_gestures_v2_enabled: () => envOptOut('MAP_GESTURES_V2_ENABLED'),
   onboarding_tutorial_first_enabled: () => envOptOut('ONBOARDING_TUTORIAL_FIRST_ENABLED'),
-  // Tutorial card: while its prose has more below the fold, a fade sits above
-  // the buttons. The welcome card was clipped mid-sentence on a 768px laptop,
-  // an iPhone 13 and an SE, and its scrollbar is nearly invisible, so nothing
-  // said there was more to read.
-  // On by default; the admin override is the kill switch.
-  tutorial_card_fade_enabled: () => envOptOut('TUTORIAL_CARD_FADE_ENABLED'),
   // The tutorial's first three action cards (place, attack, fortify) show one step at a time (client-only).
   tutorial_guided_draft_enabled: () => envOptIn('TUTORIAL_GUIDED_DRAFT_ENABLED'),
   hero_single_cta_enabled: () => envOptOut('HERO_SINGLE_CTA_ENABLED'),
-  era_advance_payoff_enabled: () => envOptOut('ERA_ADVANCE_PAYOFF_ENABLED'),
   era_advancement_lobby_enabled: () => envOptOut('ERA_ADVANCEMENT_LOBBY_ENABLED'),
   ranked_era_advancement_enabled: () => envOptIn('RANKED_ERA_ADVANCEMENT_ENABLED'),
   background_music_enabled: () => envOptOut('BACKGROUND_MUSIC_ENABLED'),
@@ -116,13 +95,6 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // instead of "Create free account".
   // On by default; the admin override is the kill switch.
   save_account_copy_enabled: () => envOptOut('SAVE_ACCOUNT_COPY_ENABLED'),
-  // Game results: Rematch and Return to Lobby sit in a footer pinned to the
-  // bottom of the results, instead of below the chart, coaching and guest box
-  // (a scroll on a laptop, five swipes on a phone). And a guest's Return to
-  // Lobby goes straight there: the results already offered saving, so the
-  // signup nudge would be the same ask twice.
-  // On by default; the admin override is the kill switch.
-  results_footer_enabled: () => envOptOut('RESULTS_FOOTER_ENABLED'),
   // Game results lead with the rewards: a level bar that fills and levels up,
   // the medals with their XP, then the territory chart; standings, stats and
   // coaching in tabs below. Dark-launched OFF.
@@ -196,12 +168,6 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // WW2 Manhattan Project (docs/WW2_MANHATTAN_PROJECT.md), Phase 1: hard and
   // expert bots research toward the Atom Bomb and fire it. Dark-launched OFF; baked at create.
   ww2_bomb_ai_enabled: () => envOptIn('WW2_BOMB_AI_ENABLED'),
-  // Friendly guest names: a new guest is named like "SwiftFalcon_48213"
-  // (modules/auth/guestNames.ts) instead of "Guest_" and 8 hex characters,
-  // the name other players see in turn order, battles and results. Applies to
-  // guests created from then on.
-  // On by default; the admin override is the kill switch.
-  friendly_guest_names_enabled: () => envOptOut('FRIENDLY_GUEST_NAMES_ENABLED'),
   // Sessions last 30 days: every session, a guest's and an account's, runs 30
   // days instead of 7, renewed on every visit, so a player who comes back
   // within a month is still signed in.
@@ -274,22 +240,10 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // the translated bundles ship in the client but nobody is routed to them
   // until this is on. Client-only effect.
   localization_enabled: () => envOptIn('LOCALIZATION_ENABLED'),
-  // Touch targets: on a touch screen, small game controls (the tutorial card's
-  // collapse, the sheet's expand, the map reset, territory list and neighbour
-  // rows, the Research button, modal closes) get a 44px touch area. Several
-  // were 20 to 36 px.
-  // On by default; the admin override is the kill switch.
-  touch_targets_enabled: () => envOptOut('TOUCH_TARGETS_ENABLED'),
   // Daily Challenge v2 (docs/DAILY_PUZZLE_V2.md): the daily as a decision
   // puzzle graded by an exact solver. Dark-launched OFF; with it on, a day is
   // v2 only when its set-piece carries a plan and the gate accepted it.
   daily_puzzle_v2_enabled: () => envOptIn('DAILY_PUZZLE_V2_ENABLED'),
-  // First turn clock: a player's first turn starts its clock when they close
-  // the game-start briefing, however long they read it. The ready signal used
-  // to count only in the first 20 seconds, so a slow first read cost turn
-  // time.
-  // On by default; the admin override is the kill switch.
-  first_turn_clock_wait_enabled: () => envOptOut('FIRST_TURN_CLOCK_WAIT_ENABLED'),
   // Store overhaul: every equipped cosmetic shown where players see each
   // other (profiles, matches), and the era sets on sale. The store page, the
   // banner slot and unequipping are the same either way. On by default; the
@@ -300,12 +254,6 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // winnable (scripts/simFirstMatch.ts measured the choice).
   // On by default; the admin override is the kill switch.
   first_match_easy_enabled: () => envOptOut('FIRST_MATCH_EASY_ENABLED'),
-  // While a game's page downloads, the route skeleton says what is happening
-  // ("Setting up your practice match") with a moving bar, and owns up to a
-  // slow connection after a few seconds, instead of grey boxes and the
-  // wordmark: 8 seconds of that on a phone line after Play Free Now.
-  // On by default; the admin override is the kill switch.
-  game_loading_label_enabled: () => envOptOut('GAME_LOADING_LABEL_ENABLED'),
   // A Full Game fits an evening: the lobby defaults it to the 65% ending and
   // caps every ending at 80 rounds instead of 150, where the full-board
   // default ran to the cap in 99% of arena games (scripts/simAiArena.ts,
@@ -328,66 +276,22 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // (never to a brand-new player), after a win and in Settings; and the
   // installed app asks for notifications. Client-only. Dark-launched OFF.
   home_screen_install_enabled: () => envOptIn('HOME_SCREEN_INSTALL_ENABLED'),
-  // Placement cap note: where the player places units on an unsettled
-  // territory (stability under 50), say in words how many more it takes this
-  // turn and why, instead of "stability cap: 3 more here". A just-conquered
-  // territory (stability 30) showed no reason at all.
-  // On by default; the admin override is the kill switch.
-  placement_cap_note_enabled: () => envOptOut('PLACEMENT_CAP_NOTE_ENABLED'),
   // The Custom Game form shows its main choices and folds the rest under
   // Advanced. Layout only: every choice sends what it did. Dark-launched OFF.
   custom_lobby_fold_enabled: () => envOptIn('CUSTOM_LOBBY_FOLD_ENABLED'),
   // The Custom Game form sets a round limit, by default the one Quick Match
   // gives the chosen ending. Dark-launched OFF.
   custom_round_cap_enabled: () => envOptIn('CUSTOM_ROUND_CAP_ENABLED'),
-  // Loss reason: the defeat screen says in one line why the player lost,
-  // from what the game counted (the round their territories fell furthest,
-  // turns ended holding a card set they never traded, units lost to event
-  // cards). Its coaching only ever praised their best moves.
-  // On by default; the admin override is the kill switch.
-  loss_reason_enabled: () => envOptOut('LOSS_REASON_ENABLED'),
   // Mission reveal: a game won by a secret mission (or an alliance mission)
   // shows every player's mission on the game-over screen. The win named the
   // mission only as "Secret Mission completed", never which one.
   // On by default; the admin override is the kill switch.
   mission_reveal_enabled: () => envOptOut('MISSION_REVEAL_ENABLED'),
-  // Translated pages: a page the browser translated no longer crashes when a
-  // label appears or disappears (frontend utils/translationDomGuard.ts).
-  // On by default; the admin override is the kill switch.
-  translation_dom_guard_enabled: () => envOptOut('TRANSLATION_DOM_GUARD_ENABLED'),
-  // Game screen height: the game screen is as tall as what the browser shows
-  // (100dvh) rather than 100vh, which Safari's toolbar can cover the bottom of,
-  // the phone's action bar with it.
-  // On by default; the admin override is the kill switch.
-  game_visible_height_enabled: () => envOptOut('GAME_VISIBLE_HEIGHT_ENABLED'),
-  // Phone tutorial: the era-advance card arrives folded to a strip over an open
-  // tech tree instead of covering the research it asks for, and the economy
-  // and era cards show only their first message on a phone.
-  // On by default; the admin override is the kill switch.
-  tutorial_phone_gate_visible_enabled: () => envOptOut('TUTORIAL_PHONE_GATE_VISIBLE_ENABLED'),
-  // Desktop: during your own draft, with a valid card set in hand, the HUD
-  // shows "Trade 3 cards for +N units" under the units to place. Phones
-  // already badge and open their cards tray.
-  // On by default; the admin override is the kill switch.
-  desktop_card_cue_enabled: () => envOptOut('DESKTOP_CARD_CUE_ENABLED'),
   // Cards explain themselves: the cards tray and the desktop card list mark
   // the cards that make a set, say what the next set pays, dim cards that
   // cannot complete the pick, and offer a one-tap trade; the phone's cards
   // button lights up when a set is ready in the player's draft. Dark-launched OFF.
   card_sets_explain_enabled: () => envOptIn('CARD_SETS_EXPLAIN_ENABLED'),
-  // Battle result: once the dice settle on the player's own attack, each
-  // territory name shows the armies left on it, and a blitz labels its dice
-  // "Last roll" with its losses as the total. The result showed dice and
-  // losses only, and a blitz showed its last exchange's dice under every
-  // exchange's losses.
-  // On by default; the admin override is the kill switch.
-  battle_armies_enabled: () => envOptOut('BATTLE_ARMIES_ENABLED'),
-  // Battle colours by player: a battle result's dice and names take each
-  // player's map colour instead of red for the attacker and blue for the
-  // defender, which read backwards whenever the attacker was blue on the map
-  // and the defender red.
-  // On by default; the admin override is the kill switch.
-  battle_player_colors_enabled: () => envOptOut('BATTLE_PLAYER_COLORS_ENABLED'),
   // Combat explains itself: each attack target shows the chance of taking it,
   // and a battle result shows which dice were compared, that ties go to the
   // defender, and which dice had nothing to face. Dark-launched OFF.
@@ -404,12 +308,6 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // the button can be rolled back on its own.
   // On by default; the admin override is the kill switch.
   first_match_primary_cta_enabled: () => envOptOut('FIRST_MATCH_PRIMARY_CTA_ENABLED'),
-  // Phone fortify: the territory sheet's peek snap grows to show the amount
-  // dial and the first destination row together, measured on the device, up to
-  // the full snap. At the fixed 36vh peek the destinations sat below the fold
-  // and a player had to know to swipe the sheet up.
-  // On by default; the admin override is the kill switch.
-  phone_fortify_fit_enabled: () => envOptOut('PHONE_FORTIFY_FIT_ENABLED'),
   // Phone sheet fit: the territory sheet grows to show its main action — the
   // Place button while reinforcing, the first target row while attacking —
   // measured on the device, up to the full snap. On a 664px-tall phone the
@@ -440,7 +338,7 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   first_match_fair_start_enabled: () => envOptOut('FIRST_MATCH_FAIR_START_ENABLED'),
   // Loss reasons for how the player played: "you never attacked", "you rarely
   // attacked", "the clock ended your turns", from tallies the server now keeps
-  // (state/lossTally.ts). Rides on loss_reason_enabled.
+  // (state/lossTally.ts). Adds to the defeat screen's one-line loss reason.
   // On by default; the admin override is the kill switch.
   loss_reason_play_enabled: () => envOptOut('LOSS_REASON_PLAY_ENABLED'),
   // Placement games: a player's first five rated games of a kind show
@@ -505,11 +403,6 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // seat with three or more, instead of always to the host's. Baked at create.
   // Dark-launched OFF.
   even_deal_enabled: () => envOptIn('EVEN_DEAL_ENABLED'),
-  // In-game mute: a "Sound and music" switch in the HUD's Tools & options,
-  // which the phone menu shares, muting both at once. Music starts on the
-  // first tap and the only mutes were on the Settings page.
-  // On by default; the admin override is the kill switch.
-  in_game_mute_enabled: () => envOptOut('IN_GAME_MUTE_ENABLED'),
 };
 
 /** The code default for one flag (no admin override consulted). */
@@ -674,35 +567,6 @@ export const featureFlags = {
   },
 
   /**
-   * Desktop own-turn recap: a "Your turn" row in the non-blocking recap panel
-   * (AiTurnRecapPanel) instead of the modal turn summary.
-   * Default ON; `TURN_RECAP_PANEL_ENABLED=false` or the admin override turns it off.
-   */
-  get turnRecapPanelEnabled(): boolean {
-    return overrideBool('turn_recap_panel_enabled');
-  },
-
-  /**
-   * When true, the in-game "turn clarity" affordances are shown: the persistent
-   * phase-progression bar, valid source/target highlighting, and reinforcement
-   * undo. Purely presentational/quality-of-life; the server stays authoritative.
-   * Default ON.
-   */
-  get turnClarityEnabled(): boolean {
-    return overrideBool('turn_clarity_enabled');
-  },
-
-  /**
-   * Flat map gestures v2 (GameMap): zoom around the two-finger midpoint or the
-   * cursor, bounded panning, and double-tap measured on taps only, in canvas
-   * coordinates.
-   * Default ON; `MAP_GESTURES_V2_ENABLED=false` or the admin override turns it off.
-   */
-  get mapGesturesV2Enabled(): boolean {
-    return overrideBool('map_gestures_v2_enabled');
-  },
-
-  /**
    * When true, the landing page's "Play as Guest" CTA drops a brand-new guest
    * straight into the guided tutorial match (/tutorial?start=1) instead of the
    * lobby — collapsing landing → lobby → welcome-modal → tutorial into one click.
@@ -710,15 +574,6 @@ export const featureFlags = {
    */
   get onboardingTutorialFirstEnabled(): boolean {
     return overrideBool('onboarding_tutorial_first_enabled');
-  },
-
-  /**
-   * Tutorial card fade (TutorialOverlay): a fade above the buttons while the
-   * card's scrolling prose has more below the fold.
-   * Default ON; `TUTORIAL_CARD_FADE_ENABLED=false` or the admin override turns it off.
-   */
-  get tutorialCardFadeEnabled(): boolean {
-    return overrideBool('tutorial_card_fade_enabled');
   },
 
   /**
@@ -746,16 +601,6 @@ export const featureFlags = {
    */
   get heroSingleCtaEnabled(): boolean {
     return overrideBool('hero_single_cta_enabled');
-  },
-
-  /**
-   * When true, advancing an era shows the advancing player a "payoff" moment —
-   * a celebratory modal naming the era entered, the newly-unlocked signature
-   * ability, the legacy carry, and the vulnerability window — instead of just a
-   * toast. Client-side only (era advancement itself is unchanged). Default ON.
-   */
-  get eraAdvancePayoffEnabled(): boolean {
-    return overrideBool('era_advance_payoff_enabled');
   },
 
   /**
@@ -815,15 +660,6 @@ export const featureFlags = {
    */
   get saveAccountCopyEnabled(): boolean {
     return overrideBool('save_account_copy_enabled');
-  },
-
-  /**
-   * Game results: Rematch and Return to Lobby pinned in a footer, and no
-   * signup nudge on a guest's Return to Lobby after the results offered saving.
-   * Default ON; `RESULTS_FOOTER_ENABLED=false` or the admin override turns it off.
-   */
-  get resultsFooterEnabled(): boolean {
-    return overrideBool('results_footer_enabled');
   },
 
   /**
@@ -946,16 +782,6 @@ export const featureFlags = {
   },
 
   /**
-   * First turn clock: on turn 1, the server honours a seat's `game:turn_ready`
-   * whenever it arrives, and the HUD holds the countdown while the game-start
-   * briefing is open (GameStartModal).
-   * Default ON; `FIRST_TURN_CLOCK_WAIT_ENABLED=false` or the admin override turns it off.
-   */
-  get firstTurnClockWaitEnabled(): boolean {
-    return overrideBool('first_turn_clock_wait_enabled');
-  },
-
-  /**
    * A player's first Quick Match — no finished game yet — is one Easy bot on
    * Great Britain 925. The client builds that game; the server only keeps the
    * game's `first_match` tag, and only while this is on. Default ON;
@@ -963,36 +789,6 @@ export const featureFlags = {
    */
   get firstMatchEasyEnabled(): boolean {
     return overrideBool('first_match_easy_enabled');
-  },
-
-  /**
-   * Game loading label: the route skeleton on /tutorial and /game/ names the
-   * match being set up and shows a moving bar (components/ui/GameLoadingFallback).
-   * Default ON; `GAME_LOADING_LABEL_ENABLED=false` or the admin override turns it off.
-   */
-  get gameLoadingLabelEnabled(): boolean {
-    return overrideBool('game_loading_label_enabled');
-  },
-
-  /**
-   * Phone tutorial over a full-screen panel: a card marked `arrivesFoldedOverPanel`
-   * arrives as the one-line strip that names its action, so the tech tree's
-   * research buttons stay in view; cards marked `phoneBrief` drop their detail,
-   * hint and "why this matters" on a phone.
-   * Default ON; `TUTORIAL_PHONE_GATE_VISIBLE_ENABLED=false` or the admin override turns it off.
-   */
-  get tutorialPhoneGateVisibleEnabled(): boolean {
-    return overrideBool('tutorial_phone_gate_visible_enabled');
-  },
-
-  /**
-   * Desktop HUD: during the player's own draft, with a valid territory-card set
-   * in hand, a one-click "Trade 3 cards for +N units" button sits under the
-   * units to place. The redemption and its rules are unchanged.
-   * Default ON; `DESKTOP_CARD_CUE_ENABLED=false` or the admin override turns it off.
-   */
-  get desktopCardCueEnabled(): boolean {
-    return overrideBool('desktop_card_cue_enabled');
   },
 
   /**
@@ -1008,24 +804,6 @@ export const featureFlags = {
    */
   get cardSetsExplainEnabled(): boolean {
     return overrideBool('card_sets_explain_enabled');
-  },
-
-  /**
-   * Battle result (CombatResultView): armies left beside both territory names on
-   * the player's own attack, and a blitz's dice labelled as its last roll.
-   * Default ON; `BATTLE_ARMIES_ENABLED=false` or the admin override turns it off.
-   */
-  get battleArmiesEnabled(): boolean {
-    return overrideBool('battle_armies_enabled');
-  },
-
-  /**
-   * Battle colours by player: dice and names in a battle result
-   * (ActionModal CombatResultView) use each player's map colour.
-   * Default ON; `BATTLE_PLAYER_COLORS_ENABLED=false` or the admin override turns it off.
-   */
-  get battlePlayerColorsEnabled(): boolean {
-    return overrideBool('battle_player_colors_enabled');
   },
 
   /**
@@ -1059,15 +837,6 @@ export const featureFlags = {
    */
   get firstMatchPrimaryCtaEnabled(): boolean {
     return overrideBool('first_match_primary_cta_enabled');
-  },
-
-  /**
-   * Phone fortify: the territory sheet grows to fit the amount dial and the
-   * first destination row together (TerritoryPanel), capped at the full snap.
-   * Default ON; `PHONE_FORTIFY_FIT_ENABLED=false` or the admin override turns it off.
-   */
-  get phoneFortifyFitEnabled(): boolean {
-    return overrideBool('phone_fortify_fit_enabled');
   },
 
   /**
@@ -1121,8 +890,8 @@ export const featureFlags = {
   /**
    * Loss reasons for how the player played (frontend utils/lossReason.ts):
    * never or rarely attacking, and turns the clock ended. Read by the client
-   * alongside `loss_reason_enabled`. Default ON; `LOSS_REASON_PLAY_ENABLED=false`
-   * or the admin override turns it off.
+   * for the defeat screen's loss reason line. Default ON;
+   * `LOSS_REASON_PLAY_ENABLED=false` or the admin override turns it off.
    */
   get lossReasonPlayEnabled(): boolean {
     return overrideBool('loss_reason_play_enabled');
@@ -1305,15 +1074,6 @@ export const featureFlags = {
   },
 
   /**
-   * In-game mute: one "Sound and music" switch in the HUD's Tools & options
-   * (desktop and the phone menu), over the Settings page's two mutes.
-   * Default ON; `IN_GAME_MUTE_ENABLED=false` or the admin override turns it off.
-   */
-  get inGameMuteEnabled(): boolean {
-    return overrideBool('in_game_mute_enabled');
-  },
-
-  /**
    * A Full Game fits an evening: the lobby's Full Game defaults to the 65%
    * ending for a player with no setup of their own, and caps every ending at
    * 80 rounds instead of 150. The client builds the game; nothing else changes.
@@ -1356,15 +1116,6 @@ export const featureFlags = {
   },
 
   /**
-   * Placement cap note: explains the stability deploy cap where units are placed
-   * (components/game/PlacementCapNote.tsx in the territory panel).
-   * Default ON; `PLACEMENT_CAP_NOTE_ENABLED=false` or the admin override turns it off.
-   */
-  get placementCapNoteEnabled(): boolean {
-    return overrideBool('placement_cap_note_enabled');
-  },
-
-  /**
    * The Custom Game form shows the main choices (era, bots, timer, victory)
    * and folds the rest under Advanced, which opens by itself when anything
    * inside it is set. Layout only: the game created is the same.
@@ -1389,15 +1140,6 @@ export const featureFlags = {
   },
 
   /**
-   * Loss reason: one "Why you lost" line on the defeat screen, from the per-player
-   * tallies in game-engine/state/lossTally.ts (frontend utils/lossReason.ts).
-   * Default ON; `LOSS_REASON_ENABLED=false` or the admin override turns it off.
-   */
-  get lossReasonEnabled(): boolean {
-    return overrideBool('loss_reason_enabled');
-  },
-
-  /**
    * Mission reveal: a game won by a secret mission or an alliance mission lists
    * every player's mission on the game-over screen, from `secret_mission` on
    * each player in the game-over stats. Client-only.
@@ -1405,29 +1147,6 @@ export const featureFlags = {
    */
   get missionRevealEnabled(): boolean {
     return overrideBool('mission_reveal_enabled');
-  },
-
-  /**
-   * Translated pages: the client absorbs the DOM calls React makes on text a
-   * browser's translator replaced, instead of falling to its error screen
-   * (frontend utils/translationDomGuard.ts). Default ON;
-   * `TRANSLATION_DOM_GUARD_ENABLED=false` or the admin override turns it off,
-   * and those calls throw as they always did.
-   */
-  get translationDomGuardEnabled(): boolean {
-    return overrideBool('translation_dom_guard_enabled');
-  },
-
-  /**
-   * Game screen height: the game page is sized to the visible screen (100dvh)
-   * instead of 100vh, the height with Safari's toolbar hidden, which put the
-   * phone's action bar under the toolbar when it showed. The replay page reads
-   * it too, for its playback controls. Client-only. Default
-   * ON; `GAME_VISIBLE_HEIGHT_ENABLED=false` or the admin override turns it off,
-   * and the page is 100vh as before.
-   */
-  get gameVisibleHeightEnabled(): boolean {
-    return overrideBool('game_visible_height_enabled');
   },
 
   /**
@@ -1884,15 +1603,6 @@ export const featureFlags = {
   },
 
   /**
-   * Friendly guest names: POST /api/auth/guest names a new guest with an
-   * adjective, an animal and five digits (modules/auth/guestNames.ts).
-   * Default ON; `FRIENDLY_GUEST_NAMES_ENABLED=false` or the admin override turns it off.
-   */
-  get friendlyGuestNamesEnabled(): boolean {
-    return overrideBool('friendly_guest_names_enabled');
-  },
-
-  /**
    * Sessions last 30 days: the refresh token, its refresh_tokens row and the
    * cookie last 30 days instead of 7 for every session the auth routes issue
    * (guest, register, upgrade, login, sign-in link) and every refresh renews them.
@@ -2280,15 +1990,6 @@ export const featureFlags = {
   get localizationEnabled(): boolean {
     return overrideBool('localization_enabled');
   },
-
-  /**
-   * Touch targets: a 44px minimum touch area for small game controls on touch
-   * screens (`.tap-target` and `.tap-min` in index.css, under `data-touch-targets`).
-   * Default ON; `TOUCH_TARGETS_ENABLED=false` or the admin override turns it off.
-   */
-  get touchTargetsEnabled(): boolean {
-    return overrideBool('touch_targets_enabled');
-  },
 };
 
 /** Client-safe flags exposed on GET /api/feature-flags (no secrets). */
@@ -2310,19 +2011,13 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     first_match_ladder_enabled: featureFlags.firstMatchLadderEnabled,
     first_match_ladder_maps_enabled: featureFlags.firstMatchLadderMapsEnabled,
     first_match_button_emphasis_enabled: featureFlags.firstMatchButtonEmphasisEnabled,
-    turn_recap_panel_enabled: featureFlags.turnRecapPanelEnabled,
-    turn_clarity_enabled: featureFlags.turnClarityEnabled,
-    map_gestures_v2_enabled: featureFlags.mapGesturesV2Enabled,
     onboarding_tutorial_first_enabled: featureFlags.onboardingTutorialFirstEnabled,
-    tutorial_card_fade_enabled: featureFlags.tutorialCardFadeEnabled,
     tutorial_guided_draft_enabled: featureFlags.tutorialGuidedDraftEnabled,
     hero_single_cta_enabled: featureFlags.heroSingleCtaEnabled,
-    era_advance_payoff_enabled: featureFlags.eraAdvancePayoffEnabled,
     signup_nudge_enabled: featureFlags.signupNudgeEnabled,
     email_account_save_enabled: featureFlags.emailAccountSaveEnabled,
     guest_prompt_v2_enabled: featureFlags.guestPromptV2Enabled,
     save_account_copy_enabled: featureFlags.saveAccountCopyEnabled,
-    results_footer_enabled: featureFlags.resultsFooterEnabled,
     results_rewards_first_enabled: featureFlags.resultsRewardsFirstEnabled,
     ranked_leaderboard_enabled: featureFlags.rankedLeaderboardEnabled,
     referral_survey_enabled: featureFlags.referralSurveyEnabled,
@@ -2359,32 +2054,21 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     guest_account_deletion_enabled: featureFlags.guestAccountDeletionEnabled,
     sign_in_code_enabled: featureFlags.signInCodeEnabled,
     localization_enabled: featureFlags.localizationEnabled,
-    touch_targets_enabled: featureFlags.touchTargetsEnabled,
     daily_puzzle_v2_enabled: featureFlags.dailyPuzzleV2Enabled,
-    first_turn_clock_wait_enabled: featureFlags.firstTurnClockWaitEnabled,
     store_v2_enabled: featureFlags.storeV2Enabled,
     first_match_easy_enabled: featureFlags.firstMatchEasyEnabled,
-    game_loading_label_enabled: featureFlags.gameLoadingLabelEnabled,
-    tutorial_phone_gate_visible_enabled: featureFlags.tutorialPhoneGateVisibleEnabled,
-    desktop_card_cue_enabled: featureFlags.desktopCardCueEnabled,
     card_sets_explain_enabled: featureFlags.cardSetsExplainEnabled,
-    battle_armies_enabled: featureFlags.battleArmiesEnabled,
-    battle_player_colors_enabled: featureFlags.battlePlayerColorsEnabled,
     combat_explain_enabled: featureFlags.combatExplainEnabled,
     tutorial_wrapup_to_match_enabled: featureFlags.tutorialWrapupToMatchEnabled,
     first_match_primary_cta_enabled: featureFlags.firstMatchPrimaryCtaEnabled,
-    phone_fortify_fit_enabled: featureFlags.phoneFortifyFitEnabled,
     phone_sheet_fit_enabled: featureFlags.phoneSheetFitEnabled,
     phone_turn_countdown_enabled: featureFlags.phoneTurnCountdownEnabled,
     solo_untimed_enabled: featureFlags.soloUntimedEnabled,
-    in_game_mute_enabled: featureFlags.inGameMuteEnabled,
     full_game_evening_enabled: featureFlags.fullGameEveningEnabled,
     full_game_ages_ending_enabled: featureFlags.fullGameAgesEndingEnabled,
     home_screen_install_enabled: featureFlags.homeScreenInstallEnabled,
-    placement_cap_note_enabled: featureFlags.placementCapNoteEnabled,
     custom_lobby_fold_enabled: featureFlags.customLobbyFoldEnabled,
     custom_round_cap_enabled: featureFlags.customRoundCapEnabled,
-    loss_reason_enabled: featureFlags.lossReasonEnabled,
     loss_reason_play_enabled: featureFlags.lossReasonPlayEnabled,
     results_action_events_enabled: featureFlags.resultsActionEventsEnabled,
     funnel_events_v2_enabled: featureFlags.funnelEventsV2Enabled,
@@ -2399,8 +2083,6 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     overlay_queue_enabled: featureFlags.overlayQueueEnabled,
     comeback_hook_enabled: featureFlags.comebackHookEnabled,
     mission_reveal_enabled: featureFlags.missionRevealEnabled,
-    translation_dom_guard_enabled: featureFlags.translationDomGuardEnabled,
-    game_visible_height_enabled: featureFlags.gameVisibleHeightEnabled,
     // Read by the Custom Game form to say whether a Space Age game can also be
     // won on the Moon (the Lunar Hegemony rides with the Moon Race).
     space_age_moon_race_enabled: featureFlags.spaceAgeMoonRaceEnabled,

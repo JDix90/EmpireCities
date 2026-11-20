@@ -45,7 +45,6 @@ import {
   nextTimeLapseIndex,
 } from '../utils/replayTimeLapse';
 import { isMobileViewport, isPhoneLayout, prefersReducedMotion } from '../utils/device';
-import { useGameVisibleHeightEnabled } from '../store/featureFlagsStore';
 import {
   distinctHighlights,
   nextReplaySpeed,
@@ -208,9 +207,8 @@ export default function ReplayPage() {
     window.addEventListener('resize', sync);
     return () => window.removeEventListener('resize', sync);
   }, []);
-  // The page as tall as what the browser shows, on the game page's switch:
-  // under 100vh a phone's playback controls sat behind Safari's toolbar.
-  const visibleHeight = useGameVisibleHeightEnabled();
+  // The page is as tall as what the browser shows (h-visible), like the game
+  // page: under 100vh a phone's playback controls sat behind Safari's toolbar.
   // The tips list opens with the page on a desktop, beside the map. On a phone
   // it would take the map's place, and each tip still surfaces on its own as
   // playback reaches its turn.
@@ -914,7 +912,7 @@ export default function ReplayPage() {
     );
 
   return (
-    <div className={clsx(visibleHeight ? 'h-visible' : 'h-screen', 'overflow-hidden bg-bf-dark flex flex-col')}>
+    <div className="h-visible overflow-hidden bg-bf-dark flex flex-col">
       {/* Top bar. A phone gets one row of icons: the desktop row ran off the
           right edge, its labels wrapping to three lines each. */}
       {phoneLayout ? (

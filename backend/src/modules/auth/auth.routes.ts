@@ -443,13 +443,8 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   // ── POST /api/auth/guest ─────────────────────────────────────────────────
   /**
    * Short-lived session without refresh token; creates a minimal `users` row
-   * for FK integrity. Guest username uses an 8-hex slice of the user id to
-   * keep the chance of a collision with another active guest astronomically
-   * small (16⁸ ≈ 4.3B values vs the ~9k of the previous Math.random scheme,
-   * which collided in production and broke registration).
-   *
-   * With friendly_guest_names_enabled the name is "SwiftFalcon_48213" instead
-   * (guestNames.ts: 90M names, so the same retry covers a collision).
+   * for FK integrity. The guest's name is one like "SwiftFalcon_48213"
+   * (guestNames.ts: 90M names).
    *
    * In the unlikely case of a collision, we retry with a fresh user id; the
    * `users.username` column has a UNIQUE constraint that turns the race into
@@ -465,9 +460,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     let username: string | null = null;
     for (let attempt = 0; attempt < 5; attempt++) {
       const candidateId = uuidv4();
-      const candidateUsername = featureFlags.friendlyGuestNamesEnabled
-        ? friendlyGuestName()
-        : `Guest_${candidateId.slice(0, 8)}`;
+      const candidateUsername = friendlyGuestName();
       const email = `${candidateId}@guest.local`;
       const inserted = await queryOne<{ user_id: string }>(
         `INSERT INTO users (user_id, username, email, password_hash, is_guest)

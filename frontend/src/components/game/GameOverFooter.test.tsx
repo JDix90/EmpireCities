@@ -1,14 +1,13 @@
 /**
- * Game results (`results_footer_enabled`): Rematch and Return to Lobby used to
+ * Game results: Rematch and Return to Lobby used to
  * sit below the chart, coaching and guest box, a scroll on a laptop and five
- * swipes on a phone. With the flag on they sit in a footer pinned to the
+ * swipes on a phone. Now they sit in a footer pinned to the
  * bottom of the results; off, they stay where they were.
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import ActionModal, { type GameOverModalData } from './ActionModal';
 import { useAuthStore } from '../../store/authStore';
-import { useFeatureFlagsStore } from '../../store/featureFlagsStore';
 
 function gameOver(overrides: Partial<GameOverModalData> = {}): GameOverModalData {
   return {
@@ -28,9 +27,6 @@ function gameOver(overrides: Partial<GameOverModalData> = {}): GameOverModalData
   } as GameOverModalData;
 }
 
-const setFlag = (on: boolean) =>
-  useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, results_footer_enabled: on } }));
-
 describe('game results footer', () => {
   beforeEach(() => {
     window.matchMedia = vi.fn().mockReturnValue({
@@ -42,10 +38,8 @@ describe('game results footer', () => {
       isAuthenticated: true,
     });
   });
-  afterEach(() => setFlag(true));
 
-  it('pins Rematch and Return to Lobby in the footer with the flag on', () => {
-    setFlag(true);
+  it('pins Rematch and Return to Lobby in the footer', () => {
     const onDismiss = vi.fn();
     const onRematch = vi.fn();
     render(<ActionModal data={gameOver()} onDismiss={onDismiss} onRematch={onRematch} onUpgradeAccount={() => {}} />);
@@ -60,13 +54,5 @@ describe('game results footer', () => {
     // The secondary actions stay in the results.
     expect(within(footer).queryByRole('button', { name: /Share/ })).toBeNull();
     expect(screen.getByRole('button', { name: /Share/ })).toBeTruthy();
-  });
-
-  it('keeps the buttons where they were with the flag off', () => {
-    setFlag(false);
-    render(<ActionModal data={gameOver()} onDismiss={() => {}} onRematch={() => {}} onUpgradeAccount={() => {}} />);
-    expect(screen.queryByTestId('gameover-footer')).toBeNull();
-    expect(screen.getAllByRole('button', { name: /Return to Lobby/ })).toHaveLength(1);
-    expect(screen.getAllByRole('button', { name: /Rematch/ })).toHaveLength(1);
   });
 });

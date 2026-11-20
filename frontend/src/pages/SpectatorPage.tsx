@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Eye, Users, Globe as GlobeIcon, Map as MapIcon, MessageCircle, Orbit, X } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuthStore } from '../store/authStore';
-import { useFeatureFlagsStore, useGameVisibleHeightEnabled, useSpectateEnabled } from '../store/featureFlagsStore';
+import { useFeatureFlagsStore, useSpectateEnabled } from '../store/featureFlagsStore';
 import { useGameStore } from '../store/gameStore';
 import { connectSocket, getSocket } from '../services/socket';
 import { api } from '../services/api';
@@ -162,8 +162,7 @@ export default function SpectatorPage() {
     window.addEventListener('resize', sync);
     return () => window.removeEventListener('resize', sync);
   }, []);
-  // As tall as what the browser shows, on the game page's switch.
-  const visibleHeight = useGameVisibleHeightEnabled();
+  // As tall as what the browser shows (h-visible), like the game page.
   // On a phone the chat opens under the map from the bottom bar. It stays
   // mounted while closed, so the messages it collects are there when it opens,
   // and the button counts the ones that arrived meanwhile.
@@ -610,7 +609,7 @@ export default function SpectatorPage() {
 
   if (phoneLayout) {
     return (
-      <div className={clsx(visibleHeight ? 'h-visible' : 'h-screen', 'overflow-hidden bg-bf-dark flex flex-col')}>
+      <div className="h-visible overflow-hidden bg-bf-dark flex flex-col">
         {/* One row: the desktop bar's three groups ran off the right edge. */}
         <div className="shrink-0 flex items-center gap-2 px-3 pt-safe-2 pb-2 border-b border-bf-border bg-bf-surface/50">
           <Link

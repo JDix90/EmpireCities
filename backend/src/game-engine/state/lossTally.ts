@@ -3,7 +3,7 @@ import { findRedeemableCardIds } from './gameStateManager';
 
 /**
  * Running tallies the defeat screen reads to say why a player lost
- * (`loss_reason_enabled`, frontend utils/lossReason.ts): units lost to event
+ * (frontend utils/lossReason.ts): units lost to event
  * cards, turns that began with a tradeable card set and ended without trading
  * it, the round the player's territory count fell furthest in, and turns
  * taken, turns with an attack in them and turns the clock ended. They are

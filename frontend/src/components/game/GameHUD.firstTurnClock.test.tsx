@@ -1,5 +1,5 @@
 /**
- * First turn clock (`first_turn_clock_wait_enabled`): the first turn starts its
+ * First turn clock: the first turn starts its
  * clock when the game-start briefing closes (the server honours that ready
  * signal however late on turn 1), so the HUD holds the countdown at the full
  * turn while the briefing is open, instead of counting down behind it.
@@ -11,7 +11,6 @@ import { MemoryRouter } from 'react-router-dom';
 import GameHUD from './GameHUD';
 import { useGameStore, type GameState } from '../../store/gameStore';
 import { useAuthStore } from '../../store/authStore';
-import { useFeatureFlagsStore } from '../../store/featureFlagsStore';
 
 vi.mock('../../services/socket', () => ({
   getSocket: () => ({ on: vi.fn(), off: vi.fn(), emit: vi.fn() }),
@@ -56,9 +55,6 @@ function hud(startBriefingOpen: boolean) {
 
 const clock = () => screen.getByText(/^\d+:\d\d$/).textContent;
 
-const setFlag = (on: boolean) =>
-  useFeatureFlagsStore.setState((s) => ({ flags: { ...s.flags, first_turn_clock_wait_enabled: on } }));
-
 describe('the first turn clock', () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
@@ -72,12 +68,10 @@ describe('the first turn clock', () => {
 
   afterEach(() => {
     cleanup();
-    setFlag(true);
     vi.useRealTimers();
   });
 
   it('holds at the full turn while the briefing is open on the player\'s first turn', () => {
-    setFlag(true);
     render(hud(true));
     expect(clock()).toBe('5:00');
     act(() => { vi.advanceTimersByTime(3_000); });
@@ -85,7 +79,6 @@ describe('the first turn clock', () => {
   });
 
   it('counts down once the briefing closes', () => {
-    setFlag(true);
     const { rerender } = render(hud(true));
     rerender(hud(false));
     expect(clock()).toBe('4:20');
@@ -94,7 +87,6 @@ describe('the first turn clock', () => {
   });
 
   it('counts down on a later turn, and on someone else\'s first turn', () => {
-    setFlag(true);
     useGameStore.setState({ gameState: makeState({ turn_number: 2 }) } as never);
     const { unmount } = render(hud(true));
     expect(clock()).toBe('4:20');
@@ -103,13 +95,5 @@ describe('the first turn clock', () => {
     useGameStore.setState({ gameState: makeState({ current_player_index: 1 }) } as never);
     render(hud(true));
     expect(clock()).toBe('4:20');
-  });
-
-  it('counts down behind the briefing as before with the flag off', () => {
-    setFlag(false);
-    render(hud(true));
-    expect(clock()).toBe('4:20');
-    act(() => { vi.advanceTimersByTime(3_000); });
-    expect(clock()).toBe('4:17');
   });
 });
