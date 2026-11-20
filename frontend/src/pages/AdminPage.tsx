@@ -204,13 +204,13 @@ const CLIENT_FEATURE_FLAGS = [
     key: 'lobby_new_player_gate_enabled',
     label: 'Lobby: Getting Started only for new players',
     description:
-      'The lobby\u2019s new-player layout goes only to a player with no XP: the Getting Started block (tutorial, Quick Match, Daily Challenge), with the Daily Challenge row beside it held back. It went to every player at any XP, because the check read an onboarding counter the server always sends. With this on, a player who has finished a game gets the regular lobby, Daily Challenge row included. Off by default; off, the lobby is exactly as before.',
+      'The lobby\u2019s new-player layout goes only to a player with no XP: the Getting Started block (tutorial, Quick Match, Daily Challenge), with the Daily Challenge row beside it held back. It went to every player at any XP, because the check read an onboarding counter the server always sends. With this on, a player who has finished a game gets the regular lobby, Daily Challenge row included. On by default; off, the lobby is exactly as before.',
   },
   {
     key: 'quest_banner_skip_enabled',
     label: 'Lobby: \u201cSkip all\u201d on the quest banner sticks',
     description:
-      '\u201cSkip all\u201d on the lobby\u2019s Getting Started quest banner hides it for good. The server refused the skip for every player (it asked for an onboarding stage that nothing sets), so the banner came back on the next visit, and with Lobby clean-up on the button did nothing at all. With this on, any signed-in player, guests included, can skip; the server remembers it and the lobby keeps the banner away. Skipping only hides the banner: the quests still complete and pay their gold as the player does them. Off by default; off, all as before.',
+      '\u201cSkip all\u201d on the lobby\u2019s Getting Started quest banner hides it for good. The server refused the skip for every player (it asked for an onboarding stage that nothing sets), so the banner came back on the next visit, and with Lobby clean-up on the button did nothing at all. With this on, any signed-in player, guests included, can skip; the server remembers it and the lobby keeps the banner away. Skipping only hides the banner: the quests still complete and pay their gold as the player does them. On by default; off, all as before.',
   },
   {
     key: 'overlay_queue_enabled',
