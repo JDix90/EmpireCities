@@ -673,20 +673,20 @@ describe('featureFlags', () => {
     expect(getClientFeatureFlags().early_access_count_enabled).toBe(true);
   });
 
-  it('lobby_new_player_gate_enabled defaults to off and the admin override turns it on', () => {
-    expect(featureFlags.lobbyNewPlayerGateEnabled).toBe(false);
-    expect(getClientFeatureFlags().lobby_new_player_gate_enabled).toBe(false);
-    setAdminConfigCacheForTests({ feature_flags: { lobby_new_player_gate_enabled: true } });
+  it('lobby_new_player_gate_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.lobbyNewPlayerGateEnabled).toBe(true);
     expect(getClientFeatureFlags().lobby_new_player_gate_enabled).toBe(true);
+    setAdminConfigCacheForTests({ feature_flags: { lobby_new_player_gate_enabled: false } });
+    expect(featureFlags.lobbyNewPlayerGateEnabled).toBe(false);
+    expect(getClientFeatureFlags().lobby_new_player_gate_enabled).toBe(false);
   });
 
-  it('quest_banner_skip_enabled defaults to off and the admin override turns it on', () => {
-    expect(featureFlags.questBannerSkipEnabled).toBe(false);
-    expect(getClientFeatureFlags().quest_banner_skip_enabled).toBe(false);
-    setAdminConfigCacheForTests({ feature_flags: { quest_banner_skip_enabled: true } });
+  it('quest_banner_skip_enabled defaults to on and the admin override is its kill switch', () => {
     expect(featureFlags.questBannerSkipEnabled).toBe(true);
     expect(getClientFeatureFlags().quest_banner_skip_enabled).toBe(true);
+    setAdminConfigCacheForTests({ feature_flags: { quest_banner_skip_enabled: false } });
+    expect(featureFlags.questBannerSkipEnabled).toBe(false);
+    expect(getClientFeatureFlags().quest_banner_skip_enabled).toBe(false);
   });
 
   it('even_deal_enabled defaults to off, reaches the client, and the admin override turns it on', () => {

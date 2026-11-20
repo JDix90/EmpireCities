@@ -471,12 +471,14 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // The lobby's new-player layout (the Getting Started block, no Daily
   // Challenge row beside it) goes only to a player with no XP. It went to
   // every player, because the check read users.onboarding_stage, which the
-  // server always sends as a number. Dark-launched OFF.
-  lobby_new_player_gate_enabled: () => envOptIn('LOBBY_NEW_PLAYER_GATE_ENABLED'),
+  // server always sends as a number. On by default; the kill switch puts the
+  // old check back.
+  lobby_new_player_gate_enabled: () => envOptOut('LOBBY_NEW_PLAYER_GATE_ENABLED'),
   // "Skip all" on the lobby's Getting Started quest banner sticks. The route
   // refused every player (it wanted a stage nothing sets), so the banner came
-  // back on the next load. Dark-launched OFF.
-  quest_banner_skip_enabled: () => envOptIn('QUEST_BANNER_SKIP_ENABLED'),
+  // back on the next load. On by default; the kill switch puts the route's
+  // refusal back.
+  quest_banner_skip_enabled: () => envOptOut('QUEST_BANNER_SKIP_ENABLED'),
   // One overlay at a time in a game: the intro or briefing alone, then the
   // first-turn coach, then the era banner; the era banner off the tutorial
   // card but for its era steps; the surrender offer in the strip above the
@@ -1201,8 +1203,8 @@ export const featureFlags = {
    * see quest_banner_skip_enabled), so `onboarding_stage < 3` would be true
    * for every player who has not pressed it.
    * Client-only; the server changes nothing.
-   * Default OFF; `LOBBY_NEW_PLAYER_GATE_ENABLED=true` or the admin override
-   * turns it on. Off, the lobby is as before.
+   * Default ON; `LOBBY_NEW_PLAYER_GATE_ENABLED=false` or the admin override is
+   * the kill switch. Off, the lobby is as before.
    */
   get lobbyNewPlayerGateEnabled(): boolean {
     return overrideBool('lobby_new_player_gate_enabled');
@@ -1225,8 +1227,8 @@ export const featureFlags = {
    * (progressionService.checkOnboardingQuests never reads the stage).
    * An account already at stage 3 reads as skipped too: the guests of
    * migration 014 ("Guests skip onboarding"), and any of them since saved.
-   * Default OFF; `QUEST_BANNER_SKIP_ENABLED=true` or the admin override turns
-   * it on. Off, the route, the quests payload and the lobby are as before.
+   * Default ON; `QUEST_BANNER_SKIP_ENABLED=false` or the admin override is the
+   * kill switch. Off, the route, the quests payload and the lobby are as before.
    */
   get questBannerSkipEnabled(): boolean {
     return overrideBool('quest_banner_skip_enabled');

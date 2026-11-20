@@ -282,10 +282,10 @@ const DEFAULT_FLAGS: ClientFeatureFlags = {
   lobby_cleanup_enabled: false,
   // The lobby's "Early access · N games played so far" (LobbyPage). Dark-launched OFF.
   early_access_count_enabled: false,
-  // The lobby's new-player layout only for a player with no XP (LobbyPage isNewUser). Dark-launched OFF.
-  lobby_new_player_gate_enabled: false,
-  // "Skip all" on the lobby's quest banner sticks (LobbyPage; the server stores it). Dark-launched OFF.
-  quest_banner_skip_enabled: false,
+  // The lobby's new-player layout only for a player with no XP (LobbyPage isNewUser). On by default; admin kill switch.
+  lobby_new_player_gate_enabled: true,
+  // "Skip all" on the lobby's quest banner sticks (LobbyPage; the server stores it). On by default; admin kill switch.
+  quest_banner_skip_enabled: true,
   // Two-player opening balance; the client only states the rule (HowToPlayPage). Dark-launched OFF.
   duel_opening_enabled: false,
   // Even deal (server-side, baked at create); the client only states the rule (HowToPlayPage). Dark-launched OFF.
