@@ -183,6 +183,10 @@ All of it is in `frontend/src/utils/nativeApp.ts` and the files it names. The ch
 | Guest copy | "saved in this browser" | "saved on this device" |
 | Links the game shares (invites, replays, referral, map pages) | Built from the page's address | Built from the public site's address (`utils/publicOrigin.ts`) |
 | A build the server no longer serves | Not applicable | An "Update required" screen (next section) |
+| A long press on text or an image | Selects it; Safari's callout | Nothing, as in any app; text boxes still select and paste (`native-app` class on `<html>`, `index.css`) |
+| A long press on a link | Safari's link preview | No preview (`ios.allowsLinkPreview: false` in `capacitor.config.ts`) |
+| How to Play's FAQ | Says the game runs in a browser with nothing to install | Leaves that out (`utils/appFaq.ts`). The website's FAQ and its search-engine data are unchanged |
+| The map without graphics support | "This browser can't draw the map", with browser fixes | "This device can't draw the map", with what to do on a phone |
 
 Adding a page that only makes sense on the website: wrap its route in `WebOnlyRoute` in
 `App.tsx`. Opening another site from code: call `openExternal(url)`, not `window.open`.
@@ -478,6 +482,19 @@ safe to create accounts on.
 9. Finish a game and tap the Twitter / X share button: a browser sheet slides up over the
    game. Close it: you are back on the results screen, not in Safari.
 10. Tap a Privacy or Terms link: it opens inside the app.
+
+**Feels like an app, not a web page** (App Store guideline 4.2)
+
+- Press and hold on lobby text, a button and the map: nothing gets selected, no magnifier,
+  no Copy menu.
+- Press and hold a link (Privacy in Settings, say): no web page preview pops up.
+- Press and hold in a text box (chat, sign-in email): the Paste menu still appears.
+- Drag the lobby down past its top and up past its bottom: the page does not bounce away from
+  its edges showing a blank background.
+- Open How to Play → Frequently Asked Questions: nothing says "browser", "borderfall.gg" or
+  "nothing to install".
+- Turn on Airplane mode with the app open: a red "You are offline" bar appears below the
+  status bar and notch, not under them. Turn it off: the bar goes.
 
 **Staying signed in**
 

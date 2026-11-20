@@ -15,6 +15,7 @@ import { installTranslationDomGuard } from './utils/translationDomGuard';
 import { stopIosInputZoom } from './utils/iosZoom';
 import { reloadForNewBuild } from './utils/lazyWithChunkRetry';
 import { listenForInstallPrompt } from './services/homeScreenInstall';
+import { markNativeAppDocument } from './utils/nativeApp';
 
 // Snapshot first-touch acquisition attribution (utm_* / referrer) before render,
 // so it's available for the first guest/register call. See utils/attribution.ts.
@@ -54,6 +55,10 @@ stopIosInputZoom();
 window.addEventListener('vite:preloadError', (event) => {
   if (reloadForNewBuild()) event.preventDefault();
 });
+
+// Before anything renders: the app's own CSS (no text selection on a long
+// press) keys off this class. A no-op in a browser.
+markNativeAppDocument();
 
 if (Capacitor.isNativePlatform()) {
   void StatusBar.setStyle({ style: Style.Dark }).catch(() => {});

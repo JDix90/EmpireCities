@@ -21,6 +21,7 @@ import {
 } from './clipCameraDirector';
 import type { CondensedFrame } from './replayCondense';
 import { condenseReasonLabel } from './replayCondense';
+import { inThisBrowserOrOnThisDevice } from './nativeApp';
 
 export type ClipAspect = '16:9' | '9:16' | '1:1';
 export type ClipFormat = 'video' | 'gif';
@@ -121,7 +122,7 @@ export interface ClipResult {
 export async function exportClipVideo(input: ClipExportInput): Promise<ClipResult> {
   throwIfAborted(input.signal);
   const picked = pickVideoMime();
-  if (!picked) throw new Error('Video recording is not supported in this browser. Try GIF instead.');
+  if (!picked) throw new Error(`Video recording is not supported ${inThisBrowserOrOnThisDevice()}. Try GIF instead.`);
 
   const { w, h } = VIDEO_DIMS[input.aspect];
   const canvas = document.createElement('canvas');

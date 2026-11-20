@@ -13,6 +13,11 @@ const config: CapacitorConfig = {
     // Use https scheme on Android so secure cookies / mixed content behave like production web
     androidScheme: 'https',
   },
+  ios: {
+    // A long press on a link shows no web page preview: an app's buttons do
+    // not pop up a peek of a URL. Native shell only; the website is unaffected.
+    allowsLinkPreview: false,
+  },
   plugins: {
     SplashScreen: {
       launchShowDuration: 0,

@@ -4,6 +4,8 @@ import { ChevronDown, ChevronRight, Swords, Shield, Dices, CreditCard, Trophy, S
 import { APP_NAME } from '../constants/brand';
 import SubpageShell from '../components/ui/SubpageShell';
 import { FAQ } from '../marketing/seoContent.mjs';
+import { faqForApp } from '../utils/appFaq';
+import { isNativeApp } from '../utils/nativeApp';
 import { useAuthStore } from '../store/authStore';
 import { useDuelOpeningEnabled, useEvenDealEnabled } from '../store/featureFlagsStore';
 
@@ -341,7 +343,7 @@ export default function HowToPlayPage() {
           {/* ── FAQ (shared with the prerendered FAQPage structured data) ── */}
           <Section icon={HelpCircle} title="Frequently Asked Questions" defaultOpen>
             <div className="space-y-4">
-              {FAQ.map((item) => (
+              {(isNativeApp() ? faqForApp(FAQ) : FAQ).map((item) => (
                 <div key={item.q}>
                   <p className="font-medium text-bf-text mb-1">{item.q}</p>
                   <p>{item.a}</p>
