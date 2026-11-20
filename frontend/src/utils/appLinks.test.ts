@@ -56,8 +56,9 @@ describe('the association file the website serves', () => {
   it('is valid JSON naming this app', () => {
     expect(file.applinks.details).toHaveLength(1);
     expect(detail.appIDs).toHaveLength(1);
-    // <Team ID>.<bundle ID>. The Team ID is the owner's to fill in.
-    expect(detail.appIDs[0]).toMatch(/^[A-Z0-9_]+\.com\.borderfall\.app$/);
+    // <Team ID>.<bundle ID>. A Team ID is ten capitals and digits; the
+    // placeholder this file shipped with (REPLACE_WITH_APPLE_TEAM_ID) is not one.
+    expect(detail.appIDs[0]).toMatch(/^[A-Z0-9]{10}\.com\.borderfall\.app$/);
   });
 
   it('claims exactly the paths the app routes, no more and no fewer', () => {

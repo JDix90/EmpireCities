@@ -2,7 +2,7 @@
   "applinks": {
     "details": [
       {
-        "appIDs": ["REPLACE_WITH_APPLE_TEAM_ID.com.borderfall.app"],
+        "appIDs": ["4RNR4T2NYM.com.borderfall.app"],
         "components": [
           { "/": "/sign-in-link", "comment": "Emailed sign-in links" },
           { "/": "/reset-password", "comment": "Emailed password reset links" },
