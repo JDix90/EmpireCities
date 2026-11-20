@@ -1,10 +1,10 @@
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { publicSiteOrigin } from '../../utils/publicOrigin';
 import { CombatResult } from '../../store/gameStore';
 import { useAuthStore } from '../../store/authStore';
 import MatchStatsTab from './MatchStatsTab';
 import { AiBadge } from '../ui/AiBadge';
-import { Sword, Swords, Shield, ArrowRight, Crown, Skull, Flag, ChevronRight, ChevronLeft, Plus, Trophy, LogOut, Eye, Share2, Check, Flame, Coins, Link2, ExternalLink, Copy, RotateCcw, Film, Clapperboard, MessageCircle, FastForward, Users } from 'lucide-react';
+import { Sword, Swords, Shield, ArrowRight, Crown, Skull, Flag, ChevronRight, Trophy, LogOut, Eye, Share2, Check, Flame, Coins, Link2, ExternalLink, Copy, RotateCcw, Film, Clapperboard, MessageCircle, FastForward, Users } from 'lucide-react';
 import clsx from 'clsx';
 import { campaignCarryLines, campaignStageLine, type CampaignGameResult } from '../../utils/campaignResult';
 import CombatAbilityCallouts from './CombatAbilityCallouts';
@@ -72,17 +72,6 @@ export interface CombatModalData {
    * that the player never learns what was rolled.
    */
   autoAdvance?: boolean;
-}
-
-export interface TurnSummaryModalData {
-  type: 'turn_summary';
-  playerName: string;
-  playerColor: string;
-  turnNumber: number;
-  combats: CombatResult[];
-  isOwnTurn?: boolean;
-  reinforcements?: ReinforcementEntry[];
-  fortifications?: FortifyEntry[];
 }
 
 export interface WinProbabilitySnapshot {
@@ -327,7 +316,6 @@ export interface EraAdvanceModalData {
 
 export type ModalData =
   | CombatModalData
-  | TurnSummaryModalData
   | GameOverModalData
   | EliminationModalData
   | ResignModalData
@@ -339,10 +327,6 @@ export type ModalData =
  * acknowledge them. Ordinary combat recaps are safe to drop when clearing the
  * backlog. Losing your capital is a combat modal but is flagged critical so it
  * always surfaces (matches the lite-mode rule).
- *
- * The turn summary is critical because it is now the ONLY record of the turn's
- * attacks in the queue — the individual combat modals are folded into it
- * (see utils/modalQueueOps). Skipping the backlog must not erase the turn.
  */
 export function isCriticalModal(data: ModalData): boolean {
   if (
@@ -350,7 +334,6 @@ export function isCriticalModal(data: ModalData): boolean {
     data.type === 'elimination' ||
     data.type === 'resign_confirm' ||
     data.type === 'draft_summary' ||
-    data.type === 'turn_summary' ||
     // The era-advance payoff is a rare, deliberate signature moment — a
     // Skip-all backlog clear should never swallow it.
     data.type === 'era_advance'
@@ -965,344 +948,6 @@ export function CombatResultView({
           </>
         ))}
       </div>
-    </div>
-  );
-}
-
-// ─── Stagger-reveal wrapper ─────────────────────────────────────────────────
-
-function StaggerItem({ index, children }: { index: number; children: React.ReactNode }) {
-  const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setVisible(true), 80 + index * 90);
-    return () => clearTimeout(t);
-  }, [index]);
-  return (
-    <div className={clsx('transition-all duration-300', visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3')}>
-      {children}
-    </div>
-  );
-}
-
-// ─── Slide types ────────────────────────────────────────────────────────────
-
-interface SlideConfig {
-  id: string;
-  icon: React.ReactNode;
-  title: string;
-  accentClass: string;
-  render: () => React.ReactNode;
-}
-
-// ─── Turn Summary Slide Carousel ────────────────────────────────────────────
-
-function TurnSummaryView({
-  data,
-  onDismiss,
-  onSkipAll,
-  backlogCount = 0,
-}: {
-  data: TurnSummaryModalData;
-  onDismiss: () => void;
-  onSkipAll?: () => void;
-  backlogCount?: number;
-}) {
-  const { playerName, playerColor, turnNumber, combats, isOwnTurn, reinforcements, fortifications } = data;
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [direction, setDirection] = useState<'left' | 'right'>('right');
-  const [animating, setAnimating] = useState(false);
-  const autoRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [autoPaused, setAutoPaused] = useState(false);
-
-  const totalBattles = combats.length;
-  const captures = combats.filter(c => c.territory_captured).length;
-  const totalEnemyDestroyed = combats.reduce((s, c) => s + c.defender_losses, 0);
-  const totalOwnLost = combats.reduce((s, c) => s + c.attacker_losses, 0);
-  const totalReinforced = reinforcements?.reduce((s, r) => s + r.units, 0) ?? 0;
-  const totalFortified = fortifications?.reduce((s, f) => s + f.units, 0) ?? 0;
-
-  const slides: SlideConfig[] = [];
-
-  if (isOwnTurn && reinforcements && reinforcements.length > 0) {
-    slides.push({
-      id: 'reinforce',
-      icon: <Shield className="w-6 h-6 text-emerald-400" />,
-      title: 'Reinforcements',
-      accentClass: 'text-emerald-400',
-      render: () => (
-        <div className="space-y-2 w-full">
-          <div className="text-center mb-5">
-            <span className="text-4xl font-bold text-emerald-400 tabular-nums">+{totalReinforced}</span>
-            <p className="text-white/40 text-sm mt-1">troops deployed</p>
-          </div>
-          {reinforcements.map((r, i) => (
-            <StaggerItem key={i} index={i}>
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-emerald-500/[0.07] border border-emerald-500/10">
-                <Plus className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span className="text-white/70 flex-1 truncate">{r.territoryName}</span>
-                <span className="text-emerald-400 font-bold tabular-nums">+{r.units}</span>
-              </div>
-            </StaggerItem>
-          ))}
-        </div>
-      ),
-    });
-  }
-
-  if (totalBattles > 0) {
-    slides.push({
-      id: 'battles',
-      icon: <Sword className="w-6 h-6 text-red-400" />,
-      title: isOwnTurn ? 'Your Battles' : `${playerName}'s Battles`,
-      accentClass: 'text-red-400',
-      render: () => (
-        <div className="w-full">
-          <div className="grid grid-cols-3 gap-3 mb-5 w-full">
-            <StaggerItem index={0}>
-              <div className="p-3 rounded-xl bg-red-500/[0.06] border border-red-500/10 text-center">
-                <Sword className="w-5 h-5 mx-auto mb-1.5 text-red-400" />
-                <p className="text-2xl font-bold text-white tabular-nums">{totalBattles}</p>
-                <p className="text-white/35 text-xs">{totalBattles === 1 ? 'Battle' : 'Battles'}</p>
-              </div>
-            </StaggerItem>
-            <StaggerItem index={1}>
-              <div className="p-3 rounded-xl bg-yellow-500/[0.06] border border-yellow-500/10 text-center">
-                <Flag className="w-5 h-5 mx-auto mb-1.5 text-yellow-400" />
-                <p className="text-2xl font-bold text-white tabular-nums">{captures}</p>
-                <p className="text-white/35 text-xs">{captures === 1 ? 'Capture' : 'Captures'}</p>
-              </div>
-            </StaggerItem>
-            <StaggerItem index={2}>
-              <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] text-center">
-                <Skull className="w-5 h-5 mx-auto mb-1.5 text-white/40" />
-                <p className="text-2xl font-bold text-white tabular-nums">{isOwnTurn ? totalOwnLost : totalEnemyDestroyed}</p>
-                <p className="text-white/35 text-xs">{isOwnTurn ? 'Lost' : 'Destroyed'}</p>
-              </div>
-            </StaggerItem>
-          </div>
-          <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1 w-full">
-            {combats.map((c, i) => (
-              <StaggerItem key={i} index={i + 3}>
-                <div className="flex items-center gap-2.5 p-2.5 rounded-lg bg-white/[0.04] text-sm">
-                  <Sword className="w-3.5 h-3.5 text-red-400/60 shrink-0" />
-                  <span className="text-white/60 flex-1 truncate">
-                    {c.fromName ?? '?'} &rarr; {c.toName ?? '?'}
-                  </span>
-                  {c.territory_captured ? (
-                    <span className="text-yellow-400 text-xs font-semibold shrink-0 flex items-center gap-1">
-                      <Flag className="w-3 h-3" /> Captured
-                    </span>
-                  ) : c.defender_losses > 0 ? (
-                    <span className="text-blue-400/50 text-xs shrink-0">&minus;{c.defender_losses} def</span>
-                  ) : c.attacker_losses > 0 ? (
-                    <span className="text-red-400/50 text-xs shrink-0">&minus;{c.attacker_losses} atk</span>
-                  ) : null}
-                </div>
-              </StaggerItem>
-            ))}
-          </div>
-        </div>
-      ),
-    });
-  }
-
-  if (isOwnTurn && fortifications && fortifications.length > 0) {
-    slides.push({
-      id: 'fortify',
-      icon: <ArrowRight className="w-6 h-6 text-sky-400" />,
-      title: 'Fortifications',
-      accentClass: 'text-sky-400',
-      render: () => (
-        <div className="space-y-2 w-full">
-          <div className="text-center mb-5">
-            <span className="text-4xl font-bold text-sky-400 tabular-nums">{totalFortified}</span>
-            <p className="text-white/40 text-sm mt-1">troops moved</p>
-          </div>
-          {fortifications.map((f, i) => (
-            <StaggerItem key={i} index={i}>
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-sky-500/[0.07] border border-sky-500/10">
-                <ArrowRight className="w-4 h-4 text-sky-400 shrink-0" />
-                <span className="text-white/70 flex-1 truncate">{f.fromName} &rarr; {f.toName}</span>
-                <span className="text-sky-400 font-bold tabular-nums">{f.units}</span>
-              </div>
-            </StaggerItem>
-          ))}
-        </div>
-      ),
-    });
-  }
-
-  if (slides.length === 0) {
-    slides.push({
-      id: 'empty',
-      icon: <Shield className="w-6 h-6 text-white/30" />,
-      title: isOwnTurn ? 'Turn Complete' : `${playerName}'s Turn`,
-      accentClass: 'text-white/40',
-      render: () => (
-        <div className="p-8 rounded-xl bg-white/[0.03] border border-white/[0.06] text-center">
-          <Shield className="w-10 h-10 mx-auto mb-3 text-white/20" />
-          <p className="text-white/40 text-sm font-medium">
-            {isOwnTurn ? 'No actions taken this turn' : 'No battles this turn'}
-          </p>
-        </div>
-      ),
-    });
-  }
-
-  const goTo = useCallback((idx: number, dir?: 'left' | 'right') => {
-    if (animating || idx === currentSlide) return;
-    setDirection(dir ?? (idx > currentSlide ? 'right' : 'left'));
-    setAnimating(true);
-    setTimeout(() => {
-      setCurrentSlide(idx);
-      setAnimating(false);
-    }, 300);
-  }, [animating, currentSlide]);
-
-  const goNext = useCallback(() => {
-    if (currentSlide < slides.length - 1) goTo(currentSlide + 1, 'right');
-  }, [currentSlide, slides.length, goTo]);
-
-  const goPrev = useCallback(() => {
-    if (currentSlide > 0) goTo(currentSlide - 1, 'left');
-  }, [currentSlide, goTo]);
-
-  useEffect(() => {
-    if (autoPaused || slides.length <= 1) return;
-    autoRef.current = setTimeout(() => {
-      if (currentSlide < slides.length - 1) goTo(currentSlide + 1, 'right');
-    }, 4000);
-    return () => { if (autoRef.current) clearTimeout(autoRef.current); };
-  }, [currentSlide, autoPaused, slides.length, goTo]);
-
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowRight') { setAutoPaused(true); goNext(); }
-      else if (e.key === 'ArrowLeft') { setAutoPaused(true); goPrev(); }
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [goNext, goPrev]);
-
-  const safeSlideIndex = slides.length === 0 ? 0 : Math.min(Math.max(0, currentSlide), slides.length - 1);
-  const slide = slides[safeSlideIndex];
-  const isLastSlide = safeSlideIndex === slides.length - 1;
-
-  if (!slide) {
-    return (
-      <div className="w-full max-w-sm mx-auto text-center py-6">
-        <p className="text-white/50 text-sm">Turn summary unavailable.</p>
-        <button type="button" onClick={onDismiss} className="mt-4 w-full py-3 rounded-xl bg-white/10 border border-white/10 text-white font-medium">
-          Continue
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="w-full min-w-0" onClick={() => setAutoPaused(true)}>
-      {/* Header */}
-      <div className="text-center mb-5">
-        <div className={clsx(
-          'inline-flex items-center gap-2.5 px-5 py-2 rounded-full border mb-3',
-          isOwnTurn ? 'bg-bf-gold/10 border-bf-gold/25' : 'bg-white/5 border-white/10'
-        )}>
-          {!isOwnTurn && <div className="w-3 h-3 rounded-full" style={{ backgroundColor: playerColor }} />}
-          <span className={clsx(
-            'text-xs font-bold tracking-[0.2em] uppercase',
-            isOwnTurn ? 'text-bf-gold' : 'text-white/60'
-          )}>
-            {isOwnTurn ? 'Your Turn Complete' : 'Turn Complete'}
-          </span>
-        </div>
-        <p className="text-white/30 text-xs">Turn {turnNumber}</p>
-      </div>
-
-      {/* Slide Header */}
-      <div className="flex items-center justify-center gap-3 mb-5">
-        {slide.icon}
-        <h2 className={clsx('text-xl font-bold font-display', slide.accentClass)}>
-          {slide.title}
-        </h2>
-      </div>
-
-      {/* Slide Content */}
-      <div className="relative overflow-hidden min-h-[200px] w-full">
-        <div
-          key={slide.id}
-          className={clsx(
-            'transition-all duration-300 w-full',
-            animating
-              ? direction === 'right' ? 'opacity-0 -translate-x-8' : 'opacity-0 translate-x-8'
-              : 'opacity-100 translate-x-0'
-          )}
-        >
-          {slide.render()}
-        </div>
-      </div>
-
-      {/* Navigation Dots */}
-      {slides.length > 1 && (
-        <div className="flex items-center justify-center gap-4 mt-5 mb-4">
-          <button
-            onClick={goPrev}
-            disabled={safeSlideIndex === 0}
-            aria-label="Previous slide"
-            className="p-1.5 rounded-lg hover:bg-white/10 disabled:opacity-20 transition-colors"
-          >
-            <ChevronLeft className="w-4 h-4 text-white/60" />
-          </button>
-          <div className="flex gap-2">
-            {slides.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => { setAutoPaused(true); goTo(i); }}
-                aria-label={`Slide ${i + 1} of ${slides.length}`}
-                aria-current={i === safeSlideIndex ? 'true' : undefined}
-                className={clsx(
-                  'w-2 h-2 rounded-full transition-all duration-300',
-                  i === safeSlideIndex ? 'bg-white w-6' : 'bg-white/25 hover:bg-white/40'
-                )}
-              />
-            ))}
-          </div>
-          <button
-            onClick={goNext}
-            disabled={isLastSlide}
-            aria-label="Next slide"
-            className="p-1.5 rounded-lg hover:bg-white/10 disabled:opacity-20 transition-colors"
-          >
-            <ChevronRight className="w-4 h-4 text-white/60" />
-          </button>
-        </div>
-      )}
-
-      {/* Continue / Next Button */}
-      <button
-        onClick={isLastSlide ? onDismiss : () => { setAutoPaused(true); goNext(); }}
-        className={clsx(
-          'w-full py-3 rounded-xl border text-white font-medium transition-all duration-200',
-          'flex items-center justify-center gap-2 group',
-          isLastSlide ? 'bg-white/10 hover:bg-white/15 border-white/10' : 'bg-white/5 hover:bg-white/10 border-white/[0.06]'
-        )}
-      >
-        {isLastSlide ? 'Continue' : 'Next'}
-        <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-      </button>
-
-      {/* Same backlog relief valve CombatView offers: the summary can sit ahead of
-          a pile of other modals, and the player should be able to clear it here. */}
-      {onSkipAll && backlogCount > 1 && (
-        <button
-          type="button"
-          onClick={onSkipAll}
-          className="w-full mt-2 py-2 rounded-xl text-white/45 hover:text-white/80 text-sm
-                     transition-colors flex items-center justify-center gap-1.5"
-        >
-          <FastForward className="w-3.5 h-3.5" />
-          Skip all ({backlogCount})
-        </button>
-      )}
     </div>
   );
 }
@@ -3059,15 +2704,6 @@ export default function ActionModal({
                   }
                 : undefined
             }
-            onSkipAll={onSkipAll}
-            backlogCount={backlogCount}
-          />
-        )}
-        {data.type === 'turn_summary' && (
-          <TurnSummaryView
-            key={`turn-summary-${data.turnNumber}-${data.playerName}-${data.isOwnTurn ? 'me' : 'opp'}-${data.combats.length}-${data.reinforcements?.length ?? 0}-${data.fortifications?.length ?? 0}-${(data.combats ?? []).map((c) => `${c.fromName ?? ''}->${c.toName ?? ''}`).join(';')}`}
-            data={data}
-            onDismiss={onDismiss}
             onSkipAll={onSkipAll}
             backlogCount={backlogCount}
           />

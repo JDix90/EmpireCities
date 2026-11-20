@@ -17,8 +17,7 @@ describe('dismissTierOf', () => {
     expect(dismissTierOf(combat())).toBe(2);
   });
 
-  it('counts the two summaries as glanceable, unlike isCriticalModal', () => {
-    expect(dismissTierOf({ type: 'turn_summary' } as unknown as ModalData)).toBe(3);
+  it('counts the draft summary as glanceable, unlike isCriticalModal', () => {
     expect(dismissTierOf({ type: 'draft_summary' } as unknown as ModalData)).toBe(3);
   });
 });

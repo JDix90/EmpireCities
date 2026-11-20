@@ -46,7 +46,6 @@ export function dismissTierOf(modal: ModalData): DismissTier {
       return 1;
     case 'combat':
       return modal.result.capitalLost ? 1 : 2;
-    case 'turn_summary':
     case 'draft_summary':
       return 3;
   }

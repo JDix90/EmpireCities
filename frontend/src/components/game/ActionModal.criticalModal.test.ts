@@ -37,26 +37,19 @@ describe('isCriticalModal', () => {
     expect(isCriticalModal(combat({ territory_captured: true }))).toBe(false);
   });
 
-  it('keeps the turn summary, which now carries the whole turn', () => {
-    // The turn's own combat modals are folded into the summary at end of turn
-    // (utils/modalQueueOps), so dropping it on a Skip-all would erase the only
-    // record of what happened that turn.
-    expect(isCriticalModal({ type: 'turn_summary' } as ModalData)).toBe(true);
-  });
-
   it('filters a mixed backlog down to only the critical entries', () => {
     const queue: ModalData[] = [
       combat(),
       combat({ territory_captured: true }),
       combat({ capitalLost: true }),
-      { type: 'turn_summary' } as ModalData,
+      { type: 'draft_summary' } as ModalData,
       { type: 'game_over' } as ModalData,
     ];
     const kept = queue.filter(isCriticalModal);
     expect(kept).toHaveLength(3);
     expect(kept.map((m) => (m.type === 'combat' ? 'capital' : m.type))).toEqual([
       'capital',
-      'turn_summary',
+      'draft_summary',
       'game_over',
     ]);
   });
