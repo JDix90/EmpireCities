@@ -120,7 +120,7 @@ import { Settings2, FlaskConical, Radio, Activity, Eye, Swords, ChevronDown } fr
 import { ownAuthUiAllowed } from '../utils/embedContext';
 import { trackFunnel, useTrackShown } from '../utils/funnelEvents';
 import GuestDayCard from '../components/lobby/GuestDayCard';
-import { useComebackHookEnabled, useEarlyAccessCountEnabled, useLobbyCleanupEnabled, useLobbyNewPlayerGateEnabled } from '../store/featureFlagsStore';
+import { useComebackHookEnabled, useEarlyAccessCountEnabled, useLobbyCleanupEnabled, useLobbyNewPlayerGateEnabled, useQuestBannerSkipEnabled } from '../store/featureFlagsStore';
 import { nextQuest } from '../utils/questOrder';
 
 interface LiveGameSummary {
@@ -552,6 +552,14 @@ export default function LobbyPage() {
   // next one this player can do (utils/questOrder.ts).
   const [questProgress, setQuestProgress] = useState<Array<{ quest_id: string; completed_at: string | null }> | null>(null);
   const lobbyCleanup = useLobbyCleanupEnabled();
+  // quest_banner_skip_enabled: the player pressed "Skip all", here or on an
+  // earlier visit (/progression/quests says `skipped`). The banner stays away
+  // either way the lobby picks its quest; setQuestStage(null) alone never hid
+  // it with lobby_cleanup_enabled, and nothing brought the answer back on the
+  // next load. Applied where the banner renders: the flags can land after the
+  // quests do.
+  const questSkipSticks = useQuestBannerSkipEnabled();
+  const [questsSkipped, setQuestsSkipped] = useState(false);
 
   // Re-fetch the user's profile whenever the lobby mounts (e.g. returning from a
   // finished game) so level/XP/gold reflect the latest server state rather than
@@ -566,9 +574,10 @@ export default function LobbyPage() {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await api.get<{ quests: { quest_id: string; completed_at: string | null }[] }>('/progression/quests');
+        const res = await api.get<{ quests: { quest_id: string; completed_at: string | null }[]; skipped?: boolean }>('/progression/quests');
         const quests = res.data?.quests ?? [];
         if (!cancelled) setQuestProgress(quests);
+        if (!cancelled) setQuestsSkipped(res.data?.skipped === true);
         // Index of the first incomplete quest, not the completed count —
         // first_async can complete out of order, which would otherwise skew
         // the banner onto the wrong quest.
@@ -1787,9 +1796,10 @@ export default function LobbyPage() {
   // welcome modal uses. XP comes with the first finished game or the finished
   // tutorial (100 XP, after which Training Academy takes over below), and is in
   // the user from sign-in on, so the answer does not change when /users/me lands.
-  // users.onboarding_stage is deliberately not read. Nothing advances it (see
-  // the flag's note in backend featureFlags.ts), so no threshold on it would
-  // ever tell two players apart; quest progress is the banner's, above.
+  // users.onboarding_stage is deliberately not read. Playing never advances it
+  // (it records "Skip all" on the quest banner and nothing else: see the flag's
+  // note in backend featureFlags.ts), so no threshold on it says how far along
+  // a player is; quest progress is the banner's, above.
   //
   // Flag off, the check is as it was: written for a stage that was null once
   // onboarding was finished, but /users/me sends COALESCE(onboarding_stage, 0),
@@ -2215,11 +2225,15 @@ export default function LobbyPage() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-20 md:pb-8">
         {/* Onboarding Quest Banner — driven by real quest completion (questStage),
             derived from /progression/quests, not the gated users.onboarding_stage. */}
-        {(lobbyCleanup ? questProgress != null && nextQuest(questProgress, !!user?.is_guest) != null : questStage != null) && (
+        {!(questSkipSticks && questsSkipped)
+          && (lobbyCleanup ? questProgress != null && nextQuest(questProgress, !!user?.is_guest) != null : questStage != null) && (
           <OnboardingBanner
             stage={questStage}
             pick={lobbyCleanup && questProgress ? nextQuest(questProgress, !!user?.is_guest) : undefined}
             onSkip={async () => {
+              // Gone at once, whichever way the quest is picked; the server
+              // remembers it for the next load (quest_banner_skip_enabled).
+              setQuestsSkipped(true);
               try {
                 await api.post('/progression/onboarding/skip');
               } catch {

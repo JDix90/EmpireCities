@@ -473,6 +473,10 @@ export const FLAG_CODE_DEFAULTS: Record<string, () => boolean> = {
   // every player, because the check read users.onboarding_stage, which the
   // server always sends as a number. Dark-launched OFF.
   lobby_new_player_gate_enabled: () => envOptIn('LOBBY_NEW_PLAYER_GATE_ENABLED'),
+  // "Skip all" on the lobby's Getting Started quest banner sticks. The route
+  // refused every player (it wanted a stage nothing sets), so the banner came
+  // back on the next load. Dark-launched OFF.
+  quest_banner_skip_enabled: () => envOptIn('QUEST_BANNER_SKIP_ENABLED'),
   // One overlay at a time in a game: the intro or briefing alone, then the
   // first-turn coach, then the era banner; the era banner off the tutorial
   // card but for its era steps; the surrender offer in the strip above the
@@ -1192,15 +1196,40 @@ export const featureFlags = {
    * account-upgrade route both send COALESCE(onboarding_stage, 0), so once the
    * profile had loaded the second half was true for every player, at any XP.
    * With this on, a new player is one with no XP. The stage is not read at
-   * all: nothing advances it (POST /api/progression/onboarding/skip is the
-   * only writer, and it refuses a player at stage 0, where every account
-   * starts), so `onboarding_stage < 3` would be true for every player too.
+   * all: playing never advances it (POST /api/progression/onboarding/skip is
+   * the only writer, and records "Skip all" on the quest banner, not progress:
+   * see quest_banner_skip_enabled), so `onboarding_stage < 3` would be true
+   * for every player who has not pressed it.
    * Client-only; the server changes nothing.
    * Default OFF; `LOBBY_NEW_PLAYER_GATE_ENABLED=true` or the admin override
    * turns it on. Off, the lobby is as before.
    */
   get lobbyNewPlayerGateEnabled(): boolean {
     return overrideBool('lobby_new_player_gate_enabled');
+  },
+
+  /**
+   * "Skip all" on the lobby's Getting Started quest banner sticks
+   * (modules/progression/progression.routes.ts, LobbyPage).
+   * POST /api/progression/onboarding/skip answered 400 "Complete the tutorial
+   * before skipping" unless users.onboarding_stage was 1 or more, and nothing
+   * sets it to 1: every account starts at 0 and finishing the tutorial leaves
+   * it there. A guest got 403. The lobby swallowed both, hid the banner until
+   * the next load (with lobby_cleanup_enabled, not even that) and showed it
+   * again.
+   * With this on, the route takes any signed-in player, guests included,
+   * whatever their stage, and stores the skip where it always meant to:
+   * onboarding_stage = 3. GET /api/progression/quests adds `skipped`, and the
+   * lobby keeps the banner away while it is true. Skipping only hides the
+   * banner: the quests still complete and pay as they are done
+   * (progressionService.checkOnboardingQuests never reads the stage).
+   * An account already at stage 3 reads as skipped too: the guests of
+   * migration 014 ("Guests skip onboarding"), and any of them since saved.
+   * Default OFF; `QUEST_BANNER_SKIP_ENABLED=true` or the admin override turns
+   * it on. Off, the route, the quests payload and the lobby are as before.
+   */
+  get questBannerSkipEnabled(): boolean {
+    return overrideBool('quest_banner_skip_enabled');
   },
 
   /**
@@ -2360,6 +2389,7 @@ export function getClientFeatureFlags(): Record<string, boolean> {
     lobby_cleanup_enabled: featureFlags.lobbyCleanupEnabled,
     early_access_count_enabled: featureFlags.earlyAccessCountEnabled,
     lobby_new_player_gate_enabled: featureFlags.lobbyNewPlayerGateEnabled,
+    quest_banner_skip_enabled: featureFlags.questBannerSkipEnabled,
     // The How to Play page states the rule only while it is live.
     duel_opening_enabled: featureFlags.duelOpeningEnabled,
     // How to Play states the rule only while it is live.

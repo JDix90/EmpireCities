@@ -116,9 +116,10 @@ export interface AuthUser {
    * users.onboarding_stage as /api/users/me sends it: always a number, never
    * null (the column is NOT NULL and the route COALESCEs it), and absent until
    * the first profile refresh after sign-in. 0 for nearly every account: only
-   * POST /api/progression/onboarding/skip writes it (3), and that refuses a
-   * player at 0. Not a measure of onboarding; the lobby's quest banner reads
-   * /progression/quests instead.
+   * POST /api/progression/onboarding/skip writes it (3, for "Skip all" on the
+   * quest banner), and without quest_banner_skip_enabled that refuses a player
+   * at 0. Not a measure of onboarding; the lobby's quest banner reads
+   * /progression/quests instead, `skipped` included.
    */
   onboarding_stage?: number | null;
   /** Current win streak */

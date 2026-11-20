@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { authenticate } from '../../middleware/authenticate';
-import { rejectGuest } from '../../middleware/rejectGuest';
+import { rejectGuest, rejectGuestUnless } from '../../middleware/rejectGuest';
 import { query, queryOne } from '../../db/postgres';
 import { claimDailyLogin, DAILY_STREAK_MILESTONES, purchaseStreakFreeze } from '../../game-engine/progression/progressionService';
 import { getTier } from '../../game-engine/rating/ratingService';
@@ -18,6 +18,15 @@ import { getMonthlyChallenges } from '../../game-engine/progression/challengeSer
 import { redeemReferralCode, getReferralStats } from '../../game-engine/progression/referralService';
 import { formatZodError } from '../../utils/formatZodError';
 import { dailyPlayersOn, tomorrowsDailyTeaser } from '../../game-engine/daily/dailyTeaser';
+
+/**
+ * users.onboarding_stage once the player has pressed "Skip all" on the lobby's
+ * quest banner. The column records nothing else: playing never moves it.
+ */
+const ONBOARDING_STAGE_SKIPPED = 3;
+
+/** quest_banner_skip_enabled: a guest sees the banner and its "Skip all" too, so the route takes them. */
+const rejectGuestUnlessSkipSticks = rejectGuestUnless(() => featureFlags.questBannerSkipEnabled);
 
 /** How long /comeback waits for tomorrow's Daily Challenge to be named before going without it. */
 const TEASER_WAIT_MS = 800;
@@ -77,21 +86,36 @@ export async function progressionRoutes(fastify: FastifyInstance): Promise<void>
       };
     });
 
+    // quest_banner_skip_enabled: whether the player pressed "Skip all", so the
+    // lobby keeps the banner away on the next load too. Off, the payload is as
+    // before.
+    if (featureFlags.questBannerSkipEnabled) {
+      const row = await queryOne<{ onboarding_stage: number }>(
+        'SELECT COALESCE(onboarding_stage, 0) AS onboarding_stage FROM users WHERE user_id = $1',
+        [request.userId],
+      );
+      return reply.send({ quests, skipped: (row?.onboarding_stage ?? 0) >= ONBOARDING_STAGE_SKIPPED });
+    }
+
     return reply.send({ quests });
   });
 
   // ── POST /api/progression/onboarding/skip ────────────────────────────────
-  fastify.post('/onboarding/skip', { preHandler: [authenticate, rejectGuest] }, async (request, reply) => {
+  // "Skip all" on the lobby's quest banner. Hides the banner and nothing more:
+  // the quests still complete and pay as the player does them.
+  fastify.post('/onboarding/skip', { preHandler: [authenticate, rejectGuestUnlessSkipSticks] }, async (request, reply) => {
     const user = await queryOne<{ onboarding_stage: number }>(
       'SELECT onboarding_stage FROM users WHERE user_id = $1',
       [request.userId],
     );
     if (!user) return reply.status(404).send({ error: 'User not found' });
-    if (user.onboarding_stage < 1) {
+    // Without quest_banner_skip_enabled this refuses every player: nothing
+    // sets the stage to 1, tutorial or otherwise, so no one is ever past it.
+    if (!featureFlags.questBannerSkipEnabled && user.onboarding_stage < 1) {
       return reply.status(400).send({ error: 'Complete the tutorial before skipping' });
     }
-    await query('UPDATE users SET onboarding_stage = 3 WHERE user_id = $1', [request.userId]);
-    return reply.send({ onboarding_stage: 3 });
+    await query('UPDATE users SET onboarding_stage = $2 WHERE user_id = $1', [request.userId, ONBOARDING_STAGE_SKIPPED]);
+    return reply.send({ onboarding_stage: ONBOARDING_STAGE_SKIPPED });
   });
 
   // ── GET /api/progression/season ──────────────────────────────────────────
