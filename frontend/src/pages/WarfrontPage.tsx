@@ -51,6 +51,7 @@ import WarfrontMatchSetup from '../components/warfront/WarfrontMatchSetup';
 import WarfrontResult from '../components/warfront/WarfrontResult';
 import { fetchWarfrontTerrain } from '../services/warfrontApi';
 import { formatMatchClock, loadDebugPref, saveDebugPref } from '../warfront/debugPref';
+import { newMatchSeed } from '../warfront/matchSeed';
 
 /**
  * Warfront tactical view — Slice A steps 2–4: a solo match against the lab's bots.
@@ -96,6 +97,8 @@ type LoadState =
       originCell: number;
       stats: ProvinceStats[];
       seatNames: Record<number, string>;
+      /** The seed this match was opened with, shown with the result so it can be replayed. */
+      seed: number;
     };
 
 const ALERT_TONE: Record<string, string> = {
@@ -182,16 +185,18 @@ export default function WarfrontPage() {
   /**
    * Opens a match against the chosen policies.
    *
-   * A fixed seed makes a match reproducible from one reload to the next — including which
-   * tribe raids first, and what the opponents do, because their orders go through the
-   * same command path a human's do and so land in the replay with everything else.
+   * Each match draws its own seed, so the tribes do not raid from the same border at the
+   * same second every time. The seed is kept and shown with the result: the opponents'
+   * orders go through the same command path a human's do, so seed plus command log still
+   * reproduces the match exactly.
    */
   const startMatch = useCallback(
     (setup: SoloSetup) => {
       if (state.kind !== 'setup' && state.kind !== 'ready') return;
       const grid = state.grid;
-      const solo = buildSoloMatch(grid, 20260913, setup);
-      const runner = new SimRunner(new Sim({ seed: 20260913, scenario: solo.scenario, terrain: grid }));
+      const seed = newMatchSeed();
+      const solo = buildSoloMatch(grid, seed, setup);
+      const runner = new SimRunner(new Sim({ seed, scenario: solo.scenario, terrain: grid }));
       // The opposing policies decide here, on the same cadence and at the same point in
       // the tick the headless lab uses. Same driver, same answers.
       runner.beforeTick = (sim, nextTick) => solo.driver.beforeTick(sim, nextTick);
@@ -214,6 +219,7 @@ export default function WarfrontPage() {
         originCell: solo.playerSeatCell,
         stats: state.stats,
         seatNames: solo.seatNames,
+        seed,
       });
       setFocus({ cell: solo.playerSeatCell, nonce: ++focusNonceRef.current });
     },
@@ -690,6 +696,7 @@ export default function WarfrontPage() {
                   result={result}
                   seatNames={state.seatNames}
                   playerSeat={VIEWER_OWNER}
+                  seed={state.seed}
                   onRestart={() => setState({ kind: 'setup', grid: state.grid, stats: state.stats })}
                 />
               ) : null}
